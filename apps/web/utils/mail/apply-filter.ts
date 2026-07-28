@@ -251,25 +251,31 @@ async function applyFilterToThreads({
 
   const threadLabelIds = new Map<string, Set<string>>();
   const threadMessageIds = new Map<string, string[]>();
-  for (const threadId of threadIds) {
-    try {
-      const messages = await emailProvider.getThreadMessages(threadId);
-      const labelSet = new Set<string>();
-      for (const message of messages) {
-        for (const id of message.labelIds ?? []) labelSet.add(id);
+  // Load the selected threads with bounded concurrency instead of strictly
+  // one-at-a-time — up to 100 sequential Gmail fetches was the slow part
+  await runWithBoundedConcurrency({
+    items: threadIds,
+    concurrency: BACKFILL_CONCURRENCY,
+    run: async (threadId) => {
+      try {
+        const messages = await emailProvider.getThreadMessages(threadId);
+        const labelSet = new Set<string>();
+        for (const message of messages) {
+          for (const id of message.labelIds ?? []) labelSet.add(id);
+        }
+        threadLabelIds.set(threadId, labelSet);
+        threadMessageIds.set(
+          threadId,
+          messages.map((message) => message.id),
+        );
+      } catch (error) {
+        logger.error("Filter couldn't load a selected thread", {
+          threadId,
+          error,
+        });
       }
-      threadLabelIds.set(threadId, labelSet);
-      threadMessageIds.set(
-        threadId,
-        messages.map((message) => message.id),
-      );
-    } catch (error) {
-      logger.error("Filter couldn't load a selected thread", {
-        threadId,
-        error,
-      });
-    }
-  }
+    },
+  });
 
   const failed = await moveThreadsToFolder({
     emailProvider,

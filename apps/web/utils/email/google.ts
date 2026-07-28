@@ -1031,7 +1031,14 @@ export class GmailProvider implements EmailProvider {
               id,
             });
             return [id, response.data.threadsUnread ?? 0] as const;
-          } catch {
+          } catch (error) {
+            // A swallowed error here (e.g. a 429) silently reads as "0
+            // unread" — surface it so a rate-limited count isn't mistaken
+            // for an empty label
+            this.logger.warn("Failed to get unread count for label", {
+              id,
+              error,
+            });
             return [id, 0] as const;
           }
         }),

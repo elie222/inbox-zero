@@ -102,31 +102,6 @@ async function handleBatchInternal(request: RequestWithLogger) {
     });
   }
 
-  // // 4. categorize senders that were not categorized
-  // const uncategorizedSenders = results.filter(isUncategorized);
-
-  // await saveCategorizationProgress({
-  //   userId,
-  //   incrementCompleted: senders.length - uncategorizedSenders.length,
-  // });
-
-  // for (const sender of uncategorizedSenders) {
-  //   try {
-  //     await categorizeSender(sender.sender, user, gmail, categories);
-  //   } catch (error) {
-  //     logger.error("Error categorizing sender", {
-  //       sender: sender.sender,
-  //       error,
-  //     });
-  //     captureException(error);
-  //   }
-
-  //   await saveCategorizationProgress({
-  //     userId,
-  //     incrementCompleted: 1,
-  //   });
-  // }
-
   await saveCategorizationProgress({
     emailAccountId,
     incrementCompleted: senders.length,
@@ -134,8 +109,3 @@ async function handleBatchInternal(request: RequestWithLogger) {
 
   return NextResponse.json({ ok: true });
 }
-
-// const isUncategorized = (r: { category?: string }) =>
-//   !r.category ||
-//   r.category === UNKNOWN_CATEGORY ||
-//   r.category === REQUEST_MORE_INFORMATION_CATEGORY;

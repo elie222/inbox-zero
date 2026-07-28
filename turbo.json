@@ -1,6 +1,8 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalDependencies": ["**/.env.*local"],
+  "globalDependencies": [
+    "**/.env.*local"
+  ],
   "tasks": {
     "build": {
       "env": [
@@ -17,7 +19,6 @@
         "AUTH_SECRET",
         "AUTH_ALLOWED_EMAILS",
         "AUTH_ALLOWED_EMAIL_DOMAINS",
-
         "GOOGLE_CLIENT_ID",
         "GOOGLE_CLIENT_SECRET",
         "GOOGLE_ADS_DEVELOPER_TOKEN",
@@ -32,7 +33,6 @@
         "GOOGLE_PUBSUB_VERIFICATION_TOKEN",
         "EMAIL_ENCRYPT_SECRET",
         "EMAIL_ENCRYPT_SALT",
-
         "MICROSOFT_CLIENT_ID",
         "MICROSOFT_CLIENT_SECRET",
         "MICROSOFT_BASE_URL",
@@ -49,7 +49,6 @@
         "APPLE_IAP_BUNDLE_ID",
         "APPLE_IAP_APPLE_ID",
         "ANDROID_APP_CERT_SHA256_FINGERPRINTS",
-
         "DEFAULT_LLMS",
         "ECONOMY_LLMS",
         "CHAT_LLMS",
@@ -75,7 +74,6 @@
         "AI_TRIAL_WEEKLY_SPEND_LIMIT_USD",
         "SENSITIVE_DATA_POLICY_DEFAULT",
         "NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED",
-
         "LLM_API_KEY",
         "OPENAI_API_KEY",
         "OPENAI_ZERO_DATA_RETENTION",
@@ -107,7 +105,6 @@
         "CODEX_CLI_ALLOW_NPX",
         "CODEX_CLI_PATH",
         "PERPLEXITY_API_KEY",
-
         "UPSTASH_REDIS_URL",
         "UPSTASH_REDIS_TOKEN",
         "LOGO_DEV_TOKEN",
@@ -119,7 +116,6 @@
         "QSTASH_CURRENT_SIGNING_KEY",
         "QSTASH_NEXT_SIGNING_KEY",
         "QUEUE_BACKEND",
-
         "SENTRY_AUTH_TOKEN",
         "SENTRY_ORGANIZATION",
         "SENTRY_PROJECT",
@@ -127,33 +123,25 @@
         "AXIOM_TOKEN",
         "AXIOM_AUDIT_DATASET",
         "AXIOM_AUDIT_TOKEN",
-
         "DISABLE_LOG_ZOD_ERRORS",
         "ENABLE_DEBUG_LOGS",
         "WEBHOOK_ALLOW_PRIVATE_IPS",
         "DIGEST_MAX_SUMMARIES_PER_24H",
         "REASONING_RETENTION_DAYS",
         "DRAFT_SENT_TEXT_RETENTION_DAYS",
-
         "LEMON_SQUEEZY_SIGNING_SECRET",
         "LEMON_SQUEEZY_API_KEY",
-
         "TINYBIRD_TOKEN",
         "TINYBIRD_BASE_URL",
-
         "POSTHOG_API_SECRET",
         "POSTHOG_PROJECT_ID",
         "POSTHOG_LLM_EVALS_APPROVED_EMAILS",
-
         "RESEND_API_KEY",
         "RESEND_AUDIENCE_ID",
         "RESEND_FROM_EMAIL",
         "NEXT_PUBLIC_IS_RESEND_CONFIGURED",
-
         "LOOPS_API_SECRET",
-
         "CRON_SECRET",
-
         "ADMINS",
         "WEBHOOK_URL",
         "INTERNAL_API_URL",
@@ -175,7 +163,6 @@
         "CONVERSION_ANALYTICS_SERVER_SECRET",
         "GITHUB_MARKETING_TOKEN",
         "DUB_API_KEY",
-
         "SLACK_CLIENT_ID",
         "SLACK_CLIENT_SECRET",
         "SLACK_SIGNING_SECRET",
@@ -185,7 +172,6 @@
         "TELEGRAM_BOT_TOKEN",
         "TELEGRAM_BOT_SECRET_TOKEN",
         "NEXT_PUBLIC_EXTERNAL_API_ENABLED",
-
         "STRIPE_SECRET_KEY",
         "STRIPE_WEBHOOK_SECRET",
         "STRIPE_AI_GENERATION_OVERAGE_CONFIG",
@@ -195,7 +181,6 @@
         "NEXT_PUBLIC_STRIPE_PLUS_ANNUALLY_PRICE_ID",
         "NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_MONTHLY_PRICE_ID",
         "NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_ANNUALLY_PRICE_ID",
-
         "NEXT_PUBLIC_LEMON_STORE_ID",
         "NEXT_PUBLIC_BASIC_MONTHLY_VARIANT_ID",
         "NEXT_PUBLIC_BASIC_ANNUALLY_VARIANT_ID",
@@ -204,13 +189,11 @@
         "NEXT_PUBLIC_BUSINESS_MONTHLY_VARIANT_ID",
         "NEXT_PUBLIC_BUSINESS_ANNUALLY_VARIANT_ID",
         "NEXT_PUBLIC_COPILOT_MONTHLY_VARIANT_ID",
-
         "LICENSE_1_SEAT_VARIANT_ID",
         "LICENSE_3_SEAT_VARIANT_ID",
         "LICENSE_5_SEAT_VARIANT_ID",
         "LICENSE_10_SEAT_VARIANT_ID",
         "LICENSE_25_SEAT_VARIANT_ID",
-
         "NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS",
         "NEXT_PUBLIC_CALL_LINK",
         "NEXT_PUBLIC_POSTHOG_KEY",
@@ -252,9 +235,17 @@
         "SUPERWALL_APP_STORE_CONNECT_FORWARD_URL",
         "APP_REVIEW_DEMO_ENABLED",
         "APP_REVIEW_DEMO_ACCOUNTS",
-        "SSO_LOGIN_ENABLED"
+        "SSO_LOGIN_ENABLED",
+        "NEXT_PUBLIC_TABS_EXTENSION_ID",
+        "NEXT_PUBLIC_APPLE_IAP_STARTER_ANNUALLY_PRODUCT_ID",
+        "NEXT_PUBLIC_APPLE_IAP_STARTER_MONTHLY_PRODUCT_ID"
       ],
-      "outputs": [".next/**", "!.next/cache/**", "public/sw.js", "public/sw.js.map"]
+      "outputs": [
+        ".next/**",
+        "!.next/cache/**",
+        "public/sw.js",
+        "public/sw.js.map"
+      ]
     },
     "build:ci": {
       "env": [
@@ -368,12 +359,23 @@
         "SUPERWALL_APP_STORE_CONNECT_FORWARD_URL",
         "APP_REVIEW_DEMO_ENABLED",
         "APP_REVIEW_DEMO_ACCOUNTS",
-        "SSO_LOGIN_ENABLED"
+        "SSO_LOGIN_ENABLED",
+        "NEXT_PUBLIC_EXTERNAL_API_ENABLED",
+        "INTERNAL_API_URL",
+        "NEXT_PUBLIC_APPLE_IAP_STARTER_ANNUALLY_PRODUCT_ID",
+        "NEXT_PUBLIC_APPLE_IAP_STARTER_MONTHLY_PRODUCT_ID"
       ],
-      "outputs": [".next/**", "!.next/cache/**", "public/sw.js", "public/sw.js.map"]
+      "outputs": [
+        ".next/**",
+        "!.next/cache/**",
+        "public/sw.js",
+        "public/sw.js.map"
+      ]
     },
     "test": {
-      "env": ["RUN_AI_TESTS"]
+      "env": [
+        "RUN_AI_TESTS"
+      ]
     },
     "lint": {},
     "check-enums": {},
