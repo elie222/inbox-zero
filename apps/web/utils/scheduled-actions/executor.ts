@@ -15,6 +15,7 @@ import type {
 } from "@/utils/ai/types";
 import type { EmailProvider } from "@/utils/email/types";
 import {
+  getActionResultError,
   normalizeActionExecutionError,
   persistExecutedActionOutcome,
 } from "@/utils/ai/executed-action-outcome";
@@ -215,19 +216,14 @@ async function executeDelayedAction({
     messageId: email.id,
   });
 
+  let actionResult: unknown;
   try {
-    await runActionFunction({
+    actionResult = await runActionFunction({
       client,
       email,
       action: executedAction,
       emailAccount,
       executedRule,
-      logger: log,
-    });
-    await persistExecutedActionOutcome({
-      actionId: executedAction.id,
-      status: ExecutedActionStatus.SUCCEEDED,
-      error: null,
       logger: log,
     });
   } catch (error) {
@@ -239,6 +235,29 @@ async function executeDelayedAction({
     });
     throw error;
   }
+
+  const actionResultError = getActionResultError(
+    executedAction.type,
+    actionResult,
+  );
+  if (actionResultError) {
+    await persistExecutedActionOutcome({
+      actionId: executedAction.id,
+      status: ExecutedActionStatus.FAILED,
+      error: actionResultError,
+      logger: log,
+    });
+    throw Object.assign(new Error(actionResultError.message), {
+      code: actionResultError.code,
+    });
+  }
+
+  await persistExecutedActionOutcome({
+    actionId: executedAction.id,
+    status: ExecutedActionStatus.SUCCEEDED,
+    error: null,
+    logger: log,
+  });
 
   log.info("Successfully executed delayed action", {
     actionType: executedAction.type,

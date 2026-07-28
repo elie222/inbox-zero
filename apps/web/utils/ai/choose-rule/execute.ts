@@ -15,6 +15,7 @@ import type { ActionExecutionEmailAccount } from "@/utils/ai/types";
 import { shouldSkipAutomatedArchiveForSender } from "@/utils/ai/automated-archive-exception";
 import { flushLoggerSafely } from "@/utils/logger-flush";
 import {
+  getActionResultError,
   normalizeActionExecutionError,
   persistExecutedActionOutcome,
 } from "@/utils/ai/executed-action-outcome";
@@ -30,12 +31,6 @@ type ActionFailure = {
   errorCode: string;
   errorMessage: string;
 };
-
-const ACTION_FAILURE_TYPES = new Set<ActionType>([
-  ActionType.DRAFT_MESSAGING_CHANNEL,
-  ActionType.NOTIFY_MESSAGING_CHANNEL,
-  ActionType.NOTIFY_SENDER,
-]);
 
 export async function executeAct({
   client,
@@ -89,19 +84,17 @@ export async function executeAct({
         logger: log,
       });
 
-      const actionFailure = getActionFailure(action.type, actionResult);
-      if (actionFailure) {
-        actionFailures.push(actionFailure);
+      const actionResultError = getActionResultError(action.type, actionResult);
+      if (actionResultError) {
+        actionFailures.push({
+          type: action.type,
+          errorCode: actionResultError.code,
+          errorMessage: actionResultError.message,
+        });
         await persistExecutedActionOutcome({
           actionId: action.id,
           status: ExecutedActionStatus.FAILED,
-          error: {
-            code: actionFailure.errorCode,
-            message: actionFailure.errorMessage,
-            stack: null,
-            statusCode: null,
-            requestId: null,
-          },
+          error: actionResultError,
           logger: log,
         });
       } else {
@@ -207,52 +200,6 @@ async function updateExecutedRuleOrThrow({
     log.error("Failed to update executed rule", { error });
     throw error;
   }
-}
-
-function getActionFailure(
-  actionType: ActionType,
-  actionResult: unknown,
-): ActionFailure | null {
-  if (!ACTION_FAILURE_TYPES.has(actionType)) return null;
-
-  if (
-    !actionResult ||
-    typeof actionResult !== "object" ||
-    !("success" in actionResult)
-  ) {
-    return null;
-  }
-
-  if (actionResult.success !== false) return null;
-
-  const errorCode =
-    "errorCode" in actionResult && typeof actionResult.errorCode === "string"
-      ? actionResult.errorCode
-      : getUnknownActionFailureCode(actionType);
-  let errorMessage = "Action reported failure";
-  if (
-    "errorMessage" in actionResult &&
-    typeof actionResult.errorMessage === "string"
-  ) {
-    errorMessage = actionResult.errorMessage;
-  } else if (
-    "error" in actionResult &&
-    typeof actionResult.error === "string"
-  ) {
-    errorMessage = actionResult.error;
-  }
-
-  return {
-    type: actionType,
-    errorCode,
-    errorMessage,
-  };
-}
-
-function getUnknownActionFailureCode(actionType: ActionType) {
-  return actionType === ActionType.NOTIFY_SENDER
-    ? "UNKNOWN_NOTIFY_FAILURE"
-    : "UNKNOWN_MESSAGING_FAILURE";
 }
 
 function buildFailureReason(

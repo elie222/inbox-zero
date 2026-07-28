@@ -1,5 +1,8 @@
-import type { ExecutedActionStatus } from "@/generated/prisma/enums";
 import { Prisma } from "@/generated/prisma/client";
+import {
+  ActionType,
+  type ExecutedActionStatus,
+} from "@/generated/prisma/enums";
 import { getErrorMessage } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
@@ -11,6 +14,12 @@ type ActionExecutionError = {
   statusCode: number | null;
   requestId: string | null;
 };
+
+const ACTION_RESULT_FAILURE_TYPES = new Set<ActionType>([
+  ActionType.DRAFT_MESSAGING_CHANNEL,
+  ActionType.NOTIFY_MESSAGING_CHANNEL,
+  ActionType.NOTIFY_SENDER,
+]);
 
 export async function persistExecutedActionOutcome({
   actionId,
@@ -39,6 +48,48 @@ export async function persistExecutedActionOutcome({
       error: persistenceError,
     });
   }
+}
+
+export function getActionResultError(
+  actionType: ActionType,
+  actionResult: unknown,
+): ActionExecutionError | null {
+  if (!ACTION_RESULT_FAILURE_TYPES.has(actionType)) return null;
+
+  if (
+    !actionResult ||
+    typeof actionResult !== "object" ||
+    !("success" in actionResult) ||
+    actionResult.success !== false
+  ) {
+    return null;
+  }
+
+  const code =
+    "errorCode" in actionResult && typeof actionResult.errorCode === "string"
+      ? actionResult.errorCode
+      : getUnknownActionFailureCode(actionType);
+
+  let message = "Action reported failure";
+  if (
+    "errorMessage" in actionResult &&
+    typeof actionResult.errorMessage === "string"
+  ) {
+    message = actionResult.errorMessage;
+  } else if (
+    "error" in actionResult &&
+    typeof actionResult.error === "string"
+  ) {
+    message = actionResult.error;
+  }
+
+  return {
+    code,
+    message,
+    stack: null,
+    statusCode: null,
+    requestId: null,
+  };
 }
 
 export function normalizeActionExecutionError(
@@ -97,4 +148,10 @@ function getNumber(
 
 function truncate(value: string, maxLength: number) {
   return value.length > maxLength ? value.slice(0, maxLength) : value;
+}
+
+function getUnknownActionFailureCode(actionType: ActionType) {
+  return actionType === ActionType.NOTIFY_SENDER
+    ? "UNKNOWN_NOTIFY_FAILURE"
+    : "UNKNOWN_MESSAGING_FAILURE";
 }
