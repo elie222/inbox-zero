@@ -39,5 +39,9 @@ async function getSaved({
     select: { email: true },
   });
 
-  return { saved: contacts.map((contact) => contact.email) };
+  return {
+    saved: contacts.flatMap((contact) =>
+      contact.email ? [contact.email] : [],
+    ),
+  };
 }

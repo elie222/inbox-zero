@@ -24,8 +24,11 @@ export const contactPhoneEntry = z.object({
   value: z.string().min(1).max(100),
 });
 
+// A contact is addressed by email, or by contactId when it has none —
+// Google and iOS both allow phone-only contacts
 export const updateContactBody = z.object({
-  email: z.string().email(),
+  contactId: z.string().nullish(),
+  email: z.string().email().nullish(),
   name: z.string().max(200).nullish(),
   title: z.string().max(200).nullish(),
   // undefined leaves phones untouched; [] clears them
@@ -57,7 +60,8 @@ export type ExtractContactsBody = z.infer<typeof extractContactsBody>;
 // hold addresses that fail the strict regex, and delete is an exact-match
 // lookup scoped to the account — format doesn't matter
 export const deleteContactBody = z.object({
-  email: z.string().trim().min(1).max(320),
+  contactId: z.string().nullish(),
+  email: z.string().trim().min(1).max(320).nullish(),
 });
 export type DeleteContactBody = z.infer<typeof deleteContactBody>;
 

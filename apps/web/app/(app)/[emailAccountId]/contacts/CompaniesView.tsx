@@ -9,6 +9,8 @@ import {
 } from "lucide-react";
 import {
   type CompanySummary,
+  contactDisplayName,
+  contactKey,
   type ContactGroup,
   type ContactListItem,
   type DomainStat,
@@ -28,7 +30,7 @@ export function CompaniesView({
   groupBy,
   labelFilter,
   search = "",
-  activeEmail,
+  activeContactKey,
   activeGroupKey,
   onSelectContact,
   onSelectCompany,
@@ -45,7 +47,7 @@ export function CompaniesView({
   // The page's search term — `contacts` is already narrowed to matching
   // people server-side; this narrows the company/label rows themselves
   search?: string;
-  activeEmail: string | null;
+  activeContactKey: string | null;
   activeGroupKey: string | null;
   onSelectContact: (contact: ContactListItem) => void;
   // Clicking a company row shows its details in the pane
@@ -158,7 +160,7 @@ export function CompaniesView({
                 group={group}
                 companies={companies}
                 domainStats={domainStats}
-                activeEmail={activeEmail}
+                activeContactKey={activeContactKey}
                 active={group.key === activeGroupKey}
                 onSelectContact={onSelectContact}
                 onSelectCompany={
@@ -178,18 +180,18 @@ export function CompaniesView({
           <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
             {unfiled.map((contact) => (
               <button
-                key={contact.email}
+                key={contactKey(contact)}
                 type="button"
                 className={cn(
                   "flex w-full items-center gap-3 bg-background px-3 py-2 text-left hover:bg-muted/50",
-                  contact.email === activeEmail && "bg-muted/50",
+                  contactKey(contact) === activeContactKey && "bg-muted/50",
                 )}
                 onClick={() => onSelectContact(contact)}
               >
                 <ContactAvatar contact={contact} companies={companies} />
                 <div className="min-w-0">
                   <div className="truncate text-sm font-medium">
-                    {contact.name || contact.email}
+                    {contactDisplayName(contact)}
                   </div>
                   <div className="truncate text-sm text-muted-foreground">
                     {[contact.email, contact.title].filter(Boolean).join(" · ")}
@@ -212,7 +214,7 @@ function CompanyRow({
   group,
   companies,
   domainStats,
-  activeEmail,
+  activeContactKey,
   active,
   onSelectContact,
   onSelectCompany,
@@ -220,7 +222,7 @@ function CompanyRow({
   group: ContactGroup;
   companies: CompanySummary[];
   domainStats: DomainStat[];
-  activeEmail: string | null;
+  activeContactKey: string | null;
   active: boolean;
   onSelectContact: (contact: ContactListItem) => void;
   onSelectCompany?: () => void;
@@ -321,18 +323,18 @@ function CompanyRow({
           {members.length ? (
             members.map((contact) => (
               <button
-                key={contact.email}
+                key={contactKey(contact)}
                 type="button"
                 className={cn(
                   "flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-muted/50",
-                  contact.email === activeEmail && "bg-muted/50",
+                  contactKey(contact) === activeContactKey && "bg-muted/50",
                 )}
                 onClick={() => onSelectContact(contact)}
               >
                 <ContactAvatar contact={contact} companies={companies} />
                 <div className="min-w-0">
                   <div className="truncate text-sm font-medium">
-                    {contact.name || contact.email}
+                    {contactDisplayName(contact)}
                     {contact.stale && (
                       <Badge className="ml-2" color="yellow">
                         Stale

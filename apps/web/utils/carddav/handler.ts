@@ -194,8 +194,10 @@ async function putContact({
   body: string;
 }): Promise<DavResponse> {
   const parsed = parseVCard(body);
-  if (!parsed.email) {
-    return { status: 422, body: "A contact needs an email address" };
+  // A phone-only card is a real contact on iOS, so the UID carries identity
+  // when there's no address. Something has to identify the person though.
+  if (!parsed.email && !parsed.name && !parsed.phones.length) {
+    return { status: 422, body: "A contact needs a name, email, or phone" };
   }
 
   const details = {
@@ -207,10 +209,14 @@ async function putContact({
 
   const existing =
     (await findByUid(emailAccountId, uid)) ??
-    (await prisma.contact.findUnique({
-      where: { emailAccountId_email: { emailAccountId, email: parsed.email } },
-      select: { id: true },
-    }));
+    (parsed.email
+      ? await prisma.contact.findUnique({
+          where: {
+            emailAccountId_email: { emailAccountId, email: parsed.email },
+          },
+          select: { id: true },
+        })
+      : null);
 
   const saved = existing
     ? await prisma.contact.update({

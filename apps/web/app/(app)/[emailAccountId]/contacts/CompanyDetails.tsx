@@ -13,6 +13,8 @@ import {
 } from "lucide-react";
 import {
   type CompanySummary,
+  contactDisplayName,
+  contactKey,
   type ContactGroup,
   type ContactListItem,
   type DomainStat,
@@ -112,7 +114,7 @@ export function CompanyDetails({
   const matchedMembers = searchTerm
     ? sortedMembers.filter(
         (contact) =>
-          contact.email.toLowerCase().includes(searchTerm) ||
+          contact.email?.toLowerCase().includes(searchTerm) ||
           contact.name?.toLowerCase().includes(searchTerm) ||
           contact.title?.toLowerCase().includes(searchTerm),
       )
@@ -234,7 +236,7 @@ export function CompanyDetails({
                 <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
                   {matchedMembers.map((contact) => (
                     <button
-                      key={contact.email}
+                      key={contactKey(contact)}
                       type="button"
                       className="flex w-full items-center gap-3 bg-background px-3 py-2 text-left hover:bg-muted/50"
                       onClick={() => onSelectContact(contact)}
@@ -242,7 +244,7 @@ export function CompanyDetails({
                       <ContactAvatar contact={contact} companies={companies} />
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-sm font-medium">
-                          {contact.name || contact.email}
+                          {contactDisplayName(contact)}
                         </div>
                         <div className="truncate text-sm text-muted-foreground">
                           {[contact.title, contact.email]

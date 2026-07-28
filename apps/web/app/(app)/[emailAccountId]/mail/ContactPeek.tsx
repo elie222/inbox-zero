@@ -81,6 +81,7 @@ function ContactPeekSheet({
 
 function emptyContact(email: string): ContactListItem {
   return {
+    contactId: null,
     email,
     domain: emailDomain(email),
     name: null,

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
 import {
+  type ContactListItem,
   type ContactPhone,
   isLikelyAutomatedSender,
   mergeContactActivity,
@@ -61,6 +62,7 @@ async function getContacts({
   const savedRows = await prisma.contact.findMany({
     where: { emailAccountId },
     select: {
+      id: true,
       email: true,
       name: true,
       title: true,
@@ -85,7 +87,7 @@ async function getContacts({
   // otherwise show zeroed stats — fetch their aggregates directly
   const foundEmails = new Set(activity.map((entry) => entry.email));
   const missingEmails = saved
-    .map((contact) => contact.email.toLowerCase())
+    .flatMap((contact) => (contact.email ? [contact.email.toLowerCase()] : []))
     .filter((email) => !foundEmails.has(email));
   if (missingEmails.length) {
     activity.push(
@@ -143,7 +145,7 @@ async function getContacts({
   const merged = mergeContactActivity({ activity, saved }).filter(
     (contact) =>
       !searchTerm ||
-      contact.email.includes(searchTerm) ||
+      contact.email?.includes(searchTerm) ||
       contact.name?.toLowerCase().includes(searchTerm) ||
       contact.title?.toLowerCase().includes(searchTerm) ||
       (contact.companyId &&
@@ -158,8 +160,9 @@ async function getContacts({
   // addresses are suppressed either way (restorable from Suggested).
   const humans = merged.filter(
     (contact) =>
-      !ignoredEmails.has(contact.email) &&
-      (contact.isSaved || !isLikelyAutomatedSender(contact.email)),
+      !(contact.email && ignoredEmails.has(contact.email)) &&
+      (contact.isSaved ||
+        !(contact.email && isLikelyAutomatedSender(contact.email))),
   );
 
   // Saved-only contacts are appended after the activity window; a name sort
@@ -167,7 +170,7 @@ async function getContacts({
   const contacts =
     sort === "name"
       ? humans.sort((a, b) =>
-          (a.name || a.email).localeCompare(b.name || b.email, undefined, {
+          contactSortName(a).localeCompare(contactSortName(b), undefined, {
             sensitivity: "base",
           }),
         )
@@ -187,4 +190,10 @@ async function getContacts({
       carddavEnabled: !!syncState?.carddavPasswordHash,
     },
   };
+}
+
+// A phone-only contact has neither a name nor an address to sort on, so it
+// falls back to its first number rather than sinking to the top as ""
+function contactSortName(contact: ContactListItem) {
+  return contact.name || contact.email || contact.phones[0]?.value || "";
 }

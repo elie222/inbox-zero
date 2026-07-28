@@ -6,7 +6,7 @@ import type { ContactPhone } from "@/utils/contacts";
 
 export type VCardContact = {
   uid: string;
-  email: string;
+  email: string | null;
   name: string | null;
   phones: ContactPhone[];
   title: string | null;
@@ -15,13 +15,23 @@ export type VCardContact = {
 };
 
 export function generateVCard(contact: VCardContact): string {
+  // FN is required by the spec and is what clients show in the list, so it
+  // falls back through the identifying fields a contact might have
+  const displayName =
+    contact.name ||
+    contact.email ||
+    contact.phones[0]?.value ||
+    "Unknown contact";
+
   const lines = [
     "BEGIN:VCARD",
     "VERSION:3.0",
     `UID:${escapeValue(contact.uid)}`,
-    `FN:${escapeValue(contact.name || contact.email)}`,
+    `FN:${escapeValue(displayName)}`,
     `N:${escapeValue(lastName(contact.name))};${escapeValue(firstNames(contact.name))};;;`,
-    `EMAIL;TYPE=INTERNET:${escapeValue(contact.email)}`,
+    ...(contact.email
+      ? [`EMAIL;TYPE=INTERNET:${escapeValue(contact.email)}`]
+      : []),
     ...contact.phones.map(
       (phone) =>
         `TEL;TYPE=${vcardTypeFromLabel(phone.label)}:${escapeValue(phone.value)}`,

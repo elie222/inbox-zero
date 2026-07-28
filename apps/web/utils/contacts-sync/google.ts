@@ -17,6 +17,9 @@ export type PullResult = {
   created: number;
   updated: number;
   deleted: number;
+  // People Google returned that carried nothing identifying. Counted so a
+  // contact going missing is visible in the logs instead of silent.
+  skipped: number;
 };
 
 // Pulls Google Contacts into Contact rows. Incremental when a sync token is
@@ -161,7 +164,7 @@ async function pullWithToken({
   syncToken: string | null;
   logger: Logger;
 }): Promise<PullResult> {
-  const result: PullResult = { created: 0, updated: 0, deleted: 0 };
+  const result: PullResult = { created: 0, updated: 0, deleted: 0, skipped: 0 };
   let pageToken: string | undefined;
   let nextSyncToken: string | null = null;
 
@@ -177,7 +180,13 @@ async function pullWithToken({
 
     for (const person of data.connections ?? []) {
       const mapped = mapPersonToContact(person);
-      if (!mapped) continue;
+      if (!mapped) {
+        result.skipped += 1;
+        logger.trace("Skipped a Google person with nothing identifying", {
+          resourceName: person.resourceName,
+        });
+        continue;
+      }
 
       if (mapped.deleted) {
         const { count } = await prisma.contact.deleteMany({
@@ -188,18 +197,21 @@ async function pullWithToken({
       }
 
       // Prefer the Google link; fall back to email so re-syncs don't
-      // duplicate contacts that existed before sync was enabled
+      // duplicate contacts that existed before sync was enabled. A
+      // phone-only person has no email to fall back to.
       const existing =
         (await prisma.contact.findFirst({
           where: { emailAccountId, googleResourceName: mapped.resourceName },
           select: { id: true },
         })) ??
-        (await prisma.contact.findUnique({
-          where: {
-            emailAccountId_email: { emailAccountId, email: mapped.email },
-          },
-          select: { id: true },
-        }));
+        (mapped.email
+          ? await prisma.contact.findUnique({
+              where: {
+                emailAccountId_email: { emailAccountId, email: mapped.email },
+              },
+              select: { id: true },
+            })
+          : null);
 
       // Google's version wins for the fields it owns; Zerrow-only fields
       // (notes, aiSummary, company assignment, personal flag) are untouched

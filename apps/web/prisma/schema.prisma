@@ -957,7 +957,10 @@ model Contact {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  email          String
+  // Optional: Google (and iOS) address books hold phone-only contacts, and
+  // dropping them was silently losing real people. Postgres allows many
+  // NULLs under the unique index below, so real addresses stay unique.
+  email          String?
   name           String?
   title          String?
   // Labeled numbers: [{ "label": "Mobile", "value": "+1 555 0100" }, …]

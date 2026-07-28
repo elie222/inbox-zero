@@ -17,7 +17,9 @@ export type ContactActivity = {
 export type ContactPhone = { label: string; value: string };
 
 export type SavedContact = {
-  email: string;
+  id: string;
+  // Null for phone-only contacts, which Google and iOS both allow
+  email: string | null;
   name: string | null;
   title: string | null;
   phones: ContactPhone[];
@@ -48,7 +50,11 @@ export type CompanySummary = {
 };
 
 export type ContactListItem = {
-  email: string;
+  // Set for saved rows, null for people known only from email activity.
+  // Together with email it identifies the row: a phone-only contact has no
+  // address to key on.
+  contactId: string | null;
+  email: string | null;
   domain: string;
   name: string | null;
   title: string | null;
@@ -138,18 +144,22 @@ export function mergeContactActivity({
   now?: Date;
 }): ContactListItem[] {
   const savedByEmail = new Map(
-    saved.map((contact) => [contact.email.toLowerCase(), contact]),
+    saved
+      .filter((contact) => contact.email)
+      .map((contact) => [contact.email?.toLowerCase() ?? "", contact]),
   );
+  const savedWithoutEmail = saved.filter((contact) => !contact.email);
 
   const toItem = (
-    email: string,
+    email: string | null,
     entry: ContactActivity | null,
     savedContact: SavedContact | undefined,
   ): ContactListItem => {
     const lastInteractionAt = entry?.lastInteractionAt ?? null;
     return {
+      contactId: savedContact?.id ?? null,
       email,
-      domain: emailDomain(email),
+      domain: email ? emailDomain(email) : "",
       name: normalizeDisplayName(savedContact?.name || entry?.name || null),
       title: savedContact?.title ?? null,
       phones: savedContact?.phones ?? [],
@@ -179,10 +189,39 @@ export function mergeContactActivity({
 
   // Saved contacts with no email activity (e.g. added manually)
   for (const savedContact of savedByEmail.values()) {
-    merged.push(toItem(savedContact.email.toLowerCase(), null, savedContact));
+    merged.push(
+      toItem(savedContact.email?.toLowerCase() ?? null, null, savedContact),
+    );
+  }
+
+  // Phone-only contacts have no address to match activity against, so they
+  // never appear above
+  for (const savedContact of savedWithoutEmail) {
+    merged.push(toItem(null, null, savedContact));
   }
 
   return merged;
+}
+
+// What to show for a contact. A phone-only contact (Google and iOS both
+// allow them) has no address to fall back to.
+export function contactDisplayName(
+  contact: Pick<ContactListItem, "name" | "email" | "phones">,
+): string {
+  return (
+    contact.name ||
+    contact.email ||
+    contact.phones[0]?.value ||
+    "Unknown contact"
+  );
+}
+
+// Stable identity for list keys and selection: saved rows carry an id,
+// activity-derived ones are only known by address
+export function contactKey(
+  contact: Pick<ContactListItem, "contactId" | "email">,
+): string {
+  return contact.contactId ?? contact.email ?? "";
 }
 
 // The domain half of an email address, normalized the same way company
