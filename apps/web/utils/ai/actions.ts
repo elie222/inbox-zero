@@ -540,9 +540,8 @@ const notify_sender: ActionFunction<Record<string, unknown>> = async ({
     return { success: false, errorCode: "MISSING_SENDER_EMAIL" };
   }
 
-  // Last line of defence before we email a real person. Most cold email matches come
-  // from a stored sender pattern rather than a fresh classification, so a single bad
-  // pattern would otherwise keep telling a colleague their email was unsolicited.
+  // A learned pattern can match without a fresh classification, so guard here too:
+  // this action emails the sender, and a wrong one accuses a colleague of spamming.
   if (isSameOrganization(senderEmail, emailAccount.email)) {
     logger.warn("Skipping cold email notification to an internal sender");
     return { success: false, errorCode: "INTERNAL_SENDER" };

@@ -86,8 +86,7 @@ export async function isColdEmail({
     return { isColdEmail: false, reason: "excluded" };
   }
 
-  // Patterns learned from the user marking a message as spam skipped the prior
-  // communication check that every other path runs, so re-run it before acting on them.
+  // Spam-learned patterns are the one path that never ran this check when created.
   const needsPriorCommunicationCheck =
     !patternMatch || patternMatch.source === GroupItemSource.LABEL_ADDED;
 

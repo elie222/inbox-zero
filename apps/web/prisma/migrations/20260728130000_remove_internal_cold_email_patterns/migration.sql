@@ -1,30 +1,20 @@
--- Marking a thread as spam applied the spam label to every message in it, and the webhook
--- learned a cold email pattern per message. Junking a reply chain therefore blacklisted the
--- account owner and their colleagues alongside the actual sender. Those patterns label,
--- archive, and auto-reply to internal senders. The learning path no longer does this; the rows
--- below are the ones it already created.
+-- Marking a thread as spam labelled every message in it, so the webhook learned a cold email
+-- pattern per message and blacklisted the account owner and their colleagues alongside the
+-- actual sender. The learning path no longer does this; these are the rows it already created.
 --
--- Two cases are removed:
+-- Removes the owner's own address on any source, plus same-domain rows still carrying
+-- LABEL_ADDED, which only spam learning sets.
 --
---   1. Any pattern naming the account owner's own address. Nobody is their own cold emailer,
---      so this is wrong however it was created.
---   2. Patterns naming someone on the owner's company domain that still carry LABEL_ADDED,
---      which only the spam learning path sets.
+-- Same-domain rows on other sources are left alone. Source is not conclusive, since a later
+-- message from the same sender re-upserts the pattern and overwrites it. And on a shared
+-- institutional domain such as a university or a large ISP, two addresses are usually
+-- strangers, so an unsolicited pitch between them is a real cold email worth keeping.
 --
--- Patterns on the owner's domain with any other source are deliberately left alone. Provenance
--- is not conclusive there, because a row created by spam learning has its source overwritten
--- when a later message from the same sender re-upserts the pattern. But shared institutional
--- domains are real: at a university or a large ISP two addresses on one domain are often
--- strangers, and an unsolicited pitch between them is a genuine cold email. Deleting every
--- same-domain pattern would throw those away, so only the provably spam-derived ones go.
+-- Excluded rows are left alone: they whitelist a sender, so deleting one would undo a
+-- correction the user already made. Hand-added rows are intentional.
 --
--- Excluded patterns are also left intact. A row with "exclude" = true whitelists a sender, so
--- deleting it would undo a correction the user already made by removing the label. Patterns
--- added by hand are intentional.
---
--- The public provider list mirrors PUBLIC_EMAIL_DOMAINS in apps/web/utils/email.ts as of this
--- migration. It is inlined rather than shared because a migration runs once against a fixed
--- dataset, so later additions to that list do not change what this statement should remove.
+-- The public provider list is a snapshot of PUBLIC_EMAIL_DOMAINS rather than a shared
+-- reference, because later additions to that list should not change what this removes.
 
 BEGIN;
 

@@ -110,16 +110,13 @@ async function learnColdEmailFromSpam({
     threadId,
   });
 
-  // Someone at your own company is never a cold emailer, and junking their message
-  // must not turn into an automated "your email was unsolicited" reply to a colleague.
   if (isSameOrganization(sender, emailAccount.email)) {
     logger.info("Skipping cold email learning for an internal sender");
     return;
   }
 
-  // Gmail applies SPAM to every message in a thread, so this handler runs once per
-  // message. Only a one-way thread identifies a cold emailer; junking a conversation
-  // means "get this out of my inbox", not "everyone who replied is a cold emailer".
+  // Gmail applies SPAM to every message in a thread, so this runs once per message.
+  // Junking a conversation is not a claim about everyone who replied in it.
   if (
     !(await isOneWayThreadFromSender({ sender, threadId, provider, logger }))
   ) {
@@ -227,10 +224,7 @@ async function recordClassificationFromLabelAdd({
   });
 }
 
-/**
- * A thread is one-way when every message in it came from the same sender.
- * Returns false if the thread can't be read, so an unreadable thread never teaches us a pattern.
- */
+/** Fails closed: an unreadable thread never teaches us a pattern. */
 async function isOneWayThreadFromSender({
   sender,
   threadId,

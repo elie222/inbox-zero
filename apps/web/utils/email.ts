@@ -234,9 +234,7 @@ export function getSearchTermForSender(email: string): string {
     : domain;
 }
 
-// True when both addresses belong to the same person or the same company.
-// A shared public provider (gmail.com, etc.) says nothing about affiliation, so only
-// the addresses themselves are compared in that case.
+// Sharing a public provider says nothing about affiliation, so those compare by address.
 export function isSameOrganization(left: string, right: string): boolean {
   if (!left || !right) return false;
   if (isSameEmailAddress(left, right)) return true;
