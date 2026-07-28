@@ -54,6 +54,17 @@ export function MeetingDetail({
             </Alert>
           )}
 
+          {/* Meetings appear in the list as soon as a bot is booked, so this
+              dialog opens well before there is anything to show. */}
+          {!(summary || transcript?.length) &&
+            data?.recording?.status !== MeetingRecordingStatus.FAILED && (
+              <p className="text-sm text-muted-foreground">
+                {data?.recording?.status === MeetingRecordingStatus.DONE
+                  ? "The notes are still being written. Check back in a minute."
+                  : "This meeting has not been recorded yet."}
+              </p>
+            )}
+
           {(summary || transcript?.length) && (
             <Tabs defaultValue="summary">
               <TabsList>

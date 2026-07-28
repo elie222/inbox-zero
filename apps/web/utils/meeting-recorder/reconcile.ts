@@ -484,10 +484,14 @@ async function releaseMeeting({
 }): Promise<void> {
   if (!recordingId) return;
 
-  await prisma.meeting.update({
-    where: { id: meetingId },
+  // Only detach the recording we were asked about. `recordingId` is a snapshot,
+  // so a concurrent pass may already have linked a different one, and clearing
+  // unconditionally would drop that new booking on the floor.
+  const detached = await prisma.meeting.updateMany({
+    where: { id: meetingId, recordingId },
     data: { recordingId: null },
   });
+  if (detached.count === 0) return;
 
   const recording = await prisma.meetingRecording.findUnique({
     where: { id: recordingId },
