@@ -17,6 +17,10 @@ export async function getPublicContactCard(slug: string) {
       phone: true,
       website: true,
       photoUrl: true,
+      location: true,
+      linkedinUrl: true,
+      xUrl: true,
+      instagramUrl: true,
     },
   });
 

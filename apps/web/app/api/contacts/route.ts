@@ -9,6 +9,7 @@ import {
   mergeContactActivity,
 } from "@/utils/contacts";
 import { queryContactActivity } from "@/utils/contacts-activity";
+import { getPendingExchanges } from "@/utils/contact-card/exchange";
 
 const querySchema = z.object({
   search: z.string().optional(),
@@ -181,6 +182,9 @@ async function getContacts({
     companies,
     labels,
     hasMore,
+    // People who opened the card and handed their details back, waiting for
+    // a decision
+    pendingExchanges: await getPendingExchanges(emailAccountId),
     ignoredDomains: syncState?.ignoredContactDomains ?? [],
     ignoredEmails: syncState?.ignoredContactEmails ?? [],
     sync: {

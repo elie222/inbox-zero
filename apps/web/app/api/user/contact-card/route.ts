@@ -27,6 +27,10 @@ async function getContactCard(emailAccountId: string) {
       phone: true,
       website: true,
       photoUrl: true,
+      location: true,
+      linkedinUrl: true,
+      xUrl: true,
+      instagramUrl: true,
     },
   });
 

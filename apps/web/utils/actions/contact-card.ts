@@ -2,9 +2,11 @@
 
 import { actionClient } from "@/utils/actions/safe-action";
 import {
+  resolveContactCardExchangeBody,
   sendMyCardBody,
   upsertContactCardBody,
 } from "@/utils/actions/contact-card.validation";
+import { ContactCardExchangeStatus } from "@/generated/prisma/enums";
 import { normalizeCardSlug } from "@/utils/contact-card/slug";
 import { getContactCardUrl } from "@/utils/contact-card/url";
 import { createEmailProvider } from "@/utils/email/provider";
@@ -34,6 +36,10 @@ export const upsertContactCardAction = actionClient
       phone: blankToNull(parsedInput.phone),
       website: blankToNull(parsedInput.website),
       photoUrl: blankToNull(parsedInput.photoUrl),
+      location: blankToNull(parsedInput.location),
+      linkedinUrl: blankToNull(parsedInput.linkedinUrl),
+      xUrl: blankToNull(parsedInput.xUrl),
+      instagramUrl: blankToNull(parsedInput.instagramUrl),
     };
 
     try {
@@ -93,6 +99,69 @@ export const sendMyCardAction = actionClient
       });
 
       return { sent: true, url };
+    },
+  );
+
+// Accepting turns the submission into a real contact; ignoring just files it
+// away. Either way the row is resolved so it leaves the review list.
+export const resolveContactCardExchangeAction = actionClient
+  .metadata({ name: "resolveContactCardExchange" })
+  .inputSchema(resolveContactCardExchangeBody)
+  .action(
+    async ({
+      ctx: { emailAccountId },
+      parsedInput: { exchangeId, accept },
+    }) => {
+      // Scoped through the card so one account can't resolve another's
+      const exchange = await prisma.contactCardExchange.findFirst({
+        where: {
+          id: exchangeId,
+          status: ContactCardExchangeStatus.PENDING,
+          contactCard: { emailAccountId },
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          companyTitle: true,
+          note: true,
+        },
+      });
+      if (!exchange) throw new SafeError("That submission is no longer there");
+
+      if (accept) {
+        const details = {
+          name: exchange.name,
+          ...(exchange.companyTitle ? { title: exchange.companyTitle } : {}),
+          ...(exchange.phone
+            ? { phones: [{ label: "Mobile", value: exchange.phone }] }
+            : {}),
+          ...(exchange.note ? { notes: exchange.note } : {}),
+        };
+
+        await prisma.contact.upsert({
+          where: {
+            emailAccountId_email: {
+              emailAccountId,
+              email: exchange.email,
+            },
+          },
+          update: details,
+          create: { emailAccountId, email: exchange.email, ...details },
+        });
+      }
+
+      await prisma.contactCardExchange.update({
+        where: { id: exchange.id },
+        data: {
+          status: accept
+            ? ContactCardExchangeStatus.ACCEPTED
+            : ContactCardExchangeStatus.IGNORED,
+        },
+      });
+
+      return { resolved: true, accepted: accept };
     },
   );
 
