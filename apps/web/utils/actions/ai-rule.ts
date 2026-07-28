@@ -7,10 +7,12 @@ import {
   type RunRulesResult,
 } from "@/utils/ai/choose-rule/run-rules";
 import {
+  bulkProcessThreadsBody,
   finalizeReprocessBody,
   runRulesBody,
   testAiCustomContentBody,
 } from "@/utils/actions/ai-rule.validation";
+import { runWithBoundedConcurrency } from "@/utils/async";
 import { setRuleRunOnThreads } from "@/utils/rule/rule";
 import { assertRuleIsNotOrgManaged } from "@/utils/organizations/rules";
 import { ActionType, ExecutedRuleStatus } from "@/generated/prisma/enums";
@@ -259,83 +261,206 @@ export const finalizeReprocessAction = actionClient
         provider,
         logger,
       });
-
       const labels = await emailProvider.getLabels();
-      const userLabelIds = new Set(
-        labels
-          .filter((label) => label.type === "user")
-          .map((label) => label.id),
-      );
-      // Normalized lookup: a raw compare here silently yields null on any
-      // name-form mismatch, which makes the strip below remove the very
-      // label the user asked to keep
-      const keepLabelId = keepLabelName
-        ? (findLabelByName({
-            labels: labels.filter((label) => label.type === "user"),
-            name: keepLabelName,
-            getLabelName: (label) => label.name,
-            normalize: normalizeLabelName,
-          })?.id ?? null)
-        : null;
 
-      const messages = await emailProvider.getThreadMessages(threadId);
-      const presentLabelIds = new Set(
-        messages.flatMap((message) => message.labelIds ?? []),
-      );
-      // Reuse the sender from the messages we just fetched instead of
-      // having the learning step fetch the message again
-      const reprocessedMessage = messages.find(
-        (message) => message.id === messageId,
-      );
-      const knownSender = reprocessedMessage
-        ? extractEmailAddress(reprocessedMessage.headers.from)
-        : null;
-
-      const stripIds = [...presentLabelIds].filter(
-        (id) => userLabelIds.has(id) && id !== keepLabelId,
-      );
-      if (stripIds.length) {
-        // These strips echo back through the provider webhook looking like
-        // user corrections — the authoritative learning happens below
-        await suppressLabelLearning({
-          emailAccountId,
-          threadId,
-          labelIds: stripIds,
-          logger,
-        });
-        await emailProvider.removeThreadLabels(threadId, stripIds);
-      }
-
-      if (
-        returnToInbox &&
-        !presentLabelIds.has("INBOX") &&
-        emailProvider.unarchiveThread
-      ) {
-        await emailProvider.unarchiveThread(threadId);
-      }
-
-      // The confirmed dialog outcome is the strongest correction signal we
-      // get — record it so filing improves. Never fail the move over it.
-      await recordReprocessLearning({
+      return finalizeReprocessOnThread({
+        emailProvider,
         emailAccountId,
-        provider: emailProvider,
+        labels,
+        threadId,
         messageId,
-        threadId,
-        keepLabelId,
-        strippedLabelIds: stripIds,
-        knownSender,
-        logger,
-      }).catch((error) => {
-        logger.error("Failed to record reprocess learning", { error });
-      });
-
-      logger.info("Finalized reprocess", {
-        threadId,
-        removed: stripIds.length,
+        keepLabelName,
         returnToInbox,
+        logger,
+      });
+    },
+  );
+
+// The move half of a reprocess: keep the chosen folder, strip the thread's
+// other user labels, optionally return to the inbox, and record the
+// correction. Shared by the single-thread dialog and the bulk runner so
+// both apply the exact same deterministic outcome. Takes an already-created
+// provider and pre-fetched labels so a bulk caller resolves them once.
+export async function finalizeReprocessOnThread({
+  emailProvider,
+  emailAccountId,
+  labels,
+  threadId,
+  messageId,
+  keepLabelName,
+  returnToInbox,
+  logger,
+}: {
+  emailProvider: EmailProvider;
+  emailAccountId: string;
+  labels: Awaited<ReturnType<EmailProvider["getLabels"]>>;
+  threadId: string;
+  messageId: string;
+  keepLabelName: string | null | undefined;
+  returnToInbox: boolean;
+  logger: Logger;
+}) {
+  const userLabels = labels.filter((label) => label.type === "user");
+  const userLabelIds = new Set(userLabels.map((label) => label.id));
+  // Normalized lookup: a raw compare here silently yields null on any
+  // name-form mismatch, which makes the strip below remove the very
+  // label the user asked to keep
+  const keepLabelId = keepLabelName
+    ? (findLabelByName({
+        labels: userLabels,
+        name: keepLabelName,
+        getLabelName: (label) => label.name,
+        normalize: normalizeLabelName,
+      })?.id ?? null)
+    : null;
+
+  const messages = await emailProvider.getThreadMessages(threadId);
+  const presentLabelIds = new Set(
+    messages.flatMap((message) => message.labelIds ?? []),
+  );
+  // Reuse the sender from the messages we just fetched instead of
+  // having the learning step fetch the message again
+  const reprocessedMessage = messages.find(
+    (message) => message.id === messageId,
+  );
+  const knownSender = reprocessedMessage
+    ? extractEmailAddress(reprocessedMessage.headers.from)
+    : null;
+
+  const stripIds = [...presentLabelIds].filter(
+    (id) => userLabelIds.has(id) && id !== keepLabelId,
+  );
+  if (stripIds.length) {
+    // These strips echo back through the provider webhook looking like
+    // user corrections — the authoritative learning happens below
+    await suppressLabelLearning({
+      emailAccountId,
+      threadId,
+      labelIds: stripIds,
+      logger,
+    });
+    await emailProvider.removeThreadLabels(threadId, stripIds);
+  }
+
+  if (
+    returnToInbox &&
+    !presentLabelIds.has("INBOX") &&
+    emailProvider.unarchiveThread
+  ) {
+    await emailProvider.unarchiveThread(threadId);
+  }
+
+  // The confirmed outcome is the strongest correction signal we get —
+  // record it so filing improves. Never fail the move over it.
+  await recordReprocessLearning({
+    emailAccountId,
+    provider: emailProvider,
+    messageId,
+    threadId,
+    keepLabelId,
+    strippedLabelIds: stripIds,
+    knownSender,
+    logger,
+  }).catch((error) => {
+    logger.error("Failed to record reprocess learning", { error });
+  });
+
+  logger.info("Finalized reprocess", {
+    threadId,
+    removed: stripIds.length,
+    returnToInbox,
+  });
+
+  return { removed: stripIds.length };
+}
+
+// Reprocesses a selection of threads in a single request. Creates the
+// provider, loads the enabled rules, and fetches the label list ONCE, then
+// runs each thread (fresh decision + deterministic filing) with bounded
+// concurrency — versus the old client loop that fired two serialized server
+// actions per thread, each re-creating the provider and re-fetching labels.
+export const bulkProcessThreadsAction = actionClient
+  .metadata({ name: "bulkProcessThreads" })
+  .inputSchema(bulkProcessThreadsBody)
+  .action(
+    async ({
+      ctx: { emailAccountId, provider, logger },
+      parsedInput: { threadIds },
+    }) => {
+      if (!provider) throw new SafeError("Provider not found");
+
+      const emailAccount = await getEmailAccountForRuleExecution({
+        emailAccountId,
+      });
+      if (!emailAccount) throw new SafeError("Email account not found");
+
+      const emailProvider = await createEmailProvider({
+        emailAccountId,
+        provider,
+        logger,
       });
 
-      return { removed: stripIds.length };
+      const [rules, labels] = await Promise.all([
+        prisma.rule.findMany({
+          where: { emailAccountId, enabled: true },
+          include: { actions: true },
+        }),
+        emailProvider.getLabels(),
+      ]);
+
+      const results = await runWithBoundedConcurrency({
+        items: threadIds,
+        concurrency: 3,
+        run: async (threadId) => {
+          const messages = await emailProvider.getThreadMessages(threadId);
+          // The latest message is the filing target, matching the webhook
+          const message = messages.at(-1);
+          if (!message) return;
+
+          // A rerun replaces the prior decision instead of stacking a row
+          await prisma.executedRule
+            .deleteMany({
+              where: { emailAccountId, threadId, messageId: message.id },
+            })
+            .catch((error) =>
+              logger.warn("Failed to clear prior executions before rerun", {
+                error,
+              }),
+            );
+
+          const runResults = await runRules({
+            isTest: false,
+            provider: emailProvider,
+            message,
+            rules,
+            emailAccount,
+            logger,
+            modelType: "default",
+          });
+
+          const folderName = getFolderNameFromResults(runResults, labels);
+          await finalizeReprocessOnThread({
+            emailProvider,
+            emailAccountId,
+            labels,
+            threadId,
+            messageId: message.id,
+            keepLabelName: folderName,
+            returnToInbox: !folderName,
+            logger,
+          });
+        },
+      });
+
+      const failed = results.filter(
+        (entry) => entry.result.status === "rejected",
+      ).length;
+      logger.info("Bulk processed threads", {
+        total: threadIds.length,
+        failed,
+      });
+
+      return { processed: threadIds.length - failed, failed };
     },
   );
 
@@ -548,4 +673,24 @@ async function reconcileStaleFolderLabels({
     await emailProvider.unarchiveThread(threadId);
     logger.info("Restored thread to inbox after stale label cleanup");
   }
+}
+
+// The folder a run filed into: the LABEL action's resolved name, or null
+// when nothing matched. Mirrors the reprocess dialog's resolution so the
+// bulk path and the single-thread dialog agree.
+function getFolderNameFromResults(
+  results: RunRulesResult[],
+  labels: Awaited<ReturnType<EmailProvider["getLabels"]>>,
+): string | null {
+  const matched = results.find((entry) => entry.rule);
+  const labelItem = matched?.actionItems?.find(
+    (item) => item.type === ActionType.LABEL,
+  );
+  if (!labelItem) return null;
+  return (
+    labelItem.label ??
+    (labelItem.labelId
+      ? (labels.find((label) => label.id === labelItem.labelId)?.name ?? null)
+      : null)
+  );
 }
