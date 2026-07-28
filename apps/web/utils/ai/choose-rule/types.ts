@@ -33,10 +33,18 @@ export type MatchingRuleResult = {
     rule: RuleWithActions;
     matchReasons: MatchReason[];
   }[];
-  potentialAiMatches: (RuleWithActions & {
-    instructions: string;
-  })[];
+  potentialAiMatches: PotentialAiMatchRule[];
   selectionMetadata: RuleSelectionMetadata;
+};
+
+// A rule pooled for AI judgment, carrying what the engine already
+// established: static-condition outcomes (kept so an AI confirmation
+// records the full match trail) and whether this rule previously filed
+// messages in the same thread (surfaced to the AI as continuity evidence)
+export type PotentialAiMatchRule = RuleWithActions & {
+  instructions: string;
+  pendingMatchReasons?: MatchReason[];
+  previouslyMatchedThread?: boolean;
 };
 
 export type RuleSelectionMetadata = {

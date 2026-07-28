@@ -160,6 +160,9 @@ export const runRulesAction = actionClient
       });
 
       logger.info("Invoking runRules");
+      // Same model tier as the live webhook (process-history-item), so
+      // manual runs and the reprocess dialog's dry-run agree with what
+      // automatic filing would actually do
       const result = await runRules({
         isTest,
         provider: emailProvider,
@@ -167,7 +170,7 @@ export const runRulesAction = actionClient
         rules,
         emailAccount,
         logger,
-        modelType: "chat",
+        modelType: "default",
       }).catch((error) => {
         logger.error("runRules failed", { error });
         return flushAndRethrowRunRulesActionError({
@@ -352,7 +355,7 @@ export const testAiCustomContentAction = actionClient
           },
           rules,
           emailAccount,
-          modelType: "chat",
+          modelType: "default",
         });
 
         logger.info("testAiCustomContent completed", {
