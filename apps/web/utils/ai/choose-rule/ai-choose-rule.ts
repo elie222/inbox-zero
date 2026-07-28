@@ -460,6 +460,9 @@ function withRuleEvidenceNotes(rule: {
   subject?: string | null;
   body?: string | null;
   conditionalOperator?: string | null;
+  fromExclude?: boolean;
+  toExclude?: boolean;
+  subjectExclude?: boolean;
   previouslyMatchedThread?: boolean;
 }): string {
   const notes: string[] = [];
@@ -492,6 +495,9 @@ function getStaticConditionNote(rule: {
   subject?: string | null;
   body?: string | null;
   conditionalOperator?: string | null;
+  fromExclude?: boolean;
+  toExclude?: boolean;
+  subjectExclude?: boolean;
 }): string | null {
   const hasStatic = !!(rule.from || rule.to || rule.subject || rule.body);
   if (!hasStatic) return null;
@@ -500,7 +506,10 @@ function getStaticConditionNote(rule: {
     return `Note: this rule also has static conditions (${staticConditionsToString(rule)}) which ALREADY MATCHED this email. Judge only whether the email fits the criteria above — the sender/recipient/subject scope is already satisfied.`;
   }
 
-  const senderScopedOnly = rule.from && !rule.to && !rule.subject && !rule.body;
+  // Negated from ("is not from") inverts what a failed static leg means
+  // about the sender, so the unmatched-sender wording would be wrong
+  const senderScopedOnly =
+    rule.from && !rule.fromExclude && !rule.to && !rule.subject && !rule.body;
   if (senderScopedOnly && rule.conditionalOperator === LogicalOperator.OR) {
     return `Note: this rule also matches specific senders directly (${rule.from}). This email's sender is NOT one of them — that check already ran. Only select this rule if the email clearly fits the criteria above in its own right.`;
   }

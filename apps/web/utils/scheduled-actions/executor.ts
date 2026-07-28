@@ -41,6 +41,23 @@ export async function executeScheduledAction(
       throw new Error("Email account not found");
     }
 
+    // A delayed action outlives its trigger — if the user disabled the
+    // rule in the meantime, executing anyway makes "off" look ignored
+    const owningRule = await prisma.executedRule.findUnique({
+      where: { id: scheduledAction.executedRuleId },
+      select: { rule: { select: { enabled: true } } },
+    });
+    if (owningRule?.rule && !owningRule.rule.enabled) {
+      await markActionCompleted(
+        scheduledAction.id,
+        null,
+        log,
+        "Rule disabled before execution",
+      );
+      await checkAndCompleteExecutedRule(scheduledAction.executedRuleId, log);
+      return { success: true, reason: "Rule disabled before execution" };
+    }
+
     const emailMessage = await validateEmailState(client, scheduledAction, log);
     if (!emailMessage) {
       await markActionCompleted(

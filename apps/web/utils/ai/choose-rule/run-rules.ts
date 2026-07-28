@@ -352,6 +352,15 @@ function prepareRulesWithMetaRule(rules: RuleWithActions[]): {
       runOnThreads: true,
       systemType: null,
       actions: [],
+      // The template is a real conversation rule — its learned-pattern group
+      // and static conditions must not leak into the synthetic rule (a group
+      // hit here would short-circuit ALL other rules' AI matching)
+      groupId: null,
+      from: null,
+      to: null,
+      subject: null,
+      body: null,
+      excludeKnownContacts: false,
     };
 
     regularRules.push(metaRule);
@@ -921,17 +930,26 @@ export function limitFolderLabelActions<T extends { rule: RuleWithActions }>(
   const isFiling = (action: { type: ActionType }) =>
     action.type === ActionType.LABEL || action.type === ActionType.MOVE_FOLDER;
 
+  // Conversation-status labels (To Reply etc.) stack by design; category
+  // system rules (Notification, Newsletter…) FILE mail, so they compete
+  // for the single folder like any custom rule
   const filingMatches = matches.filter(
-    (match) => !match.rule.systemType && match.rule.actions.some(isFiling),
+    (match) =>
+      !isConversationStatusType(match.rule.systemType) &&
+      match.rule.actions.some(isFiling),
   );
   if (filingMatches.length <= 1) return matches;
 
-  const keptRuleId = filingMatches[0].rule.id;
+  // A user-authored folder rule states intent more specifically than a
+  // built-in category — never let "Notification" stack on top of it
+  const keptMatch =
+    filingMatches.find((match) => !match.rule.systemType) ?? filingMatches[0];
+  const keptRuleId = keptMatch.rule.id;
   logger.info("Limiting folder filing to a single rule match", {
     module: MODULE,
     keptRuleId,
     droppedRuleNames: filingMatches
-      .slice(1)
+      .filter((match) => match.rule.id !== keptRuleId)
       .map((match) => match.rule.name)
       .join(", "),
   });
@@ -939,7 +957,7 @@ export function limitFolderLabelActions<T extends { rule: RuleWithActions }>(
   return matches.map((match) => {
     if (
       match.rule.id === keptRuleId ||
-      match.rule.systemType ||
+      isConversationStatusType(match.rule.systemType) ||
       !match.rule.actions.some(isFiling)
     ) {
       return match;

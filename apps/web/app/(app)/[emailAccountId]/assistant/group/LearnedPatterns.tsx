@@ -75,7 +75,7 @@ export function LearnedPatternsDialog({
         </Button>
       </DialogTrigger>
 
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-h-[90dvh] max-w-2xl overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle>Learned patterns</DialogTitle>
           <DialogDescription>
@@ -123,7 +123,7 @@ function LearnFromHistory({ ruleId }: { ruleId: string }) {
   );
 
   return (
-    <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
+    <div className="flex flex-col gap-3 border-t border-border pt-3 sm:flex-row sm:items-center sm:justify-between">
       <p className="text-sm text-muted-foreground">
         Patterns are learned as new mail matches this rule with AI. You can also
         learn from mail it already handled.
@@ -131,7 +131,7 @@ function LearnFromHistory({ ruleId }: { ruleId: string }) {
       <Button
         variant="outline"
         size="sm"
-        className="shrink-0"
+        className="shrink-0 self-start sm:self-auto"
         loading={learn.isExecuting}
         onClick={() => learn.execute({ ruleId })}
       >

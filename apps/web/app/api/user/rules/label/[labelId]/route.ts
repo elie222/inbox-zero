@@ -8,8 +8,9 @@ const paramsSchema = z.object({ labelId: z.string().min(1) });
 
 export type FolderRuleResponse = Awaited<ReturnType<typeof getFolderRule>>;
 
-// The rule whose LABEL action files emails into this folder, if any.
-// Older rules reference their label by name only, so match either.
+// The rule whose filing action (label or folder move) files emails into
+// this folder, if any. Older rules reference their label by name only, so
+// match either.
 async function getFolderRule({
   emailAccountId,
   labelId,
@@ -19,13 +20,24 @@ async function getFolderRule({
   labelId: string;
   labelName?: string;
 }) {
-  const rule = await prisma.rule.findFirst({
+  const rules = await prisma.rule.findMany({
     where: {
       emailAccountId,
       actions: {
         some: {
-          type: ActionType.LABEL,
-          OR: [{ labelId }, ...(labelName ? [{ label: labelName }] : [])],
+          OR: [
+            {
+              type: ActionType.LABEL,
+              OR: [{ labelId }, ...(labelName ? [{ label: labelName }] : [])],
+            },
+            {
+              type: ActionType.MOVE_FOLDER,
+              OR: [
+                { folderId: labelId },
+                ...(labelName ? [{ folderName: labelName }] : []),
+              ],
+            },
+          ],
         },
       },
     },
@@ -40,10 +52,20 @@ async function getFolderRule({
       systemType: true,
       excludeKnownContacts: true,
     },
-    orderBy: { createdAt: "asc" },
+    // The rule that is actually filing right now is the one the drawer's
+    // toggle must control — an enabled rule always wins over a disabled
+    // sibling filing into the same folder
+    orderBy: [{ enabled: "desc" }, { createdAt: "asc" }],
   });
 
-  return { rule };
+  const [rule, ...others] = rules;
+
+  return {
+    rule: rule ?? null,
+    // Surface siblings so turning off "the" rule can't silently leave
+    // another one filing into the same folder
+    otherRuleNames: others.map((other) => other.name),
+  };
 }
 
 export const maxDuration = 10;

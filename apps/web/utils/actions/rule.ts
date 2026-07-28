@@ -109,6 +109,11 @@ export const createRuleAction = actionClient
           runOnThreads: runOnThreads ?? true,
           subjectMatchMode:
             conditions.subjectMatchMode ?? SubjectMatchMode.CONTAINS,
+          staticExcludes: {
+            fromExclude: conditions.fromExclude ?? false,
+            toExclude: conditions.toExclude ?? false,
+            subjectExclude: conditions.subjectExclude ?? false,
+          },
           logger,
         });
 
@@ -169,6 +174,11 @@ export const updateRuleAction = actionClient
           runOnThreads: runOnThreads ?? undefined,
           subjectMatchMode:
             conditions.subjectMatchMode ?? SubjectMatchMode.CONTAINS,
+          staticExcludes: {
+            fromExclude: conditions.fromExclude ?? false,
+            toExclude: conditions.toExclude ?? false,
+            subjectExclude: conditions.subjectExclude ?? false,
+          },
         });
 
         return { rule };

@@ -101,12 +101,17 @@ async function getThreads({
       status: true,
       reason: true,
     },
+    // The badge shows the CURRENT decision: newest first, and a decision
+    // from a since-disabled rule is history, not the answer
+    orderBy: { createdAt: "desc" },
   });
 
   // Process threads with plans and categories
   const threadsWithPlans = await Promise.all(
     threads.map(async (thread) => {
-      const plan = plans.find((p) => p.threadId === thread.id);
+      const plan = plans.find(
+        (p) => p.threadId === thread.id && p.rule?.enabled !== false,
+      );
 
       // Filter out ignored senders from the already parsed messages
       const filteredMessages = thread.messages.filter((message) => {

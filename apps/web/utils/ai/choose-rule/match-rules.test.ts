@@ -378,6 +378,101 @@ describe("matchesStaticRule", () => {
     ).toBe(false);
   });
 
+  it("negated from matches senders NOT in the list", () => {
+    const rule = getStaticRule({ from: "@nucar.com", fromExclude: true });
+
+    expect(
+      matchesStaticRule(
+        rule,
+        getMessage({ headers: getHeaders({ from: "vendor@elsewhere.com" }) }),
+        logger,
+      ),
+    ).toBe(true);
+    expect(
+      matchesStaticRule(
+        rule,
+        getMessage({ headers: getHeaders({ from: "shawn@nucar.com" }) }),
+        logger,
+      ),
+    ).toBe(false);
+  });
+
+  it("negated subject matches emails whose subject lacks the text", () => {
+    const rule = getStaticRule({
+      subject: "Daily Report",
+      subjectExclude: true,
+    });
+
+    expect(
+      matchesStaticRule(
+        rule,
+        getMessage({ headers: getHeaders({ subject: "Lunch plans" }) }),
+        logger,
+      ),
+    ).toBe(true);
+    // Reply-prefix stripping applies to the underlying match, so a reply to
+    // the excluded topic is still excluded
+    expect(
+      matchesStaticRule(
+        rule,
+        getMessage({ headers: getHeaders({ subject: "Re: Daily Report" }) }),
+        logger,
+      ),
+    ).toBe(false);
+  });
+
+  it("combines a positive from with a negated subject", () => {
+    const rule = getStaticRule({
+      from: "@nucar.com",
+      subject: "auto-report",
+      subjectExclude: true,
+    });
+
+    expect(
+      matchesStaticRule(
+        rule,
+        getMessage({
+          headers: getHeaders({
+            from: "shawn@nucar.com",
+            subject: "Quick question",
+          }),
+        }),
+        logger,
+      ),
+    ).toBe(true);
+    expect(
+      matchesStaticRule(
+        rule,
+        getMessage({
+          headers: getHeaders({
+            from: "shawn@nucar.com",
+            subject: "auto-report for Monday",
+          }),
+        }),
+        logger,
+      ),
+    ).toBe(false);
+  });
+
+  it("negated to matches when the recipient is NOT in the list", () => {
+    const rule = getStaticRule({ to: "team@nucar.com", toExclude: true });
+
+    expect(
+      matchesStaticRule(
+        rule,
+        getMessage({ headers: getHeaders({ to: "chris@nucar.com" }) }),
+        logger,
+      ),
+    ).toBe(true);
+    expect(
+      matchesStaticRule(
+        rule,
+        getMessage({ headers: getHeaders({ to: "team@nucar.com" }) }),
+        logger,
+      ),
+    ).toBe(false);
+  });
+
   it("contains subject mode still matches mid-string", () => {
     const rule = getStaticRule({
       subject: "Invoice",
@@ -2045,6 +2140,9 @@ function getRule(overrides: Partial<RuleWithActions> = {}): RuleWithActions {
     systemType = null,
     promptText = null,
     excludeKnownContacts = false,
+    fromExclude = false,
+    toExclude = false,
+    subjectExclude = false,
     actions = [],
   } = overrides;
 
@@ -2069,6 +2167,9 @@ function getRule(overrides: Partial<RuleWithActions> = {}): RuleWithActions {
     systemType,
     promptText,
     excludeKnownContacts,
+    fromExclude,
+    toExclude,
+    subjectExclude,
     actions,
   };
 }
@@ -3460,7 +3561,14 @@ function getStaticRule(
   rule: Partial<
     Pick<
       RuleWithActions,
-      "from" | "to" | "subject" | "body" | "subjectMatchMode"
+      | "from"
+      | "to"
+      | "subject"
+      | "body"
+      | "subjectMatchMode"
+      | "fromExclude"
+      | "toExclude"
+      | "subjectExclude"
     >
   >,
 ) {

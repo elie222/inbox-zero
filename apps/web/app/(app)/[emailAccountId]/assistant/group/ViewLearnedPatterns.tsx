@@ -174,7 +174,7 @@ const AddGroupItemForm = ({
 
   return (
     <div onKeyDown={handleKeyDown}>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <Select
           label=""
           options={[
@@ -184,7 +184,7 @@ const AddGroupItemForm = ({
           {...register("type", { required: true })}
           error={errors.type}
         />
-        <div className="flex-1">
+        <div className="min-w-[10rem] flex-1">
           <Input
             type="text"
             name="value"

@@ -386,28 +386,47 @@ export function ConditionSteps({
 
                 if (uiType === "from") {
                   return (
-                    <div className="relative">
-                      <Input
-                        type="text"
-                        name={`conditions.${index}.from`}
-                        registerProps={register(`conditions.${index}.from`)}
-                        placeholder="@company.com, hello@example.com"
-                        className="pr-8"
-                        error={
-                          (
-                            errors.conditions?.[index] as {
-                              from?: FieldError;
-                            }
-                          )?.from
-                        }
-                      />
-                      <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                        <TooltipExplanation
-                          text={getFilterTooltipText("from")}
-                          side="right"
-                          size="sm"
-                          className="text-gray-400"
+                    <div className="flex flex-wrap gap-2">
+                      <Select
+                        value={currentCondition?.fromExclude ? "is_not" : "is"}
+                        onValueChange={(value) => {
+                          setValue(
+                            `conditions.${index}.fromExclude`,
+                            value === "is_not",
+                          );
+                        }}
+                      >
+                        <SelectTrigger className="w-[90px] shrink-0">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="is">Is</SelectItem>
+                          <SelectItem value="is_not">Is not</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <div className="relative min-w-[10rem] flex-1">
+                        <Input
+                          type="text"
+                          name={`conditions.${index}.from`}
+                          registerProps={register(`conditions.${index}.from`)}
+                          placeholder="@company.com, hello@example.com"
+                          className="pr-8"
+                          error={
+                            (
+                              errors.conditions?.[index] as {
+                                from?: FieldError;
+                              }
+                            )?.from
+                          }
                         />
+                        <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                          <TooltipExplanation
+                            text={getFilterTooltipText("from")}
+                            side="right"
+                            size="sm"
+                            className="text-gray-400"
+                          />
+                        </div>
                       </div>
                     </div>
                   );
@@ -415,49 +434,84 @@ export function ConditionSteps({
 
                 if (uiType === "to") {
                   return (
-                    <div className="relative">
-                      <Input
-                        type="text"
-                        name={`conditions.${index}.to`}
-                        registerProps={register(`conditions.${index}.to`)}
-                        placeholder="@company.com, hello@example.com"
-                        className="pr-8"
-                        error={
-                          (
-                            errors.conditions?.[index] as {
-                              to?: FieldError;
-                            }
-                          )?.to
-                        }
-                      />
-                      <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                        <TooltipExplanation
-                          text={getFilterTooltipText("to")}
-                          side="right"
-                          size="sm"
-                          className="text-gray-400"
+                    <div className="flex flex-wrap gap-2">
+                      <Select
+                        value={currentCondition?.toExclude ? "is_not" : "is"}
+                        onValueChange={(value) => {
+                          setValue(
+                            `conditions.${index}.toExclude`,
+                            value === "is_not",
+                          );
+                        }}
+                      >
+                        <SelectTrigger className="w-[90px] shrink-0">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="is">Is</SelectItem>
+                          <SelectItem value="is_not">Is not</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <div className="relative min-w-[10rem] flex-1">
+                        <Input
+                          type="text"
+                          name={`conditions.${index}.to`}
+                          registerProps={register(`conditions.${index}.to`)}
+                          placeholder="@company.com, hello@example.com"
+                          className="pr-8"
+                          error={
+                            (
+                              errors.conditions?.[index] as {
+                                to?: FieldError;
+                              }
+                            )?.to
+                          }
                         />
+                        <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                          <TooltipExplanation
+                            text={getFilterTooltipText("to")}
+                            side="right"
+                            size="sm"
+                            className="text-gray-400"
+                          />
+                        </div>
                       </div>
                     </div>
                   );
                 }
 
                 if (uiType === "subject") {
+                  const subjectModeValue = currentCondition?.subjectExclude
+                    ? "not_contains"
+                    : (currentCondition?.subjectMatchMode ??
+                      SubjectMatchMode.CONTAINS);
                   return (
                     <div className="flex flex-wrap gap-2">
                       <Select
-                        value={
-                          currentCondition?.subjectMatchMode ??
-                          SubjectMatchMode.CONTAINS
-                        }
+                        value={subjectModeValue}
                         onValueChange={(value) => {
-                          setValue(
-                            `conditions.${index}.subjectMatchMode`,
-                            value as SubjectMatchMode,
-                          );
+                          if (value === "not_contains") {
+                            setValue(
+                              `conditions.${index}.subjectMatchMode`,
+                              SubjectMatchMode.CONTAINS,
+                            );
+                            setValue(
+                              `conditions.${index}.subjectExclude`,
+                              true,
+                            );
+                          } else {
+                            setValue(
+                              `conditions.${index}.subjectMatchMode`,
+                              value as SubjectMatchMode,
+                            );
+                            setValue(
+                              `conditions.${index}.subjectExclude`,
+                              false,
+                            );
+                          }
                         }}
                       >
-                        <SelectTrigger className="w-[120px] shrink-0">
+                        <SelectTrigger className="w-[150px] shrink-0">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -466,6 +520,9 @@ export function ConditionSteps({
                           </SelectItem>
                           <SelectItem value={SubjectMatchMode.STARTS_WITH}>
                             Starts with
+                          </SelectItem>
+                          <SelectItem value="not_contains">
+                            Doesn't contain
                           </SelectItem>
                         </SelectContent>
                       </Select>

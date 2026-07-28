@@ -747,6 +747,9 @@ function combineReasoning(...reasons: (string | undefined)[]) {
 export function matchesStaticRule(
   rule: Pick<RuleWithActions, "from" | "to" | "subject" | "body"> & {
     subjectMatchMode?: SubjectMatchMode | null;
+    fromExclude?: boolean;
+    toExclude?: boolean;
+    subjectExclude?: boolean;
   },
   message: ParsedMessage,
   logger: Logger,
@@ -760,6 +763,9 @@ export function matchesStaticRule(
 export function getStaticConditionFailures(
   rule: Pick<RuleWithActions, "from" | "to" | "subject" | "body"> & {
     subjectMatchMode?: SubjectMatchMode | null;
+    fromExclude?: boolean;
+    toExclude?: boolean;
+    subjectExclude?: boolean;
   },
   message: ParsedMessage,
   logger: Logger,
@@ -779,7 +785,7 @@ export function getStaticConditionFailures(
 
   const failedConditions: string[] = [];
 
-  const fromMatch = from
+  const fromPatternMatch = from
     ? matchesEmailFieldPattern({
         pattern: from,
         addressText: fromAddressHeader.toLowerCase(),
@@ -792,9 +798,19 @@ export function getStaticConditionFailures(
           }),
       })
     : true;
-  if (!fromMatch && from) failedConditions.push(`From: ${from}`);
+  // An excluded condition matches when the pattern does NOT match
+  const fromMatch = from
+    ? rule.fromExclude
+      ? !fromPatternMatch
+      : fromPatternMatch
+    : true;
+  if (!fromMatch && from) {
+    failedConditions.push(
+      rule.fromExclude ? `Not From: ${from}` : `From: ${from}`,
+    );
+  }
 
-  const toMatch = to
+  const toPatternMatch = to
     ? matchesEmailFieldPattern({
         pattern: to,
         addressText: toAddressHeader.toLowerCase(),
@@ -807,14 +823,32 @@ export function getStaticConditionFailures(
           }),
       })
     : true;
-  if (!toMatch && to) failedConditions.push(`To: ${to}`);
+  const toMatch = to
+    ? rule.toExclude
+      ? !toPatternMatch
+      : toPatternMatch
+    : true;
+  if (!toMatch && to) {
+    failedConditions.push(rule.toExclude ? `Not To: ${to}` : `To: ${to}`);
+  }
 
-  const subjectMatch = subject
+  const subjectPatternMatch = subject
     ? matchesSubjectPattern(subject, message.headers.subject, log, {
         anchorStart: rule.subjectMatchMode === SubjectMatchMode.STARTS_WITH,
       })
     : true;
-  if (!subjectMatch && subject) failedConditions.push(`Subject: "${subject}"`);
+  const subjectMatch = subject
+    ? rule.subjectExclude
+      ? !subjectPatternMatch
+      : subjectPatternMatch
+    : true;
+  if (!subjectMatch && subject) {
+    failedConditions.push(
+      rule.subjectExclude
+        ? `Not Subject: "${subject}"`
+        : `Subject: "${subject}"`,
+    );
+  }
 
   const bodyMatch = body
     ? matchesTextPattern(body, message.textPlain || "", log)

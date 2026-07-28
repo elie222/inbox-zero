@@ -19,6 +19,9 @@ export type RuleConditions = Partial<
     | "subjectMatchMode"
     | "body"
     | "conditionalOperator"
+    | "fromExclude"
+    | "toExclude"
+    | "subjectExclude"
   > & {
     group?: { name: string } | null;
   }
@@ -61,6 +64,7 @@ export function getConditions(rule: RuleConditions) {
       conditions.push({
         type: ConditionType.STATIC,
         from: rule.from,
+        fromExclude: rule.fromExclude ?? false,
         to: null,
         subject: null,
         body: null,
@@ -72,6 +76,7 @@ export function getConditions(rule: RuleConditions) {
         type: ConditionType.STATIC,
         from: null,
         to: rule.to,
+        toExclude: rule.toExclude ?? false,
         subject: null,
         body: null,
         instructions: null,
@@ -84,6 +89,7 @@ export function getConditions(rule: RuleConditions) {
         to: null,
         subject: rule.subject,
         subjectMatchMode: rule.subjectMatchMode ?? null,
+        subjectExclude: rule.subjectExclude ?? false,
         body: null,
         instructions: null,
       });
@@ -142,9 +148,12 @@ export function getEmptyCondition(type: CoreConditionType): ZodCondition {
 type FlattenedConditions = {
   instructions?: string | null;
   from?: string | null;
+  fromExclude?: boolean;
   to?: string | null;
+  toExclude?: boolean;
   subject?: string | null;
   subjectMatchMode?: SubjectMatchMode | null;
+  subjectExclude?: boolean;
   body?: string | null;
 };
 
@@ -158,9 +167,18 @@ export const flattenConditions = (
         acc.instructions = condition.instructions;
         break;
       case ConditionType.STATIC:
-        if (condition.to) acc.to = condition.to;
-        if (condition.from) acc.from = condition.from;
-        if (condition.subject) acc.subject = condition.subject;
+        if (condition.to) {
+          acc.to = condition.to;
+          acc.toExclude = condition.toExclude ?? false;
+        }
+        if (condition.from) {
+          acc.from = condition.from;
+          acc.fromExclude = condition.fromExclude ?? false;
+        }
+        if (condition.subject) {
+          acc.subject = condition.subject;
+          acc.subjectExclude = condition.subjectExclude ?? false;
+        }
         if (condition.subjectMatchMode)
           acc.subjectMatchMode = condition.subjectMatchMode;
         if (condition.body) acc.body = condition.body;
@@ -217,12 +235,28 @@ export function conditionsToString(rule: RuleConditions) {
 }
 
 export function staticConditionsToString(
-  rule: Pick<RuleConditions, "from" | "to" | "subject" | "body">,
+  rule: Pick<
+    RuleConditions,
+    | "from"
+    | "to"
+    | "subject"
+    | "body"
+    | "fromExclude"
+    | "toExclude"
+    | "subjectExclude"
+  >,
 ) {
   const staticConditions: string[] = [];
-  if (rule.from) staticConditions.push(`From: ${rule.from}`);
-  if (rule.subject) staticConditions.push(`Subject: "${rule.subject}"`);
-  if (rule.to) staticConditions.push(`To: ${rule.to}`);
+  if (rule.from)
+    staticConditions.push(
+      `${rule.fromExclude ? "Not From" : "From"}: ${rule.from}`,
+    );
+  if (rule.subject)
+    staticConditions.push(
+      `${rule.subjectExclude ? "Not Subject" : "Subject"}: "${rule.subject}"`,
+    );
+  if (rule.to)
+    staticConditions.push(`${rule.toExclude ? "Not To" : "To"}: ${rule.to}`);
   if (rule.body) staticConditions.push(`Body: "${rule.body}"`);
   return staticConditions.join(", ");
 }

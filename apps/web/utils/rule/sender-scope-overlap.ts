@@ -6,6 +6,7 @@ import { splitEmailPatterns } from "@/utils/rule/email-from-pattern";
 type SenderOnlyRuleScope = {
   instructions?: string | null;
   from?: string | null;
+  fromExclude?: boolean;
   to?: string | null;
   subject?: string | null;
   body?: string | null;
@@ -62,6 +63,7 @@ export async function findSenderOnlyOverlapConflict({
       name: true,
       instructions: true,
       from: true,
+      fromExclude: true,
       to: true,
       subject: true,
       body: true,
@@ -115,6 +117,9 @@ function isSenderOnlyScope(
 ): rule is SenderOnlyRuleScope & { from: string } {
   return Boolean(
     rule.from &&
+      // A negated from isn't a sender claim — two "is not from" rules can
+      // legitimately share patterns
+      !rule.fromExclude &&
       !rule.instructions &&
       !rule.to &&
       !rule.subject &&
