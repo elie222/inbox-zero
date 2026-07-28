@@ -1,0 +1,96 @@
+"use server";
+
+import { addHours } from "date-fns/addHours";
+import { differenceInMinutes } from "date-fns/differenceInMinutes";
+import { actionClient } from "@/utils/actions/safe-action";
+import {
+  setMeetingJoinOverrideBody,
+  updateMeetingRecorderSettingsBody,
+} from "@/utils/actions/meeting-recorder.validation";
+import { fetchCalendarEventsInWindow } from "@/utils/calendar/fetch-events-in-window";
+import { SafeError } from "@/utils/error";
+import {
+  RECONCILE_WINDOW_MINUTES,
+  reconcileSingleEvent,
+  upsertMeeting,
+} from "@/utils/meeting-recorder/reconcile";
+import prisma from "@/utils/prisma";
+
+// Matches the lookahead of the upcoming-meetings API, which is what the toggle
+// list is built from.
+const OVERRIDE_LOOKAHEAD_HOURS = 48;
+const MAX_EVENTS_PER_PROVIDER = 50;
+
+export const updateMeetingRecorderSettingsAction = actionClient
+  .metadata({ name: "updateMeetingRecorderSettings" })
+  .inputSchema(updateMeetingRecorderSettingsBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput }) => {
+    await prisma.emailAccount.update({
+      where: { id: emailAccountId },
+      data: {
+        meetingRecorderEnabled: parsedInput.enabled,
+        meetingRecorderJoinRule: parsedInput.joinRule,
+        meetingRecorderRecapEmailEnabled: parsedInput.recapEmailEnabled,
+        meetingRecorderFollowUpDraftEnabled: parsedInput.followUpDraftEnabled,
+      },
+    });
+  });
+
+export const setMeetingJoinOverrideAction = actionClient
+  .metadata({ name: "setMeetingJoinOverride" })
+  .inputSchema(setMeetingJoinOverrideBody)
+  .action(
+    async ({
+      ctx: { emailAccountId, logger },
+      parsedInput: { join, calendarEventId },
+    }) => {
+      const emailAccount = await prisma.emailAccount.findUnique({
+        where: { id: emailAccountId },
+        select: {
+          id: true,
+          email: true,
+          meetingRecorderEnabled: true,
+          meetingRecorderJoinRule: true,
+        },
+      });
+      if (!emailAccount) throw new SafeError("Email account not found");
+      if (!emailAccount.meetingRecorderEnabled) {
+        throw new SafeError("The notetaker is turned off for this account");
+      }
+
+      const timeMin = new Date();
+      const events = await fetchCalendarEventsInWindow({
+        emailAccountId,
+        timeMin,
+        timeMax: addHours(timeMin, OVERRIDE_LOOKAHEAD_HOURS),
+        maxResultsPerProvider: MAX_EVENTS_PER_PROVIDER,
+        logger,
+      });
+
+      // Reading the event back from the user's own calendars is what keeps a
+      // caller from attaching themselves to a meeting that is not theirs.
+      const event = events.find(
+        (candidate) => candidate.id === calendarEventId,
+      );
+      if (!event) throw new SafeError("Meeting not found on your calendar");
+      if (!event.videoConferenceLink) {
+        throw new SafeError("This meeting has no video link to join");
+      }
+
+      await upsertMeeting({
+        emailAccountId,
+        event,
+        joinOverride: join,
+      });
+
+      // The cron picks this up on its next pass, unless the meeting starts
+      // before then, in which case waiting would mean missing the call.
+      const startsBeforeNextPass =
+        differenceInMinutes(event.startTime, new Date()) <
+        RECONCILE_WINDOW_MINUTES;
+
+      if (startsBeforeNextPass) {
+        await reconcileSingleEvent({ emailAccount, event, logger });
+      }
+    },
+  );

@@ -21,6 +21,10 @@ import MeetingBriefingEmail, {
   type MeetingBriefingEmailProps,
   generateMeetingBriefingSubject,
 } from "../emails/meeting-briefing";
+import MeetingRecapEmail, {
+  type MeetingRecapEmailProps,
+  generateMeetingRecapSubject,
+} from "../emails/meeting-recap";
 import ColdEmailNotification, {
   type ColdEmailNotificationProps,
 } from "../emails/cold-email-notification";
@@ -328,6 +332,33 @@ export const sendMeetingBriefingEmail = async ({
       {
         name: "category",
         value: "meeting-briefing",
+      },
+    ],
+  });
+
+export const sendMeetingRecapEmail = async ({
+  from,
+  to,
+  test,
+  emailProps,
+}: {
+  from: string;
+  to: string;
+  test?: boolean;
+  emailProps: MeetingRecapEmailProps;
+}) =>
+  sendEmail({
+    from,
+    to,
+    subject: generateMeetingRecapSubject(emailProps),
+    react: <MeetingRecapEmail {...emailProps} />,
+    test,
+    unsubscribeToken: emailProps.unsubscribeToken,
+    baseUrl: emailProps.baseUrl,
+    tags: [
+      {
+        name: "category",
+        value: "meeting-recap",
       },
     ],
   });

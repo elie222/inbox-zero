@@ -1,0 +1,47 @@
+import type { MeetingRecordingStatus } from "@/generated/prisma/enums";
+
+// Product-facing name of the bot that appears in the participant list.
+export const MEETING_BOT_DISPLAY_NAME = "Inbox Zero Notetaker";
+
+export interface TranscriptUtterance {
+  email?: string;
+  endTime: number;
+  isHost: boolean;
+  speakerName: string;
+  /** Seconds from the start of the recording. */
+  startTime: number;
+  text: string;
+}
+
+/** Provider-neutral transcript. Everything downstream consumes only this. */
+export type NormalizedTranscript = TranscriptUtterance[];
+
+/**
+ * A provider call that failed. `permanent` tells the reconciler whether
+ * retrying the same request could ever succeed, so it can decide between
+ * releasing its claim and leaving the row for the next pass.
+ */
+export class MeetingBotProviderError extends Error {
+  readonly permanent: boolean;
+
+  constructor(message: string, permanent: boolean) {
+    super(message);
+    this.name = "MeetingBotProviderError";
+    this.permanent = permanent;
+  }
+}
+
+export interface MeetingBotProvider {
+  /** Tolerant: a bot that is already gone or already in the call is not an error. */
+  cancelBot(externalBotId: string): Promise<void>;
+  /** Tolerant: media that is already gone is not an error. */
+  deleteMedia(externalBotId: string): Promise<void>;
+  fetchTranscript(externalTranscriptId: string): Promise<NormalizedTranscript>;
+  getBotStatus(externalBotId: string): Promise<MeetingRecordingStatus>;
+  readonly name: string;
+  rescheduleBot(externalBotId: string, params: { joinAt: Date }): Promise<void>;
+  scheduleBot(params: {
+    meetingUrl: string;
+    joinAt: Date;
+  }): Promise<{ externalBotId: string }>;
+}

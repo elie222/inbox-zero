@@ -18,6 +18,11 @@ export function useMeetingBriefsEnabled() {
   return env.NEXT_PUBLIC_MEETING_BRIEFS_ENABLED;
 }
 
+export function useMeetingRecorderEnabled() {
+  const posthogEnabled = useFeatureFlagEnabled("meeting-recorder");
+  return env.NEXT_PUBLIC_MEETING_RECORDER_ENABLED || posthogEnabled;
+}
+
 export function useIntegrationsEnabled() {
   const posthogEnabled = useFeatureFlagEnabled("integrations");
   return env.NEXT_PUBLIC_INTEGRATIONS_ENABLED || posthogEnabled;

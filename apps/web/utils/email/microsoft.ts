@@ -608,7 +608,7 @@ export class OutlookProvider implements EmailProvider {
             .patch({
               body: { contentType: "html", content: params.messageHtml },
               subject: params.subject,
-              toRecipients: [{ emailAddress: { address: params.to } }],
+              toRecipients: toGraphRecipients(params.to),
             }),
         this.logger,
       );
@@ -626,7 +626,7 @@ export class OutlookProvider implements EmailProvider {
           .post({
             subject: params.subject,
             body: { contentType: "html", content: params.messageHtml },
-            toRecipients: [{ emailAddress: { address: params.to } }],
+            toRecipients: toGraphRecipients(params.to),
           }),
       this.logger,
     );
@@ -2493,4 +2493,13 @@ function parseOutlookThreadPageToken(
   } catch {
     return;
   }
+}
+
+// Graph needs one entry per recipient. Callers pass the same comma-separated
+// string the Gmail RFC-822 path accepts, so split it rather than sending the
+// whole list as a single malformed address.
+function toGraphRecipients(to: string) {
+  return splitRecipientList(to).map((recipient) => ({
+    emailAddress: { address: extractEmailAddress(recipient) },
+  }));
 }

@@ -21,6 +21,7 @@ import {
   MailsIcon,
   MessageSquareIcon,
   MessagesSquareIcon,
+  MicIcon,
   PenIcon,
   PersonStandingIcon,
   RatioIcon,
@@ -55,6 +56,7 @@ import {
   useCleanerEnabled,
   useIntegrationsEnabled,
   useMeetingBriefsEnabled,
+  useMeetingRecorderEnabled,
 } from "@/hooks/useFeatureFlags";
 import { AccountSwitcher } from "@/components/AccountSwitcher";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -78,6 +80,7 @@ type NavItem = {
 export const useNavigation = () => {
   const showCleaner = useCleanerEnabled();
   const showMeetingBriefs = useMeetingBriefsEnabled();
+  const showMeetingRecorder = useMeetingRecorderEnabled();
   const showIntegrations = useIntegrationsEnabled();
 
   const { emailAccount, emailAccountId, provider } = useAccount();
@@ -151,6 +154,16 @@ export const useNavigation = () => {
             },
           ]
         : []),
+      ...(showMeetingRecorder
+        ? [
+            {
+              name: "Meetings",
+              href: prefixPath(currentEmailAccountId, "/meetings"),
+              icon: MicIcon,
+              beta: true,
+            },
+          ]
+        : []),
       {
         name: "Attachments",
         href: prefixPath(currentEmailAccountId, "/drive"),
@@ -168,7 +181,12 @@ export const useNavigation = () => {
           ]
         : []),
     ],
-    [currentEmailAccountId, showMeetingBriefs, showIntegrations],
+    [
+      currentEmailAccountId,
+      showMeetingBriefs,
+      showMeetingRecorder,
+      showIntegrations,
+    ],
   );
 
   return {

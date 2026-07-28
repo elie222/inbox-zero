@@ -886,3 +886,24 @@ function createMessage(input: {
     hasAttachments: false,
   };
 }
+
+describe("OutlookProvider.createDraft", () => {
+  it("addresses every recipient in a comma-separated list", async () => {
+    const post = vi.fn().mockResolvedValue({ id: "draft-1" });
+    const provider = new OutlookProvider(
+      { getClient: () => ({ api: () => ({ post }) }) } as never,
+      createTestLogger(),
+    );
+
+    await provider.createDraft({
+      to: "Alice <alice@example.com>, bob@example.com",
+      subject: "Notes from our call",
+      messageHtml: "<p>Thanks all</p>",
+    });
+
+    expect(post.mock.calls[0]?.[0]?.toRecipients).toEqual([
+      { emailAddress: { address: "alice@example.com" } },
+      { emailAddress: { address: "bob@example.com" } },
+    ]);
+  });
+});

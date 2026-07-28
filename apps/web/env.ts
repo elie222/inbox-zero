@@ -270,6 +270,9 @@ const parsedEnv = createEnv({
     POSTHOG_FEEDBACK_SURVEY_QUESTION_ID: z.string().optional(),
     POSTHOG_LLM_EVALS_APPROVED_EMAILS: z.string().optional(),
 
+    RECALL_API_KEY: z.string().optional(),
+    RECALL_WEBHOOK_SECRET: z.string().optional(),
+
     RESEND_API_KEY: z.string().optional(),
     RESEND_AUDIENCE_ID: z.string().optional(),
     RESEND_FROM_EMAIL: z
@@ -406,6 +409,7 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS: booleanString.optional(),
     NEXT_PUBLIC_DIGEST_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_MEETING_BRIEFS_ENABLED: booleanString.optional(),
+    NEXT_PUBLIC_MEETING_RECORDER_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_INTEGRATIONS_ENABLED: booleanString.optional(),
     NEXT_PUBLIC_SMART_FILING_ENABLED: booleanString.optional(),
@@ -506,6 +510,8 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_DIGEST_ENABLED: process.env.NEXT_PUBLIC_DIGEST_ENABLED,
     NEXT_PUBLIC_MEETING_BRIEFS_ENABLED:
       process.env.NEXT_PUBLIC_MEETING_BRIEFS_ENABLED,
+    NEXT_PUBLIC_MEETING_RECORDER_ENABLED:
+      process.env.NEXT_PUBLIC_MEETING_RECORDER_ENABLED,
     NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED:
       process.env.NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED,
     NEXT_PUBLIC_INTEGRATIONS_ENABLED:
