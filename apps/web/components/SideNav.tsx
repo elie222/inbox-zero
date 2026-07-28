@@ -560,9 +560,12 @@ function MailNav({ path }: { path: string }) {
   const { emailAccountId, provider } = useAccount();
   const searchParams = useSearchParams();
   const terminology = getEmailTerminology(provider);
+  // Each poll fans out to ~1 Gmail call per label; the SSE inbox stream
+  // already triggers a refresh when new mail arrives, so this only needs to
+  // be a slow fallback
   const { data: countsData } = useSWR<LabelCountsResponse>(
     "/api/labels/counts",
-    { refreshInterval: 60_000, revalidateOnFocus: false },
+    { refreshInterval: 300_000, revalidateOnFocus: false },
   );
   const counts = countsData?.counts;
 

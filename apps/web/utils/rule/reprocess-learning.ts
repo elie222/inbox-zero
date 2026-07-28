@@ -33,6 +33,7 @@ export async function recordReprocessLearning({
   threadId,
   keepLabelId,
   strippedLabelIds,
+  knownSender,
   logger,
 }: {
   emailAccountId: string;
@@ -41,9 +42,13 @@ export async function recordReprocessLearning({
   threadId: string;
   keepLabelId: string | null;
   strippedLabelIds: string[];
+  // The caller usually already fetched the thread's messages — pass the
+  // sender in to skip a redundant per-message Gmail round trip
+  knownSender?: string | null;
   logger: Logger;
 }) {
-  const sender = await fetchSenderFromMessage(messageId, provider, logger);
+  const sender =
+    knownSender ?? (await fetchSenderFromMessage(messageId, provider, logger));
   if (!sender) {
     logger.info("No sender found for reprocess learning, skipping");
     return;

@@ -471,7 +471,10 @@ async function emailProviderMiddleware(
             id: emailAccountId,
             userId, // ensure it belongs to the user
           },
-          include: {
+          // Runs on every authenticated API request — select only the two
+          // fields the provider needs instead of every column
+          select: {
+            id: true,
             account: {
               select: {
                 provider: true,

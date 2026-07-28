@@ -47,6 +47,7 @@ import { aiExtractContactsFromEmail } from "@/utils/ai/contacts/extract-contacts
 import { aiResearchCompany } from "@/utils/ai/companies/research-company";
 import type { EmailForLLM } from "@/utils/types";
 import prisma from "@/utils/prisma";
+import { runWithBackgroundLoggerFlush } from "@/utils/logger-flush";
 
 export const updateContactAction = actionClient
   .metadata({ name: "updateContact" })
@@ -303,7 +304,13 @@ export const setGoogleContactsSyncAction = actionClient
         mode === GoogleContactsSyncMode.TWO_WAY &&
         previous?.googleContactsSyncMode !== GoogleContactsSyncMode.TWO_WAY
       ) {
-        after(() => pushAllSavedContactsToGoogle({ emailAccountId, logger }));
+        after(() =>
+          runWithBackgroundLoggerFlush({
+            logger,
+            task: () =>
+              pushAllSavedContactsToGoogle({ emailAccountId, logger }),
+          }),
+        );
       }
 
       if (mode !== GoogleContactsSyncMode.OFF) {

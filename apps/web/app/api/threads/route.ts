@@ -104,6 +104,10 @@ async function getThreads({
     // The badge shows the CURRENT decision: newest first, and a decision
     // from a since-disabled rule is history, not the answer
     orderBy: { createdAt: "desc" },
+    // Reprocessing appends a row per run, so a thread can accumulate many
+    // executions; the newest-per-thread is all the badge needs. Cap the
+    // payload so a heavily-reprocessed page can't pull thousands of rows.
+    take: (query.limit || 50) * 3,
   });
 
   // Process threads with plans and categories

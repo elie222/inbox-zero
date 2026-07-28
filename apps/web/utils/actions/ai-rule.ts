@@ -25,6 +25,7 @@ import { suppressLabelLearning } from "@/utils/redis/label-learning-suppression"
 import { recordReprocessLearning } from "@/utils/rule/reprocess-learning";
 import { findLabelByName } from "@/utils/label/find-label-by-name";
 import { normalizeLabelName } from "@/utils/label/normalize-label-name";
+import { extractEmailAddress } from "@/utils/email";
 
 export const runRulesAction = actionClient
   .metadata({ name: "runRules" })
@@ -172,6 +173,20 @@ export const runRulesAction = actionClient
         ruleCount: rules.length,
       });
 
+      // A live rerun replaces the prior decision rather than stacking a new
+      // ExecutedRule on top — otherwise reprocessing the same message over
+      // and over grows the table unbounded (and the mail list has to page
+      // through all of them). Test runs never persist, so skip them.
+      if (rerun && !isTest) {
+        await prisma.executedRule
+          .deleteMany({ where: { emailAccountId, threadId, messageId } })
+          .catch((error) => {
+            logger.warn("Failed to clear prior executions before rerun", {
+              error,
+            });
+          });
+      }
+
       logger.info("Invoking runRules");
       // Same model tier as the live webhook (process-history-item), so
       // manual runs and the reprocess dialog's dry-run agree with what
@@ -267,6 +282,14 @@ export const finalizeReprocessAction = actionClient
       const presentLabelIds = new Set(
         messages.flatMap((message) => message.labelIds ?? []),
       );
+      // Reuse the sender from the messages we just fetched instead of
+      // having the learning step fetch the message again
+      const reprocessedMessage = messages.find(
+        (message) => message.id === messageId,
+      );
+      const knownSender = reprocessedMessage
+        ? extractEmailAddress(reprocessedMessage.headers.from)
+        : null;
 
       const stripIds = [...presentLabelIds].filter(
         (id) => userLabelIds.has(id) && id !== keepLabelId,
@@ -300,6 +323,7 @@ export const finalizeReprocessAction = actionClient
         threadId,
         keepLabelId,
         strippedLabelIds: stripIds,
+        knownSender,
         logger,
       }).catch((error) => {
         logger.error("Failed to record reprocess learning", { error });

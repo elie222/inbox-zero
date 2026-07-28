@@ -580,27 +580,6 @@ export function EmailList({
               {selectedCount} selected
             </span>
           )}
-          {/* <div className="ml-auto gap-1 flex items-center">
-            <Button variant="ghost" size='icon'>
-              <ChevronLeftIcon className='h-4 w-4' />
-            </Button>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost">Today</Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem>All</DropdownMenuItem>
-                <DropdownMenuItem>Today</DropdownMenuItem>
-                <DropdownMenuItem>Yesterday</DropdownMenuItem>
-                <DropdownMenuItem>Last week</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            <Button variant="ghost" size='icon'>
-              <ChevronRightIcon className='h-4 w-4' />
-            </Button>
-          </div> */}
         </div>
       )}
 
