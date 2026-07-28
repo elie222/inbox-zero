@@ -26,6 +26,7 @@ export interface RecallEmulatorBot {
   join_at: string | null;
   media_deleted: boolean;
   meeting_url: string;
+  recording_id: string;
   status_changes: Array<{ code: string; sub_code: string | null }>;
   transcript_id: string | null;
 }
@@ -58,7 +59,11 @@ export interface RecallEmulator {
   advance(botId: string, code: string, subCode?: string): void;
   apiBase: string;
   apiKey: string;
-  /** Attach transcript JSON and return the transcript id the webhook carries. */
+  /**
+   * Queue the transcript a recording will yield. It is only produced once
+   * `create_transcript` has been called for that recording, mirroring Recall's
+   * async flow, and the returned id is what `transcript.done` carries.
+   */
   attachTranscript(
     botId: string,
     turns: RecallEmulatorTranscriptTurn[],
@@ -69,6 +74,8 @@ export interface RecallEmulator {
   reset(): void;
   /** Build the Svix-signed request Recall would POST to our webhook route. */
   signWebhook(payload: unknown, overrides?: SignWebhookOverrides): Request;
+  /** Whether async transcription was requested for this bot's recording. */
+  transcriptRequested(botId: string): boolean;
   url: string;
   webhookSecret: string;
 }
@@ -89,7 +96,12 @@ export async function createRecallEmulator({
   webhookSecret?: string;
 } = {}): Promise<RecallEmulator> {
   const bots = new Map<string, RecallEmulatorBot>();
-  const transcripts = new Map<string, RecallEmulatorTranscriptTurn[]>();
+  // Queued when a test attaches one; moved to produced only once
+  // create_transcript has been called, so a client that never asks for
+  // transcription never sees a transcript.
+  const pendingTranscripts = new Map<string, RecallEmulatorTranscriptTurn[]>();
+  const producedTranscripts = new Map<string, RecallEmulatorTranscriptTurn[]>();
+  const recordingToBot = new Map<string, string>();
   const requests: RecallEmulatorRequest[] = [];
   let nextId = 1;
 
@@ -137,7 +149,7 @@ export async function createRecallEmulator({
     // The transcript download is a presigned URL, so it carries no auth header.
     const download = /^\/download\/([^/]+)$/.exec(path);
     if (download && method === "GET") {
-      const turns = transcripts.get(download[1] as string);
+      const turns = producedTranscripts.get(download[1] as string);
       if (!turns) return { status: 404, body: { detail: "Not found." } };
       return { status: 200, body: turns };
     }
@@ -166,6 +178,13 @@ export async function createRecallEmulator({
       return { status: 200, body: {} };
     }
 
+    const createTranscript = /^\/recording\/([^/]+)\/create_transcript\/$/.exec(
+      apiPath,
+    );
+    if (createTranscript && method === "POST") {
+      return startTranscription(createTranscript[1] as string, body);
+    }
+
     const botPath = /^\/bot\/([^/]+)\/$/.exec(apiPath);
     if (botPath) {
       return handleBot({ botId: botPath[1] as string, method, body });
@@ -174,7 +193,7 @@ export async function createRecallEmulator({
     const transcriptPath = /^\/transcript\/([^/]+)\/$/.exec(apiPath);
     if (transcriptPath && method === "GET") {
       const transcriptId = transcriptPath[1] as string;
-      if (!transcripts.has(transcriptId)) {
+      if (!producedTranscripts.has(transcriptId)) {
         return { status: 404, body: { detail: "Not found." } };
       }
       return {
@@ -218,11 +237,38 @@ export async function createRecallEmulator({
       join_at: payload.join_at ?? null,
       status_changes: [{ code: "ready", sub_code: null }],
       media_deleted: false,
+      recording_id: `rec_${nextId++}`,
       transcript_id: null,
     };
     bots.set(bot.id, bot);
+    recordingToBot.set(bot.recording_id, bot.id);
 
     return { status: 201, body: serializeBot(bot) };
+  }
+
+  function startTranscription(
+    recordingId: string,
+    body: unknown,
+  ): { status: number; body?: unknown } {
+    const botId = recordingToBot.get(recordingId);
+    const bot = botId ? bots.get(botId) : undefined;
+    if (!bot) return { status: 404, body: { detail: "Not found." } };
+
+    const payload = body as { provider?: Record<string, unknown> } | undefined;
+    if (!payload?.provider) {
+      return { status: 400, body: { provider: ["This field is required."] } };
+    }
+
+    const transcriptId = bot.transcript_id;
+    if (!transcriptId) {
+      // Nothing was queued for this bot, so transcription yields nothing.
+      return { status: 200, body: {} };
+    }
+
+    const turns = pendingTranscripts.get(transcriptId);
+    if (turns) producedTranscripts.set(transcriptId, turns);
+
+    return { status: 200, body: { id: transcriptId } };
   }
 
   function handleBot({
@@ -285,9 +331,14 @@ export async function createRecallEmulator({
       const bot = bots.get(botId);
       if (!bot) throw new Error(`Unknown bot ${botId}`);
       const transcriptId = `transcript_${nextId++}`;
-      transcripts.set(transcriptId, turns);
+      pendingTranscripts.set(transcriptId, turns);
       bot.transcript_id = transcriptId;
       return transcriptId;
+    },
+
+    transcriptRequested(botId) {
+      const bot = bots.get(botId);
+      return !!bot?.transcript_id && producedTranscripts.has(bot.transcript_id);
     },
 
     signWebhook(payload, overrides = {}) {
@@ -316,7 +367,9 @@ export async function createRecallEmulator({
 
     reset() {
       bots.clear();
-      transcripts.clear();
+      pendingTranscripts.clear();
+      producedTranscripts.clear();
+      recordingToBot.clear();
       requests.length = 0;
       nextId = 1;
     },
@@ -334,9 +387,7 @@ export async function createRecallEmulator({
       bot_name: bot.bot_name,
       join_at: bot.join_at,
       status_changes: bot.status_changes,
-      recordings: bot.transcript_id
-        ? [{ id: `rec_${bot.id}`, transcript_id: bot.transcript_id }]
-        : [],
+      recordings: [{ id: bot.recording_id, transcript_id: bot.transcript_id }],
     };
   }
 }
@@ -363,6 +414,16 @@ export const recallWebhookPayloads = {
       data: {
         bot: { id: botId },
         data: { code, sub_code: subCode ?? null },
+      },
+    };
+  },
+  recordingDone(botId: string, recordingId: string) {
+    return {
+      event: "recording.done",
+      data: {
+        bot: { id: botId },
+        recording: { id: recordingId },
+        data: { code: "done", sub_code: null },
       },
     };
   },

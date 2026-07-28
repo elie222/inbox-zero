@@ -32,6 +32,12 @@ export class MeetingBotProviderError extends Error {
 export interface MeetingBotProvider {
   /** Tolerant: a bot that is already gone or already in the call is not an error. */
   cancelBot(externalBotId: string): Promise<void>;
+  /**
+   * Asks the provider to start producing a transcript for a finished
+   * recording. Providers that transcribe automatically may make this a no-op,
+   * but the caller must always invoke it once the recording is ready.
+   */
+  createTranscript(externalRecordingId: string): Promise<void>;
   /** Tolerant: media that is already gone is not an error. */
   deleteMedia(externalBotId: string): Promise<void>;
   fetchTranscript(externalTranscriptId: string): Promise<NormalizedTranscript>;

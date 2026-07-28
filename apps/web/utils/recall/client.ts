@@ -47,21 +47,16 @@ export class RecallBotProvider implements MeetingBotProvider {
     meetingUrl: string;
     joinAt: Date;
   }): Promise<{ externalBotId: string }> {
+    // No transcript config here on purpose: `recallai_async` is not a
+    // bot-creation provider. Async transcription is requested per recording,
+    // after `recording.done`, via createTranscript below.
+    // https://docs.recall.ai/docs/bot-async-transcription
     const response = await this.request("/bot/", {
       method: "POST",
       body: {
         meeting_url: meetingUrl,
         bot_name: MEETING_BOT_DISPLAY_NAME,
         join_at: joinAt.toISOString(),
-        recording_config: {
-          transcript: {
-            provider: {
-              recallai_async: {
-                diarization: { use_separate_streams_when_available: true },
-              },
-            },
-          },
-        },
       },
     });
 
@@ -94,6 +89,18 @@ export class RecallBotProvider implements MeetingBotProvider {
       }
       throw error;
     }
+  }
+
+  async createTranscript(externalRecordingId: string): Promise<void> {
+    // Diarization sits at the top level here, not inside the provider object,
+    // which is where it goes for the real-time provider at bot creation.
+    await this.request(`/recording/${externalRecordingId}/create_transcript/`, {
+      method: "POST",
+      body: {
+        provider: { recallai_async: { language_code: "auto" } },
+        diarization: { use_separate_streams_when_available: true },
+      },
+    });
   }
 
   async fetchTranscript(

@@ -20,6 +20,7 @@ export class FakeBotProvider implements MeetingBotProvider {
   readonly rescheduled: Array<{ botId: string; joinAt: Date }> = [];
   readonly cancelled: string[] = [];
   readonly deletedMedia: string[] = [];
+  readonly transcriptsRequested: string[] = [];
 
   /** Set to make the next scheduleBot fail. */
   failNextSchedule: { permanent: boolean } | null = null;
@@ -59,6 +60,10 @@ export class FakeBotProvider implements MeetingBotProvider {
     this.cancelled.push(externalBotId);
   }
 
+  async createTranscript(externalRecordingId: string): Promise<void> {
+    this.transcriptsRequested.push(externalRecordingId);
+  }
+
   async fetchTranscript(): Promise<NormalizedTranscript> {
     return this.transcript;
   }
@@ -76,6 +81,7 @@ export class FakeBotProvider implements MeetingBotProvider {
     this.rescheduled.length = 0;
     this.cancelled.length = 0;
     this.deletedMedia.length = 0;
+    this.transcriptsRequested.length = 0;
     this.failNextSchedule = null;
     this.nextId = 1;
   }

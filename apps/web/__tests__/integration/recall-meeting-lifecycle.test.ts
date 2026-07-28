@@ -114,13 +114,16 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       const written = prismaMock.meetingRecording.updateMany.mock.calls.map(
         (call) => (call[0] as { data: { status: string } }).data.status,
       );
+      // The bot finishing does not mean the transcript exists, so `done` only
+      // takes the recording as far as CALL_ENDED. DONE is reserved for the
+      // point where a transcript has actually been stored.
       expect(written).toEqual([
         MeetingRecordingStatus.JOINING,
         MeetingRecordingStatus.IN_WAITING_ROOM,
         MeetingRecordingStatus.IN_CALL,
         MeetingRecordingStatus.RECORDING,
         MeetingRecordingStatus.CALL_ENDED,
-        MeetingRecordingStatus.DONE,
+        MeetingRecordingStatus.CALL_ENDED,
       ]);
 
       // The transcript arrives on its own event, after the call is over.
@@ -146,6 +149,14 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
           ],
         },
       ]);
+
+      // Async transcription has to be asked for; `recording.done` is what
+      // triggers it, and without this step no transcript is ever produced.
+      const recordingId = emulator.getBot(externalBotId)?.recording_id ?? "";
+      await deliver(
+        recallWebhookPayloads.recordingDone(externalBotId, recordingId),
+      );
+      expect(emulator.transcriptRequested(externalBotId)).toBe(true);
 
       prismaMock.meetingRecording.findUnique.mockResolvedValue({
         id: "recording-1",

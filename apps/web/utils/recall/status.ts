@@ -10,7 +10,10 @@ const RECALL_CODE_TO_STATUS: Record<string, MeetingRecordingStatus> = {
   recording_permission_allowed: MeetingRecordingStatus.IN_CALL,
   in_call_recording: MeetingRecordingStatus.RECORDING,
   call_ended: MeetingRecordingStatus.CALL_ENDED,
-  done: MeetingRecordingStatus.DONE,
+  // The bot being done only means it left the call. The transcript is produced
+  // afterwards, so DONE is reserved for the point where we have actually stored
+  // one; until then there is nothing for the user to read.
+  done: MeetingRecordingStatus.CALL_ENDED,
   recording_permission_denied: MeetingRecordingStatus.FAILED,
   fatal: MeetingRecordingStatus.FAILED,
 };

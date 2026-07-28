@@ -1,6 +1,7 @@
 import type { MeetingRecordingStatus } from "@/generated/prisma/enums";
 import { captureException } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
+import { createMeetingBotProvider } from "@/utils/meeting-recorder/create-bot-provider";
 import { enqueueTranscriptFetch } from "@/utils/meeting-recorder/enqueue-processing";
 import {
   getStatusesBelow,
@@ -84,4 +85,55 @@ export async function handleTranscriptReady({
   });
 
   await enqueueTranscriptFetch({ recordingId: recording.id, logger });
+}
+
+/**
+ * The recording is finished and can be transcribed. Providers that transcribe
+ * asynchronously need to be asked to start, which is a separate call from
+ * scheduling the bot.
+ *
+ * Claimed on `externalRecordingId` so a redelivered event cannot ask for the
+ * same recording to be transcribed twice, which would bill twice and produce
+ * two `transcript.done` events.
+ */
+export async function handleRecordingReady({
+  botProvider,
+  externalBotId,
+  externalRecordingId,
+  logger,
+}: {
+  botProvider: string;
+  externalBotId: string;
+  externalRecordingId: string;
+  logger: Logger;
+}): Promise<void> {
+  const claim = await prisma.meetingRecording.updateMany({
+    where: {
+      botProvider,
+      externalBotId,
+      externalRecordingId: null,
+    },
+    data: { externalRecordingId },
+  });
+
+  if (claim.count === 0) {
+    logger.info("Transcription already requested for this recording", {
+      externalBotId,
+    });
+    return;
+  }
+
+  try {
+    const provider = createMeetingBotProvider(botProvider, logger);
+    await provider.createTranscript(externalRecordingId);
+    logger.info("Requested transcription", { externalBotId });
+  } catch (error) {
+    // Release the claim so the redelivery retries rather than silently
+    // leaving a recording that is never transcribed.
+    await prisma.meetingRecording.updateMany({
+      where: { botProvider, externalBotId, externalRecordingId },
+      data: { externalRecordingId: null },
+    });
+    throw error;
+  }
 }

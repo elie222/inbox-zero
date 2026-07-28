@@ -5,6 +5,7 @@ import { captureException } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
 import {
   handleBotStatusChange,
+  handleRecordingReady,
   handleTranscriptReady,
 } from "@/utils/meeting-recorder/webhook-handlers";
 import { withError } from "@/utils/middleware";
@@ -88,6 +89,24 @@ async function processRecallEvent(
       botProvider: BOT_PROVIDER,
       externalBotId,
       externalTranscriptId,
+      logger: eventLogger,
+    });
+    return;
+  }
+
+  // The recording being ready is what starts async transcription; the bot
+  // finishing does not. Without this the transcript is never produced.
+  if (payload.event === "recording.done") {
+    const externalRecordingId = payload.data.recording?.id;
+    if (!externalRecordingId) {
+      eventLogger.warn("Ignored recording event without a recording id");
+      return;
+    }
+
+    await handleRecordingReady({
+      botProvider: BOT_PROVIDER,
+      externalBotId,
+      externalRecordingId,
       logger: eventLogger,
     });
     return;

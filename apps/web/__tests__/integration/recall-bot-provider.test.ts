@@ -61,17 +61,46 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
 
       const create = emulator.requests.find((r) => r.method === "POST");
       expect(create?.authorization).toBe(`Token ${emulator.apiKey}`);
-      expect(create?.body).toMatchObject({
-        recording_config: {
-          transcript: {
-            provider: {
-              recallai_async: {
-                diarization: { use_separate_streams_when_available: true },
-              },
-            },
-          },
-        },
+      // `recallai_async` is not a bot-creation provider, so no transcript
+      // config belongs here. Sending one would be rejected or ignored, and
+      // either way no transcript would ever be produced.
+      expect(create?.body).not.toHaveProperty("recording_config");
+    });
+
+    test("requests async transcription for a finished recording", async () => {
+      const { externalBotId } = await provider.scheduleBot({
+        meetingUrl: "https://meet.google.com/abc-defg-hij",
+        joinAt: new Date("2026-05-04T09:00:00.000Z"),
       });
+      const recordingId = emulator.getBot(externalBotId)?.recording_id ?? "";
+      emulator.attachTranscript(externalBotId, TURNS);
+
+      await provider.createTranscript(recordingId);
+
+      const request = emulator.requests.find((r) =>
+        r.path.endsWith(`/recording/${recordingId}/create_transcript/`),
+      );
+      expect(request?.method).toBe("POST");
+      expect(request?.body).toEqual({
+        provider: { recallai_async: { language_code: "auto" } },
+        // Diarization sits at the top level for the async provider, not inside
+        // the provider object as it does for real-time at bot creation.
+        diarization: { use_separate_streams_when_available: true },
+      });
+      expect(emulator.transcriptRequested(externalBotId)).toBe(true);
+    });
+
+    test("produces no transcript until transcription has been requested", async () => {
+      const { externalBotId } = await provider.scheduleBot({
+        meetingUrl: "https://meet.google.com/abc-defg-hij",
+        joinAt: new Date("2026-05-04T09:00:00.000Z"),
+      });
+      const transcriptId = emulator.attachTranscript(externalBotId, TURNS);
+
+      // This is the bug the original implementation had: the bot was created
+      // with an async transcript config and nothing ever asked for the
+      // transcript, so this fetch is all the user would have got.
+      await expect(provider.fetchTranscript(transcriptId)).rejects.toThrow();
     });
 
     test("moves a scheduled bot to a new start time", async () => {
@@ -120,6 +149,9 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         joinAt: new Date("2026-05-04T09:00:00.000Z"),
       });
       const transcriptId = emulator.attachTranscript(externalBotId, TURNS);
+      await provider.createTranscript(
+        emulator.getBot(externalBotId)?.recording_id ?? "",
+      );
 
       const transcript = await provider.fetchTranscript(transcriptId);
 
