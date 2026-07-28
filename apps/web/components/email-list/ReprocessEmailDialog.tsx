@@ -41,6 +41,7 @@ export function ReprocessEmailDialog({
   const [proposal, setProposal] = useState<{
     ruleName: string | null;
     folderName: string | null;
+    reason: string | null;
   } | null>(null);
   const [checking, setChecking] = useState(true);
   const [applying, setApplying] = useState(false);
@@ -98,7 +99,11 @@ export function ReprocessEmailDialog({
           onClose();
           return;
         }
-        setProposal({ ruleName: matched?.rule?.name ?? null, folderName });
+        setProposal({
+          ruleName: matched?.rule?.name ?? null,
+          folderName,
+          reason: result.data.find((entry) => !entry.rule)?.reason ?? null,
+        });
       } finally {
         setChecking(false);
       }
@@ -177,17 +182,22 @@ export function ReprocessEmailDialog({
                       ? ` — it currently sits in ${currentFolderNames.join(", ")}.`
                       : "."}
                   </>
-                ) : currentFolderNames.length ? (
-                  <>
-                    It currently sits in {currentFolderNames.join(", ")}.
-                    Applying removes it from{" "}
-                    {currentFolderNames.length === 1
-                      ? "that folder"
-                      : "those folders"}{" "}
-                    and returns it to the inbox.
-                  </>
                 ) : (
-                  <>Nothing to move — no rule files this email anywhere.</>
+                  <>
+                    {proposal.reason ? `${proposal.reason} ` : ""}
+                    {currentFolderNames.length ? (
+                      <>
+                        It currently sits in {currentFolderNames.join(", ")}.
+                        Applying removes it from{" "}
+                        {currentFolderNames.length === 1
+                          ? "that folder"
+                          : "those folders"}{" "}
+                        and returns it to the inbox.
+                      </>
+                    ) : (
+                      <>Nothing to move — no rule files this email anywhere.</>
+                    )}
+                  </>
                 )}
               </DialogDescription>
             </DialogHeader>
