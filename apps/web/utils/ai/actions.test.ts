@@ -15,6 +15,7 @@ import {
   sendMessagingRuleNotification,
 } from "@/utils/messaging/rule-notifications";
 import { handlePreviousDraftDeletion } from "@/utils/ai/choose-rule/draft-management";
+import { sendColdEmailNotification } from "@/utils/cold-email/send-notification";
 import type { ParsedMessage } from "@/utils/types";
 import prisma from "@/utils/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
@@ -61,6 +62,10 @@ vi.mock("@/utils/ai/choose-rule/draft-management", () => ({
   handlePreviousDraftDeletion: vi.fn().mockResolvedValue({
     shouldCreateDraft: true,
   }),
+}));
+
+vi.mock("@/utils/cold-email/send-notification", () => ({
+  sendColdEmailNotification: vi.fn().mockResolvedValue({ success: true }),
 }));
 
 vi.mock("@/utils/prisma", () => ({
@@ -685,5 +690,39 @@ describe("runActionFunction", () => {
     });
 
     expect(client.trashThread).not.toHaveBeenCalled();
+  });
+
+  describe("notify sender", () => {
+    const runNotifySender = (from: string) =>
+      runActionFunction({
+        client: createMockEmailProvider(),
+        email: { ...email, headers: { ...email.headers, from } },
+        action: { id: "action-1", type: ActionType.NOTIFY_SENDER },
+        emailAccount,
+        executedRule: {
+          id: "executed-rule-1",
+          threadId: "thread-1",
+          emailAccountId: "account-1",
+          ruleId: "rule-1",
+        } as any,
+        logger,
+      });
+
+    it("notifies an external sender", async () => {
+      await runNotifySender("outreach@vendor.com");
+
+      expect(sendColdEmailNotification).toHaveBeenCalledWith(
+        expect.objectContaining({ senderEmail: "outreach@vendor.com" }),
+      );
+    });
+
+    it.each([
+      ["a colleague on the account owner's domain", "ceo@example.com"],
+      ["the account owner", "user@example.com"],
+    ])("does not notify %s", async (_name, from) => {
+      await runNotifySender(from);
+
+      expect(sendColdEmailNotification).not.toHaveBeenCalled();
+    });
   });
 });
