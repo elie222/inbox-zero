@@ -318,6 +318,24 @@ describe("process-label-added-event", () => {
         );
       });
 
+      it("should only read the thread once when a whole thread is junked", async () => {
+        mockThreadSenders("cold@vendor.com", "cold@vendor.com");
+        vi.mocked(fetchSenderFromMessage).mockResolvedValue("cold@vendor.com");
+        const spamLearnedThreadIds = new Set<string>();
+        const options = { ...defaultOptions, spamLearnedThreadIds };
+
+        // Gmail fires one event per message in the junked thread.
+        await handleLabelAddedEvent(createLabelAddedItem(), options, logger);
+        await handleLabelAddedEvent(
+          createLabelAddedItem("456", "thread-123"),
+          options,
+          logger,
+        );
+
+        expect(mockProvider.getThreadMessages).toHaveBeenCalledTimes(1);
+        expect(saveLearnedPattern).toHaveBeenCalledTimes(1);
+      });
+
       it.each([
         ["the account has no cold email rule", null],
         ["the sender is already known", { id: "rule-123", groupId: "group-1" }],

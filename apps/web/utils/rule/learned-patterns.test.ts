@@ -16,6 +16,61 @@ describe("saveLearnedPattern", () => {
     vi.clearAllMocks();
   });
 
+  // A caller that omits a field must not reset it. Overwriting exclude would silently
+  // re-block a sender the user had corrected, and overwriting source would lose how the
+  // pattern was first learned.
+  describe("updating an existing pattern", () => {
+    const getUpsertArgs = () =>
+      vi.mocked(prisma.groupItem.upsert).mock.calls[0][0] as any;
+
+    beforeEach(() => {
+      vi.mocked(prisma.rule.findUnique).mockResolvedValue({
+        id: "rule-id",
+        name: "Test Rule",
+        groupId: "group-id",
+      } as any);
+      vi.mocked(prisma.groupItem.upsert).mockResolvedValue({} as any);
+    });
+
+    it("leaves exclude untouched when the caller omits it", async () => {
+      await saveLearnedPattern({
+        emailAccountId: "email-account-id",
+        from: "test@example.com",
+        ruleId: "rule-id",
+        source: GroupItemSource.AI,
+        logger: createTestLogger(),
+      });
+
+      expect(getUpsertArgs().update.exclude).toBeUndefined();
+      expect(getUpsertArgs().create.exclude).toBe(false);
+    });
+
+    it("never overwrites source", async () => {
+      await saveLearnedPattern({
+        emailAccountId: "email-account-id",
+        from: "test@example.com",
+        ruleId: "rule-id",
+        source: GroupItemSource.AI,
+        logger: createTestLogger(),
+      });
+
+      expect(getUpsertArgs().update).not.toHaveProperty("source");
+      expect(getUpsertArgs().create.source).toBe(GroupItemSource.AI);
+    });
+
+    it("still applies exclude when the caller passes it", async () => {
+      await saveLearnedPattern({
+        emailAccountId: "email-account-id",
+        from: "test@example.com",
+        ruleId: "rule-id",
+        exclude: true,
+        logger: createTestLogger(),
+      });
+
+      expect(getUpsertArgs().update.exclude).toBe(true);
+    });
+  });
+
   it("should return early if rule not found", async () => {
     vi.mocked(prisma.rule.findUnique).mockResolvedValue(null);
 
@@ -54,7 +109,7 @@ describe("saveLearnedPattern", () => {
           value: "test@example.com",
         },
       },
-      update: expect.objectContaining({ exclude: false }),
+      update: expect.objectContaining({ exclude: undefined }),
       create: expect.objectContaining({
         groupId: existingGroupId,
         type: GroupItemType.FROM,
@@ -133,7 +188,6 @@ describe("saveLearnedPattern", () => {
         reason: "User excluded",
         threadId: undefined,
         messageId: undefined,
-        source: GroupItemSource.USER,
       },
       create: {
         groupId: "group-id",

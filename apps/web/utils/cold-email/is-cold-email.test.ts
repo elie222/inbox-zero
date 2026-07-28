@@ -141,6 +141,28 @@ describe("isColdEmail", () => {
     });
   });
 
+  // Blocking a sender we could not verify is worse than missing a cold email.
+  it("should not classify as cold when prior contact cannot be checked", async () => {
+    vi.mocked(prisma.groupItem.findFirst).mockResolvedValue(null);
+
+    const result = await isColdEmail({
+      email: {
+        id: "msg-no-date",
+        from: "unknown@example.com",
+        to: "user@test.com",
+        subject: "Hello",
+        content: "Hello",
+        date: undefined as never,
+      },
+      emailAccount: getEmailAccount({ id: "test-account-id" }),
+      provider: mockProvider as never,
+      coldEmailRule: { instructions: "test instructions", groupId: "group-id" },
+    });
+
+    expect(result.isColdEmail).toBe(false);
+    expect(result.reason).toBe("hasPreviousEmail");
+  });
+
   it("should handle various email formats consistently", async () => {
     const emailAccount = getEmailAccount({ id: "test-account-id" });
     const normalizedEmail = "sender@example.com";

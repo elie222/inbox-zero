@@ -12,7 +12,7 @@ export async function saveLearnedPattern({
   emailAccountId,
   from,
   ruleId,
-  exclude = false,
+  exclude,
   logger,
   reason,
   threadId,
@@ -55,18 +55,20 @@ export async function saveLearnedPattern({
         value: from,
       },
     },
+    // Undefined fields are left untouched by Prisma, so a caller only overwrites what
+    // it actually knows. `source` records how the pattern was first learned: rewriting
+    // it would erase a user's own correction and break undoing a junk action.
     update: {
       exclude,
       reason,
       threadId,
       messageId,
-      source,
     },
     create: {
       groupId,
       type: GroupItemType.FROM,
       value: from,
-      exclude,
+      exclude: exclude ?? false,
       reason,
       threadId,
       messageId,

@@ -95,6 +95,8 @@ export async function isColdEmail({
     return { isColdEmail: false, reason: "excluded" };
   }
 
+  // Without a date or id we cannot check for prior contact. Assume there was some:
+  // blocking a sender we could not verify is worse than missing a cold email.
   const hasPreviousEmail =
     email.date && email.id
       ? await provider.hasPreviousCommunicationsWithSenderOrDomain({
@@ -102,7 +104,7 @@ export async function isColdEmail({
           date: email.date,
           messageId: email.id,
         })
-      : false;
+      : true;
 
   if (hasPreviousEmail) {
     logger.info("Has previous email");

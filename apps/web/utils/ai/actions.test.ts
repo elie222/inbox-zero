@@ -720,7 +720,8 @@ describe("runActionFunction", () => {
       ["a colleague on the account owner's domain", "ceo@example.com"],
       ["the account owner", "user@example.com"],
     ])("does not notify %s", async (_name, from) => {
-      await runNotifySender(from);
+      // Reported as a skip, not a failure: declining on purpose is not an error.
+      await expect(runNotifySender(from)).resolves.toEqual({ skipped: true });
 
       expect(sendColdEmailNotification).not.toHaveBeenCalled();
     });

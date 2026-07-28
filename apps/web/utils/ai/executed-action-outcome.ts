@@ -50,6 +50,16 @@ export async function persistExecutedActionOutcome({
   }
 }
 
+/** An action declining to run on purpose. Not a failure, so it must not be reported as one. */
+export function isActionResultSkipped(actionResult: unknown): boolean {
+  return (
+    !!actionResult &&
+    typeof actionResult === "object" &&
+    "skipped" in actionResult &&
+    actionResult.skipped === true
+  );
+}
+
 export function getActionResultError(
   actionType: ActionType,
   actionResult: unknown,

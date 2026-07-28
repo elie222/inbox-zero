@@ -21,6 +21,7 @@ export async function processHistoryItem(
   logger: Logger,
 ) {
   const { emailAccount, hasAutomationRules, hasAiAccess, rules } = options;
+  const { spamLearnedThreadIds } = options;
   const { type, item } = historyItem;
   const messageId = item.message?.id;
   const threadId = item.message?.threadId;
@@ -88,6 +89,7 @@ export async function processHistoryItem(
       {
         emailAccount,
         provider,
+        spamLearnedThreadIds,
       },
       logger,
     );

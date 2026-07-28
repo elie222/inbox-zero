@@ -544,7 +544,7 @@ const notify_sender: ActionFunction<Record<string, unknown>> = async ({
   // this action emails the sender, and a wrong one accuses a colleague of spamming.
   if (isSameOrganization(senderEmail, emailAccount.email)) {
     logger.warn("Skipping cold email notification to an internal sender");
-    return { success: false, errorCode: "INTERNAL_SENDER" };
+    return { skipped: true };
   }
 
   const result = await sendColdEmailNotification({

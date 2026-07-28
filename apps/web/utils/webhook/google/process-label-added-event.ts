@@ -31,9 +31,11 @@ export async function handleLabelAddedEvent(
   {
     emailAccount,
     provider,
+    spamLearnedThreadIds,
   }: {
     emailAccount: EmailAccountWithAI;
     provider: EmailProvider;
+    spamLearnedThreadIds?: Set<string>;
   },
   logger: Logger,
 ) {
@@ -63,7 +65,10 @@ export async function handleLabelAddedEvent(
   const sender = await fetchSenderFromMessage(messageId, provider, logger);
   if (!sender) return;
 
-  if (hasSpam) {
+  // Junking a thread fires one event per message, but the answer is the same for all
+  // of them, so only the first pays for the thread read.
+  if (hasSpam && !spamLearnedThreadIds?.has(threadId)) {
+    spamLearnedThreadIds?.add(threadId);
     await learnColdEmailFromSpam({
       sender,
       messageId,

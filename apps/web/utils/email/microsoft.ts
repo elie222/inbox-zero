@@ -1758,7 +1758,7 @@ export class OutlookProvider implements EmailProvider {
               this.logger.warn("Error checking sent messages (domain)", {
                 error,
               });
-              return { value: [] };
+              throw error;
             }),
 
           this.client
@@ -1772,7 +1772,7 @@ export class OutlookProvider implements EmailProvider {
               this.logger.warn("Error checking received messages (domain)", {
                 error,
               });
-              return { value: [] };
+              throw error;
             }),
         ]);
 
@@ -1818,7 +1818,7 @@ export class OutlookProvider implements EmailProvider {
               error,
               search: sentSearch,
             });
-            return { value: [] };
+            throw error;
           }),
 
         this.client
@@ -1833,7 +1833,7 @@ export class OutlookProvider implements EmailProvider {
               error,
               filter: receivedFilter,
             });
-            return { value: [] };
+            throw error;
           }),
       ]);
 
@@ -1852,10 +1852,12 @@ export class OutlookProvider implements EmailProvider {
 
       return messages.some((message) => message.id !== options.messageId);
     } catch (error) {
+      // Returning false here would read as "no prior contact", which pushes the cold
+      // email blocker toward blocking. Fail toward leaving the sender alone.
       this.logger.warn("Error checking previous communications", {
         error,
       });
-      return false;
+      return true;
     }
   }
 
