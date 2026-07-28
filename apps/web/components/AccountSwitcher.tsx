@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useParams, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ChevronsUpDown, Plus } from "lucide-react";
+import { CheckIcon, ChevronsUpDown, Plus } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,6 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
   SidebarMenu,
   SidebarMenuButton,
@@ -24,6 +25,8 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { setLastEmailAccountAction } from "@/utils/actions/email-account-cookie";
 import { ProfileImage } from "@/components/ProfileImage";
 import { redirectToSafeUrl } from "@/utils/redirect";
+import { UserMenuItems } from "@/components/NavUser";
+import { Referrals } from "@/components/ReferralDialog";
 export function AccountSwitcher() {
   const { data: accountsData } = useAccounts();
 
@@ -85,6 +88,8 @@ export function AccountSwitcherInternal({
     [getHref],
   );
 
+  const [isReferralDialogOpen, setIsReferralDialogOpen] = useState(false);
+
   if (isLoading) return null;
 
   return (
@@ -125,13 +130,13 @@ export function AccountSwitcherInternal({
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            className="w-[--radix-dropdown-menu-trigger-width] min-w-80 rounded-lg"
+            className="max-h-[85dvh] w-[--radix-dropdown-menu-trigger-width] min-w-80 overflow-y-auto rounded-lg"
             align="start"
             side={isMobile ? "bottom" : "right"}
             sideOffset={4}
           >
             <DropdownMenuLabel className="text-xs text-muted-foreground">
-              Accounts
+              Switch account
             </DropdownMenuLabel>
             {emailAccounts.map((emailAccount) => (
               <DropdownMenuItem
@@ -145,7 +150,7 @@ export function AccountSwitcherInternal({
                   image={emailAccount.image}
                   label={emailAccount.name || emailAccount.email}
                 />
-                <div className="flex flex-col">
+                <div className="flex min-w-0 flex-col">
                   <span className="truncate font-medium">
                     {emailAccount.name || emailAccount.email}
                   </span>
@@ -155,9 +160,11 @@ export function AccountSwitcherInternal({
                     </span>
                   )}
                 </div>
+                {emailAccount.id === activeEmailAccountId && (
+                  <CheckIcon className="ml-auto size-4 shrink-0 text-primary" />
+                )}
               </DropdownMenuItem>
             ))}
-            <DropdownMenuSeparator />
             <Link href="/accounts">
               <DropdownMenuItem className="gap-2 p-2">
                 <div className="flex size-6 items-center justify-center rounded-md border bg-background">
@@ -168,9 +175,24 @@ export function AccountSwitcherInternal({
                 </div>
               </DropdownMenuItem>
             </Link>
+
+            <DropdownMenuSeparator />
+
+            <UserMenuItems
+              onOpenReferrals={() => setIsReferralDialogOpen(true)}
+            />
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>
+
+      <Dialog
+        open={isReferralDialogOpen}
+        onOpenChange={setIsReferralDialogOpen}
+      >
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
+          <Referrals />
+        </DialogContent>
+      </Dialog>
     </SidebarMenu>
   );
 }
