@@ -1,7 +1,11 @@
 import { runActionFunction } from "@/utils/ai/actions";
 import prisma from "@/utils/prisma";
 import type { Prisma } from "@/generated/prisma/client";
-import { ExecutedRuleStatus, ActionType } from "@/generated/prisma/enums";
+import {
+  ExecutedActionStatus,
+  ExecutedRuleStatus,
+  ActionType,
+} from "@/generated/prisma/enums";
 import type { Logger } from "@/utils/logger";
 import type { ParsedMessage } from "@/utils/types";
 import { updateExecutedActionWithDraftId } from "@/utils/ai/choose-rule/draft-management";
@@ -10,6 +14,10 @@ import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
 import type { ActionExecutionEmailAccount } from "@/utils/ai/types";
 import { shouldSkipAutomatedArchiveForSender } from "@/utils/ai/automated-archive-exception";
 import { flushLoggerSafely } from "@/utils/logger-flush";
+import {
+  getPersistedActionError,
+  persistExecutedActionOutcome,
+} from "@/utils/ai/executed-action-outcome";
 
 const MODULE = "ai-execute-act";
 
@@ -20,6 +28,7 @@ type ExecutedRuleWithActionItems = Prisma.ExecutedRuleGetPayload<{
 type ActionFailure = {
   type: ActionType;
   errorCode: string;
+  errorMessage: string;
 };
 
 const ACTION_FAILURE_TYPES = new Set<ActionType>([
@@ -62,6 +71,12 @@ export async function executeAct({
         log.info("Skipping automated archive for protected company sender", {
           actionId: action.id,
         });
+        await persistExecutedActionOutcome({
+          actionId: action.id,
+          status: ExecutedActionStatus.SKIPPED,
+          error: null,
+          logger: log,
+        });
         continue;
       }
 
@@ -77,6 +92,25 @@ export async function executeAct({
       const actionFailure = getActionFailure(action.type, actionResult);
       if (actionFailure) {
         actionFailures.push(actionFailure);
+        await persistExecutedActionOutcome({
+          actionId: action.id,
+          status: ExecutedActionStatus.FAILED,
+          error: {
+            errorCode: actionFailure.errorCode,
+            errorMessage: actionFailure.errorMessage,
+            errorStack: null,
+            errorStatusCode: null,
+            errorRequestId: null,
+          },
+          logger: log,
+        });
+      } else {
+        await persistExecutedActionOutcome({
+          actionId: action.id,
+          status: ExecutedActionStatus.SUCCEEDED,
+          error: null,
+          logger: log,
+        });
       }
 
       const draftId =
@@ -96,6 +130,12 @@ export async function executeAct({
         });
       }
     } catch (error) {
+      await persistExecutedActionOutcome({
+        actionId: action.id,
+        status: ExecutedActionStatus.FAILED,
+        error: getPersistedActionError(error),
+        logger: log,
+      });
       await logErrorWithDedupe({
         logger: log,
         message: "Error executing action",
@@ -189,10 +229,18 @@ function getActionFailure(
     "errorCode" in actionResult && typeof actionResult.errorCode === "string"
       ? actionResult.errorCode
       : getUnknownActionFailureCode(actionType);
+  const errorMessage =
+    "errorMessage" in actionResult &&
+    typeof actionResult.errorMessage === "string"
+      ? actionResult.errorMessage
+      : "error" in actionResult && typeof actionResult.error === "string"
+        ? actionResult.error
+        : "Action reported failure";
 
   return {
     type: actionType,
     errorCode,
+    errorMessage,
   };
 }
 

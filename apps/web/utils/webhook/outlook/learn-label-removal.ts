@@ -1,4 +1,9 @@
-import { ActionType, type SystemType } from "@/generated/prisma/enums";
+import {
+  ActionType,
+  ExecutedActionStatus,
+  ExecutedRuleStatus,
+  type SystemType,
+} from "@/generated/prisma/enums";
 import { extractEmailAddress } from "@/utils/email";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
@@ -26,9 +31,11 @@ export async function learnFromOutlookLabelRemoval({
       emailAccountId,
       messageId: message.id,
       threadId: message.threadId,
+      status: ExecutedRuleStatus.APPLIED,
       rule: { systemType: { not: null } },
       actionItems: {
         some: {
+          executionStatus: ExecutedActionStatus.SUCCEEDED,
           OR: [
             {
               type: ActionType.LABEL,
@@ -51,6 +58,7 @@ export async function learnFromOutlookLabelRemoval({
       },
       actionItems: {
         where: {
+          executionStatus: ExecutedActionStatus.SUCCEEDED,
           OR: [
             {
               type: ActionType.LABEL,

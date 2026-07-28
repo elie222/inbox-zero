@@ -1,4 +1,5 @@
 import {
+  ExecutedActionStatus,
   ExecutedRuleStatus,
   ScheduledActionStatus,
 } from "@/generated/prisma/enums";
@@ -13,6 +14,10 @@ import type {
   EmailForAction,
 } from "@/utils/ai/types";
 import type { EmailProvider } from "@/utils/email/types";
+import {
+  getPersistedActionError,
+  persistExecutedActionOutcome,
+} from "@/utils/ai/executed-action-outcome";
 
 const MODULE = "scheduled-actions-executor";
 
@@ -210,14 +215,30 @@ async function executeDelayedAction({
     messageId: email.id,
   });
 
-  await runActionFunction({
-    client,
-    email,
-    action: executedAction,
-    emailAccount,
-    executedRule,
-    logger: log,
-  });
+  try {
+    await runActionFunction({
+      client,
+      email,
+      action: executedAction,
+      emailAccount,
+      executedRule,
+      logger: log,
+    });
+    await persistExecutedActionOutcome({
+      actionId: executedAction.id,
+      status: ExecutedActionStatus.SUCCEEDED,
+      error: null,
+      logger: log,
+    });
+  } catch (error) {
+    await persistExecutedActionOutcome({
+      actionId: executedAction.id,
+      status: ExecutedActionStatus.FAILED,
+      error: getPersistedActionError(error),
+      logger: log,
+    });
+    throw error;
+  }
 
   log.info("Successfully executed delayed action", {
     actionType: executedAction.type,

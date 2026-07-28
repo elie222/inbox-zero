@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   ActionType,
+  ExecutedActionStatus,
   ExecutedRuleStatus,
   ScheduledActionStatus,
 } from "@/generated/prisma/enums";
@@ -71,6 +72,18 @@ describe("executor", () => {
           status: ScheduledActionStatus.COMPLETED,
           executedAt: expect.any(Date),
           executedActionId: "executed-action-123",
+        },
+      });
+      expect(prisma.executedAction.update).toHaveBeenCalledWith({
+        where: { id: "executed-action-123" },
+        data: {
+          executionStatus: ExecutedActionStatus.SUCCEEDED,
+          executedAt: expect.any(Date),
+          errorCode: null,
+          errorMessage: null,
+          errorStack: null,
+          errorStatusCode: null,
+          errorRequestId: null,
         },
       });
       expectExecutedRuleStatus(ExecutedRuleStatus.APPLIED);
@@ -157,7 +170,11 @@ describe("executor", () => {
         failedScheduledActionReason,
       );
       vi.mocked(runActionFunction).mockRejectedValue(
-        new Error("Execution failed"),
+        Object.assign(new Error("Execution failed"), {
+          code: "ErrorTimeout",
+          statusCode: 504,
+          requestId: "graph-request-456",
+        }),
       );
 
       const result = await executeScheduledAction(
@@ -170,6 +187,18 @@ describe("executor", () => {
       expect(prisma.scheduledAction.update).toHaveBeenCalledWith({
         where: { id: "scheduled-action-123" },
         data: { status: ScheduledActionStatus.FAILED },
+      });
+      expect(prisma.executedAction.update).toHaveBeenCalledWith({
+        where: { id: "executed-action-123" },
+        data: {
+          executionStatus: ExecutedActionStatus.FAILED,
+          executedAt: expect.any(Date),
+          errorCode: "ErrorTimeout",
+          errorMessage: "Execution failed",
+          errorStack: expect.stringContaining("Execution failed"),
+          errorStatusCode: 504,
+          errorRequestId: "graph-request-456",
+        },
       });
       expectExecutedRuleStatus(
         ExecutedRuleStatus.ERROR,
