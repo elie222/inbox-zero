@@ -687,6 +687,9 @@ model ExecutedAction {
   createdAt              DateTime                @default(now())
   updatedAt              DateTime                @updatedAt
   type                   ActionType
+  executionStatus        ExecutedActionStatus?
+  executedAt             DateTime?
+  executionError         Json?
   executedRuleId         String
   executedRule           ExecutedRule            @relation(fields: [executedRuleId], references: [id], onDelete: Cascade)
   messagingChannelId     String?
@@ -722,6 +725,7 @@ model ExecutedAction {
   scheduledAction      ScheduledAction? // Reverse relation for delayed actions
 
   @@index([executedRuleId])
+  @@index([executionStatus, createdAt])
   @@index([messagingChannelId, createdAt])
 }
 
@@ -1790,6 +1794,12 @@ enum ExecutedRuleStatus {
   PENDING // @deprecated - No longer created. Kept for historical data only.
   SKIPPED
   ERROR
+}
+
+enum ExecutedActionStatus {
+  SUCCEEDED
+  FAILED
+  SKIPPED
 }
 
 enum GroupItemType {

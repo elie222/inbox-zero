@@ -1,7 +1,11 @@
 import { runActionFunction } from "@/utils/ai/actions";
 import prisma from "@/utils/prisma";
 import type { Prisma } from "@/generated/prisma/client";
-import { ExecutedRuleStatus, ActionType } from "@/generated/prisma/enums";
+import {
+  ActionType,
+  ExecutedActionStatus,
+  ExecutedRuleStatus,
+} from "@/generated/prisma/enums";
 import type { Logger } from "@/utils/logger";
 import type { ParsedMessage } from "@/utils/types";
 import { updateExecutedActionWithDraftId } from "@/utils/ai/choose-rule/draft-management";
@@ -10,6 +14,11 @@ import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
 import type { ActionExecutionEmailAccount } from "@/utils/ai/types";
 import { shouldSkipAutomatedArchiveForSender } from "@/utils/ai/automated-archive-exception";
 import { flushLoggerSafely } from "@/utils/logger-flush";
+import {
+  getActionResultError,
+  normalizeActionExecutionError,
+  persistExecutedActionOutcome,
+} from "@/utils/ai/executed-action-outcome";
 
 const MODULE = "ai-execute-act";
 
@@ -20,13 +29,8 @@ type ExecutedRuleWithActionItems = Prisma.ExecutedRuleGetPayload<{
 type ActionFailure = {
   type: ActionType;
   errorCode: string;
+  errorMessage: string;
 };
-
-const ACTION_FAILURE_TYPES = new Set<ActionType>([
-  ActionType.DRAFT_MESSAGING_CHANNEL,
-  ActionType.NOTIFY_MESSAGING_CHANNEL,
-  ActionType.NOTIFY_SENDER,
-]);
 
 export async function executeAct({
   client,
@@ -62,6 +66,12 @@ export async function executeAct({
         log.info("Skipping automated archive for protected company sender", {
           actionId: action.id,
         });
+        await persistExecutedActionOutcome({
+          actionId: action.id,
+          status: ExecutedActionStatus.SKIPPED,
+          error: null,
+          logger: log,
+        });
         continue;
       }
 
@@ -74,9 +84,26 @@ export async function executeAct({
         logger: log,
       });
 
-      const actionFailure = getActionFailure(action.type, actionResult);
-      if (actionFailure) {
-        actionFailures.push(actionFailure);
+      const actionResultError = getActionResultError(action.type, actionResult);
+      if (actionResultError) {
+        actionFailures.push({
+          type: action.type,
+          errorCode: actionResultError.code,
+          errorMessage: actionResultError.message,
+        });
+        await persistExecutedActionOutcome({
+          actionId: action.id,
+          status: ExecutedActionStatus.FAILED,
+          error: actionResultError,
+          logger: log,
+        });
+      } else {
+        await persistExecutedActionOutcome({
+          actionId: action.id,
+          status: ExecutedActionStatus.SUCCEEDED,
+          error: null,
+          logger: log,
+        });
       }
 
       const draftId =
@@ -96,6 +123,12 @@ export async function executeAct({
         });
       }
     } catch (error) {
+      await persistExecutedActionOutcome({
+        actionId: action.id,
+        status: ExecutedActionStatus.FAILED,
+        error: normalizeActionExecutionError(error),
+        logger: log,
+      });
       await logErrorWithDedupe({
         logger: log,
         message: "Error executing action",
@@ -167,39 +200,6 @@ async function updateExecutedRuleOrThrow({
     log.error("Failed to update executed rule", { error });
     throw error;
   }
-}
-
-function getActionFailure(
-  actionType: ActionType,
-  actionResult: unknown,
-): ActionFailure | null {
-  if (!ACTION_FAILURE_TYPES.has(actionType)) return null;
-
-  if (
-    !actionResult ||
-    typeof actionResult !== "object" ||
-    !("success" in actionResult)
-  ) {
-    return null;
-  }
-
-  if (actionResult.success !== false) return null;
-
-  const errorCode =
-    "errorCode" in actionResult && typeof actionResult.errorCode === "string"
-      ? actionResult.errorCode
-      : getUnknownActionFailureCode(actionType);
-
-  return {
-    type: actionType,
-    errorCode,
-  };
-}
-
-function getUnknownActionFailureCode(actionType: ActionType) {
-  return actionType === ActionType.NOTIFY_SENDER
-    ? "UNKNOWN_NOTIFY_FAILURE"
-    : "UNKNOWN_MESSAGING_FAILURE";
 }
 
 function buildFailureReason(
