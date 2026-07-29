@@ -156,8 +156,8 @@ export function SyncSettingsDialog({
             </div>
 
             {sync.googleMode !== "OFF" && (
-              <div className="flex items-center justify-between gap-4">
-                <p className="text-sm text-muted-foreground">
+              <div className="flex items-center justify-between gap-3">
+                <p className="min-w-0 text-sm text-muted-foreground">
                   {sync.googleSyncedAt
                     ? `Last pulled ${formatDistanceToNow(
                         new Date(sync.googleSyncedAt),
@@ -168,6 +168,7 @@ export function SyncSettingsDialog({
                 <Button
                   variant="outline"
                   size="sm"
+                  className="shrink-0"
                   loading={syncNow.isExecuting}
                   onClick={() => syncNow.execute({})}
                 >
@@ -190,8 +191,8 @@ export function SyncSettingsDialog({
         )}
 
         <div className="space-y-4 border-t border-border pt-4">
-          <div className="flex items-center justify-between gap-4">
-            <div>
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
               <Label htmlFor="carddav-access">
                 iPhone &amp; iPad (CardDAV)
               </Label>
@@ -209,7 +210,7 @@ export function SyncSettingsDialog({
           </div>
 
           {carddavPassword && (
-            <div className="space-y-1 rounded-md border border-border p-3 text-sm">
+            <div className="space-y-3 rounded-md border border-border p-3 text-sm">
               <p className="font-medium">
                 Add this account on your iPhone — the password is shown only
                 once:
@@ -218,30 +219,41 @@ export function SyncSettingsDialog({
                 iOS Settings → Apps → Contacts → Contacts Accounts → Add Account
                 → Other → Add CardDAV Account
               </p>
-              <p>
-                Server:{" "}
-                <code className="select-all">
-                  {typeof window !== "undefined" ? window.location.origin : ""}
-                  /api/carddav
-                </code>
-              </p>
-              <p>
-                Username: <code className="select-all">{userEmail}</code>
-              </p>
-              <p>
-                Password: <code className="select-all">{carddavPassword}</code>
-              </p>
+              {/* These are typed into iOS by hand, so each gets its own line
+                  and wraps — a phone is too narrow to keep them inline */}
+              <dl className="space-y-2">
+                <CredentialRow
+                  label="Server"
+                  // Only ever rendered after the client action returns a
+                  // password, but the body still runs during SSR
+                  value={`${typeof window === "undefined" ? "" : window.location.origin}/api/carddav`}
+                />
+                <CredentialRow label="Username" value={userEmail} />
+                <CredentialRow label="Password" value={carddavPassword} />
+              </dl>
             </div>
           )}
 
           {sync.carddavEnabled && !carddavPassword && (
             <p className="text-xs text-muted-foreground">
               CardDAV access is on. Lost the password? Toggle off and on to
-              generate a new one.
+              generate a new one — devices still using the old password stop
+              syncing until you update them.
             </p>
           )}
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// break-all, not break-words: a server URL and a generated password have no
+// spaces to break at, so without it they run off the side of a phone
+function CredentialRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="select-all break-all font-mono text-[13px]">{value}</dd>
+    </div>
   );
 }
