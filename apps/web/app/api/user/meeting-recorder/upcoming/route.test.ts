@@ -62,4 +62,33 @@ describe("meeting recorder upcoming route", () => {
       expect.objectContaining({ id: "event-1", willRecord: false }),
     ]);
   });
+
+  it("exposes an existing booking after plan access is lost", async () => {
+    prisma.meeting.findMany.mockResolvedValue([
+      {
+        calendarEventId: "event-1",
+        joinOverride: null,
+        recording: {
+          status: "SCHEDULED",
+          failureReason: null,
+        },
+      },
+    ] as never);
+
+    const response = await GET(
+      new Request(
+        "https://example.com/api/user/meeting-recorder/upcoming",
+      ) as never,
+    );
+    const body = await response.json();
+
+    expect(body.events).toEqual([
+      expect.objectContaining({
+        id: "event-1",
+        isBooked: true,
+        joinOverride: null,
+        willRecord: false,
+      }),
+    ]);
+  });
 });

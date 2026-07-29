@@ -96,6 +96,8 @@ async function getData({
         id: event.id,
         title: event.title,
         startTime: event.startTime,
+        isBooked: !!meeting?.recording,
+        joinOverride: meeting?.joinOverride ?? null,
         // Decided server-side with the same helper the cron uses, so the toggle
         // can never disagree with what actually happens.
         willRecord:

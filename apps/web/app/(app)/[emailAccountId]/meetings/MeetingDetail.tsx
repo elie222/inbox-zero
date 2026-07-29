@@ -109,6 +109,10 @@ export function MeetingDetail({
             <MutedText>This meeting has not been recorded yet.</MutedText>
           )}
 
+          {!summary && state === "notes" && (
+            <MutedText>The summary is still being written.</MutedText>
+          )}
+
           {summary && (
             <>
               <DetailSection title="Summary">

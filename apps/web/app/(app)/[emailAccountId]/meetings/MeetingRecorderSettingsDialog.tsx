@@ -20,7 +20,10 @@ import {
   ItemTitle,
 } from "@/components/ui/item";
 import type { MeetingJoinRule } from "@/generated/prisma/enums";
-import { useMeetingRecorderSettings } from "@/hooks/useMeetingRecorder";
+import {
+  useMeetingRecorderSettings,
+  useMeetingRecorderUpcoming,
+} from "@/hooks/useMeetingRecorder";
 import { getActionErrorMessage } from "@/utils/error";
 import { MEETING_BOT_DISPLAY_NAME } from "@/utils/meeting-recorder/bot-provider";
 import { updateMeetingRecorderSettingsAction } from "@/utils/actions/meeting-recorder";
@@ -39,6 +42,7 @@ export function MeetingRecorderSettingsDialog({
   // Only mounted inside the page's `settings.enabled` branch, so the settings
   // are already loaded and SWR serves them from cache.
   const { data, mutate } = useMeetingRecorderSettings(emailAccountId);
+  const { mutate: mutateUpcoming } = useMeetingRecorderUpcoming(emailAccountId);
 
   const { execute } = useAction(
     updateMeetingRecorderSettingsAction.bind(null, emailAccountId),
@@ -46,6 +50,7 @@ export function MeetingRecorderSettingsDialog({
       onSuccess: () => {
         toastSuccess({ description: "Settings saved" });
         mutate();
+        mutateUpcoming();
       },
       onError: ({ error }) => {
         mutate();
@@ -100,6 +105,7 @@ export function MeetingRecorderSettingsDialog({
                 </ItemContent>
                 <Toggle
                   name="recapEmailEnabled"
+                  ariaLabel="Email me the notes"
                   enabled={data.recapEmailEnabled}
                   onChange={(recapEmailEnabled) => save({ recapEmailEnabled })}
                 />
@@ -115,6 +121,7 @@ export function MeetingRecorderSettingsDialog({
                 </ItemContent>
                 <Toggle
                   name="followUpDraftEnabled"
+                  ariaLabel="Draft a follow-up email"
                   enabled={data.followUpDraftEnabled}
                   onChange={(followUpDraftEnabled) =>
                     save({ followUpDraftEnabled })

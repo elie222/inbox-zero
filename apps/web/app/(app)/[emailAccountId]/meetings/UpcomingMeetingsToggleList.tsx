@@ -57,7 +57,7 @@ export function UpcomingMeetingsToggleList({
   };
 
   const events = data?.events ?? [];
-  const joiningCount = events.filter((event) => event.willRecord).length;
+  const joiningCount = events.filter(isJoining).length;
   const isLocked = data?.hasAccess === false;
 
   return (
@@ -99,34 +99,41 @@ export function UpcomingMeetingsToggleList({
           </Empty>
         ) : (
           <ListCard className="mt-4">
-            {events.map((event) => (
-              <MeetingListItem
-                key={event.id}
-                title={event.title}
-                startTime={event.startTime}
-                status={event.recordingStatus}
-                failureReason={event.failureReason}
-              >
-                <MutedText className="hidden w-14 text-right sm:block">
-                  {event.willRecord ? "Joining" : "Skipping"}
-                </MutedText>
-                <Toggle
-                  name={`join-${event.id}`}
-                  ariaLabel={`Record ${event.title}`}
-                  enabled={event.willRecord}
-                  // A downgraded user must still be able to cancel a meeting
-                  // that is already set to record; only enabling is gated.
-                  disabled={
-                    pendingEventId === event.id ||
-                    (isLocked && !event.willRecord)
-                  }
-                  onChange={(join) => toggleEvent(event, join)}
-                />
-              </MeetingListItem>
-            ))}
+            {events.map((event) => {
+              const joining = isJoining(event);
+
+              return (
+                <MeetingListItem
+                  key={event.id}
+                  title={event.title}
+                  startTime={event.startTime}
+                  status={event.recordingStatus}
+                  failureReason={event.failureReason}
+                >
+                  <MutedText className="hidden w-14 text-right sm:block">
+                    {joining ? "Joining" : "Skipping"}
+                  </MutedText>
+                  <Toggle
+                    name={`join-${event.id}`}
+                    ariaLabel={`Record ${event.title}`}
+                    enabled={joining}
+                    // A downgraded user must still be able to cancel a booked
+                    // meeting; only creating a new booking is gated.
+                    disabled={
+                      pendingEventId === event.id || (isLocked && !joining)
+                    }
+                    onChange={(join) => toggleEvent(event, join)}
+                  />
+                </MeetingListItem>
+              );
+            })}
           </ListCard>
         )}
       </LoadingContent>
     </div>
   );
+}
+
+function isJoining(event: UpcomingEvent) {
+  return event.willRecord || event.isBooked || event.joinOverride === true;
 }
