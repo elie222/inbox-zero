@@ -1,6 +1,7 @@
 import {
   aiDraftReplyWithConfidence,
   DRAFT_CONFIDENCE_BY_LLM_LABEL,
+  getCalendarBookingLinkForDraft,
 } from "@/utils/ai/reply/draft-reply";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
@@ -87,6 +88,13 @@ export function describeContext(evalCase: DraftReplyCase): string {
 
   const { about } = evalCase.input.emailAccount;
   if (about) parts.unshift(`<userAbout>\n${about}\n</userAbout>`);
+
+  const bookingLink = getCalendarBookingLinkForDraft(
+    evalCase.input.emailAccount,
+  );
+  if (bookingLink) {
+    parts.unshift(`<booking_link>\n${bookingLink}\n</booking_link>`);
+  }
 
   return parts.join("\n\n");
 }
