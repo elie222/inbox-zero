@@ -1,19 +1,38 @@
 import { NextRequest } from "next/server";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import prisma from "@/utils/__mocks__/prisma";
+import { hashCarddavPassword } from "@/utils/carddav/auth";
 import { proxy } from "./proxy";
 
+vi.mock("@/utils/prisma");
+
+// One saved contact so PROPFIND/REPORT have something to serve
+const CONTACT = {
+  id: "c1",
+  carddavUid: "uid-1",
+  email: "jane@example.com",
+  name: "Jane Doe",
+  phones: [],
+  title: null,
+  updatedAt: new Date("2026-07-01T00:00:00.000Z"),
+  company: null,
+};
+
+const ACCOUNT = {
+  id: "acc_1",
+  email: "chris@nucar.com",
+  carddavPasswordHash: hashCarddavPassword("secret"),
+};
+
+const AUTH = `Basic ${Buffer.from("chris@nucar.com:secret").toString("base64")}`;
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  prisma.emailAccount.findFirst.mockResolvedValue(ACCOUNT as never);
+  prisma.contact.findMany.mockResolvedValue([CONTACT] as never);
+});
+
 describe("CardDAV proxy", () => {
-  const fetchMock = vi.fn();
-
-  beforeEach(() => {
-    fetchMock.mockReset();
-    vi.stubGlobal("fetch", fetchMock);
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
   it("redirects the well-known path to the CardDAV root", async () => {
     const response = await proxy(
       davRequest("https://app.test/.well-known/carddav", { method: "GET" }),
@@ -23,83 +42,45 @@ describe("CardDAV proxy", () => {
     expect(response.headers.get("location")).toBe(
       "https://app.test/api/carddav",
     );
-    expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("passes methods route handlers can receive straight through", async () => {
+  it("passes standard verbs through to the route handler", async () => {
     const response = await proxy(
-      davRequest("https://app.test/api/carddav", { method: "OPTIONS" }),
+      davRequest("https://app.test/api/carddav", { method: "GET" }),
     );
 
+    // NextResponse.next() — the route handles it
     expect(response.headers.get("x-middleware-next")).toBe("1");
-    expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("tunnels PROPFIND to the route as POST carrying the real verb", async () => {
-    fetchMock.mockResolvedValue(
-      new Response("<multistatus/>", { status: 207 }),
-    );
-
-    await proxy(
-      davRequest("https://app.test/api/carddav/addressbook", {
-        method: "PROPFIND",
-        headers: {
-          authorization: "Basic dXNlcjpwYXNz",
-          depth: "1",
-          "content-type": "application/xml",
-        },
-        body: "<propfind/>",
-      }),
-    );
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [target, init] = fetchMock.mock.calls[0];
-    expect(target.toString()).toBe(
-      `${process.env.NEXT_PUBLIC_BASE_URL}/api/carddav/addressbook`,
-    );
-    expect(init.method).toBe("POST");
-    expect(init.body).toBe("<propfind/>");
-    expect(init.headers.get("x-webdav-method")).toBe("PROPFIND");
-    expect(init.headers.get("authorization")).toBe("Basic dXNlcjpwYXNz");
-    expect(init.headers.get("depth")).toBe("1");
-  });
-
-  // fetch already decompressed the body, so these headers would describe
-  // bytes the CardDAV client never receives
-  it("drops encoding and connection headers from the tunneled response", async () => {
-    fetchMock.mockResolvedValue(
-      new Response("<multistatus/>", {
-        status: 207,
-        headers: {
-          "content-type": "application/xml; charset=utf-8",
-          "content-encoding": "gzip",
-          "content-length": "42",
-          connection: "keep-alive",
-        },
-      }),
-    );
-
+  // No self-fetch any more: the WebDAV verb is answered here, in one hop
+  it("answers PROPFIND directly without tunneling", async () => {
     const response = await proxy(
-      davRequest("https://app.test/api/carddav", { method: "PROPFIND" }),
+      davRequest("https://app.test/api/carddav", {
+        method: "PROPFIND",
+        headers: { authorization: AUTH, depth: "0" },
+        body: '<propfind xmlns="DAV:"><prop><current-user-principal/></prop></propfind>',
+      }),
     );
 
     expect(response.status).toBe(207);
-    expect(response.headers.get("content-type")).toBe(
-      "application/xml; charset=utf-8",
-    );
-    expect(response.headers.get("content-encoding")).toBeNull();
-    expect(response.headers.get("content-length")).toBeNull();
-    expect(response.headers.get("connection")).toBeNull();
+    expect(await response.text()).toContain("current-user-principal");
   });
 
-  it("keeps the auth challenge so clients know to send credentials", async () => {
-    fetchMock.mockResolvedValue(
-      new Response("Unauthorized", {
-        status: 401,
-        headers: { "WWW-Authenticate": 'Basic realm="Zerrow Contacts"' },
+  it("serves the address book on a REPORT", async () => {
+    const response = await proxy(
+      davRequest("https://app.test/api/carddav/addressbook", {
+        method: "REPORT",
+        headers: { authorization: AUTH },
+        body: `<card:addressbook-query xmlns:card="urn:ietf:params:xml:ns:carddav" xmlns:d="DAV:"><d:prop><d:getetag/><card:address-data/></d:prop></card:addressbook-query>`,
       }),
     );
 
+    expect(response.status).toBe(207);
+    expect(await response.text()).toContain("jane@example.com");
+  });
+
+  it("challenges an unauthenticated WebDAV request", async () => {
     const response = await proxy(
       davRequest("https://app.test/api/carddav", { method: "PROPFIND" }),
     );
@@ -108,6 +89,19 @@ describe("CardDAV proxy", () => {
     expect(response.headers.get("www-authenticate")).toBe(
       'Basic realm="Zerrow Contacts"',
     );
+  });
+
+  it("rejects a wrong password", async () => {
+    const response = await proxy(
+      davRequest("https://app.test/api/carddav", {
+        method: "PROPFIND",
+        headers: {
+          authorization: `Basic ${Buffer.from("chris@nucar.com:wrong").toString("base64")}`,
+        },
+      }),
+    );
+
+    expect(response.status).toBe(401);
   });
 });
 

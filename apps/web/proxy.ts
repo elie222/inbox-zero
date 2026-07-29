@@ -1,86 +1,80 @@
 import { type NextRequest, NextResponse } from "next/server";
+import {
+  authenticateCarddavRequest,
+  unauthorizedResponse,
+} from "@/utils/carddav/auth";
+import { handleCarddavRequest } from "@/utils/carddav/handler";
+import { createScopedLogger } from "@/utils/logger";
 
-// CardDAV clients (iOS/macOS Contacts) speak WebDAV verbs that Next.js
-// route handlers can't receive. This proxy — scoped strictly to CardDAV
-// paths — tunnels PROPFIND/REPORT to the route as POST with the real verb
-// in x-webdav-method, and serves the .well-known redirect.
+// CardDAV clients (iOS/macOS Contacts) speak WebDAV verbs (PROPFIND/REPORT)
+// that Next.js App Router route handlers can't receive. This proxy — scoped
+// strictly to CardDAV paths and pinned to the Node.js runtime — answers those
+// verbs itself. Standard verbs (GET/PUT/DELETE/OPTIONS) still fall through to
+// the route, which receives them natively.
+//
+// It used to tunnel PROPFIND/REPORT by fetching its own public origin as a
+// POST and relaying the result. That worked, but every WebDAV response then
+// crossed Vercel's edge a second time — a second cold start, the inner
+// response's whole header set (x-middleware-*, x-vercel-*, a possible
+// Set-Cookie) replayed onto the client response, and re-entry through the
+// edge firewall. Answering in place removes that hop.
 export const config = {
   matcher: ["/.well-known/carddav", "/api/carddav/:path*", "/api/carddav"],
 };
 
-const TUNNELED_METHODS = new Set(["PROPFIND", "REPORT"]);
+const WEBDAV_METHODS = new Set(["PROPFIND", "REPORT"]);
 
-// The tunnel's self-request must target our own origin, never a host taken
-// from the incoming request — a spoofed Host header would otherwise redirect
-// this server-side fetch at an internal address (SSRF). NEXT_PUBLIC_BASE_URL
-// is a required, build-inlined env, so it's always present here.
-const SELF_ORIGIN = process.env.NEXT_PUBLIC_BASE_URL;
+const logger = createScopedLogger("carddav-proxy");
 
 export async function proxy(request: NextRequest) {
   if (request.nextUrl.pathname === "/.well-known/carddav") {
     return NextResponse.redirect(new URL("/api/carddav", request.url), 301);
   }
 
-  if (!TUNNELED_METHODS.has(request.method)) {
+  const method = request.method.toUpperCase();
+  // The route already handles the standard verbs it can receive
+  if (!WEBDAV_METHODS.has(method)) {
     return NextResponse.next();
   }
 
-  if (!SELF_ORIGIN) {
-    return new NextResponse("CardDAV is not configured", { status: 500 });
-  }
-
-  const target = new URL(
-    request.nextUrl.pathname + request.nextUrl.search,
-    SELF_ORIGIN,
+  const auth = await authenticateCarddavRequest(
+    request.headers.get("authorization"),
   );
-
-  const headers = new Headers();
-  headers.set("x-webdav-method", request.method);
-  // user-agent rides along so the route's logs name the real client
-  // (dataaccessd, Safari…) instead of this fetch
-  for (const name of ["authorization", "content-type", "depth", "user-agent"]) {
-    const value = request.headers.get(name);
-    if (value) headers.set(name, value);
+  if (!auth.ok) {
+    // The unauthenticated first leg of the Basic handshake is normal; the
+    // rest name a device holding a stale password or a malformed request
+    if (auth.reason !== "no-credentials") {
+      logger.warn("CardDAV auth rejected", { reason: auth.reason, method });
+    }
+    return unauthorizedResponse();
   }
 
-  const response = await fetch(target, {
-    method: "POST",
-    headers,
-    body: await request.text(),
+  // Path after "/api/carddav": "principal", "addressbook", "addressbook/x.vcf"
+  const segments = request.nextUrl.pathname.split("/").filter(Boolean).slice(2);
+  const body = await request.text();
+  const result = await handleCarddavRequest({
+    method,
+    segments,
+    depth: request.headers.get("depth") ?? "0",
+    body,
+    emailAccountId: auth.emailAccountId,
+    requestPath: request.nextUrl.pathname,
   });
 
-  // Buffer rather than pass the stream through: a streamed body through the
-  // proxy is the one leg of this exchange nothing else exercises, and a 207
-  // whose XML never arrives looks identical to success in the logs. Buffering
-  // also gives the response a correct content-length. Bodies here are one
-  // address book at most, so memory isn't a concern.
-  const body = await response.text();
-
-  return new NextResponse(body, {
-    status: response.status,
-    headers: forwardableResponseHeaders(response.headers),
+  // One line per exchange, so a client that verifies, stalls, or gives up
+  // paints its whole conversation. Client-chosen strings stay at trace.
+  logger.info("CardDAV exchange", {
+    method,
+    path: segments.join("/") || "(root)",
+    depth: request.headers.get("depth") ?? null,
+    status: result.status,
+    responseBytes: result.body?.length ?? 0,
+    userAgent: request.headers.get("user-agent"),
   });
-}
+  logger.trace("CardDAV request body", { requestBody: body });
 
-// fetch transparently decompresses the body, so forwarding the inner
-// response's content-encoding/content-length verbatim describes bytes the
-// client never receives — the client then fails to parse the multistatus XML
-// and iOS reports "account verification failed". Connection-level headers
-// belong to the hop we just terminated, so they go too.
-const NON_FORWARDABLE_HEADERS = new Set([
-  "content-encoding",
-  "content-length",
-  "transfer-encoding",
-  "connection",
-  "keep-alive",
-]);
-
-function forwardableResponseHeaders(headers: Headers) {
-  const forwarded = new Headers();
-  headers.forEach((value, name) => {
-    if (!NON_FORWARDABLE_HEADERS.has(name.toLowerCase())) {
-      forwarded.set(name, value);
-    }
+  return new NextResponse(result.body ?? null, {
+    status: result.status,
+    headers: result.headers,
   });
-  return forwarded;
 }
