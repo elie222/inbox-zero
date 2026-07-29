@@ -19,7 +19,7 @@ export const MESSAGE_SELECT_FIELDS =
 
 // Expand attachments to get metadata (name, type, size) without fetching content
 export const MESSAGE_EXPAND_ATTACHMENTS =
-  "attachments($select=id,name,contentType,size,isInline,contentId)";
+  "attachments($select=id,name,contentType,size,isInline,microsoft.graph.fileAttachment/contentId)";
 
 export async function getFolderIds(
   client: OutlookClient,
@@ -1018,18 +1018,27 @@ function convertInlineAttachments(
 
   return graphAttachments
     .filter((attachment) => attachment.isInline)
-    .map((attachment) => ({
-      filename: attachment.name || "",
-      mimeType: attachment.contentType || "application/octet-stream",
-      size: attachment.size || 0,
-      attachmentId: attachment.id || "",
-      headers: {
-        "content-type": attachment.contentType || "",
-        "content-description": "",
-        "content-transfer-encoding": "",
-        "content-id": attachment.contentId || attachment.name || "",
-      },
-    }));
+    .map((attachment) => {
+      const contentId =
+        ("contentId" in attachment && typeof attachment.contentId === "string"
+          ? attachment.contentId
+          : undefined) ||
+        attachment.name ||
+        "";
+
+      return {
+        filename: attachment.name || "",
+        mimeType: attachment.contentType || "application/octet-stream",
+        size: attachment.size || 0,
+        attachmentId: attachment.id || "",
+        headers: {
+          "content-type": attachment.contentType || "",
+          "content-description": "",
+          "content-transfer-encoding": "",
+          "content-id": contentId,
+        },
+      };
+    });
 }
 
 function logWellKnownFolderFetchError(
