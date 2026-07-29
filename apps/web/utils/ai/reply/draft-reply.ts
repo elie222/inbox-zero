@@ -72,8 +72,56 @@ type DraftEmailAccount = EmailAccountWithAI & {
   bookingLinks?: { slug: string }[];
 };
 
+type DraftReplyModelContextInput = {
+  emailAccount: Pick<
+    DraftEmailAccount,
+    "about" | "timezone" | "calendarBookingLink" | "bookingLinks"
+  >;
+  knowledgeBaseContent: string | null;
+  replyMemoryContent: string | null;
+  emailHistorySummary: string | null;
+  emailHistoryContext: ReplyContextCollectorResult | null;
+  senderReplyExamples: string | null;
+  calendarAvailability: CalendarAvailabilityContext | null;
+  writingStyle: string | null;
+  learnedWritingStyle: string | null;
+  mcpContext: string | null;
+  meetingContext: string | null;
+  attachmentContext: string | null;
+  hasConfiguredSignature: boolean;
+};
+
 const getUserPrompt = ({
   messages,
+  emailAccount,
+  currentDate,
+  ...modelContextInput
+}: DraftReplyModelContextInput & {
+  messages: (EmailForLLM & { to: string })[];
+  emailAccount: DraftEmailAccount;
+  currentDate?: Date;
+}) => {
+  const modelContext = buildDraftReplyModelContext({
+    ...modelContextInput,
+    emailAccount,
+  });
+
+  return `${modelContext}
+
+Here is the context of the email thread (from oldest to newest):
+${getEmailListPrompt({ messages, messageMaxLength: 3000 })}
+
+Please write a reply to the email.
+${getTodayForLLM(currentDate)}
+IMPORTANT: You are writing an email as ${emailAccount.email}. Write the reply from their perspective.`;
+};
+
+/**
+ * The complete non-thread context shown to the drafting model. Eval judges use
+ * this same resolved representation so product precedence and formatting rules
+ * cannot drift between generation and grading.
+ */
+export function buildDraftReplyModelContext({
   emailAccount,
   knowledgeBaseContent,
   replyMemoryContent,
@@ -87,24 +135,17 @@ const getUserPrompt = ({
   meetingContext,
   attachmentContext,
   hasConfiguredSignature,
-  currentDate,
-}: {
-  messages: (EmailForLLM & { to: string })[];
-  emailAccount: DraftEmailAccount;
-  knowledgeBaseContent: string | null;
-  replyMemoryContent: string | null;
-  emailHistorySummary: string | null;
-  emailHistoryContext: ReplyContextCollectorResult | null;
-  senderReplyExamples: string | null;
-  calendarAvailability: CalendarAvailabilityContext | null;
-  writingStyle: string | null;
-  learnedWritingStyle: string | null;
-  mcpContext: string | null;
-  meetingContext: string | null;
-  attachmentContext: string | null;
-  hasConfiguredSignature: boolean;
-  currentDate?: Date;
-}) => {
+}: DraftReplyModelContextInput): string {
+  const normalizedWritingStyle = writingStyle?.trim() || null;
+  const normalizedLearnedWritingStyle = learnedWritingStyle?.trim() || null;
+  const customWritingStyle =
+    normalizedWritingStyle || normalizedLearnedWritingStyle;
+  const effectiveWritingStyle = customWritingStyle
+    ? `${customWritingStyle}\n\n${LENGTH_DISCIPLINE}`
+    : defaultWritingStyle;
+  const advisoryLearnedWritingStyle = normalizedWritingStyle
+    ? normalizedLearnedWritingStyle
+    : null;
   const userAbout = emailAccount.about
     ? `Context about the user:
 
@@ -169,20 +210,20 @@ ${senderReplyExamples}
 `
     : "";
 
-  const writingStylePrompt = writingStyle
+  const writingStylePrompt = effectiveWritingStyle
     ? `Writing style:
 
 <writing_style>
-${writingStyle}
+${effectiveWritingStyle}
 </writing_style>
 `
     : "";
 
-  const learnedWritingStylePrompt = learnedWritingStyle
+  const learnedWritingStylePrompt = advisoryLearnedWritingStyle
     ? `Learned writing style from prior draft edits. This is advisory and lower priority than any explicit writing style provided by the user.
 
 <learned_writing_style>
-${learnedWritingStyle}
+${advisoryLearnedWritingStyle}
 </learned_writing_style>
 `
     : "";
@@ -242,15 +283,8 @@ ${schedulingContext}
 ${mcpToolsContext}
 ${missingExternalContext}
 ${upcomingMeetingsContext}
-${selectedAttachments}
-
-Here is the context of the email thread (from oldest to newest):
-${getEmailListPrompt({ messages, messageMaxLength: 3000 })}
-
-Please write a reply to the email.
-${getTodayForLLM(currentDate)}
-IMPORTANT: You are writing an email as ${emailAccount.email}. Write the reply from their perspective.`;
-};
+${selectedAttachments}`;
+}
 
 const llmDraftConfidenceSchema = z.enum(["LOW", "MEDIUM", "HIGH"]);
 
@@ -316,17 +350,6 @@ export async function aiDraftReplyWithConfidence({
       : null,
   });
 
-  const normalizedWritingStyle = writingStyle?.trim() || null;
-  const normalizedLearnedWritingStyle = learnedWritingStyle?.trim() || null;
-  const customWritingStyle =
-    normalizedWritingStyle || normalizedLearnedWritingStyle;
-  const effectiveWritingStyle = customWritingStyle
-    ? `${customWritingStyle}\n\n${LENGTH_DISCIPLINE}`
-    : defaultWritingStyle;
-  const advisoryLearnedWritingStyle = normalizedWritingStyle
-    ? normalizedLearnedWritingStyle
-    : null;
-
   const prompt = getUserPrompt({
     messages,
     emailAccount,
@@ -336,8 +359,8 @@ export async function aiDraftReplyWithConfidence({
     emailHistoryContext,
     senderReplyExamples,
     calendarAvailability,
-    writingStyle: effectiveWritingStyle,
-    learnedWritingStyle: advisoryLearnedWritingStyle,
+    writingStyle,
+    learnedWritingStyle,
     mcpContext,
     meetingContext,
     attachmentContext,

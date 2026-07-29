@@ -1,7 +1,7 @@
 import {
   aiDraftReplyWithConfidence,
+  buildDraftReplyModelContext,
   DRAFT_CONFIDENCE_BY_LLM_LABEL,
-  getCalendarBookingLinkForDraft,
 } from "@/utils/ai/reply/draft-reply";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
@@ -77,26 +77,11 @@ export function describeThread(evalCase: DraftReplyCase): string {
  * let unsupported content pass.
  */
 export function describeContext(evalCase: DraftReplyCase): string {
-  const context = evalCase.input.context;
-  const parts = Object.entries(context)
-    .filter(([, value]) => value !== null && value !== undefined)
-    .map(([key, value]) =>
-      typeof value === "string"
-        ? `<${key}>\n${value}\n</${key}>`
-        : `<${key}>\n${JSON.stringify(value, null, 2)}\n</${key}>`,
-    );
-
-  const { about } = evalCase.input.emailAccount;
-  if (about) parts.unshift(`<userAbout>\n${about}\n</userAbout>`);
-
-  const bookingLink = getCalendarBookingLinkForDraft(
-    evalCase.input.emailAccount,
-  );
-  if (bookingLink) {
-    parts.unshift(`<booking_link>\n${bookingLink}\n</booking_link>`);
-  }
-
-  return parts.join("\n\n");
+  return buildDraftReplyModelContext({
+    emailAccount: evalCase.input.emailAccount,
+    ...evalCase.input.context,
+    hasConfiguredSignature: evalCase.input.hasConfiguredSignature,
+  });
 }
 
 function toEmailForLLM(
