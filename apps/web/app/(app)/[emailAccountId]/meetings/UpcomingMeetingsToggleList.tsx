@@ -135,5 +135,9 @@ export function UpcomingMeetingsToggleList({
 }
 
 function isJoining(event: UpcomingEvent) {
-  return event.willRecord || event.isBooked || event.joinOverride === true;
+  return (
+    event.willRecord ||
+    event.hasCancellableBooking ||
+    event.joinOverride === true
+  );
 }

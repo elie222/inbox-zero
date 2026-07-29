@@ -9,6 +9,7 @@ import {
   MEETING_RECORDER_MIN_TIER,
 } from "@/utils/meeting-recorder/config";
 import { shouldAutoJoin } from "@/utils/meeting-recorder/join-rule";
+import { CANCELLABLE_STATUSES } from "@/utils/meeting-recorder/recording-lifecycle";
 import { withEmailAccount } from "@/utils/middleware";
 import {
   getUserTier,
@@ -96,7 +97,9 @@ async function getData({
         id: event.id,
         title: event.title,
         startTime: event.startTime,
-        isBooked: !!meeting?.recording,
+        hasCancellableBooking:
+          !!meeting?.recording &&
+          CANCELLABLE_STATUSES.includes(meeting.recording.status),
         joinOverride: meeting?.joinOverride ?? null,
         // Decided server-side with the same helper the cron uses, so the toggle
         // can never disagree with what actually happens.
