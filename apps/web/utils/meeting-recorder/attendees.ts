@@ -23,15 +23,17 @@ export function toAttendeeSnapshot(
     ...(attendee.declined ? { declined: true } : {}),
   }));
 
-  const normalizedOrganizerEmail = organizerEmail?.trim().toLowerCase();
+  const organizer = organizerEmail?.trim();
+  if (!organizer) return snapshot;
+
+  const normalizedOrganizerEmail = organizer.toLowerCase();
   if (
-    normalizedOrganizerEmail &&
     !snapshot.some(
       (attendee) =>
         attendee.email.trim().toLowerCase() === normalizedOrganizerEmail,
     )
   ) {
-    snapshot.push({ email: organizerEmail.trim() });
+    snapshot.push({ email: organizer });
   }
 
   return snapshot;
