@@ -52,6 +52,8 @@ describe("sendMeetingRecapEmail", () => {
         overview: "Discussed the plan.",
         keyDecisions: [],
         actionItems: [],
+        openQuestions: [],
+        nextSteps: [],
       },
       followUpDraftCreated: false,
       logger: {

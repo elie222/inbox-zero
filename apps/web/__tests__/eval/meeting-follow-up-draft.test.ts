@@ -25,6 +25,7 @@ const ROLLOUT_SUMMARY: MeetingSummary = {
     {
       description:
         "Tell the customers who already have the fifteenth in writing",
+      owner: null,
     },
   ],
   openQuestions: ["Who owns the migration webinar?"],
@@ -45,6 +46,7 @@ const UNRESOLVED_PRICING_SUMMARY: MeetingSummary = {
   openQuestions: [
     "Do they pay for all forty people or only the fifteen daily users?",
   ],
+  nextSteps: [],
 };
 
 describe.runIf(shouldRunEval)("meeting-follow-up-draft eval", () => {
@@ -146,7 +148,7 @@ describe.runIf(shouldRunEval)("meeting-follow-up-draft eval", () => {
           criterion: {
             name: "Ready to send",
             description:
-              "The email is addressed to the group and could be sent as written. It contains no unfilled placeholders for the sender to complete, no meta-commentary about being AI-generated, and no instructions to the reader about how to use the draft.",
+              "The email is addressed to the group and could be sent as written. It contains no unfilled placeholders for the sender to complete, no meta-commentary about being AI-generated, and no instructions to the reader about how to use the draft. Explicitly named action owners remain the owners; work that the source leaves unassigned may be omitted or described without an owner and must not be treated as a drafting placeholder.",
           },
           input: JSON.stringify(ROLLOUT_SUMMARY, null, 2),
           output: `${draft.subject}\n\n${draft.body}`,

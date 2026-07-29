@@ -19,6 +19,10 @@ Rules:
 - When the meeting reverses an earlier decision, report the final position, not the one that was superseded.
 - If a speaker label looks wrong or two speakers have similar names, prefer describing what was decided over who said it.
 - Leave a section empty when the meeting genuinely had nothing for it. An empty list is better than a filler entry.
+- Put each fact in the single section that best describes it. A decision is a settled choice, not merely a commitment or deadline. Do not repeat an action item as a next step or restate a decision in another section.
+- Combine closely related work into one action item when the same person took responsibility for the same outcome.
+- Keep an action's deadline or timing in that action item's description. Do not move task timing into next steps.
+- Keep the length proportionate to the meeting. For a short, single-topic meeting, use a brief overview and only the distinct details someone needs to remember.
 - Write in the language the meeting was held in.
 - Write for someone who attended and wants a reminder, not for someone who needs the meeting re-narrated.
 
@@ -27,29 +31,41 @@ Return your response in JSON format.`;
 const summarySchema = z.object({
   overview: z
     .string()
-    .describe("A short paragraph covering what the meeting was about"),
+    .describe(
+      "One or two sentences covering what the meeting was about, without repeating the detailed lists",
+    ),
   keyDecisions: z
     .array(z.string())
-    .describe("Decisions the group actually settled on"),
+    .describe(
+      "Choices the group actually settled on; exclude action items, deadlines and status updates",
+    ),
   actionItems: z
     .array(
       z.object({
-        description: z.string(),
+        description: z
+          .string()
+          .describe(
+            "The agreed work and any deadline or timing attached to that work",
+          ),
         owner: z
           .string()
-          .optional()
-          .describe("Only set when the transcript shows who took this on"),
+          .nullable()
+          .describe(
+            "The person who took this on, or null when the transcript does not establish an owner",
+          ),
       }),
     )
-    .describe("Concrete follow-up work agreed in the meeting"),
+    .describe(
+      "Distinct concrete follow-up work agreed in the meeting, combining closely related work with the same owner",
+    ),
   openQuestions: z
     .array(z.string())
-    .optional()
     .describe("Questions raised but left unresolved"),
   nextSteps: z
     .array(z.string())
-    .optional()
-    .describe("What happens next, including any agreed timing"),
+    .describe(
+      "Separate scheduled events such as another meeting; never include action deadlines or restate action items, and use an empty list when there is no separate event",
+    ),
 });
 
 export type MeetingSummary = z.infer<typeof summarySchema>;
