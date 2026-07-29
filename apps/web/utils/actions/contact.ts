@@ -15,6 +15,7 @@ import {
   researchCompanyBody,
   scanBusinessCardBody,
   updateCompanyLabelBody,
+  reportCarddavSelfTestBody,
   setCarddavAccessBody,
   setContactIgnoredBody,
   setContactInboxPriorityBody,
@@ -400,6 +401,21 @@ export const setCarddavAccessAction = actionClient
     });
 
     return { enabled: true as const, password };
+  });
+
+// The browser-side CardDAV self-test reports what the client actually
+// received — the one perspective server logs can't capture. Logged, not
+// stored: it exists to be read next to the request logs.
+export const reportCarddavSelfTestAction = actionClient
+  .metadata({ name: "reportCarddavSelfTest" })
+  .inputSchema(reportCarddavSelfTestBody)
+  .action(async ({ ctx: { logger }, parsedInput }) => {
+    if (parsedInput.ok) {
+      logger.info("CardDAV self-test passed", { steps: parsedInput.steps });
+    } else {
+      logger.warn("CardDAV self-test failed", { steps: parsedInput.steps });
+    }
+    return { reported: true };
   });
 
 // Manual "Sync now" — pulls from Google immediately
