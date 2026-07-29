@@ -148,7 +148,11 @@ export async function reconcileSingleEvent({
     if (stillBooked) return;
   }
 
-  const recording = await findOrCreateRecording({ event, logger: eventLogger });
+  const recording = await findOrCreateRecording({
+    emailAccountId: emailAccount.id,
+    event,
+    logger: eventLogger,
+  });
   if (!recording) return;
 
   await linkMeetingToRecording({
@@ -194,9 +198,11 @@ export async function upsertMeeting({
 }
 
 async function findOrCreateRecording({
+  emailAccountId,
   event,
   logger,
 }: {
+  emailAccountId: string;
   event: CalendarEvent;
   logger: Logger;
 }): Promise<MeetingRecording | null> {
@@ -204,9 +210,10 @@ async function findOrCreateRecording({
   if (!meetingUrl) return null;
 
   const normalizedMeetingUrl = normalizeMeetingUrl(meetingUrl);
+  const activeKey = `${emailAccountId}:${normalizedMeetingUrl}`;
 
   const existing = await findLiveRecording({
-    normalizedMeetingUrl,
+    activeKey,
     startTime: event.startTime,
   });
   if (existing) {
@@ -226,15 +233,16 @@ async function findOrCreateRecording({
         botProvider: DEFAULT_MEETING_BOT_PROVIDER,
         meetingUrl,
         normalizedMeetingUrl,
-        activeKey: normalizedMeetingUrl,
+        activeKey,
         meetingStartTime: event.startTime,
       },
     });
   } catch (error) {
     if (!isDuplicateError(error)) throw error;
-    // Another account booked the same meeting between our lookup and our write.
+    // Another pass for this account booked the same meeting between our lookup
+    // and our write.
     return findLiveRecording({
-      normalizedMeetingUrl,
+      activeKey,
       startTime: event.startTime,
     });
   }
@@ -291,10 +299,10 @@ async function bookBot({
 }
 
 function findLiveRecording({
-  normalizedMeetingUrl,
+  activeKey,
   startTime,
 }: {
-  normalizedMeetingUrl: string;
+  activeKey: string;
   startTime: Date;
 }) {
   // Matched on the exact start time, which is what the unique constraint
@@ -303,11 +311,11 @@ function findLiveRecording({
   // room) minutes apart would share one recording and one of them would get the
   // other's transcript, and because the constraint only protects exact
   // timestamps, two racing inserts inside the window would both succeed and
-  // book two bots. Every attendee's copy of the same calendar event carries the
-  // same instant, so exact matching is what actually identifies "one meeting".
+  // book two bots. Within an account, exact matching identifies one occurrence
+  // of a meeting without allowing transcripts to cross account boundaries.
   return prisma.meetingRecording.findFirst({
     where: {
-      normalizedMeetingUrl,
+      activeKey,
       meetingStartTime: startTime,
       status: { in: LIVE_STATUSES },
     },
@@ -365,12 +373,9 @@ async function updateBookingForEvent({
   });
   if (!recording) return false;
 
-  // Compare the dedup key, not the raw link. Two accounts in the same call
-  // legitimately hold different raw links for it (a Teams `meetup-join` URL
-  // carries a per-invitee `context` parameter), so comparing raw links would
-  // detach and re-link the second account's meeting on every pass, and a
-  // concurrent release by the first account during that window would cancel the
-  // shared bot out from under it.
+  // Compare the dedup key, not the raw link. A Teams `meetup-join` URL can carry
+  // a changing per-invitee `context` parameter, so comparing raw links would
+  // detach and re-link the account's meeting on every pass.
   const isDifferentMeeting =
     normalizeMeetingUrl(recording.meetingUrl) !==
     normalizeMeetingUrl(event.videoConferenceLink ?? "");
@@ -382,9 +387,7 @@ async function updateBookingForEvent({
   }
 
   // Same meeting, fresher link: normalization drops credentials, so this is
-  // where a rotated meeting password shows up. Raw links from different
-  // accounts can also carry different per-invitee context, so only a sole owner
-  // can establish that its new link is actually fresher.
+  // where a rotated meeting password or invitee context shows up.
   if (recording.meetingUrl !== event.videoConferenceLink) {
     const linkedMeetings = await prisma.meeting.count({
       where: { recordingId },
@@ -496,6 +499,13 @@ async function updateBookingForEvent({
 
     // The event was moved onto a slot another recording already holds. Fold
     // this meeting into that recording instead of retrying into the same clash.
+    if (updatedBot.externalBotId !== recording.externalBotId) {
+      await prisma.meetingRecording.update({
+        where: { id: recording.id },
+        data: { externalBotId: updatedBot.externalBotId },
+      });
+    }
+
     await mergeIntoExistingRecording({
       meetingId,
       recording: {
@@ -521,8 +531,15 @@ async function mergeIntoExistingRecording({
   event: CalendarEvent;
   logger: Logger;
 }): Promise<void> {
+  if (!recording.activeKey) {
+    logger.warn("Could not merge recording without an active key", {
+      recordingId: recording.id,
+    });
+    return;
+  }
+
   const target = await findLiveRecording({
-    normalizedMeetingUrl: recording.normalizedMeetingUrl,
+    activeKey: recording.activeKey,
     startTime: event.startTime,
   });
 
@@ -1027,13 +1044,27 @@ async function retryPendingMediaDeletion({
 }): Promise<void> {
   const recordings = await prisma.meetingRecording.findMany({
     where: {
-      status: MeetingRecordingStatus.DONE,
-      // The bot reports `done` when it leaves the call, which is well before the
-      // transcript is ready. Deleting the media before we have the transcript
-      // would destroy the recording for good.
-      transcriptFetchedAt: { not: null },
       mediaDeletedAt: null,
       externalBotId: { not: null },
+      OR: [
+        {
+          status: MeetingRecordingStatus.DONE,
+          // The bot reports `done` when it leaves the call, which is well before
+          // the transcript is ready. Successful recordings are only safe to
+          // delete after the transcript has been stored.
+          transcriptFetchedAt: { not: null },
+        },
+        {
+          // Failed and cancelled recordings will never produce a transcript we
+          // intend to keep, but may still hold partial provider media.
+          status: {
+            in: [
+              MeetingRecordingStatus.FAILED,
+              MeetingRecordingStatus.CANCELLED,
+            ],
+          },
+        },
+      ],
     },
     // Anything more pulls the stored transcript blob for every row.
     select: { id: true, botProvider: true, externalBotId: true },
@@ -1055,7 +1086,7 @@ function findRecordingHoldingSlot({
   return prisma.meetingRecording.findFirst({
     where: {
       id: { not: recording.id },
-      activeKey: recording.normalizedMeetingUrl,
+      activeKey: recording.activeKey,
       meetingStartTime: startTime,
     },
     select: { id: true, status: true },

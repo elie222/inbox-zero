@@ -32,7 +32,10 @@ export async function sendMeetingRecapEmail({
   followUpDraftCreated: boolean;
   logger: Logger;
 }): Promise<void> {
-  const unsubscribeToken = await createUnsubscribeToken({ emailAccountId });
+  const unsubscribeToken = await createUnsubscribeToken({
+    emailAccountId,
+    action: "meeting-recorder-recap",
+  });
 
   const emailProps: MeetingRecapEmailProps = {
     baseUrl: env.NEXT_PUBLIC_BASE_URL,

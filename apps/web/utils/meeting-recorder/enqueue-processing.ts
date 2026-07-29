@@ -47,7 +47,7 @@ export async function enqueueMeetingProcessing({
   });
 }
 
-/** Fans a finished recording out to every account that is entitled to it. */
+/** Queues processing for every eligible meeting linked to a recording. */
 export async function enqueueProcessingForRecording({
   recordingId,
   logger,

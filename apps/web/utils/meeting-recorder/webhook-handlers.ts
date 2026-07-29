@@ -5,6 +5,7 @@ import { createMeetingBotProvider } from "@/utils/meeting-recorder/create-bot-pr
 import { enqueueTranscriptFetch } from "@/utils/meeting-recorder/enqueue-processing";
 import {
   getStatusesBelow,
+  LIVE_STATUSES,
   recordingStatusData,
 } from "@/utils/meeting-recorder/recording-lifecycle";
 import prisma from "@/utils/prisma";
@@ -111,7 +112,7 @@ export async function handleRecordingReady({
 }): Promise<void> {
   const recording = await prisma.meetingRecording.findUnique({
     where: { botProvider_externalBotId: { botProvider, externalBotId } },
-    select: { id: true },
+    select: { id: true, status: true },
   });
 
   // An unknown bot is not the same as an already-claimed one. It means we have
@@ -124,8 +125,20 @@ export async function handleRecordingReady({
     return;
   }
 
+  if (!LIVE_STATUSES.includes(recording.status)) {
+    logger.info("Ignored recording ready event for a terminal recording", {
+      recordingId: recording.id,
+      status: recording.status,
+    });
+    return;
+  }
+
   const claim = await prisma.meetingRecording.updateMany({
-    where: { id: recording.id, transcriptRequestedAt: null },
+    where: {
+      id: recording.id,
+      status: { in: LIVE_STATUSES },
+      transcriptRequestedAt: null,
+    },
     data: { externalRecordingId, transcriptRequestedAt: new Date() },
   });
 

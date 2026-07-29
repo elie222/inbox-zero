@@ -1389,9 +1389,8 @@ enum MeetingProcessingStatus {
   FAILED
 }
 
-// A single physical meeting recording, shared by every account attending it.
-// Not account-scoped: one bot joins each call regardless of how many of our
-// users are in it.
+// A physical meeting recording scoped to one email account. Keeping recordings
+// account-scoped prevents transcripts from crossing tenant boundaries.
 model MeetingRecording {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
@@ -1411,10 +1410,9 @@ model MeetingRecording {
   meetingUrl           String
   // Dedup key only, never sent to the provider.
   normalizedMeetingUrl String
-  // Equals normalizedMeetingUrl while the recording can still be scheduled, and
-  // is cleared once it reaches a terminal state. Postgres treats NULLs as
-  // distinct in a unique index, so a finished or cancelled recording stops
-  // holding the slot and the same meeting can be booked again.
+  // Account-scoped normalizedMeetingUrl while the recording can still be
+  // scheduled, and cleared once it reaches a terminal state. Account scoping
+  // prevents a calendar link from becoming cross-tenant transcript access.
   activeKey            String?
   meetingStartTime     DateTime
 

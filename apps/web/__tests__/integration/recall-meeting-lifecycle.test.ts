@@ -159,6 +159,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       // triggers it, and without this step no transcript is ever produced.
       prismaMock.meetingRecording.findUnique.mockResolvedValue({
         id: "recording-1",
+        status: MeetingRecordingStatus.CALL_ENDED,
         transcriptFetchedAt: null,
       });
 
@@ -249,6 +250,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
 
       prismaMock.meetingRecording.findUnique.mockResolvedValue({
         id: "recording-1",
+        status: MeetingRecordingStatus.CALL_ENDED,
       });
       // The claim is taken on the first delivery and refused on the second.
       prismaMock.meetingRecording.updateMany

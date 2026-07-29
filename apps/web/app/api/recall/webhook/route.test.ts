@@ -1,19 +1,25 @@
 import crypto from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { captureExceptionMock, enqueueBackgroundJobMock, envMock, mockPrisma } =
-  vi.hoisted(() => ({
-    captureExceptionMock: vi.fn(),
-    enqueueBackgroundJobMock: vi.fn(),
-    envMock: { RECALL_WEBHOOK_SECRET: "" },
-    mockPrisma: {
-      meetingRecording: {
-        findUnique: vi.fn(),
-        update: vi.fn(),
-        updateMany: vi.fn(),
-      },
+const {
+  captureExceptionMock,
+  createTranscriptMock,
+  enqueueBackgroundJobMock,
+  envMock,
+  mockPrisma,
+} = vi.hoisted(() => ({
+  captureExceptionMock: vi.fn(),
+  createTranscriptMock: vi.fn(),
+  enqueueBackgroundJobMock: vi.fn(),
+  envMock: { RECALL_WEBHOOK_SECRET: "" },
+  mockPrisma: {
+    meetingRecording: {
+      findUnique: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn(),
     },
-  }));
+  },
+}));
 
 vi.mock("@/env", () => ({ env: envMock }));
 
@@ -26,6 +32,12 @@ vi.mock("@/utils/prisma", () => ({ default: mockPrisma }));
 vi.mock("@/utils/queue/dispatch", () => ({
   enqueueBackgroundJob: (...args: unknown[]) =>
     enqueueBackgroundJobMock(...args),
+}));
+
+vi.mock("@/utils/meeting-recorder/create-bot-provider", () => ({
+  createMeetingBotProvider: () => ({
+    createTranscript: (...args: unknown[]) => createTranscriptMock(...args),
+  }),
 }));
 
 vi.mock("@/utils/middleware", async () => {
@@ -153,6 +165,23 @@ describe("Recall webhook route", () => {
     expect(response.status).toBe(200);
     expect(captureExceptionMock).toHaveBeenCalled();
     expect(enqueueBackgroundJobMock).not.toHaveBeenCalled();
+  });
+
+  it("does not transcribe a recording after it was cancelled", async () => {
+    mockPrisma.meetingRecording.findUnique.mockResolvedValue({
+      id: "recording-1",
+      status: MeetingRecordingStatus.CANCELLED,
+    });
+
+    const body = JSON.stringify({
+      event: "recording.done",
+      data: { bot: { id: "bot-1" }, recording: { id: "recording-1" } },
+    });
+
+    const response = await post(body);
+
+    expect(response.status).toBe(200);
+    expect(createTranscriptMock).not.toHaveBeenCalled();
   });
 });
 

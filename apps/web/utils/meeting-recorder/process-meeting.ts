@@ -117,6 +117,7 @@ async function runProcessingSteps({
       recording: { select: { transcript: true } },
       emailAccount: {
         select: {
+          meetingRecorderEnabled: true,
           meetingRecorderRecapEmailEnabled: true,
           meetingRecorderFollowUpDraftEnabled: true,
         },
@@ -124,6 +125,11 @@ async function runProcessingSteps({
     },
   });
   if (!meeting) throw new Error("Meeting not found");
+
+  if (!meeting.emailAccount.meetingRecorderEnabled) {
+    logger.info("Skipping meeting because the notetaker is disabled");
+    return;
+  }
 
   const transcript = meeting.recording?.transcript as
     | NormalizedTranscript

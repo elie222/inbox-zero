@@ -3,6 +3,7 @@ import { Frequency } from "@/generated/prisma/enums";
 import { withError } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 import { escapeHtml, trimToNonEmptyString } from "@/utils/string";
+import { getUnsubscribeAction } from "@/utils/unsubscribe";
 
 export const GET = withError("unsubscribe", async (request) => {
   const token = getTokenFromSearchParams(request);
@@ -63,10 +64,13 @@ export const POST = withError("unsubscribe", async (request) => {
   const [userUpdate, tokenDelete] = await Promise.allSettled([
     prisma.emailAccount.update({
       where: { id: emailToken.emailAccountId },
-      data: {
-        summaryEmailFrequency: Frequency.NEVER,
-        statsEmailFrequency: Frequency.NEVER,
-      },
+      data:
+        getUnsubscribeAction(emailToken.token) === "meeting-recorder-recap"
+          ? { meetingRecorderRecapEmailEnabled: false }
+          : {
+              summaryEmailFrequency: Frequency.NEVER,
+              statsEmailFrequency: Frequency.NEVER,
+            },
     }),
     prisma.emailToken.delete({ where: { id: emailToken.id } }),
   ]);

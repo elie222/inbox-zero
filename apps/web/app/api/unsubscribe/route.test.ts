@@ -84,4 +84,30 @@ describe("unsubscribe route", () => {
     expect(prisma.emailAccount.update).toHaveBeenCalledTimes(1);
     expect(prisma.emailToken.delete).toHaveBeenCalledTimes(1);
   });
+
+  it("disables meeting recaps for a meeting-recap unsubscribe token", async () => {
+    prisma.emailToken.findUnique.mockResolvedValue({
+      id: "email-token-1",
+      token: "meeting-recorder-recap.valid-token",
+      emailAccountId: "email-account-1",
+      expiresAt: new Date("2099-01-01T00:00:00.000Z"),
+      emailAccount: {
+        id: "email-account-1",
+        email: "user@example.com",
+      },
+    } as Awaited<ReturnType<typeof prisma.emailToken.findUnique>>);
+
+    const response = await POST(
+      new Request(
+        "https://example.com/api/unsubscribe?token=meeting-recorder-recap.valid-token",
+        { method: "POST" },
+      ) as never,
+    );
+
+    expect(response.status).toBe(200);
+    expect(prisma.emailAccount.update).toHaveBeenCalledWith({
+      where: { id: "email-account-1" },
+      data: { meetingRecorderRecapEmailEnabled: false },
+    });
+  });
 });
