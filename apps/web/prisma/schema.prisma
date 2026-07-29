@@ -1428,7 +1428,6 @@ model MeetingRecording {
   @@unique([activeKey, meetingStartTime])
   @@index([normalizedMeetingUrl, meetingStartTime])
   @@index([status, meetingStartTime])
-  // The media-deletion sweep scans terminal rows whose media is still owed.
   @@index([status, mediaDeletedAt])
 }
 
