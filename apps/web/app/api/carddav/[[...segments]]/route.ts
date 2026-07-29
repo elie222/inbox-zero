@@ -58,6 +58,7 @@ const handle = withError("carddav", async (request) => {
     depth: request.headers.get("depth") ?? "0",
     body: requestBody,
     emailAccountId: auth.emailAccountId,
+    requestPath: request.nextUrl.pathname,
   });
 
   // One line per exchange so a client that verifies, stalls, or gives up

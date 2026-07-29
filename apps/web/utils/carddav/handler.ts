@@ -22,12 +22,18 @@ export async function handleCarddavRequest({
   depth,
   body,
   emailAccountId,
+  // The exact request path, echoed back as the response href — Apple's
+  // client matches responses to the resource it asked about by href, so
+  // answering /api/carddav with an href of /api/carddav/ reads as an answer
+  // about a different resource
+  requestPath,
 }: {
   method: string;
   segments: string[];
   depth: string;
   body: string;
   emailAccountId: string;
+  requestPath?: string;
 }): Promise<DavResponse> {
   const [root, resource] = segments;
 
@@ -43,7 +49,11 @@ export async function handleCarddavRequest({
 
   // /api/carddav or /api/carddav/principal → discovery
   if (method === "PROPFIND" && (!root || root === "principal")) {
-    return propfindDiscovery(root ? "principal" : "root");
+    return propfindDiscovery({
+      level: root ? "principal" : "root",
+      requestBody: body,
+      href: requestPath || (root ? `${BASE}/principal` : BASE),
+    });
   }
 
   if (root === "addressbook") {
@@ -64,21 +74,79 @@ export async function handleCarddavRequest({
   return { status: 404, body: "Not found" };
 }
 
-function propfindDiscovery(level: "root" | "principal"): DavResponse {
-  const props =
-    level === "root"
-      ? `<d:current-user-principal><d:href>${BASE}/principal</d:href></d:current-user-principal>
-<d:resourcetype><d:collection/></d:resourcetype>`
-      : `<d:resourcetype><d:principal/></d:resourcetype>
-<card:addressbook-home-set xmlns:card="urn:ietf:params:xml:ns:carddav"><d:href>${BASE}/addressbook/</d:href></card:addressbook-home-set>
-<d:displayname>Zerrow</d:displayname>`;
+// Every property the discovery levels can answer. principal-URL and
+// current-user-principal are equivalent here — one account, one principal.
+const DISCOVERY_PROPS: Record<"root" | "principal", Record<string, string>> = {
+  root: {
+    "current-user-principal": `<d:current-user-principal><d:href>${BASE}/principal</d:href></d:current-user-principal>`,
+    "principal-URL": `<d:principal-URL><d:href>${BASE}/principal</d:href></d:principal-URL>`,
+    resourcetype: "<d:resourcetype><d:collection/></d:resourcetype>",
+    displayname: "<d:displayname>Zerrow</d:displayname>",
+  },
+  principal: {
+    "current-user-principal": `<d:current-user-principal><d:href>${BASE}/principal</d:href></d:current-user-principal>`,
+    "principal-URL": `<d:principal-URL><d:href>${BASE}/principal</d:href></d:principal-URL>`,
+    resourcetype: "<d:resourcetype><d:principal/></d:resourcetype>",
+    displayname: "<d:displayname>Zerrow</d:displayname>",
+    "addressbook-home-set": `<card:addressbook-home-set xmlns:card="urn:ietf:params:xml:ns:carddav"><d:href>${BASE}/addressbook/</d:href></card:addressbook-home-set>`,
+  },
+};
 
-  const href = level === "root" ? `${BASE}/` : `${BASE}/principal`;
+function propfindDiscovery({
+  level,
+  requestBody,
+  href,
+}: {
+  level: "root" | "principal";
+  requestBody: string;
+  href: string;
+}): DavResponse {
+  const available = DISCOVERY_PROPS[level];
+  // RFC 4918: answer each requested property, with a 404 propstat for the
+  // ones this resource doesn't have — silently omitting a requested prop
+  // leaves a strict client unable to tell an incomplete answer from a
+  // missing property. An empty body means allprop: everything we have.
+  const requested = requestedProps(requestBody);
+  const names = requested.length ? requested : Object.keys(available);
+
+  const found = names.filter((name) => available[name]);
+  const missing = requested.filter((name) => !available[name]);
+
+  const propstats = [
+    found.length
+      ? `<d:propstat><d:prop>${found
+          .map((name) => available[name])
+          .join(
+            "\n",
+          )}</d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat>`
+      : "",
+    missing.length
+      ? `<d:propstat><d:prop>${missing
+          .map((name) => `<d:${escapeXml(name)}/>`)
+          .join(
+            "",
+          )}</d:prop><d:status>HTTP/1.1 404 Not Found</d:status></d:propstat>`
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n  ");
 
   return multistatus(`<d:response>
-  <d:href>${href}</d:href>
-  <d:propstat><d:prop>${props}</d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat>
+  <d:href>${escapeXml(href)}</d:href>
+  ${propstats}
 </d:response>`);
+}
+
+// The local names of the properties a PROPFIND body asks for, in document
+// order. Tag prefixes vary by client (d:, D:, A:, none), so they're ignored.
+function requestedProps(body: string): string[] {
+  const propBlock = body.match(
+    /<(?:\w+:)?prop[\s>]([\s\S]*?)<\/(?:\w+:)?prop>/i,
+  );
+  if (!propBlock) return [];
+  return [...propBlock[1].matchAll(/<(?:\w+:)?([\w-]+)[\s/>]/g)]
+    .map((match) => match[1])
+    .filter((name) => name.toLowerCase() !== "prop");
 }
 
 async function propfindAddressbook({
