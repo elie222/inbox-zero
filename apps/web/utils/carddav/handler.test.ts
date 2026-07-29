@@ -47,6 +47,53 @@ describe("CardDAV handler", () => {
         "<d:href>/api/carddav/addressbook/</d:href>",
       );
     });
+
+    // iOS's first request asks for these three by name (the A: prefix is
+    // what Apple's client actually sends) — each must be answered, and the
+    // response href must be the path that was asked about
+    it("answers exactly what an iOS discovery request asks for", async () => {
+      const result = await request({
+        method: "PROPFIND",
+        body: `<?xml version="1.0" encoding="UTF-8"?>
+<A:propfind xmlns:A="DAV:">
+  <A:prop>
+    <A:current-user-principal/>
+    <A:principal-URL/>
+    <A:resourcetype/>
+  </A:prop>
+</A:propfind>`,
+        requestPath: "/api/carddav",
+      });
+
+      expect(result.status).toBe(207);
+      expect(result.body).toContain("<d:href>/api/carddav</d:href>");
+      expect(result.body).toContain("<d:current-user-principal>");
+      expect(result.body).toContain(
+        "<d:principal-URL><d:href>/api/carddav/principal</d:href></d:principal-URL>",
+      );
+      expect(result.body).toContain("<d:resourcetype><d:collection/>");
+    });
+
+    it("returns a 404 propstat for a requested prop it doesn't have", async () => {
+      const result = await request({
+        method: "PROPFIND",
+        body: `<propfind xmlns="DAV:"><prop><current-user-principal/><quota-available-bytes/></prop></propfind>`,
+      });
+
+      expect(result.body).toContain("<d:quota-available-bytes/>");
+      expect(result.body).toContain("HTTP/1.1 404 Not Found");
+      // The found prop still comes back 200
+      expect(result.body).toContain("<d:current-user-principal>");
+      expect(result.body).toContain("HTTP/1.1 200 OK");
+    });
+
+    it("answers everything it has when the client sends no body", async () => {
+      const result = await request({ method: "PROPFIND" });
+
+      expect(result.body).toContain("<d:current-user-principal>");
+      expect(result.body).toContain("<d:principal-URL>");
+      expect(result.body).not.toContain("404");
+    });
   });
 
   describe("addressbook PROPFIND", () => {
@@ -255,11 +302,13 @@ function request({
   segments = [],
   depth = "0",
   body = "",
+  requestPath,
 }: {
   method: string;
   segments?: string[];
   depth?: string;
   body?: string;
+  requestPath?: string;
 }) {
   return handleCarddavRequest({
     method,
@@ -267,6 +316,7 @@ function request({
     depth,
     body,
     emailAccountId: EMAIL_ACCOUNT_ID,
+    requestPath,
   });
 }
 

@@ -36,7 +36,9 @@ export async function proxy(request: NextRequest) {
 
   const headers = new Headers();
   headers.set("x-webdav-method", request.method);
-  for (const name of ["authorization", "content-type", "depth"]) {
+  // user-agent rides along so the route's logs name the real client
+  // (dataaccessd, Safari…) instead of this fetch
+  for (const name of ["authorization", "content-type", "depth", "user-agent"]) {
     const value = request.headers.get(name);
     if (value) headers.set(name, value);
   }
