@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { FolderItem } from "@/app/api/user/drive/folders/route";
-import { folderSelection } from "./allowed-folder-selection";
+import {
+  applyLoadedFolderChildrenSelection,
+  folderSelection,
+} from "./allowed-folder-selection";
 
 describe("allowed folder selection", () => {
   it("returns folders without a loaded parent as roots", () => {
@@ -40,6 +43,33 @@ describe("allowed folder selection", () => {
     expect(
       result.changedItems.map((selectedFolder) => selectedFolder.id),
     ).toEqual(["parent", "child-a", "grandchild", "child-b"]);
+  });
+
+  it("selects children loaded after their parent was selected", () => {
+    const parent = folder("parent");
+    const initialSelection = folderSelection.applySelection({
+      item: parent,
+      checked: true,
+      selectedKeys: new Set(),
+      childrenByParentId: new Map(),
+    });
+    const children = [folder("child-a", "parent"), folder("child-b", "parent")];
+
+    const result = applyLoadedFolderChildrenSelection({
+      parent,
+      children,
+      selectedFolderIds: initialSelection.nextKeys,
+      childrenByParentId: new Map(),
+    });
+
+    expect([...result.nextFolderIds].sort()).toEqual([
+      "child-a",
+      "child-b",
+      "parent",
+    ]);
+    expect(
+      result.changedFolders.map((selectedFolder) => selectedFolder.id),
+    ).toEqual(["child-a", "child-b"]);
   });
 
   it("deselects a folder and its loaded descendants", () => {

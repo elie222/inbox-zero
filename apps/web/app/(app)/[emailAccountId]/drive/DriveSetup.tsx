@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
@@ -39,8 +39,6 @@ import { useDriveConnections } from "@/hooks/useDriveConnections";
 import { useDriveFolders } from "@/hooks/useDriveFolders";
 import { useFilingPreviewAttachments } from "@/hooks/useFilingPreviewAttachments";
 import {
-  addFilingFolderAction,
-  removeFilingFolderAction,
   updateFilingPromptAction,
   updateFilingEnabledAction,
   moveFilingAction,
@@ -57,10 +55,7 @@ import {
   FolderNode,
   NoFoldersFound,
 } from "./AllowedFolders";
-import {
-  folderSelection,
-  type FolderChildrenMap,
-} from "./allowed-folder-selection";
+import { useFolderSelection } from "./use-folder-selection";
 import type {
   FolderItem,
   SavedFolder,
@@ -708,134 +703,40 @@ function SetupFolderSelection({
   isLoading: boolean;
 }) {
   const analytics = useProductAnalytics("attachments");
-  // Optimistic state for folder selection
-  const [optimisticFolderIds, setOptimisticFolderIds] = useState<Set<string>>(
-    () => new Set(savedFolders.map((f) => f.folderId)),
-  );
-  const [childrenByParentId, setChildrenByParentId] =
-    useState<FolderChildrenMap>(() =>
-      folderSelection.buildChildrenMap(availableFolders),
-    );
   // TODO: This assumes a single drive connection; swap to a selected connection ID when multi-connection UX exists.
   const driveConnectionId = connections[0]?.id ?? null;
 
-  // Sync optimistic state when server data changes
-  const serverFolderIds = savedFolders.map((f) => f.folderId).join(",");
-  const prevServerFolderIds = useRef(serverFolderIds);
-  useEffect(() => {
-    if (serverFolderIds === prevServerFolderIds.current) return;
-    prevServerFolderIds.current = serverFolderIds;
-    setOptimisticFolderIds(new Set(savedFolders.map((f) => f.folderId)));
-  }, [savedFolders, serverFolderIds]);
-
-  useEffect(() => {
-    setChildrenByParentId(folderSelection.buildChildrenMap(availableFolders));
-  }, [availableFolders]);
-
-  const handleChildrenLoaded = useCallback(
-    (parentId: string, children: FolderItem[]) => {
-      setChildrenByParentId((prev) =>
-        folderSelection.mergeChildren({
-          childrenByParentId: prev,
-          parentId,
-          children,
-        }),
-      );
+  const onFoldersAdded = useCallback(
+    (savedFolderCount: number) => {
+      analytics.captureAction("auto_file_folder_selected", {
+        saved_folder_count: savedFolderCount,
+      });
     },
-    [],
+    [analytics],
   );
-
-  const handleFolderToggle = useCallback(
-    async (folder: FolderItem, isChecked: boolean) => {
-      const previousFolderIds = optimisticFolderIds;
-      const { nextKeys: nextFolderIds, changedItems: changedFolders } =
-        folderSelection.applySelection({
-          item: folder,
-          checked: isChecked,
-          selectedKeys: previousFolderIds,
-          childrenByParentId,
-        });
-
-      setOptimisticFolderIds(nextFolderIds);
-
-      try {
-        if (isChecked) {
-          analytics.captureAction("auto_file_folder_selected", {
-            saved_folder_count:
-              optimisticFolderIds.size + changedFolders.length,
-          });
-          const results = await Promise.all(
-            changedFolders.map((changedFolder) =>
-              addFilingFolderAction(emailAccountId, {
-                folderId: changedFolder.id,
-                folderName: changedFolder.name,
-                folderPath: changedFolder.path || changedFolder.name,
-                driveConnectionId: changedFolder.driveConnectionId,
-              }),
-            ),
-          );
-          const serverError = results.find(
-            (result) => result?.serverError,
-          )?.serverError;
-
-          if (serverError) {
-            setOptimisticFolderIds(previousFolderIds);
-            toastError({
-              title: "Error adding folder",
-              description: serverError,
-            });
-          } else {
-            mutateFolders();
-          }
-        } else {
-          analytics.captureAction("auto_file_folder_removed", {
-            saved_folder_count: Math.max(
-              optimisticFolderIds.size - changedFolders.length,
-              0,
-            ),
-          });
-          const results = await Promise.all(
-            changedFolders.map((changedFolder) =>
-              removeFilingFolderAction(emailAccountId, {
-                folderId: changedFolder.id,
-              }),
-            ),
-          );
-          const serverError = results.find(
-            (result) => result?.serverError,
-          )?.serverError;
-
-          if (serverError) {
-            setOptimisticFolderIds(previousFolderIds);
-            toastError({
-              title: "Error removing folder",
-              description: serverError,
-            });
-          } else {
-            mutateFolders();
-          }
-        }
-      } catch {
-        setOptimisticFolderIds(previousFolderIds);
-        toastError({
-          title: isChecked ? "Error adding folder" : "Error removing folder",
-          description: "Please try again.",
-        });
-      }
+  const onFoldersRemoved = useCallback(
+    (savedFolderCount: number) => {
+      analytics.captureAction("auto_file_folder_removed", {
+        saved_folder_count: savedFolderCount,
+      });
     },
-    [
-      analytics,
-      childrenByParentId,
-      emailAccountId,
-      mutateFolders,
-      optimisticFolderIds,
-    ],
+    [analytics],
   );
 
-  const rootFolders = useMemo(
-    () => folderSelection.getRootItems(availableFolders),
-    [availableFolders],
-  );
+  const {
+    optimisticFolderIds,
+    childrenByParentId,
+    rootFolders,
+    handleFolderToggle,
+    handleChildrenLoaded,
+  } = useFolderSelection({
+    emailAccountId,
+    availableFolders,
+    savedFolders,
+    mutateFolders,
+    onFoldersAdded,
+    onFoldersRemoved,
+  });
 
   return (
     <div>
