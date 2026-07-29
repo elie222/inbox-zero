@@ -17,7 +17,8 @@ import { resolveMicrosoftGraphNextLink } from "@/utils/outlook/page-token";
 export const MESSAGE_SELECT_FIELDS =
   "id,conversationId,conversationIndex,internetMessageId,subject,bodyPreview,from,sender,toRecipients,ccRecipients,receivedDateTime,isDraft,isRead,body,categories,parentFolderId,hasAttachments,webLink";
 
-// Expand attachments to get metadata (name, type, size) without fetching content
+// contentId belongs to fileAttachment, so selecting it without this type cast
+// makes Graph reject the entire attachment collection query.
 export const MESSAGE_EXPAND_ATTACHMENTS =
   "attachments($select=id,name,contentType,size,isInline,microsoft.graph.fileAttachment/contentId)";
 
