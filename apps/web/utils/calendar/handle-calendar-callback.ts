@@ -5,7 +5,8 @@ import type { CalendarOAuthProvider } from "./oauth-types";
 import {
   validateOAuthCallback,
   checkExistingConnection,
-  createCalendarConnection,
+  isConnectionUsable,
+  upsertCalendarConnection,
 } from "./oauth-callback-helpers";
 import {
   RedirectError,
@@ -90,7 +91,10 @@ export async function handleCalendarCallback(
       email,
     );
 
-    if (existingConnection) {
+    // Only a healthy connection is a no-op. A row left behind by a failed
+    // sync or a dead refresh token has to fall through and be re-armed with
+    // these fresh tokens, or reconnecting can never fix it.
+    if (existingConnection && isConnectionUsable(existingConnection)) {
       logger.info("Calendar connection already exists", {
         emailAccountId,
         email,
@@ -105,8 +109,8 @@ export async function handleCalendarCallback(
       );
     }
 
-    // Step 7: Create calendar connection
-    const connection = await createCalendarConnection({
+    // Step 7: Create the connection, or revive a broken one
+    const connection = await upsertCalendarConnection({
       provider: provider.name,
       email,
       emailAccountId,

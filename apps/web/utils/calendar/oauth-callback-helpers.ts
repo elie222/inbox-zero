@@ -188,10 +188,24 @@ export async function checkExistingConnection(
   });
 }
 
+// A row is only usable when it's still marked connected and kept its refresh
+// token. Both the token-refresh and calendar-sync failure paths flip
+// isConnected off and leave the row behind, so its mere existence says
+// nothing about whether the calendar can actually be read.
+export function isConnectionUsable(connection: {
+  isConnected: boolean;
+  refreshToken: string | null;
+}): boolean {
+  return connection.isConnected && !!connection.refreshToken;
+}
+
 /**
- * Create a calendar connection record
+ * Store a calendar connection, reviving a broken one rather than failing on
+ * the (emailAccountId, provider, email) unique constraint. Reconnecting is
+ * the only way back from a dead refresh token, so it has to land on the
+ * existing row.
  */
-export async function createCalendarConnection(params: {
+export async function upsertCalendarConnection(params: {
   provider: "google" | "microsoft";
   email: string;
   emailAccountId: string;
@@ -199,16 +213,28 @@ export async function createCalendarConnection(params: {
   refreshToken: string;
   expiresAt: Date | null;
 }) {
-  return await prisma.calendarConnection.create({
-    data: {
+  const tokens = {
+    accessToken: params.accessToken,
+    refreshToken: params.refreshToken,
+    expiresAt: params.expiresAt,
+    isConnected: true,
+  };
+
+  return await prisma.calendarConnection.upsert({
+    where: {
+      emailAccountId_provider_email: {
+        emailAccountId: params.emailAccountId,
+        provider: params.provider,
+        email: params.email,
+      },
+    },
+    create: {
       provider: params.provider,
       email: params.email,
       emailAccountId: params.emailAccountId,
-      accessToken: params.accessToken,
-      refreshToken: params.refreshToken,
-      expiresAt: params.expiresAt,
-      isConnected: true,
+      ...tokens,
     },
+    update: tokens,
   });
 }
 
