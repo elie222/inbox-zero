@@ -181,6 +181,19 @@ async function runProcessingSteps({
     meeting.emailAccount.meetingRecorderRecapEmailEnabled &&
     !meeting.recapSentAt
   ) {
+    // When this run did not create the draft itself, the initial read is
+    // stale: a concurrent run that won the draft claim, or an earlier run
+    // that failed after drafting, may have stored the id since. Re-read it
+    // so the recap does not tell the user no draft exists when one does.
+    // Read before claiming the send, so a transient read failure retries
+    // instead of burning the one-way recap claim.
+    const freshDraft = draftCreated
+      ? null
+      : await prisma.meeting.findUnique({
+          where: { id: meetingId },
+          select: { followUpDraftId: true },
+        });
+
     // Claim the send before doing it: a duplicate recap is worse than a missing
     // one, and the user can always open the meeting in the app.
     const claim = await prisma.meeting.updateMany({
@@ -189,17 +202,6 @@ async function runProcessingSteps({
     });
 
     if (claim.count > 0) {
-      // When this run did not create the draft itself, the initial read is
-      // stale: a concurrent run that won the draft claim, or an earlier run
-      // that failed after drafting, may have stored the id since. Re-read it
-      // so the recap does not tell the user no draft exists when one does.
-      const freshDraft = draftCreated
-        ? null
-        : await prisma.meeting.findUnique({
-            where: { id: meetingId },
-            select: { followUpDraftId: true },
-          });
-
       await sendMeetingRecapEmail({
         emailAccountId: meeting.emailAccountId,
         userEmail: emailAccount.email,
