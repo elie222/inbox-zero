@@ -1,20 +1,31 @@
 "use client";
 
 import { useAccount } from "@/providers/EmailAccountProvider";
+import type { ReactNode } from "react";
 import { format } from "date-fns";
+import Link from "next/link";
+import { ChevronDownIcon, MailPlusIcon, TextQuoteIcon } from "lucide-react";
 import { LoadingContent } from "@/components/LoadingContent";
+import { MutedText } from "@/components/Typography";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardBlue, CardContent } from "@/components/ui/card";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getMeetingDetailState } from "@/app/(app)/[emailAccountId]/meetings/meeting-detail-state";
 import { useMeetingRecorderMeeting } from "@/hooks/useMeetingRecorder";
-import type { MeetingSummary } from "@/utils/ai/meeting-recorder/summarize-meeting";
 import { formatTranscriptTimestamp } from "@/utils/meeting-recorder/transcript-prompt";
 
 export function MeetingDetail({
@@ -42,9 +53,14 @@ export function MeetingDetail({
 
   return (
     <Dialog open={!!meetingId} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{data?.eventTitle ?? "Meeting"}</DialogTitle>
+          {data && (
+            <DialogDescription>
+              {formatMeetingTimeRange(data.startTime, data.endTime)}
+            </DialogDescription>
+          )}
         </DialogHeader>
 
         <LoadingContent
@@ -83,69 +99,120 @@ export function MeetingDetail({
           )}
 
           {state === "processing" && (
-            <p className="text-sm text-muted-foreground">
+            <MutedText>
               The recording is in progress or being processed. Notes will appear
               here when they are ready.
-            </p>
+            </MutedText>
           )}
 
           {state === "not-recorded" && (
-            <p className="text-sm text-muted-foreground">
-              This meeting has not been recorded yet.
-            </p>
+            <MutedText>This meeting has not been recorded yet.</MutedText>
           )}
 
-          {(summary || transcript?.length) && (
-            <Tabs defaultValue="summary">
-              <TabsList>
-                <TabsTrigger value="summary">Summary</TabsTrigger>
-                <TabsTrigger value="transcript">Transcript</TabsTrigger>
-              </TabsList>
+          {!summary && state === "notes" && (
+            <MutedText>The summary is still being written.</MutedText>
+          )}
 
-              <TabsContent
-                value="summary"
-                className="max-h-[60vh] overflow-y-auto"
-              >
-                {summary ? (
-                  <MeetingSummaryView summary={summary} />
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    {state === "processing-failed" ||
-                    state === "notes-unavailable"
-                      ? "No summary is available for this meeting."
-                      : "The summary is still being written."}
-                  </p>
-                )}
-              </TabsContent>
+          {summary && (
+            <>
+              <DetailSection title="Summary">
+                <p className="text-sm leading-relaxed">{summary.overview}</p>
+                <SummaryList items={summary.keyDecisions} title="Decisions" />
+              </DetailSection>
 
-              <TabsContent
-                value="transcript"
-                className="max-h-[60vh] space-y-3 overflow-y-auto"
-              >
-                {transcript?.map((utterance, index) => (
-                  <div key={`${utterance.startTime}-${index}`}>
-                    <p className="text-xs font-medium text-muted-foreground">
-                      {utterance.speakerName} ·{" "}
-                      {formatTranscriptTimestamp(utterance.startTime)}
-                    </p>
-                    <p className="text-sm">{utterance.text}</p>
-                  </div>
-                ))}
-              </TabsContent>
-            </Tabs>
+              {summary.actionItems.length > 0 && (
+                <DetailSection title="Action items">
+                  <ul className="space-y-2">
+                    {summary.actionItems.map((item, index) => (
+                      <li
+                        key={`action-${index}`}
+                        className="flex items-start justify-between gap-3 text-sm"
+                      >
+                        <span>{item.description}</span>
+                        {item.owner && (
+                          <Badge variant="secondary" className="shrink-0">
+                            {item.owner}
+                          </Badge>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </DetailSection>
+              )}
+
+              {!!(
+                summary.openQuestions?.length || summary.nextSteps?.length
+              ) && (
+                <DetailSection title="Still open">
+                  <SummaryList
+                    items={summary.openQuestions ?? []}
+                    title="Open questions"
+                  />
+                  <SummaryList
+                    items={summary.nextSteps ?? []}
+                    title="Next steps"
+                  />
+                </DetailSection>
+              )}
+            </>
           )}
 
           {data?.followUpDraftId && (
-            <p className="text-sm text-muted-foreground">
-              A follow-up email is waiting in your drafts.
-            </p>
+            <CardBlue>
+              <CardContent className="space-y-3 p-4">
+                <div className="flex items-center gap-2">
+                  <MailPlusIcon className="size-4 text-blue-600 dark:text-blue-400" />
+                  <span className="text-sm font-medium">
+                    Follow-up draft is ready
+                  </span>
+                </div>
+                <MutedText>
+                  It is sitting in your drafts, addressed to the other
+                  attendees. Nothing was sent for you.
+                </MutedText>
+                <Button asChild variant="outline" size="sm">
+                  <Link href={`/${emailAccountId}/mail?type=draft`}>
+                    Go to drafts
+                  </Link>
+                </Button>
+              </CardContent>
+            </CardBlue>
+          )}
+
+          {!!transcript?.length && (
+            <Collapsible>
+              <Card>
+                <CollapsibleTrigger className="group flex w-full items-center gap-3 p-4 text-left hover:bg-accent/50">
+                  <TextQuoteIcon className="size-4 shrink-0 text-muted-foreground" />
+                  <span className="text-sm font-medium">Transcript</span>
+                  <span className="flex-1 text-sm text-muted-foreground">
+                    {transcript.length} lines
+                  </span>
+                  <ChevronDownIcon className="size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+                </CollapsibleTrigger>
+
+                <CollapsibleContent>
+                  <div className="max-h-[40vh] space-y-3 overflow-y-auto border-t p-4">
+                    {transcript.map((utterance, index) => (
+                      <div key={`${utterance.startTime}-${index}`}>
+                        <p className="text-xs font-medium text-muted-foreground">
+                          {utterance.speakerName} ·{" "}
+                          {formatTranscriptTimestamp(utterance.startTime)}
+                        </p>
+                        <p className="text-sm">{utterance.text}</p>
+                      </div>
+                    ))}
+                  </div>
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
           )}
 
           {data?.recapSentAt && (
-            <p className="text-xs text-muted-foreground">
+            <MutedText className="text-xs">
               Notes emailed{" "}
               {format(new Date(data.recapSentAt), "MMM d 'at' h:mm a")}
-            </p>
+            </MutedText>
           )}
         </LoadingContent>
       </DialogContent>
@@ -153,33 +220,31 @@ export function MeetingDetail({
   );
 }
 
-function MeetingSummaryView({ summary }: { summary: MeetingSummary }) {
+function DetailSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
   return (
-    <div className="space-y-4">
-      <p className="text-sm">{summary.overview}</p>
-
-      <SummarySection title="Decisions" items={summary.keyDecisions} />
-      <SummarySection
-        title="Action items"
-        items={summary.actionItems.map((item) =>
-          item.owner ? `${item.owner}: ${item.description}` : item.description,
-        )}
-      />
-      <SummarySection
-        title="Open questions"
-        items={summary.openQuestions ?? []}
-      />
-      <SummarySection title="Next steps" items={summary.nextSteps ?? []} />
-    </div>
+    <Card>
+      <CardContent className="space-y-3 p-4">
+        <h3 className="text-sm font-medium">{title}</h3>
+        {children}
+      </CardContent>
+    </Card>
   );
 }
 
-function SummarySection({ title, items }: { title: string; items: string[] }) {
+function SummaryList({ title, items }: { title: string; items: string[] }) {
   if (items.length === 0) return null;
 
   return (
     <div>
-      <h4 className="text-sm font-medium">{title}</h4>
+      <h4 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        {title}
+      </h4>
       <ul className="mt-1 list-disc space-y-1 pl-5">
         {items.map((item, index) => (
           <li key={`${title}-${index}`} className="text-sm">
@@ -189,4 +254,14 @@ function SummarySection({ title, items }: { title: string; items: string[] }) {
       </ul>
     </div>
   );
+}
+
+function formatMeetingTimeRange(
+  startTime: string | Date,
+  endTime: string | Date,
+) {
+  const start = new Date(startTime);
+  const end = new Date(endTime);
+
+  return `${format(start, "EEE, MMM d")} · ${format(start, "h:mm")} – ${format(end, "h:mm a")}`;
 }

@@ -44,6 +44,15 @@ import { PremiumAiAssistantAlert } from "@/components/PremiumAlert";
 import { ActionType, ExecutedRuleStatus } from "@/generated/prisma/enums";
 import type { Rule } from "@/generated/prisma/client";
 import { SettingCard } from "@/components/SettingCard";
+import { ListCard } from "@/components/ListCard";
+import { RadioCardGroup } from "@/components/RadioCardGroup";
+import { Toggle } from "@/components/Toggle";
+import {
+  Item,
+  ItemContent,
+  ItemDescription,
+  ItemTitle,
+} from "@/components/ui/item";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { isValidEmail } from "@/utils/email";
 import { ActionBadges } from "@/app/(app)/[emailAccountId]/assistant/Rules";
@@ -70,6 +79,8 @@ export default function Components() {
     "alice@example.com",
     "bob@example.com",
   ]);
+  const [joinRule, setJoinRule] = useState("external");
+  const [notifyByEmail, setNotifyByEmail] = useState(true);
   return (
     <Container>
       <div className="space-y-8 py-8">
@@ -876,6 +887,106 @@ export default function Components() {
               description="How often to check for new emails"
               right={<Badge color="green">Every 5 minutes</Badge>}
             />
+          </div>
+        </div>
+
+        <div>
+          <div className="underline">RadioCardGroup</div>
+          <MutedText className="mt-2">
+            A one-of-N choice where each option needs a sentence of explanation.
+            Prefer this over a Select when the descriptions matter to the
+            decision, such as a setup step. Native radios, so arrow keys work
+            and the group is a single tab stop.
+          </MutedText>
+          <div className="mt-4 max-w-lg space-y-4">
+            <RadioCardGroup
+              name="demoJoinRule"
+              ariaLabel="Which meetings to join"
+              value={joinRule}
+              onChange={setJoinRule}
+              options={[
+                {
+                  value: "external",
+                  label: "Meetings with guests",
+                  description:
+                    "Join calls that include someone outside your company",
+                  badge: "Recommended",
+                },
+                {
+                  value: "all",
+                  label: "All meetings",
+                  description:
+                    "Join every call on your calendar with a video link",
+                },
+                {
+                  value: "off",
+                  label: "Nothing automatic",
+                  description: "Only join calls you turn on one by one",
+                },
+              ]}
+            />
+
+            <div>
+              <MutedText className="mb-2">Disabled:</MutedText>
+              <RadioCardGroup
+                name="demoJoinRuleDisabled"
+                ariaLabel="Disabled example"
+                value="a"
+                onChange={() => {}}
+                disabled
+                options={[
+                  {
+                    value: "a",
+                    label: "Selected",
+                    description: "With a description",
+                  },
+                  { value: "b", label: "Not selected" },
+                ]}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div className="underline">ListCard</div>
+          <MutedText className="mt-2">
+            A bordered card of rows separated by rules, for lists where each row
+            is a record rather than a standalone card. Pass <code>Item</code>{" "}
+            rows with <code>rounded-none</code>.
+          </MutedText>
+          <div className="mt-4 max-w-2xl space-y-4">
+            <ListCard>
+              <Item>
+                <ItemContent>
+                  <ItemTitle>Email me the notes</ItemTitle>
+                  <ItemDescription>
+                    Send the summary to your inbox after each call
+                  </ItemDescription>
+                </ItemContent>
+                <Toggle
+                  name="demoNotifyByEmail"
+                  enabled={notifyByEmail}
+                  onChange={setNotifyByEmail}
+                />
+              </Item>
+              <Item>
+                <ItemContent>
+                  <ItemTitle>Weekly digest</ItemTitle>
+                  <ItemDescription>
+                    One summary every Monday morning
+                  </ItemDescription>
+                </ItemContent>
+                <Badge color="green">On</Badge>
+              </Item>
+              <Item>
+                <ItemContent>
+                  <ItemTitle>Row without a description</ItemTitle>
+                </ItemContent>
+                <ShadButton variant="outline" size="sm">
+                  Configure
+                </ShadButton>
+              </Item>
+            </ListCard>
           </div>
         </div>
 
