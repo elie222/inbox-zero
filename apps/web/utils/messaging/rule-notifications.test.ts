@@ -176,7 +176,7 @@ describe("handleRuleNotificationAction", () => {
     expect(cardText).toContain(
       "Drafted by <https://getinboxzero.com/?ref=ABC|Inbox Zero>.",
     );
-    expect(cardText).toContain("Status: Reply sent.");
+    expect(cardText).toContain("Status: Reply sent. ✅");
     expect(cardText).toContain("Open in Gmail");
     expect(cardText).toContain(
       "https://mail.google.com/mail/u/?authuser=user%40example.com#all/message-1",
@@ -507,7 +507,7 @@ describe("handleRuleNotificationAction", () => {
       expect.objectContaining({
         channel: "C123",
         ts: "slack-ts-1",
-        text: expect.stringContaining("Reply sent."),
+        text: expect.stringContaining("Reply sent. ✅"),
       }),
     );
     expect(
@@ -607,11 +607,11 @@ describe("handleRuleNotificationAction", () => {
     const [, , card] = editMessage.mock.calls[0];
     const cardText = JSON.stringify(card);
 
-    expect(cardText).toContain("Status: Reply sent.");
+    expect(cardText).toContain("Status: Reply sent. ✅");
     expect(cardText).toContain("Open in Gmail");
 
     const editedMessage = await renderTelegramEditedMessageForTest(card);
-    expect(editedMessage.text).toContain("Reply sent\\.");
+    expect(editedMessage.text).toContain("Reply sent\\. ✅");
     expect(editedMessage.text).toContain("Sender\\_Name");
     expect(editedMessage.text).toContain("\\[billing\\]\\_status");
     expect(editedMessage.text).toContain("account\\_name");
