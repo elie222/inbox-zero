@@ -420,19 +420,14 @@ async function updateBookingForEvent({
   // A cancelling row retains the dedup slot until the provider confirms that
   // its bot is gone. Wait for that cleanup before moving this bot, otherwise
   // the database update collides after the provider has already been changed.
-  const cancellationInProgress = await prisma.meetingRecording.findFirst({
-    where: {
-      id: { not: recording.id },
-      normalizedMeetingUrl: recording.normalizedMeetingUrl,
-      meetingStartTime: event.startTime,
-      status: MeetingRecordingStatus.CANCELLING,
-    },
-    select: { id: true },
+  const destination = await findRecordingHoldingSlot({
+    recording,
+    startTime: event.startTime,
   });
-  if (cancellationInProgress) {
+  if (destination?.status === MeetingRecordingStatus.CANCELLING) {
     logger.info("Waiting for conflicting meeting recording cancellation", {
       recordingId: recording.id,
-      conflictingRecordingId: cancellationInProgress.id,
+      conflictingRecordingId: destination.id,
     });
     return true;
   }
@@ -442,17 +437,62 @@ async function updateBookingForEvent({
     joinAt: event.startTime,
     meetingUrl: event.videoConferenceLink ?? recording.meetingUrl,
   });
+  const rescheduleData = {
+    meetingStartTime: event.startTime,
+    externalBotId: updatedBot.externalBotId,
+  };
 
   try {
     await prisma.meetingRecording.update({
       where: { id: recording.id },
-      data: {
-        meetingStartTime: event.startTime,
-        externalBotId: updatedBot.externalBotId,
-      },
+      data: rescheduleData,
     });
   } catch (error) {
     if (!isDuplicateError(error)) throw error;
+
+    const conflictingDestination = await findRecordingHoldingSlot({
+      recording,
+      startTime: event.startTime,
+    });
+
+    // The cancellation may have completed between the conflicting write and
+    // this read. If the slot is free now, finish persisting the provider move.
+    if (!conflictingDestination) {
+      await prisma.meetingRecording.update({
+        where: { id: recording.id },
+        data: rescheduleData,
+      });
+      return true;
+    }
+
+    if (conflictingDestination.status === MeetingRecordingStatus.CANCELLING) {
+      // The destination started cancelling after the preflight check. Persist
+      // any replacement id first so a failed compensation never leaves the
+      // live provider bot untracked, then restore its previous schedule.
+      if (updatedBot.externalBotId !== recording.externalBotId) {
+        await prisma.meetingRecording.update({
+          where: { id: recording.id },
+          data: { externalBotId: updatedBot.externalBotId },
+        });
+      }
+
+      const restoredBot = await provider.updateBot(updatedBot.externalBotId, {
+        joinAt: recording.meetingStartTime,
+        meetingUrl: event.videoConferenceLink ?? recording.meetingUrl,
+      });
+      if (restoredBot.externalBotId !== updatedBot.externalBotId) {
+        await prisma.meetingRecording.update({
+          where: { id: recording.id },
+          data: { externalBotId: restoredBot.externalBotId },
+        });
+      }
+
+      logger.info("Deferred reschedule after concurrent cancellation", {
+        recordingId: recording.id,
+        conflictingRecordingId: conflictingDestination.id,
+      });
+      return true;
+    }
 
     // The event was moved onto a slot another recording already holds. Fold
     // this meeting into that recording instead of retrying into the same clash.
@@ -1003,4 +1043,21 @@ async function retryPendingMediaDeletion({
   for (const recording of recordings) {
     await deleteRecordingMedia({ recording, logger });
   }
+}
+
+function findRecordingHoldingSlot({
+  recording,
+  startTime,
+}: {
+  recording: MeetingRecording;
+  startTime: Date;
+}) {
+  return prisma.meetingRecording.findFirst({
+    where: {
+      id: { not: recording.id },
+      activeKey: recording.normalizedMeetingUrl,
+      meetingStartTime: startTime,
+    },
+    select: { id: true, status: true },
+  });
 }

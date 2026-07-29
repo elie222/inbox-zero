@@ -297,6 +297,60 @@ describe.skipIf(!RUN_DB_TESTS)(
       );
     });
 
+    test("restores the bot when cancellation races with rescheduling", async () => {
+      const event = calendarEvent();
+      const emailAccount = account(accountAId, ACCOUNT_A);
+      await reconcile.reconcileSingleEvent({ emailAccount, event, logger });
+      const original = await prisma.meetingRecording.findFirstOrThrow();
+      const movedTo = addMinutes(event.startTime, 45);
+      const conflicting = await prisma.meetingRecording.create({
+        data: {
+          botProvider: original.botProvider,
+          externalBotId: "conflicting_bot",
+          meetingUrl: original.meetingUrl,
+          normalizedMeetingUrl: original.normalizedMeetingUrl,
+          activeKey: original.activeKey,
+          meetingStartTime: movedTo,
+          status: MeetingRecordingStatus.SCHEDULED,
+        },
+      });
+      fakeProvider.replacementBotIdOnNextUpdate = "moved_bot";
+      fakeProvider.beforeNextUpdate = async () => {
+        await prisma.meetingRecording.update({
+          where: { id: conflicting.id },
+          data: { status: MeetingRecordingStatus.CANCELLING },
+        });
+      };
+
+      await reconcile.reconcileSingleEvent({
+        emailAccount,
+        event: {
+          ...event,
+          startTime: movedTo,
+          endTime: addMinutes(movedTo, 30),
+        },
+        logger,
+      });
+
+      expect(fakeProvider.updated).toEqual([
+        {
+          botId: original.externalBotId,
+          joinAt: movedTo,
+          meetingUrl: event.videoConferenceLink,
+        },
+        {
+          botId: "moved_bot",
+          joinAt: event.startTime,
+          meetingUrl: original.meetingUrl,
+        },
+      ]);
+      const restored = await prisma.meetingRecording.findUniqueOrThrow({
+        where: { id: original.id },
+      });
+      expect(restored.externalBotId).toBe("moved_bot");
+      expect(restored.meetingStartTime).toEqual(event.startTime);
+    });
+
     test("retries a claim whose provider call failed transiently", async () => {
       const event = calendarEvent();
       const emailAccount = account(accountAId, ACCOUNT_A);
