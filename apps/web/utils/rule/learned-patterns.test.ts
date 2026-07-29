@@ -66,7 +66,7 @@ describe("saveLearnedPattern", () => {
     } as any);
     await saveLearnedPattern({
       emailAccountId: "email-account-id",
-      from: "  Sender@Example.COM  ",
+      from: "\t Sender@Example.COM\n",
       ruleId: "rule-id",
       logger: createTestLogger(),
     });
@@ -342,7 +342,7 @@ describe("saveLearnedPatterns", () => {
       patterns: [
         {
           type: GroupItemType.FROM,
-          value: "  Sender@Example.COM  ",
+          value: "\r Sender@Example.COM\v",
           exclude: true,
         },
       ],
