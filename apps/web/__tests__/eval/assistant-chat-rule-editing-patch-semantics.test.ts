@@ -207,6 +207,7 @@ describe.runIf(shouldRunEval)(
   () => {
     beforeEach(() => {
       vi.clearAllMocks();
+      const ruleRows = cloneRuleRows(patchRuleRows);
 
       configureRuleMutationMocks({
         mockCreateRule,
@@ -215,15 +216,36 @@ describe.runIf(shouldRunEval)(
         mockSetRuleEnabled,
         mockSaveLearnedPatterns,
       });
+      mockPartialUpdateRule.mockImplementation(async ({ ruleId, data }) => {
+        const rule = ruleRows.find((candidate) => candidate.id === ruleId);
+        if (rule) {
+          Object.assign(rule, data, {
+            updatedAt: new Date("2026-03-13T00:01:00.000Z"),
+          });
+        }
+
+        return { id: ruleId };
+      });
+      mockSetRuleEnabled.mockImplementation(async ({ ruleId, enabled }) => {
+        const rule = ruleRows.find((candidate) => candidate.id === ruleId);
+        if (rule) {
+          Object.assign(rule, {
+            enabled,
+            updatedAt: new Date("2026-03-13T00:01:00.000Z"),
+          });
+        }
+
+        return { id: ruleId };
+      });
 
       configureRuleEvalPrisma({
         about,
-        ruleRows: patchRuleRows,
+        ruleRows,
       });
 
       configureRuleEvalProvider({
         mockCreateEmailProvider,
-        ruleRows: patchRuleRows,
+        ruleRows,
       });
     });
 
