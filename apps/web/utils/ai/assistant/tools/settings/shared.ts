@@ -60,7 +60,7 @@ const scheduledCheckInsConfigSchema = z
   )
   .describe("Scheduled check-ins configuration payload.");
 
-const draftKnowledgeUpsertSchema = z
+const draftKnowledgeUpdateSchema = z
   .object({
     title: z
       .string()
@@ -86,7 +86,7 @@ export const settingsPathSchema = z
     "assistant.attachmentFiling.enabled",
     "assistant.attachmentFiling.prompt",
     "assistant.scheduledCheckIns.config",
-    "assistant.draftKnowledgeBase.upsert",
+    "assistant.draftKnowledgeBase.update",
     "assistant.draftKnowledgeBase.delete",
   ])
   .describe("Writable assistant settings path.");
@@ -149,9 +149,9 @@ export const settingsChangeSchema = z.discriminatedUnion("path", [
   }),
   z.object({
     path: z
-      .literal("assistant.draftKnowledgeBase.upsert")
+      .literal("assistant.draftKnowledgeBase.update")
       .describe("Update an existing draft knowledge base item by title."),
-    value: draftKnowledgeUpsertSchema.describe(
+    value: draftKnowledgeUpdateSchema.describe(
       "Existing draft knowledge base item to update.",
     ),
     mode: z
@@ -516,7 +516,7 @@ export async function executeUpdateAssistantSettings({
     );
 
     for (const change of normalizedChanges) {
-      if (change.path === "assistant.draftKnowledgeBase.upsert") {
+      if (change.path === "assistant.draftKnowledgeBase.update") {
         const existingItem = draftKnowledgeByTitle.get(change.value.title);
         if (!existingItem) {
           return {
@@ -720,7 +720,7 @@ function dedupeSettingsChanges(
   changes: Array<z.infer<typeof settingsChangeSchema>>,
 ) {
   const nonDedupablePaths = new Set<z.infer<typeof settingsPathSchema>>([
-    "assistant.draftKnowledgeBase.upsert",
+    "assistant.draftKnowledgeBase.update",
     "assistant.draftKnowledgeBase.delete",
   ]);
   const seen = new Set<z.infer<typeof settingsPathSchema>>();
@@ -785,7 +785,7 @@ function getCurrentValue({
         messagingChannelId: snapshot.scheduledCheckIns.messagingChannelId,
         prompt: snapshot.scheduledCheckIns.prompt,
       };
-    case "assistant.draftKnowledgeBase.upsert":
+    case "assistant.draftKnowledgeBase.update":
     case "assistant.draftKnowledgeBase.delete":
       return null;
   }
@@ -857,7 +857,7 @@ export function getWritableCapabilities(snapshot: AccountSettingsSnapshot) {
         })),
       },
       writePaths: [
-        "assistant.draftKnowledgeBase.upsert",
+        "assistant.draftKnowledgeBase.update",
         "assistant.draftKnowledgeBase.delete",
       ],
     },

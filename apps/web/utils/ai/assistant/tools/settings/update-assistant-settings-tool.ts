@@ -23,7 +23,7 @@ export const updateAssistantSettingsTool = ({
 }) =>
   tool({
     description:
-      "Update supported assistant settings. This is the primary tool for writing account settings. Batch multiple setting changes into one call when possible. Supported categories: meeting briefs, attachment filing, multi-rule selection, scheduled check-ins, and draft knowledge base. Updates are partial: pass only the fields being changed and unspecified fields keep their existing values, including for scheduled check-ins config. Use null to clear the attachment filing prompt; blank strings are normalized to null. Use the draft knowledge base upsert path to replace or append to an existing entry by title. Use addToKnowledgeBase to create a new entry. For personal instruction changes, use the dedicated updatePersonalInstructions tool instead.",
+      "Update supported assistant settings. This is the primary tool for writing account settings. Batch multiple setting changes into one call when possible. Supported categories: meeting briefs, attachment filing, multi-rule selection, scheduled check-ins, and draft knowledge base. Updates are partial: pass only the fields being changed and unspecified fields keep their existing values, including for scheduled check-ins config. Use null to clear the attachment filing prompt; blank strings are normalized to null. Use the draft knowledge base update path to replace or append to an existing entry by title. Use addToKnowledgeBase to create a new entry. For personal instruction changes, use the dedicated updatePersonalInstructions tool instead.",
     inputSchema: updateAssistantSettingsLlmInputSchema,
     execute: async ({ changes }) => {
       trackSettingsToolCall({

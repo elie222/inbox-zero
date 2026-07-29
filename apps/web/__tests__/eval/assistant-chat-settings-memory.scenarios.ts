@@ -597,7 +597,7 @@ const settingsMemoryScenariosRaw: SettingsMemoryScenario[] = [
     shape: "single_turn",
     realWorldSeed: "db-inspired",
     prompt:
-      "Turn on attachment filing and use this prompt: file contracts to the agreements folder and receipts to finance.",
+      'Turn on attachment filing and use this exact prompt, including punctuation: "file contracts to the agreements folder and receipts to finance."',
     expectation: {
       kind: "assistant_settings",
       changes: [
@@ -840,7 +840,7 @@ const settingsMemoryScenariosRaw: SettingsMemoryScenario[] = [
     id: "draft-kb-append",
     title:
       "uses updateAssistantSettings to append to an existing draft knowledge base item",
-    reportName: "draft knowledge base append uses upsert append",
+    reportName: "draft knowledge base append uses update append",
     category: "assistant_settings",
     shape: "single_turn",
     realWorldSeed: "db-inspired",
@@ -849,7 +849,7 @@ const settingsMemoryScenariosRaw: SettingsMemoryScenario[] = [
       kind: "assistant_settings",
       changes: [
         {
-          path: "assistant.draftKnowledgeBase.upsert",
+          path: "assistant.draftKnowledgeBase.update",
           value: {
             title: "Reply style",
             content: "Avoid long greetings.",

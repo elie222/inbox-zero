@@ -36,7 +36,7 @@ export const getAssistantCapabilitiesTool = ({
         if (!snapshot) return { error: "Email account not found" };
 
         return {
-          snapshotVersion: "2026-02-20",
+          snapshotVersion: "2026-07-29",
           account: {
             email: snapshot.email,
             provider,

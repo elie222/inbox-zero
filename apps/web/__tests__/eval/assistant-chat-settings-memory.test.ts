@@ -356,39 +356,12 @@ async function evaluateScenario(
       };
 
     case "assistant_settings": {
-      const filingPromptExpectation = expectation.changes.find(
-        (change) =>
-          change.path === "assistant.attachmentFiling.prompt" &&
-          typeof change.value === "string" &&
-          change.value.trim() !== "",
-      );
-      const filingPrompt = filingPromptExpectation
-        ? getLastSettingsChangeValue(
-            result.toolCalls,
-            filingPromptExpectation.path,
-          )
-        : null;
-      const filingPromptJudge =
-        filingPromptExpectation && typeof filingPrompt === "string"
-          ? await judgeEvalOutput({
-              input: prompt,
-              output: filingPrompt,
-              expected: filingPromptExpectation.value as string,
-              criterion: {
-                name: "Attachment filing prompt semantics",
-                description:
-                  "Judge whether the stored attachment filing prompt preserves the user's requested filing instructions. Ignore inconsequential differences in punctuation, capitalization, or sentence style. Tool execution and other setting changes are verified separately.",
-              },
-            })
-          : null;
-
       return {
         pass:
           hasExpectedSettingsUpdate(result.toolCalls, expectation.changes) &&
-          hasNoToolCalls(result.toolCalls, expectation.forbiddenTools) &&
-          (!filingPromptExpectation || !!filingPromptJudge?.pass),
-        judgeOutput: filingPrompt,
-        judgeResult: filingPromptJudge,
+          hasNoToolCalls(result.toolCalls, expectation.forbiddenTools),
+        judgeOutput: null,
+        judgeResult: null,
       };
     }
 
@@ -672,26 +645,17 @@ function configureStatefulSettingsMocks() {
     });
     return {};
   });
-  prisma.knowledge.upsert.mockImplementation(
-    async ({ where, create, update }) => {
-      const existing = accountSnapshot.knowledge.find(
-        (item) => item.title === where.emailAccountId_title.title,
-      );
-      if (existing) {
-        Object.assign(existing, update, {
-          updatedAt: new Date("2026-02-21T08:00:00.000Z"),
-        });
-      } else {
-        accountSnapshot.knowledge.push({
-          id: `knowledge-${accountSnapshot.knowledge.length + 1}`,
-          title: create.title,
-          content: create.content,
-          updatedAt: new Date("2026-02-21T08:00:00.000Z"),
-        });
-      }
-      return {};
-    },
-  );
+  prisma.knowledge.update.mockImplementation(async ({ where, data }) => {
+    const existing = accountSnapshot.knowledge.find(
+      (item) => item.title === where.emailAccountId_title?.title,
+    );
+    if (!existing) throw new Error("Knowledge item not found");
+
+    Object.assign(existing, data, {
+      updatedAt: new Date("2026-02-21T08:00:00.000Z"),
+    });
+    return existing;
+  });
   prisma.knowledge.deleteMany.mockImplementation(async ({ where }) => {
     accountSnapshot.knowledge = accountSnapshot.knowledge.filter(
       (item) => item.title !== where.title,
@@ -734,55 +698,11 @@ function matchesExpectedChange(
   actualChange: UpdateAssistantSettingsInput["changes"][number],
   expectedChange: AssistantSettingsChangeExpectation,
 ) {
-  if (
-    actualChange.path === "assistant.attachmentFiling.prompt" &&
-    expectedChange.path === actualChange.path
-  ) {
-    const modeMatches =
-      expectedChange.mode == null || actualChange.mode === expectedChange.mode;
-    if (!modeMatches) return false;
-
-    if (expectedChange.value == null || expectedChange.value === "") {
-      return (
-        actualChange.value == null ||
-        (typeof actualChange.value === "string" &&
-          actualChange.value.trim() === "")
-      );
-    }
-
-    return (
-      typeof expectedChange.value === "string" &&
-      typeof actualChange.value === "string" &&
-      actualChange.value.trim() !== ""
-    );
-  }
-
   return (
     actualChange.path === expectedChange.path &&
     isDeepStrictEqual(actualChange.value, expectedChange.value) &&
     (expectedChange.mode == null || actualChange.mode === expectedChange.mode)
   );
-}
-
-function getLastSettingsChangeValue(
-  toolCalls: RecordedToolCall[],
-  path: string,
-) {
-  for (const toolCall of toolCalls.toReversed()) {
-    if (
-      toolCall.toolName !== "updateAssistantSettings" ||
-      !isUpdateAssistantSettingsInput(toolCall.input)
-    ) {
-      continue;
-    }
-
-    const change = toolCall.input.changes.findLast(
-      (candidate) => candidate.path === path,
-    );
-    if (change) return change.value;
-  }
-
-  return null;
 }
 
 async function evaluateSearchMemoriesExpectation(

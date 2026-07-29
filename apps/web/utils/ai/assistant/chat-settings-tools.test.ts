@@ -130,7 +130,7 @@ describe("chat settings tools", () => {
     const result = await toolInstance.execute({});
 
     expect(result).toMatchObject({
-      snapshotVersion: "2026-02-20",
+      snapshotVersion: "2026-07-29",
       account: {
         email: "user@example.com",
         provider: "google",
@@ -214,7 +214,7 @@ describe("chat settings tools", () => {
         ],
       },
       writePaths: [
-        "assistant.draftKnowledgeBase.upsert",
+        "assistant.draftKnowledgeBase.update",
         "assistant.draftKnowledgeBase.delete",
       ],
     });
@@ -642,7 +642,7 @@ describe("chat settings tools", () => {
     await toolInstance.execute({
       changes: [
         {
-          path: "assistant.draftKnowledgeBase.upsert",
+          path: "assistant.draftKnowledgeBase.update",
           value: {
             title: "Reply style",
             content: "Keep responses concise.",
@@ -693,7 +693,7 @@ describe("chat settings tools", () => {
     const result = await toolInstance.execute({
       changes: [
         {
-          path: "assistant.draftKnowledgeBase.upsert",
+          path: "assistant.draftKnowledgeBase.update",
           value: {
             title: "New note",
             content: "Create this content.",
@@ -707,7 +707,6 @@ describe("chat settings tools", () => {
       error:
         'Draft knowledge item "New note" does not exist. Use addToKnowledgeBase to create a new entry.',
     });
-    expect(prisma.knowledge.upsert).not.toHaveBeenCalled();
     expect(prisma.knowledge.update).not.toHaveBeenCalled();
   });
 
@@ -730,7 +729,7 @@ describe("chat settings tools", () => {
           },
         },
         {
-          path: "assistant.draftKnowledgeBase.upsert",
+          path: "assistant.draftKnowledgeBase.update",
           value: {
             title: "Reply style",
             content: "Recreated entry.",
