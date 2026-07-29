@@ -85,6 +85,7 @@ export function FilterLikeThisDialog({
   // "inbox" (keep visible, sender-only) or a label id
   const [target, setTarget] = useState<string | null>(null);
   const [applyTo, setApplyTo] = useState<"future" | "past">("future");
+  const [markRead, setMarkRead] = useState(false);
 
   const { userLabels, isLoading: labelsLoading } = useLabels();
 
@@ -164,6 +165,7 @@ export function FilterLikeThisDialog({
       labelName: targetLabel.name,
       instructions: why.trim() || undefined,
       skipInbox: true,
+      markRead,
       applyToExisting: applyTo === "past",
       // These threads always move, so the mail the user acted on ends up
       // in exactly one folder even with "future only"
@@ -299,6 +301,25 @@ export function FilterLikeThisDialog({
                 senders files here too.
               </p>
             </div>
+          )}
+
+          {target !== "inbox" && target && (
+            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border px-3 py-2.5">
+              <input
+                type="checkbox"
+                className="mt-0.5 size-4 shrink-0 accent-primary"
+                checked={markRead}
+                onChange={(event) => setMarkRead(event.target.checked)}
+              />
+              <span>
+                <span className="block text-sm font-medium">
+                  Mark these as read
+                </span>
+                <span className="block text-sm text-muted-foreground">
+                  Matching mail is filed without adding to your unread count.
+                </span>
+              </span>
+            </label>
           )}
 
           {target !== "inbox" && (
