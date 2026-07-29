@@ -906,4 +906,40 @@ describe("OutlookProvider.createDraft", () => {
       { emailAddress: { address: "bob@example.com" } },
     ]);
   });
+
+  it("drops recipients without a parseable email address", async () => {
+    const post = vi.fn().mockResolvedValue({ id: "draft-1" });
+    const provider = new OutlookProvider(
+      { getClient: () => ({ api: () => ({ post }) }) } as never,
+      createTestLogger(),
+    );
+
+    await provider.createDraft({
+      to: "Alice <alice@example.com>, not-an-email",
+      subject: "Notes from our call",
+      messageHtml: "<p>Thanks all</p>",
+    });
+
+    expect(post.mock.calls[0]?.[0]?.toRecipients).toEqual([
+      { emailAddress: { address: "alice@example.com" } },
+    ]);
+  });
+
+  it("throws when no recipient has a parseable email address", async () => {
+    const post = vi.fn().mockResolvedValue({ id: "draft-1" });
+    const provider = new OutlookProvider(
+      { getClient: () => ({ api: () => ({ post }) }) } as never,
+      createTestLogger(),
+    );
+
+    await expect(
+      provider.createDraft({
+        to: "not-an-email, also invalid",
+        subject: "Notes from our call",
+        messageHtml: "<p>Thanks all</p>",
+      }),
+    ).rejects.toThrow("No valid recipient email addresses");
+
+    expect(post).not.toHaveBeenCalled();
+  });
 });

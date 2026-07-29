@@ -1,6 +1,7 @@
 import { createCalendarEventProviders } from "@/utils/calendar/event-provider";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
 import type { Logger } from "@/utils/logger";
+import prisma from "@/utils/prisma";
 
 export interface CalendarEventsInWindow {
   /**
@@ -23,16 +24,30 @@ export async function fetchCalendarEventsInWindow({
   timeMin,
   timeMax,
   maxResultsPerProvider,
+  verifyConnectedCalendars = false,
   logger,
 }: {
   emailAccountId: string;
   timeMin: Date;
   timeMax: Date;
   maxResultsPerProvider: number;
+  verifyConnectedCalendars?: boolean;
   logger: Logger;
 }): Promise<CalendarEventsInWindow> {
   const providers = await createCalendarEventProviders(emailAccountId, logger);
-  if (providers.length === 0) return { events: [], complete: true };
+  // Zero providers never proves an empty calendar: connections are silently
+  // skipped when their refresh token is gone or construction fails, and a sync
+  // error may already have flipped them disconnected. Reporting complete here
+  // would let callers treat every booked meeting as deleted.
+  if (providers.length === 0) {
+    return { events: [], complete: !verifyConnectedCalendars };
+  }
+
+  const connectedCalendars = verifyConnectedCalendars
+    ? await prisma.calendarConnection.count({
+        where: { emailAccountId, isConnected: true },
+      })
+    : providers.length;
 
   const results = await Promise.allSettled(
     providers.map((provider) =>
@@ -79,7 +94,13 @@ export async function fetchCalendarEventsInWindow({
 
   return {
     events: filteredEvents,
-    complete: failedProviders === 0 && !truncated,
+    // A connection that never became a provider is as much a blind spot as a
+    // provider that errored, so any shortfall against the connected calendars
+    // marks the fetch incomplete.
+    complete:
+      failedProviders === 0 &&
+      !truncated &&
+      providers.length >= connectedCalendars,
   };
 }
 

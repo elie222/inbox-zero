@@ -54,7 +54,6 @@ CREATE TABLE "Meeting" (
     "followUpDraftStartedAt" TIMESTAMP(3),
     "followUpDraftId" TEXT,
     "recapSentAt" TIMESTAMP(3),
-    "processingError" TEXT,
     "recordingId" TEXT,
     "emailAccountId" TEXT NOT NULL,
 

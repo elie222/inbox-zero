@@ -35,6 +35,7 @@ vi.mock("@/utils/queue/dispatch", () => ({
 }));
 
 vi.mock("@/utils/meeting-recorder/create-bot-provider", () => ({
+  DEFAULT_MEETING_BOT_PROVIDER: "recall",
   createMeetingBotProvider: () => ({
     createTranscript: (...args: unknown[]) => createTranscriptMock(...args),
   }),
@@ -112,6 +113,36 @@ describe("Recall webhook route", () => {
       ?.data as { status: string; failureReason: string };
     expect(data.status).toBe(MeetingRecordingStatus.FAILED);
     expect(data.failureReason).toMatch(/declined/i);
+  });
+
+  it("leaves the recording live when transcription fails so the sweep can retry", async () => {
+    const body = JSON.stringify({
+      event: "transcript.failed",
+      data: {
+        bot: { id: "bot-1" },
+        transcript: { id: "transcript-1" },
+        data: { code: "failed" },
+      },
+    });
+
+    const response = await post(body);
+
+    expect(response.status).toBe(200);
+    expect(mockPrisma.meetingRecording.updateMany).not.toHaveBeenCalled();
+    expect(mockPrisma.meetingRecording.update).not.toHaveBeenCalled();
+  });
+
+  it("marks the recording failed when the recording itself fails", async () => {
+    const body = JSON.stringify({
+      event: "recording.failed",
+      data: { bot: { id: "bot-1" }, data: { code: "failed" } },
+    });
+
+    await post(body);
+
+    const data = mockPrisma.meetingRecording.updateMany.mock.calls[0]?.[0]
+      ?.data as { status: string };
+    expect(data.status).toBe(MeetingRecordingStatus.FAILED);
   });
 
   it("queues transcript processing once a transcript is ready", async () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeMeetingUrl } from "@/utils/recall/normalize-meeting-url";
+import { normalizeMeetingUrl } from "@/utils/meeting-recorder/normalize-meeting-url";
 
 describe("normalizeMeetingUrl", () => {
   it("treats Google Meet links as equal regardless of case, query and trailing slash", () => {

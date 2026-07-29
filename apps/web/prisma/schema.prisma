@@ -1454,7 +1454,6 @@ model Meeting {
   followUpDraftStartedAt DateTime?
   followUpDraftId        String?
   recapSentAt            DateTime?
-  processingError        String?
 
   recordingId String?
   recording   MeetingRecording? @relation(fields: [recordingId], references: [id], onDelete: SetNull)

@@ -28,7 +28,17 @@ import prisma from "@/utils/prisma";
 export const updateMeetingRecorderSettingsAction = actionClient
   .metadata({ name: "updateMeetingRecorderSettings" })
   .inputSchema(updateMeetingRecorderSettingsBody)
-  .action(async ({ ctx: { emailAccountId, logger }, parsedInput }) => {
+  .action(async ({ ctx: { emailAccountId, userId, logger }, parsedInput }) => {
+    if (parsedInput.enabled === true) {
+      const hasAccess = await checkHasAccess({
+        userId,
+        minimumTier: MEETING_RECORDER_MIN_TIER,
+      });
+      if (!hasAccess) {
+        throw new SafeError("The notetaker is not included in your plan");
+      }
+    }
+
     await prisma.emailAccount.update({
       where: { id: emailAccountId },
       data: {

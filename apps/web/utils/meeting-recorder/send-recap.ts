@@ -7,7 +7,7 @@ import MeetingRecapEmail, {
 import { env } from "@/env";
 import type { MeetingSummary } from "@/utils/ai/meeting-recorder/summarize-meeting";
 import { formatDateTimeInUserTimezone } from "@/utils/date";
-import { createEmailProvider } from "@/utils/email/provider";
+import { sendNotificationEmail } from "@/utils/email/send-notification-email";
 import type { Logger } from "@/utils/logger";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
 
@@ -47,36 +47,18 @@ export async function sendMeetingRecapEmail({
     unsubscribeToken,
   };
 
-  if (env.RESEND_API_KEY) {
-    try {
-      await sendViaResend({
+  await sendNotificationEmail({
+    emailAccountId,
+    userEmail,
+    provider,
+    subject: generateMeetingRecapSubject(emailProps),
+    sendViaResend: () =>
+      sendViaResend({
         from: env.RESEND_FROM_EMAIL,
         to: userEmail,
         emailProps,
-      });
-      logger.info("Sent meeting recap via Resend");
-      return;
-    } catch (error) {
-      logger.error(
-        "Failed to send recap via Resend, falling back to self-send",
-        {
-          error,
-        },
-      );
-    }
-  }
-
-  const emailProvider = await createEmailProvider({
-    emailAccountId,
-    provider,
+      }),
+    renderHtml: () => render(MeetingRecapEmail(emailProps)),
     logger,
   });
-
-  await emailProvider.sendEmailWithHtml({
-    to: userEmail,
-    subject: generateMeetingRecapSubject(emailProps),
-    messageHtml: await render(MeetingRecapEmail(emailProps)),
-  });
-
-  logger.info("Sent meeting recap via the user's own mailbox");
 }

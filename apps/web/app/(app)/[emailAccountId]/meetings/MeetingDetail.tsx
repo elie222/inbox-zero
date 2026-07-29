@@ -84,7 +84,8 @@ export function MeetingDetail({
 
           {state === "processing" && (
             <p className="text-sm text-muted-foreground">
-              The notes are still being written. Check back in a minute.
+              The recording is in progress or being processed. Notes will appear
+              here when they are ready.
             </p>
           )}
 

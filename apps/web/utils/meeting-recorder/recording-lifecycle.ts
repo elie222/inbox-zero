@@ -1,4 +1,5 @@
 import { MeetingRecordingStatus } from "@/generated/prisma/enums";
+import prisma from "@/utils/prisma";
 
 // A recording that has not reached a terminal state yet and could still be
 // scheduled, rescheduled or cancelled.
@@ -61,6 +62,26 @@ export function recordingStatusData(status: MeetingRecordingStatus) {
   return TERMINAL_STATUSES.includes(status)
     ? { status, activeKey: null }
     : { status };
+}
+
+/**
+ * Moves one recording to `next` only if that is a step forwards, so a
+ * concurrent DONE or CANCELLING write can never be clobbered. Returns the
+ * update count; zero means the recording had already moved on.
+ */
+export function transitionRecording({
+  recordingId,
+  status,
+  data,
+}: {
+  recordingId: string;
+  status: MeetingRecordingStatus;
+  data?: { failureReason?: string };
+}) {
+  return prisma.meetingRecording.updateMany({
+    where: { id: recordingId, status: { in: getStatusesBelow(status) } },
+    data: { ...recordingStatusData(status), ...data },
+  });
 }
 
 /**

@@ -5,8 +5,10 @@ import { hasCronSecret, hasPostCronSecret } from "@/utils/cron";
 import { captureException } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
 import { MEETING_RECORDER_MIN_TIER } from "@/utils/meeting-recorder/config";
+import { CANCELLABLE_STATUSES } from "@/utils/meeting-recorder/recording-lifecycle";
 import {
   reconcileAccount,
+  releaseAccountBookings,
   sweepRecordings,
 } from "@/utils/meeting-recorder/reconcile";
 import { withError } from "@/utils/middleware";
@@ -44,10 +46,13 @@ async function scheduleAllMeetingRecordings(logger: Logger) {
     return { total: 0, success: 0, errors: 0 };
   }
 
+  const premiumFilter = getPremiumUserFilter({
+    minimumTier: MEETING_RECORDER_MIN_TIER,
+  });
   const emailAccounts = await prisma.emailAccount.findMany({
     where: {
       meetingRecorderEnabled: true,
-      ...getPremiumUserFilter({ minimumTier: MEETING_RECORDER_MIN_TIER }),
+      ...premiumFilter,
       calendarConnections: { some: { isConnected: true } },
     },
     select: {
@@ -56,6 +61,21 @@ async function scheduleAllMeetingRecordings(logger: Logger) {
       meetingRecorderJoinRule: true,
     },
   });
+  const downgradedAccounts =
+    Object.keys(premiumFilter).length === 0
+      ? []
+      : await prisma.emailAccount.findMany({
+          where: {
+            meetingRecorderEnabled: true,
+            meetings: {
+              some: {
+                recording: { status: { in: CANCELLABLE_STATUSES } },
+              },
+            },
+            NOT: premiumFilter,
+          },
+          select: { id: true },
+        });
 
   logger.info("Found eligible meeting recorder accounts", {
     count: emailAccounts.length,
@@ -89,6 +109,27 @@ async function scheduleAllMeetingRecordings(logger: Logger) {
       });
     captureException(result.reason);
     errorCount++;
+  }
+
+  const cleanupResults = await runWithBoundedConcurrency({
+    items: downgradedAccounts,
+    concurrency: MEETING_RECORDER_ACCOUNT_CONCURRENCY,
+    run: (emailAccount) =>
+      releaseAccountBookings({
+        emailAccountId: emailAccount.id,
+        logger: logger.with({ emailAccountId: emailAccount.id }),
+      }),
+  });
+
+  for (const { item: emailAccount, result } of cleanupResults) {
+    if (result.status === "fulfilled") continue;
+
+    logger
+      .with({ emailAccountId: emailAccount.id })
+      .error("Failed to release meeting recordings after plan change", {
+        error: result.reason,
+      });
+    captureException(result.reason);
   }
 
   await sweepRecordings({ logger });

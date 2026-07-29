@@ -408,6 +408,44 @@ describe.skipIf(!RUN_DB_TESTS)(
       expect(fakeProvider.cancelled).toContain("replacement_bot");
     });
 
+    test("does not link a recording after cancellation claims it", async () => {
+      const event = calendarEvent();
+      const normalizedMeetingUrl = "meet.google.com/abc-defg-hij";
+      const recording = await prisma.meetingRecording.create({
+        data: {
+          botProvider: "recall",
+          externalBotId: "cancelling_during_link",
+          meetingUrl: event.videoConferenceLink ?? "",
+          normalizedMeetingUrl,
+          activeKey: `${accountAId}:${normalizedMeetingUrl}`,
+          meetingStartTime: event.startTime,
+          status: MeetingRecordingStatus.SCHEDULED,
+        },
+      });
+      const updateMeeting = prisma.meeting.update.bind(prisma.meeting);
+      const updateSpy = vi
+        .spyOn(prisma.meeting, "update")
+        .mockImplementationOnce(async (args) => {
+          await prisma.meetingRecording.update({
+            where: { id: recording.id },
+            data: { status: MeetingRecordingStatus.CANCELLING },
+          });
+          return updateMeeting(args);
+        });
+
+      await reconcile.reconcileSingleEvent({
+        emailAccount: account(accountAId, ACCOUNT_A),
+        event,
+        logger,
+      });
+
+      updateSpy.mockRestore();
+      const meeting = await prisma.meeting.findFirstOrThrow({
+        where: { emailAccountId: accountAId, calendarEventId: event.id },
+      });
+      expect(meeting.recordingId).toBeNull();
+    });
+
     test("retries a claim whose provider call failed transiently", async () => {
       const event = calendarEvent();
       const emailAccount = account(accountAId, ACCOUNT_A);
@@ -938,6 +976,9 @@ describe.skipIf(!RUN_DB_TESTS)(
           attendees: [],
           emailAccountId: accountAId,
           recordingId: `stuck-recording-${index}`,
+          // A PENDING row only counts as stuck once it has sat unclaimed past
+          // the stale window; a fresh fan-out must not be re-enqueued.
+          updatedAt: subMinutes(now, 30),
         })),
       });
 

@@ -41,7 +41,6 @@ export interface MeetingBotProvider {
   /** Tolerant: media that is already gone is not an error. */
   deleteMedia(externalBotId: string): Promise<void>;
   fetchTranscript(externalTranscriptId: string): Promise<NormalizedTranscript>;
-  readonly name: string;
   scheduleBot(params: {
     meetingUrl: string;
     joinAt: Date;

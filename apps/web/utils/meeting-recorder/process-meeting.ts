@@ -24,7 +24,7 @@ import {
 import { sendMeetingRecapEmail } from "@/utils/meeting-recorder/send-recap";
 import { checkHasAccess } from "@/utils/premium/server";
 import prisma from "@/utils/prisma";
-import { escapeHtml } from "@/utils/string";
+import { textToHtmlParagraphs } from "@/utils/string";
 import { getEmailAccountWithAi, getWritingStyle } from "@/utils/user/get";
 
 /**
@@ -78,10 +78,7 @@ export async function processMeetingForAccount({
 
     await prisma.meeting.update({
       where: { id: meetingId },
-      data: {
-        processingStatus: MeetingProcessingStatus.COMPLETED,
-        processingError: null,
-      },
+      data: { processingStatus: MeetingProcessingStatus.COMPLETED },
     });
   } catch (error) {
     logger.error("Failed to process meeting", { error });
@@ -89,14 +86,10 @@ export async function processMeetingForAccount({
 
     await prisma.meeting.update({
       where: { id: meetingId },
-      data: {
-        processingStatus: MeetingProcessingStatus.FAILED,
-        processingError:
-          error instanceof Error ? error.message : "Unknown error",
-      },
+      data: { processingStatus: MeetingProcessingStatus.FAILED },
     });
 
-    // Record the failure for the UI, then let the queue see it too. Swallowing
+    // Mark the failure for the UI, then let the queue see it too. Swallowing
     // here would report success and burn the only retry a transient AI or
     // mailbox failure gets. Each sub-step is separately guarded, so a retry
     // resumes rather than repeating work.
@@ -172,17 +165,8 @@ async function runProcessingSteps({
     recipients.length > 0 &&
     !meeting.followUpDraftStartedAt;
 
-  if (wantsDraft) {
-    // Claim before writing to the mailbox. If we crash between creating the
-    // draft and recording its id, the retry must not leave a second draft
-    // behind; the user would rather have none than two.
-    const claim = await prisma.meeting.updateMany({
-      where: { id: meetingId, followUpDraftStartedAt: null },
-      data: { followUpDraftStartedAt: new Date() },
-    });
-
-    if (claim.count > 0) {
-      await createFollowUpDraft({
+  const draftCreated = wantsDraft
+    ? await createFollowUpDraft({
         meetingId,
         emailAccount,
         provider: emailAccount.account.provider,
@@ -190,9 +174,8 @@ async function runProcessingSteps({
         summary,
         recipients,
         logger,
-      });
-    }
-  }
+      })
+    : false;
 
   if (
     meeting.emailAccount.meetingRecorderRecapEmailEnabled &&
@@ -215,8 +198,9 @@ async function runProcessingSteps({
         startTime: meeting.startTime,
         summary,
         // A retry of a run that created the draft and then failed later has
-        // `wantsDraft` false, so the id is what says a draft is really waiting.
-        followUpDraftCreated: wantsDraft || !!meeting.followUpDraftId,
+        // `wantsDraft` false, so the stored id is what says a draft is really
+        // waiting; a burned claim alone is not enough.
+        followUpDraftCreated: draftCreated || !!meeting.followUpDraftId,
         logger,
       });
     }
@@ -267,7 +251,7 @@ async function createFollowUpDraft({
   summary: MeetingSummary;
   recipients: MeetingAttendee[];
   logger: Logger;
-}): Promise<void> {
+}): Promise<boolean> {
   const writingStyle = await getWritingStyle({
     emailAccountId: emailAccount.id,
   });
@@ -286,10 +270,23 @@ async function createFollowUpDraft({
     logger,
   });
 
+  // Claim only after every step without a mailbox side effect has succeeded,
+  // so a transient AI failure leaves the claim for the retry. The claim still
+  // lands before the mailbox write: if we crash between the two, the draft is
+  // forfeited, because a retry that might leave a second draft is worse.
+  const claim = await prisma.meeting.updateMany({
+    where: { id: meetingId, followUpDraftStartedAt: null },
+    data: { followUpDraftStartedAt: new Date() },
+  });
+  if (claim.count === 0) {
+    logger.info("Follow-up draft already claimed by another run");
+    return false;
+  }
+
   const { id } = await emailProvider.createDraft({
     to: recipients.map((recipient) => recipient.email).join(", "),
     subject: draft.subject,
-    messageHtml: toHtmlParagraphs(draft.body),
+    messageHtml: textToHtmlParagraphs(draft.body),
   });
 
   await prisma.meeting.update({
@@ -298,15 +295,5 @@ async function createFollowUpDraft({
   });
 
   logger.info("Created meeting follow-up draft", { draftId: id });
-}
-
-// The model writes plain text; the draft APIs take HTML.
-function toHtmlParagraphs(body: string): string {
-  return body
-    .split(/\n{2,}/)
-    .map(
-      (paragraph) =>
-        `<p>${escapeHtml(paragraph.trim()).replace(/\n/g, "<br />")}</p>`,
-    )
-    .join("");
+  return true;
 }

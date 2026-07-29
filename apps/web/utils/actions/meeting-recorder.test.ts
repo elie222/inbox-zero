@@ -11,6 +11,7 @@ const {
   mockCheckHasAccess,
   mockFetchEvents,
   mockReconcileSingleEvent,
+  mockReleaseAccountBookings,
   mockReleaseAutomaticAccountBookings,
   mockUpsertMeeting,
 } = vi.hoisted(() => ({
@@ -18,6 +19,7 @@ const {
   mockCheckHasAccess: vi.fn(),
   mockFetchEvents: vi.fn(),
   mockReconcileSingleEvent: vi.fn(),
+  mockReleaseAccountBookings: vi.fn(),
   mockReleaseAutomaticAccountBookings: vi.fn(),
   mockUpsertMeeting: vi.fn(),
 }));
@@ -35,7 +37,7 @@ vi.mock("@/utils/calendar/fetch-events-in-window", () => ({
 }));
 vi.mock("@/utils/meeting-recorder/reconcile", () => ({
   reconcileSingleEvent: mockReconcileSingleEvent,
-  releaseAccountBookings: vi.fn(),
+  releaseAccountBookings: mockReleaseAccountBookings,
   releaseAutomaticAccountBookings: mockReleaseAutomaticAccountBookings,
   upsertMeeting: mockUpsertMeeting,
 }));
@@ -180,5 +182,17 @@ describe("updateMeetingRecorderSettingsAction", () => {
       logger: expect.anything(),
     });
     expect(result?.serverError).toBeUndefined();
+  });
+
+  it("does not enable the recorder for an account without the paid tier", async () => {
+    mockCheckHasAccess.mockResolvedValue(false);
+
+    const result = await updateMeetingRecorderSettingsAction(EMAIL_ACCOUNT_ID, {
+      enabled: true,
+    });
+
+    expect(prisma.emailAccount.update).not.toHaveBeenCalled();
+    expect(mockReleaseAccountBookings).not.toHaveBeenCalled();
+    expect(result?.serverError).toBeTruthy();
   });
 });

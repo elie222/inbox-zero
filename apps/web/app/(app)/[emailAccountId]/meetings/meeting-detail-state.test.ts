@@ -50,6 +50,28 @@ describe("getMeetingDetailState", () => {
     ).toBe("not-recorded");
   });
 
+  it("shows processing while the call is still being recorded", () => {
+    expect(
+      getMeetingDetailState({
+        hasSummary: false,
+        hasTranscript: false,
+        recordingStatus: MeetingRecordingStatus.RECORDING,
+        processingStatus: MeetingProcessingStatus.PENDING,
+      }),
+    ).toBe("processing");
+  });
+
+  it("shows processing after the call ends but before the recording arrives", () => {
+    expect(
+      getMeetingDetailState({
+        hasSummary: false,
+        hasTranscript: false,
+        recordingStatus: MeetingRecordingStatus.CALL_ENDED,
+        processingStatus: MeetingProcessingStatus.PENDING,
+      }),
+    ).toBe("processing");
+  });
+
   it("says the notes are coming while processing is still in flight", () => {
     expect(
       getMeetingDetailState({

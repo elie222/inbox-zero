@@ -38,9 +38,17 @@ export function getMeetingDetailState({
     return "notes-unavailable";
   }
   if (hasTranscript) return "notes";
-  if (recordingStatus !== MeetingRecordingStatus.DONE) return "not-recorded";
 
-  // The recording is there but the notes are not and processing is still
-  // eligible to make progress.
-  return "processing";
+  // Once the bot is in the call, the meeting is being captured even though
+  // there is nothing to read yet, so "not recorded" would be wrong.
+  if (
+    recordingStatus === MeetingRecordingStatus.IN_CALL ||
+    recordingStatus === MeetingRecordingStatus.RECORDING ||
+    recordingStatus === MeetingRecordingStatus.CALL_ENDED ||
+    recordingStatus === MeetingRecordingStatus.DONE
+  ) {
+    return "processing";
+  }
+
+  return "not-recorded";
 }

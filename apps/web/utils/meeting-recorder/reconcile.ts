@@ -31,15 +31,16 @@ import {
   enqueueTranscriptFetch,
 } from "@/utils/meeting-recorder/enqueue-processing";
 import { shouldAutoJoin } from "@/utils/meeting-recorder/join-rule";
+import { normalizeMeetingUrl } from "@/utils/meeting-recorder/normalize-meeting-url";
 import {
   CANCELLABLE_STATUSES,
   CHANGEABLE_STATUSES,
   LIVE_STATUSES,
   recordingStatusData,
+  transitionRecording,
 } from "@/utils/meeting-recorder/recording-lifecycle";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import prisma from "@/utils/prisma";
-import { normalizeMeetingUrl } from "@/utils/recall/normalize-meeting-url";
 
 const STALE_CLAIM_MINUTES = 10;
 const ABANDONED_RECORDING_HOURS = 24;
@@ -65,6 +66,7 @@ export async function reconcileAccount({
     timeMin,
     timeMax,
     maxResultsPerProvider: MAX_EVENTS_PER_PROVIDER,
+    verifyConnectedCalendars: true,
     logger,
   });
 
@@ -292,7 +294,28 @@ async function bookBot({
     logger.info("Another pass already booked this meeting", {
       recordingId: recording.id,
     });
-    await provider.cancelBot(externalBotId);
+    try {
+      await provider.cancelBot(externalBotId);
+    } catch (error) {
+      logger.error("Failed to cancel the losing duplicate bot", {
+        recordingId: recording.id,
+        error,
+      });
+      captureException(error);
+      // Losing the id here would leave an untracked bot joining the call, so
+      // park it in its own CANCELLING row for the cancellation sweep to retry.
+      // A null activeKey keeps it out of the winner's dedup slot.
+      await prisma.meetingRecording.create({
+        data: {
+          botProvider: recording.botProvider,
+          externalBotId,
+          meetingUrl: recording.meetingUrl,
+          normalizedMeetingUrl: recording.normalizedMeetingUrl,
+          meetingStartTime: recording.meetingStartTime,
+          status: MeetingRecordingStatus.CANCELLING,
+        },
+      });
+    }
   }
 
   return recording;
@@ -348,7 +371,26 @@ async function linkMeetingToRecording({
       where: { id: meetingId },
       data: { processingStatus: MeetingProcessingStatus.COMPLETED },
     });
+    return;
   }
+
+  const liveRecording = await prisma.meetingRecording.findFirst({
+    where: { id: recordingId, status: { in: LIVE_STATUSES } },
+    select: { id: true },
+  });
+  if (liveRecording) return;
+
+  // Cancellation can claim a recording after the lookup that selected it but
+  // before this link is written. Remove that stale link so the cancelling bot
+  // is never presented as an active booking; the next reconciliation can book
+  // again after the cancellation releases its dedup slot.
+  await prisma.meeting.updateMany({
+    where: { id: meetingId, recordingId },
+    data: { recordingId: null },
+  });
+  logger.info("Discarded link to a recording that is no longer live", {
+    recordingId,
+  });
 }
 
 /**
@@ -670,8 +712,8 @@ async function releaseMeeting({
 
 /**
  * Cancels a recording nobody wants any more. The "nobody" test is part of the
- * write itself, so an account linking to this recording at the same moment
- * cannot have its bot cancelled out from under it.
+ * write itself. A link racing with this claim performs its own post-write
+ * status check and detaches if this transition won.
  */
 async function releaseRecording({
   recording,
@@ -854,10 +896,12 @@ async function failAbandonedRecordings({
       }
     }
 
-    await prisma.meetingRecording.update({
-      where: { id: recording.id },
+    // Guarded transition: the recording may have finished or started
+    // cancelling while the sweep was cancelling its bot.
+    await transitionRecording({
+      recordingId: recording.id,
+      status: MeetingRecordingStatus.FAILED,
       data: {
-        ...recordingStatusData(MeetingRecordingStatus.FAILED),
         failureReason: "The notetaker never reported back for this meeting.",
       },
     });
@@ -956,6 +1000,11 @@ async function requeueStuckTranscripts({
     where: {
       externalTranscriptId: { not: null },
       transcript: { equals: Prisma.DbNull },
+      // A failed or cancelled recording will never store its transcript, and a
+      // fetch that keeps failing must eventually stop being paid for, so only
+      // live recordings inside the retry window are picked up again.
+      status: { in: LIVE_STATUSES },
+      meetingStartTime: { gt: subHours(now, PROCESSING_RETRY_WINDOW_HOURS) },
       OR: [
         { transcriptFetchedAt: null },
         {
@@ -1011,8 +1060,16 @@ async function requeueStuckMeetings({
       // Nothing this old is worth summarizing any more, and bounding it stops
       // dead rows crowding out meetings that are genuinely stuck.
       startTime: { gt: subHours(now, PROCESSING_RETRY_WINDOW_HOURS) },
+      // Processing skips disabled accounts anyway; filtering here keeps the
+      // sweep from re-enqueueing their meetings on every tick.
+      emailAccount: { meetingRecorderEnabled: true },
       OR: [
-        { processingStatus: MeetingProcessingStatus.PENDING },
+        {
+          processingStatus: MeetingProcessingStatus.PENDING,
+          // Freshly fanned-out meetings are already enqueued; only pick up a
+          // PENDING row once it has sat unclaimed past the stuck window.
+          updatedAt: { lt: staleBefore },
+        },
         {
           processingStatus: {
             in: [

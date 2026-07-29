@@ -10,8 +10,6 @@ import {
  * the state machine rather than about HTTP.
  */
 export class FakeBotProvider implements MeetingBotProvider {
-  readonly name = "recall";
-
   readonly scheduled: Array<{
     botId: string;
     meetingUrl: string;

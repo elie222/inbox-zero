@@ -587,6 +587,7 @@ export class OutlookProvider implements EmailProvider {
     this.logger.info("Creating draft", {
       replyToMessageId: params.replyToMessageId,
     });
+    const toRecipients = toGraphRecipients(params.to);
 
     // For threading, use createReply on the replyToMessageId
     if (params.replyToMessageId) {
@@ -608,7 +609,7 @@ export class OutlookProvider implements EmailProvider {
             .patch({
               body: { contentType: "html", content: params.messageHtml },
               subject: params.subject,
-              toRecipients: toGraphRecipients(params.to),
+              toRecipients,
             }),
         this.logger,
       );
@@ -626,7 +627,7 @@ export class OutlookProvider implements EmailProvider {
           .post({
             subject: params.subject,
             body: { contentType: "html", content: params.messageHtml },
-            toRecipients: toGraphRecipients(params.to),
+            toRecipients,
           }),
       this.logger,
     );
@@ -2499,7 +2500,15 @@ function parseOutlookThreadPageToken(
 // string the Gmail RFC-822 path accepts, so split it rather than sending the
 // whole list as a single malformed address.
 function toGraphRecipients(to: string) {
-  return splitRecipientList(to).map((recipient) => ({
-    emailAddress: { address: extractEmailAddress(recipient) },
-  }));
+  const candidates = splitRecipientList(to);
+  const recipients = candidates
+    .map((recipient) => extractEmailAddress(recipient))
+    .filter((email) => email.length > 0)
+    .map((address) => ({ emailAddress: { address } }));
+
+  if (candidates.length > 0 && recipients.length === 0) {
+    throw new Error("No valid recipient email addresses");
+  }
+
+  return recipients;
 }

@@ -6,9 +6,15 @@ import type { Logger } from "@/utils/logger";
 import {
   MAX_EVENTS_PER_PROVIDER,
   MEETING_LOOKAHEAD_HOURS,
+  MEETING_RECORDER_MIN_TIER,
 } from "@/utils/meeting-recorder/config";
 import { shouldAutoJoin } from "@/utils/meeting-recorder/join-rule";
 import { withEmailAccount } from "@/utils/middleware";
+import {
+  getUserTier,
+  hasTierAccess,
+  premiumEntitlementSelect,
+} from "@/utils/premium";
 import prisma from "@/utils/prisma";
 
 export type GetMeetingRecorderUpcomingResponse = Awaited<
@@ -36,7 +42,17 @@ async function getData({
 }) {
   const emailAccount = await prisma.emailAccount.findUnique({
     where: { id: emailAccountId },
-    select: { email: true, meetingRecorderJoinRule: true },
+    select: {
+      email: true,
+      meetingRecorderJoinRule: true,
+      user: {
+        select: { premium: { select: premiumEntitlementSelect } },
+      },
+    },
+  });
+  const hasAccess = hasTierAccess({
+    tier: getUserTier(emailAccount?.user.premium),
+    minimumTier: MEETING_RECORDER_MIN_TIER,
   });
 
   const timeMin = new Date();
@@ -72,6 +88,7 @@ async function getData({
     emailAccount?.meetingRecorderJoinRule ?? MeetingJoinRule.EXTERNAL_ONLY;
 
   return {
+    hasAccess,
     events: videoEvents.map((event) => {
       const meeting = meetingsByEventId.get(event.id);
 
@@ -81,12 +98,14 @@ async function getData({
         startTime: event.startTime,
         // Decided server-side with the same helper the cron uses, so the toggle
         // can never disagree with what actually happens.
-        willRecord: shouldAutoJoin({
-          event,
-          rule,
-          userEmail: emailAccount?.email ?? "",
-          joinOverride: meeting?.joinOverride,
-        }),
+        willRecord:
+          hasAccess &&
+          shouldAutoJoin({
+            event,
+            rule,
+            userEmail: emailAccount?.email ?? "",
+            joinOverride: meeting?.joinOverride,
+          }),
         recordingStatus: meeting?.recording?.status,
         failureReason: meeting?.recording?.failureReason,
       };

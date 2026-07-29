@@ -33,7 +33,6 @@ class RecallApiError extends MeetingBotProviderError {
 }
 
 export class RecallBotProvider implements MeetingBotProvider {
-  readonly name = "recall";
   private readonly logger: Logger;
 
   constructor(logger: Logger) {

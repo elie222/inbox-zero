@@ -3,6 +3,7 @@ import { env } from "@/env";
 import { MeetingRecordingStatus } from "@/generated/prisma/enums";
 import { captureException } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
+import { DEFAULT_MEETING_BOT_PROVIDER } from "@/utils/meeting-recorder/create-bot-provider";
 import {
   handleBotStatusChange,
   handleRecordingReady,
@@ -15,8 +16,6 @@ import {
   type RecallWebhookPayload,
 } from "@/utils/recall/types";
 import { verifyRecallWebhook } from "@/utils/recall/verify-webhook";
-
-const BOT_PROVIDER = "recall";
 
 export const POST = withError("recall/webhook", async (request) => {
   const logger = request.logger;
@@ -86,11 +85,21 @@ async function processRecallEvent(
     }
 
     await handleTranscriptReady({
-      botProvider: BOT_PROVIDER,
+      botProvider: DEFAULT_MEETING_BOT_PROVIDER,
       externalBotId,
       externalTranscriptId,
       logger: eventLogger,
     });
+    return;
+  }
+
+  // A failed transcription is often retryable on the provider side while the
+  // recording itself is fine, but its generic code would read as a terminal
+  // bot failure and permanently lose a recorded meeting. Leaving the row in
+  // its live status lets the stuck-transcript sweep re-request transcription;
+  // if that never succeeds, the abandoned sweep eventually fails the row.
+  if (payload.event === "transcript.failed") {
+    eventLogger.warn("Transcription failed, leaving it for the retry sweep");
     return;
   }
 
@@ -104,7 +113,7 @@ async function processRecallEvent(
     }
 
     await handleRecordingReady({
-      botProvider: BOT_PROVIDER,
+      botProvider: DEFAULT_MEETING_BOT_PROVIDER,
       externalBotId,
       externalRecordingId,
       logger: eventLogger,
@@ -122,7 +131,7 @@ async function processRecallEvent(
   }
 
   await handleBotStatusChange({
-    botProvider: BOT_PROVIDER,
+    botProvider: DEFAULT_MEETING_BOT_PROVIDER,
     externalBotId,
     status,
     failureReason:

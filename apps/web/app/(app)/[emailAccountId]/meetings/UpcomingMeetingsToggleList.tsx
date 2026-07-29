@@ -7,6 +7,7 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { toastError } from "@/components/Toast";
 import { Toggle } from "@/components/Toggle";
 import { TypographyH3 } from "@/components/Typography";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Empty,
   EmptyHeader,
@@ -63,6 +64,15 @@ export function UpcomingMeetingsToggleList({
         error={error}
         loadingComponent={<Skeleton className="mt-4 h-24 w-full" />}
       >
+        {data?.hasAccess === false && (
+          <Alert className="mt-4">
+            <AlertTitle>Meeting recording requires the Plus plan</AlertTitle>
+            <AlertDescription>
+              Upgrade to have meetings recorded and summarized automatically.
+            </AlertDescription>
+          </Alert>
+        )}
+
         {!data?.events.length ? (
           <Empty className="mt-4 border">
             <EmptyHeader>
@@ -86,7 +96,7 @@ export function UpcomingMeetingsToggleList({
                   name={`join-${event.id}`}
                   ariaLabel={`Record ${event.title}`}
                   enabled={event.willRecord}
-                  disabled={pendingEventId === event.id}
+                  disabled={!data.hasAccess || pendingEventId === event.id}
                   onChange={(join) => toggleEvent(event, join)}
                 />
               </MeetingListItem>
