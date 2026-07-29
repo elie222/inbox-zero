@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { useAction } from "next-safe-action/hooks";
-import { formatDistanceToNow } from "date-fns";
 import {
   CheckIcon,
   EyeOffIcon,
@@ -57,9 +56,15 @@ import {
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { ContactAvatar } from "./ContactsList";
 import { CompanyDetails } from "./CompanyDetails";
+import {
+  LatestThreadCard,
+  PaneCard,
+  PaneSectionTitle,
+  PaneShell,
+} from "./PaneChrome";
 
-// On narrow screens this sheet stands in for the persistent detail pane —
-// showing either a contact or a company
+// The detail pane is a drawer at every width — showing either a contact or a
+// company. On wide screens it slides in over the list rather than splitting it.
 export function ContactDetailSheet({
   contact,
   group,
@@ -84,7 +89,10 @@ export function ContactDetailSheet({
       open={!!contact || !!group}
       onOpenChange={(open) => !open && onClose()}
     >
-      <SheetContent side="right" className="overflow-y-auto sm:max-w-xl">
+      <SheetContent
+        side="right"
+        className="w-full p-5 sm:max-w-[560px] [&>button]:top-6"
+      >
         <SheetTitle className="sr-only">Details</SheetTitle>
         {group ? (
           <CompanyDetails
@@ -111,7 +119,21 @@ export function ContactDetailSheet({
   );
 }
 
-// Also rendered inline as the persistent right pane on wide screens
+const CONTACT_TABS = [
+  { key: "overview", label: "Overview" },
+  { key: "details", label: "Details" },
+  { key: "emails", label: "Emails" },
+  { key: "options", label: "Options" },
+];
+
+type Suggestion = {
+  field: "name" | "title" | "companyName" | "phone";
+  label: string;
+  value: string;
+  // For phone suggestions: the kind of line ("Mobile", "Work", …)
+  phoneLabel?: string;
+};
+
 export function ContactDetails({
   contact,
   companies,
@@ -121,11 +143,14 @@ export function ContactDetails({
   contact: ContactListItem;
   companies: CompanySummary[];
   mutateContacts: () => void;
-  // The mobile sheet closes on delete; the wide pane keeps showing the
-  // (now unsaved) contact and omits this
-  onDeleted?: () => void;
+  onDeleted: () => void;
 }) {
   const { emailAccountId } = useAccount();
+  const [tab, setTab] = useState("overview");
+  // Enrichment runs from Overview but its chips are applied in the Details
+  // form, so the results live here and the run switches tabs
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+
   // Bound locally so the email-only affordances below narrow inside their
   // callbacks — a phone-only contact has no address
   const email = contact.email;
@@ -134,16 +159,15 @@ export function ContactDetails({
   // displayed value and the lock must name the same company
   const lockedCompany = companyOwningDomain(contact.domain, companies);
 
-  // Remount the edit form only when the saved row disappears (deleted here
-  // or by a synced client) so cleared fields don't linger. Keying on isSaved
-  // itself would also fire when enrichment saves a summary (unsaved → saved)
-  // and wipe the suggestions panel mid-flow.
-  const [formEpoch, setFormEpoch] = useState(0);
-  const wasSaved = useRef(contact.isSaved);
-  useEffect(() => {
-    if (wasSaved.current && !contact.isSaved) setFormEpoch((n) => n + 1);
-    wasSaved.current = contact.isSaved;
-  }, [contact.isSaved]);
+  // Shared by the Overview's latest thread and the Emails tab — same SWR key,
+  // so opening the drawer costs one request either way
+  const threads = useThreads({
+    fromEmail: email ?? undefined,
+    type: "all",
+    limit: 10,
+  });
+  const latest = threads.data?.threads[0];
+  const latestMessage = latest?.messages.at(-1);
 
   const deleteContact = useAction(
     deleteContactAction.bind(null, emailAccountId),
@@ -151,7 +175,7 @@ export function ContactDetails({
       onSuccess: () => {
         toastSuccess({ description: "Contact deleted" });
         mutateContacts();
-        onDeleted?.();
+        onDeleted();
       },
       onError: (error) => {
         toastError({ description: getActionErrorMessage(error.error) });
@@ -168,7 +192,7 @@ export function ContactDetails({
             "Ignored — it won't appear in contacts again. Restore it anytime from the Suggested tab.",
         });
         mutateContacts();
-        onDeleted?.();
+        onDeleted();
       },
       onError: (error) => {
         toastError({ description: getActionErrorMessage(error.error) });
@@ -176,122 +200,261 @@ export function ContactDetails({
     },
   );
 
+  const enrich = useAction(enrichContactAction.bind(null, emailAccountId), {
+    onSuccess: (result) => {
+      if (!result.data) return;
+      const {
+        name,
+        title,
+        company: suggestedCompany,
+        phones,
+      } = result.data.suggestions;
+      const found: Suggestion[] = [];
+      if (name) found.push({ field: "name", label: "Name", value: name });
+      if (title) found.push({ field: "title", label: "Title", value: title });
+      // Domain-owned membership can't be edited per contact, so a company
+      // suggestion would only lead to a rejected save
+      if (suggestedCompany && !lockedCompany) {
+        found.push({
+          field: "companyName",
+          label: "Company",
+          value: suggestedCompany,
+        });
+      }
+      for (const phone of phones) {
+        found.push({
+          field: "phone",
+          label:
+            phone.label && phone.label !== "Other"
+              ? `Phone (${phone.label})`
+              : "Phone",
+          value: phone.value,
+          phoneLabel: phone.label || "Other",
+        });
+      }
+      setSuggestions(found);
+      // The relationship summary was saved server-side — refresh to show it
+      mutateContacts();
+      if (found.length) {
+        setTab("details");
+      } else {
+        toastSuccess({
+          description: "Summary updated. No new details found in their emails.",
+        });
+      }
+    },
+    onError: (error) => {
+      toastError({ description: getActionErrorMessage(error.error) });
+    },
+  });
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-3">
+    <PaneShell
+      mark={
         <ContactAvatar
           contact={contact}
           companies={companies}
-          className="size-10 shrink-0 rounded-full bg-muted object-cover p-0.5"
+          className="size-[52px] shrink-0 rounded-full bg-muted object-cover p-1"
         />
-        <div className="min-w-0">
-          <h2 className="truncate font-display text-2xl tracking-tight">
-            {contactDisplayName(contact)}
-          </h2>
-          <p className="truncate text-sm text-muted-foreground">
-            {[contact.title, company?.name, contact.email]
-              .filter(Boolean)
-              .join(" · ")}
-          </p>
-        </div>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-        <span>{contact.receivedCount} received</span>
-        <span>{contact.sentCount} sent</span>
-        {contact.lastInteractionAt && (
-          <span>
-            Last activity{" "}
-            {formatDistanceToNow(new Date(contact.lastInteractionAt), {
-              addSuffix: true,
-            })}
-          </span>
-        )}
-        {contact.stale && <Badge color="yellow">Stale</Badge>}
-      </div>
-
-      <div className="rounded-lg border border-border p-4">
-        <h3 className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground/70">
-          <SparklesIcon className="size-3 text-primary" />
-          Relationship summary
-        </h3>
-        <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">
-          {contact.aiSummary ??
-            "No summary yet — use “Suggest from emails” below and the AI will write one from your email history."}
-        </p>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        {email && (
-          <>
-            <Button asChild variant="outline" size="sm">
-              <Link
-                href={prefixPath(
-                  emailAccountId,
-                  `/mail?q=${encodeURIComponent(email)}`,
-                )}
-              >
-                <MailIcon className="mr-1.5 size-3.5" />
-                Search in Mail
-              </Link>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              loading={ignoreContact.isExecuting}
-              onClick={() => ignoreContact.execute({ email, ignored: true })}
+      }
+      title={contactDisplayName(contact)}
+      subtitle={
+        [contact.title, company?.name, contact.email]
+          .filter(Boolean)
+          .join(" · ") || "No details yet"
+      }
+      actions={
+        email && (
+          <Button asChild variant="outline" size="icon" title="Search in Mail">
+            <Link
+              href={prefixPath(
+                emailAccountId,
+                `/mail?q=${encodeURIComponent(email)}`,
+              )}
             >
-              <EyeOffIcon className="mr-1.5 size-3.5" />
-              Ignore
-            </Button>
-          </>
-        )}
-        {contact.isSaved && (
-          <Button
-            variant="destructiveSoft"
-            size="sm"
-            loading={deleteContact.isExecuting}
-            onClick={() => {
-              const yes = confirm(
-                "Delete this contact's saved details (and their Google Contacts entry when sync is on)? They'll still appear in the list while you have email history together.",
-              );
-              if (yes)
-                deleteContact.execute({
-                  contactId: contact.contactId,
-                  email: contact.email,
-                });
-            }}
-          >
-            <Trash2Icon className="mr-1.5 size-3.5" />
-            Delete
+              <MailIcon className="size-4" />
+              <span className="sr-only">Search in Mail</span>
+            </Link>
           </Button>
-        )}
-      </div>
+        )
+      }
+      stats={[
+        {
+          value: contact.receivedCount + contact.sentCount,
+          label: "emails",
+        },
+        { value: contact.receivedCount, label: "received" },
+        { value: contact.sentCount, label: "sent" },
+      ]}
+      lastInteractionAt={
+        contact.lastInteractionAt ? new Date(contact.lastInteractionAt) : null
+      }
+      tabs={CONTACT_TABS}
+      activeTab={tab}
+      onTabChange={setTab}
+    >
+      {tab === "overview" && (
+        <>
+          {contact.stale && (
+            <div>
+              <Badge color="yellow">
+                Stale — no email either way in months
+              </Badge>
+            </div>
+          )}
+          <PaneCard>
+            <div className="flex items-center justify-between gap-2">
+              <PaneSectionTitle>
+                <SparklesIcon className="size-3 text-primary" />
+                Relationship summary
+              </PaneSectionTitle>
+              {email && (
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  className="text-primary"
+                  loading={enrich.isExecuting}
+                  onClick={() => enrich.execute({ email })}
+                >
+                  Suggest from emails
+                </Button>
+              )}
+            </div>
+            <p className="mt-2 whitespace-pre-wrap text-[13.5px] leading-relaxed text-muted-foreground">
+              {contact.aiSummary ??
+                "No summary yet — “Suggest from emails” has the AI write one from your email history."}
+            </p>
+          </PaneCard>
+          {email && (
+            <LatestThreadCard
+              subject={latestMessage?.headers.subject ?? null}
+              date={
+                latestMessage?.headers.date
+                  ? new Date(latestMessage.headers.date)
+                  : null
+              }
+              href={prefixPath(
+                emailAccountId,
+                `/mail?q=${encodeURIComponent(email)}`,
+              )}
+            />
+          )}
+        </>
+      )}
 
-      {/* Inbox priority acts on incoming mail from an address */}
-      {email && (
-        <InboxPrioritySection
-          key={`priority-${formEpoch}`}
+      {tab === "details" && (
+        <ContactEditForm
           contact={contact}
-          email={email}
+          companies={companies}
+          // Locked contacts show the owning company; the field then locks so
+          // one person's edit can't diverge from (or hijack) the domain's
+          // company
+          companyName={(lockedCompany ?? company)?.name ?? ""}
+          lockedCompanyName={lockedCompany?.name ?? null}
+          suggestions={suggestions}
+          setSuggestions={setSuggestions}
           mutateContacts={mutateContacts}
         />
       )}
 
-      <ContactEditForm
-        companies={companies}
-        key={formEpoch}
-        contact={contact}
-        // Locked contacts show the owning company; the field then locks so
-        // one person's edit can't diverge from (or hijack) the domain's
-        // company
-        companyName={(lockedCompany ?? company)?.name ?? ""}
-        lockedCompanyName={lockedCompany?.name ?? null}
-        mutateContacts={mutateContacts}
-      />
+      {tab === "emails" &&
+        (email ? (
+          <>
+            <LoadingContent loading={threads.isLoading} error={threads.error}>
+              {threads.data && (
+                <EmailList
+                  threads={threads.data.threads}
+                  emptyMessage={
+                    <p className="py-4 text-sm text-muted-foreground">
+                      No emails from this contact.
+                    </p>
+                  }
+                  hideActionBarWhenEmpty
+                  refetch={() => threads.mutate()}
+                />
+              )}
+            </LoadingContent>
+            <Link
+              href={prefixPath(
+                emailAccountId,
+                `/mail?q=${encodeURIComponent(email)}`,
+              )}
+              className="text-[12.5px] font-medium text-primary hover:underline"
+            >
+              Search in Mail →
+            </Link>
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            This contact has no email address, so there's no mail history to
+            show.
+          </p>
+        ))}
 
-      {email && <RecentEmails email={email} />}
-    </div>
+      {tab === "options" && (
+        <>
+          {email && (
+            <InboxPrioritySection
+              contact={contact}
+              email={email}
+              mutateContacts={mutateContacts}
+            />
+          )}
+          {email && (
+            <PaneCard className="flex items-center justify-between gap-4">
+              <div>
+                <div className="text-[13px] font-medium">
+                  Ignore this contact
+                </div>
+                <p className="mt-0.5 text-[12.5px] text-muted-foreground">
+                  They won't appear in contacts again. Restore anytime from
+                  Suggested.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="shrink-0"
+                loading={ignoreContact.isExecuting}
+                onClick={() => ignoreContact.execute({ email, ignored: true })}
+              >
+                <EyeOffIcon className="mr-1.5 size-3.5" />
+                Ignore
+              </Button>
+            </PaneCard>
+          )}
+          {contact.isSaved && (
+            <div className="flex items-center justify-between gap-4 rounded-[10px] border border-destructive/40 p-3.5">
+              <div>
+                <div className="text-[13px] font-medium">Delete contact</div>
+                <p className="mt-0.5 text-[12.5px] text-muted-foreground">
+                  Removes their saved details (and their Google Contacts entry
+                  when sync is on). They'll still appear while you share email
+                  history.
+                </p>
+              </div>
+              <Button
+                variant="destructiveSoft"
+                size="sm"
+                className="shrink-0"
+                loading={deleteContact.isExecuting}
+                onClick={() => {
+                  if (confirm("Delete this contact's saved details?")) {
+                    deleteContact.execute({
+                      contactId: contact.contactId,
+                      email: contact.email,
+                    });
+                  }
+                }}
+              >
+                <Trash2Icon className="mr-1.5 size-3.5" />
+                Delete
+              </Button>
+            </div>
+          )}
+        </>
+      )}
+    </PaneShell>
   );
 }
 
@@ -333,11 +496,11 @@ function InboxPrioritySection({
       instructions.trim() !== (contact.inboxPriorityInstructions ?? "").trim());
 
   return (
-    <div className="rounded-lg border border-border p-4">
-      <h3 className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground/70">
+    <PaneCard>
+      <PaneSectionTitle>
         <InboxIcon className="size-3 text-primary" />
         Inbox priority
-      </h3>
+      </PaneSectionTitle>
       <div className="mt-3">
         <Select
           value={priority}
@@ -366,7 +529,7 @@ function InboxPrioritySection({
             </SelectItem>
           </SelectContent>
         </Select>
-        <p className="mt-2 text-sm text-muted-foreground">
+        <p className="mt-2 text-[12.5px] text-muted-foreground">
           {priority === ContactInboxPriority.OFF &&
             "Their email follows your normal rules."}
           {priority === ContactInboxPriority.ALWAYS &&
@@ -401,17 +564,9 @@ function InboxPrioritySection({
           </Button>
         </div>
       )}
-    </div>
+    </PaneCard>
   );
 }
-
-type Suggestion = {
-  field: "name" | "title" | "companyName" | "phone";
-  label: string;
-  value: string;
-  // For phone suggestions: the kind of line ("Mobile", "Work", …)
-  phoneLabel?: string;
-};
 
 // Label datalist options for a phone row; free text is fine too
 const PHONE_LABELS = ["Mobile", "Work", "Home", "Main", "Fax", "Other"];
@@ -421,23 +576,34 @@ function ContactEditForm({
   companies,
   companyName,
   lockedCompanyName,
+  suggestions,
+  setSuggestions,
   mutateContacts,
 }: {
   contact: ContactListItem;
   // Existing companies feed the company field's type-ahead
   companies: CompanySummary[];
   companyName: string;
-  // Set when a company owns the contact's email domain — the company
-  // field is read-only then (change the company's domains instead)
+  // Set when a company owns the contact's email domain — the company field is
+  // read-only then (change the company's domains instead)
   lockedCompanyName: string | null;
+  suggestions: Suggestion[];
+  setSuggestions: (update: (previous: Suggestion[]) => Suggestion[]) => void;
   mutateContacts: () => void;
 }) {
   const { emailAccountId } = useAccount();
-  // Enrichment reads their email history, so it needs an address
-  const email = contact.email;
   const [isPersonal, setIsPersonal] = useState(contact.isPersonal);
   const [useCompanyLogo, setUseCompanyLogo] = useState(contact.useCompanyLogo);
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+
+  // Remount the form only when the saved row disappears (deleted here or by a
+  // synced client) so cleared fields don't linger. Keying on isSaved itself
+  // would also fire when enrichment saves a summary (unsaved → saved).
+  const [formEpoch, setFormEpoch] = useState(0);
+  const wasSaved = useRef(contact.isSaved);
+  useEffect(() => {
+    if (wasSaved.current && !contact.isSaved) setFormEpoch((n) => n + 1);
+    wasSaved.current = contact.isSaved;
+  }, [contact.isSaved]);
 
   const { register, handleSubmit, setValue, control } = useForm<{
     name: string;
@@ -468,54 +634,9 @@ function ContactEditForm({
     },
   });
 
-  const enrich = useAction(enrichContactAction.bind(null, emailAccountId), {
-    onSuccess: (result) => {
-      if (!result.data) return;
-      const { name, title, company, phones } = result.data.suggestions;
-      const found: Suggestion[] = [
-        ...(name
-          ? [{ field: "name" as const, label: "Name", value: name }]
-          : []),
-        ...(title
-          ? [{ field: "title" as const, label: "Title", value: title }]
-          : []),
-        // Domain-owned membership can't be edited per contact, so a company
-        // suggestion would only lead to a rejected save
-        ...(company && !lockedCompanyName
-          ? [
-              {
-                field: "companyName" as const,
-                label: "Company",
-                value: company,
-              },
-            ]
-          : []),
-        ...phones.map((phone) => ({
-          field: "phone" as const,
-          label:
-            phone.label && phone.label !== "Other"
-              ? `Phone (${phone.label})`
-              : "Phone",
-          value: phone.value,
-          phoneLabel: phone.label || "Other",
-        })),
-      ];
-      setSuggestions(found);
-      // The relationship summary was saved server-side — refresh to show it
-      mutateContacts();
-      if (!found.length) {
-        toastSuccess({
-          description: "Summary updated. No new details found in their emails.",
-        });
-      }
-    },
-    onError: (error) => {
-      toastError({ description: getActionErrorMessage(error.error) });
-    },
-  });
-
   return (
     <form
+      key={formEpoch}
       className="space-y-4"
       onSubmit={handleSubmit((values) =>
         update.execute({
@@ -524,8 +645,8 @@ function ContactEditForm({
           name: values.name,
           title: values.title,
           phones: values.phones,
-          // The form keeps a value even when the input is disabled — omit
-          // it so saving other fields can't trip the server's domain lock
+          // The form keeps a value even when the input is disabled — omit it
+          // so saving other fields can't trip the server's domain lock
           companyName:
             isPersonal || lockedCompanyName ? undefined : values.companyName,
           photoUrl: values.photoUrl.trim(),
@@ -535,24 +656,8 @@ function ContactEditForm({
         }),
       )}
     >
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="text-sm font-medium">Details</h3>
-        {email && (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            loading={enrich.isExecuting}
-            onClick={() => enrich.execute({ email })}
-          >
-            <SparklesIcon className="mr-1.5 size-3.5" />
-            Suggest from emails
-          </Button>
-        )}
-      </div>
-
       {suggestions.length > 0 && (
-        <div className="space-y-2 rounded-md border border-border p-3">
+        <PaneCard className="space-y-2">
           <p className="text-sm font-medium">Found in their emails</p>
           {suggestions.map((suggestion) => (
             <div
@@ -578,8 +683,8 @@ function ContactEditForm({
                       shouldDirty: true,
                     });
                   }
-                  setSuggestions((prev) =>
-                    prev.filter((s) => s !== suggestion),
+                  setSuggestions((previous) =>
+                    previous.filter((entry) => entry !== suggestion),
                   );
                 }}
               >
@@ -591,7 +696,7 @@ function ContactEditForm({
           <p className="text-xs text-muted-foreground">
             Apply the ones that look right, then save.
           </p>
-        </div>
+        </PaneCard>
       )}
 
       <div className="grid grid-cols-2 gap-3">
@@ -620,9 +725,9 @@ function ContactEditForm({
             list="contact-company-options"
             {...register("companyName")}
           />
-          {/* Type-ahead of existing companies; assigning one also adopts
-              this contact's email domain onto it, grouping their whole
-              domain under the company. Free text creates a new company. */}
+          {/* Type-ahead of existing companies; assigning one also adopts this
+              contact's email domain onto it, grouping their whole domain under
+              the company. Free text creates a new company. */}
           <datalist id="contact-company-options">
             {companies.map((option) => (
               <option key={option.id} value={option.name} />
@@ -693,7 +798,7 @@ function ContactEditForm({
       <div className="flex items-center justify-between gap-4">
         <div>
           <Label htmlFor="contact-personal">Personal contact</Label>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-[12.5px] text-muted-foreground">
             Grouped under Personal instead of a company.
           </p>
         </div>
@@ -707,7 +812,7 @@ function ContactEditForm({
         <div className="flex items-center justify-between gap-4">
           <div>
             <Label htmlFor="contact-company-logo">Use company logo</Label>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1 text-[12.5px] text-muted-foreground">
               Off shows their personal photo instead.
             </p>
           </div>
@@ -735,33 +840,5 @@ function ContactEditForm({
         </Button>
       </div>
     </form>
-  );
-}
-
-function RecentEmails({ email }: { email: string }) {
-  const { data, isLoading, error, mutate } = useThreads({
-    fromEmail: email,
-    type: "all",
-    limit: 10,
-  });
-
-  return (
-    <div>
-      <h3 className="mb-2 text-sm font-medium">Recent emails</h3>
-      <LoadingContent loading={isLoading} error={error}>
-        {data && (
-          <EmailList
-            threads={data.threads}
-            emptyMessage={
-              <p className="py-4 text-sm text-muted-foreground">
-                No emails from this contact.
-              </p>
-            }
-            hideActionBarWhenEmpty
-            refetch={() => mutate()}
-          />
-        )}
-      </LoadingContent>
-    </div>
   );
 }

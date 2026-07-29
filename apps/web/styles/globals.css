@@ -93,6 +93,30 @@
   @apply px-2 sm:px-6;
 }
 
+/* A company's colour identity, hashed from its name into --company-hue on the
+   element (see utils/name-color.ts). Saturation and lightness live here rather
+   than in the hash so the chip label keeps its contrast in both themes. */
+.company-card {
+  background:
+    linear-gradient(
+      to right,
+      hsl(var(--company-hue) 70% 55% / 0.07),
+      hsl(var(--company-hue) 70% 55% / 0.02) 55%,
+      transparent
+    ),
+    hsl(var(--card));
+  border-color: hsl(var(--company-hue) 60% 55% / 0.22);
+}
+
+.company-chip {
+  color: hsl(var(--company-hue) 70% 34%);
+  background: hsl(var(--company-hue) 70% 55% / 0.14);
+}
+
+.dark .company-chip {
+  color: hsl(var(--company-hue) 75% 70%);
+}
+
 @layer base {
   * {
     @apply border-border;

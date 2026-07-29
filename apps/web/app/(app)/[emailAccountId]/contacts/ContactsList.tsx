@@ -1,14 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useCallback, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import useSWR, { useSWRConfig } from "swr";
-import { formatDistanceToNow } from "date-fns";
 import {
+  ChevronDownIcon,
   IdCardIcon,
   PlusIcon,
   RefreshCwIcon,
-  StickyNoteIcon,
   TagIcon,
 } from "lucide-react";
 import type { ContactsResponse } from "@/app/api/contacts/route";
@@ -19,6 +18,7 @@ import {
   contactKey,
   type CompanySummary,
   type ContactListItem,
+  type LabelSummary,
   groupContacts,
   pendingDomainStats,
   resolveContactCompany,
@@ -26,20 +26,16 @@ import {
 import { cn } from "@/utils";
 import { SearchBar } from "@/components/SearchBar";
 import { LoadingContent } from "@/components/LoadingContent";
-import { Badge } from "@/components/Badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { ContactDetails, ContactDetailSheet } from "./ContactDetailSheet";
-import { CompaniesView } from "./CompaniesView";
-import { CompanyDetails } from "./CompanyDetails";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ContactDetailSheet } from "./ContactDetailSheet";
+import { CompaniesView, PersonCard } from "./CompaniesView";
 import { DomainSuggestions } from "./DomainSuggestions";
 import { AddContactDialog } from "./AddContactDialog";
 import { ManageLabelsDialog } from "./ManageLabelsDialog";
@@ -49,6 +45,15 @@ import { SyncSettingsDialog } from "./SyncSettingsDialog";
 
 const DEFAULT_LIMIT = 100;
 const MAX_LIMIT = 500;
+
+// Recent → Name → Most emails, cycled from one chip rather than a third tab
+// strip. The values are the ones /api/contacts already understands.
+const SORTS = [
+  { value: "recent", label: "Recent" },
+  { value: "name", label: "Name" },
+  { value: "frequent", label: "Most emails" },
+] as const;
+type Sort = (typeof SORTS)[number]["value"];
 
 export function ContactsList() {
   const [search, setSearch] = useState("");
@@ -65,10 +70,11 @@ export function ContactsList() {
   const [showMyCard, setShowMyCard] = useState(false);
   const [managingLabels, setManagingLabels] = useState(false);
 
-  // Tabs sync selection to the URL, so view and sort live there too;
-  // the sidebar's GROUPS panel drives ?group= and ?label=. The curated
-  // company list is the main view; a group selection shows people.
+  // View, sort and filters live in the URL, so the sidebar's GROUPS panel can
+  // drive them with plain links. The curated company list is the main view;
+  // a group selection shows people.
   const searchParams = useSearchParams();
+  const setParam = useUrlParam();
   const viewParam = searchParams.get("view");
   const view = searchParams.get("group")
     ? "people"
@@ -79,12 +85,11 @@ export function ContactsList() {
       : "companies";
   // People (no grouping) reads A→Z by default; the other views keep recency
   const sortParam = searchParams.get("sort");
-  const sort =
-    sortParam === "frequent" || sortParam === "name" || sortParam === "recent"
-      ? sortParam
-      : viewParam === "people"
-        ? "name"
-        : "recent";
+  const sort: Sort = SORTS.some((option) => option.value === sortParam)
+    ? (sortParam as Sort)
+    : viewParam === "people"
+      ? "name"
+      : "recent";
   const groupKey = searchParams.get("group");
   // People-tab filter: everyone, only those with a company, or unassigned
   // (personal contacts are deliberately companyless, so they're excluded
@@ -108,9 +113,9 @@ export function ContactsList() {
   );
   const domainStats = domainsData?.domains ?? [];
 
-  // Mutations refresh every /api/contacts variant — the sidebar GROUPS
-  // panel reads its own fixed key, which would otherwise go stale whenever
-  // this page's key carries a search/sort/limit
+  // Mutations refresh every /api/contacts variant — the sidebar GROUPS panel
+  // reads its own fixed key, which would otherwise go stale whenever this
+  // page's key carries a search/sort/limit
   const { mutate: globalMutate } = useSWRConfig();
   const mutate = useCallback(
     () =>
@@ -154,26 +159,6 @@ export function ContactsList() {
     return all;
   }, [data?.contacts, groups, groupKey, labelFilter, view, who, companies]);
 
-  const activeLabelName = labelFilter
-    ? groups
-        .flatMap((group) => {
-          const label = group.company?.label;
-          return label ? [label, ...(label.parent ? [label.parent] : [])] : [];
-        })
-        .find((label) => label.id === labelFilter)?.name
-    : null;
-
-  const activeGroupName = groupKey
-    ? groups.find((group) => group.key === groupKey)?.name
-    : activeLabelName;
-
-  // Prefer the fresh row from the current window (mutations re-read it),
-  // fall back to the captured object for out-of-window selections
-  const selected = selectedContact
-    ? (data?.contacts.find(
-        (contact) => contactKey(contact) === contactKey(selectedContact),
-      ) ?? selectedContact)
-    : null;
   const setSelected = (contact: ContactListItem) => {
     setSelectedGroupKey(null);
     setSelectedContact(contact);
@@ -182,14 +167,22 @@ export function ContactsList() {
     setSelectedContact(null);
     setSelectedGroupKey(key);
   };
-  // A company selection only makes sense on the companies view; switching
-  // to People/Suggested shouldn't leave company details hanging in the pane
-  const selectedGroup =
-    selectedGroupKey && (view === "companies" || view === "labels")
-      ? (groups.find((group) => group.key === selectedGroupKey) ?? null)
-      : null;
+  const closePane = () => {
+    setSelectedContact(null);
+    setSelectedGroupKey(null);
+  };
 
-  const isWide = useIsWideScreen();
+  // Prefer the fresh row from the current window (mutations re-read it), fall
+  // back to the captured object for out-of-window selections
+  const selected = selectedContact
+    ? (data?.contacts.find(
+        (contact) => contactKey(contact) === contactKey(selectedContact),
+      ) ?? selectedContact)
+    : null;
+  const selectedGroup = selectedGroupKey
+    ? (groups.find((group) => group.key === selectedGroupKey) ?? null)
+    : null;
+  const activeContactKey = selected ? contactKey(selected) : null;
 
   const pendingSuggestions = useMemo(
     () =>
@@ -197,248 +190,223 @@ export function ContactsList() {
     [domainStats, companies, data?.ignoredDomains],
   );
 
-  // The detail pane is always populated on wide screens: fall back to the
-  // first contact actually visible in the current view when nothing is
-  // explicitly selected
-  const suggestedDomains = useMemo(
-    () => new Set(pendingSuggestions.map((stat) => stat.domain)),
-    [pendingSuggestions],
-  );
-  const fallback =
-    view === "suggested"
-      ? (data?.contacts.find((contact) =>
-          suggestedDomains.has(contact.domain),
-        ) ?? null)
-      : (view === "companies" || view === "labels") && !labelFilter
-        ? ((
-            groups.find(
-              (group) => group.company && group.contacts.length > 0,
-            ) ?? groups.find((group) => group.key === "personal")
-          )?.contacts[0] ?? null)
-        : (filteredContacts[0] ?? null);
-  const displayed = selected ?? fallback;
-  const activeContactKey =
-    isWide && !selectedGroup && displayed ? contactKey(displayed) : null;
-
-  const companyCount = companies.length;
   // Someone who handed their details back is waiting on a decision, so they
   // count towards the tab badge alongside the domain suggestions
   const pendingExchanges = data?.pendingExchanges ?? [];
   const suggestedCount = pendingSuggestions.length + pendingExchanges.length;
 
+  const activeLabelName = labelFilter
+    ? labelPath(data?.labels ?? [], labelFilter)
+    : null;
+  const activeGroupName = groupKey
+    ? groups.find((group) => group.key === groupKey)?.name
+    : activeLabelName;
+
+  const countLine = !data
+    ? "Everyone you email, built automatically from your mail history."
+    : activeGroupName
+      ? `${activeGroupName} · ${filteredContacts.length} ${
+          filteredContacts.length === 1 ? "person" : "people"
+        }`
+      : view === "suggested"
+        ? `${suggestedCount} waiting on a decision`
+        : view === "people"
+          ? `${filteredContacts.length} ${
+              filteredContacts.length === 1 ? "person" : "people"
+            }`
+          : `${data.contacts.length} people across ${companies.length} ${
+              companies.length === 1 ? "company" : "companies"
+            }`;
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="border-b border-border px-4 pb-3 pt-4">
-        <div className="flex flex-wrap items-end gap-x-6 gap-y-2">
-          <div>
-            <h1 className="font-display text-2xl leading-7 tracking-tight lg:text-3xl">
-              Contacts
-            </h1>
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              {data ? (
-                activeGroupName ? (
-                  <>
-                    Showing{" "}
-                    <span className="text-foreground">{activeGroupName}</span> ·{" "}
-                    {filteredContacts.length}{" "}
-                    {filteredContacts.length === 1 ? "person" : "people"}
-                  </>
-                ) : (
-                  <>
-                    {data.contacts.length} people · {companyCount} companies
-                  </>
-                )
-              ) : (
-                "Everyone you email, built automatically from your mail history."
-              )}
-            </p>
-          </div>
-          <SearchBar
-            onSearch={setSearch}
-            placeholder="Search people, companies, titles..."
-            className="w-full min-w-0 flex-1 sm:w-auto sm:max-w-md"
-          />
-          <div className="ml-auto flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowMyCard(true)}
-            >
-              <IdCardIcon className="mr-1.5 size-3.5" />
-              My card
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowSync(true)}
-            >
-              <RefreshCwIcon className="mr-1.5 size-3.5" />
-              Sync
-            </Button>
-            <Button size="sm" onClick={() => setAdding(true)}>
-              <PlusIcon className="mr-1.5 size-4" />
-              Add contact
-            </Button>
-          </div>
-        </div>
-
+      {/* One control bar: identity, view, search, actions */}
+      <div className="flex flex-wrap items-center gap-2.5 border-b border-border px-4 py-3 sm:px-6 sm:py-4">
+        <h1 className="font-display text-2xl tracking-tight">Contacts</h1>
         {/* A sidebar group selection speaks for itself; tabs would contradict it */}
         {!groupKey && (
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <Tabs defaultValue="companies" searchParam="view">
-              <TabsList>
-                <TabsTrigger value="companies">Companies</TabsTrigger>
-                <TabsTrigger value="labels">Labels</TabsTrigger>
-                <TabsTrigger value="people">People</TabsTrigger>
-                <TabsTrigger value="suggested">
-                  Suggested{suggestedCount > 0 && ` (${suggestedCount})`}
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-            {view === "people" && (
-              <>
-                <Tabs defaultValue="name" searchParam="sort">
-                  <TabsList>
-                    <TabsTrigger value="name">Name</TabsTrigger>
-                    <TabsTrigger value="recent">Recent</TabsTrigger>
-                    <TabsTrigger value="frequent">Most emails</TabsTrigger>
-                  </TabsList>
-                </Tabs>
-                <Tabs defaultValue="all" searchParam="who">
-                  <TabsList>
-                    <TabsTrigger value="all">Everyone</TabsTrigger>
-                    <TabsTrigger value="company">With company</TabsTrigger>
-                    <TabsTrigger value="none">No company</TabsTrigger>
-                  </TabsList>
-                </Tabs>
-              </>
-            )}
-            {view === "labels" && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setManagingLabels(true)}
-              >
-                <TagIcon className="mr-1.5 size-3.5" />
-                Manage labels
-              </Button>
-            )}
-          </div>
+          <Tabs defaultValue="companies" searchParam="view">
+            <TabsList className="h-9">
+              <TabsTrigger value="companies">Companies</TabsTrigger>
+              <TabsTrigger value="labels">Labels</TabsTrigger>
+              <TabsTrigger value="people">People</TabsTrigger>
+              <TabsTrigger value="suggested">
+                Suggested
+                {suggestedCount > 0 && (
+                  <span className="ml-1.5 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary/15 px-1 text-[11px] font-semibold text-primary">
+                    {suggestedCount}
+                  </span>
+                )}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         )}
+        <SearchBar
+          onSearch={setSearch}
+          placeholder="Search contacts…"
+          className="w-full min-w-0 flex-1 sm:w-auto sm:max-w-sm"
+        />
+        <div className="ml-auto flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            title="My card"
+            onClick={() => setShowMyCard(true)}
+          >
+            <IdCardIcon className="size-4" />
+            <span className="sr-only">My card</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            title="Sync"
+            onClick={() => setShowSync(true)}
+          >
+            <RefreshCwIcon className="size-4" />
+            <span className="sr-only">Sync</span>
+          </Button>
+          <Button size="sm" onClick={() => setAdding(true)}>
+            <PlusIcon className="mr-1.5 size-4" />
+            Add contact
+          </Button>
+        </div>
       </div>
 
-      {/* Each pane scrolls internally, like the mail view */}
-      <div className="flex min-h-0 flex-1">
-        <div className="min-w-0 flex-1 overflow-y-auto p-4">
-          <LoadingContent loading={isLoading && !data} error={error}>
-            {data &&
-              (data.contacts.length || companies.length ? (
-                view === "companies" || view === "labels" ? (
-                  <CompaniesView
-                    contacts={data.contacts}
-                    companies={companies}
-                    domainStats={domainStats}
-                    groupBy={view === "labels" ? "label" : "company"}
-                    labelFilter={labelFilter}
-                    search={search}
-                    activeContactKey={activeContactKey}
-                    activeGroupKey={isWide ? selectedGroupKey : null}
-                    onSelectContact={setSelected}
-                    onSelectCompany={setSelectedGroup}
-                  />
-                ) : view === "suggested" ? (
-                  <>
-                    <ExchangeSuggestions
-                      mutateContacts={mutate}
-                      pending={pendingExchanges}
-                    />
-                    <DomainSuggestions
-                      stats={pendingSuggestions}
-                      ignoredDomains={data.ignoredDomains}
-                      ignoredEmails={data.ignoredEmails}
-                      companies={companies}
-                      search={search}
-                      activeContactKey={activeContactKey}
-                      onSelectContact={setSelected}
-                      mutate={mutate}
-                    />
-                  </>
-                ) : (
-                  <>
-                    <PeopleTable
-                      contacts={filteredContacts}
-                      companies={companies}
-                      activeContactKey={activeContactKey}
-                      onSelect={setSelected}
-                    />
-                    {data.hasMore && limit < MAX_LIMIT && (
-                      <div className="mt-4 flex justify-center">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setLimit(MAX_LIMIT)}
-                        >
-                          Show more
-                        </Button>
-                      </div>
-                    )}
-                  </>
-                )
-              ) : (
-                <p className="py-12 text-center text-sm text-muted-foreground">
-                  {search
-                    ? `No contacts match “${search}”.`
-                    : "No contacts yet. They'll appear here as your email history loads."}
-                </p>
-              ))}
-          </LoadingContent>
+      <div className="min-w-0 flex-1 overflow-y-auto px-4 pb-6 pt-3 sm:px-6 sm:pt-4">
+        <div className="mb-3 flex items-center gap-2">
+          <span className="min-w-0 flex-1 truncate text-[13px] text-muted-foreground">
+            {countLine}
+          </span>
+          {view !== "suggested" && (
+            <FilterChip
+              label="Label"
+              value={activeLabelName ?? "All"}
+              options={[
+                { value: "", label: "All" },
+                ...(data?.labels ?? []).map((label) => ({
+                  value: label.id,
+                  label: labelPath(data?.labels ?? [], label.id) ?? label.name,
+                })),
+              ]}
+              onSelect={(value) => setParam("label", value)}
+            />
+          )}
+          {view === "people" && (
+            <FilterChip
+              label="Show"
+              value={WHO_LABELS[who]}
+              options={[
+                { value: "", label: WHO_LABELS.all },
+                { value: "company", label: WHO_LABELS.company },
+                { value: "none", label: WHO_LABELS.none },
+              ]}
+              onSelect={(value) => setParam("who", value)}
+            />
+          )}
+          {view === "labels" && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-[30px]"
+              onClick={() => setManagingLabels(true)}
+            >
+              <TagIcon className="mr-1.5 size-3.5" />
+              Manage labels
+            </Button>
+          )}
+          {view !== "suggested" && (
+            <button
+              type="button"
+              className="inline-flex h-[30px] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[7px] border border-border px-2.5 text-[12.5px] text-muted-foreground hover:bg-muted"
+              onClick={() => setParam("sort", nextSort(sort))}
+            >
+              Sort:{" "}
+              <span className="font-medium text-foreground">
+                {SORTS.find((option) => option.value === sort)?.label}
+              </span>
+              <ChevronDownIcon className="size-3" />
+            </button>
+          )}
         </div>
 
-        {/* Persistent detail pane on wide screens (the sheet covers the
-            rest). The container is CSS-gated so the list doesn't reflow
-            when the isWide hook resolves after hydration; the content is
-            JS-gated so narrow screens never mount it (or its fetches). */}
-        <aside className="hidden w-[480px] shrink-0 overflow-y-auto border-l border-border p-5 xl:block">
-          {isWide && selectedGroup ? (
-            <CompanyDetails
-              key={selectedGroup.key}
-              group={selectedGroup}
-              companies={companies}
-              labels={data?.labels ?? []}
-              domainStats={domainStats}
-              onSelectContact={setSelected}
-              mutateContacts={mutate}
-              // Deleted or merged away — stop showing it in the pane
-              onDeleted={() => setSelectedGroupKey(null)}
-            />
-          ) : isWide && displayed ? (
-            <ContactDetails
-              key={contactKey(displayed)}
-              contact={displayed}
-              companies={companies}
-              mutateContacts={mutate}
-              // Clear the selection so the pane doesn't keep showing a
-              // just-deleted contact from the captured fallback
-              onDeleted={() => setSelectedContact(null)}
-            />
-          ) : (
-            <p className="py-12 text-center text-sm text-muted-foreground">
-              Select a contact to see their details.
-            </p>
-          )}
-        </aside>
+        <LoadingContent loading={isLoading && !data} error={error}>
+          {data &&
+            (data.contacts.length || companies.length ? (
+              view === "companies" || view === "labels" ? (
+                <CompaniesView
+                  contacts={data.contacts}
+                  companies={companies}
+                  domainStats={domainStats}
+                  groupBy={view === "labels" ? "label" : "company"}
+                  labelFilter={labelFilter}
+                  search={search}
+                  sort={sort}
+                  activeContactKey={activeContactKey}
+                  activeGroupKey={selectedGroupKey}
+                  onSelectContact={setSelected}
+                  onSelectCompany={setSelectedGroup}
+                />
+              ) : view === "suggested" ? (
+                <>
+                  <ExchangeSuggestions
+                    mutateContacts={mutate}
+                    pending={pendingExchanges}
+                  />
+                  <DomainSuggestions
+                    stats={pendingSuggestions}
+                    ignoredDomains={data.ignoredDomains}
+                    ignoredEmails={data.ignoredEmails}
+                    companies={companies}
+                    search={search}
+                    activeContactKey={activeContactKey}
+                    onSelectContact={setSelected}
+                    mutate={mutate}
+                  />
+                </>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    {filteredContacts.map((contact) => (
+                      <PersonCard
+                        key={contactKey(contact)}
+                        contact={contact}
+                        companies={companies}
+                        active={contactKey(contact) === activeContactKey}
+                        onSelect={() => setSelected(contact)}
+                      />
+                    ))}
+                  </div>
+                  {data.hasMore && limit < MAX_LIMIT && (
+                    <div className="mt-4 flex justify-center">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setLimit(MAX_LIMIT)}
+                      >
+                        Show more
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )
+            ) : (
+              <p className="py-12 text-center text-sm text-muted-foreground">
+                {search
+                  ? `No contacts match “${search}”.`
+                  : "No contacts yet. They'll appear here as your email history loads."}
+              </p>
+            ))}
+        </LoadingContent>
       </div>
 
+      {/* The pane is a drawer at every width — the list keeps the full column */}
       <ContactDetailSheet
-        contact={isWide ? null : selected}
-        group={isWide ? null : selectedGroup}
+        contact={selected}
+        group={selectedGroup}
         companies={companies}
         labels={data?.labels ?? []}
         domainStats={domainStats}
-        onClose={() => {
-          setSelectedContact(null);
-          setSelectedGroupKey(null);
-        }}
+        onClose={closePane}
         onSelectContact={setSelected}
         mutateContacts={mutate}
       />
@@ -464,110 +432,55 @@ export function ContactsList() {
           mutateContacts={mutate}
         />
       )}
-
       <MyCardDialog open={showMyCard} onClose={() => setShowMyCard(false)} />
     </div>
   );
 }
 
-function PeopleTable({
-  contacts,
-  companies,
-  activeContactKey,
+const WHO_LABELS = {
+  all: "Everyone",
+  company: "With company",
+  none: "No company",
+} as const;
+
+// "Label: All ▾" — the mockup's one filter shape, reused for the People view's
+// company filter so the meta row reads as a single set of controls
+function FilterChip({
+  label,
+  value,
+  options,
   onSelect,
 }: {
-  contacts: ContactListItem[];
-  companies: CompanySummary[];
-  activeContactKey: string | null;
-  onSelect: (contact: ContactListItem) => void;
+  label: string;
+  value: string;
+  options: { value: string; label: string }[];
+  onSelect: (value: string) => void;
 }) {
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Name</TableHead>
-          {/* 2xl, not xl: at exactly 1280px the 400px detail pane appears
-              and this column would force a nested horizontal scrollbar */}
-          <TableHead className="hidden 2xl:table-cell">Company</TableHead>
-          <TableHead className="hidden sm:table-cell text-right">
-            Received
-          </TableHead>
-          <TableHead className="hidden sm:table-cell text-right">
-            Sent
-          </TableHead>
-          <TableHead className="text-right">Last activity</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {contacts.map((contact) => (
-          <ContactRow
-            key={contactKey(contact)}
-            contact={contact}
-            companies={companies}
-            active={contactKey(contact) === activeContactKey}
-            onSelect={() => onSelect(contact)}
-          />
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex h-[30px] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[7px] border border-border px-2.5 text-[12.5px] text-muted-foreground hover:bg-muted"
+        >
+          {label}:{" "}
+          <span className="max-w-32 truncate font-medium text-foreground">
+            {value}
+          </span>
+          <ChevronDownIcon className="size-3" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="max-h-80 overflow-y-auto">
+        {options.map((option) => (
+          <DropdownMenuItem
+            key={option.value || "all"}
+            onSelect={() => onSelect(option.value)}
+          >
+            {option.label}
+          </DropdownMenuItem>
         ))}
-      </TableBody>
-    </Table>
-  );
-}
-
-function ContactRow({
-  contact,
-  companies,
-  active,
-  onSelect,
-}: {
-  contact: ContactListItem;
-  companies: CompanySummary[];
-  active: boolean;
-  onSelect: () => void;
-}) {
-  const company = resolveContactCompany(contact, companies);
-  const groupName = contact.isPersonal ? "Personal" : company?.name;
-
-  return (
-    <TableRow
-      className={cn("cursor-pointer", active && "bg-muted/50")}
-      onClick={onSelect}
-    >
-      <TableCell>
-        <div className="flex items-center gap-3 min-w-0">
-          <ContactAvatar contact={contact} companies={companies} />
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5 truncate font-medium">
-              {contactDisplayName(contact)}
-              {contact.notes && (
-                <StickyNoteIcon className="size-3.5 shrink-0 text-muted-foreground" />
-              )}
-            </div>
-            <div className="truncate text-sm text-muted-foreground">
-              {[contact.email, contact.title].filter(Boolean).join(" · ")}
-            </div>
-          </div>
-        </div>
-      </TableCell>
-      <TableCell className="hidden 2xl:table-cell text-muted-foreground">
-        {groupName ?? "—"}
-      </TableCell>
-      <TableCell className="hidden sm:table-cell text-right tabular-nums">
-        {contact.receivedCount}
-      </TableCell>
-      <TableCell className="hidden sm:table-cell text-right tabular-nums">
-        {contact.sentCount}
-      </TableCell>
-      <TableCell className="text-right text-sm text-muted-foreground sm:whitespace-nowrap">
-        <span className="inline-flex items-center gap-1.5">
-          {contact.stale && <Badge color="yellow">Stale</Badge>}
-          {contact.lastInteractionAt
-            ? formatDistanceToNow(new Date(contact.lastInteractionAt), {
-                addSuffix: true,
-              })
-            : "—"}
-        </span>
-      </TableCell>
-    </TableRow>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -622,27 +535,49 @@ export function ContactAvatar({
 
   return (
     <div
-      className={
-        className ??
-        "flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium"
-      }
+      className={cn(
+        className ?? "size-8 shrink-0 rounded-full bg-muted",
+        "flex items-center justify-center text-sm font-medium",
+      )}
     >
       {initial}
     </div>
   );
 }
 
-// The persistent detail pane needs real width; below xl the sheet takes over
-function useIsWideScreen() {
-  const [wide, setWide] = useState(false);
+// Writes one search param without disturbing the others. An empty value drops
+// the param, so "All" leaves a clean URL.
+function useUrlParam() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
-  useEffect(() => {
-    const mediaQuery = window.matchMedia("(min-width: 1280px)");
-    const update = () => setWide(mediaQuery.matches);
-    update();
-    mediaQuery.addEventListener("change", update);
-    return () => mediaQuery.removeEventListener("change", update);
-  }, []);
+  return useCallback(
+    (name: string, value: string) => {
+      const params = new URLSearchParams(searchParams);
+      if (value) {
+        params.set(name, value);
+      } else {
+        params.delete(name);
+      }
+      const query = params.toString();
+      router.replace(pathname + (query ? `?${query}` : ""), { scroll: false });
+    },
+    [router, pathname, searchParams],
+  );
+}
 
-  return wide;
+function nextSort(current: Sort): Sort {
+  const index = SORTS.findIndex((option) => option.value === current);
+  return SORTS[(index + 1) % SORTS.length].value;
+}
+
+// "Vendors › DMS" for a nested label, so one chip can name the whole path
+function labelPath(labels: LabelSummary[], id: string): string | null {
+  const label = labels.find((option) => option.id === id);
+  if (!label) return null;
+  const parent = label.parentId
+    ? labels.find((option) => option.id === label.parentId)
+    : null;
+  return parent ? `${parent.name} › ${label.name}` : label.name;
 }

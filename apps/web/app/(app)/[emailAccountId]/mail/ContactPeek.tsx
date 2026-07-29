@@ -60,7 +60,11 @@ function ContactPeekSheet({
 
   return (
     <Sheet open={!!email} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent side="right" className="overflow-y-auto sm:max-w-xl">
+      {/* ContactDetails scrolls its own body, so the sheet must not */}
+      <SheetContent
+        side="right"
+        className="w-full p-5 sm:max-w-[560px] [&>button]:top-6"
+      >
         <SheetTitle className="sr-only">Contact details</SheetTitle>
         {normalized && (
           <LoadingContent loading={isLoading} error={error}>
@@ -70,6 +74,7 @@ function ContactPeekSheet({
                 contact={contact}
                 companies={data.companies}
                 mutateContacts={() => mutate()}
+                onDeleted={onClose}
               />
             )}
           </LoadingContent>

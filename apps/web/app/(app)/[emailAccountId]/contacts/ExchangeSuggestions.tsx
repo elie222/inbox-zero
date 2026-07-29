@@ -41,8 +41,8 @@ export function ExchangeSuggestions({
   if (!visible.length) return null;
 
   return (
-    <div className="mb-6 rounded-lg border border-border p-4">
-      <h3 className="text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground/70">
+    <div className="mb-5 rounded-[10px] border border-border bg-card p-3.5">
+      <h3 className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/80">
         Shared their details
       </h3>
       <p className="mt-1 text-sm text-muted-foreground">
