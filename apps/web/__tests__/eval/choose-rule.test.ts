@@ -213,9 +213,6 @@ const multiRuleStressTestCases = [
     allowedRuleNames: [],
     maxRuleCount: 0,
   },
-];
-
-const borderlineMultiRuleTestCases = [
   {
     name: "operational office notice",
     email: getEmail({
@@ -224,10 +221,13 @@ const borderlineMultiRuleTestCases = [
       content:
         "The main lobby entrance will be closed Friday from 1 PM to 4 PM for maintenance. Please use the side entrance during that window. No action is required.",
     }),
-    acceptablePrimaryRuleNames: ["Account notifications"],
-    allowedRuleNames: ["Account notifications"],
-    maxRuleCount: 1,
+    expectedPrimaryRule: null,
+    allowedRuleNames: [],
+    maxRuleCount: 0,
   },
+];
+
+const borderlineMultiRuleTestCases = [
   {
     name: "privacy update with product controls",
     email: getEmail({

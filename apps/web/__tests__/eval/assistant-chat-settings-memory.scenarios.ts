@@ -22,6 +22,11 @@ export type SettingsMemoryScenarioExpectation =
       semanticExpectation: string;
     }
   | {
+      kind: "knowledge_create";
+      title: string;
+      content: string;
+    }
+  | {
       kind: "save_memory";
       forbiddenTools: string[];
       expectedContent: string;
@@ -60,6 +65,7 @@ export type SettingsMemoryScenario = {
     | "capability_discovery"
     | "assistant_settings"
     | "personal_instructions"
+    | "knowledge_base"
     | "save_memory"
     | "search_memories"
     | "combined_write";
@@ -817,26 +823,17 @@ const settingsMemoryScenariosRaw: SettingsMemoryScenario[] = [
   },
   {
     id: "draft-kb-create",
-    title: "uses updateAssistantSettings to create a draft knowledge base item",
-    reportName: "draft knowledge base create uses upsert",
-    category: "assistant_settings",
+    title: "uses addToKnowledgeBase to create a new draft knowledge item",
+    reportName: "draft knowledge base create uses add tool",
+    category: "knowledge_base",
     shape: "single_turn",
     realWorldSeed: "db-inspired",
     prompt:
-      "Create a draft knowledge base note called Reply style with: Use concise bullet points.",
+      "Create a new draft knowledge base note called Escalation style with: Use concise bullet points.",
     expectation: {
-      kind: "assistant_settings",
-      changes: [
-        {
-          path: "assistant.draftKnowledgeBase.upsert",
-          value: {
-            title: "Reply style",
-            content: "Use concise bullet points.",
-          },
-          mode: "replace",
-        },
-      ],
-      requiredCapabilities: ["settings"],
+      kind: "knowledge_create",
+      title: "Escalation style",
+      content: "Use concise bullet points.",
     },
   },
   {
