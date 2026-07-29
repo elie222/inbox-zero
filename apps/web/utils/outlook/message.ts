@@ -1018,18 +1018,30 @@ function convertInlineAttachments(
 
   return graphAttachments
     .filter((attachment) => attachment.isInline)
-    .map((attachment) => ({
-      filename: attachment.name || "",
-      mimeType: attachment.contentType || "application/octet-stream",
-      size: attachment.size || 0,
-      attachmentId: attachment.id || "",
-      headers: {
-        "content-type": attachment.contentType || "",
-        "content-description": "",
-        "content-transfer-encoding": "",
-        "content-id": attachment.contentId || attachment.name || "",
-      },
-    }));
+    .map((attachment) => {
+      const contentId = hasContentId(attachment)
+        ? attachment.contentId
+        : undefined;
+
+      return {
+        filename: attachment.name || "",
+        mimeType: attachment.contentType || "application/octet-stream",
+        size: attachment.size || 0,
+        attachmentId: attachment.id || "",
+        headers: {
+          "content-type": attachment.contentType || "",
+          "content-description": "",
+          "content-transfer-encoding": "",
+          "content-id": contentId || attachment.name || "",
+        },
+      };
+    });
+}
+
+function hasContentId(
+  attachment: GraphAttachment,
+): attachment is GraphAttachment & { contentId?: string | null } {
+  return "contentId" in attachment;
 }
 
 function logWellKnownFolderFetchError(
