@@ -45,7 +45,6 @@ async function getMeeting({
       eventTitle: true,
       startTime: true,
       endTime: true,
-      attendees: true,
       summary: true,
       followUpDraftId: true,
       recapSentAt: true,

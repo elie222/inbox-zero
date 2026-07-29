@@ -3,16 +3,17 @@
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useState } from "react";
 import { MicIcon } from "lucide-react";
+import { ListCard } from "@/components/ListCard";
 import { LoadingContent } from "@/components/LoadingContent";
-import { TypographyH3 } from "@/components/Typography";
-import { Button } from "@/components/ui/button";
+import { MutedText, TypographyH3 } from "@/components/Typography";
+import { Badge } from "@/components/ui/badge";
 import {
   Empty,
+  EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { ItemGroup } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MeetingDetail } from "@/app/(app)/[emailAccountId]/meetings/MeetingDetail";
 import { MeetingListItem } from "@/app/(app)/[emailAccountId]/meetings/MeetingListItem";
@@ -23,9 +24,19 @@ export function MeetingsList() {
   const { data, isLoading, error } = useMeetingRecorderMeetings(emailAccountId);
   const [openMeetingId, setOpenMeetingId] = useState<string | null>(null);
 
+  const draftsWaiting =
+    data?.meetings.filter((meeting) => meeting.followUpDraftId).length ?? 0;
+
   return (
     <div>
-      <TypographyH3>Recorded</TypographyH3>
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <TypographyH3>Recorded</TypographyH3>
+        {draftsWaiting > 0 && (
+          <MutedText>
+            {`${draftsWaiting} follow-up${draftsWaiting === 1 ? "" : "s"} waiting in your drafts`}
+          </MutedText>
+        )}
+      </div>
 
       <LoadingContent
         loading={isLoading}
@@ -39,10 +50,14 @@ export function MeetingsList() {
                 <MicIcon />
               </EmptyMedia>
               <EmptyTitle>No meetings recorded yet</EmptyTitle>
+              <EmptyDescription>
+                Notes, action items and a follow-up draft show up here once your
+                first call has been recorded.
+              </EmptyDescription>
             </EmptyHeader>
           </Empty>
         ) : (
-          <ItemGroup className="mt-4 gap-2">
+          <ListCard className="mt-4">
             {data.meetings.map((meeting) => (
               <MeetingListItem
                 key={meeting.id}
@@ -50,16 +65,14 @@ export function MeetingsList() {
                 startTime={meeting.startTime}
                 status={meeting.recording?.status}
                 failureReason={meeting.recording?.failureReason}
+                onClick={() => setOpenMeetingId(meeting.id)}
               >
-                <Button
-                  variant="outline"
-                  onClick={() => setOpenMeetingId(meeting.id)}
-                >
-                  View notes
-                </Button>
+                {meeting.followUpDraftId && (
+                  <Badge variant="secondary">Draft ready</Badge>
+                )}
               </MeetingListItem>
             ))}
-          </ItemGroup>
+          </ListCard>
         )}
       </LoadingContent>
 

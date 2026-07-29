@@ -1,10 +1,18 @@
 import { MeetingJoinRule } from "@/generated/prisma/enums";
 
-export const JOIN_RULE_OPTIONS = [
+type JoinRuleOption = {
+  value: MeetingJoinRule;
+  label: string;
+  description: string;
+  recommended?: boolean;
+};
+
+export const JOIN_RULE_OPTIONS: JoinRuleOption[] = [
   {
     value: MeetingJoinRule.EXTERNAL_ONLY,
     label: "Meetings with guests",
     description: "Join calls that include someone outside your company",
+    recommended: true,
   },
   {
     value: MeetingJoinRule.ALL,
@@ -21,11 +29,4 @@ export const JOIN_RULE_OPTIONS = [
     label: "Nothing automatic",
     description: "Only join calls you turn on one by one",
   },
-] as const;
-
-export function getJoinRuleOption(rule: MeetingJoinRule) {
-  return (
-    JOIN_RULE_OPTIONS.find((option) => option.value === rule) ??
-    JOIN_RULE_OPTIONS[0]
-  );
-}
+];
