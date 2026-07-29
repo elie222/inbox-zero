@@ -37,7 +37,7 @@ describe("calculateUsageCost", () => {
     expect(calculateUsageCost({ provider, model, usage })).toBe(expected);
   });
 
-  it("charges reasoning tokens at the output rate", () => {
+  it("does not charge reasoning tokens twice when output includes them", () => {
     const provider = "openrouter";
     const model = "openai/gpt-5.1";
     const pricing = OPENROUTER_MODEL_PRICING["gpt-5.1"];
@@ -53,8 +53,7 @@ describe("calculateUsageCost", () => {
     };
 
     const expected =
-      usage.inputTokens! * pricing.input +
-      (usage.outputTokens! + usage.reasoningTokens!) * pricing.output;
+      usage.inputTokens! * pricing.input + usage.outputTokens! * pricing.output;
 
     expect(calculateUsageCost({ provider, model, usage })).toBe(expected);
   });
@@ -188,6 +187,18 @@ describe("calculateUsageCost", () => {
       750 * (1.925 / 1_000_000) +
         250 * (0.165 / 1_000_000) +
         500 * (3.828 / 1_000_000),
+    );
+
+    expect(
+      calculateUsageCost({
+        provider: "azure-foundry",
+        model: "DeepSeek-V4-Flash",
+        usage,
+      }),
+    ).toBeCloseTo(
+      750 * (0.19 / 1_000_000) +
+        250 * (0.028 / 1_000_000) +
+        500 * (0.51 / 1_000_000),
     );
 
     expect(
@@ -330,6 +341,36 @@ describe("saveAiUsage", () => {
         emailAccountId: "email-account-1",
         usage,
         cost: 0,
+      }),
+    );
+  });
+
+  it("records Redis usage when analytics ingestion throws synchronously", async () => {
+    vi.mocked(publishAiCall).mockImplementationOnce(() => {
+      throw new Error("analytics unavailable");
+    });
+
+    const usage: LanguageModelUsage = {
+      inputTokens: 1000,
+      outputTokens: 400,
+      totalTokens: 1400,
+    };
+
+    await saveAiUsage({
+      userId: "user-1",
+      email: "user@example.com",
+      emailAccountId: "email-account-1",
+      provider: "azure-foundry",
+      model: "DeepSeek-V4-Pro",
+      usage,
+      label: "Choose rule",
+    });
+
+    expect(saveUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user-1",
+        emailAccountId: "email-account-1",
+        usage,
       }),
     );
   });

@@ -19,7 +19,7 @@ export const MESSAGE_SELECT_FIELDS =
 
 // Expand attachments to get metadata (name, type, size) without fetching content
 export const MESSAGE_EXPAND_ATTACHMENTS =
-  "attachments($select=id,name,contentType,size,isInline)";
+  "attachments($select=id,name,contentType,size,isInline,contentId)";
 
 export async function getFolderIds(
   client: OutlookClient,
@@ -977,7 +977,7 @@ export function convertMessage(
     parentFolderId: message.parentFolderId || undefined,
     internalDate: message.receivedDateTime || new Date().toISOString(),
     historyId: "",
-    inline: [],
+    inline: convertInlineAttachments(message.attachments),
     attachments: convertAttachments(message.attachments),
     conversationIndex: message.conversationIndex,
     rawRecipients: {
@@ -1007,6 +1007,27 @@ function convertAttachments(
         "content-description": "",
         "content-transfer-encoding": "",
         "content-id": "",
+      },
+    }));
+}
+
+function convertInlineAttachments(
+  graphAttachments: GraphAttachment[] | undefined | null,
+): ParsedMessage["inline"] {
+  if (!graphAttachments) return [];
+
+  return graphAttachments
+    .filter((attachment) => attachment.isInline)
+    .map((attachment) => ({
+      filename: attachment.name || "",
+      mimeType: attachment.contentType || "application/octet-stream",
+      size: attachment.size || 0,
+      attachmentId: attachment.id || "",
+      headers: {
+        "content-type": attachment.contentType || "",
+        "content-description": "",
+        "content-transfer-encoding": "",
+        "content-id": attachment.contentId || attachment.name || "",
       },
     }));
 }
