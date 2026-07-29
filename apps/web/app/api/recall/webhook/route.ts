@@ -3,7 +3,7 @@ import { env } from "@/env";
 import { MeetingRecordingStatus } from "@/generated/prisma/enums";
 import { captureException } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
-import { DEFAULT_MEETING_BOT_PROVIDER } from "@/utils/meeting-recorder/create-bot-provider";
+import { RECALL_BOT_PROVIDER } from "@/utils/recall/client";
 import {
   handleBotStatusChange,
   handleRecordingReady,
@@ -85,7 +85,7 @@ async function processRecallEvent(
     }
 
     await handleTranscriptReady({
-      botProvider: DEFAULT_MEETING_BOT_PROVIDER,
+      botProvider: RECALL_BOT_PROVIDER,
       externalBotId,
       externalTranscriptId,
       logger: eventLogger,
@@ -113,7 +113,7 @@ async function processRecallEvent(
     }
 
     await handleRecordingReady({
-      botProvider: DEFAULT_MEETING_BOT_PROVIDER,
+      botProvider: RECALL_BOT_PROVIDER,
       externalBotId,
       externalRecordingId,
       logger: eventLogger,
@@ -131,7 +131,7 @@ async function processRecallEvent(
   }
 
   await handleBotStatusChange({
-    botProvider: DEFAULT_MEETING_BOT_PROVIDER,
+    botProvider: RECALL_BOT_PROVIDER,
     externalBotId,
     status,
     failureReason:

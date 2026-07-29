@@ -4,9 +4,8 @@ import type { Logger } from "@/utils/logger";
 import { createMeetingBotProvider } from "@/utils/meeting-recorder/create-bot-provider";
 import { enqueueTranscriptFetch } from "@/utils/meeting-recorder/enqueue-processing";
 import {
-  getStatusesBelow,
   LIVE_STATUSES,
-  recordingStatusData,
+  transitionRecording,
 } from "@/utils/meeting-recorder/recording-lifecycle";
 import prisma from "@/utils/prisma";
 
@@ -28,16 +27,11 @@ export async function handleBotStatusChange({
   failureReason?: string;
   logger: Logger;
 }): Promise<void> {
-  const result = await prisma.meetingRecording.updateMany({
-    where: {
-      botProvider,
-      externalBotId,
-      status: { in: getStatusesBelow(status) },
-    },
-    data: {
-      ...recordingStatusData(status),
-      ...(failureReason ? { failureReason } : {}),
-    },
+  const result = await transitionRecording({
+    botProvider,
+    externalBotId,
+    status,
+    data: failureReason ? { failureReason } : undefined,
   });
 
   if (result.count === 0) {
@@ -126,7 +120,7 @@ export async function handleRecordingReady({
   }
 
   if (!LIVE_STATUSES.includes(recording.status)) {
-    logger.info("Ignored recording ready event for a terminal recording", {
+    logger.info("Ignored recording ready event for a non-live recording", {
       recordingId: recording.id,
       status: recording.status,
     });

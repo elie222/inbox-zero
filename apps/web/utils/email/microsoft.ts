@@ -587,7 +587,7 @@ export class OutlookProvider implements EmailProvider {
     this.logger.info("Creating draft", {
       replyToMessageId: params.replyToMessageId,
     });
-    const toRecipients = toGraphRecipients(params.to);
+    const toRecipients = toGraphRecipients(params.to, this.logger);
 
     // For threading, use createReply on the replyToMessageId
     if (params.replyToMessageId) {
@@ -2499,15 +2499,31 @@ function parseOutlookThreadPageToken(
 // Graph needs one entry per recipient. Callers pass the same comma-separated
 // string the Gmail RFC-822 path accepts, so split it rather than sending the
 // whole list as a single malformed address.
-function toGraphRecipients(to: string) {
+function toGraphRecipients(to: string, logger: Logger) {
   const candidates = splitRecipientList(to);
-  const recipients = candidates
-    .map((recipient) => extractEmailAddress(recipient))
-    .filter((email) => email.length > 0)
-    .map((address) => ({ emailAddress: { address } }));
+  const parsed = candidates.map((candidate) => ({
+    candidate,
+    email: extractEmailAddress(candidate),
+  }));
+  const recipients = parsed
+    .filter(({ email }) => email.length > 0)
+    .map(({ email }) => ({ emailAddress: { address: email } }));
 
   if (candidates.length > 0 && recipients.length === 0) {
     throw new Error("No valid recipient email addresses");
+  }
+
+  // A malformed attendee is dropped rather than failing the whole draft: the
+  // user reviews the draft before sending, so a missing recipient is
+  // recoverable while a missing draft is not.
+  const dropped = parsed.filter(({ email }) => email.length === 0);
+  if (dropped.length > 0) {
+    logger.warn("Dropped recipients without a parseable email address", {
+      droppedCount: dropped.length,
+    });
+    logger.trace("Dropped malformed recipients", {
+      dropped: dropped.map(({ candidate }) => candidate),
+    });
   }
 
   return recipients;

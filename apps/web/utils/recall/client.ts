@@ -13,6 +13,10 @@ import {
   recallTranscriptSchema,
 } from "@/utils/recall/types";
 
+// The `botProvider` value Recall-backed recordings are stored under. Fixed
+// forever: historical rows keep this value even if the default provider moves.
+export const RECALL_BOT_PROVIDER = "recall";
+
 const RECALL_API_BASE = "https://us-west-2.recall.ai/api/v1";
 
 // Overridden only to point at the local emulator, same as GOOGLE_BASE_URL.

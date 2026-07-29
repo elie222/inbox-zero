@@ -873,6 +873,14 @@ async function failAbandonedRecordings({
     where: {
       status: { in: LIVE_STATUSES },
       meetingStartTime: { lt: subHours(now, ABANDONED_RECORDING_HOURS) },
+      // A recording with a transcript at the provider only lost its queue
+      // delivery. Failing it would be terminal, so leave it live while
+      // requeueStuckTranscripts can still recover it, and fail it only once
+      // that retry window has passed.
+      NOT: {
+        externalTranscriptId: { not: null },
+        meetingStartTime: { gt: subHours(now, PROCESSING_RETRY_WINDOW_HOURS) },
+      },
     },
     take: 50,
   });

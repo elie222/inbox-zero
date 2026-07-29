@@ -96,7 +96,12 @@ export function UpcomingMeetingsToggleList({
                   name={`join-${event.id}`}
                   ariaLabel={`Record ${event.title}`}
                   enabled={event.willRecord}
-                  disabled={!data.hasAccess || pendingEventId === event.id}
+                  // A downgraded user must still be able to cancel a meeting
+                  // that is already set to record; only enabling is gated.
+                  disabled={
+                    pendingEventId === event.id ||
+                    (!data.hasAccess && !event.willRecord)
+                  }
                   onChange={(join) => toggleEvent(event, join)}
                 />
               </MeetingListItem>

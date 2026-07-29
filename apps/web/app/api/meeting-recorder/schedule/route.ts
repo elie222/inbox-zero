@@ -61,21 +61,28 @@ async function scheduleAllMeetingRecordings(logger: Logger) {
       meetingRecorderJoinRule: true,
     },
   });
-  const downgradedAccounts =
-    Object.keys(premiumFilter).length === 0
-      ? []
-      : await prisma.emailAccount.findMany({
-          where: {
-            meetingRecorderEnabled: true,
-            meetings: {
-              some: {
-                recording: { status: { in: CANCELLABLE_STATUSES } },
-              },
-            },
-            NOT: premiumFilter,
-          },
-          select: { id: true },
-        });
+  // Accounts holding live bookings that the main reconcile query no longer
+  // covers: downgraded plans, a disable whose settings-time release failed, or
+  // no connected calendars left. Without this their bots would never be
+  // released, because such accounts drop out of the per-account reconcile
+  // entirely.
+  const accountsToRelease = await prisma.emailAccount.findMany({
+    where: {
+      meetings: {
+        some: {
+          recording: { status: { in: CANCELLABLE_STATUSES } },
+        },
+      },
+      OR: [
+        { meetingRecorderEnabled: false },
+        { calendarConnections: { none: { isConnected: true } } },
+        ...(Object.keys(premiumFilter).length === 0
+          ? []
+          : [{ NOT: premiumFilter }]),
+      ],
+    },
+    select: { id: true },
+  });
 
   logger.info("Found eligible meeting recorder accounts", {
     count: emailAccounts.length,
@@ -112,7 +119,7 @@ async function scheduleAllMeetingRecordings(logger: Logger) {
   }
 
   const cleanupResults = await runWithBoundedConcurrency({
-    items: downgradedAccounts,
+    items: accountsToRelease,
     concurrency: MEETING_RECORDER_ACCOUNT_CONCURRENCY,
     run: (emailAccount) =>
       releaseAccountBookings({
@@ -126,7 +133,7 @@ async function scheduleAllMeetingRecordings(logger: Logger) {
 
     logger
       .with({ emailAccountId: emailAccount.id })
-      .error("Failed to release meeting recordings after plan change", {
+      .error("Failed to release meeting recordings for an ineligible account", {
         error: result.reason,
       });
     captureException(result.reason);

@@ -354,6 +354,16 @@ describe.skipIf(!RUN_DB_TESTS)(
       });
       expect(restored.externalBotId).toBe("moved_bot");
       expect(restored.meetingStartTime).toEqual(event.startTime);
+
+      // The conflicting recording owns its own cancellation: the reschedule
+      // race must neither cancel its bot nor move it out of CANCELLING. The
+      // pending-cancellation sweep is what finishes it later.
+      const conflictingAfter = await prisma.meetingRecording.findUniqueOrThrow({
+        where: { id: conflicting.id },
+      });
+      expect(conflictingAfter.status).toBe(MeetingRecordingStatus.CANCELLING);
+      expect(conflictingAfter.externalBotId).toBe("conflicting_bot");
+      expect(fakeProvider.cancelled).toEqual([]);
     });
 
     test("tracks a replacement bot when a merge cancellation fails", async () => {
@@ -667,7 +677,7 @@ describe.skipIf(!RUN_DB_TESTS)(
       ).not.toBeNull();
     });
 
-    test("only deletes media once the transcript has been stored", async () => {
+    test("deletes media for terminal recordings and for DONE recordings with transcripts", async () => {
       const withoutTranscript = await prisma.meetingRecording.create({
         data: {
           meetingUrl: "https://meet.google.com/aaa-bbbb-ccc",
@@ -1071,6 +1081,55 @@ describe.skipIf(!RUN_DB_TESTS)(
       });
       expect(failed.status).toBe(MeetingRecordingStatus.FAILED);
       // The slot must be released so a later meeting on the same link can book.
+      expect(failed.activeKey).toBeNull();
+    });
+
+    test("keeps an abandoned recording alive while its transcript can still be fetched", async () => {
+      // Past the abandoned threshold but inside the transcript retry window: a
+      // transcript exists at the provider, so only the queue delivery was
+      // lost. Failing it here would be terminal.
+      const recoverable = await prisma.meetingRecording.create({
+        data: {
+          meetingUrl: "https://meet.google.com/rrr-ssss-ttt",
+          normalizedMeetingUrl: "meet.google.com/rrr-ssss-ttt",
+          activeKey: "meet.google.com/rrr-ssss-ttt",
+          meetingStartTime: subHours(new Date(), 30),
+          status: MeetingRecordingStatus.CALL_ENDED,
+          externalBotId: "bot_recoverable",
+          externalTranscriptId: "transcript_recoverable",
+        },
+      });
+      // Same shape but past the retry window: nothing will ever fetch this
+      // transcript, so the sweep must finally fail the row.
+      const expired = await prisma.meetingRecording.create({
+        data: {
+          meetingUrl: "https://meet.google.com/uuu-vvvv-www",
+          normalizedMeetingUrl: "meet.google.com/uuu-vvvv-www",
+          activeKey: "meet.google.com/uuu-vvvv-www",
+          meetingStartTime: subHours(new Date(), 50),
+          status: MeetingRecordingStatus.CALL_ENDED,
+          externalBotId: "bot_expired",
+          externalTranscriptId: "transcript_expired",
+        },
+      });
+
+      await reconcile.sweepRecordings({ logger });
+
+      const kept = await prisma.meetingRecording.findUniqueOrThrow({
+        where: { id: recoverable.id },
+      });
+      expect(kept.status).toBe(MeetingRecordingStatus.CALL_ENDED);
+      // The same sweep hands the transcript back to the queue for recovery.
+      expect(
+        enqueueMock.mock.calls.some(
+          ([payload]) => payload.body.recordingId === recoverable.id,
+        ),
+      ).toBe(true);
+
+      const failed = await prisma.meetingRecording.findUniqueOrThrow({
+        where: { id: expired.id },
+      });
+      expect(failed.status).toBe(MeetingRecordingStatus.FAILED);
       expect(failed.activeKey).toBeNull();
     });
   },

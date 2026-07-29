@@ -915,13 +915,14 @@ describe("OutlookProvider.createDraft", () => {
     );
 
     await provider.createDraft({
-      to: "Alice <alice@example.com>, not-an-email",
+      to: "Alice <alice@example.com>, not-an-email, bob@example.com",
       subject: "Notes from our call",
       messageHtml: "<p>Thanks all</p>",
     });
 
     expect(post.mock.calls[0]?.[0]?.toRecipients).toEqual([
       { emailAddress: { address: "alice@example.com" } },
+      { emailAddress: { address: "bob@example.com" } },
     ]);
   });
 

@@ -189,6 +189,17 @@ async function runProcessingSteps({
     });
 
     if (claim.count > 0) {
+      // When this run did not create the draft itself, the initial read is
+      // stale: a concurrent run that won the draft claim, or an earlier run
+      // that failed after drafting, may have stored the id since. Re-read it
+      // so the recap does not tell the user no draft exists when one does.
+      const freshDraft = draftCreated
+        ? null
+        : await prisma.meeting.findUnique({
+            where: { id: meetingId },
+            select: { followUpDraftId: true },
+          });
+
       await sendMeetingRecapEmail({
         emailAccountId: meeting.emailAccountId,
         userEmail: emailAccount.email,
@@ -197,10 +208,7 @@ async function runProcessingSteps({
         meetingTitle: meeting.eventTitle,
         startTime: meeting.startTime,
         summary,
-        // A retry of a run that created the draft and then failed later has
-        // `wantsDraft` false, so the stored id is what says a draft is really
-        // waiting; a burned claim alone is not enough.
-        followUpDraftCreated: draftCreated || !!meeting.followUpDraftId,
+        followUpDraftCreated: draftCreated || !!freshDraft?.followUpDraftId,
         logger,
       });
     }

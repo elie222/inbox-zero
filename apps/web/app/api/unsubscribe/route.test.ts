@@ -105,6 +105,7 @@ describe("unsubscribe route", () => {
     );
 
     expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ success: true });
     expect(prisma.emailAccount.update).toHaveBeenCalledWith({
       where: { id: "email-account-1" },
       data: { meetingRecorderRecapEmailEnabled: false },

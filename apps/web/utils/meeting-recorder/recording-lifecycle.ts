@@ -66,21 +66,31 @@ export function recordingStatusData(status: MeetingRecordingStatus) {
 
 /**
  * Moves one recording to `next` only if that is a step forwards, so a
- * concurrent DONE or CANCELLING write can never be clobbered. Returns the
- * update count; zero means the recording had already moved on.
+ * concurrent DONE or CANCELLING write can never be clobbered. The recording is
+ * addressed either by id or by its provider identity (which is all a webhook
+ * has). Returns the update count; zero means the recording had already moved
+ * on.
  */
-export function transitionRecording({
-  recordingId,
-  status,
-  data,
-}: {
-  recordingId: string;
-  status: MeetingRecordingStatus;
-  data?: { failureReason?: string };
-}) {
+export function transitionRecording(
+  params: (
+    | { recordingId: string }
+    | { botProvider: string; externalBotId: string }
+  ) & {
+    status: MeetingRecordingStatus;
+    data?: { failureReason?: string };
+  },
+) {
+  const selector =
+    "recordingId" in params
+      ? { id: params.recordingId }
+      : {
+          botProvider: params.botProvider,
+          externalBotId: params.externalBotId,
+        };
+
   return prisma.meetingRecording.updateMany({
-    where: { id: recordingId, status: { in: getStatusesBelow(status) } },
-    data: { ...recordingStatusData(status), ...data },
+    where: { ...selector, status: { in: getStatusesBelow(params.status) } },
+    data: { ...recordingStatusData(params.status), ...params.data },
   });
 }
 
