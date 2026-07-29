@@ -309,6 +309,24 @@ describe("process-label-added-event", () => {
         expect(saveLearnedPattern).not.toHaveBeenCalled();
       });
 
+      it("should not learn when the junked message date is missing", async () => {
+        vi.mocked(mockProvider.getThreadMessages).mockResolvedValue([
+          {
+            id: "123",
+            internalDate: undefined,
+            headers: { from: "cold@vendor.com" },
+          },
+        ]);
+        vi.mocked(fetchSenderFromMessage).mockResolvedValue("cold@vendor.com");
+
+        await junkMessage();
+
+        expect(
+          mockProvider.hasPreviousCommunicationsWithSenderOrDomain,
+        ).not.toHaveBeenCalled();
+        expect(saveLearnedPattern).not.toHaveBeenCalled();
+      });
+
       it("should learn the sole sender of a one-way thread", async () => {
         mockThreadSenders("cold@vendor.com", "cold@vendor.com");
         vi.mocked(fetchSenderFromMessage).mockResolvedValue("cold@vendor.com");

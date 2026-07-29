@@ -185,7 +185,11 @@ async function learnColdEmailFromSpam({
   const hasPreviousEmail = await hasPriorContactOrAssumeYes({
     provider,
     from: sender,
-    date: junkedMessage && internalDateToDate(junkedMessage.internalDate),
+    date: junkedMessage
+      ? internalDateToDate(junkedMessage.internalDate, {
+          fallbackToNow: false,
+        })
+      : undefined,
     messageId,
     logger,
   });

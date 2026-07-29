@@ -53,6 +53,13 @@ export async function isColdEmail({
 
   logger.info("Checking is cold email");
 
+  // Nobody at your own company is a cold emailer. Checked here rather than only at the
+  // actions, so a colleague is never labelled or archived either.
+  if (isSameOrganization(email.from, emailAccount.email)) {
+    logger.info("Sender is internal");
+    return { isColdEmail: false, reason: "hasPreviousEmail" };
+  }
+
   // Check if we marked it as a cold email already
   const groupId = coldEmailRule?.groupId;
   let patternMatch:
@@ -94,13 +101,6 @@ export async function isColdEmail({
       from: email.from,
     });
     return { isColdEmail: false, reason: "excluded" };
-  }
-
-  // Nobody at your own company is a cold emailer. Checked here rather than only at the
-  // actions, so a colleague is never labelled or archived either.
-  if (isSameOrganization(email.from, emailAccount.email)) {
-    logger.info("Sender is internal");
-    return { isColdEmail: false, reason: "hasPreviousEmail" };
   }
 
   const hasPreviousEmail = await hasPriorContactOrAssumeYes({

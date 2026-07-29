@@ -42,7 +42,9 @@ describe("hasPriorContactOrAssumeYes", () => {
           new Error("api down"),
         ),
     ],
+    ["the sender is blank", { from: " " }, () => {}],
     ["the date is missing", { date: undefined }, () => {}],
+    ["the date is invalid", { date: new Date(Number.NaN) }, () => {}],
     ["the message id is missing", { messageId: undefined }, () => {}],
   ])("assumes contact when %s", async (_name, overrides, arrange) => {
     provider.hasPreviousCommunicationsWithSenderOrDomain.mockResolvedValue(
@@ -53,8 +55,12 @@ describe("hasPriorContactOrAssumeYes", () => {
     await expect(check(overrides)).resolves.toBe(true);
   });
 
-  it("does not call the provider when the message cannot be identified", async () => {
-    await check({ messageId: undefined });
+  it.each([
+    { from: " " },
+    { date: undefined },
+    { messageId: undefined },
+  ])("does not call the provider when contact cannot be identified", async (overrides) => {
+    await check(overrides);
 
     expect(
       provider.hasPreviousCommunicationsWithSenderOrDomain,

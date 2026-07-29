@@ -23,8 +23,15 @@ export async function hasPriorContactOrAssumeYes({
   messageId: string | undefined;
   logger: Logger;
 }): Promise<boolean> {
-  if (!date || !messageId) {
-    logger.warn("Assuming prior contact - message is missing a date or id");
+  if (
+    !from.trim() ||
+    !date ||
+    Number.isNaN(date.getTime()) ||
+    !messageId?.trim()
+  ) {
+    logger.warn(
+      "Assuming prior contact - message is missing a sender, date, or id",
+    );
     return true;
   }
 
