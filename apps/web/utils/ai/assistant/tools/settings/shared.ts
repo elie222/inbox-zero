@@ -75,7 +75,7 @@ const draftKnowledgeUpsertSchema = z
       .max(20_000)
       .describe("Draft knowledge item content."),
   })
-  .describe("Draft knowledge base item to create or update.");
+  .describe("Existing draft knowledge base item to update.");
 
 export const settingsPathSchema = z
   .enum([
@@ -132,12 +132,12 @@ export const settingsChangeSchema = z.discriminatedUnion("path", [
   z.object({
     path: z
       .literal("assistant.attachmentFiling.prompt")
-      .describe("Update the attachment filing prompt."),
+      .describe("Update the attachment filing prompt; use null to clear it."),
     value: z
       .string()
       .max(6000)
       .nullable()
-      .describe("Prompt used to file attachments."),
+      .describe("Prompt used to file attachments, or null to clear it."),
   }),
   z.object({
     path: z
@@ -150,9 +150,9 @@ export const settingsChangeSchema = z.discriminatedUnion("path", [
   z.object({
     path: z
       .literal("assistant.draftKnowledgeBase.upsert")
-      .describe("Create or update a draft knowledge base item."),
+      .describe("Update an existing draft knowledge base item by title."),
     value: draftKnowledgeUpsertSchema.describe(
-      "Draft knowledge base item to create or update.",
+      "Existing draft knowledge base item to update.",
     ),
     mode: z
       .enum(["replace", "append"])

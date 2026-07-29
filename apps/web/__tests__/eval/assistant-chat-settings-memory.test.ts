@@ -356,12 +356,39 @@ async function evaluateScenario(
       };
 
     case "assistant_settings": {
+      const filingPromptExpectation = expectation.changes.find(
+        (change) =>
+          change.path === "assistant.attachmentFiling.prompt" &&
+          typeof change.value === "string" &&
+          change.value.trim() !== "",
+      );
+      const filingPrompt = filingPromptExpectation
+        ? getLastSettingsChangeValue(
+            result.toolCalls,
+            filingPromptExpectation.path,
+          )
+        : null;
+      const filingPromptJudge =
+        filingPromptExpectation && typeof filingPrompt === "string"
+          ? await judgeEvalOutput({
+              input: prompt,
+              output: filingPrompt,
+              expected: filingPromptExpectation.value as string,
+              criterion: {
+                name: "Attachment filing prompt semantics",
+                description:
+                  "Judge whether the stored attachment filing prompt preserves the user's requested filing instructions. Ignore inconsequential differences in punctuation, capitalization, or sentence style. Tool execution and other setting changes are verified separately.",
+              },
+            })
+          : null;
+
       return {
         pass:
           hasExpectedSettingsUpdate(result.toolCalls, expectation.changes) &&
-          hasNoToolCalls(result.toolCalls, expectation.forbiddenTools),
-        judgeOutput: null,
-        judgeResult: null,
+          hasNoToolCalls(result.toolCalls, expectation.forbiddenTools) &&
+          (!filingPromptExpectation || !!filingPromptJudge?.pass),
+        judgeOutput: filingPrompt,
+        judgeResult: filingPromptJudge,
       };
     }
 
@@ -707,11 +734,55 @@ function matchesExpectedChange(
   actualChange: UpdateAssistantSettingsInput["changes"][number],
   expectedChange: AssistantSettingsChangeExpectation,
 ) {
+  if (
+    actualChange.path === "assistant.attachmentFiling.prompt" &&
+    expectedChange.path === actualChange.path
+  ) {
+    const modeMatches =
+      expectedChange.mode == null || actualChange.mode === expectedChange.mode;
+    if (!modeMatches) return false;
+
+    if (expectedChange.value == null || expectedChange.value === "") {
+      return (
+        actualChange.value == null ||
+        (typeof actualChange.value === "string" &&
+          actualChange.value.trim() === "")
+      );
+    }
+
+    return (
+      typeof expectedChange.value === "string" &&
+      typeof actualChange.value === "string" &&
+      actualChange.value.trim() !== ""
+    );
+  }
+
   return (
     actualChange.path === expectedChange.path &&
     isDeepStrictEqual(actualChange.value, expectedChange.value) &&
     (expectedChange.mode == null || actualChange.mode === expectedChange.mode)
   );
+}
+
+function getLastSettingsChangeValue(
+  toolCalls: RecordedToolCall[],
+  path: string,
+) {
+  for (const toolCall of toolCalls.toReversed()) {
+    if (
+      toolCall.toolName !== "updateAssistantSettings" ||
+      !isUpdateAssistantSettingsInput(toolCall.input)
+    ) {
+      continue;
+    }
+
+    const change = toolCall.input.changes.findLast(
+      (candidate) => candidate.path === path,
+    );
+    if (change) return change.value;
+  }
+
+  return null;
 }
 
 async function evaluateSearchMemoriesExpectation(

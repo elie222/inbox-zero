@@ -294,6 +294,47 @@ describe("chat settings tools", () => {
     expect(result.appliedChanges).toHaveLength(2);
   });
 
+  it("normalizes a blank attachment filing prompt to null", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      ...baseAccountSnapshot,
+      filingPrompt: "File attachments by project.",
+    });
+    prisma.emailAccount.update.mockResolvedValue({});
+
+    const toolInstance = updateAssistantSettingsTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-1",
+      userId: "user-1",
+      logger,
+    });
+
+    const result = await toolInstance.execute({
+      changes: [
+        {
+          path: "assistant.attachmentFiling.prompt",
+          value: "   ",
+        },
+      ],
+    });
+
+    expect(prisma.emailAccount.update).toHaveBeenCalledWith({
+      where: { id: "email-account-1" },
+      data: {
+        filingPrompt: null,
+      },
+    });
+    expect(result).toMatchObject({
+      success: true,
+      appliedChanges: [
+        {
+          path: "assistant.attachmentFiling.prompt",
+          previous: "File attachments by project.",
+          next: null,
+        },
+      ],
+    });
+  });
+
   it("returns a validation error for invalid updateAssistantSettings payload values", async () => {
     const toolInstance = updateAssistantSettingsTool({
       email: "user@example.com",
