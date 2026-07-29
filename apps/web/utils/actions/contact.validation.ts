@@ -92,6 +92,29 @@ export const setCarddavAccessBody = z.object({
 });
 export type SetCarddavAccessBody = z.infer<typeof setCarddavAccessBody>;
 
+// Results of the browser-side CardDAV self-test, reported for the server
+// logs — client-received bytes are the one thing server logs can't see
+export const reportCarddavSelfTestBody = z.object({
+  ok: z.boolean(),
+  steps: z
+    .array(
+      z.object({
+        name: z.string().max(100),
+        method: z.string().max(20),
+        path: z.string().max(200),
+        ok: z.boolean(),
+        status: z.number().int().nullable(),
+        contentType: z.string().max(200).nullable(),
+        bodyBytes: z.number().int().nullable(),
+        problem: z.string().max(500).nullable(),
+      }),
+    )
+    .max(10),
+});
+export type ReportCarddavSelfTestBody = z.infer<
+  typeof reportCarddavSelfTestBody
+>;
+
 export const createCompanyBody = z.object({
   name: z.string().min(1).max(200),
   domains: z.array(z.string().min(1).max(200)).max(50).optional(),

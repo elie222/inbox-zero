@@ -3,11 +3,17 @@
 import { useState } from "react";
 import { useAction } from "next-safe-action/hooks";
 import { formatDistanceToNow } from "date-fns";
+import { CheckIcon, XIcon } from "lucide-react";
 import {
+  reportCarddavSelfTestAction,
   setCarddavAccessAction,
   setGoogleContactsSyncAction,
   syncGoogleContactsAction,
 } from "@/utils/actions/contact";
+import {
+  runCarddavSelfTest,
+  type SelfTestResult,
+} from "@/utils/carddav/self-test";
 import type { GoogleContactsSyncMode } from "@/generated/prisma/enums";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { cn } from "@/utils";
@@ -234,6 +240,13 @@ export function SyncSettingsDialog({
             </div>
           )}
 
+          {/* Runs iOS's exact setup conversation from this browser — same
+              server, same transport — so "verification failed" on the phone
+              can be split into our side vs the phone's side */}
+          {sync.carddavEnabled && (
+            <CarddavSelfTest email={userEmail} password={carddavPassword} />
+          )}
+
           {sync.carddavEnabled && !carddavPassword && (
             <p className="text-xs text-muted-foreground">
               CardDAV access is on. Lost the password? Toggle off and on to
@@ -254,6 +267,85 @@ function CredentialRow({ label, value }: { label: string; value: string }) {
     <div>
       <dt className="text-xs text-muted-foreground">{label}</dt>
       <dd className="select-all break-all font-mono text-[13px]">{value}</dd>
+    </div>
+  );
+}
+
+function CarddavSelfTest({
+  email,
+  password,
+}: {
+  email: string;
+  // Present right after enabling (shown-once); without it the test still
+  // proves whether responses reach a client at all
+  password: string | null;
+}) {
+  const { emailAccountId } = useAccount();
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState<SelfTestResult | null>(null);
+
+  const report = useAction(
+    reportCarddavSelfTestAction.bind(null, emailAccountId),
+  );
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-3">
+        <p className="min-w-0 text-sm text-muted-foreground">
+          {password
+            ? "Test the full setup conversation your phone will run."
+            : "Test the connection (toggle off and on first to test with a password)."}
+        </p>
+        <Button
+          variant="outline"
+          size="sm"
+          className="shrink-0"
+          loading={running}
+          onClick={async () => {
+            setRunning(true);
+            try {
+              const outcome = await runCarddavSelfTest({ email, password });
+              setResult(outcome);
+              report.execute(outcome);
+            } finally {
+              setRunning(false);
+            }
+          }}
+        >
+          Test connection
+        </Button>
+      </div>
+
+      {result && (
+        <ul className="space-y-1 rounded-md border border-border p-3">
+          {result.steps.map((step) => (
+            <li key={step.name} className="flex items-start gap-2 text-sm">
+              {step.ok ? (
+                <CheckIcon className="mt-0.5 size-3.5 shrink-0 text-green-500" />
+              ) : (
+                <XIcon className="mt-0.5 size-3.5 shrink-0 text-destructive" />
+              )}
+              <span className="min-w-0">
+                <span className="font-medium">{step.name}</span>{" "}
+                <span className="text-muted-foreground">
+                  {step.status ?? "no response"}
+                  {step.bodyBytes !== null && ` · ${step.bodyBytes} bytes`}
+                </span>
+                {step.problem && (
+                  <span className="block break-words text-xs text-destructive">
+                    {step.problem}
+                  </span>
+                )}
+              </span>
+            </li>
+          ))}
+          <li className="pt-1 text-xs text-muted-foreground">
+            {result.ok
+              ? "Everything your phone needs is answering correctly — a failure on the phone now points at the phone's side."
+              : "Something on the server side is broken — this result has been reported to the logs."}
+          </li>
+        </ul>
+      )}
     </div>
   );
 }
