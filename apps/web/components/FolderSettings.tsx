@@ -5,9 +5,17 @@ import useSWR from "swr";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
-import { PencilIcon, PlusIcon, SettingsIcon, SparklesIcon } from "lucide-react";
+import {
+  PencilIcon,
+  PlusIcon,
+  SettingsIcon,
+  SparklesIcon,
+  XIcon,
+} from "lucide-react";
 import type { UserLabelsResponse } from "@/app/api/user/labels/route";
 import type { FolderRuleResponse } from "@/app/api/user/rules/label/[labelId]/route";
+import type { RuleResponse } from "@/app/api/user/rules/[id]/route";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -15,7 +23,6 @@ import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
-  SheetTrigger,
 } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -34,8 +41,14 @@ import { generateFolderInstructionsAction } from "@/utils/actions/folder-rule";
 import {
   setRuleExcludeKnownContactsAction,
   toggleRuleAction,
+  updateRuleAction,
 } from "@/utils/actions/rule";
-import type { CreateRuleBody } from "@/utils/actions/rule.validation";
+import type {
+  CreateRuleBody,
+  UpdateRuleBody,
+} from "@/utils/actions/rule.validation";
+import { ACTION_TYPE_LABELS, getActionDisplay } from "@/utils/action-display";
+import { staticConditionsToString } from "@/utils/condition";
 import { getActionErrorMessage } from "@/utils/error";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { LABEL_ICONS } from "@/utils/label-icons";
@@ -57,29 +70,53 @@ type RuleEditorConfig = {
   initialRule?: Partial<CreateRuleBody>;
 };
 
+// The gear for the folder currently being viewed, in the mail control bar.
+// The sidebar has a gear on every label row and drives the drawer directly.
 export function FolderSettings({ labelId }: { labelId: string }) {
   const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <Tooltip content="Folder settings">
+        <Button variant="ghost" size="iconSm" onClick={() => setOpen(true)}>
+          <span className="sr-only">Folder settings</span>
+          <SettingsIcon className="size-4" />
+        </Button>
+      </Tooltip>
+      <FolderSettingsDrawer
+        labelId={open ? labelId : null}
+        onClose={() => setOpen(false)}
+      />
+    </>
+  );
+}
+
+// Controlled by which folder is being edited, so one instance can serve every
+// gear in the sidebar.
+export function FolderSettingsDrawer({
+  labelId,
+  onClose,
+}: {
+  labelId: string | null;
+  onClose: () => void;
+}) {
   // The rule editor must live outside the Sheet: opening a dialog from
   // inside would unmount with the sheet and never show
   const [ruleEditor, setRuleEditor] = useState<RuleEditorConfig | null>(null);
 
   return (
     <>
-      <Sheet open={open} onOpenChange={setOpen}>
-        <Tooltip content="Folder settings">
-          <SheetTrigger asChild>
-            <Button variant="ghost" size="iconSm">
-              <span className="sr-only">Folder settings</span>
-              <SettingsIcon className="size-4" />
-            </Button>
-          </SheetTrigger>
-        </Tooltip>
-        <SheetContent side="right" className="overflow-y-auto">
-          {open && (
+      <Sheet open={!!labelId} onOpenChange={(open) => !open && onClose()}>
+        <SheetContent
+          side="right"
+          className="w-full max-w-none overflow-y-auto sm:max-w-[480px]"
+        >
+          {labelId && (
             <FolderSettingsContent
+              key={labelId}
               labelId={labelId}
               onEditRule={(config) => {
-                setOpen(false);
+                onClose();
                 setRuleEditor(config);
               }}
             />
@@ -162,7 +199,6 @@ function FolderSettingsContent({
           {tab === "settings" ? (
             <div className="mt-6 space-y-8">
               <IconSetting
-                key={`icon-${labelId}`}
                 emailAccountId={emailAccountId}
                 labelId={labelId}
                 labelName={label.name}
@@ -171,7 +207,6 @@ function FolderSettingsContent({
               />
 
               <ColorSetting
-                key={`color-${labelId}`}
                 emailAccountId={emailAccountId}
                 labelId={labelId}
                 labelName={label.name}
@@ -197,7 +232,6 @@ function FolderSettingsContent({
           ) : (
             <div className="mt-6">
               <FolderRuleSetting
-                key={`rule-${labelId}`}
                 labelId={labelId}
                 labelName={label.name}
                 onEditRule={onEditRule}
@@ -579,25 +613,24 @@ function FolderRuleForm({
   );
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <Label htmlFor="folder-rule-enabled">Automatic filing</Label>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {rule ? (
-              <>
-                Managed as the “{rule.name}” rule — the same rule you see on the
-                Assistant page.
-              </>
-            ) : (
-              <>
-                No filing rule exists for this folder yet. Create one here or
-                let the AI draft it from the folder's emails.
-              </>
-            )}
+    <div className="space-y-5">
+      {rule ? (
+        <div className="rounded-[10px] border border-border bg-card p-3.5">
+          <div className="flex items-center gap-2">
+            <SparklesIcon className="size-3.5 shrink-0 text-primary" />
+            <span className="min-w-0 flex-1 truncate text-sm font-semibold">
+              {rule.name}
+            </span>
+            <Badge variant={rule.enabled ? "green" : "secondary"}>
+              {rule.enabled ? "Enabled" : "Disabled"}
+            </Badge>
+          </div>
+          <p className="mt-2 text-sm text-muted-foreground">
+            The same rule you see on the Assistant page — edits here apply
+            everywhere.
           </p>
           {otherRuleNames.length > 0 && (
-            <p className="mt-1 text-sm text-amber-600 dark:text-amber-500">
+            <p className="mt-2 text-sm text-amber-600 dark:text-amber-500">
               Also filed into by: {otherRuleNames.join(", ")}. Turning this rule
               off won't stop {otherRuleNames.length === 1 ? "it" : "them"} —
               manage {otherRuleNames.length === 1 ? "it" : "them"} on the
@@ -605,7 +638,21 @@ function FolderRuleForm({
             </p>
           )}
         </div>
-        {rule && (
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          No filing rule exists for this folder yet. Create one here or let the
+          AI draft it from the folder's emails.
+        </p>
+      )}
+
+      {rule && (
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <Label htmlFor="folder-rule-enabled">Automatic filing</Label>
+            <p className="mt-1 text-sm text-muted-foreground">
+              File matching mail into this folder automatically.
+            </p>
+          </div>
           <Switch
             id="folder-rule-enabled"
             checked={rule.enabled}
@@ -614,8 +661,8 @@ function FolderRuleForm({
               toggle.execute({ ruleId: rule.id, enabled: checked })
             }
           />
-        )}
-      </div>
+        </div>
+      )}
 
       {rule && (
         <div className="flex items-center justify-between gap-4">
@@ -641,6 +688,10 @@ function FolderRuleForm({
             }
           />
         </div>
+      )}
+
+      {rule && !isOrgManaged && (
+        <RuleComposition ruleId={rule.id} onEditRule={onEditRule} />
       )}
 
       {isOrgManaged ? (
@@ -692,6 +743,228 @@ function FolderRuleForm({
         </div>
       )}
     </div>
+  );
+}
+
+// What the rule actually matches on and does, as drawn in the design: the
+// conditions with their match mode, then the actions. Removing an entry and
+// switching any/all save straight away; composing anything new opens the
+// assistant's rule editor, which owns every field's editing rules.
+function RuleComposition({
+  ruleId,
+  onEditRule,
+}: {
+  ruleId: string;
+  onEditRule: (config: RuleEditorConfig) => void;
+}) {
+  const { emailAccountId, provider } = useAccount();
+  const { userLabels } = useLabels();
+  const { data, isLoading, error, mutate } = useSWR<RuleResponse>(
+    `/api/user/rules/${ruleId}`,
+  );
+
+  const { execute, isExecuting } = useAction(
+    updateRuleAction.bind(null, emailAccountId),
+    {
+      onSuccess: () => {
+        toastSuccess({ description: "Rule updated" });
+        mutate();
+      },
+      onError: (error) => {
+        toastError({ description: getActionErrorMessage(error.error) });
+        mutate();
+      },
+    },
+  );
+
+  // Every save posts the whole rule, so each edit starts from what's stored
+  const save = (changes: Partial<UpdateRuleBody>) => {
+    if (!data) return;
+    execute({
+      id: ruleId,
+      name: data.rule.name,
+      runOnThreads: data.rule.runOnThreads,
+      conditionalOperator: data.rule.conditionalOperator,
+      conditions: data.rule.conditions,
+      actions: data.rule.actions,
+      ...changes,
+    });
+  };
+
+  return (
+    <LoadingContent loading={isLoading} error={error}>
+      {data && (
+        <div className="space-y-5">
+          <div>
+            <div className="flex items-center justify-between gap-2">
+              <Label>Conditions</Label>
+              <div className="inline-flex items-center rounded-[7px] bg-muted p-0.5 text-xs font-medium text-muted-foreground">
+                {[
+                  { value: LogicalOperator.OR, label: "Match any" },
+                  { value: LogicalOperator.AND, label: "Match all" },
+                ].map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    disabled={isExecuting}
+                    onClick={() => save({ conditionalOperator: option.value })}
+                    className={cn(
+                      "rounded-[5px] px-2.5 py-1",
+                      data.rule.conditionalOperator === option.value &&
+                        "bg-background text-foreground shadow-sm",
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <RuleEntryList
+              entries={data.rule.conditions.map((condition, index) => ({
+                key: `${condition.type}-${index}`,
+                badge: CONDITION_BADGES[condition.type] ?? condition.type,
+                text: conditionText(condition),
+                // The engine needs at least one condition, so the last one
+                // can only be replaced in the editor, not removed here
+                onRemove:
+                  data.rule.conditions.length > 1
+                    ? () =>
+                        save({
+                          conditions: data.rule.conditions.filter(
+                            (_, other) => other !== index,
+                          ),
+                        })
+                    : undefined,
+              }))}
+              disabled={isExecuting}
+              addLabel="Add condition"
+              onAdd={() => onEditRule({ ruleId })}
+            />
+          </div>
+
+          <div>
+            <Label>Actions</Label>
+            <p className="mt-1 text-sm text-muted-foreground">
+              What happens when a match arrives.
+            </p>
+            <RuleEntryList
+              entries={data.rule.actions.map((action, index) => ({
+                key: action.id ?? `${action.type}-${index}`,
+                badge: ACTION_TYPE_LABELS[action.type],
+                text: getActionDisplay(
+                  {
+                    ...action,
+                    labelId: action.labelId?.value,
+                    label: action.labelId?.name,
+                    content: action.content?.value,
+                    to: action.to?.value,
+                    folderName: action.folderName?.value,
+                  },
+                  provider,
+                  userLabels,
+                ),
+                onRemove:
+                  data.rule.actions.length > 1
+                    ? () =>
+                        save({
+                          actions: data.rule.actions.filter(
+                            (_, other) => other !== index,
+                          ),
+                        })
+                    : undefined,
+              }))}
+              disabled={isExecuting}
+              addLabel="Add action"
+              onAdd={() => onEditRule({ ruleId })}
+            />
+          </div>
+        </div>
+      )}
+    </LoadingContent>
+  );
+}
+
+function RuleEntryList({
+  entries,
+  disabled,
+  addLabel,
+  onAdd,
+}: {
+  entries: {
+    key: string;
+    badge: string;
+    text: string;
+    onRemove?: () => void;
+  }[];
+  disabled: boolean;
+  addLabel: string;
+  onAdd: () => void;
+}) {
+  return (
+    <>
+      <div className="mt-2 divide-y divide-border overflow-hidden rounded-[10px] border border-border bg-card">
+        {entries.map((entry) => (
+          <div
+            key={entry.key}
+            className="flex items-baseline gap-2 px-3 py-2.5"
+          >
+            <Badge variant="secondary" className="shrink-0">
+              {entry.badge}
+            </Badge>
+            <span className="min-w-0 flex-1 break-words text-sm text-muted-foreground">
+              {entry.text}
+            </span>
+            {entry.onRemove && (
+              <Button
+                variant="ghost"
+                size="iconSm"
+                className="shrink-0"
+                disabled={disabled}
+                onClick={entry.onRemove}
+              >
+                <span className="sr-only">Remove</span>
+                <XIcon className="size-3.5" />
+              </Button>
+            )}
+          </div>
+        ))}
+      </div>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="mt-2 border border-dashed border-border text-muted-foreground"
+        onClick={onAdd}
+      >
+        <PlusIcon className="mr-1.5 size-3.5" />
+        {addLabel}
+      </Button>
+    </>
+  );
+}
+
+const CONDITION_BADGES: Record<string, string> = {
+  [ConditionType.AI]: "AI",
+  [ConditionType.STATIC]: "Static",
+  [ConditionType.LEARNED_PATTERN]: "Group",
+  [ConditionType.PRESET]: "Preset",
+};
+
+function conditionText(condition: RuleResponse["rule"]["conditions"][number]) {
+  if (condition.type === ConditionType.AI) {
+    return condition.instructions || "No instructions";
+  }
+  // The stored rule has no null excludes; the editor's schema allows them
+  return (
+    staticConditionsToString({
+      from: condition.from,
+      to: condition.to,
+      subject: condition.subject,
+      body: condition.body,
+      fromExclude: condition.fromExclude ?? undefined,
+      toExclude: condition.toExclude ?? undefined,
+      subjectExclude: condition.subjectExclude ?? undefined,
+    }) || "No fields set"
   );
 }
 

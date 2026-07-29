@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { useComposeModal } from "@/providers/ComposeModalProvider";
 import { useLabels } from "@/hooks/useLabels";
 import { List } from "@/components/email-list/EmailList";
-import { FolderSettings } from "@/components/email-list/FolderSettings";
+import { FolderSettings } from "@/components/FolderSettings";
 import { EmailListSkeleton } from "@/components/email-list/EmailListSkeleton";
 import { LoadingContent } from "@/components/LoadingContent";
 import type { ThreadsQuery } from "@/utils/threads/validation";

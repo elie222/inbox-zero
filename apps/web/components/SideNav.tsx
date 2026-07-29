@@ -55,6 +55,7 @@ import { CommandShortcut } from "@/components/ui/command";
 import { useSplitLabels } from "@/hooks/useLabels";
 import { useUser } from "@/hooks/useUser";
 import { LoadingContent } from "@/components/LoadingContent";
+import { FolderSettingsDrawer } from "@/components/FolderSettings";
 import { AccountSwitcher } from "@/components/AccountSwitcher";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
@@ -576,6 +577,8 @@ function TasksNav({ path }: { path: string }) {
 function MailNav({ path }: { path: string }) {
   const { onOpen } = useComposeModal();
   const [showHiddenLabels, setShowHiddenLabels] = useState(false);
+  // One shared drawer for every folder gear in this panel
+  const [settingsLabelId, setSettingsLabelId] = useState<string | null>(null);
   const { visibleLabels, hiddenLabels, isLoading } = useSplitLabels();
   const { emailAccountId, provider } = useAccount();
   const searchParams = useSearchParams();
@@ -638,6 +641,10 @@ function MailNav({ path }: { path: string }) {
       count: label.id ? counts?.[label.id] : undefined,
       active:
         isMailPage && currentType === "label" && currentLabelId === label.id,
+      // Every folder is configurable from its own row, without navigating there
+      onOpenSettings: label.id
+        ? () => setSettingsLabelId(label.id ?? null)
+        : undefined,
     };
   };
 
@@ -705,6 +712,11 @@ function MailNav({ path }: { path: string }) {
           )}
         </LoadingContent>
       </SidebarGroup>
+
+      <FolderSettingsDrawer
+        labelId={settingsLabelId}
+        onClose={() => setSettingsLabelId(null)}
+      />
     </>
   );
 }

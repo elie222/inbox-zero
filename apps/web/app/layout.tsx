@@ -13,6 +13,7 @@ import "../styles/globals.css";
 import { PostHogPageview, PostHogProvider } from "@/providers/PostHogProvider";
 import { env } from "@/env";
 import { GlobalProviders } from "@/providers/GlobalProviders";
+import { ScrollActivity } from "@/components/ScrollActivity";
 import { UTM } from "@/app/utm";
 import { startupImage } from "@/app/startup-image";
 import { ThemedToaster } from "@/components/ThemedToaster";
@@ -149,6 +150,7 @@ export default async function RootLayout({
             <PostHogPageview />
           </Suspense>
           <GlobalProviders>
+            <ScrollActivity />
             {children}
             <ThemedToaster closeButton richColors visibleToasts={9} />
           </GlobalProviders>
