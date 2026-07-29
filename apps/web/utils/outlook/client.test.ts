@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { Client } from "@microsoft/microsoft-graph-client";
+import { Client, MiddlewareFactory } from "@microsoft/microsoft-graph-client";
 import { saveTokens } from "@/utils/auth/save-tokens";
 import { createTestLogger } from "@/__tests__/helpers";
 import {
@@ -16,6 +16,10 @@ import {
 vi.mock("@microsoft/microsoft-graph-client", () => ({
   Client: {
     init: vi.fn(),
+    initWithMiddleware: vi.fn(),
+  },
+  MiddlewareFactory: {
+    getDefaultMiddlewareChain: vi.fn(),
   },
 }));
 
@@ -58,26 +62,52 @@ vi.mock("@/env", () => ({
 describe("outlook client emulator configuration", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(MiddlewareFactory.getDefaultMiddlewareChain).mockReturnValue([
+      {
+        execute: vi.fn(),
+        setNext: vi.fn(),
+      },
+      {
+        execute: vi.fn(),
+        setNext: vi.fn(),
+      },
+    ]);
   });
 
-  it("passes emulator-aware Graph options into the client", () => {
+  it("authenticates requests to the HTTP emulator", async () => {
     createOutlookClient("emulator-token", createTestLogger());
 
     expect(getMicrosoftGraphClientOptions).toHaveBeenCalledWith(
       "emulator-token",
     );
-    expect(Client.init).toHaveBeenCalledWith({
-      authProvider: expect.any(Function),
+    expect(Client.initWithMiddleware).toHaveBeenCalledWith({
       baseUrl: "http://localhost:4003/",
       customHosts: new Set(["localhost"]),
       defaultVersion: "v1.0",
       fetchOptions: {
         headers: {
-          Authorization: "Bearer emulator-token",
           Prefer: 'IdType="ImmutableId"',
         },
       },
+      middleware: [expect.any(Object), expect.any(Object)],
     });
+
+    const options = vi.mocked(Client.initWithMiddleware).mock.calls[0]?.[0];
+    const middleware = Array.isArray(options?.middleware)
+      ? options.middleware
+      : [];
+    const request = {
+      request: "http://localhost:4003/v1.0/me",
+      options: { headers: {} },
+    };
+
+    middleware[0]?.setNext?.(middleware[1]!);
+    await middleware[0]?.execute(request);
+
+    expect(new Headers(request.options.headers).get("Authorization")).toBe(
+      "Bearer emulator-token",
+    );
+    expect(middleware[1]?.execute).toHaveBeenCalledWith(request);
   });
 
   it("uses the emulator authorize URL for linking", () => {
