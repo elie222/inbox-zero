@@ -182,7 +182,7 @@ export async function upsertMeeting({
     eventTitle: event.title,
     startTime: event.startTime,
     endTime: event.endTime,
-    attendees: toAttendeeSnapshot(event.attendees),
+    attendees: toAttendeeSnapshot(event.attendees, event.organizerEmail),
     organizerEmail: event.organizerEmail ?? null,
     ...(joinOverride === undefined ? {} : { joinOverride }),
   };

@@ -41,8 +41,10 @@ export const POST = withError("meeting-recorder/schedule", async (request) => {
 });
 
 async function scheduleAllMeetingRecordings(logger: Logger) {
-  if (!env.RECALL_API_KEY) {
-    logger.info("Skipping meeting recorder: no bot provider configured");
+  if (!(env.RECALL_API_KEY && env.RECALL_WEBHOOK_SECRET)) {
+    logger.info(
+      "Skipping meeting recorder: bot provider or webhook verification is not configured",
+    );
     return { total: 0, success: 0, errors: 0 };
   }
 

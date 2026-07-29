@@ -3,13 +3,14 @@ import { env } from "@/env";
 import { MeetingRecordingStatus } from "@/generated/prisma/enums";
 import { captureException } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
-import { RECALL_BOT_PROVIDER } from "@/utils/recall/client";
+import { getStatusesBelow } from "@/utils/meeting-recorder/recording-lifecycle";
 import {
   handleBotStatusChange,
   handleRecordingReady,
   handleTranscriptReady,
 } from "@/utils/meeting-recorder/webhook-handlers";
 import { withError } from "@/utils/middleware";
+import { RECALL_BOT_PROVIDER } from "@/utils/recall/client";
 import { getFailureReason, recallCodeToStatus } from "@/utils/recall/status";
 import {
   recallWebhookPayloadSchema,
@@ -134,6 +135,10 @@ async function processRecallEvent(
     botProvider: RECALL_BOT_PROVIDER,
     externalBotId,
     status,
+    fromStatuses:
+      code === "fatal"
+        ? getStatusesBelow(MeetingRecordingStatus.RECORDING)
+        : undefined,
     failureReason:
       status === MeetingRecordingStatus.FAILED
         ? getFailureReason(payload.data.data?.sub_code)

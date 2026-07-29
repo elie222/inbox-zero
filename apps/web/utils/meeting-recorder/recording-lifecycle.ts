@@ -77,6 +77,7 @@ export function transitionRecording(
     | { botProvider: string; externalBotId: string }
   ) & {
     status: MeetingRecordingStatus;
+    fromStatuses?: MeetingRecordingStatus[];
     data?: { failureReason?: string };
   },
 ) {
@@ -89,7 +90,12 @@ export function transitionRecording(
         };
 
   return prisma.meetingRecording.updateMany({
-    where: { ...selector, status: { in: getStatusesBelow(params.status) } },
+    where: {
+      ...selector,
+      status: {
+        in: params.fromStatuses ?? getStatusesBelow(params.status),
+      },
+    },
     data: { ...recordingStatusData(params.status), ...params.data },
   });
 }

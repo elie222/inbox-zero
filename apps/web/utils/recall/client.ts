@@ -17,11 +17,15 @@ import {
 // forever: historical rows keep this value even if the default provider moves.
 export const RECALL_BOT_PROVIDER = "recall";
 
-const RECALL_API_BASE = "https://us-west-2.recall.ai/api/v1";
+const DEFAULT_RECALL_REGION = "us-west-2";
 
 // Overridden only to point at the local emulator, same as GOOGLE_BASE_URL.
 function getRecallApiBase(): string {
-  return env.RECALL_BASE_URL?.replace(/\/+$/, "") || RECALL_API_BASE;
+  if (env.RECALL_BASE_URL) {
+    return env.RECALL_BASE_URL.replace(/\/+$/, "");
+  }
+
+  return `https://${env.RECALL_REGION ?? DEFAULT_RECALL_REGION}.recall.ai/api/v1`;
 }
 
 class RecallApiError extends MeetingBotProviderError {

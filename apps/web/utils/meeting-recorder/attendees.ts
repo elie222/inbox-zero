@@ -15,12 +15,26 @@ export type MeetingAttendee = z.infer<typeof meetingAttendeeSchema>;
 
 export function toAttendeeSnapshot(
   attendees: CalendarEventAttendee[],
+  organizerEmail?: string,
 ): MeetingAttendee[] {
-  return attendees.map((attendee) => ({
+  const snapshot = attendees.map((attendee) => ({
     email: attendee.email,
     ...(attendee.name ? { name: attendee.name } : {}),
     ...(attendee.declined ? { declined: true } : {}),
   }));
+
+  const normalizedOrganizerEmail = organizerEmail?.trim().toLowerCase();
+  if (
+    normalizedOrganizerEmail &&
+    !snapshot.some(
+      (attendee) =>
+        attendee.email.trim().toLowerCase() === normalizedOrganizerEmail,
+    )
+  ) {
+    snapshot.push({ email: organizerEmail.trim() });
+  }
+
+  return snapshot;
 }
 
 export function parseAttendeeSnapshot(value: unknown): MeetingAttendee[] {

@@ -148,6 +148,7 @@
 
         "RECALL_API_KEY",
         "RECALL_WEBHOOK_SECRET",
+        "RECALL_REGION",
         "RECALL_BASE_URL",
 
         "RESEND_API_KEY",

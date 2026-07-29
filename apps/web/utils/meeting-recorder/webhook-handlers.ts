@@ -18,12 +18,14 @@ export async function handleBotStatusChange({
   botProvider,
   externalBotId,
   status,
+  fromStatuses,
   failureReason,
   logger,
 }: {
   botProvider: string;
   externalBotId: string;
   status: MeetingRecordingStatus;
+  fromStatuses?: MeetingRecordingStatus[];
   failureReason?: string;
   logger: Logger;
 }): Promise<void> {
@@ -31,6 +33,7 @@ export async function handleBotStatusChange({
     botProvider,
     externalBotId,
     status,
+    fromStatuses,
     data: failureReason ? { failureReason } : undefined,
   });
 

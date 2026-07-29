@@ -115,6 +115,23 @@ describe("Recall webhook route", () => {
     expect(data.failureReason).toMatch(/declined/i);
   });
 
+  it("keeps recoverable media live when a fatal event follows recording", async () => {
+    const body = JSON.stringify({
+      event: "bot.fatal",
+      data: {
+        bot: { id: "bot-1" },
+        data: { code: "fatal", sub_code: "teams_transient_error" },
+      },
+    });
+
+    await post(body);
+
+    const where = mockPrisma.meetingRecording.updateMany.mock.calls[0]?.[0]
+      ?.where as { status: { in: string[] } };
+    expect(where.status.in).not.toContain(MeetingRecordingStatus.RECORDING);
+    expect(where.status.in).not.toContain(MeetingRecordingStatus.CALL_ENDED);
+  });
+
   it("leaves the recording live when transcription fails so the sweep can retry", async () => {
     const body = JSON.stringify({
       event: "transcript.failed",

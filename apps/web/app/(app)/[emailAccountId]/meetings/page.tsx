@@ -15,6 +15,7 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { MeetingRecorderSettings } from "@/app/(app)/[emailAccountId]/meetings/MeetingRecorderSettings";
 import { MeetingsList } from "@/app/(app)/[emailAccountId]/meetings/MeetingsList";
 import { UpcomingMeetingsToggleList } from "@/app/(app)/[emailAccountId]/meetings/UpcomingMeetingsToggleList";
+import { hasConnectedCalendar } from "@/app/(app)/[emailAccountId]/meetings/calendar-connection-state";
 
 export default function MeetingsPage() {
   const meetingRecorderEnabled = useMeetingRecorderEnabled();
@@ -49,7 +50,7 @@ function MeetingRecorderPageContent() {
   const { data: calendarsData, isLoading, error } = useCalendars();
   const { data: settings } = useMeetingRecorderSettings(emailAccountId);
 
-  const hasCalendarConnected = !!calendarsData?.connections?.length;
+  const hasCalendarConnected = hasConnectedCalendar(calendarsData?.connections);
 
   return (
     <PageWrapper>

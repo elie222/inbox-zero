@@ -82,13 +82,6 @@ async function storeTranscript({
           transcript: transcript as unknown as Prisma.InputJsonValue,
         },
       });
-      await prisma.meetingRecording.updateMany({
-        where: {
-          id: recording.id,
-          status: { in: getStatusesBelow(MeetingRecordingStatus.DONE) },
-        },
-        data: recordingStatusData(MeetingRecordingStatus.DONE),
-      });
     } catch (error) {
       // Release the claim so the queue retry can try the download again.
       await prisma.meetingRecording.update({
@@ -97,7 +90,20 @@ async function storeTranscript({
       });
       throw error;
     }
+  }
 
+  await prisma.meetingRecording.updateMany({
+    where: {
+      id: recording.id,
+      status: { in: getStatusesBelow(MeetingRecordingStatus.DONE) },
+    },
+    data: {
+      ...recordingStatusData(MeetingRecordingStatus.DONE),
+      transcriptFetchedAt: new Date(),
+    },
+  });
+
+  if (!recording.mediaDeletedAt) {
     await deleteRecordingMedia({ recording, logger });
   }
 
