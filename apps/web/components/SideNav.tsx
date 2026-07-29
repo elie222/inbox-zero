@@ -10,6 +10,8 @@ import type { ContactDomainsResponse } from "@/app/api/contacts/domains/route";
 import type { TasksResponse } from "@/app/api/tasks/route";
 import type { UserLabelsResponse } from "@/app/api/user/labels/route";
 import { groupContacts, pendingDomainStats } from "@/utils/contacts";
+import { rollUpCompanyStats } from "@/utils/contacts-aggregates";
+import { nameHue } from "@/utils/name-color";
 import {
   isTaskOpen,
   isTaskOverdue,
@@ -209,13 +211,6 @@ function FolderDot({
   );
 }
 
-// The family's base hue, hashed from the parent label's name
-function familyHue(name: string): number {
-  let hash = 0;
-  for (const char of name) hash = (hash * 31 + char.charCodeAt(0)) | 0;
-  return Math.abs(hash) % 360;
-}
-
 // Shade ladder inside a family: the parent gets the base, descendants walk
 // through visibly distinct lightness steps of the same hue
 const FAMILY_LIGHTNESS = [55, 70, 42, 78, 48, 64, 36, 74];
@@ -356,8 +351,17 @@ function ContactsNav({ path }: { path: string }) {
       }
     }
 
+    // A company's people come from the full mail history, not the loaded
+    // window, so the sidebar totals match the counts on its cards
+    const peopleIn = (group: (typeof groups)[number]) =>
+      rollUpCompanyStats({
+        domains: group.domains,
+        domainStats: domainsData?.domains ?? [],
+        members: group.contacts,
+      }).people;
+
     const countOf = (node: LabelNode): number =>
-      node.groups.reduce((total, group) => total + group.contacts.length, 0) +
+      node.groups.reduce((total, group) => total + peopleIn(group), 0) +
       [...node.children.values()].reduce(
         (total, child) => total + countOf(child),
         0,
@@ -375,7 +379,7 @@ function ContactsNav({ path }: { path: string }) {
       icon: () => (
         <FolderDot name={group.name} hue={hue} lightness={lightness} />
       ),
-      count: group.contacts.length,
+      count: peopleIn(group),
       active: currentGroup === group.key,
       indent,
     });
@@ -396,7 +400,7 @@ function ContactsNav({ path }: { path: string }) {
     )) {
       // Everything inside a parent stays in the parent's color family —
       // descendants walk the shade ladder so each row reads distinct
-      const hue = familyHue(root.name);
+      const hue = nameHue(root.name);
       let shadeIndex = 0;
       const nextShade = () =>
         FAMILY_LIGHTNESS[++shadeIndex % FAMILY_LIGHTNESS.length];

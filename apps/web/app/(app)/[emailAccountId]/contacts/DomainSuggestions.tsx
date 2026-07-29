@@ -97,7 +97,7 @@ export function DomainSuggestions({
           about; everyone on that domain groups under the company.
         </p>
         {visibleStats.length ? (
-          <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
+          <div className="space-y-2">
             {visibleStats.map((stat) => (
               <SuggestionRow
                 key={stat.domain}
@@ -249,8 +249,8 @@ function SuggestionRow({
   });
 
   return (
-    <div className="bg-background">
-      <div className="flex items-center gap-3 px-3 py-2">
+    <div className="overflow-hidden rounded-[10px] border border-border bg-card">
+      <div className="flex items-center gap-3 p-3">
         <button
           type="button"
           className="flex min-w-0 flex-1 items-center gap-3 text-left"
@@ -260,19 +260,21 @@ function SuggestionRow({
           <img
             src={domainLogoUrl(domain)}
             alt=""
-            width={32}
-            height={32}
+            width={34}
+            height={34}
             onError={(event) => {
               event.currentTarget.style.visibility = "hidden";
             }}
-            className="size-7 shrink-0 rounded bg-muted object-cover p-0.5"
+            className="size-[34px] shrink-0 rounded-lg bg-muted object-cover p-0.5"
           />
-          <span className="min-w-0 truncate text-sm font-semibold uppercase tracking-wide">
-            {domain}
-          </span>
-          <span className="hidden shrink-0 text-sm text-muted-foreground sm:inline">
-            {stat.people} {stat.people === 1 ? "person" : "people"} ·{" "}
-            {stat.emails} {stat.emails === 1 ? "email" : "emails"}
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-semibold">
+              {domain}
+            </span>
+            <span className="block truncate text-[12.5px] text-muted-foreground">
+              {stat.people} {stat.people === 1 ? "person" : "people"} ·{" "}
+              {stat.emails} {stat.emails === 1 ? "email" : "emails"}
+            </span>
           </span>
           {open ? (
             <ChevronDownIcon className="size-4 shrink-0 text-muted-foreground" />
