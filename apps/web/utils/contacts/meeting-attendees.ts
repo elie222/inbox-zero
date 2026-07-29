@@ -28,6 +28,10 @@ export type MeetingAttendeeSuggestion = {
 export type MeetingAttendeeResult = {
   attendees: MeetingAttendeeSuggestion[];
   calendarsConnected: number;
+  // Connections on file, healthy or not. Stored > 0 with connected === 0
+  // means a calendar was set up and its access has since broken, which needs
+  // reconnecting rather than connecting.
+  calendarsStored: number;
   eventsScanned: number;
   // Attendees dropped because they're already saved, ignored, or you
   alreadyKnown: number;
@@ -47,6 +51,9 @@ export async function getMeetingAttendeeSuggestions({
     return {
       attendees: [],
       calendarsConnected: 0,
+      calendarsStored: await prisma.calendarConnection.count({
+        where: { emailAccountId },
+      }),
       eventsScanned: 0,
       alreadyKnown: 0,
     };
@@ -118,6 +125,7 @@ export async function getMeetingAttendeeSuggestions({
   return {
     attendees,
     calendarsConnected: providers.length,
+    calendarsStored: providers.length,
     eventsScanned: events.length,
     alreadyKnown,
   };

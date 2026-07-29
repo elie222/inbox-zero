@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
-import { EyeOffIcon, PlusIcon } from "lucide-react";
+import { CalendarIcon, EyeOffIcon, PlusIcon } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { useState } from "react";
 import useSWR from "swr";
@@ -13,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { setContactIgnoredAction } from "@/utils/actions/contact";
 import { getActionErrorMessage } from "@/utils/error";
+import { prefixPath } from "@/utils/path";
 
 type Attendee = MeetingAttendeesResponse["attendees"][number];
 
@@ -58,9 +60,19 @@ export function MeetingAttendeeSuggestions({
 
       <LoadingContent loading={isLoading} error={error}>
         {data && data.attendees.length === 0 && (
-          <p className="py-6 text-center text-sm text-muted-foreground">
-            {emptyReason(data)}
-          </p>
+          <div className="py-6 text-center text-sm text-muted-foreground">
+            <p>{emptyReason(data)}</p>
+            {data.calendarsConnected === 0 && (
+              <Button asChild variant="outline" size="sm" className="mt-3">
+                <Link href={prefixPath(emailAccountId, "/calendars")}>
+                  <CalendarIcon className="mr-1.5 size-3.5" />
+                  {data.calendarsStored > 0
+                    ? "Reconnect calendar"
+                    : "Connect a calendar"}
+                </Link>
+              </Button>
+            )}
+          </div>
         )}
 
         {data && data.attendees.length > 0 && attendees.length === 0 && (
@@ -120,7 +132,9 @@ export function MeetingAttendeeSuggestions({
 // Each of these is a different problem with a different fix, so say which
 function emptyReason(data: MeetingAttendeesResponse) {
   if (data.calendarsConnected === 0) {
-    return "No calendar is connected. Connect one in Settings and your meeting guests will show up here.";
+    return data.calendarsStored > 0
+      ? "Your calendar lost access — Zerrow can't read it any more. Reconnecting it will bring your meeting guests back."
+      : "No calendar is connected yet. Connect one and your meeting guests will show up here.";
   }
   if (data.eventsScanned === 0) {
     return "Your calendar is connected, but there are no events in the last 90 days or the next 30.";

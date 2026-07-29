@@ -35,7 +35,16 @@ export async function createCalendarEventProviders(
   const providers: CalendarEventProvider[] = [];
 
   for (const connection of connections) {
-    if (!connection.refreshToken) continue;
+    // Without a refresh token the connection can't be read even though it
+    // still says connected — callers surface this as "reconnect", not
+    // "connect", so the user isn't sent to set up something they already did
+    if (!connection.refreshToken) {
+      logger.warn("Calendar connection has no refresh token", {
+        emailAccountId,
+        provider: connection.provider,
+      });
+      continue;
+    }
 
     try {
       if (isGoogleProvider(connection.provider)) {
