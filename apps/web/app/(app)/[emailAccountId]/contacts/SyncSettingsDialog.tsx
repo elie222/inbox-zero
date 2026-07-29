@@ -237,7 +237,8 @@ export function SyncSettingsDialog({
           {sync.carddavEnabled && !carddavPassword && (
             <p className="text-xs text-muted-foreground">
               CardDAV access is on. Lost the password? Toggle off and on to
-              generate a new one.
+              generate a new one — devices still using the old password stop
+              syncing until you update them.
             </p>
           )}
         </div>
