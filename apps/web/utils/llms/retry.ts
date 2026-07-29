@@ -81,7 +81,11 @@ export function isTransientNetworkError(error: unknown): boolean {
   }
 
   const networkErrorCodes = ["ECONNRESET", "ETIMEDOUT", "ECONNREFUSED"];
-  const networkErrorMessages = ["fetch failed", "terminated"];
+  const networkErrorMessages = [
+    "fetch failed",
+    "terminated",
+    "Unexpected end of JSON input",
+  ];
 
   return (
     networkErrorCodes.some((code) => errorText.includes(code)) ||
