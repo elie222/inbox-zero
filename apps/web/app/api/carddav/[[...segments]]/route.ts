@@ -34,7 +34,17 @@ const handle = withError("carddav", async (request) => {
   const auth = await authenticateCarddavRequest(
     request.headers.get("authorization"),
   );
-  if (!auth) return unauthorizedResponse();
+  if (!auth.ok) {
+    // "no-credentials" is the normal first leg of the Basic handshake and
+    // would drown out the interesting cases
+    if (auth.reason !== "no-credentials") {
+      request.logger.warn("CardDAV auth rejected", {
+        reason: auth.reason,
+        method,
+      });
+    }
+    return unauthorizedResponse();
+  }
 
   // Catch-all params type as string[] which withError's context doesn't
   // model — the path itself is the source of truth anyway
