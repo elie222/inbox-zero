@@ -225,10 +225,11 @@ function isMissing(error: unknown): boolean {
 }
 
 function isAlreadyJoining(error: unknown): boolean {
+  if (!(error instanceof RecallApiError)) return false;
+  if (error.status === 405) return true;
+
   return (
-    error instanceof RecallApiError &&
-    error.status === 400 &&
-    getRecallErrorCode(error) === "cannot_delete_bot"
+    error.status === 400 && getRecallErrorCode(error) === "cannot_delete_bot"
   );
 }
 
