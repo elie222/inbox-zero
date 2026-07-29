@@ -11,6 +11,7 @@ import { GmailLabel } from "@/utils/gmail/label";
 import { getEmailAccount, createTestLogger } from "@/__tests__/helpers";
 import { createEmailProvider } from "@/utils/email/provider";
 import { handleOutboundMessage } from "@/utils/reply-tracker/handle-outbound";
+import { handleLabelRemovedEvent } from "@/utils/webhook/google/process-label-removed-event";
 
 const logger = createTestLogger();
 
@@ -99,6 +100,10 @@ vi.mock("@/utils/gmail/label", async () => {
 
 vi.mock("@/utils/rule/learned-patterns", () => ({
   saveLearnedPatterns: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("@/utils/webhook/google/process-label-removed-event", () => ({
+  handleLabelRemovedEvent: vi.fn().mockResolvedValue(undefined),
 }));
 
 describe("processHistoryItem", () => {
@@ -260,6 +265,26 @@ describe("processHistoryItem", () => {
       provider: mockProvider,
       logger: expect.anything(),
     });
+  });
+
+  it("allows spam learning again after spam is removed from a thread", async () => {
+    const spamLearnedThreadIds = new Set(["thread-123"]);
+    const options = {
+      ...defaultOptions,
+      emailAccount: getDefaultEmailAccount(),
+      spamLearnedThreadIds,
+    };
+
+    await processHistoryItem(
+      createHistoryItem("123", "thread-123", HistoryEventType.LABEL_REMOVED, [
+        GmailLabel.SPAM,
+      ]),
+      options,
+      logger,
+    );
+
+    expect(handleLabelRemovedEvent).toHaveBeenCalled();
+    expect(spamLearnedThreadIds).not.toContain("thread-123");
   });
 
   it("should skip if email is unsubscribed", async () => {

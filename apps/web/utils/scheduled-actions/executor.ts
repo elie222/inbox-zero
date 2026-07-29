@@ -244,7 +244,7 @@ async function executeDelayedAction({
       error: null,
       logger: log,
     });
-    return;
+    return executedAction;
   }
 
   const actionResultError = getActionResultError(

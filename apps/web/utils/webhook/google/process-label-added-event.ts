@@ -67,13 +67,11 @@ export async function handleLabelAddedEvent(
     return;
   }
 
-  if (shouldLearnSpam) spamLearnedThreadIds.add(threadId);
-
   const sender = await fetchSenderFromMessage(messageId, provider, logger);
   if (!sender) return;
 
   if (shouldLearnSpam) {
-    await learnColdEmailFromSpam({
+    const spamLearningHandled = await learnColdEmailFromSpam({
       sender,
       messageId,
       threadId,
@@ -81,6 +79,9 @@ export async function handleLabelAddedEvent(
       provider,
       logger,
     });
+    if (spamLearningHandled) {
+      spamLearnedThreadIds.add(threadId);
+    }
   }
 
   await Promise.all(
@@ -121,7 +122,7 @@ async function learnColdEmailFromSpam({
 
   if (isSameOrganization(sender, emailAccount.email)) {
     logger.info("Skipping cold email learning for an internal sender");
-    return;
+    return true;
   }
 
   const coldEmailRule = await prisma.rule.findFirst({
@@ -135,7 +136,7 @@ async function learnColdEmailFromSpam({
 
   if (!coldEmailRule) {
     logger.info("No Cold Email rule found for account, skipping");
-    return;
+    return true;
   }
 
   // Don't overwrite existing patterns (e.g., AI classification)
@@ -155,7 +156,7 @@ async function learnColdEmailFromSpam({
       logger.trace("Sender already in cold email group, skipping", {
         sender,
       });
-      return;
+      return true;
     }
   }
 
@@ -166,7 +167,7 @@ async function learnColdEmailFromSpam({
     provider,
     logger,
   });
-  if (!threadMessages?.length) return;
+  if (!threadMessages?.length) return false;
 
   // Junking a conversation is not a claim about everyone who replied in it.
   if (
@@ -175,7 +176,7 @@ async function learnColdEmailFromSpam({
     logger.info(
       "Skipping cold email learning - junked thread is a conversation",
     );
-    return;
+    return true;
   }
 
   // The check every other pattern writer runs. Junking one message from someone you
@@ -191,7 +192,7 @@ async function learnColdEmailFromSpam({
 
   if (hasPreviousEmail) {
     logger.info("Skipping cold email learning - sender is a known contact");
-    return;
+    return true;
   }
 
   logger.trace("Saving cold email learned pattern from SPAM action", {
@@ -209,6 +210,7 @@ async function learnColdEmailFromSpam({
     reason: "Marked as spam by user",
     source: GroupItemSource.LABEL_ADDED,
   });
+  return true;
 }
 
 async function recordClassificationFromLabelAdd({

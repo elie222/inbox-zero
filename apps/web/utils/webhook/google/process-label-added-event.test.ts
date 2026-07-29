@@ -335,6 +335,25 @@ describe("process-label-added-event", () => {
         expect(saveLearnedPattern).toHaveBeenCalledTimes(1);
       });
 
+      it("retries spam learning after the first thread read fails", async () => {
+        vi.mocked(mockProvider.getThreadMessages)
+          .mockRejectedValueOnce(new Error("Temporary provider error"))
+          .mockResolvedValueOnce([
+            {
+              id: "123",
+              internalDate: "1700000000000",
+              headers: { from: "cold@vendor.com" },
+            },
+          ]);
+        vi.mocked(fetchSenderFromMessage).mockResolvedValue("cold@vendor.com");
+
+        await junkMessage();
+        await junkMessage();
+
+        expect(mockProvider.getThreadMessages).toHaveBeenCalledTimes(2);
+        expect(saveLearnedPattern).toHaveBeenCalledTimes(1);
+      });
+
       it.each([
         ["the account has no cold email rule", null],
         ["the sender is already known", { id: "rule-123", groupId: "group-1" }],
