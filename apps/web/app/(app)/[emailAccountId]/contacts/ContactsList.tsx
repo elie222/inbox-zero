@@ -83,13 +83,12 @@ export function ContactsList() {
         viewParam === "labels"
       ? viewParam
       : "companies";
-  // People (no grouping) reads A→Z by default; the other views keep recency
+  // Every view reads A→Z by default — a directory is easiest to scan when
+  // you can predict where a name sits
   const sortParam = searchParams.get("sort");
   const sort: Sort = SORTS.some((option) => option.value === sortParam)
     ? (sortParam as Sort)
-    : viewParam === "people"
-      ? "name"
-      : "recent";
+    : "name";
   const groupKey = searchParams.get("group");
   // People-tab filter: everyone, only those with a company, or unassigned
   // (personal contacts are deliberately companyless, so they're excluded

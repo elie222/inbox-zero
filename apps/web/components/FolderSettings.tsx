@@ -15,7 +15,6 @@ import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
-  SheetTrigger,
 } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -57,29 +56,53 @@ type RuleEditorConfig = {
   initialRule?: Partial<CreateRuleBody>;
 };
 
+// The gear for the folder currently being viewed, in the mail control bar.
+// The sidebar has a gear on every label row and drives the drawer directly.
 export function FolderSettings({ labelId }: { labelId: string }) {
   const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <Tooltip content="Folder settings">
+        <Button variant="ghost" size="iconSm" onClick={() => setOpen(true)}>
+          <span className="sr-only">Folder settings</span>
+          <SettingsIcon className="size-4" />
+        </Button>
+      </Tooltip>
+      <FolderSettingsDrawer
+        labelId={open ? labelId : null}
+        onClose={() => setOpen(false)}
+      />
+    </>
+  );
+}
+
+// Controlled by which folder is being edited, so one instance can serve every
+// gear in the sidebar.
+export function FolderSettingsDrawer({
+  labelId,
+  onClose,
+}: {
+  labelId: string | null;
+  onClose: () => void;
+}) {
   // The rule editor must live outside the Sheet: opening a dialog from
   // inside would unmount with the sheet and never show
   const [ruleEditor, setRuleEditor] = useState<RuleEditorConfig | null>(null);
 
   return (
     <>
-      <Sheet open={open} onOpenChange={setOpen}>
-        <Tooltip content="Folder settings">
-          <SheetTrigger asChild>
-            <Button variant="ghost" size="iconSm">
-              <span className="sr-only">Folder settings</span>
-              <SettingsIcon className="size-4" />
-            </Button>
-          </SheetTrigger>
-        </Tooltip>
-        <SheetContent side="right" className="overflow-y-auto">
-          {open && (
+      <Sheet open={!!labelId} onOpenChange={(open) => !open && onClose()}>
+        <SheetContent
+          side="right"
+          className="w-full max-w-none overflow-y-auto sm:max-w-[480px]"
+        >
+          {labelId && (
             <FolderSettingsContent
+              key={labelId}
               labelId={labelId}
               onEditRule={(config) => {
-                setOpen(false);
+                onClose();
                 setRuleEditor(config);
               }}
             />
@@ -162,7 +185,6 @@ function FolderSettingsContent({
           {tab === "settings" ? (
             <div className="mt-6 space-y-8">
               <IconSetting
-                key={`icon-${labelId}`}
                 emailAccountId={emailAccountId}
                 labelId={labelId}
                 labelName={label.name}
@@ -171,7 +193,6 @@ function FolderSettingsContent({
               />
 
               <ColorSetting
-                key={`color-${labelId}`}
                 emailAccountId={emailAccountId}
                 labelId={labelId}
                 labelName={label.name}
@@ -197,7 +218,6 @@ function FolderSettingsContent({
           ) : (
             <div className="mt-6">
               <FolderRuleSetting
-                key={`rule-${labelId}`}
                 labelId={labelId}
                 labelName={label.name}
                 onEditRule={onEditRule}

@@ -354,8 +354,8 @@ export function EmailList({
 
   // Threads interleaved with date group headers ("Today", "Yesterday", …)
   const rows = useMemo(
-    () => buildDateGroupedRows(threads, groupThreads),
-    [threads, groupThreads],
+    () => buildDateGroupedRows(threads, groupThreads, folderType),
+    [threads, groupThreads, folderType],
   );
 
   const virtualizer = useVirtualizer<HTMLDivElement, HTMLLIElement>({
@@ -770,11 +770,15 @@ type ListRow =
 // already in hand — the API returns whole threads — so this is a client-side
 // expansion, re-sorted globally by date because a thread's older messages
 // would otherwise land under the newer thread's date header.
-function buildDateGroupedRows(threads: Thread[], grouped: boolean): ListRow[] {
+function buildDateGroupedRows(
+  threads: Thread[],
+  grouped: boolean,
+  folderType?: string,
+): ListRow[] {
   const entries: { key: string; thread: Thread; date: Date | undefined }[] = [];
 
   for (const thread of threads) {
-    const messages = thread.messages ?? [];
+    const messages = messagesInFolder(thread, folderType);
 
     if (grouped || messages.length <= 1) {
       entries.push({
@@ -813,6 +817,26 @@ function buildDateGroupedRows(threads: Thread[], grouped: boolean): ListRow[] {
   }
 
   return rows;
+}
+
+// The messages of a thread that actually sit in the folder being viewed. An
+// inbox thread usually also carries your own replies and older archived mail,
+// which the inbox must not list as rows of its own. Matches the rule
+// getDisplayedMessage uses to pick a thread's lead message, so a row's date
+// header agrees with the date it shows.
+function messagesInFolder(thread: Thread, folderType?: string) {
+  const messages = thread.messages ?? [];
+
+  const required =
+    folderType === "inbox" ? "INBOX" : folderType === "sent" ? "SENT" : null;
+  if (!required) return messages;
+
+  const inFolder = messages.filter((message) =>
+    message.labelIds?.includes(required),
+  );
+  // A thread the provider returned for this folder always has at least one
+  // such message; fall back rather than drop the row if that ever fails
+  return inFolder.length ? inFolder : messages;
 }
 
 function dateBucketLabel(date: Date | undefined): string {
