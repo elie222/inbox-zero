@@ -161,6 +161,11 @@ export const STATIC_MODEL_PRICING: Record<string, ModelPricing> = {
     output: 3.828 / 1_000_000,
     cachedInput: 0.165 / 1_000_000,
   },
+  "DeepSeek-V4-Flash": {
+    input: 0.19 / 1_000_000,
+    output: 0.51 / 1_000_000,
+    cachedInput: 0.028 / 1_000_000,
+  },
   "sonar-pro": {
     input: 3 / 1_000_000,
     output: 15 / 1_000_000,
