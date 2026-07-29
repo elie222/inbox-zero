@@ -677,6 +677,39 @@ describe("chat settings tools", () => {
     });
   });
 
+  it("writes account and knowledge changes in one transaction", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue(baseAccountSnapshot);
+    prisma.emailAccount.update.mockResolvedValue({});
+    prisma.knowledge.update.mockResolvedValue({});
+
+    const toolInstance = updateAssistantSettingsTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-1",
+      userId: "user-1",
+      logger,
+    });
+
+    const result = await toolInstance.execute({
+      changes: [
+        {
+          path: "assistant.attachmentFiling.enabled",
+          value: true,
+        },
+        {
+          path: "assistant.draftKnowledgeBase.update",
+          value: {
+            title: "Reply style",
+            content: "Keep responses concise.",
+          },
+        },
+      ],
+    });
+
+    expect(result).toMatchObject({ success: true });
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(prisma.$transaction.mock.calls[0]?.[0]).toHaveLength(2);
+  });
+
   it("rejects draft knowledge updates when the entry does not exist", async () => {
     prisma.emailAccount.findUnique.mockResolvedValue({
       ...baseAccountSnapshot,

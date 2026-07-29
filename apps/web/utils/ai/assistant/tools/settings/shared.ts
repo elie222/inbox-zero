@@ -654,11 +654,46 @@ export async function executeUpdateAssistantSettings({
       };
     }
 
+    const writeOperations: Prisma.PrismaPromise<unknown>[] = [];
+
     if (Object.keys(data).length > 0) {
-      await prisma.emailAccount.update({
-        where: { id: emailAccountId },
-        data,
-      });
+      writeOperations.push(
+        prisma.emailAccount.update({
+          where: { id: emailAccountId },
+          data,
+        }),
+      );
+    }
+
+    for (const operation of knowledgeOperations) {
+      if (operation.type === "update") {
+        writeOperations.push(
+          prisma.knowledge.update({
+            where: {
+              emailAccountId_title: {
+                emailAccountId,
+                title: operation.title,
+              },
+            },
+            data: {
+              content: operation.content,
+            },
+          }),
+        );
+      } else {
+        writeOperations.push(
+          prisma.knowledge.deleteMany({
+            where: {
+              emailAccountId,
+              title: operation.title,
+            },
+          }),
+        );
+      }
+    }
+
+    if (writeOperations.length > 0) {
+      await prisma.$transaction(writeOperations);
     }
 
     if (scheduledCheckInsConfig) {
@@ -667,29 +702,6 @@ export async function executeUpdateAssistantSettings({
         current: existing.scheduledCheckIns,
         config: scheduledCheckInsConfig,
       });
-    }
-
-    for (const operation of knowledgeOperations) {
-      if (operation.type === "update") {
-        await prisma.knowledge.update({
-          where: {
-            emailAccountId_title: {
-              emailAccountId,
-              title: operation.title,
-            },
-          },
-          data: {
-            content: operation.content,
-          },
-        });
-      } else {
-        await prisma.knowledge.deleteMany({
-          where: {
-            emailAccountId,
-            title: operation.title,
-          },
-        });
-      }
     }
 
     return {
