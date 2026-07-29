@@ -18,6 +18,8 @@ export const applyFilterBodySchema = z.object({
   labelId: z.string().nullable(),
   labelName: z.string(),
   skipInbox: z.boolean(),
+  // Also mark the moved mail read, matching the rule's MARK_READ action
+  markRead: z.boolean().optional(),
   // The threads the filter was created from — always moved
   threadIds: z.array(z.string()).max(100),
   // Also move all existing matching mail, wherever it sits
@@ -73,7 +75,7 @@ export async function runApplyFilter({
   body: ApplyFilterBody;
   logger: Logger;
 }) {
-  const { matchType, value, labelId, labelName, skipInbox } = body;
+  const { matchType, value, labelId, labelName, skipInbox, markRead } = body;
 
   if (body.threadIds.length) {
     await applyFilterToThreads({
@@ -84,6 +86,7 @@ export async function runApplyFilter({
       labelId,
       labelName,
       skipInbox,
+      markRead,
       logger,
     });
   }
@@ -98,6 +101,7 @@ export async function runApplyFilter({
       labelId,
       labelName,
       skipInbox,
+      markRead,
       logger,
     });
   }
@@ -124,6 +128,7 @@ async function applyFilterToExistingMail({
   labelId,
   labelName,
   skipInbox,
+  markRead,
   logger,
 }: {
   emailProvider: EmailProvider;
@@ -134,6 +139,7 @@ async function applyFilterToExistingMail({
   labelId: string | null;
   labelName: string;
   skipInbox: boolean;
+  markRead?: boolean;
   logger: Logger;
 }) {
   const parts = splitPatterns(value);
@@ -204,6 +210,7 @@ async function applyFilterToExistingMail({
     targetLabelId,
     labelName,
     skipInbox,
+    markRead,
     userLabelIds,
     threadLabelIds,
     threadMessageIds,
@@ -226,6 +233,7 @@ async function applyFilterToThreads({
   labelId,
   labelName,
   skipInbox,
+  markRead,
   logger,
 }: {
   emailProvider: EmailProvider;
@@ -235,6 +243,7 @@ async function applyFilterToThreads({
   labelId: string | null;
   labelName: string;
   skipInbox: boolean;
+  markRead?: boolean;
   logger: Logger;
 }) {
   logger.info("Filter moving selected threads", { threads: threadIds.length });
@@ -284,6 +293,7 @@ async function applyFilterToThreads({
     targetLabelId,
     labelName,
     skipInbox,
+    markRead,
     userLabelIds,
     threadLabelIds,
     threadMessageIds,
@@ -332,6 +342,7 @@ async function moveThreadsToFolder({
   targetLabelId,
   labelName,
   skipInbox,
+  markRead,
   userLabelIds,
   threadLabelIds,
   threadMessageIds,
@@ -343,6 +354,7 @@ async function moveThreadsToFolder({
   targetLabelId: string;
   labelName: string;
   skipInbox: boolean;
+  markRead?: boolean;
   userLabelIds: Set<string>;
   threadLabelIds: Map<string, Set<string>>;
   threadMessageIds: Map<string, string[]>;
@@ -370,6 +382,10 @@ async function moveThreadsToFolder({
           });
         }
       }
+
+      // The rule marks future mail read; the backfill has to do the same
+      // for the mail it moves or the folder still shows an unread count
+      if (markRead) await emailProvider.markReadThread(threadId, true);
 
       const stripIds = [...present].filter(
         (id) => userLabelIds.has(id) && id !== targetLabelId,

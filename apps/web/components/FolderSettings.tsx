@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import {
+  ChevronDownIcon,
   PencilIcon,
   PlusIcon,
   SettingsIcon,
@@ -26,6 +27,7 @@ import {
 } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { LoadingContent } from "@/components/LoadingContent";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Tooltip } from "@/components/Tooltip";
@@ -37,7 +39,11 @@ import {
   updateLabelAction,
   updateLabelVisibilityAction,
 } from "@/utils/actions/mail";
-import { generateFolderInstructionsAction } from "@/utils/actions/folder-rule";
+import {
+  generateFolderInstructionsAction,
+  setFolderAutoReadAction,
+} from "@/utils/actions/folder-rule";
+import type { FolderAutoReadMode } from "@/utils/actions/folder-rule.validation";
 import {
   setRuleExcludeKnownContactsAction,
   toggleRuleAction,
@@ -51,7 +57,7 @@ import { ACTION_TYPE_LABELS, getActionDisplay } from "@/utils/action-display";
 import { staticConditionsToString } from "@/utils/condition";
 import { getActionErrorMessage } from "@/utils/error";
 import { isGoogleProvider } from "@/utils/email/provider-types";
-import { LABEL_ICONS } from "@/utils/label-icons";
+import { LABEL_ICONS, getLabelIcon } from "@/utils/label-icons";
 import { prefixPath } from "@/utils/path";
 import { cn } from "@/utils";
 import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
@@ -107,9 +113,11 @@ export function FolderSettingsDrawer({
   return (
     <>
       <Sheet open={!!labelId} onOpenChange={(open) => !open && onClose()}>
+        {/* The drawer's own header and tab strip stay put while the body
+            scrolls, so it owns its padding rather than the sheet */}
         <SheetContent
           side="right"
-          className="w-full max-w-none overflow-y-auto sm:max-w-[480px]"
+          className="flex w-full max-w-none flex-col gap-0 p-0 sm:max-w-[480px]"
         >
           {labelId && (
             <FolderSettingsContent
@@ -166,19 +174,23 @@ function FolderSettingsContent({
       error={error || dbLabelsError}
     >
       {label ? (
-        <>
-          <SheetHeader>
-            <SheetTitle className="flex items-center gap-2.5">
-              <span
-                className="size-3 shrink-0 rounded-full"
-                style={{ backgroundColor: dbLabel?.color ?? "currentColor" }}
-              />
-              {label.name}
-            </SheetTitle>
-            <SheetDescription>Settings for this folder</SheetDescription>
+        <div className="flex min-h-0 flex-1 flex-col">
+          <SheetHeader className="flex shrink-0 flex-row items-center gap-3 border-b border-border px-6 pb-3.5 pt-5 pr-12 space-y-0">
+            <span
+              className="size-3 shrink-0 rounded-full"
+              style={{ backgroundColor: dbLabel?.color ?? "currentColor" }}
+            />
+            <div className="min-w-0 flex-1 text-left">
+              <SheetTitle className="truncate font-display text-[23px] font-normal tracking-tight">
+                {label.name}
+              </SheetTitle>
+              <SheetDescription className="mt-0.5">
+                Settings for this folder
+              </SheetDescription>
+            </div>
           </SheetHeader>
 
-          <div className="mt-4 flex gap-5 border-b border-border text-[13.5px] font-medium">
+          <div className="flex shrink-0 gap-5 border-b border-border px-6 text-[13.5px] font-medium">
             {(["settings", "rules"] as const).map((value) => (
               <button
                 key={value}
@@ -196,49 +208,57 @@ function FolderSettingsContent({
             ))}
           </div>
 
-          {tab === "settings" ? (
-            <div className="mt-6 space-y-8">
-              <IconSetting
-                emailAccountId={emailAccountId}
-                labelId={labelId}
-                labelName={label.name}
-                dbLabel={dbLabel}
-                mutateDbLabels={mutateDbLabels}
-              />
+          <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-4">
+            {tab === "settings" ? (
+              <div className="divide-y divide-border">
+                <div className="pb-4">
+                  <IconSetting
+                    emailAccountId={emailAccountId}
+                    labelId={labelId}
+                    labelName={label.name}
+                    dbLabel={dbLabel}
+                    mutateDbLabels={mutateDbLabels}
+                  />
+                </div>
 
-              <ColorSetting
-                emailAccountId={emailAccountId}
-                labelId={labelId}
-                labelName={label.name}
-                dbLabel={dbLabel}
-                mutateDbLabels={mutateDbLabels}
-              />
+                <div className="py-4">
+                  <ColorSetting
+                    emailAccountId={emailAccountId}
+                    labelId={labelId}
+                    labelName={label.name}
+                    dbLabel={dbLabel}
+                    mutateDbLabels={mutateDbLabels}
+                  />
+                </div>
 
-              {isGoogleProvider(provider) && (
-                <VisibilitySetting
-                  labelId={labelId}
-                  visible={label.labelListVisibility !== "labelHide"}
-                  mutateLabels={mutate}
-                />
-              )}
+                {isGoogleProvider(provider) && (
+                  <div className="py-4">
+                    <VisibilitySetting
+                      labelId={labelId}
+                      visible={label.labelListVisibility !== "labelHide"}
+                      mutateLabels={mutate}
+                    />
+                  </div>
+                )}
 
-              <DeleteSetting
-                labelId={labelId}
-                labelName={label.name}
-                mutateLabels={mutate}
-                mutateDbLabels={mutateDbLabels}
-              />
-            </div>
-          ) : (
-            <div className="mt-6">
+                <div className="pt-4">
+                  <DeleteSetting
+                    labelId={labelId}
+                    labelName={label.name}
+                    mutateLabels={mutate}
+                    mutateDbLabels={mutateDbLabels}
+                  />
+                </div>
+              </div>
+            ) : (
               <FolderRuleSetting
                 labelId={labelId}
                 labelName={label.name}
                 onEditRule={onEditRule}
               />
-            </div>
-          )}
-        </>
+            )}
+          </div>
+        </div>
       ) : (
         <SheetHeader>
           <SheetTitle>Folder not found</SheetTitle>
@@ -262,6 +282,9 @@ function IconSetting({
   mutateDbLabels: () => void;
 }) {
   const [selected, setSelected] = useState(dbLabel?.icon ?? "tag");
+  // The grid is a dozen buttons for a setting most folders never change, so
+  // it stays behind the current icon until asked for
+  const [picking, setPicking] = useState(false);
 
   const { execute, isExecuting } = useAction(
     updateLabelAction.bind(null, emailAccountId),
@@ -277,42 +300,60 @@ function IconSetting({
     },
   );
 
+  const SelectedIcon = getLabelIcon(selected);
+
   return (
     <div>
       <Label>Icon</Label>
       <p className="mt-1 text-sm text-muted-foreground">
-        Shown next to this folder in the sidebar — handy when the sidebar is
-        collapsed.
+        Shown next to this folder in the sidebar.
       </p>
-      <div className="mt-3 grid grid-cols-6 gap-1.5">
-        {Object.entries(LABEL_ICONS).map(([name, Icon]) => (
-          <button
-            key={name}
-            type="button"
-            aria-label={`Use ${name} icon`}
-            aria-pressed={selected === name}
-            disabled={isExecuting}
-            onClick={() => {
-              setSelected(name);
-              // Icon applies immediately; description/enabled reuse the
-              // saved values so an unsaved AI draft isn't committed here
-              execute({
-                name: labelName,
-                description: dbLabel?.description ?? undefined,
-                enabled: dbLabel?.enabled ?? false,
-                gmailLabelId: labelId,
-                icon: name,
-              });
-            }}
-            className={cn(
-              "flex items-center justify-center rounded-md border border-border p-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-              selected === name && "border-primary bg-primary/10 text-primary",
-            )}
-          >
-            <Icon className="size-4" />
-          </button>
-        ))}
-      </div>
+
+      {picking ? (
+        <div className="mt-2 grid grid-cols-6 gap-1.5">
+          {Object.entries(LABEL_ICONS).map(([name, Icon]) => (
+            <button
+              key={name}
+              type="button"
+              aria-label={`Use ${name} icon`}
+              aria-pressed={selected === name}
+              disabled={isExecuting}
+              onClick={() => {
+                setSelected(name);
+                setPicking(false);
+                // Icon applies immediately; description/enabled reuse the
+                // saved values so an unsaved AI draft isn't committed here
+                execute({
+                  name: labelName,
+                  description: dbLabel?.description ?? undefined,
+                  enabled: dbLabel?.enabled ?? false,
+                  gmailLabelId: labelId,
+                  icon: name,
+                });
+              }}
+              className={cn(
+                "flex h-9 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                selected === name &&
+                  "border-primary bg-primary/10 text-primary",
+              )}
+            >
+              <Icon className="size-4" />
+            </button>
+          ))}
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setPicking(true)}
+          className="mt-2 flex h-11 items-center gap-2.5 rounded-lg border border-border bg-card px-3 text-sm font-medium hover:bg-muted/60"
+        >
+          <span className="flex size-7 items-center justify-center rounded-md bg-primary/10 text-primary">
+            <SelectedIcon className="size-4" />
+          </span>
+          Change icon
+          <ChevronDownIcon className="size-3.5 text-muted-foreground" />
+        </button>
+      )}
     </div>
   );
 }
@@ -392,7 +433,7 @@ function ColorSetting({
             )}
           >
             <span
-              className="size-3.5 rounded-full"
+              className="size-[13px] rounded-full"
               style={{ backgroundColor: color }}
             />
           </button>
@@ -444,7 +485,7 @@ function DeleteSetting({
   );
 
   return (
-    <div className="flex items-center justify-between gap-4 rounded-lg border border-destructive/50 p-3.5">
+    <div className="flex items-center justify-between gap-4 rounded-[10px] border border-destructive/50 p-3.5">
       <div>
         <Label>Delete folder</Label>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -537,6 +578,7 @@ function FolderRuleSetting({
           labelId={labelId}
           labelName={labelName}
           rule={data.rule}
+          autoRead={data.autoRead}
           otherRuleNames={data.otherRuleNames ?? []}
           mutateRule={mutate}
           onEditRule={onEditRule}
@@ -552,6 +594,7 @@ function FolderRuleForm({
   labelId,
   labelName,
   rule,
+  autoRead,
   otherRuleNames,
   mutateRule,
   onEditRule,
@@ -559,6 +602,7 @@ function FolderRuleForm({
   labelId: string;
   labelName: string;
   rule: FolderRuleResponse["rule"];
+  autoRead: FolderRuleResponse["autoRead"];
   otherRuleNames: string[];
   mutateRule: () => void;
   onEditRule: (config: RuleEditorConfig) => void;
@@ -690,6 +734,16 @@ function FolderRuleForm({
         </div>
       )}
 
+      {!isOrgManaged && (
+        <AutoReadSetting
+          labelId={labelId}
+          labelName={labelName}
+          autoRead={autoRead}
+          hasRule={!!rule}
+          mutateRule={mutateRule}
+        />
+      )}
+
       {rule && !isOrgManaged && (
         <RuleComposition ruleId={rule.id} onEditRule={onEditRule} />
       )}
@@ -740,6 +794,132 @@ function FolderRuleForm({
               Generate from folder
             </Button>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const AUTO_READ_OPTIONS: {
+  mode: FolderAutoReadMode;
+  label: string;
+  description: string;
+}[] = [
+  { mode: "off", label: "Off", description: "Mail arrives unread." },
+  {
+    mode: "all",
+    label: "Everything filed here",
+    description: "Anything this folder's rule files is marked read.",
+  },
+  {
+    mode: "only",
+    label: "Only these senders",
+    description: "Everything else in this folder stays unread.",
+  },
+  {
+    mode: "except",
+    label: "Everything except these senders",
+    description: "The listed senders keep arriving unread.",
+  },
+];
+
+// Mail filed here can be marked read on the way in. The scoped modes are
+// backed by their own rule, so the folder's filing rule keeps matching as
+// broadly as it did.
+function AutoReadSetting({
+  labelId,
+  labelName,
+  autoRead,
+  hasRule,
+  mutateRule,
+}: {
+  labelId: string;
+  labelName: string;
+  autoRead: FolderRuleResponse["autoRead"];
+  hasRule: boolean;
+  mutateRule: () => void;
+}) {
+  const { emailAccountId } = useAccount();
+  const [mode, setMode] = useState<FolderAutoReadMode>(autoRead.mode);
+  const [senders, setSenders] = useState(autoRead.senders);
+
+  const { execute, isExecuting } = useAction(
+    setFolderAutoReadAction.bind(null, emailAccountId),
+    {
+      onSuccess: () => {
+        toastSuccess({ description: "Auto mark-as-read updated" });
+        mutateRule();
+      },
+      onError: (error) => {
+        setMode(autoRead.mode);
+        setSenders(autoRead.senders);
+        toastError({ description: getActionErrorMessage(error.error) });
+      },
+    },
+  );
+
+  const needsSenders = mode === "only" || mode === "except";
+  const save = (next: FolderAutoReadMode, nextSenders: string) =>
+    execute({ labelId, labelName, mode: next, senders: nextSenders });
+
+  return (
+    <div>
+      <Label>Mark as read</Label>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Skip the unread badge for mail you don't need to open.
+      </p>
+
+      <div className="mt-3 space-y-2">
+        {AUTO_READ_OPTIONS.map((option) => (
+          <button
+            key={option.mode}
+            type="button"
+            // "Everything filed here" hangs off the folder's filing rule,
+            // so it needs one to exist; the scoped modes bring their own
+            disabled={isExecuting || (option.mode === "all" && !hasRule)}
+            onClick={() => {
+              setMode(option.mode);
+              // Scoped modes wait for the sender list before saving
+              if (option.mode === "only" || option.mode === "except") {
+                if (senders.trim()) save(option.mode, senders);
+                return;
+              }
+              save(option.mode, "");
+            }}
+            className={cn(
+              "w-full rounded-lg border px-3 py-2 text-left disabled:opacity-50",
+              mode === option.mode
+                ? "border-primary bg-primary/5"
+                : "border-border hover:bg-muted/50",
+            )}
+          >
+            <span className="text-sm font-medium">{option.label}</span>
+            <span className="mt-0.5 block text-sm text-muted-foreground">
+              {option.mode === "all" && !hasRule
+                ? "Needs a filing rule for this folder first."
+                : option.description}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {needsSenders && (
+        <div className="mt-3">
+          <Textarea
+            rows={2}
+            placeholder="noreply@acme.com, @newsletters.example.com"
+            value={senders}
+            onChange={(event) => setSenders(event.target.value)}
+            onBlur={() => {
+              if (senders.trim() && senders !== autoRead.senders) {
+                save(mode, senders);
+              }
+            }}
+          />
+          <p className="mt-1 text-sm text-muted-foreground">
+            One address or domain per entry, comma separated. A domain matches
+            everyone there.
+          </p>
         </div>
       )}
     </div>
