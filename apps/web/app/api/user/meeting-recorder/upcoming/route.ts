@@ -10,11 +10,7 @@ import {
 } from "@/utils/meeting-recorder/config";
 import { shouldAutoJoin } from "@/utils/meeting-recorder/join-rule";
 import { withEmailAccount } from "@/utils/middleware";
-import {
-  getUserTier,
-  hasTierAccess,
-  premiumEntitlementSelect,
-} from "@/utils/premium";
+import { checkHasAccess } from "@/utils/premium/server";
 import prisma from "@/utils/prisma";
 
 export type GetMeetingRecorderUpcomingResponse = Awaited<
@@ -26,6 +22,7 @@ export const GET = withEmailAccount(
   async (request) => {
     const result = await getData({
       emailAccountId: request.auth.emailAccountId,
+      userId: request.auth.userId,
       logger: request.logger,
     });
 
@@ -35,36 +32,30 @@ export const GET = withEmailAccount(
 
 async function getData({
   emailAccountId,
+  userId,
   logger,
 }: {
   emailAccountId: string;
+  userId: string;
   logger: Logger;
 }) {
-  const emailAccount = await prisma.emailAccount.findUnique({
-    where: { id: emailAccountId },
-    select: {
-      email: true,
-      meetingRecorderJoinRule: true,
-      user: {
-        select: { premium: { select: premiumEntitlementSelect } },
-      },
-    },
-  });
-  const hasAccess = hasTierAccess({
-    tier: getUserTier(emailAccount?.user.premium),
-    minimumTier: MEETING_RECORDER_MIN_TIER,
-  });
-
   const timeMin = new Date();
   const timeMax = addHours(timeMin, MEETING_LOOKAHEAD_HOURS);
 
-  const { events } = await fetchCalendarEventsInWindow({
-    emailAccountId,
-    timeMin,
-    timeMax,
-    maxResultsPerProvider: MAX_EVENTS_PER_PROVIDER,
-    logger,
-  });
+  const [hasAccess, emailAccount, { events }] = await Promise.all([
+    checkHasAccess({ userId, minimumTier: MEETING_RECORDER_MIN_TIER }),
+    prisma.emailAccount.findUnique({
+      where: { id: emailAccountId },
+      select: { email: true, meetingRecorderJoinRule: true },
+    }),
+    fetchCalendarEventsInWindow({
+      emailAccountId,
+      timeMin,
+      timeMax,
+      maxResultsPerProvider: MAX_EVENTS_PER_PROVIDER,
+      logger,
+    }),
+  ]);
 
   const videoEvents = events.filter((event) => event.videoConferenceLink);
 

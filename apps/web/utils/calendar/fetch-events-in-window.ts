@@ -24,14 +24,12 @@ export async function fetchCalendarEventsInWindow({
   timeMin,
   timeMax,
   maxResultsPerProvider,
-  verifyConnectedCalendars = false,
   logger,
 }: {
   emailAccountId: string;
   timeMin: Date;
   timeMax: Date;
   maxResultsPerProvider: number;
-  verifyConnectedCalendars?: boolean;
   logger: Logger;
 }): Promise<CalendarEventsInWindow> {
   const providers = await createCalendarEventProviders(emailAccountId, logger);
@@ -40,14 +38,12 @@ export async function fetchCalendarEventsInWindow({
   // error may already have flipped them disconnected. Reporting complete here
   // would let callers treat every booked meeting as deleted.
   if (providers.length === 0) {
-    return { events: [], complete: !verifyConnectedCalendars };
+    return { events: [], complete: false };
   }
 
-  const connectedCalendars = verifyConnectedCalendars
-    ? await prisma.calendarConnection.count({
-        where: { emailAccountId, isConnected: true },
-      })
-    : providers.length;
+  const connectedCalendars = await prisma.calendarConnection.count({
+    where: { emailAccountId, isConnected: true },
+  });
 
   const results = await Promise.allSettled(
     providers.map((provider) =>

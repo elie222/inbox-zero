@@ -127,7 +127,7 @@ export const setMeetingJoinOverrideAction = actionClient
         RECONCILE_WINDOW_MINUTES;
 
       if (!join || meeting.recordingId || startsBeforeNextPass) {
-        await reconcileSingleEvent({ emailAccount, event, logger });
+        await reconcileSingleEvent({ emailAccount, event, meeting, logger });
       }
     },
   );

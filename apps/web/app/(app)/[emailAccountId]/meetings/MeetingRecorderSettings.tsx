@@ -19,7 +19,6 @@ import type { MeetingJoinRule } from "@/generated/prisma/enums";
 import { useMeetingRecorderSettings } from "@/hooks/useMeetingRecorder";
 import { getActionErrorMessage } from "@/utils/error";
 import { updateMeetingRecorderSettingsAction } from "@/utils/actions/meeting-recorder";
-import type { UpdateMeetingRecorderSettingsBody } from "@/utils/actions/meeting-recorder.validation";
 import {
   getJoinRuleOption,
   JOIN_RULE_OPTIONS,
@@ -52,8 +51,6 @@ export function MeetingRecorderSettings({
     },
   );
 
-  const save = (update: UpdateMeetingRecorderSettingsBody) => execute(update);
-
   return (
     <LoadingContent
       loading={isLoading}
@@ -82,7 +79,7 @@ export function MeetingRecorderSettings({
             <Toggle
               name="enabled"
               enabled={!!data?.enabled}
-              onChange={(enabled) => save({ enabled })}
+              onChange={(enabled) => execute({ enabled })}
               disabled={!hasCalendarConnected}
             />
           }
@@ -99,7 +96,7 @@ export function MeetingRecorderSettings({
                   <Select
                     value={data.joinRule}
                     onValueChange={(value) =>
-                      save({ joinRule: value as MeetingJoinRule })
+                      execute({ joinRule: value as MeetingJoinRule })
                     }
                   >
                     <SelectTrigger aria-label="Which meetings to join">
@@ -135,7 +132,9 @@ export function MeetingRecorderSettings({
                 <Toggle
                   name="recapEmailEnabled"
                   enabled={data.recapEmailEnabled}
-                  onChange={(recapEmailEnabled) => save({ recapEmailEnabled })}
+                  onChange={(recapEmailEnabled) =>
+                    execute({ recapEmailEnabled })
+                  }
                 />
               }
             />
@@ -148,7 +147,7 @@ export function MeetingRecorderSettings({
                   name="followUpDraftEnabled"
                   enabled={data.followUpDraftEnabled}
                   onChange={(followUpDraftEnabled) =>
-                    save({ followUpDraftEnabled })
+                    execute({ followUpDraftEnabled })
                   }
                 />
               }
