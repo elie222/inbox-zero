@@ -300,7 +300,12 @@ function contactVCard(contact: FullContact): string {
 function multistatus(responses: string): DavResponse {
   return {
     status: 207,
-    headers: { "Content-Type": "application/xml; charset=utf-8" },
+    headers: {
+      "Content-Type": "application/xml; charset=utf-8",
+      // Some clients check DAV compliance on every response, not just the
+      // OPTIONS probe
+      DAV: "1, 3, addressbook",
+    },
     body: `<?xml version="1.0" encoding="utf-8"?>
 <d:multistatus xmlns:d="DAV:">
 ${responses}

@@ -47,7 +47,14 @@ export async function proxy(request: NextRequest) {
     body: await request.text(),
   });
 
-  return new NextResponse(response.body, {
+  // Buffer rather than pass the stream through: a streamed body through the
+  // proxy is the one leg of this exchange nothing else exercises, and a 207
+  // whose XML never arrives looks identical to success in the logs. Buffering
+  // also gives the response a correct content-length. Bodies here are one
+  // address book at most, so memory isn't a concern.
+  const body = await response.text();
+
+  return new NextResponse(body, {
     status: response.status,
     headers: forwardableResponseHeaders(response.headers),
   });
