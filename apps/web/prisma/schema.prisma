@@ -552,6 +552,7 @@ model Label {
   description  String? // used in prompts
   enabled      Boolean  @default(true)
   icon         String? // lucide icon name shown in the sidebar
+  color        String? // CSS colour for the sidebar dot and row accents
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)

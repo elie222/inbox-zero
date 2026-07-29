@@ -3,6 +3,7 @@
 import { useState } from "react";
 import useSWR from "swr";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { PencilIcon, PlusIcon, SettingsIcon, SparklesIcon } from "lucide-react";
 import type { UserLabelsResponse } from "@/app/api/user/labels/route";
@@ -19,11 +20,13 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { LoadingContent } from "@/components/LoadingContent";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Tooltip } from "@/components/Tooltip";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { useLabels } from "@/hooks/useLabels";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import {
+  deleteLabelAction,
   updateLabelAction,
   updateLabelVisibilityAction,
 } from "@/utils/actions/mail";
@@ -35,7 +38,8 @@ import {
 import type { CreateRuleBody } from "@/utils/actions/rule.validation";
 import { getActionErrorMessage } from "@/utils/error";
 import { isGoogleProvider } from "@/utils/email/provider-types";
-import { LABEL_ICONS, getLabelIcon } from "@/utils/label-icons";
+import { LABEL_ICONS } from "@/utils/label-icons";
+import { prefixPath } from "@/utils/path";
 import { cn } from "@/utils";
 import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import { ConditionType } from "@/utils/config";
@@ -47,29 +51,6 @@ const RuleDialog = dynamic(() =>
     (mod) => mod.RuleDialog,
   ),
 );
-
-// Header row for label folder views: folder name plus the settings gear.
-// Rendered above the list so it's available even when the folder is empty.
-export function FolderHeader({ labelId }: { labelId: string }) {
-  const { userLabels } = useLabels();
-  const { data: dbLabels } = useSWR<UserLabelsResponse>("/api/user/labels");
-  const label = userLabels.find((userLabel) => userLabel.id === labelId);
-  const Icon = getLabelIcon(
-    dbLabels?.find((candidate) => candidate.gmailLabelId === labelId)?.icon,
-  );
-
-  return (
-    <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-2">
-      <div className="flex min-w-0 items-center gap-2">
-        <Icon className="size-4 shrink-0 text-muted-foreground" />
-        <h1 className="truncate font-display text-2xl tracking-tight">
-          {label?.name.split("/").pop() ?? "Folder"}
-        </h1>
-      </div>
-      <FolderSettings labelId={labelId} />
-    </div>
-  );
-}
 
 type RuleEditorConfig = {
   ruleId?: string;
@@ -128,6 +109,7 @@ function FolderSettingsContent({
   onEditRule: (config: RuleEditorConfig) => void;
 }) {
   const { emailAccountId, provider } = useAccount();
+  const [tab, setTab] = useState<"settings" | "rules">("settings");
   const { userLabels, isLoading, error, mutate } = useLabels();
   const {
     data: dbLabels,
@@ -149,35 +131,79 @@ function FolderSettingsContent({
       {label ? (
         <>
           <SheetHeader>
-            <SheetTitle>{label.name}</SheetTitle>
+            <SheetTitle className="flex items-center gap-2.5">
+              <span
+                className="size-3 shrink-0 rounded-full"
+                style={{ backgroundColor: dbLabel?.color ?? "currentColor" }}
+              />
+              {label.name}
+            </SheetTitle>
             <SheetDescription>Settings for this folder</SheetDescription>
           </SheetHeader>
 
-          <div className="mt-6 space-y-8">
-            <IconSetting
-              key={`icon-${labelId}`}
-              emailAccountId={emailAccountId}
-              labelId={labelId}
-              labelName={label.name}
-              dbLabel={dbLabel}
-              mutateDbLabels={mutateDbLabels}
-            />
-
-            {isGoogleProvider(provider) && (
-              <VisibilitySetting
-                labelId={labelId}
-                visible={label.labelListVisibility !== "labelHide"}
-                mutateLabels={mutate}
-              />
-            )}
-
-            <FolderRuleSetting
-              key={`rule-${labelId}`}
-              labelId={labelId}
-              labelName={label.name}
-              onEditRule={onEditRule}
-            />
+          <div className="mt-4 flex gap-5 border-b border-border text-[13.5px] font-medium">
+            {(["settings", "rules"] as const).map((value) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setTab(value)}
+                className={cn(
+                  "border-b-2 px-0.5 py-2.5 capitalize",
+                  tab === value
+                    ? "border-primary text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {value}
+              </button>
+            ))}
           </div>
+
+          {tab === "settings" ? (
+            <div className="mt-6 space-y-8">
+              <IconSetting
+                key={`icon-${labelId}`}
+                emailAccountId={emailAccountId}
+                labelId={labelId}
+                labelName={label.name}
+                dbLabel={dbLabel}
+                mutateDbLabels={mutateDbLabels}
+              />
+
+              <ColorSetting
+                key={`color-${labelId}`}
+                emailAccountId={emailAccountId}
+                labelId={labelId}
+                labelName={label.name}
+                dbLabel={dbLabel}
+                mutateDbLabels={mutateDbLabels}
+              />
+
+              {isGoogleProvider(provider) && (
+                <VisibilitySetting
+                  labelId={labelId}
+                  visible={label.labelListVisibility !== "labelHide"}
+                  mutateLabels={mutate}
+                />
+              )}
+
+              <DeleteSetting
+                labelId={labelId}
+                labelName={label.name}
+                mutateLabels={mutate}
+                mutateDbLabels={mutateDbLabels}
+              />
+            </div>
+          ) : (
+            <div className="mt-6">
+              <FolderRuleSetting
+                key={`rule-${labelId}`}
+                labelId={labelId}
+                labelName={label.name}
+                onEditRule={onEditRule}
+              />
+            </div>
+          )}
         </>
       ) : (
         <SheetHeader>
@@ -253,6 +279,161 @@ function IconSetting({
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+// The swatches from the design; null means "no colour picked", which leaves
+// the sidebar dot on its name-hashed default
+const FOLDER_COLORS = [
+  "hsl(210 65% 55%)",
+  "hsl(150 65% 55%)",
+  "hsl(330 65% 55%)",
+  "hsl(45 65% 55%)",
+  "hsl(270 65% 55%)",
+  "hsl(0 65% 55%)",
+];
+
+function ColorSetting({
+  emailAccountId,
+  labelId,
+  labelName,
+  dbLabel,
+  mutateDbLabels,
+}: {
+  emailAccountId: string;
+  labelId: string;
+  labelName: string;
+  dbLabel: UserLabelsResponse[number] | undefined;
+  mutateDbLabels: () => void;
+}) {
+  const [selected, setSelected] = useState(dbLabel?.color ?? null);
+
+  const { execute, isExecuting } = useAction(
+    updateLabelAction.bind(null, emailAccountId),
+    {
+      onSuccess: () => {
+        toastSuccess({ description: "Folder color updated" });
+        mutateDbLabels();
+      },
+      onError: (error) => {
+        setSelected(dbLabel?.color ?? null);
+        toastError({ description: getActionErrorMessage(error.error) });
+      },
+    },
+  );
+
+  const save = (color: string | null) => {
+    setSelected(color);
+    // Same as the icon picker: only this field changes, everything else
+    // reuses what's already saved
+    execute({
+      name: labelName,
+      description: dbLabel?.description ?? undefined,
+      enabled: dbLabel?.enabled ?? false,
+      gmailLabelId: labelId,
+      icon: dbLabel?.icon,
+      color,
+    });
+  };
+
+  return (
+    <div>
+      <Label>Color</Label>
+      <p className="mt-1 text-sm text-muted-foreground">
+        The dot next to this folder in the sidebar.
+      </p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {FOLDER_COLORS.map((color) => (
+          <button
+            key={color}
+            type="button"
+            aria-label={`Use color ${color}`}
+            aria-pressed={selected === color}
+            disabled={isExecuting}
+            onClick={() => save(color)}
+            className={cn(
+              "flex size-6 items-center justify-center rounded-full border-2",
+              selected === color ? "border-primary" : "border-transparent",
+            )}
+          >
+            <span
+              className="size-3.5 rounded-full"
+              style={{ backgroundColor: color }}
+            />
+          </button>
+        ))}
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={isExecuting || !selected}
+          onClick={() => save(null)}
+        >
+          Clear
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// Deleting removes the folder at the provider and the rule that filed into
+// it. Emails keep their history, so this is recoverable enough to live in
+// the drawer rather than behind a settings page.
+function DeleteSetting({
+  labelId,
+  labelName,
+  mutateLabels,
+  mutateDbLabels,
+}: {
+  labelId: string;
+  labelName: string;
+  mutateLabels: () => void;
+  mutateDbLabels: () => void;
+}) {
+  const router = useRouter();
+  const { emailAccountId } = useAccount();
+
+  const { executeAsync, isExecuting } = useAction(
+    deleteLabelAction.bind(null, emailAccountId),
+    {
+      onSuccess: () => {
+        toastSuccess({ description: `Deleted “${labelName}”` });
+        mutateLabels();
+        mutateDbLabels();
+        // The page is showing the folder that no longer exists
+        router.push(prefixPath(emailAccountId, "/mail"));
+      },
+      onError: (error) => {
+        toastError({ description: getActionErrorMessage(error.error) });
+      },
+    },
+  );
+
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-lg border border-destructive/50 p-3.5">
+      <div>
+        <Label>Delete folder</Label>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Emails keep their history; the filing rule is removed.
+        </p>
+      </div>
+      <ConfirmDialog
+        title={`Delete “${labelName}”?`}
+        description="The folder is removed from your mailbox and any rule that only filed into it is deleted. Your emails are not deleted."
+        onConfirm={async () => {
+          await executeAsync({ labelId, name: labelName });
+        }}
+        trigger={
+          <Button
+            variant="outline"
+            size="sm"
+            className="shrink-0 border-destructive/70 text-destructive hover:bg-destructive/10 hover:text-destructive"
+            loading={isExecuting}
+          >
+            Delete
+          </Button>
+        }
+      />
     </div>
   );
 }

@@ -6,10 +6,14 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
+  ArchiveIcon,
   ChevronsDownIcon,
-  FilterIcon,
+  ExternalLinkIcon,
+  FolderInputIcon,
   MessageCircleIcon,
   SparklesIcon,
+  Trash2Icon,
+  WandSparklesIcon,
 } from "lucide-react";
 import { Celebration } from "@/components/Celebration";
 import { BulkActionBar } from "@/components/email-list/BulkActionBar";
@@ -21,18 +25,13 @@ import { Checkbox } from "@/components/Checkbox";
 import { MessageText } from "@/components/Typography";
 import { AlertBasic } from "@/components/Alert";
 import { EmailListItem } from "@/components/email-list/EmailListItem";
-import { FolderHeader } from "@/components/email-list/FolderSettings";
 import { RowContextMenu } from "@/components/email-list/RowContextMenu";
 import { FilterLikeThisDialog } from "@/components/email-list/FilterLikeThisDialog";
 import { ReprocessEmailDialog } from "@/components/email-list/ReprocessEmailDialog";
 import { AiRuleFromEmailDialog } from "@/components/email-list/AiRuleFromEmailDialog";
 import { useChat } from "@/providers/ChatProvider";
 import { useSidebar } from "@/components/ui/sidebar";
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from "@/components/ui/resizable";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { bulkProcessThreadsAction } from "@/utils/actions/ai-rule";
 import { Button } from "@/components/ui/button";
 import { ButtonLoader } from "@/components/Loading";
@@ -44,24 +43,15 @@ import {
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { internalDateToDate } from "@/utils/date";
 import { prefixPath } from "@/utils/path";
-import { useIsMobile } from "@/hooks/use-mobile";
 import {
   unarchiveThreadAction,
   untrashThreadAction,
 } from "@/utils/actions/mail";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 
-const VIEW_TITLES: Record<string, string> = {
-  inbox: "Inbox",
-  draft: "Drafts",
-  sent: "Sent",
-  archive: "Archived",
-};
-
 export function List({
   emails,
   type,
-  labelId,
   searchQuery,
   refetch,
   showLoadMore,
@@ -70,7 +60,6 @@ export function List({
 }: {
   emails: Thread[];
   type?: string;
-  labelId?: string;
   searchQuery?: string;
   refetch: (options?: { removedThreadIds?: string[] }) => void;
   showLoadMore?: boolean;
@@ -123,15 +112,6 @@ export function List({
               </div>
             }
           />
-        </div>
-      )}
-      {type === "label" && labelId ? (
-        <FolderHeader labelId={labelId} />
-      ) : (
-        <div className="flex items-center gap-2 border-b border-border px-4 py-2">
-          <h1 className="font-display text-2xl tracking-tight">
-            {VIEW_TITLES[type ?? "inbox"] ?? "Inbox"}
-          </h1>
         </div>
       )}
       {emails.length ? (
@@ -216,6 +196,13 @@ export function EmailList({
 
   // if right panel is open
   const [openThreadId, setOpenThreadId] = useQueryState("thread-id");
+
+  // Grouping on shows one row per conversation; off breaks a conversation
+  // into a row per message, the way a classic mail client lists them
+  const [groupParam, setGroupParam] = useQueryState("group", {
+    defaultValue: "on",
+  });
+  const groupThreads = groupParam !== "off";
   const closePanel = useCallback(
     () => setOpenThreadId(null),
     [setOpenThreadId],
@@ -366,17 +353,19 @@ export function EmailList({
   const listRef = useRef<HTMLDivElement>(null);
 
   // Threads interleaved with date group headers ("Today", "Yesterday", …)
-  const rows = useMemo(() => buildDateGroupedRows(threads), [threads]);
+  const rows = useMemo(
+    () => buildDateGroupedRows(threads, groupThreads),
+    [threads, groupThreads],
+  );
 
   const virtualizer = useVirtualizer<HTMLDivElement, HTMLLIElement>({
     count: rows.length,
     getScrollElement: () => listRef.current,
-    estimateSize: (index) => (rows[index].kind === "header" ? 33 : 76),
+    // Cards are taller than the old flat rows and carry their own bottom gap;
+    // dynamic measurement corrects these, they only need to be close
+    estimateSize: (index) => (rows[index].kind === "header" ? 34 : 66),
     overscan: 10,
-    getItemKey: (index) => {
-      const row = rows[index];
-      return row.kind === "header" ? row.key : row.thread.id;
-    },
+    getItemKey: (index) => rows[index].key,
   });
 
   // to scroll to a row when the side panel is opened
@@ -390,6 +379,19 @@ export function EmailList({
     setTimeout(() => {
       virtualizer.scrollToIndex(index, { align: "start" });
     }, 100);
+  }
+
+  function openThread(thread: Thread) {
+    const alreadyOpen = !!openThreadId;
+    setOpenThreadId(thread.id);
+
+    if (!alreadyOpen) scrollToThread(thread.id);
+
+    markReadThreads({
+      threadIds: [thread.id],
+      onSuccess: () => refetch(),
+      emailAccountId,
+    });
   }
 
   function advanceToAdjacentThread() {
@@ -513,25 +515,34 @@ export function EmailList({
   const selectedCount = threads.filter(
     (thread) => selectedRows[thread.id],
   ).length;
+  const threadRowCount = rows.filter((row) => row.kind === "thread").length;
 
   return (
     <>
       {!(isEmpty && hideActionBarWhenEmpty) && (
-        <div className="flex items-center border-b border-l-4 border-border bg-background px-4 py-1">
-          <div className="pl-1">
-            <Checkbox
-              label={
-                isAllSelected ? "Deselect all emails" : "Select all emails"
-              }
-              checked={isAllSelected}
-              onChange={onToggleSelectAll}
-            />
-          </div>
-          {selectedCount > 0 && (
-            <span className="ml-3 text-sm text-muted-foreground">
-              {selectedCount} selected
+        <div className="flex items-center gap-3 px-4 pb-2 pt-3 sm:px-6">
+          <Checkbox
+            label={isAllSelected ? "Deselect all emails" : "Select all emails"}
+            checked={isAllSelected}
+            onChange={onToggleSelectAll}
+          />
+          <span className="min-w-0 flex-1 truncate text-[13px] text-muted-foreground">
+            {selectedCount > 0
+              ? `${selectedCount} selected`
+              : groupThreads
+                ? `${threads.length} ${threads.length === 1 ? "conversation" : "conversations"}`
+                : `${threadRowCount} ${threadRowCount === 1 ? "email" : "emails"}`}
+          </span>
+          <button
+            type="button"
+            className="inline-flex h-[30px] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[7px] border border-border px-2.5 text-[12.5px] text-muted-foreground hover:bg-muted"
+            onClick={() => setGroupParam(groupThreads ? "off" : "on")}
+          >
+            Group by thread:{" "}
+            <span className="font-medium text-foreground">
+              {groupThreads ? "On" : "Off"}
             </span>
-          )}
+          </button>
         </div>
       )}
 
@@ -545,122 +556,115 @@ export function EmailList({
         </div>
       ) : (
         <div className="min-h-0 flex-1 overflow-hidden">
-          <ResizeGroup
-            left={
-              <div
-                className="h-full min-w-0 overflow-x-hidden overflow-y-auto scroll-smooth"
-                ref={listRef}
-              >
-                <ul
-                  className="relative w-full"
-                  style={{ height: virtualizer.getTotalSize() }}
+          <div
+            className="h-full min-w-0 overflow-x-hidden overflow-y-auto scroll-smooth"
+            ref={listRef}
+          >
+            <ul
+              className="relative w-full"
+              style={{ height: virtualizer.getTotalSize() }}
+            >
+              {virtualizer.getVirtualItems().map((virtualRow) => {
+                const row = rows[virtualRow.index];
+
+                if (row.kind === "header") {
+                  return (
+                    <li
+                      key={virtualRow.key}
+                      ref={virtualizer.measureElement}
+                      data-index={virtualRow.index}
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        width: "100%",
+                        transform: `translateY(${virtualRow.start}px)`,
+                      }}
+                      className="px-4 pb-1.5 pt-2.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/80 sm:px-6"
+                    >
+                      {row.label}
+                    </li>
+                  );
+                }
+
+                const thread = row.thread;
+
+                return (
+                  <EmailListItem
+                    key={virtualRow.key}
+                    ref={virtualizer.measureElement}
+                    dataIndex={virtualRow.index}
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: "100%",
+                      transform: `translateY(${virtualRow.start}px)`,
+                    }}
+                    userEmail={userEmail}
+                    provider={provider}
+                    folderType={folderType}
+                    thread={thread}
+                    opened={openThreadId === thread.id}
+                    closePanel={closePanel}
+                    selected={selectedRows[thread.id]}
+                    onSelected={onSetSelectedRow}
+                    splitView={!!openThreadId}
+                    onClick={() => openThread(thread)}
+                    onReprocess={setReprocessThread}
+                    onArchive={onArchive}
+                    onDelete={onDelete}
+                    onRowContextMenu={onRowContextMenu}
+                    refetch={refetch}
+                  />
+                );
+              })}
+            </ul>
+            {showLoadMore && (
+              <div className="flex justify-center px-4 pb-4 pt-2 sm:px-6">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleLoadMore}
+                  disabled={isLoadingMore}
                 >
-                  {virtualizer.getVirtualItems().map((virtualRow) => {
-                    const row = rows[virtualRow.index];
-
-                    if (row.kind === "header") {
-                      return (
-                        <li
-                          key={virtualRow.key}
-                          ref={virtualizer.measureElement}
-                          data-index={virtualRow.index}
-                          style={{
-                            position: "absolute",
-                            top: 0,
-                            left: 0,
-                            width: "100%",
-                            transform: `translateY(${virtualRow.start}px)`,
-                          }}
-                          className="border-b border-border bg-background px-4 py-2 text-[11px] font-medium uppercase tracking-[0.15em] text-muted-foreground/70"
-                        >
-                          {row.label}
-                        </li>
-                      );
-                    }
-
-                    const thread = row.thread;
-
-                    const onOpen = () => {
-                      const alreadyOpen = !!openThreadId;
-                      setOpenThreadId(thread.id);
-
-                      if (!alreadyOpen) scrollToThread(thread.id);
-
-                      markReadThreads({
-                        threadIds: [thread.id],
-                        onSuccess: () => refetch(),
-                        emailAccountId,
-                      });
-                    };
-
-                    return (
-                      <EmailListItem
-                        key={virtualRow.key}
-                        ref={virtualizer.measureElement}
-                        dataIndex={virtualRow.index}
-                        style={{
-                          position: "absolute",
-                          top: 0,
-                          left: 0,
-                          width: "100%",
-                          transform: `translateY(${virtualRow.start}px)`,
-                        }}
-                        userEmail={userEmail}
-                        provider={provider}
-                        folderType={folderType}
-                        thread={thread}
-                        opened={openThreadId === thread.id}
-                        closePanel={closePanel}
-                        selected={selectedRows[thread.id]}
-                        onSelected={onSetSelectedRow}
-                        splitView={!!openThreadId}
-                        onClick={onOpen}
-                        onReprocess={setReprocessThread}
-                        onArchive={onArchive}
-                        onDelete={onDelete}
-                        onRowContextMenu={onRowContextMenu}
-                        refetch={refetch}
-                      />
-                    );
-                  })}
-                </ul>
-                {showLoadMore && (
-                  <Button
-                    variant="outline"
-                    className="mb-2 w-full"
-                    size={"sm"}
-                    onClick={handleLoadMore}
-                    disabled={isLoadingMore}
-                  >
-                    {
-                      <>
-                        {isLoadingMore ? (
-                          <ButtonLoader />
-                        ) : (
-                          <ChevronsDownIcon className="mr-2 h-4 w-4" />
-                        )}
-                        <span>Load more</span>
-                      </>
-                    }
-                  </Button>
-                )}
+                  {isLoadingMore ? (
+                    <ButtonLoader />
+                  ) : (
+                    <ChevronsDownIcon className="mr-2 h-4 w-4" />
+                  )}
+                  <span>Load more</span>
+                </Button>
               </div>
-            }
-            right={
-              !!(openThreadId && openedRow) && (
-                <EmailPanel
-                  row={openedRow}
-                  folderType={folderType}
-                  onArchive={onArchive}
-                  advanceToAdjacentThread={advanceToAdjacentThread}
-                  close={closePanel}
-                  refetch={refetch}
-                />
-              )
-            }
-          />
+            )}
+          </div>
         </div>
       )}
+
+      {/* The open thread is a drawer at every width — the list keeps the
+          full column behind it */}
+      <Sheet
+        open={!!(openThreadId && openedRow)}
+        onOpenChange={(open) => !open && closePanel()}
+      >
+        <SheetContent
+          side="right"
+          className="w-full max-w-none p-0 sm:max-w-[640px] [&>button]:hidden"
+        >
+          <SheetTitle className="sr-only">Email</SheetTitle>
+          {openedRow && (
+            <EmailPanel
+              key={openedRow.id}
+              row={openedRow}
+              folderType={folderType}
+              onArchive={onArchive}
+              advanceToAdjacentThread={advanceToAdjacentThread}
+              close={closePanel}
+              refetch={refetch}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
 
       {selectedCount > 0 && (
         <BulkActionBar
@@ -684,19 +688,41 @@ export function EmailList({
           onClose={() => setRowMenu(null)}
           items={[
             {
-              label: "Filter messages like this…",
-              icon: FilterIcon,
+              label: "Open",
+              icon: ExternalLinkIcon,
+              onClick: () => openThread(rowMenu.thread),
+            },
+            {
+              label: "Process with AI",
+              icon: SparklesIcon,
+              onClick: () => setReprocessThread(rowMenu.thread),
+            },
+            {
+              label: "Move to folder & train…",
+              icon: FolderInputIcon,
               onClick: () => setFilterThreads([rowMenu.thread]),
             },
             {
               label: "Create rule with AI…",
-              icon: SparklesIcon,
+              icon: WandSparklesIcon,
               onClick: () => setAiRuleThread(rowMenu.thread),
             },
             {
               label: "Chat with AI about this",
               icon: MessageCircleIcon,
               onClick: () => chatAboutThread(rowMenu.thread),
+            },
+            { divider: true },
+            {
+              label: "Archive",
+              icon: ArchiveIcon,
+              onClick: () => onArchive(rowMenu.thread),
+            },
+            {
+              label: "Delete",
+              icon: Trash2Icon,
+              destructive: true,
+              onClick: () => onDelete(rowMenu.thread),
             },
           ]}
         />
@@ -733,59 +759,57 @@ export function EmailList({
   );
 }
 
-function ResizeGroup({
-  left,
-  right,
-}: {
-  left: React.ReactNode;
-  right?: React.ReactNode;
-}) {
-  const isMobile = useIsMobile();
-
-  if (!right) return left;
-
-  // On mobile a split view leaves both halves cramped; show the open thread
-  // full-screen instead. Its close button returns to the list.
-  if (isMobile) return <div className="h-full overflow-y-auto">{right}</div>;
-
-  return (
-    <ResizablePanelGroup direction="horizontal">
-      <ResizablePanel
-        style={{ overflow: "auto" }}
-        defaultSize={50}
-        minSize={0}
-        className="min-w-0"
-      >
-        {left}
-      </ResizablePanel>
-      <ResizableHandle withHandle />
-      <ResizablePanel defaultSize={50} minSize={0} className="min-w-0">
-        {right}
-      </ResizablePanel>
-    </ResizablePanelGroup>
-  );
-}
-
 type ListRow =
   | { kind: "header"; key: string; label: string }
-  | { kind: "thread"; thread: Thread };
+  | { kind: "thread"; key: string; thread: Thread };
 
 // Threads arrive newest-first; insert a header row whenever the date bucket
-// changes (Today, Yesterday, then calendar dates)
-function buildDateGroupedRows(threads: Thread[]): ListRow[] {
+// changes (Today, Yesterday, then calendar dates).
+//
+// With grouping off, every message becomes its own row. The messages are
+// already in hand — the API returns whole threads — so this is a client-side
+// expansion, re-sorted globally by date because a thread's older messages
+// would otherwise land under the newer thread's date header.
+function buildDateGroupedRows(threads: Thread[], grouped: boolean): ListRow[] {
+  const entries: { key: string; thread: Thread; date: Date | undefined }[] = [];
+
+  for (const thread of threads) {
+    const messages = thread.messages ?? [];
+
+    if (grouped || messages.length <= 1) {
+      entries.push({
+        key: thread.id,
+        thread,
+        date: internalDateToDate(messages.at(-1)?.internalDate),
+      });
+      continue;
+    }
+
+    for (const message of messages) {
+      entries.push({
+        // Selection and opening stay keyed to the thread; only the row
+        // identity has to be unique per message
+        key: `${thread.id}:${message.id}`,
+        thread: { ...thread, messages: [message], snippet: message.snippet },
+        date: internalDateToDate(message.internalDate),
+      });
+    }
+  }
+
+  if (!grouped) {
+    entries.sort((a, b) => (b.date?.getTime() ?? 0) - (a.date?.getTime() ?? 0));
+  }
+
   const rows: ListRow[] = [];
   let currentLabel: string | null = null;
 
-  for (const thread of threads) {
-    const lastMessage = thread.messages?.at(-1);
-    const date = internalDateToDate(lastMessage?.internalDate);
-    const label = dateBucketLabel(date);
-
+  for (const entry of entries) {
+    const label = dateBucketLabel(entry.date);
     if (label !== currentLabel) {
       currentLabel = label;
       rows.push({ kind: "header", key: `header-${label}`, label });
     }
-    rows.push({ kind: "thread", thread });
+    rows.push({ kind: "thread", key: entry.key, thread: entry.thread });
   }
 
   return rows;
