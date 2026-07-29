@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { Client } from "@microsoft/microsoft-graph-client";
+import { Client, MiddlewareFactory } from "@microsoft/microsoft-graph-client";
 import { saveTokens } from "@/utils/auth/save-tokens";
 import { createTestLogger } from "@/__tests__/helpers";
 import {
@@ -16,6 +16,10 @@ import {
 vi.mock("@microsoft/microsoft-graph-client", () => ({
   Client: {
     init: vi.fn(),
+    initWithMiddleware: vi.fn(),
+  },
+  MiddlewareFactory: {
+    getDefaultMiddlewareChain: vi.fn(() => [{}]),
   },
 }));
 
@@ -66,8 +70,10 @@ describe("outlook client emulator configuration", () => {
     expect(getMicrosoftGraphClientOptions).toHaveBeenCalledWith(
       "emulator-token",
     );
-    expect(Client.init).toHaveBeenCalledWith({
-      authProvider: expect.any(Function),
+    expect(MiddlewareFactory.getDefaultMiddlewareChain).toHaveBeenCalledWith({
+      getAccessToken: expect.any(Function),
+    });
+    expect(Client.initWithMiddleware).toHaveBeenCalledWith({
       baseUrl: "http://localhost:4003/",
       customHosts: new Set(["localhost"]),
       defaultVersion: "v1.0",
@@ -77,6 +83,7 @@ describe("outlook client emulator configuration", () => {
           Prefer: 'IdType="ImmutableId"',
         },
       },
+      middleware: [expect.any(Object)],
     });
   });
 
