@@ -63,7 +63,7 @@ function ContactPeekSheet({
       {/* ContactDetails scrolls its own body, so the sheet must not */}
       <SheetContent
         side="right"
-        className="w-full p-5 sm:max-w-[560px] [&>button]:top-6"
+        className="w-full max-w-none p-5 sm:max-w-[560px] [&>button]:top-6"
       >
         <SheetTitle className="sr-only">Contact details</SheetTitle>
         {normalized && (

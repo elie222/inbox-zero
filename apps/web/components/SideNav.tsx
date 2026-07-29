@@ -184,11 +184,26 @@ function FolderDot({
   name,
   hue,
   lightness,
+  color,
 }: {
   name: string;
   hue?: number;
   lightness?: number;
+  // A colour chosen in the folder's settings drawer, which wins over both
+  // the family hue and the name hash
+  color?: string;
 }) {
+  if (color) {
+    return (
+      <span className="flex size-4 shrink-0 items-center justify-center">
+        <span
+          className="size-2 rounded-full"
+          style={{ backgroundColor: color }}
+        />
+      </span>
+    );
+  }
+
   if (hue !== undefined) {
     return (
       <span className="flex size-4 shrink-0 items-center justify-center">
@@ -202,11 +217,12 @@ function FolderDot({
 
   let hash = 0;
   for (const char of name) hash = (hash * 31 + char.charCodeAt(0)) | 0;
-  const color = FOLDER_DOT_COLORS[Math.abs(hash) % FOLDER_DOT_COLORS.length];
+  const hashedColor =
+    FOLDER_DOT_COLORS[Math.abs(hash) % FOLDER_DOT_COLORS.length];
 
   return (
     <span className="flex size-4 shrink-0 items-center justify-center">
-      <span className={cn("size-2 rounded-full", color)} />
+      <span className={cn("size-2 rounded-full", hashedColor)} />
     </span>
   );
 }
@@ -574,11 +590,9 @@ function MailNav({ path }: { path: string }) {
   const counts = countsData?.counts;
 
   const { data: dbLabels } = useSWR<UserLabelsResponse>("/api/user/labels");
-  const iconByGmailLabelId = useMemo(() => {
-    const map: Record<string, string> = {};
-    for (const dbLabel of dbLabels ?? []) {
-      if (dbLabel.icon) map[dbLabel.gmailLabelId] = dbLabel.icon;
-    }
+  const dbLabelByGmailLabelId = useMemo(() => {
+    const map: Record<string, UserLabelsResponse[number]> = {};
+    for (const dbLabel of dbLabels ?? []) map[dbLabel.gmailLabelId] = dbLabel;
     return map;
   }, [dbLabels]);
 
@@ -606,15 +620,20 @@ function MailNav({ path }: { path: string }) {
     id?: string | null;
     name?: string | null;
   }) => {
-    const customIcon = label.id ? iconByGmailLabelId[label.id] : undefined;
+    const stored = label.id ? dbLabelByGmailLabelId[label.id] : undefined;
     return {
       name: label.name ?? "",
       // Nested Gmail labels ("Work/Invoices") read better as their last segment
       shortName: (label.name ?? "").split("/").pop() || (label.name ?? ""),
       // Custom icons win; otherwise a per-folder colored dot
-      icon: customIcon
-        ? getLabelIcon(customIcon)
-        : () => <FolderDot name={label.name ?? ""} />,
+      icon: stored?.icon
+        ? getLabelIcon(stored.icon)
+        : () => (
+            <FolderDot
+              name={label.name ?? ""}
+              color={stored?.color ?? undefined}
+            />
+          ),
       href: `${mailPath}?type=label&labelId=${encodeURIComponent(label.id ?? "")}`,
       count: label.id ? counts?.[label.id] : undefined,
       active:

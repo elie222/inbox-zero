@@ -31,6 +31,7 @@ import { findCtaLink } from "@/utils/parse/parseHtml.client";
 import { getDisplayedMessage } from "@/utils/email/displayed-message";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { internalDateToDate } from "@/utils/date";
+import { SenderAvatar } from "@/components/email-list/SenderAvatar";
 
 export const EmailListItem = forwardRef(
   (
@@ -87,23 +88,18 @@ export const EmailListItem = forwardRef(
 
     const cta = findCtaLink(lastMessage.textHtml);
 
+    const senderHeader = participant(lastMessage, props.userEmail);
+    const senderName = extractNameFromEmail(senderHeader) || senderHeader;
+
     return (
       <ErrorBoundary extra={{ props, cta, decodedSnippet }}>
+        {/* The li is the virtualizer's measured, absolutely-positioned slot —
+            the card and its gap live inside so measurement stays correct */}
         <li
           ref={ref}
           data-index={props.dataIndex}
           style={props.style}
-          className={clsx(
-            "group relative cursor-pointer overflow-hidden border-b border-l-4 border-b-border",
-            {
-              "hover:bg-slate-50 dark:hover:bg-slate-950":
-                !props.selected && !props.opened,
-              "bg-primary/10": props.selected,
-              "bg-primary/20": props.opened,
-              "bg-slate-100 dark:bg-background":
-                !isUnread && !props.selected && !props.opened,
-            },
-          )}
+          className="px-4 pb-2 sm:px-6"
           onClick={props.onClick}
           onContextMenu={(e) => {
             if (!props.onRowContextMenu) return;
@@ -118,86 +114,109 @@ export const EmailListItem = forwardRef(
             }
           }}
         >
-          <SwipeableRow
-            enabled={isMobile}
-            onSwipeRight={() => {
-              props.onArchive(thread);
-              props.closePanel();
-            }}
-            onSwipeLeft={() => {
-              props.onDelete(thread);
-              props.closePanel();
-            }}
+          <div
+            className={clsx(
+              "group relative cursor-pointer overflow-hidden rounded-[10px] border",
+              props.opened
+                ? "border-primary/60 bg-card"
+                : props.selected
+                  ? "border-primary/50 bg-primary/5"
+                  : isUnread
+                    ? "border-border bg-card hover:bg-muted/40"
+                    : "border-border/60 bg-card/50 hover:bg-muted/40",
+            )}
           >
-            <div className="px-4 py-3">
-              <div className="mx-auto flex min-w-0 w-full">
-                {/* left */}
+            <SwipeableRow
+              enabled={isMobile}
+              onSwipeRight={() => {
+                props.onArchive(thread);
+                props.closePanel();
+              }}
+              onSwipeLeft={() => {
+                props.onDelete(thread);
+                props.closePanel();
+              }}
+            >
+              <div className="flex min-w-0 items-center gap-3 px-3.5 py-2.5">
                 <div
-                  className={clsx(
-                    "flex min-w-0 flex-1 items-center overflow-hidden whitespace-nowrap text-sm leading-6",
-                    {
-                      "font-semibold": isUnread,
-                    },
-                  )}
+                  className="flex shrink-0 items-center"
+                  onClick={preventPropagation}
+                  onKeyDown={preventPropagation}
                 >
-                  <div
-                    className="flex items-center pl-1"
-                    onClick={preventPropagation}
-                    onKeyDown={preventPropagation}
-                  >
-                    <Checkbox
-                      label={`Select email: ${lastMessage.headers.subject || "No subject"}`}
-                      checked={!!props.selected}
-                      onChange={onRowSelected}
-                    />
-                  </div>
-
-                  <div className="ml-4 min-w-0 flex-1 overflow-hidden truncate text-foreground md:w-48 md:flex-none">
-                    <SenderName
-                      header={participant(lastMessage, props.userEmail)}
-                    />{" "}
-                    {thread.messages.length > 1 ? (
-                      <span className="font-normal">
-                        ({thread.messages.length})
-                      </span>
-                    ) : null}
-                  </div>
-                  {!splitView && (
-                    <>
-                      {cta && (
-                        <Button
-                          variant="outline"
-                          size="xs"
-                          className="ml-2 hidden md:inline-flex"
-                          asChild
-                        >
-                          <Link href={cta.ctaLink} target="_blank">
-                            {cta.ctaText}
-                          </Link>
-                        </Button>
-                      )}
-                      <div className="ml-2 hidden min-w-0 overflow-hidden truncate text-foreground md:block">
-                        {lastMessage.headers.subject}
-                      </div>
-                      <div className="ml-4 mr-6 hidden min-w-0 flex-1 overflow-hidden truncate font-normal leading-5 text-muted-foreground md:block">
-                        {decodedSnippet}
-                      </div>
-                    </>
-                  )}
+                  <Checkbox
+                    label={`Select email: ${lastMessage.headers.subject || "No subject"}`}
+                    checked={!!props.selected}
+                    onChange={onRowSelected}
+                  />
                 </div>
 
-                {/* right */}
-                <div className="flex shrink-0 items-center justify-between">
-                  <div className="relative flex items-center">
+                <SenderAvatar name={senderName} />
+
+                <div className="min-w-0 flex-1">
+                  {/* Inline on wide screens, stacked on mobile and in split
+                      view where the columns don't fit */}
+                  <div
+                    className={clsx(
+                      "flex min-w-0 gap-x-2 text-sm",
+                      splitView
+                        ? "flex-col"
+                        : "flex-col md:flex-row md:items-center",
+                    )}
+                  >
+                    <span
+                      className={clsx(
+                        "shrink-0 truncate",
+                        splitView ? "max-w-full" : "md:max-w-[180px]",
+                        isUnread ? "font-bold" : "font-medium",
+                      )}
+                    >
+                      <SenderName header={senderHeader} />
+                      {thread.messages.length > 1 && (
+                        <span className="ml-1 font-normal text-muted-foreground">
+                          ({thread.messages.length})
+                        </span>
+                      )}
+                    </span>
+                    <span
+                      className={clsx(
+                        "min-w-0 truncate text-[13.5px]",
+                        isUnread
+                          ? "font-semibold text-foreground"
+                          : "text-foreground/80",
+                      )}
+                    >
+                      {lastMessage.headers.subject}
+                    </span>
+                    <span
+                      className={clsx(
+                        "min-w-0 flex-1 truncate text-[13px] text-muted-foreground",
+                        splitView && "hidden",
+                      )}
+                    >
+                      {decodedSnippet}
+                    </span>
+                  </div>
+                  {cta && (
+                    <Button
+                      variant="outline"
+                      size="xs"
+                      className="mt-1.5"
+                      asChild
+                    >
+                      <Link href={cta.ctaLink} target="_blank">
+                        {cta.ctaText}
+                      </Link>
+                    </Button>
+                  )}
+                  {/* Touch devices have no hover: show the row actions inline */}
+                  {!splitView && (
                     <div
-                      className="absolute right-0 z-20 hidden md:group-hover:block"
-                      // prevent email panel being opened when clicking on action buttons
+                      className="mt-2 md:hidden"
                       onClick={preventPropagation}
                       onKeyDown={preventPropagation}
                     >
                       <ActionButtons
                         threadId={thread.id!}
-                        shadow
                         isPlanning={isPlanning}
                         onArchive={() => {
                           props.onArchive(thread);
@@ -206,79 +225,53 @@ export const EmailListItem = forwardRef(
                         refetch={props.refetch}
                       />
                     </div>
-                    <EmailDate
-                      date={internalDateToDate(lastMessage?.internalDate)}
-                    />
-                  </div>
-
-                  {/* The AI's read on this email: orange when it left a
-                      reason (hover to read it), gray otherwise — click to
-                      reprocess either way */}
-                  <Tooltip
-                    content={
-                      thread.plan?.reason ?? "Process this email with AI"
-                    }
-                  >
-                    <button
-                      type="button"
-                      aria-label="Process with AI"
-                      className={clsx(
-                        "ml-3 shrink-0",
-                        thread.plan?.reason
-                          ? "text-primary"
-                          : "text-muted-foreground/50 hover:text-muted-foreground",
-                      )}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        props.onReprocess(thread);
-                      }}
-                      onKeyDown={preventPropagation}
-                    >
-                      {isPlanning ? (
-                        <LoadingMiniSpinner />
-                      ) : (
-                        <SparklesIcon className="size-3.5" />
-                      )}
-                    </button>
-                  </Tooltip>
-
-                  {!!thread.plan && (
-                    <div className="ml-3 flex min-w-0 max-w-[40vw] items-center md:max-w-56">
-                      <PlanBadge plan={thread.plan} provider={provider} />
-                    </div>
                   )}
                 </div>
-              </div>
 
-              {/* Stacked subject/snippet: always in split view, and on mobile where the inline layout doesn't fit */}
-              <div
-                className={clsx(
-                  "mt-1.5 min-w-0 overflow-hidden text-sm leading-6",
-                  !splitView && "md:hidden",
+                {!!thread.plan && !splitView && (
+                  <div className="hidden min-w-0 max-w-56 shrink-0 items-center md:flex">
+                    <PlanBadge plan={thread.plan} provider={provider} />
+                  </div>
                 )}
-              >
-                <div className="min-w-0 overflow-hidden truncate font-medium text-foreground">
-                  {lastMessage.headers.subject}
-                </div>
-                <div className="mr-6 mt-0.5 min-w-0 overflow-hidden truncate pl-1 font-normal leading-5 text-muted-foreground">
-                  {decodedSnippet}
-                </div>
-                {cta && (
-                  <Button variant="outline" size="xs" className="mt-2" asChild>
-                    <Link href={cta.ctaLink} target="_blank">
-                      {cta.ctaText}
-                    </Link>
-                  </Button>
-                )}
-                {/* Touch devices have no hover: show the row actions inline */}
-                {!splitView && (
+
+                {/* The AI's read on this email: orange when it left a reason
+                    (hover to read it), gray otherwise — click to reprocess */}
+                <Tooltip
+                  content={thread.plan?.reason ?? "Process this email with AI"}
+                >
+                  <button
+                    type="button"
+                    aria-label="Process with AI"
+                    className={clsx(
+                      "shrink-0",
+                      thread.plan?.reason
+                        ? "text-primary"
+                        : "text-muted-foreground/40 hover:text-muted-foreground",
+                    )}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      props.onReprocess(thread);
+                    }}
+                    onKeyDown={preventPropagation}
+                  >
+                    {isPlanning ? (
+                      <LoadingMiniSpinner />
+                    ) : (
+                      <SparklesIcon className="size-3.5" />
+                    )}
+                  </button>
+                </Tooltip>
+
+                <div className="relative flex shrink-0 items-center">
                   <div
-                    className="mt-2 md:hidden"
+                    className="absolute right-0 z-20 hidden md:group-hover:block"
+                    // prevent the thread opening when clicking a row action
                     onClick={preventPropagation}
                     onKeyDown={preventPropagation}
                   >
                     <ActionButtons
                       threadId={thread.id!}
+                      shadow
                       isPlanning={isPlanning}
                       onArchive={() => {
                         props.onArchive(thread);
@@ -287,10 +280,15 @@ export const EmailListItem = forwardRef(
                       refetch={props.refetch}
                     />
                   </div>
-                )}
+                  <span className="w-16 text-right text-[12.5px] text-muted-foreground">
+                    <EmailDate
+                      date={internalDateToDate(lastMessage?.internalDate)}
+                    />
+                  </span>
+                </div>
               </div>
-            </div>
-          </SwipeableRow>
+            </SwipeableRow>
+          </div>
         </li>
       </ErrorBoundary>
     );

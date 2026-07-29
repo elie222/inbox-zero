@@ -6,6 +6,7 @@ import { sendEmailBody } from "@/utils/gmail/mail";
 import { actionClient } from "@/utils/actions/safe-action";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
+import { ActionType } from "@/generated/prisma/enums";
 
 const isStatusOk = (status: number) => status >= 200 && status < 300;
 
@@ -237,12 +238,13 @@ export const updateLabelAction = actionClient
       enabled: z.boolean(),
       gmailLabelId: z.string(),
       icon: z.string().nullish(),
+      color: z.string().max(50).nullish(),
     }),
   )
   .action(
     async ({
       ctx: { emailAccountId },
-      parsedInput: { name, description, enabled, gmailLabelId, icon },
+      parsedInput: { name, description, enabled, gmailLabelId, icon, color },
     }) => {
       // Unlike updateLabelsAction, disabling keeps the row (and its
       // description) so re-enabling doesn't start from scratch.
@@ -255,8 +257,81 @@ export const updateLabelAction = actionClient
           enabled,
           emailAccountId,
           icon,
+          color,
         },
-        update: { name, description, enabled, gmailLabelId, icon },
+        update: { name, description, enabled, gmailLabelId, icon, color },
+      });
+    },
+  );
+
+// Deletes a folder at the provider (emails keep their history — Gmail
+// removes the label from messages, Outlook removes the category), drops the
+// local Label row, and removes the filing that targeted it: rules that only
+// existed to file into this folder are deleted, rules that also do other
+// things just lose the filing action.
+export const deleteLabelAction = actionClient
+  .metadata({ name: "deleteLabel" })
+  .inputSchema(z.object({ labelId: z.string(), name: z.string() }))
+  .action(
+    async ({
+      ctx: { emailAccountId, provider, logger },
+      parsedInput: { labelId, name },
+    }) => {
+      const emailProvider = await createEmailProvider({
+        emailAccountId,
+        provider,
+        logger,
+      });
+      await emailProvider.deleteLabel(labelId);
+
+      await prisma.label.deleteMany({
+        where: { emailAccountId, gmailLabelId: labelId },
+      });
+
+      // Filing actions that reference this folder, by id or (older rules)
+      // by name — same matching as the folder-rule lookup
+      const filingActionFilter = {
+        OR: [
+          { type: ActionType.LABEL, OR: [{ labelId }, { label: name }] },
+          {
+            type: ActionType.MOVE_FOLDER,
+            OR: [{ folderId: labelId }, { folderName: name }],
+          },
+        ],
+      };
+
+      // Org-managed rules are shared configuration; leave them alone
+      const rules = await prisma.rule.findMany({
+        where: {
+          emailAccountId,
+          organizationRuleId: null,
+          actions: { some: filingActionFilter },
+        },
+        select: { id: true, actions: { select: { id: true, type: true } } },
+      });
+
+      const filingActionIds = await prisma.action.findMany({
+        where: { rule: { emailAccountId }, ...filingActionFilter },
+        select: { id: true, ruleId: true },
+      });
+      const filingIdSet = new Set(filingActionIds.map((action) => action.id));
+
+      for (const rule of rules) {
+        const remaining = rule.actions.filter(
+          (action) => !filingIdSet.has(action.id),
+        );
+        if (remaining.length === 0) {
+          await prisma.rule.delete({ where: { id: rule.id } });
+        } else {
+          await prisma.action.deleteMany({
+            where: { ruleId: rule.id, id: { in: [...filingIdSet] } },
+          });
+        }
+      }
+
+      logger.info("Deleted label", {
+        labelId,
+        rulesTouched: rules.length,
       });
     },
   );

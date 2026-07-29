@@ -16,6 +16,7 @@ vi.mock("@/utils/email/provider", () => ({
 }));
 
 import {
+  deleteLabelAction,
   sendEmailAction,
   updateLabelAction,
   updateLabelsAction,
@@ -159,6 +160,101 @@ describe("updateLabelAction", () => {
         update: expect.objectContaining({ icon: undefined }),
       }),
     );
+  });
+
+  it("persists a chosen colour", async () => {
+    await updateLabelAction("account-1", {
+      name: "Billing",
+      enabled: true,
+      gmailLabelId: "Label_1",
+      color: "hsl(210 65% 55%)",
+    });
+
+    expect(prisma.label.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({ color: "hsl(210 65% 55%)" }),
+        update: expect.objectContaining({ color: "hsl(210 65% 55%)" }),
+      }),
+    );
+  });
+});
+
+describe("deleteLabelAction", () => {
+  const deleteLabel = vi.fn();
+
+  beforeEach(() => {
+    createEmailProviderMock.mockResolvedValue({ deleteLabel });
+    prisma.rule.findMany.mockResolvedValue([]);
+    prisma.action.findMany.mockResolvedValue([]);
+  });
+
+  it("deletes the folder at the provider and locally", async () => {
+    await deleteLabelAction("account-1", {
+      labelId: "Label_1",
+      name: "Billing",
+    });
+
+    expect(deleteLabel).toHaveBeenCalledWith("Label_1");
+    expect(prisma.label.deleteMany).toHaveBeenCalledWith({
+      where: { emailAccountId: "account-1", gmailLabelId: "Label_1" },
+    });
+  });
+
+  it("deletes a rule that only existed to file into this folder", async () => {
+    prisma.rule.findMany.mockResolvedValue([
+      { id: "rule-1", actions: [{ id: "act-1", type: "LABEL" }] },
+    ] as never);
+    prisma.action.findMany.mockResolvedValue([
+      { id: "act-1", ruleId: "rule-1" },
+    ] as never);
+
+    await deleteLabelAction("account-1", {
+      labelId: "Label_1",
+      name: "Billing",
+    });
+
+    expect(prisma.rule.delete).toHaveBeenCalledWith({
+      where: { id: "rule-1" },
+    });
+    expect(prisma.action.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("keeps a rule that also does other things, dropping only its filing action", async () => {
+    prisma.rule.findMany.mockResolvedValue([
+      {
+        id: "rule-1",
+        actions: [
+          { id: "act-1", type: "LABEL" },
+          { id: "act-2", type: "DRAFT_EMAIL" },
+        ],
+      },
+    ] as never);
+    prisma.action.findMany.mockResolvedValue([
+      { id: "act-1", ruleId: "rule-1" },
+    ] as never);
+
+    await deleteLabelAction("account-1", {
+      labelId: "Label_1",
+      name: "Billing",
+    });
+
+    expect(prisma.rule.delete).not.toHaveBeenCalled();
+    expect(prisma.action.deleteMany).toHaveBeenCalledWith({
+      where: { ruleId: "rule-1", id: { in: ["act-1"] } },
+    });
+  });
+
+  it("does not touch the local rows when the provider delete fails", async () => {
+    deleteLabel.mockRejectedValueOnce(new Error("provider down"));
+
+    const result = await deleteLabelAction("account-1", {
+      labelId: "Label_1",
+      name: "Billing",
+    });
+
+    expect(result?.serverError).toBeDefined();
+    expect(prisma.label.deleteMany).not.toHaveBeenCalled();
+    expect(prisma.rule.delete).not.toHaveBeenCalled();
   });
 });
 
