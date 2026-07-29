@@ -50,13 +50,28 @@ const handle = withError("carddav", async (request) => {
   // model — the path itself is the source of truth anyway
   const segments = request.nextUrl.pathname.split("/").filter(Boolean).slice(2); // drop "api", "carddav"
 
+  const requestBody = await request.text();
+
   const result = await handleCarddavRequest({
     method,
     segments,
     depth: request.headers.get("depth") ?? "0",
-    body: await request.text(),
+    body: requestBody,
     emailAccountId: auth.emailAccountId,
   });
+
+  // One line per exchange so a client that verifies, stalls, or gives up
+  // paints its whole conversation — which request it stopped after and how
+  // many bytes it was sent. Client-chosen strings (bodies) stay at trace.
+  request.logger.info("CardDAV exchange", {
+    method,
+    path: segments.join("/") || "(root)",
+    depth: request.headers.get("depth") ?? null,
+    status: result.status,
+    responseBytes: result.body?.length ?? 0,
+    userAgent: request.headers.get("user-agent"),
+  });
+  request.logger.trace("CardDAV request body", { requestBody });
 
   return toResponse(result);
 });
