@@ -494,7 +494,7 @@ export async function executeUpdateAssistantSettings({
     let hasScheduledCheckInsPremium: boolean | null = null;
     const knowledgeOperations: Array<
       | {
-          type: "upsert";
+          type: "update";
           title: string;
           content: string;
         }
@@ -518,22 +518,26 @@ export async function executeUpdateAssistantSettings({
     for (const change of normalizedChanges) {
       if (change.path === "assistant.draftKnowledgeBase.upsert") {
         const existingItem = draftKnowledgeByTitle.get(change.value.title);
+        if (!existingItem) {
+          return {
+            error: `Draft knowledge item "${change.value.title}" does not exist. Use addToKnowledgeBase to create a new entry.`,
+          };
+        }
+
         const nextContent = mergeAppendableText({
-          existingContent: existingItem?.content ?? null,
+          existingContent: existingItem.content,
           incomingContent: change.value.content,
           mode: change.mode,
         });
 
-        if (existingItem?.content === nextContent) continue;
+        if (existingItem.content === nextContent) continue;
 
         appliedChanges.push({
           path: change.path,
-          previous: existingItem
-            ? {
-                title: existingItem.title,
-                contentLength: existingItem.content.length,
-              }
-            : null,
+          previous: {
+            title: existingItem.title,
+            contentLength: existingItem.content.length,
+          },
           next: {
             title: change.value.title,
             contentLength: nextContent.length,
@@ -541,14 +545,14 @@ export async function executeUpdateAssistantSettings({
         });
 
         draftKnowledgeByTitle.set(change.value.title, {
-          id: existingItem?.id ?? "",
+          id: existingItem.id,
           title: change.value.title,
           content: nextContent,
           updatedAt: new Date().toISOString(),
         });
 
         knowledgeOperations.push({
-          type: "upsert",
+          type: "update",
           title: change.value.title,
           content: nextContent,
         });
@@ -666,20 +670,15 @@ export async function executeUpdateAssistantSettings({
     }
 
     for (const operation of knowledgeOperations) {
-      if (operation.type === "upsert") {
-        await prisma.knowledge.upsert({
+      if (operation.type === "update") {
+        await prisma.knowledge.update({
           where: {
             emailAccountId_title: {
               emailAccountId,
               title: operation.title,
             },
           },
-          create: {
-            emailAccountId,
-            title: operation.title,
-            content: operation.content,
-          },
-          update: {
+          data: {
             content: operation.content,
           },
         });
