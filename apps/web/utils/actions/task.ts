@@ -13,8 +13,9 @@ import {
   updateTaskBody,
 } from "@/utils/actions/task.validation";
 import { isTaskOpen, nextFollowUpFrom } from "@/utils/tasks";
-import { aiGenerateTaskOverview } from "@/utils/ai/tasks/generate-task-overview";
+import { regenerateTaskOverview } from "@/utils/task-overview";
 import { getEmailAccountWithAiAndTokens } from "@/utils/user/get";
+import { createEmailProvider } from "@/utils/email/provider";
 import type { Prisma } from "@/generated/prisma/client";
 import { TaskStatus } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
@@ -313,49 +314,51 @@ export const bulkTasksAction = actionClient
 export const refreshTaskOverviewAction = actionClient
   .metadata({ name: "refreshTaskOverview" })
   .inputSchema(refreshTaskOverviewBody)
-  .action(async ({ ctx: { emailAccountId }, parsedInput: { id } }) => {
-    const task = await prisma.task.findFirst({
-      where: { id, emailAccountId },
-      include: {
-        subtasks: { select: { title: true, status: true } },
-        emails: { orderBy: { createdAt: "desc" }, take: 20 },
-        activity: { orderBy: { createdAt: "desc" }, take: 20 },
-      },
-    });
-    if (!task) throw new SafeError("Task not found");
-
-    if (!task.emails.length && !task.subtasks.length && !task.activity.length) {
-      throw new SafeError(
-        "Nothing to build an overview from yet — link emails or add notes first.",
-      );
-    }
-
-    const emailAccount = await getEmailAccountWithAiAndTokens({
-      emailAccountId,
-    });
-    if (!emailAccount) throw new SafeError("Email account not found");
-
-    const result = await aiGenerateTaskOverview({
-      emailAccount,
-      task,
-      subtasks: task.subtasks,
-      emails: task.emails,
-      activity: task.activity,
-    });
-    if (!result) throw new SafeError("Could not generate an overview");
-
-    const updated = await prisma.task.update({
-      where: { id: task.id },
-      data: {
-        aiStatusSummary: result.overview,
-        activity: {
-          create: { type: "AI_UPDATE", content: "AI overview refreshed" },
+  .action(
+    async ({
+      ctx: { emailAccountId, provider, logger },
+      parsedInput: { id },
+    }) => {
+      const task = await prisma.task.findFirst({
+        where: { id, emailAccountId },
+        include: {
+          subtasks: { select: { title: true, status: true } },
+          emails: { orderBy: { createdAt: "desc" }, take: 20 },
+          activity: { orderBy: { createdAt: "desc" }, take: 20 },
         },
-      },
-    });
+      });
+      if (!task) throw new SafeError("Task not found");
 
-    return { aiStatusSummary: updated.aiStatusSummary };
-  });
+      if (
+        !task.emails.length &&
+        !task.subtasks.length &&
+        !task.activity.length
+      ) {
+        throw new SafeError(
+          "Nothing to build an overview from yet — link emails or add notes first.",
+        );
+      }
+
+      const emailAccount = await getEmailAccountWithAiAndTokens({
+        emailAccountId,
+      });
+      if (!emailAccount) throw new SafeError("Email account not found");
+
+      const emailProvider = task.emails.length
+        ? await createEmailProvider({ emailAccountId, provider, logger })
+        : null;
+
+      const overview = await regenerateTaskOverview({
+        task,
+        emailAccount,
+        emailProvider,
+        logger,
+      });
+      if (!overview) throw new SafeError("Could not generate an overview");
+
+      return { aiStatusSummary: overview };
+    },
+  );
 
 function normalizeAssignee(value: string | null | undefined): string | null {
   const email = value?.trim().toLowerCase();

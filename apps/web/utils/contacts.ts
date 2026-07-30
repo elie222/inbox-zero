@@ -514,3 +514,21 @@ function upsertGroup(
   groups.set(group.key, created);
   return created;
 }
+
+export const CONTACTS_PAGE_LIMIT = 100;
+
+// SWR key for the contacts list. The app-tray preloader warms this exact
+// key, so the page's first read must build it the same way.
+export function contactsListKey({
+  sort = "name",
+  limit = CONTACTS_PAGE_LIMIT,
+  search,
+}: {
+  sort?: string;
+  limit?: number;
+  search?: string;
+} = {}) {
+  const params = new URLSearchParams({ sort, limit: String(limit) });
+  if (search) params.set("search", search);
+  return `/api/contacts?${params.toString()}`;
+}

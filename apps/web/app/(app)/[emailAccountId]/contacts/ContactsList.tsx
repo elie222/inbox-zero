@@ -18,6 +18,8 @@ import {
   contactKey,
   type CompanySummary,
   type ContactListItem,
+  CONTACTS_PAGE_LIMIT,
+  contactsListKey,
   type LabelSummary,
   groupContacts,
   pendingDomainStats,
@@ -43,7 +45,6 @@ import { ExchangeSuggestions } from "./ExchangeSuggestions";
 import { MyCardDialog } from "./MyCardDialog";
 import { SyncSettingsDialog } from "./SyncSettingsDialog";
 
-const DEFAULT_LIMIT = 100;
 const MAX_LIMIT = 500;
 
 // Recent → Name → Most emails, cycled from one chip rather than a third tab
@@ -57,7 +58,7 @@ type Sort = (typeof SORTS)[number]["value"];
 
 export function ContactsList() {
   const [search, setSearch] = useState("");
-  const [limit, setLimit] = useState(DEFAULT_LIMIT);
+  const [limit, setLimit] = useState(CONTACTS_PAGE_LIMIT);
   // Selection holds the full contact so people outside the current window
   // (e.g. from Suggested's on-demand member lists) still display; fresh data
   // is preferred by email lookup after mutations
@@ -100,10 +101,8 @@ export function ContactsList() {
   // pane from contradicting the suggestions list
   const labelFilter = view === "suggested" ? null : searchParams.get("label");
 
-  const params = new URLSearchParams({ sort, limit: String(limit) });
-  if (search) params.set("search", search);
   const { data, isLoading, error } = useSWR<ContactsResponse>(
-    `/api/contacts?${params.toString()}`,
+    contactsListKey({ sort, limit, search }),
     { keepPreviousData: true },
   );
   // Full-history per-domain volumes: Suggested list + company stats

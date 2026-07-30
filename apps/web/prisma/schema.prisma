@@ -1161,6 +1161,8 @@ model Task {
   lastFollowUpAt      DateTime?
   nextFollowUpAt      DateTime?
   followUpCount       Int       @default(0)
+  // Thread carrying the agent's follow-ups and the assignee's replies
+  followUpThreadId    String?
 
   activity TaskActivity[]
   emails   TaskEmail[]

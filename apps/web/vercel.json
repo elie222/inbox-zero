@@ -81,6 +81,10 @@
       "schedule": "0 * * * *"
     },
     {
+      "path": "/api/cron/task-follow-ups",
+      "schedule": "0 * * * *"
+    },
+    {
       "path": "/api/cron/automation-jobs",
       "schedule": "*/15 * * * *"
     },
