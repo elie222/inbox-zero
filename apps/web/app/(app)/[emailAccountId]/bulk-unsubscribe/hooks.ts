@@ -114,7 +114,7 @@ async function executeBulkOperation<T extends Row>({
   );
 
   let completed = 0;
-  const failures: Error[] = [];
+  let failureCount = 0;
   let rateLimitError: EmailProviderRateLimitError | undefined;
 
   const updateItemOptimistically = (item: T) => {
@@ -145,7 +145,7 @@ async function executeBulkOperation<T extends Row>({
       await processItem(item);
       onDeselectItem?.(item.name);
     } catch (error) {
-      failures.push(error as Error);
+      failureCount++;
       if (error instanceof EmailProviderRateLimitError) {
         rateLimitError = error;
       } else {
@@ -175,7 +175,7 @@ async function executeBulkOperation<T extends Row>({
 
   if (rateLimitError) {
     await mutate();
-    const successful = completed - failures.length;
+    const successful = completed - failureCount;
     toast.error(rateLimitError.message, {
       id: toastId,
       description: `${successful} of ${total} completed; stopped to avoid more requests`,
@@ -183,13 +183,13 @@ async function executeBulkOperation<T extends Row>({
     return { stoppedByRateLimit: true };
   }
 
-  if (failures.length > 0) {
+  if (failureCount > 0) {
     await mutate();
     toast.error(
-      `${errorMessage} ${failures.length} ${pluralize(failures.length, "sender")}`,
+      `${errorMessage} ${failureCount} ${pluralize(failureCount, "sender")}`,
       {
         id: toastId,
-        description: `${total - failures.length} of ${total} succeeded`,
+        description: `${total - failureCount} of ${total} succeeded`,
       },
     );
   } else {
