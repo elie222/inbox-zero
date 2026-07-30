@@ -27,6 +27,7 @@ import {
   CircleCheckBigIcon,
   FileIcon,
   InboxIcon,
+  LayoutDashboardIcon,
   type LucideIcon,
   PenIcon,
   SendIcon,
@@ -61,7 +62,13 @@ import { prefixPath } from "@/utils/path";
 import { PremiumCard } from "@/components/PremiumCard";
 import { Tooltip } from "@/components/Tooltip";
 import { cn } from "@/utils";
-import { APPS, getActiveAppId, getAppHref } from "@/utils/apps";
+import {
+  type AppId,
+  getActiveAppId,
+  getAppHref,
+  getVisibleApps,
+} from "@/utils/apps";
+import { getVisibleSettingsSections } from "@/app/(app)/settings/sections";
 
 type NavItem = {
   name: string;
@@ -141,13 +148,7 @@ function SideNavBody({ path }: { path: string }) {
         <SetupProgressCard />
 
         <SidebarGroupContent>
-          {activeApp === "contacts" ? (
-            <ContactsNav path={path} />
-          ) : activeApp === "tasks" ? (
-            <TasksNav path={path} />
-          ) : activeApp === "settings" ? null : (
-            <MailNav path={path} />
-          )}
+          <ContextualNav activeApp={activeApp} path={path} />
 
           {bottomItems.length > 0 && (
             <SidebarGroup>
@@ -242,10 +243,70 @@ function SyncedStatus() {
   );
 }
 
+// Each app owns the second column's contents. Mail is the fallback for paths
+// that belong to no app (onboarding, accounts, and similar).
+function ContextualNav({
+  activeApp,
+  path,
+}: {
+  activeApp: AppId | null;
+  path: string;
+}) {
+  switch (activeApp) {
+    case "contacts":
+      return <ContactsNav path={path} />;
+    case "tasks":
+      return <TasksNav path={path} />;
+    case "settings":
+      return <SettingsNav />;
+    case "admin":
+      return <AdminNav path={path} />;
+    default:
+      return <MailNav path={path} />;
+  }
+}
+
+// Jump links to the sections of /settings. Built from the same list the page
+// renders, so a section hidden by config is absent from both.
+function SettingsNav() {
+  const items: NavItem[] = useMemo(
+    () =>
+      getVisibleSettingsSections().map((section) => ({
+        name: section.title,
+        href: `/settings#${section.id}`,
+        icon: section.icon,
+      })),
+    [],
+  );
+
+  // usePathname() drops the hash, so SideNavMenu cannot mark one of these
+  // active. Left as-is rather than half-building a scroll spy.
+  return (
+    <SidebarGroup>
+      <SideNavMenu items={items} activeHref="" />
+    </SidebarGroup>
+  );
+}
+
+function AdminNav({ path }: { path: string }) {
+  const items: NavItem[] = useMemo(
+    () => [{ name: "Overview", href: "/admin", icon: LayoutDashboardIcon }],
+    [],
+  );
+
+  return (
+    <SidebarGroup>
+      <SideNavMenu items={items} activeHref={path} />
+    </SidebarGroup>
+  );
+}
+
 // Vertical icon-only app switcher on the left edge of the sidebar (desktop)
 function AppRail({ path }: { path: string }) {
   const { emailAccountId } = useAccount();
+  const { data: user } = useUser();
   const activeApp = getActiveAppId(path);
+  const apps = getVisibleApps({ isAdmin: Boolean(user?.isAdmin) });
 
   return (
     <div className="flex h-full w-12 shrink-0 flex-col items-center gap-1 border-r border-sidebar-border py-2">
@@ -256,7 +317,7 @@ function AppRail({ path }: { path: string }) {
         <LogoMark className="h-6" />
         <span className="sr-only">Zerrow home</span>
       </Link>
-      {APPS.map((app) => (
+      {apps.map((app) => (
         <Tooltip key={app.id} content={app.name}>
           <Link
             href={getAppHref(emailAccountId, app)}

@@ -14,7 +14,8 @@ import { SideNav } from "@/components/SideNav";
 import { SidebarRight } from "@/components/SidebarRight";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { cn } from "@/utils";
-import { APPS, getActiveAppId, getAppHref } from "@/utils/apps";
+import { getActiveAppId, getAppHref, getVisibleApps } from "@/utils/apps";
+import { useUser } from "@/hooks/useUser";
 
 const CrispWithNoSSR = dynamic(() => import("@/components/CrispChat"));
 
@@ -91,11 +92,13 @@ export function SideNavWithTopNav({
 function MobileAppTray() {
   const pathname = usePathname();
   const { emailAccountId } = useAccount();
+  const { data: user } = useUser();
   const activeApp = getActiveAppId(pathname ?? "");
+  const apps = getVisibleApps({ isAdmin: Boolean(user?.isAdmin) });
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-50 flex border-t border-border bg-sidebar pb-[env(safe-area-inset-bottom)] md:hidden">
-      {APPS.map((app) => (
+      {apps.map((app) => (
         <Link
           key={app.id}
           href={getAppHref(emailAccountId, app)}

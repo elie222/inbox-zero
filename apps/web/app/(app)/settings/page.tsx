@@ -52,6 +52,10 @@ import { useMessagingChannels } from "@/hooks/useMessagingChannels";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { cn } from "@/utils";
 import { env } from "@/env";
+import {
+  isSettingsSectionVisible,
+  type SettingsSectionId,
+} from "@/app/(app)/settings/sections";
 
 export default function SettingsPage() {
   const { emailAccountId: activeEmailAccountId } = useAccount();
@@ -89,6 +93,7 @@ export default function SettingsPage() {
         <PageHeader title="Settings" />
 
         <SettingsGroup
+          id="features"
           icon={<LayoutGridIcon className="size-5" />}
           title="Features"
         >
@@ -96,6 +101,7 @@ export default function SettingsPage() {
         </SettingsGroup>
 
         <SettingsGroup
+          id="email-accounts"
           icon={<MailIcon className="size-5" />}
           title="Email Accounts"
         >
@@ -127,8 +133,9 @@ export default function SettingsPage() {
           </LoadingContent>
         </SettingsGroup>
 
-        {!env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS && (
+        {isSettingsSectionVisible("billing") && (
           <SettingsGroup
+            id="billing"
             icon={<CreditCardIcon className="size-5" />}
             title="Billing"
           >
@@ -138,14 +145,19 @@ export default function SettingsPage() {
           </SettingsGroup>
         )}
 
-        <SettingsGroup icon={<UsersIcon className="size-5" />} title="Team">
+        <SettingsGroup
+          id="team"
+          icon={<UsersIcon className="size-5" />}
+          title="Team"
+        >
           <ItemCard>
             <TeamSection />
           </ItemCard>
         </SettingsGroup>
 
-        {!env.NEXT_PUBLIC_AI_MODEL_SETTINGS_DISABLED && (
+        {isSettingsSectionVisible("ai-model") && (
           <SettingsGroup
+            id="ai-model"
             icon={<SparklesIcon className="size-5" />}
             title="AI Model"
           >
@@ -155,9 +167,9 @@ export default function SettingsPage() {
           </SettingsGroup>
         )}
 
-        {(env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED !== false ||
-          env.NEXT_PUBLIC_EXTERNAL_API_ENABLED) && (
+        {isSettingsSectionVisible("developer") && (
           <SettingsGroup
+            id="developer"
             icon={<WebhookIcon className="size-5" />}
             title="Developer"
           >
@@ -172,7 +184,11 @@ export default function SettingsPage() {
           </SettingsGroup>
         )}
 
-        <SettingsGroup icon={<UserIcon className="size-5" />} title="Account">
+        <SettingsGroup
+          id="account"
+          icon={<UserIcon className="size-5" />}
+          title="Account"
+        >
           <ItemCard>
             <AppearanceSection />
             <ItemSeparator />
@@ -323,16 +339,19 @@ function ProviderIcon({
 }
 
 function SettingsGroup({
+  id,
   icon,
   title,
   children,
 }: {
+  // Anchor target for the sidebar's section links
+  id?: SettingsSectionId;
   icon?: React.ReactNode;
   title?: string;
   children: React.ReactNode;
 }) {
   return (
-    <section className="space-y-4">
+    <section id={id} className="scroll-mt-4 space-y-4">
       {title && (
         <div className="flex items-center gap-2 text-muted-foreground">
           {icon}
