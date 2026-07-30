@@ -145,6 +145,44 @@ describe("getMessagesBatch", () => {
       12, 10, 2,
     ]);
   });
+
+  it("throws when rate-limited batch items exhaust all retries", async () => {
+    const rateLimitError = {
+      error: {
+        code: 429,
+        message: "Too many concurrent requests for user",
+        errors: [{ reason: "rateLimitExceeded" }],
+        status: "RESOURCE_EXHAUSTED",
+      },
+    };
+
+    vi.mocked(getBatch)
+      .mockResolvedValueOnce([
+        {
+          id: "id1",
+          threadId: "thread1",
+          payload: { headers: [] },
+        },
+        rateLimitError,
+      ])
+      .mockResolvedValue([rateLimitError]);
+
+    await expect(
+      getMessagesBatch({
+        messageIds: ["id1", "id2"],
+        accessToken: "token",
+        logger,
+      }),
+    ).rejects.toMatchObject({
+      message: "Too many concurrent requests for user",
+      cause: {
+        code: 429,
+        errors: [{ reason: "rateLimitExceeded" }],
+      },
+    });
+
+    expect(getBatch).toHaveBeenCalledTimes(4);
+  });
 });
 
 describe("hasPreviousCommunicationsWithSenderOrDomain", () => {
