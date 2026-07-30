@@ -5,6 +5,7 @@ import {
   SystemType,
 } from "@/generated/prisma/enums";
 import { createTestLogger } from "@/__tests__/helpers";
+import { SafeError } from "@/utils/error";
 import { createRuleTool } from "./tools/rules/create-rule-tool";
 import { updateRuleTool } from "./tools/rules/update-rule-tool";
 import { deleteRuleTool } from "./tools/rules/delete-rule-tool";
@@ -122,6 +123,34 @@ describe("createRuleTool overlap guard", () => {
     expect(result.success).toBe(false);
     expect(result.error).toContain('overlaps the existing "Team Mail"');
     expect(mockCreateRule).not.toHaveBeenCalled();
+  });
+
+  // The schema advertises delayInMinutes and the model fills it in, but the
+  // input builder hardcoded null, so "archive this an hour later" reported
+  // success and created a rule with no delay.
+  it("keeps the requested action delay", async () => {
+    await createRuleTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-id",
+      provider: "google",
+      logger,
+    }).execute({
+      name: "Delayed Archive",
+      condition: {
+        aiInstructions: "Receipts from the finance team.",
+        static: {},
+        conditionalOperator: null,
+      },
+      actions: [{ type: ActionType.ARCHIVE, fields: null, delayInMinutes: 60 }],
+    });
+
+    expect(mockCreateRule).toHaveBeenCalledWith(
+      expect.objectContaining({
+        result: expect.objectContaining({
+          actions: [expect.objectContaining({ delayInMinutes: 60 })],
+        }),
+      }),
+    );
   });
 
   it("allows sender rules narrowed by semantic instructions", async () => {
@@ -325,6 +354,37 @@ describe("updateRuleTool", () => {
     expect(call?.preserveActionTypes).not.toContain(
       ActionType.DRAFT_MESSAGING_CHANNEL,
     );
+  });
+
+  // The blanket catch used to collapse every failure to "Failed to update
+  // rule", discarding messages the model could have acted on -- sender-scope
+  // overlaps, disabled action types, webhook validation, label resolution.
+  it("surfaces the reason a write was rejected instead of a generic failure", async () => {
+    mockPartialUpdateRule.mockRejectedValue(
+      new SafeError(
+        'Sender "@vendor.example" already belongs to the rule "Vendor Mail".',
+      ),
+    );
+
+    const result = await updateRuleTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-id",
+      provider: "google",
+      logger,
+      getRuleReadState: () => ({
+        readAt: Date.now(),
+        rulesRevision: 3,
+        ruleUpdatedAtByName: new Map([
+          ["Vendor Billing", "2026-04-27T00:00:00.000Z"],
+        ]),
+      }),
+    }).execute({
+      ruleName: "Vendor Billing",
+      updates: { condition: { static: { from: "@vendor.example" } } },
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("already belongs to the rule");
   });
 
   it("strips copied rule fields from status-only updates before writing", async () => {

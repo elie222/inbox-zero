@@ -10,6 +10,7 @@ import {
   type RuleAction,
 } from "@/utils/ai/rule/create-rule-schema";
 import { isDuplicateError } from "@/utils/prisma-helpers";
+import { SafeError } from "@/utils/error";
 import {
   partialUpdateRule,
   setRuleEnabled,
@@ -97,6 +98,11 @@ export const updateRuleTool = ({
         });
 
         if (readValidationError) {
+          logger.warn("Rule write rejected as stale", {
+            tool: "updateRule",
+            ruleName,
+            reason: readValidationError,
+          });
           return hideToolErrorFromUser({
             success: false,
             error: readValidationError,
@@ -153,6 +159,11 @@ export const updateRuleTool = ({
           currentRuleUpdatedAt: rule.updatedAt,
         });
         if (staleReadError) {
+          logger.warn("Rule write rejected as stale", {
+            tool: "updateRule",
+            ruleName,
+            reason: staleReadError,
+          });
           return hideToolErrorFromUser({
             success: false,
             error: staleReadError,
@@ -316,6 +327,17 @@ export const updateRuleTool = ({
             success: false,
             error:
               "No rule was updated. Another rule already uses that name. Ask the user for a different name.",
+          };
+        }
+
+        // Validation guards throw SafeError with text the model can act on --
+        // a sender-scope overlap, a disabled action type, an unresolvable
+        // label. Collapsing those to a generic failure leaves it no way to
+        // recover or explain what went wrong.
+        if (error instanceof SafeError && error.safeMessage) {
+          return {
+            success: false,
+            error: `No rule was updated. ${error.safeMessage}`,
           };
         }
 

@@ -77,6 +77,11 @@ export const updateLearnedPatternsTool = ({
         });
 
         if (readValidationError) {
+          logger.warn("Rule write rejected as stale", {
+            tool: "updateLearnedPatterns",
+            ruleName,
+            reason: readValidationError,
+          });
           return hideToolErrorFromUser({
             success: false,
             error: readValidationError,
@@ -113,6 +118,11 @@ export const updateLearnedPatternsTool = ({
           currentRuleUpdatedAt: rule.updatedAt,
         });
         if (staleReadError) {
+          logger.warn("Rule write rejected as stale", {
+            tool: "updateLearnedPatterns",
+            ruleName,
+            reason: staleReadError,
+          });
           return hideToolErrorFromUser({
             success: false,
             error: staleReadError,

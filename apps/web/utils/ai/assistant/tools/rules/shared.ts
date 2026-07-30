@@ -16,7 +16,6 @@ import {
 
 export const emptyInputSchema = z.object({});
 
-const RULE_READ_FRESHNESS_WINDOW_MS = 2 * 60 * 1000;
 const RULE_NOT_FOUND_ERROR =
   "Rule not found. Try listing the rules again. The user may have made changes since you last checked.";
 
@@ -71,7 +70,7 @@ export function buildCreateRuleSchemaFromChatToolInput(
       fields: action.fields
         ? buildProviderRuleActionFields({ provider, fields: action.fields })
         : null,
-      delayInMinutes: null,
+      delayInMinutes: action.delayInMinutes ?? null,
     })),
   };
 }
@@ -134,10 +133,13 @@ export function validateRuleWasReadRecently({
     return "No rule was changed. Call getUserRulesAndSettings immediately before updating this rule.";
   }
 
-  if (Date.now() - ruleReadState.readAt > RULE_READ_FRESHNESS_WINDOW_MS) {
-    return "No rule was changed. Rules may be stale. Call getUserRulesAndSettings again immediately before updating the rule.";
-  }
-
+  // Deliberately no wall-clock staleness check. The read state is hydrated
+  // from a live DB read within this same request, and the agent's tool budget
+  // is longer than any window worth enforcing, so a time limit only rejected
+  // writes from turns that spent a while searching first. The revision and
+  // per-rule updatedAt comparisons below are strictly more precise, and
+  // updatedAt moves on every rule write regardless of the DB trigger's column
+  // list.
   if (
     currentRulesRevision !== undefined &&
     ruleReadState.rulesRevision !== currentRulesRevision

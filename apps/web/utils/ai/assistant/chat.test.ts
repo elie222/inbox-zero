@@ -70,6 +70,10 @@ describe("loadFreshRuleContext", () => {
     } as any);
   }
 
+  // Intentional: the write tools require the model to have observed the rules
+  // itself. Hydrating read state here would let a brand-new chat edit a rule
+  // it has never seen, so the first edit pays one getUserRulesAndSettings
+  // round trip instead.
   it("returns null for a brand-new chat that has never seen rules", async () => {
     const result = await loadFreshRuleContext({
       emailAccountId: "account-1",

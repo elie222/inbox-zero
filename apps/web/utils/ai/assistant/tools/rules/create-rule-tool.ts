@@ -1,5 +1,6 @@
 import { type InferUITool, tool } from "ai";
 import type { Logger } from "@/utils/logger";
+import { SafeError } from "@/utils/error";
 import { createRuleSchema } from "@/utils/ai/rule/create-rule-schema";
 import {
   createRule,
@@ -103,6 +104,15 @@ export const createRuleTool = ({
         const message = error instanceof Error ? error.message : String(error);
 
         logger.error("Failed to create rule", { error });
+
+        // The failure message is read from `error`, so putting the useful text
+        // in `message` alongside a generic `error` discarded it.
+        if (error instanceof SafeError && error.safeMessage) {
+          return {
+            error: `No rule was created. ${error.safeMessage}`,
+            message,
+          };
+        }
 
         return { error: "Failed to create rule", message };
       }

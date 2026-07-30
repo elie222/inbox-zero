@@ -44,6 +44,11 @@ export const deleteRuleTool = ({
         });
 
         if (readValidationError) {
+          logger.warn("Rule write rejected as stale", {
+            tool: "deleteRule",
+            ruleName,
+            reason: readValidationError,
+          });
           return hideToolErrorFromUser({
             success: false,
             error: readValidationError,
@@ -82,6 +87,11 @@ export const deleteRuleTool = ({
           currentRuleUpdatedAt: rule.updatedAt,
         });
         if (staleReadError) {
+          logger.warn("Rule write rejected as stale", {
+            tool: "deleteRule",
+            ruleName,
+            reason: staleReadError,
+          });
           return hideToolErrorFromUser({
             success: false,
             error: staleReadError,

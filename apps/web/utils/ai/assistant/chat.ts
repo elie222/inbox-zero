@@ -355,6 +355,11 @@ export async function loadFreshRuleContext({
   chatLastSeenRulesRevision?: number | null;
   chatHasHistory?: boolean;
 }) {
+  // A brand-new chat deliberately gets no hydrated read state: the write tools
+  // require the model to have actually observed the current rules, not just
+  // for the server to have loaded them. Hydrating here would let it edit a
+  // rule it has never seen. The extra getUserRulesAndSettings round trip on
+  // the first edit is the cost of that guarantee.
   if (chatLastSeenRulesRevision == null && !chatHasHistory) return null;
 
   const knownRulesRevision = chatLastSeenRulesRevision ?? -1;
