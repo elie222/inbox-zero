@@ -168,7 +168,9 @@ export function LatestThreadCard({
       </div>
       <Link
         href={href}
-        className="shrink-0 text-[12.5px] font-medium text-primary hover:underline"
+        // Finger-sized hit area for the pane's jump into mail history; the
+        // negative margins keep the visual footprint unchanged
+        className="-my-3 -mr-3 shrink-0 py-3 pr-3 pl-3 text-[12.5px] font-medium text-primary hover:underline"
       >
         Open in Mail →
       </Link>

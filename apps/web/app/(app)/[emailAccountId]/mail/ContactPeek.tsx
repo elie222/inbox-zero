@@ -63,7 +63,7 @@ function ContactPeekSheet({
       {/* ContactDetails scrolls its own body, so the sheet must not */}
       <SheetContent
         side="right"
-        className="w-full max-w-none p-5 pt-[calc(1.25rem+env(safe-area-inset-top,0px))] pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] sm:max-w-[560px] [&>button]:top-[calc(1.5rem+env(safe-area-inset-top,0px))]"
+        className="w-full max-w-none p-5 pt-[calc(1.25rem+env(safe-area-inset-top,0px))] pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] sm:max-w-[560px] [&>button]:top-[calc(1.5rem+env(safe-area-inset-top,0px))] [&>button]:p-2.5 [&>button]:-m-2.5"
       >
         <SheetTitle className="sr-only">Contact details</SheetTitle>
         {normalized && (

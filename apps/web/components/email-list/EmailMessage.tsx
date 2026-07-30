@@ -192,8 +192,8 @@ function TopBar({
               </Button>
             </Tooltip>
             <Tooltip content="Forward">
-              <Button variant="ghost" size="icon">
-                <ForwardIcon className="h-4 w-4" onClick={onForward} />
+              <Button variant="ghost" size="icon" onClick={onForward}>
+                <ForwardIcon className="h-4 w-4" />
                 <span className="sr-only">Forward</span>
               </Button>
             </Tooltip>

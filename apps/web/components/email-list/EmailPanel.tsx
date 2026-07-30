@@ -91,12 +91,12 @@ export function EmailPanel({
     // The hosting sheet is full-bleed on phones, so the panel itself keeps
     // its header out from under the status bar and its tail clear of the
     // home indicator
-    <div className="flex h-full min-w-0 flex-col overflow-y-hidden pt-[env(safe-area-inset-top,0px)]">
+    <div className="flex h-full min-w-0 flex-col overflow-y-hidden overflow-x-hidden pt-[env(safe-area-inset-top,0px)]">
       <div className="sticky border-b border-border p-4 md:flex md:items-center md:justify-between">
         <div className="md:w-0 md:flex-1">
           <h1
             id="message-heading"
-            className="text-lg font-medium text-foreground"
+            className="min-w-0 break-words text-lg font-medium text-foreground"
           >
             {lastMessage.headers.subject}
           </h1>
