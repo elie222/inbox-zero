@@ -4,6 +4,7 @@ import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NewsletterStatus } from "@/generated/prisma/enums";
 import type { Row } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/types";
+import { EMAIL_PROVIDER_RATE_LIMIT_MESSAGE } from "@/utils/error";
 
 const {
   setSenderStatusActionMock,
@@ -68,7 +69,12 @@ vi.mock("sonner", () => ({
   },
 }));
 
-import { useApproveButton, useAutoArchive, useUnsubscribe } from "./hooks";
+import {
+  useApproveButton,
+  useAutoArchive,
+  useBulkAutoArchive,
+  useUnsubscribe,
+} from "./hooks";
 
 const EMAIL_ACCOUNT_ID = "email-account-1";
 const SENDER = "news@example.com";
@@ -177,6 +183,44 @@ describe("bulk unsubscribe hooks", () => {
 
       expect(toastErrorMock).toHaveBeenCalled();
       expect(queueArchiveSendersMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("useBulkAutoArchive", () => {
+    it("stops after a provider rate limit and leaves remaining senders selected", async () => {
+      setSenderStatusActionMock
+        .mockResolvedValueOnce({ data: { autoArchived: true } })
+        .mockResolvedValueOnce({
+          serverError: EMAIL_PROVIDER_RATE_LIMIT_MESSAGE,
+        });
+      const onDeselectItem = vi.fn();
+
+      const { result } = renderHook(() =>
+        useBulkAutoArchive({
+          ...sharedHookArgs,
+          filter: "all",
+          onDeselectItem,
+        }),
+      );
+
+      await act(async () => {
+        await result.current.onBulkAutoArchive([
+          getRow({ name: "first@example.com" }),
+          getRow({ name: "second@example.com" }),
+          getRow({ name: "third@example.com" }),
+        ]);
+      });
+
+      expect(setSenderStatusActionMock).toHaveBeenCalledTimes(2);
+      expect(queueArchiveSendersMock).toHaveBeenCalledTimes(1);
+      expect(onDeselectItem).toHaveBeenCalledOnce();
+      expect(onDeselectItem).toHaveBeenCalledWith("first@example.com");
+      expect(toastErrorMock).toHaveBeenCalledWith(
+        EMAIL_PROVIDER_RATE_LIMIT_MESSAGE,
+        expect.objectContaining({
+          description: "1 of 3 completed; stopped to avoid more requests",
+        }),
+      );
     });
   });
 

@@ -11,7 +11,11 @@ import {
 } from "@/utils/actions/unsubscriber";
 import { decrementUnsubscribeCreditAction } from "@/utils/actions/premium";
 import { NewsletterStatus } from "@/generated/prisma/enums";
-import { assertActionSucceeded, captureException } from "@/utils/error";
+import {
+  assertActionSucceeded,
+  captureException,
+  EmailProviderRateLimitError,
+} from "@/utils/error";
 import {
   addToArchiveSenderThreadQueue,
   useArchiveSenderQueueActions,
@@ -111,6 +115,7 @@ async function executeBulkOperation<T extends Row>({
 
   let completed = 0;
   const failures: Error[] = [];
+  let rateLimitError: EmailProviderRateLimitError | undefined;
 
   const updateItemOptimistically = (item: T) => {
     const optimisticStatus = getNewStatus ? getNewStatus(item) : newStatus;
@@ -134,14 +139,18 @@ async function executeBulkOperation<T extends Row>({
   };
 
   for (const item of items) {
-    onDeselectItem?.(item.name);
     updateItemOptimistically(item);
 
     try {
       await processItem(item);
+      onDeselectItem?.(item.name);
     } catch (error) {
       failures.push(error as Error);
-      captureException(error);
+      if (error instanceof EmailProviderRateLimitError) {
+        rateLimitError = error;
+      } else {
+        captureException(error);
+      }
     } finally {
       completed++;
       toast.loading(
@@ -152,6 +161,8 @@ async function executeBulkOperation<T extends Row>({
         },
       );
     }
+
+    if (rateLimitError) break;
   }
 
   if (onComplete) {
@@ -160,6 +171,16 @@ async function executeBulkOperation<T extends Row>({
     } catch (error) {
       captureException(error);
     }
+  }
+
+  if (rateLimitError) {
+    await mutate();
+    const successful = completed - failures.length;
+    toast.error(rateLimitError.message, {
+      id: toastId,
+      description: `${successful} of ${total} completed; stopped to avoid more requests`,
+    });
+    return { stoppedByRateLimit: true };
   }
 
   if (failures.length > 0) {
@@ -178,6 +199,8 @@ async function executeBulkOperation<T extends Row>({
     });
     onSuccess?.();
   }
+
+  return { stoppedByRateLimit: false };
 }
 
 async function unsubscribeAndArchive({
@@ -391,7 +414,7 @@ export function useBulkUnsubscribe<T extends Row>({
 
       const messages = getBulkUnsubscribeMessages(items);
 
-      await executeBulkOperation({
+      const result = await executeBulkOperation({
         items,
         mutate,
         filter,
@@ -430,6 +453,8 @@ export function useBulkUnsubscribe<T extends Row>({
         },
         onSuccess: () => onSuccess?.(items),
       });
+      if (result.stoppedByRateLimit) return;
+
       analytics.captureAction("bulk_unsubscribe_completed", {
         item_count: items.length,
         filter,
