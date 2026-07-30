@@ -484,6 +484,25 @@ async function updateBookingForEvent({
   if (!CHANGEABLE_STATUSES.includes(recording.status)) return true;
   if (!recording.externalBotId) return true;
 
+  if (recording.activeKey) {
+    const cancellingDestination = await prisma.meetingRecording.findFirst({
+      where: {
+        id: { not: recording.id },
+        activeKey: recording.activeKey,
+        meetingStartTime: event.startTime,
+        status: MeetingRecordingStatus.CANCELLING,
+      },
+      select: { id: true },
+    });
+    if (cancellingDestination) {
+      logger.info("Waiting for destination recording cancellation", {
+        recordingId: recording.id,
+        conflictingRecordingId: cancellingDestination.id,
+      });
+      return true;
+    }
+  }
+
   const provider = createMeetingBotProvider(recording.botProvider, logger);
   const updatedBot = await provider.updateBot(recording.externalBotId, {
     joinAt: event.startTime,
