@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
-import { ActionType } from "@/generated/prisma/enums";
+import { ActionType, SubjectMatchMode } from "@/generated/prisma/enums";
 import { createRuleHistory } from "./rule-history";
 import type { RuleWithRelations } from "./types";
 
@@ -17,9 +17,14 @@ function sampleRule(
     runOnThreads: false,
     conditionalOperator: "AND",
     from: "news@example.com",
+    fromExclude: false,
     to: null,
+    toExclude: false,
     subject: null,
+    subjectMatchMode: SubjectMatchMode.CONTAINS,
+    subjectExclude: false,
     body: null,
+    excludeKnownContacts: false,
     systemType: null,
     promptText: null,
     actions: [
@@ -86,6 +91,54 @@ describe("createRuleHistory", () => {
         }),
       }),
     );
+  });
+
+  it("snapshots the negation and match-mode fields", async () => {
+    vi.mocked(prisma.ruleHistory.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.ruleHistory.create).mockResolvedValue({} as any);
+
+    await createRuleHistory({
+      rule: sampleRule({
+        fromExclude: true,
+        toExclude: true,
+        subjectExclude: true,
+        subjectMatchMode: SubjectMatchMode.STARTS_WITH,
+        excludeKnownContacts: true,
+      }),
+      triggerType: "conditions_updated",
+    });
+
+    expect(prisma.ruleHistory.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          fromExclude: true,
+          toExclude: true,
+          subjectExclude: true,
+          subjectMatchMode: SubjectMatchMode.STARTS_WITH,
+          excludeKnownContacts: true,
+        }),
+      }),
+    );
+  });
+
+  // Toggling "Is not" used to write a history row byte-identical to the one
+  // before it, so the change was invisible in rule history.
+  it("distinguishes a version that differs only by negation", async () => {
+    vi.mocked(prisma.ruleHistory.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.ruleHistory.create).mockResolvedValue({} as any);
+
+    await createRuleHistory({
+      rule: sampleRule({ fromExclude: false }),
+      triggerType: "conditions_updated",
+    });
+    await createRuleHistory({
+      rule: sampleRule({ fromExclude: true }),
+      triggerType: "conditions_updated",
+    });
+
+    const [firstCall, secondCall] = vi.mocked(prisma.ruleHistory.create).mock
+      .calls;
+    expect(firstCall[0].data).not.toEqual(secondCall[0].data);
   });
 
   it("increments version from the latest history row", async () => {

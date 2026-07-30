@@ -9,7 +9,8 @@ export type RuleHistoryTrigger =
   | "conditions_updated"
   | "instructions_updated"
   | "enabled_updated"
-  | "run_on_threads_updated";
+  | "run_on_threads_updated"
+  | "exclude_known_contacts_updated";
 
 export const ruleHistoryRuleInclude = {
   actions: true,
@@ -64,9 +65,14 @@ export async function createRuleHistory({
       runOnThreads: rule.runOnThreads,
       conditionalOperator: rule.conditionalOperator,
       from: rule.from,
+      fromExclude: rule.fromExclude,
       to: rule.to,
+      toExclude: rule.toExclude,
       subject: rule.subject,
+      subjectMatchMode: rule.subjectMatchMode,
+      subjectExclude: rule.subjectExclude,
       body: rule.body,
+      excludeKnownContacts: rule.excludeKnownContacts,
       systemType: rule.systemType,
       promptText: rule.promptText,
       actions: actionsSnapshot,

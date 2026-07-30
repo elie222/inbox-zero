@@ -147,6 +147,34 @@ export function MessagePart({
 }: MessagePartProps) {
   const key = `${messageId}-${partIndex}`;
 
+  // A tool call the SDK could not parse against its schema, or whose execute
+  // threw, arrives in the "output-error" state. This must be handled before the
+  // type-specific branches below, which only cover input-available and
+  // output-available: an unhandled rejection rendered nothing at all, while the
+  // assistant's prose frequently claimed the change had been made.
+  if (isFailedToolPart(part)) {
+    return (
+      <ErrorToolCard
+        key={key}
+        error="The assistant sent an invalid request to this tool, so nothing changed."
+      />
+    );
+  }
+
+  if (isDynamicToolPart(part)) {
+    const toolLabel = formatToolLabel(part.toolName);
+    return renderToolStatus({
+      part,
+      loadingText: `Running ${toolLabel}...`,
+      renderSuccess: ({ toolCallId, output }) => (
+        <BasicToolInfo
+          key={toolCallId}
+          text={getToolSuccessMessage(output) ?? `Completed ${toolLabel}`}
+        />
+      ),
+    });
+  }
+
   if (part.type === "reasoning") {
     // Skip rendering if reasoning is redacted (limited token output from provider)
     if (!part.text || part.text === "[REDACTED]") return null;
@@ -907,6 +935,49 @@ function getOptionalStringArray(value: unknown) {
   return Array.isArray(value) && value.every((item) => typeof item === "string")
     ? value
     : undefined;
+}
+
+type DynamicToolPart = {
+  type: "dynamic-tool";
+  toolName: string;
+  toolCallId: string;
+  state: string;
+  output?: unknown;
+};
+
+/**
+ * The SDK reports a tool call it could not parse against the tool's schema as a
+ * `dynamic-tool` part rather than `tool-<name>`, so matching only the latter
+ * misses every schema rejection.
+ */
+function isDynamicToolPart(part: unknown): part is DynamicToolPart {
+  return (
+    isPartRecord(part) &&
+    part.type === "dynamic-tool" &&
+    typeof part.toolName === "string" &&
+    typeof part.toolCallId === "string"
+  );
+}
+
+/**
+ * Whether this part is a tool call the SDK rejected or whose execute threw.
+ *
+ * The card deliberately shows a curated message rather than the SDK's
+ * `errorText`: that string is built by serializing the tool input, so it would
+ * echo the user's own addresses, subject lines and rule text back at them as a
+ * raw JSON dump. The detail is logged server-side instead.
+ */
+function isFailedToolPart(part: unknown): boolean {
+  if (!isPartRecord(part)) return false;
+  if (typeof part.type !== "string") return false;
+  if (part.type !== "dynamic-tool" && !part.type.startsWith("tool-")) {
+    return false;
+  }
+  return part.state === "output-error";
+}
+
+function isPartRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
 function renderToolStatus({

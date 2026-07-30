@@ -22,6 +22,7 @@ const triggerTypeLabels: Record<RuleHistoryTrigger, string> = {
   instructions_updated: "Instructions Updated",
   enabled_updated: "Enabled Toggled",
   run_on_threads_updated: "Thread Mode Updated",
+  exclude_known_contacts_updated: "Known Contacts Exclusion Updated",
 };
 
 export default async function RuleHistoryPage(props: {

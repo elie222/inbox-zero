@@ -99,6 +99,7 @@ vi.mock("@/utils/ai/assistant/inline-email-actions", async (importActual) => {
 
 vi.mock("@/utils/ai/assistant/chat-response-guard", () => ({
   getToolFailureWarning: mockGetToolFailureWarning,
+  getFailedToolCalls: () => [],
 }));
 
 import { POST } from "./route";

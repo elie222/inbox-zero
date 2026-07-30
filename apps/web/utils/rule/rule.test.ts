@@ -58,6 +58,7 @@ import {
   partialUpdateRule,
   replaceRuleWithResolvedActions,
   setRuleEnabled,
+  setRuleExcludeKnownContacts,
   setRuleRunOnThreads,
   updateRule,
   updateRuleInstructions,
@@ -640,6 +641,66 @@ describe("updateRuleActions", () => {
       }),
     );
   });
+
+  // Actions are replaced wholesale, so a caller that cannot express an existing
+  // action type must be able to exclude it from the delete. Without this the
+  // assistant chat silently deleted messaging-channel notifications.
+  it("excludes caller-preserved action types from the delete", async () => {
+    prisma.rule.findFirst.mockResolvedValue({
+      from: null,
+      actions: [
+        { type: ActionType.NOTIFY_MESSAGING_CHANNEL },
+        { type: ActionType.LABEL },
+      ],
+    } as any);
+    prisma.rule.update.mockResolvedValue({
+      id: RULE_ID,
+      actions: [],
+      group: null,
+    } as any);
+
+    await updateRuleActions({
+      ruleId: RULE_ID,
+      actions: [archiveAction()],
+      provider: "gmail",
+      emailAccountId: EMAIL_ACCOUNT_ID,
+      logger,
+      preserveActionTypes: [ActionType.NOTIFY_MESSAGING_CHANNEL],
+    });
+
+    const deleteMany = (prisma.rule.update as any).mock.calls.at(-1)?.[0].data
+      .actions.deleteMany;
+    expect(deleteMany.type.notIn).toContain(
+      ActionType.NOTIFY_MESSAGING_CHANNEL,
+    );
+    expect(deleteMany.type.notIn).not.toContain(ActionType.LABEL);
+  });
+
+  it("deletes every action when nothing needs preserving", async () => {
+    mockEnv.webhookActionsEnabled = true;
+    mockEnv.deleteEmailActionEnabled = true;
+    prisma.rule.findFirst.mockResolvedValue({
+      from: null,
+      actions: [{ type: ActionType.LABEL }],
+    } as any);
+    prisma.rule.update.mockResolvedValue({
+      id: RULE_ID,
+      actions: [],
+      group: null,
+    } as any);
+
+    await updateRuleActions({
+      ruleId: RULE_ID,
+      actions: [archiveAction()],
+      provider: "gmail",
+      emailAccountId: EMAIL_ACCOUNT_ID,
+      logger,
+    });
+
+    const deleteMany = (prisma.rule.update as any).mock.calls.at(-1)?.[0].data
+      .actions.deleteMany;
+    expect(deleteMany).toEqual({});
+  });
 });
 
 describe("rule history snapshots", () => {
@@ -677,6 +738,17 @@ describe("rule history snapshots", () => {
           ruleId: RULE_ID,
           emailAccountId: EMAIL_ACCOUNT_ID,
           runOnThreads: false,
+        }),
+    },
+    {
+      name: "toggling known-contact exclusion",
+      data: { excludeKnownContacts: true },
+      triggerType: "exclude_known_contacts_updated",
+      run: () =>
+        setRuleExcludeKnownContacts({
+          ruleId: RULE_ID,
+          emailAccountId: EMAIL_ACCOUNT_ID,
+          excludeKnownContacts: true,
         }),
     },
   ])("writes history when $name", async ({ data, triggerType, run }) => {

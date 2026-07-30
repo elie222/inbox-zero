@@ -1316,7 +1316,13 @@ export function UpdatedRule({
           }),
       )
     : null;
-  const actions = output.updatedActions;
+  // Render the rule's actual post-write actions, not the model's restated
+  // list: the restated list omits action types the chat cannot express (e.g.
+  // messaging-channel notifications), which are preserved on the rule. Showing
+  // the restated list would tell the user those actions were removed.
+  const actions = output.updatedActions
+    ? (output.currentRule?.actions ?? output.updatedActions)
+    : undefined;
   const nameChanged =
     output.originalName &&
     output.updatedName &&

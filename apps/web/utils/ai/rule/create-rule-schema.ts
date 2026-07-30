@@ -162,64 +162,76 @@ export type RuleAction = {
   delayInMinutes?: number | null;
 };
 
-export const createRuleActionSchema = (
-  provider: string,
-): z.ZodType<RuleAction> => {
+const ALWAYS_EXPRESSIBLE_ACTION_TYPES = [
+  ActionType.ARCHIVE,
+  ActionType.LABEL,
+  ActionType.MARK_READ,
+  ActionType.STAR,
+  ActionType.MARK_SPAM,
+  ActionType.DIGEST,
+] as const;
+
+const FEATURE_GATED_EXPRESSIBLE_ACTION_TYPES = [
+  ActionType.DRAFT_EMAIL,
+  ActionType.REPLY,
+  ActionType.FORWARD,
+  ActionType.SEND_EMAIL,
+  ActionType.CALL_WEBHOOK,
+  ActionType.MOVE_FOLDER,
+] as const;
+
+/**
+ * The ActionType values the assistant chat can express in a tool call.
+ *
+ * The Prisma ActionType enum is larger than this list (it also has
+ * DRAFT_MESSAGING_CHANNEL, NOTIFY_MESSAGING_CHANNEL, DELETE and NOTIFY_SENDER),
+ * and feature gates can narrow it further. Any type absent from this list must
+ * be preserved across a chat-driven action update rather than replaced,
+ * otherwise editing a rule through chat silently deletes actions the model
+ * could not have restated.
+ */
+export function getChatExpressibleActionTypes(provider: string): ActionType[] {
   const allowedActionTypes = new Set([
     ...getAvailableActionsForRuleEditor({ provider }),
     ...getExtraAvailableActionsForRuleEditor(),
   ]);
+
+  return [
+    ...ALWAYS_EXPRESSIBLE_ACTION_TYPES,
+    ...FEATURE_GATED_EXPRESSIBLE_ACTION_TYPES.filter((actionType) =>
+      allowedActionTypes.has(actionType),
+    ),
+  ];
+}
+
+export const createRuleActionSchema = (
+  provider: string,
+): z.ZodType<RuleAction> => {
   const optionalFieldsSchema = createOptionalActionFieldsSchema(provider);
 
-  const actionSchemas: [z.ZodTypeAny, z.ZodTypeAny, ...z.ZodTypeAny[]] = [
-    createActionObjectSchema(ActionType.ARCHIVE, optionalFieldsSchema),
-    createActionObjectSchema(
-      ActionType.LABEL,
-      createRequiredLabelFieldsSchema(provider),
-    ),
-    createActionObjectSchema(ActionType.MARK_READ, optionalFieldsSchema),
-    createActionObjectSchema(ActionType.STAR, optionalFieldsSchema),
-    createActionObjectSchema(ActionType.MARK_SPAM, optionalFieldsSchema),
-    createActionObjectSchema(ActionType.DIGEST, optionalFieldsSchema),
-    ...(allowedActionTypes.has(ActionType.DRAFT_EMAIL)
-      ? [createActionObjectSchema(ActionType.DRAFT_EMAIL, optionalFieldsSchema)]
-      : []),
-    ...(allowedActionTypes.has(ActionType.REPLY)
-      ? [createActionObjectSchema(ActionType.REPLY, optionalFieldsSchema)]
-      : []),
-    ...(allowedActionTypes.has(ActionType.FORWARD)
-      ? [
-          createActionObjectSchema(
-            ActionType.FORWARD,
-            createRequiredRecipientFieldsSchema(provider),
-          ),
-        ]
-      : []),
-    ...(allowedActionTypes.has(ActionType.SEND_EMAIL)
-      ? [
-          createActionObjectSchema(
-            ActionType.SEND_EMAIL,
-            createRequiredRecipientFieldsSchema(provider),
-          ),
-        ]
-      : []),
-    ...(allowedActionTypes.has(ActionType.CALL_WEBHOOK)
-      ? [
-          createActionObjectSchema(
-            ActionType.CALL_WEBHOOK,
-            createRequiredWebhookFieldsSchema(provider),
-          ),
-        ]
-      : []),
-    ...(allowedActionTypes.has(ActionType.MOVE_FOLDER)
-      ? [
-          createActionObjectSchema(
-            ActionType.MOVE_FOLDER,
-            createRequiredFolderFieldsSchema(provider),
-          ),
-        ]
-      : []),
-  ];
+  // Built lazily per action type: the folder and recipient field schemas throw
+  // when the provider doesn't support them, so they must only be constructed
+  // for types that survived the expressible-type filter.
+  const buildFieldsSchema = (actionType: ActionType): z.ZodTypeAny => {
+    switch (actionType) {
+      case ActionType.LABEL:
+        return createRequiredLabelFieldsSchema(provider);
+      case ActionType.FORWARD:
+      case ActionType.SEND_EMAIL:
+        return createRequiredRecipientFieldsSchema(provider);
+      case ActionType.CALL_WEBHOOK:
+        return createRequiredWebhookFieldsSchema(provider);
+      case ActionType.MOVE_FOLDER:
+        return createRequiredFolderFieldsSchema(provider);
+      default:
+        return optionalFieldsSchema;
+    }
+  };
+
+  const actionSchemas = getChatExpressibleActionTypes(provider).map(
+    (actionType) =>
+      createActionObjectSchema(actionType, buildFieldsSchema(actionType)),
+  ) as [z.ZodTypeAny, z.ZodTypeAny, ...z.ZodTypeAny[]];
 
   return z.union(actionSchemas) as z.ZodType<RuleAction>;
 };

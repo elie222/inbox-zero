@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  getFailedToolCalls,
   getToolFailureWarning,
   getUserVisibleToolFailureMessage,
 } from "./chat-response-guard";
@@ -72,6 +73,81 @@ describe("getToolFailureWarning", () => {
     ).toContain("Some tool calls failed during this request.");
   });
 
+  // A tool-input schema validation failure surfaces as state "output-error"
+  // with no `output` at all, so the output-based checks above never see it.
+  it("warns when a typed tool call is rejected with output-error", () => {
+    expect(
+      getToolFailureWarning({
+        parts: [
+          { type: "text", text: "Done! I updated the rule for you." },
+          {
+            type: "tool-updateRule",
+            state: "output-error",
+            errorText: "Invalid arguments for tool updateRule",
+          },
+        ],
+      }),
+    ).toContain("Some tool calls failed during this request.");
+  });
+
+  // The AI SDK reports an unparseable tool call as a `dynamic-tool` part
+  // rather than `tool-<name>`, so a startsWith("tool-") check misses it.
+  it("warns when a dynamic-tool call is rejected with output-error", () => {
+    expect(
+      getToolFailureWarning({
+        parts: [
+          {
+            type: "dynamic-tool",
+            toolName: "updateRule",
+            state: "output-error",
+            errorText: "Invalid arguments for tool updateRule",
+          },
+        ],
+      }),
+    ).toContain("Some tool calls failed during this request.");
+  });
+
+  // Tool names are not unique per target: one turn can call updateRule for two
+  // different rules. Treating a later success as a repair would hide a real
+  // failure behind an unrelated call that happened to work.
+  it("still warns when a later call to the same tool succeeded", () => {
+    expect(
+      getToolFailureWarning({
+        parts: [
+          {
+            type: "tool-updateRule",
+            state: "output-error",
+            errorText: "Invalid arguments for tool updateRule",
+          },
+          {
+            type: "tool-updateRule",
+            state: "output-available",
+            output: { success: true },
+          },
+        ],
+      }),
+    ).toContain("Some tool calls failed during this request.");
+  });
+
+  it("warns when a later call to the same tool also failed", () => {
+    expect(
+      getToolFailureWarning({
+        parts: [
+          {
+            type: "tool-updateRule",
+            state: "output-available",
+            output: { success: true },
+          },
+          {
+            type: "tool-updateRule",
+            state: "output-error",
+            errorText: "Invalid arguments for tool updateRule",
+          },
+        ],
+      }),
+    ).toContain("Some tool calls failed during this request.");
+  });
+
   it("does not warn for internal corrective tool errors", () => {
     expect(
       getToolFailureWarning({
@@ -96,6 +172,53 @@ describe("getToolFailureWarning", () => {
         ],
       }),
     ).toBeNull();
+  });
+});
+
+describe("getFailedToolCalls", () => {
+  it("names the tool and reason for each unrecovered failure", () => {
+    expect(
+      getFailedToolCalls({
+        parts: [
+          {
+            type: "dynamic-tool",
+            toolName: "updateRule",
+            state: "output-error",
+            errorText: "Invalid arguments for tool updateRule",
+          },
+          {
+            type: "tool-manageInbox",
+            state: "output-available",
+            output: { error: "No sender-level action was taken." },
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        toolName: "updateRule",
+        error: "Invalid arguments for tool updateRule",
+      },
+      { toolName: "manageInbox", error: "No sender-level action was taken." },
+    ]);
+  });
+
+  it("reports a failure even when another call to the same tool succeeded", () => {
+    expect(
+      getFailedToolCalls({
+        parts: [
+          {
+            type: "tool-updateRule",
+            state: "output-error",
+            errorText: "Invalid arguments",
+          },
+          {
+            type: "tool-updateRule",
+            state: "output-available",
+            output: { success: true },
+          },
+        ],
+      }),
+    ).toEqual([{ toolName: "updateRule", error: "Invalid arguments" }]);
   });
 });
 

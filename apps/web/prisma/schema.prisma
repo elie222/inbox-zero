@@ -667,16 +667,21 @@ model RuleHistory {
   triggerType String // "ai_update" (AI), "manual_update" (user), "ai_creation" (AI), "manual_creation" (user), "system_creation" (system), "system_update" (system)
   promptText  String? // The prompt text that generated this version
 
-  name                String
-  instructions        String?
-  enabled             Boolean
-  runOnThreads        Boolean
-  conditionalOperator String
-  from                String?
-  to                  String?
-  subject             String?
-  body                String?
-  systemType          String?
+  name                 String
+  instructions         String?
+  enabled              Boolean
+  runOnThreads         Boolean
+  conditionalOperator  String
+  from                 String?
+  fromExclude          Boolean @default(false)
+  to                   String?
+  toExclude            Boolean @default(false)
+  subject              String?
+  subjectMatchMode     String  @default("CONTAINS")
+  subjectExclude       Boolean @default(false)
+  body                 String?
+  excludeKnownContacts Boolean @default(false)
+  systemType           String?
 
   actions Json
 

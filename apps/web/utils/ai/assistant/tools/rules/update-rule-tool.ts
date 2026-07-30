@@ -1,11 +1,12 @@
 import { type InferUITool, tool } from "ai";
 import { z } from "zod";
-import { LogicalOperator } from "@/generated/prisma/enums";
+import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { filterNullProperties } from "@/utils";
 import {
   createRuleActionSchema,
+  getChatExpressibleActionTypes,
   type RuleAction,
 } from "@/utils/ai/rule/create-rule-schema";
 import { isDuplicateError } from "@/utils/prisma-helpers";
@@ -55,7 +56,7 @@ export const updateRuleTool = ({
 }) =>
   tool({
     description:
-      "Update an existing rule after reading the user's current rules. Use this for direct requests to change rule name, enabled state, conditions, or actions; no capabilities lookup is needed before editing an existing rule. This is a patch: include only the fields being changed, and omitted fields are preserved. Use updates.name to rename a rule. Use updates.condition to change conditions; omit condition fields that should stay unchanged, and set a static field to null only when the user explicitly asks to clear it. Do not set aiInstructions to null to preserve instructions; omit it instead. Use clearAiInstructions only when the user explicitly asks to remove semantic instructions. Use DRAFT_EMAIL for draft reply actions; do not use SEND_EMAIL or REPLY when the user asks to draft. Never use this tool to add/remove a sender or domain from an existing category rule; use updateLearnedPatterns for recurring sender/domain includes and excludes instead. Direct requests to change existing rule behavior are already confirmed; do not create a replacement rule for edits.",
+      "Update an existing rule after reading the user's current rules. Use this for direct requests to change rule name, enabled state, conditions, or actions; no capabilities lookup is needed before editing an existing rule. This is a patch: include only the fields being changed, and omitted fields are preserved. Use updates.name to rename a rule. Use updates.condition to change conditions; omit condition fields that should stay unchanged, and set a static field to null only when the user explicitly asks to clear it. Do not set aiInstructions to null to preserve instructions; omit it instead. Use clearAiInstructions only when the user explicitly asks to remove semantic instructions. Use DRAFT_EMAIL for draft reply actions; do not use SEND_EMAIL or REPLY when the user asks to draft. Never use this tool to add/remove a sender or domain from an existing category rule; use updateLearnedPatterns for recurring sender/domain includes and excludes instead. Direct requests to change existing rule behavior are already confirmed; do not create a replacement rule for edits. Some action types are managed outside chat (for example messaging-channel notifications) and cannot appear in updates.actions; they are preserved automatically on every edit and are reported back in preservedActionTypes. Never tell the user those actions were removed, and direct them to the rule editor if they want to change them.",
     inputSchema: z
       .object({
         ruleName: z.string().describe("The exact current name of the rule."),
@@ -231,6 +232,8 @@ export const updateRuleTool = ({
           };
         }
 
+        let preservedActionTypes: ActionType[] = [];
+
         if (effectiveUpdates.name || effectiveUpdates.condition) {
           await partialUpdateRule({
             ruleId: rule.id,
@@ -244,6 +247,14 @@ export const updateRuleTool = ({
         }
 
         if (effectiveUpdates.actions) {
+          preservedActionTypes = getInexpressibleActionTypes({
+            existingActions: rule.actions,
+            replacementActionTypes: effectiveUpdates.actions.map(
+              (action) => action.type,
+            ),
+            provider,
+          });
+
           await updateRuleActions({
             ruleId: rule.id,
             actions: effectiveUpdates.actions.map((action) => ({
@@ -257,6 +268,7 @@ export const updateRuleTool = ({
             provider,
             emailAccountId,
             logger,
+            preserveActionTypes: preservedActionTypes,
           });
         }
 
@@ -293,6 +305,7 @@ export const updateRuleTool = ({
           updatedConditions: effectiveUpdates.condition,
           originalActions,
           updatedActions: effectiveUpdates.actions,
+          preservedActionTypes,
           currentRule,
         };
       } catch (error) {
@@ -338,6 +351,11 @@ export type UpdateRuleOutput = {
     delayInMinutes?: number | null;
   }>;
   updatedActions?: RuleAction[];
+  /**
+   * Existing action types the chat cannot express, kept rather than replaced.
+   * The model must not report these as removed.
+   */
+  preservedActionTypes?: ActionType[];
   currentRule?: AssistantRuleSnapshot["rules"][number];
 };
 
@@ -602,4 +620,45 @@ function buildConditionUpdateData(condition: PatchCondition) {
   }
 
   return data;
+}
+
+/**
+ * Existing action types the chat cannot restate in a tool call, so replacing a
+ * rule's actions would silently delete them. Messaging-channel actions are the
+ * common case: the model can see them but has no schema to express them.
+ */
+function getInexpressibleActionTypes({
+  existingActions,
+  replacementActionTypes,
+  provider,
+}: {
+  existingActions: { type: ActionType }[];
+  replacementActionTypes: ActionType[];
+  provider: string;
+}): ActionType[] {
+  const expressible = new Set(getChatExpressibleActionTypes(provider));
+  const replacements = new Set(replacementActionTypes);
+
+  return [
+    ...new Set(
+      existingActions
+        .map((action) => action.type)
+        .filter((actionType) => {
+          if (expressible.has(actionType)) return false;
+
+          // DRAFT_MESSAGING_CHANNEL is the messaging-channel variant of a draft
+          // reply, and the rule editor normalizes both it and DRAFT_EMAIL to a
+          // single option. Preserving it alongside a restated DRAFT_EMAIL would
+          // leave the rule drafting twice.
+          if (
+            actionType === ActionType.DRAFT_MESSAGING_CHANNEL &&
+            replacements.has(ActionType.DRAFT_EMAIL)
+          ) {
+            return false;
+          }
+
+          return true;
+        }),
+    ),
+  ];
 }

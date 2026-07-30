@@ -32,7 +32,10 @@ import {
   mergeSeenRulesRevision,
   saveLastSeenRulesRevision,
 } from "@/utils/ai/assistant/chat-seen-rules-revision";
-import { getToolFailureWarning } from "@/utils/ai/assistant/chat-response-guard";
+import {
+  getFailedToolCalls,
+  getToolFailureWarning,
+} from "@/utils/ai/assistant/chat-response-guard";
 import { flushLoggerSafely } from "@/utils/logger-flush";
 
 export const maxDuration = 300;
@@ -275,11 +278,19 @@ export const POST = withEmailAccount("chat", async (request) => {
           writer.write(chunk);
         }
 
+        const failedToolCalls = getFailedToolCalls(responseMessage);
         const warning = getToolFailureWarning(responseMessage);
         if (!warning) return;
 
         request.logger.warn("Assistant chat completed with tool failures", {
           chatId: chat.id,
+          failedTools: failedToolCalls.map((call) => call.toolName),
+        });
+        // The SDK builds a schema-rejection message by serializing the tool
+        // input, which carries the user's addresses, subjects and rule text.
+        request.logger.trace("Assistant chat tool failure reasons", {
+          chatId: chat.id,
+          failures: failedToolCalls,
         });
 
         const warningPartId = crypto.randomUUID();

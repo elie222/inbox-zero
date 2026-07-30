@@ -37,6 +37,7 @@ import {
   createRuleWithResolvedActions,
   replaceRuleWithResolvedActions,
   setRuleEnabled,
+  setRuleExcludeKnownContacts,
   updateRuleInstructions,
   type RuleActionCreateData,
   addActionOwnershipToInput,
@@ -537,9 +538,10 @@ export const setRuleExcludeKnownContactsAction = actionClient
       ctx: { emailAccountId },
       parsedInput: { ruleId, excludeKnownContacts },
     }) => {
-      await prisma.rule.update({
-        where: { id: ruleId, emailAccountId },
-        data: { excludeKnownContacts },
+      await setRuleExcludeKnownContacts({
+        ruleId,
+        emailAccountId,
+        excludeKnownContacts,
       });
     },
   );

@@ -224,6 +224,109 @@ describe("updateRuleTool", () => {
     });
   });
 
+  // The chat action schema can express 12 of the 16 ActionType values.
+  // updateRuleActions replaces actions wholesale, so without an explicit
+  // preserve list, asking the assistant to "also archive these" silently
+  // deleted the rule's Slack notification.
+  it("preserves action types the chat schema cannot express", async () => {
+    mockPrisma.rule.findUnique.mockResolvedValue({
+      id: "rule-id",
+      name: "Vendor Billing",
+      enabled: true,
+      updatedAt: new Date("2026-04-27T00:00:00.000Z"),
+      emailAccount: { rulesRevision: 3 },
+      instructions: "Billing notices.",
+      from: "billing@vendor.example",
+      to: null,
+      subject: "invoice",
+      conditionalOperator: "AND",
+      actions: [
+        { type: ActionType.NOTIFY_MESSAGING_CHANNEL },
+        { type: ActionType.LABEL },
+      ],
+    });
+
+    await updateRuleTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-id",
+      provider: "google",
+      logger,
+      getRuleReadState: () => ({
+        readAt: Date.now(),
+        rulesRevision: 3,
+        ruleUpdatedAtByName: new Map([
+          ["Vendor Billing", "2026-04-27T00:00:00.000Z"],
+        ]),
+      }),
+    }).execute({
+      ruleName: "Vendor Billing",
+      updates: {
+        actions: [
+          {
+            type: ActionType.LABEL,
+            fields: { label: "Billing" },
+            delayInMinutes: null,
+          },
+          { type: ActionType.ARCHIVE, fields: null, delayInMinutes: null },
+        ],
+      },
+    });
+
+    const call = mockUpdateRuleActions.mock.calls.at(-1)?.[0];
+    expect(call?.preserveActionTypes).toContain(
+      ActionType.NOTIFY_MESSAGING_CHANNEL,
+    );
+    // LABEL is expressible and was explicitly restated, so it must not be
+    // preserved behind the model's back.
+    expect(call?.preserveActionTypes).not.toContain(ActionType.LABEL);
+  });
+
+  // DRAFT_MESSAGING_CHANNEL is the messaging-channel variant of a draft reply
+  // and the editor normalizes both it and DRAFT_EMAIL to one option. Blindly
+  // preserving it alongside a restated DRAFT_EMAIL would leave the rule with
+  // two draft actions where the user asked for one.
+  it("does not preserve a draft channel action when the model restated a draft", async () => {
+    mockPrisma.rule.findUnique.mockResolvedValue({
+      id: "rule-id",
+      name: "Vendor Billing",
+      enabled: true,
+      updatedAt: new Date("2026-04-27T00:00:00.000Z"),
+      emailAccount: { rulesRevision: 3 },
+      instructions: "Billing notices.",
+      from: "billing@vendor.example",
+      to: null,
+      subject: "invoice",
+      conditionalOperator: "AND",
+      actions: [{ type: ActionType.DRAFT_MESSAGING_CHANNEL }],
+    });
+
+    await updateRuleTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-id",
+      provider: "google",
+      logger,
+      getRuleReadState: () => ({
+        readAt: Date.now(),
+        rulesRevision: 3,
+        ruleUpdatedAtByName: new Map([
+          ["Vendor Billing", "2026-04-27T00:00:00.000Z"],
+        ]),
+      }),
+    }).execute({
+      ruleName: "Vendor Billing",
+      updates: {
+        actions: [
+          { type: ActionType.DRAFT_EMAIL, fields: null, delayInMinutes: null },
+        ],
+      },
+    });
+
+    const call = mockUpdateRuleActions.mock.calls.at(-1)?.[0];
+    expect(call?.preserveActionTypes).not.toContain(
+      ActionType.DRAFT_MESSAGING_CHANNEL,
+    );
+  });
+
   it("strips copied rule fields from status-only updates before writing", async () => {
     const result = await updateRuleTool({
       email: "user@example.com",

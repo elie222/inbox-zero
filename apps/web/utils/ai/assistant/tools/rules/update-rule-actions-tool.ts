@@ -3,7 +3,10 @@ import { z } from "zod";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { filterNullProperties } from "@/utils";
-import { createRuleActionSchema } from "@/utils/ai/rule/create-rule-schema";
+import {
+  createRuleActionSchema,
+  getChatExpressibleActionTypes,
+} from "@/utils/ai/rule/create-rule-schema";
 import { updateRuleActions } from "@/utils/rule/rule";
 import { hideToolErrorFromUser } from "../../tool-error-visibility";
 import type { RuleReadState } from "../../chat-rule-state";
@@ -123,6 +126,12 @@ export const updateRuleActionsTool = ({
           delayInMinutes: action.delayInMinutes,
         }));
 
+        // Same wholesale replace as updateRule, so the same action types the
+        // chat schema cannot express have to be excluded from the delete.
+        const expressibleActionTypes = new Set(
+          getChatExpressibleActionTypes(provider),
+        );
+
         await updateRuleActions({
           ruleId: rule.id,
           actions: actions.map((action) => ({
@@ -136,6 +145,15 @@ export const updateRuleActionsTool = ({
           provider,
           emailAccountId,
           logger,
+          preserveActionTypes: [
+            ...new Set(
+              rule.actions
+                .map((action) => action.type)
+                .filter(
+                  (actionType) => !expressibleActionTypes.has(actionType),
+                ),
+            ),
+          ],
         });
 
         return {

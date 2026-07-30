@@ -241,6 +241,23 @@ export function setRuleEnabled({
   });
 }
 
+export function setRuleExcludeKnownContacts({
+  ruleId,
+  emailAccountId,
+  excludeKnownContacts,
+}: {
+  ruleId: string;
+  emailAccountId: string;
+  excludeKnownContacts: boolean;
+}) {
+  return updateRuleAndQueueHistory({
+    ruleId,
+    emailAccountId,
+    data: { excludeKnownContacts },
+    triggerType: "exclude_known_contacts_updated",
+  });
+}
+
 export async function createRuleWithResolvedActions({
   emailAccountId,
   data,
@@ -625,12 +642,19 @@ export async function updateRuleActions({
   provider,
   emailAccountId,
   logger,
+  preserveActionTypes,
 }: {
   ruleId: string;
   actions: CreateOrUpdateRuleSchema["actions"];
   provider: string;
   emailAccountId: string;
   logger: Logger;
+  /**
+   * Existing action types the caller cannot express and must not delete.
+   * Preserved in place rather than recreated, because messaging-channel
+   * actions carry a messagingChannelId the caller does not model.
+   */
+  preserveActionTypes?: ActionType[];
 }) {
   const existingRule = await prisma.rule.findFirst({
     where: { id: ruleId, emailAccountId },
@@ -663,7 +687,7 @@ export async function updateRuleActions({
     where: { id: ruleId, emailAccountId },
     data: {
       actions: {
-        deleteMany: getReplaceableRuleActionsWhere(),
+        deleteMany: getReplaceableRuleActionsWhere(preserveActionTypes),
         createMany: {
           data: addNestedActionOwnershipToInputs(mappedActions, emailAccountId),
         },
@@ -807,10 +831,23 @@ function validateLowTrustStaticFromOutboundActions({
   throw new SafeError(LOW_TRUST_STATIC_FROM_OUTBOUND_MESSAGE, 400);
 }
 
-function getReplaceableRuleActionsWhere() {
-  const disabledActionTypes = getDisabledRuleActionTypesToPreserve();
-  return disabledActionTypes.length
-    ? { type: { notIn: disabledActionTypes } }
+/**
+ * Actions are replaced wholesale on update, so any type the caller cannot
+ * restate must be excluded from the delete. `preserveActionTypes` carries the
+ * types the assistant chat has no schema for; without it a chat-driven edit
+ * silently drops them.
+ */
+function getReplaceableRuleActionsWhere(
+  preserveActionTypes: ActionType[] = [],
+) {
+  const actionTypesToPreserve = [
+    ...new Set([
+      ...getDisabledRuleActionTypesToPreserve(),
+      ...preserveActionTypes,
+    ]),
+  ];
+  return actionTypesToPreserve.length
+    ? { type: { notIn: actionTypesToPreserve } }
     : {};
 }
 
