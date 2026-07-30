@@ -1023,11 +1023,38 @@ model ContactCard {
   xUrl         String?
   instagramUrl String?
 
+  // Look & feel, chosen in the My Card drawer and rendered on the public
+  // page. accentColor only ever holds a value from the app's fixed palette
+  // (validated on write) — it lands in inline styles.
+  avatarMode   String  @default("initials") // "initials" | "photo" | "logo"
+  avatarShape  String  @default("circle") // "circle" | "rounded"
+  nameFont     String  @default("serif") // "serif" | "sans"
+  accentColor  String?
+  accentStripe Boolean @default(true)
+  logoUrl      String?
+
   emailAccountId String       @unique
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
   views     ContactCardView[]
+  clicks    ContactCardClick[]
   exchanges ContactCardExchange[]
+}
+
+// A visitor tapping something on the card: phone, email, save-to-contacts…
+// One row per tap (no dedupe — taps are the engagement signal), no raw IPs.
+model ContactCardClick {
+  id        String   @id @default(cuid())
+  clickedAt DateTime @default(now())
+  day       DateTime @db.Date
+
+  kind        String
+  visitorHash String
+
+  contactCardId String      @map("cardId")
+  contactCard   ContactCard @relation(fields: [contactCardId], references: [id], onDelete: Cascade)
+
+  @@index([contactCardId, day])
 }
 
 // Someone who opened the card and handed their own details back. Held apart

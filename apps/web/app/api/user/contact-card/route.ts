@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCardSlugSuggestion } from "@/utils/contact-card/slug";
 import { getContactCardUrl } from "@/utils/contact-card/url";
-import { getContactCardStats } from "@/utils/contact-card/views";
+import { getContactCardEngagement } from "@/utils/contact-card/views";
 import { withEmailAccount } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 
@@ -31,6 +31,12 @@ async function getContactCard(emailAccountId: string) {
       linkedinUrl: true,
       xUrl: true,
       instagramUrl: true,
+      avatarMode: true,
+      avatarShape: true,
+      nameFont: true,
+      accentColor: true,
+      accentStripe: true,
+      logoUrl: true,
     },
   });
 
@@ -44,7 +50,7 @@ async function getContactCard(emailAccountId: string) {
     return {
       card: null,
       url: null,
-      stats: null,
+      engagement: null,
       defaults: {
         slug: getCardSlugSuggestion(account?.name),
         displayName: account?.name ?? account?.email ?? "",
@@ -56,7 +62,7 @@ async function getContactCard(emailAccountId: string) {
   return {
     card,
     url: getContactCardUrl(card.slug),
-    stats: await getContactCardStats(card.id),
+    engagement: await getContactCardEngagement(card.id),
     defaults: null,
   };
 }

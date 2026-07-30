@@ -2,10 +2,35 @@
 
 import { useEffect, useState } from "react";
 import { LogoMark } from "@/components/Logo";
+import {
+  cardInitials,
+  resolveCardAccent,
+  resolveCardAvatarMode,
+} from "@/utils/contact-card/appearance";
 import type { PublicContactCard } from "@/utils/contact-card/public";
 import { CardSky, CardStyles } from "./card-styles";
 import { cardColors, eyebrow, MONO, panel } from "./card-theme";
 import { ExchangePanel } from "./ExchangePanel";
+
+type ClickKind = "phone" | "email" | "website" | "linkedin" | "x" | "instagram";
+
+// Engagement beacon: fire-and-forget so it never delays the tel:/mailto:
+// navigation it rides along with
+function trackClick(slug: string, kind: ClickKind) {
+  const url = `/api/contact-card/${encodeURIComponent(slug)}/click`;
+  const body = JSON.stringify({ kind });
+  if (
+    navigator.sendBeacon?.(url, new Blob([body], { type: "application/json" }))
+  ) {
+    return;
+  }
+  fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body,
+    keepalive: true,
+  }).catch(() => undefined);
+}
 
 type Mode = "card" | "exchange";
 
@@ -22,6 +47,7 @@ export function ContactCardClient({ card }: { card: PublicContactCard }) {
   const rows = buildRows(card);
   const socials = buildSocials(card);
   const firstName = firstNameOf(card.displayName);
+  const accent = resolveCardAccent(card.accentColor);
 
   return (
     <>
@@ -101,12 +127,14 @@ export function ContactCardClient({ card }: { card: PublicContactCard }) {
               }}
             >
               <section style={panel({ overflow: "hidden" })}>
-                <div
-                  style={{
-                    height: 6,
-                    background: `linear-gradient(90deg,${cardColors.accent},${cardColors.accentHover} 60%,${cardColors.gold})`,
-                  }}
-                />
+                {card.accentStripe && (
+                  <div
+                    style={{
+                      height: 6,
+                      background: `linear-gradient(90deg,${accent},transparent)`,
+                    }}
+                  />
+                )}
                 <div
                   style={{
                     padding: "32px 32px 28px",
@@ -116,15 +144,21 @@ export function ContactCardClient({ card }: { card: PublicContactCard }) {
                     flexWrap: "wrap",
                   }}
                 >
-                  <Avatar card={card} />
+                  <Avatar accent={accent} card={card} />
                   <div style={{ flex: 1, minWidth: 220 }}>
                     <h1
                       style={{
                         margin: 0,
                         fontSize: 34,
-                        fontWeight: 700,
                         letterSpacing: "-.02em",
                         lineHeight: 1.1,
+                        ...(card.nameFont === "sans"
+                          ? { fontWeight: 700 }
+                          : {
+                              fontWeight: 400,
+                              fontFamily:
+                                "var(--font-card-serif), Georgia, serif",
+                            }),
                       }}
                     >
                       {card.displayName}
@@ -162,7 +196,7 @@ export function ContactCardClient({ card }: { card: PublicContactCard }) {
                     style={{
                       flex: 1,
                       minWidth: 160,
-                      background: cardColors.accent,
+                      background: accent,
                       color: cardColors.page,
                       borderRadius: 6,
                       padding: "13px 18px",
@@ -179,6 +213,7 @@ export function ContactCardClient({ card }: { card: PublicContactCard }) {
                     <a
                       className="card-outline-btn"
                       href={`mailto:${card.email}`}
+                      onClick={() => trackClick(card.slug, "email")}
                       style={{
                         flex: 1,
                         minWidth: 160,
@@ -206,6 +241,9 @@ export function ContactCardClient({ card }: { card: PublicContactCard }) {
                       className="card-link card-row"
                       href={row.href}
                       key={row.label}
+                      onClick={() =>
+                        row.kind && trackClick(card.slug, row.kind)
+                      }
                       style={{
                         display: "flex",
                         alignItems: "center",
@@ -260,6 +298,7 @@ export function ContactCardClient({ card }: { card: PublicContactCard }) {
                       className="card-link card-chip"
                       href={social.href}
                       key={social.tag}
+                      onClick={() => trackClick(card.slug, social.kind)}
                       rel="noopener noreferrer"
                       style={{
                         flex: 1,
@@ -354,16 +393,17 @@ function useViewBeacon(slug: string) {
   }, [slug]);
 }
 
-function Avatar({ card }: { card: PublicContactCard }) {
+function Avatar({ card, accent }: { card: PublicContactCard; accent: string }) {
+  const mode = resolveCardAvatarMode(card);
   const base = {
     width: 92,
     height: 92,
-    borderRadius: "50%",
+    borderRadius: card.avatarShape === "rounded" ? 16 : "50%",
     flex: "0 0 auto",
     border: `2px solid ${cardColors.borderStrong}`,
   } as const;
 
-  if (card.photoUrl) {
+  if (mode === "photo" && card.photoUrl) {
     return (
       // The host is whatever the cardholder pasted, so next/image would need
       // it allowlisted ahead of time
@@ -378,21 +418,40 @@ function Avatar({ card }: { card: PublicContactCard }) {
     );
   }
 
+  if (mode === "logo" && card.logoUrl) {
+    return (
+      // A white tile so dark logos stay visible on the dark card
+      // biome-ignore lint/performance/noImgElement: arbitrary remote host
+      <img
+        alt=""
+        height={92}
+        src={card.logoUrl}
+        style={{
+          ...base,
+          background: "#fff",
+          objectFit: "contain",
+          padding: 12,
+        }}
+        width={92}
+      />
+    );
+  }
+
   return (
     <div
       style={{
         ...base,
-        background: cardColors.panelAlt,
+        background: accent,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         fontWeight: 700,
         fontSize: 30,
         letterSpacing: "-.02em",
-        color: cardColors.accent,
+        color: "#fff",
       }}
     >
-      {initialsOf(card.displayName)}
+      {cardInitials(card.displayName)}
     </div>
   );
 }
@@ -433,6 +492,9 @@ type CardRow = {
   value: string;
   href: string;
   external: boolean;
+  // What the tap counts as in the owner's card activity; null rows (map
+  // links) aren't tracked
+  kind: ClickKind | null;
 };
 
 // Only the fields that are filled in — an empty slot would read as broken
@@ -446,6 +508,7 @@ function buildRows(card: PublicContactCard): CardRow[] {
       value: card.phone,
       href: `tel:${card.phone.replace(/[^\d+]/g, "")}`,
       external: false,
+      kind: "phone",
     });
   }
   if (card.email) {
@@ -454,6 +517,7 @@ function buildRows(card: PublicContactCard): CardRow[] {
       value: card.email,
       href: `mailto:${card.email}`,
       external: false,
+      kind: "email",
     });
   }
   if (card.website) {
@@ -462,6 +526,7 @@ function buildRows(card: PublicContactCard): CardRow[] {
       value: card.website.replace(/^https?:\/\//, ""),
       href: card.website,
       external: true,
+      kind: "website",
     });
   }
   if (card.location) {
@@ -470,36 +535,39 @@ function buildRows(card: PublicContactCard): CardRow[] {
       value: card.location,
       href: `https://maps.google.com/?q=${encodeURIComponent(card.location)}`,
       external: true,
+      kind: null,
     });
   }
 
   return rows;
 }
 
-type CardSocial = { tag: string; name: string; href: string };
+type CardSocial = { tag: string; name: string; href: string; kind: ClickKind };
 
 function buildSocials(card: PublicContactCard): CardSocial[] {
   const socials: CardSocial[] = [];
 
   if (card.linkedinUrl) {
-    socials.push({ tag: "in", name: "LinkedIn", href: card.linkedinUrl });
+    socials.push({
+      tag: "in",
+      name: "LinkedIn",
+      href: card.linkedinUrl,
+      kind: "linkedin",
+    });
   }
   if (card.xUrl) {
-    socials.push({ tag: "x", name: "X / Twitter", href: card.xUrl });
+    socials.push({ tag: "x", name: "X / Twitter", href: card.xUrl, kind: "x" });
   }
   if (card.instagramUrl) {
-    socials.push({ tag: "ig", name: "Instagram", href: card.instagramUrl });
+    socials.push({
+      tag: "ig",
+      name: "Instagram",
+      href: card.instagramUrl,
+      kind: "instagram",
+    });
   }
 
   return socials;
-}
-
-function initialsOf(name: string) {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) return "?";
-  const first = parts[0]?.[0] ?? "";
-  const last = parts.length > 1 ? (parts.at(-1)?.[0] ?? "") : "";
-  return (first + last).toUpperCase();
 }
 
 function firstNameOf(name: string) {

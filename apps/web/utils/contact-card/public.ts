@@ -21,6 +21,12 @@ export async function getPublicContactCard(slug: string) {
       linkedinUrl: true,
       xUrl: true,
       instagramUrl: true,
+      avatarMode: true,
+      avatarShape: true,
+      nameFont: true,
+      accentColor: true,
+      accentStripe: true,
+      logoUrl: true,
     },
   });
 
