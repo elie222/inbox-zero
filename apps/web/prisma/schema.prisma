@@ -1173,6 +1173,8 @@ model Task {
   @@index([emailAccountId, status, dueAt])
   @@index([emailAccountId, assigneeEmail])
   @@index([emailAccountId, parentId])
+  // Inbound webhook matches new mail to a task's chase thread
+  @@index([emailAccountId, followUpThreadId])
   // The follow-up cron scans on this
   @@index([followUpEnabled, nextFollowUpAt])
 }
@@ -1192,12 +1194,17 @@ model TaskEmail {
   subject    String
   snippet    String?
   receivedAt DateTime?
+  // Attachment metadata ([{ attachmentId, filename, mimeType, size }]);
+  // bytes stay with the provider and download on demand
+  attachments Json?
 
   taskId String
   task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
   @@unique([taskId, messageId])
   @@index([taskId, createdAt])
+  // Inbound webhook matches new mail to threads linked to a task
+  @@index([threadId])
 }
 
 // A timeline entry for a task: manual notes plus the agent's actions and

@@ -4,9 +4,9 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Logger } from "@/utils/logger";
 import type { ParsedMessage } from "@/utils/types";
 import { aiDraftTaskFollowUpEmail } from "@/utils/ai/tasks/draft-follow-up-email";
-import { regenerateTaskOverview } from "@/utils/task-overview";
+import { ingestInboundMessageForTask } from "@/utils/task-inbound";
 import { nextFollowUpFrom } from "@/utils/tasks";
-import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
+import { extractEmailAddress } from "@/utils/email";
 import { internalDateToDate } from "@/utils/date";
 import { escapeHtml } from "@/utils/string";
 import prisma from "@/utils/prisma";
@@ -70,15 +70,24 @@ export async function processTaskFollowUp({
   });
 
   if (reply && task.followUpThreadId) {
-    await recordAssigneeReply({
+    const ingested = await ingestInboundMessageForTask({
       task,
-      reply,
-      threadId: task.followUpThreadId,
+      message: reply,
       emailAccount,
       emailProvider,
       logger,
       now,
     });
+    // Already read in (e.g. by the inbound webhook) without a reschedule —
+    // push the next chase out anyway so this task doesn't respin hourly
+    if (!ingested) {
+      await prisma.task.update({
+        where: { id: task.id },
+        data: {
+          nextFollowUpAt: nextFollowUpFrom(task.followUpCadenceDays, now),
+        },
+      });
+    }
     return "replied";
   }
 
@@ -160,88 +169,6 @@ export function findAssigneeReply({
         }).getTime() > since.getTime(),
     )
     .at(-1);
-}
-
-async function recordAssigneeReply({
-  task,
-  reply,
-  threadId,
-  emailAccount,
-  emailProvider,
-  logger,
-  now,
-}: {
-  task: TaskForFollowUp;
-  reply: ParsedMessage;
-  threadId: string;
-  emailAccount: EmailAccountWithAI;
-  emailProvider: EmailProvider;
-  logger: Logger;
-  now: Date;
-}) {
-  const fromName = extractNameFromEmail(reply.headers.from);
-  const snippet = (reply.snippet ?? "").trim();
-
-  // The reply becomes a linked email, so the Emails tab shows it and every
-  // future overview reads it
-  const linked = await prisma.taskEmail.upsert({
-    where: {
-      taskId_messageId: { taskId: task.id, messageId: reply.id },
-    },
-    update: {},
-    create: {
-      taskId: task.id,
-      threadId,
-      messageId: reply.id,
-      from: fromName,
-      subject: reply.headers.subject || "(no subject)",
-      snippet: snippet.slice(0, 500) || null,
-      receivedAt: internalDateToDate(reply.internalDate),
-    },
-  });
-
-  await prisma.task.update({
-    where: { id: task.id },
-    data: {
-      // The reply answered this cycle; chase again a full cadence later
-      nextFollowUpAt: nextFollowUpFrom(task.followUpCadenceDays, now),
-      activity: {
-        create: {
-          type: "REPLY_DETECTED",
-          content: snippet
-            ? `${fromName} replied: “${snippet.slice(0, 180)}”`
-            : `${fromName} replied`,
-          threadId,
-          messageId: reply.id,
-        },
-      },
-    },
-  });
-
-  try {
-    await regenerateTaskOverview({
-      task: {
-        ...task,
-        emails: [
-          linked,
-          ...task.emails.filter((email) => email.id !== linked.id),
-        ],
-      },
-      emailAccount,
-      emailProvider,
-      logger,
-      activityNote: `AI overview updated from ${fromName}'s reply`,
-    });
-  } catch (error) {
-    // The reply is already recorded; a failed summary just means the
-    // overview lags until the next refresh
-    logger.warn("Could not refresh overview from reply", {
-      taskId: task.id,
-      error,
-    });
-  }
-
-  logger.info("Task follow-up reply detected", { taskId: task.id });
 }
 
 async function draftFollowUpBody({

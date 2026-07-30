@@ -12,7 +12,12 @@ import {
   unlinkTaskEmailBody,
   updateTaskBody,
 } from "@/utils/actions/task.validation";
-import { isTaskOpen, nextFollowUpFrom } from "@/utils/tasks";
+import {
+  isTaskOpen,
+  nextFollowUpFrom,
+  type TaskEmailAttachment,
+} from "@/utils/tasks";
+import { attachmentMetadata } from "@/utils/task-inbound";
 import { regenerateTaskOverview } from "@/utils/task-overview";
 import { getEmailAccountWithAiAndTokens } from "@/utils/user/get";
 import { createEmailProvider } from "@/utils/email/provider";
@@ -195,50 +200,68 @@ export const addTaskNoteAction = actionClient
 export const linkTaskEmailAction = actionClient
   .metadata({ name: "linkTaskEmail" })
   .inputSchema(linkTaskEmailBody)
-  .action(async ({ ctx: { emailAccountId }, parsedInput }) => {
-    const task = await prisma.task.findFirst({
-      where: { id: parsedInput.taskId, emailAccountId },
-      select: { id: true },
-    });
-    if (!task) throw new SafeError("Task not found");
+  .action(
+    async ({ ctx: { emailAccountId, provider, logger }, parsedInput }) => {
+      const task = await prisma.task.findFirst({
+        where: { id: parsedInput.taskId, emailAccountId },
+        select: { id: true },
+      });
+      if (!task) throw new SafeError("Task not found");
 
-    // Linking the same message twice is a no-op, not a second log entry
-    const existing = await prisma.taskEmail.findUnique({
-      where: {
-        taskId_messageId: {
+      // Linking the same message twice is a no-op, not a second log entry
+      const existing = await prisma.taskEmail.findUnique({
+        where: {
+          taskId_messageId: {
+            taskId: task.id,
+            messageId: parsedInput.messageId,
+          },
+        },
+      });
+      if (existing) return { email: existing };
+
+      // Snapshot attachment metadata from the real message; the client only
+      // holds display fields. A fetch failure still links with those.
+      let attachments: TaskEmailAttachment[] = [];
+      try {
+        const emailProvider = await createEmailProvider({
+          emailAccountId,
+          provider,
+          logger,
+        });
+        const message = await emailProvider.getMessage(parsedInput.messageId);
+        attachments = attachmentMetadata(message);
+      } catch (error) {
+        logger.warn("Could not read attachments for linked email", { error });
+      }
+
+      const subject = parsedInput.subject || "(no subject)";
+      const email = await prisma.taskEmail.create({
+        data: {
           taskId: task.id,
+          threadId: parsedInput.threadId,
+          messageId: parsedInput.messageId,
+          from: parsedInput.from,
+          subject,
+          snippet: parsedInput.snippet?.trim() || null,
+          receivedAt: parsedInput.receivedAt
+            ? new Date(parsedInput.receivedAt)
+            : null,
+          ...(attachments.length && { attachments }),
+        },
+      });
+      await prisma.taskActivity.create({
+        data: {
+          taskId: task.id,
+          type: "NOTE",
+          content: `Linked email “${subject}”`,
+          threadId: parsedInput.threadId,
           messageId: parsedInput.messageId,
         },
-      },
-    });
-    if (existing) return { email: existing };
+      });
 
-    const subject = parsedInput.subject || "(no subject)";
-    const email = await prisma.taskEmail.create({
-      data: {
-        taskId: task.id,
-        threadId: parsedInput.threadId,
-        messageId: parsedInput.messageId,
-        from: parsedInput.from,
-        subject,
-        snippet: parsedInput.snippet?.trim() || null,
-        receivedAt: parsedInput.receivedAt
-          ? new Date(parsedInput.receivedAt)
-          : null,
-      },
-    });
-    await prisma.taskActivity.create({
-      data: {
-        taskId: task.id,
-        type: "NOTE",
-        content: `Linked email “${subject}”`,
-        threadId: parsedInput.threadId,
-        messageId: parsedInput.messageId,
-      },
-    });
-
-    return { email };
-  });
+      return { email };
+    },
+  );
 
 export const unlinkTaskEmailAction = actionClient
   .metadata({ name: "unlinkTaskEmail" })

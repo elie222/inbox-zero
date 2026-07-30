@@ -9,6 +9,7 @@ import {
   ChevronRightIcon,
   CornerUpLeftIcon,
   Link2Icon,
+  PaperclipIcon,
   PlusIcon,
   SparklesIcon,
   Trash2Icon,
@@ -19,6 +20,7 @@ import type { MessagesResponse } from "@/app/api/messages/route";
 import type { ContactsResponse } from "@/app/api/contacts/route";
 import type { UpdateTaskBody } from "@/utils/actions/task.validation";
 import {
+  formatAttachmentSize,
   formatRelativeShort,
   isTaskOpen,
   isTaskOverdue,
@@ -29,6 +31,7 @@ import {
   TASK_STATUS_LABELS,
   TASK_STATUS_ORDER,
   TASK_STATUS_STYLES,
+  taskEmailAttachments,
 } from "@/utils/tasks";
 import {
   addTaskNoteAction,
@@ -46,6 +49,7 @@ import { prefixPath } from "@/utils/path";
 import { cn } from "@/utils";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { SenderAvatar } from "@/components/email-list/SenderAvatar";
+import { AttachmentDownloadButton } from "@/components/email-list/AttachmentDownloadButton";
 import { LogoMark } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,7 +60,7 @@ import { toDatetimeLocal } from "./datetime";
 
 type TaskItem = TasksResponse["tasks"][number];
 
-type DrawerTab = "details" | "assignee" | "ai" | "emails";
+type DrawerTab = "details" | "assignee" | "ai" | "emails" | "attachments";
 
 const EMAIL_LIKE = /^\S+@\S+\.\S+$/;
 
@@ -174,6 +178,10 @@ export function TaskDrawer({
     }
   };
 
+  const attachmentCount = emails.reduce(
+    (count, email) => count + taskEmailAttachments(email).length,
+    0,
+  );
   const tabs: { key: DrawerTab; name: string }[] = [
     { key: "details", name: "Details" },
     { key: "assignee", name: "Assignee" },
@@ -181,6 +189,12 @@ export function TaskDrawer({
     {
       key: "emails",
       name: emails.length ? `Emails (${emails.length})` : "Emails",
+    },
+    {
+      key: "attachments",
+      name: attachmentCount
+        ? `Attachments (${attachmentCount})`
+        : "Attachments",
     },
   ];
 
@@ -256,13 +270,13 @@ export function TaskDrawer({
           </Button>
         </div>
 
-        <div className="flex shrink-0 gap-5 border-b border-border px-6 text-[13.5px] font-medium">
+        <div className="flex shrink-0 gap-5 overflow-x-auto border-b border-border px-6 text-[13.5px] font-medium">
           {tabs.map(({ key, name }) => (
             <button
               key={key}
               type="button"
               className={cn(
-                "border-b-2 px-0.5 py-2.5",
+                "whitespace-nowrap border-b-2 px-0.5 py-2.5",
                 tab === key
                   ? "border-primary text-foreground"
                   : "border-transparent text-muted-foreground hover:text-foreground",
@@ -570,6 +584,8 @@ export function TaskDrawer({
           {tab === "emails" && (
             <EmailsTab task={task} open={open} mutate={mutate} />
           )}
+
+          {tab === "attachments" && <AttachmentsTab task={task} />}
         </div>
       </div>
     </>
@@ -958,6 +974,15 @@ function EmailsTab({
               <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">
                 {email.from}
               </span>
+              {taskEmailAttachments(email).length > 0 && (
+                <span
+                  title="Has attachments — see the Attachments tab"
+                  className="inline-flex shrink-0 items-center gap-0.5 text-[11px] text-muted-foreground"
+                >
+                  <PaperclipIcon className="size-3" />
+                  {taskEmailAttachments(email).length}
+                </span>
+              )}
               {email.receivedAt && (
                 <span className="shrink-0 whitespace-nowrap text-[11.5px] text-muted-foreground">
                   {formatRelativeShort(email.receivedAt)}
@@ -1052,6 +1077,65 @@ function EmailsTab({
             </p>
           )}
         </div>
+      )}
+    </>
+  );
+}
+
+// Attachments across every linked email, downloadable via the same
+// endpoint the mail view uses
+function AttachmentsTab({ task }: { task: TaskItem }) {
+  const rows = (task.emails ?? []).flatMap((email) =>
+    taskEmailAttachments(email).map((attachment) => ({ email, attachment })),
+  );
+
+  return (
+    <>
+      <p className="text-[12.5px] text-muted-foreground">
+        Files attached to this task's linked emails — including assignee replies
+        the AI reads in.
+      </p>
+      {rows.map(({ email, attachment }) => {
+        const searchParams = new URLSearchParams({
+          messageId: email.messageId,
+          attachmentId: attachment.attachmentId,
+          mimeType: attachment.mimeType,
+          filename: attachment.filename,
+        });
+        return (
+          <div
+            key={`${email.messageId}:${attachment.attachmentId}`}
+            className="flex items-center gap-3 rounded-lg border border-border bg-card px-3.5 py-3"
+          >
+            <PaperclipIcon className="size-4 shrink-0 text-muted-foreground" />
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[13px] font-medium">
+                {attachment.filename}
+              </div>
+              <div className="truncate text-[11.5px] text-muted-foreground">
+                {[
+                  formatAttachmentSize(attachment.size),
+                  email.from,
+                  email.receivedAt
+                    ? formatRelativeShort(email.receivedAt)
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </div>
+            </div>
+            <AttachmentDownloadButton
+              url={`/api/messages/attachment?${searchParams.toString()}`}
+              filename={attachment.filename}
+            />
+          </div>
+        );
+      })}
+      {!rows.length && (
+        <p className="py-4 text-center text-[13px] text-muted-foreground">
+          No attachments yet. Files on emails you link — or that assignees reply
+          with — show up here.
+        </p>
       )}
     </>
   );
