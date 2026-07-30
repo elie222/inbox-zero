@@ -19,16 +19,6 @@
 - For core bug-fix tasks, default to TDD when practical (red/green/refactor); AI prompt improvements should generally be backed by evals too, and TDD is often useful there as well.
 - When adding a new workspace package, add its `package.json` COPY line to `docker/Dockerfile.prod` and `docker/Dockerfile.local`.
 
-## Local Browser QA
-- Use `pnpm dev-setup init --db empty --auth emulate --url localhost --port <port>` for isolated visual QA, then start it with `pnpm dev-setup dev --skip-init`.
-- Check that the chosen port is free; do not assume port 3000 is available.
-- After initializing an empty branch database, every `pnpm dev-setup exec` command must include `--skip-init`. Omitting it resets that database.
-- Run `pnpm install` if `apps/web/node_modules/@inboxzero/*` workspace links resolve outside the current repository or point to a deleted temporary checkout.
-- Run `agent-browser` headlessly by default. Use `--headed` only when the user explicitly wants the live browser window.
-- Enable feature-gated UI explicitly when starting the app; digest settings require `NEXT_PUBLIC_DIGEST_ENABLED=true pnpm dev-setup dev --skip-init`.
-- Store temporary browser auth state and visual-QA seed files under `.context/`, and remove them when the QA session is complete.
-- Emulated first-time onboarding can trigger unrelated AI and inbox setup work. For focused visual QA, seed only the required state in the isolated branch database and mark onboarding complete.
-
 ## Code Style
 - Install packages in `apps/web`, not root: `cd apps/web && pnpm add ...`
 - Lodash: import specific functions (`import groupBy from "lodash/groupBy"`)

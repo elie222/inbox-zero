@@ -349,18 +349,19 @@ export function DigestSettingsForm({
                 />
               </div>
               <MutedText className="mt-2">
-                Digests are usually sent within 5 minutes after this time.
+                Usually sent within 5 minutes.
+                {digestStatus?.delivery.estimatedNextDeliveryAt && (
+                  <>
+                    {" "}
+                    Next delivery around{" "}
+                    {formatDigestDeliveryTime(
+                      new Date(digestStatus.delivery.estimatedNextDeliveryAt),
+                      digestStatus.delivery.timezone,
+                    )}
+                    .
+                  </>
+                )}
               </MutedText>
-              {digestStatus?.delivery.estimatedNextDeliveryAt && (
-                <MutedText className="mt-1">
-                  Next delivery: around{" "}
-                  {formatDigestDeliveryTime(
-                    new Date(digestStatus.delivery.estimatedNextDeliveryAt),
-                    digestStatus.delivery.timezone,
-                  )}
-                  .
-                </MutedText>
-              )}
             </div>
 
             <Button type="submit" loading={isSubmitting} className="mt-4">
@@ -422,22 +423,15 @@ function DigestDeliveryChannels({
           onChange={(sendEmail) => execute({ sendEmail })}
         />
       </div>
-      {digestStatus?.delivery.destinationEmail && (
-        <MutedText>
-          {(account?.digestSendEmail ?? digestStatus.delivery.emailEnabled)
-            ? `Sent to ${digestStatus.delivery.destinationEmail}.`
-            : `When enabled, digests are sent to ${digestStatus.delivery.destinationEmail}.`}
-        </MutedText>
-      )}
       <DigestDeliveryActivity digestStatus={digestStatus} />
       {showChannelsHint && (
         <MutedText>
-          Want digests in your chat app?{" "}
+          Chat delivery:{" "}
           <Link
             href={prefixPath(emailAccountId, "/channels")}
             className="text-foreground underline"
           >
-            Configure on the Channels page
+            Configure in Channels
           </Link>
           .
         </MutedText>
@@ -459,7 +453,7 @@ function DigestDeliveryActivity({
     delivery.queuedItemCount > 0
       ? `${delivery.queuedItemCount} ${
           delivery.queuedItemCount === 1 ? "email" : "emails"
-        } queued for the next digest.`
+        } queued`
       : null;
 
   const lastDeliveryLabel = delivery.lastDelivery
@@ -467,18 +461,18 @@ function DigestDeliveryActivity({
       ? `Last sent ${formatDigestDeliveryTime(
           new Date(delivery.lastDelivery.occurredAt),
           delivery.timezone,
-        )}.`
+        )}`
       : `Last delivery failed ${formatDigestDeliveryTime(
           new Date(delivery.lastDelivery.occurredAt),
           delivery.timezone,
-        )}.`
+        )}`
     : null;
 
   if (!queuedLabel && !lastDeliveryLabel) return null;
 
   return (
     <MutedText>
-      {[queuedLabel, lastDeliveryLabel].filter(Boolean).join(" ")}
+      {[queuedLabel, lastDeliveryLabel].filter(Boolean).join(" · ")}
     </MutedText>
   );
 }
