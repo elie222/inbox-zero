@@ -228,12 +228,15 @@ export const createRuleActionSchema = (
     }
   };
 
+  // zod v4's union takes a plain readonly array — no tuple cast needed, and
+  // the old array-to-tuple assertion doesn't type-check under strict
+  // comparability rules
   const actionSchemas = getChatExpressibleActionTypes(provider).map(
     (actionType) =>
       createActionObjectSchema(actionType, buildFieldsSchema(actionType)),
-  ) as [z.ZodTypeAny, z.ZodTypeAny, ...z.ZodTypeAny[]];
+  );
 
-  return z.union(actionSchemas) as z.ZodType<RuleAction>;
+  return z.union(actionSchemas) as unknown as z.ZodType<RuleAction>;
 };
 
 export const createRuleSchema = (provider: string) =>

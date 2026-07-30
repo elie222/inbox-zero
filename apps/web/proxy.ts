@@ -21,7 +21,16 @@ import { createScopedLogger } from "@/utils/logger";
 // directly in either slash form, and every other path keeps the redirect
 // Next used to inject.
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon\\.ico).*)"],
+  // CardDAV paths, plus ONLY trailing-slash URLs elsewhere — the redirect is
+  // the single thing this proxy does for the rest of the app, so slashless
+  // requests (virtually all real traffic: pages, webhooks, telemetry, static
+  // files) never pay a function invocation for it
+  matcher: [
+    "/.well-known/carddav",
+    "/api/carddav",
+    "/api/carddav/:path*",
+    "/((?!_next/static|_next/image|favicon\\.ico).*)/",
+  ],
 };
 
 const WEBDAV_METHODS = new Set(["PROPFIND", "REPORT"]);
