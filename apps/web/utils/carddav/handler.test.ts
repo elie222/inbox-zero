@@ -44,8 +44,8 @@ describe("CardDAV handler", () => {
 
       expect(result.status).toBe(207);
       expect(result.body).toContain("card:addressbook-home-set");
-      // Slashless: a trailing-slash URL would 308 before reaching the server
-      expect(result.body).toContain("<d:href>/api/carddav</d:href>");
+      // Collections end in "/" — proxy.ts serves both slash forms directly
+      expect(result.body).toContain("<d:href>/api/carddav/</d:href>");
     });
 
     // Apple's client finds addressbooks by listing the home set's children,
@@ -61,7 +61,7 @@ describe("CardDAV handler", () => {
 
       expect(result.status).toBe(207);
       expect(result.body).toContain(
-        "<d:href>/api/carddav/addressbook</d:href>",
+        "<d:href>/api/carddav/addressbook/</d:href>",
       );
       expect(result.body).toContain("card:addressbook");
       expect(result.body).toContain("getctag");
@@ -72,7 +72,7 @@ describe("CardDAV handler", () => {
 
       expect(result.status).toBe(207);
       expect(result.body).not.toContain(
-        "<d:href>/api/carddav/addressbook</d:href>",
+        "<d:href>/api/carddav/addressbook/</d:href>",
       );
     });
 

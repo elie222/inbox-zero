@@ -7,19 +7,21 @@ import { handleCarddavRequest } from "@/utils/carddav/handler";
 import { createScopedLogger } from "@/utils/logger";
 
 // CardDAV clients (iOS/macOS Contacts) speak WebDAV verbs (PROPFIND/REPORT)
-// that Next.js App Router route handlers can't receive. This proxy — scoped
-// strictly to CardDAV paths and pinned to the Node.js runtime — answers those
-// verbs itself. Standard verbs (GET/PUT/DELETE/OPTIONS) still fall through to
-// the route, which receives them natively.
+// that Next.js App Router route handlers can't receive. This proxy — pinned
+// to the Node.js runtime — answers those verbs itself. Standard verbs
+// (GET/PUT/DELETE/OPTIONS) still fall through to the route, which receives
+// them natively.
 //
-// It used to tunnel PROPFIND/REPORT by fetching its own public origin as a
-// POST and relaying the result. That worked, but every WebDAV response then
-// crossed Vercel's edge a second time — a second cold start, the inner
-// response's whole header set (x-middleware-*, x-vercel-*, a possible
-// Set-Cookie) replayed onto the client response, and re-entry through the
-// edge firewall. Answering in place removes that hop.
+// It also owns trailing-slash handling for the whole app: Apple's client
+// canonicalizes DAV collection URLs with a trailing slash, and Next's
+// built-in normalization answered those with a 308 BEFORE this proxy ran —
+// and Apple drops the Authorization header when following redirects, turning
+// every sync request into a redirect + re-auth dance. With
+// skipTrailingSlashRedirect on (next.config.ts), CardDAV paths are served
+// directly in either slash form, and every other path keeps the redirect
+// Next used to inject.
 export const config = {
-  matcher: ["/.well-known/carddav", "/api/carddav/:path*", "/api/carddav"],
+  matcher: ["/((?!_next/static|_next/image|favicon\\.ico).*)"],
 };
 
 const WEBDAV_METHODS = new Set(["PROPFIND", "REPORT"]);
@@ -27,13 +29,36 @@ const WEBDAV_METHODS = new Set(["PROPFIND", "REPORT"]);
 const logger = createScopedLogger("carddav-proxy");
 
 export async function proxy(request: NextRequest) {
-  if (request.nextUrl.pathname === "/.well-known/carddav") {
+  const { pathname } = request.nextUrl;
+
+  if (pathname === "/.well-known/carddav") {
     return NextResponse.redirect(new URL("/api/carddav", request.url), 301);
   }
 
+  const isCarddav =
+    pathname === "/api/carddav" || pathname.startsWith("/api/carddav/");
+
+  if (!isCarddav) {
+    // The trailing-slash strip Next applied globally before
+    // skipTrailingSlashRedirect turned it off
+    if (pathname.length > 1 && pathname.endsWith("/")) {
+      const url = request.nextUrl.clone();
+      url.pathname = pathname.replace(/\/+$/, "");
+      return NextResponse.redirect(url, 308);
+    }
+    return NextResponse.next();
+  }
+
   const method = request.method.toUpperCase();
-  // The route already handles the standard verbs it can receive
   if (!WEBDAV_METHODS.has(method)) {
+    // The route handler answers these, but its [[...segments]] pattern only
+    // matches the slashless form — serve /api/carddav/addressbook/ and
+    // /api/carddav/addressbook as the same resource
+    if (pathname.endsWith("/")) {
+      const url = request.nextUrl.clone();
+      url.pathname = pathname.replace(/\/+$/, "");
+      return NextResponse.rewrite(url);
+    }
     return NextResponse.next();
   }
 
@@ -50,7 +75,7 @@ export async function proxy(request: NextRequest) {
   }
 
   // Path after "/api/carddav": "principal", "addressbook", "addressbook/x.vcf"
-  const segments = request.nextUrl.pathname.split("/").filter(Boolean).slice(2);
+  const segments = pathname.split("/").filter(Boolean).slice(2);
   const body = await request.text();
   const result = await handleCarddavRequest({
     method,
@@ -58,7 +83,7 @@ export async function proxy(request: NextRequest) {
     depth: request.headers.get("depth") ?? "0",
     body,
     emailAccountId: auth.emailAccountId,
-    requestPath: request.nextUrl.pathname,
+    requestPath: pathname,
   });
 
   // One line per exchange, so a client that verifies, stalls, or gives up

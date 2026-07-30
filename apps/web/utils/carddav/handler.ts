@@ -108,11 +108,10 @@ const DISCOVERY_PROPS: Record<"root" | "principal", Record<string, string>> = {
     "principal-URL": `<d:principal-URL><d:href>${BASE}/principal</d:href></d:principal-URL>`,
     resourcetype: "<d:resourcetype><d:principal/></d:resourcetype>",
     displayname: "<d:displayname>Zerrow</d:displayname>",
-    // Slashless on purpose: Next.js strips trailing slashes with a 308
-    // before this code runs, and Apple's client drops the Authorization
-    // header when it follows a redirect — every advertised URL must
-    // therefore be the canonical slashless form so no request redirects.
-    "addressbook-home-set": `<card:addressbook-home-set xmlns:card="urn:ietf:params:xml:ns:carddav"><d:href>${BASE}</d:href></card:addressbook-home-set>`,
+    // Collections end in "/" — Apple's client canonicalizes DAV collection
+    // URLs that way. proxy.ts serves both slash forms directly (Next's
+    // trailing-slash redirect is off), so this never redirects.
+    "addressbook-home-set": `<card:addressbook-home-set xmlns:card="urn:ietf:params:xml:ns:carddav"><d:href>${BASE}/</d:href></card:addressbook-home-set>`,
   },
 };
 
@@ -200,7 +199,7 @@ async function addressbookCollectionResponse(
   };
 
   return `<d:response>
-  <d:href>${ADDRESSBOOK_PATH}</d:href>
+  <d:href>${ADDRESSBOOK_PATH}/</d:href>
   ${propstats(available, requestBody)}
 </d:response>`;
 }
