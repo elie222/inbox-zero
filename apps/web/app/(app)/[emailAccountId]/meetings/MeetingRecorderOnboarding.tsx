@@ -8,140 +8,135 @@ import {
   MicIcon,
   ShieldIcon,
 } from "lucide-react";
+import { RadioCardGroup } from "@/components/RadioCardGroup";
 import { SetupCard } from "@/components/SetupCard";
 import {
   MessageText,
   MutedText,
+  PageHeading,
   TextLink,
-  TypographyH3,
 } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { MeetingJoinRule } from "@/generated/prisma/enums";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { MEETING_BOT_DISPLAY_NAME } from "@/utils/meeting-recorder/bot-provider";
 import { ConnectCalendar } from "@/app/(app)/[emailAccountId]/calendars/ConnectCalendar";
-import { JoinRuleChooser } from "@/app/(app)/[emailAccountId]/meetings/JoinRuleChooser";
+import { JOIN_RULE_OPTIONS } from "@/app/(app)/[emailAccountId]/meetings/join-rule-options";
 
 const features = [
   {
     icon: <MicIcon className="size-4 text-blue-500" />,
     title: "Notes and transcript",
-    description: "A written summary of every call, searchable afterwards",
+    description: "A summary of every call",
   },
   {
     icon: <ListChecksIcon className="size-4 text-blue-500" />,
     title: "Action items with owners",
-    description: "What was decided, and who agreed to do what",
+    description: "What was decided, and who owns what",
   },
   {
     icon: <MailPlusIcon className="size-4 text-blue-500" />,
     title: "Follow-up drafted for you",
-    description: "Waiting in your drafts. Nothing is ever sent for you",
+    description: "Waiting in your drafts, never sent",
   },
 ];
 
 export function MeetingRecorderOnboarding({
   emailAccountId,
   hasCalendarConnected,
-  currentJoinRule,
   onEnable,
   isEnabling,
 }: {
   emailAccountId: string;
   hasCalendarConnected: boolean;
-  currentJoinRule: MeetingJoinRule | undefined;
   onEnable: (joinRule: MeetingJoinRule) => void;
   isEnabling: boolean;
 }) {
-  if (!hasCalendarConnected) {
+  const [joinRule, setJoinRule] = useState<MeetingJoinRule | null>(null);
+
+  // Nothing is written until the second step, so leaving the flow part way
+  // through does not enable anything.
+  if (joinRule !== null) {
     return (
-      <SetupCard
-        imageSrc="/images/illustrations/calling-help.svg"
-        imageAlt="Meeting notetaker"
-        title="Never write meeting notes again"
-        description="Inbox Zero joins your calls, takes the notes, and drafts the follow-up email."
-        features={features}
-      >
-        <MessageText>Connect your calendar to get started:</MessageText>
-        <ConnectCalendar
-          analyticsPage="meetings"
-          onboardingReturnPath={`/${emailAccountId}/meetings`}
-        />
-        <BotVisibilityNote />
-      </SetupCard>
+      <ChooseJoinRule
+        emailAccountId={emailAccountId}
+        joinRule={joinRule}
+        onChange={setJoinRule}
+        onConfirm={() => onEnable(joinRule)}
+        isEnabling={isEnabling}
+      />
     );
   }
 
   return (
-    <ChooseJoinRuleStep
-      currentJoinRule={currentJoinRule}
-      onEnable={onEnable}
-      isEnabling={isEnabling}
-    />
+    <SetupCard
+      imageSrc="/images/illustrations/calling-help.svg"
+      imageAlt="Meeting notetaker"
+      title="Never write meeting notes again"
+      description="Inbox Zero joins your calls, takes the notes, and drafts the follow-up email."
+      features={features}
+    >
+      {hasCalendarConnected ? (
+        <Button onClick={() => setJoinRule(MeetingJoinRule.EXTERNAL_ONLY)}>
+          Get started
+        </Button>
+      ) : (
+        <>
+          <MessageText>Connect your calendar to get started:</MessageText>
+          <ConnectCalendar
+            analyticsPage="meetings"
+            onboardingReturnPath={`/${emailAccountId}/meetings`}
+          />
+        </>
+      )}
+    </SetupCard>
   );
 }
 
-function ChooseJoinRuleStep({
-  currentJoinRule,
-  onEnable,
+function ChooseJoinRule({
+  emailAccountId,
+  joinRule,
+  onChange,
+  onConfirm,
   isEnabling,
 }: {
-  currentJoinRule: MeetingJoinRule | undefined;
-  onEnable: (joinRule: MeetingJoinRule) => void;
+  emailAccountId: string;
+  joinRule: MeetingJoinRule;
+  onChange: (rule: MeetingJoinRule) => void;
+  onConfirm: () => void;
   isEnabling: boolean;
 }) {
-  const { emailAccountId, userEmail } = useAccount();
-  const [joinRule, setJoinRule] = useState(
-    currentJoinRule ?? MeetingJoinRule.EXTERNAL_ONLY,
-  );
+  const { userEmail } = useAccount();
 
   return (
-    <Card className="mx-4 mt-10 flex max-w-lg flex-col gap-5 p-6 md:mx-auto">
-      <div>
-        <TypographyH3>Which meetings should we join?</TypographyH3>
+    <div className="mx-4 mt-16 flex max-w-lg flex-col gap-6 md:mx-auto">
+      <div className="flex flex-col gap-3">
+        <PageHeading>Which meetings should we join?</PageHeading>
 
-        <MutedText className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+        <MutedText className="flex flex-wrap items-center gap-x-2">
           <CheckIcon className="size-4 shrink-0 text-green-600" />
-          <span>{userEmail} connected</span>
+          {userEmail} connected
           <TextLink href={`/${emailAccountId}/calendars`}>Change</TextLink>
         </MutedText>
       </div>
 
-      <JoinRuleChooser
+      <RadioCardGroup
+        name="joinRule"
+        ariaLabel="Which meetings to join"
         value={joinRule}
-        onChange={setJoinRule}
+        onChange={onChange}
+        options={JOIN_RULE_OPTIONS}
         disabled={isEnabling}
       />
 
-      <CardContent className="flex flex-col gap-3 p-0">
-        <Button
-          className="w-full"
-          loading={isEnabling}
-          onClick={() => onEnable(joinRule)}
-        >
-          Start recording my meetings
-        </Button>
+      <Button className="self-start" loading={isEnabling} onClick={onConfirm}>
+        Start recording my meetings
+      </Button>
 
-        <MutedText className="text-center">
-          You can change this any time, or turn the notetaker off for a single
-          meeting.
-        </MutedText>
-
-        <BotVisibilityNote />
-      </CardContent>
-    </Card>
-  );
-}
-
-function BotVisibilityNote() {
-  return (
-    <div className="flex items-start gap-2 text-xs text-muted-foreground">
-      <ShieldIcon className="mt-0.5 size-3.5 shrink-0" />
-      <span>
-        It joins as a visible participant called {MEETING_BOT_DISPLAY_NAME}, so
-        everyone in the call knows it is there.
-      </span>
+      <MutedText className="flex items-start gap-2 text-xs">
+        <ShieldIcon className="mt-0.5 size-3.5 shrink-0" />
+        Joins as a visible participant called {MEETING_BOT_DISPLAY_NAME}.
+      </MutedText>
     </div>
   );
 }
