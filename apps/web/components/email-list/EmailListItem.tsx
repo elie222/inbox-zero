@@ -9,7 +9,12 @@ import {
 import Link from "next/link";
 import clsx from "clsx";
 import { motion, type PanInfo } from "framer-motion";
-import { ArchiveIcon, SparklesIcon, Trash2Icon } from "lucide-react";
+import {
+  ArchiveIcon,
+  MoreVerticalIcon,
+  SparklesIcon,
+  Trash2Icon,
+} from "lucide-react";
 import { Tooltip } from "@/components/Tooltip";
 import { ActionButtons } from "@/components/ActionButtons";
 import { LoadingMiniSpinner } from "@/components/Loading";
@@ -271,28 +276,25 @@ export const EmailListItem = forwardRef(
                       />
                     </span>
                   </div>
-                </div>
 
-                {/* Touch devices have no hover: the row actions get a full-
-                    width strip under the row instead of squeezing into the
-                    text column */}
-                {!splitView && (
-                  <div
-                    className="mt-2 md:hidden"
-                    onClick={preventPropagation}
-                    onKeyDown={preventPropagation}
-                  >
-                    <ActionButtons
-                      threadId={thread.id!}
-                      isPlanning={isPlanning}
-                      onArchive={() => {
-                        props.onArchive(thread);
-                        props.closePanel();
+                  {/* Touch devices have no hover: a ⋯ opens the same menu a
+                      right-click does (Open / Process with AI / Archive /
+                      Delete …), keeping the row compact */}
+                  {props.onRowContextMenu && (
+                    <button
+                      type="button"
+                      aria-label="Email actions"
+                      className="-mr-2 flex size-9 shrink-0 items-center justify-center text-muted-foreground md:hidden"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        props.onRowContextMenu?.(event, thread);
                       }}
-                      refetch={props.refetch}
-                    />
-                  </div>
-                )}
+                      onKeyDown={preventPropagation}
+                    >
+                      <MoreVerticalIcon className="size-4" />
+                    </button>
+                  )}
+                </div>
               </div>
             </SwipeableRow>
           </div>
