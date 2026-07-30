@@ -111,21 +111,32 @@
 /*
  * Mobile chrome geometry, defined once so the fixed header, the bottom app
  * tray, and every layout that offsets around them agree by construction.
- * The tray only carries the home-indicator inset when installed — in a
- * browser tab that inset is the browser's own toolbar area — and the inset
- * is capped so an OS reporting an inflated value can't float the tray's
- * buttons into the middle of the screen.
+ * In a browser tab the tray carries no inset at all — the bottom inset is
+ * the browser's own toolbar area there.
  */
 :root {
   --mobile-header-h: calc(2.25rem + env(safe-area-inset-top, 0px));
   --mobile-tray-h: 3.5rem;
 }
 
+/*
+ * Installed, the tray must clear the home indicator — but browsers disagree
+ * about whose job that is. Some keep fixed bottom-0 elements out of the
+ * inset zone themselves (then padding again doubles the gap), others let
+ * them run under it (then the padding is ours to add). ViewportInsetProbe
+ * measures the part the browser already reserved (--viewport-bottom-gap)
+ * and we pad only the remainder, capped at a sane home-indicator size.
+ */
 @media (display-mode: standalone) {
   :root {
     --mobile-tray-h: calc(
       3.5rem +
-      min(env(safe-area-inset-bottom, 0px), 2.125rem)
+      clamp(
+        0px,
+        env(safe-area-inset-bottom, 0px) -
+        var(--viewport-bottom-gap, 0px),
+        2.125rem
+      )
     );
   }
 }
