@@ -36,7 +36,9 @@ export function PlanExplanation(props: { provider: string; thread: Thread }) {
         aria-expanded={expanded}
         onClick={() => setExpanded((previous) => !previous)}
       >
-        <span className="shrink-0">
+        {/* min-w-0, not shrink-0: a long rule name must truncate inside
+            the badge rather than push the summary off a phone */}
+        <span className="min-w-0">
           <PlanBadge plan={plan} provider={provider} />
         </span>
         <span className="min-w-0 flex-1 truncate text-sm">{summary}</span>

@@ -315,7 +315,7 @@ export function ContactDetails({
                 <Button
                   variant="ghost"
                   size="xs"
-                  className="text-primary"
+                  className="h-9 sm:h-6 text-primary"
                   loading={enrich.isExecuting}
                   onClick={() => enrich.execute({ email })}
                 >
@@ -675,6 +675,7 @@ function ContactEditForm({
                 type="button"
                 variant="outline"
                 size="xs"
+                className="h-9 sm:h-6"
                 onClick={() => {
                   if (suggestion.field === "phone") {
                     phoneRows.append({

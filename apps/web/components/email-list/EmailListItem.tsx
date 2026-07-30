@@ -137,86 +137,126 @@ export const EmailListItem = forwardRef(
                 props.closePanel();
               }}
             >
-              <div className="flex min-w-0 items-center gap-3 px-3.5 py-2.5">
-                <div
-                  className="flex shrink-0 items-center"
-                  onClick={preventPropagation}
-                  onKeyDown={preventPropagation}
-                >
-                  <Checkbox
-                    label={`Select email: ${lastMessage.headers.subject || "No subject"}`}
-                    checked={!!props.selected}
-                    onChange={onRowSelected}
-                  />
-                </div>
-
-                <SenderAvatar name={senderName} />
-
-                <div className="min-w-0 flex-1">
-                  {/* Inline on wide screens, stacked on mobile and in split
-                      view where the columns don't fit */}
+              <div className="px-3.5 py-2.5">
+                <div className="flex min-w-0 items-center gap-3">
                   <div
-                    className={clsx(
-                      "flex min-w-0 gap-x-2 text-sm",
-                      splitView
-                        ? "flex-col"
-                        : "flex-col md:flex-row md:items-center",
-                    )}
+                    className="flex shrink-0 items-center"
+                    onClick={preventPropagation}
+                    onKeyDown={preventPropagation}
                   >
-                    <span
-                      className={clsx(
-                        "shrink-0 truncate",
-                        splitView ? "max-w-full" : "md:max-w-[180px]",
-                        isUnread ? "font-bold" : "font-medium",
-                      )}
-                    >
-                      <SenderName header={senderHeader} />
-                      {thread.messages.length > 1 && (
-                        <span className="ml-1 font-normal text-muted-foreground">
-                          ({thread.messages.length})
-                        </span>
-                      )}
-                    </span>
-                    <span
-                      className={clsx(
-                        "min-w-0 truncate text-[13.5px]",
-                        isUnread
-                          ? "font-semibold text-foreground"
-                          : "text-foreground/80",
-                      )}
-                    >
-                      {lastMessage.headers.subject}
-                    </span>
-                    <span
-                      className={clsx(
-                        "min-w-0 flex-1 truncate text-[13px] text-muted-foreground",
-                        splitView && "hidden",
-                      )}
-                    >
-                      {decodedSnippet}
-                    </span>
+                    <Checkbox
+                      label={`Select email: ${lastMessage.headers.subject || "No subject"}`}
+                      checked={!!props.selected}
+                      onChange={onRowSelected}
+                    />
                   </div>
-                  {cta && (
-                    <Button
-                      variant="outline"
-                      size="xs"
-                      className="mt-1.5"
-                      asChild
-                    >
-                      <Link href={cta.ctaLink} target="_blank">
-                        {cta.ctaText}
-                      </Link>
-                    </Button>
-                  )}
-                  {/* Touch devices have no hover: show the row actions inline */}
-                  {!splitView && (
+
+                  <SenderAvatar name={senderName} />
+
+                  <div className="min-w-0 flex-1">
+                    {/* Inline on wide screens, stacked on mobile and in split
+                      view where the columns don't fit */}
                     <div
-                      className="mt-2 md:hidden"
+                      className={clsx(
+                        "flex min-w-0 gap-x-2 text-sm",
+                        splitView
+                          ? "flex-col"
+                          : "flex-col md:flex-row md:items-center",
+                      )}
+                    >
+                      <span
+                        className={clsx(
+                          "shrink-0 truncate",
+                          splitView ? "max-w-full" : "md:max-w-[180px]",
+                          isUnread ? "font-bold" : "font-medium",
+                        )}
+                      >
+                        <SenderName header={senderHeader} />
+                        {thread.messages.length > 1 && (
+                          <span className="ml-1 font-normal text-muted-foreground">
+                            ({thread.messages.length})
+                          </span>
+                        )}
+                      </span>
+                      <span
+                        className={clsx(
+                          "min-w-0 truncate text-[13.5px]",
+                          isUnread
+                            ? "font-semibold text-foreground"
+                            : "text-foreground/80",
+                        )}
+                      >
+                        {lastMessage.headers.subject}
+                      </span>
+                      <span
+                        className={clsx(
+                          "min-w-0 flex-1 truncate text-[13px] text-muted-foreground",
+                          splitView && "hidden",
+                        )}
+                      >
+                        {decodedSnippet}
+                      </span>
+                    </div>
+                    {cta && (
+                      <Button
+                        variant="outline"
+                        size="xs"
+                        className="mt-1.5"
+                        asChild
+                      >
+                        <Link href={cta.ctaLink} target="_blank">
+                          {cta.ctaText}
+                        </Link>
+                      </Button>
+                    )}
+                  </div>
+
+                  {!!thread.plan && !splitView && (
+                    <div className="hidden min-w-0 max-w-56 shrink-0 items-center md:flex">
+                      <PlanBadge plan={thread.plan} provider={provider} />
+                    </div>
+                  )}
+
+                  {/* The AI's read on this email: orange when it left a reason
+                    (hover to read it), gray otherwise — click to reprocess */}
+                  <Tooltip
+                    content={
+                      thread.plan?.reason ?? "Process this email with AI"
+                    }
+                  >
+                    <button
+                      type="button"
+                      aria-label="Process with AI"
+                      className={clsx(
+                        "shrink-0",
+                        thread.plan?.reason
+                          ? "text-primary"
+                          : "text-muted-foreground/40 hover:text-muted-foreground",
+                      )}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        props.onReprocess(thread);
+                      }}
+                      onKeyDown={preventPropagation}
+                    >
+                      {isPlanning ? (
+                        <LoadingMiniSpinner />
+                      ) : (
+                        <SparklesIcon className="size-3.5" />
+                      )}
+                    </button>
+                  </Tooltip>
+
+                  <div className="relative flex shrink-0 items-center">
+                    <div
+                      className="absolute right-0 z-20 hidden md:group-hover:block"
+                      // prevent the thread opening when clicking a row action
                       onClick={preventPropagation}
                       onKeyDown={preventPropagation}
                     >
                       <ActionButtons
                         threadId={thread.id!}
+                        shadow
                         isPlanning={isPlanning}
                         onArchive={() => {
                           props.onArchive(thread);
@@ -225,53 +265,25 @@ export const EmailListItem = forwardRef(
                         refetch={props.refetch}
                       />
                     </div>
-                  )}
+                    <span className="whitespace-nowrap text-right text-[12.5px] text-muted-foreground md:w-16">
+                      <EmailDate
+                        date={internalDateToDate(lastMessage?.internalDate)}
+                      />
+                    </span>
+                  </div>
                 </div>
 
-                {!!thread.plan && !splitView && (
-                  <div className="hidden min-w-0 max-w-56 shrink-0 items-center md:flex">
-                    <PlanBadge plan={thread.plan} provider={provider} />
-                  </div>
-                )}
-
-                {/* The AI's read on this email: orange when it left a reason
-                    (hover to read it), gray otherwise — click to reprocess */}
-                <Tooltip
-                  content={thread.plan?.reason ?? "Process this email with AI"}
-                >
-                  <button
-                    type="button"
-                    aria-label="Process with AI"
-                    className={clsx(
-                      "shrink-0",
-                      thread.plan?.reason
-                        ? "text-primary"
-                        : "text-muted-foreground/40 hover:text-muted-foreground",
-                    )}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      props.onReprocess(thread);
-                    }}
-                    onKeyDown={preventPropagation}
-                  >
-                    {isPlanning ? (
-                      <LoadingMiniSpinner />
-                    ) : (
-                      <SparklesIcon className="size-3.5" />
-                    )}
-                  </button>
-                </Tooltip>
-
-                <div className="relative flex shrink-0 items-center">
+                {/* Touch devices have no hover: the row actions get a full-
+                    width strip under the row instead of squeezing into the
+                    text column */}
+                {!splitView && (
                   <div
-                    className="absolute right-0 z-20 hidden md:group-hover:block"
-                    // prevent the thread opening when clicking a row action
+                    className="mt-2 md:hidden"
                     onClick={preventPropagation}
                     onKeyDown={preventPropagation}
                   >
                     <ActionButtons
                       threadId={thread.id!}
-                      shadow
                       isPlanning={isPlanning}
                       onArchive={() => {
                         props.onArchive(thread);
@@ -280,12 +292,7 @@ export const EmailListItem = forwardRef(
                       refetch={props.refetch}
                     />
                   </div>
-                  <span className="w-16 text-right text-[12.5px] text-muted-foreground">
-                    <EmailDate
-                      date={internalDateToDate(lastMessage?.internalDate)}
-                    />
-                  </span>
-                </div>
+                )}
               </div>
             </SwipeableRow>
           </div>

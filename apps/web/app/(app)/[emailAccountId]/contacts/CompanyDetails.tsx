@@ -429,7 +429,7 @@ function CompanyAbout({
         <Button
           variant="ghost"
           size="xs"
-          className="text-primary"
+          className="h-9 sm:h-6 text-primary"
           loading={research.isExecuting}
           onClick={() => research.execute({ id: company.id })}
         >
@@ -449,6 +449,7 @@ function CompanyAbout({
           <Button
             variant="outline"
             size="xs"
+            className="h-9 sm:h-6"
             loading={rename.isExecuting}
             onClick={() =>
               rename.execute({ id: company.id, name: suggestedName })
@@ -473,6 +474,7 @@ function CompanyAbout({
           <Button
             variant="outline"
             size="xs"
+            className="h-9 sm:h-6"
             loading={applyLabel.isExecuting}
             onClick={() =>
               applyLabel.execute({
@@ -953,8 +955,9 @@ function LogoPicker({
                     )}
                   </button>
                 </Tooltip>
-                <span className="text-[10.5px] text-muted-foreground">
-                  {label}
+                <span className="flex max-w-[60px] flex-col items-center text-center text-[10.5px] leading-tight text-muted-foreground">
+                  <span className="w-full truncate">{domain}</span>
+                  <span className="w-full truncate">{label}</span>
                 </span>
               </div>
             );
