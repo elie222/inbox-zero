@@ -234,7 +234,7 @@ export function FilterLikeThisDialog({
               {preview?.countable
                 ? `About ${preview.total} existing ${preview.total === 1 ? "email matches" : "emails match"}.`
                 : matchType === "subject"
-                  ? "Matches subject lines containing this text."
+                  ? "Matches subject lines containing this text. Several subjects can share one filter — separate them with ||"
                   : " "}
             </p>
           </div>
