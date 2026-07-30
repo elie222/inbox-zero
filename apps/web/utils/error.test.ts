@@ -17,6 +17,8 @@ import {
   attachLlmRepairMetadata,
   captureException,
   checkCommonErrors,
+  EMAIL_PROVIDER_RATE_LIMIT_MESSAGE,
+  EmailProviderRateLimitError,
   getActionErrorMessage,
   getUserFacingErrorMessage,
   isInsufficientCreditsError,
@@ -39,6 +41,14 @@ describe("assertActionSucceeded", () => {
     expect(() =>
       assertActionSucceeded({ serverError: "Unable to update sender" }),
     ).toThrow("Unable to update sender");
+  });
+
+  it("preserves provider rate limits as a typed client error", () => {
+    expect(() =>
+      assertActionSucceeded({
+        serverError: EMAIL_PROVIDER_RATE_LIMIT_MESSAGE,
+      }),
+    ).toThrow(EmailProviderRateLimitError);
   });
 
   it("throws flattened validation errors", () => {

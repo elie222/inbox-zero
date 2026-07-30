@@ -25,6 +25,8 @@ export type ApiErrorType = {
 
 const RATE_LIMIT_MESSAGE_TEMPLATE =
   "{provider} is temporarily limiting requests. Please try again shortly.";
+export const EMAIL_PROVIDER_RATE_LIMIT_MESSAGE =
+  "Your email provider is temporarily limiting requests. Please try again shortly.";
 
 // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
 export function isError(value: any): value is ErrorMessage | ZodError {
@@ -156,6 +158,13 @@ export class SafeError extends Error {
     this.name = "SafeError";
     this.safeMessage = safeMessage;
     this.statusCode = statusCode;
+  }
+}
+
+export class EmailProviderRateLimitError extends Error {
+  constructor() {
+    super(EMAIL_PROVIDER_RATE_LIMIT_MESSAGE);
+    this.name = "EmailProviderRateLimitError";
   }
 }
 
@@ -541,6 +550,9 @@ export function assertActionSucceeded(
   if (!result) return;
 
   const message = extractActionErrorMessage(result);
+  if (message === EMAIL_PROVIDER_RATE_LIMIT_MESSAGE) {
+    throw new EmailProviderRateLimitError();
+  }
   if (message) throw new Error(message);
 }
 
