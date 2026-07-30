@@ -32,6 +32,31 @@ export function matchesSubjectPattern(
   logger: Logger,
   options?: { anchorStart?: boolean },
 ) {
+  // "Daily Report || Weekly Summary" filters both subjects with one rule.
+  // Double pipe: single "|" stays a literal character because real subjects
+  // contain it ("Status: Active | Pending"), and commas/OR are ordinary
+  // subject text too — unlike in sender lists.
+  return splitSubjectPatterns(pattern).some((patternPart) =>
+    matchesSingleSubjectPattern(patternPart, subject, logger, options),
+  );
+}
+
+export function splitSubjectPatterns(pattern: string): string[] {
+  const parts = pattern
+    .split("||")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  // "||" alone must not vanish into match-nothing; fall back to the raw
+  // pattern so the condition still evaluates literally
+  return parts.length ? parts : [pattern];
+}
+
+function matchesSingleSubjectPattern(
+  pattern: string,
+  subject: string,
+  logger: Logger,
+  options?: { anchorStart?: boolean },
+) {
   if (matchesTextPattern(pattern, subject, logger, options)) return true;
 
   // Users write conditions from what they see ("RE: Daily") and mailers
