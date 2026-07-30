@@ -19,6 +19,7 @@ export async function getBatchWithRetry<TRaw, TParsed>({
   parse,
   logger,
   retryCount = 0,
+  retryError,
 }: {
   ids: string[];
   endpoint: string; // e.g. /gmail/v1/users/me/messages
@@ -26,12 +27,15 @@ export async function getBatchWithRetry<TRaw, TParsed>({
   parse: (item: TRaw) => TParsed;
   logger: Logger;
   retryCount?: number;
+  retryError?: BatchError["error"];
 }): Promise<TParsed[]> {
   if (!accessToken) throw new Error("No access token");
 
   if (retryCount > 3) {
     logger.warn("Too many batch retries", { ids, retryCount });
-    return [];
+    if (!retryError) throw new Error("Gmail batch retry limit exceeded");
+    // Preserve the provider error so account-level rate-limit protection can pause follow-on calls.
+    throw new GmailBatchRetryExhaustedError(retryError);
   }
 
   const batch: (TRaw | BatchError)[] = await getBatch(
@@ -47,6 +51,7 @@ export async function getBatchWithRetry<TRaw, TParsed>({
 
   const missingIds = new Set<string>();
   let shouldRetryInSmallerBatches = false;
+  let lastRetryableError = retryError;
 
   const parsed = batch
     .map((item, i) => {
@@ -76,7 +81,12 @@ export async function getBatchWithRetry<TRaw, TParsed>({
           errorMessage,
           reason,
         });
-        if (isRateLimit) shouldRetryInSmallerBatches = true;
+        if (isRateLimit) {
+          shouldRetryInSmallerBatches = true;
+          lastRetryableError = item.error;
+        } else if (!lastRetryableError) {
+          lastRetryableError = item.error;
+        }
         missingIds.add(ids[i]);
         return;
       }
@@ -100,6 +110,7 @@ export async function getBatchWithRetry<TRaw, TParsed>({
           accessToken,
           parse,
           retryCount: nextRetryCount,
+          retryError: lastRetryableError,
           logger,
         })
       : await getBatchWithRetry({
@@ -108,6 +119,7 @@ export async function getBatchWithRetry<TRaw, TParsed>({
           accessToken,
           parse,
           retryCount: nextRetryCount,
+          retryError: lastRetryableError,
           logger,
         });
     return [...parsed, ...refetched];
@@ -122,6 +134,7 @@ async function getBatchWithRetryInChunks<TRaw, TParsed>({
   accessToken,
   parse,
   retryCount,
+  retryError,
   logger,
 }: {
   ids: string[];
@@ -129,6 +142,7 @@ async function getBatchWithRetryInChunks<TRaw, TParsed>({
   accessToken: string;
   parse: (item: TRaw) => TParsed;
   retryCount: number;
+  retryError?: BatchError["error"];
   logger: Logger;
 }): Promise<TParsed[]> {
   const chunked = chunk(ids, RATE_LIMIT_RETRY_BATCH_SIZE);
@@ -141,10 +155,23 @@ async function getBatchWithRetryInChunks<TRaw, TParsed>({
       accessToken,
       parse,
       retryCount,
+      retryError,
       logger,
     });
     results.push(...chunkResults);
   }
 
   return results;
+}
+
+class GmailBatchRetryExhaustedError extends Error {
+  status: number;
+  errors: BatchError["error"]["errors"];
+
+  constructor(error: BatchError["error"]) {
+    super(error.message);
+    this.name = "GmailBatchRetryExhaustedError";
+    this.status = error.code;
+    this.errors = error.errors;
+  }
 }
