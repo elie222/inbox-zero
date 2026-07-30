@@ -173,6 +173,7 @@ describe("Provider Edge Cases", () => {
           },
         ),
       ).resolves.toBeUndefined();
+      expect(runRules).toHaveBeenCalledOnce();
     });
   });
 
