@@ -48,6 +48,22 @@ describe("CardDAV handler", () => {
       expect(result.body).toContain("<d:href>/api/carddav/</d:href>");
     });
 
+    // iOS treats the setup URL the user typed as the principal itself and
+    // asks IT for the home set — a 404 propstat here reads as "this server
+    // has no address books" and account setup dies on the spot
+    it("answers addressbook-home-set at the root too", async () => {
+      const result = await request({
+        method: "PROPFIND",
+        body: `<propfind xmlns="DAV:"><prop><addressbook-home-set xmlns="urn:ietf:params:xml:ns:carddav"/><resourcetype/></prop></propfind>`,
+      });
+
+      expect(result.status).toBe(207);
+      expect(result.body).toContain("card:addressbook-home-set");
+      expect(result.body).toContain("<d:href>/api/carddav/</d:href>");
+      expect(result.body).toContain("<d:principal/>");
+      expect(result.body).not.toContain("404");
+    });
+
     // Apple's client finds addressbooks by listing the home set's children,
     // not by inspecting the home set itself — the listing must include the
     // addressbook collection or the account syncs nothing

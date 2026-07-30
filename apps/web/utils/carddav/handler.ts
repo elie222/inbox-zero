@@ -100,8 +100,15 @@ const DISCOVERY_PROPS: Record<"root" | "principal", Record<string, string>> = {
   root: {
     "current-user-principal": `<d:current-user-principal><d:href>${BASE}/principal</d:href></d:current-user-principal>`,
     "principal-URL": `<d:principal-URL><d:href>${BASE}/principal</d:href></d:principal-URL>`,
-    resourcetype: "<d:resourcetype><d:collection/></d:resourcetype>",
+    // Both collection and principal: the setup URL the user types IS this
+    // root, and iOS treats a typed URL as the principal itself — it asks it
+    // for addressbook-home-set directly and abandons setup on a 404 propstat
+    // instead of following current-user-principal (observed live: two root
+    // PROPFINDs, the second all-404, then silence).
+    resourcetype:
+      "<d:resourcetype><d:collection/><d:principal/></d:resourcetype>",
     displayname: "<d:displayname>Zerrow</d:displayname>",
+    "addressbook-home-set": `<card:addressbook-home-set xmlns:card="urn:ietf:params:xml:ns:carddav"><d:href>${BASE}/</d:href></card:addressbook-home-set>`,
   },
   principal: {
     "current-user-principal": `<d:current-user-principal><d:href>${BASE}/principal</d:href></d:current-user-principal>`,
