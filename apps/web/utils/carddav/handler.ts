@@ -105,7 +105,11 @@ const DISCOVERY_PROPS: Record<"root" | "principal", Record<string, string>> = {
     "principal-URL": `<d:principal-URL><d:href>${BASE}/principal</d:href></d:principal-URL>`,
     resourcetype: "<d:resourcetype><d:principal/></d:resourcetype>",
     displayname: "<d:displayname>Zerrow</d:displayname>",
-    "addressbook-home-set": `<card:addressbook-home-set xmlns:card="urn:ietf:params:xml:ns:carddav"><d:href>${BASE}/</d:href></card:addressbook-home-set>`,
+    // Slashless on purpose: Next.js strips trailing slashes with a 308
+    // before this code runs, and Apple's client drops the Authorization
+    // header when it follows a redirect — every advertised URL must
+    // therefore be the canonical slashless form so no request redirects.
+    "addressbook-home-set": `<card:addressbook-home-set xmlns:card="urn:ietf:params:xml:ns:carddav"><d:href>${BASE}</d:href></card:addressbook-home-set>`,
   },
 };
 
@@ -197,7 +201,7 @@ async function addressbookCollectionResponse(
   const { ctag, syncToken } = await addressbookState(emailAccountId);
 
   return `<d:response>
-  <d:href>${ADDRESSBOOK_PATH}/</d:href>
+  <d:href>${ADDRESSBOOK_PATH}</d:href>
   <d:propstat><d:prop>
     <d:resourcetype><d:collection/><card:addressbook xmlns:card="urn:ietf:params:xml:ns:carddav"/></d:resourcetype>
     <d:displayname>Zerrow Contacts</d:displayname>
@@ -280,7 +284,14 @@ async function reportAddressbook({
     : null;
 
   const responses = contacts
-    .filter((contact) => !requested || requested.has(contactHref(contact)))
+    .filter(
+      (contact) =>
+        !requested ||
+        // Clients echo hrefs in whichever encoding they parsed, so match
+        // the percent-encoded and decoded forms both
+        requested.has(contactHref(contact)) ||
+        requested.has(decodeURIComponent(contactHref(contact))),
+    )
     .map(
       (contact) => `<d:response>
   <d:href>${contactHref(contact)}</d:href>
@@ -500,8 +511,15 @@ ${responses}
 }
 
 function escapeXml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+  return (
+    value
+      // Control characters are illegal in XML 1.0 (tab/LF/CR excepted) —
+      // one dirty byte in one contact would make the entire multistatus
+      // unparseable, and the client would silently store nothing
+      // biome-ignore lint/suspicious/noControlCharactersInRegex: that's the point
+      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+  );
 }

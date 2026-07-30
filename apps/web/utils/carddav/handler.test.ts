@@ -1,3 +1,4 @@
+import { XMLValidator } from "fast-xml-parser";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import { handleCarddavRequest } from "./handler";
@@ -43,7 +44,8 @@ describe("CardDAV handler", () => {
 
       expect(result.status).toBe(207);
       expect(result.body).toContain("card:addressbook-home-set");
-      expect(result.body).toContain("<d:href>/api/carddav/</d:href>");
+      // Slashless: a trailing-slash URL would 308 before reaching the server
+      expect(result.body).toContain("<d:href>/api/carddav</d:href>");
     });
 
     // Apple's client finds addressbooks by listing the home set's children,
@@ -59,7 +61,7 @@ describe("CardDAV handler", () => {
 
       expect(result.status).toBe(207);
       expect(result.body).toContain(
-        "<d:href>/api/carddav/addressbook/</d:href>",
+        "<d:href>/api/carddav/addressbook</d:href>",
       );
       expect(result.body).toContain("card:addressbook");
       expect(result.body).toContain("getctag");
@@ -70,7 +72,7 @@ describe("CardDAV handler", () => {
 
       expect(result.status).toBe(207);
       expect(result.body).not.toContain(
-        "<d:href>/api/carddav/addressbook/</d:href>",
+        "<d:href>/api/carddav/addressbook</d:href>",
       );
     });
 
@@ -364,6 +366,54 @@ describe("CardDAV handler", () => {
 
       expect(result.status).toBe(403);
       expect(result.body).toContain("valid-sync-token");
+    });
+  });
+
+  // Replays the whole conversation a phone runs, with deliberately dirty
+  // contact data, and validates every response with a real XML parser — a
+  // single stray byte in one contact would otherwise poison the entire
+  // document and the client would silently store nothing
+  describe("XML well-formedness across the sync conversation", () => {
+    it("every multistatus stays parseable with control bytes in the data", async () => {
+      const dirty = fullContact({ name: "Ada\u0007 Love\rlace" });
+      prisma.contact.findMany.mockResolvedValue([dirty] as never);
+      prisma.contact.count.mockResolvedValue(1);
+      prisma.contact.findFirst.mockResolvedValue(dirty as never);
+
+      const exchanges = [
+        await request({ method: "PROPFIND" }),
+        await request({ method: "PROPFIND", segments: ["principal"] }),
+        await request({ method: "PROPFIND", depth: "1" }),
+        await request({
+          method: "PROPFIND",
+          segments: ["addressbook"],
+          depth: "1",
+        }),
+        await request({
+          method: "REPORT",
+          segments: ["addressbook"],
+          body: `<d:sync-collection xmlns:d="DAV:" xmlns:card="urn:ietf:params:xml:ns:carddav">
+  <d:sync-token/>
+  <d:prop><d:getetag/><card:address-data/></d:prop>
+</d:sync-collection>`,
+        }),
+        await request({
+          method: "REPORT",
+          segments: ["addressbook"],
+          body: `<card:addressbook-multiget xmlns:card="urn:ietf:params:xml:ns:carddav" xmlns:d="DAV:">
+  <d:href>/api/carddav/addressbook/uid-1.vcf</d:href>
+</card:addressbook-multiget>`,
+        }),
+      ];
+
+      for (const exchange of exchanges) {
+        expect(exchange.status).toBe(207);
+        expect(XMLValidator.validate(exchange.body ?? "")).toBe(true);
+        expect(exchange.body).not.toMatch(
+          // biome-ignore lint/suspicious/noControlCharactersInRegex: asserting their absence
+          /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/,
+        );
+      }
     });
   });
 
