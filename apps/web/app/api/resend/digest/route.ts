@@ -22,6 +22,7 @@ import camelCase from "lodash/camelCase";
 import { createEmailProvider } from "@/utils/email/provider";
 import { sleep } from "@/utils/sleep";
 import { withQstashOrInternal } from "@/utils/qstash";
+import { claimPendingDigestIds } from "@/utils/digest/claim-pending-digests";
 
 export const maxDuration = 60;
 
@@ -153,10 +154,14 @@ async function sendEmail({
     }
   }
 
+  const claimedDigestIds = await claimPendingDigestIds({ emailAccountId });
+
   const pendingDigests = await prisma.digest.findMany({
     where: {
       emailAccountId,
-      status: DigestStatus.PENDING,
+      id: {
+        in: claimedDigestIds,
+      },
     },
     select: {
       id: true,
@@ -181,20 +186,6 @@ async function sendEmail({
       },
     },
   });
-
-  if (pendingDigests.length) {
-    // Mark all found digests as processing
-    await prisma.digest.updateMany({
-      where: {
-        id: {
-          in: pendingDigests.map((d) => d.id),
-        },
-      },
-      data: {
-        status: DigestStatus.PROCESSING,
-      },
-    });
-  }
 
   try {
     // Return early if no digests were found, unless force is true
