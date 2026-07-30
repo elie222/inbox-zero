@@ -20,6 +20,11 @@ vi.mock("@/utils/prisma", () => ({
       findFirst: vi.fn().mockResolvedValue(null),
       findUnique: vi.fn().mockResolvedValue(null),
     },
+    // The inbound-task hook runs fire-and-forget after every processed
+    // message; without this it rejects unhandled and poisons the run
+    task: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
   },
 }));
 vi.mock("@/utils/cold-email/is-cold-email", () => ({
