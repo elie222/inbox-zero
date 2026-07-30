@@ -61,6 +61,30 @@ describe("useFolderSelection", () => {
     expect(mutateFolders).toHaveBeenCalled();
   });
 
+  it("rolls back selection when persistence throws unexpectedly", async () => {
+    mockAddFilingFolderAction.mockRejectedValue(new Error("Network error"));
+    const mutateFolders = vi.fn();
+    const props = {
+      emailAccountId: "email-account",
+      availableFolders: [folder("parent")],
+      savedFolders: [],
+      mutateFolders,
+    };
+
+    const { result } = renderHook(() => useFolderSelection(props));
+
+    await act(async () => {
+      await result.current.handleFolderToggle(folder("parent"), true);
+    });
+
+    expect(result.current.optimisticFolderIds).toEqual(new Set());
+    expect(mockToastError).toHaveBeenCalledWith({
+      title: "Error adding folder",
+      description: "Please try again.",
+    });
+    expect(mutateFolders).toHaveBeenCalledOnce();
+  });
+
   it("keeps both branches selected when two selected parents load children concurrently", async () => {
     const props = {
       emailAccountId: "email-account",
@@ -87,6 +111,27 @@ describe("useFolderSelection", () => {
       "parent-b",
     ]);
     expect(mockAddFilingFolderAction).toHaveBeenCalledTimes(2);
+  });
+
+  it("loads children without selecting them when the parent is not selected", () => {
+    const props = {
+      emailAccountId: "email-account",
+      availableFolders: [folder("parent")],
+      savedFolders: [],
+      mutateFolders: vi.fn(),
+    };
+
+    const { result } = renderHook(() => useFolderSelection(props));
+    const child = folder("child", "parent");
+
+    act(() => {
+      result.current.handleChildrenLoaded(folder("parent"), [child]);
+    });
+
+    expect(result.current.childrenByParentId.get("parent")).toEqual([child]);
+    expect(result.current.optimisticFolderIds).toEqual(new Set());
+    expect(mockAddFilingFolderAction).not.toHaveBeenCalled();
+    expect(mockRemoveFilingFolderAction).not.toHaveBeenCalled();
   });
 });
 
