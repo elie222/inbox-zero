@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
 import {
@@ -63,6 +65,8 @@ export class RecallBotProvider implements MeetingBotProvider {
     meetingUrl: string;
     joinAt: Date;
   }): Promise<{ externalBotId: string }> {
+    const cameraImage = await getMeetingBotCameraImage();
+
     // No transcript config here on purpose: `recallai_async` is not a
     // bot-creation provider. Async transcription is requested per recording,
     // after `recording.done`, via createTranscript below.
@@ -73,6 +77,12 @@ export class RecallBotProvider implements MeetingBotProvider {
         meeting_url: meetingUrl,
         bot_name: MEETING_BOT_DISPLAY_NAME,
         join_at: joinAt.toISOString(),
+        automatic_video_output: {
+          in_call_recording: {
+            kind: "jpeg",
+            b64_data: cameraImage,
+          },
+        },
       },
     });
 
@@ -267,4 +277,42 @@ function getRecallErrorCode(error: RecallApiError): string | null {
 function isPermanent(status: number): boolean {
   if (status === 408 || status === 425 || status === 429) return false;
   return status >= 400 && status < 500;
+}
+
+let meetingBotCameraImagePromise: Promise<string> | undefined;
+
+function getMeetingBotCameraImage(): Promise<string> {
+  meetingBotCameraImagePromise ??= readMeetingBotCameraImage();
+  return meetingBotCameraImagePromise;
+}
+
+async function readMeetingBotCameraImage(): Promise<string> {
+  const relativePath = join(
+    "public",
+    "images",
+    "meetings",
+    "inbox-zero-notetaker.jpg",
+  );
+  const candidatePaths = [
+    join(process.cwd(), relativePath),
+    join(process.cwd(), "apps", "web", relativePath),
+  ];
+
+  for (const path of candidatePaths) {
+    try {
+      return await readFile(path, "base64");
+    } catch (error) {
+      if (!isMissingFile(error)) throw error;
+    }
+  }
+
+  throw new Error("Recall meeting bot camera image is missing");
+}
+
+function isMissingFile(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    "code" in error &&
+    (error as NodeJS.ErrnoException).code === "ENOENT"
+  );
 }
