@@ -23,10 +23,10 @@ export function applyLoadedFolderChildrenSelection({
   childrenByParentId: FolderChildrenMap;
 }) {
   if (!selectedFolderIds.has(parent.id)) {
-    return { nextFolderIds: selectedFolderIds, changedFolders: [] };
+    return { changedFolders: [] };
   }
 
-  const { nextKeys, changedItems } = folderSelection.applySelection({
+  const { changedItems } = folderSelection.applySelection({
     item: parent,
     checked: true,
     selectedKeys: selectedFolderIds,
@@ -37,5 +37,5 @@ export function applyLoadedFolderChildrenSelection({
     }),
   });
 
-  return { nextFolderIds: nextKeys, changedFolders: changedItems };
+  return { changedFolders: changedItems };
 }

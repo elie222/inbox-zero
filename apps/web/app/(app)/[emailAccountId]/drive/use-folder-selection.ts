@@ -51,18 +51,25 @@ export function useFolderSelection({
     setChildrenByParentId(folderSelection.buildChildrenMap(availableFolders));
   }, [availableFolders]);
 
+  // Selection updates apply per-folder deltas via functional setState so
+  // concurrent persists (e.g. two lazy loads resolving together) merge
+  // instead of overwriting each other's whole selection set.
   const persistSelection = useCallback(
     async ({
-      nextFolderIds,
       changedFolders,
       isChecked,
     }: {
-      nextFolderIds: Set<string>;
       changedFolders: FolderItem[];
       isChecked: boolean;
     }) => {
-      const previousFolderIds = optimisticFolderIds;
-      setOptimisticFolderIds(nextFolderIds);
+      const changedFolderIds = changedFolders.map((folder) => folder.id);
+      setOptimisticFolderIds((current) =>
+        applySelectionDelta({
+          current,
+          folderIds: changedFolderIds,
+          isChecked,
+        }),
+      );
 
       try {
         const results = await Promise.all(
@@ -84,28 +91,45 @@ export function useFolderSelection({
         )?.serverError;
 
         if (serverError) {
-          setOptimisticFolderIds(previousFolderIds);
+          // Roll back only the failed folders; sibling mutations that
+          // succeeded are already persisted server-side.
+          const failedFolderIds = changedFolderIds.filter(
+            (_, index) => results[index]?.serverError,
+          );
+          setOptimisticFolderIds((current) =>
+            applySelectionDelta({
+              current,
+              folderIds: failedFolderIds,
+              isChecked: !isChecked,
+            }),
+          );
           toastError({
             title: isChecked ? "Error adding folder" : "Error removing folder",
             description: serverError,
           });
-        } else {
-          mutateFolders();
         }
+        mutateFolders();
       } catch {
-        setOptimisticFolderIds(previousFolderIds);
+        setOptimisticFolderIds((current) =>
+          applySelectionDelta({
+            current,
+            folderIds: changedFolderIds,
+            isChecked: !isChecked,
+          }),
+        );
         toastError({
           title: isChecked ? "Error adding folder" : "Error removing folder",
           description: "Please try again.",
         });
+        mutateFolders();
       }
     },
-    [emailAccountId, mutateFolders, optimisticFolderIds],
+    [emailAccountId, mutateFolders],
   );
 
   const handleFolderToggle = useCallback(
     async (folder: FolderItem, isChecked: boolean) => {
-      const { nextKeys, changedItems } = folderSelection.applySelection({
+      const { changedItems } = folderSelection.applySelection({
         item: folder,
         checked: isChecked,
         selectedKeys: optimisticFolderIds,
@@ -121,7 +145,6 @@ export function useFolderSelection({
       }
 
       await persistSelection({
-        nextFolderIds: nextKeys,
         changedFolders: changedItems,
         isChecked,
       });
@@ -137,13 +160,12 @@ export function useFolderSelection({
 
   const handleChildrenLoaded = useCallback(
     (parent: FolderItem, children: FolderItem[]) => {
-      const { nextFolderIds, changedFolders } =
-        applyLoadedFolderChildrenSelection({
-          parent,
-          children,
-          selectedFolderIds: optimisticFolderIds,
-          childrenByParentId,
-        });
+      const { changedFolders } = applyLoadedFolderChildrenSelection({
+        parent,
+        children,
+        selectedFolderIds: optimisticFolderIds,
+        childrenByParentId,
+      });
 
       setChildrenByParentId((current) =>
         folderSelection.mergeChildren({
@@ -155,7 +177,6 @@ export function useFolderSelection({
 
       if (changedFolders.length > 0) {
         persistSelection({
-          nextFolderIds,
           changedFolders,
           isChecked: true,
         });
@@ -176,4 +197,24 @@ export function useFolderSelection({
     handleFolderToggle,
     handleChildrenLoaded,
   };
+}
+
+function applySelectionDelta({
+  current,
+  folderIds,
+  isChecked,
+}: {
+  current: Set<string>;
+  folderIds: string[];
+  isChecked: boolean;
+}) {
+  const next = new Set(current);
+  for (const folderId of folderIds) {
+    if (isChecked) {
+      next.add(folderId);
+    } else {
+      next.delete(folderId);
+    }
+  }
+  return next;
 }

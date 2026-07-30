@@ -62,11 +62,6 @@ describe("allowed folder selection", () => {
       childrenByParentId: new Map(),
     });
 
-    expect([...result.nextFolderIds].sort()).toEqual([
-      "child-a",
-      "child-b",
-      "parent",
-    ]);
     expect(
       result.changedFolders.map((selectedFolder) => selectedFolder.id),
     ).toEqual(["child-a", "child-b"]);
