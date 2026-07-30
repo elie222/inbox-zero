@@ -262,3 +262,29 @@
     justify-content: flex-end;
   }
 }
+
+/* Tasks: the subtask progress bar's rocket exhaust (Tasks Page v2 design) */
+@keyframes task-rocket-exhaust {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  45% {
+    opacity: 0.82;
+  }
+  70% {
+    opacity: 0.94;
+  }
+}
+
+@keyframes task-rocket-glow {
+  0%,
+  100% {
+    opacity: 0.9;
+    transform: translate(-88%, -50%) scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: translate(-88%, -50%) scale(0.8);
+  }
+}
