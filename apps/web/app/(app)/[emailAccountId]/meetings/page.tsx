@@ -109,7 +109,6 @@ function MeetingRecorderPageContent() {
         <MeetingRecorderOnboarding
           emailAccountId={emailAccountId}
           hasCalendarConnected={hasCalendarConnected}
-          currentJoinRule={settings?.joinRule}
           onEnable={(joinRule: MeetingJoinRule) =>
             execute({ enabled: true, joinRule })
           }

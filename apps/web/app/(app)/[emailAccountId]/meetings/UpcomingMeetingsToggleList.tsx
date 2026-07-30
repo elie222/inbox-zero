@@ -7,12 +7,11 @@ import { ListCard } from "@/components/ListCard";
 import { LoadingContent } from "@/components/LoadingContent";
 import { toastError } from "@/components/Toast";
 import { Toggle } from "@/components/Toggle";
-import { MutedText, TypographyH3 } from "@/components/Typography";
+import { TypographyH3 } from "@/components/Typography";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { UpgradeToPlusButton } from "@/components/UpgradeToPlusButton";
 import {
   Empty,
-  EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
@@ -58,19 +57,11 @@ export function UpcomingMeetingsToggleList({
   };
 
   const events = data?.events ?? [];
-  const joiningCount = events.filter(isJoining).length;
   const isLocked = data?.hasAccess === false;
 
   return (
     <div>
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <TypographyH3>Up next</TypographyH3>
-        {events.length > 0 && (
-          <MutedText>
-            Joining {joiningCount} of {events.length}
-          </MutedText>
-        )}
-      </div>
+      <TypographyH3>Up next</TypographyH3>
 
       <LoadingContent
         loading={isLoading}
@@ -94,9 +85,6 @@ export function UpcomingMeetingsToggleList({
                 <CalendarIcon />
               </EmptyMedia>
               <EmptyTitle>No upcoming calls with a video link</EmptyTitle>
-              <EmptyDescription>
-                Only calendar events that carry a video link can be recorded.
-              </EmptyDescription>
             </EmptyHeader>
           </Empty>
         ) : (
@@ -112,9 +100,6 @@ export function UpcomingMeetingsToggleList({
                   status={event.recordingStatus}
                   failureReason={event.failureReason}
                 >
-                  <MutedText className="hidden w-14 text-right sm:block">
-                    {joining ? "Joining" : "Skipping"}
-                  </MutedText>
                   <Toggle
                     name={`join-${event.id}`}
                     ariaLabel={`Record ${event.title}`}

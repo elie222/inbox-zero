@@ -1,20 +1,23 @@
 "use client";
 
-import { CheckIcon } from "lucide-react";
 import { cn } from "@/utils";
 
 type RadioCardOption<T extends string> = {
   value: T;
   label: string;
-  description?: string;
   /** Short qualifier shown next to the label, e.g. "Recommended". */
   badge?: string;
 };
 
 /**
- * A one-of-N choice where each option needs a sentence of explanation, so a
- * Select (which hides the descriptions until opened) reads badly. Built on
- * native radios: arrow-key navigation and a single tab stop come for free.
+ * A one-of-N choice laid out as a card of rows, for decisions where the
+ * options should all be visible rather than hidden behind a Select.
+ *
+ * Labels only, by design — a description under every option reads as noise.
+ * If an option needs explaining, the label is wrong.
+ *
+ * Built on native radios: arrow-key navigation and a single tab stop come for
+ * free.
  */
 export function RadioCardGroup<T extends string>({
   name,
@@ -35,7 +38,7 @@ export function RadioCardGroup<T extends string>({
   return (
     <fieldset
       aria-label={ariaLabel}
-      className="divide-y overflow-hidden rounded-lg border"
+      className="divide-y divide-border overflow-hidden rounded-xl border bg-card"
     >
       {options.map((option) => {
         const selected = option.value === value;
@@ -44,11 +47,10 @@ export function RadioCardGroup<T extends string>({
           <label
             key={option.value}
             className={cn(
-              "flex items-start gap-3 p-4 transition-colors",
-              selected && "bg-accent/40",
+              "flex items-center gap-3 px-4 py-3.5 transition-colors",
               disabled
                 ? "cursor-not-allowed opacity-60"
-                : "cursor-pointer hover:bg-accent/50",
+                : "cursor-pointer hover:bg-accent/40",
             )}
           >
             <input
@@ -63,28 +65,19 @@ export function RadioCardGroup<T extends string>({
 
             <span
               className={cn(
-                "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border transition-colors",
+                "size-4 shrink-0 rounded-full border transition-colors",
                 "peer-focus-visible:ring-[3px] peer-focus-visible:ring-ring/50",
                 selected
-                  ? "border-primary bg-primary text-primary-foreground"
+                  ? "border-[5px] border-primary bg-background"
                   : "border-input",
               )}
-            >
-              {selected && <CheckIcon className="size-3" />}
-            </span>
+            />
 
-            <span className="flex flex-col gap-0.5">
-              <span className="flex items-center gap-2 text-sm font-medium leading-snug">
-                {option.label}
-                {option.badge && (
-                  <span className="text-xs font-normal text-muted-foreground">
-                    {option.badge}
-                  </span>
-                )}
-              </span>
-              {option.description && (
-                <span className="text-sm text-muted-foreground">
-                  {option.description}
+            <span className="flex items-center gap-2 text-sm">
+              {option.label}
+              {option.badge && (
+                <span className="text-xs text-muted-foreground">
+                  {option.badge}
                 </span>
               )}
             </span>
