@@ -56,12 +56,13 @@ export async function runCarddavSelfTest({
     path: string,
     body: string | null,
     expect: (response: Response, text: string) => string | null,
+    depth = "0",
   ) => {
     try {
       const response = await fetch(path, {
         method,
         headers: {
-          Depth: "0",
+          Depth: depth,
           "Content-Type": "application/xml",
           ...(auth ? { Authorization: auth } : {}),
         },
@@ -163,6 +164,27 @@ export async function runCarddavSelfTest({
     },
   );
 
+  // The step Apple actually finds addressbooks with: list the home set's
+  // children and look for an addressbook collection among them
+  await run(
+    "Home set listing",
+    "PROPFIND",
+    "/api/carddav/",
+    `<?xml version="1.0" encoding="UTF-8"?>
+<A:propfind xmlns:A="DAV:">
+  <A:prop><A:resourcetype/><A:displayname/></A:prop>
+</A:propfind>`,
+    (response, text) => {
+      if (response.status !== 207)
+        return `Expected 207, got ${response.status}`;
+      if (!/addressbook/i.test(text)) {
+        return "No addressbook collection listed in the home set — clients will show an empty account";
+      }
+      return null;
+    },
+    "1",
+  );
+
   await run(
     "Addressbook probe",
     "PROPFIND",
@@ -191,6 +213,10 @@ export async function runCarddavSelfTest({
         return `Expected 207, got ${response.status}`;
       if (!text.includes("multistatus")) {
         return `207 body did not arrive intact (${text.length} bytes)`;
+      }
+      const cards = (text.match(/address-data/g) ?? []).length;
+      if (!cards) {
+        return "The addressbook is empty — only saved contacts sync. Save people on the Contacts page (or add them on the phone) and they'll appear.";
       }
       return null;
     },
