@@ -183,7 +183,7 @@ async function runProcessingSteps({
   ) {
     // Read before claiming the send, so a transient read failure retries
     // instead of burning the one-way recap claim.
-    const freshDraft = await prisma.meeting.findUnique({
+    const refreshedMeeting = await prisma.meeting.findUnique({
       where: { id: meetingId },
       select: { followUpDraftId: true },
     });
@@ -204,7 +204,7 @@ async function runProcessingSteps({
         meetingTitle: meeting.eventTitle,
         startTime: meeting.startTime,
         summary,
-        followUpDraftCreated: !!freshDraft?.followUpDraftId,
+        followUpDraftCreated: !!refreshedMeeting?.followUpDraftId,
         logger,
       });
     }

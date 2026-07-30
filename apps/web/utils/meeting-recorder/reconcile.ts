@@ -196,16 +196,17 @@ export async function upsertMeeting({
     attendees: toAttendeeSnapshot(event.attendees, event.organizerEmail),
     organizerEmail: event.organizerEmail ?? null,
   };
+  const where = {
+    emailAccountId_calendarEventId: {
+      emailAccountId,
+      calendarEventId: event.id,
+    },
+  };
 
   // This runs on every cron tick for every video event, so skip the write
   // (and its updatedAt churn) when the event has not changed.
   const existing = await prisma.meeting.findUnique({
-    where: {
-      emailAccountId_calendarEventId: {
-        emailAccountId,
-        calendarEventId: event.id,
-      },
-    },
+    where,
   });
   if (
     existing &&
@@ -221,12 +222,7 @@ export async function upsertMeeting({
   };
 
   return prisma.meeting.upsert({
-    where: {
-      emailAccountId_calendarEventId: {
-        emailAccountId,
-        calendarEventId: event.id,
-      },
-    },
+    where,
     create: { ...data, emailAccountId, calendarEventId: event.id },
     update: data,
   });
