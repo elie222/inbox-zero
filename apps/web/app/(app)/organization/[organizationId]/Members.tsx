@@ -51,10 +51,10 @@ import { TypographyH3 } from "@/components/Typography";
 import { useOrganizationMembership } from "@/hooks/useOrganizationMembership";
 import { hasOrganizationAdminRole } from "@/utils/organizations/roles";
 import {
-  RECENT_ACTIVITY_HOURS,
+  ACTIVITY_BADGE,
   getMemberActivityStatus,
   type MemberActivityStatus,
-} from "./member-activity";
+} from "@/utils/member-activity";
 
 type Member = OrganizationMembersResponse["members"][0];
 type PendingInvitation = OrganizationMembersResponse["pendingInvitations"][0];
@@ -455,7 +455,9 @@ function MemberActivityBadge({
           </Badge>
         </TooltipTrigger>
         <TooltipContent>
-          <p>{display.tooltip({ disconnectedAt, lastProcessedEmailAt })}</p>
+          <p>
+            {ACTIVITY_TOOLTIP[status]({ disconnectedAt, lastProcessedEmailAt })}
+          </p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
@@ -529,47 +531,25 @@ function getInitials(name: string | null | undefined, email: string) {
   return name ? name.charAt(0).toUpperCase() : email.charAt(0).toUpperCase();
 }
 
-const ACTIVITY_BADGE: Record<
+// Tooltip copy only; the label and variant come from the shared map so the two
+// surfaces that show this badge cannot drift apart.
+const ACTIVITY_TOOLTIP: Record<
   MemberActivityStatus,
-  {
-    label: string;
-    variant: "green" | "red" | "outline" | "secondary";
-    tooltip: (dates: {
-      disconnectedAt?: Date | string | null;
-      lastProcessedEmailAt?: Date | string | null;
-    }) => string;
-  }
+  (dates: {
+    disconnectedAt?: Date | string | null;
+    lastProcessedEmailAt?: Date | string | null;
+  }) => string
 > = {
-  active: {
-    label: "Active",
-    variant: "green",
-    tooltip: ({ lastProcessedEmailAt }) =>
-      `Last processed email ${formatRelativeDate(lastProcessedEmailAt)}.`,
-  },
-  disconnected: {
-    label: "Disconnected",
-    variant: "red",
-    tooltip: ({ disconnectedAt }) =>
-      disconnectedAt
-        ? `Email account disconnected ${formatRelativeDate(disconnectedAt)}.`
-        : "Email account is disconnected.",
-  },
-  hidden: {
-    label: "Activity hidden",
-    variant: "outline",
-    tooltip: () => "This member has not allowed org admin analytics.",
-  },
-  inactive: {
-    label: `No activity in ${RECENT_ACTIVITY_HOURS}h`,
-    variant: "secondary",
-    tooltip: ({ lastProcessedEmailAt }) =>
-      `Last processed email ${formatRelativeDate(lastProcessedEmailAt)}.`,
-  },
-  none: {
-    label: "No activity yet",
-    variant: "secondary",
-    tooltip: () => "No assistant-processed email found for this account.",
-  },
+  active: ({ lastProcessedEmailAt }) =>
+    `Last processed email ${formatRelativeDate(lastProcessedEmailAt)}.`,
+  disconnected: ({ disconnectedAt }) =>
+    disconnectedAt
+      ? `Email account disconnected ${formatRelativeDate(disconnectedAt)}.`
+      : "Email account is disconnected.",
+  hidden: () => "This member has not allowed org admin analytics.",
+  inactive: ({ lastProcessedEmailAt }) =>
+    `Last processed email ${formatRelativeDate(lastProcessedEmailAt)}.`,
+  none: () => "No assistant-processed email found for this account.",
 };
 
 function formatRelativeDate(date: Date | string | null | undefined) {

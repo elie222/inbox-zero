@@ -35,8 +35,10 @@ import {
   PlusIcon,
   SendIcon,
   ShieldIcon,
+  TriangleAlertIcon,
   UserRoundIcon,
   UsersRoundIcon,
+  WrenchIcon,
 } from "lucide-react";
 import { LogoMark } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
@@ -313,9 +315,36 @@ function SettingsNav() {
 }
 
 function AdminNav({ path }: { path: string }) {
+  // SideNavMenu's fallback is strict href equality, which would keep Overview
+  // highlighted on every /admin subpath, so each item states its own rule.
   const items: NavItem[] = useMemo(
-    () => [{ name: "Overview", href: "/admin", icon: LayoutDashboardIcon }],
-    [],
+    () => [
+      {
+        name: "Overview",
+        href: "/admin",
+        icon: LayoutDashboardIcon,
+        active: path === "/admin",
+      },
+      {
+        name: "Users",
+        href: "/admin/users",
+        icon: UsersRoundIcon,
+        active: path.startsWith("/admin/users"),
+      },
+      {
+        name: "Errors",
+        href: "/admin/errors",
+        icon: TriangleAlertIcon,
+        active: path.startsWith("/admin/errors"),
+      },
+      {
+        name: "Tools",
+        href: "/admin/tools",
+        icon: WrenchIcon,
+        active: path.startsWith("/admin/tools"),
+      },
+    ],
+    [path],
   );
 
   return (

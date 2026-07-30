@@ -7,16 +7,13 @@ import {
   getWeeklyUsageCostWindow,
 } from "@/utils/redis/usage";
 import { createScopedLogger } from "@/utils/logger";
-import {
-  getAdminAiModelSpendByPeriod,
-  getAdminAiUserModelSpendByPeriod,
-} from "@inboxzero/tinybird-ai-analytics";
+import { getAdminAiUserModelSpendByPeriod } from "@inboxzero/tinybird-ai-analytics";
+import { getAdminModelSpendForWeek } from "@/utils/admin/model-spend";
 
 export type GetAdminTopSpendersResponse = Awaited<ReturnType<typeof getData>>;
 
 const logger = createScopedLogger("admin/top-spenders");
 const TOP_SPENDER_LIMIT = 25;
-const MODEL_SPEND_LIMIT = 25;
 const USER_MODEL_SPEND_LIMIT = 3;
 
 export const GET = withAdmin("admin/top-spenders", async () => {
@@ -29,7 +26,7 @@ async function getData() {
   const { startTimestampMs, endTimestampMs } = getWeeklyUsageCostWindow(now);
   const [topSpenders, modelSpend] = await Promise.all([
     getTopWeeklyUsageCosts({ limit: TOP_SPENDER_LIMIT, now }),
-    getModelSpend({ startTimestampMs, endTimestampMs }),
+    getAdminModelSpendForWeek(now),
   ]);
 
   const emails = topSpenders.flatMap((spender) =>
@@ -106,21 +103,6 @@ async function getData() {
     }),
     modelSpend,
   };
-}
-
-async function getModelSpend(options: {
-  startTimestampMs: number;
-  endTimestampMs: number;
-}) {
-  try {
-    return await getAdminAiModelSpendByPeriod({
-      ...options,
-      limit: MODEL_SPEND_LIMIT,
-    });
-  } catch (error) {
-    logger.error("Failed to load admin model spend", { error });
-    return [];
-  }
 }
 
 async function getUserModelSpend(options: {

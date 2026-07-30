@@ -8,7 +8,7 @@ import { Input } from "@/components/Input";
 import {
   adminProcessHistorySchema,
   type AdminProcessHistoryOptions,
-} from "@/app/(app)/admin/validation";
+} from "@/app/(app)/admin/tools/validation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   adminDeleteAccountAction,

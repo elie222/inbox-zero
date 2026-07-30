@@ -1,15 +1,15 @@
-import { AdminOverview } from "@/app/(app)/admin/AdminOverview";
+import { Suspense } from "react";
+import { AdminUsers } from "@/app/(app)/admin/users/AdminUsers";
 import { ErrorPage } from "@/components/ErrorPage";
 import { PageHeader } from "@/components/PageHeader";
 import { PageWrapper } from "@/components/PageWrapper";
+import { Skeleton } from "@/components/ui/skeleton";
 import { isAdmin } from "@/utils/admin";
 import { auth } from "@/utils/auth";
 
-export default async function AdminOverviewPage() {
+export default async function AdminUsersPage() {
   const session = await auth();
 
-  // Repeated from the layout on purpose: a layout returning early does not
-  // stop its page segment executing.
   if (!isAdmin({ email: session?.user.email })) {
     return (
       <ErrorPage
@@ -21,9 +21,12 @@ export default async function AdminOverviewPage() {
 
   return (
     <PageWrapper>
-      <PageHeader title="Admin" />
+      <PageHeader title="Users" />
       <div className="mt-4 mb-20">
-        <AdminOverview />
+        {/* AdminUsers reads ?page via useSearchParams */}
+        <Suspense fallback={<Skeleton className="h-64" />}>
+          <AdminUsers />
+        </Suspense>
       </div>
     </PageWrapper>
   );

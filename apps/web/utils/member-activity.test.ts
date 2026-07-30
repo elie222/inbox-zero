@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getMemberActivityStatus } from "./member-activity";
+import { getMemberActivityStatus } from "@/utils/member-activity";
 
 describe("getMemberActivityStatus", () => {
   const now = new Date("2026-05-29T00:00:00.000Z");

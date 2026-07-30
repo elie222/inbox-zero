@@ -29,3 +29,23 @@ export function getMemberActivityStatus({
 
   return lastProcessedDate >= recentActivityThreshold ? "active" : "inactive";
 }
+
+/**
+ * Label and badge variant per activity status.
+ *
+ * Shared by the org members table and the admin user list; the tooltip copy
+ * stays with each surface because it differs between them.
+ */
+export const ACTIVITY_BADGE: Record<
+  MemberActivityStatus,
+  { label: string; variant: "green" | "red" | "outline" | "secondary" }
+> = {
+  active: { label: "Active", variant: "green" },
+  disconnected: { label: "Disconnected", variant: "red" },
+  hidden: { label: "Activity hidden", variant: "outline" },
+  inactive: {
+    label: `No activity in ${RECENT_ACTIVITY_HOURS}h`,
+    variant: "secondary",
+  },
+  none: { label: "No activity yet", variant: "secondary" },
+};

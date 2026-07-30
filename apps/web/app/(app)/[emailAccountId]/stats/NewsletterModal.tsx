@@ -1,6 +1,6 @@
 import useSWR from "swr";
 import type { DateRange } from "react-day-picker";
-import { BarChart } from "@/app/(app)/[emailAccountId]/stats/BarChart";
+import { BarChart } from "@/components/charts/BarChart";
 import Link from "next/link";
 import { ExternalLinkIcon } from "lucide-react";
 import { usePostHog } from "posthog-js/react";

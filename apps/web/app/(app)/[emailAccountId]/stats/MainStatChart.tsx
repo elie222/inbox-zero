@@ -5,7 +5,7 @@ import { parse, format } from "date-fns";
 import { Card, CardContent } from "@/components/ui/card";
 import type { ChartConfig } from "@/components/ui/chart";
 import type { StatsByPeriodResponse } from "@/app/api/user/stats/by-period/controller";
-import { BarChart } from "@/app/(app)/[emailAccountId]/stats/BarChart";
+import { BarChart } from "@/components/charts/BarChart";
 import { COLORS } from "@/utils/colors";
 
 const chartConfig = {

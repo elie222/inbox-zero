@@ -105,6 +105,8 @@ model User {
   referralsMade    Referral[]     @relation("ReferrerUser")
   referralReceived Referral?      @relation("ReferredUser")
   scimProviders    ScimProvider[]
+
+  @@index([createdAt])
 }
 
 enum GoogleContactsSyncMode {
@@ -248,6 +250,7 @@ model EmailAccount {
   contactCard            ContactCard?
 
   @@index([userId])
+  @@index([createdAt])
   @@index([lastSummaryEmailAt])
   @@index([watchEmailsSubscriptionId])
   @@index([watchEmailsSubscriptionHistory(ops: JsonbPathOps)], type: Gin)

@@ -1,15 +1,13 @@
-import { AdminOverview } from "@/app/(app)/admin/AdminOverview";
+import { AdminErrors } from "@/app/(app)/admin/errors/AdminErrors";
 import { ErrorPage } from "@/components/ErrorPage";
 import { PageHeader } from "@/components/PageHeader";
 import { PageWrapper } from "@/components/PageWrapper";
 import { isAdmin } from "@/utils/admin";
 import { auth } from "@/utils/auth";
 
-export default async function AdminOverviewPage() {
+export default async function AdminErrorsPage() {
   const session = await auth();
 
-  // Repeated from the layout on purpose: a layout returning early does not
-  // stop its page segment executing.
   if (!isAdmin({ email: session?.user.email })) {
     return (
       <ErrorPage
@@ -21,9 +19,9 @@ export default async function AdminOverviewPage() {
 
   return (
     <PageWrapper>
-      <PageHeader title="Admin" />
+      <PageHeader title="Errors" />
       <div className="mt-4 mb-20">
-        <AdminOverview />
+        <AdminErrors />
       </div>
     </PageWrapper>
   );
