@@ -29,7 +29,11 @@ export default function manifest(): MetadataRoute.Manifest {
     icons: [...customIcon, ...defaultIcons],
     theme_color: "#0A0E17",
     background_color: "#0A0E17",
+    // A stable id keeps an already-installed app updating in place even if
+    // start_url changes later
+    id: "/",
     start_url: "/",
+    scope: "/",
     display: "standalone",
     orientation: "portrait",
   };

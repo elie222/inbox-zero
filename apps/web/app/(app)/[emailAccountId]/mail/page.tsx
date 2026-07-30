@@ -221,11 +221,13 @@ function MailControlBar({
     : (VIEW_TITLES[type ?? "inbox"] ?? "Inbox");
 
   return (
-    <div className="flex flex-wrap items-center gap-2.5 border-b border-border px-4 py-3 sm:px-6">
+    // Phone width can't fit title, search and actions on one line without
+    // crushing the search box, so search drops to its own row there
+    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 border-b border-border px-4 py-3 sm:px-6">
       <h1 className="font-display text-2xl tracking-tight">{title}</h1>
       {isLabelView && labelId && <FolderSettings labelId={labelId} />}
 
-      <div className="relative w-full min-w-0 flex-1 sm:w-auto sm:max-w-md">
+      <div className="relative order-last w-full min-w-0 sm:order-none sm:w-auto sm:flex-1 sm:max-w-md">
         <SearchIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <input
           type="search"
@@ -258,8 +260,8 @@ function MailControlBar({
           <span className="sr-only">Refresh</span>
         </Button>
         <Button size="sm" onClick={openCompose}>
-          <PenIcon className="mr-1.5 size-3.5" />
-          Compose
+          <PenIcon className="size-3.5 sm:mr-1.5" />
+          <span className="sr-only sm:not-sr-only">Compose</span>
         </Button>
       </div>
     </div>

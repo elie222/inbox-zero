@@ -126,6 +126,12 @@ export const metadata: Metadata = {
 
 export const viewport = {
   themeColor: "#0A0E17",
+  // Draw behind the status bar and home indicator so the installed app fills
+  // the screen; env(safe-area-inset-*) only reports real values with this on
+  viewportFit: "cover" as const,
+  // The on-screen keyboard shrinks the viewport rather than sliding fixed
+  // chrome (the bottom tray) out of reach
+  interactiveWidget: "resizes-content" as const,
 };
 
 export default async function RootLayout({
