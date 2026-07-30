@@ -1,3 +1,4 @@
+import { Prisma } from "@/generated/prisma/client";
 import { DigestStatus } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 
@@ -47,14 +48,33 @@ export async function renewDigestClaim(
   claim: DigestClaim,
   now = new Date(),
 ): Promise<DigestClaim | null> {
-  const result = await prisma.digest.updateMany({
-    where: getDigestClaimWhere(claim),
-    data: {
-      updatedAt: now,
-    },
-  });
+  if (claim.digestIds.length === 0) return null;
 
-  if (result.count !== claim.digestIds.length) return null;
+  const renewedDigests = await prisma.$queryRaw<Array<{ id: string }>>(
+    Prisma.sql`
+      WITH "ownedClaims" AS MATERIALIZED (
+        SELECT "id"
+        FROM "Digest"
+        WHERE
+          "id" IN (${Prisma.join(claim.digestIds)})
+          AND "status" = ${DigestStatus.PROCESSING}
+          AND "updatedAt" = ${claim.claimedAt}
+        FOR UPDATE
+      ),
+      "completeClaim" AS (
+        SELECT COUNT(*) = ${claim.digestIds.length} AS "isComplete"
+        FROM "ownedClaims"
+      )
+      UPDATE "Digest"
+      SET "updatedAt" = ${now}
+      WHERE
+        "id" IN (SELECT "id" FROM "ownedClaims")
+        AND (SELECT "isComplete" FROM "completeClaim")
+      RETURNING "id"
+    `,
+  );
+
+  if (renewedDigests.length !== claim.digestIds.length) return null;
 
   return {
     digestIds: claim.digestIds,

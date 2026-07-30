@@ -132,5 +132,34 @@ describe.skipIf(!RUN_DB_TESTS)(
         ),
       ).toBeNull();
     });
+
+    test("does not renew any digests when part of the claim is no longer owned", async () => {
+      const claim = await claimPendingDigests({ emailAccountId, now });
+      const competingClaimAt = new Date("2026-07-30T18:01:00.000Z");
+      const renewalAt = new Date("2026-07-30T18:02:00.000Z");
+
+      await prisma.digest.update({
+        where: { id: claim.digestIds[0] },
+        data: { updatedAt: competingClaimAt },
+      });
+
+      expect(await renewDigestClaim(claim, renewalAt)).toBeNull();
+
+      const digests = await prisma.digest.findMany({
+        where: { id: { in: claim.digestIds } },
+        select: { id: true, updatedAt: true },
+      });
+
+      expect(digests).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ updatedAt: competingClaimAt }),
+        ]),
+      );
+      expect(digests).not.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ updatedAt: renewalAt }),
+        ]),
+      );
+    });
   },
 );
