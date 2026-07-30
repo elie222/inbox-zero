@@ -38,26 +38,31 @@ export async function proxy(request: NextRequest) {
   const isCarddav =
     pathname === "/api/carddav" || pathname.startsWith("/api/carddav/");
 
+  // Slash-stripped targets are built from a plain URL, never from
+  // request.nextUrl: NextURL records "had a trailing slash" at construction
+  // and re-appends it on serialization, which turns a strip-the-slash
+  // redirect into a redirect to itself
+  const slashlessUrl = () => {
+    const url = new URL(request.url);
+    url.pathname = pathname.replace(/\/+$/, "");
+    return url;
+  };
+
   if (!isCarddav) {
     // The trailing-slash strip Next applied globally before
     // skipTrailingSlashRedirect turned it off
     if (pathname.length > 1 && pathname.endsWith("/")) {
-      const url = request.nextUrl.clone();
-      url.pathname = pathname.replace(/\/+$/, "");
-      return NextResponse.redirect(url, 308);
+      return NextResponse.redirect(slashlessUrl(), 308);
     }
     return NextResponse.next();
   }
 
   const method = request.method.toUpperCase();
   if (!WEBDAV_METHODS.has(method)) {
-    // The route handler answers these, but its [[...segments]] pattern only
-    // matches the slashless form — serve /api/carddav/addressbook/ and
+    // The route handler answers these; serve /api/carddav/addressbook/ and
     // /api/carddav/addressbook as the same resource
     if (pathname.endsWith("/")) {
-      const url = request.nextUrl.clone();
-      url.pathname = pathname.replace(/\/+$/, "");
-      return NextResponse.rewrite(url);
+      return NextResponse.rewrite(slashlessUrl());
     }
     return NextResponse.next();
   }

@@ -53,6 +53,56 @@ describe("CardDAV proxy", () => {
     expect(response.headers.get("x-middleware-next")).toBe("1");
   });
 
+  // Apple's client canonicalizes collection URLs with a trailing slash; the
+  // route pattern is slashless, so the proxy must bridge the two forms
+  it("rewrites slashed standard-verb requests to the slashless route", async () => {
+    const response = await proxy(
+      davRequest("https://app.test/api/carddav/addressbook/", {
+        method: "OPTIONS",
+      }),
+    );
+
+    expect(response.headers.get("x-middleware-rewrite")).toBe(
+      "https://app.test/api/carddav/addressbook",
+    );
+  });
+
+  it("answers PROPFIND on the slashed collection form directly", async () => {
+    prisma.contact.count.mockResolvedValue(1);
+
+    const response = await proxy(
+      davRequest("https://app.test/api/carddav/addressbook/", {
+        method: "PROPFIND",
+        headers: { authorization: AUTH, depth: "0" },
+      }),
+    );
+
+    expect(response.status).toBe(207);
+    expect(await response.text()).toContain("getctag");
+  });
+
+  // With skipTrailingSlashRedirect on, the proxy owns the strip-the-slash
+  // redirect Next used to inject for the rest of the app. Built from a plain
+  // URL — NextURL would re-append the slash and redirect to itself, looping.
+  it("redirects non-CardDAV trailing-slash URLs to the slashless form", async () => {
+    const response = await proxy(
+      davRequest("https://app.test/settings/?tab=email", { method: "GET" }),
+    );
+
+    expect(response.status).toBe(308);
+    expect(response.headers.get("location")).toBe(
+      "https://app.test/settings?tab=email",
+    );
+  });
+
+  it("leaves slashless non-CardDAV URLs alone", async () => {
+    const response = await proxy(
+      davRequest("https://app.test/settings", { method: "GET" }),
+    );
+
+    expect(response.headers.get("x-middleware-next")).toBe("1");
+  });
+
   // No self-fetch any more: the WebDAV verb is answered here, in one hop
   it("answers PROPFIND directly without tunneling", async () => {
     const response = await proxy(
