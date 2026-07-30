@@ -156,26 +156,28 @@ async function sendEmail({
 
   const claimedDigestIds = await claimPendingDigestIds({ emailAccountId });
 
-  const pendingDigests = await prisma.digest.findMany({
-    where: {
-      emailAccountId,
-      id: {
-        in: claimedDigestIds,
+  try {
+    const pendingDigests = await prisma.digest.findMany({
+      where: {
+        emailAccountId,
+        id: {
+          in: claimedDigestIds,
+        },
       },
-    },
-    select: {
-      id: true,
-      items: {
-        select: {
-          messageId: true,
-          content: true,
-          action: {
-            select: {
-              executedRule: {
-                select: {
-                  rule: {
-                    select: {
-                      name: true,
+      select: {
+        id: true,
+        items: {
+          select: {
+            messageId: true,
+            content: true,
+            action: {
+              select: {
+                executedRule: {
+                  select: {
+                    rule: {
+                      select: {
+                        name: true,
+                      },
                     },
                   },
                 },
@@ -184,10 +186,8 @@ async function sendEmail({
           },
         },
       },
-    },
-  });
+    });
 
-  try {
     // Return early if no digests were found, unless force is true
     if (pendingDigests.length === 0) {
       if (!force) {
@@ -300,6 +300,17 @@ async function sendEmail({
 
     if (Object.keys(executedRulesByRule).length === 0) {
       logger.info("No executed rules found, skipping digest email");
+      await prisma.digest.updateMany({
+        where: {
+          id: {
+            in: processedDigestIds,
+          },
+          status: DigestStatus.PROCESSING,
+        },
+        data: {
+          status: DigestStatus.FAILED,
+        },
+      });
       return {
         success: true,
         message: "No executed rules found, skipping digest email",
@@ -362,8 +373,9 @@ async function sendEmail({
     await prisma.digest.updateMany({
       where: {
         id: {
-          in: pendingDigests.map((d) => d.id),
+          in: claimedDigestIds,
         },
+        status: DigestStatus.PROCESSING,
       },
       data: {
         status: DigestStatus.FAILED,

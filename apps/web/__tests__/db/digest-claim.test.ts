@@ -19,6 +19,11 @@ describe.skipIf(!RUN_DB_TESTS)(
     let emailAccountId: string;
 
     const accountEmail = "digest-claim-test@example.com";
+    const pendingDigestIds = ["digest-pending-1", "digest-pending-2"];
+    const staleProcessingDigestId = "digest-processing-stale";
+    const freshProcessingDigestId = "digest-processing-fresh";
+    const sentDigestId = "digest-sent";
+    const now = new Date("2026-07-30T18:00:00.000Z");
 
     beforeAll(async () => {
       prisma = (await import("@/utils/prisma")).default;
@@ -50,28 +55,50 @@ describe.skipIf(!RUN_DB_TESTS)(
 
       await prisma.digest.createMany({
         data: [
-          { emailAccountId, status: DigestStatus.PENDING },
-          { emailAccountId, status: DigestStatus.PENDING },
-          { emailAccountId, status: DigestStatus.SENT },
+          ...pendingDigestIds.map((id) => ({
+            id,
+            emailAccountId,
+            status: DigestStatus.PENDING,
+          })),
+          {
+            id: staleProcessingDigestId,
+            emailAccountId,
+            status: DigestStatus.PROCESSING,
+            updatedAt: new Date("2026-07-30T17:49:59.000Z"),
+          },
+          {
+            id: freshProcessingDigestId,
+            emailAccountId,
+            status: DigestStatus.PROCESSING,
+            updatedAt: new Date("2026-07-30T17:59:00.000Z"),
+          },
+          {
+            id: sentDigestId,
+            emailAccountId,
+            status: DigestStatus.SENT,
+          },
         ],
       });
     });
 
     afterAll(async () => {
       await prisma.user.deleteMany({ where: { email: accountEmail } });
-      await prisma.$disconnect();
     });
 
-    test("allows only one concurrent worker to claim each pending digest", async () => {
+    test("claims pending and stale digests only once across concurrent workers", async () => {
       const [firstClaim, secondClaim] = await Promise.all([
-        claimPendingDigestIds({ emailAccountId }),
-        claimPendingDigestIds({ emailAccountId }),
+        claimPendingDigestIds({ emailAccountId, now }),
+        claimPendingDigestIds({ emailAccountId, now }),
       ]);
 
       const claimedIds = [...firstClaim, ...secondClaim];
 
-      expect(claimedIds).toHaveLength(2);
-      expect(new Set(claimedIds).size).toBe(2);
+      expect(claimedIds).toHaveLength(3);
+      expect(new Set(claimedIds)).toEqual(
+        new Set([...pendingDigestIds, staleProcessingDigestId]),
+      );
+      expect(claimedIds).not.toContain(freshProcessingDigestId);
+      expect(claimedIds).not.toContain(sentDigestId);
 
       const digests = await prisma.digest.findMany({
         where: { emailAccountId },
@@ -79,7 +106,7 @@ describe.skipIf(!RUN_DB_TESTS)(
       });
       expect(
         digests.filter((digest) => digest.status === DigestStatus.PROCESSING),
-      ).toHaveLength(2);
+      ).toHaveLength(4);
       expect(
         digests.filter((digest) => digest.status === DigestStatus.SENT),
       ).toHaveLength(1);
