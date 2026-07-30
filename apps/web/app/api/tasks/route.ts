@@ -18,6 +18,7 @@ async function getTasks({ emailAccountId }: { emailAccountId: string }) {
     where: { emailAccountId },
     include: {
       activity: { orderBy: { createdAt: "desc" }, take: 50 },
+      emails: { orderBy: { createdAt: "desc" } },
     },
     orderBy: [{ createdAt: "desc" }],
   });

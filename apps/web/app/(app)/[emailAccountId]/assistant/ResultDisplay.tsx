@@ -17,7 +17,10 @@ import { EyeIcon } from "lucide-react";
 import { useRuleDialog } from "@/app/(app)/[emailAccountId]/assistant/RuleDialog";
 import { ThreadSkipHint } from "@/app/(app)/[emailAccountId]/assistant/ThreadSkipHint";
 import { LearnedPatternExclusionHint } from "@/app/(app)/[emailAccountId]/assistant/LearnedPatternExclusionHint";
+import { LearnedPatternsDialog } from "@/app/(app)/[emailAccountId]/assistant/group/LearnedPatterns";
 import type { RunRulesResult } from "@/utils/ai/choose-rule/run-rules";
+import type { LearnedPatternMatch } from "@/utils/ai/choose-rule/types";
+import { ConditionType } from "@/utils/config";
 import {
   getActionDisplay,
   getActionIcon,
@@ -110,6 +113,10 @@ export function ResultDisplayContent({ result }: { result: RunRulesResult }) {
     result.selectionMetadata?.skippedThreadRuleNames ?? [];
   const learnedPatternExcludedRules =
     result.selectionMetadata?.learnedPatternExcludedRules ?? [];
+  const learnedPatternMatches = (result.matchReasons ?? []).filter(
+    (matchReason): matchReason is LearnedPatternMatch =>
+      matchReason.type === ConditionType.LEARNED_PATTERN,
+  );
 
   const { ruleDialog, RuleDialogComponent } = useRuleDialog();
   const { provider } = useAccount();
@@ -129,6 +136,29 @@ export function ResultDisplayContent({ result }: { result: RunRulesResult }) {
       <div className="mt-2">
         {rule ? <PrettyConditions rule={rule} /> : null}
       </div>
+
+      {/* A learned pattern decides deterministically — the AI is never
+          consulted, so rerunning returns the same rule until the pattern is
+          removed. Without this callout that reads as "retest is broken". */}
+      {!!rule && learnedPatternMatches.length > 0 && (
+        <div className="mt-2 space-y-2 rounded-md border border-amber-600/40 bg-amber-500/5 p-2.5 text-sm">
+          <div>
+            Chosen by a learned pattern, not the AI:{" "}
+            {learnedPatternMatches.map((match) => (
+              <span key={match.groupItem.id} className="font-medium">
+                {match.groupItem.type.toLowerCase()}: {match.groupItem.value}
+              </span>
+            ))}
+            . Retesting will keep picking this rule until the pattern is
+            removed.
+          </div>
+          <LearnedPatternsDialog
+            ruleId={rule.id}
+            groupId={learnedPatternMatches[0].group.id}
+            label="Manage learned patterns"
+          />
+        </div>
+      )}
       <div className="mt-2">
         {!!rule && (
           <Button

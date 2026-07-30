@@ -1175,6 +1175,100 @@ describe("matchesStaticRule", () => {
     });
     expect(matchesStaticRule(rule, message2, logger)).toBe(false);
   });
+
+  describe("multiple subject alternatives (double-pipe-separated)", () => {
+    it("matches when any starts-with alternative matches", () => {
+      const rule = getStaticRule({
+        subject: "Daily Report || Weekly Summary",
+        subjectMatchMode: "STARTS_WITH",
+      });
+
+      expect(
+        matchesStaticRule(
+          rule,
+          getMessage({
+            headers: getHeaders({ subject: "Weekly Summary for June" }),
+          }),
+          logger,
+        ),
+      ).toBe(true);
+      expect(
+        matchesStaticRule(
+          rule,
+          getMessage({
+            headers: getHeaders({ subject: "Daily Report 2026-07-30" }),
+          }),
+          logger,
+        ),
+      ).toBe(true);
+    });
+
+    it("anchors every alternative in starts-with mode", () => {
+      const rule = getStaticRule({
+        subject: "Daily Report || Weekly Summary",
+        subjectMatchMode: "STARTS_WITH",
+      });
+      const message = getMessage({
+        headers: getHeaders({ subject: "Your Weekly Summary arrived" }),
+      });
+
+      expect(matchesStaticRule(rule, message, logger)).toBe(false);
+    });
+
+    it("strips reply prefixes for each alternative", () => {
+      const rule = getStaticRule({
+        subject: "Daily Report || Weekly Summary",
+        subjectMatchMode: "STARTS_WITH",
+      });
+      const message = getMessage({
+        headers: getHeaders({ subject: "Re: Weekly Summary for June" }),
+      });
+
+      expect(matchesStaticRule(rule, message, logger)).toBe(true);
+    });
+
+    it("matches any alternative in contains mode", () => {
+      const rule = getStaticRule({ subject: "invoice || receipt" });
+      const message = getMessage({
+        headers: getHeaders({ subject: "Your receipt from ACME" }),
+      });
+
+      expect(matchesStaticRule(rule, message, logger)).toBe(true);
+    });
+
+    it("excludes when any alternative matches in doesn't-contain mode", () => {
+      const rule = getStaticRule({
+        subject: "unsubscribe || promotion",
+        subjectExclude: true,
+      });
+
+      expect(
+        matchesStaticRule(
+          rule,
+          getMessage({
+            headers: getHeaders({ subject: "Summer promotion inside" }),
+          }),
+          logger,
+        ),
+      ).toBe(false);
+      expect(
+        matchesStaticRule(
+          rule,
+          getMessage({ headers: getHeaders({ subject: "Project update" }) }),
+          logger,
+        ),
+      ).toBe(true);
+    });
+
+    it("keeps a pipe-free pattern behaving as one literal", () => {
+      const rule = getStaticRule({ subject: "Hello, world" });
+      const message = getMessage({
+        headers: getHeaders({ subject: "Fwd: Hello, world tour" }),
+      });
+
+      expect(matchesStaticRule(rule, message, logger)).toBe(true);
+    });
+  });
 });
 
 function getStaticRule(

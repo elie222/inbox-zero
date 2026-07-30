@@ -31,6 +31,8 @@ type NavItem = {
   icon: LucideIcon | ((props: ComponentProps<"svg">) => React.ReactNode);
   target?: "_blank";
   count?: number;
+  // Count colour override (defaults to primary — e.g. red for Overdue)
+  countClassName?: string;
   active?: boolean;
   beta?: boolean;
   new?: boolean;
@@ -106,7 +108,12 @@ export function SideNavMenu({
                 {item.shortName ?? item.name}
               </span>
               {typeof item.count === "number" && item.count > 0 && (
-                <span className="ml-auto shrink-0 text-xs font-medium tabular-nums text-primary">
+                <span
+                  className={cn(
+                    "ml-auto shrink-0 text-xs font-medium tabular-nums",
+                    item.countClassName ?? "text-primary",
+                  )}
+                >
                   {item.count > 999 ? "999+" : item.count}
                 </span>
               )}

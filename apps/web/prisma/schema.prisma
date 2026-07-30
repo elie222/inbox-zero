@@ -1143,6 +1143,11 @@ model Task {
   // FK); null means the user owns it themselves.
   assigneeEmail String?
 
+  // Subtasks: one level of nesting, children die with the parent
+  parentId String?
+  parent   Task?   @relation("TaskSubtasks", fields: [parentId], references: [id], onDelete: Cascade)
+  subtasks Task[]  @relation("TaskSubtasks")
+
   // Where the task came from, if created off an email
   sourceThreadId  String?
   sourceMessageId String?
@@ -1158,14 +1163,39 @@ model Task {
   followUpCount       Int       @default(0)
 
   activity TaskActivity[]
+  emails   TaskEmail[]
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
   @@index([emailAccountId, status, dueAt])
   @@index([emailAccountId, assigneeEmail])
+  @@index([emailAccountId, parentId])
   // The follow-up cron scans on this
   @@index([followUpEnabled, nextFollowUpAt])
+}
+
+// An email linked to a task. The AI reads these to keep the task's status
+// current; display fields are cached at link time so the list renders
+// without a provider round-trip.
+model TaskEmail {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  threadId  String
+  messageId String
+
+  // Cached display fields from the linked message
+  from       String
+  subject    String
+  snippet    String?
+  receivedAt DateTime?
+
+  taskId String
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, messageId])
+  @@index([taskId, createdAt])
 }
 
 // A timeline entry for a task: manual notes plus the agent's actions and

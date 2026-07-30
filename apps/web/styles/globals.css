@@ -120,6 +120,20 @@
 }
 
 /*
+ * Installed, the document must not rubber-band: iOS drags position:fixed
+ * chrome — the app tray — along with an overscroll bounce, so a downward
+ * swipe visibly unsticks the tray from the bottom edge. Scoped to
+ * standalone so a browser tab keeps native pull-to-refresh and bounce on
+ * the marketing, login, and booking pages.
+ */
+@media (display-mode: standalone) {
+  html,
+  body {
+    overscroll-behavior: none;
+  }
+}
+
+/*
  * Installed, the tray must clear the home indicator — but browsers disagree
  * about whose job that is. Some keep fixed bottom-0 elements out of the
  * inset zone themselves (then padding again doubles the gap), others let
@@ -246,5 +260,31 @@
   .bulk-unsub-table td[data-cell="actions"] > div {
     flex-wrap: wrap;
     justify-content: flex-end;
+  }
+}
+
+/* Tasks: the subtask progress bar's rocket exhaust (Tasks Page v2 design) */
+@keyframes task-rocket-exhaust {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  45% {
+    opacity: 0.82;
+  }
+  70% {
+    opacity: 0.94;
+  }
+}
+
+@keyframes task-rocket-glow {
+  0%,
+  100% {
+    opacity: 0.9;
+    transform: translate(-88%, -50%) scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: translate(-88%, -50%) scale(0.8);
   }
 }

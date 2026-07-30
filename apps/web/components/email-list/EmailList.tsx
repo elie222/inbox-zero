@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import {
   ArchiveIcon,
   ChevronsDownIcon,
+  CircleCheckBigIcon,
   ExternalLinkIcon,
   FolderInputIcon,
   MessageCircleIcon,
@@ -26,6 +27,7 @@ import { MessageText } from "@/components/Typography";
 import { AlertBasic } from "@/components/Alert";
 import { EmailListItem } from "@/components/email-list/EmailListItem";
 import { RowContextMenu } from "@/components/email-list/RowContextMenu";
+import { AddToTaskDialog } from "@/components/email-list/AddToTaskDialog";
 import { FilterLikeThisDialog } from "@/components/email-list/FilterLikeThisDialog";
 import { ReprocessEmailDialog } from "@/components/email-list/ReprocessEmailDialog";
 import { AiRuleFromEmailDialog } from "@/components/email-list/AiRuleFromEmailDialog";
@@ -216,6 +218,7 @@ export function EmailList({
   } | null>(null);
   const [filterThreads, setFilterThreads] = useState<Thread[] | null>(null);
   const [aiRuleThread, setAiRuleThread] = useState<Thread | null>(null);
+  const [addToTaskThread, setAddToTaskThread] = useState<Thread | null>(null);
   // Sparkles icon on a row: reprocess with the ask-before-move dialog
   const [reprocessThread, setReprocessThread] = useState<Thread | null>(null);
   const onRowContextMenu = useCallback(
@@ -712,6 +715,11 @@ export function EmailList({
               icon: MessageCircleIcon,
               onClick: () => chatAboutThread(rowMenu.thread),
             },
+            {
+              label: "Add to task",
+              icon: CircleCheckBigIcon,
+              onClick: () => setAddToTaskThread(rowMenu.thread),
+            },
             { divider: true },
             {
               label: "Archive",
@@ -753,6 +761,13 @@ export function EmailList({
           thread={aiRuleThread}
           onClose={() => setAiRuleThread(null)}
           refetch={() => refetch()}
+        />
+      )}
+      {addToTaskThread && (
+        <AddToTaskDialog
+          key={addToTaskThread.id}
+          thread={addToTaskThread}
+          onClose={() => setAddToTaskThread(null)}
         />
       )}
     </>
