@@ -40,6 +40,7 @@ import {
   bitmaskToDayOfWeek,
 } from "@/utils/schedule";
 import { getEstimatedDigestDeliveryAt } from "@/utils/digest/schedule";
+import { getAccountScopedKey } from "@/utils/swr";
 
 const digestSettingsSchema = z.object({
   selectedItems: z.set(z.string()),
@@ -86,7 +87,9 @@ export function DigestSettingsForm({
     isLoading: digestStatusLoading,
     error: digestStatusError,
     mutate: mutateDigestStatus,
-  } = useSWR<GetDigestStatusResponse>("/api/user/digest-status");
+  } = useSWR<GetDigestStatusResponse>(
+    getAccountScopedKey("/api/user/digest-status", emailAccountId),
+  );
 
   const isLoading = rulesLoading || digestStatusLoading;
   const error = rulesError || digestStatusError;
@@ -217,11 +220,17 @@ export function DigestSettingsForm({
           executeSchedule(scheduleUpdateData),
         ]);
 
-        if (hasActionError(itemsResult) || hasActionError(scheduleResult)) {
+        const itemsFailed = hasActionError(itemsResult);
+        const scheduleFailed = hasActionError(scheduleResult);
+
+        await Promise.all([
+          itemsFailed ? undefined : mutateRules(),
+          scheduleFailed ? undefined : mutateDigestStatus(),
+        ]);
+
+        if (itemsFailed || scheduleFailed) {
           return;
         }
-
-        await Promise.all([mutateRules(), mutateDigestStatus()]);
 
         const estimatedDeliveryAt = getEstimatedDigestDeliveryAt(
           scheduleResult?.data?.nextOccurrenceAt
