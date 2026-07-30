@@ -37,6 +37,8 @@ export async function aiGenerateTaskOverview({
     subject: string;
     snippet: string | null;
     receivedAt: Date | null;
+    // Full body fetched from the provider; null when no longer retrievable
+    content?: string | null;
   }[];
   activity: { content: string; createdAt: Date }[];
 }): Promise<GenerateTaskOverviewResult | null> {
@@ -78,7 +80,7 @@ ${
   emails
     .map(
       (email) =>
-        `From: ${email.from}${email.receivedAt ? ` (${new Date(email.receivedAt).toISOString()})` : ""}\nSubject: ${email.subject}\n${email.snippet ?? ""}`,
+        `From: ${email.from}${email.receivedAt ? ` (${new Date(email.receivedAt).toISOString()})` : ""}\nSubject: ${email.subject}\n${email.content || email.snippet || "(body unavailable)"}`,
     )
     .join("\n---\n") || "None"
 }
