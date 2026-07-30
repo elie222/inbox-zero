@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CardBasic } from "@/components/ui/card";
 import { getDateRangeParams } from "./params";
-import { BarChart } from "./BarChart";
+import { BarChart } from "@/components/charts/BarChart";
 import type { ChartConfig } from "@/components/ui/chart";
 import { COLORS } from "@/utils/colors";
 import { cn } from "@/utils";
