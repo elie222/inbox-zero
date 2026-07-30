@@ -175,7 +175,10 @@ describe("getMessagesBatch", () => {
       }),
     ).rejects.toMatchObject({
       message: "Too many concurrent requests for user",
-      status: 429,
+      cause: {
+        code: 429,
+        errors: [{ reason: "rateLimitExceeded" }],
+      },
     });
 
     expect(getBatch).toHaveBeenCalledTimes(4);

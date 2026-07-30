@@ -35,7 +35,7 @@ export async function getBatchWithRetry<TRaw, TParsed>({
     logger.warn("Too many batch retries", { ids, retryCount });
     if (!retryError) throw new Error("Gmail batch retry limit exceeded");
     // Preserve the provider error so account-level rate-limit protection can pause follow-on calls.
-    throw new GmailBatchRetryExhaustedError(retryError);
+    throw new Error(retryError.message, { cause: retryError });
   }
 
   const batch: (TRaw | BatchError)[] = await getBatch(
@@ -81,10 +81,8 @@ export async function getBatchWithRetry<TRaw, TParsed>({
           errorMessage,
           reason,
         });
-        if (isRateLimit) {
-          shouldRetryInSmallerBatches = true;
-          lastRetryableError = item.error;
-        } else if (!lastRetryableError) {
+        if (isRateLimit) shouldRetryInSmallerBatches = true;
+        if (isRateLimit || !lastRetryableError) {
           lastRetryableError = item.error;
         }
         missingIds.add(ids[i]);
@@ -162,16 +160,4 @@ async function getBatchWithRetryInChunks<TRaw, TParsed>({
   }
 
   return results;
-}
-
-class GmailBatchRetryExhaustedError extends Error {
-  status: number;
-  errors: BatchError["error"]["errors"];
-
-  constructor(error: BatchError["error"]) {
-    super(error.message);
-    this.name = "GmailBatchRetryExhaustedError";
-    this.status = error.code;
-    this.errors = error.errors;
-  }
 }
