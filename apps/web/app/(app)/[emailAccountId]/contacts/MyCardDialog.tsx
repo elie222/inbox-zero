@@ -199,6 +199,7 @@ function MyCardBody({
       {editing && (
         <EditMode
           draft={draft}
+          savedUrl={data.url}
           set={set}
           saving={save.isExecuting}
           canCancel={!!data.card}
@@ -245,7 +246,9 @@ function CardPreview({ draft }: { draft: CardDraft }) {
 
   return (
     <div
-      className="relative overflow-hidden rounded-[14px] border border-border p-5"
+      // shrink-0: overflow-hidden strips a flex item's automatic min-height,
+      // so without it the scroll container crushes the preview to a sliver
+      className="relative shrink-0 overflow-hidden rounded-[14px] border border-border p-5"
       style={{
         background: `linear-gradient(to bottom right, ${accent}14, transparent 60%)`,
       }}
@@ -511,6 +514,7 @@ function StatTile({
 
 function EditMode({
   draft,
+  savedUrl,
   set,
   saving,
   canCancel,
@@ -518,6 +522,8 @@ function EditMode({
   onSave,
 }: {
   draft: CardDraft;
+  // The saved card's public URL — null until the first save
+  savedUrl: string | null;
   set: <K extends keyof CardDraft>(key: K, value: CardDraft[K]) => void;
   saving: boolean;
   canCancel: boolean;
@@ -699,6 +705,21 @@ function EditMode({
             onChange={(event) => set("slug", event.target.value)}
           />
         </div>
+        {savedUrl ? (
+          <a
+            href={savedUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-1.5 inline-flex items-center gap-1.5 text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+          >
+            <ExternalLinkIcon className="size-3" />
+            View public page
+          </a>
+        ) : (
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            Your public page goes live at this link when you save.
+          </p>
+        )}
       </Field>
       <div className="grid grid-cols-2 gap-3">
         <Field id="mc-email" label="Email">
