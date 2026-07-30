@@ -5,11 +5,15 @@ import {
 } from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
 
-const { fetchEventsMock } = vi.hoisted(() => ({
+const { checkHasAccessMock, fetchEventsMock } = vi.hoisted(() => ({
+  checkHasAccessMock: vi.fn(),
   fetchEventsMock: vi.fn(),
 }));
 
 vi.mock("@/utils/prisma");
+vi.mock("@/utils/premium/server", () => ({
+  checkHasAccess: (...args: unknown[]) => checkHasAccessMock(...args),
+}));
 vi.mock("@/utils/calendar/fetch-events-in-window", () => ({
   fetchCalendarEventsInWindow: (...args: unknown[]) => fetchEventsMock(...args),
 }));
@@ -32,10 +36,10 @@ import { GET } from "./route";
 describe("meeting recorder upcoming route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    checkHasAccessMock.mockResolvedValue(false);
     prisma.emailAccount.findUnique.mockResolvedValue({
       email: "user@example.com",
       meetingRecorderJoinRule: MeetingJoinRule.ALL,
-      user: { premium: null },
     } as never);
     prisma.meeting.findMany.mockResolvedValue([]);
     fetchEventsMock.mockResolvedValue({

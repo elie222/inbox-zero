@@ -79,7 +79,7 @@ export function transitionRecording(
   ) & {
     status: MeetingRecordingStatus;
     fromStatuses?: MeetingRecordingStatus[];
-    data?: { failureReason?: string };
+    data?: { failureReason?: string; transcriptFetchedAt?: Date };
   },
 ) {
   const selector =

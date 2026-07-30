@@ -1,5 +1,7 @@
 import { addMinutes } from "date-fns/addMinutes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createTestLogger } from "@/__tests__/helpers";
+import prisma from "@/utils/__mocks__/prisma";
 import { createCalendarEventProviders } from "@/utils/calendar/event-provider";
 import type {
   CalendarEvent,
@@ -9,8 +11,8 @@ import {
   fetchUpcomingEvents,
   filterEventsWithExternalGuests,
 } from "./fetch-upcoming-events";
-import { createTestLogger } from "@/__tests__/helpers";
 
+vi.mock("@/utils/prisma");
 vi.mock("@/utils/calendar/event-provider");
 
 const logger = createTestLogger();
@@ -18,6 +20,7 @@ const logger = createTestLogger();
 describe("fetchUpcomingEvents", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prisma.calendarConnection.count.mockResolvedValue(1);
   });
 
   it("skips cancelled event placeholder titles", async () => {

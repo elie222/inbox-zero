@@ -1428,6 +1428,7 @@ model MeetingRecording {
   @@unique([activeKey, meetingStartTime])
   @@index([normalizedMeetingUrl, meetingStartTime])
   @@index([status, meetingStartTime])
+  @@index([status, mediaDeletedAt])
 }
 
 model Meeting {

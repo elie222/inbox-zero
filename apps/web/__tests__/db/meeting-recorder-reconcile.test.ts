@@ -239,13 +239,20 @@ describe.skipIf(!RUN_DB_TESTS)(
       expect(recording.externalBotId).toBe("replacement_bot");
     });
 
-    test("waits to reschedule while a conflicting recording is cancelling", async () => {
+    test("releases and rebooks when the destination slot is still cancelling", async () => {
       const event = calendarEvent();
       const emailAccount = account(accountAId, ACCOUNT_A);
       await reconcile.reconcileSingleEvent({ emailAccount, event, logger });
       const original = await prisma.meetingRecording.findFirstOrThrow();
       const movedTo = addMinutes(event.startTime, 45);
+      const movedEvent = {
+        ...event,
+        startTime: movedTo,
+        endTime: addMinutes(movedTo, 30),
+      };
 
+      // A cancelling row retains the dedup slot until the provider confirms
+      // its bot is gone, so the reschedule cannot land there yet.
       const cancelling = await prisma.meetingRecording.create({
         data: {
           botProvider: original.botProvider,
@@ -260,23 +267,32 @@ describe.skipIf(!RUN_DB_TESTS)(
 
       await reconcile.reconcileSingleEvent({
         emailAccount,
-        event: {
-          ...event,
-          startTime: movedTo,
-          endTime: addMinutes(movedTo, 30),
-        },
+        event: movedEvent,
         logger,
       });
 
-      expect(fakeProvider.updated).toHaveLength(0);
+      // The blocked reschedule stands the bot down rather than restoring it.
+      expect(fakeProvider.cancelled).toEqual([original.externalBotId]);
       expect(
         (
           await prisma.meetingRecording.findUniqueOrThrow({
             where: { id: original.id },
           })
-        ).meetingStartTime,
-      ).toEqual(event.startTime);
+        ).status,
+      ).toBe(MeetingRecordingStatus.CANCELLED);
+      // The cancelling slot-holder owns its own cancellation and is untouched.
+      const cancellingAfter = await prisma.meetingRecording.findUniqueOrThrow({
+        where: { id: cancelling.id },
+      });
+      expect(cancellingAfter.status).toBe(MeetingRecordingStatus.CANCELLING);
+      expect(cancellingAfter.externalBotId).toBe("cancelling_bot");
+      // Booking against the occupied slot defers to a later pass.
+      const meeting = await prisma.meeting.findFirstOrThrow({
+        where: { emailAccountId: accountAId },
+      });
+      expect(meeting.recordingId).toBeNull();
 
+      // Once the conflicting cancellation completes, the next pass books again.
       await prisma.meetingRecording.update({
         where: { id: cancelling.id },
         data: {
@@ -286,23 +302,19 @@ describe.skipIf(!RUN_DB_TESTS)(
       });
       await reconcile.reconcileSingleEvent({
         emailAccount,
-        event: {
-          ...event,
-          startTime: movedTo,
-          endTime: addMinutes(movedTo, 30),
-        },
+        event: movedEvent,
         logger,
       });
 
-      expect(fakeProvider.updated).toContainEqual(
-        expect.objectContaining({
-          botId: original.externalBotId,
-          joinAt: movedTo,
-        }),
-      );
+      expect(fakeProvider.scheduled).toHaveLength(2);
+      expect(fakeProvider.scheduled[1]?.joinAt).toEqual(movedTo);
+      const rebooked = await prisma.meeting.findFirstOrThrow({
+        where: { emailAccountId: accountAId },
+      });
+      expect(rebooked.recordingId).not.toBeNull();
     });
 
-    test("restores the bot when cancellation races with rescheduling", async () => {
+    test("releases the moved bot when cancellation races with rescheduling", async () => {
       const event = calendarEvent();
       const emailAccount = account(accountAId, ACCOUNT_A);
       await reconcile.reconcileSingleEvent({ emailAccount, event, logger });
@@ -319,6 +331,8 @@ describe.skipIf(!RUN_DB_TESTS)(
           status: MeetingRecordingStatus.SCHEDULED,
         },
       });
+      // The provider replaces the bot during the move, and the destination
+      // starts cancelling before the move is persisted.
       fakeProvider.replacementBotIdOnNextUpdate = "moved_bot";
       fakeProvider.beforeNextUpdate = async () => {
         await prisma.meetingRecording.update({
@@ -337,23 +351,14 @@ describe.skipIf(!RUN_DB_TESTS)(
         logger,
       });
 
-      expect(fakeProvider.updated).toEqual([
-        {
-          botId: original.externalBotId,
-          joinAt: movedTo,
-          meetingUrl: event.videoConferenceLink,
-        },
-        {
-          botId: "moved_bot",
-          joinAt: event.startTime,
-          meetingUrl: original.meetingUrl,
-        },
-      ]);
-      const restored = await prisma.meetingRecording.findUniqueOrThrow({
+      // The replacement id is persisted before the release, so it is the
+      // replacement bot that gets stood down, never left untracked.
+      const released = await prisma.meetingRecording.findUniqueOrThrow({
         where: { id: original.id },
       });
-      expect(restored.externalBotId).toBe("moved_bot");
-      expect(restored.meetingStartTime).toEqual(event.startTime);
+      expect(released.externalBotId).toBe("moved_bot");
+      expect(released.status).toBe(MeetingRecordingStatus.CANCELLED);
+      expect(fakeProvider.cancelled).toEqual(["moved_bot"]);
 
       // The conflicting recording owns its own cancellation: the reschedule
       // race must neither cancel its bot nor move it out of CANCELLING. The
@@ -363,10 +368,71 @@ describe.skipIf(!RUN_DB_TESTS)(
       });
       expect(conflictingAfter.status).toBe(MeetingRecordingStatus.CANCELLING);
       expect(conflictingAfter.externalBotId).toBe("conflicting_bot");
-      expect(fakeProvider.cancelled).toEqual([]);
+
+      // Rebooking waits for the cancelling slot-holder, so the meeting is left
+      // for a later pass rather than linked to a dying recording.
+      const meeting = await prisma.meeting.findFirstOrThrow({
+        where: { emailAccountId: accountAId },
+      });
+      expect(meeting.recordingId).toBeNull();
     });
 
-    test("tracks a replacement bot when a merge cancellation fails", async () => {
+    test("folds the meeting into the recording already holding the destination slot", async () => {
+      const emailAccount = account(accountAId, ACCOUNT_A);
+      const firstEvent = calendarEvent();
+      const secondEvent = calendarEvent({
+        id: "event-second",
+        startTime: addMinutes(firstEvent.startTime, 45),
+        endTime: addMinutes(firstEvent.endTime, 45),
+      });
+
+      await reconcile.reconcileSingleEvent({
+        emailAccount,
+        event: firstEvent,
+        logger,
+      });
+      await reconcile.reconcileSingleEvent({
+        emailAccount,
+        event: secondEvent,
+        logger,
+      });
+
+      // The first event is moved onto the second event's slot, which its own
+      // live recording already holds.
+      await reconcile.reconcileSingleEvent({
+        emailAccount,
+        event: {
+          ...firstEvent,
+          startTime: secondEvent.startTime,
+          endTime: secondEvent.endTime,
+        },
+        logger,
+      });
+
+      // The first booking is stood down instead of clashing with the second.
+      expect(fakeProvider.cancelled).toEqual([
+        fakeProvider.scheduled[0]?.botId,
+      ]);
+      // Only one Meeting row may own the destination recording, so the moved
+      // duplicate is closed out without a summary.
+      const firstMeeting = await prisma.meeting.findFirstOrThrow({
+        where: { emailAccountId: accountAId, calendarEventId: firstEvent.id },
+      });
+      expect(firstMeeting.recordingId).toBeNull();
+      expect(firstMeeting.processingStatus).toBe("COMPLETED");
+      const secondMeeting = await prisma.meeting.findFirstOrThrow({
+        where: { emailAccountId: accountAId, calendarEventId: secondEvent.id },
+        include: { recording: true },
+      });
+      expect(secondMeeting.recording?.status).toBe(
+        MeetingRecordingStatus.SCHEDULED,
+      );
+      expect(secondMeeting.recording?.externalBotId).toBe(
+        fakeProvider.scheduled[1]?.botId,
+      );
+    });
+
+    test("tracks a replacement bot when the release after a slot collision fails", async () => {
       const emailAccount = account(accountAId, ACCOUNT_A);
       const firstEvent = calendarEvent();
       const secondEvent = calendarEvent({

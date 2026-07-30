@@ -9,6 +9,7 @@ import { toastError } from "@/components/Toast";
 import { Toggle } from "@/components/Toggle";
 import { MutedText, TypographyH3 } from "@/components/Typography";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { UpgradeToPlusButton } from "@/components/UpgradeToPlusButton";
 import {
   Empty,
   EmptyDescription,
@@ -79,8 +80,9 @@ export function UpcomingMeetingsToggleList({
         {isLocked && (
           <Alert className="mt-4">
             <AlertTitle>Meeting recording requires the Plus plan</AlertTitle>
-            <AlertDescription>
+            <AlertDescription className="flex flex-wrap items-center justify-between gap-2">
               Upgrade to have meetings recorded and summarized automatically.
+              <UpgradeToPlusButton tooltip="Upgrade to the Plus plan to record and summarize your meetings." />
             </AlertDescription>
           </Alert>
         )}

@@ -1,14 +1,11 @@
 import { NextResponse } from "next/server";
-import type { Prisma } from "@/generated/prisma/client";
+import { Prisma } from "@/generated/prisma/client";
 import { MeetingRecordingStatus } from "@/generated/prisma/enums";
 import type { Logger } from "@/utils/logger";
 import { createMeetingBotProvider } from "@/utils/meeting-recorder/create-bot-provider";
 import { deleteRecordingMedia } from "@/utils/meeting-recorder/delete-media";
 import { enqueueProcessingForRecording } from "@/utils/meeting-recorder/enqueue-processing";
-import {
-  getStatusesBelow,
-  recordingStatusData,
-} from "@/utils/meeting-recorder/recording-lifecycle";
+import { transitionRecording } from "@/utils/meeting-recorder/recording-lifecycle";
 import { withError } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 import { withQstashOrInternal } from "@/utils/qstash";
@@ -37,8 +34,18 @@ async function storeTranscript({
   recordingId: string;
   logger: Logger;
 }): Promise<void> {
+  // Selecting scalars only keeps the stored transcript JSONB out of a query
+  // that runs on every delivery.
   const recording = await prisma.meetingRecording.findUnique({
     where: { id: recordingId },
+    select: {
+      id: true,
+      botProvider: true,
+      externalBotId: true,
+      externalTranscriptId: true,
+      transcriptFetchedAt: true,
+      mediaDeletedAt: true,
+    },
   });
   if (!recording) {
     logger.error("Recording not found");
@@ -48,7 +55,7 @@ async function storeTranscript({
   // The stored transcript is the real completion marker. Keying the fan-out off
   // it means a redelivery after a crash re-runs only the step that did not
   // finish, rather than skipping the rest of the job.
-  if (!recording.transcript) {
+  if (!recording.transcriptFetchedAt) {
     if (!recording.externalTranscriptId) {
       logger.error("Recording has no transcript to fetch");
       return;
@@ -90,17 +97,23 @@ async function storeTranscript({
       });
       throw error;
     }
+  } else {
+    // The claim is taken before the download, so it can also mean another
+    // delivery is still fetching. Only a stored transcript may finish the
+    // recording; an in-flight fetch finishes it itself.
+    const stored = await prisma.meetingRecording.count({
+      where: { id: recording.id, transcript: { not: Prisma.DbNull } },
+    });
+    if (stored === 0) {
+      logger.info("Transcript download already in flight");
+      return;
+    }
   }
 
-  await prisma.meetingRecording.updateMany({
-    where: {
-      id: recording.id,
-      status: { in: getStatusesBelow(MeetingRecordingStatus.DONE) },
-    },
-    data: {
-      ...recordingStatusData(MeetingRecordingStatus.DONE),
-      transcriptFetchedAt: new Date(),
-    },
+  await transitionRecording({
+    recordingId: recording.id,
+    status: MeetingRecordingStatus.DONE,
+    data: { transcriptFetchedAt: new Date() },
   });
 
   if (!recording.mediaDeletedAt) {

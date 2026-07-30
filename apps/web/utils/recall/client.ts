@@ -17,6 +17,15 @@ import {
 // forever: historical rows keep this value even if the default provider moves.
 export const RECALL_BOT_PROVIDER = "recall";
 
+/**
+ * Whether Recall can be used end to end. The API key alone is not enough:
+ * without the webhook secret we would book bots whose lifecycle events we can
+ * never verify, so the two are only ever configured as a pair.
+ */
+export function isRecallConfigured(): boolean {
+  return Boolean(env.RECALL_API_KEY && env.RECALL_WEBHOOK_SECRET);
+}
+
 const DEFAULT_RECALL_REGION = "us-west-2";
 
 // Overridden only to point at the local emulator, same as GOOGLE_BASE_URL.
