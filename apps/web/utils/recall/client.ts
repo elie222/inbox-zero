@@ -282,7 +282,12 @@ function isPermanent(status: number): boolean {
 let meetingBotCameraImagePromise: Promise<string> | undefined;
 
 function getMeetingBotCameraImage(): Promise<string> {
-  meetingBotCameraImagePromise ??= readMeetingBotCameraImage();
+  meetingBotCameraImagePromise ??= readMeetingBotCameraImage().catch(
+    (error) => {
+      meetingBotCameraImagePromise = undefined;
+      throw error;
+    },
+  );
   return meetingBotCameraImagePromise;
 }
 
