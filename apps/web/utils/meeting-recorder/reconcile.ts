@@ -196,16 +196,17 @@ export async function upsertMeeting({
     attendees: toAttendeeSnapshot(event.attendees, event.organizerEmail),
     organizerEmail: event.organizerEmail ?? null,
   };
+  const where = {
+    emailAccountId_calendarEventId: {
+      emailAccountId,
+      calendarEventId: event.id,
+    },
+  };
 
   // This runs on every cron tick for every video event, so skip the write
   // (and its updatedAt churn) when the event has not changed.
   const existing = await prisma.meeting.findUnique({
-    where: {
-      emailAccountId_calendarEventId: {
-        emailAccountId,
-        calendarEventId: event.id,
-      },
-    },
+    where,
   });
   if (
     existing &&
@@ -221,12 +222,7 @@ export async function upsertMeeting({
   };
 
   return prisma.meeting.upsert({
-    where: {
-      emailAccountId_calendarEventId: {
-        emailAccountId,
-        calendarEventId: event.id,
-      },
-    },
+    where,
     create: { ...data, emailAccountId, calendarEventId: event.id },
     update: data,
   });
@@ -487,6 +483,25 @@ async function updateBookingForEvent({
   // Once the bot is joining or in the call there is nothing left to move.
   if (!CHANGEABLE_STATUSES.includes(recording.status)) return true;
   if (!recording.externalBotId) return true;
+
+  if (recording.activeKey) {
+    const cancellingDestination = await prisma.meetingRecording.findFirst({
+      where: {
+        id: { not: recording.id },
+        activeKey: recording.activeKey,
+        meetingStartTime: event.startTime,
+        status: MeetingRecordingStatus.CANCELLING,
+      },
+      select: { id: true },
+    });
+    if (cancellingDestination) {
+      logger.info("Waiting for destination recording cancellation", {
+        recordingId: recording.id,
+        conflictingRecordingId: cancellingDestination.id,
+      });
+      return true;
+    }
+  }
 
   const provider = createMeetingBotProvider(recording.botProvider, logger);
   const updatedBot = await provider.updateBot(recording.externalBotId, {

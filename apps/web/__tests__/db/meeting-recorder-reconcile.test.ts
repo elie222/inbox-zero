@@ -239,7 +239,7 @@ describe.skipIf(!RUN_DB_TESTS)(
       expect(recording.externalBotId).toBe("replacement_bot");
     });
 
-    test("releases and rebooks when the destination slot is still cancelling", async () => {
+    test("waits to reschedule while the destination slot is still cancelling", async () => {
       const event = calendarEvent();
       const emailAccount = account(accountAId, ACCOUNT_A);
       await reconcile.reconcileSingleEvent({ emailAccount, event, logger });
@@ -271,28 +271,18 @@ describe.skipIf(!RUN_DB_TESTS)(
         logger,
       });
 
-      // The blocked reschedule stands the bot down rather than restoring it.
-      expect(fakeProvider.cancelled).toEqual([original.externalBotId]);
-      expect(
-        (
-          await prisma.meetingRecording.findUniqueOrThrow({
-            where: { id: original.id },
-          })
-        ).status,
-      ).toBe(MeetingRecordingStatus.CANCELLED);
-      // The cancelling slot-holder owns its own cancellation and is untouched.
-      const cancellingAfter = await prisma.meetingRecording.findUniqueOrThrow({
-        where: { id: cancelling.id },
+      expect(fakeProvider.updated).toHaveLength(0);
+      expect(fakeProvider.cancelled).toHaveLength(0);
+      const deferred = await prisma.meetingRecording.findUniqueOrThrow({
+        where: { id: original.id },
       });
-      expect(cancellingAfter.status).toBe(MeetingRecordingStatus.CANCELLING);
-      expect(cancellingAfter.externalBotId).toBe("cancelling_bot");
-      // Booking against the occupied slot defers to a later pass.
+      expect(deferred.meetingStartTime).toEqual(event.startTime);
+      expect(deferred.status).toBe(MeetingRecordingStatus.SCHEDULED);
       const meeting = await prisma.meeting.findFirstOrThrow({
         where: { emailAccountId: accountAId },
       });
-      expect(meeting.recordingId).toBeNull();
+      expect(meeting.recordingId).toBe(original.id);
 
-      // Once the conflicting cancellation completes, the next pass books again.
       await prisma.meetingRecording.update({
         where: { id: cancelling.id },
         data: {
@@ -306,12 +296,14 @@ describe.skipIf(!RUN_DB_TESTS)(
         logger,
       });
 
-      expect(fakeProvider.scheduled).toHaveLength(2);
-      expect(fakeProvider.scheduled[1]?.joinAt).toEqual(movedTo);
-      const rebooked = await prisma.meeting.findFirstOrThrow({
-        where: { emailAccountId: accountAId },
-      });
-      expect(rebooked.recordingId).not.toBeNull();
+      expect(fakeProvider.updated).toContainEqual(
+        expect.objectContaining({
+          botId: original.externalBotId,
+          joinAt: movedTo,
+        }),
+      );
+      expect(fakeProvider.scheduled).toHaveLength(1);
+      expect(fakeProvider.cancelled).toHaveLength(0);
     });
 
     test("releases the moved bot when cancellation races with rescheduling", async () => {

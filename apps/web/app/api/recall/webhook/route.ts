@@ -67,23 +67,25 @@ async function processRecallEvent(
   logger: Logger,
 ): Promise<void> {
   const interpretation = interpretRecallWebhook(payload);
-  const eventLogger = logger.with({ event: payload.event });
+  const eventLogger = logger.with({
+    event: payload.event,
+    ...(payload.data.bot?.id && { externalBotId: payload.data.bot.id }),
+  });
+
+  if (interpretation.type === "ignore") {
+    eventLogger.info("Ignored Recall webhook", {
+      reason: interpretation.reason,
+    });
+    return;
+  }
 
   switch (interpretation.type) {
-    case "ignore":
-      eventLogger.info("Ignored Recall webhook", {
-        reason: interpretation.reason,
-      });
-      return;
-
     case "transcriptReady":
       await handleTranscriptReady({
         botProvider: RECALL_BOT_PROVIDER,
         externalBotId: interpretation.externalBotId,
         externalTranscriptId: interpretation.externalTranscriptId,
-        logger: eventLogger.with({
-          externalBotId: interpretation.externalBotId,
-        }),
+        logger: eventLogger,
       });
       return;
 
@@ -92,9 +94,7 @@ async function processRecallEvent(
         botProvider: RECALL_BOT_PROVIDER,
         externalBotId: interpretation.externalBotId,
         externalRecordingId: interpretation.externalRecordingId,
-        logger: eventLogger.with({
-          externalBotId: interpretation.externalBotId,
-        }),
+        logger: eventLogger,
       });
       return;
 
@@ -105,9 +105,7 @@ async function processRecallEvent(
         status: interpretation.status,
         fromStatuses: interpretation.fromStatuses,
         failureReason: interpretation.failureReason,
-        logger: eventLogger.with({
-          externalBotId: interpretation.externalBotId,
-        }),
+        logger: eventLogger,
       });
       return;
   }

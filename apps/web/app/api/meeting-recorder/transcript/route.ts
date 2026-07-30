@@ -101,10 +101,10 @@ async function storeTranscript({
     // The claim is taken before the download, so it can also mean another
     // delivery is still fetching. Only a stored transcript may finish the
     // recording; an in-flight fetch finishes it itself.
-    const stored = await prisma.meetingRecording.count({
+    const storedTranscriptCount = await prisma.meetingRecording.count({
       where: { id: recording.id, transcript: { not: Prisma.DbNull } },
     });
-    if (stored === 0) {
+    if (storedTranscriptCount === 0) {
       logger.info("Transcript download already in flight");
       return;
     }
