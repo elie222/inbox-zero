@@ -147,8 +147,10 @@ const InputWithLeftFixedText = (props: {
   className?: string;
 }) => (
   <div className="flex rounded-md shadow-sm">
-    <span className="inline-flex max-w-[150px] flex-shrink items-center rounded-l-md border border-r-0 border-slate-300 bg-slate-50 px-3 text-muted-foreground dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 sm:max-w-full sm:text-sm">
-      {props.leftText}
+    <span className="inline-flex max-w-[150px] flex-shrink items-center overflow-hidden rounded-l-md border border-r-0 border-slate-300 bg-slate-50 px-3 text-muted-foreground dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 sm:max-w-full sm:text-sm">
+      {/* Long prefixes (a booking host) must clip inside the box, not paint
+          over the input beside it */}
+      <span className="truncate">{props.leftText}</span>
     </span>
     <input
       {...props.inputProps}

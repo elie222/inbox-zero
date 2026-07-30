@@ -224,8 +224,14 @@ export function ContactsList() {
         <h1 className="font-display text-2xl tracking-tight">Contacts</h1>
         {/* A sidebar group selection speaks for itself; tabs would contradict it */}
         {!groupKey && (
-          <Tabs defaultValue="companies" searchParam="view">
-            <TabsList className="h-9">
+          <Tabs
+            defaultValue="companies"
+            searchParam="view"
+            className="min-w-0 max-w-full"
+          >
+            {/* Four triggers outgrow a 320px phone; scroll instead of
+                clipping the Suggested tab out of reach */}
+            <TabsList className="h-9 max-w-full overflow-x-auto">
               <TabsTrigger value="companies">Companies</TabsTrigger>
               <TabsTrigger value="labels">Labels</TabsTrigger>
               <TabsTrigger value="people">People</TabsTrigger>
@@ -272,7 +278,9 @@ export function ContactsList() {
       </div>
 
       <div className="min-w-0 flex-1 overflow-y-auto px-4 pb-6 pt-3 sm:px-6 sm:pt-4">
-        <div className="mb-3 flex items-center gap-2">
+        {/* The chip set outgrows a phone; wrapping beats the pane scrolling
+            sideways */}
+        <div className="mb-3 flex flex-wrap items-center gap-2">
           <span className="min-w-0 flex-1 truncate text-[13px] text-muted-foreground">
             {countLine}
           </span>

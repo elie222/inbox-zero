@@ -246,12 +246,16 @@ function EmailAccountSettingsCard({
             {emailAccount.name?.charAt(0) || emailAccount.email?.charAt(0)}
           </AvatarFallback>
         </Avatar>
-        <span className="flex-1 text-sm font-medium">{emailAccount.email}</span>
+        {/* An email address is one unbreakable word — truncate it rather
+            than letting it push the card past a phone's width */}
+        <span className="min-w-0 flex-1 truncate text-sm font-medium">
+          {emailAccount.email}
+        </span>
         {connectedProviders.map((provider) => (
           <Badge
             key={provider}
             variant="secondary"
-            className="gap-1 text-xs font-normal"
+            className="shrink-0 gap-1 text-xs font-normal"
           >
             <ProviderIcon provider={provider} className="size-3" />
             {PROVIDER_LABELS[provider] ?? provider}

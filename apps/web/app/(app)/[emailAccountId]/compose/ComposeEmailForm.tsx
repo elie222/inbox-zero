@@ -479,9 +479,12 @@ const ComposeEmailFormInner = ({
               <span className="shrink-0 text-muted-foreground">
                 {formatBytes(attachment.size)}
               </span>
+              {/* The glyph stays small; the hit area is finger-sized so
+                  removing an attachment isn't a tap lottery */}
               <button
                 type="button"
                 aria-label={`Remove ${attachment.filename}`}
+                className="-my-2 -mr-2 flex size-8 shrink-0 items-center justify-center"
                 onClick={() => removeAttachment(index)}
               >
                 <XIcon className="size-3" />

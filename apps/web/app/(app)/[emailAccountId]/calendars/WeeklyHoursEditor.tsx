@@ -120,9 +120,11 @@ export function WeeklyHoursEditor({
         {DAY_LABELS.map((dayLabel, dayIndex) => {
           const day = days[dayIndex];
           return (
+            // A label column beside two time inputs and buttons needs ~470px;
+            // on phones the day label stacks above its ranges instead
             <div
               key={dayLabel}
-              className="flex items-start gap-4 border-b px-4 py-3 last:border-b-0"
+              className="flex flex-col gap-2 border-b px-4 py-3 last:border-b-0 sm:flex-row sm:items-start sm:gap-4"
             >
               <div className="flex w-32 items-center gap-2.5 pt-1.5">
                 <Switch
@@ -153,7 +155,10 @@ export function WeeklyHoursEditor({
               <div className="flex flex-1 flex-col gap-2">
                 {day.enabled ? (
                   day.ranges.map((range, rangeIndex) => (
-                    <div key={rangeIndex} className="flex items-center gap-2">
+                    <div
+                      key={rangeIndex}
+                      className="flex flex-wrap items-center gap-2"
+                    >
                       <TimeField
                         value={range.start}
                         onChange={(value) =>
@@ -222,7 +227,7 @@ function TimeField({
       type="time"
       value={value}
       onChange={(event) => onChange(event.target.value)}
-      className="w-[110px] rounded-md border border-input bg-background px-2.5 py-1.5 text-center text-sm tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="min-w-0 flex-1 rounded-md border border-input bg-background px-2.5 py-1.5 text-center text-sm tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-[110px] sm:flex-none"
     />
   );
 }
@@ -242,7 +247,8 @@ function IconButton({
       title={title}
       aria-label={title}
       onClick={onClick}
-      className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+      // The visual stays a small glyph; the hit area is finger-sized
+      className="flex size-9 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
     >
       {children}
     </button>
