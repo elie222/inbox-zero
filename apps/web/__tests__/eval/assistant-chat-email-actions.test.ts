@@ -553,7 +553,7 @@ async function evaluateScenario(
             criterion: {
               name: "Forward note semantics",
               description:
-                "The forwarded note should semantically capture the requested message even if the wording differs from the prompt.",
+                "Judge only whether the forwarded note text semantically captures the note requested by the user. The recipient, source message, tool execution, and forwarding success are verified separately and must not affect this judgment.",
             },
           })
         : null;

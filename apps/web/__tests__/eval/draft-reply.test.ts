@@ -1841,8 +1841,18 @@ function mentionsAnySpecificSlot(
   });
 }
 
-function formatThreadForJudge(messages: { content: string }[]): string {
-  return messages.map((message) => message.content).join("\n\n---\n\n");
+function formatThreadForJudge(
+  messages: Array<{ content: string; date?: Date | string | null }>,
+): string {
+  return messages
+    .map((message) => {
+      const date =
+        message.date == null ? null : new Date(message.date).toISOString();
+      return [date ? `<date>${date}</date>` : null, message.content]
+        .filter(Boolean)
+        .join("\n");
+    })
+    .join("\n\n---\n\n");
 }
 
 function getStatusReplyExamples(userEmail: string): string {

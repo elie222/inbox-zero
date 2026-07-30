@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { MeetingJoinRule } from "@/generated/prisma/enums";
+import {
+  MeetingJoinRule,
+  MeetingRecordingStatus,
+} from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
 
 const { checkHasAccessMock, fetchEventsMock } = vi.hoisted(() => ({
@@ -64,6 +67,63 @@ describe("meeting recorder upcoming route", () => {
 
     expect(body.events).toEqual([
       expect.objectContaining({ id: "event-1", willRecord: false }),
+    ]);
+  });
+
+  it("exposes an existing booking after plan access is lost", async () => {
+    prisma.meeting.findMany.mockResolvedValue([
+      {
+        calendarEventId: "event-1",
+        joinOverride: null,
+        recording: {
+          status: MeetingRecordingStatus.SCHEDULED,
+          failureReason: null,
+        },
+      },
+    ] as never);
+
+    const response = await GET(
+      new Request(
+        "https://example.com/api/user/meeting-recorder/upcoming",
+      ) as never,
+    );
+    const body = await response.json();
+
+    expect(body.events).toEqual([
+      expect.objectContaining({
+        id: "event-1",
+        hasCancellableBooking: true,
+        joinOverride: null,
+        willRecord: false,
+      }),
+    ]);
+  });
+
+  it("does not expose a terminal recording as an active booking", async () => {
+    prisma.meeting.findMany.mockResolvedValue([
+      {
+        calendarEventId: "event-1",
+        joinOverride: null,
+        recording: {
+          status: MeetingRecordingStatus.DONE,
+          failureReason: null,
+        },
+      },
+    ] as never);
+
+    const response = await GET(
+      new Request(
+        "https://example.com/api/user/meeting-recorder/upcoming",
+      ) as never,
+    );
+    const body = await response.json();
+
+    expect(body.events).toEqual([
+      expect.objectContaining({
+        id: "event-1",
+        hasCancellableBooking: false,
+        willRecord: false,
+      }),
     ]);
   });
 });
