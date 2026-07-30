@@ -13,10 +13,9 @@ import {
   updateTaskBody,
 } from "@/utils/actions/task.validation";
 import { isTaskOpen, nextFollowUpFrom } from "@/utils/tasks";
-import { aiGenerateTaskOverview } from "@/utils/ai/tasks/generate-task-overview";
+import { regenerateTaskOverview } from "@/utils/task-overview";
 import { getEmailAccountWithAiAndTokens } from "@/utils/user/get";
 import { createEmailProvider } from "@/utils/email/provider";
-import { getEmailForLLM } from "@/utils/get-email-from-message";
 import type { Prisma } from "@/generated/prisma/client";
 import { TaskStatus } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
@@ -345,53 +344,19 @@ export const refreshTaskOverviewAction = actionClient
       });
       if (!emailAccount) throw new SafeError("Email account not found");
 
-      // The linked rows only cache display fields; the AI reads the real
-      // message bodies from the provider
       const emailProvider = task.emails.length
         ? await createEmailProvider({ emailAccountId, provider, logger })
         : null;
-      const emails = await Promise.all(
-        task.emails.map(async (email) => {
-          try {
-            const message = await emailProvider?.getMessage(email.messageId);
-            return {
-              ...email,
-              content: message
-                ? getEmailForLLM(message, { maxLength: 3000 }).content
-                : null,
-            };
-          } catch (error) {
-            // The message may have been deleted or moved out of reach since
-            // linking; the cached snippet still gives the AI something
-            logger.warn("Linked email unavailable for task overview", {
-              taskId: task.id,
-              error,
-            });
-            return { ...email, content: null };
-          }
-        }),
-      );
 
-      const result = await aiGenerateTaskOverview({
-        emailAccount,
+      const overview = await regenerateTaskOverview({
         task,
-        subtasks: task.subtasks,
-        emails,
-        activity: task.activity,
+        emailAccount,
+        emailProvider,
+        logger,
       });
-      if (!result) throw new SafeError("Could not generate an overview");
+      if (!overview) throw new SafeError("Could not generate an overview");
 
-      const updated = await prisma.task.update({
-        where: { id: task.id },
-        data: {
-          aiStatusSummary: result.overview,
-          activity: {
-            create: { type: "AI_UPDATE", content: "AI overview refreshed" },
-          },
-        },
-      });
-
-      return { aiStatusSummary: updated.aiStatusSummary };
+      return { aiStatusSummary: overview };
     },
   );
 
