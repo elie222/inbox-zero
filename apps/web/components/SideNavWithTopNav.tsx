@@ -36,11 +36,9 @@ function ContentWrapper({ children }: { children: React.ReactNode }) {
     >
       <SidebarInset
         className={cn(
-          "overflow-hidden bg-background pt-[calc(2.25rem_+_env(safe-area-inset-top))] max-w-full",
-          // Leave room for the mobile bottom app tray, which grows by the
-          // home-indicator inset once installed
-          "pb-14 md:pb-0",
-          "[@media(display-mode:standalone)]:pb-[calc(3.5rem_+_env(safe-area-inset-bottom))] md:[@media(display-mode:standalone)]:pb-0",
+          "overflow-hidden bg-background pt-[var(--mobile-header-h)] max-w-full md:pt-9",
+          // Leave room for the mobile bottom app tray
+          "pb-[var(--mobile-tray-h)] md:pb-0",
           noTopPadding && "pt-0",
         )}
       >
@@ -96,16 +94,16 @@ function MobileAppTray() {
   const activeApp = getActiveAppId(pathname ?? "");
 
   return (
-    // The home-indicator inset only belongs here when the app is installed.
-    // In a browser tab the bottom inset is the browser's own toolbar area, so
-    // adding it just floats the row up off the bottom of the screen.
-    <nav className="fixed inset-x-0 bottom-0 z-50 flex border-t border-border bg-sidebar [@media(display-mode:standalone)]:pb-[env(safe-area-inset-bottom)] md:hidden">
+    // Height comes from the shared chrome variable, which already carries
+    // the (capped) home-indicator inset when installed — so this box, the
+    // pinned pages, and the content padding all agree where the tray starts.
+    <nav className="fixed inset-x-0 bottom-0 z-50 flex h-[var(--mobile-tray-h)] items-start border-t border-border bg-sidebar md:hidden">
       {APPS.map((app) => (
         <Link
           key={app.id}
           href={getAppHref(emailAccountId, app)}
           className={cn(
-            "flex flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-[10px] font-medium text-sidebar-foreground/70",
+            "flex h-14 flex-1 flex-col items-center justify-center gap-0.5 text-[10px] font-medium text-sidebar-foreground/70",
             app.id === activeApp && "text-sidebar-accent-foreground",
           )}
         >
@@ -119,7 +117,7 @@ function MobileAppTray() {
 
 function MobileHeader() {
   return (
-    <header className="pointer-events-none fixed top-0 left-0 right-0 z-50 h-[calc(2.25rem_+_env(safe-area-inset-top))] pt-[env(safe-area-inset-top)] md:hidden">
+    <header className="pointer-events-none fixed top-0 left-0 right-0 z-50 h-[var(--mobile-header-h)] pt-[env(safe-area-inset-top)] md:hidden">
       <div className="flex h-full items-center px-4">
         <SidebarTrigger
           name="left-sidebar"

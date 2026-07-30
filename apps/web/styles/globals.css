@@ -108,6 +108,28 @@
   border-color: hsl(var(--company-hue) 60% 55% / 0.22);
 }
 
+/*
+ * Mobile chrome geometry, defined once so the fixed header, the bottom app
+ * tray, and every layout that offsets around them agree by construction.
+ * The tray only carries the home-indicator inset when installed — in a
+ * browser tab that inset is the browser's own toolbar area — and the inset
+ * is capped so an OS reporting an inflated value can't float the tray's
+ * buttons into the middle of the screen.
+ */
+:root {
+  --mobile-header-h: calc(2.25rem + env(safe-area-inset-top, 0px));
+  --mobile-tray-h: 3.5rem;
+}
+
+@media (display-mode: standalone) {
+  :root {
+    --mobile-tray-h: calc(
+      3.5rem +
+      min(env(safe-area-inset-bottom, 0px), 2.125rem)
+    );
+  }
+}
+
 .company-chip {
   color: hsl(var(--company-hue) 70% 34%);
   background: hsl(var(--company-hue) 70% 55% / 0.14);

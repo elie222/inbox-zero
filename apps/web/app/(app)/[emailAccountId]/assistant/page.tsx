@@ -40,7 +40,8 @@ export default async function AssistantPage({
       <Suspense>
         <PermissionsCheck />
 
-        <div className="flex h-[calc(100vh-theme(spacing.9)-theme(spacing.14)-env(safe-area-inset-bottom))] md:h-screen flex-col">
+        {/* dvh, not vh: the mobile URL bar overlaps 100vh */}
+        <div className="flex h-[calc(100dvh-theme(spacing.9)-theme(spacing.14)-env(safe-area-inset-bottom))] md:h-screen flex-col">
           <Chat open />
         </div>
       </Suspense>
