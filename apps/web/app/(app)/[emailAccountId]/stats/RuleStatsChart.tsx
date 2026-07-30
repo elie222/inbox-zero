@@ -23,7 +23,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getDateRangeParams } from "./params";
 import { useOrgSWR } from "@/hooks/useOrgSWR";
 import type { RuleStatsResponse } from "@/app/api/user/stats/rule-stats/route";
-import { BarChart } from "./BarChart";
+import { BarChart } from "@/components/charts/BarChart";
 import { CardBasic } from "@/components/ui/card";
 import { COLORS } from "@/utils/colors";
 import { createSearchParams } from "@/utils/url";

@@ -5,7 +5,7 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CardBasic } from "@/components/ui/card";
 import type { EmailActionStatsResponse } from "@/app/api/user/stats/email-actions/route";
-import { BarChart } from "./BarChart";
+import { BarChart } from "@/components/charts/BarChart";
 import type { ChartConfig } from "@/components/ui/chart";
 import { COLORS } from "@/utils/colors";
 import { BRAND_NAME } from "@/utils/branding";
