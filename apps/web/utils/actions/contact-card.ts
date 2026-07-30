@@ -40,6 +40,18 @@ export const upsertContactCardAction = actionClient
       linkedinUrl: blankToNull(parsedInput.linkedinUrl),
       xUrl: blankToNull(parsedInput.xUrl),
       instagramUrl: blankToNull(parsedInput.instagramUrl),
+      ...(parsedInput.avatarMode && { avatarMode: parsedInput.avatarMode }),
+      ...(parsedInput.avatarShape && { avatarShape: parsedInput.avatarShape }),
+      ...(parsedInput.nameFont && { nameFont: parsedInput.nameFont }),
+      ...(parsedInput.accentColor !== undefined && {
+        accentColor: parsedInput.accentColor,
+      }),
+      ...(parsedInput.accentStripe !== undefined && {
+        accentStripe: parsedInput.accentStripe,
+      }),
+      ...(parsedInput.logoUrl !== undefined && {
+        logoUrl: blankToNull(parsedInput.logoUrl),
+      }),
     };
 
     try {

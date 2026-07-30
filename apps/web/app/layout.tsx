@@ -13,6 +13,8 @@ import "../styles/globals.css";
 import { PostHogPageview, PostHogProvider } from "@/providers/PostHogProvider";
 import { env } from "@/env";
 import { GlobalProviders } from "@/providers/GlobalProviders";
+import { ScrollActivity } from "@/components/ScrollActivity";
+import { ViewportInsetProbe } from "@/components/ViewportInsetProbe";
 import { UTM } from "@/app/utm";
 import { startupImage } from "@/app/startup-image";
 import { ThemedToaster } from "@/components/ThemedToaster";
@@ -125,6 +127,12 @@ export const metadata: Metadata = {
 
 export const viewport = {
   themeColor: "#0A0E17",
+  // Draw behind the status bar and home indicator so the installed app fills
+  // the screen; env(safe-area-inset-*) only reports real values with this on
+  viewportFit: "cover" as const,
+  // The on-screen keyboard shrinks the viewport rather than sliding fixed
+  // chrome (the bottom tray) out of reach
+  interactiveWidget: "resizes-content" as const,
 };
 
 export default async function RootLayout({
@@ -149,6 +157,8 @@ export default async function RootLayout({
             <PostHogPageview />
           </Suspense>
           <GlobalProviders>
+            <ScrollActivity />
+            <ViewportInsetProbe />
             {children}
             <ThemedToaster closeButton richColors visibleToasts={9} />
           </GlobalProviders>

@@ -121,6 +121,55 @@ describe("createMailFilterAction", () => {
     });
   });
 
+  it("adds mark-read to a merged rule that didn't have it", async () => {
+    prisma.rule.findFirst.mockResolvedValue({
+      id: "rule-9",
+      name: "Notifications",
+      from: null,
+      instructions: null,
+      actions: [{ type: "LABEL", labelId: "label-9" }],
+    } as any);
+    prisma.rule.update.mockResolvedValue({} as any);
+
+    await createMailFilterAction("account-1", {
+      matchType: "sender",
+      value: "new@y.com",
+      labelName: "Notifications",
+      markRead: true,
+    });
+
+    expect(prisma.action.create).toHaveBeenCalledWith({
+      data: {
+        ruleId: "rule-9",
+        emailAccountId: "account-1",
+        type: "MARK_READ",
+      },
+    });
+  });
+
+  it("does not duplicate mark-read on a merged rule that already has it", async () => {
+    prisma.rule.findFirst.mockResolvedValue({
+      id: "rule-9",
+      name: "Notifications",
+      from: null,
+      instructions: null,
+      actions: [
+        { type: "LABEL", labelId: "label-9" },
+        { type: "MARK_READ", labelId: null },
+      ],
+    } as any);
+    prisma.rule.update.mockResolvedValue({} as any);
+
+    await createMailFilterAction("account-1", {
+      matchType: "sender",
+      value: "new@y.com",
+      labelName: "Notifications",
+      markRead: true,
+    });
+
+    expect(prisma.action.create).not.toHaveBeenCalled();
+  });
+
   it("keeps existing instructions untouched when no new why is given", async () => {
     prisma.rule.findFirst.mockResolvedValue({
       id: "rule-9",

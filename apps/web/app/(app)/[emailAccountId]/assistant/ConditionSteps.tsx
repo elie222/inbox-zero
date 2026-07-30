@@ -533,7 +533,7 @@ export function ConditionSteps({
                           registerProps={register(
                             `conditions.${index}.subject`,
                           )}
-                          placeholder="Receipt for your purchase"
+                          placeholder="Receipt for your purchase || Your order shipped"
                           className="pr-8"
                           error={
                             (
@@ -545,13 +545,17 @@ export function ConditionSteps({
                         />
                         <div className="absolute right-2 top-1/2 -translate-y-1/2">
                           <TooltipExplanation
-                            text="Only apply this rule to emails whose subject contains (or starts with) this text. e.g. Receipt for your purchase"
+                            text={SUBJECT_TOOLTIP_TEXT}
                             side="right"
                             size="sm"
                             className="text-gray-400"
                           />
                         </div>
                       </div>
+                      <p className="w-full text-xs text-muted-foreground">
+                        Several subjects can share one rule — separate them with
+                        ||, e.g. Daily Report || Weekly Summary
+                      </p>
                     </div>
                   );
                 }
@@ -565,6 +569,9 @@ export function ConditionSteps({
     </RuleSteps>
   );
 }
+
+const SUBJECT_TOOLTIP_TEXT =
+  'Match the email subject with the chosen mode. Several subjects can share one rule, separated by a double pipe — e.g. "Daily Report || Weekly Summary" — and any of them matching counts. A single | is treated as normal subject text.';
 
 const getFilterTooltipText = (filterType: "from" | "to") =>
   `Only apply this rule ${filterType} emails from this address. Supports multiple addresses separated by comma, pipe, or OR. e.g. "@company.com", "hello@example.com OR support@test.com"`;

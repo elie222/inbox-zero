@@ -1,4 +1,10 @@
 import { z } from "zod";
+import {
+  CARD_ACCENTS,
+  CARD_AVATAR_MODES,
+  CARD_AVATAR_SHAPES,
+  CARD_NAME_FONTS,
+} from "@/utils/contact-card/appearance";
 
 const optionalText = (max: number) => z.string().trim().max(max).nullish();
 
@@ -38,6 +44,14 @@ export const upsertContactCardBody = z.object({
   linkedinUrl: urlWithOptionalScheme.nullish(),
   xUrl: urlWithOptionalScheme.nullish(),
   instagramUrl: urlWithOptionalScheme.nullish(),
+  // Look & feel. accentColor lands in inline styles on the public page, so
+  // only the fixed palette is accepted.
+  avatarMode: z.enum(CARD_AVATAR_MODES).optional(),
+  avatarShape: z.enum(CARD_AVATAR_SHAPES).optional(),
+  nameFont: z.enum(CARD_NAME_FONTS).optional(),
+  accentColor: z.enum(CARD_ACCENTS).nullish(),
+  accentStripe: z.boolean().optional(),
+  logoUrl: urlWithOptionalScheme.nullish(),
 });
 export type UpsertContactCardBody = z.infer<typeof upsertContactCardBody>;
 

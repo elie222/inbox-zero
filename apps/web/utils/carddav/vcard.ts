@@ -112,11 +112,19 @@ export function contactEtag(updatedAt: Date): string {
 }
 
 function escapeValue(value: string): string {
-  return value
-    .replace(/\\/g, "\\\\")
-    .replace(/\n/g, "\\n")
-    .replace(/,/g, "\\,")
-    .replace(/;/g, "\\;");
+  return (
+    value
+      // CR and other control bytes never legitimately belong in a contact
+      // field, and one of them is enough to corrupt the card — or, worse,
+      // the XML document every card ships inside during a sync
+      .replace(/\r\n?/g, "\n")
+      // biome-ignore lint/suspicious/noControlCharactersInRegex: stripping them is the point
+      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
+      .replace(/\\/g, "\\\\")
+      .replace(/\n/g, "\\n")
+      .replace(/,/g, "\\,")
+      .replace(/;/g, "\\;")
+  );
 }
 
 function unescapeValue(value: string): string {

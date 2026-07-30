@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { ComponentProps } from "react";
 import type { LucideIcon } from "lucide-react";
-import { ChevronDownIcon, ChevronRightIcon } from "lucide-react";
+import { ChevronDownIcon, ChevronRightIcon, SettingsIcon } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
 import { cn } from "@/utils";
@@ -31,6 +31,8 @@ type NavItem = {
   icon: LucideIcon | ((props: ComponentProps<"svg">) => React.ReactNode);
   target?: "_blank";
   count?: number;
+  // Count colour override (defaults to primary — e.g. red for Overdue)
+  countClassName?: string;
   active?: boolean;
   beta?: boolean;
   new?: boolean;
@@ -40,6 +42,8 @@ type NavItem = {
   expandable?: boolean;
   expanded?: boolean;
   onToggleExpand?: () => void;
+  // Rows that can be configured render a gear (folders open their settings)
+  onOpenSettings?: () => void;
 };
 
 export function SideNavMenu({
@@ -104,8 +108,39 @@ export function SideNavMenu({
                 {item.shortName ?? item.name}
               </span>
               {typeof item.count === "number" && item.count > 0 && (
-                <span className="ml-auto shrink-0 text-xs font-medium tabular-nums text-primary">
+                <span
+                  className={cn(
+                    "ml-auto shrink-0 text-xs font-medium tabular-nums",
+                    item.countClassName ?? "text-primary",
+                  )}
+                >
                   {item.count > 999 ? "999+" : item.count}
+                </span>
+              )}
+              {item.onOpenSettings && (
+                <span
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`${item.name} settings`}
+                  className={cn(
+                    "shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground",
+                    !(typeof item.count === "number" && item.count > 0) &&
+                      "ml-auto",
+                  )}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    item.onOpenSettings?.();
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      item.onOpenSettings?.();
+                    }
+                  }}
+                >
+                  <SettingsIcon className="size-3.5" />
                 </span>
               )}
               {item.expandable && (

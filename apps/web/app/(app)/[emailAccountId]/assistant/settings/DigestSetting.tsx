@@ -112,7 +112,7 @@ export function DigestSettingsDialogContent({
   showChannelsHint?: boolean;
 }) {
   return (
-    <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
+    <DialogContent className="max-w-7xl">
       <DialogHeader>
         <DialogTitle>Digest settings</DialogTitle>
         <DialogDescription>

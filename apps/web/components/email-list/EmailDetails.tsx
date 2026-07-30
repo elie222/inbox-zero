@@ -26,7 +26,7 @@ export function EmailDetails({ message }: { message: ThreadMessage }) {
             value && (
               <div key={label} className="grid grid-cols-[auto,1fr] gap-2">
                 <span className="font-medium text-foreground">{label}:</span>
-                <span className="text-muted-foreground">
+                <span className="min-w-0 break-words text-muted-foreground">
                   {contacts ? <RecipientList value={value} /> : value}
                 </span>
               </div>

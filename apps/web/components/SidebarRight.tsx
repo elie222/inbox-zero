@@ -22,7 +22,9 @@ export function SidebarRight({
   return (
     <div
       className={cn(
-        "fixed right-0 top-0 z-50 h-screen border-l bg-background transition-transform duration-200 ease-linear",
+        // dvh, not vh: on iOS 100vh is the large viewport, which put the
+        // chat's composer and send button below the visible area
+        "fixed right-0 top-0 z-50 h-[100dvh] border-l bg-background transition-transform duration-200 ease-linear",
         "w-full lg:w-[450px]",
         isOpen ? "translate-x-0" : "translate-x-full",
         className,

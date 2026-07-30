@@ -99,6 +99,22 @@ export const createMailFilterAction = actionClient
           },
         });
 
+        // Merging must still honour the options the user picked this time —
+        // the existing rule may predate them
+        for (const [enabled, type] of [
+          [markRead, ActionType.MARK_READ],
+          [star, ActionType.STAR],
+        ] as const) {
+          if (
+            enabled &&
+            !existingRule.actions.some((action) => action.type === type)
+          ) {
+            await prisma.action.create({
+              data: { ruleId: existingRule.id, emailAccountId, type },
+            });
+          }
+        }
+
         ruleId = existingRule.id;
         ruleName = existingRule.name;
         resolvedLabelId =
@@ -188,6 +204,7 @@ export const createMailFilterAction = actionClient
             labelId: resolvedLabelId,
             labelName,
             skipInbox,
+            markRead,
             threadIds: threadIds ?? [],
             applyToExisting: !!applyToExisting,
           };

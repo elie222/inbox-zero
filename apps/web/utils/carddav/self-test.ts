@@ -56,12 +56,13 @@ export async function runCarddavSelfTest({
     path: string,
     body: string | null,
     expect: (response: Response, text: string) => string | null,
+    depth = "0",
   ) => {
     try {
       const response = await fetch(path, {
         method,
         headers: {
-          Depth: "0",
+          Depth: depth,
           "Content-Type": "application/xml",
           ...(auth ? { Authorization: auth } : {}),
         },
@@ -163,10 +164,31 @@ export async function runCarddavSelfTest({
     },
   );
 
+  // The step Apple actually finds addressbooks with: list the home set's
+  // children and look for an addressbook collection among them
+  await run(
+    "Home set listing",
+    "PROPFIND",
+    "/api/carddav",
+    `<?xml version="1.0" encoding="UTF-8"?>
+<A:propfind xmlns:A="DAV:">
+  <A:prop><A:resourcetype/><A:displayname/></A:prop>
+</A:propfind>`,
+    (response, text) => {
+      if (response.status !== 207)
+        return `Expected 207, got ${response.status}`;
+      if (!/addressbook/i.test(text)) {
+        return "No addressbook collection listed in the home set — clients will show an empty account";
+      }
+      return null;
+    },
+    "1",
+  );
+
   await run(
     "Addressbook probe",
     "PROPFIND",
-    "/api/carddav/addressbook/",
+    "/api/carddav/addressbook",
     null,
     (response, text) => {
       if (response.status !== 207)
@@ -178,23 +200,92 @@ export async function runCarddavSelfTest({
     },
   );
 
-  await run(
-    "Contacts download",
-    "REPORT",
-    "/api/carddav/addressbook/",
-    `<?xml version="1.0" encoding="UTF-8"?>
-<card:addressbook-query xmlns:card="urn:ietf:params:xml:ns:carddav" xmlns:d="DAV:">
-  <d:prop><d:getetag/><card:address-data/></d:prop>
-</card:addressbook-query>`,
+  // iOS syncs in two moves: list the addressbook's children (Depth 1), then
+  // multiget the listed hrefs. Replaying both — and comparing the counts —
+  // distinguishes "nothing to sync" from "listed but not downloadable".
+  const listing = await run(
+    "Contacts listing",
+    "PROPFIND",
+    "/api/carddav/addressbook",
+    null,
     (response, text) => {
       if (response.status !== 207)
         return `Expected 207, got ${response.status}`;
-      if (!text.includes("multistatus")) {
+      if (!text.includes("getctag")) {
         return `207 body did not arrive intact (${text.length} bytes)`;
+      }
+      if (extractCardHrefs(text).length === 0) {
+        return "The addressbook is empty — only saved contacts sync. Save people on the Contacts page (or add them on the phone) and they'll appear.";
       }
       return null;
     },
+    "1",
   );
 
+  const cardHrefs = listing ? extractCardHrefs(listing.text) : [];
+
+  if (cardHrefs.length > 0) {
+    // Modern iOS syncs by change tracking (RFC 6578) when the server offers
+    // it: an initial sync-collection REPORT must return every card plus a
+    // sync-token, or the phone stores nothing and never retries.
+    await run(
+      "Change tracking (initial sync)",
+      "REPORT",
+      "/api/carddav/addressbook",
+      `<?xml version="1.0" encoding="UTF-8"?>
+<d:sync-collection xmlns:d="DAV:">
+  <d:sync-token/>
+  <d:sync-level>1</d:sync-level>
+  <d:prop><d:getetag/></d:prop>
+</d:sync-collection>`,
+      (response, text) => {
+        if (response.status !== 207)
+          return `Expected 207, got ${response.status}`;
+        if (!/sync-token/i.test(text)) {
+          return "The sync response is missing its sync-token — clients that sync by change tracking will treat the whole exchange as invalid";
+        }
+        const reported = (text.match(/<(?:\w+:)?getetag[\s>]/g) ?? []).length;
+        if (reported < cardHrefs.length) {
+          return `Initial sync listed ${reported} of ${cardHrefs.length} contacts — change-tracking clients will miss the rest`;
+        }
+        return null;
+      },
+    );
+  }
+
+  if (cardHrefs.length > 0) {
+    await run(
+      "Contacts download",
+      "REPORT",
+      "/api/carddav/addressbook",
+      `<?xml version="1.0" encoding="UTF-8"?>
+<card:addressbook-multiget xmlns:card="urn:ietf:params:xml:ns:carddav" xmlns:d="DAV:">
+  <d:prop><d:getetag/><card:address-data/></d:prop>
+  ${cardHrefs.map((href) => `<d:href>${href}</d:href>`).join("\n  ")}
+</card:addressbook-multiget>`,
+      (response, text) => {
+        if (response.status !== 207)
+          return `Expected 207, got ${response.status}`;
+        if (!text.includes("multistatus")) {
+          return `207 body did not arrive intact (${text.length} bytes)`;
+        }
+        const downloaded = (text.match(/<(?:\w+:)?address-data[\s>]/g) ?? [])
+          .length;
+        if (downloaded < cardHrefs.length) {
+          return `Listed ${cardHrefs.length} contacts but only ${downloaded} downloaded — the server is advertising cards it can't serve, so clients sync partially or not at all`;
+        }
+        return null;
+      },
+    );
+  }
+
   return { ok: steps.every((step) => step.ok), steps };
+}
+
+// The .vcf child hrefs from a Depth-1 addressbook listing — exactly the set a
+// client would echo into its multiget
+function extractCardHrefs(text: string): string[] {
+  return [
+    ...text.matchAll(/<(?:\w+:)?href[^>]*>([^<]+\.vcf)<\/(?:\w+:)?href>/gi),
+  ].map((match) => match[1]);
 }

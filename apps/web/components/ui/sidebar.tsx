@@ -21,7 +21,7 @@ import {
 // multi sidebar support based on: https://gist.github.com/ercnshngit/e1510e966860e04e47d752d16be3cbc1/revisions?diff=unified&w
 
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
-const SIDEBAR_WIDTH = "16rem";
+const SIDEBAR_WIDTH = "18rem";
 const SIDEBAR_WIDTH_MOBILE = "18rem";
 const SIDEBAR_WIDTH_ICON = "3rem";
 const SIDEBAR_KEYBOARD_SHORTCUT = "b";
@@ -256,7 +256,11 @@ const Sidebar = React.forwardRef<
             }
             side={side}
           >
-            <div className="flex h-full w-full flex-col">{children}</div>
+            {/* Full-bleed drawer: keep the nav's top out from under the
+                status bar and its tail clear of the home indicator */}
+            <div className="flex h-full w-full flex-col pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]">
+              {children}
+            </div>
           </SheetContent>
         </Sheet>
       );

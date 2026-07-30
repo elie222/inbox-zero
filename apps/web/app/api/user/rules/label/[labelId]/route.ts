@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
 import { ActionType } from "@/generated/prisma/enums";
+import { autoReadRuleName } from "@/utils/actions/folder-rule.validation";
 
 const paramsSchema = z.object({ labelId: z.string().min(1) });
 
@@ -20,9 +21,24 @@ async function getFolderRule({
   labelId: string;
   labelName?: string;
 }) {
+  // The companion rule that marks part of this folder's mail read isn't a
+  // filing rule of its own — it's reported separately as the auto-read state
+  const autoReadRule = labelName
+    ? await prisma.rule.findUnique({
+        where: {
+          name_emailAccountId: {
+            name: autoReadRuleName(labelName),
+            emailAccountId,
+          },
+        },
+        select: { from: true, fromExclude: true },
+      })
+    : null;
+
   const rules = await prisma.rule.findMany({
     where: {
       emailAccountId,
+      ...(labelName ? { name: { not: autoReadRuleName(labelName) } } : {}),
       actions: {
         some: {
           OR: [
@@ -51,6 +67,7 @@ async function getFolderRule({
       organizationRuleId: true,
       systemType: true,
       excludeKnownContacts: true,
+      actions: { select: { type: true } },
     },
     // The rule that is actually filing right now is the one the drawer's
     // toggle must control — an enabled rule always wins over a disabled
@@ -65,6 +82,16 @@ async function getFolderRule({
     // Surface siblings so turning off "the" rule can't silently leave
     // another one filing into the same folder
     otherRuleNames: others.map((other) => other.name),
+    autoRead: {
+      mode: autoReadRule
+        ? autoReadRule.fromExclude
+          ? ("except" as const)
+          : ("only" as const)
+        : rule?.actions.some((action) => action.type === ActionType.MARK_READ)
+          ? ("all" as const)
+          : ("off" as const),
+      senders: autoReadRule?.from ?? "",
+    },
   };
 }
 

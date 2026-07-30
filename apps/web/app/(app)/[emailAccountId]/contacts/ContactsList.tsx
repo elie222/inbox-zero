@@ -18,6 +18,8 @@ import {
   contactKey,
   type CompanySummary,
   type ContactListItem,
+  CONTACTS_PAGE_LIMIT,
+  contactsListKey,
   type LabelSummary,
   groupContacts,
   pendingDomainStats,
@@ -43,7 +45,6 @@ import { ExchangeSuggestions } from "./ExchangeSuggestions";
 import { MyCardDialog } from "./MyCardDialog";
 import { SyncSettingsDialog } from "./SyncSettingsDialog";
 
-const DEFAULT_LIMIT = 100;
 const MAX_LIMIT = 500;
 
 // Recent → Name → Most emails, cycled from one chip rather than a third tab
@@ -57,7 +58,7 @@ type Sort = (typeof SORTS)[number]["value"];
 
 export function ContactsList() {
   const [search, setSearch] = useState("");
-  const [limit, setLimit] = useState(DEFAULT_LIMIT);
+  const [limit, setLimit] = useState(CONTACTS_PAGE_LIMIT);
   // Selection holds the full contact so people outside the current window
   // (e.g. from Suggested's on-demand member lists) still display; fresh data
   // is preferred by email lookup after mutations
@@ -83,13 +84,12 @@ export function ContactsList() {
         viewParam === "labels"
       ? viewParam
       : "companies";
-  // People (no grouping) reads A→Z by default; the other views keep recency
+  // Every view reads A→Z by default — a directory is easiest to scan when
+  // you can predict where a name sits
   const sortParam = searchParams.get("sort");
   const sort: Sort = SORTS.some((option) => option.value === sortParam)
     ? (sortParam as Sort)
-    : viewParam === "people"
-      ? "name"
-      : "recent";
+    : "name";
   const groupKey = searchParams.get("group");
   // People-tab filter: everyone, only those with a company, or unassigned
   // (personal contacts are deliberately companyless, so they're excluded
@@ -101,10 +101,8 @@ export function ContactsList() {
   // pane from contradicting the suggestions list
   const labelFilter = view === "suggested" ? null : searchParams.get("label");
 
-  const params = new URLSearchParams({ sort, limit: String(limit) });
-  if (search) params.set("search", search);
   const { data, isLoading, error } = useSWR<ContactsResponse>(
-    `/api/contacts?${params.toString()}`,
+    contactsListKey({ sort, limit, search }),
     { keepPreviousData: true },
   );
   // Full-history per-domain volumes: Suggested list + company stats
@@ -225,8 +223,14 @@ export function ContactsList() {
         <h1 className="font-display text-2xl tracking-tight">Contacts</h1>
         {/* A sidebar group selection speaks for itself; tabs would contradict it */}
         {!groupKey && (
-          <Tabs defaultValue="companies" searchParam="view">
-            <TabsList className="h-9">
+          <Tabs
+            defaultValue="companies"
+            searchParam="view"
+            className="min-w-0 max-w-full"
+          >
+            {/* Four triggers outgrow a 320px phone; scroll instead of
+                clipping the Suggested tab out of reach */}
+            <TabsList className="h-9 max-w-full overflow-x-auto">
               <TabsTrigger value="companies">Companies</TabsTrigger>
               <TabsTrigger value="labels">Labels</TabsTrigger>
               <TabsTrigger value="people">People</TabsTrigger>
@@ -273,7 +277,9 @@ export function ContactsList() {
       </div>
 
       <div className="min-w-0 flex-1 overflow-y-auto px-4 pb-6 pt-3 sm:px-6 sm:pt-4">
-        <div className="mb-3 flex items-center gap-2">
+        {/* The chip set outgrows a phone; wrapping beats the pane scrolling
+            sideways */}
+        <div className="mb-3 flex flex-wrap items-center gap-2">
           <span className="min-w-0 flex-1 truncate text-[13px] text-muted-foreground">
             {countLine}
           </span>

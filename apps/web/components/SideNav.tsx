@@ -17,24 +17,29 @@ import {
   isTaskOverdue,
   TASK_STATUS_LABELS,
   TASK_STATUS_ORDER,
+  TASK_STATUS_STYLES,
 } from "@/utils/tasks";
 import { getLabelIcon } from "@/utils/label-icons";
 import { getEmailTerminology } from "@/utils/terminology";
 import {
+  AlarmClockIcon,
   ArchiveIcon,
   ChevronDownIcon,
   ChevronRightIcon,
-  CircleCheckBigIcon,
   FileIcon,
   InboxIcon,
   LayoutDashboardIcon,
+  ListIcon,
   type LucideIcon,
   PenIcon,
+  PlusIcon,
   SendIcon,
   ShieldIcon,
+  UserRoundIcon,
   UsersRoundIcon,
 } from "lucide-react";
 import { LogoMark } from "@/components/Logo";
+import { Button } from "@/components/ui/button";
 import { useComposeModal } from "@/providers/ComposeModalProvider";
 import {
   Sidebar,
@@ -56,6 +61,7 @@ import { CommandShortcut } from "@/components/ui/command";
 import { useSplitLabels } from "@/hooks/useLabels";
 import { useUser } from "@/hooks/useUser";
 import { LoadingContent } from "@/components/LoadingContent";
+import { FolderSettingsDrawer } from "@/components/FolderSettings";
 import { AccountSwitcher } from "@/components/AccountSwitcher";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
@@ -77,6 +83,8 @@ type NavItem = {
   icon: LucideIcon | (() => React.ReactNode);
   target?: "_blank";
   count?: number;
+  // Count colour override (defaults to primary — e.g. red for Overdue)
+  countClassName?: string;
   active?: boolean;
   beta?: boolean;
   new?: boolean;
@@ -185,11 +193,26 @@ function FolderDot({
   name,
   hue,
   lightness,
+  color,
 }: {
   name: string;
   hue?: number;
   lightness?: number;
+  // A colour chosen in the folder's settings drawer, which wins over both
+  // the family hue and the name hash
+  color?: string;
 }) {
+  if (color) {
+    return (
+      <span className="flex size-4 shrink-0 items-center justify-center">
+        <span
+          className="size-2 rounded-full"
+          style={{ backgroundColor: color }}
+        />
+      </span>
+    );
+  }
+
   if (hue !== undefined) {
     return (
       <span className="flex size-4 shrink-0 items-center justify-center">
@@ -203,11 +226,12 @@ function FolderDot({
 
   let hash = 0;
   for (const char of name) hash = (hash * 31 + char.charCodeAt(0)) | 0;
-  const color = FOLDER_DOT_COLORS[Math.abs(hash) % FOLDER_DOT_COLORS.length];
+  const hashedColor =
+    FOLDER_DOT_COLORS[Math.abs(hash) % FOLDER_DOT_COLORS.length];
 
   return (
     <span className="flex size-4 shrink-0 items-center justify-center">
-      <span className={cn("size-2 rounded-full", color)} />
+      <span className={cn("size-2 rounded-full", hashedColor)} />
     </span>
   );
 }
@@ -559,13 +583,13 @@ function ContactsNav({ path }: { path: string }) {
 }
 
 // VIEWS panel for the Tasks app: All / My tasks / Delegated / Overdue, then a
-// count per status. Shares the page's SWR cache.
+// count per status with the status's colour dot. Shares the page's SWR cache.
 function TasksNav({ path }: { path: string }) {
   const { emailAccountId } = useAccount();
   const searchParams = useSearchParams();
   const { data } = useSWR<TasksResponse>("/api/tasks");
 
-  const items: NavItem[] = useMemo(() => {
+  const items = useMemo(() => {
     const tasksPath = prefixPath(emailAccountId, "/tasks");
     const currentView = searchParams.get("view");
     const currentStatus = searchParams.get("status");
@@ -577,22 +601,33 @@ function TasksNav({ path }: { path: string }) {
       {
         name: "All tasks",
         href: tasksPath,
-        icon: CircleCheckBigIcon,
-        count: open.length,
+        icon: ListIcon,
+        // Subtasks roll up into their parent row
+        count: open.filter((task) => !task.parentId).length,
         active: onTasks && !currentView && !currentStatus,
+      },
+      {
+        name: "My tasks",
+        href: `${tasksPath}?view=mine`,
+        icon: UserRoundIcon,
+        count: open.filter((task) => !task.assigneeEmail).length,
+        countClassName: "text-muted-foreground",
+        active: currentView === "mine",
       },
       {
         name: "Delegated",
         href: `${tasksPath}?view=delegated`,
-        icon: () => <FolderDot name="Delegated" />,
+        icon: SendIcon,
         count: open.filter((task) => task.assigneeEmail).length,
+        countClassName: "text-muted-foreground",
         active: currentView === "delegated",
       },
       {
         name: "Overdue",
         href: `${tasksPath}?view=overdue`,
-        icon: () => <FolderDot name="Overdue" />,
+        icon: AlarmClockIcon,
         count: open.filter((task) => isTaskOverdue(task)).length,
+        countClassName: "text-red-500 dark:text-red-400",
         active: currentView === "overdue",
       },
     ];
@@ -600,20 +635,46 @@ function TasksNav({ path }: { path: string }) {
     const byStatus: NavItem[] = TASK_STATUS_ORDER.map((status) => ({
       name: TASK_STATUS_LABELS[status],
       href: `${tasksPath}?status=${status}`,
-      icon: () => <FolderDot name={TASK_STATUS_LABELS[status]} />,
+      icon: () => (
+        <span className="flex size-4 items-center justify-center">
+          <span
+            className={cn(
+              "size-2 rounded-full",
+              TASK_STATUS_STYLES[status].dot,
+            )}
+          />
+        </span>
+      ),
       count: tasks.filter((task) => task.status === status).length,
+      countClassName: "text-muted-foreground",
       active: currentStatus === status,
     }));
 
-    return [...views, ...byStatus];
+    return { views, byStatus };
   }, [emailAccountId, data, path, searchParams]);
 
   return (
     <SidebarGroup>
+      <div className="px-1 pb-1.5 pt-1 group-data-[collapsible=icon]:hidden">
+        <Button className="w-full" size="sm" asChild>
+          <Link href={prefixPath(emailAccountId, "/tasks?add=1")}>
+            <PlusIcon className="mr-1.5 size-3.5" />
+            Add task
+          </Link>
+        </Button>
+      </div>
       <SidebarGroupLabel className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground/70">
         Views
       </SidebarGroupLabel>
-      <SideNavMenu items={items} activeHref={path} />
+      <SideNavMenu items={items.views} activeHref={path} />
+      <SidebarGroupLabel className="mt-3 text-[11px] uppercase tracking-[0.15em] text-muted-foreground/70">
+        Status
+      </SidebarGroupLabel>
+      <SideNavMenu items={items.byStatus} activeHref={path} />
+      <div className="mt-3 flex items-center gap-2 px-2 text-[10px] font-medium uppercase tracking-[0.15em] text-muted-foreground/70">
+        <span className="size-1.5 rounded-full bg-green-500" />
+        AI follow-ups active
+      </div>
     </SidebarGroup>
   );
 }
@@ -621,6 +682,8 @@ function TasksNav({ path }: { path: string }) {
 function MailNav({ path }: { path: string }) {
   const { onOpen } = useComposeModal();
   const [showHiddenLabels, setShowHiddenLabels] = useState(false);
+  // One shared drawer for every folder gear in this panel
+  const [settingsLabelId, setSettingsLabelId] = useState<string | null>(null);
   const { visibleLabels, hiddenLabels, isLoading } = useSplitLabels();
   const { emailAccountId, provider } = useAccount();
   const searchParams = useSearchParams();
@@ -635,11 +698,9 @@ function MailNav({ path }: { path: string }) {
   const counts = countsData?.counts;
 
   const { data: dbLabels } = useSWR<UserLabelsResponse>("/api/user/labels");
-  const iconByGmailLabelId = useMemo(() => {
-    const map: Record<string, string> = {};
-    for (const dbLabel of dbLabels ?? []) {
-      if (dbLabel.icon) map[dbLabel.gmailLabelId] = dbLabel.icon;
-    }
+  const dbLabelByGmailLabelId = useMemo(() => {
+    const map: Record<string, UserLabelsResponse[number]> = {};
+    for (const dbLabel of dbLabels ?? []) map[dbLabel.gmailLabelId] = dbLabel;
     return map;
   }, [dbLabels]);
 
@@ -667,19 +728,28 @@ function MailNav({ path }: { path: string }) {
     id?: string | null;
     name?: string | null;
   }) => {
-    const customIcon = label.id ? iconByGmailLabelId[label.id] : undefined;
+    const stored = label.id ? dbLabelByGmailLabelId[label.id] : undefined;
     return {
       name: label.name ?? "",
       // Nested Gmail labels ("Work/Invoices") read better as their last segment
       shortName: (label.name ?? "").split("/").pop() || (label.name ?? ""),
       // Custom icons win; otherwise a per-folder colored dot
-      icon: customIcon
-        ? getLabelIcon(customIcon)
-        : () => <FolderDot name={label.name ?? ""} />,
+      icon: stored?.icon
+        ? getLabelIcon(stored.icon)
+        : () => (
+            <FolderDot
+              name={label.name ?? ""}
+              color={stored?.color ?? undefined}
+            />
+          ),
       href: `${mailPath}?type=label&labelId=${encodeURIComponent(label.id ?? "")}`,
       count: label.id ? counts?.[label.id] : undefined,
       active:
         isMailPage && currentType === "label" && currentLabelId === label.id,
+      // Every folder is configurable from its own row, without navigating there
+      onOpenSettings: label.id
+        ? () => setSettingsLabelId(label.id ?? null)
+        : undefined,
     };
   };
 
@@ -747,6 +817,11 @@ function MailNav({ path }: { path: string }) {
           )}
         </LoadingContent>
       </SidebarGroup>
+
+      <FolderSettingsDrawer
+        labelId={settingsLabelId}
+        onClose={() => setSettingsLabelId(null)}
+      />
     </>
   );
 }

@@ -47,6 +47,8 @@ export const LlmUseCase = {
   ResearchCompany: "research-company",
   ScanBusinessCard: "scan-business-card",
   Summarise: "summarise",
+  TaskFollowUp: "task-follow-up",
+  TaskOverview: "task-overview",
   WritingStyleAnalysis: "writing-style-analysis",
 } as const;
 
@@ -98,6 +100,8 @@ export const LLM_USE_CASE_MODEL_TYPES = {
   // Reading a photo needs a vision-capable model, so this rides the chat tier
   [LlmUseCase.ScanBusinessCard]: "chat",
   [LlmUseCase.Summarise]: "default",
+  [LlmUseCase.TaskFollowUp]: "draft",
+  [LlmUseCase.TaskOverview]: "default",
   [LlmUseCase.WritingStyleAnalysis]: "default",
 } as const satisfies Record<LlmUseCase, ModelType>;
 

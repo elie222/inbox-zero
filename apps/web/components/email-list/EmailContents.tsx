@@ -87,7 +87,10 @@ export function HtmlEmail({ html }: { html: string }) {
       {hasReplies && (
         <button
           type="button"
-          className="absolute bottom-0 left-0 text-muted-foreground hover:text-foreground"
+          aria-label={showReplies ? "Hide quoted text" : "Show quoted text"}
+          // Finger-sized hit area for the only way to reveal the quoted
+          // conversation; the visual stays the small ellipsis
+          className="absolute bottom-0 left-0 flex h-10 min-w-10 items-center px-3 text-muted-foreground hover:text-foreground"
           onClick={() => setShowReplies(!showReplies)}
         >
           ...
@@ -336,44 +339,54 @@ function addDarkModeClass(html: string, isDarkMode: boolean) {
   }
 }
 
+// Tracks the iframe document's height so the frame can be sized to its
+// content. The document changes size after the initial measure — quoted
+// replies get expanded (new srcDoc), proxied images finish loading, the
+// phone rotates — so this listens to the frame's load event and observes
+// the document itself rather than measuring once.
 function useIframeHeight(iframeRef: React.RefObject<HTMLIFrameElement | null>) {
   const [height, setHeight] = useState(0);
 
   useEffect(() => {
-    let attempts = 0;
-    const maxAttempts = 5;
-    const initialDelay = 100;
+    const iframe = iframeRef.current;
+    if (!iframe) return;
 
-    const updateHeight = () => {
+    const measure = () => {
       try {
-        if (iframeRef.current?.contentWindow) {
-          const newHeight =
-            iframeRef.current.contentWindow.document.documentElement
-              ?.scrollHeight;
-          if (newHeight) {
-            setHeight(newHeight);
-            return true;
-          }
+        const documentElement = iframe.contentWindow?.document?.documentElement;
+        if (documentElement?.scrollHeight) {
+          setHeight(documentElement.scrollHeight);
         }
       } catch (error) {
         console.error("Failed to get iframe height:", error);
       }
-      return false;
     };
 
-    const attemptUpdate = () => {
-      if (attempts >= maxAttempts) return;
-
-      const success = updateHeight();
-      if (!success) {
-        attempts++;
-        setTimeout(attemptUpdate, initialDelay * 2 ** attempts);
+    let observer: ResizeObserver | undefined;
+    const observe = () => {
+      measure();
+      try {
+        const documentElement = iframe.contentWindow?.document?.documentElement;
+        if (documentElement) {
+          observer?.disconnect();
+          observer = new ResizeObserver(measure);
+          observer.observe(documentElement);
+        }
+      } catch {
+        // Cross-origin or torn-down frame: the load listener will retry
       }
     };
 
-    const initialTimeoutId = setTimeout(attemptUpdate, initialDelay);
-    return () => clearTimeout(initialTimeoutId);
-  }, [iframeRef?.current?.contentWindow]);
+    // The srcdoc document may already be parsed by the time this effect
+    // runs, so observe immediately and again on every (re)load
+    observe();
+    iframe.addEventListener("load", observe);
+
+    return () => {
+      iframe.removeEventListener("load", observe);
+      observer?.disconnect();
+    };
+  }, [iframeRef]);
 
   return height;
 }

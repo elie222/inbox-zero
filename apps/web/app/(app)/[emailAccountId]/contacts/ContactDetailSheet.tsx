@@ -91,7 +91,10 @@ export function ContactDetailSheet({
     >
       <SheetContent
         side="right"
-        className="w-full p-5 sm:max-w-[560px] [&>button]:top-6"
+        // Full-bleed on phones: the pane and its close X (the only way out;
+        // hit area grown without changing the visual) both step below the
+        // status bar, and the tail clears the home indicator
+        className="w-full max-w-none p-5 pt-[calc(1.25rem+env(safe-area-inset-top,0px))] pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] sm:max-w-[560px] [&>button]:top-[calc(1.5rem+env(safe-area-inset-top,0px))] [&>button]:p-2.5 [&>button]:-m-2.5"
       >
         <SheetTitle className="sr-only">Details</SheetTitle>
         {group ? (
@@ -312,7 +315,7 @@ export function ContactDetails({
                 <Button
                   variant="ghost"
                   size="xs"
-                  className="text-primary"
+                  className="h-9 sm:h-6 text-primary"
                   loading={enrich.isExecuting}
                   onClick={() => enrich.execute({ email })}
                 >
@@ -672,6 +675,7 @@ function ContactEditForm({
                 type="button"
                 variant="outline"
                 size="xs"
+                className="h-9 sm:h-6"
                 onClick={() => {
                   if (suggestion.field === "phone") {
                     phoneRows.append({

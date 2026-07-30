@@ -150,6 +150,8 @@ describe("LLM use cases", () => {
       [LlmUseCase.ResearchCompany]: "chat",
       [LlmUseCase.ScanBusinessCard]: "chat",
       [LlmUseCase.Summarise]: "default",
+      [LlmUseCase.TaskFollowUp]: "draft",
+      [LlmUseCase.TaskOverview]: "default",
       [LlmUseCase.WritingStyleAnalysis]: "default",
     });
   });

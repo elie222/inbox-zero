@@ -48,7 +48,7 @@ export function BillingSection() {
               </ItemDescription>
             ) : null}
           </ItemContent>
-          <ItemActions>
+          <ItemActions className="flex-wrap justify-end">
             <ManageSubscription premium={premium} />
             <ViewInvoicesButton premium={premium} />
             {!hasAppleSubscription && (

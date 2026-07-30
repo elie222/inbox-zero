@@ -1,12 +1,17 @@
 "use client";
 
 import { useEffect } from "react";
+import { cn } from "@/utils";
 
-export type RowMenuItem = {
-  label: string;
-  icon?: React.ComponentType<{ className?: string }>;
-  onClick: () => void;
-};
+export type RowMenuItem =
+  | { divider: true }
+  | {
+      divider?: false;
+      label: string;
+      icon?: React.ComponentType<{ className?: string }>;
+      destructive?: boolean;
+      onClick: () => void;
+    };
 
 // A lightweight right-click menu: fixed overlay that closes on any click
 // or Escape, with the menu clamped inside the viewport.
@@ -27,7 +32,10 @@ export function RowContextMenu({
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const menuHeight = items.length * 36 + 8;
+  const menuHeight = items.reduce(
+    (height, item) => height + (item.divider ? 9 : 36),
+    8,
+  );
   const top = Math.max(
     8,
     Math.min(position.y, window.innerHeight - menuHeight - 8),
@@ -49,24 +57,38 @@ export function RowContextMenu({
         style={{ top, left }}
         className="fixed z-50 min-w-60 overflow-hidden rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md"
       >
-        {items.map((item) => (
-          <button
-            key={item.label}
-            type="button"
-            role="menuitem"
-            className="flex w-full items-center gap-2 rounded-sm px-2 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
-            onClick={(event) => {
-              event.stopPropagation();
-              onClose();
-              item.onClick();
-            }}
-          >
-            {item.icon && (
-              <item.icon className="size-4 shrink-0 text-muted-foreground" />
-            )}
-            {item.label}
-          </button>
-        ))}
+        {items.map((item, index) =>
+          item.divider ? (
+            <div key={`divider-${index}`} className="my-1 h-px bg-border" />
+          ) : (
+            <button
+              key={item.label}
+              type="button"
+              role="menuitem"
+              className={cn(
+                "flex w-full items-center gap-2 rounded-sm px-2 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground",
+                item.destructive && "text-destructive",
+              )}
+              onClick={(event) => {
+                event.stopPropagation();
+                onClose();
+                item.onClick();
+              }}
+            >
+              {item.icon && (
+                <item.icon
+                  className={cn(
+                    "size-4 shrink-0",
+                    item.destructive
+                      ? "text-destructive"
+                      : "text-muted-foreground",
+                  )}
+                />
+              )}
+              {item.label}
+            </button>
+          ),
+        )}
       </div>
     </div>
   );

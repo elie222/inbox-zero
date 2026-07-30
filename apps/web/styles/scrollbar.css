@@ -1,16 +1,41 @@
-.scrollbar-thin {
-  scrollbar-color: hsl(var(--border)) transparent;
+/*
+ * Overlay-style scrollbars: the track always reserves its width so nothing
+ * reflows, but the thumb only appears while the page is being scrolled (see
+ * ScrollActivity, which stamps data-scrolling on <html>) or while the pointer
+ * is over the scroller.
+ */
+* {
+  scrollbar-color: transparent transparent;
   scrollbar-width: thin;
 }
-.scrollbar-thin::-webkit-scrollbar {
-  width: 8px;
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
 }
-.scrollbar-thin::-webkit-scrollbar-track {
+
+*::-webkit-scrollbar-track {
   background: transparent;
 }
-.scrollbar-thin::-webkit-scrollbar-thumb {
-  background-color: hsl(var(--border));
+
+*::-webkit-scrollbar-thumb {
+  background-color: transparent;
   background-clip: content-box;
-  border: 2px solid transparent;
+  border: 3px solid transparent;
   border-radius: 9999px;
+  transition: background-color 200ms ease;
+}
+
+html[data-scrolling="true"] *,
+*:hover {
+  scrollbar-color: hsl(var(--border)) transparent;
+}
+
+html[data-scrolling="true"] *::-webkit-scrollbar-thumb,
+*:hover::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--border));
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 8px;
 }

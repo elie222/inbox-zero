@@ -133,7 +133,7 @@ export function AiRuleFromEmailDialog({
             </div>
             <div>
               <Label>Rule</Label>
-              <div className="mt-2 rounded-md border border-border px-3 py-2.5 font-mono text-sm">
+              <div className="mt-2 break-all rounded-md border border-border px-3 py-2.5 font-mono text-sm">
                 from {matchType === "domain" ? "ends_with" : "is"} "{matchValue}
                 "
               </div>

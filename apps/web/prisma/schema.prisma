@@ -552,6 +552,7 @@ model Label {
   description  String? // used in prompts
   enabled      Boolean  @default(true)
   icon         String? // lucide icon name shown in the sidebar
+  color        String? // CSS colour for the sidebar dot and row accents
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
@@ -1027,11 +1028,38 @@ model ContactCard {
   xUrl         String?
   instagramUrl String?
 
+  // Look & feel, chosen in the My Card drawer and rendered on the public
+  // page. accentColor only ever holds a value from the app's fixed palette
+  // (validated on write) — it lands in inline styles.
+  avatarMode   String  @default("initials") // "initials" | "photo" | "logo"
+  avatarShape  String  @default("circle") // "circle" | "rounded"
+  nameFont     String  @default("serif") // "serif" | "sans"
+  accentColor  String?
+  accentStripe Boolean @default(true)
+  logoUrl      String?
+
   emailAccountId String       @unique
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
   views     ContactCardView[]
+  clicks    ContactCardClick[]
   exchanges ContactCardExchange[]
+}
+
+// A visitor tapping something on the card: phone, email, save-to-contacts…
+// One row per tap (no dedupe — taps are the engagement signal), no raw IPs.
+model ContactCardClick {
+  id        String   @id @default(cuid())
+  clickedAt DateTime @default(now())
+  day       DateTime @db.Date
+
+  kind        String
+  visitorHash String
+
+  contactCardId String      @map("cardId")
+  contactCard   ContactCard @relation(fields: [contactCardId], references: [id], onDelete: Cascade)
+
+  @@index([contactCardId, day])
 }
 
 // Someone who opened the card and handed their own details back. Held apart
@@ -1147,6 +1175,11 @@ model Task {
   // FK); null means the user owns it themselves.
   assigneeEmail String?
 
+  // Subtasks: one level of nesting, children die with the parent
+  parentId String?
+  parent   Task?   @relation("TaskSubtasks", fields: [parentId], references: [id], onDelete: Cascade)
+  subtasks Task[]  @relation("TaskSubtasks")
+
   // Where the task came from, if created off an email
   sourceThreadId  String?
   sourceMessageId String?
@@ -1160,16 +1193,50 @@ model Task {
   lastFollowUpAt      DateTime?
   nextFollowUpAt      DateTime?
   followUpCount       Int       @default(0)
+  // Thread carrying the agent's follow-ups and the assignee's replies
+  followUpThreadId    String?
 
   activity TaskActivity[]
+  emails   TaskEmail[]
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
   @@index([emailAccountId, status, dueAt])
   @@index([emailAccountId, assigneeEmail])
+  @@index([emailAccountId, parentId])
+  // Inbound webhook matches new mail to a task's chase thread
+  @@index([emailAccountId, followUpThreadId])
   // The follow-up cron scans on this
   @@index([followUpEnabled, nextFollowUpAt])
+}
+
+// An email linked to a task. The AI reads these to keep the task's status
+// current; display fields are cached at link time so the list renders
+// without a provider round-trip.
+model TaskEmail {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  threadId  String
+  messageId String
+
+  // Cached display fields from the linked message
+  from       String
+  subject    String
+  snippet    String?
+  receivedAt DateTime?
+  // Attachment metadata ([{ attachmentId, filename, mimeType, size }]);
+  // bytes stay with the provider and download on demand
+  attachments Json?
+
+  taskId String
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, messageId])
+  @@index([taskId, createdAt])
+  // Inbound webhook matches new mail to threads linked to a task
+  @@index([threadId])
 }
 
 // A timeline entry for a task: manual notes plus the agent's actions and
@@ -1189,6 +1256,27 @@ model TaskActivity {
   task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
   @@index([taskId, createdAt])
+}
+
+// Resolved company logos, cached across deploys. Vercel's edge cache resets
+// on every deployment, so without this the provider chain (several outbound
+// TLS fetches) re-runs per domain per viewer after each deploy — the main
+// source of function-CPU spikes. body null = the whole chain missed;
+// retried after a shorter TTL than hits.
+model CachedLogo {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  // When the provider chain last ran for this row (TTL anchor)
+  checkedAt DateTime @default(now())
+
+  domain      String
+  // "auto" (full chain) or one provider family from the logo picker
+  source      String
+  body        Bytes?
+  contentType String?
+  provider    String?
+
+  @@unique([domain, source])
 }
 
 model ResponseTime {
