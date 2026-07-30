@@ -1226,6 +1226,27 @@ model TaskActivity {
   @@index([taskId, createdAt])
 }
 
+// Resolved company logos, cached across deploys. Vercel's edge cache resets
+// on every deployment, so without this the provider chain (several outbound
+// TLS fetches) re-runs per domain per viewer after each deploy — the main
+// source of function-CPU spikes. body null = the whole chain missed;
+// retried after a shorter TTL than hits.
+model CachedLogo {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  // When the provider chain last ran for this row (TTL anchor)
+  checkedAt DateTime @default(now())
+
+  domain      String
+  // "auto" (full chain) or one provider family from the logo picker
+  source      String
+  body        Bytes?
+  contentType String?
+  provider    String?
+
+  @@unique([domain, source])
+}
+
 model ResponseTime {
   id                String   @id @default(cuid())
   createdAt         DateTime @default(now())
