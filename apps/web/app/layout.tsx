@@ -14,6 +14,7 @@ import { PostHogPageview, PostHogProvider } from "@/providers/PostHogProvider";
 import { env } from "@/env";
 import { GlobalProviders } from "@/providers/GlobalProviders";
 import { ScrollActivity } from "@/components/ScrollActivity";
+import { ViewportInsetProbe } from "@/components/ViewportInsetProbe";
 import { UTM } from "@/app/utm";
 import { startupImage } from "@/app/startup-image";
 import { ThemedToaster } from "@/components/ThemedToaster";
@@ -157,6 +158,7 @@ export default async function RootLayout({
           </Suspense>
           <GlobalProviders>
             <ScrollActivity />
+            <ViewportInsetProbe />
             {children}
             <ThemedToaster closeButton richColors visibleToasts={9} />
           </GlobalProviders>
