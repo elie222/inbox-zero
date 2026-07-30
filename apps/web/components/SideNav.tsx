@@ -34,7 +34,6 @@ import {
   PenIcon,
   PlusIcon,
   SendIcon,
-  ShieldIcon,
   TriangleAlertIcon,
   UserRoundIcon,
   UsersRoundIcon,
@@ -137,16 +136,7 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
 // Header + contextual nav + footer. Shared between the mobile sheet and the
 // content column beside the desktop rail.
 function SideNavBody({ path }: { path: string }) {
-  const { data: user } = useUser();
   const activeApp = getActiveAppId(path);
-
-  const bottomItems: NavItem[] = useMemo(
-    () =>
-      user?.isAdmin
-        ? [{ name: "Admin", href: "/admin", icon: ShieldIcon }]
-        : [],
-    [user?.isAdmin],
-  );
 
   return (
     <>
@@ -159,12 +149,6 @@ function SideNavBody({ path }: { path: string }) {
 
         <SidebarGroupContent>
           <ContextualNav activeApp={activeApp} path={path} />
-
-          {bottomItems.length > 0 && (
-            <SidebarGroup>
-              <SideNavMenu items={bottomItems} activeHref={path} />
-            </SidebarGroup>
-          )}
         </SidebarGroupContent>
       </SidebarContent>
 
