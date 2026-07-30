@@ -92,6 +92,7 @@ async function executeBulkOperation<T extends Row>({
   successMessage,
   errorMessage,
   onComplete,
+  onCompleteRevalidates,
   onSuccess,
 }: {
   items: T[];
@@ -105,6 +106,7 @@ async function executeBulkOperation<T extends Row>({
   successMessage: string;
   errorMessage: string;
   onComplete?: () => Promise<unknown>;
+  onCompleteRevalidates?: boolean;
   onSuccess?: () => void;
 }) {
   const total = items.length;
@@ -165,16 +167,18 @@ async function executeBulkOperation<T extends Row>({
     if (rateLimitError) break;
   }
 
+  let didRevalidateOnComplete = false;
   if (onComplete) {
     try {
       await onComplete();
+      didRevalidateOnComplete = onCompleteRevalidates === true;
     } catch (error) {
       captureException(error);
     }
   }
 
   if (rateLimitError) {
-    await mutate();
+    if (!didRevalidateOnComplete) await mutate();
     const successful = completed - failureCount;
     toast.error(rateLimitError.message, {
       id: toastId,
@@ -351,8 +355,12 @@ export function useUnsubscribe<T extends Row>({
         }
       }
     } catch (error) {
-      captureException(error);
-      toast.error(`Could not unsubscribe from ${item.name}`);
+      if (error instanceof EmailProviderRateLimitError) {
+        toast.error(error.message);
+      } else {
+        captureException(error);
+        toast.error(`Could not unsubscribe from ${item.name}`);
+      }
     } finally {
       setUnsubscribeLoading(false);
     }
@@ -451,6 +459,7 @@ export function useBulkUnsubscribe<T extends Row>({
           await mutate();
           await refreshPremium(refetchPremium);
         },
+        onCompleteRevalidates: true,
         onSuccess: () => onSuccess?.(items),
       });
       if (result.stoppedByRateLimit) return;
@@ -1139,7 +1148,7 @@ function didAutomaticUnsubscribeSucceed(
   result: Awaited<ReturnType<typeof unsubscribeSenderAction>>,
 ) {
   if (result?.serverError) {
-    throw new Error(result.serverError);
+    assertActionSucceeded({ serverError: result.serverError });
   }
 
   return result?.data?.unsubscribe.success === true;
