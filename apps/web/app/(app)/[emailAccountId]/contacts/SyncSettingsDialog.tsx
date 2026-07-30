@@ -232,7 +232,7 @@ export function SyncSettingsDialog({
                   label="Server"
                   // Only ever rendered after the client action returns a
                   // password, but the body still runs during SSR
-                  value={`${typeof window === "undefined" ? "" : window.location.origin}/api/carddav`}
+                  value={`${typeof window === "undefined" ? "" : window.location.origin}/api/carddav/`}
                 />
                 <CredentialRow label="Username" value={userEmail} />
                 <CredentialRow label="Password" value={carddavPassword} />

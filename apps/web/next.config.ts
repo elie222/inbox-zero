@@ -26,6 +26,12 @@ const zodV4CorePath = path.join(
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // CardDAV collection URLs end in "/" (Apple's client canonicalizes them
+  // that way), and Next's built-in trailing-slash 308 fires before proxy.ts
+  // can answer — Apple drops the Authorization header on redirects, breaking
+  // every sync request. proxy.ts serves CardDAV paths in both slash forms and
+  // re-implements the old redirect for everything else.
+  skipTrailingSlashRedirect: true,
   allowedDevOrigins: ["127.0.0.1"],
   logging: {
     browserToTerminal: true,
