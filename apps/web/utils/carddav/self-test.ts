@@ -200,27 +200,63 @@ export async function runCarddavSelfTest({
     },
   );
 
-  await run(
-    "Contacts download",
-    "REPORT",
+  // iOS syncs in two moves: list the addressbook's children (Depth 1), then
+  // multiget the listed hrefs. Replaying both — and comparing the counts —
+  // distinguishes "nothing to sync" from "listed but not downloadable".
+  const listing = await run(
+    "Contacts listing",
+    "PROPFIND",
     "/api/carddav/addressbook/",
-    `<?xml version="1.0" encoding="UTF-8"?>
-<card:addressbook-query xmlns:card="urn:ietf:params:xml:ns:carddav" xmlns:d="DAV:">
-  <d:prop><d:getetag/><card:address-data/></d:prop>
-</card:addressbook-query>`,
+    null,
     (response, text) => {
       if (response.status !== 207)
         return `Expected 207, got ${response.status}`;
-      if (!text.includes("multistatus")) {
+      if (!text.includes("getctag")) {
         return `207 body did not arrive intact (${text.length} bytes)`;
       }
-      const cards = (text.match(/address-data/g) ?? []).length;
-      if (!cards) {
+      if (extractCardHrefs(text).length === 0) {
         return "The addressbook is empty — only saved contacts sync. Save people on the Contacts page (or add them on the phone) and they'll appear.";
       }
       return null;
     },
+    "1",
   );
 
+  const cardHrefs = listing ? extractCardHrefs(listing.text) : [];
+
+  if (cardHrefs.length > 0) {
+    await run(
+      "Contacts download",
+      "REPORT",
+      "/api/carddav/addressbook/",
+      `<?xml version="1.0" encoding="UTF-8"?>
+<card:addressbook-multiget xmlns:card="urn:ietf:params:xml:ns:carddav" xmlns:d="DAV:">
+  <d:prop><d:getetag/><card:address-data/></d:prop>
+  ${cardHrefs.map((href) => `<d:href>${href}</d:href>`).join("\n  ")}
+</card:addressbook-multiget>`,
+      (response, text) => {
+        if (response.status !== 207)
+          return `Expected 207, got ${response.status}`;
+        if (!text.includes("multistatus")) {
+          return `207 body did not arrive intact (${text.length} bytes)`;
+        }
+        const downloaded = (text.match(/<(?:\w+:)?address-data[\s>]/g) ?? [])
+          .length;
+        if (downloaded < cardHrefs.length) {
+          return `Listed ${cardHrefs.length} contacts but only ${downloaded} downloaded — the server is advertising cards it can't serve, so clients sync partially or not at all`;
+        }
+        return null;
+      },
+    );
+  }
+
   return { ok: steps.every((step) => step.ok), steps };
+}
+
+// The .vcf child hrefs from a Depth-1 addressbook listing — exactly the set a
+// client would echo into its multiget
+function extractCardHrefs(text: string): string[] {
+  return [
+    ...text.matchAll(/<(?:\w+:)?href[^>]*>([^<]+\.vcf)<\/(?:\w+:)?href>/gi),
+  ].map((match) => match[1]);
 }

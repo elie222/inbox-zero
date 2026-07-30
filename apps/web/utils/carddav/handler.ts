@@ -10,6 +10,11 @@ import type { ContactPhone } from "@/utils/contacts";
 const BASE = "/api/carddav";
 const ADDRESSBOOK_PATH = `${BASE}/addressbook`;
 
+// Prefixed onto the ctag. Bump when a sync bug shipped and clients may hold a
+// "current" ctag for state they never actually downloaded (see
+// addressbookCollectionResponse).
+const CTAG_GENERATION = 2;
+
 type DavResponse = {
   status: number;
   headers?: Record<string, string>;
@@ -169,7 +174,10 @@ async function addressbookCollectionResponse(
     take: 1,
   });
   const count = await prisma.contact.count({ where: { emailAccountId } });
-  const ctag = `${contacts[0]?.updatedAt.getTime() ?? 0}-${count}`;
+  // Bumping CTAG_GENERATION invalidates every client's stored ctag, forcing a
+  // full re-download — the escape hatch for clients that recorded a ctag
+  // during a broken sync and now believe they're up to date with zero cards.
+  const ctag = `${CTAG_GENERATION}-${contacts[0]?.updatedAt.getTime() ?? 0}-${count}`;
 
   return `<d:response>
   <d:href>${ADDRESSBOOK_PATH}/</d:href>

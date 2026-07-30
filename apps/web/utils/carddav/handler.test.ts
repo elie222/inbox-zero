@@ -183,6 +183,22 @@ describe("CardDAV handler", () => {
 
       expect(getCtag(after.body)).not.toBe(getCtag(before.body));
     });
+
+    // The generation prefix is the server-side reset switch: bumping it
+    // invalidates every client's stored ctag and forces a full re-download
+    it("prefixes the ctag with the current generation", async () => {
+      prisma.contact.findMany.mockResolvedValue([
+        { id: "c1", carddavUid: "uid-1", updatedAt: UPDATED_AT },
+      ] as never);
+
+      const result = await request({
+        method: "PROPFIND",
+        segments: ["addressbook"],
+        depth: "0",
+      });
+
+      expect(getCtag(result.body)).toMatch(/^2-/);
+    });
   });
 
   describe("REPORT", () => {
