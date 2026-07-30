@@ -17,7 +17,7 @@ export function CopyInput({
   return (
     <div className="flex w-full flex-1 items-center gap-1">
       <input
-        className="block w-full flex-1 rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500 disabled:ring-gray-200 sm:text-sm"
+        className="block w-full min-w-0 flex-1 rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500 disabled:ring-gray-200 sm:text-sm"
         name="copy-input"
         type={visible ? "text" : "password"}
         value={value}

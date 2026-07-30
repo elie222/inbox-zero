@@ -75,11 +75,13 @@ export function ConfigureBookingLinkDialog({
         hideCloseButton
       >
         <div className="flex items-start justify-between gap-3 border-b px-6 pb-4 pt-5">
-          <div>
+          <div className="min-w-0">
             <DialogTitle className="text-xl font-medium">
               Configure booking link
             </DialogTitle>
-            <DialogDescription className="mt-1 font-mono text-xs">
+            {/* The URL is one unbreakable token; break it rather than let it
+                widen the dialog past the phone */}
+            <DialogDescription className="mt-1 break-all font-mono text-xs">
               {publicUrl}
             </DialogDescription>
           </div>

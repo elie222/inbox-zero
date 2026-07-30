@@ -162,7 +162,7 @@ export function TasksList() {
 
       {/* Narrow screens: the detail opens as a full-screen sheet-like overlay */}
       {!isWide && selected && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-background p-5">
+        <div className="fixed inset-x-0 top-0 bottom-[var(--mobile-tray-h)] z-50 overflow-y-auto bg-background p-5 pt-[calc(env(safe-area-inset-top,0px)+1.25rem)]">
           <div className="mx-auto max-w-xl">
             <Button
               variant="ghost"

@@ -135,11 +135,13 @@ function LabelRow({
     (parentId === "none" ? null : parentId) !== label.parentId;
 
   return (
-    <div className={cn("flex items-center gap-2", indent && "pl-6")}>
+    // At phone width the name input gets its own line — the select and
+    // buttons alone nearly fill a 320px dialog
+    <div className={cn("flex flex-wrap items-center gap-2", indent && "pl-6")}>
       <Input
         value={name}
         aria-label="Label name"
-        className="min-w-0 flex-1"
+        className="min-w-0 basis-full sm:basis-0 sm:flex-1"
         onChange={(event) => setName(event.target.value)}
       />
       <Select

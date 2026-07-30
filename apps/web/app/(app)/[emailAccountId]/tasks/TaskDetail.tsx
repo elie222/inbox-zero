@@ -104,7 +104,7 @@ export function TaskDetail({
     <div className="space-y-6">
       <div>
         <div className="flex items-start justify-between gap-3">
-          <h2 className="font-display text-2xl leading-7 tracking-tight">
+          <h2 className="min-w-0 break-words font-display text-2xl leading-7 tracking-tight">
             {task.title}
           </h2>
           <Button
@@ -121,7 +121,7 @@ export function TaskDetail({
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
           {task.assigneeEmail ? (
-            <span>Assigned to {task.assigneeEmail}</span>
+            <span className="break-all">Assigned to {task.assigneeEmail}</span>
           ) : (
             <span>Yours</span>
           )}
@@ -219,7 +219,9 @@ export function TaskDetail({
             {...register("description")}
           />
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        {/* An email input and a datetime-local don't fit side by side on a
+            phone; stack them there */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <Label htmlFor="task-assignee">Assignee email</Label>
             <Input

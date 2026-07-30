@@ -91,7 +91,9 @@ export function ContactDetailSheet({
     >
       <SheetContent
         side="right"
-        className="w-full p-5 sm:max-w-[560px] [&>button]:top-6"
+        // The close X is the only way out of the full-screen mobile pane;
+        // grow its hit area without changing the visual
+        className="w-full max-w-none p-5 sm:max-w-[560px] [&>button]:top-6 [&>button]:p-2.5 [&>button]:-m-2.5"
       >
         <SheetTitle className="sr-only">Details</SheetTitle>
         {group ? (
