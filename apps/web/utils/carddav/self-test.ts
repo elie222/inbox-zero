@@ -169,7 +169,7 @@ export async function runCarddavSelfTest({
   await run(
     "Home set listing",
     "PROPFIND",
-    "/api/carddav/",
+    "/api/carddav",
     `<?xml version="1.0" encoding="UTF-8"?>
 <A:propfind xmlns:A="DAV:">
   <A:prop><A:resourcetype/><A:displayname/></A:prop>
@@ -188,7 +188,7 @@ export async function runCarddavSelfTest({
   await run(
     "Addressbook probe",
     "PROPFIND",
-    "/api/carddav/addressbook/",
+    "/api/carddav/addressbook",
     null,
     (response, text) => {
       if (response.status !== 207)
@@ -206,7 +206,7 @@ export async function runCarddavSelfTest({
   const listing = await run(
     "Contacts listing",
     "PROPFIND",
-    "/api/carddav/addressbook/",
+    "/api/carddav/addressbook",
     null,
     (response, text) => {
       if (response.status !== 207)
@@ -231,7 +231,7 @@ export async function runCarddavSelfTest({
     await run(
       "Change tracking (initial sync)",
       "REPORT",
-      "/api/carddav/addressbook/",
+      "/api/carddav/addressbook",
       `<?xml version="1.0" encoding="UTF-8"?>
 <d:sync-collection xmlns:d="DAV:">
   <d:sync-token/>
@@ -257,7 +257,7 @@ export async function runCarddavSelfTest({
     await run(
       "Contacts download",
       "REPORT",
-      "/api/carddav/addressbook/",
+      "/api/carddav/addressbook",
       `<?xml version="1.0" encoding="UTF-8"?>
 <card:addressbook-multiget xmlns:card="urn:ietf:params:xml:ns:carddav" xmlns:d="DAV:">
   <d:prop><d:getetag/><card:address-data/></d:prop>

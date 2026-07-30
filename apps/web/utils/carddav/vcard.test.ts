@@ -28,6 +28,25 @@ describe("generateVCard", () => {
     expect(vcard.endsWith("END:VCARD\r\n")).toBe(true);
   });
 
+  // One control byte in one field would make the XML document that carries
+  // every card during a sync unparseable — the client would store nothing
+  it("strips control characters and normalizes CR line breaks", () => {
+    const vcard = generateVCard({
+      uid: "u1",
+      email: null,
+      name: "Ada\u0007 Lovelace",
+      phones: [],
+      title: "Line one\r\nLine two",
+      companyName: null,
+      updatedAt: new Date("2026-07-24T12:00:00Z"),
+    });
+
+    expect(vcard).toContain("FN:Ada Lovelace");
+    expect(vcard).toContain("TITLE:Line one\\nLine two");
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: asserting their absence
+    expect(vcard).not.toMatch(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/);
+  });
+
   it("falls back to the email as display name", () => {
     const vcard = generateVCard({
       uid: "u1",
