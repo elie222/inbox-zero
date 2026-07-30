@@ -1,4 +1,5 @@
 import {
+  ExecutedActionStatus,
   ExecutedRuleStatus,
   ScheduledActionStatus,
 } from "@/generated/prisma/enums";
@@ -13,6 +14,11 @@ import type {
   EmailForAction,
 } from "@/utils/ai/types";
 import type { EmailProvider } from "@/utils/email/types";
+import {
+  getActionResultError,
+  normalizeActionExecutionError,
+  persistExecutedActionOutcome,
+} from "@/utils/ai/executed-action-outcome";
 
 const MODULE = "scheduled-actions-executor";
 
@@ -210,12 +216,46 @@ async function executeDelayedAction({
     messageId: email.id,
   });
 
-  await runActionFunction({
-    client,
-    email,
-    action: executedAction,
-    emailAccount,
-    executedRule,
+  let actionResult: unknown;
+  try {
+    actionResult = await runActionFunction({
+      client,
+      email,
+      action: executedAction,
+      emailAccount,
+      executedRule,
+      logger: log,
+    });
+  } catch (error) {
+    await persistExecutedActionOutcome({
+      actionId: executedAction.id,
+      status: ExecutedActionStatus.FAILED,
+      error: normalizeActionExecutionError(error),
+      logger: log,
+    });
+    throw error;
+  }
+
+  const actionResultError = getActionResultError(
+    executedAction.type,
+    actionResult,
+  );
+  if (actionResultError) {
+    await persistExecutedActionOutcome({
+      actionId: executedAction.id,
+      status: ExecutedActionStatus.FAILED,
+      error: actionResultError,
+      logger: log,
+    });
+    throw Object.assign(new Error(actionResultError.message), {
+      code: actionResultError.code,
+    });
+  }
+
+  await persistExecutedActionOutcome({
+    actionId: executedAction.id,
+    status: ExecutedActionStatus.SUCCEEDED,
+    error: null,
     logger: log,
   });
 

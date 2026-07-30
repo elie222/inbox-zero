@@ -1,6 +1,7 @@
 import {
   cloneEmailAccountForProvider,
   getFirstSearchInboxCall,
+  getSearchInboxCalls,
   hasNoWriteToolCalls,
   hasReplyTriageFocus,
   hasSearchBeforeFirstWrite,
@@ -103,11 +104,7 @@ describe.runIf(shouldRunEval)(
                 const pass =
                   !!searchCall &&
                   hasSearchBeforeFirstWrite(toolCalls) &&
-                  hasUnreadTriageSignal(
-                    searchCall.query,
-                    provider,
-                    unreadSignal,
-                  ) &&
+                  hasUnreadTriageSignal(searchCall, provider, unreadSignal) &&
                   hasNoWriteToolCalls(toolCalls);
 
                 return {
@@ -166,7 +163,7 @@ describe.runIf(shouldRunEval)(
 
             const pass =
               !!searchCall &&
-              hasUnreadTriageSignal(searchCall.query, provider, unreadSignal);
+              hasUnreadTriageSignal(searchCall, provider, unreadSignal);
 
             evalReporter.record({
               testName: `verifies unread on follow-up (${label})`,
@@ -224,7 +221,7 @@ describe.runIf(shouldRunEval)(
 
             const pass =
               !!searchCall &&
-              hasUnreadTriageSignal(searchCall.query, provider, unreadSignal);
+              hasUnreadTriageSignal(searchCall, provider, unreadSignal);
 
             evalReporter.record({
               testName: `re-runs searchInbox on look-again (${label})`,
@@ -295,12 +292,14 @@ describe.runIf(shouldRunEval)(
                   messages,
                 });
 
-                const searchCall = getFirstSearchInboxCall(toolCalls);
+                const searchCalls = getSearchInboxCalls(toolCalls);
 
                 const pass =
-                  !!searchCall &&
+                  searchCalls.length > 0 &&
                   hasSearchBeforeFirstWrite(toolCalls) &&
-                  hasReplyTriageFocus(searchCall.query, provider) &&
+                  searchCalls.some((searchCall) =>
+                    hasReplyTriageFocus(searchCall, provider),
+                  ) &&
                   hasNoWriteToolCalls(toolCalls);
 
                 return {

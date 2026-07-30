@@ -22,7 +22,189 @@ vi.mock("node:https", () => ({
   request: httpsRequestMock,
 }));
 
-import { setSenderStatus, unsubscribeSenderAndMark } from "./unsubscribe";
+import {
+  setSenderStatus,
+  setSenderStatusWithAutoArchive,
+  unsubscribeSenderAndMark,
+} from "./unsubscribe";
+
+const autoArchiveFilter = {
+  id: "filter-1",
+  criteria: { from: "news@example.com" },
+  action: { removeLabelIds: ["INBOX"] },
+};
+
+describe("setSenderStatusWithAutoArchive", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    prisma.$queryRaw.mockResolvedValue([]);
+    prisma.newsletter.updateManyAndReturn.mockResolvedValue([]);
+    prisma.newsletter.upsert.mockResolvedValue({ id: "newsletter-1" } as any);
+  });
+
+  async function setStatus({
+    status,
+    filters = [],
+    labelId,
+    labelName,
+  }: {
+    status: NewsletterStatus | null;
+    filters?: unknown[];
+    labelId?: string;
+    labelName?: string;
+  }) {
+    const emailProvider = {
+      name: "google" as const,
+      getFiltersList: vi.fn().mockResolvedValue(filters),
+      createAutoArchiveFilter: vi.fn().mockResolvedValue({ status: 200 }),
+      deleteFilter: vi.fn().mockResolvedValue({ status: 200 }),
+    };
+
+    const result = await setSenderStatusWithAutoArchive({
+      emailAccountId: "email-account-1",
+      emailProvider: emailProvider as never,
+      senderEmail: "News <News@Example.com>",
+      status,
+      labelId,
+      labelName,
+    });
+
+    return { emailProvider, result };
+  }
+
+  it("creates the auto archive filter for the normalized sender", async () => {
+    const { emailProvider, result } = await setStatus({
+      status: NewsletterStatus.AUTO_ARCHIVED,
+    });
+
+    expect(emailProvider.createAutoArchiveFilter).toHaveBeenCalledWith({
+      from: "news@example.com",
+      gmailLabelId: undefined,
+      labelName: undefined,
+    });
+    expect(result).toEqual({
+      senderEmail: "news@example.com",
+      status: NewsletterStatus.AUTO_ARCHIVED,
+      autoArchived: true,
+    });
+  });
+
+  it("passes the label through when archiving and labelling", async () => {
+    const { emailProvider } = await setStatus({
+      status: NewsletterStatus.AUTO_ARCHIVED,
+      labelId: "label-1",
+      labelName: "Newsletters",
+    });
+
+    expect(emailProvider.createAutoArchiveFilter).toHaveBeenCalledWith({
+      from: "news@example.com",
+      gmailLabelId: "label-1",
+      labelName: "Newsletters",
+    });
+  });
+
+  it("still applies a newly requested label when a filter already exists", async () => {
+    const { emailProvider } = await setStatus({
+      status: NewsletterStatus.AUTO_ARCHIVED,
+      filters: [autoArchiveFilter],
+      labelId: "label-1",
+      labelName: "Newsletters",
+    });
+
+    expect(emailProvider.createAutoArchiveFilter).toHaveBeenCalledWith({
+      from: "news@example.com",
+      gmailLabelId: "label-1",
+      labelName: "Newsletters",
+    });
+    expect(emailProvider.deleteFilter).not.toHaveBeenCalled();
+  });
+
+  it("fails rather than guessing when the filter list is unavailable", async () => {
+    const emailProvider = {
+      name: "google" as const,
+      getFiltersList: vi.fn().mockRejectedValue(new Error("filters down")),
+      createAutoArchiveFilter: vi.fn(),
+      deleteFilter: vi.fn(),
+    };
+
+    await expect(
+      setSenderStatusWithAutoArchive({
+        emailAccountId: "email-account-1",
+        emailProvider: emailProvider as never,
+        senderEmail: "news@example.com",
+        status: NewsletterStatus.APPROVED,
+      }),
+    ).rejects.toThrow("filters down");
+
+    // Nothing was written, so the sender is not left approved but still archived.
+    expect(prisma.newsletter.upsert).not.toHaveBeenCalled();
+    expect(emailProvider.deleteFilter).not.toHaveBeenCalled();
+  });
+
+  it("removes the filter when the status is cleared", async () => {
+    const { emailProvider, result } = await setStatus({
+      status: null,
+      filters: [autoArchiveFilter],
+    });
+
+    expect(emailProvider.deleteFilter).toHaveBeenCalledWith("filter-1");
+    expect(result.autoArchived).toBe(false);
+  });
+
+  it("removes the filter when the sender is approved", async () => {
+    const { emailProvider } = await setStatus({
+      status: NewsletterStatus.APPROVED,
+      filters: [autoArchiveFilter],
+    });
+
+    expect(emailProvider.deleteFilter).toHaveBeenCalledWith("filter-1");
+  });
+
+  it("removes every filter for the sender, not just the first", async () => {
+    // Re-applying auto archive with a label leaves both an unlabelled and a
+    // labelled rule. Missing one keeps the sender archived after approval.
+    const labelledFilter = {
+      id: "filter-2",
+      criteria: { from: "news@example.com" },
+      action: { removeLabelIds: ["INBOX"], addLabelIds: ["label-1"] },
+    };
+
+    const { emailProvider } = await setStatus({
+      status: NewsletterStatus.APPROVED,
+      filters: [autoArchiveFilter, labelledFilter],
+    });
+
+    expect(emailProvider.deleteFilter).toHaveBeenCalledTimes(2);
+    expect(emailProvider.deleteFilter).toHaveBeenCalledWith("filter-1");
+    expect(emailProvider.deleteFilter).toHaveBeenCalledWith("filter-2");
+  });
+
+  it("leaves filters for other senders alone", async () => {
+    const otherSenderFilter = {
+      id: "filter-other",
+      criteria: { from: "other@example.com" },
+      action: { removeLabelIds: ["INBOX"] },
+    };
+
+    const { emailProvider } = await setStatus({
+      status: NewsletterStatus.APPROVED,
+      filters: [autoArchiveFilter, otherSenderFilter],
+    });
+
+    expect(emailProvider.deleteFilter).toHaveBeenCalledTimes(1);
+    expect(emailProvider.deleteFilter).toHaveBeenCalledWith("filter-1");
+  });
+
+  it("keeps the filter when the sender is unsubscribed", async () => {
+    const { emailProvider, result } = await setStatus({
+      status: NewsletterStatus.UNSUBSCRIBED,
+      filters: [autoArchiveFilter],
+    });
+
+    expect(emailProvider.deleteFilter).not.toHaveBeenCalled();
+    expect(result.autoArchived).toBe(true);
+  });
+});
 
 describe("sender-unsubscribe", () => {
   const logger = createTestLogger();
@@ -37,7 +219,7 @@ describe("sender-unsubscribe", () => {
   it("normalizes sender emails when setting status", async () => {
     await setSenderStatus({
       emailAccountId: "email-account-1",
-      newsletterEmail: "Sender <sender@example.com>",
+      senderEmail: "Sender <sender@example.com>",
       status: NewsletterStatus.UNSUBSCRIBED,
     });
 
@@ -56,7 +238,7 @@ describe("sender-unsubscribe", () => {
   it("does not mark sender as unsubscribed when no unsubscribe URL is available", async () => {
     const result = await unsubscribeSenderAndMark({
       emailAccountId: "email-account-1",
-      newsletterEmail: "sender@example.com",
+      senderEmail: "sender@example.com",
       logger,
     });
 
@@ -79,7 +261,7 @@ describe("sender-unsubscribe", () => {
 
     const result = await unsubscribeSenderAndMark({
       emailAccountId: "email-account-1",
-      newsletterEmail: "sender@example.com",
+      senderEmail: "sender@example.com",
       unsubscribeLink: "https://example.com/unsubscribe?id=1",
       logger,
     });
@@ -102,7 +284,7 @@ describe("sender-unsubscribe", () => {
 
     const result = await unsubscribeSenderAndMark({
       emailAccountId: "email-account-1",
-      newsletterEmail: "sender@example.com",
+      senderEmail: "sender@example.com",
       unsubscribeLink: "https://example.com/unsubscribe?id=1",
       logger,
     });
@@ -131,7 +313,7 @@ describe("sender-unsubscribe", () => {
 
     const result = await unsubscribeSenderAndMark({
       emailAccountId: "email-account-1",
-      newsletterEmail: "sender@example.com",
+      senderEmail: "sender@example.com",
       unsubscribeLink: "https://[2001:4860:4860::8888]/unsubscribe",
       logger,
     });
@@ -166,7 +348,7 @@ describe("sender-unsubscribe", () => {
 
     const result = await unsubscribeSenderAndMark({
       emailAccountId: "email-account-1",
-      newsletterEmail: "sender@example.com",
+      senderEmail: "sender@example.com",
       unsubscribeLink: "https://example.com/unsubscribe",
       logger,
     });

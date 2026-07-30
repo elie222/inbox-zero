@@ -2387,7 +2387,7 @@ describe("aiProcessAssistantChat", () => {
     });
     expect(mockUnsubscribeSenderAndMark).toHaveBeenCalledWith(
       expect.objectContaining({
-        newsletterEmail: "sender@example.com",
+        senderEmail: "sender@example.com",
         listUnsubscribeHeader: "<https://example.com/unsubscribe?id=1>",
       }),
     );

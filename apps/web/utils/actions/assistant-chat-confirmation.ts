@@ -4,6 +4,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
 import { getFormattedSenderAddress } from "@/utils/email/get-formatted-sender-address";
+import { forwardMessage } from "@/utils/email/forward-message";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { sleep } from "@/utils/sleep";
@@ -561,16 +562,16 @@ async function confirmPendingForwardEmailAction({
     sourceMessage,
     output.reference?.threadId,
   );
-  const from = await getFormattedSenderAddress({ emailAccountId });
-  const forwardArgs = {
-    to: output.pendingAction.to,
-    cc: output.pendingAction.cc || undefined,
-    bcc: output.pendingAction.bcc || undefined,
-    content: contentOverride || output.pendingAction.content || undefined,
-    ...(from ? { from } : {}),
-  };
   const sentAfter = new Date();
-  await emailProvider.forwardEmail(message, forwardArgs);
+  await forwardMessage({
+    emailProvider,
+    emailAccountId,
+    message,
+    to: output.pendingAction.to,
+    cc: output.pendingAction.cc,
+    bcc: output.pendingAction.bcc,
+    content: contentOverride || output.pendingAction.content,
+  });
 
   const messageId = await resolveSentMessageId({
     emailProvider,

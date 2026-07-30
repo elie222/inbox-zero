@@ -6,7 +6,7 @@ import type { WithMailerAttachments } from "@/utils/types/mail";
 import type { ParsedMessage } from "@/utils/types";
 import type { EmailForAction } from "@/utils/ai/types";
 import { createOutlookReplyContent } from "@/utils/outlook/reply";
-import { escapeHtml } from "@/utils/string";
+import { textToHtmlParagraphs } from "@/utils/string";
 import { forwardEmailHtml, forwardEmailSubject } from "@/utils/gmail/forward";
 import {
   buildReplyAllRecipients,
@@ -408,18 +408,7 @@ export async function draftEmail(
 function convertTextToHtmlParagraphs(text?: string | null): string {
   if (!text) return "";
 
-  // Split the text into paragraphs based on newline characters
-  const paragraphs = text
-    .split("\n")
-    .filter((paragraph) => paragraph.trim() !== "");
-
-  // Wrap each paragraph with <p> tags and join them back together
-  // Escape HTML to prevent prompt injection attacks
-  const htmlContent = paragraphs
-    .map((paragraph) => `<p>${escapeHtml(paragraph.trim())}</p>`)
-    .join("");
-
-  return `<html><body>${htmlContent}</body></html>`;
+  return `<html><body>${textToHtmlParagraphs(text)}</body></html>`;
 }
 
 async function sendReplyUsingCreateReply(

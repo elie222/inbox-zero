@@ -13,6 +13,9 @@ import {
   sanitizeOutlookCategoryName,
 } from "@/utils/outlook/label-validation";
 import { findLabelByName } from "@/utils/label/find-label-by-name";
+import { escapeODataString } from "@/utils/outlook/odata-escape";
+import { getFolderIds } from "@/utils/outlook/message";
+import { isDefined } from "@/utils/types";
 import type {
   OutlookCategory,
   Message,
@@ -494,6 +497,147 @@ export async function archiveThread({
       throw directError;
     }
   }
+}
+
+// Graph pages at 10 messages by default, which would silently leave the rest of
+// a long thread archived. Pages beyond this are followed via @odata.nextLink.
+const THREAD_MESSAGE_PAGE_SIZE = 100;
+const MAX_THREAD_MESSAGE_PAGES = 20;
+
+const SOURCE_FOLDER_LABELS = {
+  archive: "Archive",
+  deleteditems: "Deleted items",
+} as const;
+
+/**
+ * Moves a conversation's messages out of one well-known folder and into the
+ * inbox.
+ *
+ * Scoping to a source folder is what keeps the sent and deleted messages of the
+ * same conversation where they are. Outlook has no thread-level state to
+ * restore, so the source folder is the only signal for which messages the user
+ * actually meant.
+ */
+async function moveThreadFromFolderToInbox({
+  client,
+  threadId,
+  sourceFolder,
+  logger,
+}: {
+  client: OutlookClient;
+  threadId: string;
+  sourceFolder: keyof typeof SOURCE_FOLDER_LABELS;
+  logger: Logger;
+}) {
+  const folderIds = await getFolderIds(client, logger, {
+    includeDrafts: false,
+  });
+  const sourceFolderId = folderIds[WELL_KNOWN_FOLDERS[sourceFolder]];
+
+  // Without the source folder we can't tell the messages apart from the sent
+  // and deleted ones in the same conversation, and moving those into the inbox
+  // would be worse than failing.
+  if (!sourceFolderId) {
+    throw new Error(
+      `${SOURCE_FOLDER_LABELS[sourceFolder]} folder not found, cannot move thread to inbox`,
+    );
+  }
+
+  const messageIds: string[] = [];
+  let nextLink: string | undefined;
+
+  for (let page = 0; page < MAX_THREAD_MESSAGE_PAGES; page++) {
+    const response: {
+      value: { id?: string | null }[];
+      "@odata.nextLink"?: string;
+    } = await withOutlookRetry(
+      () =>
+        nextLink
+          ? client.getClient().api(nextLink).get()
+          : client
+              .getClient()
+              .api("/me/messages")
+              .filter(
+                `conversationId eq '${escapeODataString(threadId)}' and parentFolderId eq '${escapeODataString(sourceFolderId)}'`,
+              )
+              .select("id")
+              .top(THREAD_MESSAGE_PAGE_SIZE)
+              .get(),
+      logger,
+    );
+
+    messageIds.push(
+      ...response.value.map((message) => message.id).filter(isDefined),
+    );
+
+    nextLink = response["@odata.nextLink"];
+    if (!nextLink) break;
+  }
+
+  if (nextLink) {
+    logger.warn("Stopped paging thread messages at the page limit", {
+      threadId,
+      sourceFolder,
+      messageCount: messageIds.length,
+    });
+  }
+
+  await runThreadMessageMutation({
+    messageIds,
+    threadId,
+    logger,
+    messageHandler: (messageId) =>
+      withOutlookRetry(
+        () =>
+          client
+            .getClient()
+            .api(`/me/messages/${messageId}/move`)
+            .post({ destinationId: WELL_KNOWN_FOLDERS.inbox }),
+        logger,
+      ),
+    failureMessage: "Failed to move message back to inbox",
+  });
+}
+
+export async function unarchiveThread({
+  client,
+  threadId,
+  logger,
+}: {
+  client: OutlookClient;
+  threadId: string;
+  logger: Logger;
+}) {
+  await moveThreadFromFolderToInbox({
+    client,
+    threadId,
+    sourceFolder: "archive",
+    logger,
+  });
+}
+
+/**
+ * Moves a trashed thread back to the inbox.
+ *
+ * Unlike Gmail's untrash this cannot restore the thread to wherever it was
+ * before, because Outlook does not record that. Messages deleted from a custom
+ * folder come back to the inbox.
+ */
+export async function untrashThread({
+  client,
+  threadId,
+  logger,
+}: {
+  client: OutlookClient;
+  threadId: string;
+  logger: Logger;
+}) {
+  await moveThreadFromFolderToInbox({
+    client,
+    threadId,
+    sourceFolder: "deleteditems",
+    logger,
+  });
 }
 
 export async function markReadThread({

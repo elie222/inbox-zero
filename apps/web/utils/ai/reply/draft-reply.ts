@@ -55,6 +55,19 @@ Don't be pushy.
 Write in a plainspoken, professional tone.
 Prefer short declarative sentences over polished or overly elaborate phrasing.`;
 
+/**
+ * Appended whenever a user's own style replaces the default above, because
+ * otherwise the only length guidance in the prompt disappears for them — which
+ * is nearly everyone who has used the product long enough to have a style.
+ *
+ * Deliberately about proportionality rather than a sentence count. A user whose
+ * style asks for thorough replies is not contradicted by this: a long answer to
+ * a complex question is still proportionate. It only rules out padding,
+ * restatement, and unrequested additions, which no style asks for.
+ */
+const LENGTH_DISCIPLINE =
+  "Match the length of the reply to what was actually asked. Do not restate the incoming message, pad with filler, or add offers, next steps, or availability that nobody requested.";
+
 type DraftEmailAccount = EmailAccountWithAI & {
   bookingLinks?: { slug: string }[];
 };
@@ -305,10 +318,11 @@ export async function aiDraftReplyWithConfidence({
 
   const normalizedWritingStyle = writingStyle?.trim() || null;
   const normalizedLearnedWritingStyle = learnedWritingStyle?.trim() || null;
-  const effectiveWritingStyle =
-    normalizedWritingStyle ||
-    normalizedLearnedWritingStyle ||
-    defaultWritingStyle;
+  const customWritingStyle =
+    normalizedWritingStyle || normalizedLearnedWritingStyle;
+  const effectiveWritingStyle = customWritingStyle
+    ? `${customWritingStyle}\n\n${LENGTH_DISCIPLINE}`
+    : defaultWritingStyle;
   const advisoryLearnedWritingStyle = normalizedWritingStyle
     ? normalizedLearnedWritingStyle
     : null;
@@ -490,20 +504,24 @@ function isLikelyListItem(line: string): boolean {
   return /^(\s*[-*]\s+|\s*\d+[.)]\s+|\s*[a-zA-Z][.)]\s+|>\s+)/.test(line);
 }
 
+/**
+ * Exported so the eval harness inverts this rather than restating it. The
+ * harness reports the model-facing label, and a silent remap here would
+ * otherwise leave it reporting the old semantics with nothing failing.
+ */
+export const DRAFT_CONFIDENCE_BY_LLM_LABEL = {
+  LOW: DraftReplyConfidence.ALL_EMAILS,
+  MEDIUM: DraftReplyConfidence.STANDARD,
+  HIGH: DraftReplyConfidence.HIGH_CONFIDENCE,
+} as const;
+
 function mapLlmDraftConfidence(confidence: unknown): DraftReplyConfidence {
   const llmConfidence = llmDraftConfidenceSchema.safeParse(confidence);
   if (!llmConfidence.success) {
     return normalizeDraftReplyConfidence(confidence);
   }
 
-  switch (llmConfidence.data) {
-    case "LOW":
-      return DraftReplyConfidence.ALL_EMAILS;
-    case "MEDIUM":
-      return DraftReplyConfidence.STANDARD;
-    case "HIGH":
-      return DraftReplyConfidence.HIGH_CONFIDENCE;
-  }
+  return DRAFT_CONFIDENCE_BY_LLM_LABEL[llmConfidence.data];
 }
 
 // Matches any non-separator, non-whitespace character repeated 50+ times in a row
@@ -556,7 +574,7 @@ If you list specific times, include the user-facing timezone label shown for eac
 Available time slots:
 ${times}
 
-${calendarBookingLink ? "Because the user has a booking link, share the booking link instead of listing specific times unless the sender explicitly asks the user to provide times, asks about a specific proposed time/date, or the booking link would not answer the scheduling request." : "When the sender is asking to schedule, respond concretely using these time slots. Treat supplied slots on or after today's date as valid; only ask for updated availability if every supplied slot is before today's date."} Format suggested times as a bulleted list.`);
+${calendarBookingLink ? "Because the user has a booking link, share the booking link instead of listing specific times unless the sender explicitly asks the user to provide times, asks about a specific proposed time/date, or the booking link would not answer the scheduling request." : "When the sender is asking to schedule, respond concretely using these time slots. Treat supplied slots on or after today's date as valid; only ask for updated availability if every supplied slot is before today's date."} Propose one specific time rather than a list unless the sender asked for multiple options. If the sender asked for a specific number of options, provide that many when enough slots are available. If the sender has already declined one proposal, offer a different specific time.`);
   }
 
   if (parts.length === 0) return "";
@@ -569,7 +587,9 @@ ${parts.join("\n\n")}
 `;
 }
 
-function getCalendarBookingLinkForDraft(emailAccount: DraftEmailAccount) {
+export function getCalendarBookingLinkForDraft(
+  emailAccount: Pick<DraftEmailAccount, "bookingLinks" | "calendarBookingLink">,
+) {
   const inboxZeroBookingLink = emailAccount.bookingLinks?.[0];
 
   if (inboxZeroBookingLink) {

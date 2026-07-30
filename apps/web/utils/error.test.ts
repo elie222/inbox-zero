@@ -17,6 +17,8 @@ import {
   attachLlmRepairMetadata,
   captureException,
   checkCommonErrors,
+  EMAIL_PROVIDER_RATE_LIMIT_MESSAGE,
+  EmailProviderRateLimitError,
   getActionErrorMessage,
   getUserFacingErrorMessage,
   isInsufficientCreditsError,
@@ -39,6 +41,14 @@ describe("assertActionSucceeded", () => {
     expect(() =>
       assertActionSucceeded({ serverError: "Unable to update sender" }),
     ).toThrow("Unable to update sender");
+  });
+
+  it("preserves provider rate limits as a typed client error", () => {
+    expect(() =>
+      assertActionSucceeded({
+        serverError: EMAIL_PROVIDER_RATE_LIMIT_MESSAGE,
+      }),
+    ).toThrow(EmailProviderRateLimitError);
   });
 
   it("throws flattened validation errors", () => {
@@ -508,6 +518,28 @@ describe("isContentFilterRefusal", () => {
 
 describe("checkCommonErrors", () => {
   const logger = createScopedLogger("error-test");
+
+  it("maps wrapped Gmail rate-limit errors to a safe 429 response", () => {
+    const error = new Error("User-rate limit exceeded");
+    error.cause = {
+      code: 429,
+      errors: [
+        {
+          reason: "rateLimitExceeded",
+          message: "User-rate limit exceeded",
+        },
+      ],
+      message: "User-rate limit exceeded",
+      status: "RESOURCE_EXHAUSTED",
+    };
+
+    expect(checkCommonErrors(error, "/api/messages", logger)).toEqual({
+      type: "Gmail Rate Limit Exceeded",
+      message:
+        "Gmail is temporarily limiting requests. Please try again shortly.",
+      code: 429,
+    });
+  });
 
   it.each([
     [

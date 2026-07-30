@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
+import { Prisma } from "@/generated/prisma/client";
 import { ActionType, ExecutedRuleStatus } from "@/generated/prisma/enums";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
 import { runActionFunction } from "@/utils/ai/actions";
@@ -23,6 +24,9 @@ vi.mock("@/utils/ai/actions", () => ({
 
 vi.mock("@/utils/prisma", () => ({
   default: {
+    executedAction: {
+      update: vi.fn(),
+    },
     executedRule: {
       update: vi.fn(),
     },
@@ -69,11 +73,13 @@ describe("executeAct", () => {
   };
 
   const mockRunActionFunction = runActionFunction as Mock;
+  const mockExecutedActionUpdate = prisma.executedAction.update as Mock;
   const mockExecutedRuleUpdate = prisma.executedRule.update as Mock;
 
   beforeEach(() => {
     vi.clearAllMocks();
     envMock.WHITELIST_FROM = undefined;
+    mockExecutedActionUpdate.mockResolvedValue({});
     mockExecutedRuleUpdate.mockResolvedValue({});
   });
 
@@ -113,6 +119,22 @@ describe("executeAct", () => {
         }),
       }),
     );
+    expect(mockExecutedActionUpdate).toHaveBeenNthCalledWith(1, {
+      where: { id: "action-1" },
+      data: {
+        executionStatus: "SUCCEEDED",
+        executedAt: expect.any(Date),
+        executionError: Prisma.DbNull,
+      },
+    });
+    expect(mockExecutedActionUpdate).toHaveBeenNthCalledWith(2, {
+      where: { id: "action-2" },
+      data: {
+        executionStatus: "SKIPPED",
+        executedAt: expect.any(Date),
+        executionError: Prisma.DbNull,
+      },
+    });
     expect(mockExecutedRuleUpdate).toHaveBeenCalledWith({
       where: { id: "executed-rule-1" },
       data: { status: ExecutedRuleStatus.APPLIED },
@@ -146,6 +168,20 @@ describe("executeAct", () => {
         status: ExecutedRuleStatus.ERROR,
         reason:
           "Rule matched\nAction failures: NOTIFY_SENDER:RESEND_NOT_CONFIGURED",
+      },
+    });
+    expect(mockExecutedActionUpdate).toHaveBeenCalledWith({
+      where: { id: "action-1" },
+      data: {
+        executionStatus: "FAILED",
+        executedAt: expect.any(Date),
+        executionError: {
+          code: "RESEND_NOT_CONFIGURED",
+          message: "Action reported failure",
+          stack: null,
+          statusCode: null,
+          requestId: null,
+        },
       },
     });
   });
@@ -257,7 +293,12 @@ describe("executeAct", () => {
   });
 
   it("keeps throwing for unexpected action exceptions", async () => {
-    mockRunActionFunction.mockRejectedValueOnce(new Error("boom"));
+    const graphError = Object.assign(new Error("Graph move failed"), {
+      code: "ErrorMoveCopyFailed",
+      statusCode: 503,
+      requestId: "graph-request-123",
+    });
+    mockRunActionFunction.mockRejectedValueOnce(graphError);
 
     const executedRule = {
       ...baseExecutedRule,
@@ -272,12 +313,26 @@ describe("executeAct", () => {
         emailAccount,
         logger,
       }),
-    ).rejects.toThrow("boom");
+    ).rejects.toThrow("Graph move failed");
 
     expect(mockExecutedRuleUpdate).toHaveBeenCalledTimes(1);
     expect(mockExecutedRuleUpdate).toHaveBeenCalledWith({
       where: { id: "executed-rule-1" },
       data: { status: ExecutedRuleStatus.ERROR },
+    });
+    expect(mockExecutedActionUpdate).toHaveBeenCalledWith({
+      where: { id: "action-1" },
+      data: {
+        executionStatus: "FAILED",
+        executedAt: expect.any(Date),
+        executionError: {
+          code: "ErrorMoveCopyFailed",
+          message: "Graph move failed",
+          stack: expect.stringContaining("Graph move failed"),
+          statusCode: 503,
+          requestId: "graph-request-123",
+        },
+      },
     });
   });
 });

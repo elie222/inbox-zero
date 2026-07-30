@@ -23,7 +23,7 @@ import {
 import { formatReplySubject } from "@/utils/email/subject";
 import { buildThreadingHeaders } from "@/utils/email/threading";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
-import { convertNewlinesToBr } from "@/utils/string";
+import { convertNewlinesToBr, textToHtmlParagraphs } from "@/utils/string";
 import {
   buildQuotedPlainText,
   quotePlainTextContent,
@@ -347,17 +347,7 @@ async function createDraft(
 export function convertTextToHtmlParagraphs(text?: string | null): string {
   if (!text) return "";
 
-  const normalizedText = text.replace(/\r\n/g, "\n");
-  const lines = normalizedText.split("\n");
-
-  const htmlContent = lines
-    .map((line) => {
-      const trimmed = line.trim();
-      return trimmed === "" ? "<br>" : `<p>${trimmed}</p>`;
-    })
-    .join("");
-
-  return `<html><body>${htmlContent}</body></html>`;
+  return `<html><body>${textToHtmlParagraphs(text)}</body></html>`;
 }
 
 export function buildReplyMessageText({

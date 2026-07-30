@@ -9,9 +9,14 @@ import { createScopedLogger } from "@/utils/logger";
 import { flushLoggerSafely } from "@/utils/logger-flush";
 import prisma from "@/utils/prisma";
 import { isAdmin } from "@/utils/admin";
-import { captureException, SafeError } from "@/utils/error";
+import {
+  captureException,
+  EMAIL_PROVIDER_RATE_LIMIT_MESSAGE,
+  SafeError,
+} from "@/utils/error";
 import { env } from "@/env";
 import { runWithAuditContext, setAuditContext } from "@/utils/audit/context";
+import { isEmailProviderRateLimitError } from "@/utils/email/is-provider-rate-limit-error";
 
 const baseClient = createSafeActionClient({
   defineMetadataSchema() {
@@ -26,6 +31,7 @@ const baseClient = createSafeActionClient({
           userId?: string;
           userEmail?: string;
           emailAccountId?: string;
+          provider?: string;
         }
       | undefined;
 
@@ -37,9 +43,14 @@ const baseClient = createSafeActionClient({
         userEmail: context?.userEmail,
         emailAccountId: context?.emailAccountId,
       });
-    // SafeErrors are expected user-facing rejections (shown to the client,
-    // never sent to Sentry), so they log as warnings
-    if (error instanceof SafeError) {
+    const isProviderRateLimit = isEmailProviderRateLimitError({
+      error,
+      provider: context?.provider,
+    });
+
+    // Expected user-facing rejections are shown to the client and never sent
+    // to Sentry.
+    if (error instanceof SafeError || isProviderRateLimit) {
       logger.warn("Server action error:", {
         metadata,
         bindArgsClientInputs,
@@ -64,6 +75,7 @@ const baseClient = createSafeActionClient({
       // biome-ignore lint/suspicious/noConsole: helpful for debugging
       console.error("Error in server action", error);
     }
+    if (isProviderRateLimit) return EMAIL_PROVIDER_RATE_LIMIT_MESSAGE;
     if (error instanceof SafeError) return error.message;
 
     captureException(error, {

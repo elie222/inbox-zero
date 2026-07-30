@@ -283,5 +283,119 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
     });
 
     providerTestSuite(() => harness, "Outlook");
+
+    test("exposes inline file attachment metadata through the Graph query contract", async () => {
+      const graphFetch = globalThis.fetch;
+      let attachmentExpand: string | null = null;
+
+      globalThis.fetch = async (
+        input: RequestInfo | URL,
+        init?: RequestInit,
+      ) => {
+        const requestUrl =
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.href
+              : input.url;
+        const url = new URL(requestUrl);
+
+        if (
+          url.origin !== "https://graph.microsoft.com" ||
+          url.pathname !== "/v1.0/me/messages"
+        ) {
+          return graphFetch(input, init);
+        }
+
+        attachmentExpand = url.searchParams.get("$expand");
+        const selectedAttachmentFields =
+          attachmentExpand
+            ?.match(/attachments\(\$select=([^)]+)\)/)?.[1]
+            ?.split(",") ?? [];
+
+        if (selectedAttachmentFields.includes("contentId")) {
+          return Response.json(
+            {
+              error: {
+                code: "BadRequest",
+                message:
+                  "Could not find a property named 'contentId' on type 'microsoft.graph.attachment'.",
+              },
+            },
+            { status: 400 },
+          );
+        }
+
+        const response = await graphFetch(input, init);
+        const body = (await response.json()) as {
+          value: Array<{
+            body?: { contentType?: string; content?: string };
+            attachments?: Array<{
+              name?: string;
+              isInline?: boolean;
+              contentId?: string;
+            }>;
+          }>;
+        };
+        const projectsFileAttachmentContentId =
+          selectedAttachmentFields.includes(
+            "microsoft.graph.fileAttachment/contentId",
+          );
+
+        for (const message of body.value) {
+          for (const attachment of message.attachments ?? []) {
+            if (attachment.name !== "agenda.txt") continue;
+
+            attachment.isInline = true;
+            attachment.contentId = projectsFileAttachmentContentId
+              ? "agenda-image"
+              : undefined;
+            message.body = {
+              contentType: "html",
+              content: '<p>Agenda</p><img src="cid:agenda-image">',
+            };
+          }
+        }
+
+        return Response.json(body, { status: response.status });
+      };
+
+      try {
+        const result = await harness.provider.getMessagesWithPagination({
+          maxResults: 20,
+        });
+        const message = result.messages.find((item) =>
+          item.inline.some(
+            (attachment) => attachment.filename === "agenda.txt",
+          ),
+        );
+        const inlineAttachment = message?.inline[0];
+
+        expect(attachmentExpand).toContain(
+          "microsoft.graph.fileAttachment/contentId",
+        );
+        expect(inlineAttachment).toMatchObject({
+          filename: "agenda.txt",
+          attachmentId: expect.any(String),
+          headers: {
+            "content-id": "agenda-image",
+          },
+        });
+        expect(message?.textHtml).toContain(
+          `cid:${inlineAttachment?.headers["content-id"]}`,
+        );
+
+        const downloadedAttachment = await harness.provider.getAttachment(
+          message!.id,
+          inlineAttachment!.attachmentId,
+        );
+
+        expect(downloadedAttachment.data).toBe(
+          Buffer.from("Draft agenda").toString("base64"),
+        );
+      } finally {
+        globalThis.fetch = graphFetch;
+      }
+    });
   },
 );

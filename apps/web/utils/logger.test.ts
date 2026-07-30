@@ -99,6 +99,7 @@ describe("Logger", () => {
         "x-request-id": "header_req_123",
         "content-type": "application/json",
         server: "provider",
+        "set-cookie": "provider-session=secret",
       },
       cause: {
         code: "ECONNRESET",
@@ -132,6 +133,9 @@ describe("Logger", () => {
         cause: expect.objectContaining({
           code: "ECONNRESET",
           message: "socket hang up",
+        }),
+        responseHeaders: expect.objectContaining({
+          "set-cookie": true,
         }),
       }),
     });

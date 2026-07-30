@@ -30,6 +30,24 @@
         }
       ]
     },
+    "app/api/meeting-recorder/transcript/queue/route.ts": {
+      "experimentalTriggers": [
+        {
+          "type": "queue/v2beta",
+          "topic": "meeting-recorder-transcript",
+          "retryAfterSeconds": 60
+        }
+      ]
+    },
+    "app/api/meeting-recorder/process/queue/route.ts": {
+      "experimentalTriggers": [
+        {
+          "type": "queue/v2beta",
+          "topic": "meeting-recorder-process",
+          "retryAfterSeconds": 60
+        }
+      ]
+    },
     "app/api/resend/digest/queue/route.ts": {
       "experimentalTriggers": [
         {
@@ -84,6 +102,10 @@
     {
       "path": "/api/meeting-briefs",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/meeting-recorder/schedule",
+      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/follow-up-reminders",

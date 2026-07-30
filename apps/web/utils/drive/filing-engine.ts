@@ -392,11 +392,13 @@ export async function processAttachment({
  */
 export function getFilableAttachments(message: ParsedMessage): Attachment[] {
   return (message.attachments || []).filter((attachment) => {
-    const contentDisposition =
-      attachment.headers?.["content-disposition"]?.toLowerCase();
+    const contentDispositionType = attachment.headers?.["content-disposition"]
+      ?.split(";", 1)[0]
+      ?.trim()
+      .toLowerCase();
 
     return (
-      !contentDisposition?.includes("inline") &&
+      contentDispositionType !== "inline" &&
       !isCalendarInviteAttachment(attachment)
     );
   });

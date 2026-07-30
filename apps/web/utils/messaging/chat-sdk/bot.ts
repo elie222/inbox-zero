@@ -1371,7 +1371,7 @@ export function getPendingEmailHandledStatus(
   actionType: AssistantPendingEmailActionType,
 ) {
   if (actionType === "send_email") return "Email sent.";
-  if (actionType === "reply_email") return "Reply sent.";
+  if (actionType === "reply_email") return "Reply sent. ✅";
   return "Email forwarded.";
 }
 

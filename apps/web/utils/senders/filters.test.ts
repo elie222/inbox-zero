@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { NewsletterStatus } from "@/generated/prisma/enums";
 import type { EmailFilter } from "@/utils/email/types";
 import { GmailLabel } from "@/utils/gmail/label";
-import { findNewsletterStatus, findSenderLabelFilters } from "./helpers";
+import { findNewsletterStatus, findSenderLabelFilters } from "./filters";
 
 describe("findNewsletterStatus", () => {
   it("matches sender addresses case-insensitively", () => {

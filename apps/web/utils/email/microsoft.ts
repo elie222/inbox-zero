@@ -34,9 +34,11 @@ import {
 import {
   archiveThread,
   labelMessage,
-  markStarredMessage,
   markReadThread,
+  markStarredMessage,
   removeThreadLabel,
+  unarchiveThread,
+  untrashThread,
 } from "@/utils/outlook/label";
 import { trashThread } from "@/utils/outlook/trash";
 import { markSpam } from "@/utils/outlook/spam";
@@ -445,6 +447,22 @@ export class OutlookProvider implements EmailProvider {
     });
   }
 
+  async unarchiveThread(threadId: string): Promise<void> {
+    await unarchiveThread({
+      client: this.client,
+      threadId,
+      logger: this.logger,
+    });
+  }
+
+  async untrashThread(threadId: string): Promise<void> {
+    await untrashThread({
+      client: this.client,
+      threadId,
+      logger: this.logger,
+    });
+  }
+
   async bulkArchiveThreads(
     threads: BulkArchiveThread[],
     ownerEmail: string,
@@ -569,6 +587,7 @@ export class OutlookProvider implements EmailProvider {
     this.logger.info("Creating draft", {
       replyToMessageId: params.replyToMessageId,
     });
+    const toRecipients = toGraphRecipients(params.to, this.logger);
 
     // For threading, use createReply on the replyToMessageId
     if (params.replyToMessageId) {
@@ -590,7 +609,7 @@ export class OutlookProvider implements EmailProvider {
             .patch({
               body: { contentType: "html", content: params.messageHtml },
               subject: params.subject,
-              toRecipients: [{ emailAddress: { address: params.to } }],
+              toRecipients,
             }),
         this.logger,
       );
@@ -608,7 +627,7 @@ export class OutlookProvider implements EmailProvider {
           .post({
             subject: params.subject,
             body: { contentType: "html", content: params.messageHtml },
-            toRecipients: [{ emailAddress: { address: params.to } }],
+            toRecipients,
           }),
       this.logger,
     );
@@ -2475,4 +2494,37 @@ function parseOutlookThreadPageToken(
   } catch {
     return;
   }
+}
+
+// Graph needs one entry per recipient. Callers pass the same comma-separated
+// string the Gmail RFC-822 path accepts, so split it rather than sending the
+// whole list as a single malformed address.
+function toGraphRecipients(to: string, logger: Logger) {
+  const candidates = splitRecipientList(to);
+  const parsed = candidates.map((candidate) => ({
+    candidate,
+    email: extractEmailAddress(candidate),
+  }));
+  const recipients = parsed
+    .filter(({ email }) => email.length > 0)
+    .map(({ email }) => ({ emailAddress: { address: email } }));
+
+  if (candidates.length > 0 && recipients.length === 0) {
+    throw new Error("No valid recipient email addresses");
+  }
+
+  // A malformed attendee is dropped rather than failing the whole draft: the
+  // user reviews the draft before sending, so a missing recipient is
+  // recoverable while a missing draft is not.
+  const dropped = parsed.filter(({ email }) => email.length === 0);
+  if (dropped.length > 0) {
+    logger.warn("Dropped recipients without a parseable email address", {
+      droppedCount: dropped.length,
+    });
+    logger.trace("Dropped malformed recipients", {
+      dropped: dropped.map(({ candidate }) => candidate),
+    });
+  }
+
+  return recipients;
 }

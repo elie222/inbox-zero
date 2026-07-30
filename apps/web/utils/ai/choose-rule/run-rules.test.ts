@@ -9,8 +9,11 @@ import {
 import {
   ActionType,
   ExecutedRuleStatus,
+  GroupItemSource,
+  GroupItemType,
   SystemType,
 } from "@/generated/prisma/enums";
+import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
 import type { Action } from "@/generated/prisma/client";
 import { ConditionType } from "@/utils/config";
 import prisma from "@/utils/__mocks__/prisma";
@@ -1443,6 +1446,55 @@ describe("runRules - double draft prevention", () => {
     expect(executedDraftContents[0]).toBe(
       "Hi {{name}}, Please submit via our form.",
     );
+  });
+});
+
+describe("runRules cold email pattern learning", () => {
+  const coldEmailRule = createRule("cold-email-rule", SystemType.COLD_EMAIL, [
+    getAction({ id: "label-action-1", type: ActionType.LABEL }),
+  ]);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    prisma.executedRule.findFirst.mockResolvedValue(null);
+    vi.mocked(getActionItemsWithAiArgs).mockResolvedValue([]);
+    mockExecutedRuleCreate({ rule: coldEmailRule });
+  });
+
+  it("learns the sender when the classification was fresh", async () => {
+    mockMatchingRules([
+      { rule: coldEmailRule, matchReasons: [{ type: ConditionType.AI }] },
+    ]);
+
+    await runRulesWithDefaults({ rules: [coldEmailRule] });
+
+    expect(saveLearnedPattern).toHaveBeenCalledWith(
+      expect.objectContaining({ source: GroupItemSource.AI }),
+    );
+  });
+
+  it("does not re-save a pattern that was itself the match", async () => {
+    mockMatchingRules([
+      {
+        rule: coldEmailRule,
+        matchReasons: [
+          {
+            type: ConditionType.LEARNED_PATTERN,
+            group: { id: "group-1", name: "Cold Email" },
+            groupItem: {
+              id: "group-item-1",
+              type: GroupItemType.FROM,
+              value: "sender@example.com",
+              exclude: false,
+            },
+          } as any,
+        ],
+      },
+    ]);
+
+    await runRulesWithDefaults({ rules: [coldEmailRule] });
+
+    expect(saveLearnedPattern).not.toHaveBeenCalled();
   });
 });
 

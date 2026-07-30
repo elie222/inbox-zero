@@ -102,8 +102,8 @@ model User {
   emailAccounts EmailAccount[]
 
   // Referral relationships
-  referralsMade    Referral[] @relation("ReferrerUser")
-  referralReceived Referral?  @relation("ReferredUser")
+  referralsMade    Referral[]     @relation("ReferrerUser")
+  referralReceived Referral?      @relation("ReferredUser")
   scimProviders    ScimProvider[]
 }
 
@@ -159,6 +159,11 @@ model EmailAccount {
   meetingBriefingsMinutesBefore Int     @default(240) // 4 hours in minutes
   meetingBriefsSendEmail        Boolean @default(true)
 
+  meetingRecorderEnabled              Boolean         @default(false)
+  meetingRecorderJoinRule             MeetingJoinRule @default(EXTERNAL_ONLY)
+  meetingRecorderRecapEmailEnabled    Boolean         @default(true)
+  meetingRecorderFollowUpDraftEnabled Boolean         @default(true)
+
   filingEnabled               Boolean @default(false)
   filingPrompt                String?
   filingConfirmationSendEmail Boolean @default(true)
@@ -206,6 +211,7 @@ model EmailAccount {
   bookings               Booking[]
   mcpConnections         McpConnection[]
   meetingBriefings       MeetingBriefing[]
+  meetings               Meeting[]
   driveConnections       DriveConnection[]
   messagingChannels      MessagingChannel[]
   documentFilings        DocumentFiling[]
@@ -220,13 +226,13 @@ model EmailAccount {
 }
 
 model Organization {
-  id           String         @id @default(cuid())
+  id           String             @id @default(cuid())
   name         String
-  slug         String         @unique
+  slug         String             @unique
   logo         String?
   metadata     Json?
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
   members      Member[]
   SsoProvider  SsoProvider[]
   ScimProvider ScimProvider[]
@@ -687,6 +693,9 @@ model ExecutedAction {
   createdAt              DateTime                @default(now())
   updatedAt              DateTime                @updatedAt
   type                   ActionType
+  executionStatus        ExecutedActionStatus?
+  executedAt             DateTime?
+  executionError         Json?
   executedRuleId         String
   executedRule           ExecutedRule            @relation(fields: [executedRuleId], references: [id], onDelete: Cascade)
   messagingChannelId     String?
@@ -722,6 +731,7 @@ model ExecutedAction {
   scheduledAction      ScheduledAction? // Reverse relation for delayed actions
 
   @@index([executedRuleId])
+  @@index([executionStatus, createdAt])
   @@index([messagingChannelId, createdAt])
 }
 
@@ -945,8 +955,8 @@ model ThreadTracker {
   resolved  Boolean           @default(false)
   type      ThreadTrackerType
 
-  followUpAppliedAt DateTime?
-  followUpDraftId   String?
+  followUpAppliedAt     DateTime?
+  followUpDraftId       String?
   followUpNotifications Json?
 
   emailAccountId String
@@ -1107,7 +1117,7 @@ model Payment {
   refundedAmount Int? // in cents
 
   // Metadata
-  billingReason String? // initial, renewal, update, etc.
+  billingReason      String? // initial, renewal, update, etc.
   invoiceEmailSentAt DateTime?
 
   @@index([premiumId, createdAt])
@@ -1256,10 +1266,10 @@ model BookingLink {
   minimumNoticeMinutes Int                     @default(120)
   maxDaysAhead         Int                     @default(90)
 
-  emailAccountId        String       @unique // temporary: relax when we support multiple booking links per account
-  emailAccount          EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
-  destinationCalendarId String?
-  destinationCalendar   Calendar?    @relation(fields: [destinationCalendarId], references: [id], onDelete: SetNull)
+  emailAccountId         String               @unique // temporary: relax when we support multiple booking links per account
+  emailAccount           EmailAccount         @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  destinationCalendarId  String?
+  destinationCalendar    Calendar?            @relation(fields: [destinationCalendarId], references: [id], onDelete: SetNull)
   availabilityScheduleId String
   availabilitySchedule   AvailabilitySchedule @relation(fields: [availabilityScheduleId, emailAccountId], references: [id, emailAccountId], onDelete: NoAction)
 
@@ -1284,9 +1294,9 @@ model AvailabilitySchedule {
   windows      AvailabilityWindow[]
   bookingLinks BookingLink[]
 
+  @@unique([id, emailAccountId])
   @@index([emailAccountId])
   @@index([emailAccountId, isDefault])
-  @@unique([id, emailAccountId])
 }
 
 model AvailabilityWindow {
@@ -1309,20 +1319,20 @@ model Booking {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  guestName           String
-  guestEmail          String
-  guestNote           String?
-  startTime           DateTime
-  endTime             DateTime
+  guestName            String
+  guestEmail           String
+  guestNote            String?
+  startTime            DateTime
+  endTime              DateTime
   status               BookingStatus @default(PENDING_PROVIDER_EVENT)
   provider             String?
   providerConnectionId String?
   providerCalendarId   String?
   providerEventId      String?
   videoConferenceLink  String?
-  cancelTokenHash     String
-  cancellationReason  String?
-  idempotencyToken    String?
+  cancelTokenHash      String
+  cancellationReason   String?
+  idempotencyToken     String?
 
   bookingLinkId  String
   bookingLink    BookingLink  @relation(fields: [bookingLinkId], references: [id], onDelete: Cascade)
@@ -1349,6 +1359,117 @@ model MeetingBriefing {
 
   @@unique([emailAccountId, calendarEventId]) // Prevent duplicate briefings
   @@index([emailAccountId])
+}
+
+enum MeetingJoinRule {
+  ALL
+  EXTERNAL_ONLY
+  HOST_ONLY
+  OFF
+}
+
+enum MeetingRecordingStatus {
+  PENDING
+  SCHEDULED
+  CANCELLING
+  JOINING
+  IN_WAITING_ROOM
+  IN_CALL
+  RECORDING
+  CALL_ENDED
+  DONE
+  FAILED
+  CANCELLED
+}
+
+enum MeetingProcessingStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+// A physical meeting recording scoped to one email account. Keeping recordings
+// account-scoped prevents transcripts from crossing tenant boundaries.
+model MeetingRecording {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  botProvider          String   @default("recall")
+  // Null between claiming the row and the provider call returning.
+  externalBotId        String?
+  // Set when the provider reports the recording is ready.
+  externalRecordingId  String?
+  // Claim for the create-transcript call, kept separate from the id above so a
+  // failed call does not have to choose between losing the recording id and
+  // losing the claim. The sweep retries a claim that goes stale.
+  transcriptRequestedAt DateTime?
+  externalTranscriptId String?
+  // Raw join URL including credentials (Zoom pwd etc.) - what the bot joins with.
+  meetingUrl           String
+  // Dedup key only, never sent to the provider.
+  normalizedMeetingUrl String
+  // Account-scoped normalizedMeetingUrl while the recording can still be
+  // scheduled, and cleared once it reaches a terminal state. Account scoping
+  // prevents a calendar link from becoming cross-tenant transcript access.
+  activeKey            String?
+  meetingStartTime     DateTime
+
+  status              MeetingRecordingStatus @default(PENDING)
+  failureReason       String?
+  transcript          Json? // NormalizedTranscript utterances
+  transcriptFetchedAt DateTime?
+  mediaDeletedAt      DateTime?
+
+  meetings Meeting[]
+
+  @@unique([botProvider, externalBotId])
+  @@unique([activeKey, meetingStartTime])
+  @@index([normalizedMeetingUrl, meetingStartTime])
+  @@index([status, meetingStartTime])
+  @@index([status, mediaDeletedAt])
+}
+
+model Meeting {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  calendarEventId String
+  eventTitle      String
+  startTime       DateTime
+  endTime         DateTime
+  // [{ email, name }] snapshot taken at schedule time; the event may be deleted later.
+  attendees       Json
+  organizerEmail  String?
+  joinOverride    Boolean? // null follows the account's join rule
+
+  processingStatus       MeetingProcessingStatus @default(PENDING)
+  // Bounds retries. Summarizing calls a model, so a meeting that fails every
+  // time would otherwise cost real money on every cron tick, forever.
+  processingAttempts     Int                     @default(0)
+  summary                Json?
+  // Claimed before the draft is created, so a retry that crashed mid-write
+  // cannot leave a second draft in the user's mailbox.
+  followUpDraftStartedAt DateTime?
+  followUpDraftId        String?
+  recapSentAt            DateTime?
+
+  recordingId String?
+  recording   MeetingRecording? @relation(fields: [recordingId], references: [id], onDelete: SetNull)
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([emailAccountId, calendarEventId])
+  // One summary per physical meeting even when the account has two calendars
+  // holding the same event.
+  @@unique([emailAccountId, recordingId])
+  @@index([emailAccountId, startTime])
+  @@index([recordingId])
+  // The stuck-processing sweep looks these up across every account.
+  @@index([processingStatus, updatedAt])
 }
 
 model MessagingChannel {
@@ -1528,10 +1649,10 @@ model DocumentFiling {
   emailAccountId    String
   emailAccount      EmailAccount    @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
+  @@unique([emailAccountId, messageId, attachmentId])
   @@index([emailAccountId, status])
   @@index([driveConnectionId])
   @@index([messageId])
-  @@unique([emailAccountId, messageId, attachmentId])
 }
 
 model AttachmentSource {
@@ -1790,6 +1911,12 @@ enum ExecutedRuleStatus {
   PENDING // @deprecated - No longer created. Kept for historical data only.
   SKIPPED
   ERROR
+}
+
+enum ExecutedActionStatus {
+  SUCCEEDED
+  FAILED
+  SKIPPED
 }
 
 enum GroupItemType {

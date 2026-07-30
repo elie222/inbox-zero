@@ -29,7 +29,6 @@ export const POST = withError(
     let logger = request.logger;
 
     if (!isValidInternalApiKey(await headers(), logger)) {
-      logger.error("Invalid API key for sender pattern analysis", json);
       return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
     }
 
@@ -223,7 +222,7 @@ async function savePatternCheck({
 }) {
   await upsertSenderRecord({
     emailAccountId,
-    newsletterEmail: from,
+    senderEmail: from,
     changes: {
       patternAnalyzed: true,
       lastAnalyzedAt: new Date(),
