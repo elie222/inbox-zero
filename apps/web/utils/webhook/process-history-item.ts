@@ -18,6 +18,7 @@ import { NewsletterStatus } from "@/generated/prisma/enums";
 import type { EmailAccount } from "@/generated/prisma/client";
 import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
+import { handleTaskInboundMessage } from "@/utils/task-inbound";
 import type { EmailProvider } from "@/utils/email/types";
 import type { ParsedMessage, RuleWithActions } from "@/utils/types";
 import type { EmailAccountForDrafting } from "@/utils/ai/choose-rule/choose-args";
@@ -161,6 +162,23 @@ export async function processHistoryItem(
       logger.info("Skipping. Blocked unsubscribed email.", { from: email });
       return;
     }
+
+    // A new message on a task's chase thread — or any thread linked to an
+    // open task — updates that task now instead of waiting for the hourly
+    // follow-up poll. Linking works without AI; only the overview needs it.
+    after(() =>
+      runWithBackgroundLoggerFlush({
+        logger,
+        task: () =>
+          handleTaskInboundMessage({
+            message: parsedMessage,
+            emailAccount,
+            emailProvider: provider,
+            hasAiAccess,
+            logger,
+          }),
+      }),
+    );
 
     if (!hasAiAccess) {
       logger.info("Skipping. No AI access.");

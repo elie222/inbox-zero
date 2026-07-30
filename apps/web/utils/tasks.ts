@@ -157,6 +157,31 @@ export function taskDueBucket(
   return "later";
 }
 
+// What we cache about a linked email's attachments (TaskEmail.attachments
+// Json); the bytes stay with the provider and download on demand
+export type TaskEmailAttachment = {
+  attachmentId: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+};
+
+// The Json column comes back untyped; give it its concrete shape once here
+export function taskEmailAttachments(email: {
+  attachments?: unknown;
+}): TaskEmailAttachment[] {
+  return Array.isArray(email.attachments)
+    ? (email.attachments as TaskEmailAttachment[])
+    : [];
+}
+
+export function formatAttachmentSize(bytes: number): string {
+  if (!bytes || bytes <= 0) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 // Short relative time as drawn in the design: "in 3h", "2d ago"
 export function formatRelativeShort(
   date: Date | string,
