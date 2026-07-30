@@ -225,6 +225,35 @@ export async function runCarddavSelfTest({
   const cardHrefs = listing ? extractCardHrefs(listing.text) : [];
 
   if (cardHrefs.length > 0) {
+    // Modern iOS syncs by change tracking (RFC 6578) when the server offers
+    // it: an initial sync-collection REPORT must return every card plus a
+    // sync-token, or the phone stores nothing and never retries.
+    await run(
+      "Change tracking (initial sync)",
+      "REPORT",
+      "/api/carddav/addressbook/",
+      `<?xml version="1.0" encoding="UTF-8"?>
+<d:sync-collection xmlns:d="DAV:">
+  <d:sync-token/>
+  <d:sync-level>1</d:sync-level>
+  <d:prop><d:getetag/></d:prop>
+</d:sync-collection>`,
+      (response, text) => {
+        if (response.status !== 207)
+          return `Expected 207, got ${response.status}`;
+        if (!/sync-token/i.test(text)) {
+          return "The sync response is missing its sync-token — clients that sync by change tracking will treat the whole exchange as invalid";
+        }
+        const reported = (text.match(/<(?:\w+:)?getetag[\s>]/g) ?? []).length;
+        if (reported < cardHrefs.length) {
+          return `Initial sync listed ${reported} of ${cardHrefs.length} contacts — change-tracking clients will miss the rest`;
+        }
+        return null;
+      },
+    );
+  }
+
+  if (cardHrefs.length > 0) {
     await run(
       "Contacts download",
       "REPORT",

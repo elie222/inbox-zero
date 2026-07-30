@@ -10,10 +10,14 @@ import type { ContactPhone } from "@/utils/contacts";
 const BASE = "/api/carddav";
 const ADDRESSBOOK_PATH = `${BASE}/addressbook`;
 
-// Prefixed onto the ctag. Bump when a sync bug shipped and clients may hold a
-// "current" ctag for state they never actually downloaded (see
-// addressbookCollectionResponse).
+// Prefixed onto the ctag and sync token. Bump when a sync bug shipped and
+// clients may hold a "current" ctag for state they never actually downloaded
+// (see addressbookState).
 const CTAG_GENERATION = 2;
+
+// RFC 6578 sync tokens must be URIs; the suffix carries the same change
+// material as the ctag so any edit, add, or delete invalidates both.
+const SYNC_TOKEN_PREFIX = "urn:zerrow:carddav:";
 
 type DavResponse = {
   status: number;
@@ -162,33 +166,52 @@ function requestedProps(body: string): string[] {
     .filter((name) => name.toLowerCase() !== "prop");
 }
 
+// The addressbook's current change state, shared by the ctag and the sync
+// token so the legacy poll path and the sync-collection path can never
+// disagree about whether something changed. Bumping CTAG_GENERATION
+// invalidates every client's stored copy of both, forcing a full re-download
+// — the escape hatch for clients that recorded a ctag during a broken sync
+// and now believe they're up to date with zero cards.
+async function addressbookState(emailAccountId: string) {
+  const [latest, count] = await Promise.all([
+    prisma.contact.findMany({
+      where: { emailAccountId },
+      select: { updatedAt: true },
+      orderBy: { updatedAt: "desc" },
+      take: 1,
+    }),
+    prisma.contact.count({ where: { emailAccountId } }),
+  ]);
+  const version = `${CTAG_GENERATION}-${latest[0]?.updatedAt.getTime() ?? 0}-${count}`;
+  return {
+    ctag: `"${version}"`,
+    syncToken: `${SYNC_TOKEN_PREFIX}${version}`,
+  };
+}
+
 // The addressbook collection's own PROPFIND response: what the home-set
 // listing and the addressbook's own PROPFIND both return for it
 async function addressbookCollectionResponse(
   emailAccountId: string,
 ): Promise<string> {
-  const contacts = await prisma.contact.findMany({
-    where: { emailAccountId },
-    select: { updatedAt: true },
-    orderBy: { updatedAt: "desc" },
-    take: 1,
-  });
-  const count = await prisma.contact.count({ where: { emailAccountId } });
-  // Bumping CTAG_GENERATION invalidates every client's stored ctag, forcing a
-  // full re-download — the escape hatch for clients that recorded a ctag
-  // during a broken sync and now believe they're up to date with zero cards.
-  const ctag = `${CTAG_GENERATION}-${contacts[0]?.updatedAt.getTime() ?? 0}-${count}`;
+  const { ctag, syncToken } = await addressbookState(emailAccountId);
 
   return `<d:response>
   <d:href>${ADDRESSBOOK_PATH}/</d:href>
   <d:propstat><d:prop>
     <d:resourcetype><d:collection/><card:addressbook xmlns:card="urn:ietf:params:xml:ns:carddav"/></d:resourcetype>
     <d:displayname>Zerrow Contacts</d:displayname>
-    <cs:getctag xmlns:cs="http://calendarserver.org/ns/">${ctag}</cs:getctag>
+    <card:addressbook-description xmlns:card="urn:ietf:params:xml:ns:carddav">Contacts synced from Zerrow</card:addressbook-description>
+    <cs:getctag xmlns:cs="http://calendarserver.org/ns/">${escapeXml(ctag)}</cs:getctag>
+    <d:sync-token>${escapeXml(syncToken)}</d:sync-token>
     <d:supported-report-set>
+      <d:supported-report><d:report><d:sync-collection/></d:report></d:supported-report>
       <d:supported-report><d:report><card:addressbook-multiget xmlns:card="urn:ietf:params:xml:ns:carddav"/></d:report></d:supported-report>
       <d:supported-report><d:report><card:addressbook-query xmlns:card="urn:ietf:params:xml:ns:carddav"/></d:report></d:supported-report>
     </d:supported-report-set>
+    <card:supported-address-data xmlns:card="urn:ietf:params:xml:ns:carddav">
+      <card:address-data-type content-type="text/vcard" version="3.0"/>
+    </card:supported-address-data>
   </d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat>
 </d:response>`;
 }
@@ -234,7 +257,17 @@ async function reportAddressbook({
   emailAccountId: string;
   body: string;
 }): Promise<DavResponse> {
+  if (/sync-collection/i.test(body)) {
+    return syncCollectionReport({ emailAccountId, body });
+  }
+
   const isMultiget = /addressbook-multiget/i.test(body);
+  if (!isMultiget && !/addressbook-query/i.test(body)) {
+    // An unrecognized REPORT answered with a full dump reads as garbage to
+    // the client that sent it — it asked a question we didn't understand,
+    // so the honest answer is "no results", not "here's everything".
+    return multistatus("");
+  }
 
   const contacts = await loadFullContacts(emailAccountId);
 
@@ -260,6 +293,60 @@ async function reportAddressbook({
     .join("\n");
 
   return multistatus(responses);
+}
+
+// RFC 6578 change tracking, the sync path modern iOS prefers. The token
+// encodes the whole book's state, so there are only three answers: initial
+// sync (no token) gets everything plus the current token, a current token
+// gets "no changes", and any other token gets the valid-sync-token error —
+// the RFC's way of saying "resync from scratch". No tombstones needed:
+// deletes change the state, invalidate the token, and arrive via the resync.
+async function syncCollectionReport({
+  emailAccountId,
+  body,
+}: {
+  emailAccountId: string;
+  body: string;
+}): Promise<DavResponse> {
+  const { syncToken } = await addressbookState(emailAccountId);
+  const clientToken =
+    body
+      .match(
+        /<(?:\w+:)?sync-token[^>]*>([\s\S]*?)<\/(?:\w+:)?sync-token>/i,
+      )?.[1]
+      ?.trim() ?? "";
+
+  if (clientToken && clientToken !== syncToken) {
+    return {
+      status: 403,
+      headers: { "Content-Type": "application/xml; charset=utf-8" },
+      body: `<?xml version="1.0" encoding="utf-8"?>
+<d:error xmlns:d="DAV:"><d:valid-sync-token/></d:error>`,
+    };
+  }
+
+  const tokenLine = `<d:sync-token>${escapeXml(syncToken)}</d:sync-token>`;
+  if (clientToken) return multistatus(tokenLine);
+
+  const includeAddressData = /address-data/i.test(body);
+  const contacts = await loadFullContacts(emailAccountId);
+  const responses = contacts
+    .map(
+      (contact) => `<d:response>
+  <d:href>${contactHref(contact)}</d:href>
+  <d:propstat><d:prop>
+    <d:getetag>${escapeXml(contactEtag(contact.updatedAt))}</d:getetag>${
+      includeAddressData
+        ? `
+    <card:address-data xmlns:card="urn:ietf:params:xml:ns:carddav">${escapeXml(contactVCard(contact))}</card:address-data>`
+        : ""
+    }
+  </d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat>
+</d:response>`,
+    )
+    .join("\n");
+
+  return multistatus(`${responses}\n${tokenLine}`);
 }
 
 async function getContact({

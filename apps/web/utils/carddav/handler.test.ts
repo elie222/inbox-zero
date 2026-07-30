@@ -197,7 +197,27 @@ describe("CardDAV handler", () => {
         depth: "0",
       });
 
-      expect(getCtag(result.body)).toMatch(/^2-/);
+      expect(getCtag(result.body)).toMatch(/^"2-/);
+    });
+
+    // Modern iOS picks the sync-collection path when the server offers it —
+    // the addressbook must advertise the report and expose a sync token
+    it("advertises sync-collection with a sync token", async () => {
+      prisma.contact.findMany.mockResolvedValue([
+        { id: "c1", carddavUid: "uid-1", updatedAt: UPDATED_AT },
+      ] as never);
+
+      const result = await request({
+        method: "PROPFIND",
+        segments: ["addressbook"],
+        depth: "0",
+      });
+
+      expect(result.body).toContain("<d:sync-collection/>");
+      expect(result.body).toMatch(
+        /<d:sync-token>urn:zerrow:carddav:[^<]+<\/d:sync-token>/,
+      );
+      expect(result.body).toContain("card:supported-address-data");
     });
   });
 
@@ -239,6 +259,111 @@ describe("CardDAV handler", () => {
 
       expect(result.body).toContain("Grace Hopper");
       expect(result.body).not.toContain("Ada Lovelace");
+    });
+
+    // An unrecognized REPORT must not be answered with a full dump — a
+    // sync-collection client, for one, would read it as an invalid response
+    it("answers an unknown REPORT with an empty multistatus", async () => {
+      prisma.contact.findMany.mockResolvedValue([fullContact()] as never);
+
+      const result = await request({
+        method: "REPORT",
+        segments: ["addressbook"],
+        body: '<x:some-unknown-report xmlns:x="urn:example"/>',
+      });
+
+      expect(result.status).toBe(207);
+      expect(result.body).not.toContain("address-data");
+      expect(result.body).not.toContain("Ada Lovelace");
+    });
+  });
+
+  describe("sync-collection", () => {
+    const syncBody = (token: string) => `<?xml version="1.0" encoding="UTF-8"?>
+<d:sync-collection xmlns:d="DAV:">
+  ${token ? `<d:sync-token>${token}</d:sync-token>` : "<d:sync-token/>"}
+  <d:sync-level>1</d:sync-level>
+  <d:prop><d:getetag/></d:prop>
+</d:sync-collection>`;
+
+    const getSyncToken = (body: string | undefined) =>
+      body?.match(/<d:sync-token>([^<]+)<\/d:sync-token>/)?.[1];
+
+    it("returns every contact plus a sync token on initial sync", async () => {
+      prisma.contact.findMany.mockResolvedValue([
+        fullContact(),
+        fullContact({ id: "c2", carddavUid: "uid-2", name: "Grace Hopper" }),
+      ] as never);
+      prisma.contact.count.mockResolvedValue(2);
+
+      const result = await request({
+        method: "REPORT",
+        segments: ["addressbook"],
+        body: syncBody(""),
+      });
+
+      expect(result.status).toBe(207);
+      expect(result.body).toContain("/api/carddav/addressbook/uid-1.vcf");
+      expect(result.body).toContain("/api/carddav/addressbook/uid-2.vcf");
+      expect(getSyncToken(result.body)).toMatch(/^urn:zerrow:carddav:/);
+      // The client asked for getetag only — no vCard payloads
+      expect(result.body).not.toContain("BEGIN:VCARD");
+    });
+
+    it("includes vCard data when the client asks for address-data", async () => {
+      prisma.contact.findMany.mockResolvedValue([fullContact()] as never);
+      prisma.contact.count.mockResolvedValue(1);
+
+      const result = await request({
+        method: "REPORT",
+        segments: ["addressbook"],
+        body: `<d:sync-collection xmlns:d="DAV:" xmlns:card="urn:ietf:params:xml:ns:carddav">
+  <d:sync-token/>
+  <d:prop><d:getetag/><card:address-data/></d:prop>
+</d:sync-collection>`,
+      });
+
+      expect(result.body).toContain("BEGIN:VCARD");
+      expect(result.body).toContain("FN:Ada Lovelace");
+    });
+
+    it("reports no changes when the client's token is current", async () => {
+      prisma.contact.findMany.mockResolvedValue([fullContact()] as never);
+      prisma.contact.count.mockResolvedValue(1);
+
+      const initial = await request({
+        method: "REPORT",
+        segments: ["addressbook"],
+        body: syncBody(""),
+      });
+      const token = getSyncToken(initial.body);
+      expect(token).toBeTruthy();
+
+      const followUp = await request({
+        method: "REPORT",
+        segments: ["addressbook"],
+        body: syncBody(token ?? ""),
+      });
+
+      expect(followUp.status).toBe(207);
+      expect(followUp.body).not.toContain("getetag");
+      expect(getSyncToken(followUp.body)).toBe(token);
+    });
+
+    // RFC 6578: an expired token gets valid-sync-token, which tells the
+    // client to fall back to a full resync — how deletes propagate here
+    it("rejects a stale token so the client resyncs from scratch", async () => {
+      prisma.contact.findMany.mockResolvedValue([fullContact()] as never);
+      prisma.contact.count.mockResolvedValue(1);
+
+      const result = await request({
+        method: "REPORT",
+        segments: ["addressbook"],
+        body: syncBody("urn:zerrow:carddav:2-1000-42"),
+      });
+
+      expect(result.status).toBe(403);
+      expect(result.body).toContain("valid-sync-token");
     });
   });
 
