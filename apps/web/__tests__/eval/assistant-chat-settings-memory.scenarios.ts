@@ -11,6 +11,10 @@ export type SettingsMemoryScenarioExpectation =
       kind: "capability_discovery";
     }
   | {
+      kind: "digest_explanation";
+      semanticExpectation: string;
+    }
+  | {
       kind: "assistant_settings";
       changes: AssistantSettingsChangeExpectation[];
       forbiddenTools: string[];
@@ -89,6 +93,22 @@ const settingsMemoryScenariosRaw: SettingsMemoryScenario[] = [
     prompt: "What settings can you change for me from chat?",
     expectation: {
       kind: "capability_discovery",
+    },
+  },
+  {
+    id: "digest-delivery-details",
+    title: "loads account capabilities for digest delivery questions",
+    reportName: "digest delivery questions use authoritative account state",
+    category: "capability_discovery",
+    shape: "single_turn",
+    realWorldSeed: "db-inspired",
+    crossModelCanary: true,
+    prompt:
+      "Where will my digest be sent, are my selected rules combined, and when should I expect the next one?",
+    expectation: {
+      kind: "digest_explanation",
+      semanticExpectation:
+        "The answer says the digest is sent to user@test.com, explains that selected rules are combined into one account-level digest, and gives a realistic next delivery estimate that accounts for the five-minute dispatch window. The date and timezone may be localized or rolled forward if the stored next occurrence is stale. It must not claim that no destination is configured or recommend a refund.",
     },
   },
   {
@@ -991,9 +1011,9 @@ assertScenarioInventory(settingsMemoryScenariosRaw);
 export const settingsMemoryScenarios = settingsMemoryScenariosRaw;
 
 function assertScenarioInventory(scenarios: SettingsMemoryScenario[]) {
-  if (scenarios.length !== 40) {
+  if (scenarios.length !== 41) {
     throw new Error(
-      `assistant-chat-settings-memory scenarios must total 40; received ${scenarios.length}.`,
+      `assistant-chat-settings-memory scenarios must total 41; received ${scenarios.length}.`,
     );
   }
 
@@ -1001,9 +1021,9 @@ function assertScenarioInventory(scenarios: SettingsMemoryScenario[]) {
     (scenario) => scenario.crossModelCanary,
   ).length;
 
-  if (canaryCount !== 6) {
+  if (canaryCount !== 7) {
     throw new Error(
-      `assistant-chat-settings-memory canary subset must total 6; received ${canaryCount}.`,
+      `assistant-chat-settings-memory canary subset must total 7; received ${canaryCount}.`,
     );
   }
 }

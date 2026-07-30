@@ -25,6 +25,7 @@ import {
 import { ActionType } from "@/generated/prisma/enums";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import type { GetDigestScheduleResponse } from "@/app/api/user/digest-schedule/route";
+import type { GetDigestStatusResponse } from "@/app/api/user/digest-status/route";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
@@ -38,6 +39,7 @@ import {
   dayOfWeekToBitmask,
   bitmaskToDayOfWeek,
 } from "@/utils/schedule";
+import { getEstimatedDigestDeliveryAt } from "@/utils/digest/schedule";
 
 const digestSettingsSchema = z.object({
   selectedItems: z.set(z.string()),
@@ -80,14 +82,14 @@ export function DigestSettingsForm({
   } = useRules();
 
   const {
-    data: scheduleData,
-    isLoading: scheduleLoading,
-    error: scheduleError,
-    mutate: mutateSchedule,
-  } = useSWR<GetDigestScheduleResponse>("/api/user/digest-schedule");
+    data: digestStatus,
+    isLoading: digestStatusLoading,
+    error: digestStatusError,
+    mutate: mutateDigestStatus,
+  } = useSWR<GetDigestStatusResponse>("/api/user/digest-status");
 
-  const isLoading = rulesLoading || scheduleLoading;
-  const error = rulesError || scheduleError;
+  const isLoading = rulesLoading || digestStatusLoading;
+  const error = rulesError || digestStatusError;
 
   const [selectedDigestItems, setSelectedDigestItems] = useState<Set<string>>(
     new Set(),
@@ -111,12 +113,9 @@ export function DigestSettingsForm({
 
   const watchedValues = watch();
 
-  const { execute: executeItems } = useAction(
+  const { executeAsync: executeItems } = useAction(
     updateDigestItemsAction.bind(null, emailAccountId),
     {
-      onSuccess: () => {
-        mutateRules();
-      },
       onError: (error) => {
         toastError({
           title: "Error updating digest items",
@@ -126,12 +125,9 @@ export function DigestSettingsForm({
     },
   );
 
-  const { execute: executeSchedule } = useAction(
+  const { executeAsync: executeSchedule } = useAction(
     updateDigestScheduleAction.bind(null, emailAccountId),
     {
-      onSuccess: () => {
-        mutateSchedule();
-      },
       onError: (error) => {
         toastError({
           title: "Error updating digest schedule",
@@ -143,7 +139,7 @@ export function DigestSettingsForm({
 
   // Initialize selected items and form data from API responses
   useEffect(() => {
-    if (rules && scheduleData) {
+    if (rules && digestStatus) {
       const selectedItems = new Set<string>();
 
       // Add rules that have digest actions
@@ -156,13 +152,15 @@ export function DigestSettingsForm({
       setSelectedDigestItems(selectedItems);
 
       // Initialize schedule form data
-      const initialScheduleProps = getInitialScheduleProps(scheduleData);
+      const initialScheduleProps = getInitialScheduleProps(
+        digestStatus.schedule,
+      );
       reset({
         selectedItems,
         ...initialScheduleProps,
       });
     }
-  }, [rules, scheduleData, reset]);
+  }, [rules, digestStatus, reset]);
 
   // Update form when selectedDigestItems changes
   useEffect(() => {
@@ -214,12 +212,30 @@ export function DigestSettingsForm({
 
       // Execute both updates
       try {
-        await Promise.all([
+        const [itemsResult, scheduleResult] = await Promise.all([
           executeItems({ ruleDigestPreferences }),
           executeSchedule(scheduleUpdateData),
         ]);
+
+        if (hasActionError(itemsResult) || hasActionError(scheduleResult)) {
+          return;
+        }
+
+        await Promise.all([mutateRules(), mutateDigestStatus()]);
+
+        const estimatedDeliveryAt = getEstimatedDigestDeliveryAt(
+          scheduleResult?.data?.nextOccurrenceAt
+            ? new Date(scheduleResult.data.nextOccurrenceAt)
+            : null,
+        );
+
         toastSuccess({
-          description: "Your digest settings have been updated!",
+          description: estimatedDeliveryAt
+            ? `Saved. Next digest expected around ${formatDigestDeliveryTime(
+                estimatedDeliveryAt,
+                digestStatus?.delivery.timezone,
+              )}.`
+            : "Digest settings saved.",
         });
         onSuccess?.();
       } catch {
@@ -229,7 +245,15 @@ export function DigestSettingsForm({
         });
       }
     },
-    [rules, executeItems, executeSchedule, onSuccess],
+    [
+      rules,
+      executeItems,
+      executeSchedule,
+      mutateRules,
+      mutateDigestStatus,
+      digestStatus?.delivery.timezone,
+      onSuccess,
+    ],
   );
 
   // Create options for MultiSelectFilter
@@ -251,6 +275,9 @@ export function DigestSettingsForm({
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div>
               <Label>What to include in the digest email</Label>
+              <MutedText className="mt-1">
+                Selected rules are combined into one digest email.
+              </MutedText>
               <div className="mt-3">
                 <MultiSelectFilter
                   title="Digest Items"
@@ -321,6 +348,19 @@ export function DigestSettingsForm({
                   onChange={(value) => setValue("time", value)}
                 />
               </div>
+              <MutedText className="mt-2">
+                Digests are usually sent within 5 minutes after this time.
+              </MutedText>
+              {digestStatus?.delivery.estimatedNextDeliveryAt && (
+                <MutedText className="mt-1">
+                  Next delivery: around{" "}
+                  {formatDigestDeliveryTime(
+                    new Date(digestStatus.delivery.estimatedNextDeliveryAt),
+                    digestStatus.delivery.timezone,
+                  )}
+                  .
+                </MutedText>
+              )}
             </div>
 
             <Button type="submit" loading={isSubmitting} className="mt-4">
@@ -331,6 +371,8 @@ export function DigestSettingsForm({
 
         <DigestDeliveryChannels
           emailAccountId={emailAccountId}
+          digestStatus={digestStatus}
+          mutateDigestStatus={mutateDigestStatus}
           showChannelsHint={showChannelsHint}
         />
       </div>
@@ -342,9 +384,13 @@ export function DigestSettingsForm({
 
 function DigestDeliveryChannels({
   emailAccountId,
+  digestStatus,
+  mutateDigestStatus,
   showChannelsHint,
 }: {
   emailAccountId: string;
+  digestStatus: GetDigestStatusResponse | undefined;
+  mutateDigestStatus: () => Promise<GetDigestStatusResponse | undefined>;
   showChannelsHint: boolean;
 }) {
   const { data: account, isLoading, mutate } = useEmailAccountFull();
@@ -355,6 +401,7 @@ function DigestDeliveryChannels({
       onSuccess: () => {
         toastSuccess({ description: "Settings saved" });
         mutate();
+        mutateDigestStatus();
       },
       onError: (error) => {
         toastError({
@@ -375,6 +422,14 @@ function DigestDeliveryChannels({
           onChange={(sendEmail) => execute({ sendEmail })}
         />
       </div>
+      {digestStatus?.delivery.destinationEmail && (
+        <MutedText>
+          {(account?.digestSendEmail ?? digestStatus.delivery.emailEnabled)
+            ? `Sent to ${digestStatus.delivery.destinationEmail}.`
+            : `When enabled, digests are sent to ${digestStatus.delivery.destinationEmail}.`}
+        </MutedText>
+      )}
+      <DigestDeliveryActivity digestStatus={digestStatus} />
       {showChannelsHint && (
         <MutedText>
           Want digests in your chat app?{" "}
@@ -388,6 +443,43 @@ function DigestDeliveryChannels({
         </MutedText>
       )}
     </div>
+  );
+}
+
+function DigestDeliveryActivity({
+  digestStatus,
+}: {
+  digestStatus: GetDigestStatusResponse | undefined;
+}) {
+  const { delivery } = digestStatus ?? {};
+
+  if (!delivery) return null;
+
+  const queuedLabel =
+    delivery.queuedItemCount > 0
+      ? `${delivery.queuedItemCount} ${
+          delivery.queuedItemCount === 1 ? "email" : "emails"
+        } queued for the next digest.`
+      : null;
+
+  const lastDeliveryLabel = delivery.lastDelivery
+    ? delivery.lastDelivery.status === "SENT"
+      ? `Last sent ${formatDigestDeliveryTime(
+          new Date(delivery.lastDelivery.occurredAt),
+          delivery.timezone,
+        )}.`
+      : `Last delivery failed ${formatDigestDeliveryTime(
+          new Date(delivery.lastDelivery.occurredAt),
+          delivery.timezone,
+        )}.`
+    : null;
+
+  if (!queuedLabel && !lastDeliveryLabel) return null;
+
+  return (
+    <MutedText>
+      {[queuedLabel, lastDeliveryLabel].filter(Boolean).join(" ")}
+    </MutedText>
   );
 }
 
@@ -479,4 +571,29 @@ function getInitialScheduleProps(
     dayOfWeek: initialDayOfWeek,
     time: initialTime,
   };
+}
+
+function formatDigestDeliveryTime(date: Date, timezone?: string | null) {
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: timezone || undefined,
+  }).format(date);
+}
+
+function hasActionError(
+  result:
+    | {
+        serverError?: unknown;
+        validationErrors?: unknown;
+        bindArgsValidationErrors?: unknown;
+      }
+    | null
+    | undefined,
+) {
+  return Boolean(
+    result?.serverError ||
+      result?.validationErrors ||
+      result?.bindArgsValidationErrors,
+  );
 }

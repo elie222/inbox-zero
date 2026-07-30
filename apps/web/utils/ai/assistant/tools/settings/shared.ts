@@ -24,6 +24,11 @@ import {
   createAutomationJob,
 } from "@/utils/actions/automation-jobs.helpers";
 import { ensureScheduledCheckInsRouteForChannel } from "@/utils/automation-jobs/destination";
+import { getDigestDeliveryState } from "@/utils/digest/delivery-state";
+import {
+  DIGEST_DISPATCH_INTERVAL_MINUTES,
+  getEstimatedDigestDeliveryAt,
+} from "@/utils/digest/schedule";
 
 const scheduledCheckInsConfigSchema = z
   .object({
@@ -240,6 +245,7 @@ export type AccountSettingsSnapshot = {
   followUpAutoDraftEnabled: boolean;
   digest: {
     enabled: boolean;
+    combinesIncludedRules: true;
     schedule: {
       intervalDays: number | null;
       occurrences: number | null;
@@ -247,6 +253,17 @@ export type AccountSettingsSnapshot = {
       timeOfDay: string | null;
       nextOccurrenceAt: string | null;
     } | null;
+    delivery: {
+      emailEnabled: boolean;
+      destinationEmail: string;
+      dispatchIntervalMinutes: number;
+      estimatedNextDeliveryAt: string | null;
+      queuedItemCount: number;
+      lastDelivery: {
+        status: string;
+        occurredAt: string;
+      } | null;
+    };
     includedRules: Array<{
       name: string;
       systemType: string | null;
@@ -305,6 +322,7 @@ const accountSettingsSnapshotRawSelect = {
   followUpAwaitingReplyDays: true,
   followUpNeedsReplyDays: true,
   followUpAutoDraftEnabled: true,
+  digestSendEmail: true,
   digestSchedule: {
     select: {
       id: true,
@@ -449,6 +467,8 @@ const readOnlyCapabilities = [
     title: "Digest configuration",
     reason:
       "Readable in chat, but writes are not yet exposed through updateAssistantSettings.",
+    description:
+      "All included rules are combined into one account-level digest. When email delivery is enabled, it is sent automatically to delivery.destinationEmail; there is no separate recipient setting. The scheduled time makes the digest eligible, while estimatedNextDeliveryAt accounts for the dispatch interval.",
   },
 ] as const;
 
@@ -1134,9 +1154,10 @@ function isDisableOnlyScheduledCheckInsChange({
 }
 
 export async function loadAccountSettingsSnapshot(emailAccountId: string) {
-  const [emailAccount, automationJob] = await Promise.all([
+  const [emailAccount, automationJob, digestDeliveryState] = await Promise.all([
     loadAccountSettingsSnapshotRaw(emailAccountId),
     loadScheduledCheckInsAutomationJob(emailAccountId),
+    getDigestDeliveryState({ emailAccountId }),
   ]);
 
   if (!emailAccount) return null;
@@ -1160,6 +1181,7 @@ export async function loadAccountSettingsSnapshot(emailAccountId: string) {
     followUpAutoDraftEnabled: emailAccount.followUpAutoDraftEnabled,
     digest: {
       enabled: Boolean(emailAccount.digestSchedule),
+      combinesIncludedRules: true,
       schedule: emailAccount.digestSchedule
         ? {
             intervalDays: emailAccount.digestSchedule.intervalDays,
@@ -1172,6 +1194,23 @@ export async function loadAccountSettingsSnapshot(emailAccountId: string) {
               null,
           }
         : null,
+      delivery: {
+        emailEnabled: emailAccount.digestSendEmail,
+        destinationEmail: emailAccount.email,
+        dispatchIntervalMinutes: DIGEST_DISPATCH_INTERVAL_MINUTES,
+        estimatedNextDeliveryAt:
+          getEstimatedDigestDeliveryAt(
+            emailAccount.digestSchedule?.nextOccurrenceAt,
+          )?.toISOString() ?? null,
+        queuedItemCount: digestDeliveryState.queuedItemCount,
+        lastDelivery: digestDeliveryState.lastDelivery
+          ? {
+              status: digestDeliveryState.lastDelivery.status,
+              occurredAt:
+                digestDeliveryState.lastDelivery.occurredAt.toISOString(),
+            }
+          : null,
+      },
       includedRules: emailAccount.rules
         .filter((rule) => rule.actions.length > 0)
         .map((rule) => ({

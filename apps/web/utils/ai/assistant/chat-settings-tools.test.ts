@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import {
+  DigestStatus,
   MessagingRoutePurpose,
   MessagingRouteTargetType,
 } from "@/generated/prisma/enums";
@@ -52,6 +53,7 @@ const baseAccountSnapshot = {
   followUpAwaitingReplyDays: 3,
   followUpNeedsReplyDays: 2,
   followUpAutoDraftEnabled: true,
+  digestSendEmail: true,
   digestSchedule: {
     id: "digest-1",
     intervalDays: 1,
@@ -115,6 +117,12 @@ describe("chat settings tools", () => {
     prisma.automationJob.findUnique.mockResolvedValue(
       baseAccountSnapshot.automationJob,
     );
+    prisma.digestItem.count.mockResolvedValue(2);
+    prisma.digest.findFirst.mockResolvedValue({
+      status: DigestStatus.SENT,
+      sentAt: new Date("2026-02-20T09:05:00.000Z"),
+      updatedAt: new Date("2026-02-20T09:05:00.000Z"),
+    } as never);
   });
 
   it("returns writable and read-only capability metadata", async () => {
@@ -130,7 +138,7 @@ describe("chat settings tools", () => {
     const result = await toolInstance.execute({});
 
     expect(result).toMatchObject({
-      snapshotVersion: "2026-02-20",
+      snapshotVersion: "2026-07-30",
       account: {
         email: "user@example.com",
         provider: "google",
@@ -158,12 +166,24 @@ describe("chat settings tools", () => {
       canWrite: false,
       value: {
         enabled: true,
+        combinesIncludedRules: true,
         schedule: {
           intervalDays: 1,
           occurrences: 1,
           daysOfWeek: 127,
           timeOfDay: "1970-01-01T09:00:00.000Z",
           nextOccurrenceAt: "2026-02-21T09:00:00.000Z",
+        },
+        delivery: {
+          emailEnabled: true,
+          destinationEmail: "user@example.com",
+          dispatchIntervalMinutes: 5,
+          estimatedNextDeliveryAt: "2026-02-21T09:00:00.000Z",
+          queuedItemCount: 2,
+          lastDelivery: {
+            status: DigestStatus.SENT,
+            occurredAt: "2026-02-20T09:05:00.000Z",
+          },
         },
         includedRules: [
           {
@@ -175,6 +195,9 @@ describe("chat settings tools", () => {
       },
     });
     expect(digestCapability?.reason).toContain("not yet exposed");
+    expect(digestCapability?.description).toContain(
+      "sent automatically to delivery.destinationEmail",
+    );
 
     const scheduledCheckInsCapability = result.capabilities.find(
       (capability) => capability.path === "assistant.scheduledCheckIns",
