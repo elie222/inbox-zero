@@ -68,14 +68,14 @@ export async function handleCarddavRequest({
     });
     const children =
       !root && depth !== "0"
-        ? [await addressbookCollectionResponse(emailAccountId)]
+        ? [await addressbookCollectionResponse(emailAccountId, body)]
         : [];
     return multistatus([discovery, ...children].join("\n"));
   }
 
   if (root === "addressbook") {
     if (method === "PROPFIND" && !resource) {
-      return propfindAddressbook({ emailAccountId, depth });
+      return propfindAddressbook({ emailAccountId, depth, body });
     }
     if (method === "REPORT" && !resource) {
       return reportAddressbook({ emailAccountId, body });
@@ -85,6 +85,9 @@ export async function handleCarddavRequest({
       if (method === "GET") return getContact({ emailAccountId, uid });
       if (method === "PUT") return putContact({ emailAccountId, uid, body });
       if (method === "DELETE") return deleteContact({ emailAccountId, uid });
+      if (method === "PROPFIND") {
+        return propfindContact({ emailAccountId, uid, requestBody: body });
+      }
     }
   }
 
@@ -122,39 +125,9 @@ function discoveryResponse({
   requestBody: string;
   href: string;
 }): string {
-  const available = DISCOVERY_PROPS[level];
-  // RFC 4918: answer each requested property, with a 404 propstat for the
-  // ones this resource doesn't have — silently omitting a requested prop
-  // leaves a strict client unable to tell an incomplete answer from a
-  // missing property. An empty body means allprop: everything we have.
-  const requested = requestedProps(requestBody);
-  const names = requested.length ? requested : Object.keys(available);
-
-  const found = names.filter((name) => available[name]);
-  const missing = requested.filter((name) => !available[name]);
-
-  const propstats = [
-    found.length
-      ? `<d:propstat><d:prop>${found
-          .map((name) => available[name])
-          .join(
-            "\n",
-          )}</d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat>`
-      : "",
-    missing.length
-      ? `<d:propstat><d:prop>${missing
-          .map((name) => `<d:${escapeXml(name)}/>`)
-          .join(
-            "",
-          )}</d:prop><d:status>HTTP/1.1 404 Not Found</d:status></d:propstat>`
-      : "",
-  ]
-    .filter(Boolean)
-    .join("\n  ");
-
   return `<d:response>
   <d:href>${escapeXml(href)}</d:href>
-  ${propstats}
+  ${propstats(DISCOVERY_PROPS[level], requestBody)}
 </d:response>`;
 }
 
@@ -197,37 +170,51 @@ async function addressbookState(emailAccountId: string) {
 // listing and the addressbook's own PROPFIND both return for it
 async function addressbookCollectionResponse(
   emailAccountId: string,
+  requestBody = "",
 ): Promise<string> {
   const { ctag, syncToken } = await addressbookState(emailAccountId);
 
-  return `<d:response>
-  <d:href>${ADDRESSBOOK_PATH}</d:href>
-  <d:propstat><d:prop>
-    <d:resourcetype><d:collection/><card:addressbook xmlns:card="urn:ietf:params:xml:ns:carddav"/></d:resourcetype>
-    <d:displayname>Zerrow Contacts</d:displayname>
-    <card:addressbook-description xmlns:card="urn:ietf:params:xml:ns:carddav">Contacts synced from Zerrow</card:addressbook-description>
-    <cs:getctag xmlns:cs="http://calendarserver.org/ns/">${escapeXml(ctag)}</cs:getctag>
-    <d:sync-token>${escapeXml(syncToken)}</d:sync-token>
-    <d:supported-report-set>
+  const available: Record<string, string> = {
+    resourcetype:
+      '<d:resourcetype><d:collection/><card:addressbook xmlns:card="urn:ietf:params:xml:ns:carddav"/></d:resourcetype>',
+    displayname: "<d:displayname>Zerrow Contacts</d:displayname>",
+    "addressbook-description":
+      '<card:addressbook-description xmlns:card="urn:ietf:params:xml:ns:carddav">Contacts synced from Zerrow</card:addressbook-description>',
+    getctag: `<cs:getctag xmlns:cs="http://calendarserver.org/ns/">${escapeXml(ctag)}</cs:getctag>`,
+    "sync-token": `<d:sync-token>${escapeXml(syncToken)}</d:sync-token>`,
+    "supported-report-set": `<d:supported-report-set>
       <d:supported-report><d:report><d:sync-collection/></d:report></d:supported-report>
       <d:supported-report><d:report><card:addressbook-multiget xmlns:card="urn:ietf:params:xml:ns:carddav"/></d:report></d:supported-report>
       <d:supported-report><d:report><card:addressbook-query xmlns:card="urn:ietf:params:xml:ns:carddav"/></d:report></d:supported-report>
-    </d:supported-report-set>
-    <card:supported-address-data xmlns:card="urn:ietf:params:xml:ns:carddav">
+    </d:supported-report-set>`,
+    "supported-address-data": `<card:supported-address-data xmlns:card="urn:ietf:params:xml:ns:carddav">
       <card:address-data-type content-type="text/vcard" version="3.0"/>
-    </card:supported-address-data>
-  </d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat>
+    </card:supported-address-data>`,
+    // Apple's client reads writability off the privilege set — without it
+    // the account can mount read-only
+    "current-user-privilege-set":
+      "<d:current-user-privilege-set><d:privilege><d:read/></d:privilege><d:privilege><d:write/></d:privilege></d:current-user-privilege-set>",
+    owner: `<d:owner><d:href>${BASE}/principal</d:href></d:owner>`,
+    "current-user-principal": DISCOVERY_PROPS.root["current-user-principal"],
+    "principal-URL": DISCOVERY_PROPS.root["principal-URL"],
+  };
+
+  return `<d:response>
+  <d:href>${ADDRESSBOOK_PATH}</d:href>
+  ${propstats(available, requestBody)}
 </d:response>`;
 }
 
 async function propfindAddressbook({
   emailAccountId,
   depth,
+  body,
 }: {
   emailAccountId: string;
   depth: string;
+  body: string;
 }): Promise<DavResponse> {
-  const collection = await addressbookCollectionResponse(emailAccountId);
+  const collection = await addressbookCollectionResponse(emailAccountId, body);
 
   const contacts = await prisma.contact.findMany({
     where: { emailAccountId },
@@ -358,6 +345,33 @@ async function syncCollectionReport({
     .join("\n");
 
   return multistatus(`${responses}\n${tokenLine}`);
+}
+
+// iOS spot-checks single cards with PROPFIND (etag freshness); answering 404
+// tells it the card is gone
+async function propfindContact({
+  emailAccountId,
+  uid,
+  requestBody,
+}: {
+  emailAccountId: string;
+  uid: string;
+  requestBody: string;
+}): Promise<DavResponse> {
+  const contact = await findByUid(emailAccountId, uid);
+  if (!contact) return { status: 404, body: "Not found" };
+
+  const available: Record<string, string> = {
+    resourcetype: "<d:resourcetype/>",
+    getetag: `<d:getetag>${escapeXml(contactEtag(contact.updatedAt))}</d:getetag>`,
+    getcontenttype:
+      "<d:getcontenttype>text/vcard; charset=utf-8</d:getcontenttype>",
+  };
+
+  return multistatus(`<d:response>
+  <d:href>${contactHref(contact)}</d:href>
+  ${propstats(available, requestBody)}
+</d:response>`);
 }
 
 async function getContact({
@@ -492,6 +506,40 @@ function contactVCard(contact: FullContact): string {
     companyName: contact.company?.name ?? null,
     updatedAt: contact.updatedAt,
   });
+}
+
+// RFC 4918: answer each requested property, with a 404 propstat for the
+// ones this resource doesn't have — silently omitting a requested prop
+// leaves a strict client unable to tell an incomplete answer from a
+// missing property. An empty body means allprop: everything we have.
+function propstats(
+  available: Record<string, string>,
+  requestBody: string,
+): string {
+  const requested = requestedProps(requestBody);
+  const names = requested.length ? requested : Object.keys(available);
+
+  const found = names.filter((name) => available[name]);
+  const missing = requested.filter((name) => !available[name]);
+
+  return [
+    found.length
+      ? `<d:propstat><d:prop>${found
+          .map((name) => available[name])
+          .join(
+            "\n",
+          )}</d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat>`
+      : "",
+    missing.length
+      ? `<d:propstat><d:prop>${missing
+          .map((name) => `<d:${escapeXml(name)}/>`)
+          .join(
+            "",
+          )}</d:prop><d:status>HTTP/1.1 404 Not Found</d:status></d:propstat>`
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n  ");
 }
 
 function multistatus(responses: string): DavResponse {

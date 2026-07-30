@@ -202,6 +202,44 @@ describe("CardDAV handler", () => {
       expect(getCtag(result.body)).toMatch(/^"2-/);
     });
 
+    // iOS decides whether the account is editable from the privilege set and
+    // matches each answered prop against what it asked for — a fixed prop
+    // set that ignores the request leaves strict clients unable to tell an
+    // incomplete answer from a missing property
+    it("answers the props iOS asks the addressbook for", async () => {
+      prisma.contact.findMany.mockResolvedValue([
+        { id: "c1", carddavUid: "uid-1", updatedAt: UPDATED_AT },
+      ] as never);
+      prisma.contact.count.mockResolvedValue(1);
+
+      const result = await request({
+        method: "PROPFIND",
+        segments: ["addressbook"],
+        depth: "0",
+        body: `<?xml version="1.0" encoding="UTF-8"?>
+<A:propfind xmlns:A="DAV:">
+  <A:prop>
+    <A:resourcetype/>
+    <A:current-user-privilege-set/>
+    <A:owner/>
+    <A:quota-available-bytes/>
+  </A:prop>
+</A:propfind>`,
+      });
+
+      expect(result.status).toBe(207);
+      expect(result.body).toContain("<d:current-user-privilege-set>");
+      expect(result.body).toContain("<d:write/>");
+      expect(result.body).toContain(
+        "<d:owner><d:href>/api/carddav/principal</d:href></d:owner>",
+      );
+      // A prop we don't have gets an explicit 404 propstat, not silence
+      expect(result.body).toContain("<d:quota-available-bytes/>");
+      expect(result.body).toContain("HTTP/1.1 404 Not Found");
+      // Unrequested props stay out of the answer
+      expect(result.body).not.toContain("getctag");
+    });
+
     // Modern iOS picks the sync-collection path when the server offers it —
     // the addressbook must advertise the report and expose a sync token
     it("advertises sync-collection with a sync token", async () => {
@@ -261,6 +299,25 @@ describe("CardDAV handler", () => {
 
       expect(result.body).toContain("Grace Hopper");
       expect(result.body).not.toContain("Ada Lovelace");
+    });
+
+    // Clients echo hrefs percent-encoded exactly as listed; a UID with a
+    // space or @ must still round-trip through the multiget
+    it("matches multiget hrefs whose uids need URL encoding", async () => {
+      prisma.contact.findMany.mockResolvedValue([
+        fullContact({ carddavUid: "uid 3" }),
+      ] as never);
+
+      const result = await request({
+        method: "REPORT",
+        segments: ["addressbook"],
+        body: `<card:addressbook-multiget xmlns:card="urn:ietf:params:xml:ns:carddav" xmlns:d="DAV:">
+  <d:href>/api/carddav/addressbook/uid%203.vcf</d:href>
+</card:addressbook-multiget>`,
+      });
+
+      expect(result.body).toContain("BEGIN:VCARD");
+      expect(result.body).toContain("Ada Lovelace");
     });
 
     // An unrecognized REPORT must not be answered with a full dump — a
@@ -418,6 +475,37 @@ describe("CardDAV handler", () => {
   });
 
   describe("per-contact requests", () => {
+    // iOS spot-checks individual cards with PROPFIND; a 404 there reads as
+    // "this card is gone" and the client drops its local copy
+    it("answers PROPFIND on a single card with its etag", async () => {
+      prisma.contact.findFirst.mockResolvedValue(fullContact() as never);
+
+      const result = await request({
+        method: "PROPFIND",
+        segments: ["addressbook", "uid-1.vcf"],
+      });
+
+      expect(result.status).toBe(207);
+      expect(result.body).toContain(
+        "<d:href>/api/carddav/addressbook/uid-1.vcf</d:href>",
+      );
+      expect(result.body).toContain(
+        `<d:getetag>"${UPDATED_AT.getTime()}"</d:getetag>`,
+      );
+      expect(result.body).toContain("text/vcard");
+    });
+
+    it("404s a PROPFIND for a card that isn't ours", async () => {
+      prisma.contact.findFirst.mockResolvedValue(null);
+
+      const result = await request({
+        method: "PROPFIND",
+        segments: ["addressbook", "gone.vcf"],
+      });
+
+      expect(result.status).toBe(404);
+    });
+
     it("serves a single contact as vCard with an etag", async () => {
       prisma.contact.findFirst.mockResolvedValue(fullContact() as never);
 
