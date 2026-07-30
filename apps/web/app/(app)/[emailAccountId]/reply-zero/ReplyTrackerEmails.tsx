@@ -222,8 +222,10 @@ export function ReplyTrackerEmails({
   }
 
   return (
-    // hacky. this will break if other parts of the layout change
-    <div className="h-[calc(100vh-7.5rem)]">
+    // hacky. this will break if other parts of the layout change.
+    // dvh, not vh: 100vh is the large viewport on mobile, so the split
+    // view's lower pane hung below the visible area behind the app tray
+    <div className="h-[calc(100dvh-7.5rem)] max-md:h-[calc(100dvh-var(--mobile-header-h)-var(--mobile-tray-h))]">
       <ResizablePanelGroup
         direction={isMobile ? "vertical" : "horizontal"}
         className="h-full"
