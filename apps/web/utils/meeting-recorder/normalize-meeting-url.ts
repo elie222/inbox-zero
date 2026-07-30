@@ -16,7 +16,7 @@ const TEAMS_LIVE_MEET_ID = /^\/meet\/(\d+)(?:\/|$)/;
  * key that decides which accounts share a recording, that would let an
  * attacker-controlled link collide with a real meeting.
  */
-function isHost(host: string, domain: string): boolean {
+export function isHost(host: string, domain: string): boolean {
   return host === domain || host.endsWith(`.${domain}`);
 }
 
