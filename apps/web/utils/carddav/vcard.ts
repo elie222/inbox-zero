@@ -127,12 +127,12 @@ function escapeValue(value: string): string {
   );
 }
 
+// Single pass on purpose: sequential replaces would read the tail of an
+// escaped backslash as the head of an escaped newline ("Dev\\Network")
 function unescapeValue(value: string): string {
-  return value
-    .replace(/\\n/gi, "\n")
-    .replace(/\\,/g, ",")
-    .replace(/\\;/g, ";")
-    .replace(/\\\\/g, "\\");
+  return value.replace(/\\(.)/g, (_, char: string) =>
+    char === "n" || char === "N" ? "\n" : char,
+  );
 }
 
 // "TEL;type=CELL;type=pref" → the vCard TYPE params carry the kind of line

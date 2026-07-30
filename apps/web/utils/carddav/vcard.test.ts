@@ -91,6 +91,22 @@ describe("parseVCard", () => {
     });
   });
 
+  // A backslash before an n ("Dev\Network" escaped to "Dev\\Network") must
+  // not be read as an escaped newline — that's silent data corruption that
+  // then round-trips into every card the server generates
+  it("keeps a literal backslash that precedes an n", () => {
+    const raw = [
+      "BEGIN:VCARD",
+      "VERSION:3.0",
+      "UID:u1",
+      "FN:Ada",
+      "ORG:Dev\\\\Network",
+      "END:VCARD",
+    ].join("\r\n");
+
+    expect(parseVCard(raw).companyName).toBe("Dev\\Network");
+  });
+
   it("parses an iOS-style card with folded lines and params", () => {
     const raw = [
       "BEGIN:VCARD",

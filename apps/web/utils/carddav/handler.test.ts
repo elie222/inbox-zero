@@ -115,6 +115,19 @@ describe("CardDAV handler", () => {
       expect(result.body).toContain("HTTP/1.1 200 OK");
     });
 
+    // Prop names come straight from the client; one named like an Object
+    // prototype member must not dredge up inherited junk as a 200 answer
+    it("404s a requested prop named like an Object prototype member", async () => {
+      const result = await request({
+        method: "PROPFIND",
+        body: `<propfind xmlns="DAV:"><prop><constructor/><current-user-principal/></prop></propfind>`,
+      });
+
+      expect(result.body).toContain("<d:constructor/>");
+      expect(result.body).toContain("HTTP/1.1 404 Not Found");
+      expect(result.body).not.toContain("native code");
+    });
+
     it("answers everything it has when the client sends no body", async () => {
       const result = await request({ method: "PROPFIND" });
 
@@ -160,6 +173,27 @@ describe("CardDAV handler", () => {
       expect(result.body).toContain(
         `<d:getetag>"${UPDATED_AT.getTime()}"</d:getetag>`,
       );
+    });
+
+    // The child rows must honor the request the same way the collection
+    // does — a fixed prop set on children is the same defect half-fixed
+    it("children answer only the props the client asked for at depth 1", async () => {
+      prisma.contact.findMany.mockResolvedValue([
+        { id: "c1", carddavUid: "uid-1", updatedAt: UPDATED_AT },
+      ] as never);
+      prisma.contact.count.mockResolvedValue(1);
+
+      const result = await request({
+        method: "PROPFIND",
+        segments: ["addressbook"],
+        depth: "1",
+        body: '<propfind xmlns="DAV:"><prop><getetag/></prop></propfind>',
+      });
+
+      expect(result.body).toContain(
+        `<d:getetag>"${UPDATED_AT.getTime()}"</d:getetag>`,
+      );
+      expect(result.body).not.toContain("getcontenttype");
     });
 
     // The ctag is how iOS decides whether to re-download anything
@@ -593,6 +627,19 @@ describe("CardDAV handler", () => {
 
       expect(result.status).toBe(404);
     });
+  });
+
+  // One malformed href from a buggy client must degrade to a 404, not blow
+  // up the whole request with a URIError
+  it("404s a card path with malformed percent-encoding", async () => {
+    prisma.contact.findFirst.mockResolvedValue(null);
+
+    const result = await request({
+      method: "GET",
+      segments: ["addressbook", "%zz.vcf"],
+    });
+
+    expect(result.status).toBe(404);
   });
 
   it("404s paths outside the addressbook", async () => {

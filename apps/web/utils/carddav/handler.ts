@@ -81,7 +81,7 @@ export async function handleCarddavRequest({
       return reportAddressbook({ emailAccountId, body });
     }
     if (resource?.endsWith(".vcf")) {
-      const uid = decodeURIComponent(resource.slice(0, -4));
+      const uid = safeDecode(resource.slice(0, -4));
       if (method === "GET") return getContact({ emailAccountId, uid });
       if (method === "PUT") return putContact({ emailAccountId, uid, body });
       if (method === "DELETE") return deleteContact({ emailAccountId, uid });
@@ -229,11 +229,7 @@ async function propfindAddressbook({
           .map(
             (contact) => `<d:response>
   <d:href>${contactHref(contact)}</d:href>
-  <d:propstat><d:prop>
-    <d:resourcetype/>
-    <d:getetag>${escapeXml(contactEtag(contact.updatedAt))}</d:getetag>
-    <d:getcontenttype>text/vcard; charset=utf-8</d:getcontenttype>
-  </d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat>
+  ${propstats(contactProps(contact.updatedAt), body)}
 </d:response>`,
           )
           .join("\n");
@@ -265,7 +261,7 @@ async function reportAddressbook({
   const requested = isMultiget
     ? new Set(
         [...body.matchAll(/<[^>]*href[^>]*>([^<]+)<\//gi)].map((match) =>
-          decodeURIComponent(match[1].trim()),
+          safeDecode(match[1].trim()),
         ),
       )
     : null;
@@ -361,16 +357,9 @@ async function propfindContact({
   const contact = await findByUid(emailAccountId, uid);
   if (!contact) return { status: 404, body: "Not found" };
 
-  const available: Record<string, string> = {
-    resourcetype: "<d:resourcetype/>",
-    getetag: `<d:getetag>${escapeXml(contactEtag(contact.updatedAt))}</d:getetag>`,
-    getcontenttype:
-      "<d:getcontenttype>text/vcard; charset=utf-8</d:getcontenttype>",
-  };
-
   return multistatus(`<d:response>
   <d:href>${contactHref(contact)}</d:href>
-  ${propstats(available, requestBody)}
+  ${propstats(contactProps(contact.updatedAt), requestBody)}
 </d:response>`);
 }
 
@@ -519,8 +508,10 @@ function propstats(
   const requested = requestedProps(requestBody);
   const names = requested.length ? requested : Object.keys(available);
 
-  const found = names.filter((name) => available[name]);
-  const missing = requested.filter((name) => !available[name]);
+  // hasOwn, not a truthiness lookup: prop names come straight from the
+  // client, and "constructor" must not dredge up Object.prototype as a 200
+  const found = names.filter((name) => Object.hasOwn(available, name));
+  const missing = requested.filter((name) => !Object.hasOwn(available, name));
 
   return [
     found.length
@@ -540,6 +531,27 @@ function propstats(
   ]
     .filter(Boolean)
     .join("\n  ");
+}
+
+// The props a single card can answer — shared by the Depth-1 listing rows
+// and a card's own PROPFIND so the two can't drift apart
+function contactProps(updatedAt: Date): Record<string, string> {
+  return {
+    resourcetype: "<d:resourcetype/>",
+    getetag: `<d:getetag>${escapeXml(contactEtag(updatedAt))}</d:getetag>`,
+    getcontenttype:
+      "<d:getcontenttype>text/vcard; charset=utf-8</d:getcontenttype>",
+  };
+}
+
+// decodeURIComponent that keeps malformed escapes as literal text — one bad
+// href from a buggy client shouldn't turn the whole exchange into a 500
+function safeDecode(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
 }
 
 function multistatus(responses: string): DavResponse {
