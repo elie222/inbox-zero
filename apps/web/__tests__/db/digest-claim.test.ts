@@ -15,7 +15,8 @@ describe.skipIf(!RUN_DB_TESTS)(
   { timeout: 30_000 },
   () => {
     let prisma: typeof import("@/utils/prisma").default;
-    let claimPendingDigestIds: typeof import("@/utils/digest/claim-pending-digests").claimPendingDigestIds;
+    let claimPendingDigests: typeof import("@/utils/digest/claim-pending-digests").claimPendingDigests;
+    let renewDigestClaim: typeof import("@/utils/digest/claim-pending-digests").renewDigestClaim;
     let emailAccountId: string;
 
     const accountEmail = "digest-claim-test@example.com";
@@ -27,7 +28,7 @@ describe.skipIf(!RUN_DB_TESTS)(
 
     beforeAll(async () => {
       prisma = (await import("@/utils/prisma")).default;
-      ({ claimPendingDigestIds } = await import(
+      ({ claimPendingDigests, renewDigestClaim } = await import(
         "@/utils/digest/claim-pending-digests"
       ));
     });
@@ -87,11 +88,11 @@ describe.skipIf(!RUN_DB_TESTS)(
 
     test("claims pending and stale digests only once across concurrent workers", async () => {
       const [firstClaim, secondClaim] = await Promise.all([
-        claimPendingDigestIds({ emailAccountId, now }),
-        claimPendingDigestIds({ emailAccountId, now }),
+        claimPendingDigests({ emailAccountId, now }),
+        claimPendingDigests({ emailAccountId, now }),
       ]);
 
-      const claimedIds = [...firstClaim, ...secondClaim];
+      const claimedIds = [...firstClaim.digestIds, ...secondClaim.digestIds];
 
       expect(claimedIds).toHaveLength(3);
       expect(new Set(claimedIds)).toEqual(
@@ -110,6 +111,26 @@ describe.skipIf(!RUN_DB_TESTS)(
       expect(
         digests.filter((digest) => digest.status === DigestStatus.SENT),
       ).toHaveLength(1);
+    });
+
+    test("prevents an old worker from renewing a reclaimed digest", async () => {
+      const firstClaim = await claimPendingDigests({ emailAccountId, now });
+      const reclaimedAt = new Date("2026-07-30T18:11:00.000Z");
+
+      const secondClaim = await claimPendingDigests({
+        emailAccountId,
+        now: reclaimedAt,
+      });
+
+      expect(secondClaim.digestIds).toEqual(
+        expect.arrayContaining(firstClaim.digestIds),
+      );
+      expect(
+        await renewDigestClaim(
+          firstClaim,
+          new Date("2026-07-30T18:12:00.000Z"),
+        ),
+      ).toBeNull();
     });
   },
 );
