@@ -256,7 +256,11 @@ const Sidebar = React.forwardRef<
             }
             side={side}
           >
-            <div className="flex h-full w-full flex-col">{children}</div>
+            {/* Full-bleed drawer: keep the nav's top out from under the
+                status bar and its tail clear of the home indicator */}
+            <div className="flex h-full w-full flex-col pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]">
+              {children}
+            </div>
           </SheetContent>
         </Sheet>
       );

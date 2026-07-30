@@ -117,7 +117,7 @@ export function FolderSettingsDrawer({
             scrolls, so it owns its padding rather than the sheet */}
         <SheetContent
           side="right"
-          className="flex w-full max-w-none flex-col gap-0 p-0 sm:max-w-[480px]"
+          className="flex w-full max-w-none flex-col gap-0 p-0 sm:max-w-[480px] [&>button]:top-[calc(1rem+env(safe-area-inset-top,0px))]"
         >
           {labelId && (
             <FolderSettingsContent
@@ -175,7 +175,7 @@ function FolderSettingsContent({
     >
       {label ? (
         <div className="flex min-h-0 flex-1 flex-col">
-          <SheetHeader className="flex shrink-0 flex-row items-center gap-3 border-b border-border px-6 pb-3.5 pt-5 pr-12 space-y-0">
+          <SheetHeader className="flex shrink-0 flex-row items-center gap-3 border-b border-border px-6 pb-3.5 pt-[calc(1.25rem+env(safe-area-inset-top,0px))] pr-12 space-y-0">
             <span
               className="size-3 shrink-0 rounded-full"
               style={{ backgroundColor: dbLabel?.color ?? "currentColor" }}
@@ -208,7 +208,7 @@ function FolderSettingsContent({
             ))}
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-4">
+          <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] pt-4">
             {tab === "settings" ? (
               <div className="divide-y divide-border">
                 <div className="pb-4">
