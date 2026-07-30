@@ -43,7 +43,33 @@ describe("CardDAV handler", () => {
 
       expect(result.status).toBe(207);
       expect(result.body).toContain("card:addressbook-home-set");
+      expect(result.body).toContain("<d:href>/api/carddav/</d:href>");
+    });
+
+    // Apple's client finds addressbooks by listing the home set's children,
+    // not by inspecting the home set itself — the listing must include the
+    // addressbook collection or the account syncs nothing
+    it("lists the addressbook when the home set is opened at depth 1", async () => {
+      prisma.contact.findMany.mockResolvedValue([
+        { updatedAt: UPDATED_AT },
+      ] as never);
+      prisma.contact.count.mockResolvedValue(1);
+
+      const result = await request({ method: "PROPFIND", depth: "1" });
+
+      expect(result.status).toBe(207);
       expect(result.body).toContain(
+        "<d:href>/api/carddav/addressbook/</d:href>",
+      );
+      expect(result.body).toContain("card:addressbook");
+      expect(result.body).toContain("getctag");
+    });
+
+    it("keeps the home set listing shallow at depth 0", async () => {
+      const result = await request({ method: "PROPFIND", depth: "0" });
+
+      expect(result.status).toBe(207);
+      expect(result.body).not.toContain(
         "<d:href>/api/carddav/addressbook/</d:href>",
       );
     });

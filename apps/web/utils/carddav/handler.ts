@@ -47,13 +47,21 @@ export async function handleCarddavRequest({
     };
   }
 
-  // /api/carddav or /api/carddav/principal → discovery
+  // /api/carddav or /api/carddav/principal → discovery. The root doubles as
+  // the addressbook home set: Apple's client lists the home set's CHILDREN
+  // (Depth 1) looking for addressbook collections — a home set that is
+  // itself the addressbook enumerates as empty and syncs nothing.
   if (method === "PROPFIND" && (!root || root === "principal")) {
-    return propfindDiscovery({
+    const discovery = discoveryResponse({
       level: root ? "principal" : "root",
       requestBody: body,
       href: requestPath || (root ? `${BASE}/principal` : BASE),
     });
+    const children =
+      !root && depth !== "0"
+        ? [await addressbookCollectionResponse(emailAccountId)]
+        : [];
+    return multistatus([discovery, ...children].join("\n"));
   }
 
   if (root === "addressbook") {
@@ -88,11 +96,11 @@ const DISCOVERY_PROPS: Record<"root" | "principal", Record<string, string>> = {
     "principal-URL": `<d:principal-URL><d:href>${BASE}/principal</d:href></d:principal-URL>`,
     resourcetype: "<d:resourcetype><d:principal/></d:resourcetype>",
     displayname: "<d:displayname>Zerrow</d:displayname>",
-    "addressbook-home-set": `<card:addressbook-home-set xmlns:card="urn:ietf:params:xml:ns:carddav"><d:href>${BASE}/addressbook/</d:href></card:addressbook-home-set>`,
+    "addressbook-home-set": `<card:addressbook-home-set xmlns:card="urn:ietf:params:xml:ns:carddav"><d:href>${BASE}/</d:href></card:addressbook-home-set>`,
   },
 };
 
-function propfindDiscovery({
+function discoveryResponse({
   level,
   requestBody,
   href,
@@ -100,7 +108,7 @@ function propfindDiscovery({
   level: "root" | "principal";
   requestBody: string;
   href: string;
-}): DavResponse {
+}): string {
   const available = DISCOVERY_PROPS[level];
   // RFC 4918: answer each requested property, with a 404 propstat for the
   // ones this resource doesn't have — silently omitting a requested prop
@@ -131,10 +139,10 @@ function propfindDiscovery({
     .filter(Boolean)
     .join("\n  ");
 
-  return multistatus(`<d:response>
+  return `<d:response>
   <d:href>${escapeXml(href)}</d:href>
   ${propstats}
-</d:response>`);
+</d:response>`;
 }
 
 // The local names of the properties a PROPFIND body asks for, in document
@@ -149,22 +157,21 @@ function requestedProps(body: string): string[] {
     .filter((name) => name.toLowerCase() !== "prop");
 }
 
-async function propfindAddressbook({
-  emailAccountId,
-  depth,
-}: {
-  emailAccountId: string;
-  depth: string;
-}): Promise<DavResponse> {
+// The addressbook collection's own PROPFIND response: what the home-set
+// listing and the addressbook's own PROPFIND both return for it
+async function addressbookCollectionResponse(
+  emailAccountId: string,
+): Promise<string> {
   const contacts = await prisma.contact.findMany({
     where: { emailAccountId },
-    select: { id: true, carddavUid: true, updatedAt: true },
+    select: { updatedAt: true },
     orderBy: { updatedAt: "desc" },
+    take: 1,
   });
+  const count = await prisma.contact.count({ where: { emailAccountId } });
+  const ctag = `${contacts[0]?.updatedAt.getTime() ?? 0}-${count}`;
 
-  const ctag = `${contacts[0]?.updatedAt.getTime() ?? 0}-${contacts.length}`;
-
-  const collection = `<d:response>
+  return `<d:response>
   <d:href>${ADDRESSBOOK_PATH}/</d:href>
   <d:propstat><d:prop>
     <d:resourcetype><d:collection/><card:addressbook xmlns:card="urn:ietf:params:xml:ns:carddav"/></d:resourcetype>
@@ -176,6 +183,22 @@ async function propfindAddressbook({
     </d:supported-report-set>
   </d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat>
 </d:response>`;
+}
+
+async function propfindAddressbook({
+  emailAccountId,
+  depth,
+}: {
+  emailAccountId: string;
+  depth: string;
+}): Promise<DavResponse> {
+  const collection = await addressbookCollectionResponse(emailAccountId);
+
+  const contacts = await prisma.contact.findMany({
+    where: { emailAccountId },
+    select: { id: true, carddavUid: true, updatedAt: true },
+    orderBy: { updatedAt: "desc" },
+  });
 
   const children =
     depth === "0"
