@@ -551,15 +551,11 @@ export function ConditionSteps({
                             className="text-gray-400"
                           />
                         </div>
-                        <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                          <TooltipExplanation
-                            text="Only apply this rule to emails whose subject contains (or starts with) this text. e.g. Receipt for your purchase"
-                            side="right"
-                            size="sm"
-                            className="text-gray-400"
-                          />
-                        </div>
                       </div>
+                      <p className="w-full text-xs text-muted-foreground">
+                        Several subjects can share one rule — separate them with
+                        ||, e.g. Daily Report || Weekly Summary
+                      </p>
                     </div>
                   );
                 }
