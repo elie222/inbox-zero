@@ -19,6 +19,12 @@ const AnnouncementDialog = dynamic(
   { ssr: false },
 );
 
+const AppDataPreloader = dynamic(
+  () =>
+    import("@/components/AppDataPreloader").then((mod) => mod.AppDataPreloader),
+  { ssr: false },
+);
+
 // Interaction-driven UI that nothing needs at first paint. Loading it after
 // hydration settles keeps these chunks off the mail list's critical path.
 export function DeferredAppExtras() {
@@ -42,6 +48,7 @@ export function DeferredAppExtras() {
       <CommandK />
       <EmailViewer />
       <AnnouncementDialog />
+      <AppDataPreloader />
     </>
   );
 }
