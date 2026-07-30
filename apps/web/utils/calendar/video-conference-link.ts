@@ -12,11 +12,14 @@ export function findVideoConferenceLink(
   ...eventDetails: Array<string | null | undefined>
 ): string | undefined {
   for (const detail of eventDetails) {
-    // Hostnames are never entity-encoded, so this raw test safely skips
-    // decoding large HTML bodies that cannot contain a meeting link.
-    if (!detail || !KNOWN_MEETING_HOST.test(detail)) continue;
+    if (!detail) continue;
 
-    const urls = he.decode(detail).match(/https?:\/\/[^\s<>"']+/gi);
+    // Decode before filtering: HTML bodies can entity-encode any character,
+    // including dots in hostnames (e.g. meet&#46;google&#46;com).
+    const decoded = he.decode(detail);
+    if (!KNOWN_MEETING_HOST.test(decoded)) continue;
+
+    const urls = decoded.match(/https?:\/\/[^\s<>"']+/gi);
 
     for (const url of urls ?? []) {
       if (!KNOWN_MEETING_HOST.test(url)) continue;

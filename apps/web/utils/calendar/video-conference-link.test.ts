@@ -18,4 +18,12 @@ describe("findVideoConferenceLink", () => {
       ),
     ).toBe("https://zoom.us/j/8123456789?pwd=secret&from=calendar");
   });
+
+  it("finds a link whose hostname is entity-encoded", () => {
+    expect(
+      findVideoConferenceLink(
+        "Join: https://meet&#46;google&#46;com/abc-defg-hij",
+      ),
+    ).toBe("https://meet.google.com/abc-defg-hij");
+  });
 });
