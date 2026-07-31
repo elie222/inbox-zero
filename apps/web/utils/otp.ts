@@ -1,5 +1,6 @@
 import type { EmailThread } from "@/utils/email/types";
 import { getMessageTimestamp } from "@/utils/email/message-timestamp";
+import type { ParsedMessage } from "@/utils/types";
 
 const OTP_SUBJECT_PATTERNS = [
   /\botp\b/i,
@@ -15,22 +16,29 @@ export function isOtpSubject(subject: string): boolean {
   return OTP_SUBJECT_PATTERNS.some((pattern) => pattern.test(subject));
 }
 
+export function isRecentOtpMessage(
+  message: ParsedMessage,
+  now = new Date(),
+): boolean {
+  const receivedAt = getMessageTimestamp(message);
+  const currentTime = now.getTime();
+
+  return (
+    Number.isFinite(receivedAt) &&
+    receivedAt >= currentTime - OTP_MAX_AGE_MS &&
+    receivedAt <= currentTime &&
+    isOtpSubject(message.subject)
+  );
+}
+
 export function getRecentOtpThreads(
   threads: EmailThread[],
   now = new Date(),
 ): EmailThread[] {
-  const cutoff = now.getTime() - OTP_MAX_AGE_MS;
-
   return threads.flatMap((thread) => {
-    const messages = thread.messages.filter((message) => {
-      const receivedAt = getMessageTimestamp(message);
-      return (
-        Number.isFinite(receivedAt) &&
-        receivedAt >= cutoff &&
-        receivedAt <= now.getTime() &&
-        isOtpSubject(message.subject)
-      );
-    });
+    const messages = thread.messages.filter((message) =>
+      isRecentOtpMessage(message, now),
+    );
     return messages.length > 0 ? [{ ...thread, messages }] : [];
   });
 }

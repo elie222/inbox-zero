@@ -44,7 +44,8 @@ describe("loadRecentOtpSummary", () => {
         type: "inbox",
         after: new Date("2026-07-31T11:45:00.000Z"),
       },
-      maxResults: 20,
+      maxResults: 100,
+      pageToken: undefined,
     });
     expect(result).toMatchObject({
       accounts: [
@@ -87,6 +88,53 @@ describe("loadRecentOtpSummary", () => {
       { accountId: "working", email: "one@example.com", threads: [] },
     ]);
     expect(result.failedAccountIds).toEqual(["failed"]);
+  });
+
+  it("loads every page in the 15-minute provider window", async () => {
+    const provider = {
+      getThreadsWithQuery: vi
+        .fn()
+        .mockResolvedValueOnce({
+          threads: [
+            thread(
+              "first-page",
+              "A regular inbox message",
+              "2026-07-31T11:59:00.000Z",
+            ),
+          ],
+          nextPageToken: "page-2",
+        })
+        .mockResolvedValueOnce({
+          threads: [
+            thread(
+              "second-page",
+              "Your security code is 123456",
+              "2026-07-31T11:50:00.000Z",
+            ),
+          ],
+        }),
+    } as unknown as EmailProvider;
+
+    const result = await loadRecentOtpSummary({
+      accounts: [
+        { id: "account-1", email: "one@example.com", provider: "google" },
+      ],
+      createProvider: vi.fn().mockResolvedValue(provider),
+      logger,
+      now,
+    });
+
+    expect(provider.getThreadsWithQuery).toHaveBeenNthCalledWith(2, {
+      query: {
+        type: "inbox",
+        after: new Date("2026-07-31T11:45:00.000Z"),
+      },
+      maxResults: 100,
+      pageToken: "page-2",
+    });
+    expect(result.accounts[0]?.threads.map(({ id }) => id)).toEqual([
+      "second-page",
+    ]);
   });
 });
 

@@ -120,6 +120,10 @@
       "schedule": "0 3 * * *"
     },
     {
+      "path": "/api/cron/otp-push-retention",
+      "schedule": "30 3 * * *"
+    },
+    {
       "path": "/api/cron/draft-cleanup",
       "schedule": "0 4 * * *"
     }

@@ -147,17 +147,6 @@ export async function processHistoryItem(
       return;
     }
 
-    try {
-      await sendOtpPushNotification({
-        emailAccountId,
-        userId: emailAccount.userId,
-        message: parsedMessage,
-        logger,
-      });
-    } catch (error) {
-      logger.warn("OTP push notification processing failed", { error });
-    }
-
     // check if unsubscribed
     const email = canonicalizeEmailAddress(parsedMessage.headers.from);
     const sender = await prisma.newsletter.findFirst({
@@ -172,6 +161,17 @@ export async function processHistoryItem(
       await provider.blockUnsubscribedEmail(messageId);
       logger.info("Skipping. Blocked unsubscribed email.", { from: email });
       return;
+    }
+
+    try {
+      await sendOtpPushNotification({
+        emailAccountId,
+        userId: emailAccount.userId,
+        message: parsedMessage,
+        logger,
+      });
+    } catch (error) {
+      logger.warn("OTP push notification processing failed", { error });
     }
 
     if (!hasAiAccess) {

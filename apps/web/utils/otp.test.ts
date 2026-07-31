@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { EmailThread } from "@/utils/email/types";
-import { getRecentOtpThreads, isOtpSubject } from "./otp";
+import { getRecentOtpThreads, isOtpSubject, isRecentOtpMessage } from "./otp";
 
 describe("isOtpSubject", () => {
   it.each([
@@ -97,6 +97,20 @@ describe("getRecentOtpThreads", () => {
     recent.messages[0].internalDate = String(now.getTime() - 5 * 60 * 1000);
 
     expect(getRecentOtpThreads([recent], now)).toHaveLength(1);
+  });
+});
+
+describe("isRecentOtpMessage", () => {
+  const now = new Date("2026-07-31T12:00:00.000Z");
+
+  it("rejects an OTP delivered more than 15 minutes ago", () => {
+    const oldOtp = thread(
+      "old",
+      "Your verification code is 123456",
+      "2026-07-31T11:44:59.999Z",
+    ).messages[0];
+
+    expect(isRecentOtpMessage(oldOtp, now)).toBe(false);
   });
 });
 

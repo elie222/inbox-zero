@@ -1,14 +1,22 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { MobilePushPlatform } from "@/generated/prisma/enums";
 import { withAuth } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
+
+const MOBILE_PUSH_PLATFORMS = {
+  android: MobilePushPlatform.ANDROID,
+  ios: MobilePushPlatform.IOS,
+} as const;
 
 const pushTokenSchema = z.object({
   token: z
     .string()
     .trim()
     .regex(/^(?:Exponent|Expo)PushToken\[[A-Za-z0-9_-]+\]$/),
-  platform: z.enum(["android", "ios"]),
+  platform: z
+    .enum(["android", "ios"])
+    .transform((platform) => MOBILE_PUSH_PLATFORMS[platform]),
   previousToken: z
     .string()
     .trim()

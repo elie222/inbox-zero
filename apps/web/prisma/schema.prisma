@@ -113,12 +113,19 @@ model MobilePushToken {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   token     String   @unique
-  platform  String
+  platform  MobilePushPlatform
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  otpPushNotifications OtpPushNotification[]
+
   @@index([userId])
+}
+
+enum MobilePushPlatform {
+  ANDROID @map("android")
+  IOS     @map("ios")
 }
 
 enum ApiKeyScope {
@@ -951,8 +958,10 @@ model OtpPushNotification {
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  mobilePushTokenId String
+  mobilePushToken   MobilePushToken @relation(fields: [mobilePushTokenId], references: [id], onDelete: Cascade)
 
-  @@unique([emailAccountId, messageId])
+  @@unique([emailAccountId, messageId, mobilePushTokenId], map: "OtpPushNotification_message_token_key")
   @@index([createdAt])
 }
 

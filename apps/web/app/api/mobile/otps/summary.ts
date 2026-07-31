@@ -6,6 +6,7 @@ import { getRecentOtpThreads, OTP_MAX_AGE_MS } from "@/utils/otp";
 import { mapWithConcurrency } from "../all-inboxes/map-with-concurrency";
 
 const ACCOUNT_CONCURRENCY = 4;
+const THREAD_PAGE_SIZE = 100;
 
 type OtpAccount = {
   id: string;
@@ -32,10 +33,7 @@ export async function loadRecentOtpSummary({
     async (account) => {
       try {
         const provider = await createProvider(account);
-        const { threads } = await provider.getThreadsWithQuery({
-          query: { type: "inbox", after },
-          maxResults: 20,
-        });
+        const threads = await loadThreadsSince(provider, after);
 
         return {
           accountId: account.id,
@@ -59,6 +57,23 @@ export async function loadRecentOtpSummary({
     accounts: summaries.filter((summary) => summary !== null),
     failedAccountIds,
   };
+}
+
+async function loadThreadsSince(provider: EmailProvider, after: Date) {
+  const threads: EmailThread[] = [];
+  let pageToken: string | undefined;
+
+  do {
+    const page = await provider.getThreadsWithQuery({
+      query: { type: "inbox", after },
+      maxResults: THREAD_PAGE_SIZE,
+      pageToken,
+    });
+    threads.push(...page.threads);
+    pageToken = page.nextPageToken;
+  } while (pageToken);
+
+  return threads;
 }
 
 function normalizeReceivedDates(threads: EmailThread[]): EmailThread[] {

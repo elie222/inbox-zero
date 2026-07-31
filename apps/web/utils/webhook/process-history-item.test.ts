@@ -14,6 +14,7 @@ import {
 } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import { categorizeSender } from "@/utils/categorize/senders/categorize";
+import { sendOtpPushNotification } from "@/utils/mobile-push";
 
 vi.mock("@/utils/prisma", () => ({
   default: {
@@ -44,6 +45,9 @@ vi.mock("@/utils/reply-tracker/handle-outbound", () => ({
 vi.mock("@/utils/drive/filing-engine", () => ({
   getFilableAttachments: vi.fn((message) => message.attachments ?? []),
   processAttachment: vi.fn().mockResolvedValue({ success: true }),
+}));
+vi.mock("@/utils/mobile-push", () => ({
+  sendOtpPushNotification: vi.fn().mockResolvedValue(undefined),
 }));
 
 const logger = createTestLogger();
@@ -195,6 +199,35 @@ describe("Provider Edge Cases", () => {
         },
       });
       expect(provider.blockUnsubscribedEmail).toHaveBeenCalledWith("msg-123");
+      expect(sendOtpPushNotification).not.toHaveBeenCalled();
+    });
+
+    it("sends OTP notifications after the unsubscribe check passes", async () => {
+      const parsedMessage = getMockParsedMessage({
+        labelIds: ["INBOX"],
+        headers: {
+          from: "Security <security@example.com>",
+          to: "user@test.com",
+          subject: "Your verification code is 123456",
+          date: "2026-07-31T12:00:00.000Z",
+        },
+      });
+      const provider = createMockEmailProvider({
+        getMessage: vi.fn().mockResolvedValue(parsedMessage),
+        isSentMessage: vi.fn().mockReturnValue(false),
+      });
+
+      await processHistoryItem(
+        { messageId: parsedMessage.id, threadId: parsedMessage.threadId },
+        { ...baseOptions, provider },
+      );
+
+      expect(sendOtpPushNotification).toHaveBeenCalledWith({
+        emailAccountId: baseOptions.emailAccount.id,
+        userId: baseOptions.emailAccount.userId,
+        message: parsedMessage,
+        logger,
+      });
     });
 
     it("does not store an address-only header as the sender display name", async () => {
