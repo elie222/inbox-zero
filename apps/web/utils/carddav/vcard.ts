@@ -44,6 +44,34 @@ export function generateVCard(contact: VCardContact): string {
   return `${lines.join("\r\n")}\r\n`;
 }
 
+export type VCardGroup = {
+  uid: string;
+  name: string;
+  memberUids: string[];
+  updatedAt: Date;
+};
+
+// vCard 3.0 has no group concept; Apple's clients use the
+// X-ADDRESSBOOKSERVER extension — a group is its own card whose MEMBER
+// lines reference the UID of each contact card in it. iOS only shows
+// folders/groups for accounts whose server publishes these.
+export function generateGroupVCard(group: VCardGroup): string {
+  const lines = [
+    "BEGIN:VCARD",
+    "VERSION:3.0",
+    `UID:${escapeValue(group.uid)}`,
+    `FN:${escapeValue(group.name)}`,
+    `N:${escapeValue(group.name)};;;;`,
+    "X-ADDRESSBOOKSERVER-KIND:group",
+    ...group.memberUids.map(
+      (uid) => `X-ADDRESSBOOKSERVER-MEMBER:urn:uuid:${escapeValue(uid)}`,
+    ),
+    `REV:${group.updatedAt.toISOString()}`,
+    "END:VCARD",
+  ];
+  return `${lines.join("\r\n")}\r\n`;
+}
+
 export type ParsedVCard = {
   uid: string | null;
   email: string | null;
@@ -51,6 +79,9 @@ export type ParsedVCard = {
   phones: ContactPhone[];
   title: string | null;
   companyName: string | null;
+  // KIND:group / X-ADDRESSBOOKSERVER-KIND:group — the card is a group, not
+  // a person, and must never be stored as a contact
+  isGroup: boolean;
 };
 
 export function parseVCard(raw: string): ParsedVCard {
@@ -65,6 +96,7 @@ export function parseVCard(raw: string): ParsedVCard {
     phones: [],
     title: null,
     companyName: null,
+    isGroup: false,
   };
 
   for (const line of lines) {
@@ -99,6 +131,10 @@ export function parseVCard(raw: string): ParsedVCard {
       case "ORG":
         result.companyName = value.split(";")[0] || null;
         break;
+      case "KIND":
+      case "X-ADDRESSBOOKSERVER-KIND":
+        if (value.trim().toLowerCase() === "group") result.isGroup = true;
+        break;
       default:
         break;
     }
@@ -115,6 +151,21 @@ const ETAG_GENERATION = 2;
 
 export function contactEtag(updatedAt: Date): string {
   return `"g${ETAG_GENERATION}-${updatedAt.getTime()}"`;
+}
+
+// A group's etag must move on rename AND on membership change, but
+// membership lives on other rows (which company carries the label, which
+// contacts belong to the company) — the label's own updatedAt can't carry
+// it, so the member list is folded in alongside.
+export function groupEtag(
+  updatedAt: Date,
+  members: { updatedAt: Date }[],
+): string {
+  const newestMember = members.reduce(
+    (max, member) => Math.max(max, member.updatedAt.getTime()),
+    0,
+  );
+  return `"g${ETAG_GENERATION}-${updatedAt.getTime()}-${members.length}-${newestMember}"`;
 }
 
 function escapeValue(value: string): string {

@@ -72,6 +72,10 @@ export type RunRulesResult = {
     | "subject"
     | "body"
     | "conditionalOperator"
+    | "fromExclude"
+    | "toExclude"
+    | "subjectExclude"
+    | "subjectMatchMode"
   > | null;
   actionItems?: ActionItem[];
   reason?: string | null;
