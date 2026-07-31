@@ -250,6 +250,130 @@ describe("findMatchingRule", () => {
     );
   });
 
+  // A learned pattern stands in for the AI clause only — under AND it must
+  // not bypass the static conditions the user set (a learned "FROM: x"
+  // routing every email from x regardless of the required subject)
+  it("does NOT let a learned pattern bypass static conditions under AND", async () => {
+    const rule = getRule({
+      groupId: "group1",
+      subject: "Daily Report",
+      conditionalOperator: LogicalOperator.AND,
+    });
+
+    prisma.group.findMany.mockResolvedValue([
+      getGroup({
+        id: "group1",
+        items: [
+          getGroupItem({ type: GroupItemType.FROM, value: "test@example.com" }),
+        ],
+        rule,
+      }),
+    ]);
+
+    const message = getMessage({
+      headers: getHeaders({
+        from: "test@example.com",
+        subject: "Totally different topic",
+      }),
+    });
+
+    const result = await findMatchingRules({
+      rules: [rule],
+      message,
+      emailAccount: getEmailAccount(),
+      provider,
+      modelType: "default",
+      logger,
+    });
+
+    expect(result.matches).toHaveLength(0);
+    // The skip is diagnosable: the static rejection is recorded, not silent
+    expect(result.selectionMetadata?.staticFailedRuleNames?.join("")).toContain(
+      rule.name,
+    );
+  });
+
+  it("matches via learned pattern under AND when static conditions also pass", async () => {
+    const rule = getRule({
+      groupId: "group1",
+      subject: "Daily Report",
+      conditionalOperator: LogicalOperator.AND,
+    });
+
+    prisma.group.findMany.mockResolvedValue([
+      getGroup({
+        id: "group1",
+        items: [
+          getGroupItem({ type: GroupItemType.FROM, value: "test@example.com" }),
+        ],
+        rule,
+      }),
+    ]);
+
+    const message = getMessage({
+      headers: getHeaders({
+        from: "test@example.com",
+        subject: "RE: Daily Report",
+      }),
+    });
+
+    const result = await findMatchingRules({
+      rules: [rule],
+      message,
+      emailAccount: getEmailAccount(),
+      provider,
+      modelType: "default",
+      logger,
+    });
+
+    expect(result.matches[0]?.rule.id).toBe(rule.id);
+    expect(result.reasoning).toBe(
+      `Matched learned pattern: "FROM: test@example.com"`,
+    );
+  });
+
+  // Under OR the static leg was never required for an AI match, and the
+  // pattern stands in for the AI clause — so it matches on its own
+  it("lets a learned pattern match under OR even when static conditions fail", async () => {
+    const rule = getRule({
+      groupId: "group1",
+      subject: "Daily Report",
+      instructions: "Match daily reports",
+      conditionalOperator: LogicalOperator.OR,
+    });
+
+    prisma.group.findMany.mockResolvedValue([
+      getGroup({
+        id: "group1",
+        items: [
+          getGroupItem({ type: GroupItemType.FROM, value: "test@example.com" }),
+        ],
+        rule,
+      }),
+    ]);
+
+    const message = getMessage({
+      headers: getHeaders({
+        from: "test@example.com",
+        subject: "Totally different topic",
+      }),
+    });
+
+    const result = await findMatchingRules({
+      rules: [rule],
+      message,
+      emailAccount: getEmailAccount(),
+      provider,
+      modelType: "default",
+      logger,
+    });
+
+    expect(result.matches[0]?.rule.id).toBe(rule.id);
+    expect(result.reasoning).toBe(
+      `Matched learned pattern: "FROM: test@example.com"`,
+    );
+  });
+
   it("should NOT match when group doesn't match and no other conditions", async () => {
     const rule = getRule({
       groupId: "correctGroup", // Rule specifically looks for correctGroup

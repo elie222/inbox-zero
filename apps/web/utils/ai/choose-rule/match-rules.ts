@@ -237,9 +237,10 @@ export function evaluateRuleConditions({
  *
  * Matching Logic:
  * 1. For rules with learned patterns (groups):
- *    - If pattern matches → add to matches and short-circuit (skip other checks for this rule)
- *    - If pattern doesn't match → continue to check static/AI conditions below
- *    - Note: Groups are independent of the AND/OR operator (which only applies to AI/Static conditions)
+ *    - A pattern hit stands in for the AI clause: under AND the rule's static
+ *      conditions must ALSO pass; under OR the hit matches on its own
+ *    - If it matches → add to matches and short-circuit (no AI call needed)
+ *    - If it doesn't → continue to check static/AI conditions below
  *
  * 2. For all other rules (or group rules that didn't match via pattern):
  *    - Check static conditions (from, to, subject, body)
@@ -357,18 +358,34 @@ async function findPotentialMatchingRules({
         }
 
         if (matchingItem) {
-          // Group matched - add to matches and skip other condition checks
-          matches.push({
-            rule,
-            matchReasons: [
-              {
-                type: ConditionType.LEARNED_PATTERN,
-                groupItem: matchingItem,
-                group,
-              },
-            ],
-          });
-          continue;
+          // A learned pattern stands in for the AI clause only. Under AND,
+          // the rule's explicit static conditions stay hard requirements —
+          // otherwise a learned "FROM: x" routes every email from x
+          // regardless of the subject the user demanded. (Thread guards and
+          // excludeKnownContacts already sit above patterns for the same
+          // reason.) Under OR the static leg was never required for an AI
+          // match, so the pattern matches on its own.
+          const staticGatePassed =
+            rule.conditionalOperator !== LogicalOperator.AND ||
+            !getConditionTypes(rule).STATIC ||
+            getStaticConditionFailures(rule, message, logger).matched;
+
+          if (staticGatePassed) {
+            // Group matched - add to matches and skip other condition checks
+            matches.push({
+              rule,
+              matchReasons: [
+                {
+                  type: ConditionType.LEARNED_PATTERN,
+                  groupItem: matchingItem,
+                  group,
+                },
+              ],
+            });
+            continue;
+          }
+          // Fall through to the normal evaluation, which records WHICH
+          // static condition rejected the email so the skip is diagnosable
         }
       }
     }
