@@ -9,6 +9,7 @@ import {
   getProviderRateLimitMessageLabel,
   isProviderRateLimitModeError,
 } from "@/utils/email/rate-limit-mode-error";
+import { extractErrorInfo } from "@/utils/gmail/retry";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 
 // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
@@ -24,6 +25,8 @@ export type ApiErrorType = {
 
 const RATE_LIMIT_MESSAGE_TEMPLATE =
   "{provider} is temporarily limiting requests. Please try again shortly.";
+export const EMAIL_PROVIDER_RATE_LIMIT_MESSAGE =
+  "Your email provider is temporarily limiting requests. Please try again shortly.";
 
 // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
 export function isError(value: any): value is ErrorMessage | ZodError {
@@ -158,6 +161,13 @@ export class SafeError extends Error {
   }
 }
 
+export class EmailProviderRateLimitError extends Error {
+  constructor() {
+    super(EMAIL_PROVIDER_RATE_LIMIT_MESSAGE);
+    this.name = "EmailProviderRateLimitError";
+  }
+}
+
 const INVALID_GRANT_ERROR_MARKERS = ["invalid_grant", "AADSTS50173"] as const;
 
 export function isInvalidGrantError(error: unknown): boolean {
@@ -173,13 +183,16 @@ export function isGmailInsufficientPermissionsError(error: unknown): boolean {
 }
 
 export function isGmailRateLimitExceededError(error: unknown): boolean {
-  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
-  return (error as any)?.errors?.[0]?.reason === "rateLimitExceeded";
+  const errorInfo = extractErrorInfo(error);
+  return (
+    errorInfo.reason === "rateLimitExceeded" ||
+    errorInfo.reason === "userRateLimitExceeded" ||
+    /user-rate limit exceeded/i.test(errorInfo.errorMessage)
+  );
 }
 
 export function isGmailQuotaExceededError(error: unknown): boolean {
-  // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
-  return (error as any)?.errors?.[0]?.reason === "quotaExceeded";
+  return extractErrorInfo(error).reason === "quotaExceeded";
 }
 
 export function isIncorrectAPIKeyError(error: APICallError): boolean {
@@ -190,6 +203,8 @@ export function isIncorrectAPIKeyError(error: APICallError): boolean {
 }
 
 export function isInvalidAIModelError(error: APICallError): boolean {
+  const message = error.message.toLowerCase();
+
   // OpenAI: "The model `xyz` does not exist or you do not have access to it"
   if (
     error.message.includes("does not exist or you do not have access to it")
@@ -205,7 +220,11 @@ export function isInvalidAIModelError(error: APICallError): boolean {
     return true;
   }
   // OpenRouter: model deprecated or unavailable
-  if (error.message.includes("testing period")) {
+  if (
+    message.includes("testing period") ||
+    message.includes("is deprecated") ||
+    message.includes("no endpoints found for")
+  ) {
     return true;
   }
   // Generic model-not-found patterns
@@ -370,12 +389,9 @@ export function checkCommonErrors(
 
   if (isGmailRateLimitExceededError(error)) {
     logger.warn("Gmail rate limit exceeded for url", { url });
-    const errorMessage =
-      // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
-      (error as any)?.errors?.[0]?.message ?? "Unknown error";
     return {
       type: getProviderRateLimitApiErrorType("google"),
-      message: `Gmail error: ${errorMessage}`,
+      message: RATE_LIMIT_MESSAGE_TEMPLATE.replace("{provider}", "Gmail"),
       code: 429,
     };
   }
@@ -540,6 +556,9 @@ export function assertActionSucceeded(
   if (!result) return;
 
   const message = extractActionErrorMessage(result);
+  if (message === EMAIL_PROVIDER_RATE_LIMIT_MESSAGE) {
+    throw new EmailProviderRateLimitError();
+  }
   if (message) throw new Error(message);
 }
 

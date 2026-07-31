@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { afterMock, headersMock, isValidInternalApiKeyMock } = vi.hoisted(
   () => ({
@@ -81,8 +81,13 @@ describe("analyze sender pattern route", () => {
     isValidInternalApiKeyMock.mockReturnValue(true);
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("returns 401 when the internal API key is invalid", async () => {
     isValidInternalApiKeyMock.mockReturnValue(false);
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     const response = await POST(createRequest() as never);
 
@@ -91,6 +96,7 @@ describe("analyze sender pattern route", () => {
       error: "Invalid API key",
     });
     expect(afterMock).not.toHaveBeenCalled();
+    expect(errorSpy).not.toHaveBeenCalled();
   });
 
   it("skips analysis when any sender casing variant was already analyzed", async () => {

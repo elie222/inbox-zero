@@ -97,7 +97,7 @@
     },
     {
       "path": "/api/resend/digest/all",
-      "schedule": "0 * * * *"
+      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/meeting-briefs",
@@ -118,6 +118,10 @@
     {
       "path": "/api/cron/reasoning-retention",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/mobile-push-retention",
+      "schedule": "30 3 * * *"
     },
     {
       "path": "/api/cron/draft-cleanup",

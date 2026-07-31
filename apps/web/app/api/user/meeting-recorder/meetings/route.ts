@@ -32,6 +32,7 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
       id: true,
       eventTitle: true,
       startTime: true,
+      followUpDraftId: true,
       recording: {
         select: {
           status: true,

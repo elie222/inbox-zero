@@ -4,6 +4,7 @@ import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NewsletterStatus } from "@/generated/prisma/enums";
 import type { Row } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/types";
+import { EMAIL_PROVIDER_RATE_LIMIT_MESSAGE } from "@/utils/error";
 
 const {
   setSenderStatusActionMock,
@@ -12,6 +13,7 @@ const {
   queueArchiveSendersMock,
   addToArchiveSenderThreadQueueMock,
   toastErrorMock,
+  captureExceptionMock,
 } = vi.hoisted(() => ({
   setSenderStatusActionMock: vi.fn(),
   unsubscribeSenderActionMock: vi.fn(),
@@ -19,6 +21,7 @@ const {
   queueArchiveSendersMock: vi.fn(),
   addToArchiveSenderThreadQueueMock: vi.fn(),
   toastErrorMock: vi.fn(),
+  captureExceptionMock: vi.fn(),
 }));
 
 vi.mock("@/utils/actions/unsubscriber", () => ({
@@ -54,6 +57,11 @@ vi.mock("next-safe-action/hooks", () => ({
 
 vi.mock("@/utils/fetch", () => ({ fetchWithAccount: vi.fn() }));
 
+vi.mock("@/utils/error", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@/utils/error")>();
+  return { ...original, captureException: captureExceptionMock };
+});
+
 vi.mock("@/components/Toast", () => ({
   toastSuccess: vi.fn(),
   toastError: vi.fn(),
@@ -68,7 +76,13 @@ vi.mock("sonner", () => ({
   },
 }));
 
-import { useApproveButton, useAutoArchive, useUnsubscribe } from "./hooks";
+import {
+  useApproveButton,
+  useAutoArchive,
+  useBulkAutoArchive,
+  useBulkUnsubscribe,
+  useUnsubscribe,
+} from "./hooks";
 
 const EMAIL_ACCOUNT_ID = "email-account-1";
 const SENDER = "news@example.com";
@@ -180,6 +194,96 @@ describe("bulk unsubscribe hooks", () => {
     });
   });
 
+  describe("useBulkAutoArchive", () => {
+    it("stops after a provider rate limit and leaves remaining senders selected", async () => {
+      setSenderStatusActionMock
+        .mockResolvedValueOnce({ data: { autoArchived: true } })
+        .mockResolvedValueOnce({
+          serverError: EMAIL_PROVIDER_RATE_LIMIT_MESSAGE,
+        });
+      const onDeselectItem = vi.fn();
+
+      const { result } = renderHook(() =>
+        useBulkAutoArchive({
+          ...sharedHookArgs,
+          filter: "all",
+          onDeselectItem,
+        }),
+      );
+
+      await act(async () => {
+        await result.current.onBulkAutoArchive([
+          getRow({ name: "first@example.com" }),
+          getRow({ name: "second@example.com" }),
+          getRow({ name: "third@example.com" }),
+        ]);
+      });
+
+      expect(setSenderStatusActionMock).toHaveBeenCalledTimes(2);
+      expect(queueArchiveSendersMock).toHaveBeenCalledTimes(1);
+      expect(onDeselectItem).toHaveBeenCalledOnce();
+      expect(onDeselectItem).toHaveBeenCalledWith("first@example.com");
+      expect(toastErrorMock).toHaveBeenCalledWith(
+        EMAIL_PROVIDER_RATE_LIMIT_MESSAGE,
+        expect.objectContaining({
+          description: "1 of 3 completed; stopped to avoid more requests",
+        }),
+      );
+    });
+  });
+
+  describe("useBulkUnsubscribe", () => {
+    it("stops automatic unsubscribes after a provider rate limit and revalidates once", async () => {
+      unsubscribeSenderActionMock
+        .mockResolvedValueOnce({ data: { unsubscribe: { success: true } } })
+        .mockResolvedValueOnce({
+          serverError: EMAIL_PROVIDER_RATE_LIMIT_MESSAGE,
+        });
+      const mutate = vi.fn().mockResolvedValue(undefined);
+      const onDeselectItem = vi.fn();
+
+      const { result } = renderHook(() =>
+        useBulkUnsubscribe({
+          ...sharedHookArgs,
+          mutate,
+          filter: "all",
+          onDeselectItem,
+        }),
+      );
+
+      await act(async () => {
+        await result.current.onBulkUnsubscribe([
+          getRow({
+            name: "first@example.com",
+            unsubscribeLink: "https://example.com/unsubscribe/first",
+          }),
+          getRow({
+            name: "second@example.com",
+            unsubscribeLink: "https://example.com/unsubscribe/second",
+          }),
+          getRow({
+            name: "third@example.com",
+            unsubscribeLink: "https://example.com/unsubscribe/third",
+          }),
+        ]);
+      });
+
+      expect(unsubscribeSenderActionMock).toHaveBeenCalledTimes(2);
+      expect(queueArchiveSendersMock).toHaveBeenCalledTimes(1);
+      expect(onDeselectItem).toHaveBeenCalledOnce();
+      expect(onDeselectItem).toHaveBeenCalledWith("first@example.com");
+      expect(
+        mutate.mock.calls.filter((call) => call.length === 0),
+      ).toHaveLength(1);
+      expect(toastErrorMock).toHaveBeenCalledWith(
+        EMAIL_PROVIDER_RATE_LIMIT_MESSAGE,
+        expect.objectContaining({
+          description: "1 of 3 completed; stopped to avoid more requests",
+        }),
+      );
+    });
+  });
+
   describe("useApproveButton", () => {
     it("approves a sender that has no status", async () => {
       const { result } = renderHook(() =>
@@ -279,6 +383,31 @@ describe("bulk unsubscribe hooks", () => {
       });
 
       expect(setSenderStatusActionMock).not.toHaveBeenCalled();
+    });
+
+    it("shows provider rate limits without reporting them as unexpected", async () => {
+      unsubscribeSenderActionMock.mockResolvedValue({
+        serverError: EMAIL_PROVIDER_RATE_LIMIT_MESSAGE,
+      });
+
+      const { result } = renderHook(() =>
+        useUnsubscribe({
+          item: getRow({
+            unsubscribeLink: "https://example.com/unsubscribe",
+          }),
+          ...sharedHookArgs,
+        }),
+      );
+
+      await act(async () => {
+        await result.current.onUnsubscribe();
+      });
+
+      expect(toastErrorMock).toHaveBeenCalledWith(
+        EMAIL_PROVIDER_RATE_LIMIT_MESSAGE,
+      );
+      expect(captureExceptionMock).not.toHaveBeenCalled();
+      expect(queueArchiveSendersMock).not.toHaveBeenCalled();
     });
   });
 });

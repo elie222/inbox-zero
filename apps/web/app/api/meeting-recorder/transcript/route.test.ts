@@ -9,6 +9,7 @@ const {
   enqueueProcessingForRecordingMock: vi.fn(),
   mockPrisma: {
     meetingRecording: {
+      count: vi.fn(),
       findUnique: vi.fn(),
       update: vi.fn(),
       updateMany: vi.fn(),
@@ -46,11 +47,11 @@ describe("meeting recorder transcript route", () => {
       id: "recording-1",
       botProvider: "recall",
       externalBotId: "bot-1",
-      transcript: [{ speakerName: "Speaker", text: "Hello" }],
-      transcriptFetchedAt: null,
+      externalTranscriptId: "transcript-1",
+      transcriptFetchedAt: new Date("2026-05-04T09:00:00.000Z"),
       mediaDeletedAt: null,
-      status: MeetingRecordingStatus.CALL_ENDED,
     });
+    mockPrisma.meetingRecording.count.mockResolvedValue(1);
     mockPrisma.meetingRecording.updateMany.mockResolvedValue({ count: 1 });
   });
 
@@ -85,5 +86,25 @@ describe("meeting recorder transcript route", () => {
       recordingId: "recording-1",
       logger: expect.anything(),
     });
+  });
+
+  it("does not finish a recording whose download is claimed but not stored yet", async () => {
+    // The claim is written before the download, so a redelivery can arrive
+    // while another delivery is still fetching. Finishing here would mark the
+    // recording DONE and delete provider media without a transcript.
+    mockPrisma.meetingRecording.count.mockResolvedValue(0);
+
+    const response = await POST(
+      new Request("https://example.com/api/meeting-recorder/transcript", {
+        method: "POST",
+        body: JSON.stringify({ recordingId: "recording-1" }),
+      }) as never,
+      { params: Promise.resolve({}) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockPrisma.meetingRecording.updateMany).not.toHaveBeenCalled();
+    expect(deleteRecordingMediaMock).not.toHaveBeenCalled();
+    expect(enqueueProcessingForRecordingMock).not.toHaveBeenCalled();
   });
 });

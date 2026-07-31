@@ -17,12 +17,7 @@ export const recallWebhookPayloadSchema = z.object({
 
 export type RecallWebhookPayload = z.infer<typeof recallWebhookPayloadSchema>;
 
-export const recallBotSchema = z.object({
-  id: z.string(),
-  status_changes: z
-    .array(z.object({ code: z.string(), sub_code: z.string().nullish() }))
-    .optional(),
-});
+export const recallBotSchema = z.object({ id: z.string() });
 
 export const recallTranscriptSchema = z.object({
   id: z.string(),

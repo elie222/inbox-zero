@@ -67,6 +67,7 @@ describe("Recall webhook route", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.restoreAllMocks();
   });
 
   it("rejects a payload that is not signed with the configured secret", async () => {
@@ -133,6 +134,7 @@ describe("Recall webhook route", () => {
   });
 
   it("leaves the recording live when transcription fails so the sweep can retry", async () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     const body = JSON.stringify({
       event: "transcript.failed",
       data: {
@@ -147,6 +149,9 @@ describe("Recall webhook route", () => {
     expect(response.status).toBe(200);
     expect(mockPrisma.meetingRecording.updateMany).not.toHaveBeenCalled();
     expect(mockPrisma.meetingRecording.update).not.toHaveBeenCalled();
+    expect(logSpy).toHaveBeenCalledWith(
+      expect.stringContaining('"externalBotId": "bot-1"'),
+    );
   });
 
   it("marks the recording failed when the recording itself fails", async () => {

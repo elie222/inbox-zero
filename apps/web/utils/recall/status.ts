@@ -1,4 +1,101 @@
 import { MeetingRecordingStatus } from "@/generated/prisma/enums";
+import { getStatusesBelow } from "@/utils/meeting-recorder/recording-lifecycle";
+import type { RecallWebhookPayload } from "@/utils/recall/types";
+
+type RecallWebhookInterpretation =
+  | {
+      type: "transcriptReady";
+      externalBotId: string;
+      externalTranscriptId: string;
+    }
+  | {
+      type: "recordingReady";
+      externalBotId: string;
+      externalRecordingId: string;
+    }
+  | {
+      type: "statusChange";
+      externalBotId: string;
+      status: MeetingRecordingStatus;
+      fromStatuses?: MeetingRecordingStatus[];
+      failureReason?: string;
+    }
+  | { type: "ignore"; reason: string };
+
+/**
+ * Translates a verified Recall webhook payload into the provider-agnostic
+ * action it calls for. All Recall payload semantics live here, so the webhook
+ * route only verifies, parses and dispatches.
+ */
+export function interpretRecallWebhook(
+  payload: RecallWebhookPayload,
+): RecallWebhookInterpretation {
+  const externalBotId = payload.data.bot?.id;
+  if (!externalBotId) {
+    return { type: "ignore", reason: "Webhook carries no bot id" };
+  }
+
+  if (payload.event === "transcript.done") {
+    const externalTranscriptId = payload.data.transcript?.id;
+    if (!externalTranscriptId) {
+      return {
+        type: "ignore",
+        reason: "Transcript event carries no transcript id",
+      };
+    }
+    return { type: "transcriptReady", externalBotId, externalTranscriptId };
+  }
+
+  // A failed transcription is often retryable on the provider side while the
+  // recording itself is fine, but its generic code would read as a terminal
+  // bot failure and permanently lose a recorded meeting. Leaving the row in
+  // its live status lets the stuck-transcript sweep re-request transcription;
+  // if that never succeeds, the abandoned sweep eventually fails the row.
+  if (payload.event === "transcript.failed") {
+    return {
+      type: "ignore",
+      reason: "Transcription failed, leaving it for the retry sweep",
+    };
+  }
+
+  // The recording being ready is what starts async transcription; the bot
+  // finishing does not. Without this the transcript is never produced.
+  if (payload.event === "recording.done") {
+    const externalRecordingId = payload.data.recording?.id;
+    if (!externalRecordingId) {
+      return {
+        type: "ignore",
+        reason: "Recording event carries no recording id",
+      };
+    }
+    return { type: "recordingReady", externalBotId, externalRecordingId };
+  }
+
+  // Recall sends the lifecycle code in the payload, but the event name carries
+  // the same information (`bot.done`, `bot.fatal`) as a fallback.
+  const code = payload.data.data?.code ?? payload.event.split(".").at(-1);
+  const status = code ? recallCodeToStatus(code) : null;
+  if (!status) {
+    return { type: "ignore", reason: `Unmapped Recall status code: ${code}` };
+  }
+
+  return {
+    type: "statusChange",
+    externalBotId,
+    status,
+    // A fatal event after the bot recorded is often a delivery hiccup rather
+    // than a lost meeting, so it must not fail a recording whose media may
+    // still be recoverable.
+    fromStatuses:
+      code === "fatal"
+        ? getStatusesBelow(MeetingRecordingStatus.RECORDING)
+        : undefined,
+    failureReason:
+      status === MeetingRecordingStatus.FAILED
+        ? getFailureReason(payload.data.data?.sub_code)
+        : undefined,
+  };
+}
 
 // Recall status change events carry a `code` describing the bot's lifecycle.
 // https://docs.recall.ai/docs/bot-status-change-events

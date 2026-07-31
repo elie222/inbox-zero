@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { env } from "@/env";
 import { runWithBoundedConcurrency } from "@/utils/async";
 import { hasCronSecret, hasPostCronSecret } from "@/utils/cron";
 import { captureException } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
 import { MEETING_RECORDER_MIN_TIER } from "@/utils/meeting-recorder/config";
+import { isMeetingBotProviderConfigured } from "@/utils/meeting-recorder/create-bot-provider";
 import { CANCELLABLE_STATUSES } from "@/utils/meeting-recorder/recording-lifecycle";
 import {
   reconcileAccount,
@@ -41,7 +41,7 @@ export const POST = withError("meeting-recorder/schedule", async (request) => {
 });
 
 async function scheduleAllMeetingRecordings(logger: Logger) {
-  if (!(env.RECALL_API_KEY && env.RECALL_WEBHOOK_SECRET)) {
+  if (!isMeetingBotProviderConfigured()) {
     logger.info(
       "Skipping meeting recorder: bot provider or webhook verification is not configured",
     );
