@@ -108,26 +108,6 @@ model User {
   mobilePushTokens MobilePushToken[]
 }
 
-model MobilePushToken {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  token     String   @unique
-  platform  MobilePushPlatform
-
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  otpPushNotifications OtpPushNotification[]
-
-  @@index([userId])
-}
-
-enum MobilePushPlatform {
-  ANDROID @map("android")
-  IOS     @map("ios")
-}
-
 enum ApiKeyScope {
   STATS_READ
   RULES_READ
@@ -143,8 +123,6 @@ model EmailAccount {
   email     String   @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  otpPushNotifications OtpPushNotification[]
 
   name  String? // Name associated with the Google account
   image String? // Profile image URL from the Google account
@@ -949,21 +927,6 @@ model EmailMessage {
   @@index([emailAccountId, date])
   @@index([emailAccountId, from])
   @@index([emailAccountId, fromName])
-}
-
-model OtpPushNotification {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  messageId String
-
-  emailAccountId String
-  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
-  mobilePushTokenId String
-  mobilePushToken   MobilePushToken @relation(fields: [mobilePushTokenId], references: [id], onDelete: Cascade)
-
-  @@unique([emailAccountId, messageId, mobilePushTokenId], map: "OtpPushNotification_message_token_key")
-  @@index([createdAt])
-  @@index([mobilePushTokenId])
 }
 
 model ResponseTime {
@@ -1823,6 +1786,44 @@ model McpTool {
   connection   McpConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
 
   @@unique([connectionId, name])
+}
+
+model MobilePushToken {
+  id        String             @id @default(cuid())
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  token     String             @unique
+  platform  MobilePushPlatform
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  mobilePushDeliveries MobilePushDelivery[]
+
+  @@index([userId])
+}
+
+model MobilePushDelivery {
+  id               String                     @id @default(cuid())
+  createdAt        DateTime                   @default(now())
+  type             MobilePushNotificationType
+  deduplicationKey String
+
+  mobilePushTokenId String
+  mobilePushToken   MobilePushToken @relation(fields: [mobilePushTokenId], references: [id], onDelete: Cascade)
+
+  @@unique([type, deduplicationKey, mobilePushTokenId], map: "MobilePushDelivery_type_key_token_key")
+  @@index([createdAt])
+  @@index([mobilePushTokenId])
+}
+
+enum MobilePushPlatform {
+  ANDROID @map("android")
+  IOS     @map("ios")
+}
+
+enum MobilePushNotificationType {
+  OTP @map("otp")
 }
 
 enum ActionType {

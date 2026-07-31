@@ -25,7 +25,7 @@ import type { Logger } from "@/utils/logger";
 import { runWithBackgroundLoggerFlush } from "@/utils/logger-flush";
 import { captureException, SafeError } from "@/utils/error";
 import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
-import { sendOtpPushNotification } from "@/utils/mobile-push";
+import { sendOtpPushNotification } from "@/utils/otp-push";
 
 export type SharedProcessHistoryOptions = {
   provider: EmailProvider;

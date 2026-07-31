@@ -14,7 +14,7 @@ import {
 } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import { categorizeSender } from "@/utils/categorize/senders/categorize";
-import { sendOtpPushNotification } from "@/utils/mobile-push";
+import { sendOtpPushNotification } from "@/utils/otp-push";
 import { runRules } from "@/utils/ai/choose-rule/run-rules";
 import { SafeError } from "@/utils/error";
 
@@ -48,7 +48,7 @@ vi.mock("@/utils/drive/filing-engine", () => ({
   getFilableAttachments: vi.fn((message) => message.attachments ?? []),
   processAttachment: vi.fn().mockResolvedValue({ success: true }),
 }));
-vi.mock("@/utils/mobile-push", () => ({
+vi.mock("@/utils/otp-push", () => ({
   sendOtpPushNotification: vi.fn().mockResolvedValue(undefined),
 }));
 

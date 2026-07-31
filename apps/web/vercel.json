@@ -120,7 +120,7 @@
       "schedule": "0 3 * * *"
     },
     {
-      "path": "/api/cron/otp-push-retention",
+      "path": "/api/cron/mobile-push-retention",
       "schedule": "30 3 * * *"
     },
     {

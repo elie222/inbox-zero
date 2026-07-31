@@ -1,4 +1,5 @@
 CREATE TYPE "MobilePushPlatform" AS ENUM ('android', 'ios');
+CREATE TYPE "MobilePushNotificationType" AS ENUM ('otp');
 
 CREATE TABLE "MobilePushToken" (
     "id" TEXT NOT NULL,
@@ -11,36 +12,31 @@ CREATE TABLE "MobilePushToken" (
     CONSTRAINT "MobilePushToken_pkey" PRIMARY KEY ("id")
 );
 
-CREATE TABLE "OtpPushNotification" (
+CREATE TABLE "MobilePushDelivery" (
     "id" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "emailAccountId" TEXT NOT NULL,
-    "messageId" TEXT NOT NULL,
+    "type" "MobilePushNotificationType" NOT NULL,
+    "deduplicationKey" TEXT NOT NULL,
     "mobilePushTokenId" TEXT NOT NULL,
 
-    CONSTRAINT "OtpPushNotification_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "MobilePushDelivery_pkey" PRIMARY KEY ("id")
 );
 
 CREATE UNIQUE INDEX "MobilePushToken_token_key" ON "MobilePushToken"("token");
 CREATE INDEX "MobilePushToken_userId_idx" ON "MobilePushToken"("userId");
-CREATE UNIQUE INDEX "OtpPushNotification_message_token_key"
-ON "OtpPushNotification"("emailAccountId", "messageId", "mobilePushTokenId");
-CREATE INDEX "OtpPushNotification_createdAt_idx"
-ON "OtpPushNotification"("createdAt");
-CREATE INDEX "OtpPushNotification_mobilePushTokenId_idx"
-ON "OtpPushNotification"("mobilePushTokenId");
+CREATE UNIQUE INDEX "MobilePushDelivery_type_key_token_key"
+ON "MobilePushDelivery"("type", "deduplicationKey", "mobilePushTokenId");
+CREATE INDEX "MobilePushDelivery_createdAt_idx"
+ON "MobilePushDelivery"("createdAt");
+CREATE INDEX "MobilePushDelivery_mobilePushTokenId_idx"
+ON "MobilePushDelivery"("mobilePushTokenId");
 
 ALTER TABLE "MobilePushToken"
 ADD CONSTRAINT "MobilePushToken_userId_fkey"
 FOREIGN KEY ("userId") REFERENCES "User"("id")
 ON DELETE CASCADE ON UPDATE CASCADE;
 
-ALTER TABLE "OtpPushNotification"
-ADD CONSTRAINT "OtpPushNotification_emailAccountId_fkey"
-FOREIGN KEY ("emailAccountId") REFERENCES "EmailAccount"("id")
-ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "OtpPushNotification"
-ADD CONSTRAINT "OtpPushNotification_mobilePushTokenId_fkey"
+ALTER TABLE "MobilePushDelivery"
+ADD CONSTRAINT "MobilePushDelivery_mobilePushTokenId_fkey"
 FOREIGN KEY ("mobilePushTokenId") REFERENCES "MobilePushToken"("id")
 ON DELETE CASCADE ON UPDATE CASCADE;

@@ -1,35 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestLogger } from "@/__tests__/helpers";
+import { MobilePushNotificationType } from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
-import type { ParsedMessage } from "@/utils/types";
-import { sendOtpPushNotification } from "./mobile-push";
+import { sendMobilePushNotification } from "./mobile-push";
 
 vi.mock("@/utils/prisma");
 
 const logger = createTestLogger();
-const now = new Date("2026-07-31T12:05:00.000Z");
 
-describe("sendOtpPushNotification", () => {
+describe("sendMobilePushNotification", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.restoreAllMocks();
   });
 
-  it("sends an expiring notification to every registered device", async () => {
-    prisma.mobilePushToken.findMany.mockResolvedValue([
-      {
-        id: "token-1",
-        token: "ExponentPushToken[first]",
-      },
-      {
-        id: "token-2",
-        token: "ExponentPushToken[second]",
-      },
-    ] as never);
-    prisma.otpPushNotification.createManyAndReturn.mockResolvedValue([
-      { mobilePushTokenId: "token-1" },
-      { mobilePushTokenId: "token-2" },
-    ] as never);
+  it("sends a notification to every registered device", async () => {
+    mockClaimedTokens([
+      { id: "token-1", token: "ExponentPushToken[first]" },
+      { id: "token-2", token: "ExponentPushToken[second]" },
+    ]);
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -39,17 +28,7 @@ describe("sendOtpPushNotification", () => {
       ),
     );
 
-    await sendOtpPushNotification({
-      emailAccountId: "account-1",
-      userId: "user-1",
-      message: message({
-        id: "message-1",
-        threadId: "thread-1",
-        subject: "Your verification code is 123456",
-      }),
-      logger,
-      now,
-    });
+    await sendNotification();
 
     expect(fetchMock).toHaveBeenCalledOnce();
     const request = fetchMock.mock.calls[0][1];
@@ -69,62 +48,22 @@ describe("sendOtpPushNotification", () => {
     ]);
   });
 
-  it("does not notify for a security alert without an OTP", async () => {
-    await sendOtpPushNotification({
-      emailAccountId: "account-1",
-      userId: "user-1",
-      message: message({ subject: "Suspicious login attempt" }),
-      logger,
-      now,
-    });
-
-    expect(prisma.mobilePushToken.findMany).not.toHaveBeenCalled();
-  });
-
-  it("deduplicates repeated webhook delivery", async () => {
-    prisma.mobilePushToken.findMany.mockResolvedValue([
-      { id: "token-1", token: "ExponentPushToken[first]" },
-    ] as never);
-    prisma.otpPushNotification.createManyAndReturn.mockResolvedValue([]);
+  it("deduplicates repeated delivery", async () => {
+    mockClaimedTokens([{ id: "token-1", token: "ExponentPushToken[first]" }]);
+    prisma.mobilePushDelivery.createManyAndReturn.mockResolvedValue([]);
     const fetchMock = vi.spyOn(globalThis, "fetch");
 
-    await sendOtpPushNotification({
-      emailAccountId: "account-1",
-      userId: "user-1",
-      message: message({ subject: "Your login code is 123456" }),
-      logger,
-      now,
-    });
+    await sendNotification();
 
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("does not notify for an OTP older than 15 minutes", async () => {
-    await sendOtpPushNotification({
-      emailAccountId: "account-1",
-      userId: "user-1",
-      message: message({
-        date: "2026-07-31T11:49:59.999Z",
-        subject: "Your login code is 123456",
-      }),
-      logger,
-      now,
-    });
-
-    expect(prisma.mobilePushToken.findMany).not.toHaveBeenCalled();
-  });
-
   it("sends at most 100 notifications in each Expo request", async () => {
-    prisma.mobilePushToken.findMany.mockResolvedValue(
+    mockClaimedTokens(
       Array.from({ length: 101 }, (_, index) => ({
         id: `token-${index}`,
         token: `ExponentPushToken[token-${index}]`,
-      })) as never,
-    );
-    prisma.otpPushNotification.createManyAndReturn.mockResolvedValue(
-      Array.from({ length: 101 }, (_, index) => ({
-        mobilePushTokenId: `token-${index}`,
-      })) as never,
+      })),
     );
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
@@ -140,13 +79,7 @@ describe("sendOtpPushNotification", () => {
         );
       });
 
-    await sendOtpPushNotification({
-      emailAccountId: "account-1",
-      userId: "user-1",
-      message: message({ subject: "Your login code is 123456" }),
-      logger,
-      now,
-    });
+    await sendNotification();
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(
@@ -157,16 +90,11 @@ describe("sendOtpPushNotification", () => {
   });
 
   it("removes unregistered tokens and retries only rejected devices", async () => {
-    prisma.mobilePushToken.findMany.mockResolvedValue([
+    mockClaimedTokens([
       { id: "successful", token: "ExponentPushToken[successful]" },
       { id: "unregistered", token: "ExponentPushToken[unregistered]" },
       { id: "retryable", token: "ExponentPushToken[retryable]" },
-    ] as never);
-    prisma.otpPushNotification.createManyAndReturn.mockResolvedValue([
-      { mobilePushTokenId: "successful" },
-      { mobilePushTokenId: "unregistered" },
-      { mobilePushTokenId: "retryable" },
-    ] as never);
+    ]);
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -186,71 +114,43 @@ describe("sendOtpPushNotification", () => {
       ),
     );
 
-    await sendOtpPushNotification({
-      emailAccountId: "account-1",
-      userId: "user-1",
-      message: message({ subject: "Your login code is 123456" }),
-      logger,
-      now,
-    });
+    await sendNotification();
 
     expect(prisma.mobilePushToken.deleteMany).toHaveBeenCalledWith({
       where: { id: { in: ["unregistered"] } },
     });
-    expect(prisma.otpPushNotification.deleteMany).toHaveBeenCalledWith({
+    expect(prisma.mobilePushDelivery.deleteMany).toHaveBeenCalledWith({
       where: {
-        emailAccountId: "account-1",
-        messageId: "message-1",
+        type: MobilePushNotificationType.OTP,
+        deduplicationKey: "account-1:message-1",
         mobilePushTokenId: { in: ["retryable"] },
       },
     });
   });
 
   it("keeps claims when Expo may have accepted the request", async () => {
-    prisma.mobilePushToken.findMany.mockResolvedValue([
-      { id: "token-1", token: "ExponentPushToken[first]" },
-    ] as never);
-    prisma.otpPushNotification.createManyAndReturn.mockResolvedValue([
-      { mobilePushTokenId: "token-1" },
-    ] as never);
+    mockClaimedTokens([{ id: "token-1", token: "ExponentPushToken[first]" }]);
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response("not-json", { status: 200 }),
     );
 
-    await sendOtpPushNotification({
-      emailAccountId: "account-1",
-      userId: "user-1",
-      message: message({ subject: "Your login code is 123456" }),
-      logger,
-      now,
-    });
+    await sendNotification();
 
-    expect(prisma.otpPushNotification.deleteMany).not.toHaveBeenCalled();
+    expect(prisma.mobilePushDelivery.deleteMany).not.toHaveBeenCalled();
   });
 
   it("releases claims after a retryable Expo request failure", async () => {
-    prisma.mobilePushToken.findMany.mockResolvedValue([
-      { id: "token-1", token: "ExponentPushToken[first]" },
-    ] as never);
-    prisma.otpPushNotification.createManyAndReturn.mockResolvedValue([
-      { mobilePushTokenId: "token-1" },
-    ] as never);
+    mockClaimedTokens([{ id: "token-1", token: "ExponentPushToken[first]" }]);
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(null, { status: 503 }),
     );
 
-    await sendOtpPushNotification({
-      emailAccountId: "account-1",
-      userId: "user-1",
-      message: message({ subject: "Your login code is 123456" }),
-      logger,
-      now,
-    });
+    await sendNotification();
 
-    expect(prisma.otpPushNotification.deleteMany).toHaveBeenCalledWith({
+    expect(prisma.mobilePushDelivery.deleteMany).toHaveBeenCalledWith({
       where: {
-        emailAccountId: "account-1",
-        messageId: "message-1",
+        type: MobilePushNotificationType.OTP,
+        deduplicationKey: "account-1:message-1",
         mobilePushTokenId: { in: ["token-1"] },
       },
     });
@@ -261,45 +161,33 @@ describe("sendOtpPushNotification", () => {
       { id: "token-1", token: "ExponentPushToken[first]" },
       { id: "token-2", token: "ExponentPushToken[second]" },
     ] as never);
-    prisma.otpPushNotification.createManyAndReturn.mockResolvedValue([]);
+    prisma.mobilePushDelivery.createManyAndReturn.mockResolvedValue([]);
 
-    await sendOtpPushNotification({
-      emailAccountId: "account-1",
-      userId: "user-1",
-      message: message({ subject: "Your login code is 123456" }),
-      logger,
-      now,
+    await sendNotification();
+
+    expect(prisma.mobilePushDelivery.createManyAndReturn).toHaveBeenCalledWith({
+      data: [
+        {
+          type: MobilePushNotificationType.OTP,
+          deduplicationKey: "account-1:message-1",
+          mobilePushTokenId: "token-1",
+        },
+        {
+          type: MobilePushNotificationType.OTP,
+          deduplicationKey: "account-1:message-1",
+          mobilePushTokenId: "token-2",
+        },
+      ],
+      select: { mobilePushTokenId: true },
+      skipDuplicates: true,
     });
-
-    expect(prisma.otpPushNotification.createManyAndReturn).toHaveBeenCalledWith(
-      {
-        data: [
-          {
-            emailAccountId: "account-1",
-            messageId: "message-1",
-            mobilePushTokenId: "token-1",
-          },
-          {
-            emailAccountId: "account-1",
-            messageId: "message-1",
-            mobilePushTokenId: "token-2",
-          },
-        ],
-        select: { mobilePushTokenId: true },
-        skipDuplicates: true,
-      },
-    );
   });
 
   it("keeps claims when Expo returns fewer tickets than requested", async () => {
-    prisma.mobilePushToken.findMany.mockResolvedValue([
+    mockClaimedTokens([
       { id: "token-1", token: "ExponentPushToken[first]" },
       { id: "token-2", token: "ExponentPushToken[second]" },
-    ] as never);
-    prisma.otpPushNotification.createManyAndReturn.mockResolvedValue([
-      { mobilePushTokenId: "token-1" },
-      { mobilePushTokenId: "token-2" },
-    ] as never);
+    ]);
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify({ data: [{ status: "ok" }] }), {
         status: 200,
@@ -307,38 +195,40 @@ describe("sendOtpPushNotification", () => {
     );
     const warnSpy = vi.spyOn(logger, "warn");
 
-    await sendOtpPushNotification({
-      emailAccountId: "account-1",
-      userId: "user-1",
-      message: message({ subject: "Your login code is 123456" }),
-      logger,
-      now,
-    });
+    await sendNotification();
 
-    expect(prisma.otpPushNotification.deleteMany).not.toHaveBeenCalled();
+    expect(prisma.mobilePushDelivery.deleteMany).not.toHaveBeenCalled();
     expect(warnSpy).toHaveBeenCalledWith(
-      "OTP push response outcome is unknown",
+      "Mobile push response outcome is unknown",
       { expectedTicketCount: 2, receivedTicketCount: 1 },
     );
   });
 });
 
-function message(overrides: Partial<ParsedMessage>): ParsedMessage {
-  const subject = overrides.subject ?? "Your verification code";
-  return {
-    date: "2026-07-31T12:00:00.000Z",
-    headers: {
-      date: "2026-07-31T12:00:00.000Z",
-      from: "Security <security@example.com>",
-      subject,
-      to: "user@example.com",
+function sendNotification() {
+  return sendMobilePushNotification({
+    userId: "user-1",
+    notificationType: MobilePushNotificationType.OTP,
+    deduplicationKey: "account-1:message-1",
+    notification: {
+      title: "Verification code",
+      body: "Your verification code is 123456",
+      sound: "default",
+      channelId: "otp",
+      priority: "high",
+      expiration: new Date("2026-07-31T12:15:00.000Z").getTime() / 1000,
+      data: {
+        type: "otp",
+        url: "/thread/thread-1?accountId=account-1",
+      },
     },
-    historyId: "history-1",
-    id: "message-1",
-    inline: [],
-    snippet: subject,
-    subject,
-    threadId: "thread-1",
-    ...overrides,
-  };
+    logger,
+  });
+}
+
+function mockClaimedTokens(tokens: Array<{ id: string; token: string }>) {
+  prisma.mobilePushToken.findMany.mockResolvedValue(tokens as never);
+  prisma.mobilePushDelivery.createManyAndReturn.mockResolvedValue(
+    tokens.map(({ id }) => ({ mobilePushTokenId: id })) as never,
+  );
 }

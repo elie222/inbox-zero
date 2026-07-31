@@ -1,9 +1,7 @@
 import chunk from "lodash/chunk";
-import { getMessageTimestamp } from "@/utils/email/message-timestamp";
+import type { MobilePushNotificationType } from "@/generated/prisma/enums";
 import type { Logger } from "@/utils/logger";
-import { isRecentOtpMessage, OTP_MAX_AGE_MS } from "@/utils/otp";
 import prisma from "@/utils/prisma";
-import type { ParsedMessage } from "@/utils/types";
 
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 const EXPO_PUSH_BATCH_SIZE = 100;
@@ -19,31 +17,39 @@ type MobilePushToken = {
   token: string;
 };
 
-export async function sendOtpPushNotification({
-  emailAccountId,
-  userId,
-  message,
-  logger,
-  now = new Date(),
-}: {
-  emailAccountId: string;
-  userId: string;
-  message: ParsedMessage;
-  logger: Logger;
-  now?: Date;
-}) {
-  if (!isRecentOtpMessage(message, now)) return;
+type MobilePushNotification = {
+  title: string;
+  body: string;
+  sound?: "default";
+  channelId?: string;
+  priority?: "high";
+  expiration?: number;
+  data?: Record<string, string>;
+};
 
+export async function sendMobilePushNotification({
+  userId,
+  notificationType,
+  deduplicationKey,
+  notification,
+  logger,
+}: {
+  userId: string;
+  notificationType: MobilePushNotificationType;
+  deduplicationKey: string;
+  notification: MobilePushNotification;
+  logger: Logger;
+}) {
   const pushTokens = await prisma.mobilePushToken.findMany({
     where: { userId },
     select: { id: true, token: true },
   });
   if (pushTokens.length === 0) return;
 
-  const claims = await prisma.otpPushNotification.createManyAndReturn({
+  const claims = await prisma.mobilePushDelivery.createManyAndReturn({
     data: pushTokens.map((pushToken) => ({
-      emailAccountId,
-      messageId: message.id,
+      type: notificationType,
+      deduplicationKey,
       mobilePushTokenId: pushToken.id,
     })),
     select: { mobilePushTokenId: true },
@@ -59,8 +65,9 @@ export async function sendOtpPushNotification({
   for (const pushTokenBatch of chunk(claimedPushTokens, EXPO_PUSH_BATCH_SIZE)) {
     await sendPushBatch({
       pushTokens: pushTokenBatch,
-      emailAccountId,
-      message,
+      notificationType,
+      deduplicationKey,
+      notification,
       logger,
     });
   }
@@ -68,13 +75,15 @@ export async function sendOtpPushNotification({
 
 async function sendPushBatch({
   pushTokens,
-  emailAccountId,
-  message,
+  notificationType,
+  deduplicationKey,
+  notification,
   logger,
 }: {
   pushTokens: MobilePushToken[];
-  emailAccountId: string;
-  message: ParsedMessage;
+  notificationType: MobilePushNotificationType;
+  deduplicationKey: string;
+  notification: MobilePushNotification;
   logger: Logger;
 }) {
   let response: Response;
@@ -89,23 +98,12 @@ async function sendPushBatch({
       body: JSON.stringify(
         pushTokens.map(({ token }) => ({
           to: token,
-          title: "Verification code",
-          body: message.subject,
-          sound: "default",
-          channelId: "otp",
-          priority: "high",
-          expiration: Math.floor(
-            (getMessageTimestamp(message) + OTP_MAX_AGE_MS) / 1000,
-          ),
-          data: {
-            type: "otp",
-            url: `/thread/${encodeURIComponent(message.threadId)}?accountId=${encodeURIComponent(emailAccountId)}`,
-          },
+          ...notification,
         })),
       ),
     });
   } catch (error) {
-    logger.warn("OTP push request outcome is unknown", { error });
+    logger.warn("Mobile push request outcome is unknown", { error });
     return;
   }
 
@@ -113,11 +111,11 @@ async function sendPushBatch({
     if (response.status === 429 || response.status >= 500) {
       await releasePushClaims({
         pushTokens,
-        emailAccountId,
-        messageId: message.id,
+        notificationType,
+        deduplicationKey,
       });
     }
-    logger.warn("Expo rejected OTP push request", {
+    logger.warn("Expo rejected mobile push request", {
       status: response.status,
     });
     return;
@@ -134,12 +132,12 @@ async function sendPushBatch({
       tickets = result.data ? [result.data] : [];
     }
   } catch (error) {
-    logger.warn("OTP push response outcome is unknown", { error });
+    logger.warn("Mobile push response outcome is unknown", { error });
     return;
   }
 
   if (tickets.length !== pushTokens.length) {
-    logger.warn("OTP push response outcome is unknown", {
+    logger.warn("Mobile push response outcome is unknown", {
       expectedTicketCount: pushTokens.length,
       receivedTicketCount: tickets.length,
     });
@@ -173,12 +171,12 @@ async function sendPushBatch({
   if (rejectedTokens.length > 0) {
     await releasePushClaims({
       pushTokens: rejectedTokens,
-      emailAccountId,
-      messageId: message.id,
+      notificationType,
+      deduplicationKey,
     });
   }
   if (errorCodes.size > 0) {
-    logger.warn("Expo rejected OTP push notifications", {
+    logger.warn("Expo rejected mobile push notifications", {
       count: unregisteredTokenIds.length + rejectedTokens.length,
       errorCodes: [...errorCodes],
     });
@@ -187,17 +185,17 @@ async function sendPushBatch({
 
 async function releasePushClaims({
   pushTokens,
-  emailAccountId,
-  messageId,
+  notificationType,
+  deduplicationKey,
 }: {
   pushTokens: MobilePushToken[];
-  emailAccountId: string;
-  messageId: string;
+  notificationType: MobilePushNotificationType;
+  deduplicationKey: string;
 }) {
-  await prisma.otpPushNotification.deleteMany({
+  await prisma.mobilePushDelivery.deleteMany({
     where: {
-      emailAccountId,
-      messageId,
+      type: notificationType,
+      deduplicationKey,
       mobilePushTokenId: { in: pushTokens.map(({ id }) => id) },
     },
   });

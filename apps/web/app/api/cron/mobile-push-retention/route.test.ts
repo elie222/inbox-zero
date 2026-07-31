@@ -11,8 +11,8 @@ vi.mock("@/env", () => ({
 vi.mock("@/utils/error", () => ({
   captureException: (...args: unknown[]) => captureExceptionMock(...args),
 }));
-vi.mock("@/utils/otp-push-retention", () => ({
-  deleteExpiredOtpPushNotifications: () => deleteExpiredMock(),
+vi.mock("@/utils/mobile-push-retention", () => ({
+  deleteExpiredMobilePushDeliveries: () => deleteExpiredMock(),
 }));
 vi.mock("@/utils/middleware", async () => {
   const { createWithErrorTestMiddleware } = await vi.importActual<
@@ -24,7 +24,7 @@ vi.mock("@/utils/middleware", async () => {
 
 import { GET, POST } from "./route";
 
-describe("OTP push retention cron route", () => {
+describe("mobile push retention cron route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     deleteExpiredMock.mockResolvedValue(3);
@@ -32,7 +32,7 @@ describe("OTP push retention cron route", () => {
 
   it("rejects requests without the cron bearer token", async () => {
     const response = await GET(
-      new Request("http://localhost:3000/api/cron/otp-push-retention"),
+      new Request("http://localhost:3000/api/cron/mobile-push-retention"),
     );
 
     expect(response.status).toBe(401);
@@ -42,7 +42,7 @@ describe("OTP push retention cron route", () => {
 
   it("deletes expired claims for an authorized request", async () => {
     const response = await GET(
-      new Request("http://localhost:3000/api/cron/otp-push-retention", {
+      new Request("http://localhost:3000/api/cron/mobile-push-retention", {
         headers: { authorization: "Bearer cron-secret" },
       }),
     );
@@ -54,7 +54,7 @@ describe("OTP push retention cron route", () => {
 
   it("rejects POST requests without the cron secret in the body", async () => {
     const response = await POST(
-      new Request("http://localhost:3000/api/cron/otp-push-retention", {
+      new Request("http://localhost:3000/api/cron/mobile-push-retention", {
         method: "POST",
         body: JSON.stringify({ CRON_SECRET: "wrong-secret" }),
       }),
@@ -68,7 +68,7 @@ describe("OTP push retention cron route", () => {
 
   it("deletes expired claims for an authorized POST request", async () => {
     const response = await POST(
-      new Request("http://localhost:3000/api/cron/otp-push-retention", {
+      new Request("http://localhost:3000/api/cron/mobile-push-retention", {
         method: "POST",
         body: JSON.stringify({ CRON_SECRET: "cron-secret" }),
       }),
