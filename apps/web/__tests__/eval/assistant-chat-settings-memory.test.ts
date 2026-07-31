@@ -677,26 +677,17 @@ function configureStatefulSettingsMocks() {
     });
     return {};
   });
-  prisma.knowledge.upsert.mockImplementation(
-    async ({ where, create, update }) => {
-      const existing = accountSnapshot.knowledge.find(
-        (item) => item.title === where.emailAccountId_title.title,
-      );
-      if (existing) {
-        Object.assign(existing, update, {
-          updatedAt: new Date("2026-02-21T08:00:00.000Z"),
-        });
-      } else {
-        accountSnapshot.knowledge.push({
-          id: `knowledge-${accountSnapshot.knowledge.length + 1}`,
-          title: create.title,
-          content: create.content,
-          updatedAt: new Date("2026-02-21T08:00:00.000Z"),
-        });
-      }
-      return {};
-    },
-  );
+  prisma.knowledge.update.mockImplementation(async ({ where, data }) => {
+    const existing = accountSnapshot.knowledge.find(
+      (item) => item.title === where.emailAccountId_title?.title,
+    );
+    if (!existing) throw new Error("Knowledge item not found");
+
+    Object.assign(existing, data, {
+      updatedAt: new Date("2026-02-21T08:00:00.000Z"),
+    });
+    return existing;
+  });
   prisma.knowledge.deleteMany.mockImplementation(async ({ where }) => {
     accountSnapshot.knowledge = accountSnapshot.knowledge.filter(
       (item) => item.title !== where.title,
