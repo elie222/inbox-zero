@@ -80,6 +80,13 @@ export function createMockEmailProvider(
     getMessagesWithPagination: vi
       .fn()
       .mockResolvedValue({ messages: [], nextPageToken: undefined }),
+    getMailboxSyncPage: vi.fn().mockResolvedValue({
+      cursor: "sync-cursor",
+      deletedMessageIds: [],
+      hasMore: false,
+      reset: false,
+      upsertedMessages: [],
+    }),
     searchMessages: vi
       .fn()
       .mockResolvedValue({ messages: [], nextPageToken: undefined }),
