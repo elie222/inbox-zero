@@ -44,8 +44,8 @@ import {
   CHANGEABLE_STATUSES,
   LIVE_STATUSES,
   recordingStatusData,
-  transitionRecording,
 } from "@/utils/meeting-recorder/recording-lifecycle";
+import { transitionRecording } from "@/utils/meeting-recorder/transition-recording";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import prisma from "@/utils/prisma";
 

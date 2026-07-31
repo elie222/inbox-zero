@@ -100,6 +100,24 @@ describe("interpretRecallWebhook", () => {
     );
   });
 
+  it.each([
+    "meeting_not_started",
+    "timeout_exceeded_only_bot_detected",
+  ])("classifies the no-show outcome %s as cancelled", (subCode) => {
+    expect(
+      interpretRecallWebhook({
+        event: "bot.fatal",
+        data: {
+          bot: { id: "bot-1" },
+          data: { code: "fatal", sub_code: subCode },
+        },
+      }),
+    ).toMatchObject({
+      type: "statusChange",
+      status: MeetingRecordingStatus.CANCELLED,
+    });
+  });
+
   it("falls back to the event name when the payload carries no code", () => {
     expect(
       interpretRecallWebhook({

@@ -48,6 +48,7 @@ export function MeetingsList() {
                 key={meeting.id}
                 title={meeting.eventTitle}
                 startTime={meeting.startTime}
+                endTime={meeting.endTime}
                 status={meeting.recording?.status}
                 failureReason={meeting.recording?.failureReason}
                 onClick={() => setOpenMeetingId(meeting.id)}

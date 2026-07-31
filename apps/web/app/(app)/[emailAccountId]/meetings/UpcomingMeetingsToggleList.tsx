@@ -97,6 +97,7 @@ export function UpcomingMeetingsToggleList({
                   key={event.id}
                   title={event.title}
                   startTime={event.startTime}
+                  endTime={event.endTime}
                   status={event.recordingStatus}
                   failureReason={event.failureReason}
                 >

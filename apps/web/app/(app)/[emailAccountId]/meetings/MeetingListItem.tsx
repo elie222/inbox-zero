@@ -18,6 +18,7 @@ import { getRecordingStatusBadge } from "@/app/(app)/[emailAccountId]/meetings/r
 export function MeetingListItem({
   title,
   startTime,
+  endTime,
   status,
   failureReason,
   onClick,
@@ -25,12 +26,13 @@ export function MeetingListItem({
 }: {
   title: string;
   startTime: string | Date;
+  endTime: string | Date;
   status: MeetingRecordingStatus | undefined;
   failureReason: string | null | undefined;
   onClick?: () => void;
   children?: ReactNode;
 }) {
-  const badge = getRecordingStatusBadge(status);
+  const badge = getRecordingStatusBadge({ status, startTime, endTime });
   const start = new Date(startTime);
 
   return (
