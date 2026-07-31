@@ -482,6 +482,132 @@ describe("updateRuleTool", () => {
       },
     });
   });
+
+  it("serializes concurrent updates before reading each rule revision", async () => {
+    const ruleStates = new Map([
+      [
+        "Marketing",
+        {
+          id: "marketing-rule-id",
+          enabled: true,
+          updatedAt: new Date("2026-04-27T00:00:00.000Z"),
+        },
+      ],
+      [
+        "Newsletter",
+        {
+          id: "newsletter-rule-id",
+          enabled: true,
+          updatedAt: new Date("2026-04-27T00:00:00.000Z"),
+        },
+      ],
+    ]);
+    let rulesRevision = 3;
+    let releaseFirstWrite!: () => void;
+    let markFirstWriteStarted!: () => void;
+    const firstWriteCanFinish = new Promise<void>((resolve) => {
+      releaseFirstWrite = resolve;
+    });
+    const firstWriteStarted = new Promise<void>((resolve) => {
+      markFirstWriteStarted = resolve;
+    });
+    let ruleReadState = {
+      readAt: Date.now(),
+      rulesRevision,
+      ruleUpdatedAtByName: new Map(
+        [...ruleStates].map(([name, rule]) => [
+          name,
+          rule.updatedAt.toISOString(),
+        ]),
+      ),
+    };
+
+    mockPrisma.rule.findUnique.mockImplementation(async ({ where }) => {
+      const ruleName = where.name_emailAccountId.name;
+      const rule = ruleStates.get(ruleName);
+      if (!rule) return null;
+
+      return {
+        ...rule,
+        name: ruleName,
+        emailAccount: { rulesRevision },
+        organizationRuleId: null,
+        instructions: null,
+        from: null,
+        to: null,
+        subject: null,
+        conditionalOperator: "AND",
+        actions: [],
+      };
+    });
+    mockPrisma.emailAccount.findUnique.mockImplementation(async () => ({
+      about: null,
+      rulesRevision,
+      rules: [...ruleStates].map(([name, rule]) => ({
+        name,
+        instructions: null,
+        updatedAt: rule.updatedAt,
+        from: null,
+        to: null,
+        subject: null,
+        conditionalOperator: "AND",
+        enabled: rule.enabled,
+        runOnThreads: true,
+        actions: [],
+      })),
+      messagingChannels: [],
+    }));
+    mockSetRuleEnabled.mockImplementation(
+      async ({ ruleId, enabled }: { ruleId: string; enabled: boolean }) => {
+        if (ruleId === "marketing-rule-id") {
+          markFirstWriteStarted();
+          await firstWriteCanFinish;
+        }
+
+        const rule = [...ruleStates.values()].find(
+          (candidate) => candidate.id === ruleId,
+        );
+        if (rule) {
+          rulesRevision += 1;
+          rule.enabled = enabled;
+          rule.updatedAt = new Date(rule.updatedAt.getTime() + 60_000);
+        }
+
+        return { id: ruleId };
+      },
+    );
+
+    const tool = updateRuleTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-id",
+      provider: "google",
+      logger,
+      getRuleReadState: () => ruleReadState,
+      setRuleReadState: (state) => {
+        ruleReadState = state;
+      },
+    });
+    const marketingUpdate = tool.execute({
+      ruleName: "Marketing",
+      updates: { enabled: false },
+    });
+    const newsletterUpdate = tool.execute({
+      ruleName: "Newsletter",
+      updates: { enabled: false },
+    });
+
+    await firstWriteStarted;
+    expect(mockPrisma.rule.findUnique).toHaveBeenCalledTimes(1);
+
+    releaseFirstWrite();
+    const results = await Promise.all([marketingUpdate, newsletterUpdate]);
+
+    expect(results.every((result) => result.success)).toBe(true);
+    expect(
+      mockSetRuleEnabled.mock.calls.map(([input]) => input.ruleId),
+    ).toEqual(["marketing-rule-id", "newsletter-rule-id"]);
+    expect(rulesRevision).toBe(5);
+  });
 });
 
 describe("deleteRuleTool", () => {
