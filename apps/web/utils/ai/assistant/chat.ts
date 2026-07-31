@@ -50,7 +50,7 @@ import { LlmUseCase } from "@/utils/llms/use-cases";
 
 export const maxDuration = 300;
 // Increment when chat prompts, tools, or routing change so run quality remains attributable.
-export const ASSISTANT_CHAT_PIPELINE_VERSION = 1;
+export const ASSISTANT_CHAT_PIPELINE_VERSION = 2;
 const ASSISTANT_CHAT_TOOL_BUDGET_MS = {
   web: 240_000,
   messaging: 60_000,
