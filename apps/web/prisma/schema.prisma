@@ -1174,6 +1174,7 @@ model ChatMessage {
 
   role  String
   parts Json
+  metadata Json?
   // attachments Json?
 
   chatId String

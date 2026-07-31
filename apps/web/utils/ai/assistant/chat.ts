@@ -49,6 +49,8 @@ import { getAssistantChatProvider } from "./chat-provider-shared";
 import { LlmUseCase } from "@/utils/llms/use-cases";
 
 export const maxDuration = 300;
+// Increment when chat prompts, tools, or routing change so run quality remains attributable.
+export const ASSISTANT_CHAT_PIPELINE_VERSION = 1;
 const ASSISTANT_CHAT_TOOL_BUDGET_MS = {
   web: 240_000,
   messaging: 60_000,
@@ -59,6 +61,9 @@ type AssistantChatOnStepFinish = NonNullable<
 >;
 type AssistantChatOnModelResolved = NonNullable<
   Parameters<typeof toolCallAgentStream>[0]["onModelResolved"]
+>;
+type AssistantChatOnFinish = NonNullable<
+  Parameters<typeof toolCallAgentStream>[0]["onFinish"]
 >;
 
 export async function aiProcessAssistantChat({
@@ -77,6 +82,7 @@ export async function aiProcessAssistantChat({
   onRulesStateExposed,
   onStepFinish,
   onModelResolved,
+  onFinish,
   logger,
 }: {
   messages: ModelMessage[];
@@ -94,6 +100,7 @@ export async function aiProcessAssistantChat({
   onRulesStateExposed?: (rulesRevision: number) => void;
   onStepFinish?: AssistantChatOnStepFinish;
   onModelResolved?: AssistantChatOnModelResolved;
+  onFinish?: AssistantChatOnFinish;
   logger: Logger;
 }) {
   const startedAt = Date.now();
@@ -326,6 +333,7 @@ export async function aiProcessAssistantChat({
       });
       onModelResolved?.(resolvedModel);
     },
+    onFinish,
     stopWhen: () => false,
     prepareStep: () => {
       if (
