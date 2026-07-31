@@ -109,6 +109,7 @@ export async function proxy(request: NextRequest) {
     status: result.status,
     responseBytes: result.body?.length ?? 0,
     userAgent: request.headers.get("user-agent"),
+    ...(result.meta ?? {}),
   });
   logger.trace("CardDAV request body", { requestBody: body });
 
