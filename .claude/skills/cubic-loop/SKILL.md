@@ -73,17 +73,14 @@ After waking, fetch:
 ```bash
 git rev-parse HEAD
 git rev-parse @{upstream}
-gh pr view "$PR_NUM" --json headRefOid
+HEAD_SHA=$(gh pr view "$PR_NUM" --json headRefOid --jq .headRefOid)
 
-gh pr checks "$PR_NUM" \
-  --json name,bucket,state,startedAt,completedAt,link
+gh api "repos/$REPO/commits/$HEAD_SHA/check-runs?per_page=100" \
+  --jq '[.check_runs[] | select(.name == "cubic · AI code reviewer") | {name, status, conclusion, started_at, completed_at, html_url}]'
 
 gh api --paginate "repos/$REPO/pulls/$PR_NUM/comments?per_page=100"
 gh pr view "$PR_NUM" --json comments,reviews
 ```
-
-`gh pr checks` exits with code 8 while checks are pending. Treat code 8 as
-status data, not a failure.
 
 Filter review data to Cubic:
 
