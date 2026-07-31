@@ -3,6 +3,26 @@ import { decodeMailboxSyncCursor } from "@/utils/email/mailbox-sync";
 import { buildOutlookMailboxSyncPage } from "@/utils/outlook/mailbox-sync";
 
 describe("buildOutlookMailboxSyncPage", () => {
+  it("finishes an initial snapshot when Graph returns a delta cursor", () => {
+    const page = buildOutlookMailboxSyncPage({
+      response: {
+        value: [],
+        "@odata.deltaLink":
+          "https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages/delta?$deltatoken=abc",
+      },
+      after: "2026-07-01T00:00:00.000Z",
+      wasSnapshot: true,
+      reset: true,
+      categoryMap: new Map(),
+    });
+
+    expect(page.hasMore).toBe(false);
+    expect(decodeMailboxSyncCursor(page.cursor, "microsoft")).toMatchObject({
+      provider: "microsoft",
+      snapshot: false,
+    });
+  });
+
   it("returns metadata upserts, removals, and a validated delta cursor", () => {
     const page = buildOutlookMailboxSyncPage({
       response: {

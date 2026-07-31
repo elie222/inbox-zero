@@ -8,7 +8,11 @@ export const maxDuration = 60;
 
 const bodySchema = z
   .object({
-    after: z.coerce.date().optional(),
+    after: z
+      .string()
+      .datetime()
+      .transform((value) => new Date(value))
+      .optional(),
     cursor: z.string().min(1).max(16_384).optional(),
     limit: z.number().int().min(1).max(100).default(100),
   })

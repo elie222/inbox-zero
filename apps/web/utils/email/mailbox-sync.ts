@@ -36,10 +36,12 @@ export function encodeMailboxSyncCursor(cursor: MailboxSyncCursor): string {
   return Buffer.from(JSON.stringify(cursor)).toString("base64url");
 }
 
-export function decodeMailboxSyncCursor(
+export function decodeMailboxSyncCursor<
+  TProvider extends MailboxSyncCursor["provider"],
+>(
   cursor: string,
-  provider: MailboxSyncCursor["provider"],
-): MailboxSyncCursor {
+  provider: TProvider,
+): Extract<MailboxSyncCursor, { provider: TProvider }> {
   try {
     const parsed = cursorSchema.parse(
       JSON.parse(Buffer.from(cursor, "base64url").toString("utf8")),
@@ -53,7 +55,7 @@ export function decodeMailboxSyncCursor(
     ) {
       throw new InvalidMailboxSyncCursorError();
     }
-    return parsed;
+    return parsed as Extract<MailboxSyncCursor, { provider: TProvider }>;
   } catch (error) {
     if (error instanceof InvalidMailboxSyncCursorError) throw error;
     throw new InvalidMailboxSyncCursorError();

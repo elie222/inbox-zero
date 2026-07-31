@@ -74,6 +74,19 @@ describe("POST /api/mobile/mailbox-sync", () => {
     });
   });
 
+  it("rejects a null initial sync date", async () => {
+    await expect(
+      POST(
+        new NextRequest("http://localhost:3000/api/mobile/mailbox-sync", {
+          method: "POST",
+          body: JSON.stringify({ after: null }),
+        }),
+        {} as never,
+      ),
+    ).rejects.toThrow();
+    expect(getMailboxSyncPageMock).not.toHaveBeenCalled();
+  });
+
   it("rejects an invalid cursor without exposing provider errors", async () => {
     getMailboxSyncPageMock.mockRejectedValue(
       new InvalidMailboxSyncCursorError(),

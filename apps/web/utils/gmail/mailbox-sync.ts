@@ -8,6 +8,7 @@ import {
 import type { MailboxSyncPage } from "@/utils/email/types";
 import { getMessagesBatch } from "@/utils/gmail/message";
 import { getHistory } from "@/utils/gmail/history";
+import { GmailLabel } from "@/utils/gmail/label";
 import { extractErrorInfo, withGmailRetry } from "@/utils/gmail/retry";
 import type { Logger } from "@/utils/logger";
 
@@ -39,10 +40,6 @@ export async function getGmailMailboxSyncPage({
   }
 
   const decoded = decodeMailboxSyncCursor(cursor, "google");
-  if (decoded.provider !== "google") {
-    throw new Error("Expected Google mailbox sync cursor");
-  }
-
   if (decoded.phase === "snapshot") {
     return getGmailSnapshotPage({
       gmail,
@@ -69,12 +66,20 @@ export async function getGmailMailboxSyncPage({
     const { upsertIds, deletedIds } = getGmailMailboxChangeIds(
       response.history ?? [],
     );
-    const upsertedMessages = await fetchMessages({
+    const fetchedMessages = await fetchMessages({
       messageIds: upsertIds,
       accessToken,
       logger,
     });
-    const fetchedIds = new Set(upsertedMessages.map((message) => message.id));
+    const afterTimestamp = new Date(decoded.after).getTime();
+    const upsertedMessages = fetchedMessages.filter((message) => {
+      const isInSnapshotScope =
+        message.labelIds?.includes(GmailLabel.INBOX) &&
+        Number(message.internalDate) >= afterTimestamp;
+      if (!isInSnapshotScope) deletedIds.add(message.id);
+      return isInSnapshotScope;
+    });
+    const fetchedIds = new Set(fetchedMessages.map((message) => message.id));
     for (const messageId of upsertIds) {
       if (!fetchedIds.has(messageId)) deletedIds.add(messageId);
     }

@@ -53,13 +53,15 @@ describe("compactMailboxSyncMessage", () => {
       attachments: [{ filename: "large.pdf" }],
     });
 
-    expect(compactMailboxSyncMessage(message)).toMatchObject({
+    const compacted = compactMailboxSyncMessage(message);
+
+    expect(compacted).toMatchObject({
       id: "msg1",
       subject: "Test",
-      attachments: undefined,
       inline: [],
-      textHtml: undefined,
-      textPlain: undefined,
     });
+    expect(compacted.attachments).toBeUndefined();
+    expect(compacted.textHtml).toBeUndefined();
+    expect(compacted.textPlain).toBeUndefined();
   });
 });

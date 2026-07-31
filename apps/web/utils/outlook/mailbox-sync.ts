@@ -38,14 +38,10 @@ export async function getOutlookMailboxSyncPage({
 }): Promise<MailboxSyncPage> {
   if (!cursor) {
     if (!after) throw new Error("after is required for initial mailbox sync");
-    return getInitialPage({ client, logger, after, limit, reset: true });
+    return getInitialPage({ client, logger, after, limit });
   }
 
   const decoded = decodeMailboxSyncCursor(cursor, "microsoft");
-  if (decoded.provider !== "microsoft") {
-    throw new Error("Expected Microsoft mailbox sync cursor");
-  }
-
   try {
     const response = await withOutlookRetry<DeltaResponse>(
       () =>
@@ -77,7 +73,6 @@ export async function getOutlookMailboxSyncPage({
       logger,
       after: new Date(decoded.after),
       limit,
-      reset: true,
     });
   }
 }
@@ -134,7 +129,7 @@ export function buildOutlookMailboxSyncPage({
       snapshot: Boolean(nextLink) && wasSnapshot,
     }),
     deletedMessageIds,
-    hasMore: Boolean(nextLink) || wasSnapshot,
+    hasMore: Boolean(nextLink),
     reset,
     upsertedMessages,
   };
@@ -145,13 +140,11 @@ async function getInitialPage({
   logger,
   after,
   limit,
-  reset,
 }: {
   client: OutlookClient;
   logger: Logger;
   after: Date;
   limit: number;
-  reset: boolean;
 }) {
   const response = await withOutlookRetry<DeltaResponse>(
     () =>
@@ -170,7 +163,7 @@ async function getInitialPage({
     response,
     after: after.toISOString(),
     wasSnapshot: true,
-    reset,
+    reset: true,
     categoryMap: await getCategoryMap(client, logger),
   });
 }
