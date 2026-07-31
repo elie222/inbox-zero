@@ -13,7 +13,7 @@ const ADDRESSBOOK_PATH = `${BASE}/addressbook`;
 // Prefixed onto the ctag and sync token. Bump when a sync bug shipped and
 // clients may hold a "current" ctag for state they never actually downloaded
 // (see addressbookState).
-const CTAG_GENERATION = 2;
+const CTAG_GENERATION = 3;
 
 // RFC 6578 sync tokens must be URIs; the suffix carries the same change
 // material as the ctag so any edit, add, or delete invalidates both.
