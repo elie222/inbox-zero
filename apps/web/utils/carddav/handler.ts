@@ -1,11 +1,19 @@
 import prisma from "@/utils/prisma";
-import { contactEtag, generateVCard, parseVCard } from "@/utils/carddav/vcard";
+import {
+  contactEtag,
+  generateGroupVCard,
+  generateVCard,
+  groupEtag,
+  parseVCard,
+} from "@/utils/carddav/vcard";
 import type { ContactPhone } from "@/utils/contacts";
 
 // A deliberately small CardDAV server: one addressbook per email account,
 // serving the account's saved contacts. Implements the subset iOS/macOS
 // Contacts needs — principal discovery, addressbook PROPFIND with ctag,
 // addressbook-multiget/query REPORTs, and GET/PUT/DELETE per contact.
+// Zerrow's company labels are published alongside as Apple group vCards
+// (group-<labelId>.vcf) so they appear as folders in iOS Contacts.
 
 const BASE = "/api/carddav";
 const ADDRESSBOOK_PATH = `${BASE}/addressbook`;
@@ -85,6 +93,15 @@ export async function handleCarddavRequest({
       return reportAddressbook({ emailAccountId, body });
     }
     if (resource?.endsWith(".vcf")) {
+      const groupMatch = resource.match(/^group-(.+)\.vcf$/i);
+      if (groupMatch) {
+        return handleGroupResource({
+          emailAccountId,
+          method,
+          labelId: safeDecode(groupMatch[1]),
+          requestBody: body,
+        });
+      }
       const uid = safeDecode(resource.slice(0, -4));
       if (method === "GET") return getContact({ emailAccountId, uid });
       if (method === "PUT") return putContact({ emailAccountId, uid, body });
@@ -160,16 +177,41 @@ function requestedProps(body: string): string[] {
 // — the escape hatch for clients that recorded a ctag during a broken sync
 // and now believe they're up to date with zero cards.
 async function addressbookState(emailAccountId: string) {
-  const [latest, count] = await Promise.all([
-    prisma.contact.findMany({
-      where: { emailAccountId },
-      select: { updatedAt: true },
-      orderBy: { updatedAt: "desc" },
-      take: 1,
-    }),
-    prisma.contact.count({ where: { emailAccountId } }),
+  // Labels and companies participate because the group vCards ride on them:
+  // renaming a label or pointing a company at a different label touches
+  // neither contact row, yet it changes what the phone should display — the
+  // ctag and sync token must move with it.
+  const where = { emailAccountId };
+  const newestFirst = {
+    where,
+    select: { updatedAt: true } as const,
+    orderBy: { updatedAt: "desc" } as const,
+    take: 1,
+  };
+  const [
+    latestContact,
+    contactCount,
+    latestLabel,
+    labelCount,
+    latestCompany,
+    companyCount,
+  ] = await Promise.all([
+    prisma.contact.findMany(newestFirst),
+    prisma.contact.count({ where }),
+    prisma.companyLabel.findMany(newestFirst),
+    prisma.companyLabel.count({ where }),
+    prisma.company.findMany(newestFirst),
+    prisma.company.count({ where }),
   ]);
-  const version = `${CTAG_GENERATION}-${latest[0]?.updatedAt.getTime() ?? 0}-${count}`;
+  const version = [
+    CTAG_GENERATION,
+    latestContact[0]?.updatedAt.getTime() ?? 0,
+    contactCount,
+    latestLabel[0]?.updatedAt.getTime() ?? 0,
+    labelCount,
+    latestCompany[0]?.updatedAt.getTime() ?? 0,
+    companyCount,
+  ].join("-");
   return {
     ctag: `"${version}"`,
     syncToken: `${SYNC_TOKEN_PREFIX}${version}`,
@@ -225,24 +267,31 @@ async function propfindAddressbook({
   body: string;
 }): Promise<DavResponse> {
   const collection = await addressbookCollectionResponse(emailAccountId, body);
+  if (depth === "0") return multistatus(collection);
 
-  const contacts = await prisma.contact.findMany({
-    where: { emailAccountId },
-    select: { id: true, carddavUid: true, updatedAt: true },
-    orderBy: { updatedAt: "desc" },
-  });
+  const [contacts, groups] = await Promise.all([
+    prisma.contact.findMany({
+      where: { emailAccountId },
+      select: { id: true, carddavUid: true, updatedAt: true },
+      orderBy: { updatedAt: "desc" },
+    }),
+    loadGroups(emailAccountId),
+  ]);
 
-  const children =
-    depth === "0"
-      ? ""
-      : contacts
-          .map(
-            (contact) => `<d:response>
+  const children = [
+    ...contacts.map(
+      (contact) => `<d:response>
   <d:href>${contactHref(contact)}</d:href>
-  ${propstats(contactProps(contact.updatedAt), body)}
+  ${propstats(resourceProps(contactEtag(contact.updatedAt)), body)}
 </d:response>`,
-          )
-          .join("\n");
+    ),
+    ...groups.map(
+      (group) => `<d:response>
+  <d:href>${groupHref(group.id)}</d:href>
+  ${propstats(resourceProps(group.etag), body)}
+</d:response>`,
+    ),
+  ].join("\n");
 
   return multistatus(`${collection}\n${children}`);
 }
@@ -266,7 +315,10 @@ async function reportAddressbook({
     return multistatus("");
   }
 
-  const contacts = await loadFullContacts(emailAccountId);
+  const [contacts, groups] = await Promise.all([
+    loadFullContacts(emailAccountId),
+    loadGroups(emailAccountId),
+  ]);
 
   const requestedHrefs = isMultiget
     ? [...body.matchAll(/<[^>]*href[^>]*>([^<]+)<\//gi)].map((match) =>
@@ -275,17 +327,18 @@ async function reportAddressbook({
     : null;
   const requested = requestedHrefs ? new Set(requestedHrefs) : null;
 
-  const matched = contacts.filter(
-    (contact) =>
-      !requested ||
-      // Clients echo hrefs in whichever encoding they parsed, so match
-      // the percent-encoded and decoded forms both
-      requested.has(contactHref(contact)) ||
-      requested.has(decodeURIComponent(contactHref(contact))),
-  );
+  const wanted = (href: string) =>
+    // Clients echo hrefs in whichever encoding they parsed, so match
+    // the percent-encoded and decoded forms both
+    !requested ||
+    requested.has(href) ||
+    requested.has(decodeURIComponent(href));
 
-  const responses = matched
-    .map(
+  const matched = contacts.filter((contact) => wanted(contactHref(contact)));
+  const matchedGroups = groups.filter((group) => wanted(groupHref(group.id)));
+
+  const responses = [
+    ...matched.map(
       (contact) => `<d:response>
   <d:href>${contactHref(contact)}</d:href>
   <d:propstat><d:prop>
@@ -293,17 +346,18 @@ async function reportAddressbook({
     <card:address-data xmlns:card="urn:ietf:params:xml:ns:carddav">${escapeXml(contactVCard(contact))}</card:address-data>
   </d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat>
 </d:response>`,
-    )
-    .join("\n");
+    ),
+    ...matchedGroups.map((group) => groupReportResponse(group, true)),
+  ].join("\n");
 
   // RFC 6352 §8.7: every requested href gets an answer — a card the client
   // asked about that no longer exists is a 404 response, not an omission a
   // strict client can mistake for a broken batch
   const matchedHrefs = new Set(
-    matched.flatMap((contact) => [
-      contactHref(contact),
-      decodeURIComponent(contactHref(contact)),
-    ]),
+    [
+      ...matched.map(contactHref),
+      ...matchedGroups.map((group) => groupHref(group.id)),
+    ].flatMap((href) => [href, decodeURIComponent(href)]),
   );
   const missing = (requestedHrefs ?? [])
     .filter((href) => !matchedHrefs.has(href))
@@ -316,11 +370,13 @@ async function reportAddressbook({
     .join("\n");
 
   const result = multistatus([responses, missing].filter(Boolean).join("\n"));
+  const matchedCount = matched.length + matchedGroups.length;
   result.meta = {
     report: isMultiget ? "multiget" : "query",
     requestedHrefs: requestedHrefs?.length ?? null,
-    matched: matched.length,
-    notFound: requestedHrefs ? requestedHrefs.length - matched.length : 0,
+    matched: matchedCount,
+    groups: matchedGroups.length,
+    notFound: requestedHrefs ? requestedHrefs.length - matchedCount : 0,
   };
   return result;
 }
@@ -346,40 +402,40 @@ async function syncCollectionReport({
       )?.[1]
       ?.trim() ?? "";
 
-  // RFC 6578 truncation: honor the client's result limit and hand back a
-  // resumable token — dumping the whole book past a requested limit is how
-  // a client ends up storing "up to date" while holding a fraction of the
-  // cards, with no reason to ever fetch the rest.
-  const limit = Number(body.match(/<(?:\w+:)?nresults[^>]*>(\d+)</i)?.[1] ?? 0);
-  const pageMatch = clientToken.match(
-    new RegExp(`^${SYNC_TOKEN_PREFIX}page-(\\d+)-of-(.+)$`),
-  );
-
-  let offset = 0;
-  if (pageMatch) {
-    // Resuming a paged initial sync — only valid while the book is unchanged
-    if (`${SYNC_TOKEN_PREFIX}${pageMatch[2]}` !== syncToken) {
-      return invalidSyncToken();
-    }
-    offset = Number(pageMatch[1]);
-  } else if (clientToken === syncToken) {
+  if (clientToken && clientToken === syncToken) {
     const tokenLine = `<d:sync-token>${escapeXml(syncToken)}</d:sync-token>`;
     const result = multistatus(tokenLine);
     result.meta = { report: "sync", changes: 0 };
     return result;
-  } else if (clientToken) {
-    return invalidSyncToken();
+  }
+  if (clientToken) {
+    return {
+      status: 403,
+      headers: { "Content-Type": "application/xml; charset=utf-8" },
+      body: `<?xml version="1.0" encoding="utf-8"?>
+<d:error xmlns:d="DAV:"><d:valid-sync-token/></d:error>`,
+      meta: { report: "sync", staleToken: true },
+    };
   }
 
+  // Initial sync: everything, capped at the client's limit when one is sent
+  // — exactly what the proven reference server does. Deliberately NO RFC
+  // 6578 truncation/paging: Apple's client has never been observed handling
+  // a 507 continuation here, and the reference syncs the same phone in full
+  // without one.
+  const limit = Number(body.match(/<(?:\w+:)?nresults[^>]*>(\d+)</i)?.[1] ?? 0);
   const includeAddressData = /address-data/i.test(body);
-  const contacts = await loadFullContacts(emailAccountId);
-  const page = limit
-    ? contacts.slice(offset, offset + limit)
-    : contacts.slice(offset);
-  const truncated = offset + page.length < contacts.length;
+  const [contacts, groups] = await Promise.all([
+    loadFullContacts(emailAccountId),
+    loadGroups(emailAccountId),
+  ]);
+  const served = limit ? contacts.slice(0, limit) : contacts;
 
-  const responses = page
-    .map(
+  // Groups ride along uncapped (like the reference server): there are only
+  // ever a handful, and a group the phone hears about before its members is
+  // harmless — membership resolves as the member cards arrive
+  const responses = [
+    ...served.map(
       (contact) => `<d:response>
   <d:href>${contactHref(contact)}</d:href>
   <d:propstat><d:prop>
@@ -391,52 +447,21 @@ async function syncCollectionReport({
     }
   </d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat>
 </d:response>`,
-    )
-    .join("\n");
+    ),
+    ...groups.map((group) => groupReportResponse(group, includeAddressData)),
+  ].join("\n");
 
-  // A truncated answer carries a 507 marker on the collection and a token
-  // that resumes where this page ended; the client syncs again with it
-  // until it receives the final state token
-  const responseToken = truncated
-    ? syncToken.replace(
-        SYNC_TOKEN_PREFIX,
-        `${SYNC_TOKEN_PREFIX}page-${offset + page.length}-of-`,
-      )
-    : syncToken;
-  // Shaped exactly like RFC 6578's truncation example — status AND the
-  // number-of-matches-within-limits error element; clients may key on either
-  const truncationMarker = truncated
-    ? `<d:response>
-  <d:href>${ADDRESSBOOK_PATH}/</d:href>
-  <d:status>HTTP/1.1 507 Insufficient Storage</d:status>
-  <d:error><d:number-of-matches-within-limits/></d:error>
-</d:response>`
-    : "";
-  const tokenLine = `<d:sync-token>${escapeXml(responseToken)}</d:sync-token>`;
-
-  const result = multistatus(
-    [responses, truncationMarker, tokenLine].filter(Boolean).join("\n"),
-  );
+  const tokenLine = `<d:sync-token>${escapeXml(syncToken)}</d:sync-token>`;
+  const result = multistatus([responses, tokenLine].filter(Boolean).join("\n"));
   result.meta = {
     report: "sync",
     total: contacts.length,
-    offset,
-    returned: page.length,
+    returned: served.length,
+    groups: groups.length,
     limit: limit || null,
-    truncated,
     includeAddressData,
   };
   return result;
-}
-
-function invalidSyncToken(): DavResponse {
-  return {
-    status: 403,
-    headers: { "Content-Type": "application/xml; charset=utf-8" },
-    body: `<?xml version="1.0" encoding="utf-8"?>
-<d:error xmlns:d="DAV:"><d:valid-sync-token/></d:error>`,
-    meta: { report: "sync", staleToken: true },
-  };
 }
 
 // iOS spot-checks single cards with PROPFIND (etag freshness); answering 404
@@ -455,8 +480,57 @@ async function propfindContact({
 
   return multistatus(`<d:response>
   <d:href>${contactHref(contact)}</d:href>
-  ${propstats(contactProps(contact.updatedAt), requestBody)}
+  ${propstats(resourceProps(contactEtag(contact.updatedAt)), requestBody)}
 </d:response>`);
+}
+
+// GET/PROPFIND/PUT/DELETE on a group-<labelId>.vcf resource. Groups mirror
+// Zerrow's company labels, which attach to companies rather than contacts —
+// a phone-side group edit has no clean mapping, so writes are refused and
+// the phone keeps its copy read-only.
+async function handleGroupResource({
+  emailAccountId,
+  method,
+  labelId,
+  requestBody,
+}: {
+  emailAccountId: string;
+  method: string;
+  labelId: string;
+  requestBody: string;
+}): Promise<DavResponse> {
+  if (method === "PUT" || method === "DELETE") return groupsAreReadOnly();
+
+  const group = (await loadGroups(emailAccountId)).find(
+    (candidate) => candidate.id === labelId,
+  );
+  if (!group) return { status: 404, body: "Not found" };
+
+  if (method === "GET") {
+    return {
+      status: 200,
+      headers: {
+        "Content-Type": "text/vcard; charset=utf-8",
+        ETag: group.etag,
+      },
+      body: groupVCard(group),
+    };
+  }
+  if (method === "PROPFIND") {
+    return multistatus(`<d:response>
+  <d:href>${groupHref(group.id)}</d:href>
+  ${propstats(resourceProps(group.etag), requestBody)}
+</d:response>`);
+  }
+  return { status: 404, body: "Not found" };
+}
+
+function groupsAreReadOnly(): DavResponse {
+  return {
+    status: 403,
+    body: "Groups mirror Zerrow's labels — manage them in the app",
+    meta: { group: true, readOnly: true },
+  };
 }
 
 async function getContact({
@@ -490,6 +564,9 @@ async function putContact({
   body: string;
 }): Promise<DavResponse> {
   const parsed = parseVCard(body);
+  // A group card PUT to a contact path (iOS creating a group on the phone)
+  // must not be stored as a person named after the group
+  if (parsed.isGroup) return groupsAreReadOnly();
   // A phone-only card is a real contact on iOS, so the UID carries identity
   // when there's no address. Something has to identify the person though.
   if (!parsed.email && !parsed.name && !parsed.phones.length) {
@@ -584,6 +661,95 @@ function contactHref(contact: { id: string; carddavUid: string | null }) {
   return `${ADDRESSBOOK_PATH}/${encodeURIComponent(contact.carddavUid ?? contact.id)}.vcf`;
 }
 
+function groupHref(labelId: string) {
+  return `${ADDRESSBOOK_PATH}/group-${encodeURIComponent(labelId)}.vcf`;
+}
+
+type Group = Awaited<ReturnType<typeof loadGroups>>[number];
+
+// Every company label as an iOS group: members are the contacts of the
+// companies carrying that label
+async function loadGroups(emailAccountId: string) {
+  const labels = await prisma.companyLabel.findMany({
+    where: { emailAccountId },
+    orderBy: { id: "asc" },
+    select: {
+      id: true,
+      name: true,
+      parentId: true,
+      updatedAt: true,
+      companies: {
+        select: {
+          contacts: {
+            select: { id: true, carddavUid: true, updatedAt: true },
+          },
+        },
+      },
+    },
+  });
+  const byId = new Map(labels.map((label) => [label.id, label]));
+
+  return labels.map((label) => {
+    const members = label.companies.flatMap((company) => company.contacts);
+    return {
+      id: label.id,
+      // Apple's group cards have no parent concept, so nested labels
+      // flatten to their path ("Factory / Toyota") — matching the
+      // reference server's default
+      name: labelPath(label, byId),
+      updatedAt: label.updatedAt,
+      memberUids: members.map((member) => member.carddavUid ?? member.id),
+      etag: groupEtag(label.updatedAt, members),
+    };
+  });
+}
+
+function labelPath(
+  label: { id: string; name: string; parentId: string | null },
+  byId: Map<string, { name: string; parentId: string | null }>,
+): string {
+  const parts = [label.name];
+  // Guard against a parent cycle — bad data would otherwise hang the sync
+  const seen = new Set([label.id]);
+  let parentId = label.parentId;
+  while (parentId && !seen.has(parentId)) {
+    const parent = byId.get(parentId);
+    if (!parent) break;
+    parts.unshift(parent.name);
+    seen.add(parentId);
+    parentId = parent.parentId;
+  }
+  return parts.join(" / ");
+}
+
+function groupVCard(group: Group): string {
+  return generateGroupVCard({
+    // The UID doubles as the href basename, same convention as contacts
+    uid: `group-${group.id}`,
+    name: group.name,
+    memberUids: group.memberUids,
+    updatedAt: group.updatedAt,
+  });
+}
+
+// A group's row in a REPORT (multiget, query, or sync-collection)
+function groupReportResponse(
+  group: Group,
+  includeAddressData: boolean,
+): string {
+  return `<d:response>
+  <d:href>${groupHref(group.id)}</d:href>
+  <d:propstat><d:prop>
+    <d:getetag>${escapeXml(group.etag)}</d:getetag>${
+      includeAddressData
+        ? `
+    <card:address-data xmlns:card="urn:ietf:params:xml:ns:carddav">${escapeXml(groupVCard(group))}</card:address-data>`
+        : ""
+    }
+  </d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat>
+</d:response>`;
+}
+
 function contactVCard(contact: FullContact): string {
   return generateVCard({
     uid: contact.carddavUid ?? contact.id,
@@ -632,12 +798,12 @@ function propstats(
     .join("\n  ");
 }
 
-// The props a single card can answer — shared by the Depth-1 listing rows
-// and a card's own PROPFIND so the two can't drift apart
-function contactProps(updatedAt: Date): Record<string, string> {
+// The props a single card (contact or group) can answer — shared by the
+// Depth-1 listing rows and a card's own PROPFIND so the two can't drift apart
+function resourceProps(etag: string): Record<string, string> {
   return {
     resourcetype: "<d:resourcetype/>",
-    getetag: `<d:getetag>${escapeXml(contactEtag(updatedAt))}</d:getetag>`,
+    getetag: `<d:getetag>${escapeXml(etag)}</d:getetag>`,
     getcontenttype:
       "<d:getcontenttype>text/vcard; charset=utf-8</d:getcontenttype>",
   };

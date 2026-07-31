@@ -88,6 +88,7 @@ describe("parseVCard", () => {
       ],
       title: "CTO",
       companyName: "Example, Corp",
+      isGroup: false,
     });
   });
 
@@ -129,6 +130,7 @@ describe("parseVCard", () => {
       phones: [{ label: "Mobile", value: "+1 (555) 010-0000" }],
       title: null,
       companyName: "Vercel",
+      isGroup: false,
     });
   });
 });

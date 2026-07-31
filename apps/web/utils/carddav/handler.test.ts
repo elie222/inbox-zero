@@ -11,6 +11,12 @@ const UPDATED_AT = new Date("2026-07-01T12:00:00.000Z");
 describe("CardDAV handler", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // The ctag folds in label and company state; group serving reads labels.
+    // Most tests have none — the ones about groups override these.
+    prisma.companyLabel.findMany.mockResolvedValue([] as never);
+    prisma.companyLabel.count.mockResolvedValue(0);
+    prisma.company.findMany.mockResolvedValue([] as never);
+    prisma.company.count.mockResolvedValue(0);
   });
 
   // iOS probes capabilities first and gives up unless addressbook support
@@ -497,10 +503,10 @@ describe("CardDAV handler", () => {
       expect(result.body).toContain("valid-sync-token");
     });
 
-    // RFC 6578 truncation: a client that asks for a bounded first sync must
-    // get a resumable token, or it stores "up to date" while holding a
-    // fraction of the book and never fetches the rest
-    it("pages the initial sync at the client's limit and resumes", async () => {
+    // The proven reference server caps at the client's limit and returns
+    // the final token — no 507 continuation, which Apple's client has never
+    // been observed handling here. Match it exactly.
+    it("caps the initial sync at the client's limit without truncating markers", async () => {
       prisma.contact.findMany.mockResolvedValue([
         fullContact(),
         fullContact({ id: "c2", carddavUid: "uid-2", name: "Grace Hopper" }),
@@ -512,59 +518,204 @@ describe("CardDAV handler", () => {
       ] as never);
       prisma.contact.count.mockResolvedValue(3);
 
-      const limited = (token: string) => `<d:sync-collection xmlns:d="DAV:">
-  ${token ? `<d:sync-token>${token}</d:sync-token>` : "<d:sync-token/>"}
+      const result = await request({
+        method: "REPORT",
+        segments: ["addressbook"],
+        body: `<d:sync-collection xmlns:d="DAV:">
+  <d:sync-token/>
   <d:limit><d:nresults>2</d:nresults></d:limit>
   <d:prop><d:getetag/></d:prop>
-</d:sync-collection>`;
-
-      const first = await request({
-        method: "REPORT",
-        segments: ["addressbook"],
-        body: limited(""),
+</d:sync-collection>`,
       });
-      expect(first.body).toContain("uid-1.vcf");
-      expect(first.body).toContain("uid-2.vcf");
-      expect(first.body).not.toContain("uid-3.vcf");
-      expect(first.body).toContain("507 Insufficient Storage");
-      expect(first.body).toContain("<d:number-of-matches-within-limits/>");
-      const pageToken = getSyncToken(first.body);
-      expect(pageToken).toContain("page-2-of-");
 
-      const second = await request({
-        method: "REPORT",
-        segments: ["addressbook"],
-        body: limited(pageToken ?? ""),
-      });
-      expect(second.body).toContain("uid-3.vcf");
-      expect(second.body).not.toContain("uid-1.vcf");
-      expect(second.body).not.toContain("Insufficient Storage");
-      const finalToken = getSyncToken(second.body);
-      expect(finalToken).toMatch(/^urn:zerrow:carddav:\d/);
+      expect(result.status).toBe(207);
+      expect(result.body).toContain("uid-1.vcf");
+      expect(result.body).toContain("uid-2.vcf");
+      expect(result.body).not.toContain("uid-3.vcf");
+      expect(result.body).not.toContain("507");
+      expect(getSyncToken(result.body)).toMatch(/^urn:zerrow:carddav:\d/);
+    });
+  });
 
-      const third = await request({
-        method: "REPORT",
-        segments: ["addressbook"],
-        body: syncBody(finalToken ?? ""),
-      });
-      expect(third.body).not.toContain("getetag");
-      expect(getSyncToken(third.body)).toBe(finalToken);
+  // iOS only shows folders when the server publishes them as Apple group
+  // vCards — each Zerrow label becomes group-<labelId>.vcf whose MEMBER
+  // lines carry the UIDs of the contacts in companies wearing that label
+  describe("groups", () => {
+    const label = (
+      overrides: Partial<{
+        id: string;
+        name: string;
+        parentId: string | null;
+        companies: {
+          contacts: {
+            id: string;
+            carddavUid: string | null;
+            updatedAt: Date;
+          }[];
+        }[];
+      }> = {},
+    ) => ({
+      id: "l1",
+      name: "OEM",
+      parentId: null,
+      updatedAt: UPDATED_AT,
+      companies: [
+        {
+          contacts: [
+            { id: "c1", carddavUid: "uid-1", updatedAt: UPDATED_AT },
+            { id: "c2", carddavUid: null, updatedAt: UPDATED_AT },
+          ],
+        },
+      ],
+      ...overrides,
     });
 
-    // A page token is a bookmark into one snapshot of the book — if the book
-    // changed underneath it, resuming would skip or duplicate cards
-    it("rejects a page token once the book has changed", async () => {
+    it("lists each label as a group child at depth 1", async () => {
+      prisma.contact.findMany.mockResolvedValue([] as never);
+      prisma.companyLabel.findMany.mockResolvedValue([label()] as never);
+
+      const result = await request({
+        method: "PROPFIND",
+        segments: ["addressbook"],
+        depth: "1",
+      });
+
+      expect(result.body).toContain(
+        "<d:href>/api/carddav/addressbook/group-l1.vcf</d:href>",
+      );
+      expect(result.body).toContain("text/vcard");
+    });
+
+    it("serves an Apple group vCard whose members match the contact UIDs", async () => {
+      prisma.companyLabel.findMany.mockResolvedValue([label()] as never);
+
+      const result = await request({
+        method: "GET",
+        segments: ["addressbook", "group-l1.vcf"],
+      });
+
+      expect(result.status).toBe(200);
+      expect(result.headers?.["Content-Type"]).toBe(
+        "text/vcard; charset=utf-8",
+      );
+      expect(result.body).toContain("X-ADDRESSBOOKSERVER-KIND:group");
+      expect(result.body).toContain("FN:OEM");
+      expect(result.body).toContain(
+        "X-ADDRESSBOOKSERVER-MEMBER:urn:uuid:uid-1",
+      );
+      // Contacts without a client-assigned UID are referenced by row id,
+      // matching the UID their own vCard carries
+      expect(result.body).toContain("X-ADDRESSBOOKSERVER-MEMBER:urn:uuid:c2");
+    });
+
+    it("flattens a nested label into its path name", async () => {
+      prisma.companyLabel.findMany.mockResolvedValue([
+        label({ id: "p1", name: "Factory", companies: [] }),
+        label({ id: "l2", name: "Toyota", parentId: "p1" }),
+      ] as never);
+
+      const result = await request({
+        method: "GET",
+        segments: ["addressbook", "group-l2.vcf"],
+      });
+
+      expect(result.body).toContain("FN:Factory / Toyota");
+    });
+
+    it("serves groups through multiget alongside contacts", async () => {
       prisma.contact.findMany.mockResolvedValue([fullContact()] as never);
-      prisma.contact.count.mockResolvedValue(1);
+      prisma.companyLabel.findMany.mockResolvedValue([label()] as never);
 
       const result = await request({
         method: "REPORT",
         segments: ["addressbook"],
-        body: syncBody("urn:zerrow:carddav:page-2-of-2-1000-42"),
+        body: `<card:addressbook-multiget xmlns:card="urn:ietf:params:xml:ns:carddav" xmlns:d="DAV:">
+  <d:href>/api/carddav/addressbook/uid-1.vcf</d:href>
+  <d:href>/api/carddav/addressbook/group-l1.vcf</d:href>
+</card:addressbook-multiget>`,
+      });
+
+      expect(result.body).toContain("Ada Lovelace");
+      expect(result.body).toContain("X-ADDRESSBOOKSERVER-KIND:group");
+      expect(result.body).not.toContain("404");
+    });
+
+    it("includes groups in the initial sync-collection", async () => {
+      prisma.contact.findMany.mockResolvedValue([fullContact()] as never);
+      prisma.contact.count.mockResolvedValue(1);
+      prisma.companyLabel.findMany.mockResolvedValue([label()] as never);
+
+      const result = await request({
+        method: "REPORT",
+        segments: ["addressbook"],
+        body: `<d:sync-collection xmlns:d="DAV:" xmlns:card="urn:ietf:params:xml:ns:carddav">
+  <d:sync-token/>
+  <d:prop><d:getetag/><card:address-data/></d:prop>
+</d:sync-collection>`,
+      });
+
+      expect(result.body).toContain(
+        "<d:href>/api/carddav/addressbook/group-l1.vcf</d:href>",
+      );
+      expect(result.body).toContain("X-ADDRESSBOOKSERVER-KIND:group");
+    });
+
+    // Membership changes touch the company or label rows, never a contact —
+    // the ctag must still move or the phone never re-checks
+    it("moves the ctag when a label changes", async () => {
+      prisma.contact.findMany.mockResolvedValue([
+        { updatedAt: UPDATED_AT },
+      ] as never);
+      prisma.contact.count.mockResolvedValue(1);
+
+      const before = await request({
+        method: "PROPFIND",
+        segments: ["addressbook"],
+        depth: "0",
+      });
+
+      prisma.companyLabel.findMany.mockResolvedValue([
+        { updatedAt: new Date("2026-07-03") },
+      ] as never);
+      prisma.companyLabel.count.mockResolvedValue(1);
+      const after = await request({
+        method: "PROPFIND",
+        segments: ["addressbook"],
+        depth: "0",
+      });
+
+      expect(getCtag(after.body)).not.toBe(getCtag(before.body));
+    });
+
+    // Labels attach to companies, not contacts — a phone-side group edit
+    // has no clean mapping, so groups stay read-only from the client
+    it("refuses phone-side group writes", async () => {
+      const put = await request({
+        method: "PUT",
+        segments: ["addressbook", "group-l1.vcf"],
+        body: "BEGIN:VCARD\r\nVERSION:3.0\r\nFN:OEM\r\nX-ADDRESSBOOKSERVER-KIND:group\r\nEND:VCARD",
+      });
+      const del = await request({
+        method: "DELETE",
+        segments: ["addressbook", "group-l1.vcf"],
+      });
+
+      expect(put.status).toBe(403);
+      expect(del.status).toBe(403);
+    });
+
+    // iOS creates a new group by PUTting a KIND:group card at a fresh UUID
+    // path — that must not be stored as a person named after the group
+    it("refuses a group vCard PUT to a contact path", async () => {
+      const result = await request({
+        method: "PUT",
+        segments: ["addressbook", "some-new-uuid.vcf"],
+        body: "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:some-new-uuid\r\nFN:My Group\r\nX-ADDRESSBOOKSERVER-KIND:group\r\nEND:VCARD",
       });
 
       expect(result.status).toBe(403);
-      expect(result.body).toContain("valid-sync-token");
+      expect(prisma.contact.create).not.toHaveBeenCalled();
+      expect(prisma.contact.update).not.toHaveBeenCalled();
     });
   });
 
@@ -578,6 +729,16 @@ describe("CardDAV handler", () => {
       prisma.contact.findMany.mockResolvedValue([dirty] as never);
       prisma.contact.count.mockResolvedValue(1);
       prisma.contact.findFirst.mockResolvedValue(dirty as never);
+      prisma.companyLabel.findMany.mockResolvedValue([
+        {
+          id: "l1",
+          name: "OEM <Dealers> & Friends",
+          parentId: null,
+          updatedAt: UPDATED_AT,
+          companies: [{ contacts: [dirty] }],
+        },
+      ] as never);
+      prisma.companyLabel.count.mockResolvedValue(1);
 
       const exchanges = [
         await request({ method: "PROPFIND" }),

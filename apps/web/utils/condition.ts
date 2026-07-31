@@ -247,7 +247,11 @@ type DescribableRule = Pick<
   | "fromExclude"
   | "toExclude"
   | "subjectExclude"
-> & { subjectMatchMode?: SubjectMatchMode | null };
+> & {
+  // RuleHistory snapshots store the mode as a plain string column, and this
+  // describer serves those too -- only equality is checked, so string is fine
+  subjectMatchMode?: SubjectMatchMode | string | null;
+};
 
 /**
  * The single description of a rule's static conditions.

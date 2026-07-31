@@ -30,6 +30,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   prisma.emailAccount.findFirst.mockResolvedValue(ACCOUNT as never);
   prisma.contact.findMany.mockResolvedValue([CONTACT] as never);
+  prisma.companyLabel.findMany.mockResolvedValue([] as never);
+  prisma.companyLabel.count.mockResolvedValue(0);
+  prisma.company.findMany.mockResolvedValue([] as never);
+  prisma.company.count.mockResolvedValue(0);
 });
 
 describe("CardDAV proxy", () => {
