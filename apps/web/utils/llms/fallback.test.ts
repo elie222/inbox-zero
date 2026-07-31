@@ -182,6 +182,7 @@ describe("createGenerateText fallback chain", () => {
 
     expect(result.text).toBe("fallback success");
     expect(mockGenerateText).toHaveBeenCalledTimes(2);
+    expect(mockGenerateText.mock.calls[0][0].model).toBe(primaryModel);
     expect(mockGenerateText.mock.calls[1][0].model).toBe(fallbackModel);
   });
 
