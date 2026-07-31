@@ -25,6 +25,7 @@ import type { Logger } from "@/utils/logger";
 import { runWithBackgroundLoggerFlush } from "@/utils/logger-flush";
 import { captureException } from "@/utils/error";
 import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
+import { sendOtpPushNotification } from "@/utils/mobile-push";
 
 export type SharedProcessHistoryOptions = {
   provider: EmailProvider;
@@ -144,6 +145,17 @@ export async function processHistoryItem(
         logger,
       });
       return;
+    }
+
+    try {
+      await sendOtpPushNotification({
+        emailAccountId,
+        userId: emailAccount.userId,
+        message: parsedMessage,
+        logger,
+      });
+    } catch (error) {
+      logger.warn("OTP push notification processing failed", { error });
     }
 
     // check if unsubscribed

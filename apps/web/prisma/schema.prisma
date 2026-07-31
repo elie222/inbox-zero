@@ -105,6 +105,20 @@ model User {
   referralsMade    Referral[]     @relation("ReferrerUser")
   referralReceived Referral?      @relation("ReferredUser")
   scimProviders    ScimProvider[]
+  mobilePushTokens MobilePushToken[]
+}
+
+model MobilePushToken {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  token     String   @unique
+  platform  String
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 enum ApiKeyScope {
@@ -122,6 +136,8 @@ model EmailAccount {
   email     String   @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  otpPushNotifications OtpPushNotification[]
 
   name  String? // Name associated with the Google account
   image String? // Profile image URL from the Google account
@@ -926,6 +942,18 @@ model EmailMessage {
   @@index([emailAccountId, date])
   @@index([emailAccountId, from])
   @@index([emailAccountId, fromName])
+}
+
+model OtpPushNotification {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  messageId String
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([emailAccountId, messageId])
+  @@index([createdAt])
 }
 
 model ResponseTime {
