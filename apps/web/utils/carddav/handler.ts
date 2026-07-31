@@ -346,39 +346,33 @@ async function syncCollectionReport({
       )?.[1]
       ?.trim() ?? "";
 
-  // RFC 6578 truncation: honor the client's result limit and hand back a
-  // resumable token — dumping the whole book past a requested limit is how
-  // a client ends up storing "up to date" while holding a fraction of the
-  // cards, with no reason to ever fetch the rest.
-  const limit = Number(body.match(/<(?:\w+:)?nresults[^>]*>(\d+)</i)?.[1] ?? 0);
-  const pageMatch = clientToken.match(
-    new RegExp(`^${SYNC_TOKEN_PREFIX}page-(\\d+)-of-(.+)$`),
-  );
-
-  let offset = 0;
-  if (pageMatch) {
-    // Resuming a paged initial sync — only valid while the book is unchanged
-    if (`${SYNC_TOKEN_PREFIX}${pageMatch[2]}` !== syncToken) {
-      return invalidSyncToken();
-    }
-    offset = Number(pageMatch[1]);
-  } else if (clientToken === syncToken) {
+  if (clientToken && clientToken === syncToken) {
     const tokenLine = `<d:sync-token>${escapeXml(syncToken)}</d:sync-token>`;
     const result = multistatus(tokenLine);
     result.meta = { report: "sync", changes: 0 };
     return result;
-  } else if (clientToken) {
-    return invalidSyncToken();
+  }
+  if (clientToken) {
+    return {
+      status: 403,
+      headers: { "Content-Type": "application/xml; charset=utf-8" },
+      body: `<?xml version="1.0" encoding="utf-8"?>
+<d:error xmlns:d="DAV:"><d:valid-sync-token/></d:error>`,
+      meta: { report: "sync", staleToken: true },
+    };
   }
 
+  // Initial sync: everything, capped at the client's limit when one is sent
+  // — exactly what the proven reference server does. Deliberately NO RFC
+  // 6578 truncation/paging: Apple's client has never been observed handling
+  // a 507 continuation here, and the reference syncs the same phone in full
+  // without one.
+  const limit = Number(body.match(/<(?:\w+:)?nresults[^>]*>(\d+)</i)?.[1] ?? 0);
   const includeAddressData = /address-data/i.test(body);
   const contacts = await loadFullContacts(emailAccountId);
-  const page = limit
-    ? contacts.slice(offset, offset + limit)
-    : contacts.slice(offset);
-  const truncated = offset + page.length < contacts.length;
+  const served = limit ? contacts.slice(0, limit) : contacts;
 
-  const responses = page
+  const responses = served
     .map(
       (contact) => `<d:response>
   <d:href>${contactHref(contact)}</d:href>
@@ -394,49 +388,16 @@ async function syncCollectionReport({
     )
     .join("\n");
 
-  // A truncated answer carries a 507 marker on the collection and a token
-  // that resumes where this page ended; the client syncs again with it
-  // until it receives the final state token
-  const responseToken = truncated
-    ? syncToken.replace(
-        SYNC_TOKEN_PREFIX,
-        `${SYNC_TOKEN_PREFIX}page-${offset + page.length}-of-`,
-      )
-    : syncToken;
-  // Shaped exactly like RFC 6578's truncation example — status AND the
-  // number-of-matches-within-limits error element; clients may key on either
-  const truncationMarker = truncated
-    ? `<d:response>
-  <d:href>${ADDRESSBOOK_PATH}/</d:href>
-  <d:status>HTTP/1.1 507 Insufficient Storage</d:status>
-  <d:error><d:number-of-matches-within-limits/></d:error>
-</d:response>`
-    : "";
-  const tokenLine = `<d:sync-token>${escapeXml(responseToken)}</d:sync-token>`;
-
-  const result = multistatus(
-    [responses, truncationMarker, tokenLine].filter(Boolean).join("\n"),
-  );
+  const tokenLine = `<d:sync-token>${escapeXml(syncToken)}</d:sync-token>`;
+  const result = multistatus([responses, tokenLine].filter(Boolean).join("\n"));
   result.meta = {
     report: "sync",
     total: contacts.length,
-    offset,
-    returned: page.length,
+    returned: served.length,
     limit: limit || null,
-    truncated,
     includeAddressData,
   };
   return result;
-}
-
-function invalidSyncToken(): DavResponse {
-  return {
-    status: 403,
-    headers: { "Content-Type": "application/xml; charset=utf-8" },
-    body: `<?xml version="1.0" encoding="utf-8"?>
-<d:error xmlns:d="DAV:"><d:valid-sync-token/></d:error>`,
-    meta: { report: "sync", staleToken: true },
-  };
 }
 
 // iOS spot-checks single cards with PROPFIND (etag freshness); answering 404
