@@ -1,5 +1,4 @@
 import chunk from "lodash/chunk";
-import type { MobilePushNotificationType } from "@/generated/prisma/enums";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 
@@ -29,13 +28,11 @@ type MobilePushNotification = {
 
 export async function sendMobilePushNotification({
   userId,
-  notificationType,
   deduplicationKey,
   notification,
   logger,
 }: {
   userId: string;
-  notificationType: MobilePushNotificationType;
   deduplicationKey: string;
   notification: MobilePushNotification;
   logger: Logger;
@@ -48,7 +45,6 @@ export async function sendMobilePushNotification({
 
   const claims = await prisma.mobilePushDelivery.createManyAndReturn({
     data: pushTokens.map((pushToken) => ({
-      type: notificationType,
       deduplicationKey,
       mobilePushTokenId: pushToken.id,
     })),
@@ -65,7 +61,6 @@ export async function sendMobilePushNotification({
   for (const pushTokenBatch of chunk(claimedPushTokens, EXPO_PUSH_BATCH_SIZE)) {
     await sendPushBatch({
       pushTokens: pushTokenBatch,
-      notificationType,
       deduplicationKey,
       notification,
       logger,
@@ -75,13 +70,11 @@ export async function sendMobilePushNotification({
 
 async function sendPushBatch({
   pushTokens,
-  notificationType,
   deduplicationKey,
   notification,
   logger,
 }: {
   pushTokens: MobilePushToken[];
-  notificationType: MobilePushNotificationType;
   deduplicationKey: string;
   notification: MobilePushNotification;
   logger: Logger;
@@ -111,7 +104,6 @@ async function sendPushBatch({
     if (response.status === 429 || response.status >= 500) {
       await releasePushClaims({
         pushTokens,
-        notificationType,
         deduplicationKey,
       });
     }
@@ -171,7 +163,6 @@ async function sendPushBatch({
   if (rejectedTokens.length > 0) {
     await releasePushClaims({
       pushTokens: rejectedTokens,
-      notificationType,
       deduplicationKey,
     });
   }
@@ -185,16 +176,13 @@ async function sendPushBatch({
 
 async function releasePushClaims({
   pushTokens,
-  notificationType,
   deduplicationKey,
 }: {
   pushTokens: MobilePushToken[];
-  notificationType: MobilePushNotificationType;
   deduplicationKey: string;
 }) {
   await prisma.mobilePushDelivery.deleteMany({
     where: {
-      type: notificationType,
       deduplicationKey,
       mobilePushTokenId: { in: pushTokens.map(({ id }) => id) },
     },

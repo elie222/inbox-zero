@@ -1804,15 +1804,14 @@ model MobilePushToken {
 }
 
 model MobilePushDelivery {
-  id               String                     @id @default(cuid())
-  createdAt        DateTime                   @default(now())
-  type             MobilePushNotificationType
+  id               String   @id @default(cuid())
+  createdAt        DateTime @default(now())
   deduplicationKey String
 
   mobilePushTokenId String
   mobilePushToken   MobilePushToken @relation(fields: [mobilePushTokenId], references: [id], onDelete: Cascade)
 
-  @@unique([type, deduplicationKey, mobilePushTokenId], map: "MobilePushDelivery_type_key_token_key")
+  @@unique([deduplicationKey, mobilePushTokenId], map: "MobilePushDelivery_key_token_key")
   @@index([createdAt])
   @@index([mobilePushTokenId])
 }
@@ -1820,10 +1819,6 @@ model MobilePushDelivery {
 enum MobilePushPlatform {
   ANDROID @map("android")
   IOS     @map("ios")
-}
-
-enum MobilePushNotificationType {
-  OTP @map("otp")
 }
 
 enum ActionType {

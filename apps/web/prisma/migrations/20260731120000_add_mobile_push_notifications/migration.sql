@@ -1,5 +1,4 @@
 CREATE TYPE "MobilePushPlatform" AS ENUM ('android', 'ios');
-CREATE TYPE "MobilePushNotificationType" AS ENUM ('otp');
 
 CREATE TABLE "MobilePushToken" (
     "id" TEXT NOT NULL,
@@ -15,7 +14,6 @@ CREATE TABLE "MobilePushToken" (
 CREATE TABLE "MobilePushDelivery" (
     "id" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "type" "MobilePushNotificationType" NOT NULL,
     "deduplicationKey" TEXT NOT NULL,
     "mobilePushTokenId" TEXT NOT NULL,
 
@@ -24,8 +22,8 @@ CREATE TABLE "MobilePushDelivery" (
 
 CREATE UNIQUE INDEX "MobilePushToken_token_key" ON "MobilePushToken"("token");
 CREATE INDEX "MobilePushToken_userId_idx" ON "MobilePushToken"("userId");
-CREATE UNIQUE INDEX "MobilePushDelivery_type_key_token_key"
-ON "MobilePushDelivery"("type", "deduplicationKey", "mobilePushTokenId");
+CREATE UNIQUE INDEX "MobilePushDelivery_key_token_key"
+ON "MobilePushDelivery"("deduplicationKey", "mobilePushTokenId");
 CREATE INDEX "MobilePushDelivery_createdAt_idx"
 ON "MobilePushDelivery"("createdAt");
 CREATE INDEX "MobilePushDelivery_mobilePushTokenId_idx"

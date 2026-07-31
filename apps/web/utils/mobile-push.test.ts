@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestLogger } from "@/__tests__/helpers";
-import { MobilePushNotificationType } from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
 import { sendMobilePushNotification } from "./mobile-push";
 
@@ -121,8 +120,7 @@ describe("sendMobilePushNotification", () => {
     });
     expect(prisma.mobilePushDelivery.deleteMany).toHaveBeenCalledWith({
       where: {
-        type: MobilePushNotificationType.OTP,
-        deduplicationKey: "account-1:message-1",
+        deduplicationKey: "otp:account-1:message-1",
         mobilePushTokenId: { in: ["retryable"] },
       },
     });
@@ -149,8 +147,7 @@ describe("sendMobilePushNotification", () => {
 
     expect(prisma.mobilePushDelivery.deleteMany).toHaveBeenCalledWith({
       where: {
-        type: MobilePushNotificationType.OTP,
-        deduplicationKey: "account-1:message-1",
+        deduplicationKey: "otp:account-1:message-1",
         mobilePushTokenId: { in: ["token-1"] },
       },
     });
@@ -168,13 +165,11 @@ describe("sendMobilePushNotification", () => {
     expect(prisma.mobilePushDelivery.createManyAndReturn).toHaveBeenCalledWith({
       data: [
         {
-          type: MobilePushNotificationType.OTP,
-          deduplicationKey: "account-1:message-1",
+          deduplicationKey: "otp:account-1:message-1",
           mobilePushTokenId: "token-1",
         },
         {
-          type: MobilePushNotificationType.OTP,
-          deduplicationKey: "account-1:message-1",
+          deduplicationKey: "otp:account-1:message-1",
           mobilePushTokenId: "token-2",
         },
       ],
@@ -208,8 +203,7 @@ describe("sendMobilePushNotification", () => {
 function sendNotification() {
   return sendMobilePushNotification({
     userId: "user-1",
-    notificationType: MobilePushNotificationType.OTP,
-    deduplicationKey: "account-1:message-1",
+    deduplicationKey: "otp:account-1:message-1",
     notification: {
       title: "Verification code",
       body: "Your verification code is 123456",

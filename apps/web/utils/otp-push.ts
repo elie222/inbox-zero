@@ -1,4 +1,3 @@
-import { MobilePushNotificationType } from "@/generated/prisma/enums";
 import { getMessageTimestamp } from "@/utils/email/message-timestamp";
 import type { Logger } from "@/utils/logger";
 import { sendMobilePushNotification } from "@/utils/mobile-push";
@@ -22,8 +21,7 @@ export async function sendOtpPushNotification({
 
   await sendMobilePushNotification({
     userId,
-    notificationType: MobilePushNotificationType.OTP,
-    deduplicationKey: `${emailAccountId}:${message.id}`,
+    deduplicationKey: `otp:${emailAccountId}:${message.id}`,
     notification: {
       title: "Verification code",
       body: message.subject,

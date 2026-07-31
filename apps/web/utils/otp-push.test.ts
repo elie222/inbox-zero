@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestLogger } from "@/__tests__/helpers";
-import { MobilePushNotificationType } from "@/generated/prisma/enums";
 import { sendMobilePushNotification } from "@/utils/mobile-push";
 import type { ParsedMessage } from "@/utils/types";
 import { sendOtpPushNotification } from "./otp-push";
@@ -32,8 +31,7 @@ describe("sendOtpPushNotification", () => {
 
     expect(sendMobilePushNotification).toHaveBeenCalledWith({
       userId: "user-1",
-      notificationType: MobilePushNotificationType.OTP,
-      deduplicationKey: "account-1:message-1",
+      deduplicationKey: "otp:account-1:message-1",
       notification: {
         title: "Verification code",
         body: "Your verification code is 123456",
