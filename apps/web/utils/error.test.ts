@@ -25,6 +25,7 @@ import {
   isContentFilterRefusal,
   isHandledUserKeyError,
   isKnownApiError,
+  isInvalidAIModelError,
   isKnownOutlookError,
   isOutlookAccessDeniedError,
   isOutlookItemNotFoundError,
@@ -333,6 +334,17 @@ describe("isInsufficientCreditsError", () => {
     });
 
     expect(isInsufficientCreditsError(error)).toBe(expected);
+  });
+});
+
+describe("isInvalidAIModelError", () => {
+  it.each([
+    ["deprecated models", "The configured model is deprecated"],
+    ["models without endpoints", "No endpoints found for the configured model"],
+  ])("detects %s", (_caseName, message) => {
+    const error = createAPICallError({ message, statusCode: 400 });
+
+    expect(isInvalidAIModelError(error)).toBe(true);
   });
 });
 
