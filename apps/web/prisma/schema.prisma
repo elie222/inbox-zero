@@ -105,6 +105,7 @@ model User {
   referralsMade    Referral[]     @relation("ReferrerUser")
   referralReceived Referral?      @relation("ReferredUser")
   scimProviders    ScimProvider[]
+  mobilePushTokens MobilePushToken[]
 }
 
 enum ApiKeyScope {
@@ -1785,6 +1786,39 @@ model McpTool {
   connection   McpConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
 
   @@unique([connectionId, name])
+}
+
+model MobilePushToken {
+  id        String             @id @default(cuid())
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  token     String             @unique
+  platform  MobilePushPlatform
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  mobilePushDeliveries MobilePushDelivery[]
+
+  @@index([userId])
+}
+
+model MobilePushDelivery {
+  id               String   @id @default(cuid())
+  createdAt        DateTime @default(now())
+  deduplicationKey String
+
+  mobilePushTokenId String
+  mobilePushToken   MobilePushToken @relation(fields: [mobilePushTokenId], references: [id], onDelete: Cascade)
+
+  @@unique([deduplicationKey, mobilePushTokenId], map: "MobilePushDelivery_key_token_key")
+  @@index([createdAt])
+  @@index([mobilePushTokenId])
+}
+
+enum MobilePushPlatform {
+  ANDROID @map("android")
+  IOS     @map("ios")
 }
 
 enum ActionType {

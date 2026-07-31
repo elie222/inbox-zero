@@ -25,6 +25,7 @@ import type { Logger } from "@/utils/logger";
 import { runWithBackgroundLoggerFlush } from "@/utils/logger-flush";
 import { captureException, SafeError } from "@/utils/error";
 import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
+import { sendOtpPushNotification } from "@/utils/otp-push";
 
 export type SharedProcessHistoryOptions = {
   provider: EmailProvider;
@@ -160,6 +161,17 @@ export async function processHistoryItem(
       await provider.blockUnsubscribedEmail(messageId);
       logger.info("Skipping. Blocked unsubscribed email.", { from: email });
       return;
+    }
+
+    try {
+      await sendOtpPushNotification({
+        emailAccountId,
+        userId: emailAccount.userId,
+        message: parsedMessage,
+        logger,
+      });
+    } catch (error) {
+      logger.warn("OTP push notification processing failed", { error });
     }
 
     if (!hasAiAccess) {
