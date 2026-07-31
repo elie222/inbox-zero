@@ -1,0 +1,78 @@
+---
+title: 'Outlook and Microsoft 365'
+description: 'Use Inbox Zero with Outlook and understand the differences from Gmail.'
+icon: 'microsoft'
+---
+
+<Info>
+Many Inbox Zero videos were recorded with Gmail. The Inbox Zero navigation and setup steps generally work the same after you select an Outlook account, but the resulting mail actions use Microsoft folders, categories, calendars, and storage.
+</Info>
+
+Inbox Zero supports Microsoft 365 work or school accounts and personal Outlook accounts. Features and rules belong to the currently selected mailbox, so confirm the account shown in the switcher before changing settings.
+
+## Connect Outlook
+
+1. Sign in to Inbox Zero and select **Add or manage accounts** from the account switcher.
+2. Choose **Outlook** and sign in with the Microsoft account you want to connect.
+3. Review and approve the requested Microsoft permissions.
+4. Return to Inbox Zero and select the new mailbox from the account switcher.
+
+An organization administrator may need to approve the app before a managed Microsoft 365 account can connect. If access is later revoked in Microsoft, reconnect the mailbox from Inbox Zero.
+
+## Gmail terms in Outlook
+
+When a video or guide shows Gmail, use the corresponding Outlook concept:
+
+| Gmail term | Outlook equivalent |
+| --- | --- |
+| Label | Category |
+| Move to label | Move to folder |
+| Archive | Archive folder |
+| Trash | Deleted Items |
+| Spam | Junk Email |
+| Google Calendar | Outlook Calendar |
+| Google Drive | OneDrive or SharePoint |
+
+Assistant rules can add Outlook categories or move messages into folders. Archiving, deleting, marking read or unread, drafting, replying, forwarding, and sending work against the selected Outlook mailbox.
+
+## Supported Outlook workflows
+
+Outlook accounts can use the main Inbox Zero workflows, including:
+
+- [AI Chat](/essentials/ai-chat) and [Assistant rules](/essentials/email-ai-personal-assistant)
+- [Bulk Unsubscribe](/essentials/bulk-email-unsubscriber), [Bulk Archive](/essentials/bulk-archiver), and [Analytics](/essentials/email-analytics)
+- [Outlook Calendar](/essentials/calendar-integration), booking links, Meeting Briefs, and eligible meeting features
+- Attachment filing to Microsoft OneDrive or SharePoint
+- Slack, Microsoft Teams, and Telegram delivery through [Channels](/essentials/channels)
+- The Inbox Zero mobile apps
+
+Provider permissions and deployment settings can hide individual actions or features. See [Feature Availability](/essentials/feature-availability) for the current comparison.
+
+## Gmail-only differences
+
+### Inbox Zero Tabs extension
+
+The Inbox Zero Tabs browser extension works only inside Gmail. It does not add tabs to Outlook on the web, even when Outlook is open in Chrome, Edge, or another supported browser.
+
+### Reply Zero page
+
+Outlook can use the `To Reply`, `Awaiting Reply`, and `Follow-up` categories, but the dedicated Reply Zero page inside Inbox Zero is currently Gmail-only. Review the categories in Outlook instead.
+
+### Deep Clean
+
+The experimental Deep Clean feature is currently Gmail-only and does not appear for Outlook accounts. Outlook users can use Bulk Archive, Bulk Unsubscribe, Assistant rules, and standard archive or delete actions instead.
+
+## Outlook troubleshooting
+
+### Microsoft will not authorize the connection
+
+Retry with the intended Microsoft account. For a managed Microsoft 365 tenant, ask an administrator whether user consent is restricted or whether the Inbox Zero app requires approval.
+
+### A rule uses the wrong category or folder
+
+Confirm that the category or folder still exists in the connected Outlook mailbox, then edit and retest the rule. Settings and rules are not shared automatically between connected mailboxes.
+
+### Inbox Zero stopped receiving Outlook mail
+
+Open **Settings → Email Accounts** and reconnect the Outlook account if it shows a permissions or subscription error. You can also review or revoke Inbox Zero from the [Microsoft App permissions page](https://account.microsoft.com/privacy/app-access).
+
