@@ -6,13 +6,8 @@ the AI analytics resources consumed by `@inboxzero/tinybird-ai-analytics`.
 
 ## CLI setup
 
-Install the Forward CLI:
-
-```sh
-curl https://tinybird.co | sh
-```
-
-Alternatively, run it without a global install:
+Run the current Forward CLI without conflicting with a Classic CLI already on
+your `PATH`:
 
 ```sh
 uvx --from tinybird@latest tb --version
@@ -22,7 +17,7 @@ Authenticate and select the production workspace:
 
 ```sh
 cd packages/tinybird/project
-tb login --host https://api.us-east.tinybird.co --workspace InboxZero
+uvx --from tinybird@latest tb login --host https://api.us-east.tinybird.co --workspace InboxZero
 ```
 
 ## Development workflow
@@ -30,21 +25,21 @@ tb login --host https://api.us-east.tinybird.co --workspace InboxZero
 Pull the current cloud definitions:
 
 ```sh
-tb --cloud pull
+uvx --from tinybird@latest tb --cloud pull
 ```
 
 Start Tinybird Local and validate the project locally:
 
 ```sh
-tb local start
-tb build
-tb test run
+uvx --from tinybird@latest tb local start
+uvx --from tinybird@latest tb build
+uvx --from tinybird@latest tb test run
 ```
 
 Validate and deploy the project to Tinybird Cloud:
 
 ```sh
-tb --cloud deploy --check
+uvx --from tinybird@latest tb --cloud deploy --check
 ```
 
 Tinybird Forward deployments replace the Classic `tb push` workflow. Keep
