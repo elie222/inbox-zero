@@ -1,9 +1,11 @@
+import { createHash } from "node:crypto";
 import { runDraftReplyAssertions } from "@/__tests__/eval/harness/assertions";
 import { judgeCriteria } from "@/__tests__/eval/harness/criteria-judge";
 import {
   describeContext,
   describeThread,
   invokeDraftReply,
+  toDraftReplyInput,
 } from "@/__tests__/eval/harness/draft-reply-adapter";
 import type { DraftReplyCase } from "@/__tests__/eval/harness/draft-reply-schema";
 import {
@@ -16,6 +18,7 @@ import { judgeSendReady } from "@/__tests__/eval/harness/send-ready-judge";
 import { getJudgeFingerprint } from "@/__tests__/eval/harness/judge-model";
 import { contentHashForCase } from "@/__tests__/eval/harness/split-lock";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
+import { buildDraftReplyModelEvidence } from "@/utils/ai/reply/draft-reply";
 
 /**
  * The full draft-reply grading pipeline: real drafting call, named assertions,
@@ -105,7 +108,29 @@ export function runDraftReplyEval<
     },
     describeOutput: (output) => output.reply,
     confidenceOf: (output) => output.confidence,
-    caseFingerprintOf: (evalCase) => contentHashForCase(evalCase),
+    caseFingerprintOf: (evalCase) =>
+      buildDraftReplyCacheFingerprint(evalCase, emailAccount),
     judgeFingerprint: getJudgeFingerprint(),
   });
+}
+
+function buildDraftReplyCacheFingerprint(
+  evalCase: DraftReplyCase,
+  emailAccount: EmailAccountWithAI,
+): string {
+  const evidence = buildDraftReplyModelEvidence(
+    toDraftReplyInput(evalCase, emailAccount),
+  );
+  return createHash("sha256")
+    .update(
+      JSON.stringify({
+        case: contentHashForCase(evalCase),
+        evidence,
+        model: {
+          provider: emailAccount.user.aiProvider,
+          name: emailAccount.user.aiModel,
+        },
+      }),
+    )
+    .digest("hex");
 }

@@ -1,6 +1,10 @@
 import { afterAll, describe, expect, test, vi } from "vitest";
 import { aiCollectReplyContext } from "@/utils/ai/reply/reply-context-collector";
-import { aiDraftReplyWithConfidence } from "@/utils/ai/reply/draft-reply";
+import {
+  aiDraftReplyWithConfidence,
+  buildDraftReplyModelEvidence,
+  type DraftReplyInput,
+} from "@/utils/ai/reply/draft-reply";
 import { getEmail } from "@/__tests__/helpers";
 import type { EmailProvider } from "@/utils/email/types";
 import type { ParsedMessage } from "@/utils/types";
@@ -130,7 +134,7 @@ Can you check why it is still firing?`,
               cacheKeyParts: [{ model, messages, helperContext }],
             },
             async () => {
-              const result = await aiDraftReplyWithConfidence({
+              const draftInput: DraftReplyInput = {
                 messages,
                 emailAccount,
                 knowledgeBaseContent: null,
@@ -140,18 +144,17 @@ Can you check why it is still firing?`,
                 writingStyle: null,
                 mcpContext: null,
                 meetingContext: null,
-              });
+                currentDate: new Date("2026-05-12T11:00:00.000Z"),
+              };
+              const result = await aiDraftReplyWithConfidence(draftInput);
+              const evidence = buildDraftReplyModelEvidence(draftInput);
 
               const judgeResult = await judgeEvalOutput({
-                input: JSON.stringify(
-                  {
-                    currentThread: messages,
-                    helperContext:
-                      "A helper says prior support asked for the affected account identifier.",
-                  },
-                  null,
-                  2,
-                ),
+                input: [
+                  evidence.thread,
+                  evidence.context,
+                  evidence.temporalAndIdentityContext,
+                ].join("\n\n"),
                 output: result.reply,
                 expected:
                   "A concise support reply that acknowledges the issue and says the user is checking or investigating, without asking the sender to provide the affected account because the current thread already includes it.",

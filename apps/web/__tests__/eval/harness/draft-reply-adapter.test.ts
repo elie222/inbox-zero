@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { describeContext } from "@/__tests__/eval/harness/draft-reply-adapter";
+import {
+  describeContext,
+  describeThread,
+} from "@/__tests__/eval/harness/draft-reply-adapter";
 import {
   draftReplyCaseSchema,
   type DraftReplyCase,
@@ -41,6 +44,37 @@ describe("describeContext", () => {
     );
 
     expect(context).not.toContain("<booking_link>");
+  });
+
+  it("uses the product thread formatting and truncation", () => {
+    const fixture = evalCase({ calendarBookingLink: null, bookingLinks: [] });
+    fixture.input.messages[0] = {
+      ...fixture.input.messages[0],
+      cc: "copy@example.com",
+      replyTo: "reply@example.com",
+      date: "2026-05-12T08:30:00.000Z",
+      content: `Start   here\n\n\n${"x".repeat(3100)}TAIL`,
+    };
+
+    const thread = describeThread(fixture);
+
+    expect(thread).toContain("<replyTo>reply@example.com</replyTo>");
+    expect(thread).toContain("<cc>copy@example.com</cc>");
+    expect(thread).toContain("<date>2026-05-12T08:30:00.000Z</date>");
+    expect(thread).toContain("<body>Start here\n\n");
+    expect(thread).not.toContain("TAIL");
+  });
+
+  it("uses a stable model-visible date when the case does not set one", () => {
+    const fixture = evalCase({ calendarBookingLink: null, bookingLinks: [] });
+    fixture.input.messages[0] = {
+      ...fixture.input.messages[0],
+      date: "2026-05-12T08:30:00.000Z",
+    };
+
+    expect(describeContext(fixture)).toContain(
+      "Today's date and time is: 2026-05-12T08:30:00.000Z.",
+    );
   });
 });
 

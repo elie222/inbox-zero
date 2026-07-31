@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { execFileSync } from "node:child_process";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createEvalReporter } from "@/__tests__/eval/reporter";
 import { saveAiUsage } from "@/utils/usage";
@@ -264,7 +265,68 @@ describe("eval reporter", () => {
     expect(secondRun).not.toHaveBeenCalled();
     expect(secondRecord).toBe(firstRecord);
   });
+
+  it("invalidates cached records for staged and untracked code changes", async () => {
+    const { workspaceRoot, packageDir } = createTempWorkspace();
+    fs.writeFileSync(
+      path.join(workspaceRoot, "source.ts"),
+      "export const value = 1;\n",
+    );
+    git(workspaceRoot, ["init"]);
+    git(workspaceRoot, ["add", "pnpm-workspace.yaml", "source.ts"]);
+    git(workspaceRoot, [
+      "-c",
+      "user.name=Eval Test",
+      "-c",
+      "user.email=eval@example.com",
+      "commit",
+      "-m",
+      "initial",
+    ]);
+
+    process.chdir(packageDir);
+    process.env.EVAL_RESULT_CACHE = "readwrite";
+    process.env.EVAL_RESULT_CACHE_DIR = ".context/cache";
+    const options = {
+      testName: "example case",
+      model: "Example Model",
+      cacheKeyParts: [{ input: "hello" }],
+    };
+
+    const firstRun = vi.fn().mockResolvedValue({ pass: true });
+    await createEvalReporter({ evalName: "example eval" }).recordCached(
+      options,
+      firstRun,
+    );
+
+    fs.writeFileSync(
+      path.join(workspaceRoot, "source.ts"),
+      "export const value = 2;\n",
+    );
+    git(workspaceRoot, ["add", "source.ts"]);
+
+    const secondRun = vi.fn().mockResolvedValue({ pass: true });
+    await createEvalReporter({ evalName: "example eval" }).recordCached(
+      options,
+      secondRun,
+    );
+
+    fs.writeFileSync(path.join(workspaceRoot, "new-source.ts"), "export {};\n");
+    const thirdRun = vi.fn().mockResolvedValue({ pass: true });
+    await createEvalReporter({ evalName: "example eval" }).recordCached(
+      options,
+      thirdRun,
+    );
+
+    expect(firstRun).toHaveBeenCalledTimes(1);
+    expect(secondRun).toHaveBeenCalledTimes(1);
+    expect(thirdRun).toHaveBeenCalledTimes(1);
+  });
 });
+
+function git(cwd: string, args: string[]): void {
+  execFileSync("git", args, { cwd, stdio: "ignore" });
+}
 
 function createTempWorkspace(): {
   packageDir: string;
