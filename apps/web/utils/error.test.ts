@@ -341,6 +341,7 @@ describe("isInvalidAIModelError", () => {
   it.each([
     ["deprecated models", "The configured model is deprecated"],
     ["models without endpoints", "No endpoints found for the configured model"],
+    ["invalid model IDs", "The configured model is not a valid model ID"],
   ])("detects %s", (_caseName, message) => {
     const error = createAPICallError({ message, statusCode: 400 });
 
