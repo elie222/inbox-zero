@@ -110,7 +110,7 @@ export function buildOutlookMailboxSyncPage({
       return [];
     }
 
-    const folderIds = message.parentFolderId
+    const folderIds: Record<string, string> = message.parentFolderId
       ? { inbox: message.parentFolderId }
       : {};
     return [
