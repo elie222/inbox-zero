@@ -403,10 +403,13 @@ async function syncCollectionReport({
         `${SYNC_TOKEN_PREFIX}page-${offset + page.length}-of-`,
       )
     : syncToken;
+  // Shaped exactly like RFC 6578's truncation example — status AND the
+  // number-of-matches-within-limits error element; clients may key on either
   const truncationMarker = truncated
     ? `<d:response>
   <d:href>${ADDRESSBOOK_PATH}/</d:href>
   <d:status>HTTP/1.1 507 Insufficient Storage</d:status>
+  <d:error><d:number-of-matches-within-limits/></d:error>
 </d:response>`
     : "";
   const tokenLine = `<d:sync-token>${escapeXml(responseToken)}</d:sync-token>`;

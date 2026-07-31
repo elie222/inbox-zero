@@ -4,6 +4,7 @@ import {
   authenticateCarddavRequest,
   unauthorizedResponse,
 } from "@/utils/carddav/auth";
+import { recordCarddavExchange } from "@/utils/carddav/exchange-log";
 import { handleCarddavRequest } from "@/utils/carddav/handler";
 
 export const maxDuration = 60;
@@ -64,6 +65,17 @@ const handle = withError("carddav", async (request) => {
     userAgent: request.headers.get("user-agent"),
   });
   request.logger.trace("CardDAV request body", { requestBody });
+
+  await recordCarddavExchange({
+    emailAccountId: auth.emailAccountId,
+    method,
+    path: segments.join("/") || "(root)",
+    depth: request.headers.get("depth"),
+    status: result.status,
+    responseBytes: result.body?.length ?? 0,
+    userAgent: request.headers.get("user-agent"),
+    detail: result.meta,
+  });
 
   return toResponse(result);
 });

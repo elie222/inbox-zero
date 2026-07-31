@@ -248,6 +248,7 @@ model EmailAccount {
   companyLabels          CompanyLabel[]
   tasks                  Task[]
   contactCard            ContactCard?
+  carddavExchanges       CarddavExchange[]
 
   @@index([userId])
   @@index([createdAt])
@@ -1280,6 +1281,29 @@ model CachedLogo {
   provider    String?
 
   @@unique([domain, source])
+}
+
+// One row per CardDAV request served, pruned after a couple of days. This is
+// the sync debugger: Contacts clients fail silently, platform logs are often
+// out of reach, and the sync settings panel renders these rows so a stuck
+// phone's exact conversation can be read (and screenshotted) from the app.
+model CarddavExchange {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  method        String
+  path          String
+  depth         String?
+  status        Int
+  responseBytes Int
+  userAgent     String?
+  // Shape of the exchange: report type, counts, truncation, page offsets
+  detail        Json?
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@index([emailAccountId, createdAt])
 }
 
 model ResponseTime {

@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { useAction } from "next-safe-action/hooks";
+import useSWR from "swr";
 import { formatDistanceToNow } from "date-fns";
-import { CheckIcon, XIcon } from "lucide-react";
+import { CheckIcon, RefreshCwIcon, XIcon } from "lucide-react";
+import type { CarddavExchangesResponse } from "@/app/api/user/carddav-exchanges/route";
 import {
   reportCarddavSelfTestAction,
   setCarddavAccessAction,
@@ -254,6 +256,8 @@ export function SyncSettingsDialog({
               syncing until you update them.
             </p>
           )}
+
+          {sync.carddavEnabled && <CarddavExchangeLog />}
         </div>
       </DialogContent>
     </Dialog>
@@ -348,4 +352,83 @@ function CarddavSelfTest({
       )}
     </div>
   );
+}
+
+// The server's own journal of CardDAV requests, phone traffic included —
+// Contacts clients fail without error messages, so this is where "it says
+// zero contacts" turns into the exact request where the sync stopped
+function CarddavExchangeLog() {
+  const [open, setOpen] = useState(false);
+  const { data, isLoading, mutate } = useSWR<CarddavExchangesResponse>(
+    open ? "/api/user/carddav-exchanges" : null,
+  );
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-3">
+        <button
+          type="button"
+          className="text-sm text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+          onClick={() => setOpen((current) => !current)}
+        >
+          {open ? "Hide server activity" : "Show server activity"}
+        </button>
+        {open && (
+          <Button
+            variant="outline"
+            size="sm"
+            loading={isLoading}
+            onClick={() => mutate()}
+          >
+            <RefreshCwIcon className="mr-1.5 size-3.5" />
+            Refresh
+          </Button>
+        )}
+      </div>
+      {open && data && (
+        <ul className="max-h-64 space-y-1 overflow-y-auto rounded-md border border-border p-2 font-mono text-[11.5px]">
+          {data.exchanges.length === 0 && (
+            <li className="text-muted-foreground">
+              Nothing yet — requests from your phone will appear here.
+            </li>
+          )}
+          {data.exchanges.map((exchange) => (
+            <li key={exchange.id} className="flex gap-2">
+              <span className="shrink-0 text-muted-foreground">
+                {new Date(exchange.createdAt).toLocaleTimeString()}
+              </span>
+              <span className="min-w-0 break-all">
+                <span
+                  className={cn(
+                    "font-semibold",
+                    exchange.status >= 400 && "text-destructive",
+                  )}
+                >
+                  {exchange.method} {exchange.path} {exchange.status}
+                </span>{" "}
+                <span className="text-muted-foreground">
+                  {exchange.responseBytes}B
+                  {exchange.depth ? ` d${exchange.depth}` : ""}
+                  {exchangeDetail(exchange.detail)}
+                  {exchange.userAgent?.includes("dataaccessd")
+                    ? " · phone"
+                    : exchange.userAgent?.includes("accountsd")
+                      ? " · phone setup"
+                      : ""}
+                </span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function exchangeDetail(detail: unknown): string {
+  if (!detail || typeof detail !== "object") return "";
+  const parts = Object.entries(detail as Record<string, unknown>)
+    .filter(([, value]) => value !== null && value !== undefined)
+    .map(([key, value]) => `${key}=${value}`);
+  return parts.length ? ` · ${parts.join(" ")}` : "";
 }
