@@ -22,7 +22,7 @@ vi.mock("@/utils/middleware", async () => {
   return createWithErrorTestMiddleware();
 });
 
-import { GET } from "./route";
+import { GET, POST } from "./route";
 
 describe("OTP push retention cron route", () => {
   beforeEach(() => {
@@ -50,5 +50,33 @@ describe("OTP push retention cron route", () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ deleted: 3 });
     expect(deleteExpiredMock).toHaveBeenCalledOnce();
+  });
+
+  it("rejects POST requests without the cron secret in the body", async () => {
+    const response = await POST(
+      new Request("http://localhost:3000/api/cron/otp-push-retention", {
+        method: "POST",
+        body: JSON.stringify({ CRON_SECRET: "wrong-secret" }),
+      }),
+    );
+
+    expect(response.status).toBe(401);
+    await expect(response.text()).resolves.toBe("Unauthorized");
+    expect(deleteExpiredMock).not.toHaveBeenCalled();
+    expect(captureExceptionMock).toHaveBeenCalledOnce();
+  });
+
+  it("deletes expired claims for an authorized POST request", async () => {
+    const response = await POST(
+      new Request("http://localhost:3000/api/cron/otp-push-retention", {
+        method: "POST",
+        body: JSON.stringify({ CRON_SECRET: "cron-secret" }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ deleted: 3 });
+    expect(deleteExpiredMock).toHaveBeenCalledOnce();
+    expect(captureExceptionMock).not.toHaveBeenCalled();
   });
 });

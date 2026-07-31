@@ -963,6 +963,7 @@ model OtpPushNotification {
 
   @@unique([emailAccountId, messageId, mobilePushTokenId], map: "OtpPushNotification_message_token_key")
   @@index([createdAt])
+  @@index([mobilePushTokenId])
 }
 
 model ResponseTime {

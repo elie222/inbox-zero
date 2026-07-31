@@ -11,6 +11,14 @@ export interface EmailThread {
   snippet: string;
 }
 
+export type MailboxSyncPage = {
+  cursor: string;
+  deletedMessageIds: string[];
+  hasMore: boolean;
+  reset: boolean;
+  upsertedMessages: ParsedMessage[];
+};
+
 export interface EmailLabel {
   color?: {
     textColor?: string;
@@ -146,6 +154,11 @@ export interface EmailProvider {
     thread: Pick<EmailThread, "id" | "messages">,
   ): Promise<ParsedMessage | null>;
   getLatestMessageInThread(threadId: string): Promise<ParsedMessage | null>;
+  getMailboxSyncPage(options: {
+    after?: Date;
+    cursor?: string;
+    limit: number;
+  }): Promise<MailboxSyncPage>;
   getMessage(messageId: string): Promise<ParsedMessage>;
   getMessageByRfc822MessageId(
     rfc822MessageId: string,

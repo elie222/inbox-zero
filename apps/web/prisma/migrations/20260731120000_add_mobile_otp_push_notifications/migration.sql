@@ -27,6 +27,8 @@ CREATE UNIQUE INDEX "OtpPushNotification_message_token_key"
 ON "OtpPushNotification"("emailAccountId", "messageId", "mobilePushTokenId");
 CREATE INDEX "OtpPushNotification_createdAt_idx"
 ON "OtpPushNotification"("createdAt");
+CREATE INDEX "OtpPushNotification_mobilePushTokenId_idx"
+ON "OtpPushNotification"("mobilePushTokenId");
 
 ALTER TABLE "MobilePushToken"
 ADD CONSTRAINT "MobilePushToken_userId_fkey"

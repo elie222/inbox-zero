@@ -23,7 +23,7 @@ import type { ParsedMessage, RuleWithActions } from "@/utils/types";
 import type { EmailAccountForDrafting } from "@/utils/ai/choose-rule/choose-args";
 import type { Logger } from "@/utils/logger";
 import { runWithBackgroundLoggerFlush } from "@/utils/logger-flush";
-import { captureException } from "@/utils/error";
+import { captureException, SafeError } from "@/utils/error";
 import { logErrorWithDedupe } from "@/utils/log-error-with-dedupe";
 import { sendOtpPushNotification } from "@/utils/mobile-push";
 
@@ -331,6 +331,11 @@ export async function processHistoryItem(
         logger.info("Message not found");
         return;
       }
+    }
+
+    if (error instanceof SafeError) {
+      logger.info("Skipping. Known processing error.");
+      return;
     }
 
     await logErrorWithDedupe({

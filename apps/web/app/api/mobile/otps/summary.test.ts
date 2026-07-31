@@ -136,6 +136,32 @@ describe("loadRecentOtpSummary", () => {
       "second-page",
     ]);
   });
+
+  it("bounds provider pagination for high-volume inboxes", async () => {
+    const provider = {
+      getThreadsWithQuery: vi.fn().mockImplementation(({ pageToken }) => ({
+        threads: [
+          thread(
+            pageToken ?? "page-1",
+            "A regular inbox message",
+            "2026-07-31T11:59:00.000Z",
+          ),
+        ],
+        nextPageToken: `${pageToken ?? "page-1"}-next`,
+      })),
+    } as unknown as EmailProvider;
+
+    await loadRecentOtpSummary({
+      accounts: [
+        { id: "account-1", email: "one@example.com", provider: "google" },
+      ],
+      createProvider: vi.fn().mockResolvedValue(provider),
+      logger,
+      now,
+    });
+
+    expect(provider.getThreadsWithQuery).toHaveBeenCalledTimes(3);
+  });
 });
 
 function thread(id: string, subject: string, date: string): EmailThread {

@@ -97,6 +97,12 @@ export function DigestSettingsForm({
   const [selectedDigestItems, setSelectedDigestItems] = useState<Set<string>>(
     new Set(),
   );
+  const {
+    schedule: initialSchedule,
+    dayOfWeek: initialDayOfWeek,
+    time: initialTime,
+  } = getInitialScheduleProps(digestStatus?.schedule);
+  const digestStatusLoaded = digestStatus !== undefined;
 
   const {
     handleSubmit,
@@ -142,7 +148,7 @@ export function DigestSettingsForm({
 
   // Initialize selected items and form data from API responses
   useEffect(() => {
-    if (rules && digestStatus) {
+    if (rules && digestStatusLoaded) {
       const selectedItems = new Set<string>();
 
       // Add rules that have digest actions
@@ -154,16 +160,21 @@ export function DigestSettingsForm({
 
       setSelectedDigestItems(selectedItems);
 
-      // Initialize schedule form data
-      const initialScheduleProps = getInitialScheduleProps(
-        digestStatus.schedule,
-      );
       reset({
         selectedItems,
-        ...initialScheduleProps,
+        schedule: initialSchedule,
+        dayOfWeek: initialDayOfWeek,
+        time: initialTime,
       });
     }
-  }, [rules, digestStatus, reset]);
+  }, [
+    rules,
+    digestStatusLoaded,
+    initialSchedule,
+    initialDayOfWeek,
+    initialTime,
+    reset,
+  ]);
 
   // Update form when selectedDigestItems changes
   useEffect(() => {

@@ -15,6 +15,8 @@ import {
 import prisma from "@/utils/prisma";
 import { categorizeSender } from "@/utils/categorize/senders/categorize";
 import { sendOtpPushNotification } from "@/utils/mobile-push";
+import { runRules } from "@/utils/ai/choose-rule/run-rules";
+import { SafeError } from "@/utils/error";
 
 vi.mock("@/utils/prisma", () => ({
   default: {
@@ -147,6 +149,35 @@ describe("Provider Edge Cases", () => {
           { ...baseOptions, provider },
         ),
       ).rejects.toThrow("invalid_grant");
+    });
+  });
+
+  describe("Known processing errors", () => {
+    it("handles safe errors without forwarding them to webhook error handlers", async () => {
+      const provider = createMockEmailProvider({
+        getMessage: vi.fn().mockResolvedValue(
+          getMockParsedMessage({
+            labelIds: ["INBOX"],
+          }),
+        ),
+        isSentMessage: vi.fn().mockReturnValue(false),
+      });
+      vi.mocked(runRules).mockRejectedValueOnce(
+        new SafeError("Expected processing limitation"),
+      );
+
+      await expect(
+        processHistoryItem(
+          { messageId: "msg-123", threadId: "thread-123" },
+          {
+            ...baseOptions,
+            provider,
+            hasAutomationRules: true,
+            hasAiAccess: true,
+          },
+        ),
+      ).resolves.toBeUndefined();
+      expect(runRules).toHaveBeenCalledOnce();
     });
   });
 

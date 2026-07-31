@@ -3,7 +3,6 @@ import { getMessageTimestamp } from "@/utils/email/message-timestamp";
 import type { Logger } from "@/utils/logger";
 import { isRecentOtpMessage, OTP_MAX_AGE_MS } from "@/utils/otp";
 import prisma from "@/utils/prisma";
-import { isDuplicateError } from "@/utils/prisma-helpers";
 import type { ParsedMessage } from "@/utils/types";
 
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
@@ -41,32 +40,23 @@ export async function sendOtpPushNotification({
   });
   if (pushTokens.length === 0) return;
 
-  const unclaimedTokens: MobilePushToken[] = [];
-  for (const pushToken of pushTokens) {
-    try {
-      await prisma.otpPushNotification.create({
-        data: {
-          emailAccountId,
-          messageId: message.id,
-          mobilePushTokenId: pushToken.id,
-        },
-      });
-      unclaimedTokens.push(pushToken);
-    } catch (error) {
-      if (
-        isDuplicateError(error, [
-          "emailAccountId",
-          "messageId",
-          "mobilePushTokenId",
-        ])
-      ) {
-        continue;
-      }
-      throw error;
-    }
-  }
+  const claims = await prisma.otpPushNotification.createManyAndReturn({
+    data: pushTokens.map((pushToken) => ({
+      emailAccountId,
+      messageId: message.id,
+      mobilePushTokenId: pushToken.id,
+    })),
+    select: { mobilePushTokenId: true },
+    skipDuplicates: true,
+  });
+  const claimedTokenIds = new Set(
+    claims.map(({ mobilePushTokenId }) => mobilePushTokenId),
+  );
+  const claimedPushTokens = pushTokens.filter(({ id }) =>
+    claimedTokenIds.has(id),
+  );
 
-  for (const pushTokenBatch of chunk(unclaimedTokens, EXPO_PUSH_BATCH_SIZE)) {
+  for (const pushTokenBatch of chunk(claimedPushTokens, EXPO_PUSH_BATCH_SIZE)) {
     await sendPushBatch({
       pushTokens: pushTokenBatch,
       emailAccountId,
@@ -138,13 +128,21 @@ async function sendPushBatch({
     const result = (await response.json()) as {
       data?: ExpoPushTicket | ExpoPushTicket[];
     };
-    tickets = Array.isArray(result.data)
-      ? result.data
-      : result.data
-        ? [result.data]
-        : [];
+    if (Array.isArray(result.data)) {
+      tickets = result.data;
+    } else {
+      tickets = result.data ? [result.data] : [];
+    }
   } catch (error) {
     logger.warn("OTP push response outcome is unknown", { error });
+    return;
+  }
+
+  if (tickets.length !== pushTokens.length) {
+    logger.warn("OTP push response outcome is unknown", {
+      expectedTicketCount: pushTokens.length,
+      receivedTicketCount: tickets.length,
+    });
     return;
   }
 

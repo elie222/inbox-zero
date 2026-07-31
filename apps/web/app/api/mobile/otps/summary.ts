@@ -7,6 +7,7 @@ import { mapWithConcurrency } from "../all-inboxes/map-with-concurrency";
 
 const ACCOUNT_CONCURRENCY = 4;
 const THREAD_PAGE_SIZE = 100;
+const MAX_THREAD_PAGES = 3;
 
 type OtpAccount = {
   id: string;
@@ -33,7 +34,13 @@ export async function loadRecentOtpSummary({
     async (account) => {
       try {
         const provider = await createProvider(account);
-        const threads = await loadThreadsSince(provider, after);
+        const { threads, hasMore } = await loadThreadsSince(provider, after);
+        if (hasMore) {
+          logger.warn("Stopped loading recent OTP messages at page limit", {
+            emailAccountId: account.id,
+            pageLimit: MAX_THREAD_PAGES,
+          });
+        }
 
         return {
           accountId: account.id,
@@ -62,6 +69,7 @@ export async function loadRecentOtpSummary({
 async function loadThreadsSince(provider: EmailProvider, after: Date) {
   const threads: EmailThread[] = [];
   let pageToken: string | undefined;
+  let pageCount = 0;
 
   do {
     const page = await provider.getThreadsWithQuery({
@@ -71,9 +79,10 @@ async function loadThreadsSince(provider: EmailProvider, after: Date) {
     });
     threads.push(...page.threads);
     pageToken = page.nextPageToken;
-  } while (pageToken);
+    pageCount += 1;
+  } while (pageToken && pageCount < MAX_THREAD_PAGES);
 
-  return threads;
+  return { threads, hasMore: Boolean(pageToken) };
 }
 
 function normalizeReceivedDates(threads: EmailThread[]): EmailThread[] {

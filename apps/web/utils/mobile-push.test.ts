@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestLogger } from "@/__tests__/helpers";
-import { Prisma } from "@/generated/prisma/client";
 import prisma from "@/utils/__mocks__/prisma";
 import type { ParsedMessage } from "@/utils/types";
 import { sendOtpPushNotification } from "./mobile-push";
@@ -27,7 +26,10 @@ describe("sendOtpPushNotification", () => {
         token: "ExponentPushToken[second]",
       },
     ] as never);
-    prisma.otpPushNotification.create.mockResolvedValue({} as never);
+    prisma.otpPushNotification.createManyAndReturn.mockResolvedValue([
+      { mobilePushTokenId: "token-1" },
+      { mobilePushTokenId: "token-2" },
+    ] as never);
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -83,15 +85,7 @@ describe("sendOtpPushNotification", () => {
     prisma.mobilePushToken.findMany.mockResolvedValue([
       { id: "token-1", token: "ExponentPushToken[first]" },
     ] as never);
-    prisma.otpPushNotification.create.mockRejectedValue(
-      new Prisma.PrismaClientKnownRequestError("duplicate", {
-        code: "P2002",
-        clientVersion: "test",
-        meta: {
-          target: ["emailAccountId", "messageId", "mobilePushTokenId"],
-        },
-      }),
-    );
+    prisma.otpPushNotification.createManyAndReturn.mockResolvedValue([]);
     const fetchMock = vi.spyOn(globalThis, "fetch");
 
     await sendOtpPushNotification({
@@ -127,7 +121,11 @@ describe("sendOtpPushNotification", () => {
         token: `ExponentPushToken[token-${index}]`,
       })) as never,
     );
-    prisma.otpPushNotification.create.mockResolvedValue({} as never);
+    prisma.otpPushNotification.createManyAndReturn.mockResolvedValue(
+      Array.from({ length: 101 }, (_, index) => ({
+        mobilePushTokenId: `token-${index}`,
+      })) as never,
+    );
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
       .mockImplementation(async (_url, init) => {
@@ -164,7 +162,11 @@ describe("sendOtpPushNotification", () => {
       { id: "unregistered", token: "ExponentPushToken[unregistered]" },
       { id: "retryable", token: "ExponentPushToken[retryable]" },
     ] as never);
-    prisma.otpPushNotification.create.mockResolvedValue({} as never);
+    prisma.otpPushNotification.createManyAndReturn.mockResolvedValue([
+      { mobilePushTokenId: "successful" },
+      { mobilePushTokenId: "unregistered" },
+      { mobilePushTokenId: "retryable" },
+    ] as never);
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -208,7 +210,9 @@ describe("sendOtpPushNotification", () => {
     prisma.mobilePushToken.findMany.mockResolvedValue([
       { id: "token-1", token: "ExponentPushToken[first]" },
     ] as never);
-    prisma.otpPushNotification.create.mockResolvedValue({} as never);
+    prisma.otpPushNotification.createManyAndReturn.mockResolvedValue([
+      { mobilePushTokenId: "token-1" },
+    ] as never);
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response("not-json", { status: 200 }),
     );
@@ -228,7 +232,9 @@ describe("sendOtpPushNotification", () => {
     prisma.mobilePushToken.findMany.mockResolvedValue([
       { id: "token-1", token: "ExponentPushToken[first]" },
     ] as never);
-    prisma.otpPushNotification.create.mockResolvedValue({} as never);
+    prisma.otpPushNotification.createManyAndReturn.mockResolvedValue([
+      { mobilePushTokenId: "token-1" },
+    ] as never);
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(null, { status: 503 }),
     );
@@ -248,6 +254,72 @@ describe("sendOtpPushNotification", () => {
         mobilePushTokenId: { in: ["token-1"] },
       },
     });
+  });
+
+  it("claims every device in one atomic write", async () => {
+    prisma.mobilePushToken.findMany.mockResolvedValue([
+      { id: "token-1", token: "ExponentPushToken[first]" },
+      { id: "token-2", token: "ExponentPushToken[second]" },
+    ] as never);
+    prisma.otpPushNotification.createManyAndReturn.mockResolvedValue([]);
+
+    await sendOtpPushNotification({
+      emailAccountId: "account-1",
+      userId: "user-1",
+      message: message({ subject: "Your login code is 123456" }),
+      logger,
+      now,
+    });
+
+    expect(prisma.otpPushNotification.createManyAndReturn).toHaveBeenCalledWith(
+      {
+        data: [
+          {
+            emailAccountId: "account-1",
+            messageId: "message-1",
+            mobilePushTokenId: "token-1",
+          },
+          {
+            emailAccountId: "account-1",
+            messageId: "message-1",
+            mobilePushTokenId: "token-2",
+          },
+        ],
+        select: { mobilePushTokenId: true },
+        skipDuplicates: true,
+      },
+    );
+  });
+
+  it("keeps claims when Expo returns fewer tickets than requested", async () => {
+    prisma.mobilePushToken.findMany.mockResolvedValue([
+      { id: "token-1", token: "ExponentPushToken[first]" },
+      { id: "token-2", token: "ExponentPushToken[second]" },
+    ] as never);
+    prisma.otpPushNotification.createManyAndReturn.mockResolvedValue([
+      { mobilePushTokenId: "token-1" },
+      { mobilePushTokenId: "token-2" },
+    ] as never);
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ data: [{ status: "ok" }] }), {
+        status: 200,
+      }),
+    );
+    const warnSpy = vi.spyOn(logger, "warn");
+
+    await sendOtpPushNotification({
+      emailAccountId: "account-1",
+      userId: "user-1",
+      message: message({ subject: "Your login code is 123456" }),
+      logger,
+      now,
+    });
+
+    expect(prisma.otpPushNotification.deleteMany).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledWith(
+      "OTP push response outcome is unknown",
+      { expectedTicketCount: 2, receivedTicketCount: 1 },
+    );
   });
 });
 
