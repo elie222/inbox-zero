@@ -351,6 +351,28 @@ describe("CardDAV handler", () => {
       expect(result.body).not.toContain("Ada Lovelace");
     });
 
+    // RFC 6352 §8.7: every requested href gets an answer — a card the
+    // client asked about that no longer exists is a 404 response, never an
+    // omission a strict client can read as a broken batch
+    it("answers a multiget href that matches nothing with a 404", async () => {
+      prisma.contact.findMany.mockResolvedValue([fullContact()] as never);
+
+      const result = await request({
+        method: "REPORT",
+        segments: ["addressbook"],
+        body: `<card:addressbook-multiget xmlns:card="urn:ietf:params:xml:ns:carddav" xmlns:d="DAV:">
+  <d:href>/api/carddav/addressbook/uid-1.vcf</d:href>
+  <d:href>/api/carddav/addressbook/deleted-one.vcf</d:href>
+</card:addressbook-multiget>`,
+      });
+
+      expect(result.body).toContain("Ada Lovelace");
+      expect(result.body).toContain(
+        "<d:href>/api/carddav/addressbook/deleted-one.vcf</d:href>",
+      );
+      expect(result.body).toContain("404 Not Found");
+    });
+
     // Clients echo hrefs percent-encoded exactly as listed; a UID with a
     // space or @ must still round-trip through the multiget
     it("matches multiget hrefs whose uids need URL encoding", async () => {
@@ -469,6 +491,75 @@ describe("CardDAV handler", () => {
         method: "REPORT",
         segments: ["addressbook"],
         body: syncBody("urn:zerrow:carddav:2-1000-42"),
+      });
+
+      expect(result.status).toBe(403);
+      expect(result.body).toContain("valid-sync-token");
+    });
+
+    // RFC 6578 truncation: a client that asks for a bounded first sync must
+    // get a resumable token, or it stores "up to date" while holding a
+    // fraction of the book and never fetches the rest
+    it("pages the initial sync at the client's limit and resumes", async () => {
+      prisma.contact.findMany.mockResolvedValue([
+        fullContact(),
+        fullContact({ id: "c2", carddavUid: "uid-2", name: "Grace Hopper" }),
+        fullContact({
+          id: "c3",
+          carddavUid: "uid-3",
+          name: "Katherine Johnson",
+        }),
+      ] as never);
+      prisma.contact.count.mockResolvedValue(3);
+
+      const limited = (token: string) => `<d:sync-collection xmlns:d="DAV:">
+  ${token ? `<d:sync-token>${token}</d:sync-token>` : "<d:sync-token/>"}
+  <d:limit><d:nresults>2</d:nresults></d:limit>
+  <d:prop><d:getetag/></d:prop>
+</d:sync-collection>`;
+
+      const first = await request({
+        method: "REPORT",
+        segments: ["addressbook"],
+        body: limited(""),
+      });
+      expect(first.body).toContain("uid-1.vcf");
+      expect(first.body).toContain("uid-2.vcf");
+      expect(first.body).not.toContain("uid-3.vcf");
+      expect(first.body).toContain("507 Insufficient Storage");
+      const pageToken = getSyncToken(first.body);
+      expect(pageToken).toContain("page-2-of-");
+
+      const second = await request({
+        method: "REPORT",
+        segments: ["addressbook"],
+        body: limited(pageToken ?? ""),
+      });
+      expect(second.body).toContain("uid-3.vcf");
+      expect(second.body).not.toContain("uid-1.vcf");
+      expect(second.body).not.toContain("Insufficient Storage");
+      const finalToken = getSyncToken(second.body);
+      expect(finalToken).toMatch(/^urn:zerrow:carddav:\d/);
+
+      const third = await request({
+        method: "REPORT",
+        segments: ["addressbook"],
+        body: syncBody(finalToken ?? ""),
+      });
+      expect(third.body).not.toContain("getetag");
+      expect(getSyncToken(third.body)).toBe(finalToken);
+    });
+
+    // A page token is a bookmark into one snapshot of the book — if the book
+    // changed underneath it, resuming would skip or duplicate cards
+    it("rejects a page token once the book has changed", async () => {
+      prisma.contact.findMany.mockResolvedValue([fullContact()] as never);
+      prisma.contact.count.mockResolvedValue(1);
+
+      const result = await request({
+        method: "REPORT",
+        segments: ["addressbook"],
+        body: syncBody("urn:zerrow:carddav:page-2-of-2-1000-42"),
       });
 
       expect(result.status).toBe(403);

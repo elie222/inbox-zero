@@ -23,6 +23,10 @@ type DavResponse = {
   status: number;
   headers?: Record<string, string>;
   body?: string;
+  // Folded into the proxy's per-exchange log line — how many cards a REPORT
+  // matched, whether a sync was truncated — so a client stuck mid-download
+  // can be diagnosed from logs alone
+  meta?: Record<string, unknown>;
 };
 
 export async function handleCarddavRequest({
@@ -264,23 +268,23 @@ async function reportAddressbook({
 
   const contacts = await loadFullContacts(emailAccountId);
 
-  const requested = isMultiget
-    ? new Set(
-        [...body.matchAll(/<[^>]*href[^>]*>([^<]+)<\//gi)].map((match) =>
-          safeDecode(match[1].trim()),
-        ),
+  const requestedHrefs = isMultiget
+    ? [...body.matchAll(/<[^>]*href[^>]*>([^<]+)<\//gi)].map((match) =>
+        safeDecode(match[1].trim()),
       )
     : null;
+  const requested = requestedHrefs ? new Set(requestedHrefs) : null;
 
-  const responses = contacts
-    .filter(
-      (contact) =>
-        !requested ||
-        // Clients echo hrefs in whichever encoding they parsed, so match
-        // the percent-encoded and decoded forms both
-        requested.has(contactHref(contact)) ||
-        requested.has(decodeURIComponent(contactHref(contact))),
-    )
+  const matched = contacts.filter(
+    (contact) =>
+      !requested ||
+      // Clients echo hrefs in whichever encoding they parsed, so match
+      // the percent-encoded and decoded forms both
+      requested.has(contactHref(contact)) ||
+      requested.has(decodeURIComponent(contactHref(contact))),
+  );
+
+  const responses = matched
     .map(
       (contact) => `<d:response>
   <d:href>${contactHref(contact)}</d:href>
@@ -292,7 +296,33 @@ async function reportAddressbook({
     )
     .join("\n");
 
-  return multistatus(responses);
+  // RFC 6352 §8.7: every requested href gets an answer — a card the client
+  // asked about that no longer exists is a 404 response, not an omission a
+  // strict client can mistake for a broken batch
+  const matchedHrefs = new Set(
+    matched.flatMap((contact) => [
+      contactHref(contact),
+      decodeURIComponent(contactHref(contact)),
+    ]),
+  );
+  const missing = (requestedHrefs ?? [])
+    .filter((href) => !matchedHrefs.has(href))
+    .map(
+      (href) => `<d:response>
+  <d:href>${escapeXml(href)}</d:href>
+  <d:status>HTTP/1.1 404 Not Found</d:status>
+</d:response>`,
+    )
+    .join("\n");
+
+  const result = multistatus([responses, missing].filter(Boolean).join("\n"));
+  result.meta = {
+    report: isMultiget ? "multiget" : "query",
+    requestedHrefs: requestedHrefs?.length ?? null,
+    matched: matched.length,
+    notFound: requestedHrefs ? requestedHrefs.length - matched.length : 0,
+  };
+  return result;
 }
 
 // RFC 6578 change tracking, the sync path modern iOS prefers. The token
@@ -316,21 +346,39 @@ async function syncCollectionReport({
       )?.[1]
       ?.trim() ?? "";
 
-  if (clientToken && clientToken !== syncToken) {
-    return {
-      status: 403,
-      headers: { "Content-Type": "application/xml; charset=utf-8" },
-      body: `<?xml version="1.0" encoding="utf-8"?>
-<d:error xmlns:d="DAV:"><d:valid-sync-token/></d:error>`,
-    };
-  }
+  // RFC 6578 truncation: honor the client's result limit and hand back a
+  // resumable token — dumping the whole book past a requested limit is how
+  // a client ends up storing "up to date" while holding a fraction of the
+  // cards, with no reason to ever fetch the rest.
+  const limit = Number(body.match(/<(?:\w+:)?nresults[^>]*>(\d+)</i)?.[1] ?? 0);
+  const pageMatch = clientToken.match(
+    new RegExp(`^${SYNC_TOKEN_PREFIX}page-(\\d+)-of-(.+)$`),
+  );
 
-  const tokenLine = `<d:sync-token>${escapeXml(syncToken)}</d:sync-token>`;
-  if (clientToken) return multistatus(tokenLine);
+  let offset = 0;
+  if (pageMatch) {
+    // Resuming a paged initial sync — only valid while the book is unchanged
+    if (`${SYNC_TOKEN_PREFIX}${pageMatch[2]}` !== syncToken) {
+      return invalidSyncToken();
+    }
+    offset = Number(pageMatch[1]);
+  } else if (clientToken === syncToken) {
+    const tokenLine = `<d:sync-token>${escapeXml(syncToken)}</d:sync-token>`;
+    const result = multistatus(tokenLine);
+    result.meta = { report: "sync", changes: 0 };
+    return result;
+  } else if (clientToken) {
+    return invalidSyncToken();
+  }
 
   const includeAddressData = /address-data/i.test(body);
   const contacts = await loadFullContacts(emailAccountId);
-  const responses = contacts
+  const page = limit
+    ? contacts.slice(offset, offset + limit)
+    : contacts.slice(offset);
+  const truncated = offset + page.length < contacts.length;
+
+  const responses = page
     .map(
       (contact) => `<d:response>
   <d:href>${contactHref(contact)}</d:href>
@@ -346,7 +394,46 @@ async function syncCollectionReport({
     )
     .join("\n");
 
-  return multistatus(`${responses}\n${tokenLine}`);
+  // A truncated answer carries a 507 marker on the collection and a token
+  // that resumes where this page ended; the client syncs again with it
+  // until it receives the final state token
+  const responseToken = truncated
+    ? syncToken.replace(
+        SYNC_TOKEN_PREFIX,
+        `${SYNC_TOKEN_PREFIX}page-${offset + page.length}-of-`,
+      )
+    : syncToken;
+  const truncationMarker = truncated
+    ? `<d:response>
+  <d:href>${ADDRESSBOOK_PATH}/</d:href>
+  <d:status>HTTP/1.1 507 Insufficient Storage</d:status>
+</d:response>`
+    : "";
+  const tokenLine = `<d:sync-token>${escapeXml(responseToken)}</d:sync-token>`;
+
+  const result = multistatus(
+    [responses, truncationMarker, tokenLine].filter(Boolean).join("\n"),
+  );
+  result.meta = {
+    report: "sync",
+    total: contacts.length,
+    offset,
+    returned: page.length,
+    limit: limit || null,
+    truncated,
+    includeAddressData,
+  };
+  return result;
+}
+
+function invalidSyncToken(): DavResponse {
+  return {
+    status: 403,
+    headers: { "Content-Type": "application/xml; charset=utf-8" },
+    body: `<?xml version="1.0" encoding="utf-8"?>
+<d:error xmlns:d="DAV:"><d:valid-sync-token/></d:error>`,
+    meta: { report: "sync", staleToken: true },
+  };
 }
 
 // iOS spot-checks single cards with PROPFIND (etag freshness); answering 404
@@ -458,6 +545,9 @@ type FullContact = Awaited<ReturnType<typeof loadFullContacts>>[number];
 async function loadFullContacts(emailAccountId: string) {
   return prisma.contact.findMany({
     where: { emailAccountId },
+    // Stable order: paged sync resumes by offset, so two pages of the same
+    // snapshot must slice the same sequence
+    orderBy: { id: "asc" },
     select: {
       id: true,
       carddavUid: true,
