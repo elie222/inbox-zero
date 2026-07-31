@@ -74,7 +74,7 @@ export async function getGmailMailboxSyncPage({
     const afterTimestamp = new Date(decoded.after).getTime();
     const upsertedMessages = fetchedMessages.filter((message) => {
       const isInSnapshotScope =
-        message.labelIds?.includes(GmailLabel.INBOX) &&
+        (!message.labelIds || message.labelIds.includes(GmailLabel.INBOX)) &&
         Number(message.internalDate) >= afterTimestamp;
       if (!isInSnapshotScope) deletedIds.add(message.id);
       return isInSnapshotScope;

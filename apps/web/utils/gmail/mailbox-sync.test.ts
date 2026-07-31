@@ -31,6 +31,7 @@ describe("getGmailMailboxSyncPage", () => {
         {
           messagesAdded: [
             { message: { id: "inbox-message" } },
+            { message: { id: "unavailable-label-message" } },
             { message: { id: "archived-message" } },
             { message: { id: "old-message" } },
             { message: { id: "missing-message" } },
@@ -47,6 +48,11 @@ describe("getGmailMailboxSyncPage", () => {
           labelIds: ["INBOX"],
         }),
         internalDate: recentInternalDate,
+      },
+      {
+        ...getMockMessage({ id: "unavailable-label-message" }),
+        internalDate: recentInternalDate,
+        labelIds: undefined,
       },
       {
         ...getMockMessage({
@@ -80,6 +86,7 @@ describe("getGmailMailboxSyncPage", () => {
 
     expect(page.upsertedMessages.map((message) => message.id)).toEqual([
       "inbox-message",
+      "unavailable-label-message",
     ]);
     expect(page.deletedMessageIds).toEqual([
       "deleted-message",
