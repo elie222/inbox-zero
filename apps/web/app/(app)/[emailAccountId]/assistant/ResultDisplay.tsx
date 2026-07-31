@@ -4,7 +4,11 @@ import { capitalCase } from "capital-case";
 import he from "he";
 import { HoverCard } from "@/components/HoverCard";
 import { Badge } from "@/components/Badge";
-import { conditionTypesToString } from "@/utils/condition";
+import {
+  conditionTypesToString,
+  describeStaticConditions,
+  STATIC_CONDITION_CONNECTOR,
+} from "@/utils/condition";
 import {
   ActionType,
   ExecutedRuleStatus,
@@ -313,37 +317,47 @@ function PrettyConditions({
 }: {
   rule: Pick<
     Rule,
-    "from" | "to" | "subject" | "body" | "instructions" | "conditionalOperator"
+    | "from"
+    | "to"
+    | "subject"
+    | "body"
+    | "instructions"
+    | "conditionalOperator"
+    | "fromExclude"
+    | "toExclude"
+    | "subjectExclude"
+    | "subjectMatchMode"
   >;
 }) {
-  const conditions: string[] = [];
-
-  // Static conditions - grouped with commas
-  const staticConditions: string[] = [];
-  if (rule.from) staticConditions.push(`From: ${rule.from}`);
-  if (rule.subject) staticConditions.push(`Subject: "${rule.subject}"`);
-  if (rule.to) staticConditions.push(`To: ${rule.to}`);
-  if (rule.body) staticConditions.push(`Body: "${rule.body}"`);
-  if (staticConditions.length) conditions.push(staticConditions.join(", "));
-
-  // AI condition
-  if (rule.instructions) conditions.push(rule.instructions);
-
+  // Described by the shared formatter. Hand-rolling this dropped the exclusion
+  // flags, so a rule meaning "not from x" rendered as "From: x".
+  const staticConditions = describeStaticConditions(rule);
   const operator =
     rule.conditionalOperator === LogicalOperator.AND ? "AND" : "OR";
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      {conditions.map((condition, index) => (
-        <div key={index} className="flex items-center gap-1.5">
-          <MutedText>{condition}</MutedText>
-          {index < conditions.length - 1 && (
+      {staticConditions.map((condition, index) => (
+        <div key={condition.field} className="flex items-center gap-1.5">
+          <MutedText>{condition.text}</MutedText>
+          {index < staticConditions.length - 1 && (
             <Badge color="purple" className="text-xs">
-              {operator}
+              {STATIC_CONDITION_CONNECTOR}
             </Badge>
           )}
         </div>
       ))}
+
+      {!!rule.instructions && (
+        <div className="flex items-center gap-1.5">
+          {staticConditions.length > 0 && (
+            <Badge color="purple" className="text-xs">
+              {operator}
+            </Badge>
+          )}
+          <MutedText>{rule.instructions}</MutedText>
+        </div>
+      )}
     </div>
   );
 }

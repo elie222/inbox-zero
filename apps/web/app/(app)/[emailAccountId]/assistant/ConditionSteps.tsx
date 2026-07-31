@@ -27,6 +27,7 @@ import { SystemType } from "@/generated/prisma/enums";
 import TextareaAutosize from "react-textarea-autosize";
 import { RuleSteps } from "@/app/(app)/[emailAccountId]/assistant/RuleSteps";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
+import { STATIC_CONDITION_CONNECTOR } from "@/utils/condition";
 
 // UI-level condition types
 type UIConditionType = "from" | "to" | "subject" | "prompt";
@@ -206,8 +207,6 @@ export function ConditionSteps({
         );
         const previousConditionType =
           index > 0 ? getUIConditionType(conditions[index - 1]) : undefined;
-        const isStaticFollowingStatic =
-          uiType !== "prompt" && previousConditionType !== "prompt";
         const showOperatorSelector =
           index === 1 && previousConditionType === "prompt";
 
@@ -288,13 +287,15 @@ export function ConditionSteps({
                     </SelectContent>
                   </Select>
                 ) : (
-                  <p className="text-muted-foreground">
-                    {isStaticFollowingStatic
-                      ? "and"
-                      : conditionalOperator === LogicalOperator.OR
-                        ? "or"
-                        : "and"}
-                  </p>
+                  <div className="flex items-center gap-1">
+                    <p className="text-muted-foreground">
+                      {STATIC_CONDITION_CONNECTOR.toLowerCase()}
+                    </p>
+                    <TooltipExplanation
+                      size="sm"
+                      text="Sender, recipient and subject conditions must all match. The and/or above controls how they combine with the AI prompt."
+                    />
+                  </div>
                 )}
                 <FormControl>
                   <SelectTrigger className="w-[120px]">

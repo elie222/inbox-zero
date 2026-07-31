@@ -1,8 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { ConditionType } from "@/utils/config";
 import { createTestLogger } from "@/__tests__/helpers";
+import { LogicalOperator, SubjectMatchMode } from "@/generated/prisma/enums";
 import {
   conditionsToString,
+  describeStaticConditions,
   flattenConditions,
   getConditions,
 } from "./condition";
@@ -125,6 +127,57 @@ describe("getConditions", () => {
   });
 });
 
+describe("describeStaticConditions", () => {
+  it("emits in the order the matcher evaluates them", () => {
+    const described = describeStaticConditions({
+      body: "invoice",
+      subject: "receipt",
+      to: "billing@nucar.com",
+      from: "@vendor.com",
+    });
+
+    expect(described.map((condition) => condition.field)).toEqual([
+      "from",
+      "to",
+      "subject",
+      "body",
+    ]);
+  });
+
+  it("names the match mode so STARTS_WITH is distinguishable", () => {
+    expect(
+      describeStaticConditions({
+        subject: "Re:",
+        subjectMatchMode: SubjectMatchMode.STARTS_WITH,
+      })[0].text,
+    ).toBe('Subject starts with: "Re:"');
+
+    expect(describeStaticConditions({ subject: "Re:" })[0].text).toBe(
+      'Subject contains: "Re:"',
+    );
+  });
+
+  it("reports exclusion rather than the match mode when both are set", () => {
+    expect(
+      describeStaticConditions({
+        subject: "Re:",
+        subjectExclude: true,
+        subjectMatchMode: SubjectMatchMode.STARTS_WITH,
+      })[0].text,
+    ).toBe('Subject doesn\'t contain: "Re:"');
+  });
+
+  it("negates sender and recipient conditions", () => {
+    expect(
+      describeStaticConditions({ from: "@nucar.com", fromExclude: true })[0]
+        .text,
+    ).toBe("Not from: @nucar.com");
+    expect(
+      describeStaticConditions({ to: "@nucar.com", toExclude: true })[0].text,
+    ).toBe("Not to: @nucar.com");
+  });
+});
+
 describe("conditionsToString", () => {
   it("renders negated conditions with a Not prefix", () => {
     const result = conditionsToString({
@@ -134,15 +187,41 @@ describe("conditionsToString", () => {
       subjectExclude: true,
     });
 
-    expect(result).toBe('Not From: @nucar.com, Not Subject: "auto-report"');
+    expect(result).toBe(
+      `Not from: @nucar.com AND Subject doesn't contain: "auto-report"`,
+    );
   });
 
-  it("renders positive conditions unchanged", () => {
-    const result = conditionsToString({
-      from: "@nucar.com",
-      subject: "Daily Report",
-    });
+  // Static conditions are always ANDed with each other; the rule's
+  // conditionalOperator only separates them from the AI clause.
+  it("joins static conditions with AND", () => {
+    expect(
+      conditionsToString({ from: "@nucar.com", subject: "Daily Report" }),
+    ).toBe('From: @nucar.com AND Subject contains: "Daily Report"');
+  });
 
-    expect(result).toBe('From: @nucar.com, Subject: "Daily Report"');
+  // Without the brackets this read "From: x, Subject: y OR <instructions>",
+  // which looks like the OR binds to the subject alone.
+  it("brackets the static group when an AI clause follows", () => {
+    expect(
+      conditionsToString({
+        from: "@nucar.com",
+        subject: "Daily Report",
+        instructions: "urgent requests",
+        conditionalOperator: LogicalOperator.OR,
+      }),
+    ).toBe(
+      '(From: @nucar.com AND Subject contains: "Daily Report") OR urgent requests',
+    );
+  });
+
+  it("leaves a single static condition unbracketed", () => {
+    expect(
+      conditionsToString({
+        from: "@nucar.com",
+        instructions: "urgent requests",
+        conditionalOperator: LogicalOperator.AND,
+      }),
+    ).toBe("From: @nucar.com AND urgent requests");
   });
 });

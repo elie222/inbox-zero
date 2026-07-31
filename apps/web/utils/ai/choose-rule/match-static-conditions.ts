@@ -1,5 +1,9 @@
 import { SubjectMatchMode } from "@/generated/prisma/enums";
 import {
+  describeStaticConditions,
+  type StaticConditionField,
+} from "@/utils/condition";
+import {
   extractEmailAddress,
   extractEmailAddresses,
   extractNameFromEmail,
@@ -54,7 +58,7 @@ export function getStaticConditionFailures(
     toDisplayNameHeader,
   } = getNormalizedEmailMatchHeaders(message);
 
-  const failedConditions: string[] = [];
+  const failedFields = new Set<StaticConditionField>();
 
   const fromPatternMatch = from
     ? matchesEmailFieldPattern({
@@ -70,11 +74,7 @@ export function getStaticConditionFailures(
       ? !fromPatternMatch
       : fromPatternMatch
     : true;
-  if (!fromMatch && from) {
-    failedConditions.push(
-      rule.fromExclude ? `Not From: ${from}` : `From: ${from}`,
-    );
-  }
+  if (!fromMatch && from) failedFields.add("from");
 
   const toPatternMatch = to
     ? matchesEmailFieldPattern({
@@ -89,9 +89,7 @@ export function getStaticConditionFailures(
       ? !toPatternMatch
       : toPatternMatch
     : true;
-  if (!toMatch && to) {
-    failedConditions.push(rule.toExclude ? `Not To: ${to}` : `To: ${to}`);
-  }
+  if (!toMatch && to) failedFields.add("to");
 
   const subjectPatternMatch = subject
     ? matchesSubjectPattern(subject, message.headers.subject, log, {
@@ -103,18 +101,18 @@ export function getStaticConditionFailures(
       ? !subjectPatternMatch
       : subjectPatternMatch
     : true;
-  if (!subjectMatch && subject) {
-    failedConditions.push(
-      rule.subjectExclude
-        ? `Not Subject: "${subject}"`
-        : `Subject: "${subject}"`,
-    );
-  }
+  if (!subjectMatch && subject) failedFields.add("subject");
 
   const bodyMatch = body
     ? matchesTextPattern(body, message.textPlain || "", log)
     : true;
-  if (!bodyMatch && body) failedConditions.push(`Body: "${body}"`);
+  if (!bodyMatch && body) failedFields.add("body");
+
+  // Described by the shared formatter so the reason a rule was skipped reads
+  // exactly like the condition shown in the editor and the rules list.
+  const failedConditions = describeStaticConditions(rule)
+    .filter((condition) => failedFields.has(condition.field))
+    .map((condition) => condition.text);
 
   return {
     matched: fromMatch && toMatch && subjectMatch && bodyMatch,

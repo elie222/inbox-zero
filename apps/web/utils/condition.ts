@@ -1,5 +1,4 @@
-import { LogicalOperator } from "@/generated/prisma/enums";
-import type { SubjectMatchMode } from "@/generated/prisma/enums";
+import { LogicalOperator, SubjectMatchMode } from "@/generated/prisma/enums";
 import type { Rule } from "@/generated/prisma/client";
 import { ConditionType, type CoreConditionType } from "@/utils/config";
 import type {
@@ -220,43 +219,127 @@ function conditionTypeToString(conditionType: ConditionType): string {
   }
 }
 
-export function conditionsToString(rule: RuleConditions) {
-  const conditions: string[] = [];
-  const connector =
-    rule.conditionalOperator === LogicalOperator.AND ? " AND " : " OR ";
+export type StaticConditionField = "from" | "to" | "subject" | "body";
 
-  const staticConditions = staticConditionsToString(rule);
-  if (staticConditions) conditions.push(staticConditions);
+export type StaticConditionDescription = {
+  field: StaticConditionField;
+  /** Human-readable operator, e.g. "Not from" or "Subject starts with" */
+  label: string;
+  value: string;
+  /** The one string every surface prints */
+  text: string;
+};
 
-  // AI condition
-  if (rule.instructions) conditions.push(rule.instructions);
+/**
+ * Static conditions are always ANDed with each other. A rule's
+ * conditionalOperator only separates the static block from the AI clause --
+ * see getStaticConditionFailures, which requires every static field to match
+ * regardless of the operator.
+ */
+export const STATIC_CONDITION_CONNECTOR = "AND";
 
-  return conditions.join(connector);
+type DescribableRule = Pick<
+  RuleConditions,
+  | "from"
+  | "to"
+  | "subject"
+  | "body"
+  | "fromExclude"
+  | "toExclude"
+  | "subjectExclude"
+> & { subjectMatchMode?: SubjectMatchMode | null };
+
+/**
+ * The single description of a rule's static conditions.
+ *
+ * Every surface that renders conditions reads this: the rules list, the rule
+ * editor, the "why didn't this match" hints, and the prompt the AI matcher
+ * sees. They used to format independently and disagreed -- exclusions were
+ * dropped in some places, and no surface showed the subject match mode at all,
+ * so a STARTS_WITH rule looked identical to a CONTAINS one.
+ *
+ * Emitted in the order the matcher evaluates them so descriptions line up with
+ * the failure reasons it produces.
+ */
+export function describeStaticConditions(
+  rule: DescribableRule,
+): StaticConditionDescription[] {
+  const descriptions: StaticConditionDescription[] = [];
+
+  if (rule.from) {
+    descriptions.push(
+      describe("from", rule.fromExclude ? "Not from" : "From", rule.from),
+    );
+  }
+
+  if (rule.to) {
+    descriptions.push(
+      describe("to", rule.toExclude ? "Not to" : "To", rule.to),
+    );
+  }
+
+  if (rule.subject) {
+    descriptions.push(
+      describe("subject", subjectLabel(rule), rule.subject, { quoted: true }),
+    );
+  }
+
+  // No bodyExclude column exists, and body has no match mode.
+  if (rule.body) {
+    descriptions.push(
+      describe("body", "Body contains", rule.body, {
+        quoted: true,
+      }),
+    );
+  }
+
+  return descriptions;
 }
 
-export function staticConditionsToString(
-  rule: Pick<
-    RuleConditions,
-    | "from"
-    | "to"
-    | "subject"
-    | "body"
-    | "fromExclude"
-    | "toExclude"
-    | "subjectExclude"
-  >,
-) {
-  const staticConditions: string[] = [];
-  if (rule.from)
-    staticConditions.push(
-      `${rule.fromExclude ? "Not From" : "From"}: ${rule.from}`,
-    );
-  if (rule.subject)
-    staticConditions.push(
-      `${rule.subjectExclude ? "Not Subject" : "Subject"}: "${rule.subject}"`,
-    );
-  if (rule.to)
-    staticConditions.push(`${rule.toExclude ? "Not To" : "To"}: ${rule.to}`);
-  if (rule.body) staticConditions.push(`Body: "${rule.body}"`);
-  return staticConditions.join(", ");
+export function staticConditionsToString(rule: DescribableRule) {
+  return describeStaticConditions(rule)
+    .map((condition) => condition.text)
+    .join(` ${STATIC_CONDITION_CONNECTOR} `);
+}
+
+export function conditionsToString(rule: RuleConditions) {
+  const staticConditions = describeStaticConditions(rule);
+  const staticText = staticConditions
+    .map((condition) => condition.text)
+    .join(` ${STATIC_CONDITION_CONNECTOR} `);
+
+  if (!rule.instructions) return staticText;
+  if (!staticText) return rule.instructions;
+
+  const operator =
+    rule.conditionalOperator === LogicalOperator.OR ? "OR" : "AND";
+
+  // Bracket the static group so the operator visibly binds to all of it. The
+  // unbracketed form read "From: x, Subject: y OR <instructions>", which looks
+  // like the OR applies to the subject alone.
+  const staticClause =
+    staticConditions.length > 1 ? `(${staticText})` : staticText;
+
+  return `${staticClause} ${operator} ${rule.instructions}`;
+}
+
+function subjectLabel(rule: DescribableRule) {
+  if (rule.subjectExclude) return "Subject doesn't contain";
+  return rule.subjectMatchMode === SubjectMatchMode.STARTS_WITH
+    ? "Subject starts with"
+    : "Subject contains";
+}
+
+function describe(
+  field: StaticConditionField,
+  label: string,
+  value: string,
+  { quoted = false }: { quoted?: boolean } = {},
+): StaticConditionDescription {
+  return {
+    field,
+    label,
+    value,
+    text: `${label}: ${quoted ? `"${value}"` : value}`,
+  };
 }

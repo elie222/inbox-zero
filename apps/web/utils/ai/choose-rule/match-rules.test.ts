@@ -147,7 +147,7 @@ describe("findMatchingRule", () => {
 
     expect(result.matches).toHaveLength(0);
     expect(result.selectionMetadata.staticFailedRuleNames).toEqual([
-      'GM Responses (requires Subject: "Daily Report")',
+      'GM Responses (requires Subject contains: "Daily Report")',
     ]);
   });
 

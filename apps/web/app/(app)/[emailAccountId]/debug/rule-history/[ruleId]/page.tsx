@@ -1,4 +1,5 @@
 import prisma from "@/utils/prisma";
+import { describeStaticConditions } from "@/utils/condition";
 import { MutedText, PageHeading } from "@/components/Typography";
 import {
   Card,
@@ -128,37 +129,20 @@ export default async function RuleHistoryPage(props: {
                     </dl>
                   </div>
 
-                  {(history.from ||
-                    history.to ||
-                    history.subject ||
-                    history.body) && (
+                  {describeStaticConditions(history).length > 0 && (
                     <div>
                       <h4 className="mb-1 font-semibold">Static Conditions</h4>
                       <dl className="grid grid-cols-1 gap-1 text-sm">
-                        {history.from && (
-                          <div className="flex gap-2">
-                            <dt className="font-medium">From:</dt>
-                            <dd className="font-mono">{history.from}</dd>
+                        {/* Described by the shared formatter so a version that
+                            differs only by negation or match mode is visibly
+                            different here, which is the point of snapshotting
+                            those columns. */}
+                        {describeStaticConditions(history).map((condition) => (
+                          <div className="flex gap-2" key={condition.field}>
+                            <dt className="font-medium">{condition.label}:</dt>
+                            <dd className="font-mono">{condition.value}</dd>
                           </div>
-                        )}
-                        {history.to && (
-                          <div className="flex gap-2">
-                            <dt className="font-medium">To:</dt>
-                            <dd className="font-mono">{history.to}</dd>
-                          </div>
-                        )}
-                        {history.subject && (
-                          <div className="flex gap-2">
-                            <dt className="font-medium">Subject:</dt>
-                            <dd className="font-mono">{history.subject}</dd>
-                          </div>
-                        )}
-                        {history.body && (
-                          <div className="flex gap-2">
-                            <dt className="font-medium">Body:</dt>
-                            <dd className="font-mono">{history.body}</dd>
-                          </div>
-                        )}
+                        ))}
                       </dl>
                     </div>
                   )}
