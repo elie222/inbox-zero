@@ -11,7 +11,7 @@ import {
   judgeEvalOutput,
 } from "@/__tests__/eval/semantic-judge";
 import {
-  captureAssistantChatToolCalls,
+  captureAssistantChatTrace,
   getFirstMatchingToolCall,
   getLastMatchingToolCall,
   summarizeRecordedToolCalls,
@@ -107,13 +107,14 @@ const baseAccountSnapshot = {
   followUpAwaitingReplyDays: 3,
   followUpNeedsReplyDays: 2,
   followUpAutoDraftEnabled: true,
+  digestSendEmail: true,
   digestSchedule: {
     id: "digest-1",
     intervalDays: 1,
     occurrences: 1,
     daysOfWeek: 127,
     timeOfDay: new Date("1970-01-01T09:00:00.000Z"),
-    nextOccurrenceAt: new Date("2026-02-21T09:00:00.000Z"),
+    nextOccurrenceAt: new Date("2026-02-21T09:01:00.000Z"),
   },
   rules: [],
   automationJob: {
@@ -228,15 +229,16 @@ async function runAssistantChat({
   emailAccount: ReturnType<typeof getEmailAccount>;
   messages: ModelMessage[];
 }) {
-  const toolCalls = await captureAssistantChatToolCalls({
+  const trace = await captureAssistantChatTrace({
     messages,
     emailAccount,
     logger,
   });
 
   return {
-    toolCalls,
-    actual: summarizeRecordedToolCalls(toolCalls, summarizeToolCall),
+    toolCalls: trace.toolCalls,
+    finalText: trace.finalText,
+    actual: summarizeRecordedToolCalls(trace.toolCalls, summarizeToolCall),
   };
 }
 
@@ -354,6 +356,30 @@ async function evaluateScenario(
         judgeOutput: null,
         judgeResult: null,
       };
+
+    case "digest_explanation": {
+      const judgeResult = await judgeEvalOutput({
+        input: prompt,
+        output: result.finalText,
+        expected: expectation.semanticExpectation,
+        criterion: {
+          name: "Digest delivery explanation",
+          description:
+            "The answer must accurately use the authoritative digest capability state to identify the automatic recipient, combined-rule behavior, and realistic dispatch timing. It must not invent a missing destination or unsupported refund advice.",
+        },
+      });
+
+      return {
+        pass:
+          result.toolCalls.some(
+            (toolCall) => toolCall.toolName === "getAssistantCapabilities",
+          ) &&
+          hasNoToolCalls(result.toolCalls, ["updateAssistantSettings"]) &&
+          judgeResult.pass,
+        judgeOutput: result.finalText,
+        judgeResult,
+      };
+    }
 
     case "assistant_settings": {
       return {
@@ -627,6 +653,12 @@ function configureStatefulSettingsMocks() {
   prisma.automationJob.findUnique.mockImplementation(
     async () => accountSnapshot.automationJob,
   );
+  prisma.digestItem.count.mockResolvedValue(2);
+  prisma.digest.findFirst.mockResolvedValue({
+    status: "SENT",
+    sentAt: new Date("2026-02-20T09:05:00.000Z"),
+    updatedAt: new Date("2026-02-20T09:05:00.000Z"),
+  } as never);
   prisma.automationJob.update.mockImplementation(async ({ data }) => {
     Object.assign(accountSnapshot.automationJob, data);
     return accountSnapshot.automationJob;
@@ -645,26 +677,17 @@ function configureStatefulSettingsMocks() {
     });
     return {};
   });
-  prisma.knowledge.upsert.mockImplementation(
-    async ({ where, create, update }) => {
-      const existing = accountSnapshot.knowledge.find(
-        (item) => item.title === where.emailAccountId_title.title,
-      );
-      if (existing) {
-        Object.assign(existing, update, {
-          updatedAt: new Date("2026-02-21T08:00:00.000Z"),
-        });
-      } else {
-        accountSnapshot.knowledge.push({
-          id: `knowledge-${accountSnapshot.knowledge.length + 1}`,
-          title: create.title,
-          content: create.content,
-          updatedAt: new Date("2026-02-21T08:00:00.000Z"),
-        });
-      }
-      return {};
-    },
-  );
+  prisma.knowledge.update.mockImplementation(async ({ where, data }) => {
+    const existing = accountSnapshot.knowledge.find(
+      (item) => item.title === where.emailAccountId_title?.title,
+    );
+    if (!existing) throw new Error("Knowledge item not found");
+
+    Object.assign(existing, data, {
+      updatedAt: new Date("2026-02-21T08:00:00.000Z"),
+    });
+    return existing;
+  });
   prisma.knowledge.deleteMany.mockImplementation(async ({ where }) => {
     accountSnapshot.knowledge = accountSnapshot.knowledge.filter(
       (item) => item.title !== where.title,

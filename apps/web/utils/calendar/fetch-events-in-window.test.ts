@@ -20,7 +20,6 @@ const fetchParams = {
   timeMin: new Date("2026-07-29T10:00:00.000Z"),
   timeMax: new Date("2026-07-29T11:00:00.000Z"),
   maxResultsPerProvider: 50,
-  verifyConnectedCalendars: true,
   logger,
 };
 

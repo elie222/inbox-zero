@@ -6,12 +6,19 @@ import {
   MeetingProcessingStatus,
   MeetingRecordingStatus,
 } from "@/generated/prisma/enums";
-import { Prisma, type MeetingRecording } from "@/generated/prisma/client";
+import {
+  Prisma,
+  type Meeting,
+  type MeetingRecording,
+} from "@/generated/prisma/client";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
 import { fetchCalendarEventsInWindow } from "@/utils/calendar/fetch-events-in-window";
 import { captureException } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
-import { toAttendeeSnapshot } from "@/utils/meeting-recorder/attendees";
+import {
+  parseAttendeeSnapshot,
+  toAttendeeSnapshot,
+} from "@/utils/meeting-recorder/attendees";
 import { MeetingBotProviderError } from "@/utils/meeting-recorder/bot-provider";
 import {
   MAX_EVENTS_PER_PROVIDER,
@@ -66,7 +73,6 @@ export async function reconcileAccount({
     timeMin,
     timeMax,
     maxResultsPerProvider: MAX_EVENTS_PER_PROVIDER,
-    verifyConnectedCalendars: true,
     logger,
   });
 
@@ -109,18 +115,23 @@ export async function reconcileAccount({
 export async function reconcileSingleEvent({
   emailAccount,
   event,
+  meeting: preloadedMeeting,
   logger,
 }: {
   emailAccount: RecorderAccount;
   event: CalendarEvent;
+  /** Skips the internal upsert when the caller has just upserted the row itself. */
+  meeting?: Meeting;
   logger: Logger;
 }): Promise<void> {
   if (!event.videoConferenceLink) return;
 
-  const meeting = await upsertMeeting({
-    emailAccountId: emailAccount.id,
-    event,
-  });
+  const meeting =
+    preloadedMeeting ??
+    (await upsertMeeting({
+      emailAccountId: emailAccount.id,
+      event,
+    }));
   const eventLogger = logger.with({ meetingId: meeting.id });
 
   const wantsRecording = shouldAutoJoin({
@@ -184,18 +195,36 @@ export async function upsertMeeting({
     endTime: event.endTime,
     attendees: toAttendeeSnapshot(event.attendees, event.organizerEmail),
     organizerEmail: event.organizerEmail ?? null,
+  };
+  const where = {
+    emailAccountId_calendarEventId: {
+      emailAccountId,
+      calendarEventId: event.id,
+    },
+  };
+
+  // This runs on every cron tick for every video event, so skip the write
+  // (and its updatedAt churn) when the event has not changed.
+  const existing = await prisma.meeting.findUnique({
+    where,
+  });
+  if (
+    existing &&
+    isSameMeetingSnapshot(existing, snapshot) &&
+    (joinOverride === undefined || joinOverride === existing.joinOverride)
+  ) {
+    return existing;
+  }
+
+  const data = {
+    ...snapshot,
     ...(joinOverride === undefined ? {} : { joinOverride }),
   };
 
   return prisma.meeting.upsert({
-    where: {
-      emailAccountId_calendarEventId: {
-        emailAccountId,
-        calendarEventId: event.id,
-      },
-    },
-    create: { ...snapshot, emailAccountId, calendarEventId: event.id },
-    update: snapshot,
+    where,
+    create: { ...data, emailAccountId, calendarEventId: event.id },
+    update: data,
   });
 }
 
@@ -431,12 +460,7 @@ async function updateBookingForEvent({
   // Same meeting, fresher link: normalization drops credentials, so this is
   // where a rotated meeting password or invitee context shows up.
   if (recording.meetingUrl !== event.videoConferenceLink) {
-    const linkedMeetings = await prisma.meeting.count({
-      where: { recordingId },
-    });
-
     if (
-      linkedMeetings === 1 &&
       recording.externalBotId &&
       CHANGEABLE_STATUSES.includes(recording.status)
     ) {
@@ -446,12 +470,10 @@ async function updateBookingForEvent({
       });
     }
 
-    if (linkedMeetings === 1) {
-      await prisma.meetingRecording.updateMany({
-        where: { id: recordingId, status: { in: CHANGEABLE_STATUSES } },
-        data: { meetingUrl: event.videoConferenceLink },
-      });
-    }
+    await prisma.meetingRecording.updateMany({
+      where: { id: recordingId, status: { in: CHANGEABLE_STATUSES } },
+      data: { meetingUrl: event.videoConferenceLink },
+    });
   }
 
   const startTimeUnchanged =
@@ -462,19 +484,23 @@ async function updateBookingForEvent({
   if (!CHANGEABLE_STATUSES.includes(recording.status)) return true;
   if (!recording.externalBotId) return true;
 
-  // A cancelling row retains the dedup slot until the provider confirms that
-  // its bot is gone. Wait for that cleanup before moving this bot, otherwise
-  // the database update collides after the provider has already been changed.
-  const destination = await findRecordingHoldingSlot({
-    recording,
-    startTime: event.startTime,
-  });
-  if (destination?.status === MeetingRecordingStatus.CANCELLING) {
-    logger.info("Waiting for conflicting meeting recording cancellation", {
-      recordingId: recording.id,
-      conflictingRecordingId: destination.id,
+  if (recording.activeKey) {
+    const cancellingDestination = await prisma.meetingRecording.findFirst({
+      where: {
+        id: { not: recording.id },
+        activeKey: recording.activeKey,
+        meetingStartTime: event.startTime,
+        status: MeetingRecordingStatus.CANCELLING,
+      },
+      select: { id: true },
     });
-    return true;
+    if (cancellingDestination) {
+      logger.info("Waiting for destination recording cancellation", {
+        recordingId: recording.id,
+        conflictingRecordingId: cancellingDestination.id,
+      });
+      return true;
+    }
   }
 
   const provider = createMeetingBotProvider(recording.botProvider, logger);
@@ -482,65 +508,24 @@ async function updateBookingForEvent({
     joinAt: event.startTime,
     meetingUrl: event.videoConferenceLink ?? recording.meetingUrl,
   });
-  const rescheduleData = {
-    meetingStartTime: event.startTime,
-    externalBotId: updatedBot.externalBotId,
-  };
 
   try {
     await prisma.meetingRecording.update({
       where: { id: recording.id },
-      data: rescheduleData,
+      data: {
+        meetingStartTime: event.startTime,
+        externalBotId: updatedBot.externalBotId,
+      },
     });
   } catch (error) {
     if (!isDuplicateError(error)) throw error;
 
-    const conflictingDestination = await findRecordingHoldingSlot({
-      recording,
-      startTime: event.startTime,
-    });
-
-    // The cancellation may have completed between the conflicting write and
-    // this read. If the slot is free now, finish persisting the provider move.
-    if (!conflictingDestination) {
-      await prisma.meetingRecording.update({
-        where: { id: recording.id },
-        data: rescheduleData,
-      });
-      return true;
-    }
-
-    if (conflictingDestination.status === MeetingRecordingStatus.CANCELLING) {
-      // The destination started cancelling after the preflight check. Persist
-      // any replacement id first so a failed compensation never leaves the
-      // live provider bot untracked, then restore its previous schedule.
-      if (updatedBot.externalBotId !== recording.externalBotId) {
-        await prisma.meetingRecording.update({
-          where: { id: recording.id },
-          data: { externalBotId: updatedBot.externalBotId },
-        });
-      }
-
-      const restoredBot = await provider.updateBot(updatedBot.externalBotId, {
-        joinAt: recording.meetingStartTime,
-        meetingUrl: event.videoConferenceLink ?? recording.meetingUrl,
-      });
-      if (restoredBot.externalBotId !== updatedBot.externalBotId) {
-        await prisma.meetingRecording.update({
-          where: { id: recording.id },
-          data: { externalBotId: restoredBot.externalBotId },
-        });
-      }
-
-      logger.info("Deferred reschedule after concurrent cancellation", {
-        recordingId: recording.id,
-        conflictingRecordingId: conflictingDestination.id,
-      });
-      return true;
-    }
-
-    // The event was moved onto a slot another recording already holds. Fold
-    // this meeting into that recording instead of retrying into the same clash.
+    // Another recording of this account already holds the destination slot,
+    // either still cancelling or booked for the meeting this event was moved
+    // onto. Persist any replacement bot id first so the moved bot is never
+    // untracked, then release and rebook: the caller falls through to booking
+    // against the destination, which links it if live or waits for the next
+    // pass while the slot-holder finishes cancelling.
     if (updatedBot.externalBotId !== recording.externalBotId) {
       await prisma.meetingRecording.update({
         where: { id: recording.id },
@@ -548,58 +533,14 @@ async function updateBookingForEvent({
       });
     }
 
-    await mergeIntoExistingRecording({
-      meetingId,
-      recording: {
-        ...recording,
-        externalBotId: updatedBot.externalBotId,
-      },
-      event,
-      logger,
+    logger.info("Destination slot is taken, releasing to rebook", {
+      recordingId: recording.id,
     });
+    await releaseMeeting({ meetingId, recordingId, logger });
+    return false;
   }
 
   return true;
-}
-
-async function mergeIntoExistingRecording({
-  meetingId,
-  recording,
-  event,
-  logger,
-}: {
-  meetingId: string;
-  recording: MeetingRecording;
-  event: CalendarEvent;
-  logger: Logger;
-}): Promise<void> {
-  if (!recording.activeKey) {
-    logger.warn("Could not merge recording without an active key", {
-      recordingId: recording.id,
-    });
-    return;
-  }
-
-  const target = await findLiveRecording({
-    activeKey: recording.activeKey,
-    startTime: event.startTime,
-  });
-
-  if (!target || target.id === recording.id) {
-    logger.warn("Could not merge rescheduled recording", {
-      recordingId: recording.id,
-    });
-    return;
-  }
-
-  // Detach before releasing, so the old recording looks unwanted to the
-  // "nobody is linked" check that guards the cancel.
-  await prisma.meeting.update({
-    where: { id: meetingId },
-    data: { recordingId: null },
-  });
-  await releaseRecording({ recording, logger });
-  await linkMeetingToRecording({ meetingId, recordingId: target.id, logger });
 }
 
 /**
@@ -747,12 +688,10 @@ async function finishCancellation({
     await provider.cancelBot(recording.externalBotId);
   }
 
-  await prisma.meetingRecording.updateMany({
-    where: {
-      id: recording.id,
-      status: MeetingRecordingStatus.CANCELLING,
-    },
-    data: recordingStatusData(MeetingRecordingStatus.CANCELLED),
+  await transitionRecording({
+    recordingId: recording.id,
+    status: MeetingRecordingStatus.CANCELLED,
+    fromStatuses: [MeetingRecordingStatus.CANCELLING],
   });
   logger.info("Cancelled meeting recording", { recordingId: recording.id });
 }
@@ -1141,19 +1080,35 @@ async function retryPendingMediaDeletion({
   }
 }
 
-function findRecordingHoldingSlot({
-  recording,
-  startTime,
-}: {
-  recording: MeetingRecording;
-  startTime: Date;
-}) {
-  return prisma.meetingRecording.findFirst({
-    where: {
-      id: { not: recording.id },
-      activeKey: recording.activeKey,
-      meetingStartTime: startTime,
-    },
-    select: { id: true, status: true },
-  });
+function isSameMeetingSnapshot(
+  existing: Meeting,
+  snapshot: {
+    eventTitle: string;
+    startTime: Date;
+    endTime: Date;
+    attendees: unknown;
+    organizerEmail: string | null;
+  },
+): boolean {
+  return (
+    existing.eventTitle === snapshot.eventTitle &&
+    existing.startTime.getTime() === snapshot.startTime.getTime() &&
+    existing.endTime.getTime() === snapshot.endTime.getTime() &&
+    existing.organizerEmail === snapshot.organizerEmail &&
+    normalizeAttendees(existing.attendees) ===
+      normalizeAttendees(snapshot.attendees)
+  );
+}
+
+// jsonb does not preserve key order, so the stored value cannot be compared to
+// a fresh snapshot byte-for-byte. Re-parsing both sides into a fixed key order
+// makes the comparison about the attendees rather than the serialization.
+function normalizeAttendees(value: unknown): string {
+  return JSON.stringify(
+    parseAttendeeSnapshot(value).map(({ email, name, declined }) => ({
+      email,
+      name,
+      declined,
+    })),
+  );
 }

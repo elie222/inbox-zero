@@ -3,6 +3,7 @@ import type { GetMeetingRecorderSettingsResponse } from "@/app/api/user/meeting-
 import type { GetMeetingRecorderMeetingsResponse } from "@/app/api/user/meeting-recorder/meetings/route";
 import type { GetMeetingRecorderMeetingResponse } from "@/app/api/user/meeting-recorder/meetings/[meetingId]/route";
 import type { GetMeetingRecorderUpcomingResponse } from "@/app/api/user/meeting-recorder/upcoming/route";
+import { getAccountScopedKey } from "@/utils/swr";
 
 export function useMeetingRecorderSettings(emailAccountId?: string | null) {
   return useSWR<GetMeetingRecorderSettingsResponse>(
@@ -34,12 +35,4 @@ export function useMeetingRecorderUpcoming(emailAccountId?: string | null) {
   return useSWR<GetMeetingRecorderUpcomingResponse>(
     getAccountScopedKey("/api/user/meeting-recorder/upcoming", emailAccountId),
   );
-}
-
-// These routes are all scoped by the authenticated email account, so the cache
-// key has to carry the account or a switch would serve another account's data.
-function getAccountScopedKey(path: string, emailAccountId?: string | null) {
-  if (emailAccountId === undefined) return path;
-
-  return emailAccountId ? ([path, emailAccountId] as const) : null;
 }

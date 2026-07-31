@@ -11,7 +11,11 @@ import {
 } from "@/utils/actions/unsubscriber";
 import { decrementUnsubscribeCreditAction } from "@/utils/actions/premium";
 import { NewsletterStatus } from "@/generated/prisma/enums";
-import { assertActionSucceeded, captureException } from "@/utils/error";
+import {
+  assertActionSucceeded,
+  captureException,
+  EmailProviderRateLimitError,
+} from "@/utils/error";
 import {
   addToArchiveSenderThreadQueue,
   useArchiveSenderQueueActions,
@@ -88,6 +92,7 @@ async function executeBulkOperation<T extends Row>({
   successMessage,
   errorMessage,
   onComplete,
+  onCompleteRevalidates,
   onSuccess,
 }: {
   items: T[];
@@ -101,6 +106,7 @@ async function executeBulkOperation<T extends Row>({
   successMessage: string;
   errorMessage: string;
   onComplete?: () => Promise<unknown>;
+  onCompleteRevalidates?: boolean;
   onSuccess?: () => void;
 }) {
   const total = items.length;
@@ -110,7 +116,8 @@ async function executeBulkOperation<T extends Row>({
   );
 
   let completed = 0;
-  const failures: Error[] = [];
+  let failureCount = 0;
+  let rateLimitError: EmailProviderRateLimitError | undefined;
 
   const updateItemOptimistically = (item: T) => {
     const optimisticStatus = getNewStatus ? getNewStatus(item) : newStatus;
@@ -134,14 +141,18 @@ async function executeBulkOperation<T extends Row>({
   };
 
   for (const item of items) {
-    onDeselectItem?.(item.name);
     updateItemOptimistically(item);
 
     try {
       await processItem(item);
+      onDeselectItem?.(item.name);
     } catch (error) {
-      failures.push(error as Error);
-      captureException(error);
+      failureCount++;
+      if (error instanceof EmailProviderRateLimitError) {
+        rateLimitError = error;
+      } else {
+        captureException(error);
+      }
     } finally {
       completed++;
       toast.loading(
@@ -152,23 +163,37 @@ async function executeBulkOperation<T extends Row>({
         },
       );
     }
+
+    if (rateLimitError) break;
   }
 
+  let didRevalidateOnComplete = false;
   if (onComplete) {
     try {
       await onComplete();
+      didRevalidateOnComplete = onCompleteRevalidates === true;
     } catch (error) {
       captureException(error);
     }
   }
 
-  if (failures.length > 0) {
+  if (rateLimitError) {
+    if (!didRevalidateOnComplete) await mutate();
+    const successful = completed - failureCount;
+    toast.error(rateLimitError.message, {
+      id: toastId,
+      description: `${successful} of ${total} completed; stopped to avoid more requests`,
+    });
+    return { stoppedByRateLimit: true };
+  }
+
+  if (failureCount > 0) {
     await mutate();
     toast.error(
-      `${errorMessage} ${failures.length} ${pluralize(failures.length, "sender")}`,
+      `${errorMessage} ${failureCount} ${pluralize(failureCount, "sender")}`,
       {
         id: toastId,
-        description: `${total - failures.length} of ${total} succeeded`,
+        description: `${total - failureCount} of ${total} succeeded`,
       },
     );
   } else {
@@ -178,6 +203,8 @@ async function executeBulkOperation<T extends Row>({
     });
     onSuccess?.();
   }
+
+  return { stoppedByRateLimit: false };
 }
 
 async function unsubscribeAndArchive({
@@ -328,8 +355,12 @@ export function useUnsubscribe<T extends Row>({
         }
       }
     } catch (error) {
-      captureException(error);
-      toast.error(`Could not unsubscribe from ${item.name}`);
+      if (error instanceof EmailProviderRateLimitError) {
+        toast.error(error.message);
+      } else {
+        captureException(error);
+        toast.error(`Could not unsubscribe from ${item.name}`);
+      }
     } finally {
       setUnsubscribeLoading(false);
     }
@@ -391,7 +422,7 @@ export function useBulkUnsubscribe<T extends Row>({
 
       const messages = getBulkUnsubscribeMessages(items);
 
-      await executeBulkOperation({
+      const result = await executeBulkOperation({
         items,
         mutate,
         filter,
@@ -428,8 +459,11 @@ export function useBulkUnsubscribe<T extends Row>({
           await mutate();
           await refreshPremium(refetchPremium);
         },
+        onCompleteRevalidates: true,
         onSuccess: () => onSuccess?.(items),
       });
+      if (result.stoppedByRateLimit) return;
+
       analytics.captureAction("bulk_unsubscribe_completed", {
         item_count: items.length,
         filter,
@@ -1114,7 +1148,7 @@ function didAutomaticUnsubscribeSucceed(
   result: Awaited<ReturnType<typeof unsubscribeSenderAction>>,
 ) {
   if (result?.serverError) {
-    throw new Error(result.serverError);
+    assertActionSucceeded({ serverError: result.serverError });
   }
 
   return result?.data?.unsubscribe.success === true;

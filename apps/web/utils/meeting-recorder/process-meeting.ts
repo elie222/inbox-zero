@@ -165,34 +165,28 @@ async function runProcessingSteps({
     recipients.length > 0 &&
     !meeting.followUpDraftStartedAt;
 
-  const draftCreated = wantsDraft
-    ? await createFollowUpDraft({
-        meetingId,
-        emailAccount,
-        provider: emailAccount.account.provider,
-        eventTitle: meeting.eventTitle,
-        summary,
-        recipients,
-        logger,
-      })
-    : false;
+  if (wantsDraft) {
+    await createFollowUpDraft({
+      meetingId,
+      emailAccount,
+      provider: emailAccount.account.provider,
+      eventTitle: meeting.eventTitle,
+      summary,
+      recipients,
+      logger,
+    });
+  }
 
   if (
     meeting.emailAccount.meetingRecorderRecapEmailEnabled &&
     !meeting.recapSentAt
   ) {
-    // When this run did not create the draft itself, the initial read is
-    // stale: a concurrent run that won the draft claim, or an earlier run
-    // that failed after drafting, may have stored the id since. Re-read it
-    // so the recap does not tell the user no draft exists when one does.
     // Read before claiming the send, so a transient read failure retries
     // instead of burning the one-way recap claim.
-    const freshDraft = draftCreated
-      ? null
-      : await prisma.meeting.findUnique({
-          where: { id: meetingId },
-          select: { followUpDraftId: true },
-        });
+    const refreshedMeeting = await prisma.meeting.findUnique({
+      where: { id: meetingId },
+      select: { followUpDraftId: true },
+    });
 
     // Claim the send before doing it: a duplicate recap is worse than a missing
     // one, and the user can always open the meeting in the app.
@@ -210,7 +204,7 @@ async function runProcessingSteps({
         meetingTitle: meeting.eventTitle,
         startTime: meeting.startTime,
         summary,
-        followUpDraftCreated: draftCreated || !!freshDraft?.followUpDraftId,
+        followUpDraftCreated: !!refreshedMeeting?.followUpDraftId,
         logger,
       });
     }
@@ -261,7 +255,7 @@ async function createFollowUpDraft({
   summary: MeetingSummary;
   recipients: MeetingAttendee[];
   logger: Logger;
-}): Promise<boolean> {
+}): Promise<void> {
   const writingStyle = await getWritingStyle({
     emailAccountId: emailAccount.id,
   });
@@ -290,7 +284,7 @@ async function createFollowUpDraft({
   });
   if (claim.count === 0) {
     logger.info("Follow-up draft already claimed by another run");
-    return false;
+    return;
   }
 
   const { id } = await emailProvider.createDraft({
@@ -305,5 +299,4 @@ async function createFollowUpDraft({
   });
 
   logger.info("Created meeting follow-up draft", { draftId: id });
-  return true;
 }

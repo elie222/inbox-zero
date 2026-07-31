@@ -45,7 +45,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
 
     afterAll(() => emulator?.close());
 
-    test("schedules a bot with the branded name and diarized transcription", async () => {
+    test("schedules a bot with branded name and camera image", async () => {
       const joinAt = new Date("2026-05-04T09:00:00.000Z");
 
       const { externalBotId } = await provider.scheduleBot({
@@ -61,6 +61,26 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
 
       const create = emulator.requests.find((r) => r.method === "POST");
       expect(create?.authorization).toBe(`Token ${emulator.apiKey}`);
+      expect(create?.body).toMatchObject({
+        automatic_video_output: {
+          in_call_recording: {
+            kind: "jpeg",
+            b64_data: expect.any(String),
+          },
+        },
+      });
+
+      const cameraImage = (
+        create?.body as {
+          automatic_video_output?: {
+            in_call_recording?: { b64_data?: string };
+          };
+        }
+      )?.automatic_video_output?.in_call_recording?.b64_data;
+      const jpeg = Buffer.from(cameraImage ?? "", "base64");
+      expect(jpeg.subarray(0, 3)).toEqual(Buffer.from([0xff, 0xd8, 0xff]));
+      expect(jpeg.byteLength).toBeLessThan(1_300_000);
+
       // `recallai_async` is not a bot-creation provider, so no transcript
       // config belongs here. Sending one would be rejected or ignored, and
       // either way no transcript would ever be produced.

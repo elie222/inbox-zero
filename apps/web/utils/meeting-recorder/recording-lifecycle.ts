@@ -13,9 +13,10 @@ export const LIVE_STATUSES: MeetingRecordingStatus[] = [
   MeetingRecordingStatus.CALL_ENDED,
 ];
 
-export const CANCELLABLE_STATUSES = LIVE_STATUSES.filter(
-  (status) => status !== MeetingRecordingStatus.CALL_ENDED,
-);
+export const CANCELLABLE_STATUSES: MeetingRecordingStatus[] =
+  LIVE_STATUSES.filter(
+    (status) => status !== MeetingRecordingStatus.CALL_ENDED,
+  );
 
 // Once the bot is on its way to the call there is nothing useful left to change.
 export const CHANGEABLE_STATUSES: MeetingRecordingStatus[] = [
@@ -78,7 +79,7 @@ export function transitionRecording(
   ) & {
     status: MeetingRecordingStatus;
     fromStatuses?: MeetingRecordingStatus[];
-    data?: { failureReason?: string };
+    data?: { failureReason?: string; transcriptFetchedAt?: Date };
   },
 ) {
   const selector =

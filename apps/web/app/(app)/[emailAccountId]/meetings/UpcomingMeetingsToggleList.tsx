@@ -3,18 +3,19 @@
 import { useState } from "react";
 import { CalendarIcon } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
+import { ListCard } from "@/components/ListCard";
 import { LoadingContent } from "@/components/LoadingContent";
 import { toastError } from "@/components/Toast";
 import { Toggle } from "@/components/Toggle";
 import { TypographyH3 } from "@/components/Typography";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { UpgradeToPlusButton } from "@/components/UpgradeToPlusButton";
 import {
   Empty,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { ItemGroup } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { GetMeetingRecorderUpcomingResponse } from "@/app/api/user/meeting-recorder/upcoming/route";
 import { MeetingListItem } from "@/app/(app)/[emailAccountId]/meetings/MeetingListItem";
@@ -55,25 +56,29 @@ export function UpcomingMeetingsToggleList({
     execute({ join, calendarEventId: event.id });
   };
 
+  const events = data?.events ?? [];
+  const isLocked = data?.hasAccess === false;
+
   return (
     <div>
-      <TypographyH3>Upcoming</TypographyH3>
+      <TypographyH3>Up next</TypographyH3>
 
       <LoadingContent
         loading={isLoading}
         error={error}
         loadingComponent={<Skeleton className="mt-4 h-24 w-full" />}
       >
-        {data?.hasAccess === false && (
+        {isLocked && (
           <Alert className="mt-4">
             <AlertTitle>Meeting recording requires the Plus plan</AlertTitle>
-            <AlertDescription>
+            <AlertDescription className="flex flex-wrap items-center justify-between gap-2">
               Upgrade to have meetings recorded and summarized automatically.
+              <UpgradeToPlusButton tooltip="Upgrade to the Plus plan to record and summarize your meetings." />
             </AlertDescription>
           </Alert>
         )}
 
-        {!data?.events.length ? (
+        {!events.length ? (
           <Empty className="mt-4 border">
             <EmptyHeader>
               <EmptyMedia variant="icon">
@@ -83,32 +88,43 @@ export function UpcomingMeetingsToggleList({
             </EmptyHeader>
           </Empty>
         ) : (
-          <ItemGroup className="mt-4 gap-2">
-            {data.events.map((event) => (
-              <MeetingListItem
-                key={event.id}
-                title={event.title}
-                startTime={event.startTime}
-                status={event.recordingStatus}
-                failureReason={event.failureReason}
-              >
-                <Toggle
-                  name={`join-${event.id}`}
-                  ariaLabel={`Record ${event.title}`}
-                  enabled={event.willRecord}
-                  // A downgraded user must still be able to cancel a meeting
-                  // that is already set to record; only enabling is gated.
-                  disabled={
-                    pendingEventId === event.id ||
-                    (!data.hasAccess && !event.willRecord)
-                  }
-                  onChange={(join) => toggleEvent(event, join)}
-                />
-              </MeetingListItem>
-            ))}
-          </ItemGroup>
+          <ListCard className="mt-4">
+            {events.map((event) => {
+              const joining = isJoining(event);
+
+              return (
+                <MeetingListItem
+                  key={event.id}
+                  title={event.title}
+                  startTime={event.startTime}
+                  status={event.recordingStatus}
+                  failureReason={event.failureReason}
+                >
+                  <Toggle
+                    name={`join-${event.id}`}
+                    ariaLabel={`Record ${event.title}`}
+                    enabled={joining}
+                    // A downgraded user must still be able to cancel a booked
+                    // meeting; only creating a new booking is gated.
+                    disabled={
+                      pendingEventId === event.id || (isLocked && !joining)
+                    }
+                    onChange={(join) => toggleEvent(event, join)}
+                  />
+                </MeetingListItem>
+              );
+            })}
+          </ListCard>
         )}
       </LoadingContent>
     </div>
+  );
+}
+
+function isJoining(event: UpcomingEvent) {
+  return (
+    event.willRecord ||
+    event.hasCancellableBooking ||
+    event.joinOverride === true
   );
 }

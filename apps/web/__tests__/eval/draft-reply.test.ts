@@ -273,7 +273,7 @@ Alex`,
       );
 
       test(
-        "explicit time request uses human-friendly timezone wording",
+        "explicit options request returns requested times with human-friendly timezone",
         async () => {
           const schedulingEmailAccount = {
             ...emailAccount,
@@ -316,7 +316,7 @@ Morgan`,
             currentDate: new Date("2026-05-12T09:30:00Z"),
           });
 
-          const testName = "human-friendly timezone for suggested times";
+          const testName = "explicitly requested scheduling options";
           const judgeResult = await judgeEvalOutput({
             input: [
               formatThreadForJudge(messages),
@@ -326,11 +326,11 @@ Morgan`,
             ].join("\n"),
             output: result.reply,
             expected:
-              "A concrete scheduling reply with suggested times. If a timezone is mentioned, it should use a human-friendly abbreviation or label rather than an IANA timezone identifier.",
+              "A concrete scheduling reply that offers both provided times because the sender explicitly requested two or three options. If a timezone is mentioned, it should use a human-friendly abbreviation or label rather than an IANA timezone identifier.",
             criterion: {
-              name: "Human-friendly timezone wording",
+              name: "Requested options with human-friendly timezone",
               description:
-                "When the sender explicitly asks for times and calendar availability is provided, the draft may suggest slots, but it should not write raw IANA timezone identifiers such as Asia/Jerusalem. It should use a normal user-facing timezone abbreviation or label if timezone context is needed.",
+                "When the sender explicitly asks for two or three times and two available slots are provided, the draft should offer both slots. It should not write raw IANA timezone identifiers such as Asia/Jerusalem, and should use a normal user-facing timezone abbreviation or label if timezone context is needed.",
             },
           });
           const pass =
@@ -340,13 +340,13 @@ Morgan`,
             testName,
             model: model.label,
             pass,
-            expected: "suggested times without IANA timezone wording",
+            expected: "both requested options without IANA timezone wording",
             actual: formatSemanticJudgeActual(result.reply, judgeResult),
           });
 
           expect(
             pass,
-            `Draft should avoid raw IANA timezone wording.\n\nReply:\n${result.reply}\n\nJudge: ${JSON.stringify(
+            `Draft should provide the requested options without raw IANA timezone wording.\n\nReply:\n${result.reply}\n\nJudge: ${JSON.stringify(
               judgeResult,
               null,
               2,
@@ -357,7 +357,7 @@ Morgan`,
       );
 
       test(
-        "personal scheduling request with calendar availability",
+        "personal scheduling request proposes one concrete time",
         async () => {
           const messages = [
             {
@@ -413,11 +413,11 @@ Priya`,
             ].join("\n"),
             output: result.reply,
             expected:
-              "A substantive scheduling reply that meaningfully advances the meeting, either by using the provided calendar availability or by asking for updated availability if the suggested times appear stale.",
+              "A concise scheduling reply that proposes exactly one of the provided available times. It should not present a list or menu of multiple options because the sender did not ask for options.",
             criterion: {
-              name: "Substantive scheduling reply",
+              name: "One concrete meeting proposal",
               description:
-                "When the sender explicitly asks to schedule and calendar availability is provided, the draft should be a meaningful scheduling response rather than a blank or evasive reply. It may either propose the provided slots or ask for updated availability if those slots appear outdated.",
+                "When the sender asks broadly what time works and does not request options, the draft should propose exactly one specific time from the provided future availability. It must not list or offer multiple available times.",
             },
           });
           const pass = judgeResult.pass;
@@ -426,11 +426,18 @@ Priya`,
             testName,
             model: model.label,
             pass,
-            expected: "substantive draft",
+            expected: "exactly one concrete available time",
             actual: formatSemanticJudgeActual(result.reply, judgeResult),
           });
 
-          expect(judgeResult.pass).toBe(true);
+          expect(
+            judgeResult.pass,
+            `Draft should propose exactly one available time.\n\nReply:\n${result.reply}\n\nJudge: ${JSON.stringify(
+              judgeResult,
+              null,
+              2,
+            )}`,
+          ).toBe(true);
         },
         TIMEOUT,
       );

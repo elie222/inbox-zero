@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { createServer, type Server } from "node:http";
+import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 
 /**
@@ -20,7 +20,7 @@ const API_PREFIX = "/api/v1";
 const DEFAULT_API_KEY = "emulator-recall-key";
 const DEFAULT_WEBHOOK_SECRET = `whsec_${Buffer.from("emulator-recall-webhook").toString("base64")}`;
 
-export interface RecallEmulatorBot {
+interface RecallEmulatorBot {
   bot_name: string;
   id: string;
   join_at: string | null;
@@ -47,7 +47,7 @@ export interface RecallEmulatorTranscriptTurn {
   words: TranscriptWord[];
 }
 
-export interface RecallEmulatorRequest {
+interface RecallEmulatorRequest {
   authorization: string | null;
   body: unknown;
   method: string;
@@ -498,5 +498,3 @@ export const recallWebhookPayloads = {
     };
   },
 };
-
-export type { Server };

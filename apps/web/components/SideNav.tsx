@@ -103,8 +103,18 @@ export const useNavigation = () => {
         href: prefixPath(currentEmailAccountId, "/channels"),
         icon: MessagesSquareIcon,
       },
+      ...(showMeetingRecorder
+        ? [
+            {
+              name: "Meetings",
+              href: prefixPath(currentEmailAccountId, "/meetings"),
+              icon: MicIcon,
+              beta: true,
+            },
+          ]
+        : []),
     ],
-    [currentEmailAccountId],
+    [currentEmailAccountId, showMeetingRecorder],
   );
 
   const cleanupItems: NavItem[] = useMemo(
@@ -154,16 +164,6 @@ export const useNavigation = () => {
             },
           ]
         : []),
-      ...(showMeetingRecorder
-        ? [
-            {
-              name: "Meetings",
-              href: prefixPath(currentEmailAccountId, "/meetings"),
-              icon: MicIcon,
-              beta: true,
-            },
-          ]
-        : []),
       {
         name: "Attachments",
         href: prefixPath(currentEmailAccountId, "/drive"),
@@ -181,12 +181,7 @@ export const useNavigation = () => {
           ]
         : []),
     ],
-    [
-      currentEmailAccountId,
-      showMeetingBriefs,
-      showMeetingRecorder,
-      showIntegrations,
-    ],
+    [currentEmailAccountId, showMeetingBriefs, showIntegrations],
   );
 
   return {

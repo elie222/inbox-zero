@@ -3,16 +3,16 @@
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useState } from "react";
 import { MicIcon } from "lucide-react";
+import { ListCard } from "@/components/ListCard";
 import { LoadingContent } from "@/components/LoadingContent";
 import { TypographyH3 } from "@/components/Typography";
-import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Empty,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { ItemGroup } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MeetingDetail } from "@/app/(app)/[emailAccountId]/meetings/MeetingDetail";
 import { MeetingListItem } from "@/app/(app)/[emailAccountId]/meetings/MeetingListItem";
@@ -42,7 +42,7 @@ export function MeetingsList() {
             </EmptyHeader>
           </Empty>
         ) : (
-          <ItemGroup className="mt-4 gap-2">
+          <ListCard className="mt-4">
             {data.meetings.map((meeting) => (
               <MeetingListItem
                 key={meeting.id}
@@ -50,16 +50,14 @@ export function MeetingsList() {
                 startTime={meeting.startTime}
                 status={meeting.recording?.status}
                 failureReason={meeting.recording?.failureReason}
+                onClick={() => setOpenMeetingId(meeting.id)}
               >
-                <Button
-                  variant="outline"
-                  onClick={() => setOpenMeetingId(meeting.id)}
-                >
-                  View notes
-                </Button>
+                {meeting.followUpDraftId && (
+                  <Badge variant="secondary">Draft ready</Badge>
+                )}
               </MeetingListItem>
             ))}
-          </ItemGroup>
+          </ListCard>
         )}
       </LoadingContent>
 

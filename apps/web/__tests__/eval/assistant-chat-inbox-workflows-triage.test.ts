@@ -99,12 +99,14 @@ describe.runIf(shouldRunEval)(
                   messages,
                 });
 
-                const searchCall = getFirstSearchInboxCall(toolCalls);
+                const searchCalls = getSearchInboxCalls(toolCalls);
 
                 const pass =
-                  !!searchCall &&
+                  searchCalls.length > 0 &&
                   hasSearchBeforeFirstWrite(toolCalls) &&
-                  hasUnreadTriageSignal(searchCall, provider, unreadSignal) &&
+                  searchCalls.some((searchCall) =>
+                    hasUnreadTriageSignal(searchCall, provider, unreadSignal),
+                  ) &&
                   hasNoWriteToolCalls(toolCalls);
 
                 return {
