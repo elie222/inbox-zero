@@ -138,6 +138,8 @@ describe.skipIf(!RUN_DB_TESTS)(
       const competingClaimAt = new Date("2026-07-30T18:01:00.000Z");
       const renewalAt = new Date("2026-07-30T18:02:00.000Z");
 
+      expect(claim.digestIds.length).toBeGreaterThan(0);
+
       await prisma.digest.update({
         where: { id: claim.digestIds[0] },
         data: { updatedAt: competingClaimAt },
