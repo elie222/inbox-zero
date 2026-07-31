@@ -1,6 +1,11 @@
+TOKEN "read pipes token" READ
+
+TOKEN "inboxzero-vercel-2026-04-21" READ
+
 NODE model_spend_by_period
 SQL >
-  %
+
+%
     SELECT
       provider,
       model,
@@ -16,3 +21,5 @@ SQL >
     LIMIT {{ Int32(limit) }}
 
 TYPE endpoint
+
+

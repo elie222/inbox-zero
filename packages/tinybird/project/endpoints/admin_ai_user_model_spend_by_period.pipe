@@ -1,6 +1,11 @@
+TOKEN "read pipes token" READ
+
+TOKEN "inboxzero-vercel-2026-04-21" READ
+
 NODE user_model_spend_by_period
 SQL >
-  %
+
+%
     SELECT
       userId,
       provider,
@@ -40,3 +45,5 @@ SQL >
     ORDER BY userId ASC, cost DESC, calls DESC, provider ASC, model ASC
 
 TYPE endpoint
+
+

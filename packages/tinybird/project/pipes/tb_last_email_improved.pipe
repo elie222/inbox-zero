@@ -1,0 +1,38 @@
+NODE find_oldest_email
+DESCRIPTION >
+    Compare the direct query against the materialized view.
+
+SQL >
+
+%
+        SELECT timestamp, gmailMessageId
+        FROM email
+        WHERE ownerEmail = {{ String(ownerEmail, 'user@example.com') }}
+        {% if String(direction) == "oldest" %}
+            ORDER BY timestamp ASC
+        {% else %}
+            ORDER BY timestamp DESC
+        {% end %}
+        LIMIT 1
+
+
+
+NODE tb_last_email_improved_1
+DESCRIPTION >
+    Query the materialized view that stores only the oldest and latest messages.
+
+SQL >
+
+%
+SELECT 
+   {% if String(direction) == "oldest" %}
+            minMerge(oldest_message_ts) timestamp, 
+            argMinMerge(oldest_message) gmailMessageId
+        {% else %}
+            maxMerge(latest_message_ts) timestamp, 
+            argMaxMerge(latest_message) gmailMessageId
+        {% end %}
+FROM last_and_oldest_emails_mv
+WHERE ownerEmail = {{ String(ownerEmail, 'user@example.com') }}
+GROUP BY ownerEmail
+

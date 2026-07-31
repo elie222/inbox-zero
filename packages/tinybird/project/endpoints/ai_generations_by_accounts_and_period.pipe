@@ -1,9 +1,12 @@
-NODE ai_generations_by_accounts_and_period
+TOKEN "inboxzero-vercel-2026-04-21" READ
+
+NODE ai_generations_by_accounts_and_period_endpoint
 DESCRIPTION >
-  Count AI generations for a comma-separated list of email account IDs in a billing period.
+    Count AI generations for a comma-separated list of email account IDs in a billing period.
 
 SQL >
-  %
+
+%
     SELECT count() AS count
     FROM aiCall
     WHERE
@@ -14,3 +17,5 @@ SQL >
       AND timestamp < {{ Int64(endTimestampMs) }}
 
 TYPE endpoint
+
+

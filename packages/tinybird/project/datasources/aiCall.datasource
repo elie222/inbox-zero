@@ -1,3 +1,6 @@
+TOKEN "inboxzero-vercel-2026-04-21" APPEND
+
+
 SCHEMA >
     `userId` String `json:$.userId`,
     `emailAccountId` Nullable(String) `json:$.emailAccountId`,
@@ -21,5 +24,5 @@ SCHEMA >
     `data` Nullable(String) `json:$.data`
 
 ENGINE "MergeTree"
-ENGINE_SORTING_KEY userId, timestamp
 ENGINE_PARTITION_KEY "toYYYYMM(fromUnixTimestamp64Milli(timestamp))"
+ENGINE_SORTING_KEY "userId, timestamp"

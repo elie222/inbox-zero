@@ -1,3 +1,4 @@
+
 SCHEMA >
     `ownerEmail` String `json:$.ownerEmail`,
     `threadId` String `json:$.threadId`,
@@ -17,5 +18,5 @@ SCHEMA >
     `sizeEstimate` UInt64 `json:$.sizeEstimate`
 
 ENGINE "ReplacingMergeTree"
-ENGINE_SORTING_KEY ownerEmail, timestamp
 ENGINE_PARTITION_KEY "toYYYYMM(fromUnixTimestamp64Milli(timestamp))"
+ENGINE_SORTING_KEY "ownerEmail, timestamp"
