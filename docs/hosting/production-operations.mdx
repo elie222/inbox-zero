@@ -1,0 +1,79 @@
+---
+title: 'Production Operations'
+description: 'Operate, update, back up, and recover a self-hosted Inbox Zero deployment.'
+icon: 'server'
+---
+
+This guide complements the deployment guides with ongoing operational practices. Adapt the commands and retention periods to your infrastructure.
+
+## Version and change management
+
+- Pin deployments to a specific image tag or source revision instead of relying on an unbounded latest version.
+- Read the changelog and release notes before updating.
+- Back up the database before migrations.
+- Test updates in a staging environment that uses the same database and job-backend topology as production.
+- Keep the previous image or revision available for rollback.
+
+Database migrations may not be reversible. Rolling the application image back does not automatically roll the database schema back.
+
+## Database backups
+
+Back up PostgreSQL on a schedule appropriate for your recovery-point objective. Include:
+
+- Automated database snapshots or `pg_dump` backups
+- Encryption at rest and in transit
+- A retention policy with more than one restore point
+- Copies stored outside the application host
+- Regular restore tests into an isolated database
+
+Do not treat a successful backup job as proof that the backup can be restored.
+
+## Secrets
+
+Store production secrets in a secret manager or protected deployment environment. Restrict access to database credentials, OAuth client secrets, encryption keys, AI-provider keys, webhook secrets, and `CRON_SECRET`.
+
+Before rotating encryption material, verify whether existing encrypted mailbox credentials depend on it. Replacing encryption secrets without a migration can make stored credentials unreadable and force account reconnection.
+
+## Monitoring
+
+Monitor at least:
+
+- Application and worker availability
+- `/api/health` according to your configured health-check policy
+- PostgreSQL and Redis connectivity
+- Queue depth and failed jobs
+- Scheduled-task execution
+- OAuth or webhook failures from Google and Microsoft
+- Transactional email delivery
+- AI-provider errors, latency, and spend
+- Disk, memory, CPU, and database capacity
+
+Alert on repeated failures rather than relying on manual log review.
+
+## Scheduled tasks and workers
+
+The web process alone does not run every background workflow. Ensure the deployment runs the scheduler described in [Docker/VPS Deployment](/hosting/self-hosting#scheduled-tasks) and any selected queue worker.
+
+After deployment, verify each enabled job at least once: watch renewal, scheduled actions, automation jobs, digests, meeting briefs, follow-up reminders, Meeting Recorder scheduling, reasoning retention, and unused AI draft cleanup when configured.
+
+## Updating
+
+1. Take and verify a fresh database backup.
+2. Record the currently deployed image or commit.
+3. Pull the new image or source revision.
+4. Run the documented migration/deployment process.
+5. Check health, logs, mailbox processing, and scheduled jobs.
+6. Keep the previous version available until the observation window passes.
+
+## Recovery
+
+Maintain a written recovery procedure covering:
+
+- Recreating the application and worker infrastructure
+- Restoring PostgreSQL to a known point
+- Restoring or rebuilding Redis-backed transient state
+- Reapplying secrets and OAuth configuration
+- Reconnecting provider webhooks and watches
+- Validating email processing without sending unintended messages
+
+Test the procedure periodically in an isolated environment.

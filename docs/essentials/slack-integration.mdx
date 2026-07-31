@@ -1,78 +1,64 @@
 ---
 title: 'Slack Integration'
-description: 'Connect Slack to receive notifications and chat with your AI assistant.'
+description: 'Chat with your assistant and deliver rules, drafts, and updates to Slack.'
 icon: 'hashtag'
 ---
 
 ## Overview
 
-Connect your Slack workspace to Inbox Zero to receive notifications and interact with your AI email assistant directly from Slack. You can get meeting briefings delivered to a channel, receive auto-filing notifications, and chat with the AI by sending it a direct message or @mentioning it.
+Connect Slack from the unified `Channels` page. A connected workspace can chat with the assistant and receive rule notifications, draft replies for review, meeting briefs, follow-up reminders, digests, and document-filing alerts.
 
 <Warning>
-**AI disclaimer.** Inbox Zero is powered by AI and may produce inaccurate outputs. Review all AI-generated content before acting. Inbox Zero requests approval before sending replies or taking other high-impact actions in your inbox or Slack workspace.
+Inbox Zero uses AI and can produce inaccurate output. Review generated content before acting. New email, reply, forward, and other high-impact chat flows provide an approval step when required.
 </Warning>
 
-## Connecting Slack
+## Connect Slack
 
-The "Add to Slack" button lives inside your Inbox Zero account, so you'll install the app from the Channels page.
+1. Connect a Gmail or Outlook account to Inbox Zero.
+2. Open `Channels` in the left sidebar.
+3. Find Slack and click `Connect`.
+4. Approve the requested permissions in Slack.
+5. After returning to Inbox Zero, configure the rules and feature destinations you want.
 
-1. Sign up for a free Inbox Zero account at [getinboxzero.com](https://www.getinboxzero.com) and connect your Gmail or Outlook email account
-2. Click **Channels** in the left sidebar
-3. Find Slack in the list and click **Connect**
-4. Authorize Inbox Zero in the Slack OAuth flow (Slack will show the requested permissions and an **Allow** button)
-5. After redirect, pick the Slack channel you want to use for notifications and meeting briefs
+The connected workspace appears on the Channels page with a `Connected` badge.
 
-Once connected, your workspace will appear in the Channels list with a green **Connected** badge.
+## Choose a Destination
 
-## Features
+Each Slack feature can use a direct message or an allowed private channel. Configured channel delivery has these restrictions:
 
-### Meeting Briefing Delivery
+- Public channels cannot be selected.
+- You must be a member of the private channel.
+- Inbox Zero does not automatically join the selected channel.
+- If a private channel is missing from the selector, use the `/invite @<bot-name>` command shown in the destination menu to invite the Inbox Zero bot, then refresh the list.
 
-Receive your [Meeting Briefs](/essentials/meeting-briefs) in a Slack channel instead of (or in addition to) email.
+You can choose separate destinations for rule notifications, meeting briefs, follow-up reminders, digests, document-filing alerts, and scheduled check-ins.
 
-To set this up:
-1. Go to **Channels** in the left sidebar
-2. Select your Slack channel for meeting brief delivery
-3. Toggle on Slack delivery
+## Rule Notifications and Draft Review
 
-Briefings appear as formatted Slack messages with attendee details, meeting links, and key context.
+The `Rule notifications` section lists your assistant rules. Enable a rule for Slack, then use its menu to choose:
 
-### Auto-Filing Notifications
+- **Notify only** — Post a notification when the rule matches.
+- **Draft reply in chat** — Deliver the generated reply to Slack for review.
 
-Get notified in Slack when attachments are automatically filed to your drive. See [Auto-File Attachments](/essentials/auto-file-attachments) for details on setting up auto-filing.
+If a rule already drafts an email reply, draft-review mode is selected by default when you first enable Slack delivery for that rule.
 
-To enable:
-1. Go to **Attachments** in the left sidebar
-2. Open the **Integrations** section
-3. Toggle on Slack notifications
+## Chat with the Assistant
 
-You'll see messages confirming where each file was saved, or questions when the AI needs your input on where to file something.
+- Send the Inbox Zero bot a direct message.
+- Mention the bot in a Slack conversation where it has been added.
+- Continue related conversations in Slack threads.
 
-### Chat with the AI Assistant
+The assistant can search and manage email, draft messages, and update supported rules and settings. Use `/help` to see shortcuts such as `/summary`, `/draftreply`, `/followups`, and `/cleanup`.
 
-You can interact with your Inbox Zero AI assistant directly in Slack:
+## Other Slack Deliveries
 
-- **Direct message** the Inbox Zero bot to start a conversation
-- **@mention** the bot in any channel it's been added to
+Enable these from the connected Slack section of `Channels` or from the feature's own settings:
 
-The AI assistant has access to your email and calendar context, so you can ask it questions about your inbox, get help drafting emails, or manage your email workflow without leaving Slack.
+- [Meeting Briefs](/essentials/meeting-briefs)
+- Follow-up reminders and scheduled check-ins
+- [Email Digest](/essentials/email-digest)
+- [Auto-File Attachments](/essentials/auto-file-attachments) alerts
 
-Conversations are threaded, so you can have multiple ongoing chats.
+## Disconnect Slack
 
-## Selecting a Channel
-
-After connecting Slack, choose which channel receives notifications:
-
-1. Go to **Channels** and select a channel from the dropdown
-2. The bot will automatically join the selected channel
-3. A confirmation message will be sent to verify the connection
-
-You can change the channel at any time. Both public and private channels are supported.
-
-## Disconnecting
-
-To disconnect Slack:
-1. Go to **Channels** in the left sidebar
-2. Click the menu (⋮) next to your Slack workspace and choose **Disconnect Slack**
-
-This removes the connection and stops all Slack notifications.
+Open `Channels`, use the menu next to the connected Slack workspace, and choose `Disconnect Slack`. This stops chat access and all Slack deliveries for that connection.

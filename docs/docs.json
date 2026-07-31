@@ -17,14 +17,20 @@
           {
             "group": "Get Started",
             "pages": [
-              "introduction"
+              "introduction",
+              "essentials/getting-started",
+              "essentials/feature-availability"
             ]
           },
           {
-            "group": "Essentials",
+            "group": "Assistant & Automation",
             "pages": [
               "essentials/ai-chat",
-              "essentials/email-ai-personal-assistant"
+              "essentials/email-ai-personal-assistant",
+              "essentials/assistant-settings",
+              "essentials/email-digest",
+              "essentials/delayed-actions",
+              "essentials/call-webhook"
             ]
           },
           {
@@ -36,36 +42,57 @@
             ]
           },
           {
-            "group": "Features",
+            "group": "Calendar & Meetings",
             "pages": [
-              "essentials/meeting-briefs",
-              "essentials/auto-file-attachments",
-              "essentials/inbox-zero-tabs-extension",
               "essentials/calendar-integration",
-              "essentials/cold-email-blocker",
-              "essentials/reply-zero",
-              "essentials/faq"
+              "essentials/booking-links",
+              "essentials/meeting-briefs"
             ]
           },
           {
-            "group": "Integrations",
+            "group": "Channels & Integrations",
             "pages": [
+              "essentials/channels",
               "essentials/slack-integration",
               "essentials/telegram-integration"
             ]
           },
           {
-            "group": "Automation",
+            "group": "Inbox Features",
             "pages": [
-              "essentials/email-digest",
-              "essentials/delayed-actions",
-              "essentials/call-webhook"
+              "essentials/auto-file-attachments",
+              "essentials/cold-email-blocker",
+              "essentials/reply-zero"
             ]
           },
           {
-            "group": "Configuration",
+            "group": "Apps",
             "pages": [
+              "essentials/mobile-apps",
+              "essentials/inbox-zero-tabs-extension"
+            ]
+          },
+          {
+            "group": "Teams & Account",
+            "pages": [
+              "essentials/organizations",
               "essentials/api-keys"
+            ]
+          },
+          {
+            "group": "Early Access",
+            "pages": [
+              "essentials/meeting-recorder",
+              "essentials/deep-clean",
+              "essentials/context-integrations"
+            ]
+          },
+          {
+            "group": "Safety & Help",
+            "pages": [
+              "essentials/security-and-data",
+              "essentials/troubleshooting",
+              "essentials/faq"
             ]
           }
         ]
@@ -77,7 +104,8 @@
           {
             "group": "Quick Start",
             "pages": [
-              "hosting/quick-start"
+              "hosting/quick-start",
+              "hosting/setup-cli-reference"
             ]
           },
           {
@@ -96,6 +124,7 @@
             "pages": [
               "hosting/self-hosting",
               "hosting/environment-variables",
+              "hosting/production-operations",
               "hosting/vercel",
               "hosting/kubernetes",
               "hosting/troubleshooting",

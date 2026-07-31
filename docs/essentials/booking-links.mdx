@@ -1,0 +1,86 @@
+---
+title: 'Booking Links'
+description: 'Share your availability and let guests schedule directly on your calendar.'
+icon: 'calendar-days'
+---
+
+Inbox Zero booking links give guests a public page where they can choose a free time, enter their details, and create a calendar event. The page respects your working hours, timezone, existing calendar conflicts, minimum notice, and meeting duration.
+
+You can create one Inbox Zero booking link per email account. If you already use another scheduling service, you can instead save that external URL as your **Calendar Booking Link** so the AI can include it in scheduling replies.
+
+## Requirements and availability
+
+- Connect at least one Google or Microsoft calendar.
+- Enable the calendars that should block busy times.
+- Booking links are a regular hosted feature. On self-hosted deployments, an administrator may need to enable `NEXT_PUBLIC_BOOKING_LINKS_ENABLED`.
+- There is no booking-link plan check in the current product flow.
+
+## Set your availability
+
+1. Open **Calendars** in the left sidebar.
+2. Under **Availability**, choose the days and time windows when guests may book.
+3. Confirm the timezone shown for the schedule.
+4. Select **Save**.
+
+This is the account's default availability. It also guides times the AI suggests in scheduling emails, even if you do not create an Inbox Zero booking link.
+
+When displaying bookable slots, Inbox Zero treats events on all enabled connected calendars as busy. If calendar availability cannot be loaded safely, the public page returns no slots instead of risking a double booking.
+
+## Create a booking link
+
+1. On **Calendars**, find **Booking link** and select **Create booking link**.
+2. Enter the title guests will see.
+3. Choose a unique URL slug using lowercase letters, numbers, and hyphens. It must be 3–64 characters.
+4. Choose a duration: 15, 30, 45, or 60 minutes.
+5. Select the destination calendar where new events should be created.
+6. Optionally add a description and enable provider video conferencing.
+7. Select **Create**.
+
+Google calendars can create Google Meet links, and Microsoft calendars can create Microsoft Teams links. If the selected provider cannot create a supported video meeting, the video option is unavailable.
+
+After creation, copy the `/book/your-slug` URL and share it. The active Inbox Zero booking link also becomes the link the AI can use when a reply is genuinely about scheduling.
+
+## Configure or pause the link
+
+Select **Configure** to change:
+
+- Guest-facing title and description.
+- Public URL slug.
+- Duration.
+- Minimum notice before a meeting. The default is two hours.
+- Destination calendar.
+- Google Meet or Microsoft Teams conferencing, when supported.
+
+Use the switch on the booking-link card to make the public page active or inactive. An inactive link cannot be booked and is not used by the AI. When an Inbox Zero link is active, it takes precedence over the external **Calendar Booking Link** field.
+
+Deleting the link is permanent and also removes its booking history. Pausing the link is safer when you may want to use it again.
+
+## What guests experience
+
+Guests can:
+
+1. View open slots in their chosen timezone.
+2. Select a time and enter their name and email, plus an optional note.
+3. Receive a calendar invite and confirmation email.
+4. Use secure links from the confirmation to reschedule or cancel.
+
+The host also receives booking notifications. Inbox Zero validates the slot again during confirmation so two guests cannot successfully take the same time.
+
+## Troubleshooting
+
+### Create booking link is unavailable
+
+Connect a calendar and make sure at least one calendar is enabled. On a self-hosted deployment, confirm that booking links are enabled in the deployment configuration.
+
+### No times appear on the public page
+
+Check your weekly availability and timezone, minimum notice, and busy events across all enabled calendars. A disconnected calendar or temporary provider-availability failure can also hide all slots to prevent double booking.
+
+### A video link was not added
+
+Confirm that the destination calendar belongs to Google or Microsoft and that video conferencing is enabled in the booking-link configuration. Changing the destination calendar can also change which conferencing option is available.
+
+### The AI shares the wrong scheduling link
+
+Verify which Inbox Zero link is active. If no Inbox Zero link is active, review the external **Calendar Booking Link** field on the Calendars page.
+

@@ -1,0 +1,80 @@
+---
+title: 'Channels'
+description: 'Connect Slack, Microsoft Teams, or Telegram and control what Inbox Zero delivers to chat.'
+icon: 'messages'
+---
+
+The **Channels** page is the central place to connect chat apps and route Inbox Zero updates. Depending on the provider and enabled features, you can receive rule notifications, draft replies, meeting briefs, follow-up reminders, digests, document-filing alerts, and scheduled check-ins.
+
+<Warning>
+Inbox Zero uses AI to summarize messages and draft replies. Review generated content before sending it or acting on it, especially when it involves sensitive, financial, or account information.
+</Warning>
+
+## Connect a channel
+
+1. Open **Channels** in the left sidebar.
+2. Find **Slack**, **Microsoft Teams**, or **Telegram** and select **Connect**.
+3. Complete the provider-specific flow:
+   - **Slack:** approve the Slack OAuth request and return to Inbox Zero.
+   - **Teams or Telegram:** copy the generated `/connect` command and send it in a direct message to the Inbox Zero bot. The code is single-use and expires after 10 minutes.
+4. Confirm that the provider displays a **Connected** badge.
+
+Only providers configured by the Inbox Zero deployment appear on this page. Microsoft Teams can also be hidden behind a deployment feature flag. For self-hosted installations, an administrator must configure each bot or OAuth integration before users can connect it.
+
+## Route rule notifications
+
+Under a connected provider, **Rule notifications** lists your enabled assistant rules. Turn on the rules that should post to that provider.
+
+For each enabled rule, choose one of two modes from its menu:
+
+- **Notify only** posts a notification when the rule matches.
+- **Draft reply in chat** includes a generated draft for review.
+
+If a rule already drafts an email, Inbox Zero uses **Draft reply in chat** as its initial channel mode. Otherwise, it starts with **Notify only**.
+
+Slack lets you choose a direct message or an eligible Slack channel as the destination. Teams and Telegram currently use the linked direct-message conversation.
+
+### Provider differences
+
+- **Slack** supports the richest interactive cards, including draft review and quick actions such as send, edit, dismiss, archive, or mark as read where applicable.
+- **Teams** draft editing and sending are not available in Teams yet. Review or send the draft in Inbox Zero. Other quick actions are view-only.
+- **Telegram** can send a prepared draft from Telegram, but draft editing is not available there. Other quick actions such as archive and mark read are currently Slack-only.
+
+## Route feature updates
+
+Each connected provider can also show toggles for:
+
+- **Meeting briefs** — a summary before meetings.
+- **Follow-up reminders** — nudges for messages awaiting a reply.
+- **Digests** — your scheduled newsletter digest. Digests require the **Plus plan or higher**.
+- **Document filing alerts** — updates when attachments are filed.
+- **Scheduled check-ins** — proactive assistant updates, when configured.
+
+Configure the underlying feature using the settings button or linked feature page. A route may stay disabled until the provider has a valid rule-notification destination. For Slack, choose the target destination before enabling delivery.
+
+## Chat with the assistant
+
+You can direct-message the Inbox Zero bot in a connected provider. Slack also supports @mentions in channels where the bot is present. The assistant can use your connected email and calendar context, but write actions still follow the product's confirmation and safety rules.
+
+## Disconnect a provider
+
+Open the provider menu on **Channels** and select **Disconnect**. This stops delivery and removes that channel connection. It does not delete the underlying assistant rules, meeting-brief settings, digest schedule, or follow-up configuration.
+
+## Troubleshooting
+
+### A provider is missing
+
+The deployment has not configured that provider, or the provider is behind a feature flag. On a hosted account, contact support. On a self-hosted deployment, ask the administrator to configure the provider credentials and bot.
+
+### Teams or Telegram will not link
+
+Generate a new command from **Channels** and send it to the bot in a direct message within 10 minutes. A link code cannot be reused.
+
+### A Slack destination is unavailable
+
+Reconnect Slack if requested. Confirm that you still have access to the destination and that the Inbox Zero app is present in a private channel before selecting it.
+
+### Notifications are missing
+
+Check all three layers: the provider is connected, the individual rule or feature is enabled for that provider, and the feature itself is enabled. Also confirm the selected Slack destination or linked direct message still exists.
+
