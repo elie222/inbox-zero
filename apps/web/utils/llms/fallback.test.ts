@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { APICallError } from "ai";
 import { createGenerateText } from "./index";
 import type { SelectModel } from "./model";
 
@@ -138,6 +139,50 @@ describe("createGenerateText fallback chain", () => {
         model: "fallback",
       }),
     );
+  });
+
+  it("falls back when the primary model is no longer available", async () => {
+    const primaryModel = createModel("primary-model");
+    const fallbackModel = createModel("fallback-model");
+    const modelOptions = createModelOptions({
+      provider: "openrouter",
+      modelName: "primary",
+      model: primaryModel,
+      fallbackModels: [
+        createResolvedModel({
+          provider: "openai",
+          modelName: "fallback",
+          model: fallbackModel,
+        }),
+      ],
+    });
+
+    mockGenerateText
+      .mockRejectedValueOnce(
+        new APICallError({
+          message: "The configured model is deprecated",
+          url: "https://example.com",
+          requestBodyValues: {},
+          statusCode: 400,
+          responseHeaders: {},
+          responseBody: "",
+        }),
+      )
+      .mockResolvedValueOnce(createTextResult({ text: "fallback success" }));
+
+    const generateText = createGenerateTextForTest({
+      label: "Unavailable model fallback",
+      modelOptions,
+    });
+
+    const result = await generateText({
+      prompt: "hello",
+      model: primaryModel,
+    });
+
+    expect(result.text).toBe("fallback success");
+    expect(mockGenerateText).toHaveBeenCalledTimes(2);
+    expect(mockGenerateText.mock.calls[1][0].model).toBe(fallbackModel);
   });
 
   it("injects centralized hardening into the text generation system prompt", async () => {
