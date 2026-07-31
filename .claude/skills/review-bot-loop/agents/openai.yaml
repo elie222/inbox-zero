@@ -1,0 +1,4 @@
+interface:
+  display_name: "Review Bot Loop"
+  short_description: "Wait for and address automated PR reviews"
+  default_prompt: "Use $review-bot-loop to wait for automated reviewers and address their feedback on the current pull request."
