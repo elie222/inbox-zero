@@ -843,11 +843,19 @@ async function failAbandonedRecordings({
       }
     }
 
-    // Guarded transition: the recording may have finished or started
-    // cancelling while the sweep was cancelling its bot.
+    // A row still in a booking state carries no evidence the bot ever engaged
+    // with the call, so it is closed as a no-show rather than surfaced in the
+    // Recorded section as a failed recording. Both transitions are guarded:
+    // the recording may have progressed, finished or started cancelling while
+    // the sweep was cancelling its bot, and a progressed row waits for the
+    // next sweep to be judged on its fresh status.
+    const engaged = !CHANGEABLE_STATUSES.includes(recording.status);
     await transitionRecording({
       recordingId: recording.id,
-      status: MeetingRecordingStatus.FAILED,
+      status: engaged
+        ? MeetingRecordingStatus.FAILED
+        : MeetingRecordingStatus.CANCELLED,
+      fromStatuses: engaged ? undefined : CHANGEABLE_STATUSES,
       data: {
         failureReason: "The notetaker never reported back for this meeting.",
       },

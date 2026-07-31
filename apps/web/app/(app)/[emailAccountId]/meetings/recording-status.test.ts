@@ -38,6 +38,28 @@ describe("getRecordingStatusBadge", () => {
     ).toEqual({ label: "Waiting to be let in", variant: "default" });
   });
 
+  it("hides a past booking the recorder never engaged with", () => {
+    expect(
+      getRecordingStatusBadge({
+        status: MeetingRecordingStatus.SCHEDULED,
+        startTime: new Date("2026-07-30T16:00:00.000Z"),
+        endTime: new Date("2026-07-30T16:30:00.000Z"),
+        now: NOW,
+      }),
+    ).toBeNull();
+  });
+
+  it("shows no badge for a past meeting without a recording", () => {
+    expect(
+      getRecordingStatusBadge({
+        status: undefined,
+        startTime: new Date("2026-07-30T16:00:00.000Z"),
+        endTime: new Date("2026-07-30T16:30:00.000Z"),
+        now: NOW,
+      }),
+    ).toBeNull();
+  });
+
   it("keeps a future booked meeting scheduled", () => {
     expect(
       getRecordingStatusBadge({
