@@ -527,6 +527,7 @@ describe("CardDAV handler", () => {
       expect(first.body).toContain("uid-2.vcf");
       expect(first.body).not.toContain("uid-3.vcf");
       expect(first.body).toContain("507 Insufficient Storage");
+      expect(first.body).toContain("<d:number-of-matches-within-limits/>");
       const pageToken = getSyncToken(first.body);
       expect(pageToken).toContain("page-2-of-");
 

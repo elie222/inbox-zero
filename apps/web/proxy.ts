@@ -3,6 +3,7 @@ import {
   authenticateCarddavRequest,
   unauthorizedResponse,
 } from "@/utils/carddav/auth";
+import { recordCarddavExchange } from "@/utils/carddav/exchange-log";
 import { handleCarddavRequest } from "@/utils/carddav/handler";
 import { createScopedLogger } from "@/utils/logger";
 
@@ -112,6 +113,19 @@ export async function proxy(request: NextRequest) {
     ...(result.meta ?? {}),
   });
   logger.trace("CardDAV request body", { requestBody: body });
+
+  // The same line, journaled where the sync settings panel can show it —
+  // awaited so serverless teardown can't drop it
+  await recordCarddavExchange({
+    emailAccountId: auth.emailAccountId,
+    method,
+    path: segments.join("/") || "(root)",
+    depth: request.headers.get("depth"),
+    status: result.status,
+    responseBytes: result.body?.length ?? 0,
+    userAgent: request.headers.get("user-agent"),
+    detail: result.meta,
+  });
 
   return new NextResponse(result.body ?? null, {
     status: result.status,
