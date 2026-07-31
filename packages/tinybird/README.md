@@ -1,67 +1,52 @@
-## Getting Started
+# Tinybird
 
-First time:
+The [`project`](project) directory is the canonical Tinybird Forward project
+for the `InboxZero` workspace. It contains all analytics resources, including
+the AI analytics resources consumed by `@inboxzero/tinybird-ai-analytics`.
 
-```sh
-python3 -m venv .venv
-source .venv/bin/activate
-pip install tinybird-cli
-tb auth
-```
+## CLI setup
 
-More notes: [Quickstart](https://www.tinybird.co/docs/quick-start-cli.html)
-
-Thereafter:
+Install the Forward CLI:
 
 ```sh
-source .venv/bin/activate
+curl https://tinybird.co | sh
 ```
 
-Then change into the directory
+Alternatively, run it without a global install:
 
 ```sh
-cd packages/tinybird
+uvx --from tinybird@latest tb --version
 ```
 
-### Docker
-
-You can also use the Docker image. This worked a lot better for me.
-
-Run the following from this directory:
+Authenticate and select the production workspace:
 
 ```sh
-docker run -v .:/mnt/data -it tinybirdco/tinybird-cli-docker
+cd packages/tinybird/project
+tb login --host https://api.us-east.tinybird.co --workspace InboxZero
 ```
 
-Then within Docker:
+## Development workflow
+
+Pull the current cloud definitions:
 
 ```sh
-cd mnt/data
+tb --cloud pull
 ```
 
-Now you can run `tb` commands. First you'll want to run `tb auth` to sign in.
-
-## Datasource
+Start Tinybird Local and validate the project locally:
 
 ```sh
-tb push datasources
-# or:
-tb push datasources/email.datasource
+tb local start
+tb build
+tb test run
 ```
 
-## Pipe
+Validate and deploy the project to Tinybird Cloud:
 
 ```sh
-tb push pipes
-# or:
-tb push pipes/get_emails_by_period.pipe
-# or to force changes:
-tb push pipes --force --no-check
+tb --cloud deploy --check
 ```
 
-## Switch workspace
-
-```sh
-tb workspace ls # list workspaces
-tb workspace use <workspace_name>
-```
+Tinybird Forward deployments replace the Classic `tb push` workflow. Keep
+resource definitions and `TOKEN` directives in `packages/tinybird/project` so
+deployments remain reproducible from Git.
