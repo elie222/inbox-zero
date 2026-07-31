@@ -1,0 +1,4 @@
+interface:
+  display_name: "Cubic Review Loop"
+  short_description: "Wait for and address Cubic PR reviews"
+  default_prompt: "Use $cubic-loop to wait for Cubic and address its feedback on the current pull request."
