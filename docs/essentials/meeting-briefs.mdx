@@ -4,25 +4,19 @@ description: 'Get AI-generated context before meetings with external guests.'
 icon: 'calendar-check'
 ---
 
-## Overview
-
-Meeting Briefs prepares an AI-generated briefing before a calendar event with external guests. It combines attendee details with relevant email and meeting history, plus web research when available.
+Meeting Briefs means you walk into every external meeting prepared. Before a calendar event with external guests, Inbox Zero sends you a briefing that combines attendee details with your email and meeting history, plus web research when available.
 
 Meetings with only internal attendees are skipped. For a work account, people on your email domain are treated as internal; for common personal email domains, other attendees are treated as external.
-
-<Warning>
-Briefings are AI-generated and may contain inaccuracies. Verify important details before using them in a meeting.
-</Warning>
 
 ## Set Up Meeting Briefs
 
 ### Connect a Calendar
 
-Open `Meeting Briefs` in the left sidebar. If no calendar is connected, follow the prompt to connect Google Calendar or Microsoft Outlook Calendar. You can also manage calendar connections from `Calendars`.
+Open **Meeting Briefs** in the left sidebar. If no calendar is connected, follow the prompt to connect Google Calendar or Microsoft Outlook Calendar. You can also manage calendar connections from **Calendars**.
 
 ### Enable the Feature
 
-Turn on `Enable Meeting Briefs`. Meeting Briefs is available on eligible plans.
+Turn on **Enable Meeting Briefs**.
 
 ### Choose the Timing
 
@@ -30,7 +24,7 @@ Set how long before each meeting the briefing should be generated. The default i
 
 ### Choose Delivery Channels
 
-Email delivery is enabled by default and can be toggled independently. You can also deliver briefs to any supported account connected on the `Channels` page:
+Email delivery is enabled by default and can be toggled independently. You can also deliver briefs to any supported account connected on the **Channels** page:
 
 - Slack
 - Microsoft Teams
@@ -49,18 +43,10 @@ A briefing can include:
 - Internal team members who are also attending
 - Meeting time, location, and joining details
 
-Available context varies by attendee and by the integrations enabled for your account. If external integrations are available, the `Integrations` setting on the Meeting Briefs page can connect additional tools to enrich the briefing.
+Available context varies by attendee and by the integrations enabled for your account. If external integrations are available, the **Integrations** setting on the Meeting Briefs page can connect additional tools to enrich the briefing.
 
 ## Upcoming Meetings and Tests
 
-The `Upcoming Meetings` section lists calendar events that Inbox Zero can see. Choose `Send test brief` to generate a sample immediately for a selected event. The test action sends an email so you can verify the output even if you also use chat delivery.
+The **Upcoming Meetings** section lists calendar events that Inbox Zero can see. Choose **Send test brief** to generate a sample immediately for a selected event. The test action sends an email so you can verify the output even if you also use chat delivery.
 
-Use `View send history` to inspect recent attempts. History can show `PENDING`, `SENT`, `FAILED`, or `SKIPPED` depending on processing and whether external guests were available.
-
-## How It Works
-
-1. Inbox Zero periodically checks connected calendars for events approaching your configured lead time.
-2. Events without external guests are skipped.
-3. The assistant gathers email, calendar, web, and enabled integration context.
-4. It creates one concise briefing and sends it through the enabled delivery channels.
-5. The result is recorded in send history.
+Use **View send history** to inspect recent attempts. History can show `PENDING`, `SENT`, `FAILED`, or `SKIPPED` depending on processing and whether external guests were available.
