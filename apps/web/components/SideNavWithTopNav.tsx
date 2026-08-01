@@ -100,7 +100,10 @@ function MobileAppTray() {
     // Height comes from the shared chrome variable, which already carries
     // the (capped) home-indicator inset when installed — so this box, the
     // pinned pages, and the content padding all agree where the tray starts.
-    <nav className="fixed inset-x-0 bottom-0 z-50 flex h-[var(--mobile-tray-h)] items-start border-t border-border bg-sidebar md:hidden">
+    // globals.css hides .mobile-app-tray while a text field is focused: the
+    // keyboard owns the bottom edge then, and iOS would pin this bar right
+    // on top of the focused composer.
+    <nav className="mobile-app-tray fixed inset-x-0 bottom-0 z-50 flex h-[var(--mobile-tray-h)] items-start border-t border-border bg-sidebar md:hidden">
       {apps.map((app) => (
         <Link
           key={app.id}

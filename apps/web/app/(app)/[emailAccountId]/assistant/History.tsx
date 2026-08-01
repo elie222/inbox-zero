@@ -105,8 +105,10 @@ function HistoryTable({
                 const isMessageLoading = !message && messagesLoading;
 
                 return (
-                  <TableRow key={er.messageId}>
-                    <TableCell>
+                  // Phones don't have room for two side-by-side columns —
+                  // the email and its rule outcome stack instead
+                  <TableRow key={er.messageId} className="block sm:table-row">
+                    <TableCell className="block pb-0 sm:table-cell sm:pb-4">
                       <EmailCell
                         message={message}
                         messageId={er.messageId}
@@ -120,7 +122,7 @@ function HistoryTable({
                         </Badge>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="block sm:table-cell">
                       <RuleCell
                         executedRules={er.executedRules}
                         message={message}
@@ -195,8 +197,10 @@ function RuleCell({
   isMessageLoading: boolean;
 }) {
   return (
-    <div className="flex items-center justify-end gap-2">
-      <div>
+    // Stacked under the email on phones, so the result reads left-to-right
+    // there; right-aligned in its own column on wider screens
+    <div className="flex items-center justify-between gap-2 sm:justify-end">
+      <div className="min-w-0">
         <ResultsDisplay results={executedRules} />
       </div>
       {message ? (
