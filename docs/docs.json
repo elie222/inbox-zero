@@ -19,7 +19,6 @@
             "pages": [
               "introduction",
               "essentials/getting-started",
-              "essentials/feature-availability",
               "essentials/outlook-guide"
             ]
           },
@@ -81,19 +80,19 @@
             ]
           },
           {
-            "group": "Early Access",
-            "pages": [
-              "essentials/meeting-recorder",
-              "essentials/deep-clean",
-              "essentials/context-integrations"
-            ]
-          },
-          {
             "group": "Safety & Help",
             "pages": [
               "essentials/security-and-data",
               "essentials/troubleshooting",
               "essentials/faq"
+            ]
+          },
+          {
+            "group": "Early Access",
+            "pages": [
+              "essentials/meeting-recorder",
+              "essentials/deep-clean",
+              "essentials/context-integrations"
             ]
           }
         ]
