@@ -8,9 +8,9 @@ Delayed execution lets an assistant rule wait before applying an action. Use it 
 
 ## Add a Delay
 
-1. Open `Assistant` and edit a rule.
+1. Open **Assistant** and edit a rule.
 2. Add or open a supported action.
-3. Open the action's `More options` menu and choose `Add delay`.
+3. Open the action's **More options** menu and choose **Add delay**.
 4. Set a delay between 1 minute and 90 days, then save the rule.
 
 The delay belongs to that specific action. Other actions in the same rule can still run immediately or use different delays.
@@ -29,7 +29,7 @@ You can delay:
 - Delete
 - Move to folder
 
-Draft replies, digests, webhooks, spam actions, and messaging notifications do not currently expose delayed execution.
+Other actions cannot be delayed.
 
 ## Common Uses
 
@@ -37,5 +37,3 @@ Draft replies, digests, webhooks, spam actions, and messaging notifications do n
 - Send an automated reply after a short delay.
 - Remove time-sensitive notifications from the inbox after they expire.
 - Move older messages to a folder after a review window.
-
-Delayed actions are scheduled after the rule matches. They may run shortly after the target time rather than at an exact second.

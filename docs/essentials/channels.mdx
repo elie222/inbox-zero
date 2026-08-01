@@ -4,7 +4,7 @@ description: 'Connect Slack, Microsoft Teams, or Telegram and control what Inbox
 icon: 'messages'
 ---
 
-The **Channels** page is the central place to connect chat apps and route Inbox Zero updates. Depending on the provider and enabled features, you can receive rule notifications, draft replies, meeting briefs, follow-up reminders, digests, document-filing alerts, and scheduled check-ins.
+The **Channels** page is the central place to connect chat apps and route Inbox Zero updates. You can receive rule notifications, draft replies, meeting briefs, follow-up reminders, digests, document-filing alerts, and scheduled check-ins.
 
 ## Connect a channel
 
@@ -12,7 +12,7 @@ The **Channels** page is the central place to connect chat apps and route Inbox 
 2. Find **Slack**, **Microsoft Teams**, or **Telegram** and select **Connect**.
 3. Complete the provider-specific flow:
    - **Slack:** approve the Slack OAuth request and return to Inbox Zero.
-   - **Teams or Telegram:** copy the generated `/connect` command and send it in a direct message to the Inbox Zero bot. The code is single-use and expires after 10 minutes.
+   - **Teams or Telegram:** copy the generated `/connect` command and send it in a direct message to the Inbox Zero bot.
 4. Confirm that the provider displays a **Connected** badge.
 
 ## Route rule notifications
@@ -24,13 +24,11 @@ For each enabled rule, choose one of two modes from its menu:
 - **Notify only** posts a notification when the rule matches.
 - **Draft reply in chat** includes a generated draft for review.
 
-If a rule already drafts an email, Inbox Zero uses **Draft reply in chat** as its initial channel mode. Otherwise, it starts with **Notify only**.
-
-Slack lets you choose a direct message or an eligible Slack channel as the destination. Teams and Telegram currently use the linked direct-message conversation.
+Slack lets you choose a direct message or a Slack channel as the destination. Teams and Telegram deliver to your direct message with the bot.
 
 ### Provider differences
 
-- **Slack** supports the richest interactive cards, including draft review and quick actions such as send, edit, dismiss, archive, or mark as read where applicable.
+- **Slack** supports the richest interactive cards, including draft review and quick actions such as send, edit, archive, or mark as read.
 - **Teams**: Draft editing and sending are not available yet. Review or send the draft in Inbox Zero. Other quick actions are view-only.
 - **Telegram** can send a prepared draft from Telegram, but draft editing is not available there. Other quick actions such as archive and mark read are currently Slack-only.
 
@@ -42,13 +40,13 @@ Each connected provider can also show toggles for:
 - **Follow-up reminders**: nudges for messages awaiting a reply.
 - **Digests**: your scheduled newsletter digest. Digests require the **Plus plan or higher**.
 - **Document filing alerts**: updates when attachments are filed.
-- **Scheduled check-ins**: proactive assistant updates, when configured.
+- **Scheduled check-ins**: proactive assistant updates.
 
-Configure the underlying feature using the settings button or linked feature page. A route may stay disabled until the provider has a valid rule-notification destination. For Slack, choose the target destination before enabling delivery.
+Configure the underlying feature using the settings button or linked feature page. For Slack, choose the target destination before enabling delivery.
 
 ## Chat with the assistant
 
-You can direct-message the Inbox Zero bot in a connected provider. Slack also supports @mentions in channels where the bot is present. The assistant can use your connected email and calendar context, but write actions still follow the product's confirmation and safety rules.
+You can direct-message the Inbox Zero bot in a connected provider. Slack also supports @mentions in channels where the bot is present. The assistant can use your connected email and calendar context.
 
 ## Disconnect a provider
 
@@ -58,7 +56,7 @@ Open the provider menu on **Channels** and select **Disconnect**. This stops del
 
 ### Teams or Telegram will not link
 
-Generate a new command from **Channels** and send it to the bot in a direct message within 10 minutes. A link code cannot be reused.
+Generate a new command from **Channels** and send it to the bot in a direct message within 10 minutes.
 
 ### A Slack destination is unavailable
 

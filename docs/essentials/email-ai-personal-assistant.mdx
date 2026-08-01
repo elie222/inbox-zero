@@ -4,7 +4,9 @@ description: 'Create rules that automatically manage incoming email.'
 icon: 'sparkles'
 ---
 
-The AI Personal Assistant manages incoming email using rules you define. Open `Assistant` in the left sidebar or visit [Assistant](https://www.getinboxzero.com/automation). You can also create and manage rules through [AI Chat](/essentials/ai-chat).
+The AI Personal Assistant organizes your inbox for you. Describe how you want your email handled in plain English, and it labels, archives, forwards, and drafts replies automatically as mail arrives.
+
+Open **Assistant** in the left sidebar or visit [Assistant](https://www.getinboxzero.com/automation). You can also create and manage rules through [AI Chat](/essentials/ai-chat).
 
 ## Getting Started
 
@@ -24,12 +26,12 @@ The video uses Gmail. Outlook users follow the same Assistant flow; label action
 
 ### Create Rules from Instructions
 
-1. Open `Assistant`.
+1. Open **Assistant**.
 2. Describe how you want your email handled in the instruction box.
 3. Review the rules generated from your instructions.
 4. Save the rules.
 
-Use `Add rule manually` when you want to build the condition and actions yourself.
+Use **Add rule manually** when you want to build the condition and actions yourself.
 
 ## How Rules Work
 
@@ -43,8 +45,6 @@ Conditions can use AI instructions, static fields, or both.
 
 - **AI condition**: Describe the meaning of the emails that should match, such as `Apply this rule if this email is asking me to set up a call.`
 - **Static condition**: Match text in `From`, `To`, or `Subject`, such as `From` contains `@example.com`.
-
-Static conditions are useful for deterministic matches and do not require the AI to interpret every email.
 
 ### Actions
 
@@ -65,7 +65,7 @@ A rule can contain multiple actions. Available actions can vary by email provide
 - Call webhook
 - Notify in a connected Slack, Teams, or Telegram account
 - Deliver a draft reply to a connected messaging account for review
-- Notify the sender when supported
+- Notify the sender
 
 See [Email Digest](/essentials/email-digest), [Call Webhook](/essentials/call-webhook), and [Delayed Actions](/essentials/delayed-actions) for actions that need additional configuration.
 
@@ -83,17 +83,15 @@ Inbox Zero generates the content inside each `{{...}}` placeholder from the emai
 
 ### Delayed Execution
 
-Supported actions can run after a delay instead of immediately. Open the action's `More options` menu and choose `Add delay`. Delays can range from 1 minute to 90 days. See [Delayed Actions](/essentials/delayed-actions).
+Supported actions can run after a delay instead of immediately. Open the action's **More options** menu and choose **Add delay**. Delays can range from 1 minute to 90 days. See [Delayed Actions](/essentials/delayed-actions).
 
 ### Apply to Threads
 
-When `Apply to Threads` is disabled, the rule runs only on the first message in a conversation and is skipped for later replies. This is useful for standalone mail such as newsletters or receipts.
+When **Apply to Threads** is disabled, the rule runs only on the first message in a conversation and is skipped for later replies. This is useful for standalone mail such as newsletters or receipts.
 
 ### When Multiple Rules Can Apply
 
-If multi-rule selection is disabled, the assistant normally chooses one rule. Some system behavior can still add another label. For example, a static `Team` rule can label a message while the `To Reply` rule also creates a draft, and a scheduling email can receive both `Calendar` and `To Reply` labels.
-
-Enable multi-rule selection in `Assistant` > `Settings` when you intentionally want several custom rules to match the same message.
+By default, the assistant chooses one rule per email. Enable multi-rule selection in **Assistant** > **Settings** when you want several rules to match the same message.
 
 ## Learned Patterns
 
@@ -101,14 +99,14 @@ The assistant learns from corrections and from how you handle messages.
 
 - Open a rule to review its learned patterns.
 - Add or remove sender and domain patterns when you need explicit control.
-- Use the History tab's `Fix` action to explain an incorrect match and update the rule.
+- Use the History tab's **Fix** action to explain an incorrect match and update the rule.
 
 ## Test Rules
 
-Open the [Test tab](https://www.getinboxzero.com/automation?tab=test) to run your rules against an email or free-form text. `Test All` evaluates the selected email against all rules without applying the actions.
+Open the [Test tab](https://www.getinboxzero.com/automation?tab=test) to run your rules against an email or free-form text. **Test All** evaluates the selected email against all rules without applying the actions.
 
 ![Test Rules](/images/test-rules.png)
 
 ## Assistant Settings
 
-Open `Assistant` > `Settings` to configure behavior shared across rules, including draft-reply confidence and delay, follow-up reminders, writing style, personal instructions and signature, the knowledge base, learned-pattern behavior, multi-rule selection, and the email digest. Some settings depend on your provider or plan.
+Open **Assistant** > **Settings** to configure behavior shared across rules, such as auto-drafting, writing style, and the email digest. See [Assistant Settings](/essentials/assistant-settings).
