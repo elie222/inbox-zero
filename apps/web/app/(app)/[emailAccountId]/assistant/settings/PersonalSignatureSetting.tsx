@@ -223,7 +223,7 @@ function SignatureDialog({
               Clear
             </Button>
             <Button onClick={handleSave} disabled={isSaving}>
-              {isSaving ? "Saving..." : "Save Signature"}
+              {isSaving ? "Saving..." : "Save signature"}
             </Button>
           </div>
         </div>
@@ -255,7 +255,7 @@ function SignaturePreview({ signature }: { signature: string }) {
 
   return (
     <iframe
-      title="Signature Preview"
+      title="Signature preview"
       sandbox="allow-same-origin"
       srcDoc={previewHtml}
       className="min-h-[200px] w-full rounded-md border border-input bg-muted/50"

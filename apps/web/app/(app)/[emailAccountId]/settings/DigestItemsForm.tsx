@@ -106,7 +106,7 @@ export function DigestItemsForm({
 
         <div className="mt-4">
           <MultiSelectFilter
-            title="Digest Items"
+            title="Digest items"
             options={digestOptions}
             selectedValues={selectedDigestItems}
             setSelectedValues={setSelectedDigestItems}

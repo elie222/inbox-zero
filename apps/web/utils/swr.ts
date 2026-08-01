@@ -1,13 +1,16 @@
-import type { SWRResponse } from "swr";
+import type { SWRConfiguration, SWRResponse } from "swr";
 import useSWR from "swr";
 import { useAccount } from "@/providers/EmailAccountProvider";
 
 // Makes sure that we have an email account id before fetching
 // Otherwise the backend will return an error
 // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
-export function useSWRWithEmailAccount<Data = any, Error = any>(url: string) {
+export function useSWRWithEmailAccount<Data = any, Error = any>(
+  url: string,
+  config?: SWRConfiguration<Data, Error>,
+) {
   const { emailAccountId } = useAccount();
-  return useSWR<Data, Error>(emailAccountId ? url : null);
+  return useSWR<Data, Error>(emailAccountId ? url : null, config);
 }
 
 type NormalizedError = { error: string };

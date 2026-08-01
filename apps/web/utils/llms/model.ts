@@ -371,7 +371,12 @@ function selectDeploymentModelByType(
       .find((modelList) => !!modelList);
 
   if (!selectedModel) {
-    throw new Error(`No configured LLM model list resolved for ${modelType}`);
+    // Usually a missing provider API key rather than a missing *_LLMS list: the
+    // list parser silently drops entries whose provider has no credentials, so
+    // DEFAULT_LLMS="anthropic:…" with an empty ANTHROPIC_API_KEY lands here.
+    throw new Error(
+      `No usable LLM configured for "${modelType}". Check the matching *_LLMS env var and that the provider's API key is set — entries whose provider has no credentials are skipped.`,
+    );
   }
 
   return selectedModel;

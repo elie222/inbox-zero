@@ -77,7 +77,7 @@ export function RuleDialog({
         aria-describedby={undefined}
       >
         <DialogHeader className={ruleId ? "sr-only" : ""}>
-          <DialogTitle>{ruleId ? "Edit Rule" : "Create Rule"}</DialogTitle>
+          <DialogTitle>{ruleId ? "Edit rule" : "Create rule"}</DialogTitle>
         </DialogHeader>
         <ErrorBoundary
           key={dialogContentKey}

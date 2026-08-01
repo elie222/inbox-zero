@@ -7,11 +7,17 @@ import { Loading } from "@/components/Loading";
 import { PageHeading } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
 import { prefixPath } from "@/utils/path";
+import { checkUserOwnsEmailAccount } from "@/utils/email-account";
+import { isCleanerEnabled } from "@/utils/cleaner-feature";
+import { notFound } from "next/navigation";
 
 export default async function CleanHistoryPage(props: {
   params: Promise<{ emailAccountId: string }>;
 }) {
+  if (!isCleanerEnabled()) notFound();
+
   const { emailAccountId } = await props.params;
+  await checkUserOwnsEmailAccount({ emailAccountId });
 
   return (
     <Card className="my-4 w-full max-w-2xl sm:mx-4 md:mx-auto">

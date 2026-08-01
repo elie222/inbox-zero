@@ -62,6 +62,7 @@ import { prefixPath } from "@/utils/path";
 import { cn } from "@/utils";
 import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import { ConditionType } from "@/utils/config";
+import { useSWRWithEmailAccount } from "@/utils/swr";
 
 // The assistant's rule editor — loaded on demand so the mail page doesn't
 // carry it until a rule is actually opened
@@ -161,7 +162,7 @@ function FolderSettingsContent({
     isLoading: isLoadingDbLabels,
     error: dbLabelsError,
     mutate: mutateDbLabels,
-  } = useSWR<UserLabelsResponse>("/api/user/labels");
+  } = useSWRWithEmailAccount<UserLabelsResponse>("/api/user/labels");
 
   const label = userLabels.find((userLabel) => userLabel.id === labelId);
   const dbLabel = dbLabels?.find(

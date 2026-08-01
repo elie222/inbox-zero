@@ -11,6 +11,7 @@ import {
 } from "@/components/new-landing/common/Typography";
 import { cn } from "@/utils";
 import Image from "next/image";
+import { BRAND_NAME } from "@/utils/branding";
 
 type Award = {
   title: string;
@@ -58,7 +59,7 @@ export function Awards() {
       <SectionHeading>Privacy first and open source</SectionHeading>
       <SectionSubtitle>
         Your data stays private — no AI training, no funny business. We’re fully
-        certified for top-tier security, and you can even self-host Inbox Zero
+        certified for top-tier security, and you can even self-host {BRAND_NAME}
         if you want total control.
       </SectionSubtitle>
       <SectionContent

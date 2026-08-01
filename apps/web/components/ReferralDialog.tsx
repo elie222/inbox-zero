@@ -19,6 +19,7 @@ import type { GetReferralCodeResponse } from "@/app/api/referrals/code/route";
 import { ErrorDisplay } from "@/components/ErrorDisplay";
 import { generateReferralLink } from "@/utils/referral/referral-link";
 import { PageHeading, PageSubHeading } from "@/components/Typography";
+import { BRAND_NAME } from "@/utils/branding";
 
 export function ReferralDialog() {
   return (
@@ -71,8 +72,8 @@ export function Referrals() {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: "Join Inbox Zero with my referral link",
-          text: "Use my referral link to get started with Inbox Zero!",
+          title: `Join ${BRAND_NAME} with my referral link`,
+          text: `Use my referral link to get started with ${BRAND_NAME}!`,
           url: link,
         });
       } catch (error) {
@@ -101,8 +102,8 @@ export function Referrals() {
       <div className="text-center">
         <PageHeading>Refer Friends, Get Rewards</PageHeading>
         <PageSubHeading className="mt-2">
-          Share Inbox Zero with friends and get a free month for each friend who
-          completes their trial
+          Share {BRAND_NAME} with friends and get a free month for each friend
+          who completes their trial
         </PageSubHeading>
       </div>
 

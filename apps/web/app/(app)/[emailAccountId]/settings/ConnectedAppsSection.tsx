@@ -51,6 +51,7 @@ import {
   type MessagingProvider,
   MessagingRoutePurpose,
 } from "@/generated/prisma/enums";
+import { BRAND_NAME } from "@/utils/branding";
 
 type LinkableMessagingProvider = "TEAMS" | "TELEGRAM";
 
@@ -417,7 +418,7 @@ function MessagingConnectCodeDialog({
         <DialogHeader>
           <DialogTitle>Connect {providerName}</DialogTitle>
           <DialogDescription>
-            Send this command in a direct message with the Inbox Zero bot on{" "}
+            Send this command in a direct message with the {BRAND_NAME} bot on{" "}
             {providerName}. The code is one-time use and expires in 10 minutes.
           </DialogDescription>
         </DialogHeader>

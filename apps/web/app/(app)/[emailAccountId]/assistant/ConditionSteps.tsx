@@ -179,7 +179,7 @@ export function ConditionSteps({
         const newCondition = getConditionFromUIType(undefined);
         appendCondition(newCondition);
       }}
-      addButtonLabel="Add Condition"
+      addButtonLabel="Add condition"
       addButtonDisabled={!canAddMoreConditions}
       addButtonTooltip={
         maxConditionsReached

@@ -76,6 +76,7 @@ import {
   getVisibleApps,
 } from "@/utils/apps";
 import { getVisibleSettingsSections } from "@/app/(app)/settings/sections";
+import { useSWRWithEmailAccount } from "@/utils/swr";
 
 type NavItem = {
   name: string;
@@ -229,7 +230,8 @@ const FAMILY_LIGHTNESS = [55, 70, 42, 78, 48, 64, 36, 74];
 // Small "synced" heartbeat like a desktop mail client — stamps the time of
 // the latest unread-counts refresh (shared SWR cache, no extra request)
 function SyncedStatus() {
-  const { data } = useSWR<LabelCountsResponse>("/api/labels/counts");
+  const { data } =
+    useSWRWithEmailAccount<LabelCountsResponse>("/api/labels/counts");
   const [syncedAt, setSyncedAt] = useState<Date | null>(null);
 
   useEffect(() => {
@@ -704,13 +706,14 @@ function MailNav({ path }: { path: string }) {
   // Each poll fans out to ~1 Gmail call per label; the SSE inbox stream
   // already triggers a refresh when new mail arrives, so this only needs to
   // be a slow fallback
-  const { data: countsData } = useSWR<LabelCountsResponse>(
+  const { data: countsData } = useSWRWithEmailAccount<LabelCountsResponse>(
     "/api/labels/counts",
     { refreshInterval: 300_000, revalidateOnFocus: false },
   );
   const counts = countsData?.counts;
 
-  const { data: dbLabels } = useSWR<UserLabelsResponse>("/api/user/labels");
+  const { data: dbLabels } =
+    useSWRWithEmailAccount<UserLabelsResponse>("/api/user/labels");
   const dbLabelByGmailLabelId = useMemo(() => {
     const map: Record<string, UserLabelsResponse[number]> = {};
     for (const dbLabel of dbLabels ?? []) map[dbLabel.gmailLabelId] = dbLabel;

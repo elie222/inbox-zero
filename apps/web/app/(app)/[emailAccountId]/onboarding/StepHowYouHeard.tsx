@@ -27,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import { saveOnboardingAnswersAction } from "@/utils/actions/onboarding";
 import { toastError } from "@/components/Toast";
 import { captureException, getActionErrorMessage } from "@/utils/error";
+import { BRAND_NAME } from "@/utils/branding";
 
 const OTHER_VALUE = "other";
 
@@ -152,7 +153,7 @@ export function StepHowYouHeard({ onNext }: { onNext: () => void }) {
       </IconCircle>
 
       <div className="text-center mt-4">
-        <PageHeading>How did you hear about Inbox Zero?</PageHeading>
+        <PageHeading>How did you hear about {BRAND_NAME}?</PageHeading>
         <TypographyP className="mt-2 max-w-lg mx-auto">
           We'd love to know how you found us.
         </TypographyP>

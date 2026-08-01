@@ -253,7 +253,7 @@ export function DigestSettingsForm({
               <Label>What to include in the digest email</Label>
               <div className="mt-3">
                 <MultiSelectFilter
-                  title="Digest Items"
+                  title="Digest items"
                   options={digestOptions}
                   selectedValues={selectedDigestItems}
                   setSelectedValues={setSelectedDigestItems}

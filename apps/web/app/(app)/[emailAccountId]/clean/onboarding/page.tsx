@@ -11,6 +11,8 @@ import { CleanStep } from "@/app/(app)/[emailAccountId]/clean/types";
 import { CleanAction } from "@/generated/prisma/enums";
 import { createEmailProvider } from "@/utils/email/provider";
 import { checkUserOwnsEmailAccount } from "@/utils/email-account";
+import { isCleanerEnabled } from "@/utils/cleaner-feature";
+import { notFound } from "next/navigation";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 
@@ -28,6 +30,8 @@ export default async function CleanPage(props: {
     skipAttachment?: string;
   }>;
 }) {
+  if (!isCleanerEnabled()) notFound();
+
   const { emailAccountId } = await props.params;
   const searchParams = await props.searchParams;
 

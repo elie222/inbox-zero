@@ -9,11 +9,15 @@ import {
 } from "@/app/(app)/[emailAccountId]/clean/helpers";
 import { CleanRun } from "@/app/(app)/[emailAccountId]/clean/CleanRun";
 import { checkUserOwnsEmailAccount } from "@/utils/email-account";
+import { isCleanerEnabled } from "@/utils/cleaner-feature";
+import { notFound } from "next/navigation";
 
 export default async function CleanRunPage(props: {
   params: Promise<{ emailAccountId: string }>;
   searchParams: Promise<{ jobId: string; isPreviewBatch: string }>;
 }) {
+  if (!isCleanerEnabled()) notFound();
+
   const { emailAccountId } = await props.params;
   await checkUserOwnsEmailAccount({ emailAccountId });
 

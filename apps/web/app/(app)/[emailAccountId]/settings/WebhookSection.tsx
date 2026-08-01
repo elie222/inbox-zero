@@ -48,7 +48,7 @@ function WebhookSectionContent() {
         >
           <DialogTrigger asChild>
             <Button variant="outline" size="sm">
-              {data?.hasWebhookSecret ? "Manage Secret" : "Generate Secret"}
+              {data?.hasWebhookSecret ? "Manage secret" : "Generate secret"}
             </Button>
           </DialogTrigger>
           <DialogContent>

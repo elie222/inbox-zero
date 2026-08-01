@@ -45,6 +45,7 @@ import {
   MessagingRoutePurpose,
 } from "@/generated/prisma/enums";
 import type { GetMessagingChannelsResponse } from "@/app/api/user/messaging-channels/route";
+import { BRAND_NAME } from "@/utils/branding";
 
 type Channel = GetMessagingChannelsResponse["channels"][number];
 
@@ -223,7 +224,7 @@ export function ProactiveUpdatesSetting({
           <DialogHeader>
             <DialogTitle>Scheduled check-ins</DialogTitle>
             <DialogDescription>
-              Configure when Inbox Zero sends scheduled summaries to{" "}
+              Configure when {BRAND_NAME} sends scheduled summaries to{" "}
               {getMessagingProviderName(channel.provider)}.
             </DialogDescription>
           </DialogHeader>

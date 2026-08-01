@@ -56,7 +56,7 @@ export function OrgActionSteps({
   return (
     <RuleSteps
       onAdd={() => append(EMPTY_ORG_ACTION)}
-      addButtonLabel="Add Action"
+      addButtonLabel="Add action"
       addButtonDisabled={false}
     >
       {fields.map((field, index) => (

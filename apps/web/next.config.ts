@@ -336,6 +336,12 @@ const nextConfig: NextConfig = {
             "script-src 'self' 'unsafe-inline'",
             process.env.NODE_ENV === "development" ? "'unsafe-eval'" : "",
             "https://widget.senja.io",
+            // UnicornScene loads the unicornstudio UMD bundle from jsDelivr.
+            "https://cdn.jsdelivr.net",
+            // Vercel Analytics/Speed Insights. On Vercel these are same-origin
+            // (`/_vercel/insights/script.js`), but the dev builds and the
+            // off-Vercel Speed Insights bundle come from this origin.
+            "https://va.vercel-scripts.com",
             process.env.NEXT_PUBLIC_GTM_ID
               ? "https://www.googletagmanager.com"
               : "",
@@ -360,6 +366,8 @@ const nextConfig: NextConfig = {
           // bare `https:` defeats the point of a CSP
           [
             "connect-src 'self' wss: https://*.mux.com https://*.litix.io",
+            // unicornstudio fetches its scene definitions from its GCS bucket.
+            "https://storage.googleapis.com",
             process.env.NEXT_PUBLIC_POSTHOG_API_HOST || "",
             process.env.NEXT_PUBLIC_SENTRY_DSN
               ? "https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://sentry.io"

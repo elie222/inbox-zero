@@ -123,7 +123,7 @@ export function ActionSteps({
   return (
     <RuleSteps
       onAdd={() => append({ type: ActionType.LABEL })}
-      addButtonLabel="Add Action"
+      addButtonLabel="Add action"
       addButtonDisabled={false}
     >
       {visibleActionGroups.map(({ primaryIndex, draftMessagingIndexes }) => (

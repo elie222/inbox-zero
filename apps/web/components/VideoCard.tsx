@@ -147,7 +147,7 @@ const VideoCard = React.forwardRef<
                   onClick={() => openVideo("button")}
                   Icon={PlayIcon}
                 >
-                  Watch Video
+                  Watch video
                 </Button>
               </div>
             </div>
