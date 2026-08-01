@@ -1,79 +1,66 @@
 ---
 title: 'Meeting Briefs'
-description: 'Get AI-generated briefings before every meeting with external contacts.'
+description: 'Get AI-generated context before meetings with external guests.'
 icon: 'calendar-check'
 ---
 
 ## Overview
 
-Meeting Briefs automatically sends you an AI-generated briefing before each meeting with external contacts. Each briefing includes context about your attendees pulled from your email history, past meetings, and web research so you're always prepared.
+Meeting Briefs prepares an AI-generated briefing before a calendar event with external guests. It combines attendee details with relevant email and meeting history, plus web research when available.
 
-Briefings are delivered to your inbox (and optionally Slack) ahead of each meeting on your schedule.
+Meetings with only internal attendees are skipped. For a work account, people on your email domain are treated as internal; for common personal email domains, other attendees are treated as external.
 
-## What's in a briefing?
+<Warning>
+Briefings are AI-generated and may contain inaccuracies. Verify important details before using them in a meeting.
+</Warning>
 
-Each briefing includes:
+## Set Up Meeting Briefs
 
-- **Attendee profiles** with name, email, and relevant background
-- **Email history** summarizing recent conversations with each guest
-- **Past meetings** you've had with them
-- **Web research** pulling in professional context when available
+### Connect a Calendar
 
-Internal team members (people on your same email domain) are noted but don't receive individual profiles since you already know them.
+Open `Meeting Briefs` in the left sidebar. If no calendar is connected, follow the prompt to connect Google Calendar or Microsoft Outlook Calendar. You can also manage calendar connections from `Calendars`.
 
-Meetings with no external guests are automatically skipped.
+### Enable the Feature
 
-## Getting Started
+Turn on `Enable Meeting Briefs`. Meeting Briefs is available on eligible plans.
 
-### 1. Connect your calendar
+### Choose the Timing
 
-Navigate to **Briefs** in the left sidebar. If you haven't connected a calendar yet, you'll be prompted to connect Google Calendar or Microsoft Outlook Calendar.
+Set how long before each meeting the briefing should be generated. The default is four hours, and the supported range is 1 minute to 48 hours.
 
-### 2. Enable Meeting Briefs
+### Choose Delivery Channels
 
-Once your calendar is connected, click **Enable Meeting Briefs** to turn on the feature.
+Email delivery is enabled by default and can be toggled independently. You can also deliver briefs to any supported account connected on the `Channels` page:
 
-<Note>Meeting Briefs is a premium feature.</Note>
+- Slack
+- Microsoft Teams
+- Telegram
 
-### 3. Configure timing
+Slack can deliver to a direct message or an allowed private channel. Teams and Telegram use the linked messaging destination. You can enable more than one delivery channel at the same time.
 
-Set how far in advance you want to receive briefings. The default is **4 hours** before each meeting, but you can adjust this from 1 minute to 48 hours.
+## Briefing Content
 
-### 4. Choose delivery channels
+A briefing can include:
 
-Select where you want to receive your briefings:
+- Attendee names, email addresses, and relevant background
+- Recent email history with each external guest
+- Past and upcoming meetings involving the same people
+- Web research and professional context when available
+- Internal team members who are also attending
+- Meeting time, location, and joining details
 
-- **Email** (enabled by default)
-- **Slack** (requires connecting your Slack workspace first, see [Slack Integration](/essentials/slack-integration))
+Available context varies by attendee and by the integrations enabled for your account. If external integrations are available, the `Integrations` setting on the Meeting Briefs page can connect additional tools to enrich the briefing.
 
-## Upcoming Meetings
+## Upcoming Meetings and Tests
 
-The Briefs page shows your upcoming meetings for the next 7 days that have external guests. For each meeting, you can:
+The `Upcoming Meetings` section lists calendar events that Inbox Zero can see. Choose `Send test brief` to generate a sample immediately for a selected event. The test action sends an email so you can verify the output even if you also use chat delivery.
 
-- **Send a test brief** to preview what the briefing looks like
-- **View send history** to see past briefings and their delivery status
-
-## Briefing Statuses
-
-| Status | Meaning |
-|--------|---------|
-| Sent | Briefing was delivered successfully |
-| Pending | Briefing is being generated |
-| Skipped | No external guests found for the meeting |
-| Failed | Delivery encountered an error |
+Use `View send history` to inspect recent attempts. History can show `PENDING`, `SENT`, `FAILED`, or `SKIPPED` depending on processing and whether external guests were available.
 
 ## How It Works
 
-1. The system checks your calendar periodically for upcoming meetings
-2. When a meeting falls within your configured time window, it gathers context:
-   - Recent email threads with each external attendee
-   - Past calendar events with the same people
-   - Web research about each guest (when available)
-3. AI generates a concise briefing with key talking points for each guest
-4. The briefing is delivered via your chosen channels
-
-## Tips
-
-- Connect Slack for quick-glance briefings right in your workflow
-- Use the "Send test brief" button to see what your briefings look like before your next real meeting
-- Adjust the timing to match your prep style. Some people prefer 4 hours ahead, others want it 30 minutes before
+1. Inbox Zero periodically checks connected calendars for events approaching your configured lead time.
+2. Events without external guests are skipped.
+3. The assistant gathers email, calendar, web, and enabled integration context.
+4. It creates one concise briefing and sends it through the enabled delivery channels.
+5. The result is recorded in send history.

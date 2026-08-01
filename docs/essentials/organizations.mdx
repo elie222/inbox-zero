@@ -1,0 +1,81 @@
+---
+title: 'Organizations'
+description: 'Invite teammates, manage roles, share assistant rules, and view consented team analytics.'
+icon: 'users'
+---
+
+Organizations let a team manage membership, distribute shared assistant rules, and review aggregate usage. Each email account can belong to only one organization at a time.
+
+## Create an organization
+
+1. Open the account menu.
+2. Select **Create organization**.
+3. Enter the organization name and a unique URL slug.
+4. Select **Create Organization**.
+
+The creator becomes the organization **Owner**. The slug may contain lowercase letters, numbers, and hyphens.
+
+## Roles and permissions
+
+| Role | Access |
+| --- | --- |
+| **Owner** | All admin abilities, plus transferring ownership. |
+| **Admin** | Invite and remove members, change non-owner roles, manage organization rules, and view analytics that members have shared. |
+| **Member** | View the member list and use organization-managed rules in their own account. |
+
+Only the owner can transfer ownership. After a transfer, the previous owner becomes an admin. Admins and owners cannot remove or change the current owner's role directly.
+
+## Invite and manage members
+
+1. Open **My Organization** from the account menu.
+2. On **Members**, select **Invite members**.
+3. Enter up to 10 email addresses at a time and assign a role.
+4. Send the invitations.
+
+Invitations are delivered by email and expire after 14 days. The recipient must accept while signed in with the exact invited email address. An admin can cancel a pending invitation from the Members page.
+
+Use the menu beside a member to change their role or remove them. The owner also sees **Transfer ownership**. If the organization provides premium seats, accepting an invitation can claim an available seat; removing a member releases their organization seat.
+
+## Create organization rules
+
+Owners and admins can open **Rules** and create assistant rules that are copied to every member account.
+
+- New members receive the current organization rules when they join.
+- Editing an organization rule updates its member copies.
+- Members see a **Managed by organization** rule and cannot edit its definition.
+- A member may turn a managed rule on or off for their own account.
+- The rule only runs for a member when both the organization-level rule and that member's copy are enabled.
+- Deleting an organization rule removes it for all members.
+
+Messaging-channel actions are not supported in organization rules because each member has separate Slack, Teams, or Telegram destinations. Configure those actions in each member's own rules instead.
+
+<Warning>
+Organization rules can perform inbox actions for every member. Test conditions carefully, prefer drafts over automatic sends for generated replies, and review changes before enabling a rule organization-wide.
+</Warning>
+
+## Analytics and privacy
+
+The **Analytics** tab is available to owners and admins. It can show totals and distributions for emails received, rules executed, and active members over a selected date range.
+
+Member analytics are private by default unless the deployment explicitly configures otherwise. Each member sees a prompt to allow organization-admin analytics. Admins can open a member's Analytics and Usage pages only after that member grants access. A hidden-activity badge means the member has not shared analytics.
+
+Granting analytics access does not give an admin the ability to read the member's email content through the organization page.
+
+## Troubleshooting
+
+### An invitation cannot be accepted
+
+Confirm that it has not expired and that the signed-in account exactly matches the invited email. The recipient must leave any other organization before joining, because an email account can have only one membership.
+
+### Rules or Analytics tabs are missing
+
+Those tabs are limited to owners and admins. Ask an owner or admin to update your role if appropriate.
+
+### A member cannot edit a rule
+
+Rules labeled **Managed by organization** can only be edited by an owner or admin from the organization's Rules tab. The member can still enable or disable their own copy.
+
+### A member's analytics are unavailable
+
+The member must select **Allow Access** on the organization page. Analytics can also remain empty until Inbox Zero has processed enough account activity for the selected date range.
+

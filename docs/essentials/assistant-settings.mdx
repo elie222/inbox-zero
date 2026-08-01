@@ -1,0 +1,107 @@
+---
+title: 'Assistant Settings'
+description: 'Control drafting, reminders, writing style, knowledge, and safety settings for your AI assistant.'
+icon: 'sliders'
+---
+
+Open **Assistant** in the sidebar and select the **Settings** tab to control how the assistant drafts, learns, and notifies you. Settings apply to the currently selected email account, so review them separately when you connect multiple accounts.
+
+<Warning>
+AI drafts and classifications can be wrong. Keep high-impact actions reviewable, verify recipients and factual claims, and use the safety settings below for sensitive workflows.
+</Warning>
+
+## Drafting controls
+
+### Auto draft replies
+
+Enable this to create replies in your Drafts folder for messages that need a response. The assistant does not send these drafts automatically. Some deployments can disable auto-drafting entirely, in which case this setting and related knowledge controls are hidden.
+
+### Draft confidence
+
+Choose how certain the assistant must be before it prepares a draft:
+
+- **All emails** — draft whenever an email needs a reply, even when uncertain.
+- **Standard** — skip drafting when the assistant is unsure how to respond.
+- **High confidence** — draft only when it is very sure of the appropriate reply.
+
+Use a stricter setting when correctness is more important than draft coverage.
+
+## Updates
+
+### Follow-up reminders
+
+Enable reminders for messages where someone has not replied to you or where you have not replied. In **Configure**, set each delay independently, choose whether the assistant should prepare a follow-up draft, and run an initial scan of existing mail. The feature may be hidden if it is disabled for the deployment.
+
+### Digest
+
+Schedule a daily summary of newsletter emails and choose which rules contribute to it. Digests require the **Plus plan or higher** and appear only when the deployment has enabled the feature. You can route a digest to a connected chat provider from [Channels](/essentials/channels).
+
+## Your voice
+
+### Writing style
+
+Describe your typical length, formality, greetings, and other stylistic habits. This guidance is used when drafting replies in your voice.
+
+### Personal instructions
+
+Add stable information about yourself and how you want the assistant to handle email. Keep instructions general and durable; use assistant rules for specific matching conditions and actions.
+
+### Email signature
+
+Configure the signature appended to drafted messages. Preview it before saving so the draft does not contain duplicate sign-offs or outdated contact details.
+
+## Knowledge and learning
+
+### Draft knowledge base
+
+Store facts that can help the assistant answer recurring questions. This control is available only while auto draft replies are enabled. Treat knowledge entries as supporting context, not as a guarantee that every draft will use them.
+
+### Learned patterns
+
+Inbox Zero learns when senders or email types consistently match the same rule. Open **Learned patterns** to view, edit, or remove those associations. Remove a pattern when it starts routing a sender incorrectly.
+
+## Advanced settings
+
+### Sync to browser extension
+
+Sync label-based assistant rules to the Inbox Zero Tabs extension as Gmail tabs. This requires the configured Inbox Zero Tabs extension and a Chromium browser, and it applies to Gmail rather than Outlook. Select the label rules you want before starting the sync.
+
+### Multi-rule selection
+
+Allow the assistant to intentionally select multiple custom rules for one message. Turning it off reduces that behavior, although Inbox Zero can still apply multiple rules in a few built-in cases, such as adding a label alongside a reply workflow.
+
+### Include referral signature
+
+Optionally append an Inbox Zero referral link to generated drafts. Review the resulting signature before sending, especially for professional or regulated correspondence.
+
+### Allow hidden links in AI drafts
+
+This permits anchor text such as “click here” instead of displaying the full URL. It is more convenient, but it can hide the destination and query-string data. Leave it off when transparent links are important.
+
+### Sensitive data protection
+
+Choose how credentials and card numbers are handled before an AI request:
+
+- **Off** — send content without scanning.
+- **Redact** — hide detected credentials and card numbers, then send the remaining content to AI.
+- **Block** — skip the AI request when sensitive data is detected.
+
+An administrator can lock this policy at the deployment level. When locked, the setting is hidden and the configured policy still applies.
+
+## Troubleshooting
+
+### A setting is missing
+
+Feature flags, plan access, email provider, browser support, or an administrator policy can hide settings. Auto-draft controls disappear when auto-drafting is disabled; Digest requires Plus; extension sync requires the configured extension.
+
+### Drafts do not sound like me
+
+Update **Writing style**, **Personal instructions**, and **Email signature**, then review the Draft knowledge base for stale facts. Editing generated drafts also helps the assistant learn over time.
+
+### Too few or too many drafts are created
+
+Adjust **Draft confidence**. Also review the rules that determine whether a message needs a reply and remove incorrect learned patterns.
+
+### Follow-up reminders are missing
+
+Confirm that at least one reminder delay is set, then run the scan from **Configure**. If reminders should arrive in chat, also verify the route on [Channels](/essentials/channels).

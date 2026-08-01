@@ -1,0 +1,72 @@
+---
+title: 'Deep Clean'
+description: 'Preview an AI-assisted cleanup of older Gmail messages before applying it to the rest of your inbox.'
+icon: 'brush'
+---
+
+<Warning>
+Deep Clean is an experimental Early Access feature with no release commitment. It may change substantially or never ship broadly.
+</Warning>
+
+Deep Clean reviews older inbox threads and decides which should stay and which can be archived or marked as read. It combines explicit protections, mail metadata, and AI judgment, then shows the results as they are processed.
+
+## Requirements
+
+- Deep Clean currently supports **Google accounts only**. It does not appear for Outlook accounts.
+- An active premium plan is required.
+- The Early Access feature must be enabled for your account or self-hosted deployment.
+
+## Run a cleanup
+
+1. Open **Deep Clean** in the left sidebar.
+2. Choose whether matching messages should be **Archived** or **Marked as Read**.
+3. Select a time range, from all messages to messages older than one year. **Older than one week** is the recommended starting point.
+4. Choose which mail must stay in the inbox:
+   - Emails needing replies.
+   - Starred emails.
+   - Future calendar events.
+   - Payment receipts.
+   - Mail matching your optional custom instructions.
+5. Review the confirmation and select **Start Cleaning**.
+
+Deep Clean processes an initial preview of 50 messages. Review the live results before selecting **Run on Full Inbox**.
+
+## How messages are evaluated
+
+The selected protections are checked across a thread. Deep Clean also recognizes common low-priority mail such as newsletters and Gmail category mail. Past calendar events can be cleaned while future events are kept when calendar protection is on. Messages not decided by these checks are evaluated against your instructions by AI.
+
+AI classification can be wrong. Use the preview to confirm that your protected message types and custom instructions behave as expected.
+
+## Safety and undo
+
+Deep Clean does not delete email.
+
+- **Archive** removes the Gmail Inbox label and adds an Inbox Zero archive label.
+- **Mark as Read** removes the unread state and adds an Inbox Zero processed label.
+- Every processed thread remains searchable in Gmail.
+- Hover a completed action in the live results and select **Undo** to restore that thread to the inbox or mark it unread again.
+- If Deep Clean chose **Keep**, hover the result to manually archive or mark the message as read.
+
+<Note>
+Undo is available from the run results for individual threads. Review the preview before continuing to the full inbox instead of treating undo as a guaranteed bulk rollback.
+</Note>
+
+After the first run, the Deep Clean page reuses your previous settings. Use **Edit settings** to change them, and **History** to review earlier cleanup jobs.
+
+## Troubleshooting
+
+### Deep Clean is missing
+
+Confirm that the selected account is Gmail, the account has an active premium plan, and Early Access is enabled. On self-hosted deployments, both the public cleaner flag and the required background-processing services must be configured.
+
+### Processing appears stuck
+
+Large cleanups are handled in background batches and can take time. Keep the run page open or return through **History**. If nothing changes, refresh and confirm that the Gmail connection is still active.
+
+### Important mail was cleaned
+
+Use **Undo** on the affected result. Before another full run, enable the relevant protection or add a broader custom instruction, then start with a new 50-message preview.
+
+### Too much mail is kept
+
+Review which protections are enabled and simplify conflicting custom instructions. Use the preview result's manual action for individual messages before expanding the cleanup to the full inbox.

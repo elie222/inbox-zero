@@ -2,7 +2,7 @@
 title: "Introduction"
 ---
 
-Use the Inbox Zero API to manage emails and automation rules programmatically.
+Use the Inbox Zero API to read inbox statistics and manage automation rules programmatically.
 
 If you prefer a CLI wrapper for scripts or bots, see the [API CLI](/api-reference/cli).
 
@@ -26,6 +26,16 @@ To begin using the Inbox Zero API, you'll need to obtain an API key. Here's how:
 
 API keys are scoped to a specific inbox account and only grant access to the permissions you select. Keep your key secure and do not share it publicly.
 
+### Permissions
+
+| Scope | Endpoints |
+|---|---|
+| `STATS_READ` | `GET /stats/by-period`, `GET /stats/response-time` |
+| `RULES_READ` | `GET /rules`, `GET /rules/{id}` |
+| `RULES_WRITE` | `POST /rules`, `PUT /rules/{id}`, `DELETE /rules/{id}` |
+
+A key may include more than one scope. Keys are also bound to one inbox account; they cannot read or change another inbox.
+
 ### Self-Hosting
 
 If you are self-hosting Inbox Zero, set `NEXT_PUBLIC_EXTERNAL_API_ENABLED=true` and `API_KEY_SALT` before rebuilding the app. Generate the salt with `openssl rand -hex 32`. Use your deployment URL as the base URL for requests (for example, `https://your-domain.com/api/v1`).
@@ -45,6 +55,43 @@ Include your API key in the header of each request:
 ```
 API-Key: YOUR_API_KEY
 ```
+
+For example:
+
+```bash
+curl "https://www.getinboxzero.com/api/v1/rules" \
+  -H "API-Key: YOUR_API_KEY"
+```
+
+To create a rule:
+
+```bash
+curl -X POST "https://www.getinboxzero.com/api/v1/rules" \
+  -H "API-Key: YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  --data '{
+    "name": "Archive newsletters",
+    "runOnThreads": true,
+    "condition": {
+      "aiInstructions": "Newsletters and recurring promotional emails"
+    },
+    "actions": [{ "type": "ARCHIVE" }]
+  }'
+```
+
+### Errors
+
+API errors are returned as JSON with an `error` message.
+
+| Status | Meaning |
+|---|---|
+| `400` | Invalid query, path, or request body; an action may also be disabled by the deployment's feature flags |
+| `401` | The `API-Key` header is missing, invalid, or expired |
+| `403` | The key lacks a required scope or is not account-scoped |
+| `404` | The requested rule does not exist in the key's inbox account |
+| `500` | An unexpected server error occurred |
+
+The `DELETE` rule action, which moves matching emails to trash, is available only when the deployment enables `NEXT_PUBLIC_DELETE_EMAIL_ACTION_ENABLED`. This feature flag is separate from `DELETE /rules/{id}`, which deletes a rule definition.
 
 ## Request New Endpoint
 

@@ -1,0 +1,90 @@
+---
+title: 'Context Integrations'
+description: 'Connect read-oriented business tools so drafts and meeting briefs can use relevant external context.'
+icon: 'plug'
+---
+
+<Note>
+Context Integrations are in Early Access. They may release soon, but there is no promised release date.
+</Note>
+
+Context Integrations let Inbox Zero look up relevant information in connected services while preparing email drafts and meeting briefs. For example, the assistant may search for a sender in a CRM, fetch a Notion page, or check billing information in Stripe before it writes.
+
+They are context sources, not general workflow automations. Inbox Zero uses enabled tools when relevant and can continue drafting when an integration is unavailable or returns no useful information.
+
+## Requirements
+
+- Early Access must be enabled for the account.
+- Connecting an integration requires the **Plus plan or higher**.
+- The integration must support the configured OAuth flow. API-token connections are shown in the interface but are not currently supported.
+
+## Available integrations
+
+The current configuration can expose:
+
+- **Notion** — search and fetch approved Notion content.
+- **Stripe** — list customers, disputes, invoices, payment intents, prices, products, and subscriptions.
+- **Monday.com** — look up board items, board information, workspaces, and workspace information.
+- **Pipedream** — connect read-oriented tools from services such as HubSpot, Slack, Airtable, and Todoist.
+
+The exact list and individual tools can change during Early Access. A service marked **Request Access** is not connectable yet.
+
+## Connect and enable a service
+
+1. Open **Integrations** in the left sidebar.
+2. Select **Connect** beside a service.
+3. Review the provider's authorization screen and approve only the workspace and data you intend to share.
+4. Return to Inbox Zero and confirm that the row says **Connected**.
+5. Turn on the integration if it is connected but disabled.
+6. Expand **Tools** and enable only the lookups you want the assistant to use.
+
+A connection and its tools have separate switches. The assistant can use a tool only when the connection is active and that individual tool is enabled.
+
+Pipedream connections can expose many tools, so they start disabled and Inbox Zero filters the synced list toward read-oriented names such as get, list, find, and search. Still inspect each tool's name and description before enabling it.
+
+## How context is used
+
+For email drafting, Inbox Zero searches enabled tools for information related to the sender and the current thread. Useful findings are supplied to the drafting model as external context. If nothing relevant is found, the draft proceeds without it.
+
+For meeting briefs, enabled integration tools are available alongside email, calendar, and web-research context. The AI chooses whether a tool is relevant to the attendees or meeting topic.
+
+External data and tool output are treated as untrusted context. Even so, an integration may return stale, incomplete, or incorrectly matched information. Review names, account status, prices, payment state, and other consequential facts before sending a draft or using a brief.
+
+## Safety and access control
+
+- Enable the smallest set of tools needed for your workflow.
+- Prefer read-only tools. Do not enable tools that create, update, or delete data merely because their provider makes them available.
+- Provider authorization controls which workspaces and records Inbox Zero can access; tool switches control which of those capabilities the assistant may call.
+- Disconnecting deletes the Inbox Zero connection and its associated tool records. It does not delete data in the external service.
+- Disabling a connection preserves it but stops its tools from being used.
+
+<Warning>
+Read the provider's OAuth permissions before approving access. Connected data may be included in AI processing when it is relevant to a draft or meeting brief.
+</Warning>
+
+## Troubleshooting
+
+### Integrations are not enabled
+
+The account is outside the Early Access rollout. Select **Join Early Access** from the Integrations page. Availability may change and is not guaranteed.
+
+### Connect asks for an upgrade
+
+Context Integrations require Plus or higher. Upgrade the account that owns the selected email address, then restart the connection flow.
+
+### Connected but disabled
+
+Turn on the connection, expand its tools, and confirm that at least one tool is enabled. A connection with no enabled tools contributes no context.
+
+### A tool does not appear
+
+Reconnect the service to resync its tool list. Some integrations intentionally allow only an approved subset, and Pipedream write-oriented tools may be filtered out.
+
+### Drafts do not include expected context
+
+Confirm that the relevant tool is enabled and that the connected provider account can access the record. The assistant calls tools only when it judges them relevant, and it omits integration context when no useful result is found.
+
+### OAuth fails or is cancelled
+
+Return to **Integrations** and start a fresh connection. The authorization state and PKCE verifier expire after about 10 minutes and cannot be reused. If failure continues, disconnect the partial connection if present and retry.
+

@@ -3,21 +3,18 @@ title: "Microsoft Teams Integration Setup"
 description: "Set up the Teams bot for Inbox Zero assistant chat."
 ---
 
-# Microsoft Teams Integration Setup
-
 This guide is for self-hosted deployments that want to enable Teams chat with the Inbox Zero assistant.
 
 ## What Teams currently supports
 
 - AI assistant chat in **direct messages** with the Inbox Zero bot
 - Account linking with one-time `/connect <code>` commands
+- Direct-message delivery for meeting briefs, follow-up reminders, email digests, filing alerts, and rule notifications configured from **Channels**
 
 Currently not supported on Teams:
 
-- Channel-based meeting brief delivery
-- Channel-based attachment filing notifications
-
-Those channel notification features are Slack-only today.
+- Delivery into Teams channels; automated notifications are delivered in the linked bot DM
+- One-click draft editing and sending inside Teams; review or send those drafts in Inbox Zero
 
 ## 1. Create an Azure Bot resource
 

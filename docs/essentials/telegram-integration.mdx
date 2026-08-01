@@ -1,41 +1,55 @@
 ---
 title: 'Telegram Integration'
-description: 'Chat with your AI assistant and receive notifications in Telegram.'
+description: 'Chat with your assistant and receive Inbox Zero updates in Telegram.'
 icon: 'paper-plane'
 ---
 
-Connect Telegram to Inbox Zero to chat with your AI email assistant directly from Telegram. Ask questions about your inbox, draft emails, manage rules, and more — all from a Telegram DM.
+Connect Telegram from the unified `Channels` page. The integration uses a direct message with the Inbox Zero bot for chat and feature delivery.
 
-## Connecting Telegram
+## Connect Telegram
 
-1. Go to **Settings** in the left sidebar
-2. Under **Connected Apps**, click **Connect Telegram**
-3. Copy the generated `/connect` command
-4. Open a direct message with the Inbox Zero bot in Telegram
-5. Send the command to link your account
+1. Open `Channels` in the left sidebar.
+2. Find Telegram and click `Connect`.
+3. Inbox Zero generates a one-time `/connect` command. The code expires after 10 minutes.
+4. Open the Inbox Zero bot using the link in the dialog.
+5. Send the complete command in a direct message to link your account.
 
-Once connected, you can message the bot anytime to interact with your AI assistant.
+Once connected, Telegram appears on the Channels page with a `Connected` badge.
 
-## What You Can Do
+## Chat with the Assistant
 
-The Telegram bot gives you full access to the same [AI Chat](/essentials/ai-chat) capabilities:
+The Telegram bot provides the same core [AI Chat](/essentials/ai-chat) workflow. You can:
 
-- Ask questions about your inbox
-- Search and manage emails
-- Create and update automation rules
-- Draft and send replies
-- Get email summaries
+- Search and summarize email.
+- Manage inbox messages.
+- Draft messages and replies for review.
+- Create and update automation rules.
+- Ask what needs your attention.
 
-## Bot Commands
+If more than one email account is linked, use `/switch` to list them and `/switch <number>` to change the active account.
 
-- `/connect` — Link your Inbox Zero account
-- `/switch` — Switch between email accounts
-- `/summary` — Get an inbox summary
-- `/draftreply` — Draft a reply to a recent email
-- `/followups` — See emails awaiting replies
-- `/cleanup` — Clean up old messages
-- `/help` — Show available commands
+## Commands
 
-## Disconnecting
+- `/connect <code>` — Link an Inbox Zero email account.
+- `/switch` — List linked accounts.
+- `/summary` — Summarize what needs attention today.
+- `/draftreply` — Draft a response to your most urgent unread email.
+- `/followups` — Show emails that may need a follow-up this week.
+- `/cleanup` — Start an inbox cleanup conversation.
+- `/help` — Show available commands.
 
-To disconnect Telegram, go to **Settings** and click **Disconnect** next to your Telegram connection under **Connected Apps**.
+## Feature Delivery
+
+From the connected Telegram section on `Channels`, you can configure:
+
+- Rule notifications or draft replies for review
+- Meeting briefs
+- Follow-up reminders and scheduled check-ins
+- Digests
+- Document-filing alerts
+
+Telegram delivery goes to the linked direct-message destination; there is no separate channel picker.
+
+## Disconnect Telegram
+
+Open `Channels`, use the menu next to Telegram, and choose `Disconnect Telegram`. This stops Telegram chat access and all configured deliveries.
