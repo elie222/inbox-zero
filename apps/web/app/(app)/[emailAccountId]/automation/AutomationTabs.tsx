@@ -50,7 +50,7 @@ export function AutomationTabs() {
 
   return (
     <>
-      <div className="border-b border-neutral-200 pt-2">
+      <div className="overflow-x-auto border-b border-border pt-2">
         <TabSelect
           options={tabOptions}
           selected={selectedTab}

@@ -40,8 +40,10 @@ export default async function AssistantPage({
       <Suspense>
         <PermissionsCheck />
 
-        {/* dvh, not vh: the mobile URL bar overlaps 100vh */}
-        <div className="flex h-[calc(100dvh-theme(spacing.9)-theme(spacing.14)-env(safe-area-inset-bottom))] md:h-screen flex-col">
+        {/* dvh, not vh: the mobile URL bar overlaps 100vh. The tray var is
+            the shared chrome height, so the composer sits exactly on the
+            app tray (which hides while the input is focused). */}
+        <div className="flex h-[calc(100dvh-var(--mobile-tray-h))] md:h-screen flex-col">
           <Chat open />
         </div>
       </Suspense>

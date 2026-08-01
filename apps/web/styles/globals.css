@@ -155,6 +155,26 @@
   }
 }
 
+/*
+ * The bottom app tray and the on-screen keyboard never coexist usefully:
+ * iOS pins fixed bottom-0 chrome to the top of the keyboard, where it lands
+ * exactly on the focused composer (chat input, search, compose). Any
+ * focused text-entry field means the keyboard owns the bottom edge, so the
+ * tray steps aside until the field blurs.
+ */
+@media (max-width: 767px) {
+  body:has(
+      textarea:focus,
+      [contenteditable="true"]:focus,
+      input:focus:not([type="checkbox"]):not([type="radio"]):not(
+          [type="range"]
+        ):not([type="file"]):not([type="button"]):not([type="submit"])
+    )
+    .mobile-app-tray {
+    display: none;
+  }
+}
+
 .company-chip {
   color: hsl(var(--company-hue) 70% 34%);
   background: hsl(var(--company-hue) 70% 55% / 0.14);
