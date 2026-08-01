@@ -10,7 +10,7 @@ Context Integrations are in Early Access.
 
 Context Integrations let Inbox Zero look up relevant information in connected services while preparing email drafts and meeting briefs. For example, the assistant may search for a sender in a CRM, fetch a Notion page, or check billing information in Stripe before it writes.
 
-They are context sources, not general workflow automations. Inbox Zero uses enabled tools when relevant and can continue drafting when an integration is unavailable or returns no useful information.
+They are context sources, not general workflow automations.
 
 ## Requirements
 
@@ -20,11 +20,9 @@ They are context sources, not general workflow automations. Inbox Zero uses enab
 ## Available integrations
 
 - **Notion**: search and fetch approved Notion content.
-- **Stripe**: list customers, disputes, invoices, payment intents, prices, products, and subscriptions.
-- **Monday.com**: look up board items, board information, workspaces, and workspace information.
+- **Stripe**: look up customers, invoices, subscriptions, and other billing data.
+- **Monday.com**: look up boards, board items, and workspaces.
 - **Pipedream**: connect read-oriented tools from services such as HubSpot, Slack, Airtable, and Todoist.
-
-The exact list and individual tools can change during Early Access. A service marked **Request Access** is not connectable yet.
 
 ## Connect and enable a service
 
@@ -35,15 +33,13 @@ The exact list and individual tools can change during Early Access. A service ma
 5. Turn on the integration if it is connected but disabled.
 6. Expand **Tools** and enable only the lookups you want the assistant to use.
 
-A connection and its tools have separate switches. The assistant can use a tool only when the connection is active and that individual tool is enabled.
+The assistant can use a tool only when the connection is active and that individual tool is enabled.
 
-Pipedream connections can expose many tools, so they start disabled and Inbox Zero filters the synced list toward read-oriented names such as get, list, find, and search. Still inspect each tool's name and description before enabling it.
+Pipedream connections can expose many tools, so they start disabled. Inspect each tool's name and description before enabling it.
 
 ## How context is used
 
-For email drafting, Inbox Zero searches enabled tools for information related to the sender and the current thread. Useful findings are supplied to the drafting model as external context. If nothing relevant is found, the draft proceeds without it.
-
-For meeting briefs, enabled integration tools are available alongside email, calendar, and web-research context. The AI chooses whether a tool is relevant to the attendees or meeting topic.
+For email drafting, Inbox Zero searches enabled tools for information related to the sender and the current thread. For meeting briefs, enabled integration tools are available alongside email, calendar, and web-research context.
 
 An integration may return stale, incomplete, or incorrectly matched information, so double-check consequential facts such as prices and payment state before sending a draft.
 
@@ -52,7 +48,7 @@ An integration may return stale, incomplete, or incorrectly matched information,
 - Enable the smallest set of tools needed for your workflow.
 - Prefer read-only tools. Do not enable tools that create, update, or delete data merely because their provider makes them available.
 - Provider authorization controls which workspaces and records Inbox Zero can access; tool switches control which of those capabilities the assistant may call.
-- Disconnecting deletes the Inbox Zero connection and its associated tool records. It does not delete data in the external service.
+- Disconnecting removes the connection from Inbox Zero. It does not delete data in the external service.
 - Disabling a connection preserves it but stops its tools from being used.
 
 ## Troubleshooting
@@ -67,7 +63,7 @@ Context Integrations require Plus or higher. Upgrade the account that owns the s
 
 ### Connected but disabled
 
-Turn on the connection, expand its tools, and confirm that at least one tool is enabled. A connection with no enabled tools contributes no context.
+Turn on the connection, expand its tools, and confirm that at least one tool is enabled.
 
 ### A tool does not appear
 
@@ -75,9 +71,9 @@ Reconnect the service to resync its tool list. Some integrations intentionally a
 
 ### Drafts do not include expected context
 
-Confirm that the relevant tool is enabled and that the connected provider account can access the record. The assistant calls tools only when it judges them relevant, and it omits integration context when no useful result is found.
+Confirm that the relevant tool is enabled and that the connected provider account can access the record. The assistant only calls tools it judges relevant to the email or meeting.
 
 ### OAuth fails or is cancelled
 
-Return to **Integrations** and start a fresh connection. An authorization attempt expires after about 10 minutes and cannot be reused. If failure continues, disconnect the partial connection if present and retry.
+Return to **Integrations** and start a fresh connection. If failure continues, disconnect the partial connection if present and retry.
 

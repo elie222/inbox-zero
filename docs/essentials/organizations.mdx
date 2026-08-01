@@ -13,7 +13,7 @@ Organizations let a team manage membership, distribute shared assistant rules, a
 3. Enter the organization name and a unique URL slug.
 4. Select **Create Organization**.
 
-The creator becomes the organization **Owner**. The slug may contain lowercase letters, numbers, and hyphens.
+The creator becomes the organization **Owner**.
 
 ## Roles and permissions
 
@@ -23,7 +23,7 @@ The creator becomes the organization **Owner**. The slug may contain lowercase l
 | **Admin** | Invite and remove members, change non-owner roles, manage organization rules, and view analytics that members have shared. |
 | **Member** | View the member list and use organization-managed rules in their own account. |
 
-Only the owner can transfer ownership. After a transfer, the previous owner becomes an admin. Admins and owners cannot remove or change the current owner's role directly.
+After a transfer, the previous owner becomes an admin.
 
 ## Invite and manage members
 
@@ -47,13 +47,13 @@ Owners and admins can open **Rules** and create assistant rules that are copied 
 - The rule only runs for a member when both the organization-level rule and that member's copy are enabled.
 - Deleting an organization rule removes it for all members.
 
-Messaging-channel actions are not supported in organization rules because each member has separate Slack, Teams, or Telegram destinations. Configure those actions in each member's own rules instead.
+Messaging-channel actions are not supported in organization rules; configure those actions in each member's own rules instead.
 
 Because organization rules act on every member's inbox, test a rule's conditions before rolling it out organization-wide.
 
 ## Analytics and privacy
 
-The **Analytics** tab is available to owners and admins. It can show totals and distributions for emails received, rules executed, and active members over a selected date range.
+The **Analytics** tab is available to owners and admins. It shows emails received, rules executed, and active members over a selected date range.
 
 Member analytics are private by default. Each member sees a prompt to allow organization-admin analytics. Admins can open a member's Analytics and Usage pages only after that member grants access. A hidden-activity badge means the member has not shared analytics.
 
@@ -63,7 +63,7 @@ Granting analytics access does not give an admin the ability to read the member'
 
 ### An invitation cannot be accepted
 
-Confirm that it has not expired and that the signed-in account exactly matches the invited email. The recipient must leave any other organization before joining, because an email account can have only one membership.
+Confirm that it has not expired and that the signed-in account exactly matches the invited email. The recipient must leave any other organization before joining.
 
 ### Rules or Analytics tabs are missing
 

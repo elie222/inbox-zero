@@ -54,4 +54,4 @@ Inbox Zero does not wait for or parse the response body. A timeout, blocked dest
 
 Open **Settings**, find the **Developer** section, and generate a Webhook Secret. The secret is shown only when generated, so copy it before closing the dialog. Regenerating it immediately changes the value sent with future requests.
 
-Every request includes the `X-Webhook-Secret` header. If you have not generated a secret, the header is still present with an empty value. Your endpoint should compare the header to the stored secret before processing the payload.
+Every request includes the `X-Webhook-Secret` header. Your endpoint should compare the header to the stored secret before processing the payload.

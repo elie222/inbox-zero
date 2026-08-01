@@ -46,8 +46,6 @@ Conditions can use AI instructions, static fields, or both.
 - **AI condition**: Describe the meaning of the emails that should match, such as `Apply this rule if this email is asking me to set up a call.`
 - **Static condition**: Match text in `From`, `To`, or `Subject`, such as `From` contains `@example.com`.
 
-Static conditions are useful for deterministic matches and do not require the AI to interpret every email.
-
 ### Actions
 
 A rule can contain multiple actions. Available actions can vary by email provider and connected apps:
@@ -67,7 +65,7 @@ A rule can contain multiple actions. Available actions can vary by email provide
 - Call webhook
 - Notify in a connected Slack, Teams, or Telegram account
 - Deliver a draft reply to a connected messaging account for review
-- Notify the sender when supported
+- Notify the sender
 
 See [Email Digest](/essentials/email-digest), [Call Webhook](/essentials/call-webhook), and [Delayed Actions](/essentials/delayed-actions) for actions that need additional configuration.
 
@@ -93,9 +91,7 @@ When **Apply to Threads** is disabled, the rule runs only on the first message i
 
 ### When Multiple Rules Can Apply
 
-If multi-rule selection is disabled, the assistant normally chooses one rule. Some system behavior can still add another label. For example, a static `Team` rule can label a message while the `To Reply` rule also creates a draft, and a scheduling email can receive both `Calendar` and `To Reply` labels.
-
-Enable multi-rule selection in **Assistant** > **Settings** when you intentionally want several custom rules to match the same message.
+By default, the assistant chooses one rule per email. Enable multi-rule selection in **Assistant** > **Settings** when you want several rules to match the same message.
 
 ## Learned Patterns
 
@@ -113,4 +109,4 @@ Open the [Test tab](https://www.getinboxzero.com/automation?tab=test) to run you
 
 ## Assistant Settings
 
-Open **Assistant** > **Settings** to configure behavior shared across rules, including draft-reply confidence and delay, follow-up reminders, writing style, personal instructions and signature, the knowledge base, learned-pattern behavior, multi-rule selection, and the email digest. See [Assistant Settings](/essentials/assistant-settings).
+Open **Assistant** > **Settings** to configure behavior shared across rules, such as auto-drafting, writing style, and the email digest. See [Assistant Settings](/essentials/assistant-settings).

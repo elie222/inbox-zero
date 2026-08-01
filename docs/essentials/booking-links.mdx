@@ -22,32 +22,21 @@ You can create one Inbox Zero booking link per email account. If you already use
 
 This is the account's default availability. It also guides times the AI suggests in scheduling emails, even if you do not create an Inbox Zero booking link.
 
-When displaying bookable slots, Inbox Zero treats events on all enabled connected calendars as busy. If calendar availability cannot be loaded safely, the public page returns no slots instead of risking a double booking.
-
 ## Create a booking link
 
 1. On **Calendars**, find **Booking link** and select **Create booking link**.
-2. Enter the title guests will see.
-3. Choose a unique URL slug using lowercase letters, numbers, and hyphens. It must be 3–64 characters.
-4. Choose a duration: 15, 30, 45, or 60 minutes.
-5. Select the destination calendar where new events should be created.
-6. Optionally add a description and enable provider video conferencing.
-7. Select **Create**.
+2. Enter the title guests will see and choose a unique URL slug.
+3. Choose a duration and the destination calendar where new events should be created.
+4. Optionally add a description and enable video conferencing.
+5. Select **Create**.
 
-Google calendars can create Google Meet links, and Microsoft calendars can create Microsoft Teams links. If the selected provider cannot create a supported video meeting, the video option is unavailable.
+Google calendars can create Google Meet links, and Microsoft calendars can create Microsoft Teams links.
 
-After creation, copy the `/book/your-slug` URL and share it. The active Inbox Zero booking link also becomes the link the AI can use when a reply is genuinely about scheduling.
+After creation, copy the `/book/your-slug` URL and share it. The active Inbox Zero booking link is also the link the AI shares in scheduling replies.
 
 ## Configure or pause the link
 
-Select **Configure** to change:
-
-- Guest-facing title and description.
-- Public URL slug.
-- Duration.
-- Minimum notice before a meeting. The default is two hours.
-- Destination calendar.
-- Google Meet or Microsoft Teams conferencing, when supported.
+Select **Configure** to edit the link's details, including the minimum notice before a meeting. The default notice is two hours.
 
 Use the switch on the booking-link card to make the public page active or inactive. An inactive link cannot be booked and is not used by the AI. When an Inbox Zero link is active, it takes precedence over the external **Calendar Booking Link** field.
 
@@ -62,7 +51,7 @@ Guests can:
 3. Receive a calendar invite and confirmation email.
 4. Use secure links from the confirmation to reschedule or cancel.
 
-The host also receives booking notifications. Inbox Zero validates the slot again during confirmation so two guests cannot successfully take the same time.
+The host also receives booking notifications.
 
 ## Troubleshooting
 
