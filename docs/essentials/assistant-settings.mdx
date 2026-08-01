@@ -6,23 +6,19 @@ icon: 'sliders'
 
 Open **Assistant** in the sidebar and select the **Settings** tab to control how the assistant drafts, learns, and notifies you. Settings apply to the currently selected email account, so review them separately when you connect multiple accounts.
 
-<Warning>
-AI drafts and classifications can be wrong. Keep high-impact actions reviewable, verify recipients and factual claims, and use the safety settings below for sensitive workflows.
-</Warning>
-
 ## Drafting controls
 
 ### Auto draft replies
 
-Enable this to create replies in your Drafts folder for messages that need a response. The assistant does not send these drafts automatically. Some deployments can disable auto-drafting entirely, in which case this setting and related knowledge controls are hidden.
+Enable this to create replies in your Drafts folder for messages that need a response. The assistant does not send these drafts automatically.
 
 ### Draft confidence
 
 Choose how certain the assistant must be before it prepares a draft:
 
-- **All emails** — draft whenever an email needs a reply, even when uncertain.
-- **Standard** — skip drafting when the assistant is unsure how to respond.
-- **High confidence** — draft only when it is very sure of the appropriate reply.
+- **All emails**: draft whenever an email needs a reply, even when uncertain.
+- **Standard**: skip drafting when the assistant is unsure how to respond.
+- **High confidence**: draft only when it is very sure of the appropriate reply.
 
 Use a stricter setting when correctness is more important than draft coverage.
 
@@ -30,11 +26,11 @@ Use a stricter setting when correctness is more important than draft coverage.
 
 ### Follow-up reminders
 
-Enable reminders for messages where someone has not replied to you or where you have not replied. In **Configure**, set each delay independently, choose whether the assistant should prepare a follow-up draft, and run an initial scan of existing mail. The feature may be hidden if it is disabled for the deployment.
+Enable reminders for messages where someone has not replied to you or where you have not replied. In **Configure**, set each delay independently, choose whether the assistant should prepare a follow-up draft, and run an initial scan of existing mail.
 
 ### Digest
 
-Schedule a daily summary of newsletter emails and choose which rules contribute to it. Digests require the **Plus plan or higher** and appear only when the deployment has enabled the feature. You can route a digest to a connected chat provider from [Channels](/essentials/channels).
+Schedule a daily summary of newsletter emails and choose which rules contribute to it. Digests require the **Plus plan or higher**. You can route a digest to a connected chat provider from [Channels](/essentials/channels).
 
 ## Your voice
 
@@ -82,17 +78,15 @@ This permits anchor text such as “click here” instead of displaying the full
 
 Choose how credentials and card numbers are handled before an AI request:
 
-- **Off** — send content without scanning.
-- **Redact** — hide detected credentials and card numbers, then send the remaining content to AI.
-- **Block** — skip the AI request when sensitive data is detected.
-
-An administrator can lock this policy at the deployment level. When locked, the setting is hidden and the configured policy still applies.
+- **Off**: send content without scanning.
+- **Redact**: hide detected credentials and card numbers, then send the remaining content to AI.
+- **Block**: skip the AI request when sensitive data is detected.
 
 ## Troubleshooting
 
 ### A setting is missing
 
-Feature flags, plan access, email provider, browser support, or an administrator policy can hide settings. Auto-draft controls disappear when auto-drafting is disabled; Digest requires Plus; extension sync requires the configured extension.
+Some settings depend on your plan or email provider. Auto-draft controls appear only while auto-drafting is enabled, Digest requires the Plus plan, and extension sync requires the Inbox Zero Tabs extension.
 
 ### Drafts do not sound like me
 
