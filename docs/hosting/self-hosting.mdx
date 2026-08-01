@@ -24,7 +24,7 @@ This guide covers production deployment on a VPS using Docker and Docker Compose
 Connect to your VPS and install:
 
 1. **Docker Engine**: Follow [the official guide](https://docs.docker.com/engine/install) and the [Post installation steps](https://docs.docker.com/engine/install/linux-postinstall/#manage-docker-as-a-non-root-user)
-2. **Node.js**: Follow [the official guide](https://nodejs.org/en/download) (required for the setup CLI)
+2. **Node.js v24**: Follow [the official guide](https://nodejs.org/en/download) (required for the setup CLI and source installation)
 
 ### 2. Setup and Configure
 
@@ -48,7 +48,7 @@ git clone https://github.com/elie222/inbox-zero.git
 cd inbox-zero
 corepack enable
 pnpm install
-pnpm setup
+pnpm run setup
 ```
 
 The setup wizard will walk you through configuring Google and/or Microsoft OAuth, choosing an AI provider, and generating secrets.
@@ -243,7 +243,7 @@ cd inbox-zero
 # Install dependencies and configure environment (auto-generates secrets)
 corepack enable
 pnpm install
-pnpm setup
+pnpm run setup
 nano apps/web/.env
 
 # Build and start
