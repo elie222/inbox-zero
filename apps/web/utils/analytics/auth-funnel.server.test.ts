@@ -6,6 +6,8 @@ vi.mock("@/utils/posthog", () => ({
 
 import {
   getAuthProviderFromContext,
+  isNewUserAuthContext,
+  markAuthContextAsNewUser,
   trackAuthenticationCompleted,
 } from "@/utils/analytics/auth-funnel.server";
 import { posthogCaptureEvent } from "@/utils/posthog";
@@ -45,9 +47,8 @@ describe("server auth funnel analytics", () => {
   it("tracks a completed provider login without adding user data as properties", async () => {
     await trackAuthenticationCompleted({
       email: "user@example.com",
-      userCreatedAt: new Date("2026-08-02T11:59:30.000Z"),
       provider: "google",
-      authenticatedAt: new Date("2026-08-02T12:00:00.000Z"),
+      isNewUser: true,
     });
 
     expect(posthogCaptureEvent).toHaveBeenCalledWith(
@@ -60,9 +61,8 @@ describe("server auth funnel analytics", () => {
   it("distinguishes an existing-user login from new-account completion", async () => {
     await trackAuthenticationCompleted({
       email: "user@example.com",
-      userCreatedAt: new Date("2026-07-01T00:00:00.000Z"),
       provider: "apple",
-      authenticatedAt: new Date("2026-08-02T12:00:00.000Z"),
+      isNewUser: false,
     });
 
     expect(posthogCaptureEvent).toHaveBeenCalledWith(
@@ -75,9 +75,8 @@ describe("server auth funnel analytics", () => {
   it("does not emit completion events when provider attribution is unknown", async () => {
     await trackAuthenticationCompleted({
       email: "user@example.com",
-      userCreatedAt: new Date("2026-08-02T11:59:30.000Z"),
       provider: "unknown",
-      authenticatedAt: new Date("2026-08-02T12:00:00.000Z"),
+      isNewUser: true,
     });
 
     expect(posthogCaptureEvent).not.toHaveBeenCalled();
@@ -91,10 +90,21 @@ describe("server auth funnel analytics", () => {
     await expect(
       trackAuthenticationCompleted({
         email: "user@example.com",
-        userCreatedAt: new Date("2026-07-01T00:00:00.000Z"),
         provider: "microsoft",
-        authenticatedAt: new Date("2026-08-02T12:00:00.000Z"),
+        isNewUser: false,
       }),
     ).resolves.toBeUndefined();
+  });
+
+  it("marks new users from the current auth request context", () => {
+    const authContext = {};
+    const unrelatedAuthContext = {};
+
+    expect(isNewUserAuthContext(authContext)).toBe(false);
+
+    markAuthContextAsNewUser(authContext);
+
+    expect(isNewUserAuthContext(authContext)).toBe(true);
+    expect(isNewUserAuthContext(unrelatedAuthContext)).toBe(false);
   });
 });

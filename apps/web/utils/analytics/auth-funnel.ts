@@ -132,7 +132,7 @@ export function trackAuthFailure(
   clearPendingAuthProvider();
 }
 
-function clearPendingAuthProvider() {
+export function clearPendingAuthProvider() {
   if (typeof sessionStorage === "undefined") return;
 
   try {

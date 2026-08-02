@@ -5,7 +5,15 @@ import { createScopedLogger } from "@/utils/logger";
 import { posthogCaptureEvent } from "@/utils/posthog";
 
 const logger = createScopedLogger("analytics/auth-funnel");
-const NEW_USER_AUTH_WINDOW_MS = 60 * 1000;
+const newUserAuthContexts = new WeakSet<object>();
+
+export function markAuthContextAsNewUser(authContext?: object | null) {
+  if (authContext) newUserAuthContexts.add(authContext);
+}
+
+export function isNewUserAuthContext(authContext?: object | null) {
+  return !!authContext && newUserAuthContexts.has(authContext);
+}
 
 export function getAuthProviderFromContext(
   context: Pick<GenericEndpointContext, "params" | "path"> | null,
@@ -20,26 +28,19 @@ export function getAuthProviderFromContext(
 
 export async function trackAuthenticationCompleted({
   email,
-  userCreatedAt,
   provider,
-  authenticatedAt,
+  isNewUser,
 }: {
   email: string;
-  userCreatedAt: Date;
   provider: AuthFunnelProvider;
-  authenticatedAt: Date;
+  isNewUser: boolean;
 }) {
   if (provider === "unknown") return;
 
   try {
-    const accountAgeAtAuthentication =
-      authenticatedAt.getTime() - userCreatedAt.getTime();
-
     await posthogCaptureEvent(email, "Authentication Completed", {
       provider,
-      is_new_user:
-        accountAgeAtAuthentication >= 0 &&
-        accountAgeAtAuthentication <= NEW_USER_AUTH_WINDOW_MS,
+      is_new_user: isNewUser,
     });
   } catch (error) {
     logger.error("Failed to track completed authentication", {

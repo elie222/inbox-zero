@@ -2,6 +2,7 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  clearPendingAuthProvider,
   getAuthErrorCategory,
   getPendingAuthProvider,
   normalizeAuthProvider,
@@ -48,6 +49,15 @@ describe("auth funnel analytics", () => {
 
     rememberAuthProvider("microsoft", now - 16 * 60 * 1000);
     expect(getPendingAuthProvider(now)).toBe("unknown");
+    expect(sessionStorage.length).toBe(0);
+  });
+
+  it("clears provider attribution after authentication succeeds", () => {
+    rememberAuthProvider("google");
+
+    clearPendingAuthProvider();
+
+    expect(getPendingAuthProvider()).toBe("unknown");
     expect(sessionStorage.length).toBe(0);
   });
 

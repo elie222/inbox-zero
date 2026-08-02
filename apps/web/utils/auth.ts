@@ -51,6 +51,8 @@ import { assertCanGenerateScimToken } from "@/utils/auth/scim";
 import prisma from "@/utils/prisma";
 import {
   getAuthProviderFromContext,
+  isNewUserAuthContext,
+  markAuthContextAsNewUser,
   trackAuthenticationCompleted,
 } from "@/utils/analytics/auth-funnel.server";
 
@@ -302,7 +304,8 @@ export const betterAuthConfig = betterAuth({
           });
           assertAllowedAuthSignupEmail(user.email);
         },
-        after: async (user) => {
+        after: async (user, context) => {
+          markAuthContextAsNewUser(context?.context);
           await postSignUp({
             id: user.id,
             email: user.email,
@@ -338,9 +341,8 @@ export const betterAuthConfig = betterAuth({
         after(() =>
           trackAuthenticationCompleted({
             email: authenticatedSession.user.email,
-            userCreatedAt: authenticatedSession.user.createdAt,
             provider,
-            authenticatedAt: authenticatedSession.session.createdAt,
+            isNewUser: isNewUserAuthContext(context.context),
           }),
         );
       } catch (error) {
