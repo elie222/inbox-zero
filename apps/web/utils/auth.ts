@@ -7,9 +7,11 @@ import { createContact as createLoopsContact } from "@inboxzero/loops";
 import { createContact as createResendContact } from "@inboxzero/resend";
 import type { Account, AuthContext } from "better-auth";
 import { APIError, betterAuth } from "better-auth";
+import { createAuthMiddleware } from "better-auth/api";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
 import { cookies, headers } from "next/headers";
+import { after } from "next/server";
 import { env } from "@/env";
 import {
   assertAllowedAuthSignupEmail,
@@ -49,7 +51,6 @@ import { assertCanGenerateScimToken } from "@/utils/auth/scim";
 import prisma from "@/utils/prisma";
 import {
   getAuthProviderFromContext,
-  queueAuthFunnelTracking,
   trackAuthenticationCompleted,
 } from "@/utils/analytics/auth-funnel.server";
 
@@ -314,21 +315,6 @@ export const betterAuthConfig = betterAuth({
         },
       },
     },
-    session: {
-      create: {
-        after: async (session, context) => {
-          const provider = getAuthProviderFromContext(context);
-          await queueAuthFunnelTracking(
-            context,
-            trackAuthenticationCompleted({
-              userId: session.userId,
-              provider,
-              authenticatedAt: session.createdAt,
-            }),
-          );
-        },
-      },
-    },
     account: {
       create: {
         after: async (account: Account) => {
@@ -341,6 +327,26 @@ export const betterAuthConfig = betterAuth({
         },
       },
     },
+  },
+  hooks: {
+    after: createAuthMiddleware(async (context) => {
+      try {
+        const provider = getAuthProviderFromContext(context);
+        const authenticatedSession = context.context.newSession;
+        if (provider === "unknown" || !authenticatedSession) return;
+
+        after(() =>
+          trackAuthenticationCompleted({
+            email: authenticatedSession.user.email,
+            userCreatedAt: authenticatedSession.user.createdAt,
+            provider,
+            authenticatedAt: authenticatedSession.session.createdAt,
+          }),
+        );
+      } catch (error) {
+        logger.error("Failed to schedule authentication analytics", { error });
+      }
+    }),
   },
   onAPIError: {
     throw: true,

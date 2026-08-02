@@ -74,4 +74,21 @@ describe("auth funnel analytics", () => {
       "private-error-message",
     );
   });
+
+  it("does not throw when browser analytics is unavailable", () => {
+    const posthog = {
+      capture: vi.fn(() => {
+        throw new Error("Analytics unavailable");
+      }),
+    } as never;
+
+    expect(() => trackAuthStarted(posthog, "google")).not.toThrow();
+    expect(() =>
+      trackAuthFailure(posthog, {
+        provider: "google",
+        stage: "start",
+        errorCode: "client_error",
+      }),
+    ).not.toThrow();
+  });
 });

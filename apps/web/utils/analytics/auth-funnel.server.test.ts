@@ -4,20 +4,11 @@ vi.mock("@/utils/posthog", () => ({
   posthogCaptureEvent: vi.fn(),
 }));
 
-vi.mock("@/utils/prisma", () => ({
-  default: {
-    user: {
-      findUnique: vi.fn(),
-    },
-  },
-}));
-
 import {
   getAuthProviderFromContext,
   trackAuthenticationCompleted,
 } from "@/utils/analytics/auth-funnel.server";
 import { posthogCaptureEvent } from "@/utils/posthog";
-import prisma from "@/utils/prisma";
 
 describe("server auth funnel analytics", () => {
   beforeEach(() => {
@@ -52,13 +43,9 @@ describe("server auth funnel analytics", () => {
   });
 
   it("tracks a completed provider login without adding user data as properties", async () => {
-    prisma.user.findUnique.mockResolvedValue({
-      createdAt: new Date("2026-08-02T11:59:30.000Z"),
-      email: "user@example.com",
-    });
-
     await trackAuthenticationCompleted({
-      userId: "user-id",
+      email: "user@example.com",
+      userCreatedAt: new Date("2026-08-02T11:59:30.000Z"),
       provider: "google",
       authenticatedAt: new Date("2026-08-02T12:00:00.000Z"),
     });
@@ -71,13 +58,9 @@ describe("server auth funnel analytics", () => {
   });
 
   it("distinguishes an existing-user login from new-account completion", async () => {
-    prisma.user.findUnique.mockResolvedValue({
-      createdAt: new Date("2026-07-01T00:00:00.000Z"),
-      email: "user@example.com",
-    });
-
     await trackAuthenticationCompleted({
-      userId: "user-id",
+      email: "user@example.com",
+      userCreatedAt: new Date("2026-07-01T00:00:00.000Z"),
       provider: "apple",
       authenticatedAt: new Date("2026-08-02T12:00:00.000Z"),
     });
@@ -91,12 +74,27 @@ describe("server auth funnel analytics", () => {
 
   it("does not emit completion events when provider attribution is unknown", async () => {
     await trackAuthenticationCompleted({
-      userId: "user-id",
+      email: "user@example.com",
+      userCreatedAt: new Date("2026-08-02T11:59:30.000Z"),
       provider: "unknown",
       authenticatedAt: new Date("2026-08-02T12:00:00.000Z"),
     });
 
-    expect(prisma.user.findUnique).not.toHaveBeenCalled();
     expect(posthogCaptureEvent).not.toHaveBeenCalled();
+  });
+
+  it("does not reject authentication when analytics delivery fails", async () => {
+    vi.mocked(posthogCaptureEvent).mockRejectedValueOnce(
+      new Error("Analytics unavailable"),
+    );
+
+    await expect(
+      trackAuthenticationCompleted({
+        email: "user@example.com",
+        userCreatedAt: new Date("2026-07-01T00:00:00.000Z"),
+        provider: "microsoft",
+        authenticatedAt: new Date("2026-08-02T12:00:00.000Z"),
+      }),
+    ).resolves.toBeUndefined();
   });
 });
