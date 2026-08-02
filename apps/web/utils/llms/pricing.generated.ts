@@ -9,6 +9,11 @@ export type ModelPricing = {
 };
 
 export const OPENROUTER_MODEL_PRICING: Record<string, ModelPricing> = {
+  "~deepseek/deepseek-v4-flash-latest": {
+    input: 9e-8,
+    output: 1.8e-7,
+    cachedInput: 1.8e-8,
+  },
   "anthropic.claude-3-5-haiku-20241022-v1:0": {
     input: 8.000_000_000_000_001e-7,
     output: 0.000_004,
@@ -113,11 +118,6 @@ export const OPENROUTER_MODEL_PRICING: Record<string, ModelPricing> = {
     input: 0.000_001_925,
     output: 0.000_003_828,
     cachedInput: 1.65e-7,
-  },
-  "deepseek/deepseek-v4-flash": {
-    input: 7.7e-8,
-    output: 1.54e-7,
-    cachedInput: 1.54e-8,
   },
   "eu.anthropic.claude-sonnet-4-6": {
     input: 0.000_003,
