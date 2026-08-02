@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { hasCronSecret } from "./cron";
 import type { RequestWithLogger } from "@/utils/middleware";
 import { createTestLogger } from "@/__tests__/helpers";
@@ -23,6 +23,10 @@ function createMockRequestWithLogger(
 describe("hasCronSecret", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("should return true for valid authorization header", () => {

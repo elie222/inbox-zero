@@ -118,6 +118,7 @@ describe("cleanupInvalidTokens", () => {
     expect(prisma.account.updateMany).toHaveBeenCalledWith({
       where: {
         id: "acc_1",
+        disconnectedAt: { not: null },
         OR: [
           { access_token: { not: null } },
           { refresh_token: { not: null } },

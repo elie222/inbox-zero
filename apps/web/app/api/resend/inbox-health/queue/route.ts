@@ -9,6 +9,7 @@ export const POST = createForwardingQueueHandler({
   path: "/api/resend/inbox-health",
   invalidPayloadMessage: "Invalid resend inbox health queue payload",
   visibilityTimeoutSeconds: 55,
+  maxDeliveryAttempts: 5,
   getLoggerContext: (payload) => ({
     emailAccountId: payload.emailAccountId,
   }),

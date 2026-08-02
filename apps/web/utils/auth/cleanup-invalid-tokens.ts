@@ -62,6 +62,7 @@ export async function cleanupInvalidTokens({
     await prisma.account.updateMany({
       where: {
         id: emailAccount.accountId,
+        disconnectedAt: { not: null },
         OR: [
           { access_token: { not: null } },
           { refresh_token: { not: null } },
