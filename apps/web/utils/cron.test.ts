@@ -41,6 +41,16 @@ describe("hasCronSecret", () => {
     expect(hasCronSecret(request)).toBe(false);
   });
 
+  it("can validate without logging while another auth method is checked", () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const request = createMockRequestWithLogger({
+      authorization: "Bearer wrong-secret",
+    });
+
+    expect(hasCronSecret(request, { logUnauthorized: false })).toBe(false);
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
   it("should return false for missing authorization header", () => {
     const request = createMockRequestWithLogger();
 

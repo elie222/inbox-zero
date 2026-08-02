@@ -96,6 +96,10 @@ export function classifyEmailAccountProviderIssue({
     return { reason: "insufficient_permissions" };
   }
 
+  if (provider === "microsoft" && message?.includes("AADSTS9002313")) {
+    return { reason: "invalid_grant" };
+  }
+
   if (
     provider === "google" &&
     (message?.includes("policy_enforced") ||

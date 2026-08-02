@@ -59,6 +59,21 @@ export async function cleanupInvalidTokens({
   }
 
   if (emailAccount.account?.disconnectedAt) {
+    await prisma.account.updateMany({
+      where: {
+        id: emailAccount.accountId,
+        OR: [
+          { access_token: { not: null } },
+          { refresh_token: { not: null } },
+          { expires_at: { not: null } },
+        ],
+      },
+      data: {
+        access_token: null,
+        refresh_token: null,
+        expires_at: null,
+      },
+    });
     logger.info("Account already marked as disconnected");
     return;
   }

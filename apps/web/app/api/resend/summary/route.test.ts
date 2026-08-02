@@ -140,6 +140,9 @@ describe("summary email route", () => {
     );
 
     expect(response.status).toBe(200);
+    expect(mockHasCronSecret).toHaveBeenCalledWith(expect.any(Request), {
+      logUnauthorized: false,
+    });
     expect(mockCreateEmailProvider).toHaveBeenCalledWith(
       expect.objectContaining({
         emailAccountId: "email-account-id",

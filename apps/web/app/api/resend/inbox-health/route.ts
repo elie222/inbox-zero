@@ -21,6 +21,8 @@ import {
   getNewsletterSenderDisplayName,
 } from "@/utils/email";
 import { createEmailProvider } from "@/utils/email/provider";
+import { classifyEmailAccountProviderIssue } from "@/utils/email/provider-health";
+import { toRateLimitProvider } from "@/utils/email/rate-limit-mode-error";
 import { sendInboxHealthEmailBody } from "./validation";
 import { getInboxHealthEmailData, getInboxHealthSkipReason } from "./helpers";
 
@@ -46,7 +48,7 @@ export const GET = withEmailAccount("resend/inbox-health", async (request) => {
 export const POST = withError("resend/inbox-health", async (request) => {
   const logger = request.logger;
   if (
-    !hasCronSecret(request) &&
+    !hasCronSecret(request, { logUnauthorized: false }) &&
     !isValidInternalApiKey(request.headers, logger)
   ) {
     logger.error("Unauthorized cron request");
@@ -145,11 +147,31 @@ async function sendEmail({
     return { success: false, message: "Account has no refresh token" };
   }
 
-  const emailProvider = await createEmailProvider({
-    emailAccountId,
-    provider: emailAccount.account.provider,
-    logger,
-  });
+  let emailProvider: Awaited<ReturnType<typeof createEmailProvider>>;
+  try {
+    emailProvider = await createEmailProvider({
+      emailAccountId,
+      provider: emailAccount.account.provider,
+      logger,
+    });
+  } catch (error) {
+    const provider = toRateLimitProvider(emailAccount.account.provider);
+    const issue = provider
+      ? classifyEmailAccountProviderIssue({ error, provider })
+      : null;
+
+    if (!issue) throw error;
+
+    logger.warn("Skipping inbox health email: provider action required", {
+      provider,
+      reason: issue.reason,
+    });
+    await prisma.emailAccount.update({
+      where: { id: emailAccountId },
+      data: { lastInboxHealthEmailAt: new Date() },
+    });
+    return { success: false, skipped: "provider action required" };
+  }
 
   const [senderStats, newsletterStatuses, emailFilters] = await Promise.all([
     getSenderEmailStats({

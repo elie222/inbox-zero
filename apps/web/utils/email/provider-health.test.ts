@@ -156,6 +156,15 @@ describe("provider health", () => {
     });
   });
 
+  it("records malformed Outlook refresh credentials as reconnect-required issues", () => {
+    expect(
+      classifyEmailAccountProviderIssue({
+        provider: "microsoft",
+        error: new Error("AADSTS9002313: Invalid request."),
+      }),
+    ).toEqual({ reason: "invalid_grant" });
+  });
+
   it("keeps provider error handling alive when cleanup fails", async () => {
     const logger = createMockLogger();
     vi.mocked(cleanupInvalidTokens).mockRejectedValueOnce(

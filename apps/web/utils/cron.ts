@@ -2,16 +2,20 @@ import { env } from "@/env";
 import { secureCompare } from "@/utils/crypto-compare";
 import type { RequestWithLogger } from "@/utils/middleware";
 
-export function hasCronSecret(request: RequestWithLogger) {
+export function hasCronSecret(
+  request: RequestWithLogger,
+  { logUnauthorized = true }: { logUnauthorized?: boolean } = {},
+) {
   if (!env.CRON_SECRET) {
-    request.logger.error("No cron secret set, unauthorized cron request");
+    if (logUnauthorized)
+      request.logger.error("No cron secret set, unauthorized cron request");
     return false;
   }
 
   const authHeader = request.headers.get("authorization");
   const valid = secureCompare(authHeader, `Bearer ${env.CRON_SECRET}`);
 
-  if (!valid)
+  if (!valid && logUnauthorized)
     request.logger.error("Unauthorized cron request:", { authHeader });
 
   return valid;

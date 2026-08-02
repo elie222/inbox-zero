@@ -50,7 +50,7 @@ export const GET = withEmailAccount("resend/summary", async (request) => {
 export const POST = withError("resend/summary", async (request) => {
   const logger = request.logger;
   if (
-    !hasCronSecret(request) &&
+    !hasCronSecret(request, { logUnauthorized: false }) &&
     !isValidInternalApiKey(request.headers, logger)
   ) {
     logger.error("Unauthorized cron request");
