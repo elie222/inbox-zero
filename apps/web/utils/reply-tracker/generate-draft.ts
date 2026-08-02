@@ -200,12 +200,10 @@ async function generateDraftContent(
         draft: cachedReply.reply,
         confidence: cachedReply.confidence,
         attribution: cachedReply.attribution,
-        // Recomputed, not replayed: the account's minimum may have changed
-        // since this was cached.
         draftContextMetadata: cachedReply.draftContextMetadata
           ? {
               ...cachedReply.draftContextMetadata,
-              draft: { confidence: cachedReply.confidence, meetsThreshold },
+              draft: { confidence: cachedReply.confidence },
             }
           : cachedReply.draftContextMetadata,
         ...(selectedRuleId ? { attachments: cachedReply.attachments } : {}),
@@ -448,11 +446,10 @@ async function generateDraftContent(
     draftConfidence: confidence,
     minimumConfidence,
   });
-  draftContextMetadata.draft = { confidence, meetsThreshold };
+  draftContextMetadata.draft = { confidence };
 
   if (!meetsThreshold) {
-    // A suppressed draft creates no action and so no ExecutedAction row. This
-    // log is the only per-account record that the gate fired.
+    // A suppressed draft creates no action and therefore no ExecutedAction row.
     logger.info("Skipping draft due to low confidence", {
       emailAccountId: emailAccount.id,
       draftConfidence: confidence,

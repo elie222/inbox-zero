@@ -8,6 +8,7 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailProvider } from "@/utils/email/types";
 import { DraftReplyConfidence } from "@/generated/prisma/enums";
 import { DRAFT_PIPELINE_VERSION } from "@/utils/ai/reply/draft-attribution";
+import type { DraftContextMetadata } from "@/utils/ai/reply/draft-context-metadata";
 import { createTestLogger } from "@/__tests__/helpers";
 
 vi.mock("@/utils/ai/reply/draft-reply", () => ({
@@ -729,6 +730,7 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
         modelName: "gpt-5.1",
         pipelineVersion: DRAFT_PIPELINE_VERSION,
       },
+      draftContextMetadata: createDraftContextMetadata(),
     });
 
     const result = await fetchMessagesAndGenerateDraftWithConfidenceThreshold(
@@ -748,6 +750,9 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
         modelName: "gpt-5.1",
         pipelineVersion: DRAFT_PIPELINE_VERSION,
       },
+      draftContextMetadata: expect.objectContaining({
+        draft: { confidence: DraftReplyConfidence.STANDARD },
+      }),
     });
     expect(aiDraftReplyWithConfidence).not.toHaveBeenCalled();
   });
@@ -801,6 +806,7 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
     });
     expect(result.draftContextMetadata).toEqual(
       expect.objectContaining({
+        draft: { confidence: DraftReplyConfidence.HIGH_CONFIDENCE },
         replyMemories: expect.objectContaining({
           ids: ["memory-1"],
         }),
@@ -818,6 +824,7 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
           pipelineVersion: DRAFT_PIPELINE_VERSION,
         },
         draftContextMetadata: expect.objectContaining({
+          draft: { confidence: DraftReplyConfidence.HIGH_CONFIDENCE },
           replyMemories: expect.objectContaining({
             ids: ["memory-1"],
           }),
@@ -857,6 +864,7 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
     });
     expect(result.draftContextMetadata).toEqual(
       expect.objectContaining({
+        draft: { confidence: DraftReplyConfidence.ALL_EMAILS },
         replyMemories: expect.objectContaining({
           ids: ["memory-1"],
         }),
@@ -874,6 +882,7 @@ describe("fetchMessagesAndGenerateDraftWithConfidenceThreshold", () => {
           pipelineVersion: DRAFT_PIPELINE_VERSION,
         },
         draftContextMetadata: expect.objectContaining({
+          draft: { confidence: DraftReplyConfidence.ALL_EMAILS },
           replyMemories: expect.objectContaining({
             ids: ["memory-1"],
           }),
@@ -1010,3 +1019,27 @@ reason: Matched the requested property packet
     );
   });
 });
+
+function createDraftContextMetadata(): DraftContextMetadata {
+  return {
+    replyMemories: { count: 0, ids: [], kinds: [], scopeTypes: [] },
+    knowledgeBase: { availableCount: 0, injected: false },
+    senderHistory: {
+      summaryInjected: false,
+      summarySourceMessageCount: 0,
+      precedentThreadsInjected: false,
+      precedentThreadCount: 0,
+      sameSenderReplyExamplesInjected: false,
+      sameSenderReplyExampleCount: 0,
+    },
+    calendar: {
+      injected: false,
+      noAvailability: false,
+      suggestedTimesCount: 0,
+    },
+    writingStyle: { custom: false },
+    externalTools: { injected: false },
+    meetings: { injected: false, count: 0 },
+    attachments: { injected: false, selectedCount: 0 },
+  };
+}

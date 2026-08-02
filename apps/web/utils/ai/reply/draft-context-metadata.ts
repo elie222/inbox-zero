@@ -47,7 +47,6 @@ export const draftContextMetadataSchema = z.object({
   draft: z
     .object({
       confidence: z.nativeEnum(DraftReplyConfidence),
-      meetsThreshold: z.boolean(),
     })
     .optional(),
 });
