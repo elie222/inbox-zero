@@ -47,6 +47,11 @@ import { getEnabledLoginProviders } from "@/utils/oauth/login-providers";
 import { getAppleClientSecret } from "@/utils/auth/apple-client-secret";
 import { assertCanGenerateScimToken } from "@/utils/auth/scim";
 import prisma from "@/utils/prisma";
+import {
+  getAuthProviderFromContext,
+  queueAuthFunnelTracking,
+  trackAuthenticationCompleted,
+} from "@/utils/analytics/auth-funnel.server";
 
 const logger = createScopedLogger("auth");
 const EMAIL_ALREADY_LINKED_ERROR = "email_already_linked";
@@ -306,6 +311,21 @@ export const betterAuthConfig = betterAuth({
             logger.error("Error posting sign up", { error, user });
             captureException(error, { extra: { user } });
           });
+        },
+      },
+    },
+    session: {
+      create: {
+        after: async (session, context) => {
+          const provider = getAuthProviderFromContext(context);
+          await queueAuthFunnelTracking(
+            context,
+            trackAuthenticationCompleted({
+              userId: session.userId,
+              provider,
+              authenticatedAt: session.createdAt,
+            }),
+          );
         },
       },
     },
