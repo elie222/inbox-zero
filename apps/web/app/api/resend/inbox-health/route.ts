@@ -3,8 +3,7 @@ import { subMonths } from "date-fns/subMonths";
 import { sendInboxHealthEmail } from "@inboxzero/resend";
 import { withEmailAccount, withError } from "@/utils/middleware";
 import { env } from "@/env";
-import { hasCronSecret } from "@/utils/cron";
-import { isValidInternalApiKey } from "@/utils/internal-api";
+import { isAuthorizedCronOrInternalRequest } from "@/utils/cron";
 import { captureException } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
@@ -22,7 +21,10 @@ import {
 } from "@/utils/email";
 import { createEmailProvider } from "@/utils/email/provider";
 import { classifyEmailAccountProviderIssue } from "@/utils/email/provider-health";
-import { toRateLimitProvider } from "@/utils/email/rate-limit-mode-error";
+import {
+  isGoogleProvider,
+  isMicrosoftProvider,
+} from "@/utils/email/provider-types";
 import { sendInboxHealthEmailBody } from "./validation";
 import { getInboxHealthEmailData, getInboxHealthSkipReason } from "./helpers";
 
@@ -47,10 +49,7 @@ export const GET = withEmailAccount("resend/inbox-health", async (request) => {
 
 export const POST = withError("resend/inbox-health", async (request) => {
   const logger = request.logger;
-  if (
-    !hasCronSecret(request, { logUnauthorized: false }) &&
-    !isValidInternalApiKey(request.headers, logger)
-  ) {
+  if (!isAuthorizedCronOrInternalRequest(request)) {
     logger.error("Unauthorized cron request");
     captureException(new Error("Unauthorized cron request: resend"));
     return new Response("Unauthorized", { status: 401 });
@@ -138,12 +137,7 @@ async function sendEmail({
 
   if (!emailAccount.account.refresh_token) {
     logger.warn("Skipping inbox health email: account has no refresh token");
-    // Bump the timestamp so the daily fan-out doesn't re-enqueue this
-    // disconnected account every day until it reconnects.
-    await prisma.emailAccount.update({
-      where: { id: emailAccountId },
-      data: { lastInboxHealthEmailAt: new Date() },
-    });
+    await startNextInboxHealthWindow(emailAccountId);
     return { success: false, message: "Account has no refresh token" };
   }
 
@@ -155,21 +149,19 @@ async function sendEmail({
       logger,
     });
   } catch (error) {
-    const provider = toRateLimitProvider(emailAccount.account.provider);
-    const issue = provider
-      ? classifyEmailAccountProviderIssue({ error, provider })
-      : null;
+    const provider = emailAccount.account.provider;
 
+    if (!isGoogleProvider(provider) && !isMicrosoftProvider(provider))
+      throw error;
+
+    const issue = classifyEmailAccountProviderIssue({ error, provider });
     if (!issue) throw error;
 
     logger.warn("Skipping inbox health email: provider action required", {
       provider,
       reason: issue.reason,
     });
-    await prisma.emailAccount.update({
-      where: { id: emailAccountId },
-      data: { lastInboxHealthEmailAt: new Date() },
-    });
+    await startNextInboxHealthWindow(emailAccountId);
     return { success: false, skipped: "provider action required" };
   }
 
@@ -210,12 +202,7 @@ async function sendEmail({
     logger.info("Not enough unsubscribe suggestions, skipping", {
       senderCount: senders.length,
     });
-    // Still bump the timestamp so the daily fan-out doesn't re-run the
-    // expensive stats query for this account until the next 30-day window.
-    await prisma.emailAccount.update({
-      where: { id: emailAccountId },
-      data: { lastInboxHealthEmailAt: new Date() },
-    });
+    await startNextInboxHealthWindow(emailAccountId);
     return { success: true, skipped: "not enough suggestions" };
   }
 
@@ -237,10 +224,19 @@ async function sendEmail({
     },
   });
 
-  await prisma.emailAccount.update({
+  await startNextInboxHealthWindow(emailAccountId);
+
+  return { success: true };
+}
+
+/**
+ * Bump the timestamp on skips as well as sends, so the daily fan-out doesn't
+ * re-enqueue the account (and re-run the expensive stats query) until the next
+ * window.
+ */
+function startNextInboxHealthWindow(emailAccountId: string) {
+  return prisma.emailAccount.update({
     where: { id: emailAccountId },
     data: { lastInboxHealthEmailAt: new Date() },
   });
-
-  return { success: true };
 }

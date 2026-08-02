@@ -5,15 +5,11 @@ import { Frequency } from "@/generated/prisma/enums";
 
 vi.mock("@/utils/prisma");
 
-const {
-  mockCreateEmailProvider,
-  mockHasCronSecret,
-  mockIsValidInternalApiKey,
-} = vi.hoisted(() => ({
-  mockCreateEmailProvider: vi.fn(),
-  mockHasCronSecret: vi.fn(),
-  mockIsValidInternalApiKey: vi.fn(),
-}));
+const { mockCreateEmailProvider, mockIsAuthorizedCronOrInternalRequest } =
+  vi.hoisted(() => ({
+    mockCreateEmailProvider: vi.fn(),
+    mockIsAuthorizedCronOrInternalRequest: vi.fn(),
+  }));
 
 vi.mock("@/utils/middleware", async () => {
   const {
@@ -36,12 +32,8 @@ vi.mock("@/utils/middleware", async () => {
 });
 
 vi.mock("@/utils/cron", () => ({
-  hasCronSecret: (...args: unknown[]) => mockHasCronSecret(...args),
-}));
-
-vi.mock("@/utils/internal-api", () => ({
-  isValidInternalApiKey: (...args: unknown[]) =>
-    mockIsValidInternalApiKey(...args),
+  isAuthorizedCronOrInternalRequest: (...args: unknown[]) =>
+    mockIsAuthorizedCronOrInternalRequest(...args),
 }));
 
 vi.mock("@/utils/email/provider", () => ({
@@ -69,13 +61,12 @@ const emailAccount = {
 describe("inbox health email route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockHasCronSecret.mockReturnValue(false);
-    mockIsValidInternalApiKey.mockReturnValue(true);
+    mockIsAuthorizedCronOrInternalRequest.mockReturnValue(true);
     prisma.emailAccount.findUnique.mockResolvedValue(emailAccount as any);
     prisma.emailAccount.update.mockResolvedValue({} as any);
   });
 
-  it("accepts internal queue requests without logging a failed cron probe", async () => {
+  it("defers accounts without a refresh token instead of calling the provider", async () => {
     prisma.emailAccount.findUnique.mockResolvedValue({
       ...emailAccount,
       account: { ...emailAccount.account, refresh_token: null },
@@ -89,11 +80,11 @@ describe("inbox health email route", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(mockHasCronSecret).toHaveBeenCalledWith(expect.any(Request), {
-      logUnauthorized: false,
-    });
-    expect(mockIsValidInternalApiKey).toHaveBeenCalledOnce();
     expect(mockCreateEmailProvider).not.toHaveBeenCalled();
+    expect(prisma.emailAccount.update).toHaveBeenCalledWith({
+      where: { id: "email-account-id" },
+      data: { lastInboxHealthEmailAt: expect.any(Date) },
+    });
   });
 
   it("acknowledges permanent provider failures and defers future sends", async () => {

@@ -9,6 +9,12 @@ import {
 } from "@/utils/error-messages";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
 
+const clearedCredentials = {
+  access_token: null,
+  refresh_token: null,
+  expires_at: null,
+};
+
 /**
  * Cleans up invalid tokens when authentication fails permanently.
  * Used for:
@@ -48,6 +54,9 @@ export async function cleanupInvalidTokens({
       account: {
         select: {
           disconnectedAt: true,
+          access_token: true,
+          refresh_token: true,
+          expires_at: true,
         },
       },
     },
@@ -58,35 +67,26 @@ export async function cleanupInvalidTokens({
     return;
   }
 
-  if (emailAccount.account?.disconnectedAt) {
-    await prisma.account.updateMany({
-      where: {
-        id: emailAccount.accountId,
-        disconnectedAt: { not: null },
-        OR: [
-          { access_token: { not: null } },
-          { refresh_token: { not: null } },
-          { expires_at: { not: null } },
-        ],
-      },
-      data: {
-        access_token: null,
-        refresh_token: null,
-        expires_at: null,
-      },
-    });
+  const account = emailAccount.account;
+
+  if (account?.disconnectedAt) {
+    const hasStaleCredentials =
+      !!account.access_token || !!account.refresh_token || !!account.expires_at;
+
+    if (hasStaleCredentials) {
+      await prisma.account.updateMany({
+        where: { id: emailAccount.accountId, disconnectedAt: { not: null } },
+        data: clearedCredentials,
+      });
+    }
+
     logger.info("Account already marked as disconnected");
     return;
   }
 
   const updated = await prisma.account.updateMany({
     where: { id: emailAccount.accountId, disconnectedAt: null },
-    data: {
-      access_token: null,
-      refresh_token: null,
-      expires_at: null,
-      disconnectedAt: new Date(),
-    },
+    data: { ...clearedCredentials, disconnectedAt: new Date() },
   });
 
   if (updated.count === 0) {

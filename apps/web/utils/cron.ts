@@ -1,24 +1,33 @@
 import { env } from "@/env";
 import { secureCompare } from "@/utils/crypto-compare";
+import { isValidInternalApiKey } from "@/utils/internal-api";
 import type { RequestWithLogger } from "@/utils/middleware";
 
-export function hasCronSecret(
-  request: RequestWithLogger,
-  { logUnauthorized = true }: { logUnauthorized?: boolean } = {},
-) {
+export function hasCronSecret(request: RequestWithLogger) {
   if (!env.CRON_SECRET) {
-    if (logUnauthorized)
-      request.logger.error("No cron secret set, unauthorized cron request");
+    request.logger.error("No cron secret set, unauthorized cron request");
     return false;
   }
 
-  const authHeader = request.headers.get("authorization");
-  const valid = secureCompare(authHeader, `Bearer ${env.CRON_SECRET}`);
+  const valid = isValidCronSecret(request);
 
-  if (!valid && logUnauthorized)
-    request.logger.error("Unauthorized cron request:", { authHeader });
+  if (!valid)
+    request.logger.error("Unauthorized cron request:", {
+      authHeader: request.headers.get("authorization"),
+    });
 
   return valid;
+}
+
+/**
+ * For routes reached both by cron and by an internal queue forward. The cron
+ * secret is checked quietly because a queue request only carries the internal
+ * API key, and logging that as unauthorized before the key is even checked
+ * floods the error logs.
+ */
+export function isAuthorizedCronOrInternalRequest(request: RequestWithLogger) {
+  if (isValidCronSecret(request)) return true;
+  return isValidInternalApiKey(request.headers, request.logger);
 }
 
 export async function hasPostCronSecret(request: RequestWithLogger) {
@@ -39,4 +48,12 @@ export async function hasPostCronSecret(request: RequestWithLogger) {
 
 export function getCronSecretHeader() {
   return new Headers({ authorization: `Bearer ${env.CRON_SECRET}` });
+}
+
+function isValidCronSecret(request: RequestWithLogger) {
+  if (!env.CRON_SECRET) return false;
+  return secureCompare(
+    request.headers.get("authorization"),
+    `Bearer ${env.CRON_SECRET}`,
+  );
 }

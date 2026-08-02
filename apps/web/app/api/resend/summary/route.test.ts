@@ -14,14 +14,12 @@ vi.mock("@/utils/prisma");
 const {
   mockCreateEmailProvider,
   mockCreateUnsubscribeToken,
-  mockHasCronSecret,
-  mockIsValidInternalApiKey,
+  mockIsAuthorizedCronOrInternalRequest,
   mockSendSummaryEmail,
 } = vi.hoisted(() => ({
   mockCreateEmailProvider: vi.fn(),
   mockCreateUnsubscribeToken: vi.fn(),
-  mockHasCronSecret: vi.fn(),
-  mockIsValidInternalApiKey: vi.fn(),
+  mockIsAuthorizedCronOrInternalRequest: vi.fn(),
   mockSendSummaryEmail: vi.fn(),
 }));
 
@@ -46,12 +44,8 @@ vi.mock("@/utils/middleware", async () => {
 });
 
 vi.mock("@/utils/cron", () => ({
-  hasCronSecret: (...args: unknown[]) => mockHasCronSecret(...args),
-}));
-
-vi.mock("@/utils/internal-api", () => ({
-  isValidInternalApiKey: (...args: unknown[]) =>
-    mockIsValidInternalApiKey(...args),
+  isAuthorizedCronOrInternalRequest: (...args: unknown[]) =>
+    mockIsAuthorizedCronOrInternalRequest(...args),
 }));
 
 vi.mock("@/utils/email/provider", () => ({
@@ -72,8 +66,7 @@ import { POST } from "./route";
 describe("summary email route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockHasCronSecret.mockReturnValue(true);
-    mockIsValidInternalApiKey.mockReturnValue(false);
+    mockIsAuthorizedCronOrInternalRequest.mockReturnValue(true);
     mockCreateUnsubscribeToken.mockResolvedValue("unsubscribe-token");
     mockSendSummaryEmail.mockResolvedValue(undefined);
   });
@@ -140,9 +133,6 @@ describe("summary email route", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(mockHasCronSecret).toHaveBeenCalledWith(expect.any(Request), {
-      logUnauthorized: false,
-    });
     expect(mockCreateEmailProvider).toHaveBeenCalledWith(
       expect.objectContaining({
         emailAccountId: "email-account-id",
