@@ -99,10 +99,17 @@ function toSeedMessages(
     fixture.labels.map((label) => [label.name, label.id]),
   );
 
-  return fixture.threads.flatMap((thread) =>
-    thread.messages.map((message) => ({
+  // Gmail gives a thread the id of its first message, and isReplyInThread()
+  // depends on it: `id !== threadId` is what marks a message as a reply. With
+  // independently-generated thread ids every seeded message looked like a
+  // reply, so every rule with runOnThreads=false (Newsletter, Marketing,
+  // Notification, Receipt, Calendar, Cold Email) was skipped on every email
+  // and could never be exercised locally.
+  return fixture.threads.flatMap((thread) => {
+    const threadId = thread.messages[0]?.id ?? thread.id;
+    return thread.messages.map((message) => ({
       id: message.id,
-      thread_id: thread.id,
+      thread_id: threadId,
       user_email: mailbox.email,
       from: formatAddress(
         rewriteMailboxAddress(fixture, message.from, mailbox),
@@ -122,8 +129,8 @@ function toSeedMessages(
       body_html: message.bodyHtml,
       label_ids: getMessageLabelIds(message, labelIdsByName),
       internal_date: String(new Date(message.date).getTime()),
-    })),
-  );
+    }));
+  });
 }
 
 function getMessageLabelIds(
