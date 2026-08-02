@@ -11,6 +11,7 @@ import {
   getAppPageViewProperties,
   PRODUCT_ANALYTICS_EVENTS,
 } from "@/utils/analytics/product";
+import { clearPendingAuthProvider } from "@/utils/analytics/auth-funnel";
 import { ONE_DAY_MS } from "@/utils/date";
 import { scheduleAfterPageLoad } from "@/utils/schedule-after-page-load";
 
@@ -46,19 +47,23 @@ export function PostHogPageview() {
 export function PostHogIdentify() {
   const { data: session } = useSession();
   const { emailAccount } = useAccount();
+  const userEmail = session?.user.email;
+  const userCreatedAt = session?.user.createdAt;
 
   useEffect(() => {
-    const user = session?.user;
-    if (!user?.email) return;
+    if (!userEmail) return;
+
+    clearPendingAuthProvider();
 
     const signedUpOverOneDayAgo =
-      Date.now() - new Date(user.createdAt).getTime() > ONE_DAY_MS;
+      !!userCreatedAt &&
+      Date.now() - new Date(userCreatedAt).getTime() > ONE_DAY_MS;
 
-    posthog.identify(user.email, {
-      email: user.email,
+    posthog.identify(userEmail, {
+      email: userEmail,
       ...(signedUpOverOneDayAgo && { signed_up_over_1_day: true }),
     });
-  }, [session?.user.createdAt, session?.user.email]);
+  }, [userCreatedAt, userEmail]);
 
   useEffect(() => {
     // Set super properties that will be included with all events
