@@ -1,27 +1,20 @@
 ---
-title: 'Outlook and Microsoft 365'
-description: 'Use Inbox Zero with Outlook and understand the differences from Gmail.'
+title: 'Using Outlook'
+description: 'Terminology, tips, and troubleshooting for Outlook and Microsoft 365 accounts.'
 icon: 'microsoft'
 ---
 
-<Info>
-Many Inbox Zero videos were recorded with Gmail. The Inbox Zero navigation and setup steps generally work the same after you select an Outlook account, but the resulting mail actions use Microsoft folders, categories, calendars, and storage.
-</Info>
+Inbox Zero fully supports Outlook, including Microsoft 365 work or school accounts and personal Outlook accounts. Connecting works the same way as Gmail: follow the [Getting Started guide](/essentials/getting-started), choose Outlook when connecting, and approve the requested Microsoft permissions.
 
-Inbox Zero supports Microsoft 365 work or school accounts and personal Outlook accounts. Features and rules belong to the currently selected mailbox, so confirm the account shown in the switcher before changing settings.
+Everything in the main documentation applies to both providers. This page covers the small number of things that are specific to Outlook.
 
-## Connect Outlook
-
-1. Sign in to Inbox Zero and select **Add or manage accounts** from the account switcher.
-2. Choose **Outlook** and sign in with the Microsoft account you want to connect.
-3. Review and approve the requested Microsoft permissions.
-4. Return to Inbox Zero and select the new mailbox from the account switcher.
-
-An organization administrator may need to approve the app before a managed Microsoft 365 account can connect. If access is later revoked in Microsoft, reconnect the mailbox from Inbox Zero.
+<Note>
+On a managed Microsoft 365 tenant, an organization administrator may need to approve the app before your account can connect. If access is later revoked in Microsoft, reconnect the mailbox from Inbox Zero.
+</Note>
 
 ## Gmail terms in Outlook
 
-When a video or guide shows Gmail, use the corresponding Outlook concept:
+Some Inbox Zero videos and screenshots were recorded with Gmail. The steps are the same in Outlook; only the mail concepts differ:
 
 | Gmail term | Outlook equivalent |
 | --- | --- |
@@ -33,30 +26,11 @@ When a video or guide shows Gmail, use the corresponding Outlook concept:
 | Google Calendar | Outlook Calendar |
 | Google Drive | OneDrive or SharePoint |
 
-## Supported Outlook workflows
+## The Tabs extension
 
-Outlook accounts can use the main Inbox Zero workflows, including:
+The [Inbox Zero Tabs](/essentials/inbox-zero-tabs-extension) browser extension is the one feature that only applies to Gmail. Outlook includes similar inbox-organization tools natively, such as folders, categories, and Focused Inbox, so the extension targets Gmail specifically.
 
-- [AI Chat](/essentials/ai-chat) and [Assistant rules](/essentials/email-ai-personal-assistant)
-- [Bulk Unsubscribe](/essentials/bulk-email-unsubscriber), [Bulk Archive](/essentials/bulk-archiver), and [Analytics](/essentials/email-analytics)
-- [Outlook Calendar](/essentials/calendar-integration), booking links, and Meeting Briefs
-- Attachment filing to Microsoft OneDrive or SharePoint
-- Slack, Microsoft Teams, and Telegram delivery through [Channels](/essentials/channels)
-- The Inbox Zero mobile apps
-
-## Gmail-only differences
-
-### Inbox Zero Tabs extension
-
-The Inbox Zero Tabs browser extension works only inside Gmail. It does not add tabs to Outlook on the web, even when Outlook is open in Chrome, Edge, or another supported browser.
-
-### Reply Zero page
-
-Outlook can use the `To Reply`, `Awaiting Reply`, and `Follow-up` categories, but the dedicated Reply Zero page inside Inbox Zero is currently Gmail-only. Review the categories in Outlook instead.
-
-### Deep Clean
-
-The experimental Deep Clean feature is currently Gmail-only and does not appear for Outlook accounts. Outlook users can use Bulk Archive, Bulk Unsubscribe, Assistant rules, and standard archive or delete actions instead.
+Some [Early Access](/essentials/deep-clean) experiments may also launch on one provider before the other.
 
 ## Outlook troubleshooting
 
@@ -71,4 +45,3 @@ Confirm that the category or folder still exists in the connected Outlook mailbo
 ### Inbox Zero stopped receiving Outlook mail
 
 Open **Settings → Email Accounts** and reconnect the Outlook account if it shows a permissions or subscription error. You can also review or revoke Inbox Zero from the [Microsoft App permissions page](https://account.microsoft.com/privacy/app-access).
-

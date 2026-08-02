@@ -18,8 +18,7 @@
             "group": "Get Started",
             "pages": [
               "introduction",
-              "essentials/getting-started",
-              "essentials/outlook-guide"
+              "essentials/getting-started"
             ]
           },
           {
@@ -61,8 +60,7 @@
             "group": "Inbox Features",
             "pages": [
               "essentials/auto-file-attachments",
-              "essentials/cold-email-blocker",
-              "essentials/reply-zero"
+              "essentials/cold-email-blocker"
             ]
           },
           {
@@ -83,6 +81,7 @@
             "group": "Safety & Help",
             "pages": [
               "essentials/security-and-data",
+              "essentials/outlook-guide",
               "essentials/troubleshooting",
               "essentials/faq"
             ]
@@ -92,6 +91,7 @@
             "pages": [
               "essentials/meeting-recorder",
               "essentials/deep-clean",
+              "essentials/reply-zero",
               "essentials/context-integrations"
             ]
           }
