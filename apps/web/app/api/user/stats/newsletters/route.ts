@@ -1,21 +1,20 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { withEmailProvider } from "@/utils/middleware";
 import {
   canonicalizeEmailAddress,
   getNewsletterSenderDisplayName,
 } from "@/utils/email";
-import type { Logger } from "@/utils/logger";
-import prisma from "@/utils/prisma";
-import { Prisma } from "@/generated/prisma/client";
 import type { EmailProvider } from "@/utils/email/types";
+import type { Logger } from "@/utils/logger";
+import { withEmailProvider } from "@/utils/middleware";
+import { getSenderEmailStats } from "@/utils/sender-stats";
 import {
-  getEmailFilters,
-  getNewsletterStatuses,
+  filterNewsletters,
   findAutoArchiveFilters,
   findNewsletterStatus,
   findSenderLabelFilters,
-  filterNewsletters,
+  getEmailFilters,
+  getNewsletterStatuses,
 } from "@/utils/senders/filters";
 
 const newsletterStatsQuery = z.object({
@@ -42,36 +41,6 @@ export type NewsletterStatsResponse = Awaited<
   ReturnType<typeof getEmailMessages>
 >;
 
-function getTypeFilters(types: NewsletterStatsQuery["types"]) {
-  const typeMap = Object.fromEntries(types.map((type) => [type, true]));
-
-  // only use the read flag if unread is unmarked
-  // if read and unread are both set or both unset, we don't need to filter by read/unread at all
-  const read = Boolean(typeMap.read && !typeMap.unread);
-  const unread = Boolean(!typeMap.read && typeMap.unread);
-
-  // similar logic to read/unread
-  const archived = Boolean(typeMap.archived && !typeMap.unarchived);
-  const unarchived = Boolean(!typeMap.archived && typeMap.unarchived);
-
-  // we only need AND if both read/unread and archived/unarchived are set
-  const andClause = (read || unread) && (archived || unarchived);
-
-  const all =
-    !types.length ||
-    types.length === 4 ||
-    (!read && !unread && !archived && !unarchived);
-
-  return {
-    all,
-    read,
-    unread,
-    archived,
-    unarchived,
-    andClause,
-  };
-}
-
 async function getEmailMessages(
   options: {
     emailAccountId: string;
@@ -83,9 +52,18 @@ async function getEmailMessages(
   const types = getTypeFilters(options.types);
 
   const [counts, emailFilters, newsletterStatuses] = await Promise.all([
-    getNewsletterCounts({
-      ...options,
-      ...types,
+    getSenderEmailStats({
+      emailAccountId,
+      fromDate: options.fromDate,
+      toDate: options.toDate,
+      read: types.read,
+      unread: types.unread,
+      archived: types.archived,
+      unarchived: types.unarchived,
+      search: options.search,
+      orderBy: options.orderBy,
+      orderDirection: options.orderDirection,
+      limit: options.limit,
       logger,
     }),
     getEmailFilters(emailProvider, logger),
@@ -123,160 +101,6 @@ async function getEmailMessages(
   };
 }
 
-type NewsletterCountResult = {
-  from: string;
-  fromName: string | null;
-  minFromName: string | null;
-  count: number;
-  inboxEmails: number;
-  readEmails: number;
-  unsubscribeLink: string | null;
-};
-
-type NewsletterCountRawResult = {
-  from: string;
-  fromName: string | null;
-  minFromName: string | null;
-  count: number;
-  inboxEmails: number;
-  readEmails: number;
-  unsubscribeLink: string | null;
-};
-
-async function getNewsletterCounts(
-  options: NewsletterStatsQuery & {
-    emailAccountId: string;
-    read?: boolean;
-    unread?: boolean;
-    archived?: boolean;
-    unarchived?: boolean;
-    all?: boolean;
-    andClause?: boolean;
-    logger: Logger;
-  },
-): Promise<NewsletterCountResult[]> {
-  const { logger } = options;
-  // Build WHERE conditions using Prisma.sql for type safety
-  const whereConditions: Prisma.Sql[] = [];
-
-  // Add date filters if provided
-  if (options.fromDate) {
-    const fromTimestamp = (options.fromDate / 1000).toString();
-    whereConditions.push(
-      Prisma.sql`"date" >= to_timestamp(${fromTimestamp}::double precision)`,
-    );
-  }
-
-  if (options.toDate) {
-    const toTimestamp = (options.toDate / 1000).toString();
-    whereConditions.push(
-      Prisma.sql`"date" <= to_timestamp(${toTimestamp}::double precision)`,
-    );
-  }
-
-  // Add read/unread filters
-  if (options.read) {
-    whereConditions.push(Prisma.sql`read = true`);
-  } else if (options.unread) {
-    whereConditions.push(Prisma.sql`read = false`);
-  }
-
-  // Add inbox/archived filters
-  if (options.unarchived) {
-    whereConditions.push(Prisma.sql`inbox = true`);
-  } else if (options.archived) {
-    whereConditions.push(Prisma.sql`inbox = false`);
-  }
-
-  // Always filter by emailAccountId
-  whereConditions.push(
-    Prisma.sql`"emailAccountId" = ${options.emailAccountId}`,
-  );
-
-  // Add search filter if provided - search both from (email) and fromName fields
-  if (options.search) {
-    const searchTerm = options.search.toLowerCase();
-    whereConditions.push(
-      Prisma.sql`(position(${searchTerm} in LOWER("from")) > 0 OR position(${searchTerm} in LOWER(COALESCE("fromName", ''))) > 0)`,
-    );
-  }
-
-  // Join conditions with AND
-  const whereClause =
-    whereConditions.length > 0
-      ? Prisma.sql`WHERE ${Prisma.join(whereConditions, " AND ")}`
-      : Prisma.empty;
-
-  // Build order by clause (safe, no user input)
-  const orderByClause = options.orderBy
-    ? getOrderByClause(options.orderBy, options.orderDirection)
-    : '"count" DESC';
-
-  // Build limit clause (safe, validated number)
-  const limitClause = options.limit ? `LIMIT ${options.limit}` : "";
-
-  // Build the complete query using Prisma.sql
-  const query = Prisma.sql`
-    WITH email_message_stats AS (
-      SELECT 
-        LOWER("from") AS "from",
-        MAX(NULLIF("fromName", '')) as "fromName",
-        MIN(NULLIF("fromName", '')) as "minFromName",
-        COUNT(*)::int as "count",
-        SUM(CASE WHEN inbox = true THEN 1 ELSE 0 END)::int as "inboxEmails",
-        SUM(CASE WHEN read = true THEN 1 ELSE 0 END)::int as "readEmails",
-        MAX("unsubscribeLink") as "unsubscribeLink"
-      FROM "EmailMessage"
-      ${whereClause}
-      GROUP BY LOWER("from")
-    )
-    SELECT * FROM email_message_stats
-    ORDER BY ${Prisma.raw(orderByClause)}
-    ${Prisma.raw(limitClause)}
-  `;
-
-  try {
-    const results = await prisma.$queryRaw<NewsletterCountRawResult[]>(query);
-
-    // Convert BigInt values to regular numbers
-    return results.map((result) => ({
-      from: result.from,
-      fromName: result.fromName,
-      minFromName: result.minFromName,
-      count: result.count,
-      inboxEmails: result.inboxEmails,
-      readEmails: result.readEmails,
-      unsubscribeLink: result.unsubscribeLink,
-    }));
-  } catch (error) {
-    logger.error("getNewsletterCounts error", {
-      error,
-      errorStack: error instanceof Error ? error.stack : undefined,
-    });
-    return [];
-  }
-}
-
-function getOrderByClause(
-  orderBy: string,
-  orderDirection?: "asc" | "desc",
-): string {
-  const direction = orderDirection?.toUpperCase() || "DESC";
-
-  switch (orderBy) {
-    case "emails":
-      return `"count" ${direction}`;
-    case "unread":
-      // Sort by read percentage (lower = more unread)
-      return `"readEmails"::float / NULLIF("count", 0) ${direction}`;
-    case "unarchived":
-      // Sort by archived percentage (lower = more in inbox)
-      return `("count" - "inboxEmails")::float / NULLIF("count", 0) ${direction}`;
-    default:
-      return `"count" ${direction}`;
-  }
-}
-
 export const GET = withEmailProvider(
   "user/stats/newsletters",
   async (request) => {
@@ -307,3 +131,33 @@ export const GET = withEmailProvider(
     return NextResponse.json(result);
   },
 );
+
+function getTypeFilters(types: NewsletterStatsQuery["types"]) {
+  const typeMap = Object.fromEntries(types.map((type) => [type, true]));
+
+  // only use the read flag if unread is unmarked
+  // if read and unread are both set or both unset, we don't need to filter by read/unread at all
+  const read = Boolean(typeMap.read && !typeMap.unread);
+  const unread = Boolean(!typeMap.read && typeMap.unread);
+
+  // similar logic to read/unread
+  const archived = Boolean(typeMap.archived && !typeMap.unarchived);
+  const unarchived = Boolean(!typeMap.archived && typeMap.unarchived);
+
+  // we only need AND if both read/unread and archived/unarchived are set
+  const andClause = (read || unread) && (archived || unarchived);
+
+  const all =
+    !types.length ||
+    types.length === 4 ||
+    (!read && !unread && !archived && !unarchived);
+
+  return {
+    all,
+    read,
+    unread,
+    archived,
+    unarchived,
+    andClause,
+  };
+}
