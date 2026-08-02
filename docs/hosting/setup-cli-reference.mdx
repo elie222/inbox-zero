@@ -1,0 +1,57 @@
+---
+title: 'Self-Hosting Setup CLI'
+description: 'Use the Inbox Zero setup CLI for local, cloud, and automated deployments.'
+icon: 'terminal'
+---
+
+The self-hosting setup CLI is different from the public [API CLI](/api-reference/cli). It creates deployment configuration and can guide provider setup; it does not manage an existing inbox through the public API.
+
+## Start the wizard
+
+Run the latest setup wizard with:
+
+```bash
+npx @inbox-zero/cli@latest setup
+```
+
+The interactive wizard asks which deployment target and providers you want to configure. Review generated files before committing or deploying them because they can contain environment-specific values.
+
+## Setup commands
+
+The CLI includes dedicated flows for:
+
+- Local or Docker-based setup
+- Google OAuth, required APIs, and Gmail Pub/Sub
+- AWS deployment
+- Terraform generation and deployment
+- Vercel deployment
+
+Run the CLI with `--help`, or a command followed by `--help`, for the flags supported by the installed version:
+
+```bash
+npx @inbox-zero/cli@latest --help
+npx @inbox-zero/cli@latest setup-google --help
+npx @inbox-zero/cli@latest setup-aws --help
+npx @inbox-zero/cli@latest setup-terraform --help
+npx @inbox-zero/cli@latest setup-vercel --help
+```
+
+## Automation guidance
+
+Interactive setup is recommended for a first deployment. For repeatable environments:
+
+1. Run the wizard in a disposable or staging workspace.
+2. Review the generated configuration and identify secrets.
+3. Move secrets into your deployment's secret manager.
+4. Commit only safe templates and infrastructure files.
+5. Use the generated output as the basis for your normal deployment pipeline.
+
+Never place OAuth client secrets, database credentials, encryption keys, or AI-provider keys in source control.
+
+## Related guides
+
+- [Quick Start](/hosting/quick-start)
+- [Google OAuth](/hosting/google-oauth)
+- [Vercel Deployment](/hosting/vercel)
+- [AWS Deployment](/hosting/aws)
+- [Terraform Deployment](/hosting/terraform)

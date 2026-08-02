@@ -32,7 +32,7 @@ const LABEL_TO_DEFAULT_TAB = Object.fromEntries(
   DEFAULT_TABS.map((tab) => [normalizeLabelName(tab.label), tab]),
 );
 
-// Matches SYSTEM_RULE_ORDER from utils/rule/consts.ts, with Follow-up appended
+// Matches SYSTEM_RULE_ORDER from utils/rule/sort.ts, with Follow-up appended
 const LABEL_ORDER = DEFAULT_TABS.map((tab) => normalizeLabelName(tab.label));
 
 function labelToGmailSlug(label: string): string {

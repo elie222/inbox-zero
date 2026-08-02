@@ -29,7 +29,10 @@ type MicrosoftEvent = {
   end?: { dateTime?: string };
   attendees?: Array<{
     emailAddress?: { address?: string; name?: string };
+    status?: { response?: string };
   }>;
+  isOrganizer?: boolean;
+  organizer?: { emailAddress?: { address?: string; name?: string } };
   location?: { displayName?: string };
   webLink?: string;
   onlineMeeting?: { joinUrl?: string };
@@ -266,10 +269,13 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
       videoConferenceLink: getJoinUrl(event),
       startTime: new Date(event.start?.dateTime || Date.now()),
       endTime: new Date(event.end?.dateTime || Date.now()),
+      organizerEmail: event.organizer?.emailAddress?.address || undefined,
+      isOrganizer: event.isOrganizer,
       attendees:
         event.attendees?.map((attendee) => ({
           email: attendee.emailAddress?.address || "",
           name: attendee.emailAddress?.name ?? undefined,
+          declined: attendee.status?.response === "declined",
         })) || [],
     };
   }

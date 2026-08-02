@@ -68,6 +68,7 @@ vi.mock("@/utils/user/get", () => ({
 
 vi.mock("@/utils/ai/assistant/chat", () => ({
   aiProcessAssistantChat: mockAiProcessAssistantChat,
+  ASSISTANT_CHAT_PIPELINE_VERSION: 1,
 }));
 
 vi.mock("@/components/assistant-chat/helpers", () => ({
@@ -449,6 +450,66 @@ describe("chat route rule freshness persistence", () => {
     await POST(createRequest());
 
     expect(prisma.chatMessage.createMany).not.toHaveBeenCalled();
+  });
+
+  it("persists and logs correlated assistant run metadata", async () => {
+    vi.stubEnv("VERCEL_GIT_COMMIT_SHA", "commit-123");
+    const consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    mockAiProcessAssistantChat.mockImplementationOnce(async (args) => {
+      args.onModelResolved?.({
+        provider: "openrouter",
+        modelName: "test-model",
+      });
+      await args.onStepFinish?.({ toolCalls: [{}, {}] });
+      await args.onStepFinish?.({ toolCalls: [{}] });
+      await args.onFinish?.({ finishReason: "stop" });
+
+      return createAssistantStreamResult();
+    });
+
+    try {
+      await POST(createRequest());
+
+      const userMetadata = prisma.chatMessage.create.mock.calls[0]?.[0].data
+        .metadata as Record<string, unknown>;
+      const createManyData =
+        prisma.chatMessage.createMany.mock.calls[0]?.[0].data;
+      const assistantRow = Array.isArray(createManyData)
+        ? createManyData[0]
+        : createManyData;
+      const assistantMetadata = assistantRow?.metadata as Record<
+        string,
+        unknown
+      >;
+
+      expect(userMetadata).toMatchObject({
+        schemaVersion: 1,
+        runId: expect.any(String),
+      });
+      expect(assistantMetadata).toEqual({
+        schemaVersion: 1,
+        runId: userMetadata.runId,
+        assistantRun: {
+          provider: "openrouter",
+          modelName: "test-model",
+          pipelineVersion: 1,
+          deploymentCommit: "commit-123",
+          finishReason: "stop",
+          stepCount: 2,
+          toolCallCount: 3,
+          visibleTextProduced: true,
+        },
+      });
+      expect(consoleLogSpy.mock.calls.flat()).toEqual(
+        expect.arrayContaining([
+          expect.stringContaining("Assistant chat run completed"),
+          expect.stringContaining('"toolCallCount": 3'),
+        ]),
+      );
+    } finally {
+      consoleLogSpy.mockRestore();
+      vi.unstubAllEnvs();
+    }
   });
 });
 

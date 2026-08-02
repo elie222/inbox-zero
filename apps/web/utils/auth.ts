@@ -7,9 +7,11 @@ import { createContact as createLoopsContact } from "@inboxzero/loops";
 import { createContact as createResendContact } from "@inboxzero/resend";
 import type { Account, AuthContext } from "better-auth";
 import { APIError, betterAuth } from "better-auth";
+import { createAuthMiddleware } from "better-auth/api";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
 import { cookies, headers } from "next/headers";
+import { after } from "next/server";
 import { env } from "@/env";
 import {
   assertAllowedAuthSignupEmail,
@@ -47,6 +49,12 @@ import { getEnabledLoginProviders } from "@/utils/oauth/login-providers";
 import { getAppleClientSecret } from "@/utils/auth/apple-client-secret";
 import { assertCanGenerateScimToken } from "@/utils/auth/scim";
 import prisma from "@/utils/prisma";
+import {
+  getAuthProviderFromContext,
+  isNewUserAuthContext,
+  markAuthContextAsNewUser,
+  trackAuthenticationCompleted,
+} from "@/utils/analytics/auth-funnel.server";
 
 const logger = createScopedLogger("auth");
 const EMAIL_ALREADY_LINKED_ERROR = "email_already_linked";
@@ -296,7 +304,8 @@ export const betterAuthConfig = betterAuth({
           });
           assertAllowedAuthSignupEmail(user.email);
         },
-        after: async (user) => {
+        after: async (user, context) => {
+          markAuthContextAsNewUser(context?.context);
           await postSignUp({
             id: user.id,
             email: user.email,
@@ -321,6 +330,26 @@ export const betterAuthConfig = betterAuth({
         },
       },
     },
+  },
+  hooks: {
+    after: createAuthMiddleware(async (context) => {
+      try {
+        const authenticatedSession = context.context.newSession;
+        if (!authenticatedSession) return;
+
+        const provider = getAuthProviderFromContext(context);
+        if (provider === "unknown") return;
+
+        const email = authenticatedSession.user.email;
+        const isNewUser = isNewUserAuthContext(context.context);
+
+        after(() =>
+          trackAuthenticationCompleted({ email, provider, isNewUser }),
+        );
+      } catch (error) {
+        logger.error("Failed to schedule authentication analytics", { error });
+      }
+    }),
   },
   onAPIError: {
     throw: true,

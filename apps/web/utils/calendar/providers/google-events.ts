@@ -206,10 +206,13 @@ export class GoogleCalendarEventProvider implements CalendarEventProvider {
       videoConferenceLink,
       startTime,
       endTime,
+      organizerEmail: event.organizer?.email ?? undefined,
+      isOrganizer: event.organizer?.self ?? undefined,
       attendees:
         event.attendees?.map((attendee) => ({
           email: attendee.email || "",
           name: attendee.displayName ?? undefined,
+          declined: attendee.responseStatus === "declined",
         })) || [],
     };
   }

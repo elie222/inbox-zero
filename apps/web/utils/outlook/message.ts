@@ -17,9 +17,10 @@ import { resolveMicrosoftGraphNextLink } from "@/utils/outlook/page-token";
 export const MESSAGE_SELECT_FIELDS =
   "id,conversationId,conversationIndex,internetMessageId,subject,bodyPreview,from,sender,toRecipients,ccRecipients,receivedDateTime,isDraft,isRead,body,categories,parentFolderId,hasAttachments,webLink";
 
-// Expand attachments to get metadata (name, type, size) without fetching content
+// contentId belongs to fileAttachment, so selecting it without this type cast
+// makes Graph reject the entire attachment collection query.
 export const MESSAGE_EXPAND_ATTACHMENTS =
-  "attachments($select=id,name,contentType,size,isInline)";
+  "attachments($select=id,name,contentType,size,isInline,microsoft.graph.fileAttachment/contentId)";
 
 export async function getFolderIds(
   client: OutlookClient,
@@ -977,7 +978,7 @@ export function convertMessage(
     parentFolderId: message.parentFolderId || undefined,
     internalDate: message.receivedDateTime || new Date().toISOString(),
     historyId: "",
-    inline: [],
+    inline: convertInlineAttachments(message.attachments),
     attachments: convertAttachments(message.attachments),
     conversationIndex: message.conversationIndex,
     rawRecipients: {
@@ -1009,6 +1010,36 @@ function convertAttachments(
         "content-id": "",
       },
     }));
+}
+
+function convertInlineAttachments(
+  graphAttachments: GraphAttachment[] | undefined | null,
+): ParsedMessage["inline"] {
+  if (!graphAttachments) return [];
+
+  return graphAttachments
+    .filter((attachment) => attachment.isInline)
+    .map((attachment) => {
+      const contentId =
+        ("contentId" in attachment && typeof attachment.contentId === "string"
+          ? attachment.contentId
+          : undefined) ||
+        attachment.name ||
+        "";
+
+      return {
+        filename: attachment.name || "",
+        mimeType: attachment.contentType || "application/octet-stream",
+        size: attachment.size || 0,
+        attachmentId: attachment.id || "",
+        headers: {
+          "content-type": attachment.contentType || "",
+          "content-description": "",
+          "content-transfer-encoding": "",
+          "content-id": contentId,
+        },
+      };
+    });
 }
 
 function logWellKnownFolderFetchError(

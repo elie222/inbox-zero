@@ -19,6 +19,7 @@ export const REDACTED_FIELD_NAMES = new Set([
   "idToken",
   "id_token",
   "headers",
+  "set-cookie",
   "authorization",
   "requestBodyValues",
   "systemInstruction",

@@ -11,7 +11,7 @@ import {
   judgeEvalOutput,
 } from "@/__tests__/eval/semantic-judge";
 import {
-  captureAssistantChatToolCalls,
+  captureAssistantChatTrace,
   getFirstMatchingToolCall,
   getLastMatchingToolCall,
   summarizeRecordedToolCalls,
@@ -107,13 +107,14 @@ const baseAccountSnapshot = {
   followUpAwaitingReplyDays: 3,
   followUpNeedsReplyDays: 2,
   followUpAutoDraftEnabled: true,
+  digestSendEmail: true,
   digestSchedule: {
     id: "digest-1",
     intervalDays: 1,
     occurrences: 1,
     daysOfWeek: 127,
     timeOfDay: new Date("1970-01-01T09:00:00.000Z"),
-    nextOccurrenceAt: new Date("2026-02-21T09:00:00.000Z"),
+    nextOccurrenceAt: new Date("2026-02-21T09:01:00.000Z"),
   },
   rules: [],
   automationJob: {
@@ -124,8 +125,10 @@ const baseAccountSnapshot = {
     nextRunAt: new Date("2026-02-21T09:00:00.000Z"),
     messagingChannelId: "channel-1",
     messagingChannel: {
+      provider: "SLACK",
       channelName: "inbox-updates",
       teamName: "Acme",
+      routes: [],
     },
   },
   messagingChannels: [
@@ -136,8 +139,10 @@ const baseAccountSnapshot = {
       teamName: "Acme",
       isConnected: true,
       accessToken: "token-1",
+      teamId: "team-1",
       providerUserId: "U123",
       channelId: null,
+      routes: [],
     },
   ],
   knowledge: [
@@ -149,6 +154,7 @@ const baseAccountSnapshot = {
     },
   ],
 };
+let accountSnapshot: typeof baseAccountSnapshot;
 
 describe.runIf(shouldRunEval)(
   "Eval: assistant chat settings and memory",
@@ -158,12 +164,7 @@ describe.runIf(shouldRunEval)(
 
       mockGetUserPremium.mockResolvedValue({});
       mockIsActivePremium.mockReturnValue(true);
-
-      prisma.emailAccount.findUnique.mockResolvedValue(baseAccountSnapshot);
-      prisma.emailAccount.update.mockResolvedValue({});
-      prisma.automationJob.findUnique.mockResolvedValue(
-        baseAccountSnapshot.automationJob,
-      );
+      configureStatefulSettingsMocks();
       prisma.chatMemory.findMany.mockResolvedValue([
         {
           content: "User likes batching newsletters in the afternoon.",
@@ -172,7 +173,6 @@ describe.runIf(shouldRunEval)(
       ]);
       prisma.chatMemory.findFirst.mockResolvedValue(null);
       prisma.chatMemory.create.mockResolvedValue({});
-      prisma.knowledge.upsert.mockResolvedValue({});
     });
 
     describeEvalMatrix(
@@ -182,6 +182,8 @@ describe.runIf(shouldRunEval)(
           test(
             scenario.title,
             async () => {
+              configureSettingsScenarioState(scenario);
+
               const result = await runAssistantChat({
                 emailAccount,
                 messages: getScenarioMessages(scenario),
@@ -227,15 +229,16 @@ async function runAssistantChat({
   emailAccount: ReturnType<typeof getEmailAccount>;
   messages: ModelMessage[];
 }) {
-  const toolCalls = await captureAssistantChatToolCalls({
+  const trace = await captureAssistantChatTrace({
     messages,
     emailAccount,
     logger,
   });
 
   return {
-    toolCalls,
-    actual: summarizeRecordedToolCalls(toolCalls, summarizeToolCall),
+    toolCalls: trace.toolCalls,
+    finalText: trace.finalText,
+    actual: summarizeRecordedToolCalls(trace.toolCalls, summarizeToolCall),
   };
 }
 
@@ -264,6 +267,11 @@ type UpdatePersonalInstructionsInput = {
 
 type ActivateToolsInput = {
   capabilities: string[];
+};
+
+type AddToKnowledgeBaseInput = {
+  title: string;
+  content: string;
 };
 
 function isUpdateAssistantSettingsInput(
@@ -324,6 +332,15 @@ function isActivateToolsInput(input: unknown): input is ActivateToolsInput {
   );
 }
 
+function isAddToKnowledgeBaseInput(
+  input: unknown,
+): input is AddToKnowledgeBaseInput {
+  if (!input || typeof input !== "object") return false;
+
+  const value = input as { title?: unknown; content?: unknown };
+  return typeof value.title === "string" && typeof value.content === "string";
+}
+
 async function evaluateScenario(
   result: Awaited<ReturnType<typeof runAssistantChat>>,
   prompt: string,
@@ -340,17 +357,34 @@ async function evaluateScenario(
         judgeResult: null,
       };
 
-    case "assistant_settings": {
-      const settingsCall = getLastMatchingToolCall(
-        result.toolCalls,
-        "updateAssistantSettings",
-        isUpdateAssistantSettingsInput,
-      )?.input;
+    case "digest_explanation": {
+      const judgeResult = await judgeEvalOutput({
+        input: prompt,
+        output: result.finalText,
+        expected: expectation.semanticExpectation,
+        criterion: {
+          name: "Digest delivery explanation",
+          description:
+            "The answer must accurately use the authoritative digest capability state to identify the automatic recipient, combined-rule behavior, and realistic dispatch timing. It must not invent a missing destination or unsupported refund advice.",
+        },
+      });
 
       return {
         pass:
-          !!settingsCall &&
-          matchesExpectedChanges(settingsCall.changes, expectation.changes) &&
+          result.toolCalls.some(
+            (toolCall) => toolCall.toolName === "getAssistantCapabilities",
+          ) &&
+          hasNoToolCalls(result.toolCalls, ["updateAssistantSettings"]) &&
+          judgeResult.pass,
+        judgeOutput: result.finalText,
+        judgeResult,
+      };
+    }
+
+    case "assistant_settings": {
+      return {
+        pass:
+          hasExpectedSettingsUpdate(result.toolCalls, expectation.changes) &&
           hasNoToolCalls(result.toolCalls, expectation.forbiddenTools),
         judgeOutput: null,
         judgeResult: null,
@@ -372,7 +406,7 @@ async function evaluateScenario(
             criterion: {
               name: "Personal instructions semantics",
               description:
-                "The stored personal-instructions text should semantically preserve the requested preference even if the wording, perspective, or sentence style differs from the prompt.",
+                "Judge only whether the stored personal-instructions text semantically preserves the requested preference. Tool execution is verified separately, so do not require the text itself to report or confirm that an update occurred. Wording, perspective, and sentence style may differ from the prompt.",
             },
           })
         : null;
@@ -384,6 +418,33 @@ async function evaluateScenario(
           (piCall.mode ?? "append") === expectation.mode,
         judgeOutput: piContent,
         judgeResult,
+      };
+    }
+
+    case "knowledge_create": {
+      const knowledgeCall = getLastMatchingToolCall(
+        result.toolCalls,
+        "addToKnowledgeBase",
+        isAddToKnowledgeBaseInput,
+      )?.input;
+      const contentJudge = knowledgeCall
+        ? await judgeEvalOutput({
+            input: prompt,
+            output: knowledgeCall.content,
+            expected: expectation.content,
+            criterion: {
+              name: "Knowledge content semantics",
+              description:
+                "Judge only whether the new knowledge entry content preserves the requested drafting guidance. The tool execution and title are verified separately.",
+            },
+          })
+        : null;
+
+      return {
+        pass:
+          knowledgeCall?.title === expectation.title && !!contentJudge?.pass,
+        judgeOutput: knowledgeCall?.content ?? null,
+        judgeResult: contentJudge,
       };
     }
 
@@ -427,11 +488,6 @@ async function evaluateScenario(
     }
 
     case "assistant_settings_and_save_memory": {
-      const settingsCall = getLastMatchingToolCall(
-        result.toolCalls,
-        "updateAssistantSettings",
-        isUpdateAssistantSettingsInput,
-      )?.input;
       const memoryCall = getLastMatchingToolCall(
         result.toolCalls,
         "saveMemory",
@@ -452,8 +508,7 @@ async function evaluateScenario(
 
       return {
         pass:
-          !!settingsCall &&
-          matchesExpectedChanges(settingsCall.changes, expectation.changes) &&
+          hasExpectedSettingsUpdate(result.toolCalls, expectation.changes) &&
           !!memoryCall &&
           !!contentJudge?.pass &&
           hasNoToolCalls(result.toolCalls, expectation.forbiddenTools),
@@ -533,6 +588,114 @@ function hasNoToolCalls(
   return !toolCalls.some((toolCall) => toolNames.includes(toolCall.toolName));
 }
 
+function hasExpectedSettingsUpdate(
+  toolCalls: RecordedToolCall[],
+  expectedChanges: AssistantSettingsChangeExpectation[],
+) {
+  const settingsCalls = toolCalls.flatMap((toolCall) =>
+    toolCall.toolName === "updateAssistantSettings" &&
+    isUpdateAssistantSettingsInput(toolCall.input)
+      ? [toolCall.input]
+      : [],
+  );
+  const matchingCallIndex = settingsCalls.findLastIndex((settingsCall) =>
+    matchesExpectedChanges(settingsCall.changes, expectedChanges),
+  );
+  if (matchingCallIndex < 0) return false;
+
+  return settingsCalls.slice(matchingCallIndex + 1).every((settingsCall) =>
+    settingsCall.changes.every((actualChange) => {
+      const expectedChange = expectedChanges.find(
+        (candidate) => candidate.path === actualChange.path,
+      );
+      return (
+        !expectedChange || matchesExpectedChange(actualChange, expectedChange)
+      );
+    }),
+  );
+}
+
+function configureSettingsScenarioState(scenario: SettingsMemoryScenario) {
+  switch (scenario.id) {
+    case "batched-briefs-and-filing":
+      accountSnapshot.meetingBriefingsEnabled = false;
+      accountSnapshot.filingEnabled = false;
+      break;
+    case "followup-refine-meeting-briefs":
+      accountSnapshot.meetingBriefingsMinutesBefore = 240;
+      accountSnapshot.meetingBriefsSendEmail = false;
+      break;
+    case "enable-filing-and-set-prompt":
+      accountSnapshot.filingEnabled = false;
+      accountSnapshot.filingPrompt = null;
+      break;
+    case "disable-filing-and-clear-prompt":
+    case "clear-filing-prompt-only":
+      accountSnapshot.filingEnabled = true;
+      accountSnapshot.filingPrompt = "File attachments by project.";
+      break;
+    case "scheduled-checkins-enable-after-capabilities":
+      accountSnapshot.automationJob.enabled = false;
+      break;
+  }
+}
+
+function configureStatefulSettingsMocks() {
+  accountSnapshot = structuredClone(baseAccountSnapshot);
+
+  prisma.emailAccount.findUnique.mockImplementation(
+    async () => accountSnapshot,
+  );
+  prisma.emailAccount.update.mockImplementation(async ({ data }) => {
+    Object.assign(accountSnapshot, data);
+    return accountSnapshot;
+  });
+  prisma.automationJob.findUnique.mockImplementation(
+    async () => accountSnapshot.automationJob,
+  );
+  prisma.digestItem.count.mockResolvedValue(2);
+  prisma.digest.findFirst.mockResolvedValue({
+    status: "SENT",
+    sentAt: new Date("2026-02-20T09:05:00.000Z"),
+    updatedAt: new Date("2026-02-20T09:05:00.000Z"),
+  } as never);
+  prisma.automationJob.update.mockImplementation(async ({ data }) => {
+    Object.assign(accountSnapshot.automationJob, data);
+    return accountSnapshot.automationJob;
+  });
+  prisma.messagingChannel.findUnique.mockImplementation(async () => ({
+    ...accountSnapshot.messagingChannels[0],
+    routes: [],
+  }));
+  prisma.messagingRoute.create.mockResolvedValue({});
+  prisma.knowledge.create.mockImplementation(async ({ data }) => {
+    accountSnapshot.knowledge.push({
+      id: `knowledge-${accountSnapshot.knowledge.length + 1}`,
+      title: data.title,
+      content: data.content,
+      updatedAt: new Date("2026-02-21T08:00:00.000Z"),
+    });
+    return {};
+  });
+  prisma.knowledge.update.mockImplementation(async ({ where, data }) => {
+    const existing = accountSnapshot.knowledge.find(
+      (item) => item.title === where.emailAccountId_title?.title,
+    );
+    if (!existing) throw new Error("Knowledge item not found");
+
+    Object.assign(existing, data, {
+      updatedAt: new Date("2026-02-21T08:00:00.000Z"),
+    });
+    return existing;
+  });
+  prisma.knowledge.deleteMany.mockImplementation(async ({ where }) => {
+    accountSnapshot.knowledge = accountSnapshot.knowledge.filter(
+      (item) => item.title !== where.title,
+    );
+    return { count: 1 };
+  });
+}
+
 function getScenarioMessages(scenario: SettingsMemoryScenario): ModelMessage[] {
   if (scenario.messages) return scenario.messages;
   return [{ role: "user", content: scenario.prompt ?? "" }];
@@ -557,13 +720,20 @@ function matchesExpectedChanges(
   expectedChanges: AssistantSettingsChangeExpectation[],
 ) {
   return expectedChanges.every((expectedChange) =>
-    actualChanges.some(
-      (actualChange) =>
-        actualChange.path === expectedChange.path &&
-        isDeepStrictEqual(actualChange.value, expectedChange.value) &&
-        (expectedChange.mode == null ||
-          actualChange.mode === expectedChange.mode),
+    actualChanges.some((actualChange) =>
+      matchesExpectedChange(actualChange, expectedChange),
     ),
+  );
+}
+
+function matchesExpectedChange(
+  actualChange: UpdateAssistantSettingsInput["changes"][number],
+  expectedChange: AssistantSettingsChangeExpectation,
+) {
+  return (
+    actualChange.path === expectedChange.path &&
+    isDeepStrictEqual(actualChange.value, expectedChange.value) &&
+    (expectedChange.mode == null || actualChange.mode === expectedChange.mode)
   );
 }
 
@@ -649,7 +819,13 @@ function summarizeToolCall(toolCall: RecordedToolCall) {
   }
 
   if (isUpdateAssistantSettingsInput(toolCall.input)) {
-    return `${toolCall.toolName}(changes=${toolCall.input.changes.length})`;
+    const changes = toolCall.input.changes
+      .map((change) => {
+        const mode = change.mode ? `,mode=${change.mode}` : "";
+        return `${change.path}=${JSON.stringify(change.value)}${mode}`;
+      })
+      .join("; ");
+    return `${toolCall.toolName}(changes=[${changes}])`;
   }
 
   if (isSaveMemoryInput(toolCall.input)) {
@@ -662,6 +838,10 @@ function summarizeToolCall(toolCall: RecordedToolCall) {
 
   if (isUpdatePersonalInstructionsInput(toolCall.input)) {
     return `${toolCall.toolName}(mode=${toolCall.input.mode ?? "append"})`;
+  }
+
+  if (isAddToKnowledgeBaseInput(toolCall.input)) {
+    return `${toolCall.toolName}(title=${JSON.stringify(toolCall.input.title)}, content=${JSON.stringify(toolCall.input.content)})`;
   }
 
   return toolCall.toolName;

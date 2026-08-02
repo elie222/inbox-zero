@@ -134,6 +134,8 @@ describe("LLM use cases", () => {
       [LlmUseCase.LearnedWritingStyleCompaction]: "economy",
       [LlmUseCase.McpAgent]: "economy",
       [LlmUseCase.MeetingBriefing]: "default",
+      [LlmUseCase.MeetingFollowUpDraft]: "draft",
+      [LlmUseCase.MeetingSummary]: "default",
       [LlmUseCase.MeetingWebSearch]: "economy",
       [LlmUseCase.ParseFilingReply]: "economy",
       [LlmUseCase.PersonaAnalysis]: "economy",

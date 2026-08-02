@@ -14,6 +14,7 @@ const mockUseSearchParams = vi.fn();
 const mockSignInWithOauth2 = vi.fn();
 const mockSignInSocial = vi.fn();
 const mockToastError = vi.fn();
+const mockPosthogCapture = vi.fn();
 
 (globalThis as { React?: typeof React }).React = React;
 
@@ -48,6 +49,10 @@ vi.mock("@/utils/auth-client", () => ({
 vi.mock("@/components/Toast", () => ({
   toastError: (...args: Parameters<typeof mockToastError>) =>
     mockToastError(...args),
+}));
+
+vi.mock("posthog-js/react", () => ({
+  usePostHog: () => ({ capture: mockPosthogCapture }),
 }));
 
 import { LoginForm } from "@/app/(landing)/login/LoginForm";

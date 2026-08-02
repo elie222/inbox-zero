@@ -157,13 +157,16 @@ export const updateDigestScheduleAction = actionClient
 
     const { emailAccountId: _emailAccountId, ...update } = create;
 
-    await prisma.schedule.upsert({
+    const schedule = await prisma.schedule.upsert({
       where: { emailAccountId },
       create,
       update,
     });
 
-    return { success: true };
+    return {
+      success: true,
+      nextOccurrenceAt: schedule.nextOccurrenceAt?.toISOString() ?? null,
+    };
   });
 
 export const updateDigestItemsAction = actionClient

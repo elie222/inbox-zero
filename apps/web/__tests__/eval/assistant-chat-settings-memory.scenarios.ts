@@ -11,6 +11,10 @@ export type SettingsMemoryScenarioExpectation =
       kind: "capability_discovery";
     }
   | {
+      kind: "digest_explanation";
+      semanticExpectation: string;
+    }
+  | {
       kind: "assistant_settings";
       changes: AssistantSettingsChangeExpectation[];
       forbiddenTools: string[];
@@ -20,6 +24,11 @@ export type SettingsMemoryScenarioExpectation =
       kind: "personal_instructions";
       mode: "append" | "replace";
       semanticExpectation: string;
+    }
+  | {
+      kind: "knowledge_create";
+      title: string;
+      content: string;
     }
   | {
       kind: "save_memory";
@@ -60,6 +69,7 @@ export type SettingsMemoryScenario = {
     | "capability_discovery"
     | "assistant_settings"
     | "personal_instructions"
+    | "knowledge_base"
     | "save_memory"
     | "search_memories"
     | "combined_write";
@@ -83,6 +93,22 @@ const settingsMemoryScenariosRaw: SettingsMemoryScenario[] = [
     prompt: "What settings can you change for me from chat?",
     expectation: {
       kind: "capability_discovery",
+    },
+  },
+  {
+    id: "digest-delivery-details",
+    title: "loads account capabilities for digest delivery questions",
+    reportName: "digest delivery questions use authoritative account state",
+    category: "capability_discovery",
+    shape: "single_turn",
+    realWorldSeed: "db-inspired",
+    crossModelCanary: true,
+    prompt:
+      "Where will my digest be sent, are my selected rules combined, and when should I expect the next one?",
+    expectation: {
+      kind: "digest_explanation",
+      semanticExpectation:
+        "The answer says the digest is sent to user@test.com, explains that selected rules are combined into one account-level digest, and gives a realistic next delivery estimate that accounts for the five-minute dispatch window. The date and timezone may be localized or rolled forward if the stored next occurrence is stale. It must not claim that no destination is configured or recommend a refund.",
     },
   },
   {
@@ -591,7 +617,7 @@ const settingsMemoryScenariosRaw: SettingsMemoryScenario[] = [
     shape: "single_turn",
     realWorldSeed: "db-inspired",
     prompt:
-      "Turn on attachment filing and use this prompt: file contracts to the agreements folder and receipts to finance.",
+      'Turn on attachment filing and use this exact prompt, including punctuation: "file contracts to the agreements folder and receipts to finance."',
     expectation: {
       kind: "assistant_settings",
       changes: [
@@ -817,33 +843,24 @@ const settingsMemoryScenariosRaw: SettingsMemoryScenario[] = [
   },
   {
     id: "draft-kb-create",
-    title: "uses updateAssistantSettings to create a draft knowledge base item",
-    reportName: "draft knowledge base create uses upsert",
-    category: "assistant_settings",
+    title: "uses addToKnowledgeBase to create a new draft knowledge item",
+    reportName: "draft knowledge base create uses add tool",
+    category: "knowledge_base",
     shape: "single_turn",
     realWorldSeed: "db-inspired",
     prompt:
-      "Create a draft knowledge base note called Reply style with: Use concise bullet points.",
+      "Create a new draft knowledge base note called Escalation style with: Use concise bullet points.",
     expectation: {
-      kind: "assistant_settings",
-      changes: [
-        {
-          path: "assistant.draftKnowledgeBase.upsert",
-          value: {
-            title: "Reply style",
-            content: "Use concise bullet points.",
-          },
-          mode: "replace",
-        },
-      ],
-      requiredCapabilities: ["settings"],
+      kind: "knowledge_create",
+      title: "Escalation style",
+      content: "Use concise bullet points.",
     },
   },
   {
     id: "draft-kb-append",
     title:
       "uses updateAssistantSettings to append to an existing draft knowledge base item",
-    reportName: "draft knowledge base append uses upsert append",
+    reportName: "draft knowledge base append uses update append",
     category: "assistant_settings",
     shape: "single_turn",
     realWorldSeed: "db-inspired",
@@ -852,7 +869,7 @@ const settingsMemoryScenariosRaw: SettingsMemoryScenario[] = [
       kind: "assistant_settings",
       changes: [
         {
-          path: "assistant.draftKnowledgeBase.upsert",
+          path: "assistant.draftKnowledgeBase.update",
           value: {
             title: "Reply style",
             content: "Avoid long greetings.",
@@ -994,9 +1011,9 @@ assertScenarioInventory(settingsMemoryScenariosRaw);
 export const settingsMemoryScenarios = settingsMemoryScenariosRaw;
 
 function assertScenarioInventory(scenarios: SettingsMemoryScenario[]) {
-  if (scenarios.length !== 40) {
+  if (scenarios.length !== 41) {
     throw new Error(
-      `assistant-chat-settings-memory scenarios must total 40; received ${scenarios.length}.`,
+      `assistant-chat-settings-memory scenarios must total 41; received ${scenarios.length}.`,
     );
   }
 
@@ -1004,9 +1021,9 @@ function assertScenarioInventory(scenarios: SettingsMemoryScenario[]) {
     (scenario) => scenario.crossModelCanary,
   ).length;
 
-  if (canaryCount !== 6) {
+  if (canaryCount !== 7) {
     throw new Error(
-      `assistant-chat-settings-memory canary subset must total 6; received ${canaryCount}.`,
+      `assistant-chat-settings-memory canary subset must total 7; received ${canaryCount}.`,
     );
   }
 }

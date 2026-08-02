@@ -30,6 +30,20 @@ Before testing, make sure the local environment is ready. These steps are idempo
 4. **Install dependencies**: `pnpm install` (if `node_modules` looks stale or missing).
 5. **Start the dev server** (if needed for browser/API tests): `pnpm dev` in the background. Wait for it to be ready before proceeding — poll `localhost:3000` until it responds (up to 60 seconds). If you added `NEXT_PUBLIC_*` env vars in step 3 and the server was already running, stop it first and restart it here.
 
+### Isolated local browser QA
+
+For focused visual QA, check for a free port and initialize an isolated environment:
+
+```bash
+pnpm dev-setup init --db empty --auth emulate --url localhost --port <port>
+pnpm dev-setup dev --skip-init
+```
+
+- Include `--skip-init` on every subsequent `dev-setup dev` or `dev-setup exec` command; omitting it resets the isolated database.
+- Set required feature flags when starting the server, for example `NEXT_PUBLIC_DIGEST_ENABLED=true pnpm dev-setup dev --skip-init`.
+- Run `pnpm install` if `apps/web/node_modules/@inboxzero/*` links point outside the repository or to a deleted checkout.
+- Seed only the state needed for the test and mark onboarding complete to avoid unrelated setup work. Keep temporary auth and seed files under `.context/` and remove them afterward.
+
 ## Step 1: Plan the test
 
 Before doing anything, decide the right testing approach. Often you'll combine multiple:

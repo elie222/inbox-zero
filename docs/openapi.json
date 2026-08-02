@@ -45,7 +45,8 @@
           "CALL_WEBHOOK",
           "MOVE_FOLDER",
           "NOTIFY_MESSAGING_CHANNEL",
-          "NOTIFY_SENDER"
+          "NOTIFY_SENDER",
+          "DELETE"
         ]
       },
       "RuleCondition": {

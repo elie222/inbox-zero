@@ -1,6 +1,10 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import { GmailLabel } from "@/utils/gmail/label";
-import { extractErrorInfo, withGmailRetry } from "@/utils/gmail/retry";
+import {
+  extractErrorInfo,
+  isRetryableError,
+  withGmailRetry,
+} from "@/utils/gmail/retry";
 import { SafeError } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
 
@@ -37,6 +41,8 @@ export async function createFilter(options: {
       removeLabelIds,
       error,
     });
+
+    if (isRetryableError(errorInfo).isRateLimit) throw error;
 
     // Check if it might be a filter limit issue
     // Documentation says 400/403, but we've seen 500 in production

@@ -361,11 +361,6 @@ export function createGenerateText({
         ...restArgs,
       );
 
-      await onModelUsed?.({
-        provider: candidate.provider,
-        modelName: candidate.modelName,
-      });
-
       if (result.usage) {
         await saveUsageWithMetadata({
           result,
@@ -379,6 +374,11 @@ export function createGenerateText({
           hasUserApiKey: effectiveModelOptions.hasUserApiKey,
         });
       }
+
+      await onModelUsed?.({
+        provider: candidate.provider,
+        modelName: candidate.modelName,
+      });
 
       if (options.tools) {
         const toolCallInput = result.toolCalls?.[0]?.input;
@@ -555,26 +555,67 @@ export function createGenerateObject({
         typeof generateObject<SCHEMA, OUTPUT, RESULT>
       >[0];
 
-      const result = await generateObject<SCHEMA, OUTPUT, RESULT>(request);
+      let result: GenerateObjectResult<RESULT>;
+
+      try {
+        result = await generateObject<SCHEMA, OUTPUT, RESULT>(request);
+      } catch (error) {
+        if (
+          NoObjectGeneratedError.isInstance(error) &&
+          error.usage !== undefined
+        ) {
+          try {
+            await saveUsageWithMetadata({
+              result: error,
+              usage: error.usage,
+              userId: emailAccount.userId,
+              email: emailAccount.email,
+              emailAccountId: emailAccount.id,
+              provider: candidate.provider,
+              model: candidate.modelName,
+              label,
+              hasUserApiKey: effectiveModelOptions.hasUserApiKey,
+            });
+          } catch (usageError) {
+            logger.error("Failed to save usage for failed object generation", {
+              error: usageError,
+              label,
+              provider: candidate.provider,
+              model: candidate.modelName,
+            });
+          }
+        }
+
+        throw error;
+      }
+
+      if (result.usage) {
+        try {
+          await saveUsageWithMetadata({
+            result,
+            usage: result.usage,
+            userId: emailAccount.userId,
+            email: emailAccount.email,
+            emailAccountId: emailAccount.id,
+            provider: candidate.provider,
+            model: candidate.modelName,
+            label,
+            hasUserApiKey: effectiveModelOptions.hasUserApiKey,
+          });
+        } catch (usageError) {
+          logger.error("Failed to save usage for object generation", {
+            error: usageError,
+            label,
+            provider: candidate.provider,
+            model: candidate.modelName,
+          });
+        }
+      }
 
       await onModelUsed?.({
         provider: candidate.provider,
         modelName: candidate.modelName,
       });
-
-      if (result.usage) {
-        await saveUsageWithMetadata({
-          result,
-          usage: result.usage,
-          userId: emailAccount.userId,
-          email: emailAccount.email,
-          emailAccountId: emailAccount.id,
-          provider: candidate.provider,
-          model: candidate.modelName,
-          label,
-          hasUserApiKey: effectiveModelOptions.hasUserApiKey,
-        });
-      }
 
       logger.trace("Generated object", {
         label,
@@ -1377,6 +1418,10 @@ function shouldFallbackToNextModel(error: unknown): boolean {
   }
 
   if (isContentFilterRefusal(error)) return true;
+
+  if (APICallError.isInstance(error) && isInvalidAIModelError(error)) {
+    return true;
+  }
 
   const llmErrorInfo = extractLLMErrorInfo(error);
   if (llmErrorInfo.retryable) return true;

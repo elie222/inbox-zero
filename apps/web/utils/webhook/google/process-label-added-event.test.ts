@@ -66,10 +66,6 @@ vi.mock("@/utils/gmail/label", () => ({
   ],
 }));
 
-vi.mock("@/utils/email", () => ({
-  extractEmailAddress: vi.fn().mockReturnValue("sender@example.com"),
-}));
-
 vi.mock("@/utils/webhook/google/fetch-sender-from-message", () => ({
   fetchSenderFromMessage: vi.fn().mockResolvedValue("sender@example.com"),
 }));
@@ -102,6 +98,8 @@ describe("process-label-added-event", () => {
     getMessage: vi.fn().mockResolvedValue({
       headers: { from: "sender@example.com" },
     }),
+    getThreadMessages: vi.fn(),
+    hasPreviousCommunicationsWithSenderOrDomain: vi.fn(),
   } as any;
 
   const defaultOptions = {
@@ -109,7 +107,29 @@ describe("process-label-added-event", () => {
     provider: mockProvider,
   };
 
+  // The junked message is always "123" so it is found in the thread.
+  const mockThreadSenders = (...senders: string[]) => {
+    vi.mocked(mockProvider.getThreadMessages).mockResolvedValue(
+      senders.map((from, index) => ({
+        id: index === 0 ? "123" : `msg-${index}`,
+        internalDate: "1700000000000",
+        headers: { from },
+      })),
+    );
+  };
+
+  const junkMessage = () =>
+    handleLabelAddedEvent(createLabelAddedItem(), defaultOptions, logger);
+
   describe("handleLabelAddedEvent", () => {
+    beforeEach(() => {
+      mockThreadSenders("sender@example.com");
+      vi.mocked(fetchSenderFromMessage).mockResolvedValue("sender@example.com");
+      vi.mocked(
+        mockProvider.hasPreviousCommunicationsWithSenderOrDomain,
+      ).mockResolvedValue(false);
+    });
+
     it("should save cold email pattern when SPAM label is added", async () => {
       vi.mocked(prisma.rule.findFirst).mockResolvedValue({
         id: "rule-123",
@@ -242,6 +262,96 @@ describe("process-label-added-event", () => {
           source: GroupItemSource.LABEL_ADDED,
         }),
       );
+    });
+
+    describe("junking a thread", () => {
+      beforeEach(() => {
+        vi.mocked(prisma.rule.findFirst).mockResolvedValue({
+          id: "rule-123",
+        } as any);
+      });
+
+      it("should not learn any sender when the thread has replies from others", async () => {
+        mockThreadSenders("replier@othercorp.com", "cold@vendor.com");
+        vi.mocked(fetchSenderFromMessage).mockResolvedValue(
+          "replier@othercorp.com",
+        );
+
+        await junkMessage();
+
+        // Guards against passing via an earlier check instead of the thread inspection.
+        expect(mockProvider.getThreadMessages).toHaveBeenCalled();
+        expect(saveLearnedPattern).not.toHaveBeenCalled();
+      });
+
+      it("should not learn the sender when the user replied in the thread", async () => {
+        mockThreadSenders("cold@vendor.com", "user@test.com");
+        vi.mocked(fetchSenderFromMessage).mockResolvedValue("cold@vendor.com");
+
+        await junkMessage();
+
+        expect(saveLearnedPattern).not.toHaveBeenCalled();
+      });
+
+      it("should not learn a sender the user already corresponds with", async () => {
+        mockThreadSenders("vendor@partner.com");
+        vi.mocked(fetchSenderFromMessage).mockResolvedValue(
+          "vendor@partner.com",
+        );
+        vi.mocked(
+          mockProvider.hasPreviousCommunicationsWithSenderOrDomain,
+        ).mockResolvedValue(true);
+
+        await junkMessage();
+
+        expect(saveLearnedPattern).not.toHaveBeenCalled();
+      });
+
+      it("should learn the sole sender of a one-way thread", async () => {
+        mockThreadSenders("cold@vendor.com", "cold@vendor.com");
+        vi.mocked(fetchSenderFromMessage).mockResolvedValue("cold@vendor.com");
+
+        await junkMessage();
+
+        expect(saveLearnedPattern).toHaveBeenCalledWith(
+          expect.objectContaining({ from: "cold@vendor.com" }),
+        );
+      });
+
+      it.each([
+        ["the account has no cold email rule", null],
+        ["the sender is already known", { id: "rule-123", groupId: "group-1" }],
+      ])("should not read the thread when %s", async (_name, rule) => {
+        vi.mocked(prisma.rule.findFirst).mockResolvedValue(rule as any);
+        vi.mocked(prisma.groupItem.findUnique).mockResolvedValue({
+          id: "existing-item",
+        } as any);
+        vi.mocked(fetchSenderFromMessage).mockResolvedValue("cold@vendor.com");
+
+        await junkMessage();
+
+        expect(mockProvider.getThreadMessages).not.toHaveBeenCalled();
+      });
+    });
+
+    describe("internal senders", () => {
+      beforeEach(() => {
+        vi.mocked(prisma.rule.findFirst).mockResolvedValue({
+          id: "rule-123",
+        } as any);
+      });
+
+      // isSameOrganization returns before any provider call, so no thread setup is needed.
+      it.each([
+        ["the account owner's own address", "user@test.com"],
+        ["a colleague on the account owner's domain", "ceo@test.com"],
+      ])("should not learn %s", async (_name, sender) => {
+        vi.mocked(fetchSenderFromMessage).mockResolvedValue(sender);
+
+        await junkMessage();
+
+        expect(saveLearnedPattern).not.toHaveBeenCalled();
+      });
     });
   });
 });

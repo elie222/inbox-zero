@@ -24,6 +24,7 @@ describe("convertMessage", () => {
           id: "inline-attachment",
           name: "signature-logo.png",
           contentType: "image/png",
+          contentId: "signature-logo",
           size: 128,
           isInline: true,
         },
@@ -43,6 +44,15 @@ describe("convertMessage", () => {
       expect.objectContaining({
         attachmentId: "document-attachment",
         filename: "receipt.pdf",
+      }),
+    ]);
+    expect(result.inline).toEqual([
+      expect.objectContaining({
+        attachmentId: "inline-attachment",
+        filename: "signature-logo.png",
+        headers: expect.objectContaining({
+          "content-id": "signature-logo",
+        }),
       }),
     ]);
   });

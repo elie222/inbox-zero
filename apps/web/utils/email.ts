@@ -233,3 +233,14 @@ export function getSearchTermForSender(email: string): string {
     ? extractEmailAddress(email) || email
     : domain;
 }
+
+// Sharing a public provider says nothing about affiliation, so those compare by address.
+export function isSameOrganization(left: string, right: string): boolean {
+  if (!left || !right) return false;
+  if (isSameEmailAddress(left, right)) return true;
+
+  const leftDomain = extractDomainFromEmail(left).toLowerCase();
+  if (!leftDomain || isPublicEmailDomain(leftDomain)) return false;
+
+  return leftDomain === extractDomainFromEmail(right).toLowerCase();
+}

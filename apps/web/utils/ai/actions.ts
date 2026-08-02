@@ -15,7 +15,7 @@ import { labelMessageAndSync } from "@/utils/label.server";
 import { hasVariables } from "@/utils/template";
 import prisma from "@/utils/prisma";
 import { sendColdEmailNotification } from "@/utils/cold-email/send-notification";
-import { extractEmailAddress } from "@/utils/email";
+import { extractEmailAddress, isSameOrganization } from "@/utils/email";
 import { captureException } from "@/utils/error";
 import { env } from "@/env";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
@@ -538,6 +538,13 @@ const notify_sender: ActionFunction<Record<string, unknown>> = async ({
   if (!senderEmail) {
     logger.error("Could not extract sender email for notify_sender action");
     return { success: false, errorCode: "MISSING_SENDER_EMAIL" };
+  }
+
+  // A learned pattern can match without a fresh classification, so guard here too:
+  // this action emails the sender, and a wrong one accuses a colleague of spamming.
+  if (isSameOrganization(senderEmail, emailAccount.email)) {
+    logger.warn("Skipping cold email notification to an internal sender");
+    return { success: false, errorCode: "INTERNAL_SENDER" };
   }
 
   const result = await sendColdEmailNotification({

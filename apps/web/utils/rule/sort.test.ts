@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { SystemType } from "@/generated/prisma/enums";
-import { sortRulesForAutomation } from "./sort";
+import { sortRulesByCanonicalOrder } from "./sort";
 
-describe("sortRulesForAutomation", () => {
+describe("sortRulesByCanonicalOrder", () => {
   it("puts disabled rules after enabled rules and sorts each group by name", () => {
     const rules = [
       { name: "Zulu", enabled: true },
@@ -11,7 +11,7 @@ describe("sortRulesForAutomation", () => {
       { name: "Charlie", enabled: false },
     ];
 
-    expect(sortRulesForAutomation(rules).map((rule) => rule.name)).toEqual([
+    expect(sortRulesByCanonicalOrder(rules).map((rule) => rule.name)).toEqual([
       "Bravo",
       "Zulu",
       "Alpha",
@@ -34,7 +34,7 @@ describe("sortRulesForAutomation", () => {
       { name: "Alpha", enabled: true },
     ];
 
-    expect(sortRulesForAutomation(rules).map((rule) => rule.name)).toEqual([
+    expect(sortRulesByCanonicalOrder(rules).map((rule) => rule.name)).toEqual([
       "Newsletter",
       "Cold Email",
       "Alpha",
