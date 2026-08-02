@@ -7,6 +7,7 @@ export const INBOX_HEALTH_MIN_SUGGESTIONS = 5;
 export const INBOX_HEALTH_MAX_LISTED_SENDERS = 10;
 export const INBOX_HEALTH_INTERVAL_DAYS = 30;
 export const INBOX_HEALTH_MIN_ACCOUNT_AGE_DAYS = 7;
+const WEEKS_IN_THREE_MONTHS = 13;
 
 export type InboxHealthSenderStats = {
   /** Sender email address */
@@ -34,17 +35,23 @@ export function getInboxHealthEmailData(senders: InboxHealthSenderStats[]) {
     (sum, sender) => sum + sender.value,
     0,
   );
+  const threeMonthIgnored = suggestions.reduce(
+    (sum, sender) => sum + (sender.value - sender.readEmails),
+    0,
+  );
 
   return {
     suggestionCount: suggestions.length,
     yearlyEmailsAvoided: Math.round(threeMonthTotal * 4),
+    weeklyIgnoredEmails: Math.round(threeMonthIgnored / WEEKS_IN_THREE_MONTHS),
     senders: suggestions
       .slice(0, INBOX_HEALTH_MAX_LISTED_SENDERS)
       .map((sender) => ({
         name: sender.fromName || sender.name,
         email: sender.name,
         count: sender.value,
-        readPercentage: Math.round((sender.readEmails / sender.value) * 100),
+        readEmails: sender.readEmails,
+        ignoredEmails: sender.value - sender.readEmails,
       })),
   };
 }
