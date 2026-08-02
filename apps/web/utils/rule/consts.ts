@@ -61,7 +61,7 @@ const ruleConfig: Record<
     instructions:
       "Newsletters: Regular content from publications, blogs, or services I've subscribed to",
     label: "Newsletter",
-    runOnThreads: false,
+    runOnThreads: true,
     categoryAction: "label",
     categoryActionMicrosoft: "move_folder",
     tooltipText: "Newsletters, blogs, and publications",
@@ -72,6 +72,10 @@ const ruleConfig: Record<
     instructions:
       "Marketing: Promotional emails about products, services, sales, or offers",
     label: "Marketing",
+    // Stays off deliberately: this rule archives. On a thread that would
+    // pull a live conversation out of the inbox when someone replies to
+    // something that still reads as promotional. The label-only
+    // categorisation rules run on threads; these two must not.
     runOnThreads: false,
     categoryAction: "label_archive",
     categoryActionMicrosoft: "move_folder",
@@ -83,7 +87,7 @@ const ruleConfig: Record<
     instructions:
       "Calendar: Any email related to scheduling, meeting invites, or calendar notifications",
     label: "Calendar",
-    runOnThreads: false,
+    runOnThreads: true,
     categoryAction: "label",
     tooltipText: "Events, appointments, and reminders",
     shouldLearn: true,
@@ -93,7 +97,7 @@ const ruleConfig: Record<
     instructions:
       "Receipts: Purchase confirmations, payment receipts, transaction records or invoices",
     label: "Receipt",
-    runOnThreads: false,
+    runOnThreads: true,
     categoryAction: "label",
     categoryActionMicrosoft: "move_folder",
     tooltipText: "Invoices, receipts, and payments",
@@ -103,7 +107,7 @@ const ruleConfig: Record<
     name: "Notification",
     instructions: "Notifications: Alerts, status updates, or system messages",
     label: "Notification",
-    runOnThreads: false,
+    runOnThreads: true,
     categoryAction: "label",
     categoryActionMicrosoft: "move_folder",
     tooltipText: "Alerts, status updates, and system messages",
@@ -113,6 +117,10 @@ const ruleConfig: Record<
     name: "Cold Email",
     instructions: DEFAULT_COLD_EMAIL_PROMPT,
     label: "Cold Email",
+    // Stays off deliberately: this rule archives. On a thread that would
+    // pull a live conversation out of the inbox when someone replies to
+    // something that still reads as promotional. The label-only
+    // categorisation rules run on threads; these two must not.
     runOnThreads: false,
     categoryAction: "label_archive",
     categoryActionMicrosoft: "move_folder",
