@@ -73,10 +73,18 @@ describe("getInboxHealthEmailData", () => {
       "d@example.com",
       "b@example.com",
     ]);
-    // 3 / 50 = 6%
-    expect(data?.senders[0].readPercentage).toBe(6);
+    // 50 received, 3 read
+    expect(data?.senders[0].readEmails).toBe(3);
+    expect(data?.senders[0].ignoredEmails).toBe(47);
     // Falls back to the email address when there is no display name
     expect(data?.senders[1].name).toBe("e@example.com");
+  });
+
+  it("reports the weekly volume the user never opens", () => {
+    // 130 ignored emails over 13 weeks
+    const senders = makeSenders(13, { value: 10, readEmails: 0 });
+
+    expect(getInboxHealthEmailData(senders)?.weeklyIgnoredEmails).toBe(10);
   });
 
   it("lists at most 10 senders but counts all suggestions", () => {
@@ -165,8 +173,11 @@ function makeSender(
   };
 }
 
-function makeSenders(count: number): InboxHealthSenderStats[] {
+function makeSenders(
+  count: number,
+  overrides?: Partial<InboxHealthSenderStats>,
+): InboxHealthSenderStats[] {
   return Array.from({ length: count }, (_, i) =>
-    makeSender({ name: `sender${i}@example.com`, value: 10 }),
+    makeSender({ name: `sender${i}@example.com`, value: 10, ...overrides }),
   );
 }
