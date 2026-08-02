@@ -676,6 +676,87 @@ GreenLeaf Goods LLC | 200 Elm Street, Portland, OR 97201`,
     }),
     expectedRule: "Marketing",
   },
+  // Thread replies. The label-only categorisation rules now run on threads
+  // (see getRuleConfig runOnThreads), so they become candidates for replies
+  // they never saw before. The risk that introduces is exactly this: a human
+  // reply inside a thread that *started* as a receipt/newsletter/notification
+  // still smells like that category, and grabbing it would bury a live
+  // conversation under an automated label.
+  {
+    email: getEmail({
+      from: "finance@acme.com",
+      subject: "Re: Invoice INV-4432 payment failed",
+      content: `Thanks for flagging this — I've updated the card on file.
+
+Could you confirm the retry went through, and let me know if we need a new PO
+number for the next cycle? We'd like to avoid this at renewal.
+
+Best,
+Priya`,
+    }),
+    expectedRule: "Conversations",
+  },
+  {
+    email: getEmail({
+      from: "lenny@substack.com",
+      subject: "Re: This week: pricing pages that convert",
+      content: `Replying to your newsletter — the section on anchor pricing was
+really useful. We're rolling something similar out next quarter.
+
+Would you be open to a quick call about how you'd approach it for a B2B
+product with a sales-assisted motion?
+
+Thanks,
+Dana`,
+    }),
+    expectedRule: "Conversations",
+  },
+  {
+    email: getEmail({
+      from: "sre@acme.com",
+      subject: "Re: Production deployment succeeded",
+      content: `Following up on this deploy — we're seeing elevated p99 latency
+on the checkout path since it went out.
+
+Can you take a look and let me know whether we should roll back? I'd like a
+decision before the EU morning peak.
+
+— Marcus`,
+    }),
+    expectedRule: "Conversations",
+  },
+  {
+    email: getEmail({
+      from: "calendar-notification@google.com",
+      subject: "Re: Invitation: Q2 planning sync",
+      content: `I can't make Thursday after all — a customer escalation landed
+on the same slot.
+
+Could we push to Friday morning, or should I send a delegate? Happy either
+way, just let me know which you prefer.
+
+Sam`,
+    }),
+    expectedRule: "Conversations",
+  },
+  // The mirror case: a genuine automated follow-up in an existing thread
+  // should still categorise, so the fix above must not over-correct into
+  // "every reply is a conversation".
+  {
+    email: getEmail({
+      from: "billing@stripe.com",
+      subject: "Re: Your receipt from Acme Inc.",
+      content: `This is an automated message.
+
+A copy of your receipt for invoice INV-4432 is attached. No action is required.
+
+Amount: $240.00
+Date: 12 June 2026
+
+Do not reply to this email.`,
+    }),
+    expectedRule: ["Receipt", "Conversations"],
+  },
 ];
 
 describe.runIf(shouldRunEval)("Eval: Choose Rule", () => {
