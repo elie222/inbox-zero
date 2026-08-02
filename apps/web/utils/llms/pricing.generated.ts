@@ -119,6 +119,11 @@ export const OPENROUTER_MODEL_PRICING: Record<string, ModelPricing> = {
     output: 0.000_003_828,
     cachedInput: 1.65e-7,
   },
+  "deepseek/deepseek-v4-flash": {
+    input: 7.7e-8,
+    output: 1.54e-7,
+    cachedInput: 1.54e-8,
+  },
   "eu.anthropic.claude-sonnet-4-6": {
     input: 0.000_003,
     output: 0.000_015,

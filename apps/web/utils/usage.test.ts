@@ -150,13 +150,13 @@ describe("calculateUsageCost", () => {
     ).toBe(0);
   });
 
-  it("estimates DeepSeek V4 Flash Latest costs", () => {
+  it.each([
+    "deepseek/deepseek-v4-flash",
+    "~deepseek/deepseek-v4-flash-latest",
+  ])("estimates DeepSeek V4 Flash costs for %s", (model) => {
     const provider = "openrouter";
-    const model = "~deepseek/deepseek-v4-flash-latest";
     const pricing = OPENROUTER_MODEL_PRICING[model];
-    if (!pricing) {
-      throw new Error("Expected pricing for deepseek-v4-flash-latest");
-    }
+    if (!pricing) throw new Error(`Expected pricing for ${model}`);
 
     const usage: LanguageModelUsage = {
       inputTokens: 1000,
