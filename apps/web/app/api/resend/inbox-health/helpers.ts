@@ -1,6 +1,6 @@
 import { subDays } from "date-fns/subDays";
 import { Frequency, type NewsletterStatus } from "@/generated/prisma/enums";
-import { isUnsubscribeSuggestion } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/suggestions";
+import { getUnsubscribeSuggestions } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/suggestions";
 import type { EmailFilter } from "@/utils/email/types";
 
 export const INBOX_HEALTH_MIN_SUGGESTIONS = 5;
@@ -24,9 +24,9 @@ export type InboxHealthSenderStats = {
  * content. Returns null when there are too few unsubscribe suggestions.
  */
 export function getInboxHealthEmailData(senders: InboxHealthSenderStats[]) {
-  const suggestions = senders
-    .filter(isUnsubscribeSuggestion)
-    .sort((a, b) => b.value - a.value);
+  // Same call the bulk unsubscribe page makes, so the count in the email
+  // matches the list the link lands on
+  const suggestions = getUnsubscribeSuggestions(senders);
 
   if (suggestions.length < INBOX_HEALTH_MIN_SUGGESTIONS) return null;
 

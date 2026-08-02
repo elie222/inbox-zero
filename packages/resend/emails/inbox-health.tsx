@@ -42,7 +42,7 @@ export default function InboxHealthEmail(props: InboxHealthEmailProps) {
     senders,
   } = props;
 
-  const bulkUnsubscribeUrl = `${baseUrl}/${emailAccountId}/bulk-unsubscribe?select=suggested`;
+  const bulkUnsubscribeUrl = `${baseUrl}/${emailAccountId}/bulk-unsubscribe?filter=suggested`;
   const senderCountText = getSenderCountText(suggestionCount);
 
   return (

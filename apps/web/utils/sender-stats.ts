@@ -26,6 +26,10 @@ export type SenderEmailStatsOptions = {
   orderBy?: "emails" | "unread" | "unarchived";
   orderDirection?: "asc" | "desc";
   limit?: number | null;
+  /** Drop senders with fewer than this many emails */
+  minEmails?: number;
+  /** Drop senders whose read rate is at or above this percentage (0-100) */
+  maxReadRate?: number;
   logger: Logger;
 };
 
@@ -88,6 +92,24 @@ export async function getSenderEmailStats(
       ? Prisma.sql`WHERE ${Prisma.join(whereConditions, " AND ")}`
       : Prisma.empty;
 
+  // Narrow to unpopular senders in the database rather than fetching every
+  // sender and discarding most of them in JS
+  const havingConditions: Prisma.Sql[] = [];
+
+  if (options.minEmails) {
+    havingConditions.push(Prisma.sql`COUNT(*) >= ${options.minEmails}::int`);
+  }
+
+  if (options.maxReadRate !== undefined) {
+    havingConditions.push(
+      Prisma.sql`SUM(CASE WHEN read = true THEN 1 ELSE 0 END)::float / NULLIF(COUNT(*), 0) < ${options.maxReadRate / 100}::float`,
+    );
+  }
+
+  const havingClause = havingConditions.length
+    ? Prisma.sql`HAVING ${Prisma.join(havingConditions, " AND ")}`
+    : Prisma.empty;
+
   // Build order by clause (safe, no user input)
   const orderByClause = options.orderBy
     ? getOrderByClause(options.orderBy, options.orderDirection)
@@ -110,6 +132,7 @@ export async function getSenderEmailStats(
       FROM "EmailMessage"
       ${whereClause}
       GROUP BY LOWER("from")
+      ${havingClause}
     )
     SELECT * FROM email_message_stats
     ORDER BY ${Prisma.raw(orderByClause)}

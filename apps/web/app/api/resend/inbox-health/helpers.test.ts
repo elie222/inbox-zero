@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { subDays } from "date-fns/subDays";
 import { Frequency, NewsletterStatus } from "@/generated/prisma/enums";
+import { SUGGESTION_LIMIT } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/suggestions";
 import {
   getInboxHealthEmailData,
   getInboxHealthSkipReason,
@@ -64,7 +65,7 @@ describe("getInboxHealthEmailData", () => {
     expect(data?.suggestionCount).toBe(5);
     // (30 + 10 + 50 + 20 + 40) * 4
     expect(data?.yearlyEmailsAvoided).toBe(600);
-    // Sorted by email count descending
+    // Sorted by unread email count descending
     expect(data?.senders.map((sender) => sender.email)).toEqual([
       "c@example.com",
       "e@example.com",
@@ -87,6 +88,14 @@ describe("getInboxHealthEmailData", () => {
     expect(data?.senders).toHaveLength(10);
     // yearly estimate covers all 15 suggestions, not just the listed 10
     expect(data?.yearlyEmailsAvoided).toBe(15 * 10 * 4);
+  });
+
+  it("counts at most the capped number of suggestions", () => {
+    const data = getInboxHealthEmailData(makeSenders(30));
+
+    expect(data?.suggestionCount).toBe(SUGGESTION_LIMIT);
+    // The estimate reflects the capped list the email links to
+    expect(data?.yearlyEmailsAvoided).toBe(SUGGESTION_LIMIT * 10 * 4);
   });
 });
 
