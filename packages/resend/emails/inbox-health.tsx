@@ -106,15 +106,16 @@ export default function InboxHealthEmail(props: InboxHealthEmailProps) {
                             verticalAlign: "middle",
                           }}
                         >
-                          <a href={baseUrl}>
-                            <Img
-                              src={ICON_URL}
-                              width="22"
-                              height="22"
-                              alt=""
-                              style={{ display: "block", border: 0 }}
-                            />
-                          </a>
+                          {/* Decorative: the adjacent link already names the
+                          brand, so linking the icon too would add a second
+                          unlabelled link to the same place */}
+                          <Img
+                            src={ICON_URL}
+                            width="22"
+                            height="22"
+                            alt=""
+                            style={{ display: "block", border: 0 }}
+                          />
                         </td>
                         <td
                           style={{
