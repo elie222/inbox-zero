@@ -200,12 +200,18 @@ async function generateDraftContent(
         draft: cachedReply.reply,
         confidence: cachedReply.confidence,
         attribution: cachedReply.attribution,
-        draftContextMetadata: cachedReply.draftContextMetadata,
+        draftContextMetadata: cachedReply.draftContextMetadata
+          ? {
+              ...cachedReply.draftContextMetadata,
+              draft: { confidence: cachedReply.confidence },
+            }
+          : cachedReply.draftContextMetadata,
         ...(selectedRuleId ? { attachments: cachedReply.attachments } : {}),
       };
     }
 
     logger.info("Skipping cached draft due to low confidence", {
+      emailAccountId: emailAccount.id,
       draftConfidence: cachedReply.confidence,
       minimumConfidence,
       threadId: lastMessage.threadId,
@@ -436,13 +442,16 @@ async function generateDraftContent(
     attachmentContext: attachmentSelection.attachmentContext,
   });
 
-  if (
-    !meetsDraftReplyConfidenceRequirement({
-      draftConfidence: confidence,
-      minimumConfidence,
-    })
-  ) {
+  const meetsThreshold = meetsDraftReplyConfidenceRequirement({
+    draftConfidence: confidence,
+    minimumConfidence,
+  });
+  draftContextMetadata.draft = { confidence };
+
+  if (!meetsThreshold) {
+    // A suppressed draft creates no action and therefore no ExecutedAction row.
     logger.info("Skipping draft due to low confidence", {
+      emailAccountId: emailAccount.id,
       draftConfidence: confidence,
       minimumConfidence,
       threadId: lastMessage.threadId,
