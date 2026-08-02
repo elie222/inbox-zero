@@ -133,6 +133,9 @@ describe("summary email route", () => {
     );
 
     expect(response.status).toBe(200);
+    expect(mockIsAuthorizedCronOrInternalRequest).toHaveBeenCalledWith(
+      expect.any(Request),
+    );
     expect(mockCreateEmailProvider).toHaveBeenCalledWith(
       expect.objectContaining({
         emailAccountId: "email-account-id",
