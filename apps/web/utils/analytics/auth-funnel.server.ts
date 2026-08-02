@@ -1,10 +1,8 @@
 import type { GenericEndpointContext } from "better-auth";
 import type { AuthFunnelProvider } from "@/utils/analytics/auth-funnel";
 import { normalizeAuthProvider } from "@/utils/analytics/auth-funnel";
-import { createScopedLogger } from "@/utils/logger";
 import { posthogCaptureEvent } from "@/utils/posthog";
 
-const logger = createScopedLogger("analytics/auth-funnel");
 const newUserAuthContexts = new WeakSet<object>();
 
 export function markAuthContextAsNewUser(authContext?: object | null) {
@@ -37,15 +35,8 @@ export async function trackAuthenticationCompleted({
 }) {
   if (provider === "unknown") return;
 
-  try {
-    await posthogCaptureEvent(email, "Authentication Completed", {
-      provider,
-      is_new_user: isNewUser,
-    });
-  } catch (error) {
-    logger.error("Failed to track completed authentication", {
-      error,
-      provider,
-    });
-  }
+  await posthogCaptureEvent(email, "Authentication Completed", {
+    provider,
+    is_new_user: isNewUser,
+  });
 }

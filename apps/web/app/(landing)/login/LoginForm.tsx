@@ -68,10 +68,7 @@ export function LoginForm({
       trackAuthFailure(posthog, {
         provider: "google",
         stage: "start",
-        errorCode:
-          error instanceof Error && isNetworkSignInError(error.message)
-            ? "network_error"
-            : "client_error",
+        errorCode: getSignInErrorCode(error),
       });
       const description = getSocialSignInErrorMessage(error);
       logger.error("Error signing in with Google", { error });
@@ -212,10 +209,7 @@ async function handleSocialSignIn({
     trackAuthFailure(posthog, {
       provider,
       stage: "start",
-      errorCode:
-        error instanceof Error && isNetworkSignInError(error.message)
-          ? "network_error"
-          : "client_error",
+      errorCode: getSignInErrorCode(error),
     });
     const description = getSocialSignInErrorMessage(error);
     logger.error(`Error signing in with ${providerName}`, { error });
@@ -238,6 +232,12 @@ function getSocialSignInErrorMessage(error: unknown) {
   }
 
   return "Please try again or contact support.";
+}
+
+function getSignInErrorCode(error: unknown) {
+  return error instanceof Error && isNetworkSignInError(error.message)
+    ? "network_error"
+    : "client_error";
 }
 
 function isNetworkSignInError(message: string) {

@@ -1,11 +1,7 @@
 import type { PostHog } from "posthog-js";
+import type { LoginProvider } from "@/utils/oauth/login-providers";
 
-export type AuthFunnelProvider =
-  | "google"
-  | "microsoft"
-  | "apple"
-  | "sso"
-  | "unknown";
+export type AuthFunnelProvider = LoginProvider | "unknown";
 
 type AuthFailureStage = "start" | "callback";
 
@@ -62,42 +58,38 @@ export function rememberAuthProvider(
   provider: AuthFunnelProvider,
   startedAt = Date.now(),
 ) {
-  if (typeof sessionStorage === "undefined") return;
-
-  try {
-    sessionStorage.setItem(
+  withSessionStorage((storage) =>
+    storage.setItem(
       AUTH_PROVIDER_ATTEMPT_KEY,
       JSON.stringify({ provider, startedAt }),
-    );
-  } catch {
-    // Analytics must never block authentication when browser storage is unavailable.
-  }
+    ),
+  );
 }
 
 export function getPendingAuthProvider(now = Date.now()): AuthFunnelProvider {
-  if (typeof sessionStorage === "undefined") return "unknown";
-
-  try {
-    const storedAttempt = sessionStorage.getItem(AUTH_PROVIDER_ATTEMPT_KEY);
+  const provider = withSessionStorage((storage) => {
+    const storedAttempt = storage.getItem(AUTH_PROVIDER_ATTEMPT_KEY);
     if (!storedAttempt) return "unknown";
 
-    const parsed = JSON.parse(storedAttempt) as {
-      provider?: unknown;
-      startedAt?: unknown;
-    };
+    const attempt = parseStoredAttempt(storedAttempt);
     if (
-      typeof parsed.startedAt !== "number" ||
-      now - parsed.startedAt > AUTH_PROVIDER_ATTEMPT_MAX_AGE_MS
+      typeof attempt?.startedAt !== "number" ||
+      now - attempt.startedAt > AUTH_PROVIDER_ATTEMPT_MAX_AGE_MS
     ) {
-      sessionStorage.removeItem(AUTH_PROVIDER_ATTEMPT_KEY);
+      storage.removeItem(AUTH_PROVIDER_ATTEMPT_KEY);
       return "unknown";
     }
 
-    return normalizeAuthProvider(parsed.provider);
-  } catch {
-    clearPendingAuthProvider();
-    return "unknown";
-  }
+    return normalizeAuthProvider(attempt.provider);
+  });
+
+  return provider ?? "unknown";
+}
+
+export function clearPendingAuthProvider() {
+  withSessionStorage((storage) =>
+    storage.removeItem(AUTH_PROVIDER_ATTEMPT_KEY),
+  );
 }
 
 export function trackAuthStarted(
@@ -105,11 +97,7 @@ export function trackAuthStarted(
   provider: AuthFunnelProvider,
 ) {
   rememberAuthProvider(provider);
-  try {
-    posthog.capture("Authentication Started", { provider });
-  } catch {
-    // Analytics must never block authentication.
-  }
+  capture(posthog, "Authentication Started", { provider });
 }
 
 export function trackAuthFailure(
@@ -120,24 +108,41 @@ export function trackAuthFailure(
     errorCode?: string | null;
   },
 ) {
-  try {
-    posthog.capture("Authentication Failed", {
-      provider: options.provider,
-      stage: options.stage,
-      error_category: getAuthErrorCategory(options.errorCode),
-    });
-  } catch {
-    // Analytics must never block authentication.
-  }
+  capture(posthog, "Authentication Failed", {
+    provider: options.provider,
+    stage: options.stage,
+    error_category: getAuthErrorCategory(options.errorCode),
+  });
   clearPendingAuthProvider();
 }
 
-export function clearPendingAuthProvider() {
-  if (typeof sessionStorage === "undefined") return;
-
+// Analytics must never block authentication, including when browser storage or
+// the PostHog client is unavailable.
+function withSessionStorage<T>(run: (storage: Storage) => T): T | null {
   try {
-    sessionStorage.removeItem(AUTH_PROVIDER_ATTEMPT_KEY);
+    if (typeof sessionStorage === "undefined") return null;
+    return run(sessionStorage);
   } catch {
-    // Ignore unavailable browser storage.
+    return null;
+  }
+}
+
+function capture(
+  posthog: PostHog,
+  event: string,
+  properties: Record<string, unknown>,
+) {
+  try {
+    posthog.capture(event, properties);
+  } catch {
+    // See withSessionStorage.
+  }
+}
+
+function parseStoredAttempt(value: string) {
+  try {
+    return JSON.parse(value) as { provider?: unknown; startedAt?: unknown };
+  } catch {
+    return null;
   }
 }

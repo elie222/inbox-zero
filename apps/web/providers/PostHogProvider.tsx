@@ -23,10 +23,6 @@ export function PostHogPageview() {
 
   useEffect(() => {
     if (pathname) {
-      if (!pathname.startsWith("/login/error")) {
-        clearPendingAuthProvider();
-      }
-
       let url = window.origin + pathname;
       if (searchParams?.toString()) {
         url = `${url}?${searchParams.toString()}`;
@@ -55,9 +51,12 @@ export function PostHogIdentify() {
   const userCreatedAt = session?.user.createdAt;
 
   useEffect(() => {
-    if (!userEmail || !userCreatedAt) return;
+    if (!userEmail) return;
+
+    clearPendingAuthProvider();
 
     const signedUpOverOneDayAgo =
+      !!userCreatedAt &&
       Date.now() - new Date(userCreatedAt).getTime() > ONE_DAY_MS;
 
     posthog.identify(userEmail, {

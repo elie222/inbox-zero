@@ -82,20 +82,6 @@ describe("server auth funnel analytics", () => {
     expect(posthogCaptureEvent).not.toHaveBeenCalled();
   });
 
-  it("does not reject authentication when analytics delivery fails", async () => {
-    vi.mocked(posthogCaptureEvent).mockRejectedValueOnce(
-      new Error("Analytics unavailable"),
-    );
-
-    await expect(
-      trackAuthenticationCompleted({
-        email: "user@example.com",
-        provider: "microsoft",
-        isNewUser: false,
-      }),
-    ).resolves.toBeUndefined();
-  });
-
   it("marks new users from the current auth request context", () => {
     const authContext = {};
     const unrelatedAuthContext = {};

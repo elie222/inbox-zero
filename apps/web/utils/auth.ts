@@ -334,16 +334,17 @@ export const betterAuthConfig = betterAuth({
   hooks: {
     after: createAuthMiddleware(async (context) => {
       try {
-        const provider = getAuthProviderFromContext(context);
         const authenticatedSession = context.context.newSession;
-        if (provider === "unknown" || !authenticatedSession) return;
+        if (!authenticatedSession) return;
+
+        const provider = getAuthProviderFromContext(context);
+        if (provider === "unknown") return;
+
+        const email = authenticatedSession.user.email;
+        const isNewUser = isNewUserAuthContext(context.context);
 
         after(() =>
-          trackAuthenticationCompleted({
-            email: authenticatedSession.user.email,
-            provider,
-            isNewUser: isNewUserAuthContext(context.context),
-          }),
+          trackAuthenticationCompleted({ email, provider, isNewUser }),
         );
       } catch (error) {
         logger.error("Failed to schedule authentication analytics", { error });
