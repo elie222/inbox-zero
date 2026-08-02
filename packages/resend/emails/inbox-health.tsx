@@ -1,4 +1,4 @@
-import { Body, Head, Html, Img, Preview } from "@react-email/components";
+import { Body, Head, Html, Preview } from "@react-email/components";
 
 type SuggestedSender = {
   name: string;
@@ -18,7 +18,6 @@ export interface InboxHealthEmailProps {
   yearlyEmailsAvoided: number;
 }
 
-const ICON_URL = "https://www.getinboxzero.com/icon.png";
 const FONT_STACK = "'Helvetica Neue',Helvetica,Arial,sans-serif";
 const PAGE_BACKGROUND = "#F1F1EE";
 const CARD_BACKGROUND = "#FDFDFD";
@@ -92,48 +91,25 @@ export default function InboxHealthEmail(props: InboxHealthEmailProps) {
                 style={{ width: "600px", maxWidth: "600px" }}
               >
                 <tr>
-                  <td align="left" style={{ padding: "0 8px 18px 8px" }}>
-                    <table
-                      role="presentation"
-                      cellPadding={0}
-                      cellSpacing={0}
-                      border={0}
-                    >
-                      <tr>
-                        <td
-                          style={{
-                            paddingRight: "8px",
-                            verticalAlign: "middle",
-                          }}
-                        >
-                          {/* Decorative: the adjacent link already names the
-                          brand, so linking the icon too would add a second
-                          unlabelled link to the same place */}
-                          <Img
-                            src={ICON_URL}
-                            width="22"
-                            height="22"
-                            alt=""
-                            style={{ display: "block", border: 0 }}
-                          />
-                        </td>
-                        <td
-                          style={{
-                            fontFamily: FONT_STACK,
-                            fontSize: "17px",
-                            lineHeight: "22px",
-                            letterSpacing: "-0.02em",
-                            color: TEXT,
-                            fontWeight: 600,
-                            verticalAlign: "middle",
-                          }}
-                        >
-                          <a href={baseUrl} style={{ color: TEXT }}>
-                            Inbox Zero
-                          </a>
-                        </td>
-                      </tr>
-                    </table>
+                  <td
+                    align="left"
+                    style={{
+                      padding: "0 8px 18px 8px",
+                      fontFamily: FONT_STACK,
+                      fontSize: "15px",
+                      lineHeight: "20px",
+                      letterSpacing: "0.01em",
+                      color: TEXT,
+                      fontWeight: 700,
+                      // The brand wordmark is set in caps. Transforming rather
+                      // than hardcoding keeps the accessible name readable and
+                      // degrades to the plain brand name if a client drops it.
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    <a href={baseUrl} style={{ color: TEXT }}>
+                      Inbox Zero
+                    </a>
                   </td>
                   <td
                     align="right"
