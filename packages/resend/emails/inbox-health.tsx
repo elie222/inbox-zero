@@ -1,4 +1,4 @@
-import { Body, Head, Html, Preview } from "@react-email/components";
+import { Body, Head, Html, Img, Preview } from "@react-email/components";
 
 type SuggestedSender = {
   name: string;
@@ -18,6 +18,7 @@ export interface InboxHealthEmailProps {
   yearlyEmailsAvoided: number;
 }
 
+const ICON_URL = "https://www.getinboxzero.com/icon.png";
 const FONT_STACK = "'Helvetica Neue',Helvetica,Arial,sans-serif";
 const PAGE_BACKGROUND = "#F1F1EE";
 const CARD_BACKGROUND = "#FDFDFD";
@@ -91,19 +92,47 @@ export default function InboxHealthEmail(props: InboxHealthEmailProps) {
                 style={{ width: "600px", maxWidth: "600px" }}
               >
                 <tr>
-                  <td
-                    align="left"
-                    style={{
-                      padding: "0 8px 18px 8px",
-                      fontFamily: FONT_STACK,
-                      fontSize: "17px",
-                      lineHeight: "20px",
-                      letterSpacing: "-0.02em",
-                      color: TEXT,
-                      fontWeight: 600,
-                    }}
-                  >
-                    inbox zero
+                  <td align="left" style={{ padding: "0 8px 18px 8px" }}>
+                    <table
+                      role="presentation"
+                      cellPadding={0}
+                      cellSpacing={0}
+                      border={0}
+                    >
+                      <tr>
+                        <td
+                          style={{
+                            paddingRight: "8px",
+                            verticalAlign: "middle",
+                          }}
+                        >
+                          <a href={baseUrl}>
+                            <Img
+                              src={ICON_URL}
+                              width="22"
+                              height="22"
+                              alt=""
+                              style={{ display: "block", border: 0 }}
+                            />
+                          </a>
+                        </td>
+                        <td
+                          style={{
+                            fontFamily: FONT_STACK,
+                            fontSize: "17px",
+                            lineHeight: "22px",
+                            letterSpacing: "-0.02em",
+                            color: TEXT,
+                            fontWeight: 600,
+                            verticalAlign: "middle",
+                          }}
+                        >
+                          <a href={baseUrl} style={{ color: TEXT }}>
+                            Inbox Zero
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
                   </td>
                   <td
                     align="right"
@@ -367,8 +396,8 @@ export default function InboxHealthEmail(props: InboxHealthEmailProps) {
                       textAlign: "center",
                     }}
                   >
-                    Inbox Zero &middot; 2261 Market Street #5039, San Francisco,
-                    CA 94114
+                    Inbox Zero &middot; 1111B S Governors Ave, STE 29390, Dover,
+                    DE 19904, United States
                   </td>
                 </tr>
               </table>
