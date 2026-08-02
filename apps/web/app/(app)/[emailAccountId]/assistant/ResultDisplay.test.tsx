@@ -3,7 +3,7 @@
 import React from "react";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ExecutedRuleStatus } from "@/generated/prisma/enums";
+import { ExecutedRuleStatus, LogicalOperator } from "@/generated/prisma/enums";
 
 const mockUseAccount = vi.fn();
 const mockUseRuleDialog = vi.fn();
@@ -50,7 +50,7 @@ describe("ResultDisplayContent", () => {
   });
 
   it("shows the thread-skip hint for skipped results with skipped thread rules", () => {
-    render(
+    const { container } = render(
       <ResultDisplayContent
         result={{
           createdAt: new Date("2025-01-01"),
@@ -73,18 +73,47 @@ describe("ResultDisplayContent", () => {
     );
 
     expect(screen.getByText("No match found")).toBeTruthy();
-    expect(
-      screen.getByText(
-        "Some rules were skipped because this email is part of a thread.",
-      ),
-    ).toBeTruthy();
+    // The copy names the count and the reason, so assert on the rendered text
+    // rather than one node: it is interpolated across several.
+    expect(container.textContent).toContain("2 rules were never evaluated");
+    expect(container.textContent).toContain("this email is a reply");
     expect(
       screen.getByRole("button", { name: "View skipped rules" }),
     ).toBeTruthy();
   });
 
+  it("shows the thread-skip hint even when a rule did match", () => {
+    const { container } = render(
+      <ResultDisplayContent
+        result={{
+          createdAt: new Date("2025-01-01"),
+          reason: "Matched the conversation rule.",
+          status: ExecutedRuleStatus.APPLIED,
+          rule: {
+            id: "rule-1",
+            name: "Awaiting Reply",
+            conditionalOperator: LogicalOperator.AND,
+          } as never,
+          selectionMetadata: {
+            isThread: true,
+            skippedThreadRuleNames: ["Notification"],
+            continuedThreadRuleNames: [],
+            knownContactSkippedRuleNames: [],
+            staticFailedRuleNames: [],
+            learnedPatternExcludedRules: [],
+            filteredConversationRuleNames: [],
+            conversationFilterReason: undefined,
+            remainingAiRuleNames: [],
+          },
+        }}
+      />,
+    );
+
+    expect(container.textContent).toContain("1 rule was never evaluated");
+  });
+
   it("does not show the thread-skip hint when no thread rules were skipped", () => {
-    render(
+    const { container } = render(
       <ResultDisplayContent
         result={{
           createdAt: new Date("2025-01-01"),
@@ -105,11 +134,7 @@ describe("ResultDisplayContent", () => {
       />,
     );
 
-    expect(
-      screen.queryByText(
-        "Some rules were skipped because this email is part of a thread.",
-      ),
-    ).toBeNull();
+    expect(container.textContent).not.toContain("never evaluated");
     expect(
       screen.queryByRole("button", { name: "View skipped rules" }),
     ).toBeNull();

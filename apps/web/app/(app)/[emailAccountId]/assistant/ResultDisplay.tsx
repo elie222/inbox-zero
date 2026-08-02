@@ -84,6 +84,11 @@ function ResultDisplay({
   showFullContent?: boolean;
 }) {
   const { rule, status } = result;
+  // A bare "No match found" reads as "your rules don't cover this", when the
+  // real reason is often that thread-only rules never got evaluated. Surface
+  // the count on the badge so it doesn't depend on hovering.
+  const skippedThreadCount =
+    result.selectionMetadata?.skippedThreadRuleNames?.length ?? 0;
 
   if (showFullContent) {
     return (
@@ -102,7 +107,9 @@ function ResultDisplay({
         {rule
           ? rule.name
           : status === ExecutedRuleStatus.SKIPPED
-            ? "No match found"
+            ? skippedThreadCount > 0
+              ? `No match \u00b7 ${skippedThreadCount} skipped`
+              : "No match found"
             : capitalCase(status)}
         <EyeIcon className="ml-1.5 size-3.5 opacity-70" />
       </Badge>
@@ -204,10 +211,12 @@ export function ResultDisplayContent({ result }: { result: RunRulesResult }) {
         )}
       </div>
 
-      {(status === ExecutedRuleStatus.SKIPPED ||
+      {(skippedThreadRuleNames.length > 0 ||
         learnedPatternExcludedRules.length > 0) && (
         <div className="mt-3 space-y-2">
-          {status === ExecutedRuleStatus.SKIPPED && (
+          {/* Rules can be thread-skipped even when another rule matched, so
+              this can't be gated on the SKIPPED status. */}
+          {skippedThreadRuleNames.length > 0 && (
             <ThreadSkipHint skippedThreadRuleNames={skippedThreadRuleNames} />
           )}
           {learnedPatternExcludedRules.length > 0 && (
