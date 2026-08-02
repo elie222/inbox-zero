@@ -114,15 +114,20 @@ export const OPENROUTER_MODEL_PRICING: Record<string, ModelPricing> = {
     output: 0.000_015,
     cachedInput: 3e-7,
   },
+  "DeepSeek-V4-Flash": {
+    input: 1.9e-7,
+    output: 5.1e-7,
+    cachedInput: 2.8e-8,
+  },
   "DeepSeek-V4-Pro": {
     input: 0.000_001_925,
     output: 0.000_003_828,
     cachedInput: 1.65e-7,
   },
   "deepseek/deepseek-v4-flash": {
-    input: 7.7e-8,
-    output: 1.54e-7,
-    cachedInput: 1.54e-8,
+    input: 1.4e-7,
+    output: 2.8e-7,
+    cachedInput: 2.8e-8,
   },
   "eu.anthropic.claude-sonnet-4-6": {
     input: 0.000_003,
@@ -252,7 +257,7 @@ export const OPENROUTER_MODEL_PRICING: Record<string, ModelPricing> = {
   "gpt-4o": {
     input: 0.000_002_5,
     output: 0.000_01,
-    cachedInput: 0.000_002_5,
+    cachedInput: 0.000_001_25,
   },
   "gpt-4o-mini": {
     input: 1.5e-7,
@@ -267,12 +272,12 @@ export const OPENROUTER_MODEL_PRICING: Record<string, ModelPricing> = {
   "gpt-5-nano": {
     input: 5e-8,
     output: 4e-7,
-    cachedInput: 1e-8,
+    cachedInput: 5e-9,
   },
   "gpt-5.1": {
     input: 0.000_001_25,
     output: 0.000_01,
-    cachedInput: 1.3e-7,
+    cachedInput: 1.25e-7,
   },
   "gpt-5.4": {
     input: 0.000_002_5,
@@ -290,14 +295,14 @@ export const OPENROUTER_MODEL_PRICING: Record<string, ModelPricing> = {
     cachedInput: 2e-8,
   },
   "gpt-5.6-luna": {
+    input: 1e-7,
+    output: 6e-7,
+    cachedInput: 1e-8,
+  },
+  "gpt-5.6-terra": {
     input: 0.000_001,
     output: 0.000_006,
     cachedInput: 1e-7,
-  },
-  "gpt-5.6-terra": {
-    input: 0.000_002_5,
-    output: 0.000_015,
-    cachedInput: 2.5e-7,
   },
   "llama-3.3-70b-versatile": {
     input: 5.9e-7,
@@ -317,12 +322,12 @@ export const OPENROUTER_MODEL_PRICING: Record<string, ModelPricing> = {
   "openai/gpt-5-nano": {
     input: 5e-8,
     output: 4e-7,
-    cachedInput: 1e-8,
+    cachedInput: 5e-9,
   },
   "openai/gpt-5-nano-2025-08-07": {
     input: 5e-8,
     output: 4e-7,
-    cachedInput: 1e-8,
+    cachedInput: 5e-9,
   },
   "sonar-pro": {
     input: 0.000_003,
