@@ -13,6 +13,8 @@ vi.mock("@/env", () => ({
 
 import {
   getPremiumUserFilter,
+  getRemainingUnsubscribeCredits,
+  getUnsubscribePeriod,
   getUserTier,
   hasActiveAppleSubscription,
   hasUnsubscribeAccess,
@@ -21,34 +23,66 @@ import {
   isPremiumRecord,
 } from "./index";
 
-describe("hasUnsubscribeAccess", () => {
-  const currentMonth = new Date().getMonth() + 1;
-  const otherMonth = (currentMonth % 12) + 1;
+describe("unsubscribe credits", () => {
+  const now = new Date("2026-08-03T12:00:00.000Z");
+  const currentPeriod = getUnsubscribePeriod(now);
 
   afterEach(() => {
     envMock.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS = false;
   });
 
-  it("grants the free allowance to a user with no premium row yet", () => {
-    expect(hasUnsubscribeAccess(null, undefined, undefined)).toBe(true);
+  it("distinguishes the same calendar month in different years", () => {
+    expect(getUnsubscribePeriod(new Date("2026-01-15T00:00:00.000Z"))).not.toBe(
+      getUnsubscribePeriod(new Date("2027-01-15T00:00:00.000Z")),
+    );
   });
 
-  it("grants the free allowance once the stored month is stale", () => {
-    expect(hasUnsubscribeAccess(null, 0, otherMonth)).toBe(true);
+  it("reports the full allowance for an account with no premium row", () => {
+    expect(getRemainingUnsubscribeCredits({ now })).toBe(5);
   });
 
-  it("denies access once this month's credits are spent", () => {
-    expect(hasUnsubscribeAccess(null, 0, currentMonth)).toBe(false);
+  it("reports the full allowance once the stored period has rolled over", () => {
+    expect(
+      getRemainingUnsubscribeCredits({
+        unsubscribeCredits: 0,
+        unsubscribeMonth: getUnsubscribePeriod(
+          new Date("2025-08-03T12:00:00.000Z"),
+        ),
+        now,
+      }),
+    ).toBe(5);
   });
 
-  it("allows access while credits remain this month", () => {
-    expect(hasUnsubscribeAccess(null, 2, currentMonth)).toBe(true);
+  it("treats a legacy bare month as a rolled-over period", () => {
+    expect(
+      getRemainingUnsubscribeCredits({
+        unsubscribeCredits: 0,
+        unsubscribeMonth: 8,
+        now,
+      }),
+    ).toBe(5);
+  });
+
+  it("reports the stored remainder within the current period", () => {
+    expect(
+      getRemainingUnsubscribeCredits({
+        unsubscribeCredits: 2,
+        unsubscribeMonth: currentPeriod,
+        now,
+      }),
+    ).toBe(2);
+  });
+
+  it("denies access once the allowance is spent", () => {
+    expect(hasUnsubscribeAccess(null, 0)).toBe(false);
+  });
+
+  it("allows access while credits remain", () => {
+    expect(hasUnsubscribeAccess(null, 2)).toBe(true);
   });
 
   it("always allows a paid tier regardless of credits", () => {
-    expect(hasUnsubscribeAccess("BUSINESS_MONTHLY", 0, currentMonth)).toBe(
-      true,
-    );
+    expect(hasUnsubscribeAccess("BUSINESS_MONTHLY", 0)).toBe(true);
   });
 });
 

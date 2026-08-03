@@ -196,24 +196,36 @@ function getTiersAtOrAbove(minimumTier: PremiumTier): PremiumTier[] {
     .map(([tier]) => tier as PremiumTier);
 }
 
+// Year aware so the same calendar month a year later is a different period.
+// Legacy rows hold a bare 1-12 month, which never matches a period and so
+// grants one reset on next use.
+export const getUnsubscribePeriod = (now = new Date()): number =>
+  now.getFullYear() * 100 + now.getMonth() + 1;
+
+// Credits reset on the first use of a new period, so an untouched period still
+// carries the full allowance. Callers must pass credits already resolved
+// against the server's clock, since a device clock can disagree across a period
+// boundary. See getRemainingUnsubscribeCredits.
+export const getRemainingUnsubscribeCredits = ({
+  unsubscribeCredits,
+  unsubscribeMonth,
+  now = new Date(),
+}: {
+  unsubscribeCredits?: number | null;
+  unsubscribeMonth?: number | null;
+  now?: Date;
+}): number =>
+  unsubscribeMonth === getUnsubscribePeriod(now)
+    ? (unsubscribeCredits ?? 0)
+    : env.NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS;
+
 export const hasUnsubscribeAccess = (
   tier: PremiumTier | null,
   unsubscribeCredits?: number | null,
-  unsubscribeMonth?: number | null,
 ): boolean => {
   if (env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) return true;
 
   if (tier) return true;
-
-  // Mirrors decrementUnsubscribeCreditAction: credits reset on the first use of
-  // a new month, so anyone who hasn't spent one this month still has the full
-  // free allowance. Without this a user with no premium row yet reads as having
-  // no credits, which is every user during onboarding.
-  const currentMonth = new Date().getMonth() + 1;
-  if (unsubscribeMonth !== currentMonth) {
-    return env.NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS > 0;
-  }
-
   return (unsubscribeCredits ?? 0) > 0;
 };
 

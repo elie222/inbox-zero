@@ -81,22 +81,38 @@ describe("auth funnel analytics", () => {
     });
   });
 
-  it("records recognisable error codes so unknown categories stay diagnosable", () => {
+  it("records allowlisted codes that the category bucket cannot distinguish", () => {
     const capture = vi.fn();
     const posthog = { capture } as never;
 
     trackAuthFailure(posthog, {
       provider: "google",
       stage: "callback",
-      errorCode: "some_new_provider_code",
+      errorCode: "state_mismatch",
     });
 
     expect(capture).toHaveBeenCalledWith("Authentication Failed", {
       provider: "google",
       stage: "callback",
       error_category: "unknown",
-      error_code: "some_new_provider_code",
+      error_code: "state_mismatch",
     });
+  });
+
+  it("drops codes that are not on the allowlist even when they look like codes", () => {
+    const capture = vi.fn();
+    const posthog = { capture } as never;
+
+    trackAuthFailure(posthog, {
+      provider: "microsoft",
+      stage: "callback",
+      errorCode: "tenant_00000000_0000_0000",
+    });
+
+    expect(capture).toHaveBeenCalledWith(
+      "Authentication Failed",
+      expect.objectContaining({ error_code: null }),
+    );
   });
 
   it("drops error codes that carry free-form provider detail", () => {

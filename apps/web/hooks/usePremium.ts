@@ -16,12 +16,15 @@ export function usePremium() {
   const premium = data?.premium;
   const hasAiApiKey = data?.hasAiApiKey;
 
+  const unsubscribeCreditsRemaining = data?.unsubscribeCreditsRemaining;
+
   if (env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) {
     return {
       ...swrResponse,
       premium,
       isPremium: true,
       hasUnsubscribeAccess: true,
+      unsubscribeCreditsRemaining,
       hasAiAccess: true,
       isProPlanWithoutApiKey: false,
       tier: "PROFESSIONAL_ANNUALLY" as const,
@@ -40,11 +43,8 @@ export function usePremium() {
     isPremium: isUserPremium,
     hasUnsubscribeAccess:
       isUserPremium ||
-      hasUnsubscribeAccess(
-        tier || null,
-        premium?.unsubscribeCredits,
-        premium?.unsubscribeMonth,
-      ),
+      hasUnsubscribeAccess(tier || null, unsubscribeCreditsRemaining),
+    unsubscribeCreditsRemaining,
     hasAiAccess: isUserPremium && hasAiAccess(tier || null, hasAiApiKey),
     isProPlanWithoutApiKey,
     tier,

@@ -117,16 +117,43 @@ export function trackAuthFailure(
   clearPendingAuthProvider();
 }
 
-// Providers can return free-form text here, which may carry tenant, trace, or
-// account identifiers, so only short machine-readable codes are recorded. The
-// category alone buckets unrelated failures together as "unknown", leaving no
-// way to tell them apart.
-const SAFE_ERROR_CODE_PATTERN = /^[a-z0-9_]{1,64}$/;
+// Providers can return free-form text carrying tenant, trace, or account
+// identifiers, so this is an allowlist rather than a shape check: anything not
+// named here is dropped. It covers the codes getAuthErrorCategory recognises
+// plus ones that currently fall through to "unknown", which is where the
+// category alone stops being diagnostic.
+const KNOWN_AUTH_ERROR_CODES = new Set([
+  "access_denied",
+  "account_already_linked_to_different_user",
+  "account_not_linked",
+  "client_error",
+  "configuration",
+  "consent_required",
+  "email_already_linked",
+  "email_not_found",
+  "internal_server_error",
+  "invalid_client",
+  "invalid_code",
+  "network_error",
+  "no_code",
+  "oauth_account_not_linked",
+  "oauth_provider_not_found",
+  "org_invite_invalid_code",
+  "please_restart_the_process",
+  "requiresreconsent",
+  "server_error",
+  "signup_not_allowed",
+  "sso_start_rejected",
+  "state_mismatch",
+  "unable_to_create_user",
+  "unable_to_get_user_info",
+  "unable_to_link_account",
+]);
 
 function getSafeAuthErrorCode(errorCode?: string | null) {
   if (!errorCode) return null;
   const normalized = errorCode.toLowerCase();
-  return SAFE_ERROR_CODE_PATTERN.test(normalized) ? normalized : null;
+  return KNOWN_AUTH_ERROR_CODES.has(normalized) ? normalized : null;
 }
 
 // Analytics must never block authentication, including when browser storage or
