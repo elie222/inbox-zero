@@ -4,13 +4,9 @@ import { getModel } from "@/utils/llms/model";
 import { getEvalJudgeUserAi } from "@/__tests__/eval/judge-provider";
 
 /**
- * The judge is configured separately from the system under test so eval runs can
- * avoid same-family self-preference bias. When evaluating a DeepSeek model,
- * override this default with EVAL_JUDGE_PROVIDER / EVAL_JUDGE_MODEL if an
- * independent model family is required.
- *
- * The default (`~deepseek/deepseek-v4-flash-latest`) is set by
- * `getEvalJudgeUserAi`.
+ * Eval matrices can include models from any family, including the judge's.
+ * Override EVAL_JUDGE_PROVIDER / EVAL_JUDGE_MODEL when a run needs a different
+ * or independently calibrated cross-family judge.
  */
 export function getHarnessJudgeModel() {
   const judgeUserAi = getEvalJudgeUserAi();
