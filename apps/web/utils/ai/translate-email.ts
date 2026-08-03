@@ -3,19 +3,10 @@ import { createGenerateObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
 import { createScopedLogger } from "@/utils/logger";
-import { truncate } from "@/utils/string";
 
 const logger = createScopedLogger("translate-email");
 
 const MAX_TEXT_LENGTH = 30_000;
-
-const translationSchema = z.object({
-  translations: z
-    .array(z.string())
-    .describe(
-      "Translated texts in the same order and length as the input texts",
-    ),
-});
 
 export async function aiTranslateEmails({
   texts,
@@ -32,7 +23,8 @@ export async function aiTranslateEmails({
     return texts.map(() => "");
   }
 
-  const truncatedTexts = texts.map((text) => truncate(text, MAX_TEXT_LENGTH));
+  // Hard-slice without ellipsis so truncation markers aren't treated as content.
+  const truncatedTexts = texts.map((text) => text.slice(0, MAX_TEXT_LENGTH));
 
   const system = `You are a precise email translator.
 Translate each provided text into the target language identified by the BCP 47 language tag.
@@ -64,7 +56,7 @@ ${formatTextsForPrompt(truncatedTexts)}`;
     ...modelOptions,
     system,
     prompt,
-    schema: translationSchema,
+    schema: translationSchema(texts.length),
   });
 
   const translations = result.object.translations;
@@ -81,6 +73,17 @@ ${formatTextsForPrompt(truncatedTexts)}`;
   }
 
   return translations;
+}
+
+function translationSchema(textCount: number) {
+  return z.object({
+    translations: z
+      .array(z.string())
+      .length(textCount)
+      .describe(
+        "Translated texts in the same order and length as the input texts",
+      ),
+  });
 }
 
 function formatTextsForPrompt(texts: string[]) {
