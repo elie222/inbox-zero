@@ -10,6 +10,7 @@ import { PageHeading, TypographyP } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
 import { ButtonLoader } from "@/components/Loading";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ButtonCheckbox } from "@/components/ButtonCheckbox";
 import { DomainIcon } from "@/components/charts/DomainIcon";
 import { BulkUnsubscribeIllustration } from "@/app/(app)/[emailAccountId]/onboarding/illustrations/BulkUnsubscribeIllustration";
@@ -31,6 +32,10 @@ import { createSearchParams } from "@/utils/url";
 type Newsletter = NewsletterStatsResponse["newsletters"][number];
 
 const PREVIEW_COUNT = 5;
+const SKELETON_ROW_KEYS = Array.from(
+  { length: PREVIEW_COUNT },
+  (_, index) => `skeleton-row-${index}`,
+);
 
 export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
   const { emailAccountId } = useAccount();
@@ -128,10 +133,10 @@ export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
 
   if (!emailAccountId) return null;
 
-  // Don't render the static content while the fetch is in flight, or the
-  // screen would swap to the personalized version under the user moments
-  // later. A brief blank matches how the onboarding shell loads.
-  if (isLoading && !data) return null;
+  // Show the shape of the list rather than the static content, so the screen
+  // doesn't swap to the personalized version under the user moments later.
+  // The fetch can run long on a phone, where a blank screen reads as broken.
+  if (isLoading && !data) return <LoadingBulkUnsubscribeStep />;
 
   // On error or with nothing to suggest, fall back to the static marketing
   // content — onboarding must never feel broken.
@@ -263,6 +268,39 @@ export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
         </div>
       </div>
       <PremiumModal />
+    </div>
+  );
+}
+
+function LoadingBulkUnsubscribeStep() {
+  return (
+    <div className="flex min-h-svh flex-col items-center justify-center bg-slate-50 px-4 py-10">
+      <output className="w-full max-w-xl" aria-label="Loading senders">
+        <div className="mb-6 flex flex-col items-center">
+          <Skeleton className="mb-3 h-8 w-80 max-w-full" />
+          <Skeleton className="h-5 w-96 max-w-full" />
+        </div>
+
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <ul className="divide-y divide-slate-100 py-1.5">
+            {SKELETON_ROW_KEYS.map((key) => (
+              <li key={key} className="flex items-center gap-3 px-4 py-2.5">
+                <Skeleton className="size-5 shrink-0 rounded-md" />
+                <Skeleton className="size-8 shrink-0 rounded-full" />
+                <div className="min-w-0 flex-1 space-y-1.5">
+                  <Skeleton className="h-4 w-32 max-w-full" />
+                  <Skeleton className="h-3 w-16" />
+                </div>
+                <Skeleton className="hidden h-1.5 w-16 shrink-0 sm:block" />
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="mt-7 flex justify-center">
+          <Skeleton className="h-11 w-full max-w-xs rounded-md" />
+        </div>
+      </output>
     </div>
   );
 }
