@@ -90,6 +90,7 @@ import {
   withOutlookRetry,
 } from "@/utils/outlook/retry";
 import { shouldSkipAutoDraft } from "@/utils/auto-draft";
+import { getOutlookMailboxSyncPage } from "@/utils/outlook/mailbox-sync";
 
 export class OutlookProvider implements EmailProvider {
   readonly name = "microsoft";
@@ -1409,6 +1410,18 @@ export class OutlookProvider implements EmailProvider {
       this.getMessage(messageId),
     );
     return Promise.all(messagePromises);
+  }
+
+  async getMailboxSyncPage(options: {
+    after?: Date;
+    cursor?: string;
+    limit: number;
+  }) {
+    return getOutlookMailboxSyncPage({
+      client: this.client,
+      logger: this.logger,
+      ...options,
+    });
   }
 
   getAccessToken(): string {

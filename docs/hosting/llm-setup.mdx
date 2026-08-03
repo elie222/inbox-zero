@@ -23,6 +23,7 @@ Use one of these provider values before the colon in `*_LLMS` entries:
 | [OpenAI](https://platform.openai.com/docs/overview) | `openai` |
 | [Anthropic](https://docs.anthropic.com/en/docs/welcome) | `anthropic` |
 | [Azure OpenAI](https://ai-sdk.dev/providers/ai-sdk-providers/azure) | `azure` |
+| Azure AI Foundry | `azure-foundry` |
 | [Google Gemini (AI Studio)](https://ai.google.dev/gemini-api/docs) | `google` |
 | [Google Vertex AI](https://ai-sdk.dev/providers/ai-sdk-providers/google-vertex) | `vertex` |
 | [OpenRouter](https://openrouter.ai/docs/quickstart) | `openrouter` |
@@ -73,7 +74,8 @@ NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED=false
 
 ## Provider-specific details
 
-- `openai-compatible` also requires `OPENAI_COMPATIBLE_BASE_URL`.
+- `azure-foundry` requires `AZURE_FOUNDRY_API_KEY` and `AZURE_FOUNDRY_BASE_URL`. Use the deployment name as the model portion of the `azure-foundry:<deployment>` entry.
+- `openai-compatible` also requires `OPENAI_COMPATIBLE_BASE_URL`. Set `OPENAI_COMPATIBLE_AUTH_HEADER=api-key` when the server expects an `api-key` header instead of bearer authorization.
 - `ollama` can use `OLLAMA_BASE_URL` and `OLLAMA_MODEL`.
 
 ## Fallbacks

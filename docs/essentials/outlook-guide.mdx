@@ -1,0 +1,47 @@
+---
+title: 'Using Outlook'
+description: 'Terminology, tips, and troubleshooting for Outlook and Microsoft 365 accounts.'
+icon: 'microsoft'
+---
+
+Inbox Zero fully supports Outlook, including Microsoft 365 work or school accounts and personal Outlook accounts. Connecting works the same way as Gmail: follow the [Getting Started guide](/essentials/getting-started), choose Outlook when connecting, and approve the requested Microsoft permissions.
+
+Everything in the main documentation applies to both providers. This page covers the small number of things that are specific to Outlook.
+
+<Note>
+On a managed Microsoft 365 tenant, an organization administrator may need to approve the app before your account can connect. If access is later revoked in Microsoft, reconnect the mailbox from Inbox Zero.
+</Note>
+
+## Gmail terms in Outlook
+
+Some Inbox Zero videos and screenshots were recorded with Gmail. The steps are the same in Outlook; only the mail concepts differ:
+
+| Gmail term | Outlook equivalent |
+| --- | --- |
+| Label | Category |
+| Move to label | Move to folder |
+| Archive | Archive folder |
+| Trash | Deleted Items |
+| Spam | Junk Email |
+| Google Calendar | Outlook Calendar |
+| Google Drive | OneDrive or SharePoint |
+
+## The Tabs extension
+
+The [Inbox Zero Tabs](/essentials/inbox-zero-tabs-extension) browser extension is the one feature that only applies to Gmail. Outlook includes similar inbox-organization tools natively, such as folders, categories, and Focused Inbox, so the extension targets Gmail specifically.
+
+Some [Early Access](/essentials/deep-clean) experiments may also launch on one provider before the other.
+
+## Outlook troubleshooting
+
+### Microsoft will not authorize the connection
+
+Retry with the intended Microsoft account. For a managed Microsoft 365 tenant, ask an administrator whether user consent is restricted or whether the Inbox Zero app requires approval.
+
+### A rule uses the wrong category or folder
+
+Confirm that the category or folder still exists in the connected Outlook mailbox, then edit and retest the rule. Settings and rules are not shared automatically between connected mailboxes.
+
+### Inbox Zero stopped receiving Outlook mail
+
+Open **Settings → Email Accounts** and reconnect the Outlook account if it shows a permissions or subscription error. You can also review or revoke Inbox Zero from the [Microsoft App permissions page](https://account.microsoft.com/privacy/app-access).

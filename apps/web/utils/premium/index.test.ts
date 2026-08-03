@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const { envMock } = vi.hoisted(() => ({
   envMock: {
     NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS: false,
+    NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS: 5,
   },
 }));
 
@@ -12,12 +13,78 @@ vi.mock("@/env", () => ({
 
 import {
   getPremiumUserFilter,
+  getRemainingUnsubscribeCredits,
+  getUnsubscribePeriod,
   getUserTier,
   hasActiveAppleSubscription,
+  hasUnsubscribeAccess,
   isActivePremium,
   isPremium,
   isPremiumRecord,
 } from "./index";
+
+describe("unsubscribe credits", () => {
+  const now = new Date("2026-08-03T12:00:00.000Z");
+  const currentPeriod = getUnsubscribePeriod(now);
+
+  afterEach(() => {
+    envMock.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS = false;
+  });
+
+  it("distinguishes the same calendar month in different years", () => {
+    expect(getUnsubscribePeriod(new Date("2026-01-15T00:00:00.000Z"))).not.toBe(
+      getUnsubscribePeriod(new Date("2027-01-15T00:00:00.000Z")),
+    );
+  });
+
+  it("reports the full allowance for an account with no premium row", () => {
+    expect(getRemainingUnsubscribeCredits({ now })).toBe(5);
+  });
+
+  it("reports the full allowance once the stored period has rolled over", () => {
+    expect(
+      getRemainingUnsubscribeCredits({
+        unsubscribeCredits: 0,
+        unsubscribeMonth: getUnsubscribePeriod(
+          new Date("2025-08-03T12:00:00.000Z"),
+        ),
+        now,
+      }),
+    ).toBe(5);
+  });
+
+  it("treats a legacy bare month as a rolled-over period", () => {
+    expect(
+      getRemainingUnsubscribeCredits({
+        unsubscribeCredits: 0,
+        unsubscribeMonth: 8,
+        now,
+      }),
+    ).toBe(5);
+  });
+
+  it("reports the stored remainder within the current period", () => {
+    expect(
+      getRemainingUnsubscribeCredits({
+        unsubscribeCredits: 2,
+        unsubscribeMonth: currentPeriod,
+        now,
+      }),
+    ).toBe(2);
+  });
+
+  it("denies access once the allowance is spent", () => {
+    expect(hasUnsubscribeAccess(null, 0)).toBe(false);
+  });
+
+  it("allows access while credits remain", () => {
+    expect(hasUnsubscribeAccess(null, 2)).toBe(true);
+  });
+
+  it("always allows a paid tier regardless of credits", () => {
+    expect(hasUnsubscribeAccess("BUSINESS_MONTHLY", 0)).toBe(true);
+  });
+});
 
 describe("Apple premium helpers", () => {
   afterEach(() => {

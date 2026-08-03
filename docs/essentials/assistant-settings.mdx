@@ -1,0 +1,101 @@
+---
+title: 'Assistant Settings'
+description: 'Control drafting, reminders, writing style, knowledge, and safety settings for your AI assistant.'
+icon: 'sliders'
+---
+
+Open **Assistant** in the sidebar and select the **Settings** tab to control how the assistant drafts, learns, and notifies you. Settings apply to the currently selected email account, so review them separately when you connect multiple accounts.
+
+## Drafting controls
+
+### Auto draft replies
+
+Enable this to create replies in your Drafts folder for messages that need a response. The assistant does not send these drafts automatically.
+
+### Draft confidence
+
+Choose how certain the assistant must be before it prepares a draft:
+
+- **All emails**: draft whenever an email needs a reply, even when uncertain.
+- **Standard**: skip drafting when the assistant is unsure how to respond.
+- **High confidence**: draft only when it is very sure of the appropriate reply.
+
+Use a stricter setting when correctness is more important than draft coverage.
+
+## Updates
+
+### Follow-up reminders
+
+Enable reminders for messages where someone has not replied to you or where you have not replied. In **Configure**, set the delays and choose whether the assistant should prepare a follow-up draft.
+
+### Digest
+
+Schedule a daily summary of newsletter emails and choose which rules contribute to it. Digests require the **Plus plan or higher**. You can route a digest to a connected chat provider from [Channels](/essentials/channels).
+
+## Your voice
+
+### Writing style
+
+Describe your typical length, formality, greetings, and other stylistic habits. This guidance is used when drafting replies in your voice.
+
+### Personal instructions
+
+Add stable information about yourself and how you want the assistant to handle email. Keep instructions general and durable; use assistant rules for specific matching conditions and actions.
+
+### Email signature
+
+Configure the signature appended to drafted messages.
+
+## Knowledge and learning
+
+### Draft knowledge base
+
+Store facts that can help the assistant answer recurring questions. This control is available only while auto draft replies are enabled.
+
+### Learned patterns
+
+Inbox Zero learns when senders or email types consistently match the same rule. Open **Learned patterns** to view, edit, or remove those associations. Remove a pattern when it starts routing a sender incorrectly.
+
+## Advanced settings
+
+### Sync to browser extension
+
+Sync label-based assistant rules to the Inbox Zero Tabs extension as Gmail tabs. This requires the configured Inbox Zero Tabs extension and a Chromium browser, and it applies to Gmail rather than Outlook. Select the label rules you want before starting the sync.
+
+### Multi-rule selection
+
+Allow the assistant to select multiple custom rules for one message.
+
+### Include referral signature
+
+Optionally append an Inbox Zero referral link to generated drafts.
+
+### Allow hidden links in AI drafts
+
+This permits anchor text such as “click here” instead of displaying the full URL. It reads more naturally, but it hides where a link leads. Leave it off when transparent links are important.
+
+### Sensitive data protection
+
+Choose how credentials and card numbers are handled before an AI request:
+
+- **Off**: send content without scanning.
+- **Redact**: hide detected credentials and card numbers, then send the remaining content to AI.
+- **Block**: skip the AI request when sensitive data is detected.
+
+## Troubleshooting
+
+### A setting is missing
+
+Some settings depend on your plan or email provider. Auto-draft controls appear only while auto-drafting is enabled, Digest requires the Plus plan, and extension sync requires the Inbox Zero Tabs extension.
+
+### Drafts do not sound like me
+
+Update **Writing style**, **Personal instructions**, and **Email signature**, then review the Draft knowledge base for stale facts. Editing generated drafts also helps the assistant learn over time.
+
+### Too few or too many drafts are created
+
+Adjust **Draft confidence**. Also review the rules that determine whether a message needs a reply and remove incorrect learned patterns.
+
+### Follow-up reminders are missing
+
+Confirm that at least one reminder delay is set, then run the scan from **Configure**. If reminders should arrive in chat, also verify the route on [Channels](/essentials/channels).

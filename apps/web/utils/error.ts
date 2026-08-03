@@ -203,6 +203,8 @@ export function isIncorrectAPIKeyError(error: APICallError): boolean {
 }
 
 export function isInvalidAIModelError(error: APICallError): boolean {
+  const message = error.message.toLowerCase();
+
   // OpenAI: "The model `xyz` does not exist or you do not have access to it"
   if (
     error.message.includes("does not exist or you do not have access to it")
@@ -218,7 +220,11 @@ export function isInvalidAIModelError(error: APICallError): boolean {
     return true;
   }
   // OpenRouter: model deprecated or unavailable
-  if (error.message.includes("testing period")) {
+  if (
+    message.includes("testing period") ||
+    message.includes("is deprecated") ||
+    message.includes("no endpoints found for")
+  ) {
     return true;
   }
   // Generic model-not-found patterns

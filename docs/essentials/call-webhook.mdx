@@ -1,38 +1,57 @@
 ---
 title: 'Call Webhook'
-description: 'Integrate email processing with external services via webhooks.'
+description: 'Send rule and email metadata to an external HTTP endpoint.'
 icon: 'webhook'
 ---
 
-The Call Webhook action lets you integrate email processing with other services. When a rule triggers, Inbox Zero sends the email data to your specified endpoint.
+The **Call webhook** rule action sends a JSON request to an external service when an email matches a rule.
 
-## Configuration
+## Configure the Action
 
-- **Method:** POST
-- **Content-Type:** application/json
-- **Headers:** Always includes `X-Webhook-Secret` (empty string if no secret is configured in [settings](https://www.getinboxzero.com/settings))
+1. Open **Assistant** and edit a rule.
+2. Add the **Call webhook** action.
+3. Enter a publicly reachable HTTP or HTTPS endpoint.
+4. Save the rule.
+
+Inbox Zero validates webhook destinations and rejects unsafe or private-network addresses.
+
+## Request Contract
+
+- **Method:** `POST`
+- **Content-Type:** `application/json`
+- **Authentication header:** `X-Webhook-Secret`
+- **Success response:** Any `2xx` status
+- **Timeout:** 1 second
+
+Inbox Zero does not wait for or parse the response body. A timeout, blocked destination, network failure, or non-`2xx` response is logged but does not stop the remaining rule actions. Webhook calls are not retried, so the endpoint should acknowledge quickly and queue longer work asynchronously.
 
 ## Payload
 
 ```typescript
 {
   email: {
-    threadId: string;      // The thread ID (Gmail or Outlook)
-    messageId: string;     // The message ID (Gmail or Outlook)
-    subject: string;       // Email subject
-    from: string;         // Sender's email address
-    cc?: string;          // CC recipients (if any)
-    bcc?: string;         // BCC recipients (if any)
-    headerMessageId: string; // Original message ID header
-  },
+    threadId: string;
+    messageId: string;
+    subject: string;
+    from: string;
+    cc?: string;
+    bcc?: string;
+    headerMessageId: string;
+  };
   executedRule: {
-    id: string;           // Execution ID
-    ruleId: string | null; // Rule that triggered this webhook (null if rule was deleted)
-    reason: string | null; // Why this rule was executed
-    automated: boolean;   // Whether the rule ran automatically
-    createdAt: string;    // When the rule was executed
-  }
+    id: string;
+    ruleId: string | null;
+    reason: string | null;
+    automated: boolean;
+    createdAt: string;
+  };
 }
 ```
 
-Set up a webhook secret in [settings](https://www.getinboxzero.com/settings) to secure your endpoints. The secret is included in the `X-Webhook-Secret` header of every request.
+`threadId` and `messageId` are provider-specific Gmail or Outlook identifiers. `createdAt` is an ISO 8601 timestamp. `ruleId` can be `null` if the original rule no longer exists.
+
+## Webhook Secret
+
+Open **Settings**, find the **Developer** section, and generate a Webhook Secret. The secret is shown only when generated, so copy it before closing the dialog. Regenerating it immediately changes the value sent with future requests.
+
+Every request includes the `X-Webhook-Secret` header. Your endpoint should compare the header to the stored secret before processing the payload.

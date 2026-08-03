@@ -1419,6 +1419,10 @@ function shouldFallbackToNextModel(error: unknown): boolean {
 
   if (isContentFilterRefusal(error)) return true;
 
+  if (APICallError.isInstance(error) && isInvalidAIModelError(error)) {
+    return true;
+  }
+
   const llmErrorInfo = extractLLMErrorInfo(error);
   if (llmErrorInfo.retryable) return true;
 
