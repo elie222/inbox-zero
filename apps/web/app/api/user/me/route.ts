@@ -95,9 +95,7 @@ async function getUser({
     announcementDismissedAt: user.announcementDismissedAt,
     dismissedHints: user.dismissedHints,
     premium,
-    // Resolved server side so the client never compares billing periods against
-    // its own clock, and so an account with no premium row still reports the
-    // free allowance it has never spent against.
+    // Resolved here so the client never compares periods against its own clock.
     unsubscribeCreditsRemaining: getRemainingUnsubscribeCredits(
       user.premium ?? {},
     ),
