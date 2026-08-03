@@ -1,5 +1,5 @@
 const DEFAULT_EVAL_JUDGE_PROVIDER = "openrouter";
-const DEFAULT_EVAL_JUDGE_MODEL = "google/gemini-3.1-flash-lite-preview";
+const DEFAULT_EVAL_JUDGE_MODEL = "deepseek/deepseek-v4-flash-0731";
 
 /**
  * Lives apart from the judge implementations because those reach vitest through
