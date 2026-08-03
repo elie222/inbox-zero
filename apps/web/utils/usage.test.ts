@@ -150,11 +150,13 @@ describe("calculateUsageCost", () => {
     ).toBe(0);
   });
 
-  it("estimates DeepSeek V4 Flash costs", () => {
+  it.each([
+    "deepseek/deepseek-v4-flash",
+    "~deepseek/deepseek-v4-flash-latest",
+  ])("estimates DeepSeek V4 Flash costs for %s", (model) => {
     const provider = "openrouter";
-    const model = "deepseek/deepseek-v4-flash";
     const pricing = OPENROUTER_MODEL_PRICING[model];
-    if (!pricing) throw new Error("Expected pricing for deepseek-v4-flash");
+    if (!pricing) throw new Error(`Expected pricing for ${model}`);
 
     const usage: LanguageModelUsage = {
       inputTokens: 1000,
@@ -591,7 +593,7 @@ describe("saveAiUsage", () => {
     };
     const estimatedCost = calculateUsageCost({
       provider: "openrouter",
-      model: "deepseek/deepseek-v4-flash",
+      model: "~deepseek/deepseek-v4-flash-latest",
       usage,
     });
     const listener = vi.fn();
@@ -603,7 +605,7 @@ describe("saveAiUsage", () => {
         email: "user@example.com",
         emailAccountId: "email-account-1",
         provider: "openrouter",
-        model: "deepseek/deepseek-v4-flash",
+        model: "~deepseek/deepseek-v4-flash-latest",
         usage,
         label: "eval-test",
         providerReportedCost: 0.000_18,
@@ -615,7 +617,7 @@ describe("saveAiUsage", () => {
     expect(listener).toHaveBeenCalledWith(
       expect.objectContaining({
         provider: "openrouter",
-        model: "deepseek/deepseek-v4-flash",
+        model: "~deepseek/deepseek-v4-flash-latest",
         label: "eval-test",
         estimatedCost,
         platformCost: 0.000_18,
