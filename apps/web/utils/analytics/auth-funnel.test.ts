@@ -77,7 +77,42 @@ describe("auth funnel analytics", () => {
       provider: "google",
       stage: "callback",
       error_category: "unknown",
+      error_code: null,
     });
+  });
+
+  it("records recognisable error codes so unknown categories stay diagnosable", () => {
+    const capture = vi.fn();
+    const posthog = { capture } as never;
+
+    trackAuthFailure(posthog, {
+      provider: "google",
+      stage: "callback",
+      errorCode: "some_new_provider_code",
+    });
+
+    expect(capture).toHaveBeenCalledWith("Authentication Failed", {
+      provider: "google",
+      stage: "callback",
+      error_category: "unknown",
+      error_code: "some_new_provider_code",
+    });
+  });
+
+  it("drops error codes that carry free-form provider detail", () => {
+    const capture = vi.fn();
+    const posthog = { capture } as never;
+
+    trackAuthFailure(posthog, {
+      provider: "microsoft",
+      stage: "callback",
+      errorCode: "ERR00000: Consent declined. Trace ID: 00000000-0000-0000",
+    });
+
+    expect(capture).toHaveBeenCalledWith(
+      "Authentication Failed",
+      expect.objectContaining({ error_code: null }),
+    );
   });
 
   it("does not throw when browser analytics is unavailable", () => {

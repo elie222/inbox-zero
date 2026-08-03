@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const { envMock } = vi.hoisted(() => ({
   envMock: {
     NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS: false,
+    NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS: 5,
   },
 }));
 
@@ -14,10 +15,42 @@ import {
   getPremiumUserFilter,
   getUserTier,
   hasActiveAppleSubscription,
+  hasUnsubscribeAccess,
   isActivePremium,
   isPremium,
   isPremiumRecord,
 } from "./index";
+
+describe("hasUnsubscribeAccess", () => {
+  const currentMonth = new Date().getMonth() + 1;
+  const otherMonth = (currentMonth % 12) + 1;
+
+  afterEach(() => {
+    envMock.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS = false;
+  });
+
+  it("grants the free allowance to a user with no premium row yet", () => {
+    expect(hasUnsubscribeAccess(null, undefined, undefined)).toBe(true);
+  });
+
+  it("grants the free allowance once the stored month is stale", () => {
+    expect(hasUnsubscribeAccess(null, 0, otherMonth)).toBe(true);
+  });
+
+  it("denies access once this month's credits are spent", () => {
+    expect(hasUnsubscribeAccess(null, 0, currentMonth)).toBe(false);
+  });
+
+  it("allows access while credits remain this month", () => {
+    expect(hasUnsubscribeAccess(null, 2, currentMonth)).toBe(true);
+  });
+
+  it("always allows a paid tier regardless of credits", () => {
+    expect(hasUnsubscribeAccess("BUSINESS_MONTHLY", 0, currentMonth)).toBe(
+      true,
+    );
+  });
+});
 
 describe("Apple premium helpers", () => {
   afterEach(() => {

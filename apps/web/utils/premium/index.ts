@@ -199,12 +199,22 @@ function getTiersAtOrAbove(minimumTier: PremiumTier): PremiumTier[] {
 export const hasUnsubscribeAccess = (
   tier: PremiumTier | null,
   unsubscribeCredits?: number | null,
+  unsubscribeMonth?: number | null,
 ): boolean => {
   if (env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) return true;
 
   if (tier) return true;
-  if (unsubscribeCredits && unsubscribeCredits > 0) return true;
-  return false;
+
+  // Mirrors decrementUnsubscribeCreditAction: credits reset on the first use of
+  // a new month, so anyone who hasn't spent one this month still has the full
+  // free allowance. Without this a user with no premium row yet reads as having
+  // no credits, which is every user during onboarding.
+  const currentMonth = new Date().getMonth() + 1;
+  if (unsubscribeMonth !== currentMonth) {
+    return env.NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS > 0;
+  }
+
+  return (unsubscribeCredits ?? 0) > 0;
 };
 
 export const hasAiAccess = (

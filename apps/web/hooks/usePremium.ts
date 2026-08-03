@@ -40,7 +40,11 @@ export function usePremium() {
     isPremium: isUserPremium,
     hasUnsubscribeAccess:
       isUserPremium ||
-      hasUnsubscribeAccess(tier || null, premium?.unsubscribeCredits),
+      hasUnsubscribeAccess(
+        tier || null,
+        premium?.unsubscribeCredits,
+        premium?.unsubscribeMonth,
+      ),
     hasAiAccess: isUserPremium && hasAiAccess(tier || null, hasAiApiKey),
     isProPlanWithoutApiKey,
     tier,

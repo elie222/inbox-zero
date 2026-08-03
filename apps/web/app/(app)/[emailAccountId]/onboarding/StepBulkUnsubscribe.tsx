@@ -25,7 +25,6 @@ import type {
 } from "@/app/api/user/stats/newsletters/route";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { usePremium } from "@/hooks/usePremium";
-import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { extractDomainFromEmail } from "@/utils/email";
 import { createSearchParams } from "@/utils/url";
 
@@ -41,7 +40,6 @@ export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
   const { emailAccountId } = useAccount();
   const posthog = usePostHog();
   const { hasUnsubscribeAccess, mutate: refetchPremium } = usePremium();
-  const { PremiumModal, openModal } = usePremiumModal();
 
   // Day-boundary date range keeps the SWR key stable across mounts, so
   // revisiting this step (back/forward) reuses the cached result.
@@ -173,15 +171,6 @@ export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
       hasUnsubscribeAccess,
     });
 
-    if (!hasUnsubscribeAccess) {
-      posthog?.capture("onboarding_unsubscribe_upgrade_prompt_shown", {
-        selectedCount: selectedSenders.length,
-        totalSuggestions: suggestions.length,
-      });
-      openModal();
-      return;
-    }
-
     posthog?.capture("onboarding_unsubscribe_clicked", {
       count: selectedSenders.length,
       totalSuggestions: suggestions.length,
@@ -267,7 +256,6 @@ export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
           )}
         </div>
       </div>
-      <PremiumModal />
     </div>
   );
 }

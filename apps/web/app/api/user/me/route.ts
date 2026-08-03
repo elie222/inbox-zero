@@ -35,6 +35,7 @@ async function getUser({
           stripeSubscriptionId: true,
           stripeInvoiceEmailsEnabled: true,
           unsubscribeCredits: true,
+          unsubscribeMonth: true,
           emailAccountsAccess: true,
           lemonLicenseKey: true,
           pendingInvites: true,

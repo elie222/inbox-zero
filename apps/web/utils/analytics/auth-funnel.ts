@@ -112,8 +112,21 @@ export function trackAuthFailure(
     provider: options.provider,
     stage: options.stage,
     error_category: getAuthErrorCategory(options.errorCode),
+    error_code: getSafeAuthErrorCode(options.errorCode),
   });
   clearPendingAuthProvider();
+}
+
+// Providers can return free-form text here, which may carry tenant, trace, or
+// account identifiers, so only short machine-readable codes are recorded. The
+// category alone buckets unrelated failures together as "unknown", leaving no
+// way to tell them apart.
+const SAFE_ERROR_CODE_PATTERN = /^[a-z0-9_]{1,64}$/;
+
+function getSafeAuthErrorCode(errorCode?: string | null) {
+  if (!errorCode) return null;
+  const normalized = errorCode.toLowerCase();
+  return SAFE_ERROR_CODE_PATTERN.test(normalized) ? normalized : null;
 }
 
 // Analytics must never block authentication, including when browser storage or
