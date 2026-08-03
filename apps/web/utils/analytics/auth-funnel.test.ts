@@ -77,7 +77,58 @@ describe("auth funnel analytics", () => {
       provider: "google",
       stage: "callback",
       error_category: "unknown",
+      error_code: null,
     });
+  });
+
+  it("records allowlisted codes that the category bucket cannot distinguish", () => {
+    const capture = vi.fn();
+    const posthog = { capture } as never;
+
+    trackAuthFailure(posthog, {
+      provider: "google",
+      stage: "callback",
+      errorCode: "state_mismatch",
+    });
+
+    expect(capture).toHaveBeenCalledWith("Authentication Failed", {
+      provider: "google",
+      stage: "callback",
+      error_category: "unknown",
+      error_code: "state_mismatch",
+    });
+  });
+
+  it("drops codes that are not on the allowlist even when they look like codes", () => {
+    const capture = vi.fn();
+    const posthog = { capture } as never;
+
+    trackAuthFailure(posthog, {
+      provider: "microsoft",
+      stage: "callback",
+      errorCode: "tenant_00000000_0000_0000",
+    });
+
+    expect(capture).toHaveBeenCalledWith(
+      "Authentication Failed",
+      expect.objectContaining({ error_code: null }),
+    );
+  });
+
+  it("drops error codes that carry free-form provider detail", () => {
+    const capture = vi.fn();
+    const posthog = { capture } as never;
+
+    trackAuthFailure(posthog, {
+      provider: "microsoft",
+      stage: "callback",
+      errorCode: "ERR00000: Consent declined. Trace ID: 00000000-0000-0000",
+    });
+
+    expect(capture).toHaveBeenCalledWith(
+      "Authentication Failed",
+      expect.objectContaining({ error_code: null }),
+    );
   });
 
   it("does not throw when browser analytics is unavailable", () => {
