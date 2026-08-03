@@ -9,6 +9,7 @@ import { usePostHog } from "posthog-js/react";
 import { env } from "@/env";
 import { LoadingContent } from "@/components/LoadingContent";
 import { usePremium } from "@/hooks/usePremium";
+import { usePricingFrequencyDefault } from "@/hooks/useFeatureFlags";
 import { Button } from "@/components/ui/button";
 import {
   PricingFrequencyToggle,
@@ -67,7 +68,14 @@ export default function Pricing(props: PricingProps) {
   );
   const isLegacyStripePlan = shouldShowLegacyStripePricingNotice(premium);
 
-  const [frequency, setFrequency] = useState(frequencies[1]);
+  const defaultFrequency =
+    usePricingFrequencyDefault() === "monthly"
+      ? frequencies[0]
+      : frequencies[1];
+  const [chosenFrequency, setFrequency] = useState<
+    (typeof frequencies)[number] | null
+  >(null);
+  const frequency = chosenFrequency ?? defaultFrequency;
 
   const userPremiumTier = getUserTier(premium);
 
