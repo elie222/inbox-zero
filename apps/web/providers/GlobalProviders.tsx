@@ -22,13 +22,9 @@ export function GlobalProviders(props: { children: React.ReactNode }) {
   );
 }
 
-// SerwistProvider's own `register` fires the registration promise without a
-// rejection handler. Registration legitimately fails for a small share of page
-// loads (crawlers, in-app webviews, private browsing, blocked site data), and
-// each failure surfaced as an unhandled rejection in error tracking. The
-// service worker is precache-only, so a failure is safe to ignore.
-// Unlike the built in path this doesn't check the page against a custom scope,
-// which is equivalent while no scope option is passed above.
+// SerwistProvider's own register drops the promise, so the failures that come
+// with crawlers, webviews and private browsing surface as unhandled rejections.
+// The worker is precache-only, so swallowing them is safe.
 function RegisterServiceWorker() {
   const { serwist } = useSerwist();
 

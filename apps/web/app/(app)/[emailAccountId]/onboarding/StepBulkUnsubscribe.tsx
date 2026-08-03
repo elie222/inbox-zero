@@ -131,9 +131,8 @@ export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
 
   if (!emailAccountId) return null;
 
-  // Show the shape of the list rather than the static content, so the screen
-  // doesn't swap to the personalized version under the user moments later.
-  // The fetch can run long on a phone, where a blank screen reads as broken.
+  // The shape of the list, not the static content, so the screen doesn't swap
+  // out from under the user once the personalized version arrives.
   if (isLoading && !data) return <LoadingBulkUnsubscribeStep />;
 
   // On error or with nothing to suggest, fall back to the static marketing

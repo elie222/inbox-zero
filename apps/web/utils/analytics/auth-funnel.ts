@@ -117,11 +117,8 @@ export function trackAuthFailure(
   clearPendingAuthProvider();
 }
 
-// Providers can return free-form text carrying tenant, trace, or account
-// identifiers, so this is an allowlist rather than a shape check: anything not
-// named here is dropped. It covers the codes getAuthErrorCategory recognises
-// plus ones that currently fall through to "unknown", which is where the
-// category alone stops being diagnostic.
+// An allowlist rather than a shape check: provider error text can carry tenant,
+// trace, or account identifiers, so anything not named here is dropped.
 const KNOWN_AUTH_ERROR_CODES = new Set([
   "access_denied",
   "account_already_linked_to_different_user",
