@@ -148,6 +148,7 @@ export async function posthogCaptureEvent(
       event,
       properties,
       sendFeatureFlags,
+      disableGeoip: true,
     });
     await client.shutdown();
   } catch (error) {

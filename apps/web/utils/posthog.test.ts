@@ -203,6 +203,7 @@ describe("user deletion events", () => {
       event: "User deletion requested",
       properties: { userId: "user-1" },
       sendFeatureFlags: false,
+      disableGeoip: true,
     });
     expect(shutdownMock).toHaveBeenCalledTimes(1);
   });
@@ -215,6 +216,7 @@ describe("user deletion events", () => {
       event: "User deleted",
       properties: { userId: "user-1" },
       sendFeatureFlags: false,
+      disableGeoip: true,
     });
     expect(shutdownMock).toHaveBeenCalledTimes(1);
   });
@@ -236,6 +238,7 @@ describe("trackProductFeedback", () => {
       event: "Product feedback submitted",
       properties: { feedback: "Love the assistant" },
       sendFeatureFlags: undefined,
+      disableGeoip: true,
     });
     expect(captureMock).toHaveBeenNthCalledWith(2, {
       distinctId: "user@example.com",
@@ -252,6 +255,7 @@ describe("trackProductFeedback", () => {
         $survey_completed: true,
       },
       sendFeatureFlags: undefined,
+      disableGeoip: true,
     });
   });
   it("still captures the regular event when survey env vars are missing", async () => {
@@ -266,6 +270,7 @@ describe("trackProductFeedback", () => {
       event: "Product feedback submitted",
       properties: { feedback: "Still useful" },
       sendFeatureFlags: undefined,
+      disableGeoip: true,
     });
   });
 });
