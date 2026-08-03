@@ -29,7 +29,7 @@ export async function aiTranslateEmails({
   const system = `You are a precise email translator.
 Translate each provided text into the target language identified by the BCP 47 language tag.
 Return only translations — no commentary, preface, or explanation.
-Preserve the original formatting as much as possible (markdown, line breaks, bullet points, links, and whitespace structure).
+Preserve each input's line-by-line structure exactly: keep every line break, blank line, list marker, link, and indentation in the same position, and translate only the human-language text within that structure.
 Keep proper nouns, email addresses, URLs, and code-like tokens unchanged when translating would break them.
 If a text is empty or only whitespace, return an empty string for that entry.
 The translations array must have the same length and order as the input texts.`;
@@ -56,7 +56,13 @@ ${formatTextsForPrompt(truncatedTexts)}`;
     ...modelOptions,
     system,
     prompt,
-    schema: translationSchema(texts.length),
+    schema: z.object({
+      translations: z
+        .array(z.string())
+        .describe(
+          "Translated texts in the same order and length as the input texts",
+        ),
+    }),
   });
 
   const translations = result.object.translations;
@@ -72,18 +78,9 @@ ${formatTextsForPrompt(truncatedTexts)}`;
     );
   }
 
-  return translations;
-}
-
-function translationSchema(textCount: number) {
-  return z.object({
-    translations: z
-      .array(z.string())
-      .length(textCount)
-      .describe(
-        "Translated texts in the same order and length as the input texts",
-      ),
-  });
+  return translations.map((translation, index) =>
+    texts[index].trim() ? translation : "",
+  );
 }
 
 function formatTextsForPrompt(texts: string[]) {
