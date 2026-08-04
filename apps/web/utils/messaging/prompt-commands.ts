@@ -2,6 +2,7 @@ import type { MessagingPlatform } from "@/utils/messaging/platforms";
 
 const SLASH_COMMAND_REGEX = /^\/([a-z0-9_]+)(?:@[A-Za-z0-9_]+)?(?:\s+.*)?$/i;
 const HELP_COMMAND_REGEX = /^\/help(?:@[A-Za-z0-9_]+)?\s*$/i;
+const TELEGRAM_START_COMMAND_REGEX = /^\/start(?:@[A-Za-z0-9_]+)?(?:\s+.*)?$/i;
 
 export const PROMPT_COMMANDS: Record<string, string> = {
   cleanup: "Help me clean up my inbox today.",
@@ -54,7 +55,16 @@ export function isHelpCommand(text: string): boolean {
   return HELP_COMMAND_REGEX.test(text.trim());
 }
 
-export function isUnsupportedSlashCommand(text: string): boolean {
+export function isTelegramStartCommand(text: string): boolean {
+  return TELEGRAM_START_COMMAND_REGEX.test(text.trim());
+}
+
+export function isUnsupportedSlashCommand(
+  text: string,
+  platform: MessagingPlatform,
+): boolean {
+  if (platform === "telegram" && isTelegramStartCommand(text)) return false;
+
   const command = parseSlashCommand(text);
   return command !== null && !SUPPORTED_COMMANDS.has(command);
 }

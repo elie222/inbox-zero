@@ -58,6 +58,7 @@ import {
   expandPromptCommand,
   getHelpText,
   isHelpCommand,
+  isTelegramStartCommand,
   isUnsupportedSlashCommand,
 } from "@/utils/messaging/prompt-commands";
 import {
@@ -2001,7 +2002,10 @@ async function handleHelpCommand({
 }): Promise<boolean> {
   const provider = thread.adapter.name;
   if (provider !== "telegram" && provider !== "teams") return false;
-  if (!isHelpCommand(message.text)) return false;
+  const isHelp =
+    isHelpCommand(message.text) ||
+    (provider === "telegram" && isTelegramStartCommand(message.text));
+  if (!isHelp) return false;
 
   if (!thread.isDM) {
     await sendDmRequiredMessage({ provider, thread, logger });
@@ -2033,7 +2037,7 @@ async function handleUnsupportedCommand({
 }): Promise<boolean> {
   const provider = thread.adapter.name;
   if (provider !== "telegram" && provider !== "teams") return false;
-  if (!isUnsupportedSlashCommand(message.text)) return false;
+  if (!isUnsupportedSlashCommand(message.text, provider)) return false;
 
   if (!thread.isDM) {
     await sendDmRequiredMessage({ provider, thread, logger });
