@@ -11,8 +11,6 @@ export default function WelcomeUpgradePage() {
       <div className="mt-8">
         <Testimonial />
       </div>
-      {/* The marketing footer is a wall of exits on a page whose only job is
-          starting a trial, and on mobile it dwarfs the plans themselves. */}
       <div className="hidden md:block">
         <Footer />
       </div>
