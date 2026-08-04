@@ -83,8 +83,8 @@ Create a `manifest.json` file with your bot details:
     "full": "Inbox Zero Assistant"
   },
   "description": {
-    "short": "AI email assistant",
-    "full": "Chat with your Inbox Zero AI assistant directly from Teams."
+    "short": "Manage email with Inbox Zero for Microsoft Teams",
+    "full": "Manage email with your Inbox Zero AI assistant in Microsoft Teams. An active Inbox Zero account is required. Sign up or get started at https://your-domain.com. For help, visit https://your-domain.com/docs/essentials/channels or contact support@your-domain.com. AI-generated content may be inaccurate and should be reviewed before use. Report objectionable AI-generated content to support@your-domain.com."
   },
   "icons": {
     "outline": "outline.png",
@@ -96,7 +96,19 @@ Create a `manifest.json` file with your bot details:
       "botId": "<your-app-id>",
       "scopes": ["personal"],
       "supportsFiles": false,
-      "isNotificationOnly": false
+      "isNotificationOnly": false,
+      "commandLists": [
+        {
+          "scopes": ["personal"],
+          "commands": [
+            { "title": "help", "description": "Show help and supported commands" },
+            { "title": "cleanup", "description": "Help clean up your inbox" },
+            { "title": "summary", "description": "Summarize what needs attention" },
+            { "title": "draftreply", "description": "Draft a reply to an urgent email" },
+            { "title": "followups", "description": "Show emails that need a follow-up" }
+          ]
+        }
+      ]
     }
   ],
   "permissions": ["identity", "messageTeamMembers"],
@@ -106,7 +118,7 @@ Create a `manifest.json` file with your bot details:
 
 Replace `<your-app-id>` with your `TEAMS_BOT_APP_ID` and `your-domain.com` with your actual domain.
 
-You'll also need two icon files: a 32×32 `outline.png` and a 192×192 `color.png`. Zip those three files together.
+You'll also need two matching icon files: a 32×32 `outline.png` and a 192×192 `color.png`. The outline icon must use a white symbol on a transparent background, contain no extra padding, and depict the same symbol as the color icon. Zip those three files together.
 
 **To install for testing (sideloading):**
 
@@ -150,8 +162,10 @@ After linking, the user can chat with the assistant in that DM.
 Quick checks:
 
 1. `POST /api/teams/events` returns `200` for valid bot activity
-2. Sending `/connect <code>` in the bot DM links the account
-3. A normal DM message gets an assistant response
+2. Before linking, `Hello` returns account setup guidance and `/help` lists supported commands
+3. An unknown slash command points the user to `/help`
+4. Sending `/connect <code>` in the bot DM links the account
+5. `/summary`, `/cleanup`, `/draftreply`, and `/followups` return useful responses after linking
 
 If linking fails, generate a new code — codes are one-time and expire after 10 minutes.
 

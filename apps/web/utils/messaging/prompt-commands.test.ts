@@ -4,7 +4,13 @@ import {
   expandPromptCommand,
   getHelpText,
   isHelpCommand,
+  isUnsupportedSlashCommand,
 } from "./prompt-commands";
+
+const HELP_OPTIONS = {
+  baseUrl: "https://example.com/",
+  supportEmail: "support@example.com",
+};
 
 describe("expandPromptCommand", () => {
   it("maps cleanup command to a concrete inbox prompt", () => {
@@ -45,9 +51,13 @@ describe("isHelpCommand", () => {
 });
 
 describe("getHelpText", () => {
-  it("includes the available slash commands", () => {
-    const helpText = getHelpText("slack");
+  it("includes account setup and the available Teams commands", () => {
+    const helpText = getHelpText("teams", HELP_OPTIONS);
     expect(helpText).toContain("Commands:");
+    expect(helpText).toContain("Microsoft Teams");
+    expect(helpText).toContain("An active Inbox Zero account is required.");
+    expect(helpText).toContain("https://example.com/channels");
+    expect(helpText).toContain("support@example.com");
 
     for (const key of Object.keys(PROMPT_COMMANDS)) {
       expect(helpText).toContain(`/${key}`);
@@ -55,5 +65,27 @@ describe("getHelpText", () => {
 
     expect(helpText).toContain("/connect <code>");
     expect(helpText).toContain("/switch");
+  });
+
+  it("omits account-linking commands that Slack does not support", () => {
+    const helpText = getHelpText("slack", HELP_OPTIONS);
+
+    expect(helpText).not.toContain("/connect");
+    expect(helpText).not.toContain("/switch");
+    expect(helpText).toContain("/help");
+  });
+});
+
+describe("isUnsupportedSlashCommand", () => {
+  it("identifies unknown slash commands", () => {
+    expect(isUnsupportedSlashCommand("/unknown")).toBe(true);
+    expect(isUnsupportedSlashCommand("/unknown@InboxZeroBot value")).toBe(true);
+  });
+
+  it("allows supported commands and regular messages", () => {
+    expect(isUnsupportedSlashCommand("/help")).toBe(false);
+    expect(isUnsupportedSlashCommand("/connect abc123")).toBe(false);
+    expect(isUnsupportedSlashCommand("/summary")).toBe(false);
+    expect(isUnsupportedSlashCommand("Hello")).toBe(false);
   });
 });
