@@ -99,7 +99,7 @@ function MeetingRecorderPageContent() {
 
   // Enabling is entitlement-gated server-side, so a non-premium user needs the
   // upgrade path on the onboarding screen too, not just once they are set up.
-  if (!hasCalendarConnected || !settings?.enabled) {
+  if (!settings?.enabled) {
     return (
       <PageWrapper>
         <div className="mx-auto max-w-lg">
@@ -134,6 +134,17 @@ function MeetingRecorderPageContent() {
 
       <div className="mt-6 max-w-3xl space-y-8">
         <PremiumAlertWithData />
+
+        {!hasCalendarConnected && (
+          <MeetingRecorderOnboarding
+            emailAccountId={emailAccountId}
+            hasCalendarConnected={hasCalendarConnected}
+            onEnable={(joinRule: MeetingJoinRule) =>
+              execute({ enabled: true, joinRule })
+            }
+            isEnabling={status === "executing"}
+          />
+        )}
 
         <UpcomingMeetingsToggleList emailAccountId={emailAccountId} />
 

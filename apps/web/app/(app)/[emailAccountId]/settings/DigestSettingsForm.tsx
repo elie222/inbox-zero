@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { useAction } from "next-safe-action/hooks";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -42,6 +42,7 @@ import {
 } from "@/utils/schedule";
 import { getEstimatedDigestDeliveryAt } from "@/utils/digest/schedule";
 import { getAccountScopedKey } from "@/utils/swr";
+import { reconcileDigestSelection } from "@/app/(app)/[emailAccountId]/settings/digest-selection";
 
 const digestSettingsSchema = z.object({
   selectedItems: z.set(z.string()),
@@ -133,15 +134,9 @@ function LoadedDigestSettingsForm({
   onSuccess?: () => void;
   showChannelsHint: boolean;
 }) {
+  const previousServerSelection = useRef(getSelectedDigestItemIds(rules));
   const [selectedDigestItems, setSelectedDigestItems] = useState<Set<string>>(
-    () =>
-      new Set(
-        rules
-          .filter((rule) =>
-            rule.actions.some((action) => action.type === ActionType.DIGEST),
-          )
-          .map((rule) => rule.id),
-      ),
+    () => getSelectedDigestItemIds(rules),
   );
   const {
     schedule: initialSchedule,
@@ -165,6 +160,22 @@ function LoadedDigestSettingsForm({
   });
 
   const watchedValues = watch();
+
+  useEffect(() => {
+    const previousSelection = previousServerSelection.current;
+    const nextServerSelection = getSelectedDigestItemIds(rules);
+    const availableRuleIds = new Set(rules.map((rule) => rule.id));
+
+    setSelectedDigestItems((currentSelection) =>
+      reconcileDigestSelection({
+        currentSelection,
+        previousServerSelection: previousSelection,
+        nextServerSelection,
+        availableRuleIds,
+      }),
+    );
+    previousServerSelection.current = nextServerSelection;
+  }, [rules]);
 
   const { executeAsync: executeItems } = useAction(
     updateDigestItemsAction.bind(null, emailAccountId),
@@ -593,6 +604,16 @@ function getInitialScheduleProps(
     dayOfWeek: initialDayOfWeek,
     time: initialTime,
   };
+}
+
+function getSelectedDigestItemIds(rules: RulesResponse) {
+  return new Set(
+    rules
+      .filter((rule) =>
+        rule.actions.some((action) => action.type === ActionType.DIGEST),
+      )
+      .map((rule) => rule.id),
+  );
 }
 
 function formatDigestDeliveryTime(date: Date, timezone?: string | null) {
