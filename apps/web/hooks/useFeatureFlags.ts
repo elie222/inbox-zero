@@ -63,7 +63,7 @@ export function usePricingVariant() {
   );
 }
 
-export type PricingFrequencyDefault = "control" | "monthly";
+export type PricingFrequencyDefault = "control" | "annually";
 
 export function usePricingFrequencyDefault() {
   return (
