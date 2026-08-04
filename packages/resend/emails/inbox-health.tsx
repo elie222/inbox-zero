@@ -88,7 +88,7 @@ export default function InboxHealthEmail(props: InboxHealthEmailProps) {
                 cellSpacing={0}
                 border={0}
                 width={600}
-                style={{ width: "600px", maxWidth: "600px" }}
+                style={{ width: "100%", maxWidth: "600px" }}
               >
                 <tr>
                   <td
@@ -133,7 +133,7 @@ export default function InboxHealthEmail(props: InboxHealthEmailProps) {
                 border={0}
                 width={600}
                 style={{
-                  width: "600px",
+                  width: "100%",
                   maxWidth: "600px",
                   backgroundColor: CARD_BACKGROUND,
                   border: `1px solid ${BORDER}`,
@@ -331,7 +331,7 @@ export default function InboxHealthEmail(props: InboxHealthEmailProps) {
                 cellSpacing={0}
                 border={0}
                 width={600}
-                style={{ width: "600px", maxWidth: "600px" }}
+                style={{ width: "100%", maxWidth: "600px" }}
               >
                 <tr>
                   <td
