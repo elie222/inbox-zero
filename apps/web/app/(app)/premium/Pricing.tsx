@@ -69,9 +69,9 @@ export default function Pricing(props: PricingProps) {
   const isLegacyStripePlan = shouldShowLegacyStripePricingNotice(premium);
 
   const defaultFrequency =
-    usePricingFrequencyDefault() === "monthly"
-      ? frequencies[0]
-      : frequencies[1];
+    usePricingFrequencyDefault() === "annually"
+      ? frequencies[1]
+      : frequencies[0];
   const [chosenFrequency, setFrequency] = useState<
     (typeof frequencies)[number] | null
   >(null);

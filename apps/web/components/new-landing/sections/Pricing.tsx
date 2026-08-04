@@ -90,7 +90,7 @@ const frequencies = ["annually", "monthly"];
 
 export function Pricing() {
   const defaultFrequency =
-    usePricingFrequencyDefault() === "monthly" ? "monthly" : "annually";
+    usePricingFrequencyDefault() === "annually" ? "annually" : "monthly";
   const [chosenFrequency, setFrequency] = useState<string | null>(null);
   const frequency = chosenFrequency ?? defaultFrequency;
   const posthog = usePostHog();
