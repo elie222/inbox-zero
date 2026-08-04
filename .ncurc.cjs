@@ -59,6 +59,17 @@ module.exports = {
     // mismatches when passing Redis connections into queues.
     "ioredis",
 
+    // AI SDK v7-only provider lines; app remains on ai@6 / zod@3
+    "@openrouter/ai-sdk-provider",
+    "ollama-ai-provider-v2",
+
+    // TypeScript 7 is the native Go compiler without the classic Compiler API;
+    // stay on 6 until the monorepo tooling ecosystem is ready.
+    "typescript",
+
+    // @slack/web-api@7 depends on @slack/types ^2
+    "@slack/types",
+
     "@types/node",
   ],
 };
