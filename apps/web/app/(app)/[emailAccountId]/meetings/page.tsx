@@ -99,7 +99,7 @@ function MeetingRecorderPageContent() {
 
   // Enabling is entitlement-gated server-side, so a non-premium user needs the
   // upgrade path on the onboarding screen too, not just once they are set up.
-  if (!settings?.enabled) {
+  if (!hasCalendarConnected || !settings?.enabled) {
     return (
       <PageWrapper>
         <div className="mx-auto max-w-lg">
