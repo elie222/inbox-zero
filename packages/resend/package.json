@@ -5,6 +5,9 @@
   "scripts": {
     "dev": "email dev --port 3010"
   },
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "dependencies": {
     "@react-email/components": "1.0.12",
     "@react-email/render": "2.1.0",
