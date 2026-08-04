@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { useAction } from "next-safe-action/hooks";
 import { zodResolver } from "@hookform/resolvers/zod";
-import useSWR from "swr";
+import useSWR, { type KeyedMutator } from "swr";
 import { z } from "zod";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,7 @@ import { ActionType } from "@/generated/prisma/enums";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import type { GetDigestScheduleResponse } from "@/app/api/user/digest-schedule/route";
 import type { GetDigestStatusResponse } from "@/app/api/user/digest-status/route";
+import type { RulesResponse } from "@/app/api/user/rules/route";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
@@ -94,29 +95,72 @@ export function DigestSettingsForm({
   const isLoading = rulesLoading || digestStatusLoading;
   const error = rulesError || digestStatusError;
 
+  return (
+    <LoadingContent
+      loading={isLoading}
+      error={error}
+      loadingComponent={<Skeleton className="min-h-[200px] w-full" />}
+    >
+      {rules && digestStatus && (
+        <LoadedDigestSettingsForm
+          emailAccountId={emailAccountId}
+          rules={rules}
+          digestStatus={digestStatus}
+          mutateRules={mutateRules}
+          mutateDigestStatus={mutateDigestStatus}
+          onSuccess={onSuccess}
+          showChannelsHint={showChannelsHint}
+        />
+      )}
+    </LoadingContent>
+  );
+}
+
+function LoadedDigestSettingsForm({
+  emailAccountId,
+  rules,
+  digestStatus,
+  mutateRules,
+  mutateDigestStatus,
+  onSuccess,
+  showChannelsHint,
+}: {
+  emailAccountId: string;
+  rules: RulesResponse;
+  digestStatus: GetDigestStatusResponse;
+  mutateRules: KeyedMutator<RulesResponse>;
+  mutateDigestStatus: KeyedMutator<GetDigestStatusResponse>;
+  onSuccess?: () => void;
+  showChannelsHint: boolean;
+}) {
   const [selectedDigestItems, setSelectedDigestItems] = useState<Set<string>>(
-    new Set(),
+    () =>
+      new Set(
+        rules
+          .filter((rule) =>
+            rule.actions.some((action) => action.type === ActionType.DIGEST),
+          )
+          .map((rule) => rule.id),
+      ),
   );
   const {
     schedule: initialSchedule,
     dayOfWeek: initialDayOfWeek,
     time: initialTime,
-  } = getInitialScheduleProps(digestStatus?.schedule);
-  const digestStatusLoaded = digestStatus !== undefined;
+  } = getInitialScheduleProps(digestStatus.schedule);
 
   const {
     handleSubmit,
     formState: { isSubmitting },
     watch,
     setValue,
-    reset,
   } = useForm<DigestSettingsFormValues>({
     resolver: zodResolver(digestSettingsSchema),
     defaultValues: {
-      selectedItems: new Set(),
-      schedule: "daily",
-      dayOfWeek: "1",
-      time: "09:00",
+      selectedItems: selectedDigestItems,
+      schedule: initialSchedule,
+      dayOfWeek: initialDayOfWeek,
+      time: initialTime,
     },
   });
 
@@ -146,36 +190,6 @@ export function DigestSettingsForm({
     },
   );
 
-  // Initialize selected items and form data from API responses
-  useEffect(() => {
-    if (rules && digestStatusLoaded) {
-      const selectedItems = new Set<string>();
-
-      // Add rules that have digest actions
-      rules.forEach((rule) => {
-        if (rule.actions.some((action) => action.type === ActionType.DIGEST)) {
-          selectedItems.add(rule.id);
-        }
-      });
-
-      setSelectedDigestItems(selectedItems);
-
-      reset({
-        selectedItems,
-        schedule: initialSchedule,
-        dayOfWeek: initialDayOfWeek,
-        time: initialTime,
-      });
-    }
-  }, [
-    rules,
-    digestStatusLoaded,
-    initialSchedule,
-    initialDayOfWeek,
-    initialTime,
-    reset,
-  ]);
-
   // Update form when selectedDigestItems changes
   useEffect(() => {
     setValue("selectedItems", selectedDigestItems);
@@ -187,7 +201,7 @@ export function DigestSettingsForm({
       const ruleDigestPreferences: Record<string, boolean> = {};
 
       // Set all rules to false first
-      rules?.forEach((rule) => {
+      rules.forEach((rule) => {
         ruleDigestPreferences[rule.id] = false;
       });
 
@@ -253,7 +267,7 @@ export function DigestSettingsForm({
           description: estimatedDeliveryAt
             ? `Saved. Next digest expected around ${formatDigestDeliveryTime(
                 estimatedDeliveryAt,
-                digestStatus?.delivery.timezone,
+                digestStatus.delivery.timezone,
               )}.`
             : "Digest settings saved.",
         });
@@ -271,124 +285,118 @@ export function DigestSettingsForm({
       executeSchedule,
       mutateRules,
       mutateDigestStatus,
-      digestStatus?.delivery.timezone,
+      digestStatus.delivery.timezone,
       onSuccess,
     ],
   );
 
   // Create options for MultiSelectFilter
   const digestOptions = [
-    ...(rules?.map((rule) => ({
+    ...rules.map((rule) => ({
       label: rule.name,
       value: rule.id,
-    })) || []),
+    })),
   ];
 
   return (
     <div className="grid lg:grid-cols-2 gap-8 h-full">
       <div className="space-y-6">
-        <LoadingContent
-          loading={isLoading}
-          error={error}
-          loadingComponent={<Skeleton className="min-h-[200px] w-full" />}
-        >
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            <div>
-              <Label>What to include in the digest email</Label>
-              <MutedText className="mt-1">
-                Selected rules are combined into one digest email.
-              </MutedText>
-              <div className="mt-3">
-                <MultiSelectFilter
-                  title="Digest Items"
-                  options={digestOptions}
-                  selectedValues={selectedDigestItems}
-                  setSelectedValues={setSelectedDigestItems}
-                  maxDisplayedValues={3}
-                />
-              </div>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          <div>
+            <Label>What to include in the digest email</Label>
+            <MutedText className="mt-1">
+              Selected rules are combined into one digest email.
+            </MutedText>
+            <div className="mt-3">
+              <MultiSelectFilter
+                title="Digest Items"
+                options={digestOptions}
+                selectedValues={selectedDigestItems}
+                setSelectedValues={setSelectedDigestItems}
+                maxDisplayedValues={3}
+              />
             </div>
+          </div>
 
-            <div>
-              <Label>Send the digest email</Label>
+          <div>
+            <Label>Send the digest email</Label>
 
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mt-3">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mt-3">
+              <FormItem>
+                <Label htmlFor="frequency-select">Every</Label>
+                <Select
+                  value={watchedValues.schedule}
+                  onValueChange={(val) => setValue("schedule", val)}
+                >
+                  <SelectTrigger id="frequency-select">
+                    {watchedValues.schedule
+                      ? frequencies.find(
+                          (f) => f.value === watchedValues.schedule,
+                        )?.label
+                      : "Select..."}
+                  </SelectTrigger>
+                  <SelectContent>
+                    {frequencies.map((f) => (
+                      <SelectItem key={f.value} value={f.value}>
+                        {f.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FormItem>
+
+              {watchedValues.schedule !== "daily" && (
                 <FormItem>
-                  <Label htmlFor="frequency-select">Every</Label>
+                  <Label htmlFor="dayofweek-select">on</Label>
                   <Select
-                    value={watchedValues.schedule}
-                    onValueChange={(val) => setValue("schedule", val)}
+                    value={watchedValues.dayOfWeek}
+                    onValueChange={(val) => setValue("dayOfWeek", val)}
                   >
-                    <SelectTrigger id="frequency-select">
-                      {watchedValues.schedule
-                        ? frequencies.find(
-                            (f) => f.value === watchedValues.schedule,
+                    <SelectTrigger id="dayofweek-select">
+                      {watchedValues.dayOfWeek
+                        ? daysOfWeek.find(
+                            (d) => d.value === watchedValues.dayOfWeek,
                           )?.label
                         : "Select..."}
                     </SelectTrigger>
                     <SelectContent>
-                      {frequencies.map((f) => (
-                        <SelectItem key={f.value} value={f.value}>
-                          {f.label}
+                      {daysOfWeek.map((d) => (
+                        <SelectItem key={d.value} value={d.value}>
+                          {d.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </FormItem>
+              )}
 
-                {watchedValues.schedule !== "daily" && (
-                  <FormItem>
-                    <Label htmlFor="dayofweek-select">on</Label>
-                    <Select
-                      value={watchedValues.dayOfWeek}
-                      onValueChange={(val) => setValue("dayOfWeek", val)}
-                    >
-                      <SelectTrigger id="dayofweek-select">
-                        {watchedValues.dayOfWeek
-                          ? daysOfWeek.find(
-                              (d) => d.value === watchedValues.dayOfWeek,
-                            )?.label
-                          : "Select..."}
-                      </SelectTrigger>
-                      <SelectContent>
-                        {daysOfWeek.map((d) => (
-                          <SelectItem key={d.value} value={d.value}>
-                            {d.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </FormItem>
-                )}
-
-                <TimePicker
-                  id="time-picker"
-                  label="at"
-                  value={watchedValues.time}
-                  onChange={(value) => setValue("time", value)}
-                />
-              </div>
-              <MutedText className="mt-2">
-                Usually sent within 5 minutes.
-                {digestStatus?.delivery.estimatedNextDeliveryAt && (
-                  <>
-                    {" "}
-                    Next delivery around{" "}
-                    {formatDigestDeliveryTime(
-                      new Date(digestStatus.delivery.estimatedNextDeliveryAt),
-                      digestStatus.delivery.timezone,
-                    )}
-                    .
-                  </>
-                )}
-              </MutedText>
+              <TimePicker
+                id="time-picker"
+                label="at"
+                value={watchedValues.time}
+                onChange={(value) => setValue("time", value)}
+              />
             </div>
+            <MutedText className="mt-2">
+              Usually sent within 5 minutes.
+              {digestStatus.delivery.estimatedNextDeliveryAt && (
+                <>
+                  {" "}
+                  Next delivery around{" "}
+                  {formatDigestDeliveryTime(
+                    new Date(digestStatus.delivery.estimatedNextDeliveryAt),
+                    digestStatus.delivery.timezone,
+                  )}
+                  .
+                </>
+              )}
+            </MutedText>
+          </div>
 
-            <Button type="submit" loading={isSubmitting} className="mt-4">
-              Save
-            </Button>
-          </form>
-        </LoadingContent>
+          <Button type="submit" loading={isSubmitting} className="mt-4">
+            Save
+          </Button>
+        </form>
 
         <DigestDeliveryChannels
           emailAccountId={emailAccountId}
