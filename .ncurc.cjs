@@ -71,5 +71,10 @@ module.exports = {
     "@slack/types",
 
     "@types/node",
+
+    // Ultracite 7.10+/Biome 2.5.6 enable mass useSortedKeys failures across the repo.
+    // Stay pinned until a dedicated formatting migration.
+    "ultracite",
+    "@biomejs/biome",
   ],
 };
