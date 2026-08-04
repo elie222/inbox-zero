@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { MicIcon, SettingsIcon } from "lucide-react";
+import { CalendarIcon, MicIcon, SettingsIcon } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { LoadingContent } from "@/components/LoadingContent";
 import { PageHeader } from "@/components/PageHeader";
@@ -23,6 +23,7 @@ import { MeetingRecorderSettingsDialog } from "@/app/(app)/[emailAccountId]/meet
 import { MeetingsList } from "@/app/(app)/[emailAccountId]/meetings/MeetingsList";
 import { UpcomingMeetingsToggleList } from "@/app/(app)/[emailAccountId]/meetings/UpcomingMeetingsToggleList";
 import { hasConnectedCalendar } from "@/app/(app)/[emailAccountId]/meetings/calendar-connection-state";
+import { ConnectCalendar } from "@/app/(app)/[emailAccountId]/calendars/ConnectCalendar";
 
 export default function MeetingsPage() {
   const meetingRecorderEnabled = useMeetingRecorderEnabled();
@@ -99,7 +100,7 @@ function MeetingRecorderPageContent() {
 
   // Enabling is entitlement-gated server-side, so a non-premium user needs the
   // upgrade path on the onboarding screen too, not just once they are set up.
-  if (!hasCalendarConnected || !settings?.enabled) {
+  if (!settings?.enabled) {
     return (
       <PageWrapper>
         <div className="mx-auto max-w-lg">
@@ -134,6 +135,26 @@ function MeetingRecorderPageContent() {
 
       <div className="mt-6 max-w-3xl space-y-8">
         <PremiumAlertWithData />
+
+        {!hasCalendarConnected && (
+          <ActionCard
+            variant="blue"
+            icon={<CalendarIcon className="h-5 w-5" />}
+            title="Reconnect your calendar"
+            description={
+              <div className="space-y-4">
+                <p>
+                  Your meeting notetaker is still enabled. Connect a calendar so
+                  it can find upcoming meetings.
+                </p>
+                <ConnectCalendar
+                  analyticsPage="meetings"
+                  onboardingReturnPath={`/${emailAccountId}/meetings`}
+                />
+              </div>
+            }
+          />
+        )}
 
         <UpcomingMeetingsToggleList emailAccountId={emailAccountId} />
 
