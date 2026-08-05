@@ -81,7 +81,7 @@ git rev-parse HEAD
 git rev-parse @{upstream}
 HEAD_SHA=$(gh pr view "$PR_NUM" --json headRefOid --jq .headRefOid)
 
-gh api "repos/$REPO/commits/$HEAD_SHA/check-runs?per_page=100"
+gh api --paginate "repos/$REPO/commits/$HEAD_SHA/check-runs?per_page=100"
 gh api --paginate "repos/$REPO/pulls/$PR_NUM/reviews?per_page=100"
 gh api --paginate "repos/$REPO/pulls/$PR_NUM/comments?per_page=100"
 gh api --paginate "repos/$REPO/issues/$PR_NUM/comments?per_page=100"
