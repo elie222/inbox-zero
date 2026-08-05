@@ -681,6 +681,68 @@ describe("runActionFunction", () => {
       expect(client.forwardEmail).not.toHaveBeenCalled();
     });
 
+    it("promotes a new CC recipient when every primary recipient is already on the message", async () => {
+      const client = createMockEmailProvider();
+
+      await runActionFunction({
+        client,
+        email,
+        action: {
+          id: "action-1",
+          type: ActionType.FORWARD,
+          to: "sender@example.com",
+          cc: "Reviewer <reviewer@example.com>, auditor@example.com",
+        },
+        emailAccount,
+        executedRule,
+        logger,
+      });
+
+      expect(client.forwardEmail).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          to: "Reviewer <reviewer@example.com>",
+          cc: "auditor@example.com",
+        }),
+      );
+    });
+
+    it("forwards separately to new BCC recipients when no visible recipient remains", async () => {
+      const client = createMockEmailProvider();
+
+      await runActionFunction({
+        client,
+        email,
+        action: {
+          id: "action-1",
+          type: ActionType.FORWARD,
+          to: "sender@example.com",
+          bcc: "Reviewer <reviewer@example.com>, auditor@example.com",
+        },
+        emailAccount,
+        executedRule,
+        logger,
+      });
+
+      expect(client.forwardEmail).toHaveBeenCalledTimes(2);
+      expect(client.forwardEmail).toHaveBeenNthCalledWith(
+        1,
+        expect.anything(),
+        expect.objectContaining({
+          to: "Reviewer <reviewer@example.com>",
+        }),
+      );
+      expect(client.forwardEmail).toHaveBeenNthCalledWith(
+        2,
+        expect.anything(),
+        expect.objectContaining({
+          to: "auditor@example.com",
+        }),
+      );
+      expect(client.forwardEmail.mock.calls[0]?.[1]).not.toHaveProperty("bcc");
+      expect(client.forwardEmail.mock.calls[1]?.[1]).not.toHaveProperty("bcc");
+    });
+
     it("forwards when every recipient is new to the message", async () => {
       const client = createMockEmailProvider();
 

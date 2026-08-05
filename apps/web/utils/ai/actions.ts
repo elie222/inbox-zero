@@ -388,47 +388,69 @@ const forward: ActionFunction<{
     email.headers.bcc,
   ].flatMap((value) => extractEmailAddresses(value ?? ""));
 
-  const to = removeMessageParticipants(args.to, messageParticipants);
-  const cc = removeMessageParticipants(args.cc, messageParticipants);
-  const bcc = removeMessageParticipants(args.bcc, messageParticipants);
+  const toRecipients = removeMessageParticipants(args.to, messageParticipants);
+  const ccRecipients = removeMessageParticipants(args.cc, messageParticipants);
+  const bccRecipients = removeMessageParticipants(
+    args.bcc,
+    messageParticipants,
+  );
 
-  if (!to) {
-    logger.warn("Skipping forward because no new primary recipients remain");
+  if (!toRecipients.length && !ccRecipients.length && !bccRecipients.length) {
+    logger.warn("Skipping forward because no new recipients remain");
     return { skipped: true, reason: "NO_NEW_FORWARD_RECIPIENTS" };
   }
 
   const recipients = [args.to, args.cc, args.bcc].flatMap((value) =>
     extractEmailAddresses(value ?? ""),
   );
-  const remainingRecipients = [to, cc, bcc].flatMap((value) =>
-    extractEmailAddresses(value),
-  );
-  if (remainingRecipients.length < recipients.length) {
+  const remainingRecipientCount =
+    toRecipients.length + ccRecipients.length + bccRecipients.length;
+  if (remainingRecipientCount < recipients.length) {
     logger.info("Removed existing message participants from forward");
   }
 
+  const forwardMessage = {
+    id: email.id,
+    threadId: email.threadId,
+    headers: email.headers,
+    internalDate: email.internalDate,
+    snippet: "",
+    historyId: "",
+    inline: [],
+    subject: email.headers.subject,
+    date: email.headers.date,
+  };
   const forwardArgs = {
     messageId: email.id,
-    to,
-    cc: cc || undefined,
-    bcc: bcc || undefined,
     content: args.content ?? undefined,
   };
 
-  await client.forwardEmail(
-    {
-      id: email.id,
-      threadId: email.threadId,
-      headers: email.headers,
-      internalDate: email.internalDate,
-      snippet: "",
-      historyId: "",
-      inline: [],
-      subject: email.headers.subject,
-      date: email.headers.date,
-    },
-    forwardArgs,
-  );
+  if (!toRecipients.length && !ccRecipients.length) {
+    // A primary recipient is required, so send BCC-only recipients separately
+    // to avoid exposing them to each other.
+    for (const recipient of bccRecipients) {
+      await client.forwardEmail(forwardMessage, {
+        ...forwardArgs,
+        to: recipient,
+      });
+    }
+    return;
+  }
+
+  if (!toRecipients.length) {
+    const primaryRecipient = ccRecipients.shift();
+    if (!primaryRecipient) {
+      throw new Error("Forward action has no primary recipient");
+    }
+    toRecipients.push(primaryRecipient);
+  }
+
+  await client.forwardEmail(forwardMessage, {
+    ...forwardArgs,
+    to: toRecipients.join(", "),
+    cc: ccRecipients.join(", ") || undefined,
+    bcc: bccRecipients.join(", ") || undefined,
+  });
 };
 
 const mark_spam: ActionFunction<Record<string, unknown>> = async ({
@@ -769,12 +791,10 @@ function removeMessageParticipants(
   recipientList: string | null | undefined,
   messageParticipants: string[],
 ) {
-  return splitRecipientList(recipientList ?? "")
-    .filter(
-      (recipient) =>
-        !messageParticipants.some((participant) =>
-          isSameEmailAddress(participant, recipient),
-        ),
-    )
-    .join(", ");
+  return splitRecipientList(recipientList ?? "").filter(
+    (recipient) =>
+      !messageParticipants.some((participant) =>
+        isSameEmailAddress(participant, recipient),
+      ),
+  );
 }
