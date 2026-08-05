@@ -41,6 +41,7 @@ export function IntegrationRow({
 }: IntegrationRowProps) {
   const { emailAccountId } = useAccount();
   const analytics = useProductAnalytics("integrations");
+  const [connecting, setConnecting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [expandedTools, setExpandedTools] = useState(false);
 
@@ -71,6 +72,8 @@ export function IntegrationRow({
       return;
     }
 
+    setConnecting(true);
+
     try {
       const response = await fetchWithAccount({
         url: `/api/mcp/${integration.name}/auth-url`,
@@ -78,7 +81,10 @@ export function IntegrationRow({
       });
 
       if (!response.ok) {
-        throw new Error("Failed to get authorization URL");
+        const body = await response.json().catch(() => null);
+        throw new Error(
+          typeof body?.error === "string" ? body.error : undefined,
+        );
       }
 
       const data: GetMcpAuthUrlResponse = await response.json();
@@ -93,10 +99,13 @@ export function IntegrationRow({
         error,
       );
       toastError({
-        title: `Error connecting to ${integration.name}`,
+        title: `Error connecting to ${integration.displayName}`,
         description:
-          "Please try again or contact support if the issue persists.",
+          error instanceof Error && error.message
+            ? error.message
+            : "Please try again or contact support if the issue persists.",
       });
+      setConnecting(false);
     }
   };
 
@@ -235,10 +244,17 @@ export function IntegrationRow({
                   </span>
                 </div>
               ) : (
-                <Button size="sm" variant="outline" onClick={handleConnect}>
-                  {integration.authType === "api-token"
-                    ? "Connect with API Key"
-                    : "Connect"}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleConnect}
+                  disabled={connecting}
+                >
+                  {connecting
+                    ? "Connecting..."
+                    : integration.authType === "api-token"
+                      ? "Connect with API Key"
+                      : "Connect"}
                 </Button>
               )}
             </div>
@@ -257,7 +273,7 @@ export function IntegrationRow({
               size="sm"
               className="flex items-center gap-1"
               onClick={() => {
-                analytics.captureAction("integration_tools_toggled", {
+                analytics.captureAction("integration_tools_expanded", {
                   integration: integration.name,
                   expanded: !expandedTools,
                   enabled_tool_count: toolsCount,
@@ -283,6 +299,8 @@ export function IntegrationRow({
               name={`integrations.${integration.name}.enabled`}
               enabled={isActive}
               onChange={handleToggle}
+              disabled={!connected}
+              disabledTooltipText="Connect this integration first"
             />
           )}
         </TableCell>
@@ -303,7 +321,7 @@ export function IntegrationRow({
                 {tools.length > 0 && (
                   <DropdownMenuItem
                     onClick={() => {
-                      analytics.captureAction("integration_tools_toggled", {
+                      analytics.captureAction("integration_tools_expanded", {
                         integration: integration.name,
                         expanded: !expandedTools,
                         enabled_tool_count: toolsCount,
@@ -316,6 +334,9 @@ export function IntegrationRow({
                     {expandedTools ? "Hide tools" : "Manage tools"}
                   </DropdownMenuItem>
                 )}
+                <DropdownMenuItem onClick={handleConnect} disabled={connecting}>
+                  {connecting ? "Reconnecting..." : "Reconnect"}
+                </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={handleDisconnect}
                   disabled={disconnecting}

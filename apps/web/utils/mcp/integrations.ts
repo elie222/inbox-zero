@@ -40,7 +40,6 @@ export const MCP_INTEGRATIONS: Record<
     url: "stripe.com",
     serverUrl: "https://mcp.stripe.com",
     authType: "oauth", // must request whitelisting of /api/mcp/stripe/callback from Stripe. localhost is whitelisted already.
-    // authType: "api-token", // alternatively, use an API token.
     scopes: [],
     allowedTools: [
       "list_customers",
@@ -93,7 +92,6 @@ export const MCP_INTEGRATIONS: Record<
       // "create_widget",
     ],
     // OAuth endpoints auto-discovered via RFC 8414
-    comingSoon: false,
   },
   pipedream: {
     name: "pipedream",
@@ -111,28 +109,6 @@ export const MCP_INTEGRATIONS: Record<
     // No allowedTools - accept all tools Pipedream provides
     // OAuth endpoints auto-discovered via RFC 8414
   },
-  // hubspot: {
-  //   name: "hubspot",
-  //   displayName: "HubSpot",
-  //   serverUrl: "https://mcp.hubspot.com/",
-  //   authType: "oauth",
-  //   scopes: [
-  //     "content",
-  //     "crm.objects.companies.read",
-  //     "crm.objects.companies.write",
-  //     "crm.objects.contacts.read",
-  //     "crm.objects.contacts.write",
-  //     "crm.objects.deals.write",
-  //     "forms",
-  //     "oauth",
-  //     "timeline",
-  //   ],
-  //   oauthConfig: {
-  //     authorization_endpoint: "https://app.hubspot.com/oauth/authorize",
-  //     token_endpoint: "https://mcp.hubspot.com/oauth/v1/token",
-  //   },
-  //   comingSoon: true,
-  // },
 };
 
 export type IntegrationKey = keyof typeof MCP_INTEGRATIONS;
@@ -147,16 +123,11 @@ export function getIntegration(
   return integration;
 }
 
-export function getStaticCredentials(
-  integration: IntegrationKey,
-): { clientId?: string; clientSecret?: string } | undefined {
-  switch (integration) {
-    // case "hubspot":
-    //   return {
-    //     clientId: env.HUBSPOT_MCP_CLIENT_ID,
-    //     clientSecret: env.HUBSPOT_MCP_CLIENT_SECRET,
-    //   };
-    default:
-      return;
-  }
+// For untrusted names (URL params, stored connection names). getIntegration throws instead.
+export function findIntegration(
+  name: string,
+): (typeof MCP_INTEGRATIONS)[IntegrationKey] | undefined {
+  return Object.hasOwn(MCP_INTEGRATIONS, name)
+    ? MCP_INTEGRATIONS[name]
+    : undefined;
 }

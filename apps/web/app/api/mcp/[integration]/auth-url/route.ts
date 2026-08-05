@@ -9,7 +9,7 @@ import {
   getMcpOAuthStateType,
   generateSignedOAuthState,
 } from "@/utils/oauth/state";
-import { getIntegration } from "@/utils/mcp/integrations";
+import { findIntegration } from "@/utils/mcp/integrations";
 import { generateOAuthUrl } from "@/utils/mcp/oauth";
 import {
   getUserTier,
@@ -31,7 +31,7 @@ export const GET = withEmailAccount(
       integration,
     });
 
-    // Check premium tier - integrations require Business Plus
+    // Check premium tier - integrations require Plus or higher
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -52,7 +52,7 @@ export const GET = withEmailAccount(
       );
     }
 
-    const integrationConfig = getIntegration(integration);
+    const integrationConfig = findIntegration(integration);
 
     if (!integrationConfig) {
       throw new SafeError(`Integration ${integration} not found`);
