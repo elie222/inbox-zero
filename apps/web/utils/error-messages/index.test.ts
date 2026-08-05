@@ -93,7 +93,7 @@ describe("getUserErrorMessages", () => {
     expect(prisma.user.update).not.toHaveBeenCalled();
   });
 
-  it("adds an Inbox Zero reconnect link to a legacy disconnect error", async () => {
+  it("persists the matching account link on a legacy disconnect error", async () => {
     prisma.user.findUnique.mockResolvedValue({
       errorMessages: {
         [ErrorType.ACCOUNT_DISCONNECTED]: {
@@ -104,7 +104,8 @@ describe("getUserErrorMessages", () => {
       },
     } as any);
     prisma.emailAccount.findMany.mockResolvedValue([
-      { id: "email-account-1" },
+      { id: "email-account-1", email: "user@example.com" },
+      { id: "email-account-2", email: "other@example.com" },
     ] as any);
 
     const result = await getUserErrorMessages("user-1");
@@ -115,6 +116,52 @@ describe("getUserErrorMessages", () => {
         actionLabel: "Reconnect account",
       }),
     );
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: "user-1" },
+      data: {
+        errorMessages: {
+          [ErrorType.ACCOUNT_DISCONNECTED]: expect.objectContaining({
+            actionUrl: "/email-account-1/permissions/consent",
+            actionLabel: "Reconnect account",
+          }),
+        },
+      },
+    });
+  });
+
+  it("persists the accounts-page fallback when a legacy error has no unique account match", async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      errorMessages: {
+        [ErrorType.ACCOUNT_DISCONNECTED]: {
+          message: "An email account was disconnected.",
+          timestamp: "2026-08-05T12:00:00.000Z",
+        },
+      },
+    } as any);
+    prisma.emailAccount.findMany.mockResolvedValue([
+      { id: "email-account-1", email: "first@example.com" },
+      { id: "email-account-2", email: "second@example.com" },
+    ] as any);
+
+    const result = await getUserErrorMessages("user-1");
+
+    expect(result?.[ErrorType.ACCOUNT_DISCONNECTED]).toEqual(
+      expect.objectContaining({
+        actionUrl: "/accounts",
+        actionLabel: "Manage accounts",
+      }),
+    );
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: "user-1" },
+      data: {
+        errorMessages: {
+          [ErrorType.ACCOUNT_DISCONNECTED]: expect.objectContaining({
+            actionUrl: "/accounts",
+            actionLabel: "Manage accounts",
+          }),
+        },
+      },
+    });
   });
 });
 
@@ -256,6 +303,8 @@ describe("addUserErrorMessageWithNotification", () => {
           [ErrorType.EMAIL_WATCH_LAPSED]: expect.objectContaining({
             message: "Automation stopped",
             emailSentAt: expect.any(String),
+            actionUrl: "/email-account-1/permissions/consent",
+            actionLabel: "Reconnect account",
           }),
         },
       },
@@ -269,8 +318,8 @@ describe("addUserErrorMessageWithNotification", () => {
           message: "Automation stopped",
           timestamp: "2026-07-01T04:00:40.506Z",
           emailSentAt: "2026-07-01T04:00:40.506Z",
-          actionUrl: "/accounts",
-          actionLabel: "Reconnect Account",
+          actionUrl: "/email-account-1/permissions/consent",
+          actionLabel: "Reconnect account",
         },
       },
     } as any);
@@ -371,8 +420,6 @@ describe("addUserErrorMessageWithNotification", () => {
       emailAccountId: "email-account-1",
       errorType: ErrorType.ACCOUNT_DISCONNECTED,
       errorMessage: "Gmail is not enabled",
-      actionUrl: "/email-account-1/permissions/consent",
-      actionLabel: "Reconnect account",
       logger,
     });
 

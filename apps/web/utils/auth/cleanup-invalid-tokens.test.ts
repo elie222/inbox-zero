@@ -17,10 +17,6 @@ vi.mock("@inboxzero/resend", () => ({
 vi.mock("@/utils/error-messages", () => ({
   addUserErrorMessage: vi.fn().mockResolvedValue(undefined),
   addUserErrorMessageWithNotification: vi.fn().mockResolvedValue(undefined),
-  getAccountRecoveryAction: vi.fn((emailAccountId: string) => ({
-    actionUrl: `/${emailAccountId}/permissions/consent`,
-    actionLabel: "Reconnect account",
-  })),
   ErrorType: {
     ACCOUNT_DISCONNECTED: "Account disconnected",
   },
@@ -201,26 +197,6 @@ describe("cleanupInvalidTokens", () => {
         errorType: "Account disconnected",
         errorMessage: expect.stringContaining("security policy"),
         logger,
-      }),
-    );
-  });
-
-  it("links unavailable Gmail accounts to the Inbox Zero reconnect page", async () => {
-    prisma.emailAccount.findUnique.mockResolvedValue(mockEmailAccount as any);
-    prisma.account.updateMany.mockResolvedValue({ count: 1 });
-
-    await cleanupInvalidTokens({
-      emailAccountId: "ea_1",
-      reason: "mail_service_not_enabled",
-      logger,
-    });
-
-    expect(addUserErrorMessageWithNotification).toHaveBeenCalledWith(
-      expect.objectContaining({
-        emailAccountId: "ea_1",
-        errorMessage: expect.stringContaining("Gmail is not enabled"),
-        actionUrl: "/ea_1/permissions/consent",
-        actionLabel: "Reconnect account",
       }),
     );
   });

@@ -303,8 +303,13 @@ export async function addUserErrorMessageWithNotification({
     const existingEntry = currentErrorMessages[storageKey];
     const shouldSendEmail = !existingEntry?.emailSentAt;
     const config = errorTypeConfig[errorType];
-    const resolvedActionUrl = actionUrl ?? config.actionUrl;
-    const resolvedActionLabel = actionLabel ?? config.actionLabel;
+    const defaultAction =
+      errorType === ErrorType.ACCOUNT_DISCONNECTED ||
+      errorType === ErrorType.EMAIL_WATCH_LAPSED
+        ? getAccountRecoveryAction(emailAccountId)
+        : config;
+    const resolvedActionUrl = actionUrl ?? defaultAction.actionUrl;
+    const resolvedActionLabel = actionLabel ?? defaultAction.actionLabel;
 
     // Nothing changed since the last write - skip it.
     if (
@@ -380,20 +385,28 @@ async function addLegacyAccountRecoveryAction(
       userId,
       account: { disconnectedAt: { not: null } },
     },
-    select: { id: true },
-    take: 2,
+    select: { id: true, email: true },
   });
 
+  const matchingAccounts = disconnectedAccounts.filter(({ email }) =>
+    accountError.message.includes(email),
+  );
   const action =
-    disconnectedAccounts.length === 1
-      ? getAccountRecoveryAction(disconnectedAccounts[0].id)
+    matchingAccounts.length === 1
+      ? getAccountRecoveryAction(matchingAccounts[0].id)
       : { actionUrl: "/accounts", actionLabel: "Manage accounts" };
-
-  return {
+  const updatedErrorMessages = {
     ...errorMessages,
     [ErrorType.ACCOUNT_DISCONNECTED]: {
       ...accountError,
       ...action,
     },
   };
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { errorMessages: updatedErrorMessages },
+  });
+
+  return updatedErrorMessages;
 }
