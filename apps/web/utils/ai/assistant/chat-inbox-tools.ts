@@ -2397,14 +2397,18 @@ function validateManageInboxInput(
     allowedFields.add(options.taxonomyField);
   }
 
-  for (const field of fields) {
-    if (requiredFields.has(field) && input[field] === undefined) {
+  for (const field of requiredFields) {
+    if (input[field] === undefined) {
       context.addIssue({
         code: "custom",
         path: [field],
         message: `is required for ${action}`,
       });
-    } else if (!allowedFields.has(field) && input[field] !== undefined) {
+    }
+  }
+
+  for (const field of fields) {
+    if (!allowedFields.has(field) && input[field] !== undefined) {
       context.addIssue({
         code: "custom",
         path: [field],
