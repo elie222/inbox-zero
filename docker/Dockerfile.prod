@@ -100,6 +100,20 @@ RUN cd /app/apps/web \
  && pnpm --filter @inboxzero/worker deploy --legacy --prod /tmp/apps/worker \
  && rm -rf apps/web/.next/cache
 
+# Tracing resolves meriyah through the `require` condition and ships only
+# dist/meriyah.cjs, but @sentry/nextjs imports it as ESM at runtime. Kept narrow
+# on purpose; tracing omits files by design. outputFileTracingIncludes does not
+# work here, Turbopack builds skip collect-build-traces.
+RUN set -eux; \
+    src=/app/node_modules/meriyah/dist; \
+    test -f "$src/meriyah.mjs"; \
+    found=0; \
+    for d in $(find /app/apps/web/.next/standalone -type d -path '*/node_modules/meriyah/dist'); do \
+        cp "$src/meriyah.mjs" "$src/meriyah.min.mjs" "$d/"; \
+        found=$((found + 1)); \
+    done; \
+    test "$found" -gt 0
+
 RUN rm -f /app/apps/web/.env /app/apps/web/.next/standalone/apps/web/.env
 
 FROM node:24-alpine AS runner
@@ -125,6 +139,10 @@ RUN test -f apps/web/server.js \
 # Copy runtime scripts
 COPY docker/scripts /app/docker/scripts
 RUN chmod +x /app/docker/scripts/*.sh
+
+# The check above only proves `next` resolves. Boot the server too, so a broken
+# traced output fails here instead of 500ing every request at runtime.
+RUN /app/docker/scripts/smoke-standalone.sh
 
 # Install Prisma CLI globally for migrations
 RUN npm install -g prisma@7.3.0
