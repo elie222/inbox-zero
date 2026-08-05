@@ -238,4 +238,42 @@ describe("aiGetCalendarAvailability", () => {
       ],
     });
   });
+
+  it("does not report no availability when every suggestion is inside the notice window", async () => {
+    mockGenerateText.mockImplementation(async ({ tools }) => {
+      await tools.returnSuggestedTimes.execute({
+        suggestedTimes: [
+          {
+            start: "2026-05-04 10:30",
+            end: "2026-05-04 11:00",
+          },
+        ],
+      });
+    });
+
+    const result = await aiGetCalendarAvailability({
+      emailAccount: {
+        ...getEmailAccount(),
+        timezone: "UTC",
+      },
+      messages: [
+        {
+          id: "msg-1",
+          from: "sender@example.com",
+          to: "user@example.com",
+          subject: "Meeting",
+          content: "Can we meet today?",
+          date: new Date("2026-05-04T09:00:00.000Z"),
+        },
+      ],
+      logger: createTestLogger(),
+      currentDate: new Date("2026-05-04T09:00:00.000Z"),
+      minimumNoticeMinutes: 120,
+    });
+
+    expect(result).toEqual({
+      timezone: "UTC",
+      suggestedTimes: [],
+    });
+  });
 });

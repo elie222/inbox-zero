@@ -1078,7 +1078,7 @@ Morgan`,
             ].join("\n"),
             output: result.reply,
             expected:
-              "A useful reply that keeps both reported discrepancies in scope. It may answer them collectively when it is clear the answer or next step applies to both, but it must not ignore one, use general policy as a substitute for checking them, or claim that either was verified or corrected without supporting context.",
+              "A useful reply that keeps both reported discrepancies in scope. It may answer them collectively when it is clear the answer or next step applies to both, but it must not ignore one, use general policy as a substitute for checking them, or claim that either was verified or corrected without supporting context. It must not be high confidence because their current status is unknown.",
             criterion: {
               name: "Complete and grounded multi-part response",
               description:
@@ -1093,7 +1093,7 @@ Morgan`,
             model: model.label,
             pass,
             expected:
-              "both discrepancies addressed without unsupported verification or correction claims",
+              "both discrepancies addressed without unsupported verification or correction claims; not high confidence",
             actual: `confidence=${result.confidence} | ${formatSemanticJudgeActual(
               result.reply,
               judgeResult,
@@ -1161,7 +1161,7 @@ Riley`,
             input: formatThreadForJudge(messages),
             output: result.reply,
             expected:
-              "A concise reply that treats both the duplicate invoice and disabled export access as unresolved because the sender directly contradicted the earlier resolution. It may promise to investigate or confirm later, but must not say either issue is already fixed without newer supporting context.",
+              "A concise reply that treats both the duplicate invoice and disabled export access as unresolved because the sender directly contradicted the earlier resolution. It may promise to investigate or confirm later, but must not say either issue is already fixed without newer supporting context. It must not be high confidence because no newer resolution is available.",
             criterion: {
               name: "Sender contradiction overrides stale resolution",
               description:
@@ -1176,7 +1176,7 @@ Riley`,
             model: model.label,
             pass,
             expected:
-              "both issues treated as unresolved; no unsupported fixed status",
+              "both issues treated as unresolved; no unsupported fixed status; not high confidence",
             actual: `confidence=${result.confidence} | ${formatSemanticJudgeActual(
               result.reply,
               judgeResult,

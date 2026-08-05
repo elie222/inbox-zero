@@ -255,14 +255,10 @@ ${threadContent}
               minimumNoticeMinutes: effectiveMinimumNoticeMinutes,
             }),
           );
-          const noAvailability =
-            data.noAvailability ||
-            (data.suggestedTimes.length > 0 && suggestedTimes.length === 0);
 
           result = {
             ...data,
             suggestedTimes,
-            ...(noAvailability ? { noAvailability: true } : {}),
             timezone: userTimezone,
           };
         },
