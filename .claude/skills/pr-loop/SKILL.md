@@ -7,7 +7,7 @@ disable-model-invocation: true
 
 # PR Loop
 
-Review code, create PR, then automatically address review comments.
+Review code, create a PR, then monitor its reviews and checks until the latest commit is clean.
 
 Parse `$ARGUMENTS` for options:
 - `--wait N` → seconds between checks (default: 300)
@@ -100,9 +100,7 @@ Display the PR URL as `[PR #<number>](<url>)` and the branch name.
 
 ## Step 5: Post-PR loop
 
-Use `.claude/skills/review-bot-loop/SKILL.md` as the single source of truth for five-minute waits, timeout enforcement, exact-commit snapshots, bot detection, review-comment handling, fix commits, and its completion gate. Apply `.claude/skills/address-pr-comments/SKILL.md` when triaging and replying to each comment. Share this skill's `--wait`, `--max`, and `--timeout` values with that loop.
-
-The overall `--timeout` applies even while the review-bot loop is passively waiting. When it expires, stop and report the exact unfinished reviewers, checks, statuses, or comments. Never loop indefinitely.
+Follow `.claude/skills/review-bot-loop/SKILL.md` for waits, timeout enforcement, exact-commit snapshots, bot detection, comment handling, fix commits, and completion. Pass it this skill's `--wait`, `--max`, and `--timeout` values so the timeout also bounds passive waits. Apply `.claude/skills/address-pr-comments/SKILL.md` when triaging and replying to comments.
 
 ### Inspect all current-commit checks
 

@@ -81,8 +81,9 @@ In the final response, include a concise performance impact note for the PR, cov
 
 ## Step 4: Complete the post-PR loop
 
-Opening the PR is not completion. Unless the user explicitly asks to skip monitoring, immediately follow Step 5 of `.claude/skills/pr-loop/SKILL.md`.
+Opening the PR is not completion.
 
-When this skill is called from Step 4 of `pr-loop`, return control after displaying the PR URL and branch. The parent `pr-loop` invocation owns Step 5; do not start a nested post-PR loop.
+- When called from Step 4 of `pr-loop`, return control after displaying the PR URL and branch. The parent invocation owns the post-PR loop.
+- Otherwise, unless the user explicitly skips monitoring, immediately follow Step 5 of `.claude/skills/pr-loop/SKILL.md`.
 
-Do not return the final response until that loop reaches its completion condition or encounters a blocker that requires user input.
+Do not return the final response until the active loop completes or requires user input.
