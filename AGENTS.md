@@ -55,12 +55,6 @@
 - Prefer the simplest, most readable change; only keep backwards compatibility when explicitly requested.
 - Do not optimize for migration paths: refactor call sites directly, including larger coordinated changes when clarity improves.
 
-## Pull Request Completion
-- Creating a pull request is not the end of the task. Unless the user explicitly opts out, follow `.claude/skills/create-pr/SKILL.md` through its completion gate.
-- Wait five minutes before the first observation and after every push or review reply. Inspect reviews and checks for the exact latest PR commit, not stale PR-wide results.
-- Automatically address valid review feedback and PR-caused check failures, validate the fixes, commit, push, reply to the specific comments, and continue until the latest commit is clean.
-- Do not resolve review threads or merge the PR without explicit user approval.
-
 ## LLM Features
 - Stay AI-first: fix general failure modes, not exact eval wording, and avoid brittle keyword or regex rules unless the product needs a hard guard.
 - Do not add keyword/phrase blacklists to prompts, evals, or tests just to catch a model's current bad wording. This product works across languages, so English-specific text checks are especially brittle. For LLM behavior, assert the semantic failure mode with a judge/eval criterion or structured contract instead. Example: test "does not ask unnecessary clarification or invent payment status," not "does not contain 'could you clarify' or 'specific payment'."
