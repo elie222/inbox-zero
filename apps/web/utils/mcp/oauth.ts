@@ -667,9 +667,17 @@ async function deactivateConnection({
 
 async function clearRegisteredClient(integration: string) {
   try {
+    // Also clear the cached discovery metadata: the cached variant omits the
+    // registration endpoint, which fresh dynamic registration needs
     await prisma.mcpIntegration.update({
       where: { name: integration },
-      data: { oauthClientId: null, oauthClientSecret: null },
+      data: {
+        oauthClientId: null,
+        oauthClientSecret: null,
+        registeredAuthorizationUrl: null,
+        registeredTokenUrl: null,
+        registeredServerUrl: null,
+      },
     });
   } catch (error) {
     logger.error("Failed to clear registered OAuth client", {
