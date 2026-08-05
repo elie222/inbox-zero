@@ -363,9 +363,10 @@ async function evaluateScenario(
 
       return {
         pass:
-          result.toolCalls.some(
-            (toolCall) => toolCall.toolName === "getAssistantCapabilities",
-          ) &&
+          (expectation.requireCapabilityLookup === false ||
+            result.toolCalls.some(
+              (toolCall) => toolCall.toolName === "getAssistantCapabilities",
+            )) &&
           hasNoToolCalls(result.toolCalls, [
             "updateAssistantSettings",
             ...(expectation.forbiddenTools ?? []),

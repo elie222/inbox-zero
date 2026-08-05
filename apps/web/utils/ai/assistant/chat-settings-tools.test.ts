@@ -146,19 +146,11 @@ describe("chat settings tools", () => {
       },
     });
 
-    const ruleRuntimeCapability = result.capabilities.find(
-      (capability) => capability.path === "assistant.ruleExecutionRuntime",
+    expect(result.capabilities).not.toContainEqual(
+      expect.objectContaining({
+        path: "assistant.ruleExecutionRuntime",
+      }),
     );
-
-    expect(ruleRuntimeCapability).toEqual({
-      path: "assistant.ruleExecutionRuntime",
-      title: "Background rule execution runtime",
-      canRead: false,
-      canWrite: false,
-      value: null,
-      reason:
-        "Chat cannot inspect or repair background rule-executor health and cannot guarantee that every future message will be processed.",
-    });
 
     const multiRuleCapability = result.capabilities.find(
       (capability) =>
