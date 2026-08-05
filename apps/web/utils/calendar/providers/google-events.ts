@@ -10,6 +10,7 @@ import type {
   CalendarEventWriteInput,
   CalendarEventWriteResult,
 } from "@/utils/calendar/event-types";
+import { findVideoConferenceLink } from "@/utils/calendar/video-conference-link";
 import type { Logger } from "@/utils/logger";
 
 export interface GoogleCalendarConnectionParams {
@@ -196,6 +197,10 @@ export class GoogleCalendarEventProvider implements CalendarEventProvider {
       );
       videoConferenceLink = videoEntry?.uri ?? videoConferenceLink;
     }
+    videoConferenceLink ??= findVideoConferenceLink(
+      event.location,
+      event.description,
+    );
 
     return {
       id: event.id || "",

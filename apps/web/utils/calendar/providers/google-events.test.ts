@@ -62,6 +62,43 @@ describe("GoogleCalendarEventProvider", () => {
       }),
     );
   });
+
+  it("finds the video link for an accepted invitation", async () => {
+    calendarMocks.list.mockResolvedValue({
+      data: {
+        items: [
+          {
+            id: "invited-event-id",
+            summary: "Customer call",
+            description:
+              "Join Zoom Meeting\nhttps://acme.zoom.us/j/8123456789?pwd=secret",
+            organizer: { email: "host@example.com", self: false },
+            start: { dateTime: "2026-05-04T09:00:00.000Z" },
+            end: { dateTime: "2026-05-04T09:30:00.000Z" },
+            attendees: [
+              {
+                email: "user@example.com",
+                self: true,
+                responseStatus: "accepted",
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    const events = await createProvider().fetchEvents({
+      timeMin: new Date("2026-05-04T00:00:00.000Z"),
+      timeMax: new Date("2026-05-05T00:00:00.000Z"),
+    });
+
+    expect(events[0]).toEqual(
+      expect.objectContaining({
+        isOrganizer: false,
+        videoConferenceLink: "https://acme.zoom.us/j/8123456789?pwd=secret",
+      }),
+    );
+  });
 });
 
 function createProvider() {
