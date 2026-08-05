@@ -156,20 +156,26 @@ export const updateLearnedPatternsTool = ({
           }
         }
 
-        if (patternsToSave.length > 0) {
-          const result = await saveLearnedPatterns({
-            emailAccountId,
-            ruleName: rule.name,
-            patterns: patternsToSave,
-            logger,
-          });
+        if (patternsToSave.length === 0) {
+          return {
+            success: false,
+            error:
+              "No learned patterns were provided. Include at least one sender or subject pattern.",
+          };
+        }
 
-          if (result?.error) {
-            return {
-              success: false,
-              error: result.error,
-            };
-          }
+        const result = await saveLearnedPatterns({
+          emailAccountId,
+          ruleName: rule.name,
+          patterns: patternsToSave,
+          logger,
+        });
+
+        if (result?.error) {
+          return {
+            success: false,
+            error: result.error,
+          };
         }
 
         return {
