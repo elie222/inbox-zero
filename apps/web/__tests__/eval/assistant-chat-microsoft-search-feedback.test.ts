@@ -2,7 +2,11 @@ import type { ModelMessage } from "ai";
 import { afterAll, beforeEach, describe, expect, test, vi } from "vitest";
 import {
   captureAssistantChatTrace,
+  getAssistantTraceText,
   getFirstMatchingToolCall,
+  hasAssistantWriteToolCalls,
+  summarizeRecordedToolCall,
+  summarizeRecordedToolCalls,
   type RecordedToolCall,
 } from "@/__tests__/eval/assistant-chat-eval-utils";
 import {
@@ -244,7 +248,7 @@ describe.runIf(shouldRunEval)(
 
             const pass =
               (passViaRetry || passViaDirectSuccess) &&
-              !hasWriteToolCalls(trace.toolCalls);
+              !hasAssistantWriteToolCalls(trace.toolCalls);
 
             evalReporter.record({
               testName:
@@ -255,7 +259,10 @@ describe.runIf(shouldRunEval)(
                 passViaRetry && retryQuery
                   ? formatSemanticJudgeActual(
                       [
-                        summarizeToolCalls(trace.toolCalls),
+                        summarizeRecordedToolCalls(
+                          trace.toolCalls,
+                          summarizeRecordedToolCall,
+                        ),
                         firstFailedQuery
                           ? `firstQuery=${JSON.stringify(firstFailedQuery)}`
                           : null,
@@ -283,7 +290,10 @@ describe.runIf(shouldRunEval)(
                   : passViaDirectSuccess && directSuccessQuery
                     ? formatSemanticJudgeActual(
                         [
-                          summarizeToolCalls(trace.toolCalls),
+                          summarizeRecordedToolCalls(
+                            trace.toolCalls,
+                            summarizeRecordedToolCall,
+                          ),
                           `directQuery=${JSON.stringify(directSuccessQuery)}`,
                         ].join(" | "),
                         directSuccessJudgeResult ?? {
@@ -325,7 +335,7 @@ describe.runIf(shouldRunEval)(
             });
 
             const searchResults = getSearchInboxResults(trace);
-            const assistantText = getAssistantText(trace);
+            const assistantText = getAssistantTraceText(trace);
             const failedSearch = searchResults.find(
               (result) =>
                 result.output.error &&
@@ -378,7 +388,7 @@ describe.runIf(shouldRunEval)(
                   !result.output.messages?.length,
               ) &&
               !hasLookupDependentToolCalls(trace.toolCalls) &&
-              !hasWriteToolCalls(trace.toolCalls) &&
+              !hasAssistantWriteToolCalls(trace.toolCalls) &&
               !!assistantJudge?.pass;
 
             evalReporter.record({
@@ -387,7 +397,10 @@ describe.runIf(shouldRunEval)(
               model: model.label,
               pass,
               actual: [
-                summarizeToolCalls(trace.toolCalls),
+                summarizeRecordedToolCalls(
+                  trace.toolCalls,
+                  summarizeRecordedToolCall,
+                ),
                 failedSearch?.output.microsoftSearchFeedback
                   ? `feedback=${JSON.stringify({
                       failureType:
@@ -490,7 +503,7 @@ describe.runIf(shouldRunEval)(
               "getRuleExecutionForMessage",
               isGetRuleExecutionInput,
             );
-            const assistantText = getAssistantText(trace);
+            const assistantText = getAssistantTraceText(trace);
             const explanationJudge = assistantText
               ? await judgeEvalOutput({
                   input: [
@@ -513,7 +526,7 @@ describe.runIf(shouldRunEval)(
               !!firstSuccessfulSearch &&
               !!executionCall &&
               executionCall.input.messageId === explanationMessage.id &&
-              !hasWriteToolCalls(trace.toolCalls) &&
+              !hasAssistantWriteToolCalls(trace.toolCalls) &&
               !!explanationJudge?.pass &&
               prisma.executedRule.findMany.mock.calls.some(
                 ([args]) =>
@@ -527,7 +540,10 @@ describe.runIf(shouldRunEval)(
               model: model.label,
               pass,
               actual: [
-                summarizeToolCalls(trace.toolCalls),
+                summarizeRecordedToolCalls(
+                  trace.toolCalls,
+                  summarizeRecordedToolCall,
+                ),
                 assistantText && explanationJudge
                   ? formatSemanticJudgeActual(assistantText, explanationJudge)
                   : assistantText
@@ -635,7 +651,7 @@ describe.runIf(shouldRunEval)(
               "getRuleExecutionForMessage",
               isGetRuleExecutionInput,
             );
-            const assistantText = getAssistantText(trace);
+            const assistantText = getAssistantTraceText(trace);
             const explanationJudge = assistantText
               ? await judgeEvalOutput({
                   input: [
@@ -660,7 +676,7 @@ describe.runIf(shouldRunEval)(
               !!executionCall &&
               searchCall.index < executionCall.index &&
               executionCall.input.messageId === explanationMessage.id &&
-              !hasWriteToolCalls(trace.toolCalls) &&
+              !hasAssistantWriteToolCalls(trace.toolCalls) &&
               !!explanationJudge?.pass &&
               prisma.executedRule.findMany.mock.calls.some(
                 ([args]) =>
@@ -674,7 +690,10 @@ describe.runIf(shouldRunEval)(
               model: model.label,
               pass,
               actual: [
-                summarizeToolCalls(trace.toolCalls),
+                summarizeRecordedToolCalls(
+                  trace.toolCalls,
+                  summarizeRecordedToolCall,
+                ),
                 assistantText && explanationJudge
                   ? formatSemanticJudgeActual(assistantText, explanationJudge)
                   : assistantText
@@ -782,7 +801,7 @@ describe.runIf(shouldRunEval)(
               "getRuleExecutionForMessage",
               isGetRuleExecutionInput,
             );
-            const assistantText = getAssistantText(trace);
+            const assistantText = getAssistantTraceText(trace);
             const mismatchJudge = assistantText
               ? await judgeEvalOutput({
                   input: [
@@ -807,7 +826,7 @@ describe.runIf(shouldRunEval)(
               !!executionCall &&
               searchCall.index < executionCall.index &&
               executionCall.input.messageId === explanationMessage.id &&
-              !hasWriteToolCalls(trace.toolCalls) &&
+              !hasAssistantWriteToolCalls(trace.toolCalls) &&
               !!mismatchJudge?.pass &&
               prisma.executedRule.findMany.mock.calls.some(
                 ([args]) =>
@@ -821,7 +840,10 @@ describe.runIf(shouldRunEval)(
               model: model.label,
               pass,
               actual: [
-                summarizeToolCalls(trace.toolCalls),
+                summarizeRecordedToolCalls(
+                  trace.toolCalls,
+                  summarizeRecordedToolCall,
+                ),
                 assistantText && mismatchJudge
                   ? formatSemanticJudgeActual(assistantText, mismatchJudge)
                   : assistantText
@@ -915,7 +937,7 @@ describe.runIf(shouldRunEval)(
               "getRuleExecutionForMessage",
               isGetRuleExecutionInput,
             );
-            const assistantText = getAssistantText(trace);
+            const assistantText = getAssistantTraceText(trace);
             const mismatchJudge = assistantText
               ? await judgeEvalOutput({
                   input: [
@@ -940,7 +962,7 @@ describe.runIf(shouldRunEval)(
               !!executionCall &&
               searchCall.index < executionCall.index &&
               executionCall.input.messageId === explanationMessage.id &&
-              !hasWriteToolCalls(trace.toolCalls) &&
+              !hasAssistantWriteToolCalls(trace.toolCalls) &&
               !!mismatchJudge?.pass &&
               prisma.executedRule.findMany.mock.calls.some(
                 ([args]) =>
@@ -954,7 +976,10 @@ describe.runIf(shouldRunEval)(
               model: model.label,
               pass,
               actual: [
-                summarizeToolCalls(trace.toolCalls),
+                summarizeRecordedToolCalls(
+                  trace.toolCalls,
+                  summarizeRecordedToolCall,
+                ),
                 assistantText && mismatchJudge
                   ? formatSemanticJudgeActual(assistantText, mismatchJudge)
                   : assistantText
@@ -1126,25 +1151,6 @@ function isRetryCandidateNeedingSimplification(query: string) {
   );
 }
 
-function hasWriteToolCalls(toolCalls: RecordedToolCall[]) {
-  const writeToolNames = new Set([
-    "manageInbox",
-    "createRule",
-    "updateRuleConditions",
-    "updateRuleActions",
-    "updateLearnedPatterns",
-    "updatePersonalInstructions",
-    "updateAssistantSettings",
-    "sendEmail",
-    "replyEmail",
-    "forwardEmail",
-    "saveMemory",
-    "addToKnowledgeBase",
-  ]);
-
-  return toolCalls.some((toolCall) => writeToolNames.has(toolCall.toolName));
-}
-
 function hasLookupDependentToolCalls(toolCalls: RecordedToolCall[]) {
   const lookupDependentToolNames = new Set([
     "readEmail",
@@ -1158,26 +1164,8 @@ function hasLookupDependentToolCalls(toolCalls: RecordedToolCall[]) {
   );
 }
 
-function summarizeToolCalls(toolCalls: RecordedToolCall[]) {
-  return toolCalls.length > 0
-    ? toolCalls
-        .map(
-          (toolCall) =>
-            `${toolCall.toolName}:${JSON.stringify(toolCall.input)}`,
-        )
-        .join(" | ")
-    : "no tool calls";
-}
-
 function normalizeQuery(query: string) {
   return query.trim().replace(/\s+/g, " ").toLowerCase();
-}
-
-function getAssistantText(trace: Awaited<ReturnType<typeof runAssistantChat>>) {
-  const stepText = trace.stepTexts.join("\n\n").trim();
-  if (stepText) return stepText;
-
-  return trace.finalText.trim();
 }
 
 function buildRetryJudgeInput({

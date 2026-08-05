@@ -6,6 +6,28 @@ import { writeEvalDebugArtifact } from "@/__tests__/eval/debug-artifacts";
 import { aiProcessAssistantChat } from "@/utils/ai/assistant/chat";
 import type { Logger } from "@/utils/logger";
 
+const assistantWriteToolNames = new Set([
+  "startSenderCategorization",
+  "manageSenderCategory",
+  "manageInbox",
+  "createRule",
+  "updateRule",
+  "deleteRule",
+  "updateRuleConditions",
+  "updateRuleActions",
+  "updateLearnedPatterns",
+  "updatePersonalInstructions",
+  "sendEmail",
+  "replyEmail",
+  "forwardEmail",
+  "createOrGetLabel",
+  "createOrGetFolder",
+  "moveThreadsToFolder",
+  "updateAssistantSettings",
+  "saveMemory",
+  "addToKnowledgeBase",
+]);
+
 export type RecordedToolCall = {
   toolCallId?: string;
   toolName: string;
@@ -166,6 +188,26 @@ export async function captureAssistantChatToolCalls(
 ) {
   const trace = await captureAssistantChatTrace(args);
   return trace.toolCalls;
+}
+
+export function getAssistantTraceText(
+  trace: Pick<AssistantChatTrace, "stepTexts" | "finalText">,
+) {
+  return trace.stepTexts.join("\n\n").trim() || trace.finalText.trim();
+}
+
+export function hasAssistantWriteToolCalls(toolCalls: RecordedToolCall[]) {
+  return toolCalls.some((toolCall) =>
+    isAssistantWriteToolName(toolCall.toolName),
+  );
+}
+
+export function isAssistantWriteToolName(toolName: string) {
+  return assistantWriteToolNames.has(toolName);
+}
+
+export function summarizeRecordedToolCall(toolCall: RecordedToolCall) {
+  return `${toolCall.toolName}:${JSON.stringify(toolCall.input)}`;
 }
 
 export function summarizeRecordedToolCalls(

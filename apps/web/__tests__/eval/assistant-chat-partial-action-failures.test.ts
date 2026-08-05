@@ -137,9 +137,7 @@ type PartialArchiveInput = {
 };
 
 type ArchiveOutput = {
-  requestedCount: number;
-  successCount: number;
-  failedCount: number;
+  failedThreadIds: string[];
 };
 
 function isPartialArchiveInput(input: unknown): input is PartialArchiveInput {
@@ -154,32 +152,40 @@ function isPartialArchiveInput(input: unknown): input is PartialArchiveInput {
 }
 
 function getArchiveOutcome(toolCalls: RecordedToolCall[]) {
-  const outputs = toolCalls.flatMap((toolCall) => {
-    if (toolCall.toolName !== "manageInbox") return [];
-    if (!isPartialArchiveInput(toolCall.input)) return [];
+  const threadOutcomes = new Map<string, boolean>();
+  let callCount = 0;
+
+  for (const toolCall of toolCalls) {
+    if (toolCall.toolName !== "manageInbox") continue;
+    if (!isPartialArchiveInput(toolCall.input)) continue;
 
     const output = getArchiveOutput(toolCall.output);
-    return output ? [output] : [];
-  });
+    if (!output) continue;
 
-  return outputs.reduce(
-    (outcome, output) => ({
-      callCount: outcome.callCount + 1,
-      requestedCount: outcome.requestedCount + output.requestedCount,
-      successCount: outcome.successCount + output.successCount,
-      failedCount: outcome.failedCount + output.failedCount,
-    }),
-    { callCount: 0, requestedCount: 0, successCount: 0, failedCount: 0 },
-  );
+    callCount += 1;
+    const failedThreadIds = new Set(output.failedThreadIds);
+
+    for (const threadId of new Set(toolCall.input.threadIds)) {
+      threadOutcomes.set(threadId, !failedThreadIds.has(threadId));
+    }
+  }
+
+  const outcomes = [...threadOutcomes.values()];
+
+  return {
+    callCount,
+    requestedCount: threadOutcomes.size,
+    successCount: outcomes.filter(Boolean).length,
+    failedCount: outcomes.filter((success) => !success).length,
+  };
 }
 
 function getArchiveOutput(output: unknown): ArchiveOutput | null {
   if (!output || typeof output !== "object") return null;
 
   const value = output as ArchiveOutput;
-  return typeof value.requestedCount === "number" &&
-    typeof value.successCount === "number" &&
-    typeof value.failedCount === "number"
+  return Array.isArray(value.failedThreadIds) &&
+    value.failedThreadIds.every((threadId) => typeof threadId === "string")
     ? value
     : null;
 }

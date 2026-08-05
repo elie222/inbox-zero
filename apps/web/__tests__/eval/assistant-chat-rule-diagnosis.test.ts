@@ -3,8 +3,10 @@ import { afterAll, beforeEach, describe, expect, test, vi } from "vitest";
 import {
   captureAssistantChatTrace,
   getFirstMatchingToolCall,
+  getAssistantTraceText,
+  hasAssistantWriteToolCalls,
+  summarizeRecordedToolCall,
   summarizeRecordedToolCalls,
-  type RecordedToolCall,
 } from "@/__tests__/eval/assistant-chat-eval-utils";
 import {
   describeEvalMatrix,
@@ -208,7 +210,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat rule diagnosis", () => {
           "getRuleExecutionForMessage",
           isGetRuleExecutionInput,
         );
-        const assistantText = getAssistantText(trace);
+        const assistantText = getAssistantTraceText(trace);
         const diagnosisJudge = assistantText
           ? await judgeEvalOutput({
               input: [
@@ -231,7 +233,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat rule diagnosis", () => {
         const pass =
           !!executionCall &&
           executionCall.input.messageId === diagnosisMessage.id &&
-          !hasWriteToolCalls(trace.toolCalls) &&
+          !hasAssistantWriteToolCalls(trace.toolCalls) &&
           !!diagnosisJudge?.pass &&
           queriedExecutionForMessage(emailAccount.id);
 
@@ -269,7 +271,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat rule diagnosis", () => {
           "getRuleExecutionForMessage",
           isGetRuleExecutionInput,
         );
-        const assistantText = getAssistantText(trace);
+        const assistantText = getAssistantTraceText(trace);
         const diagnosisJudge = assistantText
           ? await judgeEvalOutput({
               input: [
@@ -292,7 +294,7 @@ describe.runIf(shouldRunEval)("Eval: assistant chat rule diagnosis", () => {
         const pass =
           !!executionCall &&
           executionCall.input.messageId === diagnosisMessage.id &&
-          !hasWriteToolCalls(trace.toolCalls) &&
+          !hasAssistantWriteToolCalls(trace.toolCalls) &&
           !!diagnosisJudge?.pass &&
           queriedExecutionForMessage(emailAccount.id);
 
@@ -347,40 +349,13 @@ function queriedExecutionForMessage(emailAccountId: string) {
   );
 }
 
-function getAssistantText(trace: Awaited<ReturnType<typeof runAssistantChat>>) {
-  return trace.stepTexts.join("\n\n").trim() || trace.finalText.trim();
-}
-
-function hasWriteToolCalls(toolCalls: RecordedToolCall[]) {
-  const writeToolNames = new Set([
-    "manageInbox",
-    "createRule",
-    "updateRule",
-    "updateRuleConditions",
-    "updateRuleActions",
-    "updateLearnedPatterns",
-    "updatePersonalInstructions",
-    "updateAssistantSettings",
-    "sendEmail",
-    "replyEmail",
-    "forwardEmail",
-    "saveMemory",
-    "addToKnowledgeBase",
-  ]);
-
-  return toolCalls.some((toolCall) => writeToolNames.has(toolCall.toolName));
-}
-
 function formatActual(
   trace: Awaited<ReturnType<typeof runAssistantChat>>,
   assistantText: string,
   judgeResult: Awaited<ReturnType<typeof judgeEvalOutput>> | null,
 ) {
   return [
-    summarizeRecordedToolCalls(
-      trace.toolCalls,
-      (toolCall) => `${toolCall.toolName}:${JSON.stringify(toolCall.input)}`,
-    ),
+    summarizeRecordedToolCalls(trace.toolCalls, summarizeRecordedToolCall),
     assistantText && judgeResult
       ? formatSemanticJudgeActual(assistantText, judgeResult)
       : assistantText

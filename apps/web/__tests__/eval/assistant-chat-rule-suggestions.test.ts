@@ -6,6 +6,7 @@ import {
 } from "@/__tests__/eval/assistant-chat-episode-utils";
 import {
   captureAssistantChatTrace,
+  hasAssistantWriteToolCalls,
   summarizeRecordedToolCalls,
   type AssistantChatTrace,
   type RecordedToolCall,
@@ -640,23 +641,11 @@ function analyzeAssistantOutput({
   const usedRulesTool = hasTool(toolCalls, "getUserRulesAndSettings");
   const usedSearchTool = hasTool(toolCalls, "searchInbox");
   const usedCreateRule = hasTool(toolCalls, "createRule");
-  const writeToolNames = new Set([
-    "createRule",
-    "updateRuleConditions",
-    "updateRuleActions",
-    "updateLearnedPatterns",
-    "updatePersonalInstructions",
-    "updateAssistantSettings",
-    "manageInbox",
-  ]);
-
   return {
     usedRulesTool,
     usedSearchTool,
     usedCreateRule,
-    noRuleWrite: !toolCalls.some((toolCall) =>
-      writeToolNames.has(toolCall.toolName),
-    ),
+    noRuleWrite: !hasAssistantWriteToolCalls(toolCalls),
     asksQuestion: finalText.includes("?"),
     mentionsEvidence: [
       "sample",
