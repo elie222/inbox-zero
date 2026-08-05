@@ -94,7 +94,7 @@ describe("executor", () => {
       mockExecutedRuleUpdate(ExecutedRuleStatus.APPLIED);
       vi.mocked(runActionFunction).mockResolvedValue({
         skipped: true,
-        reason: "RECIPIENT_IS_SENDER",
+        reason: "NO_NEW_FORWARD_RECIPIENTS",
       });
 
       const result = await executeScheduledAction(

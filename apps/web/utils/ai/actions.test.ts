@@ -623,28 +623,42 @@ describe("runActionFunction", () => {
       ruleId: "rule-1",
     } as any;
 
-    it.each([
-      {
-        name: "to",
-        recipients: { to: "Sender <SENDER@example.com>" },
-      },
-      {
-        name: "cc",
-        recipients: {
-          to: "archive@example.com",
-          cc: "sender@example.com",
+    it("removes message participants while forwarding to remaining recipients", async () => {
+      const client = createMockEmailProvider();
+
+      await runActionFunction({
+        client,
+        email: {
+          ...email,
+          headers: {
+            ...email.headers,
+            cc: "Existing <existing@example.com>",
+            bcc: "hidden@example.com",
+          },
         },
-      },
-      {
-        name: "bcc",
-        recipients: {
-          to: "archive@example.com",
-          bcc: "Sender <sender@example.com>",
+        action: {
+          id: "action-1",
+          type: ActionType.FORWARD,
+          to: "Sender <SENDER@example.com>, user@example.com, Archive <archive@example.com>",
+          cc: "existing@example.com, Reviewer <reviewer@example.com>",
+          bcc: "hidden@example.com, auditor@example.com",
         },
-      },
-    ])("does not forward back to the sender through $name", async ({
-      recipients,
-    }) => {
+        emailAccount,
+        executedRule,
+        logger,
+      });
+
+      expect(client.forwardEmail).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          to: "Archive <archive@example.com>",
+          cc: "Reviewer <reviewer@example.com>",
+          bcc: "auditor@example.com",
+        }),
+      );
+    });
+
+    it("skips forwarding when every configured recipient is already on the message", async () => {
       const client = createMockEmailProvider();
 
       const result = await runActionFunction({
@@ -653,7 +667,7 @@ describe("runActionFunction", () => {
         action: {
           id: "action-1",
           type: ActionType.FORWARD,
-          ...recipients,
+          to: "Sender <SENDER@example.com>, user@example.com",
         },
         emailAccount,
         executedRule,
@@ -662,12 +676,12 @@ describe("runActionFunction", () => {
 
       expect(result).toEqual({
         skipped: true,
-        reason: "RECIPIENT_IS_SENDER",
+        reason: "NO_NEW_FORWARD_RECIPIENTS",
       });
       expect(client.forwardEmail).not.toHaveBeenCalled();
     });
 
-    it("forwards when every recipient differs from the sender", async () => {
+    it("forwards when every recipient is new to the message", async () => {
       const client = createMockEmailProvider();
 
       await runActionFunction({

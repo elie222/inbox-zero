@@ -144,7 +144,7 @@ describe("executeAct", () => {
   it("records actions skipped by the executor without failing the rule", async () => {
     mockRunActionFunction.mockResolvedValueOnce({
       skipped: true,
-      reason: "RECIPIENT_IS_SENDER",
+      reason: "NO_NEW_FORWARD_RECIPIENTS",
     });
 
     const executedRule = {

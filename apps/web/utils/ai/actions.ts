@@ -20,6 +20,7 @@ import {
   extractEmailAddresses,
   isSameEmailAddress,
   isSameOrganization,
+  splitRecipientList,
 } from "@/utils/email";
 import { captureException } from "@/utils/error";
 import { env } from "@/env";
@@ -380,24 +381,37 @@ const forward: ActionFunction<{
 }> = async ({ client, email, args, logger }) => {
   if (!args.to) return;
 
+  const messageParticipants = [
+    email.headers.from,
+    email.headers.to,
+    email.headers.cc,
+    email.headers.bcc,
+  ].flatMap((value) => extractEmailAddresses(value ?? ""));
+
+  const to = removeMessageParticipants(args.to, messageParticipants);
+  const cc = removeMessageParticipants(args.cc, messageParticipants);
+  const bcc = removeMessageParticipants(args.bcc, messageParticipants);
+
+  if (!to) {
+    logger.warn("Skipping forward because no new primary recipients remain");
+    return { skipped: true, reason: "NO_NEW_FORWARD_RECIPIENTS" };
+  }
+
   const recipients = [args.to, args.cc, args.bcc].flatMap((value) =>
     extractEmailAddresses(value ?? ""),
   );
-
-  if (
-    recipients.some((recipient) =>
-      isSameEmailAddress(email.headers.from, recipient),
-    )
-  ) {
-    logger.warn("Skipping forward because the sender is a recipient");
-    return { skipped: true, reason: "RECIPIENT_IS_SENDER" };
+  const remainingRecipients = [to, cc, bcc].flatMap((value) =>
+    extractEmailAddresses(value),
+  );
+  if (remainingRecipients.length < recipients.length) {
+    logger.info("Removed existing message participants from forward");
   }
 
   const forwardArgs = {
     messageId: email.id,
-    to: args.to,
-    cc: args.cc ?? undefined,
-    bcc: args.bcc ?? undefined,
+    to,
+    cc: cc || undefined,
+    bcc: bcc || undefined,
     content: args.content ?? undefined,
   };
 
@@ -749,4 +763,18 @@ function isLegacyMessagingDraft({
   return !executedRule.actionItems?.some((action) =>
     isMessagingDraftActionType(action.type),
   );
+}
+
+function removeMessageParticipants(
+  recipientList: string | null | undefined,
+  messageParticipants: string[],
+) {
+  return splitRecipientList(recipientList ?? "")
+    .filter(
+      (recipient) =>
+        !messageParticipants.some((participant) =>
+          isSameEmailAddress(participant, recipient),
+        ),
+    )
+    .join(", ");
 }
