@@ -319,7 +319,14 @@ async function bookBot({
     data: { externalBotId, status: MeetingRecordingStatus.SCHEDULED },
   });
 
-  if (claimed.count === 0) {
+  if (claimed.count > 0) {
+    logger.info("Scheduled meeting bot", {
+      recordingId: recording.id,
+      externalBotId,
+      botProvider: recording.botProvider,
+      meetingStartTime: recording.meetingStartTime,
+    });
+  } else {
     logger.info("Another pass already booked this meeting", {
       recordingId: recording.id,
     });
