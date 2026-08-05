@@ -86,6 +86,7 @@ describe("aiGetCalendarAvailability", () => {
         },
       ],
       logger: createTestLogger(),
+      currentDate: new Date("2026-04-30T08:48:00.000Z"),
     });
 
     expect(result).toEqual({
@@ -117,6 +118,7 @@ describe("aiGetCalendarAvailability", () => {
       ],
       logger: createTestLogger(),
       bookingLinkAvailable: true,
+      currentDate: new Date("2026-04-30T08:48:00.000Z"),
     });
 
     expect(mockGenerateText).toHaveBeenCalledWith(
@@ -176,6 +178,7 @@ describe("aiGetCalendarAvailability", () => {
         },
       ],
       logger: createTestLogger(),
+      currentDate: new Date("2026-04-30T08:48:00.000Z"),
     });
 
     expect(result).toEqual({
@@ -184,6 +187,53 @@ describe("aiGetCalendarAvailability", () => {
         {
           start: "2026-05-04 10:30",
           end: "2026-05-04 11:00",
+        },
+      ],
+    });
+  });
+
+  it("filters suggested times inside the minimum-notice window", async () => {
+    mockGenerateText.mockImplementation(async ({ tools }) => {
+      await tools.returnSuggestedTimes.execute({
+        suggestedTimes: [
+          {
+            start: "2026-05-04 10:30",
+            end: "2026-05-04 11:00",
+          },
+          {
+            start: "2026-05-04 11:00",
+            end: "2026-05-04 11:30",
+          },
+        ],
+      });
+    });
+
+    const result = await aiGetCalendarAvailability({
+      emailAccount: {
+        ...getEmailAccount(),
+        timezone: "UTC",
+      },
+      messages: [
+        {
+          id: "msg-1",
+          from: "sender@example.com",
+          to: "user@example.com",
+          subject: "Meeting",
+          content: "Can we meet today?",
+          date: new Date("2026-05-04T09:00:00.000Z"),
+        },
+      ],
+      logger: createTestLogger(),
+      currentDate: new Date("2026-05-04T09:00:00.000Z"),
+      minimumNoticeMinutes: 120,
+    });
+
+    expect(result).toEqual({
+      timezone: "UTC",
+      suggestedTimes: [
+        {
+          start: "2026-05-04 11:00",
+          end: "2026-05-04 11:30",
         },
       ],
     });

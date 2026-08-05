@@ -288,7 +288,7 @@ async function generateDraftContent(
     where: { emailAccountId: emailAccount.id, isActive: true },
     orderBy: { createdAt: "desc" },
     take: 1,
-    select: { slug: true },
+    select: { slug: true, minimumNoticeMinutes: true },
   });
   const calendarAvailabilityPromise = activeBookingLinksPromise.then(
     (activeBookingLinks) =>
@@ -298,6 +298,8 @@ async function generateDraftContent(
         logger,
         bookingLinkAvailable:
           activeBookingLinks.length > 0 || !!emailAccount.calendarBookingLink,
+        minimumNoticeMinutes:
+          activeBookingLinks[0]?.minimumNoticeMinutes ?? undefined,
       }),
   );
   const [

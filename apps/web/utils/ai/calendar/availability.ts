@@ -10,7 +10,7 @@ import { formatInUserTimezone } from "@/utils/date";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
 import prisma from "@/utils/prisma";
-import { getUserInfoPrompt } from "@/utils/ai/helpers";
+import { getTodayForLLM, getUserInfoPrompt } from "@/utils/ai/helpers";
 
 const timeSlotSchema = z.object({
   start: z.string().describe("Start time in format YYYY-MM-DD HH:MM"),
@@ -39,17 +39,22 @@ type BusyPeriod = { start: string | Date; end: string | Date };
 type AvailabilityWindow = { startTime: string; endTime: string };
 
 const MODEL_TIME_FORMAT = "yyyy-MM-dd HH:mm";
+const DEFAULT_MINIMUM_NOTICE_MINUTES = 120;
 
 export async function aiGetCalendarAvailability({
   emailAccount,
   messages,
   logger,
   bookingLinkAvailable = false,
+  minimumNoticeMinutes = DEFAULT_MINIMUM_NOTICE_MINUTES,
+  currentDate = new Date(),
 }: {
   emailAccount: EmailAccountWithAI;
   messages: EmailForLLM[];
   logger: Logger;
   bookingLinkAvailable?: boolean;
+  minimumNoticeMinutes?: number;
+  currentDate?: Date;
 }): Promise<CalendarAvailabilityContext | null> {
   if (!messages?.length) {
     logger.warn("No messages provided for calendar availability check");
@@ -106,6 +111,7 @@ export async function aiGetCalendarAvailability({
   ]);
 
   const hasDefaultAvailabilitySchedule = defaultAvailabilitySchedule != null;
+  const effectiveMinimumNoticeMinutes = Math.max(0, minimumNoticeMinutes);
   const userTimezone =
     defaultAvailabilitySchedule?.timezone ??
     getUserTimezone(emailAccount, calendarConnections);
@@ -125,6 +131,7 @@ Your task is to:
 5. Return time slots with start AND end times (infer duration from context: "quick call" = 30min, "meeting" = 60min)
 6. If there are NO available times (user is busy all day), set noAvailability=true and return empty suggestedTimes array
 ${hasDefaultAvailabilitySchedule ? "7. When checkCalendarAvailability returns availabilityWindows, suggest ONLY times fully inside those windows." : ""}
+Do not suggest times that begin less than ${effectiveMinimumNoticeMinutes} minutes after the current time.
 
 CRITICAL: Do NOT suggest times overlapping with busy periods.
 Example: If busy 2025-11-17 09:00 to 2025-11-17 17:00, suggest times AFTER 17:00 or BEFORE 09:00.
@@ -138,10 +145,8 @@ Only check calendar availability when manual calendar information is actually ne
 Call "returnSuggestedTimes" only once.`;
 
   const prompt = `${getUserInfoPrompt({ emailAccount })}
-  
-<current_time>
-${new Date().toISOString()}
-</current_time>
+
+${getTodayForLLM(currentDate)}
 
 <thread>
 ${threadContent}
@@ -246,6 +251,8 @@ ${threadContent}
               timezone: userTimezone,
               busyPeriods: lastBusyPeriods,
               availabilityWindows: lastAvailabilityWindows,
+              currentDate,
+              minimumNoticeMinutes: effectiveMinimumNoticeMinutes,
             }),
           );
           const noAvailability =
@@ -271,16 +278,24 @@ function isAllowedSuggestedSlot({
   timezone,
   busyPeriods,
   availabilityWindows,
+  currentDate,
+  minimumNoticeMinutes,
 }: {
   slot: z.infer<typeof timeSlotSchema>;
   timezone: string;
   busyPeriods: BusyPeriod[];
   availabilityWindows: AvailabilityWindow[] | null;
+  currentDate: Date;
+  minimumNoticeMinutes: number;
 }) {
   const start = parseModelLocalTime(slot.start, timezone);
   const end = parseModelLocalTime(slot.end, timezone);
 
   if (!start || !end || end <= start) return false;
+
+  const earliestStart =
+    currentDate.getTime() + minimumNoticeMinutes * 60 * 1000;
+  if (start.getTime() < earliestStart) return false;
 
   if (
     availabilityWindows &&

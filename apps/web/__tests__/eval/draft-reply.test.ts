@@ -1030,6 +1030,172 @@ thanks,`,
 
     describe("grounding and uncertainty", () => {
       test(
+        "addresses each item in a multi-part discrepancy report",
+        async () => {
+          const messages = [
+            {
+              ...getEmail({
+                from: "Morgan Lee <morgan@customer.example>",
+                to: emailAccount.email,
+                subject: "April usage discrepancies",
+                content: `Hi,
+
+Could you check two discrepancies in our April usage report?
+
+- API usage shows 128,000 requests, while our logs show 102,000.
+- Storage shows 4.2 TB, while the billing dashboard shows 3.7 TB.
+
+Have both figures been verified, and will either be corrected?
+
+Thanks,
+Morgan`,
+              }),
+              date: new Date("2026-05-05T10:00:00Z"),
+            },
+          ];
+          const knowledgeBaseContent =
+            "Usage reports are generated from provider data and can differ from customer dashboards because aggregation timing varies.";
+
+          const result = await aiDraftReplyWithConfidence({
+            messages,
+            emailAccount,
+            knowledgeBaseContent,
+            emailHistorySummary: null,
+            emailHistoryContext: null,
+            calendarAvailability: null,
+            writingStyle: null,
+            mcpContext: null,
+            meetingContext: null,
+          });
+
+          const testName = "multi-part discrepancy completeness";
+          const judgeResult = await judgeEvalOutput({
+            input: [
+              formatThreadForJudge(messages),
+              "",
+              "## Knowledge Base",
+              knowledgeBaseContent,
+            ].join("\n"),
+            output: result.reply,
+            expected:
+              "A useful reply that keeps both reported discrepancies in scope. It may answer them collectively when it is clear the answer or next step applies to both, but it must not ignore one, use general policy as a substitute for checking them, or claim that either was verified or corrected without supporting context.",
+            criterion: {
+              name: "Complete and grounded multi-part response",
+              description:
+                "The draft should make clear that its answer or next step covers both reported discrepancies. A concise collective response is acceptable. General background must not replace the case-specific response, and neither item may be presented as verified or corrected without support.",
+            },
+          });
+          const pass =
+            result.confidence !== "HIGH_CONFIDENCE" && judgeResult.pass;
+
+          evalReporter.record({
+            testName,
+            model: model.label,
+            pass,
+            expected:
+              "both discrepancies addressed without unsupported verification or correction claims",
+            actual: `confidence=${result.confidence} | ${formatSemanticJudgeActual(
+              result.reply,
+              judgeResult,
+            )}`,
+          });
+
+          expect(
+            pass,
+            `Draft should cover both unresolved discrepancies without inventing their status.\n\nConfidence: ${result.confidence}\nReply:\n${result.reply}\n\nJudge: ${JSON.stringify(
+              judgeResult,
+              null,
+              2,
+            )}`,
+          ).toBe(true);
+        },
+        TIMEOUT,
+      );
+
+      test(
+        "does not repeat a resolution contradicted by the sender",
+        async () => {
+          const messages = [
+            {
+              ...getEmail({
+                from: emailAccount.email,
+                to: "riley@customer.example",
+                subject: "Re: Account issues",
+                content:
+                  "We've corrected the duplicate invoice and reactivated export access. Both should work now.",
+              }),
+              date: new Date("2026-05-04T09:00:00Z"),
+            },
+            {
+              ...getEmail({
+                from: "Riley Stone <riley@customer.example>",
+                to: emailAccount.email,
+                subject: "Re: Account issues",
+                content: `Hi,
+
+The duplicate invoice is still on our account, and export access is still disabled.
+
+Please confirm once both have actually been fixed.
+
+Thanks,
+Riley`,
+              }),
+              date: new Date("2026-05-05T09:00:00Z"),
+            },
+          ];
+
+          const result = await aiDraftReplyWithConfidence({
+            messages,
+            emailAccount,
+            knowledgeBaseContent: null,
+            emailHistorySummary: null,
+            emailHistoryContext: null,
+            calendarAvailability: null,
+            writingStyle: null,
+            mcpContext: null,
+            meetingContext: null,
+          });
+
+          const testName = "contradicted resolution remains unresolved";
+          const judgeResult = await judgeEvalOutput({
+            input: formatThreadForJudge(messages),
+            output: result.reply,
+            expected:
+              "A concise reply that treats both the duplicate invoice and disabled export access as unresolved because the sender directly contradicted the earlier resolution. It may promise to investigate or confirm later, but must not say either issue is already fixed without newer supporting context.",
+            criterion: {
+              name: "Sender contradiction overrides stale resolution",
+              description:
+                "The draft should recognize that both issues remain unresolved after the sender reported the previous fix did not work. It must not repeat or imply the earlier resolved status as current without new evidence.",
+            },
+          });
+          const pass =
+            result.confidence !== "HIGH_CONFIDENCE" && judgeResult.pass;
+
+          evalReporter.record({
+            testName,
+            model: model.label,
+            pass,
+            expected:
+              "both issues treated as unresolved; no unsupported fixed status",
+            actual: `confidence=${result.confidence} | ${formatSemanticJudgeActual(
+              result.reply,
+              judgeResult,
+            )}`,
+          });
+
+          expect(
+            pass,
+            `Draft should not repeat a contradicted resolution.\n\nConfidence: ${result.confidence}\nReply:\n${result.reply}\n\nJudge: ${JSON.stringify(
+              judgeResult,
+              null,
+              2,
+            )}`,
+          ).toBe(true);
+        },
+        TIMEOUT,
+      );
+
+      test(
         "does not invent pricing terms without pricing context",
         async () => {
           const messages = [
