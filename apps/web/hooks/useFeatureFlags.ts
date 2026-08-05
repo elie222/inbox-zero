@@ -94,3 +94,11 @@ export function useWelcomePricingVariant() {
     ) as WelcomePricingVariant) || "control"
   );
 }
+export type OnboardingChatVariant = "control" | "chat";
+
+export function useOnboardingChatVariant() {
+  return (
+    (useFeatureFlagVariantKey("onboarding-chat") as OnboardingChatVariant) ||
+    "control"
+  );
+}
