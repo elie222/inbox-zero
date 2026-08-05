@@ -56,7 +56,7 @@
 - Do not optimize for migration paths: refactor call sites directly, including larger coordinated changes when clarity improves.
 
 ## Pull Request Completion
-- Creating a pull request is not the end of the task. Unless the user explicitly opts out, follow `.claude/skills/pr-loop/SKILL.md` after every PR is opened.
+- Creating a pull request is not the end of the task. Unless the user explicitly opts out, follow `.claude/skills/create-pr/SKILL.md` through its completion gate.
 - Wait five minutes before the first observation and after every push or review reply. Inspect reviews and checks for the exact latest PR commit, not stale PR-wide results.
 - Automatically address valid review feedback and PR-caused check failures, validate the fixes, commit, push, reply to the specific comments, and continue until the latest commit is clean.
 - Do not resolve review threads or merge the PR without explicit user approval.
