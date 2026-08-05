@@ -12,9 +12,13 @@ import type {
   OAuthClientInformation,
   OAuthTokens,
 } from "@modelcontextprotocol/sdk/shared/auth.js";
+import {
+  InvalidClientError,
+  InvalidGrantError,
+} from "@modelcontextprotocol/sdk/server/auth/errors.js";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
-import { getIntegration, getStaticCredentials } from "./integrations";
+import { getIntegration } from "./integrations";
 import type { IntegrationKey } from "./integrations";
 
 const logger = createScopedLogger("mcp-oauth");
@@ -22,6 +26,9 @@ const logger = createScopedLogger("mcp-oauth");
 // Conservative default expiration window when OAuth provider doesn't return expires_in
 // Set to 1 hour to ensure tokens are refreshed proactively
 const DEFAULT_TOKEN_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
+
+// Refresh slightly early so a token doesn't expire mid-agent-run
+const TOKEN_EXPIRY_BUFFER_MS = 5 * 60 * 1000; // 5 minutes
 
 /**
  * Start OAuth flow - generate authorization URL with PKCE
@@ -219,8 +226,9 @@ async function getValidAccessToken({
     );
   }
 
-  const now = new Date();
-  const isExpired = connection.expiresAt && connection.expiresAt < now;
+  const isExpired =
+    connection.expiresAt &&
+    connection.expiresAt.getTime() - TOKEN_EXPIRY_BUFFER_MS < Date.now();
 
   if (isExpired && connection.refreshToken) {
     logger.info("Access token expired, refreshing", {
@@ -233,6 +241,8 @@ async function getValidAccessToken({
   }
 
   if (isExpired) {
+    // Without a refresh token the connection is permanently dead
+    await deactivateConnection({ connectionId: connection.id, emailAccountId });
     throw new Error(
       `Access token for ${integration} has expired and no refresh token is available. Please reconnect.`,
     );
@@ -281,12 +291,36 @@ async function refreshOAuthTokens({
     integration,
   );
 
-  const tokens = await refreshAuthorization(metadata.token_endpoint, {
-    metadata,
-    clientInformation: clientInfo,
-    refreshToken: connection.refreshToken,
-    ...getResourceParam(integrationConfig),
-  });
+  let tokens: OAuthTokens;
+  try {
+    tokens = await refreshAuthorization(metadata.token_endpoint, {
+      metadata,
+      clientInformation: clientInfo,
+      refreshToken: connection.refreshToken,
+      ...getResourceParam(integrationConfig),
+    });
+  } catch (error) {
+    // The grant was revoked or the client is no longer valid - retrying will
+    // never succeed, so deactivate the connection until the user reconnects
+    if (
+      error instanceof InvalidGrantError ||
+      error instanceof InvalidClientError
+    ) {
+      logger.warn("OAuth grant no longer valid, deactivating connection", {
+        error,
+        integration,
+        emailAccountId,
+      });
+      await deactivateConnection({
+        connectionId: connection.id,
+        emailAccountId,
+      });
+      throw new Error(
+        `The ${integration} connection is no longer authorized. Please reconnect.`,
+      );
+    }
+    throw error;
+  }
 
   const expiresAt = calculateTokenExpiration(tokens.expires_in, {
     integration,
@@ -434,23 +468,13 @@ async function discoverMetadata(
 
 /**
  * Get OAuth client credentials for an integration
- * Uses static credentials if available, otherwise dynamically registers
+ * Uses stored credentials if available, otherwise dynamically registers
  */
 async function getOAuthClient(
   integration: IntegrationKey,
   redirectUri?: string,
 ): Promise<OAuthClientInformation> {
   const integrationConfig = getIntegration(integration);
-  const staticCreds = getStaticCredentials(integration);
-
-  // Use static credentials if available
-  if (staticCreds?.clientId) {
-    logger.info("Using static OAuth credentials", { integration });
-    return {
-      client_id: staticCreds.clientId,
-      client_secret: staticCreds.clientSecret,
-    };
-  }
 
   // Check if we have dynamically registered credentials in DB
   const stored = await prisma.mcpIntegration.findUnique({
@@ -613,4 +637,25 @@ function getResourceParam(
     return {};
   }
   return { resource: new URL(integrationConfig.serverUrl) };
+}
+
+async function deactivateConnection({
+  connectionId,
+  emailAccountId,
+}: {
+  connectionId: string;
+  emailAccountId: string;
+}) {
+  try {
+    await prisma.mcpConnection.update({
+      where: { id: connectionId, emailAccountId },
+      data: { isActive: false },
+    });
+  } catch (error) {
+    logger.error("Failed to deactivate MCP connection", {
+      error,
+      connectionId,
+      emailAccountId,
+    });
+  }
 }

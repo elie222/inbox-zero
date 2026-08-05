@@ -1,5 +1,5 @@
 import { createMCPClient } from "@ai-sdk/mcp";
-import { getIntegration } from "@/utils/mcp/integrations";
+import { findIntegration } from "@/utils/mcp/integrations";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { getAuthToken } from "@/utils/mcp/oauth";
@@ -34,7 +34,6 @@ export async function createMcpToolsForAgent(
           select: {
             id: true,
             name: true,
-            registeredServerUrl: true,
           },
         },
         tools: {
@@ -62,7 +61,7 @@ export async function createMcpToolsForAgent(
 
     for (const connection of connections) {
       const integration = connection.integration;
-      const integrationConfig = getIntegration(integration.name);
+      const integrationConfig = findIntegration(integration.name);
 
       if (!integrationConfig) {
         logger.warn("Integration config not found", {
@@ -71,9 +70,8 @@ export async function createMcpToolsForAgent(
         continue;
       }
 
-      // Use registered server URL if available, otherwise fall back to config
-      const serverUrl =
-        integration.registeredServerUrl ?? integrationConfig.serverUrl;
+      // registeredServerUrl is the OAuth discovery base URL, not the MCP endpoint
+      const serverUrl = integrationConfig.serverUrl;
       if (!serverUrl) {
         logger.warn("No server URL available", {
           integration: integration.name,

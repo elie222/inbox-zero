@@ -1,5 +1,5 @@
 import { listMcpTools } from "@/utils/mcp/list-tools";
-import { getIntegration, type IntegrationKey } from "@/utils/mcp/integrations";
+import { findIntegration, type IntegrationKey } from "@/utils/mcp/integrations";
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
 import type { Prisma } from "@/generated/prisma/client";
@@ -9,7 +9,7 @@ export async function syncMcpTools(
   emailAccountId: string,
   log: Logger,
 ) {
-  const integrationConfig = getIntegration(integration);
+  const integrationConfig = findIntegration(integration);
   if (!integrationConfig) {
     throw new Error(`Unknown integration: ${integration}`);
   }
@@ -29,6 +29,7 @@ export async function syncMcpTools(
       },
       include: {
         integration: true,
+        tools: { select: { name: true, isEnabled: true } },
       },
     });
 
@@ -61,7 +62,12 @@ export async function syncMcpTools(
       allowedTools: allowedToolNames,
     });
 
-    // Delete existing tools and create new ones
+    // Replace stored tools, preserving the user's enable/disable choices for
+    // tools that already existed
+    const existingEnabledByName = new Map(
+      mcpConnection.tools.map((tool) => [tool.name, tool.isEnabled]),
+    );
+
     await prisma.$transaction([
       prisma.mcpTool.deleteMany({
         where: { connectionId: mcpConnection.id },
@@ -74,7 +80,9 @@ export async function syncMcpTools(
                 name: tool.name,
                 description: tool.description,
                 schema: tool.inputSchema as Prisma.InputJsonValue,
-                isEnabled: !integrationConfig.defaultToolsDisabled,
+                isEnabled:
+                  existingEnabledByName.get(tool.name) ??
+                  !integrationConfig.defaultToolsDisabled,
               })),
             }),
           ]

@@ -2,11 +2,11 @@ import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 
-const { mockHandleOAuthCallback, mockSyncMcpTools, mockGetIntegration } =
+const { mockHandleOAuthCallback, mockSyncMcpTools, mockFindIntegration } =
   vi.hoisted(() => ({
     mockHandleOAuthCallback: vi.fn(),
     mockSyncMcpTools: vi.fn(),
-    mockGetIntegration: vi.fn(() => ({ authType: "oauth" })),
+    mockFindIntegration: vi.fn(() => ({ authType: "oauth" })),
   }));
 
 vi.mock("@/env", () => ({
@@ -27,7 +27,7 @@ vi.mock("@/utils/middleware", async () => {
 vi.mock("@/utils/prisma");
 
 vi.mock("@/utils/mcp/integrations", () => ({
-  getIntegration: mockGetIntegration,
+  findIntegration: mockFindIntegration,
 }));
 
 vi.mock("@/utils/mcp/oauth", () => ({
@@ -71,7 +71,7 @@ describe("mcp callback route", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetIntegration.mockReturnValue({ authType: "oauth" });
+    mockFindIntegration.mockReturnValue({ authType: "oauth" });
     prisma.emailAccount.findFirst.mockResolvedValue({
       id: "email-account-123",
     } as Awaited<ReturnType<typeof prisma.emailAccount.findFirst>>);

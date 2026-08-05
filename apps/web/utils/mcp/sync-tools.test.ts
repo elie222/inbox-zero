@@ -1,5 +1,59 @@
-import { describe, it, expect } from "vitest";
-import { isReadOnlyTool } from "./sync-tools";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import prisma from "@/utils/__mocks__/prisma";
+import { createScopedLogger } from "@/utils/logger";
+import { isReadOnlyTool, syncMcpTools } from "./sync-tools";
+
+const { mockListMcpTools } = vi.hoisted(() => ({
+  mockListMcpTools: vi.fn(),
+}));
+
+vi.mock("@/utils/prisma");
+
+vi.mock("@/utils/mcp/list-tools", () => ({
+  listMcpTools: mockListMcpTools,
+}));
+
+describe("syncMcpTools", () => {
+  const logger = createScopedLogger("sync-tools-test");
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    prisma.$transaction.mockResolvedValue([]);
+  });
+
+  function mockConnection(
+    existingTools: { name: string; isEnabled: boolean }[],
+  ) {
+    prisma.mcpConnection.findFirst.mockResolvedValue({
+      id: "connection-1",
+      integration: { id: "integration-1", name: "notion" },
+      tools: existingTools,
+    } as unknown as Awaited<ReturnType<typeof prisma.mcpConnection.findFirst>>);
+  }
+
+  it("preserves the user's enable/disable choices for existing tools", async () => {
+    mockConnection([{ name: "notion-search", isEnabled: false }]);
+    mockListMcpTools.mockResolvedValue([
+      { name: "notion-search", description: "search" },
+      { name: "notion-fetch", description: "fetch" },
+    ]);
+
+    await syncMcpTools("notion", "email-account-1", logger);
+
+    expect(prisma.mcpTool.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({ name: "notion-search", isEnabled: false }),
+        expect.objectContaining({ name: "notion-fetch", isEnabled: true }),
+      ],
+    });
+  });
+
+  it("throws for unknown integrations", async () => {
+    await expect(
+      syncMcpTools("unknown-integration", "email-account-1", logger),
+    ).rejects.toThrow("Unknown integration");
+  });
+});
 
 describe("isReadOnlyTool", () => {
   describe("read-only tools (should return true)", () => {
