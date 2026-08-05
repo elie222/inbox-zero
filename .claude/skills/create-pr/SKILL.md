@@ -78,3 +78,9 @@ gh pr create --title "<title>" --body "<body>" && gh pr comment $(gh pr view --j
 Display the returned PR URL as a markdown link on its own line, formatted as: `[PR #<number>](<url>)` so it's clickable.
 Display the name of the branch you created.
 In the final response, include a concise performance impact note for the PR, covering added runtime work, database/network calls, and hot-path risk when relevant.
+
+## Step 4: Complete the post-PR loop
+
+Opening the PR is not completion. Unless the user explicitly asks to skip monitoring, immediately follow Step 5 of `.claude/skills/pr-loop/SKILL.md`.
+
+Do not return the final response until that loop reaches its completion condition or encounters a blocker that requires user input.
