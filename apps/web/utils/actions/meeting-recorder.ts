@@ -71,6 +71,7 @@ export const setMeetingJoinOverrideAction = actionClient
         select: {
           id: true,
           email: true,
+          name: true,
           userId: true,
           meetingRecorderEnabled: true,
           meetingRecorderJoinRule: true,

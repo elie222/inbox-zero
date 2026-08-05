@@ -19,7 +19,10 @@ import {
   parseAttendeeSnapshot,
   toAttendeeSnapshot,
 } from "@/utils/meeting-recorder/attendees";
-import { MeetingBotProviderError } from "@/utils/meeting-recorder/bot-provider";
+import {
+  getMeetingBotDisplayName,
+  MeetingBotProviderError,
+} from "@/utils/meeting-recorder/bot-provider";
 import {
   MAX_EVENTS_PER_PROVIDER,
   MAX_PROCESSING_ATTEMPTS,
@@ -56,6 +59,7 @@ interface RecorderAccount {
   email: string;
   id: string;
   meetingRecorderJoinRule: MeetingJoinRule;
+  name: string | null;
 }
 
 export async function reconcileAccount({
@@ -133,6 +137,10 @@ export async function reconcileSingleEvent({
       event,
     }));
   const eventLogger = logger.with({ meetingId: meeting.id });
+  const botName = getMeetingBotDisplayName({
+    ownerName: emailAccount.name,
+    ownerEmail: emailAccount.email,
+  });
 
   const wantsRecording = shouldAutoJoin({
     event,
@@ -155,6 +163,7 @@ export async function reconcileSingleEvent({
       meetingId: meeting.id,
       recordingId: meeting.recordingId,
       event,
+      botName,
       logger: eventLogger,
     });
     // A released booking falls through to book again against the new link.
@@ -164,6 +173,7 @@ export async function reconcileSingleEvent({
   const recording = await findOrCreateRecording({
     emailAccountId: emailAccount.id,
     event,
+    botName,
     logger: eventLogger,
   });
   if (!recording) return;
@@ -231,10 +241,12 @@ export async function upsertMeeting({
 async function findOrCreateRecording({
   emailAccountId,
   event,
+  botName,
   logger,
 }: {
   emailAccountId: string;
   event: CalendarEvent;
+  botName: string;
   logger: Logger;
 }): Promise<MeetingRecording | null> {
   const meetingUrl = event.videoConferenceLink;
@@ -251,7 +263,7 @@ async function findOrCreateRecording({
     // A claim whose provider call failed transiently is still sitting here with
     // no bot behind it. Booking it now is the retry.
     if (existing.externalBotId) return existing;
-    return bookBot({ recording: existing, logger });
+    return bookBot({ recording: existing, botName, logger });
   }
 
   // Claim the meeting by writing the row before calling the provider. If we
@@ -278,14 +290,16 @@ async function findOrCreateRecording({
     });
   }
 
-  return bookBot({ recording: claimed, logger });
+  return bookBot({ recording: claimed, botName, logger });
 }
 
 async function bookBot({
   recording,
+  botName,
   logger,
 }: {
   recording: MeetingRecording;
+  botName: string;
   logger: Logger;
 }): Promise<MeetingRecording | null> {
   const provider = createMeetingBotProvider(recording.botProvider, logger);
@@ -293,6 +307,7 @@ async function bookBot({
   let externalBotId: string;
   try {
     ({ externalBotId } = await provider.scheduleBot({
+      botName,
       meetingUrl: recording.meetingUrl,
       joinAt: recording.meetingStartTime,
     }));
@@ -432,11 +447,13 @@ async function updateBookingForEvent({
   meetingId,
   recordingId,
   event,
+  botName,
   logger,
 }: {
   meetingId: string;
   recordingId: string;
   event: CalendarEvent;
+  botName: string;
   logger: Logger;
 }): Promise<boolean> {
   const recording = await prisma.meetingRecording.findUnique({
@@ -466,6 +483,7 @@ async function updateBookingForEvent({
     ) {
       const provider = createMeetingBotProvider(recording.botProvider, logger);
       await provider.updateBot(recording.externalBotId, {
+        botName,
         meetingUrl: event.videoConferenceLink,
       });
     }
@@ -505,6 +523,7 @@ async function updateBookingForEvent({
 
   const provider = createMeetingBotProvider(recording.botProvider, logger);
   const updatedBot = await provider.updateBot(recording.externalBotId, {
+    botName,
     joinAt: event.startTime,
     meetingUrl: event.videoConferenceLink ?? recording.meetingUrl,
   });

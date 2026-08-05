@@ -12,11 +12,13 @@ import {
 export class FakeBotProvider implements MeetingBotProvider {
   readonly scheduled: Array<{
     botId: string;
+    botName?: string;
     meetingUrl: string;
     joinAt: Date;
   }> = [];
   readonly updated: Array<{
     botId: string;
+    botName?: string;
     joinAt?: Date;
     meetingUrl?: string;
   }> = [];
@@ -34,9 +36,11 @@ export class FakeBotProvider implements MeetingBotProvider {
   private transcript: NormalizedTranscript = [];
 
   async scheduleBot({
+    botName,
     meetingUrl,
     joinAt,
   }: {
+    botName?: string;
     meetingUrl: string;
     joinAt: Date;
   }): Promise<{ externalBotId: string }> {
@@ -50,13 +54,13 @@ export class FakeBotProvider implements MeetingBotProvider {
     }
 
     const externalBotId = `fake_bot_${this.nextId++}`;
-    this.scheduled.push({ botId: externalBotId, meetingUrl, joinAt });
+    this.scheduled.push({ botId: externalBotId, botName, meetingUrl, joinAt });
     return { externalBotId };
   }
 
   async updateBot(
     externalBotId: string,
-    params: { joinAt?: Date; meetingUrl?: string },
+    params: { botName?: string; joinAt?: Date; meetingUrl?: string },
   ): Promise<{ externalBotId: string }> {
     this.updated.push({ botId: externalBotId, ...params });
     const beforeNextUpdate = this.beforeNextUpdate;

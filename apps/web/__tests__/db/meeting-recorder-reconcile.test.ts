@@ -101,6 +101,7 @@ describe.skipIf(!RUN_DB_TESTS)(
       return {
         id,
         email,
+        name: email === ACCOUNT_A ? "Alice Owner" : "Bob Owner",
         meetingRecorderJoinRule: MeetingJoinRule.EXTERNAL_ONLY,
       };
     }
@@ -120,6 +121,10 @@ describe.skipIf(!RUN_DB_TESTS)(
       });
 
       expect(fakeProvider.scheduled).toHaveLength(2);
+      expect(fakeProvider.scheduled.map(({ botName }) => botName)).toEqual([
+        "Alice's Inbox Zero Notetaker",
+        "Bob's Inbox Zero Notetaker",
+      ]);
 
       const recordings = await prisma.meetingRecording.findMany();
       expect(recordings).toHaveLength(2);
@@ -837,6 +842,7 @@ describe.skipIf(!RUN_DB_TESTS)(
 
       expect(fakeProvider.updated).toContainEqual({
         botId: fakeProvider.scheduled[0]?.botId,
+        botName: "Alice's Inbox Zero Notetaker",
         meetingUrl: "https://acme.zoom.us/j/8123456789?pwd=new",
       });
       expect(fakeProvider.scheduled).toHaveLength(1);
