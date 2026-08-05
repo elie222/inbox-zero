@@ -110,6 +110,7 @@ export async function cleanupInvalidTokens({
           logger,
         })
       : false;
+
   if (sentReconnectionEmail) {
     await addUserErrorMessage(
       emailAccount.userId,

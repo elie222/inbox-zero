@@ -304,11 +304,12 @@ export async function addUserErrorMessageWithNotification({
     const existingEntry = currentErrorMessages[storageKey];
     const shouldSendEmail = !existingEntry?.emailSentAt;
     const config = errorTypeConfig[errorType];
-    const defaultAction =
+    const isAccountRecoveryError =
       errorType === ErrorType.ACCOUNT_DISCONNECTED ||
-      errorType === ErrorType.EMAIL_WATCH_LAPSED
-        ? getAccountRecoveryAction(emailAccountId)
-        : config;
+      errorType === ErrorType.EMAIL_WATCH_LAPSED;
+    const defaultAction = isAccountRecoveryError
+      ? getAccountRecoveryAction(emailAccountId)
+      : config;
     const resolvedActionUrl = actionUrl ?? defaultAction.actionUrl;
     const resolvedActionLabel = actionLabel ?? defaultAction.actionLabel;
 
@@ -318,8 +319,9 @@ export async function addUserErrorMessageWithNotification({
       existingEntry?.message === errorMessage &&
       existingEntry.actionUrl === resolvedActionUrl &&
       existingEntry.actionLabel === resolvedActionLabel
-    )
+    ) {
       return;
+    }
 
     const newEntry: ErrorMessageEntry = {
       message: errorMessage,
@@ -389,12 +391,12 @@ async function addLegacyAccountRecoveryAction(
     select: { id: true, email: true },
   });
 
-  const matchingAccounts = disconnectedAccounts.filter(({ email }) =>
-    accountError.message.includes(email),
+  const matchingDisconnectedAccounts = disconnectedAccounts.filter(
+    ({ email }) => accountError.message.includes(email),
   );
   const action =
-    matchingAccounts.length === 1
-      ? getAccountRecoveryAction(matchingAccounts[0].id)
+    matchingDisconnectedAccounts.length === 1
+      ? getAccountRecoveryAction(matchingDisconnectedAccounts[0].id)
       : { actionUrl: "/accounts", actionLabel: "Manage accounts" };
   const updatedErrorMessages = {
     ...errorMessages,
@@ -404,7 +406,7 @@ async function addLegacyAccountRecoveryAction(
     },
   };
 
-  const persisted = await prisma.user.updateMany({
+  const updateResult = await prisma.user.updateMany({
     where: {
       id: userId,
       errorMessages: { equals: errorMessages as Prisma.InputJsonValue },
@@ -412,7 +414,7 @@ async function addLegacyAccountRecoveryAction(
     data: { errorMessages: updatedErrorMessages },
   });
 
-  if (persisted.count === 0) {
+  if (updateResult.count === 0) {
     const latestUser = await prisma.user.findUnique({
       where: { id: userId },
       select: { errorMessages: true },
