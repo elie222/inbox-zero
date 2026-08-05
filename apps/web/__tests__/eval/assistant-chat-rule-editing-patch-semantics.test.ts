@@ -652,6 +652,53 @@ describe.runIf(shouldRunEval)(
         );
 
         test(
+          "pauses multiple rules through existing rule updates",
+          async () => {
+            const { toolCalls, actual } = await runAssistantChat({
+              emailAccount,
+              messages: [
+                {
+                  role: "user",
+                  content:
+                    "Pause both my Marketing and Newsletter rules for now.",
+                },
+              ],
+            });
+
+            const statusUpdates = toolCalls.filter(
+              (toolCall) =>
+                toolCall.toolName === "updateRule" &&
+                isUpdateRuleInput(toolCall.input) &&
+                isStatusOnlyEnabledUpdateInput(toolCall.input, false) &&
+                isSuccessfulOutput(toolCall.output),
+            );
+            const updatedRuleNames = statusUpdates.flatMap((toolCall) =>
+              isUpdateRuleInput(toolCall.input)
+                ? [toolCall.input.ruleName]
+                : [],
+            );
+            const firstUpdateIndex = toolCalls.findIndex(
+              (toolCall) => toolCall.toolName === "updateRule",
+            );
+            const pass =
+              statusUpdates.length === 2 &&
+              sameValues(updatedRuleNames, ["Marketing", "Newsletter"]) &&
+              hasRuleReadBeforeUpdate(toolCalls, firstUpdateIndex) &&
+              hasNoCreateDeleteOrLegacyRuleMutations(toolCalls);
+
+            evalReporter.record({
+              testName: "multiple pauses use existing rule updates",
+              model: model.label,
+              pass,
+              actual,
+            });
+
+            expect(pass).toBe(true);
+          },
+          TIMEOUT,
+        );
+
+        test(
           "deletes a rule through the confirmation-gated delete tool",
           async () => {
             const { toolCalls, actual } = await runAssistantChat({
@@ -751,6 +798,13 @@ function isDeleteRuleInput(input: unknown): input is { ruleName: string } {
 
   const value = input as { ruleName?: unknown };
   return typeof value.ruleName === "string";
+}
+
+function sameValues(actual: string[], expected: string[]) {
+  return (
+    actual.length === expected.length &&
+    expected.every((value) => actual.includes(value))
+  );
 }
 
 function patchHasActionType(input: UpdateRuleInput, actionType: ActionType) {

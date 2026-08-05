@@ -97,6 +97,7 @@ const {
 } = hoisted;
 
 export const mockSearchMessages = hoisted.mockSearchMessages;
+export { mockArchiveThreadWithLabel };
 export const mockGetFolders = hoisted.mockGetFolders;
 export const mockGetOrCreateFolderIdByName =
   hoisted.mockGetOrCreateFolderIdByName;
