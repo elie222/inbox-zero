@@ -16,6 +16,7 @@ import type {
 import type { EmailProvider } from "@/utils/email/types";
 import {
   getActionResultError,
+  isActionResultSkipped,
   normalizeActionExecutionError,
   persistExecutedActionOutcome,
 } from "@/utils/ai/executed-action-outcome";
@@ -234,6 +235,20 @@ async function executeDelayedAction({
       logger: log,
     });
     throw error;
+  }
+
+  if (isActionResultSkipped(actionResult)) {
+    await persistExecutedActionOutcome({
+      actionId: executedAction.id,
+      status: ExecutedActionStatus.SKIPPED,
+      error: null,
+      logger: log,
+    });
+    log.info("Skipped delayed action", {
+      actionType: executedAction.type,
+      executedActionId: executedAction.id,
+    });
+    return executedAction;
   }
 
   const actionResultError = getActionResultError(

@@ -16,6 +16,7 @@ import { shouldSkipAutomatedArchiveForSender } from "@/utils/ai/automated-archiv
 import { flushLoggerSafely } from "@/utils/logger-flush";
 import {
   getActionResultError,
+  isActionResultSkipped,
   normalizeActionExecutionError,
   persistExecutedActionOutcome,
 } from "@/utils/ai/executed-action-outcome";
@@ -83,6 +84,16 @@ export async function executeAct({
         executedRule,
         logger: log,
       });
+
+      if (isActionResultSkipped(actionResult)) {
+        await persistExecutedActionOutcome({
+          actionId: action.id,
+          status: ExecutedActionStatus.SKIPPED,
+          error: null,
+          logger: log,
+        });
+        continue;
+      }
 
       const actionResultError = getActionResultError(action.type, actionResult);
       if (actionResultError) {

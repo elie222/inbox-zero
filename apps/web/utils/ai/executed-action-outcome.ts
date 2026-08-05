@@ -92,6 +92,10 @@ export function getActionResultError(
   };
 }
 
+export function isActionResultSkipped(actionResult: unknown) {
+  return asRecord(actionResult)?.skipped === true;
+}
+
 export function normalizeActionExecutionError(
   error: unknown,
 ): ActionExecutionError {
