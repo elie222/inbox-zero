@@ -116,8 +116,19 @@ describe("getUserErrorMessages", () => {
         actionLabel: "Reconnect account",
       }),
     );
-    expect(prisma.user.update).toHaveBeenCalledWith({
-      where: { id: "user-1" },
+    expect(prisma.user.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "user-1",
+        errorMessages: {
+          equals: {
+            [ErrorType.ACCOUNT_DISCONNECTED]: {
+              message:
+                "Gmail is not enabled for user@example.com. Please enable Gmail for this account and reconnect it to resume automation.",
+              timestamp: "2026-08-05T12:00:00.000Z",
+            },
+          },
+        },
+      },
       data: {
         errorMessages: {
           [ErrorType.ACCOUNT_DISCONNECTED]: expect.objectContaining({
@@ -151,8 +162,18 @@ describe("getUserErrorMessages", () => {
         actionLabel: "Manage accounts",
       }),
     );
-    expect(prisma.user.update).toHaveBeenCalledWith({
-      where: { id: "user-1" },
+    expect(prisma.user.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "user-1",
+        errorMessages: {
+          equals: {
+            [ErrorType.ACCOUNT_DISCONNECTED]: {
+              message: "An email account was disconnected.",
+              timestamp: "2026-08-05T12:00:00.000Z",
+            },
+          },
+        },
+      },
       data: {
         errorMessages: {
           [ErrorType.ACCOUNT_DISCONNECTED]: expect.objectContaining({

@@ -4,6 +4,7 @@ import { captureException } from "@/utils/error";
 import { sendActionRequiredEmail } from "@inboxzero/resend";
 import { env } from "@/env";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
+import type { Prisma } from "@/generated/prisma/client";
 
 // Used to store error messages for a user which we display in the UI
 
@@ -403,8 +404,11 @@ async function addLegacyAccountRecoveryAction(
     },
   };
 
-  await prisma.user.update({
-    where: { id: userId },
+  await prisma.user.updateMany({
+    where: {
+      id: userId,
+      errorMessages: { equals: errorMessages as Prisma.InputJsonValue },
+    },
     data: { errorMessages: updatedErrorMessages },
   });
 
