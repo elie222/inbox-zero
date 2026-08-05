@@ -82,6 +82,51 @@ describe("updateLearnedPatternsTool", () => {
     });
   });
 
+  it("reports that saved patterns improve matching without guaranteeing it", async () => {
+    prisma.rule.findUnique.mockResolvedValue({
+      id: "rule-1",
+      name: "VIP senders",
+      updatedAt: new Date("2026-04-12T10:00:00.000Z"),
+      organizationRuleId: null,
+      emailAccount: {
+        rulesRevision: 3,
+      },
+    } as never);
+    vi.mocked(saveLearnedPatterns).mockResolvedValue({} as never);
+
+    const toolInstance = updateLearnedPatternsTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-1",
+      logger,
+      getRuleReadState: () => ({
+        readAt: Date.now(),
+        rulesRevision: 3,
+        ruleUpdatedAtByName: new Map([
+          ["VIP senders", "2026-04-12T10:00:00.000Z"],
+        ]),
+      }),
+    });
+
+    const result = await toolInstance.execute({
+      ruleName: "VIP senders",
+      learnedPatterns: [
+        {
+          include: {
+            from: "vip@example.com",
+          },
+        },
+      ],
+    });
+
+    expect(result).toEqual({
+      success: true,
+      ruleId: "rule-1",
+      futureMatchGuaranteed: false,
+      summary:
+        "The learned patterns were saved. They are intended to improve future matching but do not guarantee that every future message will match or execute.",
+    });
+  });
+
   it("returns a failure when saving learned patterns fails", async () => {
     prisma.rule.findUnique
       .mockResolvedValueOnce({
