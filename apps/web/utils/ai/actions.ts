@@ -18,6 +18,7 @@ import { sendColdEmailNotification } from "@/utils/cold-email/send-notification"
 import {
   extractEmailAddress,
   extractEmailAddresses,
+  isSameEmailAddress,
   isSameOrganization,
 } from "@/utils/email";
 import { captureException } from "@/utils/error";
@@ -379,12 +380,15 @@ const forward: ActionFunction<{
 }> = async ({ client, email, args, logger }) => {
   if (!args.to) return;
 
-  const sender = extractEmailAddress(email.headers.from).toLowerCase();
-  const recipients = [args.to, args.cc, args.bcc]
-    .flatMap((value) => extractEmailAddresses(value ?? ""))
-    .map((recipient) => recipient.toLowerCase());
+  const recipients = [args.to, args.cc, args.bcc].flatMap((value) =>
+    extractEmailAddresses(value ?? ""),
+  );
 
-  if (sender && recipients.includes(sender)) {
+  if (
+    recipients.some((recipient) =>
+      isSameEmailAddress(email.headers.from, recipient),
+    )
+  ) {
     logger.warn("Skipping forward because the sender is a recipient");
     return { skipped: true, reason: "RECIPIENT_IS_SENDER" };
   }
@@ -558,7 +562,7 @@ const notify_sender: ActionFunction<Record<string, unknown>> = async ({
   // this action emails the sender, and a wrong one accuses a colleague of spamming.
   if (isSameOrganization(senderEmail, emailAccount.email)) {
     logger.warn("Skipping cold email notification to an internal sender");
-    return { success: false, errorCode: "INTERNAL_SENDER" };
+    return { skipped: true, reason: "INTERNAL_SENDER" };
   }
 
   const result = await sendColdEmailNotification({

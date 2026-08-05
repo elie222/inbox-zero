@@ -793,9 +793,10 @@ describe("runActionFunction", () => {
       ["a colleague on the account owner's domain", "ceo@example.com"],
       ["the account owner", "user@example.com"],
     ])("does not notify %s", async (_name, from) => {
-      await runNotifySender(from);
+      const result = await runNotifySender(from);
 
       expect(sendColdEmailNotification).not.toHaveBeenCalled();
+      expect(result).toEqual({ skipped: true, reason: "INTERNAL_SENDER" });
     });
   });
 });
