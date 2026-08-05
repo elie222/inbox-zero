@@ -21,6 +21,7 @@ import {
   MailsIcon,
   MessageSquareIcon,
   MessagesSquareIcon,
+  MicIcon,
   PenIcon,
   PersonStandingIcon,
   RatioIcon,
@@ -55,6 +56,7 @@ import {
   useCleanerEnabled,
   useIntegrationsEnabled,
   useMeetingBriefsEnabled,
+  useMeetingRecorderEnabled,
 } from "@/hooks/useFeatureFlags";
 import { AccountSwitcher } from "@/components/AccountSwitcher";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -78,6 +80,7 @@ type NavItem = {
 export const useNavigation = () => {
   const showCleaner = useCleanerEnabled();
   const showMeetingBriefs = useMeetingBriefsEnabled();
+  const showMeetingRecorder = useMeetingRecorderEnabled();
   const showIntegrations = useIntegrationsEnabled();
 
   const { emailAccount, emailAccountId, provider } = useAccount();
@@ -100,8 +103,18 @@ export const useNavigation = () => {
         href: prefixPath(currentEmailAccountId, "/channels"),
         icon: MessagesSquareIcon,
       },
+      ...(showMeetingRecorder
+        ? [
+            {
+              name: "Meetings",
+              href: prefixPath(currentEmailAccountId, "/meetings"),
+              icon: MicIcon,
+              beta: true,
+            },
+          ]
+        : []),
     ],
-    [currentEmailAccountId],
+    [currentEmailAccountId, showMeetingRecorder],
   );
 
   const cleanupItems: NavItem[] = useMemo(
@@ -163,7 +176,6 @@ export const useNavigation = () => {
               name: "Integrations",
               href: prefixPath(currentEmailAccountId, "/integrations"),
               icon: ZapIcon,
-              beta: true,
             },
           ]
         : []),

@@ -24,6 +24,11 @@ import {
   createAutomationJob,
 } from "@/utils/actions/automation-jobs.helpers";
 import { ensureScheduledCheckInsRouteForChannel } from "@/utils/automation-jobs/destination";
+import { getDigestDeliveryState } from "@/utils/digest/delivery-state";
+import {
+  DIGEST_DISPATCH_INTERVAL_MINUTES,
+  getEstimatedDigestDeliveryAt,
+} from "@/utils/digest/schedule";
 
 const scheduledCheckInsConfigSchema = z
   .object({
@@ -60,7 +65,7 @@ const scheduledCheckInsConfigSchema = z
   )
   .describe("Scheduled check-ins configuration payload.");
 
-const draftKnowledgeUpsertSchema = z
+const draftKnowledgeUpdateSchema = z
   .object({
     title: z
       .string()
@@ -75,7 +80,7 @@ const draftKnowledgeUpsertSchema = z
       .max(20_000)
       .describe("Draft knowledge item content."),
   })
-  .describe("Draft knowledge base item to create or update.");
+  .describe("Existing draft knowledge base item to update.");
 
 export const settingsPathSchema = z
   .enum([
@@ -86,7 +91,7 @@ export const settingsPathSchema = z
     "assistant.attachmentFiling.enabled",
     "assistant.attachmentFiling.prompt",
     "assistant.scheduledCheckIns.config",
-    "assistant.draftKnowledgeBase.upsert",
+    "assistant.draftKnowledgeBase.update",
     "assistant.draftKnowledgeBase.delete",
   ])
   .describe("Writable assistant settings path.");
@@ -132,12 +137,12 @@ export const settingsChangeSchema = z.discriminatedUnion("path", [
   z.object({
     path: z
       .literal("assistant.attachmentFiling.prompt")
-      .describe("Update the attachment filing prompt."),
+      .describe("Update the attachment filing prompt; use null to clear it."),
     value: z
       .string()
       .max(6000)
       .nullable()
-      .describe("Prompt used to file attachments."),
+      .describe("Prompt used to file attachments, or null to clear it."),
   }),
   z.object({
     path: z
@@ -149,10 +154,10 @@ export const settingsChangeSchema = z.discriminatedUnion("path", [
   }),
   z.object({
     path: z
-      .literal("assistant.draftKnowledgeBase.upsert")
-      .describe("Create or update a draft knowledge base item."),
-    value: draftKnowledgeUpsertSchema.describe(
-      "Draft knowledge base item to create or update.",
+      .literal("assistant.draftKnowledgeBase.update")
+      .describe("Update an existing draft knowledge base item by title."),
+    value: draftKnowledgeUpdateSchema.describe(
+      "Existing draft knowledge base item to update.",
     ),
     mode: z
       .enum(["replace", "append"])
@@ -240,6 +245,7 @@ export type AccountSettingsSnapshot = {
   followUpAutoDraftEnabled: boolean;
   digest: {
     enabled: boolean;
+    combinesIncludedRules: true;
     schedule: {
       intervalDays: number | null;
       occurrences: number | null;
@@ -247,6 +253,17 @@ export type AccountSettingsSnapshot = {
       timeOfDay: string | null;
       nextOccurrenceAt: string | null;
     } | null;
+    delivery: {
+      emailEnabled: boolean;
+      destinationEmail: string;
+      dispatchIntervalMinutes: number;
+      estimatedNextDeliveryAt: string | null;
+      queuedItemCount: number;
+      lastDelivery: {
+        status: string;
+        occurredAt: string;
+      } | null;
+    };
     includedRules: Array<{
       name: string;
       systemType: string | null;
@@ -305,6 +322,7 @@ const accountSettingsSnapshotRawSelect = {
   followUpAwaitingReplyDays: true,
   followUpNeedsReplyDays: true,
   followUpAutoDraftEnabled: true,
+  digestSendEmail: true,
   digestSchedule: {
     select: {
       id: true,
@@ -449,6 +467,8 @@ const readOnlyCapabilities = [
     title: "Digest configuration",
     reason:
       "Readable in chat, but writes are not yet exposed through updateAssistantSettings.",
+    description:
+      "All included rules are combined into one account-level digest. When email delivery is enabled, it is sent automatically to delivery.destinationEmail; there is no separate recipient setting. The scheduled time makes the digest eligible, while estimatedNextDeliveryAt accounts for the dispatch interval.",
   },
 ] as const;
 
@@ -494,7 +514,7 @@ export async function executeUpdateAssistantSettings({
     let hasScheduledCheckInsPremium: boolean | null = null;
     const knowledgeOperations: Array<
       | {
-          type: "upsert";
+          type: "update";
           title: string;
           content: string;
         }
@@ -516,24 +536,28 @@ export async function executeUpdateAssistantSettings({
     );
 
     for (const change of normalizedChanges) {
-      if (change.path === "assistant.draftKnowledgeBase.upsert") {
+      if (change.path === "assistant.draftKnowledgeBase.update") {
         const existingItem = draftKnowledgeByTitle.get(change.value.title);
+        if (!existingItem) {
+          return {
+            error: `Draft knowledge item "${change.value.title}" does not exist. Use addToKnowledgeBase to create a new entry.`,
+          };
+        }
+
         const nextContent = mergeAppendableText({
-          existingContent: existingItem?.content ?? null,
+          existingContent: existingItem.content,
           incomingContent: change.value.content,
           mode: change.mode,
         });
 
-        if (existingItem?.content === nextContent) continue;
+        if (existingItem.content === nextContent) continue;
 
         appliedChanges.push({
           path: change.path,
-          previous: existingItem
-            ? {
-                title: existingItem.title,
-                contentLength: existingItem.content.length,
-              }
-            : null,
+          previous: {
+            title: existingItem.title,
+            contentLength: existingItem.content.length,
+          },
           next: {
             title: change.value.title,
             contentLength: nextContent.length,
@@ -541,14 +565,14 @@ export async function executeUpdateAssistantSettings({
         });
 
         draftKnowledgeByTitle.set(change.value.title, {
-          id: existingItem?.id ?? "",
+          id: existingItem.id,
           title: change.value.title,
           content: nextContent,
           updatedAt: new Date().toISOString(),
         });
 
         knowledgeOperations.push({
-          type: "upsert",
+          type: "update",
           title: change.value.title,
           content: nextContent,
         });
@@ -650,11 +674,46 @@ export async function executeUpdateAssistantSettings({
       };
     }
 
+    const writeOperations: Prisma.PrismaPromise<unknown>[] = [];
+
     if (Object.keys(data).length > 0) {
-      await prisma.emailAccount.update({
-        where: { id: emailAccountId },
-        data,
-      });
+      writeOperations.push(
+        prisma.emailAccount.update({
+          where: { id: emailAccountId },
+          data,
+        }),
+      );
+    }
+
+    for (const operation of knowledgeOperations) {
+      if (operation.type === "update") {
+        writeOperations.push(
+          prisma.knowledge.update({
+            where: {
+              emailAccountId_title: {
+                emailAccountId,
+                title: operation.title,
+              },
+            },
+            data: {
+              content: operation.content,
+            },
+          }),
+        );
+      } else {
+        writeOperations.push(
+          prisma.knowledge.deleteMany({
+            where: {
+              emailAccountId,
+              title: operation.title,
+            },
+          }),
+        );
+      }
+    }
+
+    if (writeOperations.length > 0) {
+      await prisma.$transaction(writeOperations);
     }
 
     if (scheduledCheckInsConfig) {
@@ -663,34 +722,6 @@ export async function executeUpdateAssistantSettings({
         current: existing.scheduledCheckIns,
         config: scheduledCheckInsConfig,
       });
-    }
-
-    for (const operation of knowledgeOperations) {
-      if (operation.type === "upsert") {
-        await prisma.knowledge.upsert({
-          where: {
-            emailAccountId_title: {
-              emailAccountId,
-              title: operation.title,
-            },
-          },
-          create: {
-            emailAccountId,
-            title: operation.title,
-            content: operation.content,
-          },
-          update: {
-            content: operation.content,
-          },
-        });
-      } else {
-        await prisma.knowledge.deleteMany({
-          where: {
-            emailAccountId,
-            title: operation.title,
-          },
-        });
-      }
     }
 
     return {
@@ -721,7 +752,7 @@ function dedupeSettingsChanges(
   changes: Array<z.infer<typeof settingsChangeSchema>>,
 ) {
   const nonDedupablePaths = new Set<z.infer<typeof settingsPathSchema>>([
-    "assistant.draftKnowledgeBase.upsert",
+    "assistant.draftKnowledgeBase.update",
     "assistant.draftKnowledgeBase.delete",
   ]);
   const seen = new Set<z.infer<typeof settingsPathSchema>>();
@@ -786,7 +817,7 @@ function getCurrentValue({
         messagingChannelId: snapshot.scheduledCheckIns.messagingChannelId,
         prompt: snapshot.scheduledCheckIns.prompt,
       };
-    case "assistant.draftKnowledgeBase.upsert":
+    case "assistant.draftKnowledgeBase.update":
     case "assistant.draftKnowledgeBase.delete":
       return null;
   }
@@ -858,7 +889,7 @@ export function getWritableCapabilities(snapshot: AccountSettingsSnapshot) {
         })),
       },
       writePaths: [
-        "assistant.draftKnowledgeBase.upsert",
+        "assistant.draftKnowledgeBase.update",
         "assistant.draftKnowledgeBase.delete",
       ],
     },
@@ -1134,9 +1165,10 @@ function isDisableOnlyScheduledCheckInsChange({
 }
 
 export async function loadAccountSettingsSnapshot(emailAccountId: string) {
-  const [emailAccount, automationJob] = await Promise.all([
+  const [emailAccount, automationJob, digestDeliveryState] = await Promise.all([
     loadAccountSettingsSnapshotRaw(emailAccountId),
     loadScheduledCheckInsAutomationJob(emailAccountId),
+    getDigestDeliveryState({ emailAccountId }),
   ]);
 
   if (!emailAccount) return null;
@@ -1160,6 +1192,7 @@ export async function loadAccountSettingsSnapshot(emailAccountId: string) {
     followUpAutoDraftEnabled: emailAccount.followUpAutoDraftEnabled,
     digest: {
       enabled: Boolean(emailAccount.digestSchedule),
+      combinesIncludedRules: true,
       schedule: emailAccount.digestSchedule
         ? {
             intervalDays: emailAccount.digestSchedule.intervalDays,
@@ -1172,6 +1205,23 @@ export async function loadAccountSettingsSnapshot(emailAccountId: string) {
               null,
           }
         : null,
+      delivery: {
+        emailEnabled: emailAccount.digestSendEmail,
+        destinationEmail: emailAccount.email,
+        dispatchIntervalMinutes: DIGEST_DISPATCH_INTERVAL_MINUTES,
+        estimatedNextDeliveryAt:
+          getEstimatedDigestDeliveryAt(
+            emailAccount.digestSchedule?.nextOccurrenceAt,
+          )?.toISOString() ?? null,
+        queuedItemCount: digestDeliveryState.queuedItemCount,
+        lastDelivery: digestDeliveryState.lastDelivery
+          ? {
+              status: digestDeliveryState.lastDelivery.status,
+              occurredAt:
+                digestDeliveryState.lastDelivery.occurredAt.toISOString(),
+            }
+          : null,
+      },
       includedRules: emailAccount.rules
         .filter((rule) => rule.actions.length > 0)
         .map((rule) => ({

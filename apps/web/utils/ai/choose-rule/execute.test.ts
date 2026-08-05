@@ -141,6 +141,40 @@ describe("executeAct", () => {
     });
   });
 
+  it("records actions skipped by the executor without failing the rule", async () => {
+    mockRunActionFunction.mockResolvedValueOnce({
+      skipped: true,
+      reason: "NO_NEW_FORWARD_RECIPIENTS",
+    });
+
+    const executedRule = {
+      ...baseExecutedRule,
+      actionItems: [{ id: "action-1", type: ActionType.FORWARD }],
+    } as any;
+
+    const result = await executeAct({
+      client: mockClient,
+      executedRule,
+      message,
+      emailAccount,
+      logger,
+    });
+
+    expect(result).toBe(ExecutedRuleStatus.APPLIED);
+    expect(mockExecutedActionUpdate).toHaveBeenCalledWith({
+      where: { id: "action-1" },
+      data: {
+        executionStatus: "SKIPPED",
+        executedAt: expect.any(Date),
+        executionError: Prisma.DbNull,
+      },
+    });
+    expect(mockExecutedRuleUpdate).toHaveBeenCalledWith({
+      where: { id: "executed-rule-1" },
+      data: { status: ExecutedRuleStatus.APPLIED },
+    });
+  });
+
   it("marks executed rule as ERROR when notify sender reports a failure", async () => {
     mockRunActionFunction.mockResolvedValueOnce({
       success: false,

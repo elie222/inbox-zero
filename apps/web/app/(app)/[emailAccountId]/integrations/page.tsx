@@ -15,12 +15,15 @@ import { useIntegrationsEnabled } from "@/hooks/useFeatureFlags";
 
 export default function IntegrationsPage() {
   const integrationsEnabled = useIntegrationsEnabled();
-  const { tier } = usePremium();
+  const { tier, isLoading: isPremiumLoading } = usePremium();
 
   const hasAccess = hasTierAccess({
     tier: tier || null,
     minimumTier: "PLUS_MONTHLY",
   });
+
+  // The feature flag is undefined while PostHog bootstraps
+  if (integrationsEnabled === undefined) return null;
 
   if (!integrationsEnabled) {
     return (
@@ -68,7 +71,7 @@ export default function IntegrationsPage() {
       </div>
 
       <div className="mt-8 space-y-4">
-        {!hasAccess && <IntegrationsPremiumAlert />}
+        {!isPremiumLoading && !hasAccess && <IntegrationsPremiumAlert />}
         <Integrations />
       </div>
     </PageWrapper>

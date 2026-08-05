@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createCanonicalTimeOfDay } from "@/utils/schedule";
 import {
+  getEstimatedDigestDeliveryAt,
   getDigestScheduleProgression,
   isDigestScheduleDue,
 } from "@/utils/digest/schedule";
@@ -88,5 +89,29 @@ describe("getDigestScheduleProgression", () => {
     expect(progression.nextOccurrenceAt).toEqual(
       new Date("2026-01-10T17:00:00.000Z"),
     );
+  });
+});
+
+describe("getEstimatedDigestDeliveryAt", () => {
+  it("rounds a scheduled time up to the next dispatch window", () => {
+    expect(
+      getEstimatedDigestDeliveryAt(new Date("2026-01-10T15:21:00.000Z")),
+    ).toEqual(new Date("2026-01-10T15:25:00.000Z"));
+  });
+
+  it("keeps a scheduled time that is already on a dispatch boundary", () => {
+    expect(
+      getEstimatedDigestDeliveryAt(new Date("2026-01-10T15:20:00.000Z")),
+    ).toEqual(new Date("2026-01-10T15:20:00.000Z"));
+  });
+
+  it("handles rounding into the next day", () => {
+    expect(
+      getEstimatedDigestDeliveryAt(new Date("2026-01-10T23:59:00.000Z")),
+    ).toEqual(new Date("2026-01-11T00:00:00.000Z"));
+  });
+
+  it("returns null when no delivery is scheduled", () => {
+    expect(getEstimatedDigestDeliveryAt(null)).toBeNull();
   });
 });

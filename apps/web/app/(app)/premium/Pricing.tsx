@@ -9,6 +9,7 @@ import { usePostHog } from "posthog-js/react";
 import { env } from "@/env";
 import { LoadingContent } from "@/components/LoadingContent";
 import { usePremium } from "@/hooks/usePremium";
+import { usePricingFrequencyDefault } from "@/hooks/useFeatureFlags";
 import { Button } from "@/components/ui/button";
 import {
   PricingFrequencyToggle,
@@ -67,7 +68,14 @@ export default function Pricing(props: PricingProps) {
   );
   const isLegacyStripePlan = shouldShowLegacyStripePricingNotice(premium);
 
-  const [frequency, setFrequency] = useState(frequencies[1]);
+  const defaultFrequency =
+    usePricingFrequencyDefault() === "annually"
+      ? frequencies[1]
+      : frequencies[0];
+  const [chosenFrequency, setFrequency] = useState<
+    (typeof frequencies)[number] | null
+  >(null);
+  const frequency = chosenFrequency ?? defaultFrequency;
 
   const userPremiumTier = getUserTier(premium);
 
@@ -115,7 +123,7 @@ export default function Pricing(props: PricingProps) {
       <div
         id="pricing"
         className={cn(
-          "relative isolate mx-auto max-w-7xl bg-white px-6 pt-10 lg:px-8",
+          "relative isolate mx-auto max-w-7xl bg-white px-6 pt-6 sm:pt-10 lg:px-8",
           props.className,
         )}
       >
@@ -167,7 +175,7 @@ export default function Pricing(props: PricingProps) {
 
         <div
           className={cn(
-            "isolate mx-auto mt-10 grid grid-cols-1 gap-y-8 gap-4",
+            "isolate mx-auto mt-6 grid grid-cols-1 gap-y-8 gap-4 sm:mt-10",
             displayedTiers.length === 2
               ? "max-w-3xl lg:grid-cols-2"
               : "max-w-7xl lg:mx-0 lg:max-w-none lg:grid-cols-3",
@@ -235,10 +243,7 @@ function PriceTier({
   }
 
   return (
-    <ThreeColItem
-      key={tier.name}
-      className="flex flex-col rounded-3xl bg-white p-8 ring-1 ring-gray-200 xl:p-10"
-    >
+    <div className="flex flex-col rounded-3xl bg-white p-6 ring-1 ring-gray-200 sm:p-8 xl:p-10">
       <div className="flex-1">
         <div className="flex items-center justify-between gap-x-4">
           <h3
@@ -415,16 +420,6 @@ function PriceTier({
           getCTAText()
         )}
       </button>
-    </ThreeColItem>
+    </div>
   );
-}
-
-function ThreeColItem({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return <div className={cn(className)}>{children}</div>;
 }

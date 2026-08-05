@@ -70,6 +70,12 @@ const features: {
     professional: true,
   },
   {
+    name: "App integrations (Notion, Stripe, and more)",
+    starter: false,
+    plus: true,
+    professional: true,
+  },
+  {
     name: "Auto-file attachments",
     starter: false,
     plus: true,

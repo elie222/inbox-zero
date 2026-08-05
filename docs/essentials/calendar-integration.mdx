@@ -1,31 +1,41 @@
 ---
 title: 'Calendar Integration'
-description: 'Connect your calendars to let AI draft responses based on your actual availability.'
+description: 'Connect calendars for AI scheduling, availability, booking links, and meeting briefs.'
 icon: 'calendar'
 ---
 
-## Overview
+Connected calendars let the assistant check your real availability when it drafts scheduling replies, so it can offer times that actually work. The **Calendars** page also manages weekly availability, booking links, timezone, and the calendars used for conflict checks.
 
-Inbox Zero's calendar integration enables the AI assistant to draft email responses based on your actual calendar availability. It checks all your connected calendars (work and personal) and suggests available time slots or includes your booking link — eliminating scheduling back-and-forth.
+## Connect a Calendar
 
-## Getting Started
+1. Open **Calendars** in the left sidebar.
+2. Connect Google Calendar or Microsoft Outlook Calendar and authorize access.
+3. Choose which calendars should be checked for availability.
+4. Confirm your timezone.
 
-1. **Navigate to the Calendars page** — Click `Calendars` in the sidebar
-2. **Connect your calendar** — Choose Google Calendar or Microsoft (Outlook) Calendar, authorize access, and select which calendars to sync
-3. **Configure settings** (optional) — Set your timezone and add a booking link (Calendly, Google Calendar, Microsoft Bookings, etc.) that the AI can include in draft responses
+You can connect multiple calendars, such as separate work and personal calendars. Select the calendars that should block time so the assistant does not offer conflicting slots.
 
-<Note>
-You can connect multiple calendars — perfect if you manage work and personal calendars separately.
-</Note>
+## Weekly Availability
 
-## How It Works
+In the **Availability** section, set the hours the assistant is allowed to suggest for each day of the week. These hours use the timezone shown on the **Calendars** page. Calendar events still block otherwise available time.
 
-When you receive emails asking about your availability, your AI assistant automatically:
+## Booking Links
 
-1. **Checks your connected calendars** for conflicts
-2. **Identifies available time slots** that match the request
-3. **Drafts a response** with accurate availability or your booking link
+You can either:
+
+- Create an [Inbox Zero booking link](/essentials/booking-links), or
+- Add an existing Calendly, Google Calendar, Microsoft Bookings, or other booking URL for the assistant to share.
+
+Guests can book available times and use the booking page to reschedule or cancel.
+
+## AI Scheduling
+
+When an email asks about availability, the assistant can:
+
+1. Check connected calendars for conflicts.
+2. Restrict suggestions to your weekly availability.
+3. Draft a response with available times or your configured booking link.
 
 ## Meeting Briefs
 
-Connecting your calendar also enables [Meeting Briefs](/essentials/meeting-briefs), which sends you AI-generated briefings before meetings with external contacts.
+Connecting a calendar also enables [Meeting Briefs](/essentials/meeting-briefs), which prepares context before meetings with external guests.

@@ -273,7 +273,7 @@ Alex`,
       );
 
       test(
-        "explicit time request uses human-friendly timezone wording",
+        "explicit options request returns requested times with human-friendly timezone",
         async () => {
           const schedulingEmailAccount = {
             ...emailAccount,
@@ -316,7 +316,7 @@ Morgan`,
             currentDate: new Date("2026-05-12T09:30:00Z"),
           });
 
-          const testName = "human-friendly timezone for suggested times";
+          const testName = "explicitly requested scheduling options";
           const judgeResult = await judgeEvalOutput({
             input: [
               formatThreadForJudge(messages),
@@ -326,11 +326,11 @@ Morgan`,
             ].join("\n"),
             output: result.reply,
             expected:
-              "A concrete scheduling reply with suggested times. If a timezone is mentioned, it should use a human-friendly abbreviation or label rather than an IANA timezone identifier.",
+              "A concrete scheduling reply that offers both provided times because the sender explicitly requested two or three options. If a timezone is mentioned, it should use a human-friendly abbreviation or label rather than an IANA timezone identifier.",
             criterion: {
-              name: "Human-friendly timezone wording",
+              name: "Requested options with human-friendly timezone",
               description:
-                "When the sender explicitly asks for times and calendar availability is provided, the draft may suggest slots, but it should not write raw IANA timezone identifiers such as Asia/Jerusalem. It should use a normal user-facing timezone abbreviation or label if timezone context is needed.",
+                "When the sender explicitly asks for two or three times and two available slots are provided, the draft should offer both slots. It should not write raw IANA timezone identifiers such as Asia/Jerusalem, and should use a normal user-facing timezone abbreviation or label if timezone context is needed.",
             },
           });
           const pass =
@@ -340,13 +340,13 @@ Morgan`,
             testName,
             model: model.label,
             pass,
-            expected: "suggested times without IANA timezone wording",
+            expected: "both requested options without IANA timezone wording",
             actual: formatSemanticJudgeActual(result.reply, judgeResult),
           });
 
           expect(
             pass,
-            `Draft should avoid raw IANA timezone wording.\n\nReply:\n${result.reply}\n\nJudge: ${JSON.stringify(
+            `Draft should provide the requested options without raw IANA timezone wording.\n\nReply:\n${result.reply}\n\nJudge: ${JSON.stringify(
               judgeResult,
               null,
               2,
@@ -357,7 +357,7 @@ Morgan`,
       );
 
       test(
-        "personal scheduling request with calendar availability",
+        "personal scheduling request proposes one concrete time",
         async () => {
           const messages = [
             {
@@ -413,11 +413,11 @@ Priya`,
             ].join("\n"),
             output: result.reply,
             expected:
-              "A substantive scheduling reply that meaningfully advances the meeting, either by using the provided calendar availability or by asking for updated availability if the suggested times appear stale.",
+              "A concise scheduling reply that proposes exactly one of the provided available times. It should not present a list or menu of multiple options because the sender did not ask for options.",
             criterion: {
-              name: "Substantive scheduling reply",
+              name: "One concrete meeting proposal",
               description:
-                "When the sender explicitly asks to schedule and calendar availability is provided, the draft should be a meaningful scheduling response rather than a blank or evasive reply. It may either propose the provided slots or ask for updated availability if those slots appear outdated.",
+                "When the sender asks broadly what time works and does not request options, the draft should propose exactly one specific time from the provided future availability. It must not list or offer multiple available times.",
             },
           });
           const pass = judgeResult.pass;
@@ -426,11 +426,18 @@ Priya`,
             testName,
             model: model.label,
             pass,
-            expected: "substantive draft",
+            expected: "exactly one concrete available time",
             actual: formatSemanticJudgeActual(result.reply, judgeResult),
           });
 
-          expect(judgeResult.pass).toBe(true);
+          expect(
+            judgeResult.pass,
+            `Draft should propose exactly one available time.\n\nReply:\n${result.reply}\n\nJudge: ${JSON.stringify(
+              judgeResult,
+              null,
+              2,
+            )}`,
+          ).toBe(true);
         },
         TIMEOUT,
       );
@@ -1022,6 +1029,172 @@ thanks,`,
     });
 
     describe("grounding and uncertainty", () => {
+      test(
+        "addresses each item in a multi-part discrepancy report",
+        async () => {
+          const messages = [
+            {
+              ...getEmail({
+                from: "Morgan Lee <morgan@customer.example>",
+                to: emailAccount.email,
+                subject: "April usage discrepancies",
+                content: `Hi,
+
+Could you check two discrepancies in our April usage report?
+
+- API usage shows 128,000 requests, while our logs show 102,000.
+- Storage shows 4.2 TB, while the billing dashboard shows 3.7 TB.
+
+Have both figures been verified, and will either be corrected?
+
+Thanks,
+Morgan`,
+              }),
+              date: new Date("2026-05-05T10:00:00Z"),
+            },
+          ];
+          const knowledgeBaseContent =
+            "Usage reports are generated from provider data and can differ from customer dashboards because aggregation timing varies.";
+
+          const result = await aiDraftReplyWithConfidence({
+            messages,
+            emailAccount,
+            knowledgeBaseContent,
+            emailHistorySummary: null,
+            emailHistoryContext: null,
+            calendarAvailability: null,
+            writingStyle: null,
+            mcpContext: null,
+            meetingContext: null,
+          });
+
+          const testName = "multi-part discrepancy completeness";
+          const judgeResult = await judgeEvalOutput({
+            input: [
+              formatThreadForJudge(messages),
+              "",
+              "## Knowledge Base",
+              knowledgeBaseContent,
+            ].join("\n"),
+            output: result.reply,
+            expected:
+              "A useful reply that keeps both reported discrepancies in scope. It may answer them collectively when it is clear the answer or next step applies to both, but it must not ignore one, use general policy as a substitute for checking them, or claim that either was verified or corrected without supporting context. It must not be high confidence because their current status is unknown.",
+            criterion: {
+              name: "Complete and grounded multi-part response",
+              description:
+                "The draft should make clear that its answer or next step covers both reported discrepancies. A concise collective response is acceptable. General background must not replace the case-specific response, and neither item may be presented as verified or corrected without support.",
+            },
+          });
+          const pass =
+            result.confidence !== "HIGH_CONFIDENCE" && judgeResult.pass;
+
+          evalReporter.record({
+            testName,
+            model: model.label,
+            pass,
+            expected:
+              "both discrepancies addressed without unsupported verification or correction claims; not high confidence",
+            actual: `confidence=${result.confidence} | ${formatSemanticJudgeActual(
+              result.reply,
+              judgeResult,
+            )}`,
+          });
+
+          expect(
+            pass,
+            `Draft should cover both unresolved discrepancies without inventing their status.\n\nConfidence: ${result.confidence}\nReply:\n${result.reply}\n\nJudge: ${JSON.stringify(
+              judgeResult,
+              null,
+              2,
+            )}`,
+          ).toBe(true);
+        },
+        TIMEOUT,
+      );
+
+      test(
+        "does not repeat a resolution contradicted by the sender",
+        async () => {
+          const messages = [
+            {
+              ...getEmail({
+                from: emailAccount.email,
+                to: "riley@customer.example",
+                subject: "Re: Account issues",
+                content:
+                  "We've corrected the duplicate invoice and reactivated export access. Both should work now.",
+              }),
+              date: new Date("2026-05-04T09:00:00Z"),
+            },
+            {
+              ...getEmail({
+                from: "Riley Stone <riley@customer.example>",
+                to: emailAccount.email,
+                subject: "Re: Account issues",
+                content: `Hi,
+
+The duplicate invoice is still on our account, and export access is still disabled.
+
+Please confirm once both have actually been fixed.
+
+Thanks,
+Riley`,
+              }),
+              date: new Date("2026-05-05T09:00:00Z"),
+            },
+          ];
+
+          const result = await aiDraftReplyWithConfidence({
+            messages,
+            emailAccount,
+            knowledgeBaseContent: null,
+            emailHistorySummary: null,
+            emailHistoryContext: null,
+            calendarAvailability: null,
+            writingStyle: null,
+            mcpContext: null,
+            meetingContext: null,
+          });
+
+          const testName = "contradicted resolution remains unresolved";
+          const judgeResult = await judgeEvalOutput({
+            input: formatThreadForJudge(messages),
+            output: result.reply,
+            expected:
+              "A concise reply that treats both the duplicate invoice and disabled export access as unresolved because the sender directly contradicted the earlier resolution. It may promise to investigate or confirm later, but must not say either issue is already fixed without newer supporting context. It must not be high confidence because no newer resolution is available.",
+            criterion: {
+              name: "Sender contradiction overrides stale resolution",
+              description:
+                "The draft should recognize that both issues remain unresolved after the sender reported the previous fix did not work. It must not repeat or imply the earlier resolved status as current without new evidence.",
+            },
+          });
+          const pass =
+            result.confidence !== "HIGH_CONFIDENCE" && judgeResult.pass;
+
+          evalReporter.record({
+            testName,
+            model: model.label,
+            pass,
+            expected:
+              "both issues treated as unresolved; no unsupported fixed status; not high confidence",
+            actual: `confidence=${result.confidence} | ${formatSemanticJudgeActual(
+              result.reply,
+              judgeResult,
+            )}`,
+          });
+
+          expect(
+            pass,
+            `Draft should not repeat a contradicted resolution.\n\nConfidence: ${result.confidence}\nReply:\n${result.reply}\n\nJudge: ${JSON.stringify(
+              judgeResult,
+              null,
+              2,
+            )}`,
+          ).toBe(true);
+        },
+        TIMEOUT,
+      );
+
       test(
         "does not invent pricing terms without pricing context",
         async () => {
@@ -1841,8 +2014,18 @@ function mentionsAnySpecificSlot(
   });
 }
 
-function formatThreadForJudge(messages: { content: string }[]): string {
-  return messages.map((message) => message.content).join("\n\n---\n\n");
+function formatThreadForJudge(
+  messages: Array<{ content: string; date?: Date | string | null }>,
+): string {
+  return messages
+    .map((message) => {
+      const date =
+        message.date == null ? null : new Date(message.date).toISOString();
+      return [date ? `<date>${date}</date>` : null, message.content]
+        .filter(Boolean)
+        .join("\n");
+    })
+    .join("\n\n---\n\n");
 }
 
 function getStatusReplyExamples(userEmail: string): string {

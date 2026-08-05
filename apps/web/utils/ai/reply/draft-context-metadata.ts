@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  DraftReplyConfidence,
   ReplyMemoryKind,
   ReplyMemoryScopeType,
 } from "@/generated/prisma/enums";
@@ -42,6 +43,12 @@ export const draftContextMetadataSchema = z.object({
     injected: z.boolean(),
     selectedCount: z.number(),
   }),
+  // Optional: rows written before this field existed are still parsed.
+  draft: z
+    .object({
+      confidence: z.nativeEnum(DraftReplyConfidence),
+    })
+    .optional(),
 });
 
 export type DraftContextMetadata = z.infer<typeof draftContextMetadataSchema>;

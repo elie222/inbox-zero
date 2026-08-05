@@ -18,9 +18,17 @@ export function useMeetingBriefsEnabled() {
   return env.NEXT_PUBLIC_MEETING_BRIEFS_ENABLED;
 }
 
-export function useIntegrationsEnabled() {
+export function useMeetingRecorderEnabled() {
+  const posthogEnabled = useFeatureFlagEnabled("meeting-recorder");
+  return env.NEXT_PUBLIC_MEETING_RECORDER_ENABLED || posthogEnabled;
+}
+
+// Returns undefined while the PostHog flag is still loading
+export function useIntegrationsEnabled(): boolean | undefined {
   const posthogEnabled = useFeatureFlagEnabled("integrations");
-  return env.NEXT_PUBLIC_INTEGRATIONS_ENABLED || posthogEnabled;
+  if (env.NEXT_PUBLIC_INTEGRATIONS_ENABLED) return true;
+  if (!env.NEXT_PUBLIC_POSTHOG_KEY) return false;
+  return posthogEnabled;
 }
 
 export function useSmartFilingEnabled() {
@@ -58,7 +66,7 @@ export function usePricingVariant() {
   );
 }
 
-export type PricingFrequencyDefault = "control" | "monthly";
+export type PricingFrequencyDefault = "control" | "annually";
 
 export function usePricingFrequencyDefault() {
   return (

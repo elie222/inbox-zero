@@ -22,6 +22,7 @@ export async function enqueueBackgroundJob<T>({
     parallelism: number;
     path: string;
     headers?: HeadersInit;
+    deduplicationId?: string;
   };
   logger: Logger;
 }) {
@@ -73,6 +74,7 @@ export async function enqueueBackgroundJob<T>({
     path: qstash.path,
     body,
     headers: qstash.headers,
+    deduplicationId: qstash.deduplicationId,
   });
 
   return env.QSTASH_TOKEN ? "qstash" : "internal-fallback";

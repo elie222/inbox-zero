@@ -9,10 +9,11 @@ import { useIntegrationsEnabled } from "@/hooks/useFeatureFlags";
 
 export function IntegrationsSetting() {
   const { emailAccountId } = useAccount();
-  const { data } = useIntegrations();
+  const { data, isLoading } = useIntegrations();
   const integrationsEnabled = useIntegrationsEnabled();
 
-  if (!integrationsEnabled) {
+  // Wait for data so we don't flash the unconnected state
+  if (!integrationsEnabled || isLoading) {
     return null;
   }
 

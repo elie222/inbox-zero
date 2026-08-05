@@ -30,6 +30,24 @@
         }
       ]
     },
+    "app/api/meeting-recorder/transcript/queue/route.ts": {
+      "experimentalTriggers": [
+        {
+          "type": "queue/v2beta",
+          "topic": "meeting-recorder-transcript",
+          "retryAfterSeconds": 60
+        }
+      ]
+    },
+    "app/api/meeting-recorder/process/queue/route.ts": {
+      "experimentalTriggers": [
+        {
+          "type": "queue/v2beta",
+          "topic": "meeting-recorder-process",
+          "retryAfterSeconds": 60
+        }
+      ]
+    },
     "app/api/resend/digest/queue/route.ts": {
       "experimentalTriggers": [
         {
@@ -56,6 +74,15 @@
           "retryAfterSeconds": 60
         }
       ]
+    },
+    "app/api/resend/inbox-health/queue/route.ts": {
+      "experimentalTriggers": [
+        {
+          "type": "queue/v2beta",
+          "topic": "resend-inbox-health",
+          "retryAfterSeconds": 60
+        }
+      ]
     }
   },
   "rewrites": [
@@ -79,11 +106,19 @@
     },
     {
       "path": "/api/resend/digest/all",
-      "schedule": "0 * * * *"
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/resend/inbox-health/all",
+      "schedule": "0 8 * * *"
     },
     {
       "path": "/api/meeting-briefs",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/meeting-recorder/schedule",
+      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/follow-up-reminders",
@@ -96,6 +131,10 @@
     {
       "path": "/api/cron/reasoning-retention",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/mobile-push-retention",
+      "schedule": "30 3 * * *"
     },
     {
       "path": "/api/cron/draft-cleanup",

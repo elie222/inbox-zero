@@ -8,6 +8,7 @@ import type {
   CalendarEventWriteInput,
   CalendarEventWriteResult,
 } from "@/utils/calendar/event-types";
+import { findVideoConferenceLink } from "@/utils/calendar/video-conference-link";
 import { BookingLinkLocationType } from "@/generated/prisma/enums";
 import type { Logger } from "@/utils/logger";
 
@@ -24,12 +25,16 @@ export interface MicrosoftCalendarConnectionParams {
 type MicrosoftEvent = {
   id?: string;
   subject?: string;
+  body?: { content?: string };
   bodyPreview?: string;
   start?: { dateTime?: string };
   end?: { dateTime?: string };
   attendees?: Array<{
     emailAddress?: { address?: string; name?: string };
+    status?: { response?: string };
   }>;
+  isOrganizer?: boolean;
+  organizer?: { emailAddress?: { address?: string; name?: string } };
   location?: { displayName?: string };
   webLink?: string;
   onlineMeeting?: { joinUrl?: string };
@@ -263,13 +268,21 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
       description: event.bodyPreview || undefined,
       location: event.location?.displayName || undefined,
       eventUrl: event.webLink || undefined,
-      videoConferenceLink: getJoinUrl(event),
+      videoConferenceLink:
+        getJoinUrl(event) ||
+        findVideoConferenceLink(
+          event.location?.displayName,
+          event.body?.content ?? event.bodyPreview,
+        ),
       startTime: new Date(event.start?.dateTime || Date.now()),
       endTime: new Date(event.end?.dateTime || Date.now()),
+      organizerEmail: event.organizer?.emailAddress?.address || undefined,
+      isOrganizer: event.isOrganizer,
       attendees:
         event.attendees?.map((attendee) => ({
           email: attendee.emailAddress?.address || "",
           name: attendee.emailAddress?.name ?? undefined,
+          declined: attendee.status?.response === "declined",
         })) || [],
     };
   }

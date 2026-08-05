@@ -148,6 +148,13 @@ services:
         ) &
         (
           while true; do
+            echo \"[cron] Scheduling meeting recorder bots...\"
+            curl -s -X GET 'http://web:3000/api/meeting-recorder/schedule' -H \"Authorization: Bearer $${CRON_SECRET}\" || echo \"[cron] Warning: meeting-recorder request failed\"
+            sleep 300
+          done
+        ) &
+        (
+          while true; do
             echo \"[cron] Renewing email watches...\"
             curl -s -X GET 'http://web:3000/api/watch/all' -H \"Authorization: Bearer $${CRON_SECRET}\" || echo \"[cron] Warning: watch request failed\"
             sleep 21600

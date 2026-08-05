@@ -1,6 +1,6 @@
 import { render } from "@react-email/render";
 import { env } from "@/env";
-import { createEmailProvider } from "@/utils/email/provider";
+import { sendNotificationEmail } from "@/utils/email/send-notification-email";
 import { sendMeetingBriefingEmail } from "@inboxzero/resend";
 import MeetingBriefingEmail, {
   generateMeetingBriefingSubject,
@@ -204,40 +204,20 @@ async function sendBriefingViaEmail({
     unsubscribeToken,
   };
 
-  if (env.RESEND_API_KEY) {
-    logger.info("Sending briefing via Resend");
-    try {
-      await sendMeetingBriefingEmail({
+  await sendNotificationEmail({
+    emailAccountId,
+    userEmail,
+    provider,
+    subject: generateMeetingBriefingSubject(emailProps),
+    sendViaResend: () =>
+      sendMeetingBriefingEmail({
         from: env.RESEND_FROM_EMAIL,
         to: userEmail,
         emailProps,
-      });
-      logger.info("Briefing sent successfully via Resend");
-      return;
-    } catch (error) {
-      logger.error("Failed to send via Resend, falling back to self-send", {
-        error,
-      });
-    }
-  }
-
-  logger.info("Sending briefing via user's email provider");
-  const emailProvider = await createEmailProvider({
-    emailAccountId,
-    provider,
+      }),
+    renderHtml: () => render(MeetingBriefingEmail(emailProps)),
     logger,
   });
-
-  const subject = generateMeetingBriefingSubject(emailProps);
-  const htmlContent = await render(MeetingBriefingEmail(emailProps));
-
-  await emailProvider.sendEmailWithHtml({
-    to: userEmail,
-    subject,
-    messageHtml: htmlContent,
-  });
-
-  logger.info("Briefing sent successfully via self-email");
 }
 
 async function sendBriefingViaSlack({

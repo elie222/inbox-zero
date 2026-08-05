@@ -10,7 +10,8 @@ import { isPremiumRecord } from "@/utils/premium";
 import type { RedisUsage } from "@/utils/redis/usage";
 
 export function Usage(props: { usage: RedisUsage | null }) {
-  const { premium, isLoading, error } = usePremium();
+  const { premium, unsubscribeCreditsRemaining, isLoading, error } =
+    usePremium();
 
   return (
     <LoadingContent loading={isLoading} error={error}>
@@ -21,7 +22,7 @@ export function Usage(props: { usage: RedisUsage | null }) {
             value: isPremiumRecord(premium)
               ? "Unlimited"
               : formatStat(
-                  premium?.unsubscribeCredits ??
+                  unsubscribeCreditsRemaining ??
                     env.NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS,
                 ),
             subvalue: "credits",

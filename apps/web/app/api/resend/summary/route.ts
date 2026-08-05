@@ -3,8 +3,7 @@ import { subHours } from "date-fns/subHours";
 import { sendSummaryEmail } from "@inboxzero/resend";
 import { withEmailAccount, withError } from "@/utils/middleware";
 import { env } from "@/env";
-import { hasCronSecret } from "@/utils/cron";
-import { isValidInternalApiKey } from "@/utils/internal-api";
+import { isAuthorizedCronOrInternalRequest } from "@/utils/cron";
 import { captureException } from "@/utils/error";
 import type { Prisma } from "@/generated/prisma/client";
 import prisma from "@/utils/prisma";
@@ -49,10 +48,7 @@ export const GET = withEmailAccount("resend/summary", async (request) => {
 
 export const POST = withError("resend/summary", async (request) => {
   const logger = request.logger;
-  if (
-    !hasCronSecret(request) &&
-    !isValidInternalApiKey(request.headers, logger)
-  ) {
+  if (!isAuthorizedCronOrInternalRequest(request)) {
     logger.error("Unauthorized cron request");
     captureException(new Error("Unauthorized cron request: resend"));
     return new Response("Unauthorized", { status: 401 });

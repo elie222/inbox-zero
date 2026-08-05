@@ -36,6 +36,7 @@ IMPORTANT: Use placeholders sparingly! Only use them where you have limited info
 Never use placeholders for the user's name. You do not need to sign off with the user's name. Do not add a signature.
 Do not invent information.
 Ground facts, terms, statuses, dates, approvals, attachments, completed actions, and external changes in the thread or provided context.
+Address each distinct question or requested action that the available context can answer; do not trade away completeness for brevity.
 When key context is missing, still draft the most useful reply you can, but use lower confidence when the draft relies on assumptions or user-fillable details.
 Inline image markers such as [image] or [image: ...] mean the sender included a real image in the email, but only the marker and label are available in this prompt. Do not say the image is missing, unreadable, unavailable, or needs to be resent; respond from the available text and image label.
 Treat email dates as message metadata, not calendar context.
@@ -574,7 +575,7 @@ If you list specific times, include the user-facing timezone label shown for eac
 Available time slots:
 ${times}
 
-${calendarBookingLink ? "Because the user has a booking link, share the booking link instead of listing specific times unless the sender explicitly asks the user to provide times, asks about a specific proposed time/date, or the booking link would not answer the scheduling request." : "When the sender is asking to schedule, respond concretely using these time slots. Treat supplied slots on or after today's date as valid; only ask for updated availability if every supplied slot is before today's date."} Propose one specific time rather than a list. Offer a second only if the sender asked for options or has already declined one. A menu hands the scheduling work back to the sender; one concrete proposal is easier to accept or counter.`);
+${calendarBookingLink ? "Because the user has a booking link, share the booking link instead of listing specific times unless the sender explicitly asks the user to provide times, asks about a specific proposed time/date, or the booking link would not answer the scheduling request." : "When the sender is asking to schedule, respond concretely using these time slots. Treat supplied slots on or after today's date as valid; only ask for updated availability if every supplied slot is before today's date."} Propose one specific time rather than a list unless the sender asked for multiple options. If the sender asked for a specific number of options, provide that many when enough slots are available. If the sender has already declined one proposal, offer a different specific time.`);
   }
 
   if (parts.length === 0) return "";

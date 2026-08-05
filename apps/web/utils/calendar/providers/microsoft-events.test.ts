@@ -5,9 +5,12 @@ import { MicrosoftCalendarEventProvider } from "@/utils/calendar/providers/micro
 const graphMocks = vi.hoisted(() => ({
   api: vi.fn(),
   get: vi.fn(),
+  orderby: vi.fn(),
   patch: vi.fn(),
   post: vi.fn(),
+  query: vi.fn(),
   select: vi.fn(),
+  top: vi.fn(),
 }));
 
 vi.mock("@/utils/outlook/calendar-client", () => ({
@@ -27,7 +30,93 @@ describe("MicrosoftCalendarEventProvider", () => {
       patch: graphMocks.patch,
       post: graphMocks.post,
       select: graphMocks.select,
+      query: graphMocks.query,
     });
+    graphMocks.query.mockReturnValue({ top: graphMocks.top });
+    graphMocks.top.mockReturnValue({ orderby: graphMocks.orderby });
+    graphMocks.orderby.mockReturnValue({ get: graphMocks.get });
+  });
+
+  it("parses the organizer and declined attendees when fetching events", async () => {
+    graphMocks.get.mockResolvedValue({
+      value: [
+        {
+          id: "event-id",
+          subject: "Sync",
+          isOrganizer: true,
+          organizer: { emailAddress: { address: "Host@Example.com" } },
+          start: { dateTime: "2026-05-04T09:00:00.000Z" },
+          end: { dateTime: "2026-05-04T09:30:00.000Z" },
+          attendees: [
+            {
+              emailAddress: { address: "guest@example.com", name: "Guest" },
+              status: { response: "accepted" },
+            },
+            {
+              emailAddress: { address: "busy@example.com", name: "Busy" },
+              status: { response: "declined" },
+            },
+          ],
+        },
+      ],
+    });
+
+    const provider = createProvider();
+
+    const events = await provider.fetchEvents({
+      timeMin: new Date("2026-05-04T00:00:00.000Z"),
+      timeMax: new Date("2026-05-05T00:00:00.000Z"),
+    });
+
+    expect(events[0]).toEqual(
+      expect.objectContaining({
+        isOrganizer: true,
+        organizerEmail: "Host@Example.com",
+        attendees: [
+          { email: "guest@example.com", name: "Guest", declined: false },
+          { email: "busy@example.com", name: "Busy", declined: true },
+        ],
+      }),
+    );
+  });
+
+  it("finds the video link for an accepted invitation", async () => {
+    const joinUrl =
+      "https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc%40thread.v2/0?context=%7b%22Tid%22%3a%22tenant%22%7d";
+    graphMocks.get.mockResolvedValue({
+      value: [
+        {
+          id: "invited-event-id",
+          subject: "Customer call",
+          isOrganizer: false,
+          organizer: { emailAddress: { address: "host@example.com" } },
+          start: { dateTime: "2026-05-04T09:00:00.000Z" },
+          end: { dateTime: "2026-05-04T09:30:00.000Z" },
+          attendees: [
+            {
+              emailAddress: { address: "user@example.com" },
+              status: { response: "accepted" },
+            },
+          ],
+          body: {
+            contentType: "html",
+            content: `<a href="${joinUrl}">Join Microsoft Teams Meeting</a>`,
+          },
+        },
+      ],
+    });
+
+    const events = await createProvider().fetchEvents({
+      timeMin: new Date("2026-05-04T00:00:00.000Z"),
+      timeMax: new Date("2026-05-05T00:00:00.000Z"),
+    });
+
+    expect(events[0]).toEqual(
+      expect.objectContaining({
+        isOrganizer: false,
+        videoConferenceLink: joinUrl,
+      }),
+    );
   });
 
   it("creates Teams meetings for Microsoft Teams locations", async () => {

@@ -309,6 +309,11 @@ const plusTier: Tier = {
         "Forward important emails and notifications to your Slack channels automatically.",
     },
     {
+      text: "App integrations",
+      tooltip:
+        "Connect Notion, Stripe, Monday.com, and more so the AI can use data from your tools when drafting replies and meeting briefs.",
+    },
+    {
       text: "Email digests",
       tooltip:
         "Group emails from selected rules into a scheduled summary instead of reading each message individually.",

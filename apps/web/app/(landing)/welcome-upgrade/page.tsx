@@ -11,7 +11,9 @@ export default function WelcomeUpgradePage() {
       <div className="mt-8">
         <Testimonial />
       </div>
-      <Footer />
+      <div className="hidden md:block">
+        <Footer />
+      </div>
     </>
   );
 }

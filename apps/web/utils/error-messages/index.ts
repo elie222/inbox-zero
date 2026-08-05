@@ -4,6 +4,7 @@ import { captureException } from "@/utils/error";
 import { sendActionRequiredEmail } from "@inboxzero/resend";
 import { env } from "@/env";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
+import type { Prisma } from "@/generated/prisma/client";
 
 // Used to store error messages for a user which we display in the UI
 
@@ -26,6 +27,8 @@ type ErrorMessageEntry = {
   message: string;
   timestamp: string;
   emailSentAt?: string;
+  actionUrl?: string;
+  actionLabel?: string;
 };
 
 type ErrorMessages = Record<string, ErrorMessageEntry>;
@@ -60,11 +63,18 @@ export async function getUserErrorMessages(
     });
 
     return Object.keys(updatedErrorMessages).length
-      ? updatedErrorMessages
+      ? addLegacyAccountRecoveryAction(userId, updatedErrorMessages)
       : null;
   }
 
-  return errorMessages;
+  return addLegacyAccountRecoveryAction(userId, errorMessages);
+}
+
+export function getAccountRecoveryAction(emailAccountId: string) {
+  return {
+    actionUrl: `/${emailAccountId}/permissions/consent`,
+    actionLabel: "Reconnect account",
+  };
 }
 
 export async function addUserErrorMessage(
@@ -265,6 +275,8 @@ export async function addUserErrorMessageWithNotification({
   errorType,
   errorMessage,
   storageKey = errorType,
+  actionUrl,
+  actionLabel,
   logger,
 }: {
   userId: string;
@@ -273,6 +285,8 @@ export async function addUserErrorMessageWithNotification({
   errorType: PersistedErrorType;
   errorMessage: string;
   storageKey?: string;
+  actionUrl?: string;
+  actionLabel?: string;
   logger: Logger;
 }): Promise<void> {
   try {
@@ -289,19 +303,36 @@ export async function addUserErrorMessageWithNotification({
     const currentErrorMessages = (user.errorMessages as ErrorMessages) || {};
     const existingEntry = currentErrorMessages[storageKey];
     const shouldSendEmail = !existingEntry?.emailSentAt;
+    const config = errorTypeConfig[errorType];
+    const isAccountRecoveryError =
+      errorType === ErrorType.ACCOUNT_DISCONNECTED ||
+      errorType === ErrorType.EMAIL_WATCH_LAPSED;
+    const defaultAction = isAccountRecoveryError
+      ? getAccountRecoveryAction(emailAccountId)
+      : config;
+    const resolvedActionUrl = actionUrl ?? defaultAction.actionUrl;
+    const resolvedActionLabel = actionLabel ?? defaultAction.actionLabel;
 
     // Nothing changed since the last write - skip it.
-    if (!shouldSendEmail && existingEntry?.message === errorMessage) return;
+    if (
+      !shouldSendEmail &&
+      existingEntry?.message === errorMessage &&
+      existingEntry.actionUrl === resolvedActionUrl &&
+      existingEntry.actionLabel === resolvedActionLabel
+    ) {
+      return;
+    }
 
     const newEntry: ErrorMessageEntry = {
       message: errorMessage,
       timestamp: new Date().toISOString(),
       emailSentAt: existingEntry?.emailSentAt,
+      actionUrl: resolvedActionUrl,
+      actionLabel: resolvedActionLabel,
     };
 
     if (shouldSendEmail) {
       try {
-        const config = errorTypeConfig[errorType];
         const unsubscribeToken = await createUnsubscribeToken({
           emailAccountId,
         });
@@ -315,8 +346,8 @@ export async function addUserErrorMessageWithNotification({
             unsubscribeToken,
             errorType: config.label,
             errorMessage,
-            actionUrl: config.actionUrl,
-            actionLabel: config.actionLabel,
+            actionUrl: resolvedActionUrl,
+            actionLabel: resolvedActionLabel,
           },
         });
 
@@ -343,4 +374,54 @@ export async function addUserErrorMessageWithNotification({
     logger.error("Error in addUserErrorMessageWithNotification", { error });
     captureException(error, { extra: { userId, errorType } });
   }
+}
+
+async function addLegacyAccountRecoveryAction(
+  userId: string,
+  errorMessages: ErrorMessages | null,
+): Promise<ErrorMessages | null> {
+  const accountError = errorMessages?.[ErrorType.ACCOUNT_DISCONNECTED];
+  if (!accountError || accountError.actionUrl) return errorMessages;
+
+  const disconnectedAccounts = await prisma.emailAccount.findMany({
+    where: {
+      userId,
+      account: { disconnectedAt: { not: null } },
+    },
+    select: { id: true, email: true },
+  });
+
+  const matchingDisconnectedAccounts = disconnectedAccounts.filter(
+    ({ email }) => accountError.message.includes(email),
+  );
+  const action =
+    matchingDisconnectedAccounts.length === 1
+      ? getAccountRecoveryAction(matchingDisconnectedAccounts[0].id)
+      : { actionUrl: "/accounts", actionLabel: "Manage accounts" };
+  const updatedErrorMessages = {
+    ...errorMessages,
+    [ErrorType.ACCOUNT_DISCONNECTED]: {
+      ...accountError,
+      ...action,
+    },
+  };
+
+  const updateResult = await prisma.user.updateMany({
+    where: {
+      id: userId,
+      errorMessages: { equals: errorMessages as Prisma.InputJsonValue },
+    },
+    data: { errorMessages: updatedErrorMessages },
+  });
+
+  if (updateResult.count === 0) {
+    const latestUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { errorMessages: true },
+    });
+
+    return (latestUser?.errorMessages as ErrorMessages) || null;
+  }
+
+  return updatedErrorMessages;
 }

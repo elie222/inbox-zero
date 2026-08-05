@@ -1,6 +1,8 @@
 import type { Schedule } from "@/generated/prisma/client";
 import { calculateNextScheduleDate } from "@/utils/schedule";
 
+export const DIGEST_DISPATCH_INTERVAL_MINUTES = 5;
+
 type DigestScheduleForProgression = Pick<
   Schedule,
   | "intervalDays"
@@ -33,4 +35,17 @@ export function getDigestScheduleProgression(
       lastOccurrenceAt,
     }),
   };
+}
+
+export function getEstimatedDigestDeliveryAt(
+  nextOccurrenceAt: Date | null | undefined,
+): Date | null {
+  if (!nextOccurrenceAt) return null;
+
+  const dispatchIntervalMs = DIGEST_DISPATCH_INTERVAL_MINUTES * 60 * 1000;
+
+  return new Date(
+    Math.ceil(nextOccurrenceAt.getTime() / dispatchIntervalMs) *
+      dispatchIntervalMs,
+  );
 }

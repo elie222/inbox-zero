@@ -15,7 +15,13 @@ import { labelMessageAndSync } from "@/utils/label.server";
 import { hasVariables } from "@/utils/template";
 import prisma from "@/utils/prisma";
 import { sendColdEmailNotification } from "@/utils/cold-email/send-notification";
-import { extractEmailAddress, isSameOrganization } from "@/utils/email";
+import {
+  extractEmailAddress,
+  extractEmailAddresses,
+  isSameEmailAddress,
+  isSameOrganization,
+  splitRecipientList,
+} from "@/utils/email";
 import { captureException } from "@/utils/error";
 import { env } from "@/env";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
@@ -27,7 +33,6 @@ import {
 } from "@/utils/messaging/rule-notifications";
 import { isMessagingDraftActionType } from "@/utils/actions/draft-reply";
 import { checkHasAccess } from "@/utils/premium/server";
-import type { ActionSkipped } from "@/utils/ai/executed-action-outcome";
 import { handlePreviousDraftDeletion } from "@/utils/ai/choose-rule/draft-management";
 
 const MODULE = "ai-actions";
@@ -373,31 +378,75 @@ const forward: ActionFunction<{
   to?: string | null;
   cc?: string | null;
   bcc?: string | null;
-}> = async ({ client, email, args }) => {
+}> = async ({ client, email, args, logger }) => {
   if (!args.to) return;
 
+  const messageParticipants = [
+    email.headers.from,
+    email.headers.to,
+    email.headers.cc,
+    email.headers.bcc,
+  ].flatMap((value) => extractEmailAddresses(value ?? ""));
+
+  const toRecipients = removeMessageParticipants(args.to, messageParticipants);
+  const ccRecipients = removeMessageParticipants(args.cc, messageParticipants);
+  const bccRecipients = removeMessageParticipants(
+    args.bcc,
+    messageParticipants,
+  );
+
+  if (!toRecipients.length && !ccRecipients.length && !bccRecipients.length) {
+    logger.warn("Skipping forward because no new recipients remain");
+    return { skipped: true, reason: "NO_NEW_FORWARD_RECIPIENTS" };
+  }
+
+  const recipients = [args.to, args.cc, args.bcc].flatMap((value) =>
+    extractEmailAddresses(value ?? ""),
+  );
+  const remainingRecipientCount =
+    toRecipients.length + ccRecipients.length + bccRecipients.length;
+  if (remainingRecipientCount < recipients.length) {
+    logger.info("Removed existing message participants from forward");
+  }
+
+  const forwardMessage = {
+    id: email.id,
+    threadId: email.threadId,
+    headers: email.headers,
+    internalDate: email.internalDate,
+    snippet: "",
+    historyId: "",
+    inline: [],
+    subject: email.headers.subject,
+    date: email.headers.date,
+  };
   const forwardArgs = {
     messageId: email.id,
-    to: args.to,
-    cc: args.cc ?? undefined,
-    bcc: args.bcc ?? undefined,
     content: args.content ?? undefined,
   };
 
-  await client.forwardEmail(
-    {
-      id: email.id,
-      threadId: email.threadId,
-      headers: email.headers,
-      internalDate: email.internalDate,
-      snippet: "",
-      historyId: "",
-      inline: [],
-      subject: email.headers.subject,
-      date: email.headers.date,
-    },
-    forwardArgs,
-  );
+  if (!toRecipients.length && !ccRecipients.length) {
+    // A primary recipient is required, so send BCC-only recipients separately
+    // to avoid exposing them to each other.
+    for (const recipient of bccRecipients) {
+      await client.forwardEmail(forwardMessage, {
+        ...forwardArgs,
+        to: recipient,
+      });
+    }
+    return;
+  }
+
+  if (!toRecipients.length) {
+    toRecipients.push(ccRecipients.shift()!);
+  }
+
+  await client.forwardEmail(forwardMessage, {
+    ...forwardArgs,
+    to: toRecipients.join(", "),
+    cc: ccRecipients.join(", ") || undefined,
+    bcc: bccRecipients.join(", ") || undefined,
+  });
 };
 
 const mark_spam: ActionFunction<Record<string, unknown>> = async ({
@@ -545,7 +594,7 @@ const notify_sender: ActionFunction<Record<string, unknown>> = async ({
   // this action emails the sender, and a wrong one accuses a colleague of spamming.
   if (isSameOrganization(senderEmail, emailAccount.email)) {
     logger.warn("Skipping cold email notification to an internal sender");
-    return { skipped: true } satisfies ActionSkipped;
+    return { skipped: true, reason: "INTERNAL_SENDER" };
   }
 
   const result = await sendColdEmailNotification({
@@ -731,5 +780,17 @@ function isLegacyMessagingDraft({
 
   return !executedRule.actionItems?.some((action) =>
     isMessagingDraftActionType(action.type),
+  );
+}
+
+function removeMessageParticipants(
+  recipientList: string | null | undefined,
+  messageParticipants: string[],
+) {
+  return splitRecipientList(recipientList ?? "").filter(
+    (recipient) =>
+      !messageParticipants.some((participant) =>
+        isSameEmailAddress(participant, recipient),
+      ),
   );
 }

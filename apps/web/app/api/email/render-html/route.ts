@@ -8,7 +8,7 @@ export const maxDuration = 15;
 export const POST = withAuth("email/render-html", async (request) => {
   const body = renderHtmlBody.parse(await request.json());
 
-  const html = await rewriteHtmlForImageProxy(body.html, request.logger);
+  const result = await rewriteHtmlForImageProxy(body.html, request.logger);
 
-  return NextResponse.json({ html });
+  return NextResponse.json(result);
 });

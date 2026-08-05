@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePostHog } from "posthog-js/react";
 import type { PostHog } from "posthog-js";
 import { Label, Radio, RadioGroup } from "@headlessui/react";
+import { usePricingFrequencyDefault } from "@/hooks/useFeatureFlags";
 import { Sparkle } from "@/components/new-landing/icons/Sparkle";
 import { Zap } from "@/components/new-landing/icons/Zap";
 import { Check } from "@/components/new-landing/icons/Check";
@@ -88,7 +89,10 @@ const pricingTiers: PricingTier[] = [
 const frequencies = ["annually", "monthly"];
 
 export function Pricing() {
-  const [frequency, setFrequency] = useState(frequencies[0]);
+  const defaultFrequency =
+    usePricingFrequencyDefault() === "annually" ? "annually" : "monthly";
+  const [chosenFrequency, setFrequency] = useState<string | null>(null);
+  const frequency = chosenFrequency ?? defaultFrequency;
   const posthog = usePostHog();
 
   return (

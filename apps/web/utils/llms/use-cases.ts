@@ -31,6 +31,8 @@ export const LlmUseCase = {
   LearnedWritingStyleCompaction: "learned-writing-style-compaction",
   McpAgent: "mcp-agent",
   MeetingBriefing: "meeting-briefing",
+  MeetingFollowUpDraft: "meeting-follow-up-draft",
+  MeetingSummary: "meeting-summary",
   MeetingWebSearch: "meeting-web-search",
   ParseFilingReply: "parse-filing-reply",
   PersonaAnalysis: "persona-analysis",
@@ -40,6 +42,7 @@ export const LlmUseCase = {
   ReplyMemorySelection: "reply-memory-selection",
   ReplyNudge: "reply-nudge",
   Summarise: "summarise",
+  TranslateEmail: "translate-email",
   WritingStyleAnalysis: "writing-style-analysis",
 } as const;
 
@@ -74,6 +77,8 @@ export const LLM_USE_CASE_MODEL_TYPES = {
   [LlmUseCase.LearnedWritingStyleCompaction]: "economy",
   [LlmUseCase.McpAgent]: "economy",
   [LlmUseCase.MeetingBriefing]: "default",
+  [LlmUseCase.MeetingFollowUpDraft]: "draft",
+  [LlmUseCase.MeetingSummary]: "default",
   [LlmUseCase.MeetingWebSearch]: "economy",
   [LlmUseCase.ParseFilingReply]: "economy",
   [LlmUseCase.PersonaAnalysis]: "economy",
@@ -83,6 +88,7 @@ export const LLM_USE_CASE_MODEL_TYPES = {
   [LlmUseCase.ReplyMemorySelection]: "economy",
   [LlmUseCase.ReplyNudge]: "chat",
   [LlmUseCase.Summarise]: "default",
+  [LlmUseCase.TranslateEmail]: "economy",
   [LlmUseCase.WritingStyleAnalysis]: "default",
 } as const satisfies Record<LlmUseCase, ModelType>;
 

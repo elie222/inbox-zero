@@ -9,7 +9,7 @@ import {
 } from "@/utils/oauth/state";
 import { prefixPath } from "@/utils/path";
 import prisma from "@/utils/prisma";
-import { getIntegration } from "@/utils/mcp/integrations";
+import { findIntegration } from "@/utils/mcp/integrations";
 import { syncMcpTools } from "@/utils/mcp/sync-tools";
 import { handleOAuthCallback } from "@/utils/mcp/oauth";
 import { env } from "@/env";
@@ -18,7 +18,7 @@ export const GET = withError("mcp/callback", async (request, { params }) => {
   const logger = request.logger;
   const { integration } = await params;
 
-  const integrationConfig = getIntegration(integration);
+  const integrationConfig = findIntegration(integration);
 
   if (!integrationConfig) {
     throw new SafeError(`Integration ${integration} not found`);

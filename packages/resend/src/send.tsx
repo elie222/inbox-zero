@@ -8,6 +8,10 @@ import DigestEmail, {
   type DigestEmailProps,
   generateDigestSubject,
 } from "../emails/digest";
+import InboxHealthEmail, {
+  getSenderCountText,
+  type InboxHealthEmailProps,
+} from "../emails/inbox-health";
 import InvitationEmail, {
   type InvitationEmailProps,
 } from "../emails/invitation";
@@ -21,6 +25,10 @@ import MeetingBriefingEmail, {
   type MeetingBriefingEmailProps,
   generateMeetingBriefingSubject,
 } from "../emails/meeting-briefing";
+import MeetingRecapEmail, {
+  type MeetingRecapEmailProps,
+  generateMeetingRecapSubject,
+} from "../emails/meeting-recap";
 import ColdEmailNotification, {
   type ColdEmailNotificationProps,
 } from "../emails/cold-email-notification";
@@ -224,6 +232,33 @@ export const sendDigestEmail = async ({
     ],
   });
 
+export const sendInboxHealthEmail = async ({
+  from,
+  to,
+  test,
+  emailProps,
+}: {
+  from: string;
+  to: string;
+  test?: boolean;
+  emailProps: InboxHealthEmailProps;
+}) =>
+  sendEmail({
+    from,
+    to,
+    subject: `We found ${getSenderCountText(emailProps.suggestionCount)} you rarely read`,
+    react: <InboxHealthEmail {...emailProps} />,
+    test,
+    unsubscribeToken: emailProps.unsubscribeToken,
+    baseUrl: emailProps.baseUrl,
+    tags: [
+      {
+        name: "category",
+        value: "inbox-health",
+      },
+    ],
+  });
+
 export const sendInvitationEmail = async ({
   from,
   to,
@@ -328,6 +363,33 @@ export const sendMeetingBriefingEmail = async ({
       {
         name: "category",
         value: "meeting-briefing",
+      },
+    ],
+  });
+
+export const sendMeetingRecapEmail = async ({
+  from,
+  to,
+  test,
+  emailProps,
+}: {
+  from: string;
+  to: string;
+  test?: boolean;
+  emailProps: MeetingRecapEmailProps;
+}) =>
+  sendEmail({
+    from,
+    to,
+    subject: generateMeetingRecapSubject(emailProps),
+    react: <MeetingRecapEmail {...emailProps} />,
+    test,
+    unsubscribeToken: emailProps.unsubscribeToken,
+    baseUrl: emailProps.baseUrl,
+    tags: [
+      {
+        name: "category",
+        value: "meeting-recap",
       },
     ],
   });

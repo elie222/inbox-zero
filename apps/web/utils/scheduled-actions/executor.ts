@@ -244,6 +244,10 @@ async function executeDelayedAction({
       error: null,
       logger: log,
     });
+    log.info("Skipped delayed action", {
+      actionType: executedAction.type,
+      executedActionId: executedAction.id,
+    });
     return executedAction;
   }
 

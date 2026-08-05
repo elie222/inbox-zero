@@ -156,6 +156,15 @@ describe("provider health", () => {
     });
   });
 
+  it("does not treat malformed Outlook requests as permanent credential failures", () => {
+    expect(
+      classifyEmailAccountProviderIssue({
+        provider: "microsoft",
+        error: new Error("AADSTS9002313: Invalid request."),
+      }),
+    ).toBeNull();
+  });
+
   it("keeps provider error handling alive when cleanup fails", async () => {
     const logger = createMockLogger();
     vi.mocked(cleanupInvalidTokens).mockRejectedValueOnce(

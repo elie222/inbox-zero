@@ -615,6 +615,155 @@ describe("runActionFunction", () => {
     );
   });
 
+  describe("forward", () => {
+    const executedRule = {
+      id: "executed-rule-1",
+      threadId: "thread-1",
+      emailAccountId: "account-1",
+      ruleId: "rule-1",
+    } as any;
+
+    it("removes message participants while forwarding to remaining recipients", async () => {
+      const client = createMockEmailProvider();
+
+      await runActionFunction({
+        client,
+        email: {
+          ...email,
+          headers: {
+            ...email.headers,
+            cc: "Existing <existing@example.com>",
+            bcc: "hidden@example.com",
+          },
+        },
+        action: {
+          id: "action-1",
+          type: ActionType.FORWARD,
+          to: "Sender <SENDER@example.com>, user@example.com, Archive <archive@example.com>",
+          cc: "existing@example.com, Reviewer <reviewer@example.com>",
+          bcc: "hidden@example.com, auditor@example.com",
+        },
+        emailAccount,
+        executedRule,
+        logger,
+      });
+
+      expect(client.forwardEmail).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          to: "Archive <archive@example.com>",
+          cc: "Reviewer <reviewer@example.com>",
+          bcc: "auditor@example.com",
+        }),
+      );
+    });
+
+    it("skips forwarding when every configured recipient is already on the message", async () => {
+      const client = createMockEmailProvider();
+
+      const result = await runActionFunction({
+        client,
+        email,
+        action: {
+          id: "action-1",
+          type: ActionType.FORWARD,
+          to: "Sender <SENDER@example.com>, user@example.com",
+        },
+        emailAccount,
+        executedRule,
+        logger,
+      });
+
+      expect(result).toEqual({
+        skipped: true,
+        reason: "NO_NEW_FORWARD_RECIPIENTS",
+      });
+      expect(client.forwardEmail).not.toHaveBeenCalled();
+    });
+
+    it("promotes a new CC recipient when every primary recipient is already on the message", async () => {
+      const client = createMockEmailProvider();
+
+      await runActionFunction({
+        client,
+        email,
+        action: {
+          id: "action-1",
+          type: ActionType.FORWARD,
+          to: "sender@example.com",
+          cc: "Reviewer <reviewer@example.com>, auditor@example.com",
+        },
+        emailAccount,
+        executedRule,
+        logger,
+      });
+
+      expect(client.forwardEmail).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          to: "Reviewer <reviewer@example.com>",
+          cc: "auditor@example.com",
+        }),
+      );
+    });
+
+    it("forwards separately to new BCC recipients when no visible recipient remains", async () => {
+      const client = createMockEmailProvider();
+
+      await runActionFunction({
+        client,
+        email,
+        action: {
+          id: "action-1",
+          type: ActionType.FORWARD,
+          to: "sender@example.com",
+          bcc: "Reviewer <reviewer@example.com>, auditor@example.com",
+        },
+        emailAccount,
+        executedRule,
+        logger,
+      });
+
+      expect(client.forwardEmail).toHaveBeenCalledTimes(2);
+      expect(client.forwardEmail).toHaveBeenNthCalledWith(
+        1,
+        expect.anything(),
+        expect.objectContaining({
+          to: "Reviewer <reviewer@example.com>",
+        }),
+      );
+      expect(client.forwardEmail).toHaveBeenNthCalledWith(
+        2,
+        expect.anything(),
+        expect.objectContaining({
+          to: "auditor@example.com",
+        }),
+      );
+      expect(client.forwardEmail.mock.calls[0]?.[1]).not.toHaveProperty("bcc");
+      expect(client.forwardEmail.mock.calls[1]?.[1]).not.toHaveProperty("bcc");
+    });
+
+    it("forwards when every recipient is new to the message", async () => {
+      const client = createMockEmailProvider();
+
+      await runActionFunction({
+        client,
+        email,
+        action: {
+          id: "action-1",
+          type: ActionType.FORWARD,
+          to: "archive@example.com",
+          cc: "reviewer@example.com",
+        },
+        emailAccount,
+        executedRule,
+        logger,
+      });
+
+      expect(client.forwardEmail).toHaveBeenCalledOnce();
+    });
+  });
+
   it("does not try to resolve attachments when drafts have no selected attachments", async () => {
     const client = createMockEmailProvider();
 
@@ -720,10 +869,10 @@ describe("runActionFunction", () => {
       ["a colleague on the account owner's domain", "ceo@example.com"],
       ["the account owner", "user@example.com"],
     ])("does not notify %s", async (_name, from) => {
-      // Reported as a skip, not a failure: declining on purpose is not an error.
-      await expect(runNotifySender(from)).resolves.toEqual({ skipped: true });
+      const result = await runNotifySender(from);
 
       expect(sendColdEmailNotification).not.toHaveBeenCalled();
+      expect(result).toEqual({ skipped: true, reason: "INTERNAL_SENDER" });
     });
   });
 });

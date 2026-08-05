@@ -97,6 +97,7 @@ const {
 } = hoisted;
 
 export const mockSearchMessages = hoisted.mockSearchMessages;
+export { mockArchiveThreadWithLabel };
 export const mockGetFolders = hoisted.mockGetFolders;
 export const mockGetOrCreateFolderIdByName =
   hoisted.mockGetOrCreateFolderIdByName;
@@ -251,6 +252,16 @@ export function getFirstSearchInboxCall(toolCalls: RecordedToolCall[]) {
     ?.input;
 }
 
+export function getSearchInboxCalls(toolCalls: RecordedToolCall[]) {
+  return toolCalls
+    .filter(
+      (toolCall): toolCall is RecordedToolCall & { input: SearchInboxInput } =>
+        toolCall.toolName === "searchInbox" &&
+        isSearchInboxInput(toolCall.input),
+    )
+    .map((toolCall) => toolCall.input);
+}
+
 export const getLastMatchingToolCall = getSharedLastMatchingToolCall;
 
 export function isReadEmailInput(input: unknown): input is ReadEmailInput {
@@ -299,15 +310,16 @@ export function hasNoWriteToolCalls(toolCalls: RecordedToolCall[]) {
 }
 
 export function hasUnreadTriageSignal(
-  query: string,
+  searchCall: SearchInboxInput,
   provider: "google" | "microsoft",
   unreadSignal: string,
 ) {
-  const normalizedQuery = query.toLowerCase();
+  const normalizedQuery = searchCall.query.toLowerCase();
 
   if (provider === "microsoft") {
     return (
-      /\bunread\b/.test(normalizedQuery) &&
+      (searchCall.readState === "unread" ||
+        /\bunread\b/.test(normalizedQuery)) &&
       !containsForbiddenMicrosoftQueryOperator(normalizedQuery)
     );
   }
@@ -316,14 +328,15 @@ export function hasUnreadTriageSignal(
 }
 
 export function hasReplyTriageFocus(
-  query: string,
+  searchCall: SearchInboxInput,
   provider: "google" | "microsoft",
 ) {
-  const normalizedQuery = query.toLowerCase();
+  const normalizedQuery = searchCall.query.toLowerCase();
   if (provider === "microsoft") {
     return (
       !containsForbiddenMicrosoftQueryOperator(normalizedQuery) &&
-      ["reply", "respond"].some((term) => normalizedQuery.includes(term))
+      (searchCall.categoryName?.toLowerCase() === "to reply" ||
+        ["reply", "respond"].some((term) => normalizedQuery.includes(term)))
     );
   }
 
@@ -406,6 +419,8 @@ type SearchInboxInput = {
   query: string;
   limit?: number;
   pageToken?: string | null;
+  categoryName?: string | null;
+  readState?: "read" | "unread" | null;
 };
 
 type ReadEmailInput = {
@@ -432,7 +447,17 @@ function isSearchInboxInput(input: unknown): input is SearchInboxInput {
 
 function summarizeToolCall(toolCall: RecordedToolCall) {
   if (isSearchInboxInput(toolCall.input)) {
-    return `${toolCall.toolName}(query=${toolCall.input.query}, limit=${toolCall.input.limit ?? "default"})`;
+    const fields = [
+      `query=${toolCall.input.query}`,
+      `limit=${toolCall.input.limit ?? "default"}`,
+    ];
+    if (toolCall.input.readState) {
+      fields.push(`readState=${toolCall.input.readState}`);
+    }
+    if (toolCall.input.categoryName) {
+      fields.push(`categoryName=${toolCall.input.categoryName}`);
+    }
+    return `${toolCall.toolName}(${fields.join(", ")})`;
   }
 
   return toolCall.toolName;
