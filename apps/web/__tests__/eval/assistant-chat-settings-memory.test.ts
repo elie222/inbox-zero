@@ -347,15 +347,34 @@ async function evaluateScenario(
   expectation: SettingsMemoryScenarioExpectation,
 ) {
   switch (expectation.kind) {
-    case "capability_discovery":
+    case "capability_discovery": {
+      const judgeResult = expectation.semanticExpectation
+        ? await judgeEvalOutput({
+            input: prompt,
+            output: result.finalText,
+            expected: expectation.semanticExpectation,
+            criterion: expectation.semanticCriterion ?? {
+              name: "Capability explanation",
+              description:
+                "The assistant should accurately explain the supported capability and its limitations using the authoritative capability state.",
+            },
+          })
+        : null;
+
       return {
         pass:
           result.toolCalls.some(
             (toolCall) => toolCall.toolName === "getAssistantCapabilities",
-          ) && hasNoToolCalls(result.toolCalls, ["updateAssistantSettings"]),
-        judgeOutput: null,
-        judgeResult: null,
+          ) &&
+          hasNoToolCalls(result.toolCalls, [
+            "updateAssistantSettings",
+            ...(expectation.forbiddenTools ?? []),
+          ]) &&
+          (judgeResult?.pass ?? true),
+        judgeOutput: judgeResult ? result.finalText : null,
+        judgeResult,
       };
+    }
 
     case "digest_explanation": {
       const judgeResult = await judgeEvalOutput({

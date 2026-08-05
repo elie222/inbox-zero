@@ -4,6 +4,8 @@ import {
   captureAssistantChatTrace,
   getFirstMatchingToolCall,
   getLastMatchingToolCall as getSharedLastMatchingToolCall,
+  hasAssistantWriteToolCalls,
+  isAssistantWriteToolName,
   summarizeRecordedToolCalls,
   type RecordedToolCall,
 } from "@/__tests__/eval/assistant-chat-eval-utils";
@@ -38,23 +40,6 @@ export const inboxWorkflowProviders = [
     unreadSignal: "unread",
   },
 ] as const;
-
-const writeToolNames = new Set([
-  "manageInbox",
-  "createRule",
-  "updateRuleConditions",
-  "updateRuleActions",
-  "updateLearnedPatterns",
-  "updatePersonalInstructions",
-  "updateAssistantSettings",
-  "sendEmail",
-  "replyEmail",
-  "forwardEmail",
-  "createOrGetFolder",
-  "moveThreadsToFolder",
-  "saveMemory",
-  "addToKnowledgeBase",
-]);
 
 const hoisted = vi.hoisted(() => ({
   mockCreateRule: vi.fn(),
@@ -97,6 +82,7 @@ const {
 } = hoisted;
 
 export const mockSearchMessages = hoisted.mockSearchMessages;
+export { mockArchiveThreadWithLabel };
 export const mockGetFolders = hoisted.mockGetFolders;
 export const mockGetOrCreateFolderIdByName =
   hoisted.mockGetOrCreateFolderIdByName;
@@ -305,7 +291,7 @@ export function isBulkArchiveSendersInput(
 }
 
 export function hasNoWriteToolCalls(toolCalls: RecordedToolCall[]) {
-  return !toolCalls.some((toolCall) => isWriteToolName(toolCall.toolName));
+  return !hasAssistantWriteToolCalls(toolCalls);
 }
 
 export function hasUnreadTriageSignal(
@@ -373,7 +359,7 @@ export function hasSearchBeforeFirstWrite(toolCalls: RecordedToolCall[]) {
   if (firstSearchIndex < 0) return false;
 
   const firstWriteIndex = toolCalls.findIndex((toolCall) =>
-    isWriteToolName(toolCall.toolName),
+    isAssistantWriteToolName(toolCall.toolName),
   );
 
   return firstWriteIndex < 0 || firstSearchIndex < firstWriteIndex;
@@ -460,10 +446,6 @@ function summarizeToolCall(toolCall: RecordedToolCall) {
   }
 
   return toolCall.toolName;
-}
-
-function isWriteToolName(toolName: string) {
-  return writeToolNames.has(toolName);
 }
 
 function getDefaultLabels() {
