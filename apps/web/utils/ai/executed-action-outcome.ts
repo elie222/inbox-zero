@@ -92,6 +92,15 @@ export function getActionResultError(
   };
 }
 
+export function isActionResultSkipped(actionResult: unknown) {
+  return (
+    typeof actionResult === "object" &&
+    actionResult !== null &&
+    "skipped" in actionResult &&
+    actionResult.skipped === true
+  );
+}
+
 export function normalizeActionExecutionError(
   error: unknown,
 ): ActionExecutionError {

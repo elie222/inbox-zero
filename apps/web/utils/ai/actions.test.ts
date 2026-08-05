@@ -615,6 +615,79 @@ describe("runActionFunction", () => {
     );
   });
 
+  describe("forward", () => {
+    const executedRule = {
+      id: "executed-rule-1",
+      threadId: "thread-1",
+      emailAccountId: "account-1",
+      ruleId: "rule-1",
+    } as any;
+
+    it.each([
+      {
+        name: "to",
+        recipients: { to: "Sender <SENDER@example.com>" },
+      },
+      {
+        name: "cc",
+        recipients: {
+          to: "archive@example.com",
+          cc: "sender@example.com",
+        },
+      },
+      {
+        name: "bcc",
+        recipients: {
+          to: "archive@example.com",
+          bcc: "Sender <sender@example.com>",
+        },
+      },
+    ])("does not forward back to the sender through $name", async ({
+      recipients,
+    }) => {
+      const client = createMockEmailProvider();
+
+      const result = await runActionFunction({
+        client,
+        email,
+        action: {
+          id: "action-1",
+          type: ActionType.FORWARD,
+          ...recipients,
+        },
+        emailAccount,
+        executedRule,
+        logger,
+      });
+
+      expect(result).toEqual({
+        skipped: true,
+        reason: "RECIPIENT_IS_SENDER",
+      });
+      expect(client.forwardEmail).not.toHaveBeenCalled();
+    });
+
+    it("forwards when every recipient differs from the sender", async () => {
+      const client = createMockEmailProvider();
+
+      await runActionFunction({
+        client,
+        email,
+        action: {
+          id: "action-1",
+          type: ActionType.FORWARD,
+          to: "archive@example.com",
+          cc: "reviewer@example.com",
+        },
+        emailAccount,
+        executedRule,
+        logger,
+      });
+
+      expect(client.forwardEmail).toHaveBeenCalledOnce();
+    });
+  });
+
   it("does not try to resolve attachments when drafts have no selected attachments", async () => {
     const client = createMockEmailProvider();
 

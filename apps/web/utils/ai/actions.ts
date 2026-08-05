@@ -15,7 +15,11 @@ import { labelMessageAndSync } from "@/utils/label.server";
 import { hasVariables } from "@/utils/template";
 import prisma from "@/utils/prisma";
 import { sendColdEmailNotification } from "@/utils/cold-email/send-notification";
-import { extractEmailAddress, isSameOrganization } from "@/utils/email";
+import {
+  extractEmailAddress,
+  extractEmailAddresses,
+  isSameOrganization,
+} from "@/utils/email";
 import { captureException } from "@/utils/error";
 import { env } from "@/env";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
@@ -372,8 +376,18 @@ const forward: ActionFunction<{
   to?: string | null;
   cc?: string | null;
   bcc?: string | null;
-}> = async ({ client, email, args }) => {
+}> = async ({ client, email, args, logger }) => {
   if (!args.to) return;
+
+  const sender = extractEmailAddress(email.headers.from).toLowerCase();
+  const recipients = [args.to, args.cc, args.bcc]
+    .flatMap((value) => extractEmailAddresses(value ?? ""))
+    .map((recipient) => recipient.toLowerCase());
+
+  if (sender && recipients.includes(sender)) {
+    logger.warn("Skipping forward because the sender is a recipient");
+    return { skipped: true, reason: "RECIPIENT_IS_SENDER" };
+  }
 
   const forwardArgs = {
     messageId: email.id,
