@@ -325,7 +325,7 @@ describe("chat inbox tools", () => {
     });
   });
 
-  it("requires action-specific Gmail manageInbox fields", () => {
+  it("requires action-specific Gmail manageInbox fields", async () => {
     const schema = manageInboxTool({
       email: TEST_EMAIL,
       emailAccountId: "email-account-1",
@@ -356,20 +356,55 @@ describe("chat inbox tools", () => {
     ).toBe(true);
     expect(
       schema.safeParse({
+        action: "archive_threads",
+        threadIds: ["thread-1"],
+        label: "Finance",
+      }).success,
+    ).toBe(false);
+    expect(
+      schema.safeParse({
         action: "mark_read_threads",
         threadIds: ["thread-1"],
       }).success,
     ).toBe(false);
     expect(
       schema.safeParse({
+        action: "mark_read_threads",
+        threadIds: ["thread-1"],
+        read: false,
+      }).success,
+    ).toBe(true);
+    expect(
+      schema.safeParse({
         action: "bulk_archive_senders",
         threadIds: ["thread-1"],
       }).success,
     ).toBe(false);
-    expect(asSchema(schema).jsonSchema).toBeDefined();
+    expect(
+      schema.safeParse({
+        action: "bulk_archive_senders",
+        fromEmails: ["sender@example.com"],
+        threadIds: ["thread-1"],
+      }).success,
+    ).toBe(false);
+    expect(
+      schema.safeParse({
+        action: "bulk_archive_senders",
+        fromEmails: ["sender@example.com"],
+      }).success,
+    ).toBe(true);
+    const jsonSchema = await Promise.resolve(asSchema(schema).jsonSchema);
+    expect(jsonSchema).toMatchObject({
+      type: "object",
+      additionalProperties: false,
+      required: ["action"],
+      properties: { action: { type: "string" } },
+    });
+    expect(jsonSchema).not.toHaveProperty("oneOf");
+    expect(jsonSchema).not.toHaveProperty("anyOf");
   });
 
-  it("requires Outlook category fields without accepting Gmail taxonomy aliases", () => {
+  it("requires Outlook category fields without accepting Gmail taxonomy aliases", async () => {
     const schema = manageInboxTool({
       email: TEST_EMAIL,
       emailAccountId: "email-account-1",
@@ -405,7 +440,22 @@ describe("chat inbox tools", () => {
         categoryName: "Finance",
       }).success,
     ).toBe(true);
-    expect(asSchema(schema).jsonSchema).toBeDefined();
+    expect(
+      schema.safeParse({
+        action: "trash_threads",
+        threadIds: ["thread-1"],
+        categoryName: "Finance",
+      }).success,
+    ).toBe(false);
+    const jsonSchema = await Promise.resolve(asSchema(schema).jsonSchema);
+    expect(jsonSchema).toMatchObject({
+      type: "object",
+      additionalProperties: false,
+      required: ["action"],
+      properties: { action: { type: "string" } },
+    });
+    expect(jsonSchema).not.toHaveProperty("oneOf");
+    expect(jsonSchema).not.toHaveProperty("anyOf");
   });
 
   it("resolves an exact labelName to the provider label before labeling threads", async () => {

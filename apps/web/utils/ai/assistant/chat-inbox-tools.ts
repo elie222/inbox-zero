@@ -882,184 +882,100 @@ const senderEmailsSchema = z
   .transform((emails) => [...new Set(emails)]);
 
 const outlookManageInboxInputSchema = z
-  .discriminatedUnion("action", [
-    z.strictObject({
-      action: z
-        .literal("archive_threads")
-        .describe(
-          "Archive selected Outlook threads by ID. Use this unless the user explicitly asks to delete or trash them.",
-        ),
-      threadIds: threadIdsSchema.describe(
-        "Thread IDs from searchInbox results or thread IDs the user already provided.",
+  .strictObject({
+    action: z
+      .enum([
+        "archive_threads",
+        "trash_threads",
+        "categorize_threads",
+        "remove_category_threads",
+        "mark_read_threads",
+        "bulk_archive_senders",
+        "unsubscribe_senders",
+      ])
+      .describe(
+        "Outlook inbox action. archive_threads archives selected threads; trash_threads moves selected threads to trash; categorize_threads applies an existing category; remove_category_threads removes one; mark_read_threads sets read state; bulk_archive_senders archives all mail from senders; unsubscribe_senders unsubscribes and archives.",
       ),
-      categoryName: z
-        .string()
-        .trim()
-        .min(1)
-        .optional()
-        .describe(
-          "Optional exact Outlook category name to apply while archiving the threads.",
-        ),
-    }),
-    z.strictObject({
-      action: z
-        .literal("trash_threads")
-        .describe(
-          "Move selected Outlook threads to trash. Use only when the user explicitly asks to delete or trash them.",
-        ),
-      threadIds: threadIdsSchema.describe(
-        "Thread IDs from searchInbox results or thread IDs the user already provided.",
+    threadIds: threadIdsSchema
+      .optional()
+      .describe(
+        "Required for thread actions. Use IDs from searchInbox results or IDs the user already provided; omit for sender-wide actions.",
       ),
-    }),
-    z.strictObject({
-      action: z
-        .literal("categorize_threads")
-        .describe("Apply an existing Outlook category to selected threads."),
-      threadIds: threadIdsSchema.describe(
-        "Thread IDs from searchInbox results or thread IDs the user already provided.",
+    categoryName: z
+      .string()
+      .trim()
+      .min(1)
+      .optional()
+      .describe(
+        "Exact Outlook category name. Required for categorize_threads and remove_category_threads; optional for archive_threads; omit for other actions.",
       ),
-      categoryName: z
-        .string()
-        .trim()
-        .min(1)
-        .describe("Exact Outlook category name to apply."),
-    }),
-    z.strictObject({
-      action: z
-        .literal("remove_category_threads")
-        .describe("Remove an existing Outlook category from selected threads."),
-      threadIds: threadIdsSchema.describe(
-        "Thread IDs from searchInbox results or thread IDs the user already provided.",
+    read: z
+      .boolean()
+      .optional()
+      .describe(
+        "Required for mark_read_threads: true marks read and false marks unread. Omit for other actions.",
       ),
-      categoryName: z
-        .string()
-        .trim()
-        .min(1)
-        .describe("Exact Outlook category name to remove."),
-    }),
-    z.strictObject({
-      action: z
-        .literal("mark_read_threads")
-        .describe("Mark selected Outlook threads as read or unread."),
-      threadIds: threadIdsSchema.describe(
-        "Thread IDs from searchInbox results or thread IDs the user already provided.",
+    fromEmails: senderEmailsSchema
+      .optional()
+      .describe(
+        "Required for bulk_archive_senders and unsubscribe_senders. These actions affect all mail from each sender; omit for thread actions.",
       ),
-      read: z.boolean().describe("True to mark read; false to mark unread."),
+  })
+  .superRefine((input, context) =>
+    validateManageInboxInput(input, context, {
+      taxonomyField: "categoryName",
+      taxonomyActions: ["categorize_threads", "remove_category_threads"],
     }),
-    z.strictObject({
-      action: z
-        .literal("bulk_archive_senders")
-        .describe(
-          "Archive all Outlook mail from the specified senders. Use only when the user clearly requests sender-wide cleanup and confirms that broad scope; never use for trash or delete.",
-        ),
-      fromEmails: senderEmailsSchema.describe(
-        "Sender email addresses whose mail should all be archived.",
-      ),
-    }),
-    z.strictObject({
-      action: z
-        .literal("unsubscribe_senders")
-        .describe(
-          "Unsubscribe from the specified senders and archive their mail. Use only for explicit unsubscribe requests.",
-        ),
-      fromEmails: senderEmailsSchema.describe(
-        "Sender email addresses to unsubscribe from and archive.",
-      ),
-    }),
-  ])
-  .describe(
-    "Choose exactly one Outlook inbox action and provide only the fields defined for that action.",
-  );
+  )
+  .describe("Outlook inbox action input.");
 
 const gmailManageInboxInputSchema = z
-  .discriminatedUnion("action", [
-    z.strictObject({
-      action: z
-        .literal("archive_threads")
-        .describe(
-          "Archive selected Gmail threads by ID. Use this unless the user explicitly asks to delete or trash them.",
-        ),
-      threadIds: threadIdsSchema.describe(
-        "Thread IDs from searchInbox results or thread IDs the user already provided.",
+  .strictObject({
+    action: z
+      .enum([
+        "archive_threads",
+        "trash_threads",
+        "label_threads",
+        "remove_label_threads",
+        "mark_read_threads",
+        "bulk_archive_senders",
+        "unsubscribe_senders",
+      ])
+      .describe(
+        "Gmail inbox action. archive_threads archives selected threads; trash_threads moves selected threads to trash; label_threads applies an existing label; remove_label_threads removes one; mark_read_threads sets read state; bulk_archive_senders archives all mail from senders; unsubscribe_senders unsubscribes and archives.",
       ),
-      labelName: z
-        .string()
-        .trim()
-        .min(1)
-        .optional()
-        .describe(
-          "Optional exact Gmail label name to apply while archiving the threads.",
-        ),
-    }),
-    z.strictObject({
-      action: z
-        .literal("trash_threads")
-        .describe(
-          "Move selected Gmail threads to trash. Use only when the user explicitly asks to delete or trash them.",
-        ),
-      threadIds: threadIdsSchema.describe(
-        "Thread IDs from searchInbox results or thread IDs the user already provided.",
+    threadIds: threadIdsSchema
+      .optional()
+      .describe(
+        "Required for thread actions. Use IDs from searchInbox results or IDs the user already provided; omit for sender-wide actions.",
       ),
-    }),
-    z.strictObject({
-      action: z
-        .literal("label_threads")
-        .describe("Apply an existing Gmail label to selected threads."),
-      threadIds: threadIdsSchema.describe(
-        "Thread IDs from searchInbox results or thread IDs the user already provided.",
+    labelName: z
+      .string()
+      .trim()
+      .min(1)
+      .optional()
+      .describe(
+        "Exact Gmail label name. Required for label_threads and remove_label_threads; optional for archive_threads; omit for other actions.",
       ),
-      labelName: z
-        .string()
-        .trim()
-        .min(1)
-        .describe("Exact Gmail label name to apply."),
-    }),
-    z.strictObject({
-      action: z
-        .literal("remove_label_threads")
-        .describe("Remove an existing Gmail label from selected threads."),
-      threadIds: threadIdsSchema.describe(
-        "Thread IDs from searchInbox results or thread IDs the user already provided.",
+    read: z
+      .boolean()
+      .optional()
+      .describe(
+        "Required for mark_read_threads: true marks read and false marks unread. Omit for other actions.",
       ),
-      labelName: z
-        .string()
-        .trim()
-        .min(1)
-        .describe("Exact Gmail label name to remove."),
-    }),
-    z.strictObject({
-      action: z
-        .literal("mark_read_threads")
-        .describe("Mark selected Gmail threads as read or unread."),
-      threadIds: threadIdsSchema.describe(
-        "Thread IDs from searchInbox results or thread IDs the user already provided.",
+    fromEmails: senderEmailsSchema
+      .optional()
+      .describe(
+        "Required for bulk_archive_senders and unsubscribe_senders. These actions affect all mail from each sender; omit for thread actions.",
       ),
-      read: z.boolean().describe("True to mark read; false to mark unread."),
+  })
+  .superRefine((input, context) =>
+    validateManageInboxInput(input, context, {
+      taxonomyField: "labelName",
+      taxonomyActions: ["label_threads", "remove_label_threads"],
     }),
-    z.strictObject({
-      action: z
-        .literal("bulk_archive_senders")
-        .describe(
-          "Archive all Gmail mail from the specified senders. Use only when the user clearly requests sender-wide cleanup and confirms that broad scope; never use for trash or delete.",
-        ),
-      fromEmails: senderEmailsSchema.describe(
-        "Sender email addresses whose mail should all be archived.",
-      ),
-    }),
-    z.strictObject({
-      action: z
-        .literal("unsubscribe_senders")
-        .describe(
-          "Unsubscribe from the specified senders and archive their mail. Use only for explicit unsubscribe requests.",
-        ),
-      fromEmails: senderEmailsSchema.describe(
-        "Sender email addresses to unsubscribe from and archive.",
-      ),
-    }),
-  ])
-  .describe(
-    "Choose exactly one Gmail inbox action and provide only the fields defined for that action.",
-  );
+  )
+  .describe("Gmail inbox action input.");
 
 type ManageInboxTaxonomyConfig = {
   labelResolutionFallbackError: string;
@@ -1131,7 +1047,7 @@ const buildManageInboxTool = ({
 
   return tool({
     description:
-      "Run inbox actions on threads or senders. For emails already shown or found in this turn, prefer thread actions with threadIds. Do not widen a limited thread-level request into sender-wide cleanup. Only use sender-wide cleanup with fromEmails when the user clearly wants all mail from that sender, and get confirmation before doing broad sender-wide cleanup.",
+      "Run inbox actions on threads or senders. For emails already shown or found in this turn, prefer thread actions with threadIds. Use archive_threads for ordinary inbox cleanup; only use trash_threads when the user explicitly asks to delete or trash. Do not widen a limited thread-level request into sender-wide cleanup. Only use sender-wide cleanup with fromEmails when the user clearly wants all mail from that sender, and get confirmation before doing broad sender-wide cleanup. Only use unsubscribe_senders for an explicit unsubscribe request.",
     inputSchema,
     execute: async (input) => {
       trackToolCall({ tool: "manage_inbox", email, logger });
@@ -2444,6 +2360,58 @@ function extractEmailAddressesFromMicrosoftSearchQuery(query: string) {
   return [
     ...new Set(query.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) ?? []),
   ];
+}
+
+function validateManageInboxInput(
+  input: { action: string } & Partial<
+    Record<
+      "threadIds" | "labelName" | "categoryName" | "read" | "fromEmails",
+      string | boolean | string[]
+    >
+  >,
+  context: z.RefinementCtx,
+  options: {
+    taxonomyField: "labelName" | "categoryName";
+    taxonomyActions: readonly string[];
+  },
+) {
+  const { action } = input;
+  const isSenderAction =
+    action === "bulk_archive_senders" || action === "unsubscribe_senders";
+  const fields = [
+    "threadIds",
+    options.taxonomyField,
+    "read",
+    "fromEmails",
+  ] as const;
+  const requiredFields = new Set<(typeof fields)[number]>(
+    isSenderAction ? ["fromEmails"] : ["threadIds"],
+  );
+  if (options.taxonomyActions.includes(action)) {
+    requiredFields.add(options.taxonomyField);
+  }
+  if (action === "mark_read_threads") requiredFields.add("read");
+
+  const allowedFields = new Set(requiredFields);
+  if (action === "archive_threads") {
+    allowedFields.add(options.taxonomyField);
+  }
+
+  for (const field of fields) {
+    if (requiredFields.has(field) && input[field] === undefined) {
+      context.addIssue({
+        code: "custom",
+        path: [field],
+        message: `is required for ${action}`,
+      });
+    } else if (!allowedFields.has(field) && input[field] !== undefined) {
+      context.addIssue({
+        code: "custom",
+        path: [field],
+        message: `is not used by ${action}`,
+      });
+    }
+  }
 }
 
 function getManageInboxValidationError(error: z.ZodError) {
