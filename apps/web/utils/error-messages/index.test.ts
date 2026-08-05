@@ -29,6 +29,7 @@ vi.mock("@/utils/unsubscribe", () => ({
 describe("getUserErrorMessages", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prisma.user.updateMany.mockResolvedValue({ count: 1 });
   });
 
   it("removes legacy trial AI limit errors from generic user errors", async () => {
@@ -182,6 +183,40 @@ describe("getUserErrorMessages", () => {
           }),
         },
       },
+    });
+  });
+
+  it("returns the latest errors when another writer wins the legacy migration race", async () => {
+    const legacyError = {
+      message: "Gmail is not enabled for user@example.com.",
+      timestamp: "2026-08-05T12:00:00.000Z",
+    };
+    const concurrentError = {
+      message: "Invalid model",
+      timestamp: "2026-08-05T12:01:00.000Z",
+    };
+    prisma.user.findUnique
+      .mockResolvedValueOnce({
+        errorMessages: {
+          [ErrorType.ACCOUNT_DISCONNECTED]: legacyError,
+        },
+      } as any)
+      .mockResolvedValueOnce({
+        errorMessages: {
+          [ErrorType.ACCOUNT_DISCONNECTED]: legacyError,
+          [ErrorType.INVALID_AI_MODEL]: concurrentError,
+        },
+      } as any);
+    prisma.emailAccount.findMany.mockResolvedValue([
+      { id: "email-account-1", email: "user@example.com" },
+    ] as any);
+    prisma.user.updateMany.mockResolvedValue({ count: 0 });
+
+    const result = await getUserErrorMessages("user-1");
+
+    expect(result).toEqual({
+      [ErrorType.ACCOUNT_DISCONNECTED]: legacyError,
+      [ErrorType.INVALID_AI_MODEL]: concurrentError,
     });
   });
 });

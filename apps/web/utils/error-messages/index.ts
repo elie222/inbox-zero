@@ -404,13 +404,22 @@ async function addLegacyAccountRecoveryAction(
     },
   };
 
-  await prisma.user.updateMany({
+  const persisted = await prisma.user.updateMany({
     where: {
       id: userId,
       errorMessages: { equals: errorMessages as Prisma.InputJsonValue },
     },
     data: { errorMessages: updatedErrorMessages },
   });
+
+  if (persisted.count === 0) {
+    const latestUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { errorMessages: true },
+    });
+
+    return (latestUser?.errorMessages as ErrorMessages) || null;
+  }
 
   return updatedErrorMessages;
 }
