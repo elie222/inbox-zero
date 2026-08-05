@@ -156,20 +156,26 @@ export const updateLearnedPatternsTool = ({
           }
         }
 
-        if (patternsToSave.length > 0) {
-          const result = await saveLearnedPatterns({
-            emailAccountId,
-            ruleName: rule.name,
-            patterns: patternsToSave,
-            logger,
+        if (patternsToSave.length === 0) {
+          return hideToolErrorFromUser({
+            success: false,
+            error:
+              "No learned patterns were saved because no sender or subject pattern was provided.",
           });
+        }
 
-          if (result?.error) {
-            return {
-              success: false,
-              error: result.error,
-            };
-          }
+        const result = await saveLearnedPatterns({
+          emailAccountId,
+          ruleName: rule.name,
+          patterns: patternsToSave,
+          logger,
+        });
+
+        if (result?.error) {
+          return {
+            success: false,
+            error: result.error,
+          };
         }
 
         return {
@@ -177,9 +183,7 @@ export const updateLearnedPatternsTool = ({
           ruleId: rule.id,
           futureMatchGuaranteed: false,
           summary:
-            patternsToSave.length > 0
-              ? "The learned patterns were saved. They are intended to improve future matching but do not guarantee that every future message will match or execute."
-              : "No concrete learned patterns were provided, so nothing was saved.",
+            "The learned patterns were saved. They are intended to improve future matching but do not guarantee that every future message will match or execute.",
         };
       } catch (error) {
         logger.error("Failed to update learned patterns", { error, ruleName });

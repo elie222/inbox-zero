@@ -127,7 +127,7 @@ describe("updateLearnedPatternsTool", () => {
     });
   });
 
-  it("does not claim to save empty learned patterns", async () => {
+  it("returns a hidden failure for empty learned patterns", async () => {
     prisma.rule.findUnique.mockResolvedValue({
       id: "rule-1",
       name: "VIP senders",
@@ -158,11 +158,10 @@ describe("updateLearnedPatternsTool", () => {
 
     expect(saveLearnedPatterns).not.toHaveBeenCalled();
     expect(result).toEqual({
-      success: true,
-      ruleId: "rule-1",
-      futureMatchGuaranteed: false,
-      summary:
-        "No concrete learned patterns were provided, so nothing was saved.",
+      success: false,
+      error:
+        "No learned patterns were saved because no sender or subject pattern was provided.",
+      toolErrorVisibility: "hidden",
     });
   });
 
