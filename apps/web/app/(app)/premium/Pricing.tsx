@@ -243,14 +243,7 @@ function PriceTier({
   }
 
   return (
-    <div
-      className={cn(
-        "flex flex-col rounded-3xl bg-white p-6 ring-1 ring-gray-200 sm:p-8 xl:p-10",
-        // Stacked on mobile, the recommended plan would otherwise sit a full
-        // screen below the fold.
-        tier.mostPopular && "order-first lg:order-none",
-      )}
-    >
+    <div className="flex flex-col rounded-3xl bg-white p-6 ring-1 ring-gray-200 sm:p-8 xl:p-10">
       <div className="flex-1">
         <div className="flex items-center justify-between gap-x-4">
           <h3
