@@ -4,6 +4,7 @@ import {
   cloneEmailAccountForProvider,
   hasSearchBeforeTool,
   inboxWorkflowProviders,
+  isManageInboxThreadActionInput,
   mockArchiveThreadWithLabel,
   mockSearchMessages,
   runAssistantChat,
@@ -131,32 +132,21 @@ describe.runIf(shouldRunEval)(
   },
 );
 
-type PartialArchiveInput = {
-  action: "archive_threads";
-  threadIds: string[];
-};
-
 type ArchiveOutput = {
   requestedCount: number;
   successCount: number;
   failedCount: number;
 };
 
-function isPartialArchiveInput(input: unknown): input is PartialArchiveInput {
-  if (!input || typeof input !== "object") return false;
-
-  const value = input as {
-    action?: unknown;
-    threadIds?: unknown;
-  };
-
-  return value.action === "archive_threads" && Array.isArray(value.threadIds);
-}
-
 function getArchiveOutcome(toolCalls: RecordedToolCall[]) {
   const outputs = toolCalls.flatMap((toolCall) => {
     if (toolCall.toolName !== "manageInbox") return [];
-    if (!isPartialArchiveInput(toolCall.input)) return [];
+    if (
+      !isManageInboxThreadActionInput(toolCall.input) ||
+      toolCall.input.action !== "archive_threads"
+    ) {
+      return [];
+    }
 
     const output = getArchiveOutput(toolCall.output);
     return output ? [output] : [];

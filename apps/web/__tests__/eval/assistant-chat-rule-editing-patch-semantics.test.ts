@@ -690,7 +690,7 @@ describe.runIf(shouldRunEval)(
               testName: "multiple pauses use existing rule updates",
               model: model.label,
               pass,
-              actual,
+              actual: summarizeRuleMutationCalls(toolCalls) || actual,
             });
 
             expect(pass).toBe(true);

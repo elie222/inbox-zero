@@ -177,7 +177,9 @@ export const updateLearnedPatternsTool = ({
           ruleId: rule.id,
           futureMatchGuaranteed: false,
           summary:
-            "The learned patterns were saved. They are intended to improve future matching but do not guarantee that every future message will match or execute.",
+            patternsToSave.length > 0
+              ? "The learned patterns were saved. They are intended to improve future matching but do not guarantee that every future message will match or execute."
+              : "No concrete learned patterns were provided, so nothing was saved.",
         };
       } catch (error) {
         logger.error("Failed to update learned patterns", { error, ruleName });

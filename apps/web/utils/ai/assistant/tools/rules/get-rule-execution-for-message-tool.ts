@@ -23,7 +23,7 @@ type RuleExecutionEvidence =
       summary: string;
     }
   | {
-      state: "NO_RULE_MATCH_RECORDED";
+      state: "INCONCLUSIVE_SKIPPED_RECORDS";
       rootCauseKnown: false;
       summary: string;
     }
@@ -190,12 +190,12 @@ function getExecutionEvidence(
     };
   }
 
-  if (executions.every(isFallbackNoMatchExecution)) {
+  if (executions.every(isInconclusiveSkippedExecution)) {
     return {
-      state: "NO_RULE_MATCH_RECORDED",
+      state: "INCONCLUSIVE_SKIPPED_RECORDS",
       rootCauseKnown: false,
       summary:
-        "No specific rule match was recorded. This does not establish whether a particular rule was evaluated or why it did not match.",
+        "Only inconclusive skipped execution records were found. They do not establish whether a specific rule matched, was later deleted, or why processing was skipped.",
     };
   }
 
@@ -207,7 +207,7 @@ function getExecutionEvidence(
   };
 }
 
-function isFallbackNoMatchExecution(execution: {
+function isInconclusiveSkippedExecution(execution: {
   ruleId: string | null;
   status: ExecutedRuleStatus;
   matchMetadata: unknown;

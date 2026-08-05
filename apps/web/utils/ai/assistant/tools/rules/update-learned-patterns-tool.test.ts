@@ -127,6 +127,45 @@ describe("updateLearnedPatternsTool", () => {
     });
   });
 
+  it("does not claim to save empty learned patterns", async () => {
+    prisma.rule.findUnique.mockResolvedValue({
+      id: "rule-1",
+      name: "VIP senders",
+      updatedAt: new Date("2026-04-12T10:00:00.000Z"),
+      organizationRuleId: null,
+      emailAccount: {
+        rulesRevision: 3,
+      },
+    } as never);
+
+    const toolInstance = updateLearnedPatternsTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-1",
+      logger,
+      getRuleReadState: () => ({
+        readAt: Date.now(),
+        rulesRevision: 3,
+        ruleUpdatedAtByName: new Map([
+          ["VIP senders", "2026-04-12T10:00:00.000Z"],
+        ]),
+      }),
+    });
+
+    const result = await toolInstance.execute({
+      ruleName: "VIP senders",
+      learnedPatterns: [{ include: null, exclude: null }],
+    });
+
+    expect(saveLearnedPatterns).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      success: true,
+      ruleId: "rule-1",
+      futureMatchGuaranteed: false,
+      summary:
+        "No concrete learned patterns were provided, so nothing was saved.",
+    });
+  });
+
   it("returns a failure when saving learned patterns fails", async () => {
     prisma.rule.findUnique
       .mockResolvedValueOnce({

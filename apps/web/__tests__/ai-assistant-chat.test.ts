@@ -1795,7 +1795,7 @@ describe("aiProcessAssistantChat", () => {
     });
   });
 
-  it("marks fallback-only execution history as an inconclusive no-match", async () => {
+  it("marks ambiguous skipped execution history as inconclusive", async () => {
     const tools = await captureToolSet(true, "google");
 
     mockPrisma.executedRule.findMany.mockResolvedValue([
@@ -1821,10 +1821,10 @@ describe("aiProcessAssistantChat", () => {
       messageId: "message-fallback",
       threadId: "thread-fallback",
       evidence: {
-        state: "NO_RULE_MATCH_RECORDED",
+        state: "INCONCLUSIVE_SKIPPED_RECORDS",
         rootCauseKnown: false,
         summary:
-          "No specific rule match was recorded. This does not establish whether a particular rule was evaluated or why it did not match.",
+          "Only inconclusive skipped execution records were found. They do not establish whether a specific rule matched, was later deleted, or why processing was skipped.",
       },
     });
   });
