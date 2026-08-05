@@ -74,10 +74,14 @@ export function interpretRecallWebhook(
   // Recall sends the lifecycle code in the payload, but the event name carries
   // the same information (`bot.done`, `bot.fatal`) as a fallback.
   const code = payload.data.data?.code ?? payload.event.split(".").at(-1);
-  const status = code ? recallCodeToStatus(code) : null;
-  if (!status) {
+  const mappedStatus = code ? recallCodeToStatus(code) : null;
+  if (!mappedStatus) {
     return { type: "ignore", reason: `Unmapped Recall status code: ${code}` };
   }
+  const subCode = payload.data.data?.sub_code;
+  const status = NO_SHOW_SUB_CODES.has(subCode ?? "")
+    ? MeetingRecordingStatus.CANCELLED
+    : mappedStatus;
 
   return {
     type: "statusChange",
@@ -91,8 +95,8 @@ export function interpretRecallWebhook(
         ? getStatusesBelow(MeetingRecordingStatus.RECORDING)
         : undefined,
     failureReason:
-      status === MeetingRecordingStatus.FAILED
-        ? getFailureReason(payload.data.data?.sub_code)
+      mappedStatus === MeetingRecordingStatus.FAILED
+        ? getFailureReason(subCode)
         : undefined,
   };
 }
@@ -129,6 +133,11 @@ export function recallCodeToStatus(
   if (!Object.hasOwn(RECALL_CODE_TO_STATUS, code)) return null;
   return RECALL_CODE_TO_STATUS[code] ?? null;
 }
+
+const NO_SHOW_SUB_CODES = new Set([
+  "meeting_not_started",
+  "timeout_exceeded_only_bot_detected",
+]);
 
 // Copy shown to the user for the failure sub-codes we expect to see in practice.
 // Everything else falls back to the raw sub-code so support can still triage it.

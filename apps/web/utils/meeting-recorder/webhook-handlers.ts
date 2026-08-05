@@ -3,10 +3,8 @@ import { captureException } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
 import { createMeetingBotProvider } from "@/utils/meeting-recorder/create-bot-provider";
 import { enqueueTranscriptFetch } from "@/utils/meeting-recorder/enqueue-processing";
-import {
-  LIVE_STATUSES,
-  transitionRecording,
-} from "@/utils/meeting-recorder/recording-lifecycle";
+import { LIVE_STATUSES } from "@/utils/meeting-recorder/recording-lifecycle";
+import { transitionRecording } from "@/utils/meeting-recorder/transition-recording";
 import prisma from "@/utils/prisma";
 
 /**

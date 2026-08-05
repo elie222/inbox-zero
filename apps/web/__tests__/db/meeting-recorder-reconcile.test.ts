@@ -1106,7 +1106,7 @@ describe.skipIf(!RUN_DB_TESTS)(
       expect(fakeProvider.transcriptsRequested).toEqual([]);
     });
 
-    test("clears stale claims and fails recordings that never reported back", async () => {
+    test("clears stale claims and closes recordings that never reported back by engagement", async () => {
       const stale = await prisma.meetingRecording.create({
         data: {
           meetingUrl: "https://meet.google.com/ggg-hhhh-iii",
@@ -1117,7 +1117,9 @@ describe.skipIf(!RUN_DB_TESTS)(
           createdAt: subMinutes(new Date(), 30),
         },
       });
-      const abandoned = await prisma.meetingRecording.create({
+      // Never left SCHEDULED: the bot has no engagement to show, so the sweep
+      // closes it as a no-show instead of a failed recording.
+      const noShow = await prisma.meetingRecording.create({
         data: {
           meetingUrl: "https://meet.google.com/jjj-kkkk-lll",
           normalizedMeetingUrl: "meet.google.com/jjj-kkkk-lll",
@@ -1127,6 +1129,18 @@ describe.skipIf(!RUN_DB_TESTS)(
           externalBotId: "bot_abandoned",
         },
       });
+      // The bot reached the call and then went silent: that is a failed
+      // recording the user should see.
+      const engaged = await prisma.meetingRecording.create({
+        data: {
+          meetingUrl: "https://meet.google.com/mmm-nnnn-ooo",
+          normalizedMeetingUrl: "meet.google.com/mmm-nnnn-ooo",
+          activeKey: "meet.google.com/mmm-nnnn-ooo",
+          meetingStartTime: subHours(new Date(), 48),
+          status: MeetingRecordingStatus.IN_CALL,
+          externalBotId: "bot_engaged_abandoned",
+        },
+      });
 
       await reconcile.sweepRecordings({ logger });
 
@@ -1134,11 +1148,17 @@ describe.skipIf(!RUN_DB_TESTS)(
         await prisma.meetingRecording.findUnique({ where: { id: stale.id } }),
       ).toBeNull();
 
+      const cancelled = await prisma.meetingRecording.findUniqueOrThrow({
+        where: { id: noShow.id },
+      });
+      expect(cancelled.status).toBe(MeetingRecordingStatus.CANCELLED);
+      // The slot must be released so a later meeting on the same link can book.
+      expect(cancelled.activeKey).toBeNull();
+
       const failed = await prisma.meetingRecording.findUniqueOrThrow({
-        where: { id: abandoned.id },
+        where: { id: engaged.id },
       });
       expect(failed.status).toBe(MeetingRecordingStatus.FAILED);
-      // The slot must be released so a later meeting on the same link can book.
       expect(failed.activeKey).toBeNull();
     });
 

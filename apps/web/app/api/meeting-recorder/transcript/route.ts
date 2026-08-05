@@ -5,7 +5,7 @@ import type { Logger } from "@/utils/logger";
 import { createMeetingBotProvider } from "@/utils/meeting-recorder/create-bot-provider";
 import { deleteRecordingMedia } from "@/utils/meeting-recorder/delete-media";
 import { enqueueProcessingForRecording } from "@/utils/meeting-recorder/enqueue-processing";
-import { transitionRecording } from "@/utils/meeting-recorder/recording-lifecycle";
+import { transitionRecording } from "@/utils/meeting-recorder/transition-recording";
 import { withError } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 import { withQstashOrInternal } from "@/utils/qstash";

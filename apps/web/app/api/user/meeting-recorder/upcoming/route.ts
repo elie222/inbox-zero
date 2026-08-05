@@ -88,6 +88,7 @@ async function getData({
         id: event.id,
         title: event.title,
         startTime: event.startTime,
+        endTime: event.endTime,
         hasCancellableBooking:
           !!meeting?.recording &&
           CANCELLABLE_STATUSES.includes(meeting.recording.status),

@@ -1,5 +1,4 @@
 import { MeetingRecordingStatus } from "@/generated/prisma/enums";
-import prisma from "@/utils/prisma";
 
 // A recording that has not reached a terminal state yet and could still be
 // scheduled, rescheduled or cancelled.
@@ -22,6 +21,26 @@ export const CANCELLABLE_STATUSES: MeetingRecordingStatus[] =
 export const CHANGEABLE_STATUSES: MeetingRecordingStatus[] = [
   MeetingRecordingStatus.PENDING,
   MeetingRecordingStatus.SCHEDULED,
+];
+
+// The bot engaged with the call (tried to join, reached it, or failed trying)
+// but delivered no media. A recording still in one of these states after the
+// meeting ended produced nothing.
+export const NO_RECORDING_STATUSES: MeetingRecordingStatus[] = [
+  MeetingRecordingStatus.JOINING,
+  MeetingRecordingStatus.IN_WAITING_ROOM,
+  MeetingRecordingStatus.IN_CALL,
+  MeetingRecordingStatus.RECORDING,
+  MeetingRecordingStatus.FAILED,
+];
+
+// A booked bot is not a recorded meeting. The Recorded section only shows
+// calls the bot engaged with or that produced media; untouched scheduled
+// bookings are no-shows.
+export const RECORDED_SECTION_STATUSES: MeetingRecordingStatus[] = [
+  ...NO_RECORDING_STATUSES,
+  MeetingRecordingStatus.CALL_ENDED,
+  MeetingRecordingStatus.DONE,
 ];
 
 // Rank orders the lifecycle so replayed or out-of-order webhooks can only ever
@@ -63,42 +82,6 @@ export function recordingStatusData(status: MeetingRecordingStatus) {
   return TERMINAL_STATUSES.includes(status)
     ? { status, activeKey: null }
     : { status };
-}
-
-/**
- * Moves one recording to `next` only if that is a step forwards, so a
- * concurrent DONE or CANCELLING write can never be clobbered. The recording is
- * addressed either by id or by its provider identity (which is all a webhook
- * has). Returns the update count; zero means the recording had already moved
- * on.
- */
-export function transitionRecording(
-  params: (
-    | { recordingId: string }
-    | { botProvider: string; externalBotId: string }
-  ) & {
-    status: MeetingRecordingStatus;
-    fromStatuses?: MeetingRecordingStatus[];
-    data?: { failureReason?: string; transcriptFetchedAt?: Date };
-  },
-) {
-  const selector =
-    "recordingId" in params
-      ? { id: params.recordingId }
-      : {
-          botProvider: params.botProvider,
-          externalBotId: params.externalBotId,
-        };
-
-  return prisma.meetingRecording.updateMany({
-    where: {
-      ...selector,
-      status: {
-        in: params.fromStatuses ?? getStatusesBelow(params.status),
-      },
-    },
-    data: { ...recordingStatusData(params.status), ...params.data },
-  });
 }
 
 /**

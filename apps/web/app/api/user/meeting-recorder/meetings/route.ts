@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { RECORDED_SECTION_STATUSES } from "@/utils/meeting-recorder/recording-lifecycle";
 import { withEmailAccount } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 
@@ -23,7 +24,11 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
   // Scoped by emailAccountId so a recording shared with another tenant is only
   // ever reachable through this account's own Meeting row.
   const meetings = await prisma.meeting.findMany({
-    where: { emailAccountId, recordingId: { not: null } },
+    where: {
+      emailAccountId,
+      endTime: { lte: new Date() },
+      recording: { status: { in: RECORDED_SECTION_STATUSES } },
+    },
     orderBy: { startTime: "desc" },
     take: PAGE_SIZE,
     // The summary and transcript are fetched per meeting; both are far too
@@ -32,6 +37,7 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
       id: true,
       eventTitle: true,
       startTime: true,
+      endTime: true,
       followUpDraftId: true,
       recording: {
         select: {
