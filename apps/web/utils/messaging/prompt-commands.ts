@@ -59,12 +59,7 @@ export function isTelegramStartCommand(text: string): boolean {
   return TELEGRAM_START_COMMAND_REGEX.test(text.trim());
 }
 
-export function isUnsupportedSlashCommand(
-  text: string,
-  platform: MessagingPlatform,
-): boolean {
-  if (platform === "telegram" && isTelegramStartCommand(text)) return false;
-
+export function isUnsupportedSlashCommand(text: string): boolean {
   const command = parseSlashCommand(text);
   return command !== null && !SUPPORTED_COMMANDS.has(command);
 }

@@ -87,24 +87,14 @@ describe("getHelpText", () => {
 
 describe("isUnsupportedSlashCommand", () => {
   it("identifies unknown slash commands", () => {
-    expect(isUnsupportedSlashCommand("/unknown", "teams")).toBe(true);
-    expect(
-      isUnsupportedSlashCommand("/unknown@InboxZeroBot value", "teams"),
-    ).toBe(true);
+    expect(isUnsupportedSlashCommand("/unknown")).toBe(true);
+    expect(isUnsupportedSlashCommand("/unknown@InboxZeroBot value")).toBe(true);
   });
 
   it("allows supported commands and regular messages", () => {
-    expect(isUnsupportedSlashCommand("/help", "teams")).toBe(false);
-    expect(isUnsupportedSlashCommand("/connect abc123", "teams")).toBe(false);
-    expect(isUnsupportedSlashCommand("/summary", "teams")).toBe(false);
-    expect(isUnsupportedSlashCommand("Hello", "teams")).toBe(false);
-  });
-
-  it("allows Telegram's standard onboarding command", () => {
-    expect(isUnsupportedSlashCommand("/start", "telegram")).toBe(false);
-    expect(isUnsupportedSlashCommand("/start@InboxZeroBot", "telegram")).toBe(
-      false,
-    );
-    expect(isUnsupportedSlashCommand("/start", "teams")).toBe(true);
+    expect(isUnsupportedSlashCommand("/help")).toBe(false);
+    expect(isUnsupportedSlashCommand("/connect abc123")).toBe(false);
+    expect(isUnsupportedSlashCommand("/summary")).toBe(false);
+    expect(isUnsupportedSlashCommand("Hello")).toBe(false);
   });
 });

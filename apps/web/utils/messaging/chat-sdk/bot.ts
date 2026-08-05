@@ -2037,7 +2037,7 @@ async function handleUnsupportedCommand({
 }): Promise<boolean> {
   const provider = thread.adapter.name;
   if (provider !== "telegram" && provider !== "teams") return false;
-  if (!isUnsupportedSlashCommand(message.text, provider)) return false;
+  if (!isUnsupportedSlashCommand(message.text)) return false;
 
   if (!thread.isDM) {
     await sendDmRequiredMessage({ provider, thread, logger });
