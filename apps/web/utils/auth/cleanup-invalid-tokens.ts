@@ -6,6 +6,7 @@ import {
   addUserErrorMessage,
   addUserErrorMessageWithNotification,
   ErrorType,
+  getAccountRecoveryAction,
 } from "@/utils/error-messages";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
 
@@ -110,6 +111,7 @@ export async function cleanupInvalidTokens({
           logger,
         })
       : false;
+  const recoveryAction = getAccountRecoveryAction(emailAccount.id);
 
   if (sentReconnectionEmail) {
     await addUserErrorMessage(
@@ -125,6 +127,7 @@ export async function cleanupInvalidTokens({
       emailAccountId: emailAccount.id,
       errorType: ErrorType.ACCOUNT_DISCONNECTED,
       errorMessage,
+      ...recoveryAction,
       logger,
     });
   }
