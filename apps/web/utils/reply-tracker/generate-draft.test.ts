@@ -684,7 +684,7 @@ describe("fetchMessagesAndGenerateDraft - thread ordering", () => {
       attribution: null,
     });
     vi.mocked(prisma.bookingLink.findMany).mockResolvedValue([
-      { slug: "user-booking-link" },
+      { slug: "user-booking-link", minimumNoticeMinutes: 240 },
     ] as any);
 
     await fetchMessagesAndGenerateDraftWithConfidenceThreshold(
@@ -699,12 +699,15 @@ describe("fetchMessagesAndGenerateDraft - thread ordering", () => {
     expect(aiGetCalendarAvailability).toHaveBeenCalledWith(
       expect.objectContaining({
         bookingLinkAvailable: true,
+        minimumNoticeMinutes: 240,
       }),
     );
     expect(aiDraftReplyWithConfidence).toHaveBeenCalledWith(
       expect.objectContaining({
         emailAccount: expect.objectContaining({
-          bookingLinks: [{ slug: "user-booking-link" }],
+          bookingLinks: [
+            { slug: "user-booking-link", minimumNoticeMinutes: 240 },
+          ],
         }),
       }),
     );
