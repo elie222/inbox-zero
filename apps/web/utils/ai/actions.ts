@@ -438,11 +438,7 @@ const forward: ActionFunction<{
   }
 
   if (!toRecipients.length) {
-    const primaryRecipient = ccRecipients.shift();
-    if (!primaryRecipient) {
-      throw new Error("Forward action has no primary recipient");
-    }
-    toRecipients.push(primaryRecipient);
+    toRecipients.push(ccRecipients.shift()!);
   }
 
   await client.forwardEmail(forwardMessage, {
