@@ -100,17 +100,13 @@ Display the PR URL as `[PR #<number>](<url>)` and the branch name.
 
 ## Step 5: Post-PR loop
 
-Use `.claude/skills/review-bot-loop/SKILL.md` as the single source of truth for five-minute waits, exact-commit snapshots, bot detection, review-comment handling, fix commits, and its completion gate. Apply `.claude/skills/address-pr-comments/SKILL.md` when triaging and replying to each comment. Share this skill's `--wait` and `--max` values with that loop.
+Use `.claude/skills/review-bot-loop/SKILL.md` as the single source of truth for five-minute waits, timeout enforcement, exact-commit snapshots, bot detection, review-comment handling, fix commits, and its completion gate. Apply `.claude/skills/address-pr-comments/SKILL.md` when triaging and replying to each comment. Share this skill's `--wait`, `--max`, and `--timeout` values with that loop.
 
 The overall `--timeout` applies even while the review-bot loop is passively waiting. When it expires, stop and report the exact unfinished reviewers, checks, statuses, or comments. Never loop indefinitely.
 
 ### Inspect all current-commit checks
 
-The review-bot loop already fetches every check run for the exact PR HEAD. In the same snapshot, also fetch every page of combined commit statuses:
-
-```bash
-gh api --paginate "repos/$REPO/commits/$HEAD_SHA/status?per_page=100"
-```
+The review-bot loop's exact-commit snapshot fetches every check run and combined commit status for the exact PR HEAD. Inspect those same results for failures outside the selected review bots.
 
 Do not use `gh pr checks` or mix observations from different SHAs.
 

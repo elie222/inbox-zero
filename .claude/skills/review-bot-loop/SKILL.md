@@ -22,12 +22,14 @@ reviewing the latest pushed commit and every selected bot comment is handled.
 
 - Wait interval: 300 seconds.
 - Maximum fix-and-push rounds: 5.
+- Maximum total monitoring time: 1800 seconds.
 - Reviewer selection: all detected automated code-review bots.
 
 Let the user narrow reviewer selection by check name or bot login, such as
 `Cubic only`. Waiting-only observations do not consume the fix-round limit.
 Keep waiting while a selected reviewer is working regardless of the number of
-status observations.
+status observations, but never beyond the total monitoring timeout. Let the
+calling workflow or user override the wait, fix-round, and timeout values.
 
 ## Initialize state
 
@@ -51,6 +53,7 @@ Track these values throughout the loop:
 - Whether this loop pushed or replied since the last completed review cycle
 - Fix-and-push round count
 - Full wait count
+- Monitoring start time and absolute deadline
 
 Persist a review check name or bot login after detecting it. Do not drop it
 merely because a later API response omits it.
@@ -65,6 +68,11 @@ Run the entire wait in the foreground:
 ```bash
 sleep <wait-seconds>
 ```
+
+Before each wait, compare the absolute deadline with the current time. If the
+deadline has passed, report the unfinished state and exit. If less than one
+full wait interval remains, sleep only until the deadline, then report the
+unfinished state and exit without taking another observation.
 
 Do not inspect the PR while this process is running. If the execution tool
 yields, poll the same process in slices no longer than 60 seconds until it
@@ -82,6 +90,7 @@ git rev-parse @{upstream}
 HEAD_SHA=$(gh pr view "$PR_NUM" --json headRefOid --jq .headRefOid)
 
 gh api --paginate "repos/$REPO/commits/$HEAD_SHA/check-runs?per_page=100"
+gh api --paginate "repos/$REPO/commits/$HEAD_SHA/status?per_page=100"
 gh api --paginate "repos/$REPO/pulls/$PR_NUM/reviews?per_page=100"
 gh api --paginate "repos/$REPO/pulls/$PR_NUM/comments?per_page=100"
 gh api --paginate "repos/$REPO/issues/$PR_NUM/comments?per_page=100"
@@ -193,4 +202,4 @@ Otherwise, begin another full wait.
 
 Report the PR link, final HEAD, selected reviewers, full wait count,
 fix-and-push round count, bot comments fixed or declined, and whether the loop
-completed cleanly.
+completed cleanly or stopped at its timeout.
