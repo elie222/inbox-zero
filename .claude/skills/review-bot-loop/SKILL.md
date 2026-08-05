@@ -98,12 +98,15 @@ Otherwise, discover automated reviewers from:
 
 - Current-commit check names containing review-oriented identifiers such as
   `review`, `reviewer`, `cubic`, `baz`, `bugbot`, or `coderabbit`
-- Pull-request reviews authored by accounts whose GitHub user type is `Bot`
-- Root inline review comments authored by accounts whose user type is `Bot`
+- Current-commit pull-request reviews authored by accounts whose GitHub user
+  type is `Bot`
+- Current-commit root inline review comments authored by accounts whose user
+  type is `Bot`
 
-Add authors of actual bot reviews and inline review comments to the selected
-bot-login set. Do not select a bot solely because it posted a deployment,
-coverage, or other status-only conversation comment.
+Only discover bot logins from reviews and root inline comments whose
+`commit_id` equals `HEAD_SHA`. Add those authors to the selected bot-login set.
+Do not select a bot solely because it posted a deployment, coverage, or other
+status-only conversation comment.
 
 Use selected bot logins to filter inline and conversation comments. Ignore
 comments and checks from all other actors in this workflow.
