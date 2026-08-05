@@ -113,6 +113,7 @@ describe("createMcpToolsForAgent", () => {
 
     const result = await createMcpToolsForAgent("email-account-1");
 
+    expect(mockCreateMCPClient).toHaveBeenCalledTimes(2);
     expect(Object.keys(result.tools)).toEqual(["notion-search"]);
   });
 });

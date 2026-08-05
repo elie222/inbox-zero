@@ -315,6 +315,11 @@ async function refreshOAuthTokens({
         connectionId: connection.id,
         emailAccountId,
       });
+      if (error instanceof InvalidClientError) {
+        // The registered OAuth client itself was rejected - clear it so the
+        // next connect attempt re-registers instead of reusing the bad client
+        await clearRegisteredClient(integration);
+      }
       throw new Error(
         `The ${integration} connection is no longer authorized. Please reconnect.`,
       );
@@ -656,6 +661,20 @@ async function deactivateConnection({
       error,
       connectionId,
       emailAccountId,
+    });
+  }
+}
+
+async function clearRegisteredClient(integration: string) {
+  try {
+    await prisma.mcpIntegration.update({
+      where: { name: integration },
+      data: { oauthClientId: null, oauthClientSecret: null },
+    });
+  } catch (error) {
+    logger.error("Failed to clear registered OAuth client", {
+      error,
+      integration,
     });
   }
 }

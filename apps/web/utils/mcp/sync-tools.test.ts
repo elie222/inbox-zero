@@ -17,7 +17,7 @@ describe("syncMcpTools", () => {
   const logger = createScopedLogger("sync-tools-test");
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     prisma.$transaction.mockResolvedValue([]);
   });
 

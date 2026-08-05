@@ -127,5 +127,7 @@ export function getIntegration(
 export function findIntegration(
   name: string,
 ): (typeof MCP_INTEGRATIONS)[IntegrationKey] | undefined {
-  return MCP_INTEGRATIONS[name];
+  return Object.hasOwn(MCP_INTEGRATIONS, name)
+    ? MCP_INTEGRATIONS[name]
+    : undefined;
 }
