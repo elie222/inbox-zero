@@ -176,7 +176,6 @@ export const useNavigation = () => {
               name: "Integrations",
               href: prefixPath(currentEmailAccountId, "/integrations"),
               icon: ZapIcon,
-              beta: true,
             },
           ]
         : []),

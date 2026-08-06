@@ -84,6 +84,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const inlineActionsRef = useRef(inlineActions);
   const pendingInlineActionsRef = useRef<InlineEmailAction[] | null>(null);
   const pendingRequestRef = useRef<PendingChatRequest | null>(null);
+  const pendingRequestContextRef = useRef<MessageContext | null>(null);
   const previousChatIdRef = useRef(chatId);
   const previousEmailAccountIdRef = useRef<string | null>(null);
 
@@ -118,7 +119,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           body: {
             id,
             message: messages.at(-1),
-            context: context ?? undefined,
             inlineActions: pendingInlineActionsRef.current ?? undefined,
             ...body,
           },
@@ -131,6 +131,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     onFinish: async () => {
       pendingInlineActionsRef.current = null;
       pendingRequestRef.current = null;
+      pendingRequestContextRef.current = null;
       await Promise.all([
         mutate("/api/user/rules"),
         chatId ? mutate(`/api/chats/${chatId}`) : Promise.resolve(),
@@ -139,6 +140,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     onError: (error) => {
       const pendingRequest = pendingRequestRef.current;
       const pendingInlineActions = pendingInlineActionsRef.current;
+      const pendingContext = pendingRequestContextRef.current;
+      if (pendingContext) {
+        setContext((current) => current ?? pendingContext);
+      }
       if (pendingInlineActions?.length) {
         setInlineActions((current) =>
           pendingInlineActions.reduce(
@@ -156,6 +161,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         request: pendingRequest,
       });
       pendingRequestRef.current = null;
+      pendingRequestContextRef.current = null;
     },
   });
 
@@ -171,8 +177,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     if (previousChatIdRef.current === chatId) return;
 
     previousChatIdRef.current = chatId;
+    if (pendingRequestRef.current?.chatId === chatId) return;
+
     pendingInlineActionsRef.current = null;
     pendingRequestRef.current = null;
+    pendingRequestContextRef.current = null;
     setInlineActions([]);
   }, [chatId]);
 
@@ -189,6 +198,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     previousEmailAccountIdRef.current = emailAccountId;
     pendingInlineActionsRef.current = null;
     pendingRequestRef.current = null;
+    pendingRequestContextRef.current = null;
     setChatId(null);
     chat.setMessages([]);
     setInput("");
@@ -221,11 +231,14 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
       if (!chatId) setChatId(chat.id);
 
+      const requestChatId = chatId ?? chat.id;
+      const requestContext = context;
       pendingRequestRef.current = {
         attachmentCount,
-        chatId: chatId ?? chat.id,
+        chatId: requestChatId,
         textLength,
       };
+      pendingRequestContextRef.current = requestContext;
       pendingInlineActionsRef.current = inlineActionsRef.current.length
         ? inlineActionsRef.current
         : null;
@@ -234,9 +247,17 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         setInlineActions([]);
       }
 
-      return chat.sendMessage({ role: "user", parts });
+      const sendPromise = chat.sendMessage(
+        { role: "user", parts },
+        requestContext ? { body: { context: requestContext } } : undefined,
+      );
+      if (requestContext) {
+        setContext((current) => (current === requestContext ? null : current));
+      }
+
+      return sendPromise;
     },
-    [chat.id, chat.sendMessage, chatId, emailAccountId, setChatId],
+    [chat.id, chat.sendMessage, chatId, context, emailAccountId, setChatId],
   );
 
   const submitTextMessage = useCallback(

@@ -48,6 +48,13 @@ type MutateFn = (
 
 type QueueArchiveSendersFn = (params: { senders: string[] }) => Promise<number>;
 
+type BulkOperationResult = {
+  stoppedByRateLimit: boolean;
+  total: number;
+  successCount: number;
+  failureCount: number;
+};
+
 function pluralize(count: number, singular: string): string {
   return count === 1 ? singular : `${singular}s`;
 }
@@ -108,7 +115,7 @@ async function executeBulkOperation<T extends Row>({
   onComplete?: () => Promise<unknown>;
   onCompleteRevalidates?: boolean;
   onSuccess?: () => void;
-}) {
+}): Promise<BulkOperationResult> {
   const total = items.length;
   const toastId = toast.loading(
     `${loadingMessage} ${total} ${pluralize(total, "sender")}...`,
@@ -184,7 +191,12 @@ async function executeBulkOperation<T extends Row>({
       id: toastId,
       description: `${successful} of ${total} completed; stopped to avoid more requests`,
     });
-    return { stoppedByRateLimit: true };
+    return {
+      stoppedByRateLimit: true,
+      total,
+      successCount: successful,
+      failureCount,
+    };
   }
 
   if (failureCount > 0) {
@@ -204,7 +216,12 @@ async function executeBulkOperation<T extends Row>({
     onSuccess?.();
   }
 
-  return { stoppedByRateLimit: false };
+  return {
+    stoppedByRateLimit: false,
+    total,
+    successCount: total - failureCount,
+    failureCount,
+  };
 }
 
 async function unsubscribeAndArchive({
@@ -413,7 +430,14 @@ export function useBulkUnsubscribe<T extends Row>({
 
   const onBulkUnsubscribe = useCallback(
     async (items: T[]) => {
-      if (!hasUnsubscribeAccess) return;
+      if (!hasUnsubscribeAccess) {
+        return {
+          stoppedByRateLimit: false,
+          total: items.length,
+          successCount: 0,
+          failureCount: items.length,
+        };
+      }
       posthog.capture("Clicked Bulk Unsubscribe");
       analytics.captureAction("bulk_unsubscribe_started", {
         item_count: items.length,
@@ -466,8 +490,11 @@ export function useBulkUnsubscribe<T extends Row>({
 
       analytics.captureAction("bulk_unsubscribe_completed", {
         item_count: items.length,
+        success_count: result.successCount,
+        failure_count: result.failureCount,
         filter,
       });
+      return result;
     },
     [
       hasUnsubscribeAccess,
