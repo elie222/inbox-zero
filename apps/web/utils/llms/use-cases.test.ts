@@ -137,6 +137,7 @@ describe("LLM use cases", () => {
       [LlmUseCase.MeetingFollowUpDraft]: "draft",
       [LlmUseCase.MeetingSummary]: "default",
       [LlmUseCase.MeetingWebSearch]: "economy",
+      [LlmUseCase.OnboardingChat]: "chat",
       [LlmUseCase.ParseFilingReply]: "economy",
       [LlmUseCase.PersonaAnalysis]: "economy",
       [LlmUseCase.PromptToRules]: "chat",

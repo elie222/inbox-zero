@@ -1,76 +1,64 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import useSWR from "swr";
-import { subDays } from "date-fns/subDays";
-import { startOfDay } from "date-fns/startOfDay";
+import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport } from "ai";
 import { usePostHog } from "posthog-js/react";
 import { useAction } from "next-safe-action/hooks";
 import { Logo } from "@/components/Logo";
-import { Button } from "@/components/ui/button";
 import { EmailStatsPreloader } from "@/components/EmailStatsPreloader";
+import { toastError } from "@/components/Toast";
 import {
   ChatOnboardingChatPane,
-  type ChatOnboardingMessage,
+  type ScanCard,
 } from "@/app/(app)/[emailAccountId]/onboarding/ChatOnboardingChatPane";
-import { ChatOnboardingArtifact } from "@/app/(app)/[emailAccountId]/onboarding/ChatOnboardingArtifact";
+import { ChatOnboardingSetupPanel } from "@/app/(app)/[emailAccountId]/onboarding/ChatOnboardingSetupPanel";
+import { OnboardingAccountMenu } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingAccountMenu";
+import { OnboardingPlanCards } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingPlanCards";
 import {
-  CHAT_BEATS,
-  getArtifactMode,
-  getChatOnboardingCategories,
-  KEEP_NOTED_MESSAGE,
-  LABELS_NOTED_MESSAGE,
-  LABELS_TWEAK_CHIP,
-  RULES_NOTED_MESSAGE,
-  RULES_TWEAK_CHIP,
-  type ChatAnswers,
-  type ChatBeatKey,
-} from "@/app/(app)/[emailAccountId]/onboarding/chatOnboardingScript";
+  applySetupUpdate,
+  buildInitialSetup,
+  getStageFromMessages,
+  STAGE_CHIPS,
+  STAGE_QUESTIONS,
+  STAGE_STEP,
+  TOTAL_STEPS,
+  WELCOME_MESSAGE,
+  WELCOME_MESSAGE_ID,
+  type OnboardingChatMessage,
+  type OnboardingStage,
+} from "@/app/(app)/[emailAccountId]/onboarding/chatOnboardingConfig";
 import { useCompleteOnboarding } from "@/app/(app)/[emailAccountId]/onboarding/useCompleteOnboarding";
-import { getUnsubscribeSuggestions } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/suggestions";
+import { useInboxScan } from "@/app/(app)/[emailAccountId]/onboarding/useInboxScan";
 import { useBulkUnsubscribe } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/hooks";
+import type { Newsletter } from "@/app/(app)/[emailAccountId]/onboarding/useInboxScan";
 import type {
-  NewsletterStatsQuery,
-  NewsletterStatsResponse,
-} from "@/app/api/user/stats/newsletters/route";
+  OnboardingRuleAction,
+  OnboardingSetup,
+} from "@/app/api/chat/onboarding/validation";
+import type { Tier } from "@/app/(app)/premium/config";
 import { saveOnboardingChatAnswersAction } from "@/utils/actions/onboarding";
 import { updateEmailAccountRoleAction } from "@/utils/actions/email-account";
 import { createRulesOnboardingAction } from "@/utils/actions/rule";
-import { categoryConfig } from "@/utils/category-config";
+import { generateCheckoutSessionAction } from "@/utils/actions/premium";
+import {
+  ASSISTANT_ONBOARDING_COOKIE,
+  markOnboardingAsCompleted,
+} from "@/utils/cookies";
+import { completedOnboardingAction } from "@/utils/actions/onboarding";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { usePremium } from "@/hooks/usePremium";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { useOnboardingAnalytics } from "@/hooks/useAnalytics";
 import { useSignUpEvent } from "@/hooks/useSignupEvent";
 import { assertActionSucceeded, captureException } from "@/utils/error";
-import { createSearchParams } from "@/utils/url";
+import { redirectToSafeUrl } from "@/utils/redirect";
+import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
 
-type Newsletter = NewsletterStatsResponse["newsletters"][number];
-
-const SHOWN_UNSUBSCRIBE_COUNT = 6;
-// If newsletter stats haven't loaded by the time the conversation reaches
-// cleanup, give up waiting and finish without the unsubscribe beat.
-const STATS_WAIT_TIMEOUT_MS = 15_000;
-
-const FIRST_MESSAGE_DELAY_MS = 700;
-
-const BEAT_STEP: Record<ChatBeatKey, number> = {
-  role: 1,
-  struggle: 2,
-  volume: 3,
-  labels: 4,
-  labelsTweak: 4,
-  rules: 5,
-  rulesTweak: 5,
-  unsubscribe: 6,
-  done: 7,
-};
-const TOTAL_STEPS = 7;
-
-type DoneContext = {
-  unsubscribedFromCount: number;
-  skippedCleanup: boolean;
-  setupSucceeded: boolean;
+const ACTION_EVENT_LABELS: Record<OnboardingRuleAction, string> = {
+  label: "Label",
+  label_archive: "Label + archive",
+  move_folder: "Move to folder",
 };
 
 export function ChatOnboarding() {
@@ -79,6 +67,7 @@ export function ChatOnboarding() {
   const analytics = useOnboardingAnalytics("onboarding-chat");
   const { completeAndRedirect, destination } = useCompleteOnboarding();
   const {
+    isPremium,
     hasUnsubscribeAccess,
     mutate: refetchPremium,
     isLoading: isPremiumLoading,
@@ -87,201 +76,133 @@ export function ChatOnboarding() {
 
   useSignUpEvent();
 
-  // Same query as the bulk-unsubscribe onboarding step; EmailStatsPreloader
-  // starts ingesting stats early so data is ready by the cleanup beat.
-  const fromDate = useMemo(() => +subDays(startOfDay(new Date()), 90), []);
-  const params: NewsletterStatsQuery = {
-    types: [],
-    filters: ["unhandled"],
-    orderBy: "emails",
-    orderDirection: "desc",
-    limit: 50,
-    includeMissingUnsubscribe: true,
-    fromDate,
-  };
-  const urlParams = createSearchParams(params);
-  const {
-    data,
-    isLoading: isStatsLoading,
-    error: statsError,
-    mutate,
-  } = useSWR<NewsletterStatsResponse>(
-    emailAccountId
-      ? [`/api/user/stats/newsletters?${urlParams}`, emailAccountId]
-      : null,
-    {
-      revalidateOnFocus: false,
-      revalidateOnReconnect: false,
-      revalidateIfStale: false,
-    },
-  );
-
-  const suggestions = useMemo(
-    () =>
-      getUnsubscribeSuggestions(data?.newsletters ?? [], {
-        requireAutomaticUnsubscribeLink: true,
-      }),
-    [data],
-  );
-  const shownSenders = useMemo(
-    () => suggestions.slice(0, SHOWN_UNSUBSCRIBE_COUNT),
-    [suggestions],
-  );
-
-  const { onBulkUnsubscribe } = useBulkUnsubscribe<Newsletter>({
-    hasUnsubscribeAccess,
-    mutate,
-    posthog,
-    refetchPremium,
+  const { scan, suggestions, shownSenders, mutateNewsletters } = useInboxScan({
     emailAccountId,
-    filter: "unhandled",
   });
 
-  const categories = useMemo(
-    () => getChatOnboardingCategories(provider),
-    [provider],
+  const [setup, setSetup] = useState<OnboardingSetup>(() =>
+    buildInitialSetup(provider),
   );
-
-  const [messages, setMessages] = useState<ChatOnboardingMessage[]>([]);
-  const [beat, setBeat] = useState<ChatBeatKey | "cleanupPending">("role");
-  const [typing, setTyping] = useState(false);
-  const [awaiting, setAwaiting] = useState(false);
-  const [pendingCleanup, setPendingCleanup] = useState<{
-    preMessages: string[];
-  } | null>(null);
-  const [statsTimedOut, setStatsTimedOut] = useState(false);
+  const [scanCardAfterId, setScanCardAfterId] = useState<string | null>(null);
   const [deselected, setDeselected] = useState<Set<string>>(new Set());
   const [submittingUnsubscribe, setSubmittingUnsubscribe] = useState(false);
-  const [doneContext, setDoneContext] = useState<DoneContext>({
-    unsubscribedFromCount: 0,
-    skippedCleanup: false,
-    setupSucceeded: false,
-  });
+  const [cleanupResult, setCleanupResult] = useState<{
+    unsubscribedCount: number;
+  } | null>(null);
   const [finishing, setFinishing] = useState(false);
 
-  const messageIdRef = useRef(0);
-  const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const answersRef = useRef<
-    { key: string; question: string; answer: string; isFreeform: boolean }[]
-  >([]);
-  const answersByKeyRef = useRef<ChatAnswers>({});
-  const saveAnswersQueueRef = useRef<Promise<unknown>>(Promise.resolve());
-  const rulesCreationRef = useRef<Promise<boolean> | null>(null);
+  const setupRef = useRef(setup);
+  const scanRef = useRef(scan);
+  const isPremiumRef = useRef(Boolean(isPremium));
+  setupRef.current = setup;
+  scanRef.current = scan;
+  isPremiumRef.current = Boolean(isPremium);
 
-  const { executeAsync: saveRole } = useAction(
-    updateEmailAccountRoleAction.bind(null, emailAccountId),
-  );
-  const { executeAsync: saveAnswers } = useAction(
-    saveOnboardingChatAnswersAction,
-  );
-
-  const pushMessage = (from: "assistant" | "user", text: string) => {
-    messageIdRef.current += 1;
-    const id = messageIdRef.current;
-    setMessages((prev) => [...prev, { id, from, text }]);
-  };
-
-  const deliver = (
-    key: ChatBeatKey,
-    ctx?: Partial<DoneContext> & { unsubscribeCount?: number },
-    preMessages: string[] = [],
-  ) => {
-    const beatDef = CHAT_BEATS[key];
-    const text = [
-      ...preMessages,
-      ...beatDef.messages({
-        answers: answersByKeyRef.current,
-        unsubscribeCount: ctx?.unsubscribeCount ?? 0,
-        unsubscribedFromCount: ctx?.unsubscribedFromCount ?? 0,
-        skippedCleanup: ctx?.skippedCleanup ?? false,
-        setupSucceeded: ctx?.setupSucceeded ?? false,
-      }),
-    ].join(" ");
-
-    setBeat(key);
-    setTyping(true);
-    setAwaiting(false);
-    analytics.onStepViewed({
-      stepKey: key,
-      step: BEAT_STEP[key],
-      totalSteps: TOTAL_STEPS,
-    });
-
-    const timeout = setTimeout(() => {
-      pushMessage("assistant", text);
-      setTyping(false);
-      setAwaiting(Boolean(beatDef.chips || beatDef.placeholder));
-    }, FIRST_MESSAGE_DELAY_MS);
-    timeoutsRef.current.push(timeout);
-  };
-
-  const goToDone = async (
-    ctx: Omit<DoneContext, "setupSucceeded">,
-    preMessages: string[] = [],
-  ) => {
-    const setupSucceeded = await (rulesCreationRef.current ??
-      Promise.resolve(false));
-    const doneContext = { ...ctx, setupSucceeded };
-    setDoneContext(doneContext);
-    deliver("done", doneContext, preMessages);
-  };
-
-  const recordAnswer = (
-    key: ChatBeatKey,
-    answer: string,
-    isFreeform: boolean,
-  ) => {
-    answersByKeyRef.current = { ...answersByKeyRef.current, [key]: answer };
-    answersRef.current = [
-      ...answersRef.current,
-      { key, question: CHAT_BEATS[key].question, answer, isFreeform },
-    ];
-
-    posthog?.capture("onboarding_chat_answer", {
-      variant: "onboarding-chat",
-      beat: key,
-      answer,
-      isFreeform,
-    });
-    analytics.onNext({
-      stepKey: key,
-      step: BEAT_STEP[key],
-      totalSteps: TOTAL_STEPS,
-    });
-
-    const answers = answersRef.current;
-    saveAnswersQueueRef.current = saveAnswersQueueRef.current
-      .catch(() => undefined)
-      .then(async () => {
-        if (key === "role") {
-          const roleResult = await saveRole({
-            role: answer,
-            writeOnboardingAnswers: false,
-          });
-          assertActionSucceeded(roleResult);
-        }
-
-        const answersResult = await saveAnswers({ answers });
-        assertActionSucceeded(answersResult);
-      })
-      .catch((error) => {
-        captureException(error, {
-          extra: { context: "chat-onboarding", step: "save-answers", key },
-        });
+  const chat = useChat<OnboardingChatMessage>({
+    transport: new DefaultChatTransport({
+      api: "/api/chat/onboarding",
+      headers: { [EMAIL_ACCOUNT_HEADER]: emailAccountId },
+      prepareSendMessagesRequest({ messages }) {
+        return {
+          body: {
+            messages,
+            setup: setupRef.current,
+            scan: scanRef.current,
+            isPremium: isPremiumRef.current,
+          },
+        };
+      },
+    }),
+    experimental_throttle: 80,
+    onError: (error) => {
+      captureException(error, {
+        extra: { context: "chat-onboarding", step: "chat-request" },
       });
-  };
+      toastError({
+        description: "We couldn't send that. Please try again.",
+      });
+    },
+  });
 
+  const messages = chat.messages;
+  const stage = useMemo(() => getStageFromMessages(messages), [messages]);
+  const busy = chat.status === "submitted" || chat.status === "streaming";
+
+  // Seed the fixed welcome message so the chat opens instantly, with no LLM
+  // call until the user answers.
+  const startedRef = useRef(false);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: run once on mount
+  useEffect(() => {
+    if (startedRef.current) return;
+    startedRef.current = true;
+    chat.setMessages([
+      {
+        id: WELCOME_MESSAGE_ID,
+        role: "assistant",
+        parts: [{ type: "text", text: WELCOME_MESSAGE }],
+      },
+    ]);
+    analytics.onStart({ step: 1, stepKey: "welcome", totalSteps: TOTAL_STEPS });
+  }, []);
+
+  // Rebuild the default draft if the provider resolves late, but never after
+  // the setup is on screen.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: only reacts to provider changes
+  useEffect(() => {
+    if (stage === "welcome" || stage === "discovery" || stage === "guess") {
+      setSetup(buildInitialSetup(provider));
+    }
+  }, [provider]);
+
+  // Apply the model's setup edits (tool outputs) to the shared draft, once each
+  const appliedToolCallsRef = useRef(new Set<string>());
+  useEffect(() => {
+    for (const message of messages) {
+      for (const part of message.parts) {
+        if (
+          part.type === "tool-updateSetup" &&
+          part.state === "output-available" &&
+          part.output.ok &&
+          !appliedToolCallsRef.current.has(part.toolCallId)
+        ) {
+          appliedToolCallsRef.current.add(part.toolCallId);
+          const output = part.output;
+          setSetup((current) => applySetupUpdate(current, output));
+        }
+      }
+    }
+  }, [messages]);
+
+  // Stage transitions: analytics plus turning the rules on at close
+  const prevStageRef = useRef<OnboardingStage>("welcome");
+  // biome-ignore lint/correctness/useExhaustiveDependencies: analytics/createRules are stable enough; the ref guards re-entry
+  useEffect(() => {
+    if (stage === prevStageRef.current) return;
+    prevStageRef.current = stage;
+    analytics.onStepViewed({
+      stepKey: stage,
+      step: STAGE_STEP[stage],
+      totalSteps: TOTAL_STEPS,
+    });
+    if (stage === "close") createRules();
+  }, [stage]);
+
+  const rulesCreationRef = useRef<Promise<boolean> | null>(null);
   const createRules = () => {
     if (rulesCreationRef.current) return;
-    const configs = categoryConfig(provider).map((category) => ({
-      name: category.key,
-      description: "",
-      action: category.action,
-      key: category.key,
-    }));
+    const configs = setupRef.current.rules
+      .filter((rule) => rule.enabled)
+      .map((rule) => ({
+        name: rule.key ?? rule.name,
+        description: rule.description,
+        action: rule.action,
+        key: rule.key,
+      }));
+    setSetup((current) => ({ ...current, status: "enabling" }));
     rulesCreationRef.current = createRulesOnboardingAction(
       emailAccountId,
-      configs,
+      // Cast: key is a SystemType for the standard rules and null for custom ones
+      configs as Parameters<typeof createRulesOnboardingAction>[1],
     )
       .then((result) => {
         assertActionSucceeded(result);
@@ -289,157 +210,164 @@ export function ChatOnboarding() {
           variant: "onboarding-chat",
           count: configs.length,
         });
+        setSetup((current) => ({ ...current, status: "live" }));
         return true;
       })
       .catch((error) => {
         captureException(error, {
           extra: { context: "chat-onboarding", step: "create-rules" },
         });
+        setSetup((current) => ({ ...current, status: "error" }));
         return false;
       });
   };
 
-  const goToCleanup = (preMessages: string[]) => {
-    setBeat("cleanupPending");
-    setTyping(true);
-    setAwaiting(false);
-    setPendingCleanup({ preMessages });
-  };
-
-  const respond = async (text: string, isFreeform: boolean) => {
-    if (!awaiting || beat === "cleanupPending") return;
-    const currentBeat = beat;
-
-    setAwaiting(false);
-    pushMessage("user", text);
-    recordAnswer(currentBeat, text, isFreeform);
-
-    switch (currentBeat) {
-      case "role":
-        deliver("struggle");
-        break;
-      case "struggle":
-        deliver("volume");
-        break;
-      case "volume":
-        deliver("labels");
-        break;
-      case "labels":
-        if (text === LABELS_TWEAK_CHIP) deliver("labelsTweak");
-        else if (isFreeform)
-          deliver("rules", undefined, [LABELS_NOTED_MESSAGE]);
-        else deliver("rules");
-        break;
-      case "labelsTweak":
-        deliver("rules", undefined, [LABELS_NOTED_MESSAGE]);
-        break;
-      case "rules":
-        if (text === RULES_TWEAK_CHIP) {
-          deliver("rulesTweak");
-        } else {
-          if (!isFreeform) createRules();
-          goToCleanup(isFreeform ? [RULES_NOTED_MESSAGE] : []);
-        }
-        break;
-      case "rulesTweak":
-        goToCleanup([RULES_NOTED_MESSAGE]);
-        break;
-      case "unsubscribe":
-        // We can't reliably act on a typed keep-list without an LLM, so keep
-        // everything — never unsubscribe on a guess.
-        await goToDone({ unsubscribedFromCount: 0, skippedCleanup: false }, [
-          KEEP_NOTED_MESSAGE,
-        ]);
-        break;
-      case "done":
-        break;
-    }
-  };
-
-  // Resolve the cleanup beat once newsletter stats are ready (or we give up)
-  // biome-ignore lint/correctness/useExhaustiveDependencies: deliver/goToDone are recreated every render; the pendingCleanup guard prevents re-entry
-  useEffect(() => {
-    if (!pendingCleanup) return;
-
-    const statsReady = Boolean(data) || Boolean(statsError) || !isStatsLoading;
-    if (!statsReady && !statsTimedOut) return;
-
-    setPendingCleanup(null);
-    const pre = pendingCleanup.preMessages;
-
-    if (shownSenders.length > 0) {
-      posthog?.capture("onboarding_unsubscribe_suggestions_shown", {
-        variant: "onboarding-chat",
-        shownCount: shownSenders.length,
-        totalSuggestions: suggestions.length,
-      });
-      deliver("unsubscribe", { unsubscribeCount: suggestions.length }, pre);
-    } else if (data && !statsError) {
-      goToDone({ unsubscribedFromCount: 0, skippedCleanup: true }, pre);
-    } else {
-      // Stats unavailable — finish without claiming the inbox is clean
-      goToDone({ unsubscribedFromCount: 0, skippedCleanup: false }, pre);
-    }
-  }, [
-    pendingCleanup,
-    data,
-    statsError,
-    isStatsLoading,
-    statsTimedOut,
-    shownSenders.length,
-    suggestions.length,
-  ]);
-
-  useEffect(() => {
-    if (!pendingCleanup) return;
-    const timeout = setTimeout(
-      () => setStatsTimedOut(true),
-      STATS_WAIT_TIMEOUT_MS,
-    );
-    return () => clearTimeout(timeout);
-  }, [pendingCleanup]);
-
-  // Kick off the conversation once on mount
-  const startedRef = useRef(false);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: run once on mount
-  useEffect(() => {
-    if (startedRef.current) return;
-    startedRef.current = true;
-    analytics.onStart({ step: 1, stepKey: "role", totalSteps: TOTAL_STEPS });
-    deliver("role");
-  }, []);
-
-  useEffect(
-    () => () => {
-      for (const timeout of timeoutsRef.current) clearTimeout(timeout);
-    },
-    [],
+  // Answer persistence: the accumulated transcript is saved after every answer
+  // so partial data survives abandonment.
+  const { executeAsync: saveRole } = useAction(
+    updateEmailAccountRoleAction.bind(null, emailAccountId),
   );
+  const { executeAsync: saveAnswers } = useAction(
+    saveOnboardingChatAnswersAction,
+  );
+  const { executeAsync: completeOnboarding } = useAction(
+    completedOnboardingAction,
+  );
+  const answersRef = useRef<
+    { key: string; question: string; answer: string; isFreeform: boolean }[]
+  >([]);
+  const saveQueueRef = useRef<Promise<unknown>>(Promise.resolve());
+
+  const recordAnswer = (
+    stageAtSend: OnboardingStage,
+    answer: string,
+    isFreeform: boolean,
+  ) => {
+    answersRef.current = [
+      ...answersRef.current,
+      {
+        key: stageAtSend,
+        question: STAGE_QUESTIONS[stageAtSend],
+        answer,
+        isFreeform,
+      },
+    ];
+
+    posthog?.capture("onboarding_chat_answer", {
+      variant: "onboarding-chat",
+      beat: stageAtSend,
+      answer,
+      isFreeform,
+    });
+    analytics.onNext({
+      stepKey: stageAtSend,
+      step: STAGE_STEP[stageAtSend],
+      totalSteps: TOTAL_STEPS,
+    });
+
+    const answers = answersRef.current;
+    saveQueueRef.current = saveQueueRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        if (stageAtSend === "welcome") {
+          const roleResult = await saveRole({
+            role: answer.slice(0, 100),
+            writeOnboardingAnswers: false,
+          });
+          assertActionSucceeded(roleResult);
+        }
+        const answersResult = await saveAnswers({ answers });
+        assertActionSucceeded(answersResult);
+      })
+      .catch((error) => {
+        captureException(error, {
+          extra: {
+            context: "chat-onboarding",
+            step: "save-answers",
+            key: stageAtSend,
+          },
+        });
+      });
+  };
+
+  // Manual panel edits queue up as [panel] events and ride along with the next
+  // request, so the model always knows what the user changed by hand.
+  const pendingPanelEventsRef = useRef<string[]>([]);
+
+  const flushPanelEvents = () => {
+    const events = pendingPanelEventsRef.current;
+    if (!events.length) return;
+    pendingPanelEventsRef.current = [];
+    chat.setMessages([
+      ...chat.messages,
+      ...events.map(
+        (text): OnboardingChatMessage => ({
+          id: generateMessageId(),
+          role: "user",
+          metadata: { hidden: true },
+          parts: [{ type: "text", text }],
+        }),
+      ),
+    ]);
+  };
+
+  const sendHiddenEvent = (text: string) => {
+    flushPanelEvents();
+    chat.sendMessage({
+      role: "user",
+      metadata: { hidden: true },
+      parts: [{ type: "text", text }],
+    });
+  };
+
+  const send = (text: string, isFreeform: boolean) => {
+    if (busy || finishing) return;
+    const stageAtSend = stage;
+    flushPanelEvents();
+    recordAnswer(stageAtSend, text, isFreeform);
+
+    const id = generateMessageId();
+    if (stageAtSend === "guess" && !scanCardAfterId) setScanCardAfterId(id);
+    chat.sendMessage({ id, role: "user", parts: [{ type: "text", text }] });
+  };
+
+  // If the scan was still running when the user guessed, nudge the model to do
+  // the reveal as soon as it finishes.
+  const scanEventSentRef = useRef(false);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: guarded one-shot continuation
+  useEffect(() => {
+    if (scanEventSentRef.current) return;
+    if (stage !== "guess" || !scanCardAfterId) return;
+    if (scan.status === "pending" || chat.status !== "ready") return;
+    if (messages.at(-1)?.role !== "assistant") return;
+    scanEventSentRef.current = true;
+    sendHiddenEvent(
+      "[event] The inbox scan finished. Continue with the reveal and the draft.",
+    );
+  }, [stage, scan.status, chat.status, messages, scanCardAfterId]);
+
+  // Unsubscribe: clicks only, never driven by chat text
+  const { onBulkUnsubscribe } = useBulkUnsubscribe<Newsletter>({
+    hasUnsubscribeAccess,
+    mutate: mutateNewsletters,
+    posthog,
+    refetchPremium,
+    emailAccountId,
+    filter: "unhandled",
+  });
 
   const selectedSenders = shownSenders.filter(
     (sender) => !deselected.has(sender.name),
   );
 
-  const onToggleSender = (name: string) => {
-    setDeselected((prev) => {
-      const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
-      return next;
-    });
-  };
-
   const onUnsubscribeSelected = async () => {
-    if (beat !== "unsubscribe" || submittingUnsubscribe) return;
+    if (stage !== "cleanup" || submittingUnsubscribe || cleanupResult) return;
 
     if (!selectedSenders.length) {
-      setAwaiting(false);
-      pushMessage("user", "Keep them all");
-      recordAnswer("unsubscribe", "Keep them all", false);
-      await goToDone({
-        unsubscribedFromCount: 0,
-        skippedCleanup: false,
-      });
+      setCleanupResult({ unsubscribedCount: 0 });
+      sendHiddenEvent(
+        "[event] The user chose to keep all suggested senders. Continue to the close.",
+      );
       return;
     }
 
@@ -460,11 +388,6 @@ export function ChatOnboarding() {
       return;
     }
 
-    setAwaiting(false);
-    const answer = `Unsubscribe from ${selectedSenders.length}`;
-    pushMessage("user", answer);
-    recordAnswer("unsubscribe", answer, false);
-
     setSubmittingUnsubscribe(true);
     let successCount = 0;
     let failureCount = 0;
@@ -475,83 +398,160 @@ export function ChatOnboarding() {
     } finally {
       setSubmittingUnsubscribe(false);
     }
-    const preMessages =
-      failureCount > 0
-        ? [
-            successCount > 0
-              ? `I cleaned up ${successCount} ${
-                  successCount === 1 ? "sender" : "senders"
-                }, but couldn't finish ${failureCount}. You can retry those from Bulk Unsubscribe.`
-              : "I couldn't complete that cleanup just now, so I left those senders unchanged. You can retry from Bulk Unsubscribe.",
-          ]
-        : [];
-    await goToDone(
-      {
-        unsubscribedFromCount: successCount,
-        skippedCleanup: false,
-      },
-      preMessages,
+
+    setCleanupResult({ unsubscribedCount: successCount });
+    sendHiddenEvent(
+      `[event] Unsubscribed from ${successCount} of the suggested senders.${
+        failureCount > 0
+          ? ` ${failureCount} could not be completed; the user can retry from Bulk Unsubscribe in the app.`
+          : ""
+      } Continue to the close.`,
     );
   };
+
+  const awaitPendingWork = () =>
+    Promise.all([
+      saveQueueRef.current,
+      rulesCreationRef.current ?? Promise.resolve(),
+    ]);
 
   const onFinish = async () => {
     if (finishing) return;
     setFinishing(true);
-    analytics.onNext({
-      step: TOTAL_STEPS,
-      stepKey: "done",
-      totalSteps: TOTAL_STEPS,
-    });
     analytics.onComplete({
       step: TOTAL_STEPS,
-      stepKey: "done",
+      stepKey: "close",
       totalSteps: TOTAL_STEPS,
       destination,
     });
-    await Promise.all([
-      saveAnswersQueueRef.current,
-      rulesCreationRef.current ?? Promise.resolve(),
-    ]);
+    await awaitPendingWork();
     await completeAndRedirect();
     setFinishing(false);
   };
 
-  const onSkip = async () => {
-    if (finishing) return;
-    setFinishing(true);
-    analytics.onSkip({
-      stepKey: beat,
-      step: beat === "cleanupPending" ? BEAT_STEP.unsubscribe : BEAT_STEP[beat],
-      totalSteps: TOTAL_STEPS,
-      destination,
+  const onPickPlan = async (tier: Tier) => {
+    posthog?.capture("onboarding_chat_plan_selected", {
+      variant: "onboarding-chat",
+      tier: tier.name,
     });
-    await Promise.all([
-      saveAnswersQueueRef.current,
-      rulesCreationRef.current ?? Promise.resolve(),
-    ]);
-    await completeAndRedirect();
-    setFinishing(false);
+    await awaitPendingWork();
+
+    // Mark onboarding complete before leaving for Stripe so finishing checkout
+    // lands in the app, not back here.
+    try {
+      const result = await completeOnboarding();
+      assertActionSucceeded(result);
+      markOnboardingAsCompleted(ASSISTANT_ONBOARDING_COOKIE);
+    } catch (error) {
+      captureException(error, {
+        extra: { context: "chat-onboarding", step: "complete-before-checkout" },
+      });
+    }
+
+    try {
+      const result = await generateCheckoutSessionAction({
+        tier: tier.tiers.monthly,
+      });
+      if (!result?.data?.url) {
+        toastError({ description: "Error creating checkout session" });
+        return;
+      }
+      redirectToSafeUrl(result.data.url, { allowExternal: true });
+    } catch (error) {
+      captureException(error, {
+        extra: { context: "chat-onboarding", step: "checkout" },
+      });
+      toastError({ description: "Error creating checkout session" });
+    }
   };
 
-  const artifactMode = getArtifactMode(beat);
-  const currentBeatDef = beat === "cleanupPending" ? null : CHAT_BEATS[beat];
+  const onChangeRuleAction = (name: string, action: OnboardingRuleAction) => {
+    setSetup((current) => ({
+      ...current,
+      rules: current.rules.map((rule) =>
+        rule.name === name ? { ...rule, action } : rule,
+      ),
+    }));
+    pendingPanelEventsRef.current.push(
+      `[panel] The user changed the "${name}" rule action to ${ACTION_EVENT_LABELS[action]}.`,
+    );
+  };
 
-  const renderArtifact = (className?: string) => (
-    <ChatOnboardingArtifact
+  const onToggleRule = (name: string) => {
+    const rule = setup.rules.find((r) => r.name === name);
+    if (!rule) return;
+    setSetup((current) => ({
+      ...current,
+      rules: current.rules.map((r) =>
+        r.name === name ? { ...r, enabled: !r.enabled } : r,
+      ),
+    }));
+    pendingPanelEventsRef.current.push(
+      `[panel] The user turned the "${name}" rule ${rule.enabled ? "off" : "on"}.`,
+    );
+  };
+
+  const onToggleSender = (name: string) => {
+    setDeselected((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  };
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: fire once per stage entry
+  useEffect(() => {
+    if (stage === "cleanup" && shownSenders.length > 0) {
+      posthog?.capture("onboarding_unsubscribe_suggestions_shown", {
+        variant: "onboarding-chat",
+        shownCount: shownSenders.length,
+        totalSuggestions: suggestions.length,
+      });
+    }
+  }, [stage]);
+
+  const panelVisible =
+    stage === "draft" || stage === "cleanup" || stage === "close";
+
+  const scanCard: ScanCard | null = scanCardAfterId
+    ? {
+        afterMessageId: scanCardAfterId,
+        state: scan.status === "pending" ? "running" : "done",
+        summary:
+          scan.emailsLastMonth != null
+            ? `${scan.emailsLastMonth.toLocaleString()} emails in the last month · ${
+                scan.totalCleanupSuggestions
+              } senders you rarely open`
+            : null,
+      }
+    : null;
+
+  const chips =
+    stage === "close" && isPremium ? [] : (STAGE_CHIPS[stage] ?? []);
+
+  const renderPanel = (className?: string) => (
+    <ChatOnboardingSetupPanel
       className={className}
-      mode={artifactMode}
-      updating={typing}
-      categories={categories}
-      unsubscribe={{
+      setup={setup}
+      provider={provider}
+      editable={
+        setup.status === "draft" && (stage === "draft" || stage === "cleanup")
+      }
+      onChangeAction={onChangeRuleAction}
+      onToggleRule={onToggleRule}
+      cleanup={{
+        visible:
+          (stage === "cleanup" || (stage === "close" && !!cleanupResult)) &&
+          shownSenders.length > 0,
         senders: shownSenders,
-        totalCount: suggestions.length,
         deselected,
-        onToggle: onToggleSender,
+        onToggleSender,
         selectedCount: selectedSenders.length,
         onUnsubscribe: onUnsubscribeSelected,
         submitting: submittingUnsubscribe || isPremiumLoading,
+        result: cleanupResult,
       }}
-      summary={doneContext}
     />
   );
 
@@ -559,49 +559,70 @@ export function ChatOnboarding() {
     <div className="flex h-dvh flex-col bg-background">
       <EmailStatsPreloader />
 
-      <header className="flex h-14 shrink-0 items-center justify-between border-b px-4">
+      <header className="flex h-14 shrink-0 items-center justify-between border-b px-5">
         <Logo className="h-4 w-auto text-foreground" />
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-muted-foreground"
-          onClick={onSkip}
-          disabled={finishing}
-        >
-          Skip for now
-        </Button>
+        <OnboardingAccountMenu />
       </header>
 
       <div className="flex min-h-0 flex-1">
-        <div className="flex w-full min-w-0 flex-col lg:w-[420px] lg:shrink-0 lg:border-r">
-          <ChatOnboardingChatPane
-            messages={messages}
-            typing={typing}
-            awaiting={awaiting}
-            chips={currentBeatDef?.chips}
-            placeholder={currentBeatDef?.placeholder}
-            onRespond={respond}
-            cta={
-              beat === "done" && !typing
-                ? {
-                    label: "Open my inbox",
-                    loading: finishing,
-                    onClick: onFinish,
-                  }
-                : null
-            }
-            inlineArtifact={
-              artifactMode !== "idle" ? renderArtifact() : undefined
-            }
-          />
+        <div className="flex min-w-0 flex-1 justify-center">
+          <div className="flex w-full max-w-2xl flex-col px-5">
+            <ChatOnboardingChatPane
+              messages={messages}
+              status={chat.status}
+              chips={chips}
+              onSend={send}
+              scanCard={scanCard}
+              belowConversation={
+                stage === "close" && !isPremium ? (
+                  <div className="flex flex-col gap-3">
+                    <OnboardingPlanCards
+                      onPick={onPickPlan}
+                      disabled={finishing}
+                    />
+                    <button
+                      type="button"
+                      className="self-start text-sm text-muted-foreground transition-colors hover:text-foreground"
+                      onClick={onFinish}
+                      disabled={finishing}
+                    >
+                      I'll decide later
+                    </button>
+                  </div>
+                ) : null
+              }
+              cta={
+                stage === "close" && isPremium
+                  ? {
+                      label: "Open my inbox",
+                      loading: finishing,
+                      onClick: onFinish,
+                    }
+                  : null
+              }
+              inlinePanel={
+                panelVisible ? renderPanel("rounded-xl border") : undefined
+              }
+            />
+          </div>
         </div>
 
-        <div className="hidden min-w-0 flex-1 bg-slate-50 p-4 lg:flex dark:bg-slate-900">
-          {renderArtifact("flex-1")}
-        </div>
+        {panelVisible && (
+          <aside className="hidden w-[440px] shrink-0 border-l duration-500 animate-in slide-in-from-right lg:flex">
+            {renderPanel("flex-1")}
+          </aside>
+        )}
       </div>
 
       <PremiumModal />
     </div>
   );
+}
+
+function generateMessageId(): string {
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
 }
