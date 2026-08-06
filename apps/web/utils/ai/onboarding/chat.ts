@@ -5,9 +5,11 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { toolCallAgentStream } from "@/utils/llms";
 import { LlmUseCase } from "@/utils/llms/use-cases";
 import { tiers } from "@/app/(app)/premium/config";
-import type {
-  OnboardingScan,
-  OnboardingSetup,
+import {
+  MAX_SETUP_RULES,
+  onboardingRuleActionSchema,
+  type OnboardingScan,
+  type OnboardingSetup,
 } from "@/app/api/chat/onboarding/validation";
 
 export const ONBOARDING_STAGES = [
@@ -38,13 +40,13 @@ export const updateOnboardingSetupTool = ({
 }) =>
   tool({
     description:
-      "Change the draft setup shown in the panel. Use it to apply changes the user asks for in chat (change a rule's action, turn a rule off or on) or to tailor the defaults to what they told you (for example add one custom rule like Leads for a founder or salesperson). ruleName must exactly match a rule name from the current setup state. addRules creates new custom rules; give each a short name and a one sentence description of which emails it should catch, written for an email classifier. Actions: label keeps the email in the inbox with a label; label_archive labels it and archives it so it skips the inbox. Do not call this for unsubscribing from senders; cleanup only happens through the panel checklist.",
+      "Change the draft setup shown in the panel. Use it to apply changes the user asks for in chat (change a rule's action, turn a rule off or on) or to tailor the defaults to what they told you (for example add one custom rule like Leads for a founder or salesperson). ruleName must exactly match a rule name from the current setup state. addRules creates new custom rules; give each a unique short name and a one sentence description of which emails it should catch, written for an email classifier. Actions: label keeps the email in the inbox with a label; label_archive labels it and archives it so it skips the inbox; move_folder files it to a folder (folder-based providers like Outlook only). Do not call this for unsubscribing from senders; cleanup only happens through the panel checklist.",
     inputSchema: z.object({
       updates: z
         .array(
           z.object({
             ruleName: z.string(),
-            action: z.enum(["label", "label_archive"]).optional(),
+            action: onboardingRuleActionSchema.optional(),
             enabled: z.boolean().optional(),
           }),
         )
@@ -54,7 +56,7 @@ export const updateOnboardingSetupTool = ({
           z.object({
             name: z.string().min(1).max(40),
             description: z.string().min(1).max(500),
-            action: z.enum(["label", "label_archive"]),
+            action: onboardingRuleActionSchema,
           }),
         )
         .default([]),
@@ -66,11 +68,20 @@ export const updateOnboardingSetupTool = ({
       const unknown = updates
         .map((update) => update.ruleName)
         .filter((name) => !knownNames.has(name.toLowerCase()));
+      const seenNewNames = new Set<string>();
       const duplicates = addRules
         .map((rule) => rule.name)
-        .filter((name) => knownNames.has(name.toLowerCase()));
+        .filter((name) => {
+          const lower = name.toLowerCase();
+          if (knownNames.has(lower) || seenNewNames.has(lower)) return true;
+          seenNewNames.add(lower);
+          return false;
+        });
 
-      if (unknown.length > 0 || duplicates.length > 0) {
+      const overCapacity =
+        setup.rules.length + addRules.length > MAX_SETUP_RULES;
+
+      if (unknown.length > 0 || duplicates.length > 0 || overCapacity) {
         return {
           ok: false as const,
           error: [
@@ -78,7 +89,10 @@ export const updateOnboardingSetupTool = ({
               ? `Unknown rule names: ${unknown.join(", ")}.`
               : null,
             duplicates.length > 0
-              ? `Rules already exist: ${duplicates.join(", ")}.`
+              ? `Duplicate rule names: ${duplicates.join(", ")}.`
+              : null,
+            overCapacity
+              ? `The setup is limited to ${MAX_SETUP_RULES} rules.`
               : null,
             `Current rules: ${setup.rules.map((rule) => rule.name).join(", ")}.`,
           ]

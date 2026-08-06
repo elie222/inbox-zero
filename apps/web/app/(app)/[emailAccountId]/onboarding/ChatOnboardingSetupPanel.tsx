@@ -23,6 +23,7 @@ import type {
   OnboardingSetup,
 } from "@/app/api/chat/onboarding/validation";
 import { categoryConfig } from "@/utils/category-config";
+import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { cn } from "@/utils";
 
 const ACTION_LABELS: Record<OnboardingRuleAction, string> = {
@@ -137,7 +138,7 @@ export function ChatOnboardingSetupPanel({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {actionOptions(rule.action).map((action) => (
+                      {actionOptions(provider, rule.action).map((action) => (
                         <SelectItem
                           key={action}
                           value={action}
@@ -269,7 +270,12 @@ function StatusBadge({ status }: { status: OnboardingSetup["status"] }) {
   }
 }
 
-function actionOptions(current: OnboardingRuleAction): OnboardingRuleAction[] {
-  const options: OnboardingRuleAction[] = ["label", "label_archive"];
+function actionOptions(
+  provider: string,
+  current: OnboardingRuleAction,
+): OnboardingRuleAction[] {
+  const options: OnboardingRuleAction[] = isMicrosoftProvider(provider)
+    ? ["move_folder", "label", "label_archive"]
+    : ["label", "label_archive"];
   return options.includes(current) ? options : [current, ...options];
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import useSWR from "swr";
 import { subDays } from "date-fns/subDays";
 import { startOfDay } from "date-fns/startOfDay";
@@ -15,6 +15,10 @@ import { createSearchParams } from "@/utils/url";
 
 const SHOWN_UNSUBSCRIBE_COUNT = 6;
 const VOLUME_WINDOW_DAYS = 28;
+// Stats are ingested by EmailStatsPreloader after mount, so empty results can
+// just mean "not ingested yet". Poll until data appears or this window passes.
+const INGESTION_POLL_INTERVAL_MS = 10_000;
+const INGESTION_POLL_WINDOW_MS = 120_000;
 
 export type Newsletter = NewsletterStatsResponse["newsletters"][number];
 
@@ -26,11 +30,15 @@ export function useInboxScan({
 }: {
   emailAccountId: string | null;
 }) {
+  const mountedAtRef = useRef(Date.now());
   const fromDate = useMemo(() => +subDays(startOfDay(new Date()), 90), []);
   const volumeFromDate = useMemo(
     () => +subDays(startOfDay(new Date()), VOLUME_WINDOW_DAYS),
     [],
   );
+
+  const withinPollWindow = () =>
+    Date.now() - mountedAtRef.current < INGESTION_POLL_WINDOW_MS;
 
   const newsletterParams: NewsletterStatsQuery = {
     types: [],
@@ -53,6 +61,10 @@ export function useInboxScan({
         revalidateOnFocus: false,
         revalidateOnReconnect: false,
         revalidateIfStale: false,
+        refreshInterval: (latest) =>
+          latest?.newsletters?.length || !withinPollWindow()
+            ? 0
+            : INGESTION_POLL_INTERVAL_MS,
       },
     );
 
@@ -74,6 +86,10 @@ export function useInboxScan({
       revalidateOnFocus: false,
       revalidateOnReconnect: false,
       revalidateIfStale: false,
+      refreshInterval: (latest) =>
+        (latest && receivedEmailCount(latest) > 0) || !withinPollWindow()
+          ? 0
+          : INGESTION_POLL_INTERVAL_MS,
     },
   );
 
@@ -91,26 +107,25 @@ export function useInboxScan({
 
   const volume = useMemo(() => {
     if (!volumeData) return null;
-    const received = volumeData.result.reduce(
-      (sum, row) => sum + Math.max(0, row.All - row.Sent),
-      0,
-    );
-    // A zero count almost always means stats haven't been ingested yet, not an
-    // actually empty inbox; treat it as no data rather than revealing "0 a day"
+    const received = receivedEmailCount(volumeData);
+    // Zero almost always means stats haven't been ingested yet, not an actually
+    // empty inbox; treat it as no data rather than revealing "0 a day"
     if (received === 0) return null;
     return {
       emailsLastMonth: received,
-      emailsPerDay: Math.round(received / VOLUME_WINDOW_DAYS),
+      emailsPerDay: Math.max(1, Math.round(received / VOLUME_WINDOW_DAYS)),
     };
   }, [volumeData]);
 
   // Status tracks the volume reveal only; cleanup suggestions load
-  // independently and the model just checks whether any exist.
-  const volumeReady =
-    Boolean(volumeData) || Boolean(volumeError) || !isVolumeLoading;
+  // independently and the model just checks whether any exist. While the
+  // ingestion poll window is open an empty result still counts as pending.
+  const volumeSettled =
+    (Boolean(volumeData) || Boolean(volumeError) || !isVolumeLoading) &&
+    (volume !== null || Boolean(volumeError) || !withinPollWindow());
 
   const scan: OnboardingScan = {
-    status: !volumeReady ? "pending" : volume ? "ready" : "unavailable",
+    status: !volumeSettled ? "pending" : volume ? "ready" : "unavailable",
     emailsPerDay: volume?.emailsPerDay ?? null,
     emailsLastMonth: volume?.emailsLastMonth ?? null,
     cleanupSuggestions: shownSenders.map((sender) => ({
@@ -130,4 +145,11 @@ export function useInboxScan({
     shownSenders,
     mutateNewsletters,
   };
+}
+
+function receivedEmailCount(data: StatsByPeriodResponse) {
+  return data.result.reduce(
+    (sum, row) => sum + Math.max(0, row.All - row.Sent),
+    0,
+  );
 }

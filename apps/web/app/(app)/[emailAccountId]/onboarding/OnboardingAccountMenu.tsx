@@ -43,6 +43,7 @@ export function OnboardingAccountMenu() {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
+          aria-label={`Account menu for ${emailAccount.email}`}
           className="flex items-center gap-2 rounded-full border bg-background py-1 pl-1 pr-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted"
         >
           <AccountInitial label={emailAccount.name || emailAccount.email} />
@@ -69,12 +70,12 @@ export function OnboardingAccountMenu() {
             <span className="truncate">{account.email}</span>
           </DropdownMenuItem>
         ))}
-        <Link href="/accounts">
-          <DropdownMenuItem className="gap-2">
+        <DropdownMenuItem asChild className="gap-2">
+          <Link href="/accounts">
             <PlusIcon className="size-4" />
             Switch or add account
-          </DropdownMenuItem>
-        </Link>
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuItem
           className="gap-2"
           onSelect={() => logOut(window.location.origin)}

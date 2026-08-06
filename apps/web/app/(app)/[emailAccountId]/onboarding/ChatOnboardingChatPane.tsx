@@ -33,6 +33,7 @@ export function ChatOnboardingChatPane({
   belowConversation,
   cta,
   inlinePanel,
+  inputDisabled = false,
 }: {
   messages: OnboardingChatMessage[];
   status: OnboardingChatStatus;
@@ -44,6 +45,7 @@ export function ChatOnboardingChatPane({
   cta?: { label: string; loading: boolean; onClick: () => void } | null;
   // Compact setup panel rendered inside the conversation on small screens
   inlinePanel?: React.ReactNode;
+  inputDisabled?: boolean;
 }) {
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -53,15 +55,15 @@ export function ChatOnboardingChatPane({
   );
   const busy = status === "submitted" || status === "streaming";
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: scroll tracks conversation growth and streaming
+  // biome-ignore lint/correctness/useExhaustiveDependencies: scroll tracks conversation growth including streamed token updates
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [visibleMessages.length, status, cta?.label, scanCard?.state]);
+  }, [messages, status, cta?.label, scanCard?.state]);
 
   const sendFreeform = () => {
     const text = input.trim();
-    if (!text || busy) return;
+    if (!text || busy || inputDisabled) return;
     setInput("");
     onSend(text, true);
   };
@@ -154,7 +156,7 @@ export function ChatOnboardingChatPane({
             size="icon"
             className="size-8 shrink-0 rounded-xl"
             onClick={sendFreeform}
-            disabled={!input.trim() || busy}
+            disabled={!input.trim() || busy || inputDisabled}
             aria-label="Send message"
           >
             <ArrowUpIcon className="size-4" />

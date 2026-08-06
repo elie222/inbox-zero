@@ -90,6 +90,7 @@ export function ChatOnboarding() {
     unsubscribedCount: number;
   } | null>(null);
   const [finishing, setFinishing] = useState(false);
+  const [checkingOut, setCheckingOut] = useState(false);
 
   const setupRef = useRef(setup);
   const scanRef = useRef(scan);
@@ -166,8 +167,10 @@ export function ChatOnboarding() {
           !appliedToolCallsRef.current.has(part.toolCallId)
         ) {
           appliedToolCallsRef.current.add(part.toolCallId);
-          const output = part.output;
-          setSetup((current) => applySetupUpdate(current, output));
+          // Update the ref eagerly too: the close-stage effect can run in the
+          // same commit and must create rules from the post-edit setup
+          setupRef.current = applySetupUpdate(setupRef.current, part.output);
+          setSetup(setupRef.current);
         }
       }
     }
@@ -342,7 +345,7 @@ export function ChatOnboarding() {
     if (messages.at(-1)?.role !== "assistant") return;
     scanEventSentRef.current = true;
     sendHiddenEvent(
-      "[event] The inbox scan finished. Continue with the reveal and the draft.",
+      "[event] The inbox scan finished; results are in the state snapshot. Continue to the draft.",
     );
   }, [stage, scan.status, chat.status, messages, scanCardAfterId]);
 
@@ -361,7 +364,8 @@ export function ChatOnboarding() {
   );
 
   const onUnsubscribeSelected = async () => {
-    if (stage !== "cleanup" || submittingUnsubscribe || cleanupResult) return;
+    if (stage !== "cleanup" || submittingUnsubscribe || cleanupResult || busy)
+      return;
 
     if (!selectedSenders.length) {
       setCleanupResult({ unsubscribedCount: 0 });
@@ -434,26 +438,31 @@ export function ChatOnboarding() {
       variant: "onboarding-chat",
       tier: tier.name,
     });
-    await awaitPendingWork();
-
-    // Mark onboarding complete before leaving for Stripe so finishing checkout
-    // lands in the app, not back here.
+    setCheckingOut(true);
     try {
-      const result = await completeOnboarding();
-      assertActionSucceeded(result);
-      markOnboardingAsCompleted(ASSISTANT_ONBOARDING_COOKIE);
-    } catch (error) {
-      captureException(error, {
-        extra: { context: "chat-onboarding", step: "complete-before-checkout" },
-      });
-    }
+      await awaitPendingWork();
 
-    try {
+      // Mark onboarding complete before leaving for Stripe so finishing
+      // checkout lands in the app, not back here.
+      try {
+        const result = await completeOnboarding();
+        assertActionSucceeded(result);
+        markOnboardingAsCompleted(ASSISTANT_ONBOARDING_COOKIE);
+      } catch (error) {
+        captureException(error, {
+          extra: {
+            context: "chat-onboarding",
+            step: "complete-before-checkout",
+          },
+        });
+      }
+
       const result = await generateCheckoutSessionAction({
         tier: tier.tiers.monthly,
       });
       if (!result?.data?.url) {
         toastError({ description: "Error creating checkout session" });
+        setCheckingOut(false);
         return;
       }
       redirectToSafeUrl(result.data.url, { allowExternal: true });
@@ -462,6 +471,7 @@ export function ChatOnboarding() {
         extra: { context: "chat-onboarding", step: "checkout" },
       });
       toastError({ description: "Error creating checkout session" });
+      setCheckingOut(false);
     }
   };
 
@@ -549,7 +559,9 @@ export function ChatOnboarding() {
         onToggleSender,
         selectedCount: selectedSenders.length,
         onUnsubscribe: onUnsubscribeSelected,
-        submitting: submittingUnsubscribe || isPremiumLoading,
+        // Also parked while the assistant streams so the completion event
+        // can't race an in-flight chat request
+        submitting: submittingUnsubscribe || isPremiumLoading || busy,
         result: cleanupResult,
       }}
     />
@@ -574,17 +586,17 @@ export function ChatOnboarding() {
               onSend={send}
               scanCard={scanCard}
               belowConversation={
-                stage === "close" && !isPremium ? (
+                stage === "close" && !isPremium && !isPremiumLoading ? (
                   <div className="flex flex-col gap-3">
                     <OnboardingPlanCards
                       onPick={onPickPlan}
-                      disabled={finishing}
+                      disabled={finishing || checkingOut}
                     />
                     <button
                       type="button"
                       className="self-start text-sm text-muted-foreground transition-colors hover:text-foreground"
                       onClick={onFinish}
-                      disabled={finishing}
+                      disabled={finishing || checkingOut}
                     >
                       I'll decide later
                     </button>
@@ -592,7 +604,7 @@ export function ChatOnboarding() {
                 ) : null
               }
               cta={
-                stage === "close" && isPremium
+                stage === "close" && isPremium && !isPremiumLoading
                   ? {
                       label: "Open my inbox",
                       loading: finishing,
@@ -600,6 +612,7 @@ export function ChatOnboarding() {
                     }
                   : null
               }
+              inputDisabled={finishing || checkingOut}
               inlinePanel={
                 panelVisible ? renderPanel("rounded-xl border") : undefined
               }

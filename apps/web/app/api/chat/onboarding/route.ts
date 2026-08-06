@@ -34,10 +34,17 @@ export const POST = withEmailAccount("onboarding-chat", async (request) => {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
-  const modelMessages = await convertToModelMessages(
-    data.messages as UIMessage[],
-    { ignoreIncompleteToolCalls: true },
-  );
+  let modelMessages: Awaited<ReturnType<typeof convertToModelMessages>>;
+  try {
+    modelMessages = await convertToModelMessages(data.messages as UIMessage[], {
+      ignoreIncompleteToolCalls: true,
+    });
+  } catch (error) {
+    request.logger.warn("Onboarding chat messages failed to convert", {
+      error,
+    });
+    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+  }
 
   try {
     const result = await aiProcessOnboardingChat({
