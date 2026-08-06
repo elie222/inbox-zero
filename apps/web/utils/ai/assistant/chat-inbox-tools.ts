@@ -35,6 +35,7 @@ import { getCategoryOverview } from "@/utils/categorize/senders/get-category-ove
 import { startBulkCategorization } from "@/utils/categorize/senders/start-bulk-categorization";
 import {
   type ManageInboxAction,
+  manageInboxActions,
   requiresSenderEmails,
 } from "@/utils/ai/assistant/manage-inbox-actions";
 import { hideToolErrorFromUser } from "@/utils/ai/assistant/tool-error-visibility";
@@ -881,18 +882,20 @@ const senderEmailsSchema = z
   .max(100)
   .transform((emails) => [...new Set(emails)]);
 
+const outlookManageInboxActions = [
+  "archive_threads",
+  "trash_threads",
+  "categorize_threads",
+  "remove_category_threads",
+  "mark_read_threads",
+  "bulk_archive_senders",
+  "unsubscribe_senders",
+] as const;
+
 const outlookManageInboxInputSchema = z
   .strictObject({
     action: z
-      .enum([
-        "archive_threads",
-        "trash_threads",
-        "categorize_threads",
-        "remove_category_threads",
-        "mark_read_threads",
-        "bulk_archive_senders",
-        "unsubscribe_senders",
-      ])
+      .enum(outlookManageInboxActions)
       .describe(
         "Outlook inbox action. archive_threads archives selected threads; trash_threads moves selected threads to trash; categorize_threads applies an existing category; remove_category_threads removes one; mark_read_threads sets read state; bulk_archive_senders archives all mail from senders; unsubscribe_senders unsubscribes and archives.",
       ),
@@ -932,15 +935,7 @@ const outlookManageInboxInputSchema = z
 const gmailManageInboxInputSchema = z
   .strictObject({
     action: z
-      .enum([
-        "archive_threads",
-        "trash_threads",
-        "label_threads",
-        "remove_label_threads",
-        "mark_read_threads",
-        "bulk_archive_senders",
-        "unsubscribe_senders",
-      ])
+      .enum(manageInboxActions)
       .describe(
         "Gmail inbox action. archive_threads archives selected threads; trash_threads moves selected threads to trash; label_threads applies an existing label; remove_label_threads removes one; mark_read_threads sets read state; bulk_archive_senders archives all mail from senders; unsubscribe_senders unsubscribes and archives.",
       ),
