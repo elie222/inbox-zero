@@ -14,7 +14,10 @@ import {
   recallWebhookPayloadSchema,
   type RecallWebhookPayload,
 } from "@/utils/recall/types";
-import { verifyRecallWebhook } from "@/utils/recall/verify-webhook";
+import {
+  getRecallWebhookSecretFingerprint,
+  verifyRecallWebhook,
+} from "@/utils/recall/verify-webhook";
 
 export const POST = withError("recall/webhook", async (request) => {
   const logger = request.logger;
@@ -26,13 +29,24 @@ export const POST = withError("recall/webhook", async (request) => {
 
   const rawBody = await request.text();
 
-  const verified = verifyRecallWebhook({
+  const verification = verifyRecallWebhook({
     secret: env.RECALL_WEBHOOK_SECRET,
     headers: request.headers,
     rawBody,
   });
-  if (!verified) {
-    logger.warn("Rejected Recall webhook with an invalid signature");
+  if (!verification.verified) {
+    logger.warn("Rejected Recall webhook with an invalid signature", {
+      verificationFailureReason: verification.reason,
+      webhookSecretFingerprint: getRecallWebhookSecretFingerprint(
+        env.RECALL_WEBHOOK_SECRET,
+      ),
+      ...(verification.reason === "missing_headers" && {
+        missingHeaders: verification.missingHeaders,
+      }),
+      ...(verification.reason === "timestamp_outside_tolerance" && {
+        timestampSkewSeconds: verification.timestampSkewSeconds,
+      }),
+    });
     return new Response("Invalid signature", { status: 401 });
   }
 
