@@ -44,7 +44,7 @@ export function verifyRecallWebhook({
   if (!id) missingHeaders.push("id");
   if (!timestamp) missingHeaders.push("timestamp");
   if (!signatureHeader) missingHeaders.push("signature");
-  if (missingHeaders.length > 0) {
+  if (!(id && timestamp && signatureHeader)) {
     return { verified: false, reason: "missing_headers", missingHeaders };
   }
 
