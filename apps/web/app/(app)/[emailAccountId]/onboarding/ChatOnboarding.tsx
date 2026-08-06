@@ -324,7 +324,7 @@ export function ChatOnboarding() {
   };
 
   const send = (text: string, isFreeform: boolean) => {
-    if (busy || finishing) return;
+    if (busy || finishing || checkingOut) return;
     const stageAtSend = stage;
     flushPanelEvents();
     recordAnswer(stageAtSend, text, isFreeform);
@@ -538,7 +538,9 @@ export function ChatOnboarding() {
     : null;
 
   const chips =
-    stage === "close" && isPremium ? [] : (STAGE_CHIPS[stage] ?? []);
+    (stage === "close" && isPremium) || checkingOut || finishing
+      ? []
+      : (STAGE_CHIPS[stage] ?? []);
 
   const renderPanel = (className?: string) => (
     <ChatOnboardingSetupPanel

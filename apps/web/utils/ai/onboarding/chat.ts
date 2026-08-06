@@ -35,8 +35,10 @@ export type AdvanceOnboardingStageTool = InferUITool<
 
 export const updateOnboardingSetupTool = ({
   setup,
+  addedNamesThisRequest = new Set<string>(),
 }: {
   setup: OnboardingSetup;
+  addedNamesThisRequest?: Set<string>;
 }) =>
   tool({
     description:
@@ -45,7 +47,7 @@ export const updateOnboardingSetupTool = ({
       updates: z
         .array(
           z.object({
-            ruleName: z.string(),
+            ruleName: z.string().trim(),
             action: onboardingRuleActionSchema.optional(),
             enabled: z.boolean().optional(),
           }),
@@ -54,17 +56,21 @@ export const updateOnboardingSetupTool = ({
       addRules: z
         .array(
           z.object({
-            name: z.string().min(1).max(40),
-            description: z.string().min(1).max(500),
+            name: z.string().trim().min(1).max(40),
+            description: z.string().trim().min(1).max(500),
             action: onboardingRuleActionSchema,
           }),
         )
         .default([]),
     }),
     execute: async ({ updates, addRules }) => {
-      const knownNames = new Set(
-        setup.rules.map((rule) => rule.name.toLowerCase()),
-      );
+      // The setup snapshot is fixed for the whole request, so names added by
+      // earlier tool calls in this same turn are tracked here to keep the
+      // duplicate and capacity checks accurate across calls.
+      const knownNames = new Set([
+        ...setup.rules.map((rule) => rule.name.toLowerCase()),
+        ...addedNamesThisRequest,
+      ]);
       const unknown = updates
         .map((update) => update.ruleName)
         .filter((name) => !knownNames.has(name.toLowerCase()));
@@ -79,7 +85,8 @@ export const updateOnboardingSetupTool = ({
         });
 
       const overCapacity =
-        setup.rules.length + addRules.length > MAX_SETUP_RULES;
+        setup.rules.length + addedNamesThisRequest.size + addRules.length >
+        MAX_SETUP_RULES;
 
       if (unknown.length > 0 || duplicates.length > 0 || overCapacity) {
         return {
@@ -99,6 +106,10 @@ export const updateOnboardingSetupTool = ({
             .filter(Boolean)
             .join(" "),
         };
+      }
+
+      for (const rule of addRules) {
+        addedNamesThisRequest.add(rule.name.toLowerCase());
       }
 
       return { ok: true as const, updates, addRules };
