@@ -2373,24 +2373,13 @@ function validateManageInboxInput(
   const { action } = input;
   const isSenderAction =
     action === "bulk_archive_senders" || action === "unsubscribe_senders";
-  const fields = [
-    "threadIds",
-    options.taxonomyField,
-    "read",
-    "fromEmails",
-  ] as const;
-  const requiredFields = new Set<(typeof fields)[number]>(
-    isSenderAction ? ["fromEmails"] : ["threadIds"],
-  );
+  const requiredFields = new Set<
+    "threadIds" | "labelName" | "categoryName" | "read" | "fromEmails"
+  >(isSenderAction ? ["fromEmails"] : ["threadIds"]);
   if (options.taxonomyActions.includes(action)) {
     requiredFields.add(options.taxonomyField);
   }
   if (action === "mark_read_threads") requiredFields.add("read");
-
-  const allowedFields = new Set(requiredFields);
-  if (action === "archive_threads") {
-    allowedFields.add(options.taxonomyField);
-  }
 
   for (const field of requiredFields) {
     if (input[field] === undefined) {
@@ -2398,16 +2387,6 @@ function validateManageInboxInput(
         code: "custom",
         path: [field],
         message: `is required for ${action}`,
-      });
-    }
-  }
-
-  for (const field of fields) {
-    if (!allowedFields.has(field) && input[field] !== undefined) {
-      context.addIssue({
-        code: "custom",
-        path: [field],
-        message: `is not used by ${action}`,
       });
     }
   }

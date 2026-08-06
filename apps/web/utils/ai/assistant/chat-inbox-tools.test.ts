@@ -338,6 +338,8 @@ describe("chat inbox tools", () => {
         action: "label_threads",
         threadIds: ["thread-1"],
         labelName: "Finance",
+        read: false,
+        fromEmails: ["_unused_"],
       }).success,
     ).toBe(true);
     expect(
@@ -386,7 +388,7 @@ describe("chat inbox tools", () => {
         fromEmails: ["sender@example.com"],
         threadIds: ["thread-1"],
       }).success,
-    ).toBe(false);
+    ).toBe(true);
     expect(
       schema.safeParse({
         action: "bulk_archive_senders",
@@ -446,7 +448,7 @@ describe("chat inbox tools", () => {
         threadIds: ["thread-1"],
         categoryName: "Finance",
       }).success,
-    ).toBe(false);
+    ).toBe(true);
     const jsonSchema = await Promise.resolve(asSchema(schema).jsonSchema);
     expect(jsonSchema).toMatchObject({
       type: "object",
