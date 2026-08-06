@@ -71,6 +71,7 @@ describe("Recall webhook route", () => {
   });
 
   it("rejects a payload that is not signed with the configured secret", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const body = JSON.stringify({
       event: "bot.in_call_recording",
       data: { bot: { id: "bot-1" }, data: { code: "in_call_recording" } },
@@ -82,6 +83,14 @@ describe("Recall webhook route", () => {
 
     expect(response.status).toBe(401);
     expect(mockPrisma.meetingRecording.updateMany).not.toHaveBeenCalled();
+    const warning = warnSpy.mock.calls.flat().join(" ");
+    expect(warning).toContain(
+      '"verificationFailureReason": "signature_mismatch"',
+    );
+    expect(warning).toMatch(
+      /"webhookSecretFingerprint": "sha256:[a-f0-9]{12}"/,
+    );
+    expect(warning).not.toContain(SECRET);
   });
 
   it("moves a recording forwards only from an earlier status", async () => {

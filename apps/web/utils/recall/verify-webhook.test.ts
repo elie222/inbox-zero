@@ -1,6 +1,9 @@
 import crypto from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { verifyRecallWebhook } from "@/utils/recall/verify-webhook";
+import {
+  getRecallWebhookSecretFingerprint,
+  verifyRecallWebhook,
+} from "@/utils/recall/verify-webhook";
 
 const SECRET = `whsec_${Buffer.from("super-secret-key").toString("base64")}`;
 const NOW = new Date("2026-05-04T09:00:00.000Z");
@@ -23,7 +26,7 @@ describe("verifyRecallWebhook", () => {
         headers: signedHeaders(),
         rawBody: RAW_BODY,
       }),
-    ).toBe(true);
+    ).toEqual({ verified: true });
   });
 
   it("accepts a payload when one of several signatures matches", () => {
@@ -37,7 +40,7 @@ describe("verifyRecallWebhook", () => {
 
     expect(
       verifyRecallWebhook({ secret: SECRET, headers, rawBody: RAW_BODY }),
-    ).toBe(true);
+    ).toEqual({ verified: true });
   });
 
   it("rejects a payload whose body was modified after signing", () => {
@@ -47,7 +50,7 @@ describe("verifyRecallWebhook", () => {
         headers: signedHeaders(),
         rawBody: `${RAW_BODY} `,
       }),
-    ).toBe(false);
+    ).toEqual({ verified: false, reason: "signature_mismatch" });
   });
 
   it("rejects a replayed payload outside the timestamp tolerance", () => {
@@ -57,7 +60,11 @@ describe("verifyRecallWebhook", () => {
 
     expect(
       verifyRecallWebhook({ secret: SECRET, headers, rawBody: RAW_BODY }),
-    ).toBe(false);
+    ).toEqual({
+      verified: false,
+      reason: "timestamp_outside_tolerance",
+      timestampSkewSeconds: 6 * 60,
+    });
   });
 
   it("rejects a payload signed with a different secret", () => {
@@ -67,7 +74,7 @@ describe("verifyRecallWebhook", () => {
 
     expect(
       verifyRecallWebhook({ secret: SECRET, headers, rawBody: RAW_BODY }),
-    ).toBe(false);
+    ).toEqual({ verified: false, reason: "signature_mismatch" });
   });
 
   it("accepts the vendor-neutral webhook-* header names", () => {
@@ -80,7 +87,7 @@ describe("verifyRecallWebhook", () => {
 
     expect(
       verifyRecallWebhook({ secret: SECRET, headers, rawBody: RAW_BODY }),
-    ).toBe(true);
+    ).toEqual({ verified: true });
   });
 
   it("rejects a payload with missing Svix headers", () => {
@@ -89,7 +96,30 @@ describe("verifyRecallWebhook", () => {
 
     expect(
       verifyRecallWebhook({ secret: SECRET, headers, rawBody: RAW_BODY }),
-    ).toBe(false);
+    ).toEqual({
+      verified: false,
+      reason: "missing_headers",
+      missingHeaders: ["id"],
+    });
+  });
+
+  it("reports an invalid timestamp separately from a stale request", () => {
+    const headers = signedHeaders();
+    headers.set("svix-timestamp", "not-a-timestamp");
+
+    expect(
+      verifyRecallWebhook({ secret: SECRET, headers, rawBody: RAW_BODY }),
+    ).toEqual({ verified: false, reason: "invalid_timestamp" });
+  });
+
+  it("fingerprints the effective key without exposing the secret", () => {
+    const fingerprint = getRecallWebhookSecretFingerprint(SECRET);
+
+    expect(fingerprint).toMatch(/^sha256:[a-f0-9]{12}$/);
+    expect(fingerprint).toBe(
+      getRecallWebhookSecretFingerprint(SECRET.replace(/^whsec_/, "")),
+    );
+    expect(fingerprint).not.toContain(SECRET);
   });
 });
 

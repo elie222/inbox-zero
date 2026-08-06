@@ -7,6 +7,23 @@ import { secureCompareBuffers } from "@/utils/crypto-compare";
 
 const TOLERANCE_SECONDS = 5 * 60;
 
+type MissingHeader = "id" | "timestamp" | "signature";
+
+type RecallWebhookVerification =
+  | { verified: true }
+  | {
+      verified: false;
+      reason: "missing_headers";
+      missingHeaders: MissingHeader[];
+    }
+  | { verified: false; reason: "invalid_timestamp" }
+  | {
+      verified: false;
+      reason: "timestamp_outside_tolerance";
+      timestampSkewSeconds: number;
+    }
+  | { verified: false; reason: "signature_mismatch" };
+
 export function verifyRecallWebhook({
   secret,
   headers,
@@ -15,7 +32,7 @@ export function verifyRecallWebhook({
   secret: string;
   headers: Headers;
   rawBody: string;
-}): boolean {
+}): RecallWebhookVerification {
   // Svix sends `svix-*`; the vendor-neutral standard-webhooks names are
   // `webhook-*`. The signature is computed identically either way, so accept
   // both rather than 401 on a delivery we could have verified.
@@ -23,15 +40,29 @@ export function verifyRecallWebhook({
   const timestamp = getHeader(headers, "timestamp");
   const signatureHeader = getHeader(headers, "signature");
 
-  if (!(id && timestamp && signatureHeader)) return false;
+  const missingHeaders: MissingHeader[] = [];
+  if (!id) missingHeaders.push("id");
+  if (!timestamp) missingHeaders.push("timestamp");
+  if (!signatureHeader) missingHeaders.push("signature");
+  if (missingHeaders.length > 0) {
+    return { verified: false, reason: "missing_headers", missingHeaders };
+  }
 
   const timestampSeconds = Number(timestamp);
-  if (!Number.isFinite(timestampSeconds)) return false;
+  if (!Number.isFinite(timestampSeconds)) {
+    return { verified: false, reason: "invalid_timestamp" };
+  }
 
   const skewSeconds = Math.abs(Date.now() / 1000 - timestampSeconds);
-  if (skewSeconds > TOLERANCE_SECONDS) return false;
+  if (skewSeconds > TOLERANCE_SECONDS) {
+    return {
+      verified: false,
+      reason: "timestamp_outside_tolerance",
+      timestampSkewSeconds: Math.round(skewSeconds),
+    };
+  }
 
-  const key = Buffer.from(secret.replace(/^whsec_/, ""), "base64");
+  const key = getVerificationKey(secret);
   const expected = crypto
     .createHmac("sha256", key)
     .update(`${id}.${timestamp}.${rawBody}`)
@@ -39,9 +70,13 @@ export function verifyRecallWebhook({
 
   // The header holds space-separated `v1,<base64>` entries so a secret can be
   // rotated without dropping deliveries. Any match is enough.
-  return signatureHeader
+  const verified = signatureHeader
     .split(" ")
     .some((entry) => matchesSignature(entry, expected));
+
+  return verified
+    ? { verified: true }
+    : { verified: false, reason: "signature_mismatch" };
 }
 
 function matchesSignature(entry: string, expected: Buffer): boolean {
@@ -53,4 +88,18 @@ function matchesSignature(entry: string, expected: Buffer): boolean {
 
 function getHeader(headers: Headers, suffix: string): string | null {
   return headers.get(`svix-${suffix}`) ?? headers.get(`webhook-${suffix}`);
+}
+
+export function getRecallWebhookSecretFingerprint(secret: string): string {
+  const fingerprint = crypto
+    .createHash("sha256")
+    .update(getVerificationKey(secret))
+    .digest("hex")
+    .slice(0, 12);
+
+  return `sha256:${fingerprint}`;
+}
+
+function getVerificationKey(secret: string): Buffer {
+  return Buffer.from(secret.replace(/^whsec_/, ""), "base64");
 }
