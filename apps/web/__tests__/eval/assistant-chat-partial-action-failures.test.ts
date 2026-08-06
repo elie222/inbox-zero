@@ -133,43 +133,51 @@ describe.runIf(shouldRunEval)(
 );
 
 type ArchiveOutput = {
-  requestedCount: number;
-  successCount: number;
-  failedCount: number;
+  failedThreadIds: string[];
 };
 
 function getArchiveOutcome(toolCalls: RecordedToolCall[]) {
-  const outputs = toolCalls.flatMap((toolCall) => {
-    if (toolCall.toolName !== "manageInbox") return [];
+  const statusByThreadId = new Map<string, "failed" | "succeeded">();
+  let callCount = 0;
+
+  for (const toolCall of toolCalls) {
+    if (toolCall.toolName !== "manageInbox") continue;
     if (
       !isManageInboxThreadActionInput(toolCall.input) ||
       toolCall.input.action !== "archive_threads"
     ) {
-      return [];
+      continue;
     }
 
     const output = getArchiveOutput(toolCall.output);
-    return output ? [output] : [];
-  });
+    if (!output) continue;
 
-  return outputs.reduce(
-    (outcome, output) => ({
-      callCount: outcome.callCount + 1,
-      requestedCount: outcome.requestedCount + output.requestedCount,
-      successCount: outcome.successCount + output.successCount,
-      failedCount: outcome.failedCount + output.failedCount,
-    }),
-    { callCount: 0, requestedCount: 0, successCount: 0, failedCount: 0 },
-  );
+    callCount += 1;
+    const failedThreadIds = new Set(output.failedThreadIds);
+    for (const threadId of toolCall.input.threadIds) {
+      statusByThreadId.set(
+        threadId,
+        failedThreadIds.has(threadId) ? "failed" : "succeeded",
+      );
+    }
+  }
+
+  const statuses = [...statusByThreadId.values()];
+
+  return {
+    callCount,
+    requestedCount: statuses.length,
+    successCount: statuses.filter((status) => status === "succeeded").length,
+    failedCount: statuses.filter((status) => status === "failed").length,
+  };
 }
 
 function getArchiveOutput(output: unknown): ArchiveOutput | null {
   if (!output || typeof output !== "object") return null;
 
   const value = output as ArchiveOutput;
-  return typeof value.requestedCount === "number" &&
-    typeof value.successCount === "number" &&
-    typeof value.failedCount === "number"
+  return Array.isArray(value.failedThreadIds) &&
+    value.failedThreadIds.every((threadId) => typeof threadId === "string")
     ? value
     : null;
 }
