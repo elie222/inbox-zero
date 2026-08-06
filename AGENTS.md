@@ -61,9 +61,7 @@
 - Never gate context injection or tool behavior on ad hoc user-text keyword matching; use structured state, metadata, or explicit events instead.
 - Tool descriptions should be self-contained: what the tool does, what its parameters mean, when to use it vs alternatives, prerequisites, and safety constraints specific to that tool.
 - Keep only cross-cutting policies (identity, write confirmation, security, formatting) in the system prompt. Per-tool guidance belongs in the tool description so it appears only when the tool is active.
-- Keep model-facing tool and structured-output schemas within the common subset supported by every routed model and provider. Prefer a simple root object with well-described fields; avoid root unions or discriminated unions, intersections, recursion, and other advanced JSON Schema constructs unless the generated schema and representative provider calls are explicitly verified.
-- Use `z.strictObject()` only when unknown keys must cause validation to fail. This is useful for state-changing tools when stripping an unknown field could silently execute only part of the user's request. Use `z.object()` when stripping unknown keys is acceptable; do not choose between them for LLM compatibility because both are exposed to models as closed objects by the current schema conversion.
-- Treat Zod refinements and transforms as application-side validation, not model guidance: they may not be represented in the JSON Schema sent to the model. Describe conditional field requirements in the relevant tool or field descriptions, validate them in application code, and test both the generated JSON Schema and representative model tool calls.
+- Keep model-facing schemas portable: prefer flat root objects and verify advanced constructs across providers. Use `z.strictObject()` only when dropping unknown keys is unsafe; describe refinement and transform constraints in tool fields because models may not see them.
 
 ## Component Guidelines
 - Use shadcn/ui components when available
