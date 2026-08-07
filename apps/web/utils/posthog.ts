@@ -153,7 +153,13 @@ export async function posthogCaptureEvent(
       await client.flush();
       return true;
     } finally {
-      client.shutdown();
+      try {
+        Promise.resolve(client.shutdown()).catch((error) => {
+          logger.error("Error shutting down PostHog client", { error });
+        });
+      } catch (error) {
+        logger.error("Error shutting down PostHog client", { error });
+      }
     }
   } catch (error) {
     logger.error("Error capturing PostHog event", { error });

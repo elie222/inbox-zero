@@ -39,6 +39,7 @@ vi.mock("@/utils/prisma");
 import {
   FIRST_TIME_EVENTS,
   deletePosthogUser,
+  posthogCaptureEvent,
   trackFirstTimeEvent,
   trackProductFeedback,
   trackStripeCheckoutCreated,
@@ -322,5 +323,24 @@ describe("trackStripeCheckoutCreated", () => {
     expect(redis.del).toHaveBeenCalledWith(
       "posthog:stripe-checkout-created:cs_test",
     );
+  });
+});
+
+describe("posthogCaptureEvent", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("does not fail a delivered event when shutdown cleanup rejects", async () => {
+    const shutdownResult = Promise.reject(new Error("Shutdown unavailable"));
+    shutdownResult.catch(() => undefined);
+    const catchSpy = vi.spyOn(shutdownResult, "catch");
+    shutdownMock.mockReturnValueOnce(shutdownResult);
+
+    await expect(
+      posthogCaptureEvent("user@example.com", "Test event"),
+    ).resolves.toBe(true);
+
+    expect(catchSpy).toHaveBeenCalledOnce();
   });
 });
