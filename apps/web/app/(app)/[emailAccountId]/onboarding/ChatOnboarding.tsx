@@ -162,10 +162,6 @@ export function ChatOnboarding() {
       }
       const flow = deriveOnboardingFlow(restored.messages);
       prevStageRef.current = flow.stage;
-      scanEventSentRef.current =
-        flow.stage !== "welcome" &&
-        flow.stage !== "discovery" &&
-        flow.stage !== "guess";
       answersRef.current = restored.answers;
       setupRef.current = restored.setup;
       setSetup(restored.setup);
@@ -199,6 +195,14 @@ export function ChatOnboarding() {
     analytics.onStart({ step: 1, stepKey: "welcome", totalSteps: TOTAL_STEPS });
   }, []);
 
+  const lastWrittenRef = useRef<{
+    tailId: string | undefined;
+    count: number;
+    setup: OnboardingSetup;
+    cleanupResult: CleanupResult | null;
+    scanCardAfterId: string | null;
+    deselected: Set<string>;
+  } | null>(null);
   // biome-ignore lint/correctness/useExhaustiveDependencies: persists conversation state between reloads
   useEffect(() => {
     if (!startedRef.current) return;
@@ -207,13 +211,40 @@ export function ChatOnboarding() {
     const persistable =
       chat.status === "ready"
         ? messages
-        : messages.slice(0, findLastUserIndex(messages) + 1);
+        : messages.slice(
+            0,
+            messages.findLastIndex((message) => message.role === "user") + 1,
+          );
     if (persistable.length <= 1) return;
+
+    // Streamed tokens change the messages array without changing what gets
+    // persisted; skip the byte-identical serialize-and-write per token
+    const previous = lastWrittenRef.current;
+    const tailId = persistable.at(-1)?.id;
+    if (
+      previous &&
+      previous.tailId === tailId &&
+      previous.count === persistable.length &&
+      previous.setup === setup &&
+      previous.cleanupResult === cleanupResult &&
+      previous.scanCardAfterId === scanCardAfterId &&
+      previous.deselected === deselected
+    ) {
+      return;
+    }
+    lastWrittenRef.current = {
+      tailId,
+      count: persistable.length,
+      setup,
+      cleanupResult,
+      scanCardAfterId,
+      deselected,
+    };
+
     try {
       localStorage.setItem(
         storageKey,
         JSON.stringify({
-          v: 1,
           messages: persistable,
           setup,
           cleanupResult,
@@ -516,9 +547,7 @@ export function ChatOnboarding() {
   const clearStoredConversation = () => {
     try {
       localStorage.removeItem(storageKey);
-    } catch {
-      // Ignore storage failures
-    }
+    } catch {}
   };
 
   const onFinish = async () => {
@@ -751,8 +780,7 @@ function readStoredConversation(key: string): StoredConversation | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (
-      parsed?.v !== 1 ||
-      !Array.isArray(parsed.messages) ||
+      !Array.isArray(parsed?.messages) ||
       parsed.messages.length <= 1 ||
       !Array.isArray(parsed.setup?.rules) ||
       !Array.isArray(parsed.answers)
@@ -765,11 +793,7 @@ function readStoredConversation(key: string): StoredConversation | null {
       cleanupResult: parsed.cleanupResult
         ? {
             unsubscribedCount: parsed.cleanupResult.unsubscribedCount ?? 0,
-            // Payloads saved before keptAll existed recorded keep-all as a
-            // bare zero count
-            keptAll:
-              parsed.cleanupResult.keptAll ??
-              (parsed.cleanupResult.unsubscribedCount ?? 0) === 0,
+            keptAll: parsed.cleanupResult.keptAll ?? false,
             failedCount: parsed.cleanupResult.failedCount ?? 0,
           }
         : null,
@@ -780,13 +804,6 @@ function readStoredConversation(key: string): StoredConversation | null {
   } catch {
     return null;
   }
-}
-
-function findLastUserIndex(messages: OnboardingChatMessage[]) {
-  for (let i = messages.length - 1; i >= 0; i--) {
-    if (messages[i].role === "user") return i;
-  }
-  return -1;
 }
 
 function generateMessageId(): string {

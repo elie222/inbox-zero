@@ -95,8 +95,6 @@ const STAGE_ORDER: OnboardingStage[] = [
 
 export type OnboardingFlow = {
   stage: OnboardingStage;
-  // Tool calls where the setup and cleanup cards enter the conversation; the
-  // cards render inline at exactly those positions
   setupCardToolCallId: string | null;
   cleanupCardToolCallId: string | null;
 };

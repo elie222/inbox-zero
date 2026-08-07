@@ -15,6 +15,7 @@ import {
   IconCircle,
   type IconCircleColor,
 } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
+import { ENTER_ANIMATION } from "@/app/(app)/[emailAccountId]/onboarding/ChatOnboardingChatPane";
 import type {
   OnboardingRuleAction,
   OnboardingSetup,
@@ -29,7 +30,6 @@ const ACTION_LABELS: Record<OnboardingRuleAction, string> = {
   move_folder: "Move to folder",
 };
 
-// The draft setup as an inline chat card, editable in place until it goes live
 export function OnboardingSetupCard({
   setup,
   provider,
@@ -63,7 +63,12 @@ export function OnboardingSetupCard({
     : setup.rules;
 
   return (
-    <div className="overflow-hidden rounded-xl border bg-background shadow-sm duration-300 animate-in fade-in slide-in-from-bottom-2">
+    <div
+      className={cn(
+        "overflow-hidden rounded-xl border bg-background shadow-sm",
+        ENTER_ANIMATION,
+      )}
+    >
       <div className="flex items-center justify-between border-b px-4 py-3">
         <div className="text-base font-semibold tracking-tight">Your setup</div>
         <StatusBadge status={setup.status} />
@@ -77,7 +82,8 @@ export function OnboardingSetupCard({
               key={rule.name}
               className={cn(
                 "flex items-center gap-3 px-4 py-1.5",
-                "duration-300 animate-in fade-in slide-in-from-bottom-2 fill-mode-backwards",
+                ENTER_ANIMATION,
+                "fill-mode-backwards",
                 !rule.enabled && "opacity-50",
               )}
               style={{ animationDelay: `${index * 80}ms` }}

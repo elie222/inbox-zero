@@ -27,7 +27,7 @@ export type ScanCard = {
   summary: string | null;
 };
 
-const ENTER_ANIMATION =
+export const ENTER_ANIMATION =
   "duration-300 animate-in fade-in slide-in-from-bottom-2";
 
 export function ChatOnboardingChatPane({
@@ -48,8 +48,6 @@ export function ChatOnboardingChatPane({
   scanCard: ScanCard | null;
   belowConversation?: React.ReactNode;
   cta?: { label: string; loading: boolean; onClick: () => void } | null;
-  // Interactive cards rendered inline at the position of the tool call that
-  // introduced them, keyed by toolCallId
   inlineCards?: Record<string, React.ReactNode>;
   inputDisabled?: boolean;
 }) {
