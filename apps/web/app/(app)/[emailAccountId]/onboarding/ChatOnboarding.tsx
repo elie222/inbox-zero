@@ -136,7 +136,7 @@ export function ChatOnboarding() {
   );
   const busy = chat.status === "submitted" || chat.status === "streaming";
 
-  const storageKey = `inbox-zero-onboarding-chat-v1:${emailAccountId}`;
+  const storageKey = `inbox-zero-onboarding-chat-v2:${emailAccountId}`;
 
   // Restore an in-progress conversation after a reload, or seed the fixed
   // welcome message so the chat opens instantly with no LLM call.
