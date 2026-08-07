@@ -18,7 +18,15 @@ const MICROSOFT_EMAIL = "developer@outlook.test";
 const MICROSOFT_NAME = "Developer";
 
 async function main() {
-  const seed = {
+  const seed = buildEmulatorSeed();
+
+  await mkdir(dirname(OUTPUT_PATH), { recursive: true });
+  await writeFile(OUTPUT_PATH, `${JSON.stringify(seed, null, 2)}\n`);
+  console.log(`Wrote emulator seed to ${relativeToRoot(OUTPUT_PATH)}`);
+}
+
+export function buildEmulatorSeed(now = Date.now()) {
+  return {
     google: {
       users: [{ email: GOOGLE_EMAIL, name: GOOGLE_NAME }],
       oauth_clients: [
@@ -35,10 +43,20 @@ async function main() {
         },
       ],
       labels: toSeedLabels(saasFounderMixedInbox, GOOGLE_EMAIL),
-      messages: toSeedMessages(saasFounderMixedInbox, {
-        email: GOOGLE_EMAIL,
-        name: GOOGLE_NAME,
-      }),
+      messages: [
+        ...toSeedMessages(
+          saasFounderMixedInbox,
+          {
+            email: GOOGLE_EMAIL,
+            name: GOOGLE_NAME,
+          },
+          now,
+        ),
+        ...createUnsubscribeSuggestionMessages(
+          { email: GOOGLE_EMAIL, name: GOOGLE_NAME },
+          now,
+        ),
+      ],
       calendars: [
         {
           id: "primary",
@@ -76,10 +94,6 @@ async function main() {
       ],
     },
   };
-
-  await mkdir(dirname(OUTPUT_PATH), { recursive: true });
-  await writeFile(OUTPUT_PATH, `${JSON.stringify(seed, null, 2)}\n`);
-  console.log(`Wrote emulator seed to ${relativeToRoot(OUTPUT_PATH)}`);
 }
 
 function toSeedLabels(fixture: DemoInboxFixture, userEmail: string) {
@@ -94,9 +108,15 @@ function toSeedLabels(fixture: DemoInboxFixture, userEmail: string) {
 function toSeedMessages(
   fixture: DemoInboxFixture,
   mailbox: { email: string; name: string },
+  now: number,
 ) {
   const labelIdsByName = new Map(
     fixture.labels.map((label) => [label.name, label.id]),
+  );
+  const latestFixtureTimestamp = Math.max(
+    ...fixture.threads.flatMap((thread) =>
+      thread.messages.map((message) => new Date(message.date).getTime()),
+    ),
   );
 
   return fixture.threads.flatMap((thread) =>
@@ -121,9 +141,28 @@ function toSeedMessages(
       body_text: message.bodyText,
       body_html: message.bodyHtml,
       label_ids: getMessageLabelIds(message, labelIdsByName),
-      internal_date: String(new Date(message.date).getTime()),
+      internal_date: String(
+        now - (latestFixtureTimestamp - new Date(message.date).getTime()),
+      ),
     })),
   );
+}
+
+function createUnsubscribeSuggestionMessages(
+  mailbox: { email: string; name: string },
+  now: number,
+) {
+  return Array.from({ length: 12 }, (_, index) => ({
+    id: `19aa0000000000${(index + 1).toString(16).padStart(2, "0")}`,
+    thread_id: `19ab0000000000${(index + 1).toString(16).padStart(2, "0")}`,
+    user_email: mailbox.email,
+    from: "Inbox Offers <offers@example.test>",
+    to: `${mailbox.name} <${mailbox.email}>`,
+    subject: `Inbox Offers weekly roundup ${index + 1}`,
+    body_text: "A mostly unread newsletter used for emulator-backed QA.",
+    label_ids: index === 0 ? ["INBOX"] : ["INBOX", "UNREAD"],
+    internal_date: String(now - (index + 1) * 60 * 60 * 1000),
+  }));
 }
 
 function getMessageLabelIds(
@@ -162,7 +201,12 @@ function relativeToRoot(path: string) {
   return path.replace(`${ROOT_DIR}/`, "");
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+if (
+  process.argv[1] &&
+  resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+) {
+  main().catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+}

@@ -7,6 +7,11 @@ import {
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
 import { withEmailProvider } from "@/utils/middleware";
+import {
+  getUnsubscribeSuggestions,
+  SUGGESTION_MIN_EMAILS,
+  SUGGESTION_READ_RATE_THRESHOLD,
+} from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/suggestions";
 import { getSenderEmailStats } from "@/utils/sender-stats";
 import {
   filterNewsletters,
@@ -34,6 +39,11 @@ const newsletterStatsQuery = z.object({
     .transform((arr) => arr?.filter(Boolean)),
   includeMissingUnsubscribe: z.boolean().optional(),
   search: z.string().optional(),
+  /**
+   * Return only the senders worth unsubscribing from, ranked and capped the
+   * same way the inbox health email does, so both surfaces show one list.
+   */
+  suggested: z.boolean().optional(),
 });
 
 export type NewsletterStatsQuery = z.infer<typeof newsletterStatsQuery>;
@@ -63,7 +73,13 @@ async function getEmailMessages(
       search: options.search,
       orderBy: options.orderBy,
       orderDirection: options.orderDirection,
-      limit: options.limit,
+      // Suggestions are ranked and capped below, so the row limit would
+      // otherwise decide which senders are eligible
+      limit: options.suggested ? null : options.limit,
+      minEmails: options.suggested ? SUGGESTION_MIN_EMAILS : undefined,
+      maxReadRate: options.suggested
+        ? SUGGESTION_READ_RATE_THRESHOLD
+        : undefined,
       logger,
     }),
     getEmailFilters(emailProvider, logger),
@@ -94,6 +110,18 @@ async function getEmailMessages(
     };
   });
 
+  // Already excludes handled senders, so the status filters don't apply.
+  // Suggestions pick which senders qualify; the rows keep their queried order
+  // so the table's sort columns still work.
+  if (options.suggested) {
+    const suggested = new Set(
+      getUnsubscribeSuggestions(newsletters).map((sender) => sender.name),
+    );
+    return {
+      newsletters: newsletters.filter((sender) => suggested.has(sender.name)),
+    };
+  }
+
   if (!options.filters?.length) return { newsletters };
 
   return {
@@ -119,6 +147,7 @@ export const GET = withEmailProvider(
       includeMissingUnsubscribe:
         searchParams.get("includeMissingUnsubscribe") === "true",
       search: searchParams.get("search") || undefined,
+      suggested: searchParams.get("suggested") === "true",
     });
 
     const result = await getEmailMessages({

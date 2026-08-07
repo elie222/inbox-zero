@@ -10,6 +10,10 @@ import type { Logger } from "@/utils/logger";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
 import { getSenderEmailStats } from "@/utils/sender-stats";
 import {
+  SUGGESTION_MIN_EMAILS,
+  SUGGESTION_READ_RATE_THRESHOLD,
+} from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/suggestions";
+import {
   findAutoArchiveFilters,
   findNewsletterStatus,
   getEmailFilters,
@@ -169,6 +173,8 @@ async function sendEmail({
     getSenderEmailStats({
       emailAccountId,
       fromDate: subMonths(now, 3).getTime(),
+      minEmails: SUGGESTION_MIN_EMAILS,
+      maxReadRate: SUGGESTION_READ_RATE_THRESHOLD,
       logger,
     }),
     getNewsletterStatuses({ emailAccountId }),

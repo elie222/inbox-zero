@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState, useEffect } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { useAction } from "next-safe-action/hooks";
 import type { PostHog } from "posthog-js/react";
@@ -73,6 +74,7 @@ function itemMatchesFilter(
   switch (filter) {
     case "all":
       return true;
+    case "suggested":
     case "unhandled":
       return !status; // null/undefined status means unhandled
     case "unsubscribed":
@@ -1150,8 +1152,50 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
   ]);
 }
 
+const DEFAULT_NEWSLETTER_FILTER: NewsletterFilterType = "unhandled";
+
+const NEWSLETTER_FILTERS: NewsletterFilterType[] = [
+  "all",
+  "suggested",
+  "unhandled",
+  "unsubscribed",
+  "autoArchived",
+  "approved",
+];
+
 export function useNewsletterFilter() {
-  const [filter, setFilter] = useState<NewsletterFilterType>("unhandled");
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const [filter, setFilterState] = useState<NewsletterFilterType>(() => {
+    // `select=suggested` is the legacy form used by inbox health emails
+    // already sent out
+    if (searchParams.get("select") === "suggested") return "suggested";
+    const param = searchParams.get("filter") as NewsletterFilterType | null;
+    return param && NEWSLETTER_FILTERS.includes(param)
+      ? param
+      : DEFAULT_NEWSLETTER_FILTER;
+  });
+
+  // Keep the view in the URL so it survives a refresh and can be shared
+  const setFilter = useCallback(
+    (next: NewsletterFilterType) => {
+      setFilterState(next);
+
+      const params = new URLSearchParams(searchParams);
+      params.delete("select");
+      if (next === DEFAULT_NEWSLETTER_FILTER) {
+        params.delete("filter");
+      } else {
+        params.set("filter", next);
+      }
+      router.replace(params.size ? `${pathname}?${params}` : pathname, {
+        scroll: false,
+      });
+    },
+    [searchParams, router, pathname],
+  );
 
   // Convert single filter to array format for API compatibility
   const filtersArray: (
@@ -1162,7 +1206,9 @@ export function useNewsletterFilter() {
   )[] =
     filter === "all"
       ? ["unhandled", "unsubscribed", "autoArchived", "approved"]
-      : [filter];
+      : filter === "suggested"
+        ? ["unhandled"]
+        : [filter];
 
   return {
     filter,

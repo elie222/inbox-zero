@@ -5,6 +5,7 @@ import type { UserResponse } from "@/app/api/user/me/route";
 
 export type NewsletterFilterType =
   | "all"
+  | "suggested"
   | "unhandled"
   | "unsubscribed"
   | "autoArchived"

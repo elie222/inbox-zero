@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { subDays } from "date-fns/subDays";
 import { Frequency, NewsletterStatus } from "@/generated/prisma/enums";
+import { SUGGESTION_LIMIT } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/suggestions";
 import {
   getInboxHealthEmailData,
   getInboxHealthSkipReason,
@@ -64,7 +65,7 @@ describe("getInboxHealthEmailData", () => {
     expect(data?.suggestionCount).toBe(5);
     // (30 + 10 + 50 + 20 + 40) * 4
     expect(data?.yearlyEmailsAvoided).toBe(600);
-    // Sorted by email count descending
+    // Sorted by unread email count descending
     expect(data?.senders.map((sender) => sender.email)).toEqual([
       "c@example.com",
       "e@example.com",
@@ -72,10 +73,18 @@ describe("getInboxHealthEmailData", () => {
       "d@example.com",
       "b@example.com",
     ]);
-    // 3 / 50 = 6%
-    expect(data?.senders[0].readPercentage).toBe(6);
+    // 50 received, 3 read
+    expect(data?.senders[0].readEmails).toBe(3);
+    expect(data?.senders[0].ignoredEmails).toBe(47);
     // Falls back to the email address when there is no display name
     expect(data?.senders[1].name).toBe("e@example.com");
+  });
+
+  it("reports the weekly volume the user never opens", () => {
+    // 130 ignored emails over 13 weeks
+    const senders = makeSenders(13, { value: 10, readEmails: 0 });
+
+    expect(getInboxHealthEmailData(senders)?.weeklyIgnoredEmails).toBe(10);
   });
 
   it("lists at most 10 senders but counts all suggestions", () => {
@@ -87,6 +96,14 @@ describe("getInboxHealthEmailData", () => {
     expect(data?.senders).toHaveLength(10);
     // yearly estimate covers all 15 suggestions, not just the listed 10
     expect(data?.yearlyEmailsAvoided).toBe(15 * 10 * 4);
+  });
+
+  it("counts at most the capped number of suggestions", () => {
+    const data = getInboxHealthEmailData(makeSenders(30));
+
+    expect(data?.suggestionCount).toBe(SUGGESTION_LIMIT);
+    // The estimate reflects the capped list the email links to
+    expect(data?.yearlyEmailsAvoided).toBe(SUGGESTION_LIMIT * 10 * 4);
   });
 });
 
@@ -156,8 +173,11 @@ function makeSender(
   };
 }
 
-function makeSenders(count: number): InboxHealthSenderStats[] {
+function makeSenders(
+  count: number,
+  overrides?: Partial<InboxHealthSenderStats>,
+): InboxHealthSenderStats[] {
   return Array.from({ length: count }, (_, i) =>
-    makeSender({ name: `sender${i}@example.com`, value: 10 }),
+    makeSender({ name: `sender${i}@example.com`, value: 10, ...overrides }),
   );
 }
