@@ -1,12 +1,31 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
-import { updateStripeInvoiceEmailsAction } from "./premium";
+import {
+  generateCheckoutSessionAction,
+  updateStripeInvoiceEmailsAction,
+} from "./premium";
+
+const mocks = vi.hoisted(() => ({
+  createCheckoutSession: vi.fn(),
+}));
 
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/auth", () => ({
   auth: vi.fn(async () => ({
     user: { id: "user-1", email: "user@example.com" },
   })),
+}));
+vi.mock("@/ee/billing/stripe", () => ({
+  getStripe: () => ({
+    checkout: { sessions: { create: mocks.createCheckoutSession } },
+  }),
+}));
+vi.mock("next/headers", () => ({
+  cookies: vi.fn(async () => ({ get: vi.fn() })),
+}));
+vi.mock("@/utils/posthog", () => ({
+  trackStripeCheckoutCreated: vi.fn(),
+  trackStripeCustomerCreated: vi.fn(),
 }));
 
 describe("updateStripeInvoiceEmailsAction", () => {
@@ -62,5 +81,35 @@ describe("updateStripeInvoiceEmailsAction", () => {
 
     expect(result?.serverError).toBe("Stripe billing account not found");
     expect(prisma.premium.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("generateCheckoutSessionAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("does not create a second checkout for an active Stripe subscription", async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      email: "user@example.com",
+      utms: null,
+      _count: { emailAccounts: 2 },
+      premium: {
+        id: "premium-1",
+        stripeCustomerId: "cus_test",
+        stripeSubscriptionId: "sub_active",
+        stripeSubscriptionStatus: "active",
+        users: [{ _count: { emailAccounts: 2 } }],
+      },
+    } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+
+    const result = await generateCheckoutSessionAction({
+      tier: "BASIC_MONTHLY",
+    });
+
+    expect(result?.serverError).toBe(
+      "You already have an existing subscription. Change your plan instead of starting a new subscription.",
+    );
+    expect(mocks.createCheckoutSession).not.toHaveBeenCalled();
   });
 });

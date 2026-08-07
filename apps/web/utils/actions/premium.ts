@@ -531,8 +531,6 @@ export const generateCheckoutSessionAction = actionClientUser
 
     if (!priceId) throw new SafeError("Unknown tier. Contact support.");
 
-    const stripe = getStripe();
-
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -543,6 +541,8 @@ export const generateCheckoutSessionAction = actionClientUser
           select: {
             id: true,
             stripeCustomerId: true,
+            stripeSubscriptionId: true,
+            stripeSubscriptionStatus: true,
             users: {
               select: { _count: { select: { emailAccounts: true } } },
             },
@@ -555,6 +555,18 @@ export const generateCheckoutSessionAction = actionClientUser
       throw new SafeError("User not found");
     }
 
+    if (
+      user.premium?.stripeSubscriptionId &&
+      !["canceled", "incomplete_expired"].includes(
+        user.premium.stripeSubscriptionStatus || "",
+      )
+    ) {
+      throw new SafeError(
+        "You already have an existing subscription. Change your plan instead of starting a new subscription.",
+      );
+    }
+
+    const stripe = getStripe();
     let stripeCustomerId = user.premium?.stripeCustomerId;
 
     if (!stripeCustomerId) {

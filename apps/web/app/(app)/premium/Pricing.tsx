@@ -357,12 +357,6 @@ function PriceTier({
 
             if (hasActiveStripeSubscription) {
               result = await getBillingPortalUrlAction({ tier: upgradeToTier });
-
-              if (!result?.data?.url) {
-                result = await generateCheckoutSessionAction({
-                  tier: upgradeToTier,
-                });
-              }
             } else {
               result = await generateCheckoutSessionAction({
                 tier: upgradeToTier,
@@ -370,7 +364,13 @@ function PriceTier({
             }
 
             if (!result?.data?.url || result?.serverError) {
-              captureException(new Error("Error creating checkout session"), {
+              const description =
+                result?.serverError ||
+                (hasActiveStripeSubscription
+                  ? `We couldn't open the plan change page. Your subscription has not been changed. Please contact support at ${env.NEXT_PUBLIC_SUPPORT_EMAIL}`
+                  : `Error creating checkout session. Please contact support at ${env.NEXT_PUBLIC_SUPPORT_EMAIL}`);
+
+              captureException(new Error("Error opening Stripe billing flow"), {
                 extra: {
                   tier: upgradeToTier,
                   frequency: frequency.value,
@@ -380,9 +380,7 @@ function PriceTier({
                 },
               });
               toastError({
-                description:
-                  result?.serverError ||
-                  `Error creating checkout session. Please contact support at ${env.NEXT_PUBLIC_SUPPORT_EMAIL}`,
+                description,
               });
               return;
             }
