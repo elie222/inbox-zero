@@ -331,7 +331,11 @@ async function bookBot({
   // cannot both take credit; the loser cancels the bot it just created.
   const claimed = await prisma.meetingRecording.updateMany({
     where: { id: recording.id, externalBotId: null },
-    data: { externalBotId, status: MeetingRecordingStatus.SCHEDULED },
+    data: {
+      externalBotId,
+      botName,
+      status: MeetingRecordingStatus.SCHEDULED,
+    },
   });
 
   if (claimed.count === 0) {
@@ -477,10 +481,10 @@ async function updateBookingForEvent({
   // Same meeting, fresher link: normalization drops credentials, so this is
   // where a rotated meeting password or invitee context shows up.
   if (recording.meetingUrl !== event.videoConferenceLink) {
-    if (
-      recording.externalBotId &&
-      CHANGEABLE_STATUSES.includes(recording.status)
-    ) {
+    const canUpdateBot =
+      recording.externalBotId !== null &&
+      CHANGEABLE_STATUSES.includes(recording.status);
+    if (canUpdateBot) {
       const provider = createMeetingBotProvider(recording.botProvider, logger);
       await provider.updateBot(recording.externalBotId, {
         botName,
@@ -490,7 +494,10 @@ async function updateBookingForEvent({
 
     await prisma.meetingRecording.updateMany({
       where: { id: recordingId, status: { in: CHANGEABLE_STATUSES } },
-      data: { meetingUrl: event.videoConferenceLink },
+      data: {
+        meetingUrl: event.videoConferenceLink,
+        ...(canUpdateBot && { botName }),
+      },
     });
   }
 
@@ -499,11 +506,20 @@ async function updateBookingForEvent({
   if (startTimeUnchanged) {
     if (
       recording.meetingUrl === event.videoConferenceLink &&
+      recording.botName !== botName &&
       recording.externalBotId &&
       CHANGEABLE_STATUSES.includes(recording.status)
     ) {
       const provider = createMeetingBotProvider(recording.botProvider, logger);
       await provider.updateBot(recording.externalBotId, { botName });
+      await prisma.meetingRecording.updateMany({
+        where: {
+          id: recordingId,
+          externalBotId: recording.externalBotId,
+          status: { in: CHANGEABLE_STATUSES },
+        },
+        data: { botName },
+      });
     }
 
     return true;
@@ -543,6 +559,7 @@ async function updateBookingForEvent({
     await prisma.meetingRecording.update({
       where: { id: recording.id },
       data: {
+        botName,
         meetingStartTime: event.startTime,
         externalBotId: updatedBot.externalBotId,
       },
@@ -559,7 +576,7 @@ async function updateBookingForEvent({
     if (updatedBot.externalBotId !== recording.externalBotId) {
       await prisma.meetingRecording.update({
         where: { id: recording.id },
-        data: { externalBotId: updatedBot.externalBotId },
+        data: { botName, externalBotId: updatedBot.externalBotId },
       });
     }
 

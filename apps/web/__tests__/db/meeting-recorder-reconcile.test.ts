@@ -140,6 +140,9 @@ describe.skipIf(!RUN_DB_TESTS)(
       const event = calendarEvent();
       const emailAccount = account(accountAId, ACCOUNT_A);
       await reconcile.reconcileSingleEvent({ emailAccount, event, logger });
+      expect((await prisma.meetingRecording.findFirstOrThrow()).botName).toBe(
+        "Alice's Inbox Zero Notetaker",
+      );
 
       await reconcile.reconcileSingleEvent({
         emailAccount: { ...emailAccount, name: "Alicia Owner" },
@@ -152,6 +155,17 @@ describe.skipIf(!RUN_DB_TESTS)(
         botName: "Alicia's Inbox Zero Notetaker",
       });
       expect(fakeProvider.scheduled).toHaveLength(1);
+      expect((await prisma.meetingRecording.findFirstOrThrow()).botName).toBe(
+        "Alicia's Inbox Zero Notetaker",
+      );
+
+      await reconcile.reconcileSingleEvent({
+        emailAccount: { ...emailAccount, name: "Alicia Owner" },
+        event,
+        logger,
+      });
+
+      expect(fakeProvider.updated).toHaveLength(1);
     });
 
     test("cancels only the account's own bot", async () => {
