@@ -55,6 +55,9 @@
 - Prefer the simplest, most readable change; only keep backwards compatibility when explicitly requested.
 - Do not optimize for migration paths: refactor call sites directly, including larger coordinated changes when clarity improves.
 
+## Documentation
+- Treat code and tests as the source of truth for behavior; reserve docs for user guidance, workflows, runbooks, and durable decisions.
+
 ## LLM Features
 - Stay AI-first: fix general failure modes, not exact eval wording, and avoid brittle keyword or regex rules unless the product needs a hard guard.
 - Do not add keyword/phrase blacklists to prompts, evals, or tests just to catch a model's current bad wording. This product works across languages, so English-specific text checks are especially brittle. For LLM behavior, assert the semantic failure mode with a judge/eval criterion or structured contract instead. Example: test "does not ask unnecessary clarification or invent payment status," not "does not contain 'could you clarify' or 'specific payment'."
