@@ -155,7 +155,6 @@ export function ChatOnboarding() {
     }
   }, [provider]);
 
-  // Apply the model's setup edits (tool outputs) to the shared draft, once each
   const appliedToolCallsRef = useRef(new Set<string>());
   useEffect(() => {
     for (const message of messages) {
@@ -176,7 +175,6 @@ export function ChatOnboarding() {
     }
   }, [messages]);
 
-  // Stage transitions: analytics plus turning the rules on at close
   const prevStageRef = useRef<OnboardingStage>("welcome");
   // biome-ignore lint/correctness/useExhaustiveDependencies: analytics/createRules are stable enough; the ref guards re-entry
   useEffect(() => {

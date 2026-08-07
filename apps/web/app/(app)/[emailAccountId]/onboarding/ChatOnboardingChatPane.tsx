@@ -40,10 +40,8 @@ export function ChatOnboardingChatPane({
   chips: string[];
   onSend: (text: string, isFreeform: boolean) => void;
   scanCard: ScanCard | null;
-  // Plan cards or other interactive content rendered under the conversation
   belowConversation?: React.ReactNode;
   cta?: { label: string; loading: boolean; onClick: () => void } | null;
-  // Compact setup panel rendered inside the conversation on small screens
   inlinePanel?: React.ReactNode;
   inputDisabled?: boolean;
 }) {

@@ -146,8 +146,6 @@ export function applySetupUpdate(
     };
   });
 
-  // Dedupe within the batch as well as against existing rules, and never grow
-  // past the schema's rule cap
   const seenNames = new Set(rules.map((rule) => rule.name.toLowerCase()));
   const addedRules: OnboardingSetup["rules"] = [];
   for (const rule of output.addRules) {
