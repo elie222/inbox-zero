@@ -12,8 +12,13 @@ continue until the latest commit has clean reviews and checks.
 
 - Wait 300 seconds before the first PR observation and after every push or
   review reply.
-- Allow at most 5 fix-and-push rounds and 1800 seconds of total monitoring.
-  Let the user override these values.
+- Keep going until reviews converge: as long as the latest review-bot run on
+  the current PR HEAD produced new actionable comments, or a review bot is
+  still running on it, continue fix-and-observe cycles. Never exit while a
+  review of the latest commit is known to be pending.
+- Allow at most 10 fix-and-push rounds and 3600 seconds of total monitoring as
+  a hard backstop against endless loops. Let the user override these values.
+  When the backstop is hit mid-review, say exactly what was still pending.
 - If the current branch already has a PR and the user asks to monitor or fix
   it, skip creation and enter the post-PR loop.
 - Do not merge or resolve review threads without explicit user approval.
