@@ -2,6 +2,15 @@
 
 End-to-end tests that verify complete email processing flows with real accounts, webhooks, and AI processing.
 
+## Overview
+
+These flow tests verify multi-step scenarios:
+
+- **Full Reply Cycle**: Gmail → Outlook → Rule Processing → Draft → Send → Reply Received
+- **Auto-Labeling**: Email classification and label application
+- **Outbound Tracking**: Sent message handling and reply tracking
+- **Draft Cleanup**: AI draft deletion when user sends manual reply
+
 ## Setup
 
 ### 1. Test Accounts
@@ -58,6 +67,71 @@ pnpm test-e2e:flows full-reply-cycle
 E2E_VERBOSE=true pnpm test-e2e:flows
 ```
 
+## Test Structure
+
+```text
+flows/
+├── config.ts              # Configuration and environment
+├── setup.ts               # Global test setup (account verification, premium check)
+├── teardown.ts            # Global test teardown
+├── helpers/
+│   ├── accounts.ts        # Test account loading
+│   ├── polling.ts         # Wait for state changes
+│   ├── email.ts           # Send/receive helpers
+│   ├── webhook.ts         # Webhook subscription management
+│   └── logging.ts         # Debug logging
+├── full-reply-cycle.test.ts
+├── auto-labeling.test.ts
+├── outbound-tracking.test.ts
+├── draft-cleanup.test.ts
+├── message-preservation.test.ts
+└── sent-reply-deletion.test.ts
+```
+
+## Test Scenarios
+
+### Full Reply Cycle
+
+1. Gmail sends email to Outlook
+2. Outlook receives via webhook
+3. Rule matches and creates draft
+4. User sends the draft
+5. Gmail receives the reply
+6. Outbound handling cleans up
+
+### Auto-Labeling
+
+- Emails needing reply → labeled + draft created
+- FYI emails → labeled, no draft
+- Thank you emails → appropriate handling
+
+### Outbound Tracking
+
+- SENT folder webhook triggers
+- Reply tracking updates
+- No duplicate rule execution
+
+### Draft Cleanup
+
+- Draft deleted when user sends manual reply
+- DraftSendLog properly recorded
+- Multiple drafts in thread cleaned up
+
+### Sent Reply Preservation (sent-reply-preservation.test.ts)
+
+Tests that sent replies (from AI drafts) are preserved when follow-ups arrive:
+
+1. User A sends email to User B → AI draft created
+2. User B sends the AI draft without editing (clicks send directly)
+3. User A replies again to the thread (3rd message)
+4. Verify: User B's sent reply remains in the thread
+
+### Message Preservation
+
+- Follow-up messages from sender are not deleted
+- All thread messages preserved after user reply
+- Tests both Gmail and Outlook as receivers
+
 ## Debugging
 
 ### Logs
@@ -75,6 +149,15 @@ Tests output detailed logs with the run ID:
 ```bash
 E2E_VERBOSE=true pnpm test-e2e:flows
 ```
+
+## Timeouts
+
+| Operation | Timeout |
+|-----------|---------|
+| Email delivery | 90s |
+| Webhook processing | 60s |
+| Full test cycle | 300s |
+| Polling interval | 3s |
 
 ## Local Setup Guide
 
@@ -190,6 +273,16 @@ To run tests that use Gmail as the receiver:
 # Run on a custom port (useful if port 3000 is in use)
 E2E_PORT=3007 ./scripts/run-e2e-local.sh
 ```
+
+#### What the Script Does
+
+1. Loads environment from `~/.config/inbox-zero/.env.e2e`
+2. Starts ngrok tunnel (uses static domain if `E2E_NGROK_DOMAIN` is set)
+3. **Exports `WEBHOOK_URL`** to the ngrok URL (for Microsoft webhook registration)
+4. Creates symlinks in `apps/web/` so Next.js and vitest pick up the env vars
+5. Starts the Next.js dev server
+6. Runs E2E flow tests
+7. Cleans up processes on exit (Ctrl+C or completion)
 
 ## Troubleshooting
 
