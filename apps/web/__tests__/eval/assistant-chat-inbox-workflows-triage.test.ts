@@ -40,7 +40,7 @@ describe.runIf(shouldRunEval)(
       (model, emailAccount) => {
         test.each(inboxWorkflowProviders)(
           "handles inbox update requests with read-only triage search first [$label]",
-          async ({ provider, label, unreadSignal }) => {
+          async ({ provider, label }) => {
             const testName = `inbox update uses triage search first (${label})`;
             const searchMessages = [
               getMockMessage({
@@ -77,7 +77,6 @@ describe.runIf(shouldRunEval)(
                     model,
                     provider,
                     label,
-                    unreadSignal,
                     searchMessages: getStableMessageCacheKey(searchMessages),
                     inboxStats,
                     messages,
@@ -105,7 +104,7 @@ describe.runIf(shouldRunEval)(
                   searchCalls.length > 0 &&
                   hasSearchBeforeFirstWrite(toolCalls) &&
                   searchCalls.some((searchCall) =>
-                    hasUnreadTriageSignal(searchCall, provider, unreadSignal),
+                    hasUnreadTriageSignal(searchCall, provider),
                   ) &&
                   hasNoWriteToolCalls(toolCalls);
 
@@ -123,7 +122,7 @@ describe.runIf(shouldRunEval)(
 
         test.each(inboxWorkflowProviders)(
           "verifies with searchInbox before claiming no unread emails on follow-up [$label]",
-          async ({ provider, label, unreadSignal }) => {
+          async ({ provider, label }) => {
             mockSearchMessages.mockResolvedValueOnce({
               messages: [
                 getMockMessage({
@@ -164,8 +163,7 @@ describe.runIf(shouldRunEval)(
             const searchCall = getFirstSearchInboxCall(toolCalls);
 
             const pass =
-              !!searchCall &&
-              hasUnreadTriageSignal(searchCall, provider, unreadSignal);
+              !!searchCall && hasUnreadTriageSignal(searchCall, provider);
 
             evalReporter.record({
               testName: `verifies unread on follow-up (${label})`,
@@ -181,7 +179,7 @@ describe.runIf(shouldRunEval)(
 
         test.each(inboxWorkflowProviders)(
           "re-runs searchInbox when user pushes back with 'look again' [$label]",
-          async ({ provider, label, unreadSignal }) => {
+          async ({ provider, label }) => {
             mockSearchMessages.mockResolvedValueOnce({
               messages: [
                 getMockMessage({
@@ -222,8 +220,7 @@ describe.runIf(shouldRunEval)(
             const searchCall = getFirstSearchInboxCall(toolCalls);
 
             const pass =
-              !!searchCall &&
-              hasUnreadTriageSignal(searchCall, provider, unreadSignal);
+              !!searchCall && hasUnreadTriageSignal(searchCall, provider);
 
             evalReporter.record({
               testName: `re-runs searchInbox on look-again (${label})`,

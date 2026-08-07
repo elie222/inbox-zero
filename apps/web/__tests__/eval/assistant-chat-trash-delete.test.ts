@@ -388,6 +388,18 @@ function isManageInboxInput(input: unknown): input is ManageInboxInput {
   );
 }
 
+function hasManageInboxAction(
+  toolCalls: RecordedToolCall[],
+  action: "archive_threads" | "trash_threads",
+) {
+  return toolCalls.some(
+    (toolCall) =>
+      toolCall.toolName === "manageInbox" &&
+      isManageInboxInput(toolCall.input) &&
+      toolCall.input.action === action,
+  );
+}
+
 async function evaluateScenario(
   result: Awaited<ReturnType<typeof runAssistantChat>>,
   prompt: string,
@@ -451,17 +463,13 @@ async function evaluateScenario(
     }
 
     case "ambiguous_action": {
-      const hasTrashCall = result.toolCalls.some(
-        (tc) =>
-          tc.toolName === "manageInbox" &&
-          isManageInboxInput(tc.input) &&
-          tc.input.action === "trash_threads",
+      const hasTrashCall = hasManageInboxAction(
+        result.toolCalls,
+        "trash_threads",
       );
-      const hasArchiveCall = result.toolCalls.some(
-        (tc) =>
-          tc.toolName === "manageInbox" &&
-          isManageInboxInput(tc.input) &&
-          tc.input.action === "archive_threads",
+      const hasArchiveCall = hasManageInboxAction(
+        result.toolCalls,
+        "archive_threads",
       );
 
       const semanticJudge =

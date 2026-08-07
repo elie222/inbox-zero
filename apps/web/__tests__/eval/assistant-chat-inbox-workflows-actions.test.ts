@@ -416,7 +416,7 @@ describe.runIf(shouldRunEval)(
 
         test.each(inboxWorkflowProviders)(
           "marks specific searched threads read [$label]",
-          async ({ provider, label, unreadSignal }) => {
+          async ({ provider, label }) => {
             mockSearchMessages.mockResolvedValueOnce({
               messages: [
                 getMockMessage({
@@ -463,7 +463,7 @@ describe.runIf(shouldRunEval)(
                 })
               : null;
             const searchHasUnreadScope = searchCall
-              ? hasUnreadTriageSignal(searchCall, provider, unreadSignal)
+              ? hasUnreadTriageSignal(searchCall, provider)
               : false;
             const markReadCall = getLastMatchingToolCall(
               toolCalls,
