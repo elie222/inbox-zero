@@ -543,6 +543,7 @@ export const generateCheckoutSessionAction = actionClientUser
             stripeCustomerId: true,
             stripeSubscriptionId: true,
             stripeSubscriptionStatus: true,
+            stripeEndedAt: true,
             users: {
               select: { _count: { select: { emailAccounts: true } } },
             },
@@ -557,9 +558,8 @@ export const generateCheckoutSessionAction = actionClientUser
 
     if (
       user.premium?.stripeSubscriptionId &&
-      !["canceled", "incomplete_expired"].includes(
-        user.premium.stripeSubscriptionStatus || "",
-      )
+      !user.premium.stripeEndedAt &&
+      user.premium.stripeSubscriptionStatus !== "incomplete_expired"
     ) {
       throw new SafeError(
         "You already have an existing subscription. Change your plan instead of starting a new subscription.",
@@ -612,26 +612,31 @@ export const generateCheckoutSessionAction = actionClientUser
     };
 
     // ALWAYS create a checkout with a stripeCustomerId
-    const checkout = await stripe.checkout.sessions.create({
-      customer: stripeCustomerId,
-      success_url: `${env.NEXT_PUBLIC_BASE_URL}/api/stripe/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${env.NEXT_PUBLIC_BASE_URL}/premium`,
-      mode: "subscription",
-      subscription_data: {
-        trial_period_days: 7,
-        ...(Object.keys(conversionMetadata).length
-          ? {
-              metadata: conversionMetadata,
-            }
-          : {}),
+    const checkout = await stripe.checkout.sessions.create(
+      {
+        customer: stripeCustomerId,
+        success_url: `${env.NEXT_PUBLIC_BASE_URL}/api/stripe/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${env.NEXT_PUBLIC_BASE_URL}/premium`,
+        mode: "subscription",
+        subscription_data: {
+          trial_period_days: 7,
+          ...(Object.keys(conversionMetadata).length
+            ? {
+                metadata: conversionMetadata,
+              }
+            : {}),
+        },
+        line_items: [{ price: priceId, quantity }],
+        allow_promotion_codes: true,
+        payment_method_collection: "always",
+        metadata: {
+          dubCustomerId: userId,
+        },
       },
-      line_items: [{ price: priceId, quantity }],
-      allow_promotion_codes: true,
-      payment_method_collection: "always",
-      metadata: {
-        dubCustomerId: userId,
+      {
+        idempotencyKey: `checkout:${userId}:${tier}:${offer || "standard"}:${user.premium?.stripeSubscriptionId || "new"}`,
       },
-    });
+    );
 
     after(() =>
       trackStripeCheckoutCreated(user.email, {

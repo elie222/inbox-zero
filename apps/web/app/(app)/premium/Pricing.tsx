@@ -364,11 +364,10 @@ function PriceTier({
             }
 
             if (!result?.data?.url || result?.serverError) {
-              const description =
-                result?.serverError ||
-                (hasActiveStripeSubscription
-                  ? `We couldn't open the plan change page. Your subscription has not been changed. Please contact support at ${env.NEXT_PUBLIC_SUPPORT_EMAIL}`
-                  : `Error creating checkout session. Please contact support at ${env.NEXT_PUBLIC_SUPPORT_EMAIL}`);
+              const description = hasActiveStripeSubscription
+                ? `We couldn't open the plan change page. Your subscription has not been changed. Please contact support at ${env.NEXT_PUBLIC_SUPPORT_EMAIL}`
+                : result?.serverError ||
+                  `Error creating checkout session. Please contact support at ${env.NEXT_PUBLIC_SUPPORT_EMAIL}`;
 
               captureException(new Error("Error opening Stripe billing flow"), {
                 extra: {

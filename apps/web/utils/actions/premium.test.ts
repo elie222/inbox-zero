@@ -89,7 +89,13 @@ describe("generateCheckoutSessionAction", () => {
     vi.clearAllMocks();
   });
 
-  it("does not create a second checkout for an active Stripe subscription", async () => {
+  it.each([
+    { status: "active", endedAt: null },
+    { status: "canceled", endedAt: null },
+  ])("does not create a second checkout for a $status Stripe subscription that has not ended", async ({
+    status,
+    endedAt,
+  }) => {
     prisma.user.findUnique.mockResolvedValue({
       email: "user@example.com",
       utms: null,
@@ -97,8 +103,9 @@ describe("generateCheckoutSessionAction", () => {
       premium: {
         id: "premium-1",
         stripeCustomerId: "cus_test",
-        stripeSubscriptionId: "sub_active",
-        stripeSubscriptionStatus: "active",
+        stripeSubscriptionId: "sub_existing",
+        stripeSubscriptionStatus: status,
+        stripeEndedAt: endedAt,
         users: [{ _count: { emailAccounts: 2 } }],
       },
     } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
@@ -111,5 +118,68 @@ describe("generateCheckoutSessionAction", () => {
       "You already have an existing subscription. Change your plan instead of starting a new subscription.",
     );
     expect(mocks.createCheckoutSession).not.toHaveBeenCalled();
+  });
+
+  it("uses a stable idempotency key for concurrent checkout requests", async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      email: "user@example.com",
+      utms: null,
+      _count: { emailAccounts: 2 },
+      premium: {
+        id: "premium-1",
+        stripeCustomerId: "cus_test",
+        stripeSubscriptionId: null,
+        stripeSubscriptionStatus: null,
+        stripeEndedAt: null,
+        users: [{ _count: { emailAccounts: 2 } }],
+      },
+    } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+    mocks.createCheckoutSession.mockResolvedValue({
+      url: "https://stripe.test",
+    });
+
+    await generateCheckoutSessionAction({
+      tier: "BASIC_MONTHLY",
+    });
+    await generateCheckoutSessionAction({
+      tier: "BASIC_MONTHLY",
+    });
+
+    expect(mocks.createCheckoutSession).toHaveBeenCalledTimes(2);
+    expect(mocks.createCheckoutSession).toHaveBeenNthCalledWith(
+      1,
+      expect.anything(),
+      { idempotencyKey: "checkout:user-1:BASIC_MONTHLY:standard:new" },
+    );
+    expect(mocks.createCheckoutSession).toHaveBeenNthCalledWith(
+      2,
+      expect.anything(),
+      { idempotencyKey: "checkout:user-1:BASIC_MONTHLY:standard:new" },
+    );
+  });
+
+  it("allows a new checkout after the previous subscription has ended", async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      email: "user@example.com",
+      utms: null,
+      _count: { emailAccounts: 2 },
+      premium: {
+        id: "premium-1",
+        stripeCustomerId: "cus_test",
+        stripeSubscriptionId: "sub_ended",
+        stripeSubscriptionStatus: "canceled",
+        stripeEndedAt: new Date(),
+        users: [{ _count: { emailAccounts: 2 } }],
+      },
+    } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+    mocks.createCheckoutSession.mockResolvedValue({
+      url: "https://stripe.test",
+    });
+
+    const result = await generateCheckoutSessionAction({
+      tier: "BASIC_MONTHLY",
+    });
+
+    expect(result?.data).toEqual({ url: "https://stripe.test" });
   });
 });
