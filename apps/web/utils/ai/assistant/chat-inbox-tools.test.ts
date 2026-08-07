@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { asSchema } from "ai";
 import type { ParsedMessage } from "@/utils/types";
 import prisma from "@/utils/__mocks__/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
@@ -297,7 +298,7 @@ describe("chat inbox tools", () => {
 
     const result = await (toolInstance.execute as any)({
       action: "archive_threads",
-      label: "To-Delete",
+      labelName: "To-Delete",
       threadIds: ["thread-1", "thread-2"],
     });
 
@@ -322,6 +323,141 @@ describe("chat inbox tools", () => {
       successCount: 2,
       requestedCount: 2,
     });
+  });
+
+  it("requires action-specific Gmail manageInbox fields", async () => {
+    const schema = manageInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    }).inputSchema as any;
+
+    expect(
+      schema.safeParse({
+        action: "label_threads",
+        threadIds: ["thread-1"],
+        labelName: "Finance",
+        read: false,
+        fromEmails: ["_unused_"],
+      }).success,
+    ).toBe(true);
+    expect(
+      schema.safeParse({
+        action: "label_threads",
+        threadIds: ["thread-1"],
+        label: "Finance",
+      }).success,
+    ).toBe(false);
+    expect(
+      schema.safeParse({
+        action: "archive_threads",
+        threadIds: ["thread-1"],
+        labelName: "Finance",
+      }).success,
+    ).toBe(true);
+    expect(
+      schema.safeParse({
+        action: "archive_threads",
+        threadIds: ["thread-1"],
+        label: "Finance",
+      }).success,
+    ).toBe(false);
+    expect(
+      schema.safeParse({
+        action: "mark_read_threads",
+        threadIds: ["thread-1"],
+      }).success,
+    ).toBe(false);
+    expect(
+      schema.safeParse({
+        action: "mark_read_threads",
+        threadIds: ["thread-1"],
+        read: false,
+      }).success,
+    ).toBe(true);
+    expect(
+      schema.safeParse({
+        action: "bulk_archive_senders",
+        threadIds: ["thread-1"],
+      }).success,
+    ).toBe(false);
+    expect(
+      schema.safeParse({
+        action: "bulk_archive_senders",
+        fromEmails: ["sender@example.com"],
+        threadIds: ["thread-1"],
+      }).success,
+    ).toBe(true);
+    expect(
+      schema.safeParse({
+        action: "bulk_archive_senders",
+        fromEmails: ["sender@example.com"],
+      }).success,
+    ).toBe(true);
+    const jsonSchema = await Promise.resolve(asSchema(schema).jsonSchema);
+    expect(jsonSchema).toMatchObject({
+      type: "object",
+      additionalProperties: false,
+      required: ["action"],
+      properties: { action: { type: "string" } },
+    });
+    expect(jsonSchema).not.toHaveProperty("oneOf");
+    expect(jsonSchema).not.toHaveProperty("anyOf");
+  });
+
+  it("requires Outlook category fields without accepting Gmail taxonomy aliases", async () => {
+    const schema = manageInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "microsoft",
+      logger,
+    }).inputSchema as any;
+
+    expect(
+      schema.safeParse({
+        action: "categorize_threads",
+        threadIds: ["thread-1"],
+        categoryName: "Finance",
+      }).success,
+    ).toBe(true);
+    expect(
+      schema.safeParse({
+        action: "categorize_threads",
+        threadIds: ["thread-1"],
+        category: "Finance",
+      }).success,
+    ).toBe(false);
+    expect(
+      schema.safeParse({
+        action: "categorize_threads",
+        threadIds: ["thread-1"],
+        labelName: "Finance",
+      }).success,
+    ).toBe(false);
+    expect(
+      schema.safeParse({
+        action: "archive_threads",
+        threadIds: ["thread-1"],
+        categoryName: "Finance",
+      }).success,
+    ).toBe(true);
+    expect(
+      schema.safeParse({
+        action: "trash_threads",
+        threadIds: ["thread-1"],
+        categoryName: "Finance",
+      }).success,
+    ).toBe(true);
+    const jsonSchema = await Promise.resolve(asSchema(schema).jsonSchema);
+    expect(jsonSchema).toMatchObject({
+      type: "object",
+      additionalProperties: false,
+      required: ["action"],
+      properties: { action: { type: "string" } },
+    });
+    expect(jsonSchema).not.toHaveProperty("oneOf");
+    expect(jsonSchema).not.toHaveProperty("anyOf");
   });
 
   it("resolves an exact labelName to the provider label before labeling threads", async () => {

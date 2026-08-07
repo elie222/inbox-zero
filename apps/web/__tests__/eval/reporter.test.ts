@@ -98,7 +98,7 @@ describe("eval reporter", () => {
       email: "user@example.com",
       emailAccountId: "email-account-1",
       provider: "openrouter",
-      model: "deepseek/deepseek-v4-flash",
+      model: "~deepseek/deepseek-v4-flash-latest",
       usage: {
         inputTokens: 1000,
         outputTokens: 500,
@@ -109,7 +109,7 @@ describe("eval reporter", () => {
     });
     reporter.record({
       testName: "example",
-      model: "DeepSeek V4 Flash",
+      model: "DeepSeek V4 Flash Latest",
       pass: true,
     });
 
@@ -121,7 +121,7 @@ describe("eval reporter", () => {
     );
     expect(markdown).toContain("## Eval Cost");
     expect(markdown).toContain("Provider-reported total: $0.000200");
-    expect(markdown).toContain("openrouter:deepseek/deepseek-v4-flash");
+    expect(markdown).toContain("openrouter:~deepseek/deepseek-v4-flash-latest");
   });
 
   it("writes eval history when AI tests are enabled", () => {

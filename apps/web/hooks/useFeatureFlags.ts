@@ -23,9 +23,12 @@ export function useMeetingRecorderEnabled() {
   return env.NEXT_PUBLIC_MEETING_RECORDER_ENABLED || posthogEnabled;
 }
 
-export function useIntegrationsEnabled() {
+// Returns undefined while the PostHog flag is still loading
+export function useIntegrationsEnabled(): boolean | undefined {
   const posthogEnabled = useFeatureFlagEnabled("integrations");
-  return env.NEXT_PUBLIC_INTEGRATIONS_ENABLED || posthogEnabled;
+  if (env.NEXT_PUBLIC_INTEGRATIONS_ENABLED) return true;
+  if (!env.NEXT_PUBLIC_POSTHOG_KEY) return false;
+  return posthogEnabled;
 }
 
 export function useSmartFilingEnabled() {
@@ -63,7 +66,7 @@ export function usePricingVariant() {
   );
 }
 
-export type PricingFrequencyDefault = "control" | "monthly";
+export type PricingFrequencyDefault = "control" | "annually";
 
 export function usePricingFrequencyDefault() {
   return (
@@ -89,5 +92,13 @@ export function useWelcomePricingVariant() {
     (useFeatureFlagVariantKey(
       "welcome-pricing-tiers",
     ) as WelcomePricingVariant) || "control"
+  );
+}
+export type OnboardingChatVariant = "control" | "chat";
+
+export function useOnboardingChatVariant() {
+  return (
+    (useFeatureFlagVariantKey("onboarding-chat") as OnboardingChatVariant) ||
+    "control"
   );
 }

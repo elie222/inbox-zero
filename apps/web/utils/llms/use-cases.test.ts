@@ -137,6 +137,7 @@ describe("LLM use cases", () => {
       [LlmUseCase.MeetingFollowUpDraft]: "draft",
       [LlmUseCase.MeetingSummary]: "default",
       [LlmUseCase.MeetingWebSearch]: "economy",
+      [LlmUseCase.OnboardingChat]: "chat",
       [LlmUseCase.ParseFilingReply]: "economy",
       [LlmUseCase.PersonaAnalysis]: "economy",
       [LlmUseCase.PromptToRules]: "chat",
@@ -145,6 +146,7 @@ describe("LLM use cases", () => {
       [LlmUseCase.ReplyMemorySelection]: "economy",
       [LlmUseCase.ReplyNudge]: "chat",
       [LlmUseCase.Summarise]: "default",
+      [LlmUseCase.TranslateEmail]: "economy",
       [LlmUseCase.WritingStyleAnalysis]: "default",
     });
   });

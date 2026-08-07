@@ -1717,6 +1717,12 @@ describe("aiProcessAssistantChat", () => {
     expect(result).toEqual({
       messageId: "message-1",
       threadId: "thread-1",
+      evidence: {
+        state: "RECORDED_EXECUTIONS",
+        rootCauseKnown: null,
+        summary:
+          "Recorded rule executions are available. Use each execution's rule, status, reason, match metadata, and actions to explain only what those records establish.",
+      },
       executions: [
         {
           executedRuleId: "executed-rule-1",
@@ -1764,6 +1770,104 @@ describe("aiProcessAssistantChat", () => {
           actions: [],
         },
       ],
+    });
+  });
+
+  it("marks an empty rule execution history as missing evidence", async () => {
+    const tools = await captureToolSet(true, "google");
+
+    mockPrisma.executedRule.findMany.mockResolvedValue([]);
+
+    const result = await tools.getRuleExecutionForMessage.execute({
+      messageId: "message-without-history",
+    });
+
+    expect(result).toEqual({
+      messageId: "message-without-history",
+      threadId: null,
+      evidence: {
+        state: "NO_EXECUTION_RECORDS",
+        rootCauseKnown: false,
+        summary:
+          "No execution records were found. This is missing evidence, not proof that processing never ran or of why a rule did not match.",
+      },
+      executions: [],
+    });
+  });
+
+  it("marks ambiguous skipped execution history as inconclusive", async () => {
+    const tools = await captureToolSet(true, "google");
+
+    mockPrisma.executedRule.findMany.mockResolvedValue([
+      {
+        id: "executed-rule-fallback",
+        ruleId: null,
+        threadId: "thread-fallback",
+        createdAt: new Date("2026-04-20T09:00:00.000Z"),
+        status: "SKIPPED",
+        reason: "No rules matched.",
+        matchMetadata: null,
+        automated: true,
+        actionItems: [],
+        rule: null,
+      },
+    ]);
+
+    const result = await tools.getRuleExecutionForMessage.execute({
+      messageId: "message-fallback",
+    });
+
+    expect(result).toMatchObject({
+      messageId: "message-fallback",
+      threadId: "thread-fallback",
+      evidence: {
+        state: "INCONCLUSIVE_SKIPPED_RECORDS",
+        rootCauseKnown: false,
+        summary:
+          "Only inconclusive skipped execution records were found. They do not establish whether a specific rule matched, was later deleted, or why processing was skipped.",
+      },
+    });
+  });
+
+  it("keeps applied execution evidence when the original rule is unavailable", async () => {
+    const tools = await captureToolSet(true, "google");
+
+    mockPrisma.executedRule.findMany.mockResolvedValue([
+      {
+        id: "executed-rule-deleted",
+        ruleId: null,
+        threadId: "thread-deleted-rule",
+        createdAt: new Date("2026-04-20T09:00:00.000Z"),
+        status: "APPLIED",
+        reason: "The rule applied before its configuration was removed.",
+        matchMetadata: [{ type: "STATIC" }],
+        automated: true,
+        actionItems: [
+          {
+            type: "LABEL",
+            label: "Handled",
+            labelId: "label-handled",
+            subject: null,
+            to: null,
+            cc: null,
+            bcc: null,
+            url: null,
+            folderName: null,
+          },
+        ],
+        rule: null,
+      },
+    ]);
+
+    const result = await tools.getRuleExecutionForMessage.execute({
+      messageId: "message-deleted-rule",
+    });
+
+    expect(result).toMatchObject({
+      evidence: {
+        state: "RECORDED_EXECUTIONS",
+        rootCauseKnown: null,
+      },
     });
   });
 

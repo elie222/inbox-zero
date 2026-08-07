@@ -30,12 +30,10 @@ export const inboxWorkflowProviders = [
   {
     provider: "google",
     label: "google",
-    unreadSignal: "is:unread",
   },
   {
     provider: "microsoft",
     label: "microsoft",
-    unreadSignal: "unread",
   },
 ] as const;
 
@@ -97,6 +95,7 @@ const {
 } = hoisted;
 
 export const mockSearchMessages = hoisted.mockSearchMessages;
+export { mockArchiveThreadWithLabel };
 export const mockGetFolders = hoisted.mockGetFolders;
 export const mockGetOrCreateFolderIdByName =
   hoisted.mockGetOrCreateFolderIdByName;
@@ -311,7 +310,6 @@ export function hasNoWriteToolCalls(toolCalls: RecordedToolCall[]) {
 export function hasUnreadTriageSignal(
   searchCall: SearchInboxInput,
   provider: "google" | "microsoft",
-  unreadSignal: string,
 ) {
   const normalizedQuery = searchCall.query.toLowerCase();
 
@@ -323,7 +321,7 @@ export function hasUnreadTriageSignal(
     );
   }
 
-  return normalizedQuery.includes(unreadSignal);
+  return normalizedQuery.includes("is:unread");
 }
 
 export function hasReplyTriageFocus(

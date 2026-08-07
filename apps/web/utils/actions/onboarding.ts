@@ -3,6 +3,7 @@
 import { after } from "next/server";
 import {
   saveOnboardingAnswersBody,
+  saveOnboardingChatAnswersBody,
   saveOnboardingFeaturesSchema,
 } from "@/utils/actions/onboarding.validation";
 import { actionClientUser } from "@/utils/actions/safe-action";
@@ -152,6 +153,47 @@ export const saveOnboardingAnswersAction = actionClientUser
             : null,
         ]);
       });
+    },
+  );
+
+// Stores the full transcript of answers from the chat onboarding variant.
+// Called after each answer with the accumulated list so partial data survives
+// abandonment. Role is saved separately via updateEmailAccountRoleAction.
+export const saveOnboardingChatAnswersAction = actionClientUser
+  .metadata({ name: "saveOnboardingChatAnswers" })
+  .inputSchema(saveOnboardingChatAnswersBody)
+  .action(
+    async ({
+      parsedInput: { answers },
+      ctx: { userId, userEmail, logger },
+    }) => {
+      // "discovery" is the pain-point key in the LLM-guided flow; "struggle"
+      // was its name in the earlier scripted flow
+      const painPointKeys = ["discovery", "struggle"];
+      const struggle = answers.find((a) =>
+        painPointKeys.includes(a.key),
+      )?.answer;
+      const latestAnswer = answers.at(-1);
+
+      await prisma.user.update({
+        where: { id: userId },
+        data: {
+          onboardingAnswers: { surveyId: "chat-onboarding", answers },
+          ...(struggle ? { surveyGoal: struggle } : {}),
+        },
+      });
+
+      if (struggle && painPointKeys.includes(latestAnswer?.key ?? "")) {
+        after(async () => {
+          await trackOnboardingAnswer(userEmail, {
+            surveyGoal: struggle,
+          }).catch((error) => {
+            logger.error("PostHog: Error tracking chat onboarding answers", {
+              error,
+            });
+          });
+        });
+      }
     },
   );
 

@@ -1,0 +1,50 @@
+---
+title: 'Security, Permissions, and AI'
+description: 'Understand account access, confirmations, sensitive-data controls, and recovery.'
+icon: 'shield-check'
+---
+
+Inbox Zero needs access to your mailbox to search messages and run the workflows you enable. Optional features request additional access only when you connect them, such as calendar or drive permissions.
+
+## Account permissions
+
+- Email permissions allow Inbox Zero to read and organize messages and create drafts.
+- Calendar permissions support availability, booking links, and meeting features.
+- Drive permissions support filing attachments and attaching approved files to drafts.
+- Slack, Teams, and Telegram connections let the assistant respond and deliver configured notifications.
+
+You can revoke a connection from Inbox Zero or from the provider's security settings. Revoking provider access stops the affected feature until you reconnect it.
+
+## Confirming high-impact actions
+
+Chat and messaging-channel workflows ask for confirmation before high-impact actions such as sending messages or creating automation that can communicate externally. Always review generated recipients, content, links, and attachments before approving.
+
+Rules run automatically after they are enabled. Test new rules with recent messages and review **Assistant → History** before relying on outbound actions.
+
+## Sensitive-data protection
+
+Assistant settings include a sensitive-data policy that can allow, redact, or block detected credentials and payment-card numbers before content is sent to an AI provider.
+
+This control reduces accidental exposure; it is not a substitute for removing secrets from email or reviewing generated content.
+
+## AI limitations
+
+AI output can be incomplete or incorrect. In particular:
+
+- A rule may match an unexpected message.
+- A draft may omit context or make an unsupported assumption.
+- A summary may miss a detail from a long thread or attachment.
+- Availability and external-tool results depend on connected services being current.
+
+Use rule tests, draft confidence, confirmation prompts, and the **Fix** workflow to reduce these risks.
+
+## Safer cleanup and recovery
+
+Prefer labels, folders, archiving, or marking mail as read while testing a workflow. Deletion is more difficult to recover and may depend on the retention behavior of Gmail or Outlook.
+
+If a rule behaves incorrectly, disable it, inspect its History entry, and use **Fix**. You can also disable all rules for one mailbox from **Settings → Email Accounts** while investigating.
+
+## Account deletion
+
+Deleting your Inbox Zero account is separate from revoking Google or Microsoft access. See the [FAQ](/essentials/faq) for both processes and review the [Privacy Policy](https://www.getinboxzero.com/privacy) for the hosted service's current data terms.
+

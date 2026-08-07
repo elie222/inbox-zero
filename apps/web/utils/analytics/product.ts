@@ -69,12 +69,13 @@ export const PRODUCT_ANALYTICS_ACTIONS = {
     promptSaved: "auto_file_prompt_saved",
   },
   integrations: {
+    connected: "integration_connected",
     connectFailed: "integration_connect_failed",
     connectStarted: "integration_connect_started",
     disconnected: "integration_disconnected",
     disconnectStarted: "integration_disconnect_started",
     toggled: "integration_toggled",
-    toolsToggled: "integration_tools_toggled",
+    toolsExpanded: "integration_tools_expanded",
     toolToggled: "integration_tool_toggled",
   },
   analytics: {

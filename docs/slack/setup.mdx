@@ -3,15 +3,13 @@ title: 'Slack Integration Setup'
 description: 'Set up the Slack bot for meeting briefs and AI assistant'
 ---
 
-# Slack Integration Setup
-
 ## 1. Create a Slack App
 
 The easiest way is to use the included manifest:
 
 1. Go to [https://api.slack.com/apps](https://api.slack.com/apps) and click **Create New App** > **From an app manifest**
 2. Select a workspace
-3. Paste the contents of [`manifest.yaml`](manifest.yaml), replacing `YOUR_DOMAIN` with your actual domain
+3. Paste the contents of the [`manifest.yaml` template](https://github.com/elie222/inbox-zero/blob/main/docs/slack/manifest.yaml), replacing `YOUR_DOMAIN` with your actual domain
 4. Click **Create**
 
 This configures all scopes, event subscriptions, and the bot user automatically.
@@ -33,9 +31,9 @@ https://<your-domain>/api/slack/callback
 
 | Scope | Purpose |
 |-------|---------|
-| `channels:read` | List public channels for delivery target picker |
-| `channels:join` | Auto-join public channels when selected for delivery |
-| `groups:read` | List private channels |
+| `channels:read` | Resolve public channels where users mention the assistant |
+| `channels:join` | Join a public channel when needed for assistant interactions |
+| `groups:read` | List private channels available as notification targets |
 | `chat:write` | Send meeting briefs and AI responses |
 | `app_mentions:read` | Respond to @mentions in channels |
 | `im:read` | Receive direct messages |
@@ -111,7 +109,8 @@ This is used for the OAuth callback and events webhook URLs. `NEXT_PUBLIC_BASE_U
 1. Navigate to **Settings** > **Email Account** tab
 2. Click **Connect Slack** under Connected Apps
 3. Authorize the app in the Slack OAuth flow
-4. Go to **Meeting Briefs** and select a Slack channel for delivery
-5. Toggle meeting briefs on
+4. Open **Channels** and choose a private Slack channel for notifications
+5. Invite the Inbox Zero bot to that private channel
+6. Enable the meeting briefs, follow-ups, digests, filing alerts, or rule notifications you want delivered there
 
 Users can also DM the bot or @mention it in channels to chat with the AI assistant.

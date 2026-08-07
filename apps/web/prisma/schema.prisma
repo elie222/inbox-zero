@@ -144,6 +144,7 @@ model EmailAccount {
   statsEmailFrequency       Frequency            @default(WEEKLY)
   summaryEmailFrequency     Frequency            @default(WEEKLY)
   lastSummaryEmailAt        DateTime?
+  lastInboxHealthEmailAt    DateTime?
   coldEmailBlocker          ColdEmailSetting? // @deprecated
   coldEmailDigest           Boolean              @default(false) // @deprecated
   coldEmailPrompt           String? // @deprecated
@@ -222,6 +223,7 @@ model EmailAccount {
 
   @@index([userId])
   @@index([lastSummaryEmailAt])
+  @@index([lastInboxHealthEmailAt])
   @@index([watchEmailsSubscriptionId])
   @@index([watchEmailsSubscriptionHistory(ops: JsonbPathOps)], type: Gin)
 }
@@ -1174,6 +1176,7 @@ model ChatMessage {
 
   role  String
   parts Json
+  metadata Json?
   // attachments Json?
 
   chatId String
@@ -1400,6 +1403,8 @@ model MeetingRecording {
   botProvider          String   @default("recall")
   // Null between claiming the row and the provider call returning.
   externalBotId        String?
+  // Last display name successfully sent to the provider.
+  botName              String?
   // Set when the provider reports the recording is ready.
   externalRecordingId  String?
   // Claim for the create-transcript call, kept separate from the id above so a

@@ -264,22 +264,29 @@ function findFolderMatch(folders: FolderReference[], nameOrPath: string) {
   if (nameMatches.length > 1) return { ambiguous: true };
   if (nameMatches[0]) return { folder: nameMatches[0] };
 
-  const slashPathMatches = folders.filter(
+  const pathAliasMatches = folders.filter(
     (folder) =>
-      normalizeFolderText(toSlashSeparatedPath(folder.path)) ===
-      normalizedInput,
+      normalizeFolderPath(folder.path) === normalizeFolderPath(nameOrPath),
   );
 
-  if (slashPathMatches.length > 1) return { ambiguous: true };
-  return { folder: slashPathMatches[0] };
+  if (pathAliasMatches.length > 1) return { ambiguous: true };
+  return { folder: pathAliasMatches[0] };
 }
 
 function isFolderPath(nameOrPath: string) {
-  return nameOrPath.includes(FOLDER_SEPARATOR);
+  return (
+    nameOrPath.includes(FOLDER_SEPARATOR) ||
+    nameOrPath.includes("/") ||
+    nameOrPath.includes("\\")
+  );
 }
 
-function toSlashSeparatedPath(path: string) {
-  return path.split(FOLDER_SEPARATOR).join(" / ");
+function normalizeFolderPath(path: string) {
+  return path
+    .split(FOLDER_SEPARATOR)
+    .flatMap((segment) => segment.split(/[\\/]/))
+    .map(normalizeFolderText)
+    .join(FOLDER_SEPARATOR);
 }
 
 function normalizeFolderText(value: string) {

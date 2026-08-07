@@ -11,6 +11,7 @@ import {
   isAdminForPremium,
   isOnHigherTier,
   isPremiumRecord,
+  getUnsubscribePeriod,
   premiumEntitlementSelect,
 } from "@/utils/premium";
 import {
@@ -73,7 +74,7 @@ export const decrementUnsubscribeCreditAction = actionClientUser
     const isUserPremium = isPremiumRecord(user.premium);
     if (isUserPremium) return;
 
-    const currentMonth = new Date().getMonth() + 1;
+    const currentPeriod = getUnsubscribePeriod();
 
     // create premium row for user if it doesn't already exist
     const premium = user.premium || (await createPremiumForUser({ userId }));
@@ -83,13 +84,13 @@ export const decrementUnsubscribeCreditAction = actionClientUser
         id: premium.id,
         OR: [
           { unsubscribeMonth: null },
-          { unsubscribeMonth: { not: currentMonth } },
+          { unsubscribeMonth: { not: currentPeriod } },
         ],
       },
       data: {
         // reset and use a credit
         unsubscribeCredits: env.NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS - 1,
-        unsubscribeMonth: currentMonth,
+        unsubscribeMonth: currentPeriod,
       },
     });
 
@@ -98,7 +99,7 @@ export const decrementUnsubscribeCreditAction = actionClientUser
     await prisma.premium.updateMany({
       where: {
         id: premium.id,
-        unsubscribeMonth: currentMonth,
+        unsubscribeMonth: currentPeriod,
         unsubscribeCredits: { gt: 0 },
       },
       data: { unsubscribeCredits: { decrement: 1 } },

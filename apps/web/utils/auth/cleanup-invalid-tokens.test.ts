@@ -102,10 +102,46 @@ describe("cleanupInvalidTokens", () => {
     );
   });
 
-  it("returns early if account is already disconnected", async () => {
+  it("clears stale credentials if account is already disconnected", async () => {
     prisma.emailAccount.findUnique.mockResolvedValue({
       ...mockEmailAccount,
-      account: { disconnectedAt: new Date() },
+      account: {
+        disconnectedAt: new Date(),
+        access_token: "access-token",
+        refresh_token: "refresh-token",
+        expires_at: 1_700_000_000,
+      },
+    } as any);
+    prisma.account.updateMany.mockResolvedValue({ count: 1 });
+
+    await cleanupInvalidTokens({
+      emailAccountId: "ea_1",
+      reason: "invalid_grant",
+      logger,
+    });
+
+    expect(prisma.account.updateMany).toHaveBeenCalledWith({
+      where: { id: "acc_1", disconnectedAt: { not: null } },
+      data: {
+        access_token: null,
+        refresh_token: null,
+        expires_at: null,
+      },
+    });
+    expect(sendReconnectionEmail).not.toHaveBeenCalled();
+    expect(addUserErrorMessage).not.toHaveBeenCalled();
+    expect(addUserErrorMessageWithNotification).not.toHaveBeenCalled();
+  });
+
+  it("does not write when a disconnected account has no credentials left", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      ...mockEmailAccount,
+      account: {
+        disconnectedAt: new Date(),
+        access_token: null,
+        refresh_token: null,
+        expires_at: null,
+      },
     } as any);
 
     await cleanupInvalidTokens({
@@ -115,7 +151,6 @@ describe("cleanupInvalidTokens", () => {
     });
 
     expect(prisma.account.updateMany).not.toHaveBeenCalled();
-    expect(sendReconnectionEmail).not.toHaveBeenCalled();
   });
 
   it("sends action-required email for insufficient permissions", async () => {

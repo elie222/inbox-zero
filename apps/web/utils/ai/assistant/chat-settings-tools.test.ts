@@ -146,6 +146,12 @@ describe("chat settings tools", () => {
       },
     });
 
+    expect(result.capabilities).not.toContainEqual(
+      expect.objectContaining({
+        path: "assistant.ruleExecutionRuntime",
+      }),
+    );
+
     const multiRuleCapability = result.capabilities.find(
       (capability) =>
         capability.path === "assistant.multiRuleSelection.enabled",

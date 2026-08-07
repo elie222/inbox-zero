@@ -23,7 +23,7 @@ export const getAssistantCapabilitiesTool = ({
 }) =>
   tool({
     description:
-      "Get the authoritative capability and configuration snapshot for the connected email account. Use assistant.digest to answer digest recipient, combined-rule, schedule, estimated-delivery, queue, and last-delivery questions; digest email uses the connected account address and has no separate recipient setting. If no writable path supports the user's request, explain that limitation instead of approximating it through a different setting.",
+      "Get the authoritative capability and configuration snapshot for the connected email account. Chat can inspect recorded rule-execution evidence for a specific message, but cannot inspect or repair background rule-executor health or guarantee future processing. Use assistant.digest to answer digest recipient, combined-rule, schedule, estimated-delivery, queue, and last-delivery questions; digest email uses the connected account address and has no separate recipient setting. If no writable path supports the user's request, explain that limitation instead of approximating it through a different setting.",
     inputSchema: emptyInputSchema,
     execute: async () => {
       trackSettingsToolCall({

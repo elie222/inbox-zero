@@ -13,6 +13,7 @@ import {
   type RecallEmulator,
   type RecallEmulatorTranscriptTurn,
 } from "@/__tests__/emulators/recall";
+import { MEETING_BOT_DISPLAY_NAME } from "@/utils/meeting-recorder/bot-provider";
 
 vi.mock("server-only", () => ({}));
 
@@ -49,13 +50,14 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       const joinAt = new Date("2026-05-04T09:00:00.000Z");
 
       const { externalBotId } = await provider.scheduleBot({
+        botName: "Barbara's Inbox Zero Notetaker",
         meetingUrl: "https://meet.google.com/abc-defg-hij",
         joinAt,
       });
 
       expect(emulator.getBot(externalBotId)).toMatchObject({
         meeting_url: "https://meet.google.com/abc-defg-hij",
-        bot_name: "Inbox Zero Notetaker",
+        bot_name: "Barbara's Inbox Zero Notetaker",
         join_at: joinAt.toISOString(),
       });
 
@@ -131,6 +133,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
 
       const movedTo = new Date("2026-05-04T10:00:00.000Z");
       await provider.updateBot(externalBotId, {
+        botName: MEETING_BOT_DISPLAY_NAME,
         joinAt: movedTo,
         meetingUrl: "https://meet.google.com/abc-defg-hij",
       });
@@ -142,7 +145,9 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
 
     test("replaces a bot when Recall rejects a near-term reschedule", async () => {
       const meetingUrl = "https://meet.google.com/abc-defg-hij";
+      const botName = "Barbara's Inbox Zero Notetaker";
       const { externalBotId } = await provider.scheduleBot({
+        botName,
         meetingUrl,
         joinAt: new Date("2026-05-04T09:00:00.000Z"),
       });
@@ -150,6 +155,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
 
       const movedTo = new Date("2026-05-04T08:05:00.000Z");
       const updated = await provider.updateBot(externalBotId, {
+        botName,
         joinAt: movedTo,
         meetingUrl,
       });
@@ -159,6 +165,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       expect(emulator.getBot(updated.externalBotId)?.join_at).toBe(
         movedTo.toISOString(),
       );
+      expect(emulator.getBot(updated.externalBotId)?.bot_name).toBe(botName);
     });
 
     test("updates the meeting URL for a scheduled bot", async () => {
@@ -168,7 +175,10 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       });
 
       const meetingUrl = "https://acme.zoom.us/j/8123456789?pwd=new";
-      await provider.updateBot(externalBotId, { meetingUrl });
+      await provider.updateBot(externalBotId, {
+        botName: MEETING_BOT_DISPLAY_NAME,
+        meetingUrl,
+      });
 
       expect(emulator.getBot(externalBotId)?.meeting_url).toBe(meetingUrl);
     });

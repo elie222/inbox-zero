@@ -1,0 +1,79 @@
+---
+title: 'Context Integrations'
+description: 'Connect read-oriented business tools so drafts and meeting briefs can use relevant external context.'
+icon: 'plug'
+---
+
+<Note>
+Context Integrations are in Early Access.
+</Note>
+
+Context Integrations let Inbox Zero look up relevant information in connected services while preparing email drafts and meeting briefs. For example, the assistant may search for a sender in a CRM, fetch a Notion page, or check billing information in Stripe before it writes.
+
+They are context sources, not general workflow automations.
+
+## Requirements
+
+- Early Access must be enabled for the account.
+- Connecting an integration requires the **Plus plan or higher**.
+
+## Available integrations
+
+- **Notion**: search and fetch approved Notion content.
+- **Stripe**: look up customers, invoices, subscriptions, and other billing data.
+- **Monday.com**: look up boards, board items, and workspaces.
+- **Pipedream**: connect read-oriented tools from services such as HubSpot, Slack, Airtable, and Todoist.
+
+## Connect and enable a service
+
+1. Open **Integrations** in the left sidebar.
+2. Select **Connect** beside a service.
+3. Review the provider's authorization screen and approve only the workspace and data you intend to share.
+4. Return to Inbox Zero and confirm that the row says **Connected**.
+5. Turn on the integration if it is connected but disabled.
+6. Expand **Tools** and enable only the lookups you want the assistant to use.
+
+The assistant can use a tool only when the connection is active and that individual tool is enabled.
+
+Pipedream connections can expose many tools, so they start disabled. Inspect each tool's name and description before enabling it.
+
+## How context is used
+
+For email drafting, Inbox Zero searches enabled tools for information related to the sender and the current thread. For meeting briefs, enabled integration tools are available alongside email, calendar, and web-research context.
+
+An integration may return stale, incomplete, or incorrectly matched information, so double-check consequential facts such as prices and payment state before sending a draft.
+
+## Safety and access control
+
+- Enable the smallest set of tools needed for your workflow.
+- Prefer read-only tools. Do not enable tools that create, update, or delete data merely because their provider makes them available.
+- Provider authorization controls which workspaces and records Inbox Zero can access; tool switches control which of those capabilities the assistant may call.
+- Disconnecting removes the connection from Inbox Zero. It does not delete data in the external service.
+- Disabling a connection preserves it but stops its tools from being used.
+
+## Troubleshooting
+
+### Integrations are not enabled
+
+Select **Join Early Access** from the Integrations page.
+
+### Connect asks for an upgrade
+
+Context Integrations require Plus or higher. Upgrade the account that owns the selected email address, then restart the connection flow.
+
+### Connected but disabled
+
+Turn on the connection, expand its tools, and confirm that at least one tool is enabled.
+
+### A tool does not appear
+
+Reconnect the service to resync its tool list. Some integrations intentionally allow only an approved subset, and Pipedream write-oriented tools may be filtered out.
+
+### Drafts do not include expected context
+
+Confirm that the relevant tool is enabled and that the connected provider account can access the record. The assistant only calls tools it judges relevant to the email or meeting.
+
+### OAuth fails or is cancelled
+
+Return to **Integrations** and start a fresh connection. If failure continues, disconnect the partial connection if present and retry.
+

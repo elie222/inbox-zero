@@ -1,0 +1,67 @@
+---
+title: 'Channels'
+description: 'Connect Slack, Microsoft Teams, or Telegram and control what Inbox Zero delivers to chat.'
+icon: 'messages'
+---
+
+The **Channels** page is the central place to connect chat apps and route Inbox Zero updates. You can receive rule notifications, draft replies, meeting briefs, follow-up reminders, digests, document-filing alerts, and scheduled check-ins.
+
+## Connect a channel
+
+1. Open **Channels** in the left sidebar.
+2. Find **Slack**, **Microsoft Teams**, or **Telegram** and select **Connect**.
+3. Complete the provider-specific flow:
+   - **Slack:** approve the Slack OAuth request and return to Inbox Zero.
+   - **Teams or Telegram:** copy the generated `/connect` command and send it in a direct message to the Inbox Zero bot.
+4. Confirm that the provider displays a **Connected** badge.
+
+## Route rule notifications
+
+Under a connected provider, **Rule notifications** lists your enabled assistant rules. Turn on the rules that should post to that provider.
+
+For each enabled rule, choose one of two modes from its menu:
+
+- **Notify only** posts a notification when the rule matches.
+- **Draft reply in chat** includes a generated draft for review.
+
+Slack lets you choose a direct message or a Slack channel as the destination. Teams and Telegram deliver to your direct message with the bot.
+
+### Provider differences
+
+- **Slack** supports the richest interactive cards, including draft review and quick actions such as send, edit, archive, or mark as read.
+- **Teams**: Draft editing and sending are not available yet. Review or send the draft in Inbox Zero. Other quick actions are view-only.
+- **Telegram** can send a prepared draft from Telegram, but draft editing is not available there. Other quick actions such as archive and mark read are currently Slack-only.
+
+## Route feature updates
+
+Each connected provider can also show toggles for:
+
+- **Meeting briefs**: a summary before meetings.
+- **Follow-up reminders**: nudges for messages awaiting a reply.
+- **Digests**: your scheduled newsletter digest. Digests require the **Plus plan or higher**.
+- **Document filing alerts**: updates when attachments are filed.
+- **Scheduled check-ins**: proactive assistant updates.
+
+Configure the underlying feature using the settings button or linked feature page. For Slack, choose the target destination before enabling delivery.
+
+## Chat with the assistant
+
+You can direct-message the Inbox Zero bot in a connected provider. Slack also supports @mentions in channels where the bot is present. The assistant can use your connected email and calendar context.
+
+## Disconnect a provider
+
+Open the provider menu on **Channels** and select **Disconnect**. This stops delivery and removes that channel connection. It does not delete the underlying assistant rules, meeting-brief settings, digest schedule, or follow-up configuration.
+
+## Troubleshooting
+
+### Teams or Telegram will not link
+
+Generate a new command from **Channels** and send it to the bot in a direct message within 10 minutes.
+
+### A Slack destination is unavailable
+
+Reconnect Slack if requested. Confirm that you still have access to the destination and that the Inbox Zero app is present in a private channel before selecting it.
+
+### Notifications are missing
+
+Check all three layers: the provider is connected, the individual rule or feature is enabled for that provider, and the feature itself is enabled. Also confirm the selected Slack destination or linked direct message still exists.

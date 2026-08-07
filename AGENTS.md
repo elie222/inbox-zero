@@ -55,12 +55,18 @@
 - Prefer the simplest, most readable change; only keep backwards compatibility when explicitly requested.
 - Do not optimize for migration paths: refactor call sites directly, including larger coordinated changes when clarity improves.
 
+## Documentation
+- Treat code and tests as the source of truth for behavior; reserve docs for user guidance, workflows, runbooks, and durable decisions.
+
 ## LLM Features
 - Stay AI-first: fix general failure modes, not exact eval wording, and avoid brittle keyword or regex rules unless the product needs a hard guard.
 - Do not add keyword/phrase blacklists to prompts, evals, or tests just to catch a model's current bad wording. This product works across languages, so English-specific text checks are especially brittle. For LLM behavior, assert the semantic failure mode with a judge/eval criterion or structured contract instead. Example: test "does not ask unnecessary clarification or invent payment status," not "does not contain 'could you clarify' or 'specific payment'."
 - Never gate context injection or tool behavior on ad hoc user-text keyword matching; use structured state, metadata, or explicit events instead.
 - Tool descriptions should be self-contained: what the tool does, what its parameters mean, when to use it vs alternatives, prerequisites, and safety constraints specific to that tool.
 - Keep only cross-cutting policies (identity, write confirmation, security, formatting) in the system prompt. Per-tool guidance belongs in the tool description so it appears only when the tool is active.
+- Treat prompts, tools, and parameters as costly model-facing surface area. Every line must earn its place; do not add a tool or parameter for an edge case, and get explicit user approval before adding either.
+- Do not duplicate guidance between prompts and tool descriptions. Explicitly disclose any prompt, tool, or tool-parameter change to the user.
+- Keep model-facing schemas portable: prefer flat root objects and verify advanced constructs across providers. Use `z.strictObject()` only when dropping unknown keys is unsafe; describe refinement and transform constraints in tool fields because models may not see them.
 
 ## Component Guidelines
 - Use shadcn/ui components when available

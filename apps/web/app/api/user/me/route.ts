@@ -3,7 +3,11 @@ import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
 import { SafeError } from "@/utils/error";
 import { auth } from "@/utils/auth";
-import { isAdminForPremium, premiumEntitlementSelect } from "@/utils/premium";
+import {
+  getRemainingUnsubscribeCredits,
+  isAdminForPremium,
+  premiumEntitlementSelect,
+} from "@/utils/premium";
 
 export type UserResponse = Awaited<ReturnType<typeof getUser>> | null;
 
@@ -35,6 +39,7 @@ async function getUser({
           stripeSubscriptionId: true,
           stripeInvoiceEmailsEnabled: true,
           unsubscribeCredits: true,
+          unsubscribeMonth: true,
           emailAccountsAccess: true,
           lemonLicenseKey: true,
           pendingInvites: true,
@@ -90,6 +95,10 @@ async function getUser({
     announcementDismissedAt: user.announcementDismissedAt,
     dismissedHints: user.dismissedHints,
     premium,
+    // Resolved here so the client never compares periods against its own clock.
+    unsubscribeCreditsRemaining: getRemainingUnsubscribeCredits(
+      user.premium ?? {},
+    ),
     emailAccounts: emailAccounts.map(({ members: _members, ...account }) => ({
       ...account,
     })),

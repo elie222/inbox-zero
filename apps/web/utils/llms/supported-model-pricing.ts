@@ -156,6 +156,11 @@ export const STATIC_MODEL_PRICING: Record<string, ModelPricing> = {
     output: 0.2 / 1_000_000,
     cachedInput: 0.02 / 1_000_000,
   },
+  "~deepseek/deepseek-v4-flash-latest": {
+    input: 0.09 / 1_000_000,
+    output: 0.18 / 1_000_000,
+    cachedInput: 0.018 / 1_000_000,
+  },
   "DeepSeek-V4-Pro": {
     input: 1.925 / 1_000_000,
     output: 3.828 / 1_000_000,
@@ -212,5 +217,6 @@ export const OPENROUTER_MODEL_ID_BY_SUPPORTED_MODEL: Partial<
   "gemini-3-flash": "google/gemini-3-flash-preview",
   "gemini-3-pro": "google/gemini-3-pro-preview",
   "deepseek/deepseek-v4-flash": "deepseek/deepseek-v4-flash",
+  "~deepseek/deepseek-v4-flash-latest": "~deepseek/deepseek-v4-flash-latest",
   "sonar-pro": "perplexity/sonar-pro",
 };
