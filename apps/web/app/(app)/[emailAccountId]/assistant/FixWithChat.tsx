@@ -251,7 +251,9 @@ function RuleMismatch({
           items={[
             { id: NONE_RULE_ID, name: "❌ None" },
             { id: NEW_RULE_ID, name: "✨ New rule" },
-            ...rules,
+            ...[...rules].sort((a, b) =>
+              a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+            ),
           ]}
           onSelect={onSelectExpectedRuleId}
           itemClassName="h-auto min-h-10 justify-start whitespace-normal text-wrap py-2 text-left"
