@@ -31,6 +31,20 @@ main() {
         sleep 1
     done
 
+    sleep 2
+
+    if ! wget -q -O /dev/null -T 2 http://127.0.0.1:3000/api/health; then
+        echo "server stopped responding after the initial health check"
+        tail -20 "$LOG"
+        exit 1
+    fi
+
+    if grep -q "Failed to load external module" "$LOG"; then
+        echo "Standalone server cannot load its instrumentation hook:"
+        tail -20 "$LOG"
+        exit 1
+    fi
+
     echo "Standalone smoke test passed."
 }
 
