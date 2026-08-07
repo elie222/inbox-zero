@@ -481,12 +481,12 @@ async function updateBookingForEvent({
   // Same meeting, fresher link: normalization drops credentials, so this is
   // where a rotated meeting password or invitee context shows up.
   if (recording.meetingUrl !== event.videoConferenceLink) {
+    const externalBotId = recording.externalBotId;
     const canUpdateBot =
-      recording.externalBotId !== null &&
-      CHANGEABLE_STATUSES.includes(recording.status);
+      externalBotId !== null && CHANGEABLE_STATUSES.includes(recording.status);
     if (canUpdateBot) {
       const provider = createMeetingBotProvider(recording.botProvider, logger);
-      await provider.updateBot(recording.externalBotId, {
+      await provider.updateBot(externalBotId, {
         botName,
         meetingUrl: event.videoConferenceLink,
       });
