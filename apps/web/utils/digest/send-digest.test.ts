@@ -12,6 +12,7 @@ import {
   sendDigestToSlack,
 } from "@/utils/messaging/providers/slack/send";
 import { sendAutomationMessage } from "@/utils/automation-jobs/messaging";
+import { sendDigestToWebhook } from "@/utils/messaging/providers/webhook/send";
 import { sendDigestEmail } from "@inboxzero/resend";
 
 vi.mock("@/utils/prisma");
@@ -21,6 +22,9 @@ vi.mock("@/utils/messaging/providers/slack/send", () => ({
 }));
 vi.mock("@/utils/automation-jobs/messaging", () => ({
   sendAutomationMessage: vi.fn(),
+}));
+vi.mock("@/utils/messaging/providers/webhook/send", () => ({
+  sendDigestToWebhook: vi.fn(),
 }));
 vi.mock("@inboxzero/resend", () => ({
   sendDigestEmail: vi.fn(),
@@ -52,6 +56,24 @@ const slackChannel = {
       purpose: MessagingRoutePurpose.DIGESTS,
       targetType: MessagingRouteTargetType.CHANNEL,
       targetId: "C1",
+    },
+  ],
+};
+
+const webhookChannel = {
+  id: "channel-webhook-1",
+  provider: MessagingProvider.WEBHOOK,
+  isConnected: true,
+  accessToken: null,
+  teamId: "",
+  providerUserId: null,
+  webhookUrl: "https://example.com/hook",
+  webhookSecret: "shh",
+  routes: [
+    {
+      purpose: MessagingRoutePurpose.DIGESTS,
+      targetType: MessagingRouteTargetType.CHANNEL,
+      targetId: "webhook",
     },
   ],
 };
@@ -126,6 +148,54 @@ describe("sendDigest", () => {
     (sendDigestToSlack as any).mockResolvedValue(undefined);
 
     await expect(sendDigest(baseArgs)).resolves.toBeUndefined();
+  });
+
+  it("POSTs the digest to a webhook channel with its url and secret", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      digestSendEmail: false,
+    } as any);
+    prisma.messagingChannel.findMany.mockResolvedValue([webhookChannel] as any);
+
+    await sendDigest(baseArgs);
+
+    expect(sendDigestEmail).not.toHaveBeenCalled();
+    expect(sendDigestToWebhook).toHaveBeenCalledTimes(1);
+    expect(sendDigestToWebhook).toHaveBeenCalledWith({
+      url: "https://example.com/hook",
+      secret: "shh",
+      payload: {
+        type: "digest",
+        date: baseArgs.date.toISOString(),
+        ruleNames: baseArgs.ruleNames,
+        itemsByRule: baseArgs.itemsByRule,
+      },
+    });
+  });
+
+  it("treats a webhook send failure as a failed channel", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      digestSendEmail: false,
+    } as any);
+    prisma.messagingChannel.findMany.mockResolvedValue([webhookChannel] as any);
+    (sendDigestToWebhook as any).mockRejectedValue(new Error("blocked"));
+
+    await expect(sendDigest(baseArgs)).rejects.toThrow(
+      /All digest delivery channels failed/,
+    );
+  });
+
+  it("skips a webhook channel with no url (non-operational)", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      digestSendEmail: false,
+    } as any);
+    prisma.messagingChannel.findMany.mockResolvedValue([
+      { ...webhookChannel, webhookUrl: null },
+    ] as any);
+
+    await expect(sendDigest(baseArgs)).rejects.toThrow(
+      /No deliverable digest channels/,
+    );
+    expect(sendDigestToWebhook).not.toHaveBeenCalled();
   });
 
   it("skips Slack when the access token is missing", async () => {

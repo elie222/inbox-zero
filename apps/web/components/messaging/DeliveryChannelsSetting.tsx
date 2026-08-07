@@ -1,7 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { HashIcon, MailIcon, MessageCircleIcon, SendIcon } from "lucide-react";
+import {
+  HashIcon,
+  MailIcon,
+  MessageCircleIcon,
+  SendIcon,
+  WebhookIcon,
+} from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { SlackNotificationTargetSelect } from "@/components/SlackNotificationTargetSelect";
 import { Toggle } from "@/components/Toggle";
@@ -39,6 +45,11 @@ const PROVIDER_CONFIG: Record<
   TELEGRAM: {
     name: "Telegram",
     icon: SendIcon,
+    supportsTargetSelection: false,
+  },
+  WEBHOOK: {
+    name: "Webhook",
+    icon: WebhookIcon,
     supportsTargetSelection: false,
   },
 };

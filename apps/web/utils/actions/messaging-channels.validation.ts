@@ -38,6 +38,22 @@ export const disconnectChannelBody = z.object({
   channelId: z.string().min(1),
 });
 
+export const createWebhookChannelBody = z.object({
+  webhookUrl: z.string().url(),
+  webhookSecret: z.string().trim().max(500).optional(),
+});
+
+export const updateWebhookChannelBody = z.object({
+  channelId: z.string().min(1),
+  webhookUrl: z.string().url(),
+  webhookSecret: z.string().trim().max(500).optional(),
+});
+
+export const toggleWebhookDigestsBody = z.object({
+  channelId: z.string().min(1),
+  enabled: z.boolean(),
+});
+
 export const linkSlackWorkspaceBody = z.object({
   teamId: z.string().min(1),
 });

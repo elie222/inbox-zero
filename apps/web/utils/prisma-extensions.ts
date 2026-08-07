@@ -16,7 +16,7 @@ const ENCRYPTED_FIELDS = {
   account: ["access_token", "refresh_token"],
   calendarConnection: ["accessToken", "refreshToken"],
   driveConnection: ["accessToken", "refreshToken"],
-  messagingChannel: ["accessToken", "refreshToken"],
+  messagingChannel: ["accessToken", "refreshToken", "webhookSecret"],
   mcpConnection: ["accessToken", "refreshToken", "apiKey"],
   mcpIntegration: ["oauthClientSecret"],
   // The raw join link carries the meeting password for Zoom and Teams. Dedup
