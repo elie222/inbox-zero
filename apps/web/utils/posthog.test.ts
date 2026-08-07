@@ -27,6 +27,7 @@ vi.mock("posthog-node", () => ({
 
 vi.mock("@/utils/redis", () => ({
   redis: {
+    del: vi.fn(),
     set: vi.fn(),
   },
 }));
@@ -295,5 +296,29 @@ describe("trackStripeCheckoutCreated", () => {
       { nx: true, ex: 172_800 },
     );
     expect(captureMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("captures when Redis is unavailable", async () => {
+    vi.mocked(redis.set).mockRejectedValue(new Error("Redis unavailable"));
+
+    await trackStripeCheckoutCreated("user@example.com", "cs_test", {
+      tier: "BASIC_MONTHLY",
+    });
+
+    expect(captureMock).toHaveBeenCalledTimes(1);
+    expect(redis.del).not.toHaveBeenCalled();
+  });
+
+  it("releases the dedupe reservation when PostHog capture fails", async () => {
+    vi.mocked(redis.set).mockResolvedValue("OK");
+    shutdownMock.mockRejectedValueOnce(new Error("PostHog unavailable"));
+
+    await trackStripeCheckoutCreated("user@example.com", "cs_test", {
+      tier: "BASIC_MONTHLY",
+    });
+
+    expect(redis.del).toHaveBeenCalledWith(
+      "posthog:stripe-checkout-created:cs_test",
+    );
   });
 });

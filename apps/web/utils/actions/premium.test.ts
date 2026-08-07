@@ -149,6 +149,9 @@ describe("generateCheckoutSessionAction", () => {
       "https://stripe.test",
     ]);
     expect(mocks.createCheckoutSession).toHaveBeenCalledTimes(2);
+    expect(mocks.createCheckoutSession.mock.calls[0][1]).toEqual({
+      idempotencyKey: expect.stringMatching(/^checkout:[a-f0-9]{64}$/),
+    });
     expect(mocks.createCheckoutSession.mock.calls[0][1]).toEqual(
       mocks.createCheckoutSession.mock.calls[1][1],
     );
