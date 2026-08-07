@@ -59,9 +59,11 @@ export class RecallBotProvider implements MeetingBotProvider {
   }
 
   async scheduleBot({
+    botName = MEETING_BOT_DISPLAY_NAME,
     meetingUrl,
     joinAt,
   }: {
+    botName?: string;
     meetingUrl: string;
     joinAt: Date;
   }): Promise<{ externalBotId: string }> {
@@ -75,7 +77,7 @@ export class RecallBotProvider implements MeetingBotProvider {
       method: "POST",
       body: {
         meeting_url: meetingUrl,
-        bot_name: MEETING_BOT_DISPLAY_NAME,
+        bot_name: botName,
         join_at: joinAt.toISOString(),
         automatic_video_output: {
           in_call_recording: {
@@ -92,12 +94,17 @@ export class RecallBotProvider implements MeetingBotProvider {
 
   async updateBot(
     externalBotId: string,
-    { joinAt, meetingUrl }: { joinAt?: Date; meetingUrl?: string },
+    {
+      botName,
+      joinAt,
+      meetingUrl,
+    }: { botName: string; joinAt?: Date; meetingUrl?: string },
   ): Promise<{ externalBotId: string }> {
     try {
       await this.request(`/bot/${externalBotId}/`, {
         method: "PATCH",
         body: {
+          ...(botName && { bot_name: botName }),
           ...(joinAt && { join_at: joinAt.toISOString() }),
           ...(meetingUrl && { meeting_url: meetingUrl }),
         },
@@ -115,7 +122,7 @@ export class RecallBotProvider implements MeetingBotProvider {
       }
 
       await this.cancelBot(externalBotId);
-      return this.scheduleBot({ meetingUrl, joinAt });
+      return this.scheduleBot({ botName, meetingUrl, joinAt });
     }
   }
 

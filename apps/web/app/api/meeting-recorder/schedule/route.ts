@@ -61,6 +61,7 @@ async function scheduleAllMeetingRecordings(logger: Logger) {
       id: true,
       email: true,
       meetingRecorderJoinRule: true,
+      name: true,
     },
   });
   // Accounts holding live bookings that the main reconcile query no longer

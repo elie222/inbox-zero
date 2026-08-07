@@ -33,6 +33,7 @@ describe("RecallBotProvider", () => {
     const provider = new RecallBotProvider(createTestLogger());
 
     await provider.scheduleBot({
+      botName: "Barbara's Inbox Zero Notetaker",
       meetingUrl: "https://meet.google.com/abc-defg-hij",
       joinAt: new Date("2026-05-04T09:00:00.000Z"),
     });
@@ -41,6 +42,10 @@ describe("RecallBotProvider", () => {
       "https://eu-central-1.recall.ai/api/v1/bot/",
       expect.anything(),
     );
+    const request = vi.mocked(fetch).mock.calls[0]?.[1];
+    expect(JSON.parse(request?.body as string)).toMatchObject({
+      bot_name: "Barbara's Inbox Zero Notetaker",
+    });
   });
 
   it("retries loading the camera image after a transient failure", async () => {

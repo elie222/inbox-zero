@@ -101,6 +101,7 @@ describe.skipIf(!RUN_DB_TESTS)(
       return {
         id,
         email,
+        name: email === ACCOUNT_A ? "Alice Owner" : "Bob Owner",
         meetingRecorderJoinRule: MeetingJoinRule.EXTERNAL_ONLY,
       };
     }
@@ -120,6 +121,10 @@ describe.skipIf(!RUN_DB_TESTS)(
       });
 
       expect(fakeProvider.scheduled).toHaveLength(2);
+      expect(fakeProvider.scheduled.map(({ botName }) => botName)).toEqual([
+        "Alice's Inbox Zero Notetaker",
+        "Bob's Inbox Zero Notetaker",
+      ]);
 
       const recordings = await prisma.meetingRecording.findMany();
       expect(recordings).toHaveLength(2);
@@ -129,6 +134,38 @@ describe.skipIf(!RUN_DB_TESTS)(
       expect(new Set(meetings.map((meeting) => meeting.recordingId)).size).toBe(
         2,
       );
+    });
+
+    test("updates the bot name for an existing scheduled recording", async () => {
+      const event = calendarEvent();
+      const emailAccount = account(accountAId, ACCOUNT_A);
+      await reconcile.reconcileSingleEvent({ emailAccount, event, logger });
+      expect((await prisma.meetingRecording.findFirstOrThrow()).botName).toBe(
+        "Alice's Inbox Zero Notetaker",
+      );
+
+      await reconcile.reconcileSingleEvent({
+        emailAccount: { ...emailAccount, name: "Alicia Owner" },
+        event,
+        logger,
+      });
+
+      expect(fakeProvider.updated).toContainEqual({
+        botId: fakeProvider.scheduled[0]?.botId,
+        botName: "Alicia's Inbox Zero Notetaker",
+      });
+      expect(fakeProvider.scheduled).toHaveLength(1);
+      expect((await prisma.meetingRecording.findFirstOrThrow()).botName).toBe(
+        "Alicia's Inbox Zero Notetaker",
+      );
+
+      await reconcile.reconcileSingleEvent({
+        emailAccount: { ...emailAccount, name: "Alicia Owner" },
+        event,
+        logger,
+      });
+
+      expect(fakeProvider.updated).toHaveLength(1);
     });
 
     test("cancels only the account's own bot", async () => {
@@ -837,6 +874,7 @@ describe.skipIf(!RUN_DB_TESTS)(
 
       expect(fakeProvider.updated).toContainEqual({
         botId: fakeProvider.scheduled[0]?.botId,
+        botName: "Alice's Inbox Zero Notetaker",
         meetingUrl: "https://acme.zoom.us/j/8123456789?pwd=new",
       });
       expect(fakeProvider.scheduled).toHaveLength(1);
@@ -875,7 +913,10 @@ describe.skipIf(!RUN_DB_TESTS)(
         logger,
       });
 
-      expect(fakeProvider.updated).toHaveLength(0);
+      expect(fakeProvider.updated).toContainEqual({
+        botId: fakeProvider.scheduled[1]?.botId,
+        botName: "Bob's Inbox Zero Notetaker",
+      });
       expect(fakeProvider.cancelled).toHaveLength(0);
       expect(fakeProvider.scheduled).toHaveLength(2);
     });
