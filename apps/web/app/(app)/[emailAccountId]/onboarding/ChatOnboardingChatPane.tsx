@@ -1,11 +1,17 @@
 "use client";
 
 import Image from "next/image";
+import type { ChangeEvent } from "react";
 import { Fragment, useEffect, useRef, useState } from "react";
-import { ArrowRightIcon, ArrowUpIcon, CheckIcon } from "lucide-react";
+import { ArrowRightIcon, CheckIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ButtonLoader } from "@/components/Loading";
 import { Response } from "@/components/ai-elements/response";
+import {
+  PromptInput,
+  PromptInputSubmit,
+  PromptInputTextarea,
+} from "@/components/ai-elements/prompt-input";
 import type { OnboardingChatMessage } from "@/app/(app)/[emailAccountId]/onboarding/chatOnboardingConfig";
 import { cn } from "@/utils";
 
@@ -137,29 +143,30 @@ export function ChatOnboardingChatPane({
       </div>
 
       <div className="shrink-0 pb-5 pt-3">
-        <div className="flex items-center gap-2 rounded-2xl border bg-background py-2 pl-4 pr-2 shadow-sm">
-          <input
+        <PromptInput
+          onSubmit={(e) => {
+            e.preventDefault();
+            sendFreeform();
+          }}
+        >
+          <PromptInputTextarea
             value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                sendFreeform();
-              }
-            }}
+            onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
+              setInput(e.currentTarget.value)
+            }
             placeholder="Message"
-            className="min-w-0 flex-1 bg-transparent text-[15px] outline-none placeholder:text-muted-foreground/60"
+            disabled={inputDisabled}
+            className="pr-14"
           />
-          <Button
-            size="icon"
-            className="size-8 shrink-0 rounded-xl"
-            onClick={sendFreeform}
-            disabled={!input.trim() || busy || inputDisabled}
-            aria-label="Send message"
-          >
-            <ArrowUpIcon className="size-4" />
-          </Button>
-        </div>
+
+          <div className="absolute bottom-2 right-2">
+            <PromptInputSubmit
+              status={busy ? "submitted" : "ready"}
+              disabled={!input.trim() || busy || inputDisabled}
+              aria-label="Send message"
+            />
+          </div>
+        </PromptInput>
       </div>
     </div>
   );
