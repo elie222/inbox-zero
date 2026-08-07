@@ -16,11 +16,13 @@ vi.mock("@/env", () => ({
 }));
 
 const captureMock = vi.fn();
-const shutdownMock = vi.fn().mockResolvedValue(undefined);
+const flushMock = vi.fn().mockResolvedValue(undefined);
+const shutdownMock = vi.fn();
 
 vi.mock("posthog-node", () => ({
   PostHog: class PostHogMock {
     capture = captureMock;
+    flush = flushMock;
     shutdown = shutdownMock;
   },
 }));
@@ -311,7 +313,7 @@ describe("trackStripeCheckoutCreated", () => {
 
   it("releases the dedupe reservation when PostHog capture fails", async () => {
     vi.mocked(redis.set).mockResolvedValue("OK");
-    shutdownMock.mockRejectedValueOnce(new Error("PostHog unavailable"));
+    flushMock.mockRejectedValueOnce(new Error("PostHog unavailable"));
 
     await trackStripeCheckoutCreated("user@example.com", "cs_test", {
       tier: "BASIC_MONTHLY",

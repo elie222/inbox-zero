@@ -149,8 +149,12 @@ export async function posthogCaptureEvent(
       properties,
       sendFeatureFlags,
     });
-    await client.shutdown();
-    return true;
+    try {
+      await client.flush();
+      return true;
+    } finally {
+      client.shutdown();
+    }
   } catch (error) {
     logger.error("Error capturing PostHog event", { error });
     return false;
