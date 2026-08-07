@@ -135,26 +135,54 @@ describe("generateCheckoutSessionAction", () => {
       },
     } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
     mocks.createCheckoutSession.mockResolvedValue({
+      id: "cs_test",
       url: "https://stripe.test",
     });
 
-    await generateCheckoutSessionAction({
-      tier: "BASIC_MONTHLY",
-    });
-    await generateCheckoutSessionAction({
-      tier: "BASIC_MONTHLY",
+    const results = await Promise.all([
+      generateCheckoutSessionAction({ tier: "BASIC_MONTHLY" }),
+      generateCheckoutSessionAction({ tier: "BASIC_MONTHLY" }),
+    ]);
+
+    expect(results.map((result) => result?.data?.url)).toEqual([
+      "https://stripe.test",
+      "https://stripe.test",
+    ]);
+    expect(mocks.createCheckoutSession).toHaveBeenCalledTimes(2);
+    expect(mocks.createCheckoutSession.mock.calls[0][1]).toEqual(
+      mocks.createCheckoutSession.mock.calls[1][1],
+    );
+  });
+
+  it("uses a new idempotency key when the checkout quantity changes", async () => {
+    let emailAccounts = 1;
+    prisma.user.findUnique.mockImplementation(
+      async () =>
+        ({
+          email: "user@example.com",
+          utms: null,
+          _count: { emailAccounts },
+          premium: {
+            id: "premium-1",
+            stripeCustomerId: "cus_test",
+            stripeSubscriptionId: null,
+            stripeSubscriptionStatus: null,
+            stripeEndedAt: null,
+            users: [{ _count: { emailAccounts } }],
+          },
+        }) as Awaited<ReturnType<typeof prisma.user.findUnique>>,
+    );
+    mocks.createCheckoutSession.mockResolvedValue({
+      id: "cs_test",
+      url: "https://stripe.test",
     });
 
-    expect(mocks.createCheckoutSession).toHaveBeenCalledTimes(2);
-    expect(mocks.createCheckoutSession).toHaveBeenNthCalledWith(
-      1,
-      expect.anything(),
-      { idempotencyKey: "checkout:user-1:BASIC_MONTHLY:standard:new" },
-    );
-    expect(mocks.createCheckoutSession).toHaveBeenNthCalledWith(
-      2,
-      expect.anything(),
-      { idempotencyKey: "checkout:user-1:BASIC_MONTHLY:standard:new" },
+    await generateCheckoutSessionAction({ tier: "BASIC_MONTHLY" });
+    emailAccounts = 2;
+    await generateCheckoutSessionAction({ tier: "BASIC_MONTHLY" });
+
+    expect(mocks.createCheckoutSession.mock.calls[0][1]).not.toEqual(
+      mocks.createCheckoutSession.mock.calls[1][1],
     );
   });
 
@@ -173,6 +201,7 @@ describe("generateCheckoutSessionAction", () => {
       },
     } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
     mocks.createCheckoutSession.mockResolvedValue({
+      id: "cs_ended",
       url: "https://stripe.test",
     });
 

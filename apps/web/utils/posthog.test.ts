@@ -38,6 +38,7 @@ import {
   deletePosthogUser,
   trackFirstTimeEvent,
   trackProductFeedback,
+  trackStripeCheckoutCreated,
   trackUserDeleted,
   trackUserDeletionRequested,
 } from "./posthog";
@@ -267,5 +268,32 @@ describe("trackProductFeedback", () => {
       properties: { feedback: "Still useful" },
       sendFeatureFlags: undefined,
     });
+  });
+});
+
+describe("trackStripeCheckoutCreated", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("captures only once for a replayed Stripe Checkout Session", async () => {
+    vi.mocked(redis.set)
+      .mockResolvedValueOnce("OK")
+      .mockResolvedValueOnce(null);
+
+    await trackStripeCheckoutCreated("user@example.com", "cs_test", {
+      tier: "BASIC_MONTHLY",
+    });
+    await trackStripeCheckoutCreated("user@example.com", "cs_test", {
+      tier: "BASIC_MONTHLY",
+    });
+
+    expect(redis.set).toHaveBeenCalledTimes(2);
+    expect(redis.set).toHaveBeenCalledWith(
+      "posthog:stripe-checkout-created:cs_test",
+      "1",
+      { nx: true, ex: 172_800 },
+    );
+    expect(captureMock).toHaveBeenCalledTimes(1);
   });
 });

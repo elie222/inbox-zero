@@ -182,9 +182,21 @@ export async function trackStripeCustomerCreated(
 
 export async function trackStripeCheckoutCreated(
   email: string,
+  checkoutSessionId: string,
   properties?: Properties,
 ) {
-  return posthogCaptureEvent(email, "Stripe checkout created", properties);
+  try {
+    const firstCapture = await redis.set(
+      `posthog:stripe-checkout-created:${checkoutSessionId}`,
+      "1",
+      { nx: true, ex: 172_800 },
+    );
+    if (!firstCapture) return;
+
+    return posthogCaptureEvent(email, "Stripe checkout created", properties);
+  } catch (error) {
+    logger.error("Error tracking Stripe checkout creation", { error });
+  }
 }
 
 export async function trackStripeCheckoutCompleted(

@@ -1,5 +1,7 @@
 "use server";
 
+import { createHash } from "node:crypto";
+import type Stripe from "stripe";
 import { z } from "zod";
 import { after } from "next/server";
 import { cookies } from "next/headers";
@@ -611,35 +613,36 @@ export const generateCheckoutSessionAction = actionClientUser
       }),
     };
 
+    const checkoutParams: Stripe.Checkout.SessionCreateParams = {
+      customer: stripeCustomerId,
+      success_url: `${env.NEXT_PUBLIC_BASE_URL}/api/stripe/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${env.NEXT_PUBLIC_BASE_URL}/premium`,
+      mode: "subscription",
+      subscription_data: {
+        trial_period_days: 7,
+        ...(Object.keys(conversionMetadata).length
+          ? {
+              metadata: conversionMetadata,
+            }
+          : {}),
+      },
+      line_items: [{ price: priceId, quantity }],
+      allow_promotion_codes: true,
+      payment_method_collection: "always",
+      metadata: {
+        dubCustomerId: userId,
+      },
+    };
+
     // ALWAYS create a checkout with a stripeCustomerId
-    const checkout = await stripe.checkout.sessions.create(
-      {
-        customer: stripeCustomerId,
-        success_url: `${env.NEXT_PUBLIC_BASE_URL}/api/stripe/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${env.NEXT_PUBLIC_BASE_URL}/premium`,
-        mode: "subscription",
-        subscription_data: {
-          trial_period_days: 7,
-          ...(Object.keys(conversionMetadata).length
-            ? {
-                metadata: conversionMetadata,
-              }
-            : {}),
-        },
-        line_items: [{ price: priceId, quantity }],
-        allow_promotion_codes: true,
-        payment_method_collection: "always",
-        metadata: {
-          dubCustomerId: userId,
-        },
-      },
-      {
-        idempotencyKey: `checkout:${userId}:${tier}:${offer || "standard"}:${user.premium?.stripeSubscriptionId || "new"}`,
-      },
-    );
+    const checkout = await stripe.checkout.sessions.create(checkoutParams, {
+      idempotencyKey: `checkout:${createHash("sha256")
+        .update(JSON.stringify(checkoutParams))
+        .digest("hex")}`,
+    });
 
     after(() =>
-      trackStripeCheckoutCreated(user.email, {
+      trackStripeCheckoutCreated(user.email, checkout.id, {
         billingProvider: "stripe",
         quantity,
         tier,
