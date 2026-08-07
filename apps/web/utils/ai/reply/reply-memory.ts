@@ -27,7 +27,7 @@ const MAX_EXISTING_PREFERENCE_MEMORIES_IN_PROMPT = 8;
 // Candidate pool sizes for AI relevance selection. Wider than the injected
 // cap so relevant older memories can still surface.
 const MAX_SCOPED_MEMORY_CANDIDATES = 10;
-const MAX_BROAD_MEMORY_CANDIDATES = 25;
+const MAX_BROAD_MEMORY_CANDIDATES = 100;
 const PROMPTABLE_REPLY_MEMORY_KINDS = [
   ReplyMemoryKind.FACT,
   ReplyMemoryKind.PROCEDURE,
