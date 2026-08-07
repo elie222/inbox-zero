@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckIcon } from "lucide-react";
+import { CheckIcon, TriangleAlertIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ButtonLoader } from "@/components/Loading";
 import { UnsubscribeSuggestionRow } from "@/app/(app)/[emailAccountId]/onboarding/UnsubscribeSuggestionRow";
@@ -8,6 +8,12 @@ import type { Newsletter } from "@/app/(app)/[emailAccountId]/onboarding/useInbo
 
 // The newsletter cleanup checklist as an inline chat card. Unsubscribing only
 // ever happens through these explicit clicks, never from chat text.
+export type CleanupResult = {
+  unsubscribedCount: number;
+  keptAll: boolean;
+  failedCount: number;
+};
+
 export function OnboardingCleanupCard({
   senders,
   deselected,
@@ -23,7 +29,7 @@ export function OnboardingCleanupCard({
   selectedCount: number;
   onUnsubscribe: () => void;
   submitting: boolean;
-  result: { unsubscribedCount: number } | null;
+  result: CleanupResult | null;
 }) {
   return (
     <div className="overflow-hidden rounded-xl border bg-background shadow-sm duration-300 animate-in fade-in slide-in-from-bottom-2">
@@ -37,14 +43,7 @@ export function OnboardingCleanupCard({
       </div>
 
       {result ? (
-        <div className="flex items-center gap-2 px-4 py-3 text-sm">
-          <CheckIcon className="size-4 text-green-600" />
-          {result.unsubscribedCount > 0
-            ? `Unsubscribed from ${result.unsubscribedCount} ${
-                result.unsubscribedCount === 1 ? "newsletter" : "newsletters"
-              }`
-            : "Kept all newsletters"}
-        </div>
+        <ResultLine result={result} />
       ) : (
         <div className="py-2">
           {senders.map((sender) => (
@@ -52,7 +51,9 @@ export function OnboardingCleanupCard({
               key={sender.name}
               sender={sender}
               checked={!deselected.has(sender.name)}
-              onToggle={() => onToggleSender(sender.name)}
+              onToggle={() => {
+                if (!submitting) onToggleSender(sender.name);
+              }}
               clickable
               iconSize={28}
               progressClassName="w-14"
@@ -70,7 +71,8 @@ export function OnboardingCleanupCard({
             {selectedCount > 0 && (
               <button
                 type="button"
-                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                className="text-sm text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+                disabled={submitting}
                 onClick={() => {
                   for (const sender of senders) {
                     if (!deselected.has(sender.name)) {
@@ -85,6 +87,35 @@ export function OnboardingCleanupCard({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function ResultLine({ result }: { result: CleanupResult }) {
+  if (result.unsubscribedCount > 0) {
+    return (
+      <div className="flex items-center gap-2 px-4 py-3 text-sm">
+        <CheckIcon className="size-4 text-green-600" />
+        {`Unsubscribed from ${result.unsubscribedCount} ${
+          result.unsubscribedCount === 1 ? "newsletter" : "newsletters"
+        }${result.failedCount > 0 ? `, ${result.failedCount} failed` : ""}`}
+      </div>
+    );
+  }
+
+  if (result.keptAll) {
+    return (
+      <div className="flex items-center gap-2 px-4 py-3 text-sm">
+        <CheckIcon className="size-4 text-green-600" />
+        Kept all newsletters
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2 px-4 py-3 text-sm">
+      <TriangleAlertIcon className="size-4 text-amber-600" />
+      Couldn't finish the cleanup. Retry from Bulk Unsubscribe in the app.
     </div>
   );
 }

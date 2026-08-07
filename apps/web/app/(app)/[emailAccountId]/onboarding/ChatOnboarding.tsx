@@ -13,7 +13,10 @@ import {
   type ScanCard,
 } from "@/app/(app)/[emailAccountId]/onboarding/ChatOnboardingChatPane";
 import { OnboardingSetupCard } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingSetupCard";
-import { OnboardingCleanupCard } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingCleanupCard";
+import {
+  OnboardingCleanupCard,
+  type CleanupResult,
+} from "@/app/(app)/[emailAccountId]/onboarding/OnboardingCleanupCard";
 import { OnboardingAccountMenu } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingAccountMenu";
 import { OnboardingPlanCards } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingPlanCards";
 import {
@@ -87,9 +90,9 @@ export function ChatOnboarding() {
   const [scanCardAfterId, setScanCardAfterId] = useState<string | null>(null);
   const [deselected, setDeselected] = useState<Set<string>>(new Set());
   const [submittingUnsubscribe, setSubmittingUnsubscribe] = useState(false);
-  const [cleanupResult, setCleanupResult] = useState<{
-    unsubscribedCount: number;
-  } | null>(null);
+  const [cleanupResult, setCleanupResult] = useState<CleanupResult | null>(
+    null,
+  );
   const [finishing, setFinishing] = useState(false);
   const [checkingOut, setCheckingOut] = useState(false);
 
@@ -168,6 +171,7 @@ export function ChatOnboarding() {
       setSetup(restored.setup);
       setCleanupResult(restored.cleanupResult);
       setScanCardAfterId(restored.scanCardAfterId);
+      setDeselected(new Set(restored.deselected));
       if (restored.setup.status === "live") {
         rulesCreationRef.current = Promise.resolve(true);
       }
@@ -175,6 +179,12 @@ export function ChatOnboarding() {
       // A reload can interrupt rule creation; upserts make retrying safe
       if (flow.stage === "close" && restored.setup.status !== "live") {
         createRules();
+      }
+      // A reload mid-request leaves a trailing user turn with no reply;
+      // resubmit so the conversation picks up where it left off
+      const lastMessage = restored.messages.at(-1);
+      if (lastMessage?.role === "user") {
+        chat.regenerate();
       }
       return;
     }
@@ -191,29 +201,47 @@ export function ChatOnboarding() {
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: persists conversation state between reloads
   useEffect(() => {
-    if (!startedRef.current || chat.status !== "ready") return;
-    if (messages.length <= 1) return;
+    if (!startedRef.current) return;
+    // While a response is in flight, persist up to the last user turn so a
+    // reload never drops the just-sent answer or keeps a half-finished reply
+    const persistable =
+      chat.status === "ready"
+        ? messages
+        : messages.slice(0, findLastUserIndex(messages) + 1);
+    if (persistable.length <= 1) return;
     try {
       localStorage.setItem(
         storageKey,
         JSON.stringify({
           v: 1,
-          messages,
+          messages: persistable,
           setup,
           cleanupResult,
           scanCardAfterId,
+          deselected: [...deselected],
           answers: answersRef.current,
         }),
       );
     } catch {
       // Storage may be full or unavailable; losing resume support is fine
     }
-  }, [messages, chat.status, setup, cleanupResult, scanCardAfterId]);
+  }, [
+    messages,
+    chat.status,
+    setup,
+    cleanupResult,
+    scanCardAfterId,
+    deselected,
+  ]);
 
   // Rebuild the default draft if the provider resolves late, but never after
-  // the setup is on screen.
+  // the setup is on screen. Skips the mount run: it would see the pre-restore
+  // "welcome" stage and clobber a restored setup with defaults.
+  const providerRef = useRef(provider);
   // biome-ignore lint/correctness/useExhaustiveDependencies: only reacts to provider changes
   useEffect(() => {
+    if (providerRef.current === provider) return;
+    providerRef.current = provider;
     if (stage === "welcome" || stage === "discovery" || stage === "guess") {
       setSetup(buildInitialSetup(provider));
     }
@@ -430,7 +458,7 @@ export function ChatOnboarding() {
       return;
 
     if (!selectedSenders.length) {
-      setCleanupResult({ unsubscribedCount: 0 });
+      setCleanupResult({ unsubscribedCount: 0, keptAll: true, failedCount: 0 });
       sendHiddenEvent(
         "[event] The user chose to keep all suggested senders. Continue to the close.",
       );
@@ -465,7 +493,11 @@ export function ChatOnboarding() {
       setSubmittingUnsubscribe(false);
     }
 
-    setCleanupResult({ unsubscribedCount: successCount });
+    setCleanupResult({
+      unsubscribedCount: successCount,
+      keptAll: false,
+      failedCount: failureCount,
+    });
     sendHiddenEvent(
       `[event] Unsubscribed from ${successCount} of the suggested senders.${
         failureCount > 0
@@ -499,9 +531,9 @@ export function ChatOnboarding() {
       destination,
     });
     await awaitPendingWork();
-    clearStoredConversation();
     // The button says "Open my inbox", so land on the actual inbox
-    await completeAndRedirect({ premiumPath: "/mail" });
+    const completed = await completeAndRedirect({ premiumPath: "/mail" });
+    if (completed) clearStoredConversation();
     setFinishing(false);
   };
 
@@ -702,8 +734,9 @@ export function ChatOnboarding() {
 type StoredConversation = {
   messages: OnboardingChatMessage[];
   setup: OnboardingSetup;
-  cleanupResult: { unsubscribedCount: number } | null;
+  cleanupResult: CleanupResult | null;
   scanCardAfterId: string | null;
+  deselected: string[];
   answers: {
     key: string;
     question: string;
@@ -729,13 +762,27 @@ function readStoredConversation(key: string): StoredConversation | null {
     return {
       messages: parsed.messages,
       setup: parsed.setup,
-      cleanupResult: parsed.cleanupResult ?? null,
+      cleanupResult: parsed.cleanupResult
+        ? {
+            unsubscribedCount: parsed.cleanupResult.unsubscribedCount ?? 0,
+            keptAll: parsed.cleanupResult.keptAll ?? false,
+            failedCount: parsed.cleanupResult.failedCount ?? 0,
+          }
+        : null,
       scanCardAfterId: parsed.scanCardAfterId ?? null,
+      deselected: Array.isArray(parsed.deselected) ? parsed.deselected : [],
       answers: parsed.answers,
     };
   } catch {
     return null;
   }
+}
+
+function findLastUserIndex(messages: OnboardingChatMessage[]) {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === "user") return i;
+  }
+  return -1;
 }
 
 function generateMessageId(): string {
