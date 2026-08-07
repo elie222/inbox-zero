@@ -1,5 +1,7 @@
 "use server";
 
+import { createHash } from "node:crypto";
+import type Stripe from "stripe";
 import { z } from "zod";
 import { after } from "next/server";
 import { cookies } from "next/headers";
@@ -531,8 +533,6 @@ export const generateCheckoutSessionAction = actionClientUser
 
     if (!priceId) throw new SafeError("Unknown tier. Contact support.");
 
-    const stripe = getStripe();
-
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -543,6 +543,9 @@ export const generateCheckoutSessionAction = actionClientUser
           select: {
             id: true,
             stripeCustomerId: true,
+            stripeSubscriptionId: true,
+            stripeSubscriptionStatus: true,
+            stripeEndedAt: true,
             users: {
               select: { _count: { select: { emailAccounts: true } } },
             },
@@ -555,6 +558,17 @@ export const generateCheckoutSessionAction = actionClientUser
       throw new SafeError("User not found");
     }
 
+    if (
+      user.premium?.stripeSubscriptionId &&
+      !user.premium.stripeEndedAt &&
+      user.premium.stripeSubscriptionStatus !== "incomplete_expired"
+    ) {
+      throw new SafeError(
+        "You already have an existing subscription. Change your plan instead of starting a new subscription.",
+      );
+    }
+
+    const stripe = getStripe();
     let stripeCustomerId = user.premium?.stripeCustomerId;
 
     if (!stripeCustomerId) {
@@ -599,8 +613,7 @@ export const generateCheckoutSessionAction = actionClientUser
       }),
     };
 
-    // ALWAYS create a checkout with a stripeCustomerId
-    const checkout = await stripe.checkout.sessions.create({
+    const checkoutParams: Stripe.Checkout.SessionCreateParams = {
       customer: stripeCustomerId,
       success_url: `${env.NEXT_PUBLIC_BASE_URL}/api/stripe/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${env.NEXT_PUBLIC_BASE_URL}/premium`,
@@ -619,10 +632,17 @@ export const generateCheckoutSessionAction = actionClientUser
       metadata: {
         dubCustomerId: userId,
       },
+    };
+
+    // ALWAYS create a checkout with a stripeCustomerId
+    const checkout = await stripe.checkout.sessions.create(checkoutParams, {
+      idempotencyKey: `checkout:${createHash("sha256")
+        .update(JSON.stringify(checkoutParams))
+        .digest("hex")}`,
     });
 
     after(() =>
-      trackStripeCheckoutCreated(user.email, {
+      trackStripeCheckoutCreated(user.email, checkout.id, {
         billingProvider: "stripe",
         quantity,
         tier,

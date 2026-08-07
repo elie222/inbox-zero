@@ -139,7 +139,7 @@ export async function posthogCaptureEvent(
   try {
     if (!env.NEXT_PUBLIC_POSTHOG_KEY) {
       logger.warn("NEXT_PUBLIC_POSTHOG_KEY not set");
-      return;
+      return false;
     }
 
     const client = new PostHog(env.NEXT_PUBLIC_POSTHOG_KEY);
@@ -149,9 +149,21 @@ export async function posthogCaptureEvent(
       properties,
       sendFeatureFlags,
     });
-    await client.shutdown();
+    try {
+      await client.flush();
+      return true;
+    } finally {
+      try {
+        Promise.resolve(client.shutdown()).catch((error) => {
+          logger.error("Error shutting down PostHog client", { error });
+        });
+      } catch (error) {
+        logger.error("Error shutting down PostHog client", { error });
+      }
+    }
   } catch (error) {
     logger.error("Error capturing PostHog event", { error });
+    return false;
   }
 }
 
@@ -182,9 +194,40 @@ export async function trackStripeCustomerCreated(
 
 export async function trackStripeCheckoutCreated(
   email: string,
+  checkoutSessionId: string,
   properties?: Properties,
 ) {
-  return posthogCaptureEvent(email, "Stripe checkout created", properties);
+  const dedupeKey = `posthog:stripe-checkout-created:${checkoutSessionId}`;
+  let firstCapture: string | null;
+
+  try {
+    firstCapture = await redis.set(dedupeKey, "1", {
+      nx: true,
+      ex: 172_800,
+    });
+  } catch (error) {
+    logger.error("Error deduplicating Stripe checkout creation event", {
+      error,
+    });
+    return posthogCaptureEvent(email, "Stripe checkout created", properties);
+  }
+
+  if (!firstCapture) return;
+
+  const captured = await posthogCaptureEvent(
+    email,
+    "Stripe checkout created",
+    properties,
+  );
+  if (captured) return;
+
+  try {
+    await redis.del(dedupeKey);
+  } catch (error) {
+    logger.error("Error releasing Stripe checkout creation event lock", {
+      error,
+    });
+  }
 }
 
 export async function trackStripeCheckoutCompleted(
