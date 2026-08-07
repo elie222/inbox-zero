@@ -12,13 +12,14 @@ import {
   ChatOnboardingChatPane,
   type ScanCard,
 } from "@/app/(app)/[emailAccountId]/onboarding/ChatOnboardingChatPane";
-import { ChatOnboardingSetupPanel } from "@/app/(app)/[emailAccountId]/onboarding/ChatOnboardingSetupPanel";
+import { OnboardingSetupCard } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingSetupCard";
+import { OnboardingCleanupCard } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingCleanupCard";
 import { OnboardingAccountMenu } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingAccountMenu";
 import { OnboardingPlanCards } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingPlanCards";
 import {
   applySetupUpdate,
   buildInitialSetup,
-  getStageFromMessages,
+  deriveOnboardingFlow,
   STAGE_CHIPS,
   STAGE_QUESTIONS,
   STAGE_STEP,
@@ -126,16 +127,58 @@ export function ChatOnboarding() {
   });
 
   const messages = chat.messages;
-  const stage = useMemo(() => getStageFromMessages(messages), [messages]);
+  const { stage, setupCardToolCallId, cleanupCardToolCallId } = useMemo(
+    () => deriveOnboardingFlow(messages),
+    [messages],
+  );
   const busy = chat.status === "submitted" || chat.status === "streaming";
 
-  // Seed the fixed welcome message so the chat opens instantly, with no LLM
-  // call until the user answers.
+  const storageKey = `inbox-zero-onboarding-chat-v1:${emailAccountId}`;
+
+  // Restore an in-progress conversation after a reload, or seed the fixed
+  // welcome message so the chat opens instantly with no LLM call.
   const startedRef = useRef(false);
   // biome-ignore lint/correctness/useExhaustiveDependencies: run once on mount
   useEffect(() => {
     if (startedRef.current) return;
     startedRef.current = true;
+
+    const restored = readStoredConversation(storageKey);
+    if (restored) {
+      // Prime the derived-state guards before setting messages so restore
+      // doesn't re-run tool effects, stage side effects, or the scan nudge
+      for (const message of restored.messages) {
+        for (const part of message.parts) {
+          if (
+            part.type === "tool-updateSetup" &&
+            part.state === "output-available"
+          ) {
+            appliedToolCallsRef.current.add(part.toolCallId);
+          }
+        }
+      }
+      const flow = deriveOnboardingFlow(restored.messages);
+      prevStageRef.current = flow.stage;
+      scanEventSentRef.current =
+        flow.stage !== "welcome" &&
+        flow.stage !== "discovery" &&
+        flow.stage !== "guess";
+      answersRef.current = restored.answers;
+      setupRef.current = restored.setup;
+      setSetup(restored.setup);
+      setCleanupResult(restored.cleanupResult);
+      setScanCardAfterId(restored.scanCardAfterId);
+      if (restored.setup.status === "live") {
+        rulesCreationRef.current = Promise.resolve(true);
+      }
+      chat.setMessages(restored.messages);
+      // A reload can interrupt rule creation; upserts make retrying safe
+      if (flow.stage === "close" && restored.setup.status !== "live") {
+        createRules();
+      }
+      return;
+    }
+
     chat.setMessages([
       {
         id: WELCOME_MESSAGE_ID,
@@ -145,6 +188,27 @@ export function ChatOnboarding() {
     ]);
     analytics.onStart({ step: 1, stepKey: "welcome", totalSteps: TOTAL_STEPS });
   }, []);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: persists conversation state between reloads
+  useEffect(() => {
+    if (!startedRef.current || chat.status !== "ready") return;
+    if (messages.length <= 1) return;
+    try {
+      localStorage.setItem(
+        storageKey,
+        JSON.stringify({
+          v: 1,
+          messages,
+          setup,
+          cleanupResult,
+          scanCardAfterId,
+          answers: answersRef.current,
+        }),
+      );
+    } catch {
+      // Storage may be full or unavailable; losing resume support is fine
+    }
+  }, [messages, chat.status, setup, cleanupResult, scanCardAfterId]);
 
   // Rebuild the default draft if the provider resolves late, but never after
   // the setup is on screen.
@@ -417,6 +481,14 @@ export function ChatOnboarding() {
       rulesCreationRef.current ?? Promise.resolve(),
     ]);
 
+  const clearStoredConversation = () => {
+    try {
+      localStorage.removeItem(storageKey);
+    } catch {
+      // Ignore storage failures
+    }
+  };
+
   const onFinish = async () => {
     if (finishing) return;
     setFinishing(true);
@@ -427,7 +499,9 @@ export function ChatOnboarding() {
       destination,
     });
     await awaitPendingWork();
-    await completeAndRedirect();
+    clearStoredConversation();
+    // The button says "Open my inbox", so land on the actual inbox
+    await completeAndRedirect({ premiumPath: "/mail" });
     setFinishing(false);
   };
 
@@ -463,6 +537,7 @@ export function ChatOnboarding() {
         setCheckingOut(false);
         return;
       }
+      clearStoredConversation();
       redirectToSafeUrl(result.data.url, { allowExternal: true });
     } catch (error) {
       captureException(error, {
@@ -519,9 +594,6 @@ export function ChatOnboarding() {
     }
   }, [stage]);
 
-  const panelVisible =
-    stage === "draft" || stage === "cleanup" || stage === "close";
-
   const scanCard: ScanCard | null = scanCardAfterId
     ? {
         afterMessageId: scanCardAfterId,
@@ -540,32 +612,35 @@ export function ChatOnboarding() {
       ? []
       : (STAGE_CHIPS[stage] ?? []);
 
-  const renderPanel = (className?: string) => (
-    <ChatOnboardingSetupPanel
-      className={className}
-      setup={setup}
-      provider={provider}
-      editable={
-        setup.status === "draft" && (stage === "draft" || stage === "cleanup")
-      }
-      onChangeAction={onChangeRuleAction}
-      onToggleRule={onToggleRule}
-      cleanup={{
-        visible:
-          (stage === "cleanup" || (stage === "close" && !!cleanupResult)) &&
-          shownSenders.length > 0,
-        senders: shownSenders,
-        deselected,
-        onToggleSender,
-        selectedCount: selectedSenders.length,
-        onUnsubscribe: onUnsubscribeSelected,
+  const inlineCards: Record<string, React.ReactNode> = {};
+  if (setupCardToolCallId) {
+    inlineCards[setupCardToolCallId] = (
+      <OnboardingSetupCard
+        setup={setup}
+        provider={provider}
+        editable={
+          setup.status === "draft" && (stage === "draft" || stage === "cleanup")
+        }
+        onChangeAction={onChangeRuleAction}
+        onToggleRule={onToggleRule}
+      />
+    );
+  }
+  if (cleanupCardToolCallId && shownSenders.length > 0) {
+    inlineCards[cleanupCardToolCallId] = (
+      <OnboardingCleanupCard
+        senders={shownSenders}
+        deselected={deselected}
+        onToggleSender={onToggleSender}
+        selectedCount={selectedSenders.length}
+        onUnsubscribe={onUnsubscribeSelected}
         // Also parked while the assistant streams so the completion event
         // can't race an in-flight chat request
-        submitting: submittingUnsubscribe || isPremiumLoading || busy,
-        result: cleanupResult,
-      }}
-    />
-  );
+        submitting={submittingUnsubscribe || isPremiumLoading || busy}
+        result={cleanupResult}
+      />
+    );
+  }
 
   return (
     <div className="flex h-dvh flex-col bg-background">
@@ -613,23 +688,54 @@ export function ChatOnboarding() {
                   : null
               }
               inputDisabled={finishing || checkingOut}
-              inlinePanel={
-                panelVisible ? renderPanel("rounded-xl border") : undefined
-              }
+              inlineCards={inlineCards}
             />
           </div>
         </div>
-
-        {panelVisible && (
-          <aside className="hidden w-[440px] shrink-0 border-l duration-500 animate-in slide-in-from-right lg:flex">
-            {renderPanel("flex-1")}
-          </aside>
-        )}
       </div>
 
       <PremiumModal />
     </div>
   );
+}
+
+type StoredConversation = {
+  messages: OnboardingChatMessage[];
+  setup: OnboardingSetup;
+  cleanupResult: { unsubscribedCount: number } | null;
+  scanCardAfterId: string | null;
+  answers: {
+    key: string;
+    question: string;
+    answer: string;
+    isFreeform: boolean;
+  }[];
+};
+
+function readStoredConversation(key: string): StoredConversation | null {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (
+      parsed?.v !== 1 ||
+      !Array.isArray(parsed.messages) ||
+      parsed.messages.length <= 1 ||
+      !Array.isArray(parsed.setup?.rules) ||
+      !Array.isArray(parsed.answers)
+    ) {
+      return null;
+    }
+    return {
+      messages: parsed.messages,
+      setup: parsed.setup,
+      cleanupResult: parsed.cleanupResult ?? null,
+      scanCardAfterId: parsed.scanCardAfterId ?? null,
+      answers: parsed.answers,
+    };
+  } catch {
+    return null;
+  }
 }
 
 function generateMessageId(): string {

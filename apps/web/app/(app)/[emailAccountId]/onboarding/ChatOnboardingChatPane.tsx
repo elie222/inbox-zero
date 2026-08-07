@@ -38,7 +38,7 @@ export function ChatOnboardingChatPane({
   scanCard,
   belowConversation,
   cta,
-  inlinePanel,
+  inlineCards,
   inputDisabled = false,
 }: {
   messages: OnboardingChatMessage[];
@@ -48,7 +48,9 @@ export function ChatOnboardingChatPane({
   scanCard: ScanCard | null;
   belowConversation?: React.ReactNode;
   cta?: { label: string; loading: boolean; onClick: () => void } | null;
-  inlinePanel?: React.ReactNode;
+  // Interactive cards rendered inline at the position of the tool call that
+  // introduced them, keyed by toolCallId
+  inlineCards?: Record<string, React.ReactNode>;
   inputDisabled?: boolean;
 }) {
   const [input, setInput] = useState("");
@@ -86,7 +88,7 @@ export function ChatOnboardingChatPane({
 
           {visibleMessages.map((message) => (
             <Fragment key={message.id}>
-              <MessageItem message={message} />
+              <MessageItem message={message} inlineCards={inlineCards} />
               {scanCard?.afterMessageId === message.id && (
                 <ScanCardView
                   state={scanCard.state}
@@ -119,8 +121,6 @@ export function ChatOnboardingChatPane({
               </Button>
             </div>
           )}
-
-          {inlinePanel && <div className="lg:hidden">{inlinePanel}</div>}
 
           {!busy && chips.length > 0 && (
             <div className="flex flex-wrap gap-2">
@@ -172,7 +172,13 @@ export function ChatOnboardingChatPane({
   );
 }
 
-function MessageItem({ message }: { message: OnboardingChatMessage }) {
+function MessageItem({
+  message,
+  inlineCards,
+}: {
+  message: OnboardingChatMessage;
+  inlineCards?: Record<string, React.ReactNode>;
+}) {
   if (message.role === "user") {
     const text = getMessageText(message);
     if (!text) return null;
@@ -187,19 +193,29 @@ function MessageItem({ message }: { message: OnboardingChatMessage }) {
 
   return (
     <>
-      {message.parts.map((part, index) =>
-        part.type === "text" && part.text ? (
-          <div
-            key={`${message.id}-${index}`}
-            className={cn(
-              "text-[15px] leading-relaxed text-foreground/90",
-              ENTER_ANIMATION,
-            )}
-          >
-            <Response>{part.text}</Response>
-          </div>
-        ) : null,
-      )}
+      {message.parts.map((part, index) => {
+        if (part.type === "text" && part.text) {
+          return (
+            <div
+              key={`${message.id}-${index}`}
+              className={cn(
+                "text-[15px] leading-relaxed text-foreground/90",
+                ENTER_ANIMATION,
+              )}
+            >
+              <Response>{part.text}</Response>
+            </div>
+          );
+        }
+
+        const card =
+          "toolCallId" in part ? inlineCards?.[part.toolCallId] : undefined;
+        if (card) {
+          return <Fragment key={`${message.id}-${index}`}>{card}</Fragment>;
+        }
+
+        return null;
+      })}
     </>
   );
 }

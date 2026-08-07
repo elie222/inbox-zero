@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import { subDays } from "date-fns/subDays";
 import { startOfDay } from "date-fns/startOfDay";
@@ -31,6 +31,17 @@ export function useInboxScan({
   emailAccountId: string | null;
 }) {
   const mountedAtRef = useRef(Date.now());
+  // State-backed so the scan status re-evaluates when the window lapses even
+  // if the final poll returned unchanged data (SWR won't re-render then)
+  const [pollWindowClosed, setPollWindowClosed] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(
+      () => setPollWindowClosed(true),
+      INGESTION_POLL_WINDOW_MS,
+    );
+    return () => clearTimeout(timer);
+  }, []);
+
   const fromDate = useMemo(() => +subDays(startOfDay(new Date()), 90), []);
   const volumeFromDate = useMemo(
     () => +subDays(startOfDay(new Date()), VOLUME_WINDOW_DAYS),
@@ -122,7 +133,7 @@ export function useInboxScan({
   // ingestion poll window is open an empty result still counts as pending.
   const volumeSettled =
     (Boolean(volumeData) || Boolean(volumeError) || !isVolumeLoading) &&
-    (volume !== null || Boolean(volumeError) || !withinPollWindow());
+    (volume !== null || Boolean(volumeError) || pollWindowClosed);
 
   const scan: OnboardingScan = {
     status: !volumeSettled ? "pending" : volume ? "ready" : "unavailable",

@@ -93,10 +93,21 @@ const STAGE_ORDER: OnboardingStage[] = [
   "close",
 ];
 
-export function getStageFromMessages(
+export type OnboardingFlow = {
+  stage: OnboardingStage;
+  // Tool calls where the setup and cleanup cards enter the conversation; the
+  // cards render inline at exactly those positions
+  setupCardToolCallId: string | null;
+  cleanupCardToolCallId: string | null;
+};
+
+export function deriveOnboardingFlow(
   messages: OnboardingChatMessage[],
-): OnboardingStage {
+): OnboardingFlow {
   let stage: OnboardingStage = "welcome";
+  let setupCardToolCallId: string | null = null;
+  let cleanupCardToolCallId: string | null = null;
+
   for (const message of messages) {
     for (const part of message.parts) {
       if (
@@ -112,11 +123,14 @@ export function getStageFromMessages(
         const isSkipCleanup = stage === "draft" && next === "close";
         if (nextIndex === currentIndex + 1 || isSkipCleanup) {
           stage = next;
+          if (next === "draft") setupCardToolCallId = part.toolCallId;
+          if (next === "cleanup") cleanupCardToolCallId = part.toolCallId;
         }
       }
     }
   }
-  return stage;
+
+  return { stage, setupCardToolCallId, cleanupCardToolCallId };
 }
 
 export function applySetupUpdate(

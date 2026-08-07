@@ -2,7 +2,6 @@
 
 import { useMemo } from "react";
 import { CheckIcon, TrendingUpIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { ButtonLoader } from "@/components/Loading";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -16,8 +15,6 @@ import {
   IconCircle,
   type IconCircleColor,
 } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
-import { UnsubscribeSuggestionRow } from "@/app/(app)/[emailAccountId]/onboarding/UnsubscribeSuggestionRow";
-import type { Newsletter } from "@/app/(app)/[emailAccountId]/onboarding/useInboxScan";
 import type {
   OnboardingRuleAction,
   OnboardingSetup,
@@ -32,34 +29,19 @@ const ACTION_LABELS: Record<OnboardingRuleAction, string> = {
   move_folder: "Move to folder",
 };
 
-export type CleanupState = {
-  visible: boolean;
-  senders: Newsletter[];
-  deselected: Set<string>;
-  onToggleSender: (name: string) => void;
-  selectedCount: number;
-  onUnsubscribe: () => void;
-  submitting: boolean;
-  // Null until the user acts; then the result line replaces the buttons
-  result: { unsubscribedCount: number } | null;
-};
-
-export function ChatOnboardingSetupPanel({
+// The draft setup as an inline chat card, editable in place until it goes live
+export function OnboardingSetupCard({
   setup,
   provider,
   editable,
   onChangeAction,
   onToggleRule,
-  cleanup,
-  className,
 }: {
   setup: OnboardingSetup;
   provider: string;
   editable: boolean;
   onChangeAction: (name: string, action: OnboardingRuleAction) => void;
   onToggleRule: (name: string) => void;
-  cleanup: CleanupState;
-  className?: string;
 }) {
   const iconByKey = useMemo(() => {
     const map = new Map<
@@ -81,28 +63,20 @@ export function ChatOnboardingSetupPanel({
     : setup.rules;
 
   return (
-    <div
-      className={cn(
-        "flex min-h-0 flex-col overflow-hidden bg-background",
-        className,
-      )}
-    >
-      <div className="flex shrink-0 items-center justify-between border-b px-5 py-4">
+    <div className="overflow-hidden rounded-xl border bg-background shadow-sm duration-300 animate-in fade-in slide-in-from-bottom-2">
+      <div className="flex items-center justify-between border-b px-4 py-3">
         <div className="text-base font-semibold tracking-tight">Your setup</div>
         <StatusBadge status={setup.status} />
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto py-3">
-        <div className="px-5 pb-1.5 text-xs font-semibold text-muted-foreground">
-          Rules
-        </div>
+      <div className="py-2">
         {shownRules.map((rule, index) => {
           const icon = rule.key ? iconByKey.get(rule.key) : null;
           return (
             <div
               key={rule.name}
               className={cn(
-                "flex items-center gap-3 px-5 py-1.5",
+                "flex items-center gap-3 px-4 py-1.5",
                 "duration-300 animate-in fade-in slide-in-from-bottom-2 fill-mode-backwards",
                 !rule.enabled && "opacity-50",
               )}
@@ -161,78 +135,9 @@ export function ChatOnboardingSetupPanel({
           );
         })}
         {!isLive && (
-          <p className="px-5 pt-2 text-xs text-muted-foreground/70">
+          <p className="px-4 pb-1 pt-2 text-xs text-muted-foreground/70">
             Custom labels come later, in Settings
           </p>
-        )}
-
-        {cleanup.visible && (
-          <div className="mt-3 border-t pt-3 duration-300 animate-in fade-in slide-in-from-bottom-2">
-            <div className="flex items-baseline justify-between px-5 pb-1.5">
-              <span className="text-xs font-semibold text-muted-foreground">
-                Cleanup
-              </span>
-              {!cleanup.result && (
-                <span className="text-xs text-muted-foreground">
-                  {cleanup.selectedCount} of {cleanup.senders.length} selected
-                </span>
-              )}
-            </div>
-            {cleanup.result ? (
-              <div className="flex items-center gap-2 px-5 py-1.5 text-sm">
-                <CheckIcon className="size-4 text-green-600" />
-                {cleanup.result.unsubscribedCount > 0
-                  ? `Unsubscribed from ${cleanup.result.unsubscribedCount} ${
-                      cleanup.result.unsubscribedCount === 1
-                        ? "newsletter"
-                        : "newsletters"
-                    }`
-                  : "Kept all newsletters"}
-              </div>
-            ) : (
-              <>
-                {cleanup.senders.map((sender) => (
-                  <UnsubscribeSuggestionRow
-                    key={sender.name}
-                    sender={sender}
-                    checked={!cleanup.deselected.has(sender.name)}
-                    onToggle={() => cleanup.onToggleSender(sender.name)}
-                    clickable
-                    iconSize={28}
-                    progressClassName="w-14"
-                    labelClassName="w-12"
-                    className="cursor-pointer px-5 py-1.5 hover:bg-muted/50"
-                  />
-                ))}
-                <div className="flex items-center gap-4 px-5 pb-2 pt-3">
-                  <Button
-                    onClick={cleanup.onUnsubscribe}
-                    disabled={cleanup.submitting}
-                  >
-                    {cleanup.submitting && <ButtonLoader />}
-                    {cleanup.selectedCount > 0
-                      ? `Unsubscribe from ${cleanup.selectedCount}`
-                      : "Keep them all"}
-                  </Button>
-                  {cleanup.selectedCount > 0 && (
-                    <button
-                      type="button"
-                      className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-                      onClick={() => {
-                        for (const sender of cleanup.senders) {
-                          if (!cleanup.deselected.has(sender.name)) {
-                            cleanup.onToggleSender(sender.name);
-                          }
-                        }
-                      }}
-                    >
-                      Keep them all
-                    </button>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
         )}
       </div>
     </div>
