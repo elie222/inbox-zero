@@ -167,7 +167,12 @@ export const saveOnboardingChatAnswersAction = actionClientUser
       parsedInput: { answers },
       ctx: { userId, userEmail, logger },
     }) => {
-      const struggle = answers.find((a) => a.key === "struggle")?.answer;
+      // "discovery" is the pain-point key in the LLM-guided flow; "struggle"
+      // was its name in the earlier scripted flow
+      const painPointKeys = ["discovery", "struggle"];
+      const struggle = answers.find((a) =>
+        painPointKeys.includes(a.key),
+      )?.answer;
       const latestAnswer = answers.at(-1);
 
       await prisma.user.update({
@@ -178,7 +183,7 @@ export const saveOnboardingChatAnswersAction = actionClientUser
         },
       });
 
-      if (struggle && latestAnswer?.key === "struggle") {
+      if (struggle && painPointKeys.includes(latestAnswer?.key ?? "")) {
         after(async () => {
           await trackOnboardingAnswer(userEmail, {
             surveyGoal: struggle,
