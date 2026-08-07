@@ -220,6 +220,33 @@ describe("executeAct", () => {
     });
   });
 
+  it("keeps the rule APPLIED when an action skips itself on purpose", async () => {
+    mockRunActionFunction.mockResolvedValueOnce({ skipped: true });
+
+    const executedRule = {
+      ...baseExecutedRule,
+      actionItems: [{ id: "action-1", type: ActionType.NOTIFY_SENDER }],
+    } as any;
+
+    const result = await executeAct({
+      client: mockClient,
+      executedRule,
+      message,
+      emailAccount,
+      logger,
+    });
+
+    expect(result).toBe(ExecutedRuleStatus.APPLIED);
+    expect(mockExecutedActionUpdate).toHaveBeenCalledWith({
+      where: { id: "action-1" },
+      data: {
+        executionStatus: "SKIPPED",
+        executedAt: expect.any(Date),
+        executionError: Prisma.DbNull,
+      },
+    });
+  });
+
   it("continues later messaging notifications after one delivery failure", async () => {
     mockRunActionFunction
       .mockResolvedValueOnce({

@@ -54,11 +54,17 @@ describe("saveLearnedPattern", () => {
           value: "test@example.com",
         },
       },
-      update: expect.objectContaining({ exclude: false }),
+      // Omitted fields must not reset stored state: overwriting exclude would
+      // silently re-block a sender the user had corrected.
+      update: expect.objectContaining({
+        exclude: undefined,
+        source: undefined,
+      }),
       create: expect.objectContaining({
         groupId: existingGroupId,
         type: GroupItemType.FROM,
         value: "test@example.com",
+        exclude: false,
       }),
     });
   });
