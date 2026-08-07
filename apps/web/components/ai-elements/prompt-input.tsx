@@ -169,7 +169,9 @@ export const PromptInputSubmit = ({
   return (
     <Button
       className={cn(
-        "size-9 rounded-full bg-blue-500 text-white hover:bg-blue-600",
+        variant === "default" &&
+          size === "icon" &&
+          "size-9 rounded-full bg-blue-500 text-white hover:bg-blue-600",
         className,
       )}
       size={size}
