@@ -765,7 +765,11 @@ function readStoredConversation(key: string): StoredConversation | null {
       cleanupResult: parsed.cleanupResult
         ? {
             unsubscribedCount: parsed.cleanupResult.unsubscribedCount ?? 0,
-            keptAll: parsed.cleanupResult.keptAll ?? false,
+            // Payloads saved before keptAll existed recorded keep-all as a
+            // bare zero count
+            keptAll:
+              parsed.cleanupResult.keptAll ??
+              (parsed.cleanupResult.unsubscribedCount ?? 0) === 0,
             failedCount: parsed.cleanupResult.failedCount ?? 0,
           }
         : null,
