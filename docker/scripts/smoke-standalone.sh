@@ -6,11 +6,12 @@
 set -e
 
 main() {
+    trap cleanup EXIT
+    trap 'exit 1' HUP INT TERM
+
     LOG="$(mktemp)"
     node /app/apps/web/server.js >"$LOG" 2>&1 &
     PID=$!
-    trap cleanup EXIT
-    trap 'exit 1' HUP INT TERM
 
     deadline=$(($(date +%s) + 60))
     until probe_server; do
@@ -31,8 +32,8 @@ main() {
 
     sleep 2
 
-    if ! kill -0 "$PID" 2>/dev/null; then
-        echo "server exited after responding"
+    if ! probe_server; then
+        echo "server stopped responding after the initial request"
         tail -20 "$LOG"
         exit 1
     fi
