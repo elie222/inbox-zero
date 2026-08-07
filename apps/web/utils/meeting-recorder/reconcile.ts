@@ -496,7 +496,18 @@ async function updateBookingForEvent({
 
   const startTimeUnchanged =
     recording.meetingStartTime.getTime() === event.startTime.getTime();
-  if (startTimeUnchanged) return true;
+  if (startTimeUnchanged) {
+    if (
+      recording.meetingUrl === event.videoConferenceLink &&
+      recording.externalBotId &&
+      CHANGEABLE_STATUSES.includes(recording.status)
+    ) {
+      const provider = createMeetingBotProvider(recording.botProvider, logger);
+      await provider.updateBot(recording.externalBotId, { botName });
+    }
+
+    return true;
+  }
 
   // Once the bot is joining or in the call there is nothing left to move.
   if (!CHANGEABLE_STATUSES.includes(recording.status)) return true;

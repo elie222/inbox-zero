@@ -136,6 +136,24 @@ describe.skipIf(!RUN_DB_TESTS)(
       );
     });
 
+    test("updates the bot name for an existing scheduled recording", async () => {
+      const event = calendarEvent();
+      const emailAccount = account(accountAId, ACCOUNT_A);
+      await reconcile.reconcileSingleEvent({ emailAccount, event, logger });
+
+      await reconcile.reconcileSingleEvent({
+        emailAccount: { ...emailAccount, name: "Alicia Owner" },
+        event,
+        logger,
+      });
+
+      expect(fakeProvider.updated).toContainEqual({
+        botId: fakeProvider.scheduled[0]?.botId,
+        botName: "Alicia's Inbox Zero Notetaker",
+      });
+      expect(fakeProvider.scheduled).toHaveLength(1);
+    });
+
     test("cancels only the account's own bot", async () => {
       const event = calendarEvent();
       await reconcile.reconcileSingleEvent({
@@ -881,7 +899,10 @@ describe.skipIf(!RUN_DB_TESTS)(
         logger,
       });
 
-      expect(fakeProvider.updated).toHaveLength(0);
+      expect(fakeProvider.updated).toContainEqual({
+        botId: fakeProvider.scheduled[1]?.botId,
+        botName: "Bob's Inbox Zero Notetaker",
+      });
       expect(fakeProvider.cancelled).toHaveLength(0);
       expect(fakeProvider.scheduled).toHaveLength(2);
     });

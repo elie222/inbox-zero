@@ -18,7 +18,7 @@ export class FakeBotProvider implements MeetingBotProvider {
   }> = [];
   readonly updated: Array<{
     botId: string;
-    botName?: string;
+    botName: string;
     joinAt?: Date;
     meetingUrl?: string;
   }> = [];
@@ -60,7 +60,7 @@ export class FakeBotProvider implements MeetingBotProvider {
 
   async updateBot(
     externalBotId: string,
-    params: { botName?: string; joinAt?: Date; meetingUrl?: string },
+    params: { botName: string; joinAt?: Date; meetingUrl?: string },
   ): Promise<{ externalBotId: string }> {
     this.updated.push({ botId: externalBotId, ...params });
     const beforeNextUpdate = this.beforeNextUpdate;

@@ -98,7 +98,7 @@ export class RecallBotProvider implements MeetingBotProvider {
       botName,
       joinAt,
       meetingUrl,
-    }: { botName?: string; joinAt?: Date; meetingUrl?: string },
+    }: { botName: string; joinAt?: Date; meetingUrl?: string },
   ): Promise<{ externalBotId: string }> {
     try {
       await this.request(`/bot/${externalBotId}/`, {

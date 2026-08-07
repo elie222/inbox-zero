@@ -13,6 +13,7 @@ import {
   type RecallEmulator,
   type RecallEmulatorTranscriptTurn,
 } from "@/__tests__/emulators/recall";
+import { MEETING_BOT_DISPLAY_NAME } from "@/utils/meeting-recorder/bot-provider";
 
 vi.mock("server-only", () => ({}));
 
@@ -132,6 +133,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
 
       const movedTo = new Date("2026-05-04T10:00:00.000Z");
       await provider.updateBot(externalBotId, {
+        botName: MEETING_BOT_DISPLAY_NAME,
         joinAt: movedTo,
         meetingUrl: "https://meet.google.com/abc-defg-hij",
       });
@@ -173,7 +175,10 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       });
 
       const meetingUrl = "https://acme.zoom.us/j/8123456789?pwd=new";
-      await provider.updateBot(externalBotId, { meetingUrl });
+      await provider.updateBot(externalBotId, {
+        botName: MEETING_BOT_DISPLAY_NAME,
+        meetingUrl,
+      });
 
       expect(emulator.getBot(externalBotId)?.meeting_url).toBe(meetingUrl);
     });

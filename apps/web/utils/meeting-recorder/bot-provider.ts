@@ -50,7 +50,7 @@ export interface MeetingBotProvider {
   /** Updates a bot that has been scheduled but has not started joining yet. */
   updateBot(
     externalBotId: string,
-    params: { botName?: string; joinAt?: Date; meetingUrl?: string },
+    params: { botName: string; joinAt?: Date; meetingUrl?: string },
   ): Promise<{ externalBotId: string }>;
 }
 
@@ -67,5 +67,15 @@ export function getMeetingBotDisplayName({
   const maxOwnerIdentifierLength =
     MAX_MEETING_BOT_DISPLAY_NAME_LENGTH - suffix.length;
 
-  return `${ownerIdentifier.slice(0, maxOwnerIdentifierLength)}${suffix}`;
+  const truncatedOwnerIdentifier = ownerIdentifier.slice(
+    0,
+    maxOwnerIdentifierLength,
+  );
+  const unicodeSafeOwnerIdentifier = /[\uD800-\uDBFF]$/.test(
+    truncatedOwnerIdentifier,
+  )
+    ? truncatedOwnerIdentifier.slice(0, -1)
+    : truncatedOwnerIdentifier;
+
+  return `${unicodeSafeOwnerIdentifier}${suffix}`;
 }

@@ -19,7 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { MeetingJoinRule } from "@/generated/prisma/enums";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { MEETING_BOT_DISPLAY_NAME } from "@/utils/meeting-recorder/bot-provider";
+import { getMeetingBotDisplayName } from "@/utils/meeting-recorder/bot-provider";
 import { ConnectCalendar } from "@/app/(app)/[emailAccountId]/calendars/ConnectCalendar";
 import { JOIN_RULE_OPTIONS } from "@/app/(app)/[emailAccountId]/meetings/join-rule-options";
 
@@ -106,7 +106,11 @@ function ChooseJoinRule({
   onConfirm: () => void;
   isEnabling: boolean;
 }) {
-  const { userEmail } = useAccount();
+  const { emailAccount, userEmail } = useAccount();
+  const botName = getMeetingBotDisplayName({
+    ownerName: emailAccount?.name ?? null,
+    ownerEmail: userEmail,
+  });
 
   return (
     <div className="mx-4 mt-16 flex max-w-lg flex-col gap-6 md:mx-auto">
@@ -135,7 +139,7 @@ function ChooseJoinRule({
 
       <MutedText className="flex items-start gap-2 text-xs">
         <ShieldIcon className="mt-0.5 size-3.5 shrink-0" />
-        Joins as a visible participant called {MEETING_BOT_DISPLAY_NAME}.
+        Joins as a visible participant called {botName}.
       </MutedText>
     </div>
   );

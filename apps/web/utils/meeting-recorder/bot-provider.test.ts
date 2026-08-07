@@ -29,4 +29,14 @@ describe("getMeetingBotDisplayName", () => {
     expect(displayName).toHaveLength(100);
     expect(displayName.endsWith("'s Inbox Zero Notetaker")).toBe(true);
   });
+
+  it("does not split an astral Unicode character at the display-name limit", () => {
+    const displayName = getMeetingBotDisplayName({
+      ownerName: `${"B".repeat(76)}😀`,
+      ownerEmail: "barbara@example.com",
+    });
+
+    expect(displayName).toBe(`${"B".repeat(76)}'s Inbox Zero Notetaker`);
+    expect(displayName).toHaveLength(99);
+  });
 });
