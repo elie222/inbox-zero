@@ -144,6 +144,8 @@ export async function aiProcessOnboardingChat({
 
   logger.trace("Onboarding chat state", { setup, scan, isPremium });
 
+  const addedNamesThisRequest = new Set<string>();
+
   return toolCallAgentStream({
     userAi: user.user,
     userId: user.userId,
@@ -160,9 +162,12 @@ export async function aiProcessOnboardingChat({
     ],
     sensitiveDataPolicy: user.sensitiveDataPolicy,
     stopWhen: () => false,
+    // Tool calls from an abandoned model attempt must not constrain the
+    // fallback model's retry
+    onModelResolved: () => addedNamesThisRequest.clear(),
     tools: {
       advanceStage: advanceOnboardingStageTool(),
-      updateSetup: updateOnboardingSetupTool({ setup }),
+      updateSetup: updateOnboardingSetupTool({ setup, addedNamesThisRequest }),
     },
   });
 }
