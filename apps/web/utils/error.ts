@@ -223,7 +223,8 @@ export function isInvalidAIModelError(error: APICallError): boolean {
   if (
     message.includes("testing period") ||
     message.includes("is deprecated") ||
-    message.includes("no endpoints found for")
+    message.includes("no endpoints found for") ||
+    message.includes("is not a valid model id")
   ) {
     return true;
   }
