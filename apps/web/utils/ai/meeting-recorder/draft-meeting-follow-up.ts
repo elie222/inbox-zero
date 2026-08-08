@@ -16,6 +16,9 @@ The user reviews and sends this themselves, so write it as them, ready to send.
 Rules:
 - Only reference what the meeting actually covered. Never invent a commitment, a deadline, a price or a next step that was not agreed.
 - Do not promise anything on the user's behalf that they did not say they would do.
+- Preserve the owner of every named commitment. Do not rewrite another person's action as "I will"; use first person only when the summary establishes that the sender owns the action.
+- When an action has no owner, keep it unassigned and describe the agreed work without inventing an owner or turning the email into a request to fill in missing information.
+- The sender is identified by email. Do not assume the sender is any differently named owner in the summary.
 - Recap only what is useful to the recipients. This is an email, not a transcript: a few short paragraphs or a small list.
 - Address the recipients as a group. Do not open with a placeholder like "[Name]".
 - If a writing style is provided, match the user's tone and formality.
@@ -132,5 +135,7 @@ ${JSON.stringify(summary, null, 2)}
 </summary>
 
 ${getTodayForLLM()}
-Write the follow-up email as ${emailAccount.email}.`;
+Sender: ${emailAccount.email}
+
+Write the follow-up email as the sender.`;
 }
