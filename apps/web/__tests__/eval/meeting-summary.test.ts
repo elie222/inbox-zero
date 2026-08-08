@@ -13,8 +13,11 @@ import {
   REVERSED_DECISION_TRANSCRIPT,
   UNRESOLVED_PRICING_TRANSCRIPT,
 } from "@/__tests__/eval/meeting-transcript-fixtures";
-import { aiSummarizeMeeting } from "@/utils/ai/meeting-recorder/summarize-meeting";
-import { transcriptToPromptText } from "@/utils/meeting-recorder/transcript-prompt";
+import {
+  aiSummarizeMeeting,
+  buildMeetingSummaryModelInput,
+  type MeetingSummaryInput,
+} from "@/utils/ai/meeting-recorder/summarize-meeting";
 
 // pnpm test-ai eval/meeting-summary
 
@@ -28,7 +31,7 @@ describe.runIf(shouldRunEval)("meeting-summary eval", () => {
     test(
       "reports the decision the meeting settled on, not the one it reversed",
       async () => {
-        const summary = await aiSummarizeMeeting({
+        const { summary, judgeInput } = await summarizeForEval({
           emailAccount,
           eventTitle: "Rollout planning",
           attendees: [
@@ -45,7 +48,7 @@ describe.runIf(shouldRunEval)("meeting-summary eval", () => {
             description:
               "The summary presents the rollout date the group finally agreed on and does not present the earlier, superseded date as the outcome. Mentioning the earlier date as context that was changed is acceptable; presenting it as the decision is not.",
           },
-          input: transcriptToPromptText(REVERSED_DECISION_TRANSCRIPT),
+          input: judgeInput,
           output: JSON.stringify(summary, null, 2),
         });
 
@@ -66,7 +69,7 @@ describe.runIf(shouldRunEval)("meeting-summary eval", () => {
     test(
       "does not invent an owner for work nobody claimed",
       async () => {
-        const summary = await aiSummarizeMeeting({
+        const { summary, judgeInput } = await summarizeForEval({
           emailAccount,
           eventTitle: "Rollout planning",
           attendees: [
@@ -83,7 +86,7 @@ describe.runIf(shouldRunEval)("meeting-summary eval", () => {
             description:
               "Every action item that names an owner names someone the transcript actually shows taking that work on. Work that was agreed but explicitly left unassigned must not be attributed to anyone. Action items with no owner at all are correct here.",
           },
-          input: transcriptToPromptText(REVERSED_DECISION_TRANSCRIPT),
+          input: judgeInput,
           output: JSON.stringify(summary, null, 2),
         });
 
@@ -104,7 +107,7 @@ describe.runIf(shouldRunEval)("meeting-summary eval", () => {
     test(
       "does not resolve a question the meeting left open",
       async () => {
-        const summary = await aiSummarizeMeeting({
+        const { summary, judgeInput } = await summarizeForEval({
           emailAccount,
           eventTitle: "Pricing follow-up",
           attendees: [
@@ -120,7 +123,7 @@ describe.runIf(shouldRunEval)("meeting-summary eval", () => {
             description:
               "The seat-count pricing question was raised and explicitly not answered. The summary must not state or imply any pricing outcome, seat count decision or commercial commitment. Recording it as unresolved or as something to follow up on is correct.",
           },
-          input: transcriptToPromptText(UNRESOLVED_PRICING_TRANSCRIPT),
+          input: judgeInput,
           output: JSON.stringify(summary, null, 2),
         });
 
@@ -141,7 +144,7 @@ describe.runIf(shouldRunEval)("meeting-summary eval", () => {
     test(
       "captures a clearly owned commitment with its deadline",
       async () => {
-        const summary = await aiSummarizeMeeting({
+        const { summary, judgeInput } = await summarizeForEval({
           emailAccount,
           eventTitle: "Security review",
           attendees: [
@@ -157,7 +160,7 @@ describe.runIf(shouldRunEval)("meeting-summary eval", () => {
             description:
               "The summary records that the person who said they would finish and send the questionnaire is responsible for it, and reflects the timing they committed to.",
           },
-          input: transcriptToPromptText(CLEAR_ACTION_ITEMS_TRANSCRIPT),
+          input: judgeInput,
           output: JSON.stringify(summary, null, 2),
         });
 
@@ -178,7 +181,7 @@ describe.runIf(shouldRunEval)("meeting-summary eval", () => {
     test(
       "keeps a short meeting's summary short",
       async () => {
-        const summary = await aiSummarizeMeeting({
+        const { summary, judgeInput } = await summarizeForEval({
           emailAccount,
           eventTitle: "Security review",
           attendees: [
@@ -194,7 +197,7 @@ describe.runIf(shouldRunEval)("meeting-summary eval", () => {
             description:
               "This was a short, single-topic meeting. The summary should read as a reminder for someone who attended, not a re-narration of the call. It should not pad empty sections with filler entries that restate the overview.",
           },
-          input: transcriptToPromptText(CLEAR_ACTION_ITEMS_TRANSCRIPT),
+          input: judgeInput,
           output: JSON.stringify(summary, null, 2),
         });
 
@@ -240,4 +243,12 @@ function record({
     expected,
     actual: formatSemanticJudgeActual(JSON.stringify(summary), judgeResult),
   });
+}
+
+async function summarizeForEval(input: MeetingSummaryInput) {
+  const summary = await aiSummarizeMeeting(input);
+  return {
+    summary,
+    judgeInput: buildMeetingSummaryModelInput(input),
+  };
 }

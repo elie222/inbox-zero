@@ -54,6 +54,13 @@ const summarySchema = z.object({
 
 export type MeetingSummary = z.infer<typeof summarySchema>;
 
+export type MeetingSummaryInput = {
+  emailAccount: EmailAccountWithAI;
+  eventTitle: string;
+  attendees: MeetingAttendee[];
+  transcript: NormalizedTranscript;
+};
+
 /**
  * Reads back a summary we stored as JSON. Parsed rather than cast so a row
  * written before a schema change is re-summarized instead of rendered with
@@ -69,12 +76,7 @@ export async function aiSummarizeMeeting({
   eventTitle,
   attendees,
   transcript,
-}: {
-  emailAccount: EmailAccountWithAI;
-  eventTitle: string;
-  attendees: MeetingAttendee[];
-  transcript: NormalizedTranscript;
-}): Promise<MeetingSummary> {
+}: MeetingSummaryInput): Promise<MeetingSummary> {
   logger.info("Summarizing meeting", { utterances: transcript.length });
 
   const modelOptions = getModelForUseCase(
@@ -94,22 +96,22 @@ export async function aiSummarizeMeeting({
   const result = await generateObject({
     ...modelOptions,
     system: systemPrompt,
-    prompt: getUserPrompt({ eventTitle, attendees, transcript }),
+    prompt: buildMeetingSummaryModelInput({
+      eventTitle,
+      attendees,
+      transcript,
+    }),
     schema: summarySchema,
   });
 
   return result.object;
 }
 
-function getUserPrompt({
+export function buildMeetingSummaryModelInput({
   eventTitle,
   attendees,
   transcript,
-}: {
-  eventTitle: string;
-  attendees: MeetingAttendee[];
-  transcript: NormalizedTranscript;
-}): string {
+}: Omit<MeetingSummaryInput, "emailAccount">): string {
   const attendeeList = attendees
     .map((attendee) =>
       attendee.name ? `${attendee.name} (${attendee.email})` : attendee.email,

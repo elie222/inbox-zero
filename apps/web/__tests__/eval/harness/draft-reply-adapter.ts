@@ -1,10 +1,12 @@
 import {
   aiDraftReplyWithConfidence,
+  buildDraftReplyModelEvidence,
   DRAFT_CONFIDENCE_BY_LLM_LABEL,
+  type DraftReplyInput,
 } from "@/utils/ai/reply/draft-reply";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
-import { getEmail } from "@/__tests__/helpers";
+import { getEmail, getEmailAccount } from "@/__tests__/helpers";
 import type { DraftOutput } from "@/__tests__/eval/harness/assertions";
 import type { DraftReplyCase } from "@/__tests__/eval/harness/draft-reply-schema";
 
@@ -26,33 +28,9 @@ export async function invokeDraftReply({
   evalCase: DraftReplyCase;
   emailAccount: EmailAccountWithAI;
 }): Promise<DraftOutput> {
-  const { input } = evalCase;
-  const context = input.context;
-
-  const result = await aiDraftReplyWithConfidence({
-    messages: input.messages.map(toEmailForLLM),
-    emailAccount: {
-      ...emailAccount,
-      email: input.emailAccount.email,
-      about: input.emailAccount.about,
-      timezone: input.emailAccount.timezone,
-      calendarBookingLink: input.emailAccount.calendarBookingLink,
-      bookingLinks: input.emailAccount.bookingLinks,
-    },
-    knowledgeBaseContent: context.knowledgeBaseContent,
-    replyMemoryContent: context.replyMemoryContent,
-    emailHistorySummary: context.emailHistorySummary,
-    emailHistoryContext: context.emailHistoryContext,
-    senderReplyExamples: context.senderReplyExamples,
-    calendarAvailability: context.calendarAvailability,
-    writingStyle: context.writingStyle,
-    learnedWritingStyle: context.learnedWritingStyle,
-    mcpContext: context.mcpContext,
-    meetingContext: context.meetingContext,
-    attachmentContext: context.attachmentContext,
-    hasConfiguredSignature: input.hasConfiguredSignature,
-    currentDate: input.currentDate ? new Date(input.currentDate) : undefined,
-  });
+  const result = await aiDraftReplyWithConfidence(
+    toDraftReplyInput(evalCase, emailAccount),
+  );
 
   return {
     reply: result.reply,
@@ -62,12 +40,7 @@ export async function invokeDraftReply({
 
 /** What the judges and the report show for a sample. */
 export function describeThread(evalCase: DraftReplyCase): string {
-  return evalCase.input.messages
-    .map(
-      (message) =>
-        `From: ${message.from}\nTo: ${message.to}\nSubject: ${message.subject}\n\n${message.content}`,
-    )
-    .join("\n\n---\n\n");
+  return buildDraftReplyModelEvidence(toDraftReplyInput(evalCase)).thread;
 }
 
 /**
@@ -76,19 +49,27 @@ export function describeThread(evalCase: DraftReplyCase): string {
  * let unsupported content pass.
  */
 export function describeContext(evalCase: DraftReplyCase): string {
-  const context = evalCase.input.context;
-  const parts = Object.entries(context)
-    .filter(([, value]) => value !== null && value !== undefined)
-    .map(([key, value]) =>
-      typeof value === "string"
-        ? `<${key}>\n${value}\n</${key}>`
-        : `<${key}>\n${JSON.stringify(value, null, 2)}\n</${key}>`,
-    );
+  const { context, temporalAndIdentityContext } = buildDraftReplyModelEvidence(
+    toDraftReplyInput(evalCase),
+  );
+  return `${context}\n\n${temporalAndIdentityContext}`;
+}
 
-  const { about } = evalCase.input.emailAccount;
-  if (about) parts.unshift(`<userAbout>\n${about}\n</userAbout>`);
-
-  return parts.join("\n\n");
+export function toDraftReplyInput(
+  evalCase: DraftReplyCase,
+  emailAccount: EmailAccountWithAI = getEmailAccount(),
+): DraftReplyInput {
+  const { input } = evalCase;
+  return {
+    messages: input.messages.map(toEmailForLLM),
+    emailAccount: {
+      ...emailAccount,
+      ...input.emailAccount,
+    },
+    ...input.context,
+    hasConfiguredSignature: input.hasConfiguredSignature,
+    currentDate: resolveEvalCurrentDate(input),
+  };
 }
 
 function toEmailForLLM(
@@ -107,6 +88,17 @@ function toEmailForLLM(
     ...(message.id ? { id: message.id } : {}),
     to: message.to,
   };
+}
+
+function resolveEvalCurrentDate(input: DraftReplyCase["input"]): Date {
+  if (input.currentDate) return new Date(input.currentDate);
+
+  const latestMessageDate = input.messages.findLast(
+    (message) => message.date,
+  )?.date;
+  return latestMessageDate
+    ? new Date(latestMessageDate)
+    : new Date("2026-01-01T00:00:00.000Z");
 }
 
 /**

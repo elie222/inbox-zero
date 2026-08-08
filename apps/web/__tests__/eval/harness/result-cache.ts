@@ -40,6 +40,12 @@ export type CacheMode = "readwrite" | "readonly" | "refresh" | "off";
  */
 const FINGERPRINTED_FILES = [
   "utils/ai/reply/draft-reply.ts",
+  "utils/ai/reply/draft-confidence.ts",
+  "utils/ai/helpers.ts",
+  "utils/stringify-email.ts",
+  "utils/string.ts",
+  "utils/llms/ollama-guidance.ts",
+  "utils/llms/use-cases.ts",
   "__tests__/eval/harness/draft-reply-adapter.ts",
   "__tests__/eval/harness/draft-reply-run.ts",
   "__tests__/eval/harness/send-ready-judge-contract.ts",
@@ -65,8 +71,8 @@ export function getCacheDir(): string {
 }
 
 /**
- * Hashes the files that shape a draft. Computed once per process: reading six
- * files per sample would dominate the runtime of a cache hit.
+ * Hashes the files that shape a draft. Computed once per process: reading the
+ * dependency set per sample would dominate the runtime of a cache hit.
  */
 let codeFingerprintCache: string | null = null;
 

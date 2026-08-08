@@ -1,5 +1,10 @@
 import { afterAll, describe, expect, test } from "vitest";
-import { aiDraftReplyWithConfidence } from "@/utils/ai/reply/draft-reply";
+import {
+  aiDraftReplyWithConfidence,
+  buildDraftReplyModelEvidence,
+  type DraftReplyInput,
+} from "@/utils/ai/reply/draft-reply";
+import { getEmailListPrompt } from "@/utils/ai/helpers";
 import { getEmail } from "@/__tests__/helpers";
 import { judgeMultiple } from "@/__tests__/eval/judge";
 import {
@@ -55,7 +60,7 @@ Lisa & the MindfulPath Team`,
             },
           ];
 
-          const result = await aiDraftReplyWithConfidence({
+          const result = await draftForEval({
             messages,
             emailAccount: emailAccountWithBookingLink,
             knowledgeBaseContent: null,
@@ -69,9 +74,7 @@ Lisa & the MindfulPath Team`,
 
           const testName = "marketing email with booking CTA";
           const judgeResult = await judgeEvalOutput({
-            input: messages
-              .map((message) => message.content)
-              .join("\n\n---\n\n"),
+            input: result.modelEvidence,
             output: result.reply,
             expected:
               "A short reply that stays grounded in the email and does not propose specific meeting dates, times, time ranges, or the user's booking link.",
@@ -128,7 +131,7 @@ Solutions Engineer, DataBridge`,
             },
           ];
 
-          const result = await aiDraftReplyWithConfidence({
+          const result = await draftForEval({
             messages,
             emailAccount: emailAccountWithBookingLink,
             knowledgeBaseContent: null,
@@ -142,9 +145,7 @@ Solutions Engineer, DataBridge`,
 
           const testName = "booking link email";
           const judgeResult = await judgeEvalOutput({
-            input: messages
-              .map((message) => message.content)
-              .join("\n\n---\n\n"),
+            input: result.modelEvidence,
             output: result.reply,
             expected:
               "A reply that acknowledges the outreach without inventing specific meeting dates or times or adding the user's booking link, since the sender already provided a booking link.",
@@ -212,7 +213,7 @@ Alex`,
             ],
           };
 
-          const result = await aiDraftReplyWithConfidence({
+          const result = await draftForEval({
             messages,
             emailAccount: schedulingEmailAccount,
             knowledgeBaseContent: null,
@@ -228,7 +229,7 @@ Alex`,
           const testName = "booking-link-first scheduling request";
           const judgeResult = await judgeEvalOutput({
             input: [
-              formatThreadForJudge(messages),
+              result.modelEvidence,
               "",
               "## Booking Link",
               bookingLink,
@@ -303,7 +304,7 @@ Morgan`,
             ],
           };
 
-          const result = await aiDraftReplyWithConfidence({
+          const result = await draftForEval({
             messages,
             emailAccount: schedulingEmailAccount,
             knowledgeBaseContent: null,
@@ -319,7 +320,7 @@ Morgan`,
           const testName = "explicitly requested scheduling options";
           const judgeResult = await judgeEvalOutput({
             input: [
-              formatThreadForJudge(messages),
+              result.modelEvidence,
               "",
               "## Calendar Availability",
               JSON.stringify(calendarAvailability, null, 2),
@@ -377,7 +378,7 @@ Priya`,
             },
           ];
 
-          const result = await aiDraftReplyWithConfidence({
+          const result = await draftForEval({
             messages,
             emailAccount,
             knowledgeBaseContent: null,
@@ -397,7 +398,7 @@ Priya`,
           const testName = "genuine scheduling request";
           const judgeResult = await judgeEvalOutput({
             input: [
-              formatThreadForJudge(messages),
+              result.modelEvidence,
               "",
               "## Calendar Availability",
               JSON.stringify(
@@ -464,7 +465,7 @@ Jordan`,
             },
           ];
 
-          const result = await aiDraftReplyWithConfidence({
+          const result = await draftForEval({
             messages,
             emailAccount: emailAccountWithBookingLink,
             knowledgeBaseContent:
@@ -520,7 +521,7 @@ Carlos`,
             },
           ];
 
-          const result = await aiDraftReplyWithConfidence({
+          const result = await draftForEval({
             messages,
             emailAccount: emailAccountWithBookingLink,
             knowledgeBaseContent: null,
@@ -534,9 +535,7 @@ Carlos`,
 
           const testName = "non-scheduling question";
           const judgeResult = await judgeEvalOutput({
-            input: messages
-              .map((message) => message.content)
-              .join("\n\n---\n\n"),
+            input: result.modelEvidence,
             output: result.reply,
             expected:
               "A grounded reply that addresses the question without offering specific meeting dates, times, or the user's booking link.",
@@ -591,7 +590,7 @@ Nina`,
             },
           ];
 
-          const result = await aiDraftReplyWithConfidence({
+          const result = await draftForEval({
             messages,
             emailAccount: emailAccountWithBookingLink,
             knowledgeBaseContent: [
@@ -608,9 +607,7 @@ Nina`,
 
           const testName = "product setup question";
           const judgeResult = await judgeEvalOutput({
-            input: messages
-              .map((message) => message.content)
-              .join("\n\n---\n\n"),
+            input: result.modelEvidence,
             output: result.reply,
             expected:
               "A direct product answer about routing and language support that does not append a setup call, meeting invitation, or the user's booking link.",
@@ -684,7 +681,7 @@ Also, what model or provider does the assistant use by default?`,
             },
           ];
 
-          const result = await aiDraftReplyWithConfidence({
+          const result = await draftForEval({
             messages,
             emailAccount,
             knowledgeBaseContent: [
@@ -757,7 +754,7 @@ Dana`,
             },
           ];
 
-          const result = await aiDraftReplyWithConfidence({
+          const result = await draftForEval({
             messages,
             emailAccount,
             knowledgeBaseContent: null,
@@ -830,13 +827,13 @@ thanks,`,
 
           const [baselineResult, result] = await Promise.all([
             aiDraftReplyWithConfidence(sharedDraftOptions),
-            aiDraftReplyWithConfidence({
+            draftForEval({
               ...sharedDraftOptions,
               senderReplyExamples: getStatusReplyExamples(emailAccount.email),
             }),
           ]);
 
-          const input = formatThreadForJudge(messages);
+          const input = result.modelEvidence;
           const paymentReplyCriterion = {
             name: "Concise contact-specific payment reply",
             description:
@@ -906,7 +903,7 @@ thanks,`,
             },
           ];
 
-          const result = await aiDraftReplyWithConfidence({
+          const result = await draftForEval({
             messages,
             emailAccount,
             knowledgeBaseContent: null,
@@ -921,7 +918,7 @@ thanks,`,
 
           const judgeResult = await judgeEvalOutput({
             input: [
-              formatThreadForJudge(messages),
+              result.modelEvidence,
               "",
               "## Same-sender reply examples",
               "The examples include short prior replies with different statuses. They are style examples only.",
@@ -976,7 +973,7 @@ thanks,`,
             },
           ];
 
-          const result = await aiDraftReplyWithConfidence({
+          const result = await draftForEval({
             messages,
             emailAccount,
             knowledgeBaseContent: null,
@@ -991,7 +988,7 @@ thanks,`,
 
           const judgeResult = await judgeEvalOutput({
             input: [
-              formatThreadForJudge(messages),
+              result.modelEvidence,
               "",
               "## Same-sender reply examples",
               "The examples include short prior replies with different statuses. They are style examples only.",
@@ -1215,7 +1212,7 @@ Maya`,
             },
           ];
 
-          const result = await aiDraftReplyWithConfidence({
+          const result = await draftForEval({
             messages,
             emailAccount,
             knowledgeBaseContent: null,
@@ -1229,9 +1226,7 @@ Maya`,
 
           const testName = "missing pricing context";
           const judgeResult = await judgeEvalOutput({
-            input: messages
-              .map((message) => message.content)
-              .join("\n\n---\n\n"),
+            input: result.modelEvidence,
             output: result.reply,
             expected:
               "A useful editable draft that does not invent concrete pricing details such as an annual price, discount amount, signing deadline, or extra payment terms because no pricing context was provided. It must not be high confidence.",
@@ -1289,7 +1284,7 @@ Maya`,
             },
           ];
 
-          const result = await aiDraftReplyWithConfidence({
+          const result = await draftForEval({
             messages,
             emailAccount,
             knowledgeBaseContent:
@@ -1306,7 +1301,7 @@ Maya`,
           const testName = "provided pricing context before deadline";
           const judgeResult = await judgeEvalOutput({
             input: [
-              formatThreadForJudge(messages),
+              result.modelEvidence,
               "",
               "## Today",
               currentDate.toISOString(),
@@ -1366,7 +1361,7 @@ Maya`,
             },
           ];
 
-          const result = await aiDraftReplyWithConfidence({
+          const result = await draftForEval({
             messages,
             emailAccount,
             knowledgeBaseContent:
@@ -1383,7 +1378,7 @@ Maya`,
           const testName = "provided pricing context after deadline";
           const judgeResult = await judgeEvalOutput({
             input: [
-              formatThreadForJudge(messages),
+              result.modelEvidence,
               "",
               "## Today",
               currentDate.toISOString(),
@@ -1443,7 +1438,7 @@ Dana`,
             },
           ];
 
-          const result = await aiDraftReplyWithConfidence({
+          const result = await draftForEval({
             messages,
             emailAccount,
             knowledgeBaseContent: null,
@@ -1498,7 +1493,7 @@ Jordan`,
             },
           ];
 
-          const result = await aiDraftReplyWithConfidence({
+          const result = await draftForEval({
             messages,
             emailAccount,
             knowledgeBaseContent: null,
@@ -1512,7 +1507,7 @@ Jordan`,
 
           const testName = "inline screenshot placeholder";
           const judgeResult = await judgeEvalOutput({
-            input: formatThreadForJudge(messages),
+            input: result.modelEvidence,
             output: result.reply,
             expected:
               "A natural support-style reply that treats the inline screenshot as present in the email and does not claim the image, screenshot, or attachment is missing, inaccessible, invisible, or unreadable. It may ask for the exact error text or a relevant detail if needed.",
@@ -1564,7 +1559,7 @@ Dana`,
             },
           ];
 
-          const result = await aiDraftReplyWithConfidence({
+          const result = await draftForEval({
             messages,
             emailAccount,
             knowledgeBaseContent: null,
@@ -1581,7 +1576,7 @@ Dana`,
           const testName = "provided attachment context";
           const judgeResult = await judgeEvalOutput({
             input: [
-              formatThreadForJudge(messages),
+              result.modelEvidence,
               "",
               "## Selected Attachments",
               'Signed Order Form.pdf — selected because the sender asked for "the signed order form".',
@@ -1637,7 +1632,7 @@ Riley`,
             },
           ];
 
-          const result = await aiDraftReplyWithConfidence({
+          const result = await draftForEval({
             messages,
             emailAccount,
             knowledgeBaseContent: null,
@@ -1688,7 +1683,7 @@ Riley`,
             },
           ];
 
-          const result = await aiDraftReplyWithConfidence({
+          const result = await draftForEval({
             messages,
             emailAccount,
             knowledgeBaseContent:
@@ -1704,7 +1699,7 @@ Riley`,
           const testName = "provided refund authority context";
           const judgeResult = await judgeEvalOutput({
             input: [
-              formatThreadForJudge(messages),
+              result.modelEvidence,
               "",
               "## Knowledge Base",
               "The duplicate charge refund for this customer is approved. Finance will process it by Friday.",
@@ -1759,7 +1754,7 @@ Priya`,
             },
           ];
 
-          const result = await aiDraftReplyWithConfidence({
+          const result = await draftForEval({
             messages,
             emailAccount,
             knowledgeBaseContent: null,
@@ -1809,7 +1804,7 @@ Priya`,
             },
           ];
 
-          const result = await aiDraftReplyWithConfidence({
+          const result = await draftForEval({
             messages,
             emailAccount,
             knowledgeBaseContent: null,
@@ -1825,7 +1820,7 @@ Priya`,
           const testName = "provided meeting context";
           const judgeResult = await judgeEvalOutput({
             input: [
-              formatThreadForJudge(messages),
+              result.modelEvidence,
               "",
               "## Meeting Context",
               "Upcoming calendar context: a meeting with Priya Sharma is scheduled for tomorrow at 3:00 PM.",
@@ -1882,7 +1877,7 @@ Could you send over a couple of examples for how to write rules?`,
             },
           ];
 
-          const result = await aiDraftReplyWithConfidence({
+          const result = await draftForEval({
             messages,
             emailAccount,
             knowledgeBaseContent: null,
@@ -1896,9 +1891,7 @@ Could you send over a couple of examples for how to write rules?`,
 
           const testName = "no em dash by default";
           const judgeResult = await judgeEvalOutput({
-            input: messages
-              .map((message) => message.content)
-              .join("\n\n---\n\n"),
+            input: result.modelEvidence,
             output: result.reply,
             expected:
               "A concise reply that does not use an em dash unless explicitly asked for by the provided context or writing style.",
@@ -1975,7 +1968,7 @@ async function maybeJudgeGroundedReply({
   messages,
   reply,
 }: {
-  messages: { content: string }[];
+  messages: DraftReplyInput["messages"];
   reply: string;
 }) {
   return judgeMultiple({
@@ -2014,18 +2007,21 @@ function mentionsAnySpecificSlot(
   });
 }
 
-function formatThreadForJudge(
-  messages: Array<{ content: string; date?: Date | string | null }>,
-): string {
-  return messages
-    .map((message) => {
-      const date =
-        message.date == null ? null : new Date(message.date).toISOString();
-      return [date ? `<date>${date}</date>` : null, message.content]
-        .filter(Boolean)
-        .join("\n");
-    })
-    .join("\n\n---\n\n");
+function formatThreadForJudge(messages: DraftReplyInput["messages"]): string {
+  return getEmailListPrompt({ messages, messageMaxLength: 3000 });
+}
+
+async function draftForEval(input: DraftReplyInput) {
+  const result = await aiDraftReplyWithConfidence(input);
+  const evidence = buildDraftReplyModelEvidence(input);
+  return {
+    ...result,
+    modelEvidence: [
+      evidence.thread,
+      evidence.context,
+      evidence.temporalAndIdentityContext,
+    ].join("\n\n"),
+  };
 }
 
 function getStatusReplyExamples(userEmail: string): string {
