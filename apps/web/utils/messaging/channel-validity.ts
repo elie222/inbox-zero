@@ -5,6 +5,7 @@ type MessagingChannelConnectionLike = {
   isConnected?: boolean;
   accessToken?: string | null;
   providerUserId?: string | null;
+  webhookUrl?: string | null;
 };
 
 type MessagingChannelWithRequiredFields =
@@ -19,6 +20,10 @@ type MessagingChannelWithRequiredFields =
     })
   | (MessagingChannelConnectionLike & {
       provider: "TELEGRAM";
+    })
+  | (MessagingChannelConnectionLike & {
+      provider: "WEBHOOK";
+      webhookUrl: string;
     });
 
 type OperationalMessagingChannel = MessagingChannelWithRequiredFields & {
@@ -35,6 +40,8 @@ export function hasRequiredMessagingConnectionFields(
       return Boolean(channel.providerUserId);
     case MessagingProvider.TELEGRAM:
       return true;
+    case MessagingProvider.WEBHOOK:
+      return Boolean(channel.webhookUrl);
     default:
       return true;
   }

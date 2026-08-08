@@ -35,6 +35,7 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
       providerUserId: true,
       accessToken: true,
       isConnected: true,
+      webhookUrl: true,
       routes: {
         select: {
           purpose: true,
@@ -59,14 +60,16 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
   return {
     channels: channels.map(
       ({ routes, providerUserId, accessToken: _accessToken, ...channel }) => {
+        const { webhookSecret: _webhookSecret, ...publicChannel } =
+          channel as typeof channel & { webhookSecret?: string | null };
         const isConnected = isMessagingChannelOperational({
-          ...channel,
+          ...publicChannel,
           providerUserId,
           accessToken: _accessToken,
         });
 
         return {
-          ...channel,
+          ...publicChannel,
           isConnected,
           canSendAsDm: channel.provider === "SLACK" && isConnected,
           destinations: {
@@ -113,6 +116,9 @@ function getAvailableProviders(): MessagingProvider[] {
   if (env.SLACK_CLIENT_ID && env.SLACK_CLIENT_SECRET) providers.push("SLACK");
   if (isTeamsBotConfigured()) providers.push("TEAMS");
   if (env.TELEGRAM_BOT_TOKEN) providers.push("TELEGRAM");
+  // Webhook channels need only a URL (no OAuth app / bot token), so they are
+  // always available — this is the digest delivery channel for self-hosters.
+  providers.push("WEBHOOK");
   return providers;
 }
 
