@@ -31,8 +31,10 @@ export const delayInMinutesSchema = z
 // LLM-safe version: no .min()/.max() (Anthropic structured output rejects them).
 // Constraints are conveyed via .describe() instead.
 export const delayInMinutesLlmSchema = z
-  .number()
-  .nullish()
+  .preprocess(
+    (value) => (value === null || value === 0 ? undefined : value),
+    z.number().optional(),
+  )
   .describe(
     `Minutes to wait before executing this action (minimum 1, maximum ${NINETY_DAYS_MINUTES}). Only add when the user asks for a delay.`,
   );
