@@ -12,7 +12,7 @@ import {
 
 export type MeetingRecapActionItem = {
   description: string;
-  owner?: string;
+  owner?: string | null;
 };
 
 export type MeetingRecapContent = {
