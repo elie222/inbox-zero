@@ -31,6 +31,9 @@ function record(overrides: Partial<EvalResultRecord> = {}): EvalResultRecord {
     error: null,
     sourceRoot: null,
     codeFingerprint: null,
+    caseFingerprint: null,
+    judgeFingerprint: null,
+    environmentFingerprint: "environment",
     ...overrides,
   };
 }
@@ -44,6 +47,11 @@ function makeRun(records: EvalResultRecord[]): EvalRun {
     startedAt: "2026-07-26T00:00:00.000Z",
     finishedAt: "2026-07-26T00:00:10.000Z",
     selectedCaseCount: new Set(records.map((r) => r.caseId)).size,
+    codeFingerprint: "code",
+    judgeProvider: "provider",
+    judgeModel: "judge-model",
+    judgeFingerprint: "judge",
+    environmentFingerprint: "environment",
     records,
     historyPath: null,
   };

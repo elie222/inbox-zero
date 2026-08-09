@@ -12,6 +12,7 @@
  * cases to reach the same confidence.
  *
  *   pnpm -F inbox-zero-ai eval:compare baseline.json variant.json
+ *   pnpm -F inbox-zero-ai eval:compare baseline.json variant.json --allow-model-change
  *   pnpm -F inbox-zero-ai eval:compare            # two most recent runs
  */
 
@@ -25,6 +26,7 @@ import {
   summarizeComparison,
   type PairedCase,
 } from "@/__tests__/eval/harness/stats";
+import { assertComparableEvalRuns } from "@/__tests__/eval/harness/eval-run-compatibility";
 
 const RUN_DIR = path.join(
   process.cwd(),
@@ -45,6 +47,15 @@ function main() {
   const baseline = JSON.parse(readFileSync(baselinePath, "utf8")) as EvalRun;
   const variant = JSON.parse(readFileSync(variantPath, "utf8")) as EvalRun;
 
+  try {
+    assertComparableEvalRuns(baseline, variant, {
+      allowModelChange: process.argv.includes("--allow-model-change"),
+    });
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : "Invalid eval runs");
+    process.exit(1);
+  }
+
   const pairs = pairByCase(baseline.records, variant.records);
   if (pairs.length === 0) {
     console.error(
@@ -54,17 +65,10 @@ function main() {
   }
 
   const summary = summarizeComparison({ pairs });
-  const dropped =
-    countCases(baseline.records) +
-    countCases(variant.records) -
-    2 * pairs.length;
-
   console.log("# Paired comparison\n");
   console.log(`baseline  ${label(baseline)}  ${path.basename(baselinePath)}`);
   console.log(`variant   ${label(variant)}  ${path.basename(variantPath)}`);
-  console.log(
-    `\n${pairs.length} paired cases${dropped > 0 ? `, ${dropped} unpaired and excluded from both arms` : ""}\n`,
-  );
+  console.log(`\n${pairs.length} paired cases\n`);
 
   console.log(`baseline send-ready   ${pct(summary.baselineRate)}`);
   console.log(`variant  send-ready   ${pct(summary.variantRate)}`);
@@ -100,9 +104,8 @@ function main() {
 }
 
 /**
- * Majority vote per case per arm. A case the two runs do not share is dropped
- * from both rather than counted on one side, since an unpaired case carries no
- * information about the difference.
+ * Majority vote per case per arm. Compatibility validation has already proven
+ * both runs contain the same cases and sample indexes.
  */
 function pairByCase(
   baselineRecords: EvalResultRecord[],
@@ -193,10 +196,6 @@ function resolveRuns(): [string | undefined, string | undefined] {
     .sort((a, b) => statSync(a).mtimeMs - statSync(b).mtimeMs);
 
   return [files.at(-2), files.at(-1)];
-}
-
-function countCases(records: EvalResultRecord[]): number {
-  return new Set(records.map((record) => record.caseId)).size;
 }
 
 function label(run: EvalRun): string {

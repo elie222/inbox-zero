@@ -209,6 +209,34 @@ describe("runEvalSuite", () => {
     expect(only?.codeFingerprint).not.toBe("");
   });
 
+  it("stamps run provenance needed for valid paired comparisons", async () => {
+    const run = await runEvalSuite({
+      evalName: "unit",
+      model: "test-model",
+      writeHistory: false,
+      filters: noFilters,
+      cases: [makeCase({ id: "a" })],
+      invoke: async () => "reply",
+      caseFingerprintOf: () => "case-fingerprint",
+      judgeIdentity: {
+        provider: "test-provider",
+        model: "test-judge",
+        fingerprint: "judge-fingerprint",
+      },
+    });
+
+    expect(run.codeFingerprint).toEqual(expect.any(String));
+    expect(run.judgeProvider).toBe("test-provider");
+    expect(run.judgeModel).toBe("test-judge");
+    expect(run.judgeFingerprint).toBe("judge-fingerprint");
+    expect(run.environmentFingerprint).toEqual(expect.any(String));
+    expect(run.records[0]).toMatchObject({
+      caseFingerprint: "case-fingerprint",
+      judgeFingerprint: "judge-fingerprint",
+      environmentFingerprint: run.environmentFingerprint,
+    });
+  });
+
   it("names the arm from EVAL_VARIANT_ID and falls back to baseline", async () => {
     const previous = process.env.EVAL_VARIANT_ID;
     try {
