@@ -188,7 +188,8 @@ describe("publishToQstash", () => {
     expect(request?.headers.get("x-conversion-analytics-secret")).toBe(
       "secret_test",
     );
-    expect(request?.headers.get("x-api-key")).toBe("internal-api-key");
+    expect(request?.headers.get("x-api-key")).toBeNull();
+    expect(request?.headers.get("x-inbox-zero-caller-id")).toBeNull();
   });
 
   it("falls back when the QStash callback URL resolves to loopback", async () => {

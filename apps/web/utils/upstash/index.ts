@@ -50,7 +50,12 @@ export async function publishToQstash<T>(
 
   const fallbackUrl =
     options?.destinationUrl ?? `${getInternalApiUrl()}${path}`;
-  return fallbackPublishToQstash(fallbackUrl, body, requestHeaders);
+  return fallbackPublishToQstash(
+    fallbackUrl,
+    body,
+    requestHeaders,
+    !options?.destinationUrl,
+  );
 }
 
 export async function bulkPublishToQstash<T>({
@@ -147,13 +152,16 @@ async function fallbackPublishToQstash<T>(
   url: string,
   body: T,
   headers?: HeadersInit,
+  includeInternalApiHeaders = true,
 ) {
   logger.warn("Qstash client not found");
 
   const internalHeaders = createHeaders(headers);
   internalHeaders.set("Content-Type", "application/json");
-  for (const [key, value] of Object.entries(getInternalApiHeaders())) {
-    internalHeaders.set(key, value);
+  if (includeInternalApiHeaders) {
+    for (const [key, value] of Object.entries(getInternalApiHeaders())) {
+      internalHeaders.set(key, value);
+    }
   }
 
   after(async () => {
