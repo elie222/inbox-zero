@@ -74,7 +74,7 @@ export async function handleLabelRemovedEvent(
 
   // When SPAM label is removed (user moves email out of Junk),
   // undo any cold email pattern that was learned from marking as junk.
-  // Only removes patterns with source = LABEL_ADDED (preserves AI/USER patterns).
+  // Only removes active spam-learned patterns and preserves explicit exclusions.
   if (hasSpamRemoval) {
     await undoSpamLearning({ sender, emailAccountId, logger });
   }
@@ -144,7 +144,7 @@ async function learnFromRemovedLabel({
 /**
  * When the SPAM label is removed (user moves email out of Junk),
  * delete any cold email GroupItem that was created by the LABEL_ADDED handler.
- * Only removes patterns we created — preserves AI and USER patterns.
+ * Only removes active patterns we created and preserves explicit exclusions.
  */
 async function undoSpamLearning({
   sender,
@@ -172,6 +172,7 @@ async function undoSpamLearning({
       type: GroupItemType.FROM,
       value: sender,
       source: GroupItemSource.LABEL_ADDED,
+      exclude: false,
     },
   });
 
