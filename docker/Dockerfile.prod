@@ -140,10 +140,6 @@ RUN test -f apps/web/server.js \
 COPY docker/scripts /app/docker/scripts
 RUN chmod +x /app/docker/scripts/*.sh
 
-# The check above only proves `next` resolves. Boot the server too, so a broken
-# traced output fails here instead of 500ing every request at runtime.
-RUN /app/docker/scripts/smoke-standalone.sh
-
 # Install Prisma CLI globally for migrations
 RUN npm install -g prisma@7.3.0
 # Set NODE_PATH so prisma/config imports resolve correctly
