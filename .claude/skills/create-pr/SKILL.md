@@ -27,6 +27,8 @@ continue until the latest commit has clean reviews and checks.
 - Use public-safe metadata. Never expose non-public personal data, account IDs,
   tokens, secrets, or other sensitive information. Public GitHub identities
   already present on the PR may be referenced when needed for specific replies.
+- Mention related work in private repositories or services only generically,
+  such as "updated the marketing repository," without internal details.
 
 ## 1. Inspect and review
 

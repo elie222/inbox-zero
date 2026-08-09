@@ -54,6 +54,7 @@
 ## Change Philosophy
 - Prefer the simplest, most readable change; only keep backwards compatibility when explicitly requested.
 - Do not optimize for migration paths: refactor call sites directly, including larger coordinated changes when clarity improves.
+- This is a public repository. Never include non-public data or internal details from private repositories or services in repository content or GitHub metadata; describe related private work only generically (for example, “updated the marketing repository”).
 
 ## LLM Features
 - Stay AI-first: fix general failure modes, not exact eval wording, and avoid brittle keyword or regex rules unless the product needs a hard guard.
