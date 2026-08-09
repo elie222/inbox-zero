@@ -3,13 +3,9 @@ name: AI Evals
 permissions:
   contents: read
 
-# Runs AI tests when relevant files change, nightly, or on manual trigger
-# To enable: Set repository variable AI_EVALS_ENABLED=true
+# Runs AI tests only when explicitly triggered
 
 on:
-  schedule:
-    - cron: "17 2 * * *"
-
   # Manual trigger with optional test filter and multi-model support
   workflow_dispatch:
     inputs:
@@ -22,34 +18,10 @@ on:
         required: false
         default: ""
 
-  # On PR when AI files change
-  pull_request:
-    paths:
-      - "apps/web/utils/ai/**"
-      - "apps/web/utils/llms/**"
-      - "apps/web/__tests__/ai-*.test.ts"
-      - "apps/web/__tests__/ai-regression/**"
-      - "apps/web/__tests__/eval/**"
-      - "apps/web/scripts/eval-*.ts"
-      - ".github/workflows/ai-evals.yml"
-
-  # On push to main when AI files change
-  push:
-    branches: [main]
-    paths:
-      - "apps/web/utils/ai/**"
-      - "apps/web/utils/llms/**"
-      - "apps/web/__tests__/ai-*.test.ts"
-      - "apps/web/__tests__/ai-regression/**"
-      - "apps/web/__tests__/eval/**"
-      - "apps/web/scripts/eval-*.ts"
-      - ".github/workflows/ai-evals.yml"
-
 jobs:
   ai-evals:
     runs-on: ubuntu-latest
-    timeout-minutes: 180
-    if: ${{ vars.AI_EVALS_ENABLED == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+    timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@v4
@@ -78,28 +50,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Download eval data
-        if: github.event_name != 'pull_request'
-        env:
-          EVAL_DATA_REPOSITORY: ${{ secrets.EVAL_DATA_REPOSITORY }}
-          GH_TOKEN: ${{ secrets.EVAL_DATA_REPOSITORY_TOKEN }}
-        run: |
-          if [[ -z "$EVAL_DATA_REPOSITORY" || -z "$GH_TOKEN" ]]; then
-            echo "Eval data repository credentials are not configured." >&2
-            exit 1
-          fi
-          mkdir -p .context/eval-data
-          gh api "repos/$EVAL_DATA_REPOSITORY/tarball/main" > .context/eval-data.tar.gz
-          tar -xzf .context/eval-data.tar.gz --strip-components=1 -C .context/eval-data
-          echo "EVAL_DATA_DIRS=$GITHUB_WORKSPACE/.context/eval-data/datasets" >> "$GITHUB_ENV"
-
       - name: Run AI Evals
         env:
           TEST_FILTER: ${{ github.event.inputs.test_filter || '' }}
           RUN_AI_TESTS: "true"
           EVAL_MODELS: ${{ github.event.inputs.eval_models || '' }}
-          EVAL_SPLIT: ${{ github.event_name == 'schedule' && 'test' || 'dev' }}
-          EVAL_SAMPLES: ${{ github.event_name == 'schedule' && '3' || '1' }}
           EVAL_REPORT_PATH: "eval-results/report.md"
           # LLM Configuration - using OpenRouter
           DEFAULT_LLMS: openrouter:anthropic/claude-sonnet-4.5
@@ -124,4 +79,3 @@ jobs:
         with:
           name: eval-results
           path: eval-results/
-          retention-days: 7
