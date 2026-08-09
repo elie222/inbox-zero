@@ -81,7 +81,7 @@ const faqs: {
   {
     question: `Can I try ${BRAND_NAME} for free?`,
     answer:
-      "Absolutely, we have a 7 day free trial on all of our plans so you can try it out right away, no credit card needed!",
+      "Absolutely! All plans include a 7-day free trial. A credit card is required to start your trial, but you won't be charged until the trial ends. Cancel anytime during the trial to avoid being charged.",
   },
 ];
 
