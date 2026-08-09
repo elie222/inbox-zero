@@ -33,7 +33,7 @@ const platforms: {
     comingSoon: true,
   },
   {
-    name: "Mobile",
+    name: "iOS & Android",
     icon: <Smartphone className="size-10 text-gray-600" strokeWidth={1.5} />,
   },
   {
