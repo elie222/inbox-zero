@@ -139,14 +139,16 @@ export async function saveLearnedPatterns({
             value: pattern.value,
           },
         },
+        // Same rule as saveLearnedPattern: a pattern that says nothing about exclude
+        // must not reset one, which would re-block a sender the user had corrected.
         update: {
-          exclude: pattern.exclude || false,
+          exclude: pattern.exclude,
         },
         create: {
           groupId,
           type: pattern.type,
           value: pattern.value,
-          exclude: pattern.exclude || false,
+          exclude: pattern.exclude ?? false,
         },
       });
     } catch (error) {
