@@ -2,14 +2,15 @@
  * Caches one graded sample so an unchanged run costs nothing.
  *
  * A cached verdict is only reusable if nothing that could have changed the
- * output has changed. Four things can:
+ * output has changed. Five things can:
  *
  *   the case      — its input, context, assertions, and ground truth
  *   the model     — plus which sample index this is, so k>1 stays distinct
  *   the code      — the drafter, its prompt, and the adapter that calls it
  *   the judge     — its prompt and its model, since the verdict is its opinion
+ *   the runtime   — settings such as the public base URL and timezone
  *
- * All four go into the key. Miss any of them and the cache serves a stale
+ * All five go into the key. Miss any of them and the cache serves a stale
  * verdict that looks exactly like a fresh one, which is worse than no cache:
  * an eval that silently reports yesterday's answer cannot be trusted at all.
  *
@@ -48,7 +49,17 @@ const FINGERPRINTED_FILES = [
 ];
 
 /** Fields of a record that describe the run rather than its outcome. */
-const RUN_SCOPED_FIELDS = ["durationMs", "sampleIndex", "model", "evalName"];
+const RUN_SCOPED_FIELDS = [
+  "durationMs",
+  "sampleIndex",
+  "model",
+  "evalName",
+  "variantId",
+  "codeFingerprint",
+  "caseFingerprint",
+  "judgeFingerprint",
+  "environmentFingerprint",
+];
 
 export function getCacheMode(): CacheMode {
   const raw = process.env.EVAL_CACHE?.toLowerCase();
@@ -86,12 +97,14 @@ export function getCodeFingerprint(): string {
 export function buildCacheKey({
   caseFingerprint,
   judgeFingerprint,
+  environmentFingerprint,
   model,
   sampleIndex,
   variantId,
 }: {
   caseFingerprint: string;
   judgeFingerprint: string;
+  environmentFingerprint: string;
   model: string;
   sampleIndex: number;
   variantId: string;
@@ -101,6 +114,7 @@ export function buildCacheKey({
       JSON.stringify([
         caseFingerprint,
         judgeFingerprint,
+        environmentFingerprint,
         getCodeFingerprint(),
         model,
         variantId,
@@ -146,7 +160,14 @@ export function rehydrate(
   cached: EvalResultRecord,
   base: Pick<
     EvalResultRecord,
-    "evalName" | "model" | "sampleIndex" | "variantId"
+    | "evalName"
+    | "model"
+    | "sampleIndex"
+    | "variantId"
+    | "codeFingerprint"
+    | "caseFingerprint"
+    | "judgeFingerprint"
+    | "environmentFingerprint"
   >,
 ): EvalResultRecord {
   return { ...cached, ...base, durationMs: 0 };

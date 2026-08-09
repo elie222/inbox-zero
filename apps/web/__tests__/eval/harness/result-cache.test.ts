@@ -13,6 +13,7 @@ import type { EvalResultRecord } from "@/__tests__/eval/harness/run-suite";
 const BASE_KEY = {
   caseFingerprint: "case-a",
   judgeFingerprint: "judge-1",
+  environmentFingerprint: "environment-1",
   model: "model-x",
   sampleIndex: 0,
   variantId: "baseline",
@@ -41,6 +42,7 @@ describe("result cache keys", () => {
   it.each([
     ["the case", { caseFingerprint: "case-b" }],
     ["the judge", { judgeFingerprint: "judge-2" }],
+    ["the environment", { environmentFingerprint: "environment-2" }],
     ["the model", { model: "model-y" }],
     ["the sample index", { sampleIndex: 1 }],
     ["the variant", { variantId: "no-calendar" }],
@@ -115,12 +117,20 @@ describe("result cache storage", () => {
       model: "model-y",
       sampleIndex: 2,
       variantId: "no-calendar",
+      codeFingerprint: "code-y",
+      caseFingerprint: "case-y",
+      judgeFingerprint: "judge-y",
+      environmentFingerprint: "environment-y",
     });
 
     expect(fresh.sendReady).toBe(true);
     expect(fresh.model).toBe("model-y");
     expect(fresh.sampleIndex).toBe(2);
     expect(fresh.variantId).toBe("no-calendar");
+    expect(fresh.codeFingerprint).toBe("code-y");
+    expect(fresh.caseFingerprint).toBe("case-y");
+    expect(fresh.judgeFingerprint).toBe("judge-y");
+    expect(fresh.environmentFingerprint).toBe("environment-y");
     expect(fresh.durationMs).toBe(0);
   });
 });
@@ -151,6 +161,9 @@ function record(overrides: Partial<EvalResultRecord>): EvalResultRecord {
     error: null,
     sourceRoot: null,
     codeFingerprint: "fingerprint",
+    caseFingerprint: "case-fingerprint",
+    judgeFingerprint: "judge-fingerprint",
+    environmentFingerprint: "environment-fingerprint",
     ...overrides,
   };
 }

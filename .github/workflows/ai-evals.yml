@@ -3,8 +3,7 @@ name: AI Evals
 permissions:
   contents: read
 
-# Runs AI tests when relevant files change or on manual trigger
-# To enable: Set repository variable AI_EVALS_ENABLED=true
+# Runs AI tests only when explicitly triggered
 
 on:
   # Manual trigger with optional test filter and multi-model support
@@ -19,30 +18,10 @@ on:
         required: false
         default: ""
 
-  # On PR when AI files change
-  pull_request:
-    paths:
-      - "apps/web/utils/ai/**"
-      - "apps/web/utils/llms/**"
-      - "apps/web/__tests__/ai-*.test.ts"
-      - "apps/web/__tests__/ai/**"
-      - "apps/web/__tests__/eval/**"
-
-  # On push to main when AI files change
-  push:
-    branches: [main]
-    paths:
-      - "apps/web/utils/ai/**"
-      - "apps/web/utils/llms/**"
-      - "apps/web/__tests__/ai-*.test.ts"
-      - "apps/web/__tests__/ai/**"
-      - "apps/web/__tests__/eval/**"
-
 jobs:
   ai-evals:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    if: ${{ vars.AI_EVALS_ENABLED == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
 
     steps:
       - uses: actions/checkout@v4
@@ -91,7 +70,7 @@ jobs:
           EMAIL_ENCRYPT_SECRET: "test-encrypt-secret"
           EMAIL_ENCRYPT_SALT: "test-encrypt-salt"
           INTERNAL_API_KEY: "test"
-          NEXT_PUBLIC_BASE_URL: "http://localhost:3000"
+          NEXT_PUBLIC_BASE_URL: "https://app.example.com"
         run: pnpm -F inbox-zero-ai test-ai "$TEST_FILTER"
 
       - name: Upload eval report
