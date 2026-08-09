@@ -5,6 +5,7 @@ import {
 } from "./message";
 import { getBatch } from "@/utils/gmail/batch";
 import { createTestLogger } from "@/__tests__/helpers";
+import { sleep } from "@/utils/sleep";
 
 vi.mock("@/utils/gmail/batch");
 vi.mock("@/utils/sleep", () => ({
@@ -104,26 +105,70 @@ describe("getMessagesBatch", () => {
     expect(getBatch).toHaveBeenCalledTimes(2);
   });
 
-  it("should retry rate-limited messages in smaller chunks", async () => {
+  it("splits large Gmail batches into sequential requests before Gmail throttles them", async () => {
+    const messageIds = Array.from(
+      { length: 25 },
+      (_, index) => `id${index + 1}`,
+    );
+    const accessToken = "token";
+    let activeBatchRequests = 0;
+    let maxActiveBatchRequests = 0;
+
+    vi.mocked(getBatch).mockImplementation(async (ids) => {
+      activeBatchRequests++;
+      maxActiveBatchRequests = Math.max(
+        maxActiveBatchRequests,
+        activeBatchRequests,
+      );
+      await Promise.resolve();
+      activeBatchRequests--;
+
+      return ids.map((id) => ({
+        id,
+        threadId: `${id}-thread`,
+        payload: { headers: [] },
+      }));
+    });
+
+    const result = await getMessagesBatch({ messageIds, accessToken, logger });
+
+    expect(result).toHaveLength(25);
+    expect(vi.mocked(getBatch).mock.calls.map(([ids]) => ids.length)).toEqual([
+      10, 10, 5,
+    ]);
+    expect(maxActiveBatchRequests).toBe(1);
+  });
+
+  it("retries only rate-limited items within each safe batch", async () => {
     const messageIds = Array.from(
       { length: 12 },
       (_, index) => `id${index + 1}`,
     );
     const accessToken = "token";
+    const warnSpy = vi.spyOn(logger, "warn");
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.5);
 
     vi.mocked(getBatch)
       .mockResolvedValueOnce(
-        messageIds.map(() => ({
-          error: {
-            code: 429,
-            message: "Too many concurrent requests for user",
-            errors: [{ reason: "rateLimitExceeded" }],
-            status: "RESOURCE_EXHAUSTED",
-          },
-        })),
+        messageIds.slice(0, 10).map((id, index) =>
+          index < 5
+            ? {
+                id,
+                threadId: `${id}-thread`,
+                payload: { headers: [] },
+              }
+            : {
+                error: {
+                  code: 429,
+                  message: "Too many concurrent requests for user",
+                  errors: [{ reason: "rateLimitExceeded" }],
+                  status: "RESOURCE_EXHAUSTED",
+                },
+              },
+        ),
       )
       .mockResolvedValueOnce(
-        messageIds.slice(0, 10).map((id) => ({
+        messageIds.slice(5, 10).map((id) => ({
           id,
           threadId: `${id}-thread`,
           payload: { headers: [] },
@@ -142,8 +187,26 @@ describe("getMessagesBatch", () => {
     expect(result).toHaveLength(12);
     expect(getBatch).toHaveBeenCalledTimes(3);
     expect(vi.mocked(getBatch).mock.calls.map(([ids]) => ids.length)).toEqual([
-      12, 10, 2,
+      10, 5, 2,
     ]);
+    expect(
+      warnSpy.mock.calls.filter(
+        ([message]) => message === "Retrying Gmail batch items",
+      ),
+    ).toEqual([
+      [
+        "Retrying Gmail batch items",
+        {
+          batchSize: 10,
+          rateLimitedItemCount: 5,
+          retryableItemCount: 5,
+          retryCount: 1,
+        },
+      ],
+    ]);
+    expect(sleep).toHaveBeenCalledWith(1500);
+    warnSpy.mockRestore();
+    randomSpy.mockRestore();
   });
 
   it("throws when rate-limited batch items exhaust all retries", async () => {
