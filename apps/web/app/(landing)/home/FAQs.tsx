@@ -41,6 +41,18 @@ const faqs: {
     answer: `No! ${BRAND_NAME} isn't an email client. It's used alongside your existing email client. You use Google or Outlook as normal.`,
   },
   {
+    question: "Is there a mobile app?",
+    answer: (
+      <span>
+        Yes, we have iOS and Android apps so you can triage your inbox and
+        manage your assistant on the go. Learn more on the{" "}
+        <Anchor href="/mobile-app">mobile app</Anchor> page.
+      </span>
+    ),
+    answerText:
+      "Yes, we have iOS and Android apps so you can triage your inbox and manage your assistant on the go. Learn more on the mobile app page.",
+  },
+  {
     question: "Is the code open-source?",
     answer: (
       <span>

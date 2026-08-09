@@ -9,7 +9,6 @@ import { BulkUnsubscribe } from "@/components/new-landing/sections/BulkUnsubscri
 import { OrganizedInbox } from "@/components/new-landing/sections/OrganizedInbox";
 import { PreWrittenDrafts } from "@/components/new-landing/sections/PreWrittenDrafts";
 import { ManageFromAnywhere } from "@/components/new-landing/sections/ManageFromAnywhere";
-import { AutoFileAttachments } from "@/components/new-landing/sections/AutoFileAttachments";
 import { BasicLayout } from "@/components/layouts/BasicLayout";
 import { FAQs } from "@/app/(landing)/home/FAQs";
 import { FinalCTA } from "@/app/(landing)/home/FinalCTA";
@@ -73,7 +72,6 @@ export default function NewLanding() {
         subtitle="One-click setup. Start organizing and drafting replies in minutes."
       />
       <BulkUnsubscribe />
-      <AutoFileAttachments />
       <EverythingElseSection />
       <Awards />
       <Pricing />
