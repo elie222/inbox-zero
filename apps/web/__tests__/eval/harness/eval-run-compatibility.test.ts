@@ -62,6 +62,18 @@ describe("assertComparableEvalRuns", () => {
       "missing judge fingerprint",
     );
   });
+
+  it("reports inconsistent case fingerprints distinctly from missing ones", () => {
+    const variant = makeRun();
+    variant.records[1] = {
+      ...variant.records[1]!,
+      caseFingerprint: "different-content",
+    };
+
+    expect(() => assertComparableEvalRuns(makeRun(), variant)).toThrow(
+      "variant contains inconsistent case fingerprints",
+    );
+  });
 });
 
 function makeRun({

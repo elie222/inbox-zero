@@ -1,17 +1,13 @@
-import type {
-  EvalResultRecord,
-  EvalRun,
-} from "@/__tests__/eval/harness/run-suite";
+import type { EvalRun } from "@/__tests__/eval/harness/run-suite";
 
 export function assertComparableEvalRuns(
   baseline: EvalRun,
   variant: EvalRun,
   { allowModelChange = false }: { allowModelChange?: boolean } = {},
 ): void {
-  const issues = [
-    ...runIntegrityIssues("baseline", baseline),
-    ...runIntegrityIssues("variant", variant),
-  ];
+  const baselineInspection = inspectRun("baseline", baseline);
+  const variantInspection = inspectRun("variant", variant);
+  const issues = [...baselineInspection.issues, ...variantInspection.issues];
 
   if (baseline.evalName !== variant.evalName) {
     issues.push("eval names differ");
@@ -46,8 +42,8 @@ export function assertComparableEvalRuns(
     variant.environmentFingerprint,
   );
 
-  const baselineCases = describeCases(baseline.records);
-  const variantCases = describeCases(variant.records);
+  const baselineCases = baselineInspection.cases;
+  const variantCases = variantInspection.cases;
   const baselineIds = [...baselineCases.keys()].sort();
   const variantIds = [...variantCases.keys()].sort();
 
@@ -59,14 +55,11 @@ export function assertComparableEvalRuns(
       const variantCase = variantCases.get(caseId);
       if (!(baselineCase && variantCase)) continue;
 
-      if (
-        baselineCase.caseFingerprint === null ||
-        variantCase.caseFingerprint === null
-      ) {
-        issues.push("at least one case is missing its case fingerprint");
-        break;
-      }
-      if (baselineCase.caseFingerprint !== variantCase.caseFingerprint) {
+      const baselineFingerprint = singleFingerprint(baselineCase);
+      const variantFingerprint = singleFingerprint(variantCase);
+      if (!(baselineFingerprint && variantFingerprint)) continue;
+
+      if (baselineFingerprint !== variantFingerprint) {
         issues.push("case fingerprints differ");
         break;
       }
@@ -87,8 +80,17 @@ export function assertComparableEvalRuns(
   }
 }
 
-function runIntegrityIssues(label: string, run: EvalRun): string[] {
+type CaseInspection = {
+  fingerprints: Set<string | null>;
+  sampleIndexes: number[];
+};
+
+function inspectRun(
+  label: string,
+  run: EvalRun,
+): { issues: string[]; cases: Map<string, CaseInspection> } {
   const issues: string[] = [];
+  const cases = new Map<string, CaseInspection>();
   if (!run.codeFingerprint) issues.push(`${label} is missing code fingerprint`);
   if (!run.judgeFingerprint)
     issues.push(`${label} is missing judge fingerprint`);
@@ -97,48 +99,69 @@ function runIntegrityIssues(label: string, run: EvalRun): string[] {
   if (!run.environmentFingerprint)
     issues.push(`${label} is missing environment fingerprint`);
 
-  const caseCount = new Set(run.records.map((record) => record.caseId)).size;
-  if (caseCount !== run.selectedCaseCount) {
+  let hasModelMismatch = false;
+  let hasVariantMismatch = false;
+  let hasCodeFingerprintMismatch = false;
+  let hasJudgeFingerprintMismatch = false;
+  let hasEnvironmentFingerprintMismatch = false;
+  for (const record of run.records) {
+    hasModelMismatch ||= record.model !== run.model;
+    hasVariantMismatch ||= record.variantId !== run.variantId;
+    hasCodeFingerprintMismatch ||=
+      record.codeFingerprint !== run.codeFingerprint;
+    hasJudgeFingerprintMismatch ||=
+      record.judgeFingerprint !== run.judgeFingerprint;
+    hasEnvironmentFingerprintMismatch ||=
+      record.environmentFingerprint !== run.environmentFingerprint;
+
+    const current = cases.get(record.caseId) ?? {
+      fingerprints: new Set<string | null>(),
+      sampleIndexes: [],
+    };
+    current.fingerprints.add(record.caseFingerprint);
+    current.sampleIndexes.push(record.sampleIndex);
+    cases.set(record.caseId, current);
+  }
+
+  if (hasModelMismatch)
+    issues.push(`${label} contains a record from another generator model`);
+  if (hasVariantMismatch)
+    issues.push(`${label} contains a record from another variant`);
+  if (hasCodeFingerprintMismatch)
+    issues.push(`${label} contains inconsistent code fingerprints`);
+  if (hasJudgeFingerprintMismatch)
+    issues.push(`${label} contains inconsistent judge fingerprints`);
+  if (hasEnvironmentFingerprintMismatch)
+    issues.push(`${label} contains inconsistent environment fingerprints`);
+
+  if (cases.size !== run.selectedCaseCount) {
     issues.push(`${label} selected-case count does not match its records`);
   }
 
-  for (const record of run.records) {
-    if (record.model !== run.model) {
-      issues.push(`${label} contains a record from another generator model`);
-      break;
-    }
-    if (record.variantId !== run.variantId) {
-      issues.push(`${label} contains a record from another variant`);
-      break;
-    }
-    if (record.codeFingerprint !== run.codeFingerprint) {
-      issues.push(`${label} contains inconsistent code fingerprints`);
-      break;
-    }
-    if (record.judgeFingerprint !== run.judgeFingerprint) {
-      issues.push(`${label} contains inconsistent judge fingerprints`);
-      break;
-    }
-    if (record.environmentFingerprint !== run.environmentFingerprint) {
-      issues.push(`${label} contains inconsistent environment fingerprints`);
-      break;
-    }
+  const descriptions = [...cases.values()];
+  for (const description of descriptions) {
+    description.sampleIndexes.sort((a, b) => a - b);
+  }
+  if (
+    descriptions.some((description) =>
+      [...description.fingerprints].some((fingerprint) => !fingerprint),
+    )
+  ) {
+    issues.push(`${label} contains a record without a case fingerprint`);
+  }
+  if (descriptions.some((description) => description.fingerprints.size > 1)) {
+    issues.push(`${label} contains inconsistent case fingerprints`);
+  }
+  if (
+    descriptions.some(
+      ({ sampleIndexes }) =>
+        new Set(sampleIndexes).size !== sampleIndexes.length,
+    )
+  ) {
+    issues.push(`${label} contains duplicate sample indexes`);
   }
 
-  for (const { caseFingerprint, sampleIndexes } of describeCases(
-    run.records,
-  ).values()) {
-    if (caseFingerprint === null) {
-      issues.push(`${label} contains a record without a case fingerprint`);
-      break;
-    }
-    if (new Set(sampleIndexes).size !== sampleIndexes.length) {
-      issues.push(`${label} contains duplicate sample indexes`);
-      break;
-    }
-  }
-
-  return issues;
+  return { issues, cases };
 }
 
 function compareRequiredFingerprint(
@@ -161,34 +184,9 @@ function compareRequiredIdentity(
   if (baseline !== variant) issues.push(`${name} differ`);
 }
 
-function describeCases(
-  records: EvalResultRecord[],
-): Map<string, { caseFingerprint: string | null; sampleIndexes: number[] }> {
-  const cases = new Map<
-    string,
-    { caseFingerprints: Set<string | null>; sampleIndexes: number[] }
-  >();
-
-  for (const record of records) {
-    const current = cases.get(record.caseId) ?? {
-      caseFingerprints: new Set<string | null>(),
-      sampleIndexes: [],
-    };
-    current.caseFingerprints.add(record.caseFingerprint);
-    current.sampleIndexes.push(record.sampleIndex);
-    cases.set(record.caseId, current);
-  }
-
-  return new Map(
-    [...cases.entries()].map(([caseId, value]) => [
-      caseId,
-      {
-        caseFingerprint:
-          value.caseFingerprints.size === 1
-            ? (value.caseFingerprints.values().next().value ?? null)
-            : null,
-        sampleIndexes: value.sampleIndexes.sort((a, b) => a - b),
-      },
-    ]),
-  );
+function singleFingerprint({
+  fingerprints,
+}: CaseInspection): string | undefined {
+  if (fingerprints.size !== 1) return;
+  return fingerprints.values().next().value ?? undefined;
 }
