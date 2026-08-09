@@ -6,6 +6,7 @@ import { sleep } from "@/utils/sleep";
 import type { Logger } from "@/utils/logger";
 
 const GMAIL_BATCH_SIZE = 10;
+const MAX_BATCH_RETRIES = 3;
 const MAX_RETRY_JITTER_MS = 1000;
 
 // Gmail executes batch subrequests concurrently, so keep each request small
@@ -64,15 +65,13 @@ async function getBatchChunkWithRetry<TRaw, TParsed>({
   retryCount: number;
   retryError?: BatchError["error"];
 }): Promise<TParsed[]> {
-  if (retryCount > 3) {
-    logger.warn("Too many Gmail batch retries", {
+  if (retryCount > MAX_BATCH_RETRIES)
+    throwBatchRetryLimit({
       batchSize: ids.length,
       retryCount,
+      retryError,
+      logger,
     });
-    if (!retryError) throw new Error("Gmail batch retry limit exceeded");
-    // Preserve the provider error so account-level rate-limit protection can pause follow-on calls.
-    throw new Error(retryError.message, { cause: retryError });
-  }
 
   const batch: (TRaw | BatchError)[] = await getBatch(
     ids,
@@ -126,13 +125,22 @@ async function getBatchChunkWithRetry<TRaw, TParsed>({
 
   if (missingIds.size > 0) {
     const remainingIds = Array.from(missingIds);
+    const nextRetryCount = retryCount + 1;
+
+    if (nextRetryCount > MAX_BATCH_RETRIES)
+      throwBatchRetryLimit({
+        batchSize: remainingIds.length,
+        retryCount: nextRetryCount,
+        retryError: lastRetryableError,
+        logger,
+      });
+
     logger.warn("Retrying Gmail batch items", {
       batchSize: ids.length,
       retryableItemCount,
       rateLimitedItemCount,
-      retryCount: retryCount + 1,
+      retryCount: nextRetryCount,
     });
-    const nextRetryCount = retryCount + 1;
     const exponentialDelayMs = Math.min(
       1000 * 2 ** (nextRetryCount - 1),
       10_000,
@@ -152,4 +160,22 @@ async function getBatchChunkWithRetry<TRaw, TParsed>({
   }
 
   return parsed;
+}
+
+function throwBatchRetryLimit({
+  batchSize,
+  retryCount,
+  retryError,
+  logger,
+}: {
+  batchSize: number;
+  retryCount: number;
+  retryError?: BatchError["error"];
+  logger: Logger;
+}): never {
+  logger.warn("Too many Gmail batch retries", { batchSize, retryCount });
+  if (!retryError) throw new Error("Gmail batch retry limit exceeded");
+
+  // Preserve the provider error so account-level rate-limit protection can pause follow-on calls.
+  throw new Error(retryError.message, { cause: retryError });
 }

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   getMessagesBatch,
   hasPreviousCommunicationsWithSenderOrDomain,
@@ -14,6 +14,10 @@ vi.mock("@/utils/sleep", () => ({
 vi.mock("gmail-api-parse-message", () => ({
   default: vi.fn((m) => m),
 }));
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("getMessagesBatch", () => {
   const logger = createTestLogger();
@@ -146,7 +150,7 @@ describe("getMessagesBatch", () => {
     );
     const accessToken = "token";
     const warnSpy = vi.spyOn(logger, "warn");
-    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.5);
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
 
     vi.mocked(getBatch)
       .mockResolvedValueOnce(
@@ -205,8 +209,6 @@ describe("getMessagesBatch", () => {
       ],
     ]);
     expect(sleep).toHaveBeenCalledWith(1500);
-    warnSpy.mockRestore();
-    randomSpy.mockRestore();
   });
 
   it("throws when rate-limited batch items exhaust all retries", async () => {
@@ -245,6 +247,7 @@ describe("getMessagesBatch", () => {
     });
 
     expect(getBatch).toHaveBeenCalledTimes(4);
+    expect(sleep).toHaveBeenCalledTimes(3);
   });
 });
 
