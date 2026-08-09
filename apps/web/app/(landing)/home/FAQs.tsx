@@ -50,7 +50,7 @@ const faqs: {
       </span>
     ),
     answerText:
-      "Yes, we have iOS and Android apps so you can triage your inbox and manage your assistant on the go.",
+      "Yes, we have iOS and Android apps so you can triage your inbox and manage your assistant on the go. Learn more on the mobile app page.",
   },
   {
     question: "Is the code open-source?",
