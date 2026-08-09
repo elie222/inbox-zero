@@ -154,6 +154,58 @@ describe("saveLearnedPattern", () => {
     });
   });
 
+  it("should record label removal as the source of an exclusion", async () => {
+    vi.mocked(prisma.rule.findUnique).mockResolvedValue({
+      id: "rule-id",
+      name: "Test Rule",
+      groupId: "group-id",
+    } as any);
+    vi.mocked(prisma.groupItem.upsert).mockResolvedValue({} as any);
+
+    await saveLearnedPattern({
+      emailAccountId: "email-account-id",
+      from: "excluded@example.com",
+      ruleId: "rule-id",
+      exclude: true,
+      logger: createTestLogger(),
+      reason: "Label removed",
+      source: GroupItemSource.LABEL_REMOVED,
+    });
+
+    expect(prisma.groupItem.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({
+          exclude: true,
+          source: GroupItemSource.LABEL_REMOVED,
+        }),
+      }),
+    );
+  });
+
+  it("should preserve the existing source for an inferred inclusion", async () => {
+    vi.mocked(prisma.rule.findUnique).mockResolvedValue({
+      id: "rule-id",
+      name: "Test Rule",
+      groupId: "group-id",
+    } as any);
+    vi.mocked(prisma.groupItem.upsert).mockResolvedValue({} as any);
+
+    await saveLearnedPattern({
+      emailAccountId: "email-account-id",
+      from: "sender@example.com",
+      ruleId: "rule-id",
+      logger: createTestLogger(),
+      source: GroupItemSource.AI,
+    });
+
+    expect(prisma.groupItem.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({ source: undefined }),
+        create: expect.objectContaining({ source: GroupItemSource.AI }),
+      }),
+    );
+  });
+
   it("should handle duplicate group creation by finding existing group", async () => {
     const existingGroupId = "existing-group-id";
     vi.mocked(prisma.rule.findUnique)
