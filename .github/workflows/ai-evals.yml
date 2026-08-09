@@ -1,0 +1,81 @@
+name: AI Evals
+
+permissions:
+  contents: read
+
+# Runs AI tests only when explicitly triggered
+
+on:
+  # Manual trigger with optional test filter and multi-model support
+  workflow_dispatch:
+    inputs:
+      test_filter:
+        description: "Test file filter (e.g., ai-choose-rule, eval-categorize)"
+        required: false
+        default: ""
+      eval_models:
+        description: "Model matrix: empty for default, 'all' for cross-model comparison"
+        required: false
+        default: ""
+
+jobs:
+  ai-evals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - uses: actions/cache@v4
+        name: Setup pnpm cache
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run AI Evals
+        env:
+          TEST_FILTER: ${{ github.event.inputs.test_filter || '' }}
+          RUN_AI_TESTS: "true"
+          EVAL_MODELS: ${{ github.event.inputs.eval_models || '' }}
+          EVAL_REPORT_PATH: "eval-results/report.md"
+          # LLM Configuration - using OpenRouter
+          DEFAULT_LLMS: openrouter:anthropic/claude-sonnet-4.5
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          # Minimal env vars required for test harness
+          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/postgres"
+          AUTH_SECRET: "test-secret"
+          GOOGLE_CLIENT_ID: "test"
+          GOOGLE_CLIENT_SECRET: "test"
+          MICROSOFT_CLIENT_ID: "test"
+          MICROSOFT_CLIENT_SECRET: "test"
+          GOOGLE_PUBSUB_TOPIC_NAME: "test"
+          EMAIL_ENCRYPT_SECRET: "test-encrypt-secret"
+          EMAIL_ENCRYPT_SALT: "test-encrypt-salt"
+          INTERNAL_API_KEY: "test"
+          NEXT_PUBLIC_BASE_URL: "https://app.example.com"
+        run: pnpm -F inbox-zero-ai test-ai "$TEST_FILTER"
+
+      - name: Upload eval report
+        if: always() && hashFiles('eval-results/**') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-results
+          path: eval-results/
