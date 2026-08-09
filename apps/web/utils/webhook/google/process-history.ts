@@ -158,6 +158,7 @@ export async function processHistoryForUser(
           await processHistory(
             {
               history: historyEntries,
+              spamLearnedThreadIds: new Set<string>(),
               gmail,
               accessToken: accountAccessToken,
               hasAutomationRules,
