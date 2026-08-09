@@ -546,6 +546,24 @@ describe("email utils", () => {
         false,
       ],
       [
+        "different people on a Microsoft consumer alias",
+        "someone@live.com",
+        "user@live.com",
+        false,
+      ],
+      [
+        "different people on an Apple consumer alias",
+        "someone@mac.com",
+        "user@mac.com",
+        false,
+      ],
+      [
+        "different people on a Proton consumer alias",
+        "someone@proton.me",
+        "user@proton.me",
+        false,
+      ],
+      [
         "same person on a public provider",
         "user@gmail.com",
         "user@gmail.com",
