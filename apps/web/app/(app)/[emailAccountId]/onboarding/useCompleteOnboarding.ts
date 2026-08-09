@@ -27,58 +27,53 @@ export function useCompleteOnboarding() {
 
   const destination = isPremium ? "setup" : "welcome-upgrade";
 
-  const completeAndRedirect = useCallback(
-    async (options?: { premiumPath?: `/${string}` }) => {
-      let result: Awaited<ReturnType<typeof completeOnboarding>>;
-      try {
-        result = await completeOnboarding();
-      } catch (error) {
-        captureException(error, {
-          extra: { context: "onboarding", step: "complete", destination },
-        });
-        toastError({
-          description: getActionErrorMessage(
-            {},
-            { prefix: "There was an error finishing onboarding" },
-          ),
-        });
-        return false;
-      }
-      if (result?.serverError || result?.validationErrors) {
-        captureException(new Error("Failed to complete onboarding"), {
-          extra: {
-            context: "onboarding",
-            step: "complete",
+  const completeAndRedirect = useCallback(async () => {
+    let result: Awaited<ReturnType<typeof completeOnboarding>>;
+    try {
+      result = await completeOnboarding();
+    } catch (error) {
+      captureException(error, {
+        extra: { context: "onboarding", step: "complete", destination },
+      });
+      toastError({
+        description: getActionErrorMessage(
+          {},
+          { prefix: "There was an error finishing onboarding" },
+        ),
+      });
+      return false;
+    }
+    if (result?.serverError || result?.validationErrors) {
+      captureException(new Error("Failed to complete onboarding"), {
+        extra: {
+          context: "onboarding",
+          step: "complete",
+          serverError: result?.serverError,
+          validationErrors: result?.validationErrors,
+          destination,
+        },
+      });
+      toastError({
+        description: getActionErrorMessage(
+          {
             serverError: result?.serverError,
             validationErrors: result?.validationErrors,
-            destination,
           },
-        });
-        toastError({
-          description: getActionErrorMessage(
-            {
-              serverError: result?.serverError,
-              validationErrors: result?.validationErrors,
-            },
-            { prefix: "There was an error finishing onboarding" },
-          ),
-        });
-        return false;
-      }
+          { prefix: "There was an error finishing onboarding" },
+        ),
+      });
+      return false;
+    }
 
-      markOnboardingAsCompleted(ASSISTANT_ONBOARDING_COOKIE);
+    markOnboardingAsCompleted(ASSISTANT_ONBOARDING_COOKIE);
 
-      if (isPremium) {
-        router.push(
-          prefixPath(emailAccountId, options?.premiumPath ?? "/setup"),
-        );
-      } else {
-        router.push("/welcome-upgrade");
-      }
-      return true;
-    },
-    [completeOnboarding, destination, emailAccountId, isPremium, router],
-  );
+    if (isPremium) {
+      router.push(prefixPath(emailAccountId, "/setup"));
+    } else {
+      router.push("/welcome-upgrade");
+    }
+    return true;
+  }, [completeOnboarding, destination, emailAccountId, isPremium, router]);
 
   return { completeAndRedirect, destination };
 }
