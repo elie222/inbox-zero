@@ -560,8 +560,7 @@ export function ChatOnboarding() {
       destination,
     });
     await awaitPendingWork();
-    // The button says "Open my inbox", so land on the actual inbox
-    const completed = await completeAndRedirect({ premiumPath: "/mail" });
+    const completed = await completeAndRedirect();
     if (completed) clearStoredConversation();
     setFinishing(false);
   };
@@ -742,7 +741,7 @@ export function ChatOnboarding() {
               cta={
                 stage === "close" && isPremium && !isPremiumLoading
                   ? {
-                      label: "Open my inbox",
+                      label: "Continue setup",
                       loading: finishing,
                       onClick: onFinish,
                     }
