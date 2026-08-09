@@ -1,6 +1,6 @@
 const DEFAULT_EVAL_JUDGE_PROVIDER = "openrouter";
-// Rolling aliases can change the measurement without any repository change.
-const DEFAULT_EVAL_JUDGE_MODEL = "google/gemini-3.1-flash-lite-preview";
+// OpenRouter's rolling alias redirects to the latest DeepSeek V4 Flash release.
+const DEFAULT_EVAL_JUDGE_MODEL = "~deepseek/deepseek-v4-flash-latest";
 
 /**
  * Lives apart from the judge implementations because those reach vitest through
