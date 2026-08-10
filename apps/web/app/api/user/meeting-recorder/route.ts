@@ -30,8 +30,7 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
 
   return {
     enabled: emailAccount?.meetingRecorderEnabled ?? false,
-    joinRule:
-      emailAccount?.meetingRecorderJoinRule ?? MeetingJoinRule.EXTERNAL_ONLY,
+    joinRule: emailAccount?.meetingRecorderJoinRule ?? MeetingJoinRule.ALL,
     recapEmailEnabled: emailAccount?.meetingRecorderRecapEmailEnabled ?? true,
     followUpDraftEnabled:
       emailAccount?.meetingRecorderFollowUpDraftEnabled ?? true,

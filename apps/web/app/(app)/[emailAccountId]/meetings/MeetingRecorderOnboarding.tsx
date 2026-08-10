@@ -77,7 +77,7 @@ export function MeetingRecorderOnboarding({
       features={features}
     >
       {hasCalendarConnected ? (
-        <Button onClick={() => setJoinRule(MeetingJoinRule.EXTERNAL_ONLY)}>
+        <Button onClick={() => setJoinRule(MeetingJoinRule.ALL)}>
           Get started
         </Button>
       ) : (
