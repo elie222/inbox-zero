@@ -35,7 +35,8 @@ export const OUTLOOK_COLORS: Array<string> = [
   "preset9", // Gray
 ] as const;
 
-// Map Outlook preset colors to single color values
+// Map Outlook preset colors to single color values.
+// Graph's outlookCategory color enum goes up to preset24.
 export const OUTLOOK_COLOR_MAP = {
   preset0: "#E74C3C", // Red
   preset1: "#E67E22", // Orange
@@ -47,6 +48,21 @@ export const OUTLOOK_COLOR_MAP = {
   preset7: "#E84393", // Pink
   preset8: "#795548", // Brown
   preset9: "#95A5A6", // Gray
+  preset10: "#AEB6BF", // Steel
+  preset11: "#5D6D7E", // Dark steel
+  preset12: "#BDC3C7", // Light gray
+  preset13: "#7F8C8D", // Dark gray
+  preset14: "#2C3E50", // Black
+  preset15: "#922B21", // Dark red
+  preset16: "#A04000", // Dark orange
+  preset17: "#6E2C00", // Dark brown
+  preset18: "#9A7D0A", // Dark yellow
+  preset19: "#196F3D", // Dark green
+  preset20: "#0E6655", // Dark teal
+  preset21: "#556B2F", // Dark olive
+  preset22: "#1A5276", // Dark blue
+  preset23: "#5B2C6F", // Dark purple
+  preset24: "#7B241C", // Dark cranberry
 } as const;
 
 export async function getLabels(client: OutlookClient) {
