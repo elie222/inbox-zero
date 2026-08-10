@@ -60,6 +60,7 @@ export const footerNavigation = {
     },
   ],
   tools: [
+    { name: "All Free Email Tools", href: "/tools" },
     {
       name: "Email Deliverability Checker",
       href: "/tools/email-deliverability-checker",
@@ -71,6 +72,10 @@ export const footerNavigation = {
       href: "/tools/email-signature-generator",
     },
     { name: "Meeting Cost Calculator", href: "/tools/meeting-cost-calculator" },
+    {
+      name: "Team Email Cost Calculator",
+      href: "/tools/email-cost-calculator",
+    },
   ],
   support: [
     { name: "Pricing", href: "/pricing" },
