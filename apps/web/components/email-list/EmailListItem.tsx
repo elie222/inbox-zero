@@ -124,7 +124,7 @@ export const EmailListItem = forwardRef(
                   />
                 </div>
 
-                <div className="ml-4 w-28 min-w-0 overflow-hidden truncate text-foreground sm:w-36 xl:w-48">
+                <div className="ml-4 w-28 shrink-0 overflow-hidden truncate text-foreground sm:w-36 xl:w-48">
                   {extractNameFromEmail(
                     participant(lastMessage, props.userEmail),
                   )}{" "}
