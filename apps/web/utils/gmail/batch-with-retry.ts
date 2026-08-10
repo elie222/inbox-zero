@@ -5,13 +5,13 @@ import { isRetryableError } from "@/utils/gmail/retry";
 import { sleep } from "@/utils/sleep";
 import type { Logger } from "@/utils/logger";
 
+const GMAIL_BATCH_SIZE = 25;
 const RATE_LIMIT_RETRY_BATCH_SIZE = 10;
+const MAX_BATCH_RETRIES = 3;
+const MAX_RETRY_JITTER_MS = 1000;
 
-// Fetches a Gmail batch and handles per-item errors: throws on 401, retries
-// retryable items (re-fetching only the missing ids, in smaller chunks when
-// rate-limited), and drops non-retryable items with a warning. Without this,
-// per-item batch errors are returned as-is and silently treated as
-// valid-but-empty results, so threads/messages disappear under partial failure.
+// Gmail counts each subrequest toward per-user concurrency. Leave headroom for
+// other account activity, then reduce rate-limited retries even further.
 export async function getBatchWithRetry<TRaw, TParsed>({
   ids,
   endpoint,
@@ -31,12 +31,47 @@ export async function getBatchWithRetry<TRaw, TParsed>({
 }): Promise<TParsed[]> {
   if (!accessToken) throw new Error("No access token");
 
-  if (retryCount > 3) {
-    logger.warn("Too many batch retries", { ids, retryCount });
-    if (!retryError) throw new Error("Gmail batch retry limit exceeded");
-    // Preserve the provider error so account-level rate-limit protection can pause follow-on calls.
-    throw new Error(retryError.message, { cause: retryError });
+  const results: TParsed[] = [];
+  for (const idsChunk of chunk(ids, GMAIL_BATCH_SIZE)) {
+    const chunkResults = await getBatchChunkWithRetry<TRaw, TParsed>({
+      ids: idsChunk,
+      endpoint,
+      accessToken,
+      parse,
+      logger,
+      retryCount,
+      retryError,
+    });
+    results.push(...chunkResults);
   }
+
+  return results;
+}
+
+async function getBatchChunkWithRetry<TRaw, TParsed>({
+  ids,
+  endpoint,
+  accessToken,
+  parse,
+  logger,
+  retryCount,
+  retryError,
+}: {
+  ids: string[];
+  endpoint: string;
+  accessToken: string;
+  parse: (item: TRaw) => TParsed;
+  logger: Logger;
+  retryCount: number;
+  retryError?: BatchError["error"];
+}): Promise<TParsed[]> {
+  if (retryCount > MAX_BATCH_RETRIES)
+    throwBatchRetryLimit({
+      batchSize: ids.length,
+      retryCount,
+      retryError,
+      logger,
+    });
 
   const batch: (TRaw | BatchError)[] = await getBatch(
     ids,
@@ -50,8 +85,10 @@ export async function getBatchWithRetry<TRaw, TParsed>({
   }
 
   const missingIds = new Set<string>();
-  let shouldRetryInSmallerBatches = false;
+  const rateLimitedIds = new Set<string>();
   let lastRetryableError = retryError;
+  let retryableItemCount = 0;
+  let rateLimitedItemCount = 0;
 
   const parsed = batch
     .map((item, i) => {
@@ -67,7 +104,6 @@ export async function getBatchWithRetry<TRaw, TParsed>({
 
         if (!retryable) {
           logger.warn("Skipping batch item due to non-retryable error", {
-            id: ids[i],
             code,
             reason,
             errorMessage,
@@ -75,13 +111,11 @@ export async function getBatchWithRetry<TRaw, TParsed>({
           return;
         }
 
-        logger.warn("Error fetching batch item, adding to retry queue", {
-          id: ids[i],
-          code,
-          errorMessage,
-          reason,
-        });
-        if (isRateLimit) shouldRetryInSmallerBatches = true;
+        retryableItemCount++;
+        if (isRateLimit) {
+          rateLimitedItemCount++;
+          rateLimitedIds.add(ids[i]);
+        }
         if (isRateLimit || !lastRetryableError) {
           lastRetryableError = item.error;
         }
@@ -95,69 +129,68 @@ export async function getBatchWithRetry<TRaw, TParsed>({
 
   if (missingIds.size > 0) {
     const remainingIds = Array.from(missingIds);
-    logger.info("Missing batch items", {
-      missingIds: remainingIds,
-      retryMode: shouldRetryInSmallerBatches ? "chunked" : "batch",
-    });
     const nextRetryCount = retryCount + 1;
-    await sleep(1000 * nextRetryCount);
-    const refetched = shouldRetryInSmallerBatches
-      ? await getBatchWithRetryInChunks({
-          ids: remainingIds,
-          endpoint,
-          accessToken,
-          parse,
-          retryCount: nextRetryCount,
-          retryError: lastRetryableError,
-          logger,
-        })
-      : await getBatchWithRetry({
-          ids: remainingIds,
-          endpoint,
-          accessToken,
-          parse,
-          retryCount: nextRetryCount,
-          retryError: lastRetryableError,
-          logger,
-        });
+
+    if (nextRetryCount > MAX_BATCH_RETRIES)
+      throwBatchRetryLimit({
+        batchSize: remainingIds.length,
+        retryCount: nextRetryCount,
+        retryError: lastRetryableError,
+        logger,
+      });
+
+    logger.warn("Retrying Gmail batch items", {
+      batchSize: ids.length,
+      retryableItemCount,
+      rateLimitedItemCount,
+      retryCount: nextRetryCount,
+    });
+    const exponentialDelayMs = Math.min(
+      1000 * 2 ** (nextRetryCount - 1),
+      10_000,
+    );
+    const jitterMs = Math.floor(Math.random() * (MAX_RETRY_JITTER_MS + 1));
+    await sleep(exponentialDelayMs + jitterMs);
+    const nonRateLimitedIds = remainingIds.filter(
+      (id) => !rateLimitedIds.has(id),
+    );
+    const retryChunks = [
+      ...chunk(nonRateLimitedIds, GMAIL_BATCH_SIZE),
+      ...chunk(Array.from(rateLimitedIds), RATE_LIMIT_RETRY_BATCH_SIZE),
+    ];
+    const refetched: TParsed[] = [];
+    for (const idsChunk of retryChunks) {
+      const chunkResults = await getBatchChunkWithRetry({
+        ids: idsChunk,
+        endpoint,
+        accessToken,
+        parse,
+        retryCount: nextRetryCount,
+        retryError: lastRetryableError,
+        logger,
+      });
+      refetched.push(...chunkResults);
+    }
     return [...parsed, ...refetched];
   }
 
   return parsed;
 }
 
-async function getBatchWithRetryInChunks<TRaw, TParsed>({
-  ids,
-  endpoint,
-  accessToken,
-  parse,
+function throwBatchRetryLimit({
+  batchSize,
   retryCount,
   retryError,
   logger,
 }: {
-  ids: string[];
-  endpoint: string;
-  accessToken: string;
-  parse: (item: TRaw) => TParsed;
+  batchSize: number;
   retryCount: number;
   retryError?: BatchError["error"];
   logger: Logger;
-}): Promise<TParsed[]> {
-  const chunked = chunk(ids, RATE_LIMIT_RETRY_BATCH_SIZE);
-  const results: TParsed[] = [];
+}): never {
+  logger.warn("Too many Gmail batch retries", { batchSize, retryCount });
+  if (!retryError) throw new Error("Gmail batch retry limit exceeded");
 
-  for (const idsChunk of chunked) {
-    const chunkResults = await getBatchWithRetry<TRaw, TParsed>({
-      ids: idsChunk,
-      endpoint,
-      accessToken,
-      parse,
-      retryCount,
-      retryError,
-      logger,
-    });
-    results.push(...chunkResults);
-  }
-
-  return results;
+  // Preserve the provider error so account-level rate-limit protection can pause follow-on calls.
+  throw new Error(retryError.message, { cause: retryError });
 }

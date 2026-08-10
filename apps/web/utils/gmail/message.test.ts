@@ -1,10 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   getMessagesBatch,
   hasPreviousCommunicationsWithSenderOrDomain,
 } from "./message";
 import { getBatch } from "@/utils/gmail/batch";
 import { createTestLogger } from "@/__tests__/helpers";
+import { sleep } from "@/utils/sleep";
 
 vi.mock("@/utils/gmail/batch");
 vi.mock("@/utils/sleep", () => ({
@@ -13,6 +14,10 @@ vi.mock("@/utils/sleep", () => ({
 vi.mock("gmail-api-parse-message", () => ({
   default: vi.fn((m) => m),
 }));
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("getMessagesBatch", () => {
   const logger = createTestLogger();
@@ -104,33 +109,91 @@ describe("getMessagesBatch", () => {
     expect(getBatch).toHaveBeenCalledTimes(2);
   });
 
-  it("should retry rate-limited messages in smaller chunks", async () => {
+  it("uses conservative sequential initial Gmail batches", async () => {
     const messageIds = Array.from(
-      { length: 12 },
+      { length: 100 },
       (_, index) => `id${index + 1}`,
     );
     const accessToken = "token";
+    let activeBatchRequests = 0;
+    let maxActiveBatchRequests = 0;
+
+    vi.mocked(getBatch).mockImplementation(async (ids) => {
+      activeBatchRequests++;
+      maxActiveBatchRequests = Math.max(
+        maxActiveBatchRequests,
+        activeBatchRequests,
+      );
+      await Promise.resolve();
+      activeBatchRequests--;
+
+      return ids.map((id) => ({
+        id,
+        threadId: `${id}-thread`,
+        payload: { headers: [] },
+      }));
+    });
+
+    const result = await getMessagesBatch({ messageIds, accessToken, logger });
+
+    expect(result).toHaveLength(100);
+    expect(vi.mocked(getBatch).mock.calls.map(([ids]) => ids.length)).toEqual([
+      25, 25, 25, 25,
+    ]);
+    expect(maxActiveBatchRequests).toBe(1);
+  });
+
+  it("retries only rate-limited items in smaller sequential batches", async () => {
+    const messageIds = Array.from(
+      { length: 55 },
+      (_, index) => `id${index + 1}`,
+    );
+    const accessToken = "token";
+    const warnSpy = vi.spyOn(logger, "warn");
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
 
     vi.mocked(getBatch)
       .mockResolvedValueOnce(
-        messageIds.map(() => ({
-          error: {
-            code: 429,
-            message: "Too many concurrent requests for user",
-            errors: [{ reason: "rateLimitExceeded" }],
-            status: "RESOURCE_EXHAUSTED",
-          },
-        })),
+        messageIds.slice(0, 25).map((id, index) =>
+          index < 10
+            ? {
+                id,
+                threadId: `${id}-thread`,
+                payload: { headers: [] },
+              }
+            : {
+                error: {
+                  code: 429,
+                  message: "Too many concurrent requests for user",
+                  errors: [{ reason: "rateLimitExceeded" }],
+                  status: "RESOURCE_EXHAUSTED",
+                },
+              },
+        ),
       )
       .mockResolvedValueOnce(
-        messageIds.slice(0, 10).map((id) => ({
+        messageIds.slice(10, 20).map((id) => ({
           id,
           threadId: `${id}-thread`,
           payload: { headers: [] },
         })),
       )
       .mockResolvedValueOnce(
-        messageIds.slice(10).map((id) => ({
+        messageIds.slice(20, 25).map((id) => ({
+          id,
+          threadId: `${id}-thread`,
+          payload: { headers: [] },
+        })),
+      )
+      .mockResolvedValueOnce(
+        messageIds.slice(25, 50).map((id) => ({
+          id,
+          threadId: `${id}-thread`,
+          payload: { headers: [] },
+        })),
+      )
+      .mockResolvedValueOnce(
+        messageIds.slice(50).map((id) => ({
           id,
           threadId: `${id}-thread`,
           payload: { headers: [] },
@@ -139,10 +202,87 @@ describe("getMessagesBatch", () => {
 
     const result = await getMessagesBatch({ messageIds, accessToken, logger });
 
-    expect(result).toHaveLength(12);
-    expect(getBatch).toHaveBeenCalledTimes(3);
+    expect(result).toHaveLength(55);
+    expect(getBatch).toHaveBeenCalledTimes(5);
     expect(vi.mocked(getBatch).mock.calls.map(([ids]) => ids.length)).toEqual([
-      12, 10, 2,
+      25, 10, 5, 25, 5,
+    ]);
+    expect(
+      warnSpy.mock.calls.filter(
+        ([message]) => message === "Retrying Gmail batch items",
+      ),
+    ).toEqual([
+      [
+        "Retrying Gmail batch items",
+        {
+          batchSize: 25,
+          rateLimitedItemCount: 15,
+          retryableItemCount: 15,
+          retryCount: 1,
+        },
+      ],
+    ]);
+    expect(sleep).toHaveBeenCalledWith(1500);
+  });
+
+  it("keeps non-rate-limited failures separate from smaller rate-limit retries", async () => {
+    const messageIds = Array.from(
+      { length: 25 },
+      (_, index) => `id${index + 1}`,
+    );
+    const accessToken = "token";
+
+    vi.mocked(getBatch)
+      .mockResolvedValueOnce(
+        messageIds.map((id, index) => {
+          if (index < 10) {
+            return {
+              id,
+              threadId: `${id}-thread`,
+              payload: { headers: [] },
+            };
+          }
+
+          return {
+            error:
+              index < 22
+                ? {
+                    code: 500,
+                    message: "Backend error",
+                    errors: [{ reason: "backendError" }],
+                    status: "INTERNAL",
+                  }
+                : {
+                    code: 429,
+                    message: "Too many concurrent requests for user",
+                    errors: [{ reason: "rateLimitExceeded" }],
+                    status: "RESOURCE_EXHAUSTED",
+                  },
+          };
+        }),
+      )
+      .mockResolvedValueOnce(
+        messageIds.slice(10, 22).map((id) => ({
+          id,
+          threadId: `${id}-thread`,
+          payload: { headers: [] },
+        })),
+      )
+      .mockResolvedValueOnce(
+        messageIds.slice(22).map((id) => ({
+          id,
+          threadId: `${id}-thread`,
+          payload: { headers: [] },
+        })),
+      );
+
+    const result = await getMessagesBatch({ messageIds, accessToken, logger });
+
+    expect(result).toHaveLength(25);
+    expect(vi.mocked(getBatch).mock.calls.map(([ids]) => ids)).toEqual([
+      messageIds,
+      messageIds.slice(10, 22),
+      messageIds.slice(22),
     ]);
   });
 
@@ -182,6 +322,7 @@ describe("getMessagesBatch", () => {
     });
 
     expect(getBatch).toHaveBeenCalledTimes(4);
+    expect(sleep).toHaveBeenCalledTimes(3);
   });
 });
 
