@@ -1387,6 +1387,10 @@ function updateActionType({
 }) {
   if (!primaryAction) return;
 
+  // Snapshot before any setValue: watch() can return a live reference, so
+  // reading primaryAction.type after mutating it would see the new type.
+  const previousType = primaryAction.type;
+
   if (nextType === ActionType.DRAFT_EMAIL) {
     setValue(`actions.${index}`, buildDraftEmailAction(primaryAction));
     if (draftMessagingIndexes.length > 0) {
@@ -1402,12 +1406,13 @@ function updateActionType({
     // Radix fires onValueChange even when re-selecting the same item; only
     // initialize defaults when the action wasn't already an integration action
     // so configured args aren't wiped.
-    if (primaryAction.type !== ActionType.INTEGRATION) {
+    if (previousType !== ActionType.INTEGRATION) {
       setValue(`actions.${index}.integrationName`, TODOIST_INTEGRATION);
       setValue(`actions.${index}.integrationToolName`, TODOIST_ADD_TASKS_TOOL);
       setValue(`actions.${index}.integrationArgs`, {
         content: TODOIST_DEFAULT_TASK_TEMPLATE,
         description: TODOIST_DEFAULT_DESCRIPTION_TEMPLATE,
+        dueString: TODOIST_AI_DUE_STRING_TEMPLATE,
         projectId: TODOIST_INBOX_PROJECT_ID,
         projectName: TODOIST_INBOX_PROJECT_NAME,
       });
