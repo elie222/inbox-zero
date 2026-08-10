@@ -139,6 +139,8 @@ export const actionInputs: Record<
   [ActionType.NOTIFY_SENDER]: {
     fields: [],
   },
+  // Rendered with dedicated integration fields in the rule editor
+  [ActionType.INTEGRATION]: { fields: [] },
 };
 
 export function getActionFields(fields: Action | ExecutedAction | undefined) {
@@ -182,16 +184,23 @@ type ActionFieldsSelection = {
   folderName: string | null;
   folderId: string | null;
   delayInMinutes: number | null;
+  integrationName: string | null;
+  integrationToolName: string | null;
   staticAttachments?: Prisma.JsonValue;
   selectedAttachments?: Prisma.JsonValue;
+  integrationArgs?: Prisma.JsonValue;
 };
 
 type SanitizableActionFields = Partial<
-  Omit<ActionFieldsSelection, "staticAttachments" | "selectedAttachments">
+  Omit<
+    ActionFieldsSelection,
+    "staticAttachments" | "selectedAttachments" | "integrationArgs"
+  >
 > & {
   type: ActionType;
   staticAttachments?: Prisma.JsonValue | null;
   selectedAttachments?: Prisma.JsonValue | null;
+  integrationArgs?: Prisma.JsonValue | null;
 };
 
 export function sanitizeActionFields(
@@ -217,12 +226,15 @@ export function sanitizeActionFields(
     folderName: null,
     folderId: null,
     delayInMinutes: action.delayInMinutes || null,
+    integrationName: null,
+    integrationToolName: null,
     staticAttachments: supportsStaticAttachments
       ? (action.staticAttachments ?? undefined)
       : undefined,
     selectedAttachments: isDraftReplyActionType(action.type)
       ? (action.selectedAttachments ?? undefined)
       : undefined,
+    integrationArgs: undefined,
   };
 
   switch (action.type) {
@@ -300,6 +312,14 @@ export function sanitizeActionFields(
     }
     case ActionType.NOTIFY_SENDER: {
       return base;
+    }
+    case ActionType.INTEGRATION: {
+      return {
+        ...base,
+        integrationName: action.integrationName ?? null,
+        integrationToolName: action.integrationToolName ?? null,
+        integrationArgs: action.integrationArgs ?? undefined,
+      };
     }
     default:
       // biome-ignore lint/correctness/noSwitchDeclarations: intentional exhaustive check

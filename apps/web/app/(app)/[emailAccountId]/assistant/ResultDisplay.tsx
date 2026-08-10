@@ -456,6 +456,16 @@ const ACTION_FAILURE_MESSAGES: Partial<
       SEND_FAILED: "The sender notification could not be sent.",
     },
   },
+  [ActionType.INTEGRATION]: {
+    fallback: "The Todoist task could not be created.",
+    codes: {
+      INTEGRATION_NOT_CONNECTED:
+        "Todoist isn't connected. Connect it on the Integrations page.",
+      MISSING_INTEGRATION_ARGS:
+        "The Todoist task could not be created because it has no task content.",
+      INTEGRATION_CALL_FAILED: "The Todoist task could not be created.",
+    },
+  },
 };
 
 function getActionFailureMessage(actionType: string, errorCode: string) {

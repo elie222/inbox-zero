@@ -1,4 +1,5 @@
 import type { RulesResponse } from "@/app/api/user/rules/route";
+import type { Prisma } from "@/generated/prisma/client";
 import { isAIRule, type RuleConditions } from "@/utils/condition";
 import { ActionType } from "@/generated/prisma/enums";
 import { TEMPLATE_VARIABLE_PATTERN } from "@/utils/template";
@@ -19,6 +20,7 @@ export type RiskAction = {
   to: string | null;
   cc: string | null;
   bcc: string | null;
+  integrationArgs?: Prisma.JsonValue | null;
 };
 
 export function getActionRiskLevel(
@@ -32,6 +34,7 @@ export function getActionRiskLevel(
     ActionType.REPLY,
     ActionType.FORWARD,
     ActionType.SEND_EMAIL,
+    ActionType.INTEGRATION,
   ];
   if (!highRiskActions.some((type) => type === action.type)) {
     return {
@@ -42,7 +45,11 @@ export function getActionRiskLevel(
 
   const fieldStatus = getFieldsDynamicStatus(action);
 
-  const contentFields = [fieldStatus.subject, fieldStatus.content];
+  const contentFields = [
+    fieldStatus.subject,
+    fieldStatus.content,
+    fieldStatus.integrationArgs,
+  ];
   const recipientFields = [fieldStatus.to, fieldStatus.cc, fieldStatus.bcc];
 
   const hasFullyDynamicContent = hasAnyFieldWithStatus(
@@ -145,20 +152,44 @@ export function getRiskLevel(
 }
 
 function getFieldsDynamicStatus(action: RiskAction) {
-  const checkFieldStatus = (field: string | null) => {
-    if (!field) return null;
-    if (isFullyDynamicField(field)) return "fully-dynamic";
-    if (isPartiallyDynamicField(field)) return "partially-dynamic";
-    return "static";
-  };
-
   return {
     subject: checkFieldStatus(action.subject),
     content: checkFieldStatus(action.content),
     to: checkFieldStatus(action.to),
     cc: checkFieldStatus(action.cc),
     bcc: checkFieldStatus(action.bcc),
+    integrationArgs: getIntegrationArgsDynamicStatus(action.integrationArgs),
   };
+}
+
+function checkFieldStatus(field: string | null) {
+  if (!field) return null;
+  if (isFullyDynamicField(field)) return "fully-dynamic";
+  if (isPartiallyDynamicField(field)) return "partially-dynamic";
+  return "static";
+}
+
+// String values inside integrationArgs support the same {{template}} syntax as
+// email content fields, so they carry the same dynamic-content risk.
+function getIntegrationArgsDynamicStatus(
+  integrationArgs: Prisma.JsonValue | null | undefined,
+) {
+  if (
+    !integrationArgs ||
+    typeof integrationArgs !== "object" ||
+    Array.isArray(integrationArgs)
+  ) {
+    return null;
+  }
+
+  const statuses = Object.values(integrationArgs)
+    .filter((value): value is string => typeof value === "string")
+    .map(checkFieldStatus);
+
+  if (statuses.includes("fully-dynamic")) return "fully-dynamic";
+  if (statuses.includes("partially-dynamic")) return "partially-dynamic";
+  if (statuses.includes("static")) return "static";
+  return null;
 }
 
 // Helper functions

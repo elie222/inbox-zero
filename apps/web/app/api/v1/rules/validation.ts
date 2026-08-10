@@ -137,8 +137,14 @@ export const ruleRequestBodySchema = z.object({
   actions: z.array(actionSchema).min(1),
 });
 
+// Responses may include INTEGRATION actions; creating them via the API is not supported.
+const ruleActionTypeResponseSchema = z.enum([
+  ...ruleActionTypeSchema.options,
+  ActionType.INTEGRATION,
+]);
+
 const ruleActionResponseSchema = z.object({
-  type: ruleActionTypeSchema,
+  type: ruleActionTypeResponseSchema,
   messagingChannelId: z.string().cuid().nullable().optional(),
   fields: z.object({
     label: z.string().nullable(),

@@ -120,6 +120,41 @@ describe("getActionFields", () => {
 });
 
 describe("sanitizeActionFields", () => {
+  describe("INTEGRATION", () => {
+    it("keeps integration fields and strips unrelated ones", () => {
+      const result = sanitizeActionFields({
+        type: ActionType.INTEGRATION,
+        content: "should be stripped",
+        url: "https://example.com",
+        integrationName: "todoist",
+        integrationToolName: "add-tasks",
+        integrationArgs: { content: "Do the thing", projectId: "inbox" },
+      });
+
+      expect(result.integrationName).toBe("todoist");
+      expect(result.integrationToolName).toBe("add-tasks");
+      expect(result.integrationArgs).toEqual({
+        content: "Do the thing",
+        projectId: "inbox",
+      });
+      expect(result.content).toBeNull();
+      expect(result.url).toBeNull();
+    });
+
+    it("strips integration fields from other action types", () => {
+      const result = sanitizeActionFields({
+        type: ActionType.ARCHIVE,
+        integrationName: "todoist",
+        integrationToolName: "add-tasks",
+        integrationArgs: { content: "Do the thing" },
+      });
+
+      expect(result.integrationName).toBeNull();
+      expect(result.integrationToolName).toBeNull();
+      expect(result.integrationArgs).toBeUndefined();
+    });
+  });
+
   describe("actions with no fields", () => {
     it("returns base fields for ARCHIVE", () => {
       const result = sanitizeActionFields({ type: ActionType.ARCHIVE });

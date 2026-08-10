@@ -481,6 +481,10 @@ async function executeMatchedRule(
                       item.staticAttachments != null
                         ? (item.staticAttachments as Prisma.InputJsonValue)
                         : undefined,
+                    integrationArgs:
+                      item.integrationArgs != null
+                        ? (item.integrationArgs as Prisma.InputJsonValue)
+                        : undefined,
                     selectedAttachments:
                       item.selectedAttachments != null
                         ? (item.selectedAttachments as Prisma.InputJsonValue)

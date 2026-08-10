@@ -30,6 +30,7 @@ const actionNames: Record<ActionType, string> = {
   [ActionType.DIGEST]: "Add to digest",
   [ActionType.NOTIFY_MESSAGING_CHANNEL]: "Notify",
   [ActionType.NOTIFY_SENDER]: "Notify sender",
+  [ActionType.INTEGRATION]: "Add Todoist task",
 };
 
 const actionTooltips: Partial<Record<ActionType, string>> = {

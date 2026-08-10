@@ -82,7 +82,20 @@ const zodActionType = z.enum([
   ActionType.DIGEST,
   ActionType.MOVE_FOLDER,
   ActionType.NOTIFY_SENDER,
+  ActionType.INTEGRATION,
 ]);
+
+// v1 integration args are Todoist add-tasks shaped; projectName is stored for display only
+const zodIntegrationArgs = z
+  .object({
+    content: z.string().nullish(),
+    description: z.string().nullish(),
+    dueString: z.string().nullish(),
+    projectId: z.string().nullish(),
+    projectName: z.string().nullish(),
+  })
+  .nullish();
+export type IntegrationActionArgs = z.infer<typeof zodIntegrationArgs>;
 
 const zodConditionType = z.enum([ConditionType.AI, ConditionType.STATIC]);
 
@@ -144,6 +157,9 @@ const zodAction = z
     folderId: zodField,
     delayInMinutes: delayInMinutesSchema,
     staticAttachments: z.array(attachmentSourceInputSchema).optional(),
+    integrationName: z.string().nullish(),
+    integrationToolName: z.string().nullish(),
+    integrationArgs: zodIntegrationArgs,
   })
   .superRefine((data, ctx) => {
     if (
@@ -228,6 +244,17 @@ const zodAction = z
         code: z.ZodIssueCode.custom,
         message: "Please select a folder from the list",
         path: ["folderName"],
+      });
+    }
+
+    if (
+      data.type === ActionType.INTEGRATION &&
+      !data.integrationArgs?.content?.trim()
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Please enter a task",
+        path: ["integrationArgs"],
       });
     }
   });
@@ -387,6 +414,9 @@ const importedAction = z
     folderName: z.string().nullish(),
     url: z.string().nullish(),
     delayInMinutes: delayInMinutesSchema,
+    integrationName: z.string().nullish(),
+    integrationToolName: z.string().nullish(),
+    integrationArgs: zodIntegrationArgs,
   })
   .superRefine((data, ctx) => {
     if (addDisabledRuleActionIssue(data.type, ctx)) return;
@@ -436,6 +466,17 @@ const importedAction = z
         code: z.ZodIssueCode.custom,
         message: "Move folder action requires a folder name",
         path: ["folderName"],
+      });
+    }
+
+    if (
+      data.type === ActionType.INTEGRATION &&
+      !data.integrationArgs?.content?.trim()
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Integration action requires task content",
+        path: ["integrationArgs"],
       });
     }
   });

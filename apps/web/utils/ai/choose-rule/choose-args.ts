@@ -23,6 +23,9 @@ import type { SelectedAttachment } from "@/utils/attachments/source-schema";
 
 const MODULE = "choose-args";
 
+// Schema field name prefix for templated values inside Action.integrationArgs
+const INTEGRATION_ARGS_FIELD_PREFIX = "integrationArgs.";
+
 export type EmailAccountForDrafting = EmailAccountWithAI & {
   draftReplyConfidence: DraftReplyConfidence;
 };
@@ -191,6 +194,22 @@ export function combineActionsWithAiArgs(
         continue;
       }
 
+      if (field.startsWith(INTEGRATION_ARGS_FIELD_PREFIX)) {
+        const argKey = field.slice(INTEGRATION_ARGS_FIELD_PREFIX.length);
+        const originalArgs = getIntegrationArgsRecord(action.integrationArgs);
+        const originalValue = originalArgs[argKey];
+        if (typeof originalValue === "string") {
+          updatedAction.integrationArgs = {
+            ...getIntegrationArgsRecord(updatedAction.integrationArgs),
+            [argKey]: mergeTemplateWithVars(
+              originalValue,
+              vars as Record<`var${number}`, string>,
+            ),
+          } as Action["integrationArgs"];
+        }
+        continue;
+      }
+
       // Only process fields that we know can contain template strings
       if (
         field === "label" ||
@@ -312,7 +331,7 @@ export function getParameterFieldsForAction(
   action: Pick<
     Action,
     "label" | "subject" | "content" | "to" | "cc" | "bcc" | "url"
-  >,
+  > & { integrationArgs?: Action["integrationArgs"] },
 ) {
   const fields: Record<string, z.ZodObject<Record<string, z.ZodString>>> = {};
   const fieldNames = [
@@ -328,27 +347,47 @@ export function getParameterFieldsForAction(
   for (const field of fieldNames) {
     const value = action[field];
     if (typeof value === "string") {
-      const { aiPrompts } = parseTemplate(value);
-      if (aiPrompts.length > 0) {
-        const schemaFields: Record<string, z.ZodString> = {};
-        aiPrompts.forEach((_prompt, index) => {
-          schemaFields[`var${index + 1}`] = z.string();
-        });
+      const templateField = buildTemplateField(value);
+      if (templateField) fields[field] = templateField;
+    }
+  }
 
-        // Transform original template to use var1, var2, etc
-        let template = value;
-        aiPrompts.forEach((prompt, index) => {
-          template = template.replace(
-            `{{${prompt}}}`,
-            `{{var${index + 1}: ${prompt}}}`,
-          );
-        });
+  for (const [argKey, argValue] of Object.entries(
+    getIntegrationArgsRecord(action.integrationArgs),
+  )) {
+    if (typeof argValue !== "string") continue;
+    const templateField = buildTemplateField(argValue);
+    if (templateField) {
+      fields[`${INTEGRATION_ARGS_FIELD_PREFIX}${argKey}`] = templateField;
+    }
+  }
 
-        const variableList = aiPrompts
-          .map((prompt, index) => `- var${index + 1}: ${prompt}`)
-          .join("\n");
+  return fields;
+}
 
-        const description = `Fill in the variable(s) for this template. Return ONLY the value for each variable, not the surrounding template text.
+function buildTemplateField(value: string) {
+  const { aiPrompts } = parseTemplate(value);
+  if (aiPrompts.length === 0) return null;
+
+  const schemaFields: Record<string, z.ZodString> = {};
+  aiPrompts.forEach((_prompt, index) => {
+    schemaFields[`var${index + 1}`] = z.string();
+  });
+
+  // Transform original template to use var1, var2, etc
+  let template = value;
+  aiPrompts.forEach((prompt, index) => {
+    template = template.replace(
+      `{{${prompt}}}`,
+      `{{var${index + 1}: ${prompt}}}`,
+    );
+  });
+
+  const variableList = aiPrompts
+    .map((prompt, index) => `- var${index + 1}: ${prompt}`)
+    .join("\n");
+
+  const description = `Fill in the variable(s) for this template. Return ONLY the value for each variable, not the surrounding template text.
 
 Variables to fill:
 ${variableList}
@@ -356,12 +395,20 @@ ${variableList}
 Full template for context:
 ${template}`;
 
-        fields[field] = z.object(schemaFields).describe(description);
-      }
-    }
-  }
+  return z.object(schemaFields).describe(description);
+}
 
-  return fields;
+function getIntegrationArgsRecord(
+  integrationArgs: Action["integrationArgs"] | undefined,
+): Record<string, unknown> {
+  if (
+    integrationArgs &&
+    typeof integrationArgs === "object" &&
+    !Array.isArray(integrationArgs)
+  ) {
+    return integrationArgs as Record<string, unknown>;
+  }
+  return {};
 }
 
 /**

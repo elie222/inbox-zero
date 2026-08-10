@@ -397,7 +397,9 @@ export function RuleForm({
         formState.errors?.actions?.[index]?.url?.root?.message ||
         formState.errors?.actions?.[index]?.labelId?.root?.message ||
         formState.errors?.actions?.[index]?.to?.root?.message ||
-        formState.errors?.actions?.[index]?.messagingChannelId?.message;
+        formState.errors?.actions?.[index]?.messagingChannelId?.message ||
+        formState.errors?.actions?.[index]?.integrationArgs?.message ||
+        formState.errors?.actions?.[index]?.integrationArgs?.root?.message;
       if (actionError) actionErrors.push(actionError);
     });
     return actionErrors;
@@ -935,6 +937,7 @@ function getRuleEditorActions(actions: CreateRuleBody["actions"]) {
 type ActionTypeOption = {
   label: string;
   value: ActionType;
+  dividerBefore?: boolean;
 };
 
 export function getRuleActionTypeOptions({
@@ -954,7 +957,9 @@ export function getRuleActionTypeOptions({
       existingActionTypes,
     }),
   );
-  const extraActions = new Set(getExtraAvailableActionsForRuleEditor());
+  const extraActions = new Set(
+    getExtraAvailableActionsForRuleEditor(existingActionTypes),
+  );
 
   return [
     {
@@ -1031,6 +1036,15 @@ export function getRuleActionTypeOptions({
           {
             label: ACTION_TYPE_LABELS[ActionType.CALL_WEBHOOK],
             value: ActionType.CALL_WEBHOOK,
+          },
+        ]
+      : []),
+    ...(extraActions.has(ActionType.INTEGRATION)
+      ? [
+          {
+            label: ACTION_TYPE_LABELS[ActionType.INTEGRATION],
+            value: ActionType.INTEGRATION,
+            dividerBefore: true,
           },
         ]
       : []),

@@ -19,6 +19,7 @@ const ACTION_RESULT_FAILURE_TYPES = new Set<ActionType>([
   ActionType.DRAFT_MESSAGING_CHANNEL,
   ActionType.NOTIFY_MESSAGING_CHANNEL,
   ActionType.NOTIFY_SENDER,
+  ActionType.INTEGRATION,
 ]);
 
 export async function persistExecutedActionOutcome({

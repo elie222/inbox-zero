@@ -39,28 +39,40 @@ export async function syncMcpTools(
 
     const allTools = await listMcpTools(integration, emailAccountId);
 
+    const writeToolNames = integrationConfig.writeTools ?? [];
+    const writeTools = allTools.filter((tool) =>
+      writeToolNames.includes(tool.name),
+    );
+
     // Filter to only allowed tools if specified in config
     const allowedToolNames = integrationConfig.allowedTools;
-    let tools = allowedToolNames
+    let readTools = allowedToolNames
       ? allTools.filter((tool) => allowedToolNames.includes(tool.name))
       : allTools;
+    readTools = readTools.filter((tool) => !writeToolNames.includes(tool.name));
 
     // Filter out write tools if enabled (keeps only get, list, find, search, etc.)
     if (integrationConfig.filterWriteTools) {
-      const beforeCount = tools.length;
-      tools = tools.filter(
+      const beforeCount = readTools.length;
+      readTools = readTools.filter(
         (tool) => tool.readOnlyHint ?? isReadOnlyTool(tool.name),
       );
       logger.info("Filtered write tools", {
         before: beforeCount,
-        after: tools.length,
-        filtered: beforeCount - tools.length,
+        after: readTools.length,
+        filtered: beforeCount - readTools.length,
       });
     }
 
+    const tools = [
+      ...readTools.map((tool) => ({ ...tool, isWrite: false })),
+      ...writeTools.map((tool) => ({ ...tool, isWrite: true })),
+    ];
+
     logger.info("Fetched and filtered tools from MCP server", {
       totalToolsAvailable: allTools.length,
-      allowedToolsCount: tools.length,
+      allowedToolsCount: readTools.length,
+      writeToolsCount: writeTools.length,
       allowedTools: allowedToolNames,
     });
 
@@ -83,6 +95,7 @@ export async function syncMcpTools(
                 description: tool.description,
                 schema: tool.inputSchema as Prisma.InputJsonValue,
                 isEnabled: existingEnabledByName.get(tool.name) ?? true,
+                isWrite: tool.isWrite,
               })),
             }),
           ]

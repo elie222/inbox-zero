@@ -89,6 +89,40 @@ describe("createMcpToolsForAgent", () => {
     expect(Object.keys(result.tools)).toEqual(["notion-search"]);
   });
 
+  it("only queries read tools and never exposes server write tools to the agent", async () => {
+    // The DB query excludes isWrite tools, so a write-only connection has no
+    // enabled tools even if the MCP server advertises write tools.
+    mockConnections([
+      {
+        id: "connection-1",
+        integration: { id: "integration-1", name: "todoist" },
+        tools: [],
+      },
+    ]);
+    mockCreateMCPClient.mockResolvedValue({
+      tools: vi.fn().mockResolvedValue({
+        "add-tasks": { description: "add tasks" },
+      }),
+      close: vi.fn(),
+    });
+
+    const result = await createMcpToolsForAgent("email-account-1");
+
+    expect(prisma.mcpConnection.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          tools: { some: { isEnabled: true, isWrite: false } },
+        }),
+        select: expect.objectContaining({
+          tools: expect.objectContaining({
+            where: { isEnabled: true, isWrite: false },
+          }),
+        }),
+      }),
+    );
+    expect(result.tools).toEqual({});
+  });
+
   it("continues with other integrations when one client fails", async () => {
     mockConnections([
       {

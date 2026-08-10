@@ -14,6 +14,7 @@ import {
   FileTextIcon,
   MailIcon,
   NewspaperIcon,
+  SquareCheckBigIcon,
   StarIcon,
   Trash2Icon,
 } from "lucide-react";
@@ -46,6 +47,7 @@ export function getActionDisplay(
     content?: string | null;
     to?: string | null;
     notificationDestination?: string | null;
+    integrationArgs?: unknown;
   },
   provider: string,
   labels: Array<{ id: string; name: string }>,
@@ -110,6 +112,12 @@ export function getActionDisplay(
         : "Notify";
     case ActionType.NOTIFY_SENDER:
       return "Notify Sender";
+    case ActionType.INTEGRATION: {
+      const taskContent = getIntegrationTaskContent(action.integrationArgs);
+      return taskContent
+        ? `Add Todoist task: '${truncate(taskContent, 20)}'`
+        : "Add Todoist task";
+    }
     default: {
       const exhaustiveCheck: never = action.type;
       return exhaustiveCheck;
@@ -134,6 +142,7 @@ export const ACTION_TYPE_LABELS = {
   [ActionType.CALL_WEBHOOK]: "Call webhook",
   [ActionType.DIGEST]: "Add to digest",
   [ActionType.NOTIFY_SENDER]: "Notify sender",
+  [ActionType.INTEGRATION]: "Add Todoist task",
 } satisfies Record<ActionType, string>;
 
 export function getActionIcon(actionType: ActionType) {
@@ -169,9 +178,24 @@ export function getActionIcon(actionType: ActionType) {
       return BellIcon;
     case ActionType.NOTIFY_SENDER:
       return BellIcon;
+    case ActionType.INTEGRATION:
+      return SquareCheckBigIcon;
     default: {
       const exhaustiveCheck: never = actionType;
       return exhaustiveCheck;
     }
   }
+}
+
+function getIntegrationTaskContent(integrationArgs: unknown): string | null {
+  if (
+    integrationArgs &&
+    typeof integrationArgs === "object" &&
+    !Array.isArray(integrationArgs) &&
+    "content" in integrationArgs &&
+    typeof integrationArgs.content === "string"
+  ) {
+    return integrationArgs.content;
+  }
+  return null;
 }

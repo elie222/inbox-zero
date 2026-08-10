@@ -154,6 +154,9 @@ export type RuleActionFields = {
   content?: string | null;
   webhookUrl?: string | null;
   folderName?: string | null;
+  // INTEGRATION (Todoist task) only
+  description?: string | null;
+  dueString?: string | null;
 };
 
 export type RuleAction = {
@@ -219,6 +222,14 @@ export const createRuleActionSchema = (
           ),
         ]
       : []),
+    ...(allowedActionTypes.has(ActionType.INTEGRATION)
+      ? [
+          createActionObjectSchema(
+            ActionType.INTEGRATION,
+            createTodoistTaskFieldsSchema(),
+          ),
+        ]
+      : []),
   ];
 
   return z.union(actionSchemas) as z.ZodType<RuleAction>;
@@ -278,6 +289,8 @@ function getActionTypeDescription(type: ActionType) {
       return "Call a webhook for the matching email. Only use this when the user explicitly asks for a webhook, external HTTP callback, or integration URL and provides the webhook URL. Do not use this for ordinary labeling, archiving, categorization, notifications, folders, or other email automation.";
     case ActionType.MOVE_FOLDER:
       return "Move the matching email to a folder.";
+    case ActionType.INTEGRATION:
+      return "Add a task to the user's Todoist for the matching email. Only use this when the user explicitly asks to create Todoist tasks. Fails if Todoist isn't connected.";
     default:
       return "Action type to apply to the matching email.";
   }
@@ -329,6 +342,21 @@ function createRequiredFolderFieldsSchema(provider: string) {
     folderName: requiredStringField(
       "The folder to move the email to",
       "MOVE_FOLDER requires fields.folderName.",
+    ),
+  });
+}
+
+function createTodoistTaskFieldsSchema() {
+  return z.object({
+    content: requiredStringField(
+      "The Todoist task title. Wrap any part the AI should generate from the email at run time in double braces, e.g. {{Short action item based on the email}}.",
+      "INTEGRATION requires fields.content.",
+    ),
+    description: optionalStringField(
+      "Optional Todoist task description. Supports the same {{double braces}} AI templates as the task title.",
+    ),
+    dueString: optionalStringField(
+      "Optional natural-language due date for the task, e.g. 'tomorrow' or 'in 7 days'. Omit for no due date.",
     ),
   });
 }

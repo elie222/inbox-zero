@@ -817,7 +817,19 @@ function mapActionToSanitizedFields(action: {
   folderId?: { value?: string | null } | null;
   delayInMinutes?: number | null;
   staticAttachments?: AttachmentSourceInput[] | null;
+  integrationName?: string | null;
+  integrationToolName?: string | null;
+  integrationArgs?: Record<string, string | null | undefined> | null;
 }) {
+  // Drop empty/null values so stored args only contain meaningful strings
+  const integrationArgs = action.integrationArgs
+    ? (Object.fromEntries(
+        Object.entries(action.integrationArgs).filter(
+          ([, value]) => typeof value === "string" && value.trim() !== "",
+        ),
+      ) as Record<string, string>)
+    : undefined;
+
   const sanitized = sanitizeActionFields({
     type: action.type,
     messagingChannelId: action.messagingChannelId ?? null,
@@ -835,6 +847,9 @@ function mapActionToSanitizedFields(action: {
     staticAttachments: action.staticAttachments?.length
       ? action.staticAttachments
       : undefined,
+    integrationName: action.integrationName,
+    integrationToolName: action.integrationToolName,
+    integrationArgs,
   });
 
   return {
@@ -854,6 +869,9 @@ function mapActionToSanitizedFields(action: {
     folderId: sanitized.folderId ?? null,
     delayInMinutes: sanitized.delayInMinutes ?? null,
     staticAttachments: sanitized.staticAttachments ?? null,
+    integrationName: sanitized.integrationName ?? null,
+    integrationToolName: sanitized.integrationToolName ?? null,
+    integrationArgs: sanitized.integrationArgs ?? null,
   };
 }
 
@@ -1102,6 +1120,9 @@ export const importRulesAction = actionClient
             folderId: null,
             url: action.url,
             delayInMinutes: action.delayInMinutes,
+            integrationName: action.integrationName,
+            integrationToolName: action.integrationToolName,
+            integrationArgs: action.integrationArgs ?? undefined,
           }));
 
           if (existingRuleId) {

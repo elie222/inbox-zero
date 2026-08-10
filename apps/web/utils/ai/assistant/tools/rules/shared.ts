@@ -29,6 +29,9 @@ type RuleActionFieldValues = {
   cc?: string | null;
   bcc?: string | null;
   folderName?: string | null;
+  // INTEGRATION (Todoist task) only
+  description?: string | null;
+  dueString?: string | null;
 };
 
 const providerRuleActionFieldBuilders: Record<
@@ -55,6 +58,8 @@ export function buildProviderRuleActionFields({
     webhookUrl: fields.webhookUrl ?? null,
     cc: fields.cc ?? null,
     bcc: fields.bcc ?? null,
+    description: fields.description ?? null,
+    dueString: fields.dueString ?? null,
     ...(providerRuleActionFieldBuilders[provider]?.(fields) ?? {}),
   };
 }

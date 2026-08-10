@@ -31,6 +31,11 @@ import {
   assertRuleActionsEnabled,
   getDisabledRuleActionTypesToPreserve,
 } from "@/utils/rule-action-feature-gates";
+import {
+  TODOIST_ADD_TASKS_TOOL,
+  TODOIST_INTEGRATION,
+} from "@/utils/integration-action";
+import { findIntegration } from "@/utils/mcp/integrations";
 import { hasWebhookAction } from "@/utils/webhook-action";
 import { assertNoSenderOnlyOverlap } from "@/utils/rule/sender-scope-overlap";
 
@@ -410,6 +415,7 @@ export async function createRule({
             to: a.to ?? null,
             cc: a.cc ?? null,
             bcc: a.bcc ?? null,
+            integrationArgs: (a.integrationArgs as Prisma.JsonValue) ?? null,
           })),
           enablement,
         ),
@@ -776,17 +782,23 @@ function getReplaceableRuleActionsWhere() {
     : {};
 }
 
+type MappableAction = CreateOrUpdateRuleSchema["actions"][number] & {
+  messagingChannelId?: string | null;
+  labelId?: string | null;
+  folderId?: string | null;
+  integrationName?: string | null;
+  integrationToolName?: string | null;
+  integrationArgs?: Prisma.JsonValue | null;
+};
+
 async function mapActionFields(
-  actions: (CreateOrUpdateRuleSchema["actions"][number] & {
-    messagingChannelId?: string | null;
-    labelId?: string | null;
-    folderId?: string | null;
-  })[],
+  actions: MappableAction[],
   provider: string,
   emailAccountId: string,
   logger: Logger,
 ) {
   await assertMessagingChannelsBelongToEmailAccount(actions, emailAccountId);
+  await assertIntegrationActionsConnected(actions, emailAccountId);
 
   const actionPromises = actions.map(
     async (a): Promise<RuleActionCreateData> => {
@@ -837,6 +849,11 @@ async function mapActionFields(
         folderId = await emailProvider.getOrCreateFolderIdByName(folderName);
       }
 
+      const integrationFields =
+        a.type === ActionType.INTEGRATION
+          ? getIntegrationCreateFields(a)
+          : null;
+
       return {
         type: a.type,
         messagingChannelId: a.messagingChannelId ?? null,
@@ -846,7 +863,8 @@ async function mapActionFields(
         cc: a.fields?.cc,
         bcc: a.fields?.bcc,
         subject: a.fields?.subject,
-        content: a.fields?.content,
+        // Integration task text lives in integrationArgs, not the content column
+        content: integrationFields ? null : a.fields?.content,
         url: a.fields?.webhookUrl,
         ...(isMicrosoftProvider(provider) && {
           folderName: folderName ?? null,
@@ -856,11 +874,70 @@ async function mapActionFields(
         staticAttachments:
           (a as { staticAttachments?: AttachmentSourceInput[] | null })
             .staticAttachments ?? undefined,
+        ...integrationFields,
       };
     },
   );
 
   return Promise.all(actionPromises);
+}
+
+function getIntegrationCreateFields(action: MappableAction) {
+  const integrationArgs =
+    action.integrationArgs ??
+    buildTodoistIntegrationArgsFromFields(action.fields);
+
+  return {
+    integrationName: action.integrationName ?? TODOIST_INTEGRATION,
+    integrationToolName: action.integrationToolName ?? TODOIST_ADD_TASKS_TOOL,
+    integrationArgs: integrationArgs as Prisma.InputJsonValue,
+  };
+}
+
+function buildTodoistIntegrationArgsFromFields(
+  fields: MappableAction["fields"],
+) {
+  return {
+    content: fields?.content ?? "",
+    ...(fields?.description && { description: fields.description }),
+    ...(fields?.dueString && { dueString: fields.dueString }),
+  };
+}
+
+async function assertIntegrationActionsConnected(
+  actions: readonly MappableAction[],
+  emailAccountId: string,
+) {
+  const integrationNames = [
+    ...new Set(
+      actions
+        .filter((action) => action.type === ActionType.INTEGRATION)
+        .map((action) => action.integrationName ?? TODOIST_INTEGRATION),
+    ),
+  ];
+
+  if (!integrationNames.length) return;
+
+  const connections = await prisma.mcpConnection.findMany({
+    where: {
+      emailAccountId,
+      isActive: true,
+      integration: { name: { in: integrationNames } },
+    },
+    select: { integration: { select: { name: true } } },
+  });
+  const connectedNames = new Set(
+    connections.map((connection) => connection.integration.name),
+  );
+
+  for (const name of integrationNames) {
+    if (connectedNames.has(name)) continue;
+
+    const displayName = findIntegration(name)?.displayName ?? name;
+    throw new SafeError(
+      `${displayName} isn't connected. Connect it to use this action.`,
+    );
+  }
 }
 
 async function assertMessagingChannelsBelongToEmailAccount(

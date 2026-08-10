@@ -177,6 +177,9 @@ export function getDefaultActions(
   messagingChannelId: string | null;
   delayInMinutes: number | null;
   staticAttachments: null;
+  integrationName: string | null;
+  integrationToolName: string | null;
+  integrationArgs: null;
   createdAt: Date;
   updatedAt: Date;
 }> {
@@ -200,6 +203,9 @@ export function getDefaultActions(
     messagingChannelId: string | null;
     delayInMinutes: number | null;
     staticAttachments: null;
+    integrationName: string | null;
+    integrationToolName: string | null;
+    integrationArgs: null;
     createdAt: Date;
     updatedAt: Date;
   }> = [];
@@ -222,6 +228,9 @@ export function getDefaultActions(
       messagingChannelId: null,
       delayInMinutes: null,
       staticAttachments: null,
+      integrationName: null,
+      integrationToolName: null,
+      integrationArgs: null,
       createdAt: now,
       updatedAt: now,
     });
@@ -243,6 +252,9 @@ export function getDefaultActions(
       messagingChannelId: null,
       delayInMinutes: null,
       staticAttachments: null,
+      integrationName: null,
+      integrationToolName: null,
+      integrationArgs: null,
       createdAt: now,
       updatedAt: now,
     });
@@ -266,6 +278,9 @@ export function getDefaultActions(
       messagingChannelId: null,
       delayInMinutes: null,
       staticAttachments: null,
+      integrationName: null,
+      integrationToolName: null,
+      integrationArgs: null,
       createdAt: now,
       updatedAt: now,
     });
@@ -289,6 +304,9 @@ export function getDefaultActions(
       messagingChannelId: null,
       delayInMinutes: null,
       staticAttachments: null,
+      integrationName: null,
+      integrationToolName: null,
+      integrationArgs: null,
       createdAt: now,
       updatedAt: now,
     });

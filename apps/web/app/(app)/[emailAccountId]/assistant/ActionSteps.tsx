@@ -32,6 +32,7 @@ import {
   Select,
   SelectContent,
   SelectItem,
+  SelectSeparator,
   SelectValue,
   SelectTrigger,
 } from "@/components/ui/select";
@@ -59,6 +60,18 @@ import { getConnectedRuleNotificationChannels } from "@/utils/messaging/routes";
 import type { GetMessagingChannelsResponse } from "@/app/api/user/messaging-channels/route";
 import { prefixPath } from "@/utils/path";
 import { isDraftReplyActionType } from "@/utils/actions/draft-reply";
+import {
+  TODOIST_ADD_TASKS_TOOL,
+  TODOIST_AI_DUE_STRING_TEMPLATE,
+  TODOIST_DEFAULT_DESCRIPTION_TEMPLATE,
+  TODOIST_DEFAULT_TASK_TEMPLATE,
+  TODOIST_INBOX_PROJECT_ID,
+  TODOIST_INBOX_PROJECT_NAME,
+  TODOIST_INTEGRATION,
+} from "@/utils/integration-action";
+import { useIntegrations } from "@/hooks/useIntegrations";
+import { useTodoistProjects } from "@/hooks/useTodoistProjects";
+import { LoadingContent } from "@/components/LoadingContent";
 import {
   buildDraftEmailAction,
   buildDraftMessagingAction,
@@ -105,7 +118,12 @@ export function ActionSteps({
   emailAccountId: string;
   remove: (index?: number | number[]) => void;
   replaceActions: (actions: CreateRuleBody["actions"]) => void;
-  typeOptions: { label: string; value: ActionType; icon: React.ElementType }[];
+  typeOptions: {
+    label: string;
+    value: ActionType;
+    icon: React.ElementType;
+    dividerBefore?: boolean;
+  }[];
   folders: OutlookFolder[];
   foldersLoading: boolean;
   messagingChannels: MessagingChannelOption[];
@@ -190,7 +208,12 @@ function ActionCard({
   emailAccountId: string;
   remove: (index?: number | number[]) => void;
   replaceActions: (actions: CreateRuleBody["actions"]) => void;
-  typeOptions: { label: string; value: ActionType; icon: React.ElementType }[];
+  typeOptions: {
+    label: string;
+    value: ActionType;
+    icon: React.ElementType;
+    dividerBefore?: boolean;
+  }[];
   folders: OutlookFolder[];
   foldersLoading: boolean;
   messagingChannels: MessagingChannelOption[];
@@ -342,12 +365,15 @@ function ActionCard({
           {typeOptions.map((option) => {
             const Icon = option.icon;
             return (
-              <SelectItem key={option.value} value={option.value}>
-                <div className="flex items-center gap-2">
-                  {Icon && <Icon className="size-4" />}
-                  {option.label}
-                </div>
-              </SelectItem>
+              <div key={option.value}>
+                {option.dividerBefore && <SelectSeparator />}
+                <SelectItem value={option.value}>
+                  <div className="flex items-center gap-2">
+                    {Icon && <Icon className="size-4" />}
+                    {option.label}
+                  </div>
+                </SelectItem>
+              </div>
             );
           })}
         </SelectContent>
@@ -787,6 +813,17 @@ function ActionCard({
         </Card>
       ) : isMessagingNotification ? (
         <Card className="p-4 space-y-4">{deliverySummary}</Card>
+      ) : actionType === ActionType.INTEGRATION ? (
+        <Card className="p-4 space-y-4">
+          <TodoistTaskFields
+            index={index}
+            register={register}
+            control={control}
+            setValue={setValue}
+            errors={errors}
+            emailAccountId={emailAccountId}
+          />
+        </Card>
       ) : isEmailAction || actionType === ActionType.CALL_WEBHOOK ? (
         <Card className="p-4 space-y-4">
           {deliverySummary}
@@ -1047,6 +1084,193 @@ function DraftReplyReviewChannelsSection({
   );
 }
 
+const TODOIST_DUE_DATE_OPTIONS = [
+  { value: "none", label: "No due date", dueString: null },
+  { value: "today", label: "Today", dueString: "today" },
+  { value: "tomorrow", label: "Tomorrow", dueString: "tomorrow" },
+  { value: "week", label: "In a week", dueString: "in 7 days" },
+  {
+    value: "ai",
+    label: "AI decides from email",
+    dueString: TODOIST_AI_DUE_STRING_TEMPLATE,
+  },
+] as const;
+
+function TodoistTaskFields({
+  index,
+  register,
+  control,
+  setValue,
+  errors,
+  emailAccountId,
+}: {
+  index: number;
+  register: UseFormRegister<CreateRuleBody>;
+  control: Control<CreateRuleBody>;
+  setValue: UseFormSetValue<CreateRuleBody>;
+  errors: FieldErrors<CreateRuleBody>;
+  emailAccountId: string;
+}) {
+  const { data: integrationsData, isLoading: integrationsLoading } =
+    useIntegrations();
+  const todoist = integrationsData?.integrations.find(
+    (integration) => integration.name === TODOIST_INTEGRATION,
+  );
+  const isConnected = !!todoist?.connection?.isActive;
+
+  const { data: projectsData, isLoading: projectsLoading } = useTodoistProjects(
+    { enabled: isConnected },
+  );
+
+  const integrationArgs = useWatch({
+    control,
+    name: `actions.${index}.integrationArgs`,
+  });
+  const projectId = integrationArgs?.projectId || TODOIST_INBOX_PROJECT_ID;
+  const dueString = integrationArgs?.dueString;
+
+  // The API can return the real Inbox project; the static "inbox" option covers it
+  const projects =
+    projectsData?.projects.filter(
+      (project) => project.name !== TODOIST_INBOX_PROJECT_NAME,
+    ) ?? [];
+  const hasSelectedProject =
+    projectId === TODOIST_INBOX_PROJECT_ID ||
+    projects.some((project) => project.id === projectId);
+
+  const errorMessage =
+    errors?.actions?.[index]?.integrationArgs?.message ||
+    errors?.actions?.[index]?.integrationArgs?.root?.message;
+
+  return (
+    <LoadingContent loading={integrationsLoading}>
+      {!isConnected ? (
+        <div className="space-y-3">
+          <MutedText className="px-1">
+            Todoist isn't connected. Connect it to use this action.
+          </MutedText>
+          <Button asChild size="sm" variant="outline">
+            <Link href={prefixPath(emailAccountId, "/integrations")}>
+              Connect Todoist
+            </Link>
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div>
+            <Label
+              htmlFor={`actions.${index}.integrationArgs.content`}
+              className="mb-2 block"
+            >
+              Task
+            </Label>
+            <Input
+              type="text"
+              name={`actions.${index}.integrationArgs.content`}
+              registerProps={register(
+                `actions.${index}.integrationArgs.content`,
+              )}
+              placeholder={TODOIST_DEFAULT_TASK_TEMPLATE}
+            />
+          </div>
+
+          <div>
+            <Label
+              htmlFor={`actions.${index}.integrationArgs.description`}
+              className="mb-2 block"
+            >
+              Description
+            </Label>
+            <Input
+              type="text"
+              name={`actions.${index}.integrationArgs.description`}
+              registerProps={register(
+                `actions.${index}.integrationArgs.description`,
+              )}
+              placeholder={TODOIST_DEFAULT_DESCRIPTION_TEMPLATE}
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Project</Label>
+              <LoadingContent loading={projectsLoading}>
+                <Select
+                  value={projectId}
+                  onValueChange={(nextProjectId) => {
+                    const projectName =
+                      nextProjectId === TODOIST_INBOX_PROJECT_ID
+                        ? TODOIST_INBOX_PROJECT_NAME
+                        : (projects.find(
+                            (project) => project.id === nextProjectId,
+                          )?.name ?? null);
+                    setValue(
+                      `actions.${index}.integrationArgs.projectId`,
+                      nextProjectId,
+                    );
+                    setValue(
+                      `actions.${index}.integrationArgs.projectName`,
+                      projectName,
+                    );
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={TODOIST_INBOX_PROJECT_ID}>
+                      {TODOIST_INBOX_PROJECT_NAME}
+                    </SelectItem>
+                    {projects.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.name}
+                      </SelectItem>
+                    ))}
+                    {!hasSelectedProject && (
+                      <SelectItem value={projectId}>
+                        {integrationArgs?.projectName || "Selected project"}
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </LoadingContent>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Due date</Label>
+              <Select
+                value={getTodoistDueDateOptionValue(dueString)}
+                onValueChange={(nextValue) => {
+                  const option = TODOIST_DUE_DATE_OPTIONS.find(
+                    (candidate) => candidate.value === nextValue,
+                  );
+                  setValue(
+                    `actions.${index}.integrationArgs.dueString`,
+                    option?.dueString ?? null,
+                  );
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TODOIST_DUE_DATE_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {errorMessage ? <ErrorMessage message={errorMessage} /> : null}
+        </div>
+      )}
+    </LoadingContent>
+  );
+}
+
 function MessagingChannelField({
   control,
   index,
@@ -1173,6 +1397,22 @@ function updateActionType({
 
   setValue(`actions.${index}.type`, nextType);
   setValue(`actions.${index}.messagingChannelId`, null);
+
+  if (nextType === ActionType.INTEGRATION) {
+    setValue(`actions.${index}.integrationName`, TODOIST_INTEGRATION);
+    setValue(`actions.${index}.integrationToolName`, TODOIST_ADD_TASKS_TOOL);
+    setValue(`actions.${index}.integrationArgs`, {
+      content: TODOIST_DEFAULT_TASK_TEMPLATE,
+      description: TODOIST_DEFAULT_DESCRIPTION_TEMPLATE,
+      projectId: TODOIST_INBOX_PROJECT_ID,
+      projectName: TODOIST_INBOX_PROJECT_NAME,
+    });
+  } else {
+    setValue(`actions.${index}.integrationName`, null);
+    setValue(`actions.${index}.integrationToolName`, null);
+    setValue(`actions.${index}.integrationArgs`, null);
+  }
+
   if (draftMessagingIndexes.length > 0) {
     remove(draftMessagingIndexes);
   }
@@ -1244,6 +1484,17 @@ function updateDraftReplyDelivery({
   ];
 
   replaceActions(nextActions);
+}
+
+function getTodoistDueDateOptionValue(dueString: string | null | undefined) {
+  if (!dueString) return "none";
+
+  const match = TODOIST_DUE_DATE_OPTIONS.find(
+    (option) => option.dueString === dueString,
+  );
+  if (match) return match.value;
+
+  return hasVariables(dueString) ? "ai" : "none";
 }
 
 function getMessagingChannelError({

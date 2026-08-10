@@ -110,6 +110,42 @@ describe("getActionRiskLevel", () => {
       expectedLevel: "medium",
       expectedMessageContains: "Medium Risk",
     },
+    {
+      name: "returns high risk for integration action with fully dynamic args",
+      action: {
+        subject: "",
+        content: "",
+        to: "",
+        cc: "",
+        bcc: "",
+        type: ActionType.INTEGRATION,
+        integrationArgs: {
+          content: "{{Short action item based on the email}}",
+          projectId: "inbox",
+        },
+      },
+      rule: {},
+      expectedLevel: "high",
+      expectedMessageContains: "High Risk",
+    },
+    {
+      name: "returns low risk for integration action with static args",
+      action: {
+        subject: "",
+        content: "",
+        to: "",
+        cc: "",
+        bcc: "",
+        type: ActionType.INTEGRATION,
+        integrationArgs: {
+          content: "Review this email",
+          projectId: "inbox",
+        },
+      },
+      rule: {},
+      expectedLevel: "low",
+      expectedMessageContains: "Low Risk",
+    },
   ];
 
   testCases.forEach(

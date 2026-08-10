@@ -18,6 +18,7 @@ import { handlePreviousDraftDeletion } from "@/utils/ai/choose-rule/draft-manage
 import { sendColdEmailNotification } from "@/utils/cold-email/send-notification";
 import type { ParsedMessage } from "@/utils/types";
 import prisma from "@/utils/prisma";
+import { callMcpTool } from "@/utils/mcp/call-tool";
 import { createTestLogger } from "@/__tests__/helpers";
 
 const { mockEnv } = vi.hoisted(() => ({
@@ -25,6 +26,7 @@ const { mockEnv } = vi.hoisted(() => ({
     deleteEmailActionEnabled: true,
     autoDraftDisabled: false,
     emailSendEnabled: true,
+    integrationActionEnabled: true,
   },
 }));
 
@@ -39,7 +41,14 @@ vi.mock("@/env", () => ({
     get NEXT_PUBLIC_EMAIL_SEND_ENABLED() {
       return mockEnv.emailSendEnabled;
     },
+    get NEXT_PUBLIC_INTEGRATION_ACTION_ENABLED() {
+      return mockEnv.integrationActionEnabled;
+    },
   },
+}));
+
+vi.mock("@/utils/mcp/call-tool", () => ({
+  callMcpTool: vi.fn().mockResolvedValue([]),
 }));
 
 vi.mock("@/utils/attachments/draft-attachments", () => ({
@@ -72,6 +81,9 @@ vi.mock("@/utils/prisma", () => ({
   default: {
     executedAction: {
       update: vi.fn().mockResolvedValue({}),
+    },
+    mcpConnection: {
+      findFirst: vi.fn().mockResolvedValue({ id: "connection-1" }),
     },
   },
 }));
@@ -873,6 +885,139 @@ describe("runActionFunction", () => {
 
       expect(sendColdEmailNotification).not.toHaveBeenCalled();
       expect(result).toEqual({ skipped: true, reason: "INTERNAL_SENDER" });
+    });
+  });
+
+  describe("integration", () => {
+    const integrationAction = {
+      id: "action-1",
+      type: ActionType.INTEGRATION,
+      integrationName: "todoist",
+      integrationToolName: "add-tasks",
+      integrationArgs: {
+        content: "Follow up on lease packet",
+        description: "From the property email",
+        dueString: "tomorrow",
+        projectId: "inbox",
+        projectName: "Inbox",
+      },
+    };
+
+    function runIntegration(
+      action: Parameters<typeof runActionFunction>[0]["action"],
+    ) {
+      return runActionFunction({
+        client: createMockEmailProvider(),
+        email,
+        action,
+        emailAccount,
+        executedRule: { id: "rule-1" } as never,
+        logger,
+      });
+    }
+
+    beforeEach(() => {
+      mockEnv.integrationActionEnabled = true;
+      vi.mocked(prisma.mcpConnection.findFirst).mockResolvedValue({
+        id: "connection-1",
+      } as never);
+      vi.mocked(callMcpTool).mockResolvedValue([]);
+    });
+
+    it("adds a Todoist task with the resolved args", async () => {
+      const result = await runIntegration(integrationAction);
+
+      expect(callMcpTool).toHaveBeenCalledWith({
+        emailAccountId: "account-1",
+        integration: "todoist",
+        toolName: "add-tasks",
+        args: {
+          tasks: [
+            {
+              content: "Follow up on lease packet",
+              description: "From the property email",
+              dueString: "tomorrow",
+              projectId: "inbox",
+            },
+          ],
+        },
+      });
+      expect(result).toEqual({ success: true });
+    });
+
+    it("omits empty optional args (e.g. AI decided there is no due date)", async () => {
+      await runIntegration({
+        ...integrationAction,
+        integrationArgs: { content: "Follow up", dueString: "  " },
+      });
+
+      expect(callMcpTool).toHaveBeenCalledWith(
+        expect.objectContaining({
+          args: { tasks: [{ content: "Follow up" }] },
+        }),
+      );
+    });
+
+    it("skips when integration actions are disabled", async () => {
+      mockEnv.integrationActionEnabled = false;
+
+      const result = await runIntegration(integrationAction);
+
+      expect(callMcpTool).not.toHaveBeenCalled();
+      expect(result).toEqual({
+        skipped: true,
+        reason: "INTEGRATION_ACTION_DISABLED",
+      });
+    });
+
+    it("fails with a clear code when the integration is not connected", async () => {
+      vi.mocked(prisma.mcpConnection.findFirst).mockResolvedValue(null);
+
+      const result = await runIntegration(integrationAction);
+
+      expect(callMcpTool).not.toHaveBeenCalled();
+      expect(result).toMatchObject({
+        success: false,
+        errorCode: "INTEGRATION_NOT_CONNECTED",
+      });
+    });
+
+    it("fails when the action has no task content", async () => {
+      const result = await runIntegration({
+        ...integrationAction,
+        integrationArgs: { description: "no content" },
+      });
+
+      expect(callMcpTool).not.toHaveBeenCalled();
+      expect(result).toMatchObject({
+        success: false,
+        errorCode: "MISSING_INTEGRATION_ARGS",
+      });
+    });
+
+    it("rejects tools that are not registered write tools", async () => {
+      const result = await runIntegration({
+        ...integrationAction,
+        integrationToolName: "delete-tasks",
+      });
+
+      expect(callMcpTool).not.toHaveBeenCalled();
+      expect(result).toMatchObject({
+        success: false,
+        errorCode: "UNSUPPORTED_INTEGRATION_TOOL",
+      });
+    });
+
+    it("returns a structured failure when the tool call throws", async () => {
+      vi.mocked(callMcpTool).mockRejectedValue(new Error("server unavailable"));
+
+      const result = await runIntegration(integrationAction);
+
+      expect(result).toMatchObject({
+        success: false,
+        errorCode: "INTEGRATION_CALL_FAILED",
+        errorMessage: expect.stringContaining("server unavailable"),
+      });
     });
   });
 });
