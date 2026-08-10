@@ -85,6 +85,7 @@ async function getBatchChunkWithRetry<TRaw, TParsed>({
   }
 
   const missingIds = new Set<string>();
+  const rateLimitedIds = new Set<string>();
   let lastRetryableError = retryError;
   let retryableItemCount = 0;
   let rateLimitedItemCount = 0;
@@ -111,7 +112,10 @@ async function getBatchChunkWithRetry<TRaw, TParsed>({
         }
 
         retryableItemCount++;
-        if (isRateLimit) rateLimitedItemCount++;
+        if (isRateLimit) {
+          rateLimitedItemCount++;
+          rateLimitedIds.add(ids[i]);
+        }
         if (isRateLimit || !lastRetryableError) {
           lastRetryableError = item.error;
         }
@@ -147,10 +151,13 @@ async function getBatchChunkWithRetry<TRaw, TParsed>({
     );
     const jitterMs = Math.floor(Math.random() * (MAX_RETRY_JITTER_MS + 1));
     await sleep(exponentialDelayMs + jitterMs);
-    const retryChunks =
-      rateLimitedItemCount > 0
-        ? chunk(remainingIds, RATE_LIMIT_RETRY_BATCH_SIZE)
-        : [remainingIds];
+    const nonRateLimitedIds = remainingIds.filter(
+      (id) => !rateLimitedIds.has(id),
+    );
+    const retryChunks = [
+      ...chunk(nonRateLimitedIds, GMAIL_BATCH_SIZE),
+      ...chunk(Array.from(rateLimitedIds), RATE_LIMIT_RETRY_BATCH_SIZE),
+    ];
     const refetched: TParsed[] = [];
     for (const idsChunk of retryChunks) {
       const chunkResults = await getBatchChunkWithRetry({

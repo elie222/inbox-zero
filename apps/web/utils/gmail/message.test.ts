@@ -218,6 +218,67 @@ describe("getMessagesBatch", () => {
     expect(sleep).toHaveBeenCalledWith(1500);
   });
 
+  it("keeps non-rate-limited failures separate from smaller rate-limit retries", async () => {
+    const messageIds = Array.from(
+      { length: 50 },
+      (_, index) => `id${index + 1}`,
+    );
+    const accessToken = "token";
+
+    vi.mocked(getBatch)
+      .mockResolvedValueOnce(
+        messageIds.map((id, index) => {
+          if (index < 35) {
+            return {
+              id,
+              threadId: `${id}-thread`,
+              payload: { headers: [] },
+            };
+          }
+
+          return {
+            error:
+              index < 47
+                ? {
+                    code: 500,
+                    message: "Backend error",
+                    errors: [{ reason: "backendError" }],
+                    status: "INTERNAL",
+                  }
+                : {
+                    code: 429,
+                    message: "Too many concurrent requests for user",
+                    errors: [{ reason: "rateLimitExceeded" }],
+                    status: "RESOURCE_EXHAUSTED",
+                  },
+          };
+        }),
+      )
+      .mockResolvedValueOnce(
+        messageIds.slice(35, 47).map((id) => ({
+          id,
+          threadId: `${id}-thread`,
+          payload: { headers: [] },
+        })),
+      )
+      .mockResolvedValueOnce(
+        messageIds.slice(47).map((id) => ({
+          id,
+          threadId: `${id}-thread`,
+          payload: { headers: [] },
+        })),
+      );
+
+    const result = await getMessagesBatch({ messageIds, accessToken, logger });
+
+    expect(result).toHaveLength(50);
+    expect(vi.mocked(getBatch).mock.calls.map(([ids]) => ids)).toEqual([
+      messageIds,
+      messageIds.slice(35, 47),
+      messageIds.slice(47),
+    ]);
+  });
+
   it("throws when rate-limited batch items exhaust all retries", async () => {
     const rateLimitError = {
       error: {
