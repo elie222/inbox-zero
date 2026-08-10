@@ -52,7 +52,6 @@ import { SideNavMenu } from "@/components/SideNavMenu";
 import { CommandShortcut } from "@/components/ui/command";
 import { useSplitLabels } from "@/hooks/useLabels";
 import type { EmailLabel } from "@/providers/email-label-types";
-import { getLabelDisplayColor } from "@/utils/label/colors";
 import { LoadingContent } from "@/components/LoadingContent";
 import {
   useCleanerEnabled,
@@ -463,7 +462,10 @@ function labelToNavItem(
     icon: () => (
       <span
         className="size-2.5 shrink-0 rounded-full"
-        style={{ backgroundColor: getLabelDisplayColor(label) }}
+        // Match Gmail/Outlook: labels without an assigned color are gray
+        style={{
+          backgroundColor: label.color?.backgroundColor || "#9CA3AF",
+        }}
       />
     ),
     href: `?type=label&labelId=${encodeURIComponent(label.id)}`,
