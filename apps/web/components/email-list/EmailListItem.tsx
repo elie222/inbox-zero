@@ -136,6 +136,10 @@ export const EmailListItem = forwardRef(
                 </div>
                 {!splitView && (
                   <>
+                    <LabelBadges
+                      labels={labels}
+                      className="ml-2 hidden md:flex"
+                    />
                     {cta && (
                       <Button
                         variant="outline"
@@ -160,12 +164,6 @@ export const EmailListItem = forwardRef(
 
               {/* right */}
               <div className="flex shrink-0 items-center justify-between">
-                {!splitView && (
-                  <LabelBadges
-                    labels={labels}
-                    className="mr-3 hidden md:flex"
-                  />
-                )}
                 <div className="relative flex items-center">
                   <div
                     className="absolute right-0 z-20 hidden group-hover:block"
