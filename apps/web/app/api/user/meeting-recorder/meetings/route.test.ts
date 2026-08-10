@@ -49,9 +49,9 @@ describe("meeting recorder meetings route", () => {
           in: [
             MeetingRecordingStatus.JOINING,
             MeetingRecordingStatus.IN_WAITING_ROOM,
+            MeetingRecordingStatus.FAILED,
             MeetingRecordingStatus.IN_CALL,
             MeetingRecordingStatus.RECORDING,
-            MeetingRecordingStatus.FAILED,
             MeetingRecordingStatus.CALL_ENDED,
             MeetingRecordingStatus.DONE,
           ],
