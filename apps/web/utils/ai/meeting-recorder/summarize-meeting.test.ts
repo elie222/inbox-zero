@@ -1,7 +1,10 @@
+import { asSchema } from "ai";
 import { describe, expect, it, vi } from "vitest";
-import { z } from "zod";
 import { getEmailAccount } from "@/__tests__/helpers";
-import { aiSummarizeMeeting } from "@/utils/ai/meeting-recorder/summarize-meeting";
+import {
+  aiSummarizeMeeting,
+  parseMeetingSummary,
+} from "@/utils/ai/meeting-recorder/summarize-meeting";
 
 const { createGenerateObjectMock, generateObjectMock, getModelForUseCaseMock } =
   vi.hoisted(() => ({
@@ -56,10 +59,16 @@ describe("aiSummarizeMeeting", () => {
     });
 
     const { schema } = generateObjectMock.mock.calls[0][0];
-    const jsonSchema = z.toJSONSchema(schema) as {
+    const jsonSchema = (await Promise.resolve(asSchema(schema).jsonSchema)) as {
       properties: Record<
         string,
-        { items?: { properties: Record<string, unknown>; required?: string[] } }
+        {
+          anyOf?: Array<{ type?: string }>;
+          items?: {
+            properties: Record<string, { anyOf?: Array<{ type?: string }> }>;
+            required?: string[];
+          };
+        }
       >;
       required?: string[];
     };
@@ -73,7 +82,34 @@ describe("aiSummarizeMeeting", () => {
     expect([...(actionItem?.required ?? [])].sort()).toEqual(
       Object.keys(actionItem?.properties ?? {}).sort(),
     );
+    expect(jsonSchema.properties.openQuestions.anyOf).toContainEqual({
+      type: "null",
+    });
+    expect(jsonSchema.properties.nextSteps.anyOf).toContainEqual({
+      type: "null",
+    });
+    expect(actionItem?.properties.owner.anyOf).toContainEqual({
+      type: "null",
+    });
 
     expect(summary).toEqual(object);
+  });
+
+  it("parses summaries stored before optional fields became nullable", () => {
+    expect(
+      parseMeetingSummary({
+        overview: "The team reviewed the launch.",
+        keyDecisions: [],
+        actionItems: [{ description: "Prepare the launch checklist" }],
+      }),
+    ).toEqual({
+      overview: "The team reviewed the launch.",
+      keyDecisions: [],
+      actionItems: [
+        { description: "Prepare the launch checklist", owner: null },
+      ],
+      openQuestions: null,
+      nextSteps: null,
+    });
   });
 });
