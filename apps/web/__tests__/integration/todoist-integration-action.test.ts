@@ -77,6 +77,9 @@ vi.mock("@/utils/log-error-with-dedupe", () => ({
 
 const RUN_INTEGRATION_TESTS = process.env.RUN_INTEGRATION_TESTS;
 const TEST_EMAIL = "todoist-test@example.com";
+// Fixed port on purpose: t3-env snapshots process.env at module import, so
+// MCP_SERVER_URL_OVERRIDES must be set in vi.hoisted — before a runtime
+// -allocated port could be known.
 const MCP_EMULATOR_PORT = 4310;
 const TEST_ACCOUNT_ID = "test-account-id";
 

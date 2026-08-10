@@ -904,8 +904,8 @@ function buildTodoistIntegrationArgsFromFields(
   };
 }
 
-async function assertIntegrationActionsConnected(
-  actions: readonly MappableAction[],
+export async function assertIntegrationActionsConnected(
+  actions: readonly { type: ActionType; integrationName?: string | null }[],
   emailAccountId: string,
 ) {
   const integrationNames = [
@@ -1005,6 +1005,13 @@ function addNestedActionOwnershipToInputs(
   emailAccountId: string,
 ): Prisma.ActionCreateManyRuleInput[] {
   return actions.map((action) =>
-    addNestedActionOwnershipToInput(action, emailAccountId),
+    addNestedActionOwnershipToInput(
+      // Delayed execution doesn't support integration actions; a stored delay
+      // would make the scheduler silently drop the action at run time.
+      action.type === ActionType.INTEGRATION
+        ? { ...action, delayInMinutes: null }
+        : action,
+      emailAccountId,
+    ),
   );
 }

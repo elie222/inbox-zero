@@ -88,6 +88,13 @@ export function getActionRiskLevel(
   }
 
   if (hasFullyDynamicContent) {
+    if (action.type === ActionType.INTEGRATION) {
+      return {
+        level: RISK_LEVELS.HIGH,
+        message:
+          "High Risk: The AI can generate any task content from the matching email. A malicious sender could trick the AI into creating unwanted or misleading tasks in your connected integration.",
+      };
+    }
     return {
       level: RISK_LEVELS.HIGH,
       message:

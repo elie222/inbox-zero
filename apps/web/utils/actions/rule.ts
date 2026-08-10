@@ -35,6 +35,7 @@ import {
   updateRuleInstructions,
   type RuleActionCreateData,
   addActionOwnershipToInput,
+  assertIntegrationActionsConnected,
 } from "@/utils/rule/rule";
 import { SafeError } from "@/utils/error";
 import {
@@ -1124,6 +1125,13 @@ export const importRulesAction = actionClient
             integrationToolName: action.integrationToolName,
             integrationArgs: action.integrationArgs ?? undefined,
           }));
+
+          // Same guard as the editor/AI paths; an unconnected integration
+          // skips this rule (caught below) instead of failing the whole import
+          await assertIntegrationActionsConnected(
+            mappedActions,
+            emailAccountId,
+          );
 
           if (existingRuleId) {
             await replaceRuleWithResolvedActions({

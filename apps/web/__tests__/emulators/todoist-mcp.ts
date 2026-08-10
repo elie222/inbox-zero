@@ -28,12 +28,12 @@ const DEFAULT_PROJECTS: TodoistProject[] = [
 ];
 
 export async function createTodoistMcpEmulator({
-  port,
+  port = 0,
   projects = DEFAULT_PROJECTS,
 }: {
-  port: number;
+  port?: number;
   projects?: TodoistProject[];
-}): Promise<TodoistMcpEmulator> {
+} = {}): Promise<TodoistMcpEmulator> {
   const addedTasks: Array<Record<string, unknown>> = [];
 
   const httpServer = http.createServer((req, res) => {
@@ -43,10 +43,18 @@ export async function createTodoistMcpEmulator({
     });
   });
 
-  await new Promise<void>((resolve) => httpServer.listen(port, resolve));
+  // Reject on listen errors (e.g. port collision) instead of hanging
+  await new Promise<void>((resolve, reject) => {
+    httpServer.once("error", reject);
+    httpServer.listen(port, resolve);
+  });
+
+  const address = httpServer.address();
+  const boundPort =
+    address && typeof address === "object" ? address.port : port;
 
   return {
-    url: `http://localhost:${port}/mcp`,
+    url: `http://localhost:${boundPort}/mcp`,
     addedTasks,
     close: () =>
       new Promise<void>((resolve, reject) =>

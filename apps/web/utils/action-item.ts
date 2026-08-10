@@ -154,6 +154,10 @@ export function getActionFields(fields: Action | ExecutedAction | undefined) {
     url?: string;
     folderName?: string;
     folderId?: string;
+    task?: string;
+    taskDescription?: string;
+    dueDate?: string;
+    project?: string;
   } = {};
 
   // only return fields with a value
@@ -166,6 +170,27 @@ export function getActionFields(fields: Action | ExecutedAction | undefined) {
   if (fields?.url) res.url = fields.url;
   if (fields?.folderName) res.folderName = fields.folderName;
   if (fields?.folderId) res.folderId = fields.folderId;
+
+  const integrationArgs = getIntegrationArgsRecord(fields?.integrationArgs);
+  if (integrationArgs) {
+    if (typeof integrationArgs.content === "string" && integrationArgs.content)
+      res.task = integrationArgs.content;
+    if (
+      typeof integrationArgs.description === "string" &&
+      integrationArgs.description
+    )
+      res.taskDescription = integrationArgs.description;
+    if (
+      typeof integrationArgs.dueString === "string" &&
+      integrationArgs.dueString
+    )
+      res.dueDate = integrationArgs.dueString;
+    if (
+      typeof integrationArgs.projectName === "string" &&
+      integrationArgs.projectName
+    )
+      res.project = integrationArgs.projectName;
+  }
 
   return res;
 }
@@ -326,4 +351,17 @@ export function sanitizeActionFields(
       const exhaustiveCheck: never = action.type;
       return exhaustiveCheck;
   }
+}
+
+function getIntegrationArgsRecord(
+  integrationArgs: Prisma.JsonValue | null | undefined,
+): Record<string, unknown> | null {
+  if (
+    integrationArgs &&
+    typeof integrationArgs === "object" &&
+    !Array.isArray(integrationArgs)
+  ) {
+    return integrationArgs as Record<string, unknown>;
+  }
+  return null;
 }

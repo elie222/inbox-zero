@@ -5,10 +5,13 @@ const logger = createScopedLogger("mcp-server-url");
 
 // Server-only: resolves an integration's MCP server URL, honoring
 // MCP_SERVER_URL_OVERRIDES so dev/tests can point at a local emulator.
+// Ignored in production: an override there would redirect bearer-token'd
+// MCP traffic to an arbitrary server.
 export function getMcpServerUrl(integration: {
   name: string;
   serverUrl?: string;
 }): string | undefined {
+  if (env.NODE_ENV === "production") return integration.serverUrl;
   if (!env.MCP_SERVER_URL_OVERRIDES) return integration.serverUrl;
 
   try {

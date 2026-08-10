@@ -1399,14 +1399,22 @@ function updateActionType({
   setValue(`actions.${index}.messagingChannelId`, null);
 
   if (nextType === ActionType.INTEGRATION) {
-    setValue(`actions.${index}.integrationName`, TODOIST_INTEGRATION);
-    setValue(`actions.${index}.integrationToolName`, TODOIST_ADD_TASKS_TOOL);
-    setValue(`actions.${index}.integrationArgs`, {
-      content: TODOIST_DEFAULT_TASK_TEMPLATE,
-      description: TODOIST_DEFAULT_DESCRIPTION_TEMPLATE,
-      projectId: TODOIST_INBOX_PROJECT_ID,
-      projectName: TODOIST_INBOX_PROJECT_NAME,
-    });
+    // Radix fires onValueChange even when re-selecting the same item; only
+    // initialize defaults when the action wasn't already an integration action
+    // so configured args aren't wiped.
+    if (primaryAction.type !== ActionType.INTEGRATION) {
+      setValue(`actions.${index}.integrationName`, TODOIST_INTEGRATION);
+      setValue(`actions.${index}.integrationToolName`, TODOIST_ADD_TASKS_TOOL);
+      setValue(`actions.${index}.integrationArgs`, {
+        content: TODOIST_DEFAULT_TASK_TEMPLATE,
+        description: TODOIST_DEFAULT_DESCRIPTION_TEMPLATE,
+        projectId: TODOIST_INBOX_PROJECT_ID,
+        projectName: TODOIST_INBOX_PROJECT_NAME,
+      });
+      // Delayed execution doesn't support integration actions; a leftover
+      // delay from the previous type would silently drop the action.
+      setValue(`actions.${index}.delayInMinutes`, null);
+    }
   } else {
     setValue(`actions.${index}.integrationName`, null);
     setValue(`actions.${index}.integrationToolName`, null);

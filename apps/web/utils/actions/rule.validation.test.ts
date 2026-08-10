@@ -595,6 +595,30 @@ describe("INTEGRATION action validation", () => {
     }
   });
 
+  it("rejects unknown integration names", () => {
+    const result = createRuleBody.safeParse({
+      ...validRule,
+      actions: [{ ...integrationAction, integrationName: "not-a-real-app" }],
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].message).toContain("Unknown integration");
+    }
+  });
+
+  it("rejects tools that are not registered write tools", () => {
+    const result = createRuleBody.safeParse({
+      ...validRule,
+      actions: [{ ...integrationAction, integrationToolName: "delete-tasks" }],
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].message).toContain(
+        "Unsupported integration tool",
+      );
+    }
+  });
+
   it("rejects new integration actions when the feature gate is off", () => {
     mockEnv.integrationActionEnabled = false;
     const result = createRuleBody.safeParse({

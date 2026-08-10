@@ -156,7 +156,8 @@ function truncate(value: string, maxLength: number) {
 }
 
 function getUnknownActionFailureCode(actionType: ActionType) {
-  return actionType === ActionType.NOTIFY_SENDER
-    ? "UNKNOWN_NOTIFY_FAILURE"
-    : "UNKNOWN_MESSAGING_FAILURE";
+  if (actionType === ActionType.NOTIFY_SENDER) return "UNKNOWN_NOTIFY_FAILURE";
+  if (actionType === ActionType.INTEGRATION)
+    return "UNKNOWN_INTEGRATION_FAILURE";
+  return "UNKNOWN_MESSAGING_FAILURE";
 }

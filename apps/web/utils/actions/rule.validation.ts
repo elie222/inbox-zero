@@ -9,6 +9,7 @@ import {
 import { ConditionType } from "@/utils/config";
 import { NINETY_DAYS_MINUTES } from "@/utils/date";
 import { validateLabelNameBasic } from "@/utils/gmail/label-validation";
+import { findIntegration } from "@/utils/mcp/integrations";
 import { addMissingRecipientIssue } from "@/utils/rule/recipient-validation";
 import { attachmentSourceInputSchema } from "@/utils/attachments/source-schema";
 import { addDisabledRuleActionIssue } from "@/utils/rule-action-feature-gates";
@@ -247,16 +248,14 @@ const zodAction = z
       });
     }
 
-    if (
-      data.type === ActionType.INTEGRATION &&
-      !data.integrationArgs?.content?.trim()
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Please enter a task",
-        path: ["integrationArgs"],
-      });
-    }
+    addIntegrationActionIssues({
+      actionType: data.type,
+      integrationName: data.integrationName,
+      integrationToolName: data.integrationToolName,
+      taskContent: data.integrationArgs?.content,
+      missingContentMessage: "Please enter a task",
+      ctx,
+    });
   });
 
 export const createRuleBody = z.object({
@@ -469,16 +468,14 @@ const importedAction = z
       });
     }
 
-    if (
-      data.type === ActionType.INTEGRATION &&
-      !data.integrationArgs?.content?.trim()
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Integration action requires task content",
-        path: ["integrationArgs"],
-      });
-    }
+    addIntegrationActionIssues({
+      actionType: data.type,
+      integrationName: data.integrationName,
+      integrationToolName: data.integrationToolName,
+      taskContent: data.integrationArgs?.content,
+      missingContentMessage: "Integration action requires task content",
+      ctx,
+    });
   });
 
 const importedRule = z
@@ -522,6 +519,52 @@ export const importRulesBody = z.object({
 });
 export type ImportRulesBody = z.infer<typeof importRulesBody>;
 export type ImportedRule = z.infer<typeof importedRule>;
+
+function addIntegrationActionIssues({
+  actionType,
+  integrationName,
+  integrationToolName,
+  taskContent,
+  missingContentMessage,
+  ctx,
+}: {
+  actionType: ActionType;
+  integrationName: string | null | undefined;
+  integrationToolName: string | null | undefined;
+  taskContent: string | null | undefined;
+  missingContentMessage: string;
+  ctx: z.RefinementCtx;
+}) {
+  if (actionType !== ActionType.INTEGRATION) return;
+
+  const integration = integrationName
+    ? findIntegration(integrationName)
+    : undefined;
+  if (!integration) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Unknown integration",
+      path: ["integrationName"],
+    });
+  } else if (
+    !integrationToolName ||
+    !integration.writeTools?.includes(integrationToolName)
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Unsupported integration tool",
+      path: ["integrationToolName"],
+    });
+  }
+
+  if (!taskContent?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: missingContentMessage,
+      path: ["integrationArgs"],
+    });
+  }
+}
 
 function addRecipientRequirementIssue({
   actionType,

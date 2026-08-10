@@ -157,6 +157,9 @@ const ruleActionResponseSchema = z.object({
     folderName: z.string().nullable(),
   }),
   delayInMinutes: z.number().nullable(),
+  integrationName: z.string().nullable(),
+  integrationToolName: z.string().nullable(),
+  integrationArgs: z.record(z.string(), z.unknown()).nullable(),
 });
 
 export const ruleResponseSchema = z.object({

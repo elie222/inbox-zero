@@ -356,7 +356,7 @@ function createTodoistTaskFieldsSchema() {
       "Optional Todoist task description. Supports the same {{double braces}} AI templates as the task title.",
     ),
     dueString: optionalStringField(
-      "Optional natural-language due date for the task, e.g. 'tomorrow' or 'in 7 days'. Omit for no due date.",
+      "Optional natural-language due date for the task, e.g. 'tomorrow' or 'in 7 days'. Also supports {{double braces}} AI templates. Omit for no due date.",
     ),
   });
 }

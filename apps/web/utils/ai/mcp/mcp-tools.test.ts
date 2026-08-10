@@ -90,18 +90,19 @@ describe("createMcpToolsForAgent", () => {
   });
 
   it("only queries read tools and never exposes server write tools to the agent", async () => {
-    // The DB query excludes isWrite tools, so a write-only connection has no
-    // enabled tools even if the MCP server advertises write tools.
+    // The DB rows only contain read tools (query excludes isWrite), so a write
+    // tool advertised by the MCP server must be dropped by the name filter.
     mockConnections([
       {
         id: "connection-1",
-        integration: { id: "integration-1", name: "todoist" },
-        tools: [],
+        integration: { id: "integration-1", name: "notion" },
+        tools: [{ name: "notion-search" }],
       },
     ]);
     mockCreateMCPClient.mockResolvedValue({
       tools: vi.fn().mockResolvedValue({
-        "add-tasks": { description: "add tasks" },
+        "notion-search": { description: "search" },
+        "notion-create-pages": { description: "write tool" },
       }),
       close: vi.fn(),
     });
@@ -120,7 +121,7 @@ describe("createMcpToolsForAgent", () => {
         }),
       }),
     );
-    expect(result.tools).toEqual({});
+    expect(Object.keys(result.tools)).toEqual(["notion-search"]);
   });
 
   it("continues with other integrations when one client fails", async () => {
