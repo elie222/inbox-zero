@@ -9,6 +9,7 @@ import type { ThreadsQuery } from "@/utils/threads/validation";
 import type { ThreadsResponse } from "@/app/api/threads/route";
 import { refetchEmailListAtom } from "@/store/email";
 import { PermissionsCheck } from "@/app/(app)/[emailAccountId]/PermissionsCheck";
+import { EmailProvider } from "@/providers/EmailProvider";
 import { createSearchParams } from "@/utils/url";
 
 export default function Mail(props: {
@@ -89,20 +90,22 @@ export default function Mail(props: {
   }, [setSize]);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <PermissionsCheck />
-      <LoadingContent loading={isLoading && !data} error={error}>
-        {allThreads && (
-          <List
-            emails={allThreads}
-            refetch={refetch}
-            type={searchParams.type}
-            showLoadMore={showLoadMore}
-            handleLoadMore={handleLoadMore}
-            isLoadingMore={isLoadingMore}
-          />
-        )}
-      </LoadingContent>
-    </div>
+    <EmailProvider>
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <PermissionsCheck />
+        <LoadingContent loading={isLoading && !data} error={error}>
+          {allThreads && (
+            <List
+              emails={allThreads}
+              refetch={refetch}
+              type={searchParams.type}
+              showLoadMore={showLoadMore}
+              handleLoadMore={handleLoadMore}
+              isLoadingMore={isLoadingMore}
+            />
+          )}
+        </LoadingContent>
+      </div>
+    </EmailProvider>
   );
 }
