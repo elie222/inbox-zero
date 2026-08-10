@@ -2,6 +2,7 @@ import { MeetingRecordingStatus } from "@/generated/prisma/enums";
 import {
   NO_RECORDING_STATUSES,
   RECORDED_SECTION_STATUSES,
+  STILL_CAPTURING_STATUSES,
 } from "@/utils/meeting-recorder/recording-lifecycle";
 
 type StatusBadge = {
@@ -77,6 +78,11 @@ export function getRecordingStatusBadge({
 
   if (end <= now && status) {
     if (!RECORDED_SECTION_STATUSES.includes(status)) return null;
+    // A recorder still capturing past the scheduled end means the call ran
+    // long, so show the recording wrapping up rather than the stale live badge.
+    if (STILL_CAPTURING_STATUSES.includes(status)) {
+      return STATUS_BADGES[MeetingRecordingStatus.CALL_ENDED];
+    }
     if (NO_RECORDING_STATUSES.includes(status)) {
       return { label: "Not recorded", variant: "red" };
     }
