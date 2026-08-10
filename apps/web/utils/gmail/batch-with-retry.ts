@@ -5,13 +5,13 @@ import { isRetryableError } from "@/utils/gmail/retry";
 import { sleep } from "@/utils/sleep";
 import type { Logger } from "@/utils/logger";
 
-const GMAIL_BATCH_SIZE = 10;
+const GMAIL_BATCH_SIZE = 50;
+const RATE_LIMIT_RETRY_BATCH_SIZE = 10;
 const MAX_BATCH_RETRIES = 3;
 const MAX_RETRY_JITTER_MS = 1000;
 
-// Gmail executes batch subrequests concurrently, so keep each request small
-// and sequential to avoid triggering the per-user concurrency limit. Retry only
-// failed items and preserve provider errors for account-level rate-limit mode.
+// Gmail recommends batches of 50 or fewer. Keep initial batches at that limit,
+// then reduce only rate-limited retries so successful items retain full throughput.
 export async function getBatchWithRetry<TRaw, TParsed>({
   ids,
   endpoint,
@@ -147,15 +147,23 @@ async function getBatchChunkWithRetry<TRaw, TParsed>({
     );
     const jitterMs = Math.floor(Math.random() * (MAX_RETRY_JITTER_MS + 1));
     await sleep(exponentialDelayMs + jitterMs);
-    const refetched = await getBatchChunkWithRetry({
-      ids: remainingIds,
-      endpoint,
-      accessToken,
-      parse,
-      retryCount: nextRetryCount,
-      retryError: lastRetryableError,
-      logger,
-    });
+    const retryChunks =
+      rateLimitedItemCount > 0
+        ? chunk(remainingIds, RATE_LIMIT_RETRY_BATCH_SIZE)
+        : [remainingIds];
+    const refetched: TParsed[] = [];
+    for (const idsChunk of retryChunks) {
+      const chunkResults = await getBatchChunkWithRetry({
+        ids: idsChunk,
+        endpoint,
+        accessToken,
+        parse,
+        retryCount: nextRetryCount,
+        retryError: lastRetryableError,
+        logger,
+      });
+      refetched.push(...chunkResults);
+    }
     return [...parsed, ...refetched];
   }
 

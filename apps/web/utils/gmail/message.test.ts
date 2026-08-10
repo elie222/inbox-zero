@@ -109,9 +109,9 @@ describe("getMessagesBatch", () => {
     expect(getBatch).toHaveBeenCalledTimes(2);
   });
 
-  it("splits large Gmail batches into sequential requests before Gmail throttles them", async () => {
+  it("keeps initial Gmail batches within the recommended size", async () => {
     const messageIds = Array.from(
-      { length: 25 },
+      { length: 100 },
       (_, index) => `id${index + 1}`,
     );
     const accessToken = "token";
@@ -136,16 +136,16 @@ describe("getMessagesBatch", () => {
 
     const result = await getMessagesBatch({ messageIds, accessToken, logger });
 
-    expect(result).toHaveLength(25);
+    expect(result).toHaveLength(100);
     expect(vi.mocked(getBatch).mock.calls.map(([ids]) => ids.length)).toEqual([
-      10, 10, 5,
+      50, 50,
     ]);
     expect(maxActiveBatchRequests).toBe(1);
   });
 
-  it("retries only rate-limited items within each safe batch", async () => {
+  it("retries only rate-limited items in smaller sequential batches", async () => {
     const messageIds = Array.from(
-      { length: 12 },
+      { length: 55 },
       (_, index) => `id${index + 1}`,
     );
     const accessToken = "token";
@@ -154,8 +154,8 @@ describe("getMessagesBatch", () => {
 
     vi.mocked(getBatch)
       .mockResolvedValueOnce(
-        messageIds.slice(0, 10).map((id, index) =>
-          index < 5
+        messageIds.slice(0, 50).map((id, index) =>
+          index < 35
             ? {
                 id,
                 threadId: `${id}-thread`,
@@ -172,14 +172,21 @@ describe("getMessagesBatch", () => {
         ),
       )
       .mockResolvedValueOnce(
-        messageIds.slice(5, 10).map((id) => ({
+        messageIds.slice(35, 45).map((id) => ({
           id,
           threadId: `${id}-thread`,
           payload: { headers: [] },
         })),
       )
       .mockResolvedValueOnce(
-        messageIds.slice(10).map((id) => ({
+        messageIds.slice(45, 50).map((id) => ({
+          id,
+          threadId: `${id}-thread`,
+          payload: { headers: [] },
+        })),
+      )
+      .mockResolvedValueOnce(
+        messageIds.slice(50).map((id) => ({
           id,
           threadId: `${id}-thread`,
           payload: { headers: [] },
@@ -188,10 +195,10 @@ describe("getMessagesBatch", () => {
 
     const result = await getMessagesBatch({ messageIds, accessToken, logger });
 
-    expect(result).toHaveLength(12);
-    expect(getBatch).toHaveBeenCalledTimes(3);
+    expect(result).toHaveLength(55);
+    expect(getBatch).toHaveBeenCalledTimes(4);
     expect(vi.mocked(getBatch).mock.calls.map(([ids]) => ids.length)).toEqual([
-      10, 5, 2,
+      50, 10, 5, 5,
     ]);
     expect(
       warnSpy.mock.calls.filter(
@@ -201,9 +208,9 @@ describe("getMessagesBatch", () => {
       [
         "Retrying Gmail batch items",
         {
-          batchSize: 10,
-          rateLimitedItemCount: 5,
-          retryableItemCount: 5,
+          batchSize: 50,
+          rateLimitedItemCount: 15,
+          retryableItemCount: 15,
           retryCount: 1,
         },
       ],
