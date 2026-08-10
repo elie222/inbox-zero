@@ -23,10 +23,11 @@ describe("syncMcpTools", () => {
 
   function mockConnection(
     existingTools: { name: string; isEnabled: boolean }[],
+    integrationName = "notion",
   ) {
     prisma.mcpConnection.findFirst.mockResolvedValue({
       id: "connection-1",
-      integration: { id: "integration-1", name: "notion" },
+      integration: { id: "integration-1", name: integrationName },
       tools: existingTools,
     } as unknown as Awaited<ReturnType<typeof prisma.mcpConnection.findFirst>>);
   }
@@ -44,6 +45,31 @@ describe("syncMcpTools", () => {
       data: [
         expect.objectContaining({ name: "notion-search", isEnabled: false }),
         expect.objectContaining({ name: "notion-fetch", isEnabled: true }),
+      ],
+    });
+  });
+
+  it("filters write tools using readOnlyHint, falling back to the name heuristic", async () => {
+    mockConnection([], "pipedream");
+    mockListMcpTools.mockResolvedValue([
+      { name: "slack_v2-list-channels" },
+      { name: "slack_v2-send-message" },
+      { name: "custom_read_tool", readOnlyHint: true },
+      { name: "app-list-archived-items", readOnlyHint: false },
+    ]);
+
+    await syncMcpTools("pipedream", "email-account-1", logger);
+
+    expect(prisma.mcpTool.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          name: "slack_v2-list-channels",
+          isEnabled: true,
+        }),
+        expect.objectContaining({
+          name: "custom_read_tool",
+          isEnabled: true,
+        }),
       ],
     });
   });

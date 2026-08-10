@@ -48,7 +48,9 @@ export async function syncMcpTools(
     // Filter out write tools if enabled (keeps only get, list, find, search, etc.)
     if (integrationConfig.filterWriteTools) {
       const beforeCount = tools.length;
-      tools = tools.filter((tool) => isReadOnlyTool(tool.name));
+      tools = tools.filter(
+        (tool) => tool.readOnlyHint ?? isReadOnlyTool(tool.name),
+      );
       logger.info("Filtered write tools", {
         before: beforeCount,
         after: tools.length,
@@ -80,9 +82,7 @@ export async function syncMcpTools(
                 name: tool.name,
                 description: tool.description,
                 schema: tool.inputSchema as Prisma.InputJsonValue,
-                isEnabled:
-                  existingEnabledByName.get(tool.name) ??
-                  !integrationConfig.defaultToolsDisabled,
+                isEnabled: existingEnabledByName.get(tool.name) ?? true,
               })),
             }),
           ]

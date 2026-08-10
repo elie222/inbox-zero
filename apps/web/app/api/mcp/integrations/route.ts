@@ -31,7 +31,6 @@ async function getData(emailAccountId: string) {
     url: integration.url,
     comingSoon: integration.comingSoon,
     authType: integration.authType,
-    toolsWarning: integration.toolsWarning,
     connection: connections.find(
       (connection) => connection.integration.name === integration.name,
     ),

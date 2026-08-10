@@ -10,7 +10,12 @@ export async function listMcpTools(
   integration: IntegrationKey,
   emailAccountId: string,
 ): Promise<
-  Array<{ name: string; description?: string; inputSchema?: unknown }>
+  Array<{
+    name: string;
+    description?: string;
+    inputSchema?: unknown;
+    readOnlyHint?: boolean;
+  }>
 > {
   const integrationConfig = getIntegration(integration);
 
@@ -40,6 +45,7 @@ export async function listMcpTools(
       name: tool.name,
       description: tool.description,
       inputSchema: tool.inputSchema,
+      readOnlyHint: tool.annotations?.readOnlyHint,
     }));
   } catch (error) {
     logger.error("Failed to list MCP tools", { error, integration });
