@@ -4,8 +4,6 @@ type McpIntegrationConfig = {
   authType: "oauth" | "api-token";
   scopes: string[];
   skipResourceParam?: boolean; // Some OAuth servers don't support RFC 8707 resource parameter
-  defaultToolsDisabled?: boolean; // For integrations with many tools (e.g. Pipedream), disable by default
-  toolsWarning?: string; // Warning message to show when user expands tools list
   filterWriteTools?: boolean; // Auto-filter write tools, only sync read-only tools (get, list, find, search)
 };
 
@@ -50,6 +48,65 @@ export const MCP_INTEGRATIONS: Record<
       "list_products",
       "list_subscriptions",
       // "search_stripe_resources",
+    ],
+    // OAuth endpoints auto-discovered via RFC 8414/9728
+  },
+  linear: {
+    name: "linear",
+    displayName: "Linear",
+    url: "linear.app",
+    // Dedicated read-only endpoint; the server only exposes read tools here
+    serverUrl: "https://mcp.linear.app/mcp/readonly",
+    authType: "oauth",
+    scopes: ["read"],
+    // OAuth endpoints auto-discovered via RFC 8414/9728
+  },
+  attio: {
+    name: "attio",
+    displayName: "Attio",
+    url: "attio.com",
+    serverUrl: "https://mcp.attio.com/mcp",
+    authType: "oauth",
+    scopes: [],
+    allowedTools: [
+      "search-records",
+      "list-records",
+      "get-records-by-ids",
+      "list-attribute-definitions",
+      "list-lists",
+      "list-list-attribute-definitions",
+      "list-records-in-list",
+      "search-notes-by-metadata",
+      "semantic-search-notes",
+      "get-note-body",
+      "list-tasks",
+      "search-meetings",
+      // Write tools intentionally excluded: create-record, upsert-record,
+      // update-record, merge-records, add-record-to-list, create-note, ...
+    ],
+    // OAuth endpoints auto-discovered via RFC 8414/9728
+  },
+  intercom: {
+    name: "intercom",
+    displayName: "Intercom",
+    url: "intercom.com",
+    // US-hosted workspaces only; EU workspaces use mcp.eu.intercom.com (not supported yet)
+    serverUrl: "https://mcp.intercom.com/mcp",
+    authType: "oauth",
+    scopes: [],
+    allowedTools: [
+      "search",
+      "fetch",
+      "search_conversations",
+      "get_conversation",
+      "search_contacts",
+      "get_contact",
+      "list_companies",
+      "get_company",
+      "list_articles",
+      "search_articles",
+      "get_article",
+      // Write tools intentionally excluded: create_article, update_article
     ],
     // OAuth endpoints auto-discovered via RFC 8414/9728
   },
@@ -102,10 +159,7 @@ export const MCP_INTEGRATIONS: Record<
     authType: "oauth",
     scopes: ["mcp", "offline_access"],
     skipResourceParam: true, // Pipedream doesn't support RFC 8707 resource parameter
-    defaultToolsDisabled: true, // Pipedream can have 100s of tools, let users enable what they need
     filterWriteTools: true, // Only sync read-only tools (get, list, find, search)
-    toolsWarning:
-      "Only enable read-only tools. These tools are used during email drafting, so reading data is safe. Avoid enabling tools that create, update, or delete data.",
     // No allowedTools - accept all tools Pipedream provides
     // OAuth endpoints auto-discovered via RFC 8414
   },

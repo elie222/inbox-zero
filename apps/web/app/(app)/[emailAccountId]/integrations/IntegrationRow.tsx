@@ -19,14 +19,12 @@ import { toastError, toastSuccess } from "@/components/Toast";
 import { DomainIcon } from "@/components/charts/DomainIcon";
 import {
   disconnectMcpConnectionAction,
-  toggleMcpConnectionAction,
   toggleMcpToolAction,
 } from "@/utils/actions/mcp";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { fetchWithAccount } from "@/utils/fetch";
 import { RequestAccessDialog } from "./RequestAccessDialog";
 import { truncate } from "@/utils/string";
-import { Notice } from "@/components/Notice";
 import { useProductAnalytics } from "@/hooks/useProductAnalytics";
 import { redirectToSafeUrl } from "@/utils/redirect";
 
@@ -48,7 +46,6 @@ export function IntegrationRow({
   const conn = integration.connection;
 
   const connected = !!conn;
-  const isActive = conn?.isActive || false;
   const toolsCount = conn?.tools?.filter((t) => t.isEnabled).length || 0;
   const totalTools = conn?.tools?.length || 0;
   const connectionId = conn?.id;
@@ -106,38 +103,6 @@ export function IntegrationRow({
             : "Please try again or contact support if the issue persists.",
       });
       setConnecting(false);
-    }
-  };
-
-  const handleToggle = async (enabled: boolean) => {
-    if (!connectionId) return;
-    analytics.captureAction("integration_toggled", {
-      integration: integration.name,
-      enabled,
-    });
-
-    try {
-      const result = await toggleMcpConnectionAction(emailAccountId, {
-        connectionId,
-        isActive: enabled,
-      });
-
-      if (result?.serverError) {
-        toastError({
-          title: "Error toggling connection",
-          description: result.serverError,
-        });
-      } else {
-        toastSuccess({
-          description: `${integration.displayName} ${enabled ? "enabled" : "disabled"}`,
-        });
-        onConnectionChange();
-      }
-    } catch (error) {
-      toastError({
-        title: "Error toggling connection",
-        description: error instanceof Error ? error.message : "Unknown error",
-      });
     }
   };
 
@@ -232,17 +197,7 @@ export function IntegrationRow({
             integration.authType === "api-token" ? (
             <div className="flex items-center gap-2">
               {connected ? (
-                <div className="flex items-center gap-2">
-                  <span
-                    className={
-                      isActive
-                        ? "text-green-600 text-sm"
-                        : "text-gray-500 text-sm"
-                    }
-                  >
-                    {isActive ? "✓ Connected" : "○ Connected (Disabled)"}
-                  </span>
-                </div>
+                <span className="text-green-600 text-sm">✓ Connected</span>
               ) : (
                 <Button
                   size="sm"
@@ -294,17 +249,6 @@ export function IntegrationRow({
           )}
         </TableCell>
         <TableCell>
-          {!integration.comingSoon && (
-            <Toggle
-              name={`integrations.${integration.name}.enabled`}
-              enabled={isActive}
-              onChange={handleToggle}
-              disabled={!connected}
-              disabledTooltipText="Connect this integration first"
-            />
-          )}
-        </TableCell>
-        <TableCell>
           {connected && !integration.comingSoon && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -351,11 +295,7 @@ export function IntegrationRow({
       </TableRow>
 
       {expandedTools && tools.length > 0 && (
-        <ToolsList
-          tools={tools}
-          onToggleTool={handleToggleTool}
-          toolsWarning={integration.toolsWarning}
-        />
+        <ToolsList tools={tools} onToggleTool={handleToggleTool} />
       )}
     </>
   );
@@ -366,17 +306,15 @@ interface ToolsListProps {
   tools: NonNullable<
     GetIntegrationsResponse["integrations"][number]["connection"]
   >["tools"];
-  toolsWarning?: string;
 }
 
-function ToolsList({ tools, onToggleTool, toolsWarning }: ToolsListProps) {
+function ToolsList({ tools, onToggleTool }: ToolsListProps) {
   const sortedTools = [...tools].sort((a, b) => a.name.localeCompare(b.name));
 
   return (
     <TableRow>
-      <TableCell colSpan={5} className="bg-muted/50">
+      <TableCell colSpan={4} className="bg-muted/50">
         <div className="space-y-3">
-          {toolsWarning && <Notice variant="warning">{toolsWarning}</Notice>}
           {sortedTools.map((tool) => (
             <div
               key={tool.id}

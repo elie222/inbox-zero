@@ -21,21 +21,20 @@ They are context sources, not general workflow automations.
 
 - **Notion**: search and fetch approved Notion content.
 - **Stripe**: look up customers, invoices, subscriptions, and other billing data.
+- **Linear**: look up issues, projects, and other workspace data (read-only access).
+- **Attio**: look up people, companies, deals, notes, and tasks in your CRM.
+- **Intercom**: look up conversations, contacts, companies, and Help Center articles.
 - **Monday.com**: look up boards, board items, and workspaces.
 - **Pipedream**: connect read-oriented tools from services such as HubSpot, Slack, Airtable, and Todoist.
 
-## Connect and enable a service
+## Connect a service
 
 1. Open **Integrations** in the left sidebar.
 2. Select **Connect** beside a service.
 3. Review the provider's authorization screen and approve only the workspace and data you intend to share.
 4. Return to Inbox Zero and confirm that the row says **Connected**.
-5. Turn on the integration if it is connected but disabled.
-6. Expand **Tools** and enable only the lookups you want the assistant to use.
 
-The assistant can use a tool only when the connection is active and that individual tool is enabled.
-
-Pipedream connections can expose many tools, so they start disabled. Inspect each tool's name and description before enabling it.
+That's it: read-oriented tools are enabled automatically after connecting. Expand **Tools** if you want to turn off specific lookups.
 
 ## How context is used
 
@@ -49,7 +48,6 @@ An integration may return stale, incomplete, or incorrectly matched information,
 - Prefer read-only tools. Do not enable tools that create, update, or delete data merely because their provider makes them available.
 - Provider authorization controls which workspaces and records Inbox Zero can access; tool switches control which of those capabilities the assistant may call.
 - Disconnecting removes the connection from Inbox Zero. It does not delete data in the external service.
-- Disabling a connection preserves it but stops its tools from being used.
 
 ## Troubleshooting
 
@@ -60,10 +58,6 @@ Select **Join Early Access** from the Integrations page.
 ### Connect asks for an upgrade
 
 Context Integrations require Plus or higher. Upgrade the account that owns the selected email address, then restart the connection flow.
-
-### Connected but disabled
-
-Turn on the connection, expand its tools, and confirm that at least one tool is enabled.
 
 ### A tool does not appear
 
