@@ -52,7 +52,11 @@ export function getEmailMessageCellLabels({
     });
 
   if (shouldShowArchivedLabel({ labelIds, provider, labels })) {
-    labels?.unshift({ id: OutlookLabel.ARCHIVE, name: "Archived" });
+    labels?.unshift({
+      id: OutlookLabel.ARCHIVE,
+      name: "Archived",
+      color: undefined,
+    });
   }
 
   return labels;
