@@ -109,7 +109,7 @@ describe("getMessagesBatch", () => {
     expect(getBatch).toHaveBeenCalledTimes(2);
   });
 
-  it("keeps initial Gmail batches within the recommended size", async () => {
+  it("uses conservative sequential initial Gmail batches", async () => {
     const messageIds = Array.from(
       { length: 100 },
       (_, index) => `id${index + 1}`,
@@ -138,7 +138,7 @@ describe("getMessagesBatch", () => {
 
     expect(result).toHaveLength(100);
     expect(vi.mocked(getBatch).mock.calls.map(([ids]) => ids.length)).toEqual([
-      50, 50,
+      25, 25, 25, 25,
     ]);
     expect(maxActiveBatchRequests).toBe(1);
   });
@@ -154,8 +154,8 @@ describe("getMessagesBatch", () => {
 
     vi.mocked(getBatch)
       .mockResolvedValueOnce(
-        messageIds.slice(0, 50).map((id, index) =>
-          index < 35
+        messageIds.slice(0, 25).map((id, index) =>
+          index < 10
             ? {
                 id,
                 threadId: `${id}-thread`,
@@ -172,14 +172,21 @@ describe("getMessagesBatch", () => {
         ),
       )
       .mockResolvedValueOnce(
-        messageIds.slice(35, 45).map((id) => ({
+        messageIds.slice(10, 20).map((id) => ({
           id,
           threadId: `${id}-thread`,
           payload: { headers: [] },
         })),
       )
       .mockResolvedValueOnce(
-        messageIds.slice(45, 50).map((id) => ({
+        messageIds.slice(20, 25).map((id) => ({
+          id,
+          threadId: `${id}-thread`,
+          payload: { headers: [] },
+        })),
+      )
+      .mockResolvedValueOnce(
+        messageIds.slice(25, 50).map((id) => ({
           id,
           threadId: `${id}-thread`,
           payload: { headers: [] },
@@ -196,9 +203,9 @@ describe("getMessagesBatch", () => {
     const result = await getMessagesBatch({ messageIds, accessToken, logger });
 
     expect(result).toHaveLength(55);
-    expect(getBatch).toHaveBeenCalledTimes(4);
+    expect(getBatch).toHaveBeenCalledTimes(5);
     expect(vi.mocked(getBatch).mock.calls.map(([ids]) => ids.length)).toEqual([
-      50, 10, 5, 5,
+      25, 10, 5, 25, 5,
     ]);
     expect(
       warnSpy.mock.calls.filter(
@@ -208,7 +215,7 @@ describe("getMessagesBatch", () => {
       [
         "Retrying Gmail batch items",
         {
-          batchSize: 50,
+          batchSize: 25,
           rateLimitedItemCount: 15,
           retryableItemCount: 15,
           retryCount: 1,
@@ -220,7 +227,7 @@ describe("getMessagesBatch", () => {
 
   it("keeps non-rate-limited failures separate from smaller rate-limit retries", async () => {
     const messageIds = Array.from(
-      { length: 50 },
+      { length: 25 },
       (_, index) => `id${index + 1}`,
     );
     const accessToken = "token";
@@ -228,7 +235,7 @@ describe("getMessagesBatch", () => {
     vi.mocked(getBatch)
       .mockResolvedValueOnce(
         messageIds.map((id, index) => {
-          if (index < 35) {
+          if (index < 10) {
             return {
               id,
               threadId: `${id}-thread`,
@@ -238,7 +245,7 @@ describe("getMessagesBatch", () => {
 
           return {
             error:
-              index < 47
+              index < 22
                 ? {
                     code: 500,
                     message: "Backend error",
@@ -255,14 +262,14 @@ describe("getMessagesBatch", () => {
         }),
       )
       .mockResolvedValueOnce(
-        messageIds.slice(35, 47).map((id) => ({
+        messageIds.slice(10, 22).map((id) => ({
           id,
           threadId: `${id}-thread`,
           payload: { headers: [] },
         })),
       )
       .mockResolvedValueOnce(
-        messageIds.slice(47).map((id) => ({
+        messageIds.slice(22).map((id) => ({
           id,
           threadId: `${id}-thread`,
           payload: { headers: [] },
@@ -271,11 +278,11 @@ describe("getMessagesBatch", () => {
 
     const result = await getMessagesBatch({ messageIds, accessToken, logger });
 
-    expect(result).toHaveLength(50);
+    expect(result).toHaveLength(25);
     expect(vi.mocked(getBatch).mock.calls.map(([ids]) => ids)).toEqual([
       messageIds,
-      messageIds.slice(35, 47),
-      messageIds.slice(47),
+      messageIds.slice(10, 22),
+      messageIds.slice(22),
     ]);
   });
 

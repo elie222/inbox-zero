@@ -5,13 +5,13 @@ import { isRetryableError } from "@/utils/gmail/retry";
 import { sleep } from "@/utils/sleep";
 import type { Logger } from "@/utils/logger";
 
-const GMAIL_BATCH_SIZE = 50;
+const GMAIL_BATCH_SIZE = 25;
 const RATE_LIMIT_RETRY_BATCH_SIZE = 10;
 const MAX_BATCH_RETRIES = 3;
 const MAX_RETRY_JITTER_MS = 1000;
 
-// Gmail recommends batches of 50 or fewer. Keep initial batches at that limit,
-// then reduce only rate-limited retries so successful items retain full throughput.
+// Gmail counts each subrequest toward per-user concurrency. Leave headroom for
+// other account activity, then reduce rate-limited retries even further.
 export async function getBatchWithRetry<TRaw, TParsed>({
   ids,
   endpoint,
