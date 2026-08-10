@@ -19,6 +19,7 @@ import { toastError, toastSuccess } from "@/components/Toast";
 import { DomainIcon } from "@/components/charts/DomainIcon";
 import {
   disconnectMcpConnectionAction,
+  toggleMcpConnectionAction,
   toggleMcpToolAction,
 } from "@/utils/actions/mcp";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -46,6 +47,7 @@ export function IntegrationRow({
   const conn = integration.connection;
 
   const connected = !!conn;
+  const isActive = conn?.isActive || false;
   const toolsCount = conn?.tools?.filter((t) => t.isEnabled).length || 0;
   const totalTools = conn?.tools?.length || 0;
   const connectionId = conn?.id;
@@ -103,6 +105,40 @@ export function IntegrationRow({
             : "Please try again or contact support if the issue persists.",
       });
       setConnecting(false);
+    }
+  };
+
+  const handleTogglePause = async () => {
+    if (!connectionId) return;
+
+    const nextActive = !isActive;
+    analytics.captureAction("integration_toggled", {
+      integration: integration.name,
+      enabled: nextActive,
+    });
+
+    try {
+      const result = await toggleMcpConnectionAction(emailAccountId, {
+        connectionId,
+        isActive: nextActive,
+      });
+
+      if (result?.serverError) {
+        toastError({
+          title: "Error updating integration",
+          description: result.serverError,
+        });
+      } else {
+        toastSuccess({
+          description: `${integration.displayName} ${nextActive ? "resumed" : "paused"}`,
+        });
+        onConnectionChange();
+      }
+    } catch (error) {
+      toastError({
+        title: "Error updating integration",
+        description: error instanceof Error ? error.message : "Unknown error",
+      });
     }
   };
 
@@ -197,7 +233,11 @@ export function IntegrationRow({
             integration.authType === "api-token" ? (
             <div className="flex items-center gap-2">
               {connected ? (
-                <span className="text-green-600 text-sm">✓ Connected</span>
+                isActive ? (
+                  <span className="text-green-600 text-sm">✓ Connected</span>
+                ) : (
+                  <span className="text-muted-foreground text-sm">Paused</span>
+                )
               ) : (
                 <Button
                   size="sm"
@@ -278,6 +318,9 @@ export function IntegrationRow({
                     {expandedTools ? "Hide tools" : "Manage tools"}
                   </DropdownMenuItem>
                 )}
+                <DropdownMenuItem onClick={handleTogglePause}>
+                  {isActive ? "Pause" : "Resume"}
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleConnect} disabled={connecting}>
                   {connecting ? "Reconnecting..." : "Reconnect"}
                 </DropdownMenuItem>

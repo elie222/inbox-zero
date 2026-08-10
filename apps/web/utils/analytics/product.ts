@@ -74,6 +74,7 @@ export const PRODUCT_ANALYTICS_ACTIONS = {
     connectStarted: "integration_connect_started",
     disconnected: "integration_disconnected",
     disconnectStarted: "integration_disconnect_started",
+    toggled: "integration_toggled",
     toolsExpanded: "integration_tools_expanded",
     toolToggled: "integration_tool_toggled",
   },

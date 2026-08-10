@@ -48,6 +48,7 @@ An integration may return stale, incomplete, or incorrectly matched information,
 - Prefer read-only tools. Do not enable tools that create, update, or delete data merely because their provider makes them available.
 - Provider authorization controls which workspaces and records Inbox Zero can access; tool switches control which of those capabilities the assistant may call.
 - Disconnecting removes the connection from Inbox Zero. It does not delete data in the external service.
+- Pausing an integration from its row menu keeps the connection and your tool settings but stops its tools from being used until you resume it.
 
 ## Troubleshooting
 
@@ -65,7 +66,7 @@ Reconnect the service to resync its tool list. Some integrations intentionally a
 
 ### Drafts do not include expected context
 
-Confirm that the relevant tool is enabled and that the connected provider account can access the record. The assistant only calls tools it judges relevant to the email or meeting.
+Confirm that the integration is not paused, the relevant tool is enabled, and the connected provider account can access the record. The assistant only calls tools it judges relevant to the email or meeting.
 
 ### OAuth fails or is cancelled
 
