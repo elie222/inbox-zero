@@ -1,11 +1,24 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { Tooltip } from "@/components/Tooltip";
-import { Badge } from "@/components/ui/badge";
 import type { EmailMessageCellLabel } from "@/components/EmailMessageCellLabels";
 import { cn } from "@/utils";
 
 const MAX_VISIBLE_LABELS = 2;
+
+// Match Gmail/Outlook: labels without an assigned color are gray
+const FALLBACK_COLOR = "#9CA3AF";
+
+// Gmail-style chip: soft tint of the label color as background, with the
+// color mixed toward the theme foreground for readable text in both modes
+function chipStyle(label: EmailMessageCellLabel): CSSProperties {
+  const color = label.color?.backgroundColor || FALLBACK_COLOR;
+  return {
+    backgroundColor: `color-mix(in srgb, ${color} 16%, transparent)`,
+    color: `color-mix(in srgb, ${color} 55%, hsl(var(--foreground)))`,
+  };
+}
 
 export function LabelBadges({
   labels,
@@ -22,30 +35,18 @@ export function LabelBadges({
   return (
     <div className={cn("flex shrink-0 items-center gap-1", className)}>
       {visibleLabels.map((label) => (
-        <Badge
-          variant="outline"
+        <span
           key={label.id}
-          className="max-w-[140px] font-normal text-muted-foreground"
+          className="inline-flex max-w-[140px] items-center rounded-md px-1.5 py-0.5 text-xs font-medium"
+          style={chipStyle(label)}
         >
-          <span
-            className="mr-1 size-2 shrink-0 rounded-full"
-            // Match Gmail/Outlook: labels without an assigned color are gray
-            style={{
-              backgroundColor: label.color?.backgroundColor || "#9CA3AF",
-            }}
-          />
           <span className="truncate">{label.name}</span>
-        </Badge>
+        </span>
       ))}
       {overflowLabels.length > 0 && (
         <Tooltip content={overflowLabels.map((l) => l.name).join(", ")}>
-          <span>
-            <Badge
-              variant="outline"
-              className="font-normal text-muted-foreground"
-            >
-              +{overflowLabels.length}
-            </Badge>
+          <span className="inline-flex items-center rounded-md bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
+            +{overflowLabels.length}
           </span>
         </Tooltip>
       )}
