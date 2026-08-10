@@ -19,6 +19,7 @@ function ContentWrapper({ children }: { children: React.ReactNode }) {
   const { state } = useSidebar();
   const pathname = usePathname();
   const isAssistantRoute = pathname?.includes("/assistant");
+  const isMailRoute = pathname?.includes("/mail");
   const isRightSidebarOpen =
     !isAssistantRoute && state.includes("chat-sidebar");
 
@@ -35,6 +36,9 @@ function ContentWrapper({ children }: { children: React.ReactNode }) {
         className={cn(
           "overflow-hidden bg-background pt-9 max-w-full",
           noTopPadding && "pt-0",
+          // The mail page fills the viewport and scrolls its thread list
+          // internally, so layout banners shrink it instead of overflowing
+          isMailRoute && "h-svh",
         )}
       >
         {children}

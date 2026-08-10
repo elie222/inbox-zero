@@ -89,8 +89,7 @@ export default function Mail(props: {
   }, [setSize]);
 
   return (
-    // 2.25rem offsets the layout's pt-9 so the list scrolls within the viewport
-    <div className="flex h-[calc(100dvh-2.25rem)] flex-col overflow-hidden">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <PermissionsCheck />
       <LoadingContent loading={isLoading && !data} error={error}>
         {allThreads && (
