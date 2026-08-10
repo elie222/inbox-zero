@@ -46,6 +46,35 @@ Run focused validation appropriate to the changed files. Do not run builds or
 broad test suites when repository instructions prohibit them or the user did
 not request them.
 
+### Visual evidence for UI changes
+
+When the diff changes rendered UI and both states are practical to run, capture
+before-and-after evidence before publishing:
+
+1. Choose an explicit baseline such as production, a base-branch worktree, or a
+   preview deployment. Never infer a baseline from an unrelated local state.
+2. Render the same route, deterministic synthetic/demo state, and viewport in
+   both versions. Use the existing `agent-browser` skill (`diff url`,
+   `diff screenshot`, or matched screenshots), wait for fonts and loading states,
+   and capture the changed region rather than a full page unless the whole page
+   changed. Add a mobile pair when responsive behavior is part of the diff.
+3. Inspect both images for the intended change and accidental regressions.
+   Screenshots supplement focused tests; they do not replace interaction,
+   accessibility, or functional verification.
+4. Treat images as public before attaching them. Never capture customer data,
+   auth state, tokens, account IDs, or private service details. Do not upload to
+   anonymous or unapproved third-party hosts (including `0x0.st`), and do not
+   put credentials or bypass tokens in URLs or PR metadata.
+5. If an approved GitHub or first-party attachment path is available, add a
+   `Before | After` table to the PR body. Otherwise keep the artifacts local and
+   report their paths plus the exact attachment limitation; do not silently
+   publish them or add generated images to git without a repository convention.
+
+If a stable baseline, safe fixture, runnable browser, or approved attachment
+path is unavailable, do not fabricate evidence or block a non-visual fix. State
+what is missing in the PR and run the strongest non-visual verification
+available. Do not add a screenshot dependency solely for PR formatting.
+
 ## 2. Branch, commit, and push
 
 Create a dedicated branch when on the base branch or when the current branch
