@@ -19,6 +19,7 @@ import {
   createLabel,
   getOrCreateInboxZeroLabel,
   getLabelById,
+  OUTLOOK_COLOR_MAP,
 } from "@/utils/outlook/label";
 import type { InboxZeroLabel } from "@/utils/label";
 import type { ThreadsQuery } from "@/utils/threads/validation";
@@ -160,6 +161,7 @@ export class OutlookProvider implements EmailProvider {
       id: label.id || "",
       name: label.displayName || "",
       type: "user",
+      color: mapOutlookPresetColor(label.color),
     }));
   }
 
@@ -175,6 +177,7 @@ export class OutlookProvider implements EmailProvider {
       id: category.id || "",
       name: category.displayName || "",
       type: "user",
+      color: mapOutlookPresetColor(category.color),
     };
   }
 
@@ -2504,4 +2507,13 @@ function toGraphRecipients(to: string, logger: Logger) {
   }
 
   return recipients;
+}
+
+function mapOutlookPresetColor(
+  preset: string | null | undefined,
+): EmailLabel["color"] {
+  const backgroundColor =
+    preset && OUTLOOK_COLOR_MAP[preset as keyof typeof OUTLOOK_COLOR_MAP];
+  if (!backgroundColor) return;
+  return { backgroundColor, textColor: null };
 }

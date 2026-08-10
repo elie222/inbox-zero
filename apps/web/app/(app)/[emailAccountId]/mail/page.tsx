@@ -8,8 +8,6 @@ import { LoadingContent } from "@/components/LoadingContent";
 import type { ThreadsQuery } from "@/utils/threads/validation";
 import type { ThreadsResponse } from "@/app/api/threads/route";
 import { refetchEmailListAtom } from "@/store/email";
-import { BetaBanner } from "@/app/(app)/[emailAccountId]/mail/BetaBanner";
-import { ClientOnly } from "@/components/ClientOnly";
 import { PermissionsCheck } from "@/app/(app)/[emailAccountId]/PermissionsCheck";
 import { createSearchParams } from "@/utils/url";
 
@@ -91,11 +89,9 @@ export default function Mail(props: {
   }, [setSize]);
 
   return (
-    <>
+    // 2.25rem offsets the layout's pt-9 so the list scrolls within the viewport
+    <div className="flex h-[calc(100dvh-2.25rem)] flex-col overflow-hidden">
       <PermissionsCheck />
-      <ClientOnly>
-        <BetaBanner />
-      </ClientOnly>
       <LoadingContent loading={isLoading && !data} error={error}>
         {allThreads && (
           <List
@@ -108,6 +104,6 @@ export default function Mail(props: {
           />
         )}
       </LoadingContent>
-    </>
+    </div>
   );
 }

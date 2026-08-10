@@ -109,7 +109,7 @@ export const EmailListItem = forwardRef(
                   />
                 </div>
 
-                <div className="ml-4 w-48 min-w-0 overflow-hidden truncate text-foreground">
+                <div className="ml-4 w-28 min-w-0 overflow-hidden truncate text-foreground sm:w-36 xl:w-48">
                   {extractNameFromEmail(
                     participant(lastMessage, props.userEmail),
                   )}{" "}
@@ -125,7 +125,7 @@ export const EmailListItem = forwardRef(
                       <Button
                         variant="outline"
                         size="xs"
-                        className="ml-2"
+                        className="ml-2 hidden shrink-0 md:inline-flex"
                         asChild
                       >
                         <Link href={cta.ctaLink} target="_blank">

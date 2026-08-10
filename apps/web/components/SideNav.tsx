@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
+import { useQueryState } from "nuqs";
 import { getEmailTerminology } from "@/utils/terminology";
 import {
   AlertCircleIcon,
@@ -27,7 +28,6 @@ import {
   RatioIcon,
   SendIcon,
   SparklesIcon,
-  TagIcon,
   Users2Icon,
   ZapIcon,
 } from "lucide-react";
@@ -51,6 +51,8 @@ import { SetupProgressCard } from "@/components/SetupProgressCard";
 import { SideNavMenu } from "@/components/SideNavMenu";
 import { CommandShortcut } from "@/components/ui/command";
 import { useSplitLabels } from "@/hooks/useLabels";
+import type { EmailLabel } from "@/providers/email-label-types";
+import { getLabelDisplayColor } from "@/utils/label/colors";
 import { LoadingContent } from "@/components/LoadingContent";
 import {
   useCleanerEnabled,
@@ -73,6 +75,7 @@ type NavItem = {
   target?: "_blank";
   count?: number;
   hideInMail?: boolean;
+  active?: boolean;
   beta?: boolean;
   new?: boolean;
 };
@@ -357,33 +360,20 @@ function MailNav({ path }: { path: string }) {
   const { provider } = useAccount();
   const terminology = getEmailTerminology(provider);
 
-  // Transform user labels into NavItems
-  const labelNavItems = useMemo(() => {
-    const searchParams = new URLSearchParams(path.split("?")[1] || "");
-    const currentLabelId = searchParams.get("labelId");
+  const [currentType] = useQueryState("type");
+  const [currentLabelId] = useQueryState("labelId");
+  // The mail page defaults to the inbox when no type is selected
+  const activeType = currentLabelId ? null : (currentType ?? "inbox");
 
-    return visibleLabels.map((label) => ({
-      name: label.name ?? "",
-      icon: TagIcon,
-      href: `?type=label&labelId=${encodeURIComponent(label.id ?? "")}`,
-      // Add active state for the current label
-      active: currentLabelId === label.id,
-    }));
-  }, [visibleLabels, path]);
+  const labelNavItems = useMemo(
+    () => visibleLabels.map((label) => labelToNavItem(label, currentLabelId)),
+    [visibleLabels, currentLabelId],
+  );
 
-  // Transform hidden labels into NavItems
-  const hiddenLabelNavItems = useMemo(() => {
-    const searchParams = new URLSearchParams(path.split("?")[1] || "");
-    const currentLabelId = searchParams.get("labelId");
-
-    return hiddenLabels.map((label) => ({
-      name: label.name ?? "",
-      icon: TagIcon,
-      href: `?type=label&labelId=${encodeURIComponent(label.id ?? "")}`,
-      // Add active state for the current label
-      active: currentLabelId === label.id,
-    }));
-  }, [hiddenLabels, path]);
+  const hiddenLabelNavItems = useMemo(
+    () => hiddenLabels.map((label) => labelToNavItem(label, currentLabelId)),
+    [hiddenLabels, currentLabelId],
+  );
 
   return (
     <>
@@ -404,11 +394,17 @@ function MailNav({ path }: { path: string }) {
       </SidebarGroup>
 
       <SidebarGroup>
-        <SideNavMenu items={topMailLinks} activeHref={path} />
+        <SideNavMenu
+          items={markActiveType(topMailLinks, activeType)}
+          activeHref={path}
+        />
       </SidebarGroup>
       <SidebarGroup>
         <SidebarGroupLabel>Categories</SidebarGroupLabel>
-        <SideNavMenu items={bottomMailLinks} activeHref={path} />
+        <SideNavMenu
+          items={markActiveType(bottomMailLinks, activeType)}
+          activeHref={path}
+        />
       </SidebarGroup>
 
       <SidebarGroup>
@@ -449,4 +445,28 @@ function MailNav({ path }: { path: string }) {
       </SidebarGroup>
     </>
   );
+}
+
+function markActiveType(items: NavItem[], activeType: string | null) {
+  return items.map((item) => ({
+    ...item,
+    active: item.href === `?type=${activeType}`,
+  }));
+}
+
+function labelToNavItem(
+  label: EmailLabel,
+  currentLabelId: string | null,
+): NavItem {
+  return {
+    name: label.name,
+    icon: () => (
+      <span
+        className="size-2.5 shrink-0 rounded-full"
+        style={{ backgroundColor: getLabelDisplayColor(label) }}
+      />
+    ),
+    href: `?type=label&labelId=${encodeURIComponent(label.id)}`,
+    active: currentLabelId === label.id,
+  };
 }

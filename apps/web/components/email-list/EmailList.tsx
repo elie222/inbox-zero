@@ -411,7 +411,7 @@ export function EmailList({
         <ResizeGroup
           left={
             <ul
-              className="min-w-0 divide-y divide-border overflow-x-hidden overflow-y-auto scroll-smooth"
+              className="h-full min-w-0 divide-y divide-border overflow-x-hidden overflow-y-auto scroll-smooth"
               ref={listRef}
             >
               {threads.map((thread) => {
@@ -503,10 +503,13 @@ function ResizeGroup({
 }) {
   const isMobile = useIsMobile();
 
-  if (!right) return left;
+  if (!right) return <div className="min-h-0 flex-1">{left}</div>;
 
   return (
-    <ResizablePanelGroup direction={isMobile ? "vertical" : "horizontal"}>
+    <ResizablePanelGroup
+      className="min-h-0 flex-1"
+      direction={isMobile ? "vertical" : "horizontal"}
+    >
       <ResizablePanel
         style={{ overflow: "auto" }}
         defaultSize={50}
