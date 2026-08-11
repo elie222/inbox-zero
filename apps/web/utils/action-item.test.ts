@@ -155,6 +155,22 @@ describe("getActionFields", () => {
     });
   });
 
+  it("shows a custom due date instead of a preset label", () => {
+    const action = {
+      type: ActionType.INTEGRATION,
+      integrationName: "todoist",
+      integrationToolName: "add-tasks",
+      integrationArgs: {
+        content: "Review the contract",
+        dueString: "next Friday",
+        projectId: "inbox",
+        projectName: "Inbox",
+      },
+    } as any;
+
+    expect(getActionFields(action)["Due date"]).toBe("next Friday");
+  });
+
   it("excludes falsy values except for defined nulls", () => {
     const action = {
       label: "",

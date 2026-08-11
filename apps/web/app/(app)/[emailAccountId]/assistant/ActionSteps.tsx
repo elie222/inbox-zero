@@ -68,8 +68,8 @@ import { findIntegration } from "@/utils/mcp/integrations";
 import {
   buildDefaultIntegrationArgs,
   getIntegrationToolSpec,
-  getSelectArgDisplayValue,
   type IntegrationArgSpec,
+  normalizeSelectArgValue,
   TODOIST_INBOX_PROJECT_ID,
   TODOIST_INBOX_PROJECT_NAME,
 } from "@/utils/mcp/tool-specs";
@@ -1225,11 +1225,19 @@ function IntegrationArgField({
 
   if (arg.control.type === "select") {
     const options = arg.control.options;
+    const selectedValue = normalizeSelectArgValue(arg, storedValue);
+    // A value outside the presets (e.g. "next Friday" from an AI-written rule)
+    // gets its own option, so the editor shows it instead of silently
+    // displaying a preset and overwriting it on save.
+    const isCustomValue =
+      !!selectedValue &&
+      !options.some((option) => option.value === selectedValue);
+
     return (
       <div className="space-y-2">
         <Label>{arg.label}</Label>
         <Select
-          value={getSelectArgDisplayValue(arg, storedValue)}
+          value={selectedValue}
           onValueChange={(nextValue) =>
             setValue(
               `actions.${index}.integrationArgs.${arg.key}` as const,
@@ -1241,6 +1249,9 @@ function IntegrationArgField({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
+            {isCustomValue && (
+              <SelectItem value={selectedValue}>{selectedValue}</SelectItem>
+            )}
             {options.map((option) => (
               <SelectItem key={option.value} value={option.value}>
                 {option.label}

@@ -984,6 +984,21 @@ describe("runActionFunction", () => {
       );
     });
 
+    it("sends a custom due date through unchanged", async () => {
+      await runIntegration({
+        ...integrationAction,
+        integrationArgs: { content: "Follow up", dueString: "next Friday" },
+      });
+
+      expect(callMcpTool).toHaveBeenCalledWith(
+        expect.objectContaining({
+          args: {
+            tasks: [{ content: "Follow up", dueString: "next Friday" }],
+          },
+        }),
+      );
+    });
+
     it("omits the due date when the AI option was never filled", async () => {
       await runIntegration({
         ...integrationAction,

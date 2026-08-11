@@ -197,28 +197,19 @@ export function normalizeSelectArgValue(
 }
 
 /** A select value guaranteed to match one of the arg's options. */
-export function getSelectArgDisplayValue(
-  arg: IntegrationArgSpec,
-  value: string | null | undefined,
-): string | undefined {
-  if (arg.control.type !== "select") return value?.trim() || undefined;
-
-  const normalized = normalizeSelectArgValue(arg, value);
-  const isKnown = arg.control.options.some(
-    (option) => option.value === normalized,
-  );
-  if (isKnown) return normalized;
-
-  return arg.defaultValue ?? arg.control.options[0]?.value;
-}
-
 export function getSelectArgOptionLabel(
   arg: IntegrationArgSpec,
   value: string | null | undefined,
 ): string | undefined {
   if (arg.control.type !== "select") return;
-  return arg.control.options.find((option) => option.value === value?.trim())
-    ?.label;
+  const trimmed = value?.trim();
+  if (!trimmed) return;
+  // A value outside the presets is a custom value (e.g. a due date the user or
+  // the AI wrote); show it as-is rather than hiding it behind a preset label.
+  return (
+    arg.control.options.find((option) => option.value === trimmed)?.label ??
+    trimmed
+  );
 }
 
 /** Keys the spec owns, including display-only companions. */
