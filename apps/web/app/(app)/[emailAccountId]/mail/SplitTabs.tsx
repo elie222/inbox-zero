@@ -37,7 +37,15 @@ export function SplitTabs({
   className,
 }: SplitTabsProps) {
   return (
-    <div className={cn("flex flex-wrap items-center gap-1", className)}>
+    <div
+      className={cn(
+        // Padded to sit under the toolbar's search field rather than against
+        // the column edge, and ruled off so the tabs read as a header for the
+        // list instead of crowding the first row.
+        "flex flex-wrap items-center gap-1 border-border border-b px-3 pb-2",
+        className,
+      )}
+    >
       {splits.map((split) => {
         const active = split.id === activeSplitId;
 

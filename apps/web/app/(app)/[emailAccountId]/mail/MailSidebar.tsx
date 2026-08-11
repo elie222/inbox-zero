@@ -121,7 +121,9 @@ export function MailSidebar({
         <Kbd variant="onColor">{getShortcutHint("compose")}</Kbd>
       </Button>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+      {/* The negative margin lets the scrollbar sit in the sidebar's own
+          padding, so a platform-width bar can't crowd the unread counts. */}
+      <div className="-mr-1.5 flex min-h-0 flex-1 flex-col overflow-y-auto pr-1.5 scrollbar-thin">
         <nav className="flex flex-col gap-px">
           {SYSTEM_ITEMS.map(({ name, type, countId, Icon }) => (
             <NavRow

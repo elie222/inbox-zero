@@ -3,7 +3,6 @@
 import { useCallback, useDeferredValue, useMemo, useState } from "react";
 import { useQueryState } from "nuqs";
 import { toast } from "sonner";
-import { HintBar } from "@/app/(app)/[emailAccountId]/mail/HintBar";
 import { ListToolbar } from "@/app/(app)/[emailAccountId]/mail/ListToolbar";
 import {
   MAIL_CATEGORIES,
@@ -47,7 +46,6 @@ import {
   deleteMailSplitAction,
   updateMailPreferencesAction,
 } from "@/utils/actions/mail-split";
-import type { UpdateMailPreferencesBody } from "@/utils/actions/mail-split.validation";
 import {
   createLabelAction,
   removeThreadLabelAction,
@@ -103,38 +101,34 @@ export function MailShell() {
 
   // Written through the SWR cache rather than mirrored in local state, so the
   // preference has one source of truth and every reader sees the new value.
-  const savePreferences = useCallback(
-    (patch: UpdateMailPreferencesBody) => {
-      mutateSettings(
-        async (current) => {
-          const result = await updateMailPreferencesAction(
-            emailAccountId,
-            patch,
-          );
-          // Thrown so SWR rolls the optimistic value back rather than leaving
-          // the UI showing a preference the server never accepted.
-          if (result?.serverError || result?.validationErrors)
-            throw new Error(getActionErrorMessage(result));
-          return current;
-        },
-        {
-          optimisticData: (current) => ({
-            layout: patch.layout ?? current?.layout ?? null,
-            hintBarDismissed:
-              patch.hintBarDismissed ?? current?.hintBarDismissed ?? false,
-            splits: current?.splits ?? [],
-          }),
-          revalidate: false,
-          rollbackOnError: true,
-        },
-      ).catch((error) => {
-        toast.error(
-          error instanceof Error ? error.message : "Couldn't save that",
-        );
-      });
-    },
-    [emailAccountId, mutateSettings],
-  );
+  const toggleLayout = useCallback(() => {
+    const next = layout === "split" ? MailLayout.LIST : MailLayout.SPLIT;
+
+    mutateSettings(
+      async (current) => {
+        const result = await updateMailPreferencesAction(emailAccountId, {
+          layout: next,
+        });
+        // Thrown so SWR rolls the optimistic value back rather than leaving
+        // the UI showing a preference the server never accepted.
+        if (result?.serverError || result?.validationErrors)
+          throw new Error(getActionErrorMessage(result));
+        return current;
+      },
+      {
+        optimisticData: (current) => ({
+          layout: next,
+          splits: current?.splits ?? [],
+        }),
+        revalidate: false,
+        rollbackOnError: true,
+      },
+    ).catch((error) => {
+      toast.error(
+        error instanceof Error ? error.message : "Couldn't save that",
+      );
+    });
+  }, [emailAccountId, layout, mutateSettings]);
 
   // A sidebar selection scopes the whole list, which replaces the split tabs —
   // splits are a way of slicing the inbox, not of slicing an arbitrary view.
@@ -279,12 +273,6 @@ export function MailShell() {
     [clampIndex, clampedIndex, selection],
   );
 
-  const toggleLayout = useCallback(() => {
-    savePreferences({
-      layout: layout === "split" ? MailLayout.LIST : MailLayout.SPLIT,
-    });
-  }, [layout, savePreferences]);
-
   const openShortcuts = useCallback(() => setIsHelpOpen(true), []);
   const archiveTargets = useCallback(() => runOn(archive), [runOn, archive]);
   const trashTargets = useCallback(() => runOn(trash), [runOn, trash]);
@@ -419,7 +407,6 @@ export function MailShell() {
 
   const showList = !isFocusMode && (layout === "split" || !openThreadId);
   const showReader = layout === "split" || Boolean(openThreadId);
-  const showHintBar = !settings?.hintBarDismissed && !isFocusMode;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-background">
@@ -531,13 +518,6 @@ export function MailShell() {
           />
         )}
       </div>
-
-      {showHintBar && (
-        <HintBar
-          status={`${threads.length} in view`}
-          onDismiss={() => savePreferences({ hintBarDismissed: true })}
-        />
-      )}
 
       <ShortcutsDialog open={isHelpOpen} onOpenChange={setIsHelpOpen} />
     </div>

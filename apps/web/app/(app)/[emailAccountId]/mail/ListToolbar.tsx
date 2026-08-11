@@ -23,7 +23,7 @@ export function ListToolbar({
   const LayoutIcon = layout === "split" ? ColumnsIcon : RowsIcon;
 
   return (
-    <div className="flex shrink-0 items-center gap-2 px-3 pt-3 pb-2">
+    <div className="flex shrink-0 items-center gap-2 px-3 pt-3 pb-3">
       {/* Opens the command palette rather than searching mail — it navigates
           and runs actions, and promising search we don't have would mislead. */}
       <button
