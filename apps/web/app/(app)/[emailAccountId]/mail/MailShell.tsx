@@ -332,7 +332,9 @@ export function MailShell() {
 
   useShortcuts(handlers);
 
-  const categoryGroup = isOutlook ? "inbox" : "category";
+  const categoryGroup: NewSplitOption["group"] = isOutlook
+    ? "inbox"
+    : "category";
   const newSplitOptions: NewSplitOption[] = useMemo(
     () => [
       {
@@ -558,7 +560,7 @@ function getMailCategories({
   return [];
 }
 
-function getMailNavPath(target: MailNavTarget): string {
+function getMailNavPath(target: MailNavTarget): `/${string}` {
   switch (target.kind) {
     case "label":
       return `/mail?type=label&labelId=${encodeURIComponent(target.labelId)}`;
