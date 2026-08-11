@@ -27,11 +27,6 @@ export type RenameMailSplitBody = z.infer<typeof renameMailSplitBody>;
 export const deleteMailSplitBody = z.object({ id: z.string() });
 export type DeleteMailSplitBody = z.infer<typeof deleteMailSplitBody>;
 
-export const reorderMailSplitsBody = z.object({
-  ids: z.array(z.string()).min(1),
-});
-export type ReorderMailSplitsBody = z.infer<typeof reorderMailSplitsBody>;
-
 export const updateMailPreferencesBody = z
   .object({
     layout: z.nativeEnum(MailLayout).optional(),

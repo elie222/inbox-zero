@@ -7,7 +7,6 @@ import {
   createMailSplitBody,
   deleteMailSplitBody,
   renameMailSplitBody,
-  reorderMailSplitsBody,
   updateMailPreferencesBody,
 } from "@/utils/actions/mail-split.validation";
 
@@ -30,13 +29,21 @@ export const createMailSplitAction = actionClient
       });
       if (duplicate) throw new SafeError(`You already have a "${name}" split.`);
 
+      // Derived from the highest order rather than the count: deleting a split
+      // from the middle would otherwise hand the next one a duplicate order.
+      const last = await prisma.mailSplit.findFirst({
+        where: { emailAccountId },
+        orderBy: { order: "desc" },
+        select: { order: true },
+      });
+
       const split = await prisma.mailSplit.create({
         data: {
           emailAccountId,
           name,
           kind,
           value: value ?? null,
-          order: existing,
+          order: (last?.order ?? -1) + 1,
         },
       });
 
@@ -61,23 +68,6 @@ export const deleteMailSplitAction = actionClient
   .action(async ({ ctx: { emailAccountId }, parsedInput: { id } }) => {
     // deleteMany rather than delete so another account's id can never be removed
     await prisma.mailSplit.deleteMany({ where: { id, emailAccountId } });
-  });
-
-export const reorderMailSplitsAction = actionClient
-  .metadata({ name: "reorderMailSplits" })
-  .inputSchema(reorderMailSplitsBody)
-  .action(async ({ ctx: { emailAccountId }, parsedInput: { ids } }) => {
-    const owned = await prisma.mailSplit.findMany({
-      where: { emailAccountId, id: { in: ids } },
-      select: { id: true },
-    });
-    if (owned.length !== ids.length) throw new SafeError("Split not found");
-
-    await prisma.$transaction(
-      ids.map((id, order) =>
-        prisma.mailSplit.update({ where: { id }, data: { order } }),
-      ),
-    );
   });
 
 export const updateMailPreferencesAction = actionClient

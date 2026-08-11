@@ -76,6 +76,38 @@ describe("cancelQueuedThreads", () => {
     expect(onSuccess).toHaveBeenCalledTimes(1);
   });
 
+  it("cancels a thread that was queued twice before it ran", async () => {
+    const { release, implementation } = blockOn("thread-1");
+    mockArchiveThreadAction.mockImplementation(implementation);
+
+    const { archiveEmails, cancelQueuedThreads } = await import(
+      "./archive-queue"
+    );
+
+    await archiveEmails({
+      threadIds: ["thread-1", "thread-2"],
+      onSuccess: vi.fn(),
+      emailAccountId: "account-1",
+    });
+    // A second enqueue of the same thread must not orphan the first job, or
+    // cancelling would report success while the orphan still archived it.
+    await archiveEmails({
+      threadIds: ["thread-2"],
+      onSuccess: vi.fn(),
+      emailAccountId: "account-1",
+    });
+    await vi.waitFor(() => expect(archivedThreadIds()).toEqual(["thread-1"]));
+
+    expect(
+      cancelQueuedThreads({ threadIds: ["thread-2"], actionType: "archive" }),
+    ).toEqual({ cancelled: ["thread-2"], notCancelled: [] });
+
+    release();
+    await vi.waitFor(() => expect(archivedThreadIds()).toEqual(["thread-1"]));
+
+    expect(archivedThreadIds()).not.toContain("thread-2");
+  });
+
   it("reports a thread already sent to the provider as not cancelled", async () => {
     const { release, implementation } = blockOn("thread-1");
     mockArchiveThreadAction.mockImplementation(implementation);

@@ -79,10 +79,19 @@ function useShortcutBucket(
       const pendingPrefix = sequence.pendingPrefix();
       if (isSequence(hotkeysEvent)) {
         sequence.resolve(event);
-      } else if (pendingPrefix || sequence.wasResolvedBy(event)) {
+      } else if (sequence.wasResolvedBy(event)) {
         // A sequence owns this press: `a` belongs to `g>a`, not to reply all.
         sequence.clear();
         return;
+      } else if (pendingPrefix) {
+        // An abandoned prefix must not eat the next key: after `g`, a `j` still
+        // moves. Only suppress when the press really does complete a sequence,
+        // since then the `g>a` hotkey fires for the same keydown.
+        const completesSequence = bucket.targets.has(
+          `${pendingPrefix}${SEQUENCE_SPLIT_KEY}${hotkeysEvent.hotkey}`,
+        );
+        sequence.clear();
+        if (completesSequence) return;
       }
 
       const { entry } = target;

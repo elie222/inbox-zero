@@ -72,6 +72,20 @@ describe("useShortcuts", () => {
     expect(replyAll).not.toHaveBeenCalled();
   });
 
+  it("lets an abandoned sequence prefix through to the next shortcut", () => {
+    const backToApp = vi.fn();
+    const next = vi.fn();
+    renderShortcuts({ backToApp, next });
+
+    // `g` starts a sequence that `j` doesn't complete, so `j` must still move
+    // rather than being eaten by the dangling prefix.
+    press({ key: "g", code: "KeyG" });
+    press({ key: "j", code: "KeyJ" });
+
+    expect(next).toHaveBeenCalledOnce();
+    expect(backToApp).not.toHaveBeenCalled();
+  });
+
   it("treats A on its own as reply all", () => {
     const backToApp = vi.fn();
     const replyAll = vi.fn();

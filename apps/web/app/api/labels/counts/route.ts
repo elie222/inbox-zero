@@ -6,6 +6,7 @@ import { GmailLabel } from "@/utils/gmail/label";
 import type { Logger } from "@/utils/logger";
 import { redis } from "@/utils/redis";
 import { isDefined } from "@/utils/types";
+import { runWithBoundedConcurrency } from "@/utils/async";
 
 // The mail sidebar fills counts in after first paint, so this must degrade
 // rather than hang: a slow provider is worth less than an empty sidebar.
@@ -14,6 +15,7 @@ export const maxDuration = 15;
 const CACHE_KEY_PREFIX = "label-counts";
 const CACHE_TTL_SECONDS = 60;
 const MAX_USER_LABELS = 100;
+const LABEL_LOOKUP_CONCURRENCY = 8;
 
 type LabelCount = {
   id: string;
@@ -30,7 +32,15 @@ export type LabelCountsResponse = {
   partial: boolean;
 };
 
-const EMPTY_RESPONSE: LabelCountsResponse = { counts: [], partial: true };
+// `anyFailed` distinguishes "this provider can't report everything" from "a
+// lookup broke", so only the latter keeps a bad result out of the cache.
+type CountsResult = LabelCountsResponse & { anyFailed: boolean };
+
+const EMPTY_RESPONSE: CountsResult = {
+  counts: [],
+  partial: true,
+  anyFailed: true,
+};
 
 // Gmail's system labels the sidebar shows. Archived has no label of its own.
 const SYSTEM_LABELS = [
@@ -56,8 +66,12 @@ export const GET = withEmailProvider(
     const cached = await getCachedCounts(emailAccountId, logger);
     if (cached) return NextResponse.json(cached);
 
-    const response = await getCounts({ emailProvider, logger });
-    if (response.counts.length) {
+    const { anyFailed, ...response } = await getCounts({
+      emailProvider,
+      logger,
+    });
+    // A transient lookup failure must not be frozen in the cache for a minute.
+    if (response.counts.length && !anyFailed) {
       await setCachedCounts(emailAccountId, response, logger);
     }
 
@@ -72,7 +86,7 @@ async function getCounts({
 }: {
   emailProvider: EmailProvider;
   logger: Logger;
-}): Promise<LabelCountsResponse> {
+}): Promise<CountsResult> {
   try {
     if (isGoogleProvider(emailProvider.name)) {
       return await getGmailCounts({ emailProvider, logger });
@@ -84,6 +98,7 @@ async function getCounts({
     return {
       counts: [{ id: "INBOX", name: "Inbox", kind: "system", total, unread }],
       partial: true,
+      anyFailed: false,
     };
   } catch (error) {
     logger.warn("Failed to fetch label counts", { error });
@@ -97,7 +112,7 @@ async function getGmailCounts({
 }: {
   emailProvider: EmailProvider;
   logger: Logger;
-}): Promise<LabelCountsResponse> {
+}): Promise<CountsResult> {
   const userLabels = await emailProvider.getLabels();
 
   const targets: Array<Pick<LabelCount, "id" | "name" | "kind">> = [
@@ -114,33 +129,42 @@ async function getGmailCounts({
   ];
 
   // Gmail's `labels.list` carries no counts, so each label needs its own
-  // `labels.get`. One failure must not cost us the rest of the sidebar.
-  const counts = (
-    await Promise.all(
-      targets.map(async (target) => {
-        try {
-          const label = await emailProvider.getLabelById(target.id);
-          if (!label) return null;
-          return {
-            ...target,
-            total: label.threadsTotal ?? 0,
-            unread: label.threadsUnread ?? 0,
-          };
-        } catch (error) {
-          logger.warn("Failed to fetch count for label", {
-            labelId: target.id,
-            error,
-          });
-          return null;
-        }
-      }),
-    )
-  ).filter(isDefined);
+  // `labels.get`. Bounded so a label-heavy account doesn't fire a hundred
+  // requests at once, and one failure must not cost us the rest of the sidebar.
+  let anyFailed = false;
+  const settled = await runWithBoundedConcurrency({
+    items: targets,
+    concurrency: LABEL_LOOKUP_CONCURRENCY,
+    run: async (target) => {
+      const label = await emailProvider.getLabelById(target.id);
+      if (!label) return null;
+      return {
+        ...target,
+        total: label.threadsTotal ?? 0,
+        unread: label.threadsUnread ?? 0,
+      };
+    },
+  });
+
+  const counts = settled
+    .map(({ item, result }) => {
+      if (result.status === "fulfilled") return result.value;
+      anyFailed = true;
+      logger.warn("Failed to fetch count for label", {
+        labelId: item.id,
+        error: result.reason,
+      });
+      return null;
+    })
+    .filter(isDefined);
 
   return {
     counts,
+    // `partial` is also true for providers that simply can't report everything,
+    // so it can't gate caching on its own — see the failure flag below.
     partial:
       counts.length < targets.length || userLabels.length > MAX_USER_LABELS,
+    anyFailed,
   };
 }
 

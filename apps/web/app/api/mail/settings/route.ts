@@ -12,7 +12,8 @@ async function getMailSettings({ emailAccountId }: { emailAccountId: string }) {
     }),
     prisma.mailSplit.findMany({
       where: { emailAccountId },
-      orderBy: { order: "asc" },
+      // createdAt breaks ties so tab order can't shuffle between requests
+      orderBy: [{ order: "asc" }, { createdAt: "asc" }],
       select: { id: true, name: true, kind: true, value: true, order: true },
     }),
   ]);
