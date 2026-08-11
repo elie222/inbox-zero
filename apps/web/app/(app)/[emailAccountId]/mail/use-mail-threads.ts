@@ -1,11 +1,17 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import useSWRInfinite from "swr/infinite";
 import type { ThreadsListResponse } from "@/app/api/threads/route";
 import type { ListThread } from "@/app/(app)/[emailAccountId]/mail/types";
 import type { ThreadsQuery } from "@/utils/threads/validation";
 import { createSearchParams } from "@/utils/url";
+
+type RemovedThread = { thread: ListThread; pageIndex: number; index: number };
+
+// Only the most recent removals can still be undone, so the retained rows are
+// capped rather than accumulating for the whole session.
+const MAX_RETAINED_REMOVALS = 200;
 
 /**
  * One SWR key per split, so switching splits reads from cache instead of
@@ -42,26 +48,72 @@ export function useMailThreads(query: ThreadsQuery) {
     [data],
   );
 
+  // Rows are kept so an undo can put back exactly what it removed. Revalidating
+  // instead would also resurrect rows that a *different* batch is still
+  // archiving, since the server hasn't caught up with those yet.
+  const removed = useRef(new Map<string, RemovedThread>());
+
   const removeThreads = useCallback(
     (threadIds: string[]) => {
       if (!threadIds.length) return;
-      const removed = new Set(threadIds);
+      const targets = new Set(threadIds);
 
       // Optimistic: drop the rows now and don't revalidate, so triage keeps its
       // rhythm instead of the list flickering back after every archive.
       mutate(
         (pages) =>
-          pages?.map((page) => ({
+          pages?.map((page, pageIndex) => ({
             ...page,
-            threads: page.threads.filter((thread) => !removed.has(thread.id)),
+            threads: page.threads.filter((thread, index) => {
+              if (!targets.has(thread.id)) return true;
+              removed.current.set(thread.id, { thread, pageIndex, index });
+              return false;
+            }),
           })),
         { revalidate: false, populateCache: true, rollbackOnError: true },
       );
+
+      while (removed.current.size > MAX_RETAINED_REMOVALS) {
+        const oldest = removed.current.keys().next().value;
+        if (oldest === undefined) break;
+        removed.current.delete(oldest);
+      }
     },
     [mutate],
   );
 
-  const restoreThreads = useCallback(() => mutate(), [mutate]);
+  const restoreThreads = useCallback(
+    (threadIds: string[]) => {
+      const restoring = threadIds
+        .map((id) => removed.current.get(id))
+        .filter((entry): entry is RemovedThread => entry !== undefined);
+      if (!restoring.length) return;
+
+      for (const entry of restoring) removed.current.delete(entry.thread.id);
+
+      mutate(
+        (pages) =>
+          pages?.map((page, pageIndex) => {
+            const forPage = restoring
+              .filter((entry) => entry.pageIndex === pageIndex)
+              .sort((a, b) => a.index - b.index);
+            if (!forPage.length) return page;
+
+            const threads = [...page.threads];
+            for (const entry of forPage) {
+              threads.splice(
+                Math.min(entry.index, threads.length),
+                0,
+                entry.thread,
+              );
+            }
+            return { ...page, threads };
+          }),
+        { revalidate: false, populateCache: true },
+      );
+    },
+    [mutate],
+  );
 
   return {
     threads,

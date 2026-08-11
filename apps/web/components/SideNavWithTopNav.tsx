@@ -79,8 +79,15 @@ export function SideNavWithTopNav({
       defaultOpen={defaultOpen ? ["left-sidebar"] : []}
       sidebarNames={["left-sidebar", "chat-sidebar"]}
     >
-      <MobileHeader />
-      {!isMailRoute && <SideNav name="left-sidebar" />}
+      {/* Both are suppressed together: the trigger only opens SideNav, so
+          leaving it on the mail route would render a button that opens an
+          empty drawer. */}
+      {!isMailRoute && (
+        <>
+          <MobileHeader />
+          <SideNav name="left-sidebar" />
+        </>
+      )}
       <ContentWrapper>{children}</ContentWrapper>
       {!isAssistantRoute ? <SidebarRight name="chat-sidebar" /> : null}
     </SidebarProvider>

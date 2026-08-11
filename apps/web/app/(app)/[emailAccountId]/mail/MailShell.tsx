@@ -106,7 +106,14 @@ export function MailShell() {
     (patch: UpdateMailPreferencesBody) => {
       mutateSettings(
         async (current) => {
-          await updateMailPreferencesAction(emailAccountId, patch);
+          const result = await updateMailPreferencesAction(
+            emailAccountId,
+            patch,
+          );
+          // Thrown so SWR rolls the optimistic value back rather than leaving
+          // the UI showing a preference the server never accepted.
+          if (result?.serverError || result?.validationErrors)
+            throw new Error(getActionErrorMessage(result));
           return current;
         },
         {
@@ -119,7 +126,11 @@ export function MailShell() {
           revalidate: false,
           rollbackOnError: true,
         },
-      );
+      ).catch((error) => {
+        toast.error(
+          error instanceof Error ? error.message : "Couldn't save that",
+        );
+      });
     },
     [emailAccountId, mutateSettings],
   );
@@ -196,7 +207,12 @@ export function MailShell() {
     { id: readerThreadId },
     { includeDrafts: true },
   );
-  const openMessages = openThreadData?.thread.messages ?? NO_MESSAGES;
+  // Withheld until the deferred id catches up, so a fast J/K can't pair the new
+  // thread's header with the previous thread's body.
+  const openMessages =
+    readerThreadId === openThreadId
+      ? (openThreadData?.thread.messages ?? NO_MESSAGES)
+      : NO_MESSAGES;
 
   const hrefFor = useCallback(
     (target: MailNavTarget) =>

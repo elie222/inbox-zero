@@ -35,7 +35,7 @@ export function useThreadActions({
 }: {
   emailAccountId: string;
   removeThreads: (threadIds: string[]) => void;
-  restoreThreads: () => void;
+  restoreThreads: (threadIds: string[]) => void;
 }) {
   const lastAction = useRef<UndoableBatch | null>(null);
 
@@ -59,7 +59,7 @@ export function useThreadActions({
         notCancelled.map((threadId) => reverse(emailAccountId, { threadId })),
       );
 
-      restoreThreads();
+      restoreThreads(batch.threadIds);
 
       if (results.some((result) => result?.serverError))
         toast.error("Some conversations couldn't be restored");
@@ -89,7 +89,7 @@ export function useThreadActions({
         emailAccountId,
         onSuccess: () => {},
         onError: () => {
-          restoreThreads();
+          restoreThreads(threadIds);
           toast.error(
             type === "archive"
               ? "There was an error archiving"
