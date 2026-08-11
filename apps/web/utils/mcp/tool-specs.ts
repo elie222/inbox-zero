@@ -225,7 +225,7 @@ export function getIntegrationActionDisplayValue(action: {
   if (!args || typeof args !== "object" || Array.isArray(args)) return null;
 
   const value = (args as Record<string, unknown>)[spec.displayArgKey];
-  return typeof value === "string" ? value : null;
+  return typeof value === "string" ? value.trim() || null : null;
 }
 
 /** Read tools the app calls directly to populate a remote-select. */

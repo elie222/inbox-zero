@@ -62,6 +62,7 @@ export async function callMcpTool({
       toolName,
       errorType: error instanceof Error ? error.name : typeof error,
     });
+    logger.trace("MCP tool call failure details", () => ({ error }));
     throw new Error(`Failed to call ${integration} tool ${toolName}`);
   } finally {
     await client.close();

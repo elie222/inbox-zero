@@ -20,70 +20,32 @@ export const createMailSplitAction = actionClient
   .inputSchema(createMailSplitBody)
   .action(
     async ({ ctx: { emailAccountId }, parsedInput: { name, kind, value } }) => {
-      const [, createdSplits, duplicate, splitCount] =
-        await prisma.$transaction([
-          prisma.$queryRaw`
-            SELECT true AS locked
-            FROM (
-              SELECT pg_advisory_xact_lock(742931, hashtext(${emailAccountId}))
-            ) lock
-          `,
-          prisma.$queryRaw<MailSplit[]>`
-            WITH split_state AS (
-              SELECT
-                COUNT(*)::integer AS count,
-                COALESCE(MAX("order"), -1)::integer + 1 AS next_order
-              FROM "MailSplit"
-              WHERE "emailAccountId" = ${emailAccountId}
-            )
-            INSERT INTO "MailSplit" (
-              "id",
-              "createdAt",
-              "updatedAt",
-              "name",
-              "kind",
-              "value",
-              "order",
-              "emailAccountId"
-            )
-            SELECT
-              ${randomUUID()},
-              CURRENT_TIMESTAMP,
-              CURRENT_TIMESTAMP,
-              ${name},
-              ${kind}::"MailSplitKind",
-              ${value ?? null},
-              split_state.next_order,
-              ${emailAccountId}
-            FROM split_state
-            WHERE split_state.count < ${MAX_SPLITS}
-              AND NOT EXISTS (
-                SELECT 1
-                FROM "MailSplit"
-                WHERE "emailAccountId" = ${emailAccountId}
-                  AND "name" = ${name}
-              )
-            RETURNING *
-          `,
-          prisma.mailSplit.findUnique({
-            where: { emailAccountId_name: { emailAccountId, name } },
-            select: { id: true },
-          }),
-          prisma.mailSplit.count({ where: { emailAccountId } }),
-        ]);
+      try {
+        const result = await createMailSplit({
+          emailAccountId,
+          name,
+          kind,
+          value: value ?? null,
+        });
 
-      const [split] = createdSplits;
-      if (!split) {
-        if (duplicate) {
+        if (!result) {
+          throw new SafeError("Could not create split. Please try again.");
+        }
+        if (result.status === "duplicate") {
           throw new SafeError(`You already have a "${name}" split.`);
         }
-        if (splitCount >= MAX_SPLITS) {
+        if (result.status === "limit") {
           throw new SafeError(`You can only have ${MAX_SPLITS} splits.`);
         }
-        throw new SafeError("Could not create split. Please try again.");
-      }
 
-      return { split };
+        const { status: _, ...split } = result;
+        return { split };
+      } catch (error) {
+        if (isDuplicateError(error, "name")) {
+          throw new SafeError(`You already have a "${name}" split.`);
+        }
+        throw error;
+      }
     },
   );
 
@@ -92,10 +54,13 @@ export const renameMailSplitAction = actionClient
   .inputSchema(renameMailSplitBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput: { id, name } }) => {
     try {
-      const { count } = await prisma.mailSplit.updateMany({
-        where: { id, emailAccountId },
-        data: { name },
-      });
+      const [, { count }] = await prisma.$transaction([
+        lockMailSplits(emailAccountId),
+        prisma.mailSplit.updateMany({
+          where: { id, emailAccountId },
+          data: { name },
+        }),
+      ]);
       if (!count) throw new SafeError("Split not found");
     } catch (error) {
       if (isDuplicateError(error, "name")) {
@@ -132,3 +97,78 @@ export const updateMailPreferencesAction = actionClient
       });
     },
   );
+
+type CreateMailSplitResult =
+  | ({ status: "created" } & MailSplit)
+  | { status: "duplicate" | "limit" };
+
+async function createMailSplit({
+  emailAccountId,
+  name,
+  kind,
+  value,
+}: Pick<MailSplit, "emailAccountId" | "name" | "kind" | "value">) {
+  const [, results] = await prisma.$transaction([
+    lockMailSplits(emailAccountId),
+    prisma.$queryRaw<CreateMailSplitResult[]>`
+      WITH split_state AS (
+        SELECT
+          COUNT(*)::integer AS count,
+          COALESCE(MAX("order"), -1)::integer + 1 AS next_order,
+          EXISTS (
+            SELECT 1
+            FROM "MailSplit"
+            WHERE "emailAccountId" = ${emailAccountId}
+              AND "name" = ${name}
+          ) AS name_exists
+        FROM "MailSplit"
+        WHERE "emailAccountId" = ${emailAccountId}
+      ),
+      inserted AS (
+        INSERT INTO "MailSplit" (
+          "id",
+          "createdAt",
+          "updatedAt",
+          "name",
+          "kind",
+          "value",
+          "order",
+          "emailAccountId"
+        )
+        SELECT
+          ${randomUUID()},
+          CURRENT_TIMESTAMP,
+          CURRENT_TIMESTAMP,
+          ${name},
+          ${kind}::"MailSplitKind",
+          ${value},
+          split_state.next_order,
+          ${emailAccountId}
+        FROM split_state
+        WHERE split_state.count < ${MAX_SPLITS}
+          AND NOT split_state.name_exists
+        RETURNING *
+      )
+      SELECT
+        CASE
+          WHEN inserted."id" IS NOT NULL THEN 'created'
+          WHEN split_state.name_exists THEN 'duplicate'
+          ELSE 'limit'
+        END AS status,
+        inserted.*
+      FROM split_state
+      LEFT JOIN inserted ON TRUE
+    `,
+  ]);
+
+  return results[0];
+}
+
+function lockMailSplits(emailAccountId: string) {
+  return prisma.$queryRaw`
+    SELECT true AS locked
+    FROM (
+      SELECT pg_advisory_xact_lock(742931, hashtext(${emailAccountId}))
+    ) lock
+  `;
+}

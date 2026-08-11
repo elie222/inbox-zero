@@ -53,4 +53,21 @@ describe("getIntegrationActionDisplayValue", () => {
       }),
     ).toBeNull();
   });
+
+  it("trims the display value and hides whitespace-only content", () => {
+    expect(
+      getIntegrationActionDisplayValue({
+        integrationName: "todoist",
+        integrationToolName: "add-tasks",
+        integrationArgs: { content: "  Review the contract  " },
+      }),
+    ).toBe("Review the contract");
+    expect(
+      getIntegrationActionDisplayValue({
+        integrationName: "todoist",
+        integrationToolName: "add-tasks",
+        integrationArgs: { content: "   " },
+      }),
+    ).toBeNull();
+  });
 });

@@ -38,9 +38,7 @@ describe("mail split actions", () => {
     };
     prisma.$transaction.mockResolvedValue([
       [{ locked: true }],
-      [split],
-      split,
-      1,
+      [{ status: "created", ...split }],
     ] as never);
 
     const result = await createMailSplitAction(EMAIL_ACCOUNT_ID, {
@@ -61,9 +59,7 @@ describe("mail split actions", () => {
   it("returns a user-safe error when the split limit is reached", async () => {
     prisma.$transaction.mockResolvedValue([
       [{ locked: true }],
-      [],
-      null,
-      12,
+      [{ status: "limit" }],
     ] as never);
 
     const result = await createMailSplitAction(EMAIL_ACCOUNT_ID, {
@@ -78,9 +74,7 @@ describe("mail split actions", () => {
   it("returns a user-safe error when a split name already exists", async () => {
     prisma.$transaction.mockResolvedValue([
       [{ locked: true }],
-      [],
-      { id: "existing-split" },
-      1,
+      [{ status: "duplicate" }],
     ] as never);
 
     const result = await createMailSplitAction(EMAIL_ACCOUNT_ID, {
@@ -92,14 +86,20 @@ describe("mail split actions", () => {
     expect(result?.serverError).toBe('You already have a "Unread" split.');
   });
 
+  it("handles a duplicate-name constraint race with a safe error", async () => {
+    prisma.$transaction.mockRejectedValue(createDuplicateNameError());
+
+    const result = await createMailSplitAction(EMAIL_ACCOUNT_ID, {
+      name: "Unread",
+      kind: MailSplitKind.UNREAD,
+      value: null,
+    });
+
+    expect(result?.serverError).toBe('You already have a "Unread" split.');
+  });
+
   it("returns a user-safe error when a rename duplicates a split", async () => {
-    prisma.mailSplit.updateMany.mockRejectedValue(
-      new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
-        code: "P2002",
-        clientVersion: "test",
-        meta: { target: ["emailAccountId", "name"] },
-      }),
-    );
+    prisma.$transaction.mockRejectedValue(createDuplicateNameError());
 
     const result = await renameMailSplitAction(EMAIL_ACCOUNT_ID, {
       id: "split-1",
@@ -109,3 +109,11 @@ describe("mail split actions", () => {
     expect(result?.serverError).toBe('You already have a "Unread" split.');
   });
 });
+
+function createDuplicateNameError() {
+  return new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+    code: "P2002",
+    clientVersion: "test",
+    meta: { target: ["emailAccountId", "name"] },
+  });
+}
