@@ -27,6 +27,20 @@ describe("getRecordingStatusBadge", () => {
     ).toEqual({ label: "Not recorded", variant: "red" });
   });
 
+  it.each([
+    MeetingRecordingStatus.IN_CALL,
+    MeetingRecordingStatus.RECORDING,
+  ])("shows processing after the scheduled end while the recorder is still in progress (%s)", (status) => {
+    expect(
+      getRecordingStatusBadge({
+        status,
+        startTime: new Date("2026-07-30T16:00:00.000Z"),
+        endTime: new Date("2026-07-30T16:30:00.000Z"),
+        now: NOW,
+      }),
+    ).toEqual({ label: "Processing", variant: "secondary" });
+  });
+
   it("keeps actionable recorder progress visible while the meeting is ongoing", () => {
     expect(
       getRecordingStatusBadge({
