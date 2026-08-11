@@ -3,6 +3,7 @@ import {
   getOutlookFolderTree,
   getOutlookRootFolders,
   getOutlookChildFolders,
+  addOutlookSystemFolderTypes,
 } from "./folders";
 import type { OutlookClient } from "./client";
 import { createTestLogger } from "@/__tests__/helpers";
@@ -382,11 +383,15 @@ describe("getOutlookRootFolders", () => {
             id: "folder-id",
             displayName: "TestFolder",
             childFolderCount: 1,
+            totalItemCount: 8,
+            unreadItemCount: 3,
             childFolders: [
               {
                 id: "child-id",
                 displayName: "ChildFolder",
                 childFolderCount: 0,
+                totalItemCount: 2,
+                unreadItemCount: 1,
                 childFolders: [],
               },
             ],
@@ -402,11 +407,15 @@ describe("getOutlookRootFolders", () => {
         id: "folder-id",
         displayName: "TestFolder",
         childFolderCount: 1,
+        totalItemCount: 8,
+        unreadItemCount: 3,
         childFolders: [
           {
             id: "child-id",
             displayName: "ChildFolder",
             childFolderCount: 0,
+            totalItemCount: 2,
+            unreadItemCount: 1,
             childFolders: [],
           },
         ],
@@ -436,8 +445,29 @@ describe("getOutlookRootFolders", () => {
         displayName: "",
         childFolderCount: 0,
         childFolders: [],
+        totalItemCount: 0,
+        unreadItemCount: 0,
       },
     ]);
+  });
+});
+
+describe("addOutlookSystemFolderTypes", () => {
+  it("marks well-known folders by id without relying on localized names", () => {
+    const [inbox, custom] = addOutlookSystemFolderTypes(
+      [
+        {
+          id: "inbox-id",
+          displayName: "Boîte de réception",
+          childFolders: [],
+        },
+        { id: "custom-id", displayName: "Projects", childFolders: [] },
+      ],
+      { inbox: "inbox-id" },
+    );
+
+    expect(inbox?.systemType).toBe("INBOX");
+    expect(custom?.systemType).toBeUndefined();
   });
 });
 

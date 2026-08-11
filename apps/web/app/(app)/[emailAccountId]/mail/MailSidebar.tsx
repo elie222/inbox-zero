@@ -7,6 +7,7 @@ import {
   ArrowLeftIcon,
   BellIcon,
   FileIcon,
+  FolderIcon,
   InboxIcon,
   KeyboardIcon,
   type LucideIcon,
@@ -15,6 +16,7 @@ import {
   PenLineIcon,
   PlusIcon,
   SendIcon,
+  SparklesIcon,
   UserIcon,
   Users2Icon,
 } from "lucide-react";
@@ -26,24 +28,33 @@ import { getShortcutHint } from "@/lib/shortcuts/registry";
 import type { EmailLabel } from "@/providers/email-label-types";
 import { GmailLabel } from "@/utils/gmail/label";
 import { cn } from "@/utils";
+import type { OutlookFolder } from "@/utils/outlook/folders";
+import { OUTLOOK_INBOX_SECTIONS } from "@/utils/mail/outlook-inbox";
+import { getMailSidebarFolders } from "./outlook-folder-list";
 
 /** Where a sidebar row navigates. Mirrors the mail page's `?type=` query shape. */
 export type MailNavTarget =
   | { kind: "type"; type: string }
-  | { kind: "label"; labelId: string };
+  | { kind: "label"; labelId: string }
+  | { kind: "folder"; folderId: string };
 
 export type MailSidebarProps = {
   /** `?type=` of the current view — `inbox` when nothing is selected. */
   activeType: string | null;
   /** `?labelId=` of the current view, when a user label is open. */
   activeLabelId: string | null;
+  /** `?folderId=` of the current view, when an Outlook folder is open. */
+  activeFolderId: string | null;
   /** Builds the href for a row so the sidebar never owns routing. */
   hrefFor: (target: MailNavTarget) => string;
   labels: EmailLabel[];
-  /** Keyed by provider label id. Arrives after first paint; may be empty. */
+  folders: OutlookFolder[];
+  /** Keyed by provider label/folder id. Arrives after first paint; may be empty. */
   countsById: Map<string, LabelCount>;
-  /** Gmail-only concept, so Outlook accounts hide the section entirely. */
-  showCategories: boolean;
+  categories: MailCategory[];
+  categoryHeading: string;
+  labelsHeading: string;
+  labelSingular: string;
   backToAppHref: string;
   onCompose: () => void;
   onCreateLabel: (name: string) => void;
@@ -55,28 +66,68 @@ const SYSTEM_ITEMS = [
   { name: "Inbox", type: "inbox", countId: "INBOX", Icon: InboxIcon },
   { name: "Drafts", type: "draft", countId: "DRAFT", Icon: FileIcon },
   { name: "Sent", type: "sent", countId: "SENT", Icon: SendIcon },
-  { name: "Archived", type: "archive", countId: null, Icon: ArchiveIcon },
+  { name: "Archived", type: "archive", countId: "ARCHIVE", Icon: ArchiveIcon },
 ] as const;
 
-export const MAIL_CATEGORIES: {
+export type MailCategory = {
   name: string;
   type: string;
   Icon: LucideIcon;
-}[] = [
-  { name: "Personal", type: GmailLabel.PERSONAL, Icon: UserIcon },
-  { name: "Social", type: GmailLabel.SOCIAL, Icon: Users2Icon },
-  { name: "Updates", type: GmailLabel.UPDATES, Icon: BellIcon },
-  { name: "Forums", type: GmailLabel.FORUMS, Icon: MessagesSquareIcon },
-  { name: "Promotions", type: GmailLabel.PROMOTIONS, Icon: MegaphoneIcon },
+  showCount: boolean;
+};
+
+export const MAIL_CATEGORIES: MailCategory[] = [
+  {
+    name: "Personal",
+    type: GmailLabel.PERSONAL,
+    Icon: UserIcon,
+    showCount: true,
+  },
+  {
+    name: "Social",
+    type: GmailLabel.SOCIAL,
+    Icon: Users2Icon,
+    showCount: true,
+  },
+  {
+    name: "Updates",
+    type: GmailLabel.UPDATES,
+    Icon: BellIcon,
+    showCount: true,
+  },
+  {
+    name: "Forums",
+    type: GmailLabel.FORUMS,
+    Icon: MessagesSquareIcon,
+    showCount: true,
+  },
+  {
+    name: "Promotions",
+    type: GmailLabel.PROMOTIONS,
+    Icon: MegaphoneIcon,
+    showCount: true,
+  },
 ];
+
+export const OUTLOOK_INBOX_CATEGORIES: MailCategory[] =
+  OUTLOOK_INBOX_SECTIONS.map((section) => ({
+    ...section,
+    Icon: section.type === "focused" ? SparklesIcon : InboxIcon,
+    showCount: false,
+  }));
 
 export function MailSidebar({
   activeType,
   activeLabelId,
+  activeFolderId,
   hrefFor,
   labels,
+  folders,
   countsById,
-  showCategories,
+  categories,
+  categoryHeading,
+  labelsHeading,
+  labelSingular,
   backToAppHref,
   onCompose,
   onCreateLabel,
@@ -85,6 +136,7 @@ export function MailSidebar({
 }: MailSidebarProps) {
   const [isAddingLabel, setIsAddingLabel] = useState(false);
   const [newLabelName, setNewLabelName] = useState("");
+  const sidebarFolders = getMailSidebarFolders(folders);
 
   const submitNewLabel = (event: FormEvent) => {
     event.preventDefault();
@@ -129,7 +181,7 @@ export function MailSidebar({
             <NavRow
               key={type}
               href={hrefFor({ kind: "type", type })}
-              active={!activeLabelId && activeType === type}
+              active={!activeLabelId && !activeFolderId && activeType === type}
               icon={<Icon className="size-4 shrink-0" />}
               name={name}
               count={countId ? displayCount(countsById.get(countId)) : null}
@@ -138,18 +190,43 @@ export function MailSidebar({
           ))}
         </nav>
 
-        {showCategories && (
+        {categories.length > 0 && (
           <>
-            <GroupHeading>Categories</GroupHeading>
+            <GroupHeading>{categoryHeading}</GroupHeading>
             <nav className="flex flex-col gap-px">
-              {MAIL_CATEGORIES.map(({ name, type, Icon }) => (
+              {categories.map(({ name, type, Icon, showCount }) => (
                 <NavRow
                   key={type}
                   href={hrefFor({ kind: "type", type })}
-                  active={!activeLabelId && activeType === type}
+                  active={
+                    !activeLabelId && !activeFolderId && activeType === type
+                  }
                   icon={<Icon className="size-3.5 shrink-0" />}
                   name={name}
-                  count={displayCount(countsById.get(type))}
+                  count={showCount ? displayCount(countsById.get(type)) : null}
+                />
+              ))}
+            </nav>
+          </>
+        )}
+
+        {sidebarFolders.length > 0 && (
+          <>
+            <GroupHeading>Folders</GroupHeading>
+            <nav className="flex flex-col gap-px">
+              {sidebarFolders.map((folder) => (
+                <NavRow
+                  key={folder.id}
+                  href={hrefFor({ kind: "folder", folderId: folder.id })}
+                  active={activeFolderId === folder.id}
+                  icon={
+                    <FolderIcon
+                      className="size-3.5 shrink-0"
+                      style={{ marginLeft: folder.depth * 12 }}
+                    />
+                  }
+                  name={folder.displayName}
+                  count={displayCount(countsById.get(folder.id))}
                 />
               ))}
             </nav>
@@ -162,14 +239,14 @@ export function MailSidebar({
               type="button"
               onClick={() => setIsAddingLabel((open) => !open)}
               aria-expanded={isAddingLabel}
-              aria-label="Create label"
+              aria-label={`Create ${labelSingular}`}
               className="rounded-md p-0.5 text-muted-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <PlusIcon className="size-3.5" />
             </button>
           }
         >
-          Labels
+          {labelsHeading}
         </GroupHeading>
         <nav className="flex flex-col gap-px">
           {labels.map((label) => (
@@ -201,8 +278,8 @@ export function MailSidebar({
               onKeyDown={(event) => {
                 if (event.key === "Escape") setIsAddingLabel(false);
               }}
-              placeholder="Label name"
-              aria-label="New label name"
+              placeholder={`${labelSingular} name`}
+              aria-label={`New ${labelSingular} name`}
               autoFocus
               className="h-7 min-w-0 flex-1 px-2 text-xs"
             />

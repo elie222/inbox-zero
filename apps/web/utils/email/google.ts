@@ -1656,6 +1656,10 @@ export class GmailProvider implements EmailProvider {
     return [];
   }
 
+  async getFolderCounts() {
+    return [];
+  }
+
   async moveThreadToFolder(
     _threadId: string,
     _ownerEmail: string,

@@ -1,4 +1,9 @@
-import { Client } from "@microsoft/microsoft-graph-client";
+import {
+  Client,
+  MiddlewareFactory,
+  type Context,
+  type Middleware,
+} from "@microsoft/microsoft-graph-client";
 import type { User } from "@microsoft/microsoft-graph-types";
 import { saveTokens } from "@/utils/auth/save-tokens";
 import { cleanupInvalidTokens } from "@/utils/auth/cleanup-invalid-tokens";
@@ -27,20 +32,38 @@ export class OutlookClient {
     this.accessToken = accessToken;
     this.logger = logger;
     const graphClientOptions = getMicrosoftGraphClientOptions(accessToken);
+    const fetchOptions = {
+      headers: {
+        Prefer: 'IdType="ImmutableId"',
+      },
+    };
+
+    if (graphClientOptions.baseUrl?.startsWith("http://")) {
+      const authProvider = {
+        getAccessToken: async () => this.accessToken,
+      };
+      const middleware =
+        MiddlewareFactory.getDefaultMiddlewareChain(authProvider);
+      middleware.splice(
+        1,
+        0,
+        new OutlookEmulatorUrlMiddleware(graphClientOptions.baseUrl),
+      );
+      this.client = Client.initWithMiddleware({
+        defaultVersion: graphClientOptions.defaultVersion,
+        fetchOptions,
+        middleware,
+      });
+      return;
+    }
+
     this.client = Client.init({
       authProvider: (done) => {
         done(null, this.accessToken);
       },
       defaultVersion: "v1.0",
       ...graphClientOptions,
-      // Use immutable IDs to ensure message IDs remain stable
-      // https://learn.microsoft.com/en-us/graph/outlook-immutable-id
-      fetchOptions: {
-        headers: {
-          ...(graphClientOptions.fetchOptions?.headers ?? {}),
-          Prefer: 'IdType="ImmutableId"',
-        },
-      },
+      fetchOptions,
     });
   }
 
@@ -94,6 +117,38 @@ export class OutlookClient {
       this.logger.warn("Error getting user photo");
       return null;
     }
+  }
+}
+
+class OutlookEmulatorUrlMiddleware implements Middleware {
+  private next?: Middleware;
+  private readonly baseUrl: string;
+
+  constructor(baseUrl: string) {
+    this.baseUrl = baseUrl.replace(/\/+$/, "");
+  }
+
+  setNext(next: Middleware) {
+    this.next = next;
+  }
+
+  async execute(context: Context) {
+    const requestUrl =
+      typeof context.request === "string"
+        ? context.request
+        : context.request.url;
+    const rewrittenUrl = requestUrl.replace(
+      "https://graph.microsoft.com",
+      this.baseUrl,
+    );
+    context.request =
+      typeof context.request === "string"
+        ? rewrittenUrl
+        : new Request(rewrittenUrl, context.request);
+
+    if (!this.next)
+      throw new Error("Outlook emulator middleware is incomplete");
+    await this.next.execute(context);
   }
 }
 

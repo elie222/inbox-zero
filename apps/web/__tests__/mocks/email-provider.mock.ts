@@ -102,6 +102,7 @@ export function createMockEmailProvider(
     getLabelById: vi.fn().mockResolvedValue(null),
     getLabelByName: vi.fn().mockResolvedValue(null),
     getFolders: vi.fn().mockResolvedValue([]),
+    getFolderCounts: vi.fn().mockResolvedValue([]),
     createLabel: vi
       .fn()
       .mockResolvedValue({ id: "label-123", name: "Test Label", type: "user" }),

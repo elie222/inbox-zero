@@ -22,6 +22,8 @@ export const GET = withEmailProvider(
     const limit = searchParams.get("limit");
     const fromEmail = searchParams.get("fromEmail");
     const type = searchParams.get("type");
+    const folderId = searchParams.get("folderId");
+    const inboxSection = searchParams.get("inboxSection");
     const nextPageToken = searchParams.get("nextPageToken");
     const q = searchParams.get("q");
     const labelId = searchParams.get("labelId");
@@ -39,6 +41,8 @@ export const GET = withEmailProvider(
       limit,
       fromEmail,
       type,
+      folderId,
+      inboxSection,
       nextPageToken,
       q,
       labelId,

@@ -1,5 +1,6 @@
 import { MailSplitKind } from "@/generated/prisma/enums";
 import type { ThreadsQuery } from "@/utils/threads/validation";
+import { isOutlookInboxSection } from "@/utils/mail/outlook-inbox";
 
 export type MailSplit = {
   id: string;
@@ -24,6 +25,13 @@ export function mailSplitToThreadsQuery(split: MailSplit): ThreadsQuery {
     case MailSplitKind.CATEGORY:
       if (!split.value)
         throw new Error(`Split "${split.name}" has no category`);
-      return { type: split.value };
+      return mailTypeToThreadsQuery(split.value);
   }
+}
+
+export function mailTypeToThreadsQuery(type: string): ThreadsQuery {
+  if (isOutlookInboxSection(type)) {
+    return { type: "inbox", inboxSection: type };
+  }
+  return { type };
 }

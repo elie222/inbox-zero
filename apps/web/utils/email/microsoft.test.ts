@@ -156,7 +156,7 @@ describe("OutlookProvider.getSentMessageIds", () => {
     });
 
     expect(client.getRequestLog()).toContainEqual({
-      apiPath: "/me/mailFolders('sentitems')/messages",
+      apiPath: "/me/mailFolders/sentitems/messages",
       filter:
         "sentDateTime ge 2026-03-31T12:00:00.000Z and sentDateTime le 2026-04-30T17:00:00.000Z",
     });
@@ -178,6 +178,41 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
 
     expect(client.getSelectLog()[0]).toContain("bodyPreview");
     expect(client.getSelectLog()[0]?.split(",")).not.toContain("body");
+  });
+
+  it.each([
+    "focused",
+    "other",
+  ] as const)("queries the Outlook inbox's %s section", async (inboxSection) => {
+    const client = createMockOutlookClient([
+      createMessage({ id: `${inboxSection}-message` }),
+    ]);
+    const provider = new OutlookProvider(client);
+
+    await provider.getThreadsWithQuery({
+      query: { type: "inbox", inboxSection },
+    });
+
+    expect(client.getRequestLog()[0]).toEqual({
+      apiPath: "/me/mailFolders/inbox/messages",
+      filter: `inferenceClassification eq '${inboxSection}'`,
+    });
+  });
+
+  it("does not apply an inbox section filter to a custom folder", async () => {
+    const client = createMockOutlookClient([
+      createMessage({ id: "folder-message" }),
+    ]);
+    const provider = new OutlookProvider(client);
+
+    await provider.getThreadsWithQuery({
+      query: { folderId: "custom-folder", inboxSection: "focused" },
+    });
+
+    expect(client.getRequestLog()[0]).toEqual({
+      apiPath: "/me/mailFolders/custom-folder/messages",
+      filter: undefined,
+    });
   });
 
   it("filters returned threads by explicit labelIds", async () => {
