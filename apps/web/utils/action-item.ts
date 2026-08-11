@@ -1,6 +1,13 @@
 import { ActionType } from "@/generated/prisma/enums";
 import type { Action, ExecutedAction, Prisma } from "@/generated/prisma/client";
 import { isDraftReplyActionType } from "@/utils/actions/draft-reply";
+import {
+  getIntegrationToolSpec,
+  getSelectArgOptionLabel,
+  isAiFilledArgValue,
+} from "@/utils/mcp/tool-specs";
+
+const AI_GENERATED_FIELD_VALUE = "AI-generated";
 
 const DRAFT_REPLY_FIELDS = [
   { name: "subject" as const, label: "Subject", expandable: true },
@@ -143,21 +150,7 @@ export const actionInputs: Record<
 };
 
 export function getActionFields(fields: Action | ExecutedAction | undefined) {
-  const res: {
-    label?: string;
-    subject?: string;
-    content?: string;
-    to?: string;
-    cc?: string;
-    bcc?: string;
-    url?: string;
-    folderName?: string;
-    folderId?: string;
-    task?: string;
-    taskDescription?: string;
-    dueDate?: string;
-    project?: string;
-  } = {};
+  const res: Record<string, string> = {};
 
   // only return fields with a value
   if (fields?.label) res.label = fields.label;
@@ -170,25 +163,42 @@ export function getActionFields(fields: Action | ExecutedAction | undefined) {
   if (fields?.folderName) res.folderName = fields.folderName;
   if (fields?.folderId) res.folderId = fields.folderId;
 
-  const integrationArgs = getIntegrationArgsRecord(fields?.integrationArgs);
-  if (integrationArgs) {
-    if (typeof integrationArgs.content === "string" && integrationArgs.content)
-      res.task = integrationArgs.content;
-    if (
-      typeof integrationArgs.description === "string" &&
-      integrationArgs.description
-    )
-      res.taskDescription = integrationArgs.description;
-    if (
-      typeof integrationArgs.dueString === "string" &&
-      integrationArgs.dueString
-    )
-      res.dueDate = integrationArgs.dueString;
-    if (
-      typeof integrationArgs.projectName === "string" &&
-      integrationArgs.projectName
-    )
-      res.project = integrationArgs.projectName;
+  Object.assign(res, getIntegrationActionFields(fields));
+
+  return res;
+}
+
+/** Labels and values for integration args, read from the tool spec. */
+function getIntegrationActionFields(
+  fields: Action | ExecutedAction | undefined,
+) {
+  const spec = getIntegrationToolSpec(
+    fields?.integrationName,
+    fields?.integrationToolName,
+  );
+  if (!spec) return {};
+
+  const args = getIntegrationArgsRecord(fields?.integrationArgs);
+  const res: Record<string, string> = {};
+
+  for (const arg of spec.args) {
+    const rawValue = args?.[arg.key];
+    const value = typeof rawValue === "string" ? rawValue.trim() : "";
+
+    if (isAiFilledArgValue(arg, value)) {
+      res[arg.label] = AI_GENERATED_FIELD_VALUE;
+      continue;
+    }
+
+    const displayValue = arg.displayValueKey
+      ? args?.[arg.displayValueKey]
+      : undefined;
+    const label =
+      (typeof displayValue === "string" && displayValue) ||
+      getSelectArgOptionLabel(arg, value) ||
+      value;
+
+    if (label) res[arg.label] = label;
   }
 
   return res;

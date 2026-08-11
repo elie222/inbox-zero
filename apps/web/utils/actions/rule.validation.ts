@@ -10,6 +10,10 @@ import { ConditionType } from "@/utils/config";
 import { NINETY_DAYS_MINUTES } from "@/utils/date";
 import { validateLabelNameBasic } from "@/utils/gmail/label-validation";
 import { findIntegration } from "@/utils/mcp/integrations";
+import {
+  getIntegrationArgKeys,
+  getIntegrationToolSpec,
+} from "@/utils/mcp/tool-specs";
 import { addMissingRecipientIssue } from "@/utils/rule/recipient-validation";
 import { attachmentSourceInputSchema } from "@/utils/attachments/source-schema";
 import { addDisabledRuleActionIssue } from "@/utils/rule-action-feature-gates";
@@ -86,6 +90,8 @@ const zodActionType = z.enum([
   ActionType.INTEGRATION,
 ]);
 
+// Arg keys are owned by the tool spec, so unknown keys are kept here and
+// rejected in the refinement rather than silently stripped.
 const zodIntegrationArgs = z
   .object({
     content: z.string().nullish(),
@@ -94,6 +100,7 @@ const zodIntegrationArgs = z
     projectId: z.string().nullish(),
     projectName: z.string().nullish(),
   })
+  .catchall(z.string().nullish())
   .nullish();
 export type IntegrationActionArgs = z.infer<typeof zodIntegrationArgs>;
 
@@ -251,8 +258,7 @@ const zodAction = z
       actionType: data.type,
       integrationName: data.integrationName,
       integrationToolName: data.integrationToolName,
-      taskContent: data.integrationArgs?.content,
-      missingContentMessage: "Please enter a task",
+      integrationArgs: data.integrationArgs,
       ctx,
     });
   });
@@ -471,8 +477,7 @@ const importedAction = z
       actionType: data.type,
       integrationName: data.integrationName,
       integrationToolName: data.integrationToolName,
-      taskContent: data.integrationArgs?.content,
-      missingContentMessage: "Integration action requires task content",
+      integrationArgs: data.integrationArgs,
       ctx,
     });
   });
@@ -523,15 +528,13 @@ function addIntegrationActionIssues({
   actionType,
   integrationName,
   integrationToolName,
-  taskContent,
-  missingContentMessage,
+  integrationArgs,
   ctx,
 }: {
   actionType: ActionType;
   integrationName: string | null | undefined;
   integrationToolName: string | null | undefined;
-  taskContent: string | null | undefined;
-  missingContentMessage: string;
+  integrationArgs: IntegrationActionArgs;
   ctx: z.RefinementCtx;
 }) {
   if (actionType !== ActionType.INTEGRATION) return;
@@ -545,7 +548,12 @@ function addIntegrationActionIssues({
       message: "Unknown integration",
       path: ["integrationName"],
     });
-  } else if (
+    return;
+  }
+
+  const spec = getIntegrationToolSpec(integrationName, integrationToolName);
+  if (
+    !spec ||
     !integrationToolName ||
     !integration.ruleActionWriteTools?.includes(integrationToolName)
   ) {
@@ -554,13 +562,31 @@ function addIntegrationActionIssues({
       message: "Unsupported integration tool",
       path: ["integrationToolName"],
     });
+    return;
   }
 
-  if (!taskContent?.trim()) {
+  const args = (integrationArgs ?? {}) as Record<string, unknown>;
+  const knownKeys = new Set(getIntegrationArgKeys(spec));
+  for (const key of Object.keys(args)) {
+    if (args[key] == null || knownKeys.has(key)) continue;
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: missingContentMessage,
-      path: ["integrationArgs"],
+      message: `Unknown argument for this integration tool: ${key}`,
+      path: ["integrationArgs", key],
+    });
+  }
+
+  for (const arg of spec.args) {
+    if (!arg.required) continue;
+    const value =
+      typeof args[arg.key] === "string" ? (args[arg.key] as string) : "";
+    // Empty is valid when the AI fills the value at execution time.
+    if (value.trim() || arg.aiPrompt) continue;
+
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `Please enter a value for ${arg.label.toLowerCase()}`,
+      path: ["integrationArgs", arg.key],
     });
   }
 }

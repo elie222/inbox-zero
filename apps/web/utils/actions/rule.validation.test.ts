@@ -579,19 +579,32 @@ describe("INTEGRATION action validation", () => {
     expect(result.success).toBe(true);
   });
 
-  it("requires task content", () => {
+  it("accepts empty task content, which the AI fills at execution", () => {
     const result = createRuleBody.safeParse({
       ...validRule,
       actions: [
         {
           ...integrationAction,
-          integrationArgs: { content: "   ", projectId: "inbox" },
+          integrationArgs: { content: "", projectId: "inbox" },
+        },
+      ],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects unknown argument keys", () => {
+    const result = createRuleBody.safeParse({
+      ...validRule,
+      actions: [
+        {
+          ...integrationAction,
+          integrationArgs: { content: "Review", labels: "urgent" },
         },
       ],
     });
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues[0].message).toContain("task");
+      expect(result.error.issues[0].message).toContain("Unknown argument");
     }
   });
 

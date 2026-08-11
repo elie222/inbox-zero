@@ -27,6 +27,8 @@ import {
 } from "@/__tests__/emulators/todoist-mcp";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
 import { callMcpTool } from "@/utils/mcp/call-tool";
+import { combineActionsWithAiArgs } from "@/utils/ai/choose-rule/choose-args";
+import type { Action } from "@/generated/prisma/client";
 import { syncMcpTools } from "@/utils/mcp/sync-tools";
 import { ActionType, ExecutedRuleStatus } from "@/generated/prisma/enums";
 import { createTestLogger } from "@/__tests__/helpers";
@@ -165,6 +167,56 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         projectId: "6X7rM8997g3RQmvh",
       });
       // projectName is display-only and must not be sent to Todoist
+      expect(emulator.addedTasks[0]).not.toHaveProperty("projectName");
+
+      expect(executedRuleStatuses()).not.toContain(ExecutedRuleStatus.ERROR);
+    });
+
+    test("sends AI-filled values when the stored args are empty", async () => {
+      // Empty args mean "the AI writes this"; combineActionsWithAiArgs resolves
+      // them before execution, so the emulator must receive the filled values.
+      const executedRule = buildExecutedRule({
+        content: "",
+        description: "",
+        dueString: "ai",
+        projectId: "inbox",
+        projectName: "Inbox",
+      });
+
+      const [resolvedAction] = combineActionsWithAiArgs(
+        executedRule.actionItems as unknown as Action[],
+        {
+          "INTEGRATION-action-todoist-1": {
+            "integrationArgs.content": { var1: "Review the contract" },
+            "integrationArgs.description": { var1: "" },
+            "integrationArgs.dueString": { var1: "tomorrow" },
+          },
+        },
+      );
+
+      await executeAct({
+        client: harness.provider,
+        executedRule: {
+          ...executedRule,
+          actionItems: [resolvedAction],
+        } as unknown as typeof executedRule,
+        message: buildMessage(threadId),
+        emailAccount: {
+          email: TEST_EMAIL,
+          id: TEST_ACCOUNT_ID,
+          userId: "test-user-id",
+        },
+        logger: createTestLogger(),
+      });
+
+      expect(emulator.addedTasks).toHaveLength(1);
+      expect(emulator.addedTasks[0]).toMatchObject({
+        content: "Review the contract",
+        dueString: "tomorrow",
+        projectId: "inbox",
+      });
+      // The AI returned nothing for description, so it is omitted entirely
+      expect(emulator.addedTasks[0]).not.toHaveProperty("description");
       expect(emulator.addedTasks[0]).not.toHaveProperty("projectName");
 
       expect(executedRuleStatuses()).not.toContain(ExecutedRuleStatus.ERROR);

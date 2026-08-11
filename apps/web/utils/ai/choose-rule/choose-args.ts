@@ -19,6 +19,11 @@ import type { EmailProvider } from "@/utils/email/types";
 import type { DraftAttribution } from "@/utils/ai/reply/draft-attribution";
 import type { DraftContextMetadata } from "@/utils/ai/reply/draft-context-metadata";
 import { isDraftReplyActionType } from "@/utils/actions/draft-reply";
+import {
+  getIntegrationToolSpec,
+  type IntegrationArgSpec,
+  isAiFilledArgValue,
+} from "@/utils/mcp/tool-specs";
 import type { SelectedAttachment } from "@/utils/attachments/source-schema";
 
 const MODULE = "choose-args";
@@ -197,15 +202,22 @@ export function combineActionsWithAiArgs(
         const argKey = field.slice(INTEGRATION_ARGS_FIELD_PREFIX.length);
         const originalArgs = getIntegrationArgsRecord(action.integrationArgs);
         const originalValue = originalArgs[argKey];
-        if (typeof originalValue === "string") {
-          updatedAction.integrationArgs = {
-            ...getIntegrationArgsRecord(updatedAction.integrationArgs),
-            [argKey]: mergeTemplateWithVars(
-              originalValue,
-              vars as Record<`var${number}`, string>,
-            ),
-          } as Action["integrationArgs"];
-        }
+        const value = typeof originalValue === "string" ? originalValue : "";
+        const argSpec = getIntegrationToolSpec(
+          action.integrationName,
+          action.integrationToolName,
+        )?.args.find((arg) => arg.key === argKey);
+
+        if (!argSpec && typeof originalValue !== "string") continue;
+
+        const resolvedVars = vars as Record<`var${number}`, string>;
+        updatedAction.integrationArgs = {
+          ...getIntegrationArgsRecord(updatedAction.integrationArgs),
+          // AI-filled args take the generated value wholesale; templates stitch
+          [argKey]: isAiFilledArgValue(argSpec, value)
+            ? (resolvedVars.var1 ?? "").trim()
+            : mergeTemplateWithVars(value, resolvedVars),
+        } as Action["integrationArgs"];
         continue;
       }
 
@@ -330,7 +342,11 @@ export function getParameterFieldsForAction(
   action: Pick<
     Action,
     "label" | "subject" | "content" | "to" | "cc" | "bcc" | "url"
-  > & { integrationArgs?: Action["integrationArgs"] },
+  > & {
+    integrationName?: Action["integrationName"];
+    integrationToolName?: Action["integrationToolName"];
+    integrationArgs?: Action["integrationArgs"];
+  },
 ) {
   const fields: Record<string, z.ZodObject<Record<string, z.ZodString>>> = {};
   const fieldNames = [
@@ -351,17 +367,32 @@ export function getParameterFieldsForAction(
     }
   }
 
-  for (const [argKey, argValue] of Object.entries(
-    getIntegrationArgsRecord(action.integrationArgs),
-  )) {
-    if (typeof argValue !== "string") continue;
-    const templateField = buildTemplateField(argValue);
-    if (templateField) {
-      fields[`${INTEGRATION_ARGS_FIELD_PREFIX}${argKey}`] = templateField;
-    }
+  const integrationArgs = getIntegrationArgsRecord(action.integrationArgs);
+  const spec = getIntegrationToolSpec(
+    action.integrationName,
+    action.integrationToolName,
+  );
+
+  // An empty arg the spec marks as AI-filled works like an empty draft-reply
+  // content: the AI writes the whole value. Templates keep their own path.
+  for (const arg of spec?.args ?? []) {
+    const argValue = integrationArgs[arg.key];
+    const value = typeof argValue === "string" ? argValue : "";
+
+    const field = isAiFilledArgValue(arg, value)
+      ? buildWholeValueField(arg)
+      : buildTemplateField(value);
+
+    if (field) fields[`${INTEGRATION_ARGS_FIELD_PREFIX}${arg.key}`] = field;
   }
 
   return fields;
+}
+
+function buildWholeValueField(arg: IntegrationArgSpec) {
+  return z.object({ var1: z.string() }).describe(`${arg.aiPrompt}
+
+Return the full value in var1.`);
 }
 
 function buildTemplateField(value: string) {

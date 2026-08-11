@@ -3,6 +3,10 @@ import type { Prisma } from "@/generated/prisma/client";
 import { isAIRule, type RuleConditions } from "@/utils/condition";
 import { ActionType } from "@/generated/prisma/enums";
 import { TEMPLATE_VARIABLE_PATTERN } from "@/utils/template";
+import {
+  getIntegrationToolSpec,
+  isAiFilledArgValue,
+} from "@/utils/mcp/tool-specs";
 
 const RISK_LEVELS = {
   VERY_HIGH: "very-high",
@@ -20,6 +24,8 @@ export type RiskAction = {
   to: string | null;
   cc: string | null;
   bcc: string | null;
+  integrationName?: string | null;
+  integrationToolName?: string | null;
   integrationArgs?: Prisma.JsonValue | null;
 };
 
@@ -165,7 +171,7 @@ function getFieldsDynamicStatus(action: RiskAction) {
     to: checkFieldStatus(action.to),
     cc: checkFieldStatus(action.cc),
     bcc: checkFieldStatus(action.bcc),
-    integrationArgs: getIntegrationArgsDynamicStatus(action.integrationArgs),
+    integrationArgs: getIntegrationArgsDynamicStatus(action),
   };
 }
 
@@ -176,20 +182,32 @@ function checkFieldStatus(field: string | null) {
   return "static";
 }
 
-function getIntegrationArgsDynamicStatus(
-  integrationArgs: Prisma.JsonValue | null | undefined,
-) {
-  if (
-    !integrationArgs ||
-    typeof integrationArgs !== "object" ||
-    Array.isArray(integrationArgs)
-  ) {
-    return null;
-  }
+function getIntegrationArgsDynamicStatus(action: RiskAction) {
+  if (action.type !== ActionType.INTEGRATION) return null;
 
-  const statuses = Object.values(integrationArgs)
-    .filter((value): value is string => typeof value === "string")
-    .map(checkFieldStatus);
+  const spec = getIntegrationToolSpec(
+    action.integrationName,
+    action.integrationToolName,
+  );
+  // Fail safe: an unrecognised tool is assumed to write AI-generated content,
+  // so it still trips the high-risk gate instead of looking static.
+  if (!spec) return "fully-dynamic";
+
+  const integrationArgs =
+    action.integrationArgs &&
+    typeof action.integrationArgs === "object" &&
+    !Array.isArray(action.integrationArgs)
+      ? (action.integrationArgs as Record<string, unknown>)
+      : {};
+
+  const statuses = spec.args.map((arg) => {
+    const rawValue = integrationArgs[arg.key];
+    const value = typeof rawValue === "string" ? rawValue : "";
+    // An arg the AI fills at execution is as dynamic as a {{template}} was,
+    // even though it is stored empty.
+    if (isAiFilledArgValue(arg, value)) return "fully-dynamic";
+    return checkFieldStatus(value);
+  });
 
   if (statuses.includes("fully-dynamic")) return "fully-dynamic";
   if (statuses.includes("partially-dynamic")) return "partially-dynamic";

@@ -958,6 +958,62 @@ describe("runActionFunction", () => {
       );
     });
 
+    it("maps stored due-date options to the tool's wire format", async () => {
+      await runIntegration({
+        ...integrationAction,
+        integrationArgs: {
+          content: "Follow up",
+          dueString: "in-7-days",
+          projectId: "inbox",
+          projectName: "Inbox",
+        },
+      });
+
+      expect(callMcpTool).toHaveBeenCalledWith(
+        expect.objectContaining({
+          args: {
+            tasks: [
+              {
+                content: "Follow up",
+                dueString: "in 7 days",
+                projectId: "inbox",
+              },
+            ],
+          },
+        }),
+      );
+    });
+
+    it("omits the due date when the AI option was never filled", async () => {
+      await runIntegration({
+        ...integrationAction,
+        integrationArgs: { content: "Follow up", dueString: "ai" },
+      });
+
+      expect(callMcpTool).toHaveBeenCalledWith(
+        expect.objectContaining({
+          args: { tasks: [{ content: "Follow up" }] },
+        }),
+      );
+    });
+
+    it("never sends the display-only project name to the tool", async () => {
+      await runIntegration({
+        ...integrationAction,
+        integrationArgs: {
+          content: "Follow up",
+          projectId: "6X7",
+          projectName: "Work",
+        },
+      });
+
+      expect(callMcpTool).toHaveBeenCalledWith(
+        expect.objectContaining({
+          args: { tasks: [{ content: "Follow up", projectId: "6X7" }] },
+        }),
+      );
+    });
+
     it("skips when integration actions are disabled", async () => {
       mockEnv.integrationActionEnabled = false;
 

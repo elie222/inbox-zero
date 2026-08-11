@@ -29,6 +29,7 @@ import { isDeleteEmailActionEnabled } from "@/utils/delete-email-action";
 import { isIntegrationActionEnabled } from "@/utils/integration-action";
 import { callMcpTool } from "@/utils/mcp/call-tool";
 import { findIntegration } from "@/utils/mcp/integrations";
+import { getIntegrationToolSpec } from "@/utils/mcp/tool-specs";
 import { resolveActionAttachments } from "@/utils/ai/action-attachments";
 import {
   getMessagingRuleNotificationResult,
@@ -634,14 +635,28 @@ const integration: ActionFunction<{
     };
   }
 
-  const toolArgs = buildTodoistAddTasksArgs(args.integrationArgs);
-  if (!toolArgs) {
+  const spec = getIntegrationToolSpec(integrationName, integrationToolName);
+  if (!spec) {
+    return {
+      success: false,
+      errorCode: "UNSUPPORTED_INTEGRATION_TOOL",
+      errorMessage: `Unsupported integration tool: ${integrationName}/${integrationToolName}`,
+    };
+  }
+
+  const resolvedArgs = readIntegrationArgs(args.integrationArgs);
+  const missingArg = spec.args.find(
+    (arg) => arg.required && !resolvedArgs[arg.key]?.trim(),
+  );
+  if (missingArg) {
     return {
       success: false,
       errorCode: "MISSING_INTEGRATION_ARGS",
-      errorMessage: "The integration action has no task content",
+      errorMessage: `The integration action has no ${missingArg.label.toLowerCase()}`,
     };
   }
+
+  const toolArgs = spec.buildPayload(resolvedArgs);
 
   try {
     await callMcpTool({
@@ -870,36 +885,22 @@ function isLegacyMessagingDraft({
   );
 }
 
-function buildTodoistAddTasksArgs(
+function readIntegrationArgs(
   integrationArgs: ActionItem["integrationArgs"],
-): Record<string, unknown> | null {
-  const args =
-    integrationArgs &&
-    typeof integrationArgs === "object" &&
-    !Array.isArray(integrationArgs)
-      ? (integrationArgs as Record<string, unknown>)
-      : {};
+): Record<string, string> {
+  if (
+    !integrationArgs ||
+    typeof integrationArgs !== "object" ||
+    Array.isArray(integrationArgs)
+  ) {
+    return {};
+  }
 
-  const readString = (key: string) =>
-    typeof args[key] === "string" ? (args[key] as string).trim() : "";
-
-  const content = readString("content");
-  if (!content) return null;
-
-  const description = readString("description");
-  const dueString = readString("dueString");
-  const projectId = readString("projectId");
-
-  return {
-    tasks: [
-      {
-        content,
-        ...(description && { description }),
-        ...(dueString && { dueString }),
-        ...(projectId && { projectId }),
-      },
-    ],
-  };
+  return Object.fromEntries(
+    Object.entries(integrationArgs).filter(
+      (entry): entry is [string, string] => typeof entry[1] === "string",
+    ),
+  );
 }
 
 function removeMessageParticipants(

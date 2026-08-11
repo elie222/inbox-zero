@@ -36,6 +36,11 @@ import {
   TODOIST_INTEGRATION,
 } from "@/utils/integration-action";
 import { findIntegration } from "@/utils/mcp/integrations";
+import {
+  buildDefaultIntegrationArgs,
+  getIntegrationToolSpec,
+  normalizeSelectArgValue,
+} from "@/utils/mcp/tool-specs";
 import { hasWebhookAction } from "@/utils/webhook-action";
 import { assertNoSenderOnlyOverlap } from "@/utils/rule/sender-scope-overlap";
 
@@ -415,6 +420,8 @@ export async function createRule({
             to: a.to ?? null,
             cc: a.cc ?? null,
             bcc: a.bcc ?? null,
+            integrationName: a.integrationName ?? null,
+            integrationToolName: a.integrationToolName ?? null,
             integrationArgs: (a.integrationArgs as Prisma.JsonValue) ?? null,
           })),
           enablement,
@@ -882,25 +889,54 @@ async function mapActionFields(
 }
 
 function getIntegrationCreateFields(action: MappableAction) {
-  const integrationArgs =
-    action.integrationArgs ??
-    buildTodoistIntegrationArgsFromFields(action.fields);
+  const integrationName = action.integrationName ?? TODOIST_INTEGRATION;
+  const integrationToolName =
+    action.integrationToolName ?? TODOIST_ADD_TASKS_TOOL;
 
   return {
-    integrationName: action.integrationName ?? TODOIST_INTEGRATION,
-    integrationToolName: action.integrationToolName ?? TODOIST_ADD_TASKS_TOOL,
-    integrationArgs: integrationArgs as Prisma.InputJsonValue,
+    integrationName,
+    integrationToolName,
+    integrationArgs: (action.integrationArgs ??
+      buildIntegrationArgsFromFields({
+        integrationName,
+        integrationToolName,
+        fields: action.fields,
+      })) as Prisma.InputJsonValue,
   };
 }
 
-function buildTodoistIntegrationArgsFromFields(
-  fields: MappableAction["fields"],
-) {
-  return {
-    content: fields?.content ?? "",
-    ...(fields?.description && { description: fields.description }),
-    ...(fields?.dueString && { dueString: fields.dueString }),
-  };
+/**
+ * Builds stored args from an AI-authored action's flat fields, applying the
+ * spec's defaults so an omitted field means "the AI writes it at execution".
+ */
+function buildIntegrationArgsFromFields({
+  integrationName,
+  integrationToolName,
+  fields,
+}: {
+  integrationName: string;
+  integrationToolName: string;
+  fields: MappableAction["fields"];
+}) {
+  const spec = getIntegrationToolSpec(integrationName, integrationToolName);
+  if (!spec) return {};
+
+  const args = buildDefaultIntegrationArgs(spec);
+
+  for (const arg of spec.args) {
+    const value = (
+      fields as Record<string, string | null | undefined> | null
+    )?.[arg.key];
+    if (value == null) continue;
+
+    const normalized =
+      arg.control.type === "select"
+        ? normalizeSelectArgValue(arg, value)
+        : value;
+    if (normalized !== undefined) args[arg.key] = normalized;
+  }
+
+  return args;
 }
 
 export async function assertIntegrationActionsConnected(

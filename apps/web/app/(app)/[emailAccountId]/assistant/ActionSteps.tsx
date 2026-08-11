@@ -62,13 +62,17 @@ import { prefixPath } from "@/utils/path";
 import { isDraftReplyActionType } from "@/utils/actions/draft-reply";
 import {
   TODOIST_ADD_TASKS_TOOL,
-  TODOIST_AI_DUE_STRING_TEMPLATE,
-  TODOIST_DEFAULT_DESCRIPTION_TEMPLATE,
-  TODOIST_DEFAULT_TASK_TEMPLATE,
-  TODOIST_INBOX_PROJECT_ID,
-  TODOIST_INBOX_PROJECT_NAME,
   TODOIST_INTEGRATION,
 } from "@/utils/integration-action";
+import { findIntegration } from "@/utils/mcp/integrations";
+import {
+  buildDefaultIntegrationArgs,
+  getIntegrationToolSpec,
+  getSelectArgDisplayValue,
+  type IntegrationArgSpec,
+  TODOIST_INBOX_PROJECT_ID,
+  TODOIST_INBOX_PROJECT_NAME,
+} from "@/utils/mcp/tool-specs";
 import { useIntegrations } from "@/hooks/useIntegrations";
 import { useTodoistProjects } from "@/hooks/useTodoistProjects";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -815,7 +819,7 @@ function ActionCard({
         <Card className="p-4 space-y-4">{deliverySummary}</Card>
       ) : actionType === ActionType.INTEGRATION ? (
         <Card className="p-4 space-y-4">
-          <TodoistTaskFields
+          <IntegrationArgFields
             index={index}
             register={register}
             control={control}
@@ -1084,19 +1088,7 @@ function DraftReplyReviewChannelsSection({
   );
 }
 
-const TODOIST_DUE_DATE_OPTIONS = [
-  { value: "none", label: "No due date", dueString: null },
-  { value: "today", label: "Today", dueString: "today" },
-  { value: "tomorrow", label: "Tomorrow", dueString: "tomorrow" },
-  { value: "week", label: "In a week", dueString: "in 7 days" },
-  {
-    value: "ai",
-    label: "AI decides from email",
-    dueString: TODOIST_AI_DUE_STRING_TEMPLATE,
-  },
-] as const;
-
-function TodoistTaskFields({
+function IntegrationArgFields({
   index,
   register,
   control,
@@ -1111,162 +1103,208 @@ function TodoistTaskFields({
   errors: FieldErrors<CreateRuleBody>;
   emailAccountId: string;
 }) {
+  const integrationName = useWatch({
+    control,
+    name: `actions.${index}.integrationName`,
+  });
+  const integrationToolName = useWatch({
+    control,
+    name: `actions.${index}.integrationToolName`,
+  });
+  const spec = getIntegrationToolSpec(
+    integrationName ?? TODOIST_INTEGRATION,
+    integrationToolName ?? TODOIST_ADD_TASKS_TOOL,
+  );
+
   const { data: integrationsData, isLoading: integrationsLoading } =
     useIntegrations();
-  const todoist = integrationsData?.integrations.find(
-    (integration) => integration.name === TODOIST_INTEGRATION,
-  );
-  const isConnected = !!todoist?.connection?.isActive;
+  const connection = integrationsData?.integrations.find(
+    (integration) => integration.name === spec?.integration,
+  )?.connection;
+  const isConnected = !!connection?.isActive;
 
+  const needsProjects = spec?.args.some(
+    (arg) => arg.control.type === "remote-select",
+  );
   const { data: projectsData, isLoading: projectsLoading } = useTodoistProjects(
-    { enabled: isConnected },
+    { enabled: isConnected && !!needsProjects },
   );
 
   const integrationArgs = useWatch({
     control,
     name: `actions.${index}.integrationArgs`,
   });
-  const projectId = integrationArgs?.projectId || TODOIST_INBOX_PROJECT_ID;
-  const dueString = integrationArgs?.dueString;
-
-  const nonInboxProjects =
-    projectsData?.projects.filter(
-      (project) => project.name !== TODOIST_INBOX_PROJECT_NAME,
-    ) ?? [];
-  const hasSelectedProject =
-    projectId === TODOIST_INBOX_PROJECT_ID ||
-    nonInboxProjects.some((project) => project.id === projectId);
 
   const errorMessage =
     errors?.actions?.[index]?.integrationArgs?.message ||
     errors?.actions?.[index]?.integrationArgs?.root?.message;
+
+  if (!spec) return null;
+
+  const displayName =
+    findIntegration(spec.integration)?.displayName ?? spec.integration;
 
   return (
     <LoadingContent loading={integrationsLoading}>
       {!isConnected ? (
         <div className="space-y-3">
           <MutedText className="px-1">
-            Todoist isn't connected. Connect it to use this action.
+            {`${displayName} isn't connected. Connect it to use this action.`}
           </MutedText>
           <Button asChild size="sm" variant="outline">
             <Link href={prefixPath(emailAccountId, "/integrations")}>
-              Connect Todoist
+              {`Connect ${displayName}`}
             </Link>
           </Button>
         </div>
       ) : (
         <div className="space-y-4">
-          <div>
-            <Label
-              htmlFor={`actions.${index}.integrationArgs.content`}
-              className="mb-2 block"
-            >
-              Task
-            </Label>
-            <Input
-              type="text"
-              name={`actions.${index}.integrationArgs.content`}
-              registerProps={register(
-                `actions.${index}.integrationArgs.content`,
-              )}
-              placeholder={TODOIST_DEFAULT_TASK_TEMPLATE}
+          {spec.args.map((arg) => (
+            <IntegrationArgField
+              key={arg.key}
+              arg={arg}
+              index={index}
+              register={register}
+              setValue={setValue}
+              storedArgs={integrationArgs}
+              projects={projectsData?.projects}
+              projectsLoading={projectsLoading}
             />
-          </div>
-
-          <div>
-            <Label
-              htmlFor={`actions.${index}.integrationArgs.description`}
-              className="mb-2 block"
-            >
-              Description
-            </Label>
-            <Input
-              type="text"
-              name={`actions.${index}.integrationArgs.description`}
-              registerProps={register(
-                `actions.${index}.integrationArgs.description`,
-              )}
-              placeholder={TODOIST_DEFAULT_DESCRIPTION_TEMPLATE}
-            />
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Project</Label>
-              <LoadingContent loading={projectsLoading}>
-                <Select
-                  value={projectId}
-                  onValueChange={(nextProjectId) => {
-                    const projectName =
-                      nextProjectId === TODOIST_INBOX_PROJECT_ID
-                        ? TODOIST_INBOX_PROJECT_NAME
-                        : (nonInboxProjects.find(
-                            (project) => project.id === nextProjectId,
-                          )?.name ?? null);
-                    setValue(
-                      `actions.${index}.integrationArgs.projectId`,
-                      nextProjectId,
-                    );
-                    setValue(
-                      `actions.${index}.integrationArgs.projectName`,
-                      projectName,
-                    );
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={TODOIST_INBOX_PROJECT_ID}>
-                      {TODOIST_INBOX_PROJECT_NAME}
-                    </SelectItem>
-                    {nonInboxProjects.map((project) => (
-                      <SelectItem key={project.id} value={project.id}>
-                        {project.name}
-                      </SelectItem>
-                    ))}
-                    {!hasSelectedProject && (
-                      <SelectItem value={projectId}>
-                        {integrationArgs?.projectName || "Selected project"}
-                      </SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-              </LoadingContent>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Due date</Label>
-              <Select
-                value={getTodoistDueDateOptionValue(dueString)}
-                onValueChange={(nextValue) => {
-                  const option = TODOIST_DUE_DATE_OPTIONS.find(
-                    (candidate) => candidate.value === nextValue,
-                  );
-                  setValue(
-                    `actions.${index}.integrationArgs.dueString`,
-                    option?.dueString ?? null,
-                  );
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {TODOIST_DUE_DATE_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          ))}
 
           {errorMessage ? <ErrorMessage message={errorMessage} /> : null}
         </div>
       )}
     </LoadingContent>
+  );
+}
+
+function IntegrationArgField({
+  arg,
+  index,
+  register,
+  setValue,
+  storedArgs,
+  projects,
+  projectsLoading,
+}: {
+  arg: IntegrationArgSpec;
+  index: number;
+  register: UseFormRegister<CreateRuleBody>;
+  setValue: UseFormSetValue<CreateRuleBody>;
+  storedArgs: CreateRuleBody["actions"][number]["integrationArgs"];
+  projects?: Array<{ id: string; name: string }>;
+  projectsLoading: boolean;
+}) {
+  const args = (storedArgs ?? {}) as Record<string, string | null | undefined>;
+  const storedValue = args[arg.key] ?? "";
+
+  if (arg.control.type === "text") {
+    return (
+      <div>
+        <Label
+          htmlFor={`actions.${index}.integrationArgs.${arg.key}`}
+          className="mb-2 block"
+        >
+          {arg.label}
+        </Label>
+        <Input
+          type="text"
+          name={`actions.${index}.integrationArgs.${arg.key}`}
+          registerProps={register(
+            `actions.${index}.integrationArgs.${arg.key}` as const,
+          )}
+          placeholder={arg.placeholder}
+        />
+      </div>
+    );
+  }
+
+  if (arg.control.type === "select") {
+    const options = arg.control.options;
+    return (
+      <div className="space-y-2">
+        <Label>{arg.label}</Label>
+        <Select
+          value={getSelectArgDisplayValue(arg, storedValue)}
+          onValueChange={(nextValue) =>
+            setValue(
+              `actions.${index}.integrationArgs.${arg.key}` as const,
+              nextValue,
+            )
+          }
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {options.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    );
+  }
+
+  // remote-select: Todoist projects, with Inbox always available as a fallback
+  const projectId = storedValue || arg.defaultValue || TODOIST_INBOX_PROJECT_ID;
+  const nonInboxProjects = (projects ?? []).filter(
+    (project) => project.name !== TODOIST_INBOX_PROJECT_NAME,
+  );
+  const hasSelectedProject =
+    projectId === TODOIST_INBOX_PROJECT_ID ||
+    nonInboxProjects.some((project) => project.id === projectId);
+  const displayValueKey = arg.displayValueKey;
+
+  return (
+    <div className="space-y-2">
+      <Label>{arg.label}</Label>
+      <LoadingContent loading={projectsLoading}>
+        <Select
+          value={projectId}
+          onValueChange={(nextProjectId) => {
+            setValue(
+              `actions.${index}.integrationArgs.${arg.key}` as const,
+              nextProjectId,
+            );
+            if (!displayValueKey) return;
+            const projectName =
+              nextProjectId === TODOIST_INBOX_PROJECT_ID
+                ? TODOIST_INBOX_PROJECT_NAME
+                : (nonInboxProjects.find(
+                    (project) => project.id === nextProjectId,
+                  )?.name ?? null);
+            setValue(
+              `actions.${index}.integrationArgs.${displayValueKey}` as const,
+              projectName,
+            );
+          }}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={TODOIST_INBOX_PROJECT_ID}>
+              {TODOIST_INBOX_PROJECT_NAME}
+            </SelectItem>
+            {nonInboxProjects.map((project) => (
+              <SelectItem key={project.id} value={project.id}>
+                {project.name}
+              </SelectItem>
+            ))}
+            {!hasSelectedProject && (
+              <SelectItem value={projectId}>
+                {(displayValueKey && args[displayValueKey]) ||
+                  "Selected project"}
+              </SelectItem>
+            )}
+          </SelectContent>
+        </Select>
+      </LoadingContent>
+    </div>
   );
 }
 
@@ -1401,15 +1439,17 @@ function updateActionType({
 
   if (nextType === ActionType.INTEGRATION) {
     if (actionTypeBeforeUpdate !== ActionType.INTEGRATION) {
+      const spec = getIntegrationToolSpec(
+        TODOIST_INTEGRATION,
+        TODOIST_ADD_TASKS_TOOL,
+      );
       setValue(`actions.${index}.integrationName`, TODOIST_INTEGRATION);
       setValue(`actions.${index}.integrationToolName`, TODOIST_ADD_TASKS_TOOL);
-      setValue(`actions.${index}.integrationArgs`, {
-        content: TODOIST_DEFAULT_TASK_TEMPLATE,
-        description: TODOIST_DEFAULT_DESCRIPTION_TEMPLATE,
-        dueString: TODOIST_AI_DUE_STRING_TEMPLATE,
-        projectId: TODOIST_INBOX_PROJECT_ID,
-        projectName: TODOIST_INBOX_PROJECT_NAME,
-      });
+      // Text args seed empty on purpose: empty means the AI writes them
+      setValue(
+        `actions.${index}.integrationArgs`,
+        spec ? buildDefaultIntegrationArgs(spec) : {},
+      );
       setValue(`actions.${index}.delayInMinutes`, null);
     }
   } else {
@@ -1489,17 +1529,6 @@ function updateDraftReplyDelivery({
   ];
 
   replaceActions(nextActions);
-}
-
-function getTodoistDueDateOptionValue(dueString: string | null | undefined) {
-  if (!dueString) return "none";
-
-  const match = TODOIST_DUE_DATE_OPTIONS.find(
-    (option) => option.dueString === dueString,
-  );
-  if (match) return match.value;
-
-  return hasVariables(dueString) ? "ai" : "none";
 }
 
 function getMessagingChannelError({

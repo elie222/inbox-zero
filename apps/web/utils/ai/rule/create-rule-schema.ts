@@ -347,15 +347,14 @@ function createRequiredFolderFieldsSchema(provider: string) {
 
 function createTodoistTaskFieldsSchema() {
   return z.object({
-    content: requiredStringField(
-      "The Todoist task title. Wrap any part the AI should generate from the email at run time in double braces, e.g. {{Short action item based on the email}}.",
-      "INTEGRATION requires fields.content.",
+    content: optionalStringField(
+      "The Todoist task title. Leave empty unless the user asked for specific wording, and the AI writes a task title from each matching email.",
     ),
     description: optionalStringField(
-      "Optional Todoist task description. Supports the same {{double braces}} AI templates as the task title.",
+      "The Todoist task description. Leave empty unless the user asked for specific wording, and the AI writes one line of context from each matching email.",
     ),
     dueString: optionalStringField(
-      "Optional natural-language due date for the task, e.g. 'tomorrow' or 'in 7 days'. Also supports {{double braces}} AI templates. Omit for no due date.",
+      "The task due date, e.g. 'today', 'tomorrow' or 'in 7 days'. Leave empty unless the user asked for a specific due date, and the AI takes the due date from each matching email.",
     ),
   });
 }

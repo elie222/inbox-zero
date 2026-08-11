@@ -107,6 +107,54 @@ describe("getActionFields", () => {
     });
   });
 
+  it("labels integration args from the tool spec", () => {
+    const action = {
+      type: ActionType.INTEGRATION,
+      integrationName: "todoist",
+      integrationToolName: "add-tasks",
+      integrationArgs: {
+        content: "Review the contract",
+        description: "From the legal team",
+        dueString: "tomorrow",
+        projectId: "6X7",
+        projectName: "Work",
+      },
+    } as any;
+
+    const result = getActionFields(action);
+
+    expect(result).toEqual({
+      Task: "Review the contract",
+      Description: "From the legal team",
+      "Due date": "Tomorrow",
+      Project: "Work",
+    });
+  });
+
+  it("shows AI-filled integration args as AI-generated", () => {
+    const action = {
+      type: ActionType.INTEGRATION,
+      integrationName: "todoist",
+      integrationToolName: "add-tasks",
+      integrationArgs: {
+        content: "",
+        description: "",
+        dueString: "ai",
+        projectId: "inbox",
+        projectName: "Inbox",
+      },
+    } as any;
+
+    const result = getActionFields(action);
+
+    expect(result).toEqual({
+      Task: "AI-generated",
+      Description: "AI-generated",
+      "Due date": "AI-generated",
+      Project: "Inbox",
+    });
+  });
+
   it("excludes falsy values except for defined nulls", () => {
     const action = {
       label: "",
