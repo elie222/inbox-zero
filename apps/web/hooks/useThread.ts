@@ -53,7 +53,7 @@ export function useThread(
     identity: string;
     data: ThreadResponse;
   }>();
-  const remoteIdentity = useRef<string>();
+  const remoteIdentity = useRef<string | undefined>(undefined);
 
   const remoteData = swr.data?.thread.id === id ? swr.data : undefined;
   remoteIdentity.current =

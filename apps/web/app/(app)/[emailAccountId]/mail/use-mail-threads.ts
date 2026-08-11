@@ -84,10 +84,10 @@ export function useMailThreads({
   const [persistent, setPersistent] = useState<PersistentView>();
   const [paginationRequestIdentity, setPaginationRequestIdentity] =
     useState<string>();
-  const paginationRetryIdentity = useRef<string>();
+  const paginationRetryIdentity = useRef<string | undefined>(undefined);
   const hiddenByView = useRef(new Map<string, Set<string>>());
   const [, renderHiddenChanges] = useReducer((version) => version + 1, 0);
-  const remoteIdentity = useRef<string>();
+  const remoteIdentity = useRef<string | undefined>(undefined);
 
   remoteIdentity.current = data?.[0] ? viewIdentity : undefined;
 

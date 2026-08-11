@@ -23,10 +23,10 @@ export function scheduleEmailCacheCleanup({ force = false } = {}) {
     cleanupEmailCache().catch(() => {});
   };
 
-  if ("requestIdleCallback" in window) {
+  if (typeof window.requestIdleCallback === "function") {
     window.requestIdleCallback(run, { timeout: 5000 });
   } else {
-    window.setTimeout(run, 1000);
+    setTimeout(run, 1000);
   }
 }
 

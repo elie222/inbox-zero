@@ -29,7 +29,7 @@ function normalizeValue(value: unknown): unknown {
     return Object.fromEntries(
       Object.entries(value)
         .filter(([, nested]) => nested !== null && nested !== undefined)
-        .map(([key, nested]) => [key, normalizeValue(nested)])
+        .map(([key, nested]) => [key, normalizeValue(nested)] as const)
         .sort(([first], [second]) => first.localeCompare(second)),
     );
   }
