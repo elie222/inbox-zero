@@ -79,7 +79,7 @@ export default function Components() {
     "alice@example.com",
     "bob@example.com",
   ]);
-  const [joinRule, setJoinRule] = useState("external");
+  const [joinRule, setJoinRule] = useState("all");
   const [notifyByEmail, setNotifyByEmail] = useState(true);
   return (
     <Container>
@@ -905,12 +905,11 @@ export default function Components() {
               value={joinRule}
               onChange={setJoinRule}
               options={[
+                { value: "all", label: "Every call with a video link" },
                 {
                   value: "external",
                   label: "Only calls with people outside my company",
-                  badge: "Recommended",
                 },
-                { value: "all", label: "Every call with a video link" },
                 { value: "off", label: "Only the ones I turn on myself" },
               ]}
             />
