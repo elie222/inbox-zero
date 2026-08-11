@@ -17,7 +17,7 @@ describe("buildEmulateSeed", () => {
   });
 
   it("uses the workspace URL for OAuth callbacks", () => {
-    const baseUrl = "https://workspace.test";
+    const baseUrl = "https://workspace.test/";
     const seed = buildEmulateSeed(baseUrl);
     const redirectUris = [
       ...seed.google.oauth_clients[0].redirect_uris,
@@ -25,8 +25,9 @@ describe("buildEmulateSeed", () => {
     ];
 
     expect(redirectUris).not.toHaveLength(0);
-    expect(redirectUris.every((uri) => uri.startsWith(`${baseUrl}/`))).toBe(
-      true,
-    );
+    expect(
+      redirectUris.every((uri) => uri.startsWith("https://workspace.test/")),
+    ).toBe(true);
+    expect(redirectUris.every((uri) => !uri.includes("//api/"))).toBe(true);
   });
 });

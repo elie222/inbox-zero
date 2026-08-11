@@ -14,6 +14,8 @@ const MICROSOFT_EMAIL = "developer@outlook.test";
 const MICROSOFT_NAME = "Developer";
 
 export function buildEmulateSeed(baseUrl = DEFAULT_BASE_URL) {
+  const normalizedBaseUrl = baseUrl.replace(/\/+$/u, "");
+
   return {
     google: {
       users: [{ email: GOOGLE_EMAIL, name: GOOGLE_NAME }],
@@ -22,11 +24,11 @@ export function buildEmulateSeed(baseUrl = DEFAULT_BASE_URL) {
           client_id: "emulate-google-client.apps.googleusercontent.com",
           client_secret: "emulate-google-secret",
           redirect_uris: [
-            `${baseUrl}/api/auth/oauth2/callback/google`,
-            `${baseUrl}/api/auth/callback/google`,
-            `${baseUrl}/api/google/linking/callback`,
-            `${baseUrl}/api/google/calendar/callback`,
-            `${baseUrl}/api/google/drive/callback`,
+            `${normalizedBaseUrl}/api/auth/oauth2/callback/google`,
+            `${normalizedBaseUrl}/api/auth/callback/google`,
+            `${normalizedBaseUrl}/api/google/linking/callback`,
+            `${normalizedBaseUrl}/api/google/calendar/callback`,
+            `${normalizedBaseUrl}/api/google/drive/callback`,
           ],
         },
       ],
@@ -62,11 +64,11 @@ export function buildEmulateSeed(baseUrl = DEFAULT_BASE_URL) {
           client_id: "emulate-microsoft-client-id",
           client_secret: "emulate-microsoft-secret",
           redirect_uris: [
-            `${baseUrl}/api/auth/oauth2/callback/microsoft`,
-            `${baseUrl}/api/auth/callback/microsoft`,
-            `${baseUrl}/api/outlook/linking/callback`,
-            `${baseUrl}/api/outlook/calendar/callback`,
-            `${baseUrl}/api/outlook/drive/callback`,
+            `${normalizedBaseUrl}/api/auth/oauth2/callback/microsoft`,
+            `${normalizedBaseUrl}/api/auth/callback/microsoft`,
+            `${normalizedBaseUrl}/api/outlook/linking/callback`,
+            `${normalizedBaseUrl}/api/outlook/calendar/callback`,
+            `${normalizedBaseUrl}/api/outlook/drive/callback`,
           ],
         },
       ],

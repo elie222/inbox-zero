@@ -70,9 +70,9 @@ class CommandExecutionError extends Error {
 const ROOT_DIR = process.cwd();
 const APP_DIR = resolve(ROOT_DIR, "apps/web");
 const CONTEXT_DIR = resolve(ROOT_DIR, ".context");
-const GENERATED_EMULATE_CONFIG_PATH = resolve(
+const GENERATED_EMULATE_SEED_PATH = resolve(
   CONTEXT_DIR,
-  "worktree-emulate.config.yaml",
+  "worktree-emulate.generated.json",
 );
 const SHARED_ENV_DIR = resolve(homedir(), ".config/inbox-zero");
 const SHARED_ENV_LOCAL_PATH = resolve(SHARED_ENV_DIR, ".env.local");
@@ -231,7 +231,7 @@ async function runDev(state: WorktreeState) {
     state.googleEmulatorPort != null &&
     state.microsoftEmulatorPort != null
   ) {
-    await writeGeneratedEmulateConfig(state.baseUrl);
+    await writeGeneratedEmulateSeed(state.baseUrl);
 
     registerChild(
       spawn(
@@ -244,7 +244,7 @@ async function runDev(state: WorktreeState) {
           "--service",
           "google",
           "--seed",
-          GENERATED_EMULATE_CONFIG_PATH,
+          GENERATED_EMULATE_SEED_PATH,
           "--port",
           String(state.googleEmulatorPort),
         ],
@@ -263,7 +263,7 @@ async function runDev(state: WorktreeState) {
           "--service",
           "microsoft",
           "--seed",
-          GENERATED_EMULATE_CONFIG_PATH,
+          GENERATED_EMULATE_SEED_PATH,
           "--port",
           String(state.microsoftEmulatorPort),
         ],
@@ -371,7 +371,7 @@ async function cleanWorktree() {
     );
   }
 
-  rmSync(GENERATED_EMULATE_CONFIG_PATH, { force: true });
+  rmSync(GENERATED_EMULATE_SEED_PATH, { force: true });
   rmSync(STATE_PATH, { force: true });
 
   log("Removed cached dev setup state");
@@ -461,7 +461,7 @@ function ensureSharedEnvLinks() {
   }
 }
 
-async function writeGeneratedEmulateConfig(baseUrl: string) {
+async function writeGeneratedEmulateSeed(baseUrl: string) {
   await runCommand("pnpm", [
     "--dir",
     APP_DIR,
@@ -469,7 +469,7 @@ async function writeGeneratedEmulateConfig(baseUrl: string) {
     "tsx",
     "scripts/write-emulate-seed.ts",
     "--output",
-    GENERATED_EMULATE_CONFIG_PATH,
+    GENERATED_EMULATE_SEED_PATH,
     "--base-url",
     baseUrl,
   ]);
@@ -1178,7 +1178,7 @@ async function ensureWorktreeReady(options: CliOptions) {
   writeState(state);
 
   if (state.authMode === "emulate") {
-    await writeGeneratedEmulateConfig(state.baseUrl);
+    await writeGeneratedEmulateSeed(state.baseUrl);
   }
 
   return state;
