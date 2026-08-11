@@ -118,28 +118,83 @@ describe("useMailThreads", () => {
     );
   });
 
-  it("does not show the previous view while a new view loads", async () => {
+  it("loads the next page with one click from a persistent view", async () => {
+    const firstPage = Promise.withResolvers<unknown>();
+    const secondPage = Promise.withResolvers<unknown>();
+    cache.read.mockResolvedValue({
+      cachedAt: 100,
+      hasMore: true,
+      threads: [createThread("cached")],
+    });
+    const fetcher = vi
+      .fn()
+      .mockReturnValueOnce(firstPage.promise)
+      .mockReturnValueOnce(secondPage.promise);
+
+    const { result } = renderHook(
+      () =>
+        useMailThreads({
+          emailAccountId: "account-pagination",
+          query: { type: "inbox" },
+        }),
+      { wrapper: createWrapper(fetcher) },
+    );
+    await waitFor(() => expect(result.current.threads[0]?.id).toBe("cached"));
+
+    act(() => result.current.loadMore());
+    expect(result.current.isLoadingMore).toBe(true);
+
+    await act(async () => {
+      firstPage.resolve({
+        threads: [createThread("network")],
+        nextPageToken: "page-2",
+      });
+    });
+    await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
+    expect(fetcher.mock.calls[1]?.[0][0]).toContain("nextPageToken=page-2");
+
+    secondPage.resolve({ threads: [createThread("second-page")] });
+  });
+
+  it("rehydrates a revisited view after its remote pages were evicted", async () => {
     const archiveNetwork = Promise.withResolvers<unknown>();
-    cache.read.mockResolvedValue(undefined);
+    let inboxReads = 0;
+    cache.read.mockImplementation(async ({ viewKey }: { viewKey: string }) => {
+      if (!viewKey.includes('"type":"inbox"')) return;
+      inboxReads += 1;
+      return inboxReads === 1
+        ? undefined
+        : {
+            cachedAt: 100,
+            hasMore: false,
+            threads: [createThread("cached-inbox")],
+          };
+    });
     const fetcher = vi.fn((key: [string, string]) =>
       key[0].includes("type=inbox")
         ? Promise.resolve({ threads: [createThread("inbox")] })
         : archiveNetwork.promise,
     );
+    const provider = new Map();
 
     const { result, rerender } = renderHook(
       ({ type }: { type: "inbox" | "archive" }) =>
         useMailThreads({ emailAccountId: "account-switch", query: { type } }),
       {
         initialProps: { type: "inbox" as const },
-        wrapper: createWrapper(fetcher, { keepPreviousData: true }),
+        wrapper: createWrapper(fetcher, provider),
       },
     );
     await waitFor(() => expect(result.current.threads[0]?.id).toBe("inbox"));
 
     rerender({ type: "archive" });
+    await waitFor(() => expect(cache.read).toHaveBeenCalledTimes(2));
+    provider.clear();
+    rerender({ type: "inbox" });
 
-    expect(result.current.threads).toEqual([]);
+    await waitFor(() =>
+      expect(result.current.threads[0]?.id).toBe("cached-inbox"),
+    );
   });
 });
 
@@ -155,11 +210,11 @@ function createThread(id: string) {
 
 function createWrapper(
   fetcher: (key: [string, string]) => unknown,
-  options?: { keepPreviousData?: boolean },
+  provider = new Map(),
 ) {
   return function Wrapper({ children }: { children: ReactNode }) {
     return (
-      <SWRConfig value={{ fetcher, provider: () => new Map(), ...options }}>
+      <SWRConfig value={{ fetcher, provider: () => provider }}>
         {children}
       </SWRConfig>
     );

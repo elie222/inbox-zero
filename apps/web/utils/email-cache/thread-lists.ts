@@ -1,6 +1,11 @@
-import { getEmailCacheDatabase } from "./database";
 import { scheduleEmailCacheCleanup } from "./cleanup";
+import {
+  captureEmailCacheEpoch,
+  getEmailCacheDatabase,
+  isEmailCacheEpochCurrent,
+} from "./database";
 import { EMAIL_CACHE_MAX_AGE_MS } from "./policy";
+import { restoreThreadOrder, type ThreadRestorePosition } from "./thread-order";
 
 type ThreadRow = { id: string };
 
@@ -17,9 +22,11 @@ export async function writeCachedThreadList<T extends ThreadRow>({
   hasMore: boolean;
   now?: number;
 }) {
+  const epoch = captureEmailCacheEpoch(emailAccountId);
+
   try {
     const database = await getEmailCacheDatabase();
-    if (!database) return;
+    if (!database || !isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
     const transaction = database.transaction(
       ["threadRows", "threadViews"],
       "readwrite",
@@ -47,6 +54,7 @@ export async function writeCachedThreadList<T extends ThreadRow>({
     await transaction.done;
     scheduleEmailCacheCleanup();
   } catch {
+    scheduleEmailCacheCleanup({ force: true });
     // Cache writes are best-effort and must never affect the network response.
   }
 }
@@ -58,17 +66,22 @@ export async function readCachedThreadList<T extends ThreadRow>({
   emailAccountId: string;
   viewKey: string;
 }) {
+  const epoch = captureEmailCacheEpoch(emailAccountId);
+
   try {
     const database = await getEmailCacheDatabase();
-    if (!database) return;
+    if (!database || !isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
     const transaction = database.transaction(
       ["threadRows", "threadViews"],
-      "readonly",
+      "readwrite",
     );
-    const view = await transaction
-      .objectStore("threadViews")
-      .get([emailAccountId, viewKey]);
-    if (!view) return;
+    const views = transaction.objectStore("threadViews");
+    const rowsStore = transaction.objectStore("threadRows");
+    const view = await views.get([emailAccountId, viewKey]);
+    if (!view) {
+      await transaction.done;
+      return;
+    }
     if (Date.now() - view.fetchedAt > EMAIL_CACHE_MAX_AGE_MS) {
       await transaction.done;
       scheduleEmailCacheCleanup();
@@ -77,13 +90,11 @@ export async function readCachedThreadList<T extends ThreadRow>({
 
     const rows = await Promise.all(
       view.threadIds.map((threadId) =>
-        transaction.objectStore("threadRows").get([emailAccountId, threadId]),
+        rowsStore.get([emailAccountId, threadId]),
       ),
     );
+    await views.put({ ...view, lastAccessedAt: Date.now() });
     await transaction.done;
-    database
-      .put("threadViews", { ...view, lastAccessedAt: Date.now() })
-      .catch(() => {});
     scheduleEmailCacheCleanup();
 
     return {
@@ -107,9 +118,11 @@ export async function removeCachedThreadsFromView({
   viewKey: string;
   threadIds: string[];
 }) {
+  const epoch = captureEmailCacheEpoch(emailAccountId);
+
   try {
     const database = await getEmailCacheDatabase();
-    if (!database) return;
+    if (!database || !isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
     const transaction = database.transaction("threadViews", "readwrite");
     const store = transaction.objectStore("threadViews");
     const view = await store.get([emailAccountId, viewKey]);
@@ -134,11 +147,13 @@ export async function restoreCachedThreadsToView<T extends ThreadRow>({
 }: {
   emailAccountId: string;
   viewKey: string;
-  entries: Array<{ thread: T; index: number }>;
+  entries: Array<{ thread: T } & Omit<ThreadRestorePosition, "threadId">>;
 }) {
+  const epoch = captureEmailCacheEpoch(emailAccountId);
+
   try {
     const database = await getEmailCacheDatabase();
-    if (!database) return;
+    if (!database || !isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
     const transaction = database.transaction(
       ["threadRows", "threadViews"],
       "readwrite",
@@ -148,15 +163,16 @@ export async function restoreCachedThreadsToView<T extends ThreadRow>({
     if (!view) return;
 
     const now = Date.now();
-    const threadIds = view.threadIds.filter(
-      (threadId) => !entries.some((entry) => entry.thread.id === threadId),
+    const threadIds = restoreThreadOrder(
+      view.threadIds,
+      entries.map((entry) => ({
+        threadId: entry.thread.id,
+        index: entry.index,
+        previousThreadId: entry.previousThreadId,
+        nextThreadId: entry.nextThreadId,
+      })),
     );
-    for (const entry of [...entries].sort((a, b) => a.index - b.index)) {
-      threadIds.splice(
-        Math.min(entry.index, threadIds.length),
-        0,
-        entry.thread.id,
-      );
+    for (const entry of entries) {
       await transaction.objectStore("threadRows").put({
         emailAccountId,
         threadId: entry.thread.id,

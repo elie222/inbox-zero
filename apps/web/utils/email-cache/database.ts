@@ -51,6 +51,10 @@ interface EmailCacheSchema extends DBSchema {
 let databasePromise: Promise<
   IDBPDatabase<EmailCacheSchema> | undefined
 > | null = null;
+let cacheEpoch = 0;
+const accountEpochs = new Map<string, number>();
+
+type EmailCacheEpoch = readonly [cache: number, account: number];
 
 export function getEmailCacheDatabase() {
   if (typeof indexedDB === "undefined") return Promise.resolve(undefined);
@@ -89,7 +93,26 @@ export function getEmailCacheDatabase() {
   return databasePromise;
 }
 
+export function captureEmailCacheEpoch(
+  emailAccountId: string,
+): EmailCacheEpoch {
+  return [cacheEpoch, accountEpochs.get(emailAccountId) ?? 0];
+}
+
+export function isEmailCacheEpochCurrent(
+  emailAccountId: string,
+  [capturedCacheEpoch, capturedAccountEpoch]: EmailCacheEpoch,
+) {
+  return (
+    capturedCacheEpoch === cacheEpoch &&
+    capturedAccountEpoch === (accountEpochs.get(emailAccountId) ?? 0)
+  );
+}
+
 export async function clearEmailCache() {
+  cacheEpoch += 1;
+  accountEpochs.clear();
+
   try {
     const database = await getEmailCacheDatabase();
     if (!database) return;
@@ -109,6 +132,11 @@ export async function clearEmailCache() {
 }
 
 export async function clearEmailCacheForAccount(emailAccountId: string) {
+  accountEpochs.set(
+    emailAccountId,
+    (accountEpochs.get(emailAccountId) ?? 0) + 1,
+  );
+
   try {
     const database = await getEmailCacheDatabase();
     if (!database) return;

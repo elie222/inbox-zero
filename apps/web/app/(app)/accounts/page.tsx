@@ -153,7 +153,6 @@ function AccountOptionsDropdown({
 }) {
   const { execute, isExecuting } = useAction(deleteEmailAccountAction, {
     onSuccess: async () => {
-      await clearEmailCacheForAccount(emailAccount.id);
       toastSuccess({
         title: "Email account deleted",
         description: "The email account has been deleted successfully.",
@@ -161,6 +160,8 @@ function AccountOptionsDropdown({
       onAccountDeleted();
       if (emailAccount.isPrimary) {
         await logOut("/login");
+      } else {
+        clearEmailCacheForAccount(emailAccount.id).catch(() => {});
       }
     },
     onError: (error) => {

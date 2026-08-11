@@ -20,6 +20,7 @@ import {
   restoreCachedThreadsToView,
   writeCachedThreadList,
 } from "@/utils/email-cache/thread-lists";
+import { restoreThreadOrder } from "@/utils/email-cache/thread-order";
 import {
   EMAIL_CACHE_MEASURES,
   finishEmailCacheMeasure,
@@ -30,6 +31,8 @@ type RemovedThread = {
   thread: ListThread;
   pageIndex: number;
   index: number;
+  previousThreadId?: string;
+  nextThreadId?: string;
   viewIdentity: string;
 };
 
@@ -78,12 +81,14 @@ export function useMailThreads({
       revalidateFirstPage: false,
     });
   const [persistent, setPersistent] = useState<PersistentView>();
+  const [paginationRequestIdentity, setPaginationRequestIdentity] =
+    useState<string>();
   const hiddenByView = useRef(new Map<string, Set<string>>());
   const [, renderHiddenChanges] = useReducer((version) => version + 1, 0);
   const remoteIdentity = useRef<string>();
   const removed = useRef(new Map<string, RemovedThread>());
 
-  if (data?.[0]) remoteIdentity.current = viewIdentity;
+  remoteIdentity.current = data?.[0] ? viewIdentity : undefined;
 
   useEffect(() => {
     let cancelled = false;
@@ -132,6 +137,24 @@ export function useMailThreads({
     }).catch(() => {});
   }, [data, emailAccountId, hiddenThreadIds, viewKey]);
 
+  useEffect(() => {
+    if (!paginationRequestIdentity) return;
+    if (paginationRequestIdentity !== viewIdentity) {
+      setPaginationRequestIdentity(undefined);
+      return;
+    }
+    if (error) {
+      setPaginationRequestIdentity(undefined);
+      return;
+    }
+    if (!data) return;
+
+    setPaginationRequestIdentity(undefined);
+    if (data.at(-1)?.nextPageToken) {
+      setSize((current) => current + 1).catch(() => {});
+    }
+  }, [data, error, paginationRequestIdentity, setSize, viewIdentity]);
+
   const removeThreads = useCallback(
     (threadIds: string[]) => {
       if (!threadIds.length) return;
@@ -145,6 +168,8 @@ export function useMailThreads({
                 thread,
                 pageIndex,
                 index,
+                previousThreadId: page.threads[index - 1]?.id,
+                nextThreadId: page.threads[index + 1]?.id,
                 viewIdentity,
               });
             }
@@ -157,6 +182,8 @@ export function useMailThreads({
               thread,
               pageIndex: 0,
               index,
+              previousThreadId: persistentThreads?.[index - 1]?.id,
+              nextThreadId: persistentThreads?.[index + 1]?.id,
               viewIdentity,
             });
           }
@@ -249,7 +276,12 @@ export function useMailThreads({
         viewKey,
         entries: restoring
           .filter((entry) => entry.pageIndex === 0)
-          .map(({ thread, index }) => ({ thread, index })),
+          .map(({ thread, index, previousThreadId, nextThreadId }) => ({
+            thread,
+            index,
+            previousThreadId,
+            nextThreadId,
+          })),
       }).catch(() => {});
     },
     [emailAccountId, mutate, viewIdentity, viewKey],
@@ -264,11 +296,16 @@ export function useMailThreads({
     isLoading: isLoading && !sourceThreads,
     error: sourceThreads ? undefined : error,
     hasMore: Boolean(hasMore),
-    isLoadingMore: size > 1 && !data?.[size - 1],
+    isLoadingMore:
+      paginationRequestIdentity === viewIdentity ||
+      (size > 1 && !data?.[size - 1]),
     loadMore: useCallback(() => {
-      if (data) setSize((current) => current + 1).catch(() => {});
-      else mutate().catch(() => {});
-    }, [data, mutate, setSize]),
+      if (data) {
+        setSize((current) => current + 1).catch(() => {});
+      } else {
+        setPaginationRequestIdentity(viewIdentity);
+      }
+    }, [data, setSize, viewIdentity]),
     removeThreads,
     restoreThreads,
   };
@@ -278,15 +315,29 @@ const EMPTY_THREAD_IDS = new Set<string>();
 
 function insertRestoredThreads(
   threads: ListThread[],
-  restoring: Array<Pick<RemovedThread, "thread" | "index">>,
+  restoring: Array<
+    Pick<
+      RemovedThread,
+      "thread" | "index" | "previousThreadId" | "nextThreadId"
+    >
+  >,
 ) {
   if (!restoring.length) return threads;
-  const restoringIds = new Set(restoring.map((entry) => entry.thread.id));
-  const result = threads.filter((thread) => !restoringIds.has(thread.id));
-  for (const entry of [...restoring].sort(
-    (first, second) => first.index - second.index,
-  )) {
-    result.splice(Math.min(entry.index, result.length), 0, entry.thread);
-  }
-  return result;
+  const threadsById = new Map(
+    [...threads, ...restoring.map((entry) => entry.thread)].map((thread) => [
+      thread.id,
+      thread,
+    ]),
+  );
+  return restoreThreadOrder(
+    threads.map((thread) => thread.id),
+    restoring.map(({ thread, index, previousThreadId, nextThreadId }) => ({
+      threadId: thread.id,
+      index,
+      previousThreadId,
+      nextThreadId,
+    })),
+  )
+    .map((threadId) => threadsById.get(threadId))
+    .filter((thread): thread is ListThread => thread !== undefined);
 }

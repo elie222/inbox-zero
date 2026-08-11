@@ -10,9 +10,11 @@ import {
 let lastCleanupAt = 0;
 let cleanupScheduled = false;
 
-export function scheduleEmailCacheCleanup() {
+export function scheduleEmailCacheCleanup({ force = false } = {}) {
   if (typeof window === "undefined" || cleanupScheduled) return;
-  if (Date.now() - lastCleanupAt < EMAIL_CACHE_CLEANUP_INTERVAL_MS) return;
+  if (!force && Date.now() - lastCleanupAt < EMAIL_CACHE_CLEANUP_INTERVAL_MS) {
+    return;
+  }
   cleanupScheduled = true;
 
   const run = () => {
@@ -50,82 +52,59 @@ async function cleanupEmailCache() {
     const detailsStore = transaction.objectStore("threadDetails");
     const viewsStore = transaction.objectStore("threadViews");
     const rowsStore = transaction.objectStore("threadRows");
-    const [details, views, rows] = await Promise.all([
-      detailsStore.getAll(),
-      viewsStore.getAll(),
-      rowsStore.getAll(),
-    ]);
-
-    const retainedDetails = details
-      .filter((detail) => now - detail.fetchedAt <= EMAIL_CACHE_MAX_AGE_MS)
-      .sort((first, second) => second.lastAccessedAt - first.lastAccessedAt);
     let retainedBytes = 0;
-    const retainedDetailKeys = new Set<string>();
-    for (const detail of retainedDetails) {
-      if (retainedBytes + detail.byteSize > detailBudget) continue;
-      retainedBytes += detail.byteSize;
-      retainedDetailKeys.add(detailKey(detail));
+    let detailCursor = await detailsStore
+      .index("byLastAccessed")
+      .openCursor(null, "prev");
+    while (detailCursor) {
+      const detail = detailCursor.value;
+      if (
+        now - detail.fetchedAt > EMAIL_CACHE_MAX_AGE_MS ||
+        retainedBytes + detail.byteSize > detailBudget
+      ) {
+        await detailCursor.delete();
+      } else {
+        retainedBytes += detail.byteSize;
+      }
+      detailCursor = await detailCursor.continue();
     }
-    await Promise.all(
-      details
-        .filter((detail) => !retainedDetailKeys.has(detailKey(detail)))
-        .map((detail) =>
-          detailsStore.delete([
-            detail.emailAccountId,
-            detail.threadId,
-            detail.variant,
-          ]),
-        ),
-    );
 
-    const viewsByAccount = new Map<string, typeof views>();
-    for (const view of views) {
-      if (now - view.fetchedAt > EMAIL_CACHE_MAX_AGE_MS) continue;
-      const accountViews = viewsByAccount.get(view.emailAccountId) ?? [];
-      accountViews.push(view);
-      viewsByAccount.set(view.emailAccountId, accountViews);
-    }
-    const retainedViewKeys = new Set<string>();
+    const retainedViewCounts = new Map<string, number>();
     const referencedRows = new Set<string>();
-    for (const accountViews of viewsByAccount.values()) {
-      for (const view of accountViews
-        .sort((first, second) => second.lastAccessedAt - first.lastAccessedAt)
-        .slice(0, EMAIL_CACHE_MAX_VIEWS_PER_ACCOUNT)) {
-        retainedViewKeys.add(viewKey(view));
+    let viewCursor = await viewsStore
+      .index("byLastAccessed")
+      .openCursor(null, "prev");
+    while (viewCursor) {
+      const view = viewCursor.value;
+      const retainedCount = retainedViewCounts.get(view.emailAccountId) ?? 0;
+      if (
+        now - view.fetchedAt > EMAIL_CACHE_MAX_AGE_MS ||
+        retainedCount >= EMAIL_CACHE_MAX_VIEWS_PER_ACCOUNT
+      ) {
+        await viewCursor.delete();
+      } else {
+        retainedViewCounts.set(view.emailAccountId, retainedCount + 1);
         for (const threadId of view.threadIds) {
           referencedRows.add(`${view.emailAccountId}:${threadId}`);
         }
       }
+      viewCursor = await viewCursor.continue();
     }
-    await Promise.all(
-      views
-        .filter((view) => !retainedViewKeys.has(viewKey(view)))
-        .map((view) => viewsStore.delete([view.emailAccountId, view.viewKey])),
-    );
-    await Promise.all(
-      rows
-        .filter(
-          (row) =>
-            !referencedRows.has(`${row.emailAccountId}:${row.threadId}`) &&
-            now - row.lastAccessedAt > EMAIL_CACHE_MAX_AGE_MS,
-        )
-        .map((row) => rowsStore.delete([row.emailAccountId, row.threadId])),
-    );
+
+    let rowCursor = await rowsStore.openCursor();
+    while (rowCursor) {
+      const row = rowCursor.value;
+      if (
+        !referencedRows.has(`${row.emailAccountId}:${row.threadId}`) &&
+        now - row.lastAccessedAt > EMAIL_CACHE_MAX_AGE_MS
+      ) {
+        await rowCursor.delete();
+      }
+      rowCursor = await rowCursor.continue();
+    }
 
     await transaction.done;
   } catch {
     // Cleanup is opportunistic and should not interfere with foreground work.
   }
-}
-
-function detailKey(detail: {
-  emailAccountId: string;
-  threadId: string;
-  variant: string;
-}) {
-  return `${detail.emailAccountId}:${detail.threadId}:${detail.variant}`;
-}
-
-function viewKey(view: { emailAccountId: string; viewKey: string }) {
-  return `${view.emailAccountId}:${view.viewKey}`;
 }

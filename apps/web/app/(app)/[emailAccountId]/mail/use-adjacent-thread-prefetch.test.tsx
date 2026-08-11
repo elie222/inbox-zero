@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import type { ReactNode } from "react";
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { SWRConfig } from "swr";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useAdjacentThreadPrefetch } from "./use-adjacent-thread-prefetch";
@@ -73,6 +73,9 @@ describe("useAdjacentThreadPrefetch", () => {
     );
 
     await waitFor(() => expect(cache.read).toHaveBeenCalledTimes(2));
+    await act(async () => {
+      await Promise.resolve();
+    });
     expect(fetcher).not.toHaveBeenCalled();
   });
 });

@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { SWRConfig } from "swr";
+import { SWRConfig, unstable_serialize } from "swr";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useThread } from "./useThread";
 
@@ -57,6 +57,11 @@ describe("useThread", () => {
       expect(result.current.isLoading).toBe(false);
     });
     expect(fetcher).toHaveBeenCalledTimes(1);
+
+    network.resolve({
+      thread: { id: "thread-1", messages: [{ id: "network" }] },
+    });
+    await waitFor(() => expect(cache.write).toHaveBeenCalled());
   });
 
   it("never lets a late disk read overwrite fresher network data", async () => {
@@ -92,35 +97,30 @@ describe("useThread", () => {
     );
   });
 
-  it("does not expose or persist the previous thread while keys change", async () => {
-    const secondNetwork = Promise.withResolvers<unknown>();
+  it("does not expose or persist mismatched SWR data", async () => {
+    const network = Promise.withResolvers<unknown>();
     cache.read.mockResolvedValue(undefined);
-    const fetcher = vi.fn((key: [string, string]) =>
-      key[0].includes("thread-1")
-        ? Promise.resolve({
-            thread: { id: "thread-1", messages: [{ id: "first" }] },
-          })
-        : secondNetwork.promise,
-    );
+    const fetcher = vi.fn(() => network.promise);
+    const staleData = {
+      thread: { id: "thread-1", messages: [{ id: "stale" }] },
+    };
+    const fallbackKey = unstable_serialize([
+      "/api/threads/thread-2",
+      "account-1",
+    ]);
 
-    const { result, rerender } = renderHook(({ id }) => useThread({ id }), {
-      initialProps: { id: "thread-1" },
-      wrapper: createWrapper(fetcher, { keepPreviousData: true }),
+    const { result } = renderHook(() => useThread({ id: "thread-2" }), {
+      wrapper: createWrapper(fetcher, {
+        fallback: { [fallbackKey]: staleData },
+      }),
     });
-    await waitFor(() =>
-      expect(result.current.data?.thread.id).toBe("thread-1"),
-    );
-    cache.write.mockClear();
-
-    rerender({ id: "thread-2" });
 
     expect(result.current.data).toBeUndefined();
+    await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
     expect(cache.write).not.toHaveBeenCalledWith(
       expect.objectContaining({
         threadId: "thread-2",
-        data: expect.objectContaining({
-          thread: expect.objectContaining({ id: "thread-1" }),
-        }),
+        data: staleData,
       }),
     );
   });
@@ -128,7 +128,10 @@ describe("useThread", () => {
 
 function createWrapper(
   fetcher: (key: [string, string]) => unknown,
-  options?: { keepPreviousData?: boolean },
+  options?: {
+    keepPreviousData?: boolean;
+    fallback?: Record<string, unknown>;
+  },
 ) {
   return function Wrapper({ children }: { children: ReactNode }) {
     return (

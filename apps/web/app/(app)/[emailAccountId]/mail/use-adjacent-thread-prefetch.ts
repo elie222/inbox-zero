@@ -3,7 +3,10 @@
 import { useEffect, useMemo } from "react";
 import { useSWRConfig } from "swr";
 import type { ThreadResponse } from "@/app/api/threads/[id]/route";
-import { createThreadRequest } from "@/utils/email-cache/thread-request";
+import {
+  createThreadRequest,
+  fetchThreadRequest,
+} from "@/utils/email-cache/thread-request";
 import {
   readCachedThread,
   writeCachedThread,
@@ -48,15 +51,23 @@ export function useAdjacentThreadPrefetch({
           .then(async (cached) => {
             if (cancelled) return;
             if (cached) {
-              await mutate(request.key, cached.data, {
-                populateCache: true,
-                revalidate: false,
-              });
+              await mutate<ThreadResponse>(
+                request.key,
+                (current) => current ?? cached.data,
+                {
+                  populateCache: true,
+                  revalidate: false,
+                },
+              );
               return;
             }
 
-            const data = (await fetcher(request.key)) as ThreadResponse;
-            if (cancelled || !data) return;
+            const data = await fetchThreadRequest<ThreadResponse | undefined>(
+              request,
+              async () =>
+                (await fetcher(request.key)) as ThreadResponse | undefined,
+            );
+            if (!data) return;
             await mutate(request.key, data, {
               populateCache: true,
               revalidate: false,

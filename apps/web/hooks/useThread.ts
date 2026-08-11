@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import useSWR from "swr";
+import useSWR, { useSWRConfig } from "swr";
 import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import {
@@ -8,6 +8,7 @@ import {
 } from "@/utils/email-cache/threads";
 import {
   createThreadRequest,
+  fetchThreadRequest,
   type ThreadRequestOptions,
 } from "@/utils/email-cache/thread-request";
 import {
@@ -23,6 +24,7 @@ export function useThread(
   options?: ThreadRequestOptions,
 ) {
   const { emailAccountId } = useAccount();
+  const { fetcher } = useSWRConfig();
   const includeDrafts = options?.includeDrafts;
   const parseReplies = options?.parseReplies;
   const request = useMemo(
@@ -36,16 +38,24 @@ export function useThread(
         : null,
     [emailAccountId, id, includeDrafts, parseReplies],
   );
-  const swr = useSWR<ThreadResponse>(request?.key ?? null, {
-    keepPreviousData: false,
-  });
+  const swr = useSWR<ThreadResponse>(
+    request?.key ?? null,
+    request && fetcher
+      ? () =>
+          fetchThreadRequest(
+            request,
+            async () => (await fetcher(request.key)) as ThreadResponse,
+          )
+      : null,
+    { keepPreviousData: false },
+  );
   const [persistent, setPersistent] = useState<{
     identity: string;
     data: ThreadResponse;
   }>();
   const remoteIdentity = useRef<string>();
 
-  const remoteData = swr?.data?.thread.id === id ? swr.data : undefined;
+  const remoteData = swr.data?.thread.id === id ? swr.data : undefined;
   remoteIdentity.current =
     remoteData && request ? request.cacheIdentity : undefined;
 
@@ -94,13 +104,9 @@ export function useThread(
   return {
     ...swr,
     data,
-    error: data ? undefined : swr?.error,
-    isLoading: Boolean(swr?.isLoading && !persistentData),
-    isValidating: swr?.isValidating ?? false,
-    mutate: swr?.mutate ?? mutateIdleThread,
+    error: data ? undefined : swr.error,
+    isLoading: Boolean(swr.isLoading && !persistentData),
+    isValidating: swr.isValidating,
+    mutate: swr.mutate,
   };
-}
-
-async function mutateIdleThread() {
-  return;
 }
