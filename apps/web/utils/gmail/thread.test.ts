@@ -73,4 +73,25 @@ describe("getThreadsBatch", () => {
       "Invalid access token",
     );
   });
+
+  it("requests only the headers needed for list metadata", async () => {
+    vi.mocked(getBatch).mockResolvedValueOnce([]);
+
+    await getThreadsBatch(["t1"], accessToken, logger, {
+      format: "metadata",
+    });
+
+    expect(getBatch).toHaveBeenCalledWith(
+      ["t1"],
+      "/gmail/v1/users/me/threads",
+      accessToken,
+      expect.stringContaining("format=metadata"),
+    );
+    expect(getBatch).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      expect.stringContaining("metadataHeaders=Subject"),
+    );
+  });
 });

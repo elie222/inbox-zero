@@ -10,6 +10,7 @@ import {
   getCategoryMap,
   getFolderIds,
   convertMessage,
+  MESSAGE_LIST_SELECT_FIELDS,
   MESSAGE_SELECT_FIELDS,
   sanitizeKqlValue,
 } from "@/utils/outlook/message";
@@ -1524,6 +1525,7 @@ export class OutlookProvider implements EmailProvider {
     query?: ThreadsQuery;
     maxResults?: number;
     pageToken?: string;
+    messageFormat?: "full" | "metadata";
   }): Promise<{
     threads: EmailThread[];
     nextPageToken?: string;
@@ -1637,7 +1639,11 @@ export class OutlookProvider implements EmailProvider {
 
       let request = client
         .api(endpoint)
-        .select(MESSAGE_SELECT_FIELDS)
+        .select(
+          options.messageFormat === "metadata"
+            ? MESSAGE_LIST_SELECT_FIELDS
+            : MESSAGE_SELECT_FIELDS,
+        )
         .top(maxResults);
 
       if (filter) {

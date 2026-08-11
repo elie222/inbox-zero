@@ -168,6 +168,18 @@ describe("OutlookProvider.getSentMessageIds", () => {
 });
 
 describe("OutlookProvider.getThreadsWithQuery", () => {
+  it("omits message bodies from metadata list requests", async () => {
+    const client = createMockOutlookClient([
+      createMessage({ id: "message-1", conversationId: "thread-1" }),
+    ]);
+    const provider = new OutlookProvider(client);
+
+    await provider.getThreadsWithQuery({ messageFormat: "metadata" });
+
+    expect(client.getSelectLog()[0]).toContain("bodyPreview");
+    expect(client.getSelectLog()[0]?.split(",")).not.toContain("body");
+  });
+
   it("filters returned threads by explicit labelIds", async () => {
     getFolderIdsMock.mockResolvedValue({
       inbox: "folder-inbox",
@@ -779,6 +791,7 @@ function createMockOutlookClient(
   let categoryMapCache = options?.categoryMapCache ?? null;
   let folderIdCache = options?.folderIdCache ?? null;
   const requestLog: Array<{ apiPath: string; filter?: string }> = [];
+  const selectLog: string[] = [];
 
   return {
     getClient: () => ({
@@ -794,7 +807,10 @@ function createMockOutlookClient(
             searchValue = value;
             return request;
           },
-          select: () => request,
+          select: (value: string) => {
+            selectLog.push(value);
+            return request;
+          },
           expand: () => request,
           top: () => request,
           orderby: () => request,
@@ -823,6 +839,7 @@ function createMockOutlookClient(
       folderIdCache = value;
     },
     getRequestLog: () => requestLog,
+    getSelectLog: () => selectLog,
   } as any;
 }
 

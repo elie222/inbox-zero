@@ -90,6 +90,7 @@ describe("GET /api/threads", () => {
       }),
       maxResults: 100,
       pageToken: undefined,
+      messageFormat: "full",
     });
   });
 
@@ -107,6 +108,7 @@ describe("GET /api/threads", () => {
       }),
       maxResults: 50,
       pageToken: undefined,
+      messageFormat: "full",
     });
   });
 
@@ -161,6 +163,9 @@ describe("GET /api/threads", () => {
       });
       expect(body.threads[0].plan.rule.name).toBe("Newsletter");
       expect(body.nextPageToken).toBe("next");
+      expect(mockGetThreadsWithQuery).toHaveBeenCalledWith(
+        expect.objectContaining({ messageFormat: "metadata" }),
+      );
     });
 
     it("falls back to the full payload for an unknown view", async () => {

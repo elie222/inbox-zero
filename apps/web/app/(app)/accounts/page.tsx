@@ -39,6 +39,7 @@ import {
   SCOPES as MICROSOFT_EMAIL_SCOPES,
 } from "@/utils/outlook/scopes";
 import { MICROSOFT_DRIVE_SCOPES } from "@/utils/drive/scopes";
+import { clearEmailCacheForAccount } from "@/utils/email-cache/database";
 
 export default function AccountsPage() {
   const { data, isLoading, error, mutate } = useAccounts();
@@ -159,6 +160,8 @@ function AccountOptionsDropdown({
       onAccountDeleted();
       if (emailAccount.isPrimary) {
         await logOut("/login");
+      } else {
+        clearEmailCacheForAccount(emailAccount.id).catch(() => {});
       }
     },
     onError: (error) => {

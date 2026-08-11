@@ -1,9 +1,29 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import useSWRInfinite from "swr/infinite";
-import type { ThreadsListResponse } from "@/app/api/threads/route";
 import type { ListThread } from "@/app/(app)/[emailAccountId]/mail/types";
+import type { ThreadsListResponse } from "@/app/api/threads/route";
+import { createThreadListCacheKey } from "@/utils/email-cache/keys";
+import {
+  readCachedThreadList,
+  removeCachedThreadsFromView,
+  restoreCachedThreadsToView,
+  writeCachedThreadList,
+} from "@/utils/email-cache/thread-lists";
+import { restoreThreadOrder } from "@/utils/email-cache/thread-order";
+import {
+  EMAIL_CACHE_MEASURES,
+  finishEmailCacheMeasure,
+  startEmailCacheMeasure,
+} from "@/utils/email-cache/telemetry";
 import type { ThreadsQuery } from "@/utils/threads/validation";
 import { createSearchParams } from "@/utils/url";
 
@@ -11,37 +31,30 @@ type RemovedThread = {
   thread: ListThread;
   pageIndex: number;
   index: number;
-  /**
-   * Id of the row that preceded this one, or null if it was first. Anchoring to
-   * a neighbour rather than the raw index keeps the row in place when a later
-   * batch removes something above it before this one is undone.
-   */
-  afterId: string | null;
+  threadOrder: readonly string[];
 };
 
-/**
- * The rows one `removeThreads` call took out, and the view they came from.
- * Returned to the caller so an undo can put back exactly those rows — and only
- * while the list is still showing the split they were removed from.
- */
 export type ThreadRemoval = {
-  cacheKey: string;
+  viewIdentity: string;
   entries: Map<string, RemovedThread>;
 };
 
-/**
- * One SWR key per split, so switching splits reads from cache instead of
- * refetching, and each split asks the server for its own rows rather than
- * filtering pages that happen to be loaded.
- */
-export function useMailThreads(query: ThreadsQuery) {
-  // Identifies the split these rows belong to, so a restore can't drop them
-  // into a different split's cache after the user switches tabs.
-  const cacheKey = useMemo(
-    () => createSearchParams({ ...query, view: "list" }).toString(),
-    [query],
-  );
+type PersistentView = {
+  identity: string;
+  cachedAt: number;
+  hasMore: boolean;
+  threads: ListThread[];
+};
 
+export function useMailThreads({
+  emailAccountId,
+  query,
+}: {
+  emailAccountId: string;
+  query: ThreadsQuery;
+}) {
+  const viewKey = useMemo(() => createThreadListCacheKey(query), [query]);
+  const viewIdentity = `${emailAccountId}:${viewKey}`;
   const getKey = useCallback(
     (pageIndex: number, previousPageData: ThreadsListResponse | null) => {
       if (previousPageData && !previousPageData.nextPageToken) return null;
@@ -54,70 +67,197 @@ export function useMailThreads(query: ThreadsQuery) {
           : {}),
       });
 
-      return `/api/threads?${params.toString()}`;
+      return [`/api/threads?${params.toString()}`, emailAccountId] as [
+        string,
+        string,
+      ];
     },
-    [query],
+    [emailAccountId, query],
   );
 
   const { data, size, setSize, isLoading, error, mutate } =
     useSWRInfinite<ThreadsListResponse>(getKey, {
-      keepPreviousData: true,
+      keepPreviousData: false,
       revalidateOnFocus: false,
       revalidateFirstPage: false,
     });
+  const [persistent, setPersistent] = useState<PersistentView>();
+  const [paginationRequestIdentity, setPaginationRequestIdentity] =
+    useState<string>();
+  const paginationRetryIdentity = useRef<string | undefined>(undefined);
+  const hiddenByView = useRef(new Map<string, Set<string>>());
+  const [, renderHiddenChanges] = useReducer((version) => version + 1, 0);
+  const remoteIdentity = useRef<string | undefined>(undefined);
 
-  const threads: ListThread[] = useMemo(
-    () => data?.flatMap((page) => page.threads) ?? [],
+  remoteIdentity.current = data?.[0] ? viewIdentity : undefined;
+
+  useEffect(() => {
+    let cancelled = false;
+    const startedAt = startEmailCacheMeasure();
+
+    readCachedThreadList<ListThread>({ emailAccountId, viewKey }).then(
+      (cached) => {
+        finishEmailCacheMeasure(EMAIL_CACHE_MEASURES.listHydration, startedAt);
+        if (cancelled || !cached || remoteIdentity.current === viewIdentity) {
+          return;
+        }
+        setPersistent({ identity: viewIdentity, ...cached });
+      },
+    );
+
+    return () => {
+      cancelled = true;
+    };
+  }, [emailAccountId, viewIdentity, viewKey]);
+
+  const hiddenThreadIds =
+    hiddenByView.current.get(viewIdentity) ?? EMPTY_THREAD_IDS;
+  const remoteThreads = useMemo(
+    () => data?.flatMap((page) => page.threads),
     [data],
   );
+  const persistentThreads =
+    persistent?.identity === viewIdentity ? persistent.threads : undefined;
+  const sourceThreads = remoteThreads ?? persistentThreads;
+  const threads = useMemo(
+    () =>
+      sourceThreads?.filter((thread) => !hiddenThreadIds.has(thread.id)) ?? [],
+    [hiddenThreadIds, sourceThreads],
+  );
+
+  useEffect(() => {
+    const firstPage = data?.[0];
+    if (!firstPage) return;
+    writeCachedThreadList({
+      emailAccountId,
+      viewKey,
+      threads: firstPage.threads.filter(
+        (thread) => !hiddenThreadIds.has(thread.id),
+      ),
+      hasMore: Boolean(firstPage.nextPageToken),
+    }).catch(() => {});
+  }, [data, emailAccountId, hiddenThreadIds, viewKey]);
+
+  useEffect(() => {
+    if (!paginationRequestIdentity) return;
+    if (paginationRequestIdentity !== viewIdentity) {
+      paginationRetryIdentity.current = undefined;
+      setPaginationRequestIdentity(undefined);
+      return;
+    }
+    if (error) {
+      if (paginationRetryIdentity.current === viewIdentity) {
+        paginationRetryIdentity.current = undefined;
+        setPaginationRequestIdentity(undefined);
+        return;
+      }
+      paginationRetryIdentity.current = viewIdentity;
+      mutate()
+        .then((pages) => {
+          if (!pages) {
+            paginationRetryIdentity.current = undefined;
+            setPaginationRequestIdentity((current) =>
+              current === viewIdentity ? undefined : current,
+            );
+          }
+        })
+        .catch(() => {
+          paginationRetryIdentity.current = undefined;
+          setPaginationRequestIdentity((current) =>
+            current === viewIdentity ? undefined : current,
+          );
+        });
+      return;
+    }
+    if (!data) return;
+
+    paginationRetryIdentity.current = undefined;
+    setPaginationRequestIdentity(undefined);
+    if (data.at(-1)?.nextPageToken) {
+      setSize((current) => current + 1).catch(() => {});
+    }
+  }, [data, error, mutate, paginationRequestIdentity, setSize, viewIdentity]);
 
   const removeThreads = useCallback(
     (threadIds: string[]): ThreadRemoval => {
       const entries = new Map<string, RemovedThread>();
-      const targets = new Set(threadIds);
+      if (!threadIds.length) return { viewIdentity, entries };
 
-      // Optimistic: drop the rows now and don't revalidate, so triage keeps its
-      // rhythm instead of the list flickering back after every archive. The
-      // rows come back with the handle so an undo can reinstate them without a
-      // refetch — which would also resurrect rows another batch is still
-      // archiving, since the server hasn't caught up with those yet.
-      if (threadIds.length) {
-        mutate(
-          (pages) =>
-            pages?.map((page, pageIndex) => {
-              let previousKeptId: string | null = null;
-              return {
-                ...page,
-                threads: page.threads.filter((thread, index) => {
-                  if (!targets.has(thread.id)) {
-                    previousKeptId = thread.id;
-                    return true;
-                  }
-                  entries.set(thread.id, {
-                    thread,
-                    pageIndex,
-                    index,
-                    afterId: previousKeptId,
-                  });
-                  return false;
-                }),
-              };
-            }),
-          { revalidate: false, populateCache: true, rollbackOnError: true },
-        );
+      const targets = new Set(threadIds);
+      const alreadyHidden =
+        hiddenByView.current.get(viewIdentity) ?? EMPTY_THREAD_IDS;
+
+      if (data) {
+        for (const [pageIndex, page] of data.entries()) {
+          const threadOrder = page.threads.map((thread) => thread.id);
+          for (const [index, thread] of page.threads.entries()) {
+            if (targets.has(thread.id) && !alreadyHidden.has(thread.id)) {
+              entries.set(thread.id, {
+                thread,
+                pageIndex,
+                index,
+                threadOrder,
+              });
+            }
+          }
+        }
+      } else {
+        const threadOrder = persistentThreads?.map((thread) => thread.id) ?? [];
+        for (const [index, thread] of (persistentThreads ?? []).entries()) {
+          if (targets.has(thread.id) && !alreadyHidden.has(thread.id)) {
+            entries.set(thread.id, {
+              thread,
+              pageIndex: 0,
+              index,
+              threadOrder,
+            });
+          }
+        }
       }
 
-      return { cacheKey, entries };
+      const removedThreadIds = [...entries.keys()];
+      if (!removedThreadIds.length) return { viewIdentity, entries };
+      const removedIds = new Set(removedThreadIds);
+
+      hiddenByView.current.set(
+        viewIdentity,
+        new Set([...alreadyHidden, ...removedThreadIds]),
+      );
+      renderHiddenChanges();
+      setPersistent((current) =>
+        current?.identity === viewIdentity
+          ? {
+              ...current,
+              threads: current.threads.filter(
+                (thread) => !removedIds.has(thread.id),
+              ),
+            }
+          : current,
+      );
+      mutate(
+        (pages) =>
+          pages?.map((page) => ({
+            ...page,
+            threads: page.threads.filter(
+              (thread) => !removedIds.has(thread.id),
+            ),
+          })),
+        { revalidate: false, populateCache: true },
+      ).catch(() => {});
+      removeCachedThreadsFromView({
+        emailAccountId,
+        viewKey,
+        threadIds: removedThreadIds,
+      }).catch(() => {});
+
+      return { viewIdentity, entries };
     },
-    [mutate, cacheKey],
+    [data, emailAccountId, mutate, persistentThreads, viewIdentity, viewKey],
   );
 
   const restoreThreads = useCallback(
     (removal: ThreadRemoval, threadIds: string[]) => {
-      // The entries describe positions within the split they were removed from.
-      // If the user has since switched splits, putting them back here would
-      // show rows that don't match this view's query.
-      if (removal.cacheKey !== cacheKey) return;
+      if (removal.viewIdentity !== viewIdentity) return;
 
       const restoring = threadIds
         .map((id) => removal.entries.get(id))
@@ -125,65 +265,96 @@ export function useMailThreads(query: ThreadsQuery) {
       if (!restoring.length) return;
 
       for (const entry of restoring) removal.entries.delete(entry.thread.id);
-
+      const restoringIds = new Set(restoring.map((entry) => entry.thread.id));
+      hiddenByView.current.set(
+        viewIdentity,
+        new Set(
+          [...(hiddenByView.current.get(viewIdentity) ?? [])].filter(
+            (id) => !restoringIds.has(id),
+          ),
+        ),
+      );
+      renderHiddenChanges();
+      setPersistent((current) =>
+        current?.identity === viewIdentity
+          ? {
+              ...current,
+              threads: insertRestoredThreads(current.threads, restoring),
+            }
+          : current,
+      );
       mutate(
         (pages) =>
-          pages?.map((page, pageIndex) => {
-            const forPage = restoring
-              .filter((entry) => entry.pageIndex === pageIndex)
-              .sort((a, b) => a.index - b.index);
-            if (!forPage.length) return page;
-
-            const threads = [...page.threads];
-            // Rows removed together share an anchor, so each one chains onto
-            // the previous restore to keep a contiguous batch in order.
-            let previousAfterId: string | null | undefined;
-            let previousRestoredId: string | null = null;
-
-            for (const entry of forPage) {
-              const anchorId =
-                entry.afterId === previousAfterId && previousRestoredId
-                  ? previousRestoredId
-                  : entry.afterId;
-              threads.splice(
-                insertionPoint(threads, entry, anchorId),
-                0,
-                entry.thread,
-              );
-              previousAfterId = entry.afterId;
-              previousRestoredId = entry.thread.id;
-            }
-            return { ...page, threads };
-          }),
+          pages?.map((page, pageIndex) => ({
+            ...page,
+            threads: insertRestoredThreads(
+              page.threads,
+              restoring.filter((entry) => entry.pageIndex === pageIndex),
+            ),
+          })),
         { revalidate: false, populateCache: true },
-      );
+      ).catch(() => {});
+      restoreCachedThreadsToView({
+        emailAccountId,
+        viewKey,
+        entries: restoring
+          .filter((entry) => entry.pageIndex === 0)
+          .map(({ thread, index, threadOrder }) => ({
+            thread,
+            index,
+            threadOrder,
+          })),
+      }).catch(() => {});
     },
-    [mutate, cacheKey],
+    [emailAccountId, mutate, viewIdentity, viewKey],
   );
+
+  const hasMore = data
+    ? Boolean(data.at(-1)?.nextPageToken)
+    : persistent?.identity === viewIdentity && persistent.hasMore;
 
   return {
     threads,
-    isLoading,
-    error,
-    hasMore: Boolean(data?.at(-1)?.nextPageToken),
-    isLoadingMore: isLoading || (size > 0 && !data?.[size - 1]),
-    loadMore: useCallback(() => setSize((current) => current + 1), [setSize]),
+    isLoading: isLoading && !sourceThreads,
+    error: sourceThreads ? undefined : error,
+    hasMore: Boolean(hasMore),
+    isLoadingMore:
+      paginationRequestIdentity === viewIdentity ||
+      (size > 1 && !data?.[size - 1]),
+    loadMore: useCallback(() => {
+      if (data) {
+        setSize((current) => current + 1).catch(() => {});
+      } else {
+        paginationRetryIdentity.current = undefined;
+        setPaginationRequestIdentity(viewIdentity);
+      }
+    }, [data, setSize, viewIdentity]),
     removeThreads,
     restoreThreads,
   };
 }
 
-function insertionPoint(
+const EMPTY_THREAD_IDS = new Set<string>();
+
+function insertRestoredThreads(
   threads: ListThread[],
-  entry: RemovedThread,
-  anchorId: string | null,
-): number {
-  if (anchorId === null) return 0;
-
-  const anchor = threads.findIndex((thread) => thread.id === anchorId);
-  if (anchor !== -1) return anchor + 1;
-
-  // The neighbour is gone too — another batch removed it — so fall back to
-  // where the row originally sat.
-  return Math.min(entry.index, threads.length);
+  restoring: Array<Pick<RemovedThread, "thread" | "index" | "threadOrder">>,
+) {
+  if (!restoring.length) return threads;
+  const threadsById = new Map(
+    [...threads, ...restoring.map((entry) => entry.thread)].map((thread) => [
+      thread.id,
+      thread,
+    ]),
+  );
+  return restoreThreadOrder(
+    threads.map((thread) => thread.id),
+    restoring.map(({ thread, index, threadOrder }) => ({
+      threadId: thread.id,
+      index,
+      threadOrder,
+    })),
+  )
+    .map((threadId) => threadsById.get(threadId))
+    .filter((thread): thread is ListThread => thread !== undefined);
 }
