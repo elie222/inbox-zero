@@ -1,10 +1,14 @@
 // @vitest-environment jsdom
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockArchiveThreadAction = vi.fn();
 const mockTrashThreadAction = vi.fn();
 const mockMarkReadThreadAction = vi.fn();
+const originalLocalStorageDescriptor = Object.getOwnPropertyDescriptor(
+  window,
+  "localStorage",
+);
 
 vi.mock("@/utils/actions/mail", () => ({
   archiveThreadAction: (...args: Parameters<typeof mockArchiveThreadAction>) =>
@@ -54,6 +58,18 @@ describe("cancelQueuedThreads", () => {
     window.localStorage.clear();
     mockArchiveThreadAction.mockResolvedValue(undefined);
     mockTrashThreadAction.mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    if (originalLocalStorageDescriptor) {
+      Object.defineProperty(
+        window,
+        "localStorage",
+        originalLocalStorageDescriptor,
+      );
+    } else {
+      Reflect.deleteProperty(window, "localStorage");
+    }
   });
 
   it("stops a queued thread from ever reaching the provider", async () => {
