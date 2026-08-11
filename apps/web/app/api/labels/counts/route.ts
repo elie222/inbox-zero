@@ -148,7 +148,13 @@ async function getGmailCounts({
 
   const counts = settled
     .map(({ item, result }) => {
-      if (result.status === "fulfilled") return result.value;
+      if (result.status === "fulfilled") {
+        // The Gmail provider turns a failed lookup into a null rather than a
+        // rejection, so a null is a failure too — otherwise a transient miss
+        // gets frozen in the cache for a minute.
+        if (result.value === null) anyFailed = true;
+        return result.value;
+      }
       anyFailed = true;
       logger.warn("Failed to fetch count for label", {
         labelId: item.id,

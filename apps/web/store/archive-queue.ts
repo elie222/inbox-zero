@@ -91,10 +91,20 @@ const addThreadsToQueue = ({
   emailAccountId: string;
 }) => {
   const threads = Object.fromEntries(
-    threadIds.map((threadId) => [
-      getQueueKey(actionType, threadId),
-      { threadId, actionType, labelId },
-    ]),
+    threadIds
+      // Re-enqueuing a thread that is already queued would orphan the first
+      // job: cancellation only reaches the newest one, so the orphan would
+      // still reach the provider while undo believed it had been cancelled.
+      // Filtered here rather than at job creation so the progress totals below
+      // count only the work actually enqueued.
+      .filter((threadId) => {
+        const existing = queuedJobs.get(getQueueKey(actionType, threadId));
+        return !existing || existing.status === "cancelled";
+      })
+      .map((threadId) => [
+        getQueueKey(actionType, threadId),
+        { threadId, actionType, labelId },
+      ]),
   );
 
   jotaiStore.set(queueAtom, (prev) => ({
@@ -207,16 +217,8 @@ export function processQueue({
   };
 
   emailActionQueue.addAll(
-    Object.values(threads).flatMap(({ threadId, actionType, labelId }) => {
+    Object.values(threads).map(({ threadId, actionType, labelId }) => {
       const key = getQueueKey(actionType, threadId);
-
-      // Re-enqueuing a thread that is already queued would orphan the first
-      // job: cancellation only reaches the newest one, so the orphan would
-      // still reach the provider while undo believed it had been cancelled.
-      // The duplicate is redundant anyway — same action, same thread.
-      const existing = queuedJobs.get(key);
-      if (existing && existing.status !== "cancelled") return [];
-
       const job: QueuedJob = { threadId, actionType, status: "pending" };
       queuedJobs.set(key, job);
 

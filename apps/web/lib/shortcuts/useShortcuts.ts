@@ -95,8 +95,6 @@ function useShortcutBucket(
       }
 
       const { entry } = target;
-      if (entry.when && !entry.when(event)) return;
-
       const handler =
         handlersRef.current[entry.id as ShortcutId] ?? entry.action;
       handler?.(event);

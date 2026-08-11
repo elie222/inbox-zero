@@ -37,6 +37,10 @@ function blockOn(threadId: string) {
 const archivedThreadIds = () =>
   mockArchiveThreadAction.mock.calls.map(([, input]) => input.threadId);
 
+// The queue state is persisted, and ArchiveProgress reads it to draw the bar.
+const persistedTotalThreads = () =>
+  JSON.parse(localStorage.getItem("gmailActionQueue") ?? "{}").totalThreads;
+
 describe("cancelQueuedThreads", () => {
   beforeEach(() => {
     vi.resetModules();
@@ -106,6 +110,30 @@ describe("cancelQueuedThreads", () => {
     await vi.waitFor(() => expect(archivedThreadIds()).toEqual(["thread-1"]));
 
     expect(archivedThreadIds()).not.toContain("thread-2");
+  });
+
+  it("does not count a deduplicated re-enqueue towards progress", async () => {
+    const { release, implementation } = blockOn("thread-1");
+    mockArchiveThreadAction.mockImplementation(implementation);
+
+    const { archiveEmails } = await import("./archive-queue");
+
+    await archiveEmails({
+      threadIds: ["thread-1", "thread-2"],
+      onSuccess: vi.fn(),
+      emailAccountId: "account-1",
+    });
+    await archiveEmails({
+      threadIds: ["thread-2"],
+      onSuccess: vi.fn(),
+      emailAccountId: "account-1",
+    });
+
+    // ArchiveProgress uses totalThreads as its denominator, so counting work
+    // that was never enqueued would leave the bar stuck short of 100%.
+    expect(persistedTotalThreads()).toBe(2);
+
+    release();
   });
 
   it("reports a thread already sent to the provider as not cancelled", async () => {

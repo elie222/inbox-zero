@@ -57,8 +57,6 @@ export type ShortcutEntry = {
   palette?: ShortcutPalette;
   /** Fallback when no handler is injected at the call site. */
   action?: ShortcutHandler;
-  /** Extra runtime guard evaluated when the keys match. */
-  when?: (event: KeyboardEvent) => boolean;
 };
 
 const SHORTCUT_DEFINITIONS = [
