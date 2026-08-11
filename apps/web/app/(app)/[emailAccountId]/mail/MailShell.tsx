@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useQueryState } from "nuqs";
 import { toast } from "sonner";
 import { HintBar } from "@/app/(app)/[emailAccountId]/mail/HintBar";
+import { ListToolbar } from "@/app/(app)/[emailAccountId]/mail/ListToolbar";
 import { MailSidebar } from "@/app/(app)/[emailAccountId]/mail/MailSidebar";
 import type { MailNavTarget } from "@/app/(app)/[emailAccountId]/mail/MailSidebar";
 import { RuleAttributionMenu } from "@/app/(app)/[emailAccountId]/mail/RuleAttributionMenu";
@@ -22,6 +23,9 @@ import { useThreadActions } from "@/app/(app)/[emailAccountId]/mail/use-thread-a
 import { useThreadSelection } from "@/app/(app)/[emailAccountId]/mail/use-thread-selection";
 import { MailLayout, MailSplitKind } from "@/generated/prisma/enums";
 import { useChat } from "@/providers/ChatProvider";
+import { useSidebar } from "@/components/ui/sidebar";
+import { useSetAtom } from "jotai";
+import { commandPaletteOpenAtom } from "@/store/command-palette";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useEmail } from "@/providers/EmailProvider";
 import { useComposeModal } from "@/providers/ComposeModalProvider";
@@ -64,6 +68,8 @@ export function MailShell() {
   const { data: settings, mutate: mutateSettings } = useMailSettings();
   const { onOpen: openCompose } = useComposeModal();
   const { setInput: setChatInput } = useChat();
+  const { toggleSidebar } = useSidebar();
+  const setPaletteOpen = useSetAtom(commandPaletteOpenAtom);
   // The side panel viewer owns the triage keys while it's open, so this screen
   // stands down rather than both archiving the same keystroke.
   const { threadId: sidePanelThreadId } = useDisplayedEmail();
@@ -365,6 +371,12 @@ export function MailShell() {
                   "flex min-h-0 min-w-0 flex-1 flex-col"
             }
           >
+            <ListToolbar
+              layout={layout}
+              onOpenSearch={() => setPaletteOpen(true)}
+              onToggleLayout={toggleLayout}
+              onToggleAssistant={() => toggleSidebar(["chat-sidebar"])}
+            />
             {!isScoped && (
               <SplitTabs
                 splits={splits}

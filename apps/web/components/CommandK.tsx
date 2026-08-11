@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { Loader2Icon } from "lucide-react";
-import { useAtomValue } from "jotai";
+import { useAtom, useAtomValue } from "jotai";
 import {
   CommandDialog,
   CommandEmpty,
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/command";
 import { useComposeModal } from "@/providers/ComposeModalProvider";
 import { refetchEmailListAtom } from "@/store/email";
+import { commandPaletteOpenAtom } from "@/store/command-palette";
 import { archiveEmails } from "@/store/archive-queue";
 import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -61,7 +62,7 @@ export function CommandK() {
 }
 
 function CommandPalette() {
-  const [open, setOpen] = React.useState(false);
+  const [open, setOpen] = useAtom(commandPaletteOpenAtom);
   const [search, setSearch] = React.useState("");
 
   const { emailAccountId } = useAccount();
@@ -91,7 +92,7 @@ function CommandPalette() {
       // While the palette is open, Escape belongs to the dialog.
       close: open || !threadId ? undefined : () => showEmail(null),
     }),
-    [threadId, open, onArchive, onOpenComposeModal, showEmail],
+    [threadId, open, onArchive, onOpenComposeModal, showEmail, setOpen],
   );
 
   useShortcuts(shortcutHandlers);
@@ -134,17 +135,23 @@ function CommandPalette() {
   }, [filteredCommands]);
 
   // execute command
-  const executeCommand = React.useCallback((command: Command) => {
-    setOpen(false);
-    setSearch("");
-    command.action();
-  }, []);
+  const executeCommand = React.useCallback(
+    (command: Command) => {
+      setOpen(false);
+      setSearch("");
+      command.action();
+    },
+    [setOpen],
+  );
 
   // memoized handlers to avoid re-renders
-  const handleOpenChange = React.useCallback((isOpen: boolean) => {
-    setOpen(isOpen);
-    if (!isOpen) setSearch("");
-  }, []);
+  const handleOpenChange = React.useCallback(
+    (isOpen: boolean) => {
+      setOpen(isOpen);
+      if (!isOpen) setSearch("");
+    },
+    [setOpen],
+  );
 
   const commandProps = React.useMemo(
     () => ({

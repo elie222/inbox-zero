@@ -112,7 +112,9 @@ export function ThreadRow({
           : "items-start gap-2 px-3.5 py-2.5",
         rowBackground({ isSelected, isFocused }),
         isFocused &&
-          "before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-primary before:content-['']",
+          // Inset so the marker reads as a marker rather than a border, and so
+          // the first row's doesn't run into the tab bar above it.
+          "before:absolute before:inset-y-1 before:left-0 before:w-0.5 before:rounded-full before:bg-primary before:content-['']",
       )}
       onClick={(event) => {
         if (event.shiftKey) onSelectRangeTo(index);
