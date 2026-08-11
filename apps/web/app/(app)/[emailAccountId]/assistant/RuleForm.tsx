@@ -400,7 +400,8 @@ export function RuleForm({
         formState.errors?.actions?.[index]?.messagingChannelId?.message ||
         formState.errors?.actions?.[index]?.integrationArgs?.message ||
         formState.errors?.actions?.[index]?.integrationArgs?.root?.message;
-      if (actionError) actionErrors.push(actionError);
+      // react-hook-form widens a nested record's message to string | FieldError
+      if (typeof actionError === "string") actionErrors.push(actionError);
     });
     return actionErrors;
   }, [formState, watch]);

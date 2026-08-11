@@ -1135,9 +1135,12 @@ function IntegrationArgFields({
     name: `actions.${index}.integrationArgs`,
   });
 
-  const errorMessage =
+  // react-hook-form widens a nested record's message to string | FieldError
+  const rawErrorMessage =
     errors?.actions?.[index]?.integrationArgs?.message ||
     errors?.actions?.[index]?.integrationArgs?.root?.message;
+  const errorMessage =
+    typeof rawErrorMessage === "string" ? rawErrorMessage : undefined;
 
   if (!spec) return null;
 
