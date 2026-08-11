@@ -1,4 +1,9 @@
-import { Client } from "@microsoft/microsoft-graph-client";
+import {
+  Client,
+  MiddlewareFactory,
+  type Context,
+  type Middleware,
+} from "@microsoft/microsoft-graph-client";
 import type { User } from "@microsoft/microsoft-graph-types";
 import { saveTokens } from "@/utils/auth/save-tokens";
 import { cleanupInvalidTokens } from "@/utils/auth/cleanup-invalid-tokens";
@@ -27,11 +32,7 @@ export class OutlookClient {
     this.accessToken = accessToken;
     this.logger = logger;
     const graphClientOptions = getMicrosoftGraphClientOptions(accessToken);
-    this.client = Client.init({
-      authProvider: (done) => {
-        done(null, this.accessToken);
-      },
-      defaultVersion: "v1.0",
+    const clientOptions = {
       ...graphClientOptions,
       // Use immutable IDs to ensure message IDs remain stable
       // https://learn.microsoft.com/en-us/graph/outlook-immutable-id
@@ -41,6 +42,22 @@ export class OutlookClient {
           Prefer: 'IdType="ImmutableId"',
         },
       },
+    };
+
+    if (graphClientOptions.baseUrl) {
+      this.client = Client.initWithMiddleware({
+        ...clientOptions,
+        middleware: getMicrosoftEmulatorMiddleware(accessToken),
+      });
+      return;
+    }
+
+    this.client = Client.init({
+      authProvider: (done) => {
+        done(null, this.accessToken);
+      },
+      defaultVersion: "v1.0",
+      ...clientOptions,
     });
   }
 
@@ -258,3 +275,41 @@ export function getLinkingOAuth2Url() {
 
 // Helper types for common Microsoft Graph operations
 export type { Client as GraphClient };
+
+function getMicrosoftEmulatorMiddleware(accessToken: string) {
+  const middleware = MiddlewareFactory.getDefaultMiddlewareChain({
+    getAccessToken: async () => accessToken,
+  });
+
+  // Graph SDK 3.x only authenticates HTTPS custom hosts, while emulate.dev
+  // intentionally serves its local Microsoft endpoint over HTTP.
+  middleware[0] = new MicrosoftEmulatorAuthenticationHandler(accessToken);
+
+  return middleware;
+}
+
+class MicrosoftEmulatorAuthenticationHandler implements Middleware {
+  private readonly accessToken: string;
+  private nextMiddleware: Middleware | undefined;
+
+  constructor(accessToken: string) {
+    this.accessToken = accessToken;
+  }
+
+  setNext(nextMiddleware: Middleware) {
+    this.nextMiddleware = nextMiddleware;
+  }
+
+  async execute(context: Context) {
+    context.options ??= {};
+    const headers = new Headers(context.options.headers);
+    headers.set("Authorization", `Bearer ${this.accessToken}`);
+    context.options.headers = headers;
+
+    if (!this.nextMiddleware) {
+      throw new Error("Microsoft emulator middleware chain is incomplete");
+    }
+
+    await this.nextMiddleware.execute(context);
+  }
+}
