@@ -19,6 +19,7 @@ const ACTION_RESULT_FAILURE_TYPES = new Set<ActionType>([
   ActionType.DRAFT_MESSAGING_CHANNEL,
   ActionType.NOTIFY_MESSAGING_CHANNEL,
   ActionType.NOTIFY_SENDER,
+  ActionType.INTEGRATION,
 ]);
 
 export async function persistExecutedActionOutcome({
@@ -155,7 +156,8 @@ function truncate(value: string, maxLength: number) {
 }
 
 function getUnknownActionFailureCode(actionType: ActionType) {
-  return actionType === ActionType.NOTIFY_SENDER
-    ? "UNKNOWN_NOTIFY_FAILURE"
-    : "UNKNOWN_MESSAGING_FAILURE";
+  if (actionType === ActionType.NOTIFY_SENDER) return "UNKNOWN_NOTIFY_FAILURE";
+  if (actionType === ActionType.INTEGRATION)
+    return "UNKNOWN_INTEGRATION_FAILURE";
+  return "UNKNOWN_MESSAGING_FAILURE";
 }

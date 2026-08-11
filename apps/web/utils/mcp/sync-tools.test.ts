@@ -79,6 +79,42 @@ describe("syncMcpTools", () => {
       syncMcpTools("unknown-integration", "email-account-1", logger),
     ).rejects.toThrow("Unknown integration");
   });
+
+  it("syncs configured write tools with isWrite and no read tools for todoist", async () => {
+    mockConnection([], "todoist");
+    mockListMcpTools.mockResolvedValue([
+      { name: "add-tasks", description: "add tasks" },
+      { name: "find-tasks", description: "find tasks" },
+      { name: "find-projects", description: "find projects" },
+    ]);
+
+    await syncMcpTools("todoist", "email-account-1", logger);
+
+    expect(prisma.mcpTool.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          name: "add-tasks",
+          isWrite: true,
+          isEnabled: true,
+        }),
+      ],
+    });
+  });
+
+  it("keeps read tools isWrite false", async () => {
+    mockConnection([]);
+    mockListMcpTools.mockResolvedValue([
+      { name: "notion-search", description: "search" },
+    ]);
+
+    await syncMcpTools("notion", "email-account-1", logger);
+
+    expect(prisma.mcpTool.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({ name: "notion-search", isWrite: false }),
+      ],
+    });
+  });
 });
 
 describe("isReadOnlyTool", () => {

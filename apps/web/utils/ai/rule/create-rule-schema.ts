@@ -3,6 +3,10 @@ import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { isDefined } from "@/utils/types";
 import {
+  getOnlyIntegrationToolSpec,
+  type IntegrationToolSpec,
+} from "@/utils/mcp/tool-specs";
+import {
   getAvailableActionsForRuleEditor,
   getExtraAvailableActionsForRuleEditor,
 } from "@/utils/ai/rule/action-availability";
@@ -154,6 +158,8 @@ export type RuleActionFields = {
   content?: string | null;
   webhookUrl?: string | null;
   folderName?: string | null;
+  description?: string | null;
+  dueString?: string | null;
 };
 
 export type RuleAction = {
@@ -169,6 +175,7 @@ export const createRuleActionSchema = (
     ...getAvailableActionsForRuleEditor({ provider }),
     ...getExtraAvailableActionsForRuleEditor(),
   ]);
+  const integrationToolSpec = getOnlyIntegrationToolSpec();
   const optionalFieldsSchema = createOptionalActionFieldsSchema(provider);
 
   const actionSchemas: [z.ZodTypeAny, z.ZodTypeAny, ...z.ZodTypeAny[]] = [
@@ -219,6 +226,15 @@ export const createRuleActionSchema = (
           ),
         ]
       : []),
+    ...(allowedActionTypes.has(ActionType.INTEGRATION) && integrationToolSpec
+      ? [
+          createActionObjectSchema(
+            ActionType.INTEGRATION,
+            createIntegrationFieldsSchema(integrationToolSpec),
+            integrationToolSpec.llmDescription,
+          ),
+        ]
+      : []),
   ];
 
   return z.union(actionSchemas) as z.ZodType<RuleAction>;
@@ -242,14 +258,18 @@ export type CreateOrUpdateRuleSchema = CreateRuleSchema & {
   ruleId?: string;
 };
 
-function createActionObjectSchema(type: ActionType, fields: z.ZodTypeAny) {
+function createActionObjectSchema(
+  type: ActionType,
+  fields: z.ZodTypeAny,
+  description?: string,
+) {
   return z
     .object({
       type: z.literal(type),
       fields,
       delayInMinutes: delayInMinutesLlmSchema,
     })
-    .describe(getActionTypeDescription(type));
+    .describe(description ?? getActionTypeDescription(type));
 }
 
 function getActionTypeDescription(type: ActionType) {
@@ -331,6 +351,20 @@ function createRequiredFolderFieldsSchema(provider: string) {
       "MOVE_FOLDER requires fields.folderName.",
     ),
   });
+}
+
+/** Exposes exactly the args the spec marks as LLM-settable. */
+function createIntegrationFieldsSchema(spec: IntegrationToolSpec) {
+  return z.object(
+    Object.fromEntries(
+      spec.args
+        .filter((arg) => arg.llmDescription)
+        .map((arg) => [
+          arg.key,
+          optionalStringField(arg.llmDescription as string),
+        ]),
+    ),
+  );
 }
 
 function createActionFieldShape(provider: string) {

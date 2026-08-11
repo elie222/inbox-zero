@@ -25,6 +25,9 @@ export const apiRuleSelect = {
       url: true,
       folderName: true,
       delayInMinutes: true,
+      integrationName: true,
+      integrationToolName: true,
+      integrationArgs: true,
     },
   },
 } satisfies Prisma.RuleSelect;
@@ -62,6 +65,22 @@ export function serializeRule(rule: ApiRuleRecord) {
         folderName: action.folderName ?? null,
       },
       delayInMinutes: action.delayInMinutes ?? null,
+      integrationName: action.integrationName ?? null,
+      integrationToolName: action.integrationToolName ?? null,
+      integrationArgs: serializeIntegrationArgs(action.integrationArgs),
     })),
   };
+}
+
+function serializeIntegrationArgs(
+  integrationArgs: Prisma.JsonValue | null,
+): Record<string, unknown> | null {
+  if (
+    integrationArgs &&
+    typeof integrationArgs === "object" &&
+    !Array.isArray(integrationArgs)
+  ) {
+    return integrationArgs as Record<string, unknown>;
+  }
+  return null;
 }

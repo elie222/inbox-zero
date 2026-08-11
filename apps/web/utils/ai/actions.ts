@@ -22,10 +22,14 @@ import {
   isSameOrganization,
   splitRecipientList,
 } from "@/utils/email";
-import { captureException } from "@/utils/error";
+import { captureException, getErrorMessage } from "@/utils/error";
 import { env } from "@/env";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
 import { isDeleteEmailActionEnabled } from "@/utils/delete-email-action";
+import { isIntegrationActionEnabled } from "@/utils/integration-action";
+import { callMcpTool } from "@/utils/mcp/call-tool";
+import { findIntegration } from "@/utils/mcp/integrations";
+import { getIntegrationToolSpec } from "@/utils/mcp/tool-specs";
 import { resolveActionAttachments } from "@/utils/ai/action-attachments";
 import {
   getMessagingRuleNotificationResult,
@@ -116,6 +120,8 @@ export const runActionFunction = async (options: {
       return move_folder(opts);
     case ActionType.NOTIFY_SENDER:
       return notify_sender(opts);
+    case ActionType.INTEGRATION:
+      return integration(opts);
     default:
       throw new Error(`Unknown action: ${action}`);
   }
@@ -579,6 +585,102 @@ const move_folder: ActionFunction<{
   }
 };
 
+const integration: ActionFunction<{
+  integrationName?: string | null;
+  integrationToolName?: string | null;
+  integrationArgs?: ActionItem["integrationArgs"];
+}> = async ({ args, emailAccount, logger }) => {
+  if (!isIntegrationActionEnabled()) {
+    logger.info(
+      "Skipping integration action because integration actions are disabled",
+    );
+    return { skipped: true, reason: "INTEGRATION_ACTION_DISABLED" };
+  }
+
+  const { integrationName, integrationToolName } = args;
+  if (!integrationName || !integrationToolName) {
+    return {
+      success: false,
+      errorCode: "MISSING_INTEGRATION_CONFIG",
+      errorMessage: "Integration action is missing its integration or tool",
+    };
+  }
+
+  const integrationConfig = findIntegration(integrationName);
+  const ruleActionWriteTools = integrationConfig?.ruleActionWriteTools ?? [];
+  if (
+    !integrationConfig ||
+    !ruleActionWriteTools.includes(integrationToolName)
+  ) {
+    return {
+      success: false,
+      errorCode: "UNSUPPORTED_INTEGRATION_TOOL",
+      errorMessage: `Unsupported integration tool: ${integrationName}/${integrationToolName}`,
+    };
+  }
+
+  const connection = await prisma.mcpConnection.findFirst({
+    where: {
+      emailAccountId: emailAccount.id,
+      isActive: true,
+      integration: { name: integrationName },
+    },
+    select: { id: true },
+  });
+  if (!connection) {
+    return {
+      success: false,
+      errorCode: "INTEGRATION_NOT_CONNECTED",
+      errorMessage: `${integrationConfig.displayName} is not connected. Connect it on the Integrations page.`,
+    };
+  }
+
+  const spec = getIntegrationToolSpec(integrationName, integrationToolName);
+  if (!spec) {
+    return {
+      success: false,
+      errorCode: "UNSUPPORTED_INTEGRATION_TOOL",
+      errorMessage: `Unsupported integration tool: ${integrationName}/${integrationToolName}`,
+    };
+  }
+
+  const resolvedArgs = readIntegrationArgs(args.integrationArgs);
+  const missingArg = spec.args.find(
+    (arg) => arg.required && !resolvedArgs[arg.key]?.trim(),
+  );
+  if (missingArg) {
+    return {
+      success: false,
+      errorCode: "MISSING_INTEGRATION_ARGS",
+      errorMessage: `The integration action has no ${missingArg.label.toLowerCase()}`,
+    };
+  }
+
+  const toolArgs = spec.buildPayload(resolvedArgs);
+
+  try {
+    await callMcpTool({
+      emailAccountId: emailAccount.id,
+      integration: integrationName,
+      toolName: integrationToolName,
+      args: toolArgs,
+    });
+    return { success: true };
+  } catch (error) {
+    logger.error("Integration action failed", {
+      error,
+      integration: integrationName,
+      toolName: integrationToolName,
+    });
+    return {
+      success: false,
+      errorCode: "INTEGRATION_CALL_FAILED",
+      errorMessage:
+        getErrorMessage(error) ?? "The integration tool call failed",
+    };
+  }
+};
+
 const notify_sender: ActionFunction<Record<string, unknown>> = async ({
   email,
   emailAccount,
@@ -780,6 +882,24 @@ function isLegacyMessagingDraft({
 
   return !executedRule.actionItems?.some((action) =>
     isMessagingDraftActionType(action.type),
+  );
+}
+
+function readIntegrationArgs(
+  integrationArgs: ActionItem["integrationArgs"],
+): Record<string, string> {
+  if (
+    !integrationArgs ||
+    typeof integrationArgs !== "object" ||
+    Array.isArray(integrationArgs)
+  ) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(integrationArgs).filter(
+      (entry): entry is [string, string] => typeof entry[1] === "string",
+    ),
   );
 }
 

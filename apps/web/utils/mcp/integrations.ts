@@ -5,6 +5,7 @@ type McpIntegrationConfig = {
   scopes: string[];
   skipResourceParam?: boolean; // Some OAuth servers don't support RFC 8707 resource parameter
   filterWriteTools?: boolean; // Auto-filter write tools, only sync read-only tools (get, list, find, search)
+  ruleActionWriteTools?: string[];
 };
 
 export const MCP_INTEGRATIONS: Record<
@@ -149,6 +150,16 @@ export const MCP_INTEGRATIONS: Record<
       // "create_widget",
     ],
     // OAuth endpoints auto-discovered via RFC 8414
+  },
+  todoist: {
+    name: "todoist",
+    displayName: "Todoist",
+    url: "todoist.com",
+    serverUrl: "https://ai.todoist.net/mcp",
+    authType: "oauth",
+    scopes: [],
+    allowedTools: [],
+    ruleActionWriteTools: ["add-tasks"],
   },
   pipedream: {
     name: "pipedream",

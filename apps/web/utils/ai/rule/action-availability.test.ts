@@ -10,6 +10,7 @@ const { mockEnv } = vi.hoisted(() => ({
     emailSendEnabled: true,
     autoDraftDisabled: false,
     webhookActionsEnabled: true,
+    integrationActionEnabled: false,
   },
 }));
 
@@ -23,6 +24,9 @@ vi.mock("@/env", () => ({
     },
     get NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED() {
       return mockEnv.webhookActionsEnabled;
+    },
+    get NEXT_PUBLIC_INTEGRATION_ACTION_ENABLED() {
+      return mockEnv.integrationActionEnabled;
     },
   },
 }));
@@ -74,6 +78,7 @@ describe("getExtraAvailableActionsForRuleEditor", () => {
     mockEnv.emailSendEnabled = true;
     mockEnv.autoDraftDisabled = false;
     mockEnv.webhookActionsEnabled = true;
+    mockEnv.integrationActionEnabled = false;
   });
 
   it("hides webhook actions when the feature is disabled", () => {
@@ -90,5 +95,27 @@ describe("getExtraAvailableActionsForRuleEditor", () => {
     const actions = getExtraAvailableActionsForRuleEditor();
 
     expect(actions).toContain(ActionType.CALL_WEBHOOK);
+  });
+
+  it("includes the integration action when the feature is enabled", () => {
+    mockEnv.integrationActionEnabled = true;
+
+    const actions = getExtraAvailableActionsForRuleEditor();
+
+    expect(actions).toContain(ActionType.INTEGRATION);
+  });
+
+  it("hides the integration action when the feature is disabled", () => {
+    const actions = getExtraAvailableActionsForRuleEditor();
+
+    expect(actions).not.toContain(ActionType.INTEGRATION);
+  });
+
+  it("keeps existing integration actions available when the feature is disabled", () => {
+    const actions = getExtraAvailableActionsForRuleEditor([
+      ActionType.INTEGRATION,
+    ]);
+
+    expect(actions).toContain(ActionType.INTEGRATION);
   });
 });

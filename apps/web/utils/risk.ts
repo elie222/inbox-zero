@@ -1,7 +1,12 @@
 import type { RulesResponse } from "@/app/api/user/rules/route";
+import type { Prisma } from "@/generated/prisma/client";
 import { isAIRule, type RuleConditions } from "@/utils/condition";
 import { ActionType } from "@/generated/prisma/enums";
 import { TEMPLATE_VARIABLE_PATTERN } from "@/utils/template";
+import {
+  getIntegrationToolSpec,
+  isAiFilledArgValue,
+} from "@/utils/mcp/tool-specs";
 
 const RISK_LEVELS = {
   VERY_HIGH: "very-high",
@@ -19,6 +24,9 @@ export type RiskAction = {
   to: string | null;
   cc: string | null;
   bcc: string | null;
+  integrationName?: string | null;
+  integrationToolName?: string | null;
+  integrationArgs?: Prisma.JsonValue | null;
 };
 
 export function getActionRiskLevel(
@@ -32,6 +40,7 @@ export function getActionRiskLevel(
     ActionType.REPLY,
     ActionType.FORWARD,
     ActionType.SEND_EMAIL,
+    ActionType.INTEGRATION,
   ];
   if (!highRiskActions.some((type) => type === action.type)) {
     return {
@@ -42,7 +51,11 @@ export function getActionRiskLevel(
 
   const fieldStatus = getFieldsDynamicStatus(action);
 
-  const contentFields = [fieldStatus.subject, fieldStatus.content];
+  const contentFields = [
+    fieldStatus.subject,
+    fieldStatus.content,
+    fieldStatus.integrationArgs,
+  ];
   const recipientFields = [fieldStatus.to, fieldStatus.cc, fieldStatus.bcc];
 
   const hasFullyDynamicContent = hasAnyFieldWithStatus(
@@ -81,6 +94,13 @@ export function getActionRiskLevel(
   }
 
   if (hasFullyDynamicContent) {
+    if (action.type === ActionType.INTEGRATION) {
+      return {
+        level: RISK_LEVELS.HIGH,
+        message:
+          "High Risk: The AI can generate any task content from the matching email. A malicious sender could trick the AI into creating unwanted or misleading tasks in your connected integration.",
+      };
+    }
     return {
       level: RISK_LEVELS.HIGH,
       message:
@@ -145,20 +165,54 @@ export function getRiskLevel(
 }
 
 function getFieldsDynamicStatus(action: RiskAction) {
-  const checkFieldStatus = (field: string | null) => {
-    if (!field) return null;
-    if (isFullyDynamicField(field)) return "fully-dynamic";
-    if (isPartiallyDynamicField(field)) return "partially-dynamic";
-    return "static";
-  };
-
   return {
     subject: checkFieldStatus(action.subject),
     content: checkFieldStatus(action.content),
     to: checkFieldStatus(action.to),
     cc: checkFieldStatus(action.cc),
     bcc: checkFieldStatus(action.bcc),
+    integrationArgs: getIntegrationArgsDynamicStatus(action),
   };
+}
+
+function checkFieldStatus(field: string | null) {
+  if (!field) return null;
+  if (isFullyDynamicField(field)) return "fully-dynamic";
+  if (isPartiallyDynamicField(field)) return "partially-dynamic";
+  return "static";
+}
+
+function getIntegrationArgsDynamicStatus(action: RiskAction) {
+  if (action.type !== ActionType.INTEGRATION) return null;
+
+  const spec = getIntegrationToolSpec(
+    action.integrationName,
+    action.integrationToolName,
+  );
+  // Fail safe: an unrecognised tool is assumed to write AI-generated content,
+  // so it still trips the high-risk gate instead of looking static.
+  if (!spec) return "fully-dynamic";
+
+  const integrationArgs =
+    action.integrationArgs &&
+    typeof action.integrationArgs === "object" &&
+    !Array.isArray(action.integrationArgs)
+      ? (action.integrationArgs as Record<string, unknown>)
+      : {};
+
+  const statuses = spec.args.map((arg) => {
+    const rawValue = integrationArgs[arg.key];
+    const value = typeof rawValue === "string" ? rawValue : "";
+    // An arg the AI fills at execution is as dynamic as a {{template}} was,
+    // even though it is stored empty.
+    if (isAiFilledArgValue(arg, value)) return "fully-dynamic";
+    return checkFieldStatus(value);
+  });
+
+  if (statuses.includes("fully-dynamic")) return "fully-dynamic";
+  if (statuses.includes("partially-dynamic")) return "partially-dynamic";
+  if (statuses.includes("static")) return "static";
+  return null;
 }
 
 // Helper functions

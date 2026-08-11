@@ -5,6 +5,7 @@ import { getConditions } from "@/utils/condition";
 import { hasVariables } from "@/utils/template";
 import { SafeError } from "@/utils/error";
 import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
+import type { IntegrationActionArgs } from "@/utils/actions/rule.validation";
 
 export type RuleResponse = Awaited<ReturnType<typeof getRule>>;
 
@@ -45,6 +46,12 @@ async function getRule({
       staticAttachments: Array.isArray(action.staticAttachments)
         ? (action.staticAttachments as AttachmentSourceInput[])
         : undefined,
+      integrationArgs:
+        action.integrationArgs &&
+        typeof action.integrationArgs === "object" &&
+        !Array.isArray(action.integrationArgs)
+          ? (action.integrationArgs as IntegrationActionArgs)
+          : undefined,
     })),
     attachmentSources: rule.attachmentSources,
     conditions: getConditions(rule),

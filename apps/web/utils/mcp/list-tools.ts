@@ -2,6 +2,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { getAuthToken } from "@/utils/mcp/oauth";
 import { getIntegration, type IntegrationKey } from "@/utils/mcp/integrations";
 import { createMcpTransport } from "@/utils/mcp/transport";
+import { getMcpServerUrl } from "@/utils/mcp/server-url";
 import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("mcp-list-tools");
@@ -19,13 +20,14 @@ export async function listMcpTools(
 > {
   const integrationConfig = getIntegration(integration);
 
-  if (!integrationConfig.serverUrl) {
+  const serverUrl = getMcpServerUrl(integrationConfig);
+  if (!serverUrl) {
     throw new Error(`No server URL for integration: ${integration}`);
   }
 
   const authToken = await getAuthToken({ integration, emailAccountId });
 
-  const transport = createMcpTransport(integrationConfig.serverUrl, authToken);
+  const transport = createMcpTransport(serverUrl, authToken);
 
   const client = new Client({
     name: `inbox-zero-${integration}`,

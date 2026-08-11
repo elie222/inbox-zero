@@ -14,10 +14,12 @@ import {
   FileTextIcon,
   MailIcon,
   NewspaperIcon,
+  SquareCheckBigIcon,
   StarIcon,
   Trash2Icon,
 } from "lucide-react";
 import { truncate } from "@/utils/string";
+import { getIntegrationActionLabel } from "@/utils/mcp/tool-specs";
 
 /**
  * Hide messaging-channel draft entries when an email draft already exists,
@@ -46,6 +48,9 @@ export function getActionDisplay(
     content?: string | null;
     to?: string | null;
     notificationDestination?: string | null;
+    integrationName?: string | null;
+    integrationToolName?: string | null;
+    integrationArgs?: unknown;
   },
   provider: string,
   labels: Array<{ id: string; name: string }>,
@@ -110,6 +115,11 @@ export function getActionDisplay(
         : "Notify";
     case ActionType.NOTIFY_SENDER:
       return "Notify Sender";
+    case ActionType.INTEGRATION: {
+      const label = getIntegrationActionLabel(action);
+      const taskContent = getIntegrationTaskContent(action.integrationArgs);
+      return taskContent ? `${label}: '${truncate(taskContent, 20)}'` : label;
+    }
     default: {
       const exhaustiveCheck: never = action.type;
       return exhaustiveCheck;
@@ -134,6 +144,9 @@ export const ACTION_TYPE_LABELS = {
   [ActionType.CALL_WEBHOOK]: "Call webhook",
   [ActionType.DIGEST]: "Add to digest",
   [ActionType.NOTIFY_SENDER]: "Notify sender",
+  // ActionType alone cannot name a specific tool; getIntegrationActionLabel
+  // gives the precise name when the action is known.
+  [ActionType.INTEGRATION]: getIntegrationActionLabel(),
 } satisfies Record<ActionType, string>;
 
 export function getActionIcon(actionType: ActionType) {
@@ -169,9 +182,24 @@ export function getActionIcon(actionType: ActionType) {
       return BellIcon;
     case ActionType.NOTIFY_SENDER:
       return BellIcon;
+    case ActionType.INTEGRATION:
+      return SquareCheckBigIcon;
     default: {
       const exhaustiveCheck: never = actionType;
       return exhaustiveCheck;
     }
   }
+}
+
+function getIntegrationTaskContent(integrationArgs: unknown): string | null {
+  if (
+    integrationArgs &&
+    typeof integrationArgs === "object" &&
+    !Array.isArray(integrationArgs) &&
+    "content" in integrationArgs &&
+    typeof integrationArgs.content === "string"
+  ) {
+    return integrationArgs.content;
+  }
+  return null;
 }

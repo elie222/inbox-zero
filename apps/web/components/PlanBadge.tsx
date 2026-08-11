@@ -15,6 +15,7 @@ import type {
 import { getEmailTerminology } from "@/utils/terminology";
 import { sortActionsByPriority } from "@/utils/action-sort";
 import { getMessagingProviderName } from "@/utils/messaging/platforms";
+import { getIntegrationActionLabel } from "@/utils/mcp/tool-specs";
 
 type PlanAction = ExecutedAction & {
   messagingChannel?: { provider: MessagingProvider } | null;
@@ -123,6 +124,8 @@ function getActionLabel(
         : "Notify";
     case ActionType.NOTIFY_SENDER:
       return "Notify Sender";
+    case ActionType.INTEGRATION:
+      return getIntegrationActionLabel(action);
     default:
       return capitalCase(type);
   }
@@ -173,6 +176,7 @@ export function getActionColor(actionType: ActionType): Color {
       return "purple";
     case ActionType.NOTIFY_MESSAGING_CHANNEL:
     case ActionType.NOTIFY_SENDER:
+    case ActionType.INTEGRATION:
       return "purple";
     default: {
       const exhaustiveCheck: never = actionType;

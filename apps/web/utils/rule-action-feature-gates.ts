@@ -6,6 +6,10 @@ import {
 } from "@/utils/delete-email-action";
 import { SafeError } from "@/utils/error";
 import {
+  INTEGRATION_ACTION_DISABLED_MESSAGE,
+  isIntegrationActionEnabled,
+} from "@/utils/integration-action";
+import {
   isWebhookActionEnabled,
   WEBHOOK_ACTION_DISABLED_MESSAGE,
 } from "@/utils/webhook-action";
@@ -21,6 +25,12 @@ const RULE_ACTION_FEATURE_GATES = [
     type: ActionType.DELETE,
     isEnabled: isDeleteEmailActionEnabled,
     disabledMessage: DELETE_EMAIL_ACTION_DISABLED_MESSAGE,
+    allowExistingOnUpdate: true,
+  },
+  {
+    type: ActionType.INTEGRATION,
+    isEnabled: isIntegrationActionEnabled,
+    disabledMessage: INTEGRATION_ACTION_DISABLED_MESSAGE,
     allowExistingOnUpdate: true,
   },
 ] as const;
