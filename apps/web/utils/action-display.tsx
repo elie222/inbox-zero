@@ -19,7 +19,10 @@ import {
   Trash2Icon,
 } from "lucide-react";
 import { truncate } from "@/utils/string";
-import { getIntegrationActionLabel } from "@/utils/mcp/tool-specs";
+import {
+  getIntegrationActionDisplayValue,
+  getIntegrationActionLabel,
+} from "@/utils/mcp/tool-specs";
 
 /**
  * Hide messaging-channel draft entries when an email draft already exists,
@@ -117,8 +120,8 @@ export function getActionDisplay(
       return "Notify Sender";
     case ActionType.INTEGRATION: {
       const label = getIntegrationActionLabel(action);
-      const taskContent = getIntegrationTaskContent(action.integrationArgs);
-      return taskContent ? `${label}: '${truncate(taskContent, 20)}'` : label;
+      const displayValue = getIntegrationActionDisplayValue(action);
+      return displayValue ? `${label}: '${truncate(displayValue, 20)}'` : label;
     }
     default: {
       const exhaustiveCheck: never = action.type;
@@ -189,17 +192,4 @@ export function getActionIcon(actionType: ActionType) {
       return exhaustiveCheck;
     }
   }
-}
-
-function getIntegrationTaskContent(integrationArgs: unknown): string | null {
-  if (
-    integrationArgs &&
-    typeof integrationArgs === "object" &&
-    !Array.isArray(integrationArgs) &&
-    "content" in integrationArgs &&
-    typeof integrationArgs.content === "string"
-  ) {
-    return integrationArgs.content;
-  }
-  return null;
 }

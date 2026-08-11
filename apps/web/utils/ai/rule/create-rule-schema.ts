@@ -158,9 +158,7 @@ export type RuleActionFields = {
   content?: string | null;
   webhookUrl?: string | null;
   folderName?: string | null;
-  description?: string | null;
-  dueString?: string | null;
-};
+} & Record<string, string | null | undefined>;
 
 export type RuleAction = {
   type: ActionType;

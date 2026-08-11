@@ -61,6 +61,7 @@ export type IntegrationToolSpec = {
   integration: IntegrationKey;
   tool: string;
   actionLabel: string;
+  displayArgKey?: string;
   llmDescription: string; // describes the action to the rule-writing LLM
   args: readonly IntegrationArgSpec[];
   buildPayload: (resolved: Record<string, string>) => Record<string, unknown>;
@@ -86,6 +87,7 @@ const todoistAddTasksSpec: IntegrationToolSpec = {
   integration: "todoist",
   tool: "add-tasks",
   actionLabel: "Add Todoist task",
+  displayArgKey: "content",
   llmDescription:
     "Add a task to the user's Todoist for the matching email. Only use this when the user explicitly asks to create Todoist tasks. Fails if Todoist isn't connected.",
   args: [
@@ -206,6 +208,24 @@ export function getIntegrationActionLabel(action?: {
     : getOnlyIntegrationToolSpec();
 
   return spec?.actionLabel ?? GENERIC_INTEGRATION_ACTION_LABEL;
+}
+
+export function getIntegrationActionDisplayValue(action: {
+  integrationName?: string | null;
+  integrationToolName?: string | null;
+  integrationArgs?: unknown;
+}): string | null {
+  const namesTool = !!action.integrationName || !!action.integrationToolName;
+  const spec = namesTool
+    ? getIntegrationToolSpec(action.integrationName, action.integrationToolName)
+    : getOnlyIntegrationToolSpec();
+  if (!spec?.displayArgKey) return null;
+
+  const args = action.integrationArgs;
+  if (!args || typeof args !== "object" || Array.isArray(args)) return null;
+
+  const value = (args as Record<string, unknown>)[spec.displayArgKey];
+  return typeof value === "string" ? value : null;
 }
 
 /** Read tools the app calls directly to populate a remote-select. */

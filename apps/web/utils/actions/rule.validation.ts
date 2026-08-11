@@ -90,18 +90,8 @@ const zodActionType = z.enum([
   ActionType.INTEGRATION,
 ]);
 
-// Arg keys are owned by the tool spec, so unknown keys are kept here and
-// rejected in the refinement rather than silently stripped.
-const zodIntegrationArgs = z
-  .object({
-    content: z.string().nullish(),
-    description: z.string().nullish(),
-    dueString: z.string().nullish(),
-    projectId: z.string().nullish(),
-    projectName: z.string().nullish(),
-  })
-  .catchall(z.string().nullish())
-  .nullish();
+// Arg keys are owned and validated by the selected tool spec below.
+const zodIntegrationArgs = z.record(z.string(), z.string().nullish()).nullish();
 export type IntegrationActionArgs = z.infer<typeof zodIntegrationArgs>;
 
 const zodConditionType = z.enum([ConditionType.AI, ConditionType.STATIC]);

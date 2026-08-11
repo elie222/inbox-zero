@@ -1,10 +1,7 @@
 import { type InferUITool, tool } from "ai";
 import type { Logger } from "@/utils/logger";
 import { createRuleSchema } from "@/utils/ai/rule/create-rule-schema";
-import {
-  createRule,
-  outboundActionsNeedChatRiskConfirmation,
-} from "@/utils/rule/rule";
+import { actionsNeedChatRiskConfirmation, createRule } from "@/utils/rule/rule";
 import {
   findSenderOnlyOverlapConflict,
   formatSenderOnlyOverlapError,
@@ -63,7 +60,7 @@ export const createRuleTool = ({
         );
 
         const { needsConfirmation, riskMessages } =
-          outboundActionsNeedChatRiskConfirmation(resultPayload);
+          actionsNeedChatRiskConfirmation(resultPayload);
 
         if (needsConfirmation) {
           return {

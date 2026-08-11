@@ -50,33 +50,21 @@ export async function callMcpTool({
     const result = await client.callTool({ name: toolName, arguments: args });
 
     if (result.isError) {
-      throw new Error(
-        `Tool ${toolName} returned an error: ${stringifyToolContent(result.content)}`,
-      );
+      throw new Error("MCP tool returned an error");
     }
 
     logger.info("Called MCP tool", { integration, toolName });
 
     return result.content;
   } catch (error) {
-    logger.error("Failed to call MCP tool", { error, integration, toolName });
-    throw new Error(
-      `Failed to call ${integration} tool ${toolName}: ${error instanceof Error ? error.message : "Unknown error"}`,
-    );
+    logger.error("Failed to call MCP tool", {
+      integration,
+      toolName,
+      errorType: error instanceof Error ? error.name : typeof error,
+    });
+    throw new Error(`Failed to call ${integration} tool ${toolName}`);
   } finally {
     await client.close();
     await transport.close();
   }
-}
-
-function stringifyToolContent(content: unknown): string {
-  if (!Array.isArray(content)) return JSON.stringify(content);
-
-  return content
-    .map((item) =>
-      item && typeof item === "object" && "text" in item
-        ? String(item.text)
-        : JSON.stringify(item),
-    )
-    .join("\n");
 }
