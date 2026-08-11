@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { Client } from "@microsoft/microsoft-graph-client";
+import {
+  Client,
+  type Context,
+  type Middleware,
+} from "@microsoft/microsoft-graph-client";
 import { saveTokens } from "@/utils/auth/save-tokens";
 import { createTestLogger } from "@/__tests__/helpers";
 import {
@@ -67,7 +71,7 @@ describe("outlook client emulator configuration", () => {
     vi.clearAllMocks();
   });
 
-  it("uses a request-rewriting middleware for the HTTP emulator", () => {
+  it("uses a request-rewriting middleware for the HTTP emulator", async () => {
     createOutlookClient("emulator-token", createTestLogger());
 
     expect(getMicrosoftGraphClientOptions).toHaveBeenCalledWith(
@@ -83,6 +87,22 @@ describe("outlook client emulator configuration", () => {
       middleware: expect.any(Array),
     });
     expect(Client.init).not.toHaveBeenCalled();
+
+    const clientOptions = vi.mocked(Client.initWithMiddleware).mock
+      .calls[0]?.[0];
+    const rewriteMiddleware = clientOptions?.middleware?.[1];
+    const executeNext = vi.fn();
+    const nextMiddleware: Middleware = { execute: executeNext };
+    const context: Context = {
+      request: "https://graph.microsoft.com/v1.0/me/messages",
+    };
+
+    expect(clientOptions?.middleware).toHaveLength(3);
+    rewriteMiddleware?.setNext?.(nextMiddleware);
+    await rewriteMiddleware?.execute(context);
+
+    expect(context.request).toBe("http://localhost:4003/v1.0/me/messages");
+    expect(executeNext).toHaveBeenCalledWith(context);
   });
 
   it("uses the emulator authorize URL for linking", () => {

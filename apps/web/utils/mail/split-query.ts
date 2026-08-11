@@ -1,5 +1,6 @@
 import { MailSplitKind } from "@/generated/prisma/enums";
 import type { ThreadsQuery } from "@/utils/threads/validation";
+import { isOutlookInboxSection } from "@/utils/mail/outlook-inbox";
 
 export type MailSplit = {
   id: string;
@@ -7,10 +8,6 @@ export type MailSplit = {
   kind: MailSplitKind;
   value: string | null;
 };
-
-export const OUTLOOK_INBOX_SECTIONS = ["focused", "other"] as const;
-
-export type OutlookInboxSection = (typeof OUTLOOK_INBOX_SECTIONS)[number];
 
 /**
  * Every split is its own server query. Filtering a paginated list client-side would
@@ -37,10 +34,4 @@ export function mailTypeToThreadsQuery(type: string): ThreadsQuery {
     return { type: "inbox", inboxSection: type };
   }
   return { type };
-}
-
-export function isOutlookInboxSection(
-  value: string,
-): value is OutlookInboxSection {
-  return OUTLOOK_INBOX_SECTIONS.some((section) => section === value);
 }

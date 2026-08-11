@@ -1643,7 +1643,7 @@ export class OutlookProvider implements EmailProvider {
         filters.push("isRead eq false");
       }
 
-      if (inboxSection) {
+      if (inboxSection && !folderId) {
         filters.push(`inferenceClassification eq '${inboxSection}'`);
       }
 

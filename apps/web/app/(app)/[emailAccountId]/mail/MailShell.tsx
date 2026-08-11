@@ -7,7 +7,7 @@ import { ListToolbar } from "@/app/(app)/[emailAccountId]/mail/ListToolbar";
 import {
   MAIL_CATEGORIES,
   MailSidebar,
-  OUTLOOK_INBOX_SECTIONS,
+  OUTLOOK_INBOX_CATEGORIES,
 } from "@/app/(app)/[emailAccountId]/mail/MailSidebar";
 import type {
   MailCategory,
@@ -556,7 +556,7 @@ function getMailCategories({
   isOutlook: boolean;
 }): MailCategory[] {
   if (isGoogle) return MAIL_CATEGORIES;
-  if (isOutlook) return OUTLOOK_INBOX_SECTIONS;
+  if (isOutlook) return OUTLOOK_INBOX_CATEGORIES;
   return [];
 }
 

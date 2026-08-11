@@ -35,4 +35,13 @@ describe("getMailSidebarFolders", () => {
       { id: "root-folder", depth: 0 },
     ]);
   });
+
+  it("returns no rows when Outlook only provides system folders", () => {
+    expect(
+      getMailSidebarFolders([
+        folder("inbox-id", [], "INBOX"),
+        folder("sent-id", [], "SENT"),
+      ]),
+    ).toEqual([]);
+  });
 });

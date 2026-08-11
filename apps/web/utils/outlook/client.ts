@@ -50,7 +50,7 @@ export class OutlookClient {
         new OutlookEmulatorUrlMiddleware(graphClientOptions.baseUrl),
       );
       this.client = Client.initWithMiddleware({
-        defaultVersion: "v1.0",
+        defaultVersion: graphClientOptions.defaultVersion,
         fetchOptions,
         middleware,
       });

@@ -199,6 +199,22 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
     });
   });
 
+  it("does not apply an inbox section filter to a custom folder", async () => {
+    const client = createMockOutlookClient([
+      createMessage({ id: "folder-message" }),
+    ]);
+    const provider = new OutlookProvider(client);
+
+    await provider.getThreadsWithQuery({
+      query: { folderId: "custom-folder", inboxSection: "focused" },
+    });
+
+    expect(client.getRequestLog()[0]).toEqual({
+      apiPath: "/me/mailFolders/custom-folder/messages",
+      filter: undefined,
+    });
+  });
+
   it("filters returned threads by explicit labelIds", async () => {
     getFolderIdsMock.mockResolvedValue({
       inbox: "folder-inbox",

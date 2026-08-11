@@ -11,7 +11,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/utils";
-import { isOutlookInboxSection } from "@/utils/mail/split-query";
+import { isOutlookInboxSection } from "@/utils/mail/outlook-inbox";
 
 /** Display grouping only — "To reply" is a LABEL split that belongs under State. */
 export type NewSplitOptionGroup = "state" | "inbox" | "category" | "label";
