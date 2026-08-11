@@ -5,6 +5,7 @@ const {
   mockGetLabels,
   mockGetLabelById,
   mockGetInboxStats,
+  mockGetFolderCounts,
   mockRedisGet,
   mockRedisSet,
   providerName,
@@ -12,6 +13,7 @@ const {
   mockGetLabels: vi.fn(),
   mockGetLabelById: vi.fn(),
   mockGetInboxStats: vi.fn(),
+  mockGetFolderCounts: vi.fn(),
   mockRedisGet: vi.fn(),
   mockRedisSet: vi.fn(),
   providerName: { current: "google" as "google" | "microsoft" },
@@ -49,6 +51,7 @@ vi.mock("@/utils/middleware", async () => {
               getLabels: mockGetLabels,
               getLabelById: mockGetLabelById,
               getInboxStats: mockGetInboxStats,
+              getFolderCounts: mockGetFolderCounts,
             },
           }),
         ),
@@ -167,9 +170,23 @@ describe("GET /api/labels/counts", () => {
     expect(counts(body)).toContain("INBOX");
   });
 
-  it("returns inbox-only counts for Outlook", async () => {
+  it("returns system and custom folder counts for Outlook", async () => {
     providerName.current = "microsoft";
-    mockGetInboxStats.mockResolvedValue({ total: 7, unread: 2 });
+    mockGetFolderCounts.mockResolvedValue([
+      {
+        id: "outlook-inbox-id",
+        name: "Inbox",
+        systemType: "INBOX",
+        total: 7,
+        unread: 2,
+      },
+      {
+        id: "folder-projects",
+        name: "Projects",
+        total: 4,
+        unread: 1,
+      },
+    ]);
 
     const response = await GET(request());
     const body = await response.json();
@@ -177,9 +194,17 @@ describe("GET /api/labels/counts", () => {
     expect(body).toEqual({
       counts: [
         { id: "INBOX", name: "Inbox", kind: "system", total: 7, unread: 2 },
+        {
+          id: "folder-projects",
+          name: "Projects",
+          kind: "folder",
+          total: 4,
+          unread: 1,
+        },
       ],
-      partial: true,
+      partial: false,
     });
     expect(mockGetLabelById).not.toHaveBeenCalled();
+    expect(mockGetInboxStats).not.toHaveBeenCalled();
   });
 });

@@ -112,6 +112,25 @@ describe("GET /api/threads", () => {
     });
   });
 
+  it("passes an Outlook inbox section to the email provider", async () => {
+    const response = await GET(
+      new NextRequest(
+        "http://localhost:3000/api/threads?type=inbox&inboxSection=focused",
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockGetThreadsWithQuery).toHaveBeenCalledWith({
+      query: expect.objectContaining({
+        type: "inbox",
+        inboxSection: "focused",
+      }),
+      maxResults: 50,
+      pageToken: undefined,
+      messageFormat: "full",
+    });
+  });
+
   describe("list view", () => {
     beforeEach(() => {
       mockGetThreadsWithQuery.mockResolvedValue({

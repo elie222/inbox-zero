@@ -11,9 +11,10 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/utils";
+import { isOutlookInboxSection } from "@/utils/mail/split-query";
 
 /** Display grouping only — "To reply" is a LABEL split that belongs under State. */
-export type NewSplitOptionGroup = "state" | "category" | "label";
+export type NewSplitOptionGroup = "state" | "inbox" | "category" | "label";
 
 export type NewSplitOption = {
   /** Unique across every group; identifies the choice, not the split. */
@@ -38,6 +39,7 @@ export type NewSplitPopoverProps = {
 
 const GROUP_TITLES: { group: NewSplitOptionGroup; title: string }[] = [
   { group: "state", title: "State" },
+  { group: "inbox", title: "Inbox" },
   { group: "category", title: "Category" },
   { group: "label", title: "Label" },
 ];
@@ -164,6 +166,9 @@ function summarize(option: NewSplitOption | undefined): string {
     case MailSplitKind.UNREAD:
       return "Shows unread mail";
     case MailSplitKind.CATEGORY:
+      if (option.value && isOutlookInboxSection(option.value)) {
+        return `Shows ${option.name} inbox mail`;
+      }
       return `Shows mail in the ${option.name} category`;
     default:
       return `Shows mail labelled ${option.name}`;

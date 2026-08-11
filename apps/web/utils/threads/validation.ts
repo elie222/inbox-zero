@@ -5,6 +5,8 @@ export const threadsQuery = z.object({
   fromEmail: z.string().nullish(),
   limit: z.coerce.number().max(100).nullish(),
   type: z.string().nullish(),
+  folderId: z.string().nullish(), // For Outlook
+  inboxSection: z.enum(["focused", "other"]).nullish(),
   nextPageToken: microsoftGraphPageTokenSchema,
   labelId: z.string().nullish(), // For Google
   labelIds: z.array(z.string()).nullish(), // For Google

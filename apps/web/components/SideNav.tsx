@@ -398,13 +398,15 @@ function MailNav({ path }: { path: string }) {
           activeHref={path}
         />
       </SidebarGroup>
-      <SidebarGroup>
-        <SidebarGroupLabel>Categories</SidebarGroupLabel>
-        <SideNavMenu
-          items={markActiveType(bottomMailLinks, activeType)}
-          activeHref={path}
-        />
-      </SidebarGroup>
+      {isGoogleProvider(provider) && (
+        <SidebarGroup>
+          <SidebarGroupLabel>Categories</SidebarGroupLabel>
+          <SideNavMenu
+            items={markActiveType(bottomMailLinks, activeType)}
+            activeHref={path}
+          />
+        </SidebarGroup>
+      )}
 
       <SidebarGroup>
         <SidebarGroupLabel>

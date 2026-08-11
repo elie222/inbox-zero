@@ -3,6 +3,17 @@ import type { OutlookClient } from "./client-types";
 import type { Logger } from "@/utils/logger";
 import { withOutlookRetry } from "@/utils/outlook/retry";
 
+export type OutlookSystemFolder =
+  | "INBOX"
+  | "DRAFT"
+  | "SENT"
+  | "ARCHIVE"
+  | "TRASH"
+  | "SPAM";
+
+const OUTLOOK_FOLDER_FIELDS =
+  "id,displayName,childFolderCount,totalItemCount,unreadItemCount";
+
 // Should not use a common separator like "/|\>" as it may be used in the folder name.
 // Using U+2999 as it is unlikely to appear in normal text
 export const FOLDER_SEPARATOR = " ⦙ ";
@@ -12,6 +23,9 @@ export type OutlookFolder = {
   displayName: NonNullable<MailFolder["displayName"]>;
   childFolders: OutlookFolder[];
   childFolderCount?: number;
+  totalItemCount?: number;
+  unreadItemCount?: number;
+  systemType?: OutlookSystemFolder;
 };
 
 function convertMailFolderToOutlookFolder(folder: MailFolder): OutlookFolder {
@@ -21,6 +35,8 @@ function convertMailFolderToOutlookFolder(folder: MailFolder): OutlookFolder {
     childFolders:
       folder.childFolders?.map(convertMailFolderToOutlookFolder) ?? [],
     childFolderCount: folder.childFolderCount ?? 0,
+    totalItemCount: folder.totalItemCount ?? 0,
+    unreadItemCount: folder.unreadItemCount ?? 0,
   };
 }
 
@@ -28,16 +44,15 @@ export async function getOutlookRootFolders(
   client: OutlookClient,
   logger: Logger,
 ): Promise<OutlookFolder[]> {
-  const fields = "id,displayName,childFolderCount";
   const response: { value: MailFolder[] } = await withOutlookRetry(
     () =>
       client
         .getClient()
         .api("/me/mailFolders")
-        .select(fields)
+        .select(OUTLOOK_FOLDER_FIELDS)
         .top(999)
         .expand(
-          `childFolders($select=${fields};$top=999;$expand=childFolders($select=${fields};$top=999))`,
+          `childFolders($select=${OUTLOOK_FOLDER_FIELDS};$top=999;$expand=childFolders($select=${OUTLOOK_FOLDER_FIELDS};$top=999))`,
         )
         .get(),
     logger,
@@ -51,16 +66,15 @@ export async function getOutlookChildFolders(
   folderId: string,
   logger: Logger,
 ): Promise<OutlookFolder[]> {
-  const fields = "id,displayName,childFolderCount";
   const response: { value: MailFolder[] } = await withOutlookRetry(
     () =>
       client
         .getClient()
         .api(`/me/mailFolders/${folderId}/childFolders`)
-        .select(fields)
+        .select(OUTLOOK_FOLDER_FIELDS)
         .top(999)
         .expand(
-          `childFolders($select=${fields};$top=999;$expand=childFolders($select=${fields};$top=999))`,
+          `childFolders($select=${OUTLOOK_FOLDER_FIELDS};$top=999;$expand=childFolders($select=${OUTLOOK_FOLDER_FIELDS};$top=999))`,
         )
         .get(),
     logger,
@@ -163,6 +177,26 @@ export async function getOutlookFolderTree(
   await Promise.all(expandPromises);
 
   return folders;
+}
+
+export function addOutlookSystemFolderTypes(
+  folders: OutlookFolder[],
+  folderIds: Record<string, string>,
+): OutlookFolder[] {
+  const systemTypeById = new Map<string, OutlookSystemFolder>([
+    [folderIds.inbox, "INBOX"],
+    [folderIds.drafts, "DRAFT"],
+    [folderIds.sentitems, "SENT"],
+    [folderIds.archive, "ARCHIVE"],
+    [folderIds.deleteditems, "TRASH"],
+    [folderIds.junkemail, "SPAM"],
+  ]);
+
+  return folders.map((folder) => ({
+    ...folder,
+    systemType: systemTypeById.get(folder.id),
+    childFolders: addOutlookSystemFolderTypes(folder.childFolders, folderIds),
+  }));
 }
 
 export async function getOrCreateOutlookFolderIdByName(

@@ -66,6 +66,7 @@ import type {
   EmailLabel,
   EmailFilter,
   EmailSignature,
+  EmailFolderCount,
   SentMessagePage,
   BulkArchiveThread,
   BulkArchiveResult,
@@ -80,6 +81,7 @@ import {
 import {
   getOrCreateOutlookFolderIdByName,
   getOutlookFolderTree,
+  addOutlookSystemFolderTypes,
 } from "@/utils/outlook/folders";
 import { extractSignatureFromHtml } from "@/utils/email/signature-extraction";
 import {
@@ -279,7 +281,7 @@ export class OutlookProvider implements EmailProvider {
       () =>
         this.client
           .getClient()
-          .api("/me/mailFolders('sentitems')/messages")
+          .api("/me/mailFolders/sentitems/messages")
           .select(MESSAGE_SELECT_FIELDS)
           .top(maxResults)
           .orderby("sentDateTime desc")
@@ -301,7 +303,7 @@ export class OutlookProvider implements EmailProvider {
       () =>
         this.client
           .getClient()
-          .api("/me/mailFolders('inbox')/messages")
+          .api("/me/mailFolders/inbox/messages")
           .select(MESSAGE_SELECT_FIELDS)
           .top(maxResults)
           .orderby("receivedDateTime desc")
@@ -335,7 +337,7 @@ export class OutlookProvider implements EmailProvider {
 
       let request = this.client
         .getClient()
-        .api("/me/mailFolders('sentitems')/messages")
+        .api("/me/mailFolders/sentitems/messages")
         .select("id,conversationId")
         .top(maxResults)
         .orderby("sentDateTime desc");
@@ -395,7 +397,7 @@ export class OutlookProvider implements EmailProvider {
 
     // Get messages from Microsoft Graph API (well-known Sent Items folder)
     let request = client
-      .api("/me/mailFolders('sentitems')/messages")
+      .api("/me/mailFolders/sentitems/messages")
       .select(MESSAGE_SELECT_FIELDS)
       .top(maxResults)
       .orderby("sentDateTime desc");
@@ -1536,6 +1538,8 @@ export class OutlookProvider implements EmailProvider {
       before,
       isUnread,
       type,
+      folderId,
+      inboxSection,
       labelId,
       labelIds,
       excludeLabelNames,
@@ -1598,8 +1602,12 @@ export class OutlookProvider implements EmailProvider {
 
       // Route to appropriate endpoint based on type
       // parentFolderId on messages is a GUID, not a well-known name — always resolve
-      if (type === "sent" && !hasExplicitLabelFilters) {
-        endpoint = "/me/mailFolders('sentitems')/messages";
+      if (folderId) {
+        endpoint = `/me/mailFolders/${encodeURIComponent(folderId)}/messages`;
+      } else if (inboxSection && !hasExplicitLabelFilters) {
+        endpoint = "/me/mailFolders/inbox/messages";
+      } else if (type === "sent" && !hasExplicitLabelFilters) {
+        endpoint = "/me/mailFolders/sentitems/messages";
       } else {
         if (labelId && !labelIds?.length) {
           const labelFilter = await resolveOutlookThreadQueryFilter({
@@ -1633,6 +1641,10 @@ export class OutlookProvider implements EmailProvider {
 
       if (isUnread) {
         filters.push("isRead eq false");
+      }
+
+      if (inboxSection) {
+        filters.push(`inferenceClassification eq '${inboxSection}'`);
       }
 
       const filter = filters.length > 0 ? filters.join(" and ") : undefined;
@@ -1993,7 +2005,22 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async getFolders() {
-    return await getOutlookFolderTree(this.client, undefined, this.logger);
+    const [folders, folderIds] = await Promise.all([
+      getOutlookFolderTree(this.client, undefined, this.logger),
+      getFolderIds(this.client, this.logger),
+    ]);
+    return addOutlookSystemFolderTypes(folders, folderIds);
+  }
+
+  async getFolderCounts(): Promise<EmailFolderCount[]> {
+    const folders = await this.getFolders();
+    return flattenOutlookFolders(folders).map((folder) => ({
+      id: folder.id,
+      name: folder.displayName,
+      total: folder.totalItemCount ?? 0,
+      unread: folder.unreadItemCount ?? 0,
+      systemType: folder.systemType,
+    }));
   }
 
   async getSignatures(): Promise<EmailSignature[]> {
@@ -2036,7 +2063,7 @@ export class OutlookProvider implements EmailProvider {
       () =>
         this.client
           .getClient()
-          .api("/me/mailFolders('inbox')")
+          .api("/me/mailFolders/inbox")
           .select("totalItemCount,unreadItemCount")
           .get(),
       this.logger,
@@ -2064,6 +2091,15 @@ function resolveOutlookFolderId(
 ): string | undefined {
   const folderKey = LABEL_TO_FOLDER_KEY[labelId.toUpperCase()];
   return folderKey ? folderIds[folderKey] : undefined;
+}
+
+function flattenOutlookFolders(
+  folders: Awaited<ReturnType<OutlookProvider["getFolders"]>>,
+): Awaited<ReturnType<OutlookProvider["getFolders"]>> {
+  return folders.flatMap((folder) => [
+    folder,
+    ...flattenOutlookFolders(folder.childFolders),
+  ]);
 }
 
 function filterMessagesForParticipant(

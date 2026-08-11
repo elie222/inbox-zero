@@ -20,8 +20,8 @@ const LABEL_LOOKUP_CONCURRENCY = 8;
 export type LabelCount = {
   id: string;
   name: string;
-  kind: "system" | "category" | "label";
-  /** Threads in the label, unread ones included */
+  kind: "system" | "category" | "label" | "folder";
+  /** Conversations or folder items in this scope, unread ones included. */
   total: number;
   unread: number;
 };
@@ -92,12 +92,16 @@ async function getCounts({
       return await getGmailCounts({ emailProvider, logger });
     }
 
-    // Outlook has no per-category counts and its categories carry none either,
-    // so only the inbox is reported.
-    const { total, unread } = await emailProvider.getInboxStats();
+    const folderCounts = await emailProvider.getFolderCounts();
     return {
-      counts: [{ id: "INBOX", name: "Inbox", kind: "system", total, unread }],
-      partial: true,
+      counts: folderCounts.map((folder) => ({
+        id: folder.systemType ?? folder.id,
+        name: folder.name,
+        kind: folder.systemType ? "system" : "folder",
+        total: folder.total,
+        unread: folder.unread,
+      })),
+      partial: false,
       anyFailed: false,
     };
   } catch (error) {

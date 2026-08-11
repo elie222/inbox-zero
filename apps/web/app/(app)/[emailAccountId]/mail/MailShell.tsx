@@ -7,8 +7,12 @@ import { ListToolbar } from "@/app/(app)/[emailAccountId]/mail/ListToolbar";
 import {
   MAIL_CATEGORIES,
   MailSidebar,
+  OUTLOOK_INBOX_SECTIONS,
 } from "@/app/(app)/[emailAccountId]/mail/MailSidebar";
-import type { MailNavTarget } from "@/app/(app)/[emailAccountId]/mail/MailSidebar";
+import type {
+  MailCategory,
+  MailNavTarget,
+} from "@/app/(app)/[emailAccountId]/mail/MailSidebar";
 import { RuleAttributionMenu } from "@/app/(app)/[emailAccountId]/mail/RuleAttributionMenu";
 import { ShortcutsDialog } from "@/app/(app)/[emailAccountId]/mail/ShortcutsDialog";
 import { SplitTabs } from "@/app/(app)/[emailAccountId]/mail/SplitTabs";
@@ -31,12 +35,16 @@ import { useSidebar } from "@/components/ui/sidebar";
 import { useSetAtom } from "jotai";
 import { commandPaletteOpenAtom } from "@/store/command-palette";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { isGoogleProvider } from "@/utils/email/provider-types";
+import {
+  isGoogleProvider,
+  isMicrosoftProvider,
+} from "@/utils/email/provider-types";
 import { useEmail } from "@/providers/EmailProvider";
 import { useComposeModal } from "@/providers/ComposeModalProvider";
 import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 import { useLabelCounts } from "@/hooks/useLabelCounts";
 import { useSplitLabels } from "@/hooks/useLabels";
+import { useFolders } from "@/hooks/useFolders";
 import { useMailSettings } from "@/hooks/useMailSettings";
 import { useThread } from "@/hooks/useThread";
 import { useShortcuts } from "@/lib/shortcuts/useShortcuts";
@@ -50,11 +58,15 @@ import {
   createLabelAction,
   removeThreadLabelAction,
 } from "@/utils/actions/mail";
-import { mailSplitToThreadsQuery } from "@/utils/mail/split-query";
+import {
+  mailSplitToThreadsQuery,
+  mailTypeToThreadsQuery,
+} from "@/utils/mail/split-query";
 import { getActionErrorMessage } from "@/utils/error";
 import { prefixPath } from "@/utils/path";
 import { LoadingContent } from "@/components/LoadingContent";
 import type { ThreadsQuery } from "@/utils/threads/validation";
+import { getEmailTerminology } from "@/utils/terminology";
 
 // Always present, never deletable. Everything else is a saved split. They carry
 // a kind so built-ins and saved splits resolve through one mapping.
@@ -68,11 +80,13 @@ const NO_MESSAGES: ThreadMessage[] = [];
 
 export function MailShell() {
   const { emailAccountId, userEmail, provider } = useAccount();
-  // Gmail categories have no Outlook equivalent, so they're hidden rather than
-  // rendered as rows and split options that can never match anything.
-  const showCategories = isGoogleProvider(provider);
+  const isGoogle = isGoogleProvider(provider);
+  const isOutlook = isMicrosoftProvider(provider);
+  const categories = getMailCategories({ isGoogle, isOutlook });
+  const terminology = getEmailTerminology(provider);
   const { userLabels } = useEmail();
   const { visibleLabels, mutate: mutateLabels } = useSplitLabels();
+  const { folders } = useFolders(provider);
   const { countsById } = useLabelCounts();
   const { data: settings, mutate: mutateSettings } = useMailSettings();
   const { onOpen: openCompose } = useComposeModal();
@@ -89,6 +103,7 @@ export function MailShell() {
   });
   const [scopeType] = useQueryState("type");
   const [scopeLabelId] = useQueryState("labelId");
+  const [scopeFolderId] = useQueryState("folderId");
 
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [isFocusMode, setIsFocusMode] = useState(false);
@@ -135,9 +150,11 @@ export function MailShell() {
   // Resolved once so the tab bar and the fetched rows can't disagree.
   const scopeQuery: ThreadsQuery | null = useMemo(() => {
     if (scopeLabelId) return { labelId: scopeLabelId };
-    if (scopeType && scopeType !== "inbox") return { type: scopeType };
+    if (scopeFolderId) return { folderId: scopeFolderId };
+    if (scopeType && scopeType !== "inbox")
+      return mailTypeToThreadsQuery(scopeType);
     return null;
-  }, [scopeLabelId, scopeType]);
+  }, [scopeFolderId, scopeLabelId, scopeType]);
   const isScoped = scopeQuery !== null;
 
   const splits: MailSplitTab[] = useMemo(
@@ -216,12 +233,7 @@ export function MailShell() {
 
   const hrefFor = useCallback(
     (target: MailNavTarget) =>
-      prefixPath(
-        emailAccountId,
-        target.kind === "label"
-          ? `/mail?type=label&labelId=${encodeURIComponent(target.labelId)}`
-          : `/mail?type=${encodeURIComponent(target.type)}`,
-      ),
+      prefixPath(emailAccountId, getMailNavPath(target)),
     [emailAccountId],
   );
 
@@ -320,6 +332,7 @@ export function MailShell() {
 
   useShortcuts(handlers);
 
+  const categoryGroup = isOutlook ? "inbox" : "category";
   const newSplitOptions: NewSplitOption[] = useMemo(
     () => [
       {
@@ -329,12 +342,12 @@ export function MailShell() {
         value: null,
         group: "state",
       },
-      ...(showCategories ? MAIL_CATEGORIES : []).map((category) => ({
+      ...categories.map((category) => ({
         id: `category:${category.type}`,
         name: category.name,
         kind: MailSplitKind.CATEGORY,
         value: category.type,
-        group: "category" as const,
+        group: categoryGroup,
       })),
       ...visibleLabels.map((label) => ({
         id: `label:${label.id}`,
@@ -344,7 +357,7 @@ export function MailShell() {
         group: "label" as const,
       })),
     ],
-    [visibleLabels, showCategories],
+    [categories, categoryGroup, visibleLabels],
   );
 
   const onCreateSplit = useCallback(
@@ -384,9 +397,11 @@ export function MailShell() {
       // Without this the label the user just typed doesn't appear until an
       // unrelated revalidation happens to run.
       await mutateLabels();
-      toast.success(`Label "${name}" created`);
+      toast.success(
+        `${terminology.label.singularCapitalized} "${name}" created`,
+      );
     },
-    [emailAccountId, mutateLabels],
+    [emailAccountId, mutateLabels, terminology.label.singularCapitalized],
   );
 
   const onRemoveLabel = useCallback(
@@ -414,12 +429,19 @@ export function MailShell() {
         {!isFocusMode && (
           <MailSidebar
             className="hidden lg:flex"
-            activeType={scopeLabelId ? null : (scopeType ?? "inbox")}
+            activeType={
+              scopeLabelId || scopeFolderId ? null : (scopeType ?? "inbox")
+            }
             activeLabelId={scopeLabelId}
+            activeFolderId={scopeFolderId}
             hrefFor={hrefFor}
             labels={visibleLabels}
+            folders={isOutlook ? folders : []}
             countsById={countsById}
-            showCategories={showCategories}
+            categories={categories}
+            categoryHeading={isOutlook ? "Inbox" : "Categories"}
+            labelsHeading={terminology.label.pluralCapitalized}
+            labelSingular={terminology.label.singular}
             backToAppHref={prefixPath(emailAccountId, "/automation")}
             onCompose={openCompose}
             onCreateLabel={onCreateLabel}
@@ -522,4 +544,27 @@ export function MailShell() {
       <ShortcutsDialog open={isHelpOpen} onOpenChange={setIsHelpOpen} />
     </div>
   );
+}
+
+function getMailCategories({
+  isGoogle,
+  isOutlook,
+}: {
+  isGoogle: boolean;
+  isOutlook: boolean;
+}): MailCategory[] {
+  if (isGoogle) return MAIL_CATEGORIES;
+  if (isOutlook) return OUTLOOK_INBOX_SECTIONS;
+  return [];
+}
+
+function getMailNavPath(target: MailNavTarget): string {
+  switch (target.kind) {
+    case "label":
+      return `/mail?type=label&labelId=${encodeURIComponent(target.labelId)}`;
+    case "folder":
+      return `/mail?type=folder&folderId=${encodeURIComponent(target.folderId)}`;
+    case "type":
+      return `/mail?type=${encodeURIComponent(target.type)}`;
+  }
 }

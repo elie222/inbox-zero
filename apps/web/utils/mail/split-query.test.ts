@@ -38,6 +38,15 @@ describe("mailSplitToThreadsQuery", () => {
   });
 
   it.each([
+    "focused",
+    "other",
+  ] as const)("queries Outlook's %s section inside the inbox", (inboxSection) => {
+    expect(
+      mailSplitToThreadsQuery(split(MailSplitKind.CATEGORY, inboxSection)),
+    ).toEqual({ type: "inbox", inboxSection });
+  });
+
+  it.each([
     MailSplitKind.LABEL,
     MailSplitKind.CATEGORY,
   ])("throws rather than silently querying the whole inbox when %s has no value", (kind) => {

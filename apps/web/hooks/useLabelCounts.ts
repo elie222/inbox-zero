@@ -3,7 +3,7 @@ import useSWR from "swr";
 import type { LabelCountsResponse } from "@/app/api/labels/counts/route";
 
 /**
- * Unread/total counts per label and Gmail category for the mail sidebar.
+ * Unread/total counts per label, Gmail category, or Outlook folder.
  * Deliberately not blocking: the sidebar renders without counts and fills in.
  */
 export function useLabelCounts() {

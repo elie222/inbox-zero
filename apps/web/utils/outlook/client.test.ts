@@ -16,6 +16,13 @@ import {
 vi.mock("@microsoft/microsoft-graph-client", () => ({
   Client: {
     init: vi.fn(),
+    initWithMiddleware: vi.fn(),
+  },
+  MiddlewareFactory: {
+    getDefaultMiddlewareChain: vi.fn(() => [
+      { execute: vi.fn(), setNext: vi.fn() },
+      { execute: vi.fn(), setNext: vi.fn() },
+    ]),
   },
 }));
 
@@ -60,24 +67,22 @@ describe("outlook client emulator configuration", () => {
     vi.clearAllMocks();
   });
 
-  it("passes emulator-aware Graph options into the client", () => {
+  it("uses a request-rewriting middleware for the HTTP emulator", () => {
     createOutlookClient("emulator-token", createTestLogger());
 
     expect(getMicrosoftGraphClientOptions).toHaveBeenCalledWith(
       "emulator-token",
     );
-    expect(Client.init).toHaveBeenCalledWith({
-      authProvider: expect.any(Function),
-      baseUrl: "http://localhost:4003/",
-      customHosts: new Set(["localhost"]),
+    expect(Client.initWithMiddleware).toHaveBeenCalledWith({
       defaultVersion: "v1.0",
       fetchOptions: {
         headers: {
-          Authorization: "Bearer emulator-token",
           Prefer: 'IdType="ImmutableId"',
         },
       },
+      middleware: expect.any(Array),
     });
+    expect(Client.init).not.toHaveBeenCalled();
   });
 
   it("uses the emulator authorize URL for linking", () => {

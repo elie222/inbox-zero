@@ -8,6 +8,10 @@ export type MailSplit = {
   value: string | null;
 };
 
+export const OUTLOOK_INBOX_SECTIONS = ["focused", "other"] as const;
+
+export type OutlookInboxSection = (typeof OUTLOOK_INBOX_SECTIONS)[number];
+
 /**
  * Every split is its own server query. Filtering a paginated list client-side would
  * only ever search the pages already loaded, which silently under-reports.
@@ -24,6 +28,19 @@ export function mailSplitToThreadsQuery(split: MailSplit): ThreadsQuery {
     case MailSplitKind.CATEGORY:
       if (!split.value)
         throw new Error(`Split "${split.name}" has no category`);
-      return { type: split.value };
+      return mailTypeToThreadsQuery(split.value);
   }
+}
+
+export function mailTypeToThreadsQuery(type: string): ThreadsQuery {
+  if (isOutlookInboxSection(type)) {
+    return { type: "inbox", inboxSection: type };
+  }
+  return { type };
+}
+
+export function isOutlookInboxSection(
+  value: string,
+): value is OutlookInboxSection {
+  return OUTLOOK_INBOX_SECTIONS.some((section) => section === value);
 }

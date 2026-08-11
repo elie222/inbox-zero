@@ -55,6 +55,7 @@ type OutlookSeedMessage = {
   parent_folder_id: string;
   is_read: boolean;
   is_draft?: boolean;
+  categories?: string[];
   received_date_time: string;
   sent_date_time?: string;
 };
@@ -179,11 +180,17 @@ export async function createOutlookTestHarness({
   email,
   messages,
   categories,
+  folders,
 }: {
   port?: number;
   email: string;
   messages: OutlookSeedMessage[];
   categories?: Array<{ display_name: string; color?: string }>;
+  folders?: Array<{
+    id: string;
+    display_name: string;
+    parent_folder_id?: string;
+  }>;
 }): Promise<OutlookTestHarness> {
   const emulatorPort = port ?? (await getAvailablePort());
   const emulator = await createEmulator({
@@ -200,6 +207,7 @@ export async function createOutlookTestHarness({
           },
         ],
         categories: categories || [],
+        folders: folders || [],
         messages,
       },
     },
