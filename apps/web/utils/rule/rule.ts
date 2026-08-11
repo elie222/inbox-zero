@@ -901,7 +901,9 @@ function buildRiskAction(action: MappableAction): RiskAction {
     bcc: action.fields?.bcc ?? null,
     integrationName: integrationFields?.integrationName ?? null,
     integrationToolName: integrationFields?.integrationToolName ?? null,
-    integrationArgs: integrationFields?.integrationArgs ?? null,
+    integrationArgs:
+      (integrationFields?.integrationArgs as Prisma.JsonValue | undefined) ??
+      null,
   };
 }
 
