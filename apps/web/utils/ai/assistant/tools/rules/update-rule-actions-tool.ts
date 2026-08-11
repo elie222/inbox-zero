@@ -19,12 +19,14 @@ export const updateRuleActionsTool = ({
   email,
   emailAccountId,
   provider,
+  integrationActionsEnabled,
   logger,
   getRuleReadState,
 }: {
   email: string;
   emailAccountId: string;
   provider: string;
+  integrationActionsEnabled: boolean;
   logger: Logger;
   getRuleReadState?: () => RuleReadState | null;
 }) =>
@@ -34,7 +36,7 @@ export const updateRuleActionsTool = ({
     inputSchema: z.object({
       ruleName: z.string().describe("The name of the rule to update"),
       actions: z
-        .array(createRuleActionSchema(provider))
+        .array(createRuleActionSchema(provider, integrationActionsEnabled))
         .min(1, "Rules must have at least one action.")
         .describe("The full replacement list of actions for the rule."),
     }),

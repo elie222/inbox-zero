@@ -9,11 +9,15 @@ import {
 export async function isIntegrationActionEnabledForUserId(userId: string) {
   if (isIntegrationActionGloballyEnabled()) return true;
 
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { email: true },
-  });
-  return user ? isIntegrationActionEnabledForUserEmail(user.email) : false;
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true },
+    });
+    return user ? isIntegrationActionEnabledForUserEmail(user.email) : false;
+  } catch {
+    return false;
+  }
 }
 
 export async function isIntegrationActionEnabledForEmailAccountId(
@@ -21,13 +25,17 @@ export async function isIntegrationActionEnabledForEmailAccountId(
 ) {
   if (isIntegrationActionGloballyEnabled()) return true;
 
-  const emailAccount = await prisma.emailAccount.findUnique({
-    where: { id: emailAccountId },
-    select: { user: { select: { email: true } } },
-  });
-  return emailAccount
-    ? isIntegrationActionEnabledForUserEmail(emailAccount.user.email)
-    : false;
+  try {
+    const emailAccount = await prisma.emailAccount.findUnique({
+      where: { id: emailAccountId },
+      select: { user: { select: { email: true } } },
+    });
+    return emailAccount
+      ? isIntegrationActionEnabledForUserEmail(emailAccount.user.email)
+      : false;
+  } catch {
+    return false;
+  }
 }
 
 async function isIntegrationActionEnabledForUserEmail(email: string) {

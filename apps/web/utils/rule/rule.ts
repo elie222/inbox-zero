@@ -621,6 +621,7 @@ export async function updateRuleActions({
   }
 
   assertRuleActionUpdateEnabled(actions, existingRule.actions);
+  await assertIntegrationActionsEnabled(actions, emailAccountId);
 
   validateLowTrustStaticFromOutboundActions({
     from: existingRule.from,
@@ -959,8 +960,6 @@ export async function assertIntegrationActionsConnected(
   ];
 
   if (!integrationNames.length) return;
-
-  await assertIntegrationActionsEnabled(actions, emailAccountId);
 
   const connections = await prisma.mcpConnection.findMany({
     where: {

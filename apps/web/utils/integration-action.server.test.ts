@@ -65,6 +65,15 @@ describe("integration action feature access", () => {
     );
   });
 
+  it("fails closed when the user lookup fails", async () => {
+    prisma.user.findUnique.mockRejectedValue(new Error("unavailable"));
+
+    await expect(isIntegrationActionEnabledForUserId("user-id")).resolves.toBe(
+      false,
+    );
+    expect(mockEvaluateFlags).not.toHaveBeenCalled();
+  });
+
   it("evaluates the email account owner's PostHog identity", async () => {
     prisma.emailAccount.findUnique.mockResolvedValue({
       user: { email: "user@example.com" },
