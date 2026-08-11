@@ -41,7 +41,7 @@ const queuedJobs = new Map<QueueKey, QueuedJob>();
 // some users were somehow getting null for activeThreads, this should fix it
 const createStorage = () => {
   if (typeof window === "undefined") return;
-  const storage = createJSONStorage<QueueState>(() => localStorage);
+  const storage = createJSONStorage<QueueState>(() => window.localStorage);
   return {
     ...storage,
     getItem: (key: string, initialValue: QueueState) => {
