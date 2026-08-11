@@ -12,6 +12,7 @@ export async function getBatch(
   ids: string[],
   endpoint: string, // e.g. /gmail/v1/users/me/messages
   accessToken: string,
+  queryString?: string,
 ) {
   if (!ids.length) return [];
   if (ids.length > BATCH_LIMIT) {
@@ -21,8 +22,9 @@ export async function getBatch(
   }
 
   let batchRequestBody = "";
+  const query = queryString ? `?${queryString}` : "";
   for (const id of ids) {
-    batchRequestBody += `--batch_boundary\nContent-Type: application/http\n\nGET ${endpoint}/${id}\n\n`;
+    batchRequestBody += `--batch_boundary\nContent-Type: application/http\n\nGET ${endpoint}/${id}${query}\n\n`;
   }
   batchRequestBody += "--batch_boundary--";
 

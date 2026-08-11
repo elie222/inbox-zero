@@ -53,6 +53,7 @@ export const GET = withEmailProvider(
         query,
         emailAccountId,
         emailProvider,
+        messageFormat: view === "list" ? "metadata" : "full",
       });
       return NextResponse.json(
         view === "list" ? toListThreads(threads) : threads,
@@ -80,16 +81,19 @@ async function getThreads({
   query,
   emailAccountId,
   emailProvider,
+  messageFormat,
 }: {
   query: ThreadsQuery;
   emailAccountId: string;
   emailProvider: EmailProvider;
+  messageFormat: "full" | "metadata";
 }) {
   // Get threads using the provider
   const { threads, nextPageToken } = await emailProvider.getThreadsWithQuery({
     query,
     maxResults: query.limit || 50,
     pageToken: query.nextPageToken || undefined,
+    messageFormat,
   });
 
   const threadIds = threads.map((t) => t.id);
@@ -120,12 +124,22 @@ async function getThreads({
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
   });
 
+  const executedRulesByThreadId = new Map<
+    string,
+    (typeof executedRules)[number][]
+  >();
+  for (const executedRule of executedRules) {
+    if (!executedRule.threadId) continue;
+    const threadExecutions =
+      executedRulesByThreadId.get(executedRule.threadId) ?? [];
+    threadExecutions.push(executedRule);
+    executedRulesByThreadId.set(executedRule.threadId, threadExecutions);
+  }
+
   // Process threads with plans and categories
   const threadsWithPlans = threads.map((thread) => {
     const plans = aggregateThreadPlans(
-      executedRules.filter(
-        (executedRule) => executedRule.threadId === thread.id,
-      ),
+      executedRulesByThreadId.get(thread.id) ?? [],
     );
 
     // Filter out ignored senders from the already parsed messages

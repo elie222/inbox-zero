@@ -1473,6 +1473,7 @@ export class GmailProvider implements EmailProvider {
     query?: ThreadsQuery;
     maxResults?: number;
     pageToken?: string;
+    messageFormat?: "full" | "metadata";
   }): Promise<{
     threads: EmailThread[];
     nextPageToken?: string;
@@ -1573,6 +1574,9 @@ export class GmailProvider implements EmailProvider {
         threadIds,
         getAccessTokenFromClient(this.client),
         this.logger,
+        options.messageFormat === "metadata"
+          ? { format: "metadata" }
+          : undefined,
       );
 
       const emailThreads: EmailThread[] = threads

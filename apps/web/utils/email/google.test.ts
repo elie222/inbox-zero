@@ -275,6 +275,35 @@ describe("GmailProvider.getThreadsWithQuery", () => {
       }),
     );
   });
+
+  it("uses Gmail metadata format for list requests", async () => {
+    vi.spyOn(
+      gmailThreadModule,
+      "getThreadsWithNextPageToken",
+    ).mockResolvedValue({
+      threads: [{ id: "thread-1" }],
+      nextPageToken: undefined,
+    });
+    const getThreadsBatch = vi
+      .spyOn(gmailThreadModule, "getThreadsBatch")
+      .mockResolvedValue([]);
+    const provider = new GmailProvider({
+      context: {
+        _options: {
+          auth: { credentials: { access_token: "access-token" } },
+        },
+      },
+    } as any);
+
+    await provider.getThreadsWithQuery({ messageFormat: "metadata" });
+
+    expect(getThreadsBatch).toHaveBeenCalledWith(
+      ["thread-1"],
+      "access-token",
+      expect.anything(),
+      { format: "metadata" },
+    );
+  });
 });
 
 describe("GmailProvider.updateDraft", () => {

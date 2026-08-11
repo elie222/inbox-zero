@@ -23,6 +23,7 @@ import { ThreadReader } from "@/app/(app)/[emailAccountId]/mail/ThreadReader";
 import type { MailLayoutMode } from "@/app/(app)/[emailAccountId]/mail/types";
 import type { ThreadMessage } from "@/components/email-list/types";
 import { useMailThreads } from "@/app/(app)/[emailAccountId]/mail/use-mail-threads";
+import { useAdjacentThreadPrefetch } from "@/app/(app)/[emailAccountId]/mail/use-adjacent-thread-prefetch";
 import { useThreadActions } from "@/app/(app)/[emailAccountId]/mail/use-thread-actions";
 import { useThreadSelection } from "@/app/(app)/[emailAccountId]/mail/use-thread-selection";
 import { MailLayout, MailSplitKind } from "@/generated/prisma/enums";
@@ -181,7 +182,7 @@ export function MailShell() {
     loadMore,
     removeThreads,
     restoreThreads,
-  } = useMailThreads(query);
+  } = useMailThreads({ emailAccountId, query });
 
   const orderedIds = useMemo(() => threads.map((t) => t.id), [threads]);
   const selection = useThreadSelection(orderedIds);
@@ -203,6 +204,11 @@ export function MailShell() {
   // Deferred so holding J/K in split view doesn't fire a full-thread provider
   // fetch for every row the cursor passes over — only the row you settle on.
   const readerThreadId = useDeferredValue(openThreadId);
+  useAdjacentThreadPrefetch({
+    currentThreadId: readerThreadId,
+    emailAccountId,
+    threadIds: orderedIds,
+  });
   const { data: openThreadData, mutate: refetchOpenThread } = useThread(
     { id: readerThreadId },
     { includeDrafts: true },

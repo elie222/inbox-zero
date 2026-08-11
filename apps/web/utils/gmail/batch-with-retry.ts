@@ -18,6 +18,7 @@ export async function getBatchWithRetry<TRaw, TParsed>({
   accessToken,
   parse,
   logger,
+  queryString,
   retryCount = 0,
   retryError,
 }: {
@@ -26,6 +27,7 @@ export async function getBatchWithRetry<TRaw, TParsed>({
   accessToken: string;
   parse: (item: TRaw) => TParsed;
   logger: Logger;
+  queryString?: string;
   retryCount?: number;
   retryError?: BatchError["error"];
 }): Promise<TParsed[]> {
@@ -39,6 +41,7 @@ export async function getBatchWithRetry<TRaw, TParsed>({
       accessToken,
       parse,
       logger,
+      queryString,
       retryCount,
       retryError,
     });
@@ -54,6 +57,7 @@ async function getBatchChunkWithRetry<TRaw, TParsed>({
   accessToken,
   parse,
   logger,
+  queryString,
   retryCount,
   retryError,
 }: {
@@ -62,6 +66,7 @@ async function getBatchChunkWithRetry<TRaw, TParsed>({
   accessToken: string;
   parse: (item: TRaw) => TParsed;
   logger: Logger;
+  queryString?: string;
   retryCount: number;
   retryError?: BatchError["error"];
 }): Promise<TParsed[]> {
@@ -77,6 +82,7 @@ async function getBatchChunkWithRetry<TRaw, TParsed>({
     ids,
     endpoint,
     accessToken,
+    queryString,
   );
 
   if (batch.some((item) => isBatchError(item) && item.error.code === 401)) {
@@ -168,6 +174,7 @@ async function getBatchChunkWithRetry<TRaw, TParsed>({
         retryCount: nextRetryCount,
         retryError: lastRetryableError,
         logger,
+        queryString,
       });
       refetched.push(...chunkResults);
     }

@@ -39,6 +39,7 @@ import {
   SCOPES as MICROSOFT_EMAIL_SCOPES,
 } from "@/utils/outlook/scopes";
 import { MICROSOFT_DRIVE_SCOPES } from "@/utils/drive/scopes";
+import { clearEmailCacheForAccount } from "@/utils/email-cache/database";
 
 export default function AccountsPage() {
   const { data, isLoading, error, mutate } = useAccounts();
@@ -152,6 +153,7 @@ function AccountOptionsDropdown({
 }) {
   const { execute, isExecuting } = useAction(deleteEmailAccountAction, {
     onSuccess: async () => {
+      await clearEmailCacheForAccount(emailAccount.id);
       toastSuccess({
         title: "Email account deleted",
         description: "The email account has been deleted successfully.",
