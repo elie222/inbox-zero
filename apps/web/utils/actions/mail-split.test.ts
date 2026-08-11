@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Prisma } from "@/generated/prisma/client";
-import { MailSplitKind } from "@/generated/prisma/enums";
+import { MailLayout, MailSplitKind } from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
 import {
   createMailSplitAction,
   renameMailSplitAction,
+  updateMailPreferencesAction,
 } from "@/utils/actions/mail-split";
 
 vi.mock("@/utils/prisma");
@@ -107,6 +108,17 @@ describe("mail split actions", () => {
     });
 
     expect(result?.serverError).toBe('You already have a "Unread" split.');
+  });
+
+  it("persists the selected mail layout", async () => {
+    await updateMailPreferencesAction(EMAIL_ACCOUNT_ID, {
+      layout: MailLayout.SPLIT,
+    });
+
+    expect(prisma.emailAccount.update).toHaveBeenCalledWith({
+      where: { id: EMAIL_ACCOUNT_ID },
+      data: { mailLayout: MailLayout.SPLIT },
+    });
   });
 });
 

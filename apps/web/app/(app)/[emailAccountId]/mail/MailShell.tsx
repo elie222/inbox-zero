@@ -113,7 +113,10 @@ export function MailShell() {
         // the UI showing a preference the server never accepted.
         if (result?.serverError || result?.validationErrors)
           throw new Error(getActionErrorMessage(result));
-        return current;
+        return {
+          layout: next,
+          splits: current?.splits ?? [],
+        };
       },
       {
         optimisticData: (current) => ({
