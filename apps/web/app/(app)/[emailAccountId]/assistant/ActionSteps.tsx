@@ -60,21 +60,16 @@ import { getConnectedRuleNotificationChannels } from "@/utils/messaging/routes";
 import type { GetMessagingChannelsResponse } from "@/app/api/user/messaging-channels/route";
 import { prefixPath } from "@/utils/path";
 import { isDraftReplyActionType } from "@/utils/actions/draft-reply";
-import {
-  TODOIST_ADD_TASKS_TOOL,
-  TODOIST_INTEGRATION,
-} from "@/utils/integration-action";
 import { findIntegration } from "@/utils/mcp/integrations";
 import {
   buildDefaultIntegrationArgs,
   getIntegrationToolSpec,
+  getOnlyIntegrationToolSpec,
   type IntegrationArgSpec,
   normalizeSelectArgValue,
-  TODOIST_INBOX_PROJECT_ID,
-  TODOIST_INBOX_PROJECT_NAME,
 } from "@/utils/mcp/tool-specs";
 import { useIntegrations } from "@/hooks/useIntegrations";
-import { useTodoistProjects } from "@/hooks/useTodoistProjects";
+import { useIntegrationArgOptions } from "@/hooks/useIntegrationArgOptions";
 import { LoadingContent } from "@/components/LoadingContent";
 import {
   buildDraftEmailAction,
@@ -1111,10 +1106,9 @@ function IntegrationArgFields({
     control,
     name: `actions.${index}.integrationToolName`,
   });
-  const spec = getIntegrationToolSpec(
-    integrationName ?? TODOIST_INTEGRATION,
-    integrationToolName ?? TODOIST_ADD_TASKS_TOOL,
-  );
+  const spec =
+    getIntegrationToolSpec(integrationName, integrationToolName) ??
+    getOnlyIntegrationToolSpec();
 
   const { data: integrationsData, isLoading: integrationsLoading } =
     useIntegrations();
@@ -1122,13 +1116,6 @@ function IntegrationArgFields({
     (integration) => integration.name === spec?.integration,
   )?.connection;
   const isConnected = !!connection?.isActive;
-
-  const needsProjects = spec?.args.some(
-    (arg) => arg.control.type === "remote-select",
-  );
-  const { data: projectsData, isLoading: projectsLoading } = useTodoistProjects(
-    { enabled: isConnected && !!needsProjects },
-  );
 
   const integrationArgs = useWatch({
     control,
@@ -1170,8 +1157,9 @@ function IntegrationArgFields({
               register={register}
               setValue={setValue}
               storedArgs={integrationArgs}
-              projects={projectsData?.projects}
-              projectsLoading={projectsLoading}
+              integration={spec.integration}
+              tool={spec.tool}
+              isConnected={isConnected}
             />
           ))}
 
@@ -1188,17 +1176,27 @@ function IntegrationArgField({
   register,
   setValue,
   storedArgs,
-  projects,
-  projectsLoading,
+  integration,
+  tool,
+  isConnected,
 }: {
   arg: IntegrationArgSpec;
   index: number;
   register: UseFormRegister<CreateRuleBody>;
   setValue: UseFormSetValue<CreateRuleBody>;
   storedArgs: CreateRuleBody["actions"][number]["integrationArgs"];
-  projects?: Array<{ id: string; name: string }>;
-  projectsLoading: boolean;
+  integration: string;
+  tool: string;
+  isConnected: boolean;
 }) {
+  const { data: optionsData, isLoading: optionsLoading } =
+    useIntegrationArgOptions({
+      integration,
+      tool,
+      argKey: arg.key,
+      enabled: isConnected && arg.control.type === "remote-select",
+    });
+
   const args = (storedArgs ?? {}) as Record<string, string | null | undefined>;
   const storedValue = args[arg.key] ?? "";
 
@@ -1263,37 +1261,42 @@ function IntegrationArgField({
     );
   }
 
-  // remote-select: Todoist projects, with Inbox always available as a fallback
-  const projectId = storedValue || arg.defaultValue || TODOIST_INBOX_PROJECT_ID;
-  const nonInboxProjects = (projects ?? []).filter(
-    (project) => project.name !== TODOIST_INBOX_PROJECT_NAME,
-  );
-  const hasSelectedProject =
-    projectId === TODOIST_INBOX_PROJECT_ID ||
-    nonInboxProjects.some((project) => project.id === projectId);
+  // remote-select: the spec's fallback options stay available even before (or
+  // without) a successful fetch.
+  const options = [...(arg.control.fallbackOptions ?? [])];
+  for (const option of optionsData?.options ?? []) {
+    if (!options.some((existing) => existing.value === option.value)) {
+      options.push(option);
+    }
+  }
+
+  const selectedValue = storedValue || arg.defaultValue || "";
   const displayValueKey = arg.displayValueKey;
+  const storedDisplayValue = displayValueKey
+    ? args[displayValueKey]
+    : undefined;
+  // A stored value that isn't in the fetched list (renamed or deleted remotely)
+  // keeps its own option so saving doesn't silently change it.
+  const isUnknownValue =
+    !!selectedValue &&
+    !options.some((option) => option.value === selectedValue);
 
   return (
     <div className="space-y-2">
       <Label>{arg.label}</Label>
-      <LoadingContent loading={projectsLoading}>
+      <LoadingContent loading={optionsLoading}>
         <Select
-          value={projectId}
-          onValueChange={(nextProjectId) => {
+          value={selectedValue}
+          onValueChange={(nextValue) => {
             setValue(
               `actions.${index}.integrationArgs.${arg.key}` as const,
-              nextProjectId,
+              nextValue,
             );
             if (!displayValueKey) return;
-            const projectName =
-              nextProjectId === TODOIST_INBOX_PROJECT_ID
-                ? TODOIST_INBOX_PROJECT_NAME
-                : (nonInboxProjects.find(
-                    (project) => project.id === nextProjectId,
-                  )?.name ?? null);
             setValue(
               `actions.${index}.integrationArgs.${displayValueKey}` as const,
-              projectName,
+              options.find((option) => option.value === nextValue)?.label ??
+                null,
             );
           }}
         >
@@ -1301,18 +1304,14 @@ function IntegrationArgField({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={TODOIST_INBOX_PROJECT_ID}>
-              {TODOIST_INBOX_PROJECT_NAME}
-            </SelectItem>
-            {nonInboxProjects.map((project) => (
-              <SelectItem key={project.id} value={project.id}>
-                {project.name}
+            {options.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
               </SelectItem>
             ))}
-            {!hasSelectedProject && (
-              <SelectItem value={projectId}>
-                {(displayValueKey && args[displayValueKey]) ||
-                  "Selected project"}
+            {isUnknownValue && (
+              <SelectItem value={selectedValue}>
+                {storedDisplayValue || arg.label}
               </SelectItem>
             )}
           </SelectContent>
@@ -1453,12 +1452,9 @@ function updateActionType({
 
   if (nextType === ActionType.INTEGRATION) {
     if (actionTypeBeforeUpdate !== ActionType.INTEGRATION) {
-      const spec = getIntegrationToolSpec(
-        TODOIST_INTEGRATION,
-        TODOIST_ADD_TASKS_TOOL,
-      );
-      setValue(`actions.${index}.integrationName`, TODOIST_INTEGRATION);
-      setValue(`actions.${index}.integrationToolName`, TODOIST_ADD_TASKS_TOOL);
+      const spec = getOnlyIntegrationToolSpec();
+      setValue(`actions.${index}.integrationName`, spec?.integration ?? null);
+      setValue(`actions.${index}.integrationToolName`, spec?.tool ?? null);
       // Text args seed empty on purpose: empty means the AI writes them
       setValue(
         `actions.${index}.integrationArgs`,

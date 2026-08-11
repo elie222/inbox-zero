@@ -6,7 +6,6 @@ type McpIntegrationConfig = {
   skipResourceParam?: boolean; // Some OAuth servers don't support RFC 8707 resource parameter
   filterWriteTools?: boolean; // Auto-filter write tools, only sync read-only tools (get, list, find, search)
   ruleActionWriteTools?: string[];
-  applicationReadTools?: string[];
 };
 
 export const MCP_INTEGRATIONS: Record<
@@ -161,7 +160,6 @@ export const MCP_INTEGRATIONS: Record<
     scopes: [],
     allowedTools: [],
     ruleActionWriteTools: ["add-tasks"],
-    applicationReadTools: ["find-projects"],
   },
   pipedream: {
     name: "pipedream",

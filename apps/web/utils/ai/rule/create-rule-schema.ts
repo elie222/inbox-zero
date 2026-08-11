@@ -3,6 +3,10 @@ import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { isDefined } from "@/utils/types";
 import {
+  getOnlyIntegrationToolSpec,
+  type IntegrationToolSpec,
+} from "@/utils/mcp/tool-specs";
+import {
   getAvailableActionsForRuleEditor,
   getExtraAvailableActionsForRuleEditor,
 } from "@/utils/ai/rule/action-availability";
@@ -171,6 +175,7 @@ export const createRuleActionSchema = (
     ...getAvailableActionsForRuleEditor({ provider }),
     ...getExtraAvailableActionsForRuleEditor(),
   ]);
+  const integrationToolSpec = getOnlyIntegrationToolSpec();
   const optionalFieldsSchema = createOptionalActionFieldsSchema(provider);
 
   const actionSchemas: [z.ZodTypeAny, z.ZodTypeAny, ...z.ZodTypeAny[]] = [
@@ -221,11 +226,12 @@ export const createRuleActionSchema = (
           ),
         ]
       : []),
-    ...(allowedActionTypes.has(ActionType.INTEGRATION)
+    ...(allowedActionTypes.has(ActionType.INTEGRATION) && integrationToolSpec
       ? [
           createActionObjectSchema(
             ActionType.INTEGRATION,
-            createTodoistTaskFieldsSchema(),
+            createIntegrationFieldsSchema(integrationToolSpec),
+            integrationToolSpec.llmDescription,
           ),
         ]
       : []),
@@ -252,14 +258,18 @@ export type CreateOrUpdateRuleSchema = CreateRuleSchema & {
   ruleId?: string;
 };
 
-function createActionObjectSchema(type: ActionType, fields: z.ZodTypeAny) {
+function createActionObjectSchema(
+  type: ActionType,
+  fields: z.ZodTypeAny,
+  description?: string,
+) {
   return z
     .object({
       type: z.literal(type),
       fields,
       delayInMinutes: delayInMinutesLlmSchema,
     })
-    .describe(getActionTypeDescription(type));
+    .describe(description ?? getActionTypeDescription(type));
 }
 
 function getActionTypeDescription(type: ActionType) {
@@ -288,8 +298,6 @@ function getActionTypeDescription(type: ActionType) {
       return "Call a webhook for the matching email. Only use this when the user explicitly asks for a webhook, external HTTP callback, or integration URL and provides the webhook URL. Do not use this for ordinary labeling, archiving, categorization, notifications, folders, or other email automation.";
     case ActionType.MOVE_FOLDER:
       return "Move the matching email to a folder.";
-    case ActionType.INTEGRATION:
-      return "Add a task to the user's Todoist for the matching email. Only use this when the user explicitly asks to create Todoist tasks. Fails if Todoist isn't connected.";
     default:
       return "Action type to apply to the matching email.";
   }
@@ -345,18 +353,18 @@ function createRequiredFolderFieldsSchema(provider: string) {
   });
 }
 
-function createTodoistTaskFieldsSchema() {
-  return z.object({
-    content: optionalStringField(
-      "The Todoist task title. Leave empty unless the user asked for specific wording, and the AI writes a task title from each matching email.",
+/** Exposes exactly the args the spec marks as LLM-settable. */
+function createIntegrationFieldsSchema(spec: IntegrationToolSpec) {
+  return z.object(
+    Object.fromEntries(
+      spec.args
+        .filter((arg) => arg.llmDescription)
+        .map((arg) => [
+          arg.key,
+          optionalStringField(arg.llmDescription as string),
+        ]),
     ),
-    description: optionalStringField(
-      "The Todoist task description. Leave empty unless the user asked for specific wording, and the AI writes one line of context from each matching email.",
-    ),
-    dueString: optionalStringField(
-      "The task due date, e.g. 'today', 'tomorrow' or 'in 7 days'. Leave empty unless the user asked for a specific due date, and the AI takes the due date from each matching email.",
-    ),
-  });
+  );
 }
 
 function createActionFieldShape(provider: string) {

@@ -19,6 +19,7 @@ import {
   Trash2Icon,
 } from "lucide-react";
 import { truncate } from "@/utils/string";
+import { getIntegrationActionLabel } from "@/utils/mcp/tool-specs";
 
 /**
  * Hide messaging-channel draft entries when an email draft already exists,
@@ -47,6 +48,8 @@ export function getActionDisplay(
     content?: string | null;
     to?: string | null;
     notificationDestination?: string | null;
+    integrationName?: string | null;
+    integrationToolName?: string | null;
     integrationArgs?: unknown;
   },
   provider: string,
@@ -113,10 +116,9 @@ export function getActionDisplay(
     case ActionType.NOTIFY_SENDER:
       return "Notify Sender";
     case ActionType.INTEGRATION: {
+      const label = getIntegrationActionLabel(action);
       const taskContent = getIntegrationTaskContent(action.integrationArgs);
-      return taskContent
-        ? `Add Todoist task: '${truncate(taskContent, 20)}'`
-        : "Add Todoist task";
+      return taskContent ? `${label}: '${truncate(taskContent, 20)}'` : label;
     }
     default: {
       const exhaustiveCheck: never = action.type;
@@ -142,7 +144,9 @@ export const ACTION_TYPE_LABELS = {
   [ActionType.CALL_WEBHOOK]: "Call webhook",
   [ActionType.DIGEST]: "Add to digest",
   [ActionType.NOTIFY_SENDER]: "Notify sender",
-  [ActionType.INTEGRATION]: "Add Todoist task",
+  // ActionType alone cannot name a specific tool; getIntegrationActionLabel
+  // gives the precise name when the action is known.
+  [ActionType.INTEGRATION]: getIntegrationActionLabel(),
 } satisfies Record<ActionType, string>;
 
 export function getActionIcon(actionType: ActionType) {

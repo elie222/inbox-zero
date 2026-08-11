@@ -12,6 +12,7 @@ import {
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { getMessagingProviderName } from "@/utils/messaging/platforms";
 import { getConnectedRuleNotificationChannels } from "@/utils/messaging/routes";
+import { getIntegrationActionLabel } from "@/utils/mcp/tool-specs";
 
 const actionNames: Record<ActionType, string> = {
   [ActionType.LABEL]: "Label",
@@ -30,7 +31,7 @@ const actionNames: Record<ActionType, string> = {
   [ActionType.DIGEST]: "Add to digest",
   [ActionType.NOTIFY_MESSAGING_CHANNEL]: "Notify",
   [ActionType.NOTIFY_SENDER]: "Notify sender",
-  [ActionType.INTEGRATION]: "Add Todoist task",
+  [ActionType.INTEGRATION]: getIntegrationActionLabel(),
 };
 
 const actionTooltips: Partial<Record<ActionType, string>> = {

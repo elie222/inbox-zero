@@ -31,14 +31,11 @@ import {
   assertRuleActionsEnabled,
   getDisabledRuleActionTypesToPreserve,
 } from "@/utils/rule-action-feature-gates";
-import {
-  TODOIST_ADD_TASKS_TOOL,
-  TODOIST_INTEGRATION,
-} from "@/utils/integration-action";
 import { findIntegration } from "@/utils/mcp/integrations";
 import {
   buildDefaultIntegrationArgs,
   getIntegrationToolSpec,
+  getOnlyIntegrationToolSpec,
   normalizeSelectArgValue,
 } from "@/utils/mcp/tool-specs";
 import { hasWebhookAction } from "@/utils/webhook-action";
@@ -889,13 +886,16 @@ async function mapActionFields(
 }
 
 function getIntegrationCreateFields(action: MappableAction) {
-  const integrationName = action.integrationName ?? TODOIST_INTEGRATION;
-  const integrationToolName =
-    action.integrationToolName ?? TODOIST_ADD_TASKS_TOOL;
+  // AI- and API-authored actions carry flat fields with no integration named,
+  // so fall back to the only write spec we have. getOnlyIntegrationToolSpec
+  // returns undefined once there are two, forcing an explicit choice then.
+  const defaultSpec = getOnlyIntegrationToolSpec();
+  const integrationName = action.integrationName ?? defaultSpec?.integration;
+  const integrationToolName = action.integrationToolName ?? defaultSpec?.tool;
 
   return {
-    integrationName,
-    integrationToolName,
+    integrationName: integrationName ?? null,
+    integrationToolName: integrationToolName ?? null,
     integrationArgs: (action.integrationArgs ??
       buildIntegrationArgsFromFields({
         integrationName,
@@ -914,8 +914,8 @@ function buildIntegrationArgsFromFields({
   integrationToolName,
   fields,
 }: {
-  integrationName: string;
-  integrationToolName: string;
+  integrationName: string | null | undefined;
+  integrationToolName: string | null | undefined;
   fields: MappableAction["fields"];
 }) {
   const spec = getIntegrationToolSpec(integrationName, integrationToolName);
@@ -947,7 +947,11 @@ export async function assertIntegrationActionsConnected(
     ...new Set(
       actions
         .filter((action) => action.type === ActionType.INTEGRATION)
-        .map((action) => action.integrationName ?? TODOIST_INTEGRATION),
+        .map(
+          (action) =>
+            action.integrationName ?? getOnlyIntegrationToolSpec()?.integration,
+        )
+        .filter((name): name is string => !!name),
     ),
   ];
 

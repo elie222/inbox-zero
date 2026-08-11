@@ -456,14 +456,17 @@ const ACTION_FAILURE_MESSAGES: Partial<
       SEND_FAILED: "The sender notification could not be sent.",
     },
   },
+  // Only the action type and error code survive in the stored reason, so this
+  // copy stays integration-neutral. The executor records a message naming the
+  // integration alongside it.
   [ActionType.INTEGRATION]: {
-    fallback: "The Todoist task could not be created.",
+    fallback: "The integration action could not be completed.",
     codes: {
       INTEGRATION_NOT_CONNECTED:
-        "Todoist isn't connected. Connect it on the Integrations page.",
+        "The integration isn't connected. Connect it on the Integrations page.",
       MISSING_INTEGRATION_ARGS:
-        "The Todoist task could not be created because it has no task content.",
-      INTEGRATION_CALL_FAILED: "The Todoist task could not be created.",
+        "The integration action could not run because a required field was empty.",
+      INTEGRATION_CALL_FAILED: "The integration action could not be completed.",
     },
   },
 };

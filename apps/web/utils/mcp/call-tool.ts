@@ -1,6 +1,7 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { getAuthToken } from "@/utils/mcp/oauth";
 import { getIntegration, type IntegrationKey } from "@/utils/mcp/integrations";
+import { getIntegrationRemoteSelectTools } from "@/utils/mcp/tool-specs";
 import { createMcpTransport } from "@/utils/mcp/transport";
 import { getMcpServerUrl } from "@/utils/mcp/server-url";
 import { createScopedLogger } from "@/utils/logger";
@@ -25,9 +26,11 @@ export async function callMcpTool({
     throw new Error(`No server URL for integration: ${integration}`);
   }
 
+  // Write tools come from the registry; the read tools the app calls itself are
+  // derived from the specs that declare them, so the two cannot drift apart.
   const callableTools = [
     ...(integrationConfig.ruleActionWriteTools ?? []),
-    ...(integrationConfig.applicationReadTools ?? []),
+    ...getIntegrationRemoteSelectTools(integration),
   ];
   if (!callableTools.includes(toolName)) {
     throw new Error(`Tool ${toolName} is not callable for ${integration}`);

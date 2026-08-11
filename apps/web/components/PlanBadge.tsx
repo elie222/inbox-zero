@@ -15,6 +15,7 @@ import type {
 import { getEmailTerminology } from "@/utils/terminology";
 import { sortActionsByPriority } from "@/utils/action-sort";
 import { getMessagingProviderName } from "@/utils/messaging/platforms";
+import { getIntegrationActionLabel } from "@/utils/mcp/tool-specs";
 
 type PlanAction = ExecutedAction & {
   messagingChannel?: { provider: MessagingProvider } | null;
@@ -124,7 +125,7 @@ function getActionLabel(
     case ActionType.NOTIFY_SENDER:
       return "Notify Sender";
     case ActionType.INTEGRATION:
-      return "Add Todoist task";
+      return getIntegrationActionLabel(action);
     default:
       return capitalCase(type);
   }
