@@ -14,7 +14,7 @@ export type MailSplit = {
  */
 export function mailSplitToThreadsQuery(split: MailSplit): ThreadsQuery {
   switch (split.kind) {
-    case MailSplitKind.ALL:
+    case MailSplitKind.INBOX:
       return { type: "inbox" };
     case MailSplitKind.UNREAD:
       return { type: "inbox", isUnread: true };

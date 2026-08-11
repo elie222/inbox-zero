@@ -1895,7 +1895,7 @@ enum MailLayout {
 }
 
 enum MailSplitKind {
-  ALL
+  INBOX
   UNREAD
   LABEL
   CATEGORY

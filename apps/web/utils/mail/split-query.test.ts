@@ -11,7 +11,7 @@ function split(
 
 describe("mailSplitToThreadsQuery", () => {
   it("scopes the default split to the inbox", () => {
-    expect(mailSplitToThreadsQuery(split(MailSplitKind.ALL))).toEqual({
+    expect(mailSplitToThreadsQuery(split(MailSplitKind.INBOX))).toEqual({
       type: "inbox",
     });
   });

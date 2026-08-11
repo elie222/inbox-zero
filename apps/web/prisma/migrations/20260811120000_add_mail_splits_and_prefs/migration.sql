@@ -2,7 +2,7 @@
 CREATE TYPE "MailLayout" AS ENUM ('LIST', 'SPLIT');
 
 -- CreateEnum
-CREATE TYPE "MailSplitKind" AS ENUM ('ALL', 'UNREAD', 'LABEL', 'CATEGORY');
+CREATE TYPE "MailSplitKind" AS ENUM ('INBOX', 'UNREAD', 'LABEL', 'CATEGORY');
 
 -- AlterTable
 ALTER TABLE "EmailAccount" ADD COLUMN     "mailHintBarDismissed" BOOLEAN NOT NULL DEFAULT false,
