@@ -10,7 +10,6 @@ const { mockEnv } = vi.hoisted(() => ({
     emailSendEnabled: true,
     autoDraftDisabled: false,
     webhookActionsEnabled: true,
-    integrationActionEnabled: false,
   },
 }));
 
@@ -24,9 +23,6 @@ vi.mock("@/env", () => ({
     },
     get NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED() {
       return mockEnv.webhookActionsEnabled;
-    },
-    get NEXT_PUBLIC_INTEGRATION_ACTION_ENABLED() {
-      return mockEnv.integrationActionEnabled;
     },
   },
 }));
@@ -78,13 +74,14 @@ describe("getExtraAvailableActionsForRuleEditor", () => {
     mockEnv.emailSendEnabled = true;
     mockEnv.autoDraftDisabled = false;
     mockEnv.webhookActionsEnabled = true;
-    mockEnv.integrationActionEnabled = false;
   });
 
   it("hides webhook actions when the feature is disabled", () => {
     mockEnv.webhookActionsEnabled = false;
 
-    const actions = getExtraAvailableActionsForRuleEditor();
+    const actions = getExtraAvailableActionsForRuleEditor({
+      integrationActionsEnabled: true,
+    });
 
     expect(actions).not.toContain(ActionType.CALL_WEBHOOK);
   });
@@ -92,29 +89,34 @@ describe("getExtraAvailableActionsForRuleEditor", () => {
   it("includes webhook actions when the feature is enabled", () => {
     mockEnv.webhookActionsEnabled = true;
 
-    const actions = getExtraAvailableActionsForRuleEditor();
+    const actions = getExtraAvailableActionsForRuleEditor({
+      integrationActionsEnabled: true,
+    });
 
     expect(actions).toContain(ActionType.CALL_WEBHOOK);
   });
 
-  it("includes the integration action when the feature is enabled", () => {
-    mockEnv.integrationActionEnabled = true;
-
-    const actions = getExtraAvailableActionsForRuleEditor();
+  it("includes the integration action for early access users", () => {
+    const actions = getExtraAvailableActionsForRuleEditor({
+      integrationActionsEnabled: true,
+    });
 
     expect(actions).toContain(ActionType.INTEGRATION);
   });
 
-  it("hides the integration action when the feature is disabled", () => {
-    const actions = getExtraAvailableActionsForRuleEditor();
+  it("hides the integration action outside early access", () => {
+    const actions = getExtraAvailableActionsForRuleEditor({
+      integrationActionsEnabled: false,
+    });
 
     expect(actions).not.toContain(ActionType.INTEGRATION);
   });
 
-  it("keeps existing integration actions available when the feature is disabled", () => {
-    const actions = getExtraAvailableActionsForRuleEditor([
-      ActionType.INTEGRATION,
-    ]);
+  it("keeps existing integration actions available outside early access", () => {
+    const actions = getExtraAvailableActionsForRuleEditor({
+      existingActionTypes: [ActionType.INTEGRATION],
+      integrationActionsEnabled: false,
+    });
 
     expect(actions).toContain(ActionType.INTEGRATION);
   });

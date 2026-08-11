@@ -40,6 +40,7 @@ import {
 } from "@/utils/mcp/tool-specs";
 import { hasWebhookAction } from "@/utils/webhook-action";
 import { assertNoSenderOnlyOverlap } from "@/utils/rule/sender-scope-overlap";
+import { isIntegrationActionEnabledForEmailAccountId } from "@/utils/integration-action.server";
 
 type CreateRuleEnablement =
   | { source: "default" }
@@ -249,6 +250,7 @@ export async function createRuleWithResolvedActions({
   skipSenderOnlyOverlapCheck?: boolean;
 }): Promise<RuleWithRelations> {
   assertRuleActionsEnabled(actions);
+  await assertIntegrationActionsEnabled(actions, emailAccountId);
 
   if (!skipSenderOnlyOverlapCheck) {
     await assertNoSenderOnlyOverlap({ emailAccountId, rule: data });
@@ -309,6 +311,7 @@ export async function replaceRuleWithResolvedActions({
   });
 
   assertRuleActionUpdateEnabled(actions, existingRule?.actions ?? []);
+  await assertIntegrationActionsEnabled(actions, emailAccountId);
 
   await assertNoSenderOnlyOverlap({
     emailAccountId,
@@ -957,6 +960,8 @@ export async function assertIntegrationActionsConnected(
 
   if (!integrationNames.length) return;
 
+  await assertIntegrationActionsEnabled(actions, emailAccountId);
+
   const connections = await prisma.mcpConnection.findMany({
     where: {
       emailAccountId,
@@ -976,6 +981,17 @@ export async function assertIntegrationActionsConnected(
     throw new SafeError(
       `${displayName} isn't connected. Connect it to use this action.`,
     );
+  }
+}
+
+async function assertIntegrationActionsEnabled(
+  actions: readonly { type: ActionType }[],
+  emailAccountId: string,
+) {
+  if (!actions.some((action) => action.type === ActionType.INTEGRATION)) return;
+
+  if (!(await isIntegrationActionEnabledForEmailAccountId(emailAccountId))) {
+    throw new SafeError("Integration actions are not enabled for this user.");
   }
 }
 

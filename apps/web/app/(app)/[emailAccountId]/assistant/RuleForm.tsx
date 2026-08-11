@@ -82,6 +82,7 @@ import type { GetMessagingChannelsResponse } from "@/app/api/user/messaging-chan
 import { usePremium } from "@/hooks/usePremium";
 import { hasTierAccess } from "@/utils/premium";
 import { UpgradeToPlusButton } from "@/components/UpgradeToPlusButton";
+import { useIntegrationActionsEnabled } from "@/hooks/useFeatureFlags";
 import { getConnectedRuleNotificationChannels } from "@/utils/messaging/routes";
 import { sortActionsByPriority } from "@/utils/action-sort";
 import {
@@ -132,6 +133,7 @@ export function RuleForm({
   onCancel?: () => void;
 }) {
   const { emailAccountId, provider } = useAccount();
+  const integrationActionsEnabled = useIntegrationActionsEnabled();
   const { tier, isLoading: isLoadingPremium } = usePremium();
   const hasDigestAccess = hasTierAccess({
     tier,
@@ -428,11 +430,18 @@ export function RuleForm({
         labelActionText: terminology.label.action,
         systemType: rule.systemType,
         existingActionTypes,
+        integrationActionsEnabled,
       }).map((option) => ({
         ...option,
         icon: getActionIcon(option.value),
       })),
-    [existingActionTypes, provider, terminology.label.action, rule.systemType],
+    [
+      existingActionTypes,
+      integrationActionsEnabled,
+      provider,
+      terminology.label.action,
+      rule.systemType,
+    ],
   );
 
   const [isNameEditMode, setIsNameEditMode] = useState(alwaysEditMode);
@@ -946,11 +955,13 @@ export function getRuleActionTypeOptions({
   labelActionText,
   systemType,
   existingActionTypes,
+  integrationActionsEnabled,
 }: {
   provider: string;
   labelActionText: string;
   systemType: SystemType | null | undefined;
   existingActionTypes: ActionType[];
+  integrationActionsEnabled: boolean;
 }): ActionTypeOption[] {
   const availableActions = new Set(
     getAvailableActionsForRuleEditor({
@@ -959,7 +970,10 @@ export function getRuleActionTypeOptions({
     }),
   );
   const extraActions = new Set(
-    getExtraAvailableActionsForRuleEditor(existingActionTypes),
+    getExtraAvailableActionsForRuleEditor({
+      existingActionTypes,
+      integrationActionsEnabled,
+    }),
   );
 
   return [

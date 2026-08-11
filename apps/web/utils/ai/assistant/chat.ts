@@ -47,10 +47,11 @@ import {
 } from "./chat-rule-state";
 import { getAssistantChatProvider } from "./chat-provider-shared";
 import { LlmUseCase } from "@/utils/llms/use-cases";
+import { isIntegrationActionEnabledForUserId } from "@/utils/integration-action.server";
 
 export const maxDuration = 300;
 // Increment when chat prompts, tools, or routing change so run quality remains attributable.
-export const ASSISTANT_CHAT_PIPELINE_VERSION = 4;
+export const ASSISTANT_CHAT_PIPELINE_VERSION = 5;
 const ASSISTANT_CHAT_TOOL_BUDGET_MS = {
   web: 240_000,
   messaging: 60_000,
@@ -115,6 +116,9 @@ export async function aiProcessAssistantChat({
   const draftReplyActionsEnabled = !env.NEXT_PUBLIC_AUTO_DRAFT_DISABLED;
   const webhookActionsEnabled =
     env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED !== false;
+  const integrationActionsEnabled = await isIntegrationActionEnabledForUserId(
+    user.userId,
+  );
   let ruleReadState: RuleReadState | null = null;
   const pendingRuleDeletionNames = new Set<string>();
   const memoryConversationMessages = conversationMessagesForMemory ?? messages;
@@ -135,6 +139,7 @@ export async function aiProcessAssistantChat({
     emailAccountId,
     userId: user.userId,
     provider: user.account.provider,
+    integrationActionsEnabled,
     logger,
     setRuleReadState: (state: RuleReadState) => {
       ruleReadState = state;

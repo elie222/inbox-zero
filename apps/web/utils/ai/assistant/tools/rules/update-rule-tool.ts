@@ -38,6 +38,7 @@ export const updateRuleTool = ({
   email,
   emailAccountId,
   provider,
+  integrationActionsEnabled,
   logger,
   setRuleReadState,
   getRuleReadState,
@@ -47,6 +48,7 @@ export const updateRuleTool = ({
   email: string;
   emailAccountId: string;
   provider: string;
+  integrationActionsEnabled?: boolean;
   logger: Logger;
   setRuleReadState?: (state: RuleReadState) => void;
   getRuleReadState?: () => RuleReadState | null;
@@ -77,7 +79,9 @@ export const updateRuleTool = ({
               ),
             condition: createPatchConditionSchema().optional(),
             actions: z
-              .array(createRuleActionSchema(provider))
+              .array(
+                createRuleActionSchema(provider, integrationActionsEnabled),
+              )
               .min(1, "Rules must have at least one action.")
               .optional()
               .describe(

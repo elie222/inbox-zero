@@ -20,6 +20,7 @@ export const createRuleTool = ({
   email,
   emailAccountId,
   provider,
+  integrationActionsEnabled,
   logger,
   setRuleReadState,
   onRulesStateExposed,
@@ -27,13 +28,14 @@ export const createRuleTool = ({
   email: string;
   emailAccountId: string;
   provider: string;
+  integrationActionsEnabled?: boolean;
   logger: Logger;
   setRuleReadState?: (state: RuleReadState) => void;
   onRulesStateExposed?: (rulesRevision: number) => void;
 }) =>
   tool({
     description: "Create a new rule.",
-    inputSchema: createRuleSchema(provider),
+    inputSchema: createRuleSchema(provider, integrationActionsEnabled),
     execute: async ({ name, condition, actions }) => {
       trackRuleToolCall({ tool: "create_rule", email, logger });
 

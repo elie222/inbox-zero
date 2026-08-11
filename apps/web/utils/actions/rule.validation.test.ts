@@ -16,7 +16,6 @@ const { mockEnv } = vi.hoisted(() => ({
   mockEnv: {
     webhookActionsEnabled: true,
     deleteEmailActionEnabled: false,
-    integrationActionEnabled: true,
   },
 }));
 
@@ -27,9 +26,6 @@ vi.mock("@/env", () => ({
     },
     get NEXT_PUBLIC_DELETE_EMAIL_ACTION_ENABLED() {
       return mockEnv.deleteEmailActionEnabled;
-    },
-    get NEXT_PUBLIC_INTEGRATION_ACTION_ENABLED() {
-      return mockEnv.integrationActionEnabled;
     },
   },
 }));
@@ -567,10 +563,6 @@ describe("INTEGRATION action validation", () => {
     },
   };
 
-  beforeEach(() => {
-    mockEnv.integrationActionEnabled = true;
-  });
-
   it("accepts an integration action with task content", () => {
     const result = createRuleBody.safeParse({
       ...validRule,
@@ -630,29 +622,6 @@ describe("INTEGRATION action validation", () => {
         "Unsupported integration tool",
       );
     }
-  });
-
-  it("rejects new integration actions when the feature gate is off", () => {
-    mockEnv.integrationActionEnabled = false;
-    const result = createRuleBody.safeParse({
-      ...validRule,
-      actions: [integrationAction],
-    });
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.issues[0].message).toContain(
-        "Integration actions are disabled",
-      );
-    }
-  });
-
-  it("allows existing integration actions when the feature gate is off", () => {
-    mockEnv.integrationActionEnabled = false;
-    const result = createRuleBody.safeParse({
-      ...validRule,
-      actions: [{ ...integrationAction, id: "existing-action-id" }],
-    });
-    expect(result.success).toBe(true);
   });
 });
 
