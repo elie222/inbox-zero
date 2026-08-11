@@ -15,7 +15,11 @@ import { getShortcutHint } from "@/lib/shortcuts/registry";
 
 type UndoableAction = "archive" | "delete";
 
-type LastAction = { type: UndoableAction; threadIds: string[] };
+type UndoableBatch = {
+  type: UndoableAction;
+  threadIds: string[];
+  undone: boolean;
+};
 
 /**
  * Archive and delete with a real undo.
@@ -33,37 +37,50 @@ export function useThreadActions({
   removeThreads: (threadIds: string[]) => void;
   restoreThreads: () => void;
 }) {
-  const lastAction = useRef<LastAction | null>(null);
+  const lastAction = useRef<UndoableBatch | null>(null);
 
+  // Takes the batch to reverse rather than reading the latest one: each toast
+  // must undo the action it announced, even after another archive has happened.
+  const undoBatch = useCallback(
+    async (batch: UndoableBatch) => {
+      if (batch.undone) return;
+      batch.undone = true;
+      if (lastAction.current === batch) lastAction.current = null;
+
+      const { notCancelled } = cancelQueuedThreads({
+        threadIds: batch.threadIds,
+        actionType: batch.type,
+      });
+
+      const reverse =
+        batch.type === "archive" ? unarchiveThreadAction : untrashThreadAction;
+
+      const results = await Promise.all(
+        notCancelled.map((threadId) => reverse(emailAccountId, { threadId })),
+      );
+
+      restoreThreads();
+
+      if (results.some((result) => result?.serverError))
+        toast.error("Some conversations couldn't be restored");
+      else toast.success(summarise("Restored", batch.threadIds.length));
+    },
+    [emailAccountId, restoreThreads],
+  );
+
+  // The keyboard shortcut has no toast to anchor to, so it undoes the latest.
   const undo = useCallback(async () => {
-    const action = lastAction.current;
-    if (!action) return;
-    lastAction.current = null;
-
-    const { notCancelled } = cancelQueuedThreads({
-      threadIds: action.threadIds,
-      actionType: action.type,
-    });
-
-    const reverse =
-      action.type === "archive" ? unarchiveThreadAction : untrashThreadAction;
-
-    const results = await Promise.all(
-      notCancelled.map((threadId) => reverse(emailAccountId, { threadId })),
-    );
-
-    restoreThreads();
-
-    if (results.some((result) => result?.serverError))
-      toast.error("Some conversations couldn't be restored");
-    else toast.success(summarise("Restored", action.threadIds.length));
-  }, [emailAccountId, restoreThreads]);
+    const batch = lastAction.current;
+    if (!batch) return;
+    await undoBatch(batch);
+  }, [undoBatch]);
 
   const run = useCallback(
     (type: UndoableAction, threadIds: string[]) => {
       if (!threadIds.length) return;
 
-      lastAction.current = { type, threadIds };
+      const batch: UndoableBatch = { type, threadIds, undone: false };
+      lastAction.current = batch;
       removeThreads(threadIds);
 
       const queue = type === "archive" ? archiveEmails : deleteEmails;
@@ -90,13 +107,13 @@ export function useThreadActions({
           action: {
             label: `Undo · ${getShortcutHint("undo")}`,
             onClick: () => {
-              undo();
+              undoBatch(batch);
             },
           },
         },
       );
     },
-    [emailAccountId, removeThreads, restoreThreads, undo],
+    [emailAccountId, removeThreads, restoreThreads, undoBatch],
   );
 
   return {

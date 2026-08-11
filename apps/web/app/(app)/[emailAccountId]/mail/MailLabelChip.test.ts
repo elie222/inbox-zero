@@ -32,6 +32,14 @@ describe("chipColorForLabel", () => {
     }
   });
 
+  it("keeps an unknown label on one colour however the provider cases it", () => {
+    const color = chipColorForLabel("Acme Corp");
+
+    expect(chipColorForLabel("acme corp")).toBe(color);
+    expect(chipColorForLabel("ACME CORP")).toBe(color);
+    expect(chipColorForLabel("  Acme Corp  ")).toBe(color);
+  });
+
   it("spreads unknown labels over the palette rather than collapsing to one", () => {
     const colors = new Set(
       Array.from({ length: 60 }, (_, index) =>

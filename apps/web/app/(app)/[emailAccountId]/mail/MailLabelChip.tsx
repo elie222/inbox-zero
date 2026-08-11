@@ -36,11 +36,11 @@ export function MailLabelChip({
       )}
     >
       {href ? (
-        <Link className="truncate hover:underline" href={href}>
+        <Link className="min-w-0 truncate hover:underline" href={href}>
           {name}
         </Link>
       ) : (
-        <span className="truncate">{name}</span>
+        <span className="min-w-0 truncate">{name}</span>
       )}
       {onRemove ? (
         <button
@@ -102,13 +102,16 @@ const NAMED_CHIP_COLORS: Record<string, ChipColor> = {
  * than flickering between renders.
  */
 export function chipColorForLabel(name: string): ChipColor {
-  const named = NAMED_CHIP_COLORS[name.trim().toLowerCase()];
+  // Hash the same normalized key the named lookup uses, so a label doesn't
+  // change colour when the provider varies its casing or padding.
+  const key = name.trim().toLowerCase();
+  const named = NAMED_CHIP_COLORS[key];
   if (named) return named;
 
   // djb2
   let hash = 5381;
-  for (let index = 0; index < name.length; index++) {
-    hash = (hash * 33 + name.charCodeAt(index)) % 0xff_ff_ff;
+  for (let index = 0; index < key.length; index++) {
+    hash = (hash * 33 + key.charCodeAt(index)) % 0xff_ff_ff;
   }
 
   return CHIP_COLORS[hash % CHIP_COLORS.length];
