@@ -7,7 +7,17 @@ import type { ListThread } from "@/app/(app)/[emailAccountId]/mail/types";
 import type { ThreadsQuery } from "@/utils/threads/validation";
 import { createSearchParams } from "@/utils/url";
 
-type RemovedThread = { thread: ListThread; pageIndex: number; index: number };
+type RemovedThread = {
+  thread: ListThread;
+  pageIndex: number;
+  index: number;
+  /**
+   * Id of the row that preceded this one, or null if it was first. Anchoring to
+   * a neighbour rather than the raw index keeps the row in place when a later
+   * batch removes something above it before this one is undone.
+   */
+  afterId: string | null;
+};
 
 /**
  * The rows one `removeThreads` call took out, and the view they came from.
@@ -74,14 +84,25 @@ export function useMailThreads(query: ThreadsQuery) {
       if (threadIds.length) {
         mutate(
           (pages) =>
-            pages?.map((page, pageIndex) => ({
-              ...page,
-              threads: page.threads.filter((thread, index) => {
-                if (!targets.has(thread.id)) return true;
-                entries.set(thread.id, { thread, pageIndex, index });
-                return false;
-              }),
-            })),
+            pages?.map((page, pageIndex) => {
+              let previousKeptId: string | null = null;
+              return {
+                ...page,
+                threads: page.threads.filter((thread, index) => {
+                  if (!targets.has(thread.id)) {
+                    previousKeptId = thread.id;
+                    return true;
+                  }
+                  entries.set(thread.id, {
+                    thread,
+                    pageIndex,
+                    index,
+                    afterId: previousKeptId,
+                  });
+                  return false;
+                }),
+              };
+            }),
           { revalidate: false, populateCache: true, rollbackOnError: true },
         );
       }
@@ -114,12 +135,23 @@ export function useMailThreads(query: ThreadsQuery) {
             if (!forPage.length) return page;
 
             const threads = [...page.threads];
+            // Rows removed together share an anchor, so each one chains onto
+            // the previous restore to keep a contiguous batch in order.
+            let previousAfterId: string | null | undefined;
+            let previousRestoredId: string | null = null;
+
             for (const entry of forPage) {
+              const anchorId =
+                entry.afterId === previousAfterId && previousRestoredId
+                  ? previousRestoredId
+                  : entry.afterId;
               threads.splice(
-                Math.min(entry.index, threads.length),
+                insertionPoint(threads, entry, anchorId),
                 0,
                 entry.thread,
               );
+              previousAfterId = entry.afterId;
+              previousRestoredId = entry.thread.id;
             }
             return { ...page, threads };
           }),
@@ -139,4 +171,19 @@ export function useMailThreads(query: ThreadsQuery) {
     removeThreads,
     restoreThreads,
   };
+}
+
+function insertionPoint(
+  threads: ListThread[],
+  entry: RemovedThread,
+  anchorId: string | null,
+): number {
+  if (anchorId === null) return 0;
+
+  const anchor = threads.findIndex((thread) => thread.id === anchorId);
+  if (anchor !== -1) return anchor + 1;
+
+  // The neighbour is gone too — another batch removed it — so fall back to
+  // where the row originally sat.
+  return Math.min(entry.index, threads.length);
 }
