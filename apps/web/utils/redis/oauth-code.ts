@@ -2,6 +2,9 @@ import { createHash } from "node:crypto";
 import { env } from "@/env";
 import { redis } from "@/utils/redis";
 
+const CALLBACK_RESULT_POLL_INTERVAL_MS = 250;
+const CALLBACK_RESULT_WAIT_MS = 15_000;
+
 // Not password hashing - creating a short cache key for OAuth authorization codes
 function createOAuthCodeCacheKey(code: string): string {
   return createHash("sha256").update(code).digest("hex").slice(0, 16);
@@ -24,6 +27,12 @@ interface OAuthCodeProcessing {
 
 type OAuthCodeClaim = OAuthCodeProcessing | OAuthCodeResult | null;
 
+type OAuthCodeClaimOutcome =
+  | { status: "claimed" }
+  | { error: unknown; stage: "claim" | "wait"; status: "error" }
+  | { result: OAuthCodeResult; status: "success"; waited: boolean }
+  | { status: "timeout" };
+
 export function isOAuthCodeStoreConfigured() {
   return Boolean(env.UPSTASH_REDIS_URL && env.UPSTASH_REDIS_TOKEN);
 }
@@ -45,6 +54,38 @@ export async function claimOAuthCode(
   if (typeof existing === "string") return { status: "processing" };
 
   return existing as OAuthCodeClaim;
+}
+
+export async function claimOAuthCodeAndWait(
+  code: string,
+  requestFingerprint?: string,
+): Promise<OAuthCodeClaimOutcome> {
+  let claim: OAuthCodeClaim;
+  try {
+    claim = await claimOAuthCode(code, requestFingerprint);
+  } catch (error) {
+    return { error, stage: "claim", status: "error" };
+  }
+
+  if (!claim) return { status: "claimed" };
+  if (claim.status === "success") {
+    return { result: claim, status: "success", waited: false };
+  }
+
+  const attempts = CALLBACK_RESULT_WAIT_MS / CALLBACK_RESULT_POLL_INTERVAL_MS;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    await new Promise((resolve) =>
+      setTimeout(resolve, CALLBACK_RESULT_POLL_INTERVAL_MS),
+    );
+    try {
+      const result = await getOAuthCodeResult(code);
+      if (result) return { result, status: "success", waited: true };
+    } catch (error) {
+      return { error, stage: "wait", status: "error" };
+    }
+  }
+
+  return { status: "timeout" };
 }
 
 export async function acquireOAuthCodeLock(code: string): Promise<boolean> {

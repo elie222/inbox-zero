@@ -101,6 +101,11 @@ function useIntegrationNotifications() {
           description:
             "We couldn't complete the connection. Please try again or contact support.",
         },
+        tool_sync_failed: {
+          title: "Connected, but tools unavailable",
+          description:
+            "We couldn't load this integration's tools. Reconnect to try again.",
+        },
         forbidden: {
           title: "Connection failed",
           description:

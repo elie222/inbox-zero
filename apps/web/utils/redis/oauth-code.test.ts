@@ -1,6 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { redis } from "@/utils/redis";
-import { claimOAuthCode } from "@/utils/redis/oauth-code";
+import {
+  claimOAuthCode,
+  claimOAuthCodeAndWait,
+} from "@/utils/redis/oauth-code";
 
 vi.mock("@/env", () => ({
   env: {
@@ -11,6 +14,7 @@ vi.mock("@/env", () => ({
 
 vi.mock("@/utils/redis", () => ({
   redis: {
+    get: vi.fn(),
     set: vi.fn(),
   },
 }));
@@ -18,6 +22,10 @@ vi.mock("@/utils/redis", () => ({
 describe("claimOAuthCode", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("atomically claims an unused code", async () => {
@@ -67,5 +75,57 @@ describe("claimOAuthCode", () => {
     vi.mocked(redis.set).mockResolvedValue(completed);
 
     await expect(claimOAuthCode("oauth-code")).resolves.toBe(completed);
+  });
+});
+
+describe("claimOAuthCodeAndWait", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("claims an unused code without polling", async () => {
+    vi.mocked(redis.set).mockResolvedValue(null);
+
+    await expect(claimOAuthCodeAndWait("oauth-code")).resolves.toEqual({
+      status: "claimed",
+    });
+
+    expect(redis.get).not.toHaveBeenCalled();
+  });
+
+  it("waits for an in-flight callback result", async () => {
+    vi.useFakeTimers();
+    vi.mocked(redis.set).mockResolvedValue({ status: "processing" });
+    vi.mocked(redis.get).mockResolvedValue({
+      params: { connected: "notion" },
+      status: "success",
+    });
+
+    const resultPromise = claimOAuthCodeAndWait("oauth-code");
+    await vi.advanceTimersByTimeAsync(250);
+
+    await expect(resultPromise).resolves.toEqual({
+      result: {
+        params: { connected: "notion" },
+        status: "success",
+      },
+      status: "success",
+      waited: true,
+    });
+  });
+
+  it("reports which Redis stage failed", async () => {
+    const error = new Error("Redis unavailable");
+    vi.mocked(redis.set).mockRejectedValue(error);
+
+    await expect(claimOAuthCodeAndWait("oauth-code")).resolves.toEqual({
+      error,
+      stage: "claim",
+      status: "error",
+    });
   });
 });
