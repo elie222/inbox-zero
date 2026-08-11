@@ -2,7 +2,7 @@ import { z } from "zod";
 import { MailLayout, MailSplitKind } from "@/generated/prisma/enums";
 
 // LABEL splits carry a provider label id; CATEGORY splits carry a provider category
-// (e.g. CATEGORY_PERSONAL). ALL and UNREAD need no value.
+// (e.g. CATEGORY_PERSONAL). INBOX and UNREAD need no value.
 const requiresValue = (kind: MailSplitKind) =>
   kind === MailSplitKind.LABEL || kind === MailSplitKind.CATEGORY;
 

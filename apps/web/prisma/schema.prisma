@@ -233,7 +233,7 @@ model EmailAccount {
 }
 
 // A saved filter shown as a tab above the mail list. `value` holds the label id for
-// LABEL splits and the provider category for CATEGORY splits; it is unused for ALL/UNREAD.
+// LABEL splits and the provider category for CATEGORY splits; it is unused for INBOX/UNREAD.
 model MailSplit {
   id        String        @id @default(cuid())
   createdAt DateTime      @default(now())
