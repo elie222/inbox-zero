@@ -42,6 +42,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("posthog-js/react", () => ({
+  useFeatureFlagEnabled: () => false,
   usePostHog: () => mockUsePostHog(),
 }));
 
