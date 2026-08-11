@@ -1,0 +1,150 @@
+"use client";
+
+import type { ReactNode } from "react";
+import {
+  ArchiveIcon,
+  ArrowLeftIcon,
+  MaximizeIcon,
+  MinimizeIcon,
+  ReplyIcon,
+  Trash2Icon,
+} from "lucide-react";
+import { MailLabelChip } from "@/app/(app)/[emailAccountId]/mail/MailLabelChip";
+import type { MailLayoutMode } from "@/app/(app)/[emailAccountId]/mail/types";
+import { Kbd } from "@/components/Kbd";
+import { Button } from "@/components/ui/button";
+import { getShortcutHint } from "@/lib/shortcuts/registry";
+
+export type ReaderToolbarProps = {
+  subject: string;
+  /** Display name of the other party. Falls back to the address when absent. */
+  senderName: string;
+  senderEmail: string;
+  labels: { id: string; name: string }[];
+  /**
+   * Chips navigate to a label's view and nothing else: a label carries no
+   * reason, because several rules — or none at all — can put one on a thread.
+   * The "why" is rule-scoped and lives in `menu`.
+   */
+  labelHref: (labelId: string) => string;
+  onRemoveLabel?: (labelId: string) => void;
+  layout: MailLayoutMode;
+  isFocusMode: boolean;
+  /** 1-based position of the open thread in the list, for the "N of M" readout. */
+  position?: { index: number; total: number };
+  onBack: () => void;
+  onArchive: () => void;
+  onReply: () => void;
+  onDelete: () => void;
+  onToggleFocusMode: () => void;
+  /** The ⋯ dropdown, i.e. `RuleAttributionMenu`, composed by the shell. */
+  menu?: ReactNode;
+};
+
+/**
+ * The reader's header: what the thread is, and what you can do to it.
+ * In `list` layout the list is hidden behind the reader, so it also carries the
+ * way back and the position in the list.
+ */
+export function ReaderToolbar({
+  subject,
+  senderName,
+  senderEmail,
+  labels,
+  labelHref,
+  onRemoveLabel,
+  layout,
+  isFocusMode,
+  position,
+  onBack,
+  onArchive,
+  onReply,
+  onDelete,
+  onToggleFocusMode,
+  menu,
+}: ReaderToolbarProps) {
+  const showBackBar = layout === "list" && !isFocusMode;
+  const FocusIcon = isFocusMode ? MinimizeIcon : MaximizeIcon;
+
+  return (
+    <div>
+      {showBackBar ? (
+        <div className="-mx-1 sticky top-0 z-10 mb-4 flex items-center gap-3 bg-background px-1 py-2">
+          <Button onClick={onBack} size="xs-2" variant="outline">
+            <ArrowLeftIcon className="mr-1.5 size-3.5" />
+            Back
+            <Kbd className="ml-1.5">{getShortcutHint("backToList")}</Kbd>
+          </Button>
+          {position ? (
+            <span className="font-mono text-muted-foreground text-xs">
+              {`${position.index} of ${position.total}`}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+
+      <div className="flex flex-wrap items-start gap-x-4 gap-y-3 border-border border-b pb-4">
+        <div className="min-w-56 flex-1">
+          <h1 className="font-title font-medium text-2xl text-foreground leading-tight tracking-tight">
+            {subject}
+          </h1>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <span className="font-medium text-foreground text-sm">
+              {senderName}
+            </span>
+            {senderEmail && senderEmail !== senderName ? (
+              <span className="text-muted-foreground text-sm">
+                {senderEmail}
+              </span>
+            ) : null}
+            {labels.map((label) => (
+              <MailLabelChip
+                href={labelHref(label.id)}
+                key={label.id}
+                name={label.name}
+                onRemove={
+                  onRemoveLabel ? () => onRemoveLabel(label.id) : undefined
+                }
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className="ml-auto flex flex-wrap items-center gap-1.5">
+          <Button onClick={onArchive} size="xs-2" variant="outline">
+            <ArchiveIcon className="mr-1.5 size-3.5" />
+            Archive
+            <Kbd className="ml-1.5">{getShortcutHint("archive")}</Kbd>
+          </Button>
+          <Button onClick={onReply} size="xs-2" variant="outline">
+            <ReplyIcon className="mr-1.5 size-3.5" />
+            Reply
+            <Kbd className="ml-1.5">{getShortcutHint("reply")}</Kbd>
+          </Button>
+          <Button
+            aria-label={`Delete (${getShortcutHint("delete")})`}
+            className="h-7 w-7 hover:border-destructive/30 hover:bg-destructive/5 hover:text-destructive"
+            onClick={onDelete}
+            size="icon"
+            title={`Delete (${getShortcutHint("delete")})`}
+            variant="outline"
+          >
+            <Trash2Icon className="size-3.5" />
+          </Button>
+          <Button
+            aria-label={`${isFocusMode ? "Exit focus mode" : "Focus mode"} (${getShortcutHint("focusMode")})`}
+            aria-pressed={isFocusMode}
+            className="h-7 w-7"
+            onClick={onToggleFocusMode}
+            size="icon"
+            title={`${isFocusMode ? "Exit focus mode" : "Focus mode"} (${getShortcutHint("focusMode")})`}
+            variant="outline"
+          >
+            <FocusIcon className="size-3.5" />
+          </Button>
+          {menu}
+        </div>
+      </div>
+    </div>
+  );
+}

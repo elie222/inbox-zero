@@ -1,110 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, use } from "react";
-import useSWRInfinite from "swr/infinite";
-import { useSetAtom } from "jotai";
-import { List } from "@/components/email-list/EmailList";
-import { LoadingContent } from "@/components/LoadingContent";
-import type { ThreadsQuery } from "@/utils/threads/validation";
-import type { ThreadsResponse } from "@/app/api/threads/route";
-import { refetchEmailListAtom } from "@/store/email";
+import { MailShell } from "@/app/(app)/[emailAccountId]/mail/MailShell";
 import { PermissionsCheck } from "@/app/(app)/[emailAccountId]/PermissionsCheck";
 import { EmailProvider } from "@/providers/EmailProvider";
-import { createSearchParams } from "@/utils/url";
 
-export default function Mail(props: {
-  searchParams: Promise<{ type?: string; labelId?: string }>;
-}) {
-  const searchParams = use(props.searchParams);
-
-  const getKey = (
-    pageIndex: number,
-    previousPageData: ThreadsResponse | null,
-  ) => {
-    if (previousPageData && !previousPageData.nextPageToken) return null;
-
-    const query: ThreadsQuery = {};
-
-    // Handle different query params
-    if (searchParams.type === "label" && searchParams.labelId) {
-      query.labelId = searchParams.labelId;
-    } else if (searchParams.type) {
-      query.type = searchParams.type;
-    }
-
-    // Append nextPageToken for subsequent pages
-    if (pageIndex > 0 && previousPageData?.nextPageToken) {
-      query.nextPageToken = previousPageData.nextPageToken;
-    }
-    const queryParams = createSearchParams(query);
-
-    return `/api/threads?${queryParams.toString()}`;
-  };
-
-  const { data, size, setSize, isLoading, error, mutate } =
-    useSWRInfinite<ThreadsResponse>(getKey, {
-      keepPreviousData: true,
-      dedupingInterval: 1000,
-      revalidateOnFocus: false,
-    });
-
-  const allThreads = data ? data.flatMap((page) => page.threads) : [];
-  const isLoadingMore =
-    isLoading || (size > 0 && data && typeof data[size - 1] === "undefined");
-  const showLoadMore = data ? !!data[data.length - 1]?.nextPageToken : false;
-
-  // store `refetch` in the atom so we can refresh the list upon archive via command k
-  // TODO is this the best way to do this?
-  const refetch = useCallback(
-    (options?: { removedThreadIds?: string[] }) => {
-      mutate(
-        (currentData) => {
-          if (!currentData) return currentData;
-          if (!options?.removedThreadIds) return currentData;
-
-          return currentData.map((page) => ({
-            ...page,
-            threads: page.threads.filter(
-              (t) => !options?.removedThreadIds?.includes(t.id),
-            ),
-          }));
-        },
-        {
-          rollbackOnError: true,
-          populateCache: true,
-          revalidate: false,
-        },
-      );
-    },
-    [mutate],
-  );
-
-  // Set up the refetch function in the atom store
-  const setRefetchEmailList = useSetAtom(refetchEmailListAtom);
-  useEffect(() => {
-    setRefetchEmailList({ refetch });
-  }, [refetch, setRefetchEmailList]);
-
-  const handleLoadMore = useCallback(() => {
-    setSize((size) => size + 1);
-  }, [setSize]);
-
+export default function Mail() {
   return (
     <EmailProvider>
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <PermissionsCheck />
-        <LoadingContent loading={isLoading && !data} error={error}>
-          {allThreads && (
-            <List
-              emails={allThreads}
-              refetch={refetch}
-              type={searchParams.type}
-              showLoadMore={showLoadMore}
-              handleLoadMore={handleLoadMore}
-              isLoadingMore={isLoadingMore}
-            />
-          )}
-        </LoadingContent>
+        <MailShell />
       </div>
     </EmailProvider>
   );

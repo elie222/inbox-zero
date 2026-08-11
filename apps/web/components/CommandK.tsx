@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { Loader2Icon } from "lucide-react";
-import { useAtomValue } from "jotai";
+import { useAtom } from "jotai";
 import {
   CommandDialog,
   CommandEmpty,
@@ -14,7 +14,7 @@ import {
   CommandShortcut,
 } from "@/components/ui/command";
 import { useComposeModal } from "@/providers/ComposeModalProvider";
-import { refetchEmailListAtom } from "@/store/email";
+import { commandPaletteOpenAtom } from "@/store/command-palette";
 import { archiveEmails } from "@/store/archive-queue";
 import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -25,8 +25,8 @@ import { ShortcutsProvider } from "@/lib/shortcuts/ShortcutsProvider";
 import { useShortcuts } from "@/lib/shortcuts/useShortcuts";
 import {
   buildShortcutPaletteCommands,
+  MAIL_SHORTCUT_SCOPES,
   type ShortcutHandlers,
-  type ShortcutScope,
 } from "@/lib/shortcuts/registry";
 
 const SECTION_ORDER: CommandSection[] = [
@@ -45,41 +45,34 @@ const SECTION_LABELS: Record<CommandSection, string> = {
   settings: "Settings",
 };
 
-// This component is mounted app-wide, and its archive/close bindings act on
-// whatever email is displayed, so the mail scope is enabled everywhere for now.
-// The mail redesign moves mail scope activation onto the mail route.
-const SHORTCUT_SCOPES: ShortcutScope[] = ["global", "mail"];
-
+// Mounted app-wide. It enables the mail scope everywhere so the side-panel email
+// viewer keeps its triage keys on any page. That doesn't collide with the mail
+// route's own bindings: these handlers are only defined when the side panel has a
+// thread (`side-panel-thread-id`), which the mail list never sets — and the mail
+// screen in turn stands down while the side panel is open.
 export function CommandK() {
   return (
-    <ShortcutsProvider scopes={SHORTCUT_SCOPES}>
+    <ShortcutsProvider scopes={MAIL_SHORTCUT_SCOPES}>
       <CommandPalette />
     </ShortcutsProvider>
   );
 }
 
 function CommandPalette() {
-  const [open, setOpen] = React.useState(false);
+  const [open, setOpen] = useAtom(commandPaletteOpenAtom);
   const [search, setSearch] = React.useState("");
 
   const { emailAccountId } = useAccount();
   const { threadId, showEmail } = useDisplayedEmail();
-  const refreshEmailList = useAtomValue(refetchEmailListAtom);
   const { onOpen: onOpenComposeModal } = useComposeModal();
   const { commands, isLoading } = useCommandPaletteCommands();
 
   const onArchive = React.useCallback(() => {
     if (threadId) {
-      const threadIds = [threadId];
-      archiveEmails({
-        threadIds,
-        onSuccess: () =>
-          refreshEmailList?.refetch({ removedThreadIds: threadIds }),
-        emailAccountId,
-      });
+      archiveEmails({ threadIds: [threadId], emailAccountId });
       showEmail(null);
     }
-  }, [refreshEmailList, threadId, showEmail, emailAccountId]);
+  }, [threadId, showEmail, emailAccountId]);
 
   const shortcutHandlers = React.useMemo<ShortcutHandlers>(
     () => ({
@@ -89,7 +82,7 @@ function CommandPalette() {
       // While the palette is open, Escape belongs to the dialog.
       close: open || !threadId ? undefined : () => showEmail(null),
     }),
-    [threadId, open, onArchive, onOpenComposeModal, showEmail],
+    [threadId, open, onArchive, onOpenComposeModal, showEmail, setOpen],
   );
 
   useShortcuts(shortcutHandlers);
@@ -132,17 +125,23 @@ function CommandPalette() {
   }, [filteredCommands]);
 
   // execute command
-  const executeCommand = React.useCallback((command: Command) => {
-    setOpen(false);
-    setSearch("");
-    command.action();
-  }, []);
+  const executeCommand = React.useCallback(
+    (command: Command) => {
+      setOpen(false);
+      setSearch("");
+      command.action();
+    },
+    [setOpen],
+  );
 
   // memoized handlers to avoid re-renders
-  const handleOpenChange = React.useCallback((isOpen: boolean) => {
-    setOpen(isOpen);
-    if (!isOpen) setSearch("");
-  }, []);
+  const handleOpenChange = React.useCallback(
+    (isOpen: boolean) => {
+      setOpen(isOpen);
+      if (!isOpen) setSearch("");
+    },
+    [setOpen],
+  );
 
   const commandProps = React.useMemo(
     () => ({

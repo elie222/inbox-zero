@@ -247,7 +247,7 @@ const bottomMailLinks: NavItem[] = [
 export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const navigation = useNavigation();
   const path = usePathname();
-  const showMailNav = path.includes("/mail") || path.includes("/compose");
+  const showMailNav = path.includes("/compose");
   const isMoreActive = navigation.moreItems.some(
     (item) => path === item.href || path.startsWith(`${item.href}/`),
   );
