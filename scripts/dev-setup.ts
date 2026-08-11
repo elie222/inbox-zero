@@ -74,6 +74,10 @@ const GENERATED_EMULATE_SEED_PATH = resolve(
   CONTEXT_DIR,
   "worktree-emulate.generated.json",
 );
+const LEGACY_GENERATED_EMULATE_CONFIG_PATH = resolve(
+  CONTEXT_DIR,
+  "worktree-emulate.config.yaml",
+);
 const SHARED_ENV_DIR = resolve(homedir(), ".config/inbox-zero");
 const SHARED_ENV_LOCAL_PATH = resolve(SHARED_ENV_DIR, ".env.local");
 const SHARED_ENV_TEST_PATH = resolve(SHARED_ENV_DIR, ".env.test");
@@ -372,6 +376,7 @@ async function cleanWorktree() {
   }
 
   rmSync(GENERATED_EMULATE_SEED_PATH, { force: true });
+  rmSync(LEGACY_GENERATED_EMULATE_CONFIG_PATH, { force: true });
   rmSync(STATE_PATH, { force: true });
 
   log("Removed cached dev setup state");
