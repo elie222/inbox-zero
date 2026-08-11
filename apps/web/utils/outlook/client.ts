@@ -1,4 +1,4 @@
-import { Client } from "@microsoft/microsoft-graph-client";
+import { Client, MiddlewareFactory } from "@microsoft/microsoft-graph-client";
 import type { User } from "@microsoft/microsoft-graph-types";
 import { saveTokens } from "@/utils/auth/save-tokens";
 import { cleanupInvalidTokens } from "@/utils/auth/cleanup-invalid-tokens";
@@ -27,6 +27,29 @@ export class OutlookClient {
     this.accessToken = accessToken;
     this.logger = logger;
     const graphClientOptions = getMicrosoftGraphClientOptions(accessToken);
+    const fetchOptions = {
+      headers: {
+        Prefer: 'IdType="ImmutableId"',
+      },
+    };
+    const emulatorAuthorization =
+      graphClientOptions.fetchOptions?.headers?.Authorization;
+
+    if (emulatorAuthorization) {
+      const middleware = MiddlewareFactory.getDefaultMiddlewareChain({
+        getAccessToken: async () => this.accessToken,
+      });
+      middleware[0] = createEmulatorAuthenticationMiddleware(
+        emulatorAuthorization,
+      );
+      this.client = Client.initWithMiddleware({
+        ...graphClientOptions,
+        fetchOptions,
+        middleware,
+      });
+      return;
+    }
+
     this.client = Client.init({
       authProvider: (done) => {
         done(null, this.accessToken);
@@ -35,12 +58,7 @@ export class OutlookClient {
       ...graphClientOptions,
       // Use immutable IDs to ensure message IDs remain stable
       // https://learn.microsoft.com/en-us/graph/outlook-immutable-id
-      fetchOptions: {
-        headers: {
-          ...(graphClientOptions.fetchOptions?.headers ?? {}),
-          Prefer: 'IdType="ImmutableId"',
-        },
-      },
+      fetchOptions,
     });
   }
 
@@ -254,6 +272,34 @@ export function getLinkingOAuth2Url() {
   });
 
   return `${getMicrosoftOauthAuthorizeUrl()}?${params.toString()}`;
+}
+
+type GraphMiddleware = ReturnType<
+  typeof MiddlewareFactory.getDefaultMiddlewareChain
+>[number];
+
+function createEmulatorAuthenticationMiddleware(
+  authorization: string,
+): GraphMiddleware {
+  let nextMiddleware: GraphMiddleware | undefined;
+
+  return {
+    async execute(context) {
+      context.options ??= {};
+      const headers = new Headers(context.options.headers);
+      headers.set("Authorization", authorization);
+      context.options.headers = headers;
+
+      if (!nextMiddleware) {
+        throw new Error("Outlook emulator middleware is not configured");
+      }
+
+      await nextMiddleware.execute(context);
+    },
+    setNext(middleware) {
+      nextMiddleware = middleware;
+    },
+  };
 }
 
 // Helper types for common Microsoft Graph operations
