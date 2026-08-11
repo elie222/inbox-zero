@@ -67,7 +67,13 @@ export class RecallBotProvider implements MeetingBotProvider {
     meetingUrl: string;
     joinAt: Date;
   }): Promise<{ externalBotId: string }> {
-    const cameraImage = await getMeetingBotCameraImage();
+    const cameraImage = await getMeetingBotCameraImage().catch((error) => {
+      this.logger.warn(
+        "Meeting bot camera image is unavailable; scheduling without video",
+        { error },
+      );
+      return null;
+    });
 
     // No transcript config here on purpose: `recallai_async` is not a
     // bot-creation provider. Async transcription is requested per recording,
@@ -79,12 +85,14 @@ export class RecallBotProvider implements MeetingBotProvider {
         meeting_url: meetingUrl,
         bot_name: botName,
         join_at: joinAt.toISOString(),
-        automatic_video_output: {
-          in_call_recording: {
-            kind: "jpeg",
-            b64_data: cameraImage,
+        ...(cameraImage && {
+          automatic_video_output: {
+            in_call_recording: {
+              kind: "jpeg",
+              b64_data: cameraImage,
+            },
           },
-        },
+        }),
       },
     });
 

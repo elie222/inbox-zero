@@ -26,6 +26,12 @@ const zodV4CorePath = path.join(
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1"],
+  outputFileTracingIncludes: {
+    "/api/meeting-recorder/schedule": [
+      "./public/images/meetings/inbox-zero-notetaker.jpg",
+    ],
+    "/*/meetings": ["./public/images/meetings/inbox-zero-notetaker.jpg"],
+  },
   experimental:
     isDevelopment || isProductionBuild
       ? {
