@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useMemo } from "react";
 import useSWRInfinite from "swr/infinite";
 import type { ThreadsListResponse } from "@/app/api/threads/route";
 import type { ListThread } from "@/app/(app)/[emailAccountId]/mail/types";
@@ -9,9 +9,15 @@ import { createSearchParams } from "@/utils/url";
 
 type RemovedThread = { thread: ListThread; pageIndex: number; index: number };
 
-// Only the most recent removals can still be undone, so the retained rows are
-// capped rather than accumulating for the whole session.
-const MAX_RETAINED_REMOVALS = 200;
+/**
+ * The rows one `removeThreads` call took out, and the view they came from.
+ * Returned to the caller so an undo can put back exactly those rows — and only
+ * while the list is still showing the split they were removed from.
+ */
+export type ThreadRemoval = {
+  cacheKey: string;
+  entries: Map<string, RemovedThread>;
+};
 
 /**
  * One SWR key per split, so switching splits reads from cache instead of
@@ -19,6 +25,13 @@ const MAX_RETAINED_REMOVALS = 200;
  * filtering pages that happen to be loaded.
  */
 export function useMailThreads(query: ThreadsQuery) {
+  // Identifies the split these rows belong to, so a restore can't drop them
+  // into a different split's cache after the user switches tabs.
+  const cacheKey = useMemo(
+    () => createSearchParams({ ...query, view: "list" }).toString(),
+    [query],
+  );
+
   const getKey = useCallback(
     (pageIndex: number, previousPageData: ThreadsListResponse | null) => {
       if (previousPageData && !previousPageData.nextPageToken) return null;
@@ -48,48 +61,49 @@ export function useMailThreads(query: ThreadsQuery) {
     [data],
   );
 
-  // Rows are kept so an undo can put back exactly what it removed. Revalidating
-  // instead would also resurrect rows that a *different* batch is still
-  // archiving, since the server hasn't caught up with those yet.
-  const removed = useRef(new Map<string, RemovedThread>());
-
   const removeThreads = useCallback(
-    (threadIds: string[]) => {
-      if (!threadIds.length) return;
+    (threadIds: string[]): ThreadRemoval => {
+      const entries = new Map<string, RemovedThread>();
       const targets = new Set(threadIds);
 
       // Optimistic: drop the rows now and don't revalidate, so triage keeps its
-      // rhythm instead of the list flickering back after every archive.
-      mutate(
-        (pages) =>
-          pages?.map((page, pageIndex) => ({
-            ...page,
-            threads: page.threads.filter((thread, index) => {
-              if (!targets.has(thread.id)) return true;
-              removed.current.set(thread.id, { thread, pageIndex, index });
-              return false;
-            }),
-          })),
-        { revalidate: false, populateCache: true, rollbackOnError: true },
-      );
-
-      while (removed.current.size > MAX_RETAINED_REMOVALS) {
-        const oldest = removed.current.keys().next().value;
-        if (oldest === undefined) break;
-        removed.current.delete(oldest);
+      // rhythm instead of the list flickering back after every archive. The
+      // rows come back with the handle so an undo can reinstate them without a
+      // refetch — which would also resurrect rows another batch is still
+      // archiving, since the server hasn't caught up with those yet.
+      if (threadIds.length) {
+        mutate(
+          (pages) =>
+            pages?.map((page, pageIndex) => ({
+              ...page,
+              threads: page.threads.filter((thread, index) => {
+                if (!targets.has(thread.id)) return true;
+                entries.set(thread.id, { thread, pageIndex, index });
+                return false;
+              }),
+            })),
+          { revalidate: false, populateCache: true, rollbackOnError: true },
+        );
       }
+
+      return { cacheKey, entries };
     },
-    [mutate],
+    [mutate, cacheKey],
   );
 
   const restoreThreads = useCallback(
-    (threadIds: string[]) => {
+    (removal: ThreadRemoval, threadIds: string[]) => {
+      // The entries describe positions within the split they were removed from.
+      // If the user has since switched splits, putting them back here would
+      // show rows that don't match this view's query.
+      if (removal.cacheKey !== cacheKey) return;
+
       const restoring = threadIds
-        .map((id) => removed.current.get(id))
+        .map((id) => removal.entries.get(id))
         .filter((entry): entry is RemovedThread => entry !== undefined);
       if (!restoring.length) return;
 
-      for (const entry of restoring) removed.current.delete(entry.thread.id);
+      for (const entry of restoring) removal.entries.delete(entry.thread.id);
 
       mutate(
         (pages) =>
@@ -112,7 +126,7 @@ export function useMailThreads(query: ThreadsQuery) {
         { revalidate: false, populateCache: true },
       );
     },
-    [mutate],
+    [mutate, cacheKey],
   );
 
   return {

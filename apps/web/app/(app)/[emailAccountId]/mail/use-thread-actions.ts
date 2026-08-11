@@ -12,12 +12,14 @@ import {
   untrashThreadAction,
 } from "@/utils/actions/mail";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
+import type { ThreadRemoval } from "@/app/(app)/[emailAccountId]/mail/use-mail-threads";
 
 type UndoableAction = "archive" | "delete";
 
 type UndoableBatch = {
   type: UndoableAction;
   threadIds: string[];
+  removal: ThreadRemoval;
   undone: boolean;
 };
 
@@ -34,8 +36,8 @@ export function useThreadActions({
   restoreThreads,
 }: {
   emailAccountId: string;
-  removeThreads: (threadIds: string[]) => void;
-  restoreThreads: (threadIds: string[]) => void;
+  removeThreads: (threadIds: string[]) => ThreadRemoval;
+  restoreThreads: (removal: ThreadRemoval, threadIds: string[]) => void;
 }) {
   const lastAction = useRef<UndoableBatch | null>(null);
 
@@ -55,15 +57,27 @@ export function useThreadActions({
       const reverse =
         batch.type === "archive" ? unarchiveThreadAction : untrashThreadAction;
 
-      const results = await Promise.all(
-        notCancelled.map((threadId) => reverse(emailAccountId, { threadId })),
+      const reversed = await Promise.all(
+        notCancelled.map(async (threadId) => {
+          const result = await reverse(emailAccountId, { threadId });
+          return { threadId, ok: !result?.serverError };
+        }),
       );
 
-      restoreThreads(batch.threadIds);
+      // A thread the provider refused to unarchive is still archived, so
+      // putting its row back would show a conversation that isn't there.
+      const failed = reversed.filter((r) => !r.ok).map((r) => r.threadId);
+      const restored = batch.threadIds.filter((id) => !failed.includes(id));
 
-      if (results.some((result) => result?.serverError))
-        toast.error("Some conversations couldn't be restored");
-      else toast.success(summarise("Restored", batch.threadIds.length));
+      restoreThreads(batch.removal, restored);
+
+      if (failed.length)
+        toast.error(
+          failed.length === batch.threadIds.length
+            ? "Couldn't restore"
+            : `Couldn't restore ${failed.length} of ${batch.threadIds.length}`,
+        );
+      else toast.success(summarise("Restored", restored.length));
     },
     [emailAccountId, restoreThreads],
   );
@@ -79,17 +93,19 @@ export function useThreadActions({
     (type: UndoableAction, threadIds: string[]) => {
       if (!threadIds.length) return;
 
-      const batch: UndoableBatch = { type, threadIds, undone: false };
+      const removal = removeThreads(threadIds);
+      const batch: UndoableBatch = { type, threadIds, removal, undone: false };
       lastAction.current = batch;
-      removeThreads(threadIds);
 
       const queue = type === "archive" ? archiveEmails : deleteEmails;
       queue({
         threadIds,
         emailAccountId,
         onSuccess: () => {},
-        onError: () => {
-          restoreThreads(threadIds);
+        // The queue reports the specific thread that failed; the rest of the
+        // batch archived fine and must stay gone.
+        onError: (threadId) => {
+          restoreThreads(removal, [threadId]);
           toast.error(
             type === "archive"
               ? "There was an error archiving"
