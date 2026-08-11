@@ -29,4 +29,26 @@ describe("restoreThreadOrder", () => {
       ),
     ).toEqual(["thread-1", "thread-2", "thread-3"]);
   });
+
+  it("follows pending neighbor chains to a surviving successor", () => {
+    expect(
+      restoreThreadOrder(
+        ["thread-1", "thread-5"],
+        [
+          {
+            threadId: "thread-3",
+            index: 2,
+            previousThreadId: "thread-2",
+            nextThreadId: "thread-4",
+          },
+          {
+            threadId: "thread-4",
+            index: 3,
+            previousThreadId: "thread-3",
+            nextThreadId: "thread-5",
+          },
+        ],
+      ),
+    ).toEqual(["thread-1", "thread-3", "thread-4", "thread-5"]);
+  });
 });

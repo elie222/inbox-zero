@@ -69,6 +69,7 @@ export async function readCachedThread<T>({
 
     await store.put({ ...record, lastAccessedAt: Date.now() });
     await transaction.done;
+    if (!isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
     scheduleEmailCacheCleanup();
     return {
       data: record.data as T,

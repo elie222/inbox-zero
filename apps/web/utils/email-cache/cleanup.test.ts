@@ -2,9 +2,15 @@
 
 import "fake-indexeddb/auto";
 import { waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { scheduleEmailCacheCleanup } from "./cleanup";
 import { clearEmailCache, getEmailCacheDatabase } from "./database";
+
+const storageDescriptor = Object.getOwnPropertyDescriptor(navigator, "storage");
+const requestIdleCallbackDescriptor = Object.getOwnPropertyDescriptor(
+  window,
+  "requestIdleCallback",
+);
 
 describe("email cache cleanup", () => {
   beforeEach(async () => {
@@ -22,6 +28,15 @@ describe("email cache cleanup", () => {
         return 1;
       },
     });
+  });
+
+  afterEach(() => {
+    restoreProperty(navigator, "storage", storageDescriptor);
+    restoreProperty(
+      window,
+      "requestIdleCallback",
+      requestIdleCallbackDescriptor,
+    );
   });
 
   it("retains the newest details within the storage budget", async () => {
@@ -61,3 +76,15 @@ describe("email cache cleanup", () => {
     ).resolves.toBeDefined();
   });
 });
+
+function restoreProperty(
+  target: object,
+  property: PropertyKey,
+  descriptor: PropertyDescriptor | undefined,
+) {
+  if (descriptor) {
+    Object.defineProperty(target, property, descriptor);
+  } else {
+    Reflect.deleteProperty(target, property);
+  }
+}

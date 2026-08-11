@@ -153,7 +153,56 @@ describe("useMailThreads", () => {
     await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
     expect(fetcher.mock.calls[1]?.[0][0]).toContain("nextPageToken=page-2");
 
-    secondPage.resolve({ threads: [createThread("second-page")] });
+    await act(async () => {
+      secondPage.resolve({ threads: [createThread("second-page")] });
+    });
+    await waitFor(() =>
+      expect(result.current.threads.map((thread) => thread.id)).toEqual([
+        "network",
+        "second-page",
+      ]),
+    );
+  });
+
+  it("retries a failed first page before loading more from cache", async () => {
+    cache.read.mockResolvedValue({
+      cachedAt: 100,
+      hasMore: true,
+      threads: [createThread("cached")],
+    });
+    const fetcher = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("temporary failure"))
+      .mockResolvedValueOnce({
+        threads: [createThread("network")],
+        nextPageToken: "page-2",
+      })
+      .mockResolvedValueOnce({ threads: [createThread("second-page")] });
+
+    const { result } = renderHook(
+      () =>
+        useMailThreads({
+          emailAccountId: "account-retry",
+          query: { type: "inbox" },
+        }),
+      { wrapper: createWrapper(fetcher) },
+    );
+    await waitFor(() => expect(result.current.threads[0]?.id).toBe("cached"));
+    await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    act(() => result.current.loadMore());
+
+    await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(3));
+    expect(fetcher.mock.calls[2]?.[0][0]).toContain("nextPageToken=page-2");
+    await waitFor(() =>
+      expect(result.current.threads.map((thread) => thread.id)).toEqual([
+        "network",
+        "second-page",
+      ]),
+    );
   });
 
   it("rehydrates a revisited view after its remote pages were evicted", async () => {
@@ -214,7 +263,9 @@ function createWrapper(
 ) {
   return function Wrapper({ children }: { children: ReactNode }) {
     return (
-      <SWRConfig value={{ fetcher, provider: () => provider }}>
+      <SWRConfig
+        value={{ fetcher, provider: () => provider, shouldRetryOnError: false }}
+      >
         {children}
       </SWRConfig>
     );

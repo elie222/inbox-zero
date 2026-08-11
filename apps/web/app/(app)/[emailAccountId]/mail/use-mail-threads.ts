@@ -143,10 +143,7 @@ export function useMailThreads({
       setPaginationRequestIdentity(undefined);
       return;
     }
-    if (error) {
-      setPaginationRequestIdentity(undefined);
-      return;
-    }
+    if (error) return;
     if (!data) return;
 
     setPaginationRequestIdentity(undefined);
@@ -304,8 +301,23 @@ export function useMailThreads({
         setSize((current) => current + 1).catch(() => {});
       } else {
         setPaginationRequestIdentity(viewIdentity);
+        if (error) {
+          mutate()
+            .then((pages) => {
+              if (!pages) {
+                setPaginationRequestIdentity((current) =>
+                  current === viewIdentity ? undefined : current,
+                );
+              }
+            })
+            .catch(() => {
+              setPaginationRequestIdentity((current) =>
+                current === viewIdentity ? undefined : current,
+              );
+            });
+        }
       }
-    }, [data, setSize, viewIdentity]),
+    }, [data, error, mutate, setSize, viewIdentity]),
     removeThreads,
     restoreThreads,
   };

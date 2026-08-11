@@ -53,6 +53,8 @@ let databasePromise: Promise<
 > | null = null;
 let cacheEpoch = 0;
 const accountEpochs = new Map<string, number>();
+let cacheInvalidationCount = 0;
+const accountInvalidationCounts = new Map<string, number>();
 
 type EmailCacheEpoch = readonly [cache: number, account: number];
 
@@ -95,14 +97,28 @@ export function getEmailCacheDatabase() {
 
 export function captureEmailCacheEpoch(
   emailAccountId: string,
-): EmailCacheEpoch {
+): EmailCacheEpoch | undefined {
+  if (
+    cacheInvalidationCount > 0 ||
+    (accountInvalidationCounts.get(emailAccountId) ?? 0) > 0
+  ) {
+    return;
+  }
   return [cacheEpoch, accountEpochs.get(emailAccountId) ?? 0];
 }
 
 export function isEmailCacheEpochCurrent(
   emailAccountId: string,
-  [capturedCacheEpoch, capturedAccountEpoch]: EmailCacheEpoch,
+  epoch: EmailCacheEpoch | undefined,
 ) {
+  if (
+    !epoch ||
+    cacheInvalidationCount > 0 ||
+    (accountInvalidationCounts.get(emailAccountId) ?? 0) > 0
+  ) {
+    return false;
+  }
+  const [capturedCacheEpoch, capturedAccountEpoch] = epoch;
   return (
     capturedCacheEpoch === cacheEpoch &&
     capturedAccountEpoch === (accountEpochs.get(emailAccountId) ?? 0)
@@ -110,6 +126,7 @@ export function isEmailCacheEpochCurrent(
 }
 
 export async function clearEmailCache() {
+  cacheInvalidationCount += 1;
   cacheEpoch += 1;
   accountEpochs.clear();
 
@@ -128,10 +145,16 @@ export async function clearEmailCache() {
     ]);
   } catch {
     // Browser storage is a performance enhancement; clearing it must not block logout.
+  } finally {
+    cacheInvalidationCount -= 1;
   }
 }
 
 export async function clearEmailCacheForAccount(emailAccountId: string) {
+  accountInvalidationCounts.set(
+    emailAccountId,
+    (accountInvalidationCounts.get(emailAccountId) ?? 0) + 1,
+  );
   accountEpochs.set(
     emailAccountId,
     (accountEpochs.get(emailAccountId) ?? 0) + 1,
@@ -160,5 +183,13 @@ export async function clearEmailCacheForAccount(emailAccountId: string) {
     await transaction.done;
   } catch {
     // An unavailable cache must never prevent an account from disconnecting.
+  } finally {
+    const remainingInvalidations =
+      (accountInvalidationCounts.get(emailAccountId) ?? 1) - 1;
+    if (remainingInvalidations > 0) {
+      accountInvalidationCounts.set(emailAccountId, remainingInvalidations);
+    } else {
+      accountInvalidationCounts.delete(emailAccountId);
+    }
   }
 }

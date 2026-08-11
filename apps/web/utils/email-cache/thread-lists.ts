@@ -95,6 +95,7 @@ export async function readCachedThreadList<T extends ThreadRow>({
     );
     await views.put({ ...view, lastAccessedAt: Date.now() });
     await transaction.done;
+    if (!isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
     scheduleEmailCacheCleanup();
 
     return {

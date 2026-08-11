@@ -57,6 +57,26 @@ describe("cached thread details", () => {
     });
   });
 
+  it("rejects writes started while an account clear is in progress", async () => {
+    const clearing = clearEmailCacheForAccount("account-1");
+    const writing = writeCachedThread({
+      emailAccountId: "account-1",
+      threadId: "thread-1",
+      variant: "drafts:0|replies:0",
+      data: { thread: { id: "thread-1", body: "late response" } },
+    });
+
+    await Promise.all([clearing, writing]);
+
+    await expect(
+      readCachedThread<TestThreadResponse>({
+        emailAccountId: "account-1",
+        threadId: "thread-1",
+        variant: "drafts:0|replies:0",
+      }),
+    ).resolves.toBeUndefined();
+  });
+
   it("does not return expired thread details", async () => {
     await writeCachedThread({
       emailAccountId: "account-1",
