@@ -26,7 +26,6 @@ export async function createMcpToolsForAgent(
         tools: {
           some: {
             isEnabled: true,
-            // Write tools never reach agents; they only run inside rule actions
             isWrite: false,
           },
         },

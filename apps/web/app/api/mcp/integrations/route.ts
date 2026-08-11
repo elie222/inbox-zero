@@ -19,7 +19,6 @@ async function getData(emailAccountId: string) {
       isActive: true,
       integration: { select: { id: true, name: true } },
       tools: {
-        // Write tools are managed via rule actions, not the tools toggle list
         where: { isWrite: false },
         select: { id: true, name: true, description: true, isEnabled: true },
       },

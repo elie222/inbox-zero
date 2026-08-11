@@ -154,7 +154,6 @@ export type RuleActionFields = {
   content?: string | null;
   webhookUrl?: string | null;
   folderName?: string | null;
-  // INTEGRATION (Todoist task) only
   description?: string | null;
   dueString?: string | null;
 };

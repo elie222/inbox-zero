@@ -5,12 +5,8 @@ type McpIntegrationConfig = {
   scopes: string[];
   skipResourceParam?: boolean; // Some OAuth servers don't support RFC 8707 resource parameter
   filterWriteTools?: boolean; // Auto-filter write tools, only sync read-only tools (get, list, find, search)
-  // Write tools synced with isWrite: true. They only run inside rule actions
-  // (never exposed to drafting/brief agents) — that's a security boundary.
-  writeTools?: string[];
-  // Read tools app code calls directly (e.g. listing Todoist projects for the
-  // rule editor). Not synced and never exposed to agents.
-  internalReadTools?: string[];
+  ruleActionWriteTools?: string[];
+  applicationReadTools?: string[];
 };
 
 export const MCP_INTEGRATIONS: Record<
@@ -163,11 +159,9 @@ export const MCP_INTEGRATIONS: Record<
     serverUrl: "https://ai.todoist.net/mcp",
     authType: "oauth",
     scopes: [],
-    // No read tools for drafting on purpose: Todoist is write-only via rule actions.
     allowedTools: [],
-    writeTools: ["add-tasks"],
-    internalReadTools: ["find-projects"],
-    // OAuth endpoints auto-discovered via RFC 8414/9728
+    ruleActionWriteTools: ["add-tasks"],
+    applicationReadTools: ["find-projects"],
   },
   pipedream: {
     name: "pipedream",

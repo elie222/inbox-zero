@@ -1129,14 +1129,13 @@ function TodoistTaskFields({
   const projectId = integrationArgs?.projectId || TODOIST_INBOX_PROJECT_ID;
   const dueString = integrationArgs?.dueString;
 
-  // The API can return the real Inbox project; the static "inbox" option covers it
-  const projects =
+  const nonInboxProjects =
     projectsData?.projects.filter(
       (project) => project.name !== TODOIST_INBOX_PROJECT_NAME,
     ) ?? [];
   const hasSelectedProject =
     projectId === TODOIST_INBOX_PROJECT_ID ||
-    projects.some((project) => project.id === projectId);
+    nonInboxProjects.some((project) => project.id === projectId);
 
   const errorMessage =
     errors?.actions?.[index]?.integrationArgs?.message ||
@@ -1201,7 +1200,7 @@ function TodoistTaskFields({
                     const projectName =
                       nextProjectId === TODOIST_INBOX_PROJECT_ID
                         ? TODOIST_INBOX_PROJECT_NAME
-                        : (projects.find(
+                        : (nonInboxProjects.find(
                             (project) => project.id === nextProjectId,
                           )?.name ?? null);
                     setValue(
@@ -1221,7 +1220,7 @@ function TodoistTaskFields({
                     <SelectItem value={TODOIST_INBOX_PROJECT_ID}>
                       {TODOIST_INBOX_PROJECT_NAME}
                     </SelectItem>
-                    {projects.map((project) => (
+                    {nonInboxProjects.map((project) => (
                       <SelectItem key={project.id} value={project.id}>
                         {project.name}
                       </SelectItem>
@@ -1387,9 +1386,7 @@ function updateActionType({
 }) {
   if (!primaryAction) return;
 
-  // Snapshot before any setValue: watch() can return a live reference, so
-  // reading primaryAction.type after mutating it would see the new type.
-  const previousType = primaryAction.type;
+  const actionTypeBeforeUpdate = primaryAction.type;
 
   if (nextType === ActionType.DRAFT_EMAIL) {
     setValue(`actions.${index}`, buildDraftEmailAction(primaryAction));
@@ -1403,10 +1400,7 @@ function updateActionType({
   setValue(`actions.${index}.messagingChannelId`, null);
 
   if (nextType === ActionType.INTEGRATION) {
-    // Radix fires onValueChange even when re-selecting the same item; only
-    // initialize defaults when the action wasn't already an integration action
-    // so configured args aren't wiped.
-    if (previousType !== ActionType.INTEGRATION) {
+    if (actionTypeBeforeUpdate !== ActionType.INTEGRATION) {
       setValue(`actions.${index}.integrationName`, TODOIST_INTEGRATION);
       setValue(`actions.${index}.integrationToolName`, TODOIST_ADD_TASKS_TOOL);
       setValue(`actions.${index}.integrationArgs`, {
@@ -1416,8 +1410,6 @@ function updateActionType({
         projectId: TODOIST_INBOX_PROJECT_ID,
         projectName: TODOIST_INBOX_PROJECT_NAME,
       });
-      // Delayed execution doesn't support integration actions; a leftover
-      // delay from the previous type would silently drop the action.
       setValue(`actions.${index}.delayInMinutes`, null);
     }
   } else {

@@ -863,7 +863,6 @@ async function mapActionFields(
         cc: a.fields?.cc,
         bcc: a.fields?.bcc,
         subject: a.fields?.subject,
-        // Integration task text lives in integrationArgs, not the content column
         content: integrationFields ? null : a.fields?.content,
         url: a.fields?.webhookUrl,
         ...(isMicrosoftProvider(provider) && {
@@ -1004,14 +1003,15 @@ function addNestedActionOwnershipToInputs(
   actions: RuleActionCreateData[],
   emailAccountId: string,
 ): Prisma.ActionCreateManyRuleInput[] {
-  return actions.map((action) =>
-    addNestedActionOwnershipToInput(
-      // Delayed execution doesn't support integration actions; a stored delay
-      // would make the scheduler silently drop the action at run time.
+  return actions.map((action) => {
+    const actionWithSupportedDelay =
       action.type === ActionType.INTEGRATION
         ? { ...action, delayInMinutes: null }
-        : action,
+        : action;
+
+    return addNestedActionOwnershipToInput(
+      actionWithSupportedDelay,
       emailAccountId,
-    ),
-  );
+    );
+  });
 }

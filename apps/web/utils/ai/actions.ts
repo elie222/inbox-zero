@@ -606,8 +606,11 @@ const integration: ActionFunction<{
   }
 
   const integrationConfig = findIntegration(integrationName);
-  const writeTools = integrationConfig?.writeTools ?? [];
-  if (!integrationConfig || !writeTools.includes(integrationToolName)) {
+  const ruleActionWriteTools = integrationConfig?.ruleActionWriteTools ?? [];
+  if (
+    !integrationConfig ||
+    !ruleActionWriteTools.includes(integrationToolName)
+  ) {
     return {
       success: false,
       errorCode: "UNSUPPORTED_INTEGRATION_TOOL",
@@ -867,7 +870,6 @@ function isLegacyMessagingDraft({
   );
 }
 
-// v1 supports a single write tool: Todoist add-tasks. Always sends exactly one task.
 function buildTodoistAddTasksArgs(
   integrationArgs: ActionItem["integrationArgs"],
 ): Record<string, unknown> | null {

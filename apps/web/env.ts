@@ -300,8 +300,6 @@ const parsedEnv = createEnv({
       .optional()
       .transform((value) => value?.split(",")),
     WEBHOOK_URL: z.string().optional(),
-    // JSON map of integration name -> MCP server URL, for local emulators/tests
-    // e.g. {"todoist":"http://localhost:4310/mcp"}
     MCP_SERVER_URL_OVERRIDES: z.string().optional(),
     INTERNAL_API_URL: z.string().optional(),
     INTERNAL_API_KEY: z.string(),

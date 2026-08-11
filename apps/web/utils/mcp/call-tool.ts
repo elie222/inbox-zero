@@ -25,10 +25,9 @@ export async function callMcpTool({
     throw new Error(`No server URL for integration: ${integration}`);
   }
 
-  // Only tools explicitly registered in the integration config may be called.
   const callableTools = [
-    ...(integrationConfig.writeTools ?? []),
-    ...(integrationConfig.internalReadTools ?? []),
+    ...(integrationConfig.ruleActionWriteTools ?? []),
+    ...(integrationConfig.applicationReadTools ?? []),
   ];
   if (!callableTools.includes(toolName)) {
     throw new Error(`Tool ${toolName} is not callable for ${integration}`);

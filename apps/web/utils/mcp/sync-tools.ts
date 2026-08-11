@@ -39,7 +39,7 @@ export async function syncMcpTools(
 
     const allTools = await listMcpTools(integration, emailAccountId);
 
-    const writeToolNames = integrationConfig.writeTools ?? [];
+    const writeToolNames = integrationConfig.ruleActionWriteTools ?? [];
     const writeTools = allTools.filter((tool) =>
       writeToolNames.includes(tool.name),
     );

@@ -139,7 +139,6 @@ export const actionInputs: Record<
   [ActionType.NOTIFY_SENDER]: {
     fields: [],
   },
-  // Rendered with dedicated integration fields in the rule editor
   [ActionType.INTEGRATION]: { fields: [] },
 };
 

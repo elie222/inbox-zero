@@ -624,8 +624,8 @@ model Action {
   folderId            String?
   delayInMinutes      Int?
   staticAttachments   Json? // AttachmentSourceInput[] — explicit files to attach for email actions
-  integrationName     String? // MCP_INTEGRATIONS key (e.g. "todoist") for INTEGRATION actions
-  integrationToolName String? // MCP write tool name (e.g. "add-tasks")
+  integrationName     String?
+  integrationToolName String?
   integrationArgs     Json? // Tool args; string values may contain {{AI instructions}} templates
 
   @@index([ruleId])
@@ -723,8 +723,8 @@ model ExecutedAction {
   folderId            String?
   staticAttachments   Json? // AttachmentSourceInput[] — explicit files to attach for email actions
   selectedAttachments Json? // SelectedAttachment[] — AI-selected files for this specific execution
-  integrationName     String? // MCP_INTEGRATIONS key (e.g. "todoist") for INTEGRATION actions
-  integrationToolName String? // MCP write tool name (e.g. "add-tasks")
+  integrationName     String?
+  integrationToolName String?
   integrationArgs     Json? // Resolved tool args used for this execution
 
   // additional fields as a result of the action
@@ -1851,7 +1851,7 @@ enum ActionType {
   DIGEST
   MOVE_FOLDER
   NOTIFY_SENDER // Sends notification from Inbox Zero (not user's email). Only for cold email rules.
-  INTEGRATION // Calls a write tool on a connected MCP integration (e.g. add a Todoist task)
+  INTEGRATION
   // SUMMARIZE
   // SNOOZE
   // ADD_TO_DO

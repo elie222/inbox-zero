@@ -822,8 +822,7 @@ function mapActionToSanitizedFields(action: {
   integrationToolName?: string | null;
   integrationArgs?: Record<string, string | null | undefined> | null;
 }) {
-  // Drop empty/null values so stored args only contain meaningful strings
-  const integrationArgs = action.integrationArgs
+  const nonEmptyIntegrationArgs = action.integrationArgs
     ? (Object.fromEntries(
         Object.entries(action.integrationArgs).filter(
           ([, value]) => typeof value === "string" && value.trim() !== "",
@@ -850,7 +849,7 @@ function mapActionToSanitizedFields(action: {
       : undefined,
     integrationName: action.integrationName,
     integrationToolName: action.integrationToolName,
-    integrationArgs,
+    integrationArgs: nonEmptyIntegrationArgs,
   });
 
   return {
@@ -1126,8 +1125,6 @@ export const importRulesAction = actionClient
             integrationArgs: action.integrationArgs ?? undefined,
           }));
 
-          // Same guard as the editor/AI paths; an unconnected integration
-          // skips this rule (caught below) instead of failing the whole import
           await assertIntegrationActionsConnected(
             mappedActions,
             emailAccountId,

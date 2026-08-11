@@ -29,7 +29,6 @@ type RuleActionFieldValues = {
   cc?: string | null;
   bcc?: string | null;
   folderName?: string | null;
-  // INTEGRATION (Todoist task) only
   description?: string | null;
   dueString?: string | null;
 };

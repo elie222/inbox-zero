@@ -86,7 +86,6 @@ const zodActionType = z.enum([
   ActionType.INTEGRATION,
 ]);
 
-// v1 integration args are Todoist add-tasks shaped; projectName is stored for display only
 const zodIntegrationArgs = z
   .object({
     content: z.string().nullish(),
@@ -548,7 +547,7 @@ function addIntegrationActionIssues({
     });
   } else if (
     !integrationToolName ||
-    !integration.writeTools?.includes(integrationToolName)
+    !integration.ruleActionWriteTools?.includes(integrationToolName)
   ) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,

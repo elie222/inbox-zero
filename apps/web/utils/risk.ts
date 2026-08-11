@@ -176,8 +176,6 @@ function checkFieldStatus(field: string | null) {
   return "static";
 }
 
-// String values inside integrationArgs support the same {{template}} syntax as
-// email content fields, so they carry the same dynamic-content risk.
 function getIntegrationArgsDynamicStatus(
   integrationArgs: Prisma.JsonValue | null | undefined,
 ) {

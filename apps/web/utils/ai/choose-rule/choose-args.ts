@@ -23,7 +23,6 @@ import type { SelectedAttachment } from "@/utils/attachments/source-schema";
 
 const MODULE = "choose-args";
 
-// Schema field name prefix for templated values inside Action.integrationArgs
 const INTEGRATION_ARGS_FIELD_PREFIX = "integrationArgs.";
 
 export type EmailAccountForDrafting = EmailAccountWithAI & {

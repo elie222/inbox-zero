@@ -29,7 +29,7 @@ const conditionSchema = z
     },
   );
 
-const ruleActionTypeSchema = z.enum([
+const ruleActionRequestTypeSchema = z.enum([
   ActionType.LABEL,
   ActionType.ARCHIVE,
   ActionType.MARK_READ,
@@ -50,7 +50,7 @@ const ruleActionTypeSchema = z.enum([
 
 const actionSchema = z
   .object({
-    type: ruleActionTypeSchema,
+    type: ruleActionRequestTypeSchema,
     messagingChannelId: z.string().cuid().nullish(),
     fields: z
       .object({
@@ -137,9 +137,8 @@ export const ruleRequestBodySchema = z.object({
   actions: z.array(actionSchema).min(1),
 });
 
-// Responses may include INTEGRATION actions; creating them via the API is not supported.
 const ruleActionTypeResponseSchema = z.enum([
-  ...ruleActionTypeSchema.options,
+  ...ruleActionRequestTypeSchema.options,
   ActionType.INTEGRATION,
 ]);
 
