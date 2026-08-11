@@ -1,10 +1,13 @@
 import "server-only";
 import prisma from "@/utils/prisma";
 import { getPosthogLlmClient } from "@/utils/posthog";
+import { createScopedLogger } from "@/utils/logger";
 import {
   INTEGRATION_ACTION_FEATURE_FLAG,
   isIntegrationActionGloballyEnabled,
 } from "@/utils/integration-action";
+
+const logger = createScopedLogger("integration-action-access");
 
 export async function isIntegrationActionEnabledForUserId(userId: string) {
   if (isIntegrationActionGloballyEnabled()) return true;
@@ -15,7 +18,10 @@ export async function isIntegrationActionEnabledForUserId(userId: string) {
       select: { email: true },
     });
     return user ? isIntegrationActionEnabledForUserEmail(user.email) : false;
-  } catch {
+  } catch (error) {
+    logger.error("Failed to look up user for integration action access", {
+      error,
+    });
     return false;
   }
 }
@@ -33,7 +39,11 @@ export async function isIntegrationActionEnabledForEmailAccountId(
     return emailAccount
       ? isIntegrationActionEnabledForUserEmail(emailAccount.user.email)
       : false;
-  } catch {
+  } catch (error) {
+    logger.error(
+      "Failed to look up email account for integration action access",
+      { error },
+    );
     return false;
   }
 }
@@ -47,7 +57,10 @@ async function isIntegrationActionEnabledForUserEmail(email: string) {
       flagKeys: [INTEGRATION_ACTION_FEATURE_FLAG],
     });
     return flags.isEnabled(INTEGRATION_ACTION_FEATURE_FLAG);
-  } catch {
+  } catch (error) {
+    logger.error("Failed to evaluate integration action feature flag", {
+      error,
+    });
     return false;
   }
 }
