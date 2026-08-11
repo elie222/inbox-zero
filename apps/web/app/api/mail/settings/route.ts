@@ -5,23 +5,23 @@ import prisma from "@/utils/prisma";
 export type MailSettingsResponse = Awaited<ReturnType<typeof getMailSettings>>;
 
 async function getMailSettings({ emailAccountId }: { emailAccountId: string }) {
-  const [emailAccount, splits] = await Promise.all([
-    prisma.emailAccount.findUnique({
-      where: { id: emailAccountId },
-      select: { mailLayout: true, mailHintBarDismissed: true },
-    }),
-    prisma.mailSplit.findMany({
-      where: { emailAccountId },
-      // createdAt breaks ties so tab order can't shuffle between requests
-      orderBy: [{ order: "asc" }, { createdAt: "asc" }],
-      select: { id: true, name: true, kind: true, value: true, order: true },
-    }),
-  ]);
+  const emailAccount = await prisma.emailAccount.findUnique({
+    where: { id: emailAccountId },
+    select: {
+      mailLayout: true,
+      mailHintBarDismissed: true,
+      mailSplits: {
+        // createdAt breaks ties so tab order can't shuffle between requests
+        orderBy: [{ order: "asc" }, { createdAt: "asc" }],
+        select: { id: true, name: true, kind: true, value: true, order: true },
+      },
+    },
+  });
 
   return {
     layout: emailAccount?.mailLayout ?? null,
     hintBarDismissed: emailAccount?.mailHintBarDismissed ?? false,
-    splits,
+    splits: emailAccount?.mailSplits ?? [],
   };
 }
 
