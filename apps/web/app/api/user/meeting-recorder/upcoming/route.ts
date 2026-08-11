@@ -76,8 +76,7 @@ async function getData({
     meetings.map((meeting) => [meeting.calendarEventId, meeting]),
   );
 
-  const rule =
-    emailAccount?.meetingRecorderJoinRule ?? MeetingJoinRule.EXTERNAL_ONLY;
+  const rule = emailAccount?.meetingRecorderJoinRule ?? MeetingJoinRule.ALL;
 
   return {
     hasAccess,

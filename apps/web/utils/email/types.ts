@@ -21,8 +21,8 @@ export type MailboxSyncPage = {
 
 export interface EmailLabel {
   color?: {
-    textColor?: string;
-    backgroundColor?: string;
+    textColor?: string | null;
+    backgroundColor?: string | null;
   };
   id: string;
   labelListVisibility?: string;

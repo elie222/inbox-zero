@@ -8,9 +8,8 @@ import { LoadingContent } from "@/components/LoadingContent";
 import type { ThreadsQuery } from "@/utils/threads/validation";
 import type { ThreadsResponse } from "@/app/api/threads/route";
 import { refetchEmailListAtom } from "@/store/email";
-import { BetaBanner } from "@/app/(app)/[emailAccountId]/mail/BetaBanner";
-import { ClientOnly } from "@/components/ClientOnly";
 import { PermissionsCheck } from "@/app/(app)/[emailAccountId]/PermissionsCheck";
+import { EmailProvider } from "@/providers/EmailProvider";
 import { createSearchParams } from "@/utils/url";
 
 export default function Mail(props: {
@@ -91,23 +90,22 @@ export default function Mail(props: {
   }, [setSize]);
 
   return (
-    <>
-      <PermissionsCheck />
-      <ClientOnly>
-        <BetaBanner />
-      </ClientOnly>
-      <LoadingContent loading={isLoading && !data} error={error}>
-        {allThreads && (
-          <List
-            emails={allThreads}
-            refetch={refetch}
-            type={searchParams.type}
-            showLoadMore={showLoadMore}
-            handleLoadMore={handleLoadMore}
-            isLoadingMore={isLoadingMore}
-          />
-        )}
-      </LoadingContent>
-    </>
+    <EmailProvider>
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <PermissionsCheck />
+        <LoadingContent loading={isLoading && !data} error={error}>
+          {allThreads && (
+            <List
+              emails={allThreads}
+              refetch={refetch}
+              type={searchParams.type}
+              showLoadMore={showLoadMore}
+              handleLoadMore={handleLoadMore}
+              isLoadingMore={isLoadingMore}
+            />
+          )}
+        </LoadingContent>
+      </div>
+    </EmailProvider>
   );
 }

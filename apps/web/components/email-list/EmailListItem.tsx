@@ -19,6 +19,9 @@ import { Button } from "@/components/ui/button";
 import { findCtaLink } from "@/utils/parse/parseHtml.client";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { internalDateToDate } from "@/utils/date";
+import { useEmail } from "@/providers/EmailProvider";
+import { getEmailMessageCellLabels } from "@/components/EmailMessageCellLabels";
+import { LabelBadges } from "@/components/LabelBadges";
 
 export const EmailListItem = forwardRef(
   (
@@ -45,6 +48,18 @@ export const EmailListItem = forwardRef(
     const isUnread = useMemo(
       () => lastMessage?.labelIds?.includes("UNREAD"),
       [lastMessage?.labelIds],
+    );
+
+    const { userLabels } = useEmail();
+    const labels = useMemo(
+      () =>
+        // No provider: the current folder already conveys archived state, so
+        // skip the synthetic Archived chip here
+        getEmailMessageCellLabels({
+          labelIds: lastMessage?.labelIds,
+          userLabels,
+        }) ?? [],
+      [lastMessage?.labelIds, userLabels],
     );
 
     const preventPropagation = useCallback(
@@ -109,7 +124,7 @@ export const EmailListItem = forwardRef(
                   />
                 </div>
 
-                <div className="ml-4 w-48 min-w-0 overflow-hidden truncate text-foreground">
+                <div className="ml-4 w-28 shrink-0 overflow-hidden truncate text-foreground sm:w-36 xl:w-48">
                   {extractNameFromEmail(
                     participant(lastMessage, props.userEmail),
                   )}{" "}
@@ -121,11 +136,15 @@ export const EmailListItem = forwardRef(
                 </div>
                 {!splitView && (
                   <>
+                    <LabelBadges
+                      labels={labels}
+                      className="ml-2 hidden md:flex"
+                    />
                     {cta && (
                       <Button
                         variant="outline"
                         size="xs"
-                        className="ml-2"
+                        className="ml-2 hidden shrink-0 md:inline-flex"
                         asChild
                       >
                         <Link href={cta.ctaLink} target="_blank">
@@ -179,8 +198,11 @@ export const EmailListItem = forwardRef(
 
             {splitView && (
               <div className="mt-1.5 min-w-0 overflow-hidden text-sm leading-6">
-                <div className="min-w-0 overflow-hidden truncate font-medium text-foreground">
-                  {lastMessage.headers.subject}
+                <div className="flex min-w-0 items-center gap-2">
+                  <div className="min-w-0 overflow-hidden truncate font-medium text-foreground">
+                    {lastMessage.headers.subject}
+                  </div>
+                  <LabelBadges labels={labels} />
                 </div>
                 <div className="mr-6 mt-0.5 min-w-0 overflow-hidden truncate pl-1 font-normal leading-5 text-muted-foreground">
                   {decodedSnippet}

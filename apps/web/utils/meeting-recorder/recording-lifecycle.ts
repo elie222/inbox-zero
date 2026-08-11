@@ -23,15 +23,29 @@ export const CHANGEABLE_STATUSES: MeetingRecordingStatus[] = [
   MeetingRecordingStatus.SCHEDULED,
 ];
 
-// The bot engaged with the call (tried to join, reached it, or failed trying)
-// but delivered no media. A recording still in one of these states after the
-// meeting ended produced nothing.
+// The bot is in the call with capture still underway. A recording still in one
+// of these states after the meeting's scheduled end means the call ran long and
+// the recording is wrapping up, not missing.
+export const STILL_CAPTURING_STATUSES: MeetingRecordingStatus[] = [
+  MeetingRecordingStatus.IN_CALL,
+  MeetingRecordingStatus.RECORDING,
+];
+
+// The bot engaged with the call (tried to join, or failed trying) but delivered
+// no media. A recording still in one of these states after the meeting ended
+// produced nothing.
 export const NO_RECORDING_STATUSES: MeetingRecordingStatus[] = [
   MeetingRecordingStatus.JOINING,
   MeetingRecordingStatus.IN_WAITING_ROOM,
-  MeetingRecordingStatus.IN_CALL,
-  MeetingRecordingStatus.RECORDING,
   MeetingRecordingStatus.FAILED,
+];
+
+// The bot made it into the call, so media exists or is still being captured.
+// Meetings in these states must never be presented as "not recorded".
+export const CAPTURED_MEETING_STATUSES: MeetingRecordingStatus[] = [
+  ...STILL_CAPTURING_STATUSES,
+  MeetingRecordingStatus.CALL_ENDED,
+  MeetingRecordingStatus.DONE,
 ];
 
 // A booked bot is not a recorded meeting. The Recorded section only shows
@@ -39,8 +53,7 @@ export const NO_RECORDING_STATUSES: MeetingRecordingStatus[] = [
 // bookings are no-shows.
 export const RECORDED_SECTION_STATUSES: MeetingRecordingStatus[] = [
   ...NO_RECORDING_STATUSES,
-  MeetingRecordingStatus.CALL_ENDED,
-  MeetingRecordingStatus.DONE,
+  ...CAPTURED_MEETING_STATUSES,
 ];
 
 // Rank orders the lifecycle so replayed or out-of-order webhooks can only ever

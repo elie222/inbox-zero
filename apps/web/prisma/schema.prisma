@@ -162,7 +162,7 @@ model EmailAccount {
   meetingBriefsSendEmail        Boolean @default(true)
 
   meetingRecorderEnabled              Boolean         @default(false)
-  meetingRecorderJoinRule             MeetingJoinRule @default(EXTERNAL_ONLY)
+  meetingRecorderJoinRule             MeetingJoinRule @default(ALL)
   meetingRecorderRecapEmailEnabled    Boolean         @default(true)
   meetingRecorderFollowUpDraftEnabled Boolean         @default(true)
 

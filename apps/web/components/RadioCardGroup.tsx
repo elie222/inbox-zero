@@ -5,8 +5,6 @@ import { cn } from "@/utils";
 type RadioCardOption<T extends string> = {
   value: T;
   label: string;
-  /** Short qualifier shown next to the label, e.g. "Recommended". */
-  badge?: string;
 };
 
 /**
@@ -73,14 +71,7 @@ export function RadioCardGroup<T extends string>({
               )}
             />
 
-            <span className="flex items-center gap-2 text-sm">
-              {option.label}
-              {option.badge && (
-                <span className="text-xs text-muted-foreground">
-                  {option.badge}
-                </span>
-              )}
-            </span>
+            <span className="text-sm">{option.label}</span>
           </label>
         );
       })}

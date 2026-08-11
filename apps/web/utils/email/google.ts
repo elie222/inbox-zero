@@ -167,6 +167,7 @@ export class GmailProvider implements EmailProvider {
           id: label.id!,
           name: label.name!,
           type: label.type!,
+          color: label.color || undefined,
           threadsTotal: label.threadsTotal || undefined,
           labelListVisibility: label.labelListVisibility || undefined,
           messageListVisibility: label.messageListVisibility || undefined,
@@ -184,6 +185,7 @@ export class GmailProvider implements EmailProvider {
         id: label.id!,
         name: label.name!,
         type: label.type!,
+        color: label.color || undefined,
         threadsTotal: label.threadsTotal || undefined,
       };
     } catch {
@@ -198,6 +200,7 @@ export class GmailProvider implements EmailProvider {
       id: label.id!,
       name: label.name!,
       type: label.type!,
+      color: label.color || undefined,
       threadsTotal: label.threadsTotal || undefined,
       labelListVisibility: label.labelListVisibility || undefined,
       messageListVisibility: label.messageListVisibility || undefined,

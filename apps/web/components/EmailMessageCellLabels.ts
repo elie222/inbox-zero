@@ -9,7 +9,7 @@ import { SystemType } from "@/generated/prisma/enums";
 import { GmailLabel } from "@/utils/gmail/label";
 import { OutlookLabel } from "@/utils/outlook/constants";
 
-export type EmailMessageCellLabel = Pick<EmailLabel, "id" | "name">;
+export type EmailMessageCellLabel = Pick<EmailLabel, "id" | "name" | "color">;
 
 const TO_REPLY_LABEL = getRuleLabel(SystemType.TO_REPLY);
 const AWAITING_REPLY_LABEL = getRuleLabel(SystemType.AWAITING_REPLY);
@@ -34,7 +34,7 @@ export function getEmailMessageCellLabels({
         );
 
       if (!label) return null;
-      return { id: label.id, name: label.name };
+      return { id: label.id, name: label.name, color: label.color };
     })
     .filter(isDefined)
     .filter((label) => {
@@ -52,7 +52,11 @@ export function getEmailMessageCellLabels({
     });
 
   if (shouldShowArchivedLabel({ labelIds, provider, labels })) {
-    labels?.unshift({ id: OutlookLabel.ARCHIVE, name: "Archived" });
+    labels?.unshift({
+      id: OutlookLabel.ARCHIVE,
+      name: "Archived",
+      color: undefined,
+    });
   }
 
   return labels;

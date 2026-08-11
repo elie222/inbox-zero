@@ -2,6 +2,7 @@ import {
   MeetingProcessingStatus,
   MeetingRecordingStatus,
 } from "@/generated/prisma/enums";
+import { CAPTURED_MEETING_STATUSES } from "@/utils/meeting-recorder/recording-lifecycle";
 
 export type MeetingDetailState =
   | "notes"
@@ -41,12 +42,7 @@ export function getMeetingDetailState({
 
   // Once the bot is in the call, the meeting is being captured even though
   // there is nothing to read yet, so "not recorded" would be wrong.
-  if (
-    recordingStatus === MeetingRecordingStatus.IN_CALL ||
-    recordingStatus === MeetingRecordingStatus.RECORDING ||
-    recordingStatus === MeetingRecordingStatus.CALL_ENDED ||
-    recordingStatus === MeetingRecordingStatus.DONE
-  ) {
+  if (recordingStatus && CAPTURED_MEETING_STATUSES.includes(recordingStatus)) {
     return "processing";
   }
 
