@@ -40,7 +40,6 @@ export type ThreadReaderProps = {
   onToggleFocusMode: () => void;
   /** Refreshes the open thread after a reply is sent or a draft changes. */
   refetch: () => void;
-  onSendSuccess?: (messageId: string, threadId: string) => void;
   /**
    * Set by the reply action. Left unset the composer still opens on its own for
    * a message that already has an AI draft.
@@ -48,7 +47,6 @@ export type ThreadReaderProps = {
   autoOpenReplyForMessageId?: string;
   /** The ⋯ dropdown, i.e. `RuleAttributionMenu`, composed by the shell. */
   menu?: ReactNode;
-  emptyTitle?: string;
 };
 
 export function ThreadReader({
@@ -67,10 +65,8 @@ export function ThreadReader({
   onDelete,
   onToggleFocusMode,
   refetch,
-  onSendSuccess,
   autoOpenReplyForMessageId,
   menu,
-  emptyTitle = "Nothing selected",
 }: ThreadReaderProps) {
   const headerMessage = thread?.messages.at(-1);
 
@@ -78,7 +74,7 @@ export function ThreadReader({
     return (
       <div className="flex h-full flex-col items-center justify-center gap-2 px-6 py-16 text-center">
         <MailIcon className="size-6 text-muted-foreground" />
-        <div className="text-foreground text-sm">{emptyTitle}</div>
+        <div className="text-foreground text-sm">Nothing selected</div>
         <div className="text-muted-foreground text-xs">
           Pick another view, or head back to the inbox.
         </div>
@@ -115,14 +111,14 @@ export function ThreadReader({
         />
 
         {messages.length > 0 ? (
-          // `EmailThread` brings its own panel chrome, which the reader replaces
-          // with a plain measure column.
+          // Workaround: `EmailThread` bakes in its own panel chrome, so the
+          // reader strips it from the outside to get a plain measure column.
+          // Fixing it properly means giving `EmailThread` a chrome-less mode.
           <div className="[&>div]:bg-transparent [&>div]:p-0 [&>div>ul]:mt-0">
             <EmailThread
               autoOpenReplyForMessageId={autoOpenReplyForMessageId}
               key={thread.id}
               messages={messages}
-              onSendSuccess={onSendSuccess}
               refetch={refetch}
               showReplyButton
             />

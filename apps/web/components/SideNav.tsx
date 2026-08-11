@@ -247,9 +247,7 @@ const bottomMailLinks: NavItem[] = [
 export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const navigation = useNavigation();
   const path = usePathname();
-  // The mail screen ships its own sidebar, so this one would be a second copy.
-  const isMailRoute = path.includes("/mail");
-  const showMailNav = isMailRoute || path.includes("/compose");
+  const showMailNav = path.includes("/compose");
   const isMoreActive = navigation.moreItems.some(
     (item) => path === item.href || path.startsWith(`${item.href}/`),
   );
@@ -274,8 +272,6 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
   );
 
   const { state } = useSidebar();
-
-  if (isMailRoute) return null;
 
   return (
     <Sidebar collapsible="icon" {...props}>

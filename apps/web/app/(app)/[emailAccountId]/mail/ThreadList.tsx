@@ -1,6 +1,5 @@
 "use client";
 
-import type { ReactNode } from "react";
 import { SelectionBar } from "@/app/(app)/[emailAccountId]/mail/SelectionBar";
 import { ThreadRow } from "@/app/(app)/[emailAccountId]/mail/ThreadRow";
 import type {
@@ -15,7 +14,7 @@ export type ThreadListProps = {
   layout: MailLayoutMode;
   userEmail: string;
   userLabels: EmailLabels;
-  /** The row `J`/`K` sits on. `-1` when nothing is focused. */
+  /** The row `J`/`K` sits on. */
   focusedIndex: number;
   isSelected: (threadId: string) => boolean;
   selectedCount: number;
@@ -26,8 +25,6 @@ export type ThreadListProps = {
   onDeleteSelected: () => void;
   onClearSelection: () => void;
   emptyTitle: string;
-  /** Rendered under the empty state, e.g. a "Back to Inbox" button. */
-  emptyAction?: ReactNode;
   showLoadMore: boolean;
   isLoadingMore: boolean;
   onLoadMore: () => void;
@@ -48,7 +45,6 @@ export function ThreadList({
   onDeleteSelected,
   onClearSelection,
   emptyTitle,
-  emptyAction,
   showLoadMore,
   isLoadingMore,
   onLoadMore,
@@ -69,7 +65,6 @@ export function ThreadList({
             <div className="mt-1.5 text-muted-foreground text-xs">
               Nothing here right now.
             </div>
-            {emptyAction ? <div className="mt-3.5">{emptyAction}</div> : null}
           </div>
         ) : (
           <>

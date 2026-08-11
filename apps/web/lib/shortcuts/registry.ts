@@ -11,6 +11,12 @@ const logger = createClientLogger("shortcuts");
  */
 export type ShortcutScope = "global" | "mail";
 
+/** Every surface that binds mail keys also needs the global ones. */
+export const MAIL_SHORTCUT_SCOPES: readonly ShortcutScope[] = [
+  "global",
+  "mail",
+];
+
 /** Display order of the `?` help dialog sections. */
 export const SHORTCUT_GROUPS = [
   "Navigate",

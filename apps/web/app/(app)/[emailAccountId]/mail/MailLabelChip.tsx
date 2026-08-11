@@ -2,13 +2,10 @@
 
 import Link from "next/link";
 import { XIcon } from "lucide-react";
-import type { ChipColor } from "@/app/(app)/[emailAccountId]/mail/types";
 import { cn } from "@/utils";
 
 export type MailLabelChipProps = {
   name: string;
-  /** Defaults to `chipColorForLabel(name)` so a label reads the same everywhere. */
-  color?: ChipColor;
   /** Interactive: the chip navigates to that label's view. */
   href?: string;
   /** Interactive: reveals a `×` on hover that removes the label. */
@@ -17,12 +14,12 @@ export type MailLabelChipProps = {
 };
 
 /**
- * A label pill. Rows pass neither `href` nor `onRemove` and get an inert chip;
- * the reader passes both and gets a link with a hover remove affordance.
+ * A label pill. Its colour comes from the name, so a label reads the same
+ * everywhere. Without `href` or `onRemove` the chip is inert; each adds its own
+ * affordance — a link on the name, and a `×` revealed on hover.
  */
 export function MailLabelChip({
   name,
-  color,
   href,
   onRemove,
   className,
@@ -31,7 +28,7 @@ export function MailLabelChip({
     <span
       className={cn(
         "group/chip inline-flex min-w-0 max-w-full items-center gap-0.5 whitespace-nowrap rounded-md border px-1.5 py-px text-xs leading-4",
-        CHIP_CLASSES[color ?? chipColorForLabel(name)],
+        CHIP_CLASSES[chipColorForLabel(name)],
         className,
       )}
     >
@@ -60,8 +57,14 @@ export function MailLabelChip({
   );
 }
 
-/** bg / border / text, light-scoped: the Mail palette has no dark variant. */
-const CHIP_CLASSES: Record<ChipColor, string> = {
+/**
+ * The chip palette, and the only place it is spelled out: `ChipColor` and
+ * `CHIP_COLORS` both derive from these keys, so a new colour is picked up by the
+ * hash the moment it is added here.
+ *
+ * bg / border / text, light-scoped: the Mail palette has no dark variant.
+ */
+const CHIP_CLASSES = {
   blue: "bg-new-blue-50 border-new-blue-150 text-primary",
   green: "bg-new-green-50 border-new-green-150 text-new-green-600",
   purple: "bg-new-purple-50 border-new-purple-200 text-new-purple-600",
@@ -72,16 +75,10 @@ const CHIP_CLASSES: Record<ChipColor, string> = {
   yellow: "bg-new-yellow-50 border-new-yellow-150 text-new-yellow-600",
 };
 
-const CHIP_COLORS: readonly ChipColor[] = [
-  "blue",
-  "green",
-  "purple",
-  "orange",
-  "red",
-  "gray",
-  "cyan",
-  "yellow",
-];
+type ChipColor = keyof typeof CHIP_CLASSES;
+
+/** The colours the hash can land on. Exported so tests assert against the palette itself. */
+export const CHIP_COLORS = Object.keys(CHIP_CLASSES) as ChipColor[];
 
 /** Lowercased, so a label keeps its colour however the provider cases it. */
 const NAMED_CHIP_COLORS: Record<string, ChipColor> = {

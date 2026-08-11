@@ -120,7 +120,6 @@ export function useThreadActions({
     archive: useCallback((ids: string[]) => run("archive", ids), [run]),
     trash: useCallback((ids: string[]) => run("delete", ids), [run]),
     undo,
-    canUndo: () => lastAction.current !== null,
   };
 }
 

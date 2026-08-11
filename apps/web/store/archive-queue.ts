@@ -127,7 +127,7 @@ export const archiveEmails = async ({
 }: {
   threadIds: string[];
   labelId?: string;
-  onSuccess: (threadId: string) => void;
+  onSuccess?: (threadId: string) => void;
   onError?: (threadId: string) => void;
   emailAccountId: string;
 }) => {

@@ -1,17 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { chipColorForLabel } from "@/app/(app)/[emailAccountId]/mail/MailLabelChip";
-import type { ChipColor } from "@/app/(app)/[emailAccountId]/mail/types";
-
-const PALETTE: ChipColor[] = [
-  "blue",
-  "green",
-  "purple",
-  "orange",
-  "red",
-  "gray",
-  "cyan",
-  "yellow",
-];
+import {
+  CHIP_COLORS,
+  chipColorForLabel,
+} from "@/app/(app)/[emailAccountId]/mail/MailLabelChip";
 
 describe("chipColorForLabel", () => {
   it("gives product labels their fixed colour, however they are cased", () => {
@@ -27,7 +18,7 @@ describe("chipColorForLabel", () => {
 
     for (const name of names) {
       const color = chipColorForLabel(name);
-      expect(PALETTE).toContain(color);
+      expect(CHIP_COLORS).toContain(color);
       expect(chipColorForLabel(name)).toBe(color);
     }
   });

@@ -67,9 +67,8 @@ export function useMailThreads(query: ThreadsQuery) {
     threads,
     isLoading,
     error,
-    hasMore: data ? Boolean(data.at(-1)?.nextPageToken) : false,
-    isLoadingMore:
-      isLoading || (size > 0 && data && typeof data[size - 1] === "undefined"),
+    hasMore: Boolean(data?.at(-1)?.nextPageToken),
+    isLoadingMore: isLoading || (size > 0 && !data?.[size - 1]),
     loadMore: useCallback(() => setSize((current) => current + 1), [setSize]),
     removeThreads,
     restoreThreads,

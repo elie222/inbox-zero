@@ -62,6 +62,8 @@ export function SideNavWithTopNav({
   if (!pathname) return null;
 
   const isAssistantRoute = pathname.includes("/assistant");
+  // The mail screen ships its own sidebar, so this one would be a second copy.
+  const isMailRoute = pathname.includes("/mail");
 
   // Ugly code. May change the onboarding path later so we don't need to do this.
   // Only return children for the onboarding or onboarding-brief pages: /[emailAccountId]/onboarding or /[emailAccountId]/onboarding-brief
@@ -78,7 +80,7 @@ export function SideNavWithTopNav({
       sidebarNames={["left-sidebar", "chat-sidebar"]}
     >
       <MobileHeader />
-      <SideNav name="left-sidebar" />
+      {!isMailRoute && <SideNav name="left-sidebar" />}
       <ContentWrapper>{children}</ContentWrapper>
       {!isAssistantRoute ? <SidebarRight name="chat-sidebar" /> : null}
     </SidebarProvider>

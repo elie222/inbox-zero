@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { Loader2Icon } from "lucide-react";
-import { useAtom, useAtomValue } from "jotai";
+import { useAtom } from "jotai";
 import {
   CommandDialog,
   CommandEmpty,
@@ -14,7 +14,6 @@ import {
   CommandShortcut,
 } from "@/components/ui/command";
 import { useComposeModal } from "@/providers/ComposeModalProvider";
-import { refetchEmailListAtom } from "@/store/email";
 import { commandPaletteOpenAtom } from "@/store/command-palette";
 import { archiveEmails } from "@/store/archive-queue";
 import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
@@ -26,8 +25,8 @@ import { ShortcutsProvider } from "@/lib/shortcuts/ShortcutsProvider";
 import { useShortcuts } from "@/lib/shortcuts/useShortcuts";
 import {
   buildShortcutPaletteCommands,
+  MAIL_SHORTCUT_SCOPES,
   type ShortcutHandlers,
-  type ShortcutScope,
 } from "@/lib/shortcuts/registry";
 
 const SECTION_ORDER: CommandSection[] = [
@@ -51,11 +50,9 @@ const SECTION_LABELS: Record<CommandSection, string> = {
 // route's own bindings: these handlers are only defined when the side panel has a
 // thread (`side-panel-thread-id`), which the mail list never sets — and the mail
 // screen in turn stands down while the side panel is open.
-const SHORTCUT_SCOPES: ShortcutScope[] = ["global", "mail"];
-
 export function CommandK() {
   return (
-    <ShortcutsProvider scopes={SHORTCUT_SCOPES}>
+    <ShortcutsProvider scopes={MAIL_SHORTCUT_SCOPES}>
       <CommandPalette />
     </ShortcutsProvider>
   );
@@ -67,22 +64,15 @@ function CommandPalette() {
 
   const { emailAccountId } = useAccount();
   const { threadId, showEmail } = useDisplayedEmail();
-  const refreshEmailList = useAtomValue(refetchEmailListAtom);
   const { onOpen: onOpenComposeModal } = useComposeModal();
   const { commands, isLoading } = useCommandPaletteCommands();
 
   const onArchive = React.useCallback(() => {
     if (threadId) {
-      const threadIds = [threadId];
-      archiveEmails({
-        threadIds,
-        onSuccess: () =>
-          refreshEmailList?.refetch({ removedThreadIds: threadIds }),
-        emailAccountId,
-      });
+      archiveEmails({ threadIds: [threadId], emailAccountId });
       showEmail(null);
     }
-  }, [refreshEmailList, threadId, showEmail, emailAccountId]);
+  }, [threadId, showEmail, emailAccountId]);
 
   const shortcutHandlers = React.useMemo<ShortcutHandlers>(
     () => ({

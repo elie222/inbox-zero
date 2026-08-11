@@ -34,9 +34,6 @@ export type NewSplitDraft = {
 export type NewSplitPopoverProps = {
   options: NewSplitOption[];
   onCreate: (draft: NewSplitDraft) => void;
-  isCreating?: boolean;
-  align?: "start" | "center" | "end";
-  className?: string;
 };
 
 const GROUP_TITLES: { group: NewSplitOptionGroup; title: string }[] = [
@@ -45,13 +42,7 @@ const GROUP_TITLES: { group: NewSplitOptionGroup; title: string }[] = [
   { group: "label", title: "Label" },
 ];
 
-export function NewSplitPopover({
-  options,
-  onCreate,
-  isCreating,
-  align = "start",
-  className,
-}: NewSplitPopoverProps) {
+export function NewSplitPopover({ options, onCreate }: NewSplitPopoverProps) {
   const [open, setOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [name, setName] = useState("");
@@ -81,14 +72,11 @@ export function NewSplitPopover({
     <Popover open={open} onOpenChange={changeOpen}>
       <PopoverTrigger
         aria-label="New split"
-        className={cn(
-          "flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-          className,
-        )}
+        className="flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <PlusIcon className="size-3.5" />
       </PopoverTrigger>
-      <PopoverContent align={align} className="w-80 p-3 text-foreground">
+      <PopoverContent align="start" className="w-80 p-3 text-foreground">
         <form onSubmit={submit}>
           <p className="mb-2.5 font-medium text-foreground text-xs">
             New split
@@ -150,7 +138,6 @@ export function NewSplitPopover({
               variant="gradient"
               size="xs-2"
               disabled={!selected}
-              loading={isCreating}
             >
               Add split
             </Button>

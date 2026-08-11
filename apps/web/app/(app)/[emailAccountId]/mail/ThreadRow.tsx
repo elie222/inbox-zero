@@ -1,8 +1,8 @@
 "use client";
 
+import { memo, useMemo } from "react";
 import { MailLabelChip } from "@/app/(app)/[emailAccountId]/mail/MailLabelChip";
 import type {
-  ListMessage,
   ListThread,
   MailLayoutMode,
 } from "@/app/(app)/[emailAccountId]/mail/types";
@@ -15,6 +15,9 @@ import { cn } from "@/utils";
 import { internalDateToDate } from "@/utils/date";
 import { extractNameFromEmail, participant } from "@/utils/email";
 import { decodeSnippet } from "@/utils/gmail/decode";
+import { GmailLabel } from "@/utils/gmail/label";
+
+const SELECT_HINT = getShortcutHint("select");
 
 export type ThreadRowProps = {
   thread: ListThread;
@@ -32,7 +35,7 @@ export type ThreadRowProps = {
   onSelectRangeTo: (index: number) => void;
 };
 
-export function ThreadRow({
+export const ThreadRow = memo(function ThreadRow({
   thread,
   index,
   layout,
@@ -46,20 +49,27 @@ export function ThreadRow({
   onSelectRangeTo,
 }: ThreadRowProps) {
   const message = thread.messages.at(-1);
+
+  const labels = useMemo(
+    () =>
+      getEmailMessageCellLabels({
+        labelIds: message?.labelIds,
+        userLabels,
+      }) ?? [],
+    [message?.labelIds, userLabels],
+  );
+
   if (!message) return null;
 
-  const isUnread = message.labelIds?.includes(UNREAD_LABEL) ?? false;
-  const isDraft = message.labelIds?.includes(DRAFT_LABEL) ?? false;
+  // Both providers normalise to these ids, so this is not a provider branch.
+  const isUnread = message.labelIds?.includes(GmailLabel.UNREAD) ?? false;
+  const isDraft = message.labelIds?.includes(GmailLabel.DRAFT) ?? false;
   const isWide = layout === "list";
 
   const sender = extractNameFromEmail(participant(message, userEmail));
   const subject = message.headers.subject;
   const snippet = decodeSnippet(thread.snippet || message.snippet);
-  const chips =
-    getEmailMessageCellLabels({
-      labelIds: message.labelIds,
-      userLabels,
-    })?.slice(0, isWide ? 3 : 2) ?? [];
+  const chips = labels.slice(0, isWide ? 3 : 2);
 
   const checkbox = (
     <Checkbox
@@ -77,7 +87,7 @@ export function ThreadRow({
         if (event.shiftKey) onSelectRangeTo(index);
         else onToggleSelect(index);
       }}
-      title={`Select (${getShortcutHint("select")})`}
+      title={`Select (${SELECT_HINT})`}
     />
   );
 
@@ -97,7 +107,13 @@ export function ThreadRow({
     </span>
   );
 
-  const date = <ThreadRowDate message={message} />;
+  // `EmailDate` is shared with the old list, which sets a heavier type ramp.
+  const date = (
+    <EmailDate
+      className="font-normal text-xs"
+      date={internalDateToDate(message.internalDate)}
+    />
+  );
   const draftMarker = isDraft ? (
     <span className="shrink-0 text-primary text-sm">Draft</span>
   ) : null;
@@ -204,20 +220,7 @@ export function ThreadRow({
       )}
     </div>
   );
-}
-
-// Both providers normalise to these ids, so this is not a provider branch.
-const UNREAD_LABEL = "UNREAD";
-const DRAFT_LABEL = "DRAFT";
-
-/** `EmailDate` is shared with the old list, which sets a heavier type ramp. */
-function ThreadRowDate({ message }: { message: ListMessage }) {
-  return (
-    <div className="[&>div]:font-normal [&>div]:text-xs">
-      <EmailDate date={internalDateToDate(message.internalDate)} />
-    </div>
-  );
-}
+});
 
 function rowBackground({
   isSelected,

@@ -9,6 +9,7 @@ import {
   FileIcon,
   InboxIcon,
   KeyboardIcon,
+  type LucideIcon,
   MegaphoneIcon,
   MessagesSquareIcon,
   PenLineIcon,
@@ -23,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
 import type { EmailLabel } from "@/providers/email-label-types";
+import { GmailLabel } from "@/utils/gmail/label";
 import { cn } from "@/utils";
 
 /** Where a sidebar row navigates. Mirrors the mail page's `?type=` query shape. */
@@ -43,10 +45,7 @@ export type MailSidebarProps = {
   /** Gmail-only concept, so Outlook accounts hide the section entirely. */
   showCategories: boolean;
   backToAppHref: string;
-  backToAppLabel?: string;
-  onBackToApp?: () => void;
   onCompose: () => void;
-  onSelectView?: (target: MailNavTarget) => void;
   onCreateLabel: (name: string) => void;
   onOpenShortcuts: () => void;
   className?: string;
@@ -59,13 +58,17 @@ const SYSTEM_ITEMS = [
   { name: "Archived", type: "archive", countId: null, Icon: ArchiveIcon },
 ] as const;
 
-const CATEGORY_ITEMS = [
-  { name: "Personal", type: "CATEGORY_PERSONAL", Icon: UserIcon },
-  { name: "Social", type: "CATEGORY_SOCIAL", Icon: Users2Icon },
-  { name: "Updates", type: "CATEGORY_UPDATES", Icon: BellIcon },
-  { name: "Forums", type: "CATEGORY_FORUMS", Icon: MessagesSquareIcon },
-  { name: "Promotions", type: "CATEGORY_PROMOTIONS", Icon: MegaphoneIcon },
-] as const;
+export const MAIL_CATEGORIES: {
+  name: string;
+  type: string;
+  Icon: LucideIcon;
+}[] = [
+  { name: "Personal", type: GmailLabel.PERSONAL, Icon: UserIcon },
+  { name: "Social", type: GmailLabel.SOCIAL, Icon: Users2Icon },
+  { name: "Updates", type: GmailLabel.UPDATES, Icon: BellIcon },
+  { name: "Forums", type: GmailLabel.FORUMS, Icon: MessagesSquareIcon },
+  { name: "Promotions", type: GmailLabel.PROMOTIONS, Icon: MegaphoneIcon },
+];
 
 export function MailSidebar({
   activeType,
@@ -75,10 +78,7 @@ export function MailSidebar({
   countsById,
   showCategories,
   backToAppHref,
-  backToAppLabel = "Inbox Zero",
-  onBackToApp,
   onCompose,
-  onSelectView,
   onCreateLabel,
   onOpenShortcuts,
   className,
@@ -104,11 +104,10 @@ export function MailSidebar({
     >
       <Link
         href={backToAppHref}
-        onClick={onBackToApp}
         className="mb-2.5 flex shrink-0 items-center gap-2 rounded-lg px-2 py-1.5 text-muted-foreground text-xs hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <ArrowLeftIcon className="size-3.5 shrink-0" />
-        <span className="flex-1 truncate">{backToAppLabel}</span>
+        <span className="flex-1 truncate">Inbox Zero</span>
         <Kbd>{getShortcutHint("backToApp")}</Kbd>
       </Link>
 
@@ -129,7 +128,6 @@ export function MailSidebar({
               key={type}
               href={hrefFor({ kind: "type", type })}
               active={!activeLabelId && activeType === type}
-              onSelect={() => onSelectView?.({ kind: "type", type })}
               icon={<Icon className="size-4 shrink-0" />}
               name={name}
               count={countId ? displayCount(countsById.get(countId)) : null}
@@ -142,12 +140,11 @@ export function MailSidebar({
           <>
             <GroupHeading>Categories</GroupHeading>
             <nav className="flex flex-col gap-px">
-              {CATEGORY_ITEMS.map(({ name, type, Icon }) => (
+              {MAIL_CATEGORIES.map(({ name, type, Icon }) => (
                 <NavRow
                   key={type}
                   href={hrefFor({ kind: "type", type })}
                   active={!activeLabelId && activeType === type}
-                  onSelect={() => onSelectView?.({ kind: "type", type })}
                   icon={<Icon className="size-3.5 shrink-0" />}
                   name={name}
                   count={displayCount(countsById.get(type))}
@@ -178,9 +175,6 @@ export function MailSidebar({
               key={label.id}
               href={hrefFor({ kind: "label", labelId: label.id })}
               active={activeLabelId === label.id}
-              onSelect={() =>
-                onSelectView?.({ kind: "label", labelId: label.id })
-              }
               icon={
                 <span
                   className="size-2.5 shrink-0 rounded-full bg-muted-foreground/40"
@@ -255,7 +249,6 @@ function GroupHeading({
 function NavRow({
   href,
   active,
-  onSelect,
   icon,
   name,
   count,
@@ -263,7 +256,6 @@ function NavRow({
 }: {
   href: string;
   active: boolean;
-  onSelect?: () => void;
   icon: ReactNode;
   name: string;
   count: number | null;
@@ -272,7 +264,6 @@ function NavRow({
   return (
     <Link
       href={href}
-      onClick={onSelect}
       aria-current={active ? "page" : undefined}
       className={cn(
         "flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -283,16 +274,18 @@ function NavRow({
     >
       {icon}
       <span className="flex-1 truncate">{name}</span>
-      {count !== null &&
-        (emphasizeCount ? (
-          <span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-px font-medium text-primary text-xs">
-            {count}
-          </span>
-        ) : (
-          <span className="shrink-0 text-muted-foreground text-xs">
-            {count}
-          </span>
-        ))}
+      {count !== null && (
+        <span
+          className={cn(
+            "shrink-0 text-xs",
+            emphasizeCount
+              ? "rounded-full bg-primary/10 px-1.5 py-px font-medium text-primary"
+              : "text-muted-foreground",
+          )}
+        >
+          {count}
+        </span>
+      )}
     </Link>
   );
 }

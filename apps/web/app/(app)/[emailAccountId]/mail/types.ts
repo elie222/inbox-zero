@@ -8,17 +8,3 @@ export type ThreadPlan = NonNullable<ListThread["plans"]>[number];
 
 /** Split view is the two-column list + reader; list view gives the list the full width. */
 export type MailLayoutMode = "list" | "split";
-
-/**
- * The label chip palette. Names map to a colour so a chip looks the same
- * everywhere it appears, rather than inheriting the provider's own colour.
- */
-export type ChipColor =
-  | "blue"
-  | "green"
-  | "purple"
-  | "orange"
-  | "red"
-  | "gray"
-  | "cyan"
-  | "yellow";

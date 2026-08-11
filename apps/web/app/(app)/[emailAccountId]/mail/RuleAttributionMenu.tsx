@@ -9,8 +9,6 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ActionType, ExecutedRuleStatus } from "@/generated/prisma/enums";
@@ -33,29 +31,17 @@ export type RuleAttributionMenuProps = {
   setChatInput: (input: string) => void;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
-  onMarkUnread?: () => void;
-  onMuteThread?: () => void;
-  onUnsubscribe?: () => void;
 };
 
-/** The reader's ⋯ menu: why the thread looks the way it does, and thread-level actions. */
+/** The reader's ⋯ menu: why the thread looks the way it does. */
 export function RuleAttributionMenu({
   plans,
   message,
   setChatInput,
   open,
   onOpenChange,
-  onMarkUnread,
-  onMuteThread,
-  onUnsubscribe,
 }: RuleAttributionMenuProps) {
-  const threadActions = [
-    { label: "Mark as unread", onSelect: onMarkUnread },
-    { label: "Mute thread", onSelect: onMuteThread },
-    { label: "Unsubscribe", onSelect: onUnsubscribe },
-  ].filter((action) => Boolean(action.onSelect));
-
-  if (plans.length === 0 && threadActions.length === 0) return null;
+  if (!plans.length) return null;
 
   const hint = getShortcutHint("moreActions");
 
@@ -81,16 +67,6 @@ export function RuleAttributionMenu({
             plan={plan}
             setChatInput={setChatInput}
           />
-        ))}
-
-        {plans.length > 0 && threadActions.length > 0 ? (
-          <DropdownMenuSeparator />
-        ) : null}
-
-        {threadActions.map((action) => (
-          <DropdownMenuItem key={action.label} onSelect={action.onSelect}>
-            {action.label}
-          </DropdownMenuItem>
         ))}
       </DropdownMenuContent>
     </DropdownMenu>
@@ -156,9 +132,12 @@ function RuleAttribution({
 }
 
 /**
- * The list payload drops `ExecutedRule.createdAt`, which the fix dialog only
- * uses to group results into batches. One rule is one batch, so a constant
- * stands in rather than inventing an execution time.
+ * `ThreadPlan` has no `createdAt`: the list route uses it to pick each rule's
+ * latest execution and then drops it. `ResultsDisplay`, inside `FixWithChat`,
+ * still requires one — but only as the key it groups and orders batches by, and
+ * never renders it. Each menu entry passes a single result, so grouping has
+ * nothing to do and any constant serves; a sentinel is honest about the
+ * execution time being unknown here, where a real date would be invented.
  */
 const FIX_RESULT_BATCH = new Date(0);
 

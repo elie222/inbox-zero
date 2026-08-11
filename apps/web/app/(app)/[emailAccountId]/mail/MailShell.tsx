@@ -1,11 +1,14 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useDeferredValue, useMemo, useState } from "react";
 import { useQueryState } from "nuqs";
 import { toast } from "sonner";
 import { HintBar } from "@/app/(app)/[emailAccountId]/mail/HintBar";
 import { ListToolbar } from "@/app/(app)/[emailAccountId]/mail/ListToolbar";
-import { MailSidebar } from "@/app/(app)/[emailAccountId]/mail/MailSidebar";
+import {
+  MAIL_CATEGORIES,
+  MailSidebar,
+} from "@/app/(app)/[emailAccountId]/mail/MailSidebar";
 import type { MailNavTarget } from "@/app/(app)/[emailAccountId]/mail/MailSidebar";
 import { RuleAttributionMenu } from "@/app/(app)/[emailAccountId]/mail/RuleAttributionMenu";
 import { ShortcutsDialog } from "@/app/(app)/[emailAccountId]/mail/ShortcutsDialog";
@@ -18,6 +21,7 @@ import type {
 import { ThreadList } from "@/app/(app)/[emailAccountId]/mail/ThreadList";
 import { ThreadReader } from "@/app/(app)/[emailAccountId]/mail/ThreadReader";
 import type { MailLayoutMode } from "@/app/(app)/[emailAccountId]/mail/types";
+import type { ThreadMessage } from "@/components/email-list/types";
 import { useMailThreads } from "@/app/(app)/[emailAccountId]/mail/use-mail-threads";
 import { useThreadActions } from "@/app/(app)/[emailAccountId]/mail/use-thread-actions";
 import { useThreadSelection } from "@/app/(app)/[emailAccountId]/mail/use-thread-selection";
@@ -42,24 +46,26 @@ import {
   deleteMailSplitAction,
   updateMailPreferencesAction,
 } from "@/utils/actions/mail-split";
-import { createLabelAction } from "@/utils/actions/mail";
+import type { UpdateMailPreferencesBody } from "@/utils/actions/mail-split.validation";
+import {
+  createLabelAction,
+  removeThreadLabelAction,
+} from "@/utils/actions/mail";
 import { mailSplitToThreadsQuery } from "@/utils/mail/split-query";
+import { getActionErrorMessage } from "@/utils/error";
 import { prefixPath } from "@/utils/path";
+import { LoadingContent } from "@/components/LoadingContent";
 import type { ThreadsQuery } from "@/utils/threads/validation";
 
-// Always present, never deletable. Everything else is a saved split.
-const BUILT_IN_SPLITS: MailSplitTab[] = [
-  { id: "all", name: "All", deletable: false },
-  { id: "unread", name: "Unread", deletable: false },
-];
+// Always present, never deletable. Everything else is a saved split. They carry
+// a kind so built-ins and saved splits resolve through one mapping.
+const BUILT_IN_SPLITS = [
+  { id: "all", name: "All", kind: MailSplitKind.INBOX, value: null },
+  { id: "unread", name: "Unread", kind: MailSplitKind.UNREAD, value: null },
+] as const;
 
-const CATEGORY_OPTIONS = [
-  { name: "Personal", value: "CATEGORY_PERSONAL" },
-  { name: "Social", value: "CATEGORY_SOCIAL" },
-  { name: "Updates", value: "CATEGORY_UPDATES" },
-  { name: "Forums", value: "CATEGORY_FORUMS" },
-  { name: "Promotions", value: "CATEGORY_PROMOTIONS" },
-];
+// Module-level so an "empty" reader doesn't hand children a new array each render.
+const NO_MESSAGES: ThreadMessage[] = [];
 
 export function MailShell() {
   const { emailAccountId, userEmail, provider } = useAccount();
@@ -67,7 +73,7 @@ export function MailShell() {
   // rendered as rows and split options that can never match anything.
   const showCategories = isGoogleProvider(provider);
   const { userLabels } = useEmail();
-  const { visibleLabels } = useSplitLabels();
+  const { visibleLabels, mutate: mutateLabels } = useSplitLabels();
   const { countsById } = useLabelCounts();
   const { data: settings, mutate: mutateSettings } = useMailSettings();
   const { onOpen: openCompose } = useComposeModal();
@@ -90,22 +96,51 @@ export function MailShell() {
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [replyToMessageId, setReplyToMessageId] = useState<string>();
-  const [layoutOverride, setLayoutOverride] = useState<MailLayoutMode>();
-  const [hintBarHidden, setHintBarHidden] = useState(false);
 
   const layout: MailLayoutMode =
-    layoutOverride ??
-    (settings?.layout === MailLayout.SPLIT ? "split" : "list");
+    settings?.layout === MailLayout.SPLIT ? "split" : "list";
+
+  // Written through the SWR cache rather than mirrored in local state, so the
+  // preference has one source of truth and every reader sees the new value.
+  const savePreferences = useCallback(
+    (patch: UpdateMailPreferencesBody) => {
+      mutateSettings(
+        async (current) => {
+          await updateMailPreferencesAction(emailAccountId, patch);
+          return current;
+        },
+        {
+          optimisticData: (current) => ({
+            layout: patch.layout ?? current?.layout ?? null,
+            hintBarDismissed:
+              patch.hintBarDismissed ?? current?.hintBarDismissed ?? false,
+            splits: current?.splits ?? [],
+          }),
+          revalidate: false,
+          rollbackOnError: true,
+        },
+      );
+    },
+    [emailAccountId, mutateSettings],
+  );
 
   // A sidebar selection scopes the whole list, which replaces the split tabs —
   // splits are a way of slicing the inbox, not of slicing an arbitrary view.
-  const isScoped = Boolean(
-    scopeLabelId || (scopeType && scopeType !== "inbox"),
-  );
+  // Resolved once so the tab bar and the fetched rows can't disagree.
+  const scopeQuery: ThreadsQuery | null = useMemo(() => {
+    if (scopeLabelId) return { labelId: scopeLabelId };
+    if (scopeType && scopeType !== "inbox") return { type: scopeType };
+    return null;
+  }, [scopeLabelId, scopeType]);
+  const isScoped = scopeQuery !== null;
 
   const splits: MailSplitTab[] = useMemo(
     () => [
-      ...BUILT_IN_SPLITS,
+      ...BUILT_IN_SPLITS.map((split) => ({
+        id: split.id,
+        name: split.name,
+        deletable: false,
+      })),
       ...(settings?.splits ?? []).map((split) => ({
         id: split.id,
         name: split.name,
@@ -116,19 +151,20 @@ export function MailShell() {
   );
 
   const query: ThreadsQuery = useMemo(() => {
-    if (scopeLabelId) return { labelId: scopeLabelId };
-    if (scopeType && scopeType !== "inbox") return { type: scopeType };
-    if (activeSplitId === "unread") return { type: "inbox", isUnread: true };
+    if (scopeQuery) return scopeQuery;
 
-    const saved = settings?.splits?.find((split) => split.id === activeSplitId);
-    if (saved) return mailSplitToThreadsQuery(saved);
+    const active =
+      settings?.splits?.find((split) => split.id === activeSplitId) ??
+      BUILT_IN_SPLITS.find((split) => split.id === activeSplitId) ??
+      BUILT_IN_SPLITS[0];
 
-    return { type: "inbox" };
-  }, [scopeLabelId, scopeType, activeSplitId, settings?.splits]);
+    return mailSplitToThreadsQuery(active);
+  }, [scopeQuery, activeSplitId, settings?.splits]);
 
   const {
     threads,
     isLoading,
+    error,
     hasMore,
     isLoadingMore,
     loadMore,
@@ -144,15 +180,23 @@ export function MailShell() {
     restoreThreads,
   });
 
-  const clampedIndex = Math.min(focusedIndex, Math.max(0, threads.length - 1));
+  const clampIndex = useCallback(
+    (index: number) =>
+      Math.min(Math.max(0, index), Math.max(0, threads.length - 1)),
+    [threads.length],
+  );
+  const clampedIndex = clampIndex(focusedIndex);
   const focusedThread = threads[clampedIndex];
   const openThread = threads.find((t) => t.id === openThreadId);
 
+  // Deferred so holding J/K in split view doesn't fire a full-thread provider
+  // fetch for every row the cursor passes over — only the row you settle on.
+  const readerThreadId = useDeferredValue(openThreadId);
   const { data: openThreadData, mutate: refetchOpenThread } = useThread(
-    { id: openThreadId ?? "" },
+    { id: readerThreadId },
     { includeDrafts: true },
   );
-  const openMessages = openThreadId ? openThreadData?.thread.messages : [];
+  const openMessages = openThreadData?.thread.messages ?? NO_MESSAGES;
 
   const hrefFor = useCallback(
     (target: MailNavTarget) =>
@@ -163,6 +207,11 @@ export function MailShell() {
           : `/mail?type=${encodeURIComponent(target.type)}`,
       ),
     [emailAccountId],
+  );
+
+  const labelHref = useCallback(
+    (labelId: string) => hrefFor({ kind: "label", labelId }),
+    [hrefFor],
   );
 
   const runOn = useCallback(
@@ -189,40 +238,38 @@ export function MailShell() {
 
   const move = useCallback(
     (delta: number) => {
-      const next = Math.min(
-        Math.max(0, clampedIndex + delta),
-        Math.max(0, threads.length - 1),
-      );
+      const next = clampIndex(clampedIndex + delta);
       setFocusedIndex(next);
       // In split view the reader tracks the cursor; in list view it doesn't,
       // so J/K browses the list without yanking you out of what you're reading.
       if (layout === "split" && threads[next])
         setOpenThreadId(threads[next].id);
     },
-    [clampedIndex, threads, layout, setOpenThreadId],
+    [clampIndex, clampedIndex, threads, layout, setOpenThreadId],
   );
 
   const extendSelection = useCallback(
     (delta: number) => {
-      const next = Math.min(
-        Math.max(0, clampedIndex + delta),
-        Math.max(0, threads.length - 1),
-      );
+      const next = clampIndex(clampedIndex + delta);
       selection.extendTo(next, clampedIndex);
       setFocusedIndex(next);
     },
-    [clampedIndex, threads.length, selection],
+    [clampIndex, clampedIndex, selection],
   );
 
   const toggleLayout = useCallback(() => {
-    const next: MailLayoutMode = layout === "split" ? "list" : "split";
-    setLayoutOverride(next);
-    updateMailPreferencesAction(emailAccountId, {
-      layout: next === "split" ? MailLayout.SPLIT : MailLayout.LIST,
+    savePreferences({
+      layout: layout === "split" ? MailLayout.LIST : MailLayout.SPLIT,
     });
-  }, [layout, emailAccountId]);
+  }, [layout, savePreferences]);
 
-  const handlers: ShortcutHandlers = useMemo(() => {
+  const openShortcuts = useCallback(() => setIsHelpOpen(true), []);
+  const archiveTargets = useCallback(() => runOn(archive), [runOn, archive]);
+  const trashTargets = useCallback(() => runOn(trash), [runOn, trash]);
+
+  // Not memoised: `useShortcuts` keeps handlers in a ref and only re-registers
+  // when the set of handled ids changes, so a stable identity buys nothing.
+  const handlers: ShortcutHandlers = (() => {
     if (sidePanelThreadId) return {};
     return {
       next: () => move(1),
@@ -242,8 +289,8 @@ export function MailShell() {
       // re-extends from the same row and the range never grows.
       extendSelectionDown: () => extendSelection(1),
       extendSelectionUp: () => extendSelection(-1),
-      archive: () => runOn(archive),
-      delete: () => runOn(trash),
+      archive: archiveTargets,
+      delete: trashTargets,
       reply: () => {
         if (!openThreadId && focusedThread) setOpenThreadId(focusedThread.id);
         setReplyToMessageId(openMessages?.at(-1)?.id);
@@ -259,28 +306,7 @@ export function MailShell() {
       },
       help: () => setIsHelpOpen(true),
     };
-  }, [
-    sidePanelThreadId,
-    move,
-    openAt,
-    clampedIndex,
-    splits,
-    activeSplitId,
-    setActiveSplitId,
-    selection,
-    extendSelection,
-    runOn,
-    archive,
-    trash,
-    openThreadId,
-    focusedThread,
-    openMessages,
-    setOpenThreadId,
-    undo,
-    toggleLayout,
-    isFocusMode,
-    layout,
-  ]);
+  })();
 
   useShortcuts(handlers);
 
@@ -293,11 +319,11 @@ export function MailShell() {
         value: null,
         group: "state",
       },
-      ...(showCategories ? CATEGORY_OPTIONS : []).map((category) => ({
-        id: `category:${category.value}`,
+      ...(showCategories ? MAIL_CATEGORIES : []).map((category) => ({
+        id: `category:${category.type}`,
         name: category.name,
         kind: MailSplitKind.CATEGORY,
-        value: category.value,
+        value: category.type,
         group: "category" as const,
       })),
       ...visibleLabels.map((label) => ({
@@ -314,8 +340,8 @@ export function MailShell() {
   const onCreateSplit = useCallback(
     async (draft: NewSplitDraft) => {
       const result = await createMailSplitAction(emailAccountId, draft);
-      if (result?.serverError) {
-        toast.error(result.serverError);
+      if (result?.serverError || result?.validationErrors) {
+        toast.error(getActionErrorMessage(result));
         return;
       }
       mutateSettings();
@@ -326,7 +352,13 @@ export function MailShell() {
   const onDeleteSplit = useCallback(
     async (splitId: string) => {
       if (activeSplitId === splitId) setActiveSplitId("all");
-      await deleteMailSplitAction(emailAccountId, { id: splitId });
+      const result = await deleteMailSplitAction(emailAccountId, {
+        id: splitId,
+      });
+      if (result?.serverError || result?.validationErrors) {
+        toast.error(getActionErrorMessage(result));
+        return;
+      }
       mutateSettings();
     },
     [emailAccountId, mutateSettings, activeSplitId, setActiveSplitId],
@@ -335,16 +367,37 @@ export function MailShell() {
   const onCreateLabel = useCallback(
     async (name: string) => {
       const result = await createLabelAction(emailAccountId, { name });
-      if (result?.serverError) toast.error(result.serverError);
-      else toast.success(`Label "${name}" created`);
+      if (result?.serverError || result?.validationErrors) {
+        toast.error(getActionErrorMessage(result));
+        return;
+      }
+      // Without this the label the user just typed doesn't appear until an
+      // unrelated revalidation happens to run.
+      await mutateLabels();
+      toast.success(`Label "${name}" created`);
     },
-    [emailAccountId],
+    [emailAccountId, mutateLabels],
+  );
+
+  const onRemoveLabel = useCallback(
+    async (labelId: string) => {
+      if (!openThreadId) return;
+      const result = await removeThreadLabelAction(emailAccountId, {
+        threadId: openThreadId,
+        labelId,
+      });
+      if (result?.serverError || result?.validationErrors) {
+        toast.error(getActionErrorMessage(result));
+        return;
+      }
+      refetchOpenThread();
+    },
+    [emailAccountId, openThreadId, refetchOpenThread],
   );
 
   const showList = !isFocusMode && (layout === "split" || !openThreadId);
   const showReader = layout === "split" || Boolean(openThreadId);
-  const showHintBar =
-    !hintBarHidden && !settings?.hintBarDismissed && !isFocusMode;
+  const showHintBar = !settings?.hintBarDismissed && !isFocusMode;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-background">
@@ -361,7 +414,7 @@ export function MailShell() {
             backToAppHref={prefixPath(emailAccountId, "/automation")}
             onCompose={openCompose}
             onCreateLabel={onCreateLabel}
-            onOpenShortcuts={() => setIsHelpOpen(true)}
+            onOpenShortcuts={openShortcuts}
           />
         )}
 
@@ -392,25 +445,30 @@ export function MailShell() {
                 onCreateSplit={onCreateSplit}
               />
             )}
-            <ThreadList
-              threads={threads}
-              layout={layout}
-              userEmail={userEmail}
-              userLabels={userLabels}
-              focusedIndex={clampedIndex}
-              isSelected={selection.isSelected}
-              selectedCount={selection.selectedCount}
-              onOpenThread={openAt}
-              onToggleSelect={selection.toggle}
-              onSelectRangeTo={selection.selectRangeTo}
-              onArchiveSelected={() => runOn(archive)}
-              onDeleteSelected={() => runOn(trash)}
-              onClearSelection={selection.clear}
-              emptyTitle={isLoading ? "Loading…" : "Nothing in this view"}
-              showLoadMore={hasMore}
-              isLoadingMore={Boolean(isLoadingMore)}
-              onLoadMore={loadMore}
-            />
+            <LoadingContent
+              loading={isLoading && !threads.length}
+              error={error}
+            >
+              <ThreadList
+                threads={threads}
+                layout={layout}
+                userEmail={userEmail}
+                userLabels={userLabels}
+                focusedIndex={clampedIndex}
+                isSelected={selection.isSelected}
+                selectedCount={selection.selectedCount}
+                onOpenThread={openAt}
+                onToggleSelect={selection.toggle}
+                onSelectRangeTo={selection.selectRangeTo}
+                onArchiveSelected={archiveTargets}
+                onDeleteSelected={trashTargets}
+                onClearSelection={selection.clear}
+                emptyTitle="Nothing in this view"
+                showLoadMore={hasMore}
+                isLoadingMore={isLoadingMore}
+                onLoadMore={loadMore}
+              />
+            </LoadingContent>
           </section>
         )}
 
@@ -427,13 +485,14 @@ export function MailShell() {
                 ? { index: clampedIndex + 1, total: threads.length }
                 : undefined
             }
-            labelHref={(labelId) => hrefFor({ kind: "label", labelId })}
+            labelHref={labelHref}
+            onRemoveLabel={onRemoveLabel}
             onBack={() => {
               setIsFocusMode(false);
               setOpenThreadId(null);
             }}
-            onArchive={() => runOn(archive)}
-            onDelete={() => runOn(trash)}
+            onArchive={archiveTargets}
+            onDelete={trashTargets}
             onReply={() => setReplyToMessageId(openMessages?.at(-1)?.id)}
             onToggleFocusMode={() => setIsFocusMode((on) => !on)}
             refetch={refetchOpenThread}
@@ -454,12 +513,7 @@ export function MailShell() {
       {showHintBar && (
         <HintBar
           status={`${threads.length} in view`}
-          onDismiss={() => {
-            setHintBarHidden(true);
-            updateMailPreferencesAction(emailAccountId, {
-              hintBarDismissed: true,
-            });
-          }}
+          onDismiss={() => savePreferences({ hintBarDismissed: true })}
         />
       )}
 
