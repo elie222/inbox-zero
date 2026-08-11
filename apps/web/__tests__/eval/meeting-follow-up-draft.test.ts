@@ -25,6 +25,7 @@ const ROLLOUT_SUMMARY: MeetingSummary = {
     {
       description:
         "Tell the customers who already have the fifteenth in writing",
+      owner: null,
     },
   ],
   openQuestions: ["Who owns the migration webinar?"],
@@ -45,6 +46,7 @@ const UNRESOLVED_PRICING_SUMMARY: MeetingSummary = {
   openQuestions: [
     "Do they pay for all forty people or only the fifteen daily users?",
   ],
+  nextSteps: null,
 };
 
 describe.runIf(shouldRunEval)("meeting-follow-up-draft eval", () => {

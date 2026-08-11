@@ -12,15 +12,15 @@ import {
 
 export type MeetingRecapActionItem = {
   description: string;
-  owner?: string;
+  owner?: string | null;
 };
 
 export type MeetingRecapContent = {
   overview: string;
   keyDecisions: string[];
   actionItems: MeetingRecapActionItem[];
-  openQuestions?: string[];
-  nextSteps?: string[];
+  openQuestions?: string[] | null;
+  nextSteps?: string[] | null;
 };
 
 export type MeetingRecapEmailProps = {
