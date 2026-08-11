@@ -40,6 +40,8 @@ export type MailSidebarProps = {
   labels: EmailLabel[];
   /** Keyed by provider label id. Arrives after first paint; may be empty. */
   countsById: Map<string, LabelCount>;
+  /** Gmail-only concept, so Outlook accounts hide the section entirely. */
+  showCategories: boolean;
   backToAppHref: string;
   backToAppLabel?: string;
   onBackToApp?: () => void;
@@ -71,6 +73,7 @@ export function MailSidebar({
   hrefFor,
   labels,
   countsById,
+  showCategories,
   backToAppHref,
   backToAppLabel = "Inbox Zero",
   onBackToApp,
@@ -135,20 +138,24 @@ export function MailSidebar({
           ))}
         </nav>
 
-        <GroupHeading>Categories</GroupHeading>
-        <nav className="flex flex-col gap-px">
-          {CATEGORY_ITEMS.map(({ name, type, Icon }) => (
-            <NavRow
-              key={type}
-              href={hrefFor({ kind: "type", type })}
-              active={!activeLabelId && activeType === type}
-              onSelect={() => onSelectView?.({ kind: "type", type })}
-              icon={<Icon className="size-3.5 shrink-0" />}
-              name={name}
-              count={displayCount(countsById.get(type))}
-            />
-          ))}
-        </nav>
+        {showCategories && (
+          <>
+            <GroupHeading>Categories</GroupHeading>
+            <nav className="flex flex-col gap-px">
+              {CATEGORY_ITEMS.map(({ name, type, Icon }) => (
+                <NavRow
+                  key={type}
+                  href={hrefFor({ kind: "type", type })}
+                  active={!activeLabelId && activeType === type}
+                  onSelect={() => onSelectView?.({ kind: "type", type })}
+                  icon={<Icon className="size-3.5 shrink-0" />}
+                  name={name}
+                  count={displayCount(countsById.get(type))}
+                />
+              ))}
+            </nav>
+          </>
+        )}
 
         <GroupHeading
           action={

@@ -172,8 +172,8 @@ export function NewSplitPopover({
 function summarize(option: NewSplitOption | undefined): string {
   if (!option) return "Pick what this split should contain";
   switch (option.kind) {
-    case MailSplitKind.ALL:
-      return "Shows everything in this view";
+    case MailSplitKind.INBOX:
+      return "Shows everything in the inbox";
     case MailSplitKind.UNREAD:
       return "Shows unread mail";
     case MailSplitKind.CATEGORY:

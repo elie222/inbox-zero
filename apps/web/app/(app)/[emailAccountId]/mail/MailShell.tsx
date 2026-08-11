@@ -27,6 +27,7 @@ import { useSidebar } from "@/components/ui/sidebar";
 import { useSetAtom } from "jotai";
 import { commandPaletteOpenAtom } from "@/store/command-palette";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { isGoogleProvider } from "@/utils/email/provider-types";
 import { useEmail } from "@/providers/EmailProvider";
 import { useComposeModal } from "@/providers/ComposeModalProvider";
 import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
@@ -61,7 +62,10 @@ const CATEGORY_OPTIONS = [
 ];
 
 export function MailShell() {
-  const { emailAccountId, userEmail } = useAccount();
+  const { emailAccountId, userEmail, provider } = useAccount();
+  // Gmail categories have no Outlook equivalent, so they're hidden rather than
+  // rendered as rows and split options that can never match anything.
+  const showCategories = isGoogleProvider(provider);
   const { userLabels } = useEmail();
   const { visibleLabels } = useSplitLabels();
   const { countsById } = useLabelCounts();
@@ -289,7 +293,7 @@ export function MailShell() {
         value: null,
         group: "state",
       },
-      ...CATEGORY_OPTIONS.map((category) => ({
+      ...(showCategories ? CATEGORY_OPTIONS : []).map((category) => ({
         id: `category:${category.value}`,
         name: category.name,
         kind: MailSplitKind.CATEGORY,
@@ -304,7 +308,7 @@ export function MailShell() {
         group: "label" as const,
       })),
     ],
-    [visibleLabels],
+    [visibleLabels, showCategories],
   );
 
   const onCreateSplit = useCallback(
@@ -353,6 +357,7 @@ export function MailShell() {
             hrefFor={hrefFor}
             labels={visibleLabels}
             countsById={countsById}
+            showCategories={showCategories}
             backToAppHref={prefixPath(emailAccountId, "/automation")}
             onCompose={openCompose}
             onCreateLabel={onCreateLabel}
