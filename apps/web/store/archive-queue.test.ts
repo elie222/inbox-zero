@@ -1,10 +1,14 @@
 // @vitest-environment jsdom
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockArchiveThreadAction = vi.fn();
 const mockTrashThreadAction = vi.fn();
 const mockMarkReadThreadAction = vi.fn();
+const originalLocalStorageDescriptor = Object.getOwnPropertyDescriptor(
+  window,
+  "localStorage",
+);
 
 vi.mock("@/utils/actions/mail", () => ({
   archiveThreadAction: (...args: Parameters<typeof mockArchiveThreadAction>) =>
@@ -39,15 +43,33 @@ const archivedThreadIds = () =>
 
 // The queue state is persisted, and ArchiveProgress reads it to draw the bar.
 const persistedTotalThreads = () =>
-  JSON.parse(localStorage.getItem("gmailActionQueue") ?? "{}").totalThreads;
+  JSON.parse(window.localStorage.getItem("gmailActionQueue") ?? "{}")
+    .totalThreads;
 
 describe("cancelQueuedThreads", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
-    localStorage.clear();
+    // Keep these browser-storage tests isolated from Node's ambient storage.
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: window.sessionStorage,
+    });
+    window.localStorage.clear();
     mockArchiveThreadAction.mockResolvedValue(undefined);
     mockTrashThreadAction.mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    if (originalLocalStorageDescriptor) {
+      Object.defineProperty(
+        window,
+        "localStorage",
+        originalLocalStorageDescriptor,
+      );
+    } else {
+      Reflect.deleteProperty(window, "localStorage");
+    }
   });
 
   it("stops a queued thread from ever reaching the provider", async () => {
@@ -268,7 +290,9 @@ describe("cancelQueuedThreads", () => {
 // The queue atom isn't exported; it persists to localStorage on every write,
 // which is the same state the progress UI reads through `useQueueState`.
 function readPersistedQueueState() {
-  return JSON.parse(localStorage.getItem("gmailActionQueue") ?? "{}") as {
+  return JSON.parse(
+    window.localStorage.getItem("gmailActionQueue") ?? "{}",
+  ) as {
     activeThreads: Record<string, unknown>;
     totalThreads: number;
   };
