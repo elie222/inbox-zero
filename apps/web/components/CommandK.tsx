@@ -45,9 +45,11 @@ const SECTION_LABELS: Record<CommandSection, string> = {
   settings: "Settings",
 };
 
-// This component is mounted app-wide, and its archive/close bindings act on
-// whatever email is displayed, so the mail scope is enabled everywhere for now.
-// The mail redesign moves mail scope activation onto the mail route.
+// Mounted app-wide. It enables the mail scope everywhere so the side-panel email
+// viewer keeps its triage keys on any page. That doesn't collide with the mail
+// route's own bindings: these handlers are only defined when the side panel has a
+// thread (`side-panel-thread-id`), which the mail list never sets — and the mail
+// screen in turn stands down while the side panel is open.
 const SHORTCUT_SCOPES: ShortcutScope[] = ["global", "mail"];
 
 export function CommandK() {

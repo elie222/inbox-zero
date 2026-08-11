@@ -1,0 +1,50 @@
+import { describe, expect, it } from "vitest";
+import { chipColorForLabel } from "@/app/(app)/[emailAccountId]/mail/MailLabelChip";
+import type { ChipColor } from "@/app/(app)/[emailAccountId]/mail/types";
+
+const PALETTE: ChipColor[] = [
+  "blue",
+  "green",
+  "purple",
+  "orange",
+  "red",
+  "gray",
+  "cyan",
+  "yellow",
+];
+
+describe("chipColorForLabel", () => {
+  it("gives product labels their fixed colour, however they are cased", () => {
+    expect(chipColorForLabel("To Reply")).toBe("blue");
+    expect(chipColorForLabel("to reply")).toBe("blue");
+    expect(chipColorForLabel("  Cold Email  ")).toBe("red");
+    expect(chipColorForLabel("Newsletter")).toBe("gray");
+    expect(chipColorForLabel("Awaiting Reply")).toBe("cyan");
+  });
+
+  it("keeps an unknown label on one colour across calls", () => {
+    const names = ["Acme Corp", "shipping", "🚀 launch", "", "a"];
+
+    for (const name of names) {
+      const color = chipColorForLabel(name);
+      expect(PALETTE).toContain(color);
+      expect(chipColorForLabel(name)).toBe(color);
+    }
+  });
+
+  it("spreads unknown labels over the palette rather than collapsing to one", () => {
+    const colors = new Set(
+      Array.from({ length: 60 }, (_, index) =>
+        chipColorForLabel(`label-${index}`),
+      ),
+    );
+
+    expect(colors.size).toBeGreaterThan(1);
+  });
+
+  it("does not treat labels that merely contain a known name as known", () => {
+    expect(chipColorForLabel("Newsletters")).not.toBe(
+      chipColorForLabel("Newsletter"),
+    );
+  });
+});

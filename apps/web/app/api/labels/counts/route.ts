@@ -17,7 +17,7 @@ const CACHE_TTL_SECONDS = 60;
 const MAX_USER_LABELS = 100;
 const LABEL_LOOKUP_CONCURRENCY = 8;
 
-type LabelCount = {
+export type LabelCount = {
   id: string;
   name: string;
   kind: "system" | "category" | "label";
