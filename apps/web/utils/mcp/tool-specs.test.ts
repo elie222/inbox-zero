@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { getIntegrationActionLabel } from "./tool-specs";
+import {
+  getIntegrationActionDisplayValue,
+  getIntegrationActionLabel,
+} from "./tool-specs";
 
 describe("getIntegrationActionLabel", () => {
   it("names the action after the tool it calls", () => {
@@ -27,5 +30,44 @@ describe("getIntegrationActionLabel", () => {
     });
 
     expect(label).not.toBe("Add Todoist task");
+  });
+});
+
+describe("getIntegrationActionDisplayValue", () => {
+  it("uses the display argument declared by the tool spec", () => {
+    expect(
+      getIntegrationActionDisplayValue({
+        integrationName: "todoist",
+        integrationToolName: "add-tasks",
+        integrationArgs: { content: "Review the contract" },
+      }),
+    ).toBe("Review the contract");
+  });
+
+  it("does not borrow display metadata for an unknown tool", () => {
+    expect(
+      getIntegrationActionDisplayValue({
+        integrationName: "todoist",
+        integrationToolName: "unknown-tool",
+        integrationArgs: { content: "Review the contract" },
+      }),
+    ).toBeNull();
+  });
+
+  it("trims the display value and hides whitespace-only content", () => {
+    expect(
+      getIntegrationActionDisplayValue({
+        integrationName: "todoist",
+        integrationToolName: "add-tasks",
+        integrationArgs: { content: "  Review the contract  " },
+      }),
+    ).toBe("Review the contract");
+    expect(
+      getIntegrationActionDisplayValue({
+        integrationName: "todoist",
+        integrationToolName: "add-tasks",
+        integrationArgs: { content: "   " },
+      }),
+    ).toBeNull();
   });
 });

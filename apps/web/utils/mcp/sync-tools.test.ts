@@ -49,11 +49,12 @@ describe("syncMcpTools", () => {
     });
   });
 
-  it("filters write tools using readOnlyHint, falling back to the name heuristic", async () => {
+  it("only syncs Pipedream tools that both declare and look read-only", async () => {
     mockConnection([], "pipedream");
     mockListMcpTools.mockResolvedValue([
       { name: "slack_v2-list-channels" },
-      { name: "slack_v2-send-message" },
+      { name: "slack_v2-list-users", readOnlyHint: true },
+      { name: "slack_v2-send-message", readOnlyHint: true },
       { name: "custom_read_tool", readOnlyHint: true },
       { name: "app-list-archived-items", readOnlyHint: false },
     ]);
@@ -63,11 +64,28 @@ describe("syncMcpTools", () => {
     expect(prisma.mcpTool.createMany).toHaveBeenCalledWith({
       data: [
         expect.objectContaining({
-          name: "slack_v2-list-channels",
-          isEnabled: true,
+          name: "slack_v2-list-users",
+          isEnabled: false,
         }),
+      ],
+    });
+  });
+
+  it("preserves explicitly enabled Pipedream tools during resync", async () => {
+    mockConnection(
+      [{ name: "slack_v2-list-users", isEnabled: true }],
+      "pipedream",
+    );
+    mockListMcpTools.mockResolvedValue([
+      { name: "slack_v2-list-users", readOnlyHint: true },
+    ]);
+
+    await syncMcpTools("pipedream", "email-account-1", logger);
+
+    expect(prisma.mcpTool.createMany).toHaveBeenCalledWith({
+      data: [
         expect.objectContaining({
-          name: "custom_read_tool",
+          name: "slack_v2-list-users",
           isEnabled: true,
         }),
       ],

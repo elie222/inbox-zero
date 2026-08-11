@@ -247,7 +247,7 @@ model MailSplit {
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
   @@unique([emailAccountId, name])
-  @@index([emailAccountId, order])
+  @@unique([emailAccountId, order])
 }
 
 model Organization {

@@ -11,14 +11,14 @@ import { deleteRuleTool } from "./tools/rules/delete-rule-tool";
 
 const {
   mockCreateRule,
-  mockOutboundActionsNeedChatRiskConfirmation,
+  mockActionsNeedChatRiskConfirmation,
   mockPartialUpdateRule,
   mockPrisma,
   mockSetRuleEnabled,
   mockUpdateRuleActions,
 } = vi.hoisted(() => ({
   mockCreateRule: vi.fn(),
-  mockOutboundActionsNeedChatRiskConfirmation: vi.fn(),
+  mockActionsNeedChatRiskConfirmation: vi.fn(),
   mockPartialUpdateRule: vi.fn(),
   mockSetRuleEnabled: vi.fn(),
   mockUpdateRuleActions: vi.fn(),
@@ -43,8 +43,7 @@ vi.mock("@/utils/rule/rule", async (importOriginal) => {
   return {
     ...actual,
     createRule: mockCreateRule,
-    outboundActionsNeedChatRiskConfirmation:
-      mockOutboundActionsNeedChatRiskConfirmation,
+    actionsNeedChatRiskConfirmation: mockActionsNeedChatRiskConfirmation,
     partialUpdateRule: mockPartialUpdateRule,
     setRuleEnabled: mockSetRuleEnabled,
     updateRuleActions: mockUpdateRuleActions,
@@ -64,7 +63,7 @@ const defaultActions = [
 describe("createRuleTool overlap guard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockOutboundActionsNeedChatRiskConfirmation.mockReturnValue({
+    mockActionsNeedChatRiskConfirmation.mockReturnValue({
       needsConfirmation: false,
       riskMessages: [],
     });

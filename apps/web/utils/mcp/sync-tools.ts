@@ -51,11 +51,12 @@ export async function syncMcpTools(
       : allTools;
     readTools = readTools.filter((tool) => !writeToolNames.includes(tool.name));
 
-    // Filter out write tools if enabled (keeps only get, list, find, search, etc.)
+    // Pipedream exposes a changing tool catalog. Require both its annotation
+    // and the operation name to indicate a read before storing the tool.
     if (integrationConfig.filterWriteTools) {
       const beforeCount = readTools.length;
       readTools = readTools.filter(
-        (tool) => tool.readOnlyHint ?? isReadOnlyTool(tool.name),
+        (tool) => tool.readOnlyHint === true && isReadOnlyTool(tool.name),
       );
       logger.info("Filtered write tools", {
         before: beforeCount,
@@ -94,7 +95,9 @@ export async function syncMcpTools(
                 name: tool.name,
                 description: tool.description,
                 schema: tool.inputSchema as Prisma.InputJsonValue,
-                isEnabled: existingEnabledByName.get(tool.name) ?? true,
+                isEnabled:
+                  existingEnabledByName.get(tool.name) ??
+                  !integrationConfig.filterWriteTools,
                 isWrite: tool.isWrite,
               })),
             }),

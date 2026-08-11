@@ -158,8 +158,6 @@ export type RuleActionFields = {
   content?: string | null;
   webhookUrl?: string | null;
   folderName?: string | null;
-  description?: string | null;
-  dueString?: string | null;
 };
 
 export type RuleAction = {

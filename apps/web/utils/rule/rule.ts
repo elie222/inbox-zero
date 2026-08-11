@@ -80,7 +80,7 @@ function addNestedActionOwnershipToInput<T extends Record<string, unknown>>(
   };
 }
 
-export function outboundActionsNeedChatRiskConfirmation(
+export function actionsNeedChatRiskConfirmation(
   result: CreateOrUpdateRuleSchema,
 ): { needsConfirmation: boolean; riskMessages: string[] } {
   const ruleCtx = ruleConditionsForRisk(result);
@@ -95,17 +95,10 @@ export function outboundActionsNeedChatRiskConfirmation(
       continue;
     }
 
-    if (!OUTBOUND_ACTION_TYPES.includes(action.type)) continue;
-
-    const ra: RiskAction = {
-      type: action.type,
-      subject: action.fields?.subject ?? null,
-      content: action.fields?.content ?? null,
-      to: action.fields?.to?.trim() || null,
-      cc: action.fields?.cc ?? null,
-      bcc: action.fields?.bcc ?? null,
-    };
-    const { level, message } = getActionRiskLevel(ra, ruleCtx);
+    const { level, message } = getActionRiskLevel(
+      buildRiskAction(action),
+      ruleCtx,
+    );
     if (level !== "low" && !messages.includes(message)) {
       messages.push(message);
     }
@@ -692,22 +685,10 @@ function shouldEnable(
       return false;
     }
 
-    const hasOutbound = rule.actions.some((a) =>
-      OUTBOUND_ACTION_TYPES.includes(a.type),
-    );
-    if (!hasOutbound) {
-      return actions.every(
-        (action) => getActionRiskLevel(action, {}).level === "low",
-      );
-    }
     const ruleCtx = ruleConditionsForRisk(rule);
-    for (const action of actions) {
-      if (!OUTBOUND_ACTION_TYPES.includes(action.type)) continue;
-      if (getActionRiskLevel(action, ruleCtx).level !== "low") {
-        return false;
-      }
-    }
-    return true;
+    return actions.every(
+      (action) => getActionRiskLevel(action, ruleCtx).level === "low",
+    );
   }
 
   if (rule.actions.find((a) => OUTBOUND_ACTION_TYPES.includes(a.type)))
@@ -902,6 +883,27 @@ function getIntegrationCreateFields(action: MappableAction) {
         integrationToolName,
         fields: action.fields,
       })) as Prisma.InputJsonValue,
+  };
+}
+
+function buildRiskAction(action: MappableAction): RiskAction {
+  const integrationFields =
+    action.type === ActionType.INTEGRATION
+      ? getIntegrationCreateFields(action)
+      : null;
+
+  return {
+    type: action.type,
+    subject: action.fields?.subject ?? null,
+    content: action.fields?.content ?? null,
+    to: action.fields?.to?.trim() || null,
+    cc: action.fields?.cc ?? null,
+    bcc: action.fields?.bcc ?? null,
+    integrationName: integrationFields?.integrationName ?? null,
+    integrationToolName: integrationFields?.integrationToolName ?? null,
+    integrationArgs:
+      (integrationFields?.integrationArgs as Prisma.JsonValue | undefined) ??
+      null,
   };
 }
 

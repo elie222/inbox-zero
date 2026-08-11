@@ -4,7 +4,7 @@ type McpIntegrationConfig = {
   authType: "oauth" | "api-token";
   scopes: string[];
   skipResourceParam?: boolean; // Some OAuth servers don't support RFC 8707 resource parameter
-  filterWriteTools?: boolean; // Auto-filter write tools, only sync read-only tools (get, list, find, search)
+  filterWriteTools?: boolean; // Require read-only annotations and names; new tools start disabled
   ruleActionWriteTools?: string[];
 };
 
@@ -170,8 +170,8 @@ export const MCP_INTEGRATIONS: Record<
     authType: "oauth",
     scopes: ["mcp", "offline_access"],
     skipResourceParam: true, // Pipedream doesn't support RFC 8707 resource parameter
-    filterWriteTools: true, // Only sync read-only tools (get, list, find, search)
-    // No allowedTools - accept all tools Pipedream provides
+    filterWriteTools: true,
+    // No fixed allowlist because Pipedream's catalog is dynamic
     // OAuth endpoints auto-discovered via RFC 8414
   },
 };
