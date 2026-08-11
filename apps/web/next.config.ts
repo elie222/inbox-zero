@@ -462,7 +462,17 @@ function commonAncestorPath(firstPath: string, secondPath: string) {
     commonParts.push(firstParts[index]);
   }
 
-  return commonParts.length === 1 && commonParts[0] === ""
-    ? path.sep
-    : commonParts.join(path.sep);
+  // POSIX root
+  if (commonParts.length === 1 && commonParts[0] === "") {
+    return path.sep;
+  }
+
+  // Windows drive root (e.g. "D:") — path.sep is required so Next treats it
+  // as absolute. Without it Turbopack falls back to apps/web and cannot
+  // resolve next when pnpm's store lives outside the monorepo.
+  if (commonParts.length === 1 && /^[A-Za-z]:$/.test(commonParts[0] ?? "")) {
+    return `${commonParts[0]}${path.sep}`;
+  }
+
+  return commonParts.join(path.sep);
 }
