@@ -8,7 +8,6 @@ const pages = vi.hoisted(() => ({
   current: [{ threads: [{ id: "a" }, { id: "b" }, { id: "c" }, { id: "d" }] }],
 }));
 
-// Stands in for the SWR cache: `mutate(fn)` applies fn to the current pages.
 vi.mock("swr/infinite", () => ({
   default: () => ({
     data: pages.current,
@@ -33,9 +32,12 @@ function setup() {
   pages.current = [
     { threads: [{ id: "a" }, { id: "b" }, { id: "c" }, { id: "d" }] },
   ];
-  return renderHook((query) => useMailThreads(query), {
-    initialProps: { type: "inbox" } as { type: string },
-  });
+  return renderHook(
+    (query) => useMailThreads({ emailAccountId: "account", query }),
+    {
+      initialProps: { type: "inbox" } as { type: string },
+    },
+  );
 }
 
 describe("useMailThreads restore ordering", () => {
@@ -105,6 +107,23 @@ describe("useMailThreads restore ordering", () => {
     // A failed reversal must leave its row out of the list.
     act(() => result.current.restoreThreads(removal, ["b"]));
     expect(ids()).toEqual(["a", "b", "d"]);
+  });
+
+  it("does not let a later batch claim a thread already removed", () => {
+    const { result } = setup();
+
+    let first!: ReturnType<typeof result.current.removeThreads>;
+    let second!: ReturnType<typeof result.current.removeThreads>;
+    act(() => {
+      first = result.current.removeThreads(["b"]);
+      second = result.current.removeThreads(["b"]);
+    });
+
+    act(() => result.current.restoreThreads(second, ["b"]));
+    expect(ids()).toEqual(["a", "c", "d"]);
+
+    act(() => result.current.restoreThreads(first, ["b"]));
+    expect(ids()).toEqual(["a", "b", "c", "d"]);
   });
 
   it("refuses to restore into a different split", () => {

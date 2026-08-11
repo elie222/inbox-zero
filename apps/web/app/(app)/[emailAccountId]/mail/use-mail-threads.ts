@@ -9,10 +9,8 @@ import {
   useState,
 } from "react";
 import useSWRInfinite from "swr/infinite";
-import type { ThreadsListResponse } from "@/app/api/threads/route";
 import type { ListThread } from "@/app/(app)/[emailAccountId]/mail/types";
-import type { ThreadsQuery } from "@/utils/threads/validation";
-import { createSearchParams } from "@/utils/url";
+import type { ThreadsListResponse } from "@/app/api/threads/route";
 import { createThreadListCacheKey } from "@/utils/email-cache/keys";
 import {
   readCachedThreadList,
@@ -26,13 +24,19 @@ import {
   finishEmailCacheMeasure,
   startEmailCacheMeasure,
 } from "@/utils/email-cache/telemetry";
+import type { ThreadsQuery } from "@/utils/threads/validation";
+import { createSearchParams } from "@/utils/url";
 
 type RemovedThread = {
   thread: ListThread;
   pageIndex: number;
   index: number;
   threadOrder: readonly string[];
+};
+
+export type ThreadRemoval = {
   viewIdentity: string;
+  entries: Map<string, RemovedThread>;
 };
 
 type PersistentView = {
@@ -41,8 +45,6 @@ type PersistentView = {
   hasMore: boolean;
   threads: ListThread[];
 };
-
-const MAX_RETAINED_REMOVALS = 200;
 
 export function useMailThreads({
   emailAccountId,
@@ -86,7 +88,6 @@ export function useMailThreads({
   const hiddenByView = useRef(new Map<string, Set<string>>());
   const [, renderHiddenChanges] = useReducer((version) => version + 1, 0);
   const remoteIdentity = useRef<string>();
-  const removed = useRef(new Map<string, RemovedThread>());
 
   remoteIdentity.current = data?.[0] ? viewIdentity : undefined;
 
@@ -178,21 +179,24 @@ export function useMailThreads({
   }, [data, error, mutate, paginationRequestIdentity, setSize, viewIdentity]);
 
   const removeThreads = useCallback(
-    (threadIds: string[]) => {
-      if (!threadIds.length) return;
+    (threadIds: string[]): ThreadRemoval => {
+      const entries = new Map<string, RemovedThread>();
+      if (!threadIds.length) return { viewIdentity, entries };
+
       const targets = new Set(threadIds);
+      const alreadyHidden =
+        hiddenByView.current.get(viewIdentity) ?? EMPTY_THREAD_IDS;
 
       if (data) {
         for (const [pageIndex, page] of data.entries()) {
           const threadOrder = page.threads.map((thread) => thread.id);
           for (const [index, thread] of page.threads.entries()) {
-            if (targets.has(thread.id)) {
-              removed.current.set(thread.id, {
+            if (targets.has(thread.id) && !alreadyHidden.has(thread.id)) {
+              entries.set(thread.id, {
                 thread,
                 pageIndex,
                 index,
                 threadOrder,
-                viewIdentity,
               });
             }
           }
@@ -200,24 +204,24 @@ export function useMailThreads({
       } else {
         const threadOrder = persistentThreads?.map((thread) => thread.id) ?? [];
         for (const [index, thread] of (persistentThreads ?? []).entries()) {
-          if (targets.has(thread.id)) {
-            removed.current.set(thread.id, {
+          if (targets.has(thread.id) && !alreadyHidden.has(thread.id)) {
+            entries.set(thread.id, {
               thread,
               pageIndex: 0,
               index,
               threadOrder,
-              viewIdentity,
             });
           }
         }
       }
 
+      const removedThreadIds = [...entries.keys()];
+      if (!removedThreadIds.length) return { viewIdentity, entries };
+      const removedIds = new Set(removedThreadIds);
+
       hiddenByView.current.set(
         viewIdentity,
-        new Set([
-          ...(hiddenByView.current.get(viewIdentity) ?? []),
-          ...threadIds,
-        ]),
+        new Set([...alreadyHidden, ...removedThreadIds]),
       );
       renderHiddenChanges();
       setPersistent((current) =>
@@ -225,7 +229,7 @@ export function useMailThreads({
           ? {
               ...current,
               threads: current.threads.filter(
-                (thread) => !targets.has(thread.id),
+                (thread) => !removedIds.has(thread.id),
               ),
             }
           : current,
@@ -234,36 +238,33 @@ export function useMailThreads({
         (pages) =>
           pages?.map((page) => ({
             ...page,
-            threads: page.threads.filter((thread) => !targets.has(thread.id)),
+            threads: page.threads.filter(
+              (thread) => !removedIds.has(thread.id),
+            ),
           })),
         { revalidate: false, populateCache: true },
       ).catch(() => {});
       removeCachedThreadsFromView({
         emailAccountId,
         viewKey,
-        threadIds,
+        threadIds: removedThreadIds,
       }).catch(() => {});
 
-      while (removed.current.size > MAX_RETAINED_REMOVALS) {
-        const oldest = removed.current.keys().next().value;
-        if (oldest === undefined) break;
-        removed.current.delete(oldest);
-      }
+      return { viewIdentity, entries };
     },
     [data, emailAccountId, mutate, persistentThreads, viewIdentity, viewKey],
   );
 
   const restoreThreads = useCallback(
-    (threadIds: string[]) => {
+    (removal: ThreadRemoval, threadIds: string[]) => {
+      if (removal.viewIdentity !== viewIdentity) return;
+
       const restoring = threadIds
-        .map((id) => removed.current.get(id))
-        .filter(
-          (entry): entry is RemovedThread =>
-            entry !== undefined && entry.viewIdentity === viewIdentity,
-        );
+        .map((id) => removal.entries.get(id))
+        .filter((entry): entry is RemovedThread => entry !== undefined);
       if (!restoring.length) return;
 
-      for (const entry of restoring) removed.current.delete(entry.thread.id);
+      for (const entry of restoring) removal.entries.delete(entry.thread.id);
       const restoringIds = new Set(restoring.map((entry) => entry.thread.id));
       hiddenByView.current.set(
         viewIdentity,

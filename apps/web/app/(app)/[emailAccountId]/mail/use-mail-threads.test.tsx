@@ -99,7 +99,10 @@ describe("useMailThreads", () => {
     );
     await waitFor(() => expect(result.current.threads).toHaveLength(2));
 
-    act(() => result.current.removeThreads(["one"]));
+    let removal!: ReturnType<typeof result.current.removeThreads>;
+    act(() => {
+      removal = result.current.removeThreads(["one"]);
+    });
     expect(result.current.threads.map((thread) => thread.id)).toEqual(["two"]);
     expect(cache.remove).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -108,7 +111,7 @@ describe("useMailThreads", () => {
       }),
     );
 
-    act(() => result.current.restoreThreads(["one"]));
+    act(() => result.current.restoreThreads(removal, ["one"]));
     expect(result.current.threads.map((thread) => thread.id)).toEqual([
       "one",
       "two",
