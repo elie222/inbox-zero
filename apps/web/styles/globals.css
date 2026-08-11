@@ -20,6 +20,9 @@
 
     --border: 214.3 31.8% 91.4%; /* slate-200 */
     --input: 214.3 31.8% 91.4%; /* slate-200 */
+    /* Heavier rule weight than --border. Defined here only so it never resolves
+       to nothing outside the Mail route; the Mail palette overrides it. */
+    --border-strong: 212.7 26.8% 83.9%; /* slate-300 */
 
     --primary: 222.2 47.4% 11.2%; /* slate-900 */
     --primary-foreground: 210 40% 98%; /* slate-50 */
@@ -72,6 +75,7 @@
     --destructive-foreground: 0 85.7% 97.3%;
     --border: 240 3.7% 15.9%;
     --input: 240 3.7% 15.9%;
+    --border-strong: 240 3.7% 22%;
     --ring: 240 4.9% 83.9%;
     --chart-1: oklch(0.7 0.2 250);
     --chart-2: oklch(0.6 0.22 250);
@@ -86,6 +90,69 @@
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 240 4.9% 83.9%;
+  }
+}
+
+@layer base {
+  /*
+   * Warm-neutral palette for the Mail route, scoped so the rest of the app keeps
+   * today's cool-slate tokens while the new design language is proven out.
+   * Intended to be promoted to `:root` in a follow-up PR, at which point this
+   * block and the `data-theme` attribute go away.
+   *
+   * Dark mode deliberately has no Mail variant — it inherits `.dark` unchanged.
+   */
+  :root[data-theme="mail"]:not(.dark) {
+    --background: 0 0% 99.2%; /* #FDFDFD */
+    --foreground: 0 0% 14.1%; /* #242424 */
+
+    --muted: 0 0% 96.5%; /* #F6F6F6 */
+    --muted-foreground: 0 0% 51.8%; /* #848484 */
+
+    --popover: 0 0% 100%; /* #FFFFFF */
+    --popover-foreground: 0 0% 14.1%;
+
+    --card: 0 0% 100%; /* #FFFFFF */
+    --card-foreground: 0 0% 14.1%;
+
+    --border: 0 0% 93.7%; /* #EFEFEF */
+    --input: 0 0% 93.7%;
+    /* Second, heavier rule weight used for column dividers and field outlines */
+    --border-strong: 0 0% 90.2%; /* #E6E6E6 */
+
+    --primary: 221.2 83.2% 53.3%; /* #2563EB */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 0 0% 96.5%;
+    --secondary-foreground: 0 0% 23.9%; /* #3D3D3D */
+
+    --accent: 0 0% 96.5%;
+    --accent-foreground: 0 0% 14.1%;
+
+    --ring: 221.2 83.2% 53.3%;
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 0 0% 98.4%; /* #FBFBFB */
+    --sidebar-foreground: 0 0% 23.9%;
+    --sidebar-primary: 221.2 83.2% 53.3%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 96.5%;
+    --sidebar-accent-foreground: 0 0% 14.1%;
+    --sidebar-border: 0 0% 93.7%;
+    --sidebar-ring: 221.2 83.2% 53.3%;
+  }
+}
+
+@layer base {
+  /*
+   * The gradient button reads identically in every theme, so its values live
+   * outside the theme blocks rather than being redefined per palette.
+   */
+  :root {
+    --button-gradient: linear-gradient(180deg, #2965ec, #5c89f8);
+    --button-gradient-border: 220.9 83.4% 64.5%; /* #5989F0 */
+    --button-gradient-shadow: 221.1 97.8% 64.3%; /* #4B83FD */
   }
 }
 

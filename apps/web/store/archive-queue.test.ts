@@ -1,0 +1,215 @@
+// @vitest-environment jsdom
+
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mockArchiveThreadAction = vi.fn();
+const mockTrashThreadAction = vi.fn();
+const mockMarkReadThreadAction = vi.fn();
+
+vi.mock("@/utils/actions/mail", () => ({
+  archiveThreadAction: (...args: Parameters<typeof mockArchiveThreadAction>) =>
+    mockArchiveThreadAction(...args),
+  trashThreadAction: (...args: Parameters<typeof mockTrashThreadAction>) =>
+    mockTrashThreadAction(...args),
+  markReadThreadAction: (
+    ...args: Parameters<typeof mockMarkReadThreadAction>
+  ) => mockMarkReadThreadAction(...args),
+}));
+
+// Keeps the first thread mid-flight so the rest of the batch stays queued
+// behind it (the email action queue runs one thread at a time).
+function blockOn(threadId: string) {
+  let release: () => void = () => {};
+  const blocked = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+
+  const implementation = async (
+    _emailAccountId: string,
+    { threadId: id }: { threadId: string },
+  ) => {
+    if (id === threadId) await blocked;
+  };
+
+  return { release, implementation };
+}
+
+const archivedThreadIds = () =>
+  mockArchiveThreadAction.mock.calls.map(([, input]) => input.threadId);
+
+describe("cancelQueuedThreads", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    localStorage.clear();
+    mockArchiveThreadAction.mockResolvedValue(undefined);
+    mockTrashThreadAction.mockResolvedValue(undefined);
+  });
+
+  it("stops a queued thread from ever reaching the provider", async () => {
+    const { release, implementation } = blockOn("thread-1");
+    mockArchiveThreadAction.mockImplementation(implementation);
+
+    const { archiveEmails, cancelQueuedThreads } = await import(
+      "./archive-queue"
+    );
+    const onSuccess = vi.fn();
+
+    await archiveEmails({
+      threadIds: ["thread-1", "thread-2"],
+      onSuccess,
+      emailAccountId: "account-1",
+    });
+    await vi.waitFor(() => expect(archivedThreadIds()).toEqual(["thread-1"]));
+
+    const result = cancelQueuedThreads({
+      threadIds: ["thread-2"],
+      actionType: "archive",
+    });
+
+    expect(result).toEqual({ cancelled: ["thread-2"], notCancelled: [] });
+
+    release();
+    await vi.waitFor(() => expect(onSuccess).toHaveBeenCalledWith("thread-1"));
+
+    expect(archivedThreadIds()).toEqual(["thread-1"]);
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports a thread already sent to the provider as not cancelled", async () => {
+    const { release, implementation } = blockOn("thread-1");
+    mockArchiveThreadAction.mockImplementation(implementation);
+
+    const { archiveEmails, cancelQueuedThreads } = await import(
+      "./archive-queue"
+    );
+    const onSuccess = vi.fn();
+
+    await archiveEmails({
+      threadIds: ["thread-1"],
+      onSuccess,
+      emailAccountId: "account-1",
+    });
+    await vi.waitFor(() => expect(archivedThreadIds()).toEqual(["thread-1"]));
+
+    const result = cancelQueuedThreads({
+      threadIds: ["thread-1"],
+      actionType: "archive",
+    });
+
+    expect(result).toEqual({ cancelled: [], notCancelled: ["thread-1"] });
+
+    // the in-flight archive still completes; the caller has to undo it server-side
+    release();
+    await vi.waitFor(() => expect(onSuccess).toHaveBeenCalledWith("thread-1"));
+  });
+
+  it("splits a batch into cancelled and still-in-flight threads", async () => {
+    const { release, implementation } = blockOn("thread-1");
+    mockArchiveThreadAction.mockImplementation(implementation);
+
+    const { archiveEmails, cancelQueuedThreads } = await import(
+      "./archive-queue"
+    );
+    const onSuccess = vi.fn();
+
+    await archiveEmails({
+      threadIds: ["thread-1", "thread-2", "thread-3"],
+      onSuccess,
+      emailAccountId: "account-1",
+    });
+    await vi.waitFor(() => expect(archivedThreadIds()).toEqual(["thread-1"]));
+
+    const result = cancelQueuedThreads({
+      threadIds: ["thread-1", "thread-2", "thread-3"],
+      actionType: "archive",
+    });
+
+    expect(result).toEqual({
+      cancelled: ["thread-2", "thread-3"],
+      notCancelled: ["thread-1"],
+    });
+
+    release();
+    await vi.waitFor(() => expect(onSuccess).toHaveBeenCalledWith("thread-1"));
+
+    expect(archivedThreadIds()).toEqual(["thread-1"]);
+  });
+
+  it("clears cancelled threads from the queue progress state", async () => {
+    const { release, implementation } = blockOn("thread-1");
+    mockArchiveThreadAction.mockImplementation(implementation);
+
+    const { archiveEmails, cancelQueuedThreads } = await import(
+      "./archive-queue"
+    );
+
+    await archiveEmails({
+      threadIds: ["thread-1", "thread-2", "thread-3"],
+      onSuccess: vi.fn(),
+      emailAccountId: "account-1",
+    });
+    await vi.waitFor(() => expect(archivedThreadIds()).toEqual(["thread-1"]));
+
+    cancelQueuedThreads({
+      threadIds: ["thread-2", "thread-3"],
+      actionType: "archive",
+    });
+
+    const { activeThreads, totalThreads } = readPersistedQueueState();
+    expect(Object.keys(activeThreads)).toEqual(["archive-thread-1"]);
+    expect(totalThreads).toBe(1);
+
+    release();
+  });
+
+  it("only cancels threads queued for the requested action", async () => {
+    const { release, implementation } = blockOn("thread-1");
+    mockArchiveThreadAction.mockImplementation(implementation);
+
+    const { archiveEmails, cancelQueuedThreads } = await import(
+      "./archive-queue"
+    );
+
+    await archiveEmails({
+      threadIds: ["thread-1", "thread-2"],
+      onSuccess: vi.fn(),
+      emailAccountId: "account-1",
+    });
+    await vi.waitFor(() => expect(archivedThreadIds()).toEqual(["thread-1"]));
+
+    expect(
+      cancelQueuedThreads({ threadIds: ["thread-2"], actionType: "delete" }),
+    ).toEqual({ cancelled: [], notCancelled: ["thread-2"] });
+
+    expect(
+      cancelQueuedThreads({ threadIds: ["thread-2"], actionType: "archive" }),
+    ).toEqual({ cancelled: ["thread-2"], notCancelled: [] });
+
+    release();
+  });
+
+  it("returns unknown and empty thread ids as not cancelled", async () => {
+    const { cancelQueuedThreads } = await import("./archive-queue");
+
+    expect(
+      cancelQueuedThreads({ threadIds: [], actionType: "archive" }),
+    ).toEqual({ cancelled: [], notCancelled: [] });
+
+    expect(
+      cancelQueuedThreads({
+        threadIds: ["never-queued"],
+        actionType: "delete",
+      }),
+    ).toEqual({ cancelled: [], notCancelled: ["never-queued"] });
+  });
+});
+
+// The queue atom isn't exported; it persists to localStorage on every write,
+// which is the same state the progress UI reads through `useQueueState`.
+function readPersistedQueueState() {
+  return JSON.parse(localStorage.getItem("gmailActionQueue") ?? "{}") as {
+    activeThreads: Record<string, unknown>;
+    totalThreads: number;
+  };
+}

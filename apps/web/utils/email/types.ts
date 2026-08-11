@@ -29,6 +29,8 @@ export interface EmailLabel {
   messageListVisibility?: string;
   name: string;
   threadsTotal?: number;
+  // Only populated by providers that report per-label counts (Gmail `labels.get`)
+  threadsUnread?: number;
   type: string;
 }
 
