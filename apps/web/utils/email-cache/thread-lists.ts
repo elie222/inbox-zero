@@ -169,8 +169,7 @@ export async function restoreCachedThreadsToView<T extends ThreadRow>({
       entries.map((entry) => ({
         threadId: entry.thread.id,
         index: entry.index,
-        previousThreadId: entry.previousThreadId,
-        nextThreadId: entry.nextThreadId,
+        threadOrder: entry.threadOrder,
       })),
     );
     for (const entry of entries) {

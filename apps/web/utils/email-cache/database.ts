@@ -98,12 +98,7 @@ export function getEmailCacheDatabase() {
 export function captureEmailCacheEpoch(
   emailAccountId: string,
 ): EmailCacheEpoch | undefined {
-  if (
-    cacheInvalidationCount > 0 ||
-    (accountInvalidationCounts.get(emailAccountId) ?? 0) > 0
-  ) {
-    return;
-  }
+  if (isCacheInvalidationActive(emailAccountId)) return;
   return [cacheEpoch, accountEpochs.get(emailAccountId) ?? 0];
 }
 
@@ -111,13 +106,7 @@ export function isEmailCacheEpochCurrent(
   emailAccountId: string,
   epoch: EmailCacheEpoch | undefined,
 ) {
-  if (
-    !epoch ||
-    cacheInvalidationCount > 0 ||
-    (accountInvalidationCounts.get(emailAccountId) ?? 0) > 0
-  ) {
-    return false;
-  }
+  if (!epoch || isCacheInvalidationActive(emailAccountId)) return false;
   const [capturedCacheEpoch, capturedAccountEpoch] = epoch;
   return (
     capturedCacheEpoch === cacheEpoch &&
@@ -192,4 +181,11 @@ export async function clearEmailCacheForAccount(emailAccountId: string) {
       accountInvalidationCounts.delete(emailAccountId);
     }
   }
+}
+
+function isCacheInvalidationActive(emailAccountId: string) {
+  return (
+    cacheInvalidationCount > 0 ||
+    (accountInvalidationCounts.get(emailAccountId) ?? 0) > 0
+  );
 }

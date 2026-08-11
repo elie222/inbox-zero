@@ -139,8 +139,7 @@ describe("cached thread lists", () => {
         {
           thread: threads[1]!,
           index: 1,
-          previousThreadId: "thread-1",
-          nextThreadId: "thread-3",
+          threadOrder: threads.map((thread) => thread.id),
         },
       ],
     });

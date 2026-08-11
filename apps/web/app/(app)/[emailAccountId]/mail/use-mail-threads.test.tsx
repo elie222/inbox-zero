@@ -205,6 +205,48 @@ describe("useMailThreads", () => {
     );
   });
 
+  it("retries when the pending first page fails after load more", async () => {
+    const firstPage = Promise.withResolvers<unknown>();
+    cache.read.mockResolvedValue({
+      cachedAt: 100,
+      hasMore: true,
+      threads: [createThread("cached")],
+    });
+    const fetcher = vi
+      .fn()
+      .mockReturnValueOnce(firstPage.promise)
+      .mockResolvedValueOnce({
+        threads: [createThread("network")],
+        nextPageToken: "page-2",
+      })
+      .mockResolvedValueOnce({ threads: [createThread("second-page")] });
+
+    const { result } = renderHook(
+      () =>
+        useMailThreads({
+          emailAccountId: "account-pending-retry",
+          query: { type: "inbox" },
+        }),
+      { wrapper: createWrapper(fetcher) },
+    );
+    await waitFor(() => expect(result.current.threads[0]?.id).toBe("cached"));
+
+    act(() => result.current.loadMore());
+    expect(result.current.isLoadingMore).toBe(true);
+    await act(async () => {
+      firstPage.reject(new Error("temporary failure"));
+    });
+
+    await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(3));
+    expect(fetcher.mock.calls[2]?.[0][0]).toContain("nextPageToken=page-2");
+    await waitFor(() =>
+      expect(result.current.threads.map((thread) => thread.id)).toEqual([
+        "network",
+        "second-page",
+      ]),
+    );
+  });
+
   it("rehydrates a revisited view after its remote pages were evicted", async () => {
     const archiveNetwork = Promise.withResolvers<unknown>();
     let inboxReads = 0;

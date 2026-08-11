@@ -31,8 +31,7 @@ type RemovedThread = {
   thread: ListThread;
   pageIndex: number;
   index: number;
-  previousThreadId?: string;
-  nextThreadId?: string;
+  threadOrder: readonly string[];
   viewIdentity: string;
 };
 
@@ -83,6 +82,7 @@ export function useMailThreads({
   const [persistent, setPersistent] = useState<PersistentView>();
   const [paginationRequestIdentity, setPaginationRequestIdentity] =
     useState<string>();
+  const paginationRetryIdentity = useRef<string>();
   const hiddenByView = useRef(new Map<string, Set<string>>());
   const [, renderHiddenChanges] = useReducer((version) => version + 1, 0);
   const remoteIdentity = useRef<string>();
@@ -140,17 +140,42 @@ export function useMailThreads({
   useEffect(() => {
     if (!paginationRequestIdentity) return;
     if (paginationRequestIdentity !== viewIdentity) {
+      paginationRetryIdentity.current = undefined;
       setPaginationRequestIdentity(undefined);
       return;
     }
-    if (error) return;
+    if (error) {
+      if (paginationRetryIdentity.current === viewIdentity) {
+        paginationRetryIdentity.current = undefined;
+        setPaginationRequestIdentity(undefined);
+        return;
+      }
+      paginationRetryIdentity.current = viewIdentity;
+      mutate()
+        .then((pages) => {
+          if (!pages) {
+            paginationRetryIdentity.current = undefined;
+            setPaginationRequestIdentity((current) =>
+              current === viewIdentity ? undefined : current,
+            );
+          }
+        })
+        .catch(() => {
+          paginationRetryIdentity.current = undefined;
+          setPaginationRequestIdentity((current) =>
+            current === viewIdentity ? undefined : current,
+          );
+        });
+      return;
+    }
     if (!data) return;
 
+    paginationRetryIdentity.current = undefined;
     setPaginationRequestIdentity(undefined);
     if (data.at(-1)?.nextPageToken) {
       setSize((current) => current + 1).catch(() => {});
     }
-  }, [data, error, paginationRequestIdentity, setSize, viewIdentity]);
+  }, [data, error, mutate, paginationRequestIdentity, setSize, viewIdentity]);
 
   const removeThreads = useCallback(
     (threadIds: string[]) => {
@@ -159,28 +184,28 @@ export function useMailThreads({
 
       if (data) {
         for (const [pageIndex, page] of data.entries()) {
+          const threadOrder = page.threads.map((thread) => thread.id);
           for (const [index, thread] of page.threads.entries()) {
             if (targets.has(thread.id)) {
               removed.current.set(thread.id, {
                 thread,
                 pageIndex,
                 index,
-                previousThreadId: page.threads[index - 1]?.id,
-                nextThreadId: page.threads[index + 1]?.id,
+                threadOrder,
                 viewIdentity,
               });
             }
           }
         }
       } else {
+        const threadOrder = persistentThreads?.map((thread) => thread.id) ?? [];
         for (const [index, thread] of (persistentThreads ?? []).entries()) {
           if (targets.has(thread.id)) {
             removed.current.set(thread.id, {
               thread,
               pageIndex: 0,
               index,
-              previousThreadId: persistentThreads?.[index - 1]?.id,
-              nextThreadId: persistentThreads?.[index + 1]?.id,
+              threadOrder,
               viewIdentity,
             });
           }
@@ -273,11 +298,10 @@ export function useMailThreads({
         viewKey,
         entries: restoring
           .filter((entry) => entry.pageIndex === 0)
-          .map(({ thread, index, previousThreadId, nextThreadId }) => ({
+          .map(({ thread, index, threadOrder }) => ({
             thread,
             index,
-            previousThreadId,
-            nextThreadId,
+            threadOrder,
           })),
       }).catch(() => {});
     },
@@ -300,24 +324,10 @@ export function useMailThreads({
       if (data) {
         setSize((current) => current + 1).catch(() => {});
       } else {
+        paginationRetryIdentity.current = undefined;
         setPaginationRequestIdentity(viewIdentity);
-        if (error) {
-          mutate()
-            .then((pages) => {
-              if (!pages) {
-                setPaginationRequestIdentity((current) =>
-                  current === viewIdentity ? undefined : current,
-                );
-              }
-            })
-            .catch(() => {
-              setPaginationRequestIdentity((current) =>
-                current === viewIdentity ? undefined : current,
-              );
-            });
-        }
       }
-    }, [data, error, mutate, setSize, viewIdentity]),
+    }, [data, setSize, viewIdentity]),
     removeThreads,
     restoreThreads,
   };
@@ -327,12 +337,7 @@ const EMPTY_THREAD_IDS = new Set<string>();
 
 function insertRestoredThreads(
   threads: ListThread[],
-  restoring: Array<
-    Pick<
-      RemovedThread,
-      "thread" | "index" | "previousThreadId" | "nextThreadId"
-    >
-  >,
+  restoring: Array<Pick<RemovedThread, "thread" | "index" | "threadOrder">>,
 ) {
   if (!restoring.length) return threads;
   const threadsById = new Map(
@@ -343,11 +348,10 @@ function insertRestoredThreads(
   );
   return restoreThreadOrder(
     threads.map((thread) => thread.id),
-    restoring.map(({ thread, index, previousThreadId, nextThreadId }) => ({
+    restoring.map(({ thread, index, threadOrder }) => ({
       threadId: thread.id,
       index,
-      previousThreadId,
-      nextThreadId,
+      threadOrder,
     })),
   )
     .map((threadId) => threadsById.get(threadId))
