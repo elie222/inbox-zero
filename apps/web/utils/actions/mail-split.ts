@@ -81,22 +81,12 @@ export const deleteMailSplitAction = actionClient
 export const updateMailPreferencesAction = actionClient
   .metadata({ name: "updateMailPreferences" })
   .inputSchema(updateMailPreferencesBody)
-  .action(
-    async ({
-      ctx: { emailAccountId },
-      parsedInput: { layout, hintBarDismissed },
-    }) => {
-      await prisma.emailAccount.update({
-        where: { id: emailAccountId },
-        data: {
-          ...(layout === undefined ? {} : { mailLayout: layout }),
-          ...(hintBarDismissed === undefined
-            ? {}
-            : { mailHintBarDismissed: hintBarDismissed }),
-        },
-      });
-    },
-  );
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { layout } }) => {
+    await prisma.emailAccount.update({
+      where: { id: emailAccountId },
+      data: { mailLayout: layout },
+    });
+  });
 
 type CreateMailSplitResult =
   | ({ status: "created" } & MailSplit)

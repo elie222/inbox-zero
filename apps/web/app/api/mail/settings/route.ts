@@ -9,7 +9,6 @@ async function getMailSettings({ emailAccountId }: { emailAccountId: string }) {
     where: { id: emailAccountId },
     select: {
       mailLayout: true,
-      mailHintBarDismissed: true,
       mailSplits: {
         // createdAt breaks ties so tab order can't shuffle between requests
         orderBy: [{ order: "asc" }, { createdAt: "asc" }],
@@ -20,7 +19,6 @@ async function getMailSettings({ emailAccountId }: { emailAccountId: string }) {
 
   return {
     layout: emailAccount?.mailLayout ?? null,
-    hintBarDismissed: emailAccount?.mailHintBarDismissed ?? false,
     splits: emailAccount?.mailSplits ?? [],
   };
 }

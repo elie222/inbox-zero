@@ -23,7 +23,10 @@ function ContentWrapper({ children }: { children: React.ReactNode }) {
   const isRightSidebarOpen =
     !isAssistantRoute && state.includes("chat-sidebar");
 
-  const noTopPadding = isAssistantRoute;
+  // The padding only exists to clear the fixed MobileHeader, which neither of
+  // these routes renders — on mail it showed up as a blank strip above the
+  // screen's own sidebar and toolbar.
+  const noTopPadding = isAssistantRoute || isMailRoute;
 
   return (
     <div

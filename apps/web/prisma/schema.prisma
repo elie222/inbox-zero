@@ -157,8 +157,7 @@ model EmailAccount {
   allowHiddenAiDraftLinks   Boolean              @default(false)
   rulesRevision             Int                  @default(0)
 
-  mailLayout           MailLayout @default(LIST)
-  mailHintBarDismissed Boolean    @default(false)
+  mailLayout MailLayout @default(LIST)
 
   meetingBriefingsEnabled       Boolean @default(false)
   meetingBriefingsMinutesBefore Int     @default(240) // 4 hours in minutes

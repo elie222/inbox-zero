@@ -149,7 +149,7 @@ export const ThreadRow = memo(function ThreadRow({
 
       {isWide ? (
         <>
-          <div className="flex w-48 shrink-0 items-baseline overflow-hidden whitespace-nowrap">
+          <div className="flex w-48 shrink-0 items-baseline gap-1.5 overflow-hidden whitespace-nowrap">
             <span
               className={cn(
                 "truncate text-foreground text-sm",
@@ -158,6 +158,7 @@ export const ThreadRow = memo(function ThreadRow({
             >
               {sender}
             </span>
+            {draftMarker}
           </div>
           <div className="flex min-w-0 flex-1 items-center gap-2.5">
             {chips.map((label) => (
@@ -177,10 +178,7 @@ export const ThreadRow = memo(function ThreadRow({
               {snippet}
             </span>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
-            {draftMarker}
-            <div className="w-16 text-right">{date}</div>
-          </div>
+          <div className="w-16 shrink-0 text-right">{date}</div>
         </>
       ) : (
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
