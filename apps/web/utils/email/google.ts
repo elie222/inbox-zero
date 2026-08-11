@@ -187,6 +187,7 @@ export class GmailProvider implements EmailProvider {
         type: label.type!,
         color: label.color || undefined,
         threadsTotal: label.threadsTotal || undefined,
+        threadsUnread: label.threadsUnread || undefined,
       };
     } catch {
       return null;

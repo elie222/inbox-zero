@@ -102,8 +102,8 @@ model User {
   emailAccounts EmailAccount[]
 
   // Referral relationships
-  referralsMade    Referral[]     @relation("ReferrerUser")
-  referralReceived Referral?      @relation("ReferredUser")
+  referralsMade    Referral[]        @relation("ReferrerUser")
+  referralReceived Referral?         @relation("ReferredUser")
   scimProviders    ScimProvider[]
   mobilePushTokens MobilePushToken[]
 }
@@ -156,6 +156,9 @@ model EmailAccount {
   draftCleanupDays          Int?                 @default(14)
   allowHiddenAiDraftLinks   Boolean              @default(false)
   rulesRevision             Int                  @default(0)
+
+  mailLayout           MailLayout @default(LIST)
+  mailHintBarDismissed Boolean    @default(false)
 
   meetingBriefingsEnabled       Boolean @default(false)
   meetingBriefingsMinutesBefore Int     @default(240) // 4 hours in minutes
@@ -220,12 +223,31 @@ model EmailAccount {
   filingFolders          FilingFolder[]
   apiKeys                ApiKey[]
   classificationFeedback ClassificationFeedback[]
+  mailSplits             MailSplit[]
 
   @@index([userId])
   @@index([lastSummaryEmailAt])
   @@index([lastInboxHealthEmailAt])
   @@index([watchEmailsSubscriptionId])
   @@index([watchEmailsSubscriptionHistory(ops: JsonbPathOps)], type: Gin)
+}
+
+// A saved filter shown as a tab above the mail list. `value` holds the label id for
+// LABEL splits and the provider category for CATEGORY splits; it is unused for INBOX/UNREAD.
+model MailSplit {
+  id        String        @id @default(cuid())
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  name      String
+  kind      MailSplitKind
+  value     String?
+  order     Int
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([emailAccountId, name])
+  @@index([emailAccountId, order])
 }
 
 model Organization {
@@ -1180,8 +1202,8 @@ model ChatMessage {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  role  String
-  parts Json
+  role     String
+  parts    Json
   metadata Json?
   // attachments Json?
 
@@ -1406,27 +1428,27 @@ model MeetingRecording {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  botProvider          String   @default("recall")
+  botProvider           String    @default("recall")
   // Null between claiming the row and the provider call returning.
-  externalBotId        String?
+  externalBotId         String?
   // Last display name successfully sent to the provider.
-  botName              String?
+  botName               String?
   // Set when the provider reports the recording is ready.
-  externalRecordingId  String?
+  externalRecordingId   String?
   // Claim for the create-transcript call, kept separate from the id above so a
   // failed call does not have to choose between losing the recording id and
   // losing the claim. The sweep retries a claim that goes stale.
   transcriptRequestedAt DateTime?
-  externalTranscriptId String?
+  externalTranscriptId  String?
   // Raw join URL including credentials (Zoom pwd etc.) - what the bot joins with.
-  meetingUrl           String
+  meetingUrl            String
   // Dedup key only, never sent to the provider.
-  normalizedMeetingUrl String
+  normalizedMeetingUrl  String
   // Account-scoped normalizedMeetingUrl while the recording can still be
   // scheduled, and cleared once it reaches a terminal state. Account scoping
   // prevents a calendar link from becoming cross-tenant transcript access.
-  activeKey            String?
-  meetingStartTime     DateTime
+  activeKey             String?
+  meetingStartTime      DateTime
 
   status              MeetingRecordingStatus @default(PENDING)
   failureReason       String?
@@ -1872,6 +1894,18 @@ enum Frequency {
   WEEKLY
   // MONTHLY
   // ANNUALLY
+}
+
+enum MailLayout {
+  LIST
+  SPLIT
+}
+
+enum MailSplitKind {
+  INBOX
+  UNREAD
+  LABEL
+  CATEGORY
 }
 
 enum DraftReplyConfidence {

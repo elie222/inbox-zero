@@ -27,6 +27,8 @@ const buttonVariants = cva(
         red: "bg-red-100 text-red-900 hover:bg-red-100/80 dark:bg-red-800 dark:text-red-50 dark:hover:bg-red-800/80",
         blue: "bg-blue-100 text-blue-900 hover:bg-blue-100/80 dark:bg-blue-800 dark:text-blue-50 dark:hover:bg-blue-800/80",
         primaryBlack: "bg-primary text-primary-foreground hover:bg-primary/90",
+        gradient:
+          "border border-[hsl(var(--button-gradient-border))] [background-image:var(--button-gradient)] text-white transition-shadow shadow-[0_2px_10.1px_hsl(var(--button-gradient-shadow)/0.2)] hover:shadow-[0_2px_14px_hsl(var(--button-gradient-shadow)/0.32)]",
       },
       size: {
         default: "h-10 px-4 py-2",

@@ -145,6 +145,8 @@ module.exports = {
             150: "#E7E0CB",
             200: "#E7DBB9",
             500: "#D8A40C",
+            // Readable on the 50 tint; the 500 fails contrast as chip text
+            600: "#B5870A",
           },
           brown: {
             50: "#FEEDE0",
@@ -165,6 +167,8 @@ module.exports = {
             100: "#E5F9FF",
             200: "#D0F4FF",
             500: "#49D1FA",
+            // Readable on the 100 tint; the 500 fails contrast as chip text
+            700: "#0E86AC",
           },
           gray: {
             50: "#FFFFFF",
@@ -172,6 +176,7 @@ module.exports = {
             150: "#EEEEEE",
             200: "#E6E6E6",
             500: "#8E8E8E",
+            550: "#6D6E70",
             600: "#525252",
           },
         },

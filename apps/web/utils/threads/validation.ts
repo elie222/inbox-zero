@@ -14,3 +14,7 @@ export const threadsQuery = z.object({
   isUnread: z.coerce.boolean().nullish(),
 });
 export type ThreadsQuery = z.infer<typeof threadsQuery>;
+
+// Opt-in slim response for list rows. Anything unrecognised falls back to the
+// full response so a bad param can never drop data a caller depends on.
+export const threadsView = z.enum(["full", "list"]).catch("full");

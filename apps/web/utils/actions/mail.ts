@@ -6,6 +6,11 @@ import { sendEmailBody } from "@/utils/gmail/mail";
 import { actionClient } from "@/utils/actions/safe-action";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
+import {
+  removeThreadLabelBody,
+  unarchiveThreadBody,
+  untrashThreadBody,
+} from "@/utils/actions/mail.validation";
 
 const isStatusOk = (status: number) => status >= 200 && status < 300;
 
@@ -38,6 +43,29 @@ export const archiveThreadAction = actionClient
     },
   );
 
+export const unarchiveThreadAction = actionClient
+  .metadata({ name: "unarchiveThread" })
+  .inputSchema(unarchiveThreadBody)
+  .action(
+    async ({
+      ctx: { emailAccountId, provider, logger },
+      parsedInput: { threadId },
+    }) => {
+      const emailProvider = await createEmailProvider({
+        emailAccountId,
+        provider,
+        logger,
+      });
+
+      try {
+        await emailProvider.unarchiveThread(threadId);
+      } catch (error) {
+        logger.error("Failed to unarchive thread", { error });
+        throw new SafeError("Failed to unarchive email. Please try again.");
+      }
+    },
+  );
+
 export const trashThreadAction = actionClient
   .metadata({ name: "trashThread" })
   .inputSchema(z.object({ threadId: z.string() }))
@@ -57,6 +85,29 @@ export const trashThreadAction = actionClient
       } catch (error) {
         logger.error("Failed to trash thread", { error });
         throw new SafeError("Failed to delete email. Please try again.");
+      }
+    },
+  );
+
+export const untrashThreadAction = actionClient
+  .metadata({ name: "untrashThread" })
+  .inputSchema(untrashThreadBody)
+  .action(
+    async ({
+      ctx: { emailAccountId, provider, logger },
+      parsedInput: { threadId },
+    }) => {
+      const emailProvider = await createEmailProvider({
+        emailAccountId,
+        provider,
+        logger,
+      });
+
+      try {
+        await emailProvider.untrashThread(threadId);
+      } catch (error) {
+        logger.error("Failed to untrash thread", { error });
+        throw new SafeError("Failed to restore email. Please try again.");
       }
     },
   );
@@ -82,6 +133,29 @@ export const markReadThreadAction = actionClient
         throw new SafeError(
           `Failed to mark email as ${read ? "read" : "unread"}. Please try again.`,
         );
+      }
+    },
+  );
+
+export const removeThreadLabelAction = actionClient
+  .metadata({ name: "removeThreadLabel" })
+  .inputSchema(removeThreadLabelBody)
+  .action(
+    async ({
+      ctx: { emailAccountId, provider, logger },
+      parsedInput: { threadId, labelId },
+    }) => {
+      const emailProvider = await createEmailProvider({
+        emailAccountId,
+        provider,
+        logger,
+      });
+
+      try {
+        await emailProvider.removeThreadLabel(threadId, labelId);
+      } catch (error) {
+        logger.error("Failed to remove thread label", { error });
+        throw new SafeError("Failed to remove label. Please try again.");
       }
     },
   );

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ArchiveIcon, Loader2Icon } from "lucide-react";
+import { Loader2Icon } from "lucide-react";
 import { useAtomValue } from "jotai";
 import {
   CommandDialog,
@@ -21,6 +21,13 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { useCommandPaletteCommands } from "@/hooks/useCommandPaletteCommands";
 import { fuzzySearch } from "@/lib/commands/fuzzy-search";
 import type { Command, CommandSection } from "@/lib/commands/types";
+import { ShortcutsProvider } from "@/lib/shortcuts/ShortcutsProvider";
+import { useShortcuts } from "@/lib/shortcuts/useShortcuts";
+import {
+  buildShortcutPaletteCommands,
+  type ShortcutHandlers,
+  type ShortcutScope,
+} from "@/lib/shortcuts/registry";
 
 const SECTION_ORDER: CommandSection[] = [
   "actions",
@@ -38,7 +45,20 @@ const SECTION_LABELS: Record<CommandSection, string> = {
   settings: "Settings",
 };
 
+// This component is mounted app-wide, and its archive/close bindings act on
+// whatever email is displayed, so the mail scope is enabled everywhere for now.
+// The mail redesign moves mail scope activation onto the mail route.
+const SHORTCUT_SCOPES: ShortcutScope[] = ["global", "mail"];
+
 export function CommandK() {
+  return (
+    <ShortcutsProvider scopes={SHORTCUT_SCOPES}>
+      <CommandPalette />
+    </ShortcutsProvider>
+  );
+}
+
+function CommandPalette() {
   const [open, setOpen] = React.useState(false);
   const [search, setSearch] = React.useState("");
 
@@ -61,26 +81,24 @@ export function CommandK() {
     }
   }, [refreshEmailList, threadId, showEmail, emailAccountId]);
 
-  // build action commands that include archive and compose
-  const actionCommands = React.useMemo<Command[]>(() => {
-    const actions: Command[] = [];
+  const shortcutHandlers = React.useMemo<ShortcutHandlers>(
+    () => ({
+      commandPalette: () => setOpen((prev) => !prev),
+      compose: onOpenComposeModal,
+      archive: threadId ? onArchive : undefined,
+      // While the palette is open, Escape belongs to the dialog.
+      close: open || !threadId ? undefined : () => showEmail(null),
+    }),
+    [threadId, open, onArchive, onOpenComposeModal, showEmail],
+  );
 
-    if (threadId) {
-      actions.unshift({
-        id: "archive",
-        label: "Archive",
-        description: "Archive current email",
-        icon: ArchiveIcon,
-        shortcut: "E",
-        section: "actions",
-        priority: 0,
-        keywords: ["archive", "remove", "delete"],
-        action: () => onArchive(),
-      });
-    }
+  useShortcuts(shortcutHandlers);
 
-    return actions;
-  }, [threadId, onArchive]);
+  // the registry decides which shortcuts surface as palette entries
+  const actionCommands = React.useMemo<Command[]>(
+    () => buildShortcutPaletteCommands(shortcutHandlers),
+    [shortcutHandlers],
+  );
 
   // combine action commands with dynamic commands
   const allCommands = React.useMemo(
@@ -138,53 +156,6 @@ export function CommandK() {
     }),
     [],
   );
-
-  // keyboard shortcuts
-  React.useEffect(() => {
-    const down = (e: KeyboardEvent) => {
-      // cmd+k to toggle palette
-      if ((e.key === "k" || e.key === "K") && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        setOpen((prev) => !prev);
-        return;
-      }
-
-      // don't handle other shortcuts when palette is open
-      if (open) return;
-
-      // escape to close email preview
-      if (e.key === "Escape") {
-        if (threadId) {
-          e.preventDefault();
-          showEmail(null);
-        }
-        return;
-      }
-
-      // only handle shortcuts when focus is on body
-      if (document?.activeElement?.tagName !== "BODY") return;
-
-      // e for archive
-      if ((e.key === "e" || e.key === "E") && !(e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        onArchive();
-        return;
-      }
-
-      // c for compose
-      if ((e.key === "c" || e.key === "C") && !(e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        onOpenComposeModal();
-        return;
-      }
-    };
-
-    document.addEventListener("keydown", down);
-
-    return () => {
-      document.removeEventListener("keydown", down);
-    };
-  }, [open, onArchive, onOpenComposeModal, threadId, showEmail]);
 
   return (
     <CommandDialog
