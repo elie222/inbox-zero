@@ -26,7 +26,6 @@ import { captureException, getErrorMessage } from "@/utils/error";
 import { env } from "@/env";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
 import { isDeleteEmailActionEnabled } from "@/utils/delete-email-action";
-import { isIntegrationActionEnabled } from "@/utils/integration-action";
 import { callMcpTool } from "@/utils/mcp/call-tool";
 import { findIntegration } from "@/utils/mcp/integrations";
 import { getIntegrationToolSpec } from "@/utils/mcp/tool-specs";
@@ -38,6 +37,7 @@ import {
 import { isMessagingDraftActionType } from "@/utils/actions/draft-reply";
 import { checkHasAccess } from "@/utils/premium/server";
 import { handlePreviousDraftDeletion } from "@/utils/ai/choose-rule/draft-management";
+import { isIntegrationActionEnabledForUserId } from "@/utils/integration-action.server";
 
 const MODULE = "ai-actions";
 
@@ -590,7 +590,7 @@ const integration: ActionFunction<{
   integrationToolName?: string | null;
   integrationArgs?: ActionItem["integrationArgs"];
 }> = async ({ args, emailAccount, logger }) => {
-  if (!isIntegrationActionEnabled()) {
+  if (!(await isIntegrationActionEnabledForUserId(emailAccount.userId))) {
     logger.info(
       "Skipping integration action because integration actions are disabled",
     );

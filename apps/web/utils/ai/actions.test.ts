@@ -21,13 +21,13 @@ import prisma from "@/utils/prisma";
 import { callMcpTool } from "@/utils/mcp/call-tool";
 import { createTestLogger } from "@/__tests__/helpers";
 
-const { mockEnv } = vi.hoisted(() => ({
+const { mockEnv, mockIsIntegrationActionEnabledForUserId } = vi.hoisted(() => ({
   mockEnv: {
     deleteEmailActionEnabled: true,
     autoDraftDisabled: false,
     emailSendEnabled: true,
-    integrationActionEnabled: true,
   },
+  mockIsIntegrationActionEnabledForUserId: vi.fn().mockResolvedValue(true),
 }));
 
 vi.mock("@/env", () => ({
@@ -41,14 +41,15 @@ vi.mock("@/env", () => ({
     get NEXT_PUBLIC_EMAIL_SEND_ENABLED() {
       return mockEnv.emailSendEnabled;
     },
-    get NEXT_PUBLIC_INTEGRATION_ACTION_ENABLED() {
-      return mockEnv.integrationActionEnabled;
-    },
   },
 }));
 
 vi.mock("@/utils/mcp/call-tool", () => ({
   callMcpTool: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock("@/utils/integration-action.server", () => ({
+  isIntegrationActionEnabledForUserId: mockIsIntegrationActionEnabledForUserId,
 }));
 
 vi.mock("@/utils/attachments/draft-attachments", () => ({
@@ -917,7 +918,7 @@ describe("runActionFunction", () => {
     }
 
     beforeEach(() => {
-      mockEnv.integrationActionEnabled = true;
+      mockIsIntegrationActionEnabledForUserId.mockResolvedValue(true);
       vi.mocked(prisma.mcpConnection.findFirst).mockResolvedValue({
         id: "connection-1",
       } as never);
@@ -1030,7 +1031,7 @@ describe("runActionFunction", () => {
     });
 
     it("skips when integration actions are disabled", async () => {
-      mockEnv.integrationActionEnabled = false;
+      mockIsIntegrationActionEnabledForUserId.mockResolvedValue(false);
 
       const result = await runIntegration(integrationAction);
 

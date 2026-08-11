@@ -23,6 +23,7 @@ const {
   mockStartBulkCategorization,
   mockGetCategorizationProgress,
   mockGetCategorizationStatusSnapshot,
+  mockIsIntegrationActionEnabledForUserId,
 } = vi.hoisted(() => ({
   envState: {
     sendEmailEnabled: true,
@@ -64,6 +65,7 @@ const {
   mockStartBulkCategorization: vi.fn(),
   mockGetCategorizationProgress: vi.fn(),
   mockGetCategorizationStatusSnapshot: vi.fn(),
+  mockIsIntegrationActionEnabledForUserId: vi.fn().mockResolvedValue(false),
 }));
 
 vi.mock("@/utils/llms", () => ({
@@ -76,6 +78,10 @@ vi.mock("@/utils/email/provider", () => ({
 
 vi.mock("@/utils/posthog", () => ({
   posthogCaptureEvent: mockPosthogCaptureEvent,
+}));
+
+vi.mock("@/utils/integration-action.server", () => ({
+  isIntegrationActionEnabledForUserId: mockIsIntegrationActionEnabledForUserId,
 }));
 
 vi.mock("@/utils/senders/unsubscribe", () => ({

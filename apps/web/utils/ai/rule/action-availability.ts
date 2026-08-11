@@ -1,7 +1,6 @@
 import { env } from "@/env";
 import { ActionType } from "@/generated/prisma/enums";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
-import { isIntegrationActionEnabled } from "@/utils/integration-action";
 
 export function getAvailableActionsForRuleEditor({
   provider,
@@ -35,15 +34,19 @@ export function getAvailableActionsForRuleEditor({
   ] as ActionType[];
 }
 
-export function getExtraAvailableActionsForRuleEditor(
-  existingActionTypes: ActionType[] = [],
-) {
+export function getExtraAvailableActionsForRuleEditor({
+  existingActionTypes = [],
+  integrationActionsEnabled,
+}: {
+  existingActionTypes?: ActionType[];
+  integrationActionsEnabled: boolean;
+}) {
   return [
     ActionType.DIGEST,
     ...(env.NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED !== false
       ? [ActionType.CALL_WEBHOOK]
       : []),
-    ...(isIntegrationActionEnabled() ||
+    ...(integrationActionsEnabled ||
     existingActionTypes.includes(ActionType.INTEGRATION)
       ? [ActionType.INTEGRATION]
       : []),

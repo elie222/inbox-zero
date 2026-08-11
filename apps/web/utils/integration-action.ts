@@ -1,8 +1,7 @@
 import { env } from "@/env";
 
-export const INTEGRATION_ACTION_DISABLED_MESSAGE =
-  "Integration actions are disabled. Set NEXT_PUBLIC_INTEGRATION_ACTION_ENABLED=true to enable.";
+export const INTEGRATION_ACTION_FEATURE_FLAG = "integration-actions";
 
-export function isIntegrationActionEnabled() {
+export function isIntegrationActionGloballyEnabled() {
   return env.NEXT_PUBLIC_INTEGRATION_ACTION_ENABLED === true;
 }

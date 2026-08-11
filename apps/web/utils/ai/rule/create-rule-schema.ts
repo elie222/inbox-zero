@@ -17,6 +17,7 @@ import {
   isInvalidStaticFromValue,
   STATIC_FROM_CONDITION_DESCRIPTION,
 } from "@/utils/ai/rule/rule-condition-descriptions";
+import { isIntegrationActionGloballyEnabled } from "@/utils/integration-action";
 
 const conditionalOperatorSchema = z
   .enum([LogicalOperator.AND, LogicalOperator.OR])
@@ -146,8 +147,17 @@ export function getAvailableActions(provider: string) {
   return availableActions as [ActionType, ...ActionType[]];
 }
 
-export const getExtraActions = (existingActionTypes: ActionType[] = []) =>
-  getExtraAvailableActionsForRuleEditor(existingActionTypes);
+export const getExtraActions = ({
+  existingActionTypes = [],
+  integrationActionsEnabled,
+}: {
+  existingActionTypes?: ActionType[];
+  integrationActionsEnabled: boolean;
+}) =>
+  getExtraAvailableActionsForRuleEditor({
+    existingActionTypes,
+    integrationActionsEnabled,
+  });
 
 export type RuleActionFields = {
   label?: string | null;
@@ -168,10 +178,11 @@ export type RuleAction = {
 
 export const createRuleActionSchema = (
   provider: string,
+  integrationActionsEnabled = isIntegrationActionGloballyEnabled(),
 ): z.ZodType<RuleAction> => {
   const allowedActionTypes = new Set([
     ...getAvailableActionsForRuleEditor({ provider }),
-    ...getExtraAvailableActionsForRuleEditor(),
+    ...getExtraAvailableActionsForRuleEditor({ integrationActionsEnabled }),
   ]);
   const integrationToolSpec = getOnlyIntegrationToolSpec();
   const optionalFieldsSchema = createOptionalActionFieldsSchema(provider);
@@ -238,7 +249,10 @@ export const createRuleActionSchema = (
   return z.union(actionSchemas) as z.ZodType<RuleAction>;
 };
 
-export const createRuleSchema = (provider: string) =>
+export const createRuleSchema = (
+  provider: string,
+  integrationActionsEnabled = isIntegrationActionGloballyEnabled(),
+) =>
   z.object({
     name: z
       .string()
@@ -247,7 +261,7 @@ export const createRuleSchema = (provider: string) =>
       ),
     condition: conditionSchema,
     actions: z
-      .array(createRuleActionSchema(provider))
+      .array(createRuleActionSchema(provider, integrationActionsEnabled))
       .describe("The actions to take"),
   });
 

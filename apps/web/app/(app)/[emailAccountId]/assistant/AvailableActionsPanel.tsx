@@ -13,6 +13,7 @@ import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { getMessagingProviderName } from "@/utils/messaging/platforms";
 import { getConnectedRuleNotificationChannels } from "@/utils/messaging/routes";
 import { getIntegrationActionLabel } from "@/utils/mcp/tool-specs";
+import { useIntegrationActionsEnabled } from "@/hooks/useFeatureFlags";
 
 const actionNames: Record<ActionType, string> = {
   [ActionType.LABEL]: "Label",
@@ -43,6 +44,7 @@ const actionTooltips: Partial<Record<ActionType, string>> = {
 
 export function AvailableActionsPanel() {
   const { emailAccountId, provider } = useAccount();
+  const integrationActionsEnabled = useIntegrationActionsEnabled();
   const { data: messagingChannelsData } = useMessagingChannels(emailAccountId);
   const notifyActionName = getNotifyActionName(messagingChannelsData);
 
@@ -51,7 +53,12 @@ export function AvailableActionsPanel() {
       <CardContent className="pt-4">
         <div className="grid gap-2">
           <ActionSection
-            actions={[...getAvailableActions(provider), ...getExtraActions()]}
+            actions={[
+              ...getAvailableActions(provider),
+              ...getExtraActions({
+                integrationActionsEnabled,
+              }),
+            ]}
             notifyActionName={notifyActionName}
             title="Available Actions"
           />
