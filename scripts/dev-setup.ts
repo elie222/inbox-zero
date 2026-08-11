@@ -70,7 +70,6 @@ class CommandExecutionError extends Error {
 const ROOT_DIR = process.cwd();
 const APP_DIR = resolve(ROOT_DIR, "apps/web");
 const CONTEXT_DIR = resolve(ROOT_DIR, ".context");
-const EMULATE_TEMPLATE_PATH = resolve(ROOT_DIR, "emulate.config.yaml");
 const GENERATED_EMULATE_CONFIG_PATH = resolve(
   CONTEXT_DIR,
   "worktree-emulate.config.yaml",
@@ -232,7 +231,7 @@ async function runDev(state: WorktreeState) {
     state.googleEmulatorPort != null &&
     state.microsoftEmulatorPort != null
   ) {
-    writeGeneratedEmulateConfig(state.baseUrl);
+    await writeGeneratedEmulateConfig(state.baseUrl);
 
     registerChild(
       spawn(
@@ -462,10 +461,18 @@ function ensureSharedEnvLinks() {
   }
 }
 
-function writeGeneratedEmulateConfig(baseUrl: string) {
-  const template = readFileSync(EMULATE_TEMPLATE_PATH, "utf8");
-  const rendered = template.replaceAll("http://localhost:3000", baseUrl);
-  writeFileSync(GENERATED_EMULATE_CONFIG_PATH, rendered);
+async function writeGeneratedEmulateConfig(baseUrl: string) {
+  await runCommand("pnpm", [
+    "--dir",
+    APP_DIR,
+    "exec",
+    "tsx",
+    "scripts/write-emulate-seed.ts",
+    "--output",
+    GENERATED_EMULATE_CONFIG_PATH,
+    "--base-url",
+    baseUrl,
+  ]);
 }
 
 function writeState(state: WorktreeState) {
@@ -1171,7 +1178,7 @@ async function ensureWorktreeReady(options: CliOptions) {
   writeState(state);
 
   if (state.authMode === "emulate") {
-    writeGeneratedEmulateConfig(state.baseUrl);
+    await writeGeneratedEmulateConfig(state.baseUrl);
   }
 
   return state;
