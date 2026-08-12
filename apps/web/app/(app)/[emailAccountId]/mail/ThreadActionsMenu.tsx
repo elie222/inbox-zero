@@ -1,15 +1,23 @@
 "use client";
 
 import type { ComponentProps } from "react";
-import { MoreHorizontalIcon } from "lucide-react";
+import {
+  MailXIcon,
+  MailIcon,
+  MailOpenIcon,
+  MoreHorizontalIcon,
+} from "lucide-react";
 import { FixWithChat } from "@/app/(app)/[emailAccountId]/assistant/FixWithChat";
 import { getRuleResultReasonDisplay } from "@/app/(app)/[emailAccountId]/assistant/ResultDisplay";
 import { MailLabelChip } from "@/app/(app)/[emailAccountId]/mail/MailLabelChip";
 import type { ThreadPlan } from "@/app/(app)/[emailAccountId]/mail/types";
+import { useUnsubscribeSender } from "@/app/(app)/[emailAccountId]/mail/use-unsubscribe-sender";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ActionType, ExecutedRuleStatus } from "@/generated/prisma/enums";
@@ -19,61 +27,90 @@ import type { ParsedMessage } from "@/utils/types";
 
 type FixWithChatResults = ComponentProps<typeof FixWithChat>["results"];
 
-export type RuleAttributionMenuProps = {
+export type ThreadActionsMenuProps = {
   /**
    * Every rule that fired on the thread, newest first. Attribution is
    * rule-scoped, not label-scoped: one entry per rule, each with its own reason,
    * the actions it applied, and its own way to correct it.
    */
   plans: ThreadPlan[];
-  /** The message the fix flow reasons about — the thread's latest message. */
+  /**
+   * The thread's latest message: what the fix flow reasons about, and the
+   * sender the unsubscribe entry acts on.
+   */
   message: ParsedMessage | null;
   /** `setInput` from `useChat()`: the fix flow seeds the assistant with it. */
   setChatInput: (input: string) => void;
+  isUnread: boolean;
+  onToggleRead: () => void;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 };
 
-/** The reader's ⋯ menu: why the thread looks the way it does. */
-export function RuleAttributionMenu({
+/**
+ * The reader's ⋯ menu: why the thread looks the way it does, and everything you
+ * can do to it that isn't worth a button of its own.
+ */
+export function ThreadActionsMenu({
   plans,
   message,
   setChatInput,
+  isUnread,
+  onToggleRead,
   open,
   onOpenChange,
-}: RuleAttributionMenuProps) {
-  if (!plans.length) return null;
-
+}: ThreadActionsMenuProps) {
   const hint = getShortcutHint("moreActions");
+  const { canUnsubscribe, onUnsubscribe, PremiumModal } =
+    useUnsubscribeSender(message);
+  const ReadIcon = isUnread ? MailOpenIcon : MailIcon;
 
   return (
-    <DropdownMenu onOpenChange={onOpenChange} open={open}>
-      <DropdownMenuTrigger asChild>
-        <Button
-          aria-label={`More actions (${hint})`}
-          className="h-7 w-7"
-          size="icon"
-          title={`More actions (${hint})`}
-          variant="outline"
-        >
-          <MoreHorizontalIcon className="size-3.5" />
-        </Button>
-      </DropdownMenuTrigger>
+    <>
+      <DropdownMenu onOpenChange={onOpenChange} open={open}>
+        <DropdownMenuTrigger asChild>
+          <Button
+            aria-label={`More actions (${hint})`}
+            className="h-7 w-7"
+            size="icon"
+            title={`More actions (${hint})`}
+            variant="outline"
+          >
+            <MoreHorizontalIcon className="size-3.5" />
+          </Button>
+        </DropdownMenuTrigger>
 
-      <DropdownMenuContent
-        align="end"
-        className="w-[min(24rem,calc(100vw-1rem))]"
-      >
-        {plans.map((plan) => (
-          <RuleAttribution
-            key={plan.id}
-            message={message}
-            plan={plan}
-            setChatInput={setChatInput}
-          />
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+        <DropdownMenuContent
+          align="end"
+          className="w-[min(24rem,calc(100vw-1rem))]"
+        >
+          {plans.map((plan) => (
+            <RuleAttribution
+              key={plan.id}
+              message={message}
+              plan={plan}
+              setChatInput={setChatInput}
+            />
+          ))}
+
+          {plans.length > 0 ? <DropdownMenuSeparator /> : null}
+
+          <DropdownMenuItem onSelect={onToggleRead}>
+            <ReadIcon className="mr-2 size-4" />
+            {isUnread ? "Mark as read" : "Mark as unread"}
+          </DropdownMenuItem>
+
+          {canUnsubscribe ? (
+            <DropdownMenuItem onSelect={onUnsubscribe}>
+              <MailXIcon className="mr-2 size-4" />
+              Unsubscribe
+            </DropdownMenuItem>
+          ) : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <PremiumModal />
+    </>
   );
 }
 

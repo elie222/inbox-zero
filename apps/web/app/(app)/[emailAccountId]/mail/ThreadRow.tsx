@@ -2,6 +2,7 @@
 
 import { memo, useMemo } from "react";
 import { MailLabelChip } from "@/app/(app)/[emailAccountId]/mail/MailLabelChip";
+import { isThreadUnread } from "@/app/(app)/[emailAccountId]/mail/read-state";
 import type {
   ListThread,
   MailLayoutMode,
@@ -61,8 +62,8 @@ export const ThreadRow = memo(function ThreadRow({
 
   if (!message) return null;
 
-  // Both providers normalise to these ids, so this is not a provider branch.
-  const isUnread = message.labelIds?.includes(GmailLabel.UNREAD) ?? false;
+  const isUnread = isThreadUnread(thread.messages);
+  // Both providers normalise to this id, so this is not a provider branch.
   const isDraft = message.labelIds?.includes(GmailLabel.DRAFT) ?? false;
   const isWide = layout === "list";
 

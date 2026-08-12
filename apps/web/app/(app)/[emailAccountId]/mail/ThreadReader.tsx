@@ -45,7 +45,7 @@ export type ThreadReaderProps = {
    * a message that already has an AI draft.
    */
   autoOpenReplyForMessageId?: string;
-  /** The ⋯ dropdown, i.e. `RuleAttributionMenu`, composed by the shell. */
+  /** The ⋯ dropdown, i.e. `ThreadActionsMenu`, composed by the shell. */
   menu?: ReactNode;
 };
 

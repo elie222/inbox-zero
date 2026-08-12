@@ -8,10 +8,13 @@ import {
   deleteEmails,
 } from "@/store/archive-queue";
 import {
+  markReadThreadAction,
   unarchiveThreadAction,
   untrashThreadAction,
 } from "@/utils/actions/mail";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
+import { withThreadReadState } from "@/app/(app)/[emailAccountId]/mail/read-state";
+import type { ListThread } from "@/app/(app)/[emailAccountId]/mail/types";
 import type { ThreadRemoval } from "@/app/(app)/[emailAccountId]/mail/use-mail-threads";
 
 type UndoableAction = "archive" | "delete";
@@ -24,7 +27,7 @@ type UndoableBatch = {
 };
 
 /**
- * Archive and delete with a real undo.
+ * Archive and delete with a real undo, plus read state.
  *
  * Undo tries to cancel the queued job first: the queue usually drains in well
  * under a second, but when it hasn't, cancelling avoids a pointless round trip
@@ -34,10 +37,15 @@ export function useThreadActions({
   emailAccountId,
   removeThreads,
   restoreThreads,
+  updateThreads,
 }: {
   emailAccountId: string;
   removeThreads: (threadIds: string[]) => ThreadRemoval;
   restoreThreads: (removal: ThreadRemoval, threadIds: string[]) => void;
+  updateThreads: (
+    threadIds: string[],
+    update: (thread: ListThread) => ListThread,
+  ) => void;
 }) {
   const lastAction = useRef<UndoableBatch | null>(null);
 
@@ -132,9 +140,37 @@ export function useThreadActions({
     [emailAccountId, removeThreads, restoreThreads, undoBatch],
   );
 
+  // Applied to the list first: in list layout the reader covers the rows, so
+  // waiting on the provider would leave the click with no visible effect.
+  const markRead = useCallback(
+    async (threadId: string, read: boolean) => {
+      const update = (isRead: boolean) =>
+        updateThreads([threadId], (thread) =>
+          withThreadReadState(thread, isRead),
+        );
+
+      update(read);
+
+      const result = await markReadThreadAction(emailAccountId, {
+        threadId,
+        read,
+      });
+
+      if (result?.serverError) {
+        update(!read);
+        toast.error(read ? "Couldn't mark as read" : "Couldn't mark as unread");
+        return;
+      }
+
+      toast.success(read ? "Marked as read" : "Marked as unread");
+    },
+    [emailAccountId, updateThreads],
+  );
+
   return {
     archive: useCallback((ids: string[]) => run("archive", ids), [run]),
     trash: useCallback((ids: string[]) => run("delete", ids), [run]),
+    markRead,
     undo,
   };
 }
