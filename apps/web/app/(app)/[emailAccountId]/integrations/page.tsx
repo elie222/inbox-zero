@@ -5,6 +5,7 @@ import { ListChecksIcon, PenLineIcon, ZapIcon } from "lucide-react";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
 import { Integrations } from "@/app/(app)/[emailAccountId]/integrations/Integrations";
+import { FeatureIcon } from "@/components/FeatureIcon";
 import { Button } from "@/components/ui/button";
 import { ActionCard } from "@/components/ui/card";
 import {
@@ -98,7 +99,9 @@ function Capabilities() {
     <ItemCard className={cn(actionsEnabled && "sm:grid sm:grid-cols-2")}>
       <Item>
         <ItemMedia>
-          <PenLineIcon className="size-4 text-blue-500" />
+          <FeatureIcon>
+            <PenLineIcon className="h-4 w-4" />
+          </FeatureIcon>
         </ItemMedia>
         <ItemContent>
           <ItemTitle>Better drafts</ItemTitle>
@@ -110,7 +113,9 @@ function Capabilities() {
       {actionsEnabled && (
         <Item>
           <ItemMedia>
-            <ListChecksIcon className="size-4 text-blue-500" />
+            <FeatureIcon>
+              <ListChecksIcon className="h-4 w-4" />
+            </FeatureIcon>
           </ItemMedia>
           <ItemContent>
             <ItemTitle>Rule actions</ItemTitle>
