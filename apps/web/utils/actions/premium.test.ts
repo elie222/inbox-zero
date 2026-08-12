@@ -11,7 +11,7 @@ const mocks = vi.hoisted(() => ({
   createCheckoutSession: vi.fn(),
   licenseEnv: {
     LICENSE_1_SEAT_VARIANT_ID: 101 as number | undefined,
-    LICENSE_3_SEAT_VARIANT_ID: 101 as number | undefined,
+    LICENSE_3_SEAT_VARIANT_ID: 103 as number | undefined,
     LICENSE_5_SEAT_VARIANT_ID: 105 as number | undefined,
     LICENSE_10_SEAT_VARIANT_ID: 110 as number | undefined,
     LICENSE_25_SEAT_VARIANT_ID: 125 as number | undefined,
@@ -22,7 +22,15 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/utils/prisma");
 vi.mock("@/env", async (importOriginal) => {
   const { env } = await importOriginal<typeof import("@/env")>();
-  return { env: { ...env, ...mocks.licenseEnv } };
+  return {
+    env: new Proxy(env, {
+      get(target, property) {
+        return property in mocks.licenseEnv
+          ? mocks.licenseEnv[property as keyof typeof mocks.licenseEnv]
+          : target[property as keyof typeof target];
+      },
+    }),
+  };
 });
 vi.mock("@/utils/auth", () => ({
   auth: vi.fn(async () => ({
@@ -52,6 +60,13 @@ vi.mock("@/utils/posthog", () => ({
 describe("activateLicenseKeyAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    Object.assign(mocks.licenseEnv, {
+      LICENSE_1_SEAT_VARIANT_ID: 101,
+      LICENSE_3_SEAT_VARIANT_ID: 103,
+      LICENSE_5_SEAT_VARIANT_ID: 105,
+      LICENSE_10_SEAT_VARIANT_ID: 110,
+      LICENSE_25_SEAT_VARIANT_ID: 125,
+    });
   });
 
   it("rejects a valid Lemon license for an unconfigured variant", async () => {
@@ -91,6 +106,7 @@ describe("activateLicenseKeyAction", () => {
   });
 
   it("rejects duplicate variant mappings", async () => {
+    mocks.licenseEnv.LICENSE_3_SEAT_VARIANT_ID = 101;
     mocks.activateLemonLicenseKey.mockResolvedValue(
       activatedLicenseResponse({ variantId: 101 }),
     );

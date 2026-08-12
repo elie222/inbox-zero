@@ -37,9 +37,7 @@ describe("activateLemonLicenseKey", () => {
     await activateLemonLicenseKey(licenseKey, "License for user-1", logger);
 
     const loggedValues = logSpies.flatMap((spy) => spy.mock.calls).flat();
-    expect(loggedValues).not.toContainEqual(
-      expect.stringContaining(licenseKey),
-    );
+    expect(JSON.stringify(loggedValues)).not.toContain(licenseKey);
     expect(mocks.activateLicense).toHaveBeenCalledWith(
       licenseKey,
       "License for user-1",
