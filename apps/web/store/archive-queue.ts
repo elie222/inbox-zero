@@ -81,6 +81,7 @@ const addThreadsToQueue = ({
   labelId,
   onSuccess,
   onError,
+  onSettled,
   emailAccountId,
 }: {
   actionType: QueueActionType;
@@ -88,6 +89,7 @@ const addThreadsToQueue = ({
   labelId?: string;
   onSuccess?: (threadId: string) => void;
   onError?: (threadId: string) => void;
+  onSettled?: () => void;
   emailAccountId: string;
 }) => {
   const threads = Object.fromEntries(
@@ -115,7 +117,7 @@ const addThreadsToQueue = ({
     totalThreads: prev.totalThreads + Object.keys(threads).length,
   }));
 
-  processQueue({ threads, onSuccess, onError, emailAccountId });
+  processQueue({ threads, onSuccess, onError, onSettled, emailAccountId });
 };
 
 export const archiveEmails = async ({
@@ -145,11 +147,13 @@ export const markReadThreads = async ({
   threadIds,
   onSuccess,
   onError,
+  onSettled,
   emailAccountId,
 }: {
   threadIds: string[];
   onSuccess: (threadId: string) => void;
   onError?: (threadId: string) => void;
+  onSettled?: () => void;
   emailAccountId: string;
 }) => {
   addThreadsToQueue({
@@ -157,6 +161,7 @@ export const markReadThreads = async ({
     threadIds,
     onSuccess,
     onError,
+    onSettled,
     emailAccountId,
   });
 };
@@ -201,11 +206,13 @@ export function processQueue({
   threads,
   onSuccess,
   onError,
+  onSettled,
   emailAccountId,
 }: {
   threads: Record<string, QueueItem>;
   onSuccess?: (threadId: string) => void;
   onError?: (threadId: string) => void;
+  onSettled?: () => void;
   emailAccountId: string;
 }) {
   const actionMap: Record<QueueActionType, ActionFunction> = {
@@ -216,7 +223,7 @@ export function processQueue({
       markReadThreadAction(emailAccountId, { threadId, read: true }),
   };
 
-  emailActionQueue.addAll(
+  const batch = emailActionQueue.addAll(
     Object.values(threads).map(({ threadId, actionType, labelId }) => {
       const key = getQueueKey(actionType, threadId);
       const job: QueuedJob = { threadId, actionType, status: "pending" };
@@ -261,6 +268,8 @@ export function processQueue({
       };
     }),
   );
+
+  if (onSettled) batch.then(onSettled, onSettled);
 }
 
 /**

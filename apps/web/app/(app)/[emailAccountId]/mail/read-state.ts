@@ -17,19 +17,25 @@ export function withThreadReadState(
   thread: ListThread,
   read: boolean,
 ): ListThread {
+  let changed = false;
+  const messages = thread.messages.map((message) => {
+    const labelIds = message.labelIds ?? [];
+    const isRead = !labelIds.includes(GmailLabel.UNREAD);
+    if (isRead === read) return message;
+
+    changed = true;
+    return {
+      ...message,
+      labelIds: read
+        ? labelIds.filter((labelId) => labelId !== GmailLabel.UNREAD)
+        : [...labelIds, GmailLabel.UNREAD],
+    };
+  });
+
+  if (!changed) return thread;
+
   return {
     ...thread,
-    messages: thread.messages.map((message) => {
-      const labelIds = message.labelIds ?? [];
-      const isRead = !labelIds.includes(GmailLabel.UNREAD);
-      if (isRead === read) return message;
-
-      return {
-        ...message,
-        labelIds: read
-          ? labelIds.filter((labelId) => labelId !== GmailLabel.UNREAD)
-          : [...labelIds, GmailLabel.UNREAD],
-      };
-    }),
+    messages,
   };
 }

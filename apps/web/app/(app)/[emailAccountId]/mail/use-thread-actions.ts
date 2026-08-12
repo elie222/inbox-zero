@@ -6,6 +6,7 @@ import {
   archiveEmails,
   cancelQueuedThreads,
   deleteEmails,
+  markReadThreads,
 } from "@/store/archive-queue";
 import {
   markReadThreadAction,
@@ -14,8 +15,11 @@ import {
 } from "@/utils/actions/mail";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
 import { withThreadReadState } from "@/app/(app)/[emailAccountId]/mail/read-state";
+import type {
+  OptimisticThreadUpdate,
+  ThreadRemoval,
+} from "@/app/(app)/[emailAccountId]/mail/use-mail-threads";
 import type { ListThread } from "@/app/(app)/[emailAccountId]/mail/types";
-import type { ThreadRemoval } from "@/app/(app)/[emailAccountId]/mail/use-mail-threads";
 
 type UndoableAction = "archive" | "delete";
 
@@ -27,7 +31,7 @@ type UndoableBatch = {
 };
 
 /**
- * Archive and delete with a real undo, plus read state.
+ * Archive and delete with a real undo.
  *
  * Undo tries to cancel the queued job first: the queue usually drains in well
  * under a second, but when it hasn't, cancelling avoids a pointless round trip
@@ -37,15 +41,15 @@ export function useThreadActions({
   emailAccountId,
   removeThreads,
   restoreThreads,
-  updateThreads,
+  optimisticallyUpdateThreads,
 }: {
   emailAccountId: string;
   removeThreads: (threadIds: string[]) => ThreadRemoval;
   restoreThreads: (removal: ThreadRemoval, threadIds: string[]) => void;
-  updateThreads: (
+  optimisticallyUpdateThreads: (
     threadIds: string[],
-    update: (thread: ListThread) => ListThread,
-  ) => void;
+    updater: (thread: ListThread) => ListThread,
+  ) => OptimisticThreadUpdate;
 }) {
   const lastAction = useRef<UndoableBatch | null>(null);
 
@@ -140,19 +144,35 @@ export function useThreadActions({
     [emailAccountId, removeThreads, restoreThreads, undoBatch],
   );
 
-  // Applied to the list first: in list layout the reader covers the rows, so
-  // waiting on the provider would leave the click with no visible effect.
   const markRead = useCallback(
+    (threadIds: string[]) => {
+      const update = optimisticallyUpdateThreads(threadIds, (thread) =>
+        withThreadReadState(thread, true),
+      );
+      if (!update.threadIds.length) return;
+      const failedThreadIds: string[] = [];
+
+      markReadThreads({
+        threadIds: update.threadIds,
+        emailAccountId,
+        onSuccess: update.commit,
+        onError: (threadId) => {
+          failedThreadIds.push(threadId);
+          toast.error("There was an error marking as read");
+        },
+        onSettled: () => update.rollback(failedThreadIds),
+      });
+    },
+    [emailAccountId, optimisticallyUpdateThreads],
+  );
+
+  const setReadState = useCallback(
     async (threadId: string, read: boolean) => {
-      const update = (isRead: boolean) =>
-        updateThreads([threadId], (thread) =>
-          withThreadReadState(thread, isRead),
-        );
+      const update = optimisticallyUpdateThreads([threadId], (thread) =>
+        withThreadReadState(thread, read),
+      );
+      if (!update.threadIds.length) return;
 
-      update(read);
-
-      // A rejected request has to roll back too, or the row keeps showing a
-      // state the provider never took: nothing else reverts it.
       try {
         const result = await markReadThreadAction(emailAccountId, {
           threadId,
@@ -160,20 +180,22 @@ export function useThreadActions({
         });
         if (result?.serverError) throw new Error(result.serverError);
       } catch {
-        update(!read);
+        update.rollback([threadId]);
         toast.error(read ? "Couldn't mark as read" : "Couldn't mark as unread");
         return;
       }
 
+      update.commit(threadId);
       toast.success(read ? "Marked as read" : "Marked as unread");
     },
-    [emailAccountId, updateThreads],
+    [emailAccountId, optimisticallyUpdateThreads],
   );
 
   return {
     archive: useCallback((ids: string[]) => run("archive", ids), [run]),
     trash: useCallback((ids: string[]) => run("delete", ids), [run]),
     markRead,
+    setReadState,
     undo,
   };
 }

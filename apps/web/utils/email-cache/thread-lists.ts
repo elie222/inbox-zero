@@ -9,6 +9,42 @@ import { restoreThreadOrder, type ThreadRestorePosition } from "./thread-order";
 
 type ThreadRow = { id: string };
 
+export async function writeCachedThreadRows<T extends ThreadRow>({
+  emailAccountId,
+  threads,
+  now = Date.now(),
+}: {
+  emailAccountId: string;
+  threads: T[];
+  now?: number;
+}) {
+  if (!threads.length) return;
+  const epoch = captureEmailCacheEpoch(emailAccountId);
+
+  try {
+    const database = await getEmailCacheDatabase();
+    if (!database || !isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
+    const transaction = database.transaction("threadRows", "readwrite");
+    const store = transaction.objectStore("threadRows");
+
+    for (const thread of threads) {
+      const current = await store.get([emailAccountId, thread.id]);
+      await store.put({
+        emailAccountId,
+        threadId: thread.id,
+        data: thread,
+        fetchedAt: current?.fetchedAt ?? now,
+        lastAccessedAt: now,
+      });
+    }
+    await transaction.done;
+    scheduleEmailCacheCleanup();
+  } catch {
+    scheduleEmailCacheCleanup({ force: true });
+    // Optimistic UI state remains authoritative if persistence is unavailable.
+  }
+}
+
 export async function writeCachedThreadList<T extends ThreadRow>({
   emailAccountId,
   viewKey,
@@ -138,55 +174,6 @@ export async function removeCachedThreadsFromView({
     await transaction.done;
   } catch {
     // Optimistic UI state remains authoritative if persistence is unavailable.
-  }
-}
-
-/**
- * Rewrites rows in place, for a change to a thread itself rather than to a
- * view's membership: rows are keyed by thread, so every view holding one picks
- * the change up and no view's order has to be touched.
- *
- * The updater runs against the cached row rather than one the caller supplies,
- * so a thread that is cached but missing from the list on screen — an opened
- * conversation the current view does not contain — is still kept in step.
- */
-export async function updateCachedThreads<T extends ThreadRow>({
-  emailAccountId,
-  threadIds,
-  update,
-}: {
-  emailAccountId: string;
-  threadIds: string[];
-  update: (thread: T) => T;
-}) {
-  if (!threadIds.length) return;
-  const epoch = captureEmailCacheEpoch(emailAccountId);
-
-  try {
-    const database = await getEmailCacheDatabase();
-    if (!database || !isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
-    const transaction = database.transaction("threadRows", "readwrite");
-    const store = transaction.objectStore("threadRows");
-    const now = Date.now();
-
-    await Promise.all(
-      threadIds.map(async (threadId) => {
-        // Absent means the row was never cached or has been evicted, and
-        // writing one would resurrect a row no view lists any more.
-        const existing = await store.get([emailAccountId, threadId]);
-        if (!existing) return;
-        return store.put({
-          ...existing,
-          data: update(existing.data as T),
-          lastAccessedAt: now,
-        });
-      }),
-    );
-    await transaction.done;
-  } catch {
-    // A failed write can be a full quota, which every later write would hit
-    // too, so make room rather than leaving the row stale for good.
-    scheduleEmailCacheCleanup({ force: true });
   }
 }
 
