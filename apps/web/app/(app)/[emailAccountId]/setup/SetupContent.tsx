@@ -37,6 +37,10 @@ import { InviteMemberModal } from "@/components/InviteMemberModal";
 import { BRAND_NAME } from "@/utils/branding";
 import { dismissHintAction } from "@/utils/actions/hints";
 import { toastError } from "@/components/Toast";
+import { captureException } from "@/utils/error";
+import { withSetupActionTimeout } from "./setup-action-timeout";
+
+const SETUP_ACTION_TIMEOUT_MS = 15_000;
 
 type DismissibleSetupStep =
   | "aiAssistant"
@@ -283,8 +287,7 @@ function Checklist({
   } | null;
   onSetupProgressChanged: (stepKey: DismissibleSetupStep) => void;
 }) {
-  const { executeAsync: dismissSetupStep, isExecuting: isDismissingStep } =
-    useAction(dismissHintAction);
+  const { executeAsync: dismissSetupStep } = useAction(dismissHintAction);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [pendingStep, setPendingStep] = useState<DismissibleSetupStep | null>(
     null,
@@ -293,16 +296,19 @@ function Checklist({
 
   const handleMarkStepDone = useCallback(
     async (stepKey: DismissibleSetupStep) => {
-      if (isDismissingStep) {
+      if (pendingStep) {
         return;
       }
 
       setPendingStep(stepKey);
 
       try {
-        const result = await dismissSetupStep({
-          hintId: `setup:${stepKey}:${emailAccountId}`,
-        });
+        const result = await withSetupActionTimeout(
+          dismissSetupStep({
+            hintId: `setup:${stepKey}:${emailAccountId}`,
+          }),
+          SETUP_ACTION_TIMEOUT_MS,
+        );
 
         if (result?.serverError || result?.validationErrors) {
           toastError({ description: "Failed to skip this step" });
@@ -310,16 +316,18 @@ function Checklist({
         }
 
         onSetupProgressChanged(stepKey);
+      } catch (error) {
+        captureException(error, {
+          extra: { context: "setup/dismiss-step", stepKey },
+        });
+        toastError({
+          description: "Failed to skip this step. Please try again.",
+        });
       } finally {
         setPendingStep(null);
       }
     },
-    [
-      dismissSetupStep,
-      emailAccountId,
-      isDismissingStep,
-      onSetupProgressChanged,
-    ],
+    [dismissSetupStep, emailAccountId, onSetupProgressChanged, pendingStep],
   );
 
   const handleOpenInviteModal = () => {
@@ -354,7 +362,7 @@ function Checklist({
         actionText="Set up"
         onMarkDone={() => handleMarkStepDone("aiAssistant")}
         showMarkDone
-        markDoneDisabled={isDismissingStep}
+        markDoneDisabled={pendingStep !== null}
         markDonePending={pendingStep === "aiAssistant"}
       />
 
@@ -367,7 +375,7 @@ function Checklist({
         actionText="View"
         onMarkDone={() => handleMarkStepDone("bulkUnsubscribe")}
         showMarkDone
-        markDoneDisabled={isDismissingStep}
+        markDoneDisabled={pendingStep !== null}
         markDonePending={pendingStep === "bulkUnsubscribe"}
       />
 
@@ -381,7 +389,7 @@ function Checklist({
           actionText="Connect"
           onMarkDone={() => handleMarkStepDone("calendarConnected")}
           showMarkDone
-          markDoneDisabled={isDismissingStep}
+          markDoneDisabled={pendingStep !== null}
           markDonePending={pendingStep === "calendarConnected"}
         />
       )}
@@ -395,7 +403,7 @@ function Checklist({
           completed={teamInvite.completed}
           actionText="Invite"
           onMarkDone={() => handleMarkStepDone("teamInvite")}
-          markDoneDisabled={isDismissingStep}
+          markDoneDisabled={pendingStep !== null}
           markDonePending={pendingStep === "teamInvite"}
           showMarkDone
           markDoneText="Skip"
@@ -422,7 +430,7 @@ function Checklist({
           completed={isTabsExtensionCompleted}
           actionText="Install"
           onMarkDone={() => handleMarkStepDone("tabsExtension")}
-          markDoneDisabled={isDismissingStep}
+          markDoneDisabled={pendingStep !== null}
           markDonePending={pendingStep === "tabsExtension"}
           showMarkDone={true}
         />
