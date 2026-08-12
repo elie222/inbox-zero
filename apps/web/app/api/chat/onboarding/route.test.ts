@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getEmailAccount } from "@/__tests__/helpers";
+import { getOnboardingChatInput } from "@/app/api/chat/onboarding/test-utils";
 
 const { aiProcessOnboardingChatMock, convertToModelMessagesMock } = vi.hoisted(
   () => ({
@@ -44,7 +45,7 @@ describe("onboarding chat route", () => {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(
-          getInput([
+          getOnboardingChatInput([
             {
               type: "file",
               url: "https://example.com/image.png",
@@ -61,27 +62,3 @@ describe("onboarding chat route", () => {
     expect(aiProcessOnboardingChatMock).not.toHaveBeenCalled();
   });
 });
-
-function getInput(parts: unknown[]) {
-  return {
-    messages: [
-      {
-        id: "message-1",
-        role: "user",
-        parts,
-      },
-    ],
-    setup: {
-      rules: [],
-      status: "draft",
-    },
-    scan: {
-      status: "pending",
-      emailsPerDay: null,
-      emailsLastMonth: null,
-      cleanupSuggestions: [],
-      totalCleanupSuggestions: 0,
-    },
-    isPremium: false,
-  };
-}
