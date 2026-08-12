@@ -116,7 +116,7 @@ function getNotifyActionName(
   );
 
   return providerNames.length > 0
-    ? `Notify via ${formatProviderList(providerNames)}`
+    ? `Notify on ${formatProviderList(providerNames)}`
     : "Notify";
 }
 

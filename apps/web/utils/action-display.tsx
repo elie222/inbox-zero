@@ -1,4 +1,4 @@
-import { ActionType } from "@/generated/prisma/enums";
+import { ActionType, type MessagingProvider } from "@/generated/prisma/enums";
 import { getEmailTerminology } from "@/utils/terminology";
 import { sortActionsByPriority } from "@/utils/action-sort";
 import {
@@ -23,6 +23,7 @@ import {
   getIntegrationActionDisplayValue,
   getIntegrationActionLabel,
 } from "@/utils/mcp/tool-specs";
+import { getMessagingProviderName } from "@/utils/messaging/platforms";
 
 /**
  * Hide messaging-channel draft entries when an email draft already exists,
@@ -51,6 +52,7 @@ export function getActionDisplay(
     content?: string | null;
     to?: string | null;
     notificationDestination?: string | null;
+    messagingChannel?: { provider: MessagingProvider } | null;
     integrationName?: string | null;
     integrationToolName?: string | null;
     integrationArgs?: unknown;
@@ -113,8 +115,11 @@ export function getActionDisplay(
     case ActionType.CALL_WEBHOOK:
       return "Call Webhook";
     case ActionType.NOTIFY_MESSAGING_CHANNEL:
+      if (action.messagingChannel?.provider) {
+        return `Notify on ${getMessagingProviderName(action.messagingChannel.provider)}`;
+      }
       return action.notificationDestination
-        ? `Notify via ${truncate(action.notificationDestination, 18)}`
+        ? `Notify on ${truncate(action.notificationDestination, 18)}`
         : "Notify";
     case ActionType.NOTIFY_SENDER:
       return "Notify Sender";

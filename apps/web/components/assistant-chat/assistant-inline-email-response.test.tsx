@@ -399,8 +399,8 @@ describe("AssistantInlineEmailResponse", () => {
     );
 
     expect(screen.getByText("Label as 'Support'")).toBeTruthy();
-    expect(screen.getByText("Notify via Slack")).toBeTruthy();
-    expect(screen.queryByText("Notify via chat app")).toBeNull();
+    expect(screen.getByText("Notify on Slack")).toBeTruthy();
+    expect(screen.queryByText("Notify on chat app")).toBeNull();
   });
 
   it("renders structured draft and mark-read actions in rule suggestions", () => {
