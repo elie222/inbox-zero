@@ -1,9 +1,12 @@
 import { createHash } from "node:crypto";
 import { env } from "@/env";
 import { redis } from "@/utils/redis";
+import { sleep } from "@/utils/sleep";
 
 const CALLBACK_RESULT_POLL_INTERVAL_MS = 250;
 const CALLBACK_RESULT_WAIT_MS = 15_000;
+const CALLBACK_RESULT_WRITE_ATTEMPTS = 3;
+const CALLBACK_RESULT_WRITE_RETRY_MS = 250;
 
 // Not password hashing - creating a short cache key for OAuth authorization codes
 function createOAuthCodeCacheKey(code: string): string {
@@ -127,9 +130,17 @@ export async function setOAuthCodeResult(
     requestFingerprint: options?.requestFingerprint,
   };
 
-  await redis.set(getCodeKey(code), result, {
-    ex: options?.ttlSeconds ?? 60,
-  });
+  for (let attempt = 1; attempt <= CALLBACK_RESULT_WRITE_ATTEMPTS; attempt++) {
+    try {
+      await redis.set(getCodeKey(code), result, {
+        ex: options?.ttlSeconds ?? 60,
+      });
+      return;
+    } catch (error) {
+      if (attempt === CALLBACK_RESULT_WRITE_ATTEMPTS) throw error;
+      await sleep(CALLBACK_RESULT_WRITE_RETRY_MS);
+    }
+  }
 }
 
 /**

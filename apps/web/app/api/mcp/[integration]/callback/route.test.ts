@@ -223,25 +223,125 @@ describe("mcp callback route", () => {
       emailAccountId: "email-account-123",
       type: "notion-mcp",
     });
-    mockClaimOAuthCodeAndWait.mockResolvedValue({
-      result: {
-        params: { connected: "notion" },
-        status: "success",
-      },
-      status: "success",
-      waited: true,
+    let publishResult: (() => void) | undefined;
+    let completeExchange: (() => void) | undefined;
+    mockHandleOAuthCallback.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          completeExchange = resolve;
+        }),
+    );
+    mockClaimOAuthCodeAndWait
+      .mockResolvedValueOnce({ status: "claimed" })
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            publishResult = () =>
+              resolve({
+                result: {
+                  params: { connected: "notion" },
+                  status: "success",
+                },
+                status: "success",
+                waited: true,
+              });
+          }),
+      );
+    mockSetOAuthCodeResult.mockImplementationOnce(async () => {
+      publishResult?.();
     });
 
-    const responsePromise = GET(
+    const firstResponsePromise = GET(
       createRequest({
         queryState: state,
         cookieState: state,
       }),
       params,
     );
-    const response = await responsePromise;
+    await vi.waitFor(() => expect(mockHandleOAuthCallback).toHaveBeenCalled());
+
+    const secondResponsePromise = GET(
+      createRequest({
+        queryState: state,
+        cookieState: state,
+      }),
+      params,
+    );
+    await vi.waitFor(() =>
+      expect(mockClaimOAuthCodeAndWait).toHaveBeenCalledTimes(2),
+    );
+    completeExchange?.();
+    const [firstResponse, secondResponse] = await Promise.all([
+      firstResponsePromise,
+      secondResponsePromise,
+    ]);
+
+    expect(firstResponse.headers.get("location")).toContain("connected=notion");
+    expect(secondResponse.headers.get("location")).toContain(
+      "connected=notion",
+    );
+    expect(mockHandleOAuthCallback).toHaveBeenCalledOnce();
+    expect(mockSyncMcpTools).toHaveBeenCalledOnce();
+  });
+
+  it("continues the OAuth flow when the initial Redis claim fails", async () => {
+    const state = generateSignedOAuthState({
+      userId: "user-123",
+      emailAccountId: "email-account-123",
+      type: "notion-mcp",
+    });
+    mockClaimOAuthCodeAndWait.mockResolvedValue({
+      error: new Error("Redis unavailable"),
+      stage: "claim",
+      status: "error",
+    });
+
+    const response = await GET(
+      createRequest({
+        queryState: state,
+        cookieState: state,
+      }),
+      params,
+    );
 
     expect(response.headers.get("location")).toContain("connected=notion");
+    expect(mockHandleOAuthCallback).toHaveBeenCalledOnce();
+    expect(mockSyncMcpTools).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    {
+      name: "the duplicate callback wait fails",
+      outcome: {
+        error: new Error("Redis unavailable"),
+        stage: "wait",
+        status: "error",
+      },
+    },
+    {
+      name: "the duplicate callback wait times out",
+      outcome: { status: "timeout" },
+    },
+  ])("reports a pending connection when $name", async ({ outcome }) => {
+    const state = generateSignedOAuthState({
+      userId: "user-123",
+      emailAccountId: "email-account-123",
+      type: "notion-mcp",
+    });
+    mockClaimOAuthCodeAndWait.mockResolvedValue(outcome);
+
+    const response = await GET(
+      createRequest({
+        queryState: state,
+        cookieState: state,
+      }),
+      params,
+    );
+
+    expect(response.headers.get("location")).toContain("pending=notion");
+    expect(response.headers.get("location")).not.toContain(
+      "error=connection_failed",
+    );
     expect(mockHandleOAuthCallback).not.toHaveBeenCalled();
     expect(mockSyncMcpTools).not.toHaveBeenCalled();
   });

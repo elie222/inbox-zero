@@ -3,6 +3,7 @@ import { redis } from "@/utils/redis";
 import {
   claimOAuthCode,
   claimOAuthCodeAndWait,
+  setOAuthCodeResult,
 } from "@/utils/redis/oauth-code";
 
 vi.mock("@/env", () => ({
@@ -127,5 +128,58 @@ describe("claimOAuthCodeAndWait", () => {
       stage: "claim",
       status: "error",
     });
+  });
+
+  it("reports a Redis failure while waiting for another callback", async () => {
+    vi.useFakeTimers();
+    const error = new Error("Redis unavailable");
+    vi.mocked(redis.set).mockResolvedValue({ status: "processing" });
+    vi.mocked(redis.get).mockRejectedValue(error);
+
+    const resultPromise = claimOAuthCodeAndWait("oauth-code");
+    await vi.advanceTimersByTimeAsync(250);
+
+    await expect(resultPromise).resolves.toEqual({
+      error,
+      stage: "wait",
+      status: "error",
+    });
+  });
+
+  it("times out when another callback does not publish a result", async () => {
+    vi.useFakeTimers();
+    vi.mocked(redis.set).mockResolvedValue({ status: "processing" });
+    vi.mocked(redis.get).mockResolvedValue(null);
+
+    const resultPromise = claimOAuthCodeAndWait("oauth-code");
+    await vi.advanceTimersByTimeAsync(15_000);
+
+    await expect(resultPromise).resolves.toEqual({ status: "timeout" });
+    expect(redis.get).toHaveBeenCalledTimes(60);
+  });
+});
+
+describe("setOAuthCodeResult", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("retries transient result publication failures", async () => {
+    vi.useFakeTimers();
+    vi.mocked(redis.set)
+      .mockRejectedValueOnce(new Error("Redis unavailable"))
+      .mockResolvedValueOnce("OK");
+
+    const resultPromise = setOAuthCodeResult("oauth-code", {
+      connected: "notion",
+    });
+    await vi.advanceTimersByTimeAsync(250);
+
+    await expect(resultPromise).resolves.toBeUndefined();
+    expect(redis.set).toHaveBeenCalledTimes(2);
   });
 });

@@ -155,13 +155,11 @@ export const GET = withError("mcp/callback", async (request, { params }) => {
 
   if (isOAuthCodeStoreConfigured()) {
     const claim = await claimOAuthCodeAndWait(code);
-    if (claim.status === "error") {
-      logger.error("MCP OAuth callback deduplication unavailable", {
+    if (claim.status === "error" && claim.stage === "claim") {
+      logger.warn("MCP OAuth callback deduplication unavailable", {
         error: claim.error,
         integration,
       });
-      redirectUrl.searchParams.set("error", "connection_failed");
-      return buildRedirectResponse(redirectUrl);
     }
 
     if (claim.status === "success") {
@@ -175,9 +173,15 @@ export const GET = withError("mcp/callback", async (request, { params }) => {
       return buildRedirectResponse(redirectUrl);
     }
 
-    if (claim.status === "timeout") {
-      logger.warn("MCP OAuth callback wait timed out", { integration });
-      redirectUrl.searchParams.set("error", "connection_failed");
+    if (
+      claim.status === "timeout" ||
+      (claim.status === "error" && claim.stage === "wait")
+    ) {
+      logger.warn("MCP OAuth callback result is still pending", {
+        error: claim.status === "error" ? claim.error : undefined,
+        integration,
+      });
+      redirectUrl.searchParams.set("pending", integration);
       return buildRedirectResponse(redirectUrl);
     }
   }
@@ -272,7 +276,7 @@ async function cacheCallbackResult({
       ttlSeconds: CALLBACK_RESULT_TTL_SECONDS,
     });
   } catch (error) {
-    logger.warn("Failed to cache MCP OAuth callback result", {
+    logger.warn("Failed to publish MCP OAuth callback result after retries", {
       error,
       integration,
     });
