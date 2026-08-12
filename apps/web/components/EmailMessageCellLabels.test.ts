@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { getEmailMessageCellLabels } from "./EmailMessageCellLabels";
+import {
+  getEmailMessageCellLabels,
+  getEmailThreadLabels,
+} from "./EmailMessageCellLabels";
 
 describe("getEmailMessageCellLabels", () => {
   it("does not infer Outlook sent mail as archived just because it is outside the inbox", () => {
@@ -51,5 +54,24 @@ describe("getEmailMessageCellLabels", () => {
       { id: "ARCHIVE", name: "Archived" },
       { id: "label-newsletter", name: "Newsletter" },
     ]);
+  });
+});
+
+describe("getEmailThreadLabels", () => {
+  it("keeps a thread label when the newest message is a draft without it", () => {
+    const labels = getEmailThreadLabels({
+      messages: [
+        { labelIds: ["INBOX", "label-actioned"] },
+        { labelIds: ["DRAFT"] },
+      ],
+      userLabels: {
+        "label-actioned": {
+          id: "label-actioned",
+          name: "Actioned",
+        },
+      },
+    });
+
+    expect(labels).toEqual([{ id: "label-actioned", name: "Actioned" }]);
   });
 });

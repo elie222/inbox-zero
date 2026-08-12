@@ -62,6 +62,20 @@ export function getEmailMessageCellLabels({
   return labels;
 }
 
+export function getEmailThreadLabels({
+  messages,
+  userLabels,
+}: {
+  messages: { labelIds?: string[] }[];
+  userLabels: EmailLabels;
+}): EmailMessageCellLabel[] {
+  const labelIds = [
+    ...new Set(messages.flatMap((message) => message.labelIds ?? [])),
+  ];
+
+  return getEmailMessageCellLabels({ labelIds, userLabels }) ?? [];
+}
+
 function shouldShowArchivedLabel({
   labelIds,
   provider,
