@@ -1,12 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import {
+  endStripeTrialAction,
   generateCheckoutSessionAction,
+  getBillingPortalUrlAction,
   updateStripeInvoiceEmailsAction,
 } from "./premium";
 
 const mocks = vi.hoisted(() => ({
+  createBillingPortalSession: vi.fn(),
   createCheckoutSession: vi.fn(),
+  retrieveSubscription: vi.fn(),
+  updateSubscription: vi.fn(),
 }));
 
 vi.mock("@/utils/prisma");
@@ -17,7 +22,12 @@ vi.mock("@/utils/auth", () => ({
 }));
 vi.mock("@/ee/billing/stripe", () => ({
   getStripe: () => ({
+    billingPortal: { sessions: { create: mocks.createBillingPortalSession } },
     checkout: { sessions: { create: mocks.createCheckoutSession } },
+    subscriptions: {
+      retrieve: mocks.retrieveSubscription,
+      update: mocks.updateSubscription,
+    },
   }),
 }));
 vi.mock("next/headers", () => ({
@@ -84,9 +94,124 @@ describe("updateStripeInvoiceEmailsAction", () => {
   });
 });
 
+describe("getBillingPortalUrlAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("rejects a non-admin shared plan member", async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      premium: {
+        id: "premium-1",
+        stripeCustomerId: "cus_test",
+        stripeSubscriptionId: "sub_test",
+        stripeSubscriptionItemId: "si_test",
+        stripeSubscriptionStatus: "active",
+        users: [{ _count: { emailAccounts: 1 } }],
+        admins: [{ id: "another-user" }],
+      },
+    } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+
+    const result = await getBillingPortalUrlAction({ tier: "BASIC_MONTHLY" });
+
+    expect(result?.serverError).toBe("Not admin");
+    expect(mocks.retrieveSubscription).not.toHaveBeenCalled();
+    expect(mocks.createBillingPortalSession).not.toHaveBeenCalled();
+  });
+
+  it("allows the original owner of a legacy premium record", async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      premium: {
+        id: "user-1",
+        stripeCustomerId: "cus_test",
+        stripeSubscriptionId: "sub_test",
+        stripeSubscriptionItemId: "si_test",
+        stripeSubscriptionStatus: "active",
+        users: [{ _count: { emailAccounts: 1 } }],
+        admins: [],
+      },
+    } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+    mocks.createBillingPortalSession.mockResolvedValue({
+      url: "https://billing.stripe.test",
+    });
+
+    const result = await getBillingPortalUrlAction({});
+
+    expect(result?.data).toEqual({ url: "https://billing.stripe.test" });
+  });
+
+  it("rejects a member of a legacy shared plan without recorded admins", async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      premium: {
+        id: "original-owner",
+        stripeCustomerId: "cus_test",
+        stripeSubscriptionId: "sub_test",
+        stripeSubscriptionItemId: "si_test",
+        stripeSubscriptionStatus: "active",
+        users: [
+          { _count: { emailAccounts: 1 } },
+          { _count: { emailAccounts: 1 } },
+        ],
+        admins: [],
+      },
+    } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+
+    const result = await getBillingPortalUrlAction({});
+
+    expect(result?.serverError).toBe("Not admin");
+    expect(mocks.createBillingPortalSession).not.toHaveBeenCalled();
+  });
+});
+
+describe("endStripeTrialAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("rejects a non-admin shared plan member", async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      premium: {
+        id: "premium-1",
+        stripeSubscriptionId: "sub_test",
+        stripeSubscriptionStatus: "trialing",
+        admins: [{ id: "another-user" }],
+      },
+    } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+
+    const result = await endStripeTrialAction();
+
+    expect(result?.serverError).toBe("Not admin");
+    expect(mocks.updateSubscription).not.toHaveBeenCalled();
+  });
+});
+
 describe("generateCheckoutSessionAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("rejects a non-admin shared plan member", async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      email: "user@example.com",
+      utms: null,
+      _count: { emailAccounts: 1 },
+      premium: {
+        id: "premium-1",
+        stripeCustomerId: "cus_test",
+        stripeSubscriptionId: null,
+        stripeSubscriptionStatus: null,
+        stripeEndedAt: null,
+        users: [{ _count: { emailAccounts: 1 } }],
+        admins: [{ id: "another-user" }],
+      },
+    } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+
+    const result = await generateCheckoutSessionAction({
+      tier: "BASIC_MONTHLY",
+    });
+
+    expect(result?.serverError).toBe("Not admin");
+    expect(mocks.createCheckoutSession).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -107,6 +232,7 @@ describe("generateCheckoutSessionAction", () => {
         stripeSubscriptionStatus: status,
         stripeEndedAt: endedAt,
         users: [{ _count: { emailAccounts: 2 } }],
+        admins: [{ id: "user-1" }],
       },
     } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
 
@@ -132,6 +258,7 @@ describe("generateCheckoutSessionAction", () => {
         stripeSubscriptionStatus: null,
         stripeEndedAt: null,
         users: [{ _count: { emailAccounts: 2 } }],
+        admins: [{ id: "user-1" }],
       },
     } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
     mocks.createCheckoutSession.mockResolvedValue({
@@ -172,6 +299,7 @@ describe("generateCheckoutSessionAction", () => {
             stripeSubscriptionStatus: null,
             stripeEndedAt: null,
             users: [{ _count: { emailAccounts } }],
+            admins: [{ id: "user-1" }],
           },
         }) as Awaited<ReturnType<typeof prisma.user.findUnique>>,
     );
@@ -201,6 +329,7 @@ describe("generateCheckoutSessionAction", () => {
         stripeSubscriptionStatus: "canceled",
         stripeEndedAt: new Date(),
         users: [{ _count: { emailAccounts: 2 } }],
+        admins: [{ id: "user-1" }],
       },
     } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
     mocks.createCheckoutSession.mockResolvedValue({
