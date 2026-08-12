@@ -27,7 +27,7 @@ export function MailLabelChip({
   return (
     <span
       className={cn(
-        "group/chip inline-flex min-w-0 max-w-full items-center gap-0.5 whitespace-nowrap rounded-md border px-1.5 py-px text-xs leading-4",
+        "group/chip inline-flex min-w-0 max-w-full items-center whitespace-nowrap rounded-md border px-1.5 py-px text-xs leading-4",
         CHIP_CLASSES[chipColorForLabel(name)],
         className,
       )}
@@ -42,7 +42,7 @@ export function MailLabelChip({
       {onRemove ? (
         <button
           aria-label={`Remove ${name} label`}
-          className="-mr-0.5 shrink-0 rounded-sm opacity-0 transition-opacity focus-visible:opacity-100 group-hover/chip:opacity-100"
+          className="w-0 shrink-0 overflow-hidden rounded-sm opacity-0 transition-all focus-visible:-mr-0.5 focus-visible:ml-0.5 focus-visible:w-3 focus-visible:opacity-100 group-hover/chip:-mr-0.5 group-hover/chip:ml-0.5 group-hover/chip:w-3 group-hover/chip:opacity-100"
           onClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
