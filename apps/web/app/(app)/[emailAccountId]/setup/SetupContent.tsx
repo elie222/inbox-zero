@@ -1,6 +1,5 @@
 "use client";
 
-import { cn } from "@/utils";
 import { useCallback, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -25,6 +24,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { prefixPath } from "@/utils/path";
 import { useSetupProgress } from "@/hooks/useSetupProgress";
+import { FeatureIcon } from "@/components/FeatureIcon";
 import { LoadingContent } from "@/components/LoadingContent";
 import { EXTENSION_URL } from "@/utils/config";
 import { isGoogleProvider } from "@/utils/email/provider-types";
@@ -67,21 +67,9 @@ function FeatureCard({
     <Link href={prefixPath(emailAccountId, href)} className="block">
       <div className="h-full rounded-lg p-6 shadow transition-shadow hover:bg-muted/50 hover:shadow-md">
         <div className="mb-2 flex items-center gap-3">
-          <div
-            className={cn(
-              "inline-flex rounded-lg bg-gradient-to-b p-px shadow-sm",
-              "from-new-blue-150 to-new-blue-200",
-            )}
-          >
-            <div
-              className={cn(
-                "flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[7px] bg-gradient-to-b shadow-sm transition-transform",
-                "from-new-blue-50 to-new-blue-100",
-              )}
-            >
-              <Icon className={cn("h-4 w-4", "text-new-blue-600")} />
-            </div>
-          </div>
+          <FeatureIcon>
+            <Icon className="h-4 w-4" />
+          </FeatureIcon>
           <h3 className="text-lg font-medium text-foreground">{title}</h3>
         </div>
         <MutedText>{description}</MutedText>
@@ -186,21 +174,7 @@ const StepItem = ({
           {...linkProps}
           className="flex max-w-lg min-w-0 flex-1 items-center rounded-md -m-2 p-2 transition-colors hover:bg-muted/40"
         >
-          <div
-            className={cn(
-              "p-px rounded-lg shadow-sm bg-gradient-to-b mr-3 flex flex-shrink-0 items-center justify-center",
-              "from-new-blue-150 to-new-blue-200",
-            )}
-          >
-            <div
-              className={cn(
-                "flex h-9 w-9 items-center justify-center rounded-[7px] bg-gradient-to-b shadow-sm",
-                "from-new-blue-50 to-new-blue-100",
-              )}
-            >
-              <div className="text-new-blue-600">{icon}</div>
-            </div>
-          </div>
+          <FeatureIcon className="mr-3 flex-shrink-0">{icon}</FeatureIcon>
           <div>
             <h3 className="font-medium text-foreground">{title}</h3>
             <p className="mt-0.5 text-xs text-muted-foreground/75">
