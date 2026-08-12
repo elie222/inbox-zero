@@ -177,14 +177,17 @@ function getLookupEnvironments(
   environmentHint?: string | null,
 ): AppleEnvironment[] {
   const normalized = normalizeAppleEnvironment(environmentHint);
+  let environments: AppleEnvironment[];
+
   if (normalized === Environment.PRODUCTION) {
-    return [Environment.PRODUCTION, Environment.SANDBOX];
-  }
-  if (normalized === Environment.SANDBOX) {
-    return [Environment.SANDBOX, Environment.PRODUCTION];
+    environments = [Environment.PRODUCTION, Environment.SANDBOX];
+  } else if (normalized === Environment.SANDBOX) {
+    environments = [Environment.SANDBOX, Environment.PRODUCTION];
+  } else {
+    environments = [Environment.PRODUCTION, Environment.SANDBOX];
   }
 
-  return [Environment.PRODUCTION, Environment.SANDBOX];
+  return environments.filter(isAppleEnvironmentAllowed);
 }
 
 function decodeSignedPayloadUnsafe<T>(signedPayload: string): T {
@@ -561,6 +564,12 @@ export async function syncAppleSubscriptionToDb({
     transactionId,
   });
 
+  if (!isAppleEnvironmentAllowed(state.environment)) {
+    throw new SafeError(
+      "Sandbox Apple subscriptions cannot grant production access",
+    );
+  }
+
   if (!state.tier) {
     throw new SafeError(
       `Apple product ${state.productId} is not mapped to a premium tier`,
@@ -676,4 +685,10 @@ export async function syncAppleSubscriptionToDb({
   });
 
   return updatedPremium;
+}
+
+function isAppleEnvironmentAllowed(environment: AppleEnvironment) {
+  return (
+    env.NODE_ENV !== "production" || environment === Environment.PRODUCTION
+  );
 }
