@@ -69,7 +69,7 @@ export function ReaderToolbar({
   return (
     <div>
       {showBackBar ? (
-        <div className="-mx-1 sticky top-0 z-10 mb-4 flex items-center gap-3 bg-background px-1 py-2">
+        <div className="-mx-1 sticky top-0 z-10 mb-4 flex items-center gap-3 bg-card px-1 py-2">
           <Button onClick={onBack} size="xs-2" variant="outline">
             <ArrowLeftIcon className="mr-1.5 size-3.5" />
             Back
