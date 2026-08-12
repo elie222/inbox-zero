@@ -30,17 +30,21 @@ export function MailLabelChip({
   onRemove,
   className,
 }: MailLabelChipProps) {
+  const providerStyle = providerColorStyle(color);
+
   return (
     <span
       className={cn(
         "group/chip relative isolate inline-flex min-w-0 max-w-full items-center gap-0.5 whitespace-nowrap rounded-md border border-transparent px-1.5 py-px text-xs leading-4 before:pointer-events-none before:absolute before:inset-y-0 before:left-0 before:-z-10 before:rounded-md before:border before:transition-[right] before:content-['']",
-        CHIP_CLASSES[chipColorForLabel(name)],
+        providerStyle
+          ? "text-[var(--mail-label-text-color)] before:border-[var(--mail-label-background-color)] before:bg-[var(--mail-label-background-color)]"
+          : CHIP_CLASSES[chipColorForLabel(name)],
         onRemove
           ? "before:right-3 hover:before:right-0 focus-within:before:right-0"
           : "before:right-0",
         className,
       )}
-      style={providerColorStyle(color)}
+      style={providerStyle}
     >
       {href ? (
         <Link className="min-w-0 truncate hover:underline" href={href}>
@@ -128,15 +132,23 @@ export function chipColorForLabel(name: string): ChipColor {
   return CHIP_COLORS[hash % CHIP_COLORS.length];
 }
 
+type MailLabelChipStyle = CSSProperties & {
+  "--mail-label-background-color": string;
+  "--mail-label-text-color": string;
+};
+
 function providerColorStyle(
   color: EmailLabel["color"],
-): CSSProperties | undefined {
+): MailLabelChipStyle | undefined {
   if (!color?.backgroundColor) return;
 
+  const textColor =
+    color.textColor || contrastingTextColor(color.backgroundColor);
+  if (!textColor) return;
+
   return {
-    backgroundColor: color.backgroundColor,
-    borderColor: color.backgroundColor,
-    color: color.textColor || contrastingTextColor(color.backgroundColor),
+    "--mail-label-background-color": color.backgroundColor,
+    "--mail-label-text-color": textColor,
   };
 }
 
