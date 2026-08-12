@@ -201,20 +201,49 @@ describe("useMailThreads", () => {
         snippet: "first update",
       }));
     });
-    let second!: OptimisticThreadUpdate;
     act(() => {
-      second = result.current.optimisticallyUpdateThreads(
-        ["one"],
-        (thread) => ({
-          ...thread,
-          snippet: "second update",
-        }),
-      );
+      result.current.optimisticallyUpdateThreads(["one"], (thread) => ({
+        ...thread,
+        snippet: "second update",
+      }));
     });
+    expect(cache.writeRows).toHaveBeenCalledTimes(2);
     act(() => first.rollback("one"));
 
     expect(result.current.threads[0]?.snippet).toBe("second update");
-    act(() => second.commit("one"));
+    expect(cache.writeRows).toHaveBeenCalledTimes(2);
+    expect(cache.writeRows).toHaveBeenLastCalledWith({
+      emailAccountId: "account-concurrent",
+      threads: [expect.objectContaining({ snippet: "second update" })],
+    });
+  });
+
+  it("revalidates after rolling back an optimistic update", async () => {
+    cache.read.mockResolvedValue(undefined);
+    const fetcher = vi.fn().mockResolvedValue({
+      threads: [createThread("one", ["INBOX", "UNREAD"])],
+    });
+    const { result } = renderHook(
+      () =>
+        useMailThreads({
+          emailAccountId: "account-revalidation",
+          query: { type: "inbox" },
+        }),
+      { wrapper: createWrapper(fetcher) },
+    );
+    await waitFor(() => expect(result.current.threads).toHaveLength(1));
+    expect(fetcher).toHaveBeenCalledOnce();
+
+    let update!: OptimisticThreadUpdate;
+    act(() => {
+      update = result.current.optimisticallyUpdateThreads(
+        ["one"],
+        (thread) => ({ ...thread, snippet: "optimistic" }),
+      );
+      update.rollback("one");
+    });
+
+    await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
   });
 
   it("loads the next page with one click from a persistent view", async () => {

@@ -340,7 +340,10 @@ export function useMailThreads({
         optimisticUpdateTokens.current.set(threadId, updateToken);
       }
 
-      const applyThreadUpdates = (updates: ReadonlyMap<string, ListThread>) => {
+      const applyThreadUpdates = (
+        updates: ReadonlyMap<string, ListThread>,
+        revalidate = false,
+      ) => {
         if (!updates.size) return;
         setPersistent((current) =>
           current?.identity === viewIdentity
@@ -350,18 +353,27 @@ export function useMailThreads({
               }
             : current,
         );
-        mutate(
+        const localUpdate = mutate(
           (pages) =>
             pages?.map((page) => ({
               ...page,
               threads: replaceThreads(page.threads, updates),
             })),
           { revalidate: false, populateCache: true },
-        ).catch(() => {});
-        writeCachedThreadRows({
+        );
+        const persistentUpdate = writeCachedThreadRows({
           emailAccountId,
           threads: [...updates.values()],
-        }).catch(() => {});
+        });
+
+        if (revalidate) {
+          Promise.allSettled([localUpdate, persistentUpdate])
+            .then(() => mutate())
+            .catch(() => {});
+        } else {
+          localUpdate.catch(() => {});
+          persistentUpdate.catch(() => {});
+        }
       };
 
       applyThreadUpdates(updatedById);
@@ -382,7 +394,7 @@ export function useMailThreads({
           optimisticUpdateTokens.current.delete(threadId);
           const previous = previousById.get(threadId);
           if (previous) {
-            applyThreadUpdates(new Map([[threadId, previous]]));
+            applyThreadUpdates(new Map([[threadId, previous]]), true);
           }
         },
       };

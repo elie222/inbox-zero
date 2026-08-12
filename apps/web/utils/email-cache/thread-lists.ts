@@ -40,6 +40,7 @@ export async function writeCachedThreadRows<T extends ThreadRow>({
     await transaction.done;
     scheduleEmailCacheCleanup();
   } catch {
+    scheduleEmailCacheCleanup({ force: true });
     // Optimistic UI state remains authoritative if persistence is unavailable.
   }
 }
