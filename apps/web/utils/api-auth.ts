@@ -133,7 +133,7 @@ export async function validateApiKeyAndGetEmailProvider(
 async function getStoredApiKey(secretKey: string) {
   const hashedKey = hashApiKey(secretKey);
 
-  return prisma.apiKey.findUnique({
+  const storedApiKey = await prisma.apiKey.findUnique({
     where: { hashedKey, isActive: true },
     select: {
       id: true,
@@ -144,10 +144,12 @@ async function getStoredApiKey(secretKey: string) {
       emailAccount: {
         select: {
           id: true,
+          userId: true,
           email: true,
           account: {
             select: {
               id: true,
+              userId: true,
               provider: true,
             },
           },
@@ -155,6 +157,17 @@ async function getStoredApiKey(secretKey: string) {
       },
     },
   });
+
+  if (
+    storedApiKey?.emailAccountId &&
+    (!storedApiKey.emailAccount ||
+      storedApiKey.userId !== storedApiKey.emailAccount.userId ||
+      storedApiKey.userId !== storedApiKey.emailAccount.account.userId)
+  ) {
+    return null;
+  }
+
+  return storedApiKey;
 }
 
 function isExpired(expiresAt: Date | null): boolean {
