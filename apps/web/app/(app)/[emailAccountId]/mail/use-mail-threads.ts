@@ -43,7 +43,7 @@ export type ThreadRemoval = {
 export type OptimisticThreadUpdate = {
   threadIds: string[];
   commit: (threadId: string) => void;
-  rollback: (threadId: string) => void;
+  rollback: (threadIds: string[]) => void;
 };
 
 type PersistentView = {
@@ -94,6 +94,8 @@ export function useMailThreads({
   const paginationRetryIdentity = useRef<string | undefined>(undefined);
   const hiddenByView = useRef(new Map<string, Set<string>>());
   const optimisticUpdateTokens = useRef(new Map<string, symbol>());
+  const revalidationRequested = useRef(false);
+  const revalidationInProgress = useRef(false);
   const [, renderHiddenChanges] = useReducer((version) => version + 1, 0);
   const remoteIdentity = useRef<string | undefined>(undefined);
 
@@ -317,6 +319,28 @@ export function useMailThreads({
     [emailAccountId, mutate, viewIdentity, viewKey],
   );
 
+  const reconcileOptimisticUpdates = useCallback(
+    function reconcileOptimisticUpdates() {
+      if (
+        !revalidationRequested.current ||
+        revalidationInProgress.current ||
+        optimisticUpdateTokens.current.size
+      ) {
+        return;
+      }
+
+      revalidationRequested.current = false;
+      revalidationInProgress.current = true;
+      mutate()
+        .catch(() => {})
+        .finally(() => {
+          revalidationInProgress.current = false;
+          reconcileOptimisticUpdates();
+        });
+    },
+    [mutate],
+  );
+
   const optimisticallyUpdateThreads = useCallback(
     (
       threadIds: string[],
@@ -336,14 +360,14 @@ export function useMailThreads({
 
       const changedThreadIds = [...updatedById.keys()];
       const updateToken = Symbol("optimistic-thread-update");
+      if (changedThreadIds.length && revalidationInProgress.current) {
+        revalidationRequested.current = true;
+      }
       for (const threadId of changedThreadIds) {
         optimisticUpdateTokens.current.set(threadId, updateToken);
       }
 
-      const applyThreadUpdates = (
-        updates: ReadonlyMap<string, ListThread>,
-        revalidate = false,
-      ) => {
+      const applyThreadUpdates = (updates: ReadonlyMap<string, ListThread>) => {
         if (!updates.size) return;
         setPersistent((current) =>
           current?.identity === viewIdentity
@@ -366,14 +390,8 @@ export function useMailThreads({
           threads: [...updates.values()],
         });
 
-        if (revalidate) {
-          Promise.allSettled([localUpdate, persistentUpdate])
-            .then(() => mutate())
-            .catch(() => {});
-        } else {
-          localUpdate.catch(() => {});
-          persistentUpdate.catch(() => {});
-        }
+        localUpdate.catch(() => {});
+        persistentUpdate.catch(() => {});
       };
 
       applyThreadUpdates(updatedById);
@@ -386,20 +404,34 @@ export function useMailThreads({
         commit: (threadId) => {
           if (isLatestUpdate(threadId)) {
             optimisticUpdateTokens.current.delete(threadId);
+            reconcileOptimisticUpdates();
           }
         },
-        rollback: (threadId) => {
-          if (!isLatestUpdate(threadId)) return;
+        rollback: (threadIds) => {
+          const previousThreads = new Map<string, ListThread>();
 
-          optimisticUpdateTokens.current.delete(threadId);
-          const previous = previousById.get(threadId);
-          if (previous) {
-            applyThreadUpdates(new Map([[threadId, previous]]), true);
+          for (const threadId of threadIds) {
+            if (!isLatestUpdate(threadId)) continue;
+            optimisticUpdateTokens.current.delete(threadId);
+            const previous = previousById.get(threadId);
+            if (previous) previousThreads.set(threadId, previous);
           }
+
+          if (previousThreads.size) {
+            revalidationRequested.current = true;
+            applyThreadUpdates(previousThreads);
+          }
+          reconcileOptimisticUpdates();
         },
       };
     },
-    [emailAccountId, mutate, sourceThreads, viewIdentity],
+    [
+      emailAccountId,
+      mutate,
+      reconcileOptimisticUpdates,
+      sourceThreads,
+      viewIdentity,
+    ],
   );
 
   const hasMore = data

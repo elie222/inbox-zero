@@ -147,15 +147,17 @@ export function useThreadActions({
     (threadIds: string[]) => {
       const update = optimisticallyUpdateThreads(threadIds, markThreadRead);
       if (!update.threadIds.length) return;
+      const failedThreadIds: string[] = [];
 
       markReadThreads({
         threadIds: update.threadIds,
         emailAccountId,
         onSuccess: update.commit,
         onError: (threadId) => {
-          update.rollback(threadId);
+          failedThreadIds.push(threadId);
           toast.error("There was an error marking as read");
         },
+        onSettled: () => update.rollback(failedThreadIds),
       });
     },
     [emailAccountId, optimisticallyUpdateThreads],

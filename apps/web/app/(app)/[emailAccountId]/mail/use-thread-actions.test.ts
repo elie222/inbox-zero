@@ -69,9 +69,9 @@ describe("useThreadActions read state", () => {
     expect(transaction.commit).toHaveBeenCalledWith("thread");
   });
 
-  it("rolls back only the failed row", () => {
+  it("rolls back failed rows together after the batch settles", () => {
     const transaction = {
-      threadIds: ["thread"],
+      threadIds: ["thread-one", "thread-two"],
       commit: vi.fn(),
       rollback: vi.fn(),
     };
@@ -84,11 +84,19 @@ describe("useThreadActions read state", () => {
       }),
     );
 
-    act(() => result.current.markRead(["thread"]));
+    act(() => result.current.markRead(["thread-one", "thread-two"]));
     const callbacks = queue.markRead.mock.calls[0]?.[0];
-    callbacks.onError("thread");
+    callbacks.onError("thread-one");
+    callbacks.onError("thread-two");
 
-    expect(transaction.rollback).toHaveBeenCalledWith("thread");
+    expect(transaction.rollback).not.toHaveBeenCalled();
+    callbacks.onSettled();
+
+    expect(transaction.rollback).toHaveBeenCalledOnce();
+    expect(transaction.rollback).toHaveBeenCalledWith([
+      "thread-one",
+      "thread-two",
+    ]);
     expect(notifications.error).toHaveBeenCalledWith(
       "There was an error marking as read",
     );

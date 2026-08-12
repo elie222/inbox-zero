@@ -165,7 +165,7 @@ describe("useMailThreads", () => {
       threads: [expect.objectContaining({ id: "one" })],
     });
 
-    act(() => update.rollback("one"));
+    act(() => update.rollback(["one"]));
 
     expect(result.current.threads[0]?.messages[0]?.labelIds).toEqual([
       "INBOX",
@@ -208,7 +208,7 @@ describe("useMailThreads", () => {
       }));
     });
     expect(cache.writeRows).toHaveBeenCalledTimes(2);
-    act(() => first.rollback("one"));
+    act(() => first.rollback(["one"]));
 
     expect(result.current.threads[0]?.snippet).toBe("second update");
     expect(cache.writeRows).toHaveBeenCalledTimes(2);
@@ -240,9 +240,86 @@ describe("useMailThreads", () => {
         ["one"],
         (thread) => ({ ...thread, snippet: "optimistic" }),
       );
-      update.rollback("one");
+      update.rollback(["one"]);
     });
 
+    await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
+  });
+
+  it("waits for concurrent optimistic updates before revalidating", async () => {
+    cache.read.mockResolvedValue(undefined);
+    const fetcher = vi.fn().mockResolvedValue({
+      threads: [
+        createThread("one", ["INBOX", "UNREAD"]),
+        createThread("two", ["INBOX", "UNREAD"]),
+      ],
+    });
+    const { result } = renderHook(
+      () =>
+        useMailThreads({
+          emailAccountId: "account-concurrent-revalidation",
+          query: { type: "inbox" },
+        }),
+      { wrapper: createWrapper(fetcher) },
+    );
+    await waitFor(() => expect(result.current.threads).toHaveLength(2));
+
+    let first!: OptimisticThreadUpdate;
+    let second!: OptimisticThreadUpdate;
+    act(() => {
+      first = result.current.optimisticallyUpdateThreads(["one"], (thread) => ({
+        ...thread,
+        snippet: "first update",
+      }));
+      second = result.current.optimisticallyUpdateThreads(
+        ["two"],
+        (thread) => ({ ...thread, snippet: "second update" }),
+      );
+      first.rollback(["one"]);
+    });
+
+    await act(async () => Promise.resolve());
+    expect(fetcher).toHaveBeenCalledOnce();
+    expect(result.current.threads[1]?.snippet).toBe("second update");
+
+    act(() => second.commit("two"));
+    await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
+  });
+
+  it("restores a failed batch with one cache write and revalidation", async () => {
+    cache.read.mockResolvedValue(undefined);
+    const fetcher = vi.fn().mockResolvedValue({
+      threads: [createThread("one"), createThread("two")],
+    });
+    const { result } = renderHook(
+      () =>
+        useMailThreads({
+          emailAccountId: "account-batch-rollback",
+          query: { type: "inbox" },
+        }),
+      { wrapper: createWrapper(fetcher) },
+    );
+    await waitFor(() => expect(result.current.threads).toHaveLength(2));
+
+    let update!: OptimisticThreadUpdate;
+    act(() => {
+      update = result.current.optimisticallyUpdateThreads(
+        ["one", "two"],
+        (thread) => ({ ...thread, snippet: "optimistic" }),
+      );
+    });
+    expect(cache.writeRows).toHaveBeenCalledTimes(1);
+
+    act(() => update.rollback(["one", "two"]));
+
+    expect(cache.writeRows).toHaveBeenCalledTimes(2);
+    expect(cache.writeRows).toHaveBeenLastCalledWith({
+      emailAccountId: "account-batch-rollback",
+      threads: [
+        expect.objectContaining({ id: "one", snippet: "one" }),
+        expect.objectContaining({ id: "two", snippet: "two" }),
+      ],
+    });
     await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
   });
 
