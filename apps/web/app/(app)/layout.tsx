@@ -22,6 +22,7 @@ import { AnnouncementDialog } from "@/components/feature-announcements/Announcem
 import { captureException } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
+import { env } from "@/env";
 
 const logger = createScopedLogger("AppLayout");
 
@@ -81,7 +82,13 @@ export default async function AppLayout({
     <div className={inter.variable}>
       <div className="font-inter">
         <AppProviders>
-          <SideNavWithTopNav defaultOpen={!isClosed}>
+          <SideNavWithTopNav
+            defaultOpen={!isClosed}
+            feedbackEnabled={
+              !env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS ||
+              Boolean(env.FEEDBACK_WEBHOOK_URL)
+            }
+          >
             <AiAutomationStatusBanner />
             <ErrorMessages />
             <ProviderRateLimitBanner />

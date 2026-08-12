@@ -269,6 +269,7 @@ const parsedEnv = createEnv({
     POSTHOG_FEEDBACK_SURVEY_ID: z.string().optional(),
     POSTHOG_FEEDBACK_SURVEY_QUESTION_ID: z.string().optional(),
     POSTHOG_LLM_EVALS_APPROVED_EMAILS: z.string().optional(),
+    FEEDBACK_WEBHOOK_URL: z.string().url().optional(),
 
     RECALL_API_KEY: z.string().optional(),
     RECALL_WEBHOOK_SECRET: z.string().optional(),
