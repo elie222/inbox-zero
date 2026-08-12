@@ -11,8 +11,8 @@ const mocks = vi.hoisted(() => ({
   createCheckoutSession: vi.fn(),
   licenseEnv: {
     LICENSE_1_SEAT_VARIANT_ID: 101 as number | undefined,
-    LICENSE_3_SEAT_VARIANT_ID: 103 as number | undefined,
-    LICENSE_5_SEAT_VARIANT_ID: undefined as number | undefined,
+    LICENSE_3_SEAT_VARIANT_ID: 101 as number | undefined,
+    LICENSE_5_SEAT_VARIANT_ID: 105 as number | undefined,
     LICENSE_10_SEAT_VARIANT_ID: 110 as number | undefined,
     LICENSE_25_SEAT_VARIANT_ID: 125 as number | undefined,
   },
@@ -69,13 +69,34 @@ describe("activateLicenseKeyAction", () => {
     expect(mocks.upgradeToPremiumLemon).not.toHaveBeenCalled();
   });
 
-  it("rejects a variant whose seat configuration is missing", async () => {
+  it("rejects an unsuccessful activation", async () => {
+    mocks.activateLemonLicenseKey.mockResolvedValue({
+      ...activatedLicenseResponse({ variantId: 105 }),
+      data: {
+        ...activatedLicenseResponse({ variantId: 105 }).data,
+        activated: false,
+        error: "License key is already activated.",
+        instance: null,
+      },
+    });
+
+    const result = await activateLicenseKeyAction({
+      licenseKey: "already-activated-license-key",
+    });
+
+    expect(result?.data).toEqual({
+      error: "License key is already activated.",
+    });
+    expect(mocks.upgradeToPremiumLemon).not.toHaveBeenCalled();
+  });
+
+  it("rejects duplicate variant mappings", async () => {
     mocks.activateLemonLicenseKey.mockResolvedValue(
-      activatedLicenseResponse({ variantId: 105 }),
+      activatedLicenseResponse({ variantId: 101 }),
     );
 
     const result = await activateLicenseKeyAction({
-      licenseKey: "unconfigured-license-key",
+      licenseKey: "ambiguous-license-key",
     });
 
     expect(result?.serverError).toBe(
@@ -86,7 +107,7 @@ describe("activateLicenseKeyAction", () => {
 
   it("grants the configured number of seats for an allowed variant", async () => {
     mocks.activateLemonLicenseKey.mockResolvedValue(
-      activatedLicenseResponse({ variantId: 103 }),
+      activatedLicenseResponse({ variantId: 105 }),
     );
 
     const result = await activateLicenseKeyAction({
@@ -100,8 +121,8 @@ describe("activateLicenseKeyAction", () => {
         tier: "LIFETIME",
         lemonLicenseKey: "inbox-zero-license-key",
         lemonLicenseInstanceId: "instance-1",
-        lemonSqueezyVariantId: 103,
-        emailAccountsAccess: 3,
+        lemonSqueezyVariantId: 105,
+        emailAccountsAccess: 5,
       }),
     );
   });
