@@ -249,7 +249,7 @@ function validateOAuthCallback(
   });
   if (!stateValidation.success) {
     logger.warn("Invalid state during Slack callback", {
-      receivedState,
+      hasReceivedState: !!receivedState,
       hasStoredState: !!storedState,
       error: stateValidation.error,
     });

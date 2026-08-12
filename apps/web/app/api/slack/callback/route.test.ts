@@ -193,6 +193,9 @@ describe("slack callback route", () => {
   it("rejects a signed callback state that does not match the browser state cookie", async () => {
     const attackerState = createSignedState("attacker-account");
     const victimState = createSignedState("victim-account");
+    const consoleWarnSpy = vi
+      .spyOn(console, "warn")
+      .mockImplementation(() => {});
 
     const response = await GET(
       createRequest(
@@ -210,6 +213,11 @@ describe("slack callback route", () => {
     expect(mockAcquireOAuthCodeLock).not.toHaveBeenCalled();
     expect(prisma.messagingChannel.upsert).not.toHaveBeenCalled();
     expect(global.fetch).not.toHaveBeenCalled();
+    const warning = consoleWarnSpy.mock.calls.flat().join(" ");
+    expect(warning).toContain('"hasReceivedState": true');
+    expect(warning).not.toContain(attackerState);
+    expect(warning).not.toContain(victimState);
+    consoleWarnSpy.mockRestore();
   });
 
   it("redirects Slack OAuth failures back to the account channels page", async () => {

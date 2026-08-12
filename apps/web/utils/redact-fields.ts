@@ -22,6 +22,7 @@ export const REDACTED_FIELD_NAMES = new Set([
   "set-cookie",
   "authorization",
   "requestBodyValues",
+  "receivedState",
   "systemInstruction",
   "contents",
 ]);
