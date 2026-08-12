@@ -269,7 +269,7 @@ export function processQueue({
     }),
   );
 
-  if (onSettled) batch.then(onSettled, onSettled).catch(() => {});
+  if (onSettled) batch.then(onSettled, onSettled);
 }
 
 /**

@@ -96,6 +96,7 @@ export function useMailThreads({
   const optimisticUpdateTokens = useRef(new Map<string, symbol>());
   const revalidationRequested = useRef(false);
   const revalidationInProgress = useRef(false);
+  const pendingReconciliationWrites = useRef(0);
   const [, renderHiddenChanges] = useReducer((version) => version + 1, 0);
   const remoteIdentity = useRef<string | undefined>(undefined);
 
@@ -324,6 +325,7 @@ export function useMailThreads({
       if (
         !revalidationRequested.current ||
         revalidationInProgress.current ||
+        pendingReconciliationWrites.current ||
         optimisticUpdateTokens.current.size
       ) {
         return;
@@ -368,7 +370,7 @@ export function useMailThreads({
       }
 
       const applyThreadUpdates = (updates: ReadonlyMap<string, ListThread>) => {
-        if (!updates.size) return;
+        if (!updates.size) return Promise.resolve();
         setPersistent((current) =>
           current?.identity === viewIdentity
             ? {
@@ -390,8 +392,9 @@ export function useMailThreads({
           threads: [...updates.values()],
         });
 
-        localUpdate.catch(() => {});
-        persistentUpdate.catch(() => {});
+        return Promise.allSettled([localUpdate, persistentUpdate]).then(
+          () => {},
+        );
       };
 
       applyThreadUpdates(updatedById);
@@ -419,7 +422,11 @@ export function useMailThreads({
 
           if (previousThreads.size) {
             revalidationRequested.current = true;
-            applyThreadUpdates(previousThreads);
+            pendingReconciliationWrites.current += 1;
+            applyThreadUpdates(previousThreads).finally(() => {
+              pendingReconciliationWrites.current -= 1;
+              reconcileOptimisticUpdates();
+            });
           }
           reconcileOptimisticUpdates();
         },

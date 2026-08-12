@@ -220,6 +220,10 @@ describe("useMailThreads", () => {
 
   it("revalidates after rolling back an optimistic update", async () => {
     cache.read.mockResolvedValue(undefined);
+    const rollbackWrite = Promise.withResolvers<void>();
+    cache.writeRows
+      .mockResolvedValueOnce(undefined)
+      .mockReturnValueOnce(rollbackWrite.promise);
     const fetcher = vi.fn().mockResolvedValue({
       threads: [createThread("one", ["INBOX", "UNREAD"])],
     });
@@ -243,6 +247,10 @@ describe("useMailThreads", () => {
       update.rollback(["one"]);
     });
 
+    await act(async () => Promise.resolve());
+    expect(fetcher).toHaveBeenCalledOnce();
+
+    rollbackWrite.resolve();
     await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
   });
 
