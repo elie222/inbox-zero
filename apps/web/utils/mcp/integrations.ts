@@ -13,6 +13,7 @@ export const MCP_INTEGRATIONS: Record<
   McpIntegrationConfig & {
     displayName: string;
     shortName?: string; // Short name for display in compact contexts (e.g. "Connected to X")
+    description: string; // Plain-English summary of the data this integration exposes, shown on the integrations page
     url: string; // Domain URL for favicon display
     allowedTools?: string[];
     comingSoon?: boolean;
@@ -26,6 +27,7 @@ export const MCP_INTEGRATIONS: Record<
   notion: {
     name: "notion",
     displayName: "Notion",
+    description: "Docs, wikis, and project notes",
     url: "notion.com",
     serverUrl: "https://mcp.notion.com/mcp",
     authType: "oauth",
@@ -36,6 +38,7 @@ export const MCP_INTEGRATIONS: Record<
   stripe: {
     name: "stripe",
     displayName: "Stripe",
+    description: "Customers, subscriptions, invoices, and payments",
     url: "stripe.com",
     serverUrl: "https://mcp.stripe.com",
     authType: "oauth", // must request whitelisting of /api/mcp/stripe/callback from Stripe. localhost is whitelisted already.
@@ -55,6 +58,7 @@ export const MCP_INTEGRATIONS: Record<
   linear: {
     name: "linear",
     displayName: "Linear",
+    description: "Issues, projects, and status",
     url: "linear.app",
     // Dedicated read-only endpoint; the server only exposes read tools here
     serverUrl: "https://mcp.linear.app/mcp/readonly",
@@ -65,6 +69,7 @@ export const MCP_INTEGRATIONS: Record<
   attio: {
     name: "attio",
     displayName: "Attio",
+    description: "CRM records, contacts, notes, and meetings",
     url: "attio.com",
     serverUrl: "https://mcp.attio.com/mcp",
     authType: "oauth",
@@ -90,6 +95,7 @@ export const MCP_INTEGRATIONS: Record<
   intercom: {
     name: "intercom",
     displayName: "Intercom",
+    description: "Support conversations, contacts, and help articles",
     url: "intercom.com",
     // US-hosted workspaces only; EU workspaces use mcp.eu.intercom.com (not supported yet)
     serverUrl: "https://mcp.intercom.com/mcp",
@@ -114,6 +120,7 @@ export const MCP_INTEGRATIONS: Record<
   monday: {
     name: "monday",
     displayName: "Monday.com",
+    description: "Boards, items, and workspaces",
     url: "monday.com",
     serverUrl: "https://mcp.monday.com/mcp",
     authType: "oauth",
@@ -154,6 +161,7 @@ export const MCP_INTEGRATIONS: Record<
   todoist: {
     name: "todoist",
     displayName: "Todoist",
+    description: "Tasks and projects",
     url: "todoist.com",
     serverUrl: "https://ai.todoist.net/mcp",
     authType: "oauth",
@@ -165,6 +173,7 @@ export const MCP_INTEGRATIONS: Record<
     name: "pipedream",
     displayName: "HubSpot, Slack, Airtable, Todoist, and more (via Pipedream)",
     shortName: "Pipedream",
+    description: "HubSpot, Slack, Airtable, and hundreds more apps",
     url: "pipedream.com",
     serverUrl: "https://mcp.pipedream.net/v2",
     authType: "oauth",

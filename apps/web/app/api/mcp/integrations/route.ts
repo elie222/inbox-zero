@@ -29,6 +29,7 @@ async function getData(emailAccountId: string) {
     name: integration.name,
     displayName: integration.displayName,
     shortName: integration.shortName,
+    description: integration.description,
     url: integration.url,
     comingSoon: integration.comingSoon,
     authType: integration.authType,

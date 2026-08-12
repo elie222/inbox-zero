@@ -33,7 +33,6 @@ export function Integrations() {
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Connection</TableHead>
-              <TableHead className="hidden sm:table-cell">Tools</TableHead>
               <TableHead />
             </TableRow>
           </TableHeader>
@@ -48,7 +47,7 @@ export function Integrations() {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={4}>
+                <TableCell colSpan={3}>
                   <TypographyP>No integrations found</TypographyP>
                 </TableCell>
               </TableRow>
