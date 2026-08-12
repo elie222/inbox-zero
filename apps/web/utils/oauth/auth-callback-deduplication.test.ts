@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createScopedLogger } from "@/utils/logger";
 
 const OAUTH_STATE_COOKIE =
@@ -9,23 +9,20 @@ const REQUEST_FINGERPRINT = createHash("sha256")
   .digest("hex");
 
 const {
-  mockClaimOAuthCode,
+  mockClaimOAuthCodeAndWait,
   mockClearOAuthCode,
-  mockGetOAuthCodeResult,
   mockIsOAuthCodeStoreConfigured,
   mockSetOAuthCodeResult,
 } = vi.hoisted(() => ({
-  mockClaimOAuthCode: vi.fn(),
+  mockClaimOAuthCodeAndWait: vi.fn(),
   mockClearOAuthCode: vi.fn(),
-  mockGetOAuthCodeResult: vi.fn(),
   mockIsOAuthCodeStoreConfigured: vi.fn(),
   mockSetOAuthCodeResult: vi.fn(),
 }));
 
 vi.mock("@/utils/redis/oauth-code", () => ({
-  claimOAuthCode: mockClaimOAuthCode,
+  claimOAuthCodeAndWait: mockClaimOAuthCodeAndWait,
   clearOAuthCode: mockClearOAuthCode,
-  getOAuthCodeResult: mockGetOAuthCodeResult,
   isOAuthCodeStoreConfigured: mockIsOAuthCodeStoreConfigured,
   setOAuthCodeResult: mockSetOAuthCodeResult,
 }));
@@ -38,14 +35,9 @@ describe("deduplicateOAuthCallback", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockIsOAuthCodeStoreConfigured.mockReturnValue(true);
-    mockClaimOAuthCode.mockResolvedValue(null);
-    mockGetOAuthCodeResult.mockResolvedValue(null);
+    mockClaimOAuthCodeAndWait.mockResolvedValue({ status: "claimed" });
     mockSetOAuthCodeResult.mockResolvedValue(undefined);
     mockClearOAuthCode.mockResolvedValue(undefined);
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
   });
 
   it("passes non-callback requests directly to Better Auth", async () => {
@@ -64,7 +56,7 @@ describe("deduplicateOAuthCallback", () => {
     expect(response.status).toBe(200);
     expect(handleRequest).toHaveBeenCalledOnce();
     expect(mockIsOAuthCodeStoreConfigured).not.toHaveBeenCalled();
-    expect(mockClaimOAuthCode).not.toHaveBeenCalled();
+    expect(mockClaimOAuthCodeAndWait).not.toHaveBeenCalled();
   });
 
   it("does not use Redis when the callback store is not configured", async () => {
@@ -81,7 +73,7 @@ describe("deduplicateOAuthCallback", () => {
     ).resolves.toBe(response);
 
     expect(handleRequest).toHaveBeenCalledOnce();
-    expect(mockClaimOAuthCode).not.toHaveBeenCalled();
+    expect(mockClaimOAuthCodeAndWait).not.toHaveBeenCalled();
   });
 
   it("does not use Redis without Better Auth's OAuth state cookie", async () => {
@@ -99,7 +91,7 @@ describe("deduplicateOAuthCallback", () => {
     ).resolves.toBe(response);
 
     expect(handleRequest).toHaveBeenCalledOnce();
-    expect(mockClaimOAuthCode).not.toHaveBeenCalled();
+    expect(mockClaimOAuthCodeAndWait).not.toHaveBeenCalled();
   });
 
   it("caches the first successful callback redirect", async () => {
@@ -114,7 +106,7 @@ describe("deduplicateOAuthCallback", () => {
       }),
     ).resolves.toBe(response);
 
-    expect(mockClaimOAuthCode).toHaveBeenCalledWith(
+    expect(mockClaimOAuthCodeAndWait).toHaveBeenCalledWith(
       "oauth-code",
       REQUEST_FINGERPRINT,
     );
@@ -135,16 +127,20 @@ describe("deduplicateOAuthCallback", () => {
   });
 
   it("reuses a cached callback redirect without exchanging the code again", async () => {
-    mockClaimOAuthCode.mockResolvedValue({
-      params: {
-        redirect: "https://example.com/welcome-redirect",
-        setCookies: JSON.stringify([
-          "better-auth.session_token=session-token; Path=/; HttpOnly; Secure",
-        ]),
-        status: "302",
+    mockClaimOAuthCodeAndWait.mockResolvedValue({
+      result: {
+        params: {
+          redirect: "https://example.com/welcome-redirect",
+          setCookies: JSON.stringify([
+            "better-auth.session_token=session-token; Path=/; HttpOnly; Secure",
+          ]),
+          status: "302",
+        },
+        requestFingerprint: REQUEST_FINGERPRINT,
+        status: "success",
       },
-      requestFingerprint: REQUEST_FINGERPRINT,
       status: "success",
+      waited: false,
     });
     const handleRequest = vi.fn();
 
@@ -165,16 +161,20 @@ describe("deduplicateOAuthCallback", () => {
   });
 
   it("does not replay session cookies to a different OAuth state", async () => {
-    mockClaimOAuthCode.mockResolvedValue({
-      params: {
-        redirect: "https://example.com/welcome-redirect",
-        setCookies: JSON.stringify([
-          "better-auth.session_token=session-token; Path=/; HttpOnly; Secure",
-        ]),
-        status: "302",
+    mockClaimOAuthCodeAndWait.mockResolvedValue({
+      result: {
+        params: {
+          redirect: "https://example.com/welcome-redirect",
+          setCookies: JSON.stringify([
+            "better-auth.session_token=session-token; Path=/; HttpOnly; Secure",
+          ]),
+          status: "302",
+        },
+        requestFingerprint: "different-request",
+        status: "success",
       },
-      requestFingerprint: "different-request",
       status: "success",
+      waited: false,
     });
 
     const response = await deduplicateOAuthCallback({
@@ -187,18 +187,17 @@ describe("deduplicateOAuthCallback", () => {
   });
 
   it("waits for an in-flight callback and reuses its redirect", async () => {
-    vi.useFakeTimers();
-    mockGetOAuthCodeResult.mockResolvedValueOnce({
-      params: {
-        redirect: "https://example.com/welcome-redirect",
-        status: "302",
+    mockClaimOAuthCodeAndWait.mockResolvedValue({
+      result: {
+        params: {
+          redirect: "https://example.com/welcome-redirect",
+          status: "302",
+        },
+        requestFingerprint: REQUEST_FINGERPRINT,
+        status: "success",
       },
-      requestFingerprint: REQUEST_FINGERPRINT,
       status: "success",
-    });
-    mockClaimOAuthCode.mockResolvedValue({
-      requestFingerprint: REQUEST_FINGERPRINT,
-      status: "processing",
+      waited: true,
     });
     const handleRequest = vi.fn();
 
@@ -207,7 +206,6 @@ describe("deduplicateOAuthCallback", () => {
       handleRequest,
       logger,
     });
-    await vi.advanceTimersByTimeAsync(250);
     const response = await responsePromise;
 
     expect(response.status).toBe(302);
@@ -218,7 +216,11 @@ describe("deduplicateOAuthCallback", () => {
   });
 
   it("falls back to Better Auth when the deduplication store is unavailable", async () => {
-    mockClaimOAuthCode.mockRejectedValue(new Error("Redis unavailable"));
+    mockClaimOAuthCodeAndWait.mockResolvedValue({
+      error: new Error("Redis unavailable"),
+      stage: "claim",
+      status: "error",
+    });
     const response = createSuccessfulCallbackResponse();
     const handleRequest = vi.fn().mockResolvedValue(response);
 

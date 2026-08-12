@@ -15,7 +15,7 @@ import {
 import { useIntegrations } from "@/hooks/useIntegrations";
 import { IntegrationRow } from "@/app/(app)/[emailAccountId]/integrations/IntegrationRow";
 import { Card } from "@/components/ui/card";
-import { toastError, toastSuccess } from "@/components/Toast";
+import { toastError, toastInfo, toastSuccess } from "@/components/Toast";
 import { findIntegration } from "@/utils/mcp/integrations";
 import { useProductAnalytics } from "@/hooks/useProductAnalytics";
 
@@ -68,8 +68,9 @@ function useIntegrationNotifications() {
 
   useEffect(() => {
     const connectedParam = searchParams.get("connected");
+    const pendingParam = searchParams.get("pending");
     const errorParam = searchParams.get("error");
-    if (!connectedParam && !errorParam) return;
+    if (!connectedParam && !pendingParam && !errorParam) return;
 
     if (connectedParam) {
       const displayName =
@@ -80,6 +81,16 @@ function useIntegrationNotifications() {
       });
       analytics.captureAction("integration_connected", {
         integration: connectedParam,
+      });
+    } else if (pendingParam) {
+      const displayName =
+        findIntegration(pendingParam)?.displayName || pendingParam;
+      toastInfo({
+        title: "Connection is still finishing",
+        description: `We're still connecting to ${displayName}. Refresh in a moment to see the latest status.`,
+      });
+      analytics.captureAction("integration_connection_pending", {
+        integration: pendingParam,
       });
     } else if (errorParam) {
       const errorMessages: Record<
@@ -100,6 +111,11 @@ function useIntegrationNotifications() {
           title: "Connection failed",
           description:
             "We couldn't complete the connection. Please try again or contact support.",
+        },
+        tool_sync_failed: {
+          title: "Connected, but tools unavailable",
+          description:
+            "We couldn't load this integration's tools. Reconnect to try again.",
         },
         forbidden: {
           title: "Connection failed",
