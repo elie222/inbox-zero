@@ -122,14 +122,16 @@ function RuleAttribution({
               : "Action issues"}
           </div>
           <ul className="mt-0.5 list-disc space-y-0.5 pl-4">
-            {reasonDisplay.actionFailureMessages.map((failureMessage) => (
-              <li
-                className="break-words [overflow-wrap:anywhere]"
-                key={failureMessage}
-              >
-                {failureMessage}
-              </li>
-            ))}
+            {reasonDisplay.actionFailureMessages.map(
+              (failureMessage, failureIndex) => (
+                <li
+                  className="break-words [overflow-wrap:anywhere]"
+                  key={`${failureMessage}-${failureIndex}`}
+                >
+                  {failureMessage}
+                </li>
+              ),
+            )}
           </ul>
         </div>
       ) : null}
