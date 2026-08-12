@@ -76,16 +76,22 @@ export async function claimOAuthCodeAndWait(
   }
 
   const attempts = CALLBACK_RESULT_WAIT_MS / CALLBACK_RESULT_POLL_INTERVAL_MS;
+  let lastWaitError: unknown;
   for (let attempt = 0; attempt < attempts; attempt++) {
     await new Promise((resolve) =>
       setTimeout(resolve, CALLBACK_RESULT_POLL_INTERVAL_MS),
     );
     try {
       const result = await getOAuthCodeResult(code);
+      lastWaitError = undefined;
       if (result) return { result, status: "success", waited: true };
     } catch (error) {
-      return { error, stage: "wait", status: "error" };
+      lastWaitError = error;
     }
+  }
+
+  if (lastWaitError) {
+    return { error: lastWaitError, stage: "wait", status: "error" };
   }
 
   return { status: "timeout" };

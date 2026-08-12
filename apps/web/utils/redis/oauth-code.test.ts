@@ -130,20 +130,44 @@ describe("claimOAuthCodeAndWait", () => {
     });
   });
 
-  it("reports a Redis failure while waiting for another callback", async () => {
+  it("continues polling after a transient Redis wait failure", async () => {
+    vi.useFakeTimers();
+    vi.mocked(redis.set).mockResolvedValue({ status: "processing" });
+    vi.mocked(redis.get)
+      .mockRejectedValueOnce(new Error("Redis unavailable"))
+      .mockResolvedValueOnce({
+        params: { connected: "notion" },
+        status: "success",
+      });
+
+    const resultPromise = claimOAuthCodeAndWait("oauth-code");
+    await vi.advanceTimersByTimeAsync(500);
+
+    await expect(resultPromise).resolves.toEqual({
+      result: {
+        params: { connected: "notion" },
+        status: "success",
+      },
+      status: "success",
+      waited: true,
+    });
+  });
+
+  it("reports a Redis failure after the full wait window", async () => {
     vi.useFakeTimers();
     const error = new Error("Redis unavailable");
     vi.mocked(redis.set).mockResolvedValue({ status: "processing" });
     vi.mocked(redis.get).mockRejectedValue(error);
 
     const resultPromise = claimOAuthCodeAndWait("oauth-code");
-    await vi.advanceTimersByTimeAsync(250);
+    await vi.advanceTimersByTimeAsync(15_000);
 
     await expect(resultPromise).resolves.toEqual({
       error,
       stage: "wait",
       status: "error",
     });
+    expect(redis.get).toHaveBeenCalledTimes(60);
   });
 
   it("times out when another callback does not publish a result", async () => {
