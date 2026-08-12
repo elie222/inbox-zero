@@ -2,11 +2,13 @@ name: API Publish
 
 on:
   push:
-    tags: ["api-v*"]
-  workflow_dispatch:
+    branches: [main]
+    paths:
+      - "packages/api/**"
+      - ".github/workflows/api-release.yml"
 
 permissions:
-  contents: write
+  contents: read
   id-token: write
 
 jobs:
@@ -27,13 +29,6 @@ jobs:
 
       - name: Upgrade npm
         run: npm install -g npm@latest
-
-      - name: Set version from tag
-        if: github.ref_type == 'tag'
-        run: |
-          VERSION="${GITHUB_REF_NAME#api-v}"
-          cd packages/api
-          npm version "$VERSION" --no-git-tag-version
 
       - name: Install dependencies
         run: cd packages/api && bun install
