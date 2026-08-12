@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ListThread } from "./types";
-import { isThreadUnread, markThreadRead } from "./thread-read-state";
+import { isThreadUnread, withThreadReadState } from "./read-state";
 
 describe("thread read state", () => {
   it("removes the unread label from every message", () => {
@@ -9,20 +9,32 @@ describe("thread read state", () => {
       ["SENT", "UNREAD"],
     ]);
 
-    const updated = markThreadRead(thread);
+    const updated = withThreadReadState(thread, true);
 
     expect(updated.messages.map((message) => message.labelIds)).toEqual([
       ["INBOX"],
       ["SENT"],
     ]);
-    expect(isThreadUnread(updated)).toBe(false);
+    expect(isThreadUnread(updated.messages)).toBe(false);
   });
 
-  it("preserves an already-read thread", () => {
+  it("adds the unread label without duplicates", () => {
+    const thread = createThread([["INBOX", "UNREAD"], ["INBOX"]]);
+
+    expect(
+      withThreadReadState(thread, false).messages.map(
+        (message) => message.labelIds,
+      ),
+    ).toEqual([
+      ["INBOX", "UNREAD"],
+      ["INBOX", "UNREAD"],
+    ]);
+  });
+
+  it("preserves a thread that already has the requested state", () => {
     const thread = createThread([["INBOX"]]);
 
-    expect(markThreadRead(thread)).toBe(thread);
-    expect(isThreadUnread(thread)).toBe(false);
+    expect(withThreadReadState(thread, true)).toBe(thread);
   });
 });
 

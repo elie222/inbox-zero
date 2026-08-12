@@ -9,16 +9,17 @@ import {
   markReadThreads,
 } from "@/store/archive-queue";
 import {
+  markReadThreadAction,
   unarchiveThreadAction,
   untrashThreadAction,
 } from "@/utils/actions/mail";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
+import { withThreadReadState } from "@/app/(app)/[emailAccountId]/mail/read-state";
 import type {
   OptimisticThreadUpdate,
   ThreadRemoval,
 } from "@/app/(app)/[emailAccountId]/mail/use-mail-threads";
 import type { ListThread } from "@/app/(app)/[emailAccountId]/mail/types";
-import { markThreadRead } from "@/app/(app)/[emailAccountId]/mail/thread-read-state";
 
 type UndoableAction = "archive" | "delete";
 
@@ -145,7 +146,9 @@ export function useThreadActions({
 
   const markRead = useCallback(
     (threadIds: string[]) => {
-      const update = optimisticallyUpdateThreads(threadIds, markThreadRead);
+      const update = optimisticallyUpdateThreads(threadIds, (thread) =>
+        withThreadReadState(thread, true),
+      );
       if (!update.threadIds.length) return;
       const failedThreadIds: string[] = [];
 
@@ -163,10 +166,36 @@ export function useThreadActions({
     [emailAccountId, optimisticallyUpdateThreads],
   );
 
+  const setReadState = useCallback(
+    async (threadId: string, read: boolean) => {
+      const update = optimisticallyUpdateThreads([threadId], (thread) =>
+        withThreadReadState(thread, read),
+      );
+      if (!update.threadIds.length) return;
+
+      try {
+        const result = await markReadThreadAction(emailAccountId, {
+          threadId,
+          read,
+        });
+        if (result?.serverError) throw new Error(result.serverError);
+      } catch {
+        update.rollback([threadId]);
+        toast.error(read ? "Couldn't mark as read" : "Couldn't mark as unread");
+        return;
+      }
+
+      update.commit(threadId);
+      toast.success(read ? "Marked as read" : "Marked as unread");
+    },
+    [emailAccountId, optimisticallyUpdateThreads],
+  );
+
   return {
     archive: useCallback((ids: string[]) => run("archive", ids), [run]),
     trash: useCallback((ids: string[]) => run("delete", ids), [run]),
     markRead,
+    setReadState,
     undo,
   };
 }

@@ -15,6 +15,7 @@ const notifications = vi.hoisted(() => ({
   error: vi.fn(),
   success: vi.fn(),
 }));
+const markReadThreadAction = vi.hoisted(() => vi.fn());
 
 vi.mock("@/store/archive-queue", () => ({
   archiveEmails: queue.archive,
@@ -23,6 +24,7 @@ vi.mock("@/store/archive-queue", () => ({
   markReadThreads: queue.markRead,
 }));
 vi.mock("@/utils/actions/mail", () => ({
+  markReadThreadAction,
   unarchiveThreadAction: vi.fn(),
   untrashThreadAction: vi.fn(),
 }));
@@ -31,6 +33,7 @@ vi.mock("sonner", () => ({ toast: notifications }));
 describe("useThreadActions read state", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    markReadThreadAction.mockResolvedValue({});
   });
 
   it("marks an unread row locally before queueing the provider update", () => {
@@ -119,6 +122,60 @@ describe("useThreadActions read state", () => {
     act(() => result.current.markRead(["thread"]));
 
     expect(queue.markRead).not.toHaveBeenCalled();
+  });
+
+  it("optimistically toggles read state from the actions menu", async () => {
+    const transaction = {
+      threadIds: ["thread"],
+      commit: vi.fn(),
+      rollback: vi.fn(),
+    };
+    const optimisticallyUpdateThreads = vi.fn((_ids, updater) => {
+      expect(updater(createThread(["INBOX"])).messages[0]?.labelIds).toEqual([
+        "INBOX",
+        "UNREAD",
+      ]);
+      return transaction;
+    });
+    const { result } = renderHook(() =>
+      useThreadActions({
+        emailAccountId: "account",
+        removeThreads: vi.fn(),
+        restoreThreads: vi.fn(),
+        optimisticallyUpdateThreads,
+      }),
+    );
+
+    await act(() => result.current.setReadState("thread", false));
+
+    expect(markReadThreadAction).toHaveBeenCalledWith("account", {
+      threadId: "thread",
+      read: false,
+    });
+    expect(transaction.commit).toHaveBeenCalledWith("thread");
+  });
+
+  it("rolls back a rejected read-state toggle", async () => {
+    markReadThreadAction.mockRejectedValue(new Error("offline"));
+    const transaction = {
+      threadIds: ["thread"],
+      commit: vi.fn(),
+      rollback: vi.fn(),
+    };
+    const { result } = renderHook(() =>
+      useThreadActions({
+        emailAccountId: "account",
+        removeThreads: vi.fn(),
+        restoreThreads: vi.fn(),
+        optimisticallyUpdateThreads: vi.fn(() => transaction),
+      }),
+    );
+
+    await act(() => result.current.setReadState("thread", true));
+
+    expect(transaction.rollback).toHaveBeenCalledWith(["thread"]);
+    expect(transaction.commit).not.toHaveBeenCalled();
+    expect(notifications.error).toHaveBeenCalledWith("Couldn't mark as read");
   });
 });
 
