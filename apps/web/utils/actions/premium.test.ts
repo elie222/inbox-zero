@@ -1,19 +1,40 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import {
+  activateLicenseKeyAction,
   generateCheckoutSessionAction,
   updateStripeInvoiceEmailsAction,
 } from "./premium";
 
 const mocks = vi.hoisted(() => ({
+  activateLemonLicenseKey: vi.fn(),
   createCheckoutSession: vi.fn(),
+  licenseEnv: {
+    LICENSE_1_SEAT_VARIANT_ID: 101 as number | undefined,
+    LICENSE_3_SEAT_VARIANT_ID: 103 as number | undefined,
+    LICENSE_5_SEAT_VARIANT_ID: undefined as number | undefined,
+    LICENSE_10_SEAT_VARIANT_ID: 110 as number | undefined,
+    LICENSE_25_SEAT_VARIANT_ID: 125 as number | undefined,
+  },
+  upgradeToPremiumLemon: vi.fn(),
 }));
 
 vi.mock("@/utils/prisma");
+vi.mock("@/env", async (importOriginal) => {
+  const { env } = await importOriginal<typeof import("@/env")>();
+  return { env: { ...env, ...mocks.licenseEnv } };
+});
 vi.mock("@/utils/auth", () => ({
   auth: vi.fn(async () => ({
     user: { id: "user-1", email: "user@example.com" },
   })),
+}));
+vi.mock("@/ee/billing/lemon/index", () => ({
+  activateLemonLicenseKey: mocks.activateLemonLicenseKey,
+}));
+vi.mock("@/utils/premium/server", () => ({
+  grantPremiumAdmin: vi.fn(),
+  upgradeToPremiumLemon: mocks.upgradeToPremiumLemon,
 }));
 vi.mock("@/ee/billing/stripe", () => ({
   getStripe: () => ({
@@ -27,6 +48,64 @@ vi.mock("@/utils/posthog", () => ({
   trackStripeCheckoutCreated: vi.fn(),
   trackStripeCustomerCreated: vi.fn(),
 }));
+
+describe("activateLicenseKeyAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("rejects a valid Lemon license for an unconfigured variant", async () => {
+    mocks.activateLemonLicenseKey.mockResolvedValue(
+      activatedLicenseResponse({ variantId: 999 }),
+    );
+
+    const result = await activateLicenseKeyAction({
+      licenseKey: "foreign-license-key",
+    });
+
+    expect(result?.serverError).toBe(
+      "License key is not valid for this product.",
+    );
+    expect(mocks.upgradeToPremiumLemon).not.toHaveBeenCalled();
+  });
+
+  it("rejects a variant whose seat configuration is missing", async () => {
+    mocks.activateLemonLicenseKey.mockResolvedValue(
+      activatedLicenseResponse({ variantId: 105 }),
+    );
+
+    const result = await activateLicenseKeyAction({
+      licenseKey: "unconfigured-license-key",
+    });
+
+    expect(result?.serverError).toBe(
+      "License key is not valid for this product.",
+    );
+    expect(mocks.upgradeToPremiumLemon).not.toHaveBeenCalled();
+  });
+
+  it("grants the configured number of seats for an allowed variant", async () => {
+    mocks.activateLemonLicenseKey.mockResolvedValue(
+      activatedLicenseResponse({ variantId: 103 }),
+    );
+
+    const result = await activateLicenseKeyAction({
+      licenseKey: "inbox-zero-license-key",
+    });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(mocks.upgradeToPremiumLemon).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user-1",
+        tier: "LIFETIME",
+        lemonLicenseKey: "inbox-zero-license-key",
+        lemonLicenseInstanceId: "instance-1",
+        lemonSqueezyVariantId: 103,
+        emailAccountsAccess: 3,
+      }),
+    );
+  });
+});
 
 describe("updateStripeInvoiceEmailsAction", () => {
   beforeEach(() => {
@@ -215,3 +294,41 @@ describe("generateCheckoutSessionAction", () => {
     expect(result?.data).toEqual({ url: "https://stripe.test" });
   });
 });
+
+function activatedLicenseResponse({ variantId }: { variantId: number }) {
+  return {
+    statusCode: 200,
+    error: null,
+    data: {
+      activated: true,
+      error: null,
+      license_key: {
+        id: 1,
+        status: "active",
+        key: "license-key",
+        activation_limit: 1,
+        activation_usage: 1,
+        created_at: "2026-08-12T00:00:00.000Z",
+        expires_at: null,
+        test_mode: false,
+      },
+      instance: {
+        id: "instance-1",
+        name: "License for user-1",
+        created_at: "2026-08-12T00:00:00.000Z",
+      },
+      meta: {
+        store_id: 1,
+        order_id: 2,
+        order_item_id: 3,
+        product_id: 4,
+        product_name: "Inbox Zero",
+        variant_id: variantId,
+        variant_name: "Lifetime",
+        customer_id: 5,
+        customer_name: "Customer",
+        customer_email: "customer@example.com",
+      },
+    },
+  };
+}

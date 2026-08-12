@@ -255,32 +255,42 @@ export const activateLicenseKeyAction = actionClientUser
       logger,
     );
 
-    if (lemonSqueezyLicense.error) {
+    const activatedLicense = lemonSqueezyLicense.data;
+
+    if (
+      lemonSqueezyLicense.error ||
+      !activatedLicense?.activated ||
+      activatedLicense.error ||
+      !activatedLicense.instance?.id
+    ) {
       return {
-        error: lemonSqueezyLicense.data?.error || "Error activating license",
+        error: activatedLicense?.error || "Error activating license",
       };
     }
 
-    const seats = {
-      [env.LICENSE_1_SEAT_VARIANT_ID || ""]: 1,
-      [env.LICENSE_3_SEAT_VARIANT_ID || ""]: 3,
-      [env.LICENSE_5_SEAT_VARIANT_ID || ""]: 5,
-      [env.LICENSE_10_SEAT_VARIANT_ID || ""]: 10,
-      [env.LICENSE_25_SEAT_VARIANT_ID || ""]: 25,
-    };
+    const licenseVariants = [
+      { variantId: env.LICENSE_1_SEAT_VARIANT_ID, seats: 1 },
+      { variantId: env.LICENSE_3_SEAT_VARIANT_ID, seats: 3 },
+      { variantId: env.LICENSE_5_SEAT_VARIANT_ID, seats: 5 },
+      { variantId: env.LICENSE_10_SEAT_VARIANT_ID, seats: 10 },
+      { variantId: env.LICENSE_25_SEAT_VARIANT_ID, seats: 25 },
+    ].filter(({ variantId }) => variantId === activatedLicense.meta.variant_id);
+
+    const [licenseVariant, duplicateLicenseVariant] = licenseVariants;
+    if (!licenseVariant || duplicateLicenseVariant) {
+      throw new SafeError("License key is not valid for this product.");
+    }
 
     await upgradeToPremiumLemon({
       userId,
       tier: PremiumTier.LIFETIME,
       lemonLicenseKey: licenseKey,
-      lemonLicenseInstanceId: lemonSqueezyLicense.data?.instance?.id,
-      emailAccountsAccess:
-        seats[lemonSqueezyLicense.data?.meta.variant_id || ""],
-      lemonSqueezyCustomerId:
-        lemonSqueezyLicense.data?.meta.customer_id || null,
-      lemonSqueezyOrderId: lemonSqueezyLicense.data?.meta.order_id || null,
-      lemonSqueezyProductId: lemonSqueezyLicense.data?.meta.product_id || null,
-      lemonSqueezyVariantId: lemonSqueezyLicense.data?.meta.variant_id || null,
+      lemonLicenseInstanceId: activatedLicense.instance.id,
+      emailAccountsAccess: licenseVariant.seats,
+      lemonSqueezyCustomerId: activatedLicense.meta.customer_id,
+      lemonSqueezyOrderId: activatedLicense.meta.order_id,
+      lemonSqueezyProductId: activatedLicense.meta.product_id,
+      lemonSqueezyVariantId: activatedLicense.meta.variant_id,
       lemonSqueezySubscriptionId: null,
       lemonSqueezySubscriptionItemId: null,
       lemonSqueezyRenewsAt: new Date(Date.now() + TEN_YEARS),

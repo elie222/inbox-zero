@@ -41,7 +41,7 @@ export async function activateLemonLicenseKey(
   logger: Logger,
 ) {
   setUpLemon();
-  logger.info("Activating license key", { licenseKey, name });
+  logger.info("Activating license key");
   return activateLicense(licenseKey, name);
 }
 
