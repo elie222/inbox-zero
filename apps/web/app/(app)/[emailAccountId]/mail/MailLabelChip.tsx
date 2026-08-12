@@ -129,6 +129,27 @@ function providerColorStyle(
   return {
     backgroundColor: color.backgroundColor,
     borderColor: color.backgroundColor,
-    color: color.textColor || undefined,
+    color: color.textColor || contrastingTextColor(color.backgroundColor),
   };
+}
+
+export function contrastingTextColor(backgroundColor: string) {
+  const hex = backgroundColor.trim();
+  if (!/^#[\da-f]{6}$/i.test(hex)) return;
+
+  const red = linearColorChannel(hex.slice(1, 3));
+  const green = linearColorChannel(hex.slice(3, 5));
+  const blue = linearColorChannel(hex.slice(5, 7));
+  const luminance = red * 0.2126 + green * 0.7152 + blue * 0.0722;
+  const blackContrast = (luminance + 0.05) / 0.05;
+  const whiteContrast = 1.05 / (luminance + 0.05);
+
+  return blackContrast >= whiteContrast ? "#000000" : "#ffffff";
+}
+
+function linearColorChannel(hex: string) {
+  const channel = Number.parseInt(hex, 16) / 255;
+  return channel <= 0.040_45
+    ? channel / 12.92
+    : ((channel + 0.055) / 1.055) ** 2.4;
 }
