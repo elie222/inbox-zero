@@ -92,6 +92,7 @@ export function useDraftReplies() {
                       folderId: null,
                       messagingChannelId: null,
                       messagingChannelEmailAccountId: null,
+                      messagingChannel: null,
                       staticAttachments: null,
                       integrationName: null,
                       integrationToolName: null,
