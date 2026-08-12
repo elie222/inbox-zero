@@ -16,6 +16,7 @@ import { internalDateToDate } from "@/utils/date";
 import { extractNameFromEmail, participant } from "@/utils/email";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { GmailLabel } from "@/utils/gmail/label";
+import { isThreadUnread } from "@/app/(app)/[emailAccountId]/mail/thread-read-state";
 
 const SELECT_HINT = getShortcutHint("select");
 
@@ -62,7 +63,7 @@ export const ThreadRow = memo(function ThreadRow({
   if (!message) return null;
 
   // Both providers normalise to these ids, so this is not a provider branch.
-  const isUnread = message.labelIds?.includes(GmailLabel.UNREAD) ?? false;
+  const isUnread = isThreadUnread(thread);
   const isDraft = message.labelIds?.includes(GmailLabel.DRAFT) ?? false;
   const isWide = layout === "list";
 

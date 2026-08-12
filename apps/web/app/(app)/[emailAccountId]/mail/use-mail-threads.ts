@@ -17,6 +17,7 @@ import {
   removeCachedThreadsFromView,
   restoreCachedThreadsToView,
   writeCachedThreadList,
+  writeCachedThreadRows,
 } from "@/utils/email-cache/thread-lists";
 import { restoreThreadOrder } from "@/utils/email-cache/thread-order";
 import {
@@ -37,6 +38,12 @@ type RemovedThread = {
 export type ThreadRemoval = {
   viewIdentity: string;
   entries: Map<string, RemovedThread>;
+};
+
+export type OptimisticThreadUpdate = {
+  threadIds: string[];
+  commit: (threadId: string) => void;
+  rollback: (threadId: string) => void;
 };
 
 type PersistentView = {
@@ -86,6 +93,7 @@ export function useMailThreads({
     useState<string>();
   const paginationRetryIdentity = useRef<string | undefined>(undefined);
   const hiddenByView = useRef(new Map<string, Set<string>>());
+  const optimisticUpdateTokens = useRef(new Map<string, symbol>());
   const [, renderHiddenChanges] = useReducer((version) => version + 1, 0);
   const remoteIdentity = useRef<string | undefined>(undefined);
 
@@ -309,6 +317,79 @@ export function useMailThreads({
     [emailAccountId, mutate, viewIdentity, viewKey],
   );
 
+  const optimisticallyUpdateThreads = useCallback(
+    (
+      threadIds: string[],
+      updater: (thread: ListThread) => ListThread,
+    ): OptimisticThreadUpdate => {
+      const targets = new Set(threadIds);
+      const previousById = new Map<string, ListThread>();
+      const updatedById = new Map<string, ListThread>();
+
+      for (const thread of sourceThreads ?? []) {
+        if (!targets.has(thread.id)) continue;
+        const updated = updater(thread);
+        if (updated === thread) continue;
+        previousById.set(thread.id, thread);
+        updatedById.set(thread.id, updated);
+      }
+
+      const changedThreadIds = [...updatedById.keys()];
+      const updateToken = Symbol("optimistic-thread-update");
+      for (const threadId of changedThreadIds) {
+        optimisticUpdateTokens.current.set(threadId, updateToken);
+      }
+
+      const applyThreadUpdates = (updates: ReadonlyMap<string, ListThread>) => {
+        if (!updates.size) return;
+        setPersistent((current) =>
+          current?.identity === viewIdentity
+            ? {
+                ...current,
+                threads: replaceThreads(current.threads, updates),
+              }
+            : current,
+        );
+        mutate(
+          (pages) =>
+            pages?.map((page) => ({
+              ...page,
+              threads: replaceThreads(page.threads, updates),
+            })),
+          { revalidate: false, populateCache: true },
+        ).catch(() => {});
+        writeCachedThreadRows({
+          emailAccountId,
+          threads: [...updates.values()],
+        }).catch(() => {});
+      };
+
+      applyThreadUpdates(updatedById);
+
+      const isLatestUpdate = (threadId: string) =>
+        optimisticUpdateTokens.current.get(threadId) === updateToken;
+
+      return {
+        threadIds: changedThreadIds,
+        commit: (threadId) => {
+          if (isLatestUpdate(threadId)) {
+            optimisticUpdateTokens.current.delete(threadId);
+          }
+        },
+        rollback: (threadId) => {
+          if (!isLatestUpdate(threadId)) return;
+
+          optimisticUpdateTokens.current.delete(threadId);
+          const previous = previousById.get(threadId);
+          if (previous) {
+            applyThreadUpdates(new Map([[threadId, previous]]));
+          }
+        },
+      };
+    },
+    [emailAccountId, mutate, sourceThreads, viewIdentity],
+  );
+
   const hasMore = data
     ? Boolean(data.at(-1)?.nextPageToken)
     : persistent?.identity === viewIdentity && persistent.hasMore;
@@ -331,10 +412,18 @@ export function useMailThreads({
     }, [data, setSize, viewIdentity]),
     removeThreads,
     restoreThreads,
+    optimisticallyUpdateThreads,
   };
 }
 
 const EMPTY_THREAD_IDS = new Set<string>();
+
+function replaceThreads(
+  threads: ListThread[],
+  replacements: ReadonlyMap<string, ListThread>,
+) {
+  return threads.map((thread) => replacements.get(thread.id) ?? thread);
+}
 
 function insertRestoredThreads(
   threads: ListThread[],

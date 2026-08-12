@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useDeferredValue, useMemo, useState } from "react";
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useQueryState } from "nuqs";
 import { toast } from "sonner";
 import { ListToolbar } from "@/app/(app)/[emailAccountId]/mail/ListToolbar";
@@ -196,14 +203,16 @@ export function MailShell() {
     loadMore,
     removeThreads,
     restoreThreads,
+    optimisticallyUpdateThreads,
   } = useMailThreads({ emailAccountId, query });
 
   const orderedIds = useMemo(() => threads.map((t) => t.id), [threads]);
   const selection = useThreadSelection(orderedIds);
-  const { archive, trash, undo } = useThreadActions({
+  const { archive, trash, markRead, undo } = useThreadActions({
     emailAccountId,
     removeThreads,
     restoreThreads,
+    optimisticallyUpdateThreads,
   });
 
   const clampIndex = useCallback(
@@ -214,6 +223,26 @@ export function MailShell() {
   const clampedIndex = clampIndex(focusedIndex);
   const focusedThread = threads[clampedIndex];
   const openThread = threads.find((t) => t.id === openThreadId);
+  const resolvedOpenThreadId = openThread?.id;
+  const readAttemptedForOpenThread = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!openThreadId) {
+      readAttemptedForOpenThread.current = null;
+      return;
+    }
+    if (
+      !resolvedOpenThreadId ||
+      readAttemptedForOpenThread.current === resolvedOpenThreadId
+    ) {
+      return;
+    }
+
+    // A rollback leaves the reader open. Remember the attempt so a provider
+    // failure doesn't immediately enqueue the same mutation again.
+    readAttemptedForOpenThread.current = resolvedOpenThreadId;
+    markRead([resolvedOpenThreadId]);
+  }, [markRead, openThreadId, resolvedOpenThreadId]);
 
   // Deferred so holding J/K in split view doesn't fire a full-thread provider
   // fetch for every row the cursor passes over — only the row you settle on.

@@ -6,13 +6,19 @@ import {
   archiveEmails,
   cancelQueuedThreads,
   deleteEmails,
+  markReadThreads,
 } from "@/store/archive-queue";
 import {
   unarchiveThreadAction,
   untrashThreadAction,
 } from "@/utils/actions/mail";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
-import type { ThreadRemoval } from "@/app/(app)/[emailAccountId]/mail/use-mail-threads";
+import type {
+  OptimisticThreadUpdate,
+  ThreadRemoval,
+} from "@/app/(app)/[emailAccountId]/mail/use-mail-threads";
+import type { ListThread } from "@/app/(app)/[emailAccountId]/mail/types";
+import { markThreadRead } from "@/app/(app)/[emailAccountId]/mail/thread-read-state";
 
 type UndoableAction = "archive" | "delete";
 
@@ -34,10 +40,15 @@ export function useThreadActions({
   emailAccountId,
   removeThreads,
   restoreThreads,
+  optimisticallyUpdateThreads,
 }: {
   emailAccountId: string;
   removeThreads: (threadIds: string[]) => ThreadRemoval;
   restoreThreads: (removal: ThreadRemoval, threadIds: string[]) => void;
+  optimisticallyUpdateThreads: (
+    threadIds: string[],
+    updater: (thread: ListThread) => ListThread,
+  ) => OptimisticThreadUpdate;
 }) {
   const lastAction = useRef<UndoableBatch | null>(null);
 
@@ -132,9 +143,28 @@ export function useThreadActions({
     [emailAccountId, removeThreads, restoreThreads, undoBatch],
   );
 
+  const markRead = useCallback(
+    (threadIds: string[]) => {
+      const update = optimisticallyUpdateThreads(threadIds, markThreadRead);
+      if (!update.threadIds.length) return;
+
+      markReadThreads({
+        threadIds: update.threadIds,
+        emailAccountId,
+        onSuccess: update.commit,
+        onError: (threadId) => {
+          update.rollback(threadId);
+          toast.error("There was an error marking as read");
+        },
+      });
+    },
+    [emailAccountId, optimisticallyUpdateThreads],
+  );
+
   return {
     archive: useCallback((ids: string[]) => run("archive", ids), [run]),
     trash: useCallback((ids: string[]) => run("delete", ids), [run]),
+    markRead,
     undo,
   };
 }
