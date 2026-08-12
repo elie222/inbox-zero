@@ -16,6 +16,7 @@ import {
   readCachedThreadList,
   removeCachedThreadsFromView,
   restoreCachedThreadsToView,
+  updateCachedThreads,
   writeCachedThreadList,
 } from "@/utils/email-cache/thread-lists";
 import { restoreThreadOrder } from "@/utils/email-cache/thread-order";
@@ -336,27 +337,16 @@ export function useMailThreads({
         { revalidate: false, populateCache: true },
       ).catch(() => {});
 
-      // A view still running off the cache has no SWR pages, so the effect that
-      // mirrors them into the cache never fires and the change would be lost on
-      // reopen. Persist it here instead, the way removal does.
-      if (!data && persistentThreads) {
-        writeCachedThreadList({
-          emailAccountId,
-          viewKey,
-          threads: applyUpdate(persistentThreads),
-          hasMore: Boolean(persistent?.hasMore),
-        }).catch(() => {});
-      }
+      // The effect that mirrors the cache only watches SWR pages, so a view
+      // still running off the cache would lose this on reopen. Only the changed
+      // rows are written: an update leaves every view's membership and order
+      // alone, so nothing else has to be rewritten from a captured snapshot.
+      const changed = (remoteThreads ?? persistentThreads ?? [])
+        .filter((thread) => targets.has(thread.id))
+        .map(update);
+      updateCachedThreads({ emailAccountId, threads: changed }).catch(() => {});
     },
-    [
-      data,
-      emailAccountId,
-      mutate,
-      persistent?.hasMore,
-      persistentThreads,
-      viewIdentity,
-      viewKey,
-    ],
+    [emailAccountId, mutate, persistentThreads, remoteThreads, viewIdentity],
   );
 
   const hasMore = data

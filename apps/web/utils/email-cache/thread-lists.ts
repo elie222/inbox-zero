@@ -141,6 +141,43 @@ export async function removeCachedThreadsFromView({
   }
 }
 
+/**
+ * Rewrites rows in place, for a change to a thread itself rather than to a
+ * view's membership: rows are keyed by thread, so every view holding one picks
+ * the change up and no view's order has to be touched.
+ */
+export async function updateCachedThreads<T extends ThreadRow>({
+  emailAccountId,
+  threads,
+}: {
+  emailAccountId: string;
+  threads: T[];
+}) {
+  if (!threads.length) return;
+  const epoch = captureEmailCacheEpoch(emailAccountId);
+
+  try {
+    const database = await getEmailCacheDatabase();
+    if (!database || !isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
+    const transaction = database.transaction("threadRows", "readwrite");
+    const store = transaction.objectStore("threadRows");
+    const now = Date.now();
+
+    await Promise.all(
+      threads.map(async (thread) => {
+        // Absent means the row was evicted, and writing it back would resurrect
+        // a row no view lists any more.
+        const existing = await store.get([emailAccountId, thread.id]);
+        if (!existing) return;
+        return store.put({ ...existing, data: thread, lastAccessedAt: now });
+      }),
+    );
+    await transaction.done;
+  } catch {
+    // Optimistic UI state remains authoritative if persistence is unavailable.
+  }
+}
+
 export async function restoreCachedThreadsToView<T extends ThreadRow>({
   emailAccountId,
   viewKey,
