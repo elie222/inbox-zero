@@ -45,7 +45,7 @@ export function MailLabelChip({
       {onRemove ? (
         <button
           aria-label={`Remove ${name} label`}
-          className="-mr-0.5 shrink-0 rounded-sm opacity-0 transition-opacity focus-visible:opacity-100 group-hover/chip:opacity-100"
+          className="pointer-events-none -mr-0.5 shrink-0 rounded-sm opacity-0 transition-opacity focus-visible:pointer-events-auto focus-visible:opacity-100 group-hover/chip:pointer-events-auto group-hover/chip:opacity-100"
           onClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
