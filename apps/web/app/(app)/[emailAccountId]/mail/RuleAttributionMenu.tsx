@@ -3,6 +3,7 @@
 import type { ComponentProps } from "react";
 import { MoreHorizontalIcon } from "lucide-react";
 import { FixWithChat } from "@/app/(app)/[emailAccountId]/assistant/FixWithChat";
+import { getRuleResultReasonDisplay } from "@/app/(app)/[emailAccountId]/assistant/ResultDisplay";
 import { MailLabelChip } from "@/app/(app)/[emailAccountId]/mail/MailLabelChip";
 import type { ThreadPlan } from "@/app/(app)/[emailAccountId]/mail/types";
 import { Button } from "@/components/ui/button";
@@ -59,7 +60,10 @@ export function RuleAttributionMenu({
         </Button>
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="end" className="w-80">
+      <DropdownMenuContent
+        align="end"
+        className="w-[min(24rem,calc(100vw-1rem))]"
+      >
         {plans.map((plan) => (
           <RuleAttribution
             key={plan.id}
@@ -89,20 +93,47 @@ function RuleAttribution({
   const otherActions = actions.filter(
     (action) => action.type !== ActionType.LABEL,
   );
+  const reasonDisplay = getRuleResultReasonDisplay(plan.reason ?? "");
 
   return (
-    <div className="border-border border-b px-2 py-2.5 last:border-b-0">
-      <div className="text-muted-foreground text-xs">
-        {plan.status === ExecutedRuleStatus.APPLIED ? "Applied by" : "Matched"}{" "}
-        <span className="font-medium text-foreground">
+    <div className="min-w-0 border-border border-b px-3 py-3 last:border-b-0">
+      <div className="min-w-0 text-xs">
+        <span className="text-muted-foreground">
+          {plan.status === ExecutedRuleStatus.APPLIED
+            ? "Applied rule:"
+            : "Matched rule:"}{" "}
+        </span>
+        <span className="font-medium text-foreground break-words [overflow-wrap:anywhere]">
           {plan.rule?.name ?? "a deleted rule"}
         </span>
       </div>
 
-      {plan.reason ? (
-        <p className="mt-1.5 text-foreground text-xs leading-relaxed">
-          {plan.reason}
+      {reasonDisplay.reason ? (
+        <p className="mt-1.5 whitespace-pre-wrap text-foreground text-xs leading-relaxed break-words [overflow-wrap:anywhere]">
+          {reasonDisplay.reason}
         </p>
+      ) : null}
+
+      {reasonDisplay.actionFailureMessages.length > 0 ? (
+        <div className="mt-2 rounded-md bg-destructive/10 px-2 py-1.5 text-destructive text-xs">
+          <div className="font-medium">
+            {reasonDisplay.actionFailureMessages.length === 1
+              ? "Action issue"
+              : "Action issues"}
+          </div>
+          <ul className="mt-0.5 list-disc space-y-0.5 pl-4">
+            {reasonDisplay.actionFailureMessages.map(
+              (failureMessage, failureIndex) => (
+                <li
+                  className="break-words [overflow-wrap:anywhere]"
+                  key={`${failureMessage}-${failureIndex}`}
+                >
+                  {failureMessage}
+                </li>
+              ),
+            )}
+          </ul>
+        </div>
       ) : null}
 
       {labels.length > 0 || otherActions.length > 0 ? (
