@@ -158,7 +158,11 @@ export const ThreadRow = memo(function ThreadRow({
           </div>
           <div className="flex min-w-0 flex-1 items-center gap-2.5">
             {chips.map((label) => (
-              <MailLabelChip key={label.id} name={label.name} />
+              <MailLabelChip
+                color={label.color}
+                key={label.id}
+                name={label.name}
+              />
             ))}
             <span
               className={cn(
@@ -206,7 +210,11 @@ export const ThreadRow = memo(function ThreadRow({
           {chips.length ? (
             <div className="flex flex-wrap gap-1 pt-1">
               {chips.map((label) => (
-                <MailLabelChip key={label.id} name={label.name} />
+                <MailLabelChip
+                  color={label.color}
+                  key={label.id}
+                  name={label.name}
+                />
               ))}
             </div>
           ) : null}

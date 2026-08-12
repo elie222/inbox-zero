@@ -12,6 +12,7 @@ import {
 import { MailLabelChip } from "@/app/(app)/[emailAccountId]/mail/MailLabelChip";
 import type { MailLayoutMode } from "@/app/(app)/[emailAccountId]/mail/types";
 import { Kbd } from "@/components/Kbd";
+import type { EmailMessageCellLabel } from "@/components/EmailMessageCellLabels";
 import { Button } from "@/components/ui/button";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
 
@@ -20,7 +21,7 @@ export type ReaderToolbarProps = {
   /** Display name of the other party. Falls back to the address when absent. */
   senderName: string;
   senderEmail: string;
-  labels: { id: string; name: string }[];
+  labels: EmailMessageCellLabel[];
   /**
    * Chips navigate to a label's view and nothing else: a label carries no
    * reason, because several rules — or none at all — can put one on a thread.
@@ -99,6 +100,7 @@ export function ReaderToolbar({
             ) : null}
             {labels.map((label) => (
               <MailLabelChip
+                color={label.color}
                 href={labelHref(label.id)}
                 key={label.id}
                 name={label.name}

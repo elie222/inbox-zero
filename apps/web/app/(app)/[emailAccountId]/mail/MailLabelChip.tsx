@@ -1,11 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import type { CSSProperties } from "react";
 import { XIcon } from "lucide-react";
+import type { EmailLabel } from "@/providers/email-label-types";
 import { cn } from "@/utils";
 
 export type MailLabelChipProps = {
   name: string;
+  /** The color assigned by Gmail or Outlook. */
+  color?: EmailLabel["color"];
   /** Interactive: the chip navigates to that label's view. */
   href?: string;
   /** Interactive: reveals a `×` on hover that removes the label. */
@@ -14,12 +18,14 @@ export type MailLabelChipProps = {
 };
 
 /**
- * A label pill. Its colour comes from the name, so a label reads the same
- * everywhere. Without `href` or `onRemove` the chip is inert; each adds its own
- * affordance — a link on the name, and a `×` revealed on hover.
+ * A label pill. Provider colors take precedence; otherwise its color comes from
+ * the name, so a label reads the same everywhere. Without `href` or `onRemove`
+ * the chip is inert; each adds its own affordance — a link on the name, and a
+ * `×` revealed on hover.
  */
 export function MailLabelChip({
   name,
+  color,
   href,
   onRemove,
   className,
@@ -31,6 +37,7 @@ export function MailLabelChip({
         CHIP_CLASSES[chipColorForLabel(name)],
         className,
       )}
+      style={providerColorStyle(color)}
     >
       {href ? (
         <Link className="min-w-0 truncate hover:underline" href={href}>
@@ -86,7 +93,7 @@ const NAMED_CHIP_COLORS: Record<string, ChipColor> = {
   notification: "green",
   receipt: "orange",
   "cold email": "red",
-  newsletter: "gray",
+  newsletter: "purple",
   actioned: "orange",
   "awaiting reply": "cyan",
   calendar: "yellow",
@@ -112,4 +119,16 @@ export function chipColorForLabel(name: string): ChipColor {
   }
 
   return CHIP_COLORS[hash % CHIP_COLORS.length];
+}
+
+function providerColorStyle(
+  color: EmailLabel["color"],
+): CSSProperties | undefined {
+  if (!color?.backgroundColor) return;
+
+  return {
+    backgroundColor: color.backgroundColor,
+    borderColor: color.backgroundColor,
+    color: color.textColor || undefined,
+  };
 }

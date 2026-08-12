@@ -9,7 +9,7 @@ describe("chipColorForLabel", () => {
     expect(chipColorForLabel("To Reply")).toBe("blue");
     expect(chipColorForLabel("to reply")).toBe("blue");
     expect(chipColorForLabel("  Cold Email  ")).toBe("red");
-    expect(chipColorForLabel("Newsletter")).toBe("gray");
+    expect(chipColorForLabel("Newsletter")).toBe("purple");
     expect(chipColorForLabel("Awaiting Reply")).toBe("cyan");
   });
 
