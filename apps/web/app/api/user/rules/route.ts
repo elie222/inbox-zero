@@ -9,7 +9,13 @@ async function getRules({ emailAccountId }: { emailAccountId: string }) {
   const rules = await prisma.rule.findMany({
     where: { emailAccountId },
     include: {
-      actions: true,
+      actions: {
+        include: {
+          messagingChannel: {
+            select: { provider: true },
+          },
+        },
+      },
       group: { select: { name: true } },
       organizationRule: {
         select: {
