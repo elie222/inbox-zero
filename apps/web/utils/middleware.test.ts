@@ -148,17 +148,20 @@ describe("Middleware", () => {
       const consoleLogSpy = vi
         .spyOn(console, "log")
         .mockImplementation(() => {});
-      const wrappedHandler = withError("google/webhook", async (request) => {
-        request.logger.info("Processing webhook");
-        return NextResponse.json({ ok: true });
-      });
+      try {
+        const wrappedHandler = withError("google/webhook", async (request) => {
+          request.logger.info("Processing webhook");
+          return NextResponse.json({ ok: true });
+        });
 
-      await wrappedHandler(mockReq, mockContext);
+        await wrappedHandler(mockReq, mockContext);
 
-      const loggedMessage = consoleLogSpy.mock.calls.flat().join(" ");
-      expect(loggedMessage).toContain('"url": "/api/google/webhook"');
-      expect(loggedMessage).not.toContain(verificationToken);
-      consoleLogSpy.mockRestore();
+        const loggedMessage = consoleLogSpy.mock.calls.flat().join(" ");
+        expect(loggedMessage).toContain('"url": "/api/google/webhook"');
+        expect(loggedMessage).not.toContain(verificationToken);
+      } finally {
+        consoleLogSpy.mockRestore();
+      }
     });
 
     it("should return 400 for ZodError", async () => {
