@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { submitFeedbackAction } from "./feedback";
 
@@ -10,6 +11,7 @@ const { envMock, fetchMock, trackProductFeedbackMock } = vi.hoisted(() => ({
   trackProductFeedbackMock: vi.fn(),
 }));
 
+vi.mock("next/server", () => ({ after: vi.fn() }));
 vi.mock("@/env", () => ({ env: envMock }));
 
 vi.mock("@/utils/auth", () => ({
@@ -29,6 +31,7 @@ describe("submitFeedbackAction", () => {
     envMock.FEEDBACK_WEBHOOK_URL = undefined;
     fetchMock.mockResolvedValue({ ok: true });
     trackProductFeedbackMock.mockResolvedValue(undefined);
+    vi.mocked(after).mockImplementation((callback) => callback());
   });
 
   it("sends feedback to PostHog for the authenticated user", async () => {
@@ -93,6 +96,7 @@ describe("submitFeedbackAction", () => {
 
     await submitFeedbackAction({ feedback });
 
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     const request = fetchMock.mock.calls[0]?.[1];
     const payload = JSON.parse(request.body);
     const feedbackSections = payload.blocks.slice(1);

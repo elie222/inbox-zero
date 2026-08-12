@@ -1,5 +1,6 @@
 "use server";
 
+import { after } from "next/server";
 import { env } from "@/env";
 import { actionClientUser } from "@/utils/actions/safe-action";
 import { submitFeedbackBody } from "@/utils/actions/feedback.validation";
@@ -10,10 +11,8 @@ export const submitFeedbackAction = actionClientUser
   .metadata({ name: "submitFeedback" })
   .inputSchema(submitFeedbackBody)
   .action(async ({ ctx: { userEmail, logger }, parsedInput: { feedback } }) => {
-    await Promise.all([
-      trackProductFeedback(userEmail, feedback),
-      sendFeedbackToWebhook({ email: userEmail, feedback, logger }),
-    ]);
+    await trackProductFeedback(userEmail, feedback);
+    after(() => sendFeedbackToWebhook({ email: userEmail, feedback, logger }));
 
     return { success: true };
   });
