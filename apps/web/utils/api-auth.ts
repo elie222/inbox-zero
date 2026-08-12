@@ -89,17 +89,19 @@ export async function validateAccountApiKey(
 ): Promise<AccountApiKeyPrincipal> {
   const { apiKey } = await validateApiKey(request, { requiredScopes });
 
-  if (!apiKey.emailAccountId || !apiKey.emailAccount) {
+  if (!apiKey.emailAccountId) {
     throw new SafeError("Account-scoped API key required", 403);
   }
+
+  const emailAccount = apiKey.emailAccount!;
 
   return {
     apiKeyId: apiKey.id,
     userId: apiKey.userId,
-    emailAccountId: apiKey.emailAccount.id,
-    email: apiKey.emailAccount.email,
-    provider: apiKey.emailAccount.account.provider,
-    accountId: apiKey.emailAccount.account.id,
+    emailAccountId: emailAccount.id,
+    email: emailAccount.email,
+    provider: emailAccount.account.provider,
+    accountId: emailAccount.account.id,
     scopes: apiKey.scopes,
   };
 }
