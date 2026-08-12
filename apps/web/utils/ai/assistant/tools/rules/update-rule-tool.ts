@@ -359,7 +359,8 @@ export type UpdateRuleOutput = {
 
 type PatchCondition = {
   aiInstructions?: string;
-  clearAiInstructions?: true;
+  // boolean (not literal true): Gemini rejects boolean constants in tool JSON Schema enums
+  clearAiInstructions?: boolean;
   static?: {
     from?: string | null;
     to?: string | null;
@@ -551,8 +552,11 @@ function createPatchConditionSchema() {
         .describe(
           `${AI_INSTRUCTIONS_PROMPT_DESCRIPTION} Omit this field to preserve existing instructions.`,
         ),
+      // Use z.boolean() instead of z.literal(true): Gemini maps literal true to a
+      // boolean enum entry and rejects the tool schema (400 INVALID_ARGUMENT),
+      // which breaks all chat with the Google provider. Handlers only check truthiness.
       clearAiInstructions: z
-        .literal(true)
+        .boolean()
         .optional()
         .describe(
           "Set to true only when the user explicitly asks to remove the semantic AI instructions from this rule.",
