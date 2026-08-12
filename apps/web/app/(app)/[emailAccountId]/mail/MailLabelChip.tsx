@@ -27,8 +27,11 @@ export function MailLabelChip({
   return (
     <span
       className={cn(
-        "group/chip inline-flex min-w-0 max-w-full items-center gap-0.5 whitespace-nowrap rounded-md border px-1.5 py-px text-xs leading-4",
+        "group/chip relative isolate inline-flex min-w-0 max-w-full items-center gap-0.5 whitespace-nowrap rounded-md border border-transparent px-1.5 py-px text-xs leading-4 before:pointer-events-none before:absolute before:inset-y-0 before:left-0 before:-z-10 before:rounded-md before:border before:transition-[right] before:content-['']",
         CHIP_CLASSES[chipColorForLabel(name)],
+        onRemove
+          ? "before:right-3 hover:before:right-0 focus-within:before:right-0"
+          : "before:right-0",
         className,
       )}
     >
@@ -42,7 +45,7 @@ export function MailLabelChip({
       {onRemove ? (
         <button
           aria-label={`Remove ${name} label`}
-          className="-mr-0.5 shrink-0 rounded-sm opacity-0 transition-opacity focus-visible:opacity-100 group-hover/chip:opacity-100"
+          className="pointer-events-none -mr-0.5 shrink-0 rounded-sm opacity-0 transition-opacity focus-visible:pointer-events-auto focus-visible:opacity-100 group-hover/chip:pointer-events-auto group-hover/chip:opacity-100"
           onClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
@@ -65,14 +68,18 @@ export function MailLabelChip({
  * bg / border / text, light-scoped: the Mail palette has no dark variant.
  */
 const CHIP_CLASSES = {
-  blue: "bg-new-blue-50 border-new-blue-150 text-primary",
-  green: "bg-new-green-50 border-new-green-150 text-new-green-600",
-  purple: "bg-new-purple-50 border-new-purple-200 text-new-purple-600",
-  orange: "bg-new-orange-50 border-new-orange-150 text-new-orange-600",
-  red: "bg-new-red-50 border-new-red-150 text-new-red-500",
-  gray: "bg-new-gray-100 border-new-gray-150 text-new-gray-550",
-  cyan: "bg-new-cyan-100 border-new-cyan-200 text-new-cyan-700",
-  yellow: "bg-new-yellow-50 border-new-yellow-150 text-new-yellow-600",
+  blue: "text-primary before:border-new-blue-150 before:bg-new-blue-50",
+  green:
+    "text-new-green-600 before:border-new-green-150 before:bg-new-green-50",
+  purple:
+    "text-new-purple-600 before:border-new-purple-200 before:bg-new-purple-50",
+  orange:
+    "text-new-orange-600 before:border-new-orange-150 before:bg-new-orange-50",
+  red: "text-new-red-500 before:border-new-red-150 before:bg-new-red-50",
+  gray: "text-new-gray-550 before:border-new-gray-150 before:bg-new-gray-100",
+  cyan: "text-new-cyan-700 before:border-new-cyan-200 before:bg-new-cyan-100",
+  yellow:
+    "text-new-yellow-600 before:border-new-yellow-150 before:bg-new-yellow-50",
 };
 
 type ChipColor = keyof typeof CHIP_CLASSES;
