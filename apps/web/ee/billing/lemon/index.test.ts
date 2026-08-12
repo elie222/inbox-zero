@@ -27,17 +27,17 @@ describe("activateLemonLicenseKey", () => {
   it("does not write the license key to logs", async () => {
     const licenseKey = "secret-license-key";
     const logger = createTestLogger();
-    const logSpies = [
-      vi.spyOn(logger, "info"),
-      vi.spyOn(logger, "error"),
-      vi.spyOn(logger, "warn"),
-      vi.spyOn(logger, "trace"),
-    ];
+    const infoSpy = vi.spyOn(logger, "info");
+    const errorSpy = vi.spyOn(logger, "error");
+    const warnSpy = vi.spyOn(logger, "warn");
+    const traceSpy = vi.spyOn(logger, "trace");
 
     await activateLemonLicenseKey(licenseKey, "License for user-1", logger);
 
-    const loggedValues = logSpies.flatMap((spy) => spy.mock.calls).flat();
-    expect(JSON.stringify(loggedValues)).not.toContain(licenseKey);
+    expect(infoSpy).toHaveBeenCalledExactlyOnceWith("Activating license key");
+    expect(errorSpy).not.toHaveBeenCalled();
+    expect(warnSpy).not.toHaveBeenCalled();
+    expect(traceSpy).not.toHaveBeenCalled();
     expect(mocks.activateLicense).toHaveBeenCalledWith(
       licenseKey,
       "License for user-1",
