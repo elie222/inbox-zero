@@ -37,10 +37,11 @@ import { InviteMemberModal } from "@/components/InviteMemberModal";
 import { BRAND_NAME } from "@/utils/branding";
 import { dismissHintAction } from "@/utils/actions/hints";
 import { toastError } from "@/components/Toast";
-import { captureException } from "@/utils/error";
+import { createClientLogger } from "@/utils/logger-client";
 import { withSetupActionTimeout } from "./setup-action-timeout";
 
 const SETUP_ACTION_TIMEOUT_MS = 15_000;
+const logger = createClientLogger("setup");
 
 type DismissibleSetupStep =
   | "aiAssistant"
@@ -317,8 +318,9 @@ function Checklist({
 
         onSetupProgressChanged(stepKey);
       } catch (error) {
-        captureException(error, {
-          extra: { context: "setup/dismiss-step", stepKey },
+        logger.warn("Setup step dismissal failed", {
+          stepKey,
+          error: error instanceof Error ? error.message : "Unknown error",
         });
         toastError({
           description: "Failed to skip this step. Please try again.",
