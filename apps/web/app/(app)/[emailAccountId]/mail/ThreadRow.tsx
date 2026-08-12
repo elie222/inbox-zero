@@ -168,8 +168,8 @@ export const ThreadRow = memo(function ThreadRow({
               className={cn(
                 "max-w-[46%] shrink-0 truncate whitespace-nowrap text-sm",
                 isUnread
-                  ? "font-medium text-foreground"
-                  : "text-muted-foreground",
+                  ? "font-semibold text-foreground"
+                  : "font-normal text-muted-foreground",
               )}
             >
               {subject}
@@ -198,8 +198,8 @@ export const ThreadRow = memo(function ThreadRow({
             className={cn(
               "truncate text-sm",
               isUnread
-                ? "font-medium text-foreground"
-                : "text-muted-foreground",
+                ? "font-semibold text-foreground"
+                : "font-normal text-muted-foreground",
             )}
           >
             {subject}
