@@ -60,6 +60,19 @@ describe("useShortcuts", () => {
     expect(archive).not.toHaveBeenCalled();
   });
 
+  it("uses Escape rather than U for back navigation", () => {
+    const backToList = vi.fn();
+    renderShortcuts({ backToList });
+
+    press({ key: "Escape", code: "Escape" }, screen.getByRole("textbox"));
+
+    expect(backToList).toHaveBeenCalledOnce();
+
+    press({ key: "u", code: "KeyU" });
+
+    expect(backToList).toHaveBeenCalledOnce();
+  });
+
   it("treats G then A as back to the app rather than reply all", () => {
     const backToApp = vi.fn();
     const replyAll = vi.fn();

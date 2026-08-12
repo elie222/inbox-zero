@@ -32,7 +32,7 @@ import { useThreadSelection } from "@/app/(app)/[emailAccountId]/mail/use-thread
 import { MailLayout, MailSplitKind } from "@/generated/prisma/enums";
 import { useChat } from "@/providers/ChatProvider";
 import { useSidebar } from "@/components/ui/sidebar";
-import { useSetAtom } from "jotai";
+import { useAtom } from "jotai";
 import { commandPaletteOpenAtom } from "@/store/command-palette";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import {
@@ -92,7 +92,7 @@ export function MailShell() {
   const { onOpen: openCompose } = useComposeModal();
   const { setInput: setChatInput } = useChat();
   const { toggleSidebar } = useSidebar();
-  const setPaletteOpen = useSetAtom(commandPaletteOpenAtom);
+  const [isPaletteOpen, setPaletteOpen] = useAtom(commandPaletteOpenAtom);
   // The side panel viewer owns the triage keys while it's open, so this screen
   // stands down rather than both archiving the same keystroke.
   const { threadId: sidePanelThreadId } = useDisplayedEmail();
@@ -291,6 +291,10 @@ export function MailShell() {
   const openShortcuts = useCallback(() => setIsHelpOpen(true), []);
   const archiveTargets = useCallback(() => runOn(archive), [runOn, archive]);
   const trashTargets = useCallback(() => runOn(trash), [runOn, trash]);
+  const isMailOverlayOpen =
+    isHelpOpen ||
+    isPaletteOpen ||
+    (isMenuOpen && Boolean(openThread?.plans.length));
 
   // Not memoised: `useShortcuts` keeps handlers in a ref and only re-registers
   // when the set of handled ids changes, so a stable identity buys nothing.
@@ -300,10 +304,13 @@ export function MailShell() {
       next: () => move(1),
       previous: () => move(-1),
       open: () => openAt(clampedIndex),
-      backToList: () => {
-        setIsFocusMode(false);
-        setOpenThreadId(null);
-      },
+      backToList: isMailOverlayOpen
+        ? undefined
+        : () => {
+            if (isFocusMode) setIsFocusMode(false);
+            else if (selection.hasSelection) selection.clear();
+            else if (layout === "list") setOpenThreadId(null);
+          },
       nextSplit: () => {
         const index = splits.findIndex((s) => s.id === activeSplitId);
         const next = splits[(index + 1) % splits.length];
@@ -324,11 +331,6 @@ export function MailShell() {
       undo: () => undo(),
       toggleLayout,
       focusMode: () => setIsFocusMode((on) => !on),
-      close: () => {
-        if (isFocusMode) setIsFocusMode(false);
-        else if (selection.hasSelection) selection.clear();
-        else if (layout === "list") setOpenThreadId(null);
-      },
       help: () => setIsHelpOpen(true),
     };
   })();
