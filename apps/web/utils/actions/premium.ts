@@ -405,13 +405,12 @@ export const getBillingPortalUrlAction = actionClientUser
   .action(async ({ ctx: { userId, logger }, parsedInput: { tier } }) => {
     const priceId = tier ? getStripePriceId({ tier }) : undefined;
 
-    const stripe = getStripe();
-
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
         premium: {
           select: {
+            admins: { select: { id: true } },
             stripeCustomerId: true,
             stripeSubscriptionId: true,
             stripeSubscriptionItemId: true,
@@ -424,10 +423,19 @@ export const getBillingPortalUrlAction = actionClientUser
       },
     });
 
-    if (!user?.premium?.stripeCustomerId) {
+    if (!user?.premium) {
       logger.error("Stripe customer id not found");
       throw new SafeError("Stripe customer id not found");
     }
+    if (!isAdminForPremium(user.premium.admins, userId)) {
+      throw new SafeError("Not admin");
+    }
+    if (!user.premium.stripeCustomerId) {
+      logger.error("Stripe customer id not found");
+      throw new SafeError("Stripe customer id not found");
+    }
+
+    const stripe = getStripe();
 
     const subscription =
       priceId &&
@@ -489,6 +497,7 @@ export const endStripeTrialAction = actionClientUser
       select: {
         premium: {
           select: {
+            admins: { select: { id: true } },
             stripeSubscriptionId: true,
             stripeSubscriptionStatus: true,
           },
@@ -497,7 +506,13 @@ export const endStripeTrialAction = actionClientUser
     });
 
     const premium = user?.premium;
-    if (!premium?.stripeSubscriptionId) {
+    if (!premium) {
+      throw new SafeError("Stripe subscription not found");
+    }
+    if (!isAdminForPremium(premium.admins, userId)) {
+      throw new SafeError("Not admin");
+    }
+    if (!premium.stripeSubscriptionId) {
       throw new SafeError("Stripe subscription not found");
     }
 
@@ -541,6 +556,7 @@ export const generateCheckoutSessionAction = actionClientUser
         _count: { select: { emailAccounts: true } },
         premium: {
           select: {
+            admins: { select: { id: true } },
             id: true,
             stripeCustomerId: true,
             stripeSubscriptionId: true,
@@ -556,6 +572,9 @@ export const generateCheckoutSessionAction = actionClientUser
     if (!user) {
       logger.error("User not found");
       throw new SafeError("User not found");
+    }
+    if (user.premium && !isAdminForPremium(user.premium.admins, userId)) {
+      throw new SafeError("Not admin");
     }
 
     if (
