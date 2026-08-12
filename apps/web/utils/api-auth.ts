@@ -89,17 +89,19 @@ export async function validateAccountApiKey(
 ): Promise<AccountApiKeyPrincipal> {
   const { apiKey } = await validateApiKey(request, { requiredScopes });
 
-  if (!apiKey.emailAccountId || !apiKey.emailAccount) {
+  if (!apiKey.emailAccountId) {
     throw new SafeError("Account-scoped API key required", 403);
   }
+
+  const emailAccount = apiKey.emailAccount!;
 
   return {
     apiKeyId: apiKey.id,
     userId: apiKey.userId,
-    emailAccountId: apiKey.emailAccount.id,
-    email: apiKey.emailAccount.email,
-    provider: apiKey.emailAccount.account.provider,
-    accountId: apiKey.emailAccount.account.id,
+    emailAccountId: emailAccount.id,
+    email: emailAccount.email,
+    provider: emailAccount.account.provider,
+    accountId: emailAccount.account.id,
     scopes: apiKey.scopes,
   };
 }
@@ -133,7 +135,7 @@ export async function validateApiKeyAndGetEmailProvider(
 async function getStoredApiKey(secretKey: string) {
   const hashedKey = hashApiKey(secretKey);
 
-  return prisma.apiKey.findUnique({
+  const storedApiKey = await prisma.apiKey.findUnique({
     where: { hashedKey, isActive: true },
     select: {
       id: true,
@@ -144,10 +146,12 @@ async function getStoredApiKey(secretKey: string) {
       emailAccount: {
         select: {
           id: true,
+          userId: true,
           email: true,
           account: {
             select: {
               id: true,
+              userId: true,
               provider: true,
             },
           },
@@ -155,6 +159,17 @@ async function getStoredApiKey(secretKey: string) {
       },
     },
   });
+
+  if (
+    storedApiKey?.emailAccountId &&
+    (!storedApiKey.emailAccount ||
+      storedApiKey.userId !== storedApiKey.emailAccount.userId ||
+      storedApiKey.userId !== storedApiKey.emailAccount.account.userId)
+  ) {
+    return null;
+  }
+
+  return storedApiKey;
 }
 
 function isExpired(expiresAt: Date | null): boolean {
