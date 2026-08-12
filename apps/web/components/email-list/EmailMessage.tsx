@@ -160,6 +160,9 @@ function MessageHeader({
     "aria-expanded": expanded,
     onClick: onToggle,
     onKeyDown: (event: React.KeyboardEvent) => {
+      // Keydown bubbles, so without this the row would swallow Enter/Space
+      // aimed at the buttons nested inside it.
+      if (event.target !== event.currentTarget) return;
       if (event.key !== "Enter" && event.key !== " ") return;
       event.preventDefault();
       onToggle();
@@ -417,7 +420,10 @@ function recipientSummary(to: string | undefined, userEmail: string) {
   const recipients = splitRecipientList(to ?? "");
   if (recipients.length === 0) return "";
 
-  const first = recipients[0];
+  // "me" leads whenever the account is in there at all, however it was addressed.
+  const first =
+    recipients.find((recipient) => isSameEmailAddress(recipient, userEmail)) ??
+    recipients[0];
   const firstLabel = isSameEmailAddress(first, userEmail)
     ? "me"
     : extractNameFromEmail(first) || extractEmailAddress(first);
