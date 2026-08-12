@@ -37,6 +37,9 @@ describe("getBatch", () => {
     expect(requestBody).toContain(
       `GET /gmail/v1/users/me/messages/${validId}\n\n`,
     );
+    expect(requestBody).toContain(
+      `GET /gmail/v1/users/me/messages/${encodeURIComponent(injectedId)}\n\n`,
+    );
     expect(requestBody.match(/^GET /gm)).toHaveLength(2);
     expect(requestBody).not.toContain(
       "\r\nGET /gmail/v1/users/me/messages/injected",
