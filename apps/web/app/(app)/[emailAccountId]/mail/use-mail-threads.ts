@@ -16,6 +16,7 @@ import {
   readCachedThreadList,
   removeCachedThreadsFromView,
   restoreCachedThreadsToView,
+  updateCachedThreads,
   writeCachedThreadList,
 } from "@/utils/email-cache/thread-lists";
 import { restoreThreadOrder } from "@/utils/email-cache/thread-order";
@@ -309,6 +310,44 @@ export function useMailThreads({
     [emailAccountId, mutate, viewIdentity, viewKey],
   );
 
+  // Rows the user changed rather than removed, e.g. read state. Written into
+  // the SWR pages so the list reflects it without a refetch; the cache write
+  // effect picks the new pages up on its own.
+  const updateThreads = useCallback(
+    (threadIds: string[], update: (thread: ListThread) => ListThread) => {
+      if (!threadIds.length) return;
+
+      const targets = new Set(threadIds);
+      const applyUpdate = (rows: ListThread[]) =>
+        rows.map((thread) =>
+          targets.has(thread.id) ? update(thread) : thread,
+        );
+
+      setPersistent((current) =>
+        current?.identity === viewIdentity
+          ? { ...current, threads: applyUpdate(current.threads) }
+          : current,
+      );
+      mutate(
+        (pages) =>
+          pages?.map((page) => ({
+            ...page,
+            threads: applyUpdate(page.threads),
+          })),
+        { revalidate: false, populateCache: true },
+      ).catch(() => {});
+
+      // The effect that mirrors the cache only watches SWR pages, so a view
+      // still running off the cache would lose this on reopen. Applied straight
+      // to the cached rows, which also covers a thread the current view does
+      // not list, and leaves every view's membership and order alone.
+      updateCachedThreads({ emailAccountId, threadIds, update }).catch(
+        () => {},
+      );
+    },
+    [emailAccountId, mutate, viewIdentity],
+  );
+
   const hasMore = data
     ? Boolean(data.at(-1)?.nextPageToken)
     : persistent?.identity === viewIdentity && persistent.hasMore;
@@ -331,6 +370,7 @@ export function useMailThreads({
     }, [data, setSize, viewIdentity]),
     removeThreads,
     restoreThreads,
+    updateThreads,
   };
 }
 

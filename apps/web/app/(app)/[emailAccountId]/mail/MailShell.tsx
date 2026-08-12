@@ -13,7 +13,7 @@ import type {
   MailCategory,
   MailNavTarget,
 } from "@/app/(app)/[emailAccountId]/mail/MailSidebar";
-import { RuleAttributionMenu } from "@/app/(app)/[emailAccountId]/mail/RuleAttributionMenu";
+import { ThreadActionsMenu } from "@/app/(app)/[emailAccountId]/mail/ThreadActionsMenu";
 import { ShortcutsDialog } from "@/app/(app)/[emailAccountId]/mail/ShortcutsDialog";
 import { SplitTabs } from "@/app/(app)/[emailAccountId]/mail/SplitTabs";
 import type { MailSplitTab } from "@/app/(app)/[emailAccountId]/mail/SplitTabs";
@@ -29,6 +29,7 @@ import { useMailThreads } from "@/app/(app)/[emailAccountId]/mail/use-mail-threa
 import { useAdjacentThreadPrefetch } from "@/app/(app)/[emailAccountId]/mail/use-adjacent-thread-prefetch";
 import { useThreadActions } from "@/app/(app)/[emailAccountId]/mail/use-thread-actions";
 import { useThreadSelection } from "@/app/(app)/[emailAccountId]/mail/use-thread-selection";
+import { isThreadUnread } from "@/app/(app)/[emailAccountId]/mail/read-state";
 import { MailLayout, MailSplitKind } from "@/generated/prisma/enums";
 import { useChat } from "@/providers/ChatProvider";
 import { useSidebar } from "@/components/ui/sidebar";
@@ -196,14 +197,16 @@ export function MailShell() {
     loadMore,
     removeThreads,
     restoreThreads,
+    updateThreads,
   } = useMailThreads({ emailAccountId, query });
 
   const orderedIds = useMemo(() => threads.map((t) => t.id), [threads]);
   const selection = useThreadSelection(orderedIds);
-  const { archive, trash, undo } = useThreadActions({
+  const { archive, trash, markRead, undo } = useThreadActions({
     emailAccountId,
     removeThreads,
     restoreThreads,
+    updateThreads,
   });
 
   const clampIndex = useCallback(
@@ -233,6 +236,13 @@ export function MailShell() {
     readerThreadId === openThreadId
       ? (openThreadData?.thread.messages ?? NO_MESSAGES)
       : NO_MESSAGES;
+
+  // The row, not the fetched thread: marking read patches the row optimistically,
+  // so it is the copy that stays in step. The fetch only stands in for a link
+  // straight into a conversation, where there is no row yet.
+  const isOpenThreadUnread = isThreadUnread(
+    openThread?.messages ?? openMessages,
+  );
 
   const hrefFor = useCallback(
     (target: MailNavTarget) =>
@@ -536,10 +546,14 @@ export function MailShell() {
             refetch={refetchOpenThread}
             autoOpenReplyForMessageId={replyToMessageId}
             menu={
-              <RuleAttributionMenu
+              <ThreadActionsMenu
                 plans={openThread?.plans ?? []}
                 message={openMessages?.at(-1) ?? null}
                 setChatInput={setChatInput}
+                isUnread={isOpenThreadUnread}
+                onToggleRead={() => {
+                  if (openThreadId) markRead(openThreadId, isOpenThreadUnread);
+                }}
                 open={isMenuOpen}
                 onOpenChange={setIsMenuOpen}
               />

@@ -38,7 +38,7 @@ export type ReaderToolbarProps = {
   onReply: () => void;
   onDelete: () => void;
   onToggleFocusMode: () => void;
-  /** The ⋯ dropdown, i.e. `RuleAttributionMenu`, composed by the shell. */
+  /** The ⋯ dropdown, i.e. `ThreadActionsMenu`, composed by the shell. */
   menu?: ReactNode;
 };
 
