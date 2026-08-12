@@ -70,7 +70,9 @@ export function getEmailThreadLabels({
   userLabels: EmailLabels;
 }): EmailMessageCellLabel[] {
   const labelIds = [
-    ...new Set(messages.flatMap((message) => message.labelIds ?? [])),
+    ...new Set(
+      [...messages].reverse().flatMap((message) => message.labelIds ?? []),
+    ),
   ];
 
   return getEmailMessageCellLabels({ labelIds, userLabels }) ?? [];

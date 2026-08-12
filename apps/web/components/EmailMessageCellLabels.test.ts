@@ -74,4 +74,28 @@ describe("getEmailThreadLabels", () => {
 
     expect(labels).toEqual([{ id: "label-actioned", name: "Actioned" }]);
   });
+
+  it("prioritizes labels from newer messages", () => {
+    const labels = getEmailThreadLabels({
+      messages: [
+        { labelIds: ["label-older"] },
+        { labelIds: ["DRAFT", "label-newer"] },
+      ],
+      userLabels: {
+        "label-older": {
+          id: "label-older",
+          name: "Older",
+        },
+        "label-newer": {
+          id: "label-newer",
+          name: "Newer",
+        },
+      },
+    });
+
+    expect(labels).toEqual([
+      { id: "label-newer", name: "Newer" },
+      { id: "label-older", name: "Older" },
+    ]);
+  });
 });
