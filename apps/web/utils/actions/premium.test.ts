@@ -102,6 +102,7 @@ describe("getBillingPortalUrlAction", () => {
   it("rejects a non-admin shared plan member", async () => {
     prisma.user.findUnique.mockResolvedValue({
       premium: {
+        id: "premium-1",
         stripeCustomerId: "cus_test",
         stripeSubscriptionId: "sub_test",
         stripeSubscriptionItemId: "si_test",
@@ -111,10 +112,53 @@ describe("getBillingPortalUrlAction", () => {
       },
     } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
 
-    const result = await getBillingPortalUrlAction({});
+    const result = await getBillingPortalUrlAction({ tier: "BASIC_MONTHLY" });
 
     expect(result?.serverError).toBe("Not admin");
     expect(mocks.retrieveSubscription).not.toHaveBeenCalled();
+    expect(mocks.createBillingPortalSession).not.toHaveBeenCalled();
+  });
+
+  it("allows the original owner of a legacy premium record", async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      premium: {
+        id: "user-1",
+        stripeCustomerId: "cus_test",
+        stripeSubscriptionId: "sub_test",
+        stripeSubscriptionItemId: "si_test",
+        stripeSubscriptionStatus: "active",
+        users: [{ _count: { emailAccounts: 1 } }],
+        admins: [],
+      },
+    } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+    mocks.createBillingPortalSession.mockResolvedValue({
+      url: "https://billing.stripe.test",
+    });
+
+    const result = await getBillingPortalUrlAction({});
+
+    expect(result?.data).toEqual({ url: "https://billing.stripe.test" });
+  });
+
+  it("rejects a member of a legacy shared plan without recorded admins", async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      premium: {
+        id: "original-owner",
+        stripeCustomerId: "cus_test",
+        stripeSubscriptionId: "sub_test",
+        stripeSubscriptionItemId: "si_test",
+        stripeSubscriptionStatus: "active",
+        users: [
+          { _count: { emailAccounts: 1 } },
+          { _count: { emailAccounts: 1 } },
+        ],
+        admins: [],
+      },
+    } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+
+    const result = await getBillingPortalUrlAction({});
+
+    expect(result?.serverError).toBe("Not admin");
     expect(mocks.createBillingPortalSession).not.toHaveBeenCalled();
   });
 });
@@ -127,6 +171,7 @@ describe("endStripeTrialAction", () => {
   it("rejects a non-admin shared plan member", async () => {
     prisma.user.findUnique.mockResolvedValue({
       premium: {
+        id: "premium-1",
         stripeSubscriptionId: "sub_test",
         stripeSubscriptionStatus: "trialing",
         admins: [{ id: "another-user" }],

@@ -411,6 +411,7 @@ export const getBillingPortalUrlAction = actionClientUser
         premium: {
           select: {
             admins: { select: { id: true } },
+            id: true,
             stripeCustomerId: true,
             stripeSubscriptionId: true,
             stripeSubscriptionItemId: true,
@@ -423,11 +424,13 @@ export const getBillingPortalUrlAction = actionClientUser
       },
     });
 
-    if (!user?.premium) {
-      logger.error("Stripe customer id not found");
-      throw new SafeError("Stripe customer id not found");
+    if (!user) {
+      throw new SafeError("User not found");
     }
-    if (!isAdminForPremium(user.premium.admins, userId)) {
+    if (!user.premium) {
+      throw new SafeError("Premium subscription not found");
+    }
+    if (!isPremiumBillingAdmin(user.premium, userId)) {
       throw new SafeError("Not admin");
     }
     if (!user.premium.stripeCustomerId) {
@@ -498,6 +501,7 @@ export const endStripeTrialAction = actionClientUser
         premium: {
           select: {
             admins: { select: { id: true } },
+            id: true,
             stripeSubscriptionId: true,
             stripeSubscriptionStatus: true,
           },
@@ -509,7 +513,7 @@ export const endStripeTrialAction = actionClientUser
     if (!premium) {
       throw new SafeError("Stripe subscription not found");
     }
-    if (!isAdminForPremium(premium.admins, userId)) {
+    if (!isPremiumBillingAdmin(premium, userId)) {
       throw new SafeError("Not admin");
     }
     if (!premium.stripeSubscriptionId) {
@@ -573,7 +577,7 @@ export const generateCheckoutSessionAction = actionClientUser
       logger.error("User not found");
       throw new SafeError("User not found");
     }
-    if (user.premium && !isAdminForPremium(user.premium.admins, userId)) {
+    if (user.premium && !isPremiumBillingAdmin(user.premium, userId)) {
       throw new SafeError("Not admin");
     }
 
@@ -685,4 +689,16 @@ function getCheckoutPriceId({
   }
 
   return getStripePriceId({ tier });
+}
+
+function isPremiumBillingAdmin(
+  premium: { id: string; admins: { id: string }[] },
+  userId: string,
+) {
+  if (premium.admins.length) {
+    return isAdminForPremium(premium.admins, userId);
+  }
+
+  // The initial premium migration used the owner's user ID as the premium ID.
+  return premium.id === userId;
 }
