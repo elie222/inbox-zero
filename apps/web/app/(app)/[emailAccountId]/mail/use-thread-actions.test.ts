@@ -46,6 +46,15 @@ describe("useThreadActions markRead", () => {
     expect(labelsOf()).toEqual([["INBOX", "UNREAD"]]);
   });
 
+  it("puts the unread label back when the request never reaches the provider", async () => {
+    markReadThreadAction.mockRejectedValue(new Error("offline"));
+    const { result, labelsOf } = setup([["INBOX", "UNREAD"]]);
+
+    await act(() => result.current.markRead("thread", true));
+
+    expect(labelsOf()).toEqual([["INBOX", "UNREAD"]]);
+  });
+
   it("marks unread without duplicating the label on messages that already have it", async () => {
     const { result, labelsOf } = setup([["INBOX", "UNREAD"], ["INBOX"]]);
 

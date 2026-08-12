@@ -151,12 +151,15 @@ export function useThreadActions({
 
       update(read);
 
-      const result = await markReadThreadAction(emailAccountId, {
-        threadId,
-        read,
-      });
-
-      if (result?.serverError) {
+      // A rejected request has to roll back too, or the row keeps showing a
+      // state the provider never took: nothing else reverts it.
+      try {
+        const result = await markReadThreadAction(emailAccountId, {
+          threadId,
+          read,
+        });
+        if (result?.serverError) throw new Error(result.serverError);
+      } catch {
         update(!read);
         toast.error(read ? "Couldn't mark as read" : "Couldn't mark as unread");
         return;

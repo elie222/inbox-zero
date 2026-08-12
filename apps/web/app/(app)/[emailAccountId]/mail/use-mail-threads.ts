@@ -335,8 +335,28 @@ export function useMailThreads({
           })),
         { revalidate: false, populateCache: true },
       ).catch(() => {});
+
+      // A view still running off the cache has no SWR pages, so the effect that
+      // mirrors them into the cache never fires and the change would be lost on
+      // reopen. Persist it here instead, the way removal does.
+      if (!data && persistentThreads) {
+        writeCachedThreadList({
+          emailAccountId,
+          viewKey,
+          threads: applyUpdate(persistentThreads),
+          hasMore: Boolean(persistent?.hasMore),
+        }).catch(() => {});
+      }
     },
-    [mutate, viewIdentity],
+    [
+      data,
+      emailAccountId,
+      mutate,
+      persistent?.hasMore,
+      persistentThreads,
+      viewIdentity,
+      viewKey,
+    ],
   );
 
   const hasMore = data

@@ -30,11 +30,7 @@ export function useUnsubscribeSender(message: ParsedMessage | null) {
   const { PremiumModal, openModal } = usePremiumModal();
 
   const listUnsubscribeHeader = message?.headers["list-unsubscribe"] ?? null;
-  // Only ever asked whether it exists: the request itself is made server-side
-  // from the header, so the URL never has to reach the browser.
-  const hasOneClickLink = Boolean(
-    getHttpUnsubscribeLink({ listUnsubscribeHeader }),
-  );
+  const httpLink = getHttpUnsubscribeLink({ listUnsubscribeHeader });
   const userFacingLink = getUserFacingUnsubscribeLink({
     listUnsubscribeHeader,
   });
@@ -43,7 +39,7 @@ export function useUnsubscribeSender(message: ParsedMessage | null) {
   const senderName = extractNameFromEmail(from);
   const canUnsubscribe = Boolean(senderEmail && userFacingLink);
 
-  const onUnsubscribe = useCallback(() => {
+  const onUnsubscribe = useCallback(async () => {
     if (!(canUnsubscribe && userFacingLink)) return;
 
     if (!hasUnsubscribeAccess) {
@@ -51,43 +47,51 @@ export function useUnsubscribeSender(message: ParsedMessage | null) {
       return;
     }
 
-    if (!hasOneClickLink) {
+    // Sending the user to a mailto they have to compose is the last resort: an
+    // http link opens a page that finishes the job, so it wins when both exist.
+    const manualLink = httpLink ?? userFacingLink;
+
+    if (!httpLink) {
       openUnsubscribePage(userFacingLink);
       return;
     }
 
     const toastId = toast.loading(`Unsubscribing from ${senderName}`);
-
-    unsubscribeSenderAction(emailAccountId, {
-      senderEmail,
-      listUnsubscribeHeader,
-    })
-      .then(async (result) => {
-        if (!result?.data?.unsubscribe.success) {
-          toast.error(`Couldn't unsubscribe from ${senderName}`, {
-            id: toastId,
-            action: {
-              label: "Open page",
-              onClick: () => openUnsubscribePage(userFacingLink),
-            },
-          });
-          return;
-        }
-
-        await decrementUnsubscribeCreditAction();
-        toast.success(`Unsubscribed from ${senderName}`, { id: toastId });
-        // A stale credit count is cosmetic: never let refreshing it turn an
-        // unsubscribe that already succeeded into an error.
-        refetchPremium().catch(() => {});
-      })
-      .catch(() => {
-        toast.error(`Couldn't unsubscribe from ${senderName}`, { id: toastId });
+    const failed = () =>
+      toast.error(`Couldn't unsubscribe from ${senderName}`, {
+        id: toastId,
+        action: {
+          label: "Open page",
+          onClick: () => openUnsubscribePage(manualLink),
+        },
       });
+
+    try {
+      const result = await unsubscribeSenderAction(emailAccountId, {
+        senderEmail,
+        listUnsubscribeHeader,
+      });
+      if (!result?.data?.unsubscribe.success) {
+        failed();
+        return;
+      }
+    } catch {
+      failed();
+      return;
+    }
+
+    toast.success(`Unsubscribed from ${senderName}`, { id: toastId });
+
+    // Metering happens after the fact, and neither half changes what the user
+    // just saw: a failure here must not read as a failed unsubscribe.
+    decrementUnsubscribeCreditAction()
+      .then(() => refetchPremium())
+      .catch(() => {});
   }, [
     canUnsubscribe,
     emailAccountId,
-    hasOneClickLink,
     hasUnsubscribeAccess,
+    httpLink,
     listUnsubscribeHeader,
     openModal,
     refetchPremium,
