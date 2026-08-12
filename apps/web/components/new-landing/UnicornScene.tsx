@@ -101,10 +101,7 @@ function loadUnicornStudio() {
   if (!unicornStudioLoadPromise) {
     unicornStudioLoadPromise = new Promise<UnicornStudioApi>(
       (resolve, reject) => {
-        const existingScript = document.querySelector<HTMLScriptElement>(
-          `script[src="${UNICORN_STUDIO_SRC}"]`,
-        );
-        const script = existingScript ?? document.createElement("script");
+        const script = document.createElement("script");
 
         const onLoad = () => {
           if (window.UnicornStudio?.addScene) {
@@ -123,10 +120,8 @@ function loadUnicornStudio() {
         script.addEventListener("load", onLoad, { once: true });
         script.addEventListener("error", onError, { once: true });
 
-        if (!existingScript) {
-          script.src = UNICORN_STUDIO_SRC;
-          (document.head || document.body).appendChild(script);
-        }
+        script.src = UNICORN_STUDIO_SRC;
+        (document.head || document.body).appendChild(script);
       },
     ).catch((error: unknown) => {
       unicornStudioLoadPromise = undefined;
