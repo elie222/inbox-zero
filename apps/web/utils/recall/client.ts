@@ -307,23 +307,36 @@ function getMeetingBotCameraImage(): Promise<string> {
 }
 
 async function readMeetingBotCameraImage(): Promise<string> {
-  const relativePath = join(
-    "public",
-    "images",
-    "meetings",
-    "inbox-zero-notetaker.jpg",
-  );
-  const candidatePaths = [
-    join(process.cwd(), relativePath),
-    join(process.cwd(), "apps", "web", relativePath),
-  ];
+  try {
+    return await readFile(
+      join(
+        process.cwd(),
+        "public",
+        "images",
+        "meetings",
+        "inbox-zero-notetaker.jpg",
+      ),
+      "base64",
+    );
+  } catch (error) {
+    if (!isMissingFile(error)) throw error;
+  }
 
-  for (const path of candidatePaths) {
-    try {
-      return await readFile(path, "base64");
-    } catch (error) {
-      if (!isMissingFile(error)) throw error;
-    }
+  try {
+    return await readFile(
+      join(
+        process.cwd(),
+        "apps",
+        "web",
+        "public",
+        "images",
+        "meetings",
+        "inbox-zero-notetaker.jpg",
+      ),
+      "base64",
+    );
+  } catch (error) {
+    if (!isMissingFile(error)) throw error;
   }
 
   throw new Error("Recall meeting bot camera image is missing");
