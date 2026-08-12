@@ -291,7 +291,10 @@ export function MailShell() {
   const openShortcuts = useCallback(() => setIsHelpOpen(true), []);
   const archiveTargets = useCallback(() => runOn(archive), [runOn, archive]);
   const trashTargets = useCallback(() => runOn(trash), [runOn, trash]);
-  const isMailOverlayOpen = isHelpOpen || isMenuOpen || isPaletteOpen;
+  const isMailOverlayOpen =
+    isHelpOpen ||
+    isPaletteOpen ||
+    (isMenuOpen && Boolean(openThread?.plans.length));
 
   // Not memoised: `useShortcuts` keeps handlers in a ref and only re-registers
   // when the set of handled ids changes, so a stable identity buys nothing.
