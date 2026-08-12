@@ -301,8 +301,9 @@ export function MailShell() {
       previous: () => move(-1),
       open: () => openAt(clampedIndex),
       backToList: () => {
-        setIsFocusMode(false);
-        setOpenThreadId(null);
+        if (isFocusMode) setIsFocusMode(false);
+        else if (selection.hasSelection) selection.clear();
+        else if (layout === "list") setOpenThreadId(null);
       },
       nextSplit: () => {
         const index = splits.findIndex((s) => s.id === activeSplitId);
@@ -324,11 +325,6 @@ export function MailShell() {
       undo: () => undo(),
       toggleLayout,
       focusMode: () => setIsFocusMode((on) => !on),
-      close: () => {
-        if (isFocusMode) setIsFocusMode(false);
-        else if (selection.hasSelection) selection.clear();
-        else if (layout === "list") setOpenThreadId(null);
-      },
       help: () => setIsHelpOpen(true),
     };
   })();
