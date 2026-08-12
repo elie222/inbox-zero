@@ -145,15 +145,21 @@ export async function removeCachedThreadsFromView({
  * Rewrites rows in place, for a change to a thread itself rather than to a
  * view's membership: rows are keyed by thread, so every view holding one picks
  * the change up and no view's order has to be touched.
+ *
+ * The updater runs against the cached row rather than one the caller supplies,
+ * so a thread that is cached but missing from the list on screen — an opened
+ * conversation the current view does not contain — is still kept in step.
  */
 export async function updateCachedThreads<T extends ThreadRow>({
   emailAccountId,
-  threads,
+  threadIds,
+  update,
 }: {
   emailAccountId: string;
-  threads: T[];
+  threadIds: string[];
+  update: (thread: T) => T;
 }) {
-  if (!threads.length) return;
+  if (!threadIds.length) return;
   const epoch = captureEmailCacheEpoch(emailAccountId);
 
   try {
@@ -164,17 +170,23 @@ export async function updateCachedThreads<T extends ThreadRow>({
     const now = Date.now();
 
     await Promise.all(
-      threads.map(async (thread) => {
-        // Absent means the row was evicted, and writing it back would resurrect
-        // a row no view lists any more.
-        const existing = await store.get([emailAccountId, thread.id]);
+      threadIds.map(async (threadId) => {
+        // Absent means the row was never cached or has been evicted, and
+        // writing one would resurrect a row no view lists any more.
+        const existing = await store.get([emailAccountId, threadId]);
         if (!existing) return;
-        return store.put({ ...existing, data: thread, lastAccessedAt: now });
+        return store.put({
+          ...existing,
+          data: update(existing.data as T),
+          lastAccessedAt: now,
+        });
       }),
     );
     await transaction.done;
   } catch {
-    // Optimistic UI state remains authoritative if persistence is unavailable.
+    // A failed write can be a full quota, which every later write would hit
+    // too, so make room rather than leaving the row stale for good.
+    scheduleEmailCacheCleanup({ force: true });
   }
 }
 

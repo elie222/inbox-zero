@@ -338,15 +338,14 @@ export function useMailThreads({
       ).catch(() => {});
 
       // The effect that mirrors the cache only watches SWR pages, so a view
-      // still running off the cache would lose this on reopen. Only the changed
-      // rows are written: an update leaves every view's membership and order
-      // alone, so nothing else has to be rewritten from a captured snapshot.
-      const changed = (remoteThreads ?? persistentThreads ?? [])
-        .filter((thread) => targets.has(thread.id))
-        .map(update);
-      updateCachedThreads({ emailAccountId, threads: changed }).catch(() => {});
+      // still running off the cache would lose this on reopen. Applied straight
+      // to the cached rows, which also covers a thread the current view does
+      // not list, and leaves every view's membership and order alone.
+      updateCachedThreads({ emailAccountId, threadIds, update }).catch(
+        () => {},
+      );
     },
-    [emailAccountId, mutate, persistentThreads, remoteThreads, viewIdentity],
+    [emailAccountId, mutate, viewIdentity],
   );
 
   const hasMore = data
