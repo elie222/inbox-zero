@@ -115,7 +115,16 @@ describe("user/me route", () => {
       dismissedHints: [],
       premium: {
         id: "premium-1",
-        admins: [{ id: "user-1" }],
+        admins: [
+          {
+            id: "user-1",
+            emailAccounts: [
+              {
+                members: [{ organizationId: "org-1", role: "member" }],
+              },
+            ],
+          },
+        ],
       },
       emailAccounts: [
         {

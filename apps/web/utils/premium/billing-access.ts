@@ -5,33 +5,70 @@ import { isOrganizationAdmin } from "@/utils/organizations/roles";
 export const billingAccessSelect = {
   emailAccounts: {
     select: {
-      members: { select: { role: true } },
+      members: { select: { organizationId: true, role: true } },
     },
   },
 } as const;
 
-// Spread inside a `premium: { select: ... } }` alongside billingAccessSelect —
-// canManageBilling needs both halves.
 export const billingAccessPremiumSelect = {
   id: true,
-  admins: { select: { id: true } },
+  admins: {
+    select: {
+      id: true,
+      emailAccounts: {
+        select: {
+          members: { select: { organizationId: true, role: true } },
+        },
+      },
+    },
+  },
 } as const;
 
+type OrganizationMembership = { organizationId: string; role: string };
+
 type BillingAccessUser = {
-  premium: { id: string; admins: { id: string }[] } | null | undefined;
-  emailAccounts: Array<{ members: Array<{ role: string }> }>;
+  premium:
+    | {
+        id: string;
+        admins: Array<{
+          id: string;
+          emailAccounts: Array<{ members: OrganizationMembership[] }>;
+        }>;
+      }
+    | null
+    | undefined;
+  emailAccounts: Array<{ members: OrganizationMembership[] }>;
 };
 
 export function canManageBilling(userId: string, user: BillingAccessUser) {
+  const { premium } = user;
   const organizationMemberships = user.emailAccounts.flatMap(
     (emailAccount) => emailAccount.members,
   );
+  const premiumAdminMemberships =
+    premium?.admins.flatMap((admin) =>
+      (admin.emailAccounts ?? []).flatMap(
+        (emailAccount) => emailAccount.members,
+      ),
+    ) ?? [];
+  const ownerOrganizationIds = new Set(
+    premiumAdminMemberships
+      .filter((membership) => membership.role === "owner")
+      .map((membership) => membership.organizationId),
+  );
+  const premiumOrganizationIds = ownerOrganizationIds.size
+    ? ownerOrganizationIds
+    : new Set(
+        premiumAdminMemberships.map((membership) => membership.organizationId),
+      );
+  const premiumOrganizationMemberships = organizationMemberships.filter(
+    (membership) => premiumOrganizationIds.has(membership.organizationId),
+  );
 
-  if (organizationMemberships.length > 0) {
-    return isOrganizationAdmin(organizationMemberships);
+  if (premiumOrganizationMemberships.length > 0) {
+    return isOrganizationAdmin(premiumOrganizationMemberships);
   }
 
-  const { premium } = user;
   if (!premium) return true;
   if (premium.admins.length > 0) {
     return isAdminForPremium(premium.admins, userId);

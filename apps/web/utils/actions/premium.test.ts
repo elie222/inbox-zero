@@ -111,9 +111,22 @@ describe("getBillingPortalUrlAction", () => {
         stripeSubscriptionItemId: "si_test",
         stripeSubscriptionStatus: "active",
         users: [{ _count: { emailAccounts: 1 } }],
-        admins: [{ id: "user-1" }],
+        admins: [
+          {
+            id: "user-1",
+            emailAccounts: [
+              {
+                members: [{ organizationId: "billing-org", role: "member" }],
+              },
+            ],
+          },
+        ],
       },
-      emailAccounts: [{ members: [{ role: "member" }] }],
+      emailAccounts: [
+        {
+          members: [{ organizationId: "billing-org", role: "member" }],
+        },
+      ],
     } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
     mocks.createBillingPortalSession.mockResolvedValue({
       url: "https://billing.stripe.test",
@@ -137,9 +150,18 @@ describe("getBillingPortalUrlAction", () => {
         stripeSubscriptionItemId: "si_test",
         stripeSubscriptionStatus: "active",
         users: [{ _count: { emailAccounts: 1 } }],
-        admins: [{ id: "another-user" }],
+        admins: [
+          {
+            id: "another-user",
+            emailAccounts: [
+              {
+                members: [{ organizationId: "billing-org", role: "owner" }],
+              },
+            ],
+          },
+        ],
       },
-      emailAccounts: [{ members: [{ role }] }],
+      emailAccounts: [{ members: [{ organizationId: "billing-org", role }] }],
     } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
     mocks.createBillingPortalSession.mockResolvedValue({
       url: "https://billing.stripe.test",
