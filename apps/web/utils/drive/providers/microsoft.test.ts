@@ -1,4 +1,12 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type Mock,
+  vi,
+} from "vitest";
 import { Client } from "@microsoft/microsoft-graph-client";
 import { createTestLogger } from "@/__tests__/helpers";
 import { OneDriveProvider } from "./microsoft";
@@ -153,11 +161,8 @@ describe("OneDriveProvider", () => {
     const fetchMock = createProgressingFetchMock(totalSize);
     vi.stubGlobal("fetch", fetchMock);
 
-    const api = vi.fn((path: string) => {
-      if (path.endsWith("/createUploadSession")) {
-        return { post: createUploadSessionPost };
-      }
-      throw new Error(`Unexpected API path: ${path}`);
+    const { api, reserveItemPut, reserveItemQuery } = createLargeUploadApi({
+      createUploadSessionPost,
     });
     vi.mocked(Client.init).mockReturnValue({ api } as any);
 
@@ -171,11 +176,13 @@ describe("OneDriveProvider", () => {
     });
 
     expect(api).toHaveBeenCalledWith(
-      "/me/drive/items/folder-1:/big-file.pdf:/createUploadSession",
+      "/me/drive/items/file-1/createUploadSession",
     );
-    expect(createUploadSessionPost).toHaveBeenCalledWith({
-      item: { "@microsoft.graph.conflictBehavior": "replace" },
+    expect(reserveItemQuery).toHaveBeenCalledWith({
+      "@microsoft.graph.conflictBehavior": "rename",
     });
+    expect(reserveItemPut).toHaveBeenCalledWith(Buffer.alloc(0));
+    expect(createUploadSessionPost).toHaveBeenCalledWith({});
 
     const putCalls = fetchMock.mock.calls.filter(
       ([, init]) => init?.method === "PUT",
@@ -251,12 +258,7 @@ describe("OneDriveProvider", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const api = vi.fn((path: string) => {
-      if (path.endsWith("/createUploadSession")) {
-        return { post: createUploadSessionPost };
-      }
-      throw new Error(`Unexpected API path: ${path}`);
-    });
+    const { api } = createLargeUploadApi({ createUploadSessionPost });
     vi.mocked(Client.init).mockReturnValue({ api } as any);
 
     const provider = new OneDriveProvider("token", createTestLogger());
@@ -291,12 +293,7 @@ describe("OneDriveProvider", () => {
     const fetchMock = createProgressingFetchMock(totalSize, 200);
     vi.stubGlobal("fetch", fetchMock);
 
-    const api = vi.fn((path: string) => {
-      if (path.endsWith("/createUploadSession")) {
-        return { post: createUploadSessionPost };
-      }
-      throw new Error(`Unexpected API path: ${path}`);
-    });
+    const { api } = createLargeUploadApi({ createUploadSessionPost });
     vi.mocked(Client.init).mockReturnValue({ api } as any);
 
     const provider = new OneDriveProvider("token", createTestLogger());
@@ -337,12 +334,7 @@ describe("OneDriveProvider", () => {
       .mockImplementation(progressingFetch);
     vi.stubGlobal("fetch", fetchMock);
 
-    const api = vi.fn((path: string) => {
-      if (path.endsWith("/createUploadSession")) {
-        return { post: createUploadSessionPost };
-      }
-      throw new Error(`Unexpected API path: ${path}`);
-    });
+    const { api } = createLargeUploadApi({ createUploadSessionPost });
     vi.mocked(Client.init).mockReturnValue({ api } as any);
 
     const provider = new OneDriveProvider("token", createTestLogger());
@@ -368,7 +360,7 @@ describe("OneDriveProvider", () => {
     }));
     const recoveredItem = {
       id: "file-1",
-      name: "big-file.pdf",
+      name: "big-file 1.pdf",
       file: { mimeType: "application/pdf" },
       size: totalSize,
       parentReference: { id: "folder-1" },
@@ -409,14 +401,16 @@ describe("OneDriveProvider", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const api = vi.fn((path: string) => {
-      if (path.endsWith("/createUploadSession")) {
-        return { post: createUploadSessionPost };
-      }
-      if (path === "/me/drive/items/folder-1:/big-file.pdf:") {
-        return { get };
-      }
-      throw new Error(`Unexpected API path: ${path}`);
+    const { api, reserveItemPut, reserveItemQuery } = createLargeUploadApi({
+      createUploadSessionPost,
+      get,
+      reservedItem: {
+        id: "file-1",
+        name: "big-file 1.pdf",
+        file: { mimeType: "application/pdf" },
+        size: 0,
+        parentReference: { id: "folder-1" },
+      },
     });
     vi.mocked(Client.init).mockReturnValue({ api } as any);
 
@@ -431,12 +425,14 @@ describe("OneDriveProvider", () => {
 
     expect(file).toMatchObject({
       id: "file-1",
-      name: "big-file.pdf",
+      name: "big-file 1.pdf",
       size: totalSize,
     });
-    expect(createUploadSessionPost).toHaveBeenCalledWith({
-      item: { "@microsoft.graph.conflictBehavior": "replace" },
+    expect(reserveItemQuery).toHaveBeenCalledWith({
+      "@microsoft.graph.conflictBehavior": "rename",
     });
+    expect(reserveItemPut).toHaveBeenCalledWith(Buffer.alloc(0));
+    expect(api).toHaveBeenCalledWith("/me/drive/items/file-1");
     expect(get).toHaveBeenCalledTimes(1);
     expect(
       fetchMock.mock.calls.filter(([, init]) => init?.method === "DELETE"),
@@ -474,12 +470,7 @@ describe("OneDriveProvider", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const api = vi.fn((path: string) => {
-      if (path.endsWith("/createUploadSession")) {
-        return { post: createUploadSessionPost };
-      }
-      throw new Error(`Unexpected API path: ${path}`);
-    });
+    const { api } = createLargeUploadApi({ createUploadSessionPost });
     vi.mocked(Client.init).mockReturnValue({ api } as any);
 
     const provider = new OneDriveProvider("token", createTestLogger());
@@ -517,12 +508,7 @@ describe("OneDriveProvider", () => {
     const fetchMock = vi.fn(async () => new Response("boom", { status: 500 }));
     vi.stubGlobal("fetch", fetchMock);
 
-    const api = vi.fn((path: string) => {
-      if (path.endsWith("/createUploadSession")) {
-        return { post: createUploadSessionPost };
-      }
-      throw new Error(`Unexpected API path: ${path}`);
-    });
+    const { api } = createLargeUploadApi({ createUploadSessionPost });
     vi.mocked(Client.init).mockReturnValue({ api } as any);
 
     const provider = new OneDriveProvider("token", createTestLogger());
@@ -570,7 +556,9 @@ describe("OneDriveProvider", () => {
 
   it("throws when the upload session has no upload URL", async () => {
     const createUploadSessionPost = vi.fn(async () => ({}));
-    const api = vi.fn(() => ({ post: createUploadSessionPost }));
+    const { api, deleteItem } = createLargeUploadApi({
+      createUploadSessionPost,
+    });
     vi.mocked(Client.init).mockReturnValue({ api } as any);
 
     const provider = new OneDriveProvider("token", createTestLogger());
@@ -583,11 +571,55 @@ describe("OneDriveProvider", () => {
         folderId: "folder-1",
       }),
     ).rejects.toThrow("Failed to create OneDrive upload session");
+
+    expect(deleteItem).toHaveBeenCalledTimes(1);
   });
 });
 
 const ONEDRIVE_CHUNK_SIZE = 5 * 1024 * 1024;
 const MAX_ONEDRIVE_UPLOAD_SIZE_BYTES = 250 * 1024 * 1024 * 1024;
+
+function createLargeUploadApi({
+  createUploadSessionPost,
+  get,
+  reservedItem = {
+    id: "file-1",
+    name: "big-file.pdf",
+    file: { mimeType: "application/pdf" },
+    size: 0,
+    parentReference: { id: "folder-1" },
+  },
+}: {
+  createUploadSessionPost: Mock;
+  get?: Mock;
+  reservedItem?: {
+    id: string;
+    name: string;
+    file: { mimeType: string };
+    size: number;
+    parentReference: { id: string };
+  };
+}) {
+  const reserveItemPut = vi.fn(async () => reservedItem);
+  const reserveItemHeader = vi.fn(() => ({ put: reserveItemPut }));
+  const reserveItemQuery = vi.fn(() => ({ header: reserveItemHeader }));
+  const getItem = get ?? vi.fn(async () => reservedItem);
+  const deleteItem = vi.fn(async () => undefined);
+  const api = vi.fn((path: string) => {
+    if (path === "/me/drive/items/folder-1:/big-file.pdf:/content") {
+      return { query: reserveItemQuery };
+    }
+    if (path === `/me/drive/items/${reservedItem.id}/createUploadSession`) {
+      return { post: createUploadSessionPost };
+    }
+    if (path === `/me/drive/items/${reservedItem.id}`) {
+      return { delete: deleteItem, get: getItem };
+    }
+    throw new Error(`Unexpected API path: ${path}`);
+  });
+
+  return { api, deleteItem, reserveItemPut, reserveItemQuery };
+}
 
 function createProgressingFetchMock(
   totalSize: number,

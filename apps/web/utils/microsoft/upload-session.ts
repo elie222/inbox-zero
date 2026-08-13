@@ -57,12 +57,8 @@ export async function uploadResumableChunks({
         logger,
       );
 
-      if (result.kind === "complete") {
+      if (result.kind !== "progress") {
         return result;
-      }
-
-      if (result.nextStart === content.length) {
-        return { kind: "committed" };
       }
 
       start = result.nextStart;
@@ -80,7 +76,8 @@ export async function uploadResumableChunks({
 
 type ChunkUploadResult =
   | { kind: "complete"; response: Response }
-  | { kind: "progress"; nextStart: number };
+  | { kind: "progress"; nextStart: number }
+  | { kind: "committed" };
 
 type UploadResult =
   | { kind: "complete"; response: Response }
@@ -175,16 +172,22 @@ async function uploadChunk({
   }
 
   if (response.status === 416) {
+    const nextStart = await resolveResumeRange({
+      chunkSizeBytes,
+      totalSize,
+      uploadUrl,
+      statusAction,
+      start,
+      unavailableNextStart: end,
+    });
+
+    if (nextStart === totalSize) {
+      return { kind: "committed" };
+    }
+
     return {
       kind: "progress",
-      nextStart: await resolveResumeRange({
-        chunkSizeBytes,
-        totalSize,
-        uploadUrl,
-        statusAction,
-        start,
-        unavailableNextStart: end,
-      }),
+      nextStart,
     };
   }
 

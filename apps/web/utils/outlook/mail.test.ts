@@ -431,6 +431,80 @@ describe("sendEmailWithHtml", () => {
     expect(sendPost).not.toHaveBeenCalled();
   });
 
+  it("does not send when a 202 response reports the full size without finalizing", async () => {
+    const draftPost = vi.fn(
+      async () =>
+        ({
+          id: "draft-1",
+          conversationId: "conversation-1",
+        }) as Message,
+    );
+    const createUploadSessionPost = vi.fn(async () => ({
+      uploadUrl: "https://upload.example.test/session",
+    }));
+    const sendPost = vi.fn(async () => ({}));
+    const totalSize = 3 * 1024 * 1024 + 1;
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      if (init?.method === "DELETE") {
+        return new Response(null, { status: 204 });
+      }
+
+      const parsedRange = parseContentRange(getContentRangeHeader(init));
+      if (!parsedRange) {
+        throw new Error(
+          `Unexpected content range: ${getContentRangeHeader(init)}`,
+        );
+      }
+
+      const nextStart = parsedRange.endInclusive + 1;
+      return new Response(
+        JSON.stringify({
+          nextExpectedRanges: [`${nextStart}-${parsedRange.totalSize - 1}`],
+        }),
+        {
+          status: 202,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = createMockOutlookClient((path) => {
+      if (path === "/me/messages") return { post: draftPost };
+      if (path === "/me/messages/draft-1/attachments/createUploadSession") {
+        return { post: createUploadSessionPost };
+      }
+      if (path === "/me/messages/draft-1/send") return { post: sendPost };
+      throw new Error(`Unexpected API path: ${path}`);
+    });
+
+    await expect(
+      sendEmailWithHtml(
+        client,
+        {
+          to: "recipient@example.com",
+          subject: "Subject",
+          messageHtml: "<p>Hello</p>",
+          attachments: [
+            {
+              filename: "large.pdf",
+              content: Buffer.alloc(totalSize),
+              contentType: "application/pdf",
+            },
+          ],
+        },
+        createTestLogger(),
+      ),
+    ).rejects.toThrow(
+      "upload session ended without returning the created item",
+    );
+
+    expect(sendPost).not.toHaveBeenCalled();
+    expect(
+      fetchMock.mock.calls.filter(([, init]) => init?.method === "DELETE"),
+    ).toHaveLength(1);
+  });
+
   it("resumes upload-session progress after a retried chunk returns 416", async () => {
     const draftPost = vi.fn(
       async () =>

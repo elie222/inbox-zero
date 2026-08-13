@@ -182,20 +182,33 @@ export class OneDriveProvider implements DriveProvider {
   private async uploadFileViaUploadSession(
     params: UploadFileParams,
   ): Promise<DriveFile> {
-    const { filename, content, folderId } = params;
+    const { filename, mimeType, content, folderId } = params;
     const normalizedFilename = normalizeOneDriveItemName(filename);
-    const itemPath = `/me/drive/items/${folderId}:/${encodeURIComponent(normalizedFilename)}:`;
+    const newItemPath = `/me/drive/items/${folderId}:/${encodeURIComponent(normalizedFilename)}:/content`;
+    // Reserve the conflict-safe name so recovery can use a stable item ID even
+    // when Graph renamed the file and the final chunk response was lost.
+    const reservedItem: DriveItem = await this.client
+      .api(newItemPath)
+      .query({ "@microsoft.graph.conflictBehavior": "rename" })
+      .header("Content-Type", mimeType)
+      .put(Buffer.alloc(0));
+
+    if (!reservedItem.id) {
+      throw new Error("Failed to reserve a OneDrive file for upload");
+    }
+
+    const itemPath = `/me/drive/items/${reservedItem.id}`;
 
     const uploadSession: UploadSession = await this.client
       .api(`${itemPath}/createUploadSession`)
-      .post({
-        item: {
-          "@microsoft.graph.conflictBehavior": "replace",
-        },
-      });
+      .post({});
 
     const uploadUrl = uploadSession.uploadUrl;
     if (!uploadUrl) {
+      await this.client
+        .api(itemPath)
+        .delete()
+        .catch(() => undefined);
       throw new Error("Failed to create OneDrive upload session");
     }
 
