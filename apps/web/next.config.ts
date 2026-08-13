@@ -462,7 +462,14 @@ function commonAncestorPath(firstPath: string, secondPath: string) {
     commonParts.push(firstParts[index]);
   }
 
-  return commonParts.length === 1 && commonParts[0] === ""
-    ? path.sep
-    : commonParts.join(path.sep);
+  if (commonParts.length === 1 && commonParts[0] === "") {
+    return path.sep;
+  }
+
+  // A bare Windows drive is relative to that drive's current directory.
+  if (commonParts.length === 1 && /^[A-Za-z]:$/.test(commonParts[0] ?? "")) {
+    return `${commonParts[0]}${path.sep}`;
+  }
+
+  return commonParts.join(path.sep);
 }
