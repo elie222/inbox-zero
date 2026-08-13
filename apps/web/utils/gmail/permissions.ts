@@ -12,6 +12,13 @@ import prisma from "@/utils/prisma";
 
 const logger = createScopedLogger("Gmail Permissions");
 
+const AUTH_ERRORS = [
+  "invalid_token",
+  "invalid_grant",
+  "invalid_scope",
+  "access_denied",
+];
+
 async function checkGmailPermissions({
   accessToken,
   emailAccountId,
@@ -76,8 +83,16 @@ async function checkGmailPermissions({
     const data = await response.json();
 
     if (data.error) {
-      // Auth failure (4xx body, or error body on 200 in emulation): fail
-      // closed so the refresh flow can run
+      if (!AUTH_ERRORS.includes(data.error)) {
+        // Unrecognized error (rate-limit envelope, backend failure): not
+        // confirmable as an auth failure, fail open rather than prompting re-auth
+        throw new Error(
+          `Token info request failed with error ${JSON.stringify(data.error)}`,
+        );
+      }
+
+      // Recognized token error (4xx body, or error body on 200): fail closed
+      // so the refresh flow can run
       logger.error("Invalid token or Google API error", {
         emailAccountId,
         error: data.error,
@@ -137,12 +152,7 @@ export async function handleGmailPermissionsCheck({
 
   if (
     permissionsBeforeRefresh.error &&
-    [
-      "invalid_token",
-      "invalid_grant",
-      "invalid_scope",
-      "access_denied",
-    ].includes(permissionsBeforeRefresh.error)
+    AUTH_ERRORS.includes(permissionsBeforeRefresh.error)
   ) {
     // attempt to refresh the token one last time using only the refresh token
     if (refreshToken) {

@@ -278,4 +278,54 @@ describe("handleGmailPermissionsCheck", () => {
       missingScopes: [],
     });
   });
+
+  it("fails open on 4xx responses with an unrecognized error body", async () => {
+    const oauth = await import("@/utils/google/oauth");
+    vi.mocked(oauth.isGoogleOauthEmulationEnabled).mockReturnValue(false);
+    vi.mocked(global.fetch).mockResolvedValue({
+      ok: false,
+      status: 429,
+      json: vi.fn().mockResolvedValue({
+        error: {
+          code: 429,
+          message: "Quota exceeded",
+          status: "RESOURCE_EXHAUSTED",
+        },
+      }),
+    } as unknown as Response);
+
+    const result = await handleGmailPermissionsCheck({
+      accessToken: "access-token",
+      refreshToken: "refresh-token",
+      emailAccountId: "email-account-1",
+      grantedScope: null,
+    });
+
+    expect(result).toEqual({
+      hasAllPermissions: true,
+      missingScopes: [],
+    });
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("fails open on a 200 response with an unrecognized error body", async () => {
+    const oauth = await import("@/utils/google/oauth");
+    vi.mocked(oauth.isGoogleOauthEmulationEnabled).mockReturnValue(false);
+    vi.mocked(global.fetch).mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({ error: "some_backend_error" }),
+    } as unknown as Response);
+
+    const result = await handleGmailPermissionsCheck({
+      accessToken: "access-token",
+      refreshToken: "refresh-token",
+      emailAccountId: "email-account-1",
+      grantedScope: null,
+    });
+
+    expect(result).toEqual({
+      hasAllPermissions: true,
+      missingScopes: [],
+    });
+  });
 });
