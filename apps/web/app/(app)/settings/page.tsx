@@ -47,6 +47,7 @@ import {
 } from "@/components/ui/item";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useMessagingChannels } from "@/hooks/useMessagingChannels";
+import { usePremium } from "@/hooks/usePremium";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { cn } from "@/utils";
 import { env } from "@/env";
@@ -54,6 +55,7 @@ import { env } from "@/env";
 export default function SettingsPage() {
   const { emailAccountId: activeEmailAccountId } = useAccount();
   const { data, isLoading, error } = useAccounts();
+  const { canManageBilling } = usePremium();
   const [expandedAccountId, setExpandedAccountId] = useState<string | null>(
     null,
   );
@@ -118,7 +120,7 @@ export default function SettingsPage() {
           </LoadingContent>
         </SettingsGroup>
 
-        {!env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS && (
+        {!env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS && canManageBilling && (
           <SettingsGroup
             icon={<CreditCardIcon className="size-5" />}
             title="Billing"

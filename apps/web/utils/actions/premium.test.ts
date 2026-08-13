@@ -42,6 +42,7 @@ describe("updateStripeInvoiceEmailsAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     prisma.user.findUnique.mockResolvedValue({
+      emailAccounts: [],
       premium: {
         id: "premium-1",
         stripeCustomerId: "cus_test",
@@ -65,6 +66,7 @@ describe("updateStripeInvoiceEmailsAction", () => {
 
   it("rejects a non-admin user", async () => {
     prisma.user.findUnique.mockResolvedValue({
+      emailAccounts: [],
       premium: {
         id: "premium-1",
         stripeCustomerId: "cus_test",
@@ -80,6 +82,7 @@ describe("updateStripeInvoiceEmailsAction", () => {
 
   it("rejects a user without a Stripe billing account", async () => {
     prisma.user.findUnique.mockResolvedValue({
+      emailAccounts: [],
       premium: {
         id: "premium-1",
         stripeCustomerId: null,
@@ -99,8 +102,79 @@ describe("getBillingPortalUrlAction", () => {
     vi.clearAllMocks();
   });
 
+  it("rejects an organization member even when they are a plan admin", async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      premium: {
+        id: "premium-1",
+        stripeCustomerId: "cus_test",
+        stripeSubscriptionId: "sub_test",
+        stripeSubscriptionItemId: "si_test",
+        stripeSubscriptionStatus: "active",
+        users: [{ _count: { emailAccounts: 1 } }],
+        admins: [
+          {
+            id: "user-1",
+            emailAccounts: [
+              {
+                members: [{ organizationId: "billing-org", role: "member" }],
+              },
+            ],
+          },
+        ],
+      },
+      emailAccounts: [
+        {
+          members: [{ organizationId: "billing-org", role: "member" }],
+        },
+      ],
+    } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+    mocks.createBillingPortalSession.mockResolvedValue({
+      url: "https://billing.stripe.test",
+    });
+
+    const result = await getBillingPortalUrlAction({});
+
+    expect(result?.serverError).toBe("Not admin");
+    expect(mocks.createBillingPortalSession).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "admin",
+    "owner",
+  ])("allows an organization %s who is not a plan admin", async (role) => {
+    prisma.user.findUnique.mockResolvedValue({
+      premium: {
+        id: "premium-1",
+        stripeCustomerId: "cus_test",
+        stripeSubscriptionId: "sub_test",
+        stripeSubscriptionItemId: "si_test",
+        stripeSubscriptionStatus: "active",
+        users: [{ _count: { emailAccounts: 1 } }],
+        admins: [
+          {
+            id: "another-user",
+            emailAccounts: [
+              {
+                members: [{ organizationId: "billing-org", role: "owner" }],
+              },
+            ],
+          },
+        ],
+      },
+      emailAccounts: [{ members: [{ organizationId: "billing-org", role }] }],
+    } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+    mocks.createBillingPortalSession.mockResolvedValue({
+      url: "https://billing.stripe.test",
+    });
+
+    const result = await getBillingPortalUrlAction({});
+
+    expect(result?.data).toEqual({ url: "https://billing.stripe.test" });
+  });
+
   it("rejects a non-admin shared plan member", async () => {
     prisma.user.findUnique.mockResolvedValue({
+      emailAccounts: [],
       premium: {
         id: "premium-1",
         stripeCustomerId: "cus_test",
@@ -121,6 +195,7 @@ describe("getBillingPortalUrlAction", () => {
 
   it("allows the original owner of a legacy premium record", async () => {
     prisma.user.findUnique.mockResolvedValue({
+      emailAccounts: [],
       premium: {
         id: "user-1",
         stripeCustomerId: "cus_test",
@@ -142,6 +217,7 @@ describe("getBillingPortalUrlAction", () => {
 
   it("rejects a member of a legacy shared plan without recorded admins", async () => {
     prisma.user.findUnique.mockResolvedValue({
+      emailAccounts: [],
       premium: {
         id: "original-owner",
         stripeCustomerId: "cus_test",
@@ -170,6 +246,7 @@ describe("endStripeTrialAction", () => {
 
   it("rejects a non-admin shared plan member", async () => {
     prisma.user.findUnique.mockResolvedValue({
+      emailAccounts: [],
       premium: {
         id: "premium-1",
         stripeSubscriptionId: "sub_test",
@@ -194,7 +271,7 @@ describe("generateCheckoutSessionAction", () => {
     prisma.user.findUnique.mockResolvedValue({
       email: "user@example.com",
       utms: null,
-      _count: { emailAccounts: 1 },
+      emailAccounts: [],
       premium: {
         id: "premium-1",
         stripeCustomerId: "cus_test",
@@ -224,7 +301,7 @@ describe("generateCheckoutSessionAction", () => {
     prisma.user.findUnique.mockResolvedValue({
       email: "user@example.com",
       utms: null,
-      _count: { emailAccounts: 2 },
+      emailAccounts: [],
       premium: {
         id: "premium-1",
         stripeCustomerId: "cus_test",
@@ -250,7 +327,7 @@ describe("generateCheckoutSessionAction", () => {
     prisma.user.findUnique.mockResolvedValue({
       email: "user@example.com",
       utms: null,
-      _count: { emailAccounts: 2 },
+      emailAccounts: [],
       premium: {
         id: "premium-1",
         stripeCustomerId: "cus_test",
@@ -291,7 +368,7 @@ describe("generateCheckoutSessionAction", () => {
         ({
           email: "user@example.com",
           utms: null,
-          _count: { emailAccounts },
+          emailAccounts: [],
           premium: {
             id: "premium-1",
             stripeCustomerId: "cus_test",
@@ -321,7 +398,7 @@ describe("generateCheckoutSessionAction", () => {
     prisma.user.findUnique.mockResolvedValue({
       email: "user@example.com",
       utms: null,
-      _count: { emailAccounts: 2 },
+      emailAccounts: [],
       premium: {
         id: "premium-1",
         stripeCustomerId: "cus_test",

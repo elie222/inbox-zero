@@ -24,6 +24,11 @@ import {
   getStripeBillingQuantity,
   syncPremiumSeats,
 } from "@/utils/premium/seats";
+import {
+  assertCanManageBilling,
+  billingAccessPremiumSelect,
+  billingAccessSelect,
+} from "@/utils/premium/billing-access";
 import { changePremiumStatusSchema } from "@/app/(app)/admin/validation";
 import { activateLemonLicenseKey } from "@/ee/billing/lemon/index";
 import { PremiumTier } from "@/generated/prisma/enums";
@@ -374,21 +379,22 @@ export const updateStripeInvoiceEmailsAction = actionClientUser
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
+        ...billingAccessSelect,
         premium: {
           select: {
-            id: true,
+            ...billingAccessPremiumSelect,
             stripeCustomerId: true,
-            admins: { select: { id: true } },
           },
         },
       },
     });
 
-    if (!user?.premium?.stripeCustomerId) {
-      throw new SafeError("Stripe billing account not found");
+    if (!user) {
+      throw new SafeError("User not found");
     }
-    if (!isAdminForPremium(user.premium.admins, userId)) {
-      throw new SafeError("Not admin");
+    assertCanManageBilling(userId, user);
+    if (!user.premium?.stripeCustomerId) {
+      throw new SafeError("Stripe billing account not found");
     }
 
     await prisma.premium.update({
@@ -408,10 +414,10 @@ export const getBillingPortalUrlAction = actionClientUser
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
+        ...billingAccessSelect,
         premium: {
           select: {
-            admins: { select: { id: true } },
-            id: true,
+            ...billingAccessPremiumSelect,
             stripeCustomerId: true,
             stripeSubscriptionId: true,
             stripeSubscriptionItemId: true,
@@ -427,11 +433,9 @@ export const getBillingPortalUrlAction = actionClientUser
     if (!user) {
       throw new SafeError("User not found");
     }
+    assertCanManageBilling(userId, user);
     if (!user.premium) {
       throw new SafeError("Premium subscription not found");
-    }
-    if (!isPremiumBillingAdmin(user.premium, userId)) {
-      throw new SafeError("Not admin");
     }
     if (!user.premium.stripeCustomerId) {
       logger.error("Stripe customer id not found");
@@ -498,10 +502,10 @@ export const endStripeTrialAction = actionClientUser
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
+        ...billingAccessSelect,
         premium: {
           select: {
-            admins: { select: { id: true } },
-            id: true,
+            ...billingAccessPremiumSelect,
             stripeSubscriptionId: true,
             stripeSubscriptionStatus: true,
           },
@@ -509,14 +513,13 @@ export const endStripeTrialAction = actionClientUser
       },
     });
 
-    const premium = user?.premium;
-    if (!premium) {
-      throw new SafeError("Stripe subscription not found");
+    if (!user) {
+      throw new SafeError("User not found");
     }
-    if (!isPremiumBillingAdmin(premium, userId)) {
-      throw new SafeError("Not admin");
-    }
-    if (!premium.stripeSubscriptionId) {
+    assertCanManageBilling(userId, user);
+
+    const premium = user.premium;
+    if (!premium?.stripeSubscriptionId) {
       throw new SafeError("Stripe subscription not found");
     }
 
@@ -555,13 +558,12 @@ export const generateCheckoutSessionAction = actionClientUser
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
+        ...billingAccessSelect,
         email: true,
         utms: true,
-        _count: { select: { emailAccounts: true } },
         premium: {
           select: {
-            admins: { select: { id: true } },
-            id: true,
+            ...billingAccessPremiumSelect,
             stripeCustomerId: true,
             stripeSubscriptionId: true,
             stripeSubscriptionStatus: true,
@@ -577,9 +579,7 @@ export const generateCheckoutSessionAction = actionClientUser
       logger.error("User not found");
       throw new SafeError("User not found");
     }
-    if (user.premium && !isPremiumBillingAdmin(user.premium, userId)) {
-      throw new SafeError("Not admin");
-    }
+    assertCanManageBilling(userId, user);
 
     if (
       user.premium?.stripeSubscriptionId &&
@@ -619,7 +619,9 @@ export const generateCheckoutSessionAction = actionClientUser
 
     const quantity = getStripeBillingQuantity({
       priceId,
-      users: user.premium?.users || [{ _count: user._count }],
+      users: user.premium?.users || [
+        { _count: { emailAccounts: user.emailAccounts.length } },
+      ],
     });
     const cookieStore = await cookies();
     const conversionAttributionId = cookieStore.get(
@@ -689,16 +691,4 @@ function getCheckoutPriceId({
   }
 
   return getStripePriceId({ tier });
-}
-
-function isPremiumBillingAdmin(
-  premium: { id: string; admins: { id: string }[] },
-  userId: string,
-) {
-  if (premium.admins.length) {
-    return isAdminForPremium(premium.admins, userId);
-  }
-
-  // The initial premium migration used the owner's user ID as the premium ID.
-  return premium.id === userId;
 }
