@@ -206,5 +206,12 @@ export async function categorizeWithAi({
     categories,
   });
 
-  return [...categorizedSenders, ...aiResults];
+  const aiResultsBySender = new Map(
+    aiResults.map((result) => [result.sender, result]),
+  );
+
+  return categorizedSenders.map((result) => {
+    if (result.category) return result;
+    return aiResultsBySender.get(result.sender) ?? result;
+  });
 }
