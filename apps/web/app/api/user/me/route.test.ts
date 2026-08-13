@@ -100,6 +100,48 @@ describe("user/me route", () => {
         name: "Example User",
       },
     ]);
+    expect(body.canManageBilling).toBe(true);
+  });
+
+  it("denies billing access to an organization member even when they are a plan admin", async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: "user-1",
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      aiProvider: null,
+      aiModel: null,
+      aiApiKey: null,
+      webhookSecret: null,
+      announcementDismissedAt: null,
+      dismissedHints: [],
+      premium: {
+        id: "premium-1",
+        admins: [{ id: "user-1" }],
+      },
+      emailAccounts: [
+        {
+          id: "acc-1",
+          email: "member@example.com",
+          name: "Example Member",
+          members: [
+            {
+              organizationId: "org-1",
+              role: "member",
+              organization: { name: "Example Org" },
+            },
+          ],
+        },
+      ],
+    } as unknown as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+
+    const response = await GET(
+      new NextRequest("http://localhost:3000/api/user/me"),
+      {} as never,
+    );
+
+    const body = await response.json();
+
+    expect(body.premium.isAdmin).toBe(false);
+    expect(body.canManageBilling).toBe(false);
   });
 
   it("does not expose backend-only Apple subscription identifiers", async () => {
