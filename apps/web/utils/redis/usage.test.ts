@@ -71,15 +71,54 @@ describe("redis usage tracking", () => {
     });
   });
 
-  it("reads usage by email account ID", async () => {
+  it("reads usage by email account ID, falling back to legacy openai field names", async () => {
     vi.mocked(redis.hgetall).mockResolvedValue({ openaiCalls: 3 });
 
     const usage = await getUsage({ emailAccountId: "email-account-1" });
 
-    expect(usage).toEqual({ openaiCalls: 3 });
+    expect(usage).toEqual({ calls: 3 });
     expect(redis.hgetall).toHaveBeenCalledWith(
       "usage:email-account:email-account-1",
     );
+  });
+
+  it("sums legacy and renamed fields present in the same hash", async () => {
+    vi.mocked(redis.hgetall).mockResolvedValue({
+      openaiCalls: 5,
+      calls: 2,
+      openaiTokensUsed: 500,
+      tokensUsed: 100,
+    });
+
+    const usage = await getUsage({ emailAccountId: "email-account-1" });
+
+    expect(usage).toEqual({ calls: 7, tokensUsed: 600 });
+  });
+
+  it("round-trips saveUsage into a hash containing legacy and renamed fields", async () => {
+    const hash: Record<string, string> = {
+      openaiCalls: "5",
+      calls: "2",
+      openaiTokensUsed: "500",
+      tokensUsed: "100",
+    };
+    vi.mocked(redis.hincrby).mockImplementation(
+      async (_key: string, field: string, increment: number) => {
+        hash[field] = String(Number.parseFloat(hash[field] ?? "0") + increment);
+        return 1;
+      },
+    );
+    vi.mocked(redis.hgetall).mockImplementation(async () => hash);
+
+    await saveUsage({
+      emailAccountId: "email-account-1",
+      usage: { totalTokens: 10, inputTokens: 10 },
+      cost: 0,
+    });
+
+    const usage = await getUsage({ emailAccountId: "email-account-1" });
+
+    expect(usage).toEqual({ calls: 8, tokensUsed: 610, promptTokensUsed: 10 });
   });
 
   it("migrates legacy email usage into account and user usage before reading", async () => {
@@ -101,14 +140,10 @@ describe("redis usage tracking", () => {
     );
     expect(redis.hincrby).toHaveBeenCalledWith(
       "usage:email-account:email-account-1",
-      "openaiCalls",
+      "calls",
       3,
     );
-    expect(redis.hincrby).toHaveBeenCalledWith(
-      "usage:user:user-1",
-      "openaiCalls",
-      3,
-    );
+    expect(redis.hincrby).toHaveBeenCalledWith("usage:user:user-1", "calls", 3);
     expect(redis.hincrbyfloat).toHaveBeenCalledWith(
       "usage:email-account:email-account-1",
       "cost",
@@ -118,7 +153,7 @@ describe("redis usage tracking", () => {
       "usage-migration:usage-email-account:email-account-1:done",
       expect.any(String),
     );
-    expect(usage).toEqual({ openaiCalls: 3 });
+    expect(usage).toEqual({ calls: 3 });
   });
 
   it("includes legacy email usage while another request owns the migration lock", async () => {
@@ -137,7 +172,7 @@ describe("redis usage tracking", () => {
       userId: "user-1",
     });
 
-    expect(usage).toEqual({ openaiCalls: 5, cost: 2 });
+    expect(usage).toEqual({ calls: 5, cost: 2 });
   });
 
   it("sums user usage cost across the last 7 days", async () => {
@@ -431,6 +466,26 @@ describe("redis usage tracking", () => {
       now: NOW,
     });
 
+    expect(redis.hincrby).toHaveBeenCalledWith(
+      "usage:email-account:email-account-1",
+      "calls",
+      1,
+    );
+    expect(redis.hincrby).toHaveBeenCalledWith(
+      "usage:email-account:email-account-1",
+      "tokensUsed",
+      300,
+    );
+    expect(redis.hincrby).toHaveBeenCalledWith(
+      "usage:email-account:email-account-1",
+      "completionTokensUsed",
+      100,
+    );
+    expect(redis.hincrby).toHaveBeenCalledWith(
+      "usage:email-account:email-account-1",
+      "promptTokensUsed",
+      200,
+    );
     expect(redis.hincrbyfloat).toHaveBeenCalledWith(
       "usage:email-account:email-account-1",
       "cost",
@@ -484,7 +539,7 @@ describe("redis usage tracking", () => {
       userId: "user-1",
     });
 
-    expect(usage).toEqual({ openaiCalls: 3, cost: 1.5 });
+    expect(usage).toEqual({ calls: 3, cost: 1.5 });
   });
 
   it("does not persist post-migration legacy usage writes without the migration lock", async () => {
@@ -527,12 +582,12 @@ describe("redis usage tracking", () => {
     );
     expect(redis.hincrby).not.toHaveBeenCalledWith(
       "usage:email-account:email-account-1",
-      "openaiCalls",
+      "calls",
       1,
     );
     expect(redis.hincrby).not.toHaveBeenCalledWith(
       "usage:user:user-1",
-      "openaiCalls",
+      "calls",
       1,
     );
     expect(redis.hincrbyfloat).not.toHaveBeenCalledWith(
@@ -545,7 +600,7 @@ describe("redis usage tracking", () => {
       "cost",
       0.5,
     );
-    expect(usage).toEqual({ openaiCalls: 3, cost: 1.5 });
+    expect(usage).toEqual({ calls: 3, cost: 1.5 });
   });
 
   it("uses the latest usage migration marker after claiming the migration lock", async () => {
@@ -586,12 +641,12 @@ describe("redis usage tracking", () => {
     );
     expect(redis.hincrby).not.toHaveBeenCalledWith(
       "usage:email-account:email-account-1",
-      "openaiCalls",
+      "calls",
       1,
     );
     expect(redis.hincrby).not.toHaveBeenCalledWith(
       "usage:user:user-1",
-      "openaiCalls",
+      "calls",
       1,
     );
     expect(redis.hincrbyfloat).not.toHaveBeenCalledWith(
@@ -604,7 +659,7 @@ describe("redis usage tracking", () => {
       "cost",
       0.5,
     );
-    expect(usage).toEqual({ openaiCalls: 3, cost: 1.5 });
+    expect(usage).toEqual({ calls: 3, cost: 1.5 });
   });
 
   it("stores account usage without weekly spend when user ID is missing", async () => {
