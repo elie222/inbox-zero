@@ -552,9 +552,6 @@ function createPatchConditionSchema() {
         .describe(
           `${AI_INSTRUCTIONS_PROMPT_DESCRIPTION} Omit this field to preserve existing instructions.`,
         ),
-      // Use z.boolean() instead of z.literal(true): Gemini maps literal true to a
-      // boolean enum entry and rejects the tool schema (400 INVALID_ARGUMENT),
-      // which breaks all chat with the Google provider. Handlers only check truthiness.
       clearAiInstructions: z
         .boolean()
         .optional()
