@@ -83,6 +83,10 @@ describe("categorizeWithAi", () => {
       ["newsletter@substack.com", []],
       ["other@example.com", []],
     ]);
+    vi.mocked(aiCategorizeSenders).mockResolvedValue([
+      { sender: "newsletter@substack.com", category: "Marketing" },
+      { sender: "other@example.com", category: "Marketing" },
+    ]);
 
     const result = await categorizeWithAi({
       emailAccount,
@@ -99,8 +103,8 @@ describe("categorizeWithAi", () => {
       }),
     );
     expect(result).toEqual([
-      { sender: "newsletter@substack.com", category: undefined },
-      { sender: "other@example.com", category: undefined },
+      { sender: "newsletter@substack.com", category: "Marketing" },
+      { sender: "other@example.com", category: "Marketing" },
     ]);
   });
 
