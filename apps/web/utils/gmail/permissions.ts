@@ -12,7 +12,6 @@ import prisma from "@/utils/prisma";
 
 const logger = createScopedLogger("Gmail Permissions");
 
-// TODO: this can also error on network error
 async function checkGmailPermissions({
   accessToken,
   emailAccountId,
@@ -68,9 +67,17 @@ async function checkGmailPermissions({
   try {
     const response = await fetch(getGoogleTokenInfoUrl(accessToken));
 
+    if (!response.ok && response.status >= 500) {
+      throw new Error(
+        `Token info request failed with status ${response.status}`,
+      );
+    }
+
     const data = await response.json();
 
     if (data.error) {
+      // Auth failure (4xx body, or error body on 200 in emulation): fail
+      // closed so the refresh flow can run
       logger.error("Invalid token or Google API error", {
         emailAccountId,
         error: data.error,
@@ -80,6 +87,12 @@ async function checkGmailPermissions({
         missingScopes: SCOPES, // Assume all scopes are missing if we can't check
         error: data.error,
       };
+    }
+
+    if (!response.ok) {
+      throw new Error(
+        `Token info request failed with status ${response.status}`,
+      );
     }
 
     const grantedScopes = data.scope?.split(" ") || [];
@@ -99,9 +112,8 @@ async function checkGmailPermissions({
   } catch (error) {
     logger.error("Error checking Gmail permissions", { emailAccountId, error });
     return {
-      hasAllPermissions: false,
-      missingScopes: SCOPES, // Assume all scopes are missing if we can't check
-      error: "Failed to check permissions",
+      hasAllPermissions: true,
+      missingScopes: [],
     };
   }
 }
