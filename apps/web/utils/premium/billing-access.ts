@@ -65,6 +65,9 @@ export function canManageBilling(userId: string, user: BillingAccessUser) {
     (membership) => premiumOrganizationIds.has(membership.organizationId),
   );
 
+  if (!premium && organizationMemberships.length > 0) {
+    return isOrganizationAdmin(organizationMemberships);
+  }
   if (premiumOrganizationMemberships.length > 0) {
     return isOrganizationAdmin(premiumOrganizationMemberships);
   }
