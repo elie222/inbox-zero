@@ -38,6 +38,12 @@ const LEGACY_USAGE_FIELD_NAMES: Record<string, keyof RedisUsage> = {
   openaiPromptTokensUsed: "promptTokensUsed",
 };
 
+const LEGACY_USAGE_FIELD_NAMES_BY_CURRENT = Object.fromEntries(
+  Object.entries(LEGACY_USAGE_FIELD_NAMES).map(
+    ([legacyField, currentField]) => [currentField, legacyField],
+  ),
+) as Partial<Record<keyof RedisUsage, string>>;
+
 export type WeeklyUsageCostBySubject =
   | { userId: string; cost: number }
   | { email: string; cost: number };
@@ -120,7 +126,7 @@ export async function getUsage(options: {
               : []),
             redis.set(
               doneKey,
-              JSON.stringify({ usage: latestLegacyUsage ?? {} }),
+              serializeLegacyUsageMigrationState(latestLegacyUsage),
             ),
           ]);
         }
@@ -171,7 +177,7 @@ export async function getUsage(options: {
       ...(userUsageKey
         ? getUsageDataIncrementOperations(userUsageKey, legacyUsage)
         : []),
-      redis.set(doneKey, JSON.stringify({ usage: legacyUsage ?? {} })),
+      redis.set(doneKey, serializeLegacyUsageMigrationState(legacyUsage)),
     ]);
 
     return getRedisUsage(emailAccountUsageKey);
@@ -695,6 +701,19 @@ function parseLegacyUsageMigrationState(rawState: unknown): RedisUsage | null {
   } catch {
     return null;
   }
+}
+
+function serializeLegacyUsageMigrationState(usage: RedisUsage) {
+  const legacyUsage = Object.fromEntries(
+    usageFields.flatMap((field) => {
+      const value = usage[field];
+      if (value === undefined) return [];
+
+      return [[LEGACY_USAGE_FIELD_NAMES_BY_CURRENT[field] ?? field, value]];
+    }),
+  );
+
+  return JSON.stringify({ usage: legacyUsage });
 }
 
 async function getRedisUsage(key: string): Promise<RedisUsage> {

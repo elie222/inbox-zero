@@ -121,7 +121,7 @@ describe("redis usage tracking", () => {
     expect(usage).toEqual({ calls: 8, tokensUsed: 610, promptTokensUsed: 10 });
   });
 
-  it("migrates legacy email usage into account and user usage before reading", async () => {
+  it("migrates legacy email usage and writes a checkpoint older servers can read", async () => {
     mockRedisHashes({
       "usage:user@example.com": { openaiCalls: 3, cost: "1.25" },
       "usage:email-account:email-account-1": { openaiCalls: 3 },
@@ -151,7 +151,7 @@ describe("redis usage tracking", () => {
     );
     expect(redis.set).toHaveBeenCalledWith(
       "usage-migration:usage-email-account:email-account-1:done",
-      expect.any(String),
+      JSON.stringify({ usage: { openaiCalls: 3, cost: 1.25 } }),
     );
     expect(usage).toEqual({ calls: 3 });
   });
