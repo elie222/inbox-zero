@@ -7,6 +7,7 @@ import {
   getMicrosoftGraphClientOptions,
 } from "@/utils/microsoft/oauth";
 import { isNotFoundError } from "@/utils/outlook/errors";
+import { uploadResumableChunks } from "@/utils/microsoft/upload-session";
 import type {
   DriveProvider,
   DriveFolder,
@@ -136,6 +137,10 @@ export class OneDriveProvider implements DriveProvider {
 
   async uploadFile(params: UploadFileParams): Promise<DriveFile> {
     const { filename, mimeType, content, folderId } = params;
+    // Graph upload sessions support up to 250 GB
+    const MAX_ONEDRIVE_UPLOAD_SIZE_BYTES = 250 * 1024 * 1024 * 1024; // 250 GB
+    const MAX_SIMPLE_UPLOAD_SIZE = 4 * 1024 * 1024; // 4MB
+
     this.logger.info("Uploading file", {
       filename,
       mimeType,
@@ -144,20 +149,13 @@ export class OneDriveProvider implements DriveProvider {
     });
 
     try {
-      // For files up to 4MB, use simple upload
-      // For larger files, would need to use upload session (not implemented yet)
-      const MAX_SIMPLE_UPLOAD_SIZE = 4 * 1024 * 1024; // 4MB
-
       if (content.length > MAX_SIMPLE_UPLOAD_SIZE) {
-        // TODO: Implement resumable upload for large files
-        this.logger.warn("File exceeds simple upload limit", {
-          filename,
-          size: content.length,
-          limit: MAX_SIMPLE_UPLOAD_SIZE,
-        });
-        throw new Error(
-          `File size ${content.length} exceeds 4MB limit. Large file upload not yet implemented.`,
-        );
+        if (content.length > MAX_ONEDRIVE_UPLOAD_SIZE_BYTES) {
+          throw new Error(
+            `File size ${content.length} exceeds the maximum supported upload size of ${MAX_ONEDRIVE_UPLOAD_SIZE_BYTES} bytes.`,
+          );
+        }
+        return await this.uploadFileViaUploadSession(params);
       }
 
       // Use the PUT endpoint for simple upload
@@ -175,6 +173,40 @@ export class OneDriveProvider implements DriveProvider {
       this.logger.error("Error uploading file", { error, filename, folderId });
       throw error;
     }
+  }
+
+  private async uploadFileViaUploadSession(
+    params: UploadFileParams,
+  ): Promise<DriveFile> {
+    const { filename, content, folderId } = params;
+    const ONEDRIVE_UPLOAD_CHUNK_SIZE_BYTES = 5 * 1024 * 1024;
+
+    const uploadSession: DriveItem & { uploadUrl?: string } = await this.client
+      .api(
+        `/me/drive/items/${folderId}:/${encodeURIComponent(normalizeOneDriveItemName(filename))}:/createUploadSession`,
+      )
+      .post({
+        item: {
+          "@microsoft.graph.conflictBehavior": "rename",
+        },
+      });
+
+    const uploadUrl = uploadSession.uploadUrl;
+    if (!uploadUrl) {
+      throw new Error("Failed to create OneDrive upload session");
+    }
+
+    const finalResponse = await uploadResumableChunks({
+      uploadUrl,
+      content,
+      chunkSizeBytes: ONEDRIVE_UPLOAD_CHUNK_SIZE_BYTES,
+      logger: this.logger,
+      action: "upload OneDrive file chunk",
+      statusAction: "fetch OneDrive upload session status",
+    });
+
+    const item = (await finalResponse.json()) as DriveItem;
+    return this.convertToFile(item);
   }
 
   async getFile(fileId: string): Promise<DriveFile | null> {
