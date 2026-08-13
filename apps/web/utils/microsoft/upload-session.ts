@@ -1,3 +1,4 @@
+import type { UploadSession } from "@microsoft/microsoft-graph-types";
 import type { Logger } from "@/utils/logger";
 import { withOutlookRetry } from "@/utils/outlook/retry";
 
@@ -11,13 +12,12 @@ const UPLOAD_SESSION_REQUEST_TIMEOUT_MS = 60_000;
  * Shared by Outlook attachment uploads and OneDrive file uploads. Both use
  * the same protocol (PUT chunks with Content-Range, resume from
  * `nextExpectedRanges`), but each resource has its own chunk-size constraint:
- * - Outlook attachment sessions: chunks must be exactly 320 KiB
+ * - Outlook attachment sessions: this caller uses 320 KiB chunks
  * - Drive upload sessions: chunks must be multiples of 320 KiB
  *
- * Returns the final response, whose body is the created resource. Microsoft
- * documents the final range as answered with 201 Created or 200 OK; a 200
- * response whose body lacks `nextExpectedRanges` is the created resource, not
- * a progress update. Callers must therefore inspect the returned body.
+ * Returns the final response when it is available. If a retry proves that the
+ * final chunk was already accepted after its response was lost, returns a
+ * committed result so the caller can recover the created resource.
  *
  * If any chunk fails, the session is cancelled with a DELETE so Microsoft does
  * not keep it alive for up to 48 hours or surface partial items on retry.
@@ -36,7 +36,7 @@ export async function uploadResumableChunks({
   logger: Logger;
   action: string;
   statusAction: string;
-}): Promise<Response> {
+}): Promise<UploadResult> {
   let start = 0;
   try {
     while (start < content.length) {
@@ -58,7 +58,11 @@ export async function uploadResumableChunks({
       );
 
       if (result.kind === "complete") {
-        return result.response;
+        return result;
+      }
+
+      if (result.nextStart === content.length) {
+        return { kind: "committed" };
       }
 
       start = result.nextStart;
@@ -77,6 +81,10 @@ export async function uploadResumableChunks({
 type ChunkUploadResult =
   | { kind: "complete"; response: Response }
   | { kind: "progress"; nextStart: number };
+
+type UploadResult =
+  | { kind: "complete"; response: Response }
+  | { kind: "committed" };
 
 async function uploadChunk({
   uploadUrl,
@@ -97,14 +105,14 @@ async function uploadChunk({
   action: string;
   statusAction: string;
 }): Promise<ChunkUploadResult> {
-  const response = await fetch(uploadUrl, {
+  const response = await fetchUploadSession(uploadUrl, {
     method: "PUT",
     headers: {
       "Content-Type": "application/octet-stream",
       "Content-Length": String(chunk.length),
       "Content-Range": `bytes ${start}-${end - 1}/${totalSize}`,
     },
-    body: new Uint8Array(chunk),
+    body: new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength),
     signal: AbortSignal.timeout(UPLOAD_SESSION_REQUEST_TIMEOUT_MS),
   });
 
@@ -131,9 +139,14 @@ async function uploadChunk({
           uploadUrl,
           statusAction,
           start,
-          end,
         }),
       };
+    }
+
+    if (typeof uploadStatus.id !== "string" || !uploadStatus.id) {
+      throw new Error(
+        "Upload session returned 200 without nextExpectedRanges or a created item",
+      );
     }
 
     return { kind: "complete", response };
@@ -157,7 +170,6 @@ async function uploadChunk({
         uploadUrl,
         statusAction,
         start,
-        end,
       }),
     };
   }
@@ -171,7 +183,7 @@ async function uploadChunk({
         uploadUrl,
         statusAction,
         start,
-        end,
+        unavailableNextStart: end,
       }),
     };
   }
@@ -191,7 +203,6 @@ async function ensureMonotonicProgress({
   uploadUrl,
   statusAction,
   start,
-  end,
 }: {
   nextStart: number;
   chunkSizeBytes: number;
@@ -199,7 +210,6 @@ async function ensureMonotonicProgress({
   uploadUrl: string;
   statusAction: string;
   start: number;
-  end: number;
 }): Promise<number> {
   if (isTrustedProgress(nextStart, start, chunkSizeBytes, totalSize)) {
     return nextStart;
@@ -211,7 +221,6 @@ async function ensureMonotonicProgress({
     uploadUrl,
     statusAction,
     start,
-    end,
   });
 }
 
@@ -221,19 +230,21 @@ async function resolveResumeRange({
   uploadUrl,
   statusAction,
   start,
-  end,
+  unavailableNextStart,
 }: {
   chunkSizeBytes: number;
   totalSize: number;
   uploadUrl: string;
   statusAction: string;
   start: number;
-  end: number;
+  unavailableNextStart?: number;
 }): Promise<number> {
   const uploadStatus = await getUploadSessionStatus(uploadUrl, statusAction);
   if (!uploadStatus) {
-    // Session unavailable (expired or unknown); assume the chunk was received
-    return end;
+    if (typeof unavailableNextStart === "number") {
+      return unavailableNextStart;
+    }
+    throw new Error("Upload session status is unavailable");
   }
 
   const nextStart = getNextExpectedRangeStart(uploadStatus.nextExpectedRanges);
@@ -260,19 +271,20 @@ function isTrustedProgress(
 ): boolean {
   return (
     nextStart > start &&
-    (nextStart >= totalSize || nextStart % chunkSizeBytes === 0)
+    (nextStart === totalSize || nextStart % chunkSizeBytes === 0)
   );
 }
 
-interface UploadSessionStatus {
-  nextExpectedRanges?: string[];
+interface UploadSessionStatus
+  extends Pick<UploadSession, "nextExpectedRanges"> {
+  id?: unknown;
 }
 
 async function getUploadSessionStatus(
   uploadUrl: string,
   statusAction: string,
 ): Promise<UploadSessionStatus | null> {
-  const response = await fetch(uploadUrl, {
+  const response = await fetchUploadSession(uploadUrl, {
     method: "GET",
     signal: AbortSignal.timeout(UPLOAD_SESSION_REQUEST_TIMEOUT_MS),
   });
@@ -289,21 +301,37 @@ async function getUploadSessionStatus(
 }
 
 async function cancelUploadSession(uploadUrl: string): Promise<void> {
-  await fetch(uploadUrl, {
+  await fetchUploadSession(uploadUrl, {
     method: "DELETE",
     signal: AbortSignal.timeout(UPLOAD_SESSION_REQUEST_TIMEOUT_MS),
   });
 }
 
-function getNextExpectedRangeStart(nextExpectedRanges?: string[]) {
+async function fetchUploadSession(
+  uploadUrl: string,
+  init: RequestInit,
+): Promise<Response> {
+  try {
+    return await fetch(uploadUrl, init);
+  } catch (error) {
+    if (error instanceof Error && error.name === "TimeoutError") {
+      throw new TypeError("fetch failed", { cause: error });
+    }
+    throw error;
+  }
+}
+
+function getNextExpectedRangeStart(nextExpectedRanges?: string[] | null) {
   const nextRange = nextExpectedRanges?.[0];
   if (!nextRange) return null;
 
   const [rangeStart] = nextRange.split("-");
   if (!rangeStart) return null;
 
-  const parsedRangeStart = Number.parseInt(rangeStart, 10);
-  return Number.isNaN(parsedRangeStart) ? null : parsedRangeStart;
+  const parsedRangeStart = Number(rangeStart);
+  return Number.isSafeInteger(parsedRangeStart) && parsedRangeStart >= 0
+    ? parsedRangeStart
+    : null;
 }
 
 async function throwUploadSessionResponseError(

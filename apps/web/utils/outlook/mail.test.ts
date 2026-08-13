@@ -421,9 +421,12 @@ describe("sendEmailWithHtml", () => {
         },
         createTestLogger(),
       ),
-    ).rejects.toThrow(
-      "Upload session completed without returning the created attachment",
-    );
+    ).rejects.toMatchObject({
+      error: expect.objectContaining({
+        message:
+          "Upload session returned 200 without nextExpectedRanges or a created item",
+      }),
+    });
 
     expect(sendPost).not.toHaveBeenCalled();
   });

@@ -14,6 +14,10 @@ vi.mock("@/utils/microsoft/oauth", () => ({
   getMicrosoftGraphClientOptions: vi.fn(() => ({})),
 }));
 
+vi.mock("@/utils/sleep", () => ({
+  sleep: vi.fn(async () => undefined),
+}));
+
 describe("OneDriveProvider", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -170,7 +174,7 @@ describe("OneDriveProvider", () => {
       "/me/drive/items/folder-1:/big-file.pdf:/createUploadSession",
     );
     expect(createUploadSessionPost).toHaveBeenCalledWith({
-      item: { "@microsoft.graph.conflictBehavior": "rename" },
+      item: { "@microsoft.graph.conflictBehavior": "replace" },
     });
 
     const putCalls = fetchMock.mock.calls.filter(
@@ -314,6 +318,129 @@ describe("OneDriveProvider", () => {
     expect(
       fetchMock.mock.calls.filter(([, init]) => init?.method === "PUT"),
     ).toHaveLength(3);
+  });
+
+  it("retries a timed-out chunk without advancing the upload", async () => {
+    const totalSize = ONEDRIVE_CHUNK_SIZE + 1;
+    const content = Buffer.alloc(totalSize);
+    const createUploadSessionPost = vi.fn(async () => ({
+      uploadUrl: "https://upload.example.test/session",
+    }));
+    const progressingFetch = createProgressingFetchMock(totalSize);
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(
+        Object.assign(new Error("The operation timed out"), {
+          name: "TimeoutError",
+        }),
+      )
+      .mockImplementation(progressingFetch);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const api = vi.fn((path: string) => {
+      if (path.endsWith("/createUploadSession")) {
+        return { post: createUploadSessionPost };
+      }
+      throw new Error(`Unexpected API path: ${path}`);
+    });
+    vi.mocked(Client.init).mockReturnValue({ api } as any);
+
+    const provider = new OneDriveProvider("token", createTestLogger());
+
+    const file = await provider.uploadFile({
+      filename: "big-file.pdf",
+      mimeType: "application/pdf",
+      content,
+      folderId: "folder-1",
+    });
+
+    expect(file.id).toBe("file-1");
+    expect(getContentRangeHeader(fetchMock.mock.calls[0]?.[1])).toBe(
+      getContentRangeHeader(fetchMock.mock.calls[1]?.[1]),
+    );
+  });
+
+  it("recovers the uploaded item when the final chunk response is lost", async () => {
+    const totalSize = ONEDRIVE_CHUNK_SIZE + 1;
+    const content = Buffer.alloc(totalSize);
+    const createUploadSessionPost = vi.fn(async () => ({
+      uploadUrl: "https://upload.example.test/session",
+    }));
+    const recoveredItem = {
+      id: "file-1",
+      name: "big-file.pdf",
+      file: { mimeType: "application/pdf" },
+      size: totalSize,
+      parentReference: { id: "folder-1" },
+    };
+    const get = vi.fn(async () => recoveredItem);
+    let finalChunkAttempts = 0;
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      if (init?.method === "GET") {
+        return new Response("not found", { status: 404 });
+      }
+
+      const parsedRange = parseContentRange(getContentRangeHeader(init));
+      if (!parsedRange) {
+        throw new Error(
+          `Unexpected content range: ${getContentRangeHeader(init)}`,
+        );
+      }
+
+      if (parsedRange.endInclusive + 1 >= parsedRange.totalSize) {
+        finalChunkAttempts += 1;
+        if (finalChunkAttempts === 1) {
+          throw new TypeError("fetch failed");
+        }
+        return new Response("already received", { status: 416 });
+      }
+
+      return new Response(
+        JSON.stringify({
+          nextExpectedRanges: [
+            `${parsedRange.endInclusive + 1}-${parsedRange.totalSize - 1}`,
+          ],
+        }),
+        {
+          status: 202,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const api = vi.fn((path: string) => {
+      if (path.endsWith("/createUploadSession")) {
+        return { post: createUploadSessionPost };
+      }
+      if (path === "/me/drive/items/folder-1:/big-file.pdf:") {
+        return { get };
+      }
+      throw new Error(`Unexpected API path: ${path}`);
+    });
+    vi.mocked(Client.init).mockReturnValue({ api } as any);
+
+    const provider = new OneDriveProvider("token", createTestLogger());
+
+    const file = await provider.uploadFile({
+      filename: "big-file.pdf",
+      mimeType: "application/pdf",
+      content,
+      folderId: "folder-1",
+    });
+
+    expect(file).toMatchObject({
+      id: "file-1",
+      name: "big-file.pdf",
+      size: totalSize,
+    });
+    expect(createUploadSessionPost).toHaveBeenCalledWith({
+      item: { "@microsoft.graph.conflictBehavior": "replace" },
+    });
+    expect(get).toHaveBeenCalledTimes(1);
+    expect(
+      fetchMock.mock.calls.filter(([, init]) => init?.method === "DELETE"),
+    ).toHaveLength(0);
   });
 
   it("does not re-upload the same chunk when a 202 response does not advance", async () => {

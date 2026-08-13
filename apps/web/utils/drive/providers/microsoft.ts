@@ -1,5 +1,8 @@
 import { Client } from "@microsoft/microsoft-graph-client";
-import type { DriveItem } from "@microsoft/microsoft-graph-types";
+import type {
+  DriveItem,
+  UploadSession,
+} from "@microsoft/microsoft-graph-types";
 import type { Logger } from "@/utils/logger";
 import { createScopedLogger } from "@/utils/logger";
 import {
@@ -14,6 +17,10 @@ import type {
   DriveFile,
   UploadFileParams,
 } from "@/utils/drive/types";
+
+const MAX_ONEDRIVE_UPLOAD_SIZE_BYTES = 250 * 1024 * 1024 * 1024;
+const MAX_SIMPLE_UPLOAD_SIZE_BYTES = 4 * 1024 * 1024;
+const ONEDRIVE_UPLOAD_CHUNK_SIZE_BYTES = 5 * 1024 * 1024;
 
 export class OneDriveProvider implements DriveProvider {
   readonly name = "microsoft" as const;
@@ -137,9 +144,6 @@ export class OneDriveProvider implements DriveProvider {
 
   async uploadFile(params: UploadFileParams): Promise<DriveFile> {
     const { filename, mimeType, content, folderId } = params;
-    // Graph upload sessions support up to 250 GB
-    const MAX_ONEDRIVE_UPLOAD_SIZE_BYTES = 250 * 1024 * 1024 * 1024; // 250 GB
-    const MAX_SIMPLE_UPLOAD_SIZE = 4 * 1024 * 1024; // 4MB
 
     this.logger.info("Uploading file", {
       filename,
@@ -149,7 +153,7 @@ export class OneDriveProvider implements DriveProvider {
     });
 
     try {
-      if (content.length > MAX_SIMPLE_UPLOAD_SIZE) {
+      if (content.length > MAX_SIMPLE_UPLOAD_SIZE_BYTES) {
         if (content.length > MAX_ONEDRIVE_UPLOAD_SIZE_BYTES) {
           throw new Error(
             `File size ${content.length} exceeds the maximum supported upload size of ${MAX_ONEDRIVE_UPLOAD_SIZE_BYTES} bytes.`,
@@ -179,15 +183,14 @@ export class OneDriveProvider implements DriveProvider {
     params: UploadFileParams,
   ): Promise<DriveFile> {
     const { filename, content, folderId } = params;
-    const ONEDRIVE_UPLOAD_CHUNK_SIZE_BYTES = 5 * 1024 * 1024;
+    const normalizedFilename = normalizeOneDriveItemName(filename);
+    const itemPath = `/me/drive/items/${folderId}:/${encodeURIComponent(normalizedFilename)}:`;
 
-    const uploadSession: DriveItem & { uploadUrl?: string } = await this.client
-      .api(
-        `/me/drive/items/${folderId}:/${encodeURIComponent(normalizeOneDriveItemName(filename))}:/createUploadSession`,
-      )
+    const uploadSession: UploadSession = await this.client
+      .api(`${itemPath}/createUploadSession`)
       .post({
         item: {
-          "@microsoft.graph.conflictBehavior": "rename",
+          "@microsoft.graph.conflictBehavior": "replace",
         },
       });
 
@@ -196,7 +199,7 @@ export class OneDriveProvider implements DriveProvider {
       throw new Error("Failed to create OneDrive upload session");
     }
 
-    const finalResponse = await uploadResumableChunks({
+    const result = await uploadResumableChunks({
       uploadUrl,
       content,
       chunkSizeBytes: ONEDRIVE_UPLOAD_CHUNK_SIZE_BYTES,
@@ -205,7 +208,17 @@ export class OneDriveProvider implements DriveProvider {
       statusAction: "fetch OneDrive upload session status",
     });
 
-    const item = (await finalResponse.json()) as DriveItem;
+    const item: DriveItem =
+      result.kind === "complete"
+        ? await result.response.json()
+        : await this.client.api(itemPath).get();
+
+    if (result.kind === "committed" && item.size !== content.length) {
+      throw new Error(
+        "OneDrive upload completed without a response, but the uploaded item could not be verified",
+      );
+    }
+
     return this.convertToFile(item);
   }
 

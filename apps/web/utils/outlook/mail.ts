@@ -1,4 +1,4 @@
-import type { Message } from "@microsoft/microsoft-graph-types";
+import type { Message, UploadSession } from "@microsoft/microsoft-graph-types";
 import type { OutlookClient } from "@/utils/outlook/client";
 import type { Attachment } from "nodemailer/lib/mailer";
 import type { SendEmailBody } from "@/utils/gmail/mail";
@@ -655,12 +655,12 @@ async function uploadAttachmentViaSession({
     logger,
   );
 
-  const uploadUrl = (uploadSession as { uploadUrl?: string }).uploadUrl;
+  const uploadUrl = (uploadSession as UploadSession).uploadUrl;
   if (!uploadUrl) {
     throw new Error("Failed to create Outlook attachment upload session");
   }
 
-  const finalResponse = await uploadResumableChunks({
+  await uploadResumableChunks({
     uploadUrl,
     content,
     chunkSizeBytes: GRAPH_UPLOAD_CHUNK_SIZE_BYTES,
@@ -668,17 +668,4 @@ async function uploadAttachmentViaSession({
     action: "upload Outlook attachment chunk",
     statusAction: "fetch Outlook upload session status",
   });
-
-  // A 200 final response is only trusted as complete when its body is the
-  // created attachment; a false-complete would otherwise drop it silently.
-  if (finalResponse.status === 200) {
-    const createdAttachment = (await finalResponse.json()) as {
-      id?: string;
-    };
-    if (!createdAttachment.id) {
-      throw new Error(
-        "Upload session completed without returning the created attachment",
-      );
-    }
-  }
 }
