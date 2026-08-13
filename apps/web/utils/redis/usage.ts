@@ -600,7 +600,7 @@ function parseWeeklyUsageCostKey(key: string) {
   return { subject: `email:${email}`, email, day };
 }
 
-function parseRedisNumber(raw: string | number | undefined): number {
+function parseRedisNumber(raw: unknown): number {
   if (typeof raw === "number") return raw;
   if (typeof raw === "string") return Number.parseFloat(raw) || 0;
   return 0;
