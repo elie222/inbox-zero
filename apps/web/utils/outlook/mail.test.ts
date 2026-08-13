@@ -299,6 +299,135 @@ describe("sendEmailWithHtml", () => {
     expect(sendPost).toHaveBeenCalledTimes(1);
   });
 
+  it("accepts a final 200 chunk whose body is the created attachment", async () => {
+    const draftPost = vi.fn(
+      async () =>
+        ({
+          id: "draft-1",
+          conversationId: "conversation-1",
+        }) as Message,
+    );
+    const createUploadSessionPost = vi.fn(async () => ({
+      uploadUrl: "https://upload.example.test/session",
+    }));
+    const sendPost = vi.fn(async () => ({}));
+    const totalSize = 3 * 1024 * 1024 + 1;
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      const parsedRange = parseContentRange(getContentRangeHeader(init));
+      if (!parsedRange) {
+        throw new Error(
+          `Unexpected content range: ${getContentRangeHeader(init)}`,
+        );
+      }
+
+      if (parsedRange.endInclusive + 1 >= parsedRange.totalSize) {
+        return new Response(
+          JSON.stringify({ id: "attachment-1", name: "large.pdf" }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      return createUploadChunkProgressResponse(init);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = createMockOutlookClient((path) => {
+      if (path === "/me/messages") return { post: draftPost };
+      if (path === "/me/messages/draft-1/attachments/createUploadSession") {
+        return { post: createUploadSessionPost };
+      }
+      if (path === "/me/messages/draft-1/send") return { post: sendPost };
+      throw new Error(`Unexpected API path: ${path}`);
+    });
+
+    await sendEmailWithHtml(
+      client,
+      {
+        to: "recipient@example.com",
+        subject: "Subject",
+        messageHtml: "<p>Hello</p>",
+        attachments: [
+          {
+            filename: "large.pdf",
+            content: Buffer.alloc(totalSize),
+            contentType: "application/pdf",
+          },
+        ],
+      },
+      createTestLogger(),
+    );
+
+    expect(sendPost).toHaveBeenCalledTimes(1);
+  });
+
+  it("throws when a final 200 chunk does not return the created attachment", async () => {
+    const draftPost = vi.fn(
+      async () =>
+        ({
+          id: "draft-1",
+          conversationId: "conversation-1",
+        }) as Message,
+    );
+    const createUploadSessionPost = vi.fn(async () => ({
+      uploadUrl: "https://upload.example.test/session",
+    }));
+    const sendPost = vi.fn(async () => ({}));
+    const totalSize = 3 * 1024 * 1024 + 1;
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      const parsedRange = parseContentRange(getContentRangeHeader(init));
+      if (!parsedRange) {
+        throw new Error(
+          `Unexpected content range: ${getContentRangeHeader(init)}`,
+        );
+      }
+
+      if (parsedRange.endInclusive + 1 >= parsedRange.totalSize) {
+        return new Response("{}", {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      return createUploadChunkProgressResponse(init);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = createMockOutlookClient((path) => {
+      if (path === "/me/messages") return { post: draftPost };
+      if (path === "/me/messages/draft-1/attachments/createUploadSession") {
+        return { post: createUploadSessionPost };
+      }
+      if (path === "/me/messages/draft-1/send") return { post: sendPost };
+      throw new Error(`Unexpected API path: ${path}`);
+    });
+
+    await expect(
+      sendEmailWithHtml(
+        client,
+        {
+          to: "recipient@example.com",
+          subject: "Subject",
+          messageHtml: "<p>Hello</p>",
+          attachments: [
+            {
+              filename: "large.pdf",
+              content: Buffer.alloc(totalSize),
+              contentType: "application/pdf",
+            },
+          ],
+        },
+        createTestLogger(),
+      ),
+    ).rejects.toThrow(
+      "Upload session completed without returning the created attachment",
+    );
+
+    expect(sendPost).not.toHaveBeenCalled();
+  });
+
   it("resumes upload-session progress after a retried chunk returns 416", async () => {
     const draftPost = vi.fn(
       async () =>
