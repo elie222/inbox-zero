@@ -138,16 +138,26 @@ export async function updateCategoryForSender({
   });
 }
 
-// TODO: what if user doesn't have all these categories set up?
-// Use static rules to categorize senders if we can, before sending to LLM
+// Use static rules to categorize senders if we can, before sending to LLM.
+// Only apply a rule if the user has the matching category, so we don't invent
+// categories the user deleted or renamed.
 function preCategorizeSendersWithStaticRules(
   senders: string[],
+  categories: Pick<Category, "name">[],
 ): { sender: string; category: SenderCategory | undefined }[] {
+  const categoryNames = new Set(categories.map((c) => c.name));
+
   return senders.map((sender) => {
-    if (isNewsletterSender(sender))
+    if (
+      categoryNames.has(defaultCategory.NEWSLETTER.name) &&
+      isNewsletterSender(sender)
+    )
       return { sender, category: defaultCategory.NEWSLETTER.name };
 
-    if (isReceiptSender(sender))
+    if (
+      categoryNames.has(defaultCategory.RECEIPT.name) &&
+      isReceiptSender(sender)
+    )
       return { sender, category: defaultCategory.RECEIPT.name };
 
     return { sender, category: undefined };
@@ -175,6 +185,7 @@ export async function categorizeWithAi({
 }) {
   const categorizedSenders = preCategorizeSendersWithStaticRules(
     Array.from(sendersWithEmails.keys()),
+    categories,
   );
 
   const sendersToCategorizeWithAi = categorizedSenders
