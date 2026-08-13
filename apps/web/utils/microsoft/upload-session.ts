@@ -112,7 +112,7 @@ async function uploadChunk({
       "Content-Length": String(chunk.length),
       "Content-Range": `bytes ${start}-${end - 1}/${totalSize}`,
     },
-    body: new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength),
+    body: new Uint8Array(chunk),
     signal: AbortSignal.timeout(UPLOAD_SESSION_REQUEST_TIMEOUT_MS),
   });
 
