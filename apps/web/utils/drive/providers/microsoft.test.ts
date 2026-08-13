@@ -470,7 +470,9 @@ describe("OneDriveProvider", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const { api } = createLargeUploadApi({ createUploadSessionPost });
+    const { api, deleteItem } = createLargeUploadApi({
+      createUploadSessionPost,
+    });
     vi.mocked(Client.init).mockReturnValue({ api } as any);
 
     const provider = new OneDriveProvider("token", createTestLogger());
@@ -497,6 +499,7 @@ describe("OneDriveProvider", () => {
     expect(
       fetchMock.mock.calls.filter(([, init]) => init?.method === "DELETE"),
     ).toHaveLength(1);
+    expect(deleteItem).toHaveBeenCalledTimes(1);
   });
 
   it("cancels the upload session when a chunk upload fails", async () => {
@@ -508,7 +511,9 @@ describe("OneDriveProvider", () => {
     const fetchMock = vi.fn(async () => new Response("boom", { status: 500 }));
     vi.stubGlobal("fetch", fetchMock);
 
-    const { api } = createLargeUploadApi({ createUploadSessionPost });
+    const { api, deleteItem } = createLargeUploadApi({
+      createUploadSessionPost,
+    });
     vi.mocked(Client.init).mockReturnValue({ api } as any);
 
     const provider = new OneDriveProvider("token", createTestLogger());
@@ -531,6 +536,7 @@ describe("OneDriveProvider", () => {
     expect(
       fetchMock.mock.calls.filter(([, init]) => init?.method === "DELETE"),
     ).toHaveLength(1);
+    expect(deleteItem).toHaveBeenCalledTimes(1);
   });
 
   it("rejects files above the maximum upload size before creating a session", async () => {

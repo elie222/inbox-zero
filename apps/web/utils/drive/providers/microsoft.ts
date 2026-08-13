@@ -198,41 +198,56 @@ export class OneDriveProvider implements DriveProvider {
     }
 
     const itemPath = `/me/drive/items/${reservedItem.id}`;
+    try {
+      const uploadSession: UploadSession = await this.client
+        .api(`${itemPath}/createUploadSession`)
+        .post({});
 
-    const uploadSession: UploadSession = await this.client
-      .api(`${itemPath}/createUploadSession`)
-      .post({});
+      const uploadUrl = uploadSession.uploadUrl;
+      if (!uploadUrl) {
+        throw new Error("Failed to create OneDrive upload session");
+      }
 
-    const uploadUrl = uploadSession.uploadUrl;
-    if (!uploadUrl) {
-      await this.client
+      const result = await uploadResumableChunks({
+        uploadUrl,
+        content,
+        chunkSizeBytes: ONEDRIVE_UPLOAD_CHUNK_SIZE_BYTES,
+        logger: this.logger,
+        action: "upload OneDrive file chunk",
+        statusAction: "fetch OneDrive upload session status",
+      });
+
+      const item: DriveItem =
+        result.kind === "complete"
+          ? await result.response.json()
+          : await this.client.api(itemPath).get();
+
+      if (result.kind === "committed" && item.size !== content.length) {
+        throw new Error(
+          "OneDrive upload completed without a response, but the uploaded item could not be verified",
+        );
+      }
+
+      return this.convertToFile(item);
+    } catch (error) {
+      const item = await this.client
         .api(itemPath)
-        .delete()
-        .catch(() => undefined);
-      throw new Error("Failed to create OneDrive upload session");
+        .get()
+        .catch(() => null);
+
+      if (item?.size === content.length) {
+        return this.convertToFile(item);
+      }
+
+      if (item?.size === 0) {
+        await this.client
+          .api(itemPath)
+          .delete()
+          .catch(() => undefined);
+      }
+
+      throw error;
     }
-
-    const result = await uploadResumableChunks({
-      uploadUrl,
-      content,
-      chunkSizeBytes: ONEDRIVE_UPLOAD_CHUNK_SIZE_BYTES,
-      logger: this.logger,
-      action: "upload OneDrive file chunk",
-      statusAction: "fetch OneDrive upload session status",
-    });
-
-    const item: DriveItem =
-      result.kind === "complete"
-        ? await result.response.json()
-        : await this.client.api(itemPath).get();
-
-    if (result.kind === "committed" && item.size !== content.length) {
-      throw new Error(
-        "OneDrive upload completed without a response, but the uploaded item could not be verified",
-      );
-    }
-
-    return this.convertToFile(item);
   }
 
   async getFile(fileId: string): Promise<DriveFile | null> {
