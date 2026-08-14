@@ -5,6 +5,7 @@ import {
   BrowserWindow,
   dialog,
   ipcMain,
+  nativeTheme,
   shell,
   type Session,
   type WebContents,
@@ -16,6 +17,7 @@ import {
   getDesktopBrowserStartUrl,
   getDesktopLoginUrl,
   getDesktopPostAuthUrl,
+  getDesktopWindowChrome,
   isAllowedDesktopNavigation,
   isAllowedExternalUrl,
   isDesktopAuthProvider,
@@ -40,6 +42,8 @@ if (!gotTheLock) {
 }
 
 function startDesktopApp() {
+  nativeTheme.themeSource = "light";
+
   app.on("second-instance", (_event, argv) => {
     const protocolUrl = findDesktopProtocolUrl(argv);
     if (protocolUrl) {
@@ -114,6 +118,7 @@ function createMainWindow() {
     minWidth: 900,
     minHeight: 640,
     title: "Inbox Zero",
+    ...getDesktopWindowChrome(),
     webPreferences: {
       preload: path.join(import.meta.dirname, "preload.cjs"),
       partition: PARTITION,
@@ -123,6 +128,9 @@ function createMainWindow() {
     },
   });
 
+  mainWindow.on("page-title-updated", (event) => {
+    event.preventDefault();
+  });
   mainWindow.on("closed", () => {
     mainWindow = null;
   });

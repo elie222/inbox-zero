@@ -5,6 +5,7 @@ import {
   getDesktopBrowserStartUrl,
   getDesktopLoginUrl,
   getDesktopPostAuthUrl,
+  getDesktopWindowChrome,
   isAllowedDesktopNavigation,
   isAllowedExternalUrl,
   isDesktopAuthProvider,
@@ -139,5 +140,26 @@ describe("desktop shell helpers", () => {
     expect(
       getDesktopPostAuthUrl("https://www.getinboxzero.com", "/.//evil.test"),
     ).toBe("https://www.getinboxzero.com/evil.test");
+  });
+
+  it("uses a light hidden title bar so the native chrome matches the web app", () => {
+    expect(getDesktopWindowChrome("darwin")).toEqual({
+      backgroundColor: "#ffffff",
+      titleBarStyle: "hiddenInset",
+      trafficLightPosition: { x: 16, y: 18 },
+    });
+    expect(getDesktopWindowChrome("win32")).toMatchObject({
+      backgroundColor: "#ffffff",
+      titleBarStyle: "hidden",
+      titleBarOverlay: {
+        color: "#ffffff",
+        height: 36,
+        symbolColor: "#0f172a",
+      },
+    });
+    expect(getDesktopWindowChrome("linux")).toEqual({
+      autoHideMenuBar: true,
+      backgroundColor: "#ffffff",
+    });
   });
 });

@@ -150,3 +150,42 @@ export function getDesktopPostAuthUrl(
 export function findDesktopProtocolUrl(argv: readonly string[]): string | null {
   return argv.find(isDesktopProtocolUrl) ?? null;
 }
+
+const DESKTOP_WINDOW_BACKGROUND = "#ffffff";
+
+export function getDesktopWindowChrome(platform = process.platform): {
+  autoHideMenuBar?: boolean;
+  backgroundColor: string;
+  titleBarOverlay?: {
+    color: string;
+    height: number;
+    symbolColor: string;
+  };
+  titleBarStyle?: "hidden" | "hiddenInset";
+  trafficLightPosition?: { x: number; y: number };
+} {
+  if (platform === "darwin") {
+    return {
+      backgroundColor: DESKTOP_WINDOW_BACKGROUND,
+      titleBarStyle: "hiddenInset",
+      trafficLightPosition: { x: 16, y: 18 },
+    };
+  }
+
+  if (platform === "win32") {
+    return {
+      backgroundColor: DESKTOP_WINDOW_BACKGROUND,
+      titleBarOverlay: {
+        color: DESKTOP_WINDOW_BACKGROUND,
+        height: 36,
+        symbolColor: "#0f172a",
+      },
+      titleBarStyle: "hidden",
+    };
+  }
+
+  return {
+    autoHideMenuBar: true,
+    backgroundColor: DESKTOP_WINDOW_BACKGROUND,
+  };
+}
