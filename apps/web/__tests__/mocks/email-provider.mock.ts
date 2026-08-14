@@ -138,12 +138,12 @@ export function createMockEmailProvider(
     createDraft: vi.fn().mockResolvedValue({ id: "draft-new" }),
     updateDraft: vi.fn().mockResolvedValue(undefined),
     sendDraft: vi.fn().mockResolvedValue({ messageId: "msg-sent" }),
-    replyToEmail: vi.fn().mockResolvedValue(undefined),
-    sendEmail: vi.fn().mockResolvedValue(undefined),
+    replyToEmail: vi.fn().mockResolvedValue({ messageId: "msg-sent" }),
+    sendEmail: vi.fn().mockResolvedValue({ messageId: "msg-sent" }),
     sendEmailWithHtml: vi
       .fn()
       .mockResolvedValue({ messageId: "msg-new", threadId: "thread-new" }),
-    forwardEmail: vi.fn().mockResolvedValue(undefined),
+    forwardEmail: vi.fn().mockResolvedValue({ messageId: "msg-sent" }),
 
     // Bulk operations
     bulkArchiveFromSenders: vi.fn().mockResolvedValue(undefined),

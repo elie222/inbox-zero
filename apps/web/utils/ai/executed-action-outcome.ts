@@ -25,11 +25,13 @@ export async function persistExecutedActionOutcome({
   actionId,
   status,
   error,
+  sentMessageIds,
   logger,
 }: {
   actionId: string;
   status: ExecutedActionStatus;
   error: ActionExecutionError | null;
+  sentMessageIds?: string[];
   logger: Logger;
 }) {
   try {
@@ -39,6 +41,7 @@ export async function persistExecutedActionOutcome({
         executionStatus: status,
         executedAt: new Date(),
         executionError: error ?? Prisma.DbNull,
+        ...(sentMessageIds?.length ? { sentMessageIds } : {}),
       },
     });
   } catch (persistenceError) {
@@ -48,6 +51,16 @@ export async function persistExecutedActionOutcome({
       error: persistenceError,
     });
   }
+}
+
+export function getSentMessageIds(actionResult: unknown): string[] {
+  const sentMessageIds = asRecord(actionResult)?.sentMessageIds;
+  return Array.isArray(sentMessageIds)
+    ? sentMessageIds.filter(
+        (messageId): messageId is string =>
+          typeof messageId === "string" && !!messageId,
+      )
+    : [];
 }
 
 export function getActionResultError(

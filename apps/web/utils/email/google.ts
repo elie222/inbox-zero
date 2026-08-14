@@ -957,22 +957,28 @@ export class GmailProvider implements EmailProvider {
       replyTo?: string;
       from?: string;
       attachments?: MailAttachment[];
-      sentByRule?: boolean;
     },
-  ): Promise<void> {
-    await replyToEmail(this.client, email, content, options?.from, options);
+  ): Promise<{ messageId: string }> {
+    const result = await replyToEmail(
+      this.client,
+      email,
+      content,
+      options?.from,
+      options,
+    );
+    return { messageId: requireMessageId(result.data.id) };
   }
 
   async sendEmail(args: {
-    sentByRule?: boolean;
     to: string;
     cc?: string;
     bcc?: string;
     subject: string;
     messageText: string;
     attachments?: MailAttachment[];
-  }): Promise<void> {
-    await sendEmailWithPlainText(this.client, args);
+  }): Promise<{ messageId: string }> {
+    const result = await sendEmailWithPlainText(this.client, args);
+    return { messageId: requireMessageId(result.data.id) };
   }
 
   async sendEmailWithHtml(body: {
@@ -1009,12 +1015,12 @@ export class GmailProvider implements EmailProvider {
       bcc?: string;
       content?: string;
       from?: string;
-      sentByRule?: boolean;
     },
-  ): Promise<void> {
+  ): Promise<{ messageId: string }> {
     const parsedMessage = await this.getMessage(email.id);
 
-    await forwardEmail(this.client, parsedMessage, args);
+    const result = await forwardEmail(this.client, parsedMessage, args);
+    return { messageId: requireMessageId(result.data.id) };
   }
 
   async markSpam(threadId: string): Promise<void> {
@@ -1720,4 +1726,9 @@ export class GmailProvider implements EmailProvider {
 
     return this.sendAsEmailAddressesPromise;
   }
+}
+
+function requireMessageId(messageId?: string | null) {
+  if (!messageId) throw new Error("Provider did not return a sent message ID");
+  return messageId;
 }

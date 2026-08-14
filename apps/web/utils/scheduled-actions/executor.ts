@@ -16,6 +16,7 @@ import type {
 import type { EmailProvider } from "@/utils/email/types";
 import {
   getActionResultError,
+  getSentMessageIds,
   isActionResultSkipped,
   normalizeActionExecutionError,
   persistExecutedActionOutcome,
@@ -271,6 +272,7 @@ async function executeDelayedAction({
     actionId: executedAction.id,
     status: ExecutedActionStatus.SUCCEEDED,
     error: null,
+    sentMessageIds: getSentMessageIds(actionResult),
     logger: log,
   });
 

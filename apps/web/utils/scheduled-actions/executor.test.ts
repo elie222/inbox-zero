@@ -86,6 +86,33 @@ describe("executor", () => {
       expectExecutedRuleStatus(ExecutedRuleStatus.APPLIED);
     });
 
+    it("persists provider message IDs for delayed sending actions", async () => {
+      mockScheduledActionUpdate(ScheduledActionStatus.COMPLETED);
+      mockExecutedActionCreate({ type: ActionType.REPLY });
+      mockExecutedRuleFind();
+      mockCompletionCounts({ pendingActions: 0, failedActions: 0 });
+      mockExecutedRuleUpdate(ExecutedRuleStatus.APPLIED);
+      vi.mocked(runActionFunction).mockResolvedValue({
+        sentMessageIds: ["sent-message-1"],
+      });
+
+      await executeScheduledAction(
+        { ...mockScheduledAction, actionType: ActionType.REPLY },
+        await getMockEmailProvider(),
+        logger,
+      );
+
+      expect(prisma.executedAction.update).toHaveBeenCalledWith({
+        where: { id: "executed-action-123" },
+        data: {
+          executionStatus: ExecutedActionStatus.SUCCEEDED,
+          executedAt: expect.any(Date),
+          executionError: Prisma.DbNull,
+          sentMessageIds: ["sent-message-1"],
+        },
+      });
+    });
+
     it("records skipped delayed actions without failing the scheduled action", async () => {
       mockScheduledActionUpdate(ScheduledActionStatus.COMPLETED);
       mockExecutedActionCreate({ type: ActionType.FORWARD });

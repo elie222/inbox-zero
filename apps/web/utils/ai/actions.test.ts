@@ -493,7 +493,7 @@ describe("runActionFunction", () => {
       },
     ]);
 
-    await runActionFunction({
+    const result = await runActionFunction({
       client,
       email,
       action: {
@@ -537,7 +537,6 @@ describe("runActionFunction", () => {
       expect.anything(),
       "Attached.",
       expect.objectContaining({
-        sentByRule: true,
         attachments: [
           expect.objectContaining({
             filename: "lease.pdf",
@@ -546,6 +545,7 @@ describe("runActionFunction", () => {
         ],
       }),
     );
+    expect(result).toEqual({ sentMessageIds: ["sent-msg1"] });
   });
 
   it("passes static attachments into sent emails", async () => {
@@ -559,7 +559,7 @@ describe("runActionFunction", () => {
       },
     ]);
 
-    await runActionFunction({
+    const result = await runActionFunction({
       client,
       email,
       action: {
@@ -603,7 +603,6 @@ describe("runActionFunction", () => {
     });
     expect(client.sendEmail).toHaveBeenCalledWith(
       expect.objectContaining({
-        sentByRule: true,
         to: "recipient@example.com",
         subject: "Quote",
         messageText: "Attached.",
@@ -615,6 +614,7 @@ describe("runActionFunction", () => {
         ],
       }),
     );
+    expect(result).toEqual({ sentMessageIds: ["sent-msg1"] });
   });
 
   describe("forward", () => {
@@ -628,7 +628,7 @@ describe("runActionFunction", () => {
     it("removes message participants while forwarding to remaining recipients", async () => {
       const client = createMockEmailProvider();
 
-      await runActionFunction({
+      const result = await runActionFunction({
         client,
         email: {
           ...email,
@@ -653,12 +653,12 @@ describe("runActionFunction", () => {
       expect(client.forwardEmail).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({
-          sentByRule: true,
           to: "Archive <archive@example.com>",
           cc: "Reviewer <reviewer@example.com>",
           bcc: "auditor@example.com",
         }),
       );
+      expect(result).toEqual({ sentMessageIds: ["sent-msg1"] });
     });
 
     it("skips forwarding when every configured recipient is already on the message", async () => {

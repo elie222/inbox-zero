@@ -83,6 +83,34 @@ describe("executeAct", () => {
     mockExecutedRuleUpdate.mockResolvedValue({});
   });
 
+  it("persists provider message IDs returned by sending actions", async () => {
+    mockRunActionFunction.mockResolvedValueOnce({
+      sentMessageIds: ["sent-message-1"],
+    });
+    const executedRule = {
+      ...baseExecutedRule,
+      actionItems: [{ id: "action-1", type: ActionType.REPLY }],
+    } as any;
+
+    await executeAct({
+      client: mockClient,
+      executedRule,
+      message,
+      emailAccount,
+      logger,
+    });
+
+    expect(mockExecutedActionUpdate).toHaveBeenCalledWith({
+      where: { id: "action-1" },
+      data: {
+        executionStatus: "SUCCEEDED",
+        executedAt: expect.any(Date),
+        executionError: Prisma.DbNull,
+        sentMessageIds: ["sent-message-1"],
+      },
+    });
+  });
+
   it("keeps labels but skips archive for protected company senders", async () => {
     envMock.WHITELIST_FROM = "onboarding@getinboxzero.com";
     mockRunActionFunction.mockResolvedValueOnce({ success: true });

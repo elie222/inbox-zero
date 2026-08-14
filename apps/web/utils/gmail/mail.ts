@@ -28,10 +28,6 @@ import {
   buildQuotedPlainText,
   quotePlainTextContent,
 } from "@/utils/email/quoted-plain-text";
-import {
-  AUTOMATED_OUTBOUND_HEADER,
-  AUTOMATED_OUTBOUND_HEADER_VALUE,
-} from "@/utils/email/automated-outbound";
 
 const logger = createScopedLogger("gmail/mail");
 
@@ -54,9 +50,7 @@ export const sendEmailBody = z.object({
   attachments: z.array(zodAttachment).optional(),
 });
 export type SendEmailBody = z.infer<typeof sendEmailBody>;
-type MailSendEmailBody = WithMailerAttachments<SendEmailBody> & {
-  sentByRule?: boolean;
-};
+type MailSendEmailBody = WithMailerAttachments<SendEmailBody>;
 
 const encodeMessage = (message: Buffer) =>
   Buffer.from(message)
@@ -82,11 +76,9 @@ const createRawMailMessage = async ({
   messageText,
   attachments,
   replyToEmail,
-  sentByRule,
 }: Omit<SendEmailBody, "attachments"> & {
   attachments?: Attachment[];
   messageText: string;
-  sentByRule?: boolean;
 }) => {
   return await createMail({
     from,
@@ -111,14 +103,7 @@ const createRawMailMessage = async ({
       headerMessageId: replyToEmail?.headerMessageId || "",
       references: replyToEmail?.references,
     }),
-    headers: {
-      "X-Mailer": "Inbox Zero Web",
-      ...(sentByRule
-        ? {
-            [AUTOMATED_OUTBOUND_HEADER]: AUTOMATED_OUTBOUND_HEADER_VALUE,
-          }
-        : {}),
-    },
+    headers: { "X-Mailer": "Inbox Zero Web" },
   });
 };
 
@@ -171,7 +156,6 @@ export async function replyToEmail(
   options?: {
     replyTo?: string;
     attachments?: Attachment[];
-    sentByRule?: boolean;
   },
 ) {
   ensureEmailSendingEnabled();
@@ -194,7 +178,6 @@ export async function replyToEmail(
     messageText,
     messageHtml: html,
     attachments: options?.attachments,
-    sentByRule: options?.sentByRule,
     replyToEmail: {
       threadId: message.threadId,
       headerMessageId: message.headers["message-id"] || "",
@@ -224,7 +207,6 @@ export async function forwardEmail(
     bcc?: string;
     content?: string;
     from?: string;
-    sentByRule?: boolean;
   },
 ) {
   ensureEmailSendingEnabled();
@@ -266,7 +248,6 @@ export async function forwardEmail(
       headerMessageId: "",
     },
     attachments,
-    sentByRule: options.sentByRule,
   });
 
   const result = await withGmailRetry(() =>

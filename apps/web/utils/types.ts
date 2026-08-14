@@ -118,7 +118,6 @@ export interface ParsedMessageHeaders {
   "reply-to"?: string;
   subject: string;
   to: string;
-  "x-inbox-zero-automated"?: string;
 }
 
 // Note: use `getEmailForLLM(message)` to convert a `ParsedMessage` to an `EmailForLLM`
