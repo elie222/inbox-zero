@@ -542,6 +542,7 @@ export function MailShell() {
                 showLoadMore={hasMore}
                 isLoadingMore={isLoadingMore}
                 onLoadMore={loadMore}
+                listKey={JSON.stringify(query)}
               />
             </LoadingContent>
           </section>

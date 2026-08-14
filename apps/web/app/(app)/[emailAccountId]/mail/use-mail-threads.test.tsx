@@ -377,6 +377,140 @@ describe("useMailThreads", () => {
     );
   });
 
+  it("does not request two pages when load more is called twice before the next page arrives", async () => {
+    const secondPage = Promise.withResolvers<unknown>();
+    cache.read.mockResolvedValue(undefined);
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce({
+        threads: [createThread("one")],
+        nextPageToken: "page-2",
+      })
+      .mockReturnValueOnce(secondPage.promise)
+      .mockResolvedValueOnce({ threads: [createThread("three")] });
+
+    const { result } = renderHook(
+      () =>
+        useMailThreads({
+          emailAccountId: "account-double-load",
+          query: { type: "inbox" },
+        }),
+      { wrapper: createWrapper(fetcher) },
+    );
+    await waitFor(() => expect(result.current.threads[0]?.id).toBe("one"));
+
+    act(() => {
+      result.current.loadMore();
+      result.current.loadMore();
+    });
+
+    await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
+    expect(fetcher.mock.calls[1]?.[0][0]).toContain("nextPageToken=page-2");
+
+    await act(async () => {
+      secondPage.resolve({
+        threads: [createThread("two")],
+        nextPageToken: "page-3",
+      });
+    });
+    await waitFor(() =>
+      expect(result.current.threads.map((thread) => thread.id)).toEqual([
+        "one",
+        "two",
+      ]),
+    );
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
+  it("loads a later page after the previous extra page has arrived", async () => {
+    const secondPage = Promise.withResolvers<unknown>();
+    const thirdPage = Promise.withResolvers<unknown>();
+    cache.read.mockResolvedValue(undefined);
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce({
+        threads: [createThread("one")],
+        nextPageToken: "page-2",
+      })
+      .mockReturnValueOnce(secondPage.promise)
+      .mockReturnValueOnce(thirdPage.promise);
+
+    const { result } = renderHook(
+      () =>
+        useMailThreads({
+          emailAccountId: "account-sequential-load",
+          query: { type: "inbox" },
+        }),
+      { wrapper: createWrapper(fetcher) },
+    );
+    await waitFor(() => expect(result.current.threads[0]?.id).toBe("one"));
+
+    act(() => result.current.loadMore());
+    await act(async () => {
+      secondPage.resolve({
+        threads: [createThread("two")],
+        nextPageToken: "page-3",
+      });
+    });
+    await waitFor(() =>
+      expect(result.current.threads.map((thread) => thread.id)).toEqual([
+        "one",
+        "two",
+      ]),
+    );
+
+    act(() => result.current.loadMore());
+    await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(3));
+    expect(fetcher.mock.calls[2]?.[0][0]).toContain("nextPageToken=page-3");
+
+    await act(async () => {
+      thirdPage.resolve({ threads: [createThread("three")] });
+    });
+    await waitFor(() =>
+      expect(result.current.threads.map((thread) => thread.id)).toEqual([
+        "one",
+        "two",
+        "three",
+      ]),
+    );
+  });
+
+  it("retries the next page after a failed load more", async () => {
+    cache.read.mockResolvedValue(undefined);
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce({
+        threads: [createThread("one")],
+        nextPageToken: "page-2",
+      })
+      .mockRejectedValueOnce(new Error("page two failed"))
+      .mockResolvedValueOnce({
+        threads: [createThread("two")],
+      });
+
+    const { result } = renderHook(
+      () =>
+        useMailThreads({
+          emailAccountId: "account-load-more-retry",
+          query: { type: "inbox" },
+        }),
+      { wrapper: createWrapper(fetcher) },
+    );
+    await waitFor(() => expect(result.current.threads[0]?.id).toBe("one"));
+
+    act(() => result.current.loadMore());
+    await waitFor(() => expect(result.current.isLoadingMore).toBe(false));
+
+    act(() => result.current.loadMore());
+    await waitFor(() =>
+      expect(result.current.threads.map((thread) => thread.id)).toEqual([
+        "one",
+        "two",
+      ]),
+    );
+    expect(fetcher.mock.calls[2]?.[0][0]).toContain("nextPageToken=page-2");
+  });
+
   it("retries a failed first page before loading more from cache", async () => {
     cache.read.mockResolvedValue({
       cachedAt: 100,

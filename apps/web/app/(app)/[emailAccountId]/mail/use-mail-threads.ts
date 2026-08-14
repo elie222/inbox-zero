@@ -99,6 +99,9 @@ export function useMailThreads({
   const pendingReconciliationWrites = useRef(0);
   const [, renderHiddenChanges] = useReducer((version) => version + 1, 0);
   const remoteIdentity = useRef<string | undefined>(undefined);
+  // Auto-load can fire from the cursor and the bottom sentinel in the same
+  // tick; two setSize(+1) calls would skip a page token.
+  const loadMoreLock = useRef(false);
 
   remoteIdentity.current = data?.[0] ? viewIdentity : undefined;
 
@@ -445,6 +448,19 @@ export function useMailThreads({
     ? Boolean(data.at(-1)?.nextPageToken)
     : persistent?.identity === viewIdentity && persistent.hasMore;
 
+  useEffect(() => {
+    const loadedPageCount = data?.length ?? 0;
+    if (error && size > 1 && size > loadedPageCount) {
+      loadMoreLock.current = false;
+      setSize(Math.max(loadedPageCount, 1)).catch(() => {});
+      return;
+    }
+
+    const latestPageLoaded = !data || data.length === size;
+    const paginationIdle = paginationRequestIdentity !== viewIdentity;
+    if (latestPageLoaded && paginationIdle) loadMoreLock.current = false;
+  }, [data, error, paginationRequestIdentity, setSize, size, viewIdentity]);
+
   return {
     threads,
     isLoading: isLoading && !sourceThreads,
@@ -454,9 +470,18 @@ export function useMailThreads({
       paginationRequestIdentity === viewIdentity ||
       (size > 1 && !data?.[size - 1]),
     loadMore: useCallback(() => {
+      if (loadMoreLock.current) return;
+
       if (data) {
-        setSize((current) => current + 1).catch(() => {});
+        if (!data.at(-1)?.nextPageToken) return;
+        loadMoreLock.current = true;
+        const loadedPageCount = data.length;
+        setSize(loadedPageCount + 1).catch(() => {
+          loadMoreLock.current = false;
+          setSize(loadedPageCount).catch(() => {});
+        });
       } else {
+        loadMoreLock.current = true;
         paginationRetryIdentity.current = undefined;
         setPaginationRequestIdentity(viewIdentity);
       }
