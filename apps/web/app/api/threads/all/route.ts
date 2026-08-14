@@ -34,7 +34,6 @@ export const GET = withAuth("threads/all", async (request) => {
     cursor: cursor ?? null,
     limit,
     logger: request.logger,
-    isRetryableError: (error) => !(error instanceof z.ZodError),
     loadPage: async ({ account, pageToken }) => {
       const logger = request.logger.with({ emailAccountId: account.id });
       const emailProvider = await createEmailProvider({

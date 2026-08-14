@@ -104,11 +104,11 @@ describe("GET /api/threads/all", () => {
   it("rejects an unsafe provider cursor before loading threads", async () => {
     const cursor = Buffer.from(
       JSON.stringify({
-        version: 1,
+        version: 2,
         accounts: {
           "account-1": {
             pageToken: "https://example.com/messages",
-            offset: 0,
+            consumedThreadIds: [],
             done: false,
           },
         },
@@ -123,7 +123,7 @@ describe("GET /api/threads/all", () => {
     await expect(response.json()).resolves.toMatchObject({
       threads: [],
       failedAccountIds: ["account-1"],
-      nextPageToken: null,
+      nextPageToken: expect.any(String),
     });
   });
 });

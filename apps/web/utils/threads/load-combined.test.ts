@@ -140,6 +140,54 @@ describe("loadCombinedThreads", () => {
     expect(second.nextPageToken).toBeNull();
   });
 
+  it("tracks consumed rows by identity when a mailbox page changes", async () => {
+    const connectedAccount = account("account-1");
+    const first = await loadCombinedThreads({
+      accounts: [connectedAccount],
+      cursor: null,
+      limit: 1,
+      loadPage: vi.fn(async () => ({
+        threads: [
+          thread("existing-first", "2026-08-13T10:00:00.000Z"),
+          thread("existing-second", "2026-08-12T10:00:00.000Z"),
+        ],
+        nextPageToken: "original-next",
+      })),
+      logger,
+    });
+    const second = await loadCombinedThreads({
+      accounts: [connectedAccount],
+      cursor: first.nextPageToken,
+      limit: 1,
+      loadPage: vi.fn(async () => ({
+        threads: [
+          thread("new-thread", "2026-08-14T10:00:00.000Z"),
+          thread("existing-first", "2026-08-13T10:00:00.000Z"),
+        ],
+        nextPageToken: "shifted-next",
+      })),
+      logger,
+    });
+    const thirdPageLoader = vi.fn(async () => ({
+      threads: [thread("existing-second", "2026-08-12T10:00:00.000Z")],
+      nextPageToken: null,
+    }));
+    const third = await loadCombinedThreads({
+      accounts: [connectedAccount],
+      cursor: second.nextPageToken,
+      limit: 1,
+      loadPage: thirdPageLoader,
+      logger,
+    });
+
+    expect(first.threads.map((item) => item.id)).toEqual(["existing-first"]);
+    expect(second.threads.map((item) => item.id)).toEqual(["new-thread"]);
+    expect(thirdPageLoader).toHaveBeenCalledWith(
+      expect.objectContaining({ pageToken: "shifted-next" }),
+    );
+    expect(third.threads.map((item) => item.id)).toEqual(["existing-second"]);
+  });
+
   it("loads newly connected accounts on a later page", async () => {
     const first = await loadCombinedThreads({
       accounts: [account("account-1")],

@@ -6,12 +6,12 @@ import { getThreadTimestamp } from "@/utils/threads/sort";
 const ACCOUNT_CONCURRENCY = 4;
 const INITIAL_ACCOUNT_CURSOR: AccountCursorState = {
   pageToken: null,
-  offset: 0,
+  consumedThreadIds: [],
   done: false,
 };
 const DONE_ACCOUNT_CURSOR: AccountCursorState = {
   pageToken: null,
-  offset: 0,
+  consumedThreadIds: [],
   done: true,
 };
 
@@ -25,12 +25,12 @@ export type CombinedThreadsAccount = {
 
 type AccountCursorState = {
   pageToken: string | null;
-  offset: number;
+  consumedThreadIds: string[];
   done: boolean;
 };
 
 type CombinedCursor = {
-  version: 1;
+  version: 2;
   accounts: Record<string, AccountCursorState>;
 };
 
@@ -44,7 +44,6 @@ export async function loadCombinedThreads({
   limit,
   loadPage,
   logger,
-  isRetryableError,
 }: {
   accounts: CombinedThreadsAccount[];
   cursor: string | null;
@@ -57,7 +56,6 @@ export async function loadCombinedThreads({
     nextPageToken?: string | null;
   }>;
   logger: Logger;
-  isRetryableError?: (error: unknown) => boolean;
 }) {
   if (!Number.isInteger(limit) || limit < 1) {
     throw new Error("limit must be a positive integer");
@@ -79,18 +77,13 @@ export async function loadCombinedThreads({
           account,
           pageToken: cursorState.pageToken ?? undefined,
         });
-        return { account, cursorState, page, shouldRetry: false };
+        return { account, cursorState, page };
       } catch (error) {
         logger.warn("Failed to load combined mailbox account", {
           error,
           emailAccountId: account.id,
         });
-        return {
-          account,
-          cursorState,
-          page: null,
-          shouldRetry: isRetryableError?.(error) ?? true,
-        };
+        return { account, cursorState, page: null };
       }
     },
   );
@@ -104,16 +97,19 @@ export async function loadCombinedThreads({
       continue;
     }
 
+    const consumedThreadIds = new Set(cursorState.consumedThreadIds);
     candidates.push(
-      ...page.threads.slice(cursorState.offset).map((thread) => ({
-        ...thread,
-        account: {
-          id: account.id,
-          email: account.email,
-          name: account.name,
-          image: account.image,
-        },
-      })),
+      ...page.threads
+        .filter((thread) => !consumedThreadIds.has(thread.id))
+        .map((thread) => ({
+          ...thread,
+          account: {
+            id: account.id,
+            email: account.email,
+            name: account.name,
+            image: account.image,
+          },
+        })),
     );
   }
 
@@ -121,11 +117,11 @@ export async function loadCombinedThreads({
     (left, right) => getThreadTimestamp(right) - getThreadTimestamp(left),
   );
   const threads = candidates.slice(0, limit);
-  const consumedByAccount = countThreadsByAccount(threads);
+  const returnedThreadIdsByAccount = getThreadIdsByAccount(threads);
   const pagesByAccountId = new Map(
     accountPages.map((page) => [page.account.id, page]),
   );
-  const nextCursor: CombinedCursor = { version: 1, accounts: {} };
+  const nextCursor = emptyCursor();
 
   for (const account of accounts) {
     const accountPage = pagesByAccountId.get(account.id);
@@ -135,23 +131,26 @@ export async function loadCombinedThreads({
       continue;
     }
     if (!accountPage.page) {
-      nextCursor.accounts[account.id] = accountPage.shouldRetry
-        ? accountPage.cursorState
-        : DONE_ACCOUNT_CURSOR;
+      nextCursor.accounts[account.id] = accountPage.cursorState;
       continue;
     }
 
-    const nextOffset =
-      accountPage.cursorState.offset + (consumedByAccount.get(account.id) ?? 0);
-    if (nextOffset < accountPage.page.threads.length) {
+    const consumedThreadIds = new Set([
+      ...accountPage.cursorState.consumedThreadIds,
+      ...(returnedThreadIdsByAccount.get(account.id) ?? []),
+    ]);
+    const hasUnconsumedThreads = accountPage.page.threads.some(
+      (thread) => !consumedThreadIds.has(thread.id),
+    );
+    if (hasUnconsumedThreads) {
       nextCursor.accounts[account.id] = {
         ...accountPage.cursorState,
-        offset: nextOffset,
+        consumedThreadIds: [...consumedThreadIds],
       };
     } else if (accountPage.page.nextPageToken) {
       nextCursor.accounts[account.id] = {
         pageToken: accountPage.page.nextPageToken,
-        offset: 0,
+        consumedThreadIds: [],
         done: false,
       };
     } else {
@@ -170,12 +169,14 @@ export async function loadCombinedThreads({
   };
 }
 
-function countThreadsByAccount(threads: CombinedListThread[]) {
-  const counts = new Map<string, number>();
+function getThreadIdsByAccount(threads: CombinedListThread[]) {
+  const threadIds = new Map<string, string[]>();
   for (const thread of threads) {
-    counts.set(thread.account.id, (counts.get(thread.account.id) ?? 0) + 1);
+    const accountThreadIds = threadIds.get(thread.account.id) ?? [];
+    accountThreadIds.push(thread.id);
+    threadIds.set(thread.account.id, accountThreadIds);
   }
-  return counts;
+  return threadIds;
 }
 
 function encodeCursor(cursor: CombinedCursor) {
@@ -183,7 +184,7 @@ function encodeCursor(cursor: CombinedCursor) {
 }
 
 function decodeCursor(cursor: string | null): CombinedCursor {
-  if (!cursor) return { version: 1, accounts: {} };
+  if (!cursor) return emptyCursor();
 
   try {
     const parsed: unknown = JSON.parse(
@@ -191,10 +192,10 @@ function decodeCursor(cursor: string | null): CombinedCursor {
     );
     if (
       !isRecord(parsed) ||
-      parsed.version !== 1 ||
+      parsed.version !== 2 ||
       !isRecord(parsed.accounts)
     ) {
-      return { version: 1, accounts: {} };
+      return emptyCursor();
     }
 
     const accounts = Object.fromEntries(
@@ -203,19 +204,22 @@ function decodeCursor(cursor: string | null): CombinedCursor {
           isAccountCursorState(entry[1]),
       ),
     );
-    return { version: 1, accounts };
+    return { version: 2, accounts };
   } catch {
-    return { version: 1, accounts: {} };
+    return emptyCursor();
   }
+}
+
+function emptyCursor(): CombinedCursor {
+  return { version: 2, accounts: {} };
 }
 
 function isAccountCursorState(value: unknown): value is AccountCursorState {
   return (
     isRecord(value) &&
     (typeof value.pageToken === "string" || value.pageToken === null) &&
-    typeof value.offset === "number" &&
-    Number.isInteger(value.offset) &&
-    value.offset >= 0 &&
+    Array.isArray(value.consumedThreadIds) &&
+    value.consumedThreadIds.every((threadId) => typeof threadId === "string") &&
     typeof value.done === "boolean"
   );
 }

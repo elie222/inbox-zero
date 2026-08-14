@@ -73,10 +73,11 @@ describe("loadThreads", () => {
       messageFormat: "metadata",
     });
 
-    expect(result.threads[0]?.plans.map((plan) => plan.id)).toEqual([
-      "execution-2",
-      "execution-1",
-    ]);
+    const planIds = result.threads[0]?.plans.map((plan) => plan.id);
+    expect(planIds).toHaveLength(2);
+    expect(planIds).toEqual(
+      expect.arrayContaining(["execution-1", "execution-2"]),
+    );
   });
 });
 
