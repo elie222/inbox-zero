@@ -14,6 +14,7 @@ export function EmailFirehose({
   threads,
   stats,
   action,
+  jobId,
 }: {
   threads: CleanThread[];
   stats: {
@@ -21,6 +22,7 @@ export function EmailFirehose({
     done: number;
   };
   action: CleanAction;
+  jobId: string;
 }) {
   const { userEmail, emailAccountId } = useAccount();
 
@@ -118,6 +120,7 @@ export function EmailFirehose({
                     userEmail={userEmail}
                     emailAccountId={emailAccountId}
                     action={action}
+                    jobId={jobId}
                     undoState={undoStates[emails[virtualItem.index].threadId]}
                     setUndoing={(threadId) => {
                       setUndoStates((prev) => ({

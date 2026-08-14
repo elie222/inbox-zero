@@ -6,6 +6,7 @@ import {
   Undo2Icon,
   ArchiveIcon,
   CheckIcon,
+  XIcon,
 } from "lucide-react";
 import { Badge } from "@/components/Badge";
 import { cn } from "@/utils";
@@ -15,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import {
   undoCleanInboxAction,
   changeKeepToDoneAction,
+  removeLabelFromThreadAction,
 } from "@/utils/actions/clean";
 import { toastError } from "@/components/Toast";
 import { getGmailUrl } from "@/utils/url";
@@ -27,6 +29,7 @@ export function EmailItem({
   userEmail,
   emailAccountId,
   action,
+  jobId,
   undoState,
   setUndoing,
   setUndone,
@@ -35,6 +38,7 @@ export function EmailItem({
   userEmail: string;
   emailAccountId: string;
   action: CleanAction;
+  jobId: string;
   undoState?: "undoing" | "undone";
   setUndoing: (threadId: string) => void;
   setUndone: (threadId: string) => void;
@@ -75,6 +79,7 @@ export function EmailItem({
           status={status}
           email={email}
           action={action}
+          jobId={jobId}
           undoState={undoState}
           setUndoing={setUndoing}
           setUndone={setUndone}
@@ -102,6 +107,7 @@ function StatusBadge({
   status,
   email,
   action,
+  jobId,
   undoState,
   setUndoing,
   setUndone,
@@ -110,6 +116,7 @@ function StatusBadge({
   status: Status;
   email: CleanThread;
   action: CleanAction;
+  jobId: string;
   undoState?: "undoing" | "undone";
   setUndoing: (threadId: string) => void;
   setUndone: (threadId: string) => void;
@@ -134,45 +141,49 @@ function StatusBadge({
 
   if (status === "markedDone" || status === "markingDone") {
     return (
-      <div className="group">
-        <span className="group-hover:hidden">
-          <Badge color="green">
-            {status === "markingDone"
-              ? action === CleanAction.MARK_READ
-                ? "Marking read..."
-                : "Archiving..."
-              : action === CleanAction.MARK_READ
-                ? "Marked read"
-                : "Archived"}
-          </Badge>
-        </span>
-        <div className="hidden group-hover:inline-flex">
-          <Button
-            size="xs"
-            variant="ghost"
-            onClick={async () => {
-              if (undoState) return;
+      <>
+        <div className="group">
+          <span className="group-hover:hidden">
+            <Badge color="green">
+              {status === "markingDone"
+                ? action === CleanAction.MARK_READ
+                  ? "Marking read..."
+                  : "Archiving..."
+                : action === CleanAction.MARK_READ
+                  ? "Marked read"
+                  : "Archived"}
+            </Badge>
+          </span>
+          <div className="hidden group-hover:inline-flex">
+            <Button
+              size="xs"
+              variant="ghost"
+              onClick={async () => {
+                if (undoState) return;
 
-              setUndoing(email.threadId);
+                setUndoing(email.threadId);
 
-              const result = await undoCleanInboxAction(emailAccountId, {
-                threadId: email.threadId,
-                markedDone: !!email.archive,
-                action,
-              });
+                const result = await undoCleanInboxAction(emailAccountId, {
+                  threadId: email.threadId,
+                  markedDone: !!email.archive,
+                  action,
+                  jobId,
+                });
 
-              if (result?.serverError) {
-                toastError({ description: result.serverError });
-              } else {
-                setUndone(email.threadId);
-              }
-            }}
-          >
-            <Undo2Icon className="size-3" />
-            Undo
-          </Button>
+                if (result?.serverError) {
+                  toastError({ description: result.serverError });
+                } else {
+                  setUndone(email.threadId);
+                }
+              }}
+            >
+              <Undo2Icon className="size-3" />
+              Undo
+            </Button>
+          </div>
         </div>
-      </div>
+        {email.label && <Badge color="yellow">{email.label}</Badge>}
+      </>
     );
   }
 
@@ -221,7 +232,38 @@ function StatusBadge({
   }
 
   if (status === "labelled") {
-    return <Badge color="yellow">{email.label}</Badge>;
+    return (
+      <div className="group">
+        <span className="group-hover:hidden">
+          <Badge color="yellow">{email.label}</Badge>
+        </span>
+        <div className="hidden group-hover:inline-flex">
+          <Button
+            size="xs"
+            variant="ghost"
+            onClick={async () => {
+              if (undoState) return;
+
+              setUndoing(email.threadId);
+
+              const result = await removeLabelFromThreadAction(emailAccountId, {
+                threadId: email.threadId,
+                jobId,
+              });
+
+              if (result?.serverError) {
+                toastError({ description: result.serverError });
+              } else {
+                setUndone(email.threadId);
+              }
+            }}
+          >
+            <XIcon className="size-3" />
+            Remove label
+          </Button>
+        </div>
+      </div>
+    );
   }
 }
 

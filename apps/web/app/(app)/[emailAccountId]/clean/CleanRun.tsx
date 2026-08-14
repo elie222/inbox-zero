@@ -25,6 +25,7 @@ export function CleanRun({
           threads={threads.filter((t) => t.status !== "processing")}
           stats={{ total, done }}
           action={job.action}
+          jobId={job.id}
         />
       </Card>
     </div>
