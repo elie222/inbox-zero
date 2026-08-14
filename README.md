@@ -72,7 +72,7 @@ Learn more in our [docs](https://docs.getinboxzero.com).
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=elie222/inbox-zero&type=Date)](https://www.star-history.com/#elie222/inbox-zero&Date)
+[![Star History Chart](https://star-history.dera.page/svg?repos=elie222/inbox-zero&type=Date)](https://star-history.dera.page/#elie222/inbox-zero&Date)
 
 ## Feature Requests
 
