@@ -386,7 +386,13 @@ function NavRow({
     </>
   );
 
-  if (!href) return <div className={className}>{content}</div>;
+  if (!href) {
+    return (
+      <div aria-current={active ? "page" : undefined} className={className}>
+        {content}
+      </div>
+    );
+  }
 
   return (
     <Link
