@@ -232,7 +232,7 @@ describe("buildPrompt timezone handling", () => {
 
   it("requires one OpenRouter server web search", () => {
     const config = getWebSearchConfig("openrouter");
-    const tools = config?.getSearchTools?.();
+    const tools = config?.tools;
 
     expect(mockOpenRouterWebSearch).toHaveBeenCalledWith({
       engine: "auto",

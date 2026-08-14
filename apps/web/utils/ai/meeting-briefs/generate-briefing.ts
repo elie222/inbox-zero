@@ -1,9 +1,6 @@
 import { tool, type ToolSet } from "ai";
 import { z } from "zod";
 import { createPerplexity } from "@ai-sdk/perplexity";
-import { openai } from "@ai-sdk/openai";
-import { google } from "@ai-sdk/google";
-import { openrouter } from "@openrouter/ai-sdk-provider";
 import { env } from "@/env";
 import { createGenerateText } from "@/utils/llms";
 import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
@@ -21,8 +18,11 @@ import {
   setCachedResearch,
 } from "@/utils/redis/research-cache";
 import type { Logger } from "@/utils/logger";
-import { Provider } from "@/utils/llms/config";
 import { createMcpToolsForAgent } from "@/utils/ai/mcp/mcp-tools";
+import {
+  getWebSearchConfigForProvider,
+  type WebSearchConfig,
+} from "@/utils/ai/web-search";
 
 const MAX_AGENT_STEPS = 15;
 const MAX_EMAILS_PER_GUEST = 10;
@@ -273,10 +273,7 @@ async function buildSearchTools({
       emailAccount,
       logger,
       modelOptions: webSearchModelOptions,
-      providerName: webSearchConfig.providerName,
-      getSearchTools: webSearchConfig.getSearchTools,
-      providerOptions: webSearchConfig.providerOptions,
-      toolChoice: webSearchConfig.toolChoice,
+      webSearchConfig,
     });
   }
 
@@ -303,63 +300,26 @@ async function buildSearchTools({
   };
 }
 
-type WebSearchConfig = {
-  providerName: string;
-  getSearchTools?: () => ToolSet;
-  providerOptions?: Record<string, Record<string, number>>;
-  toolChoice?: "required";
-};
-
 export function getWebSearchConfig(
   webSearchProvider: string | undefined,
 ): WebSearchConfig | null {
-  switch (webSearchProvider) {
-    case Provider.OPEN_AI:
-      return {
-        providerName: "OpenAI",
-        getSearchTools: () => ({ web_search: openai.tools.webSearch({}) }),
-      };
-    case Provider.GOOGLE:
-      return {
-        providerName: "Google",
-        getSearchTools: () => ({
-          google_search: google.tools.googleSearch({}),
-        }),
-      };
-    case Provider.OPENROUTER:
-      return {
-        providerName: "OpenRouter",
-        getSearchTools: () => ({
-          web_search: openrouter.tools.webSearch({
-            engine: "auto",
-            maxResults: 5,
-          }),
-        }),
-        providerOptions: { openrouter: { max_tool_calls: 1 } },
-        toolChoice: "required",
-      };
-    default:
-      return null;
-  }
+  return getWebSearchConfigForProvider(webSearchProvider);
 }
 
 function createWebSearchTool({
   emailAccount,
   logger,
   modelOptions,
-  providerName,
-  getSearchTools,
-  providerOptions,
-  toolChoice,
+  webSearchConfig,
 }: {
   emailAccount: EmailAccountWithAI;
   logger: Logger;
   modelOptions: ReturnType<typeof getModelForUseCase>;
-  providerName: string;
-  getSearchTools?: () => ToolSet;
-  providerOptions?: Record<string, Record<string, number>>;
-  toolChoice?: "required";
+  webSearchConfig: WebSearchConfig;
 }) {
+  const { providerName, tools: searchTools, providerOptions, toolChoice } =
+    webSearchConfig;
+
   return tool({
     description: "Search the web for information",
     inputSchema: searchInputSchema,
@@ -388,7 +348,7 @@ function createWebSearchTool({
         const searchResult = await webGenerateText({
           model: modelOptions.model,
           prompt: query,
-          ...(getSearchTools && { tools: getSearchTools() }),
+          tools: searchTools,
           providerOptions,
           toolChoice,
         });

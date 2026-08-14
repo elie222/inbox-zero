@@ -1,0 +1,136 @@
+import { z } from "zod";
+import { env } from "@/env";
+import {
+  isSafeForSharedCache,
+  type PublicContactContext,
+  publicContactContextSchema,
+} from "@/utils/ai/public-contact-context-schema";
+import { hash } from "@/utils/hash";
+import { createScopedLogger } from "@/utils/logger";
+import { redis } from "@/utils/redis";
+import { acquireOwnedLock, clearOwnedLock } from "@/utils/redis/owned-lock";
+
+const CACHE_KEY_PREFIX = "public-contact-context:v1";
+const CACHE_TTL_SECONDS = 30 * 24 * 60 * 60;
+const NOT_FOUND_TTL_SECONDS = 12 * 60 * 60;
+const RESEARCH_LOCK_TTL_SECONDS = 60;
+const logger = createScopedLogger("redis/public-contact-context-cache");
+
+const cacheEntrySchema = z.discriminatedUnion("status", [
+  z.strictObject({
+    status: z.literal("found"),
+    context: publicContactContextSchema,
+  }),
+  z.strictObject({ status: z.literal("not_found") }),
+]);
+
+export type PublicContactContextCacheEntry = z.infer<typeof cacheEntrySchema>;
+
+export async function getCachedPublicContactContext(
+  email: string,
+): Promise<PublicContactContextCacheEntry | null> {
+  if (!isRedisConfigured()) return null;
+
+  const key = getCacheKey(email);
+  try {
+    const cached = await redis.get<unknown>(key);
+    if (!cached) return null;
+
+    const parsed = cacheEntrySchema.safeParse(cached);
+    if (
+      parsed.success &&
+      (parsed.data.status === "not_found" ||
+        isSafeForSharedCache(parsed.data.context))
+    ) {
+      return parsed.data;
+    }
+
+    logger.warn("Removing invalid public contact context cache entry", {
+      issues: parsed.success ? 0 : parsed.error.issues.length,
+    });
+    await redis.del(key);
+    return null;
+  } catch (error) {
+    logger.error("Failed to read public contact context cache", { error });
+    return null;
+  }
+}
+
+export async function setCachedPublicContactContext(
+  email: string,
+  context: PublicContactContext,
+): Promise<void> {
+  if (!isRedisConfigured()) return;
+
+  const parsed = publicContactContextSchema.safeParse(context);
+  if (!parsed.success || !isSafeForSharedCache(parsed.data)) {
+    logger.warn("Refusing unsafe public contact context cache entry");
+    return;
+  }
+
+  await setCacheEntry(
+    email,
+    { status: "found", context: parsed.data },
+    CACHE_TTL_SECONDS,
+  );
+}
+
+export async function setCachedPublicContactContextNotFound(email: string) {
+  if (!isRedisConfigured()) return;
+  await setCacheEntry(email, { status: "not_found" }, NOT_FOUND_TTL_SECONDS);
+}
+
+export async function acquirePublicContactResearchLock(email: string): Promise<{
+  acquired: boolean;
+  lockToken?: string;
+}> {
+  if (!isRedisConfigured()) return { acquired: true };
+
+  try {
+    const lockToken = await acquireOwnedLock({
+      key: getLockKey(email),
+      processingTtlSeconds: RESEARCH_LOCK_TTL_SECONDS,
+    });
+    return lockToken ? { acquired: true, lockToken } : { acquired: false };
+  } catch (error) {
+    logger.error("Failed to acquire public contact research lock", { error });
+    return { acquired: true };
+  }
+}
+
+export async function releasePublicContactResearchLock(
+  email: string,
+  lockToken: string | undefined,
+) {
+  if (!lockToken) return;
+
+  try {
+    await clearOwnedLock({ key: getLockKey(email), lockToken });
+  } catch (error) {
+    logger.error("Failed to release public contact research lock", { error });
+  }
+}
+
+async function setCacheEntry(
+  email: string,
+  entry: PublicContactContextCacheEntry,
+  ttlSeconds: number,
+) {
+  try {
+    await redis.set(getCacheKey(email), entry, { ex: ttlSeconds });
+  } catch (error) {
+    logger.error("Failed to write public contact context cache", { error });
+  }
+}
+
+function getCacheKey(email: string) {
+  return `${CACHE_KEY_PREFIX}:${hash(email)}`;
+}
+
+function getLockKey(email: string) {
+  return `${CACHE_KEY_PREFIX}:lock:${hash(email)}`;
+}
+
+function isRedisConfigured() {
+  return Boolean(env.UPSTASH_REDIS_URL && env.UPSTASH_REDIS_TOKEN);
+}

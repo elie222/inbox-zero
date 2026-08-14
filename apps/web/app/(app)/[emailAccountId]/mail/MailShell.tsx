@@ -740,6 +740,7 @@ export function MailShell() {
 
         {showReader && (
           <ThreadReader
+            key={openThread?.id ?? "empty"}
             thread={openThread ?? null}
             messages={openMessages ?? []}
             userEmail={userEmail}
