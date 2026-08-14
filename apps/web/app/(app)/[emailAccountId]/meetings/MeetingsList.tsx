@@ -1,7 +1,6 @@
 "use client";
 
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { useState } from "react";
 import { MicIcon } from "lucide-react";
 import { ListCard } from "@/components/ListCard";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -14,14 +13,16 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MeetingDetail } from "@/app/(app)/[emailAccountId]/meetings/MeetingDetail";
 import { MeetingListItem } from "@/app/(app)/[emailAccountId]/meetings/MeetingListItem";
 import { useMeetingRecorderMeetings } from "@/hooks/useMeetingRecorder";
 
-export function MeetingsList() {
+export function MeetingsList({
+  onOpenMeeting,
+}: {
+  onOpenMeeting: (meetingId: string) => void;
+}) {
   const { emailAccountId } = useAccount();
   const { data, isLoading, error } = useMeetingRecorderMeetings(emailAccountId);
-  const [openMeetingId, setOpenMeetingId] = useState<string | null>(null);
 
   return (
     <div>
@@ -51,7 +52,7 @@ export function MeetingsList() {
                 endTime={meeting.endTime}
                 status={meeting.recording?.status}
                 failureReason={meeting.recording?.failureReason}
-                onClick={() => setOpenMeetingId(meeting.id)}
+                onClick={() => onOpenMeeting(meeting.id)}
               >
                 {meeting.followUpDraftId && (
                   <Badge variant="secondary">Draft ready</Badge>
@@ -61,11 +62,6 @@ export function MeetingsList() {
           </ListCard>
         )}
       </LoadingContent>
-
-      <MeetingDetail
-        meetingId={openMeetingId}
-        onClose={() => setOpenMeetingId(null)}
-      />
     </div>
   );
 }

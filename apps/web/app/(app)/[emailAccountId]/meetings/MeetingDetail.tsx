@@ -24,6 +24,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { MeetingRecordingStatus } from "@/generated/prisma/enums";
 import { getMeetingDetailState } from "@/app/(app)/[emailAccountId]/meetings/meeting-detail-state";
 import { useMeetingRecorderMeeting } from "@/hooks/useMeetingRecorder";
 import { formatTranscriptTimestamp } from "@/utils/meeting-recorder/transcript-prompt";
@@ -100,8 +101,10 @@ export function MeetingDetail({
 
           {state === "processing" && (
             <MutedText>
-              The recording is in progress or being processed. Notes will appear
-              here when they are ready.
+              {data?.recording?.status === MeetingRecordingStatus.IN_CALL ||
+              data?.recording?.status === MeetingRecordingStatus.RECORDING
+                ? "The notetaker is recording this call. The transcript and notes will appear here after it ends."
+                : "The call has ended. The transcript and notes are being prepared, and this view will update automatically."}
             </MutedText>
           )}
 
@@ -180,7 +183,7 @@ export function MeetingDetail({
           )}
 
           {!!transcript?.length && (
-            <Collapsible>
+            <Collapsible defaultOpen>
               <Card>
                 <CollapsibleTrigger className="group flex w-full items-center gap-3 p-4 text-left hover:bg-accent/50">
                   <TextQuoteIcon className="size-4 shrink-0 text-muted-foreground" />

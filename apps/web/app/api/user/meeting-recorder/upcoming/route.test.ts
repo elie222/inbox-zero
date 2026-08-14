@@ -73,6 +73,7 @@ describe("meeting recorder upcoming route", () => {
   it("exposes an existing booking after plan access is lost", async () => {
     prisma.meeting.findMany.mockResolvedValue([
       {
+        id: "meeting-1",
         calendarEventId: "event-1",
         joinOverride: null,
         recording: {
@@ -92,6 +93,7 @@ describe("meeting recorder upcoming route", () => {
     expect(body.events).toEqual([
       expect.objectContaining({
         id: "event-1",
+        meetingId: "meeting-1",
         hasCancellableBooking: true,
         joinOverride: null,
         willRecord: false,
@@ -102,6 +104,7 @@ describe("meeting recorder upcoming route", () => {
   it("does not expose a terminal recording as an active booking", async () => {
     prisma.meeting.findMany.mockResolvedValue([
       {
+        id: "meeting-1",
         calendarEventId: "event-1",
         joinOverride: null,
         recording: {
@@ -121,6 +124,7 @@ describe("meeting recorder upcoming route", () => {
     expect(body.events).toEqual([
       expect.objectContaining({
         id: "event-1",
+        meetingId: "meeting-1",
         hasCancellableBooking: false,
         willRecord: false,
       }),

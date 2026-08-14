@@ -10,13 +10,6 @@ type StatusBadge = {
   variant: "default" | "secondary" | "green" | "red";
 };
 
-// The recorder has reported no progress in these states, so during the meeting
-// the event's own time window is fresher information than the status.
-const NO_PROGRESS_STATUSES: MeetingRecordingStatus[] = [
-  MeetingRecordingStatus.PENDING,
-  MeetingRecordingStatus.SCHEDULED,
-];
-
 // Waiting-room and failure states are the ones users need to act on, so they
 // are called out rather than folded into a generic "recording" state.
 const STATUS_BADGES: Record<MeetingRecordingStatus, StatusBadge> = {
@@ -38,7 +31,7 @@ const STATUS_BADGES: Record<MeetingRecordingStatus, StatusBadge> = {
     variant: "default",
   },
   [MeetingRecordingStatus.IN_CALL]: {
-    label: "In the call",
+    label: "Notetaker joined",
     variant: "default",
   },
   [MeetingRecordingStatus.RECORDING]: { label: "Recording", variant: "green" },
@@ -68,12 +61,13 @@ export function getRecordingStatusBadge({
   const start = new Date(startTime);
   const end = new Date(endTime);
 
-  if (
-    start <= now &&
-    now < end &&
-    (!status || NO_PROGRESS_STATUSES.includes(status))
-  ) {
-    return { label: "Ongoing", variant: "green" };
+  if (start <= now && now < end) {
+    if (!status) {
+      return { label: "Call in progress", variant: "secondary" };
+    }
+    if (status === MeetingRecordingStatus.SCHEDULED) {
+      return { label: "Waiting to join", variant: "secondary" };
+    }
   }
 
   if (end <= now && status) {
