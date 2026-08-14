@@ -1,4 +1,4 @@
-import type { Message } from "@microsoft/microsoft-graph-types";
+import type { Message, UploadSession } from "@microsoft/microsoft-graph-types";
 import type { OutlookClient } from "@/utils/outlook/client";
 import type { Attachment } from "nodemailer/lib/mailer";
 import type { SendEmailBody } from "@/utils/gmail/mail";
@@ -15,6 +15,7 @@ import {
 import { withOutlookRetry } from "@/utils/outlook/retry";
 import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
+import { uploadResumableChunks } from "@/utils/microsoft/upload-session";
 import type { Logger } from "@/utils/logger";
 
 type GraphRecipient = {
@@ -654,142 +655,17 @@ async function uploadAttachmentViaSession({
     logger,
   );
 
-  const uploadUrl = (uploadSession as { uploadUrl?: string }).uploadUrl;
+  const uploadUrl = (uploadSession as UploadSession).uploadUrl;
   if (!uploadUrl) {
     throw new Error("Failed to create Outlook attachment upload session");
   }
 
-  let start = 0;
-  while (start < content.length) {
-    const end = Math.min(start + GRAPH_UPLOAD_CHUNK_SIZE_BYTES, content.length);
-    const chunk = content.subarray(start, end);
-    start = await withOutlookRetry(
-      () =>
-        uploadAttachmentChunk({
-          uploadUrl,
-          chunk,
-          start,
-          end,
-          totalSize: content.length,
-        }),
-      logger,
-    );
-  }
-}
-
-async function uploadAttachmentChunk({
-  uploadUrl,
-  chunk,
-  start,
-  end,
-  totalSize,
-}: {
-  uploadUrl: string;
-  chunk: Buffer;
-  start: number;
-  end: number;
-  totalSize: number;
-}): Promise<number> {
-  const response = await fetch(uploadUrl, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/octet-stream",
-      "Content-Length": String(chunk.length),
-      "Content-Range": `bytes ${start}-${end - 1}/${totalSize}`,
-    },
-    body: new Uint8Array(chunk),
+  await uploadResumableChunks({
+    uploadUrl,
+    content,
+    chunkSizeBytes: GRAPH_UPLOAD_CHUNK_SIZE_BYTES,
+    logger,
+    action: "upload Outlook attachment chunk",
+    statusAction: "fetch Outlook upload session status",
   });
-
-  if (response.status === 201) {
-    return totalSize;
-  }
-
-  if (response.status === 200 || response.status === 202) {
-    const uploadStatus = (await response.json()) as UploadSessionStatus;
-    const nextStart = getNextExpectedRangeStart(
-      uploadStatus.nextExpectedRanges,
-    );
-    if (typeof nextStart !== "number") {
-      throw new Error(
-        `Outlook upload session returned ${response.status} without nextExpectedRanges`,
-      );
-    }
-
-    return nextStart;
-  }
-
-  if (response.status === 416) {
-    const uploadStatus = await getUploadSessionStatus(uploadUrl);
-    if (!uploadStatus) {
-      return end;
-    }
-
-    const nextStart = getNextExpectedRangeStart(
-      uploadStatus.nextExpectedRanges,
-    );
-    if (typeof nextStart === "number" && nextStart > start) {
-      return nextStart;
-    }
-
-    throw new Error(
-      "Outlook upload session returned 416 without a usable resume range",
-    );
-  }
-
-  return await throwOutlookResponseError(
-    response,
-    "upload Outlook attachment chunk",
-  );
-}
-
-interface UploadSessionStatus {
-  nextExpectedRanges?: string[];
-}
-
-async function getUploadSessionStatus(
-  uploadUrl: string,
-): Promise<UploadSessionStatus | null> {
-  const response = await fetch(uploadUrl, { method: "GET" });
-
-  if (response.status === 404 || response.status === 405) {
-    return null;
-  }
-
-  if (!response.ok) {
-    return await throwOutlookResponseError(
-      response,
-      "fetch Outlook upload session status",
-    );
-  }
-
-  return (await response.json()) as UploadSessionStatus;
-}
-
-function getNextExpectedRangeStart(nextExpectedRanges?: string[]) {
-  const nextRange = nextExpectedRanges?.[0];
-  if (!nextRange) return null;
-
-  const [rangeStart] = nextRange.split("-");
-  if (!rangeStart) return null;
-
-  const parsedRangeStart = Number.parseInt(rangeStart, 10);
-  return Number.isNaN(parsedRangeStart) ? null : parsedRangeStart;
-}
-
-async function throwOutlookResponseError(
-  response: Response,
-  action: string,
-): Promise<never> {
-  const errorText = await response.text();
-  const error = new Error(
-    `Failed to ${action}: ${response.status} ${
-      errorText || response.statusText
-    }`,
-  );
-  Object.assign(error, {
-    status: response.status,
-    body: errorText,
-    response: { headers: response.headers, status: response.status },
-  });
-  throw error;
 }

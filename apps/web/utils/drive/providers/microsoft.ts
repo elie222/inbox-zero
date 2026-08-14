@@ -1,5 +1,8 @@
 import { Client } from "@microsoft/microsoft-graph-client";
-import type { DriveItem } from "@microsoft/microsoft-graph-types";
+import type {
+  DriveItem,
+  UploadSession,
+} from "@microsoft/microsoft-graph-types";
 import type { Logger } from "@/utils/logger";
 import { createScopedLogger } from "@/utils/logger";
 import {
@@ -7,12 +10,17 @@ import {
   getMicrosoftGraphClientOptions,
 } from "@/utils/microsoft/oauth";
 import { isNotFoundError } from "@/utils/outlook/errors";
+import { uploadResumableChunks } from "@/utils/microsoft/upload-session";
 import type {
   DriveProvider,
   DriveFolder,
   DriveFile,
   UploadFileParams,
 } from "@/utils/drive/types";
+
+const MAX_ONEDRIVE_UPLOAD_SIZE_BYTES = 250 * 1024 * 1024 * 1024;
+const MAX_SIMPLE_UPLOAD_SIZE_BYTES = 4 * 1024 * 1024;
+const ONEDRIVE_UPLOAD_CHUNK_SIZE_BYTES = 5 * 1024 * 1024;
 
 export class OneDriveProvider implements DriveProvider {
   readonly name = "microsoft" as const;
@@ -136,6 +144,7 @@ export class OneDriveProvider implements DriveProvider {
 
   async uploadFile(params: UploadFileParams): Promise<DriveFile> {
     const { filename, mimeType, content, folderId } = params;
+
     this.logger.info("Uploading file", {
       filename,
       mimeType,
@@ -144,20 +153,13 @@ export class OneDriveProvider implements DriveProvider {
     });
 
     try {
-      // For files up to 4MB, use simple upload
-      // For larger files, would need to use upload session (not implemented yet)
-      const MAX_SIMPLE_UPLOAD_SIZE = 4 * 1024 * 1024; // 4MB
-
-      if (content.length > MAX_SIMPLE_UPLOAD_SIZE) {
-        // TODO: Implement resumable upload for large files
-        this.logger.warn("File exceeds simple upload limit", {
-          filename,
-          size: content.length,
-          limit: MAX_SIMPLE_UPLOAD_SIZE,
-        });
-        throw new Error(
-          `File size ${content.length} exceeds 4MB limit. Large file upload not yet implemented.`,
-        );
+      if (content.length > MAX_SIMPLE_UPLOAD_SIZE_BYTES) {
+        if (content.length > MAX_ONEDRIVE_UPLOAD_SIZE_BYTES) {
+          throw new Error(
+            `File size ${content.length} exceeds the maximum supported upload size of ${MAX_ONEDRIVE_UPLOAD_SIZE_BYTES} bytes.`,
+          );
+        }
+        return await this.uploadFileViaUploadSession(params);
       }
 
       // Use the PUT endpoint for simple upload
@@ -173,6 +175,77 @@ export class OneDriveProvider implements DriveProvider {
       return this.convertToFile(item);
     } catch (error) {
       this.logger.error("Error uploading file", { error, filename, folderId });
+      throw error;
+    }
+  }
+
+  private async uploadFileViaUploadSession(
+    params: UploadFileParams,
+  ): Promise<DriveFile> {
+    const { filename, mimeType, content, folderId } = params;
+    const normalizedFilename = normalizeOneDriveItemName(filename);
+    const newItemPath = `/me/drive/items/${folderId}:/${encodeURIComponent(normalizedFilename)}:/content`;
+    // Reserve the conflict-safe name so recovery can use a stable item ID even
+    // when Graph renamed the file and the final chunk response was lost.
+    const reservedItem: DriveItem = await this.client
+      .api(newItemPath)
+      .query({ "@microsoft.graph.conflictBehavior": "rename" })
+      .header("Content-Type", mimeType)
+      .put(Buffer.alloc(0));
+
+    if (!reservedItem.id) {
+      throw new Error("Failed to reserve a OneDrive file for upload");
+    }
+
+    const itemPath = `/me/drive/items/${reservedItem.id}`;
+    try {
+      const uploadSession: UploadSession = await this.client
+        .api(`${itemPath}/createUploadSession`)
+        .post({});
+
+      const uploadUrl = uploadSession.uploadUrl;
+      if (!uploadUrl) {
+        throw new Error("Failed to create OneDrive upload session");
+      }
+
+      const result = await uploadResumableChunks({
+        uploadUrl,
+        content,
+        chunkSizeBytes: ONEDRIVE_UPLOAD_CHUNK_SIZE_BYTES,
+        logger: this.logger,
+        action: "upload OneDrive file chunk",
+        statusAction: "fetch OneDrive upload session status",
+      });
+
+      const item: DriveItem =
+        result.kind === "complete"
+          ? await result.response.json()
+          : await this.client.api(itemPath).get();
+
+      if (result.kind === "committed" && item.size !== content.length) {
+        throw new Error(
+          "OneDrive upload completed without a response, but the uploaded item could not be verified",
+        );
+      }
+
+      return this.convertToFile(item);
+    } catch (error) {
+      const item = await this.client
+        .api(itemPath)
+        .get()
+        .catch(() => null);
+
+      if (item?.size === content.length) {
+        return this.convertToFile(item);
+      }
+
+      if (item?.size === 0) {
+        await this.client
+          .api(itemPath)
+          .delete()
+          .catch(() => undefined);
+      }
+
       throw error;
     }
   }
