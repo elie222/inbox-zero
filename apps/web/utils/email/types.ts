@@ -134,6 +134,7 @@ export interface EmailProvider {
       bcc?: string;
       content?: string;
       from?: string;
+      sentByRule?: boolean;
     },
   ): Promise<void>;
   getAccessToken(): string;
@@ -268,6 +269,7 @@ export interface EmailProvider {
       replyTo?: string;
       from?: string;
       attachments?: MailAttachment[];
+      sentByRule?: boolean;
     },
   ): Promise<void>;
   searchMessages(options: {
@@ -282,6 +284,7 @@ export interface EmailProvider {
   }>;
   sendDraft(draftId: string): Promise<{ messageId: string; threadId: string }>;
   sendEmail(args: {
+    sentByRule?: boolean;
     to: string;
     cc?: string;
     bcc?: string;

@@ -16,6 +16,9 @@ vi.mock("@/utils/rule/learned-patterns", () => ({
 
 describe("excludeRepliedSendersFromColdEmail", () => {
   const logger = createTestLogger();
+  const provider = {
+    getMessageByRfc822MessageId: vi.fn(),
+  } as any;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -23,8 +26,8 @@ describe("excludeRepliedSendersFromColdEmail", () => {
       id: "cold-email-rule",
       groupId: "cold-email-group",
     } as any);
-    vi.mocked(prisma.executedRule.count).mockResolvedValue(0);
     vi.mocked(prisma.groupItem.findMany).mockResolvedValue([]);
+    provider.getMessageByRfc822MessageId.mockResolvedValue(null);
   });
 
   it("excludes a pinned sender using the casing it was stored under", async () => {
@@ -35,6 +38,7 @@ describe("excludeRepliedSendersFromColdEmail", () => {
     await excludeRepliedSendersFromColdEmail({
       emailAccountId: "email-account-1",
       message: getMockMessage({ to: "cold.sender@example.com" }),
+      provider,
       logger,
     });
 
@@ -58,6 +62,7 @@ describe("excludeRepliedSendersFromColdEmail", () => {
         ...base,
         headers: { ...base.headers, cc: "second@example.com" },
       },
+      provider,
       logger,
     });
 
@@ -79,23 +84,103 @@ describe("excludeRepliedSendersFromColdEmail", () => {
     await excludeRepliedSendersFromColdEmail({
       emailAccountId: "email-account-1",
       message: getMockMessage({ to: "stranger@example.com" }),
+      provider,
       logger,
     });
 
     expect(saveLearnedPattern).not.toHaveBeenCalled();
   });
 
-  it("keeps the pattern when a rule sent on this thread, not the user", async () => {
+  it("un-pins a sender after a manual reply even when a rule sent earlier on the thread", async () => {
     vi.mocked(prisma.executedRule.count).mockResolvedValue(1);
+    vi.mocked(prisma.groupItem.findMany).mockResolvedValue([
+      { value: "cold.sender@example.com" },
+    ] as any);
 
     await excludeRepliedSendersFromColdEmail({
       emailAccountId: "email-account-1",
       message: getMockMessage({ to: "cold.sender@example.com" }),
+      provider,
       logger,
     });
 
-    expect(prisma.groupItem.findMany).not.toHaveBeenCalled();
+    expect(saveLearnedPattern).toHaveBeenCalledWith(
+      expect.objectContaining({
+        from: "cold.sender@example.com",
+        exclude: true,
+      }),
+    );
+  });
+
+  it("keeps the pattern when the current outbound message was sent by a rule", async () => {
+    const message = getMockMessage({ to: "cold.sender@example.com" });
+
+    await excludeRepliedSendersFromColdEmail({
+      emailAccountId: "email-account-1",
+      message: {
+        ...message,
+        headers: {
+          ...message.headers,
+          "x-inbox-zero-automated": "true",
+        },
+      } as any,
+      provider,
+      logger,
+    });
+
+    expect(getColdEmailRule).not.toHaveBeenCalled();
     expect(saveLearnedPattern).not.toHaveBeenCalled();
+  });
+
+  it("un-pins the original sender when the reply target differs from From", async () => {
+    const outbound = getMockMessage({
+      threadId: "thread-1",
+      to: "replies@example.com",
+    });
+    const source = getMockMessage({
+      id: "source-1",
+      threadId: "thread-1",
+      from: "Cold Sender <cold.sender@example.com>",
+    });
+    provider.getMessageByRfc822MessageId.mockResolvedValue({
+      ...source,
+      headers: {
+        ...source.headers,
+        "message-id": "<source@example.com>",
+        "reply-to": "replies@example.com",
+      },
+    });
+    vi.mocked(prisma.groupItem.findMany).mockImplementation(async (args) => {
+      const matchesThread = (args.where as any).OR.some(
+        (condition: any) => condition.threadId === "thread-1",
+      );
+      return matchesThread
+        ? ([{ value: "cold.sender@example.com" }] as any)
+        : [];
+    });
+
+    await excludeRepliedSendersFromColdEmail({
+      emailAccountId: "email-account-1",
+      message: {
+        ...outbound,
+        headers: {
+          ...outbound.headers,
+          "in-reply-to": "<source@example.com>",
+        },
+      },
+      provider,
+      logger,
+    });
+
+    expect(saveLearnedPattern).toHaveBeenCalledWith(
+      expect.objectContaining({
+        from: "cold.sender@example.com",
+        exclude: true,
+      }),
+    );
+    expect(provider.getMessageByRfc822MessageId).toHaveBeenCalledWith(
+      "<source@example.com>",
+    );
   });
 
   it("does nothing when the account has no cold email group", async () => {
@@ -107,6 +192,7 @@ describe("excludeRepliedSendersFromColdEmail", () => {
     await excludeRepliedSendersFromColdEmail({
       emailAccountId: "email-account-1",
       message: getMockMessage({ to: "someone@example.com" }),
+      provider,
       logger,
     });
 
@@ -117,6 +203,7 @@ describe("excludeRepliedSendersFromColdEmail", () => {
     await excludeRepliedSendersFromColdEmail({
       emailAccountId: "email-account-1",
       message: getMockMessage({ to: "" }),
+      provider,
       logger,
     });
 

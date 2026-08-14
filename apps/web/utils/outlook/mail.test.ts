@@ -37,6 +37,7 @@ describe("sendEmailWithHtml", () => {
     const result = await sendEmailWithHtml(
       client,
       {
+        sentByRule: true,
         to: "Recipient Name <recipient@example.com>",
         replyTo: "Inbox Zero Assistant <owner+ai@example.com>",
         subject: "Subject",
@@ -62,6 +63,9 @@ describe("sendEmailWithHtml", () => {
               name: "Inbox Zero Assistant",
             },
           },
+        ],
+        internetMessageHeaders: [
+          { name: "X-Inbox-Zero-Automated", value: "true" },
         ],
       }),
     );
@@ -594,6 +598,7 @@ describe("forwardEmail", () => {
         bcc: "bcc@example.com",
         content: "Forwarding this",
         from: "Owner Name <owner@example.com>",
+        sentByRule: true,
       },
       createTestLogger(),
     );
@@ -635,6 +640,9 @@ describe("forwardEmail", () => {
           contentType: "html",
           content: expect.stringContaining("Forwarding this"),
         }),
+        internetMessageHeaders: [
+          { name: "X-Inbox-Zero-Automated", value: "true" },
+        ],
       }),
     );
     expect(sendDraft).toHaveBeenCalledTimes(1);

@@ -15,6 +15,25 @@ import {
 import type { OutlookClient } from "@/utils/outlook/client";
 
 describe("convertMessage", () => {
+  it("preserves reply and automation headers used by outbound processing", () => {
+    const result = convertMessage(
+      {
+        id: "msg-123",
+        conversationId: "thread-456",
+        internetMessageHeaders: [
+          { name: "In-Reply-To", value: "<source@example.com>" },
+          { name: "X-Inbox-Zero-Automated", value: "true" },
+        ],
+      },
+      {},
+    );
+
+    expect(result.headers).toMatchObject({
+      "in-reply-to": "<source@example.com>",
+      "x-inbox-zero-automated": "true",
+    });
+  });
+
   it("excludes inline images embedded in the email body from attachments", () => {
     const message: Message = {
       id: "msg-123",

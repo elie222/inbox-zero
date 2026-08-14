@@ -17,6 +17,7 @@ describe.skipIf(!RUN_DB_TESTS)(
     let isColdEmail: typeof import("@/utils/cold-email/is-cold-email").isColdEmail;
 
     const logger = createTestLogger();
+    const provider = { getMessageByRfc822MessageId: vi.fn() } as any;
     const accountEmail = "cold-email-exclude-test@example.com";
     // A different domain to the account, or the internal-sender check answers first.
     const coldSender = "Cold.Sender@ColdCo.test";
@@ -83,6 +84,7 @@ describe.skipIf(!RUN_DB_TESTS)(
         emailAccountId,
         // Different casing to the stored pattern, which is how senders arrive.
         message: getMockMessage({ to: coldSender.toLowerCase() }),
+        provider,
         logger,
       });
 
@@ -96,6 +98,7 @@ describe.skipIf(!RUN_DB_TESTS)(
       await excludeRepliedSendersFromColdEmail({
         emailAccountId,
         message: getMockMessage({ to: coldSender.toLowerCase() }),
+        provider,
         logger,
       });
 

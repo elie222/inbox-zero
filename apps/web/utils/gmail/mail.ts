@@ -28,6 +28,10 @@ import {
   buildQuotedPlainText,
   quotePlainTextContent,
 } from "@/utils/email/quoted-plain-text";
+import {
+  AUTOMATED_OUTBOUND_HEADER,
+  AUTOMATED_OUTBOUND_HEADER_VALUE,
+} from "@/utils/email/automated-outbound";
 
 const logger = createScopedLogger("gmail/mail");
 
@@ -50,7 +54,9 @@ export const sendEmailBody = z.object({
   attachments: z.array(zodAttachment).optional(),
 });
 export type SendEmailBody = z.infer<typeof sendEmailBody>;
-type MailSendEmailBody = WithMailerAttachments<SendEmailBody>;
+type MailSendEmailBody = WithMailerAttachments<SendEmailBody> & {
+  sentByRule?: boolean;
+};
 
 const encodeMessage = (message: Buffer) =>
   Buffer.from(message)
@@ -76,9 +82,11 @@ const createRawMailMessage = async ({
   messageText,
   attachments,
   replyToEmail,
+  sentByRule,
 }: Omit<SendEmailBody, "attachments"> & {
   attachments?: Attachment[];
   messageText: string;
+  sentByRule?: boolean;
 }) => {
   return await createMail({
     from,
@@ -105,6 +113,11 @@ const createRawMailMessage = async ({
     }),
     headers: {
       "X-Mailer": "Inbox Zero Web",
+      ...(sentByRule
+        ? {
+            [AUTOMATED_OUTBOUND_HEADER]: AUTOMATED_OUTBOUND_HEADER_VALUE,
+          }
+        : {}),
     },
   });
 };
@@ -155,7 +168,11 @@ export async function replyToEmail(
   >,
   reply: string,
   from?: string,
-  options?: { replyTo?: string; attachments?: Attachment[] },
+  options?: {
+    replyTo?: string;
+    attachments?: Attachment[];
+    sentByRule?: boolean;
+  },
 ) {
   ensureEmailSendingEnabled();
 
@@ -177,6 +194,7 @@ export async function replyToEmail(
     messageText,
     messageHtml: html,
     attachments: options?.attachments,
+    sentByRule: options?.sentByRule,
     replyToEmail: {
       threadId: message.threadId,
       headerMessageId: message.headers["message-id"] || "",
@@ -206,6 +224,7 @@ export async function forwardEmail(
     bcc?: string;
     content?: string;
     from?: string;
+    sentByRule?: boolean;
   },
 ) {
   ensureEmailSendingEnabled();
@@ -247,6 +266,7 @@ export async function forwardEmail(
       headerMessageId: "",
     },
     attachments,
+    sentByRule: options.sentByRule,
   });
 
   const result = await withGmailRetry(() =>

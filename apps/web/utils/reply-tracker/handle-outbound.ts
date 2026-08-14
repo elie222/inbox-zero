@@ -53,12 +53,15 @@ export async function handleOutboundMessage({
 
   // Before the slower tracking work below, so a fast reply from the other side is
   // classified against the corrected pattern
+  let exclusionSucceeded = false;
   try {
     await excludeRepliedSendersFromColdEmail({
       emailAccountId: emailAccount.id,
       message,
+      provider,
       logger,
     });
+    exclusionSucceeded = true;
   } catch (error) {
     logger.error("Error excluding replied sender from cold email blocker", {
       error,
@@ -112,9 +115,9 @@ export async function handleOutboundMessage({
 
     // Persist the processed marker once the expensive reply-tracking work
     // completes so follow-up cleanup failures do not trigger duplicate replays.
-    processedSuccessfully = results.every(
-      (result) => result.status === "fulfilled",
-    );
+    processedSuccessfully =
+      exclusionSucceeded &&
+      results.every((result) => result.status === "fulfilled");
 
     await cleanupThreadAIDrafts({
       threadId: message.threadId,

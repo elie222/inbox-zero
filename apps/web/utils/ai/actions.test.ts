@@ -537,6 +537,7 @@ describe("runActionFunction", () => {
       expect.anything(),
       "Attached.",
       expect.objectContaining({
+        sentByRule: true,
         attachments: [
           expect.objectContaining({
             filename: "lease.pdf",
@@ -602,6 +603,7 @@ describe("runActionFunction", () => {
     });
     expect(client.sendEmail).toHaveBeenCalledWith(
       expect.objectContaining({
+        sentByRule: true,
         to: "recipient@example.com",
         subject: "Quote",
         messageText: "Attached.",
@@ -651,6 +653,7 @@ describe("runActionFunction", () => {
       expect(client.forwardEmail).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({
+          sentByRule: true,
           to: "Archive <archive@example.com>",
           cc: "Reviewer <reviewer@example.com>",
           bcc: "auditor@example.com",
