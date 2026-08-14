@@ -1,4 +1,4 @@
-import type { ProviderOptions, ToolSet } from "ai";
+import type { ToolSet } from "ai";
 import { google } from "@ai-sdk/google";
 import { openai } from "@ai-sdk/openai";
 import { openrouter } from "@openrouter/ai-sdk-provider";
@@ -7,7 +7,7 @@ import { Provider } from "@/utils/llms/config";
 export type WebSearchConfig = {
   providerName: string;
   tools: ToolSet;
-  providerOptions?: ProviderOptions;
+  providerOptions?: Record<string, Record<string, number>>;
   toolChoice?: "required";
 };
 
