@@ -78,6 +78,7 @@ import {
 import { getActionErrorMessage } from "@/utils/error";
 import { prefixPath } from "@/utils/path";
 import { LoadingContent } from "@/components/LoadingContent";
+import type { LabelCount } from "@/app/api/labels/counts/route";
 import type { ThreadsQuery } from "@/utils/threads/validation";
 import { getEmailTerminology } from "@/utils/terminology";
 import { createSearchParams } from "@/utils/url";
@@ -93,6 +94,7 @@ const BUILT_IN_SPLITS = [
 // Module-level so an "empty" reader doesn't hand children a new array each render.
 const NO_MESSAGES: ThreadMessage[] = [];
 const NO_LABELS = {};
+const NO_COUNTS = new Map<string, LabelCount>();
 
 export function MailShell() {
   const { emailAccountId, userEmail, provider } = useAccount();
@@ -522,7 +524,7 @@ export function MailShell() {
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-background">
       <div className="flex min-h-0 flex-1">
-        {!isFocusMode && !isAllAccounts && (
+        {!isFocusMode && (
           <MailSidebar
             className="hidden lg:flex"
             activeType={
@@ -531,10 +533,10 @@ export function MailShell() {
             activeLabelId={scopeLabelId}
             activeFolderId={scopeFolderId}
             hrefFor={hrefFor}
-            labels={visibleLabels}
-            folders={isOutlook ? folders : []}
-            countsById={countsById}
-            categories={categories}
+            labels={isAllAccounts ? [] : visibleLabels}
+            folders={isAllAccounts || !isOutlook ? [] : folders}
+            countsById={isAllAccounts ? NO_COUNTS : countsById}
+            categories={isAllAccounts ? [] : categories}
             categoryHeading={isOutlook ? "Inbox" : "Categories"}
             labelsHeading={terminology.label.pluralCapitalized}
             labelSingular={terminology.label.singular}
@@ -542,6 +544,14 @@ export function MailShell() {
             onCompose={openCompose}
             onCreateLabel={onCreateLabel}
             onOpenShortcuts={openShortcuts}
+            unified={isAllAccounts}
+            footer={
+              <MailAccountSwitcher
+                isAllAccounts={isAllAccounts}
+                onSelectAll={selectAllAccounts}
+                variant="sidebar"
+              />
+            }
           />
         )}
 
@@ -658,6 +668,7 @@ export function MailShell() {
       <MailAccountSwitcher
         isAllAccounts={isAllAccounts}
         onSelectAll={selectAllAccounts}
+        variant="compact"
       />
 
       <ShortcutsDialog open={isHelpOpen} onOpenChange={setIsHelpOpen} />
