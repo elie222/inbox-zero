@@ -1407,6 +1407,26 @@ model MeetingBriefing {
   @@index([emailAccountId])
 }
 
+enum PublicContactSnapshotStatus {
+  FOUND
+  NOT_FOUND
+}
+
+// Shared public research intentionally has no user or account relation, so
+// its history cannot reveal which tenant triggered a refresh.
+model PublicContactSnapshot {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  identityHash String
+  status       PublicContactSnapshotStatus
+  context      Json?
+  researchedAt DateTime
+  refreshAfter DateTime
+
+  @@index([identityHash, researchedAt(sort: Desc)])
+}
+
 enum MeetingJoinRule {
   ALL
   EXTERNAL_ONLY

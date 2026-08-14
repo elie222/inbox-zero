@@ -9,15 +9,17 @@ import {
   type PublicContactContext,
   publicContactContextSchema,
 } from "@/utils/ai/public-contact-context-schema";
+import {
+  getStoredPublicContactContext,
+  storePublicContactContext,
+  storePublicContactContextNotFound,
+} from "@/utils/ai/public-contact-context-store";
 import { extractDomainFromEmail, isPublicEmailDomain } from "@/utils/email";
 import { escapeHtml } from "@/utils/string";
 import {
   acquirePublicContactResearchLock,
-  getCachedPublicContactContext,
   releasePublicContactResearchLock,
-  setCachedPublicContactContext,
-  setCachedPublicContactContextNotFound,
-} from "@/utils/redis/public-contact-context-cache";
+} from "@/utils/redis/public-contact-context-lock";
 import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("ai/public-contact-context");
@@ -72,9 +74,9 @@ export async function getPublicContactContext({
     return { status: "unavailable", reason: "personal_email" };
   }
 
-  const cached = await getCachedPublicContactContext(identity.data.email);
-  const cachedResult = getResultFromCache(cached);
-  if (cachedResult) return cachedResult;
+  const stored = await getStoredPublicContactContext(identity.data.email);
+  const storedResult = getResultFromStore(stored);
+  if (storedResult) return storedResult;
 
   const modelOptions = getModelForUseCase(
     emailAccount.user,
@@ -96,11 +98,11 @@ export async function getPublicContactContext({
   }
 
   try {
-    const cachedAfterLock = await getCachedPublicContactContext(
+    const storedAfterLock = await getStoredPublicContactContext(
       identity.data.email,
     );
-    const cachedAfterLockResult = getResultFromCache(cachedAfterLock);
-    if (cachedAfterLockResult) return cachedAfterLockResult;
+    const storedAfterLockResult = getResultFromStore(storedAfterLock);
+    if (storedAfterLockResult) return storedAfterLockResult;
 
     const searchModelOptions = {
       ...modelOptions,
@@ -114,6 +116,7 @@ export async function getPublicContactContext({
       modelOptions: searchModelOptions,
       promptHardening: { trust: "untrusted", level: "full" },
     });
+    const researchedAt = new Date();
     const result = await generateText({
       model: searchModelOptions.model,
       system: `Research public professional information about an email sender.
@@ -144,18 +147,18 @@ Return JSON matching the provided schema, including direct public source URLs.`,
       if (context) {
         logger.warn("Generated contact context was not safe to share");
       }
-      await setCachedPublicContactContextNotFound(
-        identity.data.email,
-        researchLock.lockToken,
-      );
+      await storePublicContactContextNotFound({
+        email: identity.data.email,
+        researchedAt,
+      });
       return { status: "unavailable", reason: "not_found" };
     }
 
-    await setCachedPublicContactContext(
-      identity.data.email,
+    await storePublicContactContext({
+      email: identity.data.email,
       context,
-      researchLock.lockToken,
-    );
+      researchedAt,
+    });
     return { status: "found", context };
   } catch (error) {
     logger.error("Public contact research failed");
@@ -169,12 +172,15 @@ Return JSON matching the provided schema, including direct public source URLs.`,
   }
 }
 
-function getResultFromCache(
-  cached: Awaited<ReturnType<typeof getCachedPublicContactContext>>,
+function getResultFromStore(
+  stored: Awaited<ReturnType<typeof getStoredPublicContactContext>>,
 ): PublicContactContextResult | null {
-  if (!cached) return null;
-  if (cached.status === "not_found") {
+  if (stored.status === "miss") return null;
+  if (stored.status === "unavailable") {
+    return { status: "unavailable", reason: "cache_unavailable" };
+  }
+  if (stored.status === "not_found") {
     return { status: "unavailable", reason: "not_found" };
   }
-  return { status: "found", context: cached.context };
+  return { status: "found", context: stored.context };
 }

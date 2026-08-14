@@ -1,15 +1,23 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { redis } from "@/utils/redis";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { PublicContactContext } from "@/utils/ai/public-contact-context-schema";
-import type { PublicContactContextCacheEntry } from "@/utils/redis/public-contact-context-cache";
 
-const { generateTextMock, getModelForUseCaseMock, getWebSearchConfigMock } =
-  vi.hoisted(() => ({
-    generateTextMock: vi.fn(),
-    getModelForUseCaseMock: vi.fn(),
-    getWebSearchConfigMock: vi.fn(),
-  }));
+const {
+  generateTextMock,
+  getModelForUseCaseMock,
+  getStoredPublicContactContextMock,
+  getWebSearchConfigMock,
+  storePublicContactContextMock,
+  storePublicContactContextNotFoundMock,
+} = vi.hoisted(() => ({
+  generateTextMock: vi.fn(),
+  getModelForUseCaseMock: vi.fn(),
+  getStoredPublicContactContextMock: vi.fn(),
+  getWebSearchConfigMock: vi.fn(),
+  storePublicContactContextMock: vi.fn(),
+  storePublicContactContextNotFoundMock: vi.fn(),
+}));
 
 vi.mock("@/env", () => ({
   env: {
@@ -23,9 +31,14 @@ vi.mock("@/utils/redis", () => ({
   redis: {
     del: vi.fn(),
     eval: vi.fn(),
-    get: vi.fn(),
     set: vi.fn(),
   },
+}));
+
+vi.mock("@/utils/ai/public-contact-context-store", () => ({
+  getStoredPublicContactContext: getStoredPublicContactContextMock,
+  storePublicContactContext: storePublicContactContextMock,
+  storePublicContactContextNotFound: storePublicContactContextNotFoundMock,
 }));
 
 vi.mock("@/utils/llms", () => ({
@@ -46,9 +59,11 @@ import { getPublicContactContext } from "@/utils/ai/public-contact-context";
 describe("getPublicContactContext", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(redis.get).mockResolvedValue(null);
     vi.mocked(redis.set).mockResolvedValue("OK");
     vi.mocked(redis.eval).mockResolvedValue(1);
+    getStoredPublicContactContextMock.mockResolvedValue({ status: "miss" });
+    storePublicContactContextMock.mockResolvedValue(true);
+    storePublicContactContextNotFoundMock.mockResolvedValue(true);
     getModelForUseCaseMock.mockReturnValue({
       provider: "openrouter",
       modelName: "openai/gpt-5.4-nano",
@@ -66,7 +81,11 @@ describe("getPublicContactContext", () => {
     generateTextMock.mockResolvedValue({ output: { context: getContext() } });
   });
 
-  it("does not research or cache personal email addresses", async () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("does not research or store personal email addresses", async () => {
     await expect(
       getPublicContactContext({
         email: "john@gmail.com",
@@ -78,14 +97,17 @@ describe("getPublicContactContext", () => {
       reason: "personal_email",
     });
 
-    expect(redis.get).not.toHaveBeenCalled();
+    expect(getStoredPublicContactContextMock).not.toHaveBeenCalled();
     expect(generateTextMock).not.toHaveBeenCalled();
     expect(redis.set).not.toHaveBeenCalled();
   });
 
-  it("returns a shared cached profile without exposing cache metadata", async () => {
+  it("returns a shared stored profile without exposing storage metadata", async () => {
     const context = getContext();
-    vi.mocked(redis.get).mockResolvedValue({ status: "found", context });
+    getStoredPublicContactContextMock.mockResolvedValue({
+      status: "found",
+      context,
+    });
 
     const result = await getPublicContactContext({
       email: "john@acme.com",
@@ -94,12 +116,12 @@ describe("getPublicContactContext", () => {
     });
 
     expect(result).toEqual({ status: "found", context });
-    expect(result).not.toHaveProperty("cached");
+    expect(result).not.toHaveProperty("researchedAt");
     expect(result).not.toHaveProperty("userId");
     expect(generateTextMock).not.toHaveBeenCalled();
   });
 
-  it("researches only the public identity and caches the structured result", async () => {
+  it("researches only the public identity and stores the structured result", async () => {
     const context = getContext();
 
     await expect(
@@ -120,10 +142,35 @@ describe("getPublicContactContext", () => {
       openrouter: { max_tool_calls: 1 },
     });
     expect(request.toolChoice).toBe("required");
-    expectCacheWrite({ status: "found", context }, 2_592_000);
+    expect(storePublicContactContextMock).toHaveBeenCalledWith({
+      email: "john@acme.com",
+      context,
+      researchedAt: expect.any(Date),
+    });
   });
 
-  it("does not return or cache a generated profile containing an email", async () => {
+  it("records the research start time so slow workers cannot become current", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-14T10:00:00.000Z"));
+    generateTextMock.mockImplementation(async () => {
+      vi.setSystemTime(new Date("2026-08-14T10:02:00.000Z"));
+      return { output: { context: getContext() } };
+    });
+
+    await getPublicContactContext({
+      email: "john@acme.com",
+      name: "John Smith",
+      emailAccount: getEmailAccount(),
+    });
+
+    expect(storePublicContactContextMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        researchedAt: new Date("2026-08-14T10:00:00.000Z"),
+      }),
+    );
+  });
+
+  it("does not return or store a generated profile containing an email", async () => {
     const context = getContext();
     generateTextMock.mockResolvedValue({
       output: {
@@ -145,7 +192,11 @@ describe("getPublicContactContext", () => {
       }),
     ).resolves.toEqual({ status: "unavailable", reason: "not_found" });
 
-    expectCacheWrite({ status: "not_found" }, 43_200);
+    expect(storePublicContactContextMock).not.toHaveBeenCalled();
+    expect(storePublicContactContextNotFoundMock).toHaveBeenCalledWith({
+      email: "john@acme.com",
+      researchedAt: expect.any(Date),
+    });
   });
 
   it("does not invent a profile when public search has no confident match", async () => {
@@ -159,7 +210,10 @@ describe("getPublicContactContext", () => {
       }),
     ).resolves.toEqual({ status: "unavailable", reason: "not_found" });
 
-    expectCacheWrite({ status: "not_found" }, 43_200);
+    expect(storePublicContactContextNotFoundMock).toHaveBeenCalledWith({
+      email: "unknown@acme.com",
+      researchedAt: expect.any(Date),
+    });
   });
 
   it("does not duplicate research while another request holds the lock", async () => {
@@ -179,7 +233,7 @@ describe("getPublicContactContext", () => {
     expect(generateTextMock).not.toHaveBeenCalled();
   });
 
-  it("fails closed when the shared cache lock is unavailable", async () => {
+  it("fails closed when the research lock is unavailable", async () => {
     vi.mocked(redis.set).mockRejectedValue(new Error("Redis unavailable"));
 
     await expect(
@@ -193,6 +247,26 @@ describe("getPublicContactContext", () => {
       reason: "cache_unavailable",
     });
 
+    expect(generateTextMock).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when durable storage is unavailable", async () => {
+    getStoredPublicContactContextMock.mockResolvedValue({
+      status: "unavailable",
+    });
+
+    await expect(
+      getPublicContactContext({
+        email: "john@acme.com",
+        name: "John Smith",
+        emailAccount: getEmailAccount(),
+      }),
+    ).resolves.toEqual({
+      status: "unavailable",
+      reason: "cache_unavailable",
+    });
+
+    expect(redis.set).not.toHaveBeenCalled();
     expect(generateTextMock).not.toHaveBeenCalled();
   });
 
@@ -221,20 +295,6 @@ describe("getPublicContactContext", () => {
     expect(generateTextMock).not.toHaveBeenCalled();
   });
 });
-
-function expectCacheWrite(
-  entry: PublicContactContextCacheEntry,
-  ttlSeconds: number,
-) {
-  expect(redis.eval).toHaveBeenCalledWith(
-    expect.stringContaining('redis.call("SET", KEYS[2]'),
-    [
-      expect.stringMatching(/^public-contact-context:v1:lock:[a-f0-9]{64}$/),
-      expect.stringMatching(/^public-contact-context:v1:[a-f0-9]{64}$/),
-    ],
-    [expect.any(String), JSON.stringify(entry), ttlSeconds.toString()],
-  );
-}
 
 function getEmailAccount(): EmailAccountWithAI {
   return {
