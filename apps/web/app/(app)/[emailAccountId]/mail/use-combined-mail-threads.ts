@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import useSWRInfinite from "swr/infinite";
 import type { GetAllThreadsResponse } from "@/app/api/threads/all/route";
-import type { ListThread } from "@/app/(app)/[emailAccountId]/mail/types";
-import { internalDateToDate } from "@/utils/date";
+import { getThreadTimestamp } from "@/utils/threads/sort";
 import { createSearchParams } from "@/utils/url";
 
 export function useCombinedMailThreads({
@@ -42,7 +41,7 @@ export function useCombinedMailThreads({
       byKey.set(`${thread.account.id}:${thread.id}`, thread);
     }
     return [...byKey.values()].sort(
-      (left, right) => threadTimestamp(right) - threadTimestamp(left),
+      (left, right) => getThreadTimestamp(right) - getThreadTimestamp(left),
     );
   }, [data]);
   const hasMore = Boolean(data?.at(-1)?.nextPageToken);
@@ -75,12 +74,4 @@ export function useCombinedMailThreads({
       });
     }, [hasMore, setSize]),
   };
-}
-
-function threadTimestamp(thread: ListThread) {
-  return (
-    internalDateToDate(thread.messages.at(-1)?.internalDate, {
-      fallbackToNow: false,
-    }).getTime() || 0
-  );
 }

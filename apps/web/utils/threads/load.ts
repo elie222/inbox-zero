@@ -70,6 +70,7 @@ export async function loadThreads({
       if (!message.headers?.from) return true;
       return !isIgnoredSender(message.headers.from);
     });
+    if (!messages.length) return;
 
     return {
       id: thread.id,
@@ -115,12 +116,12 @@ export type ThreadListItem = ReturnType<
 >["threads"][number];
 
 function aggregateThreadPlans<
-  T extends { createdAt: Date; rule: { id: string } | null },
+  T extends { id: string; createdAt: Date; rule: { id: string } | null },
 >(executedRules: T[]): Omit<T, "createdAt">[] {
   const latestByRule = new Map<string, Omit<T, "createdAt">>();
 
   for (const executedRule of executedRules) {
-    const key = executedRule.rule?.id ?? "deleted-rule";
+    const key = executedRule.rule?.id ?? executedRule.id;
     if (latestByRule.has(key)) continue;
     const { createdAt: _createdAt, ...plan } = executedRule;
     latestByRule.set(key, plan);

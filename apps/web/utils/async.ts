@@ -8,8 +8,8 @@ export async function mapWithConcurrency<TItem, TResult>(
   concurrency: number,
   run: (item: TItem, index: number) => Promise<TResult>,
 ): Promise<TResult[]> {
-  if (concurrency < 1) {
-    throw new Error("concurrency must be at least 1");
+  if (!Number.isInteger(concurrency) || concurrency < 1) {
+    throw new Error("concurrency must be a positive integer");
   }
 
   const results = new Array<TResult>(items.length);
@@ -18,9 +18,7 @@ export async function mapWithConcurrency<TItem, TResult>(
   async function worker() {
     while (nextIndex < items.length) {
       const index = nextIndex++;
-      const item = items[index];
-      if (item === undefined) throw new Error("Item index out of bounds");
-      results[index] = await run(item, index);
+      results[index] = await run(items[index] as TItem, index);
     }
   }
 

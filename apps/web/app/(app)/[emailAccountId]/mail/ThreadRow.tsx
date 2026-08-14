@@ -81,32 +81,38 @@ export const ThreadRow = memo(function ThreadRow({
   const snippet = decodeSnippet(thread.snippet || message.snippet);
   const chips = labels.slice(0, isWide ? 3 : 2);
   const showCheckbox = isSelected || hasAnySelection;
+  let unreadIndicatorOpacity = "opacity-0";
+  if (isUnread && !showCheckbox) {
+    unreadIndicatorOpacity = selectionEnabled
+      ? "opacity-100 group-focus-within:opacity-0 group-hover:opacity-0"
+      : "opacity-100";
+  }
 
-  const selectionControl = (
+  const leadingIndicator = (
     <span className={cn("relative size-3.5 shrink-0", !isWide && "mt-0.5")}>
-      <Checkbox
-        aria-label={`Select conversation from ${sender}`}
-        checked={isSelected}
-        className={cn(
-          "absolute inset-0 size-3.5 rounded border-input transition-opacity [&_svg]:size-2.5",
-          showCheckbox
-            ? "opacity-100"
-            : "opacity-0 group-focus-within:opacity-100 group-hover:opacity-100",
-        )}
-        onClick={(event) => {
-          event.stopPropagation();
-          if (event.shiftKey) onSelectRangeTo(index);
-          else onToggleSelect(index);
-        }}
-        title={`Select (${SELECT_HINT})`}
-      />
+      {selectionEnabled ? (
+        <Checkbox
+          aria-label={`Select conversation from ${sender}`}
+          checked={isSelected}
+          className={cn(
+            "absolute inset-0 size-3.5 rounded border-input transition-opacity [&_svg]:size-2.5",
+            showCheckbox
+              ? "opacity-100"
+              : "opacity-0 group-focus-within:opacity-100 group-hover:opacity-100",
+          )}
+          onClick={(event) => {
+            event.stopPropagation();
+            if (event.shiftKey) onSelectRangeTo(index);
+            else onToggleSelect(index);
+          }}
+          title={`Select (${SELECT_HINT})`}
+        />
+      ) : null}
       <span
         aria-hidden
         className={cn(
           "pointer-events-none absolute inset-0 flex items-center justify-center transition-opacity",
-          isUnread && !showCheckbox
-            ? "opacity-100 group-focus-within:opacity-0 group-hover:opacity-0"
-            : "opacity-0",
+          unreadIndicatorOpacity,
         )}
       >
         <span className="size-1.5 rounded-full bg-primary" />
@@ -152,7 +158,7 @@ export const ThreadRow = memo(function ThreadRow({
       role="option"
       tabIndex={isFocused ? 0 : -1}
     >
-      {selectionEnabled ? selectionControl : null}
+      {leadingIndicator}
 
       {isWide ? (
         <>

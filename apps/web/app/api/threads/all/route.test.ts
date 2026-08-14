@@ -103,7 +103,16 @@ describe("GET /api/threads/all", () => {
 
   it("rejects an unsafe provider cursor before loading threads", async () => {
     const cursor = Buffer.from(
-      JSON.stringify({ "account-1": "https://example.com/messages" }),
+      JSON.stringify({
+        version: 1,
+        accounts: {
+          "account-1": {
+            pageToken: "https://example.com/messages",
+            offset: 0,
+            done: false,
+          },
+        },
+      }),
     ).toString("base64url");
     const response = await GET(
       new NextRequest(`http://localhost:3000/api/threads/all?cursor=${cursor}`),

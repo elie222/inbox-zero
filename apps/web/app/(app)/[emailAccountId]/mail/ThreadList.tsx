@@ -143,6 +143,17 @@ export function ThreadList({
             <div className="mt-1.5 text-muted-foreground text-xs">
               Nothing here right now.
             </div>
+            {showLoadMore ? (
+              <Button
+                className="mt-4"
+                disabled={isLoadingMore}
+                onClick={onLoadMore}
+                size="sm"
+                variant="outline"
+              >
+                {isLoadingMore ? "Loading more" : "Load more"}
+              </Button>
+            ) : null}
           </div>
         ) : (
           <>

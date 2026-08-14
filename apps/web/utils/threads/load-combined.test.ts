@@ -18,6 +18,7 @@ describe("loadCombinedThreads", () => {
     const result = await loadCombinedThreads({
       accounts: [account("account-1"), account("account-2")],
       cursor: null,
+      limit: 20,
       loadPage,
       logger,
     });
@@ -40,12 +41,14 @@ describe("loadCombinedThreads", () => {
     const first = await loadCombinedThreads({
       accounts: [account("account-1"), account("account-2")],
       cursor: null,
+      limit: 20,
       loadPage,
       logger,
     });
     const second = await loadCombinedThreads({
       accounts: [account("account-1"), account("account-2")],
       cursor: first.nextPageToken,
+      limit: 20,
       loadPage: vi.fn(async ({ account, pageToken }) => ({
         threads: [
           thread(`${account.id}-${pageToken}`, "2026-08-12T10:00:00.000Z"),
@@ -69,6 +72,7 @@ describe("loadCombinedThreads", () => {
     await loadCombinedThreads({
       accounts: [account("account-1"), account("account-2")],
       cursor: second.nextPageToken,
+      limit: 20,
       loadPage: thirdPageLoader,
       logger,
     });
@@ -85,6 +89,7 @@ describe("loadCombinedThreads", () => {
     const result = await loadCombinedThreads({
       accounts: [account("working"), account("failed")],
       cursor: null,
+      limit: 20,
       loadPage: vi.fn(async ({ account }) => {
         if (account.id === "failed") throw new Error("Mailbox unavailable");
         return {
@@ -97,7 +102,132 @@ describe("loadCombinedThreads", () => {
 
     expect(result.threads.map((item) => item.id)).toEqual(["working-thread"]);
     expect(result.failedAccountIds).toEqual(["failed"]);
-    expect(result.nextPageToken).toBeNull();
+    expect(result.nextPageToken).toEqual(expect.any(String));
+  });
+
+  it("returns a combined limit and preserves unreturned account rows", async () => {
+    const loadPage = vi.fn(async ({ account }: { account: Account }) => ({
+      threads:
+        account.id === "account-1"
+          ? [
+              thread("first", "2026-08-14T10:00:00.000Z"),
+              thread("third", "2026-08-12T10:00:00.000Z"),
+            ]
+          : [
+              thread("second", "2026-08-13T10:00:00.000Z"),
+              thread("fourth", "2026-08-11T10:00:00.000Z"),
+            ],
+      nextPageToken: null,
+    }));
+
+    const first = await loadCombinedThreads({
+      accounts: [account("account-1"), account("account-2")],
+      cursor: null,
+      limit: 2,
+      loadPage,
+      logger,
+    });
+    const second = await loadCombinedThreads({
+      accounts: [account("account-1"), account("account-2")],
+      cursor: first.nextPageToken,
+      limit: 2,
+      loadPage,
+      logger,
+    });
+
+    expect(first.threads.map((item) => item.id)).toEqual(["first", "second"]);
+    expect(second.threads.map((item) => item.id)).toEqual(["third", "fourth"]);
+    expect(second.nextPageToken).toBeNull();
+  });
+
+  it("loads newly connected accounts on a later page", async () => {
+    const first = await loadCombinedThreads({
+      accounts: [account("account-1")],
+      cursor: null,
+      limit: 1,
+      loadPage: vi.fn(async () => ({
+        threads: [thread("first", "2026-08-14T10:00:00.000Z")],
+        nextPageToken: "account-1-next",
+      })),
+      logger,
+    });
+    const loadPage = vi.fn(async ({ account }: { account: Account }) => ({
+      threads: [thread(account.id, "2026-08-13T10:00:00.000Z")],
+      nextPageToken: null,
+    }));
+
+    await loadCombinedThreads({
+      accounts: [account("account-1"), account("account-2")],
+      cursor: first.nextPageToken,
+      limit: 2,
+      loadPage,
+      logger,
+    });
+
+    expect(loadPage).toHaveBeenCalledTimes(2);
+    expect(loadPage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        account: expect.objectContaining({ id: "account-2" }),
+        pageToken: undefined,
+      }),
+    );
+  });
+
+  it("retries an account after a transient failure", async () => {
+    const first = await loadCombinedThreads({
+      accounts: [account("account-1")],
+      cursor: null,
+      limit: 1,
+      loadPage: vi.fn(async () => {
+        throw new Error("Mailbox unavailable");
+      }),
+      logger,
+    });
+    const loadPage = vi.fn(async () => ({
+      threads: [thread("recovered", "2026-08-14T10:00:00.000Z")],
+      nextPageToken: null,
+    }));
+
+    const second = await loadCombinedThreads({
+      accounts: [account("account-1")],
+      cursor: first.nextPageToken,
+      limit: 1,
+      loadPage,
+      logger,
+    });
+
+    expect(loadPage).toHaveBeenCalledOnce();
+    expect(second.threads.map((item) => item.id)).toEqual(["recovered"]);
+  });
+
+  it("advances past an empty provider page", async () => {
+    const first = await loadCombinedThreads({
+      accounts: [account("account-1")],
+      cursor: null,
+      limit: 1,
+      loadPage: vi.fn(async () => ({
+        threads: [],
+        nextPageToken: "next-provider-page",
+      })),
+      logger,
+    });
+    const loadPage = vi.fn(async () => ({
+      threads: [thread("later", "2026-08-14T10:00:00.000Z")],
+      nextPageToken: null,
+    }));
+
+    const second = await loadCombinedThreads({
+      accounts: [account("account-1")],
+      cursor: first.nextPageToken,
+      limit: 1,
+      loadPage,
+      logger,
+    });
+
+    expect(loadPage).toHaveBeenCalledWith(
+      expect.objectContaining({ pageToken: "next-provider-page" }),
+    );
+    expect(second.threads.map((item) => item.id)).toEqual(["later"]);
   });
 });
 
