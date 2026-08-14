@@ -759,6 +759,32 @@ describe("runActionFunction", () => {
       expect(client.forwardEmail.mock.calls[1]?.[1]).not.toHaveProperty("bcc");
     });
 
+    it("preserves successful BCC message IDs when a later send fails", async () => {
+      const client = createMockEmailProvider();
+      vi.mocked(client.forwardEmail)
+        .mockResolvedValueOnce({ messageId: "sent-message-1" })
+        .mockRejectedValueOnce(new Error("Second send failed"));
+
+      await expect(
+        runActionFunction({
+          client,
+          email,
+          action: {
+            id: "action-1",
+            type: ActionType.FORWARD,
+            to: "sender@example.com",
+            bcc: "first@example.com, second@example.com",
+          },
+          emailAccount,
+          executedRule,
+          logger,
+        }),
+      ).rejects.toMatchObject({
+        message: "Second send failed",
+        sentMessageIds: ["sent-message-1"],
+      });
+    });
+
     it("forwards when every recipient is new to the message", async () => {
       const client = createMockEmailProvider();
 

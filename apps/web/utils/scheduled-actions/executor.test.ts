@@ -102,6 +102,11 @@ describe("executor", () => {
         logger,
       );
 
+      expect(prisma.executedAction.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          executionStartedAt: expect.any(Date),
+        }),
+      });
       expect(prisma.executedAction.update).toHaveBeenCalledWith({
         where: { id: "executed-action-123" },
         data: {
@@ -227,6 +232,7 @@ describe("executor", () => {
           code: "ErrorTimeout",
           statusCode: 504,
           requestId: "graph-request-456",
+          sentMessageIds: ["sent-message-before-failure"],
         }),
       );
 
@@ -254,6 +260,7 @@ describe("executor", () => {
             statusCode: 504,
             requestId: "graph-request-456",
           },
+          sentMessageIds: ["sent-message-before-failure"],
         },
       });
       expectExecutedRuleStatus(

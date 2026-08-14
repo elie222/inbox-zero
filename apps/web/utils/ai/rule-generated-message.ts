@@ -1,15 +1,7 @@
-import {
-  ActionType,
-  ExecutedRuleStatus,
-  ScheduledActionStatus,
-} from "@/generated/prisma/enums";
+import { SENDING_ACTION_TYPES } from "@/utils/ai/sending-action";
 import prisma from "@/utils/prisma";
 
-const SENDING_ACTION_TYPES = [
-  ActionType.REPLY,
-  ActionType.SEND_EMAIL,
-  ActionType.FORWARD,
-];
+const ATTRIBUTION_PENDING_WINDOW_MS = 10 * 60 * 1000;
 
 export async function isRuleGeneratedMessage({
   emailAccountId,
@@ -20,27 +12,35 @@ export async function isRuleGeneratedMessage({
   threadId: string;
   messageId: string;
 }) {
-  const executedAction = await prisma.executedAction.findFirst({
+  const candidates = await prisma.executedAction.findMany({
     where: {
       type: { in: SENDING_ACTION_TYPES },
       executedRule: { emailAccountId, threadId },
       OR: [
         { sentMessageIds: { has: messageId } },
         {
+          executionStartedAt: {
+            gte: new Date(Date.now() - ATTRIBUTION_PENDING_WINDOW_MS),
+          },
           executionStatus: null,
-          OR: [
-            { executedRule: { status: ExecutedRuleStatus.APPLYING } },
-            {
-              scheduledAction: {
-                status: ScheduledActionStatus.EXECUTING,
-              },
-            },
-          ],
         },
       ],
     },
-    select: { id: true },
+    select: {
+      executionStartedAt: true,
+      sentMessageIds: true,
+    },
   });
 
-  return !!executedAction;
+  if (
+    candidates.some(({ sentMessageIds }) => sentMessageIds.includes(messageId))
+  ) {
+    return true;
+  }
+
+  if (candidates.some(({ executionStartedAt }) => executionStartedAt)) {
+    throw new Error("Message attribution is still pending");
+  }
+
+  return false;
 }

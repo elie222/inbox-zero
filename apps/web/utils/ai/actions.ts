@@ -438,11 +438,15 @@ const forward: ActionFunction<{
     // to avoid exposing them to each other.
     const sentMessageIds = [];
     for (const recipient of bccRecipients) {
-      const { messageId } = await client.forwardEmail(forwardMessage, {
-        ...forwardArgs,
-        to: recipient,
-      });
-      sentMessageIds.push(messageId);
+      try {
+        const { messageId } = await client.forwardEmail(forwardMessage, {
+          ...forwardArgs,
+          to: recipient,
+        });
+        sentMessageIds.push(messageId);
+      } catch (error) {
+        throw attachSentMessageIds(error, sentMessageIds);
+      }
     }
     return { sentMessageIds };
   }
@@ -918,4 +922,12 @@ function removeMessageParticipants(
         isSameEmailAddress(participant, recipient),
       ),
   );
+}
+
+function attachSentMessageIds(error: unknown, sentMessageIds: string[]) {
+  if (error && typeof error === "object") {
+    return Object.assign(error, { sentMessageIds });
+  }
+
+  return Object.assign(new Error(String(error)), { sentMessageIds });
 }

@@ -21,6 +21,7 @@ import {
   normalizeActionExecutionError,
   persistExecutedActionOutcome,
 } from "@/utils/ai/executed-action-outcome";
+import { isSendingActionType } from "@/utils/ai/sending-action";
 
 const MODULE = "ai-execute-act";
 
@@ -75,6 +76,13 @@ export async function executeAct({
           logger: log,
         });
         continue;
+      }
+
+      if (isSendingActionType(action.type)) {
+        await prisma.executedAction.update({
+          where: { id: action.id },
+          data: { executionStartedAt: new Date() },
+        });
       }
 
       const actionResult = await runActionFunction({
@@ -140,6 +148,7 @@ export async function executeAct({
         actionId: action.id,
         status: ExecutedActionStatus.FAILED,
         error: normalizeActionExecutionError(error),
+        sentMessageIds: getSentMessageIds(error),
         logger: log,
       });
       await logErrorWithDedupe({
