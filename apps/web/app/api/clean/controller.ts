@@ -12,6 +12,9 @@ import { GmailLabel } from "@/utils/gmail/label";
 import { getThreadMessages } from "@/utils/gmail/thread";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import type { Logger } from "@/utils/logger";
+import { MAX_CLEAN_LABELS } from "@/utils/clean/consts";
+import { findLabelByName } from "@/utils/label/find-label-by-name";
+import { normalizeLabelName } from "@/utils/label/normalize-label-name";
 import { getCalendarEventStatus } from "@/utils/parse/calender-event";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
 import { isActivePremium } from "@/utils/premium";
@@ -39,7 +42,10 @@ export const cleanThreadBody = z.object({
     attachment: z.boolean().default(false).nullish(),
     conversation: z.boolean().default(false).nullish(),
   }),
-  // labels: z.array(z.object({ id: z.string(), name: z.string() })).optional(),
+  labels: z
+    .array(z.object({ id: z.string(), name: z.string() }))
+    .max(MAX_CLEAN_LABELS)
+    .optional(),
 });
 
 export type CleanThreadBody = z.infer<typeof cleanThreadBody>;
@@ -53,6 +59,7 @@ export async function cleanThread({
   action,
   instructions,
   skips,
+  labels,
   logger,
 }: CleanThreadBody & { logger: Logger }) {
   assertCleanerApiEnabled();
@@ -204,9 +211,33 @@ export async function cleanThread({
     messages: messages.map((m) => getEmailForLLM(m)),
     instructions,
     skips,
+    labels,
   });
 
-  await publish({ markDone: aiResult.archive });
+  const matchedLabel = findCleanLabel(labels, aiResult.label);
+
+  await publish({
+    markDone: aiResult.archive,
+    labelId: matchedLabel?.id,
+    labelName: matchedLabel?.name,
+  });
+}
+
+// Exact name match first; normalized match as fallback for labels that differ
+// only in case or punctuation.
+function findCleanLabel(
+  labels: { id: string; name: string }[] | undefined,
+  name: string | null | undefined,
+) {
+  if (!name || !labels?.length) return;
+  const exactMatch = labels.find((label) => label.name === name);
+  if (exactMatch) return exactMatch;
+  return findLabelByName({
+    labels,
+    name,
+    getLabelName: (label) => label.name,
+    normalize: normalizeLabelName,
+  });
 }
 
 function getPublish({
@@ -226,7 +257,15 @@ function getPublish({
   action: CleanAction;
   logger: Logger;
 }) {
-  return async ({ markDone }: { markDone: boolean }) => {
+  return async ({
+    markDone,
+    labelId,
+    labelName,
+  }: {
+    markDone: boolean;
+    labelId?: string;
+    labelName?: string | null;
+  }) => {
     const actionCount = 2;
     const maxRatePerSecond = Math.ceil(12 / actionCount);
 
@@ -235,7 +274,8 @@ function getPublish({
       threadId,
       markDone,
       action,
-      // label: aiResult.label,
+      labelId,
+      labelName,
       markedDoneLabelId,
       processedLabelId,
       jobId,
@@ -246,6 +286,7 @@ function getPublish({
       threadId,
       maxRatePerSecond,
       markDone,
+      labelName,
     });
 
     await Promise.all([
@@ -260,7 +301,7 @@ function getPublish({
         update: {
           archive: markDone,
           status: "applying",
-          // label: "",
+          ...(labelName ? { label: labelName } : {}),
         },
       }),
     ]);
