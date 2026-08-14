@@ -35,6 +35,7 @@ type MailSendEmailBody = WithMailerAttachments<SendEmailBody> & {
 const MAX_GRAPH_ATTACHMENT_SIZE_BYTES = 3 * 1024 * 1024;
 const MAX_GRAPH_UPLOAD_SESSION_SIZE_BYTES = 150 * 1024 * 1024;
 const GRAPH_UPLOAD_CHUNK_SIZE_BYTES = 320 * 1024;
+const AUTOMATED_OUTBOUND_EXTENDED_PROPERTY_ID = `String {00020386-0000-0000-C000-000000000046} Name ${AUTOMATED_OUTBOUND_HEADER}`;
 
 type SentEmailResult = Pick<Message, "id" | "conversationId">;
 
@@ -159,7 +160,7 @@ export async function replyToEmail(
                 replyTo: [{ emailAddress: { address: options.replyTo } }],
               }
             : {}),
-          ...getRuleGeneratedInternetHeaders(options?.sentByRule),
+          ...getRuleGeneratedExtendedProperties(options?.sentByRule),
         }),
     logger,
   );
@@ -266,7 +267,7 @@ export async function forwardEmail(
               message,
             }),
           },
-          ...getRuleGeneratedInternetHeaders(options.sentByRule),
+          ...getRuleGeneratedExtendedProperties(options.sentByRule),
         }),
     logger,
   );
@@ -471,7 +472,7 @@ async function sendReplyUsingCreateReply(
           ...(body.bcc
             ? { bccRecipients: [{ emailAddress: { address: body.bcc } }] }
             : {}),
-          ...getRuleGeneratedInternetHeaders(body.sentByRule),
+          ...getRuleGeneratedExtendedProperties(body.sentByRule),
         }),
     logger,
   );
@@ -695,6 +696,22 @@ function getRuleGeneratedInternetHeaders(sentByRule?: boolean) {
         internetMessageHeaders: [
           {
             name: AUTOMATED_OUTBOUND_HEADER,
+            value: AUTOMATED_OUTBOUND_HEADER_VALUE,
+          },
+        ],
+      }
+    : {};
+}
+
+// Graph exposes internetMessageHeaders as create-only. The named
+// PS_INTERNET_HEADERS property lets an existing reply or forward draft carry
+// the same X-header when it is sent.
+function getRuleGeneratedExtendedProperties(sentByRule?: boolean) {
+  return sentByRule
+    ? {
+        singleValueExtendedProperties: [
+          {
+            id: AUTOMATED_OUTBOUND_EXTENDED_PROPERTY_ID,
             value: AUTOMATED_OUTBOUND_HEADER_VALUE,
           },
         ],

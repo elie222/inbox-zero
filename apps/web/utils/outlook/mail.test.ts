@@ -1,9 +1,14 @@
 import type { Message } from "@microsoft/microsoft-graph-types";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { OutlookClient } from "@/utils/outlook/client";
-import { createTestLogger } from "@/__tests__/helpers";
+import { createTestLogger, getMockMessage } from "@/__tests__/helpers";
 import type { EmailForAction } from "@/utils/ai/types";
-import { draftEmail, forwardEmail, sendEmailWithHtml } from "./mail";
+import {
+  draftEmail,
+  forwardEmail,
+  replyToEmail,
+  sendEmailWithHtml,
+} from "./mail";
 
 vi.mock("@/utils/mail", () => ({
   ensureEmailSendingEnabled: vi.fn(),
@@ -304,6 +309,42 @@ describe("sendEmailWithHtml", () => {
   });
 });
 
+describe("replyToEmail", () => {
+  it("marks rule-generated reply drafts with an extended property", async () => {
+    const createReplyDraft = vi.fn(async () => ({ id: "draft-1" }) as Message);
+    const updateDraft = vi.fn(async () => ({}));
+    const sendDraft = vi.fn(async () => ({}));
+    const client = createMockOutlookClient((path) => {
+      if (path === "/me/messages/message-1/createReply") {
+        return { post: createReplyDraft };
+      }
+      if (path === "/me/messages/draft-1") return { patch: updateDraft };
+      if (path === "/me/messages/draft-1/send") return { post: sendDraft };
+      throw new Error(`Unexpected API path: ${path}`);
+    });
+
+    await replyToEmail(
+      client,
+      getMockMessage({ id: "message-1" }) as EmailForAction,
+      "Reply content",
+      createTestLogger(),
+      { sentByRule: true },
+    );
+
+    expect(updateDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        singleValueExtendedProperties: [
+          {
+            id: "String {00020386-0000-0000-C000-000000000046} Name X-Inbox-Zero-Automated",
+            value: "true",
+          },
+        ],
+      }),
+    );
+    expect(sendDraft).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("forwardEmail", () => {
   it("creates a forward draft, applies the formatted sender, and sends it", async () => {
     const getMessage = vi.fn(
@@ -407,8 +448,11 @@ describe("forwardEmail", () => {
           contentType: "html",
           content: expect.stringContaining("Forwarding this"),
         }),
-        internetMessageHeaders: [
-          { name: "X-Inbox-Zero-Automated", value: "true" },
+        singleValueExtendedProperties: [
+          {
+            id: "String {00020386-0000-0000-C000-000000000046} Name X-Inbox-Zero-Automated",
+            value: "true",
+          },
         ],
       }),
     );
