@@ -9,7 +9,7 @@
     "build": "node esbuild.config.mjs",
     "dev": "pnpm build && electron .",
     "start": "electron .",
-    "test": "vitest"
+    "test": "vitest run"
   },
   "devDependencies": {
     "@types/node": "24.10.1",

@@ -29,4 +29,15 @@ describe("mobile auth set-cookie helpers", () => {
     ]);
     expect(getOAuthStateCookieValue(headers)).toBe("encrypted-oauth-state");
   });
+
+  it("falls back to the combined Set-Cookie header when getSetCookie is missing", () => {
+    const headers = {
+      get: (name: string) =>
+        name === "set-cookie" ? "better-auth.oauth_state=abc; Path=/" : null,
+    } as unknown as Headers;
+
+    expect(getSetCookieValues(headers)).toEqual([
+      "better-auth.oauth_state=abc; Path=/",
+    ]);
+  });
 });

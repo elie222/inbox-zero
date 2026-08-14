@@ -101,6 +101,50 @@ export function isAllowedDesktopNavigation(
   return parsed.origin === appOrigin;
 }
 
+const ALLOWED_EXTERNAL_PROTOCOLS = new Set([
+  "http:",
+  "https:",
+  "mailto:",
+  "tel:",
+]);
+
+export function isAllowedExternalUrl(url: string): boolean {
+  try {
+    return ALLOWED_EXTERNAL_PROTOCOLS.has(new URL(url).protocol);
+  } catch {
+    return false;
+  }
+}
+
+export function normalizeDesktopCallbackPath(path: unknown): string | null {
+  if (
+    typeof path !== "string" ||
+    !path.startsWith("/") ||
+    path.startsWith("//")
+  ) {
+    return null;
+  }
+  if (path.includes("\\")) return null;
+
+  try {
+    const url = new URL(path, "https://internal-path.example");
+    if (url.origin !== "https://internal-path.example") return null;
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return null;
+  }
+}
+
+export function getDesktopPostAuthUrl(
+  appOrigin: string,
+  callbackPath?: string | null,
+): string {
+  return new URL(
+    normalizeDesktopCallbackPath(callbackPath) ?? "/login",
+    appOrigin,
+  ).toString();
+}
+
 export function findDesktopProtocolUrl(argv: readonly string[]): string | null {
   return argv.find(isDesktopProtocolUrl) ?? null;
 }

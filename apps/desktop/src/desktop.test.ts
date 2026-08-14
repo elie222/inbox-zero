@@ -4,8 +4,11 @@ import {
   getDesktopAppOrigin,
   getDesktopBrowserStartUrl,
   getDesktopLoginUrl,
+  getDesktopPostAuthUrl,
   isAllowedDesktopNavigation,
+  isAllowedExternalUrl,
   isDesktopAuthProvider,
+  normalizeDesktopCallbackPath,
   parseDesktopAuthCallback,
 } from "./desktop";
 
@@ -103,5 +106,34 @@ describe("desktop shell helpers", () => {
     );
     expect(isDesktopAuthProvider("google")).toBe(true);
     expect(isDesktopAuthProvider("sso")).toBe(false);
+  });
+
+  it("only opens http(s), mailto, and tel URLs externally", () => {
+    expect(
+      isAllowedExternalUrl("https://accounts.google.com/o/oauth2/v2/auth"),
+    ).toBe(true);
+    expect(isAllowedExternalUrl("mailto:hello@getinboxzero.com")).toBe(true);
+    expect(isAllowedExternalUrl("file:///etc/passwd")).toBe(false);
+    expect(isAllowedExternalUrl("inboxzero-desktop://auth-callback")).toBe(
+      false,
+    );
+  });
+
+  it("loads a validated post-auth path and falls back to login", () => {
+    expect(
+      getDesktopPostAuthUrl(
+        "https://www.getinboxzero.com",
+        "/connect-mailbox?next=%2Fwelcome-redirect",
+      ),
+    ).toBe(
+      "https://www.getinboxzero.com/connect-mailbox?next=%2Fwelcome-redirect",
+    );
+    expect(
+      getDesktopPostAuthUrl(
+        "https://www.getinboxzero.com",
+        "https://evil.test",
+      ),
+    ).toBe("https://www.getinboxzero.com/login");
+    expect(normalizeDesktopCallbackPath("//evil.test")).toBeNull();
   });
 });

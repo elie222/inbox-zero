@@ -51,7 +51,10 @@ export function LoginForm({
     setLoadingGoogle(true);
     trackAuthStarted(posthog, "google");
     try {
-      if (await startDesktopAuthIfAvailable("google")) {
+      if (
+        !useGoogleOauthEmulator &&
+        (await startDesktopAuthIfAvailable("google", callbackURL))
+      ) {
         return;
       }
       if (useGoogleOauthEmulator) {
@@ -207,7 +210,7 @@ async function handleSocialSignIn({
   setLoading(true);
   trackAuthStarted(posthog, provider);
   try {
-    if (await startDesktopAuthIfAvailable(provider)) {
+    if (await startDesktopAuthIfAvailable(provider, callbackURL)) {
       return;
     }
     await signIn.social({
@@ -260,9 +263,12 @@ function isNetworkSignInError(message: string) {
   );
 }
 
-async function startDesktopAuthIfAvailable(provider: DesktopAuthProvider) {
+async function startDesktopAuthIfAvailable(
+  provider: DesktopAuthProvider,
+  callbackPath: string,
+) {
   const desktopApp = getInboxZeroDesktopApp();
   if (!desktopApp) return false;
-  await desktopApp.startAuth(provider);
+  await desktopApp.startAuth(provider, { callbackPath });
   return true;
 }

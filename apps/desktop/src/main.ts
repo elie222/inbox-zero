@@ -6,6 +6,7 @@ import {
   ipcMain,
   shell,
   type Session,
+  type WebContents,
 } from "electron";
 import {
   DESKTOP_PROTOCOL,
@@ -13,8 +14,11 @@ import {
   getDesktopAppOrigin,
   getDesktopBrowserStartUrl,
   getDesktopLoginUrl,
+  getDesktopPostAuthUrl,
   isAllowedDesktopNavigation,
+  isAllowedExternalUrl,
   isDesktopAuthProvider,
+  normalizeDesktopCallbackPath,
   parseDesktopAuthCallback,
 } from "./desktop";
 
@@ -22,6 +26,7 @@ const PARTITION = "persist:inbox-zero";
 
 let mainWindow: BrowserWindow | null = null;
 let pendingAuthUrl: string | null = null;
+let pendingCallbackPath: string | null = null;
 const appOrigin = getDesktopAppOrigin();
 const loginUrl = getDesktopLoginUrl(appOrigin);
 
@@ -60,12 +65,17 @@ function startDesktopApp() {
     pendingAuthUrl = url;
   });
 
-  ipcMain.handle("desktop-auth:start", async (_event, provider: unknown) => {
-    if (!isDesktopAuthProvider(provider)) {
-      throw new Error("Unsupported sign-in provider");
-    }
-    await shell.openExternal(getDesktopBrowserStartUrl(appOrigin, provider));
-  });
+  ipcMain.handle(
+    "desktop-auth:start",
+    async (_event, provider: unknown, options: unknown) => {
+      if (!isDesktopAuthProvider(provider)) {
+        throw new Error("Unsupported sign-in provider");
+      }
+      const callbackPath = getStartAuthCallbackPath(options);
+      await openExternal(getDesktopBrowserStartUrl(appOrigin, provider));
+      pendingCallbackPath = callbackPath;
+    },
+  );
 
   app.whenReady().then(async () => {
     createMainWindow();
@@ -110,21 +120,28 @@ function createMainWindow() {
     mainWindow = null;
   });
 
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+  applyNavigationPolicy(mainWindow.webContents);
+  mainWindow.loadURL(loginUrl).catch(showSignInError);
+}
+
+function applyNavigationPolicy(contents: WebContents) {
+  contents.setWindowOpenHandler(({ url }) => {
     if (isAllowedDesktopNavigation(url, appOrigin)) {
-      return { action: "allow" };
+      contents.loadURL(url).catch(showSignInError);
+    } else {
+      openExternal(url).catch(showSignInError);
     }
-    openExternal(url);
     return { action: "deny" };
   });
 
-  mainWindow.webContents.on("will-navigate", (event, url) => {
-    if (isAllowedDesktopNavigation(url, appOrigin)) return;
-    event.preventDefault();
-    openExternal(url);
-  });
+  contents.on("will-navigate", guardNavigation);
+  contents.on("will-redirect", guardNavigation);
+}
 
-  mainWindow.loadURL(loginUrl).catch(showSignInError);
+function guardNavigation(event: { preventDefault: () => void }, url: string) {
+  if (isAllowedDesktopNavigation(url, appOrigin)) return;
+  event.preventDefault();
+  openExternal(url).catch(showSignInError);
 }
 
 function focusMainWindow() {
@@ -156,7 +173,7 @@ async function handleAuthCallbackUrl(url: string) {
       callback.code,
       callback.state,
     );
-    await window.loadURL(loginUrl);
+    await window.loadURL(consumePostAuthUrl());
   } catch (error) {
     showSignInError(error);
   }
@@ -179,8 +196,23 @@ async function exchangeAuthCode(session: Session, code: string, state: string) {
   }
 }
 
-function openExternal(url: string) {
-  shell.openExternal(url).catch(showSignInError);
+function consumePostAuthUrl() {
+  const url = getDesktopPostAuthUrl(appOrigin, pendingCallbackPath);
+  pendingCallbackPath = null;
+  return url;
+}
+
+function getStartAuthCallbackPath(options: unknown): string | null {
+  if (!options || typeof options !== "object" || Array.isArray(options)) {
+    return null;
+  }
+  if (!("callbackPath" in options)) return null;
+  return normalizeDesktopCallbackPath(options.callbackPath);
+}
+
+async function openExternal(url: string) {
+  if (!isAllowedExternalUrl(url)) return;
+  await shell.openExternal(url);
 }
 
 function showSignInError(error: unknown) {

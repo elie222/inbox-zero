@@ -4,7 +4,9 @@ const OAUTH_STATE_COOKIE_NAMES = new Set([
 ]);
 
 export function getSetCookieValues(headers: Headers): string[] {
-  const cookies = headers.getSetCookie();
+  const cookies =
+    (headers as Headers & { getSetCookie?: () => string[] }).getSetCookie?.() ??
+    [];
   if (cookies.length > 0) return cookies;
   const combined = headers.get("set-cookie");
   return combined ? splitSetCookieHeader(combined) : [];

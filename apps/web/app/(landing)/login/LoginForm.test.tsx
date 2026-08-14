@@ -55,6 +55,14 @@ vi.mock("posthog-js/react", () => ({
   usePostHog: () => ({ capture: mockPosthogCapture }),
 }));
 
+vi.mock("@/utils/redirect", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/utils/redirect")>();
+  return {
+    ...actual,
+    redirectToSafeUrl: vi.fn(),
+  };
+});
+
 import { LoginForm } from "@/app/(landing)/login/LoginForm";
 
 describe("LoginForm", () => {
@@ -152,6 +160,33 @@ describe("LoginForm", () => {
     const startAuth = vi.fn().mockResolvedValue(undefined);
     window.inboxZeroDesktop = { startAuth };
 
+    render(
+      <LoginForm
+        enabledProviders={["google"]}
+        useGoogleOauthEmulator={false}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /sign in with google/i }),
+    );
+
+    await waitFor(() => {
+      expect(startAuth).toHaveBeenCalledWith("google", {
+        callbackPath: "/welcome-redirect",
+      });
+    });
+    expect(mockSignInSocial).not.toHaveBeenCalled();
+    expect(mockSignInWithOauth2).not.toHaveBeenCalled();
+  });
+
+  it("keeps the Google OAuth emulator in-window when desktop auth is available", async () => {
+    const startAuth = vi.fn().mockResolvedValue(undefined);
+    window.inboxZeroDesktop = { startAuth };
+    mockSignInWithOauth2.mockResolvedValue({
+      url: "https://oauth.test/google",
+    });
+
     render(<LoginForm enabledProviders={["google"]} useGoogleOauthEmulator />);
 
     fireEvent.click(
@@ -159,9 +194,26 @@ describe("LoginForm", () => {
     );
 
     await waitFor(() => {
-      expect(startAuth).toHaveBeenCalledWith("google");
+      expect(mockSignInWithOauth2).toHaveBeenCalled();
+    });
+    expect(startAuth).not.toHaveBeenCalled();
+  });
+
+  it("passes Apple's connect-mailbox callback through desktop auth", async () => {
+    const startAuth = vi.fn().mockResolvedValue(undefined);
+    window.inboxZeroDesktop = { startAuth };
+
+    render(<LoginForm enabledProviders={["apple"]} useGoogleOauthEmulator />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /sign in with apple/i }),
+    );
+
+    await waitFor(() => {
+      expect(startAuth).toHaveBeenCalledWith("apple", {
+        callbackPath: "/connect-mailbox?next=%2Fwelcome-redirect",
+      });
     });
     expect(mockSignInSocial).not.toHaveBeenCalled();
-    expect(mockSignInWithOauth2).not.toHaveBeenCalled();
   });
 });

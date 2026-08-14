@@ -1,7 +1,10 @@
 export type DesktopAuthProvider = "apple" | "google" | "microsoft";
 
 export type InboxZeroDesktopApi = {
-  startAuth: (provider: DesktopAuthProvider) => Promise<void>;
+  startAuth: (
+    provider: DesktopAuthProvider,
+    options?: { callbackPath?: string },
+  ) => Promise<void>;
 };
 
 declare global {
