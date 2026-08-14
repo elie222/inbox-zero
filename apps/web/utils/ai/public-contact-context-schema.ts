@@ -110,7 +110,7 @@ export function isSafeForSharedCache(context: PublicContactContext): boolean {
       containsEmailAddress(value),
     ) &&
     publicText.every((value) => scanSensitiveContent(value).length === 0) &&
-    publicUrls.every(isSafeExternalHttpUrl)
+    publicUrls.every((url) => isSafeExternalHttpUrl(url))
   );
 }
 
