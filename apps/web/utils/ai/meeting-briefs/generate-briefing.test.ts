@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { MeetingBriefingData } from "@/utils/meeting-briefs/gather-context";
 
-const { mockOpenRouterWebSearch } = vi.hoisted(() => ({
+const { mockGetModel, mockOpenRouterWebSearch } = vi.hoisted(() => ({
+  mockGetModel: vi.fn(),
   mockOpenRouterWebSearch: vi.fn(() => ({ type: "provider" })),
 }));
 
@@ -14,11 +15,7 @@ vi.mock("@/env", () => ({
   },
 }));
 vi.mock("@/utils/llms/model", () => ({
-  getResolvedDeploymentRolePrimaryModelEntry: vi.fn(() => ({
-    provider: "openai",
-    modelName: "gpt-5.4-mini",
-  })),
-  getModel: vi.fn(),
+  getModel: mockGetModel,
 }));
 vi.mock("@/utils/llms", () => ({ createGenerateObject: vi.fn() }));
 vi.mock("@openrouter/ai-sdk-provider", () => ({
@@ -52,13 +49,15 @@ vi.doUnmock("@/utils/date");
 
 import { buildPrompt, getWebSearchConfig } from "./generate-briefing";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import { getResolvedDeploymentRolePrimaryModelEntry } from "@/utils/llms/model";
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(getResolvedDeploymentRolePrimaryModelEntry).mockReturnValue({
+  mockGetModel.mockReturnValue({
     provider: "openai",
     modelName: "gpt-5.4-mini",
+    model: { id: "model" },
+    fallbackModels: [],
+    hasUserApiKey: false,
   });
 });
 
@@ -199,22 +198,14 @@ describe("buildPrompt timezone handling", () => {
     `);
   });
 
-  it("uses the meeting web search role to decide web search availability", () => {
-    vi.mocked(getResolvedDeploymentRolePrimaryModelEntry).mockImplementation(
-      (modelType) => {
-        if (modelType === "economy") {
-          return {
-            provider: "anthropic",
-            modelName: "claude-haiku-4-5-20251001",
-          };
-        }
-
-        return {
-          provider: "openai",
-          modelName: "gpt-5.4-mini",
-        };
-      },
-    );
+  it("uses the account's meeting web search provider to decide availability", () => {
+    mockGetModel.mockReturnValue({
+      provider: "anthropic",
+      modelName: "claude-haiku-4-5-20251001",
+      model: { id: "model" },
+      fallbackModels: [],
+      hasUserApiKey: true,
+    });
 
     const briefingData: MeetingBriefingData = {
       event: {
@@ -235,20 +226,13 @@ describe("buildPrompt timezone handling", () => {
 
     const prompt = buildPrompt(briefingData, mockEmailAccount);
 
-    expect(getResolvedDeploymentRolePrimaryModelEntry).toHaveBeenCalledWith(
-      "economy",
-    );
+    expect(mockGetModel).toHaveBeenCalledWith(mockEmailAccount.user, "economy");
     expect(prompt).toContain("Available search tools: perplexitySearch");
     expect(prompt).not.toContain("webSearch");
   });
 
   it("uses the capped OpenRouter server web search tool", () => {
-    vi.mocked(getResolvedDeploymentRolePrimaryModelEntry).mockReturnValue({
-      provider: "openrouter",
-      modelName: "openai/gpt-5.4-nano",
-    });
-
-    const config = getWebSearchConfig();
+    const config = getWebSearchConfig("openrouter");
     const tools = config?.getSearchTools?.();
 
     expect(mockOpenRouterWebSearch).toHaveBeenCalledWith({
