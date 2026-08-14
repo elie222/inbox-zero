@@ -31,6 +31,8 @@ export type ThreadRowProps = {
   isSelected: boolean;
   /** Keeps every checkbox visible once the list has a selection. */
   hasAnySelection: boolean;
+  compact?: boolean;
+  selectionEnabled?: boolean;
   onOpen: (index: number) => void;
   onToggleSelect: (index: number) => void;
   onSelectRangeTo: (index: number) => void;
@@ -46,6 +48,8 @@ export const ThreadRow = memo(function ThreadRow({
   isFocused,
   isSelected,
   hasAnySelection,
+  compact = false,
+  selectionEnabled = true,
   onOpen,
   onToggleSelect,
   onSelectRangeTo,
@@ -67,9 +71,12 @@ export const ThreadRow = memo(function ThreadRow({
   const isUnread = isThreadUnread(thread.messages);
   // Both providers normalise to this id, so this is not a provider branch.
   const isDraft = message.labelIds?.includes(GmailLabel.DRAFT) ?? false;
-  const isWide = layout === "list";
+  const isWide = layout === "list" && !compact;
 
-  const sender = extractNameFromEmail(participant(message, userEmail));
+  const account = "account" in thread ? thread.account : null;
+  const sender = extractNameFromEmail(
+    participant(message, account?.email ?? userEmail),
+  );
   const subject = message.headers.subject;
   const snippet = decodeSnippet(thread.snippet || message.snippet);
   const chips = labels.slice(0, isWide ? 3 : 2);
@@ -134,7 +141,7 @@ export const ThreadRow = memo(function ThreadRow({
           "before:absolute before:inset-y-1 before:left-0 before:w-0.5 before:rounded-full before:bg-primary before:content-['']",
       )}
       onClick={(event) => {
-        if (event.shiftKey) onSelectRangeTo(index);
+        if (selectionEnabled && event.shiftKey) onSelectRangeTo(index);
         else onOpen(index);
       }}
       onKeyDown={(event) => {
@@ -145,7 +152,7 @@ export const ThreadRow = memo(function ThreadRow({
       role="option"
       tabIndex={isFocused ? 0 : -1}
     >
-      {selectionControl}
+      {selectionEnabled ? selectionControl : null}
 
       {isWide ? (
         <>
@@ -161,6 +168,11 @@ export const ThreadRow = memo(function ThreadRow({
             {draftMarker}
           </div>
           <div className="flex min-w-0 flex-1 items-center gap-2.5">
+            {account ? (
+              <span className="max-w-28 shrink-0 truncate rounded-full bg-muted px-2 py-0.5 text-muted-foreground text-xs">
+                {account.name || account.email}
+              </span>
+            ) : null}
             {chips.map((label) => (
               <MailLabelChip
                 color={label.color}
@@ -211,6 +223,12 @@ export const ThreadRow = memo(function ThreadRow({
           <div className="truncate text-muted-foreground text-xs">
             {snippet}
           </div>
+          {account ? (
+            <div className="flex min-w-0 items-center gap-1.5 pt-1 text-muted-foreground text-xs">
+              <span className="size-1.5 shrink-0 rounded-full bg-primary" />
+              <span className="truncate">{account.name || account.email}</span>
+            </div>
+          ) : null}
           {chips.length ? (
             <div className="flex flex-wrap gap-1 pt-1">
               {chips.map((label) => (

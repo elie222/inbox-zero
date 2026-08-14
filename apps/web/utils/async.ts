@@ -3,6 +3,33 @@ export type BoundedConcurrencyResult<TItem, TResult> = {
   result: PromiseSettledResult<TResult>;
 };
 
+export async function mapWithConcurrency<TItem, TResult>(
+  items: TItem[],
+  concurrency: number,
+  run: (item: TItem, index: number) => Promise<TResult>,
+): Promise<TResult[]> {
+  if (concurrency < 1) {
+    throw new Error("concurrency must be at least 1");
+  }
+
+  const results = new Array<TResult>(items.length);
+  let nextIndex = 0;
+
+  async function worker() {
+    while (nextIndex < items.length) {
+      const index = nextIndex++;
+      const item = items[index];
+      if (item === undefined) throw new Error("Item index out of bounds");
+      results[index] = await run(item, index);
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, items.length) }, worker),
+  );
+  return results;
+}
+
 export async function runWithBoundedConcurrency<TItem, TResult>({
   items,
   concurrency,

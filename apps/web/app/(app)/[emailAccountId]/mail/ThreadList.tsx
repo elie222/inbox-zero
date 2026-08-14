@@ -7,6 +7,7 @@ import type {
   ListThread,
   MailLayoutMode,
 } from "@/app/(app)/[emailAccountId]/mail/types";
+import { getListThreadKey } from "@/app/(app)/[emailAccountId]/mail/types";
 import {
   scrollElementIntoContainer,
   shouldPrefetchMoreThreads,
@@ -15,12 +16,14 @@ import {
 import { LoadingMiniSpinner } from "@/components/Loading";
 import { Button } from "@/components/ui/button";
 import type { EmailLabels } from "@/providers/email-label-types";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export type ThreadListProps = {
   threads: ListThread[];
   layout: MailLayoutMode;
   userEmail: string;
   userLabels: EmailLabels;
+  selectionEnabled?: boolean;
   /** The row `J`/`K` sits on. */
   focusedIndex: number;
   isSelected: (threadId: string) => boolean;
@@ -44,6 +47,7 @@ export function ThreadList({
   layout,
   userEmail,
   userLabels,
+  selectionEnabled = true,
   focusedIndex,
   isSelected,
   selectedCount,
@@ -59,6 +63,7 @@ export function ThreadList({
   onLoadMore,
   listKey,
 }: ThreadListProps) {
+  const isMobile = useIsMobile();
   const [scrollRoot, setScrollRoot] = useState<HTMLDivElement | null>(null);
   const focusedRowRef = useRef<HTMLDivElement | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -66,7 +71,9 @@ export function ThreadList({
   const prefetchListKey = useRef(listKey);
   const onLoadMoreRef = useRef(onLoadMore);
   onLoadMoreRef.current = onLoadMore;
-  const focusedThreadId = threads[focusedIndex]?.id;
+  const focusedThreadId = threads[focusedIndex]
+    ? getListThreadKey(threads[focusedIndex])
+    : undefined;
 
   // Keep the J/K cursor on screen without centering every row. Layout phase so
   // a held arrow key never paints a selected row that's already off-screen.
@@ -117,12 +124,14 @@ export function ThreadList({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <SelectionBar
-        onArchive={onArchiveSelected}
-        onClear={onClearSelection}
-        onDelete={onDeleteSelected}
-        selectedCount={selectedCount}
-      />
+      {selectionEnabled ? (
+        <SelectionBar
+          onArchive={onArchiveSelected}
+          onClear={onClearSelection}
+          onDelete={onDeleteSelected}
+          selectedCount={selectedCount}
+        />
+      ) : null}
 
       <div
         className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
@@ -137,24 +146,33 @@ export function ThreadList({
           </div>
         ) : (
           <>
-            <div aria-label="Conversations" aria-multiselectable role="listbox">
-              {threads.map((thread, index) => (
-                <ThreadRow
-                  hasAnySelection={selectedCount > 0}
-                  index={index}
-                  isFocused={index === focusedIndex}
-                  isSelected={isSelected(thread.id)}
-                  key={thread.id}
-                  layout={layout}
-                  onOpen={onOpenThread}
-                  onSelectRangeTo={onSelectRangeTo}
-                  onToggleSelect={onToggleSelect}
-                  rowRef={index === focusedIndex ? focusedRowRef : undefined}
-                  thread={thread}
-                  userEmail={userEmail}
-                  userLabels={userLabels}
-                />
-              ))}
+            <div
+              aria-label="Conversations"
+              aria-multiselectable={selectionEnabled || undefined}
+              role="listbox"
+            >
+              {threads.map((thread, index) => {
+                const threadKey = getListThreadKey(thread);
+                return (
+                  <ThreadRow
+                    hasAnySelection={selectionEnabled && selectedCount > 0}
+                    compact={isMobile}
+                    index={index}
+                    isFocused={index === focusedIndex}
+                    isSelected={selectionEnabled && isSelected(threadKey)}
+                    key={threadKey}
+                    layout={layout}
+                    onOpen={onOpenThread}
+                    onSelectRangeTo={onSelectRangeTo}
+                    onToggleSelect={onToggleSelect}
+                    rowRef={index === focusedIndex ? focusedRowRef : undefined}
+                    selectionEnabled={selectionEnabled}
+                    thread={thread}
+                    userEmail={userEmail}
+                    userLabels={userLabels}
+                  />
+                );
+              })}
             </div>
 
             {showLoadMore ? (

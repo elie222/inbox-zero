@@ -11,6 +11,7 @@ import {
 import { useQueryState } from "nuqs";
 import { toast } from "sonner";
 import { ListToolbar } from "@/app/(app)/[emailAccountId]/mail/ListToolbar";
+import { MailAccountSwitcher } from "@/app/(app)/[emailAccountId]/mail/MailAccountSwitcher";
 import {
   MAIL_CATEGORIES,
   MailSidebar,
@@ -30,9 +31,13 @@ import type {
 } from "@/app/(app)/[emailAccountId]/mail/NewSplitPopover";
 import { ThreadList } from "@/app/(app)/[emailAccountId]/mail/ThreadList";
 import { ThreadReader } from "@/app/(app)/[emailAccountId]/mail/ThreadReader";
-import type { MailLayoutMode } from "@/app/(app)/[emailAccountId]/mail/types";
+import {
+  getListThreadKey,
+  type MailLayoutMode,
+} from "@/app/(app)/[emailAccountId]/mail/types";
 import type { ThreadMessage } from "@/components/email-list/types";
 import { useMailThreads } from "@/app/(app)/[emailAccountId]/mail/use-mail-threads";
+import { useCombinedMailThreads } from "@/app/(app)/[emailAccountId]/mail/use-combined-mail-threads";
 import { useAdjacentThreadPrefetch } from "@/app/(app)/[emailAccountId]/mail/use-adjacent-thread-prefetch";
 import { useThreadActions } from "@/app/(app)/[emailAccountId]/mail/use-thread-actions";
 import { useThreadSelection } from "@/app/(app)/[emailAccountId]/mail/use-thread-selection";
@@ -75,6 +80,8 @@ import { prefixPath } from "@/utils/path";
 import { LoadingContent } from "@/components/LoadingContent";
 import type { ThreadsQuery } from "@/utils/threads/validation";
 import { getEmailTerminology } from "@/utils/terminology";
+import { createSearchParams } from "@/utils/url";
+import { redirectToSafeUrl } from "@/utils/redirect";
 
 // Always present, never deletable. Everything else is a saved split. They carry
 // a kind so built-ins and saved splits resolve through one mapping.
@@ -85,6 +92,7 @@ const BUILT_IN_SPLITS = [
 
 // Module-level so an "empty" reader doesn't hand children a new array each render.
 const NO_MESSAGES: ThreadMessage[] = [];
+const NO_LABELS = {};
 
 export function MailShell() {
   const { emailAccountId, userEmail, provider } = useAccount();
@@ -109,9 +117,10 @@ export function MailShell() {
   const [activeSplitId, setActiveSplitId] = useQueryState("split", {
     defaultValue: "all",
   });
-  const [scopeType] = useQueryState("type");
-  const [scopeLabelId] = useQueryState("labelId");
-  const [scopeFolderId] = useQueryState("folderId");
+  const [accountScope, setAccountScope] = useQueryState("accountScope");
+  const [scopeType, setScopeType] = useQueryState("type");
+  const [scopeLabelId, setScopeLabelId] = useQueryState("labelId");
+  const [scopeFolderId, setScopeFolderId] = useQueryState("folderId");
 
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [isFocusMode, setIsFocusMode] = useState(false);
@@ -119,8 +128,12 @@ export function MailShell() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [replyToMessageId, setReplyToMessageId] = useState<string>();
 
-  const layout: MailLayoutMode =
-    settings?.layout === MailLayout.SPLIT ? "split" : "list";
+  const isAllAccounts = accountScope === "all";
+  const layout: MailLayoutMode = isAllAccounts
+    ? "list"
+    : settings?.layout === MailLayout.SPLIT
+      ? "split"
+      : "list";
 
   // Written through the SWR cache rather than mirrored in local state, so the
   // preference has one source of truth and every reader sees the new value.
@@ -166,7 +179,7 @@ export function MailShell() {
       return mailTypeToThreadsQuery(scopeType);
     return null;
   }, [scopeFolderId, scopeLabelId, scopeType]);
-  const isScoped = scopeQuery !== null;
+  const isScoped = !isAllAccounts && scopeQuery !== null;
 
   const splits: MailSplitTab[] = useMemo(
     () => [
@@ -175,13 +188,15 @@ export function MailShell() {
         name: split.name,
         deletable: false,
       })),
-      ...(settings?.splits ?? []).map((split) => ({
-        id: split.id,
-        name: split.name,
-        deletable: true,
-      })),
+      ...(isAllAccounts
+        ? []
+        : (settings?.splits ?? []).map((split) => ({
+            id: split.id,
+            name: split.name,
+            deletable: true,
+          }))),
     ],
-    [settings?.splits],
+    [isAllAccounts, settings?.splits],
   );
 
   const query: ThreadsQuery = useMemo(() => {
@@ -195,25 +210,25 @@ export function MailShell() {
     return mailSplitToThreadsQuery(active);
   }, [scopeQuery, activeSplitId, settings?.splits]);
 
-  const {
-    threads,
-    isLoading,
-    error,
-    hasMore,
-    isLoadingMore,
-    loadMore,
-    removeThreads,
-    restoreThreads,
-    optimisticallyUpdateThreads,
-  } = useMailThreads({ emailAccountId, query });
+  const accountThreadState = useMailThreads({
+    emailAccountId,
+    query,
+    enabled: !isAllAccounts,
+  });
+  const combinedThreadState = useCombinedMailThreads({
+    enabled: isAllAccounts,
+    isUnread: activeSplitId === "unread",
+  });
+  const { threads, isLoading, error, hasMore, isLoadingMore, loadMore } =
+    isAllAccounts ? combinedThreadState : accountThreadState;
 
-  const orderedIds = useMemo(() => threads.map((t) => t.id), [threads]);
+  const orderedIds = useMemo(() => threads.map(getListThreadKey), [threads]);
   const selection = useThreadSelection(orderedIds);
   const { archive, trash, markRead, setReadState, undo } = useThreadActions({
     emailAccountId,
-    removeThreads,
-    restoreThreads,
-    optimisticallyUpdateThreads,
+    removeThreads: accountThreadState.removeThreads,
+    restoreThreads: accountThreadState.restoreThreads,
+    optimisticallyUpdateThreads: accountThreadState.optimisticallyUpdateThreads,
   });
 
   const clampIndex = useCallback(
@@ -223,7 +238,9 @@ export function MailShell() {
   );
   const clampedIndex = clampIndex(focusedIndex);
   const focusedThread = threads[clampedIndex];
-  const openThread = threads.find((t) => t.id === openThreadId);
+  const openThread = isAllAccounts
+    ? undefined
+    : threads.find((thread) => thread.id === openThreadId);
   const resolvedOpenThreadId = openThread?.id;
   const readAttemptedForOpenThread = useRef<string | null>(null);
 
@@ -247,11 +264,11 @@ export function MailShell() {
 
   // Deferred so holding J/K in split view doesn't fire a full-thread provider
   // fetch for every row the cursor passes over — only the row you settle on.
-  const readerThreadId = useDeferredValue(openThreadId);
+  const readerThreadId = useDeferredValue(isAllAccounts ? null : openThreadId);
   useAdjacentThreadPrefetch({
     currentThreadId: readerThreadId,
     emailAccountId,
-    threadIds: orderedIds,
+    threadIds: isAllAccounts ? [] : orderedIds,
   });
   const { data: openThreadData, mutate: refetchOpenThread } = useThread(
     { id: readerThreadId },
@@ -284,13 +301,16 @@ export function MailShell() {
 
   const runOn = useCallback(
     (action: (ids: string[]) => void) => {
-      const ids = selection.targetIds(focusedThread?.id);
+      if (isAllAccounts) return;
+      const ids = selection.targetIds(
+        focusedThread ? getListThreadKey(focusedThread) : undefined,
+      );
       if (!ids.length) return;
       if (openThreadId && ids.includes(openThreadId)) setOpenThreadId(null);
       selection.clear();
       action(ids);
     },
-    [selection, focusedThread?.id, openThreadId, setOpenThreadId],
+    [isAllAccounts, selection, focusedThread, openThreadId, setOpenThreadId],
   );
 
   const openAt = useCallback(
@@ -299,6 +319,11 @@ export function MailShell() {
       if (!thread) return;
       setFocusedIndex(index);
       setReplyToMessageId(undefined);
+      if ("account" in thread) {
+        const params = createSearchParams({ "thread-id": thread.id });
+        redirectToSafeUrl(`/${thread.account.id}/mail?${params.toString()}`);
+        return;
+      }
       setOpenThreadId(thread.id);
     },
     [threads, setOpenThreadId],
@@ -353,21 +378,26 @@ export function MailShell() {
         const next = splits[(index + 1) % splits.length];
         if (next) setActiveSplitId(next.id);
       },
-      select: () => selection.toggle(clampedIndex),
+      select: isAllAccounts ? undefined : () => selection.toggle(clampedIndex),
       // The cursor travels with the extension; without that, every repeat
       // re-extends from the same row and the range never grows.
-      extendSelectionDown: () => extendSelection(1),
-      extendSelectionUp: () => extendSelection(-1),
-      archive: archiveTargets,
-      delete: trashTargets,
-      reply: () => {
-        if (!openThreadId && focusedThread) setOpenThreadId(focusedThread.id);
-        setReplyToMessageId(openMessages?.at(-1)?.id);
-      },
-      moreActions: () => setIsMenuOpen((open) => !open),
-      undo: () => undo(),
-      toggleLayout,
-      focusMode: () => setIsFocusMode((on) => !on),
+      extendSelectionDown: isAllAccounts ? undefined : () => extendSelection(1),
+      extendSelectionUp: isAllAccounts ? undefined : () => extendSelection(-1),
+      archive: isAllAccounts ? undefined : archiveTargets,
+      delete: isAllAccounts ? undefined : trashTargets,
+      reply: isAllAccounts
+        ? undefined
+        : () => {
+            if (!openThreadId && focusedThread)
+              setOpenThreadId(focusedThread.id);
+            setReplyToMessageId(openMessages?.at(-1)?.id);
+          },
+      moreActions: isAllAccounts
+        ? undefined
+        : () => setIsMenuOpen((open) => !open),
+      undo: isAllAccounts ? undefined : () => undo(),
+      toggleLayout: isAllAccounts ? undefined : toggleLayout,
+      focusMode: isAllAccounts ? undefined : () => setIsFocusMode((on) => !on),
       help: () => setIsHelpOpen(true),
     };
   })();
@@ -464,13 +494,37 @@ export function MailShell() {
     [emailAccountId, openThreadId, refetchOpenThread],
   );
 
-  const showList = !isFocusMode && (layout === "split" || !openThreadId);
-  const showReader = layout === "split" || Boolean(openThreadId);
+  const showList =
+    isAllAccounts || (!isFocusMode && (layout === "split" || !openThreadId));
+  const showReader =
+    !isAllAccounts && (layout === "split" || Boolean(openThreadId));
+
+  const selectAllAccounts = useCallback(() => {
+    selection.clear();
+    setFocusedIndex(0);
+    setOpenThreadId(null);
+    setScopeType(null);
+    setScopeLabelId(null);
+    setScopeFolderId(null);
+    if (!BUILT_IN_SPLITS.some((split) => split.id === activeSplitId)) {
+      setActiveSplitId("all");
+    }
+    setAccountScope("all");
+  }, [
+    activeSplitId,
+    selection.clear,
+    setAccountScope,
+    setActiveSplitId,
+    setOpenThreadId,
+    setScopeFolderId,
+    setScopeLabelId,
+    setScopeType,
+  ]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-background">
       <div className="flex min-h-0 flex-1">
-        {!isFocusMode && (
+        {!isFocusMode && !isAllAccounts && (
           <MailSidebar
             className="hidden lg:flex"
             activeType={
@@ -509,6 +563,7 @@ export function MailShell() {
               onOpenSearch={() => setPaletteOpen(true)}
               onToggleLayout={toggleLayout}
               onToggleAssistant={() => toggleSidebar(["chat-sidebar"])}
+              showLayoutToggle={!isAllAccounts}
             />
             {!isScoped && (
               <SplitTabs
@@ -520,6 +575,12 @@ export function MailShell() {
                 onCreateSplit={onCreateSplit}
               />
             )}
+            {isAllAccounts && combinedThreadState.failedAccountIds.length ? (
+              <div className="border-border border-b bg-amber-50 px-3 py-2 text-amber-900 text-xs dark:bg-amber-950/30 dark:text-amber-200">
+                Some inboxes couldn&apos;t be loaded. Try again shortly or check
+                their connections.
+              </div>
+            ) : null}
             <LoadingContent
               loading={isLoading && !threads.length}
               error={error}
@@ -528,7 +589,7 @@ export function MailShell() {
                 threads={threads}
                 layout={layout}
                 userEmail={userEmail}
-                userLabels={userLabels}
+                userLabels={isAllAccounts ? NO_LABELS : userLabels}
                 focusedIndex={clampedIndex}
                 isSelected={selection.isSelected}
                 selectedCount={selection.selectedCount}
@@ -542,7 +603,12 @@ export function MailShell() {
                 showLoadMore={hasMore}
                 isLoadingMore={isLoadingMore}
                 onLoadMore={loadMore}
-                listKey={JSON.stringify(query)}
+                listKey={
+                  isAllAccounts
+                    ? `all-accounts:${activeSplitId}`
+                    : JSON.stringify(query)
+                }
+                selectionEnabled={!isAllAccounts}
               />
             </LoadingContent>
           </section>
@@ -590,6 +656,11 @@ export function MailShell() {
           />
         )}
       </div>
+
+      <MailAccountSwitcher
+        isAllAccounts={isAllAccounts}
+        onSelectAll={selectAllAccounts}
+      />
 
       <ShortcutsDialog open={isHelpOpen} onOpenChange={setIsHelpOpen} />
     </div>

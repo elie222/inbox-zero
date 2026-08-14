@@ -9,6 +9,7 @@ import { cn } from "@/utils";
 
 export type ListToolbarProps = {
   layout: MailLayoutMode;
+  showLayoutToggle?: boolean;
   onOpenSearch: () => void;
   onToggleLayout: () => void;
   onToggleAssistant: () => void;
@@ -16,6 +17,7 @@ export type ListToolbarProps = {
 
 export function ListToolbar({
   layout,
+  showLayoutToggle = true,
   onOpenSearch,
   onToggleLayout,
   onToggleAssistant,
@@ -38,17 +40,19 @@ export function ListToolbar({
         <Kbd>{getShortcutHint("commandPalette")}</Kbd>
       </button>
 
-      <Tooltip content="Switch list / split view">
-        <button
-          type="button"
-          onClick={onToggleLayout}
-          aria-label="Switch list or split view"
-          className={toolbarButton}
-        >
-          <LayoutIcon className="size-3.5" />
-          <Kbd>{getShortcutHint("toggleLayout")}</Kbd>
-        </button>
-      </Tooltip>
+      {showLayoutToggle ? (
+        <Tooltip content="Switch list / split view">
+          <button
+            type="button"
+            onClick={onToggleLayout}
+            aria-label="Switch list or split view"
+            className={toolbarButton}
+          >
+            <LayoutIcon className="size-3.5" />
+            <Kbd>{getShortcutHint("toggleLayout")}</Kbd>
+          </button>
+        </Tooltip>
+      ) : null}
 
       <Tooltip content="Assistant">
         <button

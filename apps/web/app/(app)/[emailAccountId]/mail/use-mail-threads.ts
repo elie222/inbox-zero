@@ -56,14 +56,17 @@ type PersistentView = {
 export function useMailThreads({
   emailAccountId,
   query,
+  enabled = true,
 }: {
   emailAccountId: string;
   query: ThreadsQuery;
+  enabled?: boolean;
 }) {
   const viewKey = useMemo(() => createThreadListCacheKey(query), [query]);
   const viewIdentity = `${emailAccountId}:${viewKey}`;
   const getKey = useCallback(
     (pageIndex: number, previousPageData: ThreadsListResponse | null) => {
+      if (!enabled) return null;
       if (previousPageData && !previousPageData.nextPageToken) return null;
 
       const params = createSearchParams({
@@ -79,7 +82,7 @@ export function useMailThreads({
         string,
       ];
     },
-    [emailAccountId, query],
+    [emailAccountId, enabled, query],
   );
 
   const { data, size, setSize, isLoading, error, mutate } =
