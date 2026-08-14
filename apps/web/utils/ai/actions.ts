@@ -344,7 +344,7 @@ const reply: ActionFunction<{
       textHtml: email.textHtml,
     },
     args.content,
-    { attachments },
+    { attachments, sentByRule: true },
   );
 };
 
@@ -368,6 +368,7 @@ const send_email: ActionFunction<{
   });
 
   const emailArgs = {
+    sentByRule: true,
     to: args.to,
     cc: args.cc ?? undefined,
     bcc: args.bcc ?? undefined,
@@ -427,6 +428,7 @@ const forward: ActionFunction<{
     date: email.headers.date,
   };
   const forwardArgs = {
+    sentByRule: true,
     messageId: email.id,
     content: args.content ?? undefined,
   };

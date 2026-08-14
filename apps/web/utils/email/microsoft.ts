@@ -733,12 +733,14 @@ export class OutlookProvider implements EmailProvider {
       replyTo?: string;
       from?: string;
       attachments?: MailAttachment[];
+      sentByRule?: boolean;
     },
   ): Promise<void> {
     await replyToEmail(this.client, email, content, this.logger, options);
   }
 
   async sendEmail(args: {
+    sentByRule?: boolean;
     to: string;
     cc?: string;
     bcc?: string;
@@ -784,6 +786,7 @@ export class OutlookProvider implements EmailProvider {
       bcc?: string;
       content?: string;
       from?: string;
+      sentByRule?: boolean;
     },
   ): Promise<void> {
     await forwardEmail(

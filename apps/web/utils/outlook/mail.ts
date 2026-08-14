@@ -20,11 +20,17 @@ import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
 import { uploadResumableChunks } from "@/utils/microsoft/upload-session";
 import type { Logger } from "@/utils/logger";
+import {
+  AUTOMATED_OUTBOUND_HEADER,
+  AUTOMATED_OUTBOUND_HEADER_VALUE,
+} from "@/utils/email/automated-outbound";
 
 type GraphRecipient = {
   emailAddress: { address: string; name?: string };
 };
-type MailSendEmailBody = WithMailerAttachments<SendEmailBody>;
+type MailSendEmailBody = WithMailerAttachments<SendEmailBody> & {
+  sentByRule?: boolean;
+};
 
 const MAX_GRAPH_ATTACHMENT_SIZE_BYTES = 3 * 1024 * 1024;
 const MAX_GRAPH_UPLOAD_SESSION_SIZE_BYTES = 150 * 1024 * 1024;
@@ -68,6 +74,7 @@ export async function sendEmailWithHtml(
           ...(ccRecipients ? { ccRecipients } : {}),
           ...(bccRecipients ? { bccRecipients } : {}),
           ...(replyToRecipients ? { replyTo: replyToRecipients } : {}),
+          ...getRuleGeneratedInternetHeaders(body.sentByRule),
         }),
     logger,
   );
@@ -107,7 +114,12 @@ export async function replyToEmail(
   message: EmailForAction,
   reply: string,
   logger: Logger,
-  options?: { replyTo?: string; from?: string; attachments?: Attachment[] },
+  options?: {
+    replyTo?: string;
+    from?: string;
+    attachments?: Attachment[];
+    sentByRule?: boolean;
+  },
 ) {
   ensureEmailSendingEnabled();
 
@@ -147,6 +159,7 @@ export async function replyToEmail(
                 replyTo: [{ emailAddress: { address: options.replyTo } }],
               }
             : {}),
+          ...getRuleGeneratedInternetHeaders(options?.sentByRule),
         }),
     logger,
   );
@@ -182,6 +195,7 @@ export async function forwardEmail(
     bcc?: string;
     content?: string;
     from?: string;
+    sentByRule?: boolean;
   },
   logger: Logger,
 ) {
@@ -252,6 +266,7 @@ export async function forwardEmail(
               message,
             }),
           },
+          ...getRuleGeneratedInternetHeaders(options.sentByRule),
         }),
     logger,
   );
@@ -456,6 +471,7 @@ async function sendReplyUsingCreateReply(
           ...(body.bcc
             ? { bccRecipients: [{ emailAddress: { address: body.bcc } }] }
             : {}),
+          ...getRuleGeneratedInternetHeaders(body.sentByRule),
         }),
     logger,
   );
@@ -671,4 +687,17 @@ async function uploadAttachmentViaSession({
     action: "upload Outlook attachment chunk",
     statusAction: "fetch Outlook upload session status",
   });
+}
+
+function getRuleGeneratedInternetHeaders(sentByRule?: boolean) {
+  return sentByRule
+    ? {
+        internetMessageHeaders: [
+          {
+            name: AUTOMATED_OUTBOUND_HEADER,
+            value: AUTOMATED_OUTBOUND_HEADER_VALUE,
+          },
+        ],
+      }
+    : {};
 }

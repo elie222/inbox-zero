@@ -119,11 +119,12 @@ describe("handleOutboundMessage", () => {
     expect(excludeRepliedSendersFromColdEmail).toHaveBeenCalledWith({
       emailAccountId: emailAccount.id,
       message,
+      provider,
       logger: expect.anything(),
     });
   });
 
-  it("keeps the processed marker even if un-pinning the sender fails", async () => {
+  it("leaves the message retryable if un-pinning the sender fails", async () => {
     vi.mocked(excludeRepliedSendersFromColdEmail).mockRejectedValue(
       new Error("exclude failed"),
     );
@@ -136,7 +137,8 @@ describe("handleOutboundMessage", () => {
     });
 
     expect(clearFollowUpLabel).toHaveBeenCalled();
-    expect(markOutboundMessageProcessed).toHaveBeenCalledWith({
+    expect(markOutboundMessageProcessed).not.toHaveBeenCalled();
+    expect(clearOutboundMessageLock).toHaveBeenCalledWith({
       emailAccountId: emailAccount.id,
       messageId: message.id,
       lockToken: "lock-token-1",

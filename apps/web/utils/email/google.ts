@@ -959,12 +959,14 @@ export class GmailProvider implements EmailProvider {
       replyTo?: string;
       from?: string;
       attachments?: MailAttachment[];
+      sentByRule?: boolean;
     },
   ): Promise<void> {
     await replyToEmail(this.client, email, content, options?.from, options);
   }
 
   async sendEmail(args: {
+    sentByRule?: boolean;
     to: string;
     cc?: string;
     bcc?: string;
@@ -1009,6 +1011,7 @@ export class GmailProvider implements EmailProvider {
       bcc?: string;
       content?: string;
       from?: string;
+      sentByRule?: boolean;
     },
   ): Promise<void> {
     const parsedMessage = await this.getMessage(email.id);
