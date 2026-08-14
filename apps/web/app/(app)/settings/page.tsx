@@ -48,17 +48,29 @@ import {
 import { useAccounts } from "@/hooks/useAccounts";
 import { useMessagingChannels } from "@/hooks/useMessagingChannels";
 import { usePremium } from "@/hooks/usePremium";
+import { useUser } from "@/hooks/useUser";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { cn } from "@/utils";
 import { env } from "@/env";
+import { hasOrganizationAdminRole } from "@/utils/organizations/roles";
 
 export default function SettingsPage() {
   const { emailAccountId: activeEmailAccountId } = useAccount();
   const { data, isLoading, error } = useAccounts();
   const { canManageBilling } = usePremium();
+  const { data: user } = useUser();
   const [expandedAccountId, setExpandedAccountId] = useState<string | null>(
     null,
   );
+
+  const organizationMembership = user?.members?.find(
+    (member) => member.emailAccountId === activeEmailAccountId,
+  );
+  // No membership means no organization yet — the invite modal then creates one.
+  const canInviteMembers =
+    !!user &&
+    (!organizationMembership ||
+      hasOrganizationAdminRole(organizationMembership.role));
 
   const handleSlackConnected = useCallback(
     (connectedEmailAccountId: string | null) => {
@@ -131,11 +143,15 @@ export default function SettingsPage() {
           </SettingsGroup>
         )}
 
-        <SettingsGroup icon={<UsersIcon className="size-5" />} title="Team">
-          <ItemCard>
-            <TeamSection />
-          </ItemCard>
-        </SettingsGroup>
+        {canInviteMembers && (
+          <SettingsGroup icon={<UsersIcon className="size-5" />} title="Team">
+            <ItemCard>
+              <TeamSection
+                organizationId={organizationMembership?.organizationId}
+              />
+            </ItemCard>
+          </SettingsGroup>
+        )}
 
         {!env.NEXT_PUBLIC_AI_MODEL_SETTINGS_DISABLED && (
           <SettingsGroup
