@@ -11,7 +11,6 @@ import { formatEmailWithName } from "@/utils/email";
 import type { Logger } from "@/utils/logger";
 import { isOutlookThrottlingError } from "@/utils/error";
 import { resolveMicrosoftGraphNextLink } from "@/utils/outlook/page-token";
-import { AUTOMATED_OUTBOUND_HEADER_KEY } from "@/utils/email/automated-outbound";
 
 // Standard fields to select when fetching messages from Microsoft Graph API
 // internetMessageId is the RFC 5322 Message-ID header, needed for cross-provider email threading
@@ -974,10 +973,6 @@ export function convertMessage(
       // RFC 5322 Message-ID header, needed for cross-provider email threading (e.g., Outlook -> Gmail)
       "message-id": message.internetMessageId || "",
       "in-reply-to": getInternetHeader(message, "in-reply-to"),
-      [AUTOMATED_OUTBOUND_HEADER_KEY]: getInternetHeader(
-        message,
-        AUTOMATED_OUTBOUND_HEADER_KEY,
-      ),
     },
     subject: message.subject || "",
     date: message.receivedDateTime || new Date().toISOString(),

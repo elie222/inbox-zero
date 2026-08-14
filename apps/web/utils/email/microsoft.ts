@@ -733,22 +733,28 @@ export class OutlookProvider implements EmailProvider {
       replyTo?: string;
       from?: string;
       attachments?: MailAttachment[];
-      sentByRule?: boolean;
     },
-  ): Promise<void> {
-    await replyToEmail(this.client, email, content, this.logger, options);
+  ): Promise<{ messageId: string }> {
+    const result = await replyToEmail(
+      this.client,
+      email,
+      content,
+      this.logger,
+      options,
+    );
+    return { messageId: requireMessageId(result.id) };
   }
 
   async sendEmail(args: {
-    sentByRule?: boolean;
     to: string;
     cc?: string;
     bcc?: string;
     subject: string;
     messageText: string;
     attachments?: MailAttachment[];
-  }): Promise<void> {
-    await sendEmailWithPlainText(this.client, args, this.logger);
+  }): Promise<{ messageId: string }> {
+    const result = await sendEmailWithPlainText(this.client, args, this.logger);
+    return { messageId: requireMessageId(result.id) };
   }
 
   async sendEmailWithHtml(body: {
@@ -786,14 +792,14 @@ export class OutlookProvider implements EmailProvider {
       bcc?: string;
       content?: string;
       from?: string;
-      sentByRule?: boolean;
     },
-  ): Promise<void> {
-    await forwardEmail(
+  ): Promise<{ messageId: string }> {
+    const result = await forwardEmail(
       this.client,
       { messageId: email.id, ...args },
       this.logger,
     );
+    return { messageId: requireMessageId(result.id) };
   }
 
   async markSpam(threadId: string): Promise<void> {
@@ -2117,6 +2123,11 @@ export class OutlookProvider implements EmailProvider {
       unread: folder.unreadItemCount ?? 0,
     };
   }
+}
+
+function requireMessageId(messageId?: string | null) {
+  if (!messageId) throw new Error("Provider did not return a sent message ID");
+  return messageId;
 }
 
 // Maps OutlookLabel names (e.g. "INBOX") to WELL_KNOWN_FOLDERS keys used in getFolderIds()

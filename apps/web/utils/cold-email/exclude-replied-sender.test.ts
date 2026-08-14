@@ -4,6 +4,7 @@ import prisma from "@/utils/__mocks__/prisma";
 import { createTestLogger, getMockMessage } from "@/__tests__/helpers";
 import { getColdEmailRule } from "@/utils/cold-email/cold-email-rule";
 import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
+import { isRuleGeneratedMessage } from "@/utils/ai/rule-generated-message";
 import { excludeRepliedSendersFromColdEmail } from "./exclude-replied-sender";
 
 vi.mock("@/utils/prisma");
@@ -12,6 +13,9 @@ vi.mock("@/utils/cold-email/cold-email-rule", () => ({
 }));
 vi.mock("@/utils/rule/learned-patterns", () => ({
   saveLearnedPattern: vi.fn(),
+}));
+vi.mock("@/utils/ai/rule-generated-message", () => ({
+  isRuleGeneratedMessage: vi.fn(),
 }));
 
 describe("excludeRepliedSendersFromColdEmail", () => {
@@ -27,6 +31,7 @@ describe("excludeRepliedSendersFromColdEmail", () => {
       groupId: "cold-email-group",
     } as any);
     vi.mocked(prisma.groupItem.findMany).mockResolvedValue([]);
+    vi.mocked(isRuleGeneratedMessage).mockResolvedValue(false);
     provider.getMessageByRfc822MessageId.mockResolvedValue(null);
   });
 
@@ -121,7 +126,6 @@ describe("excludeRepliedSendersFromColdEmail", () => {
   });
 
   it("un-pins a sender after a manual reply even when a rule sent earlier on the thread", async () => {
-    vi.mocked(prisma.executedRule.count).mockResolvedValue(1);
     vi.mocked(prisma.groupItem.findMany).mockResolvedValue([
       { value: "cold.sender@example.com" },
     ] as any);
@@ -143,16 +147,11 @@ describe("excludeRepliedSendersFromColdEmail", () => {
 
   it("keeps the pattern when the current outbound message was sent by a rule", async () => {
     const message = getMockMessage({ to: "cold.sender@example.com" });
+    vi.mocked(isRuleGeneratedMessage).mockResolvedValue(true);
 
     await excludeRepliedSendersFromColdEmail({
       emailAccountId: "email-account-1",
-      message: {
-        ...message,
-        headers: {
-          ...message.headers,
-          "x-inbox-zero-automated": "true",
-        },
-      } as any,
+      message,
       provider,
       logger,
     });

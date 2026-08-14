@@ -20,23 +20,15 @@ import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
 import { uploadResumableChunks } from "@/utils/microsoft/upload-session";
 import type { Logger } from "@/utils/logger";
-import {
-  AUTOMATED_OUTBOUND_HEADER,
-  AUTOMATED_OUTBOUND_HEADER_VALUE,
-} from "@/utils/email/automated-outbound";
 
 type GraphRecipient = {
   emailAddress: { address: string; name?: string };
 };
-type MailSendEmailBody = WithMailerAttachments<SendEmailBody> & {
-  sentByRule?: boolean;
-};
+type MailSendEmailBody = WithMailerAttachments<SendEmailBody>;
 
 const MAX_GRAPH_ATTACHMENT_SIZE_BYTES = 3 * 1024 * 1024;
 const MAX_GRAPH_UPLOAD_SESSION_SIZE_BYTES = 150 * 1024 * 1024;
 const GRAPH_UPLOAD_CHUNK_SIZE_BYTES = 320 * 1024;
-const AUTOMATED_OUTBOUND_EXTENDED_PROPERTY_ID = `String {00020386-0000-0000-C000-000000000046} Name ${AUTOMATED_OUTBOUND_HEADER}`;
-
 type SentEmailResult = Pick<Message, "id" | "conversationId">;
 
 export async function sendEmailWithHtml(
@@ -75,7 +67,6 @@ export async function sendEmailWithHtml(
           ...(ccRecipients ? { ccRecipients } : {}),
           ...(bccRecipients ? { bccRecipients } : {}),
           ...(replyToRecipients ? { replyTo: replyToRecipients } : {}),
-          ...getRuleGeneratedInternetHeaders(body.sentByRule),
         }),
     logger,
   );
@@ -94,9 +85,8 @@ export async function sendEmailWithHtml(
     logger,
   );
 
-  // Draft id is no longer valid after sending; Graph doesn't return sent message id
   return {
-    id: "",
+    id: draft.id,
     conversationId: draft.conversationId,
   };
 }
@@ -119,7 +109,6 @@ export async function replyToEmail(
     replyTo?: string;
     from?: string;
     attachments?: Attachment[];
-    sentByRule?: boolean;
   },
 ) {
   ensureEmailSendingEnabled();
@@ -160,7 +149,6 @@ export async function replyToEmail(
                 replyTo: [{ emailAddress: { address: options.replyTo } }],
               }
             : {}),
-          ...getRuleGeneratedExtendedProperties(options?.sentByRule),
         }),
     logger,
   );
@@ -180,9 +168,8 @@ export async function replyToEmail(
     logger,
   );
 
-  // Draft ID is no longer valid after /send; Graph doesn't return sent message ID
   return {
-    id: "",
+    id: replyDraft.id,
     conversationId: replyDraft.conversationId,
   };
 }
@@ -196,7 +183,6 @@ export async function forwardEmail(
     bcc?: string;
     content?: string;
     from?: string;
-    sentByRule?: boolean;
   },
   logger: Logger,
 ) {
@@ -267,7 +253,6 @@ export async function forwardEmail(
               message,
             }),
           },
-          ...getRuleGeneratedExtendedProperties(options.sentByRule),
         }),
     logger,
   );
@@ -279,7 +264,7 @@ export async function forwardEmail(
   );
 
   return {
-    id: "",
+    id: forwardDraft.id,
     conversationId: forwardDraft.conversationId,
   };
 }
@@ -472,7 +457,6 @@ async function sendReplyUsingCreateReply(
           ...(body.bcc
             ? { bccRecipients: [{ emailAddress: { address: body.bcc } }] }
             : {}),
-          ...getRuleGeneratedExtendedProperties(body.sentByRule),
         }),
     logger,
   );
@@ -492,9 +476,8 @@ async function sendReplyUsingCreateReply(
     logger,
   );
 
-  // Draft ID is no longer valid after /send; Graph doesn't return sent message ID
   return {
-    id: "",
+    id: replyDraft.id,
     conversationId: replyDraft.conversationId,
   };
 }
@@ -688,33 +671,4 @@ async function uploadAttachmentViaSession({
     action: "upload Outlook attachment chunk",
     statusAction: "fetch Outlook upload session status",
   });
-}
-
-function getRuleGeneratedInternetHeaders(sentByRule?: boolean) {
-  return sentByRule
-    ? {
-        internetMessageHeaders: [
-          {
-            name: AUTOMATED_OUTBOUND_HEADER,
-            value: AUTOMATED_OUTBOUND_HEADER_VALUE,
-          },
-        ],
-      }
-    : {};
-}
-
-// Graph exposes internetMessageHeaders as create-only. The named
-// PS_INTERNET_HEADERS property lets an existing reply or forward draft carry
-// the same X-header when it is sent.
-function getRuleGeneratedExtendedProperties(sentByRule?: boolean) {
-  return sentByRule
-    ? {
-        singleValueExtendedProperties: [
-          {
-            id: AUTOMATED_OUTBOUND_EXTENDED_PROPERTY_ID,
-            value: AUTOMATED_OUTBOUND_HEADER_VALUE,
-          },
-        ],
-      }
-    : {};
 }

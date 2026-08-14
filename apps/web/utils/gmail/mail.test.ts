@@ -6,7 +6,6 @@ import {
   buildReplyMessageText,
   createMail,
   convertTextToHtmlParagraphs,
-  sendEmailWithHtml,
   stripHtmlTagsForPlainText,
 } from "@/utils/gmail/mail";
 
@@ -30,29 +29,6 @@ vi.mock("@/utils/mail", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/utils/mail")>()),
   ensureEmailSendingEnabled: vi.fn(),
 }));
-
-describe("sendEmailWithHtml", () => {
-  it("marks rule-generated messages in the raw email headers", async () => {
-    const send = vi.fn().mockResolvedValue({ data: {} });
-
-    await sendEmailWithHtml(
-      {
-        users: { messages: { send } },
-      } as any,
-      {
-        sentByRule: true,
-        to: "recipient@example.com",
-        subject: "Subject",
-        messageHtml: "<p>Hello</p>",
-      },
-    );
-
-    const raw = send.mock.calls[0]?.[0].requestBody.raw;
-    const decoded = Buffer.from(raw, "base64url").toString("utf8");
-
-    expect(decoded).toContain("X-Inbox-Zero-Automated: true");
-  });
-});
 
 describe("convertTextToHtmlParagraphs", () => {
   it("separates paragraphs on blank lines", () => {

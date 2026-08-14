@@ -6,7 +6,7 @@ import { canonicalizeEmailAddress, extractEmailAddresses } from "@/utils/email";
 import { getColdEmailRule } from "@/utils/cold-email/cold-email-rule";
 import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
 import type { EmailProvider } from "@/utils/email/types";
-import { isAutomatedOutboundMessage } from "@/utils/email/automated-outbound";
+import { isRuleGeneratedMessage } from "@/utils/ai/rule-generated-message";
 
 /**
  * Writing to someone means they are not a cold emailer, so drop the learned
@@ -27,12 +27,18 @@ export async function excludeRepliedSendersFromColdEmail({
   logger,
 }: {
   emailAccountId: string;
-  message: Pick<ParsedMessage, "headers">;
+  message: Pick<ParsedMessage, "id" | "threadId" | "headers">;
   provider: Pick<EmailProvider, "getMessageByRfc822MessageId">;
   logger: Logger;
 }) {
-  if (isAutomatedOutboundMessage(message)) {
-    logger.info("Keeping cold email pattern for automated outbound message");
+  if (
+    await isRuleGeneratedMessage({
+      emailAccountId,
+      threadId: message.threadId,
+      messageId: message.id,
+    })
+  ) {
+    logger.info("Keeping cold email pattern for rule-generated message");
     return;
   }
 

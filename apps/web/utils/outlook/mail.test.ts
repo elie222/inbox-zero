@@ -42,7 +42,6 @@ describe("sendEmailWithHtml", () => {
     const result = await sendEmailWithHtml(
       client,
       {
-        sentByRule: true,
         to: "Recipient Name <recipient@example.com>",
         replyTo: "Inbox Zero Assistant <owner+ai@example.com>",
         subject: "Subject",
@@ -69,14 +68,11 @@ describe("sendEmailWithHtml", () => {
             },
           },
         ],
-        internetMessageHeaders: [
-          { name: "X-Inbox-Zero-Automated", value: "true" },
-        ],
       }),
     );
     expect(sendPost).toHaveBeenCalledTimes(1);
     expect(result).toEqual({
-      id: "",
+      id: "draft-1",
       conversationId: "conversation-1",
     });
   });
@@ -310,7 +306,7 @@ describe("sendEmailWithHtml", () => {
 });
 
 describe("replyToEmail", () => {
-  it("marks rule-generated reply drafts with an extended property", async () => {
+  it("returns the immutable draft ID after sending", async () => {
     const createReplyDraft = vi.fn(async () => ({ id: "draft-1" }) as Message);
     const updateDraft = vi.fn(async () => ({}));
     const sendDraft = vi.fn(async () => ({}));
@@ -323,25 +319,15 @@ describe("replyToEmail", () => {
       throw new Error(`Unexpected API path: ${path}`);
     });
 
-    await replyToEmail(
+    const result = await replyToEmail(
       client,
       getMockMessage({ id: "message-1" }) as EmailForAction,
       "Reply content",
       createTestLogger(),
-      { sentByRule: true },
     );
 
-    expect(updateDraft).toHaveBeenCalledWith(
-      expect.objectContaining({
-        singleValueExtendedProperties: [
-          {
-            id: "String {00020386-0000-0000-C000-000000000046} Name X-Inbox-Zero-Automated",
-            value: "true",
-          },
-        ],
-      }),
-    );
     expect(sendDraft).toHaveBeenCalledTimes(1);
+    expect(result.id).toBe("draft-1");
   });
 });
 
@@ -397,7 +383,7 @@ describe("forwardEmail", () => {
       throw new Error(`Unexpected API path: ${path}`);
     });
 
-    await forwardEmail(
+    const result = await forwardEmail(
       client,
       {
         messageId: "message-1",
@@ -406,7 +392,6 @@ describe("forwardEmail", () => {
         bcc: "bcc@example.com",
         content: "Forwarding this",
         from: "Owner Name <owner@example.com>",
-        sentByRule: true,
       },
       createTestLogger(),
     );
@@ -448,15 +433,10 @@ describe("forwardEmail", () => {
           contentType: "html",
           content: expect.stringContaining("Forwarding this"),
         }),
-        singleValueExtendedProperties: [
-          {
-            id: "String {00020386-0000-0000-C000-000000000046} Name X-Inbox-Zero-Automated",
-            value: "true",
-          },
-        ],
       }),
     );
     expect(sendDraft).toHaveBeenCalledTimes(1);
+    expect(result.id).toBe("draft-1");
   });
 });
 

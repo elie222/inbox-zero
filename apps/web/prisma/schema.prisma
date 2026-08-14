@@ -723,6 +723,7 @@ model ExecutedAction {
   executionStatus        ExecutedActionStatus?
   executedAt             DateTime?
   executionError         Json?
+  sentMessageIds         String[]                @default([])
   executedRuleId         String
   executedRule           ExecutedRule            @relation(fields: [executedRuleId], references: [id], onDelete: Cascade)
   messagingChannelId     String?
@@ -762,6 +763,7 @@ model ExecutedAction {
 
   @@index([executedRuleId])
   @@index([executionStatus, createdAt])
+  @@index([sentMessageIds], type: Gin)
   @@index([messagingChannelId, createdAt])
 }
 

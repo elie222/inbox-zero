@@ -158,9 +158,8 @@ export interface EmailProvider {
       bcc?: string;
       content?: string;
       from?: string;
-      sentByRule?: boolean;
     },
-  ): Promise<void>;
+  ): Promise<{ messageId: string }>;
   getAccessToken(): string;
   getAttachment(
     messageId: string,
@@ -296,9 +295,8 @@ export interface EmailProvider {
       replyTo?: string;
       from?: string;
       attachments?: MailAttachment[];
-      sentByRule?: boolean;
     },
-  ): Promise<void>;
+  ): Promise<{ messageId: string }>;
   searchMessages(options: {
     query: string;
     maxResults?: number;
@@ -311,14 +309,13 @@ export interface EmailProvider {
   }>;
   sendDraft(draftId: string): Promise<{ messageId: string; threadId: string }>;
   sendEmail(args: {
-    sentByRule?: boolean;
     to: string;
     cc?: string;
     bcc?: string;
     subject: string;
     messageText: string;
     attachments?: MailAttachment[];
-  }): Promise<void>;
+  }): Promise<{ messageId: string }>;
   sendEmailWithHtml(body: {
     replyToEmail?: {
       threadId: string;
