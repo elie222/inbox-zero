@@ -230,7 +230,7 @@ describe("buildPrompt timezone handling", () => {
     expect(prompt).not.toContain("webSearch");
   });
 
-  it("uses the capped OpenRouter server web search tool", () => {
+  it("requires one OpenRouter server web search", () => {
     const config = getWebSearchConfig("openrouter");
     const tools = config?.getSearchTools?.();
 
@@ -242,5 +242,6 @@ describe("buildPrompt timezone handling", () => {
     expect(config?.providerOptions).toEqual({
       openrouter: { max_tool_calls: 1 },
     });
+    expect(config?.toolChoice).toBe("required");
   });
 });

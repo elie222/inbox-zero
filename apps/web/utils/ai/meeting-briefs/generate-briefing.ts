@@ -276,6 +276,7 @@ async function buildSearchTools({
       providerName: webSearchConfig.providerName,
       getSearchTools: webSearchConfig.getSearchTools,
       providerOptions: webSearchConfig.providerOptions,
+      toolChoice: webSearchConfig.toolChoice,
     });
   }
 
@@ -306,6 +307,7 @@ type WebSearchConfig = {
   providerName: string;
   getSearchTools?: () => ToolSet;
   providerOptions?: Record<string, Record<string, number>>;
+  toolChoice?: "required";
 };
 
 export function getWebSearchConfig(
@@ -334,6 +336,7 @@ export function getWebSearchConfig(
           }),
         }),
         providerOptions: { openrouter: { max_tool_calls: 1 } },
+        toolChoice: "required",
       };
     default:
       return null;
@@ -347,6 +350,7 @@ function createWebSearchTool({
   providerName,
   getSearchTools,
   providerOptions,
+  toolChoice,
 }: {
   emailAccount: EmailAccountWithAI;
   logger: Logger;
@@ -354,6 +358,7 @@ function createWebSearchTool({
   providerName: string;
   getSearchTools?: () => ToolSet;
   providerOptions?: Record<string, Record<string, number>>;
+  toolChoice?: "required";
 }) {
   return tool({
     description: "Search the web for information",
@@ -385,6 +390,7 @@ function createWebSearchTool({
           prompt: query,
           ...(getSearchTools && { tools: getSearchTools() }),
           providerOptions,
+          toolChoice,
         });
 
         const text = searchResult.text;
