@@ -140,17 +140,22 @@ Return JSON matching the provided schema, including direct public source URLs.`,
     });
 
     const context = result.output.context;
-    if (!context) {
-      await setCachedPublicContactContextNotFound(identity.data.email);
-      return { status: "unavailable", reason: "not_found" };
-    }
-    if (!isSafeForSharedCache(context)) {
-      logger.warn("Generated contact context was not safe to share");
-      await setCachedPublicContactContextNotFound(identity.data.email);
+    if (!context || !isSafeForSharedCache(context)) {
+      if (context) {
+        logger.warn("Generated contact context was not safe to share");
+      }
+      await setCachedPublicContactContextNotFound(
+        identity.data.email,
+        researchLock.lockToken,
+      );
       return { status: "unavailable", reason: "not_found" };
     }
 
-    await setCachedPublicContactContext(identity.data.email, context);
+    await setCachedPublicContactContext(
+      identity.data.email,
+      context,
+      researchLock.lockToken,
+    );
     return { status: "found", context };
   } catch (error) {
     logger.error("Public contact research failed");

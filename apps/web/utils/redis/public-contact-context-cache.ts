@@ -15,6 +15,13 @@ const CACHE_TTL_SECONDS = 30 * 24 * 60 * 60;
 const NOT_FOUND_TTL_SECONDS = 12 * 60 * 60;
 const RESEARCH_LOCK_TTL_SECONDS = 60;
 const logger = createScopedLogger("redis/public-contact-context-cache");
+const SET_CACHE_IF_LOCK_OWNED_SCRIPT = `
+if redis.call("GET", KEYS[1]) ~= ARGV[1] then
+  return 0
+end
+redis.call("SET", KEYS[2], ARGV[2], "EX", tonumber(ARGV[3]))
+return 1
+`;
 
 const cacheEntrySchema = z.discriminatedUnion("status", [
   z.strictObject({
@@ -62,25 +69,35 @@ export async function getCachedPublicContactContext(
 export async function setCachedPublicContactContext(
   email: string,
   context: PublicContactContext,
-): Promise<void> {
-  if (!isRedisConfigured()) return;
+  lockToken: string | undefined,
+): Promise<boolean> {
+  if (!isRedisConfigured()) return false;
 
   const parsed = publicContactContextSchema.safeParse(context);
   if (!parsed.success || !isSafeForSharedCache(parsed.data)) {
     logger.warn("Refusing unsafe public contact context cache entry");
-    return;
+    return false;
   }
 
-  await setCacheEntry(
+  return setCacheEntry(
     email,
     { status: "found", context: parsed.data },
     CACHE_TTL_SECONDS,
+    lockToken,
   );
 }
 
-export async function setCachedPublicContactContextNotFound(email: string) {
-  if (!isRedisConfigured()) return;
-  await setCacheEntry(email, { status: "not_found" }, NOT_FOUND_TTL_SECONDS);
+export async function setCachedPublicContactContextNotFound(
+  email: string,
+  lockToken: string | undefined,
+) {
+  if (!isRedisConfigured()) return false;
+  return setCacheEntry(
+    email,
+    { status: "not_found" },
+    NOT_FOUND_TTL_SECONDS,
+    lockToken,
+  );
 }
 
 export async function acquirePublicContactResearchLock(email: string): Promise<{
@@ -118,11 +135,20 @@ async function setCacheEntry(
   email: string,
   entry: PublicContactContextCacheEntry,
   ttlSeconds: number,
+  lockToken: string | undefined,
 ) {
+  if (!lockToken) return false;
+
   try {
-    await redis.set(getCacheKey(email), entry, { ex: ttlSeconds });
+    const result = await redis.eval<string[], number>(
+      SET_CACHE_IF_LOCK_OWNED_SCRIPT,
+      [getLockKey(email), getCacheKey(email)],
+      [lockToken, JSON.stringify(entry), ttlSeconds.toString()],
+    );
+    return result === 1;
   } catch (error) {
     logger.error("Failed to write public contact context cache", { error });
+    return false;
   }
 }
 

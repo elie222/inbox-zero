@@ -7,6 +7,7 @@ import {
 } from "@/utils/ai/public-contact-context-schema";
 import {
   getCachedPublicContactContext,
+  type PublicContactContextCacheEntry,
   setCachedPublicContactContext,
   setCachedPublicContactContextNotFound,
 } from "@/utils/redis/public-contact-context-cache";
@@ -22,6 +23,7 @@ vi.mock("@/env", () => ({
 vi.mock("@/utils/redis", () => ({
   redis: {
     del: vi.fn(),
+    eval: vi.fn(),
     get: vi.fn(),
     set: vi.fn(),
   },
@@ -30,6 +32,7 @@ vi.mock("@/utils/redis", () => ({
 describe("public contact context cache", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(redis.eval).mockResolvedValue(1);
   });
 
   it("shares a valid entry through a hashed key without storing the email", async () => {
@@ -85,9 +88,11 @@ describe("public contact context cache", () => {
     });
 
     expect(isSafeForSharedCache(unsafe)).toBe(false);
-    await setCachedPublicContactContext("john@acme.com", unsafe);
+    await expect(
+      setCachedPublicContactContext("john@acme.com", unsafe, "lock-token"),
+    ).resolves.toBe(false);
 
-    expect(redis.set).not.toHaveBeenCalled();
+    expect(redis.eval).not.toHaveBeenCalled();
   });
 
   it("refuses non-web source URLs", async () => {
@@ -96,9 +101,11 @@ describe("public contact context cache", () => {
     });
 
     expect(isSafeForSharedCache(unsafe)).toBe(false);
-    await setCachedPublicContactContext("john@acme.com", unsafe);
+    await expect(
+      setCachedPublicContactContext("john@acme.com", unsafe, "lock-token"),
+    ).resolves.toBe(false);
 
-    expect(redis.set).not.toHaveBeenCalled();
+    expect(redis.eval).not.toHaveBeenCalled();
   });
 
   it("refuses private-network source URLs", async () => {
@@ -107,21 +114,63 @@ describe("public contact context cache", () => {
     });
 
     expect(isSafeForSharedCache(unsafe)).toBe(false);
-    await setCachedPublicContactContext("john@acme.com", unsafe);
+    await expect(
+      setCachedPublicContactContext("john@acme.com", unsafe, "lock-token"),
+    ).resolves.toBe(false);
+
+    expect(redis.eval).not.toHaveBeenCalled();
+  });
+
+  it("refuses sensitive data embedded in public URLs", async () => {
+    const unsafe = getContext({
+      sources: [{ url: "https://acme.com/team?api_key=abcdefghijklmnop" }],
+    });
+
+    expect(isSafeForSharedCache(unsafe)).toBe(false);
+    await expect(
+      setCachedPublicContactContext("john@acme.com", unsafe, "lock-token"),
+    ).resolves.toBe(false);
+
+    expect(redis.eval).not.toHaveBeenCalled();
+  });
+
+  it("does not cache a found result after losing the research lock", async () => {
+    vi.mocked(redis.eval).mockResolvedValue(0);
+
+    await expect(
+      setCachedPublicContactContext(
+        "john@acme.com",
+        getContext(),
+        "expired-lock-token",
+      ),
+    ).resolves.toBe(false);
 
     expect(redis.set).not.toHaveBeenCalled();
+    expect(redis.eval).toHaveBeenCalledOnce();
+  });
+
+  it("does not cache a not-found result after losing the research lock", async () => {
+    vi.mocked(redis.eval).mockResolvedValue(0);
+
+    await expect(
+      setCachedPublicContactContextNotFound(
+        "john@acme.com",
+        "expired-lock-token",
+      ),
+    ).resolves.toBe(false);
+
+    expect(redis.set).not.toHaveBeenCalled();
+    expect(redis.eval).toHaveBeenCalledOnce();
   });
 
   it("stores only the strict public value for 30 days", async () => {
     const context = getContext();
 
-    await setCachedPublicContactContext("john@acme.com", context);
+    await expect(
+      setCachedPublicContactContext("john@acme.com", context, "lock-token"),
+    ).resolves.toBe(true);
 
-    expect(redis.set).toHaveBeenCalledWith(
-      expect.stringMatching(/^public-contact-context:v1:[a-f0-9]{64}$/),
-      { status: "found", context },
-      { ex: 2_592_000 },
-    );
+    expectCacheWrite({ status: "found", context }, 2_592_000, "lock-token");
   });
 
   it("has no field for person-level free-form private details", () => {
@@ -134,15 +183,28 @@ describe("public contact context cache", () => {
   });
 
   it("stores a generic not-found result for 12 hours", async () => {
-    await setCachedPublicContactContextNotFound("john@acme.com");
+    await expect(
+      setCachedPublicContactContextNotFound("john@acme.com", "lock-token"),
+    ).resolves.toBe(true);
 
-    expect(redis.set).toHaveBeenCalledWith(
-      expect.stringMatching(/^public-contact-context:v1:[a-f0-9]{64}$/),
-      { status: "not_found" },
-      { ex: 43_200 },
-    );
+    expectCacheWrite({ status: "not_found" }, 43_200, "lock-token");
   });
 });
+
+function expectCacheWrite(
+  entry: PublicContactContextCacheEntry,
+  ttlSeconds: number,
+  lockToken: string,
+) {
+  expect(redis.eval).toHaveBeenCalledWith(
+    expect.stringContaining('redis.call("SET", KEYS[2]'),
+    [
+      expect.stringMatching(/^public-contact-context:v1:lock:[a-f0-9]{64}$/),
+      expect.stringMatching(/^public-contact-context:v1:[a-f0-9]{64}$/),
+    ],
+    [lockToken, JSON.stringify(entry), ttlSeconds.toString()],
+  );
+}
 
 function getContext(
   overrides: Partial<PublicContactContext> = {},

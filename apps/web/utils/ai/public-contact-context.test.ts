@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { redis } from "@/utils/redis";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { PublicContactContext } from "@/utils/ai/public-contact-context-schema";
+import type { PublicContactContextCacheEntry } from "@/utils/redis/public-contact-context-cache";
 
 const { generateTextMock, getModelForUseCaseMock, getWebSearchConfigMock } =
   vi.hoisted(() => ({
@@ -119,11 +120,7 @@ describe("getPublicContactContext", () => {
       openrouter: { max_tool_calls: 1 },
     });
     expect(request.toolChoice).toBe("required");
-    expect(redis.set).toHaveBeenCalledWith(
-      expect.stringMatching(/^public-contact-context:v1:[a-f0-9]{64}$/),
-      { status: "found", context },
-      { ex: 2_592_000 },
-    );
+    expectCacheWrite({ status: "found", context }, 2_592_000);
   });
 
   it("does not return or cache a generated profile containing an email", async () => {
@@ -148,16 +145,7 @@ describe("getPublicContactContext", () => {
       }),
     ).resolves.toEqual({ status: "unavailable", reason: "not_found" });
 
-    expect(redis.set).not.toHaveBeenCalledWith(
-      expect.stringMatching(/^public-contact-context:v1:[a-f0-9]{64}$/),
-      expect.objectContaining({ status: "found" }),
-      expect.anything(),
-    );
-    expect(redis.set).toHaveBeenCalledWith(
-      expect.stringMatching(/^public-contact-context:v1:[a-f0-9]{64}$/),
-      { status: "not_found" },
-      { ex: 43_200 },
-    );
+    expectCacheWrite({ status: "not_found" }, 43_200);
   });
 
   it("does not invent a profile when public search has no confident match", async () => {
@@ -171,11 +159,7 @@ describe("getPublicContactContext", () => {
       }),
     ).resolves.toEqual({ status: "unavailable", reason: "not_found" });
 
-    expect(redis.set).toHaveBeenCalledWith(
-      expect.stringMatching(/^public-contact-context:v1:[a-f0-9]{64}$/),
-      { status: "not_found" },
-      { ex: 43_200 },
-    );
+    expectCacheWrite({ status: "not_found" }, 43_200);
   });
 
   it("does not duplicate research while another request holds the lock", async () => {
@@ -237,6 +221,20 @@ describe("getPublicContactContext", () => {
     expect(generateTextMock).not.toHaveBeenCalled();
   });
 });
+
+function expectCacheWrite(
+  entry: PublicContactContextCacheEntry,
+  ttlSeconds: number,
+) {
+  expect(redis.eval).toHaveBeenCalledWith(
+    expect.stringContaining('redis.call("SET", KEYS[2]'),
+    [
+      expect.stringMatching(/^public-contact-context:v1:lock:[a-f0-9]{64}$/),
+      expect.stringMatching(/^public-contact-context:v1:[a-f0-9]{64}$/),
+    ],
+    [expect.any(String), JSON.stringify(entry), ttlSeconds.toString()],
+  );
+}
 
 function getEmailAccount(): EmailAccountWithAI {
   return {

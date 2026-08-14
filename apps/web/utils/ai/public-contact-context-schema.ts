@@ -104,13 +104,17 @@ export function isSafeForSharedCache(context: PublicContactContext): boolean {
     context.company?.website,
     ...context.sources.map((source) => source.url),
   ].filter((value): value is string => Boolean(value));
+  const publicValues = [...publicText, ...publicUrls];
 
   return (
-    ![...publicText, ...publicUrls].some((value) =>
-      containsEmailAddress(value),
-    ) &&
-    publicText.every((value) => scanSensitiveContent(value).length === 0) &&
+    publicValues.every(isSafePublicValue) &&
     publicUrls.every((url) => isSafeExternalHttpUrl(url))
+  );
+}
+
+function isSafePublicValue(value: string) {
+  return (
+    !containsEmailAddress(value) && scanSensitiveContent(value).length === 0
   );
 }
 

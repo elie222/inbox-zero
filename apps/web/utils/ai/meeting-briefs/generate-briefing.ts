@@ -267,7 +267,9 @@ async function buildSearchTools({
         fallback.provider === resolvedWebSearchModelOptions.provider,
     ),
   };
-  const webSearchConfig = getWebSearchConfig(webSearchModelOptions.provider);
+  const webSearchConfig = getWebSearchConfigForProvider(
+    webSearchModelOptions.provider,
+  );
   if (webSearchConfig) {
     tools.webSearch = createWebSearchTool({
       emailAccount,
@@ -298,12 +300,6 @@ async function buildSearchTools({
       if (mcpCleanup) await mcpCleanup();
     },
   };
-}
-
-export function getWebSearchConfig(
-  webSearchProvider: string | undefined,
-): WebSearchConfig | null {
-  return getWebSearchConfigForProvider(webSearchProvider);
 }
 
 function createWebSearchTool({

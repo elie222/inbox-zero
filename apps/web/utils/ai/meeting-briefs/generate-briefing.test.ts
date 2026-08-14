@@ -47,7 +47,8 @@ vi.mock("@/utils/get-email-from-message", () => ({
 
 vi.doUnmock("@/utils/date");
 
-import { buildPrompt, getWebSearchConfig } from "./generate-briefing";
+import { buildPrompt } from "./generate-briefing";
+import { getWebSearchConfigForProvider } from "@/utils/ai/web-search";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 
 beforeEach(() => {
@@ -231,7 +232,7 @@ describe("buildPrompt timezone handling", () => {
   });
 
   it("requires one OpenRouter server web search", () => {
-    const config = getWebSearchConfig("openrouter");
+    const config = getWebSearchConfigForProvider("openrouter");
     const tools = config?.tools;
 
     expect(mockOpenRouterWebSearch).toHaveBeenCalledWith({
