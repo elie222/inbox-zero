@@ -135,5 +135,9 @@ describe("desktop shell helpers", () => {
       ),
     ).toBe("https://www.getinboxzero.com/login");
     expect(normalizeDesktopCallbackPath("//evil.test")).toBeNull();
+    expect(normalizeDesktopCallbackPath("/.//evil.test")).toBe("/evil.test");
+    expect(
+      getDesktopPostAuthUrl("https://www.getinboxzero.com", "/.//evil.test"),
+    ).toBe("https://www.getinboxzero.com/evil.test");
   });
 });

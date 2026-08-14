@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 import {
   app,
@@ -23,6 +24,7 @@ import {
 } from "./desktop";
 
 const PARTITION = "persist:inbox-zero";
+const PENDING_CALLBACK_PATH_FILE = "pending-auth-callback-path";
 
 let mainWindow: BrowserWindow | null = null;
 let pendingAuthUrl: string | null = null;
@@ -73,7 +75,7 @@ function startDesktopApp() {
       }
       const callbackPath = getStartAuthCallbackPath(options);
       await openExternal(getDesktopBrowserStartUrl(appOrigin, provider));
-      pendingCallbackPath = callbackPath;
+      persistPendingCallbackPath(callbackPath);
     },
   );
 
@@ -197,9 +199,36 @@ async function exchangeAuthCode(session: Session, code: string, state: string) {
 }
 
 function consumePostAuthUrl() {
-  const url = getDesktopPostAuthUrl(appOrigin, pendingCallbackPath);
+  return getDesktopPostAuthUrl(appOrigin, consumePendingCallbackPath());
+}
+
+function persistPendingCallbackPath(callbackPath: string | null) {
+  pendingCallbackPath = callbackPath;
+  const file = getPendingCallbackPathFile();
+  if (!callbackPath) {
+    fs.rmSync(file, { force: true });
+    return;
+  }
+  fs.writeFileSync(file, callbackPath, "utf8");
+}
+
+function consumePendingCallbackPath(): string | null {
+  const fromMemory = pendingCallbackPath;
   pendingCallbackPath = null;
-  return url;
+
+  let fromDisk: string | null = null;
+  try {
+    fromDisk = fs.readFileSync(getPendingCallbackPathFile(), "utf8");
+  } catch {
+    fromDisk = null;
+  }
+  fs.rmSync(getPendingCallbackPathFile(), { force: true });
+
+  return normalizeDesktopCallbackPath(fromMemory ?? fromDisk);
+}
+
+function getPendingCallbackPathFile() {
+  return path.join(app.getPath("userData"), PENDING_CALLBACK_PATH_FILE);
 }
 
 function getStartAuthCallbackPath(options: unknown): string | null {

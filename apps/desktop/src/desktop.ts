@@ -129,7 +129,9 @@ export function normalizeDesktopCallbackPath(path: unknown): string | null {
   try {
     const url = new URL(path, "https://internal-path.example");
     if (url.origin !== "https://internal-path.example") return null;
-    return `${url.pathname}${url.search}${url.hash}`;
+    const pathname = url.pathname.replace(/^\/{2,}/u, "/");
+    if (!pathname.startsWith("/") || pathname.startsWith("//")) return null;
+    return `${pathname}${url.search}${url.hash}`;
   } catch {
     return null;
   }
