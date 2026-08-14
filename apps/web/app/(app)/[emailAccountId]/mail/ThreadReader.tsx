@@ -151,7 +151,7 @@ export function ThreadReader({
       {senderContextState === "unloaded" ? null : (
         <SenderContextSheet
           messageId={headerMessage.id}
-          onOpenChange={(open) =>
+          onOpenChange={(open: boolean) =>
             setSenderContextState(open ? "open" : "closed")
           }
           open={senderContextState === "open"}
