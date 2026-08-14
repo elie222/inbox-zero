@@ -3,7 +3,7 @@ import { z } from "zod";
 import { createEmailProvider } from "@/utils/email/provider";
 import { withAuth } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
-import { mapWithConcurrency } from "../map-with-concurrency";
+import { mapWithConcurrency } from "@/utils/async";
 
 const ACCOUNT_CONCURRENCY = 4;
 
