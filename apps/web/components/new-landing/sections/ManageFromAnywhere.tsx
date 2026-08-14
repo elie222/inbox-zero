@@ -52,7 +52,7 @@ export function ManageFromAnywhere() {
       </SectionSubtitle>
       <SectionContent className="flex justify-center">
         <BlurFade inView>
-          <div className="flex items-start gap-6 sm:gap-10">
+          <div className="flex flex-wrap items-start justify-center gap-6 sm:gap-10">
             {platforms.map((platform) => (
               <PlatformIcon key={platform.name} {...platform} />
             ))}

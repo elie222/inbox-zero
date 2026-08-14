@@ -23,6 +23,7 @@ import {
   applySetupUpdate,
   buildInitialSetup,
   deriveOnboardingFlow,
+  serializeOnboardingChatMessages,
   STAGE_CHIPS,
   STAGE_QUESTIONS,
   STAGE_STEP,
@@ -110,7 +111,9 @@ export function ChatOnboarding() {
       prepareSendMessagesRequest({ messages }) {
         return {
           body: {
-            messages,
+            // Tool parts drive the local UI; the current setup and scan below
+            // carry their durable state to the model.
+            messages: serializeOnboardingChatMessages(messages),
             setup: setupRef.current,
             scan: scanRef.current,
             isPremium: isPremiumRef.current,

@@ -2,12 +2,13 @@
 
 import { memo, useMemo } from "react";
 import { MailLabelChip } from "@/app/(app)/[emailAccountId]/mail/MailLabelChip";
+import { isThreadUnread } from "@/app/(app)/[emailAccountId]/mail/read-state";
 import type {
   ListThread,
   MailLayoutMode,
 } from "@/app/(app)/[emailAccountId]/mail/types";
 import { EmailDate } from "@/components/email-list/EmailDate";
-import { getEmailMessageCellLabels } from "@/components/EmailMessageCellLabels";
+import { getEmailThreadLabels } from "@/components/EmailMessageCellLabels";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { EmailLabels } from "@/providers/email-label-types";
@@ -52,17 +53,17 @@ export const ThreadRow = memo(function ThreadRow({
 
   const labels = useMemo(
     () =>
-      getEmailMessageCellLabels({
-        labelIds: message?.labelIds,
+      getEmailThreadLabels({
+        messages: thread.messages,
         userLabels,
-      }) ?? [],
-    [message?.labelIds, userLabels],
+      }),
+    [thread.messages, userLabels],
   );
 
   if (!message) return null;
 
-  // Both providers normalise to these ids, so this is not a provider branch.
-  const isUnread = message.labelIds?.includes(GmailLabel.UNREAD) ?? false;
+  const isUnread = isThreadUnread(thread.messages);
+  // Both providers normalise to this id, so this is not a provider branch.
   const isDraft = message.labelIds?.includes(GmailLabel.DRAFT) ?? false;
   const isWide = layout === "list";
 
@@ -70,40 +71,37 @@ export const ThreadRow = memo(function ThreadRow({
   const subject = message.headers.subject;
   const snippet = decodeSnippet(thread.snippet || message.snippet);
   const chips = labels.slice(0, isWide ? 3 : 2);
+  const showCheckbox = isSelected || hasAnySelection;
 
-  const checkbox = (
-    <Checkbox
-      aria-label={`Select conversation from ${sender}`}
-      checked={isSelected}
-      className={cn(
-        "size-3.5 shrink-0 rounded border-input transition-opacity [&_svg]:size-2.5",
-        isSelected || hasAnySelection
-          ? "opacity-100"
-          : "opacity-0 group-focus-within:opacity-100 group-hover:opacity-100",
-        isWide ? null : "mt-0.5",
-      )}
-      onClick={(event) => {
-        event.stopPropagation();
-        if (event.shiftKey) onSelectRangeTo(index);
-        else onToggleSelect(index);
-      }}
-      title={`Select (${SELECT_HINT})`}
-    />
-  );
-
-  const unreadDot = (
-    <span
-      className={cn(
-        "flex w-1.5 shrink-0 justify-center",
-        isWide ? "items-center" : "pt-1.5",
-      )}
-    >
-      <span
+  const selectionControl = (
+    <span className={cn("relative size-3.5 shrink-0", !isWide && "mt-0.5")}>
+      <Checkbox
+        aria-label={`Select conversation from ${sender}`}
+        checked={isSelected}
         className={cn(
-          "size-1.5 rounded-full",
-          isUnread ? "bg-primary" : "bg-transparent",
+          "absolute inset-0 size-3.5 rounded border-input transition-opacity [&_svg]:size-2.5",
+          showCheckbox
+            ? "opacity-100"
+            : "opacity-0 group-focus-within:opacity-100 group-hover:opacity-100",
         )}
+        onClick={(event) => {
+          event.stopPropagation();
+          if (event.shiftKey) onSelectRangeTo(index);
+          else onToggleSelect(index);
+        }}
+        title={`Select (${SELECT_HINT})`}
       />
+      <span
+        aria-hidden
+        className={cn(
+          "pointer-events-none absolute inset-0 flex items-center justify-center transition-opacity",
+          isUnread && !showCheckbox
+            ? "opacity-100 group-focus-within:opacity-0 group-hover:opacity-0"
+            : "opacity-0",
+        )}
+      >
+        <span className="size-1.5 rounded-full bg-primary" />
+      </span>
     </span>
   );
 
@@ -124,7 +122,7 @@ export const ThreadRow = memo(function ThreadRow({
       className={cn(
         "group relative flex cursor-pointer border-b border-border/60 outline-none",
         isWide
-          ? "items-center gap-3 py-2.5 pr-5 pl-3"
+          ? "items-center gap-2.5 py-2.5 pr-5 pl-3"
           : "items-start gap-2 px-3.5 py-2.5",
         rowBackground({ isSelected, isFocused }),
         isFocused &&
@@ -144,8 +142,7 @@ export const ThreadRow = memo(function ThreadRow({
       role="option"
       tabIndex={isFocused ? 0 : -1}
     >
-      {checkbox}
-      {unreadDot}
+      {selectionControl}
 
       {isWide ? (
         <>
@@ -162,14 +159,18 @@ export const ThreadRow = memo(function ThreadRow({
           </div>
           <div className="flex min-w-0 flex-1 items-center gap-2.5">
             {chips.map((label) => (
-              <MailLabelChip key={label.id} name={label.name} />
+              <MailLabelChip
+                color={label.color}
+                key={label.id}
+                name={label.name}
+              />
             ))}
             <span
               className={cn(
                 "max-w-[46%] shrink-0 truncate whitespace-nowrap text-sm",
                 isUnread
-                  ? "font-medium text-foreground"
-                  : "text-muted-foreground",
+                  ? "font-semibold text-foreground"
+                  : "font-normal text-muted-foreground",
               )}
             >
               {subject}
@@ -198,8 +199,8 @@ export const ThreadRow = memo(function ThreadRow({
             className={cn(
               "truncate text-sm",
               isUnread
-                ? "font-medium text-foreground"
-                : "text-muted-foreground",
+                ? "font-semibold text-foreground"
+                : "font-normal text-muted-foreground",
             )}
           >
             {subject}
@@ -210,7 +211,11 @@ export const ThreadRow = memo(function ThreadRow({
           {chips.length ? (
             <div className="flex flex-wrap gap-1 pt-1">
               {chips.map((label) => (
-                <MailLabelChip key={label.id} name={label.name} />
+                <MailLabelChip
+                  color={label.color}
+                  key={label.id}
+                  name={label.name}
+                />
               ))}
             </div>
           ) : null}

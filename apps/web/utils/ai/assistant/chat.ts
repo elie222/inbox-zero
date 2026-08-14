@@ -51,7 +51,7 @@ import { isIntegrationActionEnabledForUserId } from "@/utils/integration-action.
 
 export const maxDuration = 300;
 // Increment when chat prompts, tools, or routing change so run quality remains attributable.
-export const ASSISTANT_CHAT_PIPELINE_VERSION = 5;
+export const ASSISTANT_CHAT_PIPELINE_VERSION = 6;
 const ASSISTANT_CHAT_TOOL_BUDGET_MS = {
   web: 240_000,
   messaging: 60_000,

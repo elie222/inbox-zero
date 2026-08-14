@@ -22,6 +22,7 @@ import { AnnouncementDialog } from "@/components/feature-announcements/Announcem
 import { captureException } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
+import { booleanString } from "@/utils/zod";
 
 const logger = createScopedLogger("AppLayout");
 
@@ -63,6 +64,8 @@ export default async function AppLayout({
 
   const cookieStore = await cookies();
   const isClosed = cookieStore.get("left-sidebar:state")?.value === "false";
+  const bypassPremiumChecks =
+    booleanString.parse(process.env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) ?? false;
 
   after(async () => {
     const email = session.user.email;
@@ -81,7 +84,12 @@ export default async function AppLayout({
     <div className={inter.variable}>
       <div className="font-inter">
         <AppProviders>
-          <SideNavWithTopNav defaultOpen={!isClosed}>
+          <SideNavWithTopNav
+            defaultOpen={!isClosed}
+            feedbackEnabled={
+              !bypassPremiumChecks || Boolean(process.env.FEEDBACK_WEBHOOK_URL)
+            }
+          >
             <AiAutomationStatusBanner />
             <ErrorMessages />
             <ProviderRateLimitBanner />

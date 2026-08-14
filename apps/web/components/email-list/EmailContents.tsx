@@ -16,6 +16,12 @@ const IMAGE_PROXY_ORIGIN = IMAGE_PROXY_BASE_URL
 const IMAGE_PROXY_ENABLED = Boolean(IMAGE_PROXY_BASE_URL);
 const IMAGE_PROXY_RENDER_ROUTE = "/api/email/render-html";
 const SANS_FONT_STACK = `ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`;
+/**
+ * Reading size for a message body that brought no styling of its own. Shared by
+ * both paths: Tailwind classes can't reach inside the iframe, so plain text has
+ * to restate it or the two drift apart on screen.
+ */
+const BODY_TYPE = { fontSize: "14.5px", lineHeight: 1.65 } as const;
 
 export function HtmlEmail({ html }: { html: string }) {
   const sanitizedHtml = useMemo(() => sanitize(html), [html]);
@@ -99,7 +105,11 @@ export function HtmlEmail({ html }: { html: string }) {
 
 export function PlainEmail({ text }: { text: string }) {
   return (
-    <pre className="whitespace-pre-wrap text-foreground">
+    // `pre` keeps the sender's line breaks; the font stack keeps it readable.
+    <pre
+      className="whitespace-pre-wrap font-sans text-foreground"
+      style={BODY_TYPE}
+    >
       {decodeHtmlEntities(text)}
     </pre>
   );
@@ -192,6 +202,8 @@ function getIframeHtml(
       }
       body:not([style]):not([bgcolor]) {
         margin: 0;
+        font-size: ${BODY_TYPE.fontSize};
+        line-height: ${BODY_TYPE.lineHeight};
         color: hsl(var(--foreground));
         background-color: hsl(var(--background));
       }

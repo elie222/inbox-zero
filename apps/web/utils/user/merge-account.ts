@@ -1,6 +1,7 @@
 import prisma from "@/utils/prisma";
 import { transferPremiumDuringMerge } from "@/utils/user/merge-premium";
 import type { Logger } from "@/utils/logger";
+import { invalidateAccountValidation } from "@/utils/redis/account-validation";
 
 interface MergeAccountOptions {
   email: string;
@@ -29,6 +30,13 @@ export async function mergeAccount({
     where: { id: sourceUserId },
     select: { email: true },
   });
+  const accountBeingMoved = sourceUserEmailAccounts.find(
+    (account) => account.accountId === sourceAccountId,
+  );
+
+  if (!accountBeingMoved) {
+    throw new Error("Source email account not found");
+  }
 
   if (sourceUserEmailAccounts.length > 1) {
     logger.info(
@@ -39,10 +47,7 @@ export async function mergeAccount({
       },
     );
 
-    const accountBeingMoved = sourceUserEmailAccounts.find(
-      (acc) => acc.accountId === sourceAccountId,
-    );
-    const isPrimaryAccount = accountBeingMoved?.email === sourceUser?.email;
+    const isPrimaryAccount = accountBeingMoved.email === sourceUser?.email;
 
     const accountUpdate = prisma.account.update({
       where: { id: sourceAccountId },
@@ -60,7 +65,7 @@ export async function mergeAccount({
 
     if (isPrimaryAccount) {
       const newPrimaryAccount = sourceUserEmailAccounts.find(
-        (acc) => acc.id !== accountBeingMoved?.id,
+        (acc) => acc.id !== accountBeingMoved.id,
       );
       if (newPrimaryAccount) {
         const userUpdate = prisma.user.update({
@@ -78,6 +83,10 @@ export async function mergeAccount({
     } else {
       await prisma.$transaction([accountUpdate, emailAccountUpdate]);
     }
+    await invalidateAccountValidation({
+      userId: sourceUserId,
+      emailAccountId: accountBeingMoved.id,
+    });
     return "partial_reassign";
   }
 
@@ -104,6 +113,11 @@ export async function mergeAccount({
       where: { id: sourceUserId },
     }),
   ]);
+
+  await invalidateAccountValidation({
+    userId: sourceUserId,
+    emailAccountId: accountBeingMoved.id,
+  });
 
   return "full_merge";
 }

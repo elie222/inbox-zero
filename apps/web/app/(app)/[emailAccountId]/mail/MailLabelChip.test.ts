@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   CHIP_COLORS,
   chipColorForLabel,
+  contrastingTextColor,
 } from "@/app/(app)/[emailAccountId]/mail/MailLabelChip";
 
 describe("chipColorForLabel", () => {
@@ -9,7 +10,7 @@ describe("chipColorForLabel", () => {
     expect(chipColorForLabel("To Reply")).toBe("blue");
     expect(chipColorForLabel("to reply")).toBe("blue");
     expect(chipColorForLabel("  Cold Email  ")).toBe("red");
-    expect(chipColorForLabel("Newsletter")).toBe("gray");
+    expect(chipColorForLabel("Newsletter")).toBe("purple");
     expect(chipColorForLabel("Awaiting Reply")).toBe("cyan");
   });
 
@@ -45,5 +46,16 @@ describe("chipColorForLabel", () => {
     expect(chipColorForLabel("Newsletters")).not.toBe(
       chipColorForLabel("Newsletter"),
     );
+  });
+});
+
+describe("contrastingTextColor", () => {
+  it("chooses readable text for light and dark provider backgrounds", () => {
+    expect(contrastingTextColor("#fce8b3")).toBe("#000000");
+    expect(contrastingTextColor("#3c4043")).toBe("#ffffff");
+  });
+
+  it("leaves unsupported color formats to the chip palette", () => {
+    expect(contrastingTextColor("var(--label-color)")).toBeUndefined();
   });
 });

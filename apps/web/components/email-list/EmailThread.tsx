@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import type { ThreadMessage } from "@/components/email-list/types";
 import { EmailMessage } from "@/components/email-list/EmailMessage";
+import { Button } from "@/components/ui/button";
 
 export function EmailThread({
   messages,
@@ -46,15 +47,23 @@ export function EmailThread({
 
   const lastMessageId = organizedMessages.at(-1)?.message.id;
 
-  const [expandedMessageIds, setExpandedMessageIds] = useState<Set<string>>(
-    new Set(lastMessageId ? [lastMessageId] : []),
+  /** Only the latest message is open: the state every thread starts in. */
+  const latestOnly = () => new Set(lastMessageId ? [lastMessageId] : []);
+
+  const [expandedMessageIds, setExpandedMessageIds] =
+    useState<Set<string>>(latestOnly);
+
+  const allExpanded = organizedMessages.every(({ message }) =>
+    expandedMessageIds.has(message.id),
   );
 
   return (
-    <div className="flex-1 overflow-auto bg-muted p-4">
+    // White regardless of the surface it is dropped on: an email body renders
+    // on white inside its iframe, so anything else leaves each message boxed.
+    <div className="min-w-0 bg-card">
       {withHeader && (
         <div className="flex items-center justify-between">
-          <div className="text-2xl font-semibold text-foreground">
+          <div className="font-semibold text-2xl text-foreground">
             {messages[0]?.headers.subject}
           </div>
           {topRightComponent && (
@@ -62,25 +71,41 @@ export function EmailThread({
           )}
         </div>
       )}
-      <ul className="mt-4 space-y-2 sm:space-y-4">
+
+      {organizedMessages.length > 1 && (
+        <div className="flex items-center gap-3 pt-4">
+          <span className="text-muted-foreground text-xs">
+            {organizedMessages.length} messages
+          </span>
+          <Button
+            className="ml-auto"
+            onClick={() =>
+              setExpandedMessageIds(
+                allExpanded
+                  ? latestOnly()
+                  : new Set(organizedMessages.map(({ message }) => message.id)),
+              )
+            }
+            size="xs-2"
+            variant="outline"
+          >
+            {allExpanded ? "Collapse all" : "Expand all"}
+          </Button>
+        </div>
+      )}
+
+      <ul className="pt-2">
         {organizedMessages.map(({ message, draftMessage }) => {
           const defaultShowReply =
             autoOpenReplyForMessageId === message.id || Boolean(draftMessage);
           return (
             <EmailMessage
-              key={message.id}
-              message={message}
-              showReplyButton={showReplyButton}
-              refetch={refetch}
               defaultShowReply={defaultShowReply}
               draftMessage={draftMessage}
               expanded={expandedMessageIds.has(message.id)}
-              onExpand={() => {
-                setExpandedMessageIds((prev) => {
-                  if (prev.has(message.id)) return prev;
-                  return new Set(prev).add(message.id);
-                });
-              }}
+              generateNudge={defaultShowReply && !draftMessage?.textHtml}
+              key={message.id}
+              message={message}
               onSendSuccess={(messageId) => {
                 setExpandedMessageIds((prev) => {
                   if (prev.has(messageId)) return prev;
@@ -89,7 +114,20 @@ export function EmailThread({
 
                 onSendSuccess?.(messageId, message.threadId);
               }}
-              generateNudge={defaultShowReply && !draftMessage?.textHtml}
+              // A one-message thread has nothing to collapse back to.
+              onToggle={
+                organizedMessages.length === 1
+                  ? undefined
+                  : () => {
+                      setExpandedMessageIds((prev) => {
+                        const next = new Set(prev);
+                        if (!next.delete(message.id)) next.add(message.id);
+                        return next;
+                      });
+                    }
+              }
+              refetch={refetch}
+              showReplyButton={showReplyButton}
             />
           );
         })}

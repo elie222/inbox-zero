@@ -89,10 +89,11 @@ const SHORTCUT_DEFINITIONS = [
   },
   {
     id: "backToList",
-    keys: ["u"],
+    keys: ["escape"],
     scope: "mail",
     group: "Navigate",
     label: "Back to the list",
+    allowWhileTyping: true,
   },
   {
     id: "nextSplit",
@@ -201,14 +202,6 @@ const SHORTCUT_DEFINITIONS = [
     scope: "mail",
     group: "View",
     label: "Focus mode (full screen)",
-  },
-  {
-    id: "close",
-    keys: ["escape"],
-    scope: "mail",
-    group: "View",
-    label: "Exit focus / close overlay",
-    allowWhileTyping: true,
   },
   {
     id: "help",

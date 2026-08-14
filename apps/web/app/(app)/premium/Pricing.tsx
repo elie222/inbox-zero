@@ -47,7 +47,8 @@ export type PricingProps = {
 
 export default function Pricing(props: PricingProps) {
   const posthog = usePostHog();
-  const { premium, isPremium, isLoading, error, data } = usePremium();
+  const { premium, isPremium, isLoading, error, data, canManageBilling } =
+    usePremium();
   const hasTrackedPricingView = useRef(false);
 
   const isLoggedIn = !!data?.id;
@@ -117,6 +118,18 @@ export default function Pricing(props: PricingProps) {
     pricingSource,
     props.showSkipUpgrade,
   ]);
+
+  if (isLoggedIn && !canManageBilling) {
+    return (
+      <div className="mx-auto max-w-2xl px-6 py-12">
+        <AlertBasic
+          variant="blue"
+          title="Billing access restricted"
+          description="Only organization owners and admins can manage billing."
+        />
+      </div>
+    );
+  }
 
   return (
     <LoadingContent loading={isLoading} error={error}>

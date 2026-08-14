@@ -9,6 +9,42 @@ import { restoreThreadOrder, type ThreadRestorePosition } from "./thread-order";
 
 type ThreadRow = { id: string };
 
+export async function writeCachedThreadRows<T extends ThreadRow>({
+  emailAccountId,
+  threads,
+  now = Date.now(),
+}: {
+  emailAccountId: string;
+  threads: T[];
+  now?: number;
+}) {
+  if (!threads.length) return;
+  const epoch = captureEmailCacheEpoch(emailAccountId);
+
+  try {
+    const database = await getEmailCacheDatabase();
+    if (!database || !isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
+    const transaction = database.transaction("threadRows", "readwrite");
+    const store = transaction.objectStore("threadRows");
+
+    for (const thread of threads) {
+      const current = await store.get([emailAccountId, thread.id]);
+      await store.put({
+        emailAccountId,
+        threadId: thread.id,
+        data: thread,
+        fetchedAt: current?.fetchedAt ?? now,
+        lastAccessedAt: now,
+      });
+    }
+    await transaction.done;
+    scheduleEmailCacheCleanup();
+  } catch {
+    scheduleEmailCacheCleanup({ force: true });
+    // Optimistic UI state remains authoritative if persistence is unavailable.
+  }
+}
+
 export async function writeCachedThreadList<T extends ThreadRow>({
   emailAccountId,
   viewKey,

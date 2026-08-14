@@ -1,6 +1,12 @@
 import { createHash } from "node:crypto";
 import { env } from "@/env";
 import { redis } from "@/utils/redis";
+import { sleep } from "@/utils/sleep";
+
+const CALLBACK_RESULT_POLL_INTERVAL_MS = 250;
+const CALLBACK_RESULT_WAIT_MS = 15_000;
+const CALLBACK_RESULT_WRITE_ATTEMPTS = 3;
+const CALLBACK_RESULT_WRITE_RETRY_MS = 250;
 
 // Not password hashing - creating a short cache key for OAuth authorization codes
 function createOAuthCodeCacheKey(code: string): string {
@@ -24,6 +30,12 @@ interface OAuthCodeProcessing {
 
 type OAuthCodeClaim = OAuthCodeProcessing | OAuthCodeResult | null;
 
+type OAuthCodeClaimOutcome =
+  | { status: "claimed" }
+  | { error: unknown; stage: "claim" | "wait"; status: "error" }
+  | { result: OAuthCodeResult; status: "success"; waited: boolean }
+  | { status: "timeout" };
+
 export function isOAuthCodeStoreConfigured() {
   return Boolean(env.UPSTASH_REDIS_URL && env.UPSTASH_REDIS_TOKEN);
 }
@@ -45,6 +57,44 @@ export async function claimOAuthCode(
   if (typeof existing === "string") return { status: "processing" };
 
   return existing as OAuthCodeClaim;
+}
+
+export async function claimOAuthCodeAndWait(
+  code: string,
+  requestFingerprint?: string,
+): Promise<OAuthCodeClaimOutcome> {
+  let claim: OAuthCodeClaim;
+  try {
+    claim = await claimOAuthCode(code, requestFingerprint);
+  } catch (error) {
+    return { error, stage: "claim", status: "error" };
+  }
+
+  if (!claim) return { status: "claimed" };
+  if (claim.status === "success") {
+    return { result: claim, status: "success", waited: false };
+  }
+
+  const attempts = CALLBACK_RESULT_WAIT_MS / CALLBACK_RESULT_POLL_INTERVAL_MS;
+  let lastWaitError: unknown;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    await new Promise((resolve) =>
+      setTimeout(resolve, CALLBACK_RESULT_POLL_INTERVAL_MS),
+    );
+    try {
+      const result = await getOAuthCodeResult(code);
+      lastWaitError = undefined;
+      if (result) return { result, status: "success", waited: true };
+    } catch (error) {
+      lastWaitError = error;
+    }
+  }
+
+  if (lastWaitError) {
+    return { error: lastWaitError, stage: "wait", status: "error" };
+  }
+
+  return { status: "timeout" };
 }
 
 export async function acquireOAuthCodeLock(code: string): Promise<boolean> {
@@ -86,9 +136,17 @@ export async function setOAuthCodeResult(
     requestFingerprint: options?.requestFingerprint,
   };
 
-  await redis.set(getCodeKey(code), result, {
-    ex: options?.ttlSeconds ?? 60,
-  });
+  for (let attempt = 1; attempt <= CALLBACK_RESULT_WRITE_ATTEMPTS; attempt++) {
+    try {
+      await redis.set(getCodeKey(code), result, {
+        ex: options?.ttlSeconds ?? 60,
+      });
+      return;
+    } catch (error) {
+      if (attempt === CALLBACK_RESULT_WRITE_ATTEMPTS) throw error;
+      await sleep(CALLBACK_RESULT_WRITE_RETRY_MS);
+    }
+  }
 }
 
 /**

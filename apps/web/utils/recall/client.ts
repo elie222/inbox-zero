@@ -67,7 +67,13 @@ export class RecallBotProvider implements MeetingBotProvider {
     meetingUrl: string;
     joinAt: Date;
   }): Promise<{ externalBotId: string }> {
-    const cameraImage = await getMeetingBotCameraImage();
+    const cameraImage = await getMeetingBotCameraImage().catch((error) => {
+      this.logger.warn(
+        "Meeting bot camera image is unavailable; scheduling without video",
+        { error },
+      );
+      return null;
+    });
 
     // No transcript config here on purpose: `recallai_async` is not a
     // bot-creation provider. Async transcription is requested per recording,
@@ -79,12 +85,14 @@ export class RecallBotProvider implements MeetingBotProvider {
         meeting_url: meetingUrl,
         bot_name: botName,
         join_at: joinAt.toISOString(),
-        automatic_video_output: {
-          in_call_recording: {
-            kind: "jpeg",
-            b64_data: cameraImage,
+        ...(cameraImage && {
+          automatic_video_output: {
+            in_call_recording: {
+              kind: "jpeg",
+              b64_data: cameraImage,
+            },
           },
-        },
+        }),
       },
     });
 
@@ -299,23 +307,36 @@ function getMeetingBotCameraImage(): Promise<string> {
 }
 
 async function readMeetingBotCameraImage(): Promise<string> {
-  const relativePath = join(
-    "public",
-    "images",
-    "meetings",
-    "inbox-zero-notetaker.jpg",
-  );
-  const candidatePaths = [
-    join(process.cwd(), relativePath),
-    join(process.cwd(), "apps", "web", relativePath),
-  ];
+  try {
+    return await readFile(
+      join(
+        process.cwd(),
+        "public",
+        "images",
+        "meetings",
+        "inbox-zero-notetaker.jpg",
+      ),
+      "base64",
+    );
+  } catch (error) {
+    if (!isMissingFile(error)) throw error;
+  }
 
-  for (const path of candidatePaths) {
-    try {
-      return await readFile(path, "base64");
-    } catch (error) {
-      if (!isMissingFile(error)) throw error;
-    }
+  try {
+    return await readFile(
+      join(
+        process.cwd(),
+        "apps",
+        "web",
+        "public",
+        "images",
+        "meetings",
+        "inbox-zero-notetaker.jpg",
+      ),
+      "base64",
+    );
+  } catch (error) {
+    if (!isMissingFile(error)) throw error;
   }
 
   throw new Error("Recall meeting bot camera image is missing");

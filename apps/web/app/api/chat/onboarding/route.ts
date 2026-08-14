@@ -3,7 +3,6 @@ import {
   convertToModelMessages,
   createUIMessageStream,
   createUIMessageStreamResponse,
-  type UIMessage,
 } from "ai";
 import { withEmailAccount } from "@/utils/middleware";
 import { getEmailAccountWithAi } from "@/utils/user/get";
@@ -36,7 +35,7 @@ export const POST = withEmailAccount("onboarding-chat", async (request) => {
 
   let modelMessages: Awaited<ReturnType<typeof convertToModelMessages>>;
   try {
-    modelMessages = await convertToModelMessages(data.messages as UIMessage[], {
+    modelMessages = await convertToModelMessages(data.messages, {
       ignoreIncompleteToolCalls: true,
     });
   } catch (error) {

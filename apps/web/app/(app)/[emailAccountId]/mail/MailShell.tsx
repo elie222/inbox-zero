@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useDeferredValue, useMemo, useState } from "react";
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useQueryState } from "nuqs";
 import { toast } from "sonner";
 import { ListToolbar } from "@/app/(app)/[emailAccountId]/mail/ListToolbar";
@@ -13,7 +20,7 @@ import type {
   MailCategory,
   MailNavTarget,
 } from "@/app/(app)/[emailAccountId]/mail/MailSidebar";
-import { RuleAttributionMenu } from "@/app/(app)/[emailAccountId]/mail/RuleAttributionMenu";
+import { ThreadActionsMenu } from "@/app/(app)/[emailAccountId]/mail/ThreadActionsMenu";
 import { ShortcutsDialog } from "@/app/(app)/[emailAccountId]/mail/ShortcutsDialog";
 import { SplitTabs } from "@/app/(app)/[emailAccountId]/mail/SplitTabs";
 import type { MailSplitTab } from "@/app/(app)/[emailAccountId]/mail/SplitTabs";
@@ -29,10 +36,11 @@ import { useMailThreads } from "@/app/(app)/[emailAccountId]/mail/use-mail-threa
 import { useAdjacentThreadPrefetch } from "@/app/(app)/[emailAccountId]/mail/use-adjacent-thread-prefetch";
 import { useThreadActions } from "@/app/(app)/[emailAccountId]/mail/use-thread-actions";
 import { useThreadSelection } from "@/app/(app)/[emailAccountId]/mail/use-thread-selection";
+import { isThreadUnread } from "@/app/(app)/[emailAccountId]/mail/read-state";
 import { MailLayout, MailSplitKind } from "@/generated/prisma/enums";
 import { useChat } from "@/providers/ChatProvider";
 import { useSidebar } from "@/components/ui/sidebar";
-import { useSetAtom } from "jotai";
+import { useAtom } from "jotai";
 import { commandPaletteOpenAtom } from "@/store/command-palette";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import {
@@ -92,7 +100,7 @@ export function MailShell() {
   const { onOpen: openCompose } = useComposeModal();
   const { setInput: setChatInput } = useChat();
   const { toggleSidebar } = useSidebar();
-  const setPaletteOpen = useSetAtom(commandPaletteOpenAtom);
+  const [isPaletteOpen, setPaletteOpen] = useAtom(commandPaletteOpenAtom);
   // The side panel viewer owns the triage keys while it's open, so this screen
   // stands down rather than both archiving the same keystroke.
   const { threadId: sidePanelThreadId } = useDisplayedEmail();
@@ -196,14 +204,16 @@ export function MailShell() {
     loadMore,
     removeThreads,
     restoreThreads,
+    optimisticallyUpdateThreads,
   } = useMailThreads({ emailAccountId, query });
 
   const orderedIds = useMemo(() => threads.map((t) => t.id), [threads]);
   const selection = useThreadSelection(orderedIds);
-  const { archive, trash, undo } = useThreadActions({
+  const { archive, trash, markRead, setReadState, undo } = useThreadActions({
     emailAccountId,
     removeThreads,
     restoreThreads,
+    optimisticallyUpdateThreads,
   });
 
   const clampIndex = useCallback(
@@ -214,6 +224,26 @@ export function MailShell() {
   const clampedIndex = clampIndex(focusedIndex);
   const focusedThread = threads[clampedIndex];
   const openThread = threads.find((t) => t.id === openThreadId);
+  const resolvedOpenThreadId = openThread?.id;
+  const readAttemptedForOpenThread = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!openThreadId) {
+      readAttemptedForOpenThread.current = null;
+      return;
+    }
+    if (
+      !resolvedOpenThreadId ||
+      readAttemptedForOpenThread.current === resolvedOpenThreadId
+    ) {
+      return;
+    }
+
+    // A rollback leaves the reader open. Remember the attempt so a provider
+    // failure doesn't immediately enqueue the same mutation again.
+    readAttemptedForOpenThread.current = resolvedOpenThreadId;
+    markRead([resolvedOpenThreadId]);
+  }, [markRead, openThreadId, resolvedOpenThreadId]);
 
   // Deferred so holding J/K in split view doesn't fire a full-thread provider
   // fetch for every row the cursor passes over — only the row you settle on.
@@ -233,6 +263,13 @@ export function MailShell() {
     readerThreadId === openThreadId
       ? (openThreadData?.thread.messages ?? NO_MESSAGES)
       : NO_MESSAGES;
+
+  // The row, not the fetched thread: marking read patches the row optimistically,
+  // so it is the copy that stays in step. The fetch only stands in for a link
+  // straight into a conversation, where there is no row yet.
+  const isOpenThreadUnread = isThreadUnread(
+    openThread?.messages ?? openMessages,
+  );
 
   const hrefFor = useCallback(
     (target: MailNavTarget) =>
@@ -291,6 +328,10 @@ export function MailShell() {
   const openShortcuts = useCallback(() => setIsHelpOpen(true), []);
   const archiveTargets = useCallback(() => runOn(archive), [runOn, archive]);
   const trashTargets = useCallback(() => runOn(trash), [runOn, trash]);
+  const isMailOverlayOpen =
+    isHelpOpen ||
+    isPaletteOpen ||
+    (isMenuOpen && Boolean(openThread?.plans.length));
 
   // Not memoised: `useShortcuts` keeps handlers in a ref and only re-registers
   // when the set of handled ids changes, so a stable identity buys nothing.
@@ -300,10 +341,13 @@ export function MailShell() {
       next: () => move(1),
       previous: () => move(-1),
       open: () => openAt(clampedIndex),
-      backToList: () => {
-        setIsFocusMode(false);
-        setOpenThreadId(null);
-      },
+      backToList: isMailOverlayOpen
+        ? undefined
+        : () => {
+            if (isFocusMode) setIsFocusMode(false);
+            else if (selection.hasSelection) selection.clear();
+            else if (layout === "list") setOpenThreadId(null);
+          },
       nextSplit: () => {
         const index = splits.findIndex((s) => s.id === activeSplitId);
         const next = splits[(index + 1) % splits.length];
@@ -324,11 +368,6 @@ export function MailShell() {
       undo: () => undo(),
       toggleLayout,
       focusMode: () => setIsFocusMode((on) => !on),
-      close: () => {
-        if (isFocusMode) setIsFocusMode(false);
-        else if (selection.hasSelection) selection.clear();
-        else if (layout === "list") setOpenThreadId(null);
-      },
       help: () => setIsHelpOpen(true),
     };
   })();
@@ -534,10 +573,15 @@ export function MailShell() {
             refetch={refetchOpenThread}
             autoOpenReplyForMessageId={replyToMessageId}
             menu={
-              <RuleAttributionMenu
+              <ThreadActionsMenu
                 plans={openThread?.plans ?? []}
                 message={openMessages?.at(-1) ?? null}
                 setChatInput={setChatInput}
+                isUnread={isOpenThreadUnread}
+                onToggleRead={() => {
+                  if (openThreadId)
+                    setReadState(openThreadId, isOpenThreadUnread);
+                }}
                 open={isMenuOpen}
                 onOpenChange={setIsMenuOpen}
               />

@@ -24,6 +24,11 @@ import {
   getStripeBillingQuantity,
   syncPremiumSeats,
 } from "@/utils/premium/seats";
+import {
+  assertCanManageBilling,
+  billingAccessPremiumSelect,
+  billingAccessSelect,
+} from "@/utils/premium/billing-access";
 import { changePremiumStatusSchema } from "@/app/(app)/admin/validation";
 import { activateLemonLicenseKey } from "@/ee/billing/lemon/index";
 import { PremiumTier } from "@/generated/prisma/enums";
@@ -374,21 +379,22 @@ export const updateStripeInvoiceEmailsAction = actionClientUser
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
+        ...billingAccessSelect,
         premium: {
           select: {
-            id: true,
+            ...billingAccessPremiumSelect,
             stripeCustomerId: true,
-            admins: { select: { id: true } },
           },
         },
       },
     });
 
-    if (!user?.premium?.stripeCustomerId) {
-      throw new SafeError("Stripe billing account not found");
+    if (!user) {
+      throw new SafeError("User not found");
     }
-    if (!isAdminForPremium(user.premium.admins, userId)) {
-      throw new SafeError("Not admin");
+    assertCanManageBilling(userId, user);
+    if (!user.premium?.stripeCustomerId) {
+      throw new SafeError("Stripe billing account not found");
     }
 
     await prisma.premium.update({
@@ -405,13 +411,13 @@ export const getBillingPortalUrlAction = actionClientUser
   .action(async ({ ctx: { userId, logger }, parsedInput: { tier } }) => {
     const priceId = tier ? getStripePriceId({ tier }) : undefined;
 
-    const stripe = getStripe();
-
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
+        ...billingAccessSelect,
         premium: {
           select: {
+            ...billingAccessPremiumSelect,
             stripeCustomerId: true,
             stripeSubscriptionId: true,
             stripeSubscriptionItemId: true,
@@ -424,10 +430,19 @@ export const getBillingPortalUrlAction = actionClientUser
       },
     });
 
-    if (!user?.premium?.stripeCustomerId) {
+    if (!user) {
+      throw new SafeError("User not found");
+    }
+    assertCanManageBilling(userId, user);
+    if (!user.premium) {
+      throw new SafeError("Premium subscription not found");
+    }
+    if (!user.premium.stripeCustomerId) {
       logger.error("Stripe customer id not found");
       throw new SafeError("Stripe customer id not found");
     }
+
+    const stripe = getStripe();
 
     const subscription =
       priceId &&
@@ -487,8 +502,10 @@ export const endStripeTrialAction = actionClientUser
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
+        ...billingAccessSelect,
         premium: {
           select: {
+            ...billingAccessPremiumSelect,
             stripeSubscriptionId: true,
             stripeSubscriptionStatus: true,
           },
@@ -496,7 +513,12 @@ export const endStripeTrialAction = actionClientUser
       },
     });
 
-    const premium = user?.premium;
+    if (!user) {
+      throw new SafeError("User not found");
+    }
+    assertCanManageBilling(userId, user);
+
+    const premium = user.premium;
     if (!premium?.stripeSubscriptionId) {
       throw new SafeError("Stripe subscription not found");
     }
@@ -536,12 +558,12 @@ export const generateCheckoutSessionAction = actionClientUser
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
+        ...billingAccessSelect,
         email: true,
         utms: true,
-        _count: { select: { emailAccounts: true } },
         premium: {
           select: {
-            id: true,
+            ...billingAccessPremiumSelect,
             stripeCustomerId: true,
             stripeSubscriptionId: true,
             stripeSubscriptionStatus: true,
@@ -557,6 +579,7 @@ export const generateCheckoutSessionAction = actionClientUser
       logger.error("User not found");
       throw new SafeError("User not found");
     }
+    assertCanManageBilling(userId, user);
 
     if (
       user.premium?.stripeSubscriptionId &&
@@ -596,7 +619,9 @@ export const generateCheckoutSessionAction = actionClientUser
 
     const quantity = getStripeBillingQuantity({
       priceId,
-      users: user.premium?.users || [{ _count: user._count }],
+      users: user.premium?.users || [
+        { _count: { emailAccounts: user.emailAccounts.length } },
+      ],
     });
     const cookieStore = await cookies();
     const conversionAttributionId = cookieStore.get(

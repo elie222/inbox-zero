@@ -6,24 +6,32 @@ import {
   ChevronsDownUpIcon,
 } from "lucide-react";
 import { Tooltip } from "@/components/Tooltip";
-import { extractNameFromEmail } from "@/utils/email";
+import {
+  extractEmailAddress,
+  extractNameFromEmail,
+  isSameEmailAddress,
+  splitRecipientList,
+} from "@/utils/email";
 import { formatShortDate } from "@/utils/date";
 import { ComposeEmailFormLazy } from "@/app/(app)/[emailAccountId]/compose/ComposeEmailFormLazy";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
+import { Card } from "@/components/ui/card";
 import type { ParsedMessage } from "@/utils/types";
 import { forwardEmailHtml, forwardEmailSubject } from "@/utils/gmail/forward";
 import { extractEmailReply } from "@/utils/parse/extract-reply.client";
 import type { ReplyingToEmail } from "@/app/(app)/[emailAccountId]/compose/ComposeEmailForm";
 import { createReplyContent } from "@/utils/gmail/reply";
 import { cn } from "@/utils";
+import { decodeSnippet } from "@/utils/gmail/decode";
+import { GmailLabel } from "@/utils/gmail/label";
 import { generateNudgeReplyAction } from "@/utils/actions/generate-reply";
 import type { ThreadMessage } from "@/components/email-list/types";
 import { EmailDetails } from "@/components/email-list/EmailDetails";
 import { HtmlEmail, PlainEmail } from "@/components/email-list/EmailContents";
 import { EmailAttachments } from "@/components/email-list/EmailAttachments";
 import { Loading } from "@/components/Loading";
-import { MessageText, MutedText } from "@/components/Typography";
+import { MessageText } from "@/components/Typography";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { formatReplySubject } from "@/utils/email/subject";
 
@@ -34,7 +42,7 @@ export function EmailMessage({
   defaultShowReply,
   draftMessage,
   expanded,
-  onExpand,
+  onToggle,
   onSendSuccess,
   generateNudge,
 }: {
@@ -44,19 +52,24 @@ export function EmailMessage({
   showReplyButton: boolean;
   defaultShowReply?: boolean;
   expanded: boolean;
-  onExpand: () => void;
+  /** Absent when the thread has a single message, which never collapses. */
+  onToggle?: () => void;
   onSendSuccess: (messageId: string, threadId: string) => void;
   generateNudge?: boolean;
 }) {
-  const [showReply, setShowReply] = useState(defaultShowReply || false);
-  const [showDetails, setShowDetails] = useState(false);
+  // `null` follows `defaultShowReply`, which the reader's Reply button flips
+  // long after this message mounted.
+  const [replyOverride, setReplyOverride] = useState<boolean | null>(null);
+  const showReply = replyOverride ?? Boolean(defaultShowReply);
 
-  const onReply = useCallback(() => setShowReply(true), []);
+  const [showDetails, setShowDetails] = useState(false);
   const [showForward, setShowForward] = useState(false);
+
+  const onReply = useCallback(() => setReplyOverride(true), []);
   const onForward = useCallback(() => setShowForward(true), []);
 
   const onCloseCompose = useCallback(() => {
-    setShowReply(false);
+    setReplyOverride(false);
     setShowForward(false);
   }, []);
 
@@ -66,26 +79,21 @@ export function EmailMessage({
   }, []);
 
   return (
-    // biome-ignore lint/a11y/useKeyWithClickEvents: ignore
-    <li
-      className={cn(
-        "bg-background p-4 shadow sm:rounded-lg",
-        !expanded && "cursor-pointer",
-      )}
-      onClick={onExpand}
-    >
-      <TopBar
-        message={message}
+    <li className="group/message border-border/60 border-t py-4 first:border-t-0 first:pt-0">
+      <MessageHeader
         expanded={expanded}
-        showDetails={showDetails}
-        toggleDetails={toggleDetails}
-        showReplyButton={showReplyButton}
-        onReply={onReply}
+        message={message}
         onForward={onForward}
+        onReply={onReply}
+        onToggle={onToggle}
+        showDetails={showDetails}
+        showReplyButton={showReplyButton}
+        toggleDetails={toggleDetails}
       />
 
       {expanded && (
-        <>
+        // Aligns the body with the sender's name rather than the avatar.
+        <div className="min-w-0 pt-3 pl-9">
           {showDetails && <EmailDetails message={message} />}
 
           {message.textHtml ? (
@@ -98,23 +106,28 @@ export function EmailMessage({
 
           {(showReply || showForward) && (
             <ReplyPanel
-              message={message}
-              refetch={refetch}
-              onSendSuccess={onSendSuccess}
-              onCloseCompose={onCloseCompose}
               defaultShowReply={defaultShowReply}
-              showReply={showReply}
               draftMessage={draftMessage}
               generateNudge={generateNudge}
+              message={message}
+              onCloseCompose={onCloseCompose}
+              onSendSuccess={onSendSuccess}
+              refetch={refetch}
+              showReply={showReply}
             />
           )}
-        </>
+        </div>
       )}
     </li>
   );
 }
 
-function TopBar({
+/**
+ * One row per message, and the whole thread's rhythm: an avatar, who sent it,
+ * and when. Collapsed it also carries the snippet, so a thread reads top to
+ * bottom without opening every message.
+ */
+function MessageHeader({
   message,
   expanded,
   showDetails,
@@ -122,6 +135,7 @@ function TopBar({
   showReplyButton,
   onReply,
   onForward,
+  onToggle,
 }: {
   message: ParsedMessage;
   expanded: boolean;
@@ -130,58 +144,138 @@ function TopBar({
   showReplyButton: boolean;
   onReply: () => void;
   onForward: () => void;
+  onToggle?: () => void;
 }) {
+  const { userEmail } = useAccount();
+
+  const isSent = message.labelIds?.includes(GmailLabel.SENT) ?? false;
+  const senderEmail = extractEmailAddress(message.headers.from);
+  const senderName = isSent
+    ? "Me"
+    : extractNameFromEmail(message.headers.from) || senderEmail;
+
+  // Collapsing is the thread's call, so a row is only interactive once it has
+  // been handed a toggle.
+  const toggleProps: React.ComponentProps<"div"> | undefined = onToggle && {
+    "aria-expanded": expanded,
+    onClick: onToggle,
+    onKeyDown: (event: React.KeyboardEvent) => {
+      // Keydown bubbles, so without this the row would swallow Enter/Space
+      // aimed at the buttons nested inside it.
+      if (event.target !== event.currentTarget) return;
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      onToggle();
+    },
+    role: "button",
+    tabIndex: 0,
+  };
+
+  /**
+   * The composer renders inside the collapsed-away body, so replying to a
+   * collapsed message has to open it first.
+   */
+  const compose = (open: () => void) => (event: React.MouseEvent) => {
+    event.stopPropagation();
+    if (!expanded) onToggle?.();
+    open();
+  };
+
   return (
-    <div className="sm:flex sm:items-center sm:justify-between">
-      <div className="flex items-center gap-2">
-        <div className="flex items-center">
-          <h3 className="text-base font-medium">
-            <span className="text-foreground">
-              {message.labelIds?.includes("SENT")
-                ? "Me"
-                : extractNameFromEmail(message.headers.from)}
-            </span>{" "}
-            {expanded && <span className="text-muted-foreground">wrote</span>}
-          </h3>
-        </div>
-        {expanded && (
+    <div
+      {...toggleProps}
+      className={cn(
+        "flex min-w-0 items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        onToggle && "cursor-pointer",
+      )}
+    >
+      <Avatar aria-hidden className="size-7">
+        <AvatarFallback
+          className={cn(
+            "font-semibold text-[10px] tracking-wide",
+            isSent
+              ? "bg-primary/10 text-primary"
+              : "bg-muted text-muted-foreground",
+          )}
+        >
+          {initialsFor(senderName)}
+        </AvatarFallback>
+      </Avatar>
+
+      <span
+        className={cn(
+          "shrink-0 truncate text-sm",
+          expanded
+            ? "font-semibold text-foreground"
+            : "font-medium text-secondary-foreground",
+        )}
+      >
+        {senderName}
+      </span>
+
+      {expanded ? (
+        <>
+          {senderEmail && senderEmail !== senderName ? (
+            <span className="truncate text-muted-foreground text-xs">
+              {senderEmail}
+            </span>
+          ) : null}
+          <span className="shrink-0 whitespace-nowrap text-muted-foreground/70 text-xs">
+            {recipientSummary(message.headers.to, userEmail)}
+          </span>
           <Button
-            variant="ghost"
-            size="sm"
-            className="size-6 p-0"
+            aria-label={showDetails ? "Hide details" : "Show details"}
+            className="size-6 shrink-0 p-0 text-muted-foreground opacity-0 transition-opacity focus-visible:opacity-100 group-hover/message:opacity-100"
             onClick={toggleDetails}
+            size="sm"
+            variant="ghost"
           >
             {showDetails ? (
-              <ChevronsDownUpIcon className="size-4" />
+              <ChevronsDownUpIcon className="size-3.5" />
             ) : (
-              <ChevronsUpDownIcon className="size-4" />
+              <ChevronsUpDownIcon className="size-3.5" />
             )}
           </Button>
-        )}
-      </div>
-      <div className="flex items-center space-x-2">
-        <MutedText className="mt-1 whitespace-nowrap sm:ml-3 sm:mt-0">
-          <time dateTime={message.headers.date}>
-            {formatShortDate(new Date(message.headers.date))}
-          </time>
-        </MutedText>
-        {showReplyButton && (
-          <div className="relative flex items-center">
-            <Tooltip content="Reply">
-              <Button variant="ghost" size="icon" onClick={onReply}>
-                <ReplyIcon className="h-4 w-4" />
-                <span className="sr-only">Reply</span>
-              </Button>
-            </Tooltip>
-            <Tooltip content="Forward">
-              <Button variant="ghost" size="icon">
-                <ForwardIcon className="h-4 w-4" onClick={onForward} />
-                <span className="sr-only">Forward</span>
-              </Button>
-            </Tooltip>
-          </div>
-        )}
-      </div>
+        </>
+      ) : (
+        <span className="min-w-0 flex-1 truncate text-muted-foreground text-sm">
+          {decodeSnippet(message.snippet)}
+        </span>
+      )}
+
+      <time
+        className="ml-auto shrink-0 whitespace-nowrap pl-2.5 text-muted-foreground text-xs"
+        dateTime={message.headers.date}
+      >
+        {formatShortDate(new Date(message.headers.date))}
+      </time>
+
+      {showReplyButton && (
+        <span className="flex shrink-0 items-center opacity-0 transition-opacity focus-within:opacity-100 group-hover/message:opacity-100">
+          <Tooltip content="Reply">
+            <Button
+              className="size-7 text-muted-foreground"
+              onClick={compose(onReply)}
+              size="icon"
+              variant="ghost"
+            >
+              <ReplyIcon className="size-3.5" />
+              <span className="sr-only">Reply</span>
+            </Button>
+          </Tooltip>
+          <Tooltip content="Forward">
+            <Button
+              className="size-7 text-muted-foreground"
+              onClick={compose(onForward)}
+              size="icon"
+              variant="ghost"
+            >
+              <ForwardIcon className="size-3.5" />
+              <span className="sr-only">Forward</span>
+            </Button>
+          </Tooltip>
+        </span>
+      )}
     </div>
   );
 }
@@ -282,39 +376,61 @@ function ReplyPanel({
   }, [showReply, message, draftMessage, reply]);
 
   return (
-    <>
-      <Separator className="my-4" />
-
-      <div ref={replyRef}>
-        {isGeneratingReply ? (
-          <div className="flex items-center justify-center">
-            <Loading />
-            <MessageText>Generating reply...</MessageText>
-            <Button
-              className="ml-4"
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setIsGeneratingReply(false);
-              }}
-            >
-              Skip
-            </Button>
-          </div>
-        ) : (
-          <ComposeEmailFormLazy
-            replyingToEmail={replyingToEmail}
-            refetch={refetch}
-            onSuccess={(messageId: string, threadId: string) => {
-              onSendSuccess(messageId, threadId);
-              onCloseCompose();
+    <Card className="mt-6 rounded-xl p-3" ref={replyRef}>
+      {isGeneratingReply ? (
+        <div className="flex items-center justify-center">
+          <Loading />
+          <MessageText>Generating reply...</MessageText>
+          <Button
+            className="ml-4"
+            onClick={() => {
+              setIsGeneratingReply(false);
             }}
-            onDiscard={onCloseCompose}
-          />
-        )}
-      </div>
-    </>
+            size="sm"
+            variant="outline"
+          >
+            Skip
+          </Button>
+        </div>
+      ) : (
+        <ComposeEmailFormLazy
+          onDiscard={onCloseCompose}
+          onSuccess={(messageId: string, threadId: string) => {
+            onSendSuccess(messageId, threadId);
+            onCloseCompose();
+          }}
+          refetch={refetch}
+          replyingToEmail={replyingToEmail}
+        />
+      )}
+    </Card>
   );
+}
+
+/** Two letters at most: initials from a display name, or the address's first letters. */
+function initialsFor(name: string) {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return "?";
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase();
+}
+
+/** "to me", "to Dana", "to me and 3 others" — who a message went out to. */
+function recipientSummary(to: string | undefined, userEmail: string) {
+  const recipients = splitRecipientList(to ?? "");
+  if (recipients.length === 0) return "";
+
+  // "me" leads whenever the account is in there at all, however it was addressed.
+  const first =
+    recipients.find((recipient) => isSameEmailAddress(recipient, userEmail)) ??
+    recipients[0];
+  const firstLabel = isSameEmailAddress(first, userEmail)
+    ? "me"
+    : extractNameFromEmail(first) || extractEmailAddress(first);
+
+  const others = recipients.length - 1;
+  if (others === 0) return `to ${firstLabel}`;
+  return `to ${firstLabel} and ${others} ${others === 1 ? "other" : "others"}`;
 }
 
 const prepareReplyingToEmail = (

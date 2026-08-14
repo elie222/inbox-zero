@@ -15,6 +15,7 @@ export function usePremium() {
 
   const premium = data?.premium;
   const hasAiApiKey = data?.hasAiApiKey;
+  const canManageBilling = data?.canManageBilling ?? false;
 
   const unsubscribeCreditsRemaining = data?.unsubscribeCreditsRemaining;
 
@@ -22,6 +23,7 @@ export function usePremium() {
     return {
       ...swrResponse,
       premium,
+      canManageBilling,
       isPremium: true,
       hasUnsubscribeAccess: true,
       unsubscribeCreditsRemaining,
@@ -40,6 +42,7 @@ export function usePremium() {
   return {
     ...swrResponse,
     premium,
+    canManageBilling,
     isPremium: isUserPremium,
     hasUnsubscribeAccess:
       isUserPremium ||

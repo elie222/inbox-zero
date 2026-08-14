@@ -12,6 +12,7 @@ import {
 import { MailLabelChip } from "@/app/(app)/[emailAccountId]/mail/MailLabelChip";
 import type { MailLayoutMode } from "@/app/(app)/[emailAccountId]/mail/types";
 import { Kbd } from "@/components/Kbd";
+import type { EmailMessageCellLabel } from "@/components/EmailMessageCellLabels";
 import { Button } from "@/components/ui/button";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
 
@@ -20,7 +21,7 @@ export type ReaderToolbarProps = {
   /** Display name of the other party. Falls back to the address when absent. */
   senderName: string;
   senderEmail: string;
-  labels: { id: string; name: string }[];
+  labels: EmailMessageCellLabel[];
   /**
    * Chips navigate to a label's view and nothing else: a label carries no
    * reason, because several rules — or none at all — can put one on a thread.
@@ -37,7 +38,7 @@ export type ReaderToolbarProps = {
   onReply: () => void;
   onDelete: () => void;
   onToggleFocusMode: () => void;
-  /** The ⋯ dropdown, i.e. `RuleAttributionMenu`, composed by the shell. */
+  /** The ⋯ dropdown, i.e. `ThreadActionsMenu`, composed by the shell. */
   menu?: ReactNode;
 };
 
@@ -69,7 +70,7 @@ export function ReaderToolbar({
   return (
     <div>
       {showBackBar ? (
-        <div className="-mx-1 sticky top-0 z-10 mb-4 flex items-center gap-3 bg-background px-1 py-2">
+        <div className="-mx-1 sticky top-0 z-10 mb-4 flex items-center gap-3 bg-card px-1 py-2">
           <Button onClick={onBack} size="xs-2" variant="outline">
             <ArrowLeftIcon className="mr-1.5 size-3.5" />
             Back
@@ -99,6 +100,7 @@ export function ReaderToolbar({
             ) : null}
             {labels.map((label) => (
               <MailLabelChip
+                color={label.color}
                 href={labelHref(label.id)}
                 key={label.id}
                 name={label.name}

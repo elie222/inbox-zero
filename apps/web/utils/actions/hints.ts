@@ -9,8 +9,11 @@ export const dismissHintAction = actionClientUser
   .metadata({ name: "dismissHint" })
   .schema(dismissHintBody)
   .action(async ({ ctx: { userId }, parsedInput: { hintId } }) => {
-    await prisma.user.update({
-      where: { id: userId },
+    await prisma.user.updateMany({
+      where: {
+        id: userId,
+        NOT: { dismissedHints: { has: hintId } },
+      },
       data: {
         dismissedHints: { push: hintId },
       },

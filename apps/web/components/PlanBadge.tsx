@@ -120,7 +120,7 @@ function getActionLabel(
       return "Star";
     case ActionType.NOTIFY_MESSAGING_CHANNEL:
       return action?.messagingChannel?.provider
-        ? `Notify via ${getMessagingProviderName(action.messagingChannel.provider)}`
+        ? `Notify on ${getMessagingProviderName(action.messagingChannel.provider)}`
         : "Notify";
     case ActionType.NOTIFY_SENDER:
       return "Notify Sender";

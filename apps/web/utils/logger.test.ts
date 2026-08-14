@@ -331,6 +331,17 @@ describe("Logger", () => {
     expect(loggedMessage).toContain("/api/endpoint");
   });
 
+  it("always redacts received OAuth state values", () => {
+    const logger = createScopedLogger("test");
+    const receivedState = "signed-oauth-state-secret";
+
+    logger.error("Invalid OAuth state", { receivedState });
+
+    const loggedMessage = consoleErrorSpy.mock.calls[0][0];
+    expect(loggedMessage).toContain('"receivedState": true');
+    expect(loggedMessage).not.toContain(receivedState);
+  });
+
   it("should handle complex nested error objects without [object Object]", () => {
     const logger = createScopedLogger("test");
 

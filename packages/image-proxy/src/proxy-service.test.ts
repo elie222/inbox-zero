@@ -156,6 +156,42 @@ describe("handleImageProxyRequest", () => {
     expect(upstreamFetch).not.toHaveBeenCalled();
   });
 
+  it.each([
+    "GET",
+    "HEAD",
+  ] as const)("rejects cached SVG responses for %s requests", async (method) => {
+    const cachedResponse = new Response(
+      method === "GET" ? "cached-svg" : null,
+      {
+        status: 200,
+        headers: { "content-type": "image/svg+xml; charset=utf-8" },
+      },
+    );
+    const cache = {
+      match: vi.fn().mockResolvedValue(cachedResponse),
+      put: vi.fn(),
+    };
+    const upstreamFetch = vi.fn();
+
+    const response = await handleImageProxyRequest(
+      new Request(
+        "https://proxy.example.com/proxy?u=https%3A%2F%2Fcdn.example.com%2Fphoto.png",
+        { method },
+      ),
+      {},
+      {
+        cache,
+        fetchImpl: upstreamFetch as typeof fetch,
+      },
+    );
+
+    expect(response.status).toBe(415);
+    await expect(response.text()).resolves.toBe("Unsupported content type");
+    expect(cache.match).toHaveBeenCalledTimes(1);
+    expect(cache.put).not.toHaveBeenCalled();
+    expect(upstreamFetch).not.toHaveBeenCalled();
+  });
+
   it("requires a valid signature when a signing secret is configured", async () => {
     const proxyUrl = await buildSignedAssetProxyUrl({
       assetUrl: "https://cdn.example.com/photo.png",
@@ -317,6 +353,60 @@ describe("handleImageProxyRequest", () => {
 
     expect(response.status).toBe(415);
     await expect(response.text()).resolves.toBe("Unsupported content type");
+  });
+
+  it.each([
+    "GET",
+    "HEAD",
+  ] as const)("rejects fresh parameterized SVG content for %s requests without caching it", async (method) => {
+    const cache = {
+      match: vi.fn().mockResolvedValue(undefined),
+      put: vi.fn(),
+    };
+    const upstreamFetch = vi.fn().mockResolvedValue(
+      new Response(method === "GET" ? "<svg></svg>" : null, {
+        status: 200,
+        headers: { "content-type": "Image/SvG+XmL; charset=UTF-8" },
+      }),
+    );
+
+    const response = await handleImageProxyRequest(
+      new Request(
+        "https://proxy.example.com/proxy?u=https%3A%2F%2Fcdn.example.com%2Fphoto.png",
+        { method },
+      ),
+      {},
+      {
+        cache,
+        fetchImpl: upstreamFetch as typeof fetch,
+      },
+    );
+
+    expect(response.status).toBe(415);
+    await expect(response.text()).resolves.toBe("Unsupported content type");
+    expect(upstreamFetch).toHaveBeenCalledTimes(1);
+    expect(cache.put).not.toHaveBeenCalled();
+  });
+
+  it("continues to proxy passive font content", async () => {
+    const response = await handleImageProxyRequest(
+      new Request(
+        "https://proxy.example.com/proxy?u=https%3A%2F%2Fcdn.example.com%2Ffont.woff2",
+      ),
+      {},
+      {
+        fetchImpl: vi.fn().mockResolvedValue(
+          new Response("font-bytes", {
+            status: 200,
+            headers: { "content-type": "font/woff2" },
+          }),
+        ) as typeof fetch,
+      },
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("font/woff2");
+    await expect(response.text()).resolves.toBe("font-bytes");
   });
 
   it("blocks redirects to local targets", async () => {
