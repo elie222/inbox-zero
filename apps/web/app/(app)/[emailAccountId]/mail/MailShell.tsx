@@ -129,11 +129,9 @@ export function MailShell() {
   const [replyToMessageId, setReplyToMessageId] = useState<string>();
 
   const isAllAccounts = accountScope === "all";
-  const layout: MailLayoutMode = isAllAccounts
-    ? "list"
-    : settings?.layout === MailLayout.SPLIT
-      ? "split"
-      : "list";
+  const accountLayout: MailLayoutMode =
+    settings?.layout === MailLayout.SPLIT ? "split" : "list";
+  const layout = isAllAccounts ? "list" : accountLayout;
 
   // Written through the SWR cache rather than mirrored in local state, so the
   // preference has one source of truth and every reader sees the new value.
@@ -181,23 +179,23 @@ export function MailShell() {
   }, [scopeFolderId, scopeLabelId, scopeType]);
   const isScoped = !isAllAccounts && scopeQuery !== null;
 
-  const splits: MailSplitTab[] = useMemo(
-    () => [
-      ...BUILT_IN_SPLITS.map((split) => ({
+  const splits: MailSplitTab[] = useMemo(() => {
+    const builtInSplits = BUILT_IN_SPLITS.map((split) => ({
+      id: split.id,
+      name: split.name,
+      deletable: false,
+    }));
+    if (isAllAccounts) return builtInSplits;
+
+    return [
+      ...builtInSplits,
+      ...(settings?.splits ?? []).map((split) => ({
         id: split.id,
         name: split.name,
-        deletable: false,
+        deletable: true,
       })),
-      ...(isAllAccounts
-        ? []
-        : (settings?.splits ?? []).map((split) => ({
-            id: split.id,
-            name: split.name,
-            deletable: true,
-          }))),
-    ],
-    [isAllAccounts, settings?.splits],
-  );
+    ];
+  }, [isAllAccounts, settings?.splits]);
 
   const query: ThreadsQuery = useMemo(() => {
     if (scopeQuery) return scopeQuery;

@@ -38,7 +38,7 @@ export async function loadCombinedThreads({
 }) {
   const previousCursor = decodeCursor(cursor);
   const accountsToLoad = previousCursor
-    ? accounts.filter((account) => previousCursor[account.id])
+    ? accounts.filter((account) => Boolean(previousCursor[account.id]))
     : accounts;
 
   const pages = await mapWithConcurrency(

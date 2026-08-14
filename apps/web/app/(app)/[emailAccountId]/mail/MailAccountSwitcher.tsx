@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { ChevronsUpDownIcon, PlusIcon } from "lucide-react";
 import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
@@ -27,6 +28,22 @@ export function MailAccountSwitcher({
 
   if (!data) return null;
 
+  const activeLabel = isAllAccounts
+    ? "All accounts"
+    : emailAccount?.name || emailAccount?.email || "Choose account";
+  let activeIcon: ReactNode = null;
+  if (isAllAccounts) {
+    activeIcon = <AllAccountsIcon />;
+  } else if (emailAccount) {
+    activeIcon = (
+      <ProfileImage
+        className="size-8"
+        image={emailAccount.image}
+        label={emailAccount.name || emailAccount.email}
+      />
+    );
+  }
+
   return (
     <div className="shrink-0 border-t border-border bg-background px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:hidden">
       <DropdownMenu>
@@ -35,19 +52,9 @@ export function MailAccountSwitcher({
             type="button"
             className="flex h-11 w-full items-center gap-3 rounded-xl px-2 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            {isAllAccounts ? (
-              <AllAccountsIcon />
-            ) : emailAccount ? (
-              <ProfileImage
-                className="size-8"
-                image={emailAccount.image}
-                label={emailAccount.name || emailAccount.email}
-              />
-            ) : null}
+            {activeIcon}
             <span className="min-w-0 flex-1 truncate font-medium text-sm">
-              {isAllAccounts
-                ? "All accounts"
-                : emailAccount?.name || emailAccount?.email || "Choose account"}
+              {activeLabel}
             </span>
             <ChevronsUpDownIcon className="size-4 text-muted-foreground" />
           </button>
