@@ -17,6 +17,7 @@ import {
   getDesktopBrowserStartUrl,
   getDesktopLoginUrl,
   getDesktopPostAuthUrl,
+  DESKTOP_WINDOW_DRAG_CSS,
   getDesktopWindowChrome,
   isAllowedDesktopNavigation,
   isAllowedExternalUrl,
@@ -136,7 +137,14 @@ function createMainWindow() {
   });
 
   applyNavigationPolicy(mainWindow.webContents);
+  applyDesktopWindowDragRegion(mainWindow.webContents);
   mainWindow.loadURL(loginUrl).catch(showSignInError);
+}
+
+function applyDesktopWindowDragRegion(contents: WebContents) {
+  contents.on("dom-ready", () => {
+    contents.insertCSS(DESKTOP_WINDOW_DRAG_CSS).catch(showSignInError);
+  });
 }
 
 function applyNavigationPolicy(contents: WebContents) {

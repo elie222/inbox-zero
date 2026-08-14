@@ -4,6 +4,7 @@ import {
   getDesktopAppOrigin,
   getDesktopBrowserStartUrl,
   getDesktopLoginUrl,
+  DESKTOP_WINDOW_DRAG_CSS,
   getDesktopPostAuthUrl,
   getDesktopWindowChrome,
   isAllowedDesktopNavigation,
@@ -161,5 +162,14 @@ describe("desktop shell helpers", () => {
       autoHideMenuBar: true,
       backgroundColor: "#ffffff",
     });
+  });
+
+  it("marks a window drag region and keeps interactive surfaces clickable", () => {
+    expect(DESKTOP_WINDOW_DRAG_CSS).toContain("-webkit-app-region: drag");
+    expect(DESKTOP_WINDOW_DRAG_CSS).toContain("-webkit-app-region: no-drag");
+    expect(DESKTOP_WINDOW_DRAG_CSS).toContain("button");
+    expect(DESKTOP_WINDOW_DRAG_CSS).toContain(
+      "[data-radix-scroll-area-viewport]",
+    );
   });
 });

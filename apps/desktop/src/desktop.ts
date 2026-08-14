@@ -189,3 +189,19 @@ export function getDesktopWindowChrome(platform = process.platform): {
     backgroundColor: DESKTOP_WINDOW_BACKGROUND,
   };
 }
+
+export const DESKTOP_WINDOW_DRAG_CSS = `
+html {
+  -webkit-app-region: drag;
+}
+
+a, button, input, textarea, select, option, label, iframe, canvas, video,
+[role="button"], [role="link"], [role="textbox"], [role="searchbox"],
+[role="combobox"], [role="slider"], [role="tab"], [role="menuitem"],
+[role="checkbox"], [role="radio"], [role="switch"], [role="option"],
+[role="listbox"], [role="menu"], [contenteditable="true"],
+.overflow-auto, .overflow-y-auto, .overflow-x-auto, .overflow-scroll,
+.overflow-y-scroll, [data-radix-scroll-area-viewport] {
+  -webkit-app-region: no-drag;
+}
+`.trim();
