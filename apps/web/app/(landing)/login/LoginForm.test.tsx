@@ -180,12 +180,9 @@ describe("LoginForm", () => {
     expect(mockSignInWithOauth2).not.toHaveBeenCalled();
   });
 
-  it("keeps the Google OAuth emulator in-window when desktop auth is available", async () => {
+  it("starts desktop auth even when the Google OAuth emulator is enabled", async () => {
     const startAuth = vi.fn().mockResolvedValue(undefined);
     window.inboxZeroDesktop = { startAuth };
-    mockSignInWithOauth2.mockResolvedValue({
-      url: "https://oauth.test/google",
-    });
 
     render(<LoginForm enabledProviders={["google"]} useGoogleOauthEmulator />);
 
@@ -194,9 +191,11 @@ describe("LoginForm", () => {
     );
 
     await waitFor(() => {
-      expect(mockSignInWithOauth2).toHaveBeenCalled();
+      expect(startAuth).toHaveBeenCalledWith("google", {
+        callbackPath: "/welcome-redirect",
+      });
     });
-    expect(startAuth).not.toHaveBeenCalled();
+    expect(mockSignInWithOauth2).not.toHaveBeenCalled();
   });
 
   it("passes Apple's connect-mailbox callback through desktop auth", async () => {

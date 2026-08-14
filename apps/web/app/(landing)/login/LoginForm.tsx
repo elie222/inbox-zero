@@ -51,10 +51,7 @@ export function LoginForm({
     setLoadingGoogle(true);
     trackAuthStarted(posthog, "google");
     try {
-      if (
-        !useGoogleOauthEmulator &&
-        (await startDesktopAuthIfAvailable("google", callbackURL))
-      ) {
+      if (await startDesktopAuthIfAvailable("google", callbackURL)) {
         return;
       }
       if (useGoogleOauthEmulator) {
