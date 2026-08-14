@@ -27,7 +27,7 @@ export async function excludeRepliedSendersFromColdEmail({
   logger,
 }: {
   emailAccountId: string;
-  message: Pick<ParsedMessage, "headers" | "threadId">;
+  message: Pick<ParsedMessage, "headers">;
   provider: Pick<EmailProvider, "getMessageByRfc822MessageId">;
   logger: Logger;
 }) {
@@ -51,6 +51,18 @@ export async function excludeRepliedSendersFromColdEmail({
   const groupId = coldEmailRule?.groupId;
   if (!groupId) return;
 
+  const sourceAddress = inReplyTo
+    ? canonicalizeEmailAddress(
+        (await provider.getMessageByRfc822MessageId(inReplyTo))?.headers.from ??
+          "",
+      )
+    : "";
+  const senderAddresses = [
+    ...new Set([...recipients, sourceAddress].filter(Boolean)),
+  ];
+
+  if (!senderAddresses.length) return;
+
   // Matched case-insensitively because senders are pinned using the casing of
   // whichever From header arrived first.
   const candidates = await prisma.groupItem.findMany({
@@ -58,41 +70,16 @@ export async function excludeRepliedSendersFromColdEmail({
       groupId,
       type: GroupItemType.FROM,
       exclude: false,
-      OR: [
-        ...recipients.map((value) => ({
-          value: { equals: value, mode: "insensitive" as const },
-        })),
-        ...(inReplyTo ? [{ threadId: message.threadId }] : []),
-      ],
+      OR: senderAddresses.map((value) => ({
+        value: { equals: value, mode: "insensitive" as const },
+      })),
     },
     select: { value: true },
   });
 
   if (!candidates.length) return;
 
-  const recipientSet = new Set(recipients);
-  const directMatches = candidates.filter(({ value }) =>
-    recipientSet.has(value.toLowerCase()),
-  );
-  const threadCandidates = candidates.filter(
-    ({ value }) => !recipientSet.has(value.toLowerCase()),
-  );
-
-  let sourceMatches: typeof candidates = [];
-  if (inReplyTo && threadCandidates.length) {
-    const sourceMessage = await provider.getMessageByRfc822MessageId(inReplyTo);
-    const sourceAddress = canonicalizeEmailAddress(
-      sourceMessage?.headers.from ?? "",
-    );
-    sourceMatches = threadCandidates.filter(
-      ({ value }) => value.toLowerCase() === sourceAddress,
-    );
-  }
-
-  const pinned = [...directMatches, ...sourceMatches];
-  if (!pinned.length) return;
-
-  for (const { value } of pinned) {
+  for (const { value } of candidates) {
     // Written through saveLearnedPattern so exclusion keeps one owner, and keyed
     // on the stored value so it claims the existing row rather than adding one.
     await saveLearnedPattern({
@@ -107,6 +94,6 @@ export async function excludeRepliedSendersFromColdEmail({
   }
 
   logger.info("Excluded replied sender from cold email blocker", {
-    count: pinned.length,
+    count: candidates.length,
   });
 }

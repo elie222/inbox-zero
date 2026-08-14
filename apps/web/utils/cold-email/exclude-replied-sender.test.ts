@@ -180,10 +180,11 @@ describe("excludeRepliedSendersFromColdEmail", () => {
       },
     });
     vi.mocked(prisma.groupItem.findMany).mockImplementation(async (args) => {
-      const matchesThread = (args.where as any).OR.some(
-        (condition: any) => condition.threadId === "thread-1",
+      const matchesSourceSender = (args.where as any).OR.some(
+        (condition: any) =>
+          condition.value?.equals === "cold.sender@example.com",
       );
-      return matchesThread
+      return matchesSourceSender
         ? ([{ value: "cold.sender@example.com" }] as any)
         : [];
     });
@@ -209,6 +210,20 @@ describe("excludeRepliedSendersFromColdEmail", () => {
     );
     expect(provider.getMessageByRfc822MessageId).toHaveBeenCalledWith(
       "<source@example.com>",
+    );
+    expect(prisma.groupItem.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: expect.arrayContaining([
+            {
+              value: {
+                equals: "cold.sender@example.com",
+                mode: "insensitive",
+              },
+            },
+          ]),
+        }),
+      }),
     );
   });
 
