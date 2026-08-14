@@ -3,14 +3,10 @@ import { z } from "zod";
 import { createPerplexity } from "@ai-sdk/perplexity";
 import { openai } from "@ai-sdk/openai";
 import { google } from "@ai-sdk/google";
+import { openrouter } from "@openrouter/ai-sdk-provider";
 import { env } from "@/env";
 import { createGenerateText } from "@/utils/llms";
-import { getResolvedDeploymentRolePrimaryModelEntry } from "@/utils/llms/model";
-import {
-  getModelForUseCase,
-  LLM_USE_CASE_MODEL_TYPES,
-  LlmUseCase,
-} from "@/utils/llms/use-cases";
+import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { getUserInfoPrompt } from "@/utils/ai/helpers";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
@@ -105,7 +101,10 @@ export async function aiGenerateMeetingBriefing({
     );
   }
 
-  const prompt = buildPrompt(briefingData, emailAccount);
+  const availableSearchTools = ["perplexitySearch", "webSearch"].filter(
+    (toolName) => toolName in searchTools,
+  );
+  const prompt = buildPrompt(briefingData, emailAccount, availableSearchTools);
   const modelOptions = getModelForUseCase(
     emailAccount.user,
     LlmUseCase.MeetingBriefing,
@@ -257,14 +256,27 @@ async function buildSearchTools({
   }
 
   // Web search (OpenAI, Google, or OpenRouter - if configured)
-  const webSearchConfig = getWebSearchConfig();
+  const resolvedWebSearchModelOptions = getModelForUseCase(
+    emailAccount.user,
+    LlmUseCase.MeetingWebSearch,
+  );
+  const webSearchModelOptions = {
+    ...resolvedWebSearchModelOptions,
+    fallbackModels: resolvedWebSearchModelOptions.fallbackModels.filter(
+      (fallback) =>
+        fallback.provider === resolvedWebSearchModelOptions.provider,
+    ),
+  };
+  const webSearchConfig = getWebSearchConfig(webSearchModelOptions.provider);
   if (webSearchConfig) {
     tools.webSearch = createWebSearchTool({
       emailAccount,
       logger,
+      modelOptions: webSearchModelOptions,
       providerName: webSearchConfig.providerName,
       getSearchTools: webSearchConfig.getSearchTools,
-      useOnlineVariant: webSearchConfig.useOnlineVariant,
+      providerOptions: webSearchConfig.providerOptions,
+      toolChoice: webSearchConfig.toolChoice,
     });
   }
 
@@ -293,24 +305,23 @@ async function buildSearchTools({
 
 type WebSearchConfig = {
   providerName: string;
-  useOnlineVariant: boolean;
   getSearchTools?: () => ToolSet;
+  providerOptions?: Record<string, Record<string, number>>;
+  toolChoice?: "required";
 };
 
-function getWebSearchConfig(): WebSearchConfig | null {
-  const webSearchProvider = getMeetingWebSearchProvider();
-
+export function getWebSearchConfig(
+  webSearchProvider: string | undefined,
+): WebSearchConfig | null {
   switch (webSearchProvider) {
     case Provider.OPEN_AI:
       return {
         providerName: "OpenAI",
-        useOnlineVariant: false,
         getSearchTools: () => ({ web_search: openai.tools.webSearch({}) }),
       };
     case Provider.GOOGLE:
       return {
         providerName: "Google",
-        useOnlineVariant: false,
         getSearchTools: () => ({
           google_search: google.tools.googleSearch({}),
         }),
@@ -318,7 +329,14 @@ function getWebSearchConfig(): WebSearchConfig | null {
     case Provider.OPENROUTER:
       return {
         providerName: "OpenRouter",
-        useOnlineVariant: true,
+        getSearchTools: () => ({
+          web_search: openrouter.tools.webSearch({
+            engine: "auto",
+            maxResults: 5,
+          }),
+        }),
+        providerOptions: { openrouter: { max_tool_calls: 1 } },
+        toolChoice: "required",
       };
     default:
       return null;
@@ -328,15 +346,19 @@ function getWebSearchConfig(): WebSearchConfig | null {
 function createWebSearchTool({
   emailAccount,
   logger,
+  modelOptions,
   providerName,
   getSearchTools,
-  useOnlineVariant,
+  providerOptions,
+  toolChoice,
 }: {
   emailAccount: EmailAccountWithAI;
   logger: Logger;
+  modelOptions: ReturnType<typeof getModelForUseCase>;
   providerName: string;
   getSearchTools?: () => ToolSet;
-  useOnlineVariant: boolean;
+  providerOptions?: Record<string, Record<string, number>>;
+  toolChoice?: "required";
 }) {
   return tool({
     description: "Search the web for information",
@@ -356,12 +378,6 @@ function createWebSearchTool({
       }
 
       try {
-        const modelOptions = getModelForUseCase(
-          emailAccount.user,
-          LlmUseCase.MeetingWebSearch,
-          useOnlineVariant,
-        );
-
         const webGenerateText = createGenerateText({
           emailAccount,
           label: "Web Search",
@@ -373,6 +389,8 @@ function createWebSearchTool({
           model: modelOptions.model,
           prompt: query,
           ...(getSearchTools && { tools: getSearchTools() }),
+          providerOptions,
+          toolChoice,
         });
 
         const text = searchResult.text;
@@ -400,6 +418,7 @@ function createWebSearchTool({
 export function buildPrompt(
   briefingData: MeetingBriefingData,
   emailAccount: EmailAccountWithAI,
+  availableSearchTools: string[],
 ): string {
   const { event, externalGuests, emailThreads, pastMeetings } = briefingData;
 
@@ -415,16 +434,9 @@ export function buildPrompt(
     }),
   );
 
-  // List available search tools for the prompt
-  const availableTools: string[] = [];
-  if (env.PERPLEXITY_API_KEY) availableTools.push("perplexitySearch");
-  if (getWebSearchConfig()) {
-    availableTools.push("webSearch");
-  }
-
   const toolsNote =
-    availableTools.length > 0
-      ? `\nAvailable search tools: ${availableTools.join(", ")}`
+    availableSearchTools.length > 0
+      ? `\nAvailable search tools: ${availableSearchTools.join(", ")}`
       : "";
 
   const prompt = `Prepare a concise briefing for this upcoming meeting.
@@ -447,12 +459,6 @@ For each guest listed above:
 3. Once you have all information, call finalizeBriefing with the complete briefing`;
 
   return prompt;
-}
-
-function getMeetingWebSearchProvider(): string | undefined {
-  return getResolvedDeploymentRolePrimaryModelEntry(
-    LLM_USE_CASE_MODEL_TYPES[LlmUseCase.MeetingWebSearch],
-  )?.provider;
 }
 
 type GuestContextForPrompt = {

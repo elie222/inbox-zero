@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { MeetingBriefingData } from "@/utils/meeting-briefs/gather-context";
 
+const { mockGetModel, mockOpenRouterWebSearch } = vi.hoisted(() => ({
+  mockGetModel: vi.fn(),
+  mockOpenRouterWebSearch: vi.fn(() => ({ type: "provider" })),
+}));
+
 vi.mock("@/env", () => ({
   env: {
     PERPLEXITY_API_KEY: "test-key",
@@ -10,13 +15,12 @@ vi.mock("@/env", () => ({
   },
 }));
 vi.mock("@/utils/llms/model", () => ({
-  getResolvedDeploymentRolePrimaryModelEntry: vi.fn(() => ({
-    provider: "openai",
-    modelName: "gpt-5.4-mini",
-  })),
-  getModel: vi.fn(),
+  getModel: mockGetModel,
 }));
 vi.mock("@/utils/llms", () => ({ createGenerateObject: vi.fn() }));
+vi.mock("@openrouter/ai-sdk-provider", () => ({
+  openrouter: { tools: { webSearch: mockOpenRouterWebSearch } },
+}));
 vi.mock("@/utils/ai/helpers", () => ({
   getUserInfoPrompt: vi.fn(
     ({ emailAccount }) =>
@@ -43,15 +47,17 @@ vi.mock("@/utils/get-email-from-message", () => ({
 
 vi.doUnmock("@/utils/date");
 
-import { buildPrompt } from "./generate-briefing";
+import { buildPrompt, getWebSearchConfig } from "./generate-briefing";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import { getResolvedDeploymentRolePrimaryModelEntry } from "@/utils/llms/model";
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(getResolvedDeploymentRolePrimaryModelEntry).mockReturnValue({
+  mockGetModel.mockReturnValue({
     provider: "openai",
     modelName: "gpt-5.4-mini",
+    model: { id: "model" },
+    fallbackModels: [],
+    hasUserApiKey: false,
   });
 });
 
@@ -96,7 +102,10 @@ describe("buildPrompt timezone handling", () => {
       ],
     };
 
-    const prompt = buildPrompt(briefingData, mockEmailAccount);
+    const prompt = buildPrompt(briefingData, mockEmailAccount, [
+      "perplexitySearch",
+      "webSearch",
+    ]);
 
     // The past meeting should show "4:00 PM" (Brazil time), NOT "7:00 PM" (UTC)
     expect(prompt).toMatchInlineSnapshot(`
@@ -157,7 +166,10 @@ describe("buildPrompt timezone handling", () => {
       pastMeetings: [],
     };
 
-    const prompt = buildPrompt(briefingData, mockEmailAccount);
+    const prompt = buildPrompt(briefingData, mockEmailAccount, [
+      "perplexitySearch",
+      "webSearch",
+    ]);
 
     expect(prompt).toMatchInlineSnapshot(`
       "Prepare a concise briefing for this upcoming meeting.
@@ -192,23 +204,7 @@ describe("buildPrompt timezone handling", () => {
     `);
   });
 
-  it("uses the meeting web search role to decide web search availability", () => {
-    vi.mocked(getResolvedDeploymentRolePrimaryModelEntry).mockImplementation(
-      (modelType) => {
-        if (modelType === "economy") {
-          return {
-            provider: "anthropic",
-            modelName: "claude-haiku-4-5-20251001",
-          };
-        }
-
-        return {
-          provider: "openai",
-          modelName: "gpt-5.4-mini",
-        };
-      },
-    );
-
+  it("only advertises the search tools built for the account", () => {
     const briefingData: MeetingBriefingData = {
       event: {
         id: "upcoming",
@@ -226,12 +222,26 @@ describe("buildPrompt timezone handling", () => {
       pastMeetings: [],
     };
 
-    const prompt = buildPrompt(briefingData, mockEmailAccount);
+    const prompt = buildPrompt(briefingData, mockEmailAccount, [
+      "perplexitySearch",
+    ]);
 
-    expect(getResolvedDeploymentRolePrimaryModelEntry).toHaveBeenCalledWith(
-      "economy",
-    );
     expect(prompt).toContain("Available search tools: perplexitySearch");
     expect(prompt).not.toContain("webSearch");
+  });
+
+  it("requires one OpenRouter server web search", () => {
+    const config = getWebSearchConfig("openrouter");
+    const tools = config?.getSearchTools?.();
+
+    expect(mockOpenRouterWebSearch).toHaveBeenCalledWith({
+      engine: "auto",
+      maxResults: 5,
+    });
+    expect(tools).toHaveProperty("web_search");
+    expect(config?.providerOptions).toEqual({
+      openrouter: { max_tool_calls: 1 },
+    });
+    expect(config?.toolChoice).toBe("required");
   });
 });
