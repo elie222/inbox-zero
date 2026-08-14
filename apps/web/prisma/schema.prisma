@@ -1027,6 +1027,7 @@ model CleanupThread {
   updatedAt DateTime   @updatedAt
   threadId  String
   archived  Boolean // this can also mean "mark as read". depends on CleanupJob.action
+  label     String? // AI-applied Gmail label name
   jobId     String
   job       CleanupJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
 

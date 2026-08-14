@@ -10,6 +10,6 @@ export type CleanThread = {
   date: Date;
 
   archive?: boolean;
-  label?: string;
+  label?: string | null;
   undone?: boolean;
 };
