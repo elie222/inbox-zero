@@ -1,5 +1,5 @@
 import type { OutlookClient } from "@/utils/outlook/client";
-import { withOutlookRetry } from "@/utils/outlook/retry";
+import { withMicrosoftGraphRetry } from "@/utils/microsoft/retry";
 import {
   processThreadMessagesFallback,
   runThreadMessageMutation,
@@ -27,7 +27,7 @@ export async function markSpam(
       threadId,
       logger,
       messageHandler: (messageId) =>
-        withOutlookRetry(
+        withMicrosoftGraphRetry(
           () =>
             client.getClient().api(`/me/messages/${messageId}/move`).post({
               destinationId: "junkemail",
@@ -50,7 +50,7 @@ export async function markSpam(
         threadId,
         logger,
         messageHandler: (messageId) =>
-          withOutlookRetry(
+          withMicrosoftGraphRetry(
             () =>
               client
                 .getClient()

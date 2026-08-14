@@ -91,8 +91,8 @@ import {
 import {
   extractErrorInfo,
   isRetryableError,
-  withOutlookRetry,
-} from "@/utils/outlook/retry";
+  withMicrosoftGraphRetry,
+} from "@/utils/microsoft/retry";
 import { shouldSkipAutoDraft } from "@/utils/auto-draft";
 import { getOutlookMailboxSyncPage } from "@/utils/outlook/mailbox-sync";
 
@@ -277,7 +277,7 @@ export class OutlookProvider implements EmailProvider {
       includeDrafts: false,
     });
 
-    const response: { value: Message[] } = await withOutlookRetry(
+    const response: { value: Message[] } = await withMicrosoftGraphRetry(
       () =>
         this.client
           .getClient()
@@ -299,7 +299,7 @@ export class OutlookProvider implements EmailProvider {
       includeDrafts: false,
     });
 
-    const response: { value: Message[] } = await withOutlookRetry(
+    const response: { value: Message[] } = await withMicrosoftGraphRetry(
       () =>
         this.client
           .getClient()
@@ -352,7 +352,7 @@ export class OutlookProvider implements EmailProvider {
     const response: {
       value?: { id?: string; conversationId?: string }[];
       "@odata.nextLink"?: string;
-    } = await withOutlookRetry(() => buildRequest().get(), this.logger);
+    } = await withMicrosoftGraphRetry(() => buildRequest().get(), this.logger);
 
     return {
       messages: (response.value || []).flatMap((m) =>
@@ -529,7 +529,7 @@ export class OutlookProvider implements EmailProvider {
     }
 
     // Get current message categories to avoid replacing them
-    const message = await withOutlookRetry(
+    const message = await withMicrosoftGraphRetry(
       () =>
         this.client
           .getClient()
@@ -598,7 +598,7 @@ export class OutlookProvider implements EmailProvider {
 
     // For threading, use createReply on the replyToMessageId
     if (params.replyToMessageId) {
-      const draft = await withOutlookRetry(
+      const draft = await withMicrosoftGraphRetry(
         () =>
           this.client
             .getClient()
@@ -608,7 +608,7 @@ export class OutlookProvider implements EmailProvider {
       );
 
       // Update the draft with our content
-      await withOutlookRetry(
+      await withMicrosoftGraphRetry(
         () =>
           this.client
             .getClient()
@@ -626,7 +626,7 @@ export class OutlookProvider implements EmailProvider {
     }
 
     // Otherwise create standalone draft
-    const draft = await withOutlookRetry(
+    const draft = await withMicrosoftGraphRetry(
       () =>
         this.client
           .getClient()
@@ -660,7 +660,7 @@ export class OutlookProvider implements EmailProvider {
       body.subject = params.subject;
     }
 
-    await withOutlookRetry(
+    await withMicrosoftGraphRetry(
       () => this.client.getClient().api(`/me/messages/${draftId}`).patch(body),
       this.logger,
     );
@@ -2059,7 +2059,7 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async getInboxStats(): Promise<{ total: number; unread: number }> {
-    const folder = await withOutlookRetry(
+    const folder = await withMicrosoftGraphRetry(
       () =>
         this.client
           .getClient()

@@ -14,18 +14,18 @@ interface ErrorInfo {
 // Intentionally lower than Microsoft's common 30s throttle backoff so serverless
 // requests fail fast instead of sleeping into function timeout budgets.
 // Non-serverless callers can pass a higher maxBlockingDelayMs when needed.
-export const MAX_OUTLOOK_BLOCKING_RETRY_DELAY_MS = 10_000;
+export const MAX_MICROSOFT_GRAPH_BLOCKING_RETRY_DELAY_MS = 10_000;
 
 /**
  * Retries a Microsoft Graph API operation when rate limits or temporary server errors are encountered
  * - Rate limits: 429, "TooManyRequests", "ApplicationThrottled", "MailboxConcurrency"
  * - Server errors: 502, 503, 504, "ServiceNotAvailable", "ServerBusy"
  */
-export async function withOutlookRetry<T>(
+export async function withMicrosoftGraphRetry<T>(
   operation: () => Promise<T>,
   logger: Logger,
   maxRetries = 5,
-  maxBlockingDelayMs = MAX_OUTLOOK_BLOCKING_RETRY_DELAY_MS,
+  maxBlockingDelayMs = MAX_MICROSOFT_GRAPH_BLOCKING_RETRY_DELAY_MS,
 ): Promise<T> {
   return pRetry(operation, {
     retries: maxRetries,

@@ -7,7 +7,7 @@ import {
   getCategoryMap,
   getFolderIds,
 } from "@/utils/outlook/message";
-import { withOutlookRetry } from "@/utils/outlook/retry";
+import { withMicrosoftGraphRetry } from "@/utils/microsoft/retry";
 
 export async function getDraft({
   client,
@@ -20,7 +20,7 @@ export async function getDraft({
 }) {
   try {
     const [response, folderIds, categoryMap] = await Promise.all([
-      withOutlookRetry(
+      withMicrosoftGraphRetry(
         () =>
           client
             .getClient()
@@ -67,13 +67,13 @@ export async function sendDraft({
 
   // Send the draft - this moves it from Drafts to Sent Items
   // The message ID stays the same after sending
-  await withOutlookRetry(
+  await withMicrosoftGraphRetry(
     () => client.getClient().api(`/me/messages/${draftId}/send`).post({}),
     logger,
   );
 
   // Get the sent message to retrieve the conversationId (threadId)
-  const sentMessage = await withOutlookRetry(
+  const sentMessage = await withMicrosoftGraphRetry(
     () =>
       client
         .getClient()
@@ -110,7 +110,7 @@ export async function deleteDraft({
 
     // DELETE moves the draft to Deleted Items folder (not permanently deleted)
     // This is fine - getDraft() treats drafts not in Drafts folder as "deleted"
-    await withOutlookRetry(
+    await withMicrosoftGraphRetry(
       () => client.getClient().api(`/me/messages/${draftId}`).delete(),
       logger,
     );

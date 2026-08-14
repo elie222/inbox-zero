@@ -2,7 +2,7 @@ import type { OutlookClient } from "@/utils/outlook/client";
 import { publishDelete, type TinybirdEmailAction } from "@inboxzero/tinybird";
 import type { Logger } from "@/utils/logger";
 import { runWithBoundedConcurrency } from "@/utils/async";
-import { withOutlookRetry } from "@/utils/outlook/retry";
+import { withMicrosoftGraphRetry } from "@/utils/microsoft/retry";
 import { processThreadMessagesFallback } from "@/utils/outlook/thread-helpers";
 
 const THREAD_TRASH_CONCURRENCY = 2;
@@ -32,7 +32,7 @@ export async function trashThread(options: {
       concurrency: THREAD_TRASH_CONCURRENCY,
       run: async (messageId) => {
         try {
-          return await withOutlookRetry(
+          return await withMicrosoftGraphRetry(
             () =>
               client.getClient().api(`/me/messages/${messageId}/move`).post({
                 destinationId: "deleteditems",
@@ -104,7 +104,7 @@ export async function trashThread(options: {
         threadId,
         logger,
         messageHandler: (messageId) =>
-          withOutlookRetry(
+          withMicrosoftGraphRetry(
             () =>
               client
                 .getClient()

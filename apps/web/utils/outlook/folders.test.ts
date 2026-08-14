@@ -11,8 +11,8 @@ import { createTestLogger } from "@/__tests__/helpers";
 const logger = createTestLogger();
 
 // Mock the retry wrapper to just execute the function directly
-vi.mock("@/utils/outlook/retry", () => ({
-  withOutlookRetry: <T>(fn: () => Promise<T>) => fn(),
+vi.mock("@/utils/microsoft/retry", () => ({
+  withMicrosoftGraphRetry: <T>(fn: () => Promise<T>) => fn(),
 }));
 
 function createMockClient(

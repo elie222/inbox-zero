@@ -1,9 +1,10 @@
 import type { UploadSession } from "@microsoft/microsoft-graph-types";
 import type { Logger } from "@/utils/logger";
-import { withOutlookRetry } from "@/utils/outlook/retry";
+import { withMicrosoftGraphRetry } from "@/utils/microsoft/retry";
 
 // Per-request bound so a hung connection stalls the upload for at most this
-// long. Chunk uploads already retry transient failures via `withOutlookRetry`.
+// long. Chunk uploads already retry transient failures via
+// `withMicrosoftGraphRetry`.
 const UPLOAD_SESSION_REQUEST_TIMEOUT_MS = 60_000;
 
 /**
@@ -42,7 +43,7 @@ export async function uploadResumableChunks({
     while (start < content.length) {
       const end = Math.min(start + chunkSizeBytes, content.length);
       const chunk = content.subarray(start, end);
-      const result = await withOutlookRetry(
+      const result = await withMicrosoftGraphRetry(
         () =>
           uploadChunk({
             uploadUrl,
@@ -109,7 +110,10 @@ async function uploadChunk({
       "Content-Length": String(chunk.length),
       "Content-Range": `bytes ${start}-${end - 1}/${totalSize}`,
     },
-    body: new Uint8Array(chunk),
+    body:
+      chunk.buffer instanceof ArrayBuffer
+        ? new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength)
+        : new Uint8Array(chunk),
     signal: AbortSignal.timeout(UPLOAD_SESSION_REQUEST_TIMEOUT_MS),
   });
 

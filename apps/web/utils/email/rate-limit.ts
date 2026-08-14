@@ -20,7 +20,7 @@ import {
   calculateRetryDelay as calculateOutlookRetryDelay,
   extractErrorInfo as extractOutlookErrorInfo,
   isRetryableError as isOutlookRetryableError,
-} from "@/utils/outlook/retry";
+} from "@/utils/microsoft/retry";
 import { getRetryAfterHeaderFromError } from "@/utils/retry/get-retry-after-header";
 
 const DEFAULT_RATE_LIMIT_DELAY_MS = 30_000;
