@@ -23,6 +23,7 @@ ENV CI=true
 # Copy lockfiles/workspace manifests for better caching
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc* ./
 COPY apps/web/package.json apps/web/package.json
+COPY apps/desktop/package.json apps/desktop/package.json
 COPY apps/worker/package.json apps/worker/package.json
 COPY apps/image-proxy/package.json apps/image-proxy/package.json
 COPY apps/image-proxy-aws/package.json apps/image-proxy-aws/package.json

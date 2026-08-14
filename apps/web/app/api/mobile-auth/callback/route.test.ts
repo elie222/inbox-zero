@@ -11,6 +11,7 @@ const {
   consumeMobileAuthStateMock: vi.fn(),
   createMobileAuthCodeMock: vi.fn(),
   mockEnv: {
+    DESKTOP_AUTH_ORIGIN: "inboxzero-desktop://",
     MOBILE_AUTH_ORIGIN: "inboxzero://",
     NEXT_PUBLIC_BASE_URL: "https://www.getinboxzero.com",
   },
@@ -106,6 +107,23 @@ describe("mobile auth callback route", () => {
 
     expect(response.headers.get("location")).toBe(
       "inboxzero://auth-callback?state=state-1234567890&code=one-time-code",
+    );
+  });
+
+  it("redirects to the stored desktop scheme mode", async () => {
+    consumeMobileAuthStateMock.mockResolvedValue({
+      returnUrlMode: "desktop-scheme",
+    });
+
+    const response = await GET(
+      new NextRequest(
+        "https://www.getinboxzero.com/api/mobile-auth/callback?state=state-1234567890",
+      ),
+      {} as never,
+    );
+
+    expect(response.headers.get("location")).toBe(
+      "inboxzero-desktop://auth-callback?state=state-1234567890&code=one-time-code",
     );
   });
 

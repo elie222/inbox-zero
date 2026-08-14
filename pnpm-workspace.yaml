@@ -50,6 +50,7 @@ allowBuilds:
   "@sentry/cli": true
   braintrust: true
   core-js: true
+  electron: true
   esbuild: true
   msgpackr-extract: true
   prisma: true

@@ -8,6 +8,10 @@ import { useState } from "react";
 import { Button } from "@/components/Button";
 import { Button as UIButton } from "@/components/ui/button";
 import { signIn, signInWithOauth2 } from "@/utils/auth-client";
+import {
+  getInboxZeroDesktopApp,
+  type DesktopAuthProvider,
+} from "@/utils/desktop-app";
 import { WELCOME_PATH } from "@/utils/config";
 import { toastError } from "@/components/Toast";
 import { normalizeInternalPath } from "@/utils/path";
@@ -47,6 +51,9 @@ export function LoginForm({
     setLoadingGoogle(true);
     trackAuthStarted(posthog, "google");
     try {
+      if (await startDesktopAuthIfAvailable("google")) {
+        return;
+      }
       if (useGoogleOauthEmulator) {
         const result = await signInWithOauth2({
           providerId: "google",
@@ -200,6 +207,9 @@ async function handleSocialSignIn({
   setLoading(true);
   trackAuthStarted(posthog, provider);
   try {
+    if (await startDesktopAuthIfAvailable(provider)) {
+      return;
+    }
     await signIn.social({
       provider,
       errorCallbackURL,
@@ -248,4 +258,11 @@ function isNetworkSignInError(message: string) {
     normalizedMessage === "failed to fetch" ||
     normalizedMessage === "networkerror when attempting to fetch resource."
   );
+}
+
+async function startDesktopAuthIfAvailable(provider: DesktopAuthProvider) {
+  const desktopApp = getInboxZeroDesktopApp();
+  if (!desktopApp) return false;
+  await desktopApp.startAuth(provider);
+  return true;
 }
