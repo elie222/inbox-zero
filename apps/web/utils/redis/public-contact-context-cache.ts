@@ -37,19 +37,22 @@ export async function getCachedPublicContactContext(
     if (!cached) return null;
 
     const parsed = cacheEntrySchema.safeParse(cached);
-    if (
-      parsed.success &&
-      (parsed.data.status === "not_found" ||
-        isSafeForSharedCache(parsed.data.context))
-    ) {
-      return parsed.data;
+    if (!parsed.success) {
+      logger.warn("Ignoring malformed public contact context cache entry", {
+        issues: parsed.error.issues.length,
+      });
+      return null;
     }
 
-    logger.warn("Removing invalid public contact context cache entry", {
-      issues: parsed.success ? 0 : parsed.error.issues.length,
-    });
-    await redis.del(key);
-    return null;
+    if (
+      parsed.data.status === "found" &&
+      !isSafeForSharedCache(parsed.data.context)
+    ) {
+      logger.warn("Ignoring unsafe public contact context cache entry");
+      return null;
+    }
+
+    return parsed.data;
   } catch (error) {
     logger.error("Failed to read public contact context cache", { error });
     return null;
@@ -81,20 +84,20 @@ export async function setCachedPublicContactContextNotFound(email: string) {
 }
 
 export async function acquirePublicContactResearchLock(email: string): Promise<{
-  acquired: boolean;
+  status: "acquired" | "busy" | "unavailable";
   lockToken?: string;
 }> {
-  if (!isRedisConfigured()) return { acquired: true };
+  if (!isRedisConfigured()) return { status: "acquired" };
 
   try {
     const lockToken = await acquireOwnedLock({
       key: getLockKey(email),
       processingTtlSeconds: RESEARCH_LOCK_TTL_SECONDS,
     });
-    return lockToken ? { acquired: true, lockToken } : { acquired: false };
+    return lockToken ? { status: "acquired", lockToken } : { status: "busy" };
   } catch (error) {
     logger.error("Failed to acquire public contact research lock", { error });
-    return { acquired: true };
+    return { status: "unavailable" };
   }
 }
 

@@ -1,13 +1,8 @@
 import { z } from "zod";
+import { scanSensitiveContent } from "@/utils/dlp/sensitive-content";
 import { isSafeExternalHttpUrl } from "@/utils/network/safe-http-url";
 
 const publicSourceSchema = z.strictObject({
-  title: z
-    .string()
-    .trim()
-    .min(1)
-    .max(200)
-    .describe("The human-readable title of the public source page"),
   url: z
     .string()
     .url()
@@ -62,13 +57,6 @@ const publicCompanyContextSchema = z.strictObject({
     .max(200)
     .nullable()
     .describe("Publicly announced funding with any needed qualifier, or null"),
-  headquarters: z
-    .string()
-    .trim()
-    .min(1)
-    .max(160)
-    .nullable()
-    .describe("The company's public headquarters at city-level only, or null"),
 });
 
 export const publicContactContextSchema = z.strictObject({
@@ -85,16 +73,6 @@ export const publicContactContextSchema = z.strictObject({
     .max(160)
     .nullable()
     .describe("The professional's current public role, or null"),
-  professionalSummary: z
-    .string()
-    .trim()
-    .min(1)
-    .max(600)
-    .describe("A concise, sourced professional-only summary"),
-  highlights: z
-    .array(z.string().trim().min(1).max(240))
-    .max(5)
-    .describe("Up to five sourced professional or company highlights"),
   company: publicCompanyContextSchema
     .nullable()
     .describe("The sender's current company, or null when not established"),
@@ -114,16 +92,12 @@ export function isSafeForSharedCache(context: PublicContactContext): boolean {
   const publicText = [
     context.name,
     context.role,
-    context.professionalSummary,
-    ...context.highlights,
     context.company?.name,
     context.company?.domain,
     context.company?.description,
     context.company?.industry,
     context.company?.employeeCount,
     context.company?.funding,
-    context.company?.headquarters,
-    ...context.sources.map((source) => source.title),
   ].filter((value): value is string => Boolean(value));
 
   const publicUrls = [
@@ -132,8 +106,11 @@ export function isSafeForSharedCache(context: PublicContactContext): boolean {
   ].filter((value): value is string => Boolean(value));
 
   return (
-    !publicText.some((value) => containsEmailAddress(value)) &&
-    publicUrls.every((url) => isSafeExternalHttpUrl(url))
+    ![...publicText, ...publicUrls].some((value) =>
+      containsEmailAddress(value),
+    ) &&
+    publicText.every((value) => scanSensitiveContent(value).length === 0) &&
+    publicUrls.every(isSafeExternalHttpUrl)
   );
 }
 

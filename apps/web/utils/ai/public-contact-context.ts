@@ -42,6 +42,7 @@ export type PublicContactContextResult =
       reason:
         | "personal_email"
         | "search_unavailable"
+        | "cache_unavailable"
         | "research_in_progress"
         | "not_found";
     };
@@ -87,8 +88,11 @@ export async function getPublicContactContext({
   const researchLock = await acquirePublicContactResearchLock(
     identity.data.email,
   );
-  if (!researchLock.acquired) {
+  if (researchLock.status === "busy") {
     return { status: "unavailable", reason: "research_in_progress" };
+  }
+  if (researchLock.status === "unavailable") {
+    return { status: "unavailable", reason: "cache_unavailable" };
   }
 
   try {
@@ -142,6 +146,7 @@ Return JSON matching the provided schema, including direct public source URLs.`,
     }
     if (!isSafeForSharedCache(context)) {
       logger.warn("Generated contact context was not safe to share");
+      await setCachedPublicContactContextNotFound(identity.data.email);
       return { status: "unavailable", reason: "not_found" };
     }
 

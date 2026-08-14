@@ -39,7 +39,7 @@ export type ReaderToolbarProps = {
   onReply: () => void;
   onDelete: () => void;
   onToggleFocusMode: () => void;
-  onOpenSenderContext: () => void;
+  onOpenSenderContext?: () => void;
   /** The ⋯ dropdown, i.e. `ThreadActionsMenu`, composed by the shell. */
   menu?: ReactNode;
 };
@@ -93,18 +93,24 @@ export function ReaderToolbar({
             {subject}
           </h1>
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <Button
-              aria-label={`View public profile for ${senderName}`}
-              className="-ml-2 h-7 gap-1.5 px-2"
-              onClick={onOpenSenderContext}
-              title="View public profile"
-              variant="ghost"
-            >
+            {onOpenSenderContext ? (
+              <Button
+                aria-label={`View public profile for ${senderName}`}
+                className="-ml-2 h-7 gap-1.5 px-2"
+                onClick={onOpenSenderContext}
+                title="View public profile"
+                variant="ghost"
+              >
+                <span className="font-medium text-foreground text-sm">
+                  {senderName}
+                </span>
+                <UserRoundSearchIcon className="size-3.5 text-muted-foreground" />
+              </Button>
+            ) : (
               <span className="font-medium text-foreground text-sm">
                 {senderName}
               </span>
-              <UserRoundSearchIcon className="size-3.5 text-muted-foreground" />
-            </Button>
+            )}
             {senderEmail && senderEmail !== senderName ? (
               <span className="text-muted-foreground text-sm">
                 {senderEmail}

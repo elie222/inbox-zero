@@ -15,6 +15,7 @@ import type { EmailLabels } from "@/providers/email-label-types";
 import {
   extractEmailAddress,
   extractNameFromEmail,
+  isSameEmailAddress,
   participant,
 } from "@/utils/email";
 
@@ -103,6 +104,8 @@ export function ThreadReader({
 
   const senderEmail = extractEmailAddress(sender);
   const senderName = extractNameFromEmail(sender);
+  const canResearchSender =
+    Boolean(senderEmail) && !isSameEmailAddress(senderEmail, userEmail);
 
   return (
     <>
@@ -119,7 +122,11 @@ export function ThreadReader({
             onArchive={onArchive}
             onBack={onBack}
             onDelete={onDelete}
-            onOpenSenderContext={() => setSenderContextState("open")}
+            onOpenSenderContext={
+              canResearchSender
+                ? () => setSenderContextState("open")
+                : undefined
+            }
             onRemoveLabel={onRemoveLabel}
             onReply={onReply}
             onToggleFocusMode={onToggleFocusMode}

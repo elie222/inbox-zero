@@ -3,6 +3,7 @@ import { redis } from "@/utils/redis";
 import {
   isSafeForSharedCache,
   type PublicContactContext,
+  publicContactContextSchema,
 } from "@/utils/ai/public-contact-context-schema";
 import {
   getCachedPublicContactContext,
@@ -45,7 +46,7 @@ describe("public contact context cache", () => {
     expect(key).not.toContain("acme.com");
   });
 
-  it("removes cached values containing fields outside the public schema", async () => {
+  it("ignores cached values containing fields outside the public schema", async () => {
     vi.mocked(redis.get).mockResolvedValue({
       status: "found",
       context: {
@@ -57,31 +58,30 @@ describe("public contact context cache", () => {
     await expect(
       getCachedPublicContactContext("john@acme.com"),
     ).resolves.toBeNull();
-    expect(redis.del).toHaveBeenCalledOnce();
+    expect(redis.del).not.toHaveBeenCalled();
   });
 
-  it("removes schema-valid cached values that fail the shared-cache sanitizer", async () => {
+  it("ignores schema-valid cached values that fail the shared-cache sanitizer", async () => {
     vi.mocked(redis.get).mockResolvedValue({
       status: "found",
       context: getContext({
-        sources: [
-          {
-            title: "Private contact private@example.com",
-            url: "https://acme.com/team",
-          },
-        ],
+        sources: [{ url: "https://acme.com/team?email=private@example.com" }],
       }),
     });
 
     await expect(
       getCachedPublicContactContext("john@acme.com"),
     ).resolves.toBeNull();
-    expect(redis.del).toHaveBeenCalledOnce();
+    expect(redis.del).not.toHaveBeenCalled();
   });
 
   it("refuses generated text that contains an email address", async () => {
+    const context = getContext();
     const unsafe = getContext({
-      professionalSummary: "Contact John at private@example.com.",
+      company: {
+        ...context.company!,
+        description: "Contact John at private@example.com.",
+      },
     });
 
     expect(isSafeForSharedCache(unsafe)).toBe(false);
@@ -92,7 +92,7 @@ describe("public contact context cache", () => {
 
   it("refuses non-web source URLs", async () => {
     const unsafe = getContext({
-      sources: [{ title: "Local file", url: "file:///tmp/profile.txt" }],
+      sources: [{ url: "file:///tmp/profile.txt" }],
     });
 
     expect(isSafeForSharedCache(unsafe)).toBe(false);
@@ -103,9 +103,7 @@ describe("public contact context cache", () => {
 
   it("refuses private-network source URLs", async () => {
     const unsafe = getContext({
-      sources: [
-        { title: "Internal profile", url: "http://192.168.1.10/profile" },
-      ],
+      sources: [{ url: "http://192.168.1.10/profile" }],
     });
 
     expect(isSafeForSharedCache(unsafe)).toBe(false);
@@ -126,6 +124,15 @@ describe("public contact context cache", () => {
     );
   });
 
+  it("has no field for person-level free-form private details", () => {
+    expect(
+      publicContactContextSchema.safeParse({
+        ...getContext(),
+        professionalSummary: "Family and home address details",
+      }).success,
+    ).toBe(false);
+  });
+
   it("stores a generic not-found result for 12 hours", async () => {
     await setCachedPublicContactContextNotFound("john@acme.com");
 
@@ -143,8 +150,6 @@ function getContext(
   return {
     name: "John Smith",
     role: "Founder and CEO",
-    professionalSummary: "Founder of Acme, a workflow software company.",
-    highlights: ["Previously built products at Example Corp"],
     company: {
       name: "Acme",
       domain: "acme.com",
@@ -153,9 +158,8 @@ function getContext(
       industry: "Software",
       employeeCount: "Approximately 30 employees",
       funding: "$50M raised",
-      headquarters: "New York, New York",
     },
-    sources: [{ title: "Acme team", url: "https://acme.com/team" }],
+    sources: [{ url: "https://acme.com/team" }],
     confidence: "high",
     ...overrides,
   };

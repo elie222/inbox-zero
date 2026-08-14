@@ -127,11 +127,16 @@ describe("getPublicContactContext", () => {
   });
 
   it("does not return or cache a generated profile containing an email", async () => {
+    const context = getContext();
     generateTextMock.mockResolvedValue({
       output: {
-        context: getContext({
-          professionalSummary: "Reach John at private@example.com.",
-        }),
+        context: {
+          ...context,
+          company: {
+            ...context.company!,
+            description: "Reach John at private@example.com.",
+          },
+        },
       },
     });
 
@@ -147,6 +152,11 @@ describe("getPublicContactContext", () => {
       expect.stringMatching(/^public-contact-context:v1:[a-f0-9]{64}$/),
       expect.objectContaining({ status: "found" }),
       expect.anything(),
+    );
+    expect(redis.set).toHaveBeenCalledWith(
+      expect.stringMatching(/^public-contact-context:v1:[a-f0-9]{64}$/),
+      { status: "not_found" },
+      { ex: 43_200 },
     );
   });
 
@@ -180,6 +190,23 @@ describe("getPublicContactContext", () => {
     ).resolves.toEqual({
       status: "unavailable",
       reason: "research_in_progress",
+    });
+
+    expect(generateTextMock).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when the shared cache lock is unavailable", async () => {
+    vi.mocked(redis.set).mockRejectedValue(new Error("Redis unavailable"));
+
+    await expect(
+      getPublicContactContext({
+        email: "john@acme.com",
+        name: "John Smith",
+        emailAccount: getEmailAccount(),
+      }),
+    ).resolves.toEqual({
+      status: "unavailable",
+      reason: "cache_unavailable",
     });
 
     expect(generateTextMock).not.toHaveBeenCalled();
@@ -236,8 +263,6 @@ function getContext(
   return {
     name: "John Smith",
     role: "Founder and CEO",
-    professionalSummary: "Founder of Acme, a workflow software company.",
-    highlights: ["Previously built products at Example Corp"],
     company: {
       name: "Acme",
       domain: "acme.com",
@@ -246,9 +271,8 @@ function getContext(
       industry: "Software",
       employeeCount: "Approximately 30 employees",
       funding: "$50M raised",
-      headquarters: "New York, New York",
     },
-    sources: [{ title: "Acme team", url: "https://acme.com/team" }],
+    sources: [{ url: "https://acme.com/team" }],
     confidence: "high",
     ...overrides,
   };

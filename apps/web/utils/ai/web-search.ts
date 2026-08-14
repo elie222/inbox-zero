@@ -11,6 +11,14 @@ export type WebSearchConfig = {
   toolChoice?: "required";
 };
 
+export function hasWebSearchForProvider(provider: string | undefined) {
+  return (
+    provider === Provider.OPEN_AI ||
+    provider === Provider.GOOGLE ||
+    provider === Provider.OPENROUTER
+  );
+}
+
 export function getWebSearchConfigForProvider(
   provider: string | undefined,
 ): WebSearchConfig | null {

@@ -4,7 +4,6 @@ import {
   Building2Icon,
   ExternalLinkIcon,
   type LucideIcon,
-  MapPinIcon,
   SparklesIcon,
   UsersIcon,
   WalletCardsIcon,
@@ -88,57 +87,40 @@ export function SenderContextSheet({
 function PublicContext({ context }: { context: PublicContactContext }) {
   return (
     <div className="space-y-6">
-      <section>
-        <div className="flex flex-wrap items-center gap-2">
-          {context.role ? (
-            <div className="font-medium text-foreground text-sm">
-              {context.role}
-            </div>
-          ) : null}
-          {context.confidence === "low" ? (
-            <Badge className="font-normal" variant="outline">
-              Possible match
-            </Badge>
-          ) : null}
-        </div>
-        <p className="mt-2 text-muted-foreground text-sm leading-6">
-          {context.professionalSummary}
-        </p>
-      </section>
-
-      {context.company ? <CompanyContext company={context.company} /> : null}
-
-      {context.highlights.length ? (
+      {context.role || context.confidence === "low" ? (
         <section>
-          <h3 className="font-medium text-foreground text-xs uppercase tracking-wide">
-            Highlights
-          </h3>
-          <ul className="mt-3 space-y-2.5">
-            {context.highlights.map((highlight) => (
-              <li className="flex gap-2.5 text-sm leading-5" key={highlight}>
-                <SparklesIcon className="mt-0.5 size-3.5 shrink-0 text-primary" />
-                <span>{highlight}</span>
-              </li>
-            ))}
-          </ul>
+          <div className="flex flex-wrap items-center gap-2">
+            {context.role ? (
+              <div className="font-medium text-foreground text-sm">
+                {context.role}
+              </div>
+            ) : null}
+            {context.confidence === "low" ? (
+              <Badge className="font-normal" variant="outline">
+                Possible match
+              </Badge>
+            ) : null}
+          </div>
         </section>
       ) : null}
+
+      {context.company ? <CompanyContext company={context.company} /> : null}
 
       <section className="border-border border-t pt-5">
         <h3 className="font-medium text-foreground text-xs uppercase tracking-wide">
           Public sources
         </h3>
         <div className="mt-3 space-y-2">
-          {context.sources.map((source) => (
+          {context.sources.map((source, index) => (
             <a
               className="flex items-start gap-2 rounded-md px-2 py-1.5 text-muted-foreground text-sm transition-colors hover:bg-muted hover:text-foreground"
               href={source.url}
-              key={source.url}
+              key={`${source.url}-${index}`}
               rel="noreferrer"
               target="_blank"
             >
               <ExternalLinkIcon className="mt-0.5 size-3.5 shrink-0" />
-              <span className="line-clamp-2">{source.title}</span>
+              <span className="line-clamp-2">{getSourceLabel(source.url)}</span>
             </a>
           ))}
         </div>
@@ -195,9 +177,6 @@ function CompanyContext({
         ) : null}
         {company.funding ? (
           <CompanyFact icon={WalletCardsIcon} value={company.funding} />
-        ) : null}
-        {company.headquarters ? (
-          <CompanyFact icon={MapPinIcon} value={company.headquarters} />
         ) : null}
       </div>
     </section>
@@ -286,7 +265,13 @@ function getUnavailableMessage(reason?: PublicContactContextUnavailableReason) {
       return "Public profiles are not researched for personal email addresses.";
     case "search_unavailable":
       return "Web search is not configured for this account.";
+    case "cache_unavailable":
+      return "Public context is temporarily unavailable. Try again shortly.";
     default:
       return "No confident public professional profile was found.";
   }
+}
+
+function getSourceLabel(url: string) {
+  return new URL(url).hostname.replace(/^www\./, "");
 }
