@@ -37,7 +37,7 @@ describe("isRuleGeneratedMessage", () => {
         OR: [
           { sentMessageIds: { has: "sent-message-1" } },
           {
-            executionStartedAt: { gte: expect.any(Date) },
+            executionStartedAt: { not: null },
             executionStatus: null,
           },
         ],
