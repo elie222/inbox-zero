@@ -7,6 +7,7 @@ import {
   DESKTOP_WINDOW_DRAG_CSS,
   getDesktopPostAuthUrl,
   getDesktopWindowChrome,
+  getDesktopWindowDragCss,
   isAllowedDesktopNavigation,
   isAllowedExternalUrl,
   isDesktopAuthProvider,
@@ -169,5 +170,8 @@ describe("desktop shell helpers", () => {
     expect(DESKTOP_WINDOW_DRAG_CSS).toContain("html::before");
     expect(DESKTOP_WINDOW_DRAG_CSS).toContain("height: 12px");
     expect(DESKTOP_WINDOW_DRAG_CSS).not.toContain("html {");
+    expect(getDesktopWindowDragCss("darwin")).toBe(DESKTOP_WINDOW_DRAG_CSS);
+    expect(getDesktopWindowDragCss("win32")).toBeNull();
+    expect(getDesktopWindowDragCss("linux")).toBeNull();
   });
 });

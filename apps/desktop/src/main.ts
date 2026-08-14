@@ -17,8 +17,8 @@ import {
   getDesktopBrowserStartUrl,
   getDesktopLoginUrl,
   getDesktopPostAuthUrl,
-  DESKTOP_WINDOW_DRAG_CSS,
   getDesktopWindowChrome,
+  getDesktopWindowDragCss,
   isAllowedDesktopNavigation,
   isAllowedExternalUrl,
   isDesktopAuthProvider,
@@ -142,8 +142,10 @@ function createMainWindow() {
 }
 
 function applyDesktopWindowDragRegion(contents: WebContents) {
+  const dragCss = getDesktopWindowDragCss();
+  if (!dragCss) return;
   contents.on("dom-ready", () => {
-    contents.insertCSS(DESKTOP_WINDOW_DRAG_CSS).catch(() => {});
+    contents.insertCSS(dragCss).catch(() => {});
   });
 }
 

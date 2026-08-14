@@ -213,3 +213,11 @@ html::after {
   height: 12px;
 }
 `.trim();
+
+export function getDesktopWindowDragCss(
+  platform = process.platform,
+): string | null {
+  // Windows already has a native overlay drag region; Linux keeps a native title bar.
+  if (platform !== "darwin") return null;
+  return DESKTOP_WINDOW_DRAG_CSS;
+}
