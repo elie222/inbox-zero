@@ -6,7 +6,7 @@ CREATE TABLE "PublicContactSnapshot" (
     "identityHash" TEXT NOT NULL,
     "status" "PublicContactSnapshotStatus" NOT NULL,
     "context" JSONB,
-    "researchedAt" TIMESTAMP(3) NOT NULL,
+    "researchStartedAt" TIMESTAMP(3) NOT NULL,
     "refreshAfter" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "PublicContactSnapshot_pkey" PRIMARY KEY ("id"),
@@ -16,5 +16,10 @@ CREATE TABLE "PublicContactSnapshot" (
     )
 );
 
-CREATE INDEX "PublicContactSnapshot_identityHash_researchedAt_idx"
-ON "PublicContactSnapshot"("identityHash", "researchedAt" DESC);
+CREATE INDEX "PublicContactSnapshot_latest_idx"
+ON "PublicContactSnapshot"(
+    "identityHash",
+    "researchStartedAt" DESC,
+    "createdAt" DESC,
+    "id" DESC
+);

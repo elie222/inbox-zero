@@ -116,7 +116,7 @@ export async function getPublicContactContext({
       modelOptions: searchModelOptions,
       promptHardening: { trust: "untrusted", level: "full" },
     });
-    const researchedAt = new Date();
+    const researchStartedAt = new Date();
     const result = await generateText({
       model: searchModelOptions.model,
       system: `Research public professional information about an email sender.
@@ -149,7 +149,7 @@ Return JSON matching the provided schema, including direct public source URLs.`,
       }
       await storePublicContactContextNotFound({
         email: identity.data.email,
-        researchedAt,
+        researchStartedAt,
       });
       return { status: "unavailable", reason: "not_found" };
     }
@@ -157,7 +157,7 @@ Return JSON matching the provided schema, including direct public source URLs.`,
     await storePublicContactContext({
       email: identity.data.email,
       context,
-      researchedAt,
+      researchStartedAt,
     });
     return { status: "found", context };
   } catch (error) {

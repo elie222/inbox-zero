@@ -116,7 +116,7 @@ describe("getPublicContactContext", () => {
     });
 
     expect(result).toEqual({ status: "found", context });
-    expect(result).not.toHaveProperty("researchedAt");
+    expect(result).not.toHaveProperty("researchStartedAt");
     expect(result).not.toHaveProperty("userId");
     expect(generateTextMock).not.toHaveBeenCalled();
   });
@@ -145,7 +145,7 @@ describe("getPublicContactContext", () => {
     expect(storePublicContactContextMock).toHaveBeenCalledWith({
       email: "john@acme.com",
       context,
-      researchedAt: expect.any(Date),
+      researchStartedAt: expect.any(Date),
     });
   });
 
@@ -165,7 +165,7 @@ describe("getPublicContactContext", () => {
 
     expect(storePublicContactContextMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        researchedAt: new Date("2026-08-14T10:00:00.000Z"),
+        researchStartedAt: new Date("2026-08-14T10:00:00.000Z"),
       }),
     );
   });
@@ -195,7 +195,7 @@ describe("getPublicContactContext", () => {
     expect(storePublicContactContextMock).not.toHaveBeenCalled();
     expect(storePublicContactContextNotFoundMock).toHaveBeenCalledWith({
       email: "john@acme.com",
-      researchedAt: expect.any(Date),
+      researchStartedAt: expect.any(Date),
     });
   });
 
@@ -212,7 +212,7 @@ describe("getPublicContactContext", () => {
 
     expect(storePublicContactContextNotFoundMock).toHaveBeenCalledWith({
       email: "unknown@acme.com",
-      researchedAt: expect.any(Date),
+      researchStartedAt: expect.any(Date),
     });
   });
 

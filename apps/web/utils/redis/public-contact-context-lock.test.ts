@@ -53,6 +53,14 @@ describe("public contact research lock", () => {
     ).resolves.toEqual({ status: "busy" });
   });
 
+  it("reports unavailable when Redis cannot acquire a lock", async () => {
+    vi.mocked(redis.set).mockRejectedValue(new Error("Redis unavailable"));
+
+    await expect(
+      acquirePublicContactResearchLock("john@acme.com"),
+    ).resolves.toEqual({ status: "unavailable" });
+  });
+
   it("releases only the lock owned by the worker", async () => {
     vi.mocked(redis.eval).mockResolvedValue(1);
 

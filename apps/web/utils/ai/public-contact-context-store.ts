@@ -25,7 +25,13 @@ export async function getStoredPublicContactContext(
   try {
     const snapshot = await prisma.publicContactSnapshot.findFirst({
       where: { identityHash: hash(email) },
-      orderBy: [{ researchedAt: "desc" }, { createdAt: "desc" }],
+      // Start-time ordering keeps an expired-lock worker that finishes late
+      // from replacing research that began more recently.
+      orderBy: [
+        { researchStartedAt: "desc" },
+        { createdAt: "desc" },
+        { id: "desc" },
+      ],
       select: { status: true, context: true, refreshAfter: true },
     });
 
@@ -58,11 +64,11 @@ export async function getStoredPublicContactContext(
 export async function storePublicContactContext({
   email,
   context,
-  researchedAt,
+  researchStartedAt,
 }: {
   email: string;
   context: PublicContactContext;
-  researchedAt: Date;
+  researchStartedAt: Date;
 }): Promise<boolean> {
   const parsed = publicContactContextSchema.safeParse(context);
   if (!parsed.success || !isSafeForSharedCache(parsed.data)) {
@@ -74,23 +80,23 @@ export async function storePublicContactContext({
     email,
     status: PublicContactSnapshotStatus.FOUND,
     context: parsed.data,
-    researchedAt,
-    refreshAfter: new Date(researchedAt.getTime() + FOUND_REFRESH_MS),
+    researchStartedAt,
+    refreshAfter: new Date(researchStartedAt.getTime() + FOUND_REFRESH_MS),
   });
 }
 
 export async function storePublicContactContextNotFound({
   email,
-  researchedAt,
+  researchStartedAt,
 }: {
   email: string;
-  researchedAt: Date;
+  researchStartedAt: Date;
 }): Promise<boolean> {
   return createSnapshot({
     email,
     status: PublicContactSnapshotStatus.NOT_FOUND,
-    researchedAt,
-    refreshAfter: new Date(researchedAt.getTime() + NOT_FOUND_REFRESH_MS),
+    researchStartedAt,
+    refreshAfter: new Date(researchStartedAt.getTime() + NOT_FOUND_REFRESH_MS),
   });
 }
 
@@ -98,13 +104,13 @@ async function createSnapshot({
   email,
   status,
   context,
-  researchedAt,
+  researchStartedAt,
   refreshAfter,
 }: {
   email: string;
   status: PublicContactSnapshotStatus;
   context?: PublicContactContext;
-  researchedAt: Date;
+  researchStartedAt: Date;
   refreshAfter: Date;
 }) {
   try {
@@ -115,7 +121,7 @@ async function createSnapshot({
         ...(context
           ? { context: context as Prisma.InputJsonValue }
           : undefined),
-        researchedAt,
+        researchStartedAt,
         refreshAfter,
       },
     });

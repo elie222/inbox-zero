@@ -39,7 +39,11 @@ describe("public contact context store", () => {
       where: {
         identityHash: expect.stringMatching(/^[a-f0-9]{64}$/),
       },
-      orderBy: [{ researchedAt: "desc" }, { createdAt: "desc" }],
+      orderBy: [
+        { researchStartedAt: "desc" },
+        { createdAt: "desc" },
+        { id: "desc" },
+      ],
       select: { status: true, context: true, refreshAfter: true },
     });
     expect(
@@ -100,13 +104,13 @@ describe("public contact context store", () => {
 
   it("appends a sanitized found snapshot with a 30-day refresh window", async () => {
     const context = getContext();
-    const researchedAt = new Date("2026-08-14T10:00:00.000Z");
+    const researchStartedAt = new Date("2026-08-14T10:00:00.000Z");
 
     await expect(
       storePublicContactContext({
         email: "John@Acme.com",
         context,
-        researchedAt,
+        researchStartedAt,
       }),
     ).resolves.toBe(true);
 
@@ -115,7 +119,7 @@ describe("public contact context store", () => {
         identityHash: expect.stringMatching(/^[a-f0-9]{64}$/),
         status: "FOUND",
         context,
-        researchedAt,
+        researchStartedAt,
         refreshAfter: new Date("2026-09-13T10:00:00.000Z"),
       },
     });
@@ -135,7 +139,7 @@ describe("public contact context store", () => {
       storePublicContactContext({
         email: "john@acme.com",
         context: unsafe,
-        researchedAt: new Date(),
+        researchStartedAt: new Date(),
       }),
     ).resolves.toBe(false);
 
@@ -143,12 +147,12 @@ describe("public contact context store", () => {
   });
 
   it("appends not-found research with a 12-hour refresh window", async () => {
-    const researchedAt = new Date("2026-08-14T10:00:00.000Z");
+    const researchStartedAt = new Date("2026-08-14T10:00:00.000Z");
 
     await expect(
       storePublicContactContextNotFound({
         email: "john@acme.com",
-        researchedAt,
+        researchStartedAt,
       }),
     ).resolves.toBe(true);
 
@@ -156,7 +160,7 @@ describe("public contact context store", () => {
       data: {
         identityHash: expect.stringMatching(/^[a-f0-9]{64}$/),
         status: "NOT_FOUND",
-        researchedAt,
+        researchStartedAt,
         refreshAfter: new Date("2026-08-14T22:00:00.000Z"),
       },
     });
@@ -166,12 +170,12 @@ describe("public contact context store", () => {
     await storePublicContactContext({
       email: "john@acme.com",
       context: getContext({ role: "Founder" }),
-      researchedAt: new Date("2026-02-14T10:00:00.000Z"),
+      researchStartedAt: new Date("2026-02-14T10:00:00.000Z"),
     });
     await storePublicContactContext({
       email: "john@acme.com",
       context: getContext({ role: "Founder and CEO" }),
-      researchedAt: new Date("2026-08-14T10:00:00.000Z"),
+      researchStartedAt: new Date("2026-08-14T10:00:00.000Z"),
     });
 
     expect(prisma.publicContactSnapshot.create).toHaveBeenCalledTimes(2);
