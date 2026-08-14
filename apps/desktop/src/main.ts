@@ -74,8 +74,13 @@ function startDesktopApp() {
         throw new Error("Unsupported sign-in provider");
       }
       const callbackPath = getStartAuthCallbackPath(options);
-      await openExternal(getDesktopBrowserStartUrl(appOrigin, provider));
       persistPendingCallbackPath(callbackPath);
+      try {
+        await openExternal(getDesktopBrowserStartUrl(appOrigin, provider));
+      } catch (error) {
+        persistPendingCallbackPath(null);
+        throw error;
+      }
     },
   );
 
