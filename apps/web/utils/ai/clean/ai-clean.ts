@@ -8,12 +8,9 @@ import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
 import { createGenerateObject } from "@/utils/llms";
 // import { Braintrust } from "@/utils/braintrust";
 
-// TODO: allow specific labels
-// Pass in prompt labels
 const schema = z.object({
   archive: z.preprocess(preprocessBooleanLike, z.boolean()),
-  // label: z.string().optional(),
-  // reasoning: z.string(),
+  label: z.string().nullish(),
 });
 
 // const braintrust = new Braintrust("cleaner-1");
@@ -24,6 +21,7 @@ export async function aiClean({
   messages,
   instructions,
   skips,
+  labels,
 }: {
   emailAccount: EmailAccountWithAI;
   messageId: string;
@@ -33,14 +31,15 @@ export async function aiClean({
     reply?: boolean | null;
     receipt?: boolean | null;
   };
-}): Promise<{ archive: boolean }> {
+  labels?: { id: string; name: string }[];
+}): Promise<{ archive: boolean; label: string | null }> {
   const lastMessage = messages.at(-1);
 
   if (!lastMessage) throw new Error("No messages");
 
   const system =
     `You are an AI assistant designed to help users achieve inbox zero by analyzing emails and deciding whether they should be archived or not.
-  
+
 Examples of emails to archive:
 - Newsletters
 - Marketing
@@ -76,6 +75,17 @@ ${
   instructions
     ? `Additional user instructions:
 <instructions>${instructions}</instructions>`
+    : ""
+}
+${
+  labels?.length
+    ? `The user has these Gmail labels available:
+<labels>
+${labels.map((label) => `- ${label.name}`).join("\n")}
+</labels>
+
+If the email can be classified into one of these labels, return its exact name in the "label" field. Otherwise return null for "label".
+Only label the email when the fit is clear. Prefer no label over an incorrect one. Choose at most one label. Never return a label that is not listed above.`
     : ""
 }
 
@@ -115,5 +125,8 @@ The current date is ${currentDate}.
   //   expected: aiResponse.object,
   // });
 
-  return aiResponse.object as { archive: boolean };
+  return {
+    archive: aiResponse.object.archive,
+    label: aiResponse.object.label ?? null,
+  };
 }
