@@ -60,6 +60,7 @@ function getBody(overrides: Record<string, unknown> = {}) {
     action: CleanAction.ARCHIVE,
     labelId: "label-finance",
     labelName: "Finance",
+    labelAdded: true,
     markedDoneLabelId: "marked-done-label",
     processedLabelId: "processed-label",
     jobId: "job-1",
@@ -126,6 +127,7 @@ describe("POST /api/clean/gmail", () => {
         archived: true,
         label: "Finance",
         labelId: "label-finance",
+        labelAdded: true,
         job: { connect: { id: "job-1" } },
       },
     });
@@ -185,6 +187,65 @@ describe("POST /api/clean/gmail", () => {
       jobId: "job-1",
       threadId: "thread-1",
       update: { status: "completed" },
+    });
+  });
+
+  it("keeps a pre-existing label when the thread was undone while in flight", async () => {
+    mockGetThread.mockResolvedValue({
+      threadId: "thread-1",
+      jobId: "job-1",
+      archive: false,
+      label: null,
+      undone: true,
+      status: "processing",
+    });
+
+    const response = await POST(getRequest(getBody({ labelAdded: false })));
+
+    expect(response.status).toBe(200);
+
+    // The label was already on the thread before this run, so the in-flight
+    // undo must not remove it: Gmail's add was a no-op and the run never
+    // actually added the label.
+    expect(mockLabelThread).toHaveBeenCalledTimes(1);
+    expect(mockLabelThread).toHaveBeenCalledWith({
+      gmail: {},
+      threadId: "thread-1",
+      addLabelIds: [],
+      removeLabelIds: [],
+    });
+  });
+
+  it("returns 200 and records no label when applying the AI label fails", async () => {
+    mockLabelThread
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error("stale label"));
+
+    const response = await POST(getRequest(getBody()));
+
+    expect(response.status).toBe(200);
+
+    // The core action still succeeded; only the best-effort AI label failed
+    expect(mockLabelThread).toHaveBeenCalledTimes(2);
+
+    // Redis must not keep the optimistic label, and the DB row must not
+    // record a label Gmail never got
+    expect(mockUpdateThread).toHaveBeenCalledWith({
+      emailAccountId: "email-account-id",
+      jobId: "job-1",
+      threadId: "thread-1",
+      update: { status: "completed", label: null },
+    });
+
+    expect(prisma.cleanupThread.create).toHaveBeenCalledWith({
+      data: {
+        emailAccount: { connect: { id: "email-account-id" } },
+        threadId: "thread-1",
+        archived: true,
+        label: undefined,
+        labelId: undefined,
+        job: { connect: { id: "job-1" } },
+      },
     });
   });
 });

@@ -215,10 +215,17 @@ export async function cleanThread({
 
   const matchedLabel = findCleanLabel(labels, aiResult.label);
 
+  // A label that's already on the thread would make the Gmail add a no-op;
+  // record that so undo never removes a label this run didn't add.
+  const labelAlreadyOnThread =
+    !!matchedLabel &&
+    messages.some((message) => message.labelIds?.includes(matchedLabel.id));
+
   await publish({
     markDone: aiResult.archive,
     labelId: matchedLabel?.id,
     labelName: matchedLabel?.name,
+    labelAdded: matchedLabel ? !labelAlreadyOnThread : false,
   });
 }
 
@@ -260,10 +267,12 @@ function getPublish({
     markDone,
     labelId,
     labelName,
+    labelAdded,
   }: {
     markDone: boolean;
     labelId?: string;
     labelName?: string | null;
+    labelAdded?: boolean;
   }) => {
     const actionCount = 2;
     const maxRatePerSecond = Math.ceil(12 / actionCount);
@@ -275,6 +284,7 @@ function getPublish({
       action,
       labelId,
       labelName: labelName ?? undefined,
+      labelAdded,
       markedDoneLabelId,
       processedLabelId,
       jobId,

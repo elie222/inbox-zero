@@ -33,6 +33,9 @@ export function EmailFirehose({
   const [undoStates, setUndoStates] = useState<
     Record<string, "undoing" | "undone">
   >({});
+  // Track threads whose AI-applied label was removed: unlike undo, this only
+  // hides the label locally and must not mark the whole thread as undone
+  const [removedLabels, setRemovedLabels] = useState<Record<string, true>>({});
 
   const { emails } = useEmailStream(emailAccountId, isPaused, threads, tab);
 
@@ -139,6 +142,15 @@ export function EmailFirehose({
                       setUndoStates((prev) => ({
                         ...prev,
                         [threadId]: "undone",
+                      }));
+                    }}
+                    labelRemoved={
+                      !!removedLabels[emails[virtualItem.index].threadId]
+                    }
+                    setLabelRemoved={(threadId) => {
+                      setRemovedLabels((prev) => ({
+                        ...prev,
+                        [threadId]: true,
                       }));
                     }}
                   />

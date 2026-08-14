@@ -102,8 +102,34 @@ describe("undoCleanInboxAction", () => {
         threadId: "thread-1",
         jobId: "job-1",
       },
-      data: { label: null, labelId: null },
+      data: { label: null, labelId: null, labelAdded: false },
     });
+  });
+
+  it("does not remove the label when the clean run didn't add it", async () => {
+    prisma.cleanupThread.findFirst.mockResolvedValue({
+      jobId: "job-1",
+      label: "Finance",
+      labelId: "label-finance",
+      labelAdded: false,
+    } as any);
+
+    await undoCleanInboxAction("email-account-id", {
+      threadId: "thread-1",
+      markedDone: true,
+      action: CleanAction.ARCHIVE,
+    });
+
+    expect(mockLabelThread).toHaveBeenCalledWith({
+      gmail: {},
+      threadId: "thread-1",
+      addLabelIds: [GmailLabel.INBOX],
+      removeLabelIds: ["archived-label"],
+    });
+
+    const update = mockedUpdateThread.mock.calls[0][0].update;
+    expect(update).toEqual({ undone: true, archive: false });
+    expect(prisma.cleanupThread.updateMany).not.toHaveBeenCalled();
   });
 
   it("resolves the AI-applied label by exact name when no labelId is stored", async () => {
@@ -201,7 +227,7 @@ describe("undoCleanInboxAction", () => {
         jobId: "job-2",
       },
       orderBy: { createdAt: "desc" },
-      select: { jobId: true, label: true, labelId: true },
+      select: { jobId: true, label: true, labelId: true, labelAdded: true },
     });
   });
 
@@ -284,7 +310,7 @@ describe("removeLabelFromThreadAction", () => {
         threadId: "thread-1",
         jobId: "job-1",
       },
-      data: { label: null, labelId: null },
+      data: { label: null, labelId: null, labelAdded: false },
     });
   });
 
@@ -334,7 +360,7 @@ describe("removeLabelFromThreadAction", () => {
         threadId: "thread-1",
         jobId: "job-1",
       },
-      data: { label: null, labelId: null },
+      data: { label: null, labelId: null, labelAdded: false },
     });
   });
 

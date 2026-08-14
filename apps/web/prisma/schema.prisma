@@ -1029,6 +1029,7 @@ model CleanupThread {
   archived  Boolean // this can also mean "mark as read". depends on CleanupJob.action
   label     String? // AI-applied Gmail label name
   labelId   String? // Gmail label ID, used to remove the label even if it gets renamed
+  labelAdded Boolean @default(true) // whether this clean run added the label (vs. it already existed)
   jobId     String
   job       CleanupJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
 

@@ -305,12 +305,37 @@ describe("cleanThread", () => {
           markDone: true,
           labelId: "label-finance",
           labelName: "Finance",
+          labelAdded: true,
         }),
         expect.any(Object),
       );
 
       const update = mockUpdateThread.mock.calls[0][0].update;
       expect(update).toMatchObject({ archive: true, label: "Finance" });
+    });
+
+    it("marks a label that was already on the thread as not added by this run", async () => {
+      mockGetThreadMessages.mockResolvedValue([
+        getMockMessage({
+          id: "msg-1",
+          from: "newsletter@example.com",
+          to: "user@example.com",
+          subject: "Weekly digest",
+          labelIds: ["label-finance"],
+        }),
+      ]);
+      mockAiClean.mockResolvedValue({ archive: true, label: "Finance" });
+
+      await cleanThread(getDefaultParams());
+
+      expect(mockPublishToQstash).toHaveBeenCalledWith(
+        "/api/clean/gmail",
+        expect.objectContaining({
+          labelId: "label-finance",
+          labelAdded: false,
+        }),
+        expect.any(Object),
+      );
     });
 
     it("persists the canonical label name when the AI returns a non-canonical match", async () => {

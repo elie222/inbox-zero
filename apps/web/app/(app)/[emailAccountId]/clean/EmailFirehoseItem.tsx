@@ -34,6 +34,8 @@ export function EmailItem({
   setUndoing,
   setUndone,
   resetUndoing,
+  labelRemoved,
+  setLabelRemoved,
 }: {
   email: CleanThread;
   userEmail: string;
@@ -44,11 +46,17 @@ export function EmailItem({
   setUndoing: (threadId: string) => void;
   setUndone: (threadId: string) => void;
   resetUndoing: (threadId: string) => void;
+  labelRemoved: boolean;
+  setLabelRemoved: (threadId: string) => void;
 }) {
-  const status = getStatus(email);
+  // Locally hide the label once it's been removed, mirroring the state Redis
+  // will converge to via SSE — without marking the whole thread as undone.
+  const effectiveEmail =
+    email.label && labelRemoved ? { ...email, label: undefined } : email;
+  const status = getStatus(effectiveEmail);
   const pending = isPending(email);
-  const archive = email.archive === true;
-  const label = !!email.label;
+  const archive = effectiveEmail.archive === true;
+  const label = !!effectiveEmail.label;
 
   return (
     <div
@@ -79,13 +87,14 @@ export function EmailItem({
       <div className="ml-2 flex items-center space-x-2">
         <StatusBadge
           status={status}
-          email={email}
+          email={effectiveEmail}
           action={action}
           jobId={jobId}
           undoState={undoState}
           setUndoing={setUndoing}
           setUndone={setUndone}
           resetUndoing={resetUndoing}
+          setLabelRemoved={setLabelRemoved}
           emailAccountId={emailAccountId}
         />
       </div>
@@ -115,6 +124,7 @@ function StatusBadge({
   setUndoing,
   setUndone,
   resetUndoing,
+  setLabelRemoved,
   emailAccountId,
 }: {
   status: Status;
@@ -125,6 +135,7 @@ function StatusBadge({
   setUndoing: (threadId: string) => void;
   setUndone: (threadId: string) => void;
   resetUndoing: (threadId: string) => void;
+  setLabelRemoved: (threadId: string) => void;
   emailAccountId: string;
 }) {
   if (status === "processing") {
@@ -200,7 +211,7 @@ function StatusBadge({
                 toastError({ description: result.serverError });
                 resetUndoing(email.threadId);
               } else {
-                setUndone(email.threadId);
+                setLabelRemoved(email.threadId);
               }
             }}
           />
@@ -262,7 +273,7 @@ function StatusBadge({
             toastError({ description: result.serverError });
             resetUndoing(email.threadId);
           } else {
-            setUndone(email.threadId);
+            setLabelRemoved(email.threadId);
           }
         }}
       />
@@ -271,8 +282,10 @@ function StatusBadge({
 }
 
 // Swaps a status badge for an action button on hover/focus. The button is
-// overlaid over the badge (which keeps its footprint invisible) so the row
-// never reflows, and it stays visible on touch devices that have no hover.
+// overlaid over the badge (which keeps its footprint) so the row never
+// reflows, and it stays visible on touch devices that have no hover. The
+// button stays in the tab order while hidden (opacity + pointer-events, not
+// visibility) so keyboard users can reach it: focusing it reveals the action.
 function HoverAction({
   badge,
   icon,
@@ -286,11 +299,16 @@ function HoverAction({
 }) {
   return (
     <div className="group relative">
-      <span className="block group-hover:invisible group-focus-within:invisible [@media(hover:none)]:invisible">
+      <span className="pointer-events-none block transition-opacity group-hover:opacity-0 group-focus-within:opacity-0 [@media(hover:none)]:opacity-0">
         {badge}
       </span>
-      <div className="invisible absolute inset-0 flex items-center justify-center whitespace-nowrap group-hover:visible group-focus-within:visible [@media(hover:none)]:visible">
-        <Button size="xs" variant="ghost" onClick={onClick}>
+      <div className="absolute inset-0 flex items-center justify-center whitespace-nowrap opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100">
+        <Button
+          size="xs"
+          variant="ghost"
+          onClick={onClick}
+          className="pointer-events-none group-hover:pointer-events-auto group-focus-within:pointer-events-auto [@media(hover:none)]:pointer-events-auto"
+        >
           {icon}
           {text}
         </Button>

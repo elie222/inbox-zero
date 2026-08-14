@@ -255,13 +255,22 @@ export const undoCleanInboxAction = actionClient
             ...(inputJobId ? { jobId: inputJobId } : {}),
           },
           orderBy: { createdAt: "desc" },
-          select: { jobId: true, label: true, labelId: true },
+          select: {
+            jobId: true,
+            label: true,
+            labelId: true,
+            labelAdded: true,
+          },
         });
 
         jobId = thread?.jobId;
-        if (thread?.labelId) {
+        // Only remove the label when this run added it: the AI may have picked
+        // a label that was already on the thread, and undo must not touch
+        // labels the clean run didn't apply. Legacy rows default to added.
+        const addedByRun = thread?.labelAdded ?? true;
+        if (addedByRun && thread?.labelId) {
           appliedLabelId = thread.labelId;
-        } else if (thread?.label) {
+        } else if (addedByRun && thread?.label) {
           appliedLabelId = await getLabelIdByName({
             gmail,
             name: thread.label,
@@ -321,7 +330,7 @@ export const undoCleanInboxAction = actionClient
               threadId,
               ...(jobId ? { jobId } : {}),
             },
-            data: { label: null, labelId: null },
+            data: { label: null, labelId: null, labelAdded: false },
           });
         }
       } catch (error) {
@@ -427,7 +436,7 @@ export const removeLabelFromThreadAction = actionClient
             threadId,
             ...(jobId ? { jobId } : {}),
           },
-          data: { label: null, labelId: null },
+          data: { label: null, labelId: null, labelAdded: false },
         });
       } catch (error) {
         logger.error("Failed to clear label from DB", { error, threadId });
