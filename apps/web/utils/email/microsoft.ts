@@ -92,6 +92,7 @@ import {
 } from "@/utils/outlook/retry";
 import { shouldSkipAutoDraft } from "@/utils/auto-draft";
 import { getOutlookMailboxSyncPage } from "@/utils/outlook/mailbox-sync";
+import { requireSentMessageId } from "@/utils/email/sent-message-id";
 
 export class OutlookProvider implements EmailProvider {
   readonly name = "microsoft";
@@ -734,7 +735,7 @@ export class OutlookProvider implements EmailProvider {
       this.logger,
       options,
     );
-    return { messageId: requireMessageId(result.id) };
+    return { messageId: requireSentMessageId(result.id) };
   }
 
   async sendEmail(args: {
@@ -746,7 +747,7 @@ export class OutlookProvider implements EmailProvider {
     attachments?: MailAttachment[];
   }): Promise<{ messageId: string }> {
     const result = await sendEmailWithPlainText(this.client, args, this.logger);
-    return { messageId: requireMessageId(result.id) };
+    return { messageId: requireSentMessageId(result.id) };
   }
 
   async sendEmailWithHtml(body: {
@@ -791,7 +792,7 @@ export class OutlookProvider implements EmailProvider {
       { messageId: email.id, ...args },
       this.logger,
     );
-    return { messageId: requireMessageId(result.id) };
+    return { messageId: requireSentMessageId(result.id) };
   }
 
   async markSpam(threadId: string): Promise<void> {
@@ -2049,11 +2050,6 @@ export class OutlookProvider implements EmailProvider {
       unread: folder.unreadItemCount ?? 0,
     };
   }
-}
-
-function requireMessageId(messageId?: string | null) {
-  if (!messageId) throw new Error("Provider did not return a sent message ID");
-  return messageId;
 }
 
 // Maps OutlookLabel names (e.g. "INBOX") to WELL_KNOWN_FOLDERS keys used in getFolderIds()

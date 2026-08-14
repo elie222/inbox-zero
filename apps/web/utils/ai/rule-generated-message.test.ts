@@ -6,13 +6,16 @@ vi.mock("@/utils/prisma");
 
 describe("isRuleGeneratedMessage", () => {
   beforeEach(() => {
-    vi.mocked(prisma.executedAction.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.executedAction.findMany).mockResolvedValue([]);
   });
 
   it("recognizes the exact provider message saved by a sending action", async () => {
-    vi.mocked(prisma.executedAction.findFirst).mockResolvedValue({
-      id: "action-1",
-    } as any);
+    vi.mocked(prisma.executedAction.findMany).mockResolvedValue([
+      {
+        sentMessageIds: ["sent-message-1"],
+        executionStartedAt: new Date(),
+      },
+    ] as any);
 
     await expect(
       isRuleGeneratedMessage({
@@ -22,7 +25,7 @@ describe("isRuleGeneratedMessage", () => {
       }),
     ).resolves.toBe(true);
 
-    expect(prisma.executedAction.findFirst).toHaveBeenCalledWith({
+    expect(prisma.executedAction.findMany).toHaveBeenCalledWith({
       where: {
         type: {
           in: ["REPLY", "SEND_EMAIL", "FORWARD"],
@@ -34,16 +37,33 @@ describe("isRuleGeneratedMessage", () => {
         OR: [
           { sentMessageIds: { has: "sent-message-1" } },
           {
+            executionStartedAt: { gte: expect.any(Date) },
             executionStatus: null,
-            OR: [
-              { executedRule: { status: "APPLYING" } },
-              { scheduledAction: { status: "EXECUTING" } },
-            ],
           },
         ],
       },
-      select: { id: true },
+      select: {
+        executionStartedAt: true,
+        sentMessageIds: true,
+      },
     });
+  });
+
+  it("defers attribution while a sending action is still executing", async () => {
+    vi.mocked(prisma.executedAction.findMany).mockResolvedValue([
+      {
+        sentMessageIds: [],
+        executionStartedAt: new Date(),
+      },
+    ] as any);
+
+    await expect(
+      isRuleGeneratedMessage({
+        emailAccountId: "account-1",
+        threadId: "thread-1",
+        messageId: "message-racing-with-send",
+      }),
+    ).rejects.toThrow("Message attribution is still pending");
   });
 
   it("does not treat historical rule activity as the current message", async () => {

@@ -102,6 +102,10 @@ describe("executeAct", () => {
 
     expect(mockExecutedActionUpdate).toHaveBeenCalledWith({
       where: { id: "action-1" },
+      data: { executionStartedAt: expect.any(Date) },
+    });
+    expect(mockExecutedActionUpdate).toHaveBeenCalledWith({
+      where: { id: "action-1" },
       data: {
         executionStatus: "SUCCEEDED",
         executedAt: expect.any(Date),
@@ -386,6 +390,7 @@ describe("executeAct", () => {
       code: "ErrorMoveCopyFailed",
       statusCode: 503,
       requestId: "graph-request-123",
+      sentMessageIds: ["sent-message-before-failure"],
     });
     mockRunActionFunction.mockRejectedValueOnce(graphError);
 
@@ -421,6 +426,7 @@ describe("executeAct", () => {
           statusCode: 503,
           requestId: "graph-request-123",
         },
+        sentMessageIds: ["sent-message-before-failure"],
       },
     });
   });
