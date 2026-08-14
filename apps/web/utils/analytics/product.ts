@@ -71,6 +71,7 @@ export const PRODUCT_ANALYTICS_ACTIONS = {
   integrations: {
     connected: "integration_connected",
     connectFailed: "integration_connect_failed",
+    connectionPending: "integration_connection_pending",
     connectStarted: "integration_connect_started",
     disconnected: "integration_disconnected",
     disconnectStarted: "integration_disconnect_started",

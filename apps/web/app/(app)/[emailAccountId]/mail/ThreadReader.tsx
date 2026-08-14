@@ -45,7 +45,7 @@ export type ThreadReaderProps = {
    * a message that already has an AI draft.
    */
   autoOpenReplyForMessageId?: string;
-  /** The ⋯ dropdown, i.e. `RuleAttributionMenu`, composed by the shell. */
+  /** The ⋯ dropdown, i.e. `ThreadActionsMenu`, composed by the shell. */
   menu?: ReactNode;
 };
 
@@ -90,7 +90,9 @@ export function ThreadReader({
     }) ?? [];
 
   return (
-    <div className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-background">
+    // White, unlike the list: the reader is its own surface, and it has to
+    // match `EmailThread` below or the toolbar reads as a separate band.
+    <div className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-card">
       <div className={readerMeasure({ layout, isFocusMode })}>
         <ReaderToolbar
           isFocusMode={isFocusMode}
@@ -111,18 +113,13 @@ export function ThreadReader({
         />
 
         {messages.length > 0 ? (
-          // Workaround: `EmailThread` bakes in its own panel chrome, so the
-          // reader strips it from the outside to get a plain measure column.
-          // Fixing it properly means giving `EmailThread` a chrome-less mode.
-          <div className="[&>div]:bg-transparent [&>div]:p-0 [&>div>ul]:mt-0">
-            <EmailThread
-              autoOpenReplyForMessageId={autoOpenReplyForMessageId}
-              key={thread.id}
-              messages={messages}
-              refetch={refetch}
-              showReplyButton
-            />
-          </div>
+          <EmailThread
+            autoOpenReplyForMessageId={autoOpenReplyForMessageId}
+            key={thread.id}
+            messages={messages}
+            refetch={refetch}
+            showReplyButton
+          />
         ) : null}
       </div>
     </div>

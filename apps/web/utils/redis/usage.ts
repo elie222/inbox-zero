@@ -10,24 +10,39 @@ const WEEKLY_USAGE_COST_KEY_PREFIX = "usage-weekly-cost";
 const USAGE_MIGRATION_LOCK_TTL_SECONDS = 5 * 60;
 
 export type RedisUsage = {
-  openaiCalls?: number;
-  openaiTokensUsed?: number;
-  openaiCompletionTokensUsed?: number;
-  openaiPromptTokensUsed?: number;
+  calls?: number;
+  tokensUsed?: number;
+  completionTokensUsed?: number;
+  promptTokensUsed?: number;
   cachedInputTokensUsed?: number;
   reasoningTokensUsed?: number;
   cost?: number;
 };
 
 const usageFields = [
-  "openaiCalls",
-  "openaiTokensUsed",
-  "openaiCompletionTokensUsed",
-  "openaiPromptTokensUsed",
+  "calls",
+  "tokensUsed",
+  "completionTokensUsed",
+  "promptTokensUsed",
   "cachedInputTokensUsed",
   "reasoningTokensUsed",
   "cost",
 ] as const satisfies Array<keyof RedisUsage>;
+
+// Fields were previously named openai* when OpenAI was the only LLM provider.
+// They've always aggregated usage across all providers, so we renamed them.
+const LEGACY_USAGE_FIELD_NAMES: Record<string, keyof RedisUsage> = {
+  openaiCalls: "calls",
+  openaiTokensUsed: "tokensUsed",
+  openaiCompletionTokensUsed: "completionTokensUsed",
+  openaiPromptTokensUsed: "promptTokensUsed",
+};
+
+const LEGACY_USAGE_FIELD_NAMES_BY_CURRENT = Object.fromEntries(
+  Object.entries(LEGACY_USAGE_FIELD_NAMES).map(
+    ([legacyField, currentField]) => [currentField, legacyField],
+  ),
+) as Partial<Record<keyof RedisUsage, string>>;
 
 export type WeeklyUsageCostBySubject =
   | { userId: string; cost: number }
@@ -55,7 +70,7 @@ export async function getUsage(options: {
     : null;
 
   if (!options.legacyEmail) {
-    return redis.hgetall<RedisUsage>(emailAccountUsageKey);
+    return getRedisUsage(emailAccountUsageKey);
   }
 
   const legacyUsageKey = getLegacyUsageKey(options.legacyEmail);
@@ -67,8 +82,8 @@ export async function getUsage(options: {
 
   if (migratedLegacyUsage) {
     const [currentUsage, legacyUsage] = await Promise.all([
-      redis.hgetall<RedisUsage>(emailAccountUsageKey),
-      redis.hgetall<RedisUsage>(legacyUsageKey),
+      getRedisUsage(emailAccountUsageKey),
+      getRedisUsage(legacyUsageKey),
     ]);
     const legacyDelta = getUsageDelta(legacyUsage, migratedLegacyUsage);
 
@@ -83,8 +98,8 @@ export async function getUsage(options: {
       try {
         const [latestCurrentUsage, latestLegacyUsage, latestRawMigrationState] =
           await Promise.all([
-            redis.hgetall<RedisUsage>(emailAccountUsageKey),
-            redis.hgetall<RedisUsage>(legacyUsageKey),
+            getRedisUsage(emailAccountUsageKey),
+            getRedisUsage(legacyUsageKey),
             redis.get(doneKey),
           ]);
         const latestMigratedLegacyUsage = parseLegacyUsageMigrationState(
@@ -111,7 +126,7 @@ export async function getUsage(options: {
               : []),
             redis.set(
               doneKey,
-              JSON.stringify({ usage: latestLegacyUsage ?? {} }),
+              serializeLegacyUsageMigrationState(latestLegacyUsage),
             ),
           ]);
         }
@@ -139,8 +154,8 @@ export async function getUsage(options: {
 
   if (rawMigrationState) {
     const [currentUsage, legacyUsage] = await Promise.all([
-      redis.hgetall<RedisUsage>(emailAccountUsageKey),
-      redis.hgetall<RedisUsage>(legacyUsageKey),
+      getRedisUsage(emailAccountUsageKey),
+      getRedisUsage(legacyUsageKey),
     ]);
     return maxUsage(currentUsage, legacyUsage);
   }
@@ -150,8 +165,8 @@ export async function getUsage(options: {
     ex: USAGE_MIGRATION_LOCK_TTL_SECONDS,
   });
   const [currentUsage, legacyUsage] = await Promise.all([
-    redis.hgetall<RedisUsage>(emailAccountUsageKey),
-    redis.hgetall<RedisUsage>(legacyUsageKey),
+    getRedisUsage(emailAccountUsageKey),
+    getRedisUsage(legacyUsageKey),
   ]);
 
   if (!claimedLock) return mergeUsage(currentUsage, legacyUsage);
@@ -162,10 +177,10 @@ export async function getUsage(options: {
       ...(userUsageKey
         ? getUsageDataIncrementOperations(userUsageKey, legacyUsage)
         : []),
-      redis.set(doneKey, JSON.stringify({ usage: legacyUsage ?? {} })),
+      redis.set(doneKey, serializeLegacyUsageMigrationState(legacyUsage)),
     ]);
 
-    return redis.hgetall<RedisUsage>(emailAccountUsageKey);
+    return getRedisUsage(emailAccountUsageKey);
   } catch (error) {
     logger.error("Failed to migrate legacy usage", {
       migrationName,
@@ -449,16 +464,15 @@ function getUsageIncrementOperations(
   cost: number,
 ) {
   return [
-    // TODO: this isn't openai specific, it can be any llm
-    redis.hincrby(key, "openaiCalls", 1),
+    redis.hincrby(key, "calls", 1),
     usage.totalTokens
-      ? redis.hincrby(key, "openaiTokensUsed", usage.totalTokens)
+      ? redis.hincrby(key, "tokensUsed", usage.totalTokens)
       : null,
     usage.outputTokens
-      ? redis.hincrby(key, "openaiCompletionTokensUsed", usage.outputTokens)
+      ? redis.hincrby(key, "completionTokensUsed", usage.outputTokens)
       : null,
     usage.inputTokens
-      ? redis.hincrby(key, "openaiPromptTokensUsed", usage.inputTokens)
+      ? redis.hincrby(key, "promptTokensUsed", usage.inputTokens)
       : null,
     usage.cachedInputTokens
       ? redis.hincrby(key, "cachedInputTokensUsed", usage.cachedInputTokens)
@@ -592,7 +606,7 @@ function parseWeeklyUsageCostKey(key: string) {
   return { subject: `email:${email}`, email, day };
 }
 
-function parseRedisNumber(raw: string | number | undefined): number {
+function parseRedisNumber(raw: unknown): number {
   if (typeof raw === "number") return raw;
   if (typeof raw === "string") return Number.parseFloat(raw) || 0;
   return 0;
@@ -682,11 +696,50 @@ function parseLegacyUsageMigrationState(rawState: unknown): RedisUsage | null {
   if (typeof rawState !== "string") return null;
 
   try {
-    const parsed = JSON.parse(rawState) as { usage?: RedisUsage };
-    return parsed.usage ?? null;
+    const parsed = JSON.parse(rawState) as { usage?: Record<string, unknown> };
+    return parsed.usage ? normalizeUsageFields(parsed.usage) : null;
   } catch {
     return null;
   }
+}
+
+function serializeLegacyUsageMigrationState(usage: RedisUsage) {
+  const legacyUsage = Object.fromEntries(
+    usageFields.flatMap((field) => {
+      const value = usage[field];
+      if (value === undefined) return [];
+
+      return [[LEGACY_USAGE_FIELD_NAMES_BY_CURRENT[field] ?? field, value]];
+    }),
+  );
+
+  return JSON.stringify({ usage: legacyUsage });
+}
+
+async function getRedisUsage(key: string): Promise<RedisUsage> {
+  const raw = await redis.hgetall<Record<string, string>>(key);
+  return normalizeUsageFields(raw);
+}
+
+function normalizeUsageFields(
+  raw: Record<string, unknown> | null | undefined,
+): RedisUsage {
+  if (!raw) return {};
+
+  const usageFieldNames = new Set<string>(usageFields);
+  const usage: Record<string, number> = {};
+
+  for (const [field, value] of Object.entries(raw)) {
+    const normalizedField = LEGACY_USAGE_FIELD_NAMES[field] ?? field;
+    if (!usageFieldNames.has(normalizedField)) continue;
+
+    // During rolling deploys a hash may contain both the legacy openai* field
+    // and its renamed counterpart, so colliding fields accumulate.
+    usage[normalizedField] =
+      parseRedisNumber(usage[normalizedField]) + parseRedisNumber(value);
+  }
+
+  return usage as RedisUsage;
 }
 
 function parseWeeklyUsageMigrationState(

@@ -10,7 +10,7 @@ continue until the latest commit has clean reviews and checks.
 
 ## Defaults and boundaries
 
-- Wait 300 seconds before the first PR observation and after every push or
+- Wait 120 seconds before the first PR observation and after every push or
   review reply.
 - Keep going until reviews converge: as long as the latest review-bot run on
   the current PR HEAD produced new actionable comments, or a review bot is

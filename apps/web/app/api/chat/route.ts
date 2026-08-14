@@ -20,6 +20,7 @@ import { captureException } from "@/utils/error";
 import {
   shouldCompact,
   compactMessages,
+  buildCompactionSummaryMessage,
   extractMemories,
   RECENT_MESSAGES_TO_KEEP,
 } from "@/utils/ai/assistant/compact";
@@ -186,10 +187,7 @@ export const POST = withEmailAccount("chat", async (request) => {
 
   if (latestCompaction) {
     modelMessages = [
-      {
-        role: "system" as const,
-        content: `Summary of earlier conversation:\n${latestCompaction.summary}`,
-      },
+      buildCompactionSummaryMessage(latestCompaction.summary),
       ...modelMessages,
     ];
   }

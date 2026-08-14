@@ -5,6 +5,7 @@ import type { GetIntegrationsResponse } from "@/app/api/mcp/integrations/route";
 import type { GetMcpAuthUrlResponse } from "@/app/api/mcp/[integration]/auth-url/route";
 import { Toggle } from "@/components/Toggle";
 import { MutedText, TypographyP } from "@/components/Typography";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TableRow, TableCell } from "@/components/ui/table";
 import {
@@ -13,7 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ChevronDown, ChevronRight, MoreVertical } from "lucide-react";
+import { MoreVertical } from "lucide-react";
 import clsx from "clsx";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { DomainIcon } from "@/components/charts/DomainIcon";
@@ -220,13 +221,21 @@ export function IntegrationRow({
   return (
     <>
       <TableRow>
-        <TableCell>
+        <TableCell className="w-full">
           <div className="flex items-center gap-3">
             <DomainIcon domain={integration.url} size={32} />
-            <span>{integration.displayName}</span>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span>{integration.shortName || integration.displayName}</span>
+                {integration.comingSoon && (
+                  <Badge variant="secondary">Coming soon</Badge>
+                )}
+              </div>
+              <MutedText>{integration.description}</MutedText>
+            </div>
           </div>
         </TableCell>
-        <TableCell>
+        <TableCell className="whitespace-nowrap">
           {integration.comingSoon ? (
             <RequestAccessDialog integrationName={integration.displayName} />
           ) : integration.authType === "oauth" ||
@@ -259,35 +268,6 @@ export function IntegrationRow({
             </TypographyP>
           )}
         </TableCell>
-        <TableCell className="hidden sm:table-cell">
-          {integration.comingSoon ? (
-            <span className="text-gray-400 text-sm">Coming Soon</span>
-          ) : connected && tools.length > 0 ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="flex items-center gap-1"
-              onClick={() => {
-                analytics.captureAction("integration_tools_expanded", {
-                  integration: integration.name,
-                  expanded: !expandedTools,
-                  enabled_tool_count: toolsCount,
-                  total_tool_count: totalTools,
-                });
-                setExpandedTools(!expandedTools);
-              }}
-            >
-              {expandedTools ? (
-                <ChevronDown className="h-4 w-4" />
-              ) : (
-                <ChevronRight className="h-4 w-4" />
-              )}
-              {toolsCount}/{totalTools} tools
-            </Button>
-          ) : (
-            <span className="text-gray-400 text-sm">No tools</span>
-          )}
-        </TableCell>
         <TableCell>
           {connected && !integration.comingSoon && (
             <DropdownMenu>
@@ -313,9 +293,10 @@ export function IntegrationRow({
                       });
                       setExpandedTools(!expandedTools);
                     }}
-                    className="sm:hidden"
                   >
-                    {expandedTools ? "Hide tools" : "Manage tools"}
+                    {expandedTools
+                      ? "Hide tools"
+                      : `Manage tools (${toolsCount} of ${totalTools} on)`}
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem onClick={handleTogglePause}>
@@ -356,7 +337,7 @@ function ToolsList({ tools, onToggleTool }: ToolsListProps) {
 
   return (
     <TableRow>
-      <TableCell colSpan={4} className="bg-muted/50">
+      <TableCell colSpan={3} className="bg-muted/50">
         <div className="space-y-3">
           {sortedTools.map((tool) => (
             <div

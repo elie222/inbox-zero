@@ -244,7 +244,10 @@ const bottomMailLinks: NavItem[] = [
   },
 ];
 
-export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
+export function SideNav({
+  feedbackEnabled,
+  ...props
+}: React.ComponentProps<typeof Sidebar> & { feedbackEnabled: boolean }) {
   const navigation = useNavigation();
   const path = usePathname();
   const showMailNav = path.includes("/compose");
@@ -340,11 +343,13 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarFooter className="pb-4">
         <SideNavMenu items={visibleBottomLinks} activeHref={path} />
 
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <FeedbackDialog />
-          </SidebarMenuItem>
-        </SidebarMenu>
+        {feedbackEnabled && (
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <FeedbackDialog />
+            </SidebarMenuItem>
+          </SidebarMenu>
+        )}
 
         <NavUser />
       </SidebarFooter>

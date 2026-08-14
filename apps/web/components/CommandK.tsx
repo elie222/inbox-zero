@@ -80,7 +80,7 @@ function CommandPalette() {
       compose: onOpenComposeModal,
       archive: threadId ? onArchive : undefined,
       // While the palette is open, Escape belongs to the dialog.
-      close: open || !threadId ? undefined : () => showEmail(null),
+      backToList: open || !threadId ? undefined : () => showEmail(null),
     }),
     [threadId, open, onArchive, onOpenComposeModal, showEmail, setOpen],
   );

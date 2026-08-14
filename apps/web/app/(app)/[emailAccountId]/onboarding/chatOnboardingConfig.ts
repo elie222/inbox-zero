@@ -5,6 +5,7 @@ import type {
 } from "@/utils/ai/onboarding/chat";
 import {
   MAX_SETUP_RULES,
+  type OnboardingChatInput,
   type OnboardingRuleAction,
   type OnboardingSetup,
 } from "@/app/api/chat/onboarding/validation";
@@ -193,4 +194,20 @@ export function buildInitialSetup(provider: string): OnboardingSetup {
     })),
     status: "draft",
   };
+}
+
+export function serializeOnboardingChatMessages(
+  messages: OnboardingChatMessage[],
+): OnboardingChatInput["messages"] {
+  return messages.flatMap((message) => {
+    if (message.role === "system") return [];
+
+    const parts = message.parts.flatMap((part) =>
+      part.type === "text" ? [{ type: "text" as const, text: part.text }] : [],
+    );
+
+    return parts.length > 0
+      ? [{ id: message.id, role: message.role, parts }]
+      : [];
+  });
 }

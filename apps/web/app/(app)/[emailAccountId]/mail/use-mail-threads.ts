@@ -17,6 +17,7 @@ import {
   removeCachedThreadsFromView,
   restoreCachedThreadsToView,
   writeCachedThreadList,
+  writeCachedThreadRows,
 } from "@/utils/email-cache/thread-lists";
 import { restoreThreadOrder } from "@/utils/email-cache/thread-order";
 import {
@@ -37,6 +38,12 @@ type RemovedThread = {
 export type ThreadRemoval = {
   viewIdentity: string;
   entries: Map<string, RemovedThread>;
+};
+
+export type OptimisticThreadUpdate = {
+  threadIds: string[];
+  commit: (threadId: string) => void;
+  rollback: (threadIds: string[]) => void;
 };
 
 type PersistentView = {
@@ -86,6 +93,10 @@ export function useMailThreads({
     useState<string>();
   const paginationRetryIdentity = useRef<string | undefined>(undefined);
   const hiddenByView = useRef(new Map<string, Set<string>>());
+  const optimisticUpdateTokens = useRef(new Map<string, symbol>());
+  const revalidationRequested = useRef(false);
+  const revalidationInProgress = useRef(false);
+  const pendingReconciliationWrites = useRef(0);
   const [, renderHiddenChanges] = useReducer((version) => version + 1, 0);
   const remoteIdentity = useRef<string | undefined>(undefined);
 
@@ -309,6 +320,127 @@ export function useMailThreads({
     [emailAccountId, mutate, viewIdentity, viewKey],
   );
 
+  const reconcileOptimisticUpdates = useCallback(
+    function reconcileOptimisticUpdates() {
+      if (
+        !revalidationRequested.current ||
+        revalidationInProgress.current ||
+        pendingReconciliationWrites.current ||
+        optimisticUpdateTokens.current.size
+      ) {
+        return;
+      }
+
+      revalidationRequested.current = false;
+      revalidationInProgress.current = true;
+      mutate()
+        .catch(() => {})
+        .finally(() => {
+          revalidationInProgress.current = false;
+          reconcileOptimisticUpdates();
+        });
+    },
+    [mutate],
+  );
+
+  const optimisticallyUpdateThreads = useCallback(
+    (
+      threadIds: string[],
+      updater: (thread: ListThread) => ListThread,
+    ): OptimisticThreadUpdate => {
+      const targets = new Set(threadIds);
+      const previousById = new Map<string, ListThread>();
+      const updatedById = new Map<string, ListThread>();
+
+      for (const thread of sourceThreads ?? []) {
+        if (!targets.has(thread.id)) continue;
+        const updated = updater(thread);
+        if (updated === thread) continue;
+        previousById.set(thread.id, thread);
+        updatedById.set(thread.id, updated);
+      }
+
+      const changedThreadIds = [...updatedById.keys()];
+      const updateToken = Symbol("optimistic-thread-update");
+      if (changedThreadIds.length && revalidationInProgress.current) {
+        revalidationRequested.current = true;
+      }
+      for (const threadId of changedThreadIds) {
+        optimisticUpdateTokens.current.set(threadId, updateToken);
+      }
+
+      const applyThreadUpdates = (updates: ReadonlyMap<string, ListThread>) => {
+        if (!updates.size) return Promise.resolve();
+        setPersistent((current) =>
+          current?.identity === viewIdentity
+            ? {
+                ...current,
+                threads: replaceThreads(current.threads, updates),
+              }
+            : current,
+        );
+        const localUpdate = mutate(
+          (pages) =>
+            pages?.map((page) => ({
+              ...page,
+              threads: replaceThreads(page.threads, updates),
+            })),
+          { revalidate: false, populateCache: true },
+        );
+        const persistentUpdate = writeCachedThreadRows({
+          emailAccountId,
+          threads: [...updates.values()],
+        });
+
+        return Promise.allSettled([localUpdate, persistentUpdate]).then(
+          () => {},
+        );
+      };
+
+      applyThreadUpdates(updatedById);
+
+      const isLatestUpdate = (threadId: string) =>
+        optimisticUpdateTokens.current.get(threadId) === updateToken;
+
+      return {
+        threadIds: changedThreadIds,
+        commit: (threadId) => {
+          if (isLatestUpdate(threadId)) {
+            optimisticUpdateTokens.current.delete(threadId);
+            reconcileOptimisticUpdates();
+          }
+        },
+        rollback: (threadIds) => {
+          const previousThreads = new Map<string, ListThread>();
+
+          for (const threadId of threadIds) {
+            if (!isLatestUpdate(threadId)) continue;
+            optimisticUpdateTokens.current.delete(threadId);
+            const previous = previousById.get(threadId);
+            if (previous) previousThreads.set(threadId, previous);
+          }
+
+          if (previousThreads.size) {
+            revalidationRequested.current = true;
+            pendingReconciliationWrites.current += 1;
+            applyThreadUpdates(previousThreads).finally(() => {
+              pendingReconciliationWrites.current -= 1;
+              reconcileOptimisticUpdates();
+            });
+          }
+          reconcileOptimisticUpdates();
+        },
+      };
+    },
+    [
+      emailAccountId,
+      mutate,
+      reconcileOptimisticUpdates,
+      sourceThreads,
+      viewIdentity,
+    ],
+  );
+
   const hasMore = data
     ? Boolean(data.at(-1)?.nextPageToken)
     : persistent?.identity === viewIdentity && persistent.hasMore;
@@ -331,10 +463,18 @@ export function useMailThreads({
     }, [data, setSize, viewIdentity]),
     removeThreads,
     restoreThreads,
+    optimisticallyUpdateThreads,
   };
 }
 
 const EMPTY_THREAD_IDS = new Set<string>();
+
+function replaceThreads(
+  threads: ListThread[],
+  replacements: ReadonlyMap<string, ListThread>,
+) {
+  return threads.map((thread) => replacements.get(thread.id) ?? thread);
+}
 
 function insertRestoredThreads(
   threads: ListThread[],

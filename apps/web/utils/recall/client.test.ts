@@ -16,11 +16,12 @@ describe("RecallBotProvider", () => {
     vi.resetModules();
     readFileMock.mockReset();
     readFileMock.mockResolvedValue("camera-image");
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({ id: "bot-1" }), {
-        status: 201,
-        headers: { "Content-Type": "application/json" },
-      }),
+    vi.spyOn(globalThis, "fetch").mockImplementation(
+      async () =>
+        new Response(JSON.stringify({ id: "bot-1" }), {
+          status: 201,
+          headers: { "Content-Type": "application/json" },
+        }),
     );
   });
 
@@ -48,7 +49,34 @@ describe("RecallBotProvider", () => {
     });
   });
 
-  it("retries loading the camera image after a transient failure", async () => {
+  it("schedules the bot without video when the camera image cannot be loaded", async () => {
+    const readError = Object.assign(new Error("Temporary read failure"), {
+      code: "EIO",
+    });
+    readFileMock.mockRejectedValue(readError);
+
+    const { RecallBotProvider } = await import("@/utils/recall/client");
+    const provider = new RecallBotProvider(createTestLogger());
+
+    await expect(
+      provider.scheduleBot({
+        meetingUrl: "https://meet.google.com/abc-defg-hij",
+        joinAt: new Date("2026-05-04T09:00:00.000Z"),
+      }),
+    ).resolves.toEqual({
+      externalBotId: "bot-1",
+    });
+
+    expect(fetch).toHaveBeenCalledTimes(1);
+    const request = vi.mocked(fetch).mock.calls[0]?.[1];
+    expect(JSON.parse(request?.body as string)).toEqual({
+      meeting_url: "https://meet.google.com/abc-defg-hij",
+      bot_name: "Inbox Zero Notetaker",
+      join_at: "2026-05-04T09:00:00.000Z",
+    });
+  });
+
+  it("retries loading the camera image for the next bot", async () => {
     const readError = Object.assign(new Error("Temporary read failure"), {
       code: "EIO",
     });
@@ -63,14 +91,23 @@ describe("RecallBotProvider", () => {
       joinAt: new Date("2026-05-04T09:00:00.000Z"),
     };
 
-    await expect(provider.scheduleBot(bot)).rejects.toThrow(
-      "Temporary read failure",
-    );
+    await expect(provider.scheduleBot(bot)).resolves.toEqual({
+      externalBotId: "bot-1",
+    });
     await expect(provider.scheduleBot(bot)).resolves.toEqual({
       externalBotId: "bot-1",
     });
 
     expect(readFileMock).toHaveBeenCalledTimes(2);
-    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    const secondRequest = vi.mocked(fetch).mock.calls[1]?.[1];
+    expect(JSON.parse(secondRequest?.body as string)).toMatchObject({
+      automatic_video_output: {
+        in_call_recording: {
+          kind: "jpeg",
+          b64_data: "camera-image",
+        },
+      },
+    });
   });
 });

@@ -285,6 +285,23 @@ describe("cancelQueuedThreads", () => {
       }),
     ).toEqual({ cancelled: [], notCancelled: ["never-queued"] });
   });
+
+  it("reports when every thread in a batch has settled", async () => {
+    mockMarkReadThreadAction.mockResolvedValue(undefined);
+    const { markReadThreads } = await import("./archive-queue");
+    const onSuccess = vi.fn();
+    const onSettled = vi.fn();
+
+    await markReadThreads({
+      threadIds: ["thread-1", "thread-2"],
+      onSuccess,
+      onSettled,
+      emailAccountId: "account-1",
+    });
+
+    await vi.waitFor(() => expect(onSettled).toHaveBeenCalledOnce());
+    expect(onSuccess).toHaveBeenCalledTimes(2);
+  });
 });
 
 // The queue atom isn't exported; it persists to localStorage on every write,
