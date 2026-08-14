@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useMemo } from "react";
+import { memo, useMemo, type Ref } from "react";
 import { MailLabelChip } from "@/app/(app)/[emailAccountId]/mail/MailLabelChip";
 import { isThreadUnread } from "@/app/(app)/[emailAccountId]/mail/read-state";
 import type {
@@ -34,6 +34,7 @@ export type ThreadRowProps = {
   onOpen: (index: number) => void;
   onToggleSelect: (index: number) => void;
   onSelectRangeTo: (index: number) => void;
+  rowRef?: Ref<HTMLDivElement>;
 };
 
 export const ThreadRow = memo(function ThreadRow({
@@ -48,6 +49,7 @@ export const ThreadRow = memo(function ThreadRow({
   onOpen,
   onToggleSelect,
   onSelectRangeTo,
+  rowRef,
 }: ThreadRowProps) {
   const message = thread.messages.at(-1);
 
@@ -119,6 +121,7 @@ export const ThreadRow = memo(function ThreadRow({
   return (
     <div
       aria-selected={isSelected}
+      ref={rowRef}
       className={cn(
         "group relative flex cursor-pointer border-b border-border/60 outline-none",
         isWide

@@ -1,11 +1,18 @@
 "use client";
 
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { SelectionBar } from "@/app/(app)/[emailAccountId]/mail/SelectionBar";
 import { ThreadRow } from "@/app/(app)/[emailAccountId]/mail/ThreadRow";
 import type {
   ListThread,
   MailLayoutMode,
 } from "@/app/(app)/[emailAccountId]/mail/types";
+import {
+  scrollElementIntoContainer,
+  shouldPrefetchMoreThreads,
+  THREAD_LOAD_MORE_ROOT_MARGIN,
+} from "@/app/(app)/[emailAccountId]/mail/thread-list-behavior";
+import { LoadingMiniSpinner } from "@/components/Loading";
 import { Button } from "@/components/ui/button";
 import type { EmailLabels } from "@/providers/email-label-types";
 
@@ -49,6 +56,53 @@ export function ThreadList({
   isLoadingMore,
   onLoadMore,
 }: ThreadListProps) {
+  const [scrollRoot, setScrollRoot] = useState<HTMLDivElement | null>(null);
+  const focusedRowRef = useRef<HTMLDivElement | null>(null);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const prefetchForCount = useRef<number | null>(null);
+  const focusedThreadId = threads[focusedIndex]?.id;
+
+  // Keep the J/K cursor on screen without centering every row. Layout phase so
+  // a held arrow key never paints a selected row that's already off-screen.
+  useLayoutEffect(() => {
+    if (!scrollRoot || focusedIndex < 0 || !focusedThreadId) return;
+    const row = focusedRowRef.current;
+    if (!row) return;
+    scrollElementIntoContainer(scrollRoot, row);
+  }, [focusedIndex, focusedThreadId, scrollRoot]);
+
+  useEffect(() => {
+    if (
+      !shouldPrefetchMoreThreads({
+        hasMore: showLoadMore,
+        isLoadingMore,
+        focusedIndex,
+        threadCount: threads.length,
+      })
+    ) {
+      return;
+    }
+    // A failed page doesn't grow the list; don't retry it in a loop.
+    if (prefetchForCount.current === threads.length) return;
+    prefetchForCount.current = threads.length;
+    onLoadMore();
+  }, [focusedIndex, isLoadingMore, onLoadMore, showLoadMore, threads.length]);
+
+  useEffect(() => {
+    if (!showLoadMore || !scrollRoot) return;
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) onLoadMore();
+      },
+      { root: scrollRoot, rootMargin: THREAD_LOAD_MORE_ROOT_MARGIN },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [onLoadMore, scrollRoot, showLoadMore]);
+
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <SelectionBar
@@ -58,7 +112,10 @@ export function ThreadList({
         selectedCount={selectedCount}
       />
 
-      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+      <div
+        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
+        ref={setScrollRoot}
+      >
         {threads.length === 0 ? (
           <div className="px-6 py-12 text-center">
             <div className="text-foreground text-sm">{emptyTitle}</div>
@@ -80,6 +137,7 @@ export function ThreadList({
                   onOpen={onOpenThread}
                   onSelectRangeTo={onSelectRangeTo}
                   onToggleSelect={onToggleSelect}
+                  rowRef={index === focusedIndex ? focusedRowRef : undefined}
                   thread={thread}
                   userEmail={userEmail}
                   userLabels={userLabels}
@@ -88,15 +146,20 @@ export function ThreadList({
             </div>
 
             {showLoadMore ? (
-              <div className="flex justify-center px-4 py-5">
-                <Button
-                  loading={isLoadingMore}
-                  onClick={onLoadMore}
-                  size="sm"
-                  variant="outline"
-                >
-                  Load more
-                </Button>
+              <div className="flex justify-center px-4 py-5" ref={sentinelRef}>
+                {isLoadingMore ? (
+                  <div
+                    aria-live="polite"
+                    className="flex items-center gap-2 text-muted-foreground text-xs"
+                  >
+                    <LoadingMiniSpinner />
+                    Loading more
+                  </div>
+                ) : (
+                  <Button onClick={onLoadMore} size="sm" variant="outline">
+                    Load more
+                  </Button>
+                )}
               </div>
             ) : (
               <div className="px-4 pt-5 pb-10 text-center text-muted-foreground text-xs">
