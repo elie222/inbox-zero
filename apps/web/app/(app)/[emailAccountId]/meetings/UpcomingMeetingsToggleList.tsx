@@ -19,6 +19,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import type { GetMeetingRecorderUpcomingResponse } from "@/app/api/user/meeting-recorder/upcoming/route";
 import { MeetingListItem } from "@/app/(app)/[emailAccountId]/meetings/MeetingListItem";
+import { MEETING_DETAIL_STATUSES } from "@/utils/meeting-recorder/recording-lifecycle";
 import { useMeetingRecorderUpcoming } from "@/hooks/useMeetingRecorder";
 import { setMeetingJoinOverrideAction } from "@/utils/actions/meeting-recorder";
 import { getActionErrorMessage } from "@/utils/error";
@@ -27,8 +28,10 @@ type UpcomingEvent = GetMeetingRecorderUpcomingResponse["events"][number];
 
 export function UpcomingMeetingsToggleList({
   emailAccountId,
+  onOpenMeeting,
 }: {
   emailAccountId: string;
+  onOpenMeeting: (meetingId: string) => void;
 }) {
   const { data, isLoading, error, mutate } =
     useMeetingRecorderUpcoming(emailAccountId);
@@ -91,6 +94,12 @@ export function UpcomingMeetingsToggleList({
           <ListCard className="mt-4">
             {events.map((event) => {
               const joining = isJoining(event);
+              const detailMeetingId =
+                event.meetingId &&
+                event.recordingStatus &&
+                MEETING_DETAIL_STATUSES.includes(event.recordingStatus)
+                  ? event.meetingId
+                  : null;
 
               return (
                 <MeetingListItem
@@ -100,18 +109,25 @@ export function UpcomingMeetingsToggleList({
                   endTime={event.endTime}
                   status={event.recordingStatus}
                   failureReason={event.failureReason}
+                  onClick={
+                    detailMeetingId
+                      ? () => onOpenMeeting(detailMeetingId)
+                      : undefined
+                  }
                 >
-                  <Toggle
-                    name={`join-${event.id}`}
-                    ariaLabel={`Record ${event.title}`}
-                    enabled={joining}
-                    // A downgraded user must still be able to cancel a booked
-                    // meeting; only creating a new booking is gated.
-                    disabled={
-                      pendingEventId === event.id || (isLocked && !joining)
-                    }
-                    onChange={(join) => toggleEvent(event, join)}
-                  />
+                  {!detailMeetingId && (
+                    <Toggle
+                      name={`join-${event.id}`}
+                      ariaLabel={`Record ${event.title}`}
+                      enabled={joining}
+                      // A downgraded user must still be able to cancel a booked
+                      // meeting; only creating a new booking is gated.
+                      disabled={
+                        pendingEventId === event.id || (isLocked && !joining)
+                      }
+                      onChange={(join) => toggleEvent(event, join)}
+                    />
+                  )}
                 </MeetingListItem>
               );
             })}

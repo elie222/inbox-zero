@@ -48,6 +48,13 @@ export const CAPTURED_MEETING_STATUSES: MeetingRecordingStatus[] = [
   MeetingRecordingStatus.DONE,
 ];
 
+// These outcomes have useful details to show even when the calendar event's
+// scheduled end is still in the future.
+export const MEETING_DETAIL_STATUSES: MeetingRecordingStatus[] = [
+  MeetingRecordingStatus.CALL_ENDED,
+  MeetingRecordingStatus.DONE,
+];
+
 // A booked bot is not a recorded meeting. The Recorded section only shows
 // calls the bot engaged with or that produced media; untouched scheduled
 // bookings are no-shows.

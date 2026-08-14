@@ -20,6 +20,7 @@ import { updateMeetingRecorderSettingsAction } from "@/utils/actions/meeting-rec
 import { getActionErrorMessage } from "@/utils/error";
 import { MeetingRecorderOnboarding } from "@/app/(app)/[emailAccountId]/meetings/MeetingRecorderOnboarding";
 import { MeetingRecorderSettingsDialog } from "@/app/(app)/[emailAccountId]/meetings/MeetingRecorderSettingsDialog";
+import { MeetingDetail } from "@/app/(app)/[emailAccountId]/meetings/MeetingDetail";
 import { MeetingsList } from "@/app/(app)/[emailAccountId]/meetings/MeetingsList";
 import { UpcomingMeetingsToggleList } from "@/app/(app)/[emailAccountId]/meetings/UpcomingMeetingsToggleList";
 import { hasConnectedCalendar } from "@/app/(app)/[emailAccountId]/meetings/calendar-connection-state";
@@ -56,6 +57,7 @@ export default function MeetingsPage() {
 function MeetingRecorderPageContent() {
   const { emailAccountId } = useAccount();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [openMeetingId, setOpenMeetingId] = useState<string | null>(null);
 
   const {
     data: calendarsData,
@@ -156,10 +158,18 @@ function MeetingRecorderPageContent() {
           />
         )}
 
-        <UpcomingMeetingsToggleList emailAccountId={emailAccountId} />
+        <UpcomingMeetingsToggleList
+          emailAccountId={emailAccountId}
+          onOpenMeeting={setOpenMeetingId}
+        />
 
-        <MeetingsList />
+        <MeetingsList onOpenMeeting={setOpenMeetingId} />
       </div>
+
+      <MeetingDetail
+        meetingId={openMeetingId}
+        onClose={() => setOpenMeetingId(null)}
+      />
 
       <MeetingRecorderSettingsDialog
         emailAccountId={emailAccountId}

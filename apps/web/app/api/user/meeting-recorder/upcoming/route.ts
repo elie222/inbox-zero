@@ -66,6 +66,7 @@ async function getData({
       calendarEventId: { in: videoEvents.map((event) => event.id) },
     },
     select: {
+      id: true,
       calendarEventId: true,
       joinOverride: true,
       recording: { select: { status: true, failureReason: true } },
@@ -85,6 +86,7 @@ async function getData({
 
       return {
         id: event.id,
+        meetingId: meeting?.id,
         title: event.title,
         startTime: event.startTime,
         endTime: event.endTime,

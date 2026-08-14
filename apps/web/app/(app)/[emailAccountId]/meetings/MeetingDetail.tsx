@@ -26,6 +26,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { getMeetingDetailState } from "@/app/(app)/[emailAccountId]/meetings/meeting-detail-state";
 import { useMeetingRecorderMeeting } from "@/hooks/useMeetingRecorder";
+import { STILL_CAPTURING_STATUSES } from "@/utils/meeting-recorder/recording-lifecycle";
 import { formatTranscriptTimestamp } from "@/utils/meeting-recorder/transcript-prompt";
 
 export function MeetingDetail({
@@ -43,6 +44,9 @@ export function MeetingDetail({
 
   const summary = data?.summary;
   const transcript = data?.recording?.transcript;
+  const isStillCapturing =
+    !!data?.recording?.status &&
+    STILL_CAPTURING_STATUSES.includes(data.recording.status);
 
   const state = getMeetingDetailState({
     hasSummary: !!summary,
@@ -100,8 +104,9 @@ export function MeetingDetail({
 
           {state === "processing" && (
             <MutedText>
-              The recording is in progress or being processed. Notes will appear
-              here when they are ready.
+              {isStillCapturing
+                ? "The notetaker is recording this call. The transcript and notes will appear here after it ends."
+                : "The call has ended. The transcript and notes are being prepared, and this view will update automatically."}
             </MutedText>
           )}
 
@@ -180,7 +185,7 @@ export function MeetingDetail({
           )}
 
           {!!transcript?.length && (
-            <Collapsible>
+            <Collapsible defaultOpen>
               <Card>
                 <CollapsibleTrigger className="group flex w-full items-center gap-3 p-4 text-left hover:bg-accent/50">
                   <TextQuoteIcon className="size-4 shrink-0 text-muted-foreground" />
