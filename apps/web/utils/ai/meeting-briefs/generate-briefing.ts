@@ -101,7 +101,10 @@ export async function aiGenerateMeetingBriefing({
     );
   }
 
-  const prompt = buildPrompt(briefingData, emailAccount);
+  const availableSearchTools = ["perplexitySearch", "webSearch"].filter(
+    (toolName) => toolName in searchTools,
+  );
+  const prompt = buildPrompt(briefingData, emailAccount, availableSearchTools);
   const modelOptions = getModelForUseCase(
     emailAccount.user,
     LlmUseCase.MeetingBriefing,
@@ -409,6 +412,7 @@ function createWebSearchTool({
 export function buildPrompt(
   briefingData: MeetingBriefingData,
   emailAccount: EmailAccountWithAI,
+  availableSearchTools: string[],
 ): string {
   const { event, externalGuests, emailThreads, pastMeetings } = briefingData;
 
@@ -424,20 +428,9 @@ export function buildPrompt(
     }),
   );
 
-  // List available search tools for the prompt
-  const availableTools: string[] = [];
-  if (env.PERPLEXITY_API_KEY) availableTools.push("perplexitySearch");
-  const webSearchModelOptions = getModelForUseCase(
-    emailAccount.user,
-    LlmUseCase.MeetingWebSearch,
-  );
-  if (getWebSearchConfig(webSearchModelOptions.provider)) {
-    availableTools.push("webSearch");
-  }
-
   const toolsNote =
-    availableTools.length > 0
-      ? `\nAvailable search tools: ${availableTools.join(", ")}`
+    availableSearchTools.length > 0
+      ? `\nAvailable search tools: ${availableSearchTools.join(", ")}`
       : "";
 
   const prompt = `Prepare a concise briefing for this upcoming meeting.

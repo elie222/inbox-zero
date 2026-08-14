@@ -102,7 +102,10 @@ describe("buildPrompt timezone handling", () => {
       ],
     };
 
-    const prompt = buildPrompt(briefingData, mockEmailAccount);
+    const prompt = buildPrompt(briefingData, mockEmailAccount, [
+      "perplexitySearch",
+      "webSearch",
+    ]);
 
     // The past meeting should show "4:00 PM" (Brazil time), NOT "7:00 PM" (UTC)
     expect(prompt).toMatchInlineSnapshot(`
@@ -163,7 +166,10 @@ describe("buildPrompt timezone handling", () => {
       pastMeetings: [],
     };
 
-    const prompt = buildPrompt(briefingData, mockEmailAccount);
+    const prompt = buildPrompt(briefingData, mockEmailAccount, [
+      "perplexitySearch",
+      "webSearch",
+    ]);
 
     expect(prompt).toMatchInlineSnapshot(`
       "Prepare a concise briefing for this upcoming meeting.
@@ -198,15 +204,7 @@ describe("buildPrompt timezone handling", () => {
     `);
   });
 
-  it("uses the account's meeting web search provider to decide availability", () => {
-    mockGetModel.mockReturnValue({
-      provider: "anthropic",
-      modelName: "claude-haiku-4-5-20251001",
-      model: { id: "model" },
-      fallbackModels: [],
-      hasUserApiKey: true,
-    });
-
+  it("only advertises the search tools built for the account", () => {
     const briefingData: MeetingBriefingData = {
       event: {
         id: "upcoming",
@@ -224,9 +222,10 @@ describe("buildPrompt timezone handling", () => {
       pastMeetings: [],
     };
 
-    const prompt = buildPrompt(briefingData, mockEmailAccount);
+    const prompt = buildPrompt(briefingData, mockEmailAccount, [
+      "perplexitySearch",
+    ]);
 
-    expect(mockGetModel).toHaveBeenCalledWith(mockEmailAccount.user, "economy");
     expect(prompt).toContain("Available search tools: perplexitySearch");
     expect(prompt).not.toContain("webSearch");
   });
