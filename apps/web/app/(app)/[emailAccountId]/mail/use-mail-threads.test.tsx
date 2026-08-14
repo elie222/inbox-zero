@@ -475,6 +475,42 @@ describe("useMailThreads", () => {
     );
   });
 
+  it("retries the next page after a failed load more", async () => {
+    cache.read.mockResolvedValue(undefined);
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce({
+        threads: [createThread("one")],
+        nextPageToken: "page-2",
+      })
+      .mockRejectedValueOnce(new Error("page two failed"))
+      .mockResolvedValueOnce({
+        threads: [createThread("two")],
+      });
+
+    const { result } = renderHook(
+      () =>
+        useMailThreads({
+          emailAccountId: "account-load-more-retry",
+          query: { type: "inbox" },
+        }),
+      { wrapper: createWrapper(fetcher) },
+    );
+    await waitFor(() => expect(result.current.threads[0]?.id).toBe("one"));
+
+    act(() => result.current.loadMore());
+    await waitFor(() => expect(result.current.isLoadingMore).toBe(false));
+
+    act(() => result.current.loadMore());
+    await waitFor(() =>
+      expect(result.current.threads.map((thread) => thread.id)).toEqual([
+        "one",
+        "two",
+      ]),
+    );
+    expect(fetcher.mock.calls[2]?.[0][0]).toContain("nextPageToken=page-2");
+  });
+
   it("retries a failed first page before loading more from cache", async () => {
     cache.read.mockResolvedValue({
       cachedAt: 100,

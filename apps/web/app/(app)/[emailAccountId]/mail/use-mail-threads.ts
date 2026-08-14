@@ -449,10 +449,17 @@ export function useMailThreads({
     : persistent?.identity === viewIdentity && persistent.hasMore;
 
   useEffect(() => {
+    const loadedPageCount = data?.length ?? 0;
+    if (error && size > 1 && size > loadedPageCount) {
+      loadMoreLock.current = false;
+      setSize(Math.max(loadedPageCount, 1)).catch(() => {});
+      return;
+    }
+
     const latestPageLoaded = !data || data.length === size;
     const paginationIdle = paginationRequestIdentity !== viewIdentity;
     if (latestPageLoaded && paginationIdle) loadMoreLock.current = false;
-  }, [data, paginationRequestIdentity, size, viewIdentity]);
+  }, [data, error, paginationRequestIdentity, setSize, size, viewIdentity]);
 
   return {
     threads,
@@ -468,7 +475,11 @@ export function useMailThreads({
       if (data) {
         if (!data.at(-1)?.nextPageToken) return;
         loadMoreLock.current = true;
-        setSize((current) => current + 1).catch(() => {});
+        const loadedPageCount = data.length;
+        setSize(loadedPageCount + 1).catch(() => {
+          loadMoreLock.current = false;
+          setSize(loadedPageCount).catch(() => {});
+        });
       } else {
         loadMoreLock.current = true;
         paginationRetryIdentity.current = undefined;

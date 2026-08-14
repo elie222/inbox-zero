@@ -35,6 +35,8 @@ export type ThreadListProps = {
   showLoadMore: boolean;
   isLoadingMore: boolean;
   onLoadMore: () => void;
+  /** Identity of the current view so prefetch state does not leak across splits. */
+  listKey: string;
 };
 
 export function ThreadList({
@@ -55,12 +57,21 @@ export function ThreadList({
   showLoadMore,
   isLoadingMore,
   onLoadMore,
+  listKey,
 }: ThreadListProps) {
   const [scrollRoot, setScrollRoot] = useState<HTMLDivElement | null>(null);
   const focusedRowRef = useRef<HTMLDivElement | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const prefetchForCount = useRef<number | null>(null);
+  const prefetchListKey = useRef(listKey);
+  const onLoadMoreRef = useRef(onLoadMore);
+  onLoadMoreRef.current = onLoadMore;
   const focusedThreadId = threads[focusedIndex]?.id;
+
+  if (prefetchListKey.current !== listKey) {
+    prefetchListKey.current = listKey;
+    prefetchForCount.current = null;
+  }
 
   // Keep the J/K cursor on screen without centering every row. Layout phase so
   // a held arrow key never paints a selected row that's already off-screen.
@@ -85,23 +96,25 @@ export function ThreadList({
     // A failed page doesn't grow the list; don't retry it in a loop.
     if (prefetchForCount.current === threads.length) return;
     prefetchForCount.current = threads.length;
-    onLoadMore();
-  }, [focusedIndex, isLoadingMore, onLoadMore, showLoadMore, threads.length]);
+    onLoadMoreRef.current();
+  }, [focusedIndex, isLoadingMore, showLoadMore, threads.length]);
 
   useEffect(() => {
-    if (!showLoadMore || !scrollRoot) return;
+    if (!showLoadMore || !scrollRoot || threads.length === 0) return;
     const sentinel = sentinelRef.current;
     if (!sentinel) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) onLoadMore();
+        if (entries.some((entry) => entry.isIntersecting)) {
+          onLoadMoreRef.current();
+        }
       },
       { root: scrollRoot, rootMargin: THREAD_LOAD_MORE_ROOT_MARGIN },
     );
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [onLoadMore, scrollRoot, showLoadMore]);
+  }, [scrollRoot, showLoadMore, threads.length]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
