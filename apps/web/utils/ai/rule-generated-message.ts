@@ -1,8 +1,6 @@
 import { SENDING_ACTION_TYPES } from "@/utils/ai/sending-action";
 import prisma from "@/utils/prisma";
 
-const ATTRIBUTION_PENDING_WINDOW_MS = 10 * 60 * 1000;
-
 export async function isRuleGeneratedMessage({
   emailAccountId,
   threadId,
@@ -19,9 +17,7 @@ export async function isRuleGeneratedMessage({
       OR: [
         { sentMessageIds: { has: messageId } },
         {
-          executionStartedAt: {
-            gte: new Date(Date.now() - ATTRIBUTION_PENDING_WINDOW_MS),
-          },
+          executionStartedAt: { not: null },
           executionStatus: null,
         },
       ],
