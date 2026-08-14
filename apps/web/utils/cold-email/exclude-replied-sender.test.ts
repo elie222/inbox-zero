@@ -60,7 +60,11 @@ describe("excludeRepliedSendersFromColdEmail", () => {
       emailAccountId: "email-account-1",
       message: {
         ...base,
-        headers: { ...base.headers, cc: "second@example.com" },
+        headers: {
+          ...base.headers,
+          cc: "second@example.com",
+          bcc: "third@example.com",
+        },
       },
       provider,
       logger,
@@ -74,8 +78,33 @@ describe("excludeRepliedSendersFromColdEmail", () => {
           OR: [
             { value: { equals: "first@example.com", mode: "insensitive" } },
             { value: { equals: "second@example.com", mode: "insensitive" } },
+            { value: { equals: "third@example.com", mode: "insensitive" } },
           ],
         }),
+      }),
+    );
+  });
+
+  it("excludes a pinned sender when they are only a BCC recipient", async () => {
+    const message = getMockMessage({ to: "" });
+    vi.mocked(prisma.groupItem.findMany).mockResolvedValue([
+      { value: "hidden@example.com" },
+    ] as any);
+
+    await excludeRepliedSendersFromColdEmail({
+      emailAccountId: "email-account-1",
+      message: {
+        ...message,
+        headers: { ...message.headers, bcc: "hidden@example.com" },
+      },
+      provider,
+      logger,
+    });
+
+    expect(saveLearnedPattern).toHaveBeenCalledWith(
+      expect.objectContaining({
+        from: "hidden@example.com",
+        exclude: true,
       }),
     );
   });
