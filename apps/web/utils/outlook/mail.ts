@@ -12,7 +12,7 @@ import {
   buildReplyAllRecipients,
   mergeAndDedupeRecipients,
 } from "@/utils/email/reply-all";
-import { withOutlookRetry } from "@/utils/outlook/retry";
+import { withMicrosoftGraphRetry } from "@/utils/microsoft/retry";
 import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
 import { uploadResumableChunks } from "@/utils/microsoft/upload-session";
@@ -50,7 +50,7 @@ export async function sendEmailWithHtml(
 
   // For new emails, create draft then send to get the conversationId.
   // sendMail returns 202 with no body, so we use the draft approach instead.
-  const draft: Message = await withOutlookRetry(
+  const draft: Message = await withMicrosoftGraphRetry(
     () =>
       client
         .getClient()
@@ -78,7 +78,7 @@ export async function sendEmailWithHtml(
     });
   }
 
-  await withOutlookRetry(
+  await withMicrosoftGraphRetry(
     () => client.getClient().api(`/me/messages/${draft.id}/send`).post({}),
     logger,
   );
@@ -116,7 +116,7 @@ export async function replyToEmail(
   // Use createReply to create a properly threaded draft
   // Microsoft Graph's sendMail doesn't support setting In-Reply-To/References headers
   // Only createReply/createReplyAll endpoints ensure proper threading
-  const replyDraft: Message = await withOutlookRetry(
+  const replyDraft: Message = await withMicrosoftGraphRetry(
     () =>
       client.getClient().api(`/me/messages/${message.id}/createReply`).post({}),
     logger,
@@ -128,7 +128,7 @@ export async function replyToEmail(
   );
 
   // Update the draft with our content
-  await withOutlookRetry(
+  await withMicrosoftGraphRetry(
     () =>
       client
         .getClient()
@@ -158,7 +158,7 @@ export async function replyToEmail(
   }
 
   // Send the draft
-  await withOutlookRetry(
+  await withMicrosoftGraphRetry(
     () => client.getClient().api(`/me/messages/${replyDraft.id}/send`).post({}),
     logger,
   );
@@ -192,7 +192,7 @@ export async function forwardEmail(
   const bccRecipients = buildGraphRecipients(options.bcc);
 
   // Get the original message
-  const originalMessage: Message = await withOutlookRetry(
+  const originalMessage: Message = await withMicrosoftGraphRetry(
     () => client.getClient().api(`/me/messages/${options.messageId}`).get(),
     logger,
   );
@@ -217,7 +217,7 @@ export async function forwardEmail(
     conversationIndex: originalMessage.conversationId || "",
   };
 
-  const forwardDraft: Message = await withOutlookRetry(
+  const forwardDraft: Message = await withMicrosoftGraphRetry(
     () =>
       client
         .getClient()
@@ -231,7 +231,7 @@ export async function forwardEmail(
     forwardDraft.from?.emailAddress?.address,
   );
 
-  await withOutlookRetry(
+  await withMicrosoftGraphRetry(
     () =>
       client
         .getClient()
@@ -253,7 +253,7 @@ export async function forwardEmail(
     logger,
   );
 
-  await withOutlookRetry(
+  await withMicrosoftGraphRetry(
     () =>
       client.getClient().api(`/me/messages/${forwardDraft.id}/send`).post({}),
     logger,
@@ -333,7 +333,7 @@ export async function draftEmail(
 
   // Get the original message's isRead status before creating the draft
   // Microsoft Graph's createReplyAll automatically marks the original as read
-  const originalMessage: Message = await withOutlookRetry(
+  const originalMessage: Message = await withMicrosoftGraphRetry(
     () =>
       client
         .getClient()
@@ -346,7 +346,7 @@ export async function draftEmail(
 
   // Use createReplyAll endpoint to create a proper reply draft
   // This ensures the draft is linked to the original message as a reply all
-  const replyDraft: Message = await withOutlookRetry(
+  const replyDraft: Message = await withMicrosoftGraphRetry(
     () =>
       client
         .getClient()
@@ -364,7 +364,7 @@ export async function draftEmail(
     updateRequest.header("If-Match", etag);
   }
 
-  const updatedDraft: Message = await withOutlookRetry(
+  const updatedDraft: Message = await withMicrosoftGraphRetry(
     () =>
       updateRequest.patch({
         subject: args.subject || originalEmail.headers.subject,
@@ -391,7 +391,7 @@ export async function draftEmail(
   // Restore the original message's unread status if it was unread before
   // createReplyAll automatically marks the original message as read
   if (wasUnread) {
-    await withOutlookRetry(
+    await withMicrosoftGraphRetry(
       () =>
         client
           .getClient()
@@ -422,7 +422,7 @@ async function sendReplyUsingCreateReply(
   // Use createReply to create a properly threaded draft
   // Microsoft Graph's createReply automatically sets In-Reply-To and References headers
   // based on the original message, ensuring proper threading across email providers
-  const replyDraft: Message = await withOutlookRetry(
+  const replyDraft: Message = await withMicrosoftGraphRetry(
     () =>
       client
         .getClient()
@@ -435,7 +435,7 @@ async function sendReplyUsingCreateReply(
   // Note: We cannot set In-Reply-To/References headers via internetMessageHeaders
   // as Microsoft Graph only allows custom headers (starting with x-) there.
   // The createReply endpoint handles standard threading headers automatically.
-  await withOutlookRetry(
+  await withMicrosoftGraphRetry(
     () =>
       client
         .getClient()
@@ -467,7 +467,7 @@ async function sendReplyUsingCreateReply(
   }
 
   // Send the draft
-  await withOutlookRetry(
+  await withMicrosoftGraphRetry(
     () => client.getClient().api(`/me/messages/${replyDraft.id}/send`).post({}),
     logger,
   );
@@ -550,7 +550,7 @@ async function addAttachmentsToDraft({
     if (!result) continue;
     const { buffer, base64 } = result;
     if (buffer.length <= MAX_GRAPH_ATTACHMENT_SIZE_BYTES) {
-      await withOutlookRetry(
+      await withMicrosoftGraphRetry(
         () =>
           client
             .getClient()
@@ -639,7 +639,7 @@ async function uploadAttachmentViaSession({
   content: Buffer;
   logger: Logger;
 }) {
-  const uploadSession = await withOutlookRetry(
+  const uploadSession = await withMicrosoftGraphRetry(
     () =>
       client
         .getClient()

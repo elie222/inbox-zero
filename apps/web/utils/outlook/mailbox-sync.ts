@@ -8,7 +8,10 @@ import type { MailboxSyncPage } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
 import type { OutlookClient } from "@/utils/outlook/client";
 import { getCategoryMap, convertMessage } from "@/utils/outlook/message";
-import { extractErrorInfo, withOutlookRetry } from "@/utils/outlook/retry";
+import {
+  extractErrorInfo,
+  withMicrosoftGraphRetry,
+} from "@/utils/microsoft/retry";
 
 const MESSAGE_SELECT_FIELDS =
   "id,conversationId,conversationIndex,internetMessageId,subject,bodyPreview,from,toRecipients,ccRecipients,receivedDateTime,isDraft,isRead,categories,parentFolderId,webLink";
@@ -43,7 +46,7 @@ export async function getOutlookMailboxSyncPage({
 
   const decoded = decodeMailboxSyncCursor(cursor, "microsoft");
   try {
-    const response = await withOutlookRetry<DeltaResponse>(
+    const response = await withMicrosoftGraphRetry<DeltaResponse>(
       () =>
         client
           .getClient()
@@ -146,7 +149,7 @@ async function getInitialPage({
   after: Date;
   limit: number;
 }) {
-  const response = await withOutlookRetry<DeltaResponse>(
+  const response = await withMicrosoftGraphRetry<DeltaResponse>(
     () =>
       client
         .getClient()

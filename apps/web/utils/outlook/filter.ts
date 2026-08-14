@@ -2,7 +2,7 @@ import type { OutlookClient } from "@/utils/outlook/client";
 import type { MessageRule } from "@microsoft/microsoft-graph-types";
 import type { Logger } from "@/utils/logger";
 import { isAlreadyExistsError } from "./errors";
-import { withOutlookRetry } from "@/utils/outlook/retry";
+import { withMicrosoftGraphRetry } from "@/utils/microsoft/retry";
 import { getLabelById, getOrCreateLabel } from "@/utils/outlook/label";
 
 // Microsoft Graph API doesn't have a direct equivalent to Gmail filters
@@ -37,7 +37,7 @@ export async function createFilter(options: {
       actions,
     };
 
-    const response: MessageRule = await withOutlookRetry(
+    const response: MessageRule = await withMicrosoftGraphRetry(
       () =>
         client.getClient().api("/me/mailFolders/inbox/messageRules").post(rule),
       logger,
@@ -80,7 +80,7 @@ export async function createAutoArchiveFilter({
       },
     };
 
-    const response: MessageRule = await withOutlookRetry(
+    const response: MessageRule = await withMicrosoftGraphRetry(
       () =>
         client.getClient().api("/me/mailFolders/inbox/messageRules").post(rule),
       logger,
@@ -106,7 +106,7 @@ export async function deleteFilter({
   logger: Logger;
 }) {
   try {
-    await withOutlookRetry(
+    await withMicrosoftGraphRetry(
       () =>
         client
           .getClient()
@@ -215,7 +215,7 @@ export async function updateFilter({
       actions,
     };
 
-    const response: MessageRule = await withOutlookRetry(
+    const response: MessageRule = await withMicrosoftGraphRetry(
       () =>
         client
           .getClient()

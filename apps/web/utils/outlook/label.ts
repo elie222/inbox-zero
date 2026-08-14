@@ -2,7 +2,10 @@ import type { OutlookClient } from "@/utils/outlook/client";
 import type { Logger } from "@/utils/logger";
 import { publishArchive, type TinybirdEmailAction } from "@inboxzero/tinybird";
 import { WELL_KNOWN_FOLDERS } from "./constants";
-import { extractErrorInfo, withOutlookRetry } from "@/utils/outlook/retry";
+import {
+  extractErrorInfo,
+  withMicrosoftGraphRetry,
+} from "@/utils/microsoft/retry";
 import {
   processThreadMessagesFallback,
   runThreadMessageMutation,
@@ -109,7 +112,7 @@ export async function createLabel({
         ? color
         : OUTLOOK_COLORS[Math.floor(Math.random() * OUTLOOK_COLORS.length)];
 
-    const response: OutlookCategory = await withOutlookRetry(
+    const response: OutlookCategory = await withMicrosoftGraphRetry(
       () =>
         client.getClient().api("/me/outlook/masterCategories").post({
           displayName: sanitizedName,
@@ -254,7 +257,7 @@ export async function labelMessage({
   categories: string[];
   logger: Logger;
 }) {
-  return withOutlookRetry(
+  return withMicrosoftGraphRetry(
     () =>
       client.getClient().api(`/me/messages/${messageId}`).patch({
         categories,
@@ -343,7 +346,7 @@ export async function removeThreadLabel({
         (cat) => cat !== categoryName,
       );
 
-      await withOutlookRetry(
+      await withMicrosoftGraphRetry(
         () =>
           client.getClient().api(`/me/messages/${messageId}`).patch({
             categories: updatedCategories,
@@ -413,7 +416,7 @@ export async function archiveThread({
       threadId,
       logger,
       messageHandler: (messageId) =>
-        withOutlookRetry(
+        withMicrosoftGraphRetry(
           () =>
             client.getClient().api(`/me/messages/${messageId}/move`).post({
               destinationId: folderId,
@@ -474,7 +477,7 @@ export async function archiveThread({
         threadId,
         logger,
         messageHandler: (messageId) =>
-          withOutlookRetry(
+          withMicrosoftGraphRetry(
             () =>
               client
                 .getClient()
@@ -566,7 +569,7 @@ async function moveThreadFromFolderToInbox({
     const response: {
       value: { id?: string | null }[];
       "@odata.nextLink"?: string;
-    } = await withOutlookRetry(
+    } = await withMicrosoftGraphRetry(
       () =>
         nextLink
           ? client.getClient().api(nextLink).get()
@@ -603,7 +606,7 @@ async function moveThreadFromFolderToInbox({
     threadId,
     logger,
     messageHandler: (messageId) =>
-      withOutlookRetry(
+      withMicrosoftGraphRetry(
         () =>
           client
             .getClient()
@@ -683,7 +686,7 @@ export async function markReadThread({
       threadId,
       logger,
       messageHandler: (messageId) =>
-        withOutlookRetry(
+        withMicrosoftGraphRetry(
           () =>
             client.getClient().api(`/me/messages/${messageId}`).patch({
               isRead: read,
@@ -705,7 +708,7 @@ export async function markReadThread({
         threadId,
         logger,
         messageHandler: (messageId) =>
-          withOutlookRetry(
+          withMicrosoftGraphRetry(
             () =>
               client
                 .getClient()
@@ -738,7 +741,7 @@ export async function markImportantMessage({
   logger: Logger;
 }) {
   // In Outlook, we use the "Important" flag
-  await withOutlookRetry(
+  await withMicrosoftGraphRetry(
     () =>
       client
         .getClient()
@@ -759,7 +762,7 @@ export async function markStarredMessage({
   messageId: string;
   logger: Logger;
 }) {
-  await withOutlookRetry(
+  await withMicrosoftGraphRetry(
     () =>
       client
         .getClient()

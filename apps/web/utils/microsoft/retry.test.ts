@@ -4,7 +4,7 @@ import {
   extractErrorInfo,
   isRetryableError,
   calculateRetryDelay,
-  withOutlookRetry,
+  withMicrosoftGraphRetry,
 } from "./retry";
 
 describe("extractErrorInfo", () => {
@@ -212,7 +212,7 @@ describe("calculateRetryDelay", () => {
   });
 });
 
-describe("withOutlookRetry", () => {
+describe("withMicrosoftGraphRetry", () => {
   it("aborts retries when backoff exceeds max blocking delay", async () => {
     const operation = vi.fn().mockRejectedValue(
       Object.assign(new Error("Throttled"), {
@@ -222,7 +222,7 @@ describe("withOutlookRetry", () => {
     );
 
     await expect(
-      withOutlookRetry(operation, createTestLogger(), 5, 1),
+      withMicrosoftGraphRetry(operation, createTestLogger(), 5, 1),
     ).rejects.toBeDefined();
 
     expect(operation).toHaveBeenCalledTimes(1);

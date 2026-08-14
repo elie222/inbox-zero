@@ -47,7 +47,7 @@ import {
   getCategorizationProgress,
   getCategorizationStatusSnapshot,
 } from "@/utils/redis/categorization-progress";
-import { extractErrorInfo, isRetryableError } from "@/utils/outlook/retry";
+import { extractErrorInfo, isRetryableError } from "@/utils/microsoft/retry";
 import {
   extractErrorInfo as extractGmailErrorInfo,
   isRetryableError as isGmailRetryableError,
