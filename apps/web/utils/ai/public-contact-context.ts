@@ -147,18 +147,24 @@ Return JSON matching the provided schema, including direct public source URLs.`,
       if (context) {
         logger.warn("Generated contact context was not safe to share");
       }
-      await storePublicContactContextNotFound({
+      const storedNotFound = await storePublicContactContextNotFound({
         email: identity.data.email,
         researchStartedAt,
       });
+      if (!storedNotFound) {
+        return { status: "unavailable", reason: "cache_unavailable" };
+      }
       return { status: "unavailable", reason: "not_found" };
     }
 
-    await storePublicContactContext({
+    const storedContext = await storePublicContactContext({
       email: identity.data.email,
       context,
       researchStartedAt,
     });
+    if (!storedContext) {
+      return { status: "unavailable", reason: "cache_unavailable" };
+    }
     return { status: "found", context };
   } catch (error) {
     logger.error("Public contact research failed");

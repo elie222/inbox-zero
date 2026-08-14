@@ -4,7 +4,9 @@ import { createScopedLogger } from "@/utils/logger";
 import { acquireOwnedLock, clearOwnedLock } from "@/utils/redis/owned-lock";
 
 const LOCK_KEY_PREFIX = "public-contact-context:v1:lock";
-const RESEARCH_LOCK_TTL_SECONDS = 60;
+// This exceeds the route's 60-second execution limit, so a slow request cannot
+// lose ownership while it is still able to start or finish paid research.
+const RESEARCH_LOCK_TTL_SECONDS = 2 * 60;
 const logger = createScopedLogger("redis/public-contact-context-lock");
 
 export async function acquirePublicContactResearchLock(email: string): Promise<{

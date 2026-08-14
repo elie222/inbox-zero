@@ -40,7 +40,7 @@ describe("public contact research lock", () => {
     expect(key).not.toContain("john");
     expect(key).not.toContain("acme.com");
     expect(redis.set).toHaveBeenCalledWith(key, expect.any(String), {
-      ex: 60,
+      ex: 120,
       nx: true,
     });
   });

@@ -216,6 +216,37 @@ describe("getPublicContactContext", () => {
     });
   });
 
+  it("fails closed when a found result cannot be stored", async () => {
+    storePublicContactContextMock.mockResolvedValue(false);
+
+    await expect(
+      getPublicContactContext({
+        email: "john@acme.com",
+        name: "John Smith",
+        emailAccount: getEmailAccount(),
+      }),
+    ).resolves.toEqual({
+      status: "unavailable",
+      reason: "cache_unavailable",
+    });
+  });
+
+  it("fails closed when a not-found result cannot be stored", async () => {
+    generateTextMock.mockResolvedValue({ output: { context: null } });
+    storePublicContactContextNotFoundMock.mockResolvedValue(false);
+
+    await expect(
+      getPublicContactContext({
+        email: "unknown@acme.com",
+        name: "Unknown Person",
+        emailAccount: getEmailAccount(),
+      }),
+    ).resolves.toEqual({
+      status: "unavailable",
+      reason: "cache_unavailable",
+    });
+  });
+
   it("does not duplicate research while another request holds the lock", async () => {
     vi.mocked(redis.set).mockResolvedValue(null);
 
