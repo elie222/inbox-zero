@@ -53,7 +53,6 @@ export const CAPTURED_MEETING_STATUSES: MeetingRecordingStatus[] = [
 export const MEETING_DETAIL_STATUSES: MeetingRecordingStatus[] = [
   MeetingRecordingStatus.CALL_ENDED,
   MeetingRecordingStatus.DONE,
-  MeetingRecordingStatus.FAILED,
 ];
 
 // A booked bot is not a recorded meeting. The Recorded section only shows

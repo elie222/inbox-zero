@@ -24,9 +24,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MeetingRecordingStatus } from "@/generated/prisma/enums";
 import { getMeetingDetailState } from "@/app/(app)/[emailAccountId]/meetings/meeting-detail-state";
 import { useMeetingRecorderMeeting } from "@/hooks/useMeetingRecorder";
+import { STILL_CAPTURING_STATUSES } from "@/utils/meeting-recorder/recording-lifecycle";
 import { formatTranscriptTimestamp } from "@/utils/meeting-recorder/transcript-prompt";
 
 export function MeetingDetail({
@@ -44,6 +44,9 @@ export function MeetingDetail({
 
   const summary = data?.summary;
   const transcript = data?.recording?.transcript;
+  const isStillCapturing =
+    !!data?.recording?.status &&
+    STILL_CAPTURING_STATUSES.includes(data.recording.status);
 
   const state = getMeetingDetailState({
     hasSummary: !!summary,
@@ -101,8 +104,7 @@ export function MeetingDetail({
 
           {state === "processing" && (
             <MutedText>
-              {data?.recording?.status === MeetingRecordingStatus.IN_CALL ||
-              data?.recording?.status === MeetingRecordingStatus.RECORDING
+              {isStillCapturing
                 ? "The notetaker is recording this call. The transcript and notes will appear here after it ends."
                 : "The call has ended. The transcript and notes are being prepared, and this view will update automatically."}
             </MutedText>
