@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { MeetingBriefingData } from "@/utils/meeting-briefs/gather-context";
 
+const { mockOpenRouterWebSearch } = vi.hoisted(() => ({
+  mockOpenRouterWebSearch: vi.fn(() => ({ type: "provider" })),
+}));
+
 vi.mock("@/env", () => ({
   env: {
     PERPLEXITY_API_KEY: "test-key",
@@ -17,6 +21,9 @@ vi.mock("@/utils/llms/model", () => ({
   getModel: vi.fn(),
 }));
 vi.mock("@/utils/llms", () => ({ createGenerateObject: vi.fn() }));
+vi.mock("@openrouter/ai-sdk-provider", () => ({
+  openrouter: { tools: { webSearch: mockOpenRouterWebSearch } },
+}));
 vi.mock("@/utils/ai/helpers", () => ({
   getUserInfoPrompt: vi.fn(
     ({ emailAccount }) =>
@@ -43,7 +50,7 @@ vi.mock("@/utils/get-email-from-message", () => ({
 
 vi.doUnmock("@/utils/date");
 
-import { buildPrompt } from "./generate-briefing";
+import { buildPrompt, getWebSearchConfig } from "./generate-briefing";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { getResolvedDeploymentRolePrimaryModelEntry } from "@/utils/llms/model";
 
@@ -233,5 +240,24 @@ describe("buildPrompt timezone handling", () => {
     );
     expect(prompt).toContain("Available search tools: perplexitySearch");
     expect(prompt).not.toContain("webSearch");
+  });
+
+  it("uses the capped OpenRouter server web search tool", () => {
+    vi.mocked(getResolvedDeploymentRolePrimaryModelEntry).mockReturnValue({
+      provider: "openrouter",
+      modelName: "openai/gpt-5.4-nano",
+    });
+
+    const config = getWebSearchConfig();
+    const tools = config?.getSearchTools?.();
+
+    expect(mockOpenRouterWebSearch).toHaveBeenCalledWith({
+      engine: "auto",
+      maxResults: 5,
+    });
+    expect(tools).toHaveProperty("web_search");
+    expect(config?.providerOptions).toEqual({
+      openrouter: { max_tool_calls: 1 },
+    });
   });
 });

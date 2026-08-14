@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createPerplexity } from "@ai-sdk/perplexity";
 import { openai } from "@ai-sdk/openai";
 import { google } from "@ai-sdk/google";
+import { openrouter } from "@openrouter/ai-sdk-provider";
 import { env } from "@/env";
 import { createGenerateText } from "@/utils/llms";
 import { getResolvedDeploymentRolePrimaryModelEntry } from "@/utils/llms/model";
@@ -264,7 +265,7 @@ async function buildSearchTools({
       logger,
       providerName: webSearchConfig.providerName,
       getSearchTools: webSearchConfig.getSearchTools,
-      useOnlineVariant: webSearchConfig.useOnlineVariant,
+      providerOptions: webSearchConfig.providerOptions,
     });
   }
 
@@ -293,24 +294,22 @@ async function buildSearchTools({
 
 type WebSearchConfig = {
   providerName: string;
-  useOnlineVariant: boolean;
   getSearchTools?: () => ToolSet;
+  providerOptions?: Record<string, Record<string, number>>;
 };
 
-function getWebSearchConfig(): WebSearchConfig | null {
+export function getWebSearchConfig(): WebSearchConfig | null {
   const webSearchProvider = getMeetingWebSearchProvider();
 
   switch (webSearchProvider) {
     case Provider.OPEN_AI:
       return {
         providerName: "OpenAI",
-        useOnlineVariant: false,
         getSearchTools: () => ({ web_search: openai.tools.webSearch({}) }),
       };
     case Provider.GOOGLE:
       return {
         providerName: "Google",
-        useOnlineVariant: false,
         getSearchTools: () => ({
           google_search: google.tools.googleSearch({}),
         }),
@@ -318,7 +317,13 @@ function getWebSearchConfig(): WebSearchConfig | null {
     case Provider.OPENROUTER:
       return {
         providerName: "OpenRouter",
-        useOnlineVariant: true,
+        getSearchTools: () => ({
+          web_search: openrouter.tools.webSearch({
+            engine: "auto",
+            maxResults: 5,
+          }),
+        }),
+        providerOptions: { openrouter: { max_tool_calls: 1 } },
       };
     default:
       return null;
@@ -330,13 +335,13 @@ function createWebSearchTool({
   logger,
   providerName,
   getSearchTools,
-  useOnlineVariant,
+  providerOptions,
 }: {
   emailAccount: EmailAccountWithAI;
   logger: Logger;
   providerName: string;
   getSearchTools?: () => ToolSet;
-  useOnlineVariant: boolean;
+  providerOptions?: Record<string, Record<string, number>>;
 }) {
   return tool({
     description: "Search the web for information",
@@ -359,7 +364,6 @@ function createWebSearchTool({
         const modelOptions = getModelForUseCase(
           emailAccount.user,
           LlmUseCase.MeetingWebSearch,
-          useOnlineVariant,
         );
 
         const webGenerateText = createGenerateText({
@@ -373,6 +377,7 @@ function createWebSearchTool({
           model: modelOptions.model,
           prompt: query,
           ...(getSearchTools && { tools: getSearchTools() }),
+          providerOptions,
         });
 
         const text = searchResult.text;
