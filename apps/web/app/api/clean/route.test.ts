@@ -354,6 +354,26 @@ describe("cleanThread", () => {
       );
     });
 
+    it("rejects ambiguous normalized label matches", async () => {
+      mockGetThreadMessages.mockResolvedValue(getSingleMessageThread());
+      mockAiClean.mockResolvedValue({ archive: false, label: "q1-report" });
+
+      await cleanThread({
+        ...getDefaultParams(),
+        labels: [
+          { id: "label-q1-space", name: "Q1 Report" },
+          { id: "label-q1-dash", name: "Q1-Report" },
+        ],
+      });
+
+      const cleanGmailBody = mockPublishToQstash.mock.calls[0][1] as {
+        labelId?: string;
+        labelName?: string;
+      };
+      expect(cleanGmailBody.labelId).toBeUndefined();
+      expect(cleanGmailBody.labelName).toBeUndefined();
+    });
+
     it("omits labelId when the label name doesn't match any provided label", async () => {
       mockGetThreadMessages.mockResolvedValue(getSingleMessageThread());
       mockAiClean.mockResolvedValue({ archive: false, label: "Unknown label" });

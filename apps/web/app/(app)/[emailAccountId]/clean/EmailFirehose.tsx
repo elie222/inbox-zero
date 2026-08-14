@@ -128,6 +128,13 @@ export function EmailFirehose({
                         [threadId]: "undoing",
                       }));
                     }}
+                    resetUndoing={(threadId) => {
+                      setUndoStates((prev) => {
+                        const next = { ...prev };
+                        delete next[threadId];
+                        return next;
+                      });
+                    }}
                     setUndone={(threadId) => {
                       setUndoStates((prev) => ({
                         ...prev,

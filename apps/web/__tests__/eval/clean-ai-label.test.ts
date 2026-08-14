@@ -127,7 +127,7 @@ describe.runIf(shouldRunEval)("Eval: Clean AI labels", () => {
             actual: `archive=${result.archive}, label=${actual}`,
           });
 
-          expect(result.label).toBe(expected);
+          expect(result.label ?? "none").toBe(expected);
           expect(result.archive).toBe(tc.expectedArchive);
         },
         TIMEOUT,

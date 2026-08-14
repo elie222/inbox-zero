@@ -32,12 +32,14 @@ vi.mock("@/utils/email-account-client", () => ({
 }));
 
 const mockGetLabel = vi.fn();
+const mockGetLabels = vi.fn();
 const mockLabelThread = vi.fn();
 vi.mock("@/utils/gmail/label", async (importOriginal) => {
   const original = await importOriginal<typeof import("@/utils/gmail/label")>();
   return {
     ...original,
     getLabel: (...args: unknown[]) => mockGetLabel(...args),
+    getLabels: (...args: unknown[]) => mockGetLabels(...args),
     labelThread: (...args: unknown[]) => mockLabelThread(...args),
   };
 });
@@ -62,22 +64,23 @@ describe("undoCleanInboxAction", () => {
     mockGetGmailClientForEmail.mockResolvedValue({});
     mockLabelThread.mockResolvedValue(undefined);
     mockGetLabel.mockResolvedValue({ id: "archived-label", name: "Archived" });
+    mockGetLabels.mockResolvedValue([]);
   });
 
-  it("removes the AI-applied label on undo", async () => {
+  it("removes the AI-applied label by stored labelId on undo", async () => {
     prisma.cleanupThread.findFirst.mockResolvedValue({
       jobId: "job-1",
       label: "Finance",
+      labelId: "label-finance",
     } as any);
-    mockGetLabel
-      .mockResolvedValueOnce({ id: "archived-label" })
-      .mockResolvedValueOnce({ id: "label-finance" });
 
     await undoCleanInboxAction("email-account-id", {
       threadId: "thread-1",
       markedDone: true,
       action: CleanAction.ARCHIVE,
     });
+
+    expect(mockGetLabels).not.toHaveBeenCalled();
 
     expect(mockLabelThread).toHaveBeenCalledWith({
       gmail: {},
@@ -92,12 +95,44 @@ describe("undoCleanInboxAction", () => {
       threadId: "thread-1",
       update: { undone: true, archive: false, label: null },
     });
+
+    expect(prisma.cleanupThread.updateMany).toHaveBeenCalledWith({
+      where: {
+        emailAccountId: "email-account-id",
+        threadId: "thread-1",
+        jobId: "job-1",
+      },
+      data: { label: null, labelId: null },
+    });
+  });
+
+  it("resolves the AI-applied label by exact name when no labelId is stored", async () => {
+    prisma.cleanupThread.findFirst.mockResolvedValue({
+      jobId: "job-1",
+      label: "Finance",
+      labelId: null,
+    } as any);
+    mockGetLabels.mockResolvedValue([{ id: "label-finance", name: "Finance" }]);
+
+    await undoCleanInboxAction("email-account-id", {
+      threadId: "thread-1",
+      markedDone: true,
+      action: CleanAction.ARCHIVE,
+    });
+
+    expect(mockLabelThread).toHaveBeenCalledWith({
+      gmail: {},
+      threadId: "thread-1",
+      addLabelIds: [GmailLabel.INBOX],
+      removeLabelIds: ["archived-label", "label-finance"],
+    });
   });
 
   it("only removes the Inbox Zero label when no AI label was applied", async () => {
     prisma.cleanupThread.findFirst.mockResolvedValue({
       jobId: "job-1",
       label: null,
+      labelId: null,
     } as any);
 
     await undoCleanInboxAction("email-account-id", {
@@ -113,6 +148,7 @@ describe("undoCleanInboxAction", () => {
       removeLabelIds: ["archived-label"],
     });
     expect(mockGetLabel).toHaveBeenCalledTimes(1);
+    expect(mockGetLabels).not.toHaveBeenCalled();
 
     const update = mockedUpdateThread.mock.calls[0][0].update;
     expect(update).toEqual({ undone: true, archive: false });
@@ -122,10 +158,10 @@ describe("undoCleanInboxAction", () => {
     prisma.cleanupThread.findFirst.mockResolvedValue({
       jobId: "job-1",
       label: "Renamed Label",
+      labelId: null,
     } as any);
-    mockGetLabel
-      .mockResolvedValueOnce({ id: "archived-label" })
-      .mockRejectedValueOnce(new Error("Gmail error"));
+    mockGetLabel.mockResolvedValueOnce({ id: "archived-label" });
+    mockGetLabels.mockRejectedValueOnce(new Error("Gmail error"));
 
     await undoCleanInboxAction("email-account-id", {
       threadId: "thread-1",
@@ -142,6 +178,31 @@ describe("undoCleanInboxAction", () => {
 
     const update = mockedUpdateThread.mock.calls[0][0].update;
     expect(update).toEqual({ undone: true, archive: false });
+  });
+
+  it("scopes the record lookup to the job being undone", async () => {
+    prisma.cleanupThread.findFirst.mockResolvedValue({
+      jobId: "job-2",
+      label: null,
+      labelId: null,
+    } as any);
+
+    await undoCleanInboxAction("email-account-id", {
+      threadId: "thread-1",
+      markedDone: true,
+      action: CleanAction.ARCHIVE,
+      jobId: "job-2",
+    });
+
+    expect(prisma.cleanupThread.findFirst).toHaveBeenCalledWith({
+      where: {
+        emailAccountId: "email-account-id",
+        threadId: "thread-1",
+        jobId: "job-2",
+      },
+      orderBy: { createdAt: "desc" },
+      select: { jobId: true, label: true, labelId: true },
+    });
   });
 
   it("updates Redis via the fallback jobId when the DB row is missing", async () => {
@@ -188,17 +249,21 @@ describe("removeLabelFromThreadAction", () => {
     mockGetGmailClientForEmail.mockResolvedValue({});
     mockLabelThread.mockResolvedValue(undefined);
     mockGetLabel.mockResolvedValue({ id: "label-finance", name: "Finance" });
+    mockGetLabels.mockResolvedValue([]);
   });
 
-  it("removes the AI-applied label and clears Redis and DB", async () => {
+  it("removes the AI-applied label by stored labelId and clears Redis and DB", async () => {
     prisma.cleanupThread.findFirst.mockResolvedValue({
       jobId: "job-1",
       label: "Finance",
+      labelId: "label-finance",
     } as any);
 
     await removeLabelFromThreadAction("email-account-id", {
       threadId: "thread-1",
     });
+
+    expect(mockGetLabels).not.toHaveBeenCalled();
 
     expect(mockLabelThread).toHaveBeenCalledWith({
       gmail: {},
@@ -214,8 +279,62 @@ describe("removeLabelFromThreadAction", () => {
     });
 
     expect(prisma.cleanupThread.updateMany).toHaveBeenCalledWith({
-      where: { emailAccountId: "email-account-id", threadId: "thread-1" },
-      data: { label: null },
+      where: {
+        emailAccountId: "email-account-id",
+        threadId: "thread-1",
+        jobId: "job-1",
+      },
+      data: { label: null, labelId: null },
+    });
+  });
+
+  it("resolves the label by name when no labelId is stored", async () => {
+    prisma.cleanupThread.findFirst.mockResolvedValue({
+      jobId: "job-1",
+      label: "Finance",
+      labelId: null,
+    } as any);
+    mockGetLabels.mockResolvedValue([{ id: "label-finance", name: "Finance" }]);
+
+    await removeLabelFromThreadAction("email-account-id", {
+      threadId: "thread-1",
+    });
+
+    expect(mockLabelThread).toHaveBeenCalledWith({
+      gmail: {},
+      threadId: "thread-1",
+      removeLabelIds: ["label-finance"],
+    });
+  });
+
+  it("clears local state when the label no longer exists in Gmail", async () => {
+    prisma.cleanupThread.findFirst.mockResolvedValue({
+      jobId: "job-1",
+      label: "Finance",
+      labelId: null,
+    } as any);
+    mockGetLabels.mockResolvedValue([{ id: "other", name: "Other" }]);
+
+    await removeLabelFromThreadAction("email-account-id", {
+      threadId: "thread-1",
+    });
+
+    expect(mockLabelThread).not.toHaveBeenCalled();
+
+    expect(mockedUpdateThread).toHaveBeenCalledWith({
+      emailAccountId: "email-account-id",
+      jobId: "job-1",
+      threadId: "thread-1",
+      update: { label: null },
+    });
+
+    expect(prisma.cleanupThread.updateMany).toHaveBeenCalledWith({
+      where: {
+        emailAccountId: "email-account-id",
+        threadId: "thread-1",
+        jobId: "job-1",
+      },
+      data: { label: null, labelId: null },
     });
   });
 
@@ -223,13 +342,14 @@ describe("removeLabelFromThreadAction", () => {
     prisma.cleanupThread.findFirst.mockResolvedValue({
       jobId: "job-1",
       label: null,
+      labelId: null,
     } as any);
 
     await removeLabelFromThreadAction("email-account-id", {
       threadId: "thread-1",
     });
 
-    expect(mockGetLabel).not.toHaveBeenCalled();
+    expect(mockGetLabels).not.toHaveBeenCalled();
     expect(mockLabelThread).not.toHaveBeenCalled();
     expect(mockedUpdateThread).not.toHaveBeenCalled();
   });

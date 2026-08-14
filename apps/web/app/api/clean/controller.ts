@@ -13,7 +13,6 @@ import { getThreadMessages } from "@/utils/gmail/thread";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import type { Logger } from "@/utils/logger";
 import { MAX_CLEAN_LABELS } from "@/utils/clean/consts";
-import { findLabelByName } from "@/utils/label/find-label-by-name";
 import { normalizeLabelName } from "@/utils/label/normalize-label-name";
 import { getCalendarEventStatus } from "@/utils/parse/calender-event";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
@@ -224,7 +223,8 @@ export async function cleanThread({
 }
 
 // Exact name match first; normalized match as fallback for labels that differ
-// only in case or punctuation.
+// only in case or punctuation. Ambiguous normalized matches are rejected so a
+// model output can't silently resolve to the wrong Gmail label.
 function findCleanLabel(
   labels: { id: string; name: string }[] | undefined,
   name: string | null | undefined,
@@ -232,12 +232,11 @@ function findCleanLabel(
   if (!name || !labels?.length) return;
   const exactMatch = labels.find((label) => label.name === name);
   if (exactMatch) return exactMatch;
-  return findLabelByName({
-    labels,
-    name,
-    getLabelName: (label) => label.name,
-    normalize: normalizeLabelName,
-  });
+  const normalized = normalizeLabelName(name);
+  const normalizedMatches = labels.filter(
+    (label) => normalizeLabelName(label.name) === normalized,
+  );
+  return normalizedMatches.length === 1 ? normalizedMatches[0] : undefined;
 }
 
 function getPublish({
@@ -275,7 +274,7 @@ function getPublish({
       markDone,
       action,
       labelId,
-      labelName,
+      labelName: labelName ?? undefined,
       markedDoneLabelId,
       processedLabelId,
       jobId,
