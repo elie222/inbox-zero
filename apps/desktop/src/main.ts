@@ -143,7 +143,7 @@ function createMainWindow() {
 
 function applyDesktopWindowDragRegion(contents: WebContents) {
   contents.on("dom-ready", () => {
-    contents.insertCSS(DESKTOP_WINDOW_DRAG_CSS).catch(showSignInError);
+    contents.insertCSS(DESKTOP_WINDOW_DRAG_CSS).catch(() => {});
   });
 }
 

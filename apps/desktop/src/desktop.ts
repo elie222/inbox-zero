@@ -191,17 +191,25 @@ export function getDesktopWindowChrome(platform = process.platform): {
 }
 
 export const DESKTOP_WINDOW_DRAG_CSS = `
-html {
+html::before,
+html::after {
+  content: "";
+  position: fixed;
+  top: 0;
+  z-index: 2147483645;
   -webkit-app-region: drag;
+  pointer-events: auto;
 }
 
-a, button, input, textarea, select, option, label, iframe, canvas, video,
-[role="button"], [role="link"], [role="textbox"], [role="searchbox"],
-[role="combobox"], [role="slider"], [role="tab"], [role="menuitem"],
-[role="checkbox"], [role="radio"], [role="switch"], [role="option"],
-[role="listbox"], [role="menu"], [contenteditable="true"],
-.overflow-auto, .overflow-y-auto, .overflow-x-auto, .overflow-scroll,
-.overflow-y-scroll, [data-radix-scroll-area-viewport] {
-  -webkit-app-region: no-drag;
+html::before {
+  left: 0;
+  width: 140px;
+  height: 52px;
+}
+
+html::after {
+  left: 140px;
+  right: 0;
+  height: 12px;
 }
 `.trim();

@@ -164,12 +164,10 @@ describe("desktop shell helpers", () => {
     });
   });
 
-  it("marks a window drag region and keeps interactive surfaces clickable", () => {
+  it("scopes window dragging to a titlebar strip instead of the whole page", () => {
     expect(DESKTOP_WINDOW_DRAG_CSS).toContain("-webkit-app-region: drag");
-    expect(DESKTOP_WINDOW_DRAG_CSS).toContain("-webkit-app-region: no-drag");
-    expect(DESKTOP_WINDOW_DRAG_CSS).toContain("button");
-    expect(DESKTOP_WINDOW_DRAG_CSS).toContain(
-      "[data-radix-scroll-area-viewport]",
-    );
+    expect(DESKTOP_WINDOW_DRAG_CSS).toContain("html::before");
+    expect(DESKTOP_WINDOW_DRAG_CSS).toContain("height: 12px");
+    expect(DESKTOP_WINDOW_DRAG_CSS).not.toContain("html {");
   });
 });
