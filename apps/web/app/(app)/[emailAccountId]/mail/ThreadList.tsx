@@ -68,11 +68,6 @@ export function ThreadList({
   onLoadMoreRef.current = onLoadMore;
   const focusedThreadId = threads[focusedIndex]?.id;
 
-  if (prefetchListKey.current !== listKey) {
-    prefetchListKey.current = listKey;
-    prefetchForCount.current = null;
-  }
-
   // Keep the J/K cursor on screen without centering every row. Layout phase so
   // a held arrow key never paints a selected row that's already off-screen.
   useLayoutEffect(() => {
@@ -83,6 +78,10 @@ export function ThreadList({
   }, [focusedIndex, focusedThreadId, scrollRoot]);
 
   useEffect(() => {
+    if (prefetchListKey.current !== listKey) {
+      prefetchListKey.current = listKey;
+      prefetchForCount.current = null;
+    }
     if (
       !shouldPrefetchMoreThreads({
         hasMore: showLoadMore,
@@ -97,7 +96,7 @@ export function ThreadList({
     if (prefetchForCount.current === threads.length) return;
     prefetchForCount.current = threads.length;
     onLoadMoreRef.current();
-  }, [focusedIndex, isLoadingMore, showLoadMore, threads.length]);
+  }, [focusedIndex, isLoadingMore, listKey, showLoadMore, threads.length]);
 
   useEffect(() => {
     if (!showLoadMore || !scrollRoot || threads.length === 0) return;
