@@ -69,6 +69,7 @@ export default function SettingsPage() {
   // No membership means no organization yet — the invite modal then creates one.
   const canInviteMembers =
     !!user &&
+    !!activeEmailAccountId &&
     (!organizationMembership ||
       hasOrganizationAdminRole(organizationMembership.role));
 
