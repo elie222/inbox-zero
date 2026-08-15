@@ -209,10 +209,10 @@ function StatusBadge({
 
               if (result?.serverError) {
                 toastError({ description: result.serverError });
-                resetUndoing(email.threadId);
               } else {
                 setLabelRemoved(email.threadId);
               }
+              resetUndoing(email.threadId);
             }}
           />
         )}
@@ -271,10 +271,10 @@ function StatusBadge({
 
           if (result?.serverError) {
             toastError({ description: result.serverError });
-            resetUndoing(email.threadId);
           } else {
             setLabelRemoved(email.threadId);
           }
+          resetUndoing(email.threadId);
         }}
       />
     );
