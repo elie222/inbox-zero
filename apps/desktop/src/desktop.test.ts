@@ -26,7 +26,7 @@ describe("desktop shell helpers", () => {
   });
 
   it("rejects non-http app URLs", () => {
-    expect(() => getDesktopAppOrigin("inboxzero-desktop://")).toThrow(
+    expect(() => getDesktopAppOrigin("inboxzero://")).toThrow(
       "INBOX_ZERO_APP_URL must be an http(s) URL",
     );
   });
@@ -42,7 +42,7 @@ describe("desktop shell helpers", () => {
   it("parses a successful desktop auth callback", () => {
     expect(
       parseDesktopAuthCallback(
-        "inboxzero-desktop://auth-callback?state=state-1&code=one-time-code",
+        "inboxzero://auth-callback?state=state-1&code=one-time-code",
       ),
     ).toEqual({
       ok: true,
@@ -51,7 +51,7 @@ describe("desktop shell helpers", () => {
     });
     expect(
       parseDesktopAuthCallback(
-        "inboxzero-desktop:///auth-callback?state=state-1&code=one-time-code",
+        "inboxzero:///auth-callback?state=state-1&code=one-time-code",
       ),
     ).toEqual({
       ok: true,
@@ -63,7 +63,7 @@ describe("desktop shell helpers", () => {
   it("parses auth callback errors without a code", () => {
     expect(
       parseDesktopAuthCallback(
-        "inboxzero-desktop://auth-callback?state=state-1&error=missing_session&error_description=Authentication+session+was+not+found",
+        "inboxzero://auth-callback?state=state-1&error=missing_session&error_description=Authentication+session+was+not+found",
       ),
     ).toEqual({
       ok: false,
@@ -102,11 +102,9 @@ describe("desktop shell helpers", () => {
     expect(
       findDesktopProtocolUrl([
         "electron",
-        "inboxzero-desktop://auth-callback?code=one-time-code&state=state-1",
+        "inboxzero://auth-callback?code=one-time-code&state=state-1",
       ]),
-    ).toBe(
-      "inboxzero-desktop://auth-callback?code=one-time-code&state=state-1",
-    );
+    ).toBe("inboxzero://auth-callback?code=one-time-code&state=state-1");
     expect(isDesktopAuthProvider("google")).toBe(true);
     expect(isDesktopAuthProvider("sso")).toBe(false);
   });
@@ -117,9 +115,7 @@ describe("desktop shell helpers", () => {
     ).toBe(true);
     expect(isAllowedExternalUrl("mailto:hello@getinboxzero.com")).toBe(true);
     expect(isAllowedExternalUrl("file:///etc/passwd")).toBe(false);
-    expect(isAllowedExternalUrl("inboxzero-desktop://auth-callback")).toBe(
-      false,
-    );
+    expect(isAllowedExternalUrl("inboxzero://auth-callback")).toBe(false);
   });
 
   it("loads a validated post-auth path and falls back to login", () => {

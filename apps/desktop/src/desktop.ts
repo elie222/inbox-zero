@@ -1,4 +1,4 @@
-export const DESKTOP_PROTOCOL = "inboxzero-desktop";
+export const DESKTOP_PROTOCOL = "inboxzero";
 export const DESKTOP_AUTH_CALLBACK_PATH = "/auth-callback";
 export const DEFAULT_APP_URL = "https://www.getinboxzero.com";
 export const DESKTOP_AUTH_PROVIDERS = ["apple", "google", "microsoft"] as const;

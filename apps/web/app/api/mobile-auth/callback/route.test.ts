@@ -11,7 +11,7 @@ const {
   consumeMobileAuthStateMock: vi.fn(),
   createMobileAuthCodeMock: vi.fn(),
   mockEnv: {
-    DESKTOP_AUTH_ORIGIN: "inboxzero-desktop://",
+    DESKTOP_AUTH_ORIGIN: "inboxzero://",
     MOBILE_AUTH_ORIGIN: "inboxzero://",
     NEXT_PUBLIC_BASE_URL: "https://www.getinboxzero.com",
   },
@@ -123,7 +123,7 @@ describe("mobile auth callback route", () => {
     );
 
     expect(response.headers.get("location")).toBe(
-      "inboxzero-desktop://auth-callback?state=state-1234567890&code=one-time-code",
+      "inboxzero://auth-callback?state=state-1234567890&code=one-time-code",
     );
   });
 

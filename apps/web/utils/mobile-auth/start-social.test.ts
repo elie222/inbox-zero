@@ -13,7 +13,7 @@ const {
   isGoogleOauthEmulationEnabledMock: vi.fn(),
   isMicrosoftEmulationEnabledMock: vi.fn(),
   mockEnv: {
-    DESKTOP_AUTH_ORIGIN: "inboxzero-desktop://",
+    DESKTOP_AUTH_ORIGIN: "inboxzero://",
     MOBILE_AUTH_ORIGIN: "inboxzero://",
     NEXT_PUBLIC_BASE_URL: "https://www.getinboxzero.com",
   },

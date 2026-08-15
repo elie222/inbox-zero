@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mockEnv } = vi.hoisted(() => ({
   mockEnv: {
-    DESKTOP_AUTH_ORIGIN: "inboxzero-desktop://",
+    DESKTOP_AUTH_ORIGIN: "inboxzero://",
     MOBILE_AUTH_ORIGIN: "inboxzero://",
     NEXT_PUBLIC_BASE_URL: "https://www.getinboxzero.com",
   },
@@ -21,13 +21,13 @@ import {
 
 describe("mobile auth URL helpers", () => {
   beforeEach(() => {
-    mockEnv.DESKTOP_AUTH_ORIGIN = "inboxzero-desktop://";
+    mockEnv.DESKTOP_AUTH_ORIGIN = "inboxzero://";
     mockEnv.MOBILE_AUTH_ORIGIN = "inboxzero://";
     mockEnv.NEXT_PUBLIC_BASE_URL = "https://www.getinboxzero.com";
   });
 
   afterEach(() => {
-    mockEnv.DESKTOP_AUTH_ORIGIN = "inboxzero-desktop://";
+    mockEnv.DESKTOP_AUTH_ORIGIN = "inboxzero://";
     mockEnv.MOBILE_AUTH_ORIGIN = "inboxzero://";
   });
 
@@ -52,7 +52,7 @@ describe("mobile auth URL helpers", () => {
 
   it("builds desktop-scheme callback URLs when requested", () => {
     expect(getMobileAuthAppCallbackUrl("desktop-scheme").toString()).toBe(
-      "inboxzero-desktop://auth-callback",
+      "inboxzero://auth-callback",
     );
   });
 

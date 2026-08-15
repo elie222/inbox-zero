@@ -328,7 +328,7 @@ const parsedEnv = createEnv({
       .trim()
       .min(1)
       .optional()
-      .default("inboxzero-desktop://"),
+      .default("inboxzero://"),
     AUTO_JOIN_ORGANIZATION_ENABLED: booleanString.optional().default(false),
     AUTO_ENABLE_ORG_ANALYTICS: booleanString.optional().default(false),
 

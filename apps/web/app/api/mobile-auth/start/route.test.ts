@@ -10,7 +10,7 @@ const {
   createMobileAuthStateMock: vi.fn(),
   handlerMock: vi.fn(),
   mockEnv: {
-    DESKTOP_AUTH_ORIGIN: "inboxzero-desktop://",
+    DESKTOP_AUTH_ORIGIN: "inboxzero://",
     MOBILE_AUTH_ORIGIN: "inboxzero://",
     NEXT_PUBLIC_BASE_URL: "https://www.getinboxzero.com",
   },
@@ -234,7 +234,7 @@ describe("mobile auth start route", () => {
     await expect(response.json()).resolves.toEqual({
       authorizationURL:
         "https://accounts.google.com/o/oauth2/v2/auth?client_id=client",
-      authSessionReturnUrl: "inboxzero-desktop://auth-callback",
+      authSessionReturnUrl: "inboxzero://auth-callback",
       oauthState: "encrypted-oauth-state",
       state: "state-1234567890",
     });

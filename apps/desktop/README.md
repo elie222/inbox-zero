@@ -16,6 +16,6 @@ Against a local web app:
 INBOX_ZERO_APP_URL=http://localhost:3000 pnpm --filter @inboxzero/desktop dev
 ```
 
-Sign-in opens the system browser, then returns through `inboxzero-desktop://` and `/api/mobile-auth/exchange-code`. Google and Microsoft OAuth are not completed inside the Electron window.
+Sign-in opens the system browser, then returns through `inboxzero://` and `/api/mobile-auth/exchange-code`. Google and Microsoft OAuth are not completed inside the Electron window.
 
-The web app defaults `DESKTOP_AUTH_ORIGIN` to `inboxzero-desktop://`. Override that only if the desktop protocol scheme changes.
+The web app defaults `DESKTOP_AUTH_ORIGIN` to `inboxzero://`, the same scheme as mobile. Override that only if the desktop protocol scheme changes.
