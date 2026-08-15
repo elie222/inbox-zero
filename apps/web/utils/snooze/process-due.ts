@@ -86,7 +86,8 @@ export async function processSnoozedThread(
     return { status: "failed", reason: "missing-provider" };
   }
 
-  if (!(await markSnoozedThreadAsExecuting(snoozedThread.id))) {
+  const executionToken = await markSnoozedThreadAsExecuting(snoozedThread.id);
+  if (!executionToken) {
     return { status: "skipped" };
   }
 
@@ -100,12 +101,13 @@ export async function processSnoozedThread(
       snoozedThread,
       provider,
       itemLogger,
+      executionToken,
     );
     return result.success
       ? { status: "processed" }
       : { status: "failed", reason: "restore" };
   } catch (error) {
-    await releaseSnoozedThreadForRetry(snoozedThread.id);
+    await releaseSnoozedThreadForRetry(snoozedThread.id, executionToken);
     itemLogger.error("Failed to process snoozed thread", { error });
     return { status: "failed", reason: "restore" };
   }

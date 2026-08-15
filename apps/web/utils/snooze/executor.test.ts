@@ -23,16 +23,23 @@ describe("executeSnoozedThread", () => {
   it("restores the thread and completes the snooze", async () => {
     const provider = createMockEmailProvider();
 
-    const result = await executeSnoozedThread(snoozedThread, provider, logger);
+    const result = await executeSnoozedThread(
+      snoozedThread,
+      provider,
+      logger,
+      "claim-token",
+    );
 
     expect(result.success).toBe(true);
     expect(provider.unarchiveThread).toHaveBeenCalledWith("thread");
     expect(prisma.snoozedThread.updateMany).toHaveBeenCalledWith({
       where: {
+        executionToken: "claim-token",
         id: "snooze",
         status: SnoozedThreadStatus.EXECUTING,
       },
       data: {
+        executionToken: null,
         executedAt: expect.any(Date),
         status: SnoozedThreadStatus.COMPLETED,
       },
@@ -44,17 +51,30 @@ describe("executeSnoozedThread", () => {
       unarchiveThread: vi.fn().mockRejectedValue(new Error("offline")),
     });
 
-    const result = await executeSnoozedThread(snoozedThread, provider, logger);
+    const result = await executeSnoozedThread(
+      snoozedThread,
+      provider,
+      logger,
+      "claim-token",
+    );
 
     expect(result.success).toBe(false);
-    expect(releaseSnoozedThreadForRetry).toHaveBeenCalledWith("snooze");
+    expect(releaseSnoozedThreadForRetry).toHaveBeenCalledWith(
+      "snooze",
+      "claim-token",
+    );
   });
 
   it("leaves a restored thread claim for stale recovery when finalization fails", async () => {
     prisma.snoozedThread.updateMany.mockRejectedValue(new Error("offline"));
     const provider = createMockEmailProvider();
 
-    const result = await executeSnoozedThread(snoozedThread, provider, logger);
+    const result = await executeSnoozedThread(
+      snoozedThread,
+      provider,
+      logger,
+      "claim-token",
+    );
 
     expect(result.success).toBe(false);
     expect(provider.unarchiveThread).toHaveBeenCalledWith("thread");

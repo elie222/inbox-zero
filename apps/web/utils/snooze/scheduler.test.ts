@@ -12,11 +12,23 @@ vi.mock("@/utils/prisma");
 vi.mock("@/env", () => ({ env: { QSTASH_TOKEN: "" } }));
 
 describe("snoozed thread scheduler without QStash", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    prisma.$transaction.mockImplementation(async (operations) =>
+      Promise.all(operations),
+    );
+  });
 
   it("persists work for the cron fallback", async () => {
-    const record = { id: "snooze", scheduledId: null } as never;
-    prisma.snoozedThread.create.mockResolvedValue(record);
+    const preparedRecord = { id: "snooze", scheduledId: null } as never;
+    const activeRecord = {
+      id: "snooze",
+      scheduledId: null,
+      status: SnoozedThreadStatus.PENDING,
+    } as never;
+    prisma.snoozedThread.findMany.mockResolvedValue([]);
+    prisma.snoozedThread.create.mockResolvedValue(preparedRecord);
+    prisma.snoozedThread.update.mockResolvedValue(activeRecord);
     const scheduledFor = new Date("2026-08-16T09:00:00.000Z");
 
     const result = await scheduleSnoozedThread({
@@ -25,15 +37,34 @@ describe("snoozed thread scheduler without QStash", () => {
       threadId: "thread",
     });
 
-    expect(result).toBe(record);
+    expect(result).toBe(activeRecord);
     expect(prisma.snoozedThread.create).toHaveBeenCalledWith({
-      data: { emailAccountId: "account", scheduledFor, threadId: "thread" },
+      data: {
+        emailAccountId: "account",
+        scheduledFor,
+        status: SnoozedThreadStatus.PREPARING,
+        threadId: "thread",
+      },
+    });
+    expect(prisma.snoozedThread.updateMany).toHaveBeenCalledWith({
+      where: {
+        emailAccountId: "account",
+        threadId: "thread",
+        status: SnoozedThreadStatus.PENDING,
+      },
+      data: { status: SnoozedThreadStatus.CANCELLED },
+    });
+    expect(prisma.snoozedThread.update).toHaveBeenCalledWith({
+      where: { id: "snooze" },
+      data: { status: SnoozedThreadStatus.PENDING },
     });
   });
 
   it("claims pending work only once", async () => {
     prisma.snoozedThread.updateMany.mockResolvedValue({ count: 1 });
-    expect(await markSnoozedThreadAsExecuting("snooze")).toBe(true);
+    const executionToken = await markSnoozedThreadAsExecuting("snooze");
+
+    expect(executionToken).toEqual(expect.any(String));
 
     expect(prisma.snoozedThread.updateMany).toHaveBeenCalledWith({
       where: {
@@ -46,7 +77,10 @@ describe("snoozed thread scheduler without QStash", () => {
           },
         ],
       },
-      data: { status: SnoozedThreadStatus.EXECUTING },
+      data: {
+        executionToken,
+        status: SnoozedThreadStatus.EXECUTING,
+      },
     });
   });
 
@@ -54,7 +88,9 @@ describe("snoozed thread scheduler without QStash", () => {
     prisma.snoozedThread.updateMany.mockResolvedValue({ count: 1 });
     const now = new Date("2026-08-16T09:30:00.000Z");
 
-    expect(await markSnoozedThreadAsExecuting("snooze", now)).toBe(true);
+    expect(await markSnoozedThreadAsExecuting("snooze", now)).toEqual(
+      expect.any(String),
+    );
 
     expect(prisma.snoozedThread.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -92,13 +128,18 @@ describe("snoozed thread scheduler without QStash", () => {
   });
 
   it("replaces an earlier pending snooze for the same thread", async () => {
-    prisma.snoozedThread.findFirst.mockResolvedValue({
-      id: "old-snooze",
-      scheduledId: null,
-    } as never);
-    prisma.snoozedThread.updateMany.mockResolvedValue({ count: 1 });
-    prisma.snoozedThread.create.mockResolvedValue({
+    prisma.snoozedThread.findMany.mockResolvedValue([
+      { id: "old-snooze", scheduledId: null },
+      { id: "duplicate-snooze", scheduledId: null },
+    ] as never);
+    const preparedRecord = {
       id: "new-snooze",
+      scheduledId: null,
+    } as never;
+    prisma.snoozedThread.create.mockResolvedValue(preparedRecord);
+    prisma.snoozedThread.update.mockResolvedValue({
+      ...preparedRecord,
+      status: SnoozedThreadStatus.PENDING,
     } as never);
 
     await scheduleSnoozedThread({
@@ -109,19 +150,58 @@ describe("snoozed thread scheduler without QStash", () => {
 
     expect(prisma.snoozedThread.updateMany).toHaveBeenCalledWith({
       where: {
-        id: "old-snooze",
+        emailAccountId: "account",
+        threadId: "thread",
         status: SnoozedThreadStatus.PENDING,
       },
       data: { status: SnoozedThreadStatus.CANCELLED },
     });
   });
 
+  it("keeps the previous snooze active if activating its replacement fails", async () => {
+    const preparedRecord = {
+      id: "new-snooze",
+      scheduledId: null,
+    } as never;
+    prisma.snoozedThread.findMany.mockResolvedValue([
+      { id: "old-snooze", scheduledId: null },
+    ] as never);
+    prisma.snoozedThread.create.mockResolvedValue(preparedRecord);
+    prisma.$transaction.mockRejectedValue(new Error("database unavailable"));
+
+    await expect(
+      scheduleSnoozedThread({
+        emailAccountId: "account",
+        scheduledFor: new Date("2026-08-17T09:00:00.000Z"),
+        threadId: "thread",
+      }),
+    ).rejects.toThrow("database unavailable");
+
+    expect(prisma.snoozedThread.updateMany).toHaveBeenLastCalledWith({
+      where: {
+        id: "new-snooze",
+        status: SnoozedThreadStatus.PREPARING,
+      },
+      data: {
+        schedulingStatus: "FAILED",
+        status: SnoozedThreadStatus.FAILED,
+      },
+    });
+  });
+
   it("releases claimed work for a later retry", async () => {
-    await releaseSnoozedThreadForRetry("snooze");
+    await releaseSnoozedThreadForRetry("snooze", "claim-token");
 
     expect(prisma.snoozedThread.updateMany).toHaveBeenCalledWith({
-      where: { id: "snooze", status: SnoozedThreadStatus.EXECUTING },
-      data: { status: SnoozedThreadStatus.PENDING },
+      where: {
+        executionToken: "claim-token",
+        id: "snooze",
+        status: SnoozedThreadStatus.EXECUTING,
+      },
+      data: {
+        executionToken: null,
+        status: SnoozedThreadStatus.PENDING,
+      },
     });
   });
 });

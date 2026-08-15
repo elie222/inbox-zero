@@ -814,6 +814,7 @@ model SnoozedThread {
   status           SnoozedThreadStatus  @default(PENDING)
   schedulingStatus SchedulingStatus     @default(PENDING)
   scheduledId      String?
+  executionToken   String?
   executedAt       DateTime?
 
   emailAccountId String
@@ -2086,6 +2087,7 @@ enum ScheduledActionStatus {
 }
 
 enum SnoozedThreadStatus {
+  PREPARING
   PENDING
   EXECUTING
   COMPLETED

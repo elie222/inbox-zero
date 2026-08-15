@@ -8,6 +8,11 @@ import {
 import { Client } from "pg";
 
 const commandModifier = process.platform === "darwin" ? "Meta" : "Control";
+const SEEDED_THREAD_IDS = [
+  "thr_playwright_1",
+  "thr_playwright_2",
+  "thr_playwright_3",
+];
 let emailAccountIdForCleanup: string | undefined;
 
 test.afterEach(async ({ request }) => {
@@ -188,14 +193,18 @@ async function restoreActiveSnoozes(
   try {
     await client.query(
       `UPDATE "SnoozedThread"
-       SET "updatedAt" = '1970-01-01T00:00:00.000Z'
-       WHERE "emailAccountId" = $1 AND status = 'EXECUTING'`,
-      [emailAccountId],
+       SET status = 'PENDING', "executionToken" = NULL
+       WHERE "emailAccountId" = $1
+         AND "threadId" = ANY($2)
+         AND status = 'EXECUTING'`,
+      [emailAccountId, SEEDED_THREAD_IDS],
     );
     const result = await client.query<{ id: string }>(
       `SELECT id FROM "SnoozedThread"
-       WHERE "emailAccountId" = $1 AND status IN ('PENDING', 'EXECUTING')`,
-      [emailAccountId],
+       WHERE "emailAccountId" = $1
+         AND "threadId" = ANY($2)
+         AND status = 'PENDING'`,
+      [emailAccountId, SEEDED_THREAD_IDS],
     );
 
     for (const { id } of result.rows) {

@@ -27,7 +27,7 @@ const logger = createTestLogger();
 describe("processDueSnoozedThreads", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(markSnoozedThreadAsExecuting).mockResolvedValue(true);
+    vi.mocked(markSnoozedThreadAsExecuting).mockResolvedValue("claim-token");
     vi.mocked(createEmailProvider).mockResolvedValue(createMockEmailProvider());
     vi.mocked(executeSnoozedThread).mockResolvedValue({ success: true });
   });
@@ -45,7 +45,12 @@ describe("processDueSnoozedThreads", () => {
 
     expect(result).toEqual({ processed: 1, failed: 0, skipped: 0, total: 1 });
     expect(markSnoozedThreadAsExecuting).toHaveBeenCalledWith("snooze");
-    expect(executeSnoozedThread).toHaveBeenCalledOnce();
+    expect(executeSnoozedThread).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "snooze" }),
+      expect.anything(),
+      expect.anything(),
+      "claim-token",
+    );
   });
 
   it("fails records whose email provider no longer exists", async () => {
@@ -74,7 +79,7 @@ describe("processDueSnoozedThreads", () => {
         emailAccount: { account: { provider: "google" } },
       },
     ] as never);
-    vi.mocked(markSnoozedThreadAsExecuting).mockResolvedValue(false);
+    vi.mocked(markSnoozedThreadAsExecuting).mockResolvedValue(null);
 
     const result = await processDueSnoozedThreads(logger);
 
@@ -114,6 +119,9 @@ describe("processDueSnoozedThreads", () => {
     const result = await processDueSnoozedThreads(logger);
 
     expect(result).toEqual({ processed: 0, failed: 1, skipped: 0, total: 1 });
-    expect(releaseSnoozedThreadForRetry).toHaveBeenCalledWith("snooze");
+    expect(releaseSnoozedThreadForRetry).toHaveBeenCalledWith(
+      "snooze",
+      "claim-token",
+    );
   });
 });

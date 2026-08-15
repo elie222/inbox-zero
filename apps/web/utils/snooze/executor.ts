@@ -9,11 +9,12 @@ export async function executeSnoozedThread(
   snoozedThread: SnoozedThread,
   provider: EmailProvider,
   logger: Logger,
+  executionToken: string,
 ) {
   try {
     await provider.unarchiveThread(snoozedThread.threadId);
   } catch (error) {
-    await releaseSnoozedThreadForRetry(snoozedThread.id);
+    await releaseSnoozedThreadForRetry(snoozedThread.id, executionToken);
     logger.error("Failed to restore snoozed thread", {
       error,
       snoozedThreadId: snoozedThread.id,
@@ -25,9 +26,11 @@ export async function executeSnoozedThread(
     await prisma.snoozedThread.updateMany({
       where: {
         id: snoozedThread.id,
+        executionToken,
         status: SnoozedThreadStatus.EXECUTING,
       },
       data: {
+        executionToken: null,
         executedAt: new Date(),
         status: SnoozedThreadStatus.COMPLETED,
       },
