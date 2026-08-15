@@ -5,6 +5,7 @@ const actions = {
   archive: vi.fn(),
   markRead: vi.fn(),
   markUnread: vi.fn(),
+  openSnooze: vi.fn(),
   trash: vi.fn(),
 };
 
@@ -25,7 +26,7 @@ describe("buildMailCommandPalette", () => {
       commands.find((command) => command.id === "mail-archive"),
     ).toMatchObject({ label: "Archive conversation" });
     expect(commands.map((command) => command.id)).toEqual(
-      expect.arrayContaining(["mail-mark-read"]),
+      expect.arrayContaining(["mail-mark-read", "mail-snooze"]),
     );
     expect(commands.map((command) => command.id)).not.toContain(
       "mail-mark-unread",
@@ -44,8 +45,20 @@ describe("buildMailCommandPalette", () => {
       commands.find((command) => command.id === "mail-archive"),
     ).toMatchObject({ label: "Archive 3 conversations" });
     expect(commands.map((command) => command.id)).toEqual(
-      expect.arrayContaining(["mail-mark-read", "mail-mark-unread"]),
+      expect.arrayContaining([
+        "mail-mark-read",
+        "mail-mark-unread",
+        "mail-snooze",
+      ]),
     );
+
+    const snooze = commands.find((command) => command.id === "mail-snooze");
+    expect(snooze).toMatchObject({
+      label: "Snooze 3 conversations",
+      closeOnSelect: false,
+    });
+    snooze?.action();
+    expect(actions.openSnooze).toHaveBeenCalledOnce();
   });
 
   it("returns no mail actions for an empty list", () => {

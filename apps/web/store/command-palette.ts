@@ -8,8 +8,13 @@ import type { Command } from "@/lib/commands/types";
  */
 export const commandPaletteOpenAtom = atom(false);
 
+type CommandPalettePage = "root" | "snooze";
+
+export const commandPalettePageAtom = atom<CommandPalettePage>("root");
+
 type MailCommandContext = {
   commands: Command[];
+  snooze: (until: Date) => void;
 };
 
 /**

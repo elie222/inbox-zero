@@ -49,6 +49,7 @@ import { useSidebar } from "@/components/ui/sidebar";
 import { useAtom, useSetAtom } from "jotai";
 import {
   commandPaletteOpenAtom,
+  commandPalettePageAtom,
   mailCommandContextAtom,
 } from "@/store/command-palette";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -116,6 +117,7 @@ export function MailShell() {
   const { setInput: setChatInput } = useChat();
   const { toggleSidebar } = useSidebar();
   const [isPaletteOpen, setPaletteOpen] = useAtom(commandPaletteOpenAtom);
+  const setCommandPalettePage = useSetAtom(commandPalettePageAtom);
   const setMailCommandContext = useSetAtom(mailCommandContextAtom);
   // The side panel viewer owns the triage keys while it's open, so this screen
   // stands down rather than both archiving the same keystroke.
@@ -235,12 +237,14 @@ export function MailShell() {
 
   const orderedIds = useMemo(() => threads.map(getListThreadKey), [threads]);
   const selection = useThreadSelection(orderedIds);
-  const { archive, trash, markRead, setReadState, undo } = useThreadActions({
-    emailAccountId,
-    removeThreads: accountThreadState.removeThreads,
-    restoreThreads: accountThreadState.restoreThreads,
-    optimisticallyUpdateThreads: accountThreadState.optimisticallyUpdateThreads,
-  });
+  const { archive, trash, markRead, setReadState, snooze, undo } =
+    useThreadActions({
+      emailAccountId,
+      removeThreads: accountThreadState.removeThreads,
+      restoreThreads: accountThreadState.restoreThreads,
+      optimisticallyUpdateThreads:
+        accountThreadState.optimisticallyUpdateThreads,
+    });
 
   const clampIndex = useCallback(
     (index: number) =>
@@ -404,6 +408,14 @@ export function MailShell() {
     () => runOn((ids) => setReadState(ids, false), false),
     [runOn, setReadState],
   );
+  const snoozeTargets = useCallback(
+    (until: Date) => runOn((ids) => snooze(ids, until), true),
+    [runOn, snooze],
+  );
+  const openSnoozePalette = useCallback(
+    () => setCommandPalettePage("snooze"),
+    [setCommandPalettePage],
+  );
   const commandTargetIds = useMemo(() => {
     if (isAllAccounts) {
       return focusedThread ? [getListThreadKey(focusedThread)] : [];
@@ -425,6 +437,7 @@ export function MailShell() {
               archive: archiveTargets,
               markRead: markReadTargets,
               markUnread: markUnreadTargets,
+              openSnooze: openSnoozePalette,
               trash: trashTargets,
             },
         hasRead: commandTargets.some(
@@ -442,16 +455,19 @@ export function MailShell() {
       isAllAccounts,
       markReadTargets,
       markUnreadTargets,
+      openSnoozePalette,
       trashTargets,
     ],
   );
 
   useEffect(() => {
     setMailCommandContext(
-      mailCommands.length ? { commands: mailCommands } : null,
+      mailCommands.length
+        ? { commands: mailCommands, snooze: snoozeTargets }
+        : null,
     );
     return () => setMailCommandContext(null);
-  }, [mailCommands, setMailCommandContext]);
+  }, [mailCommands, setMailCommandContext, snoozeTargets]);
   const isMailOverlayOpen =
     isHelpOpen ||
     isPaletteOpen ||

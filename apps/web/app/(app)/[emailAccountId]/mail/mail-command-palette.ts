@@ -1,10 +1,17 @@
-import { ArchiveIcon, MailIcon, MailOpenIcon, Trash2Icon } from "lucide-react";
+import {
+  ArchiveIcon,
+  Clock3Icon,
+  MailIcon,
+  MailOpenIcon,
+  Trash2Icon,
+} from "lucide-react";
 import type { Command } from "@/lib/commands/types";
 
 type MailCommandActions = {
   archive: () => void;
   markRead?: () => void;
   markUnread?: () => void;
+  openSnooze?: () => void;
   trash?: () => void;
 };
 
@@ -59,6 +66,20 @@ export function buildMailCommandPalette({
       priority: 2,
       keywords: ["unread", "unseen", "new"],
       action: actions.markUnread,
+    });
+  }
+
+  if (actions.openSnooze) {
+    commands.push({
+      id: "mail-snooze",
+      label:
+        targetCount === 1 ? "Snooze" : `Snooze ${targetCount} conversations`,
+      icon: Clock3Icon,
+      section: "actions",
+      priority: 3,
+      keywords: ["snooze", "later", "remind"],
+      action: actions.openSnooze,
+      closeOnSelect: false,
     });
   }
 

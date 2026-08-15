@@ -132,7 +132,7 @@ The Docker Compose setup includes a `cron` container that handles these schedule
 
 | Task | Interval | Endpoint | Description |
 |------|----------|----------|-------------|
-| **Scheduled actions** | Every 15 minutes | `/api/cron/scheduled-actions` | Executes delayed/scheduled actions when QStash is not configured |
+| **Scheduled mail actions** | Every 15 minutes | `/api/cron/scheduled-actions` | Executes delayed actions when QStash is not configured, and restores snoozed threads |
 | **Automation jobs** | Every 15 minutes | `/api/cron/automation-jobs` | Processes due automation jobs |
 | **Email digests** | Every 30 minutes | `/api/resend/digest/all` | Sends due email digests |
 | **Email watch renewal** | Every 6 hours | `/api/watch/all` | Renews Gmail/Outlook push notification subscriptions |
