@@ -12,6 +12,7 @@ import {
 import { markQStashActionAsExecuting } from "@/utils/scheduled-actions/scheduler";
 import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
+import { processDueSnoozedThreads } from "@/utils/snooze/process-due";
 
 export const maxDuration = 300;
 
@@ -30,7 +31,7 @@ export const GET = withError("cron/scheduled-actions", async (request) => {
     return NextResponse.json({ skipped: true, reason: "qstash-configured" });
   }
 
-  const result = await processScheduledActions(request.logger);
+  const result = await processAllScheduledMail(request.logger);
 
   return NextResponse.json(result);
 });
@@ -48,7 +49,7 @@ export const POST = withError("cron/scheduled-actions", async (request) => {
     return NextResponse.json({ skipped: true, reason: "qstash-configured" });
   }
 
-  const result = await processScheduledActions(request.logger);
+  const result = await processAllScheduledMail(request.logger);
 
   return NextResponse.json(result);
 });
@@ -149,4 +150,13 @@ async function processScheduledActions(logger: Logger) {
     skipped,
     total: scheduledActions.length,
   };
+}
+
+async function processAllScheduledMail(logger: Logger) {
+  const [scheduledActions, snoozedThreads] = await Promise.all([
+    processScheduledActions(logger),
+    processDueSnoozedThreads(logger),
+  ]);
+
+  return { scheduledActions, snoozedThreads };
 }

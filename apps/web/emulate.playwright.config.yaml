@@ -1,0 +1,63 @@
+google:
+  users:
+    - email: __PLAYWRIGHT_TEST_EMAIL__
+      name: Smoke Test User
+  oauth_clients:
+    - client_id: client_id
+      client_secret: client_secret
+      name: Inbox Zero Smoke
+      redirect_uris:
+        - __PLAYWRIGHT_TEST_REDIRECT_URI__
+  labels:
+    - id: Label_playwright
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      name: Playwright
+      color_background: "#DDEEFF"
+      color_text: "#111111"
+  messages:
+    - id: msg_playwright_1
+      thread_id: thr_playwright_1
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: Alice Example <alice@example.com>
+      to: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Playwright Test Message
+      body_text: Emulator message body.
+      label_ids:
+        - INBOX
+        - UNREAD
+      date: 2025-01-04T10:00:00.000Z
+    - id: msg_playwright_2
+      thread_id: thr_playwright_2
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: Bob Example <bob@example.com>
+      to: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Read Command Message
+      body_text: A read message for mixed-selection checks.
+      label_ids:
+        - INBOX
+      date: 2025-01-03T10:00:00.000Z
+    - id: msg_playwright_3
+      thread_id: thr_playwright_3
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: Carol Example <carol@example.com>
+      to: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Second Unread Command Message
+      body_text: Another unread message for bulk-action checks.
+      label_ids:
+        - INBOX
+        - UNREAD
+      date: 2025-01-02T10:00:00.000Z
+  calendars:
+    - id: primary
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      summary: __PLAYWRIGHT_TEST_EMAIL__
+      primary: true
+      selected: true
+      time_zone: UTC
+  drive_items:
+    - id: drv_root_child
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      name: Smoke Docs
+      mime_type: application/vnd.google-apps.folder
+      parent_ids:
+        - root

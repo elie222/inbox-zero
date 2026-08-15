@@ -115,11 +115,18 @@ function useNavigationItems(): NavigationItem[] {
   );
 }
 
-export function useCommandPaletteCommands() {
+export function useCommandPaletteCommands({
+  enabled = true,
+}: {
+  enabled?: boolean;
+} = {}) {
   const router = useRouter();
   const { emailAccountId } = useAccount();
-  const { data: rulesData, isLoading: rulesLoading } = useRules();
-  const { data: user, isLoading: userLoading } = useUser();
+  const { data: rulesData, isLoading: rulesLoading } = useRules(
+    undefined,
+    enabled,
+  );
+  const { data: user, isLoading: userLoading } = useUser(enabled);
   const navigationItems = useNavigationItems();
 
   const navigationCommands = useMemo<Command[]>(
@@ -227,21 +234,26 @@ export function useCommandPaletteCommands() {
   }, [user?.emailAccounts, router, emailAccountId]);
 
   const allCommands = useMemo(
-    () => [
-      ...navigationCommands,
-      ...settingsCommands,
-      ...ruleCommands,
-      ...accountCommands,
+    () =>
+      enabled
+        ? [
+            ...navigationCommands,
+            ...settingsCommands,
+            ...ruleCommands,
+            ...accountCommands,
+          ]
+        : [],
+    [
+      enabled,
+      navigationCommands,
+      settingsCommands,
+      ruleCommands,
+      accountCommands,
     ],
-    [navigationCommands, settingsCommands, ruleCommands, accountCommands],
   );
 
   return {
     commands: allCommands,
-    isLoading: rulesLoading || userLoading,
-    navigationCommands,
-    settingsCommands,
-    ruleCommands,
-    accountCommands,
+    isLoading: enabled && (rulesLoading || userLoading),
   };
 }

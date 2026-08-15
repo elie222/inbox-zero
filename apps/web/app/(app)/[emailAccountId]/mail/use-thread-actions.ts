@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef } from "react";
+import { format } from "date-fns";
 import { toast } from "sonner";
 import {
   archiveEmails,
@@ -20,6 +21,7 @@ import type {
   ThreadRemoval,
 } from "@/app/(app)/[emailAccountId]/mail/use-mail-threads";
 import type { ListThread } from "@/app/(app)/[emailAccountId]/mail/types";
+import { snoozeThreadsAction } from "@/utils/actions/snooze";
 
 type UndoableAction = "archive" | "delete";
 
@@ -167,28 +169,81 @@ export function useThreadActions({
   );
 
   const setReadState = useCallback(
-    async (threadId: string, read: boolean) => {
-      const update = optimisticallyUpdateThreads([threadId], (thread) =>
+    async (threadIds: string[], read: boolean) => {
+      const update = optimisticallyUpdateThreads(threadIds, (thread) =>
         withThreadReadState(thread, read),
       );
       if (!update.threadIds.length) return;
 
-      try {
-        const result = await markReadThreadAction(emailAccountId, {
-          threadId,
-          read,
-        });
-        if (result?.serverError) throw new Error(result.serverError);
-      } catch {
-        update.rollback([threadId]);
-        toast.error(read ? "Couldn't mark as read" : "Couldn't mark as unread");
+      const results = await Promise.all(
+        update.threadIds.map(async (threadId) => {
+          try {
+            const result = await markReadThreadAction(emailAccountId, {
+              threadId,
+              read,
+            });
+            return { failed: Boolean(result?.serverError), threadId };
+          } catch {
+            return { failed: true, threadId };
+          }
+        }),
+      );
+      const failedThreadIds = results
+        .filter((result) => result.failed)
+        .map(({ threadId }) => threadId);
+
+      for (const threadId of update.threadIds) {
+        if (!failedThreadIds.includes(threadId)) update.commit(threadId);
+      }
+      update.rollback(failedThreadIds);
+
+      if (failedThreadIds.length) {
+        toast.error(
+          failedThreadIds.length === update.threadIds.length
+            ? `Couldn't mark as ${read ? "read" : "unread"}`
+            : `Couldn't mark ${failedThreadIds.length} of ${update.threadIds.length} as ${read ? "read" : "unread"}`,
+        );
         return;
       }
 
-      update.commit(threadId);
-      toast.success(read ? "Marked as read" : "Marked as unread");
+      toast.success(
+        update.threadIds.length === 1
+          ? `Marked as ${read ? "read" : "unread"}`
+          : `Marked ${update.threadIds.length} as ${read ? "read" : "unread"}`,
+      );
     },
     [emailAccountId, optimisticallyUpdateThreads],
+  );
+
+  const snooze = useCallback(
+    async (threadIds: string[], snoozedUntil: Date) => {
+      if (!threadIds.length) return;
+      const removal = removeThreads(threadIds);
+      const result = await snoozeThreadsAction(emailAccountId, {
+        threadIds,
+        snoozedUntil,
+      }).catch(() => null);
+      const failedThreadIds = result?.data?.failedThreadIds ?? threadIds;
+      const succeededThreadIds = result?.data?.succeededThreadIds ?? [];
+
+      restoreThreads(removal, failedThreadIds);
+
+      if (succeededThreadIds.length) {
+        toast.success(
+          succeededThreadIds.length === 1
+            ? `Snoozed until ${format(snoozedUntil, "EEE, MMM d 'at' p")}`
+            : `Snoozed ${succeededThreadIds.length} conversations`,
+        );
+      }
+      if (failedThreadIds.length) {
+        toast.error(
+          failedThreadIds.length === 1
+            ? "Couldn't snooze conversation"
+            : `Couldn't snooze ${failedThreadIds.length} conversations`,
+        );
+      }
+    },
+    [emailAccountId, removeThreads, restoreThreads],
   );
 
   return {
@@ -196,6 +251,7 @@ export function useThreadActions({
     trash: useCallback((ids: string[]) => run("delete", ids), [run]),
     markRead,
     setReadState,
+    snooze,
     undo,
   };
 }

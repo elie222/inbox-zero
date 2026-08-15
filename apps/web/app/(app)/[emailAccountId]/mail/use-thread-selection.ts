@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 /**
  * Row selection for the mail list.
@@ -28,6 +28,17 @@ export function useThreadSelection(orderedIds: string[]) {
     lastToggledIndex.current = null;
     setSelectedIds((current) => (current.size ? new Set() : current));
   }, [resetAnchor]);
+
+  useEffect(() => {
+    const visibleIds = new Set(orderedIds);
+    if ([...selectedIds].every((id) => visibleIds.has(id))) return;
+
+    resetAnchor();
+    lastToggledIndex.current = null;
+    setSelectedIds(
+      new Set([...selectedIds].filter((id) => visibleIds.has(id))),
+    );
+  }, [orderedIds, resetAnchor, selectedIds]);
 
   const toggle = useCallback(
     (index: number) => {
