@@ -71,4 +71,15 @@ describe("buildMailCommandPalette", () => {
       }),
     ).toEqual([]);
   });
+
+  it("only exposes actions supported by the active mail source", () => {
+    const commands = buildMailCommandPalette({
+      actions: { archive: actions.archive },
+      hasRead: true,
+      hasUnread: true,
+      targetCount: 1,
+    });
+
+    expect(commands.map((command) => command.id)).toEqual(["mail-archive"]);
+  });
 });

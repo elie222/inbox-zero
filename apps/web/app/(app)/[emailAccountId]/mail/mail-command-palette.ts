@@ -9,10 +9,10 @@ import type { Command } from "@/lib/commands/types";
 
 type MailCommandActions = {
   archive: () => void;
-  markRead: () => void;
-  markUnread: () => void;
-  openSnooze: () => void;
-  trash: () => void;
+  markRead?: () => void;
+  markUnread?: () => void;
+  openSnooze?: () => void;
+  trash?: () => void;
 };
 
 export function buildMailCommandPalette({
@@ -44,7 +44,7 @@ export function buildMailCommandPalette({
     },
   ];
 
-  if (hasUnread) {
+  if (hasUnread && actions.markRead) {
     commands.push({
       id: "mail-mark-read",
       label: targetCount === 1 ? "Mark as read" : `Mark ${targetCount} as read`,
@@ -56,7 +56,7 @@ export function buildMailCommandPalette({
     });
   }
 
-  if (hasRead) {
+  if (hasRead && actions.markUnread) {
     commands.push({
       id: "mail-mark-unread",
       label:
@@ -69,30 +69,35 @@ export function buildMailCommandPalette({
     });
   }
 
-  commands.push({
-    id: "mail-snooze",
-    label: targetCount === 1 ? "Snooze" : `Snooze ${targetCount} conversations`,
-    icon: Clock3Icon,
-    section: "actions",
-    priority: 3,
-    keywords: ["snooze", "later", "remind"],
-    action: actions.openSnooze,
-    closeOnSelect: false,
-  });
+  if (actions.openSnooze) {
+    commands.push({
+      id: "mail-snooze",
+      label:
+        targetCount === 1 ? "Snooze" : `Snooze ${targetCount} conversations`,
+      icon: Clock3Icon,
+      section: "actions",
+      priority: 3,
+      keywords: ["snooze", "later", "remind"],
+      action: actions.openSnooze,
+      closeOnSelect: false,
+    });
+  }
 
-  commands.push({
-    id: "mail-delete",
-    label:
-      targetCount === 1
-        ? "Delete conversation"
-        : `Delete ${targetCount} conversations`,
-    icon: Trash2Icon,
-    shortcut: "#",
-    section: "actions",
-    priority: 10,
-    keywords: ["delete", "trash", "remove"],
-    action: actions.trash,
-  });
+  if (actions.trash) {
+    commands.push({
+      id: "mail-delete",
+      label:
+        targetCount === 1
+          ? "Delete conversation"
+          : `Delete ${targetCount} conversations`,
+      icon: Trash2Icon,
+      shortcut: "#",
+      section: "actions",
+      priority: 10,
+      keywords: ["delete", "trash", "remove"],
+      action: actions.trash,
+    });
+  }
 
   return commands;
 }

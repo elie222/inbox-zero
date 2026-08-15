@@ -416,15 +416,14 @@ export function MailShell() {
     () => setCommandPalettePage("snooze"),
     [setCommandPalettePage],
   );
-  const commandTargetIds = useMemo(
-    () =>
-      isAllAccounts
-        ? []
-        : selection.targetIds(
-            focusedThread ? getListThreadKey(focusedThread) : undefined,
-          ),
-    [isAllAccounts, selection, focusedThread],
-  );
+  const commandTargetIds = useMemo(() => {
+    if (isAllAccounts) {
+      return focusedThread ? [getListThreadKey(focusedThread)] : [];
+    }
+    return selection.targetIds(
+      focusedThread ? getListThreadKey(focusedThread) : undefined,
+    );
+  }, [isAllAccounts, selection, focusedThread]);
   const commandTargets = useMemo(() => {
     const ids = new Set(commandTargetIds);
     return threads.filter((thread) => ids.has(getListThreadKey(thread)));
@@ -432,13 +431,15 @@ export function MailShell() {
   const mailCommands = useMemo(
     () =>
       buildMailCommandPalette({
-        actions: {
-          archive: archiveTargets,
-          markRead: markReadTargets,
-          markUnread: markUnreadTargets,
-          openSnooze: openSnoozePalette,
-          trash: trashTargets,
-        },
+        actions: isAllAccounts
+          ? { archive: archiveTargets }
+          : {
+              archive: archiveTargets,
+              markRead: markReadTargets,
+              markUnread: markUnreadTargets,
+              openSnooze: openSnoozePalette,
+              trash: trashTargets,
+            },
         hasRead: commandTargets.some(
           (thread) => !isThreadUnread(thread.messages),
         ),
@@ -451,6 +452,7 @@ export function MailShell() {
       archiveTargets,
       commandTargetIds.length,
       commandTargets,
+      isAllAccounts,
       markReadTargets,
       markUnreadTargets,
       openSnoozePalette,
