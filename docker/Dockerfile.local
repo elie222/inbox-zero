@@ -23,6 +23,7 @@ ENV CI=true
 # Copy lockfiles/workspace manifests for better caching
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc* ./
 COPY apps/web/package.json apps/web/package.json
+# Lockfile plumbing only; Electron is not installed in this image.
 COPY apps/desktop/package.json apps/desktop/package.json
 COPY apps/worker/package.json apps/worker/package.json
 COPY apps/image-proxy/package.json apps/image-proxy/package.json
@@ -41,10 +42,13 @@ COPY packages/tsconfig/package.json packages/tsconfig/package.json
 COPY apps/web/prisma/schema.prisma apps/web/prisma/schema.prisma
 # Copy postinstall script
 COPY clone-marketing.sh clone-marketing.sh
+COPY scripts/pnpm-install-without-desktop.sh scripts/pnpm-install-without-desktop.sh
 
-# Install deps with BuildKit cache for pnpm store
+# Install deps with BuildKit cache for pnpm store. Skip @inboxzero/desktop so
+# the image does not download Electron.
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
-    pnpm install --no-frozen-lockfile --shamefully-hoist
+    chmod +x scripts/pnpm-install-without-desktop.sh \
+ && ./scripts/pnpm-install-without-desktop.sh --no-frozen-lockfile --shamefully-hoist
 
 # Copy the full repo
 COPY . .

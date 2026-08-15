@@ -13,6 +13,7 @@ ENV CI=true
 # Copy lockfiles/workspace manifests for better caching
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc* ./
 COPY apps/web/package.json apps/web/package.json
+# Lockfile plumbing only; Electron is not installed in this image.
 COPY apps/desktop/package.json apps/desktop/package.json
 COPY apps/worker/package.json apps/worker/package.json
 COPY apps/image-proxy/package.json apps/image-proxy/package.json
@@ -31,11 +32,14 @@ COPY packages/tsconfig/package.json packages/tsconfig/package.json
 COPY apps/web/prisma/schema.prisma apps/web/prisma/schema.prisma
 # Copy postinstall script
 COPY clone-marketing.sh clone-marketing.sh
+COPY scripts/pnpm-install-without-desktop.sh scripts/pnpm-install-without-desktop.sh
 
 # Install deps with a hoisted node_modules layout so Turbopack resolves packages
 # from the workspace instead of following pnpm store symlinks outside package
-# peer dependency boundaries.
-RUN pnpm install --frozen-lockfile --prefer-offline --config.node-linker=hoisted
+# peer dependency boundaries. Skip @inboxzero/desktop so the image does not
+# download Electron.
+RUN chmod +x scripts/pnpm-install-without-desktop.sh \
+ && ./scripts/pnpm-install-without-desktop.sh --frozen-lockfile --prefer-offline --config.node-linker=hoisted
 
  # Copy the full repo
 COPY . .
