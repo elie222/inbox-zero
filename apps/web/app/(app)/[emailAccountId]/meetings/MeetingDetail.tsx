@@ -28,6 +28,7 @@ import { getMeetingDetailState } from "@/app/(app)/[emailAccountId]/meetings/mee
 import { useMeetingRecorderMeeting } from "@/hooks/useMeetingRecorder";
 import { STILL_CAPTURING_STATUSES } from "@/utils/meeting-recorder/recording-lifecycle";
 import { formatTranscriptTimestamp } from "@/utils/meeting-recorder/transcript-prompt";
+import { getEmailDraftUrl } from "@/utils/url";
 
 export function MeetingDetail({
   meetingId,
@@ -36,7 +37,7 @@ export function MeetingDetail({
   meetingId: string | null;
   onClose: () => void;
 }) {
-  const { emailAccountId } = useAccount();
+  const { emailAccountId, provider, userEmail } = useAccount();
   const { data, isLoading, error } = useMeetingRecorderMeeting(
     meetingId,
     emailAccountId,
@@ -176,7 +177,14 @@ export function MeetingDetail({
                   attendees. Nothing was sent for you.
                 </MutedText>
                 <Button asChild variant="outline" size="sm">
-                  <Link href={`/${emailAccountId}/mail?type=draft`}>
+                  <Link
+                    href={getEmailDraftUrl(
+                      data.followUpDraftId,
+                      userEmail,
+                      provider,
+                    )}
+                    target="_blank"
+                  >
                     Go to drafts
                   </Link>
                 </Button>
