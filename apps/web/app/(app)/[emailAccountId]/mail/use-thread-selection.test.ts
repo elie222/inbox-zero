@@ -136,6 +136,19 @@ describe("useThreadSelection", () => {
     expect([...result.current.selectedIds].sort()).toEqual(["a", "b"]);
   });
 
+  it("keeps the shift-click anchor when the same rows refresh", () => {
+    const { result, rerender } = renderHook(
+      ({ ids }) => useThreadSelection(ids),
+      { initialProps: { ids: ["a", "b", "c"] } },
+    );
+
+    act(() => result.current.toggle(0));
+    rerender({ ids: ["a", "b", "c"] });
+    act(() => result.current.selectRangeTo(2));
+
+    expect([...result.current.selectedIds].sort()).toEqual(["a", "b", "c"]);
+  });
+
   it("ignores a toggle for an index outside the list", () => {
     const { result } = setup();
 

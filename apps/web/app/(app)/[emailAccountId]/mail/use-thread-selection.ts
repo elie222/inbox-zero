@@ -17,6 +17,7 @@ export function useThreadSelection(orderedIds: string[]) {
   const anchorIndex = useRef<number | null>(null);
   const baseSelection = useRef<ReadonlySet<string> | null>(null);
   const lastToggledIndex = useRef<number | null>(null);
+  const previousOrderedIds = useRef(orderedIds);
 
   const resetAnchor = useCallback(() => {
     anchorIndex.current = null;
@@ -30,6 +31,10 @@ export function useThreadSelection(orderedIds: string[]) {
   }, [resetAnchor]);
 
   useEffect(() => {
+    const previousIds = previousOrderedIds.current;
+    previousOrderedIds.current = orderedIds;
+    if (hasSameOrder(previousIds, orderedIds)) return;
+
     const visibleIds = new Set(orderedIds);
     resetAnchor();
     lastToggledIndex.current = null;
@@ -110,6 +115,13 @@ export function useThreadSelection(orderedIds: string[]) {
       targetIds,
     }),
     [selectedIds, toggle, selectRangeTo, extendTo, clear, targetIds],
+  );
+}
+
+function hasSameOrder(previousIds: string[], currentIds: string[]) {
+  return (
+    previousIds.length === currentIds.length &&
+    previousIds.every((id, index) => id === currentIds[index])
   );
 }
 
