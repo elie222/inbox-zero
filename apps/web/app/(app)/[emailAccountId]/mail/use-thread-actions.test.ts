@@ -212,6 +212,41 @@ describe("useThreadActions read state", () => {
     });
     expect(restoreThreads).toHaveBeenCalledWith(removal, ["thread-two"]);
   });
+
+  it("chunks snooze actions at the server validation limit", async () => {
+    const threadIds = Array.from(
+      { length: 101 },
+      (_, index) => `thread-${index}`,
+    );
+    snoozeThreadsAction.mockImplementation(
+      async (_emailAccountId, input: { threadIds: string[] }) => ({
+        data: {
+          failedThreadIds: [],
+          succeededThreadIds: input.threadIds,
+        },
+      }),
+    );
+    const { result } = renderHook(() =>
+      useThreadActions({
+        emailAccountId: "account",
+        removeThreads: vi.fn(() => ({
+          entries: new Map(),
+          viewIdentity: "view",
+        })),
+        restoreThreads: vi.fn(),
+        optimisticallyUpdateThreads: vi.fn(),
+      }),
+    );
+
+    await act(() =>
+      result.current.snooze(threadIds, new Date("2026-08-16T09:00:00.000Z")),
+    );
+
+    expect(snoozeThreadsAction).toHaveBeenCalledTimes(2);
+    expect(
+      snoozeThreadsAction.mock.calls.map((call) => call[1].threadIds),
+    ).toEqual([threadIds.slice(0, 100), threadIds.slice(100)]);
+  });
 });
 
 function createThread(labelIds: string[]): ListThread {

@@ -2,6 +2,7 @@
 
 import { useCallback, useRef } from "react";
 import { format } from "date-fns";
+import chunk from "lodash/chunk";
 import { toast } from "sonner";
 import {
   archiveEmails,
@@ -25,6 +26,8 @@ import { snoozeThreadsAction } from "@/utils/actions/snooze";
 import { mapWithConcurrency } from "@/utils/async";
 
 const THREAD_ACTION_CONCURRENCY = 10;
+const SNOOZE_ACTION_BATCH_CONCURRENCY = 2;
+const SNOOZE_ACTION_BATCH_SIZE = 100;
 
 type UndoableAction = "archive" | "delete";
 
@@ -226,12 +229,28 @@ export function useThreadActions({
     async (threadIds: string[], snoozedUntil: Date) => {
       if (!threadIds.length) return;
       const removal = removeThreads(threadIds);
-      const result = await snoozeThreadsAction(emailAccountId, {
-        threadIds,
-        snoozedUntil,
-      }).catch(() => null);
-      const failedThreadIds = result?.data?.failedThreadIds ?? threadIds;
-      const succeededThreadIds = result?.data?.succeededThreadIds ?? [];
+      const results = await mapWithConcurrency(
+        chunk(threadIds, SNOOZE_ACTION_BATCH_SIZE),
+        SNOOZE_ACTION_BATCH_CONCURRENCY,
+        async (batch) => {
+          const result = await snoozeThreadsAction(emailAccountId, {
+            threadIds: batch,
+            snoozedUntil,
+          }).catch(() => null);
+          return (
+            result?.data ?? {
+              failedThreadIds: batch,
+              succeededThreadIds: [],
+            }
+          );
+        },
+      );
+      const failedThreadIds = results.flatMap(
+        (result) => result.failedThreadIds,
+      );
+      const succeededThreadIds = results.flatMap(
+        (result) => result.succeededThreadIds,
+      );
 
       restoreThreads(removal, failedThreadIds);
 

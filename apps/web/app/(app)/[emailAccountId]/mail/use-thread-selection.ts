@@ -31,11 +31,11 @@ export function useThreadSelection(orderedIds: string[]) {
 
   useEffect(() => {
     const visibleIds = new Set(orderedIds);
+    resetAnchor();
+    lastToggledIndex.current = null;
     setSelectedIds((current) => {
       if ([...current].every((id) => visibleIds.has(id))) return current;
 
-      resetAnchor();
-      lastToggledIndex.current = null;
       return new Set([...current].filter((id) => visibleIds.has(id)));
     });
   }, [orderedIds, resetAnchor]);

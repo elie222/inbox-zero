@@ -123,6 +123,19 @@ describe("useThreadSelection", () => {
     expect(result.current.targetIds("c")).toEqual(["c"]);
   });
 
+  it("resets positional range state when rows reorder", () => {
+    const { result, rerender } = renderHook(
+      ({ ids }) => useThreadSelection(ids),
+      { initialProps: { ids: ["a", "b", "c"] } },
+    );
+
+    act(() => result.current.toggle(0));
+    rerender({ ids: ["c", "b", "a"] });
+    act(() => result.current.selectRangeTo(1));
+
+    expect([...result.current.selectedIds].sort()).toEqual(["a", "b"]);
+  });
+
   it("ignores a toggle for an index outside the list", () => {
     const { result } = setup();
 
