@@ -282,4 +282,28 @@ describe("snoozed thread scheduler", () => {
     });
     expect(result).toBe(record);
   });
+
+  it("keeps accepted QStash work when the scheduling write committed ambiguously", async () => {
+    env.QSTASH_TOKEN = "qstash-token";
+    const record = { id: "snooze", scheduledId: null } as never;
+    const persisted = {
+      id: "snooze",
+      scheduledId: "message-id",
+      schedulingStatus: "SCHEDULED",
+    } as never;
+    prisma.snoozedThread.updateManyAndReturn.mockResolvedValue([]);
+    prisma.snoozedThread.create.mockResolvedValue(record);
+    prisma.snoozedThread.update.mockRejectedValue(new Error("connection lost"));
+    prisma.snoozedThread.findUnique.mockResolvedValue(persisted);
+    publishJSON.mockResolvedValue({ messageId: "message-id" });
+
+    const result = await scheduleSnoozedThread({
+      emailAccountId: "account",
+      scheduledFor: new Date("2026-08-17T09:00:00.000Z"),
+      threadId: "thread",
+    });
+
+    expect(qstashRequest).not.toHaveBeenCalled();
+    expect(result).toBe(persisted);
+  });
 });
