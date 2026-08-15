@@ -15,6 +15,7 @@ on:
       - "turbo.json"
       - "tsconfig.json"
       - "konsistent.json"
+      - "scripts/pnpm-install-without-desktop.sh"
       - ".github/workflows/build-check.yml"
   pull_request:
     branches: [main]
@@ -27,6 +28,7 @@ on:
       - "turbo.json"
       - "tsconfig.json"
       - "konsistent.json"
+      - "scripts/pnpm-install-without-desktop.sh"
       - ".github/workflows/build-check.yml"
 
 concurrency:
