@@ -24,93 +24,63 @@ export async function scheduleSnoozedThread({
   scheduledFor: Date;
   threadId: string;
 }) {
-  const existing = await prisma.snoozedThread.findMany({
-    where: {
-      emailAccountId,
-      threadId,
-      status: SnoozedThreadStatus.PENDING,
-    },
-    orderBy: { createdAt: "desc" },
-  });
+  const [cancelledSnoozes, snoozedThread] = await prisma.$transaction([
+    prisma.snoozedThread.updateManyAndReturn({
+      where: {
+        emailAccountId,
+        threadId,
+        status: SnoozedThreadStatus.PENDING,
+      },
+      data: { status: SnoozedThreadStatus.CANCELLED },
+      select: { id: true, scheduledId: true },
+    }),
+    prisma.snoozedThread.create({
+      data: { emailAccountId, scheduledFor, threadId },
+    }),
+  ]);
 
-  const snoozedThread = await prisma.snoozedThread.create({
-    data: {
-      emailAccountId,
-      scheduledFor,
-      status: SnoozedThreadStatus.PREPARING,
-      threadId,
-    },
-  });
+  await Promise.all(cancelledSnoozes.map(deleteScheduledMessage));
 
   const client = getQstashClient();
-  let preparedSnooze = snoozedThread;
   if (!client) {
     logger.info("QStash unavailable; snoozed thread will use cron fallback", {
       snoozedThreadId: snoozedThread.id,
       scheduledFor,
     });
-  } else {
-    try {
-      const response = await client.publishJSON({
-        url: `${getInternalApiUrl()}/api/snoozed-threads/execute`,
-        body: { snoozedThreadId: snoozedThread.id },
-        notBefore: Math.ceil(scheduledFor.getTime() / 1000),
-        deduplicationId: `snoozed-thread-${snoozedThread.id}`,
-        contentBasedDeduplication: false,
-        headers: getCronSecretHeader(),
-      });
-      const scheduledId =
-        "messageId" in response ? response.messageId : undefined;
-      preparedSnooze = await prisma.snoozedThread.update({
-        where: { id: snoozedThread.id },
-        data: {
-          scheduledId,
-          schedulingStatus: "SCHEDULED",
-        },
-      });
-    } catch (error) {
-      await failPreparedSnooze(snoozedThread.id);
-      logger.error("Failed to schedule snoozed thread", {
-        error,
-        snoozedThreadId: snoozedThread.id,
-      });
-      throw error;
-    }
+    return snoozedThread;
+  }
+
+  let scheduledId: string | undefined;
+  try {
+    const response = await client.publishJSON({
+      url: `${getInternalApiUrl()}/api/snoozed-threads/execute`,
+      body: { snoozedThreadId: snoozedThread.id },
+      notBefore: Math.ceil(scheduledFor.getTime() / 1000),
+      deduplicationId: `snoozed-thread-${snoozedThread.id}`,
+      contentBasedDeduplication: false,
+      headers: getCronSecretHeader(),
+    });
+    scheduledId = "messageId" in response ? response.messageId : undefined;
+  } catch (error) {
+    await markSchedulingFailed(snoozedThread.id);
+    logger.error("QStash scheduling failed; using cron fallback", {
+      error,
+      snoozedThreadId: snoozedThread.id,
+    });
+    return snoozedThread;
   }
 
   try {
-    const [, activatedSnooze] = await prisma.$transaction([
-      prisma.snoozedThread.updateMany({
-        where: {
-          emailAccountId,
-          threadId,
-          status: SnoozedThreadStatus.PENDING,
-        },
-        data: { status: SnoozedThreadStatus.CANCELLED },
-      }),
-      prisma.snoozedThread.update({
-        where: { id: preparedSnooze.id },
-        data: { status: SnoozedThreadStatus.PENDING },
-      }),
-    ]);
-
-    await Promise.all(
-      existing.map(({ id, scheduledId }) =>
-        deleteScheduledMessage({ id, scheduledId }),
-      ),
-    );
-    return activatedSnooze;
+    return await prisma.snoozedThread.update({
+      where: { id: snoozedThread.id },
+      data: { scheduledId, schedulingStatus: "SCHEDULED" },
+    });
   } catch (error) {
-    await failPreparedSnooze(preparedSnooze.id);
-    await deleteScheduledMessage({
-      id: preparedSnooze.id,
-      scheduledId: preparedSnooze.scheduledId,
-    });
-    logger.error("Failed to schedule snoozed thread", {
+    logger.error("Failed to persist QStash scheduling details", {
       error,
-      snoozedThreadId: preparedSnooze.id,
+      snoozedThreadId: snoozedThread.id,
     });
-    throw error;
+    return snoozedThread;
   }
 }
 
@@ -173,14 +143,18 @@ export async function releaseSnoozedThreadForRetry(
   });
 }
 
-async function failPreparedSnooze(id: string) {
-  await prisma.snoozedThread.updateMany({
-    where: { id, status: SnoozedThreadStatus.PREPARING },
-    data: {
-      schedulingStatus: "FAILED",
-      status: SnoozedThreadStatus.FAILED,
-    },
-  });
+async function markSchedulingFailed(id: string) {
+  try {
+    await prisma.snoozedThread.updateMany({
+      where: { id, status: SnoozedThreadStatus.PENDING },
+      data: { schedulingStatus: "FAILED" },
+    });
+  } catch (error) {
+    logger.warn("Failed to record QStash scheduling failure", {
+      error,
+      snoozedThreadId: id,
+    });
+  }
 }
 
 async function deleteScheduledMessage({

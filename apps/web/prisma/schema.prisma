@@ -2087,7 +2087,6 @@ enum ScheduledActionStatus {
 }
 
 enum SnoozedThreadStatus {
-  PREPARING
   PENDING
   EXECUTING
   COMPLETED

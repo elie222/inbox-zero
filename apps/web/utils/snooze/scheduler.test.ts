@@ -15,20 +15,14 @@ describe("snoozed thread scheduler without QStash", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     prisma.$transaction.mockImplementation(async (operations) =>
-      Promise.all(operations),
+      Promise.all(operations as Promise<unknown>[]),
     );
   });
 
   it("persists work for the cron fallback", async () => {
-    const preparedRecord = { id: "snooze", scheduledId: null } as never;
-    const activeRecord = {
-      id: "snooze",
-      scheduledId: null,
-      status: SnoozedThreadStatus.PENDING,
-    } as never;
-    prisma.snoozedThread.findMany.mockResolvedValue([]);
-    prisma.snoozedThread.create.mockResolvedValue(preparedRecord);
-    prisma.snoozedThread.update.mockResolvedValue(activeRecord);
+    const record = { id: "snooze", scheduledId: null } as never;
+    prisma.snoozedThread.updateManyAndReturn.mockResolvedValue([]);
+    prisma.snoozedThread.create.mockResolvedValue(record);
     const scheduledFor = new Date("2026-08-16T09:00:00.000Z");
 
     const result = await scheduleSnoozedThread({
@@ -37,26 +31,18 @@ describe("snoozed thread scheduler without QStash", () => {
       threadId: "thread",
     });
 
-    expect(result).toBe(activeRecord);
+    expect(result).toBe(record);
     expect(prisma.snoozedThread.create).toHaveBeenCalledWith({
-      data: {
-        emailAccountId: "account",
-        scheduledFor,
-        status: SnoozedThreadStatus.PREPARING,
-        threadId: "thread",
-      },
+      data: { emailAccountId: "account", scheduledFor, threadId: "thread" },
     });
-    expect(prisma.snoozedThread.updateMany).toHaveBeenCalledWith({
+    expect(prisma.snoozedThread.updateManyAndReturn).toHaveBeenCalledWith({
       where: {
         emailAccountId: "account",
         threadId: "thread",
         status: SnoozedThreadStatus.PENDING,
       },
       data: { status: SnoozedThreadStatus.CANCELLED },
-    });
-    expect(prisma.snoozedThread.update).toHaveBeenCalledWith({
-      where: { id: "snooze" },
-      data: { status: SnoozedThreadStatus.PENDING },
+      select: { id: true, scheduledId: true },
     });
   });
 
@@ -128,18 +114,13 @@ describe("snoozed thread scheduler without QStash", () => {
   });
 
   it("replaces an earlier pending snooze for the same thread", async () => {
-    prisma.snoozedThread.findMany.mockResolvedValue([
+    prisma.snoozedThread.updateManyAndReturn.mockResolvedValue([
       { id: "old-snooze", scheduledId: null },
       { id: "duplicate-snooze", scheduledId: null },
     ] as never);
-    const preparedRecord = {
+    prisma.snoozedThread.create.mockResolvedValue({
       id: "new-snooze",
       scheduledId: null,
-    } as never;
-    prisma.snoozedThread.create.mockResolvedValue(preparedRecord);
-    prisma.snoozedThread.update.mockResolvedValue({
-      ...preparedRecord,
-      status: SnoozedThreadStatus.PENDING,
     } as never);
 
     await scheduleSnoozedThread({
@@ -148,45 +129,37 @@ describe("snoozed thread scheduler without QStash", () => {
       threadId: "thread",
     });
 
-    expect(prisma.snoozedThread.updateMany).toHaveBeenCalledWith({
+    expect(prisma.snoozedThread.updateManyAndReturn).toHaveBeenCalledWith({
       where: {
         emailAccountId: "account",
         threadId: "thread",
         status: SnoozedThreadStatus.PENDING,
       },
       data: { status: SnoozedThreadStatus.CANCELLED },
+      select: { id: true, scheduledId: true },
     });
   });
 
-  it("keeps the previous snooze active if activating its replacement fails", async () => {
-    const preparedRecord = {
-      id: "new-snooze",
-      scheduledId: null,
-    } as never;
-    prisma.snoozedThread.findMany.mockResolvedValue([
-      { id: "old-snooze", scheduledId: null },
-    ] as never);
-    prisma.snoozedThread.create.mockResolvedValue(preparedRecord);
-    prisma.$transaction.mockRejectedValue(new Error("database unavailable"));
+  it("replaces existing snoozes and creates the new restore atomically", async () => {
+    const cancelledSnoozes = [{ id: "old-snooze", scheduledId: null }] as never;
+    const newSnooze = { id: "new-snooze", scheduledId: null } as never;
+    prisma.snoozedThread.updateManyAndReturn.mockResolvedValue(
+      cancelledSnoozes,
+    );
+    prisma.snoozedThread.create.mockResolvedValue(newSnooze);
 
-    await expect(
-      scheduleSnoozedThread({
-        emailAccountId: "account",
-        scheduledFor: new Date("2026-08-17T09:00:00.000Z"),
-        threadId: "thread",
-      }),
-    ).rejects.toThrow("database unavailable");
-
-    expect(prisma.snoozedThread.updateMany).toHaveBeenLastCalledWith({
-      where: {
-        id: "new-snooze",
-        status: SnoozedThreadStatus.PREPARING,
-      },
-      data: {
-        schedulingStatus: "FAILED",
-        status: SnoozedThreadStatus.FAILED,
-      },
+    await scheduleSnoozedThread({
+      emailAccountId: "account",
+      scheduledFor: new Date("2026-08-17T09:00:00.000Z"),
+      threadId: "thread",
     });
+
+    const operations = prisma.$transaction.mock.calls[0]?.[0];
+    expect(operations).toHaveLength(2);
+    expect(await Promise.all(operations as Promise<unknown>[])).toEqual([
+      cancelledSnoozes,
+      newSnooze,
+    ]);
   });
 
   it("releases claimed work for a later retry", async () => {

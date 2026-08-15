@@ -24,11 +24,6 @@ export const POST = withError(
     if (!snoozedThread) {
       return new Response("Snoozed thread not found", { status: 404 });
     }
-    if (snoozedThread.status === SnoozedThreadStatus.PREPARING) {
-      return new Response("Snoozed thread is still being scheduled", {
-        status: 503,
-      });
-    }
     if (
       snoozedThread.status !== SnoozedThreadStatus.PENDING &&
       snoozedThread.status !== SnoozedThreadStatus.EXECUTING
