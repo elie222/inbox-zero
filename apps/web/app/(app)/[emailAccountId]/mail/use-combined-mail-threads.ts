@@ -5,6 +5,7 @@ import useSWRInfinite from "swr/infinite";
 import type { GetAllThreadsResponse } from "@/app/api/threads/all/route";
 import { getListThreadKey } from "@/app/(app)/[emailAccountId]/mail/types";
 import type { EmailLabels } from "@/providers/email-label-types";
+import { restoreThreadOrder } from "@/utils/email-cache/thread-order";
 import { getThreadTimestamp } from "@/utils/threads/sort";
 import { createSearchParams } from "@/utils/url";
 
@@ -12,6 +13,7 @@ type CombinedThreadRemoval = {
   thread: GetAllThreadsResponse["threads"][number];
   pageIndex: number;
   index: number;
+  threadOrder: readonly string[];
 };
 
 export function useCombinedMailThreads({
@@ -72,6 +74,7 @@ export function useCombinedMailThreads({
         );
         const thread = page.threads[index];
         if (!thread) continue;
+        const threadOrder = page.threads.map(getListThreadKey);
 
         mutate(
           (pages) =>
@@ -83,7 +86,7 @@ export function useCombinedMailThreads({
             })),
           { populateCache: true, revalidate: false },
         ).catch(() => {});
-        return { thread, pageIndex, index };
+        return { thread, pageIndex, index, threadOrder };
       }
     },
     [data, mutate],
@@ -104,13 +107,29 @@ export function useCombinedMailThreads({
               return page;
             }
 
-            const threads = [...page.threads];
-            threads.splice(
-              Math.min(removal.index, threads.length),
-              0,
-              removal.thread,
+            const threadsByKey = new Map(
+              [...page.threads, removal.thread].map((thread) => [
+                getListThreadKey(thread),
+                thread,
+              ]),
             );
-            return { ...page, threads };
+            const threadKeys = restoreThreadOrder(
+              page.threads.map(getListThreadKey),
+              [
+                {
+                  threadId: getListThreadKey(removal.thread),
+                  index: removal.index,
+                  threadOrder: removal.threadOrder,
+                },
+              ],
+            );
+            return {
+              ...page,
+              threads: threadKeys.flatMap((key) => {
+                const thread = threadsByKey.get(key);
+                return thread ? [thread] : [];
+              }),
+            };
           }),
         { populateCache: true, revalidate: false },
       ).catch(() => {});
