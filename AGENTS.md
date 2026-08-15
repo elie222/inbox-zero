@@ -18,7 +18,6 @@
 - Before writing or updating tests, review `.claude/skills/testing/SKILL.md`.
 - For core bug-fix tasks, default to TDD when practical (red/green/refactor); AI prompt improvements should generally be backed by evals too, and TDD is often useful there as well.
 - When adding a new workspace package, add its `package.json` COPY line to `docker/Dockerfile.prod` and `docker/Dockerfile.local`.
-- Server/web installs (Docker, Vercel, and CI jobs that do not run desktop tests) must skip `@inboxzero/desktop` so Electron is not downloaded. Use `scripts/pnpm-install-without-desktop.sh` (or `pnpm install --filter '!@inboxzero/desktop'`). The unit-test workflow installs desktop with `ELECTRON_SKIP_BINARY_DOWNLOAD=1`.
 
 ## Code Style
 - Install packages in `apps/web`, not root: `cd apps/web && pnpm add ...`
