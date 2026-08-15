@@ -692,7 +692,7 @@ export function MailShell() {
                 isUnread={isOpenThreadUnread}
                 onToggleRead={() => {
                   if (openThreadId)
-                    setReadState(openThreadId, isOpenThreadUnread);
+                    setReadState([openThreadId], isOpenThreadUnread);
                 }}
                 open={isMenuOpen}
                 onOpenChange={setIsMenuOpen}

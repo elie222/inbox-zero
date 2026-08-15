@@ -110,6 +110,19 @@ describe("useThreadSelection", () => {
     expect(result.current.targetIds(undefined)).toEqual([]);
   });
 
+  it("drops selections that are no longer in the current mail view", () => {
+    const { result, rerender } = renderHook(
+      ({ ids }) => useThreadSelection(ids),
+      { initialProps: { ids: ["a", "b", "c"] } },
+    );
+
+    act(() => result.current.toggle(1));
+    rerender({ ids: ["c", "d"] });
+
+    expect(result.current.selectedCount).toBe(0);
+    expect(result.current.targetIds("c")).toEqual(["c"]);
+  });
+
   it("ignores a toggle for an index outside the list", () => {
     const { result } = setup();
 
