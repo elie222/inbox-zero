@@ -219,7 +219,6 @@ const SHORTCUT_DEFINITIONS = [
     label: "New message",
     palette: {
       section: "actions",
-      description: "Compose a new email",
       keywords: ["compose", "write", "email"],
       priority: 20,
       icon: PenLineIcon,

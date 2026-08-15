@@ -142,17 +142,14 @@ async function processScheduledActions(logger: Logger) {
   };
 }
 
-async function processAllScheduledMail(logger: Logger) {
-  const [scheduledActions, snoozedThreads] = await Promise.all([
-    processScheduledActions(logger),
-    processDueSnoozedThreads(logger),
-  ]);
-
-  return { scheduledActions, snoozedThreads };
-}
-
 async function processScheduledMail(logger: Logger) {
-  if (!env.QSTASH_TOKEN) return processAllScheduledMail(logger);
+  if (!env.QSTASH_TOKEN) {
+    const [scheduledActions, snoozedThreads] = await Promise.all([
+      processScheduledActions(logger),
+      processDueSnoozedThreads(logger),
+    ]);
+    return { scheduledActions, snoozedThreads };
+  }
 
   logger.info("QStash configured; checking snoozed thread fallback");
   return {
