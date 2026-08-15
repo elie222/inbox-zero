@@ -41,18 +41,24 @@ export const GET = withAuth("threads/all", async (request) => {
         provider: account.provider,
         logger,
       });
-      const loaded = await loadThreads({
-        query: threadsQuery.parse({
-          type: "inbox",
-          isUnread,
-          limit,
-          nextPageToken: pageToken,
+      const [loaded, labels] = await Promise.all([
+        loadThreads({
+          query: threadsQuery.parse({
+            type: "inbox",
+            isUnread,
+            limit,
+            nextPageToken: pageToken,
+          }),
+          emailAccountId: account.id,
+          emailProvider,
+          messageFormat: "metadata",
         }),
-        emailAccountId: account.id,
-        emailProvider,
-        messageFormat: "metadata",
-      });
-      return toListThreads(loaded);
+        emailProvider.getLabels().catch((error) => {
+          logger.warn("Failed to load labels for combined mailbox", { error });
+          return [];
+        }),
+      ]);
+      return { ...toListThreads(loaded), labels };
     },
   });
 

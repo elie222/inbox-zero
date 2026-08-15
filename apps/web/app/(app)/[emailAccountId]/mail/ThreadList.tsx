@@ -23,6 +23,7 @@ export type ThreadListProps = {
   layout: MailLayoutMode;
   userEmail: string;
   userLabels: EmailLabels;
+  labelsByAccount?: Record<string, EmailLabels>;
   selectionEnabled?: boolean;
   /** The row `J`/`K` sits on. */
   focusedIndex: number;
@@ -47,6 +48,7 @@ export function ThreadList({
   layout,
   userEmail,
   userLabels,
+  labelsByAccount,
   selectionEnabled = true,
   focusedIndex,
   isSelected,
@@ -180,7 +182,11 @@ export function ThreadList({
                     selectionEnabled={selectionEnabled}
                     thread={thread}
                     userEmail={userEmail}
-                    userLabels={userLabels}
+                    userLabels={
+                      "account" in thread
+                        ? (labelsByAccount?.[thread.account.id] ?? {})
+                        : userLabels
+                    }
                   />
                 );
               })}
