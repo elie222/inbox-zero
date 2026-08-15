@@ -22,6 +22,7 @@ import type {
   MailNavTarget,
 } from "@/app/(app)/[emailAccountId]/mail/MailSidebar";
 import { ThreadActionsMenu } from "@/app/(app)/[emailAccountId]/mail/ThreadActionsMenu";
+import { buildMailCommandPalette } from "@/app/(app)/[emailAccountId]/mail/mail-command-palette";
 import { ShortcutsDialog } from "@/app/(app)/[emailAccountId]/mail/ShortcutsDialog";
 import { SplitTabs } from "@/app/(app)/[emailAccountId]/mail/SplitTabs";
 import type { MailSplitTab } from "@/app/(app)/[emailAccountId]/mail/SplitTabs";
@@ -45,8 +46,12 @@ import { isThreadUnread } from "@/app/(app)/[emailAccountId]/mail/read-state";
 import { MailLayout, MailSplitKind } from "@/generated/prisma/enums";
 import { useChat } from "@/providers/ChatProvider";
 import { useSidebar } from "@/components/ui/sidebar";
-import { useAtom } from "jotai";
-import { commandPaletteOpenAtom } from "@/store/command-palette";
+import { useAtom, useSetAtom } from "jotai";
+import {
+  commandPaletteOpenAtom,
+  commandPalettePageAtom,
+  mailCommandContextAtom,
+} from "@/store/command-palette";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import {
   isGoogleProvider,
@@ -112,6 +117,8 @@ export function MailShell() {
   const { setInput: setChatInput } = useChat();
   const { toggleSidebar } = useSidebar();
   const [isPaletteOpen, setPaletteOpen] = useAtom(commandPaletteOpenAtom);
+  const setCommandPalettePage = useSetAtom(commandPalettePageAtom);
+  const setMailCommandContext = useSetAtom(mailCommandContextAtom);
   // The side panel viewer owns the triage keys while it's open, so this screen
   // stands down rather than both archiving the same keystroke.
   const { threadId: sidePanelThreadId } = useDisplayedEmail();
@@ -230,12 +237,14 @@ export function MailShell() {
 
   const orderedIds = useMemo(() => threads.map(getListThreadKey), [threads]);
   const selection = useThreadSelection(orderedIds);
-  const { archive, trash, markRead, setReadState, undo } = useThreadActions({
-    emailAccountId,
-    removeThreads: accountThreadState.removeThreads,
-    restoreThreads: accountThreadState.restoreThreads,
-    optimisticallyUpdateThreads: accountThreadState.optimisticallyUpdateThreads,
-  });
+  const { archive, trash, markRead, setReadState, snooze, undo } =
+    useThreadActions({
+      emailAccountId,
+      removeThreads: accountThreadState.removeThreads,
+      restoreThreads: accountThreadState.restoreThreads,
+      optimisticallyUpdateThreads:
+        accountThreadState.optimisticallyUpdateThreads,
+    });
 
   const clampIndex = useCallback(
     (index: number) =>
@@ -306,13 +315,15 @@ export function MailShell() {
   );
 
   const runOn = useCallback(
-    (action: (ids: string[]) => void) => {
+    (action: (ids: string[]) => void, removeFromList: boolean) => {
       if (isAllAccounts) return;
       const ids = selection.targetIds(
         focusedThread ? getListThreadKey(focusedThread) : undefined,
       );
       if (!ids.length) return;
-      if (openThreadId && ids.includes(openThreadId)) setOpenThreadId(null);
+      if (removeFromList && openThreadId && ids.includes(openThreadId)) {
+        setOpenThreadId(null);
+      }
       selection.clear();
       action(ids);
     },
@@ -359,7 +370,7 @@ export function MailShell() {
   const openShortcuts = useCallback(() => setIsHelpOpen(true), []);
   const archiveTargets = useCallback(async () => {
     if (!isAllAccounts) {
-      runOn(archive);
+      runOn(archive, true);
       return;
     }
     if (!focusedThread || !("account" in focusedThread)) return;
@@ -388,7 +399,73 @@ export function MailShell() {
     restoreCombinedThread,
     runOn,
   ]);
-  const trashTargets = useCallback(() => runOn(trash), [runOn, trash]);
+  const trashTargets = useCallback(() => runOn(trash, true), [runOn, trash]);
+  const markReadTargets = useCallback(
+    () => runOn(markRead, false),
+    [runOn, markRead],
+  );
+  const markUnreadTargets = useCallback(
+    () => runOn((ids) => setReadState(ids, false), false),
+    [runOn, setReadState],
+  );
+  const snoozeTargets = useCallback(
+    (until: Date) => runOn((ids) => snooze(ids, until), true),
+    [runOn, snooze],
+  );
+  const openSnoozePalette = useCallback(
+    () => setCommandPalettePage("snooze"),
+    [setCommandPalettePage],
+  );
+  const commandTargetIds = useMemo(
+    () =>
+      isAllAccounts
+        ? []
+        : selection.targetIds(
+            focusedThread ? getListThreadKey(focusedThread) : undefined,
+          ),
+    [isAllAccounts, selection, focusedThread],
+  );
+  const commandTargets = useMemo(() => {
+    const ids = new Set(commandTargetIds);
+    return threads.filter((thread) => ids.has(getListThreadKey(thread)));
+  }, [commandTargetIds, threads]);
+  const mailCommands = useMemo(
+    () =>
+      buildMailCommandPalette({
+        actions: {
+          archive: archiveTargets,
+          markRead: markReadTargets,
+          markUnread: markUnreadTargets,
+          openSnooze: openSnoozePalette,
+          trash: trashTargets,
+        },
+        hasRead: commandTargets.some(
+          (thread) => !isThreadUnread(thread.messages),
+        ),
+        hasUnread: commandTargets.some((thread) =>
+          isThreadUnread(thread.messages),
+        ),
+        targetCount: commandTargetIds.length,
+      }),
+    [
+      archiveTargets,
+      commandTargetIds.length,
+      commandTargets,
+      markReadTargets,
+      markUnreadTargets,
+      openSnoozePalette,
+      trashTargets,
+    ],
+  );
+
+  useEffect(() => {
+    setMailCommandContext(
+      mailCommands.length
+        ? { commands: mailCommands, snooze: snoozeTargets }
+        : null,
+    );
+    return () => setMailCommandContext(null);
+  }, [mailCommands, setMailCommandContext, snoozeTargets]);
   const isMailOverlayOpen =
     isHelpOpen ||
     isPaletteOpen ||
