@@ -22,7 +22,6 @@ import type {
   MailNavTarget,
 } from "@/app/(app)/[emailAccountId]/mail/MailSidebar";
 import { ThreadActionsMenu } from "@/app/(app)/[emailAccountId]/mail/ThreadActionsMenu";
-import { buildMailCommandPalette } from "@/app/(app)/[emailAccountId]/mail/mail-command-palette";
 import { ShortcutsDialog } from "@/app/(app)/[emailAccountId]/mail/ShortcutsDialog";
 import { SplitTabs } from "@/app/(app)/[emailAccountId]/mail/SplitTabs";
 import type { MailSplitTab } from "@/app/(app)/[emailAccountId]/mail/SplitTabs";
@@ -49,7 +48,6 @@ import { useSidebar } from "@/components/ui/sidebar";
 import { useAtom, useSetAtom } from "jotai";
 import {
   commandPaletteOpenAtom,
-  commandPalettePageAtom,
   mailCommandContextAtom,
 } from "@/store/command-palette";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -117,7 +115,6 @@ export function MailShell() {
   const { setInput: setChatInput } = useChat();
   const { toggleSidebar } = useSidebar();
   const [isPaletteOpen, setPaletteOpen] = useAtom(commandPaletteOpenAtom);
-  const setCommandPalettePage = useSetAtom(commandPalettePageAtom);
   const setMailCommandContext = useSetAtom(mailCommandContextAtom);
   // The side panel viewer owns the triage keys while it's open, so this screen
   // stands down rather than both archiving the same keystroke.
@@ -412,10 +409,6 @@ export function MailShell() {
     (until: Date) => runOn((ids) => snooze(ids, until), true),
     [runOn, snooze],
   );
-  const openSnoozePalette = useCallback(
-    () => setCommandPalettePage("snooze"),
-    [setCommandPalettePage],
-  );
   const commandTargetIds = useMemo(() => {
     if (isAllAccounts) {
       return focusedThread ? [getListThreadKey(focusedThread)] : [];
@@ -428,26 +421,25 @@ export function MailShell() {
     const ids = new Set(commandTargetIds);
     return threads.filter((thread) => ids.has(getListThreadKey(thread)));
   }, [commandTargetIds, threads]);
-  const mailCommands = useMemo(
-    () =>
-      buildMailCommandPalette({
-        actions: isAllAccounts
-          ? { archive: archiveTargets }
-          : {
-              archive: archiveTargets,
-              markRead: markReadTargets,
-              markUnread: markUnreadTargets,
-              openSnooze: openSnoozePalette,
-              trash: trashTargets,
-            },
-        hasRead: commandTargets.some(
-          (thread) => !isThreadUnread(thread.messages),
-        ),
-        hasUnread: commandTargets.some((thread) =>
-          isThreadUnread(thread.messages),
-        ),
-        targetCount: commandTargetIds.length,
-      }),
+  const mailCommandContext = useMemo(
+    () => ({
+      actions: isAllAccounts
+        ? { archive: archiveTargets }
+        : {
+            archive: archiveTargets,
+            markRead: markReadTargets,
+            markUnread: markUnreadTargets,
+            snooze: snoozeTargets,
+            trash: trashTargets,
+          },
+      hasRead: commandTargets.some(
+        (thread) => !isThreadUnread(thread.messages),
+      ),
+      hasUnread: commandTargets.some((thread) =>
+        isThreadUnread(thread.messages),
+      ),
+      targetCount: commandTargetIds.length,
+    }),
     [
       archiveTargets,
       commandTargetIds.length,
@@ -455,19 +447,17 @@ export function MailShell() {
       isAllAccounts,
       markReadTargets,
       markUnreadTargets,
-      openSnoozePalette,
+      snoozeTargets,
       trashTargets,
     ],
   );
 
   useEffect(() => {
     setMailCommandContext(
-      mailCommands.length
-        ? { commands: mailCommands, snooze: snoozeTargets }
-        : null,
+      mailCommandContext.targetCount ? mailCommandContext : null,
     );
     return () => setMailCommandContext(null);
-  }, [mailCommands, setMailCommandContext, snoozeTargets]);
+  }, [mailCommandContext, setMailCommandContext]);
   const isMailOverlayOpen =
     isHelpOpen ||
     isPaletteOpen ||
