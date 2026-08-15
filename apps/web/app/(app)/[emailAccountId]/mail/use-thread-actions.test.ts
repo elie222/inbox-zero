@@ -16,6 +16,7 @@ const notifications = vi.hoisted(() => ({
   success: vi.fn(),
 }));
 const markReadThreadAction = vi.hoisted(() => vi.fn());
+const snoozeThreadsAction = vi.hoisted(() => vi.fn());
 
 vi.mock("@/store/archive-queue", () => ({
   archiveEmails: queue.archive,
@@ -28,12 +29,16 @@ vi.mock("@/utils/actions/mail", () => ({
   unarchiveThreadAction: vi.fn(),
   untrashThreadAction: vi.fn(),
 }));
+vi.mock("@/utils/actions/snooze", () => ({ snoozeThreadsAction }));
 vi.mock("sonner", () => ({ toast: notifications }));
 
 describe("useThreadActions read state", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     markReadThreadAction.mockResolvedValue({});
+    snoozeThreadsAction.mockResolvedValue({
+      data: { failedThreadIds: [], succeededThreadIds: ["thread"] },
+    });
   });
 
   it("marks an unread row locally before queueing the provider update", () => {
@@ -146,7 +151,7 @@ describe("useThreadActions read state", () => {
       }),
     );
 
-    await act(() => result.current.setReadState("thread", false));
+    await act(() => result.current.setReadState(["thread"], false));
 
     expect(markReadThreadAction).toHaveBeenCalledWith("account", {
       threadId: "thread",
@@ -171,11 +176,76 @@ describe("useThreadActions read state", () => {
       }),
     );
 
-    await act(() => result.current.setReadState("thread", true));
+    await act(() => result.current.setReadState(["thread"], true));
 
     expect(transaction.rollback).toHaveBeenCalledWith(["thread"]);
     expect(transaction.commit).not.toHaveBeenCalled();
     expect(notifications.error).toHaveBeenCalledWith("Couldn't mark as read");
+  });
+
+  it("restores only rows that failed to snooze", async () => {
+    const removal = { entries: new Map(), viewIdentity: "view" };
+    const removeThreads = vi.fn(() => removal);
+    const restoreThreads = vi.fn();
+    snoozeThreadsAction.mockResolvedValue({
+      data: {
+        failedThreadIds: ["thread-two"],
+        succeededThreadIds: ["thread-one"],
+      },
+    });
+    const { result } = renderHook(() =>
+      useThreadActions({
+        emailAccountId: "account",
+        removeThreads,
+        restoreThreads,
+        optimisticallyUpdateThreads: vi.fn(),
+      }),
+    );
+    const until = new Date("2026-08-16T09:00:00.000Z");
+
+    await act(() => result.current.snooze(["thread-one", "thread-two"], until));
+
+    expect(removeThreads).toHaveBeenCalledWith(["thread-one", "thread-two"]);
+    expect(snoozeThreadsAction).toHaveBeenCalledWith("account", {
+      threadIds: ["thread-one", "thread-two"],
+      snoozedUntil: until,
+    });
+    expect(restoreThreads).toHaveBeenCalledWith(removal, ["thread-two"]);
+  });
+
+  it("chunks snooze actions at the server validation limit", async () => {
+    const threadIds = Array.from(
+      { length: 101 },
+      (_, index) => `thread-${index}`,
+    );
+    snoozeThreadsAction.mockImplementation(
+      async (_emailAccountId, input: { threadIds: string[] }) => ({
+        data: {
+          failedThreadIds: [],
+          succeededThreadIds: input.threadIds,
+        },
+      }),
+    );
+    const { result } = renderHook(() =>
+      useThreadActions({
+        emailAccountId: "account",
+        removeThreads: vi.fn(() => ({
+          entries: new Map(),
+          viewIdentity: "view",
+        })),
+        restoreThreads: vi.fn(),
+        optimisticallyUpdateThreads: vi.fn(),
+      }),
+    );
+
+    await act(() =>
+      result.current.snooze(threadIds, new Date("2026-08-16T09:00:00.000Z")),
+    );
+
+    expect(snoozeThreadsAction).toHaveBeenCalledTimes(2);
+    expect(
+      snoozeThreadsAction.mock.calls.map((call) => call[1].threadIds),
+    ).toEqual([threadIds.slice(0, 100), threadIds.slice(100)]);
   });
 });
 
