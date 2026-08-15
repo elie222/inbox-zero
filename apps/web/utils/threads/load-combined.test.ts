@@ -32,6 +32,43 @@ describe("loadCombinedThreads", () => {
     expect(result.failedAccountIds).toEqual([]);
   });
 
+  it("returns each account's labels for its combined rows", async () => {
+    const result = await loadCombinedThreads({
+      accounts: [account("account-1"), account("account-2")],
+      cursor: null,
+      limit: 20,
+      loadPage: vi.fn(async ({ account }) => ({
+        threads: [thread(`${account.id}-thread`, "2026-08-13T10:00:00.000Z")],
+        nextPageToken: null,
+        labels: [
+          {
+            id: `${account.id}-label`,
+            name: `${account.id} label`,
+            type: "user",
+          },
+        ],
+      })),
+      logger,
+    });
+
+    expect(result.labelsByAccount).toEqual({
+      "account-1": {
+        "account-1-label": {
+          id: "account-1-label",
+          name: "account-1 label",
+          type: "user",
+        },
+      },
+      "account-2": {
+        "account-2-label": {
+          id: "account-2-label",
+          name: "account-2 label",
+          type: "user",
+        },
+      },
+    });
+  });
+
   it("continues each account independently and does not restart exhausted accounts", async () => {
     const loadPage = vi.fn(async ({ account }: { account: Account }) => ({
       threads: [thread(`${account.id}-thread`, "2026-08-13T10:00:00.000Z")],

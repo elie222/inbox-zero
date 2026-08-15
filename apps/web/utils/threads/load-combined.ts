@@ -1,5 +1,6 @@
 import type { Logger } from "@/utils/logger";
 import { mapWithConcurrency } from "@/utils/async";
+import type { EmailLabel, EmailLabels } from "@/providers/email-label-types";
 import type { ThreadListItem } from "@/utils/threads/load";
 import { getThreadTimestamp } from "@/utils/threads/sort";
 
@@ -54,6 +55,7 @@ export async function loadCombinedThreads({
   }) => Promise<{
     threads: ThreadListItem[];
     nextPageToken?: string | null;
+    labels?: EmailLabel[];
   }>;
   logger: Logger;
 }) {
@@ -90,11 +92,18 @@ export async function loadCombinedThreads({
 
   const failedAccountIds: string[] = [];
   const candidates: CombinedListThread[] = [];
+  const labelsByAccount: Record<string, EmailLabels> = {};
 
   for (const { account, cursorState, page } of accountPages) {
     if (!page) {
       failedAccountIds.push(account.id);
       continue;
+    }
+
+    if (page.labels) {
+      labelsByAccount[account.id] = Object.fromEntries(
+        page.labels.map((label) => [label.id, label]),
+      );
     }
 
     const consumedThreadIds = new Set(cursorState.consumedThreadIds);
@@ -160,6 +169,7 @@ export async function loadCombinedThreads({
 
   return {
     threads,
+    labelsByAccount,
     nextPageToken: Object.values(nextCursor.accounts).some(
       (state) => !state.done,
     )

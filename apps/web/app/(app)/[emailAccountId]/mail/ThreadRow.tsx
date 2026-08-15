@@ -11,6 +11,11 @@ import { EmailDate } from "@/components/email-list/EmailDate";
 import { getEmailThreadLabels } from "@/components/EmailMessageCellLabels";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Avatar,
+  AvatarFallbackColor,
+  AvatarImage,
+} from "@/components/ui/avatar";
 import type { EmailLabels } from "@/providers/email-label-types";
 import { cn } from "@/utils";
 import { internalDateToDate } from "@/utils/date";
@@ -174,11 +179,7 @@ export const ThreadRow = memo(function ThreadRow({
             {draftMarker}
           </div>
           <div className="flex min-w-0 flex-1 items-center gap-2.5">
-            {account ? (
-              <span className="max-w-28 shrink-0 truncate rounded-full bg-muted px-2 py-0.5 text-muted-foreground text-xs">
-                {account.name || account.email}
-              </span>
-            ) : null}
+            {account ? <AccountAvatar account={account} /> : null}
             {chips.map((label) => (
               <MailLabelChip
                 color={label.color}
@@ -230,9 +231,8 @@ export const ThreadRow = memo(function ThreadRow({
             {snippet}
           </div>
           {account ? (
-            <div className="flex min-w-0 items-center gap-1.5 pt-1 text-muted-foreground text-xs">
-              <span className="size-1.5 shrink-0 rounded-full bg-primary" />
-              <span className="truncate">{account.name || account.email}</span>
+            <div className="pt-1">
+              <AccountAvatar account={account} />
             </div>
           ) : null}
           {chips.length ? (
@@ -251,6 +251,29 @@ export const ThreadRow = memo(function ThreadRow({
     </div>
   );
 });
+
+function AccountAvatar({
+  account,
+}: {
+  account: { email: string; image: string | null; name: string | null };
+}) {
+  const label = account.name || account.email;
+  const initial = label.trim().at(0)?.toUpperCase() || "A";
+
+  return (
+    <Avatar
+      aria-label={`Inbox: ${label}`}
+      className="size-5"
+      title={account.email}
+    >
+      <AvatarImage alt="" src={account.image || undefined} />
+      <AvatarFallbackColor
+        className="text-[10px] font-medium"
+        content={initial}
+      />
+    </Avatar>
+  );
+}
 
 function rowBackground({
   isSelected,

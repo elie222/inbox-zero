@@ -34,6 +34,8 @@ vi.mock("@/utils/middleware", async () => {
 import { GET } from "./route";
 
 describe("GET /api/threads/all", () => {
+  const getLabelsMock = vi.fn();
+
   beforeEach(() => {
     vi.clearAllMocks();
     getConnectedEmailAccountsMock.mockResolvedValue([
@@ -45,7 +47,13 @@ describe("GET /api/threads/all", () => {
         provider: "google",
       },
     ]);
-    createEmailProviderMock.mockResolvedValue({ name: "google" });
+    getLabelsMock.mockResolvedValue([
+      { id: "label-1", name: "Important", type: "user" },
+    ]);
+    createEmailProviderMock.mockResolvedValue({
+      name: "google",
+      getLabels: getLabelsMock,
+    });
     loadThreadsMock.mockResolvedValue({
       threads: [
         {
@@ -89,6 +97,7 @@ describe("GET /api/threads/all", () => {
         },
       }),
     );
+    expect(getLabelsMock).toHaveBeenCalledOnce();
     await expect(response.json()).resolves.toMatchObject({
       threads: [
         {
@@ -97,6 +106,11 @@ describe("GET /api/threads/all", () => {
         },
       ],
       failedAccountIds: [],
+      labelsByAccount: {
+        "account-1": {
+          "label-1": { id: "label-1", name: "Important", type: "user" },
+        },
+      },
       nextPageToken: expect.any(String),
     });
   });
@@ -124,6 +138,21 @@ describe("GET /api/threads/all", () => {
       threads: [],
       failedAccountIds: ["account-1"],
       nextPageToken: expect.any(String),
+    });
+  });
+
+  it("keeps account threads when its labels cannot be loaded", async () => {
+    getLabelsMock.mockRejectedValue(new Error("Labels unavailable"));
+
+    const response = await GET(
+      new NextRequest("http://localhost:3000/api/threads/all"),
+      {} as never,
+    );
+
+    await expect(response.json()).resolves.toMatchObject({
+      threads: [{ id: "thread-1" }],
+      labelsByAccount: { "account-1": {} },
+      failedAccountIds: [],
     });
   });
 });

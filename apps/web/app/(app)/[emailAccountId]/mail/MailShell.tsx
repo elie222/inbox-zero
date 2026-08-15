@@ -68,6 +68,7 @@ import {
   updateMailPreferencesAction,
 } from "@/utils/actions/mail-split";
 import {
+  archiveThreadAction,
   createLabelAction,
   removeThreadLabelAction,
 } from "@/utils/actions/mail";
@@ -219,6 +220,11 @@ export function MailShell() {
     enabled: isAllAccounts,
     isUnread: activeSplitId === "unread",
   });
+  const {
+    labelsByAccount,
+    removeThread: removeCombinedThread,
+    restoreThread: restoreCombinedThread,
+  } = combinedThreadState;
   const { threads, isLoading, error, hasMore, isLoadingMore, loadMore } =
     isAllAccounts ? combinedThreadState : accountThreadState;
 
@@ -351,7 +357,37 @@ export function MailShell() {
   );
 
   const openShortcuts = useCallback(() => setIsHelpOpen(true), []);
-  const archiveTargets = useCallback(() => runOn(archive), [runOn, archive]);
+  const archiveTargets = useCallback(async () => {
+    if (!isAllAccounts) {
+      runOn(archive);
+      return;
+    }
+    if (!focusedThread || !("account" in focusedThread)) return;
+
+    const removal = removeCombinedThread(getListThreadKey(focusedThread));
+    if (!removal) return;
+
+    try {
+      const result = await archiveThreadAction(focusedThread.account.id, {
+        threadId: focusedThread.id,
+      });
+      if (result?.serverError || result?.validationErrors) {
+        throw new Error("Archive action failed");
+      }
+    } catch {
+      restoreCombinedThread(removal);
+      toast.error("There was an error archiving");
+      return;
+    }
+    toast.success("Archived");
+  }, [
+    archive,
+    focusedThread,
+    isAllAccounts,
+    removeCombinedThread,
+    restoreCombinedThread,
+    runOn,
+  ]);
   const trashTargets = useCallback(() => runOn(trash), [runOn, trash]);
   const isMailOverlayOpen =
     isHelpOpen ||
@@ -383,7 +419,7 @@ export function MailShell() {
       // re-extends from the same row and the range never grows.
       extendSelectionDown: isAllAccounts ? undefined : () => extendSelection(1),
       extendSelectionUp: isAllAccounts ? undefined : () => extendSelection(-1),
-      archive: isAllAccounts ? undefined : archiveTargets,
+      archive: archiveTargets,
       delete: isAllAccounts ? undefined : trashTargets,
       reply: isAllAccounts
         ? undefined
@@ -598,6 +634,7 @@ export function MailShell() {
                 layout={layout}
                 userEmail={userEmail}
                 userLabels={isAllAccounts ? NO_LABELS : userLabels}
+                labelsByAccount={labelsByAccount}
                 focusedIndex={clampedIndex}
                 isSelected={selection.isSelected}
                 selectedCount={selection.selectedCount}
