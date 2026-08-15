@@ -23,7 +23,7 @@ export async function executeSnoozedThread(
   }
 
   try {
-    await prisma.snoozedThread.updateMany({
+    const completed = await prisma.snoozedThread.updateMany({
       where: {
         id: snoozedThread.id,
         executionToken,
@@ -35,6 +35,9 @@ export async function executeSnoozedThread(
         status: SnoozedThreadStatus.COMPLETED,
       },
     });
+    if (completed.count !== 1) {
+      throw new Error("Snoozed thread execution claim was lost");
+    }
     return { success: true as const };
   } catch (error) {
     // Keep EXECUTING so a quick duplicate cannot repeat the provider call.

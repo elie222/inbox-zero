@@ -54,6 +54,7 @@ describe("processDueSnoozedThreads", () => {
   });
 
   it("fails records whose email provider no longer exists", async () => {
+    prisma.snoozedThread.updateMany.mockResolvedValue({ count: 1 });
     prisma.snoozedThread.findMany.mockResolvedValue([
       {
         id: "snooze",
@@ -65,9 +66,16 @@ describe("processDueSnoozedThreads", () => {
     const result = await processDueSnoozedThreads(logger);
 
     expect(result).toEqual({ processed: 0, failed: 1, skipped: 0, total: 1 });
-    expect(prisma.snoozedThread.update).toHaveBeenCalledWith({
-      where: { id: "snooze" },
-      data: { status: SnoozedThreadStatus.FAILED },
+    expect(prisma.snoozedThread.updateMany).toHaveBeenCalledWith({
+      where: {
+        executionToken: "claim-token",
+        id: "snooze",
+        status: SnoozedThreadStatus.EXECUTING,
+      },
+      data: {
+        executionToken: null,
+        status: SnoozedThreadStatus.FAILED,
+      },
     });
   });
 

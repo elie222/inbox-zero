@@ -18,7 +18,10 @@ const snoozedThread = {
 } as never;
 
 describe("executeSnoozedThread", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    prisma.snoozedThread.updateMany.mockResolvedValue({ count: 1 });
+  });
 
   it("restores the thread and completes the snooze", async () => {
     const provider = createMockEmailProvider();
@@ -67,6 +70,22 @@ describe("executeSnoozedThread", () => {
 
   it("leaves a restored thread claim for stale recovery when finalization fails", async () => {
     prisma.snoozedThread.updateMany.mockRejectedValue(new Error("offline"));
+    const provider = createMockEmailProvider();
+
+    const result = await executeSnoozedThread(
+      snoozedThread,
+      provider,
+      logger,
+      "claim-token",
+    );
+
+    expect(result.success).toBe(false);
+    expect(provider.unarchiveThread).toHaveBeenCalledWith("thread");
+    expect(releaseSnoozedThreadForRetry).not.toHaveBeenCalled();
+  });
+
+  it("reports failure when another execution owns the completion claim", async () => {
+    prisma.snoozedThread.updateMany.mockResolvedValue({ count: 0 });
     const provider = createMockEmailProvider();
 
     const result = await executeSnoozedThread(

@@ -76,19 +76,27 @@ export async function processSnoozedThread(
     emailAccountId: snoozedThread.emailAccountId,
     snoozedThreadId: snoozedThread.id,
   });
-  const providerType = snoozedThread.emailAccount?.account?.provider;
-
-  if (!providerType) {
-    await prisma.snoozedThread.update({
-      where: { id: snoozedThread.id },
-      data: { status: SnoozedThreadStatus.FAILED },
-    });
-    return { status: "failed", reason: "missing-provider" };
-  }
-
   const executionToken = await markSnoozedThreadAsExecuting(snoozedThread.id);
   if (!executionToken) {
     return { status: "skipped" };
+  }
+
+  const providerType = snoozedThread.emailAccount?.account?.provider;
+  if (!providerType) {
+    const failed = await prisma.snoozedThread.updateMany({
+      where: {
+        executionToken,
+        id: snoozedThread.id,
+        status: SnoozedThreadStatus.EXECUTING,
+      },
+      data: {
+        executionToken: null,
+        status: SnoozedThreadStatus.FAILED,
+      },
+    });
+    return failed.count === 1
+      ? { status: "failed", reason: "missing-provider" }
+      : { status: "skipped" };
   }
 
   try {
