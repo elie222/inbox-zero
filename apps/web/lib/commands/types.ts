@@ -9,6 +9,7 @@ export type CommandSection =
 
 export interface Command {
   action: () => void | Promise<void>;
+  closeOnSelect?: boolean;
   description?: string;
   icon?: LucideIcon;
   id: string;

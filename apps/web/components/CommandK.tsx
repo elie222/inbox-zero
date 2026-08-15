@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { Loader2Icon } from "lucide-react";
-import { useAtom } from "jotai";
+import { ArrowLeftIcon, Loader2Icon } from "lucide-react";
+import { useAtom, useAtomValue } from "jotai";
+import { buildSnoozeCommandPalette } from "@/app/(app)/[emailAccountId]/mail/snooze-command-palette";
 import {
   CommandDialog,
   CommandEmpty,
@@ -14,7 +15,11 @@ import {
   CommandShortcut,
 } from "@/components/ui/command";
 import { useComposeModal } from "@/providers/ComposeModalProvider";
-import { commandPaletteOpenAtom } from "@/store/command-palette";
+import {
+  commandPaletteOpenAtom,
+  commandPalettePageAtom,
+  mailCommandContextAtom,
+} from "@/store/command-palette";
 import { archiveEmails } from "@/store/archive-queue";
 import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -60,12 +65,18 @@ export function CommandK() {
 
 function CommandPalette() {
   const [open, setOpen] = useAtom(commandPaletteOpenAtom);
+  const [page, setPage] = useAtom(commandPalettePageAtom);
   const [search, setSearch] = React.useState("");
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const mailCommandContext = useAtomValue(mailCommandContextAtom);
 
   const { emailAccountId } = useAccount();
   const { threadId, showEmail } = useDisplayedEmail();
   const { onOpen: onOpenComposeModal } = useComposeModal();
-  const { commands, isLoading } = useCommandPaletteCommands();
+  const activeMailContext = threadId ? null : mailCommandContext;
+  const { commands, isLoading } = useCommandPaletteCommands({
+    enabled: !activeMailContext,
+  });
 
   const onArchive = React.useCallback(() => {
     if (threadId) {
@@ -88,26 +99,66 @@ function CommandPalette() {
   useShortcuts(shortcutHandlers);
 
   // the registry decides which shortcuts surface as palette entries
-  const actionCommands = React.useMemo<Command[]>(
+  const shortcutCommands = React.useMemo<Command[]>(
     () => buildShortcutPaletteCommands(shortcutHandlers),
     [shortcutHandlers],
   );
 
-  // combine action commands with dynamic commands
+  const snoozeCommands = React.useMemo(() => {
+    if (page !== "snooze" || !activeMailContext) return [];
+
+    return buildSnoozeCommandPalette({
+      onSnooze: activeMailContext.snooze,
+      query: search,
+    });
+  }, [activeMailContext, page, search]);
+
+  const actionCommands = React.useMemo(() => {
+    if (page === "snooze" && activeMailContext) {
+      if (search.trim()) return snoozeCommands;
+
+      return [
+        {
+          id: "mail-snooze-back",
+          label: "Back to commands",
+          icon: ArrowLeftIcon,
+          section: "actions" as const,
+          priority: -1,
+          closeOnSelect: false,
+          action: () => setPage("root"),
+        },
+        ...snoozeCommands,
+      ];
+    }
+
+    return activeMailContext
+      ? [
+          ...activeMailContext.commands,
+          ...shortcutCommands.filter((command) => command.id === "compose"),
+        ]
+      : shortcutCommands;
+  }, [
+    activeMailContext,
+    page,
+    search,
+    setPage,
+    shortcutCommands,
+    snoozeCommands,
+  ]);
+
   const allCommands = React.useMemo(
-    () => [...actionCommands, ...commands],
-    [actionCommands, commands],
+    () =>
+      page === "snooze" ? actionCommands : [...actionCommands, ...commands],
+    [actionCommands, commands, page],
   );
 
-  // filter commands with fuzzy search
   const filteredCommands = React.useMemo(() => {
-    if (!search.trim()) {
+    if (page === "snooze" || !search.trim()) {
       return allCommands;
     }
     return fuzzySearch(search, allCommands);
-  }, [allCommands, search]);
+  }, [allCommands, page, search]);
 
-  // group commands by section
   const groupedCommands = React.useMemo(() => {
     const groups: Record<CommandSection, Command[]> = {
       actions: [],
@@ -124,36 +175,56 @@ function CommandPalette() {
     return groups;
   }, [filteredCommands]);
 
-  // execute command
   const executeCommand = React.useCallback(
     (command: Command) => {
-      setOpen(false);
       setSearch("");
+      if (command.closeOnSelect !== false) {
+        setOpen(false);
+        setPage("root");
+      }
       command.action();
     },
-    [setOpen],
+    [setOpen, setPage],
   );
 
-  // memoized handlers to avoid re-renders
   const handleOpenChange = React.useCallback(
     (isOpen: boolean) => {
       setOpen(isOpen);
-      if (!isOpen) setSearch("");
+      if (!isOpen) {
+        setPage("root");
+        setSearch("");
+      }
     },
-    [setOpen],
+    [setOpen, setPage],
   );
+
+  React.useEffect(() => {
+    if (page === "snooze" && !activeMailContext) {
+      setPage("root");
+      setSearch("");
+    }
+  }, [activeMailContext, page, setPage]);
+
+  React.useEffect(() => {
+    if (open && page === "snooze") inputRef.current?.focus();
+  }, [open, page]);
 
   const commandProps = React.useMemo(
     () => ({
       // disable cmdk's built-in filter since we use custom fuzzy search
       shouldFilter: false,
       onKeyDown: (e: React.KeyboardEvent) => {
-        if (e.key !== "Escape") {
+        if (e.key === "Escape" && page === "snooze") {
+          e.preventDefault();
           e.stopPropagation();
+          setPage("root");
+          setSearch("");
+          return;
         }
+        if (e.key !== "Escape") e.stopPropagation();
       },
     }),
-    [],
+    [page, setPage],
   );
 
   return (
@@ -163,7 +234,12 @@ function CommandPalette() {
       commandProps={commandProps}
     >
       <CommandInput
-        placeholder="Type a command or search..."
+        ref={inputRef}
+        placeholder={
+          page === "snooze"
+            ? "When should it return? Try Friday at 3pm"
+            : "Type a command or search..."
+        }
         value={search}
         onValueChange={setSearch}
       />
@@ -174,7 +250,11 @@ function CommandPalette() {
           </div>
         ) : (
           <>
-            <CommandEmpty>No results found.</CommandEmpty>
+            <CommandEmpty>
+              {page === "snooze"
+                ? "Try a date like tomorrow at 3pm."
+                : "No results found."}
+            </CommandEmpty>
             {SECTION_ORDER.map((section, index) => {
               const sectionCommands = groupedCommands[section];
               if (sectionCommands.length === 0) return null;
@@ -188,7 +268,13 @@ function CommandPalette() {
               return (
                 <React.Fragment key={section}>
                   {showSeparator && <CommandSeparator />}
-                  <CommandGroup heading={SECTION_LABELS[section]}>
+                  <CommandGroup
+                    heading={
+                      page === "snooze" && section === "actions"
+                        ? "Snooze until"
+                        : SECTION_LABELS[section]
+                    }
+                  >
                     {sectionCommands.map((command) => (
                       <CommandItem
                         key={command.id}
@@ -228,7 +314,7 @@ function CommandPalette() {
           <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">
             esc
           </kbd>
-          close
+          {page === "snooze" ? "back" : "close"}
         </span>
       </div>
     </CommandDialog>
