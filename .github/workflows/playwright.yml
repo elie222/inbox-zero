@@ -32,15 +32,13 @@ jobs:
           --health-retries 10
       redis:
         image: redis:7
-        ports:
-          - 6380:6379
         options: >-
           --health-cmd "redis-cli ping"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10
       redis-http:
-        image: hiett/serverless-redis-http:latest
+        image: hiett/serverless-redis-http@sha256:5b0bb9239fce53abf87b2018a7a0deb9ec7bd900c5360738fe5fbeeb426f9150
         env:
           SRH_CONNECTION_STRING: redis://redis:6379
           SRH_MODE: env

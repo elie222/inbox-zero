@@ -8,12 +8,6 @@ google:
       name: Inbox Zero Smoke
       redirect_uris:
         - __PLAYWRIGHT_TEST_REDIRECT_URI__
-  labels:
-    - id: Label_playwright
-      user_email: __PLAYWRIGHT_TEST_EMAIL__
-      name: Playwright
-      color_background: "#DDEEFF"
-      color_text: "#111111"
   messages:
     - id: msg_playwright_1
       thread_id: thr_playwright_1

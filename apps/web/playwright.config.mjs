@@ -1,32 +1,42 @@
 import fs from "node:fs";
+import { createServer } from "node:net";
 import path from "node:path";
 import { defineConfig } from "@playwright/test";
 
-const baseURL = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3100";
-const basePort = new URL(baseURL).port || "80";
+const baseURL =
+  process.env.NEXT_PUBLIC_BASE_URL ??
+  `http://localhost:${await getAvailablePort()}`;
+const basePort = getUrlPort(baseURL);
 const databaseUrl =
   process.env.DATABASE_URL ??
   "postgresql://postgres:postgres@localhost:5433/postgres";
-const emulateBaseUrl = process.env.GOOGLE_BASE_URL ?? "http://localhost:4100";
+const emulateBaseUrl =
+  process.env.GOOGLE_BASE_URL ?? `http://localhost:${await getAvailablePort()}`;
+const emulatePort = getUrlPort(emulateBaseUrl);
+const internalApiKey = process.env.INTERNAL_API_KEY ?? "secret";
+const runId = process.env.PLAYWRIGHT_RUN_ID ?? `${process.pid}-${Date.now()}`;
 const playwrightTestEmail =
   process.env.PLAYWRIGHT_TEST_EMAIL ??
-  `playwright-test+${Date.now()}@gmail.com`.toLowerCase();
+  `playwright-test+${runId}@gmail.com`.toLowerCase();
 const authStatePath = path.join(
   process.cwd(),
   ".tmp",
   "playwright",
+  runId,
   "auth.json",
 );
 const emulateSeedPath = writeEmulateSeed({
   baseURL,
   playwrightTestEmail,
+  runId,
 });
 const emulateCommand =
   process.env.EMULATE_COMMAND ??
-  `npx emulate start --service google --port 4100 --seed ${emulateSeedPath}`;
+  `npx emulate start --service google --port ${emulatePort} --seed ${emulateSeedPath}`;
 
 fs.mkdirSync(path.dirname(authStatePath), { recursive: true });
 process.env.DATABASE_URL = databaseUrl;
+process.env.INTERNAL_API_KEY = internalApiKey;
 process.env.PLAYWRIGHT_AUTH_FILE = authStatePath;
 process.env.PLAYWRIGHT_TEST_EMAIL = playwrightTestEmail;
 
@@ -89,7 +99,7 @@ export default defineConfig({
           process.env.GOOGLE_PUBSUB_VERIFICATION_TOKEN ?? "playwright-token",
         EMAIL_ENCRYPT_SECRET: process.env.EMAIL_ENCRYPT_SECRET ?? "secret",
         EMAIL_ENCRYPT_SALT: process.env.EMAIL_ENCRYPT_SALT ?? "salt",
-        INTERNAL_API_KEY: process.env.INTERNAL_API_KEY ?? "secret",
+        INTERNAL_API_KEY: internalApiKey,
         DEFAULT_LLMS: process.env.DEFAULT_LLMS ?? "openai:gpt-5.4-mini",
         OPENAI_API_KEY: "",
         ANTHROPIC_API_KEY: "",
@@ -118,12 +128,12 @@ export default defineConfig({
   ],
 });
 
-function writeEmulateSeed({ baseURL, playwrightTestEmail }) {
+function writeEmulateSeed({ baseURL, playwrightTestEmail, runId }) {
   const templatePath = path.join(
     process.cwd(),
     "emulate.playwright.config.yaml",
   );
-  const outputDir = path.join(process.cwd(), ".tmp");
+  const outputDir = path.join(process.cwd(), ".tmp", "playwright", runId);
   const outputPath = path.join(outputDir, "emulate.playwright.generated.yaml");
   const redirectUri = new URL("/api/auth/oauth2/callback/google", baseURL).href;
 
@@ -137,4 +147,27 @@ function writeEmulateSeed({ baseURL, playwrightTestEmail }) {
   fs.writeFileSync(outputPath, seed);
 
   return outputPath;
+}
+
+function getUrlPort(url) {
+  const parsed = new URL(url);
+  if (parsed.port) return parsed.port;
+  return parsed.protocol === "https:" ? "443" : "80";
+}
+
+function getAvailablePort() {
+  return new Promise((resolve, reject) => {
+    const server = createServer();
+    server.unref();
+    server.on("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        server.close();
+        reject(new Error("Could not allocate a local Playwright port"));
+        return;
+      }
+      server.close(() => resolve(address.port));
+    });
+  });
 }
