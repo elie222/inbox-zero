@@ -203,6 +203,7 @@ model EmailAccount {
   chatMemories     ChatMemory[]
   digests          Digest[]
   scheduledActions ScheduledAction[]
+  snoozedThreads   SnoozedThread[]
   responseTimes    ResponseTime[]
   actions          Action[]
 
@@ -802,6 +803,25 @@ model ScheduledAction {
   @@index([executedRuleId])
   @@index([status, scheduledFor])
   @@index([emailAccountId, messageId])
+}
+
+model SnoozedThread {
+  id               String               @id @default(cuid())
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  threadId         String
+  scheduledFor     DateTime
+  status           SnoozedThreadStatus  @default(PENDING)
+  schedulingStatus SchedulingStatus     @default(PENDING)
+  scheduledId      String?
+  executionToken   String?
+  executedAt       DateTime?
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@index([status, scheduledFor])
+  @@index([emailAccountId, threadId, status])
 }
 
 // Notes:
@@ -2059,6 +2079,14 @@ enum DigestStatus {
 }
 
 enum ScheduledActionStatus {
+  PENDING
+  EXECUTING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum SnoozedThreadStatus {
   PENDING
   EXECUTING
   COMPLETED
