@@ -44,6 +44,12 @@ describe("snoozeThreads", () => {
       succeededThreadIds: ["one", "two"],
     });
     expect(scheduleSnoozedThread).toHaveBeenCalledTimes(2);
+    expect(
+      vi.mocked(scheduleSnoozedThread).mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      vi.mocked(provider.archiveThreadWithLabel).mock.invocationCallOrder[0] ??
+        Number.POSITIVE_INFINITY,
+    );
     expect(provider.archiveThreadWithLabel).toHaveBeenCalledWith(
       "one",
       "owner@example.com",

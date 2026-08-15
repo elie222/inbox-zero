@@ -26,12 +26,7 @@ export const GET = withError("cron/scheduled-actions", async (request) => {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  if (env.QSTASH_TOKEN) {
-    request.logger.info("QStash configured, skipping cron fallback");
-    return NextResponse.json({ skipped: true, reason: "qstash-configured" });
-  }
-
-  const result = await processAllScheduledMail(request.logger);
+  const result = await processScheduledMail(request.logger);
 
   return NextResponse.json(result);
 });
@@ -44,12 +39,7 @@ export const POST = withError("cron/scheduled-actions", async (request) => {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  if (env.QSTASH_TOKEN) {
-    request.logger.info("QStash configured, skipping cron fallback");
-    return NextResponse.json({ skipped: true, reason: "qstash-configured" });
-  }
-
-  const result = await processAllScheduledMail(request.logger);
+  const result = await processScheduledMail(request.logger);
 
   return NextResponse.json(result);
 });
@@ -159,4 +149,14 @@ async function processAllScheduledMail(logger: Logger) {
   ]);
 
   return { scheduledActions, snoozedThreads };
+}
+
+async function processScheduledMail(logger: Logger) {
+  if (!env.QSTASH_TOKEN) return processAllScheduledMail(logger);
+
+  logger.info("QStash configured; checking snoozed thread fallback");
+  return {
+    scheduledActions: { skipped: true, reason: "qstash-configured" },
+    snoozedThreads: await processDueSnoozedThreads(logger),
+  };
 }

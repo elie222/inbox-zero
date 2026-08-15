@@ -3,9 +3,13 @@ import { createTestLogger } from "@/__tests__/helpers";
 import { SnoozedThreadStatus } from "@/generated/prisma/enums";
 import { createMockEmailProvider } from "@/utils/__mocks__/email-provider";
 import prisma from "@/utils/__mocks__/prisma";
+import { releaseSnoozedThreadForRetry } from "@/utils/snooze/scheduler";
 import { executeSnoozedThread } from "./executor";
 
 vi.mock("@/utils/prisma");
+vi.mock("@/utils/snooze/scheduler", () => ({
+  releaseSnoozedThreadForRetry: vi.fn(),
+}));
 
 const logger = createTestLogger();
 const snoozedThread = {
@@ -23,8 +27,11 @@ describe("executeSnoozedThread", () => {
 
     expect(result.success).toBe(true);
     expect(provider.unarchiveThread).toHaveBeenCalledWith("thread");
-    expect(prisma.snoozedThread.update).toHaveBeenCalledWith({
-      where: { id: "snooze" },
+    expect(prisma.snoozedThread.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "snooze",
+        status: SnoozedThreadStatus.EXECUTING,
+      },
       data: {
         executedAt: expect.any(Date),
         status: SnoozedThreadStatus.COMPLETED,
@@ -40,9 +47,17 @@ describe("executeSnoozedThread", () => {
     const result = await executeSnoozedThread(snoozedThread, provider, logger);
 
     expect(result.success).toBe(false);
-    expect(prisma.snoozedThread.update).toHaveBeenCalledWith({
-      where: { id: "snooze" },
-      data: { status: SnoozedThreadStatus.FAILED },
-    });
+    expect(releaseSnoozedThreadForRetry).toHaveBeenCalledWith("snooze");
+  });
+
+  it("leaves a restored thread claim for stale recovery when finalization fails", async () => {
+    prisma.snoozedThread.updateMany.mockRejectedValue(new Error("offline"));
+    const provider = createMockEmailProvider();
+
+    const result = await executeSnoozedThread(snoozedThread, provider, logger);
+
+    expect(result.success).toBe(false);
+    expect(provider.unarchiveThread).toHaveBeenCalledWith("thread");
+    expect(releaseSnoozedThreadForRetry).not.toHaveBeenCalled();
   });
 });

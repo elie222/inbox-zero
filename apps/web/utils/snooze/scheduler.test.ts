@@ -4,6 +4,7 @@ import prisma from "@/utils/__mocks__/prisma";
 import {
   cancelSnoozedThread,
   markSnoozedThreadAsExecuting,
+  releaseSnoozedThreadForRetry,
   scheduleSnoozedThread,
 } from "./scheduler";
 
@@ -35,17 +36,92 @@ describe("snoozed thread scheduler without QStash", () => {
     expect(await markSnoozedThreadAsExecuting("snooze")).toBe(true);
 
     expect(prisma.snoozedThread.updateMany).toHaveBeenCalledWith({
-      where: { id: "snooze", status: SnoozedThreadStatus.PENDING },
+      where: {
+        id: "snooze",
+        OR: [
+          { status: SnoozedThreadStatus.PENDING },
+          {
+            status: SnoozedThreadStatus.EXECUTING,
+            updatedAt: { lte: expect.any(Date) },
+          },
+        ],
+      },
       data: { status: SnoozedThreadStatus.EXECUTING },
     });
   });
 
-  it("cancels cron-backed work in the database", async () => {
-    await cancelSnoozedThread({ id: "snooze", scheduledId: null });
+  it("reclaims an execution after its lease becomes stale", async () => {
+    prisma.snoozedThread.updateMany.mockResolvedValue({ count: 1 });
+    const now = new Date("2026-08-16T09:30:00.000Z");
 
-    expect(prisma.snoozedThread.update).toHaveBeenCalledWith({
-      where: { id: "snooze" },
+    expect(await markSnoozedThreadAsExecuting("snooze", now)).toBe(true);
+
+    expect(prisma.snoozedThread.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: expect.arrayContaining([
+            {
+              status: SnoozedThreadStatus.EXECUTING,
+              updatedAt: { lte: new Date("2026-08-16T09:15:00.000Z") },
+            },
+          ]),
+        }),
+      }),
+    );
+  });
+
+  it("cancels cron-backed work in the database", async () => {
+    prisma.snoozedThread.updateMany.mockResolvedValue({ count: 1 });
+
+    expect(await cancelSnoozedThread({ id: "snooze", scheduledId: null })).toBe(
+      true,
+    );
+
+    expect(prisma.snoozedThread.updateMany).toHaveBeenCalledWith({
+      where: { id: "snooze", status: SnoozedThreadStatus.PENDING },
       data: { status: SnoozedThreadStatus.CANCELLED },
+    });
+  });
+
+  it("does not cancel work that another worker already claimed", async () => {
+    prisma.snoozedThread.updateMany.mockResolvedValue({ count: 0 });
+
+    expect(await cancelSnoozedThread({ id: "snooze", scheduledId: null })).toBe(
+      false,
+    );
+  });
+
+  it("replaces an earlier pending snooze for the same thread", async () => {
+    prisma.snoozedThread.findFirst.mockResolvedValue({
+      id: "old-snooze",
+      scheduledId: null,
+    } as never);
+    prisma.snoozedThread.updateMany.mockResolvedValue({ count: 1 });
+    prisma.snoozedThread.create.mockResolvedValue({
+      id: "new-snooze",
+    } as never);
+
+    await scheduleSnoozedThread({
+      emailAccountId: "account",
+      scheduledFor: new Date("2026-08-17T09:00:00.000Z"),
+      threadId: "thread",
+    });
+
+    expect(prisma.snoozedThread.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "old-snooze",
+        status: SnoozedThreadStatus.PENDING,
+      },
+      data: { status: SnoozedThreadStatus.CANCELLED },
+    });
+  });
+
+  it("releases claimed work for a later retry", async () => {
+    await releaseSnoozedThreadForRetry("snooze");
+
+    expect(prisma.snoozedThread.updateMany).toHaveBeenCalledWith({
+      where: { id: "snooze", status: SnoozedThreadStatus.EXECUTING },
+      data: { status: SnoozedThreadStatus.PENDING },
     });
   });
 });

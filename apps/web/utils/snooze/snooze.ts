@@ -1,9 +1,12 @@
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
+import { mapWithConcurrency } from "@/utils/async";
 import {
   cancelSnoozedThread,
   scheduleSnoozedThread,
 } from "@/utils/snooze/scheduler";
+
+const SNOOZE_CONCURRENCY = 10;
 
 export async function snoozeThreads({
   emailAccountId,
@@ -20,24 +23,31 @@ export async function snoozeThreads({
   snoozedUntil: Date;
   threadIds: string[];
 }) {
-  const succeededThreadIds: string[] = [];
-  const failedThreadIds: string[] = [];
+  const uniqueThreadIds = [...new Set(threadIds)];
+  const results = await mapWithConcurrency(
+    uniqueThreadIds,
+    SNOOZE_CONCURRENCY,
+    async (threadId) => {
+      try {
+        await snoozeThread({
+          emailAccountId,
+          ownerEmail,
+          provider,
+          snoozedUntil,
+          threadId,
+        });
+        return true;
+      } catch (error) {
+        logger.error("Failed to snooze thread", { error, threadId });
+        return false;
+      }
+    },
+  );
 
-  for (const threadId of new Set(threadIds)) {
-    try {
-      await snoozeThread({
-        emailAccountId,
-        ownerEmail,
-        provider,
-        snoozedUntil,
-        threadId,
-      });
-      succeededThreadIds.push(threadId);
-    } catch (error) {
-      logger.error("Failed to snooze thread", { error, threadId });
-      failedThreadIds.push(threadId);
-    }
-  }
+  const succeededThreadIds = uniqueThreadIds.filter(
+    (_, index) => results[index],
+  );
+  const failedThreadIds = uniqueThreadIds.filter((_, index) => !results[index]);
 
   return { failedThreadIds, succeededThreadIds };
 }

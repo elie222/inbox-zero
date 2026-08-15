@@ -24,14 +24,19 @@ export const POST = withError(
     if (!snoozedThread) {
       return new Response("Snoozed thread not found", { status: 404 });
     }
-    if (snoozedThread.status !== SnoozedThreadStatus.PENDING) {
-      return new Response("Snoozed thread is not pending", { status: 200 });
+    if (
+      snoozedThread.status !== SnoozedThreadStatus.PENDING &&
+      snoozedThread.status !== SnoozedThreadStatus.EXECUTING
+    ) {
+      return new Response("Snoozed thread is no longer active", {
+        status: 200,
+      });
     }
 
     const result = await processSnoozedThread(snoozedThread, request.logger);
     if (result.status === "skipped") {
       return new Response("Snoozed thread is already being processed", {
-        status: 200,
+        status: 503,
       });
     }
     if (result.status === "failed") {

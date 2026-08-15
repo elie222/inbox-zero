@@ -3,10 +3,16 @@ import type { Prisma } from "@/generated/prisma/client";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
+import { mapWithConcurrency } from "@/utils/async";
 import { executeSnoozedThread } from "@/utils/snooze/executor";
-import { markSnoozedThreadAsExecuting } from "@/utils/snooze/scheduler";
+import {
+  markSnoozedThreadAsExecuting,
+  releaseSnoozedThreadForRetry,
+  SNOOZE_EXECUTION_LEASE_MS,
+} from "@/utils/snooze/scheduler";
 
 const BATCH_SIZE = 100;
+const RESTORE_CONCURRENCY = 10;
 
 type SnoozedThreadWithAccount = Prisma.SnoozedThreadGetPayload<{
   include: { emailAccount: { include: { account: true } } };
@@ -18,10 +24,18 @@ export type SnoozedThreadProcessResult =
   | { status: "failed"; reason: "missing-provider" | "restore" };
 
 export async function processDueSnoozedThreads(logger: Logger) {
+  const now = new Date();
+  const staleBefore = new Date(now.getTime() - SNOOZE_EXECUTION_LEASE_MS);
   const snoozedThreads = await prisma.snoozedThread.findMany({
     where: {
-      status: SnoozedThreadStatus.PENDING,
-      scheduledFor: { lte: new Date() },
+      scheduledFor: { lte: now },
+      OR: [
+        { status: SnoozedThreadStatus.PENDING },
+        {
+          status: SnoozedThreadStatus.EXECUTING,
+          updatedAt: { lte: staleBefore },
+        },
+      ],
     },
     orderBy: { scheduledFor: "asc" },
     take: BATCH_SIZE,
@@ -30,21 +44,26 @@ export async function processDueSnoozedThreads(logger: Logger) {
     },
   });
 
-  let processed = 0;
-  let failed = 0;
-  let skipped = 0;
-
-  for (const snoozedThread of snoozedThreads) {
-    const result = await processSnoozedThread(snoozedThread, logger);
-    if (result.status === "processed") processed += 1;
-    else if (result.status === "failed") failed += 1;
-    else skipped += 1;
-  }
+  const results = await mapWithConcurrency(
+    snoozedThreads,
+    RESTORE_CONCURRENCY,
+    async (snoozedThread) => {
+      try {
+        return await processSnoozedThread(snoozedThread, logger);
+      } catch (error) {
+        logger.error("Failed to process snoozed thread", {
+          error,
+          snoozedThreadId: snoozedThread.id,
+        });
+        return { status: "failed", reason: "restore" } as const;
+      }
+    },
+  );
 
   return {
-    processed,
-    failed,
-    skipped,
+    processed: results.filter((result) => result.status === "processed").length,
+    failed: results.filter((result) => result.status === "failed").length,
+    skipped: results.filter((result) => result.status === "skipped").length,
     total: snoozedThreads.length,
   };
 }
@@ -86,10 +105,7 @@ export async function processSnoozedThread(
       ? { status: "processed" }
       : { status: "failed", reason: "restore" };
   } catch (error) {
-    await prisma.snoozedThread.update({
-      where: { id: snoozedThread.id },
-      data: { status: SnoozedThreadStatus.FAILED },
-    });
+    await releaseSnoozedThreadForRetry(snoozedThread.id);
     itemLogger.error("Failed to process snoozed thread", { error });
     return { status: "failed", reason: "restore" };
   }

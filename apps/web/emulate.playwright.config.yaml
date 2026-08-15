@@ -25,7 +25,7 @@ google:
       label_ids:
         - INBOX
         - UNREAD
-      date: 2025-01-04T10:00:00.000Z
+      internal_date: "1735984800000"
     - id: msg_playwright_2
       thread_id: thr_playwright_2
       user_email: __PLAYWRIGHT_TEST_EMAIL__
@@ -35,7 +35,7 @@ google:
       body_text: A read message for mixed-selection checks.
       label_ids:
         - INBOX
-      date: 2025-01-03T10:00:00.000Z
+      internal_date: "1735898400000"
     - id: msg_playwright_3
       thread_id: thr_playwright_3
       user_email: __PLAYWRIGHT_TEST_EMAIL__
@@ -46,7 +46,7 @@ google:
       label_ids:
         - INBOX
         - UNREAD
-      date: 2025-01-02T10:00:00.000Z
+      internal_date: "1735812000000"
   calendars:
     - id: primary
       user_email: __PLAYWRIGHT_TEST_EMAIL__

@@ -1,5 +1,4 @@
 import { Client } from "@upstash/qstash";
-import { getUnixTime } from "date-fns";
 import { env } from "@/env";
 import { SnoozedThreadStatus } from "@/generated/prisma/enums";
 import { getCronSecretHeader } from "@/utils/cron";
@@ -8,6 +7,7 @@ import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 
 const logger = createScopedLogger("snoozed-threads");
+export const SNOOZE_EXECUTION_LEASE_MS = 15 * 60 * 1000;
 
 function getQstashClient() {
   if (!env.QSTASH_TOKEN) return null;
@@ -23,6 +23,24 @@ export async function scheduleSnoozedThread({
   scheduledFor: Date;
   threadId: string;
 }) {
+  const existing = await prisma.snoozedThread.findFirst({
+    where: {
+      emailAccountId,
+      threadId,
+      status: SnoozedThreadStatus.PENDING,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+  if (
+    existing &&
+    !(await cancelSnoozedThread({
+      id: existing.id,
+      scheduledId: existing.scheduledId,
+    }))
+  ) {
+    throw new Error("The existing snooze is already being restored");
+  }
+
   const snoozedThread = await prisma.snoozedThread.create({
     data: { emailAccountId, scheduledFor, threadId },
   });
@@ -40,7 +58,7 @@ export async function scheduleSnoozedThread({
     const response = await client.publishJSON({
       url: `${getInternalApiUrl()}/api/snoozed-threads/execute`,
       body: { snoozedThreadId: snoozedThread.id },
-      notBefore: getUnixTime(scheduledFor),
+      notBefore: Math.ceil(scheduledFor.getTime() / 1000),
       deduplicationId: `snoozed-thread-${snoozedThread.id}`,
       contentBasedDeduplication: false,
       headers: getCronSecretHeader(),
@@ -78,13 +96,14 @@ export async function cancelSnoozedThread({
   id: string;
   scheduledId: string | null;
 }) {
-  await prisma.snoozedThread.update({
-    where: { id },
+  const cancelled = await prisma.snoozedThread.updateMany({
+    where: { id, status: SnoozedThreadStatus.PENDING },
     data: { status: SnoozedThreadStatus.CANCELLED },
   });
+  if (cancelled.count !== 1) return false;
 
   const client = getQstashClient();
-  if (!client || !scheduledId) return;
+  if (!client || !scheduledId) return true;
 
   try {
     await client.http.request({
@@ -97,12 +116,33 @@ export async function cancelSnoozedThread({
       snoozedThreadId: id,
     });
   }
+  return true;
 }
 
-export async function markSnoozedThreadAsExecuting(id: string) {
+export async function markSnoozedThreadAsExecuting(
+  id: string,
+  now = new Date(),
+) {
+  const staleBefore = new Date(now.getTime() - SNOOZE_EXECUTION_LEASE_MS);
   const updated = await prisma.snoozedThread.updateMany({
-    where: { id, status: SnoozedThreadStatus.PENDING },
+    where: {
+      id,
+      OR: [
+        { status: SnoozedThreadStatus.PENDING },
+        {
+          status: SnoozedThreadStatus.EXECUTING,
+          updatedAt: { lte: staleBefore },
+        },
+      ],
+    },
     data: { status: SnoozedThreadStatus.EXECUTING },
   });
   return updated.count === 1;
+}
+
+export async function releaseSnoozedThreadForRetry(id: string) {
+  await prisma.snoozedThread.updateMany({
+    where: { id, status: SnoozedThreadStatus.EXECUTING },
+    data: { status: SnoozedThreadStatus.PENDING },
+  });
 }

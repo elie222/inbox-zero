@@ -1,6 +1,21 @@
-import { expect, test } from "@playwright/test";
+import {
+  expect,
+  test,
+  type APIRequestContext,
+  type Locator,
+  type Page,
+} from "@playwright/test";
+import { Client } from "pg";
 
 const commandModifier = process.platform === "darwin" ? "Meta" : "Control";
+let emailAccountIdForCleanup: string | undefined;
+
+test.afterEach(async ({ request }) => {
+  if (emailAccountIdForCleanup) {
+    await restoreActiveSnoozes(request, emailAccountIdForCleanup);
+    emailAccountIdForCleanup = undefined;
+  }
+});
 
 test("Command K acts on highlighted and selected conversations", async ({
   page,
@@ -12,10 +27,17 @@ test("Command K acts on highlighted and selected conversations", async ({
   };
   const emailAccountId = emailAccounts[0]?.id;
   if (!emailAccountId) throw new Error("The setup project created no account");
+  emailAccountIdForCleanup = emailAccountId;
+
+  await restoreActiveSnoozes(page.request, emailAccountId);
 
   await page.goto(`/${emailAccountId}/mail`);
   const conversations = page.getByRole("listbox", { name: "Conversations" });
-  await expect(conversations.getByRole("option")).toHaveCount(3);
+  await expect(conversations.getByRole("option")).toHaveCount(3, {
+    timeout: 60_000,
+  });
+  await ensureReadState(page, conversations, "Alice Example", false);
+  await ensureReadState(page, conversations, "Bob Example", true);
 
   await page.keyboard.press(`${commandModifier}+KeyK`);
   const palette = page.getByRole("dialog");
@@ -121,3 +143,71 @@ test("Command K acts on highlighted and selected conversations", async ({
   await expect(page.getByText("Snoozed 2 conversations")).toBeVisible();
   await expect(conversations.getByRole("option")).toHaveCount(1);
 });
+
+async function ensureReadState(
+  page: Page,
+  conversations: Locator,
+  sender: string,
+  read: boolean,
+) {
+  const checkbox = conversations.getByRole("checkbox", {
+    name: `Select conversation from ${sender}`,
+  });
+  await checkbox.click();
+  const selectionCount = page.getByText("1 selected", { exact: true });
+  await expect(selectionCount).toBeVisible();
+  await page.keyboard.press(`${commandModifier}+KeyK`);
+  const palette = page.getByRole("dialog");
+  const desiredAction = palette.getByRole("option", {
+    name: read ? "Mark as read" : "Mark as unread",
+  });
+  const oppositeAction = palette.getByRole("option", {
+    name: read ? "Mark as unread" : "Mark as read",
+  });
+  await expect(desiredAction.or(oppositeAction)).toBeVisible();
+
+  if (await desiredAction.isVisible()) {
+    await desiredAction.click();
+    await expect(palette).toBeHidden();
+    await expect(selectionCount).toBeHidden();
+    return;
+  }
+
+  await page.keyboard.press("Escape");
+  await expect(palette).toBeHidden();
+  await page.keyboard.press("Escape");
+  await expect(selectionCount).toBeHidden();
+}
+
+async function restoreActiveSnoozes(
+  request: APIRequestContext,
+  emailAccountId: string,
+) {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    await client.query(
+      `UPDATE "SnoozedThread"
+       SET "updatedAt" = '1970-01-01T00:00:00.000Z'
+       WHERE "emailAccountId" = $1 AND status = 'EXECUTING'`,
+      [emailAccountId],
+    );
+    const result = await client.query<{ id: string }>(
+      `SELECT id FROM "SnoozedThread"
+       WHERE "emailAccountId" = $1 AND status IN ('PENDING', 'EXECUTING')`,
+      [emailAccountId],
+    );
+
+    for (const { id } of result.rows) {
+      const response = await request.post("/api/snoozed-threads/execute", {
+        data: { snoozedThreadId: id },
+        headers: {
+          "x-api-key": process.env.INTERNAL_API_KEY ?? "secret",
+        },
+      });
+      expect(response.ok()).toBeTruthy();
+    }
+  } finally {
+    await client.end();
+  }
+}

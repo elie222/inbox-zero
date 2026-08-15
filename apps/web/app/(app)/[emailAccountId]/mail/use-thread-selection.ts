@@ -31,14 +31,14 @@ export function useThreadSelection(orderedIds: string[]) {
 
   useEffect(() => {
     const visibleIds = new Set(orderedIds);
-    if ([...selectedIds].every((id) => visibleIds.has(id))) return;
+    setSelectedIds((current) => {
+      if ([...current].every((id) => visibleIds.has(id))) return current;
 
-    resetAnchor();
-    lastToggledIndex.current = null;
-    setSelectedIds(
-      new Set([...selectedIds].filter((id) => visibleIds.has(id))),
-    );
-  }, [orderedIds, resetAnchor, selectedIds]);
+      resetAnchor();
+      lastToggledIndex.current = null;
+      return new Set([...current].filter((id) => visibleIds.has(id)));
+    });
+  }, [orderedIds, resetAnchor]);
 
   const toggle = useCallback(
     (index: number) => {

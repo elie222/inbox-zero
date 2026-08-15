@@ -22,6 +22,9 @@ import type {
 } from "@/app/(app)/[emailAccountId]/mail/use-mail-threads";
 import type { ListThread } from "@/app/(app)/[emailAccountId]/mail/types";
 import { snoozeThreadsAction } from "@/utils/actions/snooze";
+import { mapWithConcurrency } from "@/utils/async";
+
+const THREAD_ACTION_CONCURRENCY = 10;
 
 type UndoableAction = "archive" | "delete";
 
@@ -71,11 +74,13 @@ export function useThreadActions({
       const reverse =
         batch.type === "archive" ? unarchiveThreadAction : untrashThreadAction;
 
-      const reversed = await Promise.all(
-        notCancelled.map(async (threadId) => {
+      const reversed = await mapWithConcurrency(
+        notCancelled,
+        THREAD_ACTION_CONCURRENCY,
+        async (threadId) => {
           const result = await reverse(emailAccountId, { threadId });
           return { threadId, ok: !result?.serverError };
-        }),
+        },
       );
 
       // A thread the provider refused to unarchive is still archived, so
@@ -175,8 +180,10 @@ export function useThreadActions({
       );
       if (!update.threadIds.length) return;
 
-      const results = await Promise.all(
-        update.threadIds.map(async (threadId) => {
+      const results = await mapWithConcurrency(
+        update.threadIds,
+        THREAD_ACTION_CONCURRENCY,
+        async (threadId) => {
           try {
             const result = await markReadThreadAction(emailAccountId, {
               threadId,
@@ -186,7 +193,7 @@ export function useThreadActions({
           } catch {
             return { failed: true, threadId };
           }
-        }),
+        },
       );
       const failedThreadIds = results
         .filter((result) => result.failed)

@@ -59,17 +59,18 @@ async function markOnboardingComplete(email: string) {
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
   try {
-    const result = await client.query(
-      `UPDATE "User"
-       SET "completedOnboardingAt" = CURRENT_TIMESTAMP
-       WHERE email = $1`,
-      [email],
-    );
-    if (result.rowCount !== 1) {
-      throw new Error(
-        `Expected one user for ${email}, updated ${result.rowCount}`,
+    const deadline = Date.now() + 15_000;
+    while (Date.now() < deadline) {
+      const result = await client.query(
+        `UPDATE "User"
+         SET "completedOnboardingAt" = CURRENT_TIMESTAMP
+         WHERE email = $1`,
+        [email],
       );
+      if (result.rowCount === 1) return;
+      await new Promise((resolve) => setTimeout(resolve, 250));
     }
+    throw new Error(`Timed out waiting for the OAuth user row for ${email}`);
   } finally {
     await client.end();
   }

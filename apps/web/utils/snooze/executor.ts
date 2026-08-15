@@ -3,6 +3,7 @@ import type { SnoozedThread } from "@/generated/prisma/client";
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
+import { releaseSnoozedThreadForRetry } from "@/utils/snooze/scheduler";
 
 export async function executeSnoozedThread(
   snoozedThread: SnoozedThread,
@@ -11,8 +12,21 @@ export async function executeSnoozedThread(
 ) {
   try {
     await provider.unarchiveThread(snoozedThread.threadId);
-    await prisma.snoozedThread.update({
-      where: { id: snoozedThread.id },
+  } catch (error) {
+    await releaseSnoozedThreadForRetry(snoozedThread.id);
+    logger.error("Failed to restore snoozed thread", {
+      error,
+      snoozedThreadId: snoozedThread.id,
+    });
+    return { success: false as const, error };
+  }
+
+  try {
+    await prisma.snoozedThread.updateMany({
+      where: {
+        id: snoozedThread.id,
+        status: SnoozedThreadStatus.EXECUTING,
+      },
       data: {
         executedAt: new Date(),
         status: SnoozedThreadStatus.COMPLETED,
@@ -20,11 +34,9 @@ export async function executeSnoozedThread(
     });
     return { success: true as const };
   } catch (error) {
-    await prisma.snoozedThread.update({
-      where: { id: snoozedThread.id },
-      data: { status: SnoozedThreadStatus.FAILED },
-    });
-    logger.error("Failed to restore snoozed thread", {
+    // Keep EXECUTING so a quick duplicate cannot repeat the provider call.
+    // Stale execution recovery will retry and reconcile this record later.
+    logger.error("Restored snoozed thread but failed to record completion", {
       error,
       snoozedThreadId: snoozedThread.id,
     });

@@ -426,7 +426,11 @@ export function MailShell() {
   );
 
   useEffect(() => {
-    setMailCommandContext({ commands: mailCommands, snooze: snoozeTargets });
+    setMailCommandContext(
+      mailCommands.length
+        ? { commands: mailCommands, snooze: snoozeTargets }
+        : null,
+    );
     return () => setMailCommandContext(null);
   }, [mailCommands, setMailCommandContext, snoozeTargets]);
 
