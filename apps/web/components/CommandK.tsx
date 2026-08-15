@@ -198,14 +198,7 @@ function CommandPalette() {
                         {command.icon && (
                           <command.icon className="mr-2 h-4 w-4" />
                         )}
-                        <div className="flex flex-1 flex-col">
-                          <span>{command.label}</span>
-                          {command.description && (
-                            <span className="text-xs text-muted-foreground">
-                              {command.description}
-                            </span>
-                          )}
-                        </div>
+                        <span className="flex-1">{command.label}</span>
                         {command.shortcut && (
                           <CommandShortcut>{command.shortcut}</CommandShortcut>
                         )}
