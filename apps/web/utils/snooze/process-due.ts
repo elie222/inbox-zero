@@ -21,7 +21,7 @@ type SnoozedThreadWithAccount = Prisma.SnoozedThreadGetPayload<{
 export type SnoozedThreadProcessResult =
   | { status: "processed" }
   | { status: "skipped" }
-  | { status: "failed"; reason: "missing-provider" | "restore" };
+  | { status: "failed"; reason: "restore" };
 
 export async function processDueSnoozedThreads(logger: Logger) {
   const now = new Date();
@@ -81,25 +81,10 @@ export async function processSnoozedThread(
     return { status: "skipped" };
   }
 
-  const providerType = snoozedThread.emailAccount?.account?.provider;
-  if (!providerType) {
-    const failed = await prisma.snoozedThread.updateMany({
-      where: {
-        id: snoozedThread.id,
-        status: SnoozedThreadStatus.EXECUTING,
-        updatedAt: leaseStartedAt,
-      },
-      data: { status: SnoozedThreadStatus.FAILED },
-    });
-    return failed.count === 1
-      ? { status: "failed", reason: "missing-provider" }
-      : { status: "skipped" };
-  }
-
   try {
     const provider = await createEmailProvider({
       emailAccountId: snoozedThread.emailAccountId,
-      provider: providerType,
+      provider: snoozedThread.emailAccount.account.provider,
       logger: itemLogger,
     });
     const result = await executeSnoozedThread(

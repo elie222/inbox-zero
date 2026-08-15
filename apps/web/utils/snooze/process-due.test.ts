@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestLogger } from "@/__tests__/helpers";
-import { SnoozedThreadStatus } from "@/generated/prisma/enums";
 import { createMockEmailProvider } from "@/utils/__mocks__/email-provider";
 import prisma from "@/utils/__mocks__/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
@@ -52,29 +51,6 @@ describe("processDueSnoozedThreads", () => {
       expect.anything(),
       leaseStartedAt,
     );
-  });
-
-  it("fails records whose email provider no longer exists", async () => {
-    prisma.snoozedThread.updateMany.mockResolvedValue({ count: 1 });
-    prisma.snoozedThread.findMany.mockResolvedValue([
-      {
-        id: "snooze",
-        emailAccountId: "account",
-        emailAccount: null,
-      },
-    ] as never);
-
-    const result = await processDueSnoozedThreads(logger);
-
-    expect(result).toEqual({ processed: 0, failed: 1, skipped: 0, total: 1 });
-    expect(prisma.snoozedThread.updateMany).toHaveBeenCalledWith({
-      where: {
-        id: "snooze",
-        status: SnoozedThreadStatus.EXECUTING,
-        updatedAt: leaseStartedAt,
-      },
-      data: { status: SnoozedThreadStatus.FAILED },
-    });
   });
 
   it("skips work claimed by another worker", async () => {

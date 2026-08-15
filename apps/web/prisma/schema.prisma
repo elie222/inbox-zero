@@ -2085,7 +2085,6 @@ enum SnoozedThreadStatus {
   PENDING
   EXECUTING
   COMPLETED
-  FAILED
   CANCELLED
 }
 

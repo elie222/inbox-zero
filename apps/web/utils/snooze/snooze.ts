@@ -1,10 +1,7 @@
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
 import { mapWithConcurrency } from "@/utils/async";
-import {
-  cancelSnoozedThread,
-  scheduleSnoozedThread,
-} from "@/utils/snooze/scheduler";
+import { scheduleSnoozedThread } from "@/utils/snooze/scheduler";
 
 const SNOOZE_CONCURRENCY = 10;
 
@@ -65,16 +62,10 @@ async function snoozeThread({
   snoozedUntil: Date;
   threadId: string;
 }) {
-  const snoozedThread = await scheduleSnoozedThread({
+  await scheduleSnoozedThread({
     emailAccountId,
     scheduledFor: snoozedUntil,
     threadId,
   });
-
-  try {
-    await provider.archiveThreadWithLabel(threadId, ownerEmail);
-  } catch (error) {
-    await cancelSnoozedThread(snoozedThread.id);
-    throw error;
-  }
+  await provider.archiveThreadWithLabel(threadId, ownerEmail);
 }

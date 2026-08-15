@@ -1,14 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestLogger } from "@/__tests__/helpers";
 import { createMockEmailProvider } from "@/utils/__mocks__/email-provider";
-import {
-  cancelSnoozedThread,
-  scheduleSnoozedThread,
-} from "@/utils/snooze/scheduler";
+import { scheduleSnoozedThread } from "@/utils/snooze/scheduler";
 import { snoozeThreads } from "./snooze";
 
 vi.mock("@/utils/snooze/scheduler", () => ({
-  cancelSnoozedThread: vi.fn(),
   scheduleSnoozedThread: vi.fn(),
 }));
 
@@ -60,7 +56,7 @@ describe("snoozeThreads", () => {
     );
   });
 
-  it("cancels restoration when the provider cannot archive a thread", async () => {
+  it("keeps restoration scheduled when the archive outcome is uncertain", async () => {
     const provider = createMockEmailProvider({
       archiveThreadWithLabel: vi
         .fn()
@@ -80,7 +76,7 @@ describe("snoozeThreads", () => {
       failedThreadIds: ["one"],
       succeededThreadIds: [],
     });
-    expect(cancelSnoozedThread).toHaveBeenCalledWith("snooze-one");
+    expect(scheduleSnoozedThread).toHaveBeenCalledOnce();
   });
 
   it("does not archive when restoration could not be scheduled", async () => {
@@ -120,6 +116,5 @@ describe("snoozeThreads", () => {
       failedThreadIds: ["two"],
       succeededThreadIds: ["one"],
     });
-    expect(cancelSnoozedThread).toHaveBeenCalledWith("snooze-two");
   });
 });

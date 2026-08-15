@@ -32,6 +32,12 @@ export const POST = withError(
         status: 200,
       });
     }
+    if (
+      snoozedThread.status === SnoozedThreadStatus.PENDING &&
+      snoozedThread.scheduledFor.getTime() > Date.now()
+    ) {
+      return new Response("Snoozed thread retry is scheduled", { status: 200 });
+    }
 
     const result = await processSnoozedThread(snoozedThread, request.logger);
     if (result.status === "skipped") {
@@ -40,12 +46,7 @@ export const POST = withError(
       });
     }
     if (result.status === "failed") {
-      return new Response(
-        result.reason === "missing-provider"
-          ? "Email account or provider missing"
-          : "Failed to restore snoozed thread",
-        { status: 500 },
-      );
+      return new Response("Failed to restore snoozed thread", { status: 500 });
     }
 
     return new Response("Snoozed thread restored", { status: 200 });

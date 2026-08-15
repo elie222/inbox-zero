@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SnoozedThreadStatus } from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
 import {
-  cancelSnoozedThread,
   markSnoozedThreadAsExecuting,
   releaseSnoozedThreadForRetry,
   scheduleSnoozedThread,
@@ -67,7 +66,10 @@ describe("snoozed thread scheduler", () => {
       where: {
         id: "snooze",
         OR: [
-          { status: SnoozedThreadStatus.PENDING },
+          {
+            status: SnoozedThreadStatus.PENDING,
+            scheduledFor: { lte: now },
+          },
           {
             status: SnoozedThreadStatus.EXECUTING,
             updatedAt: { lte: expect.any(Date) },
@@ -96,23 +98,6 @@ describe("snoozed thread scheduler", () => {
         }),
       }),
     );
-  });
-
-  it("cancels pending work in the database", async () => {
-    prisma.snoozedThread.updateMany.mockResolvedValue({ count: 1 });
-
-    expect(await cancelSnoozedThread("snooze")).toBe(true);
-
-    expect(prisma.snoozedThread.updateMany).toHaveBeenCalledWith({
-      where: { id: "snooze", status: SnoozedThreadStatus.PENDING },
-      data: { status: SnoozedThreadStatus.CANCELLED },
-    });
-  });
-
-  it("does not cancel work that another worker already claimed", async () => {
-    prisma.snoozedThread.updateMany.mockResolvedValue({ count: 0 });
-
-    expect(await cancelSnoozedThread("snooze")).toBe(false);
   });
 
   it("replaces pending snoozes and creates the new restore atomically", async () => {
@@ -144,8 +129,9 @@ describe("snoozed thread scheduler", () => {
 
   it("releases claimed work for a later retry", async () => {
     const leaseStartedAt = new Date("2026-08-16T09:30:00.000Z");
+    const failedAt = new Date("2026-08-16T09:31:00.000Z");
 
-    await releaseSnoozedThreadForRetry("snooze", leaseStartedAt);
+    await releaseSnoozedThreadForRetry("snooze", leaseStartedAt, failedAt);
 
     expect(prisma.snoozedThread.updateMany).toHaveBeenCalledWith({
       where: {
@@ -153,7 +139,10 @@ describe("snoozed thread scheduler", () => {
         status: SnoozedThreadStatus.EXECUTING,
         updatedAt: leaseStartedAt,
       },
-      data: { status: SnoozedThreadStatus.PENDING },
+      data: {
+        scheduledFor: new Date("2026-08-16T09:36:00.000Z"),
+        status: SnoozedThreadStatus.PENDING,
+      },
     });
   });
 

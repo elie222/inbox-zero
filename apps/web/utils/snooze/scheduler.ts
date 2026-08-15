@@ -8,6 +8,7 @@ import prisma from "@/utils/prisma";
 
 const logger = createScopedLogger("snoozed-threads");
 export const SNOOZE_EXECUTION_LEASE_MS = 15 * 60 * 1000;
+const SNOOZE_RETRY_DELAY_MS = 5 * 60 * 1000;
 
 export async function scheduleSnoozedThread({
   emailAccountId,
@@ -60,14 +61,6 @@ export async function scheduleSnoozedThread({
   return snoozedThread;
 }
 
-export async function cancelSnoozedThread(id: string) {
-  const cancelled = await prisma.snoozedThread.updateMany({
-    where: { id, status: SnoozedThreadStatus.PENDING },
-    data: { status: SnoozedThreadStatus.CANCELLED },
-  });
-  return cancelled.count === 1;
-}
-
 export async function markSnoozedThreadAsExecuting(
   id: string,
   now = new Date(),
@@ -77,7 +70,10 @@ export async function markSnoozedThreadAsExecuting(
     where: {
       id,
       OR: [
-        { status: SnoozedThreadStatus.PENDING },
+        {
+          status: SnoozedThreadStatus.PENDING,
+          scheduledFor: { lte: now },
+        },
         {
           status: SnoozedThreadStatus.EXECUTING,
           updatedAt: { lte: staleBefore },
@@ -92,6 +88,7 @@ export async function markSnoozedThreadAsExecuting(
 export async function releaseSnoozedThreadForRetry(
   id: string,
   leaseStartedAt: Date,
+  now = new Date(),
 ) {
   await prisma.snoozedThread.updateMany({
     where: {
@@ -99,7 +96,10 @@ export async function releaseSnoozedThreadForRetry(
       status: SnoozedThreadStatus.EXECUTING,
       updatedAt: leaseStartedAt,
     },
-    data: { status: SnoozedThreadStatus.PENDING },
+    data: {
+      scheduledFor: new Date(now.getTime() + SNOOZE_RETRY_DELAY_MS),
+      status: SnoozedThreadStatus.PENDING,
+    },
   });
 }
 

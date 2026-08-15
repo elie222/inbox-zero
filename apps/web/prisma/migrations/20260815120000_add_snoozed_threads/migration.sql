@@ -1,5 +1,5 @@
 -- CreateEnum
-CREATE TYPE "SnoozedThreadStatus" AS ENUM ('PENDING', 'EXECUTING', 'COMPLETED', 'FAILED', 'CANCELLED');
+CREATE TYPE "SnoozedThreadStatus" AS ENUM ('PENDING', 'EXECUTING', 'COMPLETED', 'CANCELLED');
 
 -- CreateTable
 CREATE TABLE "SnoozedThread" (
