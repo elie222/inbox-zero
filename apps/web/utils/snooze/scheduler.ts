@@ -76,6 +76,10 @@ export async function scheduleSnoozedThread({
       data: { scheduledId, schedulingStatus: "SCHEDULED" },
     });
   } catch (error) {
+    await deleteScheduledMessage({
+      id: snoozedThread.id,
+      scheduledId: scheduledId ?? null,
+    });
     logger.error("Failed to persist QStash scheduling details", {
       error,
       snoozedThreadId: snoozedThread.id,

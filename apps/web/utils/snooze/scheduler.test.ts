@@ -8,12 +8,30 @@ import {
   scheduleSnoozedThread,
 } from "./scheduler";
 
-vi.mock("@/utils/prisma");
-vi.mock("@/env", () => ({ env: { QSTASH_TOKEN: "" } }));
+const { env, publishJSON, qstashRequest } = vi.hoisted(() => ({
+  env: {
+    CRON_SECRET: "cron-secret",
+    INTERNAL_API_URL: "https://inbox-zero.test",
+    NEXT_PUBLIC_BASE_URL: "https://inbox-zero.test",
+    QSTASH_TOKEN: "",
+  },
+  publishJSON: vi.fn(),
+  qstashRequest: vi.fn(),
+}));
 
-describe("snoozed thread scheduler without QStash", () => {
+vi.mock("@/utils/prisma");
+vi.mock("@/env", () => ({ env }));
+vi.mock("@upstash/qstash", () => ({
+  Client: class {
+    http = { request: qstashRequest };
+    publishJSON = publishJSON;
+  },
+}));
+
+describe("snoozed thread scheduler", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    env.QSTASH_TOKEN = "";
     prisma.$transaction.mockImplementation(async (operations) =>
       Promise.all(operations as Promise<unknown>[]),
     );
@@ -123,7 +141,7 @@ describe("snoozed thread scheduler without QStash", () => {
       scheduledId: null,
     } as never);
 
-    await scheduleSnoozedThread({
+    const result = await scheduleSnoozedThread({
       emailAccountId: "account",
       scheduledFor: new Date("2026-08-17T09:00:00.000Z"),
       threadId: "thread",
@@ -138,6 +156,14 @@ describe("snoozed thread scheduler without QStash", () => {
       data: { status: SnoozedThreadStatus.CANCELLED },
       select: { id: true, scheduledId: true },
     });
+    expect(prisma.snoozedThread.create).toHaveBeenCalledWith({
+      data: {
+        emailAccountId: "account",
+        scheduledFor: new Date("2026-08-17T09:00:00.000Z"),
+        threadId: "thread",
+      },
+    });
+    expect(result).toEqual({ id: "new-snooze", scheduledId: null });
   });
 
   it("replaces existing snoozes and creates the new restore atomically", async () => {
@@ -176,5 +202,84 @@ describe("snoozed thread scheduler without QStash", () => {
         status: SnoozedThreadStatus.PENDING,
       },
     });
+  });
+
+  it("publishes QStash work and persists its delivery ID", async () => {
+    env.QSTASH_TOKEN = "qstash-token";
+    const scheduledFor = new Date("2026-08-17T09:00:00.000Z");
+    const record = { id: "snooze", scheduledId: null } as never;
+    const scheduledRecord = {
+      id: "snooze",
+      scheduledId: "message-id",
+    } as never;
+    prisma.snoozedThread.updateManyAndReturn.mockResolvedValue([]);
+    prisma.snoozedThread.create.mockResolvedValue(record);
+    prisma.snoozedThread.update.mockResolvedValue(scheduledRecord);
+    publishJSON.mockResolvedValue({ messageId: "message-id" });
+
+    const result = await scheduleSnoozedThread({
+      emailAccountId: "account",
+      scheduledFor,
+      threadId: "thread",
+    });
+
+    expect(publishJSON).toHaveBeenCalledWith({
+      url: "https://inbox-zero.test/api/snoozed-threads/execute",
+      body: { snoozedThreadId: "snooze" },
+      notBefore: Math.ceil(scheduledFor.getTime() / 1000),
+      deduplicationId: "snoozed-thread-snooze",
+      contentBasedDeduplication: false,
+      headers: new Headers({ authorization: "Bearer cron-secret" }),
+    });
+    expect(prisma.snoozedThread.update).toHaveBeenCalledWith({
+      where: { id: "snooze" },
+      data: {
+        scheduledId: "message-id",
+        schedulingStatus: "SCHEDULED",
+      },
+    });
+    expect(result).toBe(scheduledRecord);
+  });
+
+  it("keeps cron fallback pending when QStash publishing fails", async () => {
+    env.QSTASH_TOKEN = "qstash-token";
+    const record = { id: "snooze", scheduledId: null } as never;
+    prisma.snoozedThread.updateManyAndReturn.mockResolvedValue([]);
+    prisma.snoozedThread.create.mockResolvedValue(record);
+    prisma.snoozedThread.updateMany.mockResolvedValue({ count: 1 });
+    publishJSON.mockRejectedValue(new Error("offline"));
+
+    const result = await scheduleSnoozedThread({
+      emailAccountId: "account",
+      scheduledFor: new Date("2026-08-17T09:00:00.000Z"),
+      threadId: "thread",
+    });
+
+    expect(prisma.snoozedThread.updateMany).toHaveBeenCalledWith({
+      where: { id: "snooze", status: SnoozedThreadStatus.PENDING },
+      data: { schedulingStatus: "FAILED" },
+    });
+    expect(result).toBe(record);
+  });
+
+  it("removes accepted QStash work when its delivery ID cannot be persisted", async () => {
+    env.QSTASH_TOKEN = "qstash-token";
+    const record = { id: "snooze", scheduledId: null } as never;
+    prisma.snoozedThread.updateManyAndReturn.mockResolvedValue([]);
+    prisma.snoozedThread.create.mockResolvedValue(record);
+    prisma.snoozedThread.update.mockRejectedValue(new Error("offline"));
+    publishJSON.mockResolvedValue({ messageId: "message-id" });
+
+    const result = await scheduleSnoozedThread({
+      emailAccountId: "account",
+      scheduledFor: new Date("2026-08-17T09:00:00.000Z"),
+      threadId: "thread",
+    });
+
+    expect(qstashRequest).toHaveBeenCalledWith({
+      path: ["v2", "messages", "message-id"],
+      method: "DELETE",
+    });
+    expect(result).toBe(record);
   });
 });
