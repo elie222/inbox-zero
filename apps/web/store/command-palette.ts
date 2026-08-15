@@ -1,4 +1,5 @@
 import { atom } from "jotai";
+import type { Command } from "@/lib/commands/types";
 
 /**
  * Open state for the command palette. It lives outside CommandK so surfaces
@@ -6,3 +7,13 @@ import { atom } from "jotai";
  * faking a ⌘K keystroke.
  */
 export const commandPaletteOpenAtom = atom(false);
+
+type MailCommandContext = {
+  commands: Command[];
+};
+
+/**
+ * Commands owned by the active mail list. Keeping the callbacks here lets the
+ * app-wide palette act on list state without duplicating selection state.
+ */
+export const mailCommandContextAtom = atom<MailCommandContext | null>(null);

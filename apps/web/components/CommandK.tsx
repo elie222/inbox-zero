@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { Loader2Icon } from "lucide-react";
-import { useAtom } from "jotai";
+import { useAtom, useAtomValue } from "jotai";
 import {
   CommandDialog,
   CommandEmpty,
@@ -14,7 +14,10 @@ import {
   CommandShortcut,
 } from "@/components/ui/command";
 import { useComposeModal } from "@/providers/ComposeModalProvider";
-import { commandPaletteOpenAtom } from "@/store/command-palette";
+import {
+  commandPaletteOpenAtom,
+  mailCommandContextAtom,
+} from "@/store/command-palette";
 import { archiveEmails } from "@/store/archive-queue";
 import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -61,11 +64,15 @@ export function CommandK() {
 function CommandPalette() {
   const [open, setOpen] = useAtom(commandPaletteOpenAtom);
   const [search, setSearch] = React.useState("");
+  const mailCommandContext = useAtomValue(mailCommandContextAtom);
 
   const { emailAccountId } = useAccount();
   const { threadId, showEmail } = useDisplayedEmail();
   const { onOpen: onOpenComposeModal } = useComposeModal();
-  const { commands, isLoading } = useCommandPaletteCommands();
+  const activeMailContext = threadId ? null : mailCommandContext;
+  const { commands, isLoading } = useCommandPaletteCommands({
+    enabled: !activeMailContext,
+  });
 
   const onArchive = React.useCallback(() => {
     if (threadId) {
@@ -88,26 +95,32 @@ function CommandPalette() {
   useShortcuts(shortcutHandlers);
 
   // the registry decides which shortcuts surface as palette entries
-  const actionCommands = React.useMemo<Command[]>(
+  const shortcutCommands = React.useMemo<Command[]>(
     () => buildShortcutPaletteCommands(shortcutHandlers),
     [shortcutHandlers],
   );
 
-  // combine action commands with dynamic commands
+  const actionCommands = React.useMemo(
+    () =>
+      activeMailContext
+        ? [
+            ...activeMailContext.commands,
+            ...shortcutCommands.filter((command) => command.id === "compose"),
+          ]
+        : shortcutCommands,
+    [activeMailContext, shortcutCommands],
+  );
+
   const allCommands = React.useMemo(
     () => [...actionCommands, ...commands],
     [actionCommands, commands],
   );
 
-  // filter commands with fuzzy search
   const filteredCommands = React.useMemo(() => {
-    if (!search.trim()) {
-      return allCommands;
-    }
+    if (!search.trim()) return allCommands;
     return fuzzySearch(search, allCommands);
   }, [allCommands, search]);
 
-  // group commands by section
   const groupedCommands = React.useMemo(() => {
     const groups: Record<CommandSection, Command[]> = {
       actions: [],
@@ -124,7 +137,6 @@ function CommandPalette() {
     return groups;
   }, [filteredCommands]);
 
-  // execute command
   const executeCommand = React.useCallback(
     (command: Command) => {
       setOpen(false);
@@ -134,7 +146,6 @@ function CommandPalette() {
     [setOpen],
   );
 
-  // memoized handlers to avoid re-renders
   const handleOpenChange = React.useCallback(
     (isOpen: boolean) => {
       setOpen(isOpen);
@@ -148,9 +159,7 @@ function CommandPalette() {
       // disable cmdk's built-in filter since we use custom fuzzy search
       shouldFilter: false,
       onKeyDown: (e: React.KeyboardEvent) => {
-        if (e.key !== "Escape") {
-          e.stopPropagation();
-        }
+        if (e.key !== "Escape") e.stopPropagation();
       },
     }),
     [],
@@ -198,14 +207,7 @@ function CommandPalette() {
                         {command.icon && (
                           <command.icon className="mr-2 h-4 w-4" />
                         )}
-                        <div className="flex flex-1 flex-col">
-                          <span>{command.label}</span>
-                          {command.description && (
-                            <span className="text-xs text-muted-foreground">
-                              {command.description}
-                            </span>
-                          )}
-                        </div>
+                        <span className="flex-1">{command.label}</span>
                         {command.shortcut && (
                           <CommandShortcut>{command.shortcut}</CommandShortcut>
                         )}

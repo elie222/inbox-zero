@@ -194,9 +194,9 @@ describe("buildShortcutPaletteCommands", () => {
   });
 
   it("leaves shortcuts without palette metadata out", () => {
-    const commands = buildShortcutPaletteCommands({ compose: vi.fn() });
+    const commands = buildShortcutPaletteCommands({ reply: vi.fn() });
 
-    expect(commands.map((command) => command.id)).not.toContain("compose");
+    expect(commands.map((command) => command.id)).not.toContain("reply");
   });
 });
 

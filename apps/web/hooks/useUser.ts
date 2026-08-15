@@ -2,8 +2,10 @@ import useSWR from "swr";
 import type { UserResponse } from "@/app/api/user/me/route";
 import { processSWRResponse } from "@/utils/swr";
 
-export function useUser() {
-  const swrResult = useSWR<UserResponse | { error: string }>("/api/user/me");
+export function useUser(enabled = true) {
+  const swrResult = useSWR<UserResponse | { error: string }>(
+    enabled ? "/api/user/me" : null,
+  );
   const processed = processSWRResponse<UserResponse>(swrResult);
 
   // Treat 401 as "not authenticated" — return null data without error

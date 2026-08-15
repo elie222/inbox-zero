@@ -146,7 +146,7 @@ describe("useThreadActions read state", () => {
       }),
     );
 
-    await act(() => result.current.setReadState("thread", false));
+    await act(() => result.current.setReadState(["thread"], false));
 
     expect(markReadThreadAction).toHaveBeenCalledWith("account", {
       threadId: "thread",
@@ -171,7 +171,7 @@ describe("useThreadActions read state", () => {
       }),
     );
 
-    await act(() => result.current.setReadState("thread", true));
+    await act(() => result.current.setReadState(["thread"], true));
 
     expect(transaction.rollback).toHaveBeenCalledWith(["thread"]);
     expect(transaction.commit).not.toHaveBeenCalled();

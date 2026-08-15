@@ -20,6 +20,9 @@ import type {
   ThreadRemoval,
 } from "@/app/(app)/[emailAccountId]/mail/use-mail-threads";
 import type { ListThread } from "@/app/(app)/[emailAccountId]/mail/types";
+import { mapWithConcurrency } from "@/utils/async";
+
+const THREAD_ACTION_CONCURRENCY = 10;
 
 type UndoableAction = "archive" | "delete";
 
@@ -69,11 +72,13 @@ export function useThreadActions({
       const reverse =
         batch.type === "archive" ? unarchiveThreadAction : untrashThreadAction;
 
-      const reversed = await Promise.all(
-        notCancelled.map(async (threadId) => {
+      const reversed = await mapWithConcurrency(
+        notCancelled,
+        THREAD_ACTION_CONCURRENCY,
+        async (threadId) => {
           const result = await reverse(emailAccountId, { threadId });
           return { threadId, ok: !result?.serverError };
-        }),
+        },
       );
 
       // A thread the provider refused to unarchive is still archived, so
@@ -167,26 +172,50 @@ export function useThreadActions({
   );
 
   const setReadState = useCallback(
-    async (threadId: string, read: boolean) => {
-      const update = optimisticallyUpdateThreads([threadId], (thread) =>
+    async (threadIds: string[], read: boolean) => {
+      const update = optimisticallyUpdateThreads(threadIds, (thread) =>
         withThreadReadState(thread, read),
       );
       if (!update.threadIds.length) return;
 
-      try {
-        const result = await markReadThreadAction(emailAccountId, {
-          threadId,
-          read,
-        });
-        if (result?.serverError) throw new Error(result.serverError);
-      } catch {
-        update.rollback([threadId]);
-        toast.error(read ? "Couldn't mark as read" : "Couldn't mark as unread");
+      const results = await mapWithConcurrency(
+        update.threadIds,
+        THREAD_ACTION_CONCURRENCY,
+        async (threadId) => {
+          try {
+            const result = await markReadThreadAction(emailAccountId, {
+              threadId,
+              read,
+            });
+            return { failed: Boolean(result?.serverError), threadId };
+          } catch {
+            return { failed: true, threadId };
+          }
+        },
+      );
+      const failedThreadIds = results
+        .filter((result) => result.failed)
+        .map(({ threadId }) => threadId);
+
+      for (const threadId of update.threadIds) {
+        if (!failedThreadIds.includes(threadId)) update.commit(threadId);
+      }
+      update.rollback(failedThreadIds);
+
+      if (failedThreadIds.length) {
+        toast.error(
+          failedThreadIds.length === update.threadIds.length
+            ? `Couldn't mark as ${read ? "read" : "unread"}`
+            : `Couldn't mark ${failedThreadIds.length} of ${update.threadIds.length} as ${read ? "read" : "unread"}`,
+        );
         return;
       }
 
-      update.commit(threadId);
-      toast.success(read ? "Marked as read" : "Marked as unread");
+      toast.success(
+        update.threadIds.length === 1
+          ? `Marked as ${read ? "read" : "unread"}`
+          : `Marked ${update.threadIds.length} as ${read ? "read" : "unread"}`,
+      );
     },
     [emailAccountId, optimisticallyUpdateThreads],
   );
