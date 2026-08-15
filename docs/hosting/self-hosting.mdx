@@ -145,7 +145,7 @@ The bundled Compose service does **not** run the two daily cleanup endpoints. Sc
 **If you're not using Docker Compose** you need to set up cron jobs manually:
 
 ```bash
-# Scheduled actions and snooze fallback - every 15 minutes
+# Scheduled actions (without QStash) and snooze fallback (always) - every 15 minutes
 */15 * * * * curl -s -X GET "https://yourdomain.com/api/cron/scheduled-actions" -H "Authorization: Bearer YOUR_CRON_SECRET"
 
 # Automation jobs - every 15 minutes
