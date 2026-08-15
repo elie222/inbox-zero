@@ -1,9 +1,9 @@
 import { z } from "zod";
 
-export const MIN_SNOOZE_DELAY_MS = 60_000;
+const MIN_SNOOZE_DELAY_MS = 60_000;
 
 export const snoozeThreadsBody = z.object({
-  threadIds: z.array(z.string().min(1)).min(1).max(100),
+  threadIds: z.array(z.string().min(1).max(512)).min(1).max(100),
   snoozedUntil: z.coerce
     .date()
     .refine((date) => date.getTime() >= Date.now() + MIN_SNOOZE_DELAY_MS, {

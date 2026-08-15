@@ -1,8 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  MIN_SNOOZE_DELAY_MS,
-  snoozeThreadsBody,
-} from "@/utils/actions/snooze.validation";
+import { snoozeThreadsBody } from "@/utils/actions/snooze.validation";
 
 describe("snoozeThreadsBody", () => {
   afterEach(() => vi.useRealTimers());
@@ -13,7 +10,7 @@ describe("snoozeThreadsBody", () => {
 
     const result = snoozeThreadsBody.safeParse({
       threadIds: ["thread"],
-      snoozedUntil: new Date(Date.now() + MIN_SNOOZE_DELAY_MS - 1),
+      snoozedUntil: new Date(Date.now() + 60_000 - 1),
     });
 
     expect(result.success).toBe(false);
@@ -25,9 +22,18 @@ describe("snoozeThreadsBody", () => {
 
     const result = snoozeThreadsBody.safeParse({
       threadIds: ["thread"],
-      snoozedUntil: new Date(Date.now() + MIN_SNOOZE_DELAY_MS),
+      snoozedUntil: new Date(Date.now() + 60_000),
     });
 
     expect(result.success).toBe(true);
+  });
+
+  it("rejects oversized provider thread IDs", () => {
+    const result = snoozeThreadsBody.safeParse({
+      threadIds: ["x".repeat(513)],
+      snoozedUntil: new Date(Date.now() + 60_000),
+    });
+
+    expect(result.success).toBe(false);
   });
 });

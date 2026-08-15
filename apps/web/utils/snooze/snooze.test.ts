@@ -44,6 +44,11 @@ describe("snoozeThreads", () => {
       succeededThreadIds: ["one", "two"],
     });
     expect(scheduleSnoozedThread).toHaveBeenCalledTimes(2);
+    expect(scheduleSnoozedThread).toHaveBeenNthCalledWith(1, {
+      emailAccountId: "account",
+      scheduledFor: snoozedUntil,
+      threadId: "one",
+    });
     expect(
       vi.mocked(scheduleSnoozedThread).mock.invocationCallOrder[0],
     ).toBeLessThan(
@@ -97,5 +102,31 @@ describe("snoozeThreads", () => {
 
     expect(result.failedThreadIds).toEqual(["one"]);
     expect(provider.archiveThreadWithLabel).not.toHaveBeenCalled();
+  });
+
+  it("reports successful and failed threads independently", async () => {
+    const provider = createMockEmailProvider({
+      archiveThreadWithLabel: vi.fn(async (threadId: string) => {
+        if (threadId === "two") throw new Error("provider failed");
+      }),
+    });
+
+    const result = await snoozeThreads({
+      emailAccountId: "account",
+      logger,
+      ownerEmail: "owner@example.com",
+      provider,
+      snoozedUntil,
+      threadIds: ["one", "two"],
+    });
+
+    expect(result).toEqual({
+      failedThreadIds: ["two"],
+      succeededThreadIds: ["one"],
+    });
+    expect(cancelSnoozedThread).toHaveBeenCalledWith({
+      id: "snooze-two",
+      scheduledId: "qstash-two",
+    });
   });
 });
