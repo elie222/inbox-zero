@@ -3,6 +3,7 @@
 import * as React from "react";
 import { ArrowLeftIcon, Loader2Icon } from "lucide-react";
 import { useAtom, useAtomValue } from "jotai";
+import { buildMailCommandPalette } from "@/app/(app)/[emailAccountId]/mail/mail-command-palette";
 import { buildSnoozeCommandPalette } from "@/app/(app)/[emailAccountId]/mail/snooze-command-palette";
 import {
   CommandDialog,
@@ -17,9 +18,9 @@ import {
 import { useComposeModal } from "@/providers/ComposeModalProvider";
 import {
   commandPaletteOpenAtom,
-  commandPalettePageAtom,
   mailCommandContextAtom,
 } from "@/store/command-palette";
+import type { MailCommandContext } from "@/store/command-palette";
 import { archiveEmails } from "@/store/archive-queue";
 import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -64,161 +65,122 @@ export function CommandK() {
 }
 
 function CommandPalette() {
-  const [open, setOpen] = useAtom(commandPaletteOpenAtom);
-  const [page, setPage] = useAtom(commandPalettePageAtom);
-  const [search, setSearch] = React.useState("");
-  const inputRef = React.useRef<HTMLInputElement>(null);
   const mailCommandContext = useAtomValue(mailCommandContextAtom);
+  const displayedEmail = useDisplayedEmail();
+  const activeMailContext = displayedEmail.threadId ? null : mailCommandContext;
+
+  return (
+    <CommandPaletteContent
+      key={activeMailContext ? "mail" : "default"}
+      displayedEmail={displayedEmail}
+      mailCommandContext={activeMailContext}
+    />
+  );
+}
+
+function CommandPaletteContent({
+  displayedEmail,
+  mailCommandContext,
+}: {
+  displayedEmail: ReturnType<typeof useDisplayedEmail>;
+  mailCommandContext: MailCommandContext | null;
+}) {
+  const [open, setOpen] = useAtom(commandPaletteOpenAtom);
+  const [page, setPage] = React.useState<"root" | "snooze">("root");
+  const [search, setSearch] = React.useState("");
 
   const { emailAccountId } = useAccount();
-  const { threadId, showEmail } = useDisplayedEmail();
+  const { threadId, showEmail } = displayedEmail;
   const { onOpen: onOpenComposeModal } = useComposeModal();
-  const activeMailContext = threadId ? null : mailCommandContext;
   const { commands, isLoading } = useCommandPaletteCommands({
-    enabled: !activeMailContext,
+    enabled: !mailCommandContext,
   });
 
-  const onArchive = React.useCallback(() => {
-    if (threadId) {
-      archiveEmails({ threadIds: [threadId], emailAccountId });
-      showEmail(null);
-    }
-  }, [threadId, showEmail, emailAccountId]);
-
-  const shortcutHandlers = React.useMemo<ShortcutHandlers>(
-    () => ({
-      commandPalette: () => setOpen((prev) => !prev),
-      compose: onOpenComposeModal,
-      archive: threadId ? onArchive : undefined,
-      // While the palette is open, Escape belongs to the dialog.
-      backToList: open || !threadId ? undefined : () => showEmail(null),
-    }),
-    [threadId, open, onArchive, onOpenComposeModal, showEmail, setOpen],
-  );
+  const shortcutHandlers: ShortcutHandlers = {
+    commandPalette: () => setOpen((wasOpen) => !wasOpen),
+    compose: onOpenComposeModal,
+    archive: threadId
+      ? () => {
+          archiveEmails({ threadIds: [threadId], emailAccountId });
+          showEmail(null);
+        }
+      : undefined,
+    // While the palette is open, Escape belongs to the dialog.
+    backToList: open || !threadId ? undefined : () => showEmail(null),
+  };
 
   useShortcuts(shortcutHandlers);
 
-  // the registry decides which shortcuts surface as palette entries
-  const shortcutCommands = React.useMemo<Command[]>(
-    () => buildShortcutPaletteCommands(shortcutHandlers),
-    [shortcutHandlers],
-  );
+  const shortcutCommands = buildShortcutPaletteCommands(shortcutHandlers);
+  const mailCommands = mailCommandContext
+    ? buildMailCommandPalette({
+        actions: {
+          archive: mailCommandContext.actions.archive,
+          markRead: mailCommandContext.actions.markRead,
+          markUnread: mailCommandContext.actions.markUnread,
+          openSnooze: mailCommandContext.actions.snooze
+            ? () => setPage("snooze")
+            : undefined,
+          trash: mailCommandContext.actions.trash,
+        },
+        hasRead: mailCommandContext.hasRead,
+        hasUnread: mailCommandContext.hasUnread,
+        targetCount: mailCommandContext.targetCount,
+      })
+    : [];
 
-  const snoozeCommands = React.useMemo(() => {
-    if (page !== "snooze" || !activeMailContext) return [];
-
-    return buildSnoozeCommandPalette({
-      onSnooze: activeMailContext.snooze,
+  let allCommands: Command[];
+  if (page === "snooze" && mailCommandContext?.actions.snooze) {
+    const snoozeCommands = buildSnoozeCommandPalette({
+      onSnooze: mailCommandContext.actions.snooze,
       query: search,
     });
-  }, [activeMailContext, page, search]);
-
-  const actionCommands = React.useMemo(() => {
-    if (page === "snooze" && activeMailContext) {
-      if (search.trim()) return snoozeCommands;
-
-      return [
-        {
-          id: "mail-snooze-back",
-          label: "Back to commands",
-          icon: ArrowLeftIcon,
-          section: "actions" as const,
-          priority: -1,
-          closeOnSelect: false,
-          action: () => setPage("root"),
-        },
-        ...snoozeCommands,
-      ];
-    }
-
-    return activeMailContext
+    allCommands = search.trim()
+      ? snoozeCommands
+      : [
+          {
+            id: "mail-snooze-back",
+            label: "Back to commands",
+            icon: ArrowLeftIcon,
+            section: "actions",
+            priority: -1,
+            closeOnSelect: false,
+            action: () => setPage("root"),
+          },
+          ...snoozeCommands,
+        ];
+  } else {
+    const actionCommands = mailCommandContext
       ? [
-          ...activeMailContext.commands,
+          ...mailCommands,
           ...shortcutCommands.filter((command) => command.id === "compose"),
         ]
       : shortcutCommands;
-  }, [
-    activeMailContext,
-    page,
-    search,
-    setPage,
-    shortcutCommands,
-    snoozeCommands,
-  ]);
+    allCommands = [...actionCommands, ...commands];
+  }
 
-  const allCommands = React.useMemo(
-    () =>
-      page === "snooze" ? actionCommands : [...actionCommands, ...commands],
-    [actionCommands, commands, page],
-  );
+  const filteredCommands =
+    page === "snooze" || !search.trim()
+      ? allCommands
+      : fuzzySearch(search, allCommands);
+  const groupedCommands = groupCommands(filteredCommands);
 
-  const filteredCommands = React.useMemo(() => {
-    if (page === "snooze" || !search.trim()) {
-      return allCommands;
+  const executeCommand = (command: Command) => {
+    setSearch("");
+    if (command.closeOnSelect !== false) {
+      setOpen(false);
+      setPage("root");
     }
-    return fuzzySearch(search, allCommands);
-  }, [allCommands, page, search]);
+    command.action();
+  };
 
-  const groupedCommands = React.useMemo(() => {
-    const groups: Record<CommandSection, Command[]> = {
-      actions: [],
-      navigation: [],
-      rules: [],
-      accounts: [],
-      settings: [],
-    };
-
-    for (const command of filteredCommands) {
-      groups[command.section].push(command);
-    }
-
-    return groups;
-  }, [filteredCommands]);
-
-  const executeCommand = React.useCallback(
-    (command: Command) => {
-      setSearch("");
-      if (command.closeOnSelect !== false) {
-        setOpen(false);
-        setPage("root");
-      }
-      command.action();
-    },
-    [setOpen, setPage],
-  );
-
-  const handleOpenChange = React.useCallback(
-    (isOpen: boolean) => {
-      setOpen(isOpen);
-      if (!isOpen) {
-        setPage("root");
-        setSearch("");
-      }
-    },
-    [setOpen, setPage],
-  );
-
-  React.useEffect(() => {
-    if (page === "snooze" && !activeMailContext) {
+  const handleOpenChange = (isOpen: boolean) => {
+    setOpen(isOpen);
+    if (!isOpen) {
       setPage("root");
       setSearch("");
     }
-  }, [activeMailContext, page, setPage]);
-
-  React.useEffect(() => {
-    if (open && page === "snooze") inputRef.current?.focus();
-  }, [open, page]);
-
-  const commandProps = React.useMemo(
-    () => ({
-      // disable cmdk's built-in filter since we use custom fuzzy search
-      shouldFilter: false,
-      onKeyDown: (e: React.KeyboardEvent) => {
-        if (e.key !== "Escape") e.stopPropagation();
-      },
-    }),
-    [],
-  );
+  };
 
   return (
     <CommandDialog
@@ -230,10 +192,17 @@ function CommandPalette() {
         setPage("root");
         setSearch("");
       }}
-      commandProps={commandProps}
+      commandProps={{
+        // Disable cmdk's built-in filter since we use custom fuzzy search.
+        shouldFilter: false,
+        onKeyDown: (event) => {
+          if (event.key !== "Escape") event.stopPropagation();
+        },
+      }}
     >
       <CommandInput
-        ref={inputRef}
+        key={page}
+        autoFocus
         placeholder={
           page === "snooze"
             ? "When should it return? Try Friday at 3pm"
@@ -318,4 +287,18 @@ function CommandPalette() {
       </div>
     </CommandDialog>
   );
+}
+
+function groupCommands(commands: Command[]) {
+  const groups: Record<CommandSection, Command[]> = {
+    actions: [],
+    navigation: [],
+    rules: [],
+    accounts: [],
+    settings: [],
+  };
+
+  for (const command of commands) groups[command.section].push(command);
+
+  return groups;
 }
