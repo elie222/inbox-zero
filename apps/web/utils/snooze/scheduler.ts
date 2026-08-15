@@ -19,13 +19,18 @@ export async function scheduleSnoozedThread({
   scheduledFor: Date;
   threadId: string;
 }) {
-  const [, snoozedThread] = await prisma.$transaction([
+  const pendingSnooze = {
+    emailAccountId,
+    threadId,
+    status: SnoozedThreadStatus.PENDING,
+  };
+  const [replacedSnoozes, , snoozedThread] = await prisma.$transaction([
+    prisma.snoozedThread.findMany({
+      where: pendingSnooze,
+      select: { id: true },
+    }),
     prisma.snoozedThread.updateMany({
-      where: {
-        emailAccountId,
-        threadId,
-        status: SnoozedThreadStatus.PENDING,
-      },
+      where: pendingSnooze,
       data: { status: SnoozedThreadStatus.CANCELLED },
     }),
     prisma.snoozedThread.create({
@@ -42,17 +47,41 @@ export async function scheduleSnoozedThread({
     return snoozedThread;
   }
 
+  await cancelQstashMessages(
+    client,
+    replacedSnoozes.map(({ id }) => id),
+  );
+
+  const schedulerLabel = getSchedulerLabel(snoozedThread.id);
   try {
     await client.publishJSON({
       url: `${getInternalApiUrl()}/api/snoozed-threads/execute`,
       body: { snoozedThreadId: snoozedThread.id },
       notBefore: Math.ceil(scheduledFor.getTime() / 1000),
-      deduplicationId: `snoozed-thread-${snoozedThread.id}`,
+      deduplicationId: schedulerLabel,
       contentBasedDeduplication: false,
       headers: getCronSecretHeader(),
+      label: schedulerLabel,
     });
   } catch (error) {
     logger.error("QStash scheduling failed; using cron fallback", {
+      error,
+      snoozedThreadId: snoozedThread.id,
+    });
+  }
+
+  try {
+    const isStillPending = await prisma.snoozedThread.count({
+      where: {
+        id: snoozedThread.id,
+        status: SnoozedThreadStatus.PENDING,
+      },
+    });
+    if (!isStillPending) {
+      await cancelQstashMessages(client, [snoozedThread.id]);
+    }
+  } catch (error) {
+    logger.warn("Failed to reconcile snoozed thread scheduling", {
       error,
       snoozedThreadId: snoozedThread.id,
     });
@@ -106,4 +135,32 @@ export async function releaseSnoozedThreadForRetry(
 function getQstashClient() {
   if (!env.QSTASH_TOKEN) return null;
   return new Client({ token: env.QSTASH_TOKEN });
+}
+
+async function cancelQstashMessages(
+  client: InstanceType<typeof Client>,
+  snoozedThreadIds: string[],
+) {
+  if (!snoozedThreadIds.length) return;
+
+  try {
+    const result = await client.messages.cancel({
+      filter: {
+        label: snoozedThreadIds.map(getSchedulerLabel),
+      },
+    });
+    logger.info("Cancelled superseded snooze deliveries", {
+      cancelled: result.cancelled,
+      snoozedThreadIds,
+    });
+  } catch (error) {
+    logger.warn("Failed to cancel superseded snooze deliveries", {
+      error,
+      snoozedThreadIds,
+    });
+  }
+}
+
+function getSchedulerLabel(snoozedThreadId: string) {
+  return `snoozed-thread-${snoozedThreadId}`;
 }
