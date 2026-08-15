@@ -214,23 +214,22 @@ function CommandPalette() {
       // disable cmdk's built-in filter since we use custom fuzzy search
       shouldFilter: false,
       onKeyDown: (e: React.KeyboardEvent) => {
-        if (e.key === "Escape" && page === "snooze") {
-          e.preventDefault();
-          e.stopPropagation();
-          setPage("root");
-          setSearch("");
-          return;
-        }
         if (e.key !== "Escape") e.stopPropagation();
       },
     }),
-    [page, setPage],
+    [],
   );
 
   return (
     <CommandDialog
       open={open}
       onOpenChange={handleOpenChange}
+      onEscapeKeyDown={(event) => {
+        if (page !== "snooze") return;
+        event.preventDefault();
+        setPage("root");
+        setSearch("");
+      }}
       commandProps={commandProps}
     >
       <CommandInput
