@@ -26,7 +26,7 @@ export function pickLatestDesktopRelease(
   releases: readonly GitHubRelease[],
 ): DesktopDownloadLinks | null {
   const desktopReleases = releases.filter(
-    (item) => !item.prerelease && item.tag_name.startsWith(DESKTOP_TAG_PREFIX),
+    (item) => !item.prerelease && isStableDesktopTag(item.tag_name),
   );
   if (desktopReleases.length === 0) return null;
 
@@ -60,6 +60,13 @@ function compareVersions(a: string, b: string): number {
   }
 
   return 0;
+}
+
+function isStableDesktopTag(tag: string): boolean {
+  if (!tag.startsWith(DESKTOP_TAG_PREFIX)) return false;
+
+  const version = tag.slice(DESKTOP_TAG_PREFIX.length);
+  return /^\d+\.\d+\.\d+$/.test(version);
 }
 
 function findAssetUrl(
