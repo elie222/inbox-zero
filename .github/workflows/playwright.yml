@@ -187,12 +187,12 @@ jobs:
       - name: Publish Playwright dashboard
         if: always() && github.ref == 'refs/heads/main'
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.HETZNER_S3_ACCESS_KEY }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.HETZNER_S3_SECRET_KEY }}
-          AWS_DEFAULT_REGION: ${{ vars.HETZNER_S3_REGION }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ vars.S3_REGION }}
           AWS_EC2_METADATA_DISABLED: "true"
-          HETZNER_S3_BUCKET: ${{ vars.HETZNER_S3_BUCKET }}
-          HETZNER_S3_ENDPOINT: ${{ vars.HETZNER_S3_ENDPOINT }}
+          S3_BUCKET: ${{ vars.S3_BUCKET }}
+          S3_ENDPOINT: ${{ vars.S3_ENDPOINT }}
           PLAYWRIGHT_RESULT: ${{ steps.playwright_tests.outcome }}
           PLAYWRIGHT_RUN_ATTEMPT: ${{ github.run_attempt }}
           PLAYWRIGHT_RUN_ID: ${{ github.run_id }}
@@ -213,14 +213,14 @@ jobs:
           history_path="$dashboard_dir/history.json"
           dashboard_path="$dashboard_dir/index.html"
           run_key="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          bucket_uri="s3://${HETZNER_S3_BUCKET}/playwright"
-          public_base_url="https://${HETZNER_S3_BUCKET}.${HETZNER_S3_ENDPOINT#https://}/playwright"
+          bucket_uri="s3://${S3_BUCKET}/playwright"
+          public_base_url="https://${S3_BUCKET}.${S3_ENDPOINT#https://}/playwright"
 
           mkdir -p "$dashboard_dir"
           if aws s3 cp \
             "$bucket_uri/history.json" \
             "$history_path" \
-            --endpoint-url "$HETZNER_S3_ENDPOINT" \
+            --endpoint-url "$S3_ENDPOINT" \
             2>"$dashboard_dir/history-download-error.log"; then
             echo "Downloaded existing Playwright history."
           elif grep -Eq "404|NoSuchKey|Not Found" "$dashboard_dir/history-download-error.log"; then
@@ -239,24 +239,24 @@ jobs:
           aws s3 sync \
             apps/web/playwright-report/ \
             "$bucket_uri/runs/$run_key/" \
-            --endpoint-url "$HETZNER_S3_ENDPOINT" \
+            --endpoint-url "$S3_ENDPOINT" \
             --cache-control "public,max-age=31536000,immutable"
           aws s3 sync \
             apps/web/playwright-report/ \
             "$bucket_uri/latest/" \
-            --endpoint-url "$HETZNER_S3_ENDPOINT" \
+            --endpoint-url "$S3_ENDPOINT" \
             --delete \
             --cache-control "no-cache"
           aws s3 cp \
             "$history_path" \
             "$bucket_uri/history.json" \
-            --endpoint-url "$HETZNER_S3_ENDPOINT" \
+            --endpoint-url "$S3_ENDPOINT" \
             --content-type "application/json" \
             --cache-control "no-store"
           aws s3 cp \
             "$dashboard_path" \
             "$bucket_uri/index.html" \
-            --endpoint-url "$HETZNER_S3_ENDPOINT" \
+            --endpoint-url "$S3_ENDPOINT" \
             --content-type "text/html" \
             --cache-control "no-store"
 
