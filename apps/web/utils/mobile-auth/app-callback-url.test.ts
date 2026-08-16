@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { getInboxZeroCustomSchemeCallbackUrl } from "./app-callback-url";
+import {
+  getInboxZeroCustomSchemeCallbackUrl,
+  isInboxZeroAppCallbackUrl,
+} from "./app-callback-url";
 
 describe("getInboxZeroCustomSchemeCallbackUrl", () => {
   it("opens the desktop app with a one-time code and state", () => {
@@ -44,5 +47,16 @@ describe("getInboxZeroCustomSchemeCallbackUrl", () => {
         state: "ADUZf5bSBOBSBzj58yThh17uiqgEg1PmsNzu-s4cMMA",
       }),
     ).toBeNull();
+  });
+
+  it("recognizes sanitized Inbox Zero app callback URLs", () => {
+    expect(
+      isInboxZeroAppCallbackUrl(
+        "inboxzero://auth-callback?state=ADUZf5bSBOBSBzj58yThh17uiqgEg1PmsNzu-s4cMMA&code=xz5IkObSXqOpdCvBARrwRnqhOrxRQNX9qPeoT9G-jws",
+      ),
+    ).toBe(true);
+    expect(
+      isInboxZeroAppCallbackUrl("https://www.getinboxzero.com/auth-callback"),
+    ).toBe(false);
   });
 });

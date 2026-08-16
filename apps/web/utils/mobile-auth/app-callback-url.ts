@@ -38,6 +38,21 @@ export function getInboxZeroCustomSchemeCallbackUrl(
   return url.toString();
 }
 
+export function isInboxZeroAppCallbackUrl(redirectUrl: string): boolean {
+  try {
+    const parsedUrl = new URL(redirectUrl);
+    const path = `${parsedUrl.hostname}${parsedUrl.pathname}`
+      .replace(/^\/+/u, "")
+      .replace(/\/+$/u, "");
+    return (
+      parsedUrl.protocol === `${INBOX_ZERO_APP_SCHEME}:` &&
+      path === INBOX_ZERO_APP_CALLBACK_HOST
+    );
+  } catch {
+    return false;
+  }
+}
+
 function firstSearchParam(
   value: string | string[] | undefined,
 ): string | undefined {

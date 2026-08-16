@@ -1,6 +1,8 @@
 import { normalizeInternalPath } from "@/utils/path";
+import { isInboxZeroAppCallbackUrl } from "@/utils/mobile-auth/app-callback-url";
 
 type SafeRedirectUrlOptions = {
+  allowAppCallback?: boolean;
   allowExternal?: boolean;
   fallbackUrl?: `/${string}`;
 };
@@ -49,6 +51,10 @@ export function getSafeRedirectUrl(
           `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`,
         ) ?? fallbackUrl
       );
+    }
+
+    if (options.allowAppCallback && isInboxZeroAppCallbackUrl(redirectUrl)) {
+      return parsedUrl.toString();
     }
 
     if (!options.allowExternal) return fallbackUrl;

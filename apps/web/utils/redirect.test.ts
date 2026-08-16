@@ -125,4 +125,26 @@ describe("getSafeRedirectUrl", () => {
       }),
     ).toBe("/login");
   });
+
+  it("opens the Inbox Zero app callback only when explicitly allowed", () => {
+    expect(
+      getSafeRedirectUrl(
+        "inboxzero://auth-callback?state=ADUZf5bSBOBSBzj58yThh17uiqgEg1PmsNzu-s4cMMA&code=xz5IkObSXqOpdCvBARrwRnqhOrxRQNX9qPeoT9G-jws",
+      ),
+    ).toBe("/");
+    expect(
+      getSafeRedirectUrl(
+        "inboxzero://auth-callback?state=ADUZf5bSBOBSBzj58yThh17uiqgEg1PmsNzu-s4cMMA&code=xz5IkObSXqOpdCvBARrwRnqhOrxRQNX9qPeoT9G-jws",
+        { allowAppCallback: true },
+      ),
+    ).toBe(
+      "inboxzero://auth-callback?state=ADUZf5bSBOBSBzj58yThh17uiqgEg1PmsNzu-s4cMMA&code=xz5IkObSXqOpdCvBARrwRnqhOrxRQNX9qPeoT9G-jws",
+    );
+    expect(
+      getSafeRedirectUrl("inboxzero://settings", {
+        allowAppCallback: true,
+        fallbackUrl: "/login",
+      }),
+    ).toBe("/login");
+  });
 });

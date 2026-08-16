@@ -1,13 +1,11 @@
 "use client";
 
 import { useEffect } from "react";
-
-const APP_CALLBACK_PREFIX = "inboxzero://auth-callback";
+import { redirectToSafeUrl } from "@/utils/redirect";
 
 export function AuthCallbackHandoff({ href }: { href: string }) {
   useEffect(() => {
-    if (!href.startsWith(APP_CALLBACK_PREFIX)) return;
-    window.location.assign(href);
+    redirectToSafeUrl(href, { allowAppCallback: true });
   }, [href]);
 
   return null;
