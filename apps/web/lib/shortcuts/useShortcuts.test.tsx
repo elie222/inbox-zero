@@ -14,11 +14,14 @@ afterEach(cleanup);
 describe("useShortcuts", () => {
   it("runs the handler for a mail shortcut while the mail scope is active", () => {
     const archive = vi.fn();
-    renderShortcuts({ archive });
+    const snooze = vi.fn();
+    renderShortcuts({ archive, snooze });
 
     press({ key: "e", code: "KeyE" });
+    press({ key: "h", code: "KeyH" });
 
     expect(archive).toHaveBeenCalledOnce();
+    expect(snooze).toHaveBeenCalledOnce();
   });
 
   it("leaves mail shortcuts inert outside the mail scope", () => {

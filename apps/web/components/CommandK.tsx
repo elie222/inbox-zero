@@ -105,6 +105,13 @@ function CommandPaletteContent({
           showEmail(null);
         }
       : undefined,
+    snooze: mailCommandContext?.actions.snooze
+      ? () => {
+          setSearch("");
+          setPage("snooze");
+          setOpen(true);
+        }
+      : undefined,
     // While the palette is open, Escape belongs to the dialog.
     backToList: open || !threadId ? undefined : () => showEmail(null),
   };
