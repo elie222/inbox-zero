@@ -55,6 +55,7 @@ describe("buildMailCommandPalette", () => {
     const snooze = commands.find((command) => command.id === "mail-snooze");
     expect(snooze).toMatchObject({
       label: "Snooze 3 conversations",
+      shortcut: "H",
       closeOnSelect: false,
     });
     snooze?.action();

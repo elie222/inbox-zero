@@ -6,6 +6,7 @@ import {
   Trash2Icon,
 } from "lucide-react";
 import type { Command } from "@/lib/commands/types";
+import { getShortcutHint } from "@/lib/shortcuts/registry";
 
 type MailCommandActions = {
   archive: () => void;
@@ -75,6 +76,7 @@ export function buildMailCommandPalette({
       label:
         targetCount === 1 ? "Snooze" : `Snooze ${targetCount} conversations`,
       icon: Clock3Icon,
+      shortcut: getShortcutHint("snooze"),
       section: "actions",
       priority: 3,
       keywords: ["snooze", "later", "remind"],

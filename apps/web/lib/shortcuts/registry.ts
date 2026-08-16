@@ -153,6 +153,13 @@ const SHORTCUT_DEFINITIONS = [
     },
   },
   {
+    id: "snooze",
+    keys: ["h"],
+    scope: "mail",
+    group: "Triage",
+    label: "Snooze",
+  },
+  {
     // `#` sits behind shift on US layouts and in front of it on others.
     id: "delete",
     keys: ["shift+#", "#", "backspace"],
