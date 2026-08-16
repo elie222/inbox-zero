@@ -322,6 +322,13 @@ const parsedEnv = createEnv({
       ),
     // Mobile auth trusted origin, e.g. inboxzero://
     MOBILE_AUTH_ORIGIN: z.string().trim().min(1).optional(),
+    // Desktop Electron custom-scheme origin for system-browser OAuth return.
+    DESKTOP_AUTH_ORIGIN: z
+      .string()
+      .trim()
+      .min(1)
+      .optional()
+      .default("inboxzero://"),
     AUTO_JOIN_ORGANIZATION_ENABLED: booleanString.optional().default(false),
     AUTO_ENABLE_ORG_ANALYTICS: booleanString.optional().default(false),
 

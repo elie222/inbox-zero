@@ -10,6 +10,7 @@ const {
   createMobileAuthStateMock: vi.fn(),
   handlerMock: vi.fn(),
   mockEnv: {
+    DESKTOP_AUTH_ORIGIN: "inboxzero://",
     MOBILE_AUTH_ORIGIN: "inboxzero://",
     NEXT_PUBLIC_BASE_URL: "https://www.getinboxzero.com",
   },
@@ -194,6 +195,71 @@ describe("mobile auth start route", () => {
         },
         status: 200,
       }),
+    );
+
+    const response = await POST(
+      new NextRequest("https://www.getinboxzero.com/api/mobile-auth/start", {
+        body: JSON.stringify({ provider: "google" }),
+        headers: {
+          "content-type": "application/json",
+        },
+        method: "POST",
+      }),
+      {} as never,
+    );
+
+    await expect(response.json()).resolves.toEqual({
+      error: "Failed to start authentication",
+      isKnownError: true,
+    });
+    expect(response.status).toBe(500);
+    expect(storeMobileAuthStateMock).not.toHaveBeenCalled();
+  });
+
+  it("starts desktop social auth with a desktop-scheme return URL when requested", async () => {
+    const response = await POST(
+      new NextRequest("https://www.getinboxzero.com/api/mobile-auth/start", {
+        body: JSON.stringify({
+          provider: "google",
+          returnUrlMode: "desktop-scheme",
+        }),
+        headers: {
+          "content-type": "application/json",
+        },
+        method: "POST",
+      }),
+      {} as never,
+    );
+
+    await expect(response.json()).resolves.toEqual({
+      authorizationURL:
+        "https://accounts.google.com/o/oauth2/v2/auth?client_id=client",
+      authSessionReturnUrl: "inboxzero://auth-callback",
+      oauthState: "encrypted-oauth-state",
+      state: "state-1234567890",
+    });
+    expect(storeMobileAuthStateMock).toHaveBeenCalledWith({
+      returnUrlMode: "desktop-scheme",
+      state: "state-1234567890",
+    });
+  });
+
+  it("rejects non-http authorization URLs", async () => {
+    handlerMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          redirect: false,
+          url: "javascript:alert(1)",
+        }),
+        {
+          headers: {
+            "content-type": "application/json",
+            "set-cookie":
+              "__Secure-better-auth.oauth_state=encrypted-oauth-state; Path=/; HttpOnly; Secure; SameSite=Lax",
+          },
+          status: 200,
+        },
+      ),
     );
 
     const response = await POST(

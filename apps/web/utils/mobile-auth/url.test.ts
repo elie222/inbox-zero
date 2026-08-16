@@ -1,7 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mockEnv } = vi.hoisted(() => ({
   mockEnv: {
+    DESKTOP_AUTH_ORIGIN: "inboxzero://",
     MOBILE_AUTH_ORIGIN: "inboxzero://",
     NEXT_PUBLIC_BASE_URL: "https://www.getinboxzero.com",
   },
@@ -15,12 +16,19 @@ import {
   getMobileAuthAppCallbackUrl,
   getMobileAuthBaseUrlOrigin,
   getMobileAuthWebCallbackUrl,
+  isMobileAuthReturnUrlMode,
 } from "./url";
 
 describe("mobile auth URL helpers", () => {
   beforeEach(() => {
+    mockEnv.DESKTOP_AUTH_ORIGIN = "inboxzero://";
     mockEnv.MOBILE_AUTH_ORIGIN = "inboxzero://";
     mockEnv.NEXT_PUBLIC_BASE_URL = "https://www.getinboxzero.com";
+  });
+
+  afterEach(() => {
+    mockEnv.DESKTOP_AUTH_ORIGIN = "inboxzero://";
+    mockEnv.MOBILE_AUTH_ORIGIN = "inboxzero://";
   });
 
   it("builds the web callback URL from the configured base origin", () => {
@@ -42,11 +50,25 @@ describe("mobile auth URL helpers", () => {
     );
   });
 
+  it("builds desktop-scheme callback URLs when requested", () => {
+    expect(getMobileAuthAppCallbackUrl("desktop-scheme").toString()).toBe(
+      "inboxzero://auth-callback",
+    );
+  });
+
   it("fails custom-scheme callback URL requests when the scheme is not configured", () => {
     mockEnv.MOBILE_AUTH_ORIGIN = "";
 
     expect(() => getMobileAuthAppCallbackUrl("custom-scheme")).toThrow(
-      "MOBILE_AUTH_ORIGIN is required for mobile custom scheme",
+      "MOBILE_AUTH_ORIGIN is required for this auth callback scheme",
+    );
+  });
+
+  it("fails desktop-scheme callback URL requests when the scheme is not configured", () => {
+    mockEnv.DESKTOP_AUTH_ORIGIN = "";
+
+    expect(() => getMobileAuthAppCallbackUrl("desktop-scheme")).toThrow(
+      "DESKTOP_AUTH_ORIGIN is required for this auth callback scheme",
     );
   });
 
@@ -60,5 +82,10 @@ describe("mobile auth URL helpers", () => {
     expect(getMobileAuthAppCallbackUrl().toString()).toBe(
       "inboxzero://auth-callback",
     );
+  });
+
+  it("recognizes supported return URL modes", () => {
+    expect(isMobileAuthReturnUrlMode("desktop-scheme")).toBe(true);
+    expect(isMobileAuthReturnUrlMode("javascript-alert")).toBe(false);
   });
 });
