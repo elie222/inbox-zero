@@ -22,7 +22,6 @@ import type {
   MailNavTarget,
 } from "@/app/(app)/[emailAccountId]/mail/MailSidebar";
 import { ThreadActionsMenu } from "@/app/(app)/[emailAccountId]/mail/ThreadActionsMenu";
-import { buildMailCommandPalette } from "@/app/(app)/[emailAccountId]/mail/mail-command-palette";
 import { ShortcutsDialog } from "@/app/(app)/[emailAccountId]/mail/ShortcutsDialog";
 import { SplitTabs } from "@/app/(app)/[emailAccountId]/mail/SplitTabs";
 import type { MailSplitTab } from "@/app/(app)/[emailAccountId]/mail/SplitTabs";
@@ -32,6 +31,11 @@ import type {
 } from "@/app/(app)/[emailAccountId]/mail/NewSplitPopover";
 import { ThreadList } from "@/app/(app)/[emailAccountId]/mail/ThreadList";
 import { ThreadReader } from "@/app/(app)/[emailAccountId]/mail/ThreadReader";
+import {
+  getActiveThreadIndex,
+  getNextThreadAfterRemoval,
+  getThreadActionTargetIds,
+} from "@/app/(app)/[emailAccountId]/mail/thread-list-behavior";
 import {
   getListThreadKey,
   type MailLayoutMode,
@@ -49,7 +53,6 @@ import { useSidebar } from "@/components/ui/sidebar";
 import { useAtom, useSetAtom } from "jotai";
 import {
   commandPaletteOpenAtom,
-  commandPalettePageAtom,
   mailCommandContextAtom,
 } from "@/store/command-palette";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -115,9 +118,8 @@ export function MailShell() {
   const { data: settings, mutate: mutateSettings } = useMailSettings();
   const { onOpen: openCompose } = useComposeModal();
   const { setInput: setChatInput } = useChat();
-  const { toggleSidebar } = useSidebar();
+  const { state: openSidebars, toggleSidebar } = useSidebar();
   const [isPaletteOpen, setPaletteOpen] = useAtom(commandPaletteOpenAtom);
-  const setCommandPalettePage = useSetAtom(commandPalettePageAtom);
   const setMailCommandContext = useSetAtom(mailCommandContextAtom);
   // The side panel viewer owns the triage keys while it's open, so this screen
   // stands down rather than both archiving the same keystroke.
@@ -137,6 +139,7 @@ export function MailShell() {
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [replyToMessageId, setReplyToMessageId] = useState<string>();
+  const isMailSidebarOpen = openSidebars.includes("left-sidebar");
 
   const isAllAccounts = accountScope === "all";
   const accountLayout: MailLayoutMode =
@@ -251,11 +254,16 @@ export function MailShell() {
       Math.min(Math.max(0, index), Math.max(0, threads.length - 1)),
     [threads.length],
   );
-  const clampedIndex = clampIndex(focusedIndex);
+  const clampedIndex = getActiveThreadIndex({
+    threadIds: orderedIds,
+    focusedIndex,
+    openThreadId,
+  });
   const focusedThread = threads[clampedIndex];
-  const openThread = isAllAccounts
-    ? undefined
-    : threads.find((thread) => thread.id === openThreadId);
+  const openThread =
+    !isAllAccounts && openThreadId === focusedThread?.id
+      ? focusedThread
+      : undefined;
   const resolvedOpenThreadId = openThread?.id;
   const readAttemptedForOpenThread = useRef<string | null>(null);
 
@@ -315,19 +323,44 @@ export function MailShell() {
   );
 
   const runOn = useCallback(
-    (action: (ids: string[]) => void, removeFromList: boolean) => {
+    (
+      action: (ids: string[]) => void,
+      removeFromList: boolean,
+      autoAdvanceReader = false,
+    ) => {
       if (isAllAccounts) return;
-      const ids = selection.targetIds(
-        focusedThread ? getListThreadKey(focusedThread) : undefined,
-      );
+      const ids = getThreadActionTargetIds({
+        openThreadId,
+        activeThreadId: focusedThread
+          ? getListThreadKey(focusedThread)
+          : undefined,
+        selectedThreadIds: [...selection.selectedIds],
+      });
       if (!ids.length) return;
       if (removeFromList && openThreadId && ids.includes(openThreadId)) {
-        setOpenThreadId(null);
+        if (autoAdvanceReader) {
+          const nextThread = getNextThreadAfterRemoval({
+            threadIds: orderedIds,
+            currentThreadId: openThreadId,
+            removedThreadIds: ids,
+          });
+          setFocusedIndex(nextThread?.index ?? 0);
+          setOpenThreadId(nextThread?.id ?? null);
+        } else {
+          setOpenThreadId(null);
+        }
       }
       selection.clear();
       action(ids);
     },
-    [isAllAccounts, selection, focusedThread, openThreadId, setOpenThreadId],
+    [
+      focusedThread,
+      isAllAccounts,
+      openThreadId,
+      orderedIds,
+      selection,
+      setOpenThreadId,
+    ],
   );
 
   const openAt = useCallback(
@@ -350,12 +383,12 @@ export function MailShell() {
     (delta: number) => {
       const next = clampIndex(clampedIndex + delta);
       setFocusedIndex(next);
-      // In split view the reader tracks the cursor; in list view it doesn't,
-      // so J/K browses the list without yanking you out of what you're reading.
-      if (layout === "split" && threads[next])
+      // Once a reader is open, navigation keeps its content and position in
+      // step. A closed list view still lets J/K move the row cursor alone.
+      if ((layout === "split" || openThreadId) && threads[next])
         setOpenThreadId(threads[next].id);
     },
-    [clampIndex, clampedIndex, threads, layout, setOpenThreadId],
+    [clampIndex, clampedIndex, threads, layout, openThreadId, setOpenThreadId],
   );
 
   const extendSelection = useCallback(
@@ -370,7 +403,7 @@ export function MailShell() {
   const openShortcuts = useCallback(() => setIsHelpOpen(true), []);
   const archiveTargets = useCallback(async () => {
     if (!isAllAccounts) {
-      runOn(archive, true);
+      runOn(archive, true, true);
       return;
     }
     if (!focusedThread || !("account" in focusedThread)) return;
@@ -412,10 +445,6 @@ export function MailShell() {
     (until: Date) => runOn((ids) => snooze(ids, until), true),
     [runOn, snooze],
   );
-  const openSnoozePalette = useCallback(
-    () => setCommandPalettePage("snooze"),
-    [setCommandPalettePage],
-  );
   const commandTargetIds = useMemo(() => {
     if (isAllAccounts) {
       return focusedThread ? [getListThreadKey(focusedThread)] : [];
@@ -428,26 +457,25 @@ export function MailShell() {
     const ids = new Set(commandTargetIds);
     return threads.filter((thread) => ids.has(getListThreadKey(thread)));
   }, [commandTargetIds, threads]);
-  const mailCommands = useMemo(
-    () =>
-      buildMailCommandPalette({
-        actions: isAllAccounts
-          ? { archive: archiveTargets }
-          : {
-              archive: archiveTargets,
-              markRead: markReadTargets,
-              markUnread: markUnreadTargets,
-              openSnooze: openSnoozePalette,
-              trash: trashTargets,
-            },
-        hasRead: commandTargets.some(
-          (thread) => !isThreadUnread(thread.messages),
-        ),
-        hasUnread: commandTargets.some((thread) =>
-          isThreadUnread(thread.messages),
-        ),
-        targetCount: commandTargetIds.length,
-      }),
+  const mailCommandContext = useMemo(
+    () => ({
+      actions: isAllAccounts
+        ? { archive: archiveTargets }
+        : {
+            archive: archiveTargets,
+            markRead: markReadTargets,
+            markUnread: markUnreadTargets,
+            snooze: snoozeTargets,
+            trash: trashTargets,
+          },
+      hasRead: commandTargets.some(
+        (thread) => !isThreadUnread(thread.messages),
+      ),
+      hasUnread: commandTargets.some((thread) =>
+        isThreadUnread(thread.messages),
+      ),
+      targetCount: commandTargetIds.length,
+    }),
     [
       archiveTargets,
       commandTargetIds.length,
@@ -455,19 +483,17 @@ export function MailShell() {
       isAllAccounts,
       markReadTargets,
       markUnreadTargets,
-      openSnoozePalette,
+      snoozeTargets,
       trashTargets,
     ],
   );
 
   useEffect(() => {
     setMailCommandContext(
-      mailCommands.length
-        ? { commands: mailCommands, snooze: snoozeTargets }
-        : null,
+      mailCommandContext.targetCount ? mailCommandContext : null,
     );
     return () => setMailCommandContext(null);
-  }, [mailCommands, setMailCommandContext, snoozeTargets]);
+  }, [mailCommandContext, setMailCommandContext]);
   const isMailOverlayOpen =
     isHelpOpen ||
     isPaletteOpen ||
@@ -639,7 +665,7 @@ export function MailShell() {
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-background">
       <div className="flex min-h-0 flex-1">
-        {!isFocusMode && (
+        {!isFocusMode && isMailSidebarOpen && (
           <MailSidebar
             className="hidden lg:flex"
             activeType={
@@ -686,6 +712,7 @@ export function MailShell() {
               onOpenSearch={() => setPaletteOpen(true)}
               onToggleLayout={toggleLayout}
               onToggleAssistant={() => toggleSidebar(["chat-sidebar"])}
+              showSidebarToggle={!isMailSidebarOpen}
               showLayoutToggle={!isAllAccounts}
             />
             {!isScoped && (
@@ -762,6 +789,7 @@ export function MailShell() {
             onDelete={trashTargets}
             onReply={() => setReplyToMessageId(openMessages?.at(-1)?.id)}
             onToggleFocusMode={() => setIsFocusMode((on) => !on)}
+            showSidebarToggle={!isMailSidebarOpen}
             refetch={refetchOpenThread}
             autoOpenReplyForMessageId={replyToMessageId}
             menu={

@@ -48,6 +48,7 @@ export type ThreadReaderProps = {
   onReply: () => void;
   onDelete: () => void;
   onToggleFocusMode: () => void;
+  showSidebarToggle?: boolean;
   /** Refreshes the open thread after a reply is sent or a draft changes. */
   refetch: () => void;
   /**
@@ -74,6 +75,7 @@ export function ThreadReader({
   onReply,
   onDelete,
   onToggleFocusMode,
+  showSidebarToggle = false,
   refetch,
   autoOpenReplyForMessageId,
   menu,
@@ -133,6 +135,7 @@ export function ThreadReader({
             position={position}
             senderEmail={senderEmail}
             senderName={senderName}
+            showSidebarToggle={showSidebarToggle}
             subject={headerMessage.headers.subject}
           />
 

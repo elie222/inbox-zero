@@ -1,4 +1,4 @@
-name: Smoke
+name: Playwright
 
 on:
   schedule:
@@ -9,11 +9,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: smoke-${{ github.ref }}
+  group: playwright-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  smoke:
+  playwright:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     services:
@@ -30,6 +30,21 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      redis-http:
+        image: hiett/serverless-redis-http@sha256:5b0bb9239fce53abf87b2018a7a0deb9ec7bd900c5360738fe5fbeeb426f9150
+        env:
+          SRH_CONNECTION_STRING: redis://redis:6379
+          SRH_MODE: env
+          SRH_TOKEN: playwright-token
+        ports:
+          - 8079:80
 
     env:
       NODE_ENV: development
@@ -44,6 +59,8 @@ jobs:
       EMAIL_ENCRYPT_SALT: salt
       INTERNAL_API_KEY: secret
       DEFAULT_LLMS: openai:gpt-5.4-mini
+      UPSTASH_REDIS_URL: http://localhost:8079
+      UPSTASH_REDIS_TOKEN: playwright-token
 
     steps:
       - name: Checkout repository
@@ -77,15 +94,15 @@ jobs:
       - name: Install Playwright browser
         run: pnpm -F inbox-zero-ai exec playwright install --with-deps chromium
 
-      - name: Run smoke test
-        id: smoke_test
-        run: pnpm -F inbox-zero-ai test:smoke
+      - name: Run Playwright tests
+        id: playwright_tests
+        run: pnpm -F inbox-zero-ai test:playwright:emulated
 
-      - name: Upload smoke artifacts
+      - name: Upload Playwright artifacts
         if: ${{ always() && (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') }}
         uses: actions/upload-artifact@v4
         with:
-          name: smoke-artifacts-${{ github.run_id }}
+          name: playwright-artifacts-${{ github.run_id }}
           path: |
             apps/web/playwright-report
             apps/web/test-results
