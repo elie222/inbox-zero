@@ -9,6 +9,11 @@ import { SafeError } from "@/utils/error";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import type { Logger } from "@/utils/logger";
 import type { RuleActionCreateData } from "@/utils/rule/rule";
+import {
+  isOrganizationRuleActionTypeAvailable,
+  ORGANIZATION_RULE_ACTION_DISABLED_MESSAGE,
+  ORGANIZATION_RULE_ACTION_TYPES,
+} from "@/utils/organizations/rule-action-types";
 
 export const RULE_MANAGED_BY_ORGANIZATION_ERROR =
   "This rule is managed by your organization and can't be edited here. Ask an organization admin to change it.";
@@ -66,13 +71,31 @@ export function computeMemberRuleEnabled({
 export function assertOrganizationRuleActionsSupported(
   actions: { type: ActionType }[],
 ) {
-  const unsupported = actions.find((action) =>
+  const messagingAction = actions.find((action) =>
     UNSUPPORTED_ORGANIZATION_ACTION_TYPES.includes(action.type),
   );
-  if (unsupported) {
+  if (messagingAction) {
     throw new SafeError(
       "Messaging channel actions can't be used in organization rules because each member needs their own channel.",
     );
+  }
+
+  const supportedActionTypes: readonly ActionType[] =
+    ORGANIZATION_RULE_ACTION_TYPES;
+  const unsupportedAction = actions.find(
+    (action) => !supportedActionTypes.includes(action.type),
+  );
+  if (unsupportedAction) {
+    throw new SafeError(
+      "This action type can't be used in organization rules.",
+    );
+  }
+
+  const disabledAction = actions.find(
+    (action) => !isOrganizationRuleActionTypeAvailable(action.type),
+  );
+  if (disabledAction) {
+    throw new SafeError(ORGANIZATION_RULE_ACTION_DISABLED_MESSAGE);
   }
 }
 

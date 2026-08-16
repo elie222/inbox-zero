@@ -21,18 +21,20 @@ import { RuleStep } from "@/app/(app)/[emailAccountId]/assistant/RuleStep";
 import { DelayInputControls } from "@/components/DelayInputControls";
 import { canActionBeDelayed } from "@/utils/delayed-actions";
 import { ACTION_TYPE_LABELS, getActionIcon } from "@/utils/action-display";
-import { ORGANIZATION_RULE_ACTION_TYPES } from "@/utils/organizations/rule-action-types";
+import { getAvailableOrganizationRuleActionTypes } from "@/utils/organizations/rule-action-types";
 import {
   EMPTY_ORG_ACTION,
   type OrgRuleFormValues,
   type OrgActionFormValue,
 } from "./orgRuleForm";
 
-const ACTION_TYPE_OPTIONS = ORGANIZATION_RULE_ACTION_TYPES.map((value) => ({
-  value,
-  label: ACTION_TYPE_LABELS[value],
-  icon: getActionIcon(value),
-}));
+const ACTION_TYPE_OPTIONS = getAvailableOrganizationRuleActionTypes().map(
+  (value) => ({
+    value,
+    label: ACTION_TYPE_LABELS[value],
+    icon: getActionIcon(value),
+  }),
+);
 
 export function OrgActionSteps({
   fields,

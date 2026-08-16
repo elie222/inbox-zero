@@ -14,6 +14,32 @@ import {
   syncOrganizationRulesForNewMember,
 } from "./rules";
 
+const { mockEnv } = vi.hoisted(() => ({
+  mockEnv: {
+    autoDraftDisabled: false,
+    emailSendEnabled: true,
+    webhookActionEnabled: true,
+    deleteEmailActionEnabled: true,
+  },
+}));
+
+vi.mock("@/env", () => ({
+  env: {
+    get NEXT_PUBLIC_AUTO_DRAFT_DISABLED() {
+      return mockEnv.autoDraftDisabled;
+    },
+    get NEXT_PUBLIC_EMAIL_SEND_ENABLED() {
+      return mockEnv.emailSendEnabled;
+    },
+    get NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED() {
+      return mockEnv.webhookActionEnabled;
+    },
+    get NEXT_PUBLIC_DELETE_EMAIL_ACTION_ENABLED() {
+      return mockEnv.deleteEmailActionEnabled;
+    },
+  },
+}));
+
 vi.mock("@/utils/prisma");
 
 const logger = createTestLogger();
@@ -80,6 +106,13 @@ describe("computeMemberRuleEnabled", () => {
 });
 
 describe("assertOrganizationRuleActionsSupported", () => {
+  beforeEach(() => {
+    mockEnv.autoDraftDisabled = false;
+    mockEnv.emailSendEnabled = true;
+    mockEnv.webhookActionEnabled = true;
+    mockEnv.deleteEmailActionEnabled = true;
+  });
+
   it("rejects messaging channel actions", () => {
     expect(() =>
       assertOrganizationRuleActionsSupported([
@@ -100,6 +133,30 @@ describe("assertOrganizationRuleActionsSupported", () => {
         { type: ActionType.ARCHIVE },
       ]),
     ).not.toThrow();
+  });
+
+  it("rejects draft actions when auto-drafting is disabled", () => {
+    mockEnv.autoDraftDisabled = true;
+
+    expect(() =>
+      assertOrganizationRuleActionsSupported([
+        { type: ActionType.DRAFT_EMAIL },
+      ]),
+    ).toThrow();
+  });
+
+  it("rejects outbound actions when email sending is disabled", () => {
+    mockEnv.emailSendEnabled = false;
+
+    for (const type of [
+      ActionType.REPLY,
+      ActionType.FORWARD,
+      ActionType.SEND_EMAIL,
+    ]) {
+      expect(() =>
+        assertOrganizationRuleActionsSupported([{ type }]),
+      ).toThrow();
+    }
   });
 });
 
