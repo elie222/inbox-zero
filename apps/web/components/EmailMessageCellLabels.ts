@@ -13,6 +13,13 @@ export type EmailMessageCellLabel = Pick<EmailLabel, "id" | "name" | "color">;
 
 const TO_REPLY_LABEL = getRuleLabel(SystemType.TO_REPLY);
 const AWAITING_REPLY_LABEL = getRuleLabel(SystemType.AWAITING_REPLY);
+const GMAIL_CATEGORY_LABELS = new Set([
+  GmailLabel.PERSONAL,
+  GmailLabel.SOCIAL,
+  GmailLabel.PROMOTIONS,
+  GmailLabel.FORUMS,
+  GmailLabel.UPDATES,
+]);
 
 export function getEmailMessageCellLabels({
   labelIds,
@@ -73,7 +80,7 @@ export function getEmailThreadLabels({
     ...new Set(
       [...messages].reverse().flatMap((message) => message.labelIds ?? []),
     ),
-  ];
+  ].filter((labelId) => !GMAIL_CATEGORY_LABELS.has(labelId));
 
   return getEmailMessageCellLabels({ labelIds, userLabels }) ?? [];
 }
