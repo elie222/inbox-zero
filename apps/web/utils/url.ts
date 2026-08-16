@@ -52,6 +52,7 @@ const PROVIDER_CONFIG: Record<
       messageOrThreadId: string,
       emailAddress?: string | null,
     ) => string;
+    buildDraftUrl: (draftId: string, emailAddress?: string | null) => string;
     selectId: (messageId: string, threadId: string) => string;
     buildSearchUrl: (from: string, emailAddress?: string | null) => string;
   }
@@ -62,6 +63,8 @@ const PROVIDER_CONFIG: Record<
       const encodedMessageId = encodeURIComponent(messageOrThreadId);
       return `${getOutlookBaseUrl(emailAddress)}/inbox/id/${encodedMessageId}`;
     },
+    buildDraftUrl: (draftId: string, emailAddress?: string | null) =>
+      `${getOutlookBaseUrl(emailAddress)}/drafts/id/${encodeURIComponent(draftId)}`,
     selectId: (messageId: string, _threadId: string) => messageId,
     buildSearchUrl: (from: string, emailAddress?: string | null) => {
       const query = encodeURIComponent(`from:${from}`);
@@ -72,6 +75,11 @@ const PROVIDER_CONFIG: Record<
     requiresMessageId: false,
     buildUrl: (messageOrThreadId: string, emailAddress?: string | null) =>
       getGmailUrlForFragment(`all/${messageOrThreadId}`, emailAddress),
+    buildDraftUrl: (draftId: string, emailAddress?: string | null) =>
+      getGmailUrlForFragment(
+        `drafts/${encodeURIComponent(draftId)}`,
+        emailAddress,
+      ),
     selectId: (messageId: string, _threadId: string) => messageId,
     buildSearchUrl: (from: string, emailAddress?: string | null) =>
       getGmailUrlForFragment(
@@ -83,6 +91,11 @@ const PROVIDER_CONFIG: Record<
     requiresMessageId: false,
     buildUrl: (messageOrThreadId: string, emailAddress?: string | null) =>
       getGmailUrlForFragment(`all/${messageOrThreadId}`, emailAddress),
+    buildDraftUrl: (draftId: string, emailAddress?: string | null) =>
+      getGmailUrlForFragment(
+        `drafts/${encodeURIComponent(draftId)}`,
+        emailAddress,
+      ),
     selectId: (_messageId: string, threadId: string) => threadId,
     buildSearchUrl: (from: string, emailAddress?: string | null) =>
       getGmailUrlForFragment(
@@ -106,6 +119,15 @@ export function getEmailUrl(
 ): string {
   const config = getProviderConfig(provider);
   return config.buildUrl(messageOrThreadId, emailAddress);
+}
+
+export function getEmailDraftUrl(
+  draftId: string,
+  emailAddress?: string | null,
+  provider?: string,
+): string {
+  const config = getProviderConfig(provider);
+  return config.buildDraftUrl(draftId, emailAddress);
 }
 
 /**
