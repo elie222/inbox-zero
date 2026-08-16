@@ -197,6 +197,10 @@ export async function trackStripeCheckoutCreated(
   checkoutSessionId: string,
   properties?: Properties,
 ) {
+  const checkoutProperties = {
+    ...properties,
+    checkoutSessionIdHash: hash(checkoutSessionId),
+  };
   const dedupeKey = `posthog:stripe-checkout-created:${checkoutSessionId}`;
   let firstCapture: string | null;
 
@@ -209,7 +213,11 @@ export async function trackStripeCheckoutCreated(
     logger.error("Error deduplicating Stripe checkout creation event", {
       error,
     });
-    return posthogCaptureEvent(email, "Stripe checkout created", properties);
+    return posthogCaptureEvent(
+      email,
+      "Stripe checkout created",
+      checkoutProperties,
+    );
   }
 
   if (!firstCapture) return;
@@ -217,7 +225,7 @@ export async function trackStripeCheckoutCreated(
   const captured = await posthogCaptureEvent(
     email,
     "Stripe checkout created",
-    properties,
+    checkoutProperties,
   );
   if (captured) return;
 
@@ -232,9 +240,13 @@ export async function trackStripeCheckoutCreated(
 
 export async function trackStripeCheckoutCompleted(
   email: string,
+  checkoutSessionId: string | null,
   properties?: Properties,
 ) {
-  return posthogCaptureEvent(email, "Stripe checkout completed", properties);
+  return posthogCaptureEvent(email, "Stripe checkout completed", {
+    ...properties,
+    checkoutSessionIdHash: hash(checkoutSessionId),
+  });
 }
 
 export async function trackError({

@@ -1,4 +1,6 @@
 import type Stripe from "stripe";
+import { getStripeSubscriptionTier } from "@/app/(app)/premium/config";
+import type { PremiumTier } from "@/generated/prisma/enums";
 
 export function getStripeTrialStartedProperties(
   event: Stripe.Event,
@@ -6,6 +8,11 @@ export function getStripeTrialStartedProperties(
   const subscription = getTrialStartingSubscription(event);
 
   if (!subscription) return null;
+
+  const subscriptionItem = subscription.items?.data[0];
+  const price = subscriptionItem?.price;
+  const priceId = typeof price === "string" ? price : price?.id;
+  const tier = priceId ? getStripeSubscriptionTier({ priceId }) : null;
 
   return {
     billingProvider: "stripe",
@@ -17,6 +24,9 @@ export function getStripeTrialStartedProperties(
       typeof subscription.trial_end === "number"
         ? new Date(subscription.trial_end * 1000).toISOString()
         : null,
+    tier,
+    frequency: getBillingFrequency(tier),
+    quantity: subscriptionItem?.quantity ?? null,
   };
 }
 
@@ -50,5 +60,11 @@ function getTrialStartingSubscription(
     }
   }
 
+  return null;
+}
+
+function getBillingFrequency(tier: PremiumTier | null) {
+  if (tier?.endsWith("_ANNUALLY")) return "annually";
+  if (tier?.endsWith("_MONTHLY")) return "monthly";
   return null;
 }

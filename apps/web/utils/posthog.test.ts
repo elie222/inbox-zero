@@ -8,6 +8,7 @@ const mockEnv = vi.hoisted(() => ({
   POSTHOG_PROJECT_ID: "project-1",
   POSTHOG_FEEDBACK_SURVEY_ID: "survey-1" as string | undefined,
   POSTHOG_FEEDBACK_SURVEY_QUESTION_ID: "question-1" as string | undefined,
+  EMAIL_ENCRYPT_SALT: "test-encryption-salt",
   NODE_ENV: "test",
 }));
 
@@ -42,10 +43,12 @@ import {
   posthogCaptureEvent,
   trackFirstTimeEvent,
   trackProductFeedback,
+  trackStripeCheckoutCompleted,
   trackStripeCheckoutCreated,
   trackUserDeleted,
   trackUserDeletionRequested,
 } from "./posthog";
+import { hash } from "@/utils/hash";
 import { redis } from "@/utils/redis";
 
 describe("trackFirstTimeEvent", () => {
@@ -299,6 +302,31 @@ describe("trackStripeCheckoutCreated", () => {
       { nx: true, ex: 172_800 },
     );
     expect(captureMock).toHaveBeenCalledTimes(1);
+    expect(captureMock).toHaveBeenCalledWith({
+      distinctId: "user@example.com",
+      event: "Stripe checkout created",
+      properties: {
+        checkoutSessionIdHash: hash("cs_test"),
+        tier: "BASIC_MONTHLY",
+      },
+      sendFeatureFlags: undefined,
+    });
+  });
+
+  it("uses the same private correlation key for checkout completion", async () => {
+    await trackStripeCheckoutCompleted("user@example.com", "cs_test", {
+      source: "success_redirect",
+    });
+
+    expect(captureMock).toHaveBeenCalledWith({
+      distinctId: "user@example.com",
+      event: "Stripe checkout completed",
+      properties: {
+        checkoutSessionIdHash: hash("cs_test"),
+        source: "success_redirect",
+      },
+      sendFeatureFlags: undefined,
+    });
   });
 
   it("captures when Redis is unavailable", async () => {

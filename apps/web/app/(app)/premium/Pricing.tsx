@@ -69,8 +69,9 @@ export default function Pricing(props: PricingProps) {
   );
   const isLegacyStripePlan = shouldShowLegacyStripePricingNotice(premium);
 
+  const pricingFrequencyDefaultVariant = usePricingFrequencyDefault();
   const defaultFrequency =
-    usePricingFrequencyDefault() === "annually"
+    pricingFrequencyDefaultVariant === "annually"
       ? frequencies[1]
       : frequencies[0];
   const [chosenFrequency, setFrequency] = useState<
@@ -108,13 +109,21 @@ export default function Pricing(props: PricingProps) {
       hasExistingSubscription,
       showSkipUpgrade: Boolean(props.showSkipUpgrade),
       displayedTiers: displayedTiers.map((tier) => tier.name),
+      frequency: frequency.value,
+      defaultFrequency: defaultFrequency.value,
+      frequencySource: chosenFrequency ? "user_selected" : "default",
+      pricingFrequencyDefaultVariant,
     });
   }, [
+    chosenFrequency,
+    defaultFrequency.value,
     displayedTiers,
+    frequency.value,
     hasExistingSubscription,
     isLoading,
     isLoggedIn,
     posthog,
+    pricingFrequencyDefaultVariant,
     pricingSource,
     props.showSkipUpgrade,
   ]);
@@ -179,7 +188,16 @@ export default function Pricing(props: PricingProps) {
 
         <PricingFrequencyToggle
           frequency={frequency}
-          setFrequency={setFrequency}
+          setFrequency={(nextFrequency) => {
+            posthog.capture("pricing_frequency_changed", {
+              source: pricingSource,
+              previousFrequency: frequency.value,
+              frequency: nextFrequency.value,
+              defaultFrequency: defaultFrequency.value,
+              pricingFrequencyDefaultVariant,
+            });
+            setFrequency(nextFrequency);
+          }}
         >
           <div className="ml-1">
             <DiscountBadge>Save up to 20%</DiscountBadge>
@@ -200,6 +218,9 @@ export default function Pricing(props: PricingProps) {
               tier={tier}
               userPremiumTier={userPremiumTier}
               frequency={frequency}
+              defaultFrequency={defaultFrequency}
+              frequencySource={chosenFrequency ? "user_selected" : "default"}
+              pricingFrequencyDefaultVariant={pricingFrequencyDefaultVariant}
               stripeSubscriptionId={premium?.stripeSubscriptionId}
               stripeSubscriptionStatus={premium?.stripeSubscriptionStatus}
               hasActiveAppleManagedSubscription={
@@ -221,6 +242,9 @@ function PriceTier({
   tier,
   userPremiumTier,
   frequency,
+  defaultFrequency,
+  frequencySource,
+  pricingFrequencyDefaultVariant,
   stripeSubscriptionId,
   stripeSubscriptionStatus,
   hasActiveAppleManagedSubscription,
@@ -232,6 +256,9 @@ function PriceTier({
   tier: Tier;
   userPremiumTier: PremiumTier | null;
   frequency: Frequency;
+  defaultFrequency: Frequency;
+  frequencySource: "default" | "user_selected";
+  pricingFrequencyDefaultVariant: string;
   stripeSubscriptionId: string | null | undefined;
   stripeSubscriptionStatus: string | null | undefined;
   hasActiveAppleManagedSubscription: boolean;
@@ -331,6 +358,9 @@ function PriceTier({
             tier: tier.name,
             billingTier: upgradeToTier ?? null,
             frequency: frequency.value,
+            defaultFrequency: defaultFrequency.value,
+            frequencySource,
+            pricingFrequencyDefaultVariant,
             cta: getCTAText(),
             isCurrentPlan,
             isLoggedIn,
