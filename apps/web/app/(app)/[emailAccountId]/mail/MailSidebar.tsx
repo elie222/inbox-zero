@@ -24,6 +24,7 @@ import type { LabelCount } from "@/app/api/labels/counts/route";
 import { Kbd } from "@/components/Kbd";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
 import type { EmailLabel } from "@/providers/email-label-types";
 import { GmailLabel } from "@/utils/gmail/label";
@@ -59,6 +60,8 @@ export type MailSidebarProps = {
   onCompose: () => void;
   onCreateLabel: (name: string) => void;
   onOpenShortcuts: () => void;
+  footer?: ReactNode;
+  unified?: boolean;
   className?: string;
 };
 
@@ -132,6 +135,8 @@ export function MailSidebar({
   onCompose,
   onCreateLabel,
   onOpenShortcuts,
+  footer,
+  unified = false,
   className,
 }: MailSidebarProps) {
   const [isAddingLabel, setIsAddingLabel] = useState(false);
@@ -154,14 +159,19 @@ export function MailSidebar({
         className,
       )}
     >
-      <Link
-        href={backToAppHref}
-        className="mb-2.5 flex shrink-0 items-center gap-2 rounded-lg px-2 py-1.5 text-muted-foreground text-xs hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <ArrowLeftIcon className="size-3.5 shrink-0" />
-        <span className="flex-1 truncate">Inbox Zero</span>
-        <Kbd>{getShortcutHint("backToApp")}</Kbd>
-      </Link>
+      <div className="mb-2.5 flex shrink-0 items-center gap-1">
+        <Link
+          href={backToAppHref}
+          className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-muted-foreground text-xs hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <ArrowLeftIcon className="size-3.5 shrink-0" />
+          <span className="flex-1 truncate">Inbox Zero</span>
+        </Link>
+        <SidebarTrigger
+          name="left-sidebar"
+          className="size-6 shrink-0 text-muted-foreground"
+        />
+      </div>
 
       <Button
         variant="gradient"
@@ -177,20 +187,29 @@ export function MailSidebar({
           padding, so a platform-width bar can't crowd the unread counts. */}
       <div className="-mr-1.5 flex min-h-0 flex-1 flex-col overflow-y-auto pr-1.5 scrollbar-thin">
         <nav className="flex flex-col gap-px">
-          {SYSTEM_ITEMS.map(({ name, type, countId, Icon }) => (
-            <NavRow
-              key={type}
-              href={hrefFor({ kind: "type", type })}
-              active={!activeLabelId && !activeFolderId && activeType === type}
-              icon={<Icon className="size-4 shrink-0" />}
-              name={name}
-              count={countId ? displayCount(countsById.get(countId)) : null}
-              emphasizeCount
-            />
-          ))}
+          {(unified ? SYSTEM_ITEMS.slice(0, 1) : SYSTEM_ITEMS).map(
+            ({ name, type, countId, Icon }) => (
+              <NavRow
+                key={type}
+                href={unified ? undefined : hrefFor({ kind: "type", type })}
+                active={
+                  unified ||
+                  (!activeLabelId && !activeFolderId && activeType === type)
+                }
+                icon={<Icon className="size-4 shrink-0" />}
+                name={unified ? "All inboxes" : name}
+                count={
+                  unified || !countId
+                    ? null
+                    : displayCount(countsById.get(countId))
+                }
+                emphasizeCount
+              />
+            ),
+          )}
         </nav>
 
-        {categories.length > 0 && (
+        {!unified && categories.length > 0 && (
           <>
             <GroupHeading>{categoryHeading}</GroupHeading>
             <nav className="flex flex-col gap-px">
@@ -210,7 +229,7 @@ export function MailSidebar({
           </>
         )}
 
-        {sidebarFolders.length > 0 && (
+        {!unified && sidebarFolders.length > 0 && (
           <>
             <GroupHeading>Folders</GroupHeading>
             <nav className="flex flex-col gap-px">
@@ -233,66 +252,73 @@ export function MailSidebar({
           </>
         )}
 
-        <GroupHeading
-          action={
-            <button
-              type="button"
-              onClick={() => setIsAddingLabel((open) => !open)}
-              aria-expanded={isAddingLabel}
-              aria-label={`Create ${labelSingular}`}
-              className="rounded-md p-0.5 text-muted-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <PlusIcon className="size-3.5" />
-            </button>
-          }
-        >
-          {labelsHeading}
-        </GroupHeading>
-        <nav className="flex flex-col gap-px">
-          {labels.map((label) => (
-            <NavRow
-              key={label.id}
-              href={hrefFor({ kind: "label", labelId: label.id })}
-              active={activeLabelId === label.id}
-              icon={
-                <span
-                  className="size-2.5 shrink-0 rounded-full bg-muted-foreground/40"
-                  style={
-                    label.color?.backgroundColor
-                      ? { backgroundColor: label.color.backgroundColor }
-                      : undefined
-                  }
-                />
+        {!unified ? (
+          <>
+            <GroupHeading
+              action={
+                <button
+                  type="button"
+                  onClick={() => setIsAddingLabel((open) => !open)}
+                  aria-expanded={isAddingLabel}
+                  aria-label={`Create ${labelSingular}`}
+                  className="rounded-md p-0.5 text-muted-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <PlusIcon className="size-3.5" />
+                </button>
               }
-              name={label.name}
-              count={displayCount(countsById.get(label.id))}
-            />
-          ))}
-        </nav>
-
-        {isAddingLabel && (
-          <form onSubmit={submitNewLabel} className="flex gap-1.5 px-2.5 py-2">
-            <Input
-              value={newLabelName}
-              onChange={(event) => setNewLabelName(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Escape") setIsAddingLabel(false);
-              }}
-              placeholder={`${labelSingular} name`}
-              aria-label={`New ${labelSingular} name`}
-              autoFocus
-              className="h-7 min-w-0 flex-1 px-2 text-xs"
-            />
-            <Button
-              type="submit"
-              variant="gradient"
-              size="xs-2"
-              disabled={!newLabelName.trim()}
             >
-              Add
-            </Button>
-          </form>
-        )}
+              {labelsHeading}
+            </GroupHeading>
+            <nav className="flex flex-col gap-px">
+              {labels.map((label) => (
+                <NavRow
+                  key={label.id}
+                  href={hrefFor({ kind: "label", labelId: label.id })}
+                  active={activeLabelId === label.id}
+                  icon={
+                    <span
+                      className="size-2.5 shrink-0 rounded-full bg-muted-foreground/40"
+                      style={
+                        label.color?.backgroundColor
+                          ? { backgroundColor: label.color.backgroundColor }
+                          : undefined
+                      }
+                    />
+                  }
+                  name={label.name}
+                  count={displayCount(countsById.get(label.id))}
+                />
+              ))}
+            </nav>
+
+            {isAddingLabel ? (
+              <form
+                onSubmit={submitNewLabel}
+                className="flex gap-1.5 px-2.5 py-2"
+              >
+                <Input
+                  value={newLabelName}
+                  onChange={(event) => setNewLabelName(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") setIsAddingLabel(false);
+                  }}
+                  placeholder={`${labelSingular} name`}
+                  aria-label={`New ${labelSingular} name`}
+                  autoFocus
+                  className="h-7 min-w-0 flex-1 px-2 text-xs"
+                />
+                <Button
+                  type="submit"
+                  variant="gradient"
+                  size="xs-2"
+                  disabled={!newLabelName.trim()}
+                >
+                  Add
+                </Button>
+              </form>
+            ) : null}
+          </>
+        ) : null}
       </div>
 
       <button
@@ -304,6 +330,7 @@ export function MailSidebar({
         <span className="flex-1 text-left">Keyboard shortcuts</span>
         <Kbd>{getShortcutHint("help")}</Kbd>
       </button>
+      {footer}
     </aside>
   );
 }
@@ -333,24 +360,21 @@ function NavRow({
   count,
   emphasizeCount,
 }: {
-  href: string;
+  href?: string;
   active: boolean;
   icon: ReactNode;
   name: string;
   count: number | null;
   emphasizeCount?: boolean;
 }) {
-  return (
-    <Link
-      href={href}
-      aria-current={active ? "page" : undefined}
-      className={cn(
-        "flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        active
-          ? "bg-background font-medium text-foreground shadow-sm ring-1 ring-border"
-          : "text-muted-foreground hover:bg-accent hover:text-foreground",
-      )}
-    >
+  const className = cn(
+    "flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+    active
+      ? "bg-background font-medium text-foreground shadow-sm ring-1 ring-border"
+      : "text-muted-foreground hover:bg-accent hover:text-foreground",
+  );
+  const content = (
+    <>
       {icon}
       <span className="flex-1 truncate">{name}</span>
       {count !== null && (
@@ -365,6 +389,24 @@ function NavRow({
           {count}
         </span>
       )}
+    </>
+  );
+
+  if (!href) {
+    return (
+      <div aria-current={active ? "page" : undefined} className={className}>
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <Link
+      href={href}
+      aria-current={active ? "page" : undefined}
+      className={className}
+    >
+      {content}
     </Link>
   );
 }

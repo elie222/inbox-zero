@@ -160,7 +160,7 @@ describe("createGenerateText fallback chain", () => {
     mockGenerateText
       .mockRejectedValueOnce(
         new APICallError({
-          message: "The configured model is deprecated",
+          message: "The configured model is not a valid model ID",
           url: "https://example.com",
           requestBodyValues: {},
           statusCode: 400,
@@ -169,6 +169,15 @@ describe("createGenerateText fallback chain", () => {
         }),
       )
       .mockResolvedValueOnce(createTextResult({ text: "fallback success" }));
+    mockWithLLMRetry.mockImplementationOnce(
+      async (operation: () => Promise<unknown>) => {
+        try {
+          return await operation();
+        } catch (error) {
+          throw Object.assign(new Error("LLM retry failed"), { error });
+        }
+      },
+    );
 
     const generateText = createGenerateTextForTest({
       label: "Unavailable model fallback",

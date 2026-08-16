@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 /**
  * Row selection for the mail list.
@@ -17,6 +17,7 @@ export function useThreadSelection(orderedIds: string[]) {
   const anchorIndex = useRef<number | null>(null);
   const baseSelection = useRef<ReadonlySet<string> | null>(null);
   const lastToggledIndex = useRef<number | null>(null);
+  const previousOrderedIds = useRef(orderedIds);
 
   const resetAnchor = useCallback(() => {
     anchorIndex.current = null;
@@ -28,6 +29,21 @@ export function useThreadSelection(orderedIds: string[]) {
     lastToggledIndex.current = null;
     setSelectedIds((current) => (current.size ? new Set() : current));
   }, [resetAnchor]);
+
+  useEffect(() => {
+    const previousIds = previousOrderedIds.current;
+    previousOrderedIds.current = orderedIds;
+    if (hasSameOrder(previousIds, orderedIds)) return;
+
+    const visibleIds = new Set(orderedIds);
+    resetAnchor();
+    lastToggledIndex.current = null;
+    setSelectedIds((current) => {
+      if ([...current].every((id) => visibleIds.has(id))) return current;
+
+      return new Set([...current].filter((id) => visibleIds.has(id)));
+    });
+  }, [orderedIds, resetAnchor]);
 
   const toggle = useCallback(
     (index: number) => {
@@ -99,6 +115,13 @@ export function useThreadSelection(orderedIds: string[]) {
       targetIds,
     }),
     [selectedIds, toggle, selectRangeTo, extendTo, clear, targetIds],
+  );
+}
+
+function hasSameOrder(previousIds: string[], currentIds: string[]) {
+  return (
+    previousIds.length === currentIds.length &&
+    previousIds.every((id, index) => id === currentIds[index])
   );
 }
 

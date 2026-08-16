@@ -163,16 +163,6 @@ describe("LLM use cases", () => {
       modelSnapshot(getModel(userAi, modelType)),
     );
   });
-
-  it("preserves the online model variant option", () => {
-    const userAi = defaultUserAi();
-
-    expect(
-      modelSnapshot(
-        getModelForUseCase(userAi, LlmUseCase.MeetingWebSearch, true),
-      ),
-    ).toEqual(modelSnapshot(getModel(userAi, "economy", true)));
-  });
 });
 
 function defaultUserAi(overrides?: Partial<UserAIFields>): UserAIFields {

@@ -54,7 +54,7 @@ describe("buildPrompt", () => {
 
   test("builds prompt with meeting title and description", () => {
     const data = getMeetingBriefingData();
-    const prompt = buildPrompt(data, mockEmailAccount);
+    const prompt = buildPrompt(data, mockEmailAccount, []);
 
     expect(prompt).toContain("Product Discussion");
     expect(prompt).toContain("Q1 roadmap");
@@ -64,7 +64,7 @@ describe("buildPrompt", () => {
     const data = getMeetingBriefingData({
       externalGuests: [{ email: "bob@company.com", name: "Bob Smith" }],
     });
-    const prompt = buildPrompt(data, mockEmailAccountNoTz);
+    const prompt = buildPrompt(data, mockEmailAccountNoTz, []);
 
     expect(prompt).toContain("bob@company.com");
     expect(prompt).toContain("Bob Smith");
@@ -76,7 +76,7 @@ describe("buildPrompt", () => {
       emailThreads: [],
       pastMeetings: [],
     });
-    const prompt = buildPrompt(data, mockEmailAccountNoTz);
+    const prompt = buildPrompt(data, mockEmailAccountNoTz, []);
 
     expect(prompt).toContain("<no_prior_context>");
     expect(prompt).toContain("New Contact");
@@ -100,7 +100,7 @@ describe("buildPrompt", () => {
         },
       ],
     });
-    const prompt = buildPrompt(data, mockEmailAccountNoTz);
+    const prompt = buildPrompt(data, mockEmailAccountNoTz, []);
 
     expect(prompt).toContain("<recent_emails>");
     expect(prompt).toContain("Partnership proposal");
@@ -122,7 +122,7 @@ describe("buildPrompt", () => {
       externalGuests: [{ email: "alice@external.com", name: "Alice External" }],
       pastMeetings: [pastMeeting],
     });
-    const prompt = buildPrompt(data, mockEmailAccount);
+    const prompt = buildPrompt(data, mockEmailAccount, []);
 
     expect(prompt).toContain("<recent_meetings>");
     expect(prompt).toContain("Initial Discussion");
@@ -135,7 +135,7 @@ describe("buildPrompt", () => {
         { email: "bob@acme.com", name: "Bob Jones" },
       ],
     });
-    const prompt = buildPrompt(data, mockEmailAccountNoTz);
+    const prompt = buildPrompt(data, mockEmailAccountNoTz, []);
 
     expect(prompt).toContain("alice@acme.com");
     expect(prompt).toContain("Alice Smith");

@@ -6,3 +6,22 @@ import { atom } from "jotai";
  * faking a ⌘K keystroke.
  */
 export const commandPaletteOpenAtom = atom(false);
+
+export type MailCommandContext = {
+  actions: {
+    archive: () => void;
+    markRead?: () => void;
+    markUnread?: () => void;
+    snooze?: (until: Date) => void;
+    trash?: () => void;
+  };
+  hasRead: boolean;
+  hasUnread: boolean;
+  targetCount: number;
+};
+
+/**
+ * The active mail list owns its selection state and actions. This bridge lets
+ * the app-wide palette consume them without duplicating that state.
+ */
+export const mailCommandContextAtom = atom<MailCommandContext | null>(null);

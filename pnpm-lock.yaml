@@ -409,6 +409,9 @@ importers:
       cheerio:
         specifier: 1.2.0
         version: 1.2.0
+      chrono-node:
+        specifier: 2.10.1
+        version: 2.10.1
       class-variance-authority:
         specifier: 0.7.1
         version: 0.7.1
@@ -7249,6 +7252,10 @@ packages:
   chrome-trace-event@1.0.4:
     resolution: {integrity: sha512-rNjApaLzuwaOTjCiT8lSDdGN1APCiqkChLMJxJPWLunPAt5fy8xgU9/jNOchV84wfIxrA0lRQB7oCT8jrn/wrQ==}
     engines: {node: '>=6.0'}
+
+  chrono-node@2.10.1:
+    resolution: {integrity: sha512-tPOsBzYVAK5zth+CiHCgp5NGeqRc4mMD8FPthQ5IxkgjPWWxIFdM5odnmfw//IRAzl6C++Xy8olQW7wn5qBR1g==}
+    engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
 
   citty@0.2.2:
     resolution: {integrity: sha512-+6vJA3L98yv+IdfKGZHBNiGW5KHn22e/JwID0Strsz8h4S/csAu/OuICwxrg44k5MRiZHWIo8XXuJgQTriRP4w==}
@@ -19587,6 +19594,8 @@ snapshots:
   chownr@3.0.0: {}
 
   chrome-trace-event@1.0.4: {}
+
+  chrono-node@2.10.1: {}
 
   citty@0.2.2: {}
 

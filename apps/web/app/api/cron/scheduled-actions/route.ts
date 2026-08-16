@@ -12,6 +12,7 @@ import {
 import { markQStashActionAsExecuting } from "@/utils/scheduled-actions/scheduler";
 import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
+import { processDueSnoozedThreads } from "@/utils/snooze/process-due";
 
 export const maxDuration = 300;
 
@@ -25,12 +26,7 @@ export const GET = withError("cron/scheduled-actions", async (request) => {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  if (env.QSTASH_TOKEN) {
-    request.logger.info("QStash configured, skipping cron fallback");
-    return NextResponse.json({ skipped: true, reason: "qstash-configured" });
-  }
-
-  const result = await processScheduledActions(request.logger);
+  const result = await processScheduledMail(request.logger);
 
   return NextResponse.json(result);
 });
@@ -43,12 +39,7 @@ export const POST = withError("cron/scheduled-actions", async (request) => {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  if (env.QSTASH_TOKEN) {
-    request.logger.info("QStash configured, skipping cron fallback");
-    return NextResponse.json({ skipped: true, reason: "qstash-configured" });
-  }
-
-  const result = await processScheduledActions(request.logger);
+  const result = await processScheduledMail(request.logger);
 
   return NextResponse.json(result);
 });
@@ -148,5 +139,21 @@ async function processScheduledActions(logger: Logger) {
     failed,
     skipped,
     total: scheduledActions.length,
+  };
+}
+
+async function processScheduledMail(logger: Logger) {
+  if (!env.QSTASH_TOKEN) {
+    const [scheduledActions, snoozedThreads] = await Promise.all([
+      processScheduledActions(logger),
+      processDueSnoozedThreads(logger),
+    ]);
+    return { scheduledActions, snoozedThreads };
+  }
+
+  logger.info("QStash configured; checking snoozed thread fallback");
+  return {
+    scheduledActions: { skipped: true, reason: "qstash-configured" },
+    snoozedThreads: await processDueSnoozedThreads(logger),
   };
 }

@@ -10,7 +10,6 @@ import {
   ScrollTextIcon,
   UsersIcon,
   ShieldCheckIcon,
-  type LucideIcon,
   CalendarIcon,
   FileTextIcon,
   BrushIcon,
@@ -29,21 +28,26 @@ import {
 } from "@/hooks/useFeatureFlags";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 
-interface NavigationItem {
-  href: string;
-  icon: LucideIcon;
-  keywords?: string[];
-  name: string;
-}
-
-function useNavigationItems(): NavigationItem[] {
+export function useCommandPaletteCommands({
+  enabled = true,
+}: {
+  enabled?: boolean;
+} = {}) {
+  const router = useRouter();
   const { emailAccountId, provider } = useAccount();
+  const { data: rulesData, isLoading: rulesLoading } = useRules(
+    undefined,
+    enabled,
+  );
+  const { data: user, isLoading: userLoading } = useUser(enabled);
   const showCleaner = useCleanerEnabled();
   const showMeetingBriefs = useMeetingBriefsEnabled();
   const showIntegrations = useIntegrationsEnabled();
 
-  return useMemo(
-    () => [
+  const commands = useMemo<Command[]>(() => {
+    if (!enabled) return [];
+
+    const navigationItems = [
       {
         name: "Assistant",
         href: prefixPath(emailAccountId, "/automation"),
@@ -104,40 +108,20 @@ function useNavigationItems(): NavigationItem[] {
         icon: ShieldCheckIcon,
         keywords: ["block", "cold", "spam", "filter"],
       },
-    ],
-    [
-      emailAccountId,
-      provider,
-      showCleaner,
-      showMeetingBriefs,
-      showIntegrations,
-    ],
-  );
-}
-
-export function useCommandPaletteCommands() {
-  const router = useRouter();
-  const { emailAccountId } = useAccount();
-  const { data: rulesData, isLoading: rulesLoading } = useRules();
-  const { data: user, isLoading: userLoading } = useUser();
-  const navigationItems = useNavigationItems();
-
-  const navigationCommands = useMemo<Command[]>(
-    () =>
-      navigationItems.map((item, index) => ({
+    ];
+    const navigationCommands: Command[] = navigationItems.map(
+      (item, index) => ({
         id: `nav-${item.name.toLowerCase().replace(/\s+/g, "-")}`,
         label: `Go to ${item.name}`,
         icon: item.icon,
-        section: "navigation" as const,
+        section: "navigation",
         priority: index + 10,
-        keywords: [item.name.toLowerCase(), ...(item.keywords || [])],
+        keywords: [item.name.toLowerCase(), ...item.keywords],
         action: () => router.push(item.href),
-      })),
-    [navigationItems, router],
-  );
+      }),
+    );
 
-  const settingsCommands = useMemo<Command[]>(
-    () => [
+    const settingsCommands: Command[] = [
       {
         id: "settings-general",
         label: "Settings",
@@ -189,14 +173,9 @@ export function useCommandPaletteCommands() {
         keywords: ["accounts", "email", "switch"],
         action: () => router.push("/accounts"),
       },
-    ],
-    [router, emailAccountId],
-  );
+    ];
 
-  const ruleCommands = useMemo<Command[]>(() => {
-    if (!rulesData) return [];
-
-    return rulesData.map((rule, index) => ({
+    const ruleCommands: Command[] = (rulesData ?? []).map((rule, index) => ({
       id: `rule-${rule.id}`,
       label: rule.name,
       description: rule.instructions || "View rule",
@@ -207,12 +186,8 @@ export function useCommandPaletteCommands() {
       action: () =>
         router.push(prefixPath(emailAccountId, `/assistant/rule/${rule.id}`)),
     }));
-  }, [rulesData, router, emailAccountId]);
 
-  const accountCommands = useMemo<Command[]>(() => {
-    if (!user?.emailAccounts) return [];
-
-    return user.emailAccounts
+    const accountCommands: Command[] = (user?.emailAccounts ?? [])
       .filter((account) => account.id !== emailAccountId)
       .map((account, index) => ({
         id: `account-${account.id}`,
@@ -224,24 +199,27 @@ export function useCommandPaletteCommands() {
         keywords: ["switch", "account", account.email?.toLowerCase() || ""],
         action: () => router.push(prefixPath(account.id, "/automation")),
       }));
-  }, [user?.emailAccounts, router, emailAccountId]);
 
-  const allCommands = useMemo(
-    () => [
+    return [
       ...navigationCommands,
       ...settingsCommands,
       ...ruleCommands,
       ...accountCommands,
-    ],
-    [navigationCommands, settingsCommands, ruleCommands, accountCommands],
-  );
+    ];
+  }, [
+    emailAccountId,
+    enabled,
+    provider,
+    router,
+    rulesData,
+    showCleaner,
+    showIntegrations,
+    showMeetingBriefs,
+    user?.emailAccounts,
+  ]);
 
   return {
-    commands: allCommands,
-    isLoading: rulesLoading || userLoading,
-    navigationCommands,
-    settingsCommands,
-    ruleCommands,
-    accountCommands,
+    commands,
+    isLoading: enabled && (rulesLoading || userLoading),
   };
 }

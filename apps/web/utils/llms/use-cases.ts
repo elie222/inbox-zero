@@ -97,7 +97,6 @@ export const LLM_USE_CASE_MODEL_TYPES = {
 export function getModelForUseCase(
   userAi: UserAIFields,
   useCase: LlmUseCase,
-  online = false,
 ): SelectModel {
-  return getModel(userAi, LLM_USE_CASE_MODEL_TYPES[useCase], online);
+  return getModel(userAi, LLM_USE_CASE_MODEL_TYPES[useCase]);
 }

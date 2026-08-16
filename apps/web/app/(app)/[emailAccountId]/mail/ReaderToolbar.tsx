@@ -14,6 +14,7 @@ import type { MailLayoutMode } from "@/app/(app)/[emailAccountId]/mail/types";
 import { Kbd } from "@/components/Kbd";
 import type { EmailMessageCellLabel } from "@/components/EmailMessageCellLabels";
 import { Button } from "@/components/ui/button";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
 
 export type ReaderToolbarProps = {
@@ -38,6 +39,7 @@ export type ReaderToolbarProps = {
   onReply: () => void;
   onDelete: () => void;
   onToggleFocusMode: () => void;
+  showSidebarToggle?: boolean;
   /** The ⋯ dropdown, i.e. `ThreadActionsMenu`, composed by the shell. */
   menu?: ReactNode;
 };
@@ -62,6 +64,7 @@ export function ReaderToolbar({
   onReply,
   onDelete,
   onToggleFocusMode,
+  showSidebarToggle = false,
   menu,
 }: ReaderToolbarProps) {
   const showBackBar = layout === "list" && !isFocusMode;
@@ -71,6 +74,12 @@ export function ReaderToolbar({
     <div>
       {showBackBar ? (
         <div className="-mx-1 sticky top-0 z-10 mb-4 flex items-center gap-3 bg-card px-1 py-2">
+          {showSidebarToggle ? (
+            <SidebarTrigger
+              name="left-sidebar"
+              className="hidden lg:inline-flex"
+            />
+          ) : null}
           <Button onClick={onBack} size="xs-2" variant="outline">
             <ArrowLeftIcon className="mr-1.5 size-3.5" />
             Back
