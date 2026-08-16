@@ -43,6 +43,7 @@ import {
 import type { ThreadMessage } from "@/components/email-list/types";
 import { useMailThreads } from "@/app/(app)/[emailAccountId]/mail/use-mail-threads";
 import { useCombinedMailThreads } from "@/app/(app)/[emailAccountId]/mail/use-combined-mail-threads";
+import { runCombinedThreadAction } from "@/app/(app)/[emailAccountId]/mail/combined-thread-actions";
 import { useAdjacentThreadPrefetch } from "@/app/(app)/[emailAccountId]/mail/use-adjacent-thread-prefetch";
 import { useThreadActions } from "@/app/(app)/[emailAccountId]/mail/use-thread-actions";
 import { useThreadSelection } from "@/app/(app)/[emailAccountId]/mail/use-thread-selection";
@@ -79,6 +80,7 @@ import {
   archiveThreadAction,
   createLabelAction,
   removeThreadLabelAction,
+  trashThreadAction,
 } from "@/utils/actions/mail";
 import {
   mailSplitToThreadsQuery,
@@ -227,13 +229,14 @@ export function MailShell() {
     enabled: !isAllAccounts,
   });
   const combinedThreadState = useCombinedMailThreads({
+    emailAccountId,
     enabled: isAllAccounts,
     isUnread: activeSplitId === "unread",
   });
   const {
     labelsByAccount,
-    removeThread: removeCombinedThread,
-    restoreThread: restoreCombinedThread,
+    removeThreads: removeCombinedThreads,
+    restoreThreads: restoreCombinedThreads,
   } = combinedThreadState;
   const { threads, isLoading, error, hasMore, isLoadingMore, loadMore } =
     isAllAccounts ? combinedThreadState : accountThreadState;
@@ -401,38 +404,86 @@ export function MailShell() {
   );
 
   const openShortcuts = useCallback(() => setIsHelpOpen(true), []);
+  const runCombinedAction = useCallback(
+    async ({
+      action,
+      successVerb,
+      actionVerb,
+      failureDescription,
+    }: {
+      action: (emailAccountId: string, threadId: string) => Promise<unknown>;
+      successVerb: string;
+      actionVerb: string;
+      failureDescription: string;
+    }) => {
+      const targetKeys = selection.targetIds(
+        focusedThread ? getListThreadKey(focusedThread) : undefined,
+      );
+      const targets: Array<{ id: string; account: { id: string } }> = [];
+      for (const thread of threads) {
+        if (
+          !("account" in thread) ||
+          !targetKeys.includes(getListThreadKey(thread))
+        ) {
+          continue;
+        }
+        targets.push({ id: thread.id, account: { id: thread.account.id } });
+      }
+      if (!targets.length) return;
+
+      const removal = removeCombinedThreads(targetKeys);
+      selection.clear();
+      const { failedThreadKeys, succeededThreadKeys } =
+        await runCombinedThreadAction({ threads: targets, action });
+      restoreCombinedThreads(removal, failedThreadKeys);
+
+      if (succeededThreadKeys.length) {
+        toast.success(
+          summariseCombinedAction(successVerb, succeededThreadKeys.length),
+        );
+      }
+      if (failedThreadKeys.length) {
+        toast.error(
+          failedThreadKeys.length === targets.length
+            ? `There was an error ${failureDescription}`
+            : `Couldn't ${actionVerb} ${failedThreadKeys.length} of ${targets.length} conversations`,
+        );
+      }
+    },
+    [
+      focusedThread,
+      removeCombinedThreads,
+      restoreCombinedThreads,
+      selection,
+      threads,
+    ],
+  );
   const archiveTargets = useCallback(async () => {
     if (!isAllAccounts) {
       runOn(archive, true, true);
       return;
     }
-    if (!focusedThread || !("account" in focusedThread)) return;
-
-    const removal = removeCombinedThread(getListThreadKey(focusedThread));
-    if (!removal) return;
-
-    try {
-      const result = await archiveThreadAction(focusedThread.account.id, {
-        threadId: focusedThread.id,
-      });
-      if (result?.serverError || result?.validationErrors) {
-        throw new Error("Archive action failed");
-      }
-    } catch {
-      restoreCombinedThread(removal);
-      toast.error("There was an error archiving");
+    await runCombinedAction({
+      action: (accountId, threadId) =>
+        archiveThreadAction(accountId, { threadId }),
+      successVerb: "Archived",
+      actionVerb: "archive",
+      failureDescription: "archiving",
+    });
+  }, [archive, isAllAccounts, runCombinedAction, runOn]);
+  const trashTargets = useCallback(async () => {
+    if (!isAllAccounts) {
+      runOn(trash, true);
       return;
     }
-    toast.success("Archived");
-  }, [
-    archive,
-    focusedThread,
-    isAllAccounts,
-    removeCombinedThread,
-    restoreCombinedThread,
-    runOn,
-  ]);
-  const trashTargets = useCallback(() => runOn(trash, true), [runOn, trash]);
+    await runCombinedAction({
+      action: (accountId, threadId) =>
+        trashThreadAction(accountId, { threadId }),
+      successVerb: "Deleted",
+      actionVerb: "delete",
+      failureDescription: "deleting",
+    });
+  }, [isAllAccounts, runCombinedAction, runOn, trash]);
   const markReadTargets = useCallback(
     () => runOn(markRead, false),
     [runOn, markRead],
@@ -445,14 +496,13 @@ export function MailShell() {
     (until: Date) => runOn((ids) => snooze(ids, until), true),
     [runOn, snooze],
   );
-  const commandTargetIds = useMemo(() => {
-    if (isAllAccounts) {
-      return focusedThread ? [getListThreadKey(focusedThread)] : [];
-    }
-    return selection.targetIds(
-      focusedThread ? getListThreadKey(focusedThread) : undefined,
-    );
-  }, [isAllAccounts, selection, focusedThread]);
+  const commandTargetIds = useMemo(
+    () =>
+      selection.targetIds(
+        focusedThread ? getListThreadKey(focusedThread) : undefined,
+      ),
+    [selection, focusedThread],
+  );
   const commandTargets = useMemo(() => {
     const ids = new Set(commandTargetIds);
     return threads.filter((thread) => ids.has(getListThreadKey(thread)));
@@ -460,7 +510,7 @@ export function MailShell() {
   const mailCommandContext = useMemo(
     () => ({
       actions: isAllAccounts
-        ? { archive: archiveTargets }
+        ? { archive: archiveTargets, trash: trashTargets }
         : {
             archive: archiveTargets,
             markRead: markReadTargets,
@@ -519,13 +569,13 @@ export function MailShell() {
         const next = splits[(index + 1) % splits.length];
         if (next) setActiveSplitId(next.id);
       },
-      select: isAllAccounts ? undefined : () => selection.toggle(clampedIndex),
+      select: () => selection.toggle(clampedIndex),
       // The cursor travels with the extension; without that, every repeat
       // re-extends from the same row and the range never grows.
-      extendSelectionDown: isAllAccounts ? undefined : () => extendSelection(1),
-      extendSelectionUp: isAllAccounts ? undefined : () => extendSelection(-1),
+      extendSelectionDown: () => extendSelection(1),
+      extendSelectionUp: () => extendSelection(-1),
       archive: archiveTargets,
-      delete: isAllAccounts ? undefined : trashTargets,
+      delete: trashTargets,
       reply: isAllAccounts
         ? undefined
         : () => {
@@ -761,7 +811,6 @@ export function MailShell() {
                     ? `all-accounts:${activeSplitId}`
                     : JSON.stringify(query)
                 }
-                selectionEnabled={!isAllAccounts}
               />
             </LoadingContent>
           </section>
@@ -821,6 +870,10 @@ export function MailShell() {
       <ShortcutsDialog open={isHelpOpen} onOpenChange={setIsHelpOpen} />
     </div>
   );
+}
+
+function summariseCombinedAction(verb: string, count: number) {
+  return count === 1 ? verb : `${verb} ${count} conversations`;
 }
 
 function getMailCategories({
