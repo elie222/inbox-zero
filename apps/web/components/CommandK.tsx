@@ -195,7 +195,7 @@ function CommandPaletteContent({
       commandProps={{
         // Disable cmdk's built-in filter since we use custom fuzzy search.
         shouldFilter: false,
-        onKeyDown: (event) => {
+        onKeyDown: (event: React.KeyboardEvent<HTMLDivElement>) => {
           if (event.key !== "Escape") event.stopPropagation();
         },
       }}
