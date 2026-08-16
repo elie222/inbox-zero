@@ -1,13 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { Apple, ArrowRight, Download, Monitor } from "lucide-react";
+import { Apple, Download, Monitor } from "lucide-react";
 import { BlurFade } from "@/components/new-landing/common/BlurFade";
 import { Button } from "@/components/new-landing/common/Button";
 import { Paragraph } from "@/components/new-landing/common/Typography";
-import { Gmail } from "@/components/new-landing/icons/Gmail";
-import { Outlook } from "@/components/new-landing/icons/Outlook";
 import {
   DESKTOP_GITHUB_REPO,
   detectDesktopClientPlatform,
@@ -72,7 +69,7 @@ export function DesktopDownloadCta({
   return (
     <>
       <BlurFade duration={0.4} delay={0.3}>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex justify-center">
           {ctas.primary ? (
             <Button size="lg" asChild>
               <a href={ctas.primary.href}>
@@ -96,38 +93,14 @@ export function DesktopDownloadCta({
               </a>
             </Button>
           )}
-          <Button variant="secondary-two" size="lg" asChild>
-            <Link href="/login">
-              <span className="flex items-center gap-2">
-                Get started on web
-                <ArrowRight className="size-4" />
-              </span>
-            </Link>
-          </Button>
         </div>
       </BlurFade>
 
       <BlurFade duration={0.4} delay={0.4}>
-        <div className="mt-6 space-y-2">
-          <div className="flex items-center gap-2">
-            <Paragraph color="light" size="sm">
-              Works with
-            </Paragraph>
-            <Outlook />
-            <Gmail />
-          </div>
+        <div className="mt-4 text-center">
           <Paragraph color="light" size="sm">
-            {ctas.alternatives.map((item, index) => (
-              <span key={item.href}>
-                {index > 0 ? " · " : null}
-                <a href={item.href} className="underline underline-offset-2">
-                  {item.shortLabel}
-                </a>
-              </span>
-            ))}
-            {ctas.alternatives.length > 0 ? " · " : null}
             <a href={allDownloadsHref} className="underline underline-offset-2">
-              All downloads
+              Other downloads
             </a>
           </Paragraph>
         </div>

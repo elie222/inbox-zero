@@ -116,14 +116,13 @@ export function getDesktopDownloadCtas(
   alternatives: DesktopDownloadCta[];
   primary: DesktopDownloadCta | null;
 } {
-  const versionSuffix = downloads.version ? ` ${downloads.version}` : "";
   const options: Array<DesktopDownloadCta & { match: boolean }> = [];
 
   if (downloads.macArm64Dmg) {
     options.push({
       href: downloads.macArm64Dmg,
       kind: "mac",
-      label: `Download for Mac (Apple Silicon)${versionSuffix}`,
+      label: "Download for Mac",
       match: platform.os === "mac" && platform.arch !== "x64",
       shortLabel: "Mac (Apple Silicon)",
     });
@@ -132,7 +131,7 @@ export function getDesktopDownloadCtas(
     options.push({
       href: downloads.macX64Dmg,
       kind: "mac",
-      label: `Download for Mac Intel${versionSuffix}`,
+      label: "Download for Mac",
       match: platform.os === "mac" && platform.arch === "x64",
       shortLabel: "Mac Intel",
     });
@@ -141,7 +140,7 @@ export function getDesktopDownloadCtas(
     options.push({
       href: downloads.winX64Exe,
       kind: "windows",
-      label: `Download for Windows${versionSuffix}`,
+      label: "Download for Windows",
       match: platform.os === "windows" && platform.arch !== "arm",
       shortLabel: "Windows",
     });
@@ -150,7 +149,7 @@ export function getDesktopDownloadCtas(
     options.push({
       href: downloads.winArm64Exe,
       kind: "windows",
-      label: `Download for Windows (ARM)${versionSuffix}`,
+      label: "Download for Windows",
       match: platform.os === "windows" && platform.arch === "arm",
       shortLabel: "Windows ARM",
     });
