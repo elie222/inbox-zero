@@ -2,6 +2,7 @@ import { ActionType, type LogicalOperator } from "@/generated/prisma/enums";
 import type { ZodCondition } from "@/utils/actions/rule.validation";
 
 export type OrgActionFormValue = {
+  id?: string;
   type: ActionType;
   label: string;
   subject: string;

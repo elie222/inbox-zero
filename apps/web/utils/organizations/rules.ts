@@ -9,6 +9,11 @@ import { SafeError } from "@/utils/error";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import type { Logger } from "@/utils/logger";
 import type { RuleActionCreateData } from "@/utils/rule/rule";
+import {
+  isOrganizationRuleActionTypeAvailable,
+  ORGANIZATION_RULE_ACTION_DISABLED_MESSAGE,
+  ORGANIZATION_RULE_ACTION_TYPES,
+} from "@/utils/organizations/rule-action-types";
 
 export const RULE_MANAGED_BY_ORGANIZATION_ERROR =
   "This rule is managed by your organization and can't be edited here. Ask an organization admin to change it.";
@@ -38,7 +43,7 @@ const UNSUPPORTED_ORGANIZATION_ACTION_TYPES: ActionType[] = [
 
 export type OrganizationRuleActionInput = Omit<
   Prisma.OrganizationRuleActionCreateManyOrganizationRuleInput,
-  "id" | "createdAt" | "updatedAt"
+  "createdAt" | "updatedAt"
 >;
 
 export type OrganizationRuleData = {
@@ -64,15 +69,53 @@ export function computeMemberRuleEnabled({
 }
 
 export function assertOrganizationRuleActionsSupported(
-  actions: { type: ActionType }[],
+  actions: { id?: string; type: ActionType }[],
+  existingActions: { id: string; type: ActionType }[] = [],
 ) {
-  const unsupported = actions.find((action) =>
+  const messagingAction = actions.find((action) =>
     UNSUPPORTED_ORGANIZATION_ACTION_TYPES.includes(action.type),
   );
-  if (unsupported) {
+  if (messagingAction) {
     throw new SafeError(
       "Messaging channel actions can't be used in organization rules because each member needs their own channel.",
     );
+  }
+
+  const supportedActionTypes: readonly ActionType[] =
+    ORGANIZATION_RULE_ACTION_TYPES;
+  const unsupportedAction = actions.find(
+    (action) => !supportedActionTypes.includes(action.type),
+  );
+  if (unsupportedAction) {
+    throw new SafeError(
+      "This action type can't be used in organization rules.",
+    );
+  }
+
+  const actionIds = actions.flatMap((action) => (action.id ? [action.id] : []));
+  if (new Set(actionIds).size !== actionIds.length) {
+    throw new SafeError("Organization rule action specified more than once.");
+  }
+
+  const unknownAction = actions.find(
+    (action) =>
+      action.id &&
+      !existingActions.some((existing) => existing.id === action.id),
+  );
+  if (unknownAction) {
+    throw new SafeError("Organization rule action not found.");
+  }
+
+  const disabledAction = actions.find(
+    (action) =>
+      !isOrganizationRuleActionTypeAvailable(action.type) &&
+      !existingActions.some(
+        (existing) =>
+          existing.id === action.id && existing.type === action.type,
+      ),
+  );
+  if (disabledAction) {
+    throw new SafeError(ORGANIZATION_RULE_ACTION_DISABLED_MESSAGE);
   }
 }
 
@@ -144,13 +187,14 @@ export async function updateOrganizationRule({
   actions: OrganizationRuleActionInput[];
   logger: Logger;
 }) {
-  assertOrganizationRuleActionsSupported(actions);
-
   const existing = await prisma.organizationRule.findFirst({
     where: { id: organizationRuleId, organizationId },
-    select: { id: true },
+    select: { id: true, actions: { select: { id: true, type: true } } },
   });
   if (!existing) throw new SafeError("Organization rule not found");
+
+  assertOrganizationRuleActionsSupported(actions, existing.actions);
+  const actionsCreateData = actions.map(withoutOrganizationRuleActionId);
 
   const organizationRule = await prisma.organizationRule
     .update({
@@ -164,7 +208,7 @@ export async function updateOrganizationRule({
         to: data.to ?? null,
         subject: data.subject ?? null,
         body: data.body ?? null,
-        actions: { deleteMany: {}, createMany: { data: actions } },
+        actions: { deleteMany: {}, createMany: { data: actionsCreateData } },
       },
     })
     .catch(rethrowDuplicateNameError);
@@ -330,6 +374,13 @@ function rethrowDuplicateNameError(error: unknown): never {
     throw new SafeError("An organization rule with this name already exists.");
   }
   throw error;
+}
+
+function withoutOrganizationRuleActionId({
+  id: _id,
+  ...action
+}: OrganizationRuleActionInput) {
+  return action;
 }
 
 function mapOrganizationRuleActions(

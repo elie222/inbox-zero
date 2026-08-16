@@ -21,18 +21,12 @@ import { RuleStep } from "@/app/(app)/[emailAccountId]/assistant/RuleStep";
 import { DelayInputControls } from "@/components/DelayInputControls";
 import { canActionBeDelayed } from "@/utils/delayed-actions";
 import { ACTION_TYPE_LABELS, getActionIcon } from "@/utils/action-display";
-import { ORGANIZATION_RULE_ACTION_TYPES } from "@/utils/organizations/rule-action-types";
+import { getAvailableOrganizationRuleActionTypes } from "@/utils/organizations/rule-action-types";
 import {
   EMPTY_ORG_ACTION,
   type OrgRuleFormValues,
   type OrgActionFormValue,
 } from "./orgRuleForm";
-
-const ACTION_TYPE_OPTIONS = ORGANIZATION_RULE_ACTION_TYPES.map((value) => ({
-  value,
-  label: ACTION_TYPE_LABELS[value],
-  icon: getActionIcon(value),
-}));
 
 export function OrgActionSteps({
   fields,
@@ -43,7 +37,7 @@ export function OrgActionSteps({
   append,
   remove,
 }: {
-  fields: Array<{ id: string }>;
+  fields: Array<{ fieldId: string }>;
   register: UseFormRegister<OrgRuleFormValues>;
   control: Control<OrgRuleFormValues>;
   watch: UseFormWatch<OrgRuleFormValues>;
@@ -61,8 +55,9 @@ export function OrgActionSteps({
     >
       {fields.map((field, index) => (
         <OrgActionCard
-          key={field.id}
+          key={field.fieldId}
           index={index}
+          id={actions[index]?.id}
           type={actions[index]?.type ?? ActionType.LABEL}
           register={register}
           watch={watch}
@@ -76,6 +71,7 @@ export function OrgActionSteps({
 
 function OrgActionCard({
   index,
+  id,
   type,
   register,
   watch,
@@ -83,13 +79,21 @@ function OrgActionCard({
   onRemove,
 }: {
   index: number;
+  id?: string;
   type: ActionType;
   register: UseFormRegister<OrgRuleFormValues>;
   watch: UseFormWatch<OrgRuleFormValues>;
   setValue: UseFormSetValue<OrgRuleFormValues>;
   onRemove: () => void;
 }) {
-  const selectedOption = ACTION_TYPE_OPTIONS.find(
+  const actionTypeOptions = getAvailableOrganizationRuleActionTypes(
+    id ? type : undefined,
+  ).map((value) => ({
+    value,
+    label: ACTION_TYPE_LABELS[value],
+    icon: getActionIcon(value),
+  }));
+  const selectedOption = actionTypeOptions.find(
     (option) => option.value === type,
   );
   const SelectedIcon = selectedOption?.icon;
@@ -118,7 +122,7 @@ function OrgActionCard({
           </SelectTrigger>
         </FormControl>
         <SelectContent>
-          {ACTION_TYPE_OPTIONS.map((option) => {
+          {actionTypeOptions.map((option) => {
             const Icon = option.icon;
             return (
               <SelectItem key={option.value} value={option.value}>

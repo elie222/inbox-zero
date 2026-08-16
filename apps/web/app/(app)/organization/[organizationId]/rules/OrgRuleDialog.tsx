@@ -83,7 +83,7 @@ export function OrgRuleDialog({
     fields: actionFields,
     append: appendAction,
     remove: removeAction,
-  } = useFieldArray({ control, name: "actions" });
+  } = useFieldArray({ control, name: "actions", keyName: "fieldId" });
 
   const createAction = useAction(createOrganizationRuleAction);
   const updateAction = useAction(updateOrganizationRuleAction);
@@ -101,6 +101,7 @@ export function OrgRuleDialog({
     );
 
     const actions = formValues.actions.map((action) => ({
+      id: action.id,
       type: action.type as OrganizationRuleActionSchema["type"],
       label: action.label || null,
       subject: action.subject || null,
@@ -284,6 +285,7 @@ function toFormValues(rule?: OrgRule): OrgRuleFormValues {
     runOnThreads: rule?.runOnThreads ?? false,
     actions: rule?.actions.length
       ? rule.actions.map((action) => ({
+          id: action.id,
           type: action.type,
           label: action.label ?? "",
           subject: action.subject ?? "",
