@@ -206,7 +206,6 @@ const Sidebar = React.forwardRef<
     side?: "left" | "right";
     variant?: "sidebar" | "floating" | "inset";
     collapsible?: "offcanvas" | "icon" | "none";
-    desktopBreakpoint?: "md" | "lg";
     desktopOpen?: boolean;
     width?: React.CSSProperties["width"];
   }
@@ -217,7 +216,6 @@ const Sidebar = React.forwardRef<
       side = "left",
       variant = "sidebar",
       collapsible = "offcanvas",
-      desktopBreakpoint = "md",
       desktopOpen,
       width,
       className,
@@ -276,10 +274,7 @@ const Sidebar = React.forwardRef<
     return (
       <div
         ref={ref}
-        className={cn(
-          "group peer text-sidebar-foreground",
-          desktopBreakpoint === "lg" ? "hidden lg:block" : "hidden md:block",
-        )}
+        className="group peer hidden text-sidebar-foreground md:block"
         data-state={isDesktopOpen ? "expanded" : "collapsed"}
         data-collapsible={isDesktopOpen ? "" : collapsible}
         data-variant={variant}
@@ -303,8 +298,7 @@ const Sidebar = React.forwardRef<
         />
         <div
           className={cn(
-            "fixed inset-y-0 z-10 h-svh w-[--sidebar-width] transition-[left,right,width] duration-200 ease-linear",
-            desktopBreakpoint === "lg" ? "hidden lg:flex" : "hidden md:flex",
+            "fixed inset-y-0 z-10 hidden h-svh w-[--sidebar-width] transition-[left,right,width] duration-200 ease-linear md:flex",
             side === "left"
               ? "left-0 group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]"
               : "right-0 group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)]",
