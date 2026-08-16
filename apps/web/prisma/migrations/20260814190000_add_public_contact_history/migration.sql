@@ -9,7 +9,21 @@ CREATE TABLE "ContactResearch" (
     "company" JSONB,
     "sources" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
 
-    CONSTRAINT "ContactResearch_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "ContactResearch_pkey" PRIMARY KEY ("id"),
+    CONSTRAINT "ContactResearch_found_fields_check" CHECK (
+        (
+            "found" = TRUE AND
+            ("role" IS NOT NULL OR "company" IS NOT NULL) AND
+            "confidence" IN ('low', 'medium', 'high') AND
+            cardinality("sources") > 0
+        ) OR (
+            "found" = FALSE AND
+            "role" IS NULL AND
+            "confidence" IS NULL AND
+            "company" IS NULL AND
+            cardinality("sources") = 0
+        )
+    )
 );
 
 CREATE INDEX "ContactResearch_latest_idx"

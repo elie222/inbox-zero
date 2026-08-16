@@ -216,6 +216,26 @@ describe("getPublicContactContext", () => {
     });
   });
 
+  it("treats research without a role or company as not found", async () => {
+    generateTextMock.mockResolvedValue({
+      output: { context: getContext({ role: null, company: null }) },
+    });
+
+    await expect(
+      getPublicContactContext({
+        email: "unknown@acme.com",
+        name: "Unknown Person",
+        emailAccount: getEmailAccount(),
+      }),
+    ).resolves.toEqual({ status: "unavailable", reason: "not_found" });
+
+    expect(storePublicContactContextMock).not.toHaveBeenCalled();
+    expect(storePublicContactContextNotFoundMock).toHaveBeenCalledWith({
+      email: "unknown@acme.com",
+      researchStartedAt: expect.any(Date),
+    });
+  });
+
   it("fails closed when a found result cannot be stored", async () => {
     storePublicContactContextMock.mockResolvedValue(false);
 

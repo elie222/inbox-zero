@@ -81,6 +81,8 @@ export const publicContactContextSchema = z.strictObject({
 export type PublicContactContext = z.infer<typeof publicContactContextSchema>;
 
 export function isSafeForSharedCache(context: PublicContactContext): boolean {
+  if (!context.role && !context.company) return false;
+
   const publicText = [
     context.role,
     context.company?.name,
