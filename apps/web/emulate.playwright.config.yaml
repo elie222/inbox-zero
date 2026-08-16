@@ -192,6 +192,21 @@ google:
       primary: true
       selected: true
       time_zone: UTC
+  calendar_events:
+    - id: evt_playwright_meeting_bot
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      calendar_id: primary
+      summary: Product planning with notetaker
+      start_date_time: "__PLAYWRIGHT_MEETING_START__"
+      end_date_time: "__PLAYWRIGHT_MEETING_END__"
+      hangout_link: https://meet.google.com/abc-defg-hij
+      attendees:
+        - email: __PLAYWRIGHT_TEST_EMAIL__
+        - email: external-attendee@example.com
+          display_name: External Teammate
+      conference_entry_points:
+        - entry_point_type: video
+          uri: https://meet.google.com/abc-defg-hij
   drive_items:
     - id: drv_root_child
       user_email: __PLAYWRIGHT_TEST_EMAIL__

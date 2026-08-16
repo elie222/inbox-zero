@@ -140,6 +140,8 @@ export default defineConfig({
         NEXT_PUBLIC_DUB_REFER_DOMAIN: "",
         NEXT_PUBLIC_IS_RESEND_CONFIGURED: "",
         NEXT_PUBLIC_CONTACTS_ENABLED: "false",
+        NEXT_PUBLIC_MEETING_RECORDER_ENABLED:
+          process.env.NEXT_PUBLIC_MEETING_RECORDER_ENABLED ?? "true",
         PLAYWRIGHT_TEST_EMAIL: playwrightTestEmail,
       },
     },
@@ -154,13 +156,17 @@ function writeEmulateSeed({ baseURL, playwrightTestEmail, runId }) {
   const outputDir = path.join(process.cwd(), ".tmp", "playwright", runId);
   const outputPath = path.join(outputDir, "emulate.playwright.generated.yaml");
   const redirectUri = new URL("/api/auth/oauth2/callback/google", baseURL).href;
+  const meetingStart = new Date(Date.now() + 2 * 60 * 60 * 1000);
+  const meetingEnd = new Date(meetingStart.getTime() + 30 * 60 * 1000);
 
   fs.mkdirSync(outputDir, { recursive: true });
 
   const seed = fs
     .readFileSync(templatePath, "utf8")
     .replaceAll("__PLAYWRIGHT_TEST_EMAIL__", playwrightTestEmail)
-    .replaceAll("__PLAYWRIGHT_TEST_REDIRECT_URI__", redirectUri);
+    .replaceAll("__PLAYWRIGHT_TEST_REDIRECT_URI__", redirectUri)
+    .replaceAll("__PLAYWRIGHT_MEETING_START__", meetingStart.toISOString())
+    .replaceAll("__PLAYWRIGHT_MEETING_END__", meetingEnd.toISOString());
 
   fs.writeFileSync(outputPath, seed);
 

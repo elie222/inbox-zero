@@ -11,7 +11,11 @@ const suites = [
   "cleanup/analytics.spec.ts",
   "cleanup/bulk-archive.spec.ts",
   "cleanup/bulk-unsubscribe.spec.ts",
+  "integrations",
   "mail",
+  "meetings",
+  "onboarding",
+  "settings",
 ];
 const blobReportDir = path.resolve(".tmp/playwright/blob-report");
 const htmlReportDir = path.resolve("playwright-report");
@@ -38,6 +42,9 @@ for (const suite of suites) {
     {
       PLAYWRIGHT_BLOB_REPORT_FILE: path.join(blobReportDir, `${suiteName}.zip`),
       PLAYWRIGHT_OUTPUT_DIR: path.join(testResultsDir, suiteName),
+      ...(suite === "integrations"
+        ? { NEXT_PUBLIC_INTEGRATIONS_ENABLED: "true" }
+        : {}),
     },
   );
 

@@ -1,50 +1,22 @@
-import { expect, type Page } from "@playwright/test";
 import { Client } from "pg";
 
 export const RULE_NAME = "Playwright receipts";
 export const UPDATED_RULE_NAME = "Playwright vendor receipts";
 
-export async function getEmailAccountId(page: Page) {
-  const response = await page.request.get("/api/user/email-accounts");
-  expect(response.ok()).toBeTruthy();
-  const { emailAccounts } = (await response.json()) as {
-    emailAccounts: { id: string }[];
-  };
-  const emailAccountId = emailAccounts[0]?.id;
-  if (!emailAccountId) throw new Error("The setup project created no account");
-  return emailAccountId;
-}
-
-export async function markAssistantOnboardingViewed(page: Page) {
-  await page.goto("/");
-  await page.context().addCookies([
-    {
-      name: "viewed_assistant_onboarding",
-      value: "true",
-      url: new URL(page.url()).origin,
-    },
-  ]);
-}
-
 export async function cleanupTestRules(emailAccountId?: string) {
   if (!emailAccountId) return;
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
+
+  await withClient(async (client) => {
     await client.query(
       `DELETE FROM "Rule"
        WHERE "emailAccountId" = $1 AND name IN ($2, $3)`,
       [emailAccountId, RULE_NAME, UPDATED_RULE_NAME],
     );
-  } finally {
-    await client.end();
-  }
+  });
 }
 
 export async function getRuleState(emailAccountId: string) {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
+  return withClient(async (client) => {
     const result = await client.query<{
       enabled: boolean;
       instructions: string | null;
@@ -60,6 +32,14 @@ export async function getRuleState(emailAccountId: string) {
       [emailAccountId, RULE_NAME, UPDATED_RULE_NAME],
     );
     return result.rows[0];
+  });
+}
+
+async function withClient<T>(callback: (client: Client) => Promise<T>) {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    return await callback(client);
   } finally {
     await client.end();
   }

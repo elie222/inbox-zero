@@ -1,12 +1,14 @@
 import { expect, test } from "@playwright/test";
 import {
   cleanupTestRules,
-  getEmailAccountId,
   getRuleState,
-  markAssistantOnboardingViewed,
   RULE_NAME,
   UPDATED_RULE_NAME,
 } from "./automation-test-helpers";
+import {
+  getAutomationEmailAccountId,
+  markAutomationOnboardingViewed,
+} from "./automation-tabs-test-helpers";
 
 let emailAccountIdForCleanup: string | undefined;
 
@@ -18,10 +20,10 @@ test.afterEach(async () => {
 test("creates, edits, toggles, and deletes a manual automation rule", async ({
   page,
 }) => {
-  const emailAccountId = await getEmailAccountId(page);
+  const emailAccountId = await getAutomationEmailAccountId(page);
   emailAccountIdForCleanup = emailAccountId;
   await cleanupTestRules(emailAccountId);
-  await markAssistantOnboardingViewed(page);
+  await markAutomationOnboardingViewed(page);
 
   await page.goto(`/${emailAccountId}/automation`);
   await expect(
