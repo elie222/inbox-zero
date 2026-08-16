@@ -19,6 +19,7 @@ mac:
   hardenedRuntime: true
   gatekeeperAssess: false
   notarize: false
+  forceCodeSigning: true
   target:
     - target: dmg
       arch:

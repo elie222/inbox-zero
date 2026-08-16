@@ -31,9 +31,9 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     env:
-      CSC_IDENTITY_AUTO_DISCOVERY: "false"
       CSC_LINK: ${{ matrix.os == 'macos-latest' && secrets.MAC_CSC_LINK || secrets.WIN_CSC_LINK }}
       CSC_KEY_PASSWORD: ${{ matrix.os == 'macos-latest' && secrets.MAC_CSC_KEY_PASSWORD || secrets.WIN_CSC_KEY_PASSWORD }}
+      CSC_NAME: ${{ matrix.os == 'macos-latest' && 'Developer ID Application: Inbox Zero Inc. (Z46U4K6CNL)' || '' }}
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -60,6 +60,13 @@ jobs:
         run: |
           pnpm build
           pnpm exec electron-builder ${{ matrix.args }} --publish never
+
+      - name: Verify macOS signature
+        if: runner.os == 'macOS'
+        working-directory: apps/desktop
+        run: |
+          codesign --verify --deep --strict --verbose=2 "release/mac-arm64/Inbox Zero.app"
+          codesign -dv --verbose=2 "release/mac-arm64/Inbox Zero.app"
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
