@@ -1407,6 +1407,22 @@ model MeetingBriefing {
   @@index([emailAccountId])
 }
 
+// Shared public research intentionally has no user or account relation, so
+// its history cannot reveal which tenant triggered a refresh.
+model ContactResearch {
+  id                String   @id @default(cuid())
+  createdAt         DateTime @default(now())
+  email             String
+  researchStartedAt DateTime
+  found             Boolean
+  role              String?
+  confidence        String?
+  company           Json? // { name, domain, website, description, industry, employeeCount, funding }
+  sources           String[] @default([])
+
+  @@index([email, researchStartedAt(sort: Desc), createdAt(sort: Desc), id(sort: Desc)], map: "ContactResearch_latest_idx")
+}
+
 enum MeetingJoinRule {
   ALL
   EXTERNAL_ONLY

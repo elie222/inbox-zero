@@ -1,0 +1,192 @@
+import { Output } from "ai";
+import { z } from "zod";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
+import { createGenerateText } from "@/utils/llms";
+import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
+import { getWebSearchConfigForProvider } from "@/utils/ai/web-search";
+import {
+  isSafeForSharedCache,
+  type PublicContactContext,
+  publicContactContextSchema,
+} from "@/utils/ai/public-contact-context-schema";
+import {
+  getStoredPublicContactContext,
+  storePublicContactContext,
+  storePublicContactContextNotFound,
+} from "@/utils/ai/public-contact-context-store";
+import { extractDomainFromEmail, isPublicEmailDomain } from "@/utils/email";
+import { escapeHtml } from "@/utils/string";
+import {
+  acquirePublicContactResearchLock,
+  releasePublicContactResearchLock,
+} from "@/utils/redis/public-contact-context-lock";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("ai/public-contact-context");
+
+const publicIdentitySchema = z.object({
+  email: z.string().email().max(320),
+  name: z.string().trim().min(1).max(120).optional(),
+});
+
+const publicContactResearchSchema = z.strictObject({
+  context: publicContactContextSchema
+    .nullable()
+    .describe(
+      "The sourced public professional profile, or null when the sender cannot be identified confidently from public sources",
+    ),
+});
+
+export type PublicContactContextResult =
+  | { status: "found"; context: PublicContactContext }
+  | {
+      status: "unavailable";
+      reason:
+        | "personal_email"
+        | "search_unavailable"
+        | "cache_unavailable"
+        | "research_in_progress"
+        | "not_found";
+    };
+
+export type PublicContactContextUnavailableReason = Extract<
+  PublicContactContextResult,
+  { status: "unavailable" }
+>["reason"];
+
+export async function getPublicContactContext({
+  email,
+  name,
+  emailAccount,
+}: {
+  email: string;
+  name?: string;
+  emailAccount: EmailAccountWithAI;
+}): Promise<PublicContactContextResult> {
+  const identity = publicIdentitySchema.safeParse({ email, name });
+  if (!identity.success) {
+    return { status: "unavailable", reason: "not_found" };
+  }
+
+  const domain = extractDomainFromEmail(identity.data.email);
+  if (!domain) return { status: "unavailable", reason: "not_found" };
+  if (isPublicEmailDomain(domain)) {
+    return { status: "unavailable", reason: "personal_email" };
+  }
+
+  const stored = await getStoredPublicContactContext(identity.data.email);
+  const storedResult = getResultFromStore(stored);
+  if (storedResult) return storedResult;
+
+  const modelOptions = getModelForUseCase(
+    emailAccount.user,
+    LlmUseCase.MeetingWebSearch,
+  );
+  const webSearch = getWebSearchConfigForProvider(modelOptions.provider);
+  if (!webSearch) {
+    return { status: "unavailable", reason: "search_unavailable" };
+  }
+
+  const researchLock = await acquirePublicContactResearchLock(
+    identity.data.email,
+  );
+  if (researchLock.status === "busy") {
+    return { status: "unavailable", reason: "research_in_progress" };
+  }
+  if (researchLock.status === "unavailable") {
+    return { status: "unavailable", reason: "cache_unavailable" };
+  }
+
+  try {
+    const storedAfterLock = await getStoredPublicContactContext(
+      identity.data.email,
+    );
+    const storedAfterLockResult = getResultFromStore(storedAfterLock);
+    if (storedAfterLockResult) return storedAfterLockResult;
+
+    const searchModelOptions = {
+      ...modelOptions,
+      fallbackModels: modelOptions.fallbackModels.filter(
+        (fallback) => fallback.provider === modelOptions.provider,
+      ),
+    };
+    const generateText = createGenerateText({
+      emailAccount,
+      label: "Public contact research",
+      modelOptions: searchModelOptions,
+      promptHardening: { trust: "untrusted", level: "full" },
+    });
+    const researchStartedAt = new Date();
+    const result = await generateText({
+      model: searchModelOptions.model,
+      system: `Research public professional information about an email sender.
+
+Use web search before answering. Return only facts supported by public web pages.
+Never use or return email contents, the Inbox Zero user's identity, relationship or communication history, private contact details, home addresses, family details, protected traits, personal social accounts, or unsupported inferences.
+The work email is supplied only to identify and disambiguate the professional. Do not include any email address in the output.
+If the sender cannot be matched confidently to public professional sources, return null context. Otherwise omit uncertain optional fields and use low confidence for a possible match.
+Return JSON matching the provided schema, including direct public source URLs.`,
+      prompt: `<public_identity>
+<name>${escapeHtml(identity.data.name || "Unknown")}</name>
+<work_email>${escapeHtml(identity.data.email)}</work_email>
+<company_domain>${escapeHtml(domain)}</company_domain>
+</public_identity>`,
+      tools: webSearch.tools,
+      providerOptions: webSearch.providerOptions,
+      toolChoice: webSearch.toolChoice,
+      output: Output.object({
+        schema: publicContactResearchSchema,
+        name: "public_contact_research",
+        description:
+          "A public professional profile with sources, or null when no confident public match exists",
+      }),
+    });
+
+    const context = result.output.context;
+    if (!context || !isSafeForSharedCache(context)) {
+      if (context) {
+        logger.warn("Generated contact context was not safe to share");
+      }
+      const storedNotFound = await storePublicContactContextNotFound({
+        email: identity.data.email,
+        researchStartedAt,
+      });
+      if (!storedNotFound) {
+        return { status: "unavailable", reason: "cache_unavailable" };
+      }
+      return { status: "unavailable", reason: "not_found" };
+    }
+
+    const storedContext = await storePublicContactContext({
+      email: identity.data.email,
+      context,
+      researchStartedAt,
+    });
+    if (!storedContext) {
+      return { status: "unavailable", reason: "cache_unavailable" };
+    }
+    return { status: "found", context };
+  } catch (error) {
+    logger.error("Public contact research failed");
+    logger.trace("Public contact research failure details", { error });
+    return { status: "unavailable", reason: "search_unavailable" };
+  } finally {
+    await releasePublicContactResearchLock(
+      identity.data.email,
+      researchLock.lockToken,
+    );
+  }
+}
+
+function getResultFromStore(
+  stored: Awaited<ReturnType<typeof getStoredPublicContactContext>>,
+): PublicContactContextResult | null {
+  if (stored.status === "miss") return null;
+  if (stored.status === "unavailable") {
+    return { status: "unavailable", reason: "cache_unavailable" };
+  }
+  if (stored.status === "not_found") {
+    return { status: "unavailable", reason: "not_found" };
+  }
+  return { status: "found", context: stored.context };
+}
