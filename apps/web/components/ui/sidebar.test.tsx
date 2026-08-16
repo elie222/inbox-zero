@@ -11,7 +11,7 @@ vi.mock("@/hooks/use-mobile", () => ({
 afterEach(cleanup);
 
 describe("SidebarProvider", () => {
-  it("toggles only the sidebar assigned to the keyboard shortcut", () => {
+  it("toggles only the assigned sidebar across repeated shortcuts", () => {
     render(
       <SidebarProvider
         defaultOpen="all"
@@ -25,6 +25,12 @@ describe("SidebarProvider", () => {
     fireEvent.keyDown(window, { key: "b", metaKey: true });
 
     expect(screen.getByRole("status").textContent).toBe("chat-sidebar");
+
+    fireEvent.keyDown(window, { key: "b", metaKey: true });
+
+    expect(screen.getByRole("status").textContent).toBe(
+      "chat-sidebar,left-sidebar",
+    );
   });
 });
 
