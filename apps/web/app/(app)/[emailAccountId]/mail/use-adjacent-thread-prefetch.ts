@@ -11,6 +11,7 @@ import {
   readCachedThread,
   writeCachedThread,
 } from "@/utils/email-cache/threads";
+import { prepareEmailHtml } from "@/utils/email/prepare-html.client";
 
 export function useAdjacentThreadPrefetch({
   currentThreadId,
@@ -59,6 +60,7 @@ export function useAdjacentThreadPrefetch({
                   revalidate: false,
                 },
               );
+              await prepareVisibleMessageHtml(cached.data);
               return;
             }
 
@@ -72,12 +74,15 @@ export function useAdjacentThreadPrefetch({
               populateCache: true,
               revalidate: false,
             });
-            await writeCachedThread({
-              emailAccountId,
-              threadId,
-              variant: request.variant,
-              data,
-            });
+            await Promise.all([
+              writeCachedThread({
+                emailAccountId,
+                threadId,
+                variant: request.variant,
+                data,
+              }),
+              prepareVisibleMessageHtml(data),
+            ]);
           })
           .catch(() => {
             // Prefetch failures are intentionally silent; opening still retries normally.
@@ -97,6 +102,14 @@ export function useAdjacentThreadPrefetch({
       if (timeout !== undefined) window.clearTimeout(timeout);
     };
   }, [adjacentThreadIds, emailAccountId, fetcher, mutate]);
+}
+
+async function prepareVisibleMessageHtml(data: ThreadResponse) {
+  const message = data.thread.messages.findLast(
+    (candidate) => !candidate.labelIds?.includes("DRAFT"),
+  );
+  if (!message?.textHtml) return;
+  await prepareEmailHtml({ messageId: message.id, html: message.textHtml });
 }
 
 function shouldPrefetch() {

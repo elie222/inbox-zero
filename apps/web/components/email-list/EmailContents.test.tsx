@@ -37,18 +37,18 @@ describe("HtmlEmail", () => {
     vi.unstubAllGlobals();
   });
 
-  it("requests fresh rewritten html after remounting the same email", async () => {
+  it("reuses recently prepared html after remounting the same email", async () => {
     const html = "<p>Hello</p>";
 
-    const firstRender = render(<HtmlEmail html={html} />);
+    const firstRender = render(<HtmlEmail html={html} messageId="message-1" />);
     await waitFor(() => {
       expect(fetch).toHaveBeenCalledTimes(1);
     });
     firstRender.unmount();
 
-    render(<HtmlEmail html={html} />);
+    render(<HtmlEmail html={html} messageId="message-1" />);
     await waitFor(() => {
-      expect(fetch).toHaveBeenCalledTimes(2);
+      expect(fetch).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -64,7 +64,10 @@ describe("HtmlEmail", () => {
     );
 
     const { getByTitle } = render(
-      <HtmlEmail html={'<img src="https://cdn.example.com/photo.png" />'} />,
+      <HtmlEmail
+        html={'<img src="https://cdn.example.com/photo.png" />'}
+        messageId="message-2"
+      />,
     );
 
     await waitFor(() => {
@@ -87,7 +90,10 @@ describe("HtmlEmail", () => {
     );
 
     const { getByTitle } = render(
-      <HtmlEmail html={'<img src="https://cdn.example.com/photo.png" />'} />,
+      <HtmlEmail
+        html={'<img src="https://cdn.example.com/photo.png" />'}
+        messageId="message-3"
+      />,
     );
 
     await waitFor(() => {

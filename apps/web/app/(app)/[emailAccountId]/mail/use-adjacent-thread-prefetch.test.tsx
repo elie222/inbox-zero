@@ -10,10 +10,17 @@ const cache = vi.hoisted(() => ({
   read: vi.fn(),
   write: vi.fn(),
 }));
+const emailHtml = vi.hoisted(() => ({
+  prepare: vi.fn(),
+}));
 
 vi.mock("@/utils/email-cache/threads", () => ({
   readCachedThread: cache.read,
   writeCachedThread: cache.write,
+}));
+
+vi.mock("@/utils/email/prepare-html.client", () => ({
+  prepareEmailHtml: emailHtml.prepare,
 }));
 
 describe("useAdjacentThreadPrefetch", () => {
@@ -21,6 +28,7 @@ describe("useAdjacentThreadPrefetch", () => {
     vi.clearAllMocks();
     cache.read.mockResolvedValue(undefined);
     cache.write.mockResolvedValue(undefined);
+    emailHtml.prepare.mockResolvedValue(undefined);
     Object.defineProperty(window, "requestIdleCallback", {
       configurable: true,
       value: (callback: IdleRequestCallback) => {
@@ -77,6 +85,56 @@ describe("useAdjacentThreadPrefetch", () => {
       await Promise.resolve();
     });
     expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it("prepares the visible message html while prefetching a conversation", async () => {
+    const fetcher = vi.fn((key: [string, string]) => {
+      const threadId = key[0].includes("thread-1") ? "thread-1" : "thread-3";
+      return Promise.resolve({
+        thread: {
+          id: threadId,
+          messages: [
+            {
+              id: `${threadId}-older`,
+              labelIds: [],
+              textHtml: `<p>${threadId} older</p>`,
+            },
+            {
+              id: `${threadId}-draft`,
+              labelIds: ["DRAFT"],
+              textHtml: `<p>${threadId} draft</p>`,
+            },
+            {
+              id: `${threadId}-latest`,
+              labelIds: [],
+              textHtml: `<p>${threadId} latest</p>`,
+            },
+          ],
+        },
+      });
+    });
+
+    renderHook(
+      () =>
+        useAdjacentThreadPrefetch({
+          currentThreadId: "thread-2",
+          emailAccountId: "account-1",
+          threadIds: ["thread-1", "thread-2", "thread-3"],
+        }),
+      { wrapper: createWrapper(fetcher) },
+    );
+
+    await waitFor(() => expect(emailHtml.prepare).toHaveBeenCalledTimes(2));
+    expect(emailHtml.prepare.mock.calls.map(([input]) => input)).toEqual([
+      {
+        messageId: "thread-1-latest",
+        html: "<p>thread-1 latest</p>",
+      },
+      {
+        messageId: "thread-3-latest",
+        html: "<p>thread-3 latest</p>",
+      },
+    ]);
   });
 });
 

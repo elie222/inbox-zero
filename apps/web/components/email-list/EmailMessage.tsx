@@ -97,7 +97,7 @@ export function EmailMessage({
           {showDetails && <EmailDetails message={message} />}
 
           {message.textHtml ? (
-            <HtmlEmail html={message.textHtml} />
+            <HtmlEmail html={message.textHtml} messageId={message.id} />
           ) : (
             <PlainEmail text={message.textPlain || ""} />
           )}
