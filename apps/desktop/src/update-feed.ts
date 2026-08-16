@@ -3,7 +3,7 @@ import path from "node:path";
 import {
   compareDesktopVersions,
   isPrereleaseDesktopVersion,
-} from "../../web/utils/desktop/desktop-version";
+} from "../../web/utils/desktop/desktop-version.ts";
 
 export const DESKTOP_GITHUB_REPO = "elie222/inbox-zero";
 export const DESKTOP_UPDATE_FEED_TAG = "desktop-updates";

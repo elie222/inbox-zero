@@ -89,6 +89,15 @@ describe("pickLatestDesktopRelease", () => {
 
     expect(links?.version).toBe("0.2.0");
   });
+
+  it("keeps a stable tag that includes SemVer build metadata", () => {
+    const links = pickLatestDesktopRelease([
+      release("desktop-v0.9.0", ["Inbox-Zero-0.9.0-mac-arm64.dmg"]),
+      release("desktop-v1.0.0+build-1", ["Inbox-Zero-1.0.0-mac-arm64.dmg"]),
+    ]);
+
+    expect(links?.version).toBe("1.0.0+build-1");
+  });
 });
 
 describe("detectDesktopClientPlatform", () => {
