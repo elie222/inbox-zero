@@ -33,6 +33,10 @@ import type {
 import { ThreadList } from "@/app/(app)/[emailAccountId]/mail/ThreadList";
 import { ThreadReader } from "@/app/(app)/[emailAccountId]/mail/ThreadReader";
 import {
+  getActiveThreadIndex,
+  getNextThreadIdAfterRemoval,
+} from "@/app/(app)/[emailAccountId]/mail/thread-list-behavior";
+import {
   getListThreadKey,
   type MailLayoutMode,
 } from "@/app/(app)/[emailAccountId]/mail/types";
@@ -251,11 +255,16 @@ export function MailShell() {
       Math.min(Math.max(0, index), Math.max(0, threads.length - 1)),
     [threads.length],
   );
-  const clampedIndex = clampIndex(focusedIndex);
+  const clampedIndex = getActiveThreadIndex({
+    threadIds: orderedIds,
+    focusedIndex,
+    openThreadId,
+  });
   const focusedThread = threads[clampedIndex];
-  const openThread = isAllAccounts
-    ? undefined
-    : threads.find((thread) => thread.id === openThreadId);
+  const openThread =
+    !isAllAccounts && openThreadId === focusedThread?.id
+      ? focusedThread
+      : undefined;
   const resolvedOpenThreadId = openThread?.id;
   const readAttemptedForOpenThread = useRef<string | null>(null);
 
@@ -315,19 +324,38 @@ export function MailShell() {
   );
 
   const runOn = useCallback(
-    (action: (ids: string[]) => void, removeFromList: boolean) => {
+    (
+      action: (ids: string[]) => void,
+      removeFromList: boolean,
+      autoAdvanceReader = false,
+    ) => {
       if (isAllAccounts) return;
       const ids = selection.targetIds(
         focusedThread ? getListThreadKey(focusedThread) : undefined,
       );
       if (!ids.length) return;
       if (removeFromList && openThreadId && ids.includes(openThreadId)) {
-        setOpenThreadId(null);
+        setOpenThreadId(
+          autoAdvanceReader
+            ? getNextThreadIdAfterRemoval({
+                threadIds: orderedIds,
+                currentThreadId: openThreadId,
+                removedThreadIds: ids,
+              })
+            : null,
+        );
       }
       selection.clear();
       action(ids);
     },
-    [isAllAccounts, selection, focusedThread, openThreadId, setOpenThreadId],
+    [
+      focusedThread,
+      isAllAccounts,
+      openThreadId,
+      orderedIds,
+      selection,
+      setOpenThreadId,
+    ],
   );
 
   const openAt = useCallback(
@@ -350,12 +378,12 @@ export function MailShell() {
     (delta: number) => {
       const next = clampIndex(clampedIndex + delta);
       setFocusedIndex(next);
-      // In split view the reader tracks the cursor; in list view it doesn't,
-      // so J/K browses the list without yanking you out of what you're reading.
-      if (layout === "split" && threads[next])
+      // Once a reader is open, navigation keeps its content and position in
+      // step. A closed list view still lets J/K move the row cursor alone.
+      if ((layout === "split" || openThreadId) && threads[next])
         setOpenThreadId(threads[next].id);
     },
-    [clampIndex, clampedIndex, threads, layout, setOpenThreadId],
+    [clampIndex, clampedIndex, threads, layout, openThreadId, setOpenThreadId],
   );
 
   const extendSelection = useCallback(
@@ -370,7 +398,7 @@ export function MailShell() {
   const openShortcuts = useCallback(() => setIsHelpOpen(true), []);
   const archiveTargets = useCallback(async () => {
     if (!isAllAccounts) {
-      runOn(archive, true);
+      runOn(archive, true, true);
       return;
     }
     if (!focusedThread || !("account" in focusedThread)) return;

@@ -1,9 +1,75 @@
 import { describe, expect, it } from "vitest";
 import {
+  getActiveThreadIndex,
+  getNextThreadIdAfterRemoval,
   scrollElementIntoContainer,
   shouldPrefetchMoreThreads,
   THREAD_PREFETCH_REMAINING,
 } from "./thread-list-behavior";
+
+describe("getActiveThreadIndex", () => {
+  it("uses the open reader instead of a stale row cursor", () => {
+    expect(
+      getActiveThreadIndex({
+        threadIds: ["one", "two", "three"],
+        focusedIndex: 0,
+        openThreadId: "three",
+      }),
+    ).toBe(2);
+  });
+
+  it("uses the row cursor when the reader is closed", () => {
+    expect(
+      getActiveThreadIndex({
+        threadIds: ["one", "two", "three"],
+        focusedIndex: 1,
+        openThreadId: null,
+      }),
+    ).toBe(1);
+  });
+});
+
+describe("getNextThreadIdAfterRemoval", () => {
+  it("advances to the next surviving thread", () => {
+    expect(
+      getNextThreadIdAfterRemoval({
+        threadIds: ["one", "two", "three"],
+        currentThreadId: "two",
+        removedThreadIds: ["two"],
+      }),
+    ).toBe("three");
+  });
+
+  it("skips other threads removed by the same action", () => {
+    expect(
+      getNextThreadIdAfterRemoval({
+        threadIds: ["one", "two", "three", "four"],
+        currentThreadId: "two",
+        removedThreadIds: ["two", "three"],
+      }),
+    ).toBe("four");
+  });
+
+  it("falls back to the previous surviving thread at the end", () => {
+    expect(
+      getNextThreadIdAfterRemoval({
+        threadIds: ["one", "two", "three"],
+        currentThreadId: "three",
+        removedThreadIds: ["two", "three"],
+      }),
+    ).toBe("one");
+  });
+
+  it("closes the reader when every thread is removed", () => {
+    expect(
+      getNextThreadIdAfterRemoval({
+        threadIds: ["one", "two"],
+        currentThreadId: "one",
+        removedThreadIds: ["one", "two"],
+      }),
+    ).toBeNull();
+  });
+});
 
 describe("shouldPrefetchMoreThreads", () => {
   it("does not prefetch when there is no next page", () => {
