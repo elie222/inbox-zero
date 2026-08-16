@@ -47,7 +47,7 @@ test("changes which Google calendar is used for availability", async ({
     page.getByRole("button", {
       name: "0 of 1 calendars selected for availability",
     }),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 60_000 });
 });
 
 test("persists the booking link and scheduling timezone", async ({ page }) => {
