@@ -3,17 +3,22 @@
   "private": true,
   "version": "0.1.0",
   "description": "Electron shell for the Inbox Zero web app",
+  "author": "Inbox Zero",
   "type": "module",
   "main": "dist/main.js",
   "scripts": {
     "build": "node esbuild.config.mjs",
     "dev": "pnpm build && electron .",
     "start": "electron .",
+    "dist": "pnpm build && electron-builder --publish never",
+    "dist:mac": "pnpm build && electron-builder --mac --publish never",
+    "dist:win": "pnpm build && electron-builder --win --publish never",
     "test": "vitest run"
   },
   "devDependencies": {
     "@types/node": "24.10.1",
     "electron": "43.4.0",
+    "electron-builder": "26.15.3",
     "esbuild": "0.28.1",
     "typescript": "6.0.3",
     "vitest": "4.1.10"

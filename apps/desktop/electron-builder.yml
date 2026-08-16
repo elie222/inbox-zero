@@ -1,0 +1,44 @@
+appId: com.getinboxzero.desktop
+productName: Inbox Zero
+copyright: Copyright © Inbox Zero
+artifactName: Inbox-Zero-${version}-${os}-${arch}.${ext}
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist/**/*
+  - package.json
+asar: true
+npmRebuild: false
+protocols:
+  - name: Inbox Zero
+    schemes:
+      - inboxzero
+mac:
+  category: public.app-category.productivity
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  notarize: false
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+    - target: zip
+      arch:
+        - arm64
+        - x64
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+        - arm64
+nsis:
+  oneClick: true
+  perMachine: false
+  allowToChangeInstallationDirectory: false
+publish:
+  provider: github
+  owner: elie222
+  repo: inbox-zero
