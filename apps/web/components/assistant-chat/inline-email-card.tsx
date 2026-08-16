@@ -653,7 +653,7 @@ function EmailPreview({
   const body = (
     <>
       {lastMessage.textHtml ? (
-        <HtmlEmail html={lastMessage.textHtml} />
+        <HtmlEmail html={lastMessage.textHtml} messageId={lastMessage.id} />
       ) : (
         <PlainEmail
           text={
