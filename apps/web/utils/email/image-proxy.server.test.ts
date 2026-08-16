@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { validateAssetProxySignature } from "@inboxzero/image-proxy/proxy-url";
 import { createTestLogger } from "@/__tests__/helpers";
 
 describe("rewriteHtmlForImageProxy", () => {
@@ -58,6 +59,34 @@ describe("rewriteHtmlForImageProxy", () => {
     expect(result.remoteAssetsProxied).toBe(true);
     expect(warnSpy).not.toHaveBeenCalled();
   });
+
+  it("signs with the first secret when rotation secrets are configured", async () => {
+    const currentSecret = "a".repeat(20);
+    const previousSecret = "b".repeat(20);
+    const { rewriteHtmlForImageProxy } = await loadModule({
+      IMAGE_PROXY_SIGNING_SECRET: `${currentSecret}, ${previousSecret}`,
+      NEXT_PUBLIC_IMAGE_PROXY_BASE_URL: "https://proxy.example.com/image",
+    });
+
+    const result = await rewriteHtmlForImageProxy(
+      '<img src="https://cdn.example.com/photo.png" />',
+      createTestLogger(),
+    );
+    const src = result.html
+      .match(/src="([^"]+)"/)?.[1]
+      .replaceAll("&amp;", "&");
+    const proxyUrl = new URL(src!);
+
+    await expect(
+      validateAssetProxySignature({
+        assetUrl: proxyUrl.searchParams.get("u")!,
+        expiresAt: Number.parseInt(proxyUrl.searchParams.get("e")!, 10),
+        signature: proxyUrl.searchParams.get("s")!,
+        signingSecret: currentSecret,
+      }),
+    ).resolves.toBe(true);
+  });
+
   it("rewrites remote assets through the app proxy route when enabled", async () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const { rewriteHtmlForImageProxy } = await loadModule({
