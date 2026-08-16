@@ -208,11 +208,7 @@ export function ThreadList({
                   </Button>
                 )}
               </div>
-            ) : (
-              <div className="px-4 pt-5 pb-10 text-center text-muted-foreground text-xs">
-                That's everything in this view
-              </div>
-            )}
+            ) : null}
           </>
         )}
       </div>
