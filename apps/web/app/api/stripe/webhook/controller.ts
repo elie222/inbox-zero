@@ -17,6 +17,7 @@ import {
 } from "@/utils/analytics/server-conversion-events";
 import { sendFacebookConversionEvent } from "@/utils/fb";
 import {
+  getCheckoutSessionIdHash,
   trackBillingTrialStarted,
   trackStripeEvent,
   trackSubscriptionTrialStarted,
@@ -298,10 +299,18 @@ async function trackFacebookBillingConversion({
 }
 
 async function trackEvent(email: string | undefined, event: Stripe.Event) {
+  const checkoutSessionIdHash =
+    event.type === "checkout.session.completed"
+      ? getCheckoutSessionIdHash(
+          (event.data.object as Stripe.Checkout.Session).id,
+        )
+      : undefined;
+
   return trackStripeEvent(email ?? "Unknown", {
     ...event.data.object,
     id: event.id,
     type: event.type,
+    ...(checkoutSessionIdHash && { checkoutSessionIdHash }),
     object: event.data.object, // for legacy
   });
 }

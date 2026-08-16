@@ -8,6 +8,7 @@ const mockEnv = vi.hoisted(() => ({
   POSTHOG_PROJECT_ID: "project-1",
   POSTHOG_FEEDBACK_SURVEY_ID: "survey-1" as string | undefined,
   POSTHOG_FEEDBACK_SURVEY_QUESTION_ID: "question-1" as string | undefined,
+  EMAIL_ENCRYPT_SALT: "test-encryption-salt",
   NODE_ENV: "test",
 }));
 
@@ -39,6 +40,7 @@ vi.mock("@/utils/prisma");
 import {
   FIRST_TIME_EVENTS,
   deletePosthogUser,
+  getCheckoutSessionIdHash,
   posthogCaptureEvent,
   trackFirstTimeEvent,
   trackProductFeedback,
@@ -299,6 +301,15 @@ describe("trackStripeCheckoutCreated", () => {
       { nx: true, ex: 172_800 },
     );
     expect(captureMock).toHaveBeenCalledTimes(1);
+    expect(captureMock).toHaveBeenCalledWith({
+      distinctId: "user@example.com",
+      event: "Stripe checkout created",
+      properties: {
+        checkoutSessionIdHash: getCheckoutSessionIdHash("cs_test"),
+        tier: "BASIC_MONTHLY",
+      },
+      sendFeatureFlags: undefined,
+    });
   });
 
   it("captures when Redis is unavailable", async () => {

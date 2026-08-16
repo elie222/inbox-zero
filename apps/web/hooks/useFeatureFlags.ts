@@ -75,14 +75,14 @@ export function usePricingVariant() {
   );
 }
 
-export type PricingFrequencyDefault = "control" | "annually";
+export type PricingFrequencyDefault = "control" | "monthly" | "annually";
 
-export function usePricingFrequencyDefault() {
-  return (
-    (useFeatureFlagVariantKey(
-      "pricing-frequency-default",
-    ) as PricingFrequencyDefault) || "control"
-  );
+export function usePricingFrequencyDefault():
+  | PricingFrequencyDefault
+  | undefined {
+  return useFeatureFlagVariantKey("pricing-frequency-default") as
+    | PricingFrequencyDefault
+    | undefined;
 }
 
 export type TestimonialsVariant = "control" | "senja-widget";

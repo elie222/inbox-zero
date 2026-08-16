@@ -24,19 +24,21 @@ export const GET = withAuth("stripe/success", async (request) => {
 
   if (!user?.premium?.stripeCustomerId) redirect("/premium");
 
+  const stripeCheckoutSessionId = new URL(request.url).searchParams.get(
+    "session_id",
+  );
+
   after(async () => {
     if (!user?.email) return;
-    trackStripeCheckoutCompleted(user.email, { source: "success_redirect" });
+    await trackStripeCheckoutCompleted(user.email, {
+      source: "success_redirect",
+    });
   });
 
   await syncStripeDataToDb({
     customerId: user.premium.stripeCustomerId,
     logger,
   });
-
-  const stripeCheckoutSessionId = new URL(request.url).searchParams.get(
-    "session_id",
-  );
 
   redirect(
     buildRedirectUrl("/setup", {
