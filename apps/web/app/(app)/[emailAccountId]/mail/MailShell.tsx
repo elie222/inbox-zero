@@ -820,6 +820,7 @@ export function MailShell() {
           <ThreadReader
             key={openThreadId ?? "empty"}
             thread={openThread ?? null}
+            threadId={openThreadId}
             messages={openMessages ?? []}
             userEmail={userEmail}
             userLabels={userLabels}

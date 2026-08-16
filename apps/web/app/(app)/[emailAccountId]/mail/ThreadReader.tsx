@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
-import { MailIcon } from "lucide-react";
+import { Loader2Icon, MailIcon } from "lucide-react";
 import { ReaderToolbar } from "@/app/(app)/[emailAccountId]/mail/ReaderToolbar";
 import type {
   ListThread,
@@ -28,8 +28,10 @@ const SenderContextSheet = dynamic(
 );
 
 export type ThreadReaderProps = {
-  /** The row that is open. `null` renders the empty state. */
+  /** The row that is open. It may lag behind the selected thread while loading. */
   thread: ListThread | null;
+  /** The selected thread, including while its row and messages are loading. */
+  threadId: string | null;
   /**
    * The open thread's full messages. The list payload has no bodies, so this
    * arrives from a second fetch; the header renders before it lands.
@@ -62,6 +64,7 @@ export type ThreadReaderProps = {
 
 export function ThreadReader({
   thread,
+  threadId,
   messages,
   userEmail,
   userLabels,
@@ -83,16 +86,25 @@ export function ThreadReader({
   const [senderContextState, setSenderContextState] = useState<
     "unloaded" | "open" | "closed"
   >("unloaded");
-  const headerMessage = thread?.messages.at(-1);
+  const headerMessage = thread?.messages.at(-1) ?? messages.at(-1);
 
-  if (!thread || !headerMessage) {
+  if (!headerMessage) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-2 px-6 py-16 text-center">
-        <MailIcon className="size-6 text-muted-foreground" />
-        <div className="text-foreground text-sm">Nothing selected</div>
-        <div className="text-muted-foreground text-xs">
-          Pick another view, or head back to the inbox.
-        </div>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center gap-2 px-6 py-16 text-center">
+        {threadId ? (
+          <Loader2Icon
+            aria-label="Loading email"
+            className="size-6 animate-spin text-muted-foreground"
+          />
+        ) : (
+          <>
+            <MailIcon className="size-6 text-muted-foreground" />
+            <div className="text-foreground text-sm">Nothing selected</div>
+            <div className="text-muted-foreground text-xs">
+              Pick another view, or head back to the inbox.
+            </div>
+          </>
+        )}
       </div>
     );
   }
@@ -142,7 +154,7 @@ export function ThreadReader({
           {messages.length > 0 ? (
             <EmailThread
               autoOpenReplyForMessageId={autoOpenReplyForMessageId}
-              key={thread.id}
+              key={threadId}
               messages={messages}
               refetch={refetch}
               showReplyButton
