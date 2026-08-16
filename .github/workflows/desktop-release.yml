@@ -42,10 +42,12 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "24"
-          cache: pnpm
 
       - name: Install desktop dependencies
         run: pnpm install --frozen-lockfile --filter @inboxzero/desktop...
+
+      - name: Rebuild esbuild binary
+        run: pnpm --filter @inboxzero/desktop rebuild esbuild
 
       - name: Set version from tag
         if: startsWith(github.ref, 'refs/tags/desktop-v')
