@@ -12,3 +12,11 @@ Playwright tests are separated by their dependency boundary:
 Within `emulated/`, group specs by product area, such as `mail/` or
 `automation/`. Keep setup files inside the boundary they support so
 real-provider tests cannot accidentally reuse emulated authentication state.
+
+The emulated project runs when browser-facing files change in pull requests or
+on `main`, plus the daily schedule and manual dispatches. Pull requests retain
+the HTML report, screenshots, traces, and videos as GitHub Actions artifacts.
+Runs on `main` also publish a persistent report history to the public
+Playwright dashboard:
+
+<https://izghactions.fsn1.your-objectstorage.com/playwright/index.html>

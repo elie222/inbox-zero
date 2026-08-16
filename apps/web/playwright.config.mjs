@@ -46,13 +46,18 @@ process.env.PLAYWRIGHT_TEST_EMAIL = playwrightTestEmail;
 
 export default defineConfig({
   testDir: "./__tests__/playwright",
+  forbidOnly: !!process.env.CI,
   fullyParallel: false,
   retries: process.env.CI ? 1 : 0,
   timeout: 240_000,
   expect: {
     timeout: 20_000,
   },
-  reporter: process.env.CI ? [["github"], ["list"]] : [["list"]],
+  reporter: [
+    ...(process.env.CI ? [["github"]] : []),
+    ["list"],
+    ["html", { open: "never", outputFolder: "playwright-report" }],
+  ],
   use: {
     baseURL,
     trace: "retain-on-failure",
