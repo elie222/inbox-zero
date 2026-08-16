@@ -5,6 +5,7 @@ import { WELL_KNOWN_FOLDERS } from "./constants";
 import {
   extractErrorInfo,
   withMicrosoftGraphRetry,
+  withMicrosoftGraphWriteRetry,
 } from "@/utils/microsoft/retry";
 import {
   processThreadMessagesFallback,
@@ -112,7 +113,7 @@ export async function createLabel({
         ? color
         : OUTLOOK_COLORS[Math.floor(Math.random() * OUTLOOK_COLORS.length)];
 
-    const response: OutlookCategory = await withMicrosoftGraphRetry(
+    const response: OutlookCategory = await withMicrosoftGraphWriteRetry(
       () =>
         client.getClient().api("/me/outlook/masterCategories").post({
           displayName: sanitizedName,
@@ -257,7 +258,7 @@ export async function labelMessage({
   categories: string[];
   logger: Logger;
 }) {
-  return withMicrosoftGraphRetry(
+  return withMicrosoftGraphWriteRetry(
     () =>
       client.getClient().api(`/me/messages/${messageId}`).patch({
         categories,
@@ -346,7 +347,7 @@ export async function removeThreadLabel({
         (cat) => cat !== categoryName,
       );
 
-      await withMicrosoftGraphRetry(
+      await withMicrosoftGraphWriteRetry(
         () =>
           client.getClient().api(`/me/messages/${messageId}`).patch({
             categories: updatedCategories,
@@ -416,7 +417,7 @@ export async function archiveThread({
       threadId,
       logger,
       messageHandler: (messageId) =>
-        withMicrosoftGraphRetry(
+        withMicrosoftGraphWriteRetry(
           () =>
             client.getClient().api(`/me/messages/${messageId}/move`).post({
               destinationId: folderId,
@@ -477,7 +478,7 @@ export async function archiveThread({
         threadId,
         logger,
         messageHandler: (messageId) =>
-          withMicrosoftGraphRetry(
+          withMicrosoftGraphWriteRetry(
             () =>
               client
                 .getClient()
@@ -606,7 +607,7 @@ async function moveThreadFromFolderToInbox({
     threadId,
     logger,
     messageHandler: (messageId) =>
-      withMicrosoftGraphRetry(
+      withMicrosoftGraphWriteRetry(
         () =>
           client
             .getClient()
@@ -686,7 +687,7 @@ export async function markReadThread({
       threadId,
       logger,
       messageHandler: (messageId) =>
-        withMicrosoftGraphRetry(
+        withMicrosoftGraphWriteRetry(
           () =>
             client.getClient().api(`/me/messages/${messageId}`).patch({
               isRead: read,
@@ -708,7 +709,7 @@ export async function markReadThread({
         threadId,
         logger,
         messageHandler: (messageId) =>
-          withMicrosoftGraphRetry(
+          withMicrosoftGraphWriteRetry(
             () =>
               client
                 .getClient()
@@ -741,7 +742,7 @@ export async function markImportantMessage({
   logger: Logger;
 }) {
   // In Outlook, we use the "Important" flag
-  await withMicrosoftGraphRetry(
+  await withMicrosoftGraphWriteRetry(
     () =>
       client
         .getClient()
@@ -762,7 +763,7 @@ export async function markStarredMessage({
   messageId: string;
   logger: Logger;
 }) {
-  await withMicrosoftGraphRetry(
+  await withMicrosoftGraphWriteRetry(
     () =>
       client
         .getClient()

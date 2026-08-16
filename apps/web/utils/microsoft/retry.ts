@@ -27,69 +27,33 @@ export async function withMicrosoftGraphRetry<T>(
   maxRetries = 5,
   maxBlockingDelayMs = MAX_MICROSOFT_GRAPH_BLOCKING_RETRY_DELAY_MS,
 ): Promise<T> {
-  return pRetry(operation, {
-    retries: maxRetries,
-    onFailedAttempt: async (error) => {
-      const errorInfo = extractErrorInfo(error);
-      const { retryable, isRateLimit, isServerError, isConflictError } =
-        isRetryableError(errorInfo);
+  return withMicrosoftGraphRetryPolicy(
+    operation,
+    logger,
+    maxRetries,
+    maxBlockingDelayMs,
+    "all",
+  );
+}
 
-      if (!retryable) {
-        logger.warn("Non-retryable error encountered", {
-          error,
-          status: errorInfo.status,
-          code: errorInfo.code,
-          responseBody: errorInfo.responseBody,
-        });
-        throw error;
-      }
-
-      const retryAfterHeader = getRetryAfterHeaderFromError(error);
-
-      const delayMs = calculateRetryDelay(
-        isRateLimit,
-        isServerError,
-        isConflictError,
-        error.attemptNumber,
-        retryAfterHeader,
-      );
-
-      logger.warn("Microsoft Graph error. Will retry", {
-        delaySeconds: Math.ceil(delayMs / 1000),
-        attemptNumber: error.attemptNumber,
-        maxRetries,
-        maxBlockingDelaySeconds: Math.ceil(maxBlockingDelayMs / 1000),
-        status: errorInfo.status,
-        code: errorInfo.code,
-        isRateLimit,
-        isServerError,
-        isConflictError,
-        isFetchError: isFetchError(errorInfo),
-        retryAfterHeader,
-        responseBody: errorInfo.responseBody,
-      });
-
-      if (delayMs > maxBlockingDelayMs) {
-        logger.warn("Aborting retry due to long backoff in serverless", {
-          delaySeconds: Math.ceil(delayMs / 1000),
-          maxBlockingDelaySeconds: Math.ceil(maxBlockingDelayMs / 1000),
-          attemptNumber: error.attemptNumber,
-          maxRetries,
-          status: errorInfo.status,
-          code: errorInfo.code,
-          isRateLimit,
-          isServerError,
-          isConflictError,
-        });
-        throw error;
-      }
-
-      // Apply the custom delay
-      if (delayMs > 0) {
-        await sleep(delayMs);
-      }
-    },
-  });
+/**
+ * Retries a non-idempotent Microsoft Graph write only when Graph explicitly
+ * rejects it because of throttling. Network, server, and conflict failures are
+ * ambiguous because the write may already have succeeded.
+ */
+export async function withMicrosoftGraphWriteRetry<T>(
+  operation: () => Promise<T>,
+  logger: Logger,
+  maxRetries = 5,
+  maxBlockingDelayMs = MAX_MICROSOFT_GRAPH_BLOCKING_RETRY_DELAY_MS,
+): Promise<T> {
+  return withMicrosoftGraphRetryPolicy(
+    operation,
+    logger,
+    maxRetries,
+    maxBlockingDelayMs,
+    "rate-limit-only",
+  );
 }
 
 /**
@@ -97,21 +61,23 @@ export async function withMicrosoftGraphRetry<T>(
  */
 export function extractErrorInfo(error: unknown): ErrorInfo {
   const err = error as Record<string, unknown>;
+  const nestedError = err?.error as Record<string, unknown> | undefined;
 
   const status =
     (err?.statusCode as number) ??
     (err?.status as number) ??
     ((err?.response as Record<string, unknown>)?.status as number) ??
+    (nestedError?.statusCode as number) ??
+    (nestedError?.status as number) ??
+    ((nestedError?.response as Record<string, unknown>)?.status as number) ??
     undefined;
 
   const code =
-    (err?.code as string) ??
-    ((err?.error as Record<string, unknown>)?.code as string) ??
-    undefined;
+    (err?.code as string) ?? (nestedError?.code as string) ?? undefined;
 
   const primaryMessage =
     (err?.message as string) ??
-    ((err?.error as Record<string, unknown>)?.message as string) ??
+    (nestedError?.message as string) ??
     (err?.body as string) ??
     "";
 
@@ -218,4 +184,79 @@ export function calculateRetryDelay(
 
   // Default exponential backoff for other retryable errors: 1s, 2s, 4s, 8s, 16s
   return Math.min(1000 * 2 ** (attemptNumber - 1), 16_000);
+}
+
+async function withMicrosoftGraphRetryPolicy<T>(
+  operation: () => Promise<T>,
+  logger: Logger,
+  maxRetries: number,
+  maxBlockingDelayMs: number,
+  retryPolicy: "all" | "rate-limit-only",
+): Promise<T> {
+  return pRetry(operation, {
+    retries: maxRetries,
+    onFailedAttempt: async (error) => {
+      const errorInfo = extractErrorInfo(error);
+      const retryableError = isRetryableError(errorInfo);
+      const { isRateLimit, isServerError, isConflictError } = retryableError;
+      const retryable =
+        retryPolicy === "all" ? retryableError.retryable : isRateLimit;
+
+      if (!retryable) {
+        logger.warn("Non-retryable error encountered", {
+          error,
+          status: errorInfo.status,
+          code: errorInfo.code,
+          responseBody: errorInfo.responseBody,
+          retryPolicy,
+        });
+        throw error;
+      }
+
+      const retryAfterHeader = getRetryAfterHeaderFromError(error);
+
+      const delayMs = calculateRetryDelay(
+        isRateLimit,
+        isServerError,
+        isConflictError,
+        error.attemptNumber,
+        retryAfterHeader,
+      );
+
+      logger.warn("Microsoft Graph error. Will retry", {
+        delaySeconds: Math.ceil(delayMs / 1000),
+        attemptNumber: error.attemptNumber,
+        maxRetries,
+        maxBlockingDelaySeconds: Math.ceil(maxBlockingDelayMs / 1000),
+        status: errorInfo.status,
+        code: errorInfo.code,
+        isRateLimit,
+        isServerError,
+        isConflictError,
+        isFetchError: isFetchError(errorInfo),
+        retryAfterHeader,
+        responseBody: errorInfo.responseBody,
+        retryPolicy,
+      });
+
+      if (delayMs > maxBlockingDelayMs) {
+        logger.warn("Aborting retry due to long backoff in serverless", {
+          delaySeconds: Math.ceil(delayMs / 1000),
+          maxBlockingDelaySeconds: Math.ceil(maxBlockingDelayMs / 1000),
+          attemptNumber: error.attemptNumber,
+          maxRetries,
+          status: errorInfo.status,
+          code: errorInfo.code,
+          isRateLimit,
+          isServerError,
+          isConflictError,
+        });
+        throw error;
+      }
+
+      if (delayMs > 0) {
+        await sleep(delayMs);
+      }
+    },
+  });
 }

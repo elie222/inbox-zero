@@ -12,7 +12,10 @@ import {
   buildReplyAllRecipients,
   mergeAndDedupeRecipients,
 } from "@/utils/email/reply-all";
-import { withMicrosoftGraphRetry } from "@/utils/microsoft/retry";
+import {
+  withMicrosoftGraphRetry,
+  withMicrosoftGraphWriteRetry,
+} from "@/utils/microsoft/retry";
 import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
 import { uploadResumableChunks } from "@/utils/microsoft/upload-session";
@@ -50,7 +53,7 @@ export async function sendEmailWithHtml(
 
   // For new emails, create draft then send to get the conversationId.
   // sendMail returns 202 with no body, so we use the draft approach instead.
-  const draft: Message = await withMicrosoftGraphRetry(
+  const draft: Message = await withMicrosoftGraphWriteRetry(
     () =>
       client
         .getClient()
@@ -78,7 +81,7 @@ export async function sendEmailWithHtml(
     });
   }
 
-  await withMicrosoftGraphRetry(
+  await withMicrosoftGraphWriteRetry(
     () => client.getClient().api(`/me/messages/${draft.id}/send`).post({}),
     logger,
   );
@@ -116,7 +119,7 @@ export async function replyToEmail(
   // Use createReply to create a properly threaded draft
   // Microsoft Graph's sendMail doesn't support setting In-Reply-To/References headers
   // Only createReply/createReplyAll endpoints ensure proper threading
-  const replyDraft: Message = await withMicrosoftGraphRetry(
+  const replyDraft: Message = await withMicrosoftGraphWriteRetry(
     () =>
       client.getClient().api(`/me/messages/${message.id}/createReply`).post({}),
     logger,
@@ -128,7 +131,7 @@ export async function replyToEmail(
   );
 
   // Update the draft with our content
-  await withMicrosoftGraphRetry(
+  await withMicrosoftGraphWriteRetry(
     () =>
       client
         .getClient()
@@ -158,7 +161,7 @@ export async function replyToEmail(
   }
 
   // Send the draft
-  await withMicrosoftGraphRetry(
+  await withMicrosoftGraphWriteRetry(
     () => client.getClient().api(`/me/messages/${replyDraft.id}/send`).post({}),
     logger,
   );
@@ -217,7 +220,7 @@ export async function forwardEmail(
     conversationIndex: originalMessage.conversationId || "",
   };
 
-  const forwardDraft: Message = await withMicrosoftGraphRetry(
+  const forwardDraft: Message = await withMicrosoftGraphWriteRetry(
     () =>
       client
         .getClient()
@@ -231,7 +234,7 @@ export async function forwardEmail(
     forwardDraft.from?.emailAddress?.address,
   );
 
-  await withMicrosoftGraphRetry(
+  await withMicrosoftGraphWriteRetry(
     () =>
       client
         .getClient()
@@ -253,7 +256,7 @@ export async function forwardEmail(
     logger,
   );
 
-  await withMicrosoftGraphRetry(
+  await withMicrosoftGraphWriteRetry(
     () =>
       client.getClient().api(`/me/messages/${forwardDraft.id}/send`).post({}),
     logger,
@@ -346,7 +349,7 @@ export async function draftEmail(
 
   // Use createReplyAll endpoint to create a proper reply draft
   // This ensures the draft is linked to the original message as a reply all
-  const replyDraft: Message = await withMicrosoftGraphRetry(
+  const replyDraft: Message = await withMicrosoftGraphWriteRetry(
     () =>
       client
         .getClient()
@@ -364,7 +367,7 @@ export async function draftEmail(
     updateRequest.header("If-Match", etag);
   }
 
-  const updatedDraft: Message = await withMicrosoftGraphRetry(
+  const updatedDraft: Message = await withMicrosoftGraphWriteRetry(
     () =>
       updateRequest.patch({
         subject: args.subject || originalEmail.headers.subject,
@@ -391,7 +394,7 @@ export async function draftEmail(
   // Restore the original message's unread status if it was unread before
   // createReplyAll automatically marks the original message as read
   if (wasUnread) {
-    await withMicrosoftGraphRetry(
+    await withMicrosoftGraphWriteRetry(
       () =>
         client
           .getClient()
@@ -422,7 +425,7 @@ async function sendReplyUsingCreateReply(
   // Use createReply to create a properly threaded draft
   // Microsoft Graph's createReply automatically sets In-Reply-To and References headers
   // based on the original message, ensuring proper threading across email providers
-  const replyDraft: Message = await withMicrosoftGraphRetry(
+  const replyDraft: Message = await withMicrosoftGraphWriteRetry(
     () =>
       client
         .getClient()
@@ -435,7 +438,7 @@ async function sendReplyUsingCreateReply(
   // Note: We cannot set In-Reply-To/References headers via internetMessageHeaders
   // as Microsoft Graph only allows custom headers (starting with x-) there.
   // The createReply endpoint handles standard threading headers automatically.
-  await withMicrosoftGraphRetry(
+  await withMicrosoftGraphWriteRetry(
     () =>
       client
         .getClient()
@@ -467,7 +470,7 @@ async function sendReplyUsingCreateReply(
   }
 
   // Send the draft
-  await withMicrosoftGraphRetry(
+  await withMicrosoftGraphWriteRetry(
     () => client.getClient().api(`/me/messages/${replyDraft.id}/send`).post({}),
     logger,
   );
@@ -550,7 +553,7 @@ async function addAttachmentsToDraft({
     if (!result) continue;
     const { buffer, base64 } = result;
     if (buffer.length <= MAX_GRAPH_ATTACHMENT_SIZE_BYTES) {
-      await withMicrosoftGraphRetry(
+      await withMicrosoftGraphWriteRetry(
         () =>
           client
             .getClient()
@@ -639,7 +642,7 @@ async function uploadAttachmentViaSession({
   content: Buffer;
   logger: Logger;
 }) {
-  const uploadSession = await withMicrosoftGraphRetry(
+  const uploadSession = await withMicrosoftGraphWriteRetry(
     () =>
       client
         .getClient()

@@ -5,6 +5,7 @@ import {
   isRetryableError,
   calculateRetryDelay,
   withMicrosoftGraphRetry,
+  withMicrosoftGraphWriteRetry,
 } from "./retry";
 
 describe("extractErrorInfo", () => {
@@ -49,6 +50,21 @@ describe("extractErrorInfo", () => {
         message: "Rate limited",
       },
       expected: { status: 429, errorMessage: "Rate limited" },
+    },
+    {
+      name: "p-retry wrapped error",
+      error: {
+        error: {
+          statusCode: 429,
+          code: "TooManyRequests",
+          message: "Throttled",
+        },
+      },
+      expected: {
+        status: 429,
+        code: "TooManyRequests",
+        errorMessage: "Throttled",
+      },
     },
   ])("extracts $name", ({ error, expected }) => {
     expect(extractErrorInfo(error)).toMatchObject(expected);
@@ -226,5 +242,38 @@ describe("withMicrosoftGraphRetry", () => {
     ).rejects.toBeDefined();
 
     expect(operation).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("withMicrosoftGraphWriteRetry", () => {
+  it.each([
+    Object.assign(new Error("Service unavailable"), { statusCode: 503 }),
+    new Error("fetch failed"),
+    Object.assign(new Error("Change key conflict"), { statusCode: 412 }),
+  ])("does not repeat a write after an ambiguous failure", async (error) => {
+    const operation = vi.fn().mockRejectedValue(error);
+
+    await expect(
+      withMicrosoftGraphWriteRetry(operation, createTestLogger()),
+    ).rejects.toBeDefined();
+
+    expect(operation).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries a write rejected by a rate limit", async () => {
+    const rateLimitError = Object.assign(new Error("Throttled"), {
+      statusCode: 429,
+      response: { headers: { "retry-after": "0" } },
+    });
+    const operation = vi
+      .fn()
+      .mockRejectedValueOnce(rateLimitError)
+      .mockResolvedValue("ok");
+
+    await expect(
+      withMicrosoftGraphWriteRetry(operation, createTestLogger(), 1),
+    ).resolves.toBe("ok");
+
+    expect(operation).toHaveBeenCalledTimes(2);
   });
 });

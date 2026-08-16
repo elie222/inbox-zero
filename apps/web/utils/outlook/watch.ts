@@ -2,7 +2,7 @@ import type { Client } from "@microsoft/microsoft-graph-client";
 import type { Subscription } from "@microsoft/microsoft-graph-types";
 import { addDays } from "date-fns/addDays";
 import { env } from "@/env";
-import { withMicrosoftGraphRetry } from "@/utils/microsoft/retry";
+import { withMicrosoftGraphWriteRetry } from "@/utils/microsoft/retry";
 import type { Logger } from "@/utils/logger";
 
 export async function watchOutlook(client: Client, logger: Logger) {
@@ -23,7 +23,7 @@ export async function watchOutlook(client: Client, logger: Logger) {
     clientState: env.MICROSOFT_WEBHOOK_CLIENT_STATE,
   };
 
-  const subscription: Subscription = await withMicrosoftGraphRetry(
+  const subscription: Subscription = await withMicrosoftGraphWriteRetry(
     () => client.api("/subscriptions").post(subscriptionPayload),
     logger,
   );
@@ -39,7 +39,7 @@ export async function unwatchOutlook(
   subscriptionId: string,
   logger: Logger,
 ) {
-  await withMicrosoftGraphRetry(
+  await withMicrosoftGraphWriteRetry(
     () => client.api(`/subscriptions/${subscriptionId}`).delete(),
     logger,
   );

@@ -92,6 +92,7 @@ import {
   extractErrorInfo,
   isRetryableError,
   withMicrosoftGraphRetry,
+  withMicrosoftGraphWriteRetry,
 } from "@/utils/microsoft/retry";
 import { shouldSkipAutoDraft } from "@/utils/auto-draft";
 import { getOutlookMailboxSyncPage } from "@/utils/outlook/mailbox-sync";
@@ -598,7 +599,7 @@ export class OutlookProvider implements EmailProvider {
 
     // For threading, use createReply on the replyToMessageId
     if (params.replyToMessageId) {
-      const draft = await withMicrosoftGraphRetry(
+      const draft = await withMicrosoftGraphWriteRetry(
         () =>
           this.client
             .getClient()
@@ -608,7 +609,7 @@ export class OutlookProvider implements EmailProvider {
       );
 
       // Update the draft with our content
-      await withMicrosoftGraphRetry(
+      await withMicrosoftGraphWriteRetry(
         () =>
           this.client
             .getClient()
@@ -626,7 +627,7 @@ export class OutlookProvider implements EmailProvider {
     }
 
     // Otherwise create standalone draft
-    const draft = await withMicrosoftGraphRetry(
+    const draft = await withMicrosoftGraphWriteRetry(
       () =>
         this.client
           .getClient()
@@ -660,7 +661,7 @@ export class OutlookProvider implements EmailProvider {
       body.subject = params.subject;
     }
 
-    await withMicrosoftGraphRetry(
+    await withMicrosoftGraphWriteRetry(
       () => this.client.getClient().api(`/me/messages/${draftId}`).patch(body),
       this.logger,
     );
