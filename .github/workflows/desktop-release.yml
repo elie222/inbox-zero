@@ -87,24 +87,32 @@ jobs:
         if: runner.os == 'macOS'
         working-directory: apps/desktop
         run: |
-          shopt -s nullglob
-          apps=(
-            "release/mac/Inbox Zero.app"
-            "release/mac-arm64/Inbox Zero.app"
-            "release/mac-x64/Inbox Zero.app"
-          )
-          found=0
-          for app in "${apps[@]}"; do
-            if [ -d "$app" ]; then
-              echo "Verifying $app"
-              codesign --verify --deep --strict --verbose=2 "$app"
-              codesign -dv --verbose=2 "$app"
-              xcrun stapler validate "$app"
-              found=$((found + 1))
+          verify_app() {
+            echo "Verifying $1"
+            codesign --verify --deep --strict --verbose=2 "$1"
+            codesign -dv --verbose=2 "$1"
+            xcrun stapler validate "$1"
+          }
+          has_arm=0
+          has_x64=0
+          if [ -d "release/mac-arm64/Inbox Zero.app" ]; then
+            verify_app "release/mac-arm64/Inbox Zero.app"
+            has_arm=1
+          fi
+          if [ -d "release/mac-x64/Inbox Zero.app" ]; then
+            verify_app "release/mac-x64/Inbox Zero.app"
+            has_x64=1
+          fi
+          if [ -d "release/mac/Inbox Zero.app" ]; then
+            verify_app "release/mac/Inbox Zero.app"
+            if [ "$(uname -m)" = "arm64" ]; then
+              has_arm=1
+            else
+              has_x64=1
             fi
-          done
-          if [ "$found" -lt 2 ]; then
-            echo "Expected arm64 and x64 app bundles, found $found" >&2
+          fi
+          if [ "$has_arm" -ne 1 ] || [ "$has_x64" -ne 1 ]; then
+            echo "Expected both arm64 and x64 app bundles (arm=$has_arm x64=$has_x64)" >&2
             exit 1
           fi
 
