@@ -49,7 +49,7 @@ import { useThreadSelection } from "@/app/(app)/[emailAccountId]/mail/use-thread
 import { isThreadUnread } from "@/app/(app)/[emailAccountId]/mail/read-state";
 import { MailLayout, MailSplitKind } from "@/generated/prisma/enums";
 import { useChat } from "@/providers/ChatProvider";
-import { useSidebar } from "@/components/ui/sidebar";
+import { Sidebar, useSidebar } from "@/components/ui/sidebar";
 import { useAtom, useSetAtom } from "jotai";
 import {
   commandPaletteOpenAtom,
@@ -665,36 +665,38 @@ export function MailShell() {
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-background">
       <div className="flex min-h-0 flex-1">
-        {!isFocusMode && isMailSidebarOpen && (
-          <MailSidebar
-            className="hidden lg:flex"
-            activeType={
-              scopeLabelId || scopeFolderId ? null : (scopeType ?? "inbox")
-            }
-            activeLabelId={scopeLabelId}
-            activeFolderId={scopeFolderId}
-            hrefFor={hrefFor}
-            labels={isAllAccounts ? [] : visibleLabels}
-            folders={isAllAccounts || !isOutlook ? [] : folders}
-            countsById={isAllAccounts ? NO_COUNTS : countsById}
-            categories={isAllAccounts ? [] : categories}
-            categoryHeading={isOutlook ? "Inbox" : "Categories"}
-            labelsHeading={terminology.label.pluralCapitalized}
-            labelSingular={terminology.label.singular}
-            backToAppHref={prefixPath(emailAccountId, "/automation")}
-            onCompose={openCompose}
-            onCreateLabel={onCreateLabel}
-            onOpenShortcuts={openShortcuts}
-            unified={isAllAccounts}
-            footer={
-              <MailAccountSwitcher
-                isAllAccounts={isAllAccounts}
-                onSelectAll={selectAllAccounts}
-                variant="sidebar"
-              />
-            }
-          />
-        )}
+        <div className="hidden [--sidebar-width:236px] lg:contents">
+          <Sidebar name="left-sidebar" forceCollapsed={isFocusMode}>
+            <MailSidebar
+              className="h-full w-full border-r-0"
+              activeType={
+                scopeLabelId || scopeFolderId ? null : (scopeType ?? "inbox")
+              }
+              activeLabelId={scopeLabelId}
+              activeFolderId={scopeFolderId}
+              hrefFor={hrefFor}
+              labels={isAllAccounts ? [] : visibleLabels}
+              folders={isAllAccounts || !isOutlook ? [] : folders}
+              countsById={isAllAccounts ? NO_COUNTS : countsById}
+              categories={isAllAccounts ? [] : categories}
+              categoryHeading={isOutlook ? "Inbox" : "Categories"}
+              labelsHeading={terminology.label.pluralCapitalized}
+              labelSingular={terminology.label.singular}
+              backToAppHref={prefixPath(emailAccountId, "/automation")}
+              onCompose={openCompose}
+              onCreateLabel={onCreateLabel}
+              onOpenShortcuts={openShortcuts}
+              unified={isAllAccounts}
+              footer={
+                <MailAccountSwitcher
+                  isAllAccounts={isAllAccounts}
+                  onSelectAll={selectAllAccounts}
+                  variant="sidebar"
+                />
+              }
+            />
+          </Sidebar>
+        </div>
 
         {showList && (
           <section

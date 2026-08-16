@@ -206,6 +206,7 @@ const Sidebar = React.forwardRef<
     side?: "left" | "right";
     variant?: "sidebar" | "floating" | "inset";
     collapsible?: "offcanvas" | "icon" | "none";
+    forceCollapsed?: boolean;
   }
 >(
   (
@@ -214,6 +215,7 @@ const Sidebar = React.forwardRef<
       side = "left",
       variant = "sidebar",
       collapsible = "offcanvas",
+      forceCollapsed = false,
       className,
       children,
       ...props
@@ -265,12 +267,14 @@ const Sidebar = React.forwardRef<
       );
     }
 
+    const isDesktopOpen = state.includes(name) && !forceCollapsed;
+
     return (
       <div
         ref={ref}
         className="group peer hidden text-sidebar-foreground md:block"
-        data-state={state.includes(name) ? "expanded" : "collapsed"}
-        data-collapsible={state.includes(name) ? "" : collapsible}
+        data-state={isDesktopOpen ? "expanded" : "collapsed"}
+        data-collapsible={isDesktopOpen ? "" : collapsible}
         data-variant={variant}
         data-side={side}
       >
@@ -309,7 +313,7 @@ const Sidebar = React.forwardRef<
                 child.type === SidebarMenuButton
               ) {
                 return React.cloneElement(child, {
-                  isCollapsed: !state.includes(name),
+                  isCollapsed: !isDesktopOpen,
                 } as React.ComponentProps<typeof SidebarMenuButton>);
               }
               return child;
