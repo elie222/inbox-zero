@@ -1,10 +1,47 @@
+"use client";
+
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
 import { DownloadIcon } from "lucide-react";
 import type { ThreadMessage } from "@/components/email-list/types";
 import { CardBasic } from "@/components/ui/card";
+import { toastError } from "@/components/Toast";
+import { useAccount } from "@/providers/EmailAccountProvider";
+import { fetchAttachment } from "@/utils/attachments/download";
 
 export function EmailAttachments({ message }: { message: ThreadMessage }) {
+  const { emailAccountId } = useAccount();
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const downloadAttachment = async ({
+    filename,
+    url,
+  }: {
+    filename: string;
+    url: string;
+  }) => {
+    setIsDownloading(true);
+
+    try {
+      const blob = await fetchAttachment({ url, emailAccountId });
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      try {
+        link.click();
+      } finally {
+        link.remove();
+        URL.revokeObjectURL(objectUrl);
+      }
+    } catch {
+      toastError({ description: "Failed to download attachment" });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   return (
     <div className="mt-4 grid grid-cols-2 gap-2 xl:grid-cols-3">
       {message.attachments?.map((attachment) => {
@@ -18,17 +55,26 @@ export function EmailAttachments({ message }: { message: ThreadMessage }) {
         const url = `/api/messages/attachment?${searchParams.toString()}`;
 
         return (
-          <CardBasic key={attachment.filename} className="p-4">
+          <CardBasic key={attachment.attachmentId} className="p-4">
             <div className="text-muted-foreground">{attachment.filename}</div>
             <div className="mt-4 flex items-center justify-between">
               <div className="text-muted-foreground">
                 {mimeTypeToString(attachment.mimeType)}
               </div>
-              <Button variant="outline" size="sm" asChild>
-                <Link href={url} target="_blank">
-                  <DownloadIcon className="mr-2 h-4 w-4" />
-                  Download
-                </Link>
+              <Button
+                variant="outline"
+                size="sm"
+                type="button"
+                disabled={!emailAccountId || isDownloading}
+                onClick={() =>
+                  downloadAttachment({
+                    filename: attachment.filename,
+                    url,
+                  })
+                }
+              >
+                <DownloadIcon className="mr-2 h-4 w-4" />
+                Download
               </Button>
             </div>
           </CardBasic>
