@@ -10,6 +10,7 @@ import {
   type Session,
   type WebContents,
 } from "electron";
+import { startDesktopAutoUpdate } from "./auto-update";
 import {
   DESKTOP_PROTOCOL,
   findDesktopProtocolUrl,
@@ -91,6 +92,7 @@ function startDesktopApp() {
 
   app.whenReady().then(async () => {
     createMainWindow();
+    await startDesktopAutoUpdate();
     const startupAuthUrl =
       pendingAuthUrl ?? findDesktopProtocolUrl(process.argv);
     pendingAuthUrl = null;

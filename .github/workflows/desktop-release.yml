@@ -62,6 +62,16 @@ jobs:
           pnpm build
           pnpm exec electron-builder ${{ matrix.args }} --publish never
 
+      - name: Require update metadata
+        working-directory: apps/desktop
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" = "macOS" ]; then
+            test -f release/latest-mac.yml
+          else
+            test -f release/latest.yml
+          fi
+
       - name: Verify macOS signature
         if: runner.os == 'macOS'
         working-directory: apps/desktop
@@ -77,6 +87,7 @@ jobs:
             apps/desktop/release/*.zip
             apps/desktop/release/*.exe
             apps/desktop/release/*.blockmap
+            apps/desktop/release/latest*.yml
           if-no-files-found: error
 
   publish:
@@ -103,8 +114,9 @@ jobs:
             TAG="desktop-v$(node -p "require('./apps/desktop/package.json').version")"
           fi
           TITLE="Inbox Zero Desktop ${TAG#desktop-v}"
+          node --experimental-strip-types apps/desktop/src/update-feed-cli.ts dist "$TAG"
           shopt -s nullglob
-          files=(dist/*.dmg dist/*.zip dist/*.exe dist/*.blockmap)
+          files=(dist/*.dmg dist/*.zip dist/*.exe dist/*.blockmap dist/latest*.yml)
           if [ ${#files[@]} -eq 0 ]; then
             echo "No desktop artifacts to publish" >&2
             exit 1
@@ -112,9 +124,23 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "${files[@]}" --clobber
           else
-            extra=()
+            extra=(--latest=false)
             if [ "${{ github.ref_type }}" != "tag" ]; then
               extra+=(--target "${{ github.sha }}")
             fi
             gh release create "$TAG" "${files[@]}" --title "$TITLE" --generate-notes "${extra[@]}"
+          fi
+          feed=(dist/latest*.yml)
+          if [ ${#feed[@]} -eq 0 ]; then
+            echo "No electron-updater feed files to publish" >&2
+            exit 1
+          fi
+          if gh release view desktop-updates >/dev/null 2>&1; then
+            gh release upload desktop-updates "${feed[@]}" --clobber
+          else
+            gh release create desktop-updates "${feed[@]}" \
+              --title "Desktop auto-update feed" \
+              --notes "electron-updater metadata for Inbox Zero Desktop. Installers stay on desktop-v* releases." \
+              --prerelease \
+              --latest=false
           fi
