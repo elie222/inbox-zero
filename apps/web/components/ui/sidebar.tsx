@@ -206,8 +206,7 @@ const Sidebar = React.forwardRef<
     side?: "left" | "right";
     variant?: "sidebar" | "floating" | "inset";
     collapsible?: "offcanvas" | "icon" | "none";
-    desktopOpen?: boolean;
-    width?: React.CSSProperties["width"];
+    forceCollapsed?: boolean;
   }
 >(
   (
@@ -216,8 +215,7 @@ const Sidebar = React.forwardRef<
       side = "left",
       variant = "sidebar",
       collapsible = "offcanvas",
-      desktopOpen,
-      width,
+      forceCollapsed = false,
       className,
       children,
       ...props
@@ -269,7 +267,7 @@ const Sidebar = React.forwardRef<
       );
     }
 
-    const isDesktopOpen = desktopOpen ?? state.includes(name);
+    const isDesktopOpen = state.includes(name) && !forceCollapsed;
 
     return (
       <div
@@ -279,11 +277,6 @@ const Sidebar = React.forwardRef<
         data-collapsible={isDesktopOpen ? "" : collapsible}
         data-variant={variant}
         data-side={side}
-        style={
-          width
-            ? ({ "--sidebar-width": width } as React.CSSProperties)
-            : undefined
-        }
       >
         {/* This is what handles the sidebar gap on desktop */}
         <div

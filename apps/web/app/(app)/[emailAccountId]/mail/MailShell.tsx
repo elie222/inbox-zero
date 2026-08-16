@@ -665,12 +665,8 @@ export function MailShell() {
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-background">
       <div className="flex min-h-0 flex-1">
-        <div className="hidden lg:contents">
-          <Sidebar
-            name="left-sidebar"
-            desktopOpen={!isFocusMode && isMailSidebarOpen}
-            width="236px"
-          >
+        <div className="hidden [--sidebar-width:236px] lg:contents">
+          <Sidebar name="left-sidebar" forceCollapsed={isFocusMode}>
             <MailSidebar
               className="h-full w-full border-r-0"
               activeType={
