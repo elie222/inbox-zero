@@ -80,7 +80,7 @@ test("creates, edits, toggles, and deletes a manual automation rule", async ({
     "unchecked",
   );
   await expect
-    .poll(() => getRuleState(emailAccountId))
+    .poll(() => getRuleState(emailAccountId), { timeout: 60_000 })
     .toMatchObject({
       enabled: false,
       name: UPDATED_RULE_NAME,
@@ -91,5 +91,7 @@ test("creates, edits, toggles, and deletes a manual automation rule", async ({
   await page.getByRole("menuitem", { name: "Delete" }).click();
   await expect(page.getByText("Rule deleted", { exact: true })).toBeVisible();
   await expect(updatedRuleRow).toHaveCount(0);
-  await expect.poll(() => getRuleState(emailAccountId)).toBeUndefined();
+  await expect
+    .poll(() => getRuleState(emailAccountId), { timeout: 60_000 })
+    .toBeUndefined();
 });

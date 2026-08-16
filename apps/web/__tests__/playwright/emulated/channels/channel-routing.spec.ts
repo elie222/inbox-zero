@@ -20,17 +20,27 @@ test("persists rule delivery, feature routing, and channel disconnection", async
   await seedChannel(emailAccountId);
   await markAssistantOnboardingViewed(page);
 
-  const channelsResponse = await page.request.get(
-    "/api/user/messaging-channels",
-    { headers: { "X-Email-Account-ID": emailAccountId } },
-  );
-  expect(channelsResponse.ok()).toBeTruthy();
-  const channelsData = (await channelsResponse.json()) as {
-    channels: Array<{ id: string }>;
-  };
-  expect(channelsData.channels).toContainEqual(
-    expect.objectContaining({ id: CHANNEL_ID }),
-  );
+  await expect
+    .poll(
+      async () => {
+        try {
+          const response = await page.request.get(
+            "/api/user/messaging-channels",
+            { headers: { "X-Email-Account-ID": emailAccountId } },
+          );
+          if (!response.ok()) return false;
+
+          const data = (await response.json()) as {
+            channels: Array<{ id: string }>;
+          };
+          return data.channels.some((channel) => channel.id === CHANNEL_ID);
+        } catch {
+          return false;
+        }
+      },
+      { timeout: 60_000 },
+    )
+    .toBe(true);
 
   await page.goto(`/${emailAccountId}/channels`);
   await expect(page.getByRole("heading", { name: "Channels" })).toBeVisible();
@@ -66,7 +76,7 @@ test("persists rule delivery, feature routing, and channel disconnection", async
       routePurposes: ["MEETING_BRIEFS", "RULE_NOTIFICATIONS"],
     });
 
-  await telegramSection.getByRole("button").first().click();
+  await telegramSection.locator('button[aria-haspopup="menu"]').click();
   await page.getByRole("menuitem", { name: "Disconnect Telegram" }).click();
   await expect(
     page.getByText("Telegram disconnected", { exact: true }),

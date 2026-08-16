@@ -6,19 +6,21 @@ import {
   prepareCleanupFixture,
 } from "./cleanup-test-helpers";
 
-let fixture: CleanupFixture;
+let fixture: CleanupFixture | undefined;
 
 test.beforeEach(async ({ page }) => {
+  fixture = undefined;
   fixture = await prepareCleanupFixture(page);
 });
 
 test.afterEach(async () => {
-  await cleanUpFixture(fixture);
+  if (fixture) await cleanUpFixture(fixture);
 });
 
 test("shows seeded traffic and updates the reporting granularity", async ({
   page,
 }) => {
+  if (!fixture) throw new Error("Cleanup fixture was not initialized");
   await openCleanupFeature(page, fixture, "stats");
   await expect(page.getByRole("heading", { name: "Analytics" })).toBeVisible();
   const onboardingDialog = page.getByRole("dialog", {

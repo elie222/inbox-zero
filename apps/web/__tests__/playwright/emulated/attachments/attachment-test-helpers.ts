@@ -7,7 +7,6 @@ const PLAYWRIGHT_TEST_EMAIL =
 export async function openAttachments(page: Page) {
   const emailAccountId = await getEmailAccountId(page);
   await page.goto(`/${emailAccountId}/drive`);
-  return { emailAccountId };
 }
 
 export async function setupAttachmentTestState() {

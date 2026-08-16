@@ -15,7 +15,7 @@ test.afterEach(async () => {
 
 test("uses Drive folders to complete auto-file attachment setup", async ({
   page,
-}) => {
+}, testInfo) => {
   await openAttachments(page);
 
   await expect(
@@ -26,7 +26,7 @@ test("uses Drive folders to complete auto-file attachment setup", async ({
     timeout: 60_000,
   });
 
-  const createdFolderName = `Playwright Receipts ${process.env.PLAYWRIGHT_RUN_ID}`;
+  const createdFolderName = `Playwright Receipts ${process.env.PLAYWRIGHT_RUN_ID}-${testInfo.retry}`;
   await page.getByRole("button", { name: "Add folder" }).click();
   const createFolderDialog = page.getByRole("dialog", {
     name: "Create folder",

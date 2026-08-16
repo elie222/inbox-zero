@@ -8,9 +8,10 @@ import {
   restoreCleanupThreads,
 } from "./cleanup-test-helpers";
 
-let fixture: CleanupFixture;
+let fixture: CleanupFixture | undefined;
 
 test.beforeEach(async ({ page }) => {
+  fixture = undefined;
   fixture = await prepareCleanupFixture(page);
   await restoreCleanupThreads(page, fixture.emailAccountId, [
     CLEANUP_BLOCK_THREAD_ID,
@@ -18,12 +19,13 @@ test.beforeEach(async ({ page }) => {
 });
 
 test.afterEach(async () => {
-  await cleanUpFixture(fixture);
+  if (fixture) await cleanUpFixture(fixture);
 });
 
 test("blocks a selected sender and surfaces it in Auto Archive", async ({
   page,
 }) => {
+  if (!fixture) throw new Error("Cleanup fixture was not initialized");
   await openCleanupFeature(page, fixture, "bulk-unsubscribe");
   await expect(
     page.getByRole("heading", { name: "Bulk Unsubscriber" }),

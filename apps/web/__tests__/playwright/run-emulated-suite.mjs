@@ -53,7 +53,8 @@ if (mergeResult.status !== 0) failed = true;
 process.exitCode = failed ? 1 : 0;
 
 function runPlaywright(args, extraEnv) {
-  const result = spawnSync("pnpm", ["exec", "playwright", ...args], {
+  const pnpmExecutable = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+  const result = spawnSync(pnpmExecutable, ["exec", "playwright", ...args], {
     env: { ...process.env, ...extraEnv },
     stdio: "inherit",
   });

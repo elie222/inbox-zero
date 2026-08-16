@@ -54,7 +54,9 @@ export async function getRuleState(emailAccountId: string) {
       `SELECT r.name, r.enabled, r.instructions, a.type::text
        FROM "Rule" r
        JOIN "Action" a ON a."ruleId" = r.id
-       WHERE r."emailAccountId" = $1 AND r.name IN ($2, $3)`,
+       WHERE r."emailAccountId" = $1 AND r.name IN ($2, $3)
+       ORDER BY a.id
+       LIMIT 1`,
       [emailAccountId, RULE_NAME, UPDATED_RULE_NAME],
     );
     return result.rows[0];
