@@ -76,6 +76,9 @@ type AppleProfile = {
 const mobileAuthOrigins = env.MOBILE_AUTH_ORIGIN
   ? [env.MOBILE_AUTH_ORIGIN]
   : [];
+const desktopAuthOrigins = env.DESKTOP_AUTH_ORIGIN
+  ? [env.DESKTOP_AUTH_ORIGIN]
+  : [];
 const googleSocialProvider =
   googleLoginEnabled && !useGoogleOauthEmulator
     ? {
@@ -217,6 +220,7 @@ export const betterAuthConfig = betterAuth({
     ...(env.OAUTH_PROXY_URL ? [env.OAUTH_PROXY_URL] : []),
     ...(env.ADDITIONAL_TRUSTED_ORIGINS ?? []),
     ...mobileAuthOrigins,
+    ...desktopAuthOrigins,
   ],
   secret: env.AUTH_SECRET || env.NEXTAUTH_SECRET,
   emailAndPassword: {
