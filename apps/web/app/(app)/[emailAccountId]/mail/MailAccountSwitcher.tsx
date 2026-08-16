@@ -34,6 +34,8 @@ export function MailAccountSwitcher({
   const activeLabel = isAllAccounts
     ? "All accounts"
     : emailAccount?.name || emailAccount?.email || "Choose account";
+  const activeEmail =
+    !isAllAccounts && emailAccount?.name ? emailAccount.email : null;
   let activeIcon: ReactNode = null;
   if (isAllAccounts) {
     activeIcon = <AllAccountsIcon />;
@@ -66,8 +68,15 @@ export function MailAccountSwitcher({
             )}
           >
             {activeIcon}
-            <span className="min-w-0 flex-1 truncate font-medium text-sm">
-              {activeLabel}
+            <span className="min-w-0 flex-1 leading-tight">
+              <span className="block truncate font-medium text-sm">
+                {activeLabel}
+              </span>
+              {activeEmail ? (
+                <span className="block truncate text-muted-foreground text-xs">
+                  {activeEmail}
+                </span>
+              ) : null}
             </span>
             <ChevronsUpDownIcon className="size-4 text-muted-foreground" />
           </button>
