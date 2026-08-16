@@ -48,6 +48,8 @@ export default defineConfig({
   testDir: "./__tests__/playwright",
   forbidOnly: !!process.env.CI,
   fullyParallel: false,
+  // Every browser test shares one seeded provider and one authenticated account.
+  workers: 1,
   retries: process.env.CI ? 1 : 0,
   timeout: 240_000,
   expect: {
@@ -129,6 +131,7 @@ export default defineConfig({
         NEXT_PUBLIC_POSTHOG_API_HOST: "",
         NEXT_PUBLIC_DUB_REFER_DOMAIN: "",
         NEXT_PUBLIC_IS_RESEND_CONFIGURED: "",
+        NEXT_PUBLIC_CONTACTS_ENABLED: "false",
         PLAYWRIGHT_TEST_EMAIL: playwrightTestEmail,
       },
     },

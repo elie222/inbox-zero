@@ -38,9 +38,14 @@ test("Command K acts on highlighted and selected conversations", async ({
 
   await page.goto(`/${emailAccountId}/mail`);
   const conversations = page.getByRole("listbox", { name: "Conversations" });
-  await expect(conversations.getByRole("option")).toHaveCount(3, {
-    timeout: 60_000,
-  });
+  await expect
+    .poll(() => conversations.getByRole("option").count(), {
+      timeout: 60_000,
+    })
+    .toBeGreaterThanOrEqual(3);
+  const initialConversationCount = await conversations
+    .getByRole("option")
+    .count();
   await ensureReadState(page, conversations, "Alice Example", false);
   await ensureReadState(page, conversations, "Bob Example", true);
 
@@ -146,7 +151,9 @@ test("Command K acts on highlighted and selected conversations", async ({
   ).toBeVisible();
   await palette.getByRole("option", { name: "Snooze 2 conversations" }).click();
   await palette.getByRole("option", { name: "In 3 hours" }).click();
-  await expect(conversations.getByRole("option")).toHaveCount(1);
+  await expect(conversations.getByRole("option")).toHaveCount(
+    initialConversationCount - 2,
+  );
 });
 
 async function ensureReadState(

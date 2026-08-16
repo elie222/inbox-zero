@@ -83,6 +83,7 @@ export function ThreadActionsMenu({
         <DropdownMenuContent
           align="end"
           className="w-[min(24rem,calc(100vw-1rem))]"
+          onEscapeKeyDown={(event) => event.stopPropagation()}
         >
           {plans.map((plan) => (
             <RuleAttribution
