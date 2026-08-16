@@ -8,6 +8,12 @@ google:
       name: Inbox Zero Smoke
       redirect_uris:
         - __PLAYWRIGHT_TEST_REDIRECT_URI__
+  labels:
+    - id: Label_project
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      name: Project Alpha
+      color_background: "#d7e6fc"
+      color_text: "#10253f"
   messages:
     - id: msg_playwright_1
       thread_id: thr_playwright_1
@@ -41,6 +47,112 @@ google:
         - INBOX
         - UNREAD
       internal_date: "1735812000000"
+    - id: msg_playwright_reader_1
+      thread_id: thr_playwright_reader
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: Dana Example <dana@example.com>
+      to: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Reader Navigation Message
+      body_text: First message in the reader conversation.
+      label_ids:
+        - INBOX
+        - UNREAD
+      internal_date: "1735725600000"
+    - id: msg_playwright_reader_2
+      thread_id: thr_playwright_reader
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: __PLAYWRIGHT_TEST_EMAIL__
+      to: Dana Example <dana@example.com>
+      subject: "Re: Reader Navigation Message"
+      body_text: A second message proves the complete conversation is rendered.
+      label_ids:
+        - INBOX
+        - SENT
+      internal_date: "1735729200000"
+    - id: msg_playwright_archive
+      thread_id: thr_playwright_archive
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: Erin Example <erin@example.com>
+      to: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Archive Action Message
+      body_text: This conversation is reserved for archive and undo coverage.
+      label_ids:
+        - INBOX
+      internal_date: "1735642800000"
+    - id: msg_playwright_delete
+      thread_id: thr_playwright_delete
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: Frank Example <frank@example.com>
+      to: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Delete Action Message
+      body_text: This conversation is reserved for delete coverage.
+      label_ids:
+        - INBOX
+      internal_date: "1735556400000"
+    - id: msg_playwright_keyboard
+      thread_id: thr_playwright_keyboard
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: Grace Example <grace@example.com>
+      to: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Keyboard Navigation Message
+      body_text: This conversation is reserved for keyboard navigation coverage.
+      label_ids:
+        - INBOX
+        - UNREAD
+      internal_date: "1735470000000"
+    - id: msg_playwright_label
+      thread_id: thr_playwright_label
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: Harper Example <harper@example.com>
+      to: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Project Label Message
+      body_text: This conversation is visible in the seeded project label.
+      label_ids:
+        - INBOX
+        - Label_project
+      internal_date: "1735383600000"
+    - id: msg_playwright_promotion
+      thread_id: thr_playwright_promotion
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: Offers Example <offers@example.com>
+      to: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Promotion Category Message
+      body_text: This conversation is visible in the promotions category.
+      label_ids:
+        - INBOX
+        - CATEGORY_PROMOTIONS
+      internal_date: "1735297200000"
+    - id: msg_playwright_draft
+      thread_id: thr_playwright_draft
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: __PLAYWRIGHT_TEST_EMAIL__
+      to: Jordan Example <jordan@example.com>
+      subject: Seeded Draft Message
+      body_text: This unsent draft is visible in the Drafts view.
+      label_ids:
+        - DRAFT
+      internal_date: "1735210800000"
+    - id: msg_playwright_sent
+      thread_id: thr_playwright_sent
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: __PLAYWRIGHT_TEST_EMAIL__
+      to: Kai Example <kai@example.com>
+      subject: Seeded Sent Message
+      body_text: This sent conversation is visible in the Sent view.
+      label_ids:
+        - SENT
+      internal_date: "1735124400000"
+    - id: msg_playwright_reply
+      thread_id: thr_playwright_reply
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: Leslie Example <leslie@example.com>
+      to: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Reply Workflow Message
+      body_text: Please reply to this seeded conversation.
+      label_ids:
+        - INBOX
+        - UNREAD
+      internal_date: "1735038000000"
   calendars:
     - id: primary
       user_email: __PLAYWRIGHT_TEST_EMAIL__

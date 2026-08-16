@@ -39,6 +39,7 @@ export const Tiptap = forwardRef<
   ref,
 ) {
   const editor = useEditor({
+    immediatelyRender: false,
     extensions: [
       StarterKit.configure({
         // Configure lists to preserve formatting
