@@ -1,5 +1,4 @@
 import { atom } from "jotai";
-import type { Command } from "@/lib/commands/types";
 
 /**
  * Open state for the command palette. It lives outside CommandK so surfaces
@@ -8,17 +7,21 @@ import type { Command } from "@/lib/commands/types";
  */
 export const commandPaletteOpenAtom = atom(false);
 
-type CommandPalettePage = "root" | "snooze";
-
-export const commandPalettePageAtom = atom<CommandPalettePage>("root");
-
-type MailCommandContext = {
-  commands: Command[];
-  snooze: (until: Date) => void;
+export type MailCommandContext = {
+  actions: {
+    archive: () => void;
+    markRead?: () => void;
+    markUnread?: () => void;
+    snooze?: (until: Date) => void;
+    trash?: () => void;
+  };
+  hasRead: boolean;
+  hasUnread: boolean;
+  targetCount: number;
 };
 
 /**
- * Commands owned by the active mail list. Keeping the callbacks here lets the
- * app-wide palette act on list state without duplicating selection state.
+ * The active mail list owns its selection state and actions. This bridge lets
+ * the app-wide palette consume them without duplicating that state.
  */
 export const mailCommandContextAtom = atom<MailCommandContext | null>(null);
