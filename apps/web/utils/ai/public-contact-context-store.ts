@@ -1,11 +1,10 @@
-import { PublicContactSnapshotStatus } from "@/generated/prisma/enums";
 import type { Prisma } from "@/generated/prisma/client";
 import {
   isSafeForSharedCache,
   type PublicContactContext,
   publicContactContextSchema,
 } from "@/utils/ai/public-contact-context-schema";
-import { hash } from "@/utils/hash";
+import { canonicalizeEmailAddress } from "@/utils/email";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 
@@ -23,8 +22,8 @@ export async function getStoredPublicContactContext(
   email: string,
 ): Promise<StoredPublicContactContext> {
   try {
-    const snapshot = await prisma.publicContactSnapshot.findFirst({
-      where: { identityHash: hash(email) },
+    const research = await prisma.contactResearch.findFirst({
+      where: { email: canonicalizeEmailAddress(email) },
       // Start-time ordering keeps an expired-lock worker that finishes late
       // from replacing research that began more recently.
       orderBy: [
@@ -32,25 +31,42 @@ export async function getStoredPublicContactContext(
         { createdAt: "desc" },
         { id: "desc" },
       ],
-      select: { status: true, context: true, refreshAfter: true },
+      select: {
+        found: true,
+        role: true,
+        company: true,
+        sources: true,
+        confidence: true,
+        researchStartedAt: true,
+      },
     });
 
-    if (!snapshot || snapshot.refreshAfter <= new Date()) {
+    if (!research) {
       return { status: "miss" };
     }
-    if (snapshot.status === PublicContactSnapshotStatus.NOT_FOUND) {
+
+    const refreshMs = research.found ? FOUND_REFRESH_MS : NOT_FOUND_REFRESH_MS;
+    if (research.researchStartedAt.getTime() + refreshMs <= Date.now()) {
+      return { status: "miss" };
+    }
+    if (!research.found) {
       return { status: "not_found" };
     }
 
-    const parsed = publicContactContextSchema.safeParse(snapshot.context);
+    const parsed = publicContactContextSchema.safeParse({
+      role: research.role,
+      company: research.company,
+      sources: research.sources,
+      confidence: research.confidence,
+    });
     if (!parsed.success) {
-      logger.warn("Ignoring malformed public contact context snapshot", {
+      logger.warn("Ignoring malformed public contact research", {
         issues: parsed.error.issues.length,
       });
       return { status: "miss" };
     }
     if (!isSafeForSharedCache(parsed.data)) {
-      logger.warn("Ignoring unsafe public contact context snapshot");
+      logger.warn("Ignoring unsafe public contact research");
       return { status: "miss" };
     }
 
@@ -72,16 +88,20 @@ export async function storePublicContactContext({
 }): Promise<boolean> {
   const parsed = publicContactContextSchema.safeParse(context);
   if (!parsed.success || !isSafeForSharedCache(parsed.data)) {
-    logger.warn("Refusing unsafe public contact context snapshot");
+    logger.warn("Refusing unsafe public contact research");
     return false;
   }
 
-  return createSnapshot({
-    email,
-    status: PublicContactSnapshotStatus.FOUND,
-    context: parsed.data,
+  return createResearch({
+    email: canonicalizeEmailAddress(email),
+    found: true,
+    role: parsed.data.role,
+    confidence: parsed.data.confidence,
+    ...(parsed.data.company
+      ? { company: parsed.data.company as Prisma.InputJsonValue }
+      : undefined),
+    sources: parsed.data.sources,
     researchStartedAt,
-    refreshAfter: new Date(researchStartedAt.getTime() + FOUND_REFRESH_MS),
   });
 }
 
@@ -92,42 +112,19 @@ export async function storePublicContactContextNotFound({
   email: string;
   researchStartedAt: Date;
 }): Promise<boolean> {
-  return createSnapshot({
-    email,
-    status: PublicContactSnapshotStatus.NOT_FOUND,
+  return createResearch({
+    email: canonicalizeEmailAddress(email),
+    found: false,
     researchStartedAt,
-    refreshAfter: new Date(researchStartedAt.getTime() + NOT_FOUND_REFRESH_MS),
   });
 }
 
-async function createSnapshot({
-  email,
-  status,
-  context,
-  researchStartedAt,
-  refreshAfter,
-}: {
-  email: string;
-  status: PublicContactSnapshotStatus;
-  context?: PublicContactContext;
-  researchStartedAt: Date;
-  refreshAfter: Date;
-}) {
+async function createResearch(data: Prisma.ContactResearchCreateInput) {
   try {
-    await prisma.publicContactSnapshot.create({
-      data: {
-        identityHash: hash(email),
-        status,
-        ...(context
-          ? { context: context as Prisma.InputJsonValue }
-          : undefined),
-        researchStartedAt,
-        refreshAfter,
-      },
-    });
+    await prisma.contactResearch.create({ data });
     return true;
   } catch (error) {
-    logger.error("Failed to append public contact context history", { error });
+    logger.error("Failed to append public contact research history", { error });
     return false;
   }
 }

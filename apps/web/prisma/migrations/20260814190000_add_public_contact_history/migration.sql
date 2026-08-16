@@ -1,24 +1,20 @@
-CREATE TYPE "PublicContactSnapshotStatus" AS ENUM ('FOUND', 'NOT_FOUND');
-
-CREATE TABLE "PublicContactSnapshot" (
+CREATE TABLE "ContactResearch" (
     "id" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "identityHash" TEXT NOT NULL,
-    "status" "PublicContactSnapshotStatus" NOT NULL,
-    "context" JSONB,
+    "email" TEXT NOT NULL,
     "researchStartedAt" TIMESTAMP(3) NOT NULL,
-    "refreshAfter" TIMESTAMP(3) NOT NULL,
+    "found" BOOLEAN NOT NULL,
+    "role" TEXT,
+    "confidence" TEXT,
+    "company" JSONB,
+    "sources" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
 
-    CONSTRAINT "PublicContactSnapshot_pkey" PRIMARY KEY ("id"),
-    CONSTRAINT "PublicContactSnapshot_status_context_check" CHECK (
-        ("status" = 'FOUND' AND "context" IS NOT NULL) OR
-        ("status" = 'NOT_FOUND' AND "context" IS NULL)
-    )
+    CONSTRAINT "ContactResearch_pkey" PRIMARY KEY ("id")
 );
 
-CREATE INDEX "PublicContactSnapshot_latest_idx"
-ON "PublicContactSnapshot"(
-    "identityHash",
+CREATE INDEX "ContactResearch_latest_idx"
+ON "ContactResearch"(
+    "email",
     "researchStartedAt" DESC,
     "createdAt" DESC,
     "id" DESC

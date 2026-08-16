@@ -2,13 +2,6 @@ import { z } from "zod";
 import { scanSensitiveContent } from "@/utils/dlp/sensitive-content";
 import { isSafeExternalHttpUrl } from "@/utils/network/safe-http-url";
 
-const publicSourceSchema = z.strictObject({
-  url: z
-    .string()
-    .url()
-    .describe("A public HTTP or HTTPS page supporting the researched facts"),
-});
-
 const publicCompanyContextSchema = z.strictObject({
   name: z
     .string()
@@ -60,12 +53,6 @@ const publicCompanyContextSchema = z.strictObject({
 });
 
 export const publicContactContextSchema = z.strictObject({
-  name: z
-    .string()
-    .trim()
-    .min(1)
-    .max(120)
-    .describe("The professional's public name"),
   role: z
     .string()
     .trim()
@@ -77,7 +64,12 @@ export const publicContactContextSchema = z.strictObject({
     .nullable()
     .describe("The sender's current company, or null when not established"),
   sources: z
-    .array(publicSourceSchema)
+    .array(
+      z
+        .string()
+        .url()
+        .describe("A public page supporting the researched facts"),
+    )
     .min(1)
     .max(5)
     .describe("One to five public pages that support the returned facts"),
@@ -90,7 +82,6 @@ export type PublicContactContext = z.infer<typeof publicContactContextSchema>;
 
 export function isSafeForSharedCache(context: PublicContactContext): boolean {
   const publicText = [
-    context.name,
     context.role,
     context.company?.name,
     context.company?.domain,
@@ -100,10 +91,9 @@ export function isSafeForSharedCache(context: PublicContactContext): boolean {
     context.company?.funding,
   ].filter((value): value is string => Boolean(value));
 
-  const publicUrls = [
-    context.company?.website,
-    ...context.sources.map((source) => source.url),
-  ].filter((value): value is string => Boolean(value));
+  const publicUrls = [context.company?.website, ...context.sources].filter(
+    (value): value is string => Boolean(value),
+  );
   const publicValues = [...publicText, ...publicUrls];
 
   return (

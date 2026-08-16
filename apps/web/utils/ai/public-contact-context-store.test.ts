@@ -2,9 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import type { PublicContactContext } from "@/utils/ai/public-contact-context-schema";
 
-vi.mock("@/env", () => ({
-  env: { EMAIL_ENCRYPT_SALT: "test-hmac-salt" },
-}));
 vi.mock("@/utils/prisma");
 
 import {
@@ -15,6 +12,7 @@ import {
 
 describe("public contact context store", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-08-14T12:00:00.000Z"));
   });
@@ -23,63 +21,82 @@ describe("public contact context store", () => {
     vi.useRealTimers();
   });
 
-  it("returns the latest fresh public snapshot", async () => {
+  it("returns the latest fresh public research", async () => {
     const context = getContext();
-    prisma.publicContactSnapshot.findFirst.mockResolvedValue({
-      status: "FOUND",
-      context,
-      refreshAfter: new Date("2026-08-15T12:00:00.000Z"),
-    });
+    prisma.contactResearch.findFirst.mockResolvedValue({
+      found: true,
+      ...context,
+      researchStartedAt: new Date("2026-07-20T12:00:00.000Z"),
+    } as never);
 
     await expect(
       getStoredPublicContactContext("John@Acme.com"),
     ).resolves.toEqual({ status: "found", context });
 
-    expect(prisma.publicContactSnapshot.findFirst).toHaveBeenCalledWith({
-      where: {
-        identityHash: expect.stringMatching(/^[a-f0-9]{64}$/),
-      },
+    expect(prisma.contactResearch.findFirst).toHaveBeenCalledWith({
+      where: { email: "john@acme.com" },
       orderBy: [
         { researchStartedAt: "desc" },
         { createdAt: "desc" },
         { id: "desc" },
       ],
-      select: { status: true, context: true, refreshAfter: true },
+      select: {
+        found: true,
+        role: true,
+        company: true,
+        sources: true,
+        confidence: true,
+        researchStartedAt: true,
+      },
     });
-    expect(
-      prisma.publicContactSnapshot.findFirst.mock.calls[0]?.[0].where
-        .identityHash,
-    ).not.toContain("john");
   });
 
-  it("keeps stale history but treats the latest snapshot as a cache miss", async () => {
-    prisma.publicContactSnapshot.findFirst.mockResolvedValue({
-      status: "FOUND",
-      context: getContext(),
-      refreshAfter: new Date("2026-08-14T11:59:59.999Z"),
-    });
+  it("keeps stale history but treats old found research as a cache miss", async () => {
+    prisma.contactResearch.findFirst.mockResolvedValue({
+      found: true,
+      ...getContext(),
+      researchStartedAt: new Date("2026-07-15T11:59:59.999Z"),
+    } as never);
 
     await expect(
       getStoredPublicContactContext("john@acme.com"),
     ).resolves.toEqual({ status: "miss" });
 
-    expect(prisma.publicContactSnapshot.deleteMany).not.toHaveBeenCalled();
+    expect(prisma.contactResearch.deleteMany).not.toHaveBeenCalled();
   });
 
-  it("returns a fresh not-found snapshot without storing an email", async () => {
-    prisma.publicContactSnapshot.findFirst.mockResolvedValue({
-      status: "NOT_FOUND",
-      context: null,
-      refreshAfter: new Date("2026-08-14T13:00:00.000Z"),
-    });
+  it("returns fresh not-found research", async () => {
+    prisma.contactResearch.findFirst.mockResolvedValue({
+      found: false,
+      role: null,
+      company: null,
+      sources: [],
+      confidence: null,
+      researchStartedAt: new Date("2026-08-14T01:00:00.000Z"),
+    } as never);
 
     await expect(
       getStoredPublicContactContext("john@acme.com"),
     ).resolves.toEqual({ status: "not_found" });
   });
 
+  it("treats not-found research as stale after 12 hours", async () => {
+    prisma.contactResearch.findFirst.mockResolvedValue({
+      found: false,
+      role: null,
+      company: null,
+      sources: [],
+      confidence: null,
+      researchStartedAt: new Date("2026-08-13T23:59:59.999Z"),
+    } as never);
+
+    await expect(
+      getStoredPublicContactContext("john@acme.com"),
+    ).resolves.toEqual({ status: "miss" });
+  });
+
   it("fails closed when durable storage is unavailable", async () => {
-    prisma.publicContactSnapshot.findFirst.mockRejectedValue(
+    prisma.contactResearch.findFirst.mockRejectedValue(
       new Error("Database unavailable"),
     );
 
@@ -88,21 +105,21 @@ describe("public contact context store", () => {
     ).resolves.toEqual({ status: "unavailable" });
   });
 
-  it("ignores malformed or unsafe stored snapshots", async () => {
-    prisma.publicContactSnapshot.findFirst.mockResolvedValue({
-      status: "FOUND",
-      context: getContext({
-        sources: [{ url: "https://acme.com/team?email=private@example.com" }],
+  it("ignores malformed or unsafe stored research", async () => {
+    prisma.contactResearch.findFirst.mockResolvedValue({
+      found: true,
+      ...getContext({
+        sources: ["https://acme.com/team?email=private@example.com"],
       }),
-      refreshAfter: new Date("2026-08-15T12:00:00.000Z"),
-    });
+      researchStartedAt: new Date("2026-08-14T10:00:00.000Z"),
+    } as never);
 
     await expect(
       getStoredPublicContactContext("john@acme.com"),
     ).resolves.toEqual({ status: "miss" });
   });
 
-  it("appends a sanitized found snapshot with a 30-day refresh window", async () => {
+  it("appends sanitized found research using explicit fields", async () => {
     const context = getContext();
     const researchStartedAt = new Date("2026-08-14T10:00:00.000Z");
 
@@ -114,25 +131,24 @@ describe("public contact context store", () => {
       }),
     ).resolves.toBe(true);
 
-    expect(prisma.publicContactSnapshot.create).toHaveBeenCalledWith({
+    expect(prisma.contactResearch.create).toHaveBeenCalledWith({
       data: {
-        identityHash: expect.stringMatching(/^[a-f0-9]{64}$/),
-        status: "FOUND",
-        context,
+        email: "john@acme.com",
+        found: true,
+        role: context.role,
+        confidence: context.confidence,
+        company: context.company,
+        sources: context.sources,
         researchStartedAt,
-        refreshAfter: new Date("2026-09-13T10:00:00.000Z"),
       },
     });
-    expect(prisma.publicContactSnapshot.update).not.toHaveBeenCalled();
-    expect(prisma.publicContactSnapshot.deleteMany).not.toHaveBeenCalled();
-    expect(
-      prisma.publicContactSnapshot.create.mock.calls[0]?.[0].data,
-    ).not.toHaveProperty("email");
+    expect(prisma.contactResearch.update).not.toHaveBeenCalled();
+    expect(prisma.contactResearch.deleteMany).not.toHaveBeenCalled();
   });
 
-  it("refuses unsafe generated snapshots", async () => {
+  it("refuses unsafe generated research", async () => {
     const unsafe = getContext({
-      sources: [{ url: "https://acme.com/team?api_key=abcdefghijklmnop" }],
+      sources: ["https://acme.com/team?api_key=abcdefghijklmnop"],
     });
 
     await expect(
@@ -143,25 +159,24 @@ describe("public contact context store", () => {
       }),
     ).resolves.toBe(false);
 
-    expect(prisma.publicContactSnapshot.create).not.toHaveBeenCalled();
+    expect(prisma.contactResearch.create).not.toHaveBeenCalled();
   });
 
-  it("appends not-found research with a 12-hour refresh window", async () => {
+  it("appends not-found research without placeholder profile fields", async () => {
     const researchStartedAt = new Date("2026-08-14T10:00:00.000Z");
 
     await expect(
       storePublicContactContextNotFound({
-        email: "john@acme.com",
+        email: "John@Acme.com",
         researchStartedAt,
       }),
     ).resolves.toBe(true);
 
-    expect(prisma.publicContactSnapshot.create).toHaveBeenCalledWith({
+    expect(prisma.contactResearch.create).toHaveBeenCalledWith({
       data: {
-        identityHash: expect.stringMatching(/^[a-f0-9]{64}$/),
-        status: "NOT_FOUND",
+        email: "john@acme.com",
+        found: false,
         researchStartedAt,
-        refreshAfter: new Date("2026-08-14T22:00:00.000Z"),
       },
     });
   });
@@ -178,9 +193,9 @@ describe("public contact context store", () => {
       researchStartedAt: new Date("2026-08-14T10:00:00.000Z"),
     });
 
-    expect(prisma.publicContactSnapshot.create).toHaveBeenCalledTimes(2);
-    expect(prisma.publicContactSnapshot.update).not.toHaveBeenCalled();
-    expect(prisma.publicContactSnapshot.deleteMany).not.toHaveBeenCalled();
+    expect(prisma.contactResearch.create).toHaveBeenCalledTimes(2);
+    expect(prisma.contactResearch.update).not.toHaveBeenCalled();
+    expect(prisma.contactResearch.deleteMany).not.toHaveBeenCalled();
   });
 });
 
@@ -188,7 +203,6 @@ function getContext(
   overrides: Partial<PublicContactContext> = {},
 ): PublicContactContext {
   return {
-    name: "John Smith",
     role: "Founder and CEO",
     company: {
       name: "Acme",
@@ -199,7 +213,7 @@ function getContext(
       employeeCount: "Approximately 30 employees",
       funding: "$50M raised",
     },
-    sources: [{ url: "https://acme.com/team" }],
+    sources: ["https://acme.com/team"],
     confidence: "high",
     ...overrides,
   };

@@ -350,7 +350,6 @@ function getContext(
   overrides: Partial<PublicContactContext> = {},
 ): PublicContactContext {
   return {
-    name: "John Smith",
     role: "Founder and CEO",
     company: {
       name: "Acme",
@@ -361,7 +360,7 @@ function getContext(
       employeeCount: "Approximately 30 employees",
       funding: "$50M raised",
     },
-    sources: [{ url: "https://acme.com/team" }],
+    sources: ["https://acme.com/team"],
     confidence: "high",
     ...overrides,
   };

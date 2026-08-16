@@ -114,13 +114,13 @@ function PublicContext({ context }: { context: PublicContactContext }) {
           {context.sources.map((source, index) => (
             <a
               className="flex items-start gap-2 rounded-md px-2 py-1.5 text-muted-foreground text-sm transition-colors hover:bg-muted hover:text-foreground"
-              href={source.url}
-              key={`${source.url}-${index}`}
+              href={source}
+              key={`${source}-${index}`}
               rel="noreferrer"
               target="_blank"
             >
               <ExternalLinkIcon className="mt-0.5 size-3.5 shrink-0" />
-              <span className="line-clamp-2">{getSourceLabel(source.url)}</span>
+              <span className="line-clamp-2">{getSourceLabel(source)}</span>
             </a>
           ))}
         </div>
