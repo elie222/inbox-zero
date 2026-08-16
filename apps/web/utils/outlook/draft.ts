@@ -7,7 +7,10 @@ import {
   getCategoryMap,
   getFolderIds,
 } from "@/utils/outlook/message";
-import { withMicrosoftGraphRetry } from "@/utils/microsoft/retry";
+import {
+  withMicrosoftGraphRetry,
+  withMicrosoftGraphWriteRetry,
+} from "@/utils/microsoft/retry";
 
 export async function getDraft({
   client,
@@ -67,7 +70,7 @@ export async function sendDraft({
 
   // Send the draft - this moves it from Drafts to Sent Items
   // The message ID stays the same after sending
-  await withMicrosoftGraphRetry(
+  await withMicrosoftGraphWriteRetry(
     () => client.getClient().api(`/me/messages/${draftId}/send`).post({}),
     logger,
   );
@@ -110,7 +113,7 @@ export async function deleteDraft({
 
     // DELETE moves the draft to Deleted Items folder (not permanently deleted)
     // This is fine - getDraft() treats drafts not in Drafts folder as "deleted"
-    await withMicrosoftGraphRetry(
+    await withMicrosoftGraphWriteRetry(
       () => client.getClient().api(`/me/messages/${draftId}`).delete(),
       logger,
     );

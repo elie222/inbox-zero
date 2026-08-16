@@ -1,7 +1,10 @@
 import type { MailFolder } from "@microsoft/microsoft-graph-types";
 import type { OutlookClient } from "./client-types";
 import type { Logger } from "@/utils/logger";
-import { withMicrosoftGraphRetry } from "@/utils/microsoft/retry";
+import {
+  withMicrosoftGraphRetry,
+  withMicrosoftGraphWriteRetry,
+} from "@/utils/microsoft/retry";
 
 export type OutlookSystemFolder =
   | "INBOX"
@@ -215,7 +218,7 @@ export async function getOrCreateOutlookFolderIdByName(
   }
 
   try {
-    const response = await withMicrosoftGraphRetry(
+    const response = await withMicrosoftGraphWriteRetry(
       () =>
         client.getClient().api("/me/mailFolders").post({
           displayName: folderName,

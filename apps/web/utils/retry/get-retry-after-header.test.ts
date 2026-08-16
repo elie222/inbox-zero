@@ -39,4 +39,18 @@ describe("getRetryAfterHeaderFromError", () => {
 
     expect(header).toBe("120");
   });
+
+  it("reads retry-after header from p-retry's nested error", () => {
+    const header = getRetryAfterHeaderFromError({
+      error: {
+        response: {
+          headers: {
+            "retry-after": "15",
+          },
+        },
+      },
+    });
+
+    expect(header).toBe("15");
+  });
 });

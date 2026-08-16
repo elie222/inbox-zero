@@ -5,6 +5,7 @@ import { WELL_KNOWN_FOLDERS } from "./constants";
 import {
   extractErrorInfo,
   withMicrosoftGraphRetry,
+  withMicrosoftGraphWriteRetry,
 } from "@/utils/microsoft/retry";
 import {
   processThreadMessagesFallback,
@@ -112,7 +113,7 @@ export async function createLabel({
         ? color
         : OUTLOOK_COLORS[Math.floor(Math.random() * OUTLOOK_COLORS.length)];
 
-    const response: OutlookCategory = await withMicrosoftGraphRetry(
+    const response: OutlookCategory = await withMicrosoftGraphWriteRetry(
       () =>
         client.getClient().api("/me/outlook/masterCategories").post({
           displayName: sanitizedName,
@@ -257,7 +258,7 @@ export async function labelMessage({
   categories: string[];
   logger: Logger;
 }) {
-  return withMicrosoftGraphRetry(
+  return withMicrosoftGraphWriteRetry(
     () =>
       client.getClient().api(`/me/messages/${messageId}`).patch({
         categories,
@@ -346,7 +347,7 @@ export async function removeThreadLabel({
         (cat) => cat !== categoryName,
       );
 
-      await withMicrosoftGraphRetry(
+      await withMicrosoftGraphWriteRetry(
         () =>
           client.getClient().api(`/me/messages/${messageId}`).patch({
             categories: updatedCategories,
@@ -401,121 +402,81 @@ export async function archiveThread({
     }
   }
 
+  // In Outlook, archiving is moving to a folder
+  // We need to move each message in the thread individually
+  const escapedThreadId = threadId.replace(/'/g, "''");
+  let messages: { value: Array<{ id: string }> };
   try {
-    // In Outlook, archiving is moving to a folder
-    // We need to move each message in the thread individually
-    const escapedThreadId = threadId.replace(/'/g, "''");
-    const messages = await client
+    messages = await client
       .getClient()
       .api("/me/messages")
       .filter(`conversationId eq '${escapedThreadId}'`) // Escape single quotes in threadId for the filter
       .get();
-
-    const archivePromise = runThreadMessageMutation({
-      messageIds: messages.value.map((message: { id: string }) => message.id),
-      threadId,
-      logger,
-      messageHandler: (messageId) =>
-        withMicrosoftGraphRetry(
-          () =>
-            client.getClient().api(`/me/messages/${messageId}/move`).post({
-              destinationId: folderId,
-            }),
-          logger,
-        ),
-      failureMessage: "Failed to move message to folder",
-      continueOnError: true,
-    });
-
-    const publishPromise = publishArchive({
-      ownerEmail,
-      threadId,
-      actionSource,
-      timestamp: Date.now(),
-    });
-
-    const [archiveResult, publishResult] = await Promise.allSettled([
-      archivePromise,
-      publishPromise,
-    ]);
-
-    // Handle publish errors as non-fatal (just log)
-    if (publishResult.status === "rejected") {
-      logger.error("Failed to publish action to move thread to folder", {
-        folderId,
-        threadId,
-        error: publishResult.reason,
-      });
-    }
-
-    // Handle archive errors
-    if (archiveResult.status === "rejected") {
-      const error = archiveResult.reason;
-      if (error.message?.includes("Requested entity was not found")) {
-        logger.warn("Thread not found", { threadId, userEmail: ownerEmail });
-        return { status: 404, message: "Thread not found" };
-      }
-      logger.error("Failed to move thread to folder", {
-        folderId,
-        threadId,
-        error,
-      });
-      throw error;
-    }
-
-    return { status: 200 };
   } catch (error) {
-    // If the filter fails, try a different approach
-    logger.warn("Filter failed, trying alternative approach", {
+    return archiveThreadWithFallback({
+      client,
+      threadId,
+      ownerEmail,
+      actionSource,
+      folderId,
+      logger,
+      filterError: error,
+    });
+  }
+
+  const archivePromise = runThreadMessageMutation({
+    messageIds: messages.value.map((message) => message.id),
+    threadId,
+    logger,
+    messageHandler: (messageId) =>
+      withMicrosoftGraphWriteRetry(
+        () =>
+          client.getClient().api(`/me/messages/${messageId}/move`).post({
+            destinationId: folderId,
+          }),
+        logger,
+      ),
+    failureMessage: "Failed to move message to folder",
+    continueOnError: true,
+  });
+
+  const publishPromise = publishArchive({
+    ownerEmail,
+    threadId,
+    actionSource,
+    timestamp: Date.now(),
+  });
+
+  const [archiveResult, publishResult] = await Promise.allSettled([
+    archivePromise,
+    publishPromise,
+  ]);
+
+  // Handle publish errors as non-fatal (just log)
+  if (publishResult.status === "rejected") {
+    logger.error("Failed to publish action to move thread to folder", {
+      folderId,
+      threadId,
+      error: publishResult.reason,
+    });
+  }
+
+  // Handle archive errors
+  if (archiveResult.status === "rejected") {
+    const error = archiveResult.reason;
+    if (error.message?.includes("Requested entity was not found")) {
+      logger.warn("Thread not found", { threadId, userEmail: ownerEmail });
+      return { status: 404, message: "Thread not found" };
+    }
+    logger.error("Failed to move thread to folder", {
+      folderId,
       threadId,
       error,
     });
-
-    try {
-      await processThreadMessagesFallback({
-        client,
-        threadId,
-        logger,
-        messageHandler: (messageId) =>
-          withMicrosoftGraphRetry(
-            () =>
-              client
-                .getClient()
-                .api(`/me/messages/${messageId}/move`)
-                .post({ destinationId: folderId }),
-            logger,
-          ),
-        noMessagesMessage:
-          "No messages found for conversationId, skipping folder move",
-      });
-
-      // Publish the archive action
-      try {
-        await publishArchive({
-          ownerEmail,
-          threadId,
-          actionSource,
-          timestamp: Date.now(),
-        });
-      } catch (publishError) {
-        logger.error("Failed to publish action to move thread to folder", {
-          folderId,
-          email: ownerEmail,
-          threadId,
-          error: publishError,
-        });
-      }
-
-      return { status: 200 };
-    } catch (directError) {
-      logger.error("Failed to move thread to folder", {
-        folderId,
-        threadId,
-        error: directError,
-      });
-      throw directError;
-    }
+    throw error;
   }
+
+  return { status: 200 };
 }
 
 // Graph pages at 10 messages by default, which would silently leave the rest of
@@ -606,7 +567,7 @@ async function moveThreadFromFolderToInbox({
     threadId,
     logger,
     messageHandler: (messageId) =>
-      withMicrosoftGraphRetry(
+      withMicrosoftGraphWriteRetry(
         () =>
           client
             .getClient()
@@ -686,7 +647,7 @@ export async function markReadThread({
       threadId,
       logger,
       messageHandler: (messageId) =>
-        withMicrosoftGraphRetry(
+        withMicrosoftGraphWriteRetry(
           () =>
             client.getClient().api(`/me/messages/${messageId}`).patch({
               isRead: read,
@@ -708,7 +669,7 @@ export async function markReadThread({
         threadId,
         logger,
         messageHandler: (messageId) =>
-          withMicrosoftGraphRetry(
+          withMicrosoftGraphWriteRetry(
             () =>
               client
                 .getClient()
@@ -741,7 +702,7 @@ export async function markImportantMessage({
   logger: Logger;
 }) {
   // In Outlook, we use the "Important" flag
-  await withMicrosoftGraphRetry(
+  await withMicrosoftGraphWriteRetry(
     () =>
       client
         .getClient()
@@ -762,7 +723,7 @@ export async function markStarredMessage({
   messageId: string;
   logger: Logger;
 }) {
-  await withMicrosoftGraphRetry(
+  await withMicrosoftGraphWriteRetry(
     () =>
       client
         .getClient()
@@ -811,4 +772,71 @@ function assertNoNormalizedInputCollisions(
 
     if (!existingRawName) normalizedMap.set(normalizedName, rawName);
   });
+}
+
+async function archiveThreadWithFallback({
+  client,
+  threadId,
+  ownerEmail,
+  actionSource,
+  folderId,
+  logger,
+  filterError,
+}: {
+  client: OutlookClient;
+  threadId: string;
+  ownerEmail: string;
+  actionSource: TinybirdEmailAction["actionSource"];
+  folderId: string;
+  logger: Logger;
+  filterError: unknown;
+}) {
+  logger.warn("Filter failed, trying alternative approach", {
+    threadId,
+    error: filterError,
+  });
+
+  try {
+    await processThreadMessagesFallback({
+      client,
+      threadId,
+      logger,
+      messageHandler: (messageId) =>
+        withMicrosoftGraphWriteRetry(
+          () =>
+            client
+              .getClient()
+              .api(`/me/messages/${messageId}/move`)
+              .post({ destinationId: folderId }),
+          logger,
+        ),
+      noMessagesMessage:
+        "No messages found for conversationId, skipping folder move",
+    });
+
+    try {
+      await publishArchive({
+        ownerEmail,
+        threadId,
+        actionSource,
+        timestamp: Date.now(),
+      });
+    } catch (publishError) {
+      logger.error("Failed to publish action to move thread to folder", {
+        folderId,
+        email: ownerEmail,
+        threadId,
+        error: publishError,
+      });
+    }
+
+    return { status: 200 };
+  } catch (directError) {
+    logger.error("Failed to move thread to folder", {
+      folderId,
+      threadId,
+      error: directError,
+    });
+    throw directError;
+  }
 }
