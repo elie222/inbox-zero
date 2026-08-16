@@ -6,20 +6,16 @@ import {
 import { isDefined } from "@/utils/types";
 import { getRuleLabel } from "@/utils/rule/consts";
 import { SystemType } from "@/generated/prisma/enums";
-import { GmailLabel } from "@/utils/gmail/label";
+import { GMAIL_SYSTEM_LABELS, GmailLabel } from "@/utils/gmail/label";
 import { OutlookLabel } from "@/utils/outlook/constants";
 
 export type EmailMessageCellLabel = Pick<EmailLabel, "id" | "name" | "color">;
 
 const TO_REPLY_LABEL = getRuleLabel(SystemType.TO_REPLY);
 const AWAITING_REPLY_LABEL = getRuleLabel(SystemType.AWAITING_REPLY);
-const GMAIL_CATEGORY_LABELS = new Set([
-  GmailLabel.PERSONAL,
-  GmailLabel.SOCIAL,
-  GmailLabel.PROMOTIONS,
-  GmailLabel.FORUMS,
-  GmailLabel.UPDATES,
-]);
+const GMAIL_CATEGORY_LABELS = new Set(
+  GMAIL_SYSTEM_LABELS.filter((label) => label.startsWith("CATEGORY_")),
+);
 
 export function getEmailMessageCellLabels({
   labelIds,
