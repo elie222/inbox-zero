@@ -119,4 +119,16 @@ describe("shouldReplaceDesktopUpdateFeed", () => {
       shouldReplaceDesktopUpdateFeed("files:\n  - url: latest.yml\n", MAC_YML),
     ).toBe(false);
   });
+
+  it("does not publish a prerelease onto the stable feed", () => {
+    expect(
+      shouldReplaceDesktopUpdateFeed("version: 1.0.0-beta.1\n", null),
+    ).toBe(false);
+    expect(
+      shouldReplaceDesktopUpdateFeed(
+        "version: 1.0.0-beta.1\n",
+        "version: 1.0.0\n",
+      ),
+    ).toBe(false);
+  });
 });

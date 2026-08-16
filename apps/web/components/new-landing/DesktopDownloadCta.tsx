@@ -19,7 +19,7 @@ import {
 const GITHUB_RELEASES_URL = `https://github.com/${DESKTOP_GITHUB_REPO}/releases`;
 const DEFAULT_PLATFORM: DesktopClientPlatform = {
   arch: "unknown",
-  os: "mac",
+  os: "other",
 };
 
 type NavigatorWithUserAgentData = Navigator & {
@@ -32,6 +32,7 @@ type NavigatorWithUserAgentData = Navigator & {
   };
 };
 
+/** Used by the marketing `/desktop` page cloned into this Next app at build time. */
 export function DesktopDownloadCta({
   downloads,
 }: {

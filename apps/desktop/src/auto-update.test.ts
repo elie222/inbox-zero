@@ -36,4 +36,14 @@ describe("startDesktopAutoUpdate", () => {
     await expect(startDesktopAutoUpdate(true)).resolves.toBe(false);
     expect(autoUpdater.logger.error).toHaveBeenCalledWith("feed unavailable");
   });
+
+  it("records feed setup failures from setFeedURL", async () => {
+    autoUpdater.setFeedURL.mockImplementationOnce(() => {
+      throw new Error("invalid feed URL");
+    });
+
+    await expect(startDesktopAutoUpdate(true)).resolves.toBe(false);
+    expect(autoUpdater.logger.error).toHaveBeenCalledWith("invalid feed URL");
+    expect(autoUpdater.checkForUpdatesAndNotify).not.toHaveBeenCalled();
+  });
 });

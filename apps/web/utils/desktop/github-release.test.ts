@@ -78,6 +78,17 @@ describe("pickLatestDesktopRelease", () => {
       ]),
     ).toBeNull();
   });
+
+  it("skips semver prerelease desktop tags", () => {
+    const links = pickLatestDesktopRelease([
+      release("desktop-v1.0.0-beta.1", [
+        "Inbox-Zero-1.0.0-beta.1-mac-arm64.dmg",
+      ]),
+      release("desktop-v0.2.0", ["Inbox-Zero-0.2.0-mac-arm64.dmg"]),
+    ]);
+
+    expect(links?.version).toBe("0.2.0");
+  });
 });
 
 describe("detectDesktopClientPlatform", () => {
@@ -140,5 +151,20 @@ describe("getDesktopDownloadCtas", () => {
       getDesktopDownloadCtas(DOWNLOADS, { os: "windows", arch: "arm" }).primary
         ?.href,
     ).toBe(DOWNLOADS.winArm64Exe);
+  });
+
+  it("does not pick a primary installer before the client OS is known", () => {
+    const { primary, alternatives } = getDesktopDownloadCtas(DOWNLOADS, {
+      os: "other",
+      arch: "unknown",
+    });
+
+    expect(primary).toBeNull();
+    expect(alternatives.map((item) => item.shortLabel)).toEqual([
+      "Mac (Apple Silicon)",
+      "Mac Intel",
+      "Windows",
+      "Windows ARM",
+    ]);
   });
 });

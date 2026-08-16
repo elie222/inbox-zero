@@ -1,3 +1,8 @@
+import {
+  compareDesktopVersions,
+  isPrereleaseDesktopVersion,
+} from "./desktop-version";
+
 export const DESKTOP_GITHUB_REPO = "elie222/inbox-zero";
 export const DESKTOP_TAG_PREFIX = "desktop-v";
 
@@ -34,24 +39,15 @@ export type DesktopDownloadCta = {
   shortLabel: string;
 };
 
-export function compareDesktopVersions(a: string, b: string): number {
-  const left = a.split(".").map((part) => Number.parseInt(part, 10) || 0);
-  const right = b.split(".").map((part) => Number.parseInt(part, 10) || 0);
-  const length = Math.max(left.length, right.length);
-  for (let index = 0; index < length; index++) {
-    const delta = (left[index] ?? 0) - (right[index] ?? 0);
-    if (delta > 0) return 1;
-    if (delta < 0) return -1;
-  }
-  return 0;
-}
-
 export function pickLatestDesktopRelease(
   releases: readonly GitHubRelease[],
 ): DesktopDownloadLinks | null {
-  const desktopReleases = releases.filter(
-    (item) => !item.prerelease && item.tag_name.startsWith(DESKTOP_TAG_PREFIX),
-  );
+  const desktopReleases = releases.filter((item) => {
+    if (item.prerelease || !item.tag_name.startsWith(DESKTOP_TAG_PREFIX)) {
+      return false;
+    }
+    return !isPrereleaseDesktopVersion(versionFromDesktopTag(item.tag_name));
+  });
   if (desktopReleases.length === 0) return null;
 
   const release = desktopReleases.reduce((newest, item) =>
