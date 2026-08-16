@@ -18,7 +18,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  release:
+  package:
     strategy:
       fail-fast: false
       matrix:
@@ -32,7 +32,6 @@ jobs:
 
     env:
       CSC_IDENTITY_AUTO_DISCOVERY: "false"
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
       CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
       WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
@@ -60,14 +59,9 @@ jobs:
 
       - name: Build and package
         working-directory: apps/desktop
-        shell: bash
         run: |
           pnpm build
-          if [ "${{ github.ref_type }}" = "tag" ] || [ "${{ inputs.publish }}" = "true" ]; then
-            pnpm exec electron-builder ${{ matrix.args }} --publish always
-          else
-            pnpm exec electron-builder ${{ matrix.args }} --publish never
-          fi
+          pnpm exec electron-builder ${{ matrix.args }} --publish never
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -77,5 +71,44 @@ jobs:
             apps/desktop/release/*.zip
             apps/desktop/release/*.exe
             apps/desktop/release/*.blockmap
-            apps/desktop/release/latest*.yml
           if-no-files-found: error
+
+  publish:
+    needs: package
+    if: github.ref_type == 'tag' || inputs.publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            TAG="${GITHUB_REF_NAME}"
+          else
+            TAG="desktop-v$(node -p "require('./apps/desktop/package.json').version")"
+          fi
+          TITLE="Inbox Zero Desktop ${TAG#desktop-v}"
+          shopt -s nullglob
+          files=(dist/*.dmg dist/*.zip dist/*.exe dist/*.blockmap)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No desktop artifacts to publish" >&2
+            exit 1
+          fi
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${files[@]}" --clobber
+          else
+            extra=()
+            if [ "${{ github.ref_type }}" != "tag" ]; then
+              extra+=(--target "${{ github.sha }}")
+            fi
+            gh release create "$TAG" "${files[@]}" --title "$TITLE" --generate-notes "${extra[@]}"
+          fi

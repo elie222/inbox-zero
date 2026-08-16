@@ -38,7 +38,3 @@ nsis:
   oneClick: true
   perMachine: false
   allowToChangeInstallationDirectory: false
-publish:
-  provider: github
-  owner: elie222
-  repo: inbox-zero

@@ -35,7 +35,7 @@ Push a `desktop-v*` tag or run the **Desktop Release** workflow. That builds mac
 
 Signing is optional until these GitHub secrets exist:
 
-- `MAC_CSC_LINK` / `MAC_CSC_KEY_PASSWORD` — Developer ID Application `.p12` (base64) for notarizable Mac builds
+- `MAC_CSC_LINK` / `MAC_CSC_KEY_PASSWORD` — Developer ID Application `.p12` (base64) for signed Mac builds
 - `WIN_CSC_LINK` / `WIN_CSC_KEY_PASSWORD` — Windows Authenticode `.p12` (base64)
 
-Notarization is off until those Mac secrets are in place. Same Apple Developer team as the iOS app can issue the Developer ID certificate; that is not a Mac App Store build.
+Signing secrets do not notarize. `mac.notarize` is hardcoded off in `electron-builder.yml`; Gatekeeper still warns until that is turned on with Apple notarization credentials. Same Apple Developer team as the iOS app can issue the Developer ID certificate; that is not a Mac App Store build.
