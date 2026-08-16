@@ -30,7 +30,10 @@ function getImageProxyConfig(logger: Logger) {
     externalProxyBaseUrl: env.NEXT_PUBLIC_IMAGE_PROXY_BASE_URL,
     useAppRoute,
   });
-  const signingSecret = env.IMAGE_PROXY_SIGNING_SECRET;
+  const signingSecret = env.IMAGE_PROXY_SIGNING_SECRET?.split(
+    ",",
+    1,
+  )[0]?.trim();
 
   if (!proxyBaseUrl) return null;
 
