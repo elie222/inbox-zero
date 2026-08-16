@@ -7,7 +7,9 @@ on:
       - "apps/web/app/**"
       - "apps/web/components/**"
       - "apps/web/hooks/**"
+      - "apps/web/providers/**"
       - "apps/web/store/**"
+      - "apps/web/styles/**"
       - "apps/web/utils/auth/**"
       - "apps/web/utils/auth.ts"
       - "apps/web/utils/auth-client.ts"
@@ -22,6 +24,7 @@ on:
       - "apps/web/next.config.*"
       - "apps/web/package.json"
       - "pnpm-lock.yaml"
+      - "scripts/pnpm-install-without-desktop.sh"
       - ".github/workflows/playwright.yml"
   pull_request:
     branches: [main]
@@ -29,7 +32,9 @@ on:
       - "apps/web/app/**"
       - "apps/web/components/**"
       - "apps/web/hooks/**"
+      - "apps/web/providers/**"
       - "apps/web/store/**"
+      - "apps/web/styles/**"
       - "apps/web/utils/auth/**"
       - "apps/web/utils/auth.ts"
       - "apps/web/utils/auth-client.ts"
@@ -44,6 +49,7 @@ on:
       - "apps/web/next.config.*"
       - "apps/web/package.json"
       - "pnpm-lock.yaml"
+      - "scripts/pnpm-install-without-desktop.sh"
       - ".github/workflows/playwright.yml"
   schedule:
     - cron: "0 6 * * *"

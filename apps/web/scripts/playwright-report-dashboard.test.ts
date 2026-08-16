@@ -8,9 +8,14 @@ describe("updatePlaywrightHistory", () => {
   it("places the current attempt first and replaces an existing copy", () => {
     const previousRun = getRun({ id: "100", runNumber: 8 });
     const currentRun = getRun({ id: "200", runNumber: 9 });
+    const existingCurrentRun = getRun({
+      id: currentRun.id,
+      reportUrl: "https://example.com/old-report",
+      runNumber: currentRun.runNumber,
+    });
 
     const history = updatePlaywrightHistory(
-      [previousRun, currentRun],
+      [previousRun, existingCurrentRun],
       currentRun,
     );
 
