@@ -39,3 +39,6 @@ nsis:
   oneClick: true
   perMachine: false
   allowToChangeInstallationDirectory: false
+publish:
+  provider: generic
+  url: https://github.com/elie222/inbox-zero/releases/download/desktop-updates

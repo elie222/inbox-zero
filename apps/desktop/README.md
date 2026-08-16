@@ -39,3 +39,5 @@ Signing is optional until these GitHub secrets exist:
 - `WIN_CSC_LINK` / `WIN_CSC_KEY_PASSWORD` — Windows Authenticode `.p12` (base64)
 
 Signing secrets do not notarize. `mac.notarize` is hardcoded off in `electron-builder.yml`; Gatekeeper still warns until that is turned on with Apple notarization credentials. Same Apple Developer team as the iOS app can issue the Developer ID certificate; that is not a Mac App Store build.
+
+Packaged apps check `https://github.com/elie222/inbox-zero/releases/download/desktop-updates` for `latest-mac.yml` / `latest.yml`. That feed is a stable GitHub release; the installers stay on `desktop-v*` releases.

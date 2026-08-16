@@ -10,6 +10,7 @@ import {
   type Session,
   type WebContents,
 } from "electron";
+import { startDesktopAutoUpdate, logDesktopUpdateError } from "./auto-update";
 import {
   DESKTOP_PROTOCOL,
   findDesktopProtocolUrl,
@@ -97,6 +98,7 @@ function startDesktopApp() {
     if (startupAuthUrl) {
       await handleAuthCallbackUrl(startupAuthUrl);
     }
+    startDesktopAutoUpdate().catch(logDesktopUpdateError);
   });
 
   app.on("window-all-closed", () => {

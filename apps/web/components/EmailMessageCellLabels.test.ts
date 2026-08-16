@@ -58,6 +58,25 @@ describe("getEmailMessageCellLabels", () => {
 });
 
 describe("getEmailThreadLabels", () => {
+  it("hides Gmail system categories while keeping user labels", () => {
+    const categoryIds = [
+      "CATEGORY_PERSONAL",
+      "CATEGORY_SOCIAL",
+      "CATEGORY_PROMOTIONS",
+      "CATEGORY_FORUMS",
+      "CATEGORY_UPDATES",
+    ];
+    const labels = getEmailThreadLabels({
+      messages: [{ labelIds: ["label-calendar", ...categoryIds] }],
+      userLabels: Object.fromEntries([
+        ["label-calendar", { id: "label-calendar", name: "Calendar" }],
+        ...categoryIds.map((id) => [id, { id, name: id }]),
+      ]),
+    });
+
+    expect(labels).toEqual([{ id: "label-calendar", name: "Calendar" }]);
+  });
+
   it("keeps a thread label when the newest message is a draft without it", () => {
     const labels = getEmailThreadLabels({
       messages: [
