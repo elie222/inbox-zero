@@ -105,7 +105,7 @@ export const landingPageAnalytics = {
       frequency: "monthly" | "annually";
       defaultFrequency: "monthly" | "annually";
       frequencySource: "default" | "user_selected";
-      pricingFrequencyDefaultVariant: string;
+      pricingFrequencyDefaultVariant: string | null;
     },
   ) => {
     posthog?.capture?.("Clicked Pricing CTA", properties);

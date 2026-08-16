@@ -30,7 +30,7 @@ export const GET = withAuth("stripe/success", async (request) => {
 
   after(async () => {
     if (!user?.email) return;
-    trackStripeCheckoutCompleted(user.email, stripeCheckoutSessionId, {
+    await trackStripeCheckoutCompleted(user.email, {
       source: "success_redirect",
     });
   });

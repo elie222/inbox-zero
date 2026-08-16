@@ -83,7 +83,6 @@ describe("stripe success route", () => {
 
     expect(trackStripeCheckoutCompletedMock).toHaveBeenCalledWith(
       "user@example.com",
-      "checkout-session-id",
       {
         source: "success_redirect",
       },

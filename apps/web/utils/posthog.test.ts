@@ -40,15 +40,14 @@ vi.mock("@/utils/prisma");
 import {
   FIRST_TIME_EVENTS,
   deletePosthogUser,
+  getCheckoutSessionIdHash,
   posthogCaptureEvent,
   trackFirstTimeEvent,
   trackProductFeedback,
-  trackStripeCheckoutCompleted,
   trackStripeCheckoutCreated,
   trackUserDeleted,
   trackUserDeletionRequested,
 } from "./posthog";
-import { hash } from "@/utils/hash";
 import { redis } from "@/utils/redis";
 
 describe("trackFirstTimeEvent", () => {
@@ -306,24 +305,8 @@ describe("trackStripeCheckoutCreated", () => {
       distinctId: "user@example.com",
       event: "Stripe checkout created",
       properties: {
-        checkoutSessionIdHash: hash("cs_test"),
+        checkoutSessionIdHash: getCheckoutSessionIdHash("cs_test"),
         tier: "BASIC_MONTHLY",
-      },
-      sendFeatureFlags: undefined,
-    });
-  });
-
-  it("uses the same private correlation key for checkout completion", async () => {
-    await trackStripeCheckoutCompleted("user@example.com", "cs_test", {
-      source: "success_redirect",
-    });
-
-    expect(captureMock).toHaveBeenCalledWith({
-      distinctId: "user@example.com",
-      event: "Stripe checkout completed",
-      properties: {
-        checkoutSessionIdHash: hash("cs_test"),
-        source: "success_redirect",
       },
       sendFeatureFlags: undefined,
     });

@@ -9,7 +9,10 @@ import { usePostHog } from "posthog-js/react";
 import { env } from "@/env";
 import { LoadingContent } from "@/components/LoadingContent";
 import { usePremium } from "@/hooks/usePremium";
-import { usePricingFrequencyDefault } from "@/hooks/useFeatureFlags";
+import {
+  usePricingFrequencyDefault,
+  type PricingFrequencyDefault,
+} from "@/hooks/useFeatureFlags";
 import { Button } from "@/components/ui/button";
 import {
   PricingFrequencyToggle,
@@ -100,7 +103,13 @@ export default function Pricing(props: PricingProps) {
   const router = useRouter();
 
   useEffect(() => {
-    if (isLoading || hasTrackedPricingView.current) return;
+    if (
+      isLoading ||
+      pricingFrequencyDefaultVariant === undefined ||
+      hasTrackedPricingView.current
+    ) {
+      return;
+    }
 
     hasTrackedPricingView.current = true;
     posthog.capture("pricing_page_viewed", {
@@ -194,7 +203,8 @@ export default function Pricing(props: PricingProps) {
               previousFrequency: frequency.value,
               frequency: nextFrequency.value,
               defaultFrequency: defaultFrequency.value,
-              pricingFrequencyDefaultVariant,
+              pricingFrequencyDefaultVariant:
+                pricingFrequencyDefaultVariant ?? null,
             });
             setFrequency(nextFrequency);
           }}
@@ -220,7 +230,9 @@ export default function Pricing(props: PricingProps) {
               frequency={frequency}
               defaultFrequency={defaultFrequency}
               frequencySource={chosenFrequency ? "user_selected" : "default"}
-              pricingFrequencyDefaultVariant={pricingFrequencyDefaultVariant}
+              pricingFrequencyDefaultVariant={
+                pricingFrequencyDefaultVariant ?? null
+              }
               stripeSubscriptionId={premium?.stripeSubscriptionId}
               stripeSubscriptionStatus={premium?.stripeSubscriptionStatus}
               hasActiveAppleManagedSubscription={
@@ -258,7 +270,7 @@ function PriceTier({
   frequency: Frequency;
   defaultFrequency: Frequency;
   frequencySource: "default" | "user_selected";
-  pricingFrequencyDefaultVariant: string;
+  pricingFrequencyDefaultVariant: PricingFrequencyDefault | null;
   stripeSubscriptionId: string | null | undefined;
   stripeSubscriptionStatus: string | null | undefined;
   hasActiveAppleManagedSubscription: boolean;

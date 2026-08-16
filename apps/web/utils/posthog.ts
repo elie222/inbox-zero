@@ -199,7 +199,7 @@ export async function trackStripeCheckoutCreated(
 ) {
   const checkoutProperties = {
     ...properties,
-    checkoutSessionIdHash: hash(checkoutSessionId),
+    checkoutSessionIdHash: getCheckoutSessionIdHash(checkoutSessionId),
   };
   const dedupeKey = `posthog:stripe-checkout-created:${checkoutSessionId}`;
   let firstCapture: string | null;
@@ -240,13 +240,13 @@ export async function trackStripeCheckoutCreated(
 
 export async function trackStripeCheckoutCompleted(
   email: string,
-  checkoutSessionId: string | null,
   properties?: Properties,
 ) {
-  return posthogCaptureEvent(email, "Stripe checkout completed", {
-    ...properties,
-    checkoutSessionIdHash: checkoutSessionId ? hash(checkoutSessionId) : null,
-  });
+  return posthogCaptureEvent(email, "Stripe checkout completed", properties);
+}
+
+export function getCheckoutSessionIdHash(checkoutSessionId: string) {
+  return hash(checkoutSessionId);
 }
 
 export async function trackError({

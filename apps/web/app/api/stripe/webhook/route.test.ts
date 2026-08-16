@@ -11,6 +11,7 @@ const {
   mockEnqueueStripeInvoiceEmail,
   mockSyncAiGenerationOverageForUpcomingInvoice,
   mockTrackStripeEvent,
+  mockGetCheckoutSessionIdHash,
   mockTrackBillingTrialStarted,
   mockTrackTrialStarted,
   mockTrackSubscriptionTrialStarted,
@@ -26,6 +27,9 @@ const {
   mockEnqueueStripeInvoiceEmail: vi.fn(),
   mockSyncAiGenerationOverageForUpcomingInvoice: vi.fn(),
   mockTrackStripeEvent: vi.fn(),
+  mockGetCheckoutSessionIdHash: vi.fn(
+    (checkoutSessionId: string) => `hashed:${checkoutSessionId}`,
+  ),
   mockTrackBillingTrialStarted: vi.fn(),
   mockTrackTrialStarted: vi.fn(),
   mockTrackSubscriptionTrialStarted: vi.fn(),
@@ -78,6 +82,7 @@ vi.mock("@/env", () => ({
 }));
 
 vi.mock("@/utils/posthog", () => ({
+  getCheckoutSessionIdHash: mockGetCheckoutSessionIdHash,
   trackBillingTrialStarted: mockTrackBillingTrialStarted,
   trackStripeEvent: mockTrackStripeEvent,
   trackSubscriptionTrialStarted: mockTrackSubscriptionTrialStarted,
@@ -185,6 +190,20 @@ describe("processEvent", () => {
       event: expect.objectContaining({ type: "invoice.paid" }),
       logger,
     });
+  });
+
+  it("adds a private correlation key for a verified checkout completion", async () => {
+    await processEvent(checkoutCompletedEvent(), logger);
+
+    expect(mockTrackStripeEvent).toHaveBeenCalledWith(
+      "Unknown",
+      expect.objectContaining({
+        checkoutSessionIdHash: "hashed:cs_test",
+        id: "evt_checkout_test",
+        type: "checkout.session.completed",
+      }),
+    );
+    expect(mockGetCheckoutSessionIdHash).toHaveBeenCalledWith("cs_test");
   });
 
   it("skips dependent billing syncs after customer sync fails", async () => {
@@ -538,6 +557,26 @@ function invoiceEvent(overrides: Partial<Stripe.Event> = {}): Stripe.Event {
       },
     },
     ...overrides,
+  } as Stripe.Event;
+}
+
+function checkoutCompletedEvent(): Stripe.Event {
+  return {
+    id: "evt_checkout_test",
+    type: "checkout.session.completed",
+    object: "event",
+    api_version: "2025-03-31.basil",
+    created: 1_700_000_500,
+    livemode: false,
+    pending_webhooks: 0,
+    request: { id: null, idempotency_key: null },
+    data: {
+      object: {
+        id: "cs_test",
+        customer: "cus_test",
+        status: "complete",
+      },
+    },
   } as Stripe.Event;
 }
 

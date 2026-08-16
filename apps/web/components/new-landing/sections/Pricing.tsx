@@ -115,7 +115,8 @@ export function Pricing() {
               previousFrequency: frequency,
               frequency: nextFrequency,
               defaultFrequency,
-              pricingFrequencyDefaultVariant,
+              pricingFrequencyDefaultVariant:
+                pricingFrequencyDefaultVariant ?? null,
             });
             setFrequency(nextFrequency);
           }}
@@ -146,7 +147,9 @@ export function Pricing() {
                 frequency={frequency}
                 defaultFrequency={defaultFrequency}
                 frequencySource={chosenFrequency ? "user_selected" : "default"}
-                pricingFrequencyDefaultVariant={pricingFrequencyDefaultVariant}
+                pricingFrequencyDefaultVariant={
+                  pricingFrequencyDefaultVariant ?? null
+                }
                 posthog={posthog}
               />
             </CardWrapper>
@@ -181,7 +184,8 @@ export function Pricing() {
                       frequencySource: chosenFrequency
                         ? "user_selected"
                         : "default",
-                      pricingFrequencyDefaultVariant,
+                      pricingFrequencyDefaultVariant:
+                        pricingFrequencyDefaultVariant ?? null,
                     })
                   }
                 >
@@ -202,7 +206,7 @@ interface PricingCardProps {
   frequency: PricingFrequency;
   frequencySource: "default" | "user_selected";
   posthog: PostHog;
-  pricingFrequencyDefaultVariant: string;
+  pricingFrequencyDefaultVariant: string | null;
   tier: PricingTier;
   tierIndex: number;
 }
