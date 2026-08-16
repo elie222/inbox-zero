@@ -83,6 +83,7 @@ export function SideNavWithTopNav({
     <SidebarProvider
       defaultOpen={defaultOpen ? ["left-sidebar"] : []}
       sidebarNames={["left-sidebar", "chat-sidebar"]}
+      keyboardShortcutName="left-sidebar"
     >
       {/* Mail supplies its own sidebar and trigger for this shared state, so
           the global navigation and its mobile header would be duplicates. */}
