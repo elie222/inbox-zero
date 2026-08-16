@@ -49,7 +49,7 @@ import { useThreadSelection } from "@/app/(app)/[emailAccountId]/mail/use-thread
 import { isThreadUnread } from "@/app/(app)/[emailAccountId]/mail/read-state";
 import { MailLayout, MailSplitKind } from "@/generated/prisma/enums";
 import { useChat } from "@/providers/ChatProvider";
-import { useSidebar } from "@/components/ui/sidebar";
+import { Sidebar, useSidebar } from "@/components/ui/sidebar";
 import { useAtom, useSetAtom } from "jotai";
 import {
   commandPaletteOpenAtom,
@@ -665,9 +665,14 @@ export function MailShell() {
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-background">
       <div className="flex min-h-0 flex-1">
-        {!isFocusMode && isMailSidebarOpen && (
+        <Sidebar
+          name="left-sidebar"
+          desktopBreakpoint="lg"
+          desktopOpen={!isFocusMode && isMailSidebarOpen}
+          width="236px"
+        >
           <MailSidebar
-            className="hidden lg:flex"
+            className="h-full w-full border-r-0"
             activeType={
               scopeLabelId || scopeFolderId ? null : (scopeType ?? "inbox")
             }
@@ -694,7 +699,7 @@ export function MailShell() {
               />
             }
           />
-        )}
+        </Sidebar>
 
         {showList && (
           <section

@@ -206,6 +206,9 @@ const Sidebar = React.forwardRef<
     side?: "left" | "right";
     variant?: "sidebar" | "floating" | "inset";
     collapsible?: "offcanvas" | "icon" | "none";
+    desktopBreakpoint?: "md" | "lg";
+    desktopOpen?: boolean;
+    width?: React.CSSProperties["width"];
   }
 >(
   (
@@ -214,6 +217,9 @@ const Sidebar = React.forwardRef<
       side = "left",
       variant = "sidebar",
       collapsible = "offcanvas",
+      desktopBreakpoint = "md",
+      desktopOpen,
+      width,
       className,
       children,
       ...props
@@ -265,14 +271,24 @@ const Sidebar = React.forwardRef<
       );
     }
 
+    const isDesktopOpen = desktopOpen ?? state.includes(name);
+
     return (
       <div
         ref={ref}
-        className="group peer hidden text-sidebar-foreground md:block"
-        data-state={state.includes(name) ? "expanded" : "collapsed"}
-        data-collapsible={state.includes(name) ? "" : collapsible}
+        className={cn(
+          "group peer text-sidebar-foreground",
+          desktopBreakpoint === "lg" ? "hidden lg:block" : "hidden md:block",
+        )}
+        data-state={isDesktopOpen ? "expanded" : "collapsed"}
+        data-collapsible={isDesktopOpen ? "" : collapsible}
         data-variant={variant}
         data-side={side}
+        style={
+          width
+            ? ({ "--sidebar-width": width } as React.CSSProperties)
+            : undefined
+        }
       >
         {/* This is what handles the sidebar gap on desktop */}
         <div
@@ -287,7 +303,8 @@ const Sidebar = React.forwardRef<
         />
         <div
           className={cn(
-            "fixed inset-y-0 z-10 hidden h-svh w-[--sidebar-width] transition-[left,right,width] duration-200 ease-linear md:flex",
+            "fixed inset-y-0 z-10 h-svh w-[--sidebar-width] transition-[left,right,width] duration-200 ease-linear",
+            desktopBreakpoint === "lg" ? "hidden lg:flex" : "hidden md:flex",
             side === "left"
               ? "left-0 group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]"
               : "right-0 group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)]",
@@ -309,7 +326,7 @@ const Sidebar = React.forwardRef<
                 child.type === SidebarMenuButton
               ) {
                 return React.cloneElement(child, {
-                  isCollapsed: !state.includes(name),
+                  isCollapsed: !isDesktopOpen,
                 } as React.ComponentProps<typeof SidebarMenuButton>);
               }
               return child;
