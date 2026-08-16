@@ -1,9 +1,8 @@
 import { app } from "electron";
-import { autoUpdater } from "electron-updater";
 import { getDesktopUpdateFeedUrl } from "./update-feed";
 
 export function logDesktopUpdateError(error: unknown) {
-  autoUpdater.logger?.error(
+  console.error(
     error instanceof Error ? error.message : "Desktop update check failed",
   );
 }
@@ -14,6 +13,7 @@ export async function startDesktopAutoUpdate(
   if (!isPackaged) return false;
 
   try {
+    const { autoUpdater } = await import("electron-updater");
     autoUpdater.setFeedURL({
       provider: "generic",
       url: getDesktopUpdateFeedUrl(),
