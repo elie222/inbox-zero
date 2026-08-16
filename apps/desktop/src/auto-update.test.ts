@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { startDesktopAutoUpdate } from "./auto-update";
 
 const { autoUpdater, app } = vi.hoisted(() => ({
@@ -7,7 +7,6 @@ const { autoUpdater, app } = vi.hoisted(() => ({
     autoDownload: false,
     autoInstallOnAppQuit: false,
     checkForUpdatesAndNotify: vi.fn(),
-    logger: { error: vi.fn() },
     setFeedURL: vi.fn(),
   },
 }));
@@ -16,11 +15,17 @@ vi.mock("electron", () => ({ app }));
 vi.mock("electron-updater", () => ({ autoUpdater }));
 
 describe("startDesktopAutoUpdate", () => {
+  let errorSpy: ReturnType<typeof vi.spyOn>;
+
   beforeEach(() => {
     autoUpdater.checkForUpdatesAndNotify.mockReset();
-    autoUpdater.logger.error.mockReset();
     autoUpdater.setFeedURL.mockReset();
     app.isPackaged = true;
+    errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    errorSpy.mockRestore();
   });
 
   it("skips the update check in development", async () => {
@@ -34,7 +39,7 @@ describe("startDesktopAutoUpdate", () => {
     );
 
     await expect(startDesktopAutoUpdate(true)).resolves.toBe(false);
-    expect(autoUpdater.logger.error).toHaveBeenCalledWith("feed unavailable");
+    expect(console.error).toHaveBeenCalledWith("feed unavailable");
   });
 
   it("records feed setup failures from setFeedURL", async () => {
@@ -43,7 +48,7 @@ describe("startDesktopAutoUpdate", () => {
     });
 
     await expect(startDesktopAutoUpdate(true)).resolves.toBe(false);
-    expect(autoUpdater.logger.error).toHaveBeenCalledWith("invalid feed URL");
+    expect(console.error).toHaveBeenCalledWith("invalid feed URL");
     expect(autoUpdater.checkForUpdatesAndNotify).not.toHaveBeenCalled();
   });
 });

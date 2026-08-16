@@ -1,4 +1,5 @@
 import * as esbuild from "esbuild";
+import { ESM_MAIN_REQUIRE_BANNER } from "./esm-main-banner.mjs";
 
 const shared = {
   bundle: true,
@@ -13,6 +14,9 @@ await esbuild.build({
   entryPoints: ["src/main.ts"],
   outfile: "dist/main.js",
   format: "esm",
+  // electron-updater and fs-extra are CJS. esbuild rewrites their require("fs")
+  // calls to a helper that throws in ESM unless require exists in this module.
+  banner: { js: ESM_MAIN_REQUIRE_BANNER },
 });
 
 await esbuild.build({
