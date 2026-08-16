@@ -84,9 +84,8 @@ export function SideNavWithTopNav({
       defaultOpen={defaultOpen ? ["left-sidebar"] : []}
       sidebarNames={["left-sidebar", "chat-sidebar"]}
     >
-      {/* Both are suppressed together: the trigger only opens SideNav, so
-          leaving it on the mail route would render a button that opens an
-          empty drawer. */}
+      {/* Mail supplies its own sidebar and trigger for this shared state, so
+          the global navigation and its mobile header would be duplicates. */}
       {!isMailRoute && (
         <>
           <MobileHeader />

@@ -113,7 +113,7 @@ export function MailShell() {
   const { data: settings, mutate: mutateSettings } = useMailSettings();
   const { onOpen: openCompose } = useComposeModal();
   const { setInput: setChatInput } = useChat();
-  const { toggleSidebar } = useSidebar();
+  const { state: openSidebars, toggleSidebar } = useSidebar();
   const [isPaletteOpen, setPaletteOpen] = useAtom(commandPaletteOpenAtom);
   const setMailCommandContext = useSetAtom(mailCommandContextAtom);
   // The side panel viewer owns the triage keys while it's open, so this screen
@@ -134,6 +134,7 @@ export function MailShell() {
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [replyToMessageId, setReplyToMessageId] = useState<string>();
+  const isMailSidebarOpen = openSidebars.includes("left-sidebar");
 
   const isAllAccounts = accountScope === "all";
   const accountLayout: MailLayoutMode =
@@ -629,7 +630,7 @@ export function MailShell() {
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-background">
       <div className="flex min-h-0 flex-1">
-        {!isFocusMode && (
+        {!isFocusMode && isMailSidebarOpen && (
           <MailSidebar
             className="hidden lg:flex"
             activeType={
@@ -676,6 +677,7 @@ export function MailShell() {
               onOpenSearch={() => setPaletteOpen(true)}
               onToggleLayout={toggleLayout}
               onToggleAssistant={() => toggleSidebar(["chat-sidebar"])}
+              showSidebarToggle={!isMailSidebarOpen}
               showLayoutToggle={!isAllAccounts}
             />
             {!isScoped && (
@@ -751,6 +753,7 @@ export function MailShell() {
             onDelete={trashTargets}
             onReply={() => setReplyToMessageId(openMessages?.at(-1)?.id)}
             onToggleFocusMode={() => setIsFocusMode((on) => !on)}
+            showSidebarToggle={!isMailSidebarOpen}
             refetch={refetchOpenThread}
             autoOpenReplyForMessageId={replyToMessageId}
             menu={

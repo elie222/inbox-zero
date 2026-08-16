@@ -3,6 +3,7 @@
 import { ColumnsIcon, RowsIcon, SearchIcon, SparklesIcon } from "lucide-react";
 import { Kbd } from "@/components/Kbd";
 import { Tooltip } from "@/components/Tooltip";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import type { MailLayoutMode } from "@/app/(app)/[emailAccountId]/mail/types";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
 import { cn } from "@/utils";
@@ -13,6 +14,7 @@ export type ListToolbarProps = {
   onOpenSearch: () => void;
   onToggleLayout: () => void;
   onToggleAssistant: () => void;
+  showSidebarToggle?: boolean;
 };
 
 export function ListToolbar({
@@ -21,11 +23,16 @@ export function ListToolbar({
   onOpenSearch,
   onToggleLayout,
   onToggleAssistant,
+  showSidebarToggle = false,
 }: ListToolbarProps) {
   const LayoutIcon = layout === "split" ? ColumnsIcon : RowsIcon;
 
   return (
     <div className="flex shrink-0 items-center gap-2 px-3 pt-3 pb-3">
+      {showSidebarToggle ? (
+        <SidebarTrigger name="left-sidebar" className="hidden lg:inline-flex" />
+      ) : null}
+
       {/* Opens the command palette rather than searching mail — it navigates
           and runs actions, and promising search we don't have would mislead. */}
       <button
