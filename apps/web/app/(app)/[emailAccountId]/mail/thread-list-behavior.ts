@@ -18,10 +18,24 @@ export function getActiveThreadIndex({
   if (!openThreadId) return clampedFocusedIndex;
 
   const openThreadIndex = threadIds.indexOf(openThreadId);
-  return openThreadIndex >= 0 ? openThreadIndex : clampedFocusedIndex;
+  return openThreadIndex;
 }
 
-export function getNextThreadIdAfterRemoval({
+export function getThreadActionTargetIds({
+  openThreadId,
+  activeThreadId,
+  selectedThreadIds,
+}: {
+  openThreadId: string | null;
+  activeThreadId: string | undefined;
+  selectedThreadIds: string[];
+}): string[] {
+  if (openThreadId && !activeThreadId) return [openThreadId];
+  if (selectedThreadIds.length) return selectedThreadIds;
+  return activeThreadId ? [activeThreadId] : [];
+}
+
+export function getNextThreadAfterRemoval({
   threadIds,
   currentThreadId,
   removedThreadIds,
@@ -29,20 +43,37 @@ export function getNextThreadIdAfterRemoval({
   threadIds: string[];
   currentThreadId: string;
   removedThreadIds: string[];
-}): string | null {
+}): { id: string; index: number } | null {
   const currentIndex = threadIds.indexOf(currentThreadId);
   if (currentIndex < 0) return null;
 
   const removed = new Set(removedThreadIds);
+  let nextThreadId: string | undefined;
   for (let index = currentIndex + 1; index < threadIds.length; index++) {
     const threadId = threadIds[index];
-    if (threadId && !removed.has(threadId)) return threadId;
+    if (threadId && !removed.has(threadId)) {
+      nextThreadId = threadId;
+      break;
+    }
   }
-  for (let index = currentIndex - 1; index >= 0; index--) {
-    const threadId = threadIds[index];
-    if (threadId && !removed.has(threadId)) return threadId;
+  if (!nextThreadId) {
+    for (let index = currentIndex - 1; index >= 0; index--) {
+      const threadId = threadIds[index];
+      if (threadId && !removed.has(threadId)) {
+        nextThreadId = threadId;
+        break;
+      }
+    }
   }
-  return null;
+  if (!nextThreadId) return null;
+
+  const remainingThreadIds = threadIds.filter(
+    (threadId) => !removed.has(threadId),
+  );
+  return {
+    id: nextThreadId,
+    index: remainingThreadIds.indexOf(nextThreadId),
+  };
 }
 
 export function shouldPrefetchMoreThreads({

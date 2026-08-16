@@ -34,7 +34,8 @@ import { ThreadList } from "@/app/(app)/[emailAccountId]/mail/ThreadList";
 import { ThreadReader } from "@/app/(app)/[emailAccountId]/mail/ThreadReader";
 import {
   getActiveThreadIndex,
-  getNextThreadIdAfterRemoval,
+  getNextThreadAfterRemoval,
+  getThreadActionTargetIds,
 } from "@/app/(app)/[emailAccountId]/mail/thread-list-behavior";
 import {
   getListThreadKey,
@@ -330,20 +331,26 @@ export function MailShell() {
       autoAdvanceReader = false,
     ) => {
       if (isAllAccounts) return;
-      const ids = selection.targetIds(
-        focusedThread ? getListThreadKey(focusedThread) : undefined,
-      );
+      const ids = getThreadActionTargetIds({
+        openThreadId,
+        activeThreadId: focusedThread
+          ? getListThreadKey(focusedThread)
+          : undefined,
+        selectedThreadIds: [...selection.selectedIds],
+      });
       if (!ids.length) return;
       if (removeFromList && openThreadId && ids.includes(openThreadId)) {
-        setOpenThreadId(
-          autoAdvanceReader
-            ? getNextThreadIdAfterRemoval({
-                threadIds: orderedIds,
-                currentThreadId: openThreadId,
-                removedThreadIds: ids,
-              })
-            : null,
-        );
+        if (autoAdvanceReader) {
+          const nextThread = getNextThreadAfterRemoval({
+            threadIds: orderedIds,
+            currentThreadId: openThreadId,
+            removedThreadIds: ids,
+          });
+          setFocusedIndex(nextThread?.index ?? 0);
+          setOpenThreadId(nextThread?.id ?? null);
+        } else {
+          setOpenThreadId(null);
+        }
       }
       selection.clear();
       action(ids);

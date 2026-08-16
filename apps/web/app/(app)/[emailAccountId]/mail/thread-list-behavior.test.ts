@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   getActiveThreadIndex,
-  getNextThreadIdAfterRemoval,
+  getNextThreadAfterRemoval,
+  getThreadActionTargetIds,
   scrollElementIntoContainer,
   shouldPrefetchMoreThreads,
   THREAD_PREFETCH_REMAINING,
@@ -27,42 +28,84 @@ describe("getActiveThreadIndex", () => {
       }),
     ).toBe(1);
   });
+
+  it("does not select an unrelated row when the open reader is missing", () => {
+    expect(
+      getActiveThreadIndex({
+        threadIds: ["one", "two", "three"],
+        focusedIndex: 1,
+        openThreadId: "missing",
+      }),
+    ).toBe(-1);
+  });
 });
 
-describe("getNextThreadIdAfterRemoval", () => {
+describe("getThreadActionTargetIds", () => {
+  it("targets an open reader that is missing from the current list", () => {
+    expect(
+      getThreadActionTargetIds({
+        openThreadId: "missing",
+        activeThreadId: undefined,
+        selectedThreadIds: ["one"],
+      }),
+    ).toEqual(["missing"]);
+  });
+
+  it("preserves an explicit selection when the open reader is in the list", () => {
+    expect(
+      getThreadActionTargetIds({
+        openThreadId: "two",
+        activeThreadId: "two",
+        selectedThreadIds: ["one", "two"],
+      }),
+    ).toEqual(["one", "two"]);
+  });
+});
+
+describe("getNextThreadAfterRemoval", () => {
   it("advances to the next surviving thread", () => {
     expect(
-      getNextThreadIdAfterRemoval({
+      getNextThreadAfterRemoval({
         threadIds: ["one", "two", "three"],
         currentThreadId: "two",
         removedThreadIds: ["two"],
       }),
-    ).toBe("three");
+    ).toEqual({ id: "three", index: 1 });
   });
 
   it("skips other threads removed by the same action", () => {
     expect(
-      getNextThreadIdAfterRemoval({
+      getNextThreadAfterRemoval({
         threadIds: ["one", "two", "three", "four"],
         currentThreadId: "two",
         removedThreadIds: ["two", "three"],
       }),
-    ).toBe("four");
+    ).toEqual({ id: "four", index: 1 });
+  });
+
+  it("accounts for earlier threads removed by the same action", () => {
+    expect(
+      getNextThreadAfterRemoval({
+        threadIds: ["one", "two", "three", "four"],
+        currentThreadId: "three",
+        removedThreadIds: ["one", "three"],
+      }),
+    ).toEqual({ id: "four", index: 1 });
   });
 
   it("falls back to the previous surviving thread at the end", () => {
     expect(
-      getNextThreadIdAfterRemoval({
+      getNextThreadAfterRemoval({
         threadIds: ["one", "two", "three"],
         currentThreadId: "three",
         removedThreadIds: ["two", "three"],
       }),
-    ).toBe("one");
+    ).toEqual({ id: "one", index: 0 });
   });
 
   it("closes the reader when every thread is removed", () => {
     expect(
-      getNextThreadIdAfterRemoval({
+      getNextThreadAfterRemoval({
         threadIds: ["one", "two"],
         currentThreadId: "one",
         removedThreadIds: ["one", "two"],
