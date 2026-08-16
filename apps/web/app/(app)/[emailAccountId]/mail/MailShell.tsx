@@ -94,7 +94,6 @@ import type { ThreadsQuery } from "@/utils/threads/validation";
 import { getEmailTerminology } from "@/utils/terminology";
 import { createSearchParams } from "@/utils/url";
 import { redirectToSafeUrl } from "@/utils/redirect";
-import type { CombinedListThread } from "@/utils/threads/load-combined";
 
 // Always present, never deletable. Everything else is a saved split. They carry
 // a kind so built-ins and saved splits resolve through one mapping.
@@ -420,10 +419,16 @@ export function MailShell() {
       const targetKeys = selection.targetIds(
         focusedThread ? getListThreadKey(focusedThread) : undefined,
       );
-      const targets = threads.filter(
-        (thread): thread is CombinedListThread =>
-          "account" in thread && targetKeys.includes(getListThreadKey(thread)),
-      );
+      const targets: Array<{ id: string; account: { id: string } }> = [];
+      for (const thread of threads) {
+        if (
+          !("account" in thread) ||
+          !targetKeys.includes(getListThreadKey(thread))
+        ) {
+          continue;
+        }
+        targets.push({ id: thread.id, account: { id: thread.account.id } });
+      }
       if (!targets.length) return;
 
       const removal = removeCombinedThreads(targetKeys);
