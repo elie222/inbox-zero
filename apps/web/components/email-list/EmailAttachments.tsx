@@ -11,20 +11,16 @@ import { fetchAttachment } from "@/utils/attachments/download";
 
 export function EmailAttachments({ message }: { message: ThreadMessage }) {
   const { emailAccountId } = useAccount();
-  const [downloadingAttachmentId, setDownloadingAttachmentId] = useState<
-    string | null
-  >(null);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   const downloadAttachment = async ({
-    attachmentId,
     filename,
     url,
   }: {
-    attachmentId: string;
     filename: string;
     url: string;
   }) => {
-    setDownloadingAttachmentId(attachmentId);
+    setIsDownloading(true);
 
     try {
       const blob = await fetchAttachment({ url, emailAccountId });
@@ -42,7 +38,7 @@ export function EmailAttachments({ message }: { message: ThreadMessage }) {
     } catch {
       toastError({ description: "Failed to download attachment" });
     } finally {
-      setDownloadingAttachmentId(null);
+      setIsDownloading(false);
     }
   };
 
@@ -69,10 +65,9 @@ export function EmailAttachments({ message }: { message: ThreadMessage }) {
                 variant="outline"
                 size="sm"
                 type="button"
-                disabled={downloadingAttachmentId === attachment.attachmentId}
+                disabled={!emailAccountId || isDownloading}
                 onClick={() =>
                   downloadAttachment({
-                    attachmentId: attachment.attachmentId,
                     filename: attachment.filename,
                     url,
                   })

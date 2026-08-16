@@ -40,4 +40,15 @@ describe("fetchAttachment", () => {
       }),
     ).rejects.toThrow("Failed to download attachment");
   });
+
+  it("rejects before fetching when the email account is unavailable", async () => {
+    await expect(
+      fetchAttachment({
+        url: "/api/messages/attachment?messageId=message-id",
+        emailAccountId: "",
+      }),
+    ).rejects.toThrow("Email account ID is required");
+
+    expect(fetchWithAccount).not.toHaveBeenCalled();
+  });
 });

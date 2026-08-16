@@ -7,6 +7,10 @@ export async function fetchAttachment({
   url: string;
   emailAccountId: string;
 }): Promise<Blob> {
+  if (!emailAccountId) {
+    throw new Error("Email account ID is required");
+  }
+
   const response = await fetchWithAccount({ url, emailAccountId });
 
   if (!response.ok) {
