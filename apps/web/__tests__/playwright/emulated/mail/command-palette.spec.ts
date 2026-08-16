@@ -56,7 +56,7 @@ test("Command K acts on highlighted and selected conversations", async ({
   await expect(palette.getByRole("option", { name: "Snooze" })).toBeVisible();
   await expect(palette).not.toContainText("Applies to");
   await testInfo.attach("Command palette for highlighted conversation", {
-    body: await page.screenshot(),
+    body: await palette.screenshot(),
     contentType: "image/png",
   });
 
@@ -75,7 +75,7 @@ test("Command K acts on highlighted and selected conversations", async ({
   ).toBeVisible();
   await expect(palette.getByText("Archive conversation")).toHaveCount(0);
   await testInfo.attach("Snooze preset options", {
-    body: await page.screenshot(),
+    body: await palette.screenshot(),
     contentType: "image/png",
   });
 
@@ -93,7 +93,7 @@ test("Command K acts on highlighted and selected conversations", async ({
     0,
   );
   await testInfo.attach("Natural-language snooze option", {
-    body: await page.screenshot(),
+    body: await palette.screenshot(),
     contentType: "image/png",
   });
 
