@@ -55,8 +55,9 @@ test("Command K acts on highlighted and selected conversations", async ({
   ).toBeVisible();
   await expect(palette.getByRole("option", { name: "Snooze" })).toBeVisible();
   await expect(palette).not.toContainText("Applies to");
-  await page.screenshot({
-    path: testInfo.outputPath("01-command-palette-highlighted-row.png"),
+  await testInfo.attach("Command palette for highlighted conversation", {
+    body: await page.screenshot(),
+    contentType: "image/png",
   });
 
   await palette.getByRole("option", { name: "Snooze" }).click();
@@ -73,8 +74,9 @@ test("Command K acts on highlighted and selected conversations", async ({
     palette.getByRole("option", { name: "Next week" }),
   ).toBeVisible();
   await expect(palette.getByText("Archive conversation")).toHaveCount(0);
-  await page.screenshot({
-    path: testInfo.outputPath("02-snooze-presets.png"),
+  await testInfo.attach("Snooze preset options", {
+    body: await page.screenshot(),
+    contentType: "image/png",
   });
 
   const snoozeInput = palette.getByPlaceholder(
@@ -90,8 +92,9 @@ test("Command K acts on highlighted and selected conversations", async ({
   await expect(palette.getByRole("option", { name: "In 3 hours" })).toHaveCount(
     0,
   );
-  await page.screenshot({
-    path: testInfo.outputPath("03-snooze-natural-language.png"),
+  await testInfo.attach("Natural-language snooze option", {
+    body: await page.screenshot(),
+    contentType: "image/png",
   });
 
   await page.keyboard.press("Escape");
