@@ -296,10 +296,12 @@ export function MailShell() {
     emailAccountId,
     threadIds: isAllAccounts ? [] : orderedIds,
   });
-  const { data: openThreadData, mutate: refetchOpenThread } = useThread(
-    { id: readerThreadId },
-    { includeDrafts: true },
-  );
+  const {
+    data: openThreadData,
+    error: openThreadError,
+    isLoading: isOpenThreadLoading,
+    mutate: refetchOpenThread,
+  } = useThread({ id: readerThreadId }, { includeDrafts: true });
   // Withheld until the deferred id catches up, so a fast J/K can't pair the new
   // thread's header with the previous thread's body.
   const openMessages =
@@ -820,6 +822,14 @@ export function MailShell() {
           <ThreadReader
             key={openThreadId ?? "empty"}
             thread={openThread ?? null}
+            threadId={openThreadId}
+            loading={
+              Boolean(openThreadId) &&
+              (readerThreadId !== openThreadId || isOpenThreadLoading)
+            }
+            error={
+              readerThreadId === openThreadId ? openThreadError : undefined
+            }
             messages={openMessages ?? []}
             userEmail={userEmail}
             userLabels={userLabels}
