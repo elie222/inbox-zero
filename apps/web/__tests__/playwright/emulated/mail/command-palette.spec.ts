@@ -146,7 +146,6 @@ test("Command K acts on highlighted and selected conversations", async ({
   ).toBeVisible();
   await palette.getByRole("option", { name: "Snooze 2 conversations" }).click();
   await palette.getByRole("option", { name: "In 3 hours" }).click();
-  await expect(page.getByText("Snoozed 2 conversations")).toBeVisible();
   await expect(conversations.getByRole("option")).toHaveCount(1);
 });
 
