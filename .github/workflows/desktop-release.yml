@@ -33,6 +33,9 @@ jobs:
     env:
       CSC_LINK: ${{ matrix.os == 'macos-latest' && secrets.MAC_CSC_LINK || secrets.WIN_CSC_LINK }}
       CSC_KEY_PASSWORD: ${{ matrix.os == 'macos-latest' && secrets.MAC_CSC_KEY_PASSWORD || secrets.WIN_CSC_KEY_PASSWORD }}
+      APPLE_API_KEY_ID: ${{ matrix.os == 'macos-latest' && secrets.APPLE_API_KEY_ID || '' }}
+      APPLE_API_ISSUER: ${{ matrix.os == 'macos-latest' && secrets.APPLE_API_ISSUER || '' }}
+      APPLE_TEAM_ID: ${{ matrix.os == 'macos-latest' && secrets.APPLE_TEAM_ID || '' }}
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -56,6 +59,14 @@ jobs:
           VERSION="${GITHUB_REF_NAME#desktop-v}"
           pnpm --filter @inboxzero/desktop exec npm version "$VERSION" --no-git-tag-version --allow-same-version
 
+      - name: Write App Store Connect API key
+        if: runner.os == 'macOS'
+        env:
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+        run: |
+          printf '%s\n' "$APPLE_API_KEY_P8" > "$RUNNER_TEMP/AuthKey.p8"
+          echo "APPLE_API_KEY=$RUNNER_TEMP/AuthKey.p8" >> "$GITHUB_ENV"
+
       - name: Build and package
         working-directory: apps/desktop
         run: |
@@ -72,12 +83,13 @@ jobs:
             test -f release/latest.yml
           fi
 
-      - name: Verify macOS signature
+      - name: Verify macOS signature and notarization
         if: runner.os == 'macOS'
         working-directory: apps/desktop
         run: |
           codesign --verify --deep --strict --verbose=2 "release/mac-arm64/Inbox Zero.app"
           codesign -dv --verbose=2 "release/mac-arm64/Inbox Zero.app"
+          xcrun stapler validate "release/mac-arm64/Inbox Zero.app"
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
