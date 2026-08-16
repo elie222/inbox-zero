@@ -7,6 +7,7 @@ import {
   getDesktopUpdateFeedUrl,
   rewriteUpdateFeedFiles,
   rewriteUpdateFeedYaml,
+  shouldReplaceDesktopUpdateFeed,
 } from "./update-feed";
 
 const MAC_YML = `version: 0.1.0
@@ -93,5 +94,29 @@ describe("rewriteUpdateFeedFiles", () => {
     expect(fs.readFileSync(path.join(dir, "notes.txt"), "utf8")).toBe(
       "leave me",
     );
+  });
+});
+
+describe("shouldReplaceDesktopUpdateFeed", () => {
+  it("replaces a missing feed and an older or equal feed", () => {
+    expect(shouldReplaceDesktopUpdateFeed(MAC_YML, null)).toBe(true);
+    expect(shouldReplaceDesktopUpdateFeed(MAC_YML, "version: 0.0.9\n")).toBe(
+      true,
+    );
+    expect(shouldReplaceDesktopUpdateFeed(MAC_YML, "version: '0.1.0'\n")).toBe(
+      true,
+    );
+  });
+
+  it("keeps a newer published feed", () => {
+    expect(shouldReplaceDesktopUpdateFeed(MAC_YML, "version: 0.2.0\n")).toBe(
+      false,
+    );
+  });
+
+  it("does not clobber a current feed with unversioned metadata", () => {
+    expect(
+      shouldReplaceDesktopUpdateFeed("files:\n  - url: latest.yml\n", MAC_YML),
+    ).toBe(false);
   });
 });

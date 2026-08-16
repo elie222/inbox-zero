@@ -15,8 +15,11 @@ export async function startDesktopAutoUpdate(
   autoUpdater.autoInstallOnAppQuit = true;
   try {
     await autoUpdater.checkForUpdatesAndNotify();
-  } catch {
     return true;
+  } catch (error) {
+    autoUpdater.logger?.error(
+      error instanceof Error ? error.message : "Desktop update check failed",
+    );
+    return false;
   }
-  return true;
 }

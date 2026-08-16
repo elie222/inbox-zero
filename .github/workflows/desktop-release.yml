@@ -14,7 +14,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: desktop-release-${{ github.ref }}
+  group: desktop-release
   cancel-in-progress: false
 
 jobs:
@@ -98,6 +98,10 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24"
+
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           path: dist
@@ -134,6 +138,30 @@ jobs:
           if [ ${#feed[@]} -eq 0 ]; then
             echo "No electron-updater feed files to publish" >&2
             exit 1
+          fi
+          should_upload_feed=1
+          next_feed=""
+          if [ -f dist/latest-mac.yml ]; then
+            next_feed=dist/latest-mac.yml
+          elif [ -f dist/latest.yml ]; then
+            next_feed=dist/latest.yml
+          fi
+          if [ -n "$next_feed" ] && gh release view desktop-updates >/dev/null 2>&1; then
+            mkdir -p /tmp/current-desktop-feed
+            current_pattern=$(basename "$next_feed")
+            if gh release download desktop-updates --pattern "$current_pattern" --dir /tmp/current-desktop-feed; then
+              replace_status=0
+              node --experimental-strip-types apps/desktop/src/update-feed-cli.ts --should-replace "$next_feed" "/tmp/current-desktop-feed/$current_pattern" || replace_status=$?
+              if [ "$replace_status" -eq 2 ]; then
+                echo "Keeping existing desktop-updates feed because it is newer than $TAG"
+                should_upload_feed=0
+              elif [ "$replace_status" -ne 0 ]; then
+                exit "$replace_status"
+              fi
+            fi
+          fi
+          if [ "$should_upload_feed" != 1 ]; then
+            exit 0
           fi
           if gh release view desktop-updates >/dev/null 2>&1; then
             gh release upload desktop-updates "${feed[@]}" --clobber

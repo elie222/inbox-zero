@@ -92,13 +92,13 @@ function startDesktopApp() {
 
   app.whenReady().then(async () => {
     createMainWindow();
-    await startDesktopAutoUpdate();
     const startupAuthUrl =
       pendingAuthUrl ?? findDesktopProtocolUrl(process.argv);
     pendingAuthUrl = null;
     if (startupAuthUrl) {
       await handleAuthCallbackUrl(startupAuthUrl);
     }
+    startDesktopAutoUpdate().catch(() => {});
   });
 
   app.on("window-all-closed", () => {

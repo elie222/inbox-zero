@@ -51,6 +51,35 @@ export function rewriteUpdateFeedFiles(
   return rewritten;
 }
 
+export function parseUpdateFeedVersion(yamlText: string): string | null {
+  const match = yamlText.match(/^version:\s*['"]?([^'"\s]+)/m);
+  return match?.[1] ?? null;
+}
+
+export function compareDesktopVersions(a: string, b: string): number {
+  const left = a.split(".").map((part) => Number.parseInt(part, 10) || 0);
+  const right = b.split(".").map((part) => Number.parseInt(part, 10) || 0);
+  const length = Math.max(left.length, right.length);
+  for (let index = 0; index < length; index++) {
+    const delta = (left[index] ?? 0) - (right[index] ?? 0);
+    if (delta > 0) return 1;
+    if (delta < 0) return -1;
+  }
+  return 0;
+}
+
+export function shouldReplaceDesktopUpdateFeed(
+  nextYaml: string,
+  currentYaml: string | null,
+): boolean {
+  if (!currentYaml) return true;
+  const next = parseUpdateFeedVersion(nextYaml);
+  if (!next) return false;
+  const current = parseUpdateFeedVersion(currentYaml);
+  if (!current) return true;
+  return compareDesktopVersions(next, current) >= 0;
+}
+
 function rewriteFeedFileValue(value: string, base: string): string {
   const quote = value.startsWith("'") || value.startsWith('"') ? value[0] : "";
   const raw = quote ? value.slice(1, -1) : value.trim();
