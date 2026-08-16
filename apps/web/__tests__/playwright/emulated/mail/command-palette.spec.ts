@@ -1,9 +1,11 @@
+import path from "node:path";
 import {
   expect,
   test,
   type APIRequestContext,
   type Locator,
   type Page,
+  type TestInfo,
 } from "@playwright/test";
 import { Client } from "pg";
 
@@ -55,10 +57,11 @@ test("Command K acts on highlighted and selected conversations", async ({
   ).toBeVisible();
   await expect(palette.getByRole("option", { name: "Snooze" })).toBeVisible();
   await expect(palette).not.toContainText("Applies to");
-  await testInfo.attach("Command palette for highlighted conversation", {
-    body: await palette.screenshot(),
-    contentType: "image/png",
-  });
+  await attachScreenshotForChangedTest(
+    testInfo,
+    palette,
+    "Command palette for highlighted conversation",
+  );
 
   await palette.getByRole("option", { name: "Snooze" }).click();
   await expect(
@@ -74,10 +77,11 @@ test("Command K acts on highlighted and selected conversations", async ({
     palette.getByRole("option", { name: "Next week" }),
   ).toBeVisible();
   await expect(palette.getByText("Archive conversation")).toHaveCount(0);
-  await testInfo.attach("Snooze preset options", {
-    body: await palette.screenshot(),
-    contentType: "image/png",
-  });
+  await attachScreenshotForChangedTest(
+    testInfo,
+    palette,
+    "Snooze preset options",
+  );
 
   const snoozeInput = palette.getByPlaceholder(
     "When should it return? Try Friday at 3pm",
@@ -92,10 +96,11 @@ test("Command K acts on highlighted and selected conversations", async ({
   await expect(palette.getByRole("option", { name: "In 3 hours" })).toHaveCount(
     0,
   );
-  await testInfo.attach("Natural-language snooze option", {
-    body: await palette.screenshot(),
-    contentType: "image/png",
-  });
+  await attachScreenshotForChangedTest(
+    testInfo,
+    palette,
+    "Natural-language snooze option",
+  );
 
   await page.keyboard.press("Escape");
   await expect(palette).toBeVisible();
@@ -185,6 +190,30 @@ async function ensureReadState(
   await expect(palette).toBeHidden();
   await page.keyboard.press("Escape");
   await expect(selectionCount).toBeHidden();
+}
+
+async function attachScreenshotForChangedTest(
+  testInfo: TestInfo,
+  locator: Locator,
+  name: string,
+) {
+  const testFile = path
+    .relative(process.cwd(), testInfo.file)
+    .split(path.sep)
+    .join("/");
+  const changedTestFiles = new Set(
+    (process.env.PLAYWRIGHT_CHANGED_TEST_FILES ?? "")
+      .split("\n")
+      .map((file) => file.trim())
+      .filter(Boolean),
+  );
+
+  if (!changedTestFiles.has(testFile)) return;
+
+  await testInfo.attach(name, {
+    body: await locator.screenshot(),
+    contentType: "image/png",
+  });
 }
 
 async function restoreActiveSnoozes(

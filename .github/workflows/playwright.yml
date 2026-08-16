@@ -116,6 +116,31 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Find changed Playwright tests
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+
+          changed_tests_path="$RUNNER_TEMP/changed-playwright-tests.txt"
+          : > "$changed_tests_path"
+
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" || "$GITHUB_EVENT_NAME" == "push" ]] &&
+            [[ -n "$BASE_SHA" ]] &&
+            [[ "$BASE_SHA" != "0000000000000000000000000000000000000000" ]]; then
+            git fetch --no-tags --depth=1 origin "$BASE_SHA"
+            git diff --name-only --diff-filter=ACMR "$BASE_SHA" "$GITHUB_SHA" -- \
+              apps/web/__tests__/playwright | \
+              sed -n -E '/\.(spec|setup)\.[cm]?[jt]sx?$/ { s#^apps/web/##; p; }' \
+                > "$changed_tests_path"
+          fi
+
+          {
+            echo "PLAYWRIGHT_CHANGED_TEST_FILES<<EOF"
+            cat "$changed_tests_path"
+            echo "EOF"
+          } >> "$GITHUB_ENV"
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
 
