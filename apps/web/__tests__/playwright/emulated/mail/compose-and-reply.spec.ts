@@ -1,15 +1,18 @@
 import { expect, test } from "@playwright/test";
 import { conversationWithSubject, openMail } from "./mail-test-helpers";
 
-test("composes, sends, and reads a new message from Sent", async ({ page }) => {
+test("composes, sends, and reads a new message from Sent", async ({
+  page,
+}, testInfo) => {
   const { conversations } = await openMail(page);
+  const subject = `Playwright Composed Message ${testInfo.retry}`;
 
   await page.getByRole("button", { name: /^Compose/ }).click();
   const dialog = page.getByRole("dialog", { name: "New Message" });
   await dialog
     .getByRole("textbox", { name: "To" })
     .fill("recipient@example.com");
-  await dialog.getByPlaceholder("Subject").fill("Playwright Composed Message");
+  await dialog.getByPlaceholder("Subject").fill(subject);
   const composeEditor = dialog.locator("[contenteditable='true']");
   await composeEditor.pressSequentially("A composed message body.");
   await expect(composeEditor).toContainText("A composed message body.");
@@ -22,17 +25,15 @@ test("composes, sends, and reads a new message from Sent", async ({ page }) => {
   const sentConversation = conversationWithSubject(
     page,
     conversations,
-    "Playwright Composed Message",
+    subject,
   );
   await expect(sentConversation).toBeVisible();
   await sentConversation.click();
-  await expect(
-    page.getByRole("heading", { name: "Playwright Composed Message" }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: subject })).toBeVisible();
   await expect(page.getByText("recipient@example.com").first()).toBeVisible();
 });
 
-test("replies inside an existing conversation", async ({ page }) => {
+test("replies inside an existing conversation", async ({ page }, testInfo) => {
   const { conversations } = await openMail(page);
   const replyConversation = conversationWithSubject(
     page,
@@ -43,16 +44,17 @@ test("replies inside an existing conversation", async ({ page }) => {
   await expect(
     page.getByText("Please reply to this seeded conversation."),
   ).toBeVisible();
+  const sentByMe = page.getByText("Me", { exact: true });
+  const initialSentByMeCount = await sentByMe.count();
 
   await page.getByRole("button", { name: /^Reply R$/ }).click();
   const replyEditor = page.locator("[contenteditable='true']");
   await expect(replyEditor).toBeVisible();
-  await replyEditor.pressSequentially("A reply sent through the mail reader.");
-  await expect(replyEditor).toContainText(
-    "A reply sent through the mail reader.",
-  );
+  const replyBody = `A reply sent through the mail reader. ${testInfo.retry}`;
+  await replyEditor.pressSequentially(replyBody);
+  await expect(replyEditor).toContainText(replyBody);
   await page.getByRole("button", { name: /^Send/ }).click();
 
   await expect(page.getByText("Email sent!", { exact: true })).toBeVisible();
-  await expect(page.getByText("Me", { exact: true })).toBeVisible();
+  await expect(sentByMe).toHaveCount(initialSentByMeCount + 1);
 });

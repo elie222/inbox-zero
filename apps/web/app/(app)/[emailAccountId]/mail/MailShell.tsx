@@ -544,7 +544,8 @@ export function MailShell() {
     );
     return () => setMailCommandContext(null);
   }, [mailCommandContext, setMailCommandContext]);
-  const isMailOverlayOpen = isHelpOpen || isPaletteOpen || isMenuOpen;
+  const isMailOverlayOpen =
+    isHelpOpen || isPaletteOpen || (isMenuOpen && Boolean(openThread));
 
   // Not memoised: `useShortcuts` keeps handlers in a ref and only re-registers
   // when the set of handled ids changes, so a stable identity buys nothing.

@@ -98,13 +98,18 @@ test("navigates drafts and sent mail from the sidebar", async ({ page }) => {
   await expect(draft).toHaveCount(0);
 });
 
-test("creates a label and shows every keyboard workflow", async ({ page }) => {
+test("creates a label and shows every keyboard workflow", async ({
+  page,
+}, testInfo) => {
   await openMail(page);
+  const labelName = `Daily QA ${testInfo.retry}`;
 
   await page.getByRole("button", { name: "Create label" }).click();
-  await page.getByRole("textbox", { name: "New label name" }).fill("Daily QA");
+  await page.getByRole("textbox", { name: "New label name" }).fill(labelName);
   await page.getByRole("button", { name: "Add", exact: true }).click();
-  await expect(page.getByRole("link", { name: /^Daily QA/ })).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: labelName, exact: true }),
+  ).toBeVisible();
 
   await page.getByRole("button", { name: /^Keyboard shortcuts/ }).click();
   const dialog = page.getByRole("dialog", { name: "Keyboard shortcuts" });

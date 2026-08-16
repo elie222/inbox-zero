@@ -5,11 +5,11 @@ test("switches between list, split, and focused reading layouts", async ({
   page,
 }) => {
   const { conversations } = await openMail(page);
+  const emptyReader = page.getByText("Nothing selected", { exact: true });
+  await expect(emptyReader).toBeHidden();
 
   await page.getByRole("button", { name: "Switch list or split view" }).click();
-  await expect(
-    page.getByText("Nothing selected", { exact: true }),
-  ).toBeVisible();
+  await expect(emptyReader).toBeVisible();
   await expect(conversations).toBeVisible();
 
   await conversationWithSubject(
