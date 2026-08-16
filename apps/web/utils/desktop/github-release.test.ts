@@ -6,6 +6,7 @@ describe("pickLatestDesktopRelease", () => {
     const links = pickLatestDesktopRelease([
       release("v2.30.0", ["inbox-zero-cli.tgz"]),
       release("desktop-updates", ["latest-mac.yml"], true),
+      release("desktop-v0.0.9", ["Inbox-Zero-0.0.9-mac-x64.dmg"]),
       release("desktop-v0.1.0", [
         "Inbox-Zero-0.1.0-mac-arm64.dmg",
         "Inbox-Zero-0.1.0-mac-arm64.dmg.blockmap",

@@ -25,10 +25,19 @@ export type DesktopDownloadLinks = {
 export function pickLatestDesktopRelease(
   releases: readonly GitHubRelease[],
 ): DesktopDownloadLinks | null {
-  const release = releases.find(
+  const desktopReleases = releases.filter(
     (item) => !item.prerelease && item.tag_name.startsWith(DESKTOP_TAG_PREFIX),
   );
-  if (!release) return null;
+  if (desktopReleases.length === 0) return null;
+
+  const release = desktopReleases.reduce((newest, item) =>
+    compareVersions(
+      item.tag_name.slice(DESKTOP_TAG_PREFIX.length),
+      newest.tag_name.slice(DESKTOP_TAG_PREFIX.length),
+    ) > 0
+      ? item
+      : newest,
+  );
 
   return {
     version: release.tag_name.slice(DESKTOP_TAG_PREFIX.length),
@@ -38,6 +47,19 @@ export function pickLatestDesktopRelease(
     winX64Exe: findAssetUrl(release.assets, "-win-x64.exe"),
     winArm64Exe: findAssetUrl(release.assets, "-win-arm64.exe"),
   };
+}
+
+function compareVersions(a: string, b: string): number {
+  const left = a.split(".").map((part) => Number.parseInt(part, 10) || 0);
+  const right = b.split(".").map((part) => Number.parseInt(part, 10) || 0);
+  const length = Math.max(left.length, right.length);
+
+  for (let index = 0; index < length; index++) {
+    const delta = (left[index] ?? 0) - (right[index] ?? 0);
+    if (delta !== 0) return delta;
+  }
+
+  return 0;
 }
 
 function findAssetUrl(
