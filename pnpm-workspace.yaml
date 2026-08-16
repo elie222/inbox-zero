@@ -52,6 +52,7 @@ allowBuilds:
   core-js: true
   # Local/desktop only. Docker, Vercel, and CI skip @inboxzero/desktop.
   electron: true
+  electron-winstaller: true
   esbuild: true
   msgpackr-extract: true
   prisma: true

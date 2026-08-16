@@ -5,6 +5,7 @@
     "build": "turbo build --filter=./apps/web",
     "dev": "turbo dev --filter=./apps/web",
     "desktop": "pnpm --filter @inboxzero/desktop dev",
+    "desktop:dist": "pnpm --filter @inboxzero/desktop dist",
     "worker": "pnpm --filter @inboxzero/worker start",
     "test": "turbo run test --filter=./apps/web -- --run",
     "test-db": "pnpm --filter inbox-zero-ai test-db",
