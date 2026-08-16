@@ -245,7 +245,7 @@ export async function trackStripeCheckoutCompleted(
 ) {
   return posthogCaptureEvent(email, "Stripe checkout completed", {
     ...properties,
-    checkoutSessionIdHash: hash(checkoutSessionId),
+    checkoutSessionIdHash: checkoutSessionId ? hash(checkoutSessionId) : null,
   });
 }
 
