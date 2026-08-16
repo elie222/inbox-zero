@@ -16,7 +16,8 @@ real-provider tests cannot accidentally reuse emulated authentication state.
 The emulated project runs when browser-facing files change in pull requests or
 on `main`, plus the daily schedule and manual dispatches. Pull requests retain
 the HTML report, screenshots, traces, and videos as GitHub Actions artifacts.
-Intentional checkpoint screenshots are attached to successful HTML reports.
+Intentional checkpoint screenshots are attached when their test file changed
+in a pull request or push. Every test still captures a screenshot on failure.
 Runs on `main` also publish a persistent report history to the public
 Playwright dashboard:
 
