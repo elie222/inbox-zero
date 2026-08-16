@@ -87,9 +87,26 @@ jobs:
         if: runner.os == 'macOS'
         working-directory: apps/desktop
         run: |
-          codesign --verify --deep --strict --verbose=2 "release/mac-arm64/Inbox Zero.app"
-          codesign -dv --verbose=2 "release/mac-arm64/Inbox Zero.app"
-          xcrun stapler validate "release/mac-arm64/Inbox Zero.app"
+          shopt -s nullglob
+          apps=(
+            "release/mac/Inbox Zero.app"
+            "release/mac-arm64/Inbox Zero.app"
+            "release/mac-x64/Inbox Zero.app"
+          )
+          found=0
+          for app in "${apps[@]}"; do
+            if [ -d "$app" ]; then
+              echo "Verifying $app"
+              codesign --verify --deep --strict --verbose=2 "$app"
+              codesign -dv --verbose=2 "$app"
+              xcrun stapler validate "$app"
+              found=$((found + 1))
+            fi
+          done
+          if [ "$found" -lt 2 ]; then
+            echo "Expected arm64 and x64 app bundles, found $found" >&2
+            exit 1
+          fi
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
