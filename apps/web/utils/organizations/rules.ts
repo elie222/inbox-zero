@@ -92,6 +92,11 @@ export function assertOrganizationRuleActionsSupported(
     );
   }
 
+  const actionIds = actions.flatMap((action) => (action.id ? [action.id] : []));
+  if (new Set(actionIds).size !== actionIds.length) {
+    throw new SafeError("Organization rule action specified more than once.");
+  }
+
   const unknownAction = actions.find(
     (action) =>
       action.id &&

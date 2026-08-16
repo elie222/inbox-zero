@@ -167,6 +167,18 @@ describe("assertOrganizationRuleActionsSupported", () => {
     ).toThrow();
   });
 
+  it("rejects repeated persisted action ids", () => {
+    expect(() =>
+      assertOrganizationRuleActionsSupported(
+        [
+          { id: "organization-action-1", type: ActionType.LABEL },
+          { id: "organization-action-1", type: ActionType.LABEL },
+        ],
+        [{ id: "organization-action-1", type: ActionType.LABEL }],
+      ),
+    ).toThrow();
+  });
+
   it("rejects outbound actions when email sending is disabled", () => {
     mockEnv.emailSendEnabled = false;
 
