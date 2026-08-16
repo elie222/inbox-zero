@@ -145,6 +145,28 @@ describe("assertOrganizationRuleActionsSupported", () => {
     ).toThrow();
   });
 
+  it("allows an unchanged persisted action after it is disabled", () => {
+    mockEnv.autoDraftDisabled = true;
+
+    expect(() =>
+      assertOrganizationRuleActionsSupported(
+        [{ id: "organization-action-1", type: ActionType.DRAFT_EMAIL }],
+        [{ id: "organization-action-1", type: ActionType.DRAFT_EMAIL }],
+      ),
+    ).not.toThrow();
+  });
+
+  it("rejects changing a persisted action to a disabled type", () => {
+    mockEnv.autoDraftDisabled = true;
+
+    expect(() =>
+      assertOrganizationRuleActionsSupported(
+        [{ id: "organization-action-1", type: ActionType.DRAFT_EMAIL }],
+        [{ id: "organization-action-1", type: ActionType.LABEL }],
+      ),
+    ).toThrow();
+  });
+
   it("rejects outbound actions when email sending is disabled", () => {
     mockEnv.emailSendEnabled = false;
 

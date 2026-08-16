@@ -14,6 +14,7 @@ const organizationRuleActionType = z.enum(ORGANIZATION_RULE_ACTION_TYPES);
 
 export const organizationRuleActionSchema = z
   .object({
+    id: z.string().optional(),
     type: organizationRuleActionType,
     label: z.string().nullish(),
     subject: z.string().nullish(),
@@ -57,8 +58,8 @@ export const organizationRuleActionSchema = z
         path: ["to"],
       });
     }
-    if (addDisabledRuleActionIssue(data.type, ctx)) return;
-    if (!isOrganizationRuleActionTypeAvailable(data.type)) {
+    if (!data.id && addDisabledRuleActionIssue(data.type, ctx)) return;
+    if (!data.id && !isOrganizationRuleActionTypeAvailable(data.type)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: ORGANIZATION_RULE_ACTION_DISABLED_MESSAGE,
@@ -127,7 +128,18 @@ export const createOrganizationRuleBody = z
     actions,
     ...conditionFields,
   })
-  .refine(hasAtLeastOneCondition, conditionRefinement);
+  .refine(hasAtLeastOneCondition, conditionRefinement)
+  .superRefine((data, ctx) => {
+    data.actions.forEach((action, index) => {
+      if (action.id && !isOrganizationRuleActionTypeAvailable(action.type)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: ORGANIZATION_RULE_ACTION_DISABLED_MESSAGE,
+          path: ["actions", index, "type"],
+        });
+      }
+    });
+  });
 export type CreateOrganizationRuleBody = z.infer<
   typeof createOrganizationRuleBody
 >;

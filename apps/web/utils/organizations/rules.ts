@@ -43,7 +43,7 @@ const UNSUPPORTED_ORGANIZATION_ACTION_TYPES: ActionType[] = [
 
 export type OrganizationRuleActionInput = Omit<
   Prisma.OrganizationRuleActionCreateManyOrganizationRuleInput,
-  "id" | "createdAt" | "updatedAt"
+  "createdAt" | "updatedAt"
 >;
 
 export type OrganizationRuleData = {
@@ -69,7 +69,8 @@ export function computeMemberRuleEnabled({
 }
 
 export function assertOrganizationRuleActionsSupported(
-  actions: { type: ActionType }[],
+  actions: { id?: string; type: ActionType }[],
+  existingActions: { id: string; type: ActionType }[] = [],
 ) {
   const messagingAction = actions.find((action) =>
     UNSUPPORTED_ORGANIZATION_ACTION_TYPES.includes(action.type),
@@ -91,8 +92,22 @@ export function assertOrganizationRuleActionsSupported(
     );
   }
 
+  const unknownAction = actions.find(
+    (action) =>
+      action.id &&
+      !existingActions.some((existing) => existing.id === action.id),
+  );
+  if (unknownAction) {
+    throw new SafeError("Organization rule action not found.");
+  }
+
   const disabledAction = actions.find(
-    (action) => !isOrganizationRuleActionTypeAvailable(action.type),
+    (action) =>
+      !isOrganizationRuleActionTypeAvailable(action.type) &&
+      !existingActions.some(
+        (existing) =>
+          existing.id === action.id && existing.type === action.type,
+      ),
   );
   if (disabledAction) {
     throw new SafeError(ORGANIZATION_RULE_ACTION_DISABLED_MESSAGE);
@@ -167,13 +182,14 @@ export async function updateOrganizationRule({
   actions: OrganizationRuleActionInput[];
   logger: Logger;
 }) {
-  assertOrganizationRuleActionsSupported(actions);
-
   const existing = await prisma.organizationRule.findFirst({
     where: { id: organizationRuleId, organizationId },
-    select: { id: true },
+    select: { id: true, actions: { select: { id: true, type: true } } },
   });
   if (!existing) throw new SafeError("Organization rule not found");
+
+  assertOrganizationRuleActionsSupported(actions, existing.actions);
+  const actionsCreateData = actions.map(withoutOrganizationRuleActionId);
 
   const organizationRule = await prisma.organizationRule
     .update({
@@ -187,7 +203,7 @@ export async function updateOrganizationRule({
         to: data.to ?? null,
         subject: data.subject ?? null,
         body: data.body ?? null,
-        actions: { deleteMany: {}, createMany: { data: actions } },
+        actions: { deleteMany: {}, createMany: { data: actionsCreateData } },
       },
     })
     .catch(rethrowDuplicateNameError);
@@ -353,6 +369,13 @@ function rethrowDuplicateNameError(error: unknown): never {
     throw new SafeError("An organization rule with this name already exists.");
   }
   throw error;
+}
+
+function withoutOrganizationRuleActionId({
+  id: _id,
+  ...action
+}: OrganizationRuleActionInput) {
+  return action;
 }
 
 function mapOrganizationRuleActions(

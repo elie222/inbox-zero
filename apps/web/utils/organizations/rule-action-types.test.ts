@@ -44,6 +44,14 @@ describe("getAvailableOrganizationRuleActionTypes", () => {
     );
   });
 
+  it("preserves a persisted disabled action for editing", () => {
+    mockEnv.autoDraftDisabled = true;
+
+    expect(
+      getAvailableOrganizationRuleActionTypes(ActionType.DRAFT_EMAIL),
+    ).toContain(ActionType.DRAFT_EMAIL);
+  });
+
   it("excludes outbound actions when email sending is disabled", () => {
     mockEnv.emailSendEnabled = false;
 

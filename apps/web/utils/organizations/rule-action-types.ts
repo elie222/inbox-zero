@@ -21,9 +21,13 @@ export const ORGANIZATION_RULE_ACTION_TYPES = [
   ActionType.DELETE,
 ] as const;
 
-export function getAvailableOrganizationRuleActionTypes() {
+export function getAvailableOrganizationRuleActionTypes(
+  persistedActionType?: ActionType,
+) {
   return ORGANIZATION_RULE_ACTION_TYPES.filter(
-    isOrganizationRuleActionTypeAvailable,
+    (type) =>
+      type === persistedActionType ||
+      isOrganizationRuleActionTypeAvailable(type),
   );
 }
 
