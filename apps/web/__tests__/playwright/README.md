@@ -13,6 +13,11 @@ Within `emulated/`, group specs by product area, such as `mail/` or
 `automation/`. Keep setup files inside the boundary they support so
 real-provider tests cannot accidentally reuse emulated authentication state.
 
+The package-level emulated command runs each product area with a fresh Next and
+emulator process, then merges their reports. This prevents the development
+server's compiled route graph from exhausting its heap during the full suite.
+Run a spec directly with Playwright when iterating on one flow.
+
 The emulated project runs when browser-facing files change in pull requests or
 on `main`, plus the daily schedule and manual dispatches. Pull requests retain
 the HTML report, screenshots, traces, and videos as GitHub Actions artifacts.

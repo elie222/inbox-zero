@@ -19,6 +19,7 @@ const runId = process.env.PLAYWRIGHT_RUN_ID ?? `${process.pid}-${Date.now()}`;
 const playwrightTestEmail =
   process.env.PLAYWRIGHT_TEST_EMAIL ??
   `playwright-test+${runId}@gmail.com`.toLowerCase();
+const blobReportFile = process.env.PLAYWRIGHT_BLOB_REPORT_FILE;
 const authStatePath = path.join(
   process.cwd(),
   ".tmp",
@@ -46,6 +47,7 @@ process.env.PLAYWRIGHT_TEST_EMAIL = playwrightTestEmail;
 
 export default defineConfig({
   testDir: "./__tests__/playwright",
+  outputDir: process.env.PLAYWRIGHT_OUTPUT_DIR,
   forbidOnly: !!process.env.CI,
   fullyParallel: false,
   // Every browser test shares one seeded provider and one authenticated account.
@@ -55,11 +57,17 @@ export default defineConfig({
   expect: {
     timeout: 20_000,
   },
-  reporter: [
-    ...(process.env.CI ? [["github"]] : []),
-    ["list"],
-    ["html", { open: "never", outputFolder: "playwright-report" }],
-  ],
+  reporter: blobReportFile
+    ? [
+        ...(process.env.CI ? [["github"]] : []),
+        ["list"],
+        ["blob", { outputFile: blobReportFile }],
+      ]
+    : [
+        ...(process.env.CI ? [["github"]] : []),
+        ["list"],
+        ["html", { open: "never", outputFolder: "playwright-report" }],
+      ],
   use: {
     baseURL,
     trace: "retain-on-failure",

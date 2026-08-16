@@ -153,6 +153,38 @@ google:
         - INBOX
         - UNREAD
       internal_date: "1735038000000"
+    - id: msg_playwright_cleanup_block
+      thread_id: thr_playwright_cleanup_block
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: Cleanup Weekly <cleanup-block@example.com>
+      to: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Cleanup Block Candidate
+      body_text: This sender is reserved for the bulk unsubscribe flow.
+      label_ids:
+        - INBOX
+        - UNREAD
+      internal_date: "1786838400000"
+    - id: msg_playwright_cleanup_archive
+      thread_id: thr_playwright_cleanup_archive
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: Cleanup Newsletter <cleanup-archive@example.com>
+      to: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Cleanup Category Archive Candidate
+      body_text: This sender is reserved for the bulk archive flow.
+      label_ids:
+        - INBOX
+        - UNREAD
+      internal_date: "1786752000000"
+    - id: msg_playwright_cleanup_keep
+      thread_id: thr_playwright_cleanup_keep
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: Cleanup Keep <cleanup-keep@example.com>
+      to: __PLAYWRIGHT_TEST_EMAIL__
+      subject: Cleanup Category Keep Candidate
+      body_text: This message must remain in the inbox after selective cleanup.
+      label_ids:
+        - INBOX
+      internal_date: "1786665600000"
   calendars:
     - id: primary
       user_email: __PLAYWRIGHT_TEST_EMAIL__
