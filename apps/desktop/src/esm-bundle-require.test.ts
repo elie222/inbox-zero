@@ -5,7 +5,10 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import * as esbuild from "esbuild";
 import { describe, expect, it } from "vitest";
-import { ESM_MAIN_REQUIRE_BANNER } from "../esm-main-banner.mjs";
+import {
+  desktopEsbuildShared,
+  ESM_MAIN_REQUIRE_BANNER,
+} from "../esm-main-banner.mjs";
 
 const DYNAMIC_FS_CJS =
   'module.exports = { exists: require("fs" + "").existsSync };\n';
@@ -18,8 +21,7 @@ async function bundleFixture(dir: string, banner?: string) {
   );
   const outfile = path.join(dir, "out.mjs");
   await esbuild.build({
-    bundle: true,
-    platform: "node",
+    ...desktopEsbuildShared,
     format: "esm",
     entryPoints: [path.join(dir, "entry.js")],
     outfile,
@@ -34,6 +36,7 @@ describe("esm main bundle require banner", () => {
       new URL("../esbuild.config.mjs", import.meta.url),
       "utf8",
     );
+    expect(config).toContain("desktopEsbuildShared");
     expect(config).toContain("ESM_MAIN_REQUIRE_BANNER");
     expect(config).toContain('format: "esm"');
   });

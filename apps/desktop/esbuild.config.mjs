@@ -1,16 +1,11 @@
 import * as esbuild from "esbuild";
-import { ESM_MAIN_REQUIRE_BANNER } from "./esm-main-banner.mjs";
-
-const shared = {
-  bundle: true,
-  platform: "node",
-  target: "node22",
-  external: ["electron"],
-  sourcemap: true,
-};
+import {
+  desktopEsbuildShared,
+  ESM_MAIN_REQUIRE_BANNER,
+} from "./esm-main-banner.mjs";
 
 await esbuild.build({
-  ...shared,
+  ...desktopEsbuildShared,
   entryPoints: ["src/main.ts"],
   outfile: "dist/main.js",
   format: "esm",
@@ -20,7 +15,7 @@ await esbuild.build({
 });
 
 await esbuild.build({
-  ...shared,
+  ...desktopEsbuildShared,
   entryPoints: ["src/preload.ts"],
   outfile: "dist/preload.cjs",
   format: "cjs",
