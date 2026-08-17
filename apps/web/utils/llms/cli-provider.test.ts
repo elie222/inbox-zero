@@ -203,9 +203,25 @@ describe("createCliLanguageModel", () => {
       `${os.tmpdir()}${path.sep}inbox-zero-grok-`,
     );
     expect(String(grok.acpOptions[0].env.HOME)).toContain(`${path.sep}home`);
-    expect(grok.acpOptions[0].env.GROK_AUTH_PATH).toBe(
+    expect(String(grok.acpOptions[0].env.GROK_AUTH_PATH)).toContain(
+      `${path.sep}home${path.sep}.grok${path.sep}auth.json`,
+    );
+    expect(grok.acpOptions[0].env.GROK_AUTH_PATH).not.toBe(
       path.join(os.homedir(), ".grok", "auth.json"),
     );
+    expect(grok.acpOptions[0].env.GROK_SANDBOX).toBe("strict");
+    expect(grok.acpOptions[0].args).toEqual([
+      "--no-auto-update",
+      "--sandbox",
+      "strict",
+      "--tools",
+      "search_tool,use_tool",
+      "--disable-web-search",
+      "--disallowed-tools",
+      "Agent",
+      "agent",
+      "stdio",
+    ]);
     expect(grok.sessions[0]._meta.agentProfile.tools).toEqual([
       "search_tool",
       "use_tool",
@@ -525,7 +541,9 @@ function makeGrokConstructors(
       fallback: unknown,
       args: unknown[],
     ) => {
-      const client = options.clientFactory({});
+      const client = options.clientFactory({
+        args: ["--no-auto-update", "agent", "stdio"],
+      });
       try {
         await client.newSession({ mcpServers: options.settings.mcpServers });
         return fn ? await fn(...args) : fallback;

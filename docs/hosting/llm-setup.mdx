@@ -152,12 +152,13 @@ DEFAULT_LLMS=grok-cli:default
 `default` selects Grok's current default model.
 
 Tool-bearing Inbox Zero calls always go through a request-scoped loopback
-MCP server. Each Grok process runs in an isolated HOME/cwd. The session
-requests an agent profile with Grok's `search_tool` (tool discovery) and
-`use_tool` (MCP invoke). Stock Grok 1.0.4 rejects `--no-native-tools`, so
-`inferenceOnly` is not set and the profile is not fail-closed. Permission
-prompts are allowed only when ACP `_meta["x.ai/tool"].name` is
-`search_tool` or `use_tool`; other permission requests are cancelled.
-Native tools that never ask permission can still run. Isolated
-`GROK_HOME/config.toml` sets `disable_web_search = true` as a hosted-search
-backstop; the AI SDK provider does not read that file.
+MCP server. Each Grok process runs in an isolated HOME/cwd. Stock Grok
+1.0.4 rejects `--no-native-tools` on `agent stdio`, so `inferenceOnly` is
+not set. Instead the root command gets `--sandbox strict`,
+`--tools search_tool,use_tool`, `--disable-web-search`, and
+`--disallowed-tools Agent` (those flags are invalid after `stdio`).
+`GROK_SANDBOX=strict` is set as well. Permission prompts are allowed only
+when ACP `_meta["x.ai/tool"].name` is `search_tool` or `use_tool`. Auth
+is copied into the isolated HOME so the process does not read the host
+`~/.grok/auth.json` path. Built-in sandbox profiles can log a warning and
+continue unsandboxed if the kernel cannot apply them.

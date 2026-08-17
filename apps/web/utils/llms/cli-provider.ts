@@ -314,12 +314,16 @@ function createIsolatedGrokClient(
     const client = new AcpClient({
       ...options,
       cwd: workspace.cwd,
+      args: withInboxZeroGrokArgs(
+        options.args as readonly string[] | undefined,
+      ),
       env: {
         ...((options.env as Record<string, string | undefined> | undefined) ??
           {}),
         HOME: workspace.home,
         GROK_HOME: workspace.home,
-        GROK_AUTH_PATH: path.join(os.homedir(), ".grok", "auth.json"),
+        GROK_AUTH_PATH: copyGrokAuthIntoHome(workspace.home),
+        GROK_SANDBOX: "strict",
         NO_PROXY: noProxy,
         no_proxy: noProxy,
       },
@@ -528,8 +532,40 @@ async function loadGrokModule() {
   );
 }
 
+function withInboxZeroGrokArgs(args: readonly string[] | undefined): string[] {
+  // `grok agent stdio` rejects --sandbox/--tools/--no-native-tools. Those
+  // clamps have to sit on the root command, before `agent`.
+  const base =
+    args && args.length > 0
+      ? [...args]
+      : ["--no-auto-update", "agent", "stdio"];
+  const extras = [
+    "--sandbox",
+    "strict",
+    "--tools",
+    "search_tool,use_tool",
+    "--disable-web-search",
+    "--disallowed-tools",
+    "Agent",
+  ];
+  const agentAt = base.indexOf("agent");
+  if (agentAt === -1) return [...base, ...extras];
+  return [...base.slice(0, agentAt), ...extras, ...base.slice(agentAt)];
+}
+
+function copyGrokAuthIntoHome(home: string): string {
+  const destDir = path.join(home, ".grok");
+  fs.mkdirSync(destDir, { recursive: true, mode: 0o700 });
+  const dest = path.join(destDir, "auth.json");
+  try {
+    fs.copyFileSync(path.join(os.homedir(), ".grok", "auth.json"), dest);
+    fs.chmodSync(dest, 0o600);
+  } catch {}
+  return dest;
+}
+
 function grokCliSettings(extra: Record<string, unknown> = {}) {
-  // Stock grok 1.0.4 rejects --no-native-tools; do not set inferenceOnly.
+  // 1.0.4 rejects --no-native-tools after stdio; do not set inferenceOnly.
   return {
     authMethod: "cached_token",
     ...(env.GROK_CLI_PATH ? { executablePath: env.GROK_CLI_PATH } : {}),
