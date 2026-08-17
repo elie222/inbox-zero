@@ -8,7 +8,7 @@ import {
   useEffect,
   useRef,
 } from "react";
-import { SWRConfig, mutate } from "swr";
+import { SWRConfig, mutate, useSWRConfig } from "swr";
 import { captureException } from "@/utils/error";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import {
@@ -18,6 +18,10 @@ import {
 } from "@/utils/config";
 import { prefixPath } from "@/utils/path";
 import { redirectToSafeUrl } from "@/utils/redirect";
+import {
+  persistSwrEntries,
+  readPersistedSwrEntries,
+} from "@/utils/swr-persistence";
 
 // https://swr.vercel.app/docs/error-handling#status-code-and-error-object
 const fetcher = async (
@@ -166,11 +170,60 @@ export const SWRProvider = (props: { children: React.ReactNode }) => {
           ...getDevOnlySWRConfig(),
         }}
       >
+        <PersistedSwrCache />
         {props.children}
       </SWRConfig>
     </SWRContext.Provider>
   );
 };
+
+/**
+ * Hydrates whitelisted SWR entries from localStorage and snapshots them back.
+ * Must live inside SWRConfig: SWR initializes its cache from the provider
+ * exactly once, so only the scoped `cache`/`mutate` from useSWRConfig reach
+ * the live cache. Hydrating in an effect (after the hydration render) keeps
+ * client and server HTML identical.
+ */
+function PersistedSwrCache() {
+  const { cache, mutate: scopedMutate } = useSWRConfig();
+  const { emailAccountId } = useAccount();
+  const hydratedForRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!emailAccountId || hydratedForRef.current === emailAccountId) return;
+    hydratedForRef.current = emailAccountId;
+    for (const [key, state] of readPersistedSwrEntries(emailAccountId)) {
+      if (state.data !== undefined && cache.get(key)?.data === undefined) {
+        scopedMutate(key, state.data, {
+          populateCache: true,
+          revalidate: false,
+        });
+      }
+    }
+  }, [emailAccountId, cache, scopedMutate]);
+
+  // Snapshot when the app is backgrounded, closed, or this account unmounts;
+  // there is no per-write hook on the SWR cache, and the visibility event also
+  // covers the desktop shell hiding its window.
+  useEffect(() => {
+    if (!emailAccountId) return;
+
+    const persist = () => persistSwrEntries(emailAccountId, cache);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") persist();
+    };
+
+    window.addEventListener("pagehide", persist);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      persist();
+      window.removeEventListener("pagehide", persist);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [emailAccountId, cache]);
+
+  return null;
+}
 
 // Dev-only config to handle transient 404s during HMR
 function getDevOnlySWRConfig() {
