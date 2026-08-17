@@ -3,7 +3,6 @@
 import { useAccount } from "@/providers/EmailAccountProvider";
 import type { ReactNode } from "react";
 import { format } from "date-fns";
-import Link from "next/link";
 import { ChevronDownIcon, MailPlusIcon, TextQuoteIcon } from "lucide-react";
 import { LoadingContent } from "@/components/LoadingContent";
 import { MutedText } from "@/components/Typography";
@@ -28,7 +27,6 @@ import { getMeetingDetailState } from "@/app/(app)/[emailAccountId]/meetings/mee
 import { useMeetingRecorderMeeting } from "@/hooks/useMeetingRecorder";
 import { STILL_CAPTURING_STATUSES } from "@/utils/meeting-recorder/recording-lifecycle";
 import { formatTranscriptTimestamp } from "@/utils/meeting-recorder/transcript-prompt";
-import { getEmailDraftUrl } from "@/utils/url";
 
 export function MeetingDetail({
   meetingId,
@@ -37,7 +35,7 @@ export function MeetingDetail({
   meetingId: string | null;
   onClose: () => void;
 }) {
-  const { emailAccountId, provider, userEmail } = useAccount();
+  const { emailAccountId } = useAccount();
   const { data, isLoading, error } = useMeetingRecorderMeeting(
     meetingId,
     emailAccountId,
@@ -177,16 +175,13 @@ export function MeetingDetail({
                   attendees. Nothing was sent for you.
                 </MutedText>
                 <Button asChild variant="outline" size="sm">
-                  <Link
-                    href={getEmailDraftUrl(
-                      data.followUpDraftId,
-                      userEmail,
-                      provider,
-                    )}
+                  <a
+                    href={getFollowUpDraftUrl(data.id, emailAccountId)}
                     target="_blank"
+                    rel="noopener noreferrer"
                   >
                     Go to drafts
-                  </Link>
+                  </a>
                 </Button>
               </CardContent>
             </CardBlue>
@@ -267,6 +262,10 @@ function SummaryList({ title, items }: { title: string; items: string[] }) {
       </ul>
     </div>
   );
+}
+
+function getFollowUpDraftUrl(meetingId: string, emailAccountId: string) {
+  return `/api/user/meeting-recorder/meetings/${encodeURIComponent(meetingId)}/draft?emailAccountId=${encodeURIComponent(emailAccountId)}`;
 }
 
 function formatMeetingTimeRange(
