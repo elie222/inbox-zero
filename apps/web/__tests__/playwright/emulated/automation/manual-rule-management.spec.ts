@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { getEmailAccountId } from "../account-test-helpers";
 import {
   cleanupTestRules,
   getRuleState,
@@ -7,7 +8,6 @@ import {
 } from "./automation-test-helpers";
 import {
   expectVisibleAfterTransientFetch,
-  getAutomationEmailAccountId,
   markAutomationOnboardingViewed,
 } from "./automation-tabs-test-helpers";
 
@@ -24,7 +24,7 @@ test("creates, edits, toggles, and deletes a manual automation rule", async ({
   page,
 }) => {
   test.setTimeout(360_000);
-  const emailAccountId = await getAutomationEmailAccountId(page);
+  const emailAccountId = await getEmailAccountId(page);
   emailAccountIdForCleanup = emailAccountId;
   await cleanupTestRules(emailAccountId);
   await markAutomationOnboardingViewed(page);

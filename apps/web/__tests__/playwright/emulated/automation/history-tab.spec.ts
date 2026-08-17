@@ -1,8 +1,8 @@
 import { expect, test } from "@playwright/test";
+import { getEmailAccountId } from "../account-test-helpers";
 import {
   cleanupAutomationHistory,
   expectVisibleAfterTransientFetch,
-  getAutomationEmailAccountId,
   HISTORY_RULE_ID,
   HISTORY_RULE_NAME,
   markAutomationOnboardingViewed,
@@ -16,7 +16,7 @@ test.afterEach(async () => {
 test("shows persisted execution history and preserves rule filters", async ({
   page,
 }) => {
-  const emailAccountId = await getAutomationEmailAccountId(page);
+  const emailAccountId = await getEmailAccountId(page);
   await seedAutomationHistory(emailAccountId);
   await markAutomationOnboardingViewed(page);
 

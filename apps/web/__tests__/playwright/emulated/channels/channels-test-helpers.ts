@@ -4,38 +4,6 @@ import { Client } from "pg";
 export const CHANNEL_ID = "playwright-telegram-channel";
 export const CHANNEL_RULE_ID = "playwright-channel-rule";
 export const CHANNEL_RULE_NAME = "Playwright priority notifications";
-const ACCOUNT_LOOKUP_TIMEOUT_MS = 60_000;
-
-export async function getEmailAccountId(page: Page) {
-  let lastError: unknown;
-  const deadline = Date.now() + ACCOUNT_LOOKUP_TIMEOUT_MS;
-
-  while (Date.now() < deadline) {
-    try {
-      const response = await page.request.get("/api/user/email-accounts");
-      if (response.ok()) {
-        const { emailAccounts } = (await response.json()) as {
-          emailAccounts: { id: string }[];
-        };
-        const emailAccountId = emailAccounts[0]?.id;
-        if (emailAccountId) return emailAccountId;
-        lastError = new Error("The setup project created no account");
-      } else {
-        lastError = new Error(
-          `Email accounts request failed with ${response.status()}`,
-        );
-      }
-    } catch (error) {
-      lastError = error;
-    }
-
-    await page.waitForTimeout(1000);
-  }
-
-  throw new Error(
-    `Could not read the setup email account: ${getErrorMessage(lastError)}`,
-  );
-}
 
 export async function markAssistantOnboardingViewed(page: Page) {
   await page.goto("/");
@@ -144,8 +112,4 @@ async function deleteSeededState(client: Client) {
     CHANNEL_ID,
   ]);
   await client.query(`DELETE FROM "Rule" WHERE id = $1`, [CHANNEL_RULE_ID]);
-}
-
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : String(error);
 }

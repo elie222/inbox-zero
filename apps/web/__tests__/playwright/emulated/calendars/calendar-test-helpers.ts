@@ -1,25 +1,12 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import { Client } from "pg";
+import { getEmailAccountId } from "../account-test-helpers";
 
 export const PLAYWRIGHT_TEST_EMAIL =
   process.env.PLAYWRIGHT_TEST_EMAIL || "playwright-test@gmail.com";
 
 export async function openCalendars(page: Page) {
-  let emailAccountId: string | undefined;
-  await expect
-    .poll(
-      async () => {
-        try {
-          emailAccountId = await getEmailAccountId(page);
-          return true;
-        } catch {
-          return false;
-        }
-      },
-      { timeout: 120_000 },
-    )
-    .toBe(true);
-  if (!emailAccountId) throw new Error("The Playwright account was not ready");
+  const emailAccountId = await getEmailAccountId(page, { timeout: 120_000 });
 
   await navigateUntilReady(
     page,
@@ -130,17 +117,6 @@ export async function getCalendarTestState() {
   } finally {
     await client.end();
   }
-}
-
-async function getEmailAccountId(page: Page) {
-  const response = await page.request.get("/api/user/email-accounts");
-  expect(response.ok()).toBeTruthy();
-  const { emailAccounts } = (await response.json()) as {
-    emailAccounts: { id: string }[];
-  };
-  const emailAccountId = emailAccounts[0]?.id;
-  if (!emailAccountId) throw new Error("The setup project created no account");
-  return emailAccountId;
 }
 
 async function resetCalendarState(client: Client) {

@@ -1,9 +1,9 @@
 import { expect, test } from "@playwright/test";
+import { getEmailAccountId } from "../account-test-helpers";
 import {
   type AutomationSettingsCleanup,
   cleanupAutomationSettings,
   expectVisibleAfterTransientFetch,
-  getAutomationEmailAccountId,
   getAutomationSettingsCard,
   getAutomationSettingsState,
   getKnowledgeState,
@@ -26,7 +26,7 @@ test("enables drafting and manages persisted draft knowledge", async ({
   page,
 }) => {
   test.setTimeout(360_000);
-  const emailAccountId = await getAutomationEmailAccountId(page);
+  const emailAccountId = await getEmailAccountId(page);
   settingsCleanup = {
     ...(await seedAutomationSettings(emailAccountId)),
     emailAccountId,
