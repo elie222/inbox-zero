@@ -11,7 +11,6 @@ import { CheckCircleIcon, TrashIcon, XIcon } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
-import { z } from "zod";
 import { Input, Label } from "@/components/Input";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -19,14 +18,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ButtonLoader } from "@/components/Loading";
 import { env } from "@/env";
-import { extractNameFromEmail } from "@/utils/email";
+import { extractNameFromEmail, isValidEmail } from "@/utils/email";
 import { Tiptap, type TiptapHandle } from "@/components/editor/Tiptap";
 import { sendEmailAction } from "@/utils/actions/mail";
 import type { ContactsResponse } from "@/app/api/google/contacts/route";
 import type { SendEmailBody } from "@/utils/gmail/mail";
 import { CommandShortcut } from "@/components/ui/command";
+import { getActionErrorMessage } from "@/utils/error";
 import { useModifierKey } from "@/hooks/useModifierKey";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { resolveComposeRecipients } from "./compose-recipients";
 
 export type ReplyingToEmail = {
   threadId?: string;
@@ -55,6 +56,7 @@ export const ComposeEmailForm = ({
 }) => {
   const { emailAccountId } = useAccount();
   const [showFullContent, setShowFullContent] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const { symbol } = useModifierKey();
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -76,8 +78,18 @@ export const ComposeEmailForm = ({
 
   const onSubmit: SubmitHandler<SendEmailBody> = useCallback(
     async (data) => {
+      const to = resolveComposeRecipients({
+        selectedRecipients: data.to,
+        pendingRecipient: searchQuery,
+      });
+      if (!to) {
+        toastError({ description: "Enter a valid recipient email address." });
+        return;
+      }
+
       const enrichedData = {
         ...data,
+        to,
         replyToEmail: getReplyToEmailPayload(data.replyToEmail),
         messageHtml: showFullContent
           ? data.messageHtml || ""
@@ -86,13 +98,15 @@ export const ComposeEmailForm = ({
 
       try {
         const res = await sendEmailAction(emailAccountId, enrichedData);
-        if (res?.serverError) {
-          toastError({
-            description: "There was an error sending the email :(",
-          });
-        } else if (res?.data) {
+        if (res?.data) {
           toastSuccess({ description: "Email sent!" });
           onSuccess?.(res.data.messageId ?? "", res.data.threadId ?? "");
+        } else {
+          toastError({
+            description: getActionErrorMessage(res ?? {}, {
+              prefix: "There was an error sending the email",
+            }),
+          });
         }
       } catch (error) {
         console.error(error);
@@ -101,7 +115,14 @@ export const ComposeEmailForm = ({
 
       refetch?.();
     },
-    [refetch, onSuccess, showFullContent, replyingToEmail, emailAccountId],
+    [
+      refetch,
+      onSuccess,
+      showFullContent,
+      replyingToEmail,
+      emailAccountId,
+      searchQuery,
+    ],
   );
 
   useHotkeys(
@@ -119,7 +140,6 @@ export const ComposeEmailForm = ({
     },
   );
 
-  const [searchQuery, setSearchQuery] = useState("");
   const { data } = useSWR<ContactsResponse, { error: string }>(
     env.NEXT_PUBLIC_CONTACTS_ENABLED
       ? `/api/google/contacts?query=${searchQuery}`
@@ -143,8 +163,7 @@ export const ComposeEmailForm = ({
     // this assumes last value given by combobox is user typed value
     const lastValue = values[values.length - 1];
 
-    const { success } = z.string().email().safeParse(lastValue);
-    if (success) {
+    if (isValidEmail(lastValue)) {
       setValue("to", values.join(","));
       setSearchQuery("");
     }
@@ -231,9 +250,13 @@ export const ComposeEmailForm = ({
                       onKeyUp={(event) => {
                         if (event.key === "Enter") {
                           event.preventDefault();
+                          if (!isValidEmail(searchQuery.trim())) return;
                           setValue(
                             "to",
-                            [...selectedEmailAddressses, searchQuery].join(","),
+                            resolveComposeRecipients({
+                              selectedRecipients: watch("to"),
+                              pendingRecipient: searchQuery,
+                            }),
                           );
                           setSearchQuery("");
                         }
