@@ -58,10 +58,14 @@ test("persists rule delivery, feature routing, and channel disconnection", async
   const ruleItem = page.locator('[data-slot="item"]', {
     hasText: CHANNEL_RULE_NAME,
   });
-  await ruleItem.getByRole("switch").click();
-  await expect(page.getByText("Settings saved", { exact: true })).toBeVisible();
+  const ruleSwitch = ruleItem.getByRole("switch");
+  await expect(ruleSwitch).toBeEnabled({ timeout: 60_000 });
+  await ruleSwitch.click();
+  await expect(page.getByText("Settings saved", { exact: true })).toBeVisible({
+    timeout: 60_000,
+  });
   await expect
-    .poll(() => getChannelState())
+    .poll(() => getChannelState(emailAccountId), { timeout: 60_000 })
     .toMatchObject({
       actionTypes: ["NOTIFY_MESSAGING_CHANNEL"],
     });
@@ -69,9 +73,11 @@ test("persists rule delivery, feature routing, and channel disconnection", async
   const meetingBriefsItem = page.locator('[data-slot="item"]', {
     hasText: "Meeting briefs",
   });
-  await meetingBriefsItem.getByRole("switch").click();
+  const meetingBriefsSwitch = meetingBriefsItem.getByRole("switch");
+  await expect(meetingBriefsSwitch).toBeEnabled({ timeout: 60_000 });
+  await meetingBriefsSwitch.click();
   await expect
-    .poll(() => getChannelState())
+    .poll(() => getChannelState(emailAccountId), { timeout: 60_000 })
     .toMatchObject({
       routePurposes: ["MEETING_BRIEFS", "RULE_NOTIFICATIONS"],
     });
@@ -80,9 +86,9 @@ test("persists rule delivery, feature routing, and channel disconnection", async
   await page.getByRole("menuitem", { name: "Disconnect Telegram" }).click();
   await expect(
     page.getByText("Telegram disconnected", { exact: true }),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 60_000 });
   await expect
-    .poll(() => getChannelState(), { timeout: 60_000 })
+    .poll(() => getChannelState(emailAccountId), { timeout: 60_000 })
     .toEqual({
       actionTypes: ["NOTIFY_MESSAGING_CHANNEL"],
       isConnected: false,

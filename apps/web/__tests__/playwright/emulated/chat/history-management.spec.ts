@@ -1,10 +1,13 @@
 import { expect, test } from "@playwright/test";
 import {
   cleanupSeededChat,
+  getChatState,
   getEmailAccountId,
   markAssistantOnboardingViewed,
   seedChat,
 } from "./chat-test-helpers";
+
+const SERVER_ACTION_TIMEOUT_MS = 120_000;
 
 test.afterEach(async () => {
   await cleanupSeededChat();
@@ -41,8 +44,15 @@ test("opens, renames, starts fresh from, and deletes persisted chats", async ({
 
   const renameDialog = page.getByRole("dialog", { name: "Rename chat" });
   await renameDialog.getByRole("textbox").fill("Daily inbox plan");
-  await renameDialog.getByRole("button", { name: "Save" }).click();
-  await expect(page.getByText("Chat renamed.", { exact: true })).toBeVisible();
+  const saveButton = renameDialog.getByRole("button", { name: "Save" });
+  await expect(saveButton).toBeEnabled({ timeout: 60_000 });
+  await saveButton.click();
+  await expect
+    .poll(() => getChatState(emailAccountId), {
+      timeout: SERVER_ACTION_TIMEOUT_MS,
+    })
+    .toMatchObject({ isDeleted: false, name: "Daily inbox plan" });
+  await expect(renameDialog).toBeHidden({ timeout: 60_000 });
 
   await page.getByRole("button", { name: "New Chat" }).click();
   await expect(page.getByTestId("chat-input")).toHaveValue("");
@@ -59,8 +69,15 @@ test("opens, renames, starts fresh from, and deletes persisted chats", async ({
 
   const deleteDialog = page.getByRole("alertdialog", { name: "Delete chat?" });
   await expect(deleteDialog).toContainText("Daily inbox plan");
-  await deleteDialog.getByRole("button", { name: "Delete" }).click();
-  await expect(page.getByText("Chat deleted.", { exact: true })).toBeVisible();
+  const deleteButton = deleteDialog.getByRole("button", { name: "Delete" });
+  await expect(deleteButton).toBeEnabled({ timeout: 60_000 });
+  await deleteButton.click();
+  await expect
+    .poll(() => getChatState(emailAccountId), {
+      timeout: SERVER_ACTION_TIMEOUT_MS,
+    })
+    .toMatchObject({ isDeleted: true, name: null });
+  await expect(deleteDialog).toBeHidden({ timeout: 60_000 });
 
   await page.getByRole("button", { name: "Chat History" }).click();
   await expect(

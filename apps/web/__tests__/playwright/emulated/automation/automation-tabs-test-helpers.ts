@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import { Client } from "pg";
 
 export const HISTORY_RULE_ID = "playwright-automation-history-rule";
@@ -7,6 +7,44 @@ export const HISTORY_EXECUTED_RULE_ID =
   "playwright-automation-history-execution";
 export const KNOWLEDGE_TITLE = "Playwright product context";
 export const UPDATED_KNOWLEDGE_TITLE = "Playwright customer context";
+const ACCOUNT_LOOKUP_TIMEOUT_MS = 60_000;
+
+type AutomationAccountSettings = {
+  about: string | null;
+  allowHiddenAiDraftLinks: boolean;
+  draftReplyConfidence: string;
+  includeReferralSignature: boolean;
+  multiRuleSelectionEnabled: boolean;
+  sensitiveDataPolicy: string | null;
+  signature: string | null;
+  writingStyle: string | null;
+};
+
+type DraftActionSnapshot = {
+  bcc: string | null;
+  cc: string | null;
+  content: string | null;
+  createdAt: Date;
+  delayInMinutes: number | null;
+  emailAccountId: string;
+  folderId: string | null;
+  folderName: string | null;
+  id: string;
+  integrationArgs: unknown;
+  integrationName: string | null;
+  integrationToolName: string | null;
+  label: string | null;
+  labelId: string | null;
+  messagingChannelEmailAccountId: string | null;
+  messagingChannelId: string | null;
+  ruleId: string;
+  staticAttachments: unknown;
+  subject: string | null;
+  to: string | null;
+  type: string;
+  updatedAt: Date;
+  url: string | null;
+};
 
 export type AutomationSettingsCleanup = Awaited<
   ReturnType<typeof seedAutomationSettings>
@@ -15,14 +53,7 @@ export type AutomationSettingsCleanup = Awaited<
 };
 
 export async function getAutomationEmailAccountId(page: Page) {
-  const response = await page.request.get("/api/user/email-accounts");
-  expect(response.ok()).toBeTruthy();
-  const { emailAccounts } = (await response.json()) as {
-    emailAccounts: { id: string }[];
-  };
-  const emailAccountId = emailAccounts[0]?.id;
-  if (!emailAccountId) throw new Error("The setup project created no account");
-  return emailAccountId;
+  return getEmailAccountIdWithRetry(page);
 }
 
 export async function markAutomationOnboardingViewed(page: Page) {
@@ -40,6 +71,28 @@ export function getAutomationSettingsCard(page: Page, name: string) {
   return page
     .getByRole("heading", { name, exact: true })
     .locator("xpath=ancestor::div[contains(@class, 'group/card')][1]");
+}
+
+export async function expectVisibleAfterTransientFetch(
+  page: Page,
+  locator: Locator,
+) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      await expect(locator).toBeVisible({ timeout: 60_000 });
+      return;
+    } catch (error) {
+      const hasTransientFetchError = await page
+        .getByText("Failed to fetch")
+        .first()
+        .isVisible()
+        .catch(() => false);
+
+      if (!hasTransientFetchError || attempt === 2) throw error;
+
+      await page.reload({ waitUntil: "domcontentloaded" });
+    }
+  }
 }
 
 export async function seedAutomationHistory(emailAccountId: string) {
@@ -88,12 +141,30 @@ export async function cleanupAutomationHistory() {
 
 export async function seedAutomationSettings(emailAccountId: string) {
   return withClient(async (client) => {
-    const existingRule = await client.query<{ id: string }>(
-      `SELECT id FROM "Rule"
+    const accountResult = await client.query<AutomationAccountSettings>(
+      `SELECT about,
+              "allowHiddenAiDraftLinks",
+              "draftReplyConfidence"::text,
+              "includeReferralSignature",
+              "multiRuleSelectionEnabled",
+              "sensitiveDataPolicy",
+              signature,
+              "writingStyle"
+       FROM "EmailAccount" WHERE id = $1`,
+      [emailAccountId],
+    );
+    const previousAccountSettings = accountResult.rows[0];
+    if (!previousAccountSettings) {
+      throw new Error("The Playwright email account was not found");
+    }
+
+    const existingRule = await client.query<{ enabled: boolean; id: string }>(
+      `SELECT id, enabled FROM "Rule"
        WHERE "emailAccountId" = $1 AND "systemType" = 'TO_REPLY'`,
       [emailAccountId],
     );
     const createdToReplyRule = existingRule.rowCount === 0;
+    const previousToReplyRuleEnabled = existingRule.rows[0]?.enabled ?? null;
     const toReplyRuleId =
       existingRule.rows[0]?.id ??
       `playwright-automation-to-reply-${emailAccountId}`;
@@ -116,6 +187,18 @@ export async function seedAutomationSettings(emailAccountId: string) {
       );
     }
 
+    const previousDraftActions = await client.query<DraftActionSnapshot>(
+      `SELECT id, "createdAt", "updatedAt", type::text, "ruleId",
+              "emailAccountId", "messagingChannelId",
+              "messagingChannelEmailAccountId", label, "labelId", subject,
+              content, "to", cc, bcc, url, "folderName", "folderId",
+              "delayInMinutes", "staticAttachments", "integrationName",
+              "integrationToolName", "integrationArgs"
+       FROM "Action"
+       WHERE "ruleId" = $1 AND type = 'DRAFT_EMAIL'
+       ORDER BY id`,
+      [toReplyRuleId],
+    );
     await client.query(
       `DELETE FROM "Action" WHERE "ruleId" = $1 AND type = 'DRAFT_EMAIL'`,
       [toReplyRuleId],
@@ -140,17 +223,29 @@ export async function seedAutomationSettings(emailAccountId: string) {
       [emailAccountId],
     );
 
-    return { createdToReplyRule, toReplyRuleId };
+    return {
+      createdToReplyRule,
+      previousAccountSettings,
+      previousDraftActions: previousDraftActions.rows,
+      previousToReplyRuleEnabled,
+      toReplyRuleId,
+    };
   });
 }
 
 export async function cleanupAutomationSettings({
   createdToReplyRule,
   emailAccountId,
+  previousAccountSettings,
+  previousDraftActions,
+  previousToReplyRuleEnabled,
   toReplyRuleId,
 }: {
   createdToReplyRule: boolean;
   emailAccountId: string;
+  previousAccountSettings: AutomationAccountSettings;
+  previousDraftActions: DraftActionSnapshot[];
+  previousToReplyRuleEnabled: boolean | null;
   toReplyRuleId: string;
 }) {
   await withClient(async (client) => {
@@ -166,20 +261,40 @@ export async function cleanupAutomationSettings({
         `DELETE FROM "Action" WHERE "ruleId" = $1 AND type = 'DRAFT_EMAIL'`,
         [toReplyRuleId],
       );
+      for (const action of previousDraftActions) {
+        await restoreDraftAction(client, action);
+      }
+      if (previousToReplyRuleEnabled !== null) {
+        await client.query(
+          `UPDATE "Rule" SET enabled = $2, "updatedAt" = CURRENT_TIMESTAMP
+           WHERE id = $1 AND "emailAccountId" = $3`,
+          [toReplyRuleId, previousToReplyRuleEnabled, emailAccountId],
+        );
+      }
     }
     await client.query(
       `UPDATE "EmailAccount"
-       SET about = NULL,
-           "writingStyle" = NULL,
-           signature = NULL,
-           "includeReferralSignature" = false,
-           "multiRuleSelectionEnabled" = false,
-           "sensitiveDataPolicy" = NULL,
-           "draftReplyConfidence" = 'ALL_EMAILS',
-           "allowHiddenAiDraftLinks" = false,
+       SET about = $2,
+           "writingStyle" = $3,
+           signature = $4,
+           "includeReferralSignature" = $5,
+           "multiRuleSelectionEnabled" = $6,
+           "sensitiveDataPolicy" = $7,
+           "draftReplyConfidence" = $8::"DraftReplyConfidence",
+           "allowHiddenAiDraftLinks" = $9,
            "updatedAt" = CURRENT_TIMESTAMP
        WHERE id = $1`,
-      [emailAccountId],
+      [
+        emailAccountId,
+        previousAccountSettings.about,
+        previousAccountSettings.writingStyle,
+        previousAccountSettings.signature,
+        previousAccountSettings.includeReferralSignature,
+        previousAccountSettings.multiRuleSelectionEnabled,
+        previousAccountSettings.sensitiveDataPolicy,
+        previousAccountSettings.draftReplyConfidence,
+        previousAccountSettings.allowHiddenAiDraftLinks,
+      ],
     );
   });
 }
@@ -224,6 +339,7 @@ export async function getKnowledgeState(emailAccountId: string) {
     const result = await client.query<{ content: string; title: string }>(
       `SELECT title, content FROM "Knowledge"
        WHERE "emailAccountId" = $1 AND title IN ($2, $3)
+       ORDER BY "updatedAt" DESC
        LIMIT 1`,
       [emailAccountId, KNOWLEDGE_TITLE, UPDATED_KNOWLEDGE_TITLE],
     );
@@ -238,6 +354,78 @@ async function deleteAutomationHistory(client: Client) {
   await client.query(`DELETE FROM "Rule" WHERE id = $1`, [HISTORY_RULE_ID]);
 }
 
+async function restoreDraftAction(client: Client, action: DraftActionSnapshot) {
+  await client.query(
+    `INSERT INTO "Action" (
+       id, "createdAt", "updatedAt", type, "ruleId", "emailAccountId",
+       "messagingChannelId", "messagingChannelEmailAccountId", label,
+       "labelId", subject, content, "to", cc, bcc, url, "folderName",
+       "folderId", "delayInMinutes", "staticAttachments", "integrationName",
+       "integrationToolName", "integrationArgs"
+     )
+     VALUES (
+       $1, $2, $3, $4::"ActionType", $5, $6, $7, $8, $9, $10, $11, $12,
+       $13, $14, $15, $16, $17, $18, $19, $20::jsonb, $21, $22, $23::jsonb
+     )`,
+    [
+      action.id,
+      action.createdAt,
+      action.updatedAt,
+      action.type,
+      action.ruleId,
+      action.emailAccountId,
+      action.messagingChannelId,
+      action.messagingChannelEmailAccountId,
+      action.label,
+      action.labelId,
+      action.subject,
+      action.content,
+      action.to,
+      action.cc,
+      action.bcc,
+      action.url,
+      action.folderName,
+      action.folderId,
+      action.delayInMinutes,
+      stringifyJson(action.staticAttachments),
+      action.integrationName,
+      action.integrationToolName,
+      stringifyJson(action.integrationArgs),
+    ],
+  );
+}
+
+async function getEmailAccountIdWithRetry(page: Page) {
+  let lastError: unknown;
+  const deadline = Date.now() + ACCOUNT_LOOKUP_TIMEOUT_MS;
+
+  while (Date.now() < deadline) {
+    try {
+      const response = await page.request.get("/api/user/email-accounts");
+      if (response.ok()) {
+        const { emailAccounts } = (await response.json()) as {
+          emailAccounts: { id: string }[];
+        };
+        const emailAccountId = emailAccounts[0]?.id;
+        if (emailAccountId) return emailAccountId;
+        lastError = new Error("The setup project created no account");
+      } else {
+        lastError = new Error(
+          `Email accounts request failed with ${response.status()}`,
+        );
+      }
+    } catch (error) {
+      lastError = error;
+    }
+
+    await page.waitForTimeout(1000);
+  }
+
+  throw new Error(
+    `Could not read the setup email account: ${getErrorMessage(lastError)}`,
+  );
+}
+
 async function withClient<T>(callback: (client: Client) => Promise<T>) {
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
@@ -246,4 +434,12 @@ async function withClient<T>(callback: (client: Client) => Promise<T>) {
   } finally {
     await client.end();
   }
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function stringifyJson(value: unknown) {
+  return value === null || value === undefined ? null : JSON.stringify(value);
 }

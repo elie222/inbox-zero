@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import { Client } from "pg";
 
 const PLAYWRIGHT_TEST_EMAIL =
@@ -6,11 +6,27 @@ const PLAYWRIGHT_TEST_EMAIL =
 const INTEGRATION_ID = "playwright-mcp-notion";
 
 export async function openIntegrations(page: Page) {
-  const emailAccountId = await getEmailAccountId(page);
-  await page.goto(`/${emailAccountId}/integrations`);
-  await expect(
+  let emailAccountId: string | undefined;
+  await expect
+    .poll(
+      async () => {
+        try {
+          emailAccountId = await getEmailAccountId(page);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      { timeout: 120_000 },
+    )
+    .toBe(true);
+  if (!emailAccountId) throw new Error("The Playwright account was not ready");
+
+  await navigateUntilReady(
+    page,
+    `/${emailAccountId}/integrations`,
     page.getByRole("heading", { name: "Integrations", exact: true }),
-  ).toBeVisible({ timeout: 60_000 });
+  );
 }
 
 export async function setupIntegrationTestState() {
@@ -131,5 +147,17 @@ async function withClient<T>(callback: (client: Client) => Promise<T>) {
     return await callback(client);
   } finally {
     await client.end();
+  }
+}
+
+async function navigateUntilReady(page: Page, url: string, ready: Locator) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      await page.goto(url, { timeout: 60_000, waitUntil: "domcontentloaded" });
+      await expect(ready).toBeVisible({ timeout: 60_000 });
+      return;
+    } catch (error) {
+      if (attempt === 1) throw error;
+    }
   }
 }

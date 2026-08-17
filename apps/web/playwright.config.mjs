@@ -15,6 +15,7 @@ const emulateBaseUrl =
   process.env.GOOGLE_BASE_URL ?? `http://localhost:${await getAvailablePort()}`;
 const emulatePort = getUrlPort(emulateBaseUrl);
 const internalApiKey = process.env.INTERNAL_API_KEY ?? "secret";
+const nodeOptions = process.env.NODE_OPTIONS ?? "--max_old_space_size=6144";
 const runId = process.env.PLAYWRIGHT_RUN_ID ?? `${process.pid}-${Date.now()}`;
 const playwrightTestEmail =
   process.env.PLAYWRIGHT_TEST_EMAIL ??
@@ -41,6 +42,7 @@ process.env.DATABASE_URL = databaseUrl;
 process.env.GOOGLE_BASE_URL = emulateBaseUrl;
 process.env.INTERNAL_API_KEY = internalApiKey;
 process.env.NEXT_PUBLIC_BASE_URL = baseURL;
+process.env.NODE_OPTIONS = nodeOptions;
 process.env.PLAYWRIGHT_AUTH_FILE = authStatePath;
 process.env.PLAYWRIGHT_RUN_ID = runId;
 process.env.PLAYWRIGHT_TEST_EMAIL = playwrightTestEmail;
@@ -97,7 +99,7 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
     },
     {
-      command: `pnpm exec next dev --webpack --port ${basePort}`,
+      command: `pnpm exec next dev --turbopack --port ${basePort}`,
       cwd: process.cwd(),
       url: `${baseURL}/login`,
       timeout: 240_000,
@@ -105,6 +107,7 @@ export default defineConfig({
       env: {
         ...process.env,
         NODE_ENV: "development",
+        NODE_OPTIONS: nodeOptions,
         NEXT_PUBLIC_BASE_URL: baseURL,
         DATABASE_URL: databaseUrl,
         AUTH_SECRET: process.env.AUTH_SECRET ?? "secret",

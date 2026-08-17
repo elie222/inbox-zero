@@ -1,15 +1,31 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import { Client } from "pg";
 
 export const PLAYWRIGHT_TEST_EMAIL =
   process.env.PLAYWRIGHT_TEST_EMAIL || "playwright-test@gmail.com";
 
 export async function openCalendars(page: Page) {
-  const emailAccountId = await getEmailAccountId(page);
-  await page.goto(`/${emailAccountId}/calendars`);
-  await expect(
+  let emailAccountId: string | undefined;
+  await expect
+    .poll(
+      async () => {
+        try {
+          emailAccountId = await getEmailAccountId(page);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      { timeout: 120_000 },
+    )
+    .toBe(true);
+  if (!emailAccountId) throw new Error("The Playwright account was not ready");
+
+  await navigateUntilReady(
+    page,
+    `/${emailAccountId}/calendars`,
     page.getByRole("heading", { name: "Calendars", exact: true }),
-  ).toBeVisible();
+  );
   return { emailAccountId };
 }
 
@@ -85,6 +101,37 @@ export async function resetCalendarTestState() {
   }
 }
 
+export async function getCalendarTestState() {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    const result = await client.query<{
+      bookingLink: string | null;
+      calendarEnabled: boolean;
+      timezone: string | null;
+    }>(
+      `SELECT
+         ea."calendarBookingLink" AS "bookingLink",
+         ea.timezone,
+         calendar."isEnabled" AS "calendarEnabled"
+       FROM "EmailAccount" ea
+       JOIN "CalendarConnection" connection
+         ON connection."emailAccountId" = ea.id
+       JOIN "Calendar" calendar
+         ON calendar."connectionId" = connection.id
+       WHERE ea.email = $1
+         AND connection.id = ea.id || '-playwright-calendar'
+         AND calendar.id = ea.id || '-playwright-primary-calendar'`,
+      [PLAYWRIGHT_TEST_EMAIL],
+    );
+    const state = result.rows[0];
+    if (!state) throw new Error("The Playwright calendar state was not found");
+    return state;
+  } finally {
+    await client.end();
+  }
+}
+
 async function getEmailAccountId(page: Page) {
   const response = await page.request.get("/api/user/email-accounts");
   expect(response.ok()).toBeTruthy();
@@ -110,4 +157,16 @@ async function resetCalendarState(client: Client) {
      WHERE email = $1`,
     [PLAYWRIGHT_TEST_EMAIL],
   );
+}
+
+async function navigateUntilReady(page: Page, url: string, ready: Locator) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      await page.goto(url, { timeout: 60_000, waitUntil: "domcontentloaded" });
+      await expect(ready).toBeVisible({ timeout: 60_000 });
+      return;
+    } catch (error) {
+      if (attempt === 1) throw error;
+    }
+  }
 }

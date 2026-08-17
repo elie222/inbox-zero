@@ -1,12 +1,31 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import { Client } from "pg";
 
 const PLAYWRIGHT_TEST_EMAIL =
   process.env.PLAYWRIGHT_TEST_EMAIL || "playwright-test@gmail.com";
 
 export async function openAttachments(page: Page) {
-  const emailAccountId = await getEmailAccountId(page);
-  await page.goto(`/${emailAccountId}/drive`);
+  let emailAccountId: string | undefined;
+  await expect
+    .poll(
+      async () => {
+        try {
+          emailAccountId = await getEmailAccountId(page);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      { timeout: 120_000 },
+    )
+    .toBe(true);
+  if (!emailAccountId) throw new Error("The Playwright account was not ready");
+
+  await navigateUntilReady(
+    page,
+    `/${emailAccountId}/drive`,
+    page.getByRole("heading", { name: "Let's set up auto-filing" }),
+  );
 }
 
 export async function setupAttachmentTestState() {
@@ -80,4 +99,16 @@ async function resetAttachmentState(client: Client) {
      WHERE email = $1`,
     [PLAYWRIGHT_TEST_EMAIL],
   );
+}
+
+async function navigateUntilReady(page: Page, url: string, ready: Locator) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      await page.goto(url, { timeout: 60_000, waitUntil: "domcontentloaded" });
+      await expect(ready).toBeVisible({ timeout: 60_000 });
+      return;
+    } catch (error) {
+      if (attempt === 1) throw error;
+    }
+  }
 }

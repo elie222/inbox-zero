@@ -1,19 +1,40 @@
-import { expect, type Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { Client } from "pg";
 
 export const CHANNEL_ID = "playwright-telegram-channel";
 export const CHANNEL_RULE_ID = "playwright-channel-rule";
 export const CHANNEL_RULE_NAME = "Playwright priority notifications";
+const ACCOUNT_LOOKUP_TIMEOUT_MS = 60_000;
 
 export async function getEmailAccountId(page: Page) {
-  const response = await page.request.get("/api/user/email-accounts");
-  expect(response.ok()).toBeTruthy();
-  const { emailAccounts } = (await response.json()) as {
-    emailAccounts: { id: string }[];
-  };
-  const emailAccountId = emailAccounts[0]?.id;
-  if (!emailAccountId) throw new Error("The setup project created no account");
-  return emailAccountId;
+  let lastError: unknown;
+  const deadline = Date.now() + ACCOUNT_LOOKUP_TIMEOUT_MS;
+
+  while (Date.now() < deadline) {
+    try {
+      const response = await page.request.get("/api/user/email-accounts");
+      if (response.ok()) {
+        const { emailAccounts } = (await response.json()) as {
+          emailAccounts: { id: string }[];
+        };
+        const emailAccountId = emailAccounts[0]?.id;
+        if (emailAccountId) return emailAccountId;
+        lastError = new Error("The setup project created no account");
+      } else {
+        lastError = new Error(
+          `Email accounts request failed with ${response.status()}`,
+        );
+      }
+    } catch (error) {
+      lastError = error;
+    }
+
+    await page.waitForTimeout(1000);
+  }
+
+  throw new Error(
+    `Could not read the setup email account: ${getErrorMessage(lastError)}`,
+  );
 }
 
 export async function markAssistantOnboardingViewed(page: Page) {
@@ -82,23 +103,31 @@ export async function cleanupSeededChannel() {
   }
 }
 
-export async function getChannelState() {
+export async function getChannelState(emailAccountId: string) {
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
   try {
     const channelResult = await client.query<{ isConnected: boolean }>(
-      `SELECT "isConnected" FROM "MessagingChannel" WHERE id = $1`,
-      [CHANNEL_ID],
+      `SELECT "isConnected" FROM "MessagingChannel"
+       WHERE id = $1 AND "emailAccountId" = $2`,
+      [CHANNEL_ID, emailAccountId],
     );
     const actionsResult = await client.query<{ type: string }>(
       `SELECT type::text FROM "Action"
-       WHERE "ruleId" = $1 AND "messagingChannelId" = $2`,
-      [CHANNEL_RULE_ID, CHANNEL_ID],
+       WHERE "ruleId" = $1
+         AND "emailAccountId" = $2
+         AND "messagingChannelId" = $3
+         AND "messagingChannelEmailAccountId" = $2
+       ORDER BY type::text`,
+      [CHANNEL_RULE_ID, emailAccountId, CHANNEL_ID],
     );
     const routesResult = await client.query<{ purpose: string }>(
-      `SELECT purpose::text FROM "MessagingRoute"
-       WHERE "messagingChannelId" = $1 ORDER BY purpose::text`,
-      [CHANNEL_ID],
+      `SELECT mr.purpose::text
+       FROM "MessagingRoute" mr
+       JOIN "MessagingChannel" mc ON mc.id = mr."messagingChannelId"
+       WHERE mr."messagingChannelId" = $1 AND mc."emailAccountId" = $2
+       ORDER BY mr.purpose::text`,
+      [CHANNEL_ID, emailAccountId],
     );
     return {
       actionTypes: actionsResult.rows.map((row) => row.type),
@@ -115,4 +144,8 @@ async function deleteSeededState(client: Client) {
     CHANNEL_ID,
   ]);
   await client.query(`DELETE FROM "Rule" WHERE id = $1`, [CHANNEL_RULE_ID]);
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
 }

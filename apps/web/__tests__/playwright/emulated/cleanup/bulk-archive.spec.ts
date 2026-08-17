@@ -1,5 +1,4 @@
 import { expect, test } from "@playwright/test";
-import { openMail } from "../mail/mail-test-helpers";
 import {
   CLEANUP_ARCHIVE_THREAD_ID,
   CLEANUP_KEEP_THREAD_ID,
@@ -26,6 +25,7 @@ test.afterEach(async () => {
 });
 
 test("archives only selected senders from a category", async ({ page }) => {
+  test.setTimeout(360_000);
   if (!fixture) throw new Error("Cleanup fixture was not initialized");
   await openCleanupFeature(page, fixture, "bulk-archive");
   await expect(page.getByRole("heading", { name: "Bulk Archive" })).toBeVisible(
@@ -46,9 +46,13 @@ test("archives only selected senders from a category", async ({ page }) => {
   ).toBeVisible();
 
   await newsletterCard.getByRole("button", { name: "Archive 1 of 2" }).click();
-  await expect(page.getByText("Archived 1!", { exact: true })).toBeVisible();
+  await expect(page.getByText("Archived 1!", { exact: true })).toBeVisible({
+    timeout: 120_000,
+  });
 
-  const { conversations } = await openMail(page);
+  await openCleanupFeature(page, fixture, "mail");
+  const conversations = page.getByRole("listbox", { name: "Conversations" });
+  await expect(conversations).toBeVisible({ timeout: 120_000 });
   await expect(
     conversations.getByText("Cleanup Category Archive Candidate", {
       exact: true,

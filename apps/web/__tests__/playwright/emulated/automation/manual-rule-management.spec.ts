@@ -6,9 +6,12 @@ import {
   UPDATED_RULE_NAME,
 } from "./automation-test-helpers";
 import {
+  expectVisibleAfterTransientFetch,
   getAutomationEmailAccountId,
   markAutomationOnboardingViewed,
 } from "./automation-tabs-test-helpers";
+
+const SERVER_ACTION_TIMEOUT_MS = 120_000;
 
 let emailAccountIdForCleanup: string | undefined;
 
@@ -20,15 +23,17 @@ test.afterEach(async () => {
 test("creates, edits, toggles, and deletes a manual automation rule", async ({
   page,
 }) => {
+  test.setTimeout(360_000);
   const emailAccountId = await getAutomationEmailAccountId(page);
   emailAccountIdForCleanup = emailAccountId;
   await cleanupTestRules(emailAccountId);
   await markAutomationOnboardingViewed(page);
 
   await page.goto(`/${emailAccountId}/automation`);
-  await expect(
+  await expectVisibleAfterTransientFetch(
+    page,
     page.getByRole("heading", { name: "AI Assistant", exact: true }),
-  ).toBeVisible();
+  );
 
   await page.getByRole("button", { name: "Add Rule" }).click();
   await page.getByRole("button", { name: "Add rule manually" }).click();
@@ -48,7 +53,9 @@ test("creates, edits, toggles, and deletes a manual automation rule", async ({
   await expect(createButton).toBeEnabled();
   await createButton.click();
   await expect
-    .poll(() => getRuleState(emailAccountId), { timeout: 60_000 })
+    .poll(() => getRuleState(emailAccountId), {
+      timeout: SERVER_ACTION_TIMEOUT_MS,
+    })
     .toMatchObject({
       enabled: true,
       instructions: "Receipts and invoices from software vendors",

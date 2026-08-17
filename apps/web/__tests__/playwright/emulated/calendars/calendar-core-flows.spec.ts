@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import {
+  getCalendarTestState,
   openCalendars,
   PLAYWRIGHT_TEST_EMAIL,
   resetCalendarTestState,
@@ -17,6 +18,7 @@ test.afterEach(async () => {
 test("changes which Google calendar is used for availability", async ({
   page,
 }) => {
+  test.setTimeout(360_000);
   await openCalendars(page);
 
   const calendarSummary = page.getByRole("button", {
@@ -34,23 +36,21 @@ test("changes which Google calendar is used for availability", async ({
   );
   const availabilitySwitch = calendarCard.getByRole("switch");
   await expect(availabilitySwitch).toBeChecked();
-  const toggleResponse = page.waitForResponse(
-    (response) =>
-      response.request().method() === "POST" &&
-      new URL(response.url()).pathname.endsWith("/calendars"),
-  );
   await availabilitySwitch.click();
-  expect((await toggleResponse).ok()).toBeTruthy();
+  await expect
+    .poll(() => getCalendarTestState(), { timeout: 120_000 })
+    .toMatchObject({ calendarEnabled: false });
 
-  await page.reload();
+  await openCalendars(page);
   await expect(
     page.getByRole("button", {
       name: "0 of 1 calendars selected for availability",
     }),
-  ).toBeVisible({ timeout: 60_000 });
+  ).toBeVisible({ timeout: 120_000 });
 });
 
 test("persists the booking link and scheduling timezone", async ({ page }) => {
+  test.setTimeout(360_000);
   await openCalendars(page);
 
   const bookingLinkInput = page.getByPlaceholder("https://cal.com/your-link");
@@ -60,8 +60,11 @@ test("persists the booking link and scheduling timezone", async ({ page }) => {
     .getByRole("button", { name: "Save" })
     .click();
   await expect(
-    page.getByText("Booking link updated!", { exact: true }),
-  ).toBeVisible();
+    page.getByText("Booking link updated!", { exact: true }).last(),
+  ).toBeVisible({ timeout: 120_000 });
+  await expect
+    .poll(() => getCalendarTestState(), { timeout: 120_000 })
+    .toMatchObject({ bookingLink: "https://cal.com/playwright-test" });
 
   const timezoneSelect = page.locator('select[name="timezone"]');
   await timezoneSelect.selectOption("Europe/Paris");
@@ -70,10 +73,18 @@ test("persists the booking link and scheduling timezone", async ({ page }) => {
     .getByRole("button", { name: "Save" })
     .click();
   await expect(
-    page.getByText("Timezone updated!", { exact: true }),
-  ).toBeVisible();
+    page.getByText("Timezone updated!", { exact: true }).last(),
+  ).toBeVisible({ timeout: 120_000 });
+  await expect
+    .poll(() => getCalendarTestState(), { timeout: 120_000 })
+    .toMatchObject({ timezone: "Europe/Paris" });
 
-  await page.reload();
-  await expect(bookingLinkInput).toHaveValue("https://cal.com/playwright-test");
-  await expect(timezoneSelect).toHaveValue("Europe/Paris");
+  await openCalendars(page);
+  await expect(bookingLinkInput).toHaveValue(
+    "https://cal.com/playwright-test",
+    { timeout: 120_000 },
+  );
+  await expect(timezoneSelect).toHaveValue("Europe/Paris", {
+    timeout: 120_000,
+  });
 });

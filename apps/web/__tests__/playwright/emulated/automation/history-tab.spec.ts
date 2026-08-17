@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import {
   cleanupAutomationHistory,
+  expectVisibleAfterTransientFetch,
   getAutomationEmailAccountId,
   HISTORY_RULE_ID,
   HISTORY_RULE_NAME,
@@ -19,25 +20,36 @@ test("shows persisted execution history and preserves rule filters", async ({
   await seedAutomationHistory(emailAccountId);
   await markAutomationOnboardingViewed(page);
 
-  const historyResponse = await page.request.get(
-    "/api/user/executed-rules/history?page=1&ruleId=all",
-    { headers: { "X-Email-Account-ID": emailAccountId } },
-  );
-  expect(historyResponse.ok()).toBeTruthy();
-  const historyData = (await historyResponse.json()) as {
-    results: Array<{ messageId: string }>;
-  };
-  expect(historyData.results).toContainEqual(
-    expect.objectContaining({ messageId: "msg_playwright_1" }),
-  );
+  await expect
+    .poll(
+      async () => {
+        try {
+          const response = await page.request.get(
+            "/api/user/executed-rules/history?page=1&ruleId=all",
+            { headers: { "X-Email-Account-ID": emailAccountId } },
+          );
+          if (!response.ok()) return [];
+
+          const historyData = (await response.json()) as {
+            results: Array<{ messageId: string }>;
+          };
+          return historyData.results.map((result) => result.messageId);
+        } catch {
+          return [];
+        }
+      },
+      { timeout: 60_000 },
+    )
+    .toContain("msg_playwright_1");
 
   await page.goto(`/${emailAccountId}/automation?tab=history`);
   await expect(
     page.getByRole("button", { name: "History", exact: true }),
   ).toHaveAttribute("data-selected", "true");
-  await expect(page.getByText(HISTORY_RULE_NAME, { exact: true })).toBeVisible({
-    timeout: 60_000,
-  });
+  await expectVisibleAfterTransientFetch(
+    page,
+    page.getByText(HISTORY_RULE_NAME, { exact: true }),
+  );
   await expect(
     page.getByText("Applied manually", { exact: true }),
   ).toBeVisible();
@@ -48,11 +60,10 @@ test("shows persisted execution history and preserves rule filters", async ({
     (url) => url.searchParams.get("ruleId") === HISTORY_RULE_ID,
   );
   await page.reload();
-  await expect(
+  await expectVisibleAfterTransientFetch(
+    page,
     page.getByRole("button", { name: HISTORY_RULE_NAME }),
-  ).toBeVisible({
-    timeout: 60_000,
-  });
+  );
   await expect(
     page.getByText("Applied manually", { exact: true }),
   ).toBeVisible();

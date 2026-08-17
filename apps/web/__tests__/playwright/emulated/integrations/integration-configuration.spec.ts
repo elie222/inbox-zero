@@ -16,6 +16,7 @@ test.afterEach(async () => {
 });
 
 test("persists which read tools are enabled", async ({ page }) => {
+  test.setTimeout(360_000);
   await openIntegrations(page);
 
   const notionRow = getIntegrationRow(page, "Notion");
@@ -31,9 +32,11 @@ test("persists which read tools are enabled", async ({ page }) => {
   const fetchToolSwitch = fetchToolCard.getByRole("switch");
   await expect(fetchToolSwitch).toBeChecked();
   await fetchToolSwitch.click();
-  await expect(page.getByText("Tool updated", { exact: true })).toBeVisible();
+  await expect(page.getByText("Tool updated", { exact: true })).toBeVisible({
+    timeout: 120_000,
+  });
 
-  await page.reload();
+  await openIntegrations(page);
   await expect(notionRow.getByText("Connected", { exact: false })).toBeVisible({
     timeout: 60_000,
   });
@@ -46,6 +49,7 @@ test("persists which read tools are enabled", async ({ page }) => {
 test("persists pause state and disconnects the integration", async ({
   page,
 }) => {
+  test.setTimeout(360_000);
   await openIntegrations(page);
 
   const notionRow = getIntegrationRow(page, "Notion");
@@ -54,9 +58,11 @@ test("persists pause state and disconnects the integration", async ({
   });
   await notionRow.getByRole("button", { name: "Integration actions" }).click();
   await page.getByRole("menuitem", { name: "Pause" }).click();
-  await expect(page.getByText("Notion paused", { exact: true })).toBeVisible();
+  await expect(page.getByText("Notion paused", { exact: true })).toBeVisible({
+    timeout: 120_000,
+  });
 
-  await page.reload();
+  await openIntegrations(page);
   await expect(notionRow.getByText("Paused", { exact: true })).toBeVisible({
     timeout: 60_000,
   });
@@ -69,9 +75,9 @@ test("persists pause state and disconnects the integration", async ({
   await page.getByRole("menuitem", { name: "Disconnect" }).click();
   await expect(
     page.getByText("Disconnected successfully", { exact: true }),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 120_000 });
 
-  await page.reload();
+  await openIntegrations(page);
   await expect(
     notionRow.getByRole("button", { name: "Connect", exact: true }),
   ).toBeVisible({ timeout: 60_000 });

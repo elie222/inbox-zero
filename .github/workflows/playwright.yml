@@ -98,6 +98,7 @@ jobs:
 
     env:
       NODE_ENV: development
+      NODE_OPTIONS: --max_old_space_size=6144
       NEXT_PUBLIC_BASE_URL: http://localhost:3000
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
       AUTH_SECRET: secret
@@ -116,14 +117,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Find changed Playwright tests
+      - name: Find changed Playwright files
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
           set -euo pipefail
 
-          changed_tests_path="$RUNNER_TEMP/changed-playwright-tests.txt"
-          : > "$changed_tests_path"
+          changed_files_path="$RUNNER_TEMP/changed-playwright-files.txt"
+          : > "$changed_files_path"
 
           if [[ "$GITHUB_EVENT_NAME" == "pull_request" || "$GITHUB_EVENT_NAME" == "push" ]] &&
             [[ -n "$BASE_SHA" ]] &&
@@ -131,13 +132,13 @@ jobs:
             git fetch --no-tags --depth=1 origin "$BASE_SHA"
             git diff --name-only --diff-filter=ACMR "$BASE_SHA" "$GITHUB_SHA" -- \
               apps/web/__tests__/playwright | \
-              sed -n -E '/\.(spec|setup)\.[cm]?[jt]sx?$/ { s#^apps/web/##; p; }' \
-                > "$changed_tests_path"
+              sed 's#^apps/web/##' \
+                > "$changed_files_path"
           fi
 
           {
             echo "PLAYWRIGHT_CHANGED_TEST_FILES<<EOF"
-            cat "$changed_tests_path"
+            cat "$changed_files_path"
             echo "EOF"
           } >> "$GITHUB_ENV"
 
@@ -181,6 +182,7 @@ jobs:
           path: |
             apps/web/playwright-report
             apps/web/test-results
+          compression-level: 1
           retention-days: 7
           if-no-files-found: warn
 

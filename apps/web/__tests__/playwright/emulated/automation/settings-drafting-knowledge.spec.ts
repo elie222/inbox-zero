@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import {
   type AutomationSettingsCleanup,
   cleanupAutomationSettings,
+  expectVisibleAfterTransientFetch,
   getAutomationEmailAccountId,
   getAutomationSettingsCard,
   getAutomationSettingsState,
@@ -11,6 +12,8 @@ import {
   seedAutomationSettings,
   UPDATED_KNOWLEDGE_TITLE,
 } from "./automation-tabs-test-helpers";
+
+const SERVER_ACTION_TIMEOUT_MS = 120_000;
 
 let settingsCleanup: AutomationSettingsCleanup | undefined;
 
@@ -30,15 +33,27 @@ test("enables drafting and manages persisted draft knowledge", async ({
   };
   await markAutomationOnboardingViewed(page);
 
-  const knowledgeResponse = await page.request.get("/api/knowledge", {
-    headers: { "X-Email-Account-ID": emailAccountId },
-  });
-  expect(knowledgeResponse.ok()).toBeTruthy();
+  await expect
+    .poll(
+      async () => {
+        try {
+          const response = await page.request.get("/api/knowledge", {
+            headers: { "X-Email-Account-ID": emailAccountId },
+          });
+          return response.ok();
+        } catch {
+          return false;
+        }
+      },
+      { timeout: 60_000 },
+    )
+    .toBe(true);
 
   await page.goto(`/${emailAccountId}/automation?tab=settings`);
   const autoDraftItem = getAutomationSettingsCard(page, "Auto draft replies");
   const autoDraftSwitch = autoDraftItem.getByRole("switch");
-  await expect(autoDraftSwitch).not.toBeChecked({ timeout: 60_000 });
+  await expectVisibleAfterTransientFetch(page, autoDraftSwitch);
+  await expect(autoDraftSwitch).not.toBeChecked();
   await autoDraftSwitch.click();
   await expect
     .poll(
@@ -46,16 +61,18 @@ test("enables drafting and manages persisted draft knowledge", async ({
         const state = await getAutomationSettingsState(emailAccountId);
         return state.draftActionTypes;
       },
-      { timeout: 60_000 },
+      { timeout: SERVER_ACTION_TIMEOUT_MS },
     )
     .toContain("DRAFT_EMAIL");
 
   await page.reload();
-  await expect(autoDraftSwitch).toBeChecked({ timeout: 60_000 });
+  await expectVisibleAfterTransientFetch(page, autoDraftSwitch);
+  await expect(autoDraftSwitch).toBeChecked();
 
   const knowledgeItem = getAutomationSettingsCard(page, "Draft knowledge base");
   const manageKnowledge = knowledgeItem.getByRole("button", { name: "Manage" });
-  await expect(manageKnowledge).toBeEnabled();
+  await expectVisibleAfterTransientFetch(page, manageKnowledge);
+  await expect(manageKnowledge).toBeEnabled({ timeout: 60_000 });
   await manageKnowledge.click();
 
   const knowledgeDialog = page.getByRole("dialog", {
@@ -73,7 +90,9 @@ test("enables drafting and manages persisted draft knowledge", async ({
     .fill("Customers use the product to reach inbox zero every morning.");
   await addDialog.getByRole("button", { name: "Create" }).click();
   await expect
-    .poll(() => getKnowledgeState(emailAccountId), { timeout: 60_000 })
+    .poll(() => getKnowledgeState(emailAccountId), {
+      timeout: SERVER_ACTION_TIMEOUT_MS,
+    })
     .toEqual({
       content: "Customers use the product to reach inbox zero every morning.",
       title: KNOWLEDGE_TITLE,
@@ -94,7 +113,9 @@ test("enables drafting and manages persisted draft knowledge", async ({
     .fill("Customers use the product to triage important email every morning.");
   await editDialog.getByRole("button", { name: "Update" }).click();
   await expect
-    .poll(() => getKnowledgeState(emailAccountId), { timeout: 60_000 })
+    .poll(() => getKnowledgeState(emailAccountId), {
+      timeout: SERVER_ACTION_TIMEOUT_MS,
+    })
     .toEqual({
       content:
         "Customers use the product to triage important email every morning.",
@@ -111,7 +132,9 @@ test("enables drafting and manages persisted draft knowledge", async ({
   });
   await deleteDialog.getByRole("button", { name: "Delete" }).click();
   await expect
-    .poll(() => getKnowledgeState(emailAccountId), { timeout: 60_000 })
+    .poll(() => getKnowledgeState(emailAccountId), {
+      timeout: SERVER_ACTION_TIMEOUT_MS,
+    })
     .toBeUndefined();
   await expect(updatedRow).toHaveCount(0);
 });

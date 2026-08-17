@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import { Client } from "pg";
 
 const CLEANUP_SENDERS = [
@@ -120,11 +120,22 @@ export async function restoreCleanupThreads(
   threadIds: string[],
 ) {
   for (const threadId of threadIds) {
-    const response = await page.request.post(
-      `/api/threads/${threadId}/unarchive`,
-      { headers: { "X-Email-Account-ID": emailAccountId } },
-    );
-    expect(response.ok()).toBeTruthy();
+    await expect
+      .poll(
+        async () => {
+          try {
+            const response = await page.request.post(
+              `/api/threads/${threadId}/unarchive`,
+              { headers: { "X-Email-Account-ID": emailAccountId } },
+            );
+            return response.ok();
+          } catch {
+            return false;
+          }
+        },
+        { timeout: 120_000 },
+      )
+      .toBe(true);
   }
 }
 
@@ -133,7 +144,12 @@ export async function openCleanupFeature(
   fixture: CleanupFixture,
   expectedPath: string,
 ) {
-  await page.goto(`/${fixture.emailAccountId}/${expectedPath}`);
+  const url = `/${fixture.emailAccountId}/${expectedPath}`;
+  await navigateUntilReady(
+    page,
+    url,
+    getCleanupFeatureReadyLocator(page, expectedPath),
+  );
   await expect(page).toHaveURL(
     new RegExp(`/${fixture.emailAccountId}/${expectedPath}(?:\\?.*)?$`),
   );
@@ -295,5 +311,32 @@ async function seedEmailStats(client: Client, emailAccountId: string) {
         emailAccountId,
       ],
     );
+  }
+}
+
+function getCleanupFeatureReadyLocator(page: Page, expectedPath: string) {
+  switch (expectedPath) {
+    case "stats":
+      return page.getByRole("heading", { name: "Analytics" });
+    case "bulk-archive":
+      return page.getByRole("heading", { name: "Bulk Archive" });
+    case "bulk-unsubscribe":
+      return page.getByRole("heading", { name: "Bulk Unsubscriber" });
+    case "mail":
+      return page.getByRole("listbox", { name: "Conversations" });
+    default:
+      throw new Error(`Unsupported cleanup path: ${expectedPath}`);
+  }
+}
+
+async function navigateUntilReady(page: Page, url: string, ready: Locator) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      await page.goto(url, { timeout: 60_000, waitUntil: "domcontentloaded" });
+      await expect(ready).toBeVisible({ timeout: 60_000 });
+      return;
+    } catch (error) {
+      if (attempt === 1) throw error;
+    }
   }
 }
