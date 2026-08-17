@@ -32,6 +32,9 @@ export type ThreadListProps = {
   onOpenThread: (index: number) => void;
   onToggleSelect: (index: number) => void;
   onSelectRangeTo: (index: number) => void;
+  /** Open intent (pointer dwell or focus) — warms the thread before a click. */
+  onPrefetchThread: (index: number) => void;
+  onPrefetchCancel: () => void;
   onArchiveSelected: () => void;
   onDeleteSelected: () => void;
   onClearSelection: () => void;
@@ -56,6 +59,8 @@ export function ThreadList({
   onOpenThread,
   onToggleSelect,
   onSelectRangeTo,
+  onPrefetchThread,
+  onPrefetchCancel,
   onArchiveSelected,
   onDeleteSelected,
   onClearSelection,
@@ -176,6 +181,8 @@ export function ThreadList({
                     key={threadKey}
                     layout={layout}
                     onOpen={onOpenThread}
+                    onPrefetch={onPrefetchThread}
+                    onPrefetchCancel={onPrefetchCancel}
                     onSelectRangeTo={onSelectRangeTo}
                     onToggleSelect={onToggleSelect}
                     rowRef={index === focusedIndex ? focusedRowRef : undefined}

@@ -8,7 +8,7 @@ import {
   useEffect,
   useRef,
 } from "react";
-import { SWRConfig, mutate } from "swr";
+import { SWRConfig, mutate, useSWRConfig } from "swr";
 import { captureException } from "@/utils/error";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import {
@@ -18,6 +18,13 @@ import {
 } from "@/utils/config";
 import { prefixPath } from "@/utils/path";
 import { redirectToSafeUrl } from "@/utils/redirect";
+import {
+  accountIdFromSnapshotKey,
+  clearPersistedSwrCacheForAccount,
+  PERSISTED_SWR_KEYS,
+  persistSwrEntries,
+  readPersistedSwrEntries,
+} from "@/utils/swr-persistence";
 
 // https://swr.vercel.app/docs/error-handling#status-code-and-error-object
 const fetcher = async (
@@ -166,11 +173,79 @@ export const SWRProvider = (props: { children: React.ReactNode }) => {
           ...getDevOnlySWRConfig(),
         }}
       >
+        <PersistedSwrCache />
         {props.children}
       </SWRConfig>
     </SWRContext.Provider>
   );
 };
+
+/**
+ * Hydrates whitelisted SWR entries from localStorage and snapshots them back.
+ * Must live inside SWRConfig: SWR initializes its cache from the provider
+ * exactly once, so only the scoped `cache`/`mutate` from useSWRConfig reach
+ * the live cache. Hydrating in an effect (after the hydration render) keeps
+ * client and server HTML identical.
+ */
+function PersistedSwrCache() {
+  const { cache, mutate: scopedMutate } = useSWRConfig();
+  const { emailAccountId } = useAccount();
+  const hydratedForRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!emailAccountId || hydratedForRef.current === emailAccountId) return;
+    const isAccountSwitch = hydratedForRef.current !== null;
+    hydratedForRef.current = emailAccountId;
+    const persisted = readPersistedSwrEntries(emailAccountId);
+    for (const key of PERSISTED_SWR_KEYS) {
+      const data = persisted.get(key)?.data;
+      if (isAccountSwitch) {
+        // The provider reset doesn't reach the live scoped cache (SWR only
+        // initializes its provider once), so the previous account's values
+        // still occupy these keys. Replace them with this account's snapshot
+        // (or clear them) so they can't render or get persisted under the
+        // wrong account.
+        scopedMutate(key, data, { populateCache: true, revalidate: false });
+      } else if (data !== undefined && cache.get(key)?.data === undefined) {
+        scopedMutate(key, data, { populateCache: true, revalidate: false });
+      }
+    }
+  }, [emailAccountId, cache, scopedMutate]);
+
+  // If another tab removes an account's snapshot (logout or account
+  // deletion), stop this tab from re-persisting it out of its warm cache.
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.newValue !== null) return;
+      const removedAccountId = accountIdFromSnapshotKey(event.key ?? "");
+      if (removedAccountId) clearPersistedSwrCacheForAccount(removedAccountId);
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
+  // Snapshot when the app is backgrounded, closed, or this account unmounts;
+  // there is no per-write hook on the SWR cache, and the visibility event also
+  // covers the desktop shell hiding its window.
+  useEffect(() => {
+    if (!emailAccountId) return;
+
+    const persist = () => persistSwrEntries(emailAccountId, cache);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") persist();
+    };
+
+    window.addEventListener("pagehide", persist);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      persist();
+      window.removeEventListener("pagehide", persist);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [emailAccountId, cache]);
+
+  return null;
+}
 
 // Dev-only config to handle transient 404s during HMR
 function getDevOnlySWRConfig() {

@@ -151,6 +151,38 @@ export function findDesktopProtocolUrl(argv: readonly string[]): string | null {
   return argv.find(isDesktopProtocolUrl) ?? null;
 }
 
+// Auth pages are the fallback start URL anyway, and API routes are not pages.
+const NON_RESTORABLE_PATH_PREFIXES = ["/login", "/api/"];
+
+export function shouldPersistDesktopUrl(
+  url: string,
+  appOrigin: string,
+): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+
+  if (parsed.origin !== appOrigin) return false;
+
+  return !NON_RESTORABLE_PATH_PREFIXES.some(
+    (prefix) =>
+      parsed.pathname === prefix.replace(/\/$/u, "") ||
+      parsed.pathname.startsWith(prefix.endsWith("/") ? prefix : `${prefix}/`),
+  );
+}
+
+export function getDesktopSessionRestoreUrl(
+  appOrigin: string,
+  persistedUrl: unknown,
+): string | null {
+  if (typeof persistedUrl !== "string") return null;
+  if (!shouldPersistDesktopUrl(persistedUrl, appOrigin)) return null;
+  return new URL(persistedUrl).toString();
+}
+
 const DESKTOP_WINDOW_BACKGROUND = "#ffffff";
 
 export function getDesktopWindowChrome(platform = process.platform): {
