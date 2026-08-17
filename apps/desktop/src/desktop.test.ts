@@ -6,6 +6,7 @@ import {
   getDesktopLoginUrl,
   DESKTOP_WINDOW_DRAG_CSS,
   getDesktopPostAuthUrl,
+  getDesktopSessionRestoreUrl,
   getDesktopWindowChrome,
   getDesktopWindowDragCss,
   isAllowedDesktopNavigation,
@@ -13,6 +14,7 @@ import {
   isDesktopAuthProvider,
   normalizeDesktopCallbackPath,
   parseDesktopAuthCallback,
+  shouldPersistDesktopUrl,
 } from "./desktop";
 
 describe("desktop shell helpers", () => {
@@ -159,6 +161,42 @@ describe("desktop shell helpers", () => {
       autoHideMenuBar: true,
       backgroundColor: "#ffffff",
     });
+  });
+
+  it("persists in-app pages but not auth or API URLs", () => {
+    const origin = "https://www.getinboxzero.com";
+    expect(
+      shouldPersistDesktopUrl(`${origin}/account-1/automation`, origin),
+    ).toBe(true);
+    expect(
+      shouldPersistDesktopUrl(`${origin}/account-1/mail?type=inbox`, origin),
+    ).toBe(true);
+    expect(shouldPersistDesktopUrl(`${origin}/login`, origin)).toBe(false);
+    expect(
+      shouldPersistDesktopUrl(`${origin}/login?next=%2Fmail`, origin),
+    ).toBe(false);
+    expect(shouldPersistDesktopUrl(`${origin}/api/user/me`, origin)).toBe(
+      false,
+    );
+    expect(
+      shouldPersistDesktopUrl("https://accounts.google.com/signin", origin),
+    ).toBe(false);
+    expect(shouldPersistDesktopUrl("not a url", origin)).toBe(false);
+    // "/loginish" is a real page, not the login route
+    expect(shouldPersistDesktopUrl(`${origin}/loginish`, origin)).toBe(true);
+  });
+
+  it("restores only validated same-origin URLs on launch", () => {
+    const origin = "https://www.getinboxzero.com";
+    expect(
+      getDesktopSessionRestoreUrl(origin, `${origin}/account-1/automation`),
+    ).toBe(`${origin}/account-1/automation`);
+    expect(getDesktopSessionRestoreUrl(origin, `${origin}/login`)).toBeNull();
+    expect(
+      getDesktopSessionRestoreUrl(origin, "https://evil.test/automation"),
+    ).toBeNull();
+    expect(getDesktopSessionRestoreUrl(origin, null)).toBeNull();
+    expect(getDesktopSessionRestoreUrl(origin, 42)).toBeNull();
   });
 
   it("scopes window dragging to a titlebar strip instead of the whole page", () => {

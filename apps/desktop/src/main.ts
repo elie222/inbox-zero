@@ -6,6 +6,7 @@ import {
   dialog,
   ipcMain,
   nativeTheme,
+  session,
   shell,
   type Session,
   type WebContents,
@@ -18,6 +19,7 @@ import {
   getDesktopBrowserStartUrl,
   getDesktopLoginUrl,
   getDesktopPostAuthUrl,
+  getDesktopSessionRestoreUrl,
   getDesktopWindowChrome,
   getDesktopWindowDragCss,
   isAllowedDesktopNavigation,
@@ -25,14 +27,17 @@ import {
   isDesktopAuthProvider,
   normalizeDesktopCallbackPath,
   parseDesktopAuthCallback,
+  shouldPersistDesktopUrl,
 } from "./desktop";
 
 const PARTITION = "persist:inbox-zero";
 const PENDING_CALLBACK_PATH_FILE = "pending-auth-callback-path";
+const LAST_APP_URL_FILE = "last-app-url";
 
 let mainWindow: BrowserWindow | null = null;
 let pendingAuthUrl: string | null = null;
 let pendingCallbackPath: string | null = null;
+let isQuitting = false;
 const appOrigin = getDesktopAppOrigin();
 const loginUrl = getDesktopLoginUrl(appOrigin);
 
@@ -90,7 +95,15 @@ function startDesktopApp() {
     },
   );
 
+  app.on("before-quit", () => {
+    isQuitting = true;
+  });
+
   app.whenReady().then(async () => {
+    // Overlap TLS/socket setup with window creation and page load.
+    session
+      .fromPartition(PARTITION)
+      .preconnect({ url: appOrigin, numSockets: 2 });
     createMainWindow();
     const startupAuthUrl =
       pendingAuthUrl ?? findDesktopProtocolUrl(process.argv);
@@ -108,9 +121,7 @@ function startDesktopApp() {
   });
 
   app.on("activate", () => {
-    if (!mainWindow) {
-      createMainWindow();
-    }
+    focusMainWindow();
   });
 }
 
@@ -134,13 +145,63 @@ function createMainWindow() {
   mainWindow.on("page-title-updated", (event) => {
     event.preventDefault();
   });
+  // Keep the window (and the loaded app) alive on macOS so reopening from the
+  // dock is instant instead of a cold page load.
+  mainWindow.on("close", (event) => {
+    if (process.platform === "darwin" && !isQuitting) {
+      event.preventDefault();
+      mainWindow?.hide();
+    }
+  });
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
 
   applyNavigationPolicy(mainWindow.webContents);
   applyDesktopWindowDragRegion(mainWindow.webContents);
-  mainWindow.loadURL(loginUrl).catch(showSignInError);
+  trackLastAppUrl(mainWindow.webContents);
+  mainWindow.loadURL(getStartUrl()).catch(showSignInError);
+}
+
+function getStartUrl(): string {
+  return getDesktopSessionRestoreUrl(appOrigin, readLastAppUrl()) ?? loginUrl;
+}
+
+function trackLastAppUrl(contents: WebContents) {
+  contents.on("did-navigate", (_event, url) => {
+    persistLastAppUrl(url);
+  });
+  contents.on("did-navigate-in-page", (_event, url, isMainFrame) => {
+    if (isMainFrame) {
+      persistLastAppUrl(url);
+    }
+  });
+}
+
+function persistLastAppUrl(url: string) {
+  const file = path.join(app.getPath("userData"), LAST_APP_URL_FILE);
+  try {
+    if (shouldPersistDesktopUrl(url, appOrigin)) {
+      fs.writeFileSync(file, url, "utf8");
+    } else {
+      // Landing on /login means the session ended; a stale deep link would
+      // just bounce back there after re-auth.
+      fs.rmSync(file, { force: true });
+    }
+  } catch {
+    // Restoring the last page is best-effort; never break navigation over it.
+  }
+}
+
+function readLastAppUrl(): string | null {
+  try {
+    return fs.readFileSync(
+      path.join(app.getPath("userData"), LAST_APP_URL_FILE),
+      "utf8",
+    );
+  } catch {
+    return null;
+  }
 }
 
 function applyDesktopWindowDragRegion(contents: WebContents) {

@@ -18,6 +18,8 @@ INBOX_ZERO_APP_URL=http://localhost:3000 pnpm --filter @inboxzero/desktop dev
 
 Sign-in opens the system browser, then returns through `inboxzero://` and `/api/mobile-auth/exchange-code`. Google and Microsoft OAuth are not completed inside the Electron window.
 
+The window remembers the last in-app page (stored in `userData/last-app-url`) and restores it on launch instead of going through `/login` redirects. On macOS, closing the window hides it so reopening from the dock is instant; quit with Cmd+Q.
+
 The web app defaults `DESKTOP_AUTH_ORIGIN` to `inboxzero://`, the same scheme as mobile. Override that only if the desktop protocol scheme changes.
 
 ## Package
