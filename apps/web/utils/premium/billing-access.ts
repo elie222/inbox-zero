@@ -1,11 +1,32 @@
+import type { Prisma } from "@/generated/prisma/client";
 import { SafeError } from "@/utils/error";
 import { isAdminForPremium } from "@/utils/premium";
 import { isOrganizationAdmin } from "@/utils/organizations/roles";
 
+export const organizationOwnerPremiumSelect = {
+  members: {
+    where: { role: "owner" },
+    select: {
+      emailAccount: {
+        select: { user: { select: { premiumId: true } } },
+      },
+    },
+  },
+} as const;
+
+const billingAccessMembershipSelect = {
+  role: true,
+  organization: {
+    select: organizationOwnerPremiumSelect,
+  },
+} as const;
+
 export const billingAccessSelect = {
   emailAccounts: {
     select: {
-      members: { select: { organizationId: true, role: true } },
+      members: {
+        select: billingAccessMembershipSelect,
+      },
     },
   },
 } as const;
@@ -15,26 +36,17 @@ export const billingAccessPremiumSelect = {
   admins: {
     select: {
       id: true,
-      emailAccounts: {
-        select: {
-          members: { select: { organizationId: true, role: true } },
-        },
-      },
     },
   },
 } as const;
 
-type OrganizationMembership = { organizationId: string; role: string };
+type OrganizationMembership = Prisma.MemberGetPayload<{
+  select: typeof billingAccessMembershipSelect;
+}>;
 
 type BillingAccessUser = {
   premium:
-    | {
-        id: string;
-        admins: Array<{
-          id: string;
-          emailAccounts: Array<{ members: OrganizationMembership[] }>;
-        }>;
-      }
+    | Prisma.PremiumGetPayload<{ select: typeof billingAccessPremiumSelect }>
     | null
     | undefined;
   emailAccounts: Array<{ members: OrganizationMembership[] }>;
@@ -45,34 +57,23 @@ export function canManageBilling(userId: string, user: BillingAccessUser) {
   const organizationMemberships = user.emailAccounts.flatMap(
     (emailAccount) => emailAccount.members,
   );
-  const premiumAdminMemberships =
-    premium?.admins.flatMap((admin) =>
-      (admin.emailAccounts ?? []).flatMap(
-        (emailAccount) => emailAccount.members,
-      ),
-    ) ?? [];
-  const ownerOrganizationIds = new Set(
-    premiumAdminMemberships
-      .filter((membership) => membership.role === "owner")
-      .map((membership) => membership.organizationId),
-  );
-  const premiumOrganizationIds = ownerOrganizationIds.size
-    ? ownerOrganizationIds
-    : new Set(
-        premiumAdminMemberships.map((membership) => membership.organizationId),
-      );
-  const premiumOrganizationMemberships = organizationMemberships.filter(
-    (membership) => premiumOrganizationIds.has(membership.organizationId),
-  );
 
-  if (!premium && organizationMemberships.length > 0) {
+  if (!premium) {
+    if (organizationMemberships.length === 0) return true;
     return isOrganizationAdmin(organizationMemberships);
   }
+
+  const premiumOrganizationMemberships = organizationMemberships.filter(
+    (membership) =>
+      membership.organization.members.some(
+        (owner) => owner.emailAccount.user.premiumId === premium.id,
+      ),
+  );
+
   if (premiumOrganizationMemberships.length > 0) {
     return isOrganizationAdmin(premiumOrganizationMemberships);
   }
 
-  if (!premium) return true;
   if (premium.admins.length > 0) {
     return isAdminForPremium(premium.admins, userId);
   }

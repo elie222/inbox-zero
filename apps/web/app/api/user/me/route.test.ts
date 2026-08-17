@@ -48,6 +48,13 @@ describe("user/me route", () => {
               role: "admin",
               organization: {
                 name: "Example Org",
+                members: [
+                  {
+                    emailAccount: {
+                      user: { premiumId: null },
+                    },
+                  },
+                ],
               },
             },
           ],
@@ -118,11 +125,6 @@ describe("user/me route", () => {
         admins: [
           {
             id: "user-1",
-            emailAccounts: [
-              {
-                members: [{ organizationId: "org-1", role: "member" }],
-              },
-            ],
           },
         ],
       },
@@ -135,7 +137,16 @@ describe("user/me route", () => {
             {
               organizationId: "org-1",
               role: "member",
-              organization: { name: "Example Org" },
+              organization: {
+                name: "Example Org",
+                members: [
+                  {
+                    emailAccount: {
+                      user: { premiumId: "premium-1" },
+                    },
+                  },
+                ],
+              },
             },
           ],
         },

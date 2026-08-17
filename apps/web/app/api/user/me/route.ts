@@ -10,6 +10,7 @@ import {
 import {
   billingAccessPremiumSelect,
   canManageBilling,
+  organizationOwnerPremiumSelect,
 } from "@/utils/premium/billing-access";
 
 export type UserResponse = Awaited<ReturnType<typeof getUser>> | null;
@@ -61,6 +62,7 @@ async function getUser({
               role: true,
               organization: {
                 select: {
+                  ...organizationOwnerPremiumSelect,
                   name: true,
                 },
               },
@@ -74,8 +76,10 @@ async function getUser({
   if (!user) throw new SafeError("User not found");
 
   const members = user.emailAccounts.flatMap((account) =>
-    account.members.map((member) => ({
-      ...member,
+    account.members.map(({ organizationId, role, organization }) => ({
+      organizationId,
+      role,
+      organization: { name: organization.name },
       emailAccountId: account.id,
     })),
   );
