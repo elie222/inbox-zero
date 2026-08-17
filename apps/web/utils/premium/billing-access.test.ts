@@ -28,7 +28,7 @@ describe("canManageBilling", () => {
   it.each([
     "admin",
     "owner",
-  ])("allows an organization %s when the plan admin has no organization membership", (role) => {
+  ])("allows an organization %s of the organization owned by the plan admin", (role) => {
     const result = canManageBilling("user-1", {
       premium: {
         id: "premium-1",
@@ -43,6 +43,7 @@ describe("canManageBilling", () => {
           members: [
             getMockOrganizationMembership({
               role,
+              ownerUserId: "premium-admin",
               ownerPremiumId: "premium-1",
             }),
           ],
@@ -51,6 +52,63 @@ describe("canManageBilling", () => {
     });
 
     expect(result).toBe(true);
+  });
+
+  it("allows an organization admin when the owner holds a legacy premium", () => {
+    const result = canManageBilling("user-1", {
+      premium: {
+        id: "legacy-owner",
+        admins: [],
+      },
+      emailAccounts: [
+        {
+          members: [
+            getMockOrganizationMembership({
+              role: "admin",
+              ownerUserId: "legacy-owner",
+              ownerPremiumId: "legacy-owner",
+            }),
+          ],
+        },
+      ],
+    });
+
+    expect(result).toBe(true);
+  });
+
+  it("denies a premium seat member who owns an organization of their own", () => {
+    const result = canManageBilling("user-1", {
+      premium: {
+        id: "premium-1",
+        admins: [
+          {
+            id: "premium-admin",
+          },
+        ],
+      },
+      emailAccounts: [
+        {
+          members: [
+            getMockOrganizationMembership({
+              role: "member",
+              ownerUserId: "premium-admin",
+              ownerPremiumId: "premium-1",
+            }),
+          ],
+        },
+        {
+          members: [
+            getMockOrganizationMembership({
+              role: "owner",
+              ownerUserId: "user-1",
+              ownerPremiumId: "premium-1",
+            }),
+          ],
+        },
+      ],
+    });
+
+    expect(result).toBe(false);
   });
 
   it("does not use an admin role from an unrelated organization", () => {
@@ -76,6 +134,7 @@ describe("canManageBilling", () => {
           members: [
             getMockOrganizationMembership({
               role: "member",
+              ownerUserId: "premium-owner",
               ownerPremiumId: "premium-1",
             }),
           ],

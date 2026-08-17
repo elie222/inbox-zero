@@ -51,7 +51,7 @@ describe("user/me route", () => {
                 members: [
                   {
                     emailAccount: {
-                      user: { premiumId: null },
+                      user: { id: "org-owner", premiumId: null },
                     },
                   },
                 ],
@@ -126,6 +126,9 @@ describe("user/me route", () => {
           {
             id: "user-1",
           },
+          {
+            id: "org-owner",
+          },
         ],
       },
       emailAccounts: [
@@ -142,7 +145,7 @@ describe("user/me route", () => {
                 members: [
                   {
                     emailAccount: {
-                      user: { premiumId: "premium-1" },
+                      user: { id: "org-owner", premiumId: "premium-1" },
                     },
                   },
                 ],

@@ -519,9 +519,11 @@ export function getCalendarConnection({
 
 export function getMockOrganizationMembership({
   role,
+  ownerUserId = "org-owner",
   ownerPremiumId = null,
 }: {
   role: string;
+  ownerUserId?: string;
   ownerPremiumId?: string | null;
 }) {
   return {
@@ -530,7 +532,7 @@ export function getMockOrganizationMembership({
       members: [
         {
           emailAccount: {
-            user: { premiumId: ownerPremiumId },
+            user: { id: ownerUserId, premiumId: ownerPremiumId },
           },
         },
       ],

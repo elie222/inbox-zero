@@ -112,13 +112,14 @@ describe("getBillingPortalUrlAction", () => {
         stripeSubscriptionItemId: "si_test",
         stripeSubscriptionStatus: "active",
         users: [{ _count: { emailAccounts: 1 } }],
-        admins: [{ id: "user-1" }],
+        admins: [{ id: "user-1" }, { id: "org-owner" }],
       },
       emailAccounts: [
         {
           members: [
             getMockOrganizationMembership({
               role: "member",
+              ownerUserId: "org-owner",
               ownerPremiumId: "premium-1",
             }),
           ],
@@ -154,6 +155,7 @@ describe("getBillingPortalUrlAction", () => {
           members: [
             getMockOrganizationMembership({
               role,
+              ownerUserId: "another-user",
               ownerPremiumId: "premium-1",
             }),
           ],

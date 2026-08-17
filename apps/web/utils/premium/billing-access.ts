@@ -8,7 +8,7 @@ export const organizationOwnerPremiumSelect = {
     where: { role: "owner" },
     select: {
       emailAccount: {
-        select: { user: { select: { premiumId: true } } },
+        select: { user: { select: { id: true, premiumId: true } } },
       },
     },
   },
@@ -63,11 +63,16 @@ export function canManageBilling(userId: string, user: BillingAccessUser) {
     return isOrganizationAdmin(organizationMemberships);
   }
 
+  // Every invited seat user shares the premium id and can own their own
+  // organization, so anchor on the purchaser: a premium admin, or the legacy
+  // owner whose user id doubles as the premium id.
+  const premiumAdminIds = new Set(premium.admins.map((admin) => admin.id));
   const premiumOrganizationMemberships = organizationMemberships.filter(
     (membership) =>
-      membership.organization.members.some(
-        (owner) => owner.emailAccount.user.premiumId === premium.id,
-      ),
+      membership.organization.members.some(({ emailAccount: { user } }) => {
+        if (user.premiumId !== premium.id) return false;
+        return premiumAdminIds.has(user.id) || user.id === premium.id;
+      }),
   );
 
   if (premiumOrganizationMemberships.length > 0) {
