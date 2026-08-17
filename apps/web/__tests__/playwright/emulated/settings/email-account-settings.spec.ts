@@ -71,12 +71,14 @@ test("persists draft cleanup settings and disables all account rules", async ({
   ).toBeVisible({ timeout: 60_000 });
   accountCard = getEmailAccountSettingsCard(page, settingsFixture.email);
   await expect(accountCard.toggle).toBeVisible({ timeout: 60_000 });
-  const rulesResponse = page.waitForResponse(
-    (response) =>
-      new URL(response.url()).pathname === "/api/user/rules" && response.ok(),
-  );
-  await accountCard.toggle.click();
-  await rulesResponse;
+  const [rulesResponse] = await Promise.all([
+    page.waitForResponse(
+      (response) => new URL(response.url()).pathname === "/api/user/rules",
+      { timeout: 60_000 },
+    ),
+    accountCard.toggle.click(),
+  ]);
+  expect(rulesResponse.ok()).toBeTruthy();
   cleanupDaysInput = accountCard.card.getByRole("spinbutton", {
     name: "Draft cleanup age in days",
   });
