@@ -19,6 +19,9 @@ import {
 import { prefixPath } from "@/utils/path";
 import { redirectToSafeUrl } from "@/utils/redirect";
 import {
+  accountIdFromSnapshotKey,
+  clearPersistedSwrCacheForAccount,
+  PERSISTED_SWR_KEYS,
   persistSwrEntries,
   readPersistedSwrEntries,
 } from "@/utils/swr-persistence";
@@ -191,16 +194,35 @@ function PersistedSwrCache() {
 
   useEffect(() => {
     if (!emailAccountId || hydratedForRef.current === emailAccountId) return;
+    const isAccountSwitch = hydratedForRef.current !== null;
     hydratedForRef.current = emailAccountId;
-    for (const [key, state] of readPersistedSwrEntries(emailAccountId)) {
-      if (state.data !== undefined && cache.get(key)?.data === undefined) {
-        scopedMutate(key, state.data, {
-          populateCache: true,
-          revalidate: false,
-        });
+    const persisted = readPersistedSwrEntries(emailAccountId);
+    for (const key of PERSISTED_SWR_KEYS) {
+      const data = persisted.get(key)?.data;
+      if (isAccountSwitch) {
+        // The provider reset doesn't reach the live scoped cache (SWR only
+        // initializes its provider once), so the previous account's values
+        // still occupy these keys. Replace them with this account's snapshot
+        // (or clear them) so they can't render or get persisted under the
+        // wrong account.
+        scopedMutate(key, data, { populateCache: true, revalidate: false });
+      } else if (data !== undefined && cache.get(key)?.data === undefined) {
+        scopedMutate(key, data, { populateCache: true, revalidate: false });
       }
     }
   }, [emailAccountId, cache, scopedMutate]);
+
+  // If another tab removes an account's snapshot (logout or account
+  // deletion), stop this tab from re-persisting it out of its warm cache.
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.newValue !== null) return;
+      const removedAccountId = accountIdFromSnapshotKey(event.key ?? "");
+      if (removedAccountId) clearPersistedSwrCacheForAccount(removedAccountId);
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   // Snapshot when the app is backgrounded, closed, or this account unmounts;
   // there is no per-write hook on the SWR cache, and the visibility event also

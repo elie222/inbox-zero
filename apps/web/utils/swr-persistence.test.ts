@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from "vitest";
 import {
+  accountIdFromSnapshotKey,
   clearPersistedSwrCache,
   clearPersistedSwrCacheForAccount,
   persistSwrEntries,
   readPersistedSwrEntries,
+  resetSwrPersistenceBlocksForTesting,
 } from "./swr-persistence";
 
 const ACCOUNT_A = "account-a";
@@ -17,6 +19,7 @@ function cacheWith(entries: Record<string, unknown>) {
 describe("swr-persistence", () => {
   beforeEach(() => {
     window.localStorage.clear();
+    resetSwrPersistenceBlocksForTesting();
   });
 
   it("round-trips whitelisted entries per account", () => {
@@ -63,6 +66,26 @@ describe("swr-persistence", () => {
     ).toBe(false);
   });
 
+  it("keeps previously persisted keys when the cache only has a subset", () => {
+    persistSwrEntries(
+      ACCOUNT_A,
+      cacheWith({
+        "/api/labels": { labels: ["old"] },
+        "/api/labels/counts": { counts: [7] },
+      }),
+    );
+
+    // A page that only fetched labels persists; counts must survive.
+    persistSwrEntries(
+      ACCOUNT_A,
+      cacheWith({ "/api/labels": { labels: ["new"] } }),
+    );
+
+    const restored = readPersistedSwrEntries(ACCOUNT_A);
+    expect(restored.get("/api/labels")?.data).toEqual({ labels: ["new"] });
+    expect(restored.get("/api/labels/counts")?.data).toEqual({ counts: [7] });
+  });
+
   it("returns nothing for a corrupt snapshot instead of throwing", () => {
     window.localStorage.setItem(`inbox-zero:swr:v1:${ACCOUNT_A}`, "{not json");
 
@@ -95,5 +118,34 @@ describe("swr-persistence", () => {
     expect(readPersistedSwrEntries(ACCOUNT_A).size).toBe(0);
     expect(readPersistedSwrEntries(ACCOUNT_B).size).toBe(0);
     expect(window.localStorage.getItem("unrelated")).toBe("keep-me");
+  });
+
+  it("blocks persisting after logout so pagehide can't resurrect data", () => {
+    persistSwrEntries(ACCOUNT_A, cacheWith({ "/api/labels": { labels: [] } }));
+
+    clearPersistedSwrCache();
+    // The logout redirect fires pagehide, which persists from the warm cache.
+    persistSwrEntries(ACCOUNT_A, cacheWith({ "/api/labels": { labels: [] } }));
+
+    expect(readPersistedSwrEntries(ACCOUNT_A).size).toBe(0);
+    expect(window.localStorage.length).toBe(0);
+  });
+
+  it("blocks persisting only for a cleared account", () => {
+    clearPersistedSwrCacheForAccount(ACCOUNT_A);
+
+    persistSwrEntries(ACCOUNT_A, cacheWith({ "/api/labels": { labels: [] } }));
+    persistSwrEntries(ACCOUNT_B, cacheWith({ "/api/labels": { labels: [] } }));
+
+    expect(readPersistedSwrEntries(ACCOUNT_A).size).toBe(0);
+    expect(readPersistedSwrEntries(ACCOUNT_B).size).toBe(1);
+  });
+
+  it("maps snapshot storage keys back to account ids", () => {
+    expect(accountIdFromSnapshotKey(`inbox-zero:swr:v1:${ACCOUNT_A}`)).toBe(
+      ACCOUNT_A,
+    );
+    expect(accountIdFromSnapshotKey("inbox-zero:swr:v1:")).toBeNull();
+    expect(accountIdFromSnapshotKey("unrelated-key")).toBeNull();
   });
 });
