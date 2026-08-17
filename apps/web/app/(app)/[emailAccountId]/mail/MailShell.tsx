@@ -45,6 +45,7 @@ import { useMailThreads } from "@/app/(app)/[emailAccountId]/mail/use-mail-threa
 import { useCombinedMailThreads } from "@/app/(app)/[emailAccountId]/mail/use-combined-mail-threads";
 import { runCombinedThreadAction } from "@/app/(app)/[emailAccountId]/mail/combined-thread-actions";
 import { useAdjacentThreadPrefetch } from "@/app/(app)/[emailAccountId]/mail/use-adjacent-thread-prefetch";
+import { useHoverThreadPrefetch } from "@/app/(app)/[emailAccountId]/mail/use-hover-thread-prefetch";
 import { useThreadActions } from "@/app/(app)/[emailAccountId]/mail/use-thread-actions";
 import { useThreadSelection } from "@/app/(app)/[emailAccountId]/mail/use-thread-selection";
 import { isThreadUnread } from "@/app/(app)/[emailAccountId]/mail/read-state";
@@ -296,6 +297,19 @@ export function MailShell() {
     emailAccountId,
     threadIds: isAllAccounts ? [] : orderedIds,
   });
+  const { schedulePrefetch, cancelPrefetch } = useHoverThreadPrefetch({
+    emailAccountId,
+  });
+  const prefetchThreadAt = useCallback(
+    (index: number) => {
+      const thread = threads[index];
+      // Combined-view rows belong to other accounts, so this hook's account
+      // can't prefetch them; hover prefetch serves the single-account list.
+      if (!thread || "account" in thread) return;
+      schedulePrefetch(thread.id);
+    },
+    [schedulePrefetch, threads],
+  );
   const {
     data: openThreadData,
     error: openThreadError,
@@ -389,11 +403,21 @@ export function MailShell() {
       const next = clampIndex(clampedIndex + delta);
       setFocusedIndex(next);
       // Once a reader is open, navigation keeps its content and position in
-      // step. A closed list view still lets J/K move the row cursor alone.
+      // step. A closed list view still lets J/K move the row cursor alone —
+      // there the cursor still signals intent, so warm the row for Enter.
       if ((layout === "split" || openThreadId) && threads[next])
         setOpenThreadId(threads[next].id);
+      else prefetchThreadAt(next);
     },
-    [clampIndex, clampedIndex, threads, layout, openThreadId, setOpenThreadId],
+    [
+      clampIndex,
+      clampedIndex,
+      threads,
+      layout,
+      openThreadId,
+      prefetchThreadAt,
+      setOpenThreadId,
+    ],
   );
 
   const extendSelection = useCallback(
@@ -799,6 +823,8 @@ export function MailShell() {
                 onOpenThread={openAt}
                 onToggleSelect={selection.toggle}
                 onSelectRangeTo={selection.selectRangeTo}
+                onPrefetchThread={prefetchThreadAt}
+                onPrefetchCancel={cancelPrefetch}
                 onArchiveSelected={archiveTargets}
                 onDeleteSelected={trashTargets}
                 onClearSelection={selection.clear}

@@ -32,6 +32,12 @@ export function createThreadRequest({
   };
 }
 
+export function isThreadRequestInFlight(
+  request: Pick<ThreadRequest, "cacheIdentity">,
+) {
+  return inFlightRequests.has(request.cacheIdentity);
+}
+
 export function fetchThreadRequest<T>(
   request: Pick<ThreadRequest, "cacheIdentity">,
   fetcher: () => T | PromiseLike<T>,

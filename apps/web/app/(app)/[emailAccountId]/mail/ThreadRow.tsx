@@ -41,6 +41,9 @@ export type ThreadRowProps = {
   onOpen: (index: number) => void;
   onToggleSelect: (index: number) => void;
   onSelectRangeTo: (index: number) => void;
+  /** Open intent (pointer dwell or focus) — warms the thread before a click. */
+  onPrefetch: (index: number) => void;
+  onPrefetchCancel: () => void;
   rowRef?: Ref<HTMLDivElement>;
 };
 
@@ -58,6 +61,8 @@ export const ThreadRow = memo(function ThreadRow({
   onOpen,
   onToggleSelect,
   onSelectRangeTo,
+  onPrefetch,
+  onPrefetchCancel,
   rowRef,
 }: ThreadRowProps) {
   const message = thread.messages.at(-1);
@@ -160,6 +165,10 @@ export const ThreadRow = memo(function ThreadRow({
         event.preventDefault();
         onOpen(index);
       }}
+      onMouseEnter={() => onPrefetch(index)}
+      onMouseLeave={onPrefetchCancel}
+      onFocus={() => onPrefetch(index)}
+      onBlur={onPrefetchCancel}
       role="option"
       tabIndex={isFocused ? 0 : -1}
     >
