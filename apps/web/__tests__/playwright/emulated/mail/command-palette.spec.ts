@@ -157,17 +157,6 @@ test("Command K acts on highlighted and selected conversations", async ({
 
   await palette.getByRole("option", { name: "Mark 2 as read" }).click();
   await expect(palette).toBeHidden();
-  await page.keyboard.press(`${commandModifier}+KeyK`);
-  await expect(palette).toBeVisible();
-  await expect(
-    palette.getByRole("option", { name: "Mark 2 as read" }),
-  ).toHaveCount(0);
-  await expect(
-    palette.getByRole("option", { name: "Mark as unread" }),
-  ).toBeVisible();
-
-  await page.keyboard.press("Escape");
-  await expect(palette).toBeHidden();
   await conversations
     .getByRole("checkbox", { name: "Select conversation from Alice Example" })
     .click();
@@ -175,6 +164,9 @@ test("Command K acts on highlighted and selected conversations", async ({
     .getByRole("checkbox", { name: "Select conversation from Bob Example" })
     .click();
   await page.keyboard.press(`${commandModifier}+KeyK`);
+  await expect(
+    palette.getByRole("option", { name: "Mark 2 as unread" }),
+  ).toBeVisible();
   await expect(
     palette.getByRole("option", { name: "Snooze 2 conversations" }),
   ).toBeVisible();

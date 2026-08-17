@@ -30,7 +30,7 @@
     "telegram:setup": "dotenv -e .env.local -- tsx scripts/setup-telegram-bot.ts",
     "test": "cross-env RUN_AI_TESTS=false vitest",
     "test:playwright": "playwright test -c playwright.config.mjs",
-    "test:playwright:emulated": "playwright test -c playwright.config.mjs --project=emulated",
+    "test:playwright:emulated": "node __tests__/playwright/run-emulated-suite.mjs",
     "test:playwright:emulated:setup": "playwright test -c playwright.config.mjs --project=emulated-setup",
     "test-ai": "cross-env RUN_AI_TESTS=true vitest --run",
     "test-db": "cross-env RUN_DB_TESTS=true vitest --run --dir __tests__/db",

@@ -14,6 +14,7 @@ const withMDX = nextMdx({
 
 const isDevelopment = process.env.NODE_ENV === "development";
 const isProductionBuild = process.env.NODE_ENV === "production";
+const playwrightRunId = process.env.PLAYWRIGHT_RUN_ID;
 const repoRoot = path.resolve(import.meta.dirname, "../..");
 const nextPackageRoot = path.dirname(
   realpathSync(require.resolve("next/package.json")),
@@ -26,6 +27,13 @@ const zodV4CorePath = path.join(
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1"],
+  // Sequential Playwright feature groups use separate dev servers. Isolating
+  // their caches prevents a new Turbopack process from restoring stale tasks.
+  ...(playwrightRunId
+    ? {
+        distDir: path.join(".tmp", "playwright", playwrightRunId, "next"),
+      }
+    : {}),
   experimental:
     isDevelopment || isProductionBuild
       ? {
@@ -39,6 +47,11 @@ const nextConfig: NextConfig = {
                 // route modules into memory at startup during local
                 // development.
                 preloadEntriesOnStart: false,
+                // Playwright already isolates feature groups in short-lived
+                // dev servers. Restarting one mid-test aborts active requests.
+                ...(playwrightRunId
+                  ? { devMemoryThresholdRestart: false }
+                  : {}),
               }
             : {}),
           ...(isProductionBuild

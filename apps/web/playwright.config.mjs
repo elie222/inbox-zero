@@ -15,10 +15,12 @@ const emulateBaseUrl =
   process.env.GOOGLE_BASE_URL ?? `http://localhost:${await getAvailablePort()}`;
 const emulatePort = getUrlPort(emulateBaseUrl);
 const internalApiKey = process.env.INTERNAL_API_KEY ?? "secret";
+const nodeOptions = process.env.NODE_OPTIONS ?? "--max_old_space_size=6144";
 const runId = process.env.PLAYWRIGHT_RUN_ID ?? `${process.pid}-${Date.now()}`;
 const playwrightTestEmail =
   process.env.PLAYWRIGHT_TEST_EMAIL ??
   `playwright-test+${runId}@gmail.com`.toLowerCase();
+const blobReportFile = process.env.PLAYWRIGHT_BLOB_REPORT_FILE;
 const authStatePath = path.join(
   process.cwd(),
   ".tmp",
@@ -40,12 +42,14 @@ process.env.DATABASE_URL = databaseUrl;
 process.env.GOOGLE_BASE_URL = emulateBaseUrl;
 process.env.INTERNAL_API_KEY = internalApiKey;
 process.env.NEXT_PUBLIC_BASE_URL = baseURL;
+process.env.NODE_OPTIONS = nodeOptions;
 process.env.PLAYWRIGHT_AUTH_FILE = authStatePath;
 process.env.PLAYWRIGHT_RUN_ID = runId;
 process.env.PLAYWRIGHT_TEST_EMAIL = playwrightTestEmail;
 
 export default defineConfig({
   testDir: "./__tests__/playwright",
+  outputDir: process.env.PLAYWRIGHT_OUTPUT_DIR,
   forbidOnly: !!process.env.CI,
   fullyParallel: false,
   // Every browser test shares one seeded provider and one authenticated account.
@@ -55,11 +59,17 @@ export default defineConfig({
   expect: {
     timeout: 20_000,
   },
-  reporter: [
-    ...(process.env.CI ? [["github"]] : []),
-    ["list"],
-    ["html", { open: "never", outputFolder: "playwright-report" }],
-  ],
+  reporter: blobReportFile
+    ? [
+        ...(process.env.CI ? [["github"]] : []),
+        ["list"],
+        ["blob", { outputFile: blobReportFile }],
+      ]
+    : [
+        ...(process.env.CI ? [["github"]] : []),
+        ["list"],
+        ["html", { open: "never", outputFolder: "playwright-report" }],
+      ],
   use: {
     baseURL,
     trace: "retain-on-failure",
@@ -89,7 +99,7 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
     },
     {
-      command: `pnpm exec next dev --webpack --port ${basePort}`,
+      command: `pnpm exec next dev --turbopack --port ${basePort}`,
       cwd: process.cwd(),
       url: `${baseURL}/login`,
       timeout: 240_000,
@@ -97,6 +107,7 @@ export default defineConfig({
       env: {
         ...process.env,
         NODE_ENV: "development",
+        NODE_OPTIONS: nodeOptions,
         NEXT_PUBLIC_BASE_URL: baseURL,
         DATABASE_URL: databaseUrl,
         AUTH_SECRET: process.env.AUTH_SECRET ?? "secret",
@@ -132,6 +143,8 @@ export default defineConfig({
         NEXT_PUBLIC_DUB_REFER_DOMAIN: "",
         NEXT_PUBLIC_IS_RESEND_CONFIGURED: "",
         NEXT_PUBLIC_CONTACTS_ENABLED: "false",
+        NEXT_PUBLIC_MEETING_RECORDER_ENABLED:
+          process.env.NEXT_PUBLIC_MEETING_RECORDER_ENABLED ?? "true",
         PLAYWRIGHT_TEST_EMAIL: playwrightTestEmail,
       },
     },
@@ -146,13 +159,17 @@ function writeEmulateSeed({ baseURL, playwrightTestEmail, runId }) {
   const outputDir = path.join(process.cwd(), ".tmp", "playwright", runId);
   const outputPath = path.join(outputDir, "emulate.playwright.generated.yaml");
   const redirectUri = new URL("/api/auth/oauth2/callback/google", baseURL).href;
+  const meetingStart = new Date(Date.now() + 2 * 60 * 60 * 1000);
+  const meetingEnd = new Date(meetingStart.getTime() + 30 * 60 * 1000);
 
   fs.mkdirSync(outputDir, { recursive: true });
 
   const seed = fs
     .readFileSync(templatePath, "utf8")
     .replaceAll("__PLAYWRIGHT_TEST_EMAIL__", playwrightTestEmail)
-    .replaceAll("__PLAYWRIGHT_TEST_REDIRECT_URI__", redirectUri);
+    .replaceAll("__PLAYWRIGHT_TEST_REDIRECT_URI__", redirectUri)
+    .replaceAll("__PLAYWRIGHT_MEETING_START__", meetingStart.toISOString())
+    .replaceAll("__PLAYWRIGHT_MEETING_END__", meetingEnd.toISOString());
 
   fs.writeFileSync(outputPath, seed);
 
