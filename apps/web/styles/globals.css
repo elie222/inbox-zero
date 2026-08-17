@@ -269,3 +269,19 @@
     justify-content: flex-end;
   }
 }
+
+/* Mac desktop shell: leave the traffic-light row empty. Set by a
+   before-hydration script when window.inboxZeroDesktop is present. */
+html[data-mac-desktop] {
+  --desktop-traffic-lights-width: 78px;
+  --desktop-traffic-lights-height: 52px;
+}
+
+html[data-mac-desktop] [data-hide-on-desktop-mac] {
+  display: none !important;
+}
+
+html[data-mac-desktop] [data-desktop-mac-end] {
+  flex: none;
+  margin-left: auto;
+}

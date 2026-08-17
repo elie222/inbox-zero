@@ -280,14 +280,14 @@ export function SideNav({
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader className="gap-0 pb-0">
         {state.includes("left-sidebar") ? (
-          <div className="flex items-center rounded-md pl-2 pr-0.5 py-3 text-foreground justify-between">
-            <Link href={navigation.homeHref}>
+          <div className="flex items-center rounded-md pl-2 pr-0.5 py-3 text-foreground">
+            <Link href={navigation.homeHref} data-hide-on-desktop-mac>
               <Logo className="h-3.5" />
             </Link>
-            <SidebarTrigger name="left-sidebar" />
+            <SidebarTrigger name="left-sidebar" className="ml-auto" />
           </div>
         ) : (
-          <div className="pb-2">
+          <div className="pb-2 pt-[var(--desktop-traffic-lights-height,0px)]">
             <SidebarTrigger name="left-sidebar" />
           </div>
         )}

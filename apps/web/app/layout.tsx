@@ -135,6 +135,15 @@ export default async function RootLayout({
         className={`h-full ${env.NEXT_PUBLIC_USE_AEONIK_FONT ? aeonikFont.variable : ""} ${geist.variable} font-sans antialiased`}
       >
         <script
+          // Marks the Mac Electron shell before paint so traffic-light
+          // insets apply without a logo flash. Harmless in the browser.
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: static UA check, no user input
+          dangerouslySetInnerHTML={{
+            __html:
+              'if(window.inboxZeroDesktop&&/Mac/i.test(navigator.userAgent))document.documentElement.dataset.macDesktop=""',
+          }}
+        />
+        <script
           type="application/ld+json"
           // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON.stringify on controlled object is safe
           dangerouslySetInnerHTML={{

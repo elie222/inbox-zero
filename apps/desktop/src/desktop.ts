@@ -153,6 +153,13 @@ export function findDesktopProtocolUrl(argv: readonly string[]): string | null {
 
 const DESKTOP_WINDOW_BACKGROUND = "#ffffff";
 
+/** Vertically centers the lights in the 52px left drag region. */
+export const DESKTOP_MAC_TRAFFIC_LIGHT_POSITION = { x: 16, y: 18 } as const;
+export const DESKTOP_MAC_TITLEBAR_HEIGHT = 52;
+export const DESKTOP_MAC_TRAFFIC_LIGHTS_WIDTH = 78;
+/** Web chrome marked with this is hidden by the Mac desktop stylesheet. */
+export const DESKTOP_MAC_HIDE_ATTRIBUTE = "data-hide-on-desktop-mac";
+
 export function getDesktopWindowChrome(platform = process.platform): {
   autoHideMenuBar?: boolean;
   backgroundColor: string;
@@ -168,7 +175,7 @@ export function getDesktopWindowChrome(platform = process.platform): {
     return {
       backgroundColor: DESKTOP_WINDOW_BACKGROUND,
       titleBarStyle: "hiddenInset",
-      trafficLightPosition: { x: 16, y: 18 },
+      trafficLightPosition: { ...DESKTOP_MAC_TRAFFIC_LIGHT_POSITION },
     };
   }
 
@@ -203,14 +210,23 @@ html::after {
 
 html::before {
   left: 0;
-  width: 140px;
-  height: 52px;
+  width: ${DESKTOP_MAC_TRAFFIC_LIGHTS_WIDTH}px;
+  height: ${DESKTOP_MAC_TITLEBAR_HEIGHT}px;
 }
 
 html::after {
-  left: 140px;
+  left: ${DESKTOP_MAC_TRAFFIC_LIGHTS_WIDTH}px;
   right: 0;
   height: 12px;
+}
+
+:root {
+  --desktop-traffic-lights-width: ${DESKTOP_MAC_TRAFFIC_LIGHTS_WIDTH}px;
+  --desktop-traffic-lights-height: ${DESKTOP_MAC_TITLEBAR_HEIGHT}px;
+}
+
+[${DESKTOP_MAC_HIDE_ATTRIBUTE}] {
+  display: none !important;
 }
 `.trim();
 
