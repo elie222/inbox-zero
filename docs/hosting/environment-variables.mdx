@@ -108,9 +108,10 @@ Reference for environment variables relevant to self-hosting Inbox Zero. Hosted-
 | `OPENAI_COMPATIBLE_MODEL` | No | OpenAI-compatible model name when configured separately from the selected LLM tier model | — |
 | `OPENAI_COMPATIBLE_AUTH_HEADER` | No | Header style for the OpenAI-compatible API key: `authorization` or `api-key` | `authorization` |
 | **CLI LLM Providers (Experimental)** ||||
-| `CLI_LLM_ENABLED` | No | Enables community CLI-backed LLM providers (`codex-cli`, `claude-code`). Self-host only; requires installing optional provider packages. | `false` |
+| `CLI_LLM_ENABLED` | No | Enables community CLI-backed LLM providers (`codex-cli`, `claude-code`, `grok-cli`). Self-host only; requires installing optional provider packages. | `false` |
 | `CODEX_CLI_ALLOW_NPX` | No | Allows the Codex community provider to fall back to `npx @openai/codex` if `codex` is not on PATH. Leave disabled unless you trust that install path. | `false` |
 | `CODEX_CLI_PATH` | No | Optional path to the `codex` binary when using `codex-cli`. | — |
+| `GROK_CLI_PATH` | No | Optional path to the `grok` binary when using `grok-cli`. | — |
 | **AI Content Controls** ||||
 | `SENSITIVE_DATA_POLICY_DEFAULT` | No | Default policy for handling sensitive data matches in LLM requests (`ALLOW`, `REDACT`, or `BLOCK`) | `ALLOW` |
 | `NEXT_PUBLIC_SENSITIVE_DATA_POLICY_LOCKED` | No | Set to `true` to enforce the default policy for all accounts, disable account-level edits, and hide the setting in the UI | `false` |

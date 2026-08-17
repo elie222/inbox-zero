@@ -14,6 +14,7 @@ const {
   mockGetPosthogLlmClient,
   mockIsPosthogLlmEvalApproved,
   mockCreateClaudeCodeLanguageModelWithBridgedTools,
+  mockCreateGrokCliLanguageModelWithBridgedTools,
 } = vi.hoisted(() => ({
   mockGenerateText: vi.fn(),
   mockSaveAiUsage: vi.fn(),
@@ -25,6 +26,7 @@ const {
   mockGetPosthogLlmClient: vi.fn(),
   mockIsPosthogLlmEvalApproved: vi.fn(),
   mockCreateClaudeCodeLanguageModelWithBridgedTools: vi.fn(),
+  mockCreateGrokCliLanguageModelWithBridgedTools: vi.fn(),
 }));
 
 vi.mock("ai", async () => {
@@ -56,6 +58,8 @@ vi.mock("@/utils/llms/cli-provider", async () => {
     ...actual,
     createClaudeCodeLanguageModelWithBridgedTools:
       mockCreateClaudeCodeLanguageModelWithBridgedTools,
+    createGrokCliLanguageModelWithBridgedTools:
+      mockCreateGrokCliLanguageModelWithBridgedTools,
   };
 });
 
@@ -282,6 +286,52 @@ describe("createGenerateText fallback chain", () => {
       tools,
     });
     expect(mockGenerateText).toHaveBeenCalledTimes(1);
+  });
+
+  it("bridges Grok CLI tools and disables AI SDK retries", async () => {
+    const originalModel = createModel("grok-cli-model");
+    const bridgedModel = createModel("grok-cli-bridged-model");
+    const tools = {
+      finalizeResults: {
+        description: "Finalize results",
+        inputSchema: {},
+        execute: vi.fn(),
+      },
+    };
+    mockCreateGrokCliLanguageModelWithBridgedTools.mockResolvedValue(
+      bridgedModel,
+    );
+    mockGenerateText.mockImplementation(async (request) => {
+      expect(request.model).toBe(bridgedModel);
+      expect(request.tools).toBeUndefined();
+      expect(request.maxRetries).toBe(0);
+      return createTextResult();
+    });
+
+    const generateText = createGenerateTextForTest({
+      label: "Grok CLI bridge",
+      modelOptions: createModelOptions({
+        provider: "grok-cli",
+        modelName: "default",
+        model: originalModel,
+      }),
+    });
+
+    await generateText({
+      prompt: "hello",
+      model: originalModel,
+      tools,
+    });
+
+    expect(mockCreateGrokCliLanguageModelWithBridgedTools).toHaveBeenCalledWith(
+      {
+        modelName: "default",
+        tools,
+      },
+    );
+    expect(
+      mockCreateClaudeCodeLanguageModelWithBridgedTools,
+    ).not.toHaveBeenCalled();
   });
 
   it("sets openrouter user from internal user id", async () => {

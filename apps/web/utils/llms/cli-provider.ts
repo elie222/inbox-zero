@@ -1,7 +1,15 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import type { LanguageModelV3 } from "@ai-sdk/provider";
 import { env } from "@/env";
 import { SafeError } from "@/utils/error";
 import { Provider } from "@/utils/llms/config";
+import {
+  type GrokMcpBridge,
+  type McpBridgedTool,
+  startGrokMcpBridge,
+} from "@/utils/llms/grok-mcp-bridge";
 
 type CliProvider = string;
 
@@ -11,12 +19,6 @@ type CliModelFactory = (
   modelName: string,
   settings?: Record<string, unknown>,
 ) => LanguageModelV3;
-
-type McpBridgedTool = {
-  description?: string;
-  inputSchema: unknown;
-  execute?: (input: never, options?: unknown) => unknown;
-};
 
 type McpBridgeFactory = (
   name: string,
@@ -189,6 +191,8 @@ async function loadCliLanguageModel({
       return createCodexCliLanguageModel(modelName);
     case Provider.CLAUDE_CODE:
       return createClaudeCodeLanguageModel(modelName);
+    case Provider.GROK_CLI:
+      return createGrokCliLanguageModel(modelName);
     default:
       throw new SafeError(`Unsupported CLI LLM provider: ${provider}`);
   }
@@ -224,6 +228,329 @@ async function createClaudeCodeLanguageModel(modelName: string) {
     permissionMode: "default",
     sandbox: { enabled: true },
   });
+}
+
+async function createGrokCliLanguageModel(modelName: string) {
+  return createRestrictedGrokModel(await loadGrokModule(), modelName);
+}
+
+const GROK_MCP_SERVER_NAME = "inboxzero";
+const GROK_TOOL_NAME_PREFIX = `${GROK_MCP_SERVER_NAME}__`;
+const ALLOWED_GROK_PERMISSION_TOOLS = new Set(["search_tool", "use_tool"]);
+
+export async function createGrokCliLanguageModelWithBridgedTools({
+  modelName,
+  tools,
+}: {
+  modelName: string;
+  tools: Record<string, McpBridgedTool>;
+}): Promise<LanguageModelV3> {
+  assertCliLlmEnabled(Provider.GROK_CLI);
+  if (Object.keys(tools).length === 0) {
+    return createGrokCliLanguageModel(modelName);
+  }
+
+  const module = await loadGrokModule();
+  const bridge = await startGrokMcpBridge(tools);
+  try {
+    return wrapGrokModel({
+      model: createRestrictedGrokModel(module, modelName, {
+        mcpServers: [
+          {
+            type: "http",
+            name: GROK_MCP_SERVER_NAME,
+            url: bridge.url,
+            headers: [{ name: "Authorization", value: bridge.authorization }],
+          },
+        ],
+      }),
+      bridge,
+    });
+  } catch (error) {
+    await bridge.close();
+    throw error;
+  }
+}
+
+const GROK_AGENT_PROFILE = {
+  name: "inboxzero",
+  description: "Inbox Zero tools only",
+  tools: ["search_tool", "use_tool"],
+};
+
+function createRestrictedGrokModel(
+  module: CliProviderModule,
+  modelName: string,
+  extra: Record<string, unknown> = {},
+): LanguageModelV3 {
+  const GrokBuildLanguageModel = getGrokConstructor(
+    module,
+    "GrokBuildLanguageModel",
+  );
+  const AcpClient = getGrokConstructor(module, "AcpClient");
+  return new GrokBuildLanguageModel({
+    id: modelName,
+    settings: grokCliSettings(extra),
+    clientFactory: (options: Record<string, unknown>) =>
+      createIsolatedGrokClient(AcpClient, options),
+  }) as LanguageModelV3;
+}
+
+function createIsolatedGrokClient(
+  AcpClient: new (
+    options: Record<string, unknown>,
+  ) => {
+    newSession: (params: unknown, signal?: unknown) => Promise<unknown>;
+    dispose?: (...args: unknown[]) => unknown;
+  },
+  options: Record<string, unknown>,
+) {
+  const workspace = createGrokWorkspace();
+  try {
+    writeGrokHomeConfig(workspace.home);
+    const noProxy = withLoopbackNoProxy(
+      process.env.NO_PROXY ?? process.env.no_proxy,
+    );
+    const client = new AcpClient({
+      ...options,
+      cwd: workspace.cwd,
+      env: {
+        ...((options.env as Record<string, string | undefined> | undefined) ??
+          {}),
+        HOME: workspace.home,
+        GROK_HOME: workspace.home,
+        GROK_AUTH_PATH: path.join(os.homedir(), ".grok", "auth.json"),
+        NO_PROXY: noProxy,
+        no_proxy: noProxy,
+      },
+      fileSystem: { readTextFile: false, writeTextFile: false },
+      onPermissionRequest: allowInboxZeroToolsOnly,
+    });
+    const newSession = client.newSession.bind(client);
+    client.newSession = (params, signal) =>
+      newSession(withInboxZeroSession(params, workspace.cwd), signal);
+    const dispose = client.dispose?.bind(client);
+    let removed = false;
+    client.dispose = async (...args: unknown[]) => {
+      try {
+        return await dispose?.(...args);
+      } finally {
+        if (!removed) {
+          removed = true;
+          workspace.remove();
+        }
+      }
+    };
+    return client;
+  } catch (error) {
+    workspace.remove();
+    throw error;
+  }
+}
+
+function withInboxZeroSession(params: unknown, cwd: string) {
+  const base =
+    params && typeof params === "object"
+      ? (params as Record<string, unknown>)
+      : {};
+  const meta =
+    base._meta && typeof base._meta === "object"
+      ? (base._meta as Record<string, unknown>)
+      : {};
+  return {
+    ...base,
+    cwd,
+    _meta: { ...meta, agentProfile: GROK_AGENT_PROFILE },
+  };
+}
+
+function allowInboxZeroToolsOnly(request: {
+  options: Array<{ kind: string; optionId: string }>;
+  toolCall?: unknown;
+}) {
+  const name = grokPermissionToolName(request.toolCall);
+  if (!name || !ALLOWED_GROK_PERMISSION_TOOLS.has(name)) {
+    return { outcome: { outcome: "cancelled" as const } };
+  }
+  const option =
+    request.options.find((candidate) => candidate.kind === "allow_once") ??
+    request.options.find((candidate) => candidate.kind === "allow_always");
+  if (!option) return { outcome: { outcome: "cancelled" as const } };
+  return {
+    outcome: { outcome: "selected" as const, optionId: option.optionId },
+  };
+}
+
+function grokPermissionToolName(toolCall: unknown): string | undefined {
+  if (!toolCall || typeof toolCall !== "object") return;
+  const record = toolCall as Record<string, unknown>;
+  const meta = record._meta;
+  if (meta && typeof meta === "object") {
+    const tool = (meta as Record<string, unknown>)["x.ai/tool"];
+    if (tool && typeof tool === "object") {
+      const name = (tool as { name?: unknown }).name;
+      if (typeof name === "string" && name.length > 0) return name;
+    }
+  }
+  return typeof record.title === "string" &&
+    ALLOWED_GROK_PERMISSION_TOOLS.has(record.title)
+    ? record.title
+    : undefined;
+}
+
+function createGrokWorkspace() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "inbox-zero-grok-"));
+  const home = path.join(root, "home");
+  const cwd = path.join(root, "cwd");
+  fs.mkdirSync(home, { recursive: true, mode: 0o700 });
+  fs.mkdirSync(cwd, { recursive: true, mode: 0o700 });
+  return {
+    home,
+    cwd,
+    remove: () => fs.rmSync(root, { recursive: true, force: true }),
+  };
+}
+
+function writeGrokHomeConfig(home: string) {
+  fs.writeFileSync(
+    path.join(home, "config.toml"),
+    `disable_web_search = true
+
+[marketplace]
+official_marketplace_auto_installed = true
+
+[plugins]
+enabled = []
+`,
+    { mode: 0o600 },
+  );
+}
+
+function wrapGrokModel({
+  model,
+  bridge,
+}: {
+  model: LanguageModelV3;
+  bridge: GrokMcpBridge;
+}): LanguageModelV3 {
+  let terminated = false;
+  const terminate = async () => {
+    if (terminated) return;
+    terminated = true;
+    try {
+      await bridge.close();
+    } catch {}
+  };
+
+  const wrapped = {
+    specificationVersion: model.specificationVersion,
+    provider: model.provider,
+    modelId: model.modelId,
+    supportedUrls: model.supportedUrls,
+    async doGenerate(...args: unknown[]) {
+      const doGenerate = getModelMethod(model, "doGenerate", Provider.GROK_CLI);
+      try {
+        const result = (await doGenerate(...args)) as {
+          content?: unknown[];
+        } & Record<string, unknown>;
+        return {
+          ...result,
+          ...(Array.isArray(result.content)
+            ? { content: result.content.map(unprefixGrokPart) }
+            : {}),
+        };
+      } finally {
+        await terminate();
+      }
+    },
+    async doStream(...args: unknown[]) {
+      const doStream = getModelMethod(model, "doStream", Provider.GROK_CLI);
+      let result: { stream: ReadableStream<unknown> } & Record<string, unknown>;
+      try {
+        result = (await doStream(...args)) as typeof result;
+      } catch (error) {
+        await terminate();
+        throw error;
+      }
+      const reader = result.stream.getReader();
+      const stream = new ReadableStream<unknown>({
+        async pull(controller) {
+          try {
+            const { done, value } = await reader.read();
+            if (done) {
+              await terminate();
+              controller.close();
+              return;
+            }
+            controller.enqueue(unprefixGrokPart(value));
+          } catch (error) {
+            await terminate();
+            controller.error(error);
+          }
+        },
+        async cancel(reason) {
+          await terminate();
+          await reader.cancel(reason);
+        },
+      });
+      return { ...result, stream };
+    },
+  };
+  return wrapped as unknown as LanguageModelV3;
+}
+
+function unprefixGrokPart(part: unknown): unknown {
+  if (!part || typeof part !== "object") return part;
+  const record = part as Record<string, unknown>;
+  if (typeof record.toolName !== "string") return part;
+  if (!record.toolName.startsWith(GROK_TOOL_NAME_PREFIX)) return part;
+  return {
+    ...record,
+    toolName: record.toolName.slice(GROK_TOOL_NAME_PREFIX.length),
+  };
+}
+
+function withLoopbackNoProxy(existing: string | undefined): string {
+  const entries = (existing ?? "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  for (const host of ["127.0.0.1", "localhost", "::1"]) {
+    if (!entries.includes(host)) entries.push(host);
+  }
+  return entries.join(",");
+}
+
+async function loadGrokModule() {
+  return importOptionalProviderPackage(
+    "ai-sdk-provider-grok-build",
+    Provider.GROK_CLI,
+  );
+}
+
+function grokCliSettings(extra: Record<string, unknown> = {}) {
+  // Stock grok 1.0.4 rejects --no-native-tools; do not set inferenceOnly.
+  return {
+    authMethod: "cached_token",
+    ...(env.GROK_CLI_PATH ? { executablePath: env.GROK_CLI_PATH } : {}),
+    ...extra,
+  };
+}
+
+// biome-ignore lint/suspicious/noExplicitAny: constructor signatures vary by package
+type CliConstructor = new (...args: any[]) => any;
+
+function getGrokConstructor(
+  module: CliProviderModule,
+  exportName: string,
+): CliConstructor {
+  const ctor = module[exportName];
+  if (typeof ctor !== "function") {
+    throw new SafeError(
+      `CLI LLM provider "${Provider.GROK_CLI}" package does not export "${exportName}". Pin ai-sdk-provider-grok-build@0.2.0.`,
+    );
+  }
+  return ctor as CliConstructor;
 }
 
 async function importOptionalProviderPackage(
