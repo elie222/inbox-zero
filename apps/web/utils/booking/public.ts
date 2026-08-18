@@ -50,7 +50,7 @@ export async function getPublicBookingLinkMetadata(slug: string) {
       durationMinutes: true,
       locationType: true,
       emailAccount: {
-        select: { name: true },
+        select: { name: true, image: true },
       },
     },
   });
@@ -65,6 +65,7 @@ export async function getPublicBookingLinkMetadata(slug: string) {
     locationType: link.locationType,
     locationValue: null,
     hostName: link.emailAccount.name ?? null,
+    hostImage: link.emailAccount.image ?? null,
   };
 }
 
@@ -530,7 +531,7 @@ export async function getPublicBookingForManagement({
           locationType: true,
           locationValue: true,
           emailAccount: {
-            select: { name: true },
+            select: { name: true, image: true },
           },
         },
       },
@@ -554,6 +555,7 @@ export async function getPublicBookingForManagement({
       locationType: booking.bookingLink.locationType,
       locationValue: booking.bookingLink.locationValue,
       hostName: booking.bookingLink.emailAccount.name ?? null,
+      hostImage: booking.bookingLink.emailAccount.image ?? null,
     },
   };
 }

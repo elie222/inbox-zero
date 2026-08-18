@@ -72,6 +72,7 @@ describe("public booking", () => {
       locationValue: "https://video.example.com/private-meeting",
       emailAccount: {
         name: "Host User",
+        image: "https://example.com/host-avatar.jpg",
       },
     });
 
@@ -85,6 +86,7 @@ describe("public booking", () => {
       locationType: BookingLinkLocationType.CUSTOM,
       locationValue: null,
       hostName: "Host User",
+      hostImage: "https://example.com/host-avatar.jpg",
     });
     expect(result).not.toHaveProperty("hostEmail");
     expect(result.locationValue).toBeNull();
@@ -993,6 +995,7 @@ describe("public booking", () => {
           description: "Talk through fit.",
           locationValue: "Room 3",
           hostName: "Host User",
+          hostImage: "https://example.com/host-avatar.jpg",
         }),
       }),
     );
@@ -1159,6 +1162,7 @@ function bookingRecordBase() {
       emailAccount: {
         email: "host@example.com",
         name: "Host User",
+        image: "https://example.com/host-avatar.jpg",
       },
     },
   };
