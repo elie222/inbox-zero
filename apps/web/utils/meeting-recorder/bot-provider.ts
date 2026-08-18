@@ -42,6 +42,10 @@ export interface MeetingBotProvider {
   /** Tolerant: media that is already gone is not an error. */
   deleteMedia(externalBotId: string): Promise<void>;
   fetchTranscript(externalTranscriptId: string): Promise<NormalizedTranscript>;
+  /**
+   * The bot stays for the life of the call, not the calendar slot: it must
+   * leave when the participants do, not at a scheduled end time.
+   */
   scheduleBot(params: {
     botName?: string;
     meetingUrl: string;
