@@ -207,5 +207,9 @@ describe("desktop shell helpers", () => {
     expect(getDesktopWindowDragCss("darwin")).toBe(DESKTOP_WINDOW_DRAG_CSS);
     expect(getDesktopWindowDragCss("win32")).toBeNull();
     expect(getDesktopWindowDragCss("linux")).toBeNull();
+    expect(DESKTOP_WINDOW_DRAG_CSS).toContain("[data-hide-on-desktop-mac]");
+    expect(DESKTOP_WINDOW_DRAG_CSS).toContain(
+      "--desktop-traffic-lights-width: 78px",
+    );
   });
 });

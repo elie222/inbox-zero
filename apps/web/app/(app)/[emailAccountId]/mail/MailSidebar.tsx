@@ -162,10 +162,13 @@ export function MailSidebar({
       <div className="mb-2.5 flex shrink-0 items-center gap-1">
         <Link
           href={backToAppHref}
+          data-desktop-mac-end
           className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-muted-foreground text-xs hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <ArrowLeftIcon className="size-3.5 shrink-0" />
-          <span className="flex-1 truncate">Inbox Zero</span>
+          <span className="flex-1 truncate" data-hide-on-desktop-mac>
+            Inbox Zero
+          </span>
         </Link>
         <SidebarTrigger
           name="left-sidebar"

@@ -709,8 +709,10 @@ export function ChatOnboarding() {
     <div className="flex h-dvh flex-col bg-background">
       <EmailStatsPreloader />
 
-      <header className="flex h-14 shrink-0 items-center justify-between border-b px-5">
-        <Logo className="h-4 w-auto text-foreground" />
+      <header className="flex h-14 shrink-0 items-center justify-end border-b px-5">
+        <span data-hide-on-desktop-mac className="mr-auto">
+          <Logo className="h-4 w-auto text-foreground" />
+        </span>
         <OnboardingAccountMenu />
       </header>
 
