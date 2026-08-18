@@ -1,13 +1,11 @@
 import { expect, test } from "@playwright/test";
-import {
-  getAutomationEmailAccountId,
-  markAutomationOnboardingViewed,
-} from "./automation-tabs-test-helpers";
+import { getEmailAccountId } from "../account-test-helpers";
+import { markAutomationOnboardingViewed } from "./automation-tabs-test-helpers";
 
 test("preserves search, custom email, and Apply workspace state", async ({
   page,
 }) => {
-  const emailAccountId = await getAutomationEmailAccountId(page);
+  const emailAccountId = await getEmailAccountId(page);
   await markAutomationOnboardingViewed(page);
 
   const messagesResponse = await page.request.get("/api/messages", {

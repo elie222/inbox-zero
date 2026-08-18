@@ -1,5 +1,6 @@
 import { expect, type Page } from "@playwright/test";
 import { Client } from "pg";
+import { getEmailAccount } from "../account-test-helpers";
 
 const UPCOMING_EVENT_ID = "evt_playwright_meeting_bot";
 const RECORDED_MEETING_ID_PREFIX = "playwright_meeting_bot_recorded";
@@ -303,17 +304,6 @@ async function deleteFixtureRows(
   await client.query(`DELETE FROM "CalendarConnection" WHERE id = $1`, [
     fixture.calendarConnectionId,
   ]);
-}
-
-async function getEmailAccount(page: Page) {
-  const response = await page.request.get("/api/user/email-accounts");
-  expect(response.ok()).toBeTruthy();
-  const { emailAccounts } = (await response.json()) as {
-    emailAccounts: { id: string }[];
-  };
-  const emailAccount = emailAccounts[0];
-  if (!emailAccount) throw new Error("The setup project created no account");
-  return emailAccount;
 }
 
 async function withClient<T>(callback: (client: Client) => Promise<T>) {

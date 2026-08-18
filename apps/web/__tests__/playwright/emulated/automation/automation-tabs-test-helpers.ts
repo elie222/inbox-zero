@@ -7,7 +7,6 @@ export const HISTORY_EXECUTED_RULE_ID =
   "playwright-automation-history-execution";
 export const KNOWLEDGE_TITLE = "Playwright product context";
 export const UPDATED_KNOWLEDGE_TITLE = "Playwright customer context";
-const ACCOUNT_LOOKUP_TIMEOUT_MS = 60_000;
 
 type AutomationAccountSettings = {
   about: string | null;
@@ -51,10 +50,6 @@ export type AutomationSettingsCleanup = Awaited<
 > & {
   emailAccountId: string;
 };
-
-export async function getAutomationEmailAccountId(page: Page) {
-  return getEmailAccountIdWithRetry(page);
-}
 
 export async function markAutomationOnboardingViewed(page: Page) {
   await page.goto("/");
@@ -395,37 +390,6 @@ async function restoreDraftAction(client: Client, action: DraftActionSnapshot) {
   );
 }
 
-async function getEmailAccountIdWithRetry(page: Page) {
-  let lastError: unknown;
-  const deadline = Date.now() + ACCOUNT_LOOKUP_TIMEOUT_MS;
-
-  while (Date.now() < deadline) {
-    try {
-      const response = await page.request.get("/api/user/email-accounts");
-      if (response.ok()) {
-        const { emailAccounts } = (await response.json()) as {
-          emailAccounts: { id: string }[];
-        };
-        const emailAccountId = emailAccounts[0]?.id;
-        if (emailAccountId) return emailAccountId;
-        lastError = new Error("The setup project created no account");
-      } else {
-        lastError = new Error(
-          `Email accounts request failed with ${response.status()}`,
-        );
-      }
-    } catch (error) {
-      lastError = error;
-    }
-
-    await page.waitForTimeout(1000);
-  }
-
-  throw new Error(
-    `Could not read the setup email account: ${getErrorMessage(lastError)}`,
-  );
-}
-
 async function withClient<T>(callback: (client: Client) => Promise<T>) {
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
@@ -434,10 +398,6 @@ async function withClient<T>(callback: (client: Client) => Promise<T>) {
   } finally {
     await client.end();
   }
-}
-
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : String(error);
 }
 
 function stringifyJson(value: unknown) {

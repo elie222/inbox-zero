@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { Client } from "pg";
+import { getEmailAccount } from "../account-test-helpers";
 
 const PLAYWRIGHT_TEST_EMAIL =
   process.env.PLAYWRIGHT_TEST_EMAIL || "playwright-test@gmail.com";
@@ -41,14 +42,8 @@ test("google emulator signs in and creates an app account", async ({
     .toContain(APP_BASE_URL);
 
   await markOnboardingComplete(PLAYWRIGHT_TEST_EMAIL);
-  const accountsResponse = await page.request.get("/api/user/email-accounts");
-  expect(accountsResponse.ok()).toBeTruthy();
-  const { emailAccounts } = (await accountsResponse.json()) as {
-    emailAccounts: { email: string }[];
-  };
-  expect(emailAccounts).toContainEqual(
-    expect.objectContaining({ email: PLAYWRIGHT_TEST_EMAIL }),
-  );
+  const emailAccount = await getEmailAccount(page);
+  expect(emailAccount.email).toBe(PLAYWRIGHT_TEST_EMAIL);
 
   const authStatePath = process.env.PLAYWRIGHT_AUTH_FILE;
   if (!authStatePath) throw new Error("PLAYWRIGHT_AUTH_FILE is not configured");

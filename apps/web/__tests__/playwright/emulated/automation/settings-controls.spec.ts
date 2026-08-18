@@ -1,8 +1,8 @@
 import { expect, test } from "@playwright/test";
+import { getEmailAccountId } from "../account-test-helpers";
 import {
   type AutomationSettingsCleanup,
   cleanupAutomationSettings,
-  getAutomationEmailAccountId,
   getAutomationSettingsCard,
   getAutomationSettingsState,
   markAutomationOnboardingViewed,
@@ -20,7 +20,7 @@ test("persists personalization, drafting, and advanced settings", async ({
   page,
 }) => {
   test.setTimeout(360_000);
-  const emailAccountId = await getAutomationEmailAccountId(page);
+  const emailAccountId = await getEmailAccountId(page);
   settingsCleanup = {
     ...(await seedAutomationSettings(emailAccountId)),
     emailAccountId,

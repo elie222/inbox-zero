@@ -8,6 +8,7 @@ import {
   type TestInfo,
 } from "@playwright/test";
 import { Client } from "pg";
+import { getEmailAccountId } from "../account-test-helpers";
 
 const commandModifier = process.platform === "darwin" ? "Meta" : "Control";
 const SEEDED_THREAD_IDS = [
@@ -27,13 +28,7 @@ test.afterEach(async ({ request }) => {
 test("Command K acts on highlighted and selected conversations", async ({
   page,
 }, testInfo) => {
-  const accountsResponse = await page.request.get("/api/user/email-accounts");
-  expect(accountsResponse.ok()).toBeTruthy();
-  const { emailAccounts } = (await accountsResponse.json()) as {
-    emailAccounts: { id: string }[];
-  };
-  const emailAccountId = emailAccounts[0]?.id;
-  if (!emailAccountId) throw new Error("The setup project created no account");
+  const emailAccountId = await getEmailAccountId(page);
   emailAccountIdForCleanup = emailAccountId;
 
   await restoreActiveSnoozes(page.request, emailAccountId);

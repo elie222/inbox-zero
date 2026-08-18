@@ -1,10 +1,10 @@
 import { expect, test } from "@playwright/test";
+import { getEmailAccountId } from "../account-test-helpers";
 import {
   CHANNEL_ID,
   CHANNEL_RULE_NAME,
   cleanupSeededChannel,
   getChannelState,
-  getEmailAccountId,
   markAssistantOnboardingViewed,
   seedChannel,
 } from "./channels-test-helpers";

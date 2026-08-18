@@ -1,8 +1,8 @@
 import { expect, test } from "@playwright/test";
+import { getEmailAccountId } from "../account-test-helpers";
 import {
   cleanupSeededChat,
   getChatState,
-  getEmailAccountId,
   markAssistantOnboardingViewed,
   seedChat,
 } from "./chat-test-helpers";

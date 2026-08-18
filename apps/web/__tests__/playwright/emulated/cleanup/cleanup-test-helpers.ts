@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import { Client } from "pg";
+import { getEmailAccount } from "../account-test-helpers";
 
 const CLEANUP_SENDERS = [
   "cleanup-block@example.com",
@@ -153,17 +154,6 @@ export async function openCleanupFeature(
   await expect(page).toHaveURL(
     new RegExp(`/${fixture.emailAccountId}/${expectedPath}(?:\\?.*)?$`),
   );
-}
-
-async function getEmailAccount(page: Page) {
-  const response = await page.request.get("/api/user/email-accounts");
-  expect(response.ok()).toBeTruthy();
-  const { emailAccounts } = (await response.json()) as {
-    emailAccounts: { id: string; email: string }[];
-  };
-  const emailAccount = emailAccounts[0];
-  if (!emailAccount) throw new Error("The setup project created no account");
-  return emailAccount;
 }
 
 async function connectToDatabase() {

@@ -1,26 +1,13 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import { Client } from "pg";
+import { getEmailAccountId } from "../account-test-helpers";
 
 const PLAYWRIGHT_TEST_EMAIL =
   process.env.PLAYWRIGHT_TEST_EMAIL || "playwright-test@gmail.com";
 const INTEGRATION_ID = "playwright-mcp-notion";
 
 export async function openIntegrations(page: Page) {
-  let emailAccountId: string | undefined;
-  await expect
-    .poll(
-      async () => {
-        try {
-          emailAccountId = await getEmailAccountId(page);
-          return true;
-        } catch {
-          return false;
-        }
-      },
-      { timeout: 120_000 },
-    )
-    .toBe(true);
-  if (!emailAccountId) throw new Error("The Playwright account was not ready");
+  const emailAccountId = await getEmailAccountId(page, { timeout: 120_000 });
 
   await navigateUntilReady(
     page,
@@ -106,17 +93,6 @@ export function getIntegrationToolCard(page: Page, name: string) {
   return page
     .getByText(name, { exact: true })
     .locator("xpath=ancestor::div[contains(@class, 'rounded-lg')][1]");
-}
-
-async function getEmailAccountId(page: Page) {
-  const response = await page.request.get("/api/user/email-accounts");
-  expect(response.ok()).toBeTruthy();
-  const { emailAccounts } = (await response.json()) as {
-    emailAccounts: { id: string }[];
-  };
-  const emailAccountId = emailAccounts[0]?.id;
-  if (!emailAccountId) throw new Error("The setup project created no account");
-  return emailAccountId;
 }
 
 async function resetIntegrationState(client: Client) {

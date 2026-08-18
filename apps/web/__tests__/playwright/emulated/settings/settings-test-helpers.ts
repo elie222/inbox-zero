@@ -1,5 +1,6 @@
 import { expect, type Page } from "@playwright/test";
 import { Client } from "pg";
+import { getEmailAccount } from "../account-test-helpers";
 
 const SETTINGS_RULE_NAME = "Playwright settings rule";
 
@@ -149,17 +150,6 @@ export function getEmailAccountSettingsCard(page: Page, email: string) {
     card: toggle.locator("xpath=.."),
     toggle,
   };
-}
-
-async function getEmailAccount(page: Page) {
-  const response = await page.request.get("/api/user/email-accounts");
-  expect(response.ok()).toBeTruthy();
-  const { emailAccounts } = (await response.json()) as {
-    emailAccounts: { id: string; email: string }[];
-  };
-  const emailAccount = emailAccounts[0];
-  if (!emailAccount) throw new Error("The setup project created no account");
-  return emailAccount;
 }
 
 async function withClient<T>(callback: (client: Client) => Promise<T>) {
