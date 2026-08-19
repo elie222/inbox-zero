@@ -170,33 +170,37 @@ describe("getEmailDraftUrl", () => {
   it.each([
     {
       name: "Google account",
-      draftId: "draft-123",
+      draftMessageId: "draft-message-123",
       emailAddress: "user@gmail.com",
       provider: "google",
       expected:
-        "https://mail.google.com/mail/u/?authuser=user%40gmail.com#drafts/draft-123",
+        "https://mail.google.com/mail/u/?authuser=user%40gmail.com#inbox?compose=draft-message-123",
     },
     {
       name: "personal Microsoft account",
-      draftId: "draft-123",
+      draftMessageId: "draft-123",
       emailAddress: "user@outlook.com",
       provider: "microsoft",
-      expected: "https://outlook.live.com/mail/0/drafts/id/draft-123",
+      expected:
+        "https://outlook.live.com/mail/0/deeplink/compose?itemid=draft-123&exvsurl=1",
     },
     {
       name: "business Microsoft account",
-      draftId: "draft+123/abc",
+      draftMessageId: "draft+123/abc",
       emailAddress: "user@contoso.com",
       provider: "microsoft",
-      expected: "https://outlook.office.com/mail/drafts/id/draft%2B123%2Fabc",
+      expected:
+        "https://outlook.office.com/mail/deeplink/compose?itemid=draft%2B123%2Fabc&exvsurl=1",
     },
   ])("opens the draft for a $name", ({
-    draftId,
+    draftMessageId,
     emailAddress,
     provider,
     expected,
   }) => {
-    expect(getEmailDraftUrl(draftId, emailAddress, provider)).toBe(expected);
+    expect(getEmailDraftUrl(draftMessageId, emailAddress, provider)).toBe(
+      expected,
+    );
   });
 });
 

@@ -44,64 +44,53 @@ function getOutlookBaseUrl(emailAddress?: string | null) {
     : "https://outlook.office.com/mail";
 }
 
-const PROVIDER_CONFIG: Record<
-  string,
-  {
-    requiresMessageId: boolean;
-    buildUrl: (
-      messageOrThreadId: string,
-      emailAddress?: string | null,
-    ) => string;
-    buildDraftUrl: (draftId: string, emailAddress?: string | null) => string;
-    selectId: (messageId: string, threadId: string) => string;
-    buildSearchUrl: (from: string, emailAddress?: string | null) => string;
-  }
-> = {
+type ProviderUrlConfig = {
+  requiresMessageId: boolean;
+  buildUrl: (messageOrThreadId: string, emailAddress?: string | null) => string;
+  buildDraftUrl: (
+    draftMessageId: string,
+    emailAddress?: string | null,
+  ) => string;
+  selectId: (messageId: string, threadId: string) => string;
+  buildSearchUrl: (from: string, emailAddress?: string | null) => string;
+};
+
+const GOOGLE_CONFIG: ProviderUrlConfig = {
+  requiresMessageId: false,
+  buildUrl: (messageOrThreadId: string, emailAddress?: string | null) =>
+    getGmailUrlForFragment(`all/${messageOrThreadId}`, emailAddress),
+  buildDraftUrl: (draftMessageId: string, emailAddress?: string | null) =>
+    getGmailUrlForFragment(
+      `inbox?compose=${encodeURIComponent(draftMessageId)}`,
+      emailAddress,
+    ),
+  selectId: (messageId: string, _threadId: string) => messageId,
+  buildSearchUrl: (from: string, emailAddress?: string | null) =>
+    getGmailUrlForFragment(
+      `advanced-search/from=${encodeURIComponent(from)}`,
+      emailAddress,
+    ),
+};
+
+const PROVIDER_CONFIG: Record<string, ProviderUrlConfig> = {
   microsoft: {
     requiresMessageId: true,
     buildUrl: (messageOrThreadId: string, emailAddress?: string | null) => {
       const encodedMessageId = encodeURIComponent(messageOrThreadId);
       return `${getOutlookBaseUrl(emailAddress)}/inbox/id/${encodedMessageId}`;
     },
-    buildDraftUrl: (draftId: string, emailAddress?: string | null) =>
-      `${getOutlookBaseUrl(emailAddress)}/drafts/id/${encodeURIComponent(draftId)}`,
+    buildDraftUrl: (draftMessageId: string, emailAddress?: string | null) =>
+      `${getOutlookBaseUrl(emailAddress)}/deeplink/compose?itemid=${encodeURIComponent(draftMessageId)}&exvsurl=1`,
     selectId: (messageId: string, _threadId: string) => messageId,
     buildSearchUrl: (from: string, emailAddress?: string | null) => {
       const query = encodeURIComponent(`from:${from}`);
       return `${getOutlookBaseUrl(emailAddress)}/search/q/${query}`;
     },
   },
-  google: {
-    requiresMessageId: false,
-    buildUrl: (messageOrThreadId: string, emailAddress?: string | null) =>
-      getGmailUrlForFragment(`all/${messageOrThreadId}`, emailAddress),
-    buildDraftUrl: (draftId: string, emailAddress?: string | null) =>
-      getGmailUrlForFragment(
-        `drafts/${encodeURIComponent(draftId)}`,
-        emailAddress,
-      ),
-    selectId: (messageId: string, _threadId: string) => messageId,
-    buildSearchUrl: (from: string, emailAddress?: string | null) =>
-      getGmailUrlForFragment(
-        `advanced-search/from=${encodeURIComponent(from)}`,
-        emailAddress,
-      ),
-  },
+  google: GOOGLE_CONFIG,
   default: {
-    requiresMessageId: false,
-    buildUrl: (messageOrThreadId: string, emailAddress?: string | null) =>
-      getGmailUrlForFragment(`all/${messageOrThreadId}`, emailAddress),
-    buildDraftUrl: (draftId: string, emailAddress?: string | null) =>
-      getGmailUrlForFragment(
-        `drafts/${encodeURIComponent(draftId)}`,
-        emailAddress,
-      ),
+    ...GOOGLE_CONFIG,
     selectId: (_messageId: string, threadId: string) => threadId,
-    buildSearchUrl: (from: string, emailAddress?: string | null) =>
-      getGmailUrlForFragment(
-        `advanced-search/from=${encodeURIComponent(from)}`,
-        emailAddress,
-      ),
   },
 } as const;
 
@@ -121,13 +110,18 @@ export function getEmailUrl(
   return config.buildUrl(messageOrThreadId, emailAddress);
 }
 
+/**
+ * Takes the draft's underlying *message* id, not the draft resource id — on
+ * Gmail those differ (and the message id changes on every draft edit), so
+ * resolve it via `EmailProvider.getDraft` at link time.
+ */
 export function getEmailDraftUrl(
-  draftId: string,
+  draftMessageId: string,
   emailAddress?: string | null,
   provider?: string,
 ): string {
   const config = getProviderConfig(provider);
-  return config.buildDraftUrl(draftId, emailAddress);
+  return config.buildDraftUrl(draftMessageId, emailAddress);
 }
 
 /**
