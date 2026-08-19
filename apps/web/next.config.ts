@@ -58,7 +58,10 @@ const nextConfig: NextConfig = {
             ? {
                 // Keep the static build from fanning out too many workers at
                 // once. This trades a bit of build time for lower peak RAM.
-                staticGenerationMaxConcurrency: 4,
+                // Docker image builds share Depot workers; keep concurrency
+                // even lower there to avoid OOM keepalive failures.
+                staticGenerationMaxConcurrency:
+                  process.env.DOCKER_BUILD === "true" ? 2 : 4,
                 staticGenerationMinPagesPerWorker: 100,
               }
             : {}),
@@ -392,7 +395,8 @@ const nextConfig: NextConfig = {
       },
     },
   },
-  // Skip TypeScript checking during E2E CI builds to save memory
+  // Skip TypeScript checking during Docker/E2E CI builds to save memory.
+  // App typechecking is covered by the Build Check workflow.
   typescript: {
     ignoreBuildErrors: process.env.SKIP_TYPE_CHECK === "true",
   },
