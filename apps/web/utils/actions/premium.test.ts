@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { getMockOrganizationMembership } from "@/__tests__/helpers";
 import prisma from "@/utils/__mocks__/prisma";
 import {
   endStripeTrialAction,
@@ -111,20 +112,17 @@ describe("getBillingPortalUrlAction", () => {
         stripeSubscriptionItemId: "si_test",
         stripeSubscriptionStatus: "active",
         users: [{ _count: { emailAccounts: 1 } }],
-        admins: [
-          {
-            id: "user-1",
-            emailAccounts: [
-              {
-                members: [{ organizationId: "billing-org", role: "member" }],
-              },
-            ],
-          },
-        ],
+        admins: [{ id: "user-1" }, { id: "org-owner" }],
       },
       emailAccounts: [
         {
-          members: [{ organizationId: "billing-org", role: "member" }],
+          members: [
+            getMockOrganizationMembership({
+              role: "member",
+              ownerUserId: "org-owner",
+              ownerPremiumId: "premium-1",
+            }),
+          ],
         },
       ],
     } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
@@ -150,18 +148,19 @@ describe("getBillingPortalUrlAction", () => {
         stripeSubscriptionItemId: "si_test",
         stripeSubscriptionStatus: "active",
         users: [{ _count: { emailAccounts: 1 } }],
-        admins: [
-          {
-            id: "another-user",
-            emailAccounts: [
-              {
-                members: [{ organizationId: "billing-org", role: "owner" }],
-              },
-            ],
-          },
-        ],
+        admins: [{ id: "another-user" }],
       },
-      emailAccounts: [{ members: [{ organizationId: "billing-org", role }] }],
+      emailAccounts: [
+        {
+          members: [
+            getMockOrganizationMembership({
+              role,
+              ownerUserId: "another-user",
+              ownerPremiumId: "premium-1",
+            }),
+          ],
+        },
+      ],
     } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
     mocks.createBillingPortalSession.mockResolvedValue({
       url: "https://billing.stripe.test",

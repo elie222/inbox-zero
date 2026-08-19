@@ -516,3 +516,26 @@ export function getCalendarConnection({
     calendars: calendarIds.map((id) => ({ calendarId: id })),
   };
 }
+
+export function getMockOrganizationMembership({
+  role,
+  ownerUserId = "org-owner",
+  ownerPremiumId = null,
+}: {
+  role: string;
+  ownerUserId?: string;
+  ownerPremiumId?: string | null;
+}) {
+  return {
+    role,
+    organization: {
+      members: [
+        {
+          emailAccount: {
+            user: { id: ownerUserId, premiumId: ownerPremiumId },
+          },
+        },
+      ],
+    },
+  };
+}
