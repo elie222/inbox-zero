@@ -30,6 +30,10 @@ export function isRecallConfigured(): boolean {
 
 const DEFAULT_RECALL_REGION = "us-west-2";
 
+// Use participant presence to end successful recordings; a calendar duration
+// is not the call's actual lifetime.
+const EVERYONE_LEFT_TIMEOUT_SECONDS = 2;
+
 // Overridden only to point at the local emulator, same as GOOGLE_BASE_URL.
 function getRecallApiBase(): string {
   if (env.RECALL_BASE_URL) {
@@ -85,6 +89,9 @@ export class RecallBotProvider implements MeetingBotProvider {
         meeting_url: meetingUrl,
         bot_name: botName,
         join_at: joinAt.toISOString(),
+        automatic_leave: {
+          everyone_left_timeout: { timeout: EVERYONE_LEFT_TIMEOUT_SECONDS },
+        },
         ...(cameraImage && {
           automatic_video_output: {
             in_call_recording: {

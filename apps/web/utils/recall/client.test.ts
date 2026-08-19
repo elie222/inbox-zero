@@ -73,6 +73,9 @@ describe("RecallBotProvider", () => {
       meeting_url: "https://meet.google.com/abc-defg-hij",
       bot_name: "Inbox Zero Notetaker",
       join_at: "2026-05-04T09:00:00.000Z",
+      automatic_leave: {
+        everyone_left_timeout: { timeout: 2 },
+      },
     });
   });
 
