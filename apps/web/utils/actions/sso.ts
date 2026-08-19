@@ -47,22 +47,29 @@ export const registerSSOProviderAction = adminActionClient
 
       const existingOrganization = await prisma.organization.findUnique({
         where: { slug: organizationSlug },
-        select: { id: true },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          SsoProvider: { select: { providerId: true } },
+        },
       });
 
-      if (existingOrganization) {
+      if (existingOrganization?.SsoProvider.length) {
         throw new SafeError(
-          "An organization with this name already exists. Please choose a different name.",
+          "This organization already has an SSO provider configured.",
         );
       }
 
-      const organization = await prisma.organization.create({
-        data: {
-          name: organizationName,
-          slug: organizationSlug,
-        },
-        select: { id: true, name: true, slug: true },
-      });
+      const organization =
+        existingOrganization ??
+        (await prisma.organization.create({
+          data: {
+            name: organizationName,
+            slug: organizationSlug,
+          },
+          select: { id: true, name: true, slug: true },
+        }));
 
       // Compute callback URL to store with config (informational)
       const callbackUrl = new URL(
