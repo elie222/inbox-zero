@@ -87,6 +87,7 @@ describe("registerSSOProviderAction", () => {
       name: "Acme Corp",
       slug: "acme-corp",
       SsoProvider: [],
+      members: [{ emailAccount: { email: "owner@acme.com" } }],
     } as never);
 
     const result = await registerSSOProviderAction(input);
@@ -106,11 +107,28 @@ describe("registerSSOProviderAction", () => {
       name: "Acme Corp",
       slug: "acme-corp",
       SsoProvider: [{ providerId: "existing-saml" }],
+      members: [{ emailAccount: { email: "owner@acme.com" } }],
     } as never);
 
     const result = await registerSSOProviderAction(input);
 
     expect(result?.serverError).toMatch(/already has an SSO provider/i);
+    expect(prisma.organization.create).not.toHaveBeenCalled();
+    expect(prisma.ssoProvider.create).not.toHaveBeenCalled();
+  });
+
+  it("refuses to attach SSO to an existing organization when no owner/admin is on the SSO domain", async () => {
+    prisma.organization.findUnique.mockResolvedValue({
+      id: "org-squatted",
+      name: "Acme Corp",
+      slug: "acme-corp",
+      SsoProvider: [],
+      members: [{ emailAccount: { email: "attacker@evil.com" } }],
+    } as never);
+
+    const result = await registerSSOProviderAction(input);
+
+    expect(result?.serverError).toMatch(/none of its owners or admins/i);
     expect(prisma.organization.create).not.toHaveBeenCalled();
     expect(prisma.ssoProvider.create).not.toHaveBeenCalled();
   });

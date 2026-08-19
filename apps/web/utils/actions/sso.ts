@@ -8,6 +8,7 @@ import { SafeError } from "@/utils/error";
 import { extractSSOProviderConfigFromXML } from "@/utils/sso/extract-sso-provider-config-from-xml";
 import prisma from "@/utils/prisma";
 import { validateIdpMetadata } from "@/utils/sso/validate-idp-metadata";
+import { ADMIN_ROLES } from "@/utils/organizations/roles";
 import { slugify } from "@/utils/string";
 
 export const registerSSOProviderAction = adminActionClient
@@ -52,13 +53,32 @@ export const registerSSOProviderAction = adminActionClient
           name: true,
           slug: true,
           SsoProvider: { select: { providerId: true } },
+          members: {
+            where: { role: { in: ADMIN_ROLES } },
+            select: { emailAccount: { select: { email: true } } },
+          },
         },
       });
 
-      if (existingOrganization?.SsoProvider.length) {
-        throw new SafeError(
-          "This organization already has an SSO provider configured.",
+      if (existingOrganization) {
+        if (existingOrganization.SsoProvider.length) {
+          throw new SafeError(
+            "This organization already has an SSO provider configured.",
+          );
+        }
+
+        // Guard against slug squatting: only attach SSO to an existing
+        // organization if one of its owners/admins belongs to the SSO domain.
+        const domainSuffix = `@${domain.toLowerCase()}`;
+        const hasAdminOnDomain = existingOrganization.members.some((member) =>
+          member.emailAccount.email.toLowerCase().endsWith(domainSuffix),
         );
+
+        if (!hasAdminOnDomain) {
+          throw new SafeError(
+            `An organization with this name already exists, but none of its owners or admins have an email on "${domain}". Verify the organization before attaching SSO, or choose a different name.`,
+          );
+        }
       }
 
       const organization =
