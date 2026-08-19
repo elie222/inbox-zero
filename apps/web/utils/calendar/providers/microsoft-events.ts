@@ -11,8 +11,9 @@ import type {
 import { findVideoConferenceLink } from "@/utils/calendar/video-conference-link";
 import { BookingLinkLocationType } from "@/generated/prisma/enums";
 import type { Logger } from "@/utils/logger";
+import { sleep } from "@/utils/sleep";
 
-const TEAMS_JOIN_URL_POLL_DELAYS_MS = [500, 1000, 2000] as const;
+const ONLINE_MEETING_JOIN_URL_POLL_DELAYS_MS = [500, 1000, 2000] as const;
 const MICROSOFT_TEAMS_PROVIDER = "teamsForBusiness";
 
 export interface MicrosoftCalendarConnectionParams {
@@ -50,6 +51,7 @@ type MicrosoftCalendarOnlineMeetingSettings = {
 
 type MicrosoftOnlineMeetingFields = {
   isOnlineMeeting: true;
+  onlineMeetingProvider: string;
 };
 
 export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
@@ -148,13 +150,13 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
     const useMicrosoftTeams =
       input.locationType === BookingLinkLocationType.MICROSOFT_TEAMS;
     const onlineMeetingFields = useMicrosoftTeams
-      ? await getTeamsOnlineMeetingFields({
+      ? await getOnlineMeetingFields({
           calendarId: input.calendarId,
           client,
           logger: this.logger,
         })
       : null;
-    const requestedMicrosoftTeams = Boolean(onlineMeetingFields);
+    const requestedOnlineMeeting = Boolean(onlineMeetingFields);
     const response: MicrosoftEvent = await client
       .api(`/me/calendars/${input.calendarId}/events`)
       .post({
@@ -180,54 +182,55 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
         })),
         ...(onlineMeetingFields ?? {}),
         location:
-          !requestedMicrosoftTeams && input.locationValue
+          !requestedOnlineMeeting && input.locationValue
             ? { displayName: input.locationValue }
             : undefined,
       });
 
     let videoConferenceLink = getJoinUrl(response);
 
-    // Graph initializes the Teams meeting after the event is created, so the
+    // Graph initializes the online meeting after the event is created, so the
     // POST response sometimes returns before `onlineMeeting` is populated.
-    // Refetch the event to retrieve the join URL when we asked for Teams.
-    if (requestedMicrosoftTeams && !videoConferenceLink && response.id) {
-      videoConferenceLink = await pollForTeamsJoinUrl({
+    // Refetch the event to retrieve the join URL when one was requested.
+    if (requestedOnlineMeeting && !videoConferenceLink && response.id) {
+      videoConferenceLink = await pollForOnlineMeetingJoinUrl({
         client,
         eventId: response.id,
         logger: this.logger,
       });
     }
 
-    if (requestedMicrosoftTeams && !videoConferenceLink && response.id) {
+    if (requestedOnlineMeeting && !videoConferenceLink && response.id) {
       try {
         const patched: MicrosoftEvent = await client
           .api(`/me/events/${response.id}`)
-          .patch({
-            isOnlineMeeting: true,
-          });
+          .patch(onlineMeetingFields);
         videoConferenceLink = getJoinUrl(patched);
       } catch (error) {
-        this.logger.warn("Failed to enable Microsoft Teams on event", {
+        this.logger.warn("Failed to enable online meeting on Microsoft event", {
           eventId: response.id,
           error,
         });
       }
     }
 
-    if (requestedMicrosoftTeams && !videoConferenceLink && response.id) {
-      videoConferenceLink = await pollForTeamsJoinUrl({
+    if (requestedOnlineMeeting && !videoConferenceLink && response.id) {
+      videoConferenceLink = await pollForOnlineMeetingJoinUrl({
         client,
         eventId: response.id,
         logger: this.logger,
       });
     }
 
-    if (requestedMicrosoftTeams && !videoConferenceLink) {
-      this.logger.warn("Microsoft Teams link missing after event creation", {
-        eventId: response.id,
-        isOnlineMeeting: response.isOnlineMeeting,
-        onlineMeetingProvider: response.onlineMeetingProvider,
-      });
+    if (requestedOnlineMeeting && !videoConferenceLink) {
+      this.logger.warn(
+        "Microsoft online meeting link missing after event creation",
+        {
+          eventId: response.id,
+          isOnlineMeeting: response.isOnlineMeeting,
+          onlineMeetingProvider: response.onlineMeetingProvider,
+        },
+      );
     }
 
     return {
@@ -297,7 +300,7 @@ function getJoinUrl(event: MicrosoftEvent): string | undefined {
   return event.onlineMeeting?.joinUrl || event.onlineMeetingUrl;
 }
 
-async function getTeamsOnlineMeetingFields({
+async function getOnlineMeetingFields({
   calendarId,
   client,
   logger,
@@ -312,37 +315,28 @@ async function getTeamsOnlineMeetingFields({
     logger,
   });
 
-  if (
-    settings?.allowedOnlineMeetingProviders &&
-    !settings.allowedOnlineMeetingProviders.includes(MICROSOFT_TEAMS_PROVIDER)
-  ) {
-    logger.warn("Microsoft Teams meetings are not supported for calendar", {
+  // Prefer Teams when the calendar allows it; otherwise fall back to the
+  // calendar's default provider (personal Outlook calendars don't allow
+  // teamsForBusiness). When the settings fetch fails, still request Teams.
+  const onlineMeetingProvider =
+    !settings ||
+    settings.allowedOnlineMeetingProviders?.includes(MICROSOFT_TEAMS_PROVIDER)
+      ? MICROSOFT_TEAMS_PROVIDER
+      : settings.defaultOnlineMeetingProvider;
+
+  if (!onlineMeetingProvider || onlineMeetingProvider === "unknown") {
+    logger.warn("No online meeting provider is available for calendar", {
       calendarId,
-      allowedOnlineMeetingProviders: settings.allowedOnlineMeetingProviders,
-      defaultOnlineMeetingProvider: settings.defaultOnlineMeetingProvider,
+      allowedOnlineMeetingProviders: settings?.allowedOnlineMeetingProviders,
+      defaultOnlineMeetingProvider: settings?.defaultOnlineMeetingProvider,
     });
     return null;
   }
 
-  if (
-    settings?.defaultOnlineMeetingProvider &&
-    settings.defaultOnlineMeetingProvider !== MICROSOFT_TEAMS_PROVIDER
-  ) {
-    logger.warn(
-      "Microsoft Teams is not the default online meeting provider for calendar",
-      {
-        calendarId,
-        allowedOnlineMeetingProviders: settings.allowedOnlineMeetingProviders,
-        defaultOnlineMeetingProvider: settings.defaultOnlineMeetingProvider,
-      },
-    );
-    return null;
-  }
-
-  // Graph can ignore explicit teamsForBusiness on some Outlook calendars and
-  // create a regular event instead, so let the calendar's online provider
-  // settings drive Teams generation.
-  return { isOnlineMeeting: true } satisfies MicrosoftOnlineMeetingFields;
+  return {
+    isOnlineMeeting: true,
+    onlineMeetingProvider,
+  } satisfies MicrosoftOnlineMeetingFields;
 }
 
 async function getCalendarOnlineMeetingSettings({
@@ -368,7 +362,7 @@ async function getCalendarOnlineMeetingSettings({
   }
 }
 
-async function pollForTeamsJoinUrl({
+async function pollForOnlineMeetingJoinUrl({
   client,
   eventId,
   logger,
@@ -377,7 +371,7 @@ async function pollForTeamsJoinUrl({
   eventId: string;
   logger: Logger;
 }) {
-  for (const delayMs of [0, ...TEAMS_JOIN_URL_POLL_DELAYS_MS]) {
+  for (const delayMs of [0, ...ONLINE_MEETING_JOIN_URL_POLL_DELAYS_MS]) {
     if (delayMs > 0) {
       await sleep(delayMs);
     }
@@ -398,7 +392,7 @@ async function pollForTeamsJoinUrl({
         return;
       }
     } catch (error) {
-      logger.warn("Failed to refetch Microsoft event for Teams join URL", {
+      logger.warn("Failed to refetch Microsoft event for online meeting URL", {
         eventId,
         error,
       });
@@ -406,8 +400,4 @@ async function pollForTeamsJoinUrl({
   }
 
   return;
-}
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
