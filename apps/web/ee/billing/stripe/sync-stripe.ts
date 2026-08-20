@@ -1,4 +1,5 @@
 import { after } from "next/server";
+import type Stripe from "stripe";
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
 import { getStripe } from "@/ee/billing/stripe";
@@ -156,19 +157,17 @@ export async function syncStripeDataToDb({
       },
     });
 
-    // If no admin is recorded (legacy or webhook-created premium), designate
-    // the first linked user as purchaser. This self-heals existing records and
-    // prevents the empty-admins fallback from granting billing access to all
-    // seat users. The claimPremiumAdminAction exists as a manual override.
+    // If no admin is recorded, resolve the purchaser from the Stripe customer's
+    // trusted metadata.userId (written on customer creation) and verify they
+    // are still linked to this premium before connecting. Skips if the metadata
+    // is absent or the user is no longer linked; claimPremiumAdminAction exists
+    // as a manual override for those cases.
     if (updatedPremium.admins.length === 0 && updatedPremium.users.length > 0) {
-      await prisma.premium.update({
-        where: { id: updatedPremium.id },
-        data: { admins: { connect: { id: updatedPremium.users[0].id } } },
-      });
-      logger.info("Recorded missing Stripe premium admin", {
+      await connectPurchaserAsAdmin({
+        stripe,
         customerId,
-        premiumId: updatedPremium.id,
-        userId: updatedPremium.users[0].id,
+        premium: updatedPremium,
+        logger,
       });
     }
 
@@ -220,3 +219,63 @@ function getEffectiveStripeSubscriptionStatus(subscription: {
 }
 
 export { getEffectiveStripeSubscriptionStatus };
+
+// Resolves the purchaser from the Stripe customer's trusted metadata.userId
+// (written at customer-creation time) and connects them as premium admin only
+// if they are still linked to this premium. Exported for use in the backfill
+// admin action.
+// Returns true if an admin was connected, false if the purchaser could not be
+// established (deleted customer, missing metadata.userId, or userId not linked
+// to this premium).
+export async function connectPurchaserAsAdmin({
+  stripe,
+  customerId,
+  premium,
+  logger,
+}: {
+  stripe: Stripe;
+  customerId: string;
+  premium: { id: string; users: { id: string }[] };
+  logger: Logger;
+}): Promise<boolean> {
+  const customer = await stripe.customers.retrieve(customerId);
+
+  if (customer.deleted) {
+    logger.warn("Stripe customer deleted; cannot establish purchaser", {
+      customerId,
+      premiumId: premium.id,
+    });
+    return false;
+  }
+
+  const purchaserUserId = customer.metadata?.userId;
+  const linkedUserIds = new Set(premium.users.map((u) => u.id));
+
+  if (!purchaserUserId || !linkedUserIds.has(purchaserUserId)) {
+    logger.warn(
+      "Cannot establish purchaser from Stripe metadata; skipping admin assignment",
+      {
+        customerId,
+        premiumId: premium.id,
+        hasMetadataUserId: !!purchaserUserId,
+        metadataUserIsLinked: purchaserUserId
+          ? linkedUserIds.has(purchaserUserId)
+          : false,
+      },
+    );
+    return false;
+  }
+
+  await prisma.premium.update({
+    where: { id: premium.id },
+    data: { admins: { connect: { id: purchaserUserId } } },
+  });
+
+  logger.info("Recorded Stripe purchaser as premium admin", {
+    customerId,
+    premiumId: premium.id,
+    userId: purchaserUserId,
+  });
+
+  return true;
+}
