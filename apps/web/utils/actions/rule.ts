@@ -130,7 +130,12 @@ export const updateRuleAction = actionClient
     }) => {
       await assertRuleIsNotOrgManaged({ ruleId: id, emailAccountId });
 
-      await assertCanUseDigestsIfNeeded(userId, actions);
+      const existingRule = await prisma.rule.findFirst({
+        where: { id, emailAccountId },
+        select: { actions: { select: { type: true } } },
+      });
+
+      await assertCanUseDigestsIfNeeded(userId, actions, existingRule?.actions);
 
       const conditions = flattenConditions(conditionsInput, logger);
 

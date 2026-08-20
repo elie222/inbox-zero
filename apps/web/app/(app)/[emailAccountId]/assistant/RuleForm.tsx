@@ -81,6 +81,7 @@ import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
 import type { GetMessagingChannelsResponse } from "@/app/api/user/messaging-channels/route";
 import { usePremium } from "@/hooks/usePremium";
 import { hasTierAccess } from "@/utils/premium";
+import { shouldIncludeDigestAction } from "@/utils/premium/digest";
 import { UpgradeToPlusButton } from "@/components/UpgradeToPlusButton";
 import { useIntegrationActionsEnabled } from "@/hooks/useFeatureFlags";
 import { getConnectedRuleNotificationChannels } from "@/utils/messaging/routes";
@@ -241,15 +242,16 @@ export function RuleForm({
         isDraftReplyActionType(action.type),
       );
 
-      // When the user lacks digest access the toggle is hidden, so preserve
-      // any existing DIGEST action rather than silently dropping it.
       const actionsToSubmit = [...normalizedActions];
       const existingDigestAction = rule.actions.find(
         (action) => action.type === ActionType.DIGEST,
       );
-      const includeDigestAction = hasDigestAccess
-        ? data.digest
-        : !!existingDigestAction;
+      const includeDigestAction = shouldIncludeDigestAction({
+        digestFeatureEnabled: !!env.NEXT_PUBLIC_DIGEST_ENABLED,
+        hasDigestAccess,
+        wantsDigest: !!data.digest,
+        hasExistingDigest: !!existingDigestAction,
+      });
       if (includeDigestAction) {
         actionsToSubmit.push({
           id: existingDigestAction?.id,
@@ -608,9 +610,14 @@ export function RuleForm({
                 {env.NEXT_PUBLIC_DIGEST_ENABLED && (
                   <AdvancedRow
                     title="Include in digest"
-                    description="Show matched emails in your digest summary."
+                    description={
+                      !hasDigestAccess && watch("digest")
+                        ? "Digests are available on the Plus plan. Turn this off to update this rule on your current plan."
+                        : "Show matched emails in your digest summary."
+                    }
                   >
-                    {isLoadingPremium ? null : hasDigestAccess ? (
+                    {isLoadingPremium ? null : hasDigestAccess ||
+                      watch("digest") ? (
                       <Toggle
                         name="digest"
                         enabled={watch("digest") || false}

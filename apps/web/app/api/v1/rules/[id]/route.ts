@@ -39,16 +39,20 @@ export const PUT = withAccountApiKey(
     const body = ruleRequestBodySchema.parse(await request.json());
     const ruleInput = toRuleWriteInput(body);
 
-    await assertCanUseDigestsIfNeeded(userId, ruleInput.actions);
-
     const existingRule = await prisma.rule.findFirst({
       where: { id: routeParams.id, emailAccountId },
-      select: { id: true },
+      select: { id: true, actions: { select: { type: true } } },
     });
 
     if (!existingRule) {
       return NextResponse.json({ error: "Rule not found" }, { status: 404 });
     }
+
+    await assertCanUseDigestsIfNeeded(
+      userId,
+      ruleInput.actions,
+      existingRule.actions,
+    );
 
     await updateRule({
       ruleId: routeParams.id,
