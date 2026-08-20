@@ -152,8 +152,25 @@ export async function syncStripeDataToDb({
       select: {
         id: true,
         users: { select: { id: true } },
+        admins: { select: { id: true } },
       },
     });
+
+    // If no admin is recorded (legacy or webhook-created premium), designate
+    // the first linked user as purchaser. This self-heals existing records and
+    // prevents the empty-admins fallback from granting billing access to all
+    // seat users. The claimPremiumAdminAction exists as a manual override.
+    if (updatedPremium.admins.length === 0 && updatedPremium.users.length > 0) {
+      await prisma.premium.update({
+        where: { id: updatedPremium.id },
+        data: { admins: { connect: { id: updatedPremium.users[0].id } } },
+      });
+      logger.info("Recorded missing Stripe premium admin", {
+        customerId,
+        premiumId: updatedPremium.id,
+        userId: updatedPremium.users[0].id,
+      });
+    }
 
     // Handle Loops events based on state changes
     await handleLoopsEvents({

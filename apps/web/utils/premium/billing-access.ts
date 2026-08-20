@@ -1,6 +1,5 @@
 import type { Prisma } from "@/generated/prisma/client";
 import { SafeError } from "@/utils/error";
-import { isAdminForPremium } from "@/utils/premium";
 import { isOrganizationAdmin } from "@/utils/organizations/roles";
 
 export const organizationOwnerPremiumSelect = {
@@ -63,18 +62,19 @@ export function canManageBilling(userId: string, user: BillingAccessUser) {
     return isOrganizationAdmin(organizationMemberships);
   }
 
-  // isAdminForPremium returns true when admins is empty — this covers Stripe
-  // subscribers (sync never writes admins) and legacy plans where the purchaser
-  // was not recorded. Fall back to requiring org admin/owner status.
-  if (isAdminForPremium(premium.admins, userId)) {
+  const premiumAdminIds = new Set(premium.admins.map((admin) => admin.id));
+
+  // Only the recorded purchaser/admin may manage billing. An empty admins array
+  // does NOT grant access — syncStripeDataToDb now persists the purchaser on
+  // every sync, and the backfill action covers existing records.
+  if (premiumAdminIds.has(userId)) {
     if (organizationMemberships.length === 0) return true;
     return isOrganizationAdmin(organizationMemberships);
   }
 
-  // Every invited seat user shares the premium id and can own their own
-  // organization, so anchor on the purchaser: a premium admin, or the legacy
-  // owner whose user id doubles as the premium id.
-  const premiumAdminIds = new Set(premium.admins.map((admin) => admin.id));
+  // Allow an org admin/owner whose org's owner holds this premium. The legacy
+  // identity check (user.id === premium.id) covers plans predating the admins
+  // relation.
   const premiumOrganizationMemberships = organizationMemberships.filter(
     (membership) =>
       membership.organization.members.some(({ emailAccount: { user } }) => {

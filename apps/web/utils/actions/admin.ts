@@ -677,6 +677,43 @@ export const adminCleanupDraftsAction = adminActionClient
     };
   });
 
+// Backfills premium.admins for Stripe-created premiums that were never given an
+// admin record. Designates the first linked user as the purchaser. Run once
+// after deploying the syncStripeDataToDb admin-persistence fix.
+export const adminBackfillPremiumAdminsAction = adminActionClient
+  .metadata({ name: "adminBackfillPremiumAdmins" })
+  .action(async ({ ctx: { logger } }) => {
+    const premiumsWithoutAdmins = await prisma.premium.findMany({
+      where: {
+        stripeCustomerId: { not: null },
+        admins: { none: {} },
+        users: { some: {} },
+      },
+      select: {
+        id: true,
+        stripeCustomerId: true,
+        users: { select: { id: true }, take: 1 },
+      },
+    });
+
+    logger.info("Starting premium admin backfill", {
+      count: premiumsWithoutAdmins.length,
+    });
+
+    let backfilled = 0;
+    for (const premium of premiumsWithoutAdmins) {
+      if (premium.users.length === 0) continue;
+      await prisma.premium.update({
+        where: { id: premium.id },
+        data: { admins: { connect: { id: premium.users[0].id } } },
+      });
+      backfilled++;
+    }
+
+    logger.info("Completed premium admin backfill", { backfilled });
+    return { backfilled };
+  });
+
 async function findUserWithDetails(email?: string, userId?: string) {
   return prisma.user.findUnique({
     where: email ? { email } : { id: userId },
