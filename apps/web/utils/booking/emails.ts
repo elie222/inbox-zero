@@ -49,6 +49,11 @@ export async function sendBookingConfirmationEmails({
   const link = booking.bookingLink;
   const host = link.emailAccount;
   const location = getLocationLabel(link);
+  const hostLocation =
+    link.locationType === BookingLinkLocationType.MICROSOFT_TEAMS &&
+    !booking.videoConferenceLink
+      ? "Microsoft Teams link was not generated"
+      : location;
   const hostTimezone = link.availabilitySchedule.timezone;
   const guestParts = formatBookingParts({
     startTime: booking.startTime,
@@ -91,7 +96,7 @@ export async function sendBookingConfirmationEmails({
           formattedTime: hostParts.formattedTime,
           guestEmail: booking.guestEmail,
           guestName: booking.guestName,
-          location,
+          location: hostLocation,
           dateMonth: hostParts.dateMonth,
           dateDay: hostParts.dateDay,
           dateWeekday: hostParts.dateWeekday,
