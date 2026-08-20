@@ -5,6 +5,7 @@ import type { EmailForLLM, RuleWithActions } from "@/utils/types";
 import { getModel, type ModelType } from "@/utils/llms/model";
 import { getUserInfoPrompt, getEmailListPrompt } from "@/utils/ai/helpers";
 import type { ConversationStatus } from "@/utils/reply-tracker/conversation-status-config";
+import { THREAD_STATUS_LATEST_MESSAGE_MAX_LENGTH } from "@/utils/reply-tracker/thread-status-context";
 import { SystemType } from "@/generated/prisma/enums";
 import { getRuleConfig } from "@/utils/rule/consts";
 
@@ -125,7 +126,7 @@ Email thread (in chronological order, oldest to newest):
 <thread>
 ${getEmailListPrompt({
   messages: threadMessages,
-  messageMaxLength: 1000,
+  messageMaxLength: THREAD_STATUS_LATEST_MESSAGE_MAX_LENGTH,
 })}
 </thread>
 
