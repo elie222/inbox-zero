@@ -63,6 +63,14 @@ export function canManageBilling(userId: string, user: BillingAccessUser) {
     return isOrganizationAdmin(organizationMemberships);
   }
 
+  // isAdminForPremium returns true when admins is empty — this covers Stripe
+  // subscribers (sync never writes admins) and legacy plans where the purchaser
+  // was not recorded. Fall back to requiring org admin/owner status.
+  if (isAdminForPremium(premium.admins, userId)) {
+    if (organizationMemberships.length === 0) return true;
+    return isOrganizationAdmin(organizationMemberships);
+  }
+
   // Every invited seat user shares the premium id and can own their own
   // organization, so anchor on the purchaser: a premium admin, or the legacy
   // owner whose user id doubles as the premium id.
@@ -79,12 +87,7 @@ export function canManageBilling(userId: string, user: BillingAccessUser) {
     return isOrganizationAdmin(premiumOrganizationMemberships);
   }
 
-  if (premium.admins.length > 0) {
-    return isAdminForPremium(premium.admins, userId);
-  }
-
-  // The initial premium migration used the owner's user ID as the premium ID.
-  return premium.id === userId;
+  return false;
 }
 
 export function assertCanManageBilling(

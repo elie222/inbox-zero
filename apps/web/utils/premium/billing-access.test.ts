@@ -111,6 +111,53 @@ describe("canManageBilling", () => {
     expect(result).toBe(false);
   });
 
+  it.each([
+    "admin",
+    "owner",
+  ])("allows an organization %s when no premium admins are recorded (e.g. Stripe sync)", (role) => {
+    const result = canManageBilling("user-1", {
+      premium: {
+        id: "premium-1",
+        admins: [],
+      },
+      emailAccounts: [
+        {
+          members: [
+            getMockOrganizationMembership({
+              role,
+              ownerUserId: "user-1",
+              ownerPremiumId: "premium-1",
+            }),
+          ],
+        },
+      ],
+    });
+
+    expect(result).toBe(true);
+  });
+
+  it("denies an organization member when no premium admins are recorded (e.g. Stripe sync)", () => {
+    const result = canManageBilling("user-1", {
+      premium: {
+        id: "premium-1",
+        admins: [],
+      },
+      emailAccounts: [
+        {
+          members: [
+            getMockOrganizationMembership({
+              role: "member",
+              ownerUserId: "user-1",
+              ownerPremiumId: "premium-1",
+            }),
+          ],
+        },
+      ],
+    });
+
+    expect(result).toBe(false);
+  });
+
   it("does not use an admin role from an unrelated organization", () => {
     const result = canManageBilling("user-1", {
       premium: {
