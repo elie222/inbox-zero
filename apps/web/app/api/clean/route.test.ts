@@ -45,9 +45,10 @@ vi.mock("@/utils/user/get", () => ({
   getUserPremium: (...args: unknown[]) => mockGetUserPremium(...args),
 }));
 
+const mockUpdateThread = vi.fn();
 vi.mock("@/utils/redis/clean", () => ({
   saveThread: vi.fn().mockResolvedValue(undefined),
-  updateThread: vi.fn().mockResolvedValue(undefined),
+  updateThread: (...args: unknown[]) => mockUpdateThread(...args),
 }));
 
 vi.mock("@/utils/qstash", () => ({
@@ -101,6 +102,10 @@ function getDefaultParams() {
       attachment: true,
       conversation: true,
     },
+    labels: [
+      { id: "label-newsletters", name: "Newsletters" },
+      { id: "label-finance", name: "Finance" },
+    ],
     logger,
   };
 }
@@ -126,7 +131,7 @@ describe("cleanThread", () => {
     });
 
     mockPublishToQstash.mockResolvedValue(undefined);
-    mockAiClean.mockResolvedValue({ archive: true });
+    mockAiClean.mockResolvedValue({ archive: true, label: null });
   });
 
   describe("maybe-receipt should not break loop early", () => {
@@ -257,6 +262,158 @@ describe("cleanThread", () => {
       await cleanThread(getDefaultParams());
 
       expect(mockAiClean).toHaveBeenCalled();
+    });
+  });
+
+  describe("AI-chosen labels", () => {
+    function getSingleMessageThread() {
+      return [
+        getMockMessage({
+          id: "msg-1",
+          from: "newsletter@example.com",
+          to: "user@example.com",
+          subject: "Weekly digest",
+          labelIds: [],
+        }),
+      ];
+    }
+
+    it("passes labels to aiClean", async () => {
+      mockGetThreadMessages.mockResolvedValue(getSingleMessageThread());
+
+      await cleanThread(getDefaultParams());
+
+      expect(mockAiClean).toHaveBeenCalledWith(
+        expect.objectContaining({
+          labels: [
+            { id: "label-newsletters", name: "Newsletters" },
+            { id: "label-finance", name: "Finance" },
+          ],
+        }),
+      );
+    });
+
+    it("publishes the resolved labelId and saves the label name to redis", async () => {
+      mockGetThreadMessages.mockResolvedValue(getSingleMessageThread());
+      mockAiClean.mockResolvedValue({ archive: true, label: "Finance" });
+
+      await cleanThread(getDefaultParams());
+
+      expect(mockPublishToQstash).toHaveBeenCalledWith(
+        "/api/clean/gmail",
+        expect.objectContaining({
+          markDone: true,
+          labelId: "label-finance",
+          labelName: "Finance",
+          labelAdded: true,
+        }),
+        expect.any(Object),
+      );
+
+      const update = mockUpdateThread.mock.calls[0][0].update;
+      expect(update).toMatchObject({ archive: true, label: "Finance" });
+    });
+
+    it("marks a label that was already on the thread as not added by this run", async () => {
+      mockGetThreadMessages.mockResolvedValue([
+        getMockMessage({
+          id: "msg-1",
+          from: "newsletter@example.com",
+          to: "user@example.com",
+          subject: "Weekly digest",
+          labelIds: ["label-finance"],
+        }),
+      ]);
+      mockAiClean.mockResolvedValue({ archive: true, label: "Finance" });
+
+      await cleanThread(getDefaultParams());
+
+      expect(mockPublishToQstash).toHaveBeenCalledWith(
+        "/api/clean/gmail",
+        expect.objectContaining({
+          labelId: "label-finance",
+          labelAdded: false,
+        }),
+        expect.any(Object),
+      );
+    });
+
+    it("persists the canonical label name when the AI returns a non-canonical match", async () => {
+      mockGetThreadMessages.mockResolvedValue(getSingleMessageThread());
+      mockAiClean.mockResolvedValue({ archive: false, label: "  finance " });
+
+      await cleanThread(getDefaultParams());
+
+      expect(mockPublishToQstash).toHaveBeenCalledWith(
+        "/api/clean/gmail",
+        expect.objectContaining({
+          labelId: "label-finance",
+          labelName: "Finance",
+        }),
+        expect.any(Object),
+      );
+
+      const update = mockUpdateThread.mock.calls[0][0].update;
+      expect(update.label).toBe("Finance");
+    });
+
+    it("prefers an exact label name match over a normalized one", async () => {
+      mockGetThreadMessages.mockResolvedValue(getSingleMessageThread());
+      mockAiClean.mockResolvedValue({ archive: false, label: "Q1-Report" });
+
+      await cleanThread({
+        ...getDefaultParams(),
+        labels: [
+          { id: "label-q1-space", name: "Q1 Report" },
+          { id: "label-q1-dash", name: "Q1-Report" },
+        ],
+      });
+
+      expect(mockPublishToQstash).toHaveBeenCalledWith(
+        "/api/clean/gmail",
+        expect.objectContaining({
+          labelId: "label-q1-dash",
+          labelName: "Q1-Report",
+        }),
+        expect.any(Object),
+      );
+    });
+
+    it("rejects ambiguous normalized label matches", async () => {
+      mockGetThreadMessages.mockResolvedValue(getSingleMessageThread());
+      mockAiClean.mockResolvedValue({ archive: false, label: "q1-report" });
+
+      await cleanThread({
+        ...getDefaultParams(),
+        labels: [
+          { id: "label-q1-space", name: "Q1 Report" },
+          { id: "label-q1-dash", name: "Q1-Report" },
+        ],
+      });
+
+      const cleanGmailBody = mockPublishToQstash.mock.calls[0][1] as {
+        labelId?: string;
+        labelName?: string;
+      };
+      expect(cleanGmailBody.labelId).toBeUndefined();
+      expect(cleanGmailBody.labelName).toBeUndefined();
+    });
+
+    it("omits labelId when the label name doesn't match any provided label", async () => {
+      mockGetThreadMessages.mockResolvedValue(getSingleMessageThread());
+      mockAiClean.mockResolvedValue({ archive: false, label: "Unknown label" });
+
+      await cleanThread(getDefaultParams());
+
+      const cleanGmailBody = mockPublishToQstash.mock.calls[0][1] as {
+        labelId?: string;
+        labelName?: string;
+      };
+      expect(cleanGmailBody.labelId).toBeUndefined();
+      expect(cleanGmailBody.labelName).toBeUndefined();
+
+      const update = mockUpdateThread.mock.calls[0][0].update;
+      expect(update.label).toBeUndefined();
     });
   });
 

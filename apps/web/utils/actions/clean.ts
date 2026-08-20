@@ -1,23 +1,29 @@
 "use server";
 
+import type { gmail_v1 } from "@googleapis/gmail";
 import { after } from "next/server";
 import {
   cleanInboxSchema,
   undoCleanInboxSchema,
   changeKeepToDoneSchema,
+  removeLabelFromThreadSchema,
 } from "@/utils/actions/clean.validation";
 import { bulkPublishToQstash } from "@/utils/upstash";
 import {
   getLabel,
+  getLabels,
   getOrCreateInboxZeroLabel,
   GmailLabel,
   labelThread,
 } from "@/utils/gmail/label";
+import { normalizeLabelName } from "@/utils/label/normalize-label-name";
 import type { CleanThreadBody } from "@/app/api/clean/controller";
+import { MAX_CLEAN_LABELS } from "@/utils/clean/consts";
 import { isDefined } from "@/utils/types";
-import { inboxZeroLabels } from "@/utils/label";
+import { FOLLOW_UP_LABEL, inboxZeroLabels } from "@/utils/label";
 import prisma from "@/utils/prisma";
-import { CleanAction } from "@/generated/prisma/enums";
+import { CleanAction, SystemType } from "@/generated/prisma/enums";
+import { getRuleLabel } from "@/utils/rule/consts";
 import { updateThread } from "@/utils/redis/clean";
 import { getUnhandledCount } from "@/utils/assess";
 import { getGmailClientForEmail } from "@/utils/email-account-client";
@@ -25,6 +31,7 @@ import { actionClient } from "@/utils/actions/safe-action";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
 import { isGoogleProvider } from "@/utils/email/provider-types";
+import type { EmailProvider } from "@/utils/email/types";
 import { getUserPremium } from "@/utils/user/get";
 import { isActivePremium } from "@/utils/premium";
 import { ONE_DAY_MS } from "@/utils/date";
@@ -53,11 +60,15 @@ export const cleanInboxAction = actionClient
         logger,
       });
 
-      const [markedDoneLabel, processedLabel] = await Promise.all([
+      const [markedDoneLabel, processedLabel, labels] = await Promise.all([
         emailProvider.getOrCreateInboxZeroLabel(
           action === CleanAction.ARCHIVE ? "archived" : "marked_read",
         ),
         emailProvider.getOrCreateInboxZeroLabel("processed"),
+        getCleanLabels(emailProvider).catch((error) => {
+          logger.warn("Failed to fetch labels for clean", { error });
+          return [];
+        }),
       ]);
 
       const markedDoneLabelId = markedDoneLabel?.id;
@@ -136,6 +147,7 @@ export const cleanInboxAction = actionClient
                   action,
                   instructions,
                   skips,
+                  labels,
                 } satisfies CleanThreadBody,
                 // give every user their own queue for ai processing. if we get too many parallel users we may need more
                 // api keys or a global queue
@@ -168,13 +180,52 @@ function isMaxEmailsReached(totalEmailsProcessed: number, maxEmails?: number) {
   return totalEmailsProcessed >= maxEmails;
 }
 
+// Resolve a stored label name to its current Gmail label ID. Exact name match
+// first; normalized match as a fallback that rejects ambiguity so we never
+// remove a different label that merely differs by case or punctuation.
+async function getLabelIdByName({
+  gmail,
+  name,
+}: {
+  gmail: gmail_v1.Gmail;
+  name: string;
+}): Promise<string | undefined> {
+  const labels = await getLabels(gmail);
+  const exactMatch = labels?.find((label) => label.name === name);
+  if (exactMatch?.id) return exactMatch.id;
+  const normalized = normalizeLabelName(name);
+  const normalizedMatches =
+    labels?.filter(
+      (label) => label.name && normalizeLabelName(label.name) === normalized,
+    ) ?? [];
+  return normalizedMatches.length === 1
+    ? (normalizedMatches[0]?.id ?? undefined)
+    : undefined;
+}
+
+const CLEAN_EXCLUDED_LABEL_NAMES = [
+  ...Object.values(inboxZeroLabels).map((label) => label.name),
+  FOLLOW_UP_LABEL,
+  ...Object.values(SystemType).map((type) => getRuleLabel(type)),
+];
+
+async function getCleanLabels(emailProvider: EmailProvider) {
+  const labels = await emailProvider.getLabels();
+
+  return labels
+    .filter((label) => !CLEAN_EXCLUDED_LABEL_NAMES.includes(label.name))
+    .sort((a, b) => (b.threadsTotal ?? 0) - (a.threadsTotal ?? 0))
+    .slice(0, MAX_CLEAN_LABELS)
+    .map((label) => ({ id: label.id, name: label.name }));
+}
+
 export const undoCleanInboxAction = actionClient
   .metadata({ name: "undoCleanInbox" })
   .inputSchema(undoCleanInboxSchema)
   .action(
     async ({
       ctx: { emailAccountId, logger },
-      parsedInput: { threadId, markedDone, action },
+      parsedInput: { threadId, markedDone, action, jobId: inputJobId },
     }) => {
       const gmail = await getGmailClientForEmail({ emailAccountId, logger });
 
@@ -190,6 +241,52 @@ export const undoCleanInboxAction = actionClient
         gmail,
       });
 
+      // Resolve the AI-applied label (if any) so undo removes it too.
+      // Best-effort: if the record or label lookup fails, the core undo still proceeds.
+      let appliedLabelId: string | undefined;
+      let jobId: string | undefined;
+      try {
+        // Scope to the run the UI is undoing from: the same thread can appear
+        // in multiple cleanup runs, each with its own label.
+        const thread = await prisma.cleanupThread.findFirst({
+          where: {
+            emailAccountId,
+            threadId,
+            ...(inputJobId ? { jobId: inputJobId } : {}),
+          },
+          orderBy: { createdAt: "desc" },
+          select: {
+            jobId: true,
+            label: true,
+            labelId: true,
+            labelAdded: true,
+          },
+        });
+
+        jobId = thread?.jobId;
+        // Only remove the label when this run added it: the AI may have picked
+        // a label that was already on the thread, and undo must not touch
+        // labels the clean run didn't apply. Legacy rows default to added.
+        const addedByRun = thread?.labelAdded ?? true;
+        if (addedByRun && thread?.labelId) {
+          appliedLabelId = thread.labelId;
+        } else if (addedByRun && thread?.label) {
+          appliedLabelId = await getLabelIdByName({
+            gmail,
+            name: thread.label,
+          });
+        }
+      } catch (error) {
+        logger.error("Failed to resolve AI-applied label for undo", {
+          error,
+          threadId,
+        });
+      }
+
+      // Fall back to the job the run page knows about: the DB row may not exist
+      // yet while Qstash is still applying the action.
+      if (!jobId) jobId = inputJobId;
+
       await labelThread({
         gmail,
         threadId,
@@ -198,35 +295,151 @@ export const undoCleanInboxAction = actionClient
           action === CleanAction.ARCHIVE
             ? [GmailLabel.INBOX]
             : [GmailLabel.UNREAD],
-        // undo our own labelling
-        removeLabelIds: markedDoneLabel?.id ? [markedDoneLabel.id] : undefined,
+        removeLabelIds: [markedDoneLabel?.id, appliedLabelId].filter(isDefined),
       });
 
       // Update Redis to mark this thread as undone
-      try {
-        // We need to get the thread first to get the jobId
-        const thread = await prisma.cleanupThread.findFirst({
-          where: { emailAccountId, threadId },
-          orderBy: { createdAt: "desc" },
-        });
-
-        if (thread) {
+      if (jobId) {
+        try {
           await updateThread({
             emailAccountId,
-            jobId: thread.jobId,
+            jobId,
             threadId,
             update: {
               undone: true,
               archive: false, // Reset the archive status since we've undone it
+              // Clear the AI-applied label so the UI matches Gmail
+              ...(appliedLabelId ? { label: null } : {}),
             },
+          });
+        } catch (error) {
+          logger.error("Failed to update Redis for undone thread", {
+            error,
+            threadId,
+          });
+          // Continue even if Redis update fails
+        }
+      }
+
+      // Sync the DB record with Gmail: the applied label is gone
+      try {
+        if (appliedLabelId) {
+          await prisma.cleanupThread.updateMany({
+            where: {
+              emailAccountId,
+              threadId,
+              ...(jobId ? { jobId } : {}),
+            },
+            data: { label: null, labelId: null, labelAdded: false },
           });
         }
       } catch (error) {
-        logger.error("Failed to update Redis for undone thread", {
+        logger.error("Failed to clear label from DB for undone thread", {
           error,
           threadId,
         });
-        // Continue even if Redis update fails
+      }
+
+      return { success: true };
+    },
+  );
+
+export const removeLabelFromThreadAction = actionClient
+  .metadata({ name: "removeLabelFromThread" })
+  .inputSchema(removeLabelFromThreadSchema)
+  .action(
+    async ({
+      ctx: { emailAccountId, logger },
+      parsedInput: { threadId, jobId: inputJobId },
+    }) => {
+      const gmail = await getGmailClientForEmail({ emailAccountId, logger });
+
+      // Resolve the AI-applied label (if any). Unlike undo there is no core
+      // action to fall back to, so failures surface as errors.
+      let appliedLabelId: string | undefined;
+      let jobId: string | undefined;
+      try {
+        // Scope to the run the UI is removing from: the same thread can appear
+        // in multiple cleanup runs, each with its own label.
+        const thread = await prisma.cleanupThread.findFirst({
+          where: {
+            emailAccountId,
+            threadId,
+            ...(inputJobId ? { jobId: inputJobId } : {}),
+          },
+          orderBy: { createdAt: "desc" },
+          select: { jobId: true, label: true, labelId: true },
+        });
+
+        jobId = thread?.jobId ?? inputJobId;
+
+        if (!thread?.label && !thread?.labelId) {
+          if (!inputJobId) {
+            logger.info("No AI-applied label found to remove", { threadId });
+          }
+          return { success: true };
+        }
+
+        if (thread.labelId) {
+          appliedLabelId = thread.labelId;
+        } else if (thread.label) {
+          appliedLabelId = await getLabelIdByName({
+            gmail,
+            name: thread.label,
+          });
+        }
+      } catch (error) {
+        logger.error("Failed to resolve AI-applied label for removal", {
+          error,
+          threadId,
+        });
+        throw new SafeError("Failed to remove label");
+      }
+
+      if (appliedLabelId) {
+        await labelThread({
+          gmail,
+          threadId,
+          removeLabelIds: [appliedLabelId],
+        });
+      } else {
+        logger.info(
+          "AI-applied label no longer exists in Gmail; clearing local state",
+          { threadId },
+        );
+      }
+
+      // Clear Redis and DB even when the label is already gone from Gmail so
+      // the UI doesn't keep showing a label that no longer exists.
+      if (jobId) {
+        try {
+          await updateThread({
+            emailAccountId,
+            jobId,
+            threadId,
+            update: { label: null },
+          });
+        } catch (error) {
+          logger.error("Failed to update Redis for removed label", {
+            error,
+            threadId,
+          });
+          // Continue even if Redis update fails
+        }
+      }
+
+      // Sync the DB record with Gmail: the label is gone
+      try {
+        await prisma.cleanupThread.updateMany({
+          where: {
+            emailAccountId,
+            threadId,
+            ...(jobId ? { jobId } : {}),
+          },
+          data: { label: null, labelId: null, labelAdded: false },
+        });
+      } catch (error) {
+        logger.error("Failed to clear label from DB", { error, threadId });
       }
 
       return { success: true };

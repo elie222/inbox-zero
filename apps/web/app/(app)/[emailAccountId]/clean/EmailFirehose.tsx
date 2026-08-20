@@ -14,6 +14,7 @@ export function EmailFirehose({
   threads,
   stats,
   action,
+  jobId,
 }: {
   threads: CleanThread[];
   stats: {
@@ -21,6 +22,7 @@ export function EmailFirehose({
     done: number;
   };
   action: CleanAction;
+  jobId: string;
 }) {
   const { userEmail, emailAccountId } = useAccount();
 
@@ -31,6 +33,9 @@ export function EmailFirehose({
   const [undoStates, setUndoStates] = useState<
     Record<string, "undoing" | "undone">
   >({});
+  // Track threads whose AI-applied label was removed: unlike undo, this only
+  // hides the label locally and must not mark the whole thread as undone
+  const [removedLabels, setRemovedLabels] = useState<Record<string, true>>({});
 
   const { emails } = useEmailStream(emailAccountId, isPaused, threads, tab);
 
@@ -118,6 +123,7 @@ export function EmailFirehose({
                     userEmail={userEmail}
                     emailAccountId={emailAccountId}
                     action={action}
+                    jobId={jobId}
                     undoState={undoStates[emails[virtualItem.index].threadId]}
                     setUndoing={(threadId) => {
                       setUndoStates((prev) => ({
@@ -125,10 +131,26 @@ export function EmailFirehose({
                         [threadId]: "undoing",
                       }));
                     }}
+                    resetUndoing={(threadId) => {
+                      setUndoStates((prev) => {
+                        const next = { ...prev };
+                        delete next[threadId];
+                        return next;
+                      });
+                    }}
                     setUndone={(threadId) => {
                       setUndoStates((prev) => ({
                         ...prev,
                         [threadId]: "undone",
+                      }));
+                    }}
+                    labelRemoved={
+                      !!removedLabels[emails[virtualItem.index].threadId]
+                    }
+                    setLabelRemoved={(threadId) => {
+                      setRemovedLabels((prev) => ({
+                        ...prev,
+                        [threadId]: true,
                       }));
                     }}
                   />

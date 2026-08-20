@@ -84,7 +84,7 @@ export async function publishThread({
   await redis.publish(key, JSON.stringify(thread));
 }
 
-async function getThread({
+export async function getThread({
   emailAccountId,
   jobId,
   threadId,

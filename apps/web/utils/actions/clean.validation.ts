@@ -21,8 +21,18 @@ export const undoCleanInboxSchema = z.object({
   threadId: z.string(),
   markedDone: z.boolean(),
   action: z.enum([CleanAction.ARCHIVE, CleanAction.MARK_READ]),
+  // Fallback used when the DB record does not exist yet (Qstash still applying)
+  jobId: z.string().optional(),
 });
 export type UndoCleanInboxBody = z.infer<typeof undoCleanInboxSchema>;
+
+export const removeLabelFromThreadSchema = z.object({
+  threadId: z.string(),
+  jobId: z.string().optional(),
+});
+export type RemoveLabelFromThreadBody = z.infer<
+  typeof removeLabelFromThreadSchema
+>;
 
 export const changeKeepToDoneSchema = z.object({
   threadId: z.string(),

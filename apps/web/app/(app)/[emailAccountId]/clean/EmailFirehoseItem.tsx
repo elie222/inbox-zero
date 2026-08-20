@@ -6,6 +6,7 @@ import {
   Undo2Icon,
   ArchiveIcon,
   CheckIcon,
+  XIcon,
 } from "lucide-react";
 import { Badge } from "@/components/Badge";
 import { cn } from "@/utils";
@@ -15,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import {
   undoCleanInboxAction,
   changeKeepToDoneAction,
+  removeLabelFromThreadAction,
 } from "@/utils/actions/clean";
 import { toastError } from "@/components/Toast";
 import { getGmailUrl } from "@/utils/url";
@@ -27,22 +29,34 @@ export function EmailItem({
   userEmail,
   emailAccountId,
   action,
+  jobId,
   undoState,
   setUndoing,
   setUndone,
+  resetUndoing,
+  labelRemoved,
+  setLabelRemoved,
 }: {
   email: CleanThread;
   userEmail: string;
   emailAccountId: string;
   action: CleanAction;
+  jobId: string;
   undoState?: "undoing" | "undone";
   setUndoing: (threadId: string) => void;
   setUndone: (threadId: string) => void;
+  resetUndoing: (threadId: string) => void;
+  labelRemoved: boolean;
+  setLabelRemoved: (threadId: string) => void;
 }) {
-  const status = getStatus(email);
+  // Locally hide the label once it's been removed, mirroring the state Redis
+  // will converge to via SSE — without marking the whole thread as undone.
+  const effectiveEmail =
+    email.label && labelRemoved ? { ...email, label: undefined } : email;
+  const status = getStatus(effectiveEmail);
   const pending = isPending(email);
-  const archive = email.archive === true;
-  const label = !!email.label;
+  const archive = effectiveEmail.archive === true;
+  const label = !!effectiveEmail.label;
 
   return (
     <div
@@ -73,11 +87,14 @@ export function EmailItem({
       <div className="ml-2 flex items-center space-x-2">
         <StatusBadge
           status={status}
-          email={email}
+          email={effectiveEmail}
           action={action}
+          jobId={jobId}
           undoState={undoState}
           setUndoing={setUndoing}
           setUndone={setUndone}
+          resetUndoing={resetUndoing}
+          setLabelRemoved={setLabelRemoved}
           emailAccountId={emailAccountId}
         />
       </div>
@@ -102,17 +119,23 @@ function StatusBadge({
   status,
   email,
   action,
+  jobId,
   undoState,
   setUndoing,
   setUndone,
+  resetUndoing,
+  setLabelRemoved,
   emailAccountId,
 }: {
   status: Status;
   email: CleanThread;
   action: CleanAction;
+  jobId: string;
   undoState?: "undoing" | "undone";
   setUndoing: (threadId: string) => void;
   setUndone: (threadId: string) => void;
+  resetUndoing: (threadId: string) => void;
+  setLabelRemoved: (threadId: string) => void;
   emailAccountId: string;
 }) {
   if (status === "processing") {
@@ -134,95 +157,164 @@ function StatusBadge({
 
   if (status === "markedDone" || status === "markingDone") {
     return (
-      <div className="group">
-        <span className="group-hover:hidden">
-          <Badge color="green">
-            {status === "markingDone"
-              ? action === CleanAction.MARK_READ
-                ? "Marking read..."
-                : "Archiving..."
-              : action === CleanAction.MARK_READ
-                ? "Marked read"
-                : "Archived"}
-          </Badge>
-        </span>
-        <div className="hidden group-hover:inline-flex">
-          <Button
-            size="xs"
-            variant="ghost"
+      <>
+        <HoverAction
+          badge={
+            <Badge color="green">
+              {status === "markingDone"
+                ? action === CleanAction.MARK_READ
+                  ? "Marking read..."
+                  : "Archiving..."
+                : action === CleanAction.MARK_READ
+                  ? "Marked read"
+                  : "Archived"}
+            </Badge>
+          }
+          icon={<Undo2Icon className="size-3" />}
+          text="Undo"
+          onClick={async () => {
+            if (undoState) return;
+
+            setUndoing(email.threadId);
+
+            const result = await undoCleanInboxAction(emailAccountId, {
+              threadId: email.threadId,
+              markedDone: !!email.archive,
+              action,
+              jobId,
+            });
+
+            if (result?.serverError) {
+              toastError({ description: result.serverError });
+              resetUndoing(email.threadId);
+            } else {
+              setUndone(email.threadId);
+            }
+          }}
+        />
+        {email.label && (
+          <HoverAction
+            badge={<Badge color="yellow">{email.label}</Badge>}
+            icon={<XIcon className="size-3" />}
+            text="Remove label"
             onClick={async () => {
               if (undoState) return;
 
               setUndoing(email.threadId);
 
-              const result = await undoCleanInboxAction(emailAccountId, {
+              const result = await removeLabelFromThreadAction(emailAccountId, {
                 threadId: email.threadId,
-                markedDone: !!email.archive,
-                action,
+                jobId,
               });
 
               if (result?.serverError) {
                 toastError({ description: result.serverError });
               } else {
-                setUndone(email.threadId);
+                setLabelRemoved(email.threadId);
               }
+              resetUndoing(email.threadId);
             }}
-          >
-            <Undo2Icon className="size-3" />
-            Undo
-          </Button>
-        </div>
-      </div>
+          />
+        )}
+      </>
     );
   }
 
   if (status === "keep") {
     return (
-      <div className="group">
-        <span className="group-hover:hidden">
-          <Badge color="blue">Keep</Badge>
-        </span>
-        <div className="hidden group-hover:inline-flex">
-          <Button
-            size="xs"
-            variant="ghost"
-            onClick={async () => {
-              if (undoState) return;
+      <HoverAction
+        badge={<Badge color="blue">Keep</Badge>}
+        icon={
+          action === CleanAction.ARCHIVE ? (
+            <ArchiveIcon className="size-3" />
+          ) : (
+            <CheckIcon className="size-3" />
+          )
+        }
+        text={action === CleanAction.ARCHIVE ? "Archive" : "Mark Read"}
+        onClick={async () => {
+          if (undoState) return;
 
-              setUndoing(email.threadId);
+          setUndoing(email.threadId);
 
-              const result = await changeKeepToDoneAction(emailAccountId, {
-                threadId: email.threadId,
-                action,
-              });
+          const result = await changeKeepToDoneAction(emailAccountId, {
+            threadId: email.threadId,
+            action,
+          });
 
-              if (result?.serverError) {
-                toastError({ description: result.serverError });
-              } else {
-                setUndone(email.threadId);
-              }
-            }}
-          >
-            {action === CleanAction.ARCHIVE ? (
-              <>
-                <ArchiveIcon className="mr-1 size-3" />
-                Archive
-              </>
-            ) : (
-              <>
-                <CheckIcon className="mr-1 size-3" />
-                Mark Read
-              </>
-            )}
-          </Button>
-        </div>
-      </div>
+          if (result?.serverError) {
+            toastError({ description: result.serverError });
+            resetUndoing(email.threadId);
+          } else {
+            setUndone(email.threadId);
+          }
+        }}
+      />
     );
   }
 
   if (status === "labelled") {
-    return <Badge color="yellow">{email.label}</Badge>;
+    return (
+      <HoverAction
+        badge={<Badge color="yellow">{email.label}</Badge>}
+        icon={<XIcon className="size-3" />}
+        text="Remove label"
+        onClick={async () => {
+          if (undoState) return;
+
+          setUndoing(email.threadId);
+
+          const result = await removeLabelFromThreadAction(emailAccountId, {
+            threadId: email.threadId,
+            jobId,
+          });
+
+          if (result?.serverError) {
+            toastError({ description: result.serverError });
+          } else {
+            setLabelRemoved(email.threadId);
+          }
+          resetUndoing(email.threadId);
+        }}
+      />
+    );
   }
+}
+
+// Swaps a status badge for an action button on hover/focus. The button is
+// overlaid over the badge (which keeps its footprint) so the row never
+// reflows, and it stays visible on touch devices that have no hover. The
+// button stays in the tab order while hidden (opacity + pointer-events, not
+// visibility) so keyboard users can reach it: focusing it reveals the action.
+function HoverAction({
+  badge,
+  icon,
+  text,
+  onClick,
+}: {
+  badge: React.ReactNode;
+  icon: React.ReactNode;
+  text: string;
+  onClick: () => void;
+}) {
+  return (
+    <div className="group relative">
+      <span className="pointer-events-none block transition-opacity group-hover:opacity-0 group-focus-within:opacity-0 [@media(hover:none)]:opacity-0">
+        {badge}
+      </span>
+      <div className="absolute inset-0 flex items-center justify-center whitespace-nowrap opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100">
+        <Button
+          size="xs"
+          variant="ghost"
+          onClick={onClick}
+          className="pointer-events-none group-hover:pointer-events-auto group-focus-within:pointer-events-auto [@media(hover:none)]:pointer-events-auto"
+        >
+          {icon}
+          {text}
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 function getStatus(email: CleanThread): Status {

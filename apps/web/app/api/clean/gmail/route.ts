@@ -8,7 +8,7 @@ import prisma from "@/utils/prisma";
 import { isDefined } from "@/utils/types";
 import type { Logger } from "@/utils/logger";
 import { CleanAction } from "@/generated/prisma/enums";
-import { updateThread } from "@/utils/redis/clean";
+import { getThread, updateThread } from "@/utils/redis/clean";
 import { withQstashOrInternal } from "@/utils/qstash";
 import { assertCleanerApiEnabled } from "@/utils/cleaner-feature";
 
@@ -17,7 +17,9 @@ const cleanGmailSchema = z.object({
   threadId: z.string(),
   markDone: z.boolean(),
   action: z.enum([CleanAction.ARCHIVE, CleanAction.MARK_READ]),
-  // labelId: z.string().optional(),
+  labelId: z.string().optional(),
+  labelName: z.string().optional(),
+  labelAdded: z.boolean().optional(),
   markedDoneLabelId: z.string().optional(),
   processedLabelId: z.string().optional(),
   jobId: z.string(),
@@ -28,7 +30,9 @@ async function performGmailAction({
   emailAccountId,
   threadId,
   markDone,
-  // labelId,
+  labelId,
+  labelName,
+  labelAdded,
   markedDoneLabelId,
   processedLabelId,
   jobId,
@@ -60,32 +64,73 @@ async function performGmailAction({
     logger,
   });
 
-  const shouldArchive = markDone && action === CleanAction.ARCHIVE;
-  const shouldMarkAsRead = markDone && action === CleanAction.MARK_READ;
+  // If the user undid this thread while the job was in flight, applying the
+  // action again would re-archive it and re-persist the label after the undo.
+  const thread = await getThread({ emailAccountId, jobId, threadId });
+  const isUndone = thread?.undone === true;
 
-  const addLabelIds = [
-    processedLabelId,
-    markDone ? markedDoneLabelId : undefined,
-    // labelId,
-  ].filter(isDefined);
-  const removeLabelIds = [
-    shouldArchive ? GmailLabel.INBOX : undefined,
-    shouldMarkAsRead ? GmailLabel.UNREAD : undefined,
-  ].filter(isDefined);
+  if (!isUndone) {
+    const shouldArchive = markDone && action === CleanAction.ARCHIVE;
+    const shouldMarkAsRead = markDone && action === CleanAction.MARK_READ;
 
-  logger.info("Handling thread", { threadId, shouldArchive, shouldMarkAsRead });
+    const coreAddLabelIds = [
+      processedLabelId,
+      markDone ? markedDoneLabelId : undefined,
+    ].filter(isDefined);
+    const removeLabelIds = [
+      shouldArchive ? GmailLabel.INBOX : undefined,
+      shouldMarkAsRead ? GmailLabel.UNREAD : undefined,
+    ].filter(isDefined);
 
-  await labelThread({
-    gmail,
-    threadId,
-    addLabelIds,
-    removeLabelIds,
-  });
+    logger.info("Handling thread", {
+      threadId,
+      shouldArchive,
+      shouldMarkAsRead,
+    });
+
+    await labelThread({
+      gmail,
+      threadId,
+      addLabelIds: coreAddLabelIds,
+      removeLabelIds,
+    });
+  }
+
+  // The AI-chosen label is best-effort: it may have been deleted or renamed
+  // since the run started, so a stale labelId must not fail the thread action.
+  // When the thread was undone, remove the label from Gmail instead of
+  // applying it so it can't reappear after an undo — but only if this run
+  // actually added it: a pre-existing label must survive an in-flight undo.
+  let labelApplied = false;
+  if (labelId) {
+    try {
+      await labelThread({
+        gmail,
+        threadId,
+        addLabelIds: isUndone ? [] : [labelId],
+        removeLabelIds: isUndone && labelAdded ? [labelId] : [],
+      });
+      labelApplied = !isUndone;
+    } catch (error) {
+      logger.warn("Failed to apply or remove AI-chosen label, continuing", {
+        threadId,
+        labelId,
+        isUndone,
+        error,
+      });
+    }
+  }
 
   await saveCleanResult({
     emailAccountId,
     threadId,
-    markDone,
+    markDone: isUndone ? false : markDone,
+    labelName: labelApplied ? labelName : undefined,
+    labelId: labelApplied ? labelId : undefined,
+    labelAdded: labelApplied ? labelAdded : undefined,
+    // Redis holds the label optimistically from publish time; clear it when
+    // Gmail never got it so the UI doesn't show a label that doesn't exist
+    clearLabel: !!labelId && !labelApplied,
     jobId,
   });
 }
@@ -94,11 +139,19 @@ async function saveCleanResult({
   emailAccountId,
   threadId,
   markDone,
+  labelName,
+  labelId,
+  labelAdded,
+  clearLabel,
   jobId,
 }: {
   emailAccountId: string;
   threadId: string;
   markDone: boolean;
+  labelName?: string;
+  labelId?: string;
+  labelAdded?: boolean;
+  clearLabel: boolean;
   jobId: string;
 }) {
   await Promise.all([
@@ -106,12 +159,15 @@ async function saveCleanResult({
       emailAccountId,
       jobId,
       threadId,
-      update: { status: "completed" },
+      update: { status: "completed", ...(clearLabel ? { label: null } : {}) },
     }),
     saveToDatabase({
       emailAccountId,
       threadId,
       archive: markDone,
+      labelName,
+      labelId,
+      labelAdded,
       jobId,
     }),
   ]);
@@ -121,11 +177,17 @@ async function saveToDatabase({
   emailAccountId,
   threadId,
   archive,
+  labelName,
+  labelId,
+  labelAdded,
   jobId,
 }: {
   emailAccountId: string;
   threadId: string;
   archive: boolean;
+  labelName?: string;
+  labelId?: string;
+  labelAdded?: boolean;
   jobId: string;
 }) {
   await prisma.cleanupThread.create({
@@ -133,6 +195,9 @@ async function saveToDatabase({
       emailAccount: { connect: { id: emailAccountId } },
       threadId,
       archived: archive,
+      label: labelName,
+      labelId,
+      labelAdded,
       job: { connect: { id: jobId } },
     },
   });

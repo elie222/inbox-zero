@@ -12,6 +12,8 @@ import { GmailLabel } from "@/utils/gmail/label";
 import { getThreadMessages } from "@/utils/gmail/thread";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import type { Logger } from "@/utils/logger";
+import { MAX_CLEAN_LABELS } from "@/utils/clean/consts";
+import { normalizeLabelName } from "@/utils/label/normalize-label-name";
 import { getCalendarEventStatus } from "@/utils/parse/calender-event";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
 import { isActivePremium } from "@/utils/premium";
@@ -39,7 +41,10 @@ export const cleanThreadBody = z.object({
     attachment: z.boolean().default(false).nullish(),
     conversation: z.boolean().default(false).nullish(),
   }),
-  // labels: z.array(z.object({ id: z.string(), name: z.string() })).optional(),
+  labels: z
+    .array(z.object({ id: z.string(), name: z.string() }))
+    .max(MAX_CLEAN_LABELS)
+    .optional(),
 });
 
 export type CleanThreadBody = z.infer<typeof cleanThreadBody>;
@@ -53,6 +58,7 @@ export async function cleanThread({
   action,
   instructions,
   skips,
+  labels,
   logger,
 }: CleanThreadBody & { logger: Logger }) {
   assertCleanerApiEnabled();
@@ -204,9 +210,40 @@ export async function cleanThread({
     messages: messages.map((m) => getEmailForLLM(m)),
     instructions,
     skips,
+    labels,
   });
 
-  await publish({ markDone: aiResult.archive });
+  const matchedLabel = findCleanLabel(labels, aiResult.label);
+
+  // A label that's already on the thread would make the Gmail add a no-op;
+  // record that so undo never removes a label this run didn't add.
+  const labelAlreadyOnThread =
+    !!matchedLabel &&
+    messages.some((message) => message.labelIds?.includes(matchedLabel.id));
+
+  await publish({
+    markDone: aiResult.archive,
+    labelId: matchedLabel?.id,
+    labelName: matchedLabel?.name,
+    labelAdded: matchedLabel ? !labelAlreadyOnThread : false,
+  });
+}
+
+// Exact name match first; normalized match as fallback for labels that differ
+// only in case or punctuation. Ambiguous normalized matches are rejected so a
+// model output can't silently resolve to the wrong Gmail label.
+function findCleanLabel(
+  labels: { id: string; name: string }[] | undefined,
+  name: string | null | undefined,
+) {
+  if (!name || !labels?.length) return;
+  const exactMatch = labels.find((label) => label.name === name);
+  if (exactMatch) return exactMatch;
+  const normalized = normalizeLabelName(name);
+  const normalizedMatches = labels.filter(
+    (label) => normalizeLabelName(label.name) === normalized,
+  );
+  return normalizedMatches.length === 1 ? normalizedMatches[0] : undefined;
 }
 
 function getPublish({
@@ -226,7 +263,17 @@ function getPublish({
   action: CleanAction;
   logger: Logger;
 }) {
-  return async ({ markDone }: { markDone: boolean }) => {
+  return async ({
+    markDone,
+    labelId,
+    labelName,
+    labelAdded,
+  }: {
+    markDone: boolean;
+    labelId?: string;
+    labelName?: string | null;
+    labelAdded?: boolean;
+  }) => {
     const actionCount = 2;
     const maxRatePerSecond = Math.ceil(12 / actionCount);
 
@@ -235,7 +282,9 @@ function getPublish({
       threadId,
       markDone,
       action,
-      // label: aiResult.label,
+      labelId,
+      labelName: labelName ?? undefined,
+      labelAdded,
       markedDoneLabelId,
       processedLabelId,
       jobId,
@@ -246,6 +295,7 @@ function getPublish({
       threadId,
       maxRatePerSecond,
       markDone,
+      labelName,
     });
 
     await Promise.all([
@@ -260,7 +310,7 @@ function getPublish({
         update: {
           archive: markDone,
           status: "applying",
-          // label: "",
+          ...(labelName ? { label: labelName } : {}),
         },
       }),
     ]);
