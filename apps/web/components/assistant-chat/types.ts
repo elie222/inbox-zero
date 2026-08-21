@@ -25,6 +25,7 @@ import type {
   StartSenderCategorizationTool,
 } from "@/utils/ai/assistant/chat-inbox-tools";
 import type {
+  DeleteMemoryTool,
   SaveMemoryTool,
   SearchMemoriesTool,
 } from "@/utils/ai/assistant/chat-memory-tools";
@@ -58,6 +59,7 @@ export type ChatTools = {
   addToKnowledgeBase: AddToKnowledgeBaseTool;
   saveMemory: SaveMemoryTool;
   searchMemories: SearchMemoriesTool;
+  deleteMemory: DeleteMemoryTool;
   sendEmail: SendEmailTool;
   replyEmail: ReplyEmailTool;
   forwardEmail: ForwardEmailTool;
