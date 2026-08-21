@@ -75,6 +75,7 @@ describe("RecallBotProvider", () => {
       join_at: "2026-05-04T09:00:00.000Z",
       automatic_leave: {
         everyone_left_timeout: { timeout: 2 },
+        in_call_timeout: { timeout: 4 * 60 * 60 },
       },
     });
   });

@@ -34,6 +34,13 @@ const DEFAULT_RECALL_REGION = "us-west-2";
 // is not the call's actual lifetime.
 const EVERYONE_LEFT_TIMEOUT_SECONDS = 2;
 
+// When in_call_timeout is not set, Recall derives a default from the meeting's
+// calendar schedule, which causes recording to stop at the scheduled end time
+// even if participants are still on the call. Setting an explicit cap overrides
+// that implicit behaviour. Four hours covers any realistic overrun while still
+// preventing the bot from being stranded in a room indefinitely.
+const IN_CALL_TIMEOUT_SECONDS = 4 * 60 * 60;
+
 // Overridden only to point at the local emulator, same as GOOGLE_BASE_URL.
 function getRecallApiBase(): string {
   if (env.RECALL_BASE_URL) {
@@ -91,6 +98,7 @@ export class RecallBotProvider implements MeetingBotProvider {
         join_at: joinAt.toISOString(),
         automatic_leave: {
           everyone_left_timeout: { timeout: EVERYONE_LEFT_TIMEOUT_SECONDS },
+          in_call_timeout: { timeout: IN_CALL_TIMEOUT_SECONDS },
         },
         ...(cameraImage && {
           automatic_video_output: {
