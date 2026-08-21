@@ -106,6 +106,12 @@ export const footerNavigation = {
     { name: "Discord", href: "/discord", target: "_blank" },
     { name: "OSS Friends", href: "/oss-friends" },
     { name: "Email Blaster", href: "/game" },
+    {
+      name: "Bot Directory",
+      href: "https://botdirectory.ai",
+      target: "_blank",
+    },
+    { name: "Rakazo", href: "https://rakazo.com", target: "_blank" },
   ],
   legal: [
     { name: "Terms", href: "/terms" },
