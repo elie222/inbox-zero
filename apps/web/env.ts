@@ -19,6 +19,7 @@ const llmProviderEnum = z.enum([
   "openai-compatible",
   "codex-cli",
   "claude-code",
+  "grok-cli",
 ]);
 
 /** For Vercel preview deployments, auto-detect from VERCEL_URL. */
@@ -184,6 +185,7 @@ const parsedEnv = createEnv({
     CLI_LLM_ENABLED: booleanString.optional().default(false),
     CODEX_CLI_ALLOW_NPX: booleanString.optional().default(false),
     CODEX_CLI_PATH: z.string().optional(),
+    GROK_CLI_PATH: z.string().optional(),
 
     OPENAI_ZERO_DATA_RETENTION: booleanString.optional().default(false),
 
