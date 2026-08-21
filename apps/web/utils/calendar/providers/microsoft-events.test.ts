@@ -308,17 +308,22 @@ describe("MicrosoftCalendarEventProvider", () => {
     expect(result.videoConferenceLink).toBe("https://teams.example.com/join");
   });
 
-  it("falls back to a personal Outlook calendar's default meeting provider", async () => {
+  it("creates a Teams meeting via the onlineMeetings API for personal Outlook calendars that exclude teamsForBusiness", async () => {
+    const teamsJoinUrl =
+      "https://teams.microsoft.com/l/meetup-join/19%3ameeting_personal%40thread.v2/0";
     graphMocks.get.mockResolvedValue({
       id: "calendar-id",
       allowedOnlineMeetingProviders: ["skypeForConsumer"],
       defaultOnlineMeetingProvider: "skypeForConsumer",
     });
-    graphMocks.post.mockResolvedValue({
-      id: "event-id",
-      onlineMeeting: { joinUrl: "https://join.skype.com/example" },
-      webLink: "https://outlook.example.com/event",
-    });
+    graphMocks.post
+      // First POST: /me/onlineMeetings → Teams meeting
+      .mockResolvedValueOnce({ joinWebUrl: teamsJoinUrl })
+      // Second POST: /me/calendars/.../events → calendar event
+      .mockResolvedValueOnce({
+        id: "event-id",
+        webLink: "https://outlook.example.com/event",
+      });
 
     const provider = createProvider();
 
@@ -334,7 +339,61 @@ describe("MicrosoftCalendarEventProvider", () => {
       title: "Intro call",
     });
 
-    const createPayload = graphMocks.post.mock.calls[0]?.[0];
+    expect(graphMocks.api).toHaveBeenCalledWith("/me/onlineMeetings");
+    expect(graphMocks.post).toHaveBeenNthCalledWith(1, {
+      startDateTime: "2026-05-04T09:00:00.000Z",
+      endDateTime: "2026-05-04T09:30:00.000Z",
+      subject: "Intro call",
+    });
+    // Calendar event must NOT carry isOnlineMeeting/onlineMeetingProvider;
+    // the join URL is embedded in the location instead.
+    const createPayload = graphMocks.post.mock.calls[1]?.[0];
+    expect(createPayload).not.toHaveProperty("isOnlineMeeting");
+    expect(createPayload).not.toHaveProperty("onlineMeetingProvider");
+    expect(createPayload).toEqual(
+      expect.objectContaining({
+        location: { displayName: teamsJoinUrl },
+      }),
+    );
+    expect(result).toEqual({
+      id: "event-id",
+      providerCalendarId: "calendar-id",
+      eventUrl: "https://outlook.example.com/event",
+      videoConferenceLink: teamsJoinUrl,
+    });
+  });
+
+  it("falls back to the calendar's default provider when the onlineMeetings API is unavailable (no Teams licence)", async () => {
+    graphMocks.get.mockResolvedValue({
+      id: "calendar-id",
+      allowedOnlineMeetingProviders: ["skypeForConsumer"],
+      defaultOnlineMeetingProvider: "skypeForConsumer",
+    });
+    graphMocks.post
+      // First POST: /me/onlineMeetings → fails (no Teams licence)
+      .mockRejectedValueOnce(new Error("403 Forbidden"))
+      // Second POST: /me/calendars/.../events → calendar event with Skype
+      .mockResolvedValueOnce({
+        id: "event-id",
+        onlineMeeting: { joinUrl: "https://join.skype.com/example" },
+        webLink: "https://outlook.example.com/event",
+      });
+
+    const provider = createProvider();
+
+    const result = await provider.createEvent({
+      attendees: [{ email: "guest@example.com", name: "Guest User" }],
+      calendarId: "calendar-id",
+      description: "Meeting description",
+      endTime: new Date("2026-05-04T09:30:00.000Z"),
+      locationType: "MICROSOFT_TEAMS",
+      locationValue: null,
+      startTime: new Date("2026-05-04T09:00:00.000Z"),
+      timezone: "America/New_York",
+      title: "Intro call",
+    });
+
+    const createPayload = graphMocks.post.mock.calls[1]?.[0];
     expect(createPayload).toEqual(
       expect.objectContaining({
         isOnlineMeeting: true,

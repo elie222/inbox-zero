@@ -111,6 +111,44 @@ describe("canManageBilling", () => {
     expect(result).toBe(false);
   });
 
+  it("allows the Stripe purchaser recorded as premium admin without an organization", () => {
+    const result = canManageBilling("user-1", {
+      premium: {
+        id: "premium-1",
+        admins: [{ id: "user-1" }],
+      },
+      emailAccounts: [],
+    });
+
+    expect(result).toBe(true);
+  });
+
+  it.each([
+    "admin",
+    "owner",
+    "member",
+  ])("denies when no premium admins are recorded regardless of org %s role (backfill required)", (role) => {
+    const result = canManageBilling("user-1", {
+      premium: {
+        id: "premium-1",
+        admins: [],
+      },
+      emailAccounts: [
+        {
+          members: [
+            getMockOrganizationMembership({
+              role,
+              ownerUserId: "user-1",
+              ownerPremiumId: "premium-1",
+            }),
+          ],
+        },
+      ],
+    });
+
+    expect(result).toBe(false);
+  });
+
   it("does not use an admin role from an unrelated organization", () => {
     const result = canManageBilling("user-1", {
       premium: {

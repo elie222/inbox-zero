@@ -54,6 +54,11 @@ type MicrosoftOnlineMeetingFields = {
   onlineMeetingProvider: string;
 };
 
+type OnlineMeetingResult =
+  | { kind: "event-field"; fields: MicrosoftOnlineMeetingFields }
+  | { kind: "injected-url"; joinUrl: string }
+  | { kind: "none" };
+
 export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
   private readonly connection: MicrosoftCalendarConnectionParams;
   private readonly logger: Logger;
@@ -149,14 +154,23 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
     const client = await this.getClient();
     const useMicrosoftTeams =
       input.locationType === BookingLinkLocationType.MICROSOFT_TEAMS;
-    const onlineMeetingFields = useMicrosoftTeams
-      ? await getOnlineMeetingFields({
+    const onlineMeetingResult: OnlineMeetingResult = useMicrosoftTeams
+      ? await getOnlineMeetingResult({
           calendarId: input.calendarId,
           client,
           logger: this.logger,
+          startTime: input.startTime,
+          endTime: input.endTime,
+          title: input.title,
         })
-      : null;
-    const requestedOnlineMeeting = Boolean(onlineMeetingFields);
+      : { kind: "none" };
+
+    const onlineMeetingFields =
+      onlineMeetingResult.kind === "event-field"
+        ? onlineMeetingResult.fields
+        : null;
+    const requestedOnlineMeeting = onlineMeetingResult.kind !== "none";
+
     const response: MicrosoftEvent = await client
       .api(`/me/calendars/${input.calendarId}/events`)
       .post({
@@ -182,10 +196,24 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
         })),
         ...(onlineMeetingFields ?? {}),
         location:
-          !requestedOnlineMeeting && input.locationValue
-            ? { displayName: input.locationValue }
-            : undefined,
+          onlineMeetingResult.kind === "injected-url"
+            ? { displayName: onlineMeetingResult.joinUrl }
+            : !requestedOnlineMeeting && input.locationValue
+              ? { displayName: input.locationValue }
+              : undefined,
       });
+
+    // For the injected-url path the join URL was pre-created via the
+    // onlineMeetings API and is already embedded in the event location — Graph's
+    // async online meeting init doesn't apply here.
+    if (onlineMeetingResult.kind === "injected-url") {
+      return {
+        id: response.id || "",
+        providerCalendarId: input.calendarId,
+        eventUrl: response.webLink,
+        videoConferenceLink: onlineMeetingResult.joinUrl,
+      };
+    }
 
     let videoConferenceLink = getJoinUrl(response);
 
@@ -300,43 +328,97 @@ function getJoinUrl(event: MicrosoftEvent): string | undefined {
   return event.onlineMeeting?.joinUrl || event.onlineMeetingUrl;
 }
 
-async function getOnlineMeetingFields({
+async function getOnlineMeetingResult({
   calendarId,
   client,
   logger,
+  startTime,
+  endTime,
+  title,
 }: {
   calendarId: string;
   client: Client;
   logger: Logger;
-}) {
+  startTime: Date;
+  endTime: Date;
+  title: string;
+}): Promise<OnlineMeetingResult> {
   const settings = await getCalendarOnlineMeetingSettings({
     calendarId,
     client,
     logger,
   });
 
-  // Prefer Teams when the calendar allows it; otherwise fall back to the
-  // calendar's default provider (personal Outlook calendars don't allow
-  // teamsForBusiness). When the settings fetch fails, still request Teams.
-  const onlineMeetingProvider =
+  if (
     !settings ||
     settings.allowedOnlineMeetingProviders?.includes(MICROSOFT_TEAMS_PROVIDER)
-      ? MICROSOFT_TEAMS_PROVIDER
-      : settings.defaultOnlineMeetingProvider;
-
-  if (!onlineMeetingProvider || onlineMeetingProvider === "unknown") {
-    logger.warn("No online meeting provider is available for calendar", {
-      calendarId,
-      allowedOnlineMeetingProviders: settings?.allowedOnlineMeetingProviders,
-      defaultOnlineMeetingProvider: settings?.defaultOnlineMeetingProvider,
-    });
-    return null;
+  ) {
+    // Calendar supports Teams (or we couldn't verify) — let Graph wire up the
+    // join URL via the event's online meeting fields.
+    return {
+      kind: "event-field",
+      fields: {
+        isOnlineMeeting: true,
+        onlineMeetingProvider: MICROSOFT_TEAMS_PROVIDER,
+      } satisfies MicrosoftOnlineMeetingFields,
+    };
   }
 
+  // Personal Outlook calendars exclude teamsForBusiness from
+  // allowedOnlineMeetingProviders, so the event API cannot generate a Teams
+  // join URL. Create a standalone Teams meeting via the onlineMeetings API
+  // (which honours the user's Teams licence, not the calendar's provider list)
+  // and inject the joinWebUrl directly into the event location.
+  try {
+    const meeting = await client.api("/me/onlineMeetings").post({
+      startDateTime: startTime.toISOString(),
+      endDateTime: endTime.toISOString(),
+      subject: title,
+    });
+    const joinUrl: string | undefined = meeting?.joinWebUrl;
+    if (joinUrl) {
+      logger.info(
+        "Created Teams meeting via onlineMeetings API for calendar without teamsForBusiness",
+        {
+          calendarId,
+          defaultProvider: settings.defaultOnlineMeetingProvider,
+        },
+      );
+      return { kind: "injected-url", joinUrl };
+    }
+  } catch (error) {
+    logger.warn(
+      "Failed to create Teams meeting via onlineMeetings API; falling back to calendar default provider",
+      {
+        calendarId,
+        allowedProviders: settings.allowedOnlineMeetingProviders,
+        error,
+      },
+    );
+  }
+
+  // onlineMeetings API unavailable (no Teams licence). Fall back to the
+  // calendar's own default meeting provider.
+  const fallbackProvider = settings.defaultOnlineMeetingProvider;
+  if (!fallbackProvider || fallbackProvider === "unknown") {
+    logger.warn("No online meeting provider available for calendar", {
+      calendarId,
+      allowedProviders: settings.allowedOnlineMeetingProviders,
+    });
+    return { kind: "none" };
+  }
+
+  logger.info("Falling back to calendar's default online meeting provider", {
+    calendarId,
+    fallbackProvider,
+  });
   return {
-    isOnlineMeeting: true,
-    onlineMeetingProvider,
-  } satisfies MicrosoftOnlineMeetingFields;
+    kind: "event-field",
+    fields: {
+      isOnlineMeeting: true,
+      onlineMeetingProvider: fallbackProvider,
+    } satisfies MicrosoftOnlineMeetingFields,
+  };
 }
 
 async function getCalendarOnlineMeetingSettings({
