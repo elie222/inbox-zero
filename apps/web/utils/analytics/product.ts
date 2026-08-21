@@ -22,6 +22,8 @@ export const PRODUCT_ANALYTICS_ACTIONS = {
     featureRouteToggled: "feature_route_toggled",
     ruleChannelModeChanged: "rule_channel_mode_changed",
     ruleChannelToggled: "rule_channel_toggled",
+    webhookCreated: "webhook_created",
+    webhookUpdated: "webhook_updated",
   },
   calendars: {
     bookingLinkSaved: "calendar_booking_link_saved",
