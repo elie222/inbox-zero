@@ -27,6 +27,10 @@ vi.mock("@/utils/redis/oauth-code", () => ({
   setOAuthCodeResult: mockSetOAuthCodeResult,
 }));
 
+vi.mock("@/env", () => ({
+  env: { NEXT_PUBLIC_BASE_URL: "https://app.example.com" },
+}));
+
 import { deduplicateOAuthCallback } from "./auth-callback-deduplication";
 
 const logger = createScopedLogger("test/auth-callback-deduplication");
@@ -160,6 +164,49 @@ describe("deduplicateOAuthCallback", () => {
     expect(handleRequest).not.toHaveBeenCalled();
   });
 
+  it("resolves a relative cached redirect against the configured base URL", async () => {
+    mockClaimOAuthCodeAndWait.mockResolvedValue({
+      result: {
+        params: {
+          redirect: "/welcome-redirect",
+          status: "302",
+        },
+        requestFingerprint: REQUEST_FINGERPRINT,
+        status: "success",
+      },
+      status: "success",
+      waited: false,
+    });
+    const handleRequest = vi.fn();
+
+    const response = await deduplicateOAuthCallback({
+      request: createInternalOriginCallbackRequest(),
+      handleRequest,
+      logger,
+    });
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe(
+      "https://app.example.com/welcome-redirect",
+    );
+    expect(handleRequest).not.toHaveBeenCalled();
+  });
+
+  it("redirects to the welcome page on the configured base URL when the callback wait times out", async () => {
+    mockClaimOAuthCodeAndWait.mockResolvedValue({ status: "timeout" });
+
+    const response = await deduplicateOAuthCallback({
+      request: createInternalOriginCallbackRequest(),
+      handleRequest: vi.fn(),
+      logger,
+    });
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe(
+      "https://app.example.com/welcome-redirect",
+    );
+  });
+
   it("does not replay session cookies to a different OAuth state", async () => {
     mockClaimOAuthCodeAndWait.mockResolvedValue({
       result: {
@@ -254,6 +301,15 @@ describe("deduplicateOAuthCallback", () => {
 function createGoogleCallbackRequest() {
   return new Request(
     "https://example.com/api/auth/callback/google?code=oauth-code&state=oauth-state",
+    { headers: { cookie: OAUTH_STATE_COOKIE } },
+  );
+}
+
+// Self-hosted standalone Next.js reports the server's internal origin
+// (e.g. the Docker container hostname) in request.url, not the public origin.
+function createInternalOriginCallbackRequest() {
+  return new Request(
+    "https://0a1b2c3d4e5f:3000/api/auth/callback/google?code=oauth-code&state=oauth-state",
     { headers: { cookie: OAUTH_STATE_COOKIE } },
   );
 }
