@@ -174,7 +174,7 @@ describe("getEmailDraftUrl", () => {
       emailAddress: "user@gmail.com",
       provider: "google",
       expected:
-        "https://mail.google.com/mail/u/?authuser=user%40gmail.com#inbox?compose=draft-message-123",
+        "https://mail.google.com/mail/u/?authuser=user%40gmail.com#drafts/draft-message-123",
     },
     {
       name: "personal Microsoft account",
@@ -182,7 +182,7 @@ describe("getEmailDraftUrl", () => {
       emailAddress: "user@outlook.com",
       provider: "microsoft",
       expected:
-        "https://outlook.live.com/mail/0/deeplink/compose?itemid=draft-123&exvsurl=1",
+        "https://outlook.live.com/mail/0/drafts/id/draft-123",
     },
     {
       name: "business Microsoft account",
@@ -190,7 +190,7 @@ describe("getEmailDraftUrl", () => {
       emailAddress: "user@contoso.com",
       provider: "microsoft",
       expected:
-        "https://outlook.office.com/mail/deeplink/compose?itemid=draft%2B123%2Fabc&exvsurl=1",
+        "https://outlook.office.com/mail/drafts/id/draft%2B123%2Fabc",
     },
   ])("opens the draft for a $name", ({
     draftMessageId,

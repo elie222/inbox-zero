@@ -61,7 +61,7 @@ const GOOGLE_CONFIG: ProviderUrlConfig = {
     getGmailUrlForFragment(`all/${messageOrThreadId}`, emailAddress),
   buildDraftUrl: (draftMessageId: string, emailAddress?: string | null) =>
     getGmailUrlForFragment(
-      `inbox?compose=${encodeURIComponent(draftMessageId)}`,
+      `drafts/${encodeURIComponent(draftMessageId)}`,
       emailAddress,
     ),
   selectId: (messageId: string, _threadId: string) => messageId,
@@ -80,7 +80,7 @@ const PROVIDER_CONFIG: Record<string, ProviderUrlConfig> = {
       return `${getOutlookBaseUrl(emailAddress)}/inbox/id/${encodedMessageId}`;
     },
     buildDraftUrl: (draftMessageId: string, emailAddress?: string | null) =>
-      `${getOutlookBaseUrl(emailAddress)}/deeplink/compose?itemid=${encodeURIComponent(draftMessageId)}&exvsurl=1`,
+      `${getOutlookBaseUrl(emailAddress)}/drafts/id/${encodeURIComponent(draftMessageId)}`,
     selectId: (messageId: string, _threadId: string) => messageId,
     buildSearchUrl: (from: string, emailAddress?: string | null) => {
       const query = encodeURIComponent(`from:${from}`);
