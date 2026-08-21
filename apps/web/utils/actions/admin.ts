@@ -6,7 +6,10 @@ import { deleteUser } from "@/utils/user/delete";
 import prisma from "@/utils/prisma";
 import { adminActionClient } from "@/utils/actions/safe-action";
 import { SafeError } from "@/utils/error";
-import { syncStripeDataToDb } from "@/ee/billing/stripe/sync-stripe";
+import {
+  syncStripeDataToDb,
+  connectPurchaserAsAdmin,
+} from "@/ee/billing/stripe/sync-stripe";
 import { getStripe } from "@/ee/billing/stripe";
 import { premiumEntitlementSelect } from "@/utils/premium";
 import { createEmailProvider } from "@/utils/email/provider";
@@ -675,6 +678,64 @@ export const adminCleanupDraftsAction = adminActionClient
       alreadyGone: totalAlreadyGone,
       errors: totalErrors,
     };
+  });
+
+// Backfills premium.admins for Stripe-created premiums that have no recorded
+// admin. Resolves the purchaser from the Stripe customer's trusted
+// metadata.userId (written at customer-creation time) and validates they are
+// still linked to the premium. Records with no resolvable purchaser are skipped
+// and logged rather than guessed. Run once after deploying this fix.
+export const adminBackfillPremiumAdminsAction = adminActionClient
+  .metadata({ name: "adminBackfillPremiumAdmins" })
+  .action(async ({ ctx: { logger } }) => {
+    const stripe = getStripe();
+
+    const premiumsWithoutAdmins = await prisma.premium.findMany({
+      where: {
+        stripeCustomerId: { not: null },
+        admins: { none: {} },
+        users: { some: {} },
+      },
+      select: {
+        id: true,
+        stripeCustomerId: true,
+        users: { select: { id: true } },
+      },
+    });
+
+    logger.info("Starting premium admin backfill", {
+      count: premiumsWithoutAdmins.length,
+    });
+
+    let backfilled = 0;
+    let skipped = 0;
+
+    for (const premium of premiumsWithoutAdmins) {
+      if (!premium.stripeCustomerId) continue;
+      try {
+        const connected = await connectPurchaserAsAdmin({
+          stripe,
+          customerId: premium.stripeCustomerId,
+          premium,
+          logger,
+        });
+        if (connected) {
+          backfilled++;
+        } else {
+          skipped++;
+        }
+      } catch (error) {
+        logger.error("Failed to backfill premium admin", {
+          premiumId: premium.id,
+          stripeCustomerId: premium.stripeCustomerId,
+          error,
+        });
+        skipped++;
+      }
+    }
+
+    logger.info("Completed premium admin backfill", { backfilled, skipped });
+    return { backfilled, skipped };
   });
 
 async function findUserWithDetails(email?: string, userId?: string) {
