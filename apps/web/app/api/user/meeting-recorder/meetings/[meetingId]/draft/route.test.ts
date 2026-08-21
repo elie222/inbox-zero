@@ -42,7 +42,7 @@ describe("meeting follow-up draft route", () => {
     getEmailAccountMock.mockResolvedValue("user@gmail.com");
   });
 
-  it("opens the related Gmail draft using its embedded message ID", async () => {
+  it("redirects to the Gmail Drafts deeplink for the draft's message ID", async () => {
     prisma.meeting.findFirst.mockResolvedValue({
       followUpDraftId: "draft-resource-123",
       emailAccount: { account: { provider: "google" } },
@@ -58,7 +58,7 @@ describe("meeting follow-up draft route", () => {
     );
     expect(emailProvider.getDraft).toHaveBeenCalledWith("draft-resource-123");
     expect(response.headers.get("location")).toBe(
-      "https://mail.google.com/mail/u/?authuser=user%40gmail.com#inbox?compose=draft-message-123",
+      "https://mail.google.com/mail/u/?authuser=user%40gmail.com#drafts/draft-message-123",
     );
   });
 
