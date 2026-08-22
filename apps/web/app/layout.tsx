@@ -8,7 +8,7 @@ import { GoogleTagManager } from "@next/third-parties/google";
 import { Analytics as DubAnalytics } from "@dub/analytics/react";
 import { Geist } from "next/font/google";
 import localFont from "next/font/local";
-import type { WebApplication, WithContext } from "schema-dts";
+import type { Graph, WebApplication } from "schema-dts";
 import "../styles/globals.css";
 import { PostHogPageview, PostHogProvider } from "@/providers/PostHogProvider";
 import { env } from "@/env";
@@ -16,7 +16,11 @@ import { GlobalProviders } from "@/providers/GlobalProviders";
 import { UTM } from "@/app/utm";
 import { startupImage } from "@/app/startup-image";
 import { Toaster } from "@/components/Toast";
-import { BRAND_ICON_URL, BRAND_NAME, toAbsoluteUrl } from "@/utils/branding";
+import { BRAND_NAME } from "@/utils/branding";
+import {
+  getOrganizationId,
+  getOrganizationJsonLd,
+} from "@/utils/organization-json-ld";
 
 const aeonikFont = localFont({
   src: "../styles/aeonik-medium.woff",
@@ -36,8 +40,10 @@ const description =
   "Your AI executive assistant to reach inbox zero fast. Automate emails, bulk unsubscribe, block cold emails, and analytics. Open-source";
 
 // JSON-LD structured data
-const jsonLd: WithContext<WebApplication> = {
-  "@context": "https://schema.org",
+// Organization contact/address sourced from public legal pages (privacy policy).
+const organization = getOrganizationJsonLd();
+
+const webApplication: WebApplication = {
   "@type": "WebApplication",
   name: BRAND_NAME,
   url: env.NEXT_PUBLIC_BASE_URL,
@@ -64,19 +70,12 @@ const jsonLd: WithContext<WebApplication> = {
     "Email Analytics",
     "Newsletter Management",
   ],
-  publisher: {
-    "@type": "Organization",
-    name: BRAND_NAME,
-    url: env.NEXT_PUBLIC_BASE_URL,
-    logo: {
-      "@type": "ImageObject",
-      url: toAbsoluteUrl(BRAND_ICON_URL),
-    },
-    sameAs: [
-      "https://x.com/inboxzero_ai",
-      "https://github.com/elie222/inbox-zero",
-    ],
-  },
+  publisher: { "@id": getOrganizationId() },
+};
+
+const jsonLd: Graph = {
+  "@context": "https://schema.org",
+  "@graph": [organization, webApplication],
 };
 
 export const metadata: Metadata = {
