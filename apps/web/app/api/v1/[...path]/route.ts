@@ -1,7 +1,6 @@
-import { withError } from "@/utils/middleware";
 import { publicApiErrorResponse } from "@/utils/public-api-error";
 
-async function notFound() {
+function notFound() {
   return publicApiErrorResponse({
     status: 404,
     code: "NOT_FOUND",
@@ -9,8 +8,22 @@ async function notFound() {
   });
 }
 
-export const GET = withError("v1/catch-all", notFound);
-export const POST = withError("v1/catch-all", notFound);
-export const PUT = withError("v1/catch-all", notFound);
-export const PATCH = withError("v1/catch-all", notFound);
-export const DELETE = withError("v1/catch-all", notFound);
+export function GET() {
+  return notFound();
+}
+
+export function POST() {
+  return notFound();
+}
+
+export function PUT() {
+  return notFound();
+}
+
+export function PATCH() {
+  return notFound();
+}
+
+export function DELETE() {
+  return notFound();
+}
