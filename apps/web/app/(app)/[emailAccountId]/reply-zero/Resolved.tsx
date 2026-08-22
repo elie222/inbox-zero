@@ -25,7 +25,7 @@ export async function Resolved({
       SELECT MAX(id) as id
       FROM "ThreadTracker"
       WHERE "emailAccountId" = ${emailAccountId}
-      ${dateFilter ? Prisma.sql`AND "sentAt" <= (${dateFilter}->>'lte')::timestamp` : Prisma.empty}
+      ${dateFilter ? Prisma.sql`AND "sentAt" <= ${dateFilter.lte}` : Prisma.empty}
       GROUP BY "threadId"
       HAVING bool_and(resolved) = true
       ORDER BY MAX(id) DESC
@@ -38,7 +38,7 @@ export async function Resolved({
         SELECT 1
         FROM "ThreadTracker"
         WHERE "emailAccountId" = ${emailAccountId}
-        ${dateFilter ? Prisma.sql`AND "sentAt" <= (${dateFilter}->>'lte')::timestamp` : Prisma.empty}
+        ${dateFilter ? Prisma.sql`AND "sentAt" <= ${dateFilter.lte}` : Prisma.empty}
         GROUP BY "threadId"
         HAVING bool_and(resolved) = true
       ) t
