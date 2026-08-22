@@ -29,9 +29,15 @@ jobs:
     steps:
       # workflow_run has repository secrets. Always use trusted default-branch code here;
       # never check out or execute the contributor's pull-request revision.
-      - uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event.repository.default_branch }}
+      - name: Check out trusted source
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        shell: bash
+        run: |
+          git init .
+          git remote add origin "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git"
+          git fetch --depth=1 origin "$DEFAULT_BRANCH"
+          git checkout --detach FETCH_HEAD
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
