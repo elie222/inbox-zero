@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Prisma } from "@/generated/prisma/client";
 import prisma from "@/utils/__mocks__/prisma";
 import { registerSSOProviderAction } from "./sso";
 
@@ -35,6 +36,14 @@ const input = {
   providerId: "acme-saml",
   domain: "acme.com",
   idpMetadata: IDP_METADATA,
+};
+
+const EXISTING_ORGANIZATION = {
+  id: "org-existing",
+  name: "Acme Corp",
+  slug: "acme-corp",
+  SsoProvider: null,
+  members: [{ emailAccount: { email: "owner@acme.com" } }],
 };
 
 describe("registerSSOProviderAction", () => {
@@ -82,18 +91,26 @@ describe("registerSSOProviderAction", () => {
   });
 
   it("attaches the SSO provider to an existing organization without SSO", async () => {
-    prisma.organization.findUnique.mockResolvedValue({
-      id: "org-existing",
-      name: "Acme Corp",
-      slug: "acme-corp",
-      SsoProvider: [],
-      members: [{ emailAccount: { email: "owner@acme.com" } }],
-    } as never);
+    prisma.organization.findUnique.mockResolvedValue(
+      EXISTING_ORGANIZATION as never,
+    );
 
-    const result = await registerSSOProviderAction(input);
+    const result = await registerSSOProviderAction({
+      ...input,
+      organizationId: "org-existing",
+    });
 
     expect(result?.serverError).toBeUndefined();
     expect(prisma.organization.create).not.toHaveBeenCalled();
+    expect(prisma.organization.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({
+          members: expect.objectContaining({
+            where: { role: { in: ["admin", "owner"] } },
+          }),
+        }),
+      }),
+    );
     expect(prisma.ssoProvider.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ organizationId: "org-existing" }),
@@ -101,32 +118,93 @@ describe("registerSSOProviderAction", () => {
     );
   });
 
-  it("errors when the existing organization already has an SSO provider", async () => {
-    prisma.organization.findUnique.mockResolvedValue({
-      id: "org-existing",
-      name: "Acme Corp",
-      slug: "acme-corp",
-      SsoProvider: [{ providerId: "existing-saml" }],
-      members: [{ emailAccount: { email: "owner@acme.com" } }],
-    } as never);
+  it("requires the exact organization ID before attaching SSO to an existing organization", async () => {
+    prisma.organization.findUnique.mockResolvedValue(
+      EXISTING_ORGANIZATION as never,
+    );
 
     const result = await registerSSOProviderAction(input);
+
+    expect(result?.serverError).toMatch(/organization ID/i);
+    expect(prisma.organization.create).not.toHaveBeenCalled();
+    expect(prisma.ssoProvider.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects a different organization ID for an existing organization", async () => {
+    prisma.organization.findUnique.mockResolvedValue(
+      EXISTING_ORGANIZATION as never,
+    );
+
+    const result = await registerSSOProviderAction({
+      ...input,
+      organizationId: "org-other",
+    });
+
+    expect(result?.serverError).toMatch(/exact organization ID/i);
+    expect(prisma.organization.create).not.toHaveBeenCalled();
+    expect(prisma.ssoProvider.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects an organization ID that does not match the organization name", async () => {
+    prisma.organization.findUnique.mockResolvedValue(null);
+
+    const result = await registerSSOProviderAction({
+      ...input,
+      organizationId: "org-other",
+    });
+
+    expect(result?.serverError).toMatch(/does not match/i);
+    expect(prisma.organization.create).not.toHaveBeenCalled();
+    expect(prisma.ssoProvider.create).not.toHaveBeenCalled();
+  });
+
+  it("errors when the existing organization already has an SSO provider", async () => {
+    prisma.organization.findUnique.mockResolvedValue({
+      ...EXISTING_ORGANIZATION,
+      SsoProvider: { providerId: "existing-saml" },
+    } as never);
+
+    const result = await registerSSOProviderAction({
+      ...input,
+      organizationId: "org-existing",
+    });
 
     expect(result?.serverError).toMatch(/already has an SSO provider/i);
     expect(prisma.organization.create).not.toHaveBeenCalled();
     expect(prisma.ssoProvider.create).not.toHaveBeenCalled();
   });
 
+  it("returns the configured-provider error when a concurrent registration wins", async () => {
+    prisma.organization.findUnique.mockResolvedValue(
+      EXISTING_ORGANIZATION as never,
+    );
+    prisma.ssoProvider.create.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+        code: "P2002",
+        clientVersion: "test",
+        meta: { target: ["organizationId"] },
+      }),
+    );
+
+    const result = await registerSSOProviderAction({
+      ...input,
+      organizationId: "org-existing",
+    });
+
+    expect(result?.serverError).toMatch(/already has an SSO provider/i);
+  });
+
   it("refuses to attach SSO to an existing organization when no owner/admin is on the SSO domain", async () => {
     prisma.organization.findUnique.mockResolvedValue({
+      ...EXISTING_ORGANIZATION,
       id: "org-squatted",
-      name: "Acme Corp",
-      slug: "acme-corp",
-      SsoProvider: [],
       members: [{ emailAccount: { email: "attacker@evil.com" } }],
     } as never);
 
-    const result = await registerSSOProviderAction(input);
+    const result = await registerSSOProviderAction({
+      ...input,
+      organizationId: "org-squatted",
+    });
 
     expect(result?.serverError).toMatch(/none of its owners or admins/i);
     expect(prisma.organization.create).not.toHaveBeenCalled();

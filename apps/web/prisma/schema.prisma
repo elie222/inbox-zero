@@ -259,7 +259,7 @@ model Organization {
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
   members      Member[]
-  SsoProvider  SsoProvider[]
+  SsoProvider  SsoProvider?
   ScimProvider ScimProvider[]
   sessions     Session[]
   invitations  Invitation[]
@@ -370,7 +370,7 @@ model SsoProvider {
   emailAccountId String?
   emailAccount   EmailAccount? @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
   providerId     String        @unique
-  organizationId String?
+  organizationId String?       @unique
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   domain         String
 
