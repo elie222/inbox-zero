@@ -81,15 +81,28 @@ curl -X POST "https://www.getinboxzero.com/api/v1/rules" \
 
 ### Errors
 
-API errors are returned as JSON with an `error` message.
+API errors are returned as structured JSON:
 
-| Status | Meaning |
-|---|---|
-| `400` | Invalid query, path, or request body; an action may also be disabled by the deployment's feature flags |
-| `401` | The `API-Key` header is missing, invalid, or expired |
-| `403` | The key lacks a required scope or is not account-scoped |
-| `404` | The requested rule does not exist in the key's inbox account |
-| `500` | An unexpected server error occurred |
+```json
+{
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "Missing API key",
+    "hint": "Include a valid API-Key header. See https://docs.getinboxzero.com/api-reference/introduction."
+  }
+}
+```
+
+| Status | Code | Meaning |
+|---|---|---|
+| `400` | `BAD_REQUEST` | Invalid query, path, or request body; an action may also be disabled by the deployment's feature flags |
+| `401` | `UNAUTHORIZED` | The `API-Key` header is missing, invalid, or expired |
+| `403` | `FORBIDDEN` | The key lacks a required scope or is not account-scoped |
+| `404` | `NOT_FOUND` | The requested route or rule does not exist |
+| `429` | `RATE_LIMITED` | Rate limited by the API or email provider |
+| `500` | `INTERNAL_ERROR` | An unexpected server error occurred |
+
+The OpenAPI schema is published at [https://www.getinboxzero.com/openapi.json](https://www.getinboxzero.com/openapi.json) (also `/api/v1/openapi` and `/.well-known/openapi.json`).
 
 The `DELETE` rule action, which moves matching emails to trash, is available only when the deployment enables `NEXT_PUBLIC_DELETE_EMAIL_ACTION_ENABLED`. This feature flag is separate from `DELETE /rules/{id}`, which deletes a rule definition.
 

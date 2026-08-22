@@ -9,6 +9,7 @@ import {
   ruleRequestBodySchema,
 } from "@/app/api/v1/rules/validation";
 import { assertCanUseDigestsIfNeeded } from "@/utils/premium/server";
+import { publicApiErrorResponse } from "@/utils/public-api-error";
 
 export const GET = withAccountApiKey(
   "v1/rules/detail",
@@ -23,7 +24,11 @@ export const GET = withAccountApiKey(
     });
 
     if (!rule) {
-      return NextResponse.json({ error: "Rule not found" }, { status: 404 });
+      return publicApiErrorResponse({
+        status: 404,
+        code: "NOT_FOUND",
+        message: "Rule not found",
+      });
     }
 
     return NextResponse.json({ rule: serializeRule(rule) });
@@ -45,7 +50,11 @@ export const PUT = withAccountApiKey(
     });
 
     if (!existingRule) {
-      return NextResponse.json({ error: "Rule not found" }, { status: 404 });
+      return publicApiErrorResponse({
+        status: 404,
+        code: "NOT_FOUND",
+        message: "Rule not found",
+      });
     }
 
     await assertCanUseDigestsIfNeeded(
@@ -89,7 +98,11 @@ export const DELETE = withAccountApiKey(
     });
 
     if (!existingRule) {
-      return NextResponse.json({ error: "Rule not found" }, { status: 404 });
+      return publicApiErrorResponse({
+        status: 404,
+        code: "NOT_FOUND",
+        message: "Rule not found",
+      });
     }
 
     await deleteRule({

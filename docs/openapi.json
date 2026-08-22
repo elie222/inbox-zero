@@ -2,7 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Inbox Zero API",
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "description": "Programmatic access to Inbox Zero inbox stats and automation rules. Docs: https://docs.getinboxzero.com/api-reference/introduction Machine-readable schema: /openapi.json Authenticate with an account-scoped API key via the API-Key header. Errors return JSON with error.code, error.message, and error.hint."
   },
   "servers": [
     {
@@ -24,7 +25,22 @@
       "ApiKeyAuth": {
         "type": "apiKey",
         "in": "header",
-        "name": "API-Key"
+        "name": "API-Key",
+        "description": "Account-scoped API key created in Settings.\nOperations declare the scopes they require.\nAvailable scopes:\n- RULES_READ: List and inspect automation rules for this inbox.\n- RULES_WRITE: Create, update, and delete automation rules for this inbox.\n- STATS_READ: Read aggregated inbox statistics for this inbox."
+      },
+      "ApiKeyScopes": {
+        "type": "oauth2",
+        "description": "API key permission scopes. Create keys with selected scopes in the product Settings UI; send the key via the API-Key header (ApiKeyAuth).",
+        "flows": {
+          "clientCredentials": {
+            "tokenUrl": "https://docs.getinboxzero.com/api-reference/introduction",
+            "scopes": {
+              "RULES_READ": "List and inspect automation rules for this inbox.",
+              "RULES_WRITE": "Create, update, and delete automation rules for this inbox.",
+              "STATS_READ": "Read aggregated inbox statistics for this inbox."
+            }
+          }
+        }
       }
     },
     "schemas": {
@@ -54,7 +70,10 @@
         "properties": {
           "conditionalOperator": {
             "type": "string",
-            "enum": ["AND", "OR"],
+            "enum": [
+              "AND",
+              "OR"
+            ],
             "nullable": true
           },
           "aiInstructions": {
@@ -65,9 +84,18 @@
             "type": "object",
             "nullable": true,
             "properties": {
-              "from": { "type": "string", "nullable": true },
-              "to": { "type": "string", "nullable": true },
-              "subject": { "type": "string", "nullable": true }
+              "from": {
+                "type": "string",
+                "nullable": true
+              },
+              "to": {
+                "type": "string",
+                "nullable": true
+              },
+              "subject": {
+                "type": "string",
+                "nullable": true
+              }
             }
           }
         }
@@ -75,56 +103,168 @@
       "RuleActionFields": {
         "type": "object",
         "properties": {
-          "label": { "type": "string", "nullable": true },
-          "to": { "type": "string", "nullable": true },
-          "cc": { "type": "string", "nullable": true },
-          "bcc": { "type": "string", "nullable": true },
-          "subject": { "type": "string", "nullable": true },
-          "content": { "type": "string", "nullable": true },
-          "webhookUrl": { "type": "string", "nullable": true },
-          "folderName": { "type": "string", "nullable": true }
+          "label": {
+            "type": "string",
+            "nullable": true
+          },
+          "to": {
+            "type": "string",
+            "nullable": true
+          },
+          "cc": {
+            "type": "string",
+            "nullable": true
+          },
+          "bcc": {
+            "type": "string",
+            "nullable": true
+          },
+          "subject": {
+            "type": "string",
+            "nullable": true
+          },
+          "content": {
+            "type": "string",
+            "nullable": true
+          },
+          "webhookUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "folderName": {
+            "type": "string",
+            "nullable": true
+          }
         }
       },
       "RuleAction": {
         "type": "object",
         "properties": {
-          "type": { "$ref": "#/components/schemas/ActionType" },
-          "messagingChannelId": { "type": "string", "nullable": true },
-          "fields": { "$ref": "#/components/schemas/RuleActionFields" },
-          "delayInMinutes": { "type": "number", "nullable": true }
+          "type": {
+            "$ref": "#/components/schemas/ActionType"
+          },
+          "messagingChannelId": {
+            "type": "string",
+            "nullable": true
+          },
+          "fields": {
+            "$ref": "#/components/schemas/RuleActionFields"
+          },
+          "delayInMinutes": {
+            "type": "number",
+            "nullable": true
+          }
         },
-        "required": ["type"]
+        "required": [
+          "type"
+        ]
       },
       "Rule": {
         "type": "object",
         "properties": {
-          "id": { "type": "string" },
-          "name": { "type": "string" },
-          "enabled": { "type": "boolean" },
-          "runOnThreads": { "type": "boolean" },
-          "createdAt": { "type": "string", "format": "date-time" },
-          "updatedAt": { "type": "string", "format": "date-time" },
-          "condition": { "$ref": "#/components/schemas/RuleCondition" },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "runOnThreads": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "condition": {
+            "$ref": "#/components/schemas/RuleCondition"
+          },
           "actions": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/RuleAction" }
+            "items": {
+              "$ref": "#/components/schemas/RuleAction"
+            }
           }
         },
-        "required": ["id", "name", "enabled", "runOnThreads", "createdAt", "updatedAt", "condition", "actions"]
+        "required": [
+          "id",
+          "name",
+          "enabled",
+          "runOnThreads",
+          "createdAt",
+          "updatedAt",
+          "condition",
+          "actions"
+        ]
       },
       "RuleRequestBody": {
         "type": "object",
         "properties": {
-          "name": { "type": "string", "minLength": 1 },
-          "runOnThreads": { "type": "boolean", "default": true },
-          "condition": { "$ref": "#/components/schemas/RuleCondition" },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "runOnThreads": {
+            "type": "boolean",
+            "default": true
+          },
+          "condition": {
+            "$ref": "#/components/schemas/RuleCondition"
+          },
           "actions": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/RuleAction" },
+            "items": {
+              "$ref": "#/components/schemas/RuleAction"
+            },
             "minItems": 1
           }
         },
-        "required": ["name", "condition", "actions"]
+        "required": [
+          "name",
+          "condition",
+          "actions"
+        ]
+      },
+      "PublicApiError": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "BAD_REQUEST",
+                  "UNAUTHORIZED",
+                  "FORBIDDEN",
+                  "NOT_FOUND",
+                  "RATE_LIMITED",
+                  "INTERNAL_ERROR"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "hint": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message",
+              "hint"
+            ]
+          }
+        },
+        "required": [
+          "error"
+        ]
       }
     },
     "parameters": {}
@@ -135,14 +275,21 @@
         "description": "Get email statistics grouped by time period. Returns counts of emails by status (all, sent, read, unread, archived, unarchived) for each period.",
         "security": [
           {
-            "ApiKeyAuth": []
+            "ApiKeyAuth": [
+              "STATS_READ"
+            ]
           }
         ],
         "parameters": [
           {
             "schema": {
               "type": "string",
-              "enum": ["day", "week", "month", "year"],
+              "enum": [
+                "day",
+                "week",
+                "month",
+                "year"
+              ],
               "default": "week"
             },
             "required": false,
@@ -237,14 +384,71 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid query, path, or request body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key lacks a required scope or is not account-scoped",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited by the API or email provider",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
           }
-        }
+        },
+        "operationId": "getStatsByPeriod"
       }
     },
     "/rules": {
       "get": {
         "description": "List automation rules for the scoped inbox account.",
-        "security": [{ "ApiKeyAuth": [] }],
+        "security": [
+          {
+            "ApiKeyAuth": [
+              "RULES_READ"
+            ]
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful response",
@@ -255,24 +459,77 @@
                   "properties": {
                     "rules": {
                       "type": "array",
-                      "items": { "$ref": "#/components/schemas/Rule" }
+                      "items": {
+                        "$ref": "#/components/schemas/Rule"
+                      }
                     }
                   },
-                  "required": ["rules"]
+                  "required": [
+                    "rules"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key lacks a required scope or is not account-scoped",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited by the API or email provider",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
                 }
               }
             }
           }
-        }
+        },
+        "operationId": "listRules"
       },
       "post": {
         "description": "Create an automation rule for the scoped inbox account.",
-        "security": [{ "ApiKeyAuth": [] }],
+        "security": [
+          {
+            "ApiKeyAuth": [
+              "RULES_WRITE"
+            ]
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/RuleRequestBody" }
+              "schema": {
+                "$ref": "#/components/schemas/RuleRequestBody"
+              }
             }
           }
         },
@@ -284,23 +541,86 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "rule": { "$ref": "#/components/schemas/Rule" }
+                    "rule": {
+                      "$ref": "#/components/schemas/Rule"
+                    }
                   },
-                  "required": ["rule"]
+                  "required": [
+                    "rule"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query, path, or request body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key lacks a required scope or is not account-scoped",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited by the API or email provider",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
                 }
               }
             }
           }
-        }
+        },
+        "operationId": "createRule"
       }
     },
     "/rules/{id}": {
       "get": {
         "description": "Get a single automation rule for the scoped inbox account.",
-        "security": [{ "ApiKeyAuth": [] }],
+        "security": [
+          {
+            "ApiKeyAuth": [
+              "RULES_READ"
+            ]
+          }
+        ],
         "parameters": [
           {
-            "schema": { "type": "string" },
+            "schema": {
+              "type": "string"
+            },
             "required": true,
             "name": "id",
             "in": "path"
@@ -314,21 +634,94 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "rule": { "$ref": "#/components/schemas/Rule" }
+                    "rule": {
+                      "$ref": "#/components/schemas/Rule"
+                    }
                   },
-                  "required": ["rule"]
+                  "required": [
+                    "rule"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query, path, or request body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key lacks a required scope or is not account-scoped",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource or route not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited by the API or email provider",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
                 }
               }
             }
           }
-        }
+        },
+        "operationId": "getRule"
       },
       "put": {
         "description": "Replace an automation rule for the scoped inbox account.",
-        "security": [{ "ApiKeyAuth": [] }],
+        "security": [
+          {
+            "ApiKeyAuth": [
+              "RULES_WRITE"
+            ]
+          }
+        ],
         "parameters": [
           {
-            "schema": { "type": "string" },
+            "schema": {
+              "type": "string"
+            },
             "required": true,
             "name": "id",
             "in": "path"
@@ -338,7 +731,9 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/RuleRequestBody" }
+              "schema": {
+                "$ref": "#/components/schemas/RuleRequestBody"
+              }
             }
           }
         },
@@ -350,21 +745,94 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "rule": { "$ref": "#/components/schemas/Rule" }
+                    "rule": {
+                      "$ref": "#/components/schemas/Rule"
+                    }
                   },
-                  "required": ["rule"]
+                  "required": [
+                    "rule"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query, path, or request body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key lacks a required scope or is not account-scoped",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource or route not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited by the API or email provider",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
                 }
               }
             }
           }
-        }
+        },
+        "operationId": "replaceRule"
       },
       "delete": {
         "description": "Delete an automation rule for the scoped inbox account.",
-        "security": [{ "ApiKeyAuth": [] }],
+        "security": [
+          {
+            "ApiKeyAuth": [
+              "RULES_WRITE"
+            ]
+          }
+        ],
         "parameters": [
           {
-            "schema": { "type": "string" },
+            "schema": {
+              "type": "string"
+            },
             "required": true,
             "name": "id",
             "in": "path"
@@ -373,8 +841,69 @@
         "responses": {
           "204": {
             "description": "Rule deleted"
+          },
+          "400": {
+            "description": "Invalid query, path, or request body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key lacks a required scope or is not account-scoped",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource or route not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited by the API or email provider",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
           }
-        }
+        },
+        "operationId": "deleteRule"
       }
     },
     "/stats/response-time": {
@@ -382,7 +911,9 @@
         "description": "Get email response time statistics. Returns summary stats, distribution, and trend data showing how quickly you respond to emails.",
         "security": [
           {
-            "ApiKeyAuth": []
+            "ApiKeyAuth": [
+              "STATS_READ"
+            ]
           }
         ],
         "parameters": [
@@ -436,7 +967,10 @@
                               "type": "number"
                             }
                           },
-                          "required": ["medianResponseTime", "percentChange"]
+                          "required": [
+                            "medianResponseTime",
+                            "percentChange"
+                          ]
                         }
                       },
                       "required": [
@@ -521,8 +1055,59 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid query, path, or request body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key lacks a required scope or is not account-scoped",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited by the API or email provider",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
           }
-        }
+        },
+        "operationId": "getStatsResponseTime"
       }
     }
   }
