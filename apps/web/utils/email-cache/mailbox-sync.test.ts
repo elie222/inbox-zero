@@ -1,6 +1,6 @@
 import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { clearEmailCache } from "./database";
+import { clearEmailCache, getEmailCacheDatabase } from "./database";
 import { readMailboxSyncState } from "./mailbox";
 import { syncMailboxPages } from "./mailbox-sync";
 
@@ -122,6 +122,43 @@ describe("mailbox sync coordinator", () => {
     expect(await readMailboxSyncState("account-1")).toMatchObject({
       after: "2026-07-24T12:00:00.000Z",
       cursor: "new-cursor",
+    });
+  });
+
+  it.each([
+    {
+      after: "2026-08-01T12:00:00.000Z",
+      cursor: "",
+      state: "missing cursor",
+    },
+    { after: "invalid", cursor: "old-cursor", state: "invalid after date" },
+  ])("refreshes a persisted state with $state", async ({ after, cursor }) => {
+    const database = await getEmailCacheDatabase();
+    await database?.put("mailboxSyncStates", {
+      after,
+      cursor,
+      emailAccountId: "account-1",
+      hasMore: false,
+      lastSyncedAt: 1,
+    });
+    const fetchPage = vi.fn().mockResolvedValue({
+      accountId: "account-1",
+      cursor: "new-cursor",
+      deletedMessageIds: [],
+      hasMore: false,
+      reset: true,
+      upsertedMessages: [],
+    });
+
+    await syncMailboxPages({
+      emailAccountId: "account-1",
+      fetchPage,
+      now: new Date("2026-08-23T12:00:00.000Z"),
+    });
+
+    expect(fetchPage).toHaveBeenCalledWith({
+      after: "2026-07-24T12:00:00.000Z",
+      limit: 100,
     });
   });
 

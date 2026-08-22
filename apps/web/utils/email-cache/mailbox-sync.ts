@@ -37,18 +37,23 @@ export async function syncMailboxPages({
   if (!isEmailCacheEpochCurrent(emailAccountId, epoch)) {
     return { hasMore: false, pagesSynced: 0 };
   }
-  const shouldRefreshWindow =
-    !state ||
-    new Date(state.after).getTime() <
+  const stateAfterTimestamp = state
+    ? new Date(state.after).getTime()
+    : Number.NaN;
+  const resumeCursor =
+    state?.cursor &&
+    Number.isFinite(stateAfterTimestamp) &&
+    stateAfterTimestamp >=
       syncStartedAt.getTime() -
-        (DEFAULT_SYNC_DAYS + SYNC_WINDOW_REFRESH_DAYS) * ONE_DAY_MS;
-  const initialAfter = shouldRefreshWindow
-    ? new Date(syncStartedAt.getTime() - DEFAULT_SYNC_DAYS * ONE_DAY_MS)
-    : undefined;
-  let input: MailboxSyncInput =
-    state?.cursor && !shouldRefreshWindow
-      ? { cursor: state.cursor, limit: DEFAULT_PAGE_LIMIT }
-      : { after: initialAfter!.toISOString(), limit: DEFAULT_PAGE_LIMIT };
+        (DEFAULT_SYNC_DAYS + SYNC_WINDOW_REFRESH_DAYS) * ONE_DAY_MS
+      ? state.cursor
+      : undefined;
+  const initialAfter = new Date(
+    syncStartedAt.getTime() - DEFAULT_SYNC_DAYS * ONE_DAY_MS,
+  );
+  let input: MailboxSyncInput = resumeCursor
+    ? { cursor: resumeCursor, limit: DEFAULT_PAGE_LIMIT }
+    : { after: initialAfter.toISOString(), limit: DEFAULT_PAGE_LIMIT };
   let hasMore = true;
   let pagesSynced = 0;
 
@@ -64,7 +69,7 @@ export async function syncMailboxPages({
     await applyMailboxSyncPage({
       emailAccountId,
       page,
-      after: initialAfter,
+      after: resumeCursor ? undefined : initialAfter,
       now: now?.getTime() ?? Date.now(),
     });
     pagesSynced += 1;

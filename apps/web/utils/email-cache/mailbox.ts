@@ -244,7 +244,7 @@ function toCachedMailboxMessage(
     messageId: message.id,
     threadId: message.threadId,
     data: message,
-    receivedAt: getMessageTimestamp(message),
+    receivedAt: getMessageTimestamp(message, now),
     lastAccessedAt: now,
   };
 }
@@ -284,6 +284,7 @@ function threadMatchesQuery(messages: ParsedMessage[], query: ThreadsQuery) {
   const requiredLabelIds = [
     ...(query.labelIds ?? []),
     ...(query.labelId ? [query.labelId] : []),
+    ...(query.type === "inbox" || query.type === "unread" ? ["INBOX"] : []),
     ...(query.type?.startsWith("CATEGORY_") ? [query.type] : []),
   ];
   if (
@@ -335,7 +336,8 @@ function toListThread(
     messagesById.set(message.id, toListMessage(message));
   }
   const listMessages = [...messagesById.values()].sort(sortByInternalDate());
-  const latest = listMessages.at(-1)!;
+  const latest = listMessages.at(-1);
+  if (!latest) throw new Error("Synced mailbox thread has no messages");
   return {
     id: threadId,
     snippet: latest.snippet,
@@ -363,10 +365,16 @@ function getCachedThread(value: unknown): ThreadListItem | undefined {
   return value as ThreadListItem;
 }
 
-function getMessageTimestamp(message: ParsedMessage | undefined) {
-  return internalDateToDate(message?.internalDate, {
+function getMessageTimestamp(message: ParsedMessage | undefined, fallback = 0) {
+  const internalTimestamp = internalDateToDate(message?.internalDate, {
     fallbackToNow: false,
   }).getTime();
+  if (Number.isFinite(internalTimestamp)) return internalTimestamp;
+
+  const dateTimestamp = internalDateToDate(message?.date, {
+    fallbackToNow: false,
+  }).getTime();
+  return Number.isFinite(dateTimestamp) ? dateTimestamp : fallback;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

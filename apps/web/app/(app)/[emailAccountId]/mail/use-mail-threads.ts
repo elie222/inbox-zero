@@ -186,17 +186,27 @@ export function useMailThreads({
     (synced.complete || synced.threads.length > 0)
       ? synced.threads
       : undefined;
-  const sourceThreads =
-    remoteThreads &&
-    syncedThreads &&
-    synced?.complete &&
-    synced.syncedAt > remoteSnapshot.current.loadedAt
-      ? mergeSyncedThreads({
-          remoteThreads,
-          syncedThreads,
-          syncedAfter: synced.after,
-        })
-      : (remoteThreads ?? syncedThreads ?? persistentThreads);
+  const sourceThreads = useMemo(
+    () =>
+      remoteThreads &&
+      syncedThreads &&
+      synced?.complete &&
+      synced.syncedAt > remoteSnapshot.current.loadedAt
+        ? mergeSyncedThreads({
+            remoteThreads,
+            syncedThreads,
+            syncedAfter: synced.after,
+          })
+        : (remoteThreads ?? syncedThreads ?? persistentThreads),
+    [
+      persistentThreads,
+      remoteThreads,
+      synced?.after,
+      synced?.complete,
+      synced?.syncedAt,
+      syncedThreads,
+    ],
+  );
   const threads = useMemo(
     () =>
       sourceThreads?.filter((thread) => !hiddenThreadIds.has(thread.id)) ?? [],

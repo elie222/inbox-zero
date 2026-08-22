@@ -1,6 +1,6 @@
 import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it } from "vitest";
-import { clearEmailCache } from "./database";
+import { clearEmailCache, getEmailCacheDatabase } from "./database";
 import {
   applyMailboxSyncPage,
   markSyncedMailboxThreadsRead,
@@ -105,6 +105,56 @@ describe("synced mailbox cache", () => {
       "new-thread",
     ]);
     expect(snapshot?.after).toBe("2026-07-25T00:00:00.000Z");
+  });
+
+  it("filters inbox rows and gives malformed dates a valid cleanup key", async () => {
+    const dateFallback = getMessage({
+      id: "date-fallback",
+      threadId: "valid-thread",
+    });
+    dateFallback.internalDate = "invalid";
+    dateFallback.date = "2026-08-22T10:00:00.000Z";
+    const nowFallback = getMessage({
+      id: "now-fallback",
+      threadId: "non-inbox-thread",
+      internalDate: "invalid",
+      labelIds: [],
+    });
+    nowFallback.date = "invalid";
+    const missingLabels = getMessage({
+      id: "missing-labels",
+      threadId: "missing-label-thread",
+    });
+    missingLabels.labelIds = undefined;
+
+    await applyMailboxSyncPage({
+      emailAccountId: "account-1",
+      after: new Date("2026-07-24T00:00:00.000Z"),
+      now: 500,
+      page: {
+        cursor: "cursor",
+        deletedMessageIds: [],
+        hasMore: false,
+        reset: true,
+        upsertedMessages: [dateFallback, nowFallback, missingLabels],
+      },
+    });
+
+    await expect(
+      readSyncedMailboxThreads({
+        emailAccountId: "account-1",
+        query: { type: "inbox" },
+      }),
+    ).resolves.toMatchObject({ threads: [{ id: "valid-thread" }] });
+    const database = await getEmailCacheDatabase();
+    await expect(
+      database?.get("mailboxMessages", ["account-1", "date-fallback"]),
+    ).resolves.toMatchObject({
+      receivedAt: new Date("2026-08-22T10:00:00.000Z").getTime(),
+    });
+    await expect(
+      database?.get("mailboxMessages", ["account-1", "now-fallback"]),
+    ).resolves.toMatchObject({ receivedAt: 500 });
   });
 
   it("derives sorted inbox and split views while preserving server plans", async () => {

@@ -2,6 +2,7 @@ import { getEmailCacheDatabase } from "./database";
 import {
   EMAIL_CACHE_CLEANUP_INTERVAL_MS,
   EMAIL_CACHE_DEFAULT_DETAIL_BUDGET_BYTES,
+  EMAIL_CACHE_MAILBOX_MAX_AGE_MS,
   EMAIL_CACHE_MAX_AGE_MS,
   EMAIL_CACHE_MAX_DETAIL_BUDGET_BYTES,
   EMAIL_CACHE_MAX_VIEWS_PER_ACCOUNT,
@@ -106,7 +107,9 @@ async function cleanupEmailCache() {
 
     let mailboxMessageCursor = await mailboxMessagesStore
       .index("byReceivedAt")
-      .openCursor(IDBKeyRange.upperBound(now - EMAIL_CACHE_MAX_AGE_MS, true));
+      .openCursor(
+        IDBKeyRange.upperBound(now - EMAIL_CACHE_MAILBOX_MAX_AGE_MS, true),
+      );
     while (mailboxMessageCursor) {
       await mailboxMessageCursor.delete();
       mailboxMessageCursor = await mailboxMessageCursor.continue();

@@ -5,7 +5,10 @@ import { waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { scheduleEmailCacheCleanup } from "./cleanup";
 import { clearEmailCache, getEmailCacheDatabase } from "./database";
-import { EMAIL_CACHE_MAX_AGE_MS } from "./policy";
+import {
+  EMAIL_CACHE_MAILBOX_MAX_AGE_MS,
+  EMAIL_CACHE_MAX_AGE_MS,
+} from "./policy";
 
 const storageDescriptor = Object.getOwnPropertyDescriptor(navigator, "storage");
 const requestIdleCallbackDescriptor = Object.getOwnPropertyDescriptor(
@@ -60,6 +63,14 @@ describe("email cache cleanup", () => {
       messageId: "expired-message",
       threadId: "expired-thread",
       data: getMessage("expired-message", "expired-thread"),
+      receivedAt: now - EMAIL_CACHE_MAILBOX_MAX_AGE_MS - 1,
+      lastAccessedAt: now,
+    });
+    await database?.put("mailboxMessages", {
+      emailAccountId: "account-1",
+      messageId: "refresh-margin-message",
+      threadId: "refresh-margin-thread",
+      data: getMessage("refresh-margin-message", "refresh-margin-thread"),
       receivedAt: now - EMAIL_CACHE_MAX_AGE_MS - 1,
       lastAccessedAt: now,
     });
@@ -96,6 +107,9 @@ describe("email cache cleanup", () => {
     ).resolves.toBeUndefined();
     await expect(
       database?.get("mailboxMessages", ["account-1", "recent-message"]),
+    ).resolves.toBeDefined();
+    await expect(
+      database?.get("mailboxMessages", ["account-1", "refresh-margin-message"]),
     ).resolves.toBeDefined();
   });
 });
