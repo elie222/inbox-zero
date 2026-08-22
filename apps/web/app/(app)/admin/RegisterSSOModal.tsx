@@ -90,6 +90,17 @@ export function RegisterSSOModal() {
 
             <Input
               type="text"
+              name="organizationId"
+              label="Existing Organization ID (optional)"
+              placeholder="Required when attaching SSO to an existing organization"
+              registerProps={register("organizationId", {
+                setValueAs: (value) => value || undefined,
+              })}
+              error={errors.organizationId}
+            />
+
+            <Input
+              type="text"
               name="providerId"
               label="Provider ID"
               placeholder="e.g., your-company-saml"
