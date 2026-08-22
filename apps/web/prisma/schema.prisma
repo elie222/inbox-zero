@@ -375,7 +375,6 @@ model SsoProvider {
   domain         String
 
   @@index([emailAccountId])
-  @@index([organizationId])
   @@map("ssoProvider")
 }
 
