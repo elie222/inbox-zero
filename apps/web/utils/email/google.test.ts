@@ -53,6 +53,36 @@ vi.mock("@/utils/gmail/draft", () => gmailDraftMock);
 vi.mock("@/utils/gmail/signature-settings", () => gmailSignatureMock);
 vi.mock("@/utils/email/bulk-action-tracking", () => bulkActionTrackingMock);
 
+describe("GmailProvider.sendEmail", () => {
+  it("returns the provider message ID", async () => {
+    gmailMailMock.sendEmailWithPlainText.mockResolvedValueOnce({
+      data: { id: "sent-message-1" },
+    });
+    const provider = new GmailProvider({} as any);
+
+    await expect(
+      provider.sendEmail({
+        to: "recipient@example.com",
+        subject: "Subject",
+        messageText: "Message",
+      }),
+    ).resolves.toEqual({ messageId: "sent-message-1" });
+  });
+
+  it("fails when the provider omits the message ID", async () => {
+    gmailMailMock.sendEmailWithPlainText.mockResolvedValueOnce({ data: {} });
+    const provider = new GmailProvider({} as any);
+
+    await expect(
+      provider.sendEmail({
+        to: "recipient@example.com",
+        subject: "Subject",
+        messageText: "Message",
+      }),
+    ).rejects.toThrow("Provider did not return a sent message ID");
+  });
+});
+
 describe("GmailProvider.bulkArchiveThreads", () => {
   it("archives all supplied messages with one Gmail batch modification", async () => {
     const batchModify = vi.fn().mockResolvedValue({ data: {} });

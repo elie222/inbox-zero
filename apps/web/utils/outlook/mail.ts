@@ -29,7 +29,6 @@ type MailSendEmailBody = WithMailerAttachments<SendEmailBody>;
 const MAX_GRAPH_ATTACHMENT_SIZE_BYTES = 3 * 1024 * 1024;
 const MAX_GRAPH_UPLOAD_SESSION_SIZE_BYTES = 150 * 1024 * 1024;
 const GRAPH_UPLOAD_CHUNK_SIZE_BYTES = 320 * 1024;
-
 type SentEmailResult = Pick<Message, "id" | "conversationId">;
 
 export async function sendEmailWithHtml(
@@ -86,9 +85,8 @@ export async function sendEmailWithHtml(
     logger,
   );
 
-  // Draft id is no longer valid after sending; Graph doesn't return sent message id
   return {
-    id: "",
+    id: draft.id,
     conversationId: draft.conversationId,
   };
 }
@@ -107,7 +105,11 @@ export async function replyToEmail(
   message: EmailForAction,
   reply: string,
   logger: Logger,
-  options?: { replyTo?: string; from?: string; attachments?: Attachment[] },
+  options?: {
+    replyTo?: string;
+    from?: string;
+    attachments?: Attachment[];
+  },
 ) {
   ensureEmailSendingEnabled();
 
@@ -166,9 +168,8 @@ export async function replyToEmail(
     logger,
   );
 
-  // Draft ID is no longer valid after /send; Graph doesn't return sent message ID
   return {
-    id: "",
+    id: replyDraft.id,
     conversationId: replyDraft.conversationId,
   };
 }
@@ -263,7 +264,7 @@ export async function forwardEmail(
   );
 
   return {
-    id: "",
+    id: forwardDraft.id,
     conversationId: forwardDraft.conversationId,
   };
 }
@@ -475,9 +476,8 @@ async function sendReplyUsingCreateReply(
     logger,
   );
 
-  // Draft ID is no longer valid after /send; Graph doesn't return sent message ID
   return {
-    id: "",
+    id: replyDraft.id,
     conversationId: replyDraft.conversationId,
   };
 }

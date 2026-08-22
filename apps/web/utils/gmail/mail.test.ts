@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { ParsedMessage } from "@/utils/types";
 import { formatEmailDate } from "@/utils/gmail/reply";
 
@@ -7,6 +7,11 @@ import {
   convertTextToHtmlParagraphs,
   stripHtmlTagsForPlainText,
 } from "@/utils/gmail/mail";
+
+vi.mock("@/utils/mail", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/utils/mail")>()),
+  ensureEmailSendingEnabled: vi.fn(),
+}));
 
 describe("convertTextToHtmlParagraphs", () => {
   it("separates paragraphs on blank lines", () => {

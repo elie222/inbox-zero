@@ -90,6 +90,7 @@ import { getGmailSignatures } from "@/utils/gmail/signature-settings";
 import { withRateLimitRecording } from "@/utils/email/rate-limit";
 import { shouldSkipAutoDraft } from "@/utils/auto-draft";
 import { extractUniqueEmailAddresses } from "@/utils/email";
+import { requireSentMessageId } from "@/utils/email/sent-message-id";
 import { getGmailMailboxSyncPage } from "@/utils/gmail/mailbox-sync";
 
 export class GmailProvider implements EmailProvider {
@@ -959,8 +960,15 @@ export class GmailProvider implements EmailProvider {
       from?: string;
       attachments?: MailAttachment[];
     },
-  ): Promise<void> {
-    await replyToEmail(this.client, email, content, options?.from, options);
+  ): Promise<{ messageId: string }> {
+    const result = await replyToEmail(
+      this.client,
+      email,
+      content,
+      options?.from,
+      options,
+    );
+    return { messageId: requireSentMessageId(result.data.id) };
   }
 
   async sendEmail(args: {
@@ -970,8 +978,9 @@ export class GmailProvider implements EmailProvider {
     subject: string;
     messageText: string;
     attachments?: MailAttachment[];
-  }): Promise<void> {
-    await sendEmailWithPlainText(this.client, args);
+  }): Promise<{ messageId: string }> {
+    const result = await sendEmailWithPlainText(this.client, args);
+    return { messageId: requireSentMessageId(result.data.id) };
   }
 
   async sendEmailWithHtml(body: {
@@ -1009,10 +1018,11 @@ export class GmailProvider implements EmailProvider {
       content?: string;
       from?: string;
     },
-  ): Promise<void> {
+  ): Promise<{ messageId: string }> {
     const parsedMessage = await this.getMessage(email.id);
 
-    await forwardEmail(this.client, parsedMessage, args);
+    const result = await forwardEmail(this.client, parsedMessage, args);
+    return { messageId: requireSentMessageId(result.data.id) };
   }
 
   async markSpam(threadId: string): Promise<void> {

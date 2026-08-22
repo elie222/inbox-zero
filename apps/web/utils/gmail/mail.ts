@@ -103,9 +103,7 @@ const createRawMailMessage = async ({
       headerMessageId: replyToEmail?.headerMessageId || "",
       references: replyToEmail?.references,
     }),
-    headers: {
-      "X-Mailer": "Inbox Zero Web",
-    },
+    headers: { "X-Mailer": "Inbox Zero Web" },
   });
 };
 
@@ -155,7 +153,10 @@ export async function replyToEmail(
   >,
   reply: string,
   from?: string,
-  options?: { replyTo?: string; attachments?: Attachment[] },
+  options?: {
+    replyTo?: string;
+    attachments?: Attachment[];
+  },
 ) {
   ensureEmailSendingEnabled();
 

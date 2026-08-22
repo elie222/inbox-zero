@@ -148,7 +148,7 @@ export interface EmailProvider {
       content?: string;
       from?: string;
     },
-  ): Promise<void>;
+  ): Promise<{ messageId: string }>;
   getAccessToken(): string;
   getAttachment(
     messageId: string,
@@ -284,7 +284,7 @@ export interface EmailProvider {
       from?: string;
       attachments?: MailAttachment[];
     },
-  ): Promise<void>;
+  ): Promise<{ messageId: string }>;
   searchMessages(options: {
     query: string;
     maxResults?: number;
@@ -303,7 +303,7 @@ export interface EmailProvider {
     subject: string;
     messageText: string;
     attachments?: MailAttachment[];
-  }): Promise<void>;
+  }): Promise<{ messageId: string }>;
   sendEmailWithHtml(body: {
     replyToEmail?: {
       threadId: string;

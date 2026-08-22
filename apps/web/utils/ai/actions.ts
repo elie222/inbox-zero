@@ -329,7 +329,7 @@ const reply: ActionFunction<{
     includeAiSelectedAttachments: false,
   });
 
-  await client.replyToEmail(
+  const { messageId } = await client.replyToEmail(
     {
       id: email.id,
       threadId: email.threadId,
@@ -346,6 +346,7 @@ const reply: ActionFunction<{
     args.content,
     { attachments },
   );
+  return { sentMessageIds: [messageId] };
 };
 
 const send_email: ActionFunction<{
@@ -376,7 +377,8 @@ const send_email: ActionFunction<{
     attachments,
   };
 
-  await client.sendEmail(emailArgs);
+  const { messageId } = await client.sendEmail(emailArgs);
+  return { sentMessageIds: [messageId] };
 };
 
 const forward: ActionFunction<{
@@ -434,25 +436,32 @@ const forward: ActionFunction<{
   if (!toRecipients.length && !ccRecipients.length) {
     // A primary recipient is required, so send BCC-only recipients separately
     // to avoid exposing them to each other.
+    const sentMessageIds = [];
     for (const recipient of bccRecipients) {
-      await client.forwardEmail(forwardMessage, {
-        ...forwardArgs,
-        to: recipient,
-      });
+      try {
+        const { messageId } = await client.forwardEmail(forwardMessage, {
+          ...forwardArgs,
+          to: recipient,
+        });
+        sentMessageIds.push(messageId);
+      } catch (error) {
+        throw attachSentMessageIds(error, sentMessageIds);
+      }
     }
-    return;
+    return { sentMessageIds };
   }
 
   if (!toRecipients.length) {
     toRecipients.push(ccRecipients.shift()!);
   }
 
-  await client.forwardEmail(forwardMessage, {
+  const { messageId } = await client.forwardEmail(forwardMessage, {
     ...forwardArgs,
     to: toRecipients.join(", "),
     cc: ccRecipients.join(", ") || undefined,
     bcc: bccRecipients.join(", ") || undefined,
   });
+  return { sentMessageIds: [messageId] };
 };
 
 const mark_spam: ActionFunction<Record<string, unknown>> = async ({
@@ -913,4 +922,12 @@ function removeMessageParticipants(
         isSameEmailAddress(participant, recipient),
       ),
   );
+}
+
+function attachSentMessageIds(error: unknown, sentMessageIds: string[]) {
+  if (error && typeof error === "object") {
+    return Object.assign(error, { sentMessageIds });
+  }
+
+  return Object.assign(new Error(String(error)), { sentMessageIds });
 }
