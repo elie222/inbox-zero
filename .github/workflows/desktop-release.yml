@@ -59,7 +59,7 @@ jobs:
           VERSION="${GITHUB_REF_NAME#desktop-v}"
           pnpm --filter @inboxzero/desktop exec npm version "$VERSION" --no-git-tag-version --allow-same-version
 
-      - name: Write App Store Connect API key
+      - name: Write Apple notarization API key
         if: runner.os == 'macOS'
         env:
           APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
