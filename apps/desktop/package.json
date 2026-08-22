@@ -1,5 +1,6 @@
 {
   "name": "@inboxzero/desktop",
+  "productName": "Inbox Zero",
   "private": true,
   "version": "0.1.0",
   "description": "Electron shell for the Inbox Zero web app",
