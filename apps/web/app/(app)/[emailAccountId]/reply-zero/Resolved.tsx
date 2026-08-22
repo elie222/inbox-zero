@@ -18,14 +18,16 @@ export async function Resolved({
 }) {
   const skip = (page - 1) * PAGE_SIZE;
   const dateFilter = getDateFilter(timeRange);
+  const dateClause = dateFilter
+    ? Prisma.sql`AND "sentAt" <= ${dateFilter.lte}`
+    : Prisma.empty;
 
-  // Group by threadId and check if all resolved values are true
   const [resolvedThreadTrackers, total] = await Promise.all([
     prisma.$queryRaw<Array<{ id: string }>>`
       SELECT MAX(id) as id
       FROM "ThreadTracker"
       WHERE "emailAccountId" = ${emailAccountId}
-      ${dateFilter ? Prisma.sql`AND "sentAt" <= ${dateFilter.lte}` : Prisma.empty}
+      ${dateClause}
       GROUP BY "threadId"
       HAVING bool_and(resolved) = true
       ORDER BY MAX(id) DESC
@@ -38,7 +40,7 @@ export async function Resolved({
         SELECT 1
         FROM "ThreadTracker"
         WHERE "emailAccountId" = ${emailAccountId}
-        ${dateFilter ? Prisma.sql`AND "sentAt" <= ${dateFilter.lte}` : Prisma.empty}
+        ${dateClause}
         GROUP BY "threadId"
         HAVING bool_and(resolved) = true
       ) t
