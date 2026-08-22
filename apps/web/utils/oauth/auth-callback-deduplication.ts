@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
 import {
   claimOAuthCodeAndWait,
@@ -47,7 +48,10 @@ export async function deduplicateOAuthCallback({
       error: claim.error,
       provider,
     });
-    return Response.redirect(new URL(WELCOME_PATH, request.url), 302);
+    return Response.redirect(
+      new URL(WELCOME_PATH, env.NEXT_PUBLIC_BASE_URL),
+      302,
+    );
   }
 
   if (claim.status === "success") {
@@ -58,7 +62,6 @@ export async function deduplicateOAuthCallback({
       { provider },
     );
     return createCachedRedirect({
-      request,
       requestFingerprint,
       result: claim.result,
     });
@@ -66,7 +69,10 @@ export async function deduplicateOAuthCallback({
 
   if (claim.status === "timeout") {
     logger.warn("OAuth callback wait timed out", { provider });
-    return Response.redirect(new URL(WELCOME_PATH, request.url), 302);
+    return Response.redirect(
+      new URL(WELCOME_PATH, env.NEXT_PUBLIC_BASE_URL),
+      302,
+    );
   }
 
   try {
@@ -125,11 +131,9 @@ function getOAuthCallback(request: Request) {
 }
 
 function createCachedRedirect({
-  request,
   requestFingerprint,
   result,
 }: {
-  request: Request;
   requestFingerprint?: string;
   result: OAuthCodeResult;
 }) {
@@ -138,10 +142,13 @@ function createCachedRedirect({
   const status = Number(params.status);
 
   if (!redirect) {
-    return Response.redirect(new URL(WELCOME_PATH, request.url), 302);
+    return Response.redirect(
+      new URL(WELCOME_PATH, env.NEXT_PUBLIC_BASE_URL),
+      302,
+    );
   }
 
-  const redirectUrl = new URL(redirect, request.url);
+  const redirectUrl = new URL(redirect, env.NEXT_PUBLIC_BASE_URL);
   const redirectStatus = REDIRECT_STATUSES.has(status) ? status : 302;
   const headers = new Headers({ location: redirectUrl.toString() });
 
