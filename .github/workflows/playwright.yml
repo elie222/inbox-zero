@@ -19,13 +19,16 @@ on:
       - "apps/web/playwright.config.mjs"
       - "apps/web/scripts/generate-playwright-report-dashboard.ts"
       - "apps/web/scripts/playwright-report-dashboard*"
+      - "apps/web/scripts/png-validation*"
       - "apps/web/env.ts"
       - "apps/web/instrumentation.ts"
       - "apps/web/next.config.*"
       - "apps/web/package.json"
       - "pnpm-lock.yaml"
       - "scripts/pnpm-install-without-desktop.sh"
+      - "scripts/publish-playwright-report.sh"
       - ".github/workflows/playwright.yml"
+      - ".github/workflows/publish-playwright-report.yml"
   pull_request:
     branches: [main]
     paths:
@@ -44,13 +47,16 @@ on:
       - "apps/web/playwright.config.mjs"
       - "apps/web/scripts/generate-playwright-report-dashboard.ts"
       - "apps/web/scripts/playwright-report-dashboard*"
+      - "apps/web/scripts/png-validation*"
       - "apps/web/env.ts"
       - "apps/web/instrumentation.ts"
       - "apps/web/next.config.*"
       - "apps/web/package.json"
       - "pnpm-lock.yaml"
       - "scripts/pnpm-install-without-desktop.sh"
+      - "scripts/publish-playwright-report.sh"
       - ".github/workflows/playwright.yml"
+      - ".github/workflows/publish-playwright-report.yml"
   schedule:
     - cron: "0 6 * * *"
   workflow_dispatch:
@@ -64,6 +70,7 @@ concurrency:
 
 jobs:
   playwright:
+    name: Web E2E
     runs-on: ubuntu-latest
     timeout-minutes: 75
     services:
@@ -175,7 +182,9 @@ jobs:
         run: pnpm -F inbox-zero-ai test:playwright:emulated
 
       - name: Upload Playwright artifacts
-        if: always() && github.ref != 'refs/heads/main'
+        if: >-
+          always() &&
+          (github.event_name == 'pull_request' || github.ref == 'refs/heads/main')
         uses: actions/upload-artifact@v4
         with:
           name: playwright-artifacts-${{ github.run_id }}-${{ github.run_attempt }}
@@ -185,86 +194,3 @@ jobs:
           compression-level: 1
           retention-days: 7
           if-no-files-found: warn
-
-      - name: Publish Playwright dashboard
-        if: always() && github.ref == 'refs/heads/main'
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: ${{ vars.S3_REGION }}
-          AWS_EC2_METADATA_DISABLED: "true"
-          S3_BUCKET: ${{ vars.S3_BUCKET }}
-          S3_ENDPOINT: ${{ vars.S3_ENDPOINT }}
-          PLAYWRIGHT_RESULT: ${{ steps.playwright_tests.outcome }}
-          PLAYWRIGHT_RUN_ATTEMPT: ${{ github.run_attempt }}
-          PLAYWRIGHT_RUN_ID: ${{ github.run_id }}
-          PLAYWRIGHT_RUN_NUMBER: ${{ github.run_number }}
-          PLAYWRIGHT_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          PLAYWRIGHT_SHA: ${{ github.sha }}
-          PLAYWRIGHT_EVENT: ${{ github.event_name }}
-          PLAYWRIGHT_BRANCH: ${{ github.ref_name }}
-        run: |
-          set -euo pipefail
-
-          if [ ! -f apps/web/playwright-report/index.html ]; then
-            echo "::warning::Playwright did not produce an HTML report; keeping the existing public dashboard."
-            exit 0
-          fi
-
-          dashboard_dir="$GITHUB_WORKSPACE/.tmp/playwright-dashboard"
-          history_path="$dashboard_dir/history.json"
-          dashboard_path="$dashboard_dir/index.html"
-          run_key="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          bucket_uri="s3://${S3_BUCKET}/playwright"
-          public_base_url="https://${S3_BUCKET}.${S3_ENDPOINT#https://}/playwright"
-
-          mkdir -p "$dashboard_dir"
-          if aws s3 cp \
-            "$bucket_uri/history.json" \
-            "$history_path" \
-            --endpoint-url "$S3_ENDPOINT" \
-            2>"$dashboard_dir/history-download-error.log"; then
-            echo "Downloaded existing Playwright history."
-          elif grep -Eq "404|NoSuchKey|Not Found" "$dashboard_dir/history-download-error.log"; then
-            echo "No existing Playwright history found; creating it."
-          else
-            cat "$dashboard_dir/history-download-error.log"
-            exit 1
-          fi
-
-          PLAYWRIGHT_REPORT_URL="$public_base_url/runs/$run_key/index.html" \
-            pnpm -F inbox-zero-ai exec tsx \
-              scripts/generate-playwright-report-dashboard.ts \
-              "$history_path" \
-              "$dashboard_path"
-
-          aws s3 sync \
-            apps/web/playwright-report/ \
-            "$bucket_uri/runs/$run_key/" \
-            --endpoint-url "$S3_ENDPOINT" \
-            --cache-control "public,max-age=31536000,immutable"
-          aws s3 sync \
-            apps/web/playwright-report/ \
-            "$bucket_uri/latest/" \
-            --endpoint-url "$S3_ENDPOINT" \
-            --delete \
-            --cache-control "no-cache"
-          aws s3 cp \
-            "$history_path" \
-            "$bucket_uri/history.json" \
-            --endpoint-url "$S3_ENDPOINT" \
-            --content-type "application/json" \
-            --cache-control "no-store"
-          aws s3 cp \
-            "$dashboard_path" \
-            "$bucket_uri/index.html" \
-            --endpoint-url "$S3_ENDPOINT" \
-            --content-type "text/html" \
-            --cache-control "no-store"
-
-          {
-            echo "### Playwright report"
-            echo "- [Dashboard]($public_base_url/index.html)"
-            echo "- [This run]($public_base_url/runs/$run_key/index.html)"
-            echo "- [Latest report]($public_base_url/latest/index.html)"
-          } >> "$GITHUB_STEP_SUMMARY"
