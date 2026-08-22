@@ -19,7 +19,7 @@ export default function NotFound() {
     <BasicLayout>
       <ErrorPage
         title="Page Not Found"
-        description="The page you are looking for could not be found."
+        description="The page you are looking for could not be found. Try the home page, /llms.txt, or https://docs.getinboxzero.com."
       />
     </BasicLayout>
   );
