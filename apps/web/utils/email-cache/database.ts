@@ -1,7 +1,8 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
+import type { ParsedMessage } from "@/utils/types";
 
 const DATABASE_NAME = "inbox-zero-email-cache";
-const DATABASE_VERSION = 1;
+const DATABASE_VERSION = 2;
 
 export type CachedThreadRow = {
   emailAccountId: string;
@@ -30,7 +31,38 @@ export type CachedThreadDetail = {
   byteSize: number;
 };
 
+export type CachedMailboxMessage = {
+  emailAccountId: string;
+  messageId: string;
+  threadId: string;
+  data: ParsedMessage;
+  receivedAt: number;
+  lastAccessedAt: number;
+};
+
+export type CachedMailboxSyncState = {
+  emailAccountId: string;
+  cursor: string;
+  after: string;
+  hasMore: boolean;
+  lastSyncedAt: number;
+  completedAt?: number;
+};
+
 interface EmailCacheSchema extends DBSchema {
+  mailboxMessages: {
+    key: [emailAccountId: string, messageId: string];
+    value: CachedMailboxMessage;
+    indexes: {
+      byAccount: string;
+      byAccountThread: [emailAccountId: string, threadId: string];
+      byReceivedAt: number;
+    };
+  };
+  mailboxSyncStates: {
+    key: string;
+    value: CachedMailboxSyncState;
+  };
   threadDetails: {
     key: [emailAccountId: string, threadId: string, variant: string];
     value: CachedThreadDetail;
@@ -63,23 +95,38 @@ export function getEmailCacheDatabase() {
   if (databasePromise) return databasePromise;
 
   databasePromise = openDB<EmailCacheSchema>(DATABASE_NAME, DATABASE_VERSION, {
-    upgrade(database) {
-      const rows = database.createObjectStore("threadRows", {
-        keyPath: ["emailAccountId", "threadId"],
-      });
-      rows.createIndex("byAccount", "emailAccountId");
+    upgrade(database, oldVersion) {
+      if (oldVersion < 1) {
+        const rows = database.createObjectStore("threadRows", {
+          keyPath: ["emailAccountId", "threadId"],
+        });
+        rows.createIndex("byAccount", "emailAccountId");
 
-      const views = database.createObjectStore("threadViews", {
-        keyPath: ["emailAccountId", "viewKey"],
-      });
-      views.createIndex("byAccount", "emailAccountId");
-      views.createIndex("byLastAccessed", "lastAccessedAt");
+        const views = database.createObjectStore("threadViews", {
+          keyPath: ["emailAccountId", "viewKey"],
+        });
+        views.createIndex("byAccount", "emailAccountId");
+        views.createIndex("byLastAccessed", "lastAccessedAt");
 
-      const details = database.createObjectStore("threadDetails", {
-        keyPath: ["emailAccountId", "threadId", "variant"],
-      });
-      details.createIndex("byAccount", "emailAccountId");
-      details.createIndex("byLastAccessed", "lastAccessedAt");
+        const details = database.createObjectStore("threadDetails", {
+          keyPath: ["emailAccountId", "threadId", "variant"],
+        });
+        details.createIndex("byAccount", "emailAccountId");
+        details.createIndex("byLastAccessed", "lastAccessedAt");
+      }
+
+      if (oldVersion < 2) {
+        const messages = database.createObjectStore("mailboxMessages", {
+          keyPath: ["emailAccountId", "messageId"],
+        });
+        messages.createIndex("byAccount", "emailAccountId");
+        messages.createIndex("byAccountThread", ["emailAccountId", "threadId"]);
+        messages.createIndex("byReceivedAt", "receivedAt");
+
+        database.createObjectStore("mailboxSyncStates", {
+          keyPath: "emailAccountId",
+        });
+      }
     },
     blocking() {
       databasePromise?.then((database) => database?.close());
@@ -123,13 +170,21 @@ export async function clearEmailCache() {
     const database = await getEmailCacheDatabase();
     if (!database) return;
     const transaction = database.transaction(
-      ["threadRows", "threadViews", "threadDetails"],
+      [
+        "threadRows",
+        "threadViews",
+        "threadDetails",
+        "mailboxMessages",
+        "mailboxSyncStates",
+      ],
       "readwrite",
     );
     await Promise.all([
       transaction.objectStore("threadRows").clear(),
       transaction.objectStore("threadViews").clear(),
       transaction.objectStore("threadDetails").clear(),
+      transaction.objectStore("mailboxMessages").clear(),
+      transaction.objectStore("mailboxSyncStates").clear(),
       transaction.done,
     ]);
   } catch {
@@ -153,21 +208,31 @@ export async function clearEmailCacheForAccount(emailAccountId: string) {
     const database = await getEmailCacheDatabase();
     if (!database) return;
     const transaction = database.transaction(
-      ["threadRows", "threadViews", "threadDetails"],
+      [
+        "threadRows",
+        "threadViews",
+        "threadDetails",
+        "mailboxMessages",
+        "mailboxSyncStates",
+      ],
       "readwrite",
     );
     const rows = transaction.objectStore("threadRows");
     const views = transaction.objectStore("threadViews");
     const details = transaction.objectStore("threadDetails");
-    const [rowKeys, viewKeys, detailKeys] = await Promise.all([
+    const messages = transaction.objectStore("mailboxMessages");
+    const [rowKeys, viewKeys, detailKeys, messageKeys] = await Promise.all([
       rows.index("byAccount").getAllKeys(emailAccountId),
       views.index("byAccount").getAllKeys(emailAccountId),
       details.index("byAccount").getAllKeys(emailAccountId),
+      messages.index("byAccount").getAllKeys(emailAccountId),
     ]);
     await Promise.all([
       ...rowKeys.map((key) => rows.delete(key)),
       ...viewKeys.map((key) => views.delete(key)),
       ...detailKeys.map((key) => details.delete(key)),
+      ...messageKeys.map((key) => messages.delete(key)),
+      transaction.objectStore("mailboxSyncStates").delete(emailAccountId),
     ]);
     await transaction.done;
   } catch {

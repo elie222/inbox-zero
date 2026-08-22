@@ -46,12 +46,13 @@ async function cleanupEmailCache() {
         )
       : EMAIL_CACHE_DEFAULT_DETAIL_BUDGET_BYTES;
     const transaction = database.transaction(
-      ["threadRows", "threadViews", "threadDetails"],
+      ["threadRows", "threadViews", "threadDetails", "mailboxMessages"],
       "readwrite",
     );
     const detailsStore = transaction.objectStore("threadDetails");
     const viewsStore = transaction.objectStore("threadViews");
     const rowsStore = transaction.objectStore("threadRows");
+    const mailboxMessagesStore = transaction.objectStore("mailboxMessages");
     let retainedBytes = 0;
     let detailCursor = await detailsStore
       .index("byLastAccessed")
@@ -101,6 +102,14 @@ async function cleanupEmailCache() {
         await rowCursor.delete();
       }
       rowCursor = await rowCursor.continue();
+    }
+
+    let mailboxMessageCursor = await mailboxMessagesStore
+      .index("byReceivedAt")
+      .openCursor(IDBKeyRange.upperBound(now - EMAIL_CACHE_MAX_AGE_MS, true));
+    while (mailboxMessageCursor) {
+      await mailboxMessageCursor.delete();
+      mailboxMessageCursor = await mailboxMessageCursor.continue();
     }
 
     await transaction.done;

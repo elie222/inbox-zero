@@ -5,6 +5,7 @@ import { waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { scheduleEmailCacheCleanup } from "./cleanup";
 import { clearEmailCache, getEmailCacheDatabase } from "./database";
+import { EMAIL_CACHE_MAX_AGE_MS } from "./policy";
 
 const storageDescriptor = Object.getOwnPropertyDescriptor(navigator, "storage");
 const requestIdleCallbackDescriptor = Object.getOwnPropertyDescriptor(
@@ -54,6 +55,22 @@ describe("email cache cleanup", () => {
       lastAccessedAt: now - 1,
       byteSize: 8,
     });
+    await database?.put("mailboxMessages", {
+      emailAccountId: "account-1",
+      messageId: "expired-message",
+      threadId: "expired-thread",
+      data: getMessage("expired-message", "expired-thread"),
+      receivedAt: now - EMAIL_CACHE_MAX_AGE_MS - 1,
+      lastAccessedAt: now,
+    });
+    await database?.put("mailboxMessages", {
+      emailAccountId: "account-1",
+      messageId: "recent-message",
+      threadId: "recent-thread",
+      data: getMessage("recent-message", "recent-thread"),
+      receivedAt: now,
+      lastAccessedAt: now,
+    });
     await database?.put("threadDetails", {
       emailAccountId: "account-1",
       threadId: "newer",
@@ -74,8 +91,29 @@ describe("email cache cleanup", () => {
     await expect(
       database?.get("threadDetails", ["account-1", "newer", variant]),
     ).resolves.toBeDefined();
+    await expect(
+      database?.get("mailboxMessages", ["account-1", "expired-message"]),
+    ).resolves.toBeUndefined();
+    await expect(
+      database?.get("mailboxMessages", ["account-1", "recent-message"]),
+    ).resolves.toBeDefined();
   });
 });
+
+function getMessage(id: string, threadId: string) {
+  const date = new Date().toISOString();
+  return {
+    date,
+    headers: { date, from: "sender@example.com", subject: id, to: "me" },
+    historyId: "1",
+    id,
+    inline: [],
+    internalDate: date,
+    snippet: id,
+    subject: id,
+    threadId,
+  };
+}
 
 function restoreProperty(
   target: object,
