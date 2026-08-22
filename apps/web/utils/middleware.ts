@@ -223,7 +223,7 @@ function withMiddleware<T extends NextRequest>(
             if (publicApiRequest) {
               return publicApiErrorResponse({
                 status: apiError.code,
-                message: apiError.message,
+                message: apiError.message || "Request failed",
               });
             }
 
