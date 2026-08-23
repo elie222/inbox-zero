@@ -9,13 +9,17 @@ import { createEmailProvider } from "@/utils/email/provider";
 import {
   deleteMailboxItemBody,
   removeThreadLabelBody,
-  renameMailboxItemBody,
   unarchiveThreadBody,
   untrashThreadBody,
-  updateLabelColorBody,
+  updateMailboxItemBody,
 } from "@/utils/actions/mail.validation";
-import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import {
+  isGoogleProvider,
+  isMicrosoftProvider,
+} from "@/utils/email/provider-types";
 import { MailSplitKind } from "@/generated/prisma/enums";
+import { isGmailLabelColor } from "@/utils/gmail/label-colors";
+import { getOutlookCategoryPreset } from "@/utils/outlook/category-colors";
 
 const isStatusOk = (status: number) => status >= 200 && status < 300;
 
@@ -269,44 +273,30 @@ export const createLabelAction = actionClient
     },
   );
 
-export const renameMailboxItemAction = actionClient
-  .metadata({ name: "renameMailboxItem" })
-  .inputSchema(renameMailboxItemBody)
+export const updateMailboxItemAction = actionClient
+  .metadata({ name: "updateMailboxItem" })
+  .inputSchema(updateMailboxItemBody)
   .action(
     async ({
       ctx: { emailAccountId, provider, logger },
-      parsedInput: { kind, id, name },
+      parsedInput: { kind, id, name, color },
     }) => {
-      assertMailboxItemMutationSupported({ kind, provider, action: "rename" });
-      const emailProvider = await createEmailProvider({
-        emailAccountId,
-        provider,
-        logger,
-      });
-
-      try {
-        if (kind === "folder") await emailProvider.renameFolder(id, name);
-        else await emailProvider.renameLabel(id, name);
-      } catch (error) {
-        logger.error("Failed to rename mailbox item", { error, kind });
-        throw new SafeError(`Failed to rename ${kind}. Please try again.`);
-      }
-    },
-  );
-
-export const updateLabelColorAction = actionClient
-  .metadata({ name: "updateLabelColor" })
-  .inputSchema(updateLabelColorBody)
-  .action(
-    async ({
-      ctx: { emailAccountId, provider, logger },
-      parsedInput: { labelId, color },
-    }) => {
-      if (!isMicrosoftProvider(provider)) {
+      assertMailboxItemMutationSupported({ kind, provider });
+      if (kind === "label" && isMicrosoftProvider(provider) && name) {
         throw new SafeError(
-          "Category colors are only available for Outlook accounts.",
+          "Outlook category names cannot be changed. Edit its color instead.",
         );
       }
+      if (color && isGoogleProvider(provider) && !isGmailLabelColor(color)) {
+        throw new SafeError("Select a supported Gmail label color.");
+      }
+      if (
+        color &&
+        isMicrosoftProvider(provider) &&
+        !getOutlookCategoryPreset(color.backgroundColor)
+      ) {
+        throw new SafeError("Select a supported Outlook category color.");
+      }
       const emailProvider = await createEmailProvider({
         emailAccountId,
         provider,
@@ -314,10 +304,11 @@ export const updateLabelColorAction = actionClient
       });
 
       try {
-        await emailProvider.updateLabelColor(labelId, color);
+        if (kind === "folder") await emailProvider.renameFolder(id, name!);
+        else await emailProvider.updateLabel(id, { name, color });
       } catch (error) {
-        logger.error("Failed to update category color", { error });
-        throw new SafeError("Failed to update category. Please try again.");
+        logger.error("Failed to update mailbox item", { error, kind });
+        throw new SafeError(`Failed to update ${kind}. Please try again.`);
       }
     },
   );
@@ -330,7 +321,7 @@ export const deleteMailboxItemAction = actionClient
       ctx: { emailAccountId, provider, logger },
       parsedInput: { kind, id },
     }) => {
-      assertMailboxItemMutationSupported({ kind, provider, action: "delete" });
+      assertMailboxItemMutationSupported({ kind, provider });
       const emailProvider = await createEmailProvider({
         emailAccountId,
         provider,
@@ -428,24 +419,13 @@ export const sendEmailAction = actionClient
 function assertMailboxItemMutationSupported({
   kind,
   provider,
-  action,
 }: {
   kind: "label" | "folder";
   provider: string;
-  action: "rename" | "delete";
 }) {
   if (kind === "folder" && !isMicrosoftProvider(provider)) {
     throw new SafeError(
       "Folder actions are only available for Outlook accounts.",
-    );
-  }
-  if (
-    action === "rename" &&
-    kind === "label" &&
-    isMicrosoftProvider(provider)
-  ) {
-    throw new SafeError(
-      "Outlook category names cannot be changed. Edit its color instead.",
     );
   }
 }

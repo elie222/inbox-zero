@@ -70,7 +70,9 @@ import type {
   SentMessagePage,
   BulkArchiveThread,
   BulkArchiveResult,
+  EmailLabelUpdate,
 } from "@/utils/email/types";
+import { getOutlookCategoryPreset } from "@/utils/outlook/category-colors";
 import { unwatchOutlook, watchOutlook } from "@/utils/outlook/watch";
 import { escapeODataString } from "@/utils/outlook/odata-escape";
 import {
@@ -1004,11 +1006,13 @@ export class OutlookProvider implements EmailProvider {
     this.client.invalidateCategoryMapCache();
   }
 
-  async renameLabel(_labelId: string, _name: string): Promise<void> {
-    throw new Error("Microsoft category names cannot be changed");
-  }
+  async updateLabel(labelId: string, update: EmailLabelUpdate): Promise<void> {
+    if (update.name)
+      throw new Error("Microsoft category names cannot be changed");
+    if (!update.color) throw new Error("Microsoft category color is required");
+    const color = getOutlookCategoryPreset(update.color.backgroundColor);
+    if (!color) throw new Error("Unsupported Microsoft category color");
 
-  async updateLabelColor(labelId: string, color: string): Promise<void> {
     await withMicrosoftGraphWriteRetry(
       () =>
         this.client

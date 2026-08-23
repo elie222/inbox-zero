@@ -439,6 +439,35 @@ describe("GmailProvider.getLabels", () => {
   });
 });
 
+describe("GmailProvider.updateLabel", () => {
+  it("updates a label name and Gmail color in one request", async () => {
+    const patch = vi.fn().mockResolvedValue({ data: {} });
+    const provider = new GmailProvider({
+      users: { labels: { patch } },
+    } as any);
+
+    await provider.updateLabel("label-1", {
+      name: "Receipts",
+      color: {
+        backgroundColor: "#e66550",
+        textColor: "#000000",
+      },
+    });
+
+    expect(patch).toHaveBeenCalledWith({
+      userId: "me",
+      id: "label-1",
+      requestBody: {
+        name: "Receipts",
+        color: {
+          backgroundColor: "#e66550",
+          textColor: "#000000",
+        },
+      },
+    });
+  });
+});
+
 function createThread(messages: ParsedMessage[]): EmailThread {
   return {
     id: "thread-1",

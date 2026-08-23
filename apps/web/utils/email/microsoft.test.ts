@@ -996,3 +996,27 @@ describe("OutlookProvider.createDraft", () => {
     expect(post).not.toHaveBeenCalled();
   });
 });
+
+describe("OutlookProvider.updateLabel", () => {
+  it("maps a display color back to the Outlook category preset", async () => {
+    const patch = vi.fn().mockResolvedValue({});
+    const invalidateCategoryMapCache = vi.fn();
+    const provider = new OutlookProvider(
+      {
+        getClient: () => ({ api: () => ({ patch }) }),
+        invalidateCategoryMapCache,
+      } as never,
+      createTestLogger(),
+    );
+
+    await provider.updateLabel("category-1", {
+      color: {
+        backgroundColor: "#1ABC9C",
+        textColor: "#000000",
+      },
+    });
+
+    expect(patch).toHaveBeenCalledWith({ color: "preset5" });
+    expect(invalidateCategoryMapCache).toHaveBeenCalledTimes(1);
+  });
+});

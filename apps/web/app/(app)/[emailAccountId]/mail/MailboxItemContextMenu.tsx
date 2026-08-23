@@ -29,10 +29,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import {
-  OUTLOOK_CATEGORY_COLORS,
-  type OutlookCategoryColor,
-} from "@/utils/outlook/category-colors";
+import type { EmailLabelColor } from "@/utils/email/types";
 import { cn } from "@/utils";
 
 export type MailboxItem = {
@@ -43,7 +40,14 @@ export type MailboxItem = {
 
 export type MailboxItemEdit =
   | MailboxItem
-  | { id: string; kind: "label"; color: OutlookCategoryColor };
+  | {
+      id: string;
+      kind: "label";
+      color?: EmailLabelColor;
+      name?: string;
+    };
+
+export type MailboxItemColorOption = EmailLabelColor & { name: string };
 
 export function MailboxItemContextMenu({
   children,
@@ -51,14 +55,19 @@ export function MailboxItemContextMenu({
   typeName,
   editMode,
   currentColor,
+  colorOptions = [],
   onEdit,
   onDelete,
 }: {
   children: ReactNode;
   item: MailboxItem;
   typeName: string;
-  editMode: "name" | "color";
-  currentColor?: string | null;
+  editMode: "name" | "color" | "name-and-color";
+  currentColor?: {
+    backgroundColor?: string | null;
+    textColor?: string | null;
+  };
+  colorOptions?: readonly MailboxItemColorOption[];
   onEdit: (edit: MailboxItemEdit) => Promise<boolean>;
   onDelete: (item: MailboxItem) => Promise<boolean>;
 }) {
@@ -67,14 +76,18 @@ export function MailboxItemContextMenu({
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [name, setName] = useState(item.name);
-  const [color, setColor] = useState<OutlookCategoryColor>("preset5");
+  const [color, setColor] = useState<EmailLabelColor | null>(null);
+  const showsName = editMode !== "color";
+  const showsColor = editMode !== "name";
 
   const openEditor = () => {
     setName(item.name);
     setColor(
-      OUTLOOK_CATEGORY_COLORS.find(
-        (option) => option.value.toLowerCase() === currentColor?.toLowerCase(),
-      )?.id ?? "preset5",
+      colorOptions.find(
+        (option) =>
+          option.backgroundColor.toLowerCase() ===
+          currentColor?.backgroundColor?.toLowerCase(),
+      ) ?? (editMode === "color" ? (colorOptions[0] ?? null) : null),
     );
     setIsEditOpen(true);
   };
@@ -82,15 +95,36 @@ export function MailboxItemContextMenu({
   const submitEdit = async (event: FormEvent) => {
     event.preventDefault();
     const nextName = name.trim();
-    if (editMode === "name" && !nextName) return;
+    if (showsName && !nextName) return;
+    if (showsColor && editMode === "color" && !color) return;
+
+    const nameChanged = showsName && nextName !== item.name;
+    const colorChanged = Boolean(
+      showsColor &&
+        color &&
+        (color.backgroundColor.toLowerCase() !==
+          currentColor?.backgroundColor?.toLowerCase() ||
+          color.textColor.toLowerCase() !==
+            currentColor?.textColor?.toLowerCase()),
+    );
+
+    if (!nameChanged && !colorChanged) {
+      setIsEditOpen(false);
+      return;
+    }
 
     setIsSaving(true);
     try {
-      const success = await onEdit(
-        editMode === "color"
-          ? { kind: "label", id: item.id, color }
-          : { ...item, name: nextName },
-      );
+      const edit: MailboxItemEdit =
+        item.kind === "folder"
+          ? { ...item, name: nextName }
+          : {
+              kind: "label",
+              id: item.id,
+              ...(nameChanged ? { name: nextName } : {}),
+              ...(colorChanged && color ? { color } : {}),
+            };
+      const success = await onEdit(edit);
       if (success) setIsEditOpen(false);
     } catch {
       toast.error(`Failed to update ${typeName}. Please try again.`);
@@ -137,35 +171,15 @@ export function MailboxItemContextMenu({
           <DialogHeader>
             <DialogTitle>Edit {typeName}</DialogTitle>
             <DialogDescription>
-              {editMode === "color"
-                ? `Choose a color for “${item.name}”.`
-                : `Choose a new name for “${item.name}”.`}
+              {editMode === "name-and-color"
+                ? `Choose a new name or color for “${item.name}”.`
+                : editMode === "color"
+                  ? `Choose a color for “${item.name}”.`
+                  : `Choose a new name for “${item.name}”.`}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={submitEdit}>
-            {editMode === "color" ? (
-              <div
-                role="radiogroup"
-                aria-label="Category color"
-                className="grid grid-cols-5 gap-3 py-1"
-              >
-                {OUTLOOK_CATEGORY_COLORS.map((option) => (
-                  <button
-                    key={option.id}
-                    type="button"
-                    role="radio"
-                    aria-label={option.name}
-                    aria-checked={color === option.id}
-                    onClick={() => setColor(option.id)}
-                    className={cn(
-                      "mx-auto size-8 rounded-full border-2 border-background shadow-sm ring-offset-2 transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                      color === option.id && "ring-2 ring-ring",
-                    )}
-                    style={{ backgroundColor: option.value }}
-                  />
-                ))}
-              </div>
-            ) : (
+            {showsName && (
               <Input
                 value={name}
                 onChange={(event) => setName(event.target.value)}
@@ -173,6 +187,37 @@ export function MailboxItemContextMenu({
                 autoFocus
                 maxLength={255}
               />
+            )}
+            {showsColor && (
+              <div
+                role="radiogroup"
+                aria-label={`${typeName} color`}
+                className={cn(
+                  "grid grid-cols-[repeat(auto-fit,minmax(2rem,1fr))] gap-3 py-1",
+                  showsName && "mt-5",
+                )}
+              >
+                {colorOptions.map((option) => (
+                  <button
+                    key={`${option.backgroundColor}-${option.textColor}`}
+                    type="button"
+                    role="radio"
+                    aria-label={option.name}
+                    aria-checked={
+                      color?.backgroundColor === option.backgroundColor &&
+                      color.textColor === option.textColor
+                    }
+                    onClick={() => setColor(option)}
+                    className={cn(
+                      "mx-auto size-8 rounded-full border-2 border-background shadow-sm ring-offset-2 transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      color?.backgroundColor === option.backgroundColor &&
+                        color.textColor === option.textColor &&
+                        "ring-2 ring-ring",
+                    )}
+                    style={{ backgroundColor: option.backgroundColor }}
+                  />
+                ))}
+              </div>
             )}
             <DialogFooter className="mt-5">
               <Button
@@ -186,7 +231,10 @@ export function MailboxItemContextMenu({
               <Button
                 type="submit"
                 loading={isSaving}
-                disabled={editMode === "name" && !name.trim()}
+                disabled={
+                  (showsName && !name.trim()) ||
+                  (editMode === "color" && !color)
+                }
               >
                 Save
               </Button>

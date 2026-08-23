@@ -4,8 +4,7 @@ import { MailSplitKind } from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
 import {
   deleteMailboxItemAction,
-  renameMailboxItemAction,
-  updateLabelColorAction,
+  updateMailboxItemAction,
 } from "@/utils/actions/mail";
 
 vi.mock("@/utils/prisma");
@@ -20,15 +19,13 @@ const {
   mockDeleteFolder,
   mockDeleteLabel,
   mockRenameFolder,
-  mockRenameLabel,
-  mockUpdateLabelColor,
+  mockUpdateLabel,
 } = vi.hoisted(() => ({
   mockCreateEmailProvider: vi.fn(),
   mockDeleteFolder: vi.fn(),
   mockDeleteLabel: vi.fn(),
   mockRenameFolder: vi.fn(),
-  mockRenameLabel: vi.fn(),
-  mockUpdateLabelColor: vi.fn(),
+  mockUpdateLabel: vi.fn(),
 }));
 
 vi.mock("@/utils/email/provider", () => ({
@@ -52,26 +49,35 @@ describe("mailbox item actions", () => {
       deleteFolder: mockDeleteFolder,
       deleteLabel: mockDeleteLabel,
       renameFolder: mockRenameFolder,
-      renameLabel: mockRenameLabel,
-      updateLabelColor: mockUpdateLabelColor,
+      updateLabel: mockUpdateLabel,
     });
   });
 
   it("renames a Gmail label through the provider", async () => {
-    const result = await renameMailboxItemAction(EMAIL_ACCOUNT_ID, {
+    const result = await updateMailboxItemAction(EMAIL_ACCOUNT_ID, {
       kind: "label",
       id: "label-1",
       name: "Receipts",
+      color: {
+        backgroundColor: "#e66550",
+        textColor: "#000000",
+      },
     });
 
     expect(result?.serverError).toBeUndefined();
-    expect(mockRenameLabel).toHaveBeenCalledWith("label-1", "Receipts");
+    expect(mockUpdateLabel).toHaveBeenCalledWith("label-1", {
+      name: "Receipts",
+      color: {
+        backgroundColor: "#e66550",
+        textColor: "#000000",
+      },
+    });
   });
 
   it("renames an Outlook folder through the provider", async () => {
     setProvider("microsoft");
 
-    const result = await renameMailboxItemAction(EMAIL_ACCOUNT_ID, {
+    const result = await updateMailboxItemAction(EMAIL_ACCOUNT_ID, {
       kind: "folder",
       id: "folder-1",
       name: "Projects",
@@ -84,13 +90,42 @@ describe("mailbox item actions", () => {
   it("updates an Outlook category color through the provider", async () => {
     setProvider("microsoft");
 
-    const result = await updateLabelColorAction(EMAIL_ACCOUNT_ID, {
-      labelId: "category-1",
-      color: "preset5",
+    const result = await updateMailboxItemAction(EMAIL_ACCOUNT_ID, {
+      kind: "label",
+      id: "category-1",
+      color: {
+        backgroundColor: "#1ABC9C",
+        textColor: "#000000",
+      },
     });
 
     expect(result?.serverError).toBeUndefined();
-    expect(mockUpdateLabelColor).toHaveBeenCalledWith("category-1", "preset5");
+    expect(mockUpdateLabel).toHaveBeenCalledWith("category-1", {
+      color: {
+        backgroundColor: "#1ABC9C",
+        textColor: "#000000",
+      },
+    });
+  });
+
+  it.each([
+    ["google" as const, "#123456", "Select a supported Gmail label color."],
+    [
+      "microsoft" as const,
+      "#654321",
+      "Select a supported Outlook category color.",
+    ],
+  ])("rejects unsupported %s label colors before calling the provider", async (provider, backgroundColor, expectedError) => {
+    setProvider(provider);
+
+    const result = await updateMailboxItemAction(EMAIL_ACCOUNT_ID, {
+      kind: "label",
+      id: "label-1",
+      color: { backgroundColor, textColor: "#000000" },
+    });
+
+    expect(result?.serverError).toBe(expectedError);
+    expect(mockUpdateLabel).not.toHaveBeenCalled();
   });
 
   it.each([

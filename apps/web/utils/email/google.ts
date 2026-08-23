@@ -84,6 +84,7 @@ import type {
   SentMessagePage,
   BulkArchiveThread,
   BulkArchiveResult,
+  EmailLabelUpdate,
 } from "@/utils/email/types";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 import { getGmailSignatures } from "@/utils/gmail/signature-settings";
@@ -1108,16 +1109,12 @@ export class GmailProvider implements EmailProvider {
     });
   }
 
-  async renameLabel(labelId: string, name: string): Promise<void> {
+  async updateLabel(labelId: string, update: EmailLabelUpdate): Promise<void> {
     await this.client.users.labels.patch({
       userId: "me",
       id: labelId,
-      requestBody: { name },
+      requestBody: update,
     });
-  }
-
-  async updateLabelColor(_labelId: string, _color: string): Promise<void> {
-    this.logger.warn("Updating label color is not supported for Gmail");
   }
 
   async getOrCreateInboxZeroLabel(key: InboxZeroLabel): Promise<EmailLabel> {

@@ -36,3 +36,11 @@ export const OUTLOOK_CATEGORY_COLOR_IDS = OUTLOOK_CATEGORY_COLORS.map(
 export const OUTLOOK_CATEGORY_COLOR_MAP = Object.fromEntries(
   OUTLOOK_CATEGORY_COLORS.map(({ id, value }) => [id, value]),
 ) as Record<OutlookCategoryColor, string>;
+
+export function getOutlookCategoryPreset(
+  backgroundColor: string,
+): OutlookCategoryColor | undefined {
+  return OUTLOOK_CATEGORY_COLORS.find(
+    (option) => option.value.toLowerCase() === backgroundColor.toLowerCase(),
+  )?.id;
+}

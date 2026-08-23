@@ -37,6 +37,16 @@ export interface EmailLabel {
   type: string;
 }
 
+export type EmailLabelColor = {
+  backgroundColor: string;
+  textColor: string;
+};
+
+export type EmailLabelUpdate = {
+  color?: EmailLabelColor;
+  name?: string;
+};
+
 export type EmailFolderCount = {
   id: string;
   name: string;
@@ -278,7 +288,6 @@ export interface EmailProvider {
   removeThreadLabel(threadId: string, labelId: string): Promise<void>;
   removeThreadLabels(threadId: string, labelIds: string[]): Promise<void>;
   renameFolder(folderId: string, name: string): Promise<void>;
-  renameLabel(labelId: string, name: string): Promise<void>;
   replyToEmail(
     email: ParsedMessage,
     content: string,
@@ -351,7 +360,7 @@ export interface EmailProvider {
       subject?: string;
     },
   ): Promise<void>;
-  updateLabelColor(labelId: string, color: string): Promise<void>;
+  updateLabel(labelId: string, update: EmailLabelUpdate): Promise<void>;
   watchEmails(): Promise<{
     expirationDate: Date;
     subscriptionId?: string;

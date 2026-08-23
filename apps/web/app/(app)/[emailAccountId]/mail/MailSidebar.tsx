@@ -34,6 +34,7 @@ import { OUTLOOK_INBOX_SECTIONS } from "@/utils/mail/outlook-inbox";
 import { getMailSidebarFolders } from "./outlook-folder-list";
 import {
   MailboxItemContextMenu,
+  type MailboxItemColorOption,
   type MailboxItem,
   type MailboxItemEdit,
 } from "./MailboxItemContextMenu";
@@ -67,7 +68,8 @@ export type MailSidebarProps = {
   onEditMailboxItem: (edit: MailboxItemEdit) => Promise<boolean>;
   onDeleteMailboxItem: (item: MailboxItem) => Promise<boolean>;
   onOpenShortcuts: () => void;
-  labelEditMode: "name" | "color";
+  labelEditMode: "color" | "name-and-color";
+  labelColorOptions: readonly MailboxItemColorOption[];
   footer?: ReactNode;
   unified?: boolean;
   className?: string;
@@ -146,6 +148,7 @@ export function MailSidebar({
   onDeleteMailboxItem,
   onOpenShortcuts,
   labelEditMode,
+  labelColorOptions,
   footer,
   unified = false,
   className,
@@ -302,7 +305,8 @@ export function MailSidebar({
                   item={{ kind: "label", id: label.id, name: label.name }}
                   typeName={labelSingular}
                   editMode={labelEditMode}
-                  currentColor={label.color?.backgroundColor}
+                  currentColor={label.color}
+                  colorOptions={labelColorOptions}
                   onEdit={onEditMailboxItem}
                   onDelete={onDeleteMailboxItem}
                 >
