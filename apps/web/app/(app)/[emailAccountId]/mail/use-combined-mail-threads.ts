@@ -270,6 +270,7 @@ export function useCombinedMailThreads({
     () => data?.flatMap((page) => page.threads),
     [data],
   );
+  const remoteHasMore = Boolean(data?.at(-1)?.nextPageToken);
   const failedAccountIds = useMemo(
     () => [...new Set(data?.flatMap((page) => page.failedAccountIds) ?? [])],
     [data],
@@ -284,6 +285,7 @@ export function useCombinedMailThreads({
         ? mergeCombinedThreads({
             accountStates: syncedView.accountStates,
             failedAccountIds,
+            remoteHasMore,
             remoteLoadedAt: remoteSnapshot.current.loadedAt,
             remoteThreads,
             syncedThreads,
@@ -292,6 +294,7 @@ export function useCombinedMailThreads({
     [
       persistentThreads,
       failedAccountIds,
+      remoteHasMore,
       remoteThreads,
       syncedThreads,
       syncedView?.accountStates,
@@ -299,31 +302,25 @@ export function useCombinedMailThreads({
   );
   const hiddenThreadKeys =
     hiddenByView.current.get(viewIdentity) ?? EMPTY_THREAD_KEYS;
-  const remoteHasMore = Boolean(data?.at(-1)?.nextPageToken);
-  const visibleThreadLimit = Math.max(
-    COMBINED_PAGE_SIZE,
-    data && remoteHasMore
-      ? data.length * COMBINED_PAGE_SIZE
-      : (sourceThreads?.length ?? 0),
-  );
   const threads = useMemo(() => {
     const byKey = new Map<string, GetAllThreadsResponse["threads"][number]>();
     for (const thread of sourceThreads ?? []) {
       const threadKey = getListThreadKey(thread);
       if (!hiddenThreadKeys.has(threadKey)) byKey.set(threadKey, thread);
     }
-    return [...byKey.values()]
-      .sort(
-        (left, right) => getThreadTimestamp(right) - getThreadTimestamp(left),
-      )
-      .slice(0, visibleThreadLimit);
-  }, [hiddenThreadKeys, sourceThreads, visibleThreadLimit]);
-  const hasMore = data
-    ? remoteHasMore
-    : syncedView
-      ? syncedView.truncated
-      : persistent?.identity === viewIdentity && persistent.hasMore;
-  const canLoadMoreLocally = !data && Boolean(syncedView?.truncated);
+    return [...byKey.values()].sort(
+      (left, right) => getThreadTimestamp(right) - getThreadTimestamp(left),
+    );
+  }, [hiddenThreadKeys, sourceThreads]);
+  const hasMore = Boolean(
+    remoteHasMore ||
+      syncedView?.truncated ||
+      (!data &&
+        !syncedView &&
+        persistent?.identity === viewIdentity &&
+        persistent.hasMore),
+  );
+  const canLoadMoreLocally = Boolean(syncedView?.truncated);
   const isLoadingMore = size > 1 && !data?.[size - 1];
   const labelsByAccount = useMemo(() => {
     const merged: Record<string, EmailLabels> = {};
@@ -345,18 +342,14 @@ export function useCombinedMailThreads({
   }, [data]);
 
   useEffect(() => {
-    if (!enabled) return;
-    const firstPage = data?.[0];
-    if (!firstPage) return;
+    if (!enabled || (!data?.[0] && !syncedView)) return;
     writeCachedThreadList({
       emailAccountId,
       viewKey,
-      threads: firstPage.threads
-        .filter((thread) => !hiddenThreadKeys.has(getListThreadKey(thread)))
-        .map(toCachedCombinedThread),
-      hasMore: Boolean(firstPage.nextPageToken),
+      threads: threads.map(toCachedCombinedThread),
+      hasMore,
     }).catch(() => {});
-  }, [data, emailAccountId, enabled, hiddenThreadKeys, viewKey]);
+  }, [data, emailAccountId, enabled, hasMore, syncedView, threads, viewKey]);
 
   const removeThreads = useCallback(
     (threadKeys: string[]): CombinedThreadRemoval => {
@@ -639,12 +632,14 @@ const EMPTY_THREAD_KEYS = new Set<string>();
 function mergeCombinedThreads({
   accountStates,
   failedAccountIds,
+  remoteHasMore,
   remoteLoadedAt,
   remoteThreads,
   syncedThreads,
 }: {
   accountStates: SyncedCombinedMailboxSnapshot["accountStates"];
   failedAccountIds: string[];
+  remoteHasMore: boolean;
   remoteLoadedAt: number;
   remoteThreads: CombinedThread[];
   syncedThreads: CombinedThread[];
@@ -669,6 +664,10 @@ function mergeCombinedThreads({
   const remoteThreadsByKey = new Map(
     remoteThreads.map((thread) => [getListThreadKey(thread), thread]),
   );
+  const oldestRemoteTimestamp = remoteThreads.reduce(
+    (oldest, thread) => Math.min(oldest, getThreadTimestamp(thread)),
+    Number.POSITIVE_INFINITY,
+  );
   const threadsByKey = new Map(
     remoteThreads
       .filter((thread) => {
@@ -691,8 +690,18 @@ function mergeCombinedThreads({
       .map((thread) => [getListThreadKey(thread), thread]),
   );
   for (const thread of syncedThreads) {
-    if (!locallyAuthoritativeAccountIds.has(thread.account.id)) continue;
+    const locallyAuthoritative = locallyAuthoritativeAccountIds.has(
+      thread.account.id,
+    );
+    if (!locallyAuthoritative && !remoteHasMore) continue;
     const remoteThread = remoteThreadsByKey.get(getListThreadKey(thread));
+    if (!locallyAuthoritative && remoteThread) continue;
+    if (
+      !locallyAuthoritative &&
+      getThreadTimestamp(thread) > oldestRemoteTimestamp
+    ) {
+      continue;
+    }
     threadsByKey.set(getListThreadKey(thread), {
       ...thread,
       plan: remoteThread?.plan ?? thread.plan,
