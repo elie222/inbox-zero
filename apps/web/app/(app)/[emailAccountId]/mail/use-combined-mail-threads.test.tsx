@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { SWRConfig } from "swr";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useCombinedMailThreads } from "./use-combined-mail-threads";
 
 const cache = vi.hoisted(() => ({
@@ -44,6 +44,10 @@ describe("useCombinedMailThreads", () => {
         return () => mailbox.listeners.delete(listener);
       },
     );
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("renders a complete merged mailbox while the server revalidates", async () => {
@@ -130,6 +134,49 @@ describe("useCombinedMailThreads", () => {
       ]);
       expect(result.current.threads[0]?.snippet).toBe("remote");
     });
+  });
+
+  it("keeps a mailbox sync that completes while the server request is in flight", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(100);
+    const network = Promise.withResolvers<unknown>();
+    mailbox.read.mockResolvedValue({
+      accountStates: createAccountStates(200),
+      complete: true,
+      missingAccountIds: [],
+      threads: [createThread("account-1", "local-only")],
+      truncated: false,
+    });
+    const { result } = renderHook(
+      () =>
+        useCombinedMailThreads({
+          accounts: ACCOUNTS,
+          emailAccountId: "account-1",
+          enabled: true,
+          isUnread: false,
+        }),
+      { wrapper: createWrapper(() => network.promise) },
+    );
+    await waitFor(() =>
+      expect(result.current.threads.map((thread) => thread.id)).toEqual([
+        "local-only",
+      ]),
+    );
+
+    vi.mocked(Date.now).mockReturnValue(300);
+    await act(async () => {
+      network.resolve({
+        failedAccountIds: [],
+        labelsByAccount: {},
+        nextPageToken: null,
+        threads: [createThread("account-1", "server-only")],
+      });
+      await network.promise;
+    });
+
+    await waitFor(() => expect(cache.write).toHaveBeenCalledOnce());
+    expect(result.current.threads.map((thread) => thread.id)).toEqual([
+      "local-only",
+    ]);
   });
 
   it("keeps a complete canonical snapshot after it syncs more recently than the server page", async () => {

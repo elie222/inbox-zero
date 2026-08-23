@@ -97,6 +97,11 @@ export function useCombinedMailThreads({
     [isUnread],
   );
   const viewIdentity = `${emailAccountId}:${accountIdentity}:${viewKey}`;
+  const remoteRequest = useRef({
+    identity: viewIdentity,
+    startedAt: Date.now(),
+    validating: false,
+  });
   const getKey = useCallback(
     (pageIndex: number, previousPageData: GetAllThreadsResponse | null) => {
       if (!enabled || (previousPageData && !previousPageData.nextPageToken)) {
@@ -111,7 +116,7 @@ export function useCombinedMailThreads({
     },
     [enabled, isUnread],
   );
-  const { data, error, isLoading, size, setSize, mutate } =
+  const { data, error, isLoading, isValidating, size, setSize, mutate } =
     useSWRInfinite<GetAllThreadsResponse>(getKey, {
       keepPreviousData: false,
       revalidateFirstPage: false,
@@ -142,10 +147,24 @@ export function useCombinedMailThreads({
       ? localPagination.limit
       : COMBINED_PAGE_SIZE;
 
+  if (remoteRequest.current.identity !== viewIdentity) {
+    remoteRequest.current = {
+      identity: viewIdentity,
+      startedAt: Date.now(),
+      validating: false,
+    };
+  }
+  if (isValidating && !remoteRequest.current.validating) {
+    remoteRequest.current.startedAt = Date.now();
+  }
+  remoteRequest.current.validating = isValidating;
   remoteIdentity.current = data?.[0] ? viewIdentity : undefined;
   accountsRef.current = accounts;
   if (data?.[0] && remoteSnapshot.current.firstPage !== data[0]) {
-    remoteSnapshot.current = { firstPage: data[0], loadedAt: Date.now() };
+    remoteSnapshot.current = {
+      firstPage: data[0],
+      loadedAt: remoteRequest.current.startedAt,
+    };
   }
 
   useEffect(() => {
