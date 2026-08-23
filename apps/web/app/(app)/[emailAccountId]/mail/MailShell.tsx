@@ -107,6 +107,7 @@ import { prefixPath } from "@/utils/path";
 import { LoadingContent } from "@/components/LoadingContent";
 import type { LabelCount } from "@/app/api/labels/counts/route";
 import type { ThreadsQuery } from "@/utils/threads/validation";
+import type { CombinedListThread } from "@/utils/threads/load-combined";
 import { getEmailTerminology } from "@/utils/terminology";
 import { createSearchParams } from "@/utils/url";
 import { redirectToSafeUrl } from "@/utils/redirect";
@@ -481,10 +482,10 @@ export function MailShell() {
       focusedThread ? getListThreadKey(focusedThread) : undefined,
     );
     const targetKeySet = new Set(targetKeys);
-    const targets: Array<{ id: string; account: { id: string } }> = [];
+    const targets: CombinedListThread[] = [];
     for (const thread of threads) {
       if ("account" in thread && targetKeySet.has(getListThreadKey(thread))) {
-        targets.push({ id: thread.id, account: { id: thread.account.id } });
+        targets.push(thread);
       }
     }
     return { targetKeys, targets };
@@ -512,9 +513,7 @@ export function MailShell() {
 
       const succeeded = new Set(succeededThreadKeys);
       const succeededByAccount = groupThreadIdsByAccount(
-        targets.filter((thread) =>
-          succeeded.has(`${thread.account.id}:${thread.id}`),
-        ),
+        targets.filter((thread) => succeeded.has(getListThreadKey(thread))),
       );
       await Promise.all(
         [...succeededByAccount].map(([accountId, threadIds]) =>
@@ -576,9 +575,7 @@ export function MailShell() {
 
       const succeeded = new Set(succeededThreadKeys);
       const succeededByAccount = groupThreadIdsByAccount(
-        targets.filter((thread) =>
-          succeeded.has(`${thread.account.id}:${thread.id}`),
-        ),
+        targets.filter((thread) => succeeded.has(getListThreadKey(thread))),
       );
       await Promise.all(
         [...succeededByAccount].map(([accountId, threadIds]) =>
