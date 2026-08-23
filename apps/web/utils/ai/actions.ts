@@ -416,11 +416,7 @@ const forward: ActionFunction<{
   }
 
   const forwardMessage = {
-    id: email.id,
-    threadId: email.threadId,
-    headers: email.headers,
-    internalDate: email.internalDate,
-    snippet: "",
+    ...email,
     historyId: "",
     inline: [],
     subject: email.headers.subject,

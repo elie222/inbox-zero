@@ -4,9 +4,26 @@ import { formatEmailDate } from "@/utils/gmail/reply";
 
 import {
   buildReplyMessageText,
+  createMail,
   convertTextToHtmlParagraphs,
   stripHtmlTagsForPlainText,
 } from "@/utils/gmail/mail";
+
+describe("createMail", () => {
+  it("keeps BCC recipients in raw messages sent through the Gmail API", async () => {
+    const raw = await createMail({
+      from: "sender@example.com",
+      to: "recipient@example.com",
+      bcc: "hidden@example.com",
+      subject: "Test",
+      text: "Message",
+    });
+
+    const message = Buffer.from(raw, "base64url").toString("utf8");
+
+    expect(message).toContain("Bcc: hidden@example.com");
+  });
+});
 
 describe("convertTextToHtmlParagraphs", () => {
   it("separates paragraphs on blank lines", () => {
