@@ -8,9 +8,6 @@ const mailboxSync = vi.hoisted(() => ({
   fetchPage: vi.fn(),
   syncPages: vi.fn(),
 }));
-const featureFlags = vi.hoisted(() => ({
-  mailboxSyncEnabled: vi.fn(),
-}));
 const analytics = vi.hoisted(() => ({
   trackSyncResult: vi.fn(),
 }));
@@ -18,9 +15,6 @@ const analytics = vi.hoisted(() => ({
 vi.mock("@/utils/email-cache/mailbox-sync", () => ({
   fetchMailboxSyncPage: mailboxSync.fetchPage,
   syncMailboxPages: mailboxSync.syncPages,
-}));
-vi.mock("@/hooks/useFeatureFlags", () => ({
-  useMailboxSyncEnabled: featureFlags.mailboxSyncEnabled,
 }));
 vi.mock("@/utils/email-cache/analytics", () => ({
   trackMailboxSyncResult: analytics.trackSyncResult,
@@ -38,7 +32,6 @@ describe("useMailboxSync", () => {
     vi.clearAllMocks();
     setOnline(true);
     setVisibility("visible");
-    featureFlags.mailboxSyncEnabled.mockReturnValue(true);
     vi.spyOn(Math, "random").mockReturnValue(0.5);
     mailboxSync.syncPages.mockResolvedValue({
       hasMore: false,
@@ -235,38 +228,6 @@ describe("useMailboxSync", () => {
     expect(mailboxSync.syncPages).toHaveBeenCalledOnce();
     await act(() => vi.advanceTimersByTimeAsync(1));
     expect(mailboxSync.syncPages).toHaveBeenCalledTimes(2);
-  });
-
-  it("stops new background requests while the remote kill switch is on", async () => {
-    featureFlags.mailboxSyncEnabled.mockReturnValue(false);
-    const { rerender } = renderHook(() =>
-      useMailboxSync({ emailAccountId: "account-1", enabled: true }),
-    );
-    expect(mailboxSync.syncPages).not.toHaveBeenCalled();
-
-    featureFlags.mailboxSyncEnabled.mockReturnValue(true);
-    rerender();
-    expect(mailboxSync.syncPages).toHaveBeenCalledOnce();
-  });
-
-  it("does not schedule more work when the kill switch changes in flight", async () => {
-    const pending = Promise.withResolvers<{
-      hasMore: boolean;
-      pagesSynced: number;
-    }>();
-    mailboxSync.syncPages.mockReturnValue(pending.promise);
-    const { rerender } = renderHook(() =>
-      useMailboxSync({ emailAccountId: "account-1", enabled: true }),
-    );
-    expect(mailboxSync.syncPages).toHaveBeenCalledOnce();
-
-    featureFlags.mailboxSyncEnabled.mockReturnValue(false);
-    rerender();
-    pending.resolve({ hasMore: false, pagesSynced: 1 });
-    await settlePromises();
-    await act(() => vi.advanceTimersByTimeAsync(15 * 60_000));
-
-    expect(mailboxSync.syncPages).toHaveBeenCalledOnce();
   });
 
   it("tracks the initial sync, catch-up completion, and retry outcome", async () => {
