@@ -8,10 +8,22 @@ const mailboxSync = vi.hoisted(() => ({
   fetchPage: vi.fn(),
   syncPages: vi.fn(),
 }));
+const featureFlags = vi.hoisted(() => ({
+  mailboxSyncEnabled: vi.fn(),
+}));
+const analytics = vi.hoisted(() => ({
+  trackSyncResult: vi.fn(),
+}));
 
 vi.mock("@/utils/email-cache/mailbox-sync", () => ({
   fetchMailboxSyncPage: mailboxSync.fetchPage,
   syncMailboxPages: mailboxSync.syncPages,
+}));
+vi.mock("@/hooks/useFeatureFlags", () => ({
+  useMailboxSyncEnabled: featureFlags.mailboxSyncEnabled,
+}));
+vi.mock("@/utils/email-cache/analytics", () => ({
+  trackMailboxSyncResult: analytics.trackSyncResult,
 }));
 
 const onlineDescriptor = Object.getOwnPropertyDescriptor(navigator, "onLine");
@@ -26,6 +38,8 @@ describe("useMailboxSync", () => {
     vi.clearAllMocks();
     setOnline(true);
     setVisibility("visible");
+    featureFlags.mailboxSyncEnabled.mockReturnValue(true);
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
     mailboxSync.syncPages.mockResolvedValue({
       hasMore: false,
       pagesSynced: 1,
@@ -36,6 +50,7 @@ describe("useMailboxSync", () => {
     cleanup();
     vi.clearAllTimers();
     vi.useRealTimers();
+    vi.restoreAllMocks();
     restoreProperty(navigator, "onLine", onlineDescriptor);
     restoreProperty(document, "visibilityState", visibilityDescriptor);
   });
@@ -127,9 +142,12 @@ describe("useMailboxSync", () => {
     await settlePromises();
   });
 
-  it("retries after a failed background sync", async () => {
+  it("backs off repeated failures and resets after recovery", async () => {
     mailboxSync.syncPages
       .mockRejectedValueOnce(new Error("offline"))
+      .mockRejectedValueOnce(new Error("still offline"))
+      .mockResolvedValueOnce({ hasMore: false, pagesSynced: 1 })
+      .mockRejectedValueOnce(new Error("offline again"))
       .mockResolvedValue({ hasMore: false, pagesSynced: 1 });
     renderHook(() =>
       useMailboxSync({ emailAccountId: "account-1", enabled: true }),
@@ -140,6 +158,133 @@ describe("useMailboxSync", () => {
     expect(mailboxSync.syncPages).toHaveBeenCalledOnce();
     await act(() => vi.advanceTimersByTimeAsync(1));
     expect(mailboxSync.syncPages).toHaveBeenCalledTimes(2);
+
+    await settlePromises();
+    await act(() => vi.advanceTimersByTimeAsync(119_999));
+    expect(mailboxSync.syncPages).toHaveBeenCalledTimes(2);
+    await act(() => vi.advanceTimersByTimeAsync(1));
+    expect(mailboxSync.syncPages).toHaveBeenCalledTimes(3);
+
+    await settlePromises();
+    await act(() => vi.advanceTimersByTimeAsync(60_000));
+    expect(mailboxSync.syncPages).toHaveBeenCalledTimes(4);
+    await settlePromises();
+    await act(() => vi.advanceTimersByTimeAsync(59_999));
+    expect(mailboxSync.syncPages).toHaveBeenCalledTimes(4);
+    await act(() => vi.advanceTimersByTimeAsync(1));
+    expect(mailboxSync.syncPages).toHaveBeenCalledTimes(5);
+  });
+
+  it("jitters retry schedules to avoid synchronized clients", async () => {
+    vi.mocked(Math.random).mockReturnValue(0);
+    mailboxSync.syncPages
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValue({ hasMore: false, pagesSynced: 1 });
+
+    renderHook(() =>
+      useMailboxSync({ emailAccountId: "account-1", enabled: true }),
+    );
+    await settlePromises();
+
+    await act(() => vi.advanceTimersByTimeAsync(47_999));
+    expect(mailboxSync.syncPages).toHaveBeenCalledOnce();
+    await act(() => vi.advanceTimersByTimeAsync(1));
+    expect(mailboxSync.syncPages).toHaveBeenCalledTimes(2);
+  });
+
+  it("uses an API retry delay when it is longer than exponential backoff", async () => {
+    vi.mocked(Math.random).mockReturnValue(0);
+    mailboxSync.syncPages
+      .mockRejectedValueOnce(
+        Object.assign(new Error("busy"), { retryAfterMs: 90_000 }),
+      )
+      .mockResolvedValue({ hasMore: false, pagesSynced: 1 });
+
+    renderHook(() =>
+      useMailboxSync({ emailAccountId: "account-1", enabled: true }),
+    );
+    await settlePromises();
+
+    await act(() => vi.advanceTimersByTimeAsync(89_999));
+    expect(mailboxSync.syncPages).toHaveBeenCalledOnce();
+    await act(() => vi.advanceTimersByTimeAsync(1));
+    expect(mailboxSync.syncPages).toHaveBeenCalledTimes(2);
+  });
+
+  it("stops new background requests while the remote kill switch is on", async () => {
+    featureFlags.mailboxSyncEnabled.mockReturnValue(false);
+    const { rerender } = renderHook(() =>
+      useMailboxSync({ emailAccountId: "account-1", enabled: true }),
+    );
+    expect(mailboxSync.syncPages).not.toHaveBeenCalled();
+
+    featureFlags.mailboxSyncEnabled.mockReturnValue(true);
+    rerender();
+    expect(mailboxSync.syncPages).toHaveBeenCalledOnce();
+  });
+
+  it("does not schedule more work when the kill switch changes in flight", async () => {
+    const pending = Promise.withResolvers<{
+      hasMore: boolean;
+      pagesSynced: number;
+    }>();
+    mailboxSync.syncPages.mockReturnValue(pending.promise);
+    const { rerender } = renderHook(() =>
+      useMailboxSync({ emailAccountId: "account-1", enabled: true }),
+    );
+    expect(mailboxSync.syncPages).toHaveBeenCalledOnce();
+
+    featureFlags.mailboxSyncEnabled.mockReturnValue(false);
+    rerender();
+    pending.resolve({ hasMore: false, pagesSynced: 1 });
+    await settlePromises();
+    await act(() => vi.advanceTimersByTimeAsync(15 * 60_000));
+
+    expect(mailboxSync.syncPages).toHaveBeenCalledOnce();
+  });
+
+  it("tracks the initial sync, catch-up completion, and retry outcome", async () => {
+    mailboxSync.syncPages
+      .mockResolvedValueOnce({ hasMore: true, pagesSynced: 1 })
+      .mockResolvedValueOnce({ hasMore: false, pagesSynced: 1 })
+      .mockRejectedValueOnce(new Error("offline"));
+
+    renderHook(() =>
+      useMailboxSync({ emailAccountId: "account-1", enabled: true }),
+    );
+    await settlePromises();
+    expect(analytics.trackSyncResult).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        hasMore: true,
+        outcome: "success",
+        pagesSynced: 1,
+        phase: "initial",
+      }),
+    );
+
+    await act(() => vi.advanceTimersByTimeAsync(10_000));
+    await settlePromises();
+    expect(analytics.trackSyncResult).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        hasMore: false,
+        outcome: "success",
+        phase: "catch_up_complete",
+      }),
+    );
+
+    await act(() => vi.advanceTimersByTimeAsync(60_000));
+    await settlePromises();
+    expect(analytics.trackSyncResult).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({
+        consecutiveFailures: 1,
+        outcome: "failure",
+        phase: "retry",
+        retryDelayMs: 60_000,
+      }),
+    );
   });
 });
 

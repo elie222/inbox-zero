@@ -263,6 +263,46 @@ describe("synced mailbox cache", () => {
       truncated: true,
       threads: [{ id: "thread-2" }],
     });
+
+    const limitedCategory = await readSyncedMailboxThreads({
+      emailAccountId: "account-1",
+      query: { type: "CATEGORY_UPDATES" },
+      limit: 1,
+    });
+    expect(limitedCategory).toMatchObject({
+      truncated: true,
+      threads: [{ id: "thread-2" }],
+    });
+  });
+
+  it("falls back to the server when a sparse local query exceeds its scan budget", async () => {
+    await applyMailboxSyncPage({
+      emailAccountId: "account-1",
+      after: new Date("2026-07-24T00:00:00.000Z"),
+      page: {
+        cursor: "cursor",
+        deletedMessageIds: [],
+        hasMore: false,
+        reset: true,
+        upsertedMessages: Array.from({ length: 501 }, (_, index) =>
+          getMessage({
+            id: `message-${index}`,
+            threadId: "large-thread",
+            internalDate: new Date(
+              Date.UTC(2026, 7, 23, 12, 0, 0) - index * 1000,
+            ).toISOString(),
+            labelIds: ["INBOX"],
+          }),
+        ),
+      },
+    });
+
+    await expect(
+      readSyncedMailboxThreads({
+        emailAccountId: "account-1",
+        query: { type: "CATEGORY_UPDATES" },
+      }),
+    ).resolves.toBeUndefined();
   });
 
   it("supports unread, sender, label, folder, and date filters", async () => {
@@ -339,6 +379,16 @@ describe("synced mailbox cache", () => {
   });
 
   it("reconciles read and removal mutations into the canonical store", async () => {
+    const mutationMessages = Array.from({ length: 51 }, (_, index) =>
+      getMessage({
+        id: `message-${index}`,
+        threadId: `thread-${index}`,
+        labelIds: ["INBOX", "UNREAD"],
+      }),
+    );
+    const mutationThreadIds = mutationMessages.map(
+      (message) => message.threadId,
+    );
     await applyMailboxSyncPage({
       emailAccountId: "account-1",
       after: new Date("2026-07-24T00:00:00.000Z"),
@@ -347,20 +397,14 @@ describe("synced mailbox cache", () => {
         deletedMessageIds: [],
         hasMore: false,
         reset: true,
-        upsertedMessages: [
-          getMessage({
-            id: "message-1",
-            threadId: "thread-1",
-            labelIds: ["INBOX", "UNREAD"],
-          }),
-        ],
+        upsertedMessages: mutationMessages,
       },
     });
 
     await markSyncedMailboxThreadsRead({
       emailAccountId: "account-1",
       read: true,
-      threadIds: ["thread-1"],
+      threadIds: [...mutationThreadIds, "thread-0"],
     });
     await expect(
       readSyncedMailboxThreads({
@@ -371,7 +415,7 @@ describe("synced mailbox cache", () => {
 
     await removeSyncedMailboxThreads({
       emailAccountId: "account-1",
-      threadIds: ["thread-1"],
+      threadIds: mutationThreadIds,
     });
     await expect(
       readSyncedMailboxThreads({

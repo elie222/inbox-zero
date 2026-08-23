@@ -45,6 +45,10 @@ export function useSmartFilingEnabled() {
   return env.NEXT_PUBLIC_SMART_FILING_ENABLED || posthogEnabled;
 }
 
+export function useMailboxSyncEnabled() {
+  return useFeatureFlagEnabled("mailbox-sync-disabled") !== true;
+}
+
 export function useBookingLinksEnabled() {
   const posthogEnabled = useFeatureFlagEnabled("booking-links");
   return env.NEXT_PUBLIC_BOOKING_LINKS_ENABLED || posthogEnabled;

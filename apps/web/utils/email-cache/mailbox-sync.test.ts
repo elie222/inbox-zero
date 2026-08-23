@@ -2,7 +2,11 @@ import "fake-indexeddb/auto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { clearEmailCache, getEmailCacheDatabase } from "./database";
 import { readMailboxSyncState } from "./mailbox";
-import { fetchMailboxSyncPage, syncMailboxPages } from "./mailbox-sync";
+import {
+  fetchMailboxSyncPage,
+  MailboxSyncRequestError,
+  syncMailboxPages,
+} from "./mailbox-sync";
 
 describe("mailbox sync coordinator", () => {
   beforeEach(async () => {
@@ -11,6 +15,7 @@ describe("mailbox sync coordinator", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
@@ -250,11 +255,38 @@ describe("mailbox sync coordinator", () => {
   it("surfaces a failed app API response", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue({ ok: false, status: 503 }),
+      vi.fn().mockResolvedValue({
+        headers: new Headers({ "Retry-After": "120" }),
+        ok: false,
+        status: 503,
+      }),
     );
 
-    await expect(
-      fetchMailboxSyncPage("account-1", { limit: 100 }),
-    ).rejects.toThrow("Mailbox sync failed with status 503");
+    const error = await fetchMailboxSyncPage("account-1", {
+      limit: 100,
+    }).catch((caught) => caught);
+    expect(error).toBeInstanceOf(MailboxSyncRequestError);
+    expect(error).toMatchObject({
+      retryAfterMs: 120_000,
+      status: 503,
+    });
+  });
+
+  it("supports an HTTP-date Retry-After response", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-23T12:00:00.000Z"));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        headers: new Headers({
+          "Retry-After": "Sun, 23 Aug 2026 12:01:30 GMT",
+        }),
+        ok: false,
+        status: 429,
+      }),
+    );
+
+    const request = fetchMailboxSyncPage("account-1", { limit: 100 });
+    await expect(request).rejects.toMatchObject({ retryAfterMs: 90_000 });
   });
 });

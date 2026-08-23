@@ -11,6 +11,7 @@ import {
 import useSWRInfinite from "swr/infinite";
 import type { ListThread } from "@/app/(app)/[emailAccountId]/mail/types";
 import type { ThreadsListResponse } from "@/app/api/threads/route";
+import { trackMailboxListReady } from "@/utils/email-cache/analytics";
 import { createThreadListCacheKey } from "@/utils/email-cache/keys";
 import {
   readCachedThreadList,
@@ -125,6 +126,19 @@ export function useMailThreads({
   // Auto-load can fire from the cursor and the bottom sentinel in the same
   // tick; two setSize(+1) calls would skip a page token.
   const loadMoreLock = useRef(false);
+  const listReadyMeasurement = useRef({
+    identity: viewIdentity,
+    reported: false,
+    startedAt: performance.now(),
+  });
+
+  if (listReadyMeasurement.current.identity !== viewIdentity) {
+    listReadyMeasurement.current = {
+      identity: viewIdentity,
+      reported: false,
+      startedAt: performance.now(),
+    };
+  }
 
   remoteIdentity.current = data?.[0] ? viewIdentity : undefined;
   queryRef.current = query;
@@ -216,11 +230,25 @@ export function useMailThreads({
       syncedThreads,
     ],
   );
+  let readySource: "mailbox" | "persistent" | "remote" | undefined;
+  if (remoteThreads) readySource = "remote";
+  else if (syncedThreads) readySource = "mailbox";
+  else if (persistentThreads) readySource = "persistent";
   const threads = useMemo(
     () =>
       sourceThreads?.filter((thread) => !hiddenThreadIds.has(thread.id)) ?? [],
     [hiddenThreadIds, sourceThreads],
   );
+
+  useEffect(() => {
+    if (!readySource || listReadyMeasurement.current.reported) return;
+    listReadyMeasurement.current.reported = true;
+    trackMailboxListReady({
+      durationMs: performance.now() - listReadyMeasurement.current.startedAt,
+      source: readySource,
+      threadCount: sourceThreads?.length ?? 0,
+    });
+  }, [readySource, sourceThreads]);
 
   useEffect(() => {
     const firstPage = data?.[0];

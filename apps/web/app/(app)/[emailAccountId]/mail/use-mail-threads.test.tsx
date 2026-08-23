@@ -21,6 +21,9 @@ const mailbox = vi.hoisted(() => ({
   read: vi.fn(),
   subscribe: vi.fn(),
 }));
+const analytics = vi.hoisted(() => ({
+  trackListReady: vi.fn(),
+}));
 
 vi.mock("@/utils/email-cache/thread-lists", () => ({
   readCachedThreadList: cache.read,
@@ -32,6 +35,9 @@ vi.mock("@/utils/email-cache/thread-lists", () => ({
 vi.mock("@/utils/email-cache/mailbox", () => ({
   readSyncedMailboxThreads: mailbox.read,
   subscribeToMailboxStore: mailbox.subscribe,
+}));
+vi.mock("@/utils/email-cache/analytics", () => ({
+  trackMailboxListReady: analytics.trackListReady,
 }));
 
 describe("useMailThreads", () => {
@@ -69,6 +75,9 @@ describe("useMailThreads", () => {
       { wrapper: createWrapper(() => network.promise) },
     );
     await waitFor(() => expect(result.current.threads).toHaveLength(1));
+    expect(analytics.trackListReady).toHaveBeenCalledWith(
+      expect.objectContaining({ source: "mailbox", threadCount: 1 }),
+    );
 
     let removal!: ReturnType<typeof result.current.removeThreads>;
     act(() => {
@@ -171,6 +180,9 @@ describe("useMailThreads", () => {
       expect(result.current.isLoading).toBe(false);
       expect(result.current.hasMore).toBe(true);
     });
+    expect(analytics.trackListReady).toHaveBeenCalledWith(
+      expect.objectContaining({ source: "persistent", threadCount: 1 }),
+    );
   });
 
   it("keeps network rows when the disk read finishes later", async () => {
@@ -191,6 +203,9 @@ describe("useMailThreads", () => {
       network.resolve({ threads: [createThread("network")] });
     });
     await waitFor(() => expect(result.current.threads[0]?.id).toBe("network"));
+    expect(analytics.trackListReady).toHaveBeenCalledWith(
+      expect.objectContaining({ source: "remote", threadCount: 1 }),
+    );
 
     await act(async () => {
       disk.resolve({
