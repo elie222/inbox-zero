@@ -46,10 +46,7 @@ import {
 } from "@/app/(app)/[emailAccountId]/mail/types";
 import type { ThreadMessage } from "@/components/email-list/types";
 import { useMailThreads } from "@/app/(app)/[emailAccountId]/mail/use-mail-threads";
-import {
-  requestMailboxSync,
-  useMailboxSync,
-} from "@/app/(app)/[emailAccountId]/mail/use-mailbox-sync";
+import { requestMailboxSync } from "@/app/(app)/[emailAccountId]/mail/use-mailbox-sync";
 import { useCombinedMailThreads } from "@/app/(app)/[emailAccountId]/mail/use-combined-mail-threads";
 import { runCombinedThreadAction } from "@/app/(app)/[emailAccountId]/mail/combined-thread-actions";
 import { useAdjacentThreadPrefetch } from "@/app/(app)/[emailAccountId]/mail/use-adjacent-thread-prefetch";
@@ -182,13 +179,6 @@ export function MailShell() {
         image,
       })),
     [accountsData?.emailAccounts],
-  );
-  const mailboxSyncAccountIds = useMemo(
-    () =>
-      isAllAccounts && combinedAccounts.length
-        ? combinedAccounts.map((account) => account.id)
-        : [emailAccountId],
-    [combinedAccounts, emailAccountId, isAllAccounts],
   );
   const accountLayout: MailLayoutMode =
     settings?.layout === MailLayout.SPLIT ? "split" : "list";
@@ -952,9 +942,6 @@ export function MailShell() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-background">
-      {mailboxSyncAccountIds.map((syncAccountId) => (
-        <MailboxSync emailAccountId={syncAccountId} key={syncAccountId} />
-      ))}
       <div className="flex min-h-0 flex-1">
         <div className="hidden [--sidebar-width:236px] lg:contents">
           <Sidebar name="left-sidebar" forceCollapsed={isFocusMode}>
@@ -1127,11 +1114,6 @@ export function MailShell() {
       <ShortcutsDialog open={isHelpOpen} onOpenChange={setIsHelpOpen} />
     </div>
   );
-}
-
-function MailboxSync({ emailAccountId }: { emailAccountId: string }) {
-  useMailboxSync({ emailAccountId, enabled: true });
-  return null;
 }
 
 function groupThreadIdsByAccount(

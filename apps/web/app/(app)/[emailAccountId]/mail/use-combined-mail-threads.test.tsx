@@ -136,6 +136,61 @@ describe("useCombinedMailThreads", () => {
     });
   });
 
+  it("keeps cached rows outside the first server page", async () => {
+    mailbox.read.mockResolvedValue({
+      accountStates: ACCOUNT_STATES,
+      complete: true,
+      missingAccountIds: [],
+      threads: [
+        createThread("account-1", "remote-row"),
+        createThread("account-2", "cached-only", "2026-08-23T09:59:00.000Z"),
+      ],
+      truncated: false,
+    });
+
+    const { result } = renderHook(
+      () =>
+        useCombinedMailThreads({
+          accounts: ACCOUNTS,
+          emailAccountId: "account-1",
+          enabled: true,
+          isUnread: false,
+        }),
+      {
+        wrapper: createWrapper(() =>
+          Promise.resolve({
+            failedAccountIds: [],
+            labelsByAccount: {},
+            nextPageToken: "next-page",
+            threads: [
+              {
+                ...createThread("account-1", "remote-row"),
+                snippet: "remote",
+              },
+            ],
+          }),
+        ),
+      },
+    );
+
+    await waitFor(() => {
+      expect(result.current.threads.map((thread) => thread.id)).toEqual([
+        "remote-row",
+        "cached-only",
+      ]);
+      expect(result.current.threads[0]?.snippet).toBe("remote");
+      expect(cache.write).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          hasMore: true,
+          threads: expect.arrayContaining([
+            expect.objectContaining({ id: "account-1:remote-row" }),
+            expect.objectContaining({ id: "account-2:cached-only" }),
+          ]),
+        }),
+      );
+    });
+  });
+
   it("keeps a mailbox sync that completes while the server request is in flight", async () => {
     vi.spyOn(Date, "now").mockReturnValue(100);
     const network = Promise.withResolvers<unknown>();
@@ -173,7 +228,7 @@ describe("useCombinedMailThreads", () => {
       await network.promise;
     });
 
-    await waitFor(() => expect(cache.write).toHaveBeenCalledOnce());
+    await waitFor(() => expect(cache.write).toHaveBeenCalled());
     expect(result.current.threads.map((thread) => thread.id)).toEqual([
       "local-only",
     ]);
@@ -376,6 +431,77 @@ describe("useCombinedMailThreads", () => {
       accounts: ACCOUNTS,
       limit: 40,
       query: { type: "inbox" },
+    });
+  });
+
+  it("loads more synchronized rows before requesting another server page", async () => {
+    const localThreads = Array.from({ length: 25 }, (_, index) =>
+      createThread(
+        index % 2 ? "account-1" : "account-2",
+        `local-${index}`,
+        new Date(Date.UTC(2026, 7, 23, 10, 0, 25 - index)).toISOString(),
+      ),
+    );
+    mailbox.read.mockImplementation(({ limit }: { limit: number }) =>
+      Promise.resolve({
+        accountStates: createAccountStates(Number.MAX_SAFE_INTEGER),
+        complete: true,
+        missingAccountIds: [],
+        threads: localThreads.slice(0, limit),
+        truncated: localThreads.length > limit,
+      }),
+    );
+    const fetcher = vi.fn((key: string) =>
+      Promise.resolve(
+        key.includes("cursor=next-page")
+          ? {
+              failedAccountIds: [],
+              labelsByAccount: {},
+              nextPageToken: null,
+              threads: [createThread("account-1", "remote-page-two")],
+            }
+          : {
+              failedAccountIds: [],
+              labelsByAccount: {},
+              nextPageToken: "next-page",
+              threads: [localThreads[0]],
+            },
+      ),
+    );
+    const { result } = renderHook(
+      () =>
+        useCombinedMailThreads({
+          accounts: ACCOUNTS,
+          emailAccountId: "account-1",
+          enabled: true,
+          isUnread: false,
+        }),
+      { wrapper: createWrapper(fetcher) },
+    );
+
+    await waitFor(() => {
+      expect(result.current.threads).toHaveLength(20);
+      expect(result.current.hasMore).toBe(true);
+      expect(fetcher).toHaveBeenCalledOnce();
+    });
+
+    act(() => result.current.loadMore());
+
+    await waitFor(() => {
+      expect(result.current.threads).toHaveLength(25);
+      expect(mailbox.read).toHaveBeenLastCalledWith({
+        accounts: ACCOUNTS,
+        limit: 40,
+        query: { type: "inbox" },
+      });
+    });
+    expect(fetcher).toHaveBeenCalledOnce();
+
+    act(() => result.current.loadMore());
+
+    await waitFor(() => {
+      expect(fetcher).toHaveBeenCalledTimes(2);
+      expect(result.current.hasMore).toBe(false);
     });
   });
 
