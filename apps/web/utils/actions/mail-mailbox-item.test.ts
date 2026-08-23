@@ -154,6 +154,22 @@ describe("mailbox item actions", () => {
     }
   });
 
+  it("keeps a label when saved-view cleanup fails", async () => {
+    prisma.mailSplit.deleteMany.mockRejectedValueOnce(
+      new Error("Database unavailable"),
+    );
+
+    const result = await deleteMailboxItemAction(EMAIL_ACCOUNT_ID, {
+      kind: "label",
+      id: "label-1",
+    });
+
+    expect(result?.serverError).toBe(
+      "Failed to delete label. Please try again.",
+    );
+    expect(mockDeleteLabel).not.toHaveBeenCalled();
+  });
+
   it("rejects folder mutations for non-Outlook accounts", async () => {
     const result = await deleteMailboxItemAction(EMAIL_ACCOUNT_ID, {
       kind: "folder",

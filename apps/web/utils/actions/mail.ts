@@ -332,7 +332,6 @@ export const deleteMailboxItemAction = actionClient
         if (kind === "folder") {
           await emailProvider.deleteFolder(id);
         } else {
-          await emailProvider.deleteLabel(id);
           await prisma.mailSplit.deleteMany({
             where: {
               emailAccountId,
@@ -340,6 +339,7 @@ export const deleteMailboxItemAction = actionClient
               value: id,
             },
           });
+          await emailProvider.deleteLabel(id);
         }
       } catch (error) {
         logger.error("Failed to delete mailbox item", { error, kind });
