@@ -85,6 +85,29 @@ test("selects every conversation with Command A", async ({ page }) => {
   const conversationCount = await options.count();
   expect(conversationCount).toBeGreaterThan(1);
 
+  await page.getByRole("button", { name: /Search or jump/ }).click();
+  const commandInput = page.getByPlaceholder("Type a command or search...");
+  await commandInput.fill("archive");
+  await page.keyboard.press(`${commandModifier}+KeyA`);
+
+  await expect
+    .poll(() =>
+      commandInput.evaluate((input: HTMLInputElement) => ({
+        end: input.selectionEnd,
+        start: input.selectionStart,
+      })),
+    )
+    .toEqual({ end: "archive".length, start: 0 });
+  await expect
+    .poll(() =>
+      options.evaluateAll((rows) =>
+        rows.every((row) => row.getAttribute("aria-selected") === "false"),
+      ),
+    )
+    .toBe(true);
+  await page.keyboard.press("Escape");
+  await expect(commandInput).toBeHidden();
+
   await options.nth(1).getByRole("checkbox").click();
   await expect(page.getByText("1 selected", { exact: true })).toBeVisible();
 
