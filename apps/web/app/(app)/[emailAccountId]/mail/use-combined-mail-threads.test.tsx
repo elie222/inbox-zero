@@ -364,11 +364,13 @@ describe("useCombinedMailThreads", () => {
       },
     );
 
-    await waitFor(() => expect(cache.write).toHaveBeenCalledOnce());
-    expect(result.current.threads.map((thread) => thread.id)).toEqual([
-      "local-fallback",
-      "remote",
-    ]);
+    await waitFor(() => {
+      expect(cache.write).toHaveBeenCalledOnce();
+      expect(result.current.threads.map((thread) => thread.id)).toEqual([
+        "local-fallback",
+        "remote",
+      ]);
+    });
   });
 
   it("rehydrates only when one of the displayed account stores changes", async () => {

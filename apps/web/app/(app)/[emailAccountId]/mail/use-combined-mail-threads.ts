@@ -199,7 +199,7 @@ export function useCombinedMailThreads({
               ) {
                 return true;
               }
-              confirmations.delete(threadKey);
+              confirmations?.delete(threadKey);
               return false;
             }),
           );
