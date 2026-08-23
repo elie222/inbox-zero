@@ -53,35 +53,43 @@ export function ReaderNavigation({
   showSidebarToggle = false,
 }: ReaderNavigationProps) {
   return (
-    <div className="sticky top-0 z-10 mt-5 mb-4 flex items-center bg-card">
-      {showSidebarToggle ? (
-        <div className="flex w-10 shrink-0 justify-end">
-          <SidebarTrigger
-            name="left-sidebar"
-            className="hidden lg:inline-flex"
-          />
-        </div>
-      ) : null}
+    <>
+      <div className="h-5" />
+      <div className="sticky top-0 z-10 mb-4 flex items-center bg-card">
+        {showSidebarToggle ? (
+          <div className="flex w-10 shrink-0 justify-end">
+            <SidebarTrigger
+              name="left-sidebar"
+              className="hidden lg:inline-flex"
+            />
+          </div>
+        ) : null}
 
-      <div className="min-w-0 flex-1">
-        <div className="mx-auto w-full max-w-[54rem] px-6">
-          <div className="-mx-1 flex items-center gap-3 px-1 py-2">
-            <Button onClick={onBack} size="xs-2" variant="outline">
-              <ArrowLeftIcon className="mr-1.5 size-3.5" />
-              Back
-              <Kbd className="ml-1.5">{getShortcutHint("backToList")}</Kbd>
-            </Button>
-            {position ? (
-              <span className="font-mono text-muted-foreground text-xs">
-                {`${position.index} of ${position.total}`}
-              </span>
-            ) : null}
+        <div className="min-w-0 flex-1">
+          <div className="mx-auto w-full max-w-[54rem] px-6">
+            <div className="-mx-1 flex items-center gap-3 px-1 py-2">
+              <Button
+                onClick={onBack}
+                size="xs-2"
+                type="button"
+                variant="outline"
+              >
+                <ArrowLeftIcon className="mr-1.5 size-3.5" />
+                Back
+                <Kbd className="ml-1.5">{getShortcutHint("backToList")}</Kbd>
+              </Button>
+              {position ? (
+                <span className="font-mono text-muted-foreground text-xs">
+                  {`${position.index} of ${position.total}`}
+                </span>
+              ) : null}
+            </div>
           </div>
         </div>
-      </div>
 
-      {showSidebarToggle ? <div className="w-10 shrink-0" /> : null}
-    </div>
+        {showSidebarToggle ? <div className="w-10 shrink-0" /> : null}
+      </div>
+    </>
   );
 }
 
