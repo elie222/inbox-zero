@@ -214,7 +214,7 @@ export function useCombinedMailThreads({
   const syncedThreads = syncedView?.threads;
   const sourceThreads = useMemo(
     () =>
-      remoteThreads && syncedThreads && syncedView?.complete
+      remoteThreads && syncedThreads
         ? mergeCombinedThreads({
             accountStates: syncedView.accountStates,
             failedAccountIds,
@@ -229,7 +229,6 @@ export function useCombinedMailThreads({
       remoteThreads,
       syncedThreads,
       syncedView?.accountStates,
-      syncedView?.complete,
     ],
   );
   const hiddenThreadKeys =

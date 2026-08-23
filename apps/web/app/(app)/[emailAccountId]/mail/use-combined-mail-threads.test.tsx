@@ -293,6 +293,44 @@ describe("useCombinedMailThreads", () => {
     ]);
   });
 
+  it("uses an available local snapshot when that account fails remotely", async () => {
+    mailbox.read.mockResolvedValue({
+      accountStates: { "account-1": ACCOUNT_STATES["account-1"] },
+      complete: false,
+      missingAccountIds: ["account-2"],
+      threads: [
+        createThread("account-1", "local-fallback", "2026-08-23T10:01:00.000Z"),
+      ],
+      truncated: false,
+    });
+
+    const { result } = renderHook(
+      () =>
+        useCombinedMailThreads({
+          accounts: ACCOUNTS,
+          emailAccountId: "account-1",
+          enabled: true,
+          isUnread: false,
+        }),
+      {
+        wrapper: createWrapper(() =>
+          Promise.resolve({
+            failedAccountIds: ["account-1"],
+            labelsByAccount: {},
+            nextPageToken: null,
+            threads: [createThread("account-2", "remote")],
+          }),
+        ),
+      },
+    );
+
+    await waitFor(() => expect(cache.write).toHaveBeenCalledOnce());
+    expect(result.current.threads.map((thread) => thread.id)).toEqual([
+      "local-fallback",
+      "remote",
+    ]);
+  });
+
   it("rehydrates only when one of the displayed account stores changes", async () => {
     mailbox.read
       .mockResolvedValueOnce({
