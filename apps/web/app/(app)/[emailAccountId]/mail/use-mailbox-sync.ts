@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect } from "react";
-import { useMailboxSyncEnabled } from "@/hooks/useFeatureFlags";
 import { trackMailboxSyncResult } from "@/utils/email-cache/analytics";
 import {
   fetchMailboxSyncPage,
@@ -26,10 +25,8 @@ export function useMailboxSync({
   emailAccountId: string;
   enabled: boolean;
 }) {
-  const mailboxSyncEnabled = useMailboxSyncEnabled();
-
   useEffect(() => {
-    if (!enabled || !mailboxSyncEnabled || !emailAccountId) return;
+    if (!enabled || !emailAccountId) return;
     let cancelled = false;
     let attempts = 0;
     let catchingUp = false;
@@ -132,7 +129,7 @@ export function useMailboxSync({
       window.removeEventListener("online", run);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [emailAccountId, enabled, mailboxSyncEnabled]);
+  }, [emailAccountId, enabled]);
 }
 
 export function requestMailboxSync(emailAccountId: string) {
