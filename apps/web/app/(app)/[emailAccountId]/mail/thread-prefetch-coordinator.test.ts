@@ -157,6 +157,23 @@ describe("createThreadPrefetchCoordinator", () => {
 
     expect(threadPrefetch.prefetch).not.toHaveBeenCalled();
   });
+
+  it("reactivates after lifecycle cleanup without reviving stale jobs", () => {
+    threadPrefetch.prefetch.mockImplementation(() => new Promise(() => {}));
+    const coordinator = createCoordinator();
+
+    coordinator.schedule(job("thread-1"));
+    const firstJob = threadPrefetch.prefetch.mock.calls[0]?.[0] as {
+      isCancelled?: () => boolean;
+    };
+
+    coordinator.dispose();
+    coordinator.activate();
+    coordinator.schedule(job("thread-2"));
+
+    expect(firstJob.isCancelled?.()).toBe(true);
+    expect(getCalledThreadIds()).toEqual(["thread-1", "thread-2"]);
+  });
 });
 
 function createCoordinator({

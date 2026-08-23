@@ -30,6 +30,7 @@ export type ThreadPrefetchJob = {
 
 type ScheduledPrefetchJob = ThreadPrefetchJob & {
   cacheIdentity: string;
+  coordinatorGeneration: number;
   enqueuedAt: number;
   requestKey: ReturnType<typeof unstable_serialize>;
   scopeVersion: number;
@@ -41,6 +42,7 @@ type ThreadPrefetchQueueEntry = {
 };
 
 export type ThreadPrefetchCoordinator = {
+  activate: () => void;
   cancelScope: (scopeKey: string) => void;
   dispose: () => void;
   schedule: (job: ThreadPrefetchJob) => void;
@@ -57,6 +59,7 @@ export function createThreadPrefetchCoordinator({
   mutate: ScopedMutator;
 }): ThreadPrefetchCoordinator {
   let activeCount = 0;
+  let coordinatorGeneration = 0;
   let disposed = false;
   let sequence = 0;
   const jobsByIdentity = new Map<string, ThreadPrefetchQueueEntry>();
@@ -72,8 +75,14 @@ export function createThreadPrefetchCoordinator({
     isThreadRequestInFlight({ cacheIdentity: job.cacheIdentity });
 
   const isCancelled = (
-    job: Pick<ScheduledPrefetchJob, "scopeKey" | "scopeVersion">,
-  ) => disposed || getScopeVersion(job.scopeKey) !== job.scopeVersion;
+    job: Pick<
+      ScheduledPrefetchJob,
+      "coordinatorGeneration" | "scopeKey" | "scopeVersion"
+    >,
+  ) =>
+    disposed ||
+    job.coordinatorGeneration !== coordinatorGeneration ||
+    getScopeVersion(job.scopeKey) !== job.scopeVersion;
 
   const dropQueuedOverflow = () => {
     const queued = [...jobsByIdentity.values()]
@@ -142,6 +151,7 @@ export function createThreadPrefetchCoordinator({
     const scheduledJob: ScheduledPrefetchJob = {
       ...job,
       cacheIdentity: request.cacheIdentity,
+      coordinatorGeneration,
       enqueuedAt: sequence,
       requestKey: unstable_serialize(request.key),
       scopeVersion: getScopeVersion(job.scopeKey),
@@ -149,7 +159,6 @@ export function createThreadPrefetchCoordinator({
     sequence += 1;
 
     if (shouldSkipJob(scheduledJob)) return;
-
     const existing = jobsByIdentity.get(request.cacheIdentity);
     if (existing) {
       if (existing.status === "queued") {
@@ -183,13 +192,19 @@ export function createThreadPrefetchCoordinator({
     }
   };
 
+  const activate = () => {
+    disposed = false;
+  };
+
   const dispose = () => {
     disposed = true;
+    coordinatorGeneration += 1;
     jobsByIdentity.clear();
     scopeVersions.clear();
   };
 
   return {
+    activate,
     cancelScope,
     dispose,
     schedule,
@@ -204,7 +219,10 @@ export function useThreadPrefetchCoordinator() {
     [cache, fetcher, mutate],
   );
 
-  useEffect(() => () => coordinator.dispose(), [coordinator]);
+  useEffect(() => {
+    coordinator.activate();
+    return () => coordinator.dispose();
+  }, [coordinator]);
 
   return coordinator;
 }
