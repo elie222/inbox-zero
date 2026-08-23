@@ -21,6 +21,10 @@ import type {
   MailCategory,
   MailNavTarget,
 } from "@/app/(app)/[emailAccountId]/mail/MailSidebar";
+import type {
+  MailboxItem,
+  MailboxItemEdit,
+} from "@/app/(app)/[emailAccountId]/mail/MailboxItemContextMenu";
 import { ThreadActionsMenu } from "@/app/(app)/[emailAccountId]/mail/ThreadActionsMenu";
 import { ShortcutsDialog } from "@/app/(app)/[emailAccountId]/mail/ShortcutsDialog";
 import { SplitTabs } from "@/app/(app)/[emailAccountId]/mail/SplitTabs";
@@ -80,8 +84,11 @@ import {
 import {
   archiveThreadAction,
   createLabelAction,
+  deleteMailboxItemAction,
   removeThreadLabelAction,
+  renameMailboxItemAction,
   trashThreadAction,
+  updateLabelColorAction,
 } from "@/utils/actions/mail";
 import {
   mailSplitToThreadsQuery,
@@ -116,8 +123,8 @@ export function MailShell() {
   const terminology = getEmailTerminology(provider);
   const { userLabels } = useEmail();
   const { visibleLabels, mutate: mutateLabels } = useSplitLabels();
-  const { folders } = useFolders(provider);
-  const { countsById } = useLabelCounts();
+  const { folders, mutate: mutateFolders } = useFolders(provider);
+  const { countsById, mutate: mutateCounts } = useLabelCounts();
   const { data: settings, mutate: mutateSettings } = useMailSettings();
   const { onOpen: openCompose } = useComposeModal();
   const { setInput: setChatInput } = useChat();
@@ -693,6 +700,91 @@ export function MailShell() {
     [emailAccountId, mutateLabels, terminology.label.singularCapitalized],
   );
 
+  const onEditMailboxItem = useCallback(
+    async (edit: MailboxItemEdit) => {
+      const result =
+        "color" in edit
+          ? await updateLabelColorAction(emailAccountId, {
+              labelId: edit.id,
+              color: edit.color,
+            })
+          : await renameMailboxItemAction(emailAccountId, {
+              kind: edit.kind,
+              id: edit.id,
+              name: edit.name,
+            });
+
+      if (result?.serverError || result?.validationErrors) {
+        toast.error(getActionErrorMessage(result));
+        return false;
+      }
+
+      await Promise.all([
+        edit.kind === "folder" ? mutateFolders() : mutateLabels(),
+        mutateCounts(),
+      ]);
+      toast.success(
+        `${edit.kind === "folder" ? "Folder" : terminology.label.singularCapitalized} updated`,
+      );
+      return true;
+    },
+    [
+      emailAccountId,
+      mutateCounts,
+      mutateFolders,
+      mutateLabels,
+      terminology.label.singularCapitalized,
+    ],
+  );
+
+  const onDeleteMailboxItem = useCallback(
+    async (item: MailboxItem) => {
+      const result = await deleteMailboxItemAction(emailAccountId, {
+        kind: item.kind,
+        id: item.id,
+      });
+      if (result?.serverError || result?.validationErrors) {
+        toast.error(getActionErrorMessage(result));
+        return false;
+      }
+
+      const isActive =
+        item.kind === "folder"
+          ? scopeFolderId === item.id
+          : scopeLabelId === item.id;
+      if (isActive) {
+        await Promise.all([
+          setOpenThreadId(null),
+          setScopeType("inbox"),
+          item.kind === "folder"
+            ? setScopeFolderId(null)
+            : setScopeLabelId(null),
+        ]);
+      }
+      await Promise.all([
+        item.kind === "folder" ? mutateFolders() : mutateLabels(),
+        mutateCounts(),
+      ]);
+      toast.success(
+        `${item.kind === "folder" ? "Folder" : terminology.label.singularCapitalized} deleted`,
+      );
+      return true;
+    },
+    [
+      emailAccountId,
+      mutateCounts,
+      mutateFolders,
+      mutateLabels,
+      scopeFolderId,
+      scopeLabelId,
+      setOpenThreadId,
+      setScopeFolderId,
+      setScopeLabelId,
+      setScopeType,
+      terminology.label.singularCapitalized,
+    ],
+  );
+
   const onRemoveLabel = useCallback(
     async (labelId: string) => {
       if (!openThreadId) return;
@@ -759,7 +851,10 @@ export function MailShell() {
               backToAppHref={prefixPath(emailAccountId, "/automation")}
               onCompose={openCompose}
               onCreateLabel={onCreateLabel}
+              onEditMailboxItem={onEditMailboxItem}
+              onDeleteMailboxItem={onDeleteMailboxItem}
               onOpenShortcuts={openShortcuts}
+              labelEditMode={isOutlook ? "color" : "name"}
               unified={isAllAccounts}
               footer={
                 <MailAccountSwitcher

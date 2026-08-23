@@ -82,6 +82,8 @@ import {
   getOrCreateOutlookFolderIdByName,
   getOutlookFolderTree,
   addOutlookSystemFolderTypes,
+  deleteOutlookFolder,
+  renameOutlookFolder,
 } from "@/utils/outlook/folders";
 import { extractSignatureFromHtml } from "@/utils/email/signature-extraction";
 import {
@@ -991,10 +993,31 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async deleteLabel(labelId: string): Promise<void> {
-    await this.client
-      .getClient()
-      .api(`/me/outlook/masterCategories/${labelId}`)
-      .delete();
+    await withMicrosoftGraphWriteRetry(
+      () =>
+        this.client
+          .getClient()
+          .api(`/me/outlook/masterCategories/${encodeURIComponent(labelId)}`)
+          .delete(),
+      this.logger,
+    );
+    this.client.invalidateCategoryMapCache();
+  }
+
+  async renameLabel(_labelId: string, _name: string): Promise<void> {
+    throw new Error("Microsoft category names cannot be changed");
+  }
+
+  async updateLabelColor(labelId: string, color: string): Promise<void> {
+    await withMicrosoftGraphWriteRetry(
+      () =>
+        this.client
+          .getClient()
+          .api(`/me/outlook/masterCategories/${encodeURIComponent(labelId)}`)
+          .patch({ color }),
+      this.logger,
+    );
+    this.client.invalidateCategoryMapCache();
   }
 
   async getOrCreateInboxZeroLabel(key: InboxZeroLabel): Promise<EmailLabel> {
@@ -2003,6 +2026,14 @@ export class OutlookProvider implements EmailProvider {
       folderName,
       this.logger,
     );
+  }
+
+  async renameFolder(folderId: string, name: string): Promise<void> {
+    await renameOutlookFolder(this.client, folderId, name, this.logger);
+  }
+
+  async deleteFolder(folderId: string): Promise<void> {
+    await deleteOutlookFolder(this.client, folderId, this.logger);
   }
 
   async getFolders() {

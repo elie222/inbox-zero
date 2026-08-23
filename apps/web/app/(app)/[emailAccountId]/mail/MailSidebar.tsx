@@ -32,6 +32,11 @@ import { cn } from "@/utils";
 import type { OutlookFolder } from "@/utils/outlook/folders";
 import { OUTLOOK_INBOX_SECTIONS } from "@/utils/mail/outlook-inbox";
 import { getMailSidebarFolders } from "./outlook-folder-list";
+import {
+  MailboxItemContextMenu,
+  type MailboxItem,
+  type MailboxItemEdit,
+} from "./MailboxItemContextMenu";
 
 /** Where a sidebar row navigates. Mirrors the mail page's `?type=` query shape. */
 export type MailNavTarget =
@@ -59,7 +64,10 @@ export type MailSidebarProps = {
   backToAppHref: string;
   onCompose: () => void;
   onCreateLabel: (name: string) => void;
+  onEditMailboxItem: (edit: MailboxItemEdit) => Promise<boolean>;
+  onDeleteMailboxItem: (item: MailboxItem) => Promise<boolean>;
   onOpenShortcuts: () => void;
+  labelEditMode: "name" | "color";
   footer?: ReactNode;
   unified?: boolean;
   className?: string;
@@ -134,7 +142,10 @@ export function MailSidebar({
   backToAppHref,
   onCompose,
   onCreateLabel,
+  onEditMailboxItem,
+  onDeleteMailboxItem,
   onOpenShortcuts,
+  labelEditMode,
   footer,
   unified = false,
   className,
@@ -237,19 +248,31 @@ export function MailSidebar({
             <GroupHeading>Folders</GroupHeading>
             <nav className="flex flex-col gap-px">
               {sidebarFolders.map((folder) => (
-                <NavRow
+                <MailboxItemContextMenu
                   key={folder.id}
-                  href={hrefFor({ kind: "folder", folderId: folder.id })}
-                  active={activeFolderId === folder.id}
-                  icon={
-                    <FolderIcon
-                      className="size-3.5 shrink-0"
-                      style={{ marginLeft: folder.depth * 12 }}
-                    />
-                  }
-                  name={folder.displayName}
-                  count={displayCount(countsById.get(folder.id))}
-                />
+                  item={{
+                    kind: "folder",
+                    id: folder.id,
+                    name: folder.displayName,
+                  }}
+                  typeName="folder"
+                  editMode="name"
+                  onEdit={onEditMailboxItem}
+                  onDelete={onDeleteMailboxItem}
+                >
+                  <NavRow
+                    href={hrefFor({ kind: "folder", folderId: folder.id })}
+                    active={activeFolderId === folder.id}
+                    icon={
+                      <FolderIcon
+                        className="size-3.5 shrink-0"
+                        style={{ marginLeft: folder.depth * 12 }}
+                      />
+                    }
+                    name={folder.displayName}
+                    count={displayCount(countsById.get(folder.id))}
+                  />
+                </MailboxItemContextMenu>
               ))}
             </nav>
           </>
@@ -274,23 +297,32 @@ export function MailSidebar({
             </GroupHeading>
             <nav className="flex flex-col gap-px">
               {labels.map((label) => (
-                <NavRow
+                <MailboxItemContextMenu
                   key={label.id}
-                  href={hrefFor({ kind: "label", labelId: label.id })}
-                  active={activeLabelId === label.id}
-                  icon={
-                    <span
-                      className="size-2.5 shrink-0 rounded-full bg-muted-foreground/40"
-                      style={
-                        label.color?.backgroundColor
-                          ? { backgroundColor: label.color.backgroundColor }
-                          : undefined
-                      }
-                    />
-                  }
-                  name={label.name}
-                  count={displayCount(countsById.get(label.id))}
-                />
+                  item={{ kind: "label", id: label.id, name: label.name }}
+                  typeName={labelSingular}
+                  editMode={labelEditMode}
+                  currentColor={label.color?.backgroundColor}
+                  onEdit={onEditMailboxItem}
+                  onDelete={onDeleteMailboxItem}
+                >
+                  <NavRow
+                    href={hrefFor({ kind: "label", labelId: label.id })}
+                    active={activeLabelId === label.id}
+                    icon={
+                      <span
+                        className="size-2.5 shrink-0 rounded-full bg-muted-foreground/40"
+                        style={
+                          label.color?.backgroundColor
+                            ? { backgroundColor: label.color.backgroundColor }
+                            : undefined
+                        }
+                      />
+                    }
+                    name={label.name}
+                    count={displayCount(countsById.get(label.id))}
+                  />
+                </MailboxItemContextMenu>
               ))}
             </nav>
 

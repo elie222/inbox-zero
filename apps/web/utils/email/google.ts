@@ -1108,6 +1108,18 @@ export class GmailProvider implements EmailProvider {
     });
   }
 
+  async renameLabel(labelId: string, name: string): Promise<void> {
+    await this.client.users.labels.patch({
+      userId: "me",
+      id: labelId,
+      requestBody: { name },
+    });
+  }
+
+  async updateLabelColor(_labelId: string, _color: string): Promise<void> {
+    this.logger.warn("Updating label color is not supported for Gmail");
+  }
+
   async getOrCreateInboxZeroLabel(key: InboxZeroLabel): Promise<EmailLabel> {
     const label = await getOrCreateInboxZeroLabel({
       gmail: this.client,
@@ -1658,6 +1670,14 @@ export class GmailProvider implements EmailProvider {
 
   async getFolderCounts() {
     return [];
+  }
+
+  async renameFolder(_folderId: string, _name: string): Promise<void> {
+    this.logger.warn("Renaming folders is not supported for Gmail");
+  }
+
+  async deleteFolder(_folderId: string): Promise<void> {
+    this.logger.warn("Deleting folders is not supported for Gmail");
   }
 
   async moveThreadToFolder(

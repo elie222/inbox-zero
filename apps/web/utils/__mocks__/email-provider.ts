@@ -112,6 +112,8 @@ export const createMockEmailProvider = (
     .fn()
     .mockResolvedValue({ id: "label1", name: "Test Label", type: "user" }),
   deleteLabel: vi.fn().mockResolvedValue(undefined),
+  renameLabel: vi.fn().mockResolvedValue(undefined),
+  updateLabelColor: vi.fn().mockResolvedValue(undefined),
   getOrCreateInboxZeroLabel: vi
     .fn()
     .mockResolvedValue({ id: "label1", name: "Test Label", type: "user" }),
@@ -162,6 +164,8 @@ export const createMockEmailProvider = (
   processHistory: vi.fn().mockResolvedValue(undefined),
   moveThreadToFolder: vi.fn().mockResolvedValue(undefined),
   getOrCreateFolderIdByName: vi.fn().mockResolvedValue("folder1"),
+  renameFolder: vi.fn().mockResolvedValue(undefined),
+  deleteFolder: vi.fn().mockResolvedValue(undefined),
   sendEmailWithHtml: vi.fn().mockResolvedValue(undefined),
   getDrafts: vi.fn().mockResolvedValue([]),
   ...overrides,

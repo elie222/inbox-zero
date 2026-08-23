@@ -7,10 +7,14 @@ import { actionClient } from "@/utils/actions/safe-action";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
 import {
+  deleteMailboxItemBody,
   removeThreadLabelBody,
+  renameMailboxItemBody,
   unarchiveThreadBody,
   untrashThreadBody,
+  updateLabelColorBody,
 } from "@/utils/actions/mail.validation";
+import { isMicrosoftProvider } from "@/utils/email/provider-types";
 
 const isStatusOk = (status: number) => status >= 200 && status < 300;
 
@@ -264,6 +268,84 @@ export const createLabelAction = actionClient
     },
   );
 
+export const renameMailboxItemAction = actionClient
+  .metadata({ name: "renameMailboxItem" })
+  .inputSchema(renameMailboxItemBody)
+  .action(
+    async ({
+      ctx: { emailAccountId, provider, logger },
+      parsedInput: { kind, id, name },
+    }) => {
+      assertMailboxItemMutationSupported({ kind, provider, action: "rename" });
+      const emailProvider = await createEmailProvider({
+        emailAccountId,
+        provider,
+        logger,
+      });
+
+      try {
+        if (kind === "folder") await emailProvider.renameFolder(id, name);
+        else await emailProvider.renameLabel(id, name);
+      } catch (error) {
+        logger.error("Failed to rename mailbox item", { error, kind });
+        throw new SafeError(`Failed to rename ${kind}. Please try again.`);
+      }
+    },
+  );
+
+export const updateLabelColorAction = actionClient
+  .metadata({ name: "updateLabelColor" })
+  .inputSchema(updateLabelColorBody)
+  .action(
+    async ({
+      ctx: { emailAccountId, provider, logger },
+      parsedInput: { labelId, color },
+    }) => {
+      if (!isMicrosoftProvider(provider)) {
+        throw new SafeError(
+          "Category colors are only available for Outlook accounts.",
+        );
+      }
+      const emailProvider = await createEmailProvider({
+        emailAccountId,
+        provider,
+        logger,
+      });
+
+      try {
+        await emailProvider.updateLabelColor(labelId, color);
+      } catch (error) {
+        logger.error("Failed to update category color", { error });
+        throw new SafeError("Failed to update category. Please try again.");
+      }
+    },
+  );
+
+export const deleteMailboxItemAction = actionClient
+  .metadata({ name: "deleteMailboxItem" })
+  .inputSchema(deleteMailboxItemBody)
+  .action(
+    async ({
+      ctx: { emailAccountId, provider, logger },
+      parsedInput: { kind, id },
+    }) => {
+      assertMailboxItemMutationSupported({ kind, provider, action: "delete" });
+      const emailProvider = await createEmailProvider({
+        emailAccountId,
+        provider,
+        logger,
+      });
+
+      try {
+        if (kind === "folder") await emailProvider.deleteFolder(id);
+        else await emailProvider.deleteLabel(id);
+      } catch (error) {
+        logger.error("Failed to delete mailbox item", { error, kind });
+        throw new SafeError(`Failed to delete ${kind}. Please try again.`);
+      }
+    },
+  );
+
 export const updateLabelsAction = actionClient
   .metadata({ name: "updateLabels" })
   .inputSchema(
@@ -331,3 +413,28 @@ export const sendEmailAction = actionClient
       };
     },
   );
+
+function assertMailboxItemMutationSupported({
+  kind,
+  provider,
+  action,
+}: {
+  kind: "label" | "folder";
+  provider: string;
+  action: "rename" | "delete";
+}) {
+  if (kind === "folder" && !isMicrosoftProvider(provider)) {
+    throw new SafeError(
+      "Folder actions are only available for Outlook accounts.",
+    );
+  }
+  if (
+    action === "rename" &&
+    kind === "label" &&
+    isMicrosoftProvider(provider)
+  ) {
+    throw new SafeError(
+      "Outlook category names cannot be changed. Edit its color instead.",
+    );
+  }
+}
