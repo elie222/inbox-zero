@@ -18,6 +18,7 @@ import type { ParsedMessage } from "@/utils/types";
 
 describe("synced mailbox cache", () => {
   beforeEach(async () => {
+    vi.clearAllMocks();
     await clearEmailCache();
   });
 

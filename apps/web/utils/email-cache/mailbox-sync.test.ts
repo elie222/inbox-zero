@@ -6,6 +6,7 @@ import { fetchMailboxSyncPage, syncMailboxPages } from "./mailbox-sync";
 
 describe("mailbox sync coordinator", () => {
   beforeEach(async () => {
+    vi.clearAllMocks();
     await clearEmailCache();
   });
 
