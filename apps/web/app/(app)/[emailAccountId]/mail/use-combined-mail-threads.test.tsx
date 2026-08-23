@@ -143,6 +143,7 @@ describe("useCombinedMailThreads", () => {
       missingAccountIds: [],
       threads: [
         createThread("account-1", "remote-row"),
+        createThread("account-2", "stale-recent", "2026-08-23T10:01:00.000Z"),
         createThread("account-2", "cached-only", "2026-08-23T09:59:00.000Z"),
       ],
       truncated: false,

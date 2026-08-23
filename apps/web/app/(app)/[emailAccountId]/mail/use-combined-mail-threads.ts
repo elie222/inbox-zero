@@ -664,6 +664,10 @@ function mergeCombinedThreads({
   const remoteThreadsByKey = new Map(
     remoteThreads.map((thread) => [getListThreadKey(thread), thread]),
   );
+  const oldestRemoteTimestamp = remoteThreads.reduce(
+    (oldest, thread) => Math.min(oldest, getThreadTimestamp(thread)),
+    Number.POSITIVE_INFINITY,
+  );
   const threadsByKey = new Map(
     remoteThreads
       .filter((thread) => {
@@ -692,6 +696,12 @@ function mergeCombinedThreads({
     if (!locallyAuthoritative && !remoteHasMore) continue;
     const remoteThread = remoteThreadsByKey.get(getListThreadKey(thread));
     if (!locallyAuthoritative && remoteThread) continue;
+    if (
+      !locallyAuthoritative &&
+      getThreadTimestamp(thread) > oldestRemoteTimestamp
+    ) {
+      continue;
+    }
     threadsByKey.set(getListThreadKey(thread), {
       ...thread,
       plan: remoteThread?.plan ?? thread.plan,

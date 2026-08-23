@@ -29,6 +29,7 @@ async function getEmailAccounts({ userId }: { userId: string }) {
       image: true,
       account: {
         select: {
+          disconnectedAt: true,
           provider: true,
         },
       },

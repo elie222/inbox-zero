@@ -17,12 +17,19 @@ describe("MailboxSyncManager", () => {
     vi.clearAllMocks();
     accounts.useAccounts.mockReturnValue({
       data: {
-        emailAccounts: [{ id: "account-1" }, { id: "account-2" }],
+        emailAccounts: [
+          { account: { disconnectedAt: null }, id: "account-1" },
+          { account: { disconnectedAt: null }, id: "account-2" },
+          {
+            account: { disconnectedAt: "2026-08-23T10:00:00.000Z" },
+            id: "disconnected-account",
+          },
+        ],
       },
     });
   });
 
-  it("keeps every connected account synchronized", () => {
+  it("synchronizes every connected account without retrying disconnected accounts", () => {
     render(<MailboxSyncManager />);
 
     expect(mailboxSync.useMailboxSync).toHaveBeenCalledTimes(2);
