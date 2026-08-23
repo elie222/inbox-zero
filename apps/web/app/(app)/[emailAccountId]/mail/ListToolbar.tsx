@@ -29,12 +29,8 @@ export function ListToolbar({
 
   return (
     <div
-      className={cn(
-        "flex shrink-0 items-center gap-2 px-3 pt-3 pb-3",
-        // Mac traffic lights hang past the collapsed 3rem sidebar.
-        showSidebarToggle &&
-          "lg:pl-[max(0.75rem,calc(var(--desktop-traffic-lights-width,0px)-3rem))]",
-      )}
+      data-desktop-mac-titlebar-spacer={showSidebarToggle || undefined}
+      className="flex shrink-0 items-center gap-2 px-3 pt-3 pb-3"
     >
       {showSidebarToggle ? (
         <SidebarTrigger name="left-sidebar" className="hidden lg:inline-flex" />
