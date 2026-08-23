@@ -609,6 +609,7 @@ export function MailShell() {
         if (next) setActiveSplitId(next.id);
       },
       select: () => selection.toggle(clampedIndex),
+      selectAll: selection.selectAll,
       // The cursor travels with the extension; without that, every repeat
       // re-extends from the same row and the range never grows.
       extendSelectionDown: () => extendSelection(1),

@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 import { conversationWithSubject, openMail } from "./mail-test-helpers";
 
+const commandModifier = process.platform === "darwin" ? "Meta" : "Control";
+
 test("archives a selected conversation and restores it with undo", async ({
   page,
 }) => {
@@ -75,4 +77,28 @@ test("selects ranges and opens conversations with the keyboard", async ({
   await expect(page).toHaveURL(/thread-id=/);
   await page.keyboard.press("Escape");
   await expect(conversations).toBeVisible();
+});
+
+test("selects every conversation with Command A", async ({ page }) => {
+  const { conversations } = await openMail(page);
+  const options = conversations.getByRole("option");
+  const conversationCount = await options.count();
+  expect(conversationCount).toBeGreaterThan(1);
+
+  await options.nth(1).getByRole("checkbox").click();
+  await expect(page.getByText("1 selected", { exact: true })).toBeVisible();
+
+  await page.keyboard.press(`${commandModifier}+KeyA`);
+
+  await expect(
+    page.getByText(`${conversationCount} selected`, { exact: true }),
+  ).toBeVisible();
+  await expect(options).toHaveCount(conversationCount);
+  await expect
+    .poll(() =>
+      options.evaluateAll((rows) =>
+        rows.every((row) => row.getAttribute("aria-selected") === "true"),
+      ),
+    )
+    .toBe(true);
 });

@@ -125,6 +125,13 @@ const SHORTCUT_DEFINITIONS = [
     label: "Select",
   },
   {
+    id: "selectAll",
+    keys: ["mod+a"],
+    scope: "mail",
+    group: "Triage",
+    label: "Select all",
+  },
+  {
     id: "extendSelectionDown",
     keys: ["shift+arrowdown", "shift+j"],
     scope: "mail",
