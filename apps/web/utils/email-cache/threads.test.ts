@@ -1,7 +1,11 @@
 import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { ThreadResponse } from "@/app/api/threads/[id]/route";
-import { clearEmailCache, clearEmailCacheForAccount } from "./database";
+import {
+  clearEmailCache,
+  clearEmailCacheForAccount,
+  getEmailCacheDatabase,
+} from "./database";
 import { readCachedThreadDetail, writeCachedThreadDetail } from "./threads";
 
 describe("cached thread details", () => {
@@ -161,6 +165,57 @@ describe("cached thread details", () => {
       ).content,
     ).toBeUndefined();
   });
+
+  it("rewrites legacy thread detail records with sanitized data and byte size", async () => {
+    const legacy = getThreadResponseWithExtraFields();
+    const expected = getSanitizedThreadResponse();
+
+    await seedLegacyThreadDetailRecord({
+      byteSize: JSON.stringify(legacy).length,
+      data: legacy,
+      emailAccountId: "account-1",
+      threadId: "thread-1",
+      variant: "drafts:0|replies:0",
+    });
+
+    const cached = await readCachedThreadDetail({
+      emailAccountId: "account-1",
+      threadId: "thread-1",
+      variant: "drafts:0|replies:0",
+    });
+
+    expect(cached).toMatchObject({
+      byteSize: JSON.stringify(expected).length,
+      data: expected,
+    });
+
+    const persisted = await getPersistedThreadDetailRecord({
+      emailAccountId: "account-1",
+      threadId: "thread-1",
+      variant: "drafts:0|replies:0",
+    });
+
+    expect(persisted).toMatchObject({
+      byteSize: JSON.stringify(expected).length,
+      data: expected,
+    });
+    expect(
+      (
+        persisted?.data as {
+          thread?: Record<string, unknown>;
+        }
+      ).thread?.providerOnlyField,
+    ).toBeUndefined();
+    expect(
+      (
+        (
+          persisted?.data as {
+            thread?: { messages?: Array<Record<string, unknown>> };
+          }
+        ).thread?.messages?.[0]?.attachments?.[0] as Record<string, unknown>
+      ).content,
+    ).toBeUndefined();
+  });
 });
 
 function getThreadResponse({
@@ -259,4 +314,104 @@ function getThreadResponseWithExtraFields(): ThreadResponse {
       snippet: "snippet",
     },
   } as ThreadResponse;
+}
+
+function getSanitizedThreadResponse(): ThreadResponse {
+  return {
+    thread: {
+      historyId: "history-1",
+      id: "thread-1",
+      messages: [
+        {
+          attachments: [
+            {
+              attachmentId: "attachment-1",
+              filename: "report.pdf",
+              headers: {
+                "content-description": "report",
+                "content-disposition": "attachment",
+                "content-id": "attachment-content-id",
+                "content-transfer-encoding": "base64",
+                "content-type": "application/pdf",
+              },
+              mimeType: "application/pdf",
+              size: 10,
+            },
+          ],
+          date: "2026-08-23T10:00:00.000Z",
+          headers: {
+            date: "2026-08-23T10:00:00.000Z",
+            from: "sender@example.com",
+            subject: "Subject",
+            to: "me@example.com",
+          },
+          historyId: "history-1",
+          id: "message-1",
+          inline: [
+            {
+              attachmentId: "inline-1",
+              filename: "inline.png",
+              headers: {
+                "content-description": "inline",
+                "content-id": "inline-content-id",
+                "content-transfer-encoding": "base64",
+                "content-type": "image/png",
+              },
+              mimeType: "image/png",
+              size: 12,
+            },
+          ],
+          labelIds: ["INBOX"],
+          snippet: "snippet",
+          subject: "Subject",
+          textPlain: "Body",
+          threadId: "thread-1",
+        },
+      ],
+      snippet: "snippet",
+    },
+  };
+}
+
+async function seedLegacyThreadDetailRecord({
+  byteSize,
+  data,
+  emailAccountId,
+  threadId,
+  variant,
+}: {
+  byteSize: number;
+  data: ThreadResponse;
+  emailAccountId: string;
+  threadId: string;
+  variant: string;
+}) {
+  const database = await getEmailCacheDatabase();
+  if (!database) throw new Error("Expected email cache database");
+  const now = Date.now();
+
+  await database.put("threadDetails", {
+    byteSize,
+    data,
+    emailAccountId,
+    fetchedAt: now,
+    lastAccessedAt: now,
+    threadId,
+    variant,
+  });
+}
+
+async function getPersistedThreadDetailRecord({
+  emailAccountId,
+  threadId,
+  variant,
+}: {
+  emailAccountId: string;
+  threadId: string;
+  variant: string;
+}) {
+  const database = await getEmailCacheDatabase();
+  if (!database) throw new Error("Expected email cache database");
+
+  return database.get("threadDetails", [emailAccountId, threadId, variant]);
 }

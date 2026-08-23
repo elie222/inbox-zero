@@ -33,6 +33,7 @@ export async function writeCachedThreadDetail({
 }) {
   const epoch = captureEmailCacheEpoch(emailAccountId);
   const sanitized = sanitizeThreadResponse(data);
+  const byteSize = getThreadResponseByteSize(sanitized);
 
   try {
     const database = await getEmailCacheDatabase();
@@ -44,7 +45,7 @@ export async function writeCachedThreadDetail({
       data: sanitized,
       fetchedAt: now,
       lastAccessedAt: now,
-      byteSize: new Blob([JSON.stringify(sanitized)]).size,
+      byteSize,
     });
     scheduleEmailCacheCleanup();
   } catch {
@@ -80,14 +81,23 @@ export async function readCachedThreadDetail({
       return;
     }
 
-    await store.put({ ...record, lastAccessedAt: Date.now() });
+    const now = Date.now();
+    const sanitized = sanitizeThreadResponse(record.data as ThreadResponse);
+    const byteSize = getThreadResponseByteSize(sanitized);
+
+    await store.put({
+      ...record,
+      data: sanitized,
+      lastAccessedAt: now,
+      byteSize,
+    });
     await transaction.done;
     if (!isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
     scheduleEmailCacheCleanup();
     return {
-      data: sanitizeThreadResponse(record.data as ThreadResponse),
+      data: sanitized,
       cachedAt: record.fetchedAt,
-      byteSize: record.byteSize,
+      byteSize,
     };
   } catch {
     return;
@@ -177,4 +187,8 @@ function sanitizeHeaders(headers: ParsedMessageHeaders): ParsedMessageHeaders {
     subject: headers.subject,
     to: headers.to,
   };
+}
+
+function getThreadResponseByteSize(data: ThreadResponse) {
+  return new Blob([JSON.stringify(data)]).size;
 }
