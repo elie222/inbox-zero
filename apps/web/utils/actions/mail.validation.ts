@@ -17,16 +17,22 @@ export type RemoveThreadLabelBody = z.infer<typeof removeThreadLabelBody>;
 
 export const renameMailboxItemBody = z.object({
   kind: mailboxItemKind,
-  id: z.string().min(1),
-  name: z.string().trim().min(1).max(255),
+  id: z.string().min(1, "Mailbox item ID is required"),
+  name: z
+    .string()
+    .trim()
+    .min(1, "Mailbox item name is required")
+    .max(255, "Mailbox item name must be 255 characters or fewer"),
 });
 
 export const deleteMailboxItemBody = z.object({
   kind: mailboxItemKind,
-  id: z.string().min(1),
+  id: z.string().min(1, "Mailbox item ID is required"),
 });
 
 export const updateLabelColorBody = z.object({
-  labelId: z.string().min(1),
-  color: z.enum(OUTLOOK_CATEGORY_COLOR_IDS),
+  labelId: z.string().min(1, "Category ID is required"),
+  color: z.enum(OUTLOOK_CATEGORY_COLOR_IDS, {
+    error: "Category color must be a supported Outlook preset",
+  }),
 });

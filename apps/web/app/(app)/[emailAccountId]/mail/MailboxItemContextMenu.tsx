@@ -2,6 +2,7 @@
 
 import { type FormEvent, type ReactNode, useState } from "react";
 import { PencilIcon, Trash2Icon } from "lucide-react";
+import { toast } from "sonner";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -84,20 +85,30 @@ export function MailboxItemContextMenu({
     if (editMode === "name" && !nextName) return;
 
     setIsSaving(true);
-    const success = await onEdit(
-      editMode === "color"
-        ? { kind: "label", id: item.id, color }
-        : { ...item, name: nextName },
-    );
-    setIsSaving(false);
-    if (success) setIsEditOpen(false);
+    try {
+      const success = await onEdit(
+        editMode === "color"
+          ? { kind: "label", id: item.id, color }
+          : { ...item, name: nextName },
+      );
+      if (success) setIsEditOpen(false);
+    } catch {
+      toast.error(`Failed to update ${typeName}. Please try again.`);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const deleteItem = async () => {
     setIsDeleting(true);
-    const success = await onDelete(item);
-    setIsDeleting(false);
-    if (success) setIsDeleteOpen(false);
+    try {
+      const success = await onDelete(item);
+      if (success) setIsDeleteOpen(false);
+    } catch {
+      toast.error(`Failed to delete ${typeName}. Please try again.`);
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -138,12 +149,12 @@ export function MailboxItemContextMenu({
                 aria-label="Category color"
                 className="grid grid-cols-5 gap-3 py-1"
               >
-                {OUTLOOK_CATEGORY_COLORS.map((option, index) => (
+                {OUTLOOK_CATEGORY_COLORS.map((option) => (
                   <button
                     key={option.id}
                     type="button"
                     role="radio"
-                    aria-label={`Color ${index + 1}`}
+                    aria-label={option.name}
                     aria-checked={color === option.id}
                     onClick={() => setColor(option.id)}
                     className={cn(
