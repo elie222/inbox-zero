@@ -3,7 +3,10 @@
 import { useState, type ComponentProps, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { Loader2Icon, MailIcon } from "lucide-react";
-import { ReaderToolbar } from "@/app/(app)/[emailAccountId]/mail/ReaderToolbar";
+import {
+  ReaderNavigation,
+  ReaderToolbar,
+} from "@/app/(app)/[emailAccountId]/mail/ReaderToolbar";
 import type {
   ListThread,
   MailLayoutMode,
@@ -133,15 +136,21 @@ export function ThreadReader({
       {/* White, unlike the list: the reader is its own surface, and it has to
       match `EmailThread` below or the toolbar reads as a separate band. */}
       <div className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-card">
+        {layout === "list" && !isFocusMode ? (
+          <ReaderNavigation
+            onBack={onBack}
+            position={position}
+            showSidebarToggle={showSidebarToggle}
+          />
+        ) : null}
+
         <div className={readerMeasure({ layout, isFocusMode })}>
           <ReaderToolbar
             isFocusMode={isFocusMode}
             labelHref={labelHref}
             labels={labels}
-            layout={layout}
             menu={menu}
             onArchive={onArchive}
-            onBack={onBack}
             onDelete={onDelete}
             onOpenSenderContext={
               canResearchSender
@@ -151,10 +160,8 @@ export function ThreadReader({
             onRemoveLabel={onRemoveLabel}
             onReply={onReply}
             onToggleFocusMode={onToggleFocusMode}
-            position={position}
             senderEmail={senderEmail}
             senderName={senderName}
-            showSidebarToggle={showSidebarToggle}
             subject={headerMessage.headers.subject}
           />
 
@@ -196,5 +203,5 @@ function readerMeasure({
   // ~860px: the mock's measure, and about as wide as an email body stays legible.
   if (isFocusMode) return "mx-auto w-full max-w-[54rem] px-10 py-10";
   if (layout === "split") return "px-6 py-5";
-  return "mx-auto w-full max-w-[54rem] px-6 py-5";
+  return "mx-auto w-full max-w-[54rem] px-6 pb-5";
 }
