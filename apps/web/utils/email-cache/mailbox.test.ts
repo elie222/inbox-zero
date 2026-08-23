@@ -8,6 +8,7 @@ import {
 import {
   applyMailboxSyncPage,
   markSyncedMailboxThreadsRead,
+  readCombinedSyncedMailboxThreads,
   readMailboxSyncState,
   readSyncedMailboxThreads,
   removeSyncedMailboxThreads,
@@ -465,6 +466,130 @@ describe("synced mailbox cache", () => {
     ).resolves.toMatchObject({ threads: [{ id: "account-2-thread" }] });
   });
 
+  it("merges account snapshots by composite thread key and global recency", async () => {
+    await applyMailboxSyncPage({
+      emailAccountId: "account-1",
+      after: new Date("2026-07-24T00:00:00.000Z"),
+      now: 100,
+      page: {
+        cursor: "account-1-cursor",
+        deletedMessageIds: [],
+        hasMore: false,
+        reset: true,
+        upsertedMessages: [
+          getMessage({
+            id: "account-1-message",
+            threadId: "shared-thread",
+            internalDate: "2026-08-22T10:00:00.000Z",
+          }),
+        ],
+      },
+    });
+    await applyMailboxSyncPage({
+      emailAccountId: "account-2",
+      after: new Date("2026-07-24T00:00:00.000Z"),
+      now: 200,
+      page: {
+        cursor: "account-2-cursor",
+        deletedMessageIds: [],
+        hasMore: false,
+        reset: true,
+        upsertedMessages: [
+          getMessage({
+            id: "account-2-message",
+            threadId: "shared-thread",
+            internalDate: "2026-08-23T10:00:00.000Z",
+          }),
+        ],
+      },
+    });
+
+    const snapshot = await readCombinedSyncedMailboxThreads({
+      accounts: [getAccount("account-1"), getAccount("account-2")],
+      query: { type: "inbox" },
+      limit: 20,
+    });
+
+    expect(snapshot).toMatchObject({
+      accountStates: {
+        "account-1": {
+          after: "2026-07-24T00:00:00.000Z",
+          complete: true,
+          truncated: false,
+        },
+        "account-2": {
+          after: "2026-07-24T00:00:00.000Z",
+          complete: true,
+          truncated: false,
+        },
+      },
+      complete: true,
+      missingAccountIds: [],
+      truncated: false,
+    });
+    expect(
+      snapshot?.threads.map((thread) => [thread.account.id, thread.id]),
+    ).toEqual([
+      ["account-2", "shared-thread"],
+      ["account-1", "shared-thread"],
+    ]);
+
+    const truncatedSnapshot = await readCombinedSyncedMailboxThreads({
+      accounts: [getAccount("account-1"), getAccount("account-2")],
+      query: { type: "inbox" },
+      limit: 1,
+    });
+    expect(truncatedSnapshot).toMatchObject({
+      truncated: true,
+      threads: [
+        { account: { id: "account-2" }, id: "shared-thread" },
+        { account: { id: "account-1" }, id: "shared-thread" },
+      ],
+    });
+  });
+
+  it("returns available unread rows while another account is not cached", async () => {
+    await applyMailboxSyncPage({
+      emailAccountId: "account-1",
+      after: new Date("2026-07-24T00:00:00.000Z"),
+      page: {
+        cursor: "account-1-cursor",
+        deletedMessageIds: [],
+        hasMore: false,
+        reset: true,
+        upsertedMessages: [
+          getMessage({
+            id: "read-message",
+            threadId: "read-thread",
+            internalDate: "2026-08-23T11:00:00.000Z",
+          }),
+          getMessage({
+            id: "unread-message",
+            threadId: "unread-thread",
+            internalDate: "2026-08-23T10:00:00.000Z",
+            labelIds: ["INBOX", "UNREAD"],
+          }),
+        ],
+      },
+    });
+
+    const snapshot = await readCombinedSyncedMailboxThreads({
+      accounts: [getAccount("account-1"), getAccount("account-2")],
+      query: { type: "unread" },
+      limit: 20,
+    });
+
+    expect(snapshot).toMatchObject({
+      accountStates: { "account-1": { complete: true } },
+      complete: false,
+      missingAccountIds: ["account-2"],
+      truncated: false,
+    });
+    expect(snapshot?.threads).toMatchObject([
+      { account: { id: "account-1" }, id: "unread-thread" },
+    ]);
+  });
+
   it("notifies active subscribers after mailbox changes", async () => {
     const listener = vi.fn();
     const unsubscribe = subscribeToMailboxStore(listener);
@@ -525,5 +650,14 @@ function getMessage({
     snippet: `${id} snippet`,
     subject: `${id} subject`,
     threadId,
+  };
+}
+
+function getAccount(id: string) {
+  return {
+    email: `${id}@example.com`,
+    id,
+    image: null,
+    name: id,
   };
 }

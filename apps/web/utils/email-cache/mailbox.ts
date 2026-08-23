@@ -2,7 +2,9 @@ import { internalDateToDate, sortByInternalDate } from "@/utils/date";
 import { canonicalizeEmailAddress } from "@/utils/email";
 import type { MailboxSyncPage } from "@/utils/email/types";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
+import type { CombinedListThread } from "@/utils/threads/load-combined";
 import type { ThreadListItem } from "@/utils/threads/load";
+import { getThreadTimestamp } from "@/utils/threads/sort";
 import type { ThreadsQuery } from "@/utils/threads/validation";
 import type { ParsedMessage } from "@/utils/types";
 import { scheduleEmailCacheCleanup } from "./cleanup";
@@ -22,6 +24,17 @@ export type SyncedMailboxSnapshot = {
   complete: boolean;
   syncedAt: number;
   threads: ThreadListItem[];
+  truncated: boolean;
+};
+
+export type SyncedCombinedMailboxSnapshot = {
+  accountStates: Record<
+    string,
+    { after: string; complete: boolean; syncedAt: number; truncated: boolean }
+  >;
+  complete: boolean;
+  missingAccountIds: string[];
+  threads: CombinedListThread[];
   truncated: boolean;
 };
 
@@ -260,6 +273,73 @@ export async function readSyncedMailboxThreads({
   } catch {
     return;
   }
+}
+
+export async function readCombinedSyncedMailboxThreads({
+  accounts,
+  query,
+  limit = query.limit ?? 50,
+}: {
+  accounts: CombinedListThread["account"][];
+  query: ThreadsQuery;
+  limit?: number;
+}): Promise<SyncedCombinedMailboxSnapshot | undefined> {
+  if (!accounts.length) return;
+
+  const accountSnapshots = await Promise.all(
+    accounts.map(async (account) => ({
+      account,
+      snapshot: await readSyncedMailboxThreads({
+        emailAccountId: account.id,
+        query,
+        limit,
+      }),
+    })),
+  );
+  const available = accountSnapshots.filter(
+    (
+      result,
+    ): result is {
+      account: CombinedListThread["account"];
+      snapshot: SyncedMailboxSnapshot;
+    } => result.snapshot !== undefined,
+  );
+  if (!available.length) return;
+
+  const threads = available
+    .flatMap(({ account, snapshot }) =>
+      snapshot.threads.map((thread) => ({ ...thread, account })),
+    )
+    .sort(
+      (left, right) => getThreadTimestamp(right) - getThreadTimestamp(left),
+    );
+  const availableAccountIds = new Set(
+    available.map(({ account }) => account.id),
+  );
+
+  return {
+    accountStates: Object.fromEntries(
+      available.map(({ account, snapshot }) => [
+        account.id,
+        {
+          after: snapshot.after,
+          complete: snapshot.complete,
+          syncedAt: snapshot.syncedAt,
+          truncated: snapshot.truncated,
+        },
+      ]),
+    ),
+    complete:
+      available.length === accounts.length &&
+      available.every(({ snapshot }) => snapshot.complete),
+    missingAccountIds: accounts
+      .map((account) => account.id)
+      .filter((accountId) => !availableAccountIds.has(accountId)),
+    threads,
+    truncated:
+      threads.length > limit ||
+      available.some(({ snapshot }) => snapshot.truncated),
+  };
 }
 
 export async function markSyncedMailboxThreadsRead({

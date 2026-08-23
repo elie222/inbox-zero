@@ -13,10 +13,10 @@ export function isThreadUnread(
 }
 
 /** Read state lives on every message, so marking a thread rewrites all of them. */
-export function withThreadReadState(
-  thread: ListThread,
+export function withThreadReadState<T extends ListThread>(
+  thread: T,
   read: boolean,
-): ListThread {
+): T {
   let changed = false;
   const messages = thread.messages.map((message) => {
     const labelIds = message.labelIds ?? [];
@@ -37,5 +37,5 @@ export function withThreadReadState(
   return {
     ...thread,
     messages,
-  };
+  } as T;
 }
