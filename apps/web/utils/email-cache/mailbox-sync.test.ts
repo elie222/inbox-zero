@@ -1,12 +1,16 @@
 import "fake-indexeddb/auto";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { clearEmailCache, getEmailCacheDatabase } from "./database";
 import { readMailboxSyncState } from "./mailbox";
-import { syncMailboxPages } from "./mailbox-sync";
+import { fetchMailboxSyncPage, syncMailboxPages } from "./mailbox-sync";
 
 describe("mailbox sync coordinator", () => {
   beforeEach(async () => {
     await clearEmailCache();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it("starts with a recent snapshot and follows cursors to completion", async () => {
@@ -212,5 +216,44 @@ describe("mailbox sync coordinator", () => {
 
     await expect(sync).resolves.toEqual({ hasMore: false, pagesSynced: 0 });
     await expect(readMailboxSyncState("account-1")).resolves.toBeUndefined();
+  });
+
+  it("sends the account-scoped sync request through the app API", async () => {
+    const page = {
+      accountId: "account-1",
+      cursor: "cursor",
+      deletedMessageIds: [],
+      hasMore: false,
+      reset: true,
+      upsertedMessages: [],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({
+      json: () => Promise.resolve(page),
+      ok: true,
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      fetchMailboxSyncPage("account-1", { cursor: "before", limit: 100 }),
+    ).resolves.toEqual(page);
+    expect(fetchMock).toHaveBeenCalledWith("/api/mobile/mailbox-sync", {
+      body: JSON.stringify({ cursor: "before", limit: 100 }),
+      headers: {
+        "Content-Type": "application/json",
+        "X-Email-Account-ID": "account-1",
+      },
+      method: "POST",
+    });
+  });
+
+  it("surfaces a failed app API response", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: false, status: 503 }),
+    );
+
+    await expect(
+      fetchMailboxSyncPage("account-1", { limit: 100 }),
+    ).rejects.toThrow("Mailbox sync failed with status 503");
   });
 });

@@ -1,12 +1,17 @@
 import "fake-indexeddb/auto";
-import { beforeEach, describe, expect, it } from "vitest";
-import { clearEmailCache, getEmailCacheDatabase } from "./database";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  clearEmailCache,
+  clearEmailCacheForAccount,
+  getEmailCacheDatabase,
+} from "./database";
 import {
   applyMailboxSyncPage,
   markSyncedMailboxThreadsRead,
   readMailboxSyncState,
   readSyncedMailboxThreads,
   removeSyncedMailboxThreads,
+  subscribeToMailboxStore,
 } from "./mailbox";
 import { writeCachedThreadList } from "./thread-lists";
 import type { ParsedMessage } from "@/utils/types";
@@ -373,6 +378,73 @@ describe("synced mailbox cache", () => {
         query: { type: "inbox" },
       }),
     ).resolves.toMatchObject({ threads: [] });
+  });
+
+  it("clears mailbox data for one account without affecting another", async () => {
+    for (const emailAccountId of ["account-1", "account-2"]) {
+      await applyMailboxSyncPage({
+        emailAccountId,
+        after: new Date("2026-07-24T00:00:00.000Z"),
+        page: {
+          cursor: `${emailAccountId}-cursor`,
+          deletedMessageIds: [],
+          hasMore: false,
+          reset: true,
+          upsertedMessages: [
+            getMessage({
+              id: `${emailAccountId}-message`,
+              threadId: `${emailAccountId}-thread`,
+            }),
+          ],
+        },
+      });
+    }
+
+    await clearEmailCacheForAccount("account-1");
+
+    await expect(readMailboxSyncState("account-1")).resolves.toBeUndefined();
+    await expect(
+      readSyncedMailboxThreads({
+        emailAccountId: "account-1",
+        query: { type: "inbox" },
+      }),
+    ).resolves.toBeUndefined();
+    await expect(readMailboxSyncState("account-2")).resolves.toMatchObject({
+      cursor: "account-2-cursor",
+    });
+    await expect(
+      readSyncedMailboxThreads({
+        emailAccountId: "account-2",
+        query: { type: "inbox" },
+      }),
+    ).resolves.toMatchObject({ threads: [{ id: "account-2-thread" }] });
+  });
+
+  it("notifies active subscribers after mailbox changes", async () => {
+    const listener = vi.fn();
+    const unsubscribe = subscribeToMailboxStore(listener);
+    await applyMailboxSyncPage({
+      emailAccountId: "account-1",
+      after: new Date("2026-07-24T00:00:00.000Z"),
+      page: {
+        cursor: "cursor",
+        deletedMessageIds: [],
+        hasMore: false,
+        reset: true,
+        upsertedMessages: [
+          getMessage({ id: "message-1", threadId: "thread-1" }),
+        ],
+      },
+    });
+    expect(listener).toHaveBeenCalledWith("account-1");
+
+    unsubscribe();
+    await markSyncedMailboxThreadsRead({
+      emailAccountId: "account-1",
+      read: true,
+      threadIds: ["thread-1"],
+    });
+    expect(listener).toHaveBeenCalledOnce();
   });
 });
 

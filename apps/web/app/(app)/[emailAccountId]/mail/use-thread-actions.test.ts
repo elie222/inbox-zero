@@ -17,6 +17,15 @@ const notifications = vi.hoisted(() => ({
 }));
 const markReadThreadAction = vi.hoisted(() => vi.fn());
 const snoozeThreadsAction = vi.hoisted(() => vi.fn());
+const mailboxCache = vi.hoisted(() => ({
+  markRead: vi.fn(),
+  remove: vi.fn(),
+}));
+const mailboxSync = vi.hoisted(() => ({ request: vi.fn() }));
+const reverseActions = vi.hoisted(() => ({
+  unarchive: vi.fn(),
+  untrash: vi.fn(),
+}));
 
 vi.mock("@/store/archive-queue", () => ({
   archiveEmails: queue.archive,
@@ -26,16 +35,27 @@ vi.mock("@/store/archive-queue", () => ({
 }));
 vi.mock("@/utils/actions/mail", () => ({
   markReadThreadAction,
-  unarchiveThreadAction: vi.fn(),
-  untrashThreadAction: vi.fn(),
+  unarchiveThreadAction: reverseActions.unarchive,
+  untrashThreadAction: reverseActions.untrash,
 }));
 vi.mock("@/utils/actions/snooze", () => ({ snoozeThreadsAction }));
+vi.mock("@/utils/email-cache/mailbox", () => ({
+  markSyncedMailboxThreadsRead: mailboxCache.markRead,
+  removeSyncedMailboxThreads: mailboxCache.remove,
+}));
+vi.mock("./use-mailbox-sync", () => ({
+  requestMailboxSync: mailboxSync.request,
+}));
 vi.mock("sonner", () => ({ toast: notifications }));
 
 describe("useThreadActions read state", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     markReadThreadAction.mockResolvedValue({});
+    mailboxCache.markRead.mockResolvedValue(undefined);
+    mailboxCache.remove.mockResolvedValue(undefined);
+    reverseActions.unarchive.mockResolvedValue({});
+    reverseActions.untrash.mockResolvedValue({});
     snoozeThreadsAction.mockResolvedValue({
       data: { failedThreadIds: [], succeededThreadIds: ["thread"] },
     });
@@ -75,6 +95,11 @@ describe("useThreadActions read state", () => {
     const callbacks = queue.markRead.mock.calls[0]?.[0];
     callbacks.onSuccess("thread");
     expect(transaction.commit).toHaveBeenCalledWith("thread");
+    expect(mailboxCache.markRead).toHaveBeenCalledWith({
+      emailAccountId: "account",
+      read: true,
+      threadIds: ["thread"],
+    });
   });
 
   it("rolls back failed rows together after the batch settles", () => {
@@ -158,6 +183,11 @@ describe("useThreadActions read state", () => {
       read: false,
     });
     expect(transaction.commit).toHaveBeenCalledWith("thread");
+    expect(mailboxCache.markRead).toHaveBeenCalledWith({
+      emailAccountId: "account",
+      read: false,
+      threadIds: ["thread"],
+    });
   });
 
   it("rolls back a rejected read-state toggle", async () => {
@@ -211,6 +241,58 @@ describe("useThreadActions read state", () => {
       snoozedUntil: until,
     });
     expect(restoreThreads).toHaveBeenCalledWith(removal, ["thread-two"]);
+    expect(mailboxCache.remove).toHaveBeenCalledWith({
+      emailAccountId: "account",
+      threadIds: ["thread-one"],
+    });
+  });
+
+  it("reconciles successful archives into the mailbox store", async () => {
+    const { result } = renderHook(() =>
+      useThreadActions({
+        emailAccountId: "account",
+        removeThreads: vi.fn(() => ({
+          entries: new Map(),
+          viewIdentity: "view",
+        })),
+        restoreThreads: vi.fn(),
+        optimisticallyUpdateThreads: vi.fn(),
+      }),
+    );
+
+    act(() => result.current.archive(["thread"]));
+    const callbacks = queue.archive.mock.calls[0]?.[0];
+    await act(async () => {
+      callbacks.onSuccess("thread");
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mailboxCache.remove).toHaveBeenCalledWith({
+      emailAccountId: "account",
+      threadIds: ["thread"],
+    });
+    expect(mailboxSync.request).toHaveBeenCalledWith("account");
+  });
+
+  it("requests a fresh delta after undo restores a local row", async () => {
+    queue.cancel.mockReturnValue({ notCancelled: [] });
+    const removal = { entries: new Map(), viewIdentity: "view" };
+    const restoreThreads = vi.fn();
+    const { result } = renderHook(() =>
+      useThreadActions({
+        emailAccountId: "account",
+        removeThreads: vi.fn(() => removal),
+        restoreThreads,
+        optimisticallyUpdateThreads: vi.fn(),
+      }),
+    );
+
+    act(() => result.current.archive(["thread"]));
+    await act(() => result.current.undo());
+
+    expect(restoreThreads).toHaveBeenCalledWith(removal, ["thread"]);
+    expect(mailboxSync.request).toHaveBeenCalledWith("account");
   });
 
   it("chunks snooze actions at the server validation limit", async () => {
