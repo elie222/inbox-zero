@@ -60,9 +60,12 @@ describe("useMailThreads", () => {
       syncedAt: 100,
       threads: [createThread("local", ["INBOX", "UNREAD"])],
     });
-    const query = { type: "inbox" };
     const { result } = renderHook(
-      () => useMailThreads({ emailAccountId: "account-local", query }),
+      () =>
+        useMailThreads({
+          emailAccountId: "account-local",
+          query: { type: "inbox" },
+        }),
       { wrapper: createWrapper(() => network.promise) },
     );
     await waitFor(() => expect(result.current.threads).toHaveLength(1));
@@ -85,6 +88,7 @@ describe("useMailThreads", () => {
       }));
     });
     expect(result.current.threads[0]?.snippet).toBe("updated locally");
+    expect(mailbox.read).toHaveBeenCalledOnce();
   });
 
   it("uses newer synced messages without losing server rule metadata", async () => {

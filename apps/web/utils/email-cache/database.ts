@@ -2,7 +2,7 @@ import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 import type { ParsedMessage } from "@/utils/types";
 
 const DATABASE_NAME = "inbox-zero-email-cache";
-const DATABASE_VERSION = 2;
+const DATABASE_VERSION = 3;
 
 export type CachedThreadRow = {
   emailAccountId: string;
@@ -55,6 +55,7 @@ interface EmailCacheSchema extends DBSchema {
     value: CachedMailboxMessage;
     indexes: {
       byAccount: string;
+      byAccountReceivedAt: [emailAccountId: string, receivedAt: number];
       byAccountThread: [emailAccountId: string, threadId: string];
       byReceivedAt: number;
     };
@@ -95,7 +96,7 @@ export function getEmailCacheDatabase() {
   if (databasePromise) return databasePromise;
 
   databasePromise = openDB<EmailCacheSchema>(DATABASE_NAME, DATABASE_VERSION, {
-    upgrade(database, oldVersion) {
+    upgrade(database, oldVersion, _newVersion, transaction) {
       if (oldVersion < 1) {
         const rows = database.createObjectStore("threadRows", {
           keyPath: ["emailAccountId", "threadId"],
@@ -120,12 +121,20 @@ export function getEmailCacheDatabase() {
           keyPath: ["emailAccountId", "messageId"],
         });
         messages.createIndex("byAccount", "emailAccountId");
+        messages.createIndex("byAccountReceivedAt", [
+          "emailAccountId",
+          "receivedAt",
+        ]);
         messages.createIndex("byAccountThread", ["emailAccountId", "threadId"]);
         messages.createIndex("byReceivedAt", "receivedAt");
 
         database.createObjectStore("mailboxSyncStates", {
           keyPath: "emailAccountId",
         });
+      } else if (oldVersion < 3) {
+        transaction
+          .objectStore("mailboxMessages")
+          .createIndex("byAccountReceivedAt", ["emailAccountId", "receivedAt"]);
       }
     },
     blocking() {

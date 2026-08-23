@@ -120,11 +120,13 @@ export function useMailThreads({
     firstPage?: ThreadsListResponse;
     loadedAt: number;
   }>({ loadedAt: 0 });
+  const queryRef = useRef(query);
   // Auto-load can fire from the cursor and the bottom sentinel in the same
   // tick; two setSize(+1) calls would skip a page token.
   const loadMoreLock = useRef(false);
 
   remoteIdentity.current = data?.[0] ? viewIdentity : undefined;
+  queryRef.current = query;
   if (data?.[0] && remoteSnapshot.current.firstPage !== data[0]) {
     remoteSnapshot.current = { firstPage: data[0], loadedAt: Date.now() };
   }
@@ -151,7 +153,10 @@ export function useMailThreads({
   useEffect(() => {
     let cancelled = false;
     const loadSyncedView = () => {
-      readSyncedMailboxThreads({ emailAccountId, query }).then((snapshot) => {
+      readSyncedMailboxThreads({
+        emailAccountId,
+        query: queryRef.current,
+      }).then((snapshot) => {
         if (cancelled || !snapshot) return;
         setSynced({
           identity: viewIdentity,
@@ -171,7 +176,7 @@ export function useMailThreads({
       cancelled = true;
       unsubscribe();
     };
-  }, [emailAccountId, query, viewIdentity]);
+  }, [emailAccountId, viewIdentity]);
 
   const hiddenThreadIds =
     hiddenByView.current.get(viewIdentity) ?? EMPTY_THREAD_IDS;

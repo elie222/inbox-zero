@@ -121,10 +121,40 @@ export async function readSyncedMailboxThreads({
       return;
     }
 
-    const records = await transaction
-      .objectStore("mailboxMessages")
-      .index("byAccount")
-      .getAll(emailAccountId);
+    const messagesStore = transaction.objectStore("mailboxMessages");
+    let records: CachedMailboxMessage[];
+    if (isRecentInboxQuery(query)) {
+      const selectedThreadIds = new Set<string>();
+      let cursor = await messagesStore
+        .index("byAccountReceivedAt")
+        .openCursor(
+          IDBKeyRange.bound(
+            [emailAccountId, Number.MIN_SAFE_INTEGER],
+            [emailAccountId, Number.MAX_SAFE_INTEGER],
+          ),
+          "prev",
+        );
+      while (cursor && selectedThreadIds.size < limit) {
+        const message = cursor.value.data;
+        if (
+          message.labelIds?.includes("INBOX") &&
+          !isIgnoredSender(message.headers.from)
+        ) {
+          selectedThreadIds.add(message.threadId);
+        }
+        cursor = await cursor.continue();
+      }
+      const byThread = messagesStore.index("byAccountThread");
+      records = (
+        await Promise.all(
+          [...selectedThreadIds].map((threadId) =>
+            byThread.getAll([emailAccountId, threadId]),
+          ),
+        )
+      ).flat();
+    } else {
+      records = await messagesStore.index("byAccount").getAll(emailAccountId);
+    }
     const messagesByThread = groupMessagesByThread(
       records
         .map((record) => record.data)
@@ -278,6 +308,19 @@ function isSupportedMailboxQuery(query: ThreadsQuery) {
 
 function isCompleteMailboxQuery(query: ThreadsQuery) {
   return query.type === "inbox" || query.type === "unread";
+}
+
+function isRecentInboxQuery(query: ThreadsQuery) {
+  return (
+    query.type === "inbox" &&
+    !query.fromEmail &&
+    !query.folderId &&
+    !query.isUnread &&
+    !query.labelId &&
+    !query.labelIds?.length &&
+    !query.after &&
+    !query.before
+  );
 }
 
 function threadMatchesQuery(messages: ParsedMessage[], query: ThreadsQuery) {
