@@ -84,6 +84,40 @@ describe("mailbox sync scheduler", () => {
     await Promise.all([blocker, first, duplicate]);
   });
 
+  it("reprioritizes queued work when the active account changes", async () => {
+    const pending = new Map<
+      string,
+      ReturnType<typeof Promise.withResolvers<typeof SYNC_RESULT>>
+    >();
+    const started: string[] = [];
+    const sync = vi.fn((emailAccountId: string) => {
+      started.push(emailAccountId);
+      const result = Promise.withResolvers<typeof SYNC_RESULT>();
+      pending.set(emailAccountId, result);
+      return result.promise;
+    });
+    const scheduler = createMailboxSyncScheduler({ maxConcurrent: 1, sync });
+
+    const blocker = scheduler.run({ emailAccountId: "blocker" });
+    const oldActive = scheduler.run({
+      emailAccountId: "old-active",
+      priority: true,
+    });
+    const newActive = scheduler.run({ emailAccountId: "new-active" });
+
+    scheduler.setPriority({ emailAccountId: "old-active", priority: false });
+    scheduler.setPriority({ emailAccountId: "new-active", priority: true });
+
+    pending.get("blocker")?.resolve(SYNC_RESULT);
+    await settlePromises();
+    expect(started).toEqual(["blocker", "new-active"]);
+
+    pending.get("new-active")?.resolve(SYNC_RESULT);
+    await settlePromises();
+    pending.get("old-active")?.resolve(SYNC_RESULT);
+    await Promise.all([blocker, oldActive, newActive]);
+  });
+
   it("releases capacity after a failure", async () => {
     const first = Promise.withResolvers<typeof SYNC_RESULT>();
     const second = Promise.withResolvers<typeof SYNC_RESULT>();
