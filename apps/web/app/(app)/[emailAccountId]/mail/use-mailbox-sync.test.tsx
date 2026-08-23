@@ -192,6 +192,32 @@ describe("useMailboxSync", () => {
     expect(mailboxSync.syncPages).toHaveBeenCalledTimes(2);
   });
 
+  it("keeps jittered exponential backoff within the configured cap", async () => {
+    vi.mocked(Math.random).mockReturnValue(1);
+    mailboxSync.syncPages.mockRejectedValue(new Error("offline"));
+
+    renderHook(() =>
+      useMailboxSync({ emailAccountId: "account-1", enabled: true }),
+    );
+    await settlePromises();
+
+    for (const retryDelayMs of [72_000, 144_000, 288_000, 576_000]) {
+      await act(() => vi.advanceTimersByTimeAsync(retryDelayMs));
+      await settlePromises();
+    }
+
+    expect(analytics.trackSyncResult).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        consecutiveFailures: 5,
+        retryDelayMs: 15 * 60_000,
+      }),
+    );
+    await act(() => vi.advanceTimersByTimeAsync(15 * 60_000 - 1));
+    expect(mailboxSync.syncPages).toHaveBeenCalledTimes(5);
+    await act(() => vi.advanceTimersByTimeAsync(1));
+    expect(mailboxSync.syncPages).toHaveBeenCalledTimes(6);
+  });
+
   it("uses an API retry delay when it is longer than exponential backoff", async () => {
     vi.mocked(Math.random).mockReturnValue(0);
     mailboxSync.syncPages

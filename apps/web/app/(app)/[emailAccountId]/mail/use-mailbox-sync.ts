@@ -161,8 +161,9 @@ function getRetryDelay(consecutiveFailures: number, retryAfterMs?: number) {
     COMPLETE_SYNC_INTERVAL_MS * 2 ** (consecutiveFailures - 1),
     MAX_RETRY_DELAY_MS,
   );
-  const jitteredDelay = Math.round(
-    exponentialDelay * (0.8 + Math.random() * 0.4),
+  const jitteredDelay = Math.min(
+    Math.round(exponentialDelay * (0.8 + Math.random() * 0.4)),
+    MAX_RETRY_DELAY_MS,
   );
   return Math.max(jitteredDelay, Math.min(retryAfterMs ?? 0, MAX_TIMEOUT_MS));
 }
