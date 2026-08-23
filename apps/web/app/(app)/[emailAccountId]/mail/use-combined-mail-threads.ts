@@ -162,13 +162,15 @@ export function useCombinedMailThreads({
     const accountIds = new Set(
       accountsRef.current.map((account) => account.id),
     );
+    let readGeneration = 0;
     const loadSyncedView = () => {
+      const generation = ++readGeneration;
       readCombinedSyncedMailboxThreads({
         accounts: accountsRef.current,
         limit: COMBINED_PAGE_SIZE,
         query: { type: isUnread ? "unread" : "inbox" },
       }).then((snapshot) => {
-        if (cancelled || !snapshot) return;
+        if (cancelled || generation !== readGeneration || !snapshot) return;
         const hidden = hiddenByView.current.get(viewIdentity);
         if (hidden?.size) {
           const snapshotThreadKeys = new Set(

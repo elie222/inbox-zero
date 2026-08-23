@@ -337,6 +337,59 @@ describe("useCombinedMailThreads", () => {
     expect(mailbox.read).toHaveBeenCalledTimes(2);
   });
 
+  it("ignores an older mailbox read that resolves after a newer one", async () => {
+    const staleRead = Promise.withResolvers<unknown>();
+    const newerRead = Promise.withResolvers<unknown>();
+    mailbox.read
+      .mockReturnValueOnce(staleRead.promise)
+      .mockReturnValueOnce(newerRead.promise);
+    const network = Promise.withResolvers<unknown>();
+    const { result } = renderHook(
+      () =>
+        useCombinedMailThreads({
+          accounts: ACCOUNTS,
+          emailAccountId: "account-1",
+          enabled: true,
+          isUnread: false,
+        }),
+      { wrapper: createWrapper(() => network.promise) },
+    );
+    await waitFor(() => expect(mailbox.read).toHaveBeenCalledOnce());
+
+    act(() => {
+      for (const listener of mailbox.listeners) listener("account-1");
+    });
+    await waitFor(() => expect(mailbox.read).toHaveBeenCalledTimes(2));
+
+    await act(async () => {
+      newerRead.resolve({
+        accountStates: ACCOUNT_STATES,
+        complete: true,
+        missingAccountIds: [],
+        threads: [createThread("account-1", "newer")],
+        truncated: false,
+      });
+      await newerRead.promise;
+    });
+    expect(result.current.threads.map((thread) => thread.id)).toEqual([
+      "newer",
+    ]);
+
+    await act(async () => {
+      staleRead.resolve({
+        accountStates: ACCOUNT_STATES,
+        complete: true,
+        missingAccountIds: [],
+        threads: [createThread("account-1", "stale")],
+        truncated: false,
+      });
+      await staleRead.promise;
+    });
+    expect(result.current.threads.map((thread) => thread.id)).toEqual([
+      "newer",
+    ]);
+  });
+
   it("removes and restores same-id threads independently by account", async () => {
     const network = Promise.withResolvers<unknown>();
     mailbox.read.mockResolvedValue({
