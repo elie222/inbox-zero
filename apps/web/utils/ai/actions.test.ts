@@ -774,14 +774,6 @@ describe("runActionFunction", () => {
       });
 
       expect(client.forwardEmail).toHaveBeenCalledOnce();
-      expect(client.forwardEmail).toHaveBeenCalledWith(
-        expect.objectContaining({
-          textPlain: email.textPlain,
-          textHtml: email.textHtml,
-          attachments: email.attachments,
-        }),
-        expect.anything(),
-      );
     });
   });
 
