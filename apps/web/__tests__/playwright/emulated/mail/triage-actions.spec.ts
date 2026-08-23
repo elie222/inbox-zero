@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 import { conversationWithSubject, openMail } from "./mail-test-helpers";
 
 const commandModifier = process.platform === "darwin" ? "Meta" : "Control";
@@ -87,7 +87,8 @@ test("selects every conversation with Command A", async ({ page }) => {
 
   await page.getByRole("button", { name: /Search or jump/ }).click();
   const commandInput = page.getByPlaceholder("Type a command or search...");
-  await commandInput.fill("archive");
+  const query = "archive";
+  await commandInput.fill(query);
   await page.keyboard.press(`${commandModifier}+KeyA`);
 
   await expect
@@ -97,14 +98,8 @@ test("selects every conversation with Command A", async ({ page }) => {
         start: input.selectionStart,
       })),
     )
-    .toEqual({ end: "archive".length, start: 0 });
-  await expect
-    .poll(() =>
-      options.evaluateAll((rows) =>
-        rows.every((row) => row.getAttribute("aria-selected") === "false"),
-      ),
-    )
-    .toBe(true);
+    .toEqual({ end: query.length, start: 0 });
+  await expect.poll(() => allRowsAreSelected(options, false)).toBe(true);
   await page.keyboard.press("Escape");
   await expect(commandInput).toBeHidden();
 
@@ -117,11 +112,15 @@ test("selects every conversation with Command A", async ({ page }) => {
     page.getByText(`${conversationCount} selected`, { exact: true }),
   ).toBeVisible();
   await expect(options).toHaveCount(conversationCount);
-  await expect
-    .poll(() =>
-      options.evaluateAll((rows) =>
-        rows.every((row) => row.getAttribute("aria-selected") === "true"),
-      ),
-    )
-    .toBe(true);
+  await expect.poll(() => allRowsAreSelected(options, true)).toBe(true);
 });
+
+function allRowsAreSelected(rows: Locator, selected: boolean) {
+  return rows.evaluateAll(
+    (options, expected) =>
+      options.every(
+        (option) => option.getAttribute("aria-selected") === String(expected),
+      ),
+    selected,
+  );
+}
