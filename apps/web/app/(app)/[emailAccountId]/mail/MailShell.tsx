@@ -46,6 +46,7 @@ import {
 } from "@/app/(app)/[emailAccountId]/mail/types";
 import type { ThreadMessage } from "@/components/email-list/types";
 import { useMailThreads } from "@/app/(app)/[emailAccountId]/mail/use-mail-threads";
+import { useMailboxSync } from "@/app/(app)/[emailAccountId]/mail/use-mailbox-sync";
 import { useCombinedMailThreads } from "@/app/(app)/[emailAccountId]/mail/use-combined-mail-threads";
 import { runCombinedThreadAction } from "@/app/(app)/[emailAccountId]/mail/combined-thread-actions";
 import { useAdjacentThreadPrefetch } from "@/app/(app)/[emailAccountId]/mail/use-adjacent-thread-prefetch";
@@ -158,6 +159,7 @@ export function MailShell() {
   const isMailSidebarOpen = openSidebars.includes("left-sidebar");
 
   const isAllAccounts = accountScope === "all";
+  useMailboxSync({ emailAccountId, enabled: !isAllAccounts });
   const accountLayout: MailLayoutMode =
     settings?.layout === MailLayout.SPLIT ? "split" : "list";
   const layout = isAllAccounts ? "list" : accountLayout;

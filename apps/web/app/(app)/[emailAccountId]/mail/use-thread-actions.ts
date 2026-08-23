@@ -24,6 +24,11 @@ import type {
 import type { ListThread } from "@/app/(app)/[emailAccountId]/mail/types";
 import { snoozeThreadsAction } from "@/utils/actions/snooze";
 import { mapWithConcurrency } from "@/utils/async";
+import {
+  markSyncedMailboxThreadsRead,
+  removeSyncedMailboxThreads,
+} from "@/utils/email-cache/mailbox";
+import { requestMailboxSync } from "@/app/(app)/[emailAccountId]/mail/use-mailbox-sync";
 
 const THREAD_ACTION_CONCURRENCY = 10;
 const SNOOZE_ACTION_BATCH_CONCURRENCY = 2;
@@ -92,6 +97,7 @@ export function useThreadActions({
       const restored = batch.threadIds.filter((id) => !failed.includes(id));
 
       restoreThreads(batch.removal, restored);
+      if (restored.length) requestMailboxSync(emailAccountId);
 
       if (failed.length)
         toast.error(
@@ -123,7 +129,14 @@ export function useThreadActions({
       queue({
         threadIds,
         emailAccountId,
-        onSuccess: () => {},
+        onSuccess: (threadId) => {
+          removeSyncedMailboxThreads({
+            emailAccountId,
+            threadIds: [threadId],
+          })
+            .catch(() => {})
+            .finally(() => requestMailboxSync(emailAccountId));
+        },
         // The queue reports the specific thread that failed; the rest of the
         // batch archived fine and must stay gone.
         onError: (threadId) => {
@@ -165,7 +178,14 @@ export function useThreadActions({
       markReadThreads({
         threadIds: update.threadIds,
         emailAccountId,
-        onSuccess: update.commit,
+        onSuccess: (threadId) => {
+          update.commit(threadId);
+          markSyncedMailboxThreadsRead({
+            emailAccountId,
+            read: true,
+            threadIds: [threadId],
+          }).catch(() => {});
+        },
         onError: (threadId) => {
           failedThreadIds.push(threadId);
           toast.error("There was an error marking as read");
@@ -206,6 +226,14 @@ export function useThreadActions({
         if (!failedThreadIds.includes(threadId)) update.commit(threadId);
       }
       update.rollback(failedThreadIds);
+      const succeededThreadIds = update.threadIds.filter(
+        (threadId) => !failedThreadIds.includes(threadId),
+      );
+      await markSyncedMailboxThreadsRead({
+        emailAccountId,
+        read,
+        threadIds: succeededThreadIds,
+      }).catch(() => {});
 
       if (failedThreadIds.length) {
         toast.error(
@@ -253,6 +281,10 @@ export function useThreadActions({
       );
 
       restoreThreads(removal, failedThreadIds);
+      await removeSyncedMailboxThreads({
+        emailAccountId,
+        threadIds: succeededThreadIds,
+      }).catch(() => {});
 
       if (succeededThreadIds.length) {
         toast.success(
