@@ -995,14 +995,19 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async deleteLabel(labelId: string): Promise<void> {
-    await withMicrosoftGraphWriteRetry(
-      () =>
-        this.client
-          .getClient()
-          .api(`/me/outlook/masterCategories/${encodeURIComponent(labelId)}`)
-          .delete(),
-      this.logger,
-    );
+    try {
+      await withMicrosoftGraphRetry(
+        () =>
+          this.client
+            .getClient()
+            .api(`/me/outlook/masterCategories/${encodeURIComponent(labelId)}`)
+            .delete(),
+        this.logger,
+      );
+    } catch (error) {
+      if (extractErrorInfo(error).status !== 404) throw error;
+      this.logger.info("Category was already deleted", { labelId });
+    }
     this.client.invalidateCategoryMapCache();
   }
 

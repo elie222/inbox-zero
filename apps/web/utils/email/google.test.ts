@@ -439,6 +439,25 @@ describe("GmailProvider.getLabels", () => {
   });
 });
 
+describe("GmailProvider.deleteLabel", () => {
+  it("treats an already-deleted label as success", async () => {
+    const deleteLabel = vi.fn().mockRejectedValue(
+      Object.assign(new Error("Label not found"), {
+        code: 404,
+      }),
+    );
+    const provider = new GmailProvider({
+      users: { labels: { delete: deleteLabel } },
+    } as any);
+
+    await expect(provider.deleteLabel("label-1")).resolves.toBeUndefined();
+    expect(deleteLabel).toHaveBeenCalledWith({
+      userId: "me",
+      id: "label-1",
+    });
+  });
+});
+
 describe("GmailProvider.updateLabel", () => {
   it("updates a label name and Gmail color in one request", async () => {
     const patch = vi.fn().mockResolvedValue({ data: {} });

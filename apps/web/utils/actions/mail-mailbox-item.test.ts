@@ -154,10 +154,30 @@ describe("mailbox item actions", () => {
     }
   });
 
-  it("keeps a label when saved-view cleanup fails", async () => {
+  it("retries saved-view cleanup after a successful provider deletion", async () => {
     prisma.mailSplit.deleteMany.mockRejectedValueOnce(
       new Error("Database unavailable"),
     );
+
+    const firstResult = await deleteMailboxItemAction(EMAIL_ACCOUNT_ID, {
+      kind: "label",
+      id: "label-1",
+    });
+    const retryResult = await deleteMailboxItemAction(EMAIL_ACCOUNT_ID, {
+      kind: "label",
+      id: "label-1",
+    });
+
+    expect(firstResult?.serverError).toBe(
+      "Failed to delete label. Please try again.",
+    );
+    expect(retryResult?.serverError).toBeUndefined();
+    expect(mockDeleteLabel).toHaveBeenCalledTimes(2);
+    expect(prisma.mailSplit.deleteMany).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps saved views when provider deletion fails", async () => {
+    mockDeleteLabel.mockRejectedValueOnce(new Error("Provider unavailable"));
 
     const result = await deleteMailboxItemAction(EMAIL_ACCOUNT_ID, {
       kind: "label",
@@ -167,7 +187,7 @@ describe("mailbox item actions", () => {
     expect(result?.serverError).toBe(
       "Failed to delete label. Please try again.",
     );
-    expect(mockDeleteLabel).not.toHaveBeenCalled();
+    expect(prisma.mailSplit.deleteMany).not.toHaveBeenCalled();
   });
 
   it("rejects folder mutations for non-Outlook accounts", async () => {

@@ -997,6 +997,27 @@ describe("OutlookProvider.createDraft", () => {
   });
 });
 
+describe("OutlookProvider.deleteLabel", () => {
+  it("treats an already-deleted category as success", async () => {
+    const deleteLabel = vi.fn().mockRejectedValue(
+      Object.assign(new Error("Category not found"), {
+        statusCode: 404,
+      }),
+    );
+    const invalidateCategoryMapCache = vi.fn();
+    const provider = new OutlookProvider(
+      {
+        getClient: () => ({ api: () => ({ delete: deleteLabel }) }),
+        invalidateCategoryMapCache,
+      } as never,
+      createTestLogger(),
+    );
+
+    await expect(provider.deleteLabel("category-1")).resolves.toBeUndefined();
+    expect(invalidateCategoryMapCache).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("OutlookProvider.updateLabel", () => {
   it("maps a display color back to the Outlook category preset", async () => {
     const patch = vi.fn().mockResolvedValue({});
