@@ -141,7 +141,10 @@ describe("mailbox sync scheduler", () => {
   });
 });
 
-function settlePromises(iterations = 10): Promise<void> {
-  if (iterations === 0) return Promise.resolve();
-  return Promise.resolve().then(() => settlePromises(iterations - 1));
+function settlePromises() {
+  let promise = Promise.resolve();
+  for (let iteration = 0; iteration < 10; iteration += 1) {
+    promise = promise.then(() => undefined);
+  }
+  return promise;
 }
