@@ -48,6 +48,7 @@ export async function prefetchThreadDetail({
         revalidate: false,
       },
     );
+    if (isCancelled?.()) return;
     await prepareVisibleMessageHtml(cached.data);
     return;
   }
@@ -56,11 +57,12 @@ export async function prefetchThreadDetail({
     request,
     async () => (await fetcher(request.key)) as ThreadResponse | undefined,
   );
-  if (!data) return;
+  if (!data || isCancelled?.()) return;
   await mutate(request.key, data, {
     populateCache: true,
     revalidate: false,
   });
+  if (isCancelled?.()) return;
   await Promise.all([
     writeCachedThreadDetail({
       emailAccountId,

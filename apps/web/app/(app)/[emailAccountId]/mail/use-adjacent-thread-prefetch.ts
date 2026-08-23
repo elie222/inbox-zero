@@ -1,22 +1,21 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { useSWRConfig } from "swr";
-import {
-  prefetchThreadDetail,
-  shouldPrefetchThreads,
-} from "@/app/(app)/[emailAccountId]/mail/thread-prefetch";
+import type { ThreadPrefetchCoordinator } from "./thread-prefetch-coordinator";
 
 export function useAdjacentThreadPrefetch({
+  coordinator,
   currentThreadId,
   emailAccountId,
+  scopeKey,
   threadIds,
 }: {
+  coordinator: ThreadPrefetchCoordinator;
   currentThreadId: string | null;
   emailAccountId: string;
+  scopeKey: string;
   threadIds: string[];
 }) {
-  const { fetcher, mutate } = useSWRConfig();
   const adjacentThreadIds = useMemo(() => {
     const currentIndex = currentThreadId
       ? threadIds.indexOf(currentThreadId)
@@ -28,22 +27,18 @@ export function useAdjacentThreadPrefetch({
   }, [currentThreadId, threadIds]);
 
   useEffect(() => {
-    if (!fetcher || !shouldPrefetchThreads() || !adjacentThreadIds.length)
-      return;
-    let cancelled = false;
+    coordinator.cancelScope(scopeKey);
+    if (!adjacentThreadIds.length) return;
 
     const prefetch = () => {
-      for (const threadId of adjacentThreadIds) {
-        prefetchThreadDetail({
+      coordinator.scheduleMany(
+        adjacentThreadIds.map((threadId) => ({
           emailAccountId,
+          priority: "adjacent" as const,
+          scopeKey,
           threadId,
-          fetcher,
-          mutate,
-          isCancelled: () => cancelled,
-        }).catch(() => {
-          // Prefetch failures are intentionally silent; opening still retries normally.
-        });
-      }
+        })),
+      );
     };
 
     const idleCallback = window.requestIdleCallback?.(prefetch, {
@@ -53,9 +48,9 @@ export function useAdjacentThreadPrefetch({
       idleCallback === undefined ? window.setTimeout(prefetch, 150) : undefined;
 
     return () => {
-      cancelled = true;
+      coordinator.cancelScope(scopeKey);
       if (idleCallback !== undefined) window.cancelIdleCallback(idleCallback);
       if (timeout !== undefined) window.clearTimeout(timeout);
     };
-  }, [adjacentThreadIds, emailAccountId, fetcher, mutate]);
+  }, [adjacentThreadIds, coordinator, emailAccountId, scopeKey]);
 }
