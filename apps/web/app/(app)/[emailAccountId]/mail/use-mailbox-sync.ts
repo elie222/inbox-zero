@@ -1,30 +1,47 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { trackMailboxSyncResult } from "@/utils/email-cache/analytics";
 import {
   fetchMailboxSyncPage,
   syncMailboxPages,
 } from "@/utils/email-cache/mailbox-sync";
+import { createMailboxSyncScheduler } from "./mailbox-sync-scheduler";
 
 const COMPLETE_SYNC_INTERVAL_MS = 60_000;
 const CONTINUATION_DELAY_MS = 10_000;
+const MAX_CONCURRENT_MAILBOX_SYNCS = 2;
 const MAX_RETRY_DELAY_MS = 15 * 60_000;
 const MAX_TIMEOUT_MS = 2_147_483_647;
 const STEADY_SYNC_TELEMETRY_INTERVAL_MS = 15 * 60_000;
-const inFlightSyncs = new Map<
-  string,
-  Promise<{ hasMore: boolean; pagesSynced: number }>
->();
 const syncRequestListeners = new Set<(emailAccountId: string) => void>();
+const mailboxSyncScheduler = createMailboxSyncScheduler({
+  maxConcurrent: MAX_CONCURRENT_MAILBOX_SYNCS,
+  sync: (emailAccountId) =>
+    syncMailboxPages({
+      emailAccountId,
+      fetchPage: (input) => fetchMailboxSyncPage(emailAccountId, input),
+      maxPages: 1,
+    }),
+});
 
 export function useMailboxSync({
   emailAccountId,
   enabled,
+  priority = false,
 }: {
   emailAccountId: string;
   enabled: boolean;
+  priority?: boolean;
 }) {
+  const priorityRef = useRef(priority);
+
+  useEffect(() => {
+    if (!enabled || !emailAccountId) return;
+    priorityRef.current = priority;
+    mailboxSyncScheduler.setPriority({ emailAccountId, priority });
+  }, [emailAccountId, enabled, priority]);
+
   useEffect(() => {
     if (!enabled || !emailAccountId) return;
     let cancelled = false;
@@ -54,7 +71,8 @@ export function useMailboxSync({
       const initial = attempts === 0;
       const startedAt = performance.now();
       attempts += 1;
-      runSharedMailboxSync(emailAccountId)
+      mailboxSyncScheduler
+        .run({ emailAccountId, priority: priorityRef.current })
         .then(({ hasMore, pagesSynced }) => {
           const catchUpCompleted = catchingUp && !hasMore;
           const shouldTrackSteadySync =
@@ -134,23 +152,6 @@ export function useMailboxSync({
 
 export function requestMailboxSync(emailAccountId: string) {
   for (const listener of syncRequestListeners) listener(emailAccountId);
-}
-
-function runSharedMailboxSync(emailAccountId: string) {
-  const existing = inFlightSyncs.get(emailAccountId);
-  if (existing) return existing;
-
-  const sync = syncMailboxPages({
-    emailAccountId,
-    fetchPage: (input) => fetchMailboxSyncPage(emailAccountId, input),
-    maxPages: 1,
-  }).finally(() => {
-    if (inFlightSyncs.get(emailAccountId) === sync) {
-      inFlightSyncs.delete(emailAccountId);
-    }
-  });
-  inFlightSyncs.set(emailAccountId, sync);
-  return sync;
 }
 
 function getRetryDelay(consecutiveFailures: number, retryAfterMs?: number) {
