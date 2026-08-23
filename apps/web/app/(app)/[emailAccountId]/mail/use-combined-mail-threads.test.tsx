@@ -121,13 +121,15 @@ describe("useCombinedMailThreads", () => {
       },
     );
 
-    await waitFor(() => expect(cache.write).toHaveBeenCalledOnce());
-    expect(result.current.threads.map((thread) => thread.id)).toEqual([
-      "canonical",
-      "stale-recent",
-      "older-than-local-window",
-    ]);
-    expect(result.current.threads[0]?.snippet).toBe("remote");
+    await waitFor(() => {
+      expect(cache.write).toHaveBeenCalledOnce();
+      expect(result.current.threads.map((thread) => thread.id)).toEqual([
+        "canonical",
+        "stale-recent",
+        "older-than-local-window",
+      ]);
+      expect(result.current.threads[0]?.snippet).toBe("remote");
+    });
   });
 
   it("keeps a complete canonical snapshot after it syncs more recently than the server page", async () => {
@@ -170,12 +172,14 @@ describe("useCombinedMailThreads", () => {
       },
     );
 
-    await waitFor(() => expect(cache.write).toHaveBeenCalledOnce());
-    expect(result.current.threads.map((thread) => thread.id)).toEqual([
-      "canonical",
-      "older-than-local-window",
-    ]);
-    expect(result.current.threads[0]?.snippet).toBe("canonical");
+    await waitFor(() => {
+      expect(cache.write).toHaveBeenCalledOnce();
+      expect(result.current.threads.map((thread) => thread.id)).toEqual([
+        "canonical",
+        "older-than-local-window",
+      ]);
+      expect(result.current.threads[0]?.snippet).toBe("canonical");
+    });
   });
 
   it("keeps valid next-page rows when an account mailbox is truncated", async () => {
@@ -229,12 +233,14 @@ describe("useCombinedMailThreads", () => {
       },
     );
 
-    await waitFor(() => expect(cache.write).toHaveBeenCalledOnce());
-    expect(result.current.threads.map((thread) => thread.id)).toEqual([
-      "canonical",
-      "boundary",
-      "valid-next-page-row",
-    ]);
+    await waitFor(() => {
+      expect(cache.write).toHaveBeenCalledOnce();
+      expect(result.current.threads.map((thread) => thread.id)).toEqual([
+        "canonical",
+        "boundary",
+        "valid-next-page-row",
+      ]);
+    });
   });
 
   it("does not hide authoritative local rows when the server is exhausted", async () => {
@@ -272,9 +278,11 @@ describe("useCombinedMailThreads", () => {
       },
     );
 
-    await waitFor(() => expect(cache.write).toHaveBeenCalledOnce());
-    expect(result.current.threads).toHaveLength(21);
-    expect(result.current.hasMore).toBe(false);
+    await waitFor(() => {
+      expect(cache.write).toHaveBeenCalledOnce();
+      expect(result.current.threads).toHaveLength(21);
+      expect(result.current.hasMore).toBe(false);
+    });
   });
 
   it("reconciles freshness independently for each account", async () => {
@@ -326,11 +334,13 @@ describe("useCombinedMailThreads", () => {
       },
     );
 
-    await waitFor(() => expect(cache.write).toHaveBeenCalledOnce());
-    expect(result.current.threads.map((thread) => thread.id)).toEqual([
-      "fresh-local",
-      "fresh-server",
-    ]);
+    await waitFor(() => {
+      expect(cache.write).toHaveBeenCalledOnce();
+      expect(result.current.threads.map((thread) => thread.id)).toEqual([
+        "fresh-local",
+        "fresh-server",
+      ]);
+    });
   });
 
   it("uses an available local snapshot when that account fails remotely", async () => {
