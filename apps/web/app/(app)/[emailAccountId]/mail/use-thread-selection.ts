@@ -60,6 +60,20 @@ export function useThreadSelection(orderedIds: string[]) {
     [orderedIds, resetAnchor],
   );
 
+  const selectAll = useCallback(() => {
+    resetAnchor();
+    lastToggledIndex.current = null;
+    setSelectedIds((current) => {
+      if (
+        current.size === orderedIds.length &&
+        orderedIds.every((id) => current.has(id))
+      ) {
+        return current;
+      }
+      return new Set(orderedIds);
+    });
+  }, [orderedIds, resetAnchor]);
+
   // Shift+click: fill from the last individually toggled row to this one.
   const selectRangeTo = useCallback(
     (index: number) => {
@@ -109,12 +123,13 @@ export function useThreadSelection(orderedIds: string[]) {
       hasSelection: selectedIds.size > 0,
       isSelected: (id: string) => selectedIds.has(id),
       toggle,
+      selectAll,
       selectRangeTo,
       extendTo,
       clear,
       targetIds,
     }),
-    [selectedIds, toggle, selectRangeTo, extendTo, clear, targetIds],
+    [selectedIds, toggle, selectAll, selectRangeTo, extendTo, clear, targetIds],
   );
 }
 

@@ -43,6 +43,7 @@ describe("shortcut registry", () => {
   it("renders keys the way the help dialog and palette show them", () => {
     expect(formatShortcutKeys(getShortcut("next"))).toBe("J / ↓");
     expect(formatShortcutKeys(getShortcut("commandPalette"))).toBe("⌘K");
+    expect(formatShortcutKeys(getShortcut("selectAll"))).toBe("⌘A");
     expect(formatShortcutKeys(getShortcut("send"))).toBe("⌘↵");
     expect(formatShortcutKeys(getShortcut("backToApp"))).toBe("G A");
     expect(formatShortcutKeys(getShortcut("delete"))).toBe("#");
