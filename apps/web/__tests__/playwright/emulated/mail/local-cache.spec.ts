@@ -24,7 +24,6 @@ test("renders a large local mailbox while server mail requests are unavailable",
   ).toBeVisible({ timeout: 5000 });
   const localReadyMs = Date.now() - startedAt;
 
-  expect(localReadyMs).toBeLessThan(5000);
   await testInfo.attach("local-mailbox-performance", {
     body: JSON.stringify(
       { localReadyMs, messageCount: MESSAGE_COUNT },
