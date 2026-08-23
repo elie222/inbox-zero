@@ -119,6 +119,11 @@ export function useCombinedMailThreads({
     });
   const [persistent, setPersistent] = useState<PersistentCombinedView>();
   const [synced, setSynced] = useState<SyncedCombinedView>();
+  const [localPagination, setLocalPagination] = useState({
+    identity: viewIdentity,
+    limit: COMBINED_PAGE_SIZE,
+  });
+  const [isLoadingMoreLocally, setIsLoadingMoreLocally] = useState(false);
   const accountsRef = useRef(accounts);
   const hiddenByView = useRef(new Map<string, Set<string>>());
   const hiddenConfirmationsByView = useRef(
@@ -132,6 +137,10 @@ export function useCombinedMailThreads({
     loadedAt: number;
   }>({ loadedAt: 0 });
   const loadMoreLock = useRef(false);
+  const localSnapshotLimit =
+    localPagination.identity === viewIdentity
+      ? localPagination.limit
+      : COMBINED_PAGE_SIZE;
 
   remoteIdentity.current = data?.[0] ? viewIdentity : undefined;
   accountsRef.current = accounts;
@@ -175,10 +184,12 @@ export function useCombinedMailThreads({
       const generation = ++readGeneration;
       readCombinedSyncedMailboxThreads({
         accounts: accountsRef.current,
-        limit: COMBINED_PAGE_SIZE,
+        limit: localSnapshotLimit,
         query: { type: isUnread ? "unread" : "inbox" },
       }).then((snapshot) => {
-        if (cancelled || generation !== readGeneration || !snapshot) return;
+        if (cancelled || generation !== readGeneration) return;
+        setIsLoadingMoreLocally(false);
+        if (!snapshot) return;
         const hidden = hiddenByView.current.get(viewIdentity);
         if (hidden?.size) {
           const snapshotThreadKeys = new Set(
@@ -220,7 +231,7 @@ export function useCombinedMailThreads({
       cancelled = true;
       unsubscribe();
     };
-  }, [accountIdentity, enabled, isUnread, viewIdentity]);
+  }, [accountIdentity, enabled, isUnread, localSnapshotLimit, viewIdentity]);
 
   const remoteThreads = useMemo(
     () => data?.flatMap((page) => page.threads),
@@ -276,9 +287,10 @@ export function useCombinedMailThreads({
   }, [hiddenThreadKeys, sourceThreads, visibleThreadLimit]);
   const hasMore = data
     ? remoteHasMore
-    : persistent?.identity === viewIdentity
-      ? persistent.hasMore
-      : Boolean(syncedView?.truncated);
+    : syncedView
+      ? syncedView.truncated
+      : persistent?.identity === viewIdentity && persistent.hasMore;
+  const canLoadMoreLocally = !data && Boolean(syncedView?.truncated);
   const isLoadingMore = size > 1 && !data?.[size - 1];
   const labelsByAccount = useMemo(() => {
     const merged: Record<string, EmailLabels> = {};
@@ -551,7 +563,7 @@ export function useCombinedMailThreads({
     isLoading: isLoading && sourceThreads === undefined,
     error: sourceThreads !== undefined ? undefined : error,
     hasMore: Boolean(hasMore),
-    isLoadingMore,
+    isLoadingMore: isLoadingMore || isLoadingMoreLocally,
     failedAccountIds,
     labelsByAccount,
     removeThreads,
@@ -559,11 +571,29 @@ export function useCombinedMailThreads({
     optimisticallyUpdateThreads,
     loadMore: useCallback(() => {
       if (loadMoreLock.current || !hasMore) return;
+      if (canLoadMoreLocally) {
+        if (isLoadingMoreLocally) return;
+        setIsLoadingMoreLocally(true);
+        setLocalPagination((current) => ({
+          identity: viewIdentity,
+          limit:
+            (current.identity === viewIdentity
+              ? current.limit
+              : COMBINED_PAGE_SIZE) + COMBINED_PAGE_SIZE,
+        }));
+        return;
+      }
       loadMoreLock.current = true;
       setSize((current) => current + 1).catch(() => {
         loadMoreLock.current = false;
       });
-    }, [hasMore, setSize]),
+    }, [
+      canLoadMoreLocally,
+      hasMore,
+      isLoadingMoreLocally,
+      setSize,
+      viewIdentity,
+    ]),
   };
 }
 

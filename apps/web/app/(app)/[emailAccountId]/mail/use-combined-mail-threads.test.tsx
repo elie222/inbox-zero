@@ -285,6 +285,53 @@ describe("useCombinedMailThreads", () => {
     });
   });
 
+  it("loads more synchronized rows while the server is unavailable", async () => {
+    const localThreads = Array.from({ length: 25 }, (_, index) =>
+      createThread(
+        index % 2 ? "account-1" : "account-2",
+        `local-${index}`,
+        new Date(Date.UTC(2026, 7, 23, 10, 0, index)).toISOString(),
+      ),
+    );
+    mailbox.read.mockImplementation(({ limit }: { limit: number }) =>
+      Promise.resolve({
+        accountStates: createAccountStates(Number.MAX_SAFE_INTEGER),
+        complete: true,
+        missingAccountIds: [],
+        threads: localThreads.slice(0, limit),
+        truncated: localThreads.length > limit,
+      }),
+    );
+    const network = Promise.withResolvers<unknown>();
+    const { result } = renderHook(
+      () =>
+        useCombinedMailThreads({
+          accounts: ACCOUNTS,
+          emailAccountId: "account-1",
+          enabled: true,
+          isUnread: false,
+        }),
+      { wrapper: createWrapper(() => network.promise) },
+    );
+
+    await waitFor(() => {
+      expect(result.current.threads).toHaveLength(20);
+      expect(result.current.hasMore).toBe(true);
+    });
+
+    act(() => result.current.loadMore());
+
+    await waitFor(() => {
+      expect(result.current.threads).toHaveLength(25);
+      expect(result.current.hasMore).toBe(false);
+    });
+    expect(mailbox.read).toHaveBeenLastCalledWith({
+      accounts: ACCOUNTS,
+      limit: 40,
+      query: { type: "inbox" },
+    });
+  });
+
   it("reconciles freshness independently for each account", async () => {
     mailbox.read.mockResolvedValue({
       accountStates: {
