@@ -5,8 +5,8 @@ import {
   fetchThreadRequest,
 } from "@/utils/email-cache/thread-request";
 import {
-  readCachedThread,
-  writeCachedThread,
+  readCachedThreadDetail,
+  writeCachedThreadDetail,
 } from "@/utils/email-cache/threads";
 import { prepareEmailHtml } from "@/utils/email/prepare-html.client";
 
@@ -33,7 +33,7 @@ export async function prefetchThreadDetail({
     threadId,
     options: { includeDrafts: true },
   });
-  const cached = await readCachedThread<ThreadResponse>({
+  const cached = await readCachedThreadDetail({
     emailAccountId,
     threadId,
     variant: request.variant,
@@ -62,7 +62,7 @@ export async function prefetchThreadDetail({
     revalidate: false,
   });
   await Promise.all([
-    writeCachedThread({
+    writeCachedThreadDetail({
       emailAccountId,
       threadId,
       variant: request.variant,

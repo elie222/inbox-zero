@@ -15,8 +15,8 @@ const emailHtml = vi.hoisted(() => ({
 }));
 
 vi.mock("@/utils/email-cache/threads", () => ({
-  readCachedThread: cache.read,
-  writeCachedThread: cache.write,
+  readCachedThreadDetail: cache.read,
+  writeCachedThreadDetail: cache.write,
 }));
 
 vi.mock("@/utils/email/prepare-html.client", () => ({
