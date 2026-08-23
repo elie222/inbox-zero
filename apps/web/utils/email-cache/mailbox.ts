@@ -28,10 +28,12 @@ export type SyncedMailboxSnapshot = {
 };
 
 export type SyncedCombinedMailboxSnapshot = {
-  accountStates: Record<string, { after: string; truncated: boolean }>;
+  accountStates: Record<
+    string,
+    { after: string; syncedAt: number; truncated: boolean }
+  >;
   complete: boolean;
   missingAccountIds: string[];
-  syncedAt: number;
   threads: CombinedListThread[];
   truncated: boolean;
 };
@@ -321,6 +323,7 @@ export async function readCombinedSyncedMailboxThreads({
         account.id,
         {
           after: snapshot.after,
+          syncedAt: snapshot.syncedAt,
           truncated: snapshot.truncated,
         },
       ]),
@@ -331,8 +334,7 @@ export async function readCombinedSyncedMailboxThreads({
     missingAccountIds: accounts
       .map((account) => account.id)
       .filter((accountId) => !availableAccountIds.has(accountId)),
-    syncedAt: Math.min(...available.map(({ snapshot }) => snapshot.syncedAt)),
-    threads: threads.slice(0, limit),
+    threads,
     truncated:
       threads.length > limit ||
       available.some(({ snapshot }) => snapshot.truncated),

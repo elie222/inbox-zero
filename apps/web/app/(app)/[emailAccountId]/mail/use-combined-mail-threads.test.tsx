@@ -52,7 +52,6 @@ describe("useCombinedMailThreads", () => {
       accountStates: ACCOUNT_STATES,
       complete: true,
       missingAccountIds: [],
-      syncedAt: 100,
       threads: [createThread("account-2", "local")],
       truncated: false,
     });
@@ -87,7 +86,6 @@ describe("useCombinedMailThreads", () => {
       accountStates: ACCOUNT_STATES,
       complete: true,
       missingAccountIds: [],
-      syncedAt: 100,
       threads: [createThread("account-1", "canonical")],
       truncated: false,
     });
@@ -134,10 +132,9 @@ describe("useCombinedMailThreads", () => {
 
   it("keeps a complete canonical snapshot after it syncs more recently than the server page", async () => {
     mailbox.read.mockResolvedValue({
-      accountStates: ACCOUNT_STATES,
+      accountStates: createAccountStates(Number.MAX_SAFE_INTEGER),
       complete: true,
       missingAccountIds: [],
-      syncedAt: Number.MAX_SAFE_INTEGER,
       threads: [createThread("account-1", "canonical")],
       truncated: false,
     });
@@ -181,13 +178,22 @@ describe("useCombinedMailThreads", () => {
     expect(result.current.threads[0]?.snippet).toBe("canonical");
   });
 
-  it("keeps valid next-page rows when the combined mailbox is truncated", async () => {
+  it("keeps valid next-page rows when an account mailbox is truncated", async () => {
     mailbox.read.mockResolvedValue({
-      accountStates: ACCOUNT_STATES,
+      accountStates: {
+        ...createAccountStates(Number.MAX_SAFE_INTEGER),
+        "account-2": {
+          ...ACCOUNT_STATES["account-2"],
+          syncedAt: Number.MAX_SAFE_INTEGER,
+          truncated: true,
+        },
+      },
       complete: true,
       missingAccountIds: [],
-      syncedAt: Number.MAX_SAFE_INTEGER,
-      threads: [createThread("account-1", "canonical")],
+      threads: [
+        createThread("account-1", "canonical"),
+        createThread("account-2", "boundary"),
+      ],
       truncated: true,
     });
 
@@ -226,7 +232,64 @@ describe("useCombinedMailThreads", () => {
     await waitFor(() => expect(cache.write).toHaveBeenCalledOnce());
     expect(result.current.threads.map((thread) => thread.id)).toEqual([
       "canonical",
+      "boundary",
       "valid-next-page-row",
+    ]);
+  });
+
+  it("reconciles freshness independently for each account", async () => {
+    mailbox.read.mockResolvedValue({
+      accountStates: {
+        "account-1": {
+          ...ACCOUNT_STATES["account-1"],
+          syncedAt: Number.MAX_SAFE_INTEGER,
+        },
+        "account-2": ACCOUNT_STATES["account-2"],
+      },
+      complete: true,
+      missingAccountIds: [],
+      threads: [
+        createThread("account-1", "fresh-local", "2026-08-23T10:02:00.000Z"),
+        createThread("account-2", "stale-local", "2026-08-23T09:00:00.000Z"),
+      ],
+      truncated: false,
+    });
+
+    const { result } = renderHook(
+      () =>
+        useCombinedMailThreads({
+          accounts: ACCOUNTS,
+          emailAccountId: "account-1",
+          enabled: true,
+          isUnread: false,
+        }),
+      {
+        wrapper: createWrapper(() =>
+          Promise.resolve({
+            failedAccountIds: [],
+            labelsByAccount: {},
+            nextPageToken: null,
+            threads: [
+              createThread(
+                "account-1",
+                "stale-server",
+                "2026-08-23T10:01:00.000Z",
+              ),
+              createThread(
+                "account-2",
+                "fresh-server",
+                "2026-08-23T10:00:00.000Z",
+              ),
+            ],
+          }),
+        ),
+      },
+    );
+
+    await waitFor(() => expect(cache.write).toHaveBeenCalledOnce());
+    expect(result.current.threads.map((thread) => thread.id)).toEqual([
+      "fresh-local",
+      "fresh-server",
     ]);
   });
 
@@ -236,7 +299,6 @@ describe("useCombinedMailThreads", () => {
         accountStates: { "account-1": ACCOUNT_STATES["account-1"] },
         complete: false,
         missingAccountIds: ["account-2"],
-        syncedAt: 100,
         threads: [createThread("account-1", "one")],
         truncated: false,
       })
@@ -244,7 +306,6 @@ describe("useCombinedMailThreads", () => {
         accountStates: ACCOUNT_STATES,
         complete: true,
         missingAccountIds: [],
-        syncedAt: 200,
         threads: [
           createThread("account-2", "two"),
           createThread("account-1", "one"),
@@ -282,7 +343,6 @@ describe("useCombinedMailThreads", () => {
       accountStates: ACCOUNT_STATES,
       complete: true,
       missingAccountIds: [],
-      syncedAt: 100,
       threads: [
         createThread("account-1", "shared"),
         createThread("account-2", "shared"),
@@ -314,6 +374,71 @@ describe("useCombinedMailThreads", () => {
       "account-1",
       "account-2",
     ]);
+  });
+
+  it("shows a thread again after its removal is confirmed and new mail arrives", async () => {
+    const freshAccountStates = createAccountStates(Number.MAX_SAFE_INTEGER);
+    mailbox.read
+      .mockResolvedValueOnce({
+        accountStates: freshAccountStates,
+        complete: true,
+        missingAccountIds: [],
+        threads: [createThread("account-1", "returning")],
+        truncated: false,
+      })
+      .mockResolvedValueOnce({
+        accountStates: freshAccountStates,
+        complete: true,
+        missingAccountIds: [],
+        threads: [],
+        truncated: false,
+      })
+      .mockResolvedValue({
+        accountStates: freshAccountStates,
+        complete: true,
+        missingAccountIds: [],
+        threads: [
+          createThread("account-1", "returning", "2026-08-23T11:00:00.000Z"),
+        ],
+        truncated: false,
+      });
+    const { result } = renderHook(
+      () =>
+        useCombinedMailThreads({
+          accounts: ACCOUNTS,
+          emailAccountId: "account-1",
+          enabled: true,
+          isUnread: false,
+        }),
+      {
+        wrapper: createWrapper(() =>
+          Promise.resolve({
+            failedAccountIds: [],
+            labelsByAccount: {},
+            nextPageToken: null,
+            threads: [createThread("account-1", "returning")],
+          }),
+        ),
+      },
+    );
+    await waitFor(() => expect(result.current.threads).toHaveLength(1));
+
+    act(() => result.current.removeThreads(["account-1:returning"]));
+    expect(result.current.threads).toHaveLength(0);
+
+    act(() => {
+      for (const listener of mailbox.listeners) listener("account-1");
+    });
+    await waitFor(() => expect(mailbox.read).toHaveBeenCalledTimes(2));
+
+    act(() => {
+      for (const listener of mailbox.listeners) listener("account-1");
+    });
+    await waitFor(() =>
+      expect(result.current.threads.map((thread) => thread.id)).toEqual([
+        "returning",
+      ]),
+    );
   });
 
   it("does not restore a failed page-two action into the first-page cache", async () => {
@@ -369,7 +494,6 @@ describe("useCombinedMailThreads", () => {
       accountStates: ACCOUNT_STATES,
       complete: true,
       missingAccountIds: [],
-      syncedAt: 100,
       threads: [
         createThread("account-1", "shared"),
         createThread("account-2", "shared"),
@@ -414,18 +538,22 @@ describe("useCombinedMailThreads", () => {
 });
 
 const ACCOUNTS = [createAccount("account-1"), createAccount("account-2")];
-const ACCOUNT_STATES = {
-  "account-1": {
-    after: "2026-07-24T00:00:00.000Z",
-    syncedAt: 100,
-    truncated: false,
-  },
-  "account-2": {
-    after: "2026-07-24T00:00:00.000Z",
-    syncedAt: 100,
-    truncated: false,
-  },
-};
+const ACCOUNT_STATES = createAccountStates(100);
+
+function createAccountStates(syncedAt: number) {
+  return {
+    "account-1": {
+      after: "2026-07-24T00:00:00.000Z",
+      syncedAt,
+      truncated: false,
+    },
+    "account-2": {
+      after: "2026-07-24T00:00:00.000Z",
+      syncedAt,
+      truncated: false,
+    },
+  };
+}
 
 function createAccount(id: string) {
   return { email: `${id}@example.com`, id, image: null, name: id };

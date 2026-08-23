@@ -523,7 +523,6 @@ describe("synced mailbox cache", () => {
       },
       complete: true,
       missingAccountIds: [],
-      syncedAt: 100,
       truncated: false,
     });
     expect(
@@ -532,6 +531,19 @@ describe("synced mailbox cache", () => {
       ["account-2", "shared-thread"],
       ["account-1", "shared-thread"],
     ]);
+
+    const truncatedSnapshot = await readCombinedSyncedMailboxThreads({
+      accounts: [getAccount("account-1"), getAccount("account-2")],
+      query: { type: "inbox" },
+      limit: 1,
+    });
+    expect(truncatedSnapshot).toMatchObject({
+      truncated: true,
+      threads: [
+        { account: { id: "account-2" }, id: "shared-thread" },
+        { account: { id: "account-1" }, id: "shared-thread" },
+      ],
+    });
   });
 
   it("returns available unread rows while another account is not cached", async () => {

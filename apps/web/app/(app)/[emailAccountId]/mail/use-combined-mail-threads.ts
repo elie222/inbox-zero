@@ -24,6 +24,7 @@ import {
   restoreCachedThreadsToView,
   writeCachedThreadList,
 } from "@/utils/email-cache/thread-lists";
+import { restoreThreadOrder } from "@/utils/email-cache/thread-order";
 import {
   EMAIL_CACHE_MEASURES,
   finishEmailCacheMeasure,
@@ -33,6 +34,8 @@ import { getThreadTimestamp } from "@/utils/threads/sort";
 import { createSearchParams } from "@/utils/url";
 
 type CombinedThread = GetAllThreadsResponse["threads"][number];
+
+const COMBINED_PAGE_SIZE = 20;
 
 type CachedCombinedThread = {
   id: string;
@@ -95,7 +98,7 @@ export function useCombinedMailThreads({
         return null;
       }
       const params = createSearchParams({
-        limit: 20,
+        limit: COMBINED_PAGE_SIZE,
         isUnread: isUnread || undefined,
         cursor: pageIndex > 0 ? previousPageData?.nextPageToken : undefined,
       });
@@ -162,10 +165,25 @@ export function useCombinedMailThreads({
     const loadSyncedView = () => {
       readCombinedSyncedMailboxThreads({
         accounts: accountsRef.current,
-        limit: 20,
+        limit: COMBINED_PAGE_SIZE,
         query: { type: isUnread ? "unread" : "inbox" },
       }).then((snapshot) => {
         if (cancelled || !snapshot) return;
+        const hidden = hiddenByView.current.get(viewIdentity);
+        if (hidden?.size) {
+          const snapshotThreadKeys = new Set(
+            snapshot.threads.map(getListThreadKey),
+          );
+          const unconfirmed = new Set(
+            [...hidden].filter((threadKey) =>
+              snapshotThreadKeys.has(threadKey),
+            ),
+          );
+          if (unconfirmed.size !== hidden.size) {
+            hiddenByView.current.set(viewIdentity, unconfirmed);
+            renderHiddenChanges();
+          }
+        }
         setSynced({ identity: viewIdentity, ...snapshot });
       });
     };
@@ -184,45 +202,52 @@ export function useCombinedMailThreads({
     () => data?.flatMap((page) => page.threads),
     [data],
   );
+  const failedAccountIds = useMemo(
+    () => [...new Set(data?.flatMap((page) => page.failedAccountIds) ?? [])],
+    [data],
+  );
   const persistentThreads =
     persistent?.identity === viewIdentity ? persistent.threads : undefined;
   const syncedView = synced?.identity === viewIdentity ? synced : undefined;
   const syncedThreads = syncedView?.threads;
   const sourceThreads = useMemo(
     () =>
-      remoteThreads &&
-      syncedThreads &&
-      syncedView?.complete &&
-      syncedView.syncedAt > remoteSnapshot.current.loadedAt
+      remoteThreads && syncedThreads && syncedView?.complete
         ? mergeCombinedThreads({
             accountStates: syncedView.accountStates,
+            failedAccountIds,
+            remoteLoadedAt: remoteSnapshot.current.loadedAt,
             remoteThreads,
             syncedThreads,
-            syncedTruncated: syncedView.truncated,
           })
         : (remoteThreads ?? syncedThreads ?? persistentThreads),
     [
       persistentThreads,
+      failedAccountIds,
       remoteThreads,
       syncedThreads,
       syncedView?.accountStates,
       syncedView?.complete,
-      syncedView?.syncedAt,
-      syncedView?.truncated,
     ],
   );
   const hiddenThreadKeys =
     hiddenByView.current.get(viewIdentity) ?? EMPTY_THREAD_KEYS;
+  const visibleThreadLimit = Math.max(
+    COMBINED_PAGE_SIZE,
+    (data?.length ?? 1) * COMBINED_PAGE_SIZE,
+  );
   const threads = useMemo(() => {
     const byKey = new Map<string, GetAllThreadsResponse["threads"][number]>();
     for (const thread of sourceThreads ?? []) {
       const threadKey = getListThreadKey(thread);
       if (!hiddenThreadKeys.has(threadKey)) byKey.set(threadKey, thread);
     }
-    return [...byKey.values()].sort(
-      (left, right) => getThreadTimestamp(right) - getThreadTimestamp(left),
-    );
-  }, [hiddenThreadKeys, sourceThreads]);
+    return [...byKey.values()]
+      .sort(
+        (left, right) => getThreadTimestamp(right) - getThreadTimestamp(left),
+      )
+      .slice(0, visibleThreadLimit);
+  }, [hiddenThreadKeys, sourceThreads, visibleThreadLimit]);
   const hasMore = data
     ? Boolean(data.at(-1)?.nextPageToken)
     : persistent?.identity === viewIdentity
@@ -290,6 +315,27 @@ export function useCombinedMailThreads({
         new Set([...alreadyHidden, ...removedKeys]),
       );
       renderHiddenChanges();
+      const removed = new Set(removedKeys);
+      setPersistent((current) =>
+        current?.identity === viewIdentity
+          ? {
+              ...current,
+              threads: current.threads.filter(
+                (thread) => !removed.has(getListThreadKey(thread)),
+              ),
+            }
+          : current,
+      );
+      mutate(
+        (pages) =>
+          pages?.map((page) => ({
+            ...page,
+            threads: page.threads.filter(
+              (thread) => !removed.has(getListThreadKey(thread)),
+            ),
+          })),
+        { populateCache: true, revalidate: false },
+      ).catch(() => {});
       removeCachedThreadsFromView({
         emailAccountId,
         viewKey,
@@ -300,6 +346,7 @@ export function useCombinedMailThreads({
     },
     [
       emailAccountId,
+      mutate,
       pageIndexByThreadKey,
       sourceThreads,
       viewIdentity,
@@ -326,19 +373,42 @@ export function useCombinedMailThreads({
       }
       hiddenByView.current.set(viewIdentity, hidden);
       renderHiddenChanges();
+      const firstPageEntries = restoring.filter(
+        (entry) => entry.pageIndex === 0,
+      );
+      setPersistent((current) =>
+        current?.identity === viewIdentity
+          ? {
+              ...current,
+              threads: insertRestoredCombinedThreads(
+                current.threads,
+                firstPageEntries,
+              ),
+            }
+          : current,
+      );
+      mutate(
+        (pages) =>
+          pages?.map((page, pageIndex) => ({
+            ...page,
+            threads: insertRestoredCombinedThreads(
+              page.threads,
+              restoring.filter((entry) => entry.pageIndex === pageIndex),
+            ),
+          })),
+        { populateCache: true, revalidate: false },
+      ).catch(() => {});
       restoreCachedThreadsToView({
         emailAccountId,
         viewKey,
-        entries: restoring
-          .filter((entry) => entry.pageIndex === 0)
-          .map(({ thread, index, threadOrder }) => ({
-            thread: toCachedCombinedThread(thread),
-            index,
-            threadOrder,
-          })),
+        entries: firstPageEntries.map(({ thread, index, threadOrder }) => ({
+          thread: toCachedCombinedThread(thread),
+          index,
+          threadOrder,
+        })),
       }).catch(() => {});
     },
-    [emailAccountId, viewIdentity, viewKey],
+    [emailAccountId, mutate, viewIdentity, viewKey],
   );
 
   const optimisticallyUpdateThreads = useCallback(
@@ -441,9 +511,7 @@ export function useCombinedMailThreads({
     error: sourceThreads !== undefined ? undefined : error,
     hasMore: Boolean(hasMore),
     isLoadingMore,
-    failedAccountIds: [
-      ...new Set(data?.flatMap((page) => page.failedAccountIds) ?? []),
-    ],
+    failedAccountIds,
     labelsByAccount,
     removeThreads,
     restoreThreads,
@@ -466,18 +534,34 @@ const EMPTY_THREAD_KEYS = new Set<string>();
 
 function mergeCombinedThreads({
   accountStates,
+  failedAccountIds,
+  remoteLoadedAt,
   remoteThreads,
   syncedThreads,
-  syncedTruncated,
 }: {
   accountStates: SyncedCombinedMailboxSnapshot["accountStates"];
+  failedAccountIds: string[];
+  remoteLoadedAt: number;
   remoteThreads: CombinedThread[];
   syncedThreads: CombinedThread[];
-  syncedTruncated: boolean;
 }) {
-  const oldestSyncedTimestamp = Math.min(
-    ...syncedThreads.map(getThreadTimestamp),
+  const locallyAuthoritativeAccountIds = new Set(
+    Object.entries(accountStates)
+      .filter(
+        ([accountId, state]) =>
+          failedAccountIds.includes(accountId) ||
+          state.syncedAt > remoteLoadedAt,
+      )
+      .map(([accountId]) => accountId),
   );
+  const oldestSyncedTimestampByAccount = new Map<string, number>();
+  for (const thread of syncedThreads) {
+    const timestamp = getThreadTimestamp(thread);
+    const current = oldestSyncedTimestampByAccount.get(thread.account.id);
+    if (current === undefined || timestamp < current) {
+      oldestSyncedTimestampByAccount.set(thread.account.id, timestamp);
+    }
+  }
   const remoteThreadsByKey = new Map(
     remoteThreads.map((thread) => [getListThreadKey(thread), thread]),
   );
@@ -485,19 +569,25 @@ function mergeCombinedThreads({
     remoteThreads
       .filter((thread) => {
         const state = accountStates[thread.account.id];
-        if (!state) return true;
+        if (!state || !locallyAuthoritativeAccountIds.has(thread.account.id)) {
+          return true;
+        }
         const afterTimestamp = new Date(state.after).getTime();
-        const authoritativeCutoff = syncedTruncated
+        const oldestSyncedTimestamp =
+          oldestSyncedTimestampByAccount.get(thread.account.id) ??
+          afterTimestamp;
+        const authoritativeCutoff = state.truncated
           ? Math.max(afterTimestamp, oldestSyncedTimestamp)
           : afterTimestamp;
         const timestamp = getThreadTimestamp(thread);
-        return syncedTruncated
+        return state.truncated
           ? timestamp <= authoritativeCutoff
           : timestamp < authoritativeCutoff;
       })
       .map((thread) => [getListThreadKey(thread), thread]),
   );
   for (const thread of syncedThreads) {
+    if (!locallyAuthoritativeAccountIds.has(thread.account.id)) continue;
     const remoteThread = remoteThreadsByKey.get(getListThreadKey(thread));
     threadsByKey.set(getListThreadKey(thread), {
       ...thread,
@@ -508,6 +598,29 @@ function mergeCombinedThreads({
   return [...threadsByKey.values()].sort(
     (left, right) => getThreadTimestamp(right) - getThreadTimestamp(left),
   );
+}
+
+function insertRestoredCombinedThreads(
+  threads: CombinedThread[],
+  restoring: RemovedCombinedThread[],
+) {
+  if (!restoring.length) return threads;
+  const threadsByKey = new Map(
+    [...threads, ...restoring.map((entry) => entry.thread)].map((thread) => [
+      getListThreadKey(thread),
+      thread,
+    ]),
+  );
+  return restoreThreadOrder(
+    threads.map(getListThreadKey),
+    restoring.map(({ thread, index, threadOrder }) => ({
+      threadId: getListThreadKey(thread),
+      index,
+      threadOrder,
+    })),
+  )
+    .map((threadKey) => threadsByKey.get(threadKey))
+    .filter((thread): thread is CombinedThread => thread !== undefined);
 }
 
 function replaceCombinedThreads(
