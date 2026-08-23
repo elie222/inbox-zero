@@ -14,6 +14,8 @@ import {
 } from "./database";
 
 const mailboxListeners = new Set<(emailAccountId: string) => void>();
+const INDEXED_DB_BATCH_SIZE = 50;
+const MAX_LOCAL_QUERY_SCAN_MESSAGES = 500;
 
 export type SyncedMailboxSnapshot = {
   after: string;
@@ -126,6 +128,7 @@ export async function readSyncedMailboxThreads({
     let records: CachedMailboxMessage[];
     if (isRecentInboxQuery(query)) {
       const selectedThreadIds = new Set<string>();
+      let scannedMessages = 0;
       let cursor = await messagesStore
         .index("byAccountReceivedAt")
         .openCursor(
@@ -135,7 +138,12 @@ export async function readSyncedMailboxThreads({
           ),
           "prev",
         );
-      while (cursor && selectedThreadIds.size < limit + 1) {
+      while (
+        cursor &&
+        selectedThreadIds.size < limit + 1 &&
+        scannedMessages < MAX_LOCAL_QUERY_SCAN_MESSAGES
+      ) {
+        scannedMessages += 1;
         const message = cursor.value.data;
         if (
           message.labelIds?.includes("INBOX") &&
@@ -144,6 +152,10 @@ export async function readSyncedMailboxThreads({
           selectedThreadIds.add(message.threadId);
         }
         cursor = await cursor.continue();
+      }
+      if (cursor && selectedThreadIds.size < limit + 1) {
+        await transaction.done;
+        return;
       }
       const byThread = messagesStore.index("byAccountThread");
       records = (
@@ -154,7 +166,63 @@ export async function readSyncedMailboxThreads({
         )
       ).flat();
     } else {
-      records = await messagesStore.index("byAccount").getAll(emailAccountId);
+      const selectedThreadIds = new Set<string>();
+      const selectedRecords: CachedMailboxMessage[][] = [];
+      let pendingThreadIds: string[] = [];
+      const byThread = messagesStore.index("byAccountThread");
+      let scannedMessages = 0;
+      let cursor = await messagesStore
+        .index("byAccountReceivedAt")
+        .openCursor(
+          IDBKeyRange.bound(
+            [emailAccountId, Number.MIN_SAFE_INTEGER],
+            [emailAccountId, Number.MAX_SAFE_INTEGER],
+          ),
+          "prev",
+        );
+      while (
+        cursor &&
+        selectedRecords.length < limit + 1 &&
+        scannedMessages < MAX_LOCAL_QUERY_SCAN_MESSAGES
+      ) {
+        scannedMessages += 1;
+        const { threadId } = cursor.value;
+        if (!selectedThreadIds.has(threadId)) {
+          selectedThreadIds.add(threadId);
+          pendingThreadIds.push(threadId);
+        }
+        cursor = await cursor.continue();
+        if (
+          pendingThreadIds.length < INDEXED_DB_BATCH_SIZE &&
+          cursor &&
+          scannedMessages < MAX_LOCAL_QUERY_SCAN_MESSAGES
+        ) {
+          continue;
+        }
+
+        const recordsByThread = await Promise.all(
+          pendingThreadIds.map((pendingThreadId) =>
+            byThread.getAll([emailAccountId, pendingThreadId]),
+          ),
+        );
+        pendingThreadIds = [];
+        for (const threadRecords of recordsByThread) {
+          const threadMessages = threadRecords
+            .map((record) => record.data)
+            .filter((message) => !isIgnoredSender(message.headers.from));
+          if (threadMatchesQuery(threadMessages, query)) {
+            selectedRecords.push(threadRecords);
+            if (selectedRecords.length >= limit + 1) break;
+          }
+        }
+      }
+      // Sparse filters should fall back to the server instead of blocking a
+      // render while IndexedDB walks and deserializes the whole mailbox.
+      if (cursor && selectedRecords.length < limit + 1) {
+        await transaction.done;
+        return;
+      }
+      records = selectedRecords.flat();
     }
     const messagesByThread = groupMessagesByThread(
       records
@@ -211,19 +279,33 @@ export async function markSyncedMailboxThreadsRead({
   const store = transaction.objectStore("mailboxMessages");
   const index = store.index("byAccountThread");
 
-  for (const threadId of new Set(threadIds)) {
-    const records = await index.getAll([emailAccountId, threadId]);
-    for (const record of records) {
-      const currentLabels = record.data.labelIds ?? [];
-      const labelIds = read
-        ? currentLabels.filter((labelId) => labelId !== "UNREAD")
-        : [...new Set([...currentLabels, "UNREAD"])];
-      await store.put({
-        ...record,
-        data: { ...record.data, labelIds },
-        lastAccessedAt: Date.now(),
-      });
-    }
+  const lastAccessedAt = Date.now();
+  const uniqueThreadIds = [...new Set(threadIds)];
+  for (
+    let offset = 0;
+    offset < uniqueThreadIds.length;
+    offset += INDEXED_DB_BATCH_SIZE
+  ) {
+    const recordsByThread = await Promise.all(
+      uniqueThreadIds
+        .slice(offset, offset + INDEXED_DB_BATCH_SIZE)
+        .map((threadId) => index.getAll([emailAccountId, threadId])),
+    );
+    await Promise.all(
+      recordsByThread.flatMap((records) =>
+        records.map((record) => {
+          const currentLabels = record.data.labelIds ?? [];
+          const labelIds = read
+            ? currentLabels.filter((labelId) => labelId !== "UNREAD")
+            : [...new Set([...currentLabels, "UNREAD"])];
+          return store.put({
+            ...record,
+            data: { ...record.data, labelIds },
+            lastAccessedAt,
+          });
+        }),
+      ),
+    );
   }
 
   await transaction.done;
@@ -246,9 +328,20 @@ export async function removeSyncedMailboxThreads({
   const store = transaction.objectStore("mailboxMessages");
   const index = store.index("byAccountThread");
 
-  for (const threadId of new Set(threadIds)) {
-    const keys = await index.getAllKeys([emailAccountId, threadId]);
-    await Promise.all(keys.map((key) => store.delete(key)));
+  const uniqueThreadIds = [...new Set(threadIds)];
+  for (
+    let offset = 0;
+    offset < uniqueThreadIds.length;
+    offset += INDEXED_DB_BATCH_SIZE
+  ) {
+    const keysByThread = await Promise.all(
+      uniqueThreadIds
+        .slice(offset, offset + INDEXED_DB_BATCH_SIZE)
+        .map((threadId) => index.getAllKeys([emailAccountId, threadId])),
+    );
+    await Promise.all(
+      keysByThread.flatMap((keys) => keys.map((key) => store.delete(key))),
+    );
   }
 
   await transaction.done;

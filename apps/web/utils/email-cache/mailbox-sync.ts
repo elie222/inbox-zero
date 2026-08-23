@@ -9,6 +9,18 @@ const SYNC_WINDOW_REFRESH_DAYS = 7;
 const DEFAULT_PAGE_LIMIT = 100;
 const DEFAULT_MAX_PAGES = 10;
 
+export class MailboxSyncRequestError extends Error {
+  readonly status: number;
+  readonly retryAfterMs?: number;
+
+  constructor(status: number, retryAfterMs?: number) {
+    super(`Mailbox sync failed with status ${status}`);
+    this.name = "MailboxSyncRequestError";
+    this.status = status;
+    this.retryAfterMs = retryAfterMs;
+  }
+}
+
 export type MailboxSyncInput = {
   after?: string;
   cursor?: string;
@@ -93,7 +105,20 @@ export async function fetchMailboxSyncPage(
     body: JSON.stringify(input),
   });
   if (!response.ok) {
-    throw new Error(`Mailbox sync failed with status ${response.status}`);
+    throw new MailboxSyncRequestError(
+      response.status,
+      parseRetryAfter(response.headers.get("Retry-After")),
+    );
   }
   return response.json();
+}
+
+function parseRetryAfter(value: string | null) {
+  if (!value) return;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds) && seconds >= 0) return seconds * 1000;
+
+  const retryAt = Date.parse(value);
+  if (!Number.isFinite(retryAt)) return;
+  return Math.max(0, retryAt - Date.now());
 }
