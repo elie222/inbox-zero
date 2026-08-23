@@ -105,17 +105,21 @@ describe("useMailThreads", () => {
       snippet: "synced",
     };
     syncedThread.messages[0]!.internalDate = "2026-08-23T00:00:00.000Z";
+    const remoteOlderThread = createThread("remote-older");
+    remoteOlderThread.messages[0]!.internalDate = "2026-08-10T00:00:00.000Z";
     mailbox.read
       .mockResolvedValueOnce({
         after: "2026-07-24T00:00:00.000Z",
         complete: true,
         syncedAt: 1,
+        truncated: false,
         threads: [syncedThread],
       })
       .mockResolvedValue({
         after: "2026-07-24T00:00:00.000Z",
         complete: true,
         syncedAt: Number.MAX_SAFE_INTEGER,
+        truncated: true,
         threads: [syncedThread],
       });
     const query = { type: "inbox" };
@@ -123,7 +127,7 @@ describe("useMailThreads", () => {
       () => useMailThreads({ emailAccountId: "account-merge", query }),
       {
         wrapper: createWrapper(() =>
-          Promise.resolve({ threads: [remoteThread] }),
+          Promise.resolve({ threads: [remoteThread, remoteOlderThread] }),
         ),
       },
     );
@@ -138,6 +142,10 @@ describe("useMailThreads", () => {
     await waitFor(() =>
       expect(result.current.threads[0]?.snippet).toBe("synced"),
     );
+    expect(result.current.threads.map((thread) => thread.id)).toEqual([
+      "shared",
+      "remote-older",
+    ]);
     expect(result.current.threads[0]).toMatchObject({ plan, plans: [plan] });
   });
 

@@ -64,6 +64,7 @@ type SyncedView = {
   complete: boolean;
   syncedAt: number;
   threads: ListThread[];
+  truncated: boolean;
 };
 
 export function useMailThreads({
@@ -164,6 +165,7 @@ export function useMailThreads({
           complete: snapshot.complete,
           syncedAt: snapshot.syncedAt,
           threads: snapshot.threads,
+          truncated: snapshot.truncated,
         });
       });
     };
@@ -201,6 +203,7 @@ export function useMailThreads({
             remoteThreads,
             syncedThreads,
             syncedAfter: synced.after,
+            syncedTruncated: synced.truncated,
           })
         : (remoteThreads ?? syncedThreads ?? persistentThreads),
     [
@@ -209,6 +212,7 @@ export function useMailThreads({
       synced?.after,
       synced?.complete,
       synced?.syncedAt,
+      synced?.truncated,
       syncedThreads,
     ],
   );
@@ -595,18 +599,31 @@ function mergeSyncedThreads({
   remoteThreads,
   syncedThreads,
   syncedAfter,
+  syncedTruncated,
 }: {
   remoteThreads: ListThread[];
   syncedThreads: ListThread[];
   syncedAfter: string;
+  syncedTruncated: boolean;
 }) {
   const syncedAfterTimestamp = new Date(syncedAfter).getTime();
+  const oldestSyncedTimestamp = Math.min(
+    ...syncedThreads.map(getThreadTimestamp),
+  );
+  const authoritativeCutoff = syncedTruncated
+    ? Math.max(syncedAfterTimestamp, oldestSyncedTimestamp)
+    : syncedAfterTimestamp;
   const remoteThreadsById = new Map(
     remoteThreads.map((thread) => [thread.id, thread]),
   );
   const threadsById = new Map(
     remoteThreads
-      .filter((thread) => getThreadTimestamp(thread) < syncedAfterTimestamp)
+      .filter((thread) => {
+        const timestamp = getThreadTimestamp(thread);
+        return syncedTruncated
+          ? timestamp <= authoritativeCutoff
+          : timestamp < authoritativeCutoff;
+      })
       .map((thread) => [thread.id, thread]),
   );
   for (const thread of syncedThreads) {

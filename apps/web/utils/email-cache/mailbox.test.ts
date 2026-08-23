@@ -247,6 +247,16 @@ describe("synced mailbox cache", () => {
     expect(snapshot?.threads[0]?.messages.map((message) => message.id)).toEqual(
       ["earlier-message", "message-2", "message-3"],
     );
+
+    const limitedInbox = await readSyncedMailboxThreads({
+      emailAccountId: "account-1",
+      query: { type: "inbox" },
+      limit: 1,
+    });
+    expect(limitedInbox).toMatchObject({
+      truncated: true,
+      threads: [{ id: "thread-2" }],
+    });
   });
 
   it("supports unread, sender, label, folder, and date filters", async () => {

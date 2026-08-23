@@ -20,6 +20,7 @@ export type SyncedMailboxSnapshot = {
   complete: boolean;
   syncedAt: number;
   threads: ThreadListItem[];
+  truncated: boolean;
 };
 
 export async function applyMailboxSyncPage({
@@ -134,7 +135,7 @@ export async function readSyncedMailboxThreads({
           ),
           "prev",
         );
-      while (cursor && selectedThreadIds.size < limit) {
+      while (cursor && selectedThreadIds.size < limit + 1) {
         const message = cursor.value.data;
         if (
           message.labelIds?.includes("INBOX") &&
@@ -165,12 +166,13 @@ export async function readSyncedMailboxThreads({
       .sort(
         ([, left], [, right]) =>
           getMessageTimestamp(right.at(-1)) - getMessageTimestamp(left.at(-1)),
-      )
-      .slice(0, limit);
+      );
+    const truncated = matchingThreads.length > limit;
+    const selectedThreads = matchingThreads.slice(0, limit);
 
     const rows = transaction.objectStore("threadRows");
     const threads = await Promise.all(
-      matchingThreads.map(async ([threadId, messages]) => {
+      selectedThreads.map(async ([threadId, messages]) => {
         const cachedRow = await rows.get([emailAccountId, threadId]);
         return toListThread(threadId, messages, cachedRow?.data);
       }),
@@ -185,6 +187,7 @@ export async function readSyncedMailboxThreads({
       ),
       syncedAt: state.lastSyncedAt,
       threads,
+      truncated,
     };
   } catch {
     return;
