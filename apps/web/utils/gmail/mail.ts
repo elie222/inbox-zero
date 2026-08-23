@@ -61,7 +61,9 @@ const encodeMessage = (message: Buffer) =>
 
 export const createMail = async (options: Mail.Options) => {
   const mailComposer = new MailComposer(options);
-  const message = await mailComposer.compile().build();
+  const compiledMessage = mailComposer.compile();
+  compiledMessage.keepBcc = true;
+  const message = await compiledMessage.build();
   return encodeMessage(message);
 };
 
