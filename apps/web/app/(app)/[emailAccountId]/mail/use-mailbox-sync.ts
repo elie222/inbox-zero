@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
 import { trackMailboxSyncResult } from "@/utils/email-cache/analytics";
 import {
   fetchMailboxSyncPage,
@@ -48,6 +49,7 @@ export function useMailboxSync({
     let attempts = 0;
     let catchingUp = false;
     let consecutiveFailures = 0;
+    const desktop = getInboxZeroDesktopApp();
     let lastSteadyTelemetryAt = 0;
     let running = false;
     let rerunRequested = false;
@@ -63,7 +65,10 @@ export function useMailboxSync({
         rerunRequested = true;
         return;
       }
-      if (document.visibilityState === "hidden" || navigator.onLine === false) {
+      if (
+        navigator.onLine === false ||
+        (document.visibilityState === "hidden" && !desktop)
+      ) {
         schedule(COMPLETE_SYNC_INTERVAL_MS);
         return;
       }

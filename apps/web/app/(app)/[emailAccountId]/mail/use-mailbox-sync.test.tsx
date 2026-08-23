@@ -4,6 +4,7 @@ import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { requestMailboxSync, useMailboxSync } from "./use-mailbox-sync";
 
+const desktop = vi.hoisted(() => ({ getApp: vi.fn() }));
 const mailboxSync = vi.hoisted(() => ({
   fetchPage: vi.fn(),
   syncPages: vi.fn(),
@@ -19,6 +20,9 @@ vi.mock("@/utils/email-cache/mailbox-sync", () => ({
 vi.mock("@/utils/email-cache/analytics", () => ({
   trackMailboxSyncResult: analytics.trackSyncResult,
 }));
+vi.mock("@/utils/desktop-app", () => ({
+  getInboxZeroDesktopApp: desktop.getApp,
+}));
 
 const onlineDescriptor = Object.getOwnPropertyDescriptor(navigator, "onLine");
 const visibilityDescriptor = Object.getOwnPropertyDescriptor(
@@ -32,6 +36,7 @@ describe("useMailboxSync", () => {
     vi.clearAllMocks();
     setOnline(true);
     setVisibility("visible");
+    desktop.getApp.mockReturnValue(undefined);
     vi.spyOn(Math, "random").mockReturnValue(0.5);
     mailboxSync.syncPages.mockResolvedValue({
       hasMore: false,
@@ -76,7 +81,7 @@ describe("useMailboxSync", () => {
     expect(mailboxSync.syncPages).toHaveBeenCalledTimes(3);
   });
 
-  it("pauses offline or hidden work and resumes on browser events", async () => {
+  it("pauses offline work and resumes on browser events", async () => {
     setOnline(false);
     renderHook(() =>
       useMailboxSync({ emailAccountId: "account-1", enabled: true }),
@@ -90,6 +95,14 @@ describe("useMailboxSync", () => {
     act(() => window.dispatchEvent(new Event("online")));
     expect(mailboxSync.syncPages).toHaveBeenCalledOnce();
     await settlePromises();
+  });
+
+  it("pauses hidden polling in the web app until the tab is visible again", async () => {
+    renderHook(() =>
+      useMailboxSync({ emailAccountId: "account-1", enabled: true }),
+    );
+    expect(mailboxSync.syncPages).toHaveBeenCalledOnce();
+    await settlePromises();
 
     setVisibility("hidden");
     act(() => window.dispatchEvent(new Event("focus")));
@@ -98,6 +111,24 @@ describe("useMailboxSync", () => {
     setVisibility("visible");
     act(() => document.dispatchEvent(new Event("visibilitychange")));
     await act(() => vi.advanceTimersByTimeAsync(0));
+    expect(mailboxSync.syncPages).toHaveBeenCalledTimes(2);
+  });
+
+  it("continues hidden polling in the desktop app", async () => {
+    desktop.getApp.mockReturnValue({
+      startAuth: vi.fn(),
+    });
+    setVisibility("hidden");
+
+    renderHook(() =>
+      useMailboxSync({ emailAccountId: "account-1", enabled: true }),
+    );
+    expect(mailboxSync.syncPages).toHaveBeenCalledOnce();
+    await settlePromises();
+
+    await act(() => vi.advanceTimersByTimeAsync(59_999));
+    expect(mailboxSync.syncPages).toHaveBeenCalledOnce();
+    await act(() => vi.advanceTimersByTimeAsync(1));
     expect(mailboxSync.syncPages).toHaveBeenCalledTimes(2);
   });
 

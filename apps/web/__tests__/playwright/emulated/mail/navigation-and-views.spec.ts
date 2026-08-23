@@ -1,5 +1,38 @@
 import { expect, test } from "@playwright/test";
+import { getEmailAccountId } from "../account-test-helpers";
 import { conversationWithSubject, openMail } from "./mail-test-helpers";
+
+test("starts mailbox warming from the app shell before mail opens", async ({
+  page,
+}) => {
+  const emailAccountId = await getEmailAccountId(page);
+  const syncAccountIds = new Set<string>();
+
+  await page.route("**/api/mobile/mailbox-sync", async (route) => {
+    const syncAccountId = await route
+      .request()
+      .headerValue("X-Email-Account-ID");
+    if (syncAccountId) syncAccountIds.add(syncAccountId);
+    await route.fulfill({
+      body: JSON.stringify({
+        accountId: syncAccountId ?? emailAccountId,
+        cursor: `${syncAccountId ?? emailAccountId}-cursor`,
+        deletedMessageIds: [],
+        hasMore: false,
+        reset: false,
+        upsertedMessages: [],
+      }),
+      contentType: "application/json",
+      status: 200,
+    });
+  });
+
+  await page.goto(`/${emailAccountId}/settings`);
+  await expect(
+    page.getByRole("heading", { name: "Settings", exact: true }),
+  ).toBeVisible();
+  await expect.poll(() => [...syncAccountIds]).toContain(emailAccountId);
+});
 
 test("opens a complete conversation and updates its read state", async ({
   page,

@@ -1,5 +1,4 @@
 import { MailThemeScope } from "@/app/(app)/[emailAccountId]/mail/MailThemeScope";
-import { MailboxSyncManager } from "@/app/(app)/[emailAccountId]/mail/MailboxSyncManager";
 import { ShortcutsProvider } from "@/lib/shortcuts/ShortcutsProvider";
 import { MAIL_SHORTCUT_SCOPES } from "@/lib/shortcuts/registry";
 
@@ -13,7 +12,6 @@ export default function MailLayout({
   return (
     <ShortcutsProvider scopes={MAIL_SHORTCUT_SCOPES}>
       <MailThemeScope />
-      <MailboxSyncManager />
       {children}
     </ShortcutsProvider>
   );
