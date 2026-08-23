@@ -514,10 +514,12 @@ describe("synced mailbox cache", () => {
       accountStates: {
         "account-1": {
           after: "2026-07-24T00:00:00.000Z",
+          complete: true,
           truncated: false,
         },
         "account-2": {
           after: "2026-07-24T00:00:00.000Z",
+          complete: true,
           truncated: false,
         },
       },
@@ -578,6 +580,7 @@ describe("synced mailbox cache", () => {
     });
 
     expect(snapshot).toMatchObject({
+      accountStates: { "account-1": { complete: true } },
       complete: false,
       missingAccountIds: ["account-2"],
       truncated: false,

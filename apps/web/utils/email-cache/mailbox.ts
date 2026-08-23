@@ -30,7 +30,7 @@ export type SyncedMailboxSnapshot = {
 export type SyncedCombinedMailboxSnapshot = {
   accountStates: Record<
     string,
-    { after: string; syncedAt: number; truncated: boolean }
+    { after: string; complete: boolean; syncedAt: number; truncated: boolean }
   >;
   complete: boolean;
   missingAccountIds: string[];
@@ -323,6 +323,7 @@ export async function readCombinedSyncedMailboxThreads({
         account.id,
         {
           after: snapshot.after,
+          complete: snapshot.complete,
           syncedAt: snapshot.syncedAt,
           truncated: snapshot.truncated,
         },

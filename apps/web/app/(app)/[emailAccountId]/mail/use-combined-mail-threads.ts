@@ -54,6 +54,11 @@ type CombinedThreadRemoval = {
   entries: Map<string, RemovedCombinedThread>;
 };
 
+type HiddenThreadConfirmation = {
+  accountId: string;
+  after: number;
+};
+
 type PersistentCombinedView = {
   identity: string;
   hasMore: boolean;
@@ -116,6 +121,9 @@ export function useCombinedMailThreads({
   const [synced, setSynced] = useState<SyncedCombinedView>();
   const accountsRef = useRef(accounts);
   const hiddenByView = useRef(new Map<string, Set<string>>());
+  const hiddenConfirmationsByView = useRef(
+    new Map<string, Map<string, HiddenThreadConfirmation>>(),
+  );
   const optimisticUpdateTokens = useRef(new Map<string, symbol>());
   const [, renderHiddenChanges] = useReducer((version) => version + 1, 0);
   const remoteIdentity = useRef<string | undefined>(undefined);
@@ -176,10 +184,24 @@ export function useCombinedMailThreads({
           const snapshotThreadKeys = new Set(
             snapshot.threads.map(getListThreadKey),
           );
+          const confirmations =
+            hiddenConfirmationsByView.current.get(viewIdentity);
           const unconfirmed = new Set(
-            [...hidden].filter((threadKey) =>
-              snapshotThreadKeys.has(threadKey),
-            ),
+            [...hidden].filter((threadKey) => {
+              if (snapshotThreadKeys.has(threadKey)) return true;
+              const confirmation = confirmations?.get(threadKey);
+              if (!confirmation) return true;
+              const accountState =
+                snapshot.accountStates[confirmation.accountId];
+              if (
+                !accountState?.complete ||
+                accountState.syncedAt <= confirmation.after
+              ) {
+                return true;
+              }
+              confirmations.delete(threadKey);
+              return false;
+            }),
           );
           if (unconfirmed.size !== hidden.size) {
             hiddenByView.current.set(viewIdentity, unconfirmed);
@@ -233,9 +255,12 @@ export function useCombinedMailThreads({
   );
   const hiddenThreadKeys =
     hiddenByView.current.get(viewIdentity) ?? EMPTY_THREAD_KEYS;
+  const remoteHasMore = Boolean(data?.at(-1)?.nextPageToken);
   const visibleThreadLimit = Math.max(
     COMBINED_PAGE_SIZE,
-    (data?.length ?? 1) * COMBINED_PAGE_SIZE,
+    data && remoteHasMore
+      ? data.length * COMBINED_PAGE_SIZE
+      : (sourceThreads?.length ?? 0),
   );
   const threads = useMemo(() => {
     const byKey = new Map<string, GetAllThreadsResponse["threads"][number]>();
@@ -250,7 +275,7 @@ export function useCombinedMailThreads({
       .slice(0, visibleThreadLimit);
   }, [hiddenThreadKeys, sourceThreads, visibleThreadLimit]);
   const hasMore = data
-    ? Boolean(data.at(-1)?.nextPageToken)
+    ? remoteHasMore
     : persistent?.identity === viewIdentity
       ? persistent.hasMore
       : Boolean(syncedView?.truncated);
@@ -315,6 +340,17 @@ export function useCombinedMailThreads({
         viewIdentity,
         new Set([...alreadyHidden, ...removedKeys]),
       );
+      const confirmations = new Map(
+        hiddenConfirmationsByView.current.get(viewIdentity),
+      );
+      const after = Date.now();
+      for (const [threadKey, entry] of entries) {
+        confirmations.set(threadKey, {
+          accountId: entry.thread.account.id,
+          after,
+        });
+      }
+      hiddenConfirmationsByView.current.set(viewIdentity, confirmations);
       renderHiddenChanges();
       const removed = new Set(removedKeys);
       setPersistent((current) =>
@@ -373,6 +409,10 @@ export function useCombinedMailThreads({
         hidden.delete(getListThreadKey(entry.thread));
       }
       hiddenByView.current.set(viewIdentity, hidden);
+      const confirmations = hiddenConfirmationsByView.current.get(viewIdentity);
+      for (const entry of restoring) {
+        confirmations?.delete(getListThreadKey(entry.thread));
+      }
       renderHiddenChanges();
       const firstPageEntries = restoring.filter(
         (entry) => entry.pageIndex === 0,
