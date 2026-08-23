@@ -98,7 +98,7 @@ test("navigates drafts and sent mail from the sidebar", async ({ page }) => {
   await expect(draft).toHaveCount(0);
 });
 
-test("creates a label and shows every keyboard workflow", async ({
+test("creates and edits a label and shows every keyboard workflow", async ({
   page,
 }, testInfo) => {
   await openMail(page);
@@ -109,6 +109,31 @@ test("creates a label and shows every keyboard workflow", async ({
   await page.getByRole("button", { name: "Add", exact: true }).click();
   await expect(
     page.getByRole("link", { name: labelName, exact: true }),
+  ).toBeVisible();
+
+  await page
+    .getByRole("link", { name: labelName, exact: true })
+    .click({ button: "right" });
+  const editMenuItem = page.getByRole("menuitem", { name: "Edit" });
+  await expect(editMenuItem).toBeVisible();
+  await testInfo.attach("gmail-label-context-menu", {
+    body: await page.screenshot(),
+    contentType: "image/png",
+  });
+  await editMenuItem.click();
+  const editDialog = page.getByRole("dialog", { name: "Edit label" });
+  const updatedLabelName = `${labelName} edited`;
+  await editDialog
+    .getByRole("textbox", { name: "label name" })
+    .fill(updatedLabelName);
+  await editDialog.getByRole("radio", { name: "Dark blue" }).click();
+  await testInfo.attach("gmail-label-editor", {
+    body: await page.screenshot(),
+    contentType: "image/png",
+  });
+  await editDialog.getByRole("button", { name: "Save" }).click();
+  await expect(
+    page.getByRole("link", { name: updatedLabelName, exact: true }),
   ).toBeVisible();
 
   await page.getByRole("button", { name: /^Keyboard shortcuts/ }).click();

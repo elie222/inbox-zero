@@ -244,3 +244,34 @@ export async function getOrCreateOutlookFolderIdByName(
     throw error;
   }
 }
+
+export async function renameOutlookFolder(
+  client: OutlookClient,
+  folderId: string,
+  name: string,
+  logger: Logger,
+): Promise<void> {
+  await withMicrosoftGraphWriteRetry(
+    () =>
+      client
+        .getClient()
+        .api(`/me/mailFolders/${encodeURIComponent(folderId)}`)
+        .patch({ displayName: name }),
+    logger,
+  );
+}
+
+export async function deleteOutlookFolder(
+  client: OutlookClient,
+  folderId: string,
+  logger: Logger,
+): Promise<void> {
+  await withMicrosoftGraphWriteRetry(
+    () =>
+      client
+        .getClient()
+        .api(`/me/mailFolders/${encodeURIComponent(folderId)}`)
+        .delete(),
+    logger,
+  );
+}

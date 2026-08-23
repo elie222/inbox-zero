@@ -37,6 +37,16 @@ export interface EmailLabel {
   type: string;
 }
 
+export type EmailLabelColor = {
+  backgroundColor: string;
+  textColor: string;
+};
+
+export type EmailLabelUpdate = {
+  color?: EmailLabelColor;
+  name?: string;
+};
+
 export type EmailFolderCount = {
   id: string;
   name: string;
@@ -125,6 +135,7 @@ export interface EmailProvider {
   createLabel(name: string, description?: string): Promise<EmailLabel>;
   deleteDraft(draftId: string): Promise<void>;
   deleteFilter(id: string): Promise<{ status: number }>;
+  deleteFolder(folderId: string): Promise<void>;
   deleteLabel(labelId: string): Promise<void>;
   draftEmail(
     email: ParsedMessage,
@@ -276,6 +287,7 @@ export interface EmailProvider {
   readonly name: "google" | "microsoft";
   removeThreadLabel(threadId: string, labelId: string): Promise<void>;
   removeThreadLabels(threadId: string, labelIds: string[]): Promise<void>;
+  renameFolder(folderId: string, name: string): Promise<void>;
   replyToEmail(
     email: ParsedMessage,
     content: string,
@@ -348,6 +360,7 @@ export interface EmailProvider {
       subject?: string;
     },
   ): Promise<void>;
+  updateLabel(labelId: string, update: EmailLabelUpdate): Promise<void>;
   watchEmails(): Promise<{
     expirationDate: Date;
     subscriptionId?: string;

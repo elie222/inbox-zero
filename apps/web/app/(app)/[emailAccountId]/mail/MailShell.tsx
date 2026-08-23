@@ -21,6 +21,10 @@ import type {
   MailCategory,
   MailNavTarget,
 } from "@/app/(app)/[emailAccountId]/mail/MailSidebar";
+import type {
+  MailboxItem,
+  MailboxItemEdit,
+} from "@/app/(app)/[emailAccountId]/mail/MailboxItemContextMenu";
 import { ThreadActionsMenu } from "@/app/(app)/[emailAccountId]/mail/ThreadActionsMenu";
 import { ShortcutsDialog } from "@/app/(app)/[emailAccountId]/mail/ShortcutsDialog";
 import { SplitTabs } from "@/app/(app)/[emailAccountId]/mail/SplitTabs";
@@ -80,8 +84,10 @@ import {
 import {
   archiveThreadAction,
   createLabelAction,
+  deleteMailboxItemAction,
   removeThreadLabelAction,
   trashThreadAction,
+  updateMailboxItemAction,
 } from "@/utils/actions/mail";
 import {
   mailSplitToThreadsQuery,
@@ -95,6 +101,8 @@ import type { ThreadsQuery } from "@/utils/threads/validation";
 import { getEmailTerminology } from "@/utils/terminology";
 import { createSearchParams } from "@/utils/url";
 import { redirectToSafeUrl } from "@/utils/redirect";
+import { GMAIL_LABEL_COLORS } from "@/utils/gmail/label-colors";
+import { OUTLOOK_CATEGORY_COLORS } from "@/utils/outlook/category-colors";
 
 // Always present, never deletable. Everything else is a saved split. They carry
 // a kind so built-ins and saved splits resolve through one mapping.
@@ -106,6 +114,11 @@ const BUILT_IN_SPLITS = [
 // Module-level so an "empty" reader doesn't hand children a new array each render.
 const NO_MESSAGES: ThreadMessage[] = [];
 const NO_LABELS = {};
+const OUTLOOK_LABEL_COLOR_OPTIONS = OUTLOOK_CATEGORY_COLORS.map((option) => ({
+  name: option.name,
+  backgroundColor: option.value,
+  textColor: "#000000",
+}));
 const NO_COUNTS = new Map<string, LabelCount>();
 
 export function MailShell() {
@@ -116,8 +129,8 @@ export function MailShell() {
   const terminology = getEmailTerminology(provider);
   const { userLabels } = useEmail();
   const { visibleLabels, mutate: mutateLabels } = useSplitLabels();
-  const { folders } = useFolders(provider);
-  const { countsById } = useLabelCounts();
+  const { folders, mutate: mutateFolders } = useFolders(provider);
+  const { countsById, mutate: mutateCounts } = useLabelCounts();
   const { data: settings, mutate: mutateSettings } = useMailSettings();
   const { onOpen: openCompose } = useComposeModal();
   const { setInput: setChatInput } = useChat();
@@ -693,6 +706,95 @@ export function MailShell() {
     [emailAccountId, mutateLabels, terminology.label.singularCapitalized],
   );
 
+  const onEditMailboxItem = useCallback(
+    async (edit: MailboxItemEdit) => {
+      const result = await updateMailboxItemAction(emailAccountId, edit);
+
+      if (result?.serverError || result?.validationErrors) {
+        toast.error(getActionErrorMessage(result));
+        return false;
+      }
+
+      await Promise.all([
+        edit.kind === "folder" ? mutateFolders() : mutateLabels(),
+        mutateCounts(),
+      ]);
+      toast.success(
+        `${edit.kind === "folder" ? "Folder" : terminology.label.singularCapitalized} updated`,
+      );
+      return true;
+    },
+    [
+      emailAccountId,
+      mutateCounts,
+      mutateFolders,
+      mutateLabels,
+      terminology.label.singularCapitalized,
+    ],
+  );
+
+  const onDeleteMailboxItem = useCallback(
+    async (item: MailboxItem) => {
+      const result = await deleteMailboxItemAction(emailAccountId, {
+        kind: item.kind,
+        id: item.id,
+      });
+      if (result?.serverError || result?.validationErrors) {
+        toast.error(getActionErrorMessage(result));
+        return false;
+      }
+
+      const isActive =
+        item.kind === "folder"
+          ? scopeFolderId === item.id
+          : scopeLabelId === item.id;
+      const deletedActiveSplit =
+        item.kind === "label" &&
+        settings?.splits?.some(
+          (split) =>
+            split.id === activeSplitId &&
+            split.kind === MailSplitKind.LABEL &&
+            split.value === item.id,
+        );
+      if (isActive) {
+        await Promise.all([
+          setOpenThreadId(null),
+          setScopeType("inbox"),
+          item.kind === "folder"
+            ? setScopeFolderId(null)
+            : setScopeLabelId(null),
+        ]);
+      }
+      if (deletedActiveSplit) setActiveSplitId("all");
+      await Promise.all([
+        item.kind === "folder" ? mutateFolders() : mutateLabels(),
+        mutateCounts(),
+        item.kind === "label" ? mutateSettings() : undefined,
+      ]);
+      toast.success(
+        `${item.kind === "folder" ? "Folder" : terminology.label.singularCapitalized} deleted`,
+      );
+      return true;
+    },
+    [
+      emailAccountId,
+      mutateCounts,
+      mutateFolders,
+      mutateLabels,
+      mutateSettings,
+      activeSplitId,
+      scopeFolderId,
+      scopeLabelId,
+      setActiveSplitId,
+      setOpenThreadId,
+      setScopeFolderId,
+      setScopeLabelId,
+      setScopeType,
+      settings?.splits,
+      terminology.label.singularCapitalized,
+    ],
+  );
+
   const onRemoveLabel = useCallback(
     async (labelId: string) => {
       if (!openThreadId) return;
@@ -759,7 +861,13 @@ export function MailShell() {
               backToAppHref={prefixPath(emailAccountId, "/automation")}
               onCompose={openCompose}
               onCreateLabel={onCreateLabel}
+              onEditMailboxItem={onEditMailboxItem}
+              onDeleteMailboxItem={onDeleteMailboxItem}
               onOpenShortcuts={openShortcuts}
+              labelEditMode={isOutlook ? "color" : "name-and-color"}
+              labelColorOptions={
+                isOutlook ? OUTLOOK_LABEL_COLOR_OPTIONS : GMAIL_LABEL_COLORS
+              }
               unified={isAllAccounts}
               footer={
                 <MailAccountSwitcher

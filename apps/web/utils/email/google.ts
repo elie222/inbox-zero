@@ -84,6 +84,7 @@ import type {
   SentMessagePage,
   BulkArchiveThread,
   BulkArchiveResult,
+  EmailLabelUpdate,
 } from "@/utils/email/types";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 import { getGmailSignatures } from "@/utils/gmail/signature-settings";
@@ -1102,9 +1103,24 @@ export class GmailProvider implements EmailProvider {
   }
 
   async deleteLabel(labelId: string): Promise<void> {
-    await this.client.users.labels.delete({
+    try {
+      await withGmailRetry(() =>
+        this.client.users.labels.delete({
+          userId: "me",
+          id: labelId,
+        }),
+      );
+    } catch (error) {
+      if (extractErrorInfo(error).status !== 404) throw error;
+      this.logger.info("Label was already deleted", { labelId });
+    }
+  }
+
+  async updateLabel(labelId: string, update: EmailLabelUpdate): Promise<void> {
+    await this.client.users.labels.patch({
       userId: "me",
       id: labelId,
+      requestBody: update,
     });
   }
 
@@ -1658,6 +1674,14 @@ export class GmailProvider implements EmailProvider {
 
   async getFolderCounts() {
     return [];
+  }
+
+  async renameFolder(_folderId: string, _name: string): Promise<void> {
+    this.logger.warn("Renaming folders is not supported for Gmail");
+  }
+
+  async deleteFolder(_folderId: string): Promise<void> {
+    this.logger.warn("Deleting folders is not supported for Gmail");
   }
 
   async moveThreadToFolder(
