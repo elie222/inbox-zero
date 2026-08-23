@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useSWRConfig } from "swr";
 import useSWRInfinite from "swr/infinite";
 import type { GetAllThreadsResponse } from "@/app/api/threads/all/route";
 import { getListThreadKey } from "@/app/(app)/[emailAccountId]/mail/types";
@@ -97,10 +98,10 @@ export function useCombinedMailThreads({
     [isUnread],
   );
   const viewIdentity = `${emailAccountId}:${accountIdentity}:${viewKey}`;
+  const { fetcher } = useSWRConfig();
   const remoteRequest = useRef({
     identity: viewIdentity,
     startedAt: Date.now(),
-    validating: false,
   });
   const getKey = useCallback(
     (pageIndex: number, previousPageData: GetAllThreadsResponse | null) => {
@@ -116,12 +117,30 @@ export function useCombinedMailThreads({
     },
     [enabled, isUnread],
   );
-  const { data, error, isLoading, isValidating, size, setSize, mutate } =
-    useSWRInfinite<GetAllThreadsResponse>(getKey, {
-      keepPreviousData: false,
-      revalidateFirstPage: false,
-      revalidateOnFocus: false,
-    });
+  const fetchCombinedPage = useCallback(
+    async (key: string) => {
+      if (!fetcher) throw new Error("SWR fetcher is unavailable");
+      const query = new URLSearchParams(key.split("?")[1]);
+      if (!query.has("cursor")) {
+        remoteRequest.current = {
+          identity: viewIdentity,
+          startedAt: Date.now(),
+        };
+      }
+      return (await fetcher(key)) as GetAllThreadsResponse;
+    },
+    [fetcher, viewIdentity],
+  );
+  const { data, error, isLoading, size, setSize, mutate } =
+    useSWRInfinite<GetAllThreadsResponse>(
+      getKey,
+      fetcher ? fetchCombinedPage : null,
+      {
+        keepPreviousData: false,
+        revalidateFirstPage: false,
+        revalidateOnFocus: false,
+      },
+    );
   const [persistent, setPersistent] = useState<PersistentCombinedView>();
   const [synced, setSynced] = useState<SyncedCombinedView>();
   const [localPagination, setLocalPagination] = useState({
@@ -151,13 +170,8 @@ export function useCombinedMailThreads({
     remoteRequest.current = {
       identity: viewIdentity,
       startedAt: Date.now(),
-      validating: false,
     };
   }
-  if (isValidating && !remoteRequest.current.validating) {
-    remoteRequest.current.startedAt = Date.now();
-  }
-  remoteRequest.current.validating = isValidating;
   remoteIdentity.current = data?.[0] ? viewIdentity : undefined;
   accountsRef.current = accounts;
   if (data?.[0] && remoteSnapshot.current.firstPage !== data[0]) {
