@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getMockEmailAccountWithAccount } from "@/__tests__/helpers";
+import { MailSplitKind } from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
 import {
   deleteMailboxItemAction,
@@ -105,6 +106,17 @@ describe("mailbox item actions", () => {
 
     expect(result?.serverError).toBeUndefined();
     expect(method).toHaveBeenCalledWith(`${kind}-1`);
+    if (kind === "label") {
+      expect(prisma.mailSplit.deleteMany).toHaveBeenCalledWith({
+        where: {
+          emailAccountId: EMAIL_ACCOUNT_ID,
+          kind: MailSplitKind.LABEL,
+          value: "label-1",
+        },
+      });
+    } else {
+      expect(prisma.mailSplit.deleteMany).not.toHaveBeenCalled();
+    }
   });
 
   it("rejects folder mutations for non-Outlook accounts", async () => {

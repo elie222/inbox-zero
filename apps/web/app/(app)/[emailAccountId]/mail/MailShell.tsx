@@ -752,6 +752,14 @@ export function MailShell() {
         item.kind === "folder"
           ? scopeFolderId === item.id
           : scopeLabelId === item.id;
+      const deletedActiveSplit =
+        item.kind === "label" &&
+        settings?.splits?.some(
+          (split) =>
+            split.id === activeSplitId &&
+            split.kind === MailSplitKind.LABEL &&
+            split.value === item.id,
+        );
       if (isActive) {
         await Promise.all([
           setOpenThreadId(null),
@@ -761,9 +769,11 @@ export function MailShell() {
             : setScopeLabelId(null),
         ]);
       }
+      if (deletedActiveSplit) setActiveSplitId("all");
       await Promise.all([
         item.kind === "folder" ? mutateFolders() : mutateLabels(),
         mutateCounts(),
+        item.kind === "label" ? mutateSettings() : undefined,
       ]);
       toast.success(
         `${item.kind === "folder" ? "Folder" : terminology.label.singularCapitalized} deleted`,
@@ -775,12 +785,16 @@ export function MailShell() {
       mutateCounts,
       mutateFolders,
       mutateLabels,
+      mutateSettings,
+      activeSplitId,
       scopeFolderId,
       scopeLabelId,
+      setActiveSplitId,
       setOpenThreadId,
       setScopeFolderId,
       setScopeLabelId,
       setScopeType,
+      settings?.splits,
       terminology.label.singularCapitalized,
     ],
   );

@@ -15,6 +15,7 @@ import {
   updateLabelColorBody,
 } from "@/utils/actions/mail.validation";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import { MailSplitKind } from "@/generated/prisma/enums";
 
 const isStatusOk = (status: number) => status >= 200 && status < 300;
 
@@ -337,8 +338,18 @@ export const deleteMailboxItemAction = actionClient
       });
 
       try {
-        if (kind === "folder") await emailProvider.deleteFolder(id);
-        else await emailProvider.deleteLabel(id);
+        if (kind === "folder") {
+          await emailProvider.deleteFolder(id);
+        } else {
+          await emailProvider.deleteLabel(id);
+          await prisma.mailSplit.deleteMany({
+            where: {
+              emailAccountId,
+              kind: MailSplitKind.LABEL,
+              value: id,
+            },
+          });
+        }
       } catch (error) {
         logger.error("Failed to delete mailbox item", { error, kind });
         throw new SafeError(`Failed to delete ${kind}. Please try again.`);
