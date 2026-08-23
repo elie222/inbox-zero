@@ -27,7 +27,8 @@ describe("mailbox sync scheduler", () => {
     const first = scheduler.run({ emailAccountId: "account-1" });
     const second = scheduler.run({ emailAccountId: "account-2" });
     const third = scheduler.run({ emailAccountId: "account-3" });
-    const priority = scheduler.run({
+    const priority = scheduler.run({ emailAccountId: "active-account" });
+    scheduler.setPriority({
       emailAccountId: "active-account",
       priority: true,
     });

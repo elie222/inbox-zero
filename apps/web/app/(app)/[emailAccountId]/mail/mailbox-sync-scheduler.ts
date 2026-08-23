@@ -33,6 +33,16 @@ export function createMailboxSyncScheduler({
     else queue.splice(firstStandardRequest, 0, request);
   };
 
+  const setQueuedPriority = (request: ScheduledSync, priority: boolean) => {
+    if (!request.queued || request.priority === priority) return;
+
+    request.priority = priority;
+    const queueIndex = queue.indexOf(request);
+    if (queueIndex < 0) return;
+    queue.splice(queueIndex, 1);
+    enqueue(request);
+  };
+
   const drain = () => {
     while (activeCount < maxConcurrent) {
       const request = queue.shift();
@@ -69,12 +79,7 @@ export function createMailboxSyncScheduler({
     }) {
       const existing = requests.get(emailAccountId);
       if (existing) {
-        if (priority && !existing.priority && existing.queued) {
-          existing.priority = true;
-          const queueIndex = queue.indexOf(existing);
-          if (queueIndex >= 0) queue.splice(queueIndex, 1);
-          enqueue(existing);
-        }
+        if (priority) setQueuedPriority(existing, true);
         return existing.result.promise;
       }
 
@@ -88,6 +93,16 @@ export function createMailboxSyncScheduler({
       enqueue(request);
       drain();
       return request.result.promise;
+    },
+    setPriority({
+      emailAccountId,
+      priority,
+    }: {
+      emailAccountId: string;
+      priority: boolean;
+    }) {
+      const request = requests.get(emailAccountId);
+      if (request) setQueuedPriority(request, priority);
     },
   };
 }

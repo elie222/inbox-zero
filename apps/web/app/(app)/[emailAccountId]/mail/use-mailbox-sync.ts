@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { trackMailboxSyncResult } from "@/utils/email-cache/analytics";
 import {
   fetchMailboxSyncPage,
@@ -34,6 +34,14 @@ export function useMailboxSync({
   enabled: boolean;
   priority?: boolean;
 }) {
+  const priorityRef = useRef(priority);
+
+  useEffect(() => {
+    if (!enabled || !emailAccountId) return;
+    priorityRef.current = priority;
+    mailboxSyncScheduler.setPriority({ emailAccountId, priority });
+  }, [emailAccountId, enabled, priority]);
+
   useEffect(() => {
     if (!enabled || !emailAccountId) return;
     let cancelled = false;
@@ -64,7 +72,7 @@ export function useMailboxSync({
       const startedAt = performance.now();
       attempts += 1;
       mailboxSyncScheduler
-        .run({ emailAccountId, priority })
+        .run({ emailAccountId, priority: priorityRef.current })
         .then(({ hasMore, pagesSynced }) => {
           const catchUpCompleted = catchingUp && !hasMore;
           const shouldTrackSteadySync =
@@ -139,7 +147,7 @@ export function useMailboxSync({
       window.removeEventListener("online", run);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [emailAccountId, enabled, priority]);
+  }, [emailAccountId, enabled]);
 }
 
 export function requestMailboxSync(emailAccountId: string) {

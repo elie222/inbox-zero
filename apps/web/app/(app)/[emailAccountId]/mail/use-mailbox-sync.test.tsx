@@ -168,6 +168,31 @@ describe("useMailboxSync", () => {
     expect(mailboxSync.syncPages).toHaveBeenCalledTimes(5);
   });
 
+  it("keeps retry backoff when account priority changes", async () => {
+    mailboxSync.syncPages
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValue({ hasMore: false, pagesSynced: 1 });
+    const { rerender } = renderHook(
+      ({ priority }) =>
+        useMailboxSync({
+          emailAccountId: "account-1",
+          enabled: true,
+          priority,
+        }),
+      { initialProps: { priority: false } },
+    );
+    await settlePromises();
+
+    rerender({ priority: true });
+    await settlePromises();
+    expect(mailboxSync.syncPages).toHaveBeenCalledOnce();
+
+    await act(() => vi.advanceTimersByTimeAsync(59_999));
+    expect(mailboxSync.syncPages).toHaveBeenCalledOnce();
+    await act(() => vi.advanceTimersByTimeAsync(1));
+    expect(mailboxSync.syncPages).toHaveBeenCalledTimes(2);
+  });
+
   it("jitters retry schedules to avoid synchronized clients", async () => {
     vi.mocked(Math.random).mockReturnValue(0);
     mailboxSync.syncPages
