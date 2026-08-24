@@ -1,4 +1,4 @@
-import { SCOPES } from "@/utils/gmail/scopes";
+import { hasGoogleScope, SCOPES } from "@/utils/gmail/scopes";
 import {
   getAccessTokenFromClient,
   getGmailClientWithRefresh,
@@ -55,7 +55,7 @@ async function checkGmailPermissions({
 
     const grantedScopes = grantedScope.split(/[,\s]+/).filter(Boolean);
     const missingScopes = SCOPES.filter(
-      (scope) => !grantedScopes.includes(scope),
+      (scope) => !hasGoogleScope(grantedScopes, scope),
     );
 
     if (missingScopes.length > 0) {
@@ -112,7 +112,7 @@ async function checkGmailPermissions({
 
     const grantedScopes = data.scope?.split(" ") || [];
     const missingScopes = SCOPES.filter(
-      (scope) => !grantedScopes.includes(scope),
+      (scope) => !hasGoogleScope(grantedScopes, scope),
     );
 
     const hasAllPermissions = missingScopes.length === 0;

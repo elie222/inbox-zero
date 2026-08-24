@@ -1,14 +1,16 @@
 import { env } from "@/env";
 
+const GOOGLE_CONTACTS_SCOPE = "https://www.googleapis.com/auth/contacts";
+const GOOGLE_CONTACTS_READONLY_SCOPE =
+  "https://www.googleapis.com/auth/contacts.readonly";
+
 export const SCOPES = [
   "https://www.googleapis.com/auth/userinfo.profile",
   "https://www.googleapis.com/auth/userinfo.email",
 
   "https://www.googleapis.com/auth/gmail.modify",
   "https://www.googleapis.com/auth/gmail.settings.basic",
-  ...(env.NEXT_PUBLIC_CONTACTS_ENABLED
-    ? ["https://www.googleapis.com/auth/contacts.readonly"]
-    : []),
+  ...(env.NEXT_PUBLIC_CONTACTS_ENABLED ? [GOOGLE_CONTACTS_READONLY_SCOPE] : []),
 ];
 
 export const CALENDAR_SCOPES = [
@@ -22,3 +24,11 @@ export const CALENDAR_SCOPES = [
   // "https://www.googleapis.com/auth/calendar.calendars.readonly", // For reading calendar metadata
   // "https://www.googleapis.com/auth/calendar.calendars", // For creating/managing calendars
 ];
+
+export function hasGoogleScope(grantedScopes: string[], requiredScope: string) {
+  return (
+    grantedScopes.includes(requiredScope) ||
+    (requiredScope === GOOGLE_CONTACTS_READONLY_SCOPE &&
+      grantedScopes.includes(GOOGLE_CONTACTS_SCOPE))
+  );
+}
