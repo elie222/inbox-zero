@@ -20,7 +20,7 @@ export const organizationBillingPrincipalsSelect = {
       },
     },
   },
-} as const;
+} satisfies Prisma.OrganizationSelect;
 
 const billingAccessMembershipSelect = {
   role: true,
