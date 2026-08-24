@@ -559,6 +559,7 @@ function toListThread(
   if (!latest) throw new Error("Synced mailbox thread has no messages");
   return {
     id: threadId,
+    messageIds: listMessages.map((message) => message.id),
     snippet: latest.snippet,
     plan: cachedThread?.plan,
     plans: cachedThread?.plans ?? [],
