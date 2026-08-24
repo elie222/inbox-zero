@@ -6,6 +6,7 @@ import type {
   OutlookSystemFolder,
 } from "@/utils/outlook/folders";
 import type { Attachment as MailAttachment } from "nodemailer/lib/mailer";
+import type { Attachment } from "@/utils/types/mail";
 
 export interface EmailThread {
   historyId?: string;
@@ -86,6 +87,23 @@ export type BulkArchiveThread = {
 export type BulkArchiveResult = {
   succeededThreadIds: string[];
   failedThreadIds: string[];
+};
+
+export type SendEmailWithHtmlBody = {
+  replyToEmail?: {
+    threadId: string;
+    headerMessageId: string;
+    references?: string;
+    messageId?: string;
+  };
+  to: string;
+  from?: string;
+  cc?: string;
+  bcc?: string;
+  replyTo?: string;
+  subject: string;
+  messageHtml: string;
+  attachments?: Attachment[];
 };
 
 export interface EmailProvider {
@@ -316,26 +334,7 @@ export interface EmailProvider {
     messageText: string;
     attachments?: MailAttachment[];
   }): Promise<void>;
-  sendEmailWithHtml(body: {
-    replyToEmail?: {
-      threadId: string;
-      headerMessageId: string;
-      references?: string;
-      messageId?: string; // Platform-specific message ID (Graph ID for Outlook)
-    };
-    to: string;
-    from?: string;
-    cc?: string;
-    bcc?: string;
-    replyTo?: string;
-    subject: string;
-    messageHtml: string;
-    attachments?: Array<{
-      filename: string;
-      content: string;
-      contentType: string;
-    }>;
-  }): Promise<{
+  sendEmailWithHtml(body: SendEmailWithHtmlBody): Promise<{
     messageId: string;
     threadId: string;
   }>;

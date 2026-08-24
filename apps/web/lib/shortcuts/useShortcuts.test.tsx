@@ -54,6 +54,18 @@ describe("useShortcuts", () => {
     expect(send).toHaveBeenCalledOnce();
   });
 
+  it("leaves Mod-K to an email editor's link control", () => {
+    const commandPalette = vi.fn();
+    renderShortcuts({ commandPalette }, MAIL_SCOPES, true);
+
+    press(
+      { key: "k", code: "KeyK", ctrlKey: true },
+      screen.getByRole("textbox", { name: "Email message" }),
+    );
+
+    expect(commandPalette).not.toHaveBeenCalled();
+  });
+
   it("ignores modified presses of a plain shortcut", () => {
     const archive = vi.fn();
     renderShortcuts({ archive });
@@ -126,11 +138,22 @@ describe("useShortcuts", () => {
 function renderShortcuts(
   handlers: ShortcutHandlers,
   scopes: ShortcutScope[] = MAIL_SCOPES,
+  withEmailEditor = false,
 ) {
   return render(
     <ShortcutsProvider scopes={scopes}>
       <Bindings handlers={handlers} />
       <textarea />
+      {withEmailEditor && (
+        <div
+          aria-label="Email message"
+          contentEditable
+          data-email-editor-root
+          role="textbox"
+          suppressContentEditableWarning
+          tabIndex={0}
+        />
+      )}
     </ShortcutsProvider>,
   );
 }

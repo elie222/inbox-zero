@@ -2,14 +2,13 @@
 
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { Markdown } from "tiptap-markdown";
+import { Markdown } from "@tiptap/markdown";
 import { Placeholder } from "@tiptap/extension-placeholder";
 import { useCallback, forwardRef, useImperativeHandle } from "react";
 import { cn } from "@/utils";
 import { EnterHandler } from "@/components/editor/extensions";
 
 export type TiptapHandle = {
-  appendContent: (content: string) => void;
   getMarkdown: () => string | null;
 };
 
@@ -23,6 +22,7 @@ export const Tiptap = forwardRef<
     onMoreClick?: () => void;
     preservePastedLineBreaks?: boolean;
     placeholder?: string;
+    input?: "html" | "markdown";
     output?: "html" | "markdown";
   }
 >(function Tiptap(
@@ -35,6 +35,7 @@ export const Tiptap = forwardRef<
     preservePastedLineBreaks = false,
     placeholder,
     output = "html",
+    input = output === "markdown" ? "markdown" : "html",
   },
   ref,
 ) {
@@ -53,28 +54,20 @@ export const Tiptap = forwardRef<
         },
       }),
       EnterHandler,
-      preservePastedLineBreaks
-        ? Markdown.configure({
-            html: false,
-            transformPastedText: true,
-            transformCopiedText: true,
-            breaks: true,
-            linkify: false,
-            bulletListMarker: "-",
-          })
-        : Markdown,
+      Markdown.configure({
+        markedOptions: { breaks: preservePastedLineBreaks },
+      }),
       Placeholder.configure({
         placeholder: placeholder || "",
         showOnlyWhenEditable: true,
       }),
     ],
     content: initialContent,
+    contentType: input,
     onUpdate: useCallback(
       ({ editor }: { editor: Editor }) => {
         const content =
-          output === "markdown"
-            ? editor.storage.markdown.getMarkdown()
-            : editor.getHTML();
+          output === "markdown" ? editor.getMarkdown() : editor.getHTML();
         onChange?.(content);
       },
       [onChange, output],
@@ -92,18 +85,9 @@ export const Tiptap = forwardRef<
   });
 
   useImperativeHandle(ref, () => ({
-    appendContent: (content: string) => {
-      if (!editor) return;
-
-      // Get the document end position
-      const endPosition = editor.state.doc.content.size;
-
-      // Insert content at the end
-      editor.commands.insertContentAt(endPosition, content);
-    },
     getMarkdown: () => {
       if (!editor) return null;
-      return editor.storage.markdown.getMarkdown();
+      return editor.getMarkdown();
     },
   }));
 

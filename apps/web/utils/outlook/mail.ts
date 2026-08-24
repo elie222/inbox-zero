@@ -563,6 +563,9 @@ async function addAttachmentsToDraft({
               name: attachment.filename || "attachment.pdf",
               contentType: attachment.contentType || "application/octet-stream",
               contentBytes: base64 ?? buffer.toString("base64"),
+              ...(attachment.cid
+                ? { contentId: attachment.cid, isInline: true }
+                : {}),
             }),
         logger,
       );
