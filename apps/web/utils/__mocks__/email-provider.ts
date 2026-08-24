@@ -84,6 +84,10 @@ export const createMockEmailProvider = (
     failedThreadIds: [],
   }),
   archiveMessage: vi.fn().mockResolvedValue(undefined),
+  archiveMessages: vi.fn().mockResolvedValue(undefined),
+  unarchiveMessages: vi.fn().mockResolvedValue(undefined),
+  trashMessages: vi.fn().mockResolvedValue(undefined),
+  untrashMessages: vi.fn().mockResolvedValue(undefined),
   trashThread: vi.fn().mockResolvedValue(undefined),
   unarchiveThread: vi.fn().mockResolvedValue(undefined),
   untrashThread: vi.fn().mockResolvedValue(undefined),
@@ -101,6 +105,7 @@ export const createMockEmailProvider = (
   blockUnsubscribedEmail: vi.fn().mockResolvedValue(undefined),
   markRead: vi.fn().mockResolvedValue(undefined),
   markReadThread: vi.fn().mockResolvedValue(undefined),
+  markMessagesReadState: vi.fn().mockResolvedValue(undefined),
   getDraft: vi.fn().mockResolvedValue(null),
   deleteDraft: vi.fn().mockResolvedValue(undefined),
   sendDraft: vi

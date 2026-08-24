@@ -2,7 +2,7 @@ import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 import type { ParsedMessage } from "@/utils/types";
 
 const DATABASE_NAME = "inbox-zero-email-cache";
-const DATABASE_VERSION = 3;
+const DATABASE_VERSION = 4;
 
 export type CachedThreadRow = {
   emailAccountId: string;
@@ -49,6 +49,41 @@ export type CachedMailboxSyncState = {
   completedAt?: number;
 };
 
+export type StoredMailMutation = {
+  id: string;
+  batchId: string;
+  emailAccountId: string;
+  threadId: string;
+  messageIds: string[];
+  kind:
+    | "archive"
+    | "unarchive"
+    | "trash"
+    | "untrash"
+    | "set_read_state"
+    | "snooze"
+    | "cancel_snooze"
+    | "reply";
+  payload: unknown;
+  status:
+    | "pending"
+    | "processing"
+    | "retry_wait"
+    | "blocked_auth"
+    | "succeeded"
+    | "failed"
+    | "uncertain";
+  attempts: number;
+  nextAttemptAt: number;
+  leaseOwner?: string;
+  leaseExpiresAt?: number;
+  createdAt: number;
+  updatedAt: number;
+  lastError?: string;
+  notificationShownAt?: number;
+  result?: unknown;
+};
+
 interface EmailCacheSchema extends DBSchema {
   mailboxMessages: {
     key: [emailAccountId: string, messageId: string];
@@ -63,6 +98,17 @@ interface EmailCacheSchema extends DBSchema {
   mailboxSyncStates: {
     key: string;
     value: CachedMailboxSyncState;
+  };
+  mailMutations: {
+    key: string;
+    value: StoredMailMutation;
+    indexes: {
+      byAccount: string;
+      byAccountThread: [emailAccountId: string, threadId: string];
+      byBatch: string;
+      byNextAttempt: [status: string, nextAttemptAt: number];
+      byUpdatedAt: number;
+    };
   };
   threadDetails: {
     key: [emailAccountId: string, threadId: string, variant: string];
@@ -136,6 +182,20 @@ export function getEmailCacheDatabase() {
           .objectStore("mailboxMessages")
           .createIndex("byAccountReceivedAt", ["emailAccountId", "receivedAt"]);
       }
+
+      if (oldVersion < 4) {
+        const mutations = database.createObjectStore("mailMutations", {
+          keyPath: "id",
+        });
+        mutations.createIndex("byAccount", "emailAccountId");
+        mutations.createIndex("byAccountThread", [
+          "emailAccountId",
+          "threadId",
+        ]);
+        mutations.createIndex("byBatch", "batchId");
+        mutations.createIndex("byNextAttempt", ["status", "nextAttemptAt"]);
+        mutations.createIndex("byUpdatedAt", "updatedAt");
+      }
     },
     blocking() {
       databasePromise?.then((database) => database?.close());
@@ -185,6 +245,7 @@ export async function clearEmailCache() {
         "threadDetails",
         "mailboxMessages",
         "mailboxSyncStates",
+        "mailMutations",
       ],
       "readwrite",
     );
@@ -194,6 +255,7 @@ export async function clearEmailCache() {
       transaction.objectStore("threadDetails").clear(),
       transaction.objectStore("mailboxMessages").clear(),
       transaction.objectStore("mailboxSyncStates").clear(),
+      transaction.objectStore("mailMutations").clear(),
       transaction.done,
     ]);
   } catch {
@@ -223,6 +285,7 @@ export async function clearEmailCacheForAccount(emailAccountId: string) {
         "threadDetails",
         "mailboxMessages",
         "mailboxSyncStates",
+        "mailMutations",
       ],
       "readwrite",
     );
@@ -230,17 +293,21 @@ export async function clearEmailCacheForAccount(emailAccountId: string) {
     const views = transaction.objectStore("threadViews");
     const details = transaction.objectStore("threadDetails");
     const messages = transaction.objectStore("mailboxMessages");
-    const [rowKeys, viewKeys, detailKeys, messageKeys] = await Promise.all([
-      rows.index("byAccount").getAllKeys(emailAccountId),
-      views.index("byAccount").getAllKeys(emailAccountId),
-      details.index("byAccount").getAllKeys(emailAccountId),
-      messages.index("byAccount").getAllKeys(emailAccountId),
-    ]);
+    const mutations = transaction.objectStore("mailMutations");
+    const [rowKeys, viewKeys, detailKeys, messageKeys, mutationKeys] =
+      await Promise.all([
+        rows.index("byAccount").getAllKeys(emailAccountId),
+        views.index("byAccount").getAllKeys(emailAccountId),
+        details.index("byAccount").getAllKeys(emailAccountId),
+        messages.index("byAccount").getAllKeys(emailAccountId),
+        mutations.index("byAccount").getAllKeys(emailAccountId),
+      ]);
     await Promise.all([
       ...rowKeys.map((key) => rows.delete(key)),
       ...viewKeys.map((key) => views.delete(key)),
       ...detailKeys.map((key) => details.delete(key)),
       ...messageKeys.map((key) => messages.delete(key)),
+      ...mutationKeys.map((key) => mutations.delete(key)),
       transaction.objectStore("mailboxSyncStates").delete(emailAccountId),
     ]);
     await transaction.done;

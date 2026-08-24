@@ -1,6 +1,7 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import chunk from "lodash/chunk";
 import type { Attachment as MailAttachment } from "nodemailer/lib/mailer";
+import { mapWithConcurrency } from "@/utils/async";
 import { toMailerAttachments } from "@/utils/types/mail";
 import type { MessageWithPayload, ParsedMessage } from "@/utils/types";
 import { parseMessage } from "@/utils/gmail/message";
@@ -46,7 +47,7 @@ import {
   removeThreadLabel,
   unarchiveThread,
 } from "@/utils/gmail/label";
-import { trashThread, untrashThread } from "@/utils/gmail/trash";
+import { trashMessage, trashThread, untrashThread } from "@/utils/gmail/trash";
 import { markSpam } from "@/utils/gmail/spam";
 import { handlePreviousDraftDeletion } from "@/utils/ai/choose-rule/draft-management";
 import {
@@ -99,6 +100,8 @@ import { shouldSkipAutoDraft } from "@/utils/auto-draft";
 import { extractUniqueEmailAddresses } from "@/utils/email";
 import { requireSentMessageId } from "@/utils/email/sent-message-id";
 import { getGmailMailboxSyncPage } from "@/utils/gmail/mailbox-sync";
+
+const GMAIL_MESSAGE_WRITE_CONCURRENCY = 5;
 
 export class GmailProvider implements EmailProvider {
   readonly name = "google";
@@ -442,6 +445,69 @@ export class GmailProvider implements EmailProvider {
         error,
       });
       throw error;
+    }
+  }
+
+  async archiveMessages(messageIds: string[]): Promise<void> {
+    for (const messageIdsChunk of chunk([...new Set(messageIds)], 1000)) {
+      if (messageIdsChunk.length)
+        await this.archiveMessagesBulk(messageIdsChunk);
+    }
+  }
+
+  async unarchiveMessages(messageIds: string[]): Promise<void> {
+    for (const ids of chunk([...new Set(messageIds)], 1000)) {
+      if (!ids.length) continue;
+      await this.client.users.messages.batchModify({
+        userId: "me",
+        requestBody: { ids, addLabelIds: [GmailLabel.INBOX] },
+      });
+    }
+  }
+
+  async trashMessages(messageIds: string[]): Promise<void> {
+    await mapWithConcurrency(
+      [...new Set(messageIds)],
+      GMAIL_MESSAGE_WRITE_CONCURRENCY,
+      async (messageId) => {
+        try {
+          await trashMessage({ gmail: this.client, messageId });
+        } catch (error) {
+          if (extractErrorInfo(error).status !== 404) throw error;
+        }
+      },
+    );
+  }
+
+  async untrashMessages(messageIds: string[]): Promise<void> {
+    await mapWithConcurrency(
+      [...new Set(messageIds)],
+      GMAIL_MESSAGE_WRITE_CONCURRENCY,
+      async (messageId) => {
+        try {
+          await this.client.users.messages.untrash({
+            userId: "me",
+            id: messageId,
+          });
+        } catch (error) {
+          if (extractErrorInfo(error).status !== 404) throw error;
+        }
+      },
+    );
+  }
+
+  async markMessagesReadState(
+    messageIds: string[],
+    read: boolean,
+  ): Promise<void> {
+    for (const ids of chunk([...new Set(messageIds)], 1000)) {
+      if (!ids.length) continue;
+      await this.client.users.messages.batchModify({
+        userId: "me",
+        requestBody: read
+          ? { ids, removeLabelIds: [GmailLabel.UNREAD] }
+          : { ids, addLabelIds: [GmailLabel.UNREAD] },
+      });
     }
   }
 

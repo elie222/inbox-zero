@@ -26,10 +26,14 @@ describe("useAdjacentThreadPrefetch", () => {
     renderHook(() =>
       useAdjacentThreadPrefetch({
         coordinator,
-        currentThreadId: "thread-2",
-        emailAccountId: "account-1",
+        currentThread: target("account-1", "thread-2"),
         scopeKey: "scope-adjacent",
-        threadIds: ["thread-1", "thread-2", "thread-3", "thread-4"],
+        threads: [
+          target("account-1", "thread-1"),
+          target("account-1", "thread-2"),
+          target("account-1", "thread-3"),
+          target("account-1", "thread-4"),
+        ],
       }),
     );
 
@@ -49,16 +53,51 @@ describe("useAdjacentThreadPrefetch", () => {
     ]);
   });
 
+  it("uses each adjacent combined row's owning account", () => {
+    const coordinator = createCoordinator();
+
+    renderHook(() =>
+      useAdjacentThreadPrefetch({
+        coordinator,
+        currentThread: target("account-2", "shared-thread"),
+        scopeKey: "scope-combined",
+        threads: [
+          target("account-1", "shared-thread"),
+          target("account-2", "shared-thread"),
+          target("account-3", "shared-thread"),
+        ],
+      }),
+    );
+
+    expect(coordinator.scheduleMany).toHaveBeenCalledWith([
+      {
+        emailAccountId: "account-1",
+        priority: "adjacent",
+        scopeKey: "scope-combined",
+        threadId: "shared-thread",
+      },
+      {
+        emailAccountId: "account-3",
+        priority: "adjacent",
+        scopeKey: "scope-combined",
+        threadId: "shared-thread",
+      },
+    ]);
+  });
+
   it("does nothing when the current thread is missing from the list", () => {
     const coordinator = createCoordinator();
 
     renderHook(() =>
       useAdjacentThreadPrefetch({
         coordinator,
-        currentThreadId: "missing",
-        emailAccountId: "account-1",
+        currentThread: target("missing-account", "missing"),
         scopeKey: "scope-missing",
-        threadIds: ["thread-1", "thread-2", "thread-3"],
+        threads: [
+          target("account-1", "thread-1"),
+          target("account-1", "thread-2"),
+          target("account-1", "thread-3"),
+        ],
       }),
     );
 
@@ -70,10 +109,13 @@ describe("useAdjacentThreadPrefetch", () => {
     const { unmount } = renderHook(() =>
       useAdjacentThreadPrefetch({
         coordinator,
-        currentThreadId: "thread-2",
-        emailAccountId: "account-1",
+        currentThread: target("account-1", "thread-2"),
         scopeKey: "scope-cleanup",
-        threadIds: ["thread-1", "thread-2", "thread-3"],
+        threads: [
+          target("account-1", "thread-1"),
+          target("account-1", "thread-2"),
+          target("account-1", "thread-3"),
+        ],
       }),
     );
 
@@ -83,6 +125,10 @@ describe("useAdjacentThreadPrefetch", () => {
     expect(coordinator.cancelScope).toHaveBeenCalledTimes(2);
   });
 });
+
+function target(emailAccountId: string, threadId: string) {
+  return { emailAccountId, threadId };
+}
 
 function createCoordinator(): ThreadPrefetchCoordinator {
   return {

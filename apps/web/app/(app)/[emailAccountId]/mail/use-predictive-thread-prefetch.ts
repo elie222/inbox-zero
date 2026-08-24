@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import type { ListThread } from "./types";
+import { getListThreadEmailAccountId, type ListThread } from "./types";
 import type { ThreadPrefetchCoordinator } from "./thread-prefetch-coordinator";
 
 export const PREDICTIVE_THREAD_PREFETCH_DELAY_MS = 120;
@@ -25,8 +25,9 @@ export function usePredictiveThreadPrefetch({
   const jobs = useMemo(() => {
     if (!enabled) return [];
 
-    const ids = new Set<string>();
+    const identities = new Set<string>();
     const scheduled: Array<{
+      emailAccountId: string;
       priority: "focused" | "nearby";
       threadId: string;
     }> = [];
@@ -36,16 +37,23 @@ export function usePredictiveThreadPrefetch({
       index += 1
     ) {
       const thread = threads[index];
-      if (!thread || "account" in thread || ids.has(thread.id)) continue;
-      ids.add(thread.id);
+      if (!thread) continue;
+      const threadEmailAccountId = getListThreadEmailAccountId(
+        thread,
+        emailAccountId,
+      );
+      const identity = `${threadEmailAccountId}:${thread.id}`;
+      if (identities.has(identity)) continue;
+      identities.add(identity);
       scheduled.push({
+        emailAccountId: threadEmailAccountId,
         priority: index === focusedIndex ? "focused" : "nearby",
         threadId: thread.id,
       });
     }
 
     return scheduled;
-  }, [enabled, focusedIndex, threads]);
+  }, [emailAccountId, enabled, focusedIndex, threads]);
 
   useEffect(() => {
     coordinator.cancelScope(scopeKey);
@@ -54,7 +62,7 @@ export function usePredictiveThreadPrefetch({
     const schedule = () => {
       coordinator.scheduleMany(
         jobs.map((job) => ({
-          emailAccountId,
+          emailAccountId: job.emailAccountId,
           priority: job.priority,
           scopeKey,
           threadId: job.threadId,
@@ -75,5 +83,5 @@ export function usePredictiveThreadPrefetch({
       if (idleCallback !== undefined) window.cancelIdleCallback(idleCallback);
       if (timeout !== undefined) window.clearTimeout(timeout);
     };
-  }, [coordinator, emailAccountId, jobs, scopeKey]);
+  }, [coordinator, jobs, scopeKey]);
 }

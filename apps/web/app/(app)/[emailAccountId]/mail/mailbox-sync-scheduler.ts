@@ -57,20 +57,50 @@ export function createMailboxSyncScheduler({
         syncResult = Promise.reject(error);
       }
 
-      syncResult
-        .then(request.result.resolve, request.result.reject)
-        .then(() => {
-          activeCount -= 1;
-          if (requests.get(request.emailAccountId) === request) {
-            requests.delete(request.emailAccountId);
-          }
-          drain();
-        });
+      syncResult.then(
+        (value) => finishRequest(request, () => request.result.resolve(value)),
+        (error) => finishRequest(request, () => request.result.reject(error)),
+      );
     }
   };
 
+  const finishRequest = (request: ScheduledSync, settle: () => void) => {
+    activeCount -= 1;
+    if (requests.get(request.emailAccountId) === request) {
+      requests.delete(request.emailAccountId);
+    }
+    settle();
+    drain();
+  };
+
+  const run = ({
+    emailAccountId,
+    priority = false,
+  }: {
+    emailAccountId: string;
+    priority?: boolean;
+  }) => {
+    const existing = requests.get(emailAccountId);
+    if (existing) {
+      if (priority) setQueuedPriority(existing, true);
+      return existing.result.promise;
+    }
+
+    const request: ScheduledSync = {
+      emailAccountId,
+      priority,
+      queued: true,
+      result: Promise.withResolvers<MailboxSyncResult>(),
+    };
+    requests.set(emailAccountId, request);
+    enqueue(request);
+    drain();
+    return request.result.promise;
+  };
+
   return {
-    run({
+    run,
+    async runAfterCurrent({
       emailAccountId,
       priority = false,
     }: {
@@ -79,20 +109,13 @@ export function createMailboxSyncScheduler({
     }) {
       const existing = requests.get(emailAccountId);
       if (existing) {
-        if (priority) setQueuedPriority(existing, true);
-        return existing.result.promise;
+        try {
+          await existing.result.promise;
+        } catch {
+          // A fresh sync still needs to run after an older request fails.
+        }
       }
-
-      const request: ScheduledSync = {
-        emailAccountId,
-        priority,
-        queued: true,
-        result: Promise.withResolvers<MailboxSyncResult>(),
-      };
-      requests.set(emailAccountId, request);
-      enqueue(request);
-      drain();
-      return request.result.promise;
+      return run({ emailAccountId, priority });
     },
     setPriority({
       emailAccountId,

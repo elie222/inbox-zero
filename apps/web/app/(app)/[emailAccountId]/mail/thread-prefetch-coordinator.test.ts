@@ -87,6 +87,32 @@ describe("createThreadPrefetchCoordinator", () => {
     ).toHaveLength(1);
   });
 
+  it("keeps the same provider thread id distinct across accounts", () => {
+    threadPrefetch.prefetch.mockResolvedValue(undefined);
+    const coordinator = createCoordinator();
+
+    coordinator.scheduleMany([
+      job("thread-shared", "focused", "account-1"),
+      job("thread-shared", "focused", "account-2"),
+    ]);
+
+    expect(threadPrefetch.prefetch).toHaveBeenCalledTimes(2);
+    expect(threadPrefetch.prefetch.mock.calls).toEqual([
+      [
+        expect.objectContaining({
+          emailAccountId: "account-1",
+          threadId: "thread-shared",
+        }),
+      ],
+      [
+        expect.objectContaining({
+          emailAccountId: "account-2",
+          threadId: "thread-shared",
+        }),
+      ],
+    ]);
+  });
+
   it("drops queued jobs and marks active jobs stale when their scope is cancelled", async () => {
     const activeJobs: Array<{ isCancelled?: () => boolean; threadId: string }> =
       [];
@@ -228,9 +254,13 @@ function getCalledThreadIds() {
   );
 }
 
-function job(threadId: string, priority = "focused") {
+function job(
+  threadId: string,
+  priority = "focused",
+  emailAccountId = "account-1",
+) {
   return {
-    emailAccountId: "account-1",
+    emailAccountId,
     priority: priority as "adjacent" | "focused" | "hover" | "nearby",
     scopeKey: "scope-a",
     threadId,

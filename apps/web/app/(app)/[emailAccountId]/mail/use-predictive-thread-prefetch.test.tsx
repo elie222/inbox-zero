@@ -62,7 +62,47 @@ describe("usePredictiveThreadPrefetch", () => {
     ]);
   });
 
-  it("skips combined-account rows and disabled list states", () => {
+  it("uses each combined row's owning account", () => {
+    const coordinator = createCoordinator();
+
+    renderHook(() =>
+      usePredictiveThreadPrefetch({
+        coordinator,
+        emailAccountId: "account-1",
+        enabled: true,
+        focusedIndex: 1,
+        scopeKey: "scope-combined",
+        threads: [
+          createCombinedThread("account-2", "thread-shared"),
+          createCombinedThread("account-3", "thread-focused"),
+          createCombinedThread("account-4", "thread-shared"),
+        ],
+      }),
+    );
+
+    expect(coordinator.scheduleMany).toHaveBeenCalledWith([
+      {
+        emailAccountId: "account-2",
+        priority: "nearby",
+        scopeKey: "scope-combined",
+        threadId: "thread-shared",
+      },
+      {
+        emailAccountId: "account-3",
+        priority: "focused",
+        scopeKey: "scope-combined",
+        threadId: "thread-focused",
+      },
+      {
+        emailAccountId: "account-4",
+        priority: "nearby",
+        scopeKey: "scope-combined",
+        threadId: "thread-shared",
+      },
+    ]);
+  });
+
+  it("skips disabled list states", () => {
     const coordinator = createCoordinator();
 
     renderHook(() =>
@@ -72,10 +112,7 @@ describe("usePredictiveThreadPrefetch", () => {
         enabled: false,
         focusedIndex: 0,
         scopeKey: "scope-disabled",
-        threads: [
-          createCombinedThread("account-2", "thread-1"),
-          createThread("thread-2"),
-        ],
+        threads: [createCombinedThread("account-2", "thread-1")],
       }),
     );
 

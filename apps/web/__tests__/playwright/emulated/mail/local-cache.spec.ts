@@ -94,6 +94,76 @@ test("renders and isolates two locally cached accounts without server mail reque
   }
 });
 
+test("opens the owning account's cached reader in place from All Accounts", async ({
+  page,
+}, testInfo) => {
+  const { emailAccountId } = await openMail(page);
+  const secondAccount = await createSecondEmailAccount(emailAccountId);
+  const secondaryReaderBody = "Secondary account cached reader body";
+
+  try {
+    await page.route("**/api/threads/all?**", (route) =>
+      route.abort("connectionfailed"),
+    );
+    await page.route(threadDetailRoute("shared-thread"), (route) =>
+      route.abort("connectionfailed"),
+    );
+    await seedUnifiedMailbox(page, emailAccountId, secondAccount.id);
+    await seedThreadDetail(page, {
+      emailAccountId,
+      textPlain: "Primary account cached reader body",
+      threadId: "shared-thread",
+    });
+    await seedThreadDetail(page, {
+      emailAccountId: secondAccount.id,
+      textPlain: secondaryReaderBody,
+      threadId: "shared-thread",
+    });
+
+    await page.goto(`/${emailAccountId}/mail?accountScope=all`);
+    const conversations = page.getByRole("listbox", {
+      name: "Conversations",
+    });
+    await expect(
+      conversationWithSubject(page, conversations, SECONDARY_UNIFIED_SUBJECT),
+    ).toBeVisible();
+    await page.evaluate(() => {
+      (window as unknown as Record<string, unknown>).__combinedReaderWindow =
+        true;
+    });
+
+    await conversationWithSubject(
+      page,
+      conversations,
+      SECONDARY_UNIFIED_SUBJECT,
+    ).click();
+
+    await expect(readerBody(page, secondaryReaderBody)).toBeVisible();
+    await expect(page).toHaveURL(/accountScope=all/);
+    await expect(page).toHaveURL(/thread-id=shared-thread/);
+    await expect(page).toHaveURL(
+      new RegExp(`thread-account-id=${escapeRegExp(secondAccount.id)}`),
+    );
+    expect(
+      await page.evaluate(
+        () =>
+          (window as unknown as Record<string, unknown>).__combinedReaderWindow,
+      ),
+    ).toBe(true);
+    await testInfo.attach("all-accounts-cached-reader", {
+      body: await page.screenshot(),
+      contentType: "image/png",
+    });
+
+    await page.getByRole("button", { name: /^Back/ }).click();
+    await expect(conversations).toBeVisible();
+    await expect(page).not.toHaveURL(/thread-id=/);
+    await expect(page).not.toHaveURL(/thread-account-id=/);
+  } finally {
+    await deleteSecondEmailAccount(secondAccount.accountId);
+  }
+});
+
 test("renders a cached thread body when the reader request is offline", async ({
   page,
 }, testInfo) => {
@@ -295,7 +365,7 @@ async function seedUnifiedMailbox(
                 },
                 id: messageId,
                 internalDate,
-                labelIds: ["INBOX", "UNREAD"],
+                labelIds: ["INBOX"],
                 snippet: `${account.subject} snippet`,
                 subject: account.subject,
                 threadId,

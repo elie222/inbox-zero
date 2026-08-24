@@ -159,6 +159,13 @@ export function requestMailboxSync(emailAccountId: string) {
   for (const listener of syncRequestListeners) listener(emailAccountId);
 }
 
+export function syncMailboxNow(emailAccountId: string) {
+  return mailboxSyncScheduler.runAfterCurrent({
+    emailAccountId,
+    priority: true,
+  });
+}
+
 function getRetryDelay(consecutiveFailures: number, retryAfterMs?: number) {
   const exponentialDelay = Math.min(
     COMPLETE_SYNC_INTERVAL_MS * 2 ** (consecutiveFailures - 1),

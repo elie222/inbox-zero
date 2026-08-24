@@ -20,10 +20,14 @@ import {
 // `id` accepts null so "no thread open" is expressible in the type rather than
 // as a magic empty string that would silently resolve to the thread list route.
 export function useThread(
-  { id }: { id: string | null },
+  {
+    id,
+    emailAccountId: explicitEmailAccountId,
+  }: { id: string | null; emailAccountId?: string },
   options?: ThreadRequestOptions,
 ) {
-  const { emailAccountId } = useAccount();
+  const { emailAccountId: currentEmailAccountId } = useAccount();
+  const emailAccountId = explicitEmailAccountId ?? currentEmailAccountId;
   const { fetcher } = useSWRConfig();
   const includeDrafts = options?.includeDrafts;
   const parseReplies = options?.parseReplies;

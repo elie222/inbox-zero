@@ -13,7 +13,10 @@ import type { ParsedMessage } from "@/utils/types";
 import { createReplyContent, formatEmailDate } from "@/utils/gmail/reply";
 import type { EmailForAction } from "@/utils/ai/types";
 import { createScopedLogger } from "@/utils/logger";
-import { withGmailRetry } from "@/utils/gmail/retry";
+import {
+  withGmailNonIdempotentWriteRetry,
+  withGmailRetry,
+} from "@/utils/gmail/retry";
 import {
   buildReplyAllRecipients,
   formatCcList,
@@ -107,7 +110,7 @@ export async function sendEmailWithHtml(
   }
 
   const raw = await createRawMailMessage({ ...body, messageText });
-  const result = await withGmailRetry(() =>
+  const result = await withGmailNonIdempotentWriteRetry(() =>
     gmail.users.messages.send({
       userId: "me",
       requestBody: {
@@ -167,7 +170,7 @@ export async function replyToEmail(
     },
   });
 
-  const result = await withGmailRetry(() =>
+  const result = await withGmailNonIdempotentWriteRetry(() =>
     gmail.users.messages.send({
       userId: "me",
       requestBody: {
@@ -232,7 +235,7 @@ export async function forwardEmail(
     attachments,
   });
 
-  const result = await withGmailRetry(() =>
+  const result = await withGmailNonIdempotentWriteRetry(() =>
     gmail.users.messages.send({
       userId: "me",
       requestBody: {

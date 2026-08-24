@@ -43,6 +43,8 @@ export type ThreadActionsMenuProps = {
   setChatInput: (input: string) => void;
   isUnread: boolean;
   onToggleRead: () => void;
+  /** Chat remains scoped to the route account, so cross-account rows hide it. */
+  showFixWithChat?: boolean;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 };
@@ -57,6 +59,7 @@ export function ThreadActionsMenu({
   setChatInput,
   isUnread,
   onToggleRead,
+  showFixWithChat = true,
   open,
   onOpenChange,
 }: ThreadActionsMenuProps) {
@@ -91,6 +94,7 @@ export function ThreadActionsMenu({
               message={message}
               plan={plan}
               setChatInput={setChatInput}
+              showFixWithChat={showFixWithChat}
             />
           ))}
 
@@ -119,10 +123,12 @@ function RuleAttribution({
   plan,
   message,
   setChatInput,
+  showFixWithChat,
 }: {
   plan: ThreadPlan;
   message: ParsedMessage | null;
   setChatInput: (input: string) => void;
+  showFixWithChat: boolean;
 }) {
   const actions = getVisibleActions(plan.actionItems);
   const labels = actions.filter(
@@ -187,7 +193,7 @@ function RuleAttribution({
         </div>
       ) : null}
 
-      {message ? (
+      {message && showFixWithChat ? (
         <div className="mt-2.5">
           <FixWithChat
             message={message}

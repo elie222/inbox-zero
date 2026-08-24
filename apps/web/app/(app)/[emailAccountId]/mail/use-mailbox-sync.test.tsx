@@ -2,7 +2,11 @@
 
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { requestMailboxSync, useMailboxSync } from "./use-mailbox-sync";
+import {
+  requestMailboxSync,
+  syncMailboxNow,
+  useMailboxSync,
+} from "./use-mailbox-sync";
 
 const desktop = vi.hoisted(() => ({ getApp: vi.fn() }));
 const mailboxSync = vi.hoisted(() => ({
@@ -164,6 +168,32 @@ describe("useMailboxSync", () => {
 
     rerun.resolve({ hasMore: false, pagesSynced: 1 });
     await settlePromises();
+  });
+
+  it("runs an awaited mailbox reconciliation after existing account work", async () => {
+    const existing = Promise.withResolvers<{
+      hasMore: boolean;
+      pagesSynced: number;
+    }>();
+    const reconciliation = Promise.withResolvers<{
+      hasMore: boolean;
+      pagesSynced: number;
+    }>();
+    mailboxSync.syncPages
+      .mockReturnValueOnce(existing.promise)
+      .mockReturnValueOnce(reconciliation.promise);
+
+    const first = syncMailboxNow("account-1");
+    const fresh = syncMailboxNow("account-1");
+    expect(mailboxSync.syncPages).toHaveBeenCalledOnce();
+
+    existing.resolve({ hasMore: false, pagesSynced: 1 });
+    await expect(first).resolves.toEqual({ hasMore: false, pagesSynced: 1 });
+    await settlePromises();
+    expect(mailboxSync.syncPages).toHaveBeenCalledTimes(2);
+
+    reconciliation.resolve({ hasMore: false, pagesSynced: 1 });
+    await expect(fresh).resolves.toEqual({ hasMore: false, pagesSynced: 1 });
   });
 
   it("backs off repeated failures and resets after recovery", async () => {

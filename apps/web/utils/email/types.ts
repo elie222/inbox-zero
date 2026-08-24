@@ -92,6 +92,7 @@ export type BulkArchiveResult = {
 
 export interface EmailProvider {
   archiveMessage(messageId: string): Promise<void>;
+  archiveMessages(messageIds: string[]): Promise<void>;
   archiveThread(threadId: string, ownerEmail: string): Promise<void>;
   archiveThreadWithLabel(
     threadId: string,
@@ -278,6 +279,7 @@ export interface EmailProvider {
     labelId: string;
     labelName: string | null;
   }): Promise<{ usedFallback?: boolean; actualLabelId?: string }>;
+  markMessagesReadState(messageIds: string[], read: boolean): Promise<void>;
   markRead(threadId: string): Promise<void>;
   markReadThread(threadId: string, read: boolean): Promise<void>;
   markSpam(threadId: string): Promise<void>;
@@ -325,16 +327,19 @@ export interface EmailProvider {
   }>;
   starMessage(messageId: string): Promise<void>;
   toJSON(): { name: string; type: string };
+  trashMessages(messageIds: string[]): Promise<void>;
   trashThread(
     threadId: string,
     ownerEmail: string,
     actionSource: "user" | "automation",
   ): Promise<void>;
+  unarchiveMessages(messageIds: string[]): Promise<void>;
   unarchiveThread(threadId: string): Promise<void>;
   /**
    * Restores a trashed thread, to undo `trashThread`. Gmail puts it back under
    * its pre-trash labels; Outlook has no such record and moves it to the inbox.
    */
+  untrashMessages(messageIds: string[]): Promise<void>;
   untrashThread(threadId: string): Promise<void>;
   unwatchEmails(subscriptionId?: string): Promise<void>;
   updateDraft(

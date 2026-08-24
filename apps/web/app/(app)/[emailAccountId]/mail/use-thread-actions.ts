@@ -2,387 +2,261 @@
 
 import { useCallback, useRef } from "react";
 import { format } from "date-fns";
-import chunk from "lodash/chunk";
 import { toast } from "sonner";
-import {
-  cancelQueuedThreads,
-  deleteEmails,
-  markReadThreads,
-} from "@/store/archive-queue";
-import {
-  markReadThreadAction,
-  unarchiveThreadAction,
-  untrashThreadAction,
-} from "@/utils/actions/mail";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
-import { withThreadReadState } from "@/app/(app)/[emailAccountId]/mail/read-state";
-import type {
-  OptimisticThreadUpdate,
-  ThreadRemoval,
-} from "@/app/(app)/[emailAccountId]/mail/use-mail-threads";
 import {
+  cancelPendingMailMutation,
+  enqueueMailMutation,
+  type MailMutationPayload,
+} from "@/utils/email-cache/mail-mutations";
+import {
+  getListThreadEmailAccountId,
+  getListThreadKey,
   getListThreadMessageIds,
   type ListThread,
-} from "@/app/(app)/[emailAccountId]/mail/types";
-import { snoozeThreadsAction } from "@/utils/actions/snooze";
-import { mapWithConcurrency } from "@/utils/async";
-import {
-  markSyncedMailboxThreadsRead,
-  removeSyncedMailboxThreads,
-} from "@/utils/email-cache/mailbox";
-import { requestMailboxSync } from "@/app/(app)/[emailAccountId]/mail/use-mailbox-sync";
-import { bulkArchiveThreadsAction } from "@/utils/actions/mail-bulk-action";
-import { BULK_ARCHIVE_THREADS_ACTION_LIMIT } from "@/utils/actions/mail-bulk-action.constants";
+} from "./types";
 
-const THREAD_ACTION_CONCURRENCY = 10;
-const BULK_ARCHIVE_ACTION_CONCURRENCY = 4;
-const SNOOZE_ACTION_BATCH_CONCURRENCY = 2;
-const SNOOZE_ACTION_BATCH_SIZE = 100;
+type UndoableAction = "archive" | "trash";
 
-type UndoableAction = "archive" | "delete";
+type ThreadSnapshot = {
+  emailAccountId: string;
+  key: string;
+  messageIds: string[];
+  mutationId: string;
+  threadId: string;
+};
 
 type UndoableBatch = {
-  type: UndoableAction;
-  threadIds: string[];
-  removal: ThreadRemoval;
+  action: UndoableAction;
+  snapshots: ThreadSnapshot[];
   undone: boolean;
 };
 
-/**
- * Archive and delete with a real undo.
- *
- * Delete jobs may still be waiting in the queue, while bulk archives have
- * already completed before their undo becomes available. Anything sent to the
- * provider gets reversed properly.
- */
 export function useThreadActions({
   emailAccountId,
-  removeThreads,
-  restoreThreads,
-  optimisticallyUpdateThreads,
+  threads,
 }: {
   emailAccountId: string;
-  removeThreads: (threadIds: string[]) => ThreadRemoval;
-  restoreThreads: (removal: ThreadRemoval, threadIds: string[]) => void;
-  optimisticallyUpdateThreads: (
-    threadIds: string[],
-    updater: (thread: ListThread) => ListThread,
-  ) => OptimisticThreadUpdate;
+  threads: ListThread[];
 }) {
   const lastAction = useRef<UndoableBatch | null>(null);
-  const actionSequence = useRef(0);
+  const retainedEmailAccountId = useRef(emailAccountId);
+  const threadsByKey = useRef(new Map<string, ListThread>());
+  if (retainedEmailAccountId.current !== emailAccountId) {
+    retainedEmailAccountId.current = emailAccountId;
+    threadsByKey.current.clear();
+    lastAction.current = null;
+  }
+  for (const thread of threads) {
+    threadsByKey.current.set(getListThreadKey(thread), thread);
+  }
 
-  // Takes the batch to reverse rather than reading the latest one: each toast
-  // must undo the action it announced, even after another archive has happened.
-  const undoBatch = useCallback(
-    async (batch: UndoableBatch) => {
-      if (batch.undone) return;
-      batch.undone = true;
-      if (lastAction.current === batch) lastAction.current = null;
-
-      const { notCancelled } = cancelQueuedThreads({
-        threadIds: batch.threadIds,
-        actionType: batch.type,
-      });
-
-      const reverse =
-        batch.type === "archive" ? unarchiveThreadAction : untrashThreadAction;
-
-      const reversed = await mapWithConcurrency(
-        notCancelled,
-        THREAD_ACTION_CONCURRENCY,
-        async (threadId) => {
-          const result = await reverse(emailAccountId, { threadId });
-          return { threadId, ok: !result?.serverError };
-        },
-      );
-
-      // A thread the provider refused to unarchive is still archived, so
-      // putting its row back would show a conversation that isn't there.
-      const failed = reversed.filter((r) => !r.ok).map((r) => r.threadId);
-      const restored = batch.threadIds.filter((id) => !failed.includes(id));
-
-      restoreThreads(batch.removal, restored);
-      if (restored.length) requestMailboxSync(emailAccountId);
-
-      if (failed.length)
-        toast.error(
-          failed.length === batch.threadIds.length
-            ? "Couldn't restore"
-            : `Couldn't restore ${failed.length} of ${batch.threadIds.length}`,
-        );
-      else toast.success(summarise("Restored", restored.length));
-    },
-    [emailAccountId, restoreThreads],
+  const resolveTargets = useCallback(
+    (threadKeys: string[]) =>
+      threadKeys
+        .map((key) => {
+          const thread = threadsByKey.current.get(key);
+          if (!thread) return;
+          const messageIds = [...new Set(getListThreadMessageIds(thread))];
+          if (!messageIds.length) return;
+          return {
+            emailAccountId: getListThreadEmailAccountId(thread, emailAccountId),
+            key,
+            messageIds,
+            threadId: thread.id,
+          };
+        })
+        .filter((target): target is Omit<ThreadSnapshot, "mutationId"> =>
+          Boolean(target),
+        ),
+    [emailAccountId],
   );
 
-  // The keyboard shortcut has no toast to anchor to, so it undoes the latest.
-  const undo = useCallback(async () => {
-    const batch = lastAction.current;
-    if (!batch) return;
-    await undoBatch(batch);
-  }, [undoBatch]);
-
-  const trash = useCallback(
-    (threadIds: string[]) => {
-      if (!threadIds.length) return;
-
-      actionSequence.current += 1;
-      const removal = removeThreads(threadIds);
-      const batch: UndoableBatch = {
-        type: "delete",
-        threadIds,
-        removal,
-        undone: false,
-      };
-      lastAction.current = batch;
-
-      deleteEmails({
-        threadIds,
-        emailAccountId,
-        onSuccess: (threadId) => {
-          removeSyncedMailboxThreads({
-            emailAccountId,
-            threadIds: [threadId],
-          })
-            .catch(() => {})
-            .finally(() => requestMailboxSync(emailAccountId));
-        },
-        // The queue reports the specific thread that failed; the rest of the
-        // batch was deleted and must stay gone.
-        onError: (threadId) => {
-          restoreThreads(removal, [threadId]);
-          toast.error("There was an error deleting");
-        },
-      });
-
-      toast.success(summarise("Deleted", threadIds.length), {
-        action: {
-          label: `Undo · ${getShortcutHint("undo")}`,
-          onClick: () => {
-            undoBatch(batch);
-          },
-        },
-      });
-    },
-    [emailAccountId, removeThreads, restoreThreads, undoBatch],
-  );
-
-  const archive = useCallback(
-    async (threads: ListThread[]) => {
-      if (!threads.length) return;
-
-      const sequence = ++actionSequence.current;
-      lastAction.current = null;
-      const threadIds = threads.map((thread) => thread.id);
-      const removal = removeThreads(threadIds);
-      const responses = await mapWithConcurrency(
-        chunk(threads, BULK_ARCHIVE_THREADS_ACTION_LIMIT),
-        BULK_ARCHIVE_ACTION_CONCURRENCY,
-        (batch) =>
-          bulkArchiveThreadsAction(emailAccountId, {
-            threads: batch.map((thread) => ({
-              threadId: thread.id,
-              messageIds: getListThreadMessageIds(thread),
-            })),
-          }).catch(() => null),
-      );
-      const succeededThreadIds = new Set(
-        responses.flatMap(
-          (response) => response?.data?.succeededThreadIds ?? [],
+  const enqueueTargets = useCallback(
+    async (
+      targets: ReturnType<typeof resolveTargets>,
+      payload: MailMutationPayload,
+    ) => {
+      if (!targets.length) return [];
+      const batchId = crypto.randomUUID();
+      const results = await Promise.allSettled(
+        targets.map((target) =>
+          enqueueMailMutation({
+            ...payload,
+            batchId,
+            emailAccountId: target.emailAccountId,
+            messageIds: target.messageIds,
+            threadId: target.threadId,
+          }),
         ),
       );
-      const providerFailedThreadIds = new Set(
-        responses.flatMap((response) => response?.data?.failedThreadIds ?? []),
-      );
-      const failedThreadIds = threadIds.filter(
-        (threadId) =>
-          providerFailedThreadIds.has(threadId) ||
-          !succeededThreadIds.has(threadId),
-      );
-      const failedThreadIdSet = new Set(failedThreadIds);
-      const successfulThreadIds = threadIds.filter(
-        (threadId) => !failedThreadIdSet.has(threadId),
-      );
 
-      restoreThreads(removal, failedThreadIds);
+      return results.flatMap((result, index) => {
+        const target = targets[index];
+        return result.status === "fulfilled" && target
+          ? [{ ...target, mutationId: result.value.id }]
+          : [];
+      });
+    },
+    [],
+  );
 
-      if (successfulThreadIds.length) {
-        await removeSyncedMailboxThreads({
-          emailAccountId,
-          threadIds: successfulThreadIds,
-        }).catch(() => {});
-        requestMailboxSync(emailAccountId);
+  const undoBatch = useCallback(async (batch: UndoableBatch) => {
+    if (batch.undone) return [];
+    batch.undone = true;
+    if (lastAction.current === batch) lastAction.current = null;
 
-        const batch: UndoableBatch = {
-          type: "archive",
-          threadIds: successfulThreadIds,
-          removal,
-          undone: false,
-        };
-        if (actionSequence.current === sequence) lastAction.current = batch;
-        toast.success(summarise("Archived", successfulThreadIds.length), {
+    const compensationKind =
+      batch.action === "archive" ? "unarchive" : "untrash";
+    const batchId = crypto.randomUUID();
+    const results = await Promise.allSettled(
+      batch.snapshots.map(async (snapshot) => {
+        const cancelled = await cancelPendingMailMutation(snapshot.mutationId);
+        if (!cancelled) {
+          await enqueueMailMutation({
+            batchId,
+            emailAccountId: snapshot.emailAccountId,
+            kind: compensationKind,
+            messageIds: snapshot.messageIds,
+            threadId: snapshot.threadId,
+          });
+        }
+        return snapshot.key;
+      }),
+    );
+    const restoredKeys = results.flatMap((result) =>
+      result.status === "fulfilled" ? [result.value] : [],
+    );
+    const failedCount = results.length - restoredKeys.length;
+
+    if (restoredKeys.length) {
+      toast.success(summarise("Restored", restoredKeys.length));
+    }
+    if (failedCount) {
+      toast.error(
+        failedCount === results.length
+          ? "Couldn't restore"
+          : `Couldn't restore ${failedCount} of ${results.length}`,
+      );
+    }
+    if (!restoredKeys.length) {
+      batch.undone = false;
+      lastAction.current = batch;
+    }
+    return restoredKeys;
+  }, []);
+
+  const undo = useCallback(async () => {
+    const batch = lastAction.current;
+    return batch ? undoBatch(batch) : [];
+  }, [undoBatch]);
+
+  const runUndoable = useCallback(
+    async (action: UndoableAction, threadKeys: string[]) => {
+      const targets = resolveTargets(threadKeys);
+      const snapshots = await enqueueTargets(targets, { kind: action });
+      if (!snapshots.length) {
+        if (targets.length) {
+          toast.error(
+            action === "archive"
+              ? "Couldn't queue archiving"
+              : "Couldn't queue deletion",
+          );
+        }
+        return [];
+      }
+
+      const batch: UndoableBatch = { action, snapshots, undone: false };
+      lastAction.current = batch;
+      const failedCount = targets.length - snapshots.length;
+      toast.success(
+        summarise(
+          action === "archive" ? "Archived" : "Deleted",
+          snapshots.length,
+        ),
+        {
           action: {
             label: `Undo · ${getShortcutHint("undo")}`,
             onClick: () => {
               undoBatch(batch);
             },
           },
-        });
-      }
-
-      if (failedThreadIds.length) {
+        },
+      );
+      if (failedCount) {
         toast.error(
-          failedThreadIds.length === threadIds.length
-            ? "There was an error archiving"
-            : `Couldn't archive ${failedThreadIds.length} of ${threadIds.length} conversations`,
+          action === "archive"
+            ? `Couldn't queue ${failedCount} of ${targets.length} for archiving`
+            : `Couldn't queue ${failedCount} of ${targets.length} for deletion`,
         );
       }
+      return snapshots.map((snapshot) => snapshot.key);
     },
-    [emailAccountId, removeThreads, restoreThreads, undoBatch],
-  );
-
-  const markRead = useCallback(
-    (threadIds: string[]) => {
-      const update = optimisticallyUpdateThreads(threadIds, (thread) =>
-        withThreadReadState(thread, true),
-      );
-      if (!update.threadIds.length) return;
-      const failedThreadIds: string[] = [];
-
-      markReadThreads({
-        threadIds: update.threadIds,
-        emailAccountId,
-        onSuccess: (threadId) => {
-          update.commit(threadId);
-          markSyncedMailboxThreadsRead({
-            emailAccountId,
-            read: true,
-            threadIds: [threadId],
-          }).catch(() => {});
-        },
-        onError: (threadId) => {
-          failedThreadIds.push(threadId);
-          toast.error("There was an error marking as read");
-        },
-        onSettled: () => update.rollback(failedThreadIds),
-      });
-    },
-    [emailAccountId, optimisticallyUpdateThreads],
+    [enqueueTargets, resolveTargets, undoBatch],
   );
 
   const setReadState = useCallback(
-    async (threadIds: string[], read: boolean) => {
-      const update = optimisticallyUpdateThreads(threadIds, (thread) =>
-        withThreadReadState(thread, read),
-      );
-      if (!update.threadIds.length) return;
-
-      const results = await mapWithConcurrency(
-        update.threadIds,
-        THREAD_ACTION_CONCURRENCY,
-        async (threadId) => {
-          try {
-            const result = await markReadThreadAction(emailAccountId, {
-              threadId,
-              read,
-            });
-            return { failed: Boolean(result?.serverError), threadId };
-          } catch {
-            return { failed: true, threadId };
-          }
-        },
-      );
-      const failedThreadIds = results
-        .filter((result) => result.failed)
-        .map(({ threadId }) => threadId);
-
-      for (const threadId of update.threadIds) {
-        if (!failedThreadIds.includes(threadId)) update.commit(threadId);
-      }
-      update.rollback(failedThreadIds);
-      const succeededThreadIds = update.threadIds.filter(
-        (threadId) => !failedThreadIds.includes(threadId),
-      );
-      await markSyncedMailboxThreadsRead({
-        emailAccountId,
+    async (threadKeys: string[], read: boolean) => {
+      const targets = resolveTargets(threadKeys);
+      const snapshots = await enqueueTargets(targets, {
+        kind: "set_read_state",
         read,
-        threadIds: succeededThreadIds,
-      }).catch(() => {});
-
-      if (failedThreadIds.length) {
+      });
+      const failedCount = targets.length - snapshots.length;
+      if (failedCount) {
         toast.error(
-          failedThreadIds.length === update.threadIds.length
-            ? `Couldn't mark as ${read ? "read" : "unread"}`
-            : `Couldn't mark ${failedThreadIds.length} of ${update.threadIds.length} as ${read ? "read" : "unread"}`,
+          failedCount === targets.length
+            ? `Couldn't queue marking as ${read ? "read" : "unread"}`
+            : `Couldn't queue ${failedCount} of ${targets.length} as ${read ? "read" : "unread"}`,
         );
-        return;
       }
-
-      toast.success(
-        update.threadIds.length === 1
-          ? `Marked as ${read ? "read" : "unread"}`
-          : `Marked ${update.threadIds.length} as ${read ? "read" : "unread"}`,
-      );
+      return snapshots.map((snapshot) => snapshot.key);
     },
-    [emailAccountId, optimisticallyUpdateThreads],
+    [enqueueTargets, resolveTargets],
   );
 
   const snooze = useCallback(
-    async (threadIds: string[], snoozedUntil: Date) => {
-      if (!threadIds.length) return;
-      const removal = removeThreads(threadIds);
-      const results = await mapWithConcurrency(
-        chunk(threadIds, SNOOZE_ACTION_BATCH_SIZE),
-        SNOOZE_ACTION_BATCH_CONCURRENCY,
-        async (batch) => {
-          const result = await snoozeThreadsAction(emailAccountId, {
-            threadIds: batch,
-            snoozedUntil,
-          }).catch(() => null);
-          return (
-            result?.data ?? {
-              failedThreadIds: batch,
-              succeededThreadIds: [],
-            }
-          );
-        },
-      );
-      const failedThreadIds = results.flatMap(
-        (result) => result.failedThreadIds,
-      );
-      const succeededThreadIds = results.flatMap(
-        (result) => result.succeededThreadIds,
-      );
-
-      restoreThreads(removal, failedThreadIds);
-      await removeSyncedMailboxThreads({
-        emailAccountId,
-        threadIds: succeededThreadIds,
-      }).catch(() => {});
-
-      if (succeededThreadIds.length) {
+    async (threadKeys: string[], snoozedUntil: Date) => {
+      const targets = resolveTargets(threadKeys);
+      const snapshots = await enqueueTargets(targets, {
+        kind: "snooze",
+        scheduledFor: snoozedUntil.toISOString(),
+      });
+      const failedCount = targets.length - snapshots.length;
+      if (snapshots.length) {
         toast.success(
-          succeededThreadIds.length === 1
+          snapshots.length === 1
             ? `Snoozed until ${format(snoozedUntil, "EEE, MMM d 'at' p")}`
-            : `Snoozed ${succeededThreadIds.length} conversations`,
+            : `Snoozed ${snapshots.length} conversations`,
         );
       }
-      if (failedThreadIds.length) {
+      if (failedCount) {
         toast.error(
-          failedThreadIds.length === 1
-            ? "Couldn't snooze conversation"
-            : `Couldn't snooze ${failedThreadIds.length} conversations`,
+          failedCount === targets.length
+            ? targets.length === 1
+              ? "Couldn't queue snoozing"
+              : "Couldn't queue snoozing conversations"
+            : `Couldn't queue ${failedCount} of ${targets.length} for snoozing`,
         );
       }
+      return snapshots.map((snapshot) => snapshot.key);
     },
-    [emailAccountId, removeThreads, restoreThreads],
+    [enqueueTargets, resolveTargets],
   );
 
   return {
-    archive,
-    trash,
-    markRead,
+    archive: useCallback(
+      (threadKeys: string[]) => runUndoable("archive", threadKeys),
+      [runUndoable],
+    ),
+    trash: useCallback(
+      (threadKeys: string[]) => runUndoable("trash", threadKeys),
+      [runUndoable],
+    ),
+    markRead: useCallback(
+      (threadKeys: string[]) => setReadState(threadKeys, true),
+      [setReadState],
+    ),
     setReadState,
     snooze,
     undo,

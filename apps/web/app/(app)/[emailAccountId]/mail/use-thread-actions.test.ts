@@ -2,439 +2,299 @@
 
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { MailMutation } from "@/utils/email-cache/mail-mutations";
 import type { ListThread } from "./types";
 import { useThreadActions } from "./use-thread-actions";
 
-const queue = vi.hoisted(() => ({
-  archive: vi.fn(),
+const outbox = vi.hoisted(() => ({
   cancel: vi.fn(),
-  markRead: vi.fn(),
-  trash: vi.fn(),
+  enqueue: vi.fn(),
 }));
 const notifications = vi.hoisted(() => ({
   error: vi.fn(),
   success: vi.fn(),
 }));
-const markReadThreadAction = vi.hoisted(() => vi.fn());
-const bulkArchiveThreadsAction = vi.hoisted(() => vi.fn());
-const snoozeThreadsAction = vi.hoisted(() => vi.fn());
-const mailboxCache = vi.hoisted(() => ({
-  markRead: vi.fn(),
-  remove: vi.fn(),
-}));
-const mailboxSync = vi.hoisted(() => ({ request: vi.fn() }));
-const reverseActions = vi.hoisted(() => ({
-  unarchive: vi.fn(),
-  untrash: vi.fn(),
-}));
 
-vi.mock("@/store/archive-queue", () => ({
-  archiveEmails: queue.archive,
-  cancelQueuedThreads: queue.cancel,
-  deleteEmails: queue.trash,
-  markReadThreads: queue.markRead,
-}));
-vi.mock("@/utils/actions/mail", () => ({
-  markReadThreadAction,
-  unarchiveThreadAction: reverseActions.unarchive,
-  untrashThreadAction: reverseActions.untrash,
-}));
-vi.mock("@/utils/actions/mail-bulk-action", () => ({
-  bulkArchiveThreadsAction,
-}));
-vi.mock("@/utils/actions/snooze", () => ({ snoozeThreadsAction }));
-vi.mock("@/utils/email-cache/mailbox", () => ({
-  markSyncedMailboxThreadsRead: mailboxCache.markRead,
-  removeSyncedMailboxThreads: mailboxCache.remove,
-}));
-vi.mock("./use-mailbox-sync", () => ({
-  requestMailboxSync: mailboxSync.request,
+vi.mock("@/utils/email-cache/mail-mutations", () => ({
+  cancelPendingMailMutation: outbox.cancel,
+  enqueueMailMutation: outbox.enqueue,
 }));
 vi.mock("sonner", () => ({ toast: notifications }));
 
-describe("useThreadActions read state", () => {
+describe("useThreadActions durable mutations", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    markReadThreadAction.mockResolvedValue({});
-    mailboxCache.markRead.mockResolvedValue(undefined);
-    mailboxCache.remove.mockResolvedValue(undefined);
-    reverseActions.unarchive.mockResolvedValue({});
-    reverseActions.untrash.mockResolvedValue({});
-    snoozeThreadsAction.mockResolvedValue({
-      data: { failedThreadIds: [], succeededThreadIds: ["thread"] },
-    });
-    bulkArchiveThreadsAction.mockImplementation(
-      async (
-        _emailAccountId,
-        input: { threads: Array<{ threadId: string }> },
-      ) => ({
-        data: {
-          failedThreadIds: [],
-          succeededThreadIds: input.threads.map((thread) => thread.threadId),
-        },
-      }),
+    outbox.cancel.mockResolvedValue(true);
+    outbox.enqueue.mockImplementation(async (input) =>
+      createMutation(input.kind, input.id),
     );
-    queue.cancel.mockImplementation(({ threadIds }) => ({
-      cancelled: [],
-      notCancelled: threadIds,
-    }));
   });
 
-  it("marks an unread row locally before queueing the provider update", () => {
-    const transaction = {
-      threadIds: ["thread"],
-      commit: vi.fn(),
-      rollback: vi.fn(),
-    };
-    const optimisticallyUpdateThreads = vi.fn((_ids, updater) => {
-      expect(
-        updater(createThread(["INBOX", "UNREAD"])).messages[0]?.labelIds,
-      ).toEqual(["INBOX"]);
-      return transaction;
-    });
-    const { result } = renderHook(() =>
-      useThreadActions({
-        emailAccountId: "account",
-        removeThreads: vi.fn(),
-        restoreThreads: vi.fn(),
-        optimisticallyUpdateThreads,
+  it("does not resolve an archive until its exact snapshot is durable", async () => {
+    let persist: ((mutation: MailMutation) => void) | undefined;
+    outbox.enqueue.mockReturnValue(
+      new Promise<MailMutation>((resolve) => {
+        persist = resolve;
       }),
     );
+    const { result } = renderActions();
 
-    act(() => result.current.markRead(["thread"]));
+    let queued: string[] | undefined;
+    const action = act(async () => {
+      queued = await result.current.archive(["thread"]);
+    });
 
-    expect(optimisticallyUpdateThreads).toHaveBeenCalledOnce();
-    expect(queue.markRead).toHaveBeenCalledWith(
+    expect(outbox.enqueue).toHaveBeenCalledWith({
+      batchId: expect.any(String),
+      emailAccountId: "account",
+      kind: "archive",
+      messageIds: ["message-one", "message-two"],
+      threadId: "thread",
+    });
+    expect(queued).toBeUndefined();
+
+    persist?.(createMutation("archive"));
+    await action;
+
+    expect(queued).toEqual(["thread"]);
+  });
+
+  it("queues the complete provider snapshot when displayed messages are filtered", async () => {
+    const { result } = renderActions({
+      threads: [
+        createThread(["INBOX"], {
+          messageIds: ["message-one", "message-two", "filtered-message"],
+        }),
+      ],
+    });
+
+    await act(() => result.current.archive(["thread"]));
+
+    expect(outbox.enqueue).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "archive",
+        messageIds: ["message-one", "message-two", "filtered-message"],
+      }),
+    );
+  });
+
+  it("leaves a row unchanged when its mutation cannot be stored", async () => {
+    outbox.enqueue.mockRejectedValue(new Error("IndexedDB unavailable"));
+    const { result } = renderActions();
+
+    let queued: string[] = [];
+    await act(async () => {
+      queued = await result.current.trash(["thread"]);
+    });
+
+    expect(queued).toEqual([]);
+    expect(notifications.error).toHaveBeenCalledWith("Couldn't queue deletion");
+  });
+
+  it("does not resolve a read change before the durable overlay can observe it", async () => {
+    let persist: ((mutation: MailMutation) => void) | undefined;
+    outbox.enqueue.mockReturnValue(
+      new Promise<MailMutation>((resolve) => {
+        persist = resolve;
+      }),
+    );
+    const { result } = renderActions();
+
+    let queued: string[] | undefined;
+    const action = act(async () => {
+      queued = await result.current.setReadState(["thread"], true);
+    });
+    expect(queued).toBeUndefined();
+
+    persist?.(createMutation("set_read_state"));
+    await action;
+
+    expect(outbox.enqueue).toHaveBeenCalledWith(
       expect.objectContaining({
         emailAccountId: "account",
-        threadIds: ["thread"],
+        kind: "set_read_state",
+        messageIds: ["message-one", "message-two"],
+        read: true,
+        threadId: "thread",
       }),
     );
-
-    const callbacks = queue.markRead.mock.calls[0]?.[0];
-    callbacks.onSuccess("thread");
-    expect(transaction.commit).toHaveBeenCalledWith("thread");
-    expect(mailboxCache.markRead).toHaveBeenCalledWith({
-      emailAccountId: "account",
-      read: true,
-      threadIds: ["thread"],
-    });
+    expect(queued).toEqual(["thread"]);
   });
 
-  it("rolls back failed rows together after the batch settles", () => {
-    const transaction = {
-      threadIds: ["thread-one", "thread-two"],
-      commit: vi.fn(),
-      rollback: vi.fn(),
-    };
-    const { result } = renderHook(() =>
-      useThreadActions({
-        emailAccountId: "account",
-        removeThreads: vi.fn(),
-        restoreThreads: vi.fn(),
-        optimisticallyUpdateThreads: vi.fn(() => transaction),
+  it("queues same-id combined rows under their owning accounts in one batch", async () => {
+    const threads = [
+      createThread(["INBOX"], {
+        account: { id: "account-one", email: "one@example.com" },
       }),
+      createThread(["INBOX"], {
+        account: { id: "account-two", email: "two@example.com" },
+      }),
+    ];
+    const { result } = renderActions({ threads });
+
+    await act(() =>
+      result.current.archive(["account-one:thread", "account-two:thread"]),
     );
 
-    act(() => result.current.markRead(["thread-one", "thread-two"]));
-    const callbacks = queue.markRead.mock.calls[0]?.[0];
-    callbacks.onError("thread-one");
-    callbacks.onError("thread-two");
+    expect(outbox.enqueue).toHaveBeenCalledTimes(2);
+    expect(outbox.enqueue).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        emailAccountId: "account-one",
+        threadId: "thread",
+      }),
+    );
+    expect(outbox.enqueue).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        emailAccountId: "account-two",
+        threadId: "thread",
+      }),
+    );
+    const firstBatchId = outbox.enqueue.mock.calls[0]?.[0].batchId;
+    expect(outbox.enqueue.mock.calls[1]?.[0].batchId).toBe(firstBatchId);
+  });
 
-    expect(transaction.rollback).not.toHaveBeenCalled();
-    callbacks.onSettled();
+  it("queues snooze snapshots for the durable visibility overlay", async () => {
+    const { result } = renderActions();
+    const until = new Date("2026-08-16T09:00:00.000Z");
 
-    expect(transaction.rollback).toHaveBeenCalledOnce();
-    expect(transaction.rollback).toHaveBeenCalledWith([
-      "thread-one",
-      "thread-two",
-    ]);
-    expect(notifications.error).toHaveBeenCalledWith(
-      "There was an error marking as read",
+    await act(() => result.current.snooze(["thread"], until));
+
+    expect(outbox.enqueue).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "snooze",
+        scheduledFor: until.toISOString(),
+      }),
     );
   });
 
-  it("does not queue threads that were already read", () => {
-    const { result } = renderHook(() =>
-      useThreadActions({
-        emailAccountId: "account",
-        removeThreads: vi.fn(),
-        restoreThreads: vi.fn(),
-        optimisticallyUpdateThreads: vi.fn(() => ({
-          threadIds: [],
-          commit: vi.fn(),
-          rollback: vi.fn(),
-        })),
-      }),
+  it("retains the opened snapshot after the durable overlay hides its row", async () => {
+    const thread = createThread(["INBOX", "UNREAD"]);
+    const { result, rerender } = renderHook(
+      ({ threads }: { threads: ListThread[] }) =>
+        useThreadActions({ emailAccountId: "account", threads }),
+      { initialProps: { threads: [thread] } },
     );
-
-    act(() => result.current.markRead(["thread"]));
-
-    expect(queue.markRead).not.toHaveBeenCalled();
-  });
-
-  it("optimistically toggles read state from the actions menu", async () => {
-    const transaction = {
-      threadIds: ["thread"],
-      commit: vi.fn(),
-      rollback: vi.fn(),
-    };
-    const optimisticallyUpdateThreads = vi.fn((_ids, updater) => {
-      expect(updater(createThread(["INBOX"])).messages[0]?.labelIds).toEqual([
-        "INBOX",
-        "UNREAD",
-      ]);
-      return transaction;
-    });
-    const { result } = renderHook(() =>
-      useThreadActions({
-        emailAccountId: "account",
-        removeThreads: vi.fn(),
-        restoreThreads: vi.fn(),
-        optimisticallyUpdateThreads,
-      }),
-    );
+    rerender({ threads: [] });
 
     await act(() => result.current.setReadState(["thread"], false));
 
-    expect(markReadThreadAction).toHaveBeenCalledWith("account", {
-      threadId: "thread",
-      read: false,
-    });
-    expect(transaction.commit).toHaveBeenCalledWith("thread");
-    expect(mailboxCache.markRead).toHaveBeenCalledWith({
-      emailAccountId: "account",
-      read: false,
-      threadIds: ["thread"],
-    });
-  });
-
-  it("rolls back a rejected read-state toggle", async () => {
-    markReadThreadAction.mockRejectedValue(new Error("offline"));
-    const transaction = {
-      threadIds: ["thread"],
-      commit: vi.fn(),
-      rollback: vi.fn(),
-    };
-    const { result } = renderHook(() =>
-      useThreadActions({
+    expect(outbox.enqueue).toHaveBeenCalledWith(
+      expect.objectContaining({
         emailAccountId: "account",
-        removeThreads: vi.fn(),
-        restoreThreads: vi.fn(),
-        optimisticallyUpdateThreads: vi.fn(() => transaction),
+        messageIds: ["message-one", "message-two"],
+        read: false,
+        threadId: "thread",
       }),
     );
-
-    await act(() => result.current.setReadState(["thread"], true));
-
-    expect(transaction.rollback).toHaveBeenCalledWith(["thread"]);
-    expect(transaction.commit).not.toHaveBeenCalled();
-    expect(notifications.error).toHaveBeenCalledWith("Couldn't mark as read");
   });
 
-  it("restores only rows that failed to snooze", async () => {
-    const removal = { entries: new Map(), viewIdentity: "view" };
-    const removeThreads = vi.fn(() => removal);
-    const restoreThreads = vi.fn();
-    snoozeThreadsAction.mockResolvedValue({
-      data: {
-        failedThreadIds: ["thread-two"],
-        succeededThreadIds: ["thread-one"],
+  it("does not reuse a same-id snapshot after the account route changes", async () => {
+    const oldThread = createThread(["INBOX"]);
+    const newThread = createThread(["INBOX"]);
+    newThread.messages = newThread.messages.map((message) => ({
+      ...message,
+      id: `new-${message.id}`,
+    }));
+    const { result, rerender } = renderHook(
+      ({ emailAccountId, threads }) =>
+        useThreadActions({ emailAccountId, threads }),
+      {
+        initialProps: {
+          emailAccountId: "account-one",
+          threads: [oldThread],
+        },
       },
-    });
-    const { result } = renderHook(() =>
-      useThreadActions({
-        emailAccountId: "account",
-        removeThreads,
-        restoreThreads,
-        optimisticallyUpdateThreads: vi.fn(),
+    );
+    rerender({ emailAccountId: "account-two", threads: [newThread] });
+
+    await act(() => result.current.archive(["thread"]));
+
+    expect(outbox.enqueue).toHaveBeenCalledWith(
+      expect.objectContaining({
+        emailAccountId: "account-two",
+        messageIds: ["new-message-one", "new-message-two"],
+        threadId: "thread",
       }),
-    );
-    const until = new Date("2026-08-16T09:00:00.000Z");
-
-    await act(() => result.current.snooze(["thread-one", "thread-two"], until));
-
-    expect(removeThreads).toHaveBeenCalledWith(["thread-one", "thread-two"]);
-    expect(snoozeThreadsAction).toHaveBeenCalledWith("account", {
-      threadIds: ["thread-one", "thread-two"],
-      snoozedUntil: until,
-    });
-    expect(restoreThreads).toHaveBeenCalledWith(removal, ["thread-two"]);
-    expect(mailboxCache.remove).toHaveBeenCalledWith({
-      emailAccountId: "account",
-      threadIds: ["thread-one"],
-    });
-  });
-
-  it("archives 300 conversations with one bulk action", async () => {
-    const threads = Array.from({ length: 300 }, (_, index) =>
-      createThread(["INBOX"], `thread-${index}`),
-    );
-    const { result } = renderHook(() =>
-      useThreadActions({
-        emailAccountId: "account",
-        removeThreads: vi.fn(() => ({
-          entries: new Map(),
-          viewIdentity: "view",
-        })),
-        restoreThreads: vi.fn(),
-        optimisticallyUpdateThreads: vi.fn(),
-      }),
-    );
-
-    await act(() => result.current.archive(threads));
-
-    expect(queue.archive).not.toHaveBeenCalled();
-    expect(bulkArchiveThreadsAction).toHaveBeenCalledOnce();
-    expect(bulkArchiveThreadsAction).toHaveBeenCalledWith("account", {
-      threads: threads.map((thread) => ({
-        threadId: thread.id,
-        messageIds: thread.messageIds,
-      })),
-    });
-    expect(mailboxCache.remove).toHaveBeenCalledWith({
-      emailAccountId: "account",
-      threadIds: threads.map((thread) => thread.id),
-    });
-    expect(mailboxSync.request).toHaveBeenCalledWith("account");
-  });
-
-  it("splits selections above the server action limit", async () => {
-    const threads = Array.from({ length: 501 }, (_, index) =>
-      createThread(["INBOX"], `thread-${index}`),
-    );
-    const { result } = renderHook(() =>
-      useThreadActions({
-        emailAccountId: "account",
-        removeThreads: vi.fn(() => ({
-          entries: new Map(),
-          viewIdentity: "view",
-        })),
-        restoreThreads: vi.fn(),
-        optimisticallyUpdateThreads: vi.fn(),
-      }),
-    );
-
-    await act(() => result.current.archive(threads));
-
-    expect(bulkArchiveThreadsAction).toHaveBeenCalledTimes(2);
-    expect(
-      bulkArchiveThreadsAction.mock.calls.map((call) => call[1].threads.length),
-    ).toEqual([500, 1]);
-    expect(mailboxCache.remove).toHaveBeenCalledWith({
-      emailAccountId: "account",
-      threadIds: threads.map((thread) => thread.id),
-    });
-  });
-
-  it("restores only conversations rejected by the bulk provider", async () => {
-    const removal = { entries: new Map(), viewIdentity: "view" };
-    const restoreThreads = vi.fn();
-    bulkArchiveThreadsAction.mockResolvedValue({
-      data: {
-        failedThreadIds: ["thread-two"],
-        succeededThreadIds: ["thread-one"],
-      },
-    });
-    const { result } = renderHook(() =>
-      useThreadActions({
-        emailAccountId: "account",
-        removeThreads: vi.fn(() => removal),
-        restoreThreads,
-        optimisticallyUpdateThreads: vi.fn(),
-      }),
-    );
-
-    await act(() =>
-      result.current.archive([
-        createThread(["INBOX"], "thread-one"),
-        createThread(["INBOX"], "thread-two"),
-      ]),
-    );
-
-    expect(restoreThreads).toHaveBeenCalledWith(removal, ["thread-two"]);
-    expect(mailboxCache.remove).toHaveBeenCalledWith({
-      emailAccountId: "account",
-      threadIds: ["thread-one"],
-    });
-    expect(notifications.error).toHaveBeenCalledWith(
-      "Couldn't archive 1 of 2 conversations",
     );
   });
 
-  it("requests a fresh delta after undo restores a local row", async () => {
-    const removal = { entries: new Map(), viewIdentity: "view" };
-    const restoreThreads = vi.fn();
-    const { result } = renderHook(() =>
-      useThreadActions({
-        emailAccountId: "account",
-        removeThreads: vi.fn(() => removal),
-        restoreThreads,
-        optimisticallyUpdateThreads: vi.fn(),
-      }),
-    );
+  it("undo cancels a pending archive so the durable overlay restores it", async () => {
+    const { result } = renderActions();
 
-    await act(() => result.current.archive([createThread(["INBOX"])]));
+    await act(() => result.current.archive(["thread"]));
     await act(() => result.current.undo());
 
-    expect(reverseActions.unarchive).toHaveBeenCalledWith("account", {
-      threadId: "thread",
-    });
-    expect(restoreThreads).toHaveBeenCalledWith(removal, ["thread"]);
-    expect(mailboxSync.request).toHaveBeenCalledWith("account");
+    expect(outbox.cancel).toHaveBeenCalledWith("mutation-id");
+    expect(outbox.enqueue).toHaveBeenCalledTimes(1);
+    expect(notifications.success).toHaveBeenCalledWith("Restored");
   });
 
-  it("chunks snooze actions at the server validation limit", async () => {
-    const threadIds = Array.from(
-      { length: 101 },
-      (_, index) => `thread-${index}`,
-    );
-    snoozeThreadsAction.mockImplementation(
-      async (_emailAccountId, input: { threadIds: string[] }) => ({
-        data: {
-          failedThreadIds: [],
-          succeededThreadIds: input.threadIds,
-        },
-      }),
-    );
-    const { result } = renderHook(() =>
-      useThreadActions({
-        emailAccountId: "account",
-        removeThreads: vi.fn(() => ({
-          entries: new Map(),
-          viewIdentity: "view",
-        })),
-        restoreThreads: vi.fn(),
-        optimisticallyUpdateThreads: vi.fn(),
-      }),
-    );
+  it("undo queues compensation with the original snapshot when work started", async () => {
+    outbox.cancel.mockResolvedValue(false);
+    const { result } = renderActions();
 
-    await act(() =>
-      result.current.snooze(threadIds, new Date("2026-08-16T09:00:00.000Z")),
-    );
+    await act(() => result.current.trash(["thread"]));
+    await act(() => result.current.undo());
 
-    expect(snoozeThreadsAction).toHaveBeenCalledTimes(2);
-    expect(
-      snoozeThreadsAction.mock.calls.map((call) => call[1].threadIds),
-    ).toEqual([threadIds.slice(0, 100), threadIds.slice(100)]);
+    expect(outbox.enqueue).toHaveBeenNthCalledWith(2, {
+      batchId: expect.any(String),
+      emailAccountId: "account",
+      kind: "untrash",
+      messageIds: ["message-one", "message-two"],
+      threadId: "thread",
+    });
+    expect(notifications.success).toHaveBeenCalledWith("Restored");
+  });
+
+  it("does not restore an undo whose compensation cannot be persisted", async () => {
+    outbox.cancel.mockResolvedValue(false);
+    outbox.enqueue
+      .mockResolvedValueOnce(createMutation("archive"))
+      .mockRejectedValueOnce(new Error("disk full"))
+      .mockResolvedValueOnce(createMutation("unarchive"));
+    const { result } = renderActions();
+
+    await act(() => result.current.archive(["thread"]));
+    await act(() => result.current.undo());
+
+    expect(notifications.error).toHaveBeenCalledWith("Couldn't restore");
+
+    await act(() => result.current.undo());
+
+    expect(outbox.enqueue).toHaveBeenCalledTimes(3);
+    expect(notifications.success).toHaveBeenCalledWith("Restored");
   });
 });
 
+function renderActions({
+  threads = [createThread(["INBOX", "UNREAD"])],
+}: {
+  threads?: ListThread[];
+} = {}) {
+  return renderHook(() =>
+    useThreadActions({
+      emailAccountId: "account",
+      threads,
+    }),
+  );
+}
+
 function createThread(
   labelIds: string[],
-  id = "thread",
-  messageIds = [`${id}-message`],
+  extra: Partial<ListThread> = {},
 ): ListThread {
   return {
-    id,
-    messageIds,
+    id: "thread",
+    messageIds: ["message-one", "message-two"],
     snippet: "snippet",
     plan: undefined,
     plans: [],
     messages: [
       {
-        id: messageIds[0] ?? `${id}-message`,
-        threadId: id,
+        id: "message-one",
+        threadId: "thread",
         snippet: "snippet",
         subject: "Subject",
         date: "0",
@@ -442,6 +302,37 @@ function createThread(
         labelIds,
         headers: { subject: "Subject" },
       },
+      {
+        id: "message-two",
+        threadId: "thread",
+        snippet: "snippet",
+        subject: "Subject",
+        date: "1",
+        internalDate: "1",
+        labelIds,
+        headers: { subject: "Subject" },
+      },
     ],
-  };
+    ...extra,
+  } as ListThread;
+}
+
+function createMutation(
+  kind: MailMutation["kind"],
+  id = "mutation-id",
+): MailMutation {
+  return {
+    id,
+    batchId: id,
+    emailAccountId: "account",
+    threadId: "thread",
+    messageIds: ["message-one", "message-two"],
+    kind,
+    status: "pending",
+    attempts: 0,
+    nextAttemptAt: 0,
+    createdAt: 0,
+    updatedAt: 0,
+    ...(kind === "set_read_state" ? { read: true } : {}),
+  } as MailMutation;
 }

@@ -133,6 +133,7 @@ function AccountItem({
         const params = new URLSearchParams(window.location.search);
         params.delete("accountScope");
         params.delete("thread-id");
+        params.delete("thread-account-id");
         const query = params.toString();
         redirectToSafeUrl(`/${account.id}/mail${query ? `?${query}` : ""}`);
       }}
