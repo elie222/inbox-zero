@@ -515,12 +515,7 @@ function ComposeEmailFormContent({
               isComposeWindow && "min-h-11 border-b",
             )}
           >
-            <label
-              className="shrink-0 text-sm font-medium text-foreground"
-              htmlFor="from-account"
-            >
-              From
-            </label>
+            <ComposeFieldLabel htmlFor="from-account" label="From" />
             <Select
               value={selectedEmailAccountId}
               onValueChange={onSelectEmailAccount}
@@ -570,14 +565,7 @@ function ComposeEmailFormContent({
                 isComposeWindow && "min-h-11 items-center border-b",
               )}
             >
-              {isComposeWindow && (
-                <label
-                  className="shrink-0 text-sm font-medium text-foreground"
-                  htmlFor="to"
-                >
-                  To
-                </label>
-              )}
+              {isComposeWindow && <ComposeFieldLabel htmlFor="to" label="To" />}
               <div className="min-w-0 flex-1">
                 {env.NEXT_PUBLIC_CONTACTS_ENABLED ? (
                   <div className="flex space-x-2">
@@ -968,6 +956,23 @@ function readFileAsBase64(file: File) {
 
 function revokePreview(attachment: ComposeAttachment) {
   if (attachment.previewUrl) URL.revokeObjectURL(attachment.previewUrl);
+}
+
+function ComposeFieldLabel({
+  htmlFor,
+  label,
+}: {
+  htmlFor: string;
+  label: string;
+}) {
+  return (
+    <label
+      className="shrink-0 text-sm font-medium text-foreground"
+      htmlFor={htmlFor}
+    >
+      {label}
+    </label>
+  );
 }
 
 function formatFileSize(size: number) {
