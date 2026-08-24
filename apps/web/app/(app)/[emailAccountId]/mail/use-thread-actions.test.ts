@@ -16,6 +16,7 @@ const notifications = vi.hoisted(() => ({
   success: vi.fn(),
 }));
 const markReadThreadAction = vi.hoisted(() => vi.fn());
+const bulkArchiveThreadsAction = vi.hoisted(() => vi.fn());
 const snoozeThreadsAction = vi.hoisted(() => vi.fn());
 const mailboxCache = vi.hoisted(() => ({
   markRead: vi.fn(),
@@ -38,6 +39,9 @@ vi.mock("@/utils/actions/mail", () => ({
   unarchiveThreadAction: reverseActions.unarchive,
   untrashThreadAction: reverseActions.untrash,
 }));
+vi.mock("@/utils/actions/mail-bulk-action", () => ({
+  bulkArchiveThreadsAction,
+}));
 vi.mock("@/utils/actions/snooze", () => ({ snoozeThreadsAction }));
 vi.mock("@/utils/email-cache/mailbox", () => ({
   markSyncedMailboxThreadsRead: mailboxCache.markRead,
@@ -59,6 +63,21 @@ describe("useThreadActions read state", () => {
     snoozeThreadsAction.mockResolvedValue({
       data: { failedThreadIds: [], succeededThreadIds: ["thread"] },
     });
+    bulkArchiveThreadsAction.mockImplementation(
+      async (
+        _emailAccountId,
+        input: { threads: Array<{ threadId: string }> },
+      ) => ({
+        data: {
+          failedThreadIds: [],
+          succeededThreadIds: input.threads.map((thread) => thread.threadId),
+        },
+      }),
+    );
+    queue.cancel.mockImplementation(({ threadIds }) => ({
+      cancelled: [],
+      notCancelled: threadIds,
+    }));
   });
 
   it("marks an unread row locally before queueing the provider update", () => {
@@ -247,7 +266,10 @@ describe("useThreadActions read state", () => {
     });
   });
 
-  it("reconciles successful archives into the mailbox store", async () => {
+  it("archives 300 conversations with one bulk action", async () => {
+    const threads = Array.from({ length: 300 }, (_, index) =>
+      createThread(["INBOX"], `thread-${index}`),
+    );
     const { result } = renderHook(() =>
       useThreadActions({
         emailAccountId: "account",
@@ -260,23 +282,59 @@ describe("useThreadActions read state", () => {
       }),
     );
 
-    act(() => result.current.archive(["thread"]));
-    const callbacks = queue.archive.mock.calls[0]?.[0];
-    await act(async () => {
-      callbacks.onSuccess("thread");
-      await Promise.resolve();
-      await Promise.resolve();
-    });
+    await act(() => result.current.archive(threads));
 
+    expect(queue.archive).not.toHaveBeenCalled();
+    expect(bulkArchiveThreadsAction).toHaveBeenCalledOnce();
+    expect(bulkArchiveThreadsAction).toHaveBeenCalledWith("account", {
+      threads: threads.map((thread) => ({
+        threadId: thread.id,
+        messageIds: thread.messageIds,
+      })),
+    });
     expect(mailboxCache.remove).toHaveBeenCalledWith({
       emailAccountId: "account",
-      threadIds: ["thread"],
+      threadIds: threads.map((thread) => thread.id),
     });
     expect(mailboxSync.request).toHaveBeenCalledWith("account");
   });
 
+  it("restores only conversations rejected by the bulk provider", async () => {
+    const removal = { entries: new Map(), viewIdentity: "view" };
+    const restoreThreads = vi.fn();
+    bulkArchiveThreadsAction.mockResolvedValue({
+      data: {
+        failedThreadIds: ["thread-two"],
+        succeededThreadIds: ["thread-one"],
+      },
+    });
+    const { result } = renderHook(() =>
+      useThreadActions({
+        emailAccountId: "account",
+        removeThreads: vi.fn(() => removal),
+        restoreThreads,
+        optimisticallyUpdateThreads: vi.fn(),
+      }),
+    );
+
+    await act(() =>
+      result.current.archive([
+        createThread(["INBOX"], "thread-one"),
+        createThread(["INBOX"], "thread-two"),
+      ]),
+    );
+
+    expect(restoreThreads).toHaveBeenCalledWith(removal, ["thread-two"]);
+    expect(mailboxCache.remove).toHaveBeenCalledWith({
+      emailAccountId: "account",
+      threadIds: ["thread-one"],
+    });
+    expect(notifications.error).toHaveBeenCalledWith(
+      "Couldn't archive 1 of 2 conversations",
+    );
+  });
+
   it("requests a fresh delta after undo restores a local row", async () => {
-    queue.cancel.mockReturnValue({ notCancelled: [] });
     const removal = { entries: new Map(), viewIdentity: "view" };
     const restoreThreads = vi.fn();
     const { result } = renderHook(() =>
@@ -288,9 +346,12 @@ describe("useThreadActions read state", () => {
       }),
     );
 
-    act(() => result.current.archive(["thread"]));
+    await act(() => result.current.archive([createThread(["INBOX"])]));
     await act(() => result.current.undo());
 
+    expect(reverseActions.unarchive).toHaveBeenCalledWith("account", {
+      threadId: "thread",
+    });
     expect(restoreThreads).toHaveBeenCalledWith(removal, ["thread"]);
     expect(mailboxSync.request).toHaveBeenCalledWith("account");
   });
@@ -331,16 +392,21 @@ describe("useThreadActions read state", () => {
   });
 });
 
-function createThread(labelIds: string[]): ListThread {
+function createThread(
+  labelIds: string[],
+  id = "thread",
+  messageIds = [`${id}-message`],
+): ListThread {
   return {
-    id: "thread",
+    id,
+    messageIds,
     snippet: "snippet",
     plan: undefined,
     plans: [],
     messages: [
       {
-        id: "message",
-        threadId: "thread",
+        id: messageIds[0] ?? `${id}-message`,
+        threadId: id,
         snippet: "snippet",
         subject: "Subject",
         date: "0",

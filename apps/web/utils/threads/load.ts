@@ -66,6 +66,7 @@ export async function loadThreads({
     const plans = aggregateThreadPlans(
       executedRulesByThreadId.get(thread.id) ?? [],
     );
+    const messageIds = thread.messages.map((message) => message.id);
     const messages = thread.messages.filter((message) => {
       if (!message.headers?.from) return true;
       return !isIgnoredSender(message.headers.from);
@@ -74,6 +75,7 @@ export async function loadThreads({
 
     return {
       id: thread.id,
+      messageIds,
       messages,
       snippet: thread.snippet,
       plan: plans.at(0),
@@ -93,6 +95,7 @@ export function toListThreads({ threads, nextPageToken }: LoadedThreads) {
   return {
     threads: threads.map((thread) => ({
       id: thread.id,
+      messageIds: thread.messageIds,
       snippet: thread.snippet,
       plan: thread.plan,
       plans: thread.plans,
@@ -111,9 +114,11 @@ export function toListThreads({ threads, nextPageToken }: LoadedThreads) {
   };
 }
 
-export type ThreadListItem = ReturnType<
-  typeof toListThreads
->["threads"][number];
+type LoadedThreadListItem = ReturnType<typeof toListThreads>["threads"][number];
+
+export type ThreadListItem = Omit<LoadedThreadListItem, "messageIds"> & {
+  messageIds?: string[];
+};
 
 function aggregateThreadPlans<
   T extends { id: string; createdAt: Date; rule: { id: string } | null },

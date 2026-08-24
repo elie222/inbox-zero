@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
-import { loadThreads } from "./load";
+import { loadThreads, toListThreads } from "./load";
 
 vi.mock("@/utils/prisma");
 
@@ -78,6 +78,47 @@ describe("loadThreads", () => {
     expect(planIds).toEqual(
       expect.arrayContaining(["execution-1", "execution-2"]),
     );
+  });
+
+  it("keeps every provider message ID when ignored messages are hidden", async () => {
+    const emailProvider = {
+      getThreadsWithQuery: vi.fn().mockResolvedValue({
+        threads: [
+          {
+            id: "thread-1",
+            snippet: "Thread",
+            messages: [
+              {
+                id: "visible-message",
+                threadId: "thread-1",
+                headers: { from: "sender@example.com" },
+              },
+              {
+                id: "hidden-message",
+                threadId: "thread-1",
+                headers: { from: "Reminder <reminder@superhuman.com>" },
+              },
+            ],
+          },
+        ],
+        nextPageToken: null,
+      }),
+    };
+
+    const loaded = await loadThreads({
+      query: { type: "inbox" },
+      emailAccountId: "account-1",
+      emailProvider: emailProvider as never,
+      messageFormat: "metadata",
+    });
+
+    expect(loaded.threads[0]?.messages.map((message) => message.id)).toEqual([
+      "visible-message",
+    ]);
+    expect(toListThreads(loaded).threads[0]?.messageIds).toEqual([
+      "visible-message",
+      "hidden-message",
+    ]);
   });
 });
 
