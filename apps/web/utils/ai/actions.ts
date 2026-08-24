@@ -452,7 +452,11 @@ const forward: ActionFunction<{
   }
 
   if (!toRecipients.length) {
-    toRecipients.push(ccRecipients.shift()!);
+    const primaryRecipient = ccRecipients.shift();
+    if (!primaryRecipient) {
+      throw new Error("Forward requires a primary recipient");
+    }
+    toRecipients.push(primaryRecipient);
   }
 
   const { messageId } = await client.forwardEmail(forwardMessage, {

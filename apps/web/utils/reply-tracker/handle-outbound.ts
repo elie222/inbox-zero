@@ -7,6 +7,7 @@ import { handleOutboundReply } from "./outbound";
 import { cleanupThreadAIDrafts, trackSentDraftStatus } from "./draft-tracking";
 import { clearFollowUpLabel } from "@/utils/follow-up/labels";
 import { excludeRepliedSendersFromColdEmail } from "@/utils/cold-email/exclude-replied-sender";
+import { enqueueRepliedSenderExclusionRetry } from "@/utils/cold-email/exclude-replied-sender-retry";
 import { logReplyTrackerError } from "./error-logging";
 import {
   acquireOutboundMessageLock,
@@ -53,7 +54,6 @@ export async function handleOutboundMessage({
 
   // Before the slower tracking work below, so a fast reply from the other side is
   // classified against the corrected pattern
-  let exclusionSucceeded = false;
   try {
     await excludeRepliedSendersFromColdEmail({
       emailAccountId: emailAccount.id,
@@ -61,12 +61,24 @@ export async function handleOutboundMessage({
       provider,
       logger,
     });
-    exclusionSucceeded = true;
   } catch (error) {
     logger.error("Error excluding replied sender from cold email blocker", {
       error,
     });
     captureException(error, { emailAccountId: emailAccount.id });
+
+    try {
+      await enqueueRepliedSenderExclusionRetry({
+        emailAccountId: emailAccount.id,
+        messageId: message.id,
+        attempt: 1,
+      });
+    } catch (retryError) {
+      logger.error("Failed to queue replied sender exclusion retry", {
+        error: retryError,
+      });
+      captureException(retryError, { emailAccountId: emailAccount.id });
+    }
   }
 
   let processedSuccessfully = false;
@@ -115,9 +127,9 @@ export async function handleOutboundMessage({
 
     // Persist the processed marker once the expensive reply-tracking work
     // completes so follow-up cleanup failures do not trigger duplicate replays.
-    processedSuccessfully =
-      exclusionSucceeded &&
-      results.every((result) => result.status === "fulfilled");
+    processedSuccessfully = results.every(
+      (result) => result.status === "fulfilled",
+    );
 
     await cleanupThreadAIDrafts({
       threadId: message.threadId,

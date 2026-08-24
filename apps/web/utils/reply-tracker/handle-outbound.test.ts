@@ -6,6 +6,7 @@ import {
 } from "@/__tests__/helpers";
 import { clearFollowUpLabel } from "@/utils/follow-up/labels";
 import { excludeRepliedSendersFromColdEmail } from "@/utils/cold-email/exclude-replied-sender";
+import { enqueueRepliedSenderExclusionRetry } from "@/utils/cold-email/exclude-replied-sender-retry";
 import {
   acquireOutboundMessageLock,
   clearOutboundMessageLock,
@@ -31,6 +32,9 @@ vi.mock("@/utils/follow-up/labels", () => ({
 vi.mock("@/utils/cold-email/exclude-replied-sender", () => ({
   excludeRepliedSendersFromColdEmail: vi.fn(),
 }));
+vi.mock("@/utils/cold-email/exclude-replied-sender-retry", () => ({
+  enqueueRepliedSenderExclusionRetry: vi.fn(),
+}));
 vi.mock("@/utils/redis/message-processing", () => ({
   acquireOutboundMessageLock: vi.fn(),
   clearOutboundMessageLock: vi.fn(),
@@ -51,6 +55,7 @@ describe("handleOutboundMessage", () => {
     vi.mocked(cleanupThreadAIDrafts).mockResolvedValue(undefined);
     vi.mocked(clearFollowUpLabel).mockResolvedValue(undefined);
     vi.mocked(excludeRepliedSendersFromColdEmail).mockResolvedValue(undefined);
+    vi.mocked(enqueueRepliedSenderExclusionRetry).mockResolvedValue(true);
     vi.mocked(markOutboundMessageProcessed).mockResolvedValue(true);
     vi.mocked(clearOutboundMessageLock).mockResolvedValue(true);
   });
@@ -124,7 +129,7 @@ describe("handleOutboundMessage", () => {
     });
   });
 
-  it("leaves the message retryable if un-pinning the sender fails", async () => {
+  it("queues a focused retry if un-pinning the sender fails", async () => {
     vi.mocked(excludeRepliedSendersFromColdEmail).mockRejectedValue(
       new Error("exclude failed"),
     );
@@ -137,12 +142,17 @@ describe("handleOutboundMessage", () => {
     });
 
     expect(clearFollowUpLabel).toHaveBeenCalled();
-    expect(markOutboundMessageProcessed).not.toHaveBeenCalled();
-    expect(clearOutboundMessageLock).toHaveBeenCalledWith({
+    expect(enqueueRepliedSenderExclusionRetry).toHaveBeenCalledWith({
+      emailAccountId: emailAccount.id,
+      messageId: message.id,
+      attempt: 1,
+    });
+    expect(markOutboundMessageProcessed).toHaveBeenCalledWith({
       emailAccountId: emailAccount.id,
       messageId: message.id,
       lockToken: "lock-token-1",
     });
+    expect(clearOutboundMessageLock).not.toHaveBeenCalled();
   });
 
   it("clears the outbound message lock when core tracking fails", async () => {
