@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { withEmailProvider } from "@/utils/middleware";
-import { sendEmailBody } from "@/utils/gmail/mail";
+import { sendEmailBody } from "@/utils/types/mail";
 
 export type SendMessageResponse = {
   success: true;

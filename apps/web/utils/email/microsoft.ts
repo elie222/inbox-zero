@@ -2,6 +2,7 @@ import type { Message } from "@microsoft/microsoft-graph-types";
 import type { OutlookClient } from "@/utils/outlook/client";
 import type { ParsedMessage } from "@/utils/types";
 import type { Attachment as MailAttachment } from "nodemailer/lib/mailer";
+import { toMailerAttachments } from "@/utils/types/mail";
 import {
   getMessage,
   getMessages,
@@ -72,6 +73,7 @@ import type {
   BulkArchiveResult,
   EmailLabelUpdate,
 } from "@/utils/email/types";
+import type { SendEmailBody } from "@/utils/types/mail";
 import { getOutlookCategoryPreset } from "@/utils/outlook/category-colors";
 import { unwatchOutlook, watchOutlook } from "@/utils/outlook/watch";
 import { escapeODataString } from "@/utils/outlook/odata-escape";
@@ -758,27 +760,15 @@ export class OutlookProvider implements EmailProvider {
     return { messageId: requireSentMessageId(result.id) };
   }
 
-  async sendEmailWithHtml(body: {
-    replyToEmail?: {
-      threadId: string;
-      headerMessageId: string;
-      references?: string;
-      messageId?: string;
-    };
-    to: string;
-    from?: string;
-    cc?: string;
-    bcc?: string;
-    replyTo?: string;
-    subject: string;
-    messageHtml: string;
-    attachments?: Array<{
-      filename: string;
-      content: string;
-      contentType: string;
-    }>;
-  }) {
-    const result = await sendEmailWithHtml(this.client, body, this.logger);
+  async sendEmailWithHtml(body: SendEmailBody) {
+    const result = await sendEmailWithHtml(
+      this.client,
+      {
+        ...body,
+        attachments: toMailerAttachments(body.attachments),
+      },
+      this.logger,
+    );
     return {
       messageId: result.id || "",
       threadId: result.conversationId || "",

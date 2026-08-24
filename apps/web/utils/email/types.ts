@@ -6,6 +6,7 @@ import type {
   OutlookSystemFolder,
 } from "@/utils/outlook/folders";
 import type { Attachment as MailAttachment } from "nodemailer/lib/mailer";
+import type { SendEmailBody } from "@/utils/types/mail";
 
 export interface EmailThread {
   historyId?: string;
@@ -316,26 +317,7 @@ export interface EmailProvider {
     messageText: string;
     attachments?: MailAttachment[];
   }): Promise<{ messageId: string }>;
-  sendEmailWithHtml(body: {
-    replyToEmail?: {
-      threadId: string;
-      headerMessageId: string;
-      references?: string;
-      messageId?: string; // Platform-specific message ID (Graph ID for Outlook)
-    };
-    to: string;
-    from?: string;
-    cc?: string;
-    bcc?: string;
-    replyTo?: string;
-    subject: string;
-    messageHtml: string;
-    attachments?: Array<{
-      filename: string;
-      content: string;
-      contentType: string;
-    }>;
-  }): Promise<{
+  sendEmailWithHtml(body: SendEmailBody): Promise<{
     messageId: string;
     threadId: string;
   }>;

@@ -10,7 +10,7 @@
     "test": "turbo run test --filter=./apps/web -- --run",
     "test-db": "pnpm --filter inbox-zero-ai test-db",
     "test-integration": "pnpm --filter inbox-zero-ai test-integration",
-    "test:packages": "pnpm -r --filter @inbox-zero/api --filter @inbox-zero/cli --filter @inboxzero/desktop --filter @inboxzero/image-proxy --filter @inboxzero/image-proxy-aws test",
+    "test:packages": "pnpm -r --filter @inbox-zero/api --filter @inbox-zero/cli --filter @inboxzero/desktop --filter @inboxzero/email-editor --filter @inboxzero/image-proxy --filter @inboxzero/image-proxy-aws test",
     "lint": "turbo lint",
     "postinstall": "sh clone-marketing.sh",
     "prepare": "husky install",

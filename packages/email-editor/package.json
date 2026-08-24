@@ -1,0 +1,64 @@
+{
+  "name": "@inboxzero/email-editor",
+  "version": "0.0.0",
+  "description": "Portable email HTML contracts and a Tiptap web editor for Inbox Zero",
+  "license": "SEE LICENSE IN ../../LICENSE",
+  "type": "module",
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "exports": {
+    "./core": "./src/core/email-html.ts",
+    "./fixtures": "./src/fixtures/email-html.ts",
+    "./web": "./src/web/EmailEditor.tsx"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "parse5": "8.0.0"
+  },
+  "peerDependencies": {
+    "@tiptap/core": "3.30.2",
+    "@tiptap/extension-image": "3.30.2",
+    "@tiptap/extension-placeholder": "3.30.2",
+    "@tiptap/pm": "3.30.2",
+    "@tiptap/react": "3.30.2",
+    "@tiptap/starter-kit": "3.30.2",
+    "react": ">=19",
+    "react-dom": ">=19"
+  },
+  "peerDependenciesMeta": {
+    "@tiptap/core": {
+      "optional": true
+    },
+    "@tiptap/extension-image": {
+      "optional": true
+    },
+    "@tiptap/extension-placeholder": {
+      "optional": true
+    },
+    "@tiptap/pm": {
+      "optional": true
+    },
+    "@tiptap/react": {
+      "optional": true
+    },
+    "@tiptap/starter-kit": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "typescript": "6.0.3",
+    "vitest": "4.1.10"
+  }
+}
