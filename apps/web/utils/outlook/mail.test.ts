@@ -119,6 +119,54 @@ describe("sendEmailWithHtml", () => {
     expect(sendPost).toHaveBeenCalledTimes(1);
   });
 
+  it("uploads inline images with Graph Content-ID semantics", async () => {
+    const draftPost = vi.fn(
+      async () =>
+        ({
+          id: "draft-1",
+          conversationId: "conversation-1",
+        }) as Message,
+    );
+    const attachmentPost = vi.fn(async () => ({}));
+    const sendPost = vi.fn(async () => ({}));
+
+    const client = createMockOutlookClient((path) => {
+      if (path === "/me/messages") return { post: draftPost };
+      if (path === "/me/messages/draft-1/attachments") {
+        return { post: attachmentPost };
+      }
+      if (path === "/me/messages/draft-1/send") return { post: sendPost };
+      throw new Error(`Unexpected API path: ${path}`);
+    });
+
+    await sendEmailWithHtml(
+      client,
+      {
+        to: "recipient@example.com",
+        subject: "Subject",
+        messageHtml: '<p>Diagram <img src="cid:diagram@example"></p>',
+        attachments: [
+          {
+            filename: "diagram.png",
+            content: Buffer.from("image-bytes"),
+            contentType: "image/png",
+            contentDisposition: "inline",
+            cid: "diagram@example",
+          },
+        ],
+      },
+      createTestLogger(),
+    );
+
+    expect(attachmentPost).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contentId: "diagram@example",
+        isInline: true,
+      }),
+    );
+    expect(sendPost).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps plain text attachment strings as utf-8", async () => {
     const draftPost = vi.fn(
       async () =>
@@ -215,7 +263,7 @@ describe("sendEmailWithHtml", () => {
     expect(sendPost).toHaveBeenCalledTimes(1);
   });
 
-  it("retries upload-session chunks and sends them as octet-stream", async () => {
+  it("retries upload-session chunks and preserves inline metadata", async () => {
     const draftPost = vi.fn(
       async () =>
         ({
@@ -255,12 +303,14 @@ describe("sendEmailWithHtml", () => {
       {
         to: "recipient@example.com",
         subject: "Subject",
-        messageHtml: "<p>Hello</p>",
+        messageHtml: '<p><img src="cid:large-image@example"></p>',
         attachments: [
           {
-            filename: "large.pdf",
+            filename: "large-image.png",
             content: Buffer.alloc(totalSize),
-            contentType: "application/pdf",
+            contentType: "image/png",
+            contentDisposition: "inline",
+            cid: "large-image@example",
           },
         ],
       },
@@ -270,7 +320,9 @@ describe("sendEmailWithHtml", () => {
     expect(createUploadSessionPost).toHaveBeenCalledWith(
       expect.objectContaining({
         AttachmentItem: expect.objectContaining({
-          name: "large.pdf",
+          contentId: "large-image@example",
+          isInline: true,
+          name: "large-image.png",
           size: totalSize,
         }),
       }),

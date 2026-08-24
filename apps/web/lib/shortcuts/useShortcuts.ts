@@ -164,7 +164,16 @@ function resolveTarget(
   hotkeysEvent: HotkeysEvent,
 ): ShortcutTarget | undefined {
   if (!bucket.allowWhileTyping && isTypingTarget(event.target)) return;
-  return bucket.targets.get(hotkeysEvent.hotkey);
+  const target = bucket.targets.get(hotkeysEvent.hotkey);
+  if (
+    target?.type === "entry" &&
+    target.entry.id === "commandPalette" &&
+    event.target instanceof Element &&
+    event.target.closest("[data-email-editor-root]")
+  ) {
+    return;
+  }
+  return target;
 }
 
 function isSequence(hotkeysEvent: HotkeysEvent): boolean {

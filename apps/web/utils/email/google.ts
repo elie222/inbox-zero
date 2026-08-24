@@ -1,6 +1,7 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import chunk from "lodash/chunk";
 import type { Attachment as MailAttachment } from "nodemailer/lib/mailer";
+import { toMailerAttachments } from "@/utils/types/mail";
 import type { MessageWithPayload, ParsedMessage } from "@/utils/types";
 import { parseMessage } from "@/utils/gmail/message";
 import {
@@ -86,6 +87,7 @@ import type {
   BulkArchiveResult,
   EmailLabelUpdate,
 } from "@/utils/email/types";
+import type { SendEmailBody } from "@/utils/types/mail";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 import { getGmailSignatures } from "@/utils/gmail/signature-settings";
 import { withRateLimitRecording } from "@/utils/email/rate-limit";
@@ -975,26 +977,11 @@ export class GmailProvider implements EmailProvider {
     await sendEmailWithPlainText(this.client, args);
   }
 
-  async sendEmailWithHtml(body: {
-    replyToEmail?: {
-      threadId: string;
-      headerMessageId: string;
-      references?: string;
-    };
-    to: string;
-    from?: string;
-    cc?: string;
-    bcc?: string;
-    replyTo?: string;
-    subject: string;
-    messageHtml: string;
-    attachments?: Array<{
-      filename: string;
-      content: string;
-      contentType: string;
-    }>;
-  }) {
-    const result = await sendEmailWithHtml(this.client, body);
+  async sendEmailWithHtml(body: SendEmailBody) {
+    const result = await sendEmailWithHtml(this.client, {
+      ...body,
+      attachments: toMailerAttachments(body.attachments),
+    });
     return {
       messageId: result.data.id || "",
       threadId: result.data.threadId || "",
