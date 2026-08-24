@@ -65,13 +65,25 @@ export async function syncStripeDataToDb({
         stripeTrialEnd: null,
       };
 
-      await prisma.premium.upsert({
+      const updatedPremium = await prisma.premium.upsert({
         where: { stripeCustomerId: customerId },
         update: subscriptionData,
         create: {
           ...subscriptionData,
           stripeCustomerId: customerId,
         },
+        select: {
+          id: true,
+          users: { select: { id: true } },
+          admins: { select: { id: true } },
+        },
+      });
+
+      await connectPurchaserAsAdminIfMissing({
+        stripe,
+        customerId,
+        premium: updatedPremium,
+        logger,
       });
 
       logger.info("Updated Premium record for customer with no subscription", {
@@ -157,25 +169,12 @@ export async function syncStripeDataToDb({
       },
     });
 
-    // Billing management is anchored on the recorded purchaser, so a premium
-    // that never had its purchaser written (or lost it) is repaired here on
-    // every sync rather than waiting for a manual backfill.
-    if (updatedPremium.admins.length === 0 && updatedPremium.users.length > 0) {
-      try {
-        await connectPurchaserAsAdmin({
-          stripe,
-          customerId,
-          premium: updatedPremium,
-          logger,
-        });
-      } catch (error) {
-        logger.error("Failed to record Stripe purchaser as premium admin", {
-          customerId,
-          error,
-        });
-        captureException(error, { extra: { customerId } });
-      }
-    }
+    await connectPurchaserAsAdminIfMissing({
+      stripe,
+      customerId,
+      premium: updatedPremium,
+      logger,
+    });
 
     // Handle Loops events based on state changes
     await handleLoopsEvents({
@@ -215,15 +214,6 @@ export async function syncStripeDataToDb({
   }
 }
 
-/**
- * Records the Stripe purchaser as the premium's admin. The purchaser is
- * resolved from the Stripe customer's `metadata.userId` — written when the
- * customer is created at checkout — and connected only when that user is still
- * linked to this premium. It is never guessed from the linked users.
- *
- * Returns false when the purchaser cannot be established, leaving the premium
- * unchanged for the caller to log or count.
- */
 export async function connectPurchaserAsAdmin({
   stripe,
   customerId,
@@ -259,7 +249,10 @@ export async function connectPurchaserAsAdmin({
   }
 
   await prisma.premium.update({
-    where: { id: premium.id },
+    where: {
+      id: premium.id,
+      users: { some: { id: purchaserUserId } },
+    },
     data: { admins: { connect: { id: purchaserUserId } } },
   });
 
@@ -269,6 +262,39 @@ export async function connectPurchaserAsAdmin({
     purchaserUserId,
   });
   return true;
+}
+
+async function connectPurchaserAsAdminIfMissing({
+  stripe,
+  customerId,
+  premium,
+  logger,
+}: {
+  stripe: Stripe;
+  customerId: string;
+  premium: {
+    id: string;
+    users: { id: string }[];
+    admins: { id: string }[];
+  };
+  logger: Logger;
+}) {
+  if (premium.admins.length > 0 || premium.users.length === 0) return;
+
+  try {
+    await connectPurchaserAsAdmin({
+      stripe,
+      customerId,
+      premium,
+      logger,
+    });
+  } catch (error) {
+    logger.error("Failed to record Stripe purchaser as premium admin", {
+      customerId,
+      error,
+    });
+    captureException(error, { extra: { customerId } });
+  }
 }
 
 function getEffectiveStripeSubscriptionStatus(subscription: {

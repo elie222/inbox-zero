@@ -5,9 +5,21 @@ import { createTestLogger } from "@/__tests__/helpers";
 import {
   connectPurchaserAsAdmin,
   getEffectiveStripeSubscriptionStatus,
+  syncStripeDataToDb,
 } from "./sync-stripe";
 
+const mocks = vi.hoisted(() => ({
+  listSubscriptions: vi.fn(),
+  retrieveCustomer: vi.fn(),
+}));
+
 vi.mock("@/utils/prisma");
+vi.mock("@/ee/billing/stripe", () => ({
+  getStripe: () => ({
+    subscriptions: { list: mocks.listSubscriptions },
+    customers: { retrieve: mocks.retrieveCustomer },
+  }),
+}));
 
 describe("getEffectiveStripeSubscriptionStatus", () => {
   it("treats canceled trials as canceled for app access", () => {
@@ -53,7 +65,10 @@ describe("connectPurchaserAsAdmin", () => {
 
     expect(result).toBe(true);
     expect(prisma.premium.update).toHaveBeenCalledWith({
-      where: { id: "premium-1" },
+      where: {
+        id: "premium-1",
+        users: { some: { id: "user-1" } },
+      },
       data: { admins: { connect: { id: "user-1" } } },
     });
   });
@@ -92,6 +107,44 @@ describe("connectPurchaserAsAdmin", () => {
 
     expect(result).toBe(false);
     expect(prisma.premium.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("syncStripeDataToDb", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("repairs the purchaser link when the customer has no subscription", async () => {
+    prisma.premium.findUnique.mockResolvedValue({
+      stripeSubscriptionStatus: null,
+      stripeTrialEnd: null,
+      tier: null,
+      users: [],
+      admins: [],
+    });
+    mocks.listSubscriptions.mockResolvedValue({ data: [] });
+    prisma.premium.upsert.mockResolvedValue({
+      id: "premium-1",
+      users: [{ id: "user-1" }],
+      admins: [],
+    });
+    mocks.retrieveCustomer.mockResolvedValue({
+      metadata: { userId: "user-1" },
+    });
+
+    await syncStripeDataToDb({
+      customerId: "cus_1",
+      logger: createTestLogger(),
+    });
+
+    expect(prisma.premium.update).toHaveBeenCalledWith({
+      where: {
+        id: "premium-1",
+        users: { some: { id: "user-1" } },
+      },
+      data: { admins: { connect: { id: "user-1" } } },
+    });
   });
 });
 

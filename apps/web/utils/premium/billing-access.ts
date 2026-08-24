@@ -2,9 +2,14 @@ import type { Prisma } from "@/generated/prisma/client";
 import { SafeError } from "@/utils/error";
 import { isOrganizationAdmin } from "@/utils/organizations/roles";
 
-export const organizationOwnerPremiumSelect = {
+export const organizationBillingPrincipalsSelect = {
   members: {
-    where: { role: "owner" },
+    where: {
+      OR: [
+        { role: "owner" },
+        { emailAccount: { user: { premiumAdminId: { not: null } } } },
+      ],
+    },
     select: {
       emailAccount: {
         select: { user: { select: { id: true, premiumId: true } } },
@@ -16,7 +21,7 @@ export const organizationOwnerPremiumSelect = {
 const billingAccessMembershipSelect = {
   role: true,
   organization: {
-    select: organizationOwnerPremiumSelect,
+    select: organizationBillingPrincipalsSelect,
   },
 } as const;
 
@@ -62,11 +67,8 @@ export function canManageBilling(userId: string, user: BillingAccessUser) {
     return isOrganizationAdmin(organizationMemberships);
   }
 
-  // The purchaser is the recorded premium admin (written from Stripe customer
-  // metadata at sync time), or the legacy owner whose user id doubles as the
-  // premium id. An empty admins list grants nothing: every invited seat user
-  // shares the premium, so anyone who is not the purchaser must qualify
-  // through an organization that actually contains the purchaser.
+  // Invited seats share a premium, so billing access must stay anchored to a
+  // recorded plan admin or the legacy owner whose user ID was the premium ID.
   const premiumAdminIds = new Set(premium.admins.map((admin) => admin.id));
   const isPurchaser = premiumAdminIds.has(userId) || premium.id === userId;
 

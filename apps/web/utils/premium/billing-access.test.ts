@@ -104,6 +104,43 @@ describe("canManageBilling", () => {
     expect(result).toBe(true);
   });
 
+  it.each([
+    "admin",
+    "owner",
+  ])("allows an organization %s when a plan admin belongs to the organization", (role) => {
+    const result = canManageBilling("user-1", {
+      premium: {
+        id: "premium-1",
+        admins: [{ id: "premium-admin" }],
+      },
+      emailAccounts: [
+        {
+          members: [
+            {
+              role,
+              organization: {
+                members: [
+                  {
+                    emailAccount: {
+                      user: { id: "org-owner", premiumId: "premium-1" },
+                    },
+                  },
+                  {
+                    emailAccount: {
+                      user: { id: "premium-admin", premiumId: "premium-1" },
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(result).toBe(true);
+  });
+
   it("allows an organization admin when the owner holds a legacy premium", () => {
     const result = canManageBilling("user-1", {
       premium: {
