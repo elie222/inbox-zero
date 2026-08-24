@@ -102,6 +102,7 @@ import {
 } from "@/utils/microsoft/retry";
 import { shouldSkipAutoDraft } from "@/utils/auto-draft";
 import { getOutlookMailboxSyncPage } from "@/utils/outlook/mailbox-sync";
+import { searchContacts } from "@/utils/outlook/contact";
 
 export class OutlookProvider implements EmailProvider {
   readonly name = "microsoft";
@@ -1455,6 +1456,10 @@ export class OutlookProvider implements EmailProvider {
 
   getAccessToken(): string {
     return this.client.getAccessToken();
+  }
+
+  async searchContacts(query: string) {
+    return searchContacts(this.client, query, this.logger);
   }
 
   async markReadThread(threadId: string, read: boolean): Promise<void> {

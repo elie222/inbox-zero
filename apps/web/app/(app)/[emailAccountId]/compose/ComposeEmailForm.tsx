@@ -39,7 +39,7 @@ import {
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { useHotkeys } from "react-hotkeys-hook";
 import useSWR from "swr";
-import type { ContactsResponse } from "@/app/api/google/contacts/route";
+import type { ContactsResponse } from "@/app/api/user/contacts/route";
 import { Input, Label } from "@/components/Input";
 import { ButtonLoader } from "@/components/Loading";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -429,7 +429,7 @@ function ComposeEmailFormContent({
 
   const { data: contacts } = useSWR<ContactsResponse, { error: string }>(
     env.NEXT_PUBLIC_CONTACTS_ENABLED
-      ? `/api/google/contacts?query=${searchQuery}`
+      ? `/api/user/contacts?query=${encodeURIComponent(searchQuery)}`
       : null,
     { keepPreviousData: true },
   );
@@ -567,67 +567,54 @@ function ComposeEmailFormContent({
                             }}
                           />
 
-                          {!!contacts?.result?.length && (
+                          {!!contacts?.contacts.length && (
                             <ComboboxOptions className="absolute z-10 mt-1 max-h-60 overflow-auto rounded-md bg-popover py-1 text-base shadow-lg ring-1 ring-border focus:outline-none sm:text-sm">
                               <ComboboxOption
                                 className="h-0 w-0 overflow-hidden"
                                 value={searchQuery}
                               />
-                              {contacts.result.map((contact) => {
-                                const emailAddress =
-                                  contact.person?.emailAddresses?.[0]?.value;
-                                if (!emailAddress) return null;
-                                const person = {
-                                  emailAddress,
-                                  name: contact.person?.names?.[0]?.displayName,
-                                  profilePictureUrl:
-                                    contact.person?.photos?.[0]?.url,
-                                };
-
-                                return (
-                                  <ComboboxOption
-                                    className={({ focus }) =>
-                                      `cursor-default select-none px-4 py-1 text-foreground ${focus ? "bg-accent" : ""}`
-                                    }
-                                    key={person.emailAddress}
-                                    value={person.emailAddress}
-                                  >
-                                    {({ selected }: { selected: boolean }) => (
-                                      <div className="my-2 flex items-center">
-                                        {selected ? (
-                                          <div className="flex h-12 w-12 items-center justify-center rounded-full">
-                                            <CheckCircleIcon className="h-6 w-6" />
-                                          </div>
-                                        ) : (
-                                          <Avatar>
-                                            <AvatarImage
-                                              src={
-                                                person.profilePictureUrl ??
-                                                undefined
-                                              }
-                                              alt={
-                                                person.emailAddress ||
-                                                "Profile picture"
-                                              }
-                                            />
-                                            <AvatarFallback>
-                                              {person.emailAddress?.[0] || "A"}
-                                            </AvatarFallback>
-                                          </Avatar>
-                                        )}
-                                        <div className="ml-4 flex flex-col justify-center">
+                              {contacts.contacts.map((contact) => (
+                                <ComboboxOption
+                                  className={({ focus }) =>
+                                    `cursor-default select-none px-4 py-1 text-foreground ${focus ? "bg-accent" : ""}`
+                                  }
+                                  key={contact.emailAddress}
+                                  value={contact.emailAddress}
+                                >
+                                  {({ selected }: { selected: boolean }) => (
+                                    <div className="my-2 flex items-center">
+                                      {selected ? (
+                                        <div className="flex h-12 w-12 items-center justify-center rounded-full">
+                                          <CheckCircleIcon className="h-6 w-6" />
+                                        </div>
+                                      ) : (
+                                        <Avatar>
+                                          <AvatarImage
+                                            src={
+                                              contact.profilePictureUrl ??
+                                              undefined
+                                            }
+                                            alt={contact.emailAddress}
+                                          />
+                                          <AvatarFallback>
+                                            {contact.emailAddress[0] || "A"}
+                                          </AvatarFallback>
+                                        </Avatar>
+                                      )}
+                                      <div className="ml-4 flex flex-col justify-center">
+                                        {contact.name && (
                                           <div className="text-foreground">
-                                            {person.name}
+                                            {contact.name}
                                           </div>
-                                          <div className="text-sm font-semibold text-muted-foreground">
-                                            {person.emailAddress}
-                                          </div>
+                                        )}
+                                        <div className="text-sm font-semibold text-muted-foreground">
+                                          {contact.emailAddress}
                                         </div>
                                       </div>
-                                    )}
-                                  </ComboboxOption>
-                                );
-                              })}
+                                    </div>
+                                  )}
+                                </ComboboxOption>
+                              ))}
                             </ComboboxOptions>
                           )}
                         </div>
