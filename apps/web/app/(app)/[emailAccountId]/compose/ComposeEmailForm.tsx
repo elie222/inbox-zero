@@ -432,15 +432,14 @@ function ComposeEmailFormContent({
 
       try {
         const readerThreadId = replyingToEmail?.threadId?.trim();
+        const readerMessageId = replyingToEmail?.messageId;
         if (readerThreadId) {
           let outcome: Awaited<ReturnType<typeof queueReaderEmail>>;
           try {
             outcome = await queueReaderEmail({
               email: enrichedData,
               emailAccountId: selectedEmailAccountId,
-              messageIds: replyingToEmail.messageId
-                ? [replyingToEmail.messageId]
-                : [],
+              messageIds: readerMessageId ? [readerMessageId] : [],
               online: navigator.onLine,
               threadId: readerThreadId,
             });
