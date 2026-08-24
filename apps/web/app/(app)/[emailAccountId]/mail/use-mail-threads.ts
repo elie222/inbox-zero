@@ -592,7 +592,7 @@ export function useMailThreads({
 
   return {
     threads,
-    isLoading: isLoading && !sourceThreads,
+    isLoading: isLoading && !sourceThreads?.length,
     error: sourceThreads ? undefined : error,
     hasMore: Boolean(hasMore),
     isLoadingMore:

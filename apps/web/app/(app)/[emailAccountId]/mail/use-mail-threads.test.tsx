@@ -185,6 +185,28 @@ describe("useMailThreads", () => {
     );
   });
 
+  it("keeps loading when an empty cached page is awaiting server rows", async () => {
+    const network = Promise.withResolvers<unknown>();
+    cache.read.mockResolvedValue({
+      cachedAt: 100,
+      hasMore: true,
+      threads: [],
+    });
+
+    const { result } = renderHook(
+      () =>
+        useMailThreads({
+          emailAccountId: "account-empty-cache",
+          query: { type: "inbox" },
+        }),
+      { wrapper: createWrapper(() => network.promise) },
+    );
+
+    await waitFor(() => expect(result.current.hasMore).toBe(true));
+    expect(result.current.threads).toEqual([]);
+    expect(result.current.isLoading).toBe(true);
+  });
+
   it("keeps network rows when the disk read finishes later", async () => {
     const disk = Promise.withResolvers<unknown>();
     const network = Promise.withResolvers<unknown>();
