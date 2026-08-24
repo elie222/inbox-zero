@@ -461,6 +461,13 @@ const RichEmailEditor = forwardRef<
         <div
           aria-label={linkPanel.href ? "Edit link" : "Add link"}
           className={styles.linkPanel}
+          data-email-editor-link-dialog=""
+          onKeyDown={(event) => {
+            if (event.key !== "Escape") return;
+            event.preventDefault();
+            event.stopPropagation();
+            closeLinkPanel();
+          }}
           role="dialog"
         >
           <label htmlFor={linkInputId}>Link address</label>
@@ -475,12 +482,6 @@ const RichEmailEditor = forwardRef<
             type="text"
             value={linkHref}
             onKeyDown={(event) => {
-              if (event.key === "Escape") {
-                event.preventDefault();
-                event.stopPropagation();
-                closeLinkPanel();
-                return;
-              }
               if (event.key !== "Enter") return;
               event.preventDefault();
               applyLink();

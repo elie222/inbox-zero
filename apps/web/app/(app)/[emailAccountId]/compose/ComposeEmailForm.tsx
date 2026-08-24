@@ -703,7 +703,7 @@ function ComposeEmailFormContent({
             <CommandShortcut className="ml-2">{symbol}+Enter</CommandShortcut>
           </Button>
           <input
-            className="sr-only"
+            className="hidden"
             data-testid="compose-attachments-input"
             multiple
             onChange={handleFileInput("attachment")}
@@ -721,7 +721,7 @@ function ComposeEmailFormContent({
           </Button>
           <input
             accept={EMAIL_INLINE_IMAGE_MIME_TYPES.join(",")}
-            className="sr-only"
+            className="hidden"
             data-testid="compose-inline-image-input"
             multiple
             onChange={handleFileInput("inline")}

@@ -59,7 +59,6 @@ const EmailImage = Image.extend({
   },
 }).configure({
   allowBase64: false,
-  inline: true,
 });
 
 const EmailDirection = Extension.create({

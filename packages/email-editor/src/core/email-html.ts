@@ -908,13 +908,14 @@ function decodeBase64Prefix(value: string, byteCount: number) {
     if (character === "=") break;
     const digit = alphabet.indexOf(character);
     if (digit < 0) return [];
-    buffer = (buffer << 6) | digit;
+    buffer = buffer * 64 + digit;
     bitCount += 6;
     if (bitCount < 8) continue;
 
     bitCount -= 8;
-    bytes.push((buffer >> bitCount) & 0xff);
-    buffer &= (1 << bitCount) - 1;
+    const divisor = 2 ** bitCount;
+    bytes.push(Math.floor(buffer / divisor) % 256);
+    buffer %= divisor;
     if (bytes.length === byteCount) break;
   }
 
@@ -997,7 +998,11 @@ function stripTrailingBreaks(html: string) {
   let foundBreak = false;
 
   while (end > 0) {
-    while (end > 0 && html[end - 1]!.trim() === "") end--;
+    while (end > 0) {
+      const character = html.at(end - 1);
+      if (character === undefined || character.trim() !== "") break;
+      end--;
+    }
 
     const tagStart = html.lastIndexOf("<", end - 1);
     if (tagStart < 0 || !isBreakTag(html, tagStart, end)) break;
@@ -1010,17 +1015,21 @@ function stripTrailingBreaks(html: string) {
 
 function isBreakTag(html: string, start: number, end: number) {
   if (
-    html[start] !== "<" ||
-    html[start + 1]?.toLowerCase() !== "b" ||
-    html[start + 2]?.toLowerCase() !== "r"
+    html.at(start) !== "<" ||
+    html.at(start + 1)?.toLowerCase() !== "b" ||
+    html.at(start + 2)?.toLowerCase() !== "r"
   ) {
     return false;
   }
 
   let index = start + 3;
-  while (index < end - 1 && html[index]!.trim() === "") index++;
-  if (html[index] === "/") index++;
-  return index === end - 1 && html[index] === ">";
+  while (index < end - 1) {
+    const character = html.at(index);
+    if (character === undefined || character.trim() !== "") break;
+    index++;
+  }
+  if (html.at(index) === "/") index++;
+  return index === end - 1 && html.at(index) === ">";
 }
 
 function isElement(node: ChildNode): node is Element {

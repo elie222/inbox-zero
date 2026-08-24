@@ -27,7 +27,17 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
     <ComposeModalContext.Provider value={{ onOpen: openModal }}>
       {props.children}
       <Dialog open={isModalOpen} onOpenChange={closeModal}>
-        <DialogContent>
+        <DialogContent
+          onEscapeKeyDown={(event) => {
+            const target = event.target;
+            if (
+              target instanceof Element &&
+              target.closest("[data-email-editor-link-dialog]")
+            ) {
+              event.preventDefault();
+            }
+          }}
+        >
           <DialogHeader>
             <DialogTitle>New Message</DialogTitle>
           </DialogHeader>

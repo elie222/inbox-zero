@@ -72,6 +72,16 @@ test("keeps editing state stable across formatting, links, paste, and files", as
     .click();
   await expect(editor.getByRole("link", { name: "omega" })).toHaveCount(0);
 
+  await selectEditorText(editor, "omega");
+  await editor.press("ControlOrMeta+k");
+  const cancelLink = dialog
+    .getByRole("dialog", { name: "Add link" })
+    .getByRole("button", { name: "Cancel" });
+  await cancelLink.focus();
+  await cancelLink.press("Escape");
+  await expect(dialog.getByRole("dialog", { name: "Add link" })).toHaveCount(0);
+  await expect(editor).toBeFocused();
+
   await dialog.getByTestId("compose-inline-image-input").setInputFiles({
     name: "inline.png",
     mimeType: "image/png",
