@@ -237,8 +237,6 @@ const RichEmailEditor = forwardRef<
       bold: currentEditor?.isActive("bold") ?? false,
       blockquote: currentEditor?.isActive("blockquote") ?? false,
       bulletList: currentEditor?.isActive("bulletList") ?? false,
-      canRedo: currentEditor?.can().redo() ?? false,
-      canUndo: currentEditor?.can().undo() ?? false,
       italic: currentEditor?.isActive("italic") ?? false,
       link: currentEditor?.isActive("link") ?? false,
       orderedList: currentEditor?.isActive("orderedList") ?? false,
@@ -387,7 +385,7 @@ const RichEmailEditor = forwardRef<
 
       <BubbleMenu
         editor={editor}
-        options={{ offset: 8, placement: "top" }}
+        options={{ offset: 8, placement: "bottom" }}
         shouldShow={({ from, to }) => from !== to || editor.isActive("link")}
       >
         <div
@@ -400,72 +398,45 @@ const RichEmailEditor = forwardRef<
             onLink={openLinkPanel}
             state={toolbarState}
           />
+          <span aria-hidden className={styles.separator} />
+          <ToolbarButton
+            active={toolbarState?.bulletList}
+            label="Bulleted list"
+            onPress={() => editor.chain().focus().toggleBulletList().run()}
+          >
+            •
+          </ToolbarButton>
+          <ToolbarButton
+            active={toolbarState?.orderedList}
+            label="Numbered list"
+            onPress={() => editor.chain().focus().toggleOrderedList().run()}
+          >
+            1.
+          </ToolbarButton>
+          <ToolbarButton
+            active={toolbarState?.blockquote}
+            label="Block quote"
+            onPress={() => editor.chain().focus().toggleBlockquote().run()}
+          >
+            “ ”
+          </ToolbarButton>
+          <span aria-hidden className={styles.separator} />
+          <ToolbarButton
+            active={toolbarState?.direction === "ltr"}
+            label="Left-to-right text"
+            onPress={() => setBlockDirection(editor, "ltr")}
+          >
+            LTR
+          </ToolbarButton>
+          <ToolbarButton
+            active={toolbarState?.direction === "rtl"}
+            label="Right-to-left text"
+            onPress={() => setBlockDirection(editor, "rtl")}
+          >
+            RTL
+          </ToolbarButton>
         </div>
       </BubbleMenu>
-
-      <div
-        aria-label="Email formatting"
-        className={styles.toolbar}
-        role="toolbar"
-      >
-        <MarkButtons
-          editor={editor}
-          onLink={openLinkPanel}
-          state={toolbarState}
-        />
-        <span aria-hidden className={styles.separator} />
-        <ToolbarButton
-          active={toolbarState?.bulletList}
-          label="Bulleted list"
-          onPress={() => editor.chain().focus().toggleBulletList().run()}
-        >
-          • List
-        </ToolbarButton>
-        <ToolbarButton
-          active={toolbarState?.orderedList}
-          label="Numbered list"
-          onPress={() => editor.chain().focus().toggleOrderedList().run()}
-        >
-          1. List
-        </ToolbarButton>
-        <ToolbarButton
-          active={toolbarState?.blockquote}
-          label="Block quote"
-          onPress={() => editor.chain().focus().toggleBlockquote().run()}
-        >
-          “ ”
-        </ToolbarButton>
-        <span aria-hidden className={styles.separator} />
-        <ToolbarButton
-          active={toolbarState?.direction === "ltr"}
-          label="Left-to-right text"
-          onPress={() => setBlockDirection(editor, "ltr")}
-        >
-          LTR
-        </ToolbarButton>
-        <ToolbarButton
-          active={toolbarState?.direction === "rtl"}
-          label="Right-to-left text"
-          onPress={() => setBlockDirection(editor, "rtl")}
-        >
-          RTL
-        </ToolbarButton>
-        <span aria-hidden className={styles.separator} />
-        <ToolbarButton
-          disabled={!toolbarState?.canUndo}
-          label="Undo"
-          onPress={() => editor.chain().focus().undo().run()}
-        >
-          ↶
-        </ToolbarButton>
-        <ToolbarButton
-          disabled={!toolbarState?.canRedo}
-          label="Redo"
-          onPress={() => editor.chain().focus().redo().run()}
-        >
-          ↷
-        </ToolbarButton>
-      </div>
 
       {linkPanel && (
         <div

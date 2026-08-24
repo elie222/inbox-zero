@@ -753,15 +753,28 @@ function ComposeEmailFormContent({
       <div
         className={cn(
           "flex items-center justify-between",
-          isComposeWindow && "shrink-0 border-t px-3 py-2",
+          isComposeWindow && "shrink-0 border-t px-4 py-2",
         )}
       >
-        <div className="flex items-center gap-1">
-          <Button type="submit" disabled={isSubmitting}>
+        <div className="flex items-center">
+          <Button
+            className={cn(
+              isComposeWindow &&
+                "h-9 px-0 font-semibold text-foreground hover:bg-transparent hover:text-foreground",
+            )}
+            disabled={isSubmitting}
+            type="submit"
+            variant={isComposeWindow ? "ghost" : "default"}
+          >
             {isSubmitting && <ButtonLoader />}
             Send
-            <CommandShortcut className="ml-2">{symbol}+Enter</CommandShortcut>
+            {!isComposeWindow && (
+              <CommandShortcut className="ml-2">{symbol}+Enter</CommandShortcut>
+            )}
           </Button>
+        </div>
+
+        <div className="flex items-center gap-0.5 text-muted-foreground">
           <input
             className="hidden"
             data-testid="compose-attachments-input"
@@ -772,8 +785,11 @@ function ComposeEmailFormContent({
           />
           <Button
             aria-label="Attach files"
+            className={cn(
+              isComposeWindow && "text-muted-foreground hover:text-foreground",
+            )}
             onClick={() => attachmentInputRef.current?.click()}
-            size="icon"
+            size={isComposeWindow ? "iconSm" : "icon"}
             type="button"
             variant="ghost"
           >
@@ -790,27 +806,34 @@ function ComposeEmailFormContent({
           />
           <Button
             aria-label="Insert inline images"
+            className={cn(
+              isComposeWindow && "text-muted-foreground hover:text-foreground",
+            )}
             onClick={() => inlineImageInputRef.current?.click()}
-            size="icon"
+            size={isComposeWindow ? "iconSm" : "icon"}
             type="button"
             variant="ghost"
           >
             <ImageIcon className="size-4" />
           </Button>
+          {onDiscard && (
+            <Button
+              aria-label="Discard draft"
+              className={cn(
+                isComposeWindow &&
+                  "text-muted-foreground hover:text-foreground",
+              )}
+              disabled={isSubmitting}
+              onClick={onDiscard}
+              size={isComposeWindow ? "iconSm" : "icon"}
+              title="Discard draft"
+              type="button"
+              variant="ghost"
+            >
+              <TrashIcon className="size-4" />
+            </Button>
+          )}
         </div>
-
-        {onDiscard && (
-          <Button
-            type="button"
-            variant="secondary"
-            size="icon"
-            disabled={isSubmitting}
-            onClick={onDiscard}
-          >
-            <TrashIcon className="h-4 w-4" />
-            <span className="sr-only">Discard</span>
-          </Button>
-        )}
       </div>
     </form>
   );

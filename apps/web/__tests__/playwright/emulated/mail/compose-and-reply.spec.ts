@@ -9,12 +9,15 @@ test("keeps editing state stable across formatting, links, paste, and files", as
 
   const dialog = page.getByRole("dialog", { name: "New Message" });
   const editor = dialog.locator("[contenteditable='true']");
-  const formatting = dialog.getByRole("toolbar", {
-    name: "Email formatting",
+  const formatting = page.getByRole("toolbar", {
+    name: "Selection formatting",
   });
 
   await expect(dialog).toBeVisible();
   await expect(editor).toBeVisible();
+  await expect(
+    dialog.getByRole("toolbar", { name: "Email formatting" }),
+  ).toHaveCount(0);
   await expect(dialog).toHaveAttribute("data-compose-expanded", "false");
   await expect(
     dialog.getByRole("button", { name: "Expand compose" }),
@@ -104,7 +107,7 @@ test("keeps editing state stable across formatting, links, paste, and files", as
     "inline.png",
   );
 
-  await editor.click();
+  await selectEditorText(editor, "middle");
   await formatting.getByRole("button", { name: "Right-to-left text" }).click();
   await expect(editor.locator("p[dir='rtl']")).toHaveCount(1);
   await formatting.getByRole("button", { name: "Left-to-right text" }).click();
@@ -113,6 +116,12 @@ test("keeps editing state stable across formatting, links, paste, and files", as
   await expect(
     page.getByRole("toolbar", { name: "Selection formatting" }),
   ).toBeVisible();
+  await page.screenshot({
+    path: testInfo.outputPath("composer-selection.png"),
+  });
+
+  await editor.press("ArrowRight");
+  await expect(formatting).toBeHidden();
   await page.screenshot({
     path: testInfo.outputPath("composer-compact.png"),
   });

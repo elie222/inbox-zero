@@ -119,7 +119,11 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
                 isExpanded && "rounded-xl border shadow-lg",
               )}
             >
-              <ComposeEmailFormLazy layout="window" onSuccess={closeCompose} />
+              <ComposeEmailFormLazy
+                layout="window"
+                onDiscard={closeCompose}
+                onSuccess={closeCompose}
+              />
             </div>
           </main>
         </DialogContent>

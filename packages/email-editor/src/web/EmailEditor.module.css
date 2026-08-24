@@ -43,6 +43,9 @@
   .editor
   [data-email-editor-content] {
   min-height: 100%;
+  padding: 1rem;
+  font-size: 0.9375rem;
+  line-height: 1.6;
 }
 
 .editor [data-email-editor-content] p {
@@ -104,27 +107,16 @@
   content: attr(data-placeholder);
 }
 
-.toolbar,
 .bubbleToolbar {
   display: flex;
   gap: 0.125rem;
   align-items: center;
 }
 
-.toolbar {
-  flex-shrink: 0;
-  min-height: 2.5rem;
-  padding: 0.25rem 0.5rem;
-  overflow-x: auto;
-  border-top: 1px solid var(--email-editor-border);
-}
-
-.surface[data-email-editor-appearance="seamless"] .toolbar {
-  padding-inline: 0.75rem;
-}
-
 .bubbleToolbar {
+  max-width: calc(100vw - 1rem);
   padding: 0.35rem;
+  overflow-x: auto;
   color: #fff;
   background: #34373d;
   border-radius: 0.5rem;
@@ -176,7 +168,7 @@
 .linkPanel {
   position: absolute;
   right: 0.5rem;
-  bottom: 2.75rem;
+  bottom: 0.75rem;
   z-index: 60;
   width: min(24rem, calc(100% - 1rem));
   padding: 0.75rem;
