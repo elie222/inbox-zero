@@ -72,8 +72,8 @@ import type {
   BulkArchiveThread,
   BulkArchiveResult,
   EmailLabelUpdate,
-  SendEmailWithHtmlBody,
 } from "@/utils/email/types";
+import type { SendEmailBody } from "@/utils/types/mail";
 import { getOutlookCategoryPreset } from "@/utils/outlook/category-colors";
 import { unwatchOutlook, watchOutlook } from "@/utils/outlook/watch";
 import { escapeODataString } from "@/utils/outlook/odata-escape";
@@ -751,7 +751,7 @@ export class OutlookProvider implements EmailProvider {
     await sendEmailWithPlainText(this.client, args, this.logger);
   }
 
-  async sendEmailWithHtml(body: SendEmailWithHtmlBody) {
+  async sendEmailWithHtml(body: SendEmailBody) {
     const result = await sendEmailWithHtml(
       this.client,
       {

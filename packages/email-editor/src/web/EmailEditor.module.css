@@ -5,6 +5,7 @@
   --email-editor-foreground: hsl(var(--foreground, 222 47% 11%));
   --email-editor-background: hsl(var(--background, 0 0% 100%));
   --email-editor-ring: hsl(var(--ring, 215 20% 65%));
+
   position: relative;
   width: 100%;
   overflow: visible;

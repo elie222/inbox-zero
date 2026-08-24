@@ -1,14 +1,8 @@
-import { z } from "zod";
 import type { gmail_v1 } from "@googleapis/gmail";
 import MailComposer from "nodemailer/lib/mail-composer";
 import type Mail from "nodemailer/lib/mailer";
 import type { Attachment } from "nodemailer/lib/mailer";
-import { type WithMailerAttachments, zodAttachment } from "@/utils/types/mail";
-import {
-  EMAIL_ATTACHMENT_LIMITS,
-  validateEmailAttachments,
-  type EmailComposerAttachment,
-} from "@inboxzero/email-editor/core";
+import type { SendEmailBody, WithMailerAttachments } from "@/utils/types/mail";
 import { convertEmailHtmlToText } from "@/utils/mail";
 import {
   forwardEmailHtml,
@@ -36,52 +30,6 @@ import {
 
 const logger = createScopedLogger("gmail/mail");
 
-export const sendEmailBody = z
-  .object({
-    replyToEmail: z
-      .object({
-        threadId: z.string(),
-        headerMessageId: z.string(), // this is different to the gmail message id and looks something like <123...abc@mail.example.com>
-        references: z.string().optional(), // for threading
-        messageId: z.string().optional(), // platform-specific message ID (Graph ID for Outlook)
-      })
-      .optional(),
-    to: z.string(),
-    from: z.string().optional(),
-    cc: z.string().optional(),
-    bcc: z.string().optional(),
-    replyTo: z.string().optional(),
-    subject: z.string(),
-    messageHtml: z.string(),
-    attachments: z
-      .array(zodAttachment)
-      .max(EMAIL_ATTACHMENT_LIMITS.maxFiles)
-      .optional(),
-  })
-  .superRefine((body, context) => {
-    if (!body.attachments?.length) return;
-
-    const attachments: EmailComposerAttachment[] = body.attachments.map(
-      (attachment, index) => ({
-        id: attachment.id ?? `attachment-${index}`,
-        filename: attachment.filename,
-        mimeType: attachment.contentType,
-        size: decodedBase64Size(attachment.content),
-        contentBase64: attachment.content,
-        disposition: attachment.disposition ?? "attachment",
-        contentId: attachment.contentId,
-      }),
-    );
-    const validation = validateEmailAttachments(attachments);
-    if (validation.valid) return;
-
-    context.addIssue({
-      code: "custom",
-      message: validation.error,
-      path: ["attachments"],
-    });
-  });
-export type SendEmailBody = z.infer<typeof sendEmailBody>;
 type MailSendEmailBody = WithMailerAttachments<SendEmailBody>;
 
 const encodeMessage = (message: Buffer) =>
@@ -470,14 +418,4 @@ function readHtmlTagName(value: string, start: number) {
   }
 
   return tagName;
-}
-
-function decodedBase64Size(value: string) {
-  const normalized = value.trim();
-  const padding = normalized.endsWith("==")
-    ? 2
-    : normalized.endsWith("=")
-      ? 1
-      : 0;
-  return Math.max(0, Math.floor((normalized.length * 3) / 4) - padding);
 }

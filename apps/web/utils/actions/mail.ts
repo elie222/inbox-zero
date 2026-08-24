@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import prisma from "@/utils/prisma";
-import { sendEmailBody } from "@/utils/gmail/mail";
+import { sendEmailBody } from "@/utils/types/mail";
 import { actionClient } from "@/utils/actions/safe-action";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";

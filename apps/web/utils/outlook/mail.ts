@@ -1,8 +1,7 @@
 import type { Message, UploadSession } from "@microsoft/microsoft-graph-types";
 import type { OutlookClient } from "@/utils/outlook/client";
 import type { Attachment } from "nodemailer/lib/mailer";
-import type { SendEmailBody } from "@/utils/gmail/mail";
-import type { WithMailerAttachments } from "@/utils/types/mail";
+import type { SendEmailBody, WithMailerAttachments } from "@/utils/types/mail";
 import type { ParsedMessage } from "@/utils/types";
 import type { EmailForAction } from "@/utils/ai/types";
 import { createOutlookReplyContent } from "@/utils/outlook/reply";
@@ -656,6 +655,9 @@ async function uploadAttachmentViaSession({
             name: attachment.filename || "attachment.pdf",
             contentType: attachment.contentType || "application/octet-stream",
             size: content.length,
+            ...(attachment.cid
+              ? { contentId: attachment.cid, isInline: true }
+              : {}),
           },
         }),
     logger,

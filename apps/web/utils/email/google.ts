@@ -86,8 +86,8 @@ import type {
   BulkArchiveThread,
   BulkArchiveResult,
   EmailLabelUpdate,
-  SendEmailWithHtmlBody,
 } from "@/utils/email/types";
+import type { SendEmailBody } from "@/utils/types/mail";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 import { getGmailSignatures } from "@/utils/gmail/signature-settings";
 import { withRateLimitRecording } from "@/utils/email/rate-limit";
@@ -977,7 +977,7 @@ export class GmailProvider implements EmailProvider {
     await sendEmailWithPlainText(this.client, args);
   }
 
-  async sendEmailWithHtml(body: SendEmailWithHtmlBody) {
+  async sendEmailWithHtml(body: SendEmailBody) {
     const result = await sendEmailWithHtml(this.client, {
       ...body,
       attachments: toMailerAttachments(body.attachments),

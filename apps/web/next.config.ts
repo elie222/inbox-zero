@@ -42,7 +42,7 @@ const nextConfig: NextConfig = {
           // mock diagnostics instead of failing on known test-only debt.
           useTypeScriptCli: false,
           serverActions: {
-            bodySizeLimit: "22mb",
+            bodySizeLimit: "26mb",
           },
           ...(isDevelopment
             ? {

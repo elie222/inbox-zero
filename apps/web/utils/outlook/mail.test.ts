@@ -263,7 +263,7 @@ describe("sendEmailWithHtml", () => {
     expect(sendPost).toHaveBeenCalledTimes(1);
   });
 
-  it("retries upload-session chunks and sends them as octet-stream", async () => {
+  it("retries upload-session chunks and preserves inline metadata", async () => {
     const draftPost = vi.fn(
       async () =>
         ({
@@ -303,12 +303,14 @@ describe("sendEmailWithHtml", () => {
       {
         to: "recipient@example.com",
         subject: "Subject",
-        messageHtml: "<p>Hello</p>",
+        messageHtml: '<p><img src="cid:large-image@example"></p>',
         attachments: [
           {
-            filename: "large.pdf",
+            filename: "large-image.png",
             content: Buffer.alloc(totalSize),
-            contentType: "application/pdf",
+            contentType: "image/png",
+            contentDisposition: "inline",
+            cid: "large-image@example",
           },
         ],
       },
@@ -318,7 +320,9 @@ describe("sendEmailWithHtml", () => {
     expect(createUploadSessionPost).toHaveBeenCalledWith(
       expect.objectContaining({
         AttachmentItem: expect.objectContaining({
-          name: "large.pdf",
+          contentId: "large-image@example",
+          isInline: true,
+          name: "large-image.png",
           size: totalSize,
         }),
       }),

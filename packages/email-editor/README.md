@@ -16,10 +16,11 @@ rules from the React/Tiptap editing surface.
 
 The core profile supports paragraphs and hard breaks, bold, italic, underline,
 strikethrough, links, ordered and unordered lists, blockquotes, inline images,
-and block direction. Unsupported editable markup uses a lossless fallback so an
-existing draft is never silently rewritten. Complex quoted messages and
-signatures remain protected HTML and are combined with the canonical editable
-reply only when sending.
+and block direction. Unsupported editable markup uses a warned fallback: an
+untouched draft remains byte-for-byte intact, while editing its sanitized view
+may simplify unsupported formatting. Complex quoted messages and signatures
+remain protected HTML and are combined with the canonical editable reply only
+when sending.
 
 Inline images use temporary local preview URLs while editing. Before sending,
 `finalizeEditableEmailHtml` converts matched previews to `cid:` references;

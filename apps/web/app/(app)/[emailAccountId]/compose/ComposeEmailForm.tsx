@@ -55,7 +55,10 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { sendEmailAction } from "@/utils/actions/mail";
 import { extractNameFromEmail, isValidEmail } from "@/utils/email";
 import { getActionErrorMessage } from "@/utils/error";
-import type { SendEmailBody } from "@/utils/gmail/mail";
+import {
+  type SendEmailBody,
+  validateSendEmailPayloadSize,
+} from "@/utils/types/mail";
 import { resolveComposeRecipients } from "./compose-recipients";
 
 export type ReplyingToEmail = {
@@ -87,14 +90,14 @@ type ComposeAttachment = EmailComposerAttachment & {
 type ComposeFormValues = Omit<SendEmailBody, "attachments" | "messageHtml">;
 
 export function ComposeEmailForm(props: ComposeEmailFormProps) {
-  const { data: emailAccount, isLoading } = useEmailAccountFull();
+  const { data: emailAccount, error, isLoading } = useEmailAccountFull();
 
   return (
-    <LoadingContent loading={isLoading}>
-      {!isLoading && (
+    <LoadingContent error={error} loading={isLoading}>
+      {emailAccount && (
         <ComposeEmailFormContent
           {...props}
-          accountSignatureHtml={emailAccount?.signature ?? ""}
+          accountSignatureHtml={emailAccount.signature ?? ""}
         />
       )}
     </LoadingContent>
@@ -250,14 +253,13 @@ function ComposeEmailFormContent({
         return;
       }
 
-      const createdAttachments = encodedAttachments.map(
-        (attachment, index) => ({
-          ...attachment,
-          ...(disposition === "inline"
-            ? { previewUrl: URL.createObjectURL(files[index]!) }
-            : {}),
-        }),
-      );
+      const createdAttachments: ComposeAttachment[] =
+        encodedAttachments.flatMap((attachment, index) => {
+          if (disposition !== "inline") return [attachment];
+          const file = files[index];
+          if (!file) return [];
+          return [{ ...attachment, previewUrl: URL.createObjectURL(file) }];
+        });
       const acceptedAttachments = createdAttachments.filter((attachment) => {
         if (
           attachment.disposition !== "inline" ||
@@ -373,6 +375,11 @@ function ComposeEmailFormContent({
           contentId: attachment.contentId,
         })),
       };
+      const payloadValidation = validateSendEmailPayloadSize(enrichedData);
+      if (!payloadValidation.valid) {
+        toastError({ description: payloadValidation.error });
+        return;
+      }
 
       try {
         const result = await sendEmailAction(emailAccountId, enrichedData);
@@ -536,12 +543,14 @@ function ComposeEmailFormContent({
                               value={searchQuery}
                             />
                             {contacts.result.map((contact) => {
+                              const emailAddress =
+                                contact.person?.emailAddresses?.[0]?.value;
+                              if (!emailAddress) return null;
                               const person = {
-                                emailAddress:
-                                  contact.person?.emailAddresses?.[0].value,
-                                name: contact.person?.names?.[0].displayName,
+                                emailAddress,
+                                name: contact.person?.names?.[0]?.displayName,
                                 profilePictureUrl:
-                                  contact.person?.photos?.[0].url,
+                                  contact.person?.photos?.[0]?.url,
                               };
 
                               return (

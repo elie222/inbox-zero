@@ -6,12 +6,8 @@ import {
   buildReplyMessageText,
   createMail,
   convertTextToHtmlParagraphs,
-  sendEmailBody,
   stripHtmlTagsForPlainText,
 } from "@/utils/gmail/mail";
-
-const PNG_BASE64 =
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
 
 describe("createMail", () => {
   it("keeps BCC recipients in raw messages sent through the Gmail API", async () => {
@@ -50,48 +46,6 @@ describe("createMail", () => {
     expect(message).toContain("Content-ID: <diagram@example>");
     expect(message).toContain("Content-Disposition: inline");
     expect(message).toContain('src="cid:diagram@example"');
-  });
-});
-
-describe("sendEmailBody", () => {
-  const message = {
-    to: "recipient@example.com",
-    subject: "Inline image",
-    messageHtml: '<p><img src="cid:image@example"></p>',
-  };
-
-  it("accepts a bounded inline image with matching content", () => {
-    expect(
-      sendEmailBody.safeParse({
-        ...message,
-        attachments: [
-          {
-            filename: "image.png",
-            content: PNG_BASE64,
-            contentType: "image/png",
-            disposition: "inline",
-            contentId: "image@example",
-          },
-        ],
-      }).success,
-    ).toBe(true);
-  });
-
-  it("rejects spoofed inline image content", () => {
-    expect(
-      sendEmailBody.safeParse({
-        ...message,
-        attachments: [
-          {
-            filename: "image.png",
-            content: "bm90LWEtcG5n",
-            contentType: "image/png",
-            disposition: "inline",
-            contentId: "image@example",
-          },
-        ],
-      }).success,
-    ).toBe(false);
   });
 });
 
