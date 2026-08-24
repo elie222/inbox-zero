@@ -113,6 +113,13 @@ test("opening a prefetched conversation reuses the in-flight detail request", as
   await expect.poll(() => threadDetailRequestCount).toBe(1);
 
   await readerConversation.click();
+  await expect(
+    page.getByRole("heading", { name: "Re: Reader Navigation Message" }),
+  ).toBeVisible();
+  // Keep the prefetch pending while React's deferred reader selection settles
+  // and joins the shared request; otherwise slow runners can release it first.
+  await page.waitForTimeout(500);
+  expect(threadDetailRequestCount).toBe(1);
   releaseFirstRequest.resolve();
 
   await expect(
