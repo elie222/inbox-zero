@@ -9,6 +9,7 @@ import {
   repliedSenderExclusionRetryBody,
 } from "@/utils/cold-email/exclude-replied-sender-retry";
 import { sleep } from "@/utils/sleep";
+import { PendingMessageAttributionError } from "@/utils/ai/rule-generated-message";
 
 export const maxDuration = 300;
 
@@ -48,6 +49,8 @@ export const POST = withError(
         emailAccountId,
         messageId,
         attempt: attempt + 1,
+        continueAfterMaxAttempts:
+          error instanceof PendingMessageAttributionError,
       });
       if (!queued) throw error;
 

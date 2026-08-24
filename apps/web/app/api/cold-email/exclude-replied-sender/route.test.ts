@@ -41,6 +41,7 @@ vi.mock("@/utils/upstash", () => ({
 vi.mock("@/utils/sleep", () => ({ sleep: sleepMock }));
 
 import { POST } from "./route";
+import { PendingMessageAttributionError } from "@/utils/ai/rule-generated-message";
 
 describe("replied sender exclusion retry route", () => {
   beforeEach(() => {
@@ -95,6 +96,24 @@ describe("replied sender exclusion retry route", () => {
       "Message attribution is still pending",
     );
     expect(publishToQstashMock).not.toHaveBeenCalled();
+  });
+
+  it("continues retrying pending attribution after the normal limit", async () => {
+    excludeRepliedSendersFromColdEmailMock.mockRejectedValue(
+      new PendingMessageAttributionError(),
+    );
+
+    const response = await postRetry({ attempt: 7 });
+
+    expect(response.status).toBe(200);
+    expect(publishToQstashMock).toHaveBeenCalledWith(
+      "/api/cold-email/exclude-replied-sender",
+      {
+        emailAccountId: "account-1",
+        messageId: "message-1",
+        attempt: 8,
+      },
+    );
   });
 });
 

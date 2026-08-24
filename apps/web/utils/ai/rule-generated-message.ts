@@ -1,6 +1,13 @@
 import { SENDING_ACTION_TYPES } from "@/utils/ai/sending-action";
 import prisma from "@/utils/prisma";
 
+export class PendingMessageAttributionError extends Error {
+  constructor() {
+    super("Message attribution is still pending");
+    this.name = "PendingMessageAttributionError";
+  }
+}
+
 export async function isRuleGeneratedMessage({
   emailAccountId,
   threadId,
@@ -35,7 +42,7 @@ export async function isRuleGeneratedMessage({
   }
 
   if (candidates.some(({ executionStartedAt }) => executionStartedAt)) {
-    throw new Error("Message attribution is still pending");
+    throw new PendingMessageAttributionError();
   }
 
   return false;
