@@ -13,7 +13,16 @@ test("keeps editing state stable across formatting, links, paste, and files", as
     name: "Email formatting",
   });
 
-  await expect(editor).toHaveCount(1);
+  await expect(dialog).toBeVisible();
+  await expect(editor).toBeVisible();
+  await expect(dialog).toHaveAttribute("data-compose-expanded", "false");
+  await expect(
+    dialog.getByRole("button", { name: "Expand compose" }),
+  ).toBeVisible();
+  await dialog
+    .getByRole("textbox", { name: "To" })
+    .fill("teammate@example.com");
+  await dialog.getByPlaceholder("Subject").fill("Project update");
   await editor.pressSequentially("Alpha omega");
   for (const _character of "omega") {
     await editor.press("ArrowLeft");
@@ -98,9 +107,27 @@ test("keeps editing state stable across formatting, links, paste, and files", as
   await editor.click();
   await formatting.getByRole("button", { name: "Right-to-left text" }).click();
   await expect(editor.locator("p[dir='rtl']")).toHaveCount(1);
+  await formatting.getByRole("button", { name: "Left-to-right text" }).click();
+  await expect(editor.locator("p[dir='ltr']")).toHaveCount(1);
+  await selectEditorText(editor, "middle");
+  await expect(
+    page.getByRole("toolbar", { name: "Selection formatting" }),
+  ).toBeVisible();
   await page.screenshot({
-    path: testInfo.outputPath("composer-foundation.png"),
+    path: testInfo.outputPath("composer-compact.png"),
   });
+
+  await dialog.getByRole("button", { name: "Expand compose" }).click();
+  await expect(dialog).toHaveAttribute("data-compose-expanded", "true");
+  await expect(
+    dialog.getByRole("button", { name: "Restore compose" }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: testInfo.outputPath("composer-expanded.png"),
+  });
+
+  await dialog.getByRole("button", { name: "Restore compose" }).click();
+  await expect(dialog).toHaveAttribute("data-compose-expanded", "false");
 });
 
 test("composes, sends, and reads a new message from Sent", async ({

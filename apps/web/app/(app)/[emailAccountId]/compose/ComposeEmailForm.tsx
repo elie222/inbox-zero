@@ -59,6 +59,7 @@ import {
   type SendEmailBody,
   validateSendEmailPayloadSize,
 } from "@/utils/types/mail";
+import { cn } from "@/utils";
 import { resolveComposeRecipients } from "./compose-recipients";
 
 export type ReplyingToEmail = {
@@ -77,6 +78,7 @@ export type ReplyingToEmail = {
 };
 
 type ComposeEmailFormProps = {
+  layout?: "default" | "window";
   replyingToEmail?: ReplyingToEmail;
   refetch?: () => void;
   onSuccess?: (messageId: string, threadId: string) => void;
@@ -105,12 +107,14 @@ export function ComposeEmailForm(props: ComposeEmailFormProps) {
 }
 
 function ComposeEmailFormContent({
+  layout = "default",
   replyingToEmail,
   accountSignatureHtml,
   refetch,
   onSuccess,
   onDiscard,
 }: ComposeEmailFormProps & { accountSignatureHtml: string }) {
+  const isComposeWindow = layout === "window";
   const { emailAccountId } = useAccount();
   const [initialComposer] = useState(() => {
     const draft = prepareEmailDraft({
@@ -462,197 +466,242 @@ function ComposeEmailFormContent({
     };
 
   return (
-    <form ref={formRef} onSubmit={handleSubmit(onSubmit)} className="space-y-2">
-      {replyingToEmail?.to && !editReply ? (
-        <button
-          type="button"
-          className="flex gap-1 text-left"
-          onClick={() => setEditReply(true)}
-        >
-          <span className="text-green-500">Draft</span>{" "}
-          <span className="max-w-md break-words text-foreground">
-            to {extractNameFromEmail(replyingToEmail.to)}
-          </span>
-        </button>
-      ) : (
-        <>
-          <div className="flex items-start gap-2">
-            <div className="min-w-0 flex-1">
-              {env.NEXT_PUBLIC_CONTACTS_ENABLED ? (
-                <div className="flex space-x-2">
-                  <div className="mt-2">
-                    <Label name="to" label="To" />
-                  </div>
-                  <Combobox
-                    value={selectedEmailAddresses}
-                    onChange={handleComboboxOnChange}
-                    multiple
-                  >
-                    <div className="flex min-h-10 w-full flex-1 flex-wrap items-center gap-1.5 rounded-md text-sm disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-muted-foreground">
-                      {selectedEmailAddresses.map((emailAddress) => (
-                        <Badge
-                          key={emailAddress}
-                          variant="secondary"
-                          className="cursor-pointer rounded-md"
-                          onClick={() => {
-                            onRemoveSelectedEmail(emailAddress);
-                            setSearchQuery(emailAddress);
-                          }}
-                        >
-                          {extractNameFromEmail(emailAddress)}
-                          <button
-                            aria-label={`Remove ${emailAddress}`}
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
+    <form
+      ref={formRef}
+      onSubmit={handleSubmit(onSubmit)}
+      className={cn(
+        isComposeWindow
+          ? "flex h-full min-h-0 flex-col overflow-hidden [&_[data-email-editor-root]]:min-h-0 [&_[data-email-editor-root]]:flex-1"
+          : "space-y-2",
+      )}
+    >
+      <div className={cn(isComposeWindow ? "shrink-0 px-4" : "contents")}>
+        {replyingToEmail?.to && !editReply ? (
+          <button
+            type="button"
+            className={cn(
+              "flex gap-1 text-left",
+              isComposeWindow && "min-h-11 items-center border-b",
+            )}
+            onClick={() => setEditReply(true)}
+          >
+            <span className="text-green-500">Draft</span>{" "}
+            <span className="max-w-md break-words text-foreground">
+              to {extractNameFromEmail(replyingToEmail.to)}
+            </span>
+          </button>
+        ) : (
+          <>
+            <div
+              className={cn(
+                "flex items-start gap-2",
+                isComposeWindow && "min-h-11 items-center border-b",
+              )}
+            >
+              {isComposeWindow && (
+                <label
+                  className="shrink-0 text-sm font-medium text-foreground"
+                  htmlFor="to"
+                >
+                  To
+                </label>
+              )}
+              <div className="min-w-0 flex-1">
+                {env.NEXT_PUBLIC_CONTACTS_ENABLED ? (
+                  <div className="flex space-x-2">
+                    {!isComposeWindow && (
+                      <div className="mt-2">
+                        <Label name="to" label="To" />
+                      </div>
+                    )}
+                    <Combobox
+                      value={selectedEmailAddresses}
+                      onChange={handleComboboxOnChange}
+                      multiple
+                    >
+                      <div className="flex min-h-10 w-full flex-1 flex-wrap items-center gap-1.5 rounded-md text-sm disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-muted-foreground">
+                        {selectedEmailAddresses.map((emailAddress) => (
+                          <Badge
+                            key={emailAddress}
+                            variant="secondary"
+                            className="cursor-pointer rounded-md"
+                            onClick={() => {
                               onRemoveSelectedEmail(emailAddress);
+                              setSearchQuery(emailAddress);
                             }}
                           >
-                            <XIcon className="ml-1.5 size-3" />
-                          </button>
-                        </Badge>
-                      ))}
+                            {extractNameFromEmail(emailAddress)}
+                            <button
+                              aria-label={`Remove ${emailAddress}`}
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                onRemoveSelectedEmail(emailAddress);
+                              }}
+                            >
+                              <XIcon className="ml-1.5 size-3" />
+                            </button>
+                          </Badge>
+                        ))}
 
-                      <div className="relative flex-1">
-                        <ComboboxInput
-                          aria-label="To"
-                          value={searchQuery}
-                          className="w-full border-none bg-background p-0 text-sm focus:border-none focus:ring-0"
-                          onChange={(event) =>
-                            setSearchQuery(event.target.value)
-                          }
-                          onKeyUp={(event) => {
-                            if (event.key !== "Enter") return;
-                            event.preventDefault();
-                            if (!isValidEmail(searchQuery.trim())) return;
-                            setValue(
-                              "to",
-                              resolveComposeRecipients({
-                                selectedRecipients: watch("to"),
-                                pendingRecipient: searchQuery,
-                              }),
-                            );
-                            setSearchQuery("");
-                          }}
-                        />
+                        <div className="relative flex-1">
+                          <ComboboxInput
+                            aria-label="To"
+                            value={searchQuery}
+                            className="w-full border-none bg-background p-0 text-sm focus:border-none focus:ring-0"
+                            onChange={(event) =>
+                              setSearchQuery(event.target.value)
+                            }
+                            onKeyUp={(event) => {
+                              if (event.key !== "Enter") return;
+                              event.preventDefault();
+                              if (!isValidEmail(searchQuery.trim())) return;
+                              setValue(
+                                "to",
+                                resolveComposeRecipients({
+                                  selectedRecipients: watch("to"),
+                                  pendingRecipient: searchQuery,
+                                }),
+                              );
+                              setSearchQuery("");
+                            }}
+                          />
 
-                        {!!contacts?.result?.length && (
-                          <ComboboxOptions className="absolute z-10 mt-1 max-h-60 overflow-auto rounded-md bg-popover py-1 text-base shadow-lg ring-1 ring-border focus:outline-none sm:text-sm">
-                            <ComboboxOption
-                              className="h-0 w-0 overflow-hidden"
-                              value={searchQuery}
-                            />
-                            {contacts.result.map((contact) => {
-                              const emailAddress =
-                                contact.person?.emailAddresses?.[0]?.value;
-                              if (!emailAddress) return null;
-                              const person = {
-                                emailAddress,
-                                name: contact.person?.names?.[0]?.displayName,
-                                profilePictureUrl:
-                                  contact.person?.photos?.[0]?.url,
-                              };
+                          {!!contacts?.result?.length && (
+                            <ComboboxOptions className="absolute z-10 mt-1 max-h-60 overflow-auto rounded-md bg-popover py-1 text-base shadow-lg ring-1 ring-border focus:outline-none sm:text-sm">
+                              <ComboboxOption
+                                className="h-0 w-0 overflow-hidden"
+                                value={searchQuery}
+                              />
+                              {contacts.result.map((contact) => {
+                                const emailAddress =
+                                  contact.person?.emailAddresses?.[0]?.value;
+                                if (!emailAddress) return null;
+                                const person = {
+                                  emailAddress,
+                                  name: contact.person?.names?.[0]?.displayName,
+                                  profilePictureUrl:
+                                    contact.person?.photos?.[0]?.url,
+                                };
 
-                              return (
-                                <ComboboxOption
-                                  className={({ focus }) =>
-                                    `cursor-default select-none px-4 py-1 text-foreground ${focus ? "bg-accent" : ""}`
-                                  }
-                                  key={person.emailAddress}
-                                  value={person.emailAddress}
-                                >
-                                  {({ selected }: { selected: boolean }) => (
-                                    <div className="my-2 flex items-center">
-                                      {selected ? (
-                                        <div className="flex h-12 w-12 items-center justify-center rounded-full">
-                                          <CheckCircleIcon className="h-6 w-6" />
-                                        </div>
-                                      ) : (
-                                        <Avatar>
-                                          <AvatarImage
-                                            src={
-                                              person.profilePictureUrl ??
-                                              undefined
-                                            }
-                                            alt={
-                                              person.emailAddress ||
-                                              "Profile picture"
-                                            }
-                                          />
-                                          <AvatarFallback>
-                                            {person.emailAddress?.[0] || "A"}
-                                          </AvatarFallback>
-                                        </Avatar>
-                                      )}
-                                      <div className="ml-4 flex flex-col justify-center">
-                                        <div className="text-foreground">
-                                          {person.name}
-                                        </div>
-                                        <div className="text-sm font-semibold text-muted-foreground">
-                                          {person.emailAddress}
+                                return (
+                                  <ComboboxOption
+                                    className={({ focus }) =>
+                                      `cursor-default select-none px-4 py-1 text-foreground ${focus ? "bg-accent" : ""}`
+                                    }
+                                    key={person.emailAddress}
+                                    value={person.emailAddress}
+                                  >
+                                    {({ selected }: { selected: boolean }) => (
+                                      <div className="my-2 flex items-center">
+                                        {selected ? (
+                                          <div className="flex h-12 w-12 items-center justify-center rounded-full">
+                                            <CheckCircleIcon className="h-6 w-6" />
+                                          </div>
+                                        ) : (
+                                          <Avatar>
+                                            <AvatarImage
+                                              src={
+                                                person.profilePictureUrl ??
+                                                undefined
+                                              }
+                                              alt={
+                                                person.emailAddress ||
+                                                "Profile picture"
+                                              }
+                                            />
+                                            <AvatarFallback>
+                                              {person.emailAddress?.[0] || "A"}
+                                            </AvatarFallback>
+                                          </Avatar>
+                                        )}
+                                        <div className="ml-4 flex flex-col justify-center">
+                                          <div className="text-foreground">
+                                            {person.name}
+                                          </div>
+                                          <div className="text-sm font-semibold text-muted-foreground">
+                                            {person.emailAddress}
+                                          </div>
                                         </div>
                                       </div>
-                                    </div>
-                                  )}
-                                </ComboboxOption>
-                              );
-                            })}
-                          </ComboboxOptions>
-                        )}
+                                    )}
+                                  </ComboboxOption>
+                                );
+                              })}
+                            </ComboboxOptions>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </Combobox>
-                </div>
-              ) : (
+                    </Combobox>
+                  </div>
+                ) : (
+                  <Input
+                    type="text"
+                    name="to"
+                    label={isComposeWindow ? undefined : "To"}
+                    registerProps={register("to", { required: true })}
+                    error={errors.to}
+                    className={cn(
+                      isComposeWindow &&
+                        "h-10 rounded-none border-0 bg-transparent p-0 shadow-none focus:border-transparent focus:ring-0",
+                    )}
+                  />
+                )}
+              </div>
+              <button
+                className={cn(
+                  "mt-2 text-xs text-muted-foreground hover:text-foreground",
+                  isComposeWindow && "mt-0",
+                )}
+                onClick={() => setShowCcBcc((visible) => !visible)}
+                type="button"
+              >
+                Cc/Bcc
+              </button>
+            </div>
+
+            {showCcBcc && (
+              <div
+                className={cn(
+                  "grid gap-2 sm:grid-cols-2",
+                  isComposeWindow && "border-b py-2",
+                )}
+              >
                 <Input
                   type="text"
-                  name="to"
-                  label="To"
-                  registerProps={register("to", { required: true })}
-                  error={errors.to}
+                  name="cc"
+                  label="Cc"
+                  registerProps={register("cc")}
+                  error={errors.cc}
                 />
+                <Input
+                  type="text"
+                  name="bcc"
+                  label="Bcc"
+                  registerProps={register("bcc")}
+                  error={errors.bcc}
+                />
+              </div>
+            )}
+
+            <Input
+              type="text"
+              name="subject"
+              registerProps={register("subject", { required: true })}
+              error={errors.subject}
+              placeholder="Subject"
+              className={cn(
+                "border border-input bg-background focus:border-slate-200 focus:ring-0 focus:ring-slate-200",
+                isComposeWindow &&
+                  "h-11 rounded-none border-0 border-b bg-transparent px-0 shadow-none focus:border-border focus:ring-0",
               )}
-            </div>
-            <button
-              className="mt-2 text-xs text-muted-foreground hover:text-foreground"
-              onClick={() => setShowCcBcc((visible) => !visible)}
-              type="button"
-            >
-              Cc/Bcc
-            </button>
-          </div>
-
-          {showCcBcc && (
-            <div className="grid gap-2 sm:grid-cols-2">
-              <Input
-                type="text"
-                name="cc"
-                label="Cc"
-                registerProps={register("cc")}
-                error={errors.cc}
-              />
-              <Input
-                type="text"
-                name="bcc"
-                label="Bcc"
-                registerProps={register("bcc")}
-                error={errors.bcc}
-              />
-            </div>
-          )}
-
-          <Input
-            type="text"
-            name="subject"
-            registerProps={register("subject", { required: true })}
-            error={errors.subject}
-            placeholder="Subject"
-            className="border border-input bg-background focus:border-slate-200 focus:ring-0 focus:ring-slate-200"
-          />
-        </>
-      )}
+            />
+          </>
+        )}
+      </div>
 
       <EmailEditor
+        appearance={isComposeWindow ? "seamless" : "contained"}
         ref={editorRef}
         initialHtml={initialDraft.editableHtml}
         mode={initialDraft.mode}
@@ -667,7 +716,13 @@ function ComposeEmailFormContent({
       />
 
       {!!attachments.length && (
-        <ul aria-label="Attachments" className="flex flex-wrap gap-2">
+        <ul
+          aria-label="Attachments"
+          className={cn(
+            "flex flex-wrap gap-2",
+            isComposeWindow && "shrink-0 border-t px-3 py-2",
+          )}
+        >
           {attachments.map((attachment) => (
             <li
               className="flex max-w-full items-center gap-2 rounded-md border bg-muted/40 px-2 py-1 text-xs"
@@ -695,7 +750,12 @@ function ComposeEmailFormContent({
         </ul>
       )}
 
-      <div className="flex items-center justify-between">
+      <div
+        className={cn(
+          "flex items-center justify-between",
+          isComposeWindow && "shrink-0 border-t px-3 py-2",
+        )}
+      >
         <div className="flex items-center gap-1">
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting && <ButtonLoader />}

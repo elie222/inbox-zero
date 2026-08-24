@@ -56,6 +56,7 @@ export type EmailEditorHandle = {
 };
 
 export type EmailEditorProps = {
+  appearance?: "contained" | "seamless";
   initialHtml: string;
   mode?: "rich" | "fallback";
   preservedBlocks?: EmailEditorPreservedBlock[];
@@ -69,6 +70,7 @@ export type EmailEditorProps = {
 export const EmailEditor = forwardRef<EmailEditorHandle, EmailEditorProps>(
   function EmailEditor(
     {
+      appearance = "contained",
       initialHtml,
       mode = "rich",
       preservedBlocks = [],
@@ -82,6 +84,7 @@ export const EmailEditor = forwardRef<EmailEditorHandle, EmailEditorProps>(
   ) {
     const [initialState] = useState(() => ({
       initialHtml,
+      appearance,
       mode,
       placeholder,
       autofocus,
@@ -98,6 +101,7 @@ export const EmailEditor = forwardRef<EmailEditorHandle, EmailEditorProps>(
       return (
         <FallbackEmailEditor
           ref={ref}
+          appearance={initialState.appearance}
           autofocus={initialState.autofocus}
           initialHtml={initialState.initialHtml}
           onStateChange={onStateChange}
@@ -110,6 +114,7 @@ export const EmailEditor = forwardRef<EmailEditorHandle, EmailEditorProps>(
     return (
       <RichEmailEditor
         ref={ref}
+        appearance={initialState.appearance}
         autofocus={initialState.autofocus}
         initialHtml={initialState.initialHtml}
         onStateChange={onStateChange}
@@ -124,13 +129,17 @@ export const EmailEditor = forwardRef<EmailEditorHandle, EmailEditorProps>(
 const RichEmailEditor = forwardRef<
   EmailEditorHandle,
   Required<
-    Pick<EmailEditorProps, "autofocus" | "initialHtml" | "placeholder">
+    Pick<
+      EmailEditorProps,
+      "appearance" | "autofocus" | "initialHtml" | "placeholder"
+    >
   > &
     Pick<EmailEditorProps, "onStateChange" | "onImageFiles"> & {
       preservedBlocks: RenderedPreservedEmailBlock[];
     }
 >(function RichEmailEditor(
   {
+    appearance,
     autofocus,
     initialHtml,
     onStateChange,
@@ -352,6 +361,7 @@ const RichEmailEditor = forwardRef<
     <div
       className={styles.surface}
       data-email-editor-root
+      data-email-editor-appearance={appearance}
       data-email-editor-mode="rich"
       onKeyDownCapture={(event) => {
         const target = event.target;
@@ -536,12 +546,19 @@ const FallbackEmailEditor = forwardRef<
   EmailEditorHandle,
   Pick<
     EmailEditorProps,
-    "autofocus" | "initialHtml" | "onStateChange" | "unsupported"
+    "appearance" | "autofocus" | "initialHtml" | "onStateChange" | "unsupported"
   > & {
     preservedBlocks: RenderedPreservedEmailBlock[];
   }
 >(function FallbackEmailEditor(
-  { autofocus, initialHtml, onStateChange, preservedBlocks, unsupported = [] },
+  {
+    appearance,
+    autofocus,
+    initialHtml,
+    onStateChange,
+    preservedBlocks,
+    unsupported = [],
+  },
   ref,
 ) {
   const editorRef = useRef<HTMLDivElement>(null);
@@ -576,6 +593,7 @@ const FallbackEmailEditor = forwardRef<
     <div
       className={styles.surface}
       data-email-editor-root
+      data-email-editor-appearance={appearance}
       data-email-editor-mode="fallback"
     >
       <p className={styles.fallbackWarning} role="status">

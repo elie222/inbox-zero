@@ -4,9 +4,10 @@
   --email-editor-muted-foreground: hsl(var(--muted-foreground, 215 16% 47%));
   --email-editor-foreground: hsl(var(--foreground, 222 47% 11%));
   --email-editor-background: hsl(var(--background, 0 0% 100%));
-  --email-editor-ring: hsl(var(--ring, 215 20% 65%));
 
   position: relative;
+  display: flex;
+  flex-direction: column;
   width: 100%;
   overflow: visible;
   color: var(--email-editor-foreground);
@@ -15,9 +16,19 @@
   border-radius: 0.5rem;
 }
 
-.surface:focus-within {
-  border-color: var(--email-editor-ring);
-  box-shadow: 0 0 0 1px var(--email-editor-ring);
+.surface[data-email-editor-appearance="seamless"] {
+  border: 0;
+  border-radius: 0;
+}
+
+.editor {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.editor > div {
+  min-height: 100%;
 }
 
 .editor [data-email-editor-content] {
@@ -26,6 +37,12 @@
   overflow-wrap: anywhere;
   white-space: pre-wrap;
   outline: none;
+}
+
+.surface[data-email-editor-appearance="seamless"]
+  .editor
+  [data-email-editor-content] {
+  min-height: 100%;
 }
 
 .editor [data-email-editor-content] p {
@@ -95,10 +112,15 @@
 }
 
 .toolbar {
+  flex-shrink: 0;
   min-height: 2.5rem;
   padding: 0.25rem 0.5rem;
   overflow-x: auto;
   border-top: 1px solid var(--email-editor-border);
+}
+
+.surface[data-email-editor-appearance="seamless"] .toolbar {
+  padding-inline: 0.75rem;
 }
 
 .bubbleToolbar {
@@ -206,6 +228,12 @@
   min-height: 200px;
   padding: 0.75rem;
   outline: none;
+}
+
+.surface[data-email-editor-appearance="seamless"] .fallbackEditor {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .preservedBlock {
