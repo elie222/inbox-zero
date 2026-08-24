@@ -32,8 +32,10 @@ import {
 } from "@/utils/email-cache/mailbox";
 import { requestMailboxSync } from "@/app/(app)/[emailAccountId]/mail/use-mailbox-sync";
 import { bulkArchiveThreadsAction } from "@/utils/actions/mail-bulk-action";
+import { BULK_ARCHIVE_THREADS_ACTION_LIMIT } from "@/utils/actions/mail-bulk-action.constants";
 
 const THREAD_ACTION_CONCURRENCY = 10;
+const BULK_ARCHIVE_ACTION_CONCURRENCY = 4;
 const SNOOZE_ACTION_BATCH_CONCURRENCY = 2;
 const SNOOZE_ACTION_BATCH_SIZE = 100;
 
@@ -174,17 +176,24 @@ export function useThreadActions({
       lastAction.current = null;
       const threadIds = threads.map((thread) => thread.id);
       const removal = removeThreads(threadIds);
-      const response = await bulkArchiveThreadsAction(emailAccountId, {
-        threads: threads.map((thread) => ({
-          threadId: thread.id,
-          messageIds: getListThreadMessageIds(thread),
-        })),
-      }).catch(() => null);
+      const responses = await mapWithConcurrency(
+        chunk(threads, BULK_ARCHIVE_THREADS_ACTION_LIMIT),
+        BULK_ARCHIVE_ACTION_CONCURRENCY,
+        (batch) =>
+          bulkArchiveThreadsAction(emailAccountId, {
+            threads: batch.map((thread) => ({
+              threadId: thread.id,
+              messageIds: getListThreadMessageIds(thread),
+            })),
+          }).catch(() => null),
+      );
       const succeededThreadIds = new Set(
-        response?.data?.succeededThreadIds ?? [],
+        responses.flatMap(
+          (response) => response?.data?.succeededThreadIds ?? [],
+        ),
       );
       const providerFailedThreadIds = new Set(
-        response?.data?.failedThreadIds ?? [],
+        responses.flatMap((response) => response?.data?.failedThreadIds ?? []),
       );
       const failedThreadIds = threadIds.filter(
         (threadId) =>

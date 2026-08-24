@@ -114,11 +114,9 @@ export function toListThreads({ threads, nextPageToken }: LoadedThreads) {
   };
 }
 
-type LoadedThreadListItem = ReturnType<typeof toListThreads>["threads"][number];
-
-export type ThreadListItem = Omit<LoadedThreadListItem, "messageIds"> & {
-  messageIds?: string[];
-};
+export type ThreadListItem = ReturnType<
+  typeof toListThreads
+>["threads"][number];
 
 function aggregateThreadPlans<
   T extends { id: string; createdAt: Date; rule: { id: string } | null },

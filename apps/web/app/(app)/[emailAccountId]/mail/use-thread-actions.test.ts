@@ -299,6 +299,34 @@ describe("useThreadActions read state", () => {
     expect(mailboxSync.request).toHaveBeenCalledWith("account");
   });
 
+  it("splits selections above the server action limit", async () => {
+    const threads = Array.from({ length: 501 }, (_, index) =>
+      createThread(["INBOX"], `thread-${index}`),
+    );
+    const { result } = renderHook(() =>
+      useThreadActions({
+        emailAccountId: "account",
+        removeThreads: vi.fn(() => ({
+          entries: new Map(),
+          viewIdentity: "view",
+        })),
+        restoreThreads: vi.fn(),
+        optimisticallyUpdateThreads: vi.fn(),
+      }),
+    );
+
+    await act(() => result.current.archive(threads));
+
+    expect(bulkArchiveThreadsAction).toHaveBeenCalledTimes(2);
+    expect(
+      bulkArchiveThreadsAction.mock.calls.map((call) => call[1].threads.length),
+    ).toEqual([500, 1]);
+    expect(mailboxCache.remove).toHaveBeenCalledWith({
+      emailAccountId: "account",
+      threadIds: threads.map((thread) => thread.id),
+    });
+  });
+
   it("restores only conversations rejected by the bulk provider", async () => {
     const removal = { entries: new Map(), viewIdentity: "view" };
     const restoreThreads = vi.fn();

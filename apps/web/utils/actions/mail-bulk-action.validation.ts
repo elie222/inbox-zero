@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { BULK_ARCHIVE_THREADS_ACTION_LIMIT } from "@/utils/actions/mail-bulk-action.constants";
 
 export const bulkSenderActionSchema = z.object({
   froms: z.array(z.string().trim().min(1)).min(1),
@@ -13,5 +14,5 @@ export const bulkArchiveThreadsActionSchema = z.object({
       }),
     )
     .min(1)
-    .max(500),
+    .max(BULK_ARCHIVE_THREADS_ACTION_LIMIT),
 });

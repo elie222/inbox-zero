@@ -1,5 +1,7 @@
+import chunk from "lodash/chunk";
 import { mapWithConcurrency } from "@/utils/async";
 import { getListThreadMessageIds } from "@/app/(app)/[emailAccountId]/mail/types";
+import { BULK_ARCHIVE_THREADS_ACTION_LIMIT } from "@/utils/actions/mail-bulk-action.constants";
 
 const THREAD_ACTION_CONCURRENCY = 10;
 const ACCOUNT_ACTION_CONCURRENCY = 4;
@@ -7,11 +9,6 @@ const ACCOUNT_ACTION_CONCURRENCY = 4;
 type CombinedActionThread = {
   id: string;
   account: { id: string };
-};
-
-type CombinedBulkArchiveThread = CombinedActionThread & {
-  messageIds?: string[];
-  messages?: Array<{ id: string }>;
 };
 
 export async function runCombinedThreadAction({
@@ -49,7 +46,12 @@ export async function runCombinedBulkArchiveAction({
   threads,
   action,
 }: {
-  threads: CombinedBulkArchiveThread[];
+  threads: Array<
+    CombinedActionThread & {
+      messageIds?: string[];
+      messages?: Array<{ id: string }>;
+    }
+  >;
   action: (
     emailAccountId: string,
     input: {
@@ -57,15 +59,21 @@ export async function runCombinedBulkArchiveAction({
     },
   ) => Promise<unknown>;
 }) {
-  const threadsByAccount = new Map<string, CombinedBulkArchiveThread[]>();
+  const threadsByAccount = new Map<string, typeof threads>();
   for (const thread of threads) {
     const accountThreads = threadsByAccount.get(thread.account.id) ?? [];
     accountThreads.push(thread);
     threadsByAccount.set(thread.account.id, accountThreads);
   }
+  const accountBatches = [...threadsByAccount].flatMap(
+    ([emailAccountId, accountThreads]) =>
+      chunk(accountThreads, BULK_ARCHIVE_THREADS_ACTION_LIMIT).map(
+        (batch) => [emailAccountId, batch] as const,
+      ),
+  );
 
   const accountResults = await mapWithConcurrency(
-    [...threadsByAccount],
+    accountBatches,
     ACCOUNT_ACTION_CONCURRENCY,
     async ([emailAccountId, accountThreads]) => {
       try {

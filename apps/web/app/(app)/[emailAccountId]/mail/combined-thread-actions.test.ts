@@ -94,6 +94,32 @@ describe("runCombinedThreadAction", () => {
       succeededThreadKeys: ["account-1:one", "account-2:three"],
     });
   });
+
+  it("splits account groups above the server action limit", async () => {
+    const threads = Array.from({ length: 501 }, (_, index) =>
+      createThread("account-1", `thread-${index}`),
+    );
+    const action = vi.fn(
+      async (
+        _accountId: string,
+        input: { threads: Array<{ threadId: string }> },
+      ) => ({
+        data: {
+          failedThreadIds: [],
+          succeededThreadIds: input.threads.map((thread) => thread.threadId),
+        },
+      }),
+    );
+
+    const result = await runCombinedBulkArchiveAction({ threads, action });
+
+    expect(action).toHaveBeenCalledTimes(2);
+    expect(action.mock.calls.map((call) => call[1].threads.length)).toEqual([
+      500, 1,
+    ]);
+    expect(result.failedThreadKeys).toEqual([]);
+    expect(result.succeededThreadKeys).toHaveLength(501);
+  });
 });
 
 function createThread(accountId: string, threadId: string) {
