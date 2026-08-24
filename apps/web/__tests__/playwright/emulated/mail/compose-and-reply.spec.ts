@@ -133,6 +133,14 @@ test("composes, sends, and reads a new message from Sent", async ({
   await sentConversation.click();
   await expect(page.getByRole("heading", { name: subject })).toBeVisible();
   await expect(page.getByText("recipient@example.com").first()).toBeVisible();
+  await expect(
+    page
+      .frameLocator('iframe[title="Email content preview"]')
+      .getByText("A composed message body."),
+  ).toBeVisible();
+  await page.screenshot({
+    path: testInfo.outputPath("composed-message-in-sent.png"),
+  });
 });
 
 test("replies inside an existing conversation", async ({ page }, testInfo) => {
@@ -159,10 +167,16 @@ test("replies inside an existing conversation", async ({ page }, testInfo) => {
   const replyBody = `A reply sent through the mail reader. ${testInfo.retry}`;
   await replyEditor.pressSequentially(replyBody);
   await expect(replyEditor).toContainText(replyBody);
+  await page.screenshot({
+    path: testInfo.outputPath("protected-quoted-reply.png"),
+  });
   await page.getByRole("button", { name: /^Send/ }).click();
 
   await expect(page.getByText("Email sent!", { exact: true })).toBeVisible();
   await expect(sentByMe).toHaveCount(initialSentByMeCount + 1);
+  await page.screenshot({
+    path: testInfo.outputPath("reply-sent-in-thread.png"),
+  });
 });
 
 async function selectEditorText(editor: Locator, text: string) {
