@@ -1077,6 +1077,7 @@ export function MailShell() {
             key={openThreadId ?? "empty"}
             thread={openThread ?? null}
             threadId={openThreadId}
+            detailSelectionSettled={readerThreadId === openThreadId}
             loading={
               Boolean(openThreadId) &&
               (readerThreadId !== openThreadId || isOpenThreadLoading)

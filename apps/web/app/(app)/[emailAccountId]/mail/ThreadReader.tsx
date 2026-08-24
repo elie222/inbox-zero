@@ -36,6 +36,8 @@ export type ThreadReaderProps = {
   thread: ListThread | null;
   /** The selected thread, including while its row and messages are loading. */
   threadId: string | null;
+  /** Whether the deferred detail selection has caught up to the open row. */
+  detailSelectionSettled: boolean;
   loading: boolean;
   error?: ComponentProps<typeof LoadingContent>["error"];
   /**
@@ -71,6 +73,7 @@ export type ThreadReaderProps = {
 export function ThreadReader({
   thread,
   threadId,
+  detailSelectionSettled,
   loading,
   error,
   messages,
@@ -98,7 +101,11 @@ export function ThreadReader({
 
   if (error || !headerMessage) {
     return (
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center gap-2 px-6 py-16 text-center">
+      <div
+        className="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center gap-2 px-6 py-16 text-center"
+        data-detail-selection-settled={detailSelectionSettled}
+        data-testid="thread-reader"
+      >
         <LoadingContent
           error={error}
           loading={loading}
@@ -135,7 +142,11 @@ export function ThreadReader({
     <>
       {/* White, unlike the list: the reader is its own surface, and it has to
       match `EmailThread` below or the toolbar reads as a separate band. */}
-      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-card">
+      <div
+        className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-card"
+        data-detail-selection-settled={detailSelectionSettled}
+        data-testid="thread-reader"
+      >
         {layout === "list" && !isFocusMode ? (
           <ReaderNavigation
             onBack={onBack}
