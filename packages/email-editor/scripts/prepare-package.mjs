@@ -1,5 +1,5 @@
 import { copyFile, readFile, writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { dirname, extname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const packageDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -44,6 +44,23 @@ const publishedPackageJson = {
   peerDependenciesMeta: packageJson.peerDependenciesMeta,
   publishConfig: { access: "public" },
 };
+
+const javascriptFiles = [
+  resolve(outputDirectory, "web/EmailEditor.js"),
+  resolve(outputDirectory, "web/email-extensions.js"),
+];
+
+await Promise.all(
+  javascriptFiles.map(async (path) => {
+    const source = await readFile(path, "utf8");
+    const nodeEsmSource = source.replace(
+      /(from\s+["'])(\.{1,2}\/[^"']+)(["'])/gu,
+      (match, prefix, specifier, suffix) =>
+        extname(specifier) ? match : `${prefix}${specifier}.js${suffix}`,
+    );
+    await writeFile(path, nodeEsmSource);
+  }),
+);
 
 await Promise.all([
   copyFile(

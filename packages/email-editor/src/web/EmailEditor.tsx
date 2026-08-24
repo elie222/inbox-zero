@@ -20,12 +20,12 @@ import { DOMSerializer, Fragment, type Node } from "@tiptap/pm/model";
 import {
   isSafeEmailUrl,
   sanitizePreservedEmailHtmlForPreview,
-} from "../core/email-html.js";
-import { createEmailEditorExtensions } from "./email-extensions.js";
+} from "../core/email-html";
+import { createEmailEditorExtensions } from "./email-extensions";
 import {
   PreservedBlockDetails,
   type RenderedPreservedEmailBlock,
-} from "./preserved-block.js";
+} from "./preserved-block";
 import styles from "./EmailEditor.module.css";
 
 export type EmailEditorValue = {

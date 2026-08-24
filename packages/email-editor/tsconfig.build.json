@@ -2,13 +2,13 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "declaration": true,
-    "declarationMap": true,
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "declarationMap": false,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "noEmit": false,
     "outDir": "dist",
     "rootDir": "src",
-    "sourceMap": true,
+    "sourceMap": false,
     "types": []
   },
   "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
