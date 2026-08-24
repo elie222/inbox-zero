@@ -16,10 +16,12 @@ export async function enqueueRepliedSenderExclusionRetry({
 }: z.infer<typeof repliedSenderExclusionRetryBody>) {
   if (attempt > MAX_REPLIED_SENDER_EXCLUSION_ATTEMPTS) return false;
 
-  await publishToQstash("/api/cold-email/exclude-replied-sender", {
-    emailAccountId,
-    messageId,
-    attempt,
-  });
+  await publishToQstash(
+    "/api/cold-email/exclude-replied-sender",
+    { emailAccountId, messageId, attempt },
+    undefined,
+    undefined,
+    { waitForFallback: true },
+  );
   return true;
 }

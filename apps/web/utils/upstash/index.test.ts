@@ -163,6 +163,20 @@ describe("publishToQstash", () => {
     );
   });
 
+  it("surfaces awaited fallback delivery failures", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValue(new Error("delivery unavailable"));
+    vi.stubGlobal("fetch", fetchMock);
+    const upstash = await loadUpstashModule({ qstashToken: undefined });
+
+    await expect(
+      upstash.publishToQstash("/api/process", { id: 1 }, undefined, undefined, {
+        waitForFallback: true,
+      }),
+    ).rejects.toThrow("delivery unavailable");
+  });
+
   it("falls back to an explicit destination when QStash is unavailable", async () => {
     const fetchMock = setupFetchMock();
     const upstash = await loadUpstashModule({ qstashToken: undefined });

@@ -83,6 +83,9 @@ describe("replied sender exclusion retry route", () => {
         messageId: "message-1",
         attempt: 3,
       },
+      undefined,
+      undefined,
+      { waitForFallback: true },
     );
   });
 
@@ -100,6 +103,9 @@ describe("replied sender exclusion retry route", () => {
         messageId: "message-1",
         attempt: 3,
       },
+      undefined,
+      undefined,
+      { waitForFallback: true },
     );
   });
 
