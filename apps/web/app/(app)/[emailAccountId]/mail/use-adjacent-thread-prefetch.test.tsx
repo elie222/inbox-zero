@@ -2,6 +2,7 @@
 
 import { renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { ThreadPrefetchCoordinator } from "./thread-prefetch-coordinator";
 import { useAdjacentThreadPrefetch } from "./use-adjacent-thread-prefetch";
 describe("useAdjacentThreadPrefetch", () => {
   beforeEach(() => {
@@ -83,8 +84,9 @@ describe("useAdjacentThreadPrefetch", () => {
   });
 });
 
-function createCoordinator() {
+function createCoordinator(): ThreadPrefetchCoordinator {
   return {
+    activate: vi.fn(),
     cancelScope: vi.fn(),
     dispose: vi.fn(),
     schedule: vi.fn(),

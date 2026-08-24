@@ -87,7 +87,6 @@ test("opens a complete conversation and updates its read state", async ({
 test("opening a prefetched conversation reuses the in-flight detail request", async ({
   page,
 }) => {
-  const { conversations } = await openMail(page);
   let threadDetailRequestCount = 0;
   const releaseFirstRequest = Promise.withResolvers<void>();
 
@@ -103,6 +102,7 @@ test("opening a prefetched conversation reuses the in-flight detail request", as
       await route.fulfill({ response });
     },
   );
+  const { conversations } = await openMail(page);
 
   const readerConversation = conversationWithSubject(
     page,
@@ -113,8 +113,6 @@ test("opening a prefetched conversation reuses the in-flight detail request", as
   await expect.poll(() => threadDetailRequestCount).toBe(1);
 
   await readerConversation.click();
-  await expect.poll(() => threadDetailRequestCount).toBe(1);
-
   releaseFirstRequest.resolve();
 
   await expect(
@@ -123,6 +121,7 @@ test("opening a prefetched conversation reuses the in-flight detail request", as
   await expect(
     page.getByText("First message in the reader conversation."),
   ).toBeVisible();
+  expect(threadDetailRequestCount).toBe(1);
 });
 
 test("filters the mail list by state, category, and label", async ({

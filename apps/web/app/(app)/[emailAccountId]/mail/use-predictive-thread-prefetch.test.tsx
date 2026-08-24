@@ -2,6 +2,7 @@
 
 import { renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { ThreadPrefetchCoordinator } from "./thread-prefetch-coordinator";
 import { usePredictiveThreadPrefetch } from "./use-predictive-thread-prefetch";
 import type { ListThread } from "./types";
 
@@ -133,8 +134,9 @@ function createCombinedThread(accountId: string, id: string): ListThread {
   };
 }
 
-function createCoordinator() {
+function createCoordinator(): ThreadPrefetchCoordinator {
   return {
+    activate: vi.fn(),
     cancelScope: vi.fn(),
     dispose: vi.fn(),
     schedule: vi.fn(),
