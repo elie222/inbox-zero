@@ -4,12 +4,16 @@ const GOOGLE_CONTACTS_SCOPE = "https://www.googleapis.com/auth/contacts";
 const GOOGLE_CONTACTS_READONLY_SCOPE =
   "https://www.googleapis.com/auth/contacts.readonly";
 
-export const SCOPES = [
+export const REQUIRED_SCOPES = [
   "https://www.googleapis.com/auth/userinfo.profile",
   "https://www.googleapis.com/auth/userinfo.email",
 
   "https://www.googleapis.com/auth/gmail.modify",
   "https://www.googleapis.com/auth/gmail.settings.basic",
+] as const;
+
+export const SCOPES = [
+  ...REQUIRED_SCOPES,
   ...(env.NEXT_PUBLIC_CONTACTS_ENABLED ? [GOOGLE_CONTACTS_READONLY_SCOPE] : []),
 ];
 

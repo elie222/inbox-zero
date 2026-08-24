@@ -1,7 +1,6 @@
 "use server";
 
 import { z } from "zod";
-import { env } from "@/env";
 import { handleGmailPermissionsCheck } from "@/utils/gmail/permissions";
 import { actionClient, adminActionClient } from "@/utils/actions/safe-action";
 import {
@@ -108,9 +107,6 @@ async function checkOutlookPermissions({
   try {
     const client = await getOutlookClientForEmail({ emailAccountId, logger });
     await client.getUserProfile();
-    if (env.NEXT_PUBLIC_CONTACTS_ENABLED) {
-      await client.getClient().api("/me/people").select("id").top(1).get();
-    }
     return { hasAllPermissions: true, hasRefreshToken: true };
   } catch (error) {
     logger.error("Outlook permissions check failed", { error });

@@ -68,4 +68,23 @@ describe("GET /api/user/contacts", () => {
     expect(response.status).toBe(404);
     expect(searchContactsMock).not.toHaveBeenCalled();
   });
+
+  it.each([
+    { errors: [{ reason: "insufficientPermissions" }] },
+    { code: "AccessDenied" },
+  ])("offers a contact-specific reconnect for missing access", async (error) => {
+    searchContactsMock.mockRejectedValue(error);
+
+    const response = await GET(
+      new NextRequest("http://localhost:3000/api/user/contacts?query=contact"),
+      { params: Promise.resolve({}) },
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({
+      error: "Reconnect this account to enable contact suggestions.",
+      isKnownError: true,
+      reconnectRequired: true,
+    });
+  });
 });

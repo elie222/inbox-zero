@@ -1,8 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
-import { SCOPES } from "@/utils/gmail/scopes";
+import { REQUIRED_SCOPES, SCOPES } from "@/utils/gmail/scopes";
 import { handleGmailPermissionsCheck } from "./permissions";
 
+vi.mock("@/env", () => ({
+  env: { NEXT_PUBLIC_CONTACTS_ENABLED: true },
+}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/gmail/client", () => ({
   getAccessTokenFromClient: vi.fn(),
@@ -72,14 +75,36 @@ describe("handleGmailPermissionsCheck", () => {
       accessToken: "access-token",
       refreshToken: "refresh-token",
       emailAccountId: "email-account-1",
-      grantedScope: SCOPES.slice(0, -1).join(" "),
+      grantedScope: REQUIRED_SCOPES.slice(0, -1).join(" "),
     });
 
     expect(result).toEqual({
       hasAllPermissions: false,
-      missingScopes: [SCOPES.at(-1)!],
+      missingScopes: [REQUIRED_SCOPES.at(-1)!],
     });
     expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("does not require optional contact access", async () => {
+    vi.mocked(global.fetch).mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        scope: REQUIRED_SCOPES.join(" "),
+      }),
+    } as unknown as Response);
+
+    const result = await handleGmailPermissionsCheck({
+      accessToken: "access-token",
+      refreshToken: "refresh-token",
+      emailAccountId: "email-account-1",
+      grantedScope: null,
+    });
+
+    expect(SCOPES).toHaveLength(REQUIRED_SCOPES.length + 1);
+    expect(result).toEqual({
+      hasAllPermissions: true,
+      missingScopes: [],
+    });
   });
 
   it("keeps older emulated accounts working when stored scope is missing", async () => {
@@ -150,7 +175,7 @@ describe("handleGmailPermissionsCheck", () => {
     expect(result).toEqual({
       hasAllPermissions: false,
       error: "Gmail access expired. Please reconnect your account.",
-      missingScopes: SCOPES,
+      missingScopes: REQUIRED_SCOPES,
     });
   });
 
@@ -252,7 +277,7 @@ describe("handleGmailPermissionsCheck", () => {
 
     expect(result).toEqual({
       hasAllPermissions: false,
-      missingScopes: SCOPES,
+      missingScopes: REQUIRED_SCOPES,
       error: "invalid_token",
     });
   });
