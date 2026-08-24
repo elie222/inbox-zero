@@ -179,6 +179,21 @@ test("composes, sends, and reads a new message from Sent", async ({
   });
 });
 
+test("selects the sender when composing from all accounts", async ({
+  page,
+}) => {
+  const { emailAccountId } = await openMail(page);
+
+  await page.goto(`/${emailAccountId}/mail?accountScope=all`);
+  await page.getByRole("button", { name: /^Compose/ }).click();
+
+  const dialog = page.getByRole("dialog", { name: "New Message" });
+  const from = dialog.getByRole("combobox", { name: "From" });
+  await expect(from).toBeVisible();
+  await from.click();
+  await expect(page.getByRole("option")).toHaveCount(1);
+});
+
 test("replies inside an existing conversation", async ({ page }, testInfo) => {
   const { conversations } = await openMail(page);
   const replyConversation = conversationWithSubject(
