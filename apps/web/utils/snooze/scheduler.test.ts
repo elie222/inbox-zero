@@ -245,6 +245,18 @@ describe("snoozed thread scheduler", () => {
       },
       data: { status: SnoozedThreadStatus.PENDING },
     });
+    expect(prisma.snoozedThread.findMany).toHaveBeenCalledWith({
+      where: {
+        emailAccountId: "account",
+        threadId: "thread",
+        status: SnoozedThreadStatus.PENDING,
+        OR: [
+          { clientMutationId: null },
+          { clientMutationId: { not: "mutation" } },
+        ],
+      },
+      select: { id: true },
+    });
     expect(prisma.$transaction).toHaveBeenCalledBefore(publishJSON);
   });
 

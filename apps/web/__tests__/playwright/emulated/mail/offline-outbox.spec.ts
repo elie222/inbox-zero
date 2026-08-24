@@ -205,6 +205,11 @@ async function readMailMutation(
             openRequest.onerror = () => reject(openRequest.error);
             openRequest.onsuccess = () => {
               const database = openRequest.result;
+              if (!database.objectStoreNames.contains("mailMutations")) {
+                database.close();
+                resolve(undefined);
+                return;
+              }
               const transaction = database.transaction(
                 "mailMutations",
                 "readonly",

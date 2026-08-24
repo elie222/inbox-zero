@@ -147,6 +147,45 @@ describe.skipIf(!RUN_DB_TESTS)(
       ).resolves.toMatchObject({ status: SnoozedThreadStatus.PENDING });
     });
 
+    test("replaces a legacy pending snooze without a mutation ID", async () => {
+      const threadId = "legacy-thread";
+      const legacy = await prisma.snoozedThread.create({
+        data: {
+          emailAccountId,
+          scheduledFor: new Date("2026-08-17T09:00:00.000Z"),
+          threadId,
+        },
+      });
+      const scheduledFor = new Date("2026-08-17T10:00:00.000Z");
+      await prepareSnoozedThread({
+        clientMutationId: "replacement",
+        emailAccountId,
+        scheduledFor,
+        threadId,
+      });
+
+      await activatePreparedSnoozedThread({
+        clientMutationId: "replacement",
+        emailAccountId,
+        scheduledFor,
+        threadId,
+      });
+
+      await expect(
+        prisma.snoozedThread.findUnique({ where: { id: legacy.id } }),
+      ).resolves.toMatchObject({ status: SnoozedThreadStatus.CANCELLED });
+      await expect(
+        prisma.snoozedThread.findUnique({
+          where: {
+            emailAccountId_clientMutationId: {
+              emailAccountId,
+              clientMutationId: "replacement",
+            },
+          },
+        }),
+      ).resolves.toMatchObject({ status: SnoozedThreadStatus.PENDING });
+    });
+
     test("does not claim a deferred retry before it is due", async () => {
       const scheduledFor = new Date("2026-08-17T09:05:00.000Z");
       const snoozedThread = await prisma.snoozedThread.create({

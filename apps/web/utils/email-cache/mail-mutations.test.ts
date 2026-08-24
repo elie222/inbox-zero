@@ -16,6 +16,7 @@ import {
   failMailMutation,
   retryMailMutation,
   blockMailMutationForAuth,
+  renewMailMutationLease,
   resumeBlockedMailMutations,
 } from "./mail-mutations";
 
@@ -132,6 +133,41 @@ describe("mail mutation outbox", () => {
     await expect(
       claimNextMailMutation({ ownerId: "worker-2", leaseMs: 10, now: 21 }),
     ).resolves.toMatchObject({ id: "reply", attempts: 2 });
+  });
+
+  it("renews a processing lease only for its current owner", async () => {
+    await enqueueMailMutation(
+      {
+        id: "archive",
+        emailAccountId: "account",
+        threadId: "thread",
+        messageIds: ["message"],
+        kind: "archive",
+      },
+      10,
+    );
+    await claimNextMailMutation({ ownerId: "worker-1", leaseMs: 10, now: 10 });
+
+    await expect(
+      renewMailMutationLease("archive", {
+        ownerId: "worker-2",
+        leaseMs: 100,
+        now: 15,
+      }),
+    ).resolves.toBe(false);
+    await expect(
+      renewMailMutationLease("archive", {
+        ownerId: "worker-1",
+        leaseMs: 100,
+        now: 15,
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      claimNextMailMutation({ ownerId: "worker-2", leaseMs: 10, now: 21 }),
+    ).resolves.toBeUndefined();
+    await expect(
+      claimNextMailMutation({ ownerId: "worker-2", leaseMs: 10, now: 116 }),
+    ).resolves.toMatchObject({ id: "archive", attempts: 2 });
   });
 
   it("does not let later work pass an earlier retry for the same thread", async () => {

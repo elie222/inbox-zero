@@ -133,15 +133,22 @@ async function activateWithConflictRetry({
     threadId,
     status: SnoozedThreadStatus.PENDING,
   };
+  const replaceablePendingSnooze = {
+    ...pendingSnooze,
+    OR: [
+      { clientMutationId: null },
+      { clientMutationId: { not: clientMutationId } },
+    ],
+  };
   for (let attempt = 0; ; attempt += 1) {
     try {
       const [replacedSnoozes, , , activated] = await prisma.$transaction([
         prisma.snoozedThread.findMany({
-          where: { ...pendingSnooze, NOT: { clientMutationId } },
+          where: replaceablePendingSnooze,
           select: { id: true },
         }),
         prisma.snoozedThread.updateMany({
-          where: { ...pendingSnooze, NOT: { clientMutationId } },
+          where: replaceablePendingSnooze,
           data: { status: SnoozedThreadStatus.CANCELLED },
         }),
         prisma.snoozedThread.updateMany({

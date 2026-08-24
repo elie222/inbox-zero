@@ -207,6 +207,32 @@ export async function claimNextMailMutation({
   return claimed ? toMailMutation(claimed) : undefined;
 }
 
+export async function renewMailMutationLease(
+  id: string,
+  {
+    leaseMs,
+    now = Date.now(),
+    ownerId,
+  }: { leaseMs: number; now?: number; ownerId: string },
+) {
+  const database = await getEmailCacheDatabase();
+  if (!database) return false;
+  const transaction = database.transaction("mailMutations", "readwrite");
+  const store = transaction.objectStore("mailMutations");
+  const mutation = await store.get(id);
+  const renewed =
+    mutation?.status === "processing" && mutation.leaseOwner === ownerId;
+  if (renewed) {
+    await store.put({
+      ...mutation,
+      leaseExpiresAt: now + leaseMs,
+      updatedAt: now,
+    });
+  }
+  await transaction.done;
+  return renewed;
+}
+
 export async function completeMailMutation(id: string, result?: unknown) {
   await updateMutation(id, {
     status: "succeeded",

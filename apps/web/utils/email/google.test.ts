@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { gmail_v1 } from "@googleapis/gmail";
 import type { EmailThread } from "@/utils/email/types";
 import type { ParsedMessage } from "@/utils/types";
 import { GmailLabel } from "@/utils/gmail/label";
@@ -86,9 +87,7 @@ describe("GmailProvider.sendEmail", () => {
 describe("GmailProvider.bulkArchiveThreads", () => {
   it("archives all supplied messages with one Gmail batch modification", async () => {
     const batchModify = vi.fn().mockResolvedValue({ data: {} });
-    const provider = new GmailProvider({
-      users: { messages: { batchModify } },
-    } as any);
+    const provider = new GmailProvider(createGmailClient({ batchModify }));
 
     const result = await provider.bulkArchiveThreads(
       [
@@ -123,9 +122,7 @@ describe("GmailProvider.bulkArchiveThreads", () => {
 describe("GmailProvider snapshot mutations", () => {
   it("deduplicates and chunks archived message IDs", async () => {
     const batchModify = vi.fn().mockResolvedValue({ data: {} });
-    const provider = new GmailProvider({
-      users: { messages: { batchModify } },
-    } as any);
+    const provider = new GmailProvider(createGmailClient({ batchModify }));
     const ids = Array.from({ length: 1001 }, (_, index) => `message-${index}`);
 
     await provider.archiveMessages([...ids, "message-0"]);
@@ -145,9 +142,7 @@ describe("GmailProvider snapshot mutations", () => {
 
   it("trashes each unique captured message", async () => {
     const trash = vi.fn().mockResolvedValue({ data: {} });
-    const provider = new GmailProvider({
-      users: { messages: { trash } },
-    } as any);
+    const provider = new GmailProvider(createGmailClient({ trash }));
 
     await provider.trashMessages(["one", "one", "two"]);
 
@@ -166,9 +161,7 @@ describe("GmailProvider snapshot mutations", () => {
       active -= 1;
       return { data: {} };
     });
-    const provider = new GmailProvider({
-      users: { messages: { trash } },
-    } as any);
+    const provider = new GmailProvider(createGmailClient({ trash }));
 
     await provider.trashMessages(
       Array.from({ length: 12 }, (_, index) => `message-${index}`),
@@ -181,9 +174,9 @@ describe("GmailProvider snapshot mutations", () => {
   it("restores captured archive and trash snapshots", async () => {
     const batchModify = vi.fn().mockResolvedValue({ data: {} });
     const untrash = vi.fn().mockResolvedValue({ data: {} });
-    const provider = new GmailProvider({
-      users: { messages: { batchModify, untrash } },
-    } as any);
+    const provider = new GmailProvider(
+      createGmailClient({ batchModify, untrash }),
+    );
 
     await provider.unarchiveMessages(["one", "one", "two"]);
     await provider.untrashMessages(["one", "one", "two"]);
@@ -200,9 +193,7 @@ describe("GmailProvider snapshot mutations", () => {
     [false, { addLabelIds: [GmailLabel.UNREAD] }],
   ])("sets captured messages read=%s", async (read, labels) => {
     const batchModify = vi.fn().mockResolvedValue({ data: {} });
-    const provider = new GmailProvider({
-      users: { messages: { batchModify } },
-    } as any);
+    const provider = new GmailProvider(createGmailClient({ batchModify }));
 
     await provider.markMessagesReadState(["one", "one", "two"], read);
 
@@ -658,4 +649,10 @@ function createParsedMessage({
 
 function decodeBase64Url(value: string): string {
   return Buffer.from(value, "base64url").toString("utf8");
+}
+
+function createGmailClient(
+  messages: Partial<gmail_v1.Gmail["users"]["messages"]>,
+) {
+  return { users: { messages } } as unknown as gmail_v1.Gmail;
 }

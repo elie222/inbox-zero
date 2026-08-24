@@ -14,6 +14,7 @@ const outbox = vi.hoisted(() => ({
   complete: vi.fn(),
   fail: vi.fn(),
   getNextWakeAt: vi.fn(),
+  renew: vi.fn(),
   resumeBlocked: vi.fn(),
   retry: vi.fn(),
   subscribe: vi.fn(),
@@ -37,6 +38,7 @@ vi.mock("@/utils/email-cache/mail-mutations", () => ({
   completeMailMutation: outbox.complete,
   failMailMutation: outbox.fail,
   getNextMailMutationWakeAt: outbox.getNextWakeAt,
+  renewMailMutationLease: outbox.renew,
   resumeBlockedMailMutations: outbox.resumeBlocked,
   retryMailMutation: outbox.retry,
   subscribeToMailMutations: outbox.subscribe,
@@ -59,6 +61,7 @@ describe("MailMutationOutboxManager", () => {
     outbox.claim.mockResolvedValue(undefined);
     outbox.claimNotification.mockResolvedValue(undefined);
     outbox.getNextWakeAt.mockResolvedValue(undefined);
+    outbox.renew.mockResolvedValue(false);
     outbox.resumeBlocked.mockResolvedValue(0);
     mailbox.syncNow.mockResolvedValue({ hasMore: false, pagesSynced: 1 });
   });
@@ -102,6 +105,34 @@ describe("MailMutationOutboxManager", () => {
     expect(mailbox.syncNow.mock.invocationCallOrder[0]).toBeLessThan(
       outbox.complete.mock.invocationCallOrder[0],
     );
+  });
+
+  it("renews the mutation lease while mailbox reconciliation is pending", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    const mutation = archiveMutation();
+    const reconciliation = Promise.withResolvers<{
+      hasMore: boolean;
+      pagesSynced: number;
+    }>();
+    outbox.claim.mockResolvedValueOnce(mutation).mockResolvedValue(undefined);
+    action.execute.mockResolvedValue({ data: { status: "applied" } });
+    mailbox.syncNow.mockReturnValue(reconciliation.promise);
+
+    render(<MailMutationOutboxManager />);
+    await settlePromises();
+    await act(() => vi.advanceTimersByTimeAsync(15_000));
+
+    expect(outbox.renew).toHaveBeenCalledWith(mutation.id, {
+      leaseMs: 30_000,
+      ownerId: expect.any(String),
+    });
+
+    reconciliation.resolve({ hasMore: false, pagesSynced: 1 });
+    await settlePromises();
+    outbox.renew.mockClear();
+    await act(() => vi.advanceTimersByTimeAsync(15_000));
+    expect(outbox.renew).not.toHaveBeenCalled();
   });
 
   it("retries without completing when mailbox reconciliation fails", async () => {

@@ -20,6 +20,7 @@ import {
   failMailMutation,
   getNextMailMutationWakeAt,
   type MailMutation,
+  renewMailMutationLease,
   resumeBlockedMailMutations,
   retryMailMutation,
   subscribeToMailMutations,
@@ -60,7 +61,7 @@ export function MailMutationOutboxManager() {
             break;
           }
           active += 1;
-          processMutation(mutation)
+          processMutationWithLeaseHeartbeat(mutation, ownerId)
             .catch(() => retryMutation(mutation, "Mutation request failed"))
             .finally(() => {
               active -= 1;
@@ -113,6 +114,22 @@ export function MailMutationOutboxManager() {
   }, []);
 
   return null;
+}
+
+async function processMutationWithLeaseHeartbeat(
+  mutation: MailMutation,
+  ownerId: string,
+) {
+  const heartbeat = setInterval(() => {
+    renewMailMutationLease(mutation.id, { leaseMs: LEASE_MS, ownerId }).catch(
+      () => {},
+    );
+  }, LEASE_MS / 2);
+  try {
+    await processMutation(mutation);
+  } finally {
+    clearInterval(heartbeat);
+  }
 }
 
 async function processMutation(mutation: MailMutation) {
