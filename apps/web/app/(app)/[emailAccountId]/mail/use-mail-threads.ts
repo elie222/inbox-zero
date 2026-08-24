@@ -593,7 +593,7 @@ export function useMailThreads({
   return {
     threads,
     isLoading: isLoading && !sourceThreads?.length,
-    error: sourceThreads ? undefined : error,
+    error: sourceThreads?.length ? undefined : error,
     hasMore: Boolean(hasMore),
     isLoadingMore:
       paginationRequestIdentity === viewIdentity ||
