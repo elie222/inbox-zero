@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { sendEmailBody } from "@/utils/gmail/mail";
+import { sendEmailBody } from "@/utils/types/mail";
 
 const snapshot = z.object({
   mutationId: z.string().uuid(),

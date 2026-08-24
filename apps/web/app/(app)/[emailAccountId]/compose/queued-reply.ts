@@ -1,4 +1,4 @@
-import type { SendEmailBody } from "@/utils/gmail/mail";
+import type { SendEmailBody } from "@/utils/types/mail";
 import {
   claimMailMutationNotification,
   enqueueMailMutation,
