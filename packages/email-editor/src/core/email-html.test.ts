@@ -60,6 +60,16 @@ describe("prepareEmailDraft", () => {
     expect(result.quotedHtml).toContain("Original Outlook table");
   });
 
+  it("separates quotes after long runs of provider break markup", () => {
+    const separators = "\t<br>\n".repeat(2000);
+    const result = prepareEmailDraft({
+      html: `<p>Reply</p>${separators}<div class="gmail_quote">Original</div>`,
+    });
+
+    expect(result.editableHtml).toBe("<p>Reply</p>");
+    expect(result.quotedHtml).toBe('<div class="gmail_quote">Original</div>');
+  });
+
   it("uses an explicitly preserved quote instead of searching editable HTML", () => {
     const quote =
       '<div class="gmail_quote"><table><tbody><tr><td>Keep me</td></tr></tbody></table></div>';

@@ -361,9 +361,7 @@ function splitQuotedHtml(html: string) {
   }
 
   return {
-    editableHtml: html
-      .slice(0, startOffset)
-      .replace(/(?:\s*<br\s*\/?>\s*)+$/iu, ""),
+    editableHtml: stripTrailingBreaks(html.slice(0, startOffset)),
     quotedHtml: html.slice(startOffset),
   };
 }
@@ -992,6 +990,37 @@ function escapeHtml(value: string) {
 
 function escapeAttribute(value: string) {
   return escapeHtml(value).replace(/"/gu, "&quot;");
+}
+
+function stripTrailingBreaks(html: string) {
+  let end = html.length;
+  let foundBreak = false;
+
+  while (end > 0) {
+    while (end > 0 && html[end - 1]!.trim() === "") end--;
+
+    const tagStart = html.lastIndexOf("<", end - 1);
+    if (tagStart < 0 || !isBreakTag(html, tagStart, end)) break;
+    foundBreak = true;
+    end = tagStart;
+  }
+
+  return foundBreak ? html.slice(0, end) : html;
+}
+
+function isBreakTag(html: string, start: number, end: number) {
+  if (
+    html[start] !== "<" ||
+    html[start + 1]?.toLowerCase() !== "b" ||
+    html[start + 2]?.toLowerCase() !== "r"
+  ) {
+    return false;
+  }
+
+  let index = start + 3;
+  while (index < end - 1 && html[index]!.trim() === "") index++;
+  if (html[index] === "/") index++;
+  return index === end - 1 && html[index] === ">";
 }
 
 function isElement(node: ChildNode): node is Element {
