@@ -209,9 +209,11 @@ test("selects the sender when composing from all accounts", async ({
       .click();
 
     await expect(from).toContainText(secondAccount.email);
-    await expect(dialog.locator("[contenteditable='true']")).toContainText(
-      signature,
-    );
+    await expect(
+      dialog
+        .frameLocator('iframe[title="Signature preview"]')
+        .getByText(signature),
+    ).toBeVisible();
   } finally {
     await deleteSecondEmailAccount(secondAccount.accountId);
   }
