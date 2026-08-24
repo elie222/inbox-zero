@@ -39,7 +39,7 @@ export const runAiRules = async (
         .add(
           async () => {
             try {
-              const message = thread.messages?.[thread.messages.length - 1];
+              const message = thread.messages.at(-1);
               if (!message) return;
 
               const result = await runRulesAction(emailAccountId, {
