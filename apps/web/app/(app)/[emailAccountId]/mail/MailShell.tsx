@@ -51,6 +51,8 @@ import { useCombinedMailThreads } from "@/app/(app)/[emailAccountId]/mail/use-co
 import { runCombinedThreadAction } from "@/app/(app)/[emailAccountId]/mail/combined-thread-actions";
 import { useAdjacentThreadPrefetch } from "@/app/(app)/[emailAccountId]/mail/use-adjacent-thread-prefetch";
 import { useHoverThreadPrefetch } from "@/app/(app)/[emailAccountId]/mail/use-hover-thread-prefetch";
+import { useThreadPrefetchCoordinator } from "@/app/(app)/[emailAccountId]/mail/thread-prefetch-coordinator";
+import { usePredictiveThreadPrefetch } from "@/app/(app)/[emailAccountId]/mail/use-predictive-thread-prefetch";
 import { useThreadActions } from "@/app/(app)/[emailAccountId]/mail/use-thread-actions";
 import { useThreadSelection } from "@/app/(app)/[emailAccountId]/mail/use-thread-selection";
 import {
@@ -329,13 +331,30 @@ export function MailShell() {
   // Deferred so holding J/K in split view doesn't fire a full-thread provider
   // fetch for every row the cursor passes over — only the row you settle on.
   const readerThreadId = useDeferredValue(isAllAccounts ? null : openThreadId);
+  const threadPrefetchCoordinator = useThreadPrefetchCoordinator();
+  const listPrefetchScopeIdentity = `${emailAccountId}:${isAllAccounts ? `all-accounts:${activeSplitId}` : JSON.stringify(query)}`;
+  const predictivePrefetchScopeKey = `predictive:${listPrefetchScopeIdentity}`;
+  const hoverPrefetchScopeKey = `hover:${listPrefetchScopeIdentity}`;
+  const adjacentPrefetchScopeKey = `adjacent:${emailAccountId}:${readerThreadId ?? "none"}`;
   useAdjacentThreadPrefetch({
+    coordinator: threadPrefetchCoordinator,
     currentThreadId: readerThreadId,
     emailAccountId,
+    scopeKey: adjacentPrefetchScopeKey,
     threadIds: isAllAccounts ? [] : orderedIds,
   });
-  const { schedulePrefetch, cancelPrefetch } = useHoverThreadPrefetch({
+  usePredictiveThreadPrefetch({
+    coordinator: threadPrefetchCoordinator,
     emailAccountId,
+    enabled: !isAllAccounts && layout === "list" && !openThreadId,
+    focusedIndex: clampedIndex,
+    scopeKey: predictivePrefetchScopeKey,
+    threads,
+  });
+  const { schedulePrefetch, cancelPrefetch } = useHoverThreadPrefetch({
+    coordinator: threadPrefetchCoordinator,
+    emailAccountId,
+    scopeKey: hoverPrefetchScopeKey,
   });
   const prefetchThreadAt = useCallback(
     (index: number) => {
@@ -1058,6 +1077,7 @@ export function MailShell() {
             key={openThreadId ?? "empty"}
             thread={openThread ?? null}
             threadId={openThreadId}
+            detailSelectionSettled={readerThreadId === openThreadId}
             loading={
               Boolean(openThreadId) &&
               (readerThreadId !== openThreadId || isOpenThreadLoading)

@@ -1,71 +1,53 @@
 // @vitest-environment jsdom
 
-import type { ReactNode } from "react";
 import { renderHook } from "@testing-library/react";
-import { SWRConfig, unstable_serialize } from "swr";
-import type { Cache, State } from "swr";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { ThreadPrefetchCoordinator } from "./thread-prefetch-coordinator";
 import {
   HOVER_PREFETCH_DELAY_MS,
   useHoverThreadPrefetch,
 } from "./use-hover-thread-prefetch";
-
-const cache = vi.hoisted(() => ({
-  read: vi.fn(),
-  write: vi.fn(),
-}));
-const emailHtml = vi.hoisted(() => ({
-  prepare: vi.fn(),
-}));
-
-vi.mock("@/utils/email-cache/threads", () => ({
-  readCachedThreadDetail: cache.read,
-  writeCachedThreadDetail: cache.write,
-}));
-
-vi.mock("@/utils/email/prepare-html.client", () => ({
-  prepareEmailHtml: emailHtml.prepare,
-}));
-
 describe("useHoverThreadPrefetch", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
-    cache.read.mockResolvedValue(undefined);
-    cache.write.mockResolvedValue(undefined);
-    emailHtml.prepare.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
     vi.useRealTimers();
   });
 
-  it("prefetches a hovered conversation only after the dwell delay", async () => {
-    const fetcher = vi.fn((key: [string, string]) =>
-      Promise.resolve({ thread: { id: key[0], messages: [] } }),
-    );
-    const { result } = renderHook(
-      () => useHoverThreadPrefetch({ emailAccountId: "account-dwell" }),
-      { wrapper: createWrapper(fetcher) },
+  it("schedules a hover prefetch only after the dwell delay", async () => {
+    const coordinator = createCoordinator();
+    const { result } = renderHook(() =>
+      useHoverThreadPrefetch({
+        coordinator,
+        emailAccountId: "account-dwell",
+        scopeKey: "scope-dwell",
+      }),
     );
 
     result.current.schedulePrefetch("thread-1");
     await vi.advanceTimersByTimeAsync(HOVER_PREFETCH_DELAY_MS - 1);
-    expect(fetcher).not.toHaveBeenCalled();
+    expect(coordinator.schedule).not.toHaveBeenCalled();
 
     await vi.advanceTimersByTimeAsync(1);
-    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
-    expect(fetcher.mock.calls[0]?.[0]).toEqual([
-      "/api/threads/thread-1?includeDrafts=true",
-      "account-dwell",
-    ]);
+    expect(coordinator.schedule).toHaveBeenCalledWith({
+      emailAccountId: "account-dwell",
+      priority: "hover",
+      scopeKey: "scope-dwell",
+      threadId: "thread-1",
+    });
   });
 
-  it("does not prefetch when the pointer leaves before the delay", async () => {
-    const fetcher = vi.fn();
-    const { result } = renderHook(
-      () => useHoverThreadPrefetch({ emailAccountId: "account-leave" }),
-      { wrapper: createWrapper(fetcher) },
+  it("does not schedule when the pointer leaves before the delay", async () => {
+    const coordinator = createCoordinator();
+    const { result } = renderHook(() =>
+      useHoverThreadPrefetch({
+        coordinator,
+        emailAccountId: "account-leave",
+        scopeKey: "scope-leave",
+      }),
     );
 
     result.current.schedulePrefetch("thread-1");
@@ -73,17 +55,17 @@ describe("useHoverThreadPrefetch", () => {
     result.current.cancelPrefetch();
     await vi.advanceTimersByTimeAsync(1000);
 
-    expect(fetcher).not.toHaveBeenCalled();
-    expect(cache.read).not.toHaveBeenCalled();
+    expect(coordinator.schedule).not.toHaveBeenCalled();
   });
 
-  it("sweeping across rows fetches only the row the pointer settles on", async () => {
-    const fetcher = vi.fn((key: [string, string]) =>
-      Promise.resolve({ thread: { id: key[0], messages: [] } }),
-    );
-    const { result } = renderHook(
-      () => useHoverThreadPrefetch({ emailAccountId: "account-sweep" }),
-      { wrapper: createWrapper(fetcher) },
+  it("keeps only the latest hover intent while sweeping rows", async () => {
+    const coordinator = createCoordinator();
+    const { result } = renderHook(() =>
+      useHoverThreadPrefetch({
+        coordinator,
+        emailAccountId: "account-sweep",
+        scopeKey: "scope-sweep",
+      }),
     );
 
     result.current.schedulePrefetch("thread-1");
@@ -91,82 +73,39 @@ describe("useHoverThreadPrefetch", () => {
     result.current.schedulePrefetch("thread-2");
     await vi.advanceTimersByTimeAsync(HOVER_PREFETCH_DELAY_MS);
 
-    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
-    expect(fetcher.mock.calls[0]?.[0]).toEqual([
-      "/api/threads/thread-2?includeDrafts=true",
-      "account-sweep",
-    ]);
+    expect(coordinator.schedule).toHaveBeenCalledTimes(1);
+    expect(coordinator.schedule).toHaveBeenCalledWith({
+      emailAccountId: "account-sweep",
+      priority: "hover",
+      scopeKey: "scope-sweep",
+      threadId: "thread-2",
+    });
   });
 
-  it("skips conversations already in the SWR cache", async () => {
-    const fetcher = vi.fn();
-    const seeded = new Map<string, State>([
-      [
-        unstable_serialize([
-          "/api/threads/thread-1?includeDrafts=true",
-          "account-cached",
-        ]),
-        { data: { thread: { id: "thread-1", messages: [] } } },
-      ],
-    ]);
-    const { result } = renderHook(
-      () => useHoverThreadPrefetch({ emailAccountId: "account-cached" }),
-      { wrapper: createWrapper(fetcher, () => seeded) },
+  it("cancels the scope on cleanup", () => {
+    const coordinator = createCoordinator();
+    const { result, unmount } = renderHook(() =>
+      useHoverThreadPrefetch({
+        coordinator,
+        emailAccountId: "account-cleanup",
+        scopeKey: "scope-cleanup",
+      }),
     );
 
     result.current.schedulePrefetch("thread-1");
-    await vi.advanceTimersByTimeAsync(HOVER_PREFETCH_DELAY_MS * 2);
+    unmount();
 
-    expect(fetcher).not.toHaveBeenCalled();
-    expect(cache.read).not.toHaveBeenCalled();
-  });
-
-  it("runs one prefetch at a time and keeps only the latest intent", async () => {
-    const resolvers = new Map<string, (value: unknown) => void>();
-    const fetcher = vi.fn(
-      (key: [string, string]) =>
-        new Promise((resolve) => {
-          resolvers.set(key[0], resolve);
-        }),
-    );
-    const { result } = renderHook(
-      () => useHoverThreadPrefetch({ emailAccountId: "account-flight" }),
-      { wrapper: createWrapper(fetcher) },
-    );
-
-    result.current.schedulePrefetch("thread-1");
-    await vi.advanceTimersByTimeAsync(HOVER_PREFETCH_DELAY_MS);
-    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
-
-    // Two more dwells while thread-1 is still in flight: only the newest runs.
-    result.current.schedulePrefetch("thread-2");
-    await vi.advanceTimersByTimeAsync(HOVER_PREFETCH_DELAY_MS);
-    result.current.schedulePrefetch("thread-3");
-    await vi.advanceTimersByTimeAsync(HOVER_PREFETCH_DELAY_MS);
-    expect(fetcher).toHaveBeenCalledTimes(1);
-
-    resolvers.get("/api/threads/thread-1?includeDrafts=true")?.({
-      thread: { id: "thread-1", messages: [] },
-    });
-    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
-    expect(fetcher.mock.calls.map(([key]) => key[0])).toEqual([
-      "/api/threads/thread-1?includeDrafts=true",
-      "/api/threads/thread-3?includeDrafts=true",
-    ]);
-
-    // Settle the remaining request so shared in-flight state doesn't leak.
-    resolvers.get("/api/threads/thread-3?includeDrafts=true")?.({
-      thread: { id: "thread-3", messages: [] },
-    });
-    await vi.advanceTimersByTimeAsync(0);
+    expect(coordinator.cancelScope).toHaveBeenCalledWith("scope-cleanup");
+    expect(coordinator.schedule).not.toHaveBeenCalled();
   });
 });
 
-function createWrapper(
-  fetcher: (key: [string, string]) => unknown,
-  provider: () => Cache = () => new Map(),
-) {
-  return function Wrapper({ children }: { children: ReactNode }) {
-    return <SWRConfig value={{ fetcher, provider }}>{children}</SWRConfig>;
+function createCoordinator(): ThreadPrefetchCoordinator {
+  return {
+    activate: vi.fn(),
+    cancelScope: vi.fn(),
+    dispose: vi.fn(),
+    schedule: vi.fn(),
+    scheduleMany: vi.fn(),
   };
 }

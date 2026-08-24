@@ -84,6 +84,54 @@ test("opens a complete conversation and updates its read state", async ({
   await expect(page).not.toHaveURL(/thread-id=/);
 });
 
+test("opening a prefetched conversation reuses the in-flight detail request", async ({
+  page,
+}) => {
+  let threadDetailRequestCount = 0;
+  const releaseFirstRequest = Promise.withResolvers<void>();
+
+  await page.route(
+    "**/api/threads/thr_playwright_reader?includeDrafts=true",
+    async (route) => {
+      threadDetailRequestCount += 1;
+      const responsePromise = route.fetch();
+      if (threadDetailRequestCount === 1) {
+        await releaseFirstRequest.promise;
+      }
+      const response = await responsePromise;
+      await route.fulfill({ response });
+    },
+  );
+  const { conversations } = await openMail(page);
+
+  const readerConversation = conversationWithSubject(
+    page,
+    conversations,
+    "Re: Reader Navigation Message",
+  );
+  await readerConversation.hover();
+  await expect.poll(() => threadDetailRequestCount).toBe(1);
+
+  await readerConversation.click();
+  await expect(
+    page.getByRole("heading", { name: "Re: Reader Navigation Message" }),
+  ).toBeVisible();
+  await expect(page.getByTestId("thread-reader")).toHaveAttribute(
+    "data-detail-selection-settled",
+    "true",
+  );
+  expect(threadDetailRequestCount).toBe(1);
+  releaseFirstRequest.resolve();
+
+  await expect(
+    page.getByRole("heading", { name: "Re: Reader Navigation Message" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("First message in the reader conversation."),
+  ).toBeVisible();
+  expect(threadDetailRequestCount).toBe(1);
+});
+
 test("filters the mail list by state, category, and label", async ({
   page,
 }) => {
