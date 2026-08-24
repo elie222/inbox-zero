@@ -27,4 +27,11 @@ describe("normalizeContactCandidates", () => {
       ),
     ).toEqual([{ emailAddress: "first@example.com" }]);
   });
+
+  it("returns no suggestions for a non-positive limit", () => {
+    const candidates = [{ emailAddress: "first@example.com" }];
+
+    expect(normalizeContactCandidates(candidates, 0)).toEqual([]);
+    expect(normalizeContactCandidates(candidates, -1)).toEqual([]);
+  });
 });

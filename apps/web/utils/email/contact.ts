@@ -10,6 +10,8 @@ export function normalizeContactCandidates(
   candidates: EmailContact[],
   maxResults = 10,
 ) {
+  if (maxResults <= 0) return [];
+
   const contacts: EmailContact[] = [];
   const seen = new Set<string>();
 
