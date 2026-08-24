@@ -107,7 +107,7 @@ describe("canManageBilling", () => {
   it.each([
     "admin",
     "owner",
-  ])("allows an organization %s when a plan admin belongs to the organization", (role) => {
+  ])("allows an organization %s when a transferred plan admin belongs to the organization", (role) => {
     const result = canManageBilling("user-1", {
       premium: {
         id: "premium-1",
@@ -122,12 +122,20 @@ describe("canManageBilling", () => {
                 members: [
                   {
                     emailAccount: {
-                      user: { id: "org-owner", premiumId: "premium-1" },
+                      user: {
+                        id: "org-owner",
+                        premiumId: "premium-1",
+                        premiumAdminId: null,
+                      },
                     },
                   },
                   {
                     emailAccount: {
-                      user: { id: "premium-admin", premiumId: "premium-1" },
+                      user: {
+                        id: "premium-admin",
+                        premiumId: "other-premium",
+                        premiumAdminId: "premium-1",
+                      },
                     },
                   },
                 ],

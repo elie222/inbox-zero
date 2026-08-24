@@ -15,6 +15,13 @@ import {
 
 export type UserResponse = Awaited<ReturnType<typeof getUser>> | null;
 
+type UserMembership = {
+  organizationId: string;
+  role: string;
+  organization: { name: string };
+  emailAccountId: string;
+};
+
 async function getUser({
   userId,
   includeImage,
@@ -75,7 +82,7 @@ async function getUser({
 
   if (!user) throw new SafeError("User not found");
 
-  const members = user.emailAccounts.flatMap((account) =>
+  const members: UserMembership[] = user.emailAccounts.flatMap((account) =>
     account.members.map(({ organizationId, role, organization }) => ({
       organizationId,
       role,

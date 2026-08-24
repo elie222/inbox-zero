@@ -12,7 +12,11 @@ export const organizationBillingPrincipalsSelect = {
     },
     select: {
       emailAccount: {
-        select: { user: { select: { id: true, premiumId: true } } },
+        select: {
+          user: {
+            select: { id: true, premiumId: true, premiumAdminId: true },
+          },
+        },
       },
     },
   },
@@ -80,6 +84,7 @@ export function canManageBilling(userId: string, user: BillingAccessUser) {
   const purchaserOrganizationMemberships = organizationMemberships.filter(
     (membership) =>
       membership.organization.members.some(({ emailAccount: { user } }) => {
+        if (user.premiumAdminId === premium.id) return true;
         if (user.premiumId !== premium.id) return false;
         return premiumAdminIds.has(user.id) || user.id === premium.id;
       }),
