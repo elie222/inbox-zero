@@ -1,6 +1,5 @@
 import type { Prisma } from "@/generated/prisma/client";
 import { SafeError } from "@/utils/error";
-import { isAdminForPremium } from "@/utils/premium";
 import { isOrganizationAdmin } from "@/utils/organizations/roles";
 
 export const organizationOwnerPremiumSelect = {
@@ -63,28 +62,29 @@ export function canManageBilling(userId: string, user: BillingAccessUser) {
     return isOrganizationAdmin(organizationMemberships);
   }
 
-  // Every invited seat user shares the premium id and can own their own
-  // organization, so anchor on the purchaser: a premium admin, or the legacy
-  // owner whose user id doubles as the premium id.
+  // The purchaser is the recorded premium admin (written from Stripe customer
+  // metadata at sync time), or the legacy owner whose user id doubles as the
+  // premium id. An empty admins list grants nothing: every invited seat user
+  // shares the premium, so anyone who is not the purchaser must qualify
+  // through an organization that actually contains the purchaser.
   const premiumAdminIds = new Set(premium.admins.map((admin) => admin.id));
-  const premiumOrganizationMemberships = organizationMemberships.filter(
+  const isPurchaser = premiumAdminIds.has(userId) || premium.id === userId;
+
+  if (isPurchaser) {
+    if (organizationMemberships.length === 0) return true;
+    return isOrganizationAdmin(organizationMemberships);
+  }
+
+  const purchaserOrganizationMemberships = organizationMemberships.filter(
     (membership) =>
       membership.organization.members.some(({ emailAccount: { user } }) => {
         if (user.premiumId !== premium.id) return false;
         return premiumAdminIds.has(user.id) || user.id === premium.id;
       }),
   );
+  if (purchaserOrganizationMemberships.length === 0) return false;
 
-  if (premiumOrganizationMemberships.length > 0) {
-    return isOrganizationAdmin(premiumOrganizationMemberships);
-  }
-
-  if (premium.admins.length > 0) {
-    return isAdminForPremium(premium.admins, userId);
-  }
-
-  // The initial premium migration used the owner's user ID as the premium ID.
-  return premium.id === userId;
+  return isOrganizationAdmin(purchaserOrganizationMemberships);
 }
 
 export function assertCanManageBilling(

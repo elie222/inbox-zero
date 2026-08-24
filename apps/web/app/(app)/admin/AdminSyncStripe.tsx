@@ -4,6 +4,7 @@ import { useAction } from "next-safe-action/hooks";
 import {
   adminSyncStripeForAllUsersAction,
   adminSyncAllStripeCustomersToDbAction,
+  adminBackfillPremiumAdminsAction,
 } from "@/utils/actions/admin";
 import { Button } from "@/components/ui/button";
 import { toastError, toastSuccess } from "@/components/Toast";
@@ -28,6 +29,29 @@ export const AdminSyncStripe = () => {
   return (
     <Button onClick={() => execute()} loading={isExecuting} variant="outline">
       Sync Stripe
+    </Button>
+  );
+};
+
+export const AdminBackfillPremiumAdmins = () => {
+  const { execute, isExecuting } = useAction(adminBackfillPremiumAdminsAction, {
+    onSuccess: (result) => {
+      toastSuccess({
+        title: "Premium admins backfilled",
+        description: `Backfilled ${result.data?.backfilled ?? 0} premiums, skipped ${result.data?.skipped ?? 0}`,
+      });
+    },
+    onError: (error) => {
+      toastError({
+        title: "Error backfilling premium admins",
+        description: getActionErrorMessage(error.error),
+      });
+    },
+  });
+
+  return (
+    <Button onClick={() => execute()} loading={isExecuting} variant="outline">
+      Backfill Premium Admins
     </Button>
   );
 };

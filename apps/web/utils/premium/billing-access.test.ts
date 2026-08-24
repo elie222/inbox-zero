@@ -25,6 +25,56 @@ describe("canManageBilling", () => {
     expect(result).toBe(true);
   });
 
+  it("allows the recorded purchaser without an organization", () => {
+    const result = canManageBilling("user-1", {
+      premium: {
+        id: "premium-1",
+        admins: [{ id: "user-1" }],
+      },
+      emailAccounts: [],
+    });
+
+    expect(result).toBe(true);
+  });
+
+  it("allows the legacy premium owner without an organization", () => {
+    const result = canManageBilling("legacy-owner", {
+      premium: {
+        id: "legacy-owner",
+        admins: [],
+      },
+      emailAccounts: [],
+    });
+
+    expect(result).toBe(true);
+  });
+
+  it.each([
+    "member",
+    "admin",
+    "owner",
+  ])("denies an organization %s when no purchaser is recorded for the premium", (role) => {
+    const result = canManageBilling("user-1", {
+      premium: {
+        id: "premium-1",
+        admins: [],
+      },
+      emailAccounts: [
+        {
+          members: [
+            getMockOrganizationMembership({
+              role,
+              ownerUserId: "org-owner",
+              ownerPremiumId: "premium-1",
+            }),
+          ],
+        },
+      ],
+    });
+
+    expect(result).toBe(false);
+  });
+
   it.each([
     "admin",
     "owner",

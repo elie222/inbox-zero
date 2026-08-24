@@ -1,4 +1,5 @@
 import { after } from "next/server";
+import type Stripe from "stripe";
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
 import { getStripe } from "@/ee/billing/stripe";
@@ -152,8 +153,29 @@ export async function syncStripeDataToDb({
       select: {
         id: true,
         users: { select: { id: true } },
+        admins: { select: { id: true } },
       },
     });
+
+    // Billing management is anchored on the recorded purchaser, so a premium
+    // that never had its purchaser written (or lost it) is repaired here on
+    // every sync rather than waiting for a manual backfill.
+    if (updatedPremium.admins.length === 0 && updatedPremium.users.length > 0) {
+      try {
+        await connectPurchaserAsAdmin({
+          stripe,
+          customerId,
+          premium: updatedPremium,
+          logger,
+        });
+      } catch (error) {
+        logger.error("Failed to record Stripe purchaser as premium admin", {
+          customerId,
+          error,
+        });
+        captureException(error, { extra: { customerId } });
+      }
+    }
 
     // Handle Loops events based on state changes
     await handleLoopsEvents({
@@ -191,6 +213,62 @@ export async function syncStripeDataToDb({
     captureException(error, { extra: { customerId } });
     throw error;
   }
+}
+
+/**
+ * Records the Stripe purchaser as the premium's admin. The purchaser is
+ * resolved from the Stripe customer's `metadata.userId` — written when the
+ * customer is created at checkout — and connected only when that user is still
+ * linked to this premium. It is never guessed from the linked users.
+ *
+ * Returns false when the purchaser cannot be established, leaving the premium
+ * unchanged for the caller to log or count.
+ */
+export async function connectPurchaserAsAdmin({
+  stripe,
+  customerId,
+  premium,
+  logger,
+}: {
+  stripe: Stripe;
+  customerId: string;
+  premium: { id: string; users: { id: string }[] };
+  logger: Logger;
+}): Promise<boolean> {
+  const customer = await stripe.customers.retrieve(customerId);
+  if (customer.deleted) {
+    logger.warn("Cannot record premium admin: Stripe customer is deleted", {
+      customerId,
+      premiumId: premium.id,
+    });
+    return false;
+  }
+
+  const purchaserUserId = customer.metadata?.userId;
+  const linkedUserIds = new Set(premium.users.map((user) => user.id));
+  if (!purchaserUserId || !linkedUserIds.has(purchaserUserId)) {
+    logger.warn(
+      "Cannot establish purchaser from Stripe customer metadata; skipping admin assignment",
+      {
+        customerId,
+        premiumId: premium.id,
+        hasMetadataUserId: Boolean(purchaserUserId),
+      },
+    );
+    return false;
+  }
+
+  await prisma.premium.update({
+    where: { id: premium.id },
+    data: { admins: { connect: { id: purchaserUserId } } },
+  });
+
+  logger.info("Recorded Stripe purchaser as premium admin", {
+    customerId,
+    premiumId: premium.id,
+    purchaserUserId,
+  });
+  return true;
 }
 
 function getEffectiveStripeSubscriptionStatus(subscription: {
