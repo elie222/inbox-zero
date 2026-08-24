@@ -7,11 +7,11 @@ import {
   ReactNodeViewRenderer,
   type NodeViewProps,
 } from "@tiptap/react";
-import { isSafeEmailUrl } from "../core/email-html";
+import { isSafeEmailUrl } from "../core/email-html.js";
 import {
   PreservedBlockDetails,
   type RenderedPreservedEmailBlock,
-} from "./preserved-block";
+} from "./preserved-block.js";
 import styles from "./EmailEditor.module.css";
 
 const PreservedEmailBlockNode = Node.create({
