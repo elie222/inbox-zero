@@ -155,6 +155,29 @@ describe("handleOutboundMessage", () => {
     expect(clearOutboundMessageLock).not.toHaveBeenCalled();
   });
 
+  it("keeps the message retryable if retry publication fails", async () => {
+    vi.mocked(excludeRepliedSendersFromColdEmail).mockRejectedValue(
+      new Error("exclude failed"),
+    );
+    vi.mocked(enqueueRepliedSenderExclusionRetry).mockRejectedValue(
+      new Error("queue unavailable"),
+    );
+
+    await handleOutboundMessage({
+      emailAccount,
+      message: message as any,
+      provider,
+      logger,
+    });
+
+    expect(markOutboundMessageProcessed).not.toHaveBeenCalled();
+    expect(clearOutboundMessageLock).toHaveBeenCalledWith({
+      emailAccountId: emailAccount.id,
+      messageId: message.id,
+      lockToken: "lock-token-1",
+    });
+  });
+
   it("clears the outbound message lock when core tracking fails", async () => {
     vi.mocked(handleOutboundReply).mockRejectedValue(new Error("reply failed"));
 

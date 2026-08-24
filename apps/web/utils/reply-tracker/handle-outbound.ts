@@ -54,6 +54,7 @@ export async function handleOutboundMessage({
 
   // Before the slower tracking work below, so a fast reply from the other side is
   // classified against the corrected pattern
+  let exclusionRetryReady = true;
   try {
     await excludeRepliedSendersFromColdEmail({
       emailAccountId: emailAccount.id,
@@ -74,6 +75,7 @@ export async function handleOutboundMessage({
         attempt: 1,
       });
     } catch (retryError) {
+      exclusionRetryReady = false;
       logger.error("Failed to queue replied sender exclusion retry", {
         error: retryError,
       });
@@ -127,9 +129,9 @@ export async function handleOutboundMessage({
 
     // Persist the processed marker once the expensive reply-tracking work
     // completes so follow-up cleanup failures do not trigger duplicate replays.
-    processedSuccessfully = results.every(
-      (result) => result.status === "fulfilled",
-    );
+    processedSuccessfully =
+      exclusionRetryReady &&
+      results.every((result) => result.status === "fulfilled");
 
     await cleanupThreadAIDrafts({
       threadId: message.threadId,
