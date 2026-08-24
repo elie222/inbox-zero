@@ -86,6 +86,23 @@ describe("replied sender exclusion retry route", () => {
     );
   });
 
+  it("queues another attempt when loading the provider message fails", async () => {
+    getMessageMock.mockRejectedValue(new Error("provider unavailable"));
+
+    const response = await postRetry({ attempt: 2 });
+
+    expect(response.status).toBe(200);
+    expect(excludeRepliedSendersFromColdEmailMock).not.toHaveBeenCalled();
+    expect(publishToQstashMock).toHaveBeenCalledWith(
+      "/api/cold-email/exclude-replied-sender",
+      {
+        emailAccountId: "account-1",
+        messageId: "message-1",
+        attempt: 3,
+      },
+    );
+  });
+
   it("surfaces the failure after the final attempt", async () => {
     excludeRepliedSendersFromColdEmailMock.mockRejectedValue(
       new Error("Message attribution is still pending"),

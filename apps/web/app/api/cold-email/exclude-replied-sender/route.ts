@@ -34,9 +34,9 @@ export const POST = withError(
       provider: emailAccount.account.provider,
       logger,
     });
-    const message = await provider.getMessage(messageId);
 
     try {
+      const message = await provider.getMessage(messageId);
       await excludeRepliedSendersFromColdEmail({
         emailAccountId,
         message,
