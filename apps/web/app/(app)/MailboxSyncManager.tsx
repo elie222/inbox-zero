@@ -1,8 +1,8 @@
 "use client";
 
-import { useMailboxSync } from "@/app/(app)/[emailAccountId]/mail/use-mailbox-sync";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { useMailboxSync } from "@/app/(app)/[emailAccountId]/mail/use-mailbox-sync";
 
 export function MailboxSyncManager() {
   const { data } = useAccounts();

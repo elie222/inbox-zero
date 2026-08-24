@@ -12,7 +12,7 @@ vi.mock("@/hooks/useAccounts", () => ({ useAccounts: accounts.useAccounts }));
 vi.mock("@/providers/EmailAccountProvider", () => ({
   useAccount: () => activeAccount,
 }));
-vi.mock("./use-mailbox-sync", () => ({
+vi.mock("@/app/(app)/[emailAccountId]/mail/use-mailbox-sync", () => ({
   useMailboxSync: mailboxSync.useMailboxSync,
 }));
 
@@ -33,7 +33,7 @@ describe("MailboxSyncManager", () => {
     });
   });
 
-  it("synchronizes every connected account without retrying disconnected accounts", () => {
+  it("starts warming every connected account and prioritizes the active one", () => {
     render(<MailboxSyncManager />);
 
     expect(mailboxSync.useMailboxSync).toHaveBeenCalledTimes(2);
