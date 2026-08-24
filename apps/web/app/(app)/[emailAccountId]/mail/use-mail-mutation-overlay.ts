@@ -104,7 +104,7 @@ export function applyMailMutationOverlayToThreads<
     const messages = overlay.applyToMessages(
       emailAccountId,
       currentMessages as ParsedMessage[],
-    ) as Thread["messages"];
+    ) as NonNullable<Thread["messages"]>;
     overlaidThreads.push(
       messages.length === currentMessages.length &&
         messages.every((message, index) => message === currentMessages[index])
