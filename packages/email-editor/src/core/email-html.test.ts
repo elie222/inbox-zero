@@ -7,9 +7,14 @@ import {
 } from "../fixtures/email-html";
 import {
   EMAIL_ATTACHMENT_LIMITS,
+  canOpenEmailLink,
   combineEmailHtml,
+  createInlineContentId,
+  detectInlineImageMimeType,
   finalizeEditableEmailHtml,
+  normalizeEmailUrl,
   prepareEmailDraft,
+  sanitizeEditableEmailHtml,
   sanitizePreservedEmailHtmlForPreview,
   validateEmailAttachments,
   type EmailComposerAttachment,
@@ -174,6 +179,59 @@ describe("preserved HTML preview", () => {
     expect(result).not.toContain("position");
     expect(result).not.toContain("contenteditable");
     expect(result).toContain("width:100%");
+  });
+});
+
+describe("editable HTML boundary", () => {
+  it("removes active content, unsafe URLs, and remote tracking images", () => {
+    expect(
+      sanitizeEditableEmailHtml(
+        '<p onclick="steal()">Safe<script>steal()</script><a href="javascript:steal()">link</a><img src="https://tracker.example/pixel"></p>',
+      ),
+    ).toBe("<p>Safe<a>link</a></p>");
+  });
+
+  it("keeps supported formatting and local inline-image previews", () => {
+    expect(
+      sanitizeEditableEmailHtml(
+        '<section><p dir="rtl"><span style="font-weight:700;color:red">שלום</span><img src="file:///tmp/image.png" width="120" height="80" onerror="steal()"></p></section>',
+      ),
+    ).toBe(
+      '<p dir="rtl"><span style="font-weight:700">שלום</span><img src="file:///tmp/image.png" width="120" height="80"></p>',
+    );
+  });
+
+  it("unwraps harmless unsupported containers without retaining their attributes", () => {
+    expect(
+      sanitizeEditableEmailHtml(
+        '<main class="layout"><p>Hello <mark data-token="secret">there</mark></p></main>',
+      ),
+    ).toBe("<p>Hello there</p>");
+  });
+});
+
+describe("portable composer helpers", () => {
+  it("normalizes ordinary links and rejects executable schemes", () => {
+    expect(normalizeEmailUrl("example.com/path")).toBe(
+      "https://example.com/path",
+    );
+    expect(normalizeEmailUrl("javascript:alert(1)")).toBeNull();
+    expect(canOpenEmailLink("mailto:hello@example.com")).toBe(true);
+    expect(canOpenEmailLink("#reply")).toBe(false);
+  });
+
+  it("detects inline image MIME types from their content", () => {
+    expect(detectInlineImageMimeType(PNG_BASE64)).toBe("image/png");
+    expect(detectInlineImageMimeType("Y29udGVudA==")).toBeNull();
+  });
+
+  it("creates safe Content-IDs for a caller-owned domain", () => {
+    expect(createInlineContentId("mobile.inboxzero")).toMatch(
+      /^[^<>\s]+@mobile\.inboxzero$/u,
+    );
+    expect(() => createInlineContentId("invalid domain")).toThrow(
+      "Content-ID domain is invalid.",
+    );
   });
 });
 
