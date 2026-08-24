@@ -26,9 +26,11 @@ export const CALENDAR_SCOPES = [
 ];
 
 export function hasGoogleScope(grantedScopes: string[], requiredScope: string) {
+  const grantedScopeSet = new Set(grantedScopes);
+
   return (
-    grantedScopes.includes(requiredScope) ||
+    grantedScopeSet.has(requiredScope) ||
     (requiredScope === GOOGLE_CONTACTS_READONLY_SCOPE &&
-      grantedScopes.includes(GOOGLE_CONTACTS_SCOPE))
+      grantedScopeSet.has(GOOGLE_CONTACTS_SCOPE))
   );
 }
