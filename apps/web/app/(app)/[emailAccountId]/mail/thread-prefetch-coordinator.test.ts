@@ -114,6 +114,40 @@ describe("createThreadPrefetchCoordinator", () => {
     expect(getCalledThreadIds()).toEqual(["thread-1", "thread-2"]);
   });
 
+  it("cancels one producer scope without disturbing work from another", async () => {
+    const activeJobs: Array<{ isCancelled?: () => boolean; threadId: string }> =
+      [];
+    const resolvers = new Map<string, () => void>();
+    threadPrefetch.prefetch.mockImplementation(
+      (input: { isCancelled?: () => boolean; threadId: string }) =>
+        new Promise<void>((resolve) => {
+          activeJobs.push(input);
+          resolvers.set(input.threadId, resolve);
+        }),
+    );
+    const coordinator = createCoordinator();
+
+    coordinator.scheduleMany([
+      { ...job("hover-active"), scopeKey: "hover-scope" },
+      { ...job("predictive-active"), scopeKey: "predictive-scope" },
+      { ...job("hover-queued"), scopeKey: "hover-scope" },
+      { ...job("predictive-queued"), scopeKey: "predictive-scope" },
+    ]);
+    coordinator.cancelScope("predictive-scope");
+
+    expect(activeJobs[0]?.isCancelled?.()).toBe(false);
+    expect(activeJobs[1]?.isCancelled?.()).toBe(true);
+
+    resolvers.get("hover-active")?.();
+    await vi.waitFor(() =>
+      expect(getCalledThreadIds()).toEqual([
+        "hover-active",
+        "predictive-active",
+        "hover-queued",
+      ]),
+    );
+  });
+
   it("skips prefetch when the thread is already in SWR cache", () => {
     const request = createThreadRequest({
       emailAccountId: "account-1",

@@ -332,7 +332,9 @@ export function MailShell() {
   // fetch for every row the cursor passes over — only the row you settle on.
   const readerThreadId = useDeferredValue(isAllAccounts ? null : openThreadId);
   const threadPrefetchCoordinator = useThreadPrefetchCoordinator();
-  const listPrefetchScopeKey = `list:${emailAccountId}:${isAllAccounts ? `all-accounts:${activeSplitId}` : JSON.stringify(query)}`;
+  const listPrefetchScopeIdentity = `${emailAccountId}:${isAllAccounts ? `all-accounts:${activeSplitId}` : JSON.stringify(query)}`;
+  const predictivePrefetchScopeKey = `predictive:${listPrefetchScopeIdentity}`;
+  const hoverPrefetchScopeKey = `hover:${listPrefetchScopeIdentity}`;
   const adjacentPrefetchScopeKey = `adjacent:${emailAccountId}:${readerThreadId ?? "none"}`;
   useAdjacentThreadPrefetch({
     coordinator: threadPrefetchCoordinator,
@@ -346,13 +348,13 @@ export function MailShell() {
     emailAccountId,
     enabled: !isAllAccounts && layout === "list" && !openThreadId,
     focusedIndex: clampedIndex,
-    scopeKey: listPrefetchScopeKey,
+    scopeKey: predictivePrefetchScopeKey,
     threads,
   });
   const { schedulePrefetch, cancelPrefetch } = useHoverThreadPrefetch({
     coordinator: threadPrefetchCoordinator,
     emailAccountId,
-    scopeKey: listPrefetchScopeKey,
+    scopeKey: hoverPrefetchScopeKey,
   });
   const prefetchThreadAt = useCallback(
     (index: number) => {
