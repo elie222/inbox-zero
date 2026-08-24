@@ -21,11 +21,14 @@ export function mailSplitToThreadsQuery(split: MailSplit): ThreadsQuery {
       return { type: "inbox", isUnread: true };
     case MailSplitKind.LABEL:
       if (!split.value) throw new Error(`Split "${split.name}" has no label`);
-      return { labelId: split.value };
+      return { labelIds: [split.value, "INBOX"] };
     case MailSplitKind.CATEGORY:
       if (!split.value)
         throw new Error(`Split "${split.name}" has no category`);
-      return mailTypeToThreadsQuery(split.value);
+      if (isOutlookInboxSection(split.value)) {
+        return mailTypeToThreadsQuery(split.value);
+      }
+      return { labelIds: [split.value, "INBOX"] };
   }
 }
 
