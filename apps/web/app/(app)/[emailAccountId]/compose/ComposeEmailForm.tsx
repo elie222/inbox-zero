@@ -40,6 +40,7 @@ import { type SubmitHandler, useForm } from "react-hook-form";
 import { useHotkeys } from "react-hotkeys-hook";
 import useSWR from "swr";
 import type { ContactsResponse } from "@/app/api/user/contacts/route";
+import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
 import { Input, Label } from "@/components/Input";
 import { ButtonLoader } from "@/components/Loading";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -48,6 +49,13 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CommandShortcut } from "@/components/ui/command";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { env } from "@/env";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { useModifierKey } from "@/hooks/useModifierKey";
@@ -78,6 +86,7 @@ export type ReplyingToEmail = {
 };
 
 type ComposeEmailFormProps = {
+  fromAccounts?: GetEmailAccountsResponse["emailAccounts"];
   layout?: "default" | "window";
   replyingToEmail?: ReplyingToEmail;
   refetch?: () => void;
@@ -92,7 +101,18 @@ type ComposeAttachment = EmailComposerAttachment & {
 type ComposeFormValues = Omit<SendEmailBody, "attachments" | "messageHtml">;
 
 export function ComposeEmailForm(props: ComposeEmailFormProps) {
-  const { data: emailAccount, error, isLoading } = useEmailAccountFull();
+  const { emailAccountId } = useAccount();
+  const [selectedEmailAccountId, setSelectedEmailAccountId] =
+    useState(emailAccountId);
+  const selectedAccountOverride =
+    selectedEmailAccountId === emailAccountId
+      ? undefined
+      : selectedEmailAccountId;
+  const {
+    data: emailAccount,
+    error,
+    isLoading,
+  } = useEmailAccountFull(selectedAccountOverride);
 
   return (
     <LoadingContent error={error} loading={isLoading}>
@@ -100,6 +120,9 @@ export function ComposeEmailForm(props: ComposeEmailFormProps) {
         <ComposeEmailFormContent
           {...props}
           accountSignatureHtml={emailAccount.signature ?? ""}
+          key={selectedEmailAccountId}
+          onSelectEmailAccount={setSelectedEmailAccountId}
+          selectedEmailAccountId={selectedEmailAccountId}
         />
       )}
     </LoadingContent>
@@ -109,13 +132,19 @@ export function ComposeEmailForm(props: ComposeEmailFormProps) {
 function ComposeEmailFormContent({
   layout = "default",
   replyingToEmail,
+  fromAccounts,
   accountSignatureHtml,
+  selectedEmailAccountId,
+  onSelectEmailAccount,
   refetch,
   onSuccess,
   onDiscard,
-}: ComposeEmailFormProps & { accountSignatureHtml: string }) {
+}: ComposeEmailFormProps & {
+  accountSignatureHtml: string;
+  selectedEmailAccountId: string;
+  onSelectEmailAccount: (emailAccountId: string) => void;
+}) {
   const isComposeWindow = layout === "window";
-  const { emailAccountId } = useAccount();
   const [initialComposer] = useState(() => {
     const draft = prepareEmailDraft({
       html: replyingToEmail?.draftHtml ?? "",
@@ -386,7 +415,10 @@ function ComposeEmailFormContent({
       }
 
       try {
-        const result = await sendEmailAction(emailAccountId, enrichedData);
+        const result = await sendEmailAction(
+          selectedEmailAccountId,
+          enrichedData,
+        );
         if (result?.data) {
           toastSuccess({ description: "Email sent!" });
           onSuccess?.(result.data.messageId ?? "", result.data.threadId ?? "");
@@ -405,12 +437,12 @@ function ComposeEmailFormContent({
       refetch?.();
     },
     [
-      emailAccountId,
       initialDraft,
       onSuccess,
       preservedBlocks,
       refetch,
       searchQuery,
+      selectedEmailAccountId,
     ],
   );
 
@@ -476,6 +508,41 @@ function ComposeEmailFormContent({
       )}
     >
       <div className={cn(isComposeWindow ? "shrink-0 px-4" : "contents")}>
+        {!!fromAccounts?.length && !replyingToEmail && (
+          <div
+            className={cn(
+              "flex items-center gap-2",
+              isComposeWindow && "min-h-11 border-b",
+            )}
+          >
+            <ComposeFieldLabel htmlFor="from-account" label="From" />
+            <Select
+              value={selectedEmailAccountId}
+              onValueChange={onSelectEmailAccount}
+            >
+              <SelectTrigger
+                aria-label="From"
+                className="h-10 min-w-0 flex-1 rounded-none border-0 bg-transparent px-0 shadow-none focus:ring-0 focus:ring-offset-0"
+                id="from-account"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {fromAccounts.map((account) => (
+                  <SelectItem
+                    disabled={Boolean(account.account.disconnectedAt)}
+                    key={account.id}
+                    value={account.id}
+                  >
+                    {account.name
+                      ? `${account.name} (${account.email})`
+                      : account.email}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
         {replyingToEmail?.to && !editReply ? (
           <button
             type="button"
@@ -498,14 +565,7 @@ function ComposeEmailFormContent({
                 isComposeWindow && "min-h-11 items-center border-b",
               )}
             >
-              {isComposeWindow && (
-                <label
-                  className="shrink-0 text-sm font-medium text-foreground"
-                  htmlFor="to"
-                >
-                  To
-                </label>
-              )}
+              {isComposeWindow && <ComposeFieldLabel htmlFor="to" label="To" />}
               <div className="min-w-0 flex-1">
                 {env.NEXT_PUBLIC_CONTACTS_ENABLED ? (
                   <div className="flex space-x-2">
@@ -883,6 +943,23 @@ function readFileAsBase64(file: File) {
 
 function revokePreview(attachment: ComposeAttachment) {
   if (attachment.previewUrl) URL.revokeObjectURL(attachment.previewUrl);
+}
+
+function ComposeFieldLabel({
+  htmlFor,
+  label,
+}: {
+  htmlFor: string;
+  label: string;
+}) {
+  return (
+    <label
+      className="shrink-0 text-sm font-medium text-foreground"
+      htmlFor={htmlFor}
+    >
+      {label}
+    </label>
+  );
 }
 
 function formatFileSize(size: number) {

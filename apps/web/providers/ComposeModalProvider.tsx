@@ -2,7 +2,9 @@
 
 import { createContext, useCallback, useContext, useState } from "react";
 import { Maximize2Icon, Minimize2Icon, XIcon } from "lucide-react";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useModal } from "@/hooks/useModal";
+import { useAccounts } from "@/hooks/useAccounts";
 import { ComposeEmailFormLazy } from "@/app/(app)/[emailAccountId]/compose/ComposeEmailFormLazy";
 import {
   Dialog,
@@ -24,8 +26,13 @@ const ComposeModalContext = createContext<Context>({
 export const useComposeModal = () => useContext(ComposeModalContext);
 
 export function ComposeModalProvider(props: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { isModalOpen, openModal, closeModal } = useModal();
   const [isExpanded, setIsExpanded] = useState(false);
+  const isAllAccountsMailView =
+    pathname.endsWith("/mail") && searchParams.get("accountScope") === "all";
+  const { data: accountsData } = useAccounts(isAllAccountsMailView);
   const openCompose = useCallback(() => {
     setIsExpanded(false);
     openModal();
@@ -120,6 +127,7 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
               )}
             >
               <ComposeEmailFormLazy
+                fromAccounts={accountsData?.emailAccounts}
                 layout="window"
                 onDiscard={closeCompose}
                 onSuccess={closeCompose}
