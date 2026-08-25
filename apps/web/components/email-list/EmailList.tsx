@@ -23,14 +23,14 @@ import {
 import { runAiRules } from "@/utils/queue/email-actions";
 import { Button } from "@/components/ui/button";
 import { ButtonLoader } from "@/components/Loading";
-import {
-  archiveEmails,
-  deleteEmails,
-  markReadThreads,
-} from "@/store/archive-queue";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import { useIsMobile } from "@/hooks/use-mobile";
+import {
+  applyMailMutationOverlayToThreads,
+  useRetainedMailMutationOverlay,
+} from "@/hooks/useMailMutationOverlay";
+import { enqueueThreadMailMutationBatch } from "@/utils/email-cache/thread-mail-mutations";
 
 export function List({
   emails,
@@ -145,7 +145,7 @@ export function List({
 }
 
 export function EmailList({
-  threads = [],
+  threads: sourceThreads = [],
   emptyMessage,
   hideActionBarWhenEmpty,
   refetch = () => {},
@@ -156,12 +156,32 @@ export function EmailList({
   threads?: Thread[];
   emptyMessage?: React.ReactNode;
   hideActionBarWhenEmpty?: boolean;
-  refetch?: (options?: { removedThreadIds?: string[] }) => void;
+  refetch?: (options?: { removedThreadIds?: string[] }) => unknown;
   showLoadMore?: boolean;
   isLoadingMore?: boolean;
   handleLoadMore?: () => void;
 }) {
   const { emailAccountId, userEmail, provider } = useAccount();
+  const reconcile = useCallback(() => refetch(), [refetch]);
+  const {
+    isReady: mutationOverlayReady,
+    mutations,
+    retainMutations,
+  } = useRetainedMailMutationOverlay({
+    emailAccountId,
+    onReconcile: reconcile,
+  });
+  const threads = useMemo(
+    () =>
+      mutationOverlayReady
+        ? applyMailMutationOverlayToThreads({
+            getEmailAccountId: () => emailAccountId,
+            mutations,
+            threads: sourceThreads,
+          })
+        : [],
+    [emailAccountId, mutationOverlayReady, mutations, sourceThreads],
+  );
 
   // if right panel is open
   const [openThreadId, setOpenThreadId] = useQueryState("thread-id");
@@ -207,20 +227,14 @@ export function EmailList({
 
   const onArchive = useCallback(
     (thread: Thread) => {
-      const threadIds = [thread.id];
       toast.promise(
         async () => {
-          await new Promise<void>((resolve, reject) => {
-            archiveEmails({
-              threadIds,
-              onSuccess: () => {
-                refetch({ removedThreadIds: [thread.id] });
-                resolve();
-              },
-              onError: reject,
-              emailAccountId,
-            });
+          const queued = await enqueueThreadMailMutationBatch({
+            emailAccountId,
+            payload: { kind: "archive" },
+            threads: [thread],
           });
+          retainMutations(queued.mutations);
         },
         {
           loading: "Archiving...",
@@ -229,7 +243,7 @@ export function EmailList({
         },
       );
     },
-    [refetch, emailAccountId],
+    [emailAccountId, retainMutations],
   );
 
   const listRef = useRef<HTMLUListElement>(null);
@@ -283,21 +297,16 @@ export function EmailList({
   const onArchiveBulk = useCallback(async () => {
     toast.promise(
       async () => {
-        const threadIds = Object.entries(selectedRows)
-          .filter(([, selected]) => selected)
-          .map(([id]) => id);
-
-        await new Promise<void>((resolve, reject) => {
-          archiveEmails({
-            threadIds,
-            onSuccess: () => {
-              refetch({ removedThreadIds: threadIds });
-              resolve();
-            },
-            onError: reject,
-            emailAccountId,
-          });
+        const selectedThreads = threads.filter(
+          (thread) => selectedRows[thread.id],
+        );
+        const queued = await enqueueThreadMailMutationBatch({
+          emailAccountId,
+          payload: { kind: "archive" },
+          threads: selectedThreads,
         });
+        retainMutations(queued.mutations);
+        setSelectedRows({});
       },
       {
         loading: "Archiving emails...",
@@ -305,26 +314,21 @@ export function EmailList({
         error: "There was an error archiving the emails :(",
       },
     );
-  }, [selectedRows, refetch, emailAccountId]);
+  }, [emailAccountId, retainMutations, selectedRows, threads]);
 
   const onTrashBulk = useCallback(async () => {
     toast.promise(
       async () => {
-        const threadIds = Object.entries(selectedRows)
-          .filter(([, selected]) => selected)
-          .map(([id]) => id);
-
-        await new Promise<void>((resolve, reject) => {
-          deleteEmails({
-            threadIds,
-            onSuccess: () => {
-              refetch({ removedThreadIds: threadIds });
-              resolve();
-            },
-            onError: reject,
-            emailAccountId,
-          });
+        const selectedThreads = threads.filter(
+          (thread) => selectedRows[thread.id],
+        );
+        const queued = await enqueueThreadMailMutationBatch({
+          emailAccountId,
+          payload: { kind: "trash" },
+          threads: selectedThreads,
         });
+        retainMutations(queued.mutations);
+        setSelectedRows({});
       },
       {
         loading: "Deleting emails...",
@@ -332,7 +336,7 @@ export function EmailList({
         error: "There was an error deleting the emails :(",
       },
     );
-  }, [selectedRows, refetch, emailAccountId]);
+  }, [emailAccountId, retainMutations, selectedRows, threads]);
 
   const onPlanAiBulk = useCallback(async () => {
     toast.promise(
@@ -421,11 +425,15 @@ export function EmailList({
 
                   if (!alreadyOpen) scrollToId(thread.id);
 
-                  markReadThreads({
-                    threadIds: [thread.id],
-                    onSuccess: () => refetch(),
+                  enqueueThreadMailMutationBatch({
                     emailAccountId,
-                  });
+                    payload: { kind: "set_read_state", read: true },
+                    threads: [thread],
+                  })
+                    .then((queued) => retainMutations(queued.mutations))
+                    .catch(() => {
+                      toast.error("Couldn't queue marking this email as read");
+                    });
                 };
 
                 return (

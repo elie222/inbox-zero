@@ -20,14 +20,10 @@ import {
   addToArchiveSenderThreadQueue,
   useArchiveSenderQueueActions,
 } from "@/store/archive-sender-queue";
-import { deleteEmails } from "@/store/archive-queue";
 import type {
   NewsletterFilterType,
   Row,
 } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/types";
-import type { GetThreadsResponse } from "@/app/api/threads/basic/route";
-import { isDefined } from "@/utils/types";
-import { fetchWithAccount } from "@/utils/fetch";
 import type { UserResponse } from "@/app/api/user/me/route";
 import {
   bulkArchiveAction,
@@ -38,6 +34,8 @@ import {
   getUserFacingUnsubscribeLink,
 } from "@/utils/parse/unsubscribe";
 import { useProductAnalytics } from "@/hooks/useProductAnalytics";
+import { fetchAllSenderThreads } from "@/store/fetch-sender-threads";
+import { enqueueThreadMailMutationBatch } from "@/utils/email-cache/thread-mail-mutations";
 
 // Shared type for SWR mutate function
 type MutateFn = (
@@ -903,41 +901,35 @@ async function deleteAllFromSender({
   onFinish: () => void;
   emailAccountId: string;
 }) {
-  toast.promise(
-    async () => {
-      // 1. search for messages from sender
-      const res = await fetchWithAccount({
-        url: `/api/threads/basic?fromEmail=${name}`,
+  const deletion = (async () => {
+    const { threads } = await fetchAllSenderThreads({
+      sender: name,
+      emailAccountId,
+    });
+    if (threads.length) {
+      await enqueueThreadMailMutationBatch({
         emailAccountId,
+        payload: { kind: "trash" },
+        threads,
       });
-      const data: GetThreadsResponse = await res.json();
+    }
+    return threads.length;
+  })();
 
-      // 2. delete messages
-      if (data?.threads?.length) {
-        await new Promise<void>((resolve, reject) => {
-          deleteEmails({
-            threadIds: data.threads.map((t) => t.id).filter(isDefined),
-            onSuccess: () => {
-              onFinish();
-              resolve();
-            },
-            onError: reject,
-            emailAccountId,
-          });
-        });
-      }
+  toast.promise(deletion, {
+    loading: `Deleting all emails from ${name}`,
+    success: (count: number) =>
+      count
+        ? `Queued ${count} emails from ${name} for deletion`
+        : `No emails to delete from ${name}`,
+    error: `There was an error deleting the emails from ${name} :(`,
+  });
 
-      return data.threads?.length || 0;
-    },
-    {
-      loading: `Deleting all emails from ${name}`,
-      success: (data: number) =>
-        data
-          ? `Deleting ${data} emails from ${name}...`
-          : `No emails to delete from ${name}`,
-      error: `There was an error deleting the emails from ${name} :(`,
-    },
-  );
+  try {
+    return await deletion;
+  } finally {
+    onFinish();
+  }
 }
 
 export function useDeleteAllFromSender<T extends Row>({

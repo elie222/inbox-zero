@@ -726,6 +726,8 @@ function MarkReadSenderStatus({
       );
     case "pending":
       return <span className="text-sm text-muted-foreground">Pending...</span>;
+    case "failed":
+      return <span className="text-sm text-red-600">Failed</span>;
     default:
       return null;
   }
@@ -752,6 +754,8 @@ function DeleteSenderStatus({
       );
     case "pending":
       return <span className="text-sm text-muted-foreground">Pending...</span>;
+    case "failed":
+      return <span className="text-sm text-red-600">Failed</span>;
     default:
       return null;
   }

@@ -21,7 +21,6 @@ import {
   mailCommandContextAtom,
 } from "@/store/command-palette";
 import type { MailCommandContext } from "@/store/command-palette";
-import { archiveEmails } from "@/store/archive-queue";
 import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useCommandPaletteCommands } from "@/hooks/useCommandPaletteCommands";
@@ -34,6 +33,9 @@ import {
   MAIL_SHORTCUT_SCOPES,
   type ShortcutHandlers,
 } from "@/lib/shortcuts/registry";
+import { useThread } from "@/hooks/useThread";
+import { enqueueThreadMailMutationBatch } from "@/utils/email-cache/thread-mail-mutations";
+import { toastError } from "@/components/Toast";
 
 const SECTION_ORDER: CommandSection[] = [
   "actions",
@@ -91,6 +93,10 @@ function CommandPaletteContent({
 
   const { emailAccountId } = useAccount();
   const { threadId, showEmail } = displayedEmail;
+  const { data: displayedThread } = useThread(
+    { id: threadId },
+    { includeDrafts: true },
+  );
   const { onOpen: onOpenComposeModal } = useComposeModal();
   const { commands, isLoading } = useCommandPaletteCommands({
     enabled: !mailCommandContext,
@@ -99,12 +105,23 @@ function CommandPaletteContent({
   const shortcutHandlers: ShortcutHandlers = {
     commandPalette: () => setOpen((wasOpen) => !wasOpen),
     compose: onOpenComposeModal,
-    archive: threadId
-      ? () => {
-          archiveEmails({ threadIds: [threadId], emailAccountId });
-          showEmail(null);
-        }
-      : undefined,
+    archive:
+      threadId && displayedThread?.thread.id === threadId
+        ? async () => {
+            try {
+              await enqueueThreadMailMutationBatch({
+                emailAccountId,
+                payload: { kind: "archive" },
+                threads: [displayedThread.thread],
+              });
+              showEmail(null);
+            } catch {
+              toastError({
+                description: "Couldn't queue archiving this email",
+              });
+            }
+          }
+        : undefined,
     snooze: mailCommandContext?.actions.snooze
       ? () => {
           setSearch("");

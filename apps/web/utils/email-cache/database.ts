@@ -49,12 +49,18 @@ export type CachedMailboxSyncState = {
   completedAt?: number;
 };
 
+export type MailMutationClientSource = {
+  kind: "sender";
+  sender: string;
+};
+
 export type StoredMailMutation = {
   id: string;
   batchId: string;
   emailAccountId: string;
   threadId: string;
   messageIds: string[];
+  clientSource?: MailMutationClientSource;
   kind:
     | "archive"
     | "unarchive"
@@ -70,6 +76,8 @@ export type StoredMailMutation = {
     | "processing"
     | "retry_wait"
     | "blocked_auth"
+    | "awaiting_sync"
+    | "reconciling"
     | "succeeded"
     | "failed"
     | "uncertain";

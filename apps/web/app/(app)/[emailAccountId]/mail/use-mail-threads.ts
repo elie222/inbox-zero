@@ -37,7 +37,7 @@ import { isThreadUnread } from "./read-state";
 import {
   applyMailMutationOverlayToThreads,
   useMailMutationOverlay,
-} from "./use-mail-mutation-overlay";
+} from "@/hooks/useMailMutationOverlay";
 
 type RemovedThread = {
   thread: ListThread;

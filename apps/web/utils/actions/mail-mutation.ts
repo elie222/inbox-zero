@@ -60,7 +60,10 @@ export const executeMailMutationAction = actionClient
     try {
       switch (parsedInput.kind) {
         case "archive":
-          await emailProvider.archiveMessages(parsedInput.messageIds);
+          await emailProvider.archiveMessages(
+            parsedInput.messageIds,
+            parsedInput.labelId,
+          );
           break;
         case "unarchive":
           await emailProvider.unarchiveMessages(parsedInput.messageIds);

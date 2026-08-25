@@ -10,13 +10,18 @@ const mailbox = vi.hoisted(() => ({ request: vi.fn(), syncNow: vi.fn() }));
 const outbox = vi.hoisted(() => ({
   blockAuth: vi.fn(),
   claim: vi.fn(),
+  claimSyncGroup: vi.fn(),
   claimNotification: vi.fn(),
   complete: vi.fn(),
+  completeSyncGroup: vi.fn(),
   fail: vi.fn(),
   getNextWakeAt: vi.fn(),
+  markAwaitingSync: vi.fn(),
   renew: vi.fn(),
+  renewSyncGroup: vi.fn(),
   resumeBlocked: vi.fn(),
   retry: vi.fn(),
+  retrySyncGroup: vi.fn(),
   subscribe: vi.fn(),
 }));
 const toast = vi.hoisted(() => ({ error: vi.fn() }));
@@ -34,24 +39,29 @@ vi.mock("@/app/(app)/[emailAccountId]/mail/use-mailbox-sync", () => ({
 vi.mock("@/utils/email-cache/mail-mutations", () => ({
   blockMailMutationForAuth: outbox.blockAuth,
   claimNextMailMutation: outbox.claim,
+  claimNextMailMutationSyncGroup: outbox.claimSyncGroup,
   claimNextMailMutationNotification: outbox.claimNotification,
   completeMailMutation: outbox.complete,
+  completeMailMutationSyncGroup: outbox.completeSyncGroup,
   failMailMutation: outbox.fail,
   getNextMailMutationWakeAt: outbox.getNextWakeAt,
+  markMailMutationAwaitingSync: outbox.markAwaitingSync,
   renewMailMutationLease: outbox.renew,
+  renewMailMutationSyncGroupLease: outbox.renewSyncGroup,
   resumeBlockedMailMutations: outbox.resumeBlocked,
   retryMailMutation: outbox.retry,
+  retryMailMutationSyncGroup: outbox.retrySyncGroup,
   subscribeToMailMutations: outbox.subscribe,
 }));
 vi.mock("@/components/Toast", () => ({ toastError: toast.error }));
 
 const onlineDescriptor = Object.getOwnPropertyDescriptor(navigator, "onLine");
+let listener: (() => void) | undefined;
 
 describe("MailMutationOutboxManager", () => {
-  let listener: (() => void) | undefined;
-
   beforeEach(() => {
     vi.clearAllMocks();
+    window.localStorage.clear();
     setOnline(true);
     listener = undefined;
     outbox.subscribe.mockImplementation((nextListener) => {
@@ -59,9 +69,11 @@ describe("MailMutationOutboxManager", () => {
       return vi.fn();
     });
     outbox.claim.mockResolvedValue(undefined);
+    outbox.claimSyncGroup.mockResolvedValue(undefined);
     outbox.claimNotification.mockResolvedValue(undefined);
     outbox.getNextWakeAt.mockResolvedValue(undefined);
     outbox.renew.mockResolvedValue(false);
+    outbox.renewSyncGroup.mockResolvedValue([]);
     outbox.resumeBlocked.mockResolvedValue(0);
     mailbox.syncNow.mockResolvedValue({ hasMore: false, pagesSynced: 1 });
   });
@@ -77,6 +89,7 @@ describe("MailMutationOutboxManager", () => {
 
   it("settles cache state before exposing terminal success", async () => {
     const mutation = archiveMutation();
+    const syncGroup = wireSyncGroup(mutation);
     const reconciliation = Promise.withResolvers<{
       hasMore: boolean;
       pagesSynced: number;
@@ -90,31 +103,107 @@ describe("MailMutationOutboxManager", () => {
 
     expect(cache.settle).toHaveBeenCalledWith(mutation);
     expect(mailbox.syncNow).toHaveBeenCalledWith("account");
-    expect(outbox.complete).not.toHaveBeenCalled();
+    expect(outbox.completeSyncGroup).not.toHaveBeenCalled();
 
     reconciliation.resolve({ hasMore: false, pagesSynced: 1 });
     await settlePromises();
 
-    expect(outbox.complete).toHaveBeenCalledWith(
-      mutation.id,
-      undefined,
+    expect(outbox.completeSyncGroup).toHaveBeenCalledWith(
+      syncGroup,
       expect.any(String),
     );
     expect(cache.settle.mock.invocationCallOrder[0]).toBeLessThan(
-      outbox.complete.mock.invocationCallOrder[0],
+      outbox.markAwaitingSync.mock.invocationCallOrder[0],
     );
-    expect(cache.settle.mock.invocationCallOrder[0]).toBeLessThan(
+    expect(outbox.markAwaitingSync.mock.invocationCallOrder[0]).toBeLessThan(
       mailbox.syncNow.mock.invocationCallOrder[0],
     );
     expect(mailbox.syncNow.mock.invocationCallOrder[0]).toBeLessThan(
-      outbox.complete.mock.invocationCallOrder[0],
+      outbox.completeSyncGroup.mock.invocationCallOrder[0],
     );
   });
 
-  it("renews the mutation lease while mailbox reconciliation is pending", async () => {
+  it("removes the obsolete local mail-action queue at startup", () => {
+    window.localStorage.setItem("gmailActionQueue", "queued actions");
+
+    render(<MailMutationOutboxManager />);
+
+    expect(window.localStorage.getItem("gmailActionQueue")).toBeNull();
+  });
+
+  it("still starts when legacy local storage is unavailable", () => {
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => {
+      throw new Error("storage unavailable");
+    });
+
+    expect(() => render(<MailMutationOutboxManager />)).not.toThrow();
+    expect(outbox.subscribe).toHaveBeenCalledOnce();
+  });
+
+  it("reconciles one mailbox sync for a durable multi-thread batch", async () => {
+    const first = archiveMutation({ id: "first", threadId: "thread-1" });
+    const second = archiveMutation({ id: "second", threadId: "thread-2" });
+    const group = {
+      batchId: "batch",
+      emailAccountId: "account",
+      mutations: [
+        { ...first, status: "reconciling" as const },
+        { ...second, status: "reconciling" as const },
+      ],
+    };
+    let applied = 0;
+    let claimed = false;
+    outbox.claim
+      .mockResolvedValueOnce(first)
+      .mockResolvedValueOnce(second)
+      .mockResolvedValue(undefined);
+    outbox.markAwaitingSync.mockImplementation(async () => {
+      applied += 1;
+      listener?.();
+    });
+    outbox.claimSyncGroup.mockImplementation(async () => {
+      if (applied !== 2 || claimed) return;
+      claimed = true;
+      return group;
+    });
+    action.execute.mockResolvedValue({ data: { status: "applied" } });
+
+    render(<MailMutationOutboxManager />);
+    await settlePromises();
+
+    expect(action.execute).toHaveBeenCalledTimes(2);
+    expect(cache.settle).toHaveBeenCalledTimes(2);
+    expect(mailbox.syncNow).toHaveBeenCalledOnce();
+    expect(mailbox.syncNow).toHaveBeenCalledWith("account");
+    expect(outbox.completeSyncGroup).toHaveBeenCalledWith(
+      group,
+      expect.any(String),
+    );
+  });
+
+  it("forwards a durable archive label to the provider action", async () => {
+    const mutation = { ...archiveMutation(), labelId: "archive-label" };
+    wireSyncGroup(mutation);
+    outbox.claim.mockResolvedValueOnce(mutation).mockResolvedValue(undefined);
+    action.execute.mockResolvedValue({ data: { status: "applied" } });
+
+    render(<MailMutationOutboxManager />);
+    await settlePromises();
+
+    expect(action.execute).toHaveBeenCalledWith("account", {
+      kind: "archive",
+      mutationId: "mutation",
+      threadId: "thread",
+      messageIds: ["message"],
+      labelId: "archive-label",
+    });
+  });
+
+  it("renews the sync-group lease while mailbox reconciliation is pending", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(0);
     const mutation = archiveMutation();
+    const syncGroup = wireSyncGroup(mutation);
     const reconciliation = Promise.withResolvers<{
       hasMore: boolean;
       pagesSynced: number;
@@ -127,20 +216,21 @@ describe("MailMutationOutboxManager", () => {
     await settlePromises();
     await act(() => vi.advanceTimersByTimeAsync(15_000));
 
-    expect(outbox.renew).toHaveBeenCalledWith(mutation.id, {
+    expect(outbox.renewSyncGroup).toHaveBeenCalledWith(syncGroup, {
       leaseMs: 30_000,
       ownerId: expect.any(String),
     });
 
     reconciliation.resolve({ hasMore: false, pagesSynced: 1 });
     await settlePromises();
-    outbox.renew.mockClear();
+    outbox.renewSyncGroup.mockClear();
     await act(() => vi.advanceTimersByTimeAsync(15_000));
-    expect(outbox.renew).not.toHaveBeenCalled();
+    expect(outbox.renewSyncGroup).not.toHaveBeenCalled();
   });
 
   it("retries without completing when mailbox reconciliation fails", async () => {
     const mutation = archiveMutation();
+    const syncGroup = wireSyncGroup(mutation);
     outbox.claim.mockResolvedValueOnce(mutation).mockResolvedValue(undefined);
     action.execute.mockResolvedValue({ data: { status: "applied" } });
     mailbox.syncNow.mockRejectedValue(new Error("sync failed"));
@@ -149,15 +239,15 @@ describe("MailMutationOutboxManager", () => {
     await settlePromises();
 
     expect(cache.settle).toHaveBeenCalledWith(mutation);
-    expect(outbox.retry).toHaveBeenCalledWith(
-      mutation.id,
+    expect(outbox.retrySyncGroup).toHaveBeenCalledWith(
+      syncGroup,
       {
         error: "Mailbox reconciliation failed",
         nextAttemptAt: expect.any(Number),
       },
       expect.any(String),
     );
-    expect(outbox.complete).not.toHaveBeenCalled();
+    expect(outbox.completeSyncGroup).not.toHaveBeenCalled();
   });
 
   it("does not remove cached mail when the server reconciles an expired snooze", async () => {
@@ -176,7 +266,7 @@ describe("MailMutationOutboxManager", () => {
     await settlePromises();
 
     expect(cache.settle).not.toHaveBeenCalled();
-    expect(outbox.complete).toHaveBeenCalledWith(
+    expect(outbox.markAwaitingSync).toHaveBeenCalledWith(
       mutation.id,
       result,
       expect.any(String),
@@ -214,7 +304,7 @@ describe("MailMutationOutboxManager", () => {
       nextAttemptAt = options.nextAttemptAt;
       listener?.();
     });
-    outbox.complete.mockImplementation(async () => {
+    outbox.markAwaitingSync.mockImplementation(async () => {
       status = "succeeded";
     });
     action.execute
@@ -234,7 +324,7 @@ describe("MailMutationOutboxManager", () => {
     await settlePromises();
 
     expect(action.execute).toHaveBeenCalledTimes(2);
-    expect(outbox.complete).toHaveBeenCalledOnce();
+    expect(outbox.markAwaitingSync).toHaveBeenCalledOnce();
   });
 
   it("resumes auth-blocked work when the window regains focus", async () => {
@@ -255,7 +345,7 @@ describe("MailMutationOutboxManager", () => {
       status = "pending";
       return 1;
     });
-    outbox.complete.mockImplementation(async () => {
+    outbox.markAwaitingSync.mockImplementation(async () => {
       status = "succeeded";
     });
     action.execute
@@ -271,7 +361,7 @@ describe("MailMutationOutboxManager", () => {
 
     expect(outbox.resumeBlocked).toHaveBeenCalled();
     expect(action.execute).toHaveBeenCalledTimes(2);
-    expect(outbox.complete).toHaveBeenCalledOnce();
+    expect(outbox.markAwaitingSync).toHaveBeenCalledOnce();
   });
 
   it("surfaces a persisted uncertain reply only once", async () => {
@@ -403,12 +493,20 @@ describe("MailMutationOutboxManager", () => {
   });
 });
 
-function archiveMutation({ attempts = 1 }: { attempts?: number } = {}) {
+function archiveMutation({
+  attempts = 1,
+  id = "mutation",
+  threadId = "thread",
+}: {
+  attempts?: number;
+  id?: string;
+  threadId?: string;
+} = {}) {
   return {
-    id: "mutation",
+    id,
     batchId: "batch",
     emailAccountId: "account",
-    threadId: "thread",
+    threadId,
     messageIds: ["message"],
     kind: "archive" as const,
     status: "processing" as const,
@@ -429,6 +527,26 @@ function replyMutation({ attempts = 1 }: { attempts?: number } = {}) {
       to: "recipient@example.com",
     },
   };
+}
+
+function wireSyncGroup(mutation: ReturnType<typeof archiveMutation>) {
+  const group = {
+    batchId: mutation.batchId,
+    emailAccountId: mutation.emailAccountId,
+    mutations: [{ ...mutation, status: "reconciling" as const }],
+  };
+  let ready = false;
+  let claimed = false;
+  outbox.markAwaitingSync.mockImplementation(async () => {
+    ready = true;
+    listener?.();
+  });
+  outbox.claimSyncGroup.mockImplementation(async () => {
+    if (!ready || claimed) return;
+    claimed = true;
+    return group;
+  });
+  return group;
 }
 
 async function settlePromises() {

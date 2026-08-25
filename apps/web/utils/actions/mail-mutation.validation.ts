@@ -8,7 +8,10 @@ const snapshot = z.object({
 });
 
 export const executeMailMutationBody = z.discriminatedUnion("kind", [
-  snapshot.extend({ kind: z.literal("archive") }),
+  snapshot.extend({
+    kind: z.literal("archive"),
+    labelId: z.string().min(1).max(512).optional(),
+  }),
   snapshot.extend({ kind: z.literal("unarchive") }),
   snapshot.extend({ kind: z.literal("trash") }),
   snapshot.extend({ kind: z.literal("untrash") }),

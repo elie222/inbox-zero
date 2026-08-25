@@ -69,7 +69,26 @@ describe("executeMailMutationAction", () => {
     });
 
     expect(result?.data).toEqual({ status: "applied" });
-    expect(mocks.archiveMessages).toHaveBeenCalledWith(["one", "two"]);
+    expect(mocks.archiveMessages).toHaveBeenCalledWith(
+      ["one", "two"],
+      undefined,
+    );
+  });
+
+  it("applies an archive label to the immutable snapshot", async () => {
+    const result = await executeMailMutationAction("account-1", {
+      kind: "archive",
+      mutationId,
+      threadId: "thread",
+      messageIds: ["one", "two"],
+      labelId: "label-id",
+    });
+
+    expect(result?.data).toEqual({ status: "applied" });
+    expect(mocks.archiveMessages).toHaveBeenCalledWith(
+      ["one", "two"],
+      "label-id",
+    );
   });
 
   it("replays an already-created snooze after its wall-clock time", async () => {

@@ -1,8 +1,12 @@
 import type { SendEmailBody } from "@/utils/types/mail";
-import { getEmailCacheDatabase, type StoredMailMutation } from "./database";
+import {
+  getEmailCacheDatabase,
+  type MailMutationClientSource,
+  type StoredMailMutation,
+} from "./database";
 
 export type MailMutationPayload =
-  | { kind: "archive" }
+  | { kind: "archive"; labelId?: string }
   | { kind: "unarchive" }
   | { kind: "trash" }
   | { kind: "untrash" }
@@ -17,19 +21,34 @@ export type MailMutation = Omit<StoredMailMutation, "kind" | "payload"> &
 export type EnqueueMailMutationInput = MailMutationPayload & {
   id?: string;
   batchId?: string;
+  clientSource?: MailMutationClientSource;
   emailAccountId: string;
   threadId: string;
   messageIds: string[];
 };
 
-const ACTIVE_STATUS_VALUES = [
+export type MailMutationSyncGroup = {
+  batchId: string;
+  emailAccountId: string;
+  mutations: MailMutation[];
+};
+
+const PROVIDER_ACTIVE_STATUS_VALUES = [
   "pending",
   "processing",
   "retry_wait",
   "blocked_auth",
 ] as const satisfies StoredMailMutation["status"][];
+const ACTIVE_STATUS_VALUES = [
+  ...PROVIDER_ACTIVE_STATUS_VALUES,
+  "awaiting_sync",
+  "reconciling",
+] as const satisfies StoredMailMutation["status"][];
 const ACTIVE_STATUSES = new Set<StoredMailMutation["status"]>(
   ACTIVE_STATUS_VALUES,
+);
+const PROVIDER_ACTIVE_STATUSES = new Set<StoredMailMutation["status"]>(
+  PROVIDER_ACTIVE_STATUS_VALUES,
 );
 
 const listeners = new Set<() => void>();
@@ -44,58 +63,48 @@ export async function enqueueMailMutation(
   input: EnqueueMailMutationInput,
   now = Date.now(),
 ): Promise<MailMutation> {
+  const [mutation] = await enqueueMailMutationBatch([input], now);
+  if (!mutation) throw new Error("Mail mutation was not queued");
+  return mutation;
+}
+
+export async function enqueueMailMutationBatch(
+  inputs: EnqueueMailMutationInput[],
+  now = Date.now(),
+): Promise<MailMutation[]> {
+  if (!inputs.length) return [];
+  const suppliedBatchIds = new Set(
+    inputs.flatMap((input) => (input.batchId ? [input.batchId] : [])),
+  );
+  if (suppliedBatchIds.size > 1) {
+    throw new Error("Mail mutation batches must use one batch ID");
+  }
+  const batchId = suppliedBatchIds.values().next().value ?? crypto.randomUUID();
+  const preparedInputs = inputs.map((input) => ({
+    ...input,
+    batchId,
+    id: input.id ?? crypto.randomUUID(),
+  }));
   const database = await getEmailCacheDatabase();
   if (!database) throw new Error("Offline mail storage is unavailable");
 
   const transaction = database.transaction("mailMutations", "readwrite");
   const store = transaction.objectStore("mailMutations");
-
-  if (input.kind === "set_read_state") {
-    const sameThread = await store
-      .index("byAccountThread")
-      .getAll([input.emailAccountId, input.threadId]);
-    const existing = sameThread.find(
-      (mutation) =>
-        mutation.kind === "set_read_state" &&
-        (mutation.status === "pending" || mutation.status === "retry_wait") &&
-        !mutation.leaseOwner,
-    );
-    if (existing) {
-      const updated: StoredMailMutation = {
-        ...existing,
-        messageIds: [...new Set(input.messageIds)],
-        payload: { read: input.read },
-        status: "pending",
-        nextAttemptAt: now,
-        updatedAt: now,
-        lastError: undefined,
-      };
-      await store.put(updated);
-      await transaction.done;
-      notifyMailMutationChange();
-      return toMailMutation(updated);
+  const storedMutations: StoredMailMutation[] = [];
+  try {
+    for (const input of preparedInputs) {
+      storedMutations.push(await enqueueInStore(store, input, now));
     }
+    await transaction.done;
+  } catch (error) {
+    try {
+      transaction.abort();
+    } catch {}
+    await transaction.done.catch(() => {});
+    throw error;
   }
-
-  const id = input.id ?? crypto.randomUUID();
-  const stored: StoredMailMutation = {
-    id,
-    batchId: input.batchId ?? id,
-    emailAccountId: input.emailAccountId,
-    threadId: input.threadId,
-    messageIds: [...new Set(input.messageIds)],
-    kind: input.kind,
-    payload: getStoredPayload(input),
-    status: "pending",
-    attempts: 0,
-    nextAttemptAt: now,
-    createdAt: now,
-    updatedAt: now,
-  };
-  await store.add(stored);
-  await transaction.done;
   notifyMailMutationChange();
-  return toMailMutation(stored);
+  return storedMutations.map(toMailMutation);
 }
 
 export async function getActiveMailMutations(
@@ -124,6 +133,32 @@ export async function getMailMutation(
   return stored ? toMailMutation(stored) : undefined;
 }
 
+export async function getMailMutations(ids: string[]): Promise<MailMutation[]> {
+  if (!ids.length) return [];
+  const database = await getEmailCacheDatabase();
+  if (!database) return [];
+  const transaction = database.transaction("mailMutations", "readonly");
+  const store = transaction.objectStore("mailMutations");
+  const stored = await Promise.all(ids.map((id) => store.get(id)));
+  await transaction.done;
+  return stored.flatMap((mutation) =>
+    mutation ? [toMailMutation(mutation)] : [],
+  );
+}
+
+export async function getMailMutationsForAccount(
+  emailAccountId: string,
+): Promise<MailMutation[]> {
+  const database = await getEmailCacheDatabase();
+  if (!database) return [];
+  const records = await database.getAllFromIndex(
+    "mailMutations",
+    "byAccount",
+    emailAccountId,
+  );
+  return records.sort(compareMutations).map(toMailMutation);
+}
+
 export async function getNextMailMutationWakeAt(): Promise<number | undefined> {
   const database = await getEmailCacheDatabase();
   if (!database) return;
@@ -147,6 +182,23 @@ export async function getNextMailMutationWakeAt(): Promise<number | undefined> {
     if (mutation.status === "processing" && mutation.leaseExpiresAt) {
       wakeTimes.push(mutation.leaseExpiresAt);
     }
+  }
+  for (const group of createStoredSyncGroups(mutations)) {
+    if (
+      group.mutations.some((mutation) =>
+        PROVIDER_ACTIVE_STATUSES.has(mutation.status),
+      )
+    ) {
+      continue;
+    }
+    const syncWakeTimes = group.mutations.flatMap((mutation) => {
+      if (mutation.status === "awaiting_sync") return [mutation.nextAttemptAt];
+      if (mutation.status === "reconciling" && mutation.leaseExpiresAt) {
+        return [mutation.leaseExpiresAt];
+      }
+      return [];
+    });
+    if (syncWakeTimes.length) wakeTimes.push(Math.max(...syncWakeTimes));
   }
   return wakeTimes.length ? Math.min(...wakeTimes) : undefined;
 }
@@ -179,6 +231,14 @@ export async function claimNextMailMutation({
     if (
       mutation.status === "processing" &&
       (mutation.leaseExpiresAt ?? Number.POSITIVE_INFINITY) > now
+    ) {
+      blockedThreads.add(threadKey);
+      continue;
+    }
+
+    if (
+      mutation.status === "awaiting_sync" ||
+      mutation.status === "reconciling"
     ) {
       blockedThreads.add(threadKey);
       continue;
@@ -231,6 +291,163 @@ export async function renewMailMutationLease(
   }
   await transaction.done;
   return renewed;
+}
+
+export async function markMailMutationAwaitingSync(
+  id: string,
+  result?: unknown,
+  ownerId?: string,
+) {
+  await updateMutation(
+    id,
+    {
+      status: "awaiting_sync",
+      lastError: undefined,
+      nextAttemptAt: 0,
+      result,
+    },
+    ownerId,
+  );
+}
+
+export async function claimNextMailMutationSyncGroup({
+  leaseMs,
+  now = Date.now(),
+  ownerId,
+}: {
+  leaseMs: number;
+  now?: number;
+  ownerId: string;
+}): Promise<MailMutationSyncGroup | undefined> {
+  const database = await getEmailCacheDatabase();
+  if (!database) return;
+  const transaction = database.transaction("mailMutations", "readwrite");
+  const store = transaction.objectStore("mailMutations");
+  const groups = createStoredSyncGroups(
+    await readActiveStoredMutations(store.index("byNextAttempt")),
+  );
+  let claimed: MailMutationSyncGroup | undefined;
+
+  for (const group of groups) {
+    if (
+      group.mutations.some((mutation) =>
+        PROVIDER_ACTIVE_STATUSES.has(mutation.status),
+      )
+    ) {
+      continue;
+    }
+    const syncMutations = group.mutations.filter(
+      (mutation) =>
+        mutation.status === "awaiting_sync" ||
+        mutation.status === "reconciling",
+    );
+    if (!syncMutations.length) continue;
+    if (
+      syncMutations.some(
+        (mutation) =>
+          mutation.status === "awaiting_sync" && mutation.nextAttemptAt > now,
+      ) ||
+      syncMutations.some(
+        (mutation) =>
+          mutation.status === "reconciling" &&
+          (mutation.leaseExpiresAt ?? Number.POSITIVE_INFINITY) > now,
+      )
+    ) {
+      continue;
+    }
+
+    const claimedMutations: StoredMailMutation[] = [];
+    for (const mutation of syncMutations) {
+      const updated: StoredMailMutation = {
+        ...mutation,
+        status: "reconciling",
+        leaseOwner: ownerId,
+        leaseExpiresAt: now + leaseMs,
+        updatedAt: now,
+      };
+      await store.put(updated);
+      claimedMutations.push(updated);
+    }
+    claimed = {
+      batchId: group.batchId,
+      emailAccountId: group.emailAccountId,
+      mutations: claimedMutations.map(toMailMutation),
+    };
+    break;
+  }
+
+  await transaction.done;
+  if (claimed) notifyMailMutationChange();
+  return claimed;
+}
+
+export async function renewMailMutationSyncGroupLease(
+  group: Pick<MailMutationSyncGroup, "batchId" | "emailAccountId">,
+  {
+    leaseMs,
+    now = Date.now(),
+    ownerId,
+  }: { leaseMs: number; now?: number; ownerId: string },
+) {
+  const database = await getEmailCacheDatabase();
+  if (!database) return false;
+  const transaction = database.transaction("mailMutations", "readwrite");
+  const store = transaction.objectStore("mailMutations");
+  const mutations = (await store.index("byBatch").getAll(group.batchId)).filter(
+    (mutation) => mutation.emailAccountId === group.emailAccountId,
+  );
+  const reconciling = mutations.filter(
+    (mutation) => mutation.status === "reconciling",
+  );
+  const renewed =
+    reconciling.length > 0 &&
+    reconciling.every((mutation) => mutation.leaseOwner === ownerId) &&
+    !mutations.some(
+      (mutation) =>
+        PROVIDER_ACTIVE_STATUSES.has(mutation.status) ||
+        mutation.status === "awaiting_sync",
+    );
+  if (renewed) {
+    for (const mutation of reconciling) {
+      await store.put({
+        ...mutation,
+        leaseExpiresAt: now + leaseMs,
+        updatedAt: now,
+      });
+    }
+  }
+  await transaction.done;
+  return renewed;
+}
+
+export async function completeMailMutationSyncGroup(
+  group: Pick<MailMutationSyncGroup, "batchId" | "emailAccountId">,
+  ownerId: string,
+) {
+  return updateMailMutationSyncGroup(group, ownerId, (mutation, now) => ({
+    ...mutation,
+    status: "succeeded",
+    leaseOwner: undefined,
+    leaseExpiresAt: undefined,
+    lastError: undefined,
+    updatedAt: now,
+  }));
+}
+
+export async function retryMailMutationSyncGroup(
+  group: Pick<MailMutationSyncGroup, "batchId" | "emailAccountId">,
+  options: { error: string; nextAttemptAt: number },
+  ownerId: string,
+) {
+  return updateMailMutationSyncGroup(group, ownerId, (mutation, now) => ({
+    ...mutation,
+    status: "awaiting_sync",
+    leaseOwner: undefined,
+    leaseExpiresAt: undefined,
+    lastError: options.error,
+    nextAttemptAt: options.nextAttemptAt,
+    updatedAt: now,
+  }));
 }
 
 export async function completeMailMutation(
@@ -369,6 +586,94 @@ export function subscribeToMailMutations(listener: () => void) {
   return () => listeners.delete(listener);
 }
 
+async function enqueueInStore(
+  store: MailMutationWriteStore,
+  input: EnqueueMailMutationInput & { batchId: string; id: string },
+  now: number,
+) {
+  if (input.kind === "set_read_state") {
+    const sameThread = await store
+      .index("byAccountThread")
+      .getAll([input.emailAccountId, input.threadId]);
+    const existing = sameThread.find(
+      (mutation) =>
+        mutation.kind === "set_read_state" &&
+        (mutation.status === "pending" || mutation.status === "retry_wait") &&
+        !mutation.leaseOwner,
+    );
+    if (existing) {
+      const updated: StoredMailMutation = {
+        ...existing,
+        batchId: input.batchId,
+        clientSource: input.clientSource,
+        createdAt:
+          existing.batchId === input.batchId ? existing.createdAt : now,
+        messageIds: [...new Set(input.messageIds)],
+        payload: { read: input.read },
+        status: "pending",
+        nextAttemptAt: now,
+        updatedAt: now,
+        lastError: undefined,
+      };
+      await store.put(updated);
+      return updated;
+    }
+  }
+
+  const stored: StoredMailMutation = {
+    id: input.id,
+    batchId: input.batchId,
+    clientSource: input.clientSource,
+    emailAccountId: input.emailAccountId,
+    threadId: input.threadId,
+    messageIds: [...new Set(input.messageIds)],
+    kind: input.kind,
+    payload: getStoredPayload(input),
+    status: "pending",
+    attempts: 0,
+    nextAttemptAt: now,
+    createdAt: now,
+    updatedAt: now,
+  };
+  await store.add(stored);
+  return stored;
+}
+
+async function updateMailMutationSyncGroup(
+  group: Pick<MailMutationSyncGroup, "batchId" | "emailAccountId">,
+  ownerId: string,
+  update: (mutation: StoredMailMutation, now: number) => StoredMailMutation,
+) {
+  const database = await getEmailCacheDatabase();
+  if (!database) return [];
+  const transaction = database.transaction("mailMutations", "readwrite");
+  const store = transaction.objectStore("mailMutations");
+  const mutations = (await store.index("byBatch").getAll(group.batchId)).filter(
+    (mutation) => mutation.emailAccountId === group.emailAccountId,
+  );
+  const canUpdate =
+    mutations.some((mutation) => mutation.status === "reconciling") &&
+    !mutations.some(
+      (mutation) =>
+        PROVIDER_ACTIVE_STATUSES.has(mutation.status) ||
+        mutation.status === "awaiting_sync" ||
+        (mutation.status === "reconciling" && mutation.leaseOwner !== ownerId),
+    );
+  const updated: StoredMailMutation[] = [];
+  if (canUpdate) {
+    const now = Date.now();
+    for (const mutation of mutations) {
+      if (mutation.status !== "reconciling") continue;
+      const next = update(mutation, now);
+      await store.put(next);
+      updated.push(next);
+    }
+  }
+  await transaction.done;
+  if (updated.length) notifyMailMutationChange();
+  return updated.map(toMailMutation);
+}
+
 async function updateMutation(
   id: string,
   update: Partial<StoredMailMutation>,
@@ -395,6 +700,9 @@ async function updateMutation(
 }
 
 function getStoredPayload(input: EnqueueMailMutationInput): unknown {
+  if (input.kind === "archive") {
+    return input.labelId ? { labelId: input.labelId } : {};
+  }
   if (input.kind === "set_read_state") return { read: input.read };
   if (input.kind === "snooze") return { scheduledFor: input.scheduledFor };
   if (input.kind === "cancel_snooze") {
@@ -410,6 +718,32 @@ function toMailMutation(stored: StoredMailMutation): MailMutation {
 
 function compareMutations(left: StoredMailMutation, right: StoredMailMutation) {
   return left.createdAt - right.createdAt || left.id.localeCompare(right.id);
+}
+
+function createStoredSyncGroups(mutations: StoredMailMutation[]) {
+  const accounts = new Map<string, Map<string, StoredMailMutationSyncGroup>>();
+  for (const mutation of [...mutations].sort(compareMutations)) {
+    let batches = accounts.get(mutation.emailAccountId);
+    if (!batches) {
+      batches = new Map();
+      accounts.set(mutation.emailAccountId, batches);
+    }
+    let group = batches.get(mutation.batchId);
+    if (!group) {
+      group = {
+        batchId: mutation.batchId,
+        emailAccountId: mutation.emailAccountId,
+        mutations: [],
+      };
+      batches.set(mutation.batchId, group);
+    }
+    group.mutations.push(mutation);
+  }
+  return [...accounts.values()]
+    .flatMap((batches) => [...batches.values()])
+    .sort((left, right) =>
+      compareMutations(left.mutations[0]!, right.mutations[0]!),
+    );
 }
 
 function readActiveStoredMutations(index: {
@@ -435,3 +769,17 @@ function notifyMailMutationChange() {
 function notifyListeners() {
   for (const listener of listeners) listener();
 }
+
+type MailMutationWriteStore = {
+  add(mutation: StoredMailMutation): Promise<unknown>;
+  index(name: "byAccountThread"): {
+    getAll(query: [string, string]): Promise<StoredMailMutation[]>;
+  };
+  put(mutation: StoredMailMutation): Promise<unknown>;
+};
+
+type StoredMailMutationSyncGroup = {
+  batchId: string;
+  emailAccountId: string;
+  mutations: StoredMailMutation[];
+};

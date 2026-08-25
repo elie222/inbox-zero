@@ -1,20 +1,10 @@
 // @vitest-environment jsdom
 
 import { render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ArchiveProgress } from "./ArchiveProgress";
 
 const mockUseArchiveQueueProgress = vi.fn();
-const mockUseQueueState = vi.fn();
-const mockResetTotalThreads = vi.fn();
-
-vi.mock("@/store/archive-queue", () => ({
-  useQueueState: (...args: Parameters<typeof mockUseQueueState>) =>
-    mockUseQueueState(...args),
-  resetTotalThreads: (...args: Parameters<typeof mockResetTotalThreads>) =>
-    mockResetTotalThreads(...args),
-}));
-
 vi.mock("@/store/archive-sender-queue", () => ({
   useArchiveQueueProgress: (
     ...args: Parameters<typeof mockUseArchiveQueueProgress>
@@ -31,55 +21,38 @@ describe("ArchiveProgress", () => {
     mockUseArchiveQueueProgress.mockReturnValue(undefined);
   });
 
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  it("prefers sender archive progress when present", () => {
+  it("renders durable sender archive progress", () => {
     mockUseArchiveQueueProgress.mockReturnValue({
+      activeItems: 2,
       totalItems: 3,
       completedItems: 1,
+      failedItems: 0,
+      settledItems: 1,
     });
-    mockUseQueueState.mockReturnValue({
-      totalThreads: 4,
-      activeThreads: {
-        "archive-thread-1": { threadId: "thread-1", actionType: "archive" },
-      },
-    });
-
     render(<ArchiveProgress />);
 
     expect(screen.getByText("Archiving senders...")).toBeTruthy();
     expect(screen.getByText("1 of 3 senders processed")).toBeTruthy();
-    expect(screen.queryByText("3 of 4 emails processed")).toBeNull();
   });
 
-  it("falls back to the local archive queue progress", () => {
-    mockUseQueueState.mockReturnValue({
-      totalThreads: 4,
-      activeThreads: {
-        "archive-thread-1": { threadId: "thread-1", actionType: "archive" },
-      },
+  it("settles failed work without presenting it as successful", () => {
+    mockUseArchiveQueueProgress.mockReturnValue({
+      activeItems: 0,
+      totalItems: 3,
+      completedItems: 2,
+      failedItems: 1,
+      settledItems: 3,
     });
-
     render(<ArchiveProgress />);
 
-    expect(screen.getByText("Archiving emails...")).toBeTruthy();
-    expect(screen.getByText("3 of 4 emails processed")).toBeTruthy();
+    expect(
+      screen.getByText("Archiving finished: 2 succeeded, 1 failed."),
+    ).toBeTruthy();
+    expect(screen.getByText("3 of 3 senders processed")).toBeTruthy();
   });
 
-  it("does not reset archive progress after unmounting", () => {
-    vi.useFakeTimers();
-    mockUseQueueState.mockReturnValue({
-      totalThreads: 1,
-      activeThreads: {},
-    });
-
-    const { unmount } = render(<ArchiveProgress />);
-
-    unmount();
-    vi.runAllTimers();
-
-    expect(mockResetTotalThreads).not.toHaveBeenCalled();
+  it("stays hidden without a durable sender batch", () => {
+    const { container } = render(<ArchiveProgress />);
+    expect(container.firstChild).toBeNull();
   });
 });
