@@ -10,7 +10,7 @@ import {
 import {
   billingAccessPremiumSelect,
   canManageBilling,
-  organizationOwnerPremiumSelect,
+  organizationBillingPrincipalsSelect,
 } from "@/utils/premium/billing-access";
 
 export type UserResponse = Awaited<ReturnType<typeof getUser>> | null;
@@ -62,7 +62,7 @@ async function getUser({
               role: true,
               organization: {
                 select: {
-                  ...organizationOwnerPremiumSelect,
+                  ...organizationBillingPrincipalsSelect,
                   name: true,
                 },
               },
