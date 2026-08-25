@@ -214,6 +214,6 @@ function getApiLogUrl(url: string) {
 
 function assertExternalApiEnabled() {
   if (!env.NEXT_PUBLIC_EXTERNAL_API_ENABLED) {
-    throw new SafeError("External API is not enabled");
+    throw new SafeError("External API is not enabled", 404);
   }
 }

@@ -32,6 +32,19 @@ describe("convertMessage", () => {
     });
   });
 
+  it("normalizes null reply headers", () => {
+    const result = convertMessage(
+      {
+        id: "msg-123",
+        conversationId: "thread-456",
+        internetMessageHeaders: [{ name: "In-Reply-To", value: null }],
+      },
+      {},
+    );
+
+    expect(result.headers["in-reply-to"]).toBeUndefined();
+  });
+
   it("excludes inline images embedded in the email body from attachments", () => {
     const message: Message = {
       id: "msg-123",
