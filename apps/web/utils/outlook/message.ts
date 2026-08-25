@@ -1057,7 +1057,9 @@ function logWellKnownFolderFetchError(
 }
 
 function getInternetHeader(message: Message, name: string) {
-  return message.internetMessageHeaders?.find(
-    (header) => header.name?.toLowerCase() === name,
-  )?.value;
+  return (
+    message.internetMessageHeaders?.find(
+      (header) => header.name?.toLowerCase() === name,
+    )?.value ?? undefined
+  );
 }
