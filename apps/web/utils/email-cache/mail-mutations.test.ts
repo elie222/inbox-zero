@@ -613,9 +613,10 @@ describe("mail mutation outbox", () => {
       leaseMs: 100,
       now: 20,
     });
+    if (!group) throw new Error("Expected a claimed sync group");
 
     await expect(
-      completeMailMutationSyncGroup(group!, "sync"),
+      completeMailMutationSyncGroup(group, "sync"),
     ).resolves.toMatchObject([{ id: "applied", status: "succeeded" }]);
     await expect(
       getMailMutations(["applied", "failed", "missing"]),
@@ -644,11 +645,12 @@ describe("mail mutation outbox", () => {
       leaseMs: 10,
       now: 20,
     });
+    if (!group) throw new Error("Expected a claimed sync group");
     expect(group).toMatchObject({
       mutations: [{ id: "applied", syncAttempts: 1 }],
     });
     await retryMailMutationSyncGroup(
-      group!,
+      group,
       { error: "Sync failed", nextAttemptAt: 50 },
       "sync-1",
     );
@@ -752,16 +754,17 @@ describe("mail mutation outbox", () => {
       leaseMs: 10,
       now: 20,
     });
+    if (!group) throw new Error("Expected a claimed sync group");
 
     await expect(
-      renewMailMutationSyncGroupLease(group!, {
+      renewMailMutationSyncGroupLease(group, {
         ownerId: "sync-2",
         leaseMs: 100,
         now: 25,
       }),
     ).resolves.toBe(false);
     await expect(
-      renewMailMutationSyncGroupLease(group!, {
+      renewMailMutationSyncGroupLease(group, {
         ownerId: "sync-1",
         leaseMs: 100,
         now: 25,

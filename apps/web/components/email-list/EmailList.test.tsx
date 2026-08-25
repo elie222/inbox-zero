@@ -14,6 +14,7 @@ import { EmailList } from "./EmailList";
 const outbox = vi.hoisted(() => ({ enqueue: vi.fn(), retain: vi.fn() }));
 const query = vi.hoisted(() => ({ setThreadId: vi.fn() }));
 const overlay = vi.hoisted(() => ({ ready: true }));
+const source = vi.hoisted(() => ({ refetch: vi.fn() }));
 
 vi.mock("nuqs", () => ({
   useQueryState: () => [null, query.setThreadId],
@@ -87,6 +88,7 @@ describe("EmailList durable actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     overlay.ready = true;
+    source.refetch.mockResolvedValue(undefined);
     outbox.enqueue.mockResolvedValue({
       batchId: "batch",
       mutations: [{ id: "mutation" }],
@@ -104,7 +106,7 @@ describe("EmailList durable actions", () => {
       plans: [],
       snippet: "Preview",
     } as unknown as Thread;
-    render(<EmailList threads={[thread]} />);
+    render(<EmailList refetch={source.refetch} threads={[thread]} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Archive thread-1" }));
     await waitFor(() =>
@@ -133,7 +135,7 @@ describe("EmailList durable actions", () => {
 
   it("does not queue a read mutation for an already-read thread", () => {
     const thread = createThread();
-    render(<EmailList threads={[thread]} />);
+    render(<EmailList refetch={source.refetch} threads={[thread]} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Open thread-1" }));
 
@@ -147,6 +149,7 @@ describe("EmailList durable actions", () => {
         threads={[]}
         emptyMessage="No emails"
         hideActionBarWhenEmpty
+        refetch={source.refetch}
       />,
     );
 

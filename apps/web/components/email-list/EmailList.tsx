@@ -43,7 +43,7 @@ export function List({
 }: {
   emails: Thread[];
   type?: string;
-  refetch: (options?: { removedThreadIds?: string[] }) => void;
+  refetch: (options?: { removedThreadIds?: string[] }) => Promise<unknown>;
   showLoadMore?: boolean;
   isLoadingMore?: boolean;
   handleLoadMore?: () => void;
@@ -149,7 +149,7 @@ export function EmailList({
   threads: sourceThreads = [],
   emptyMessage,
   hideActionBarWhenEmpty,
-  refetch = () => {},
+  refetch,
   showLoadMore,
   isLoadingMore,
   handleLoadMore,
@@ -157,7 +157,7 @@ export function EmailList({
   threads?: Thread[];
   emptyMessage?: React.ReactNode;
   hideActionBarWhenEmpty?: boolean;
-  refetch?: (options?: { removedThreadIds?: string[] }) => unknown;
+  refetch: (options?: { removedThreadIds?: string[] }) => Promise<unknown>;
   showLoadMore?: boolean;
   isLoadingMore?: boolean;
   handleLoadMore?: () => void;
