@@ -624,8 +624,7 @@ export function useCombinedMailThreads({
     isLoading:
       enabled &&
       (!mutationOverlayReady || (isLoading && !sourceThreads?.length)),
-    error:
-      mutationOverlayReady && !sourceThreads?.length ? error : undefined,
+    error: mutationOverlayReady && !sourceThreads?.length ? error : undefined,
     hasMore: Boolean(hasMore),
     isLoadingMore: isLoadingMore || isLoadingMoreLocally,
     failedAccountIds,

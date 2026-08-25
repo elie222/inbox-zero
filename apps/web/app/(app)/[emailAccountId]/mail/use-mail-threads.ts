@@ -620,7 +620,8 @@ export function useMailThreads({
   return {
     threads,
     isLoading:
-      enabled && (!mutationOverlayReady || (isLoading && !sourceThreads?.length)),
+      enabled &&
+      (!mutationOverlayReady || (isLoading && !sourceThreads?.length)),
     error: mutationOverlayReady && !sourceThreads?.length ? error : undefined,
     hasMore: Boolean(hasMore),
     isLoadingMore:

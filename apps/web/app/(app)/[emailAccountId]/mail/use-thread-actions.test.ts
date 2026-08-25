@@ -197,6 +197,9 @@ describe("useThreadActions durable mutations", () => {
       ...message,
       id: `new-${message.id}`,
     }));
+    newThread.messageIds = newThread.messageIds.map(
+      (messageId) => `new-${messageId}`,
+    );
     const { result, rerender } = renderHook(
       ({ emailAccountId, threads }) =>
         useThreadActions({ emailAccountId, threads }),
