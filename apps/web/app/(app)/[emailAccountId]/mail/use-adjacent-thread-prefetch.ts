@@ -1,42 +1,44 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
+import { getThreadSelectionKey, type ThreadSelection } from "./types";
 import type { ThreadPrefetchCoordinator } from "./thread-prefetch-coordinator";
 
 export function useAdjacentThreadPrefetch({
   coordinator,
-  currentThreadId,
-  emailAccountId,
+  currentThread,
   scopeKey,
-  threadIds,
+  threads,
 }: {
   coordinator: ThreadPrefetchCoordinator;
-  currentThreadId: string | null;
-  emailAccountId: string;
+  currentThread: ThreadSelection | null;
   scopeKey: string;
-  threadIds: string[];
+  threads: ThreadSelection[];
 }) {
-  const adjacentThreadIds = useMemo(() => {
-    const currentIndex = currentThreadId
-      ? threadIds.indexOf(currentThreadId)
+  const adjacentThreads = useMemo(() => {
+    const currentThreadKey = getThreadSelectionKey(currentThread);
+    const currentIndex = currentThreadKey
+      ? threads.findIndex(
+          (thread) => getThreadSelectionKey(thread) === currentThreadKey,
+        )
       : -1;
     if (currentIndex < 0) return [];
-    return [threadIds[currentIndex - 1], threadIds[currentIndex + 1]].filter(
-      (threadId): threadId is string => Boolean(threadId),
+    return [threads[currentIndex - 1], threads[currentIndex + 1]].filter(
+      (thread): thread is ThreadSelection => Boolean(thread),
     );
-  }, [currentThreadId, threadIds]);
+  }, [currentThread, threads]);
 
   useEffect(() => {
     coordinator.cancelScope(scopeKey);
-    if (!adjacentThreadIds.length) return;
+    if (!adjacentThreads.length) return;
 
     const prefetch = () => {
       coordinator.scheduleMany(
-        adjacentThreadIds.map((threadId) => ({
-          emailAccountId,
+        adjacentThreads.map((thread) => ({
+          emailAccountId: thread.emailAccountId,
           priority: "adjacent" as const,
           scopeKey,
-          threadId,
+          threadId: thread.threadId,
         })),
       );
     };
@@ -52,5 +54,5 @@ export function useAdjacentThreadPrefetch({
       if (idleCallback !== undefined) window.cancelIdleCallback(idleCallback);
       if (timeout !== undefined) window.clearTimeout(timeout);
     };
-  }, [adjacentThreadIds, coordinator, emailAccountId, scopeKey]);
+  }, [adjacentThreads, coordinator, scopeKey]);
 }

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { gmail_v1 } from "@googleapis/gmail";
 import type { EmailThread } from "@/utils/email/types";
 import type { ParsedMessage } from "@/utils/types";
 import { GmailLabel } from "@/utils/gmail/label";
@@ -86,9 +87,7 @@ describe("GmailProvider.sendEmail", () => {
 describe("GmailProvider.bulkArchiveThreads", () => {
   it("archives all supplied messages with one Gmail batch modification", async () => {
     const batchModify = vi.fn().mockResolvedValue({ data: {} });
-    const provider = new GmailProvider({
-      users: { messages: { batchModify } },
-    } as any);
+    const provider = new GmailProvider(createGmailClient({ batchModify }));
 
     const result = await provider.bulkArchiveThreads(
       [
@@ -116,6 +115,92 @@ describe("GmailProvider.bulkArchiveThreads", () => {
     expect(result).toEqual({
       succeededThreadIds: ["thread-1", "thread-2"],
       failedThreadIds: [],
+    });
+  });
+});
+
+describe("GmailProvider snapshot mutations", () => {
+  it("deduplicates and chunks archived message IDs", async () => {
+    const batchModify = vi.fn().mockResolvedValue({ data: {} });
+    const provider = new GmailProvider(createGmailClient({ batchModify }));
+    const ids = Array.from({ length: 1001 }, (_, index) => `message-${index}`);
+
+    await provider.archiveMessages([...ids, "message-0"]);
+
+    expect(batchModify).toHaveBeenCalledTimes(2);
+    expect(batchModify.mock.calls[0]?.[0]).toEqual({
+      userId: "me",
+      requestBody: {
+        ids: ids.slice(0, 1000),
+        removeLabelIds: [GmailLabel.INBOX],
+      },
+    });
+    expect(batchModify.mock.calls[1]?.[0]?.requestBody.ids).toEqual([
+      "message-1000",
+    ]);
+  });
+
+  it("trashes each unique captured message", async () => {
+    const trash = vi.fn().mockResolvedValue({ data: {} });
+    const provider = new GmailProvider(createGmailClient({ trash }));
+
+    await provider.trashMessages(["one", "one", "two"]);
+
+    expect(trash).toHaveBeenCalledTimes(2);
+    expect(trash).toHaveBeenCalledWith({ userId: "me", id: "one" });
+    expect(trash).toHaveBeenCalledWith({ userId: "me", id: "two" });
+  });
+
+  it("bounds concurrent captured-message trash requests", async () => {
+    let active = 0;
+    let peakActive = 0;
+    const trash = vi.fn().mockImplementation(async () => {
+      active += 1;
+      peakActive = Math.max(peakActive, active);
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      active -= 1;
+      return { data: {} };
+    });
+    const provider = new GmailProvider(createGmailClient({ trash }));
+
+    await provider.trashMessages(
+      Array.from({ length: 12 }, (_, index) => `message-${index}`),
+    );
+
+    expect(trash).toHaveBeenCalledTimes(12);
+    expect(peakActive).toBe(5);
+  });
+
+  it("restores captured archive and trash snapshots", async () => {
+    const batchModify = vi.fn().mockResolvedValue({ data: {} });
+    const untrash = vi.fn().mockResolvedValue({ data: {} });
+    const provider = new GmailProvider(
+      createGmailClient({ batchModify, untrash }),
+    );
+
+    await provider.unarchiveMessages(["one", "one", "two"]);
+    await provider.untrashMessages(["one", "one", "two"]);
+
+    expect(batchModify).toHaveBeenCalledWith({
+      userId: "me",
+      requestBody: { ids: ["one", "two"], addLabelIds: [GmailLabel.INBOX] },
+    });
+    expect(untrash).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    [true, { removeLabelIds: [GmailLabel.UNREAD] }],
+    [false, { addLabelIds: [GmailLabel.UNREAD] }],
+  ])("sets captured messages read=%s", async (read, labels) => {
+    const batchModify = vi.fn().mockResolvedValue({ data: {} });
+    const provider = new GmailProvider(createGmailClient({ batchModify }));
+
+    await provider.markMessagesReadState(["one", "one", "two"], read);
+
+    expect(batchModify).toHaveBeenCalledOnce();
+    expect(batchModify).toHaveBeenCalledWith({
+      userId: "me",
+      requestBody: { ids: ["one", "two"], ...labels },
     });
   });
 });
@@ -564,4 +649,10 @@ function createParsedMessage({
 
 function decodeBase64Url(value: string): string {
   return Buffer.from(value, "base64url").toString("utf8");
+}
+
+function createGmailClient(
+  messages: Partial<gmail_v1.Gmail["users"]["messages"]>,
+) {
+  return { users: { messages } } as unknown as gmail_v1.Gmail;
 }

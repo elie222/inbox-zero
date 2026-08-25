@@ -75,6 +75,7 @@ import {
 } from "@/utils/types/mail";
 import { cn } from "@/utils";
 import { resolveComposeRecipients } from "./compose-recipients";
+import { queueReaderEmail } from "./queued-reply";
 
 export type ReplyingToEmail = {
   threadId?: string;
@@ -430,6 +431,48 @@ function ComposeEmailFormContent({
       }
 
       try {
+        const readerThreadId = replyingToEmail?.threadId?.trim();
+        const readerMessageId = replyingToEmail?.messageId;
+        if (readerThreadId) {
+          let outcome: Awaited<ReturnType<typeof queueReaderEmail>>;
+          try {
+            outcome = await queueReaderEmail({
+              email: enrichedData,
+              emailAccountId: selectedEmailAccountId,
+              messageIds: readerMessageId ? [readerMessageId] : [],
+              online: navigator.onLine,
+              threadId: readerThreadId,
+            });
+          } catch (error) {
+            console.error(error);
+            toastError({
+              description: "Couldn't queue this email. It hasn't been sent.",
+            });
+            return;
+          }
+          if (outcome.status === "sent") {
+            toastSuccess({ description: "Email sent!" });
+            onSuccess?.(outcome.messageId, outcome.threadId);
+            refetch?.();
+          } else if (outcome.status === "queued") {
+            toastSuccess({
+              description: getQueuedEmailDescription(outcome.reason),
+            });
+            onDiscard?.();
+          } else if (outcome.status === "uncertain") {
+            if (outcome.ownsNotification) {
+              toastError({
+                description:
+                  "This reply may have sent. Check Sent before retrying.",
+              });
+            }
+            onDiscard?.();
+          } else if (outcome.ownsNotification) {
+            toastError({ description: outcome.error });
+          }
+          return;
+        }
+
         const result = await sendEmailAction(
           selectedEmailAccountId,
           enrichedData,
@@ -453,9 +496,11 @@ function ComposeEmailFormContent({
     },
     [
       initialDraft,
+      onDiscard,
       onSuccess,
       preservedBlocks,
       refetch,
+      replyingToEmail,
       searchQuery,
       selectedEmailAccountId,
     ],
@@ -1037,4 +1082,16 @@ function formatFileSize(size: number) {
   if (size < 1024) return `${size} B`;
   if (size < 1024 * 1024) return `${Math.ceil(size / 1024)} KB`;
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function getQueuedEmailDescription(
+  reason: "offline" | "pending" | "blocked_auth",
+) {
+  if (reason === "offline") {
+    return "Email queued. It will send when you're back online.";
+  }
+  if (reason === "blocked_auth") {
+    return "Email queued. Reconnect this account to send it.";
+  }
+  return "Email queued and will keep sending in the background.";
 }

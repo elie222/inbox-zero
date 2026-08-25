@@ -23,17 +23,20 @@ describe.skipIf(!RUN_DB_TESTS)(
   { timeout: 30_000 },
   () => {
     let prisma: typeof import("@/utils/prisma").default;
+    let activatePreparedSnoozedThread: typeof import("@/utils/snooze/scheduler").activatePreparedSnoozedThread;
     let markSnoozedThreadAsExecuting: typeof import("@/utils/snooze/scheduler").markSnoozedThreadAsExecuting;
-    let scheduleSnoozedThread: typeof import("@/utils/snooze/scheduler").scheduleSnoozedThread;
+    let prepareSnoozedThread: typeof import("@/utils/snooze/scheduler").prepareSnoozedThread;
     let emailAccountId: string;
 
     const accountEmail = "snoozed-thread-scheduler-test@example.com";
 
     beforeAll(async () => {
       prisma = (await import("@/utils/prisma")).default;
-      ({ markSnoozedThreadAsExecuting, scheduleSnoozedThread } = await import(
-        "@/utils/snooze/scheduler"
-      ));
+      ({
+        activatePreparedSnoozedThread,
+        markSnoozedThreadAsExecuting,
+        prepareSnoozedThread,
+      } = await import("@/utils/snooze/scheduler"));
     });
 
     beforeEach(async () => {
@@ -49,20 +52,36 @@ describe.skipIf(!RUN_DB_TESTS)(
     test("keeps one active restore when the same thread is scheduled concurrently", async () => {
       const scheduledFor = new Date("2026-08-17T09:00:00.000Z");
 
-      const results = await Promise.allSettled([
-        scheduleSnoozedThread({
+      await Promise.all([
+        prepareSnoozedThread({
+          clientMutationId: "mutation-one",
           emailAccountId,
           scheduledFor,
           threadId: "concurrent-thread",
         }),
-        scheduleSnoozedThread({
+        prepareSnoozedThread({
+          clientMutationId: "mutation-two",
+          emailAccountId,
+          scheduledFor,
+          threadId: "concurrent-thread",
+        }),
+      ]);
+      const results = await Promise.allSettled([
+        activatePreparedSnoozedThread({
+          clientMutationId: "mutation-one",
+          emailAccountId,
+          scheduledFor,
+          threadId: "concurrent-thread",
+        }),
+        activatePreparedSnoozedThread({
+          clientMutationId: "mutation-two",
           emailAccountId,
           scheduledFor,
           threadId: "concurrent-thread",
         }),
       ]);
 
-      expect(results.some((result) => result.status === "fulfilled")).toBe(
+      expect(results.every((result) => result.status === "fulfilled")).toBe(
         true,
       );
       const active = await prisma.snoozedThread.findMany({
@@ -75,6 +94,9 @@ describe.skipIf(!RUN_DB_TESTS)(
         },
       });
       expect(active).toHaveLength(1);
+      expect(["mutation-one", "mutation-two"]).toContain(
+        active[0]?.clientMutationId,
+      );
     });
 
     test("allows only one pending or executing restore per thread", async () => {
@@ -120,6 +142,45 @@ describe.skipIf(!RUN_DB_TESTS)(
             emailAccountId,
             scheduledFor: new Date("2026-08-17T10:00:00.000Z"),
             threadId: "active-thread",
+          },
+        }),
+      ).resolves.toMatchObject({ status: SnoozedThreadStatus.PENDING });
+    });
+
+    test("replaces a legacy pending snooze without a mutation ID", async () => {
+      const threadId = "legacy-thread";
+      const legacy = await prisma.snoozedThread.create({
+        data: {
+          emailAccountId,
+          scheduledFor: new Date("2026-08-17T09:00:00.000Z"),
+          threadId,
+        },
+      });
+      const scheduledFor = new Date("2026-08-17T10:00:00.000Z");
+      await prepareSnoozedThread({
+        clientMutationId: "replacement",
+        emailAccountId,
+        scheduledFor,
+        threadId,
+      });
+
+      await activatePreparedSnoozedThread({
+        clientMutationId: "replacement",
+        emailAccountId,
+        scheduledFor,
+        threadId,
+      });
+
+      await expect(
+        prisma.snoozedThread.findUnique({ where: { id: legacy.id } }),
+      ).resolves.toMatchObject({ status: SnoozedThreadStatus.CANCELLED });
+      await expect(
+        prisma.snoozedThread.findUnique({
+          where: {
+            emailAccountId_clientMutationId: {
+              emailAccountId,
+              clientMutationId: "replacement",
+            },
           },
         }),
       ).resolves.toMatchObject({ status: SnoozedThreadStatus.PENDING });

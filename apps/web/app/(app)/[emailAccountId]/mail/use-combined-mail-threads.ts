@@ -33,6 +33,11 @@ import {
 } from "@/utils/email-cache/telemetry";
 import { getThreadTimestamp } from "@/utils/threads/sort";
 import { createSearchParams } from "@/utils/url";
+import { isThreadUnread } from "./read-state";
+import {
+  applyMailMutationOverlayToThreads,
+  useMailMutationOverlay,
+} from "./use-mail-mutation-overlay";
 
 type CombinedThread = GetAllThreadsResponse["threads"][number];
 
@@ -89,6 +94,15 @@ export function useCombinedMailThreads({
         .join(":"),
     [accounts],
   );
+  const mutationAccountIds = useMemo(
+    () => accounts.map((account) => account.id),
+    [accounts],
+  );
+  const { isReady: mutationOverlayReady, mutations: mailMutations } =
+    useMailMutationOverlay({
+      emailAccountIds: mutationAccountIds,
+      enabled,
+    });
   const viewKey = useMemo(
     () =>
       createThreadListCacheKey({
@@ -302,7 +316,7 @@ export function useCombinedMailThreads({
   );
   const hiddenThreadKeys =
     hiddenByView.current.get(viewIdentity) ?? EMPTY_THREAD_KEYS;
-  const threads = useMemo(() => {
+  const baseThreads = useMemo(() => {
     const byKey = new Map<string, GetAllThreadsResponse["threads"][number]>();
     for (const thread of sourceThreads ?? []) {
       const threadKey = getListThreadKey(thread);
@@ -312,6 +326,17 @@ export function useCombinedMailThreads({
       (left, right) => getThreadTimestamp(right) - getThreadTimestamp(left),
     );
   }, [hiddenThreadKeys, sourceThreads]);
+  const threads = useMemo(() => {
+    if (!mutationOverlayReady) return [];
+    const overlaidThreads = applyMailMutationOverlayToThreads({
+      getEmailAccountId: (thread) => thread.account.id,
+      mutations: mailMutations,
+      threads: baseThreads,
+    });
+    return isUnread
+      ? overlaidThreads.filter((thread) => isThreadUnread(thread.messages))
+      : overlaidThreads;
+  }, [baseThreads, isUnread, mailMutations, mutationOverlayReady]);
   const hasMore = Boolean(
     remoteHasMore ||
       syncedView?.truncated ||
@@ -342,14 +367,24 @@ export function useCombinedMailThreads({
   }, [data]);
 
   useEffect(() => {
-    if (!enabled || (!data?.[0] && !syncedView)) return;
+    if (!enabled || (!data?.[0] && !syncedView)) {
+      return;
+    }
     writeCachedThreadList({
       emailAccountId,
       viewKey,
-      threads: threads.map(toCachedCombinedThread),
+      threads: baseThreads.map(toCachedCombinedThread),
       hasMore,
     }).catch(() => {});
-  }, [data, emailAccountId, enabled, hasMore, syncedView, threads, viewKey]);
+  }, [
+    data,
+    emailAccountId,
+    enabled,
+    hasMore,
+    baseThreads,
+    syncedView,
+    viewKey,
+  ]);
 
   const removeThreads = useCallback(
     (threadKeys: string[]): CombinedThreadRemoval => {
@@ -586,8 +621,10 @@ export function useCombinedMailThreads({
 
   return {
     threads,
-    isLoading: isLoading && !sourceThreads?.length,
-    error: sourceThreads?.length ? undefined : error,
+    isLoading:
+      enabled &&
+      (!mutationOverlayReady || (isLoading && !sourceThreads?.length)),
+    error: mutationOverlayReady && !sourceThreads?.length ? error : undefined,
     hasMore: Boolean(hasMore),
     isLoadingMore: isLoadingMore || isLoadingMoreLocally,
     failedAccountIds,

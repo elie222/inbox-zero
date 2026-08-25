@@ -1,7 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import type { ThreadPrefetchCoordinator } from "./thread-prefetch-coordinator";
+import type {
+  ThreadPrefetchCoordinator,
+  ThreadPrefetchJob,
+} from "./thread-prefetch-coordinator";
 
 export const HOVER_PREFETCH_DELAY_MS = 90;
 
@@ -11,11 +14,9 @@ export const HOVER_PREFETCH_DELAY_MS = 90;
  */
 export function useHoverThreadPrefetch({
   coordinator,
-  emailAccountId,
   scopeKey,
 }: {
   coordinator: ThreadPrefetchCoordinator;
-  emailAccountId: string;
   scopeKey: string;
 }) {
   const timerRef = useRef<number | undefined>(undefined);
@@ -28,21 +29,21 @@ export function useHoverThreadPrefetch({
   }, []);
 
   const schedulePrefetch = useCallback(
-    (threadId: string) => {
+    (target: Pick<ThreadPrefetchJob, "emailAccountId" | "threadId">) => {
       cancelPrefetch();
       // The dwell delay keeps sweeping the pointer (or holding J/K) across
       // rows from firing a fetch per row.
       timerRef.current = window.setTimeout(() => {
         timerRef.current = undefined;
         coordinator.schedule({
-          emailAccountId,
+          emailAccountId: target.emailAccountId,
           priority: "hover",
           scopeKey,
-          threadId,
+          threadId: target.threadId,
         });
       }, HOVER_PREFETCH_DELAY_MS);
     },
-    [cancelPrefetch, coordinator, emailAccountId, scopeKey],
+    [cancelPrefetch, coordinator, scopeKey],
   );
 
   useEffect(

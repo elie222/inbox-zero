@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Prisma } from "@/generated/prisma/client";
 import { SnoozedThreadStatus } from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
 import {
+  activatePreparedSnoozedThread,
   markSnoozedThreadAsExecuting,
+  prepareSnoozedThread,
   releaseSnoozedThreadForRetry,
   scheduleSnoozedThread,
 } from "./scheduler";
@@ -34,16 +37,17 @@ describe("snoozed thread scheduler", () => {
     cancelMessages.mockResolvedValue({ cancelled: 1 });
     prisma.snoozedThread.count.mockResolvedValue(1);
     prisma.snoozedThread.findMany.mockResolvedValue([]);
+    prisma.snoozedThread.findUnique.mockResolvedValue(null);
     prisma.$transaction.mockImplementation(async (operations) =>
       Promise.all(operations as Promise<unknown>[]),
     );
   });
 
   it("persists work for the cron fallback", async () => {
-    const record = { id: "snooze" } as never;
+    const scheduledFor = new Date("2026-08-16T09:00:00.000Z");
+    const record = { id: "snooze", scheduledFor } as never;
     prisma.snoozedThread.updateMany.mockResolvedValue({ count: 0 });
     prisma.snoozedThread.create.mockResolvedValue(record);
-    const scheduledFor = new Date("2026-08-16T09:00:00.000Z");
 
     const result = await scheduleSnoozedThread({
       emailAccountId: "account",
@@ -150,6 +154,150 @@ describe("snoozed thread scheduler", () => {
     expect(result).toBe(newSnooze);
   });
 
+  it("creates a non-executable idempotent snooze reservation", async () => {
+    const scheduledFor = new Date("2026-08-17T09:00:00.000Z");
+    const record = {
+      id: "snooze",
+      clientMutationId: "mutation",
+      emailAccountId: "account",
+      scheduledFor,
+      status: SnoozedThreadStatus.PREPARING,
+      threadId: "thread",
+    } as never;
+    prisma.snoozedThread.create.mockResolvedValue(record);
+
+    await expect(
+      prepareSnoozedThread({
+        clientMutationId: "mutation",
+        emailAccountId: "account",
+        scheduledFor,
+        threadId: "thread",
+      }),
+    ).resolves.toEqual({ created: true, snoozedThread: record });
+
+    expect(prisma.snoozedThread.create).toHaveBeenCalledWith({
+      data: {
+        clientMutationId: "mutation",
+        emailAccountId: "account",
+        scheduledFor,
+        status: SnoozedThreadStatus.PREPARING,
+        threadId: "thread",
+      },
+    });
+    expect(publishJSON).not.toHaveBeenCalled();
+  });
+
+  it("returns an existing reservation for the same mutation ID", async () => {
+    const scheduledFor = new Date("2026-08-17T09:00:00.000Z");
+    const record = {
+      id: "snooze",
+      scheduledFor,
+      threadId: "thread",
+    } as never;
+    prisma.snoozedThread.findUnique.mockResolvedValue(record);
+
+    await expect(
+      prepareSnoozedThread({
+        clientMutationId: "mutation",
+        emailAccountId: "account",
+        scheduledFor,
+        threadId: "thread",
+      }),
+    ).resolves.toEqual({ created: false, snoozedThread: record });
+    expect(prisma.snoozedThread.create).not.toHaveBeenCalled();
+  });
+
+  it("activates a prepared snooze only after superseding the previous schedule", async () => {
+    env.QSTASH_TOKEN = "qstash-token";
+    publishJSON.mockResolvedValue({ messageId: "message-id" });
+    const scheduledFor = new Date("2020-08-17T09:00:00.000Z");
+    const prepared = {
+      id: "snooze",
+      clientMutationId: "mutation",
+      emailAccountId: "account",
+      scheduledFor,
+      status: SnoozedThreadStatus.PREPARING,
+      threadId: "thread",
+    } as never;
+    const activated = {
+      ...prepared,
+      status: SnoozedThreadStatus.PENDING,
+    } as never;
+    prisma.snoozedThread.findUnique.mockResolvedValue(prepared);
+    prisma.snoozedThread.findUniqueOrThrow.mockResolvedValue(activated);
+    prisma.snoozedThread.findMany.mockResolvedValue([{ id: "old" }] as never);
+    prisma.snoozedThread.updateMany.mockResolvedValue({ count: 1 });
+
+    await expect(
+      activatePreparedSnoozedThread({
+        clientMutationId: "mutation",
+        emailAccountId: "account",
+        scheduledFor,
+        threadId: "thread",
+      }),
+    ).resolves.toBe(activated);
+
+    expect(prisma.snoozedThread.updateMany).toHaveBeenCalledWith({
+      where: {
+        emailAccountId: "account",
+        clientMutationId: "mutation",
+        status: SnoozedThreadStatus.PREPARING,
+      },
+      data: { status: SnoozedThreadStatus.PENDING },
+    });
+    expect(prisma.snoozedThread.findMany).toHaveBeenCalledWith({
+      where: {
+        emailAccountId: "account",
+        threadId: "thread",
+        status: SnoozedThreadStatus.PENDING,
+        OR: [
+          { clientMutationId: null },
+          { clientMutationId: { not: "mutation" } },
+        ],
+      },
+      select: { id: true },
+    });
+    expect(prisma.$transaction).toHaveBeenCalledBefore(publishJSON);
+  });
+
+  it("retries activation when a concurrent reservation wins the unique index", async () => {
+    const scheduledFor = new Date("2026-08-17T09:00:00.000Z");
+    const prepared = {
+      id: "snooze",
+      clientMutationId: "mutation",
+      emailAccountId: "account",
+      scheduledFor,
+      status: SnoozedThreadStatus.PREPARING,
+      threadId: "thread",
+    } as never;
+    const activated = {
+      ...prepared,
+      status: SnoozedThreadStatus.PENDING,
+    } as never;
+    const conflict = new Prisma.PrismaClientKnownRequestError("conflict", {
+      clientVersion: "test",
+      code: "P2002",
+    });
+    prisma.snoozedThread.findUnique.mockResolvedValue(prepared);
+    prisma.snoozedThread.findUniqueOrThrow.mockResolvedValue(activated);
+    prisma.$transaction
+      .mockRejectedValueOnce(conflict)
+      .mockImplementationOnce(async (operations) =>
+        Promise.all(operations as Promise<unknown>[]),
+      );
+
+    await expect(
+      activatePreparedSnoozedThread({
+        clientMutationId: "mutation",
+        emailAccountId: "account",
+        scheduledFor,
+        threadId: "thread",
+      }),
+    ).resolves.toBe(activated);
+
+    expect(prisma.$transaction).toHaveBeenCalledTimes(2);
+  });
+
   it("releases claimed work for a later retry", async () => {
     const leaseStartedAt = new Date("2026-08-16T09:30:00.000Z");
     const failedAt = new Date("2026-08-16T09:31:00.000Z");
@@ -172,7 +320,7 @@ describe("snoozed thread scheduler", () => {
   it("publishes precise delivery through QStash", async () => {
     env.QSTASH_TOKEN = "qstash-token";
     const scheduledFor = new Date("2026-08-17T09:00:00.000Z");
-    const record = { id: "snooze" } as never;
+    const record = { id: "snooze", scheduledFor } as never;
     prisma.snoozedThread.updateMany.mockResolvedValue({ count: 0 });
     prisma.snoozedThread.create.mockResolvedValue(record);
     publishJSON.mockResolvedValue({ messageId: "message-id" });
@@ -197,7 +345,8 @@ describe("snoozed thread scheduler", () => {
 
   it("cancels a published delivery when the snooze was replaced concurrently", async () => {
     env.QSTASH_TOKEN = "qstash-token";
-    const record = { id: "snooze" } as never;
+    const scheduledFor = new Date("2026-08-17T09:00:00.000Z");
+    const record = { id: "snooze", scheduledFor } as never;
     prisma.snoozedThread.updateMany.mockResolvedValue({ count: 0 });
     prisma.snoozedThread.create.mockResolvedValue(record);
     prisma.snoozedThread.count.mockResolvedValue(0);
@@ -205,7 +354,7 @@ describe("snoozed thread scheduler", () => {
 
     await scheduleSnoozedThread({
       emailAccountId: "account",
-      scheduledFor: new Date("2026-08-17T09:00:00.000Z"),
+      scheduledFor,
       threadId: "thread",
     });
 
@@ -216,7 +365,8 @@ describe("snoozed thread scheduler", () => {
 
   it("publishes the replacement when cancelling the old delivery fails", async () => {
     env.QSTASH_TOKEN = "qstash-token";
-    const record = { id: "new-snooze" } as never;
+    const scheduledFor = new Date("2026-08-17T09:00:00.000Z");
+    const record = { id: "new-snooze", scheduledFor } as never;
     prisma.snoozedThread.findMany.mockResolvedValue([
       { id: "old-snooze" },
     ] as never);
@@ -228,7 +378,7 @@ describe("snoozed thread scheduler", () => {
     await expect(
       scheduleSnoozedThread({
         emailAccountId: "account",
-        scheduledFor: new Date("2026-08-17T09:00:00.000Z"),
+        scheduledFor,
         threadId: "thread",
       }),
     ).resolves.toBe(record);
@@ -238,14 +388,15 @@ describe("snoozed thread scheduler", () => {
 
   it("keeps the cron fallback when QStash publishing fails", async () => {
     env.QSTASH_TOKEN = "qstash-token";
-    const record = { id: "snooze" } as never;
+    const scheduledFor = new Date("2026-08-17T09:00:00.000Z");
+    const record = { id: "snooze", scheduledFor } as never;
     prisma.snoozedThread.updateMany.mockResolvedValue({ count: 0 });
     prisma.snoozedThread.create.mockResolvedValue(record);
     publishJSON.mockRejectedValue(new Error("offline"));
 
     const result = await scheduleSnoozedThread({
       emailAccountId: "account",
-      scheduledFor: new Date("2026-08-17T09:00:00.000Z"),
+      scheduledFor,
       threadId: "thread",
     });
 

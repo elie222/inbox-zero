@@ -22,12 +22,14 @@ describe("useHoverThreadPrefetch", () => {
     const { result } = renderHook(() =>
       useHoverThreadPrefetch({
         coordinator,
-        emailAccountId: "account-dwell",
         scopeKey: "scope-dwell",
       }),
     );
 
-    result.current.schedulePrefetch("thread-1");
+    result.current.schedulePrefetch({
+      emailAccountId: "account-dwell",
+      threadId: "thread-1",
+    });
     await vi.advanceTimersByTimeAsync(HOVER_PREFETCH_DELAY_MS - 1);
     expect(coordinator.schedule).not.toHaveBeenCalled();
 
@@ -45,12 +47,14 @@ describe("useHoverThreadPrefetch", () => {
     const { result } = renderHook(() =>
       useHoverThreadPrefetch({
         coordinator,
-        emailAccountId: "account-leave",
         scopeKey: "scope-leave",
       }),
     );
 
-    result.current.schedulePrefetch("thread-1");
+    result.current.schedulePrefetch({
+      emailAccountId: "account-leave",
+      threadId: "thread-1",
+    });
     await vi.advanceTimersByTimeAsync(HOVER_PREFETCH_DELAY_MS - 10);
     result.current.cancelPrefetch();
     await vi.advanceTimersByTimeAsync(1000);
@@ -63,19 +67,24 @@ describe("useHoverThreadPrefetch", () => {
     const { result } = renderHook(() =>
       useHoverThreadPrefetch({
         coordinator,
-        emailAccountId: "account-sweep",
         scopeKey: "scope-sweep",
       }),
     );
 
-    result.current.schedulePrefetch("thread-1");
+    result.current.schedulePrefetch({
+      emailAccountId: "account-sweep",
+      threadId: "thread-1",
+    });
     await vi.advanceTimersByTimeAsync(HOVER_PREFETCH_DELAY_MS - 10);
-    result.current.schedulePrefetch("thread-2");
+    result.current.schedulePrefetch({
+      emailAccountId: "account-combined-row",
+      threadId: "thread-2",
+    });
     await vi.advanceTimersByTimeAsync(HOVER_PREFETCH_DELAY_MS);
 
     expect(coordinator.schedule).toHaveBeenCalledTimes(1);
     expect(coordinator.schedule).toHaveBeenCalledWith({
-      emailAccountId: "account-sweep",
+      emailAccountId: "account-combined-row",
       priority: "hover",
       scopeKey: "scope-sweep",
       threadId: "thread-2",
@@ -87,12 +96,14 @@ describe("useHoverThreadPrefetch", () => {
     const { result, unmount } = renderHook(() =>
       useHoverThreadPrefetch({
         coordinator,
-        emailAccountId: "account-cleanup",
         scopeKey: "scope-cleanup",
       }),
     );
 
-    result.current.schedulePrefetch("thread-1");
+    result.current.schedulePrefetch({
+      emailAccountId: "account-cleanup",
+      threadId: "thread-1",
+    });
     unmount();
 
     expect(coordinator.cancelScope).toHaveBeenCalledWith("scope-cleanup");

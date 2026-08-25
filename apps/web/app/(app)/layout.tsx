@@ -15,6 +15,7 @@ import { SentryIdentify } from "@/app/(app)/sentry-identify";
 import { AiAutomationStatusBanner } from "@/app/(app)/AiAutomationStatusBanner";
 import { ErrorMessages } from "@/app/(app)/ErrorMessages";
 import { MailboxSyncManager } from "@/app/(app)/MailboxSyncManager";
+import { MailMutationOutboxManager } from "@/app/(app)/MailMutationOutboxManager";
 import { ProviderRateLimitBanner } from "@/app/(app)/ProviderRateLimitBanner";
 import { QueueInitializer } from "@/store/QueueInitializer";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -92,6 +93,7 @@ export default async function AppLayout({
             }
           >
             <MailboxSyncManager />
+            <MailMutationOutboxManager />
             <AiAutomationStatusBanner />
             <ErrorMessages />
             <ProviderRateLimitBanner />

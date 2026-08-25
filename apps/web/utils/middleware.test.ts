@@ -196,6 +196,25 @@ describe("Middleware", () => {
       });
     });
 
+    it("should return structured JSON errors for public API SafeError responses", async () => {
+      mockReq = createMockRequest("GET", "http://localhost/api/v1/rules");
+      const safeError = new SafeError("Missing API key", 401);
+      const handler = vi.fn().mockRejectedValue(safeError);
+      const wrappedHandler = withError(handler);
+
+      const response = await wrappedHandler(mockReq, mockContext);
+      const responseBody = await response.json();
+
+      expect(response.status).toBe(401);
+      expect(responseBody).toEqual({
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Missing API key",
+          hint: expect.stringContaining("API-Key"),
+        },
+      });
+    });
+
     it("should respect SafeError status codes", async () => {
       const safeError = new SafeError("Slow down", 429);
       const handler = vi.fn().mockRejectedValue(safeError);

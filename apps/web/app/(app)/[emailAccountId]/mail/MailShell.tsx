@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { useQueryState } from "nuqs";
+import { parseAsString, useQueryState, useQueryStates } from "nuqs";
 import { toast } from "sonner";
 import { ListToolbar } from "@/app/(app)/[emailAccountId]/mail/ListToolbar";
 import { MailAccountSwitcher } from "@/app/(app)/[emailAccountId]/mail/MailAccountSwitcher";
@@ -41,27 +41,24 @@ import {
   getThreadActionTargetIds,
 } from "@/app/(app)/[emailAccountId]/mail/thread-list-behavior";
 import {
+  getListThreadEmailAccountId,
   getListThreadKey,
+  getListThreadSelection,
+  getThreadSelectionKey,
+  isCombinedListThread,
   type MailLayoutMode,
+  type ThreadSelection,
 } from "@/app/(app)/[emailAccountId]/mail/types";
 import type { ThreadMessage } from "@/components/email-list/types";
 import { useMailThreads } from "@/app/(app)/[emailAccountId]/mail/use-mail-threads";
-import { requestMailboxSync } from "@/app/(app)/[emailAccountId]/mail/use-mailbox-sync";
 import { useCombinedMailThreads } from "@/app/(app)/[emailAccountId]/mail/use-combined-mail-threads";
-import {
-  runCombinedBulkArchiveAction,
-  runCombinedThreadAction,
-} from "@/app/(app)/[emailAccountId]/mail/combined-thread-actions";
 import { useAdjacentThreadPrefetch } from "@/app/(app)/[emailAccountId]/mail/use-adjacent-thread-prefetch";
 import { useHoverThreadPrefetch } from "@/app/(app)/[emailAccountId]/mail/use-hover-thread-prefetch";
 import { useThreadPrefetchCoordinator } from "@/app/(app)/[emailAccountId]/mail/thread-prefetch-coordinator";
 import { usePredictiveThreadPrefetch } from "@/app/(app)/[emailAccountId]/mail/use-predictive-thread-prefetch";
 import { useThreadActions } from "@/app/(app)/[emailAccountId]/mail/use-thread-actions";
 import { useThreadSelection } from "@/app/(app)/[emailAccountId]/mail/use-thread-selection";
-import {
-  isThreadUnread,
-  withThreadReadState,
-} from "@/app/(app)/[emailAccountId]/mail/read-state";
+import { isThreadUnread } from "@/app/(app)/[emailAccountId]/mail/read-state";
 import { MailLayout, MailSplitKind } from "@/generated/prisma/enums";
 import { useChat } from "@/providers/ChatProvider";
 import { Sidebar, useSidebar } from "@/components/ui/sidebar";
@@ -70,7 +67,10 @@ import {
   commandPaletteOpenAtom,
   mailCommandContextAtom,
 } from "@/store/command-palette";
-import { useAccount } from "@/providers/EmailAccountProvider";
+import {
+  EmailAccountScopeProvider,
+  useAccount,
+} from "@/providers/EmailAccountProvider";
 import {
   isGoogleProvider,
   isMicrosoftProvider,
@@ -94,12 +94,9 @@ import {
 import {
   createLabelAction,
   deleteMailboxItemAction,
-  markReadThreadAction,
   removeThreadLabelAction,
-  trashThreadAction,
   updateMailboxItemAction,
 } from "@/utils/actions/mail";
-import { bulkArchiveThreadsAction } from "@/utils/actions/mail-bulk-action";
 import {
   mailSplitToThreadsQuery,
   mailTypeToThreadsQuery,
@@ -109,16 +106,9 @@ import { prefixPath } from "@/utils/path";
 import { LoadingContent } from "@/components/LoadingContent";
 import type { LabelCount } from "@/app/api/labels/counts/route";
 import type { ThreadsQuery } from "@/utils/threads/validation";
-import type { CombinedListThread } from "@/utils/threads/load-combined";
 import { getEmailTerminology } from "@/utils/terminology";
-import { createSearchParams } from "@/utils/url";
-import { redirectToSafeUrl } from "@/utils/redirect";
 import { GMAIL_LABEL_COLORS } from "@/utils/gmail/label-colors";
 import { OUTLOOK_CATEGORY_COLORS } from "@/utils/outlook/category-colors";
-import {
-  markSyncedMailboxThreadsRead,
-  removeSyncedMailboxThreads,
-} from "@/utils/email-cache/mailbox";
 
 // Always present, never deletable. Everything else is a saved split. They carry
 // a kind so built-ins and saved splits resolve through one mapping.
@@ -138,7 +128,7 @@ const OUTLOOK_LABEL_COLOR_OPTIONS = OUTLOOK_CATEGORY_COLORS.map((option) => ({
 const NO_COUNTS = new Map<string, LabelCount>();
 
 export function MailShell() {
-  const { emailAccountId, userEmail, provider } = useAccount();
+  const { emailAccount, emailAccountId, userEmail, provider } = useAccount();
   const { data: accountsData } = useAccounts();
   const isGoogle = isGoogleProvider(provider);
   const isOutlook = isMicrosoftProvider(provider);
@@ -158,7 +148,12 @@ export function MailShell() {
   // stands down rather than both archiving the same keystroke.
   const { threadId: sidePanelThreadId } = useDisplayedEmail();
 
-  const [openThreadId, setOpenThreadId] = useQueryState("thread-id");
+  const [openThreadQuery, setOpenThreadQuery] = useQueryStates({
+    "thread-id": parseAsString,
+    "thread-account-id": parseAsString,
+  });
+  const openThreadId = openThreadQuery["thread-id"];
+  const openThreadAccountId = openThreadQuery["thread-account-id"];
   const [activeSplitId, setActiveSplitId] = useQueryState("split", {
     defaultValue: "all",
   });
@@ -175,6 +170,15 @@ export function MailShell() {
   const isMailSidebarOpen = openSidebars.includes("left-sidebar");
 
   const isAllAccounts = accountScope === "all";
+  const setOpenThread = useCallback(
+    (selection: ThreadSelection | null) =>
+      setOpenThreadQuery({
+        "thread-id": selection?.threadId ?? null,
+        "thread-account-id":
+          isAllAccounts && selection ? selection.emailAccountId : null,
+      }),
+    [isAllAccounts, setOpenThreadQuery],
+  );
   const combinedAccounts = useMemo(
     () =>
       (accountsData?.emailAccounts ?? []).map(({ id, email, name, image }) => ({
@@ -275,12 +279,7 @@ export function MailShell() {
     enabled: isAllAccounts,
     isUnread: activeSplitId === "unread",
   });
-  const {
-    labelsByAccount,
-    optimisticallyUpdateThreads: optimisticallyUpdateCombinedThreads,
-    removeThreads: removeCombinedThreads,
-    restoreThreads: restoreCombinedThreads,
-  } = combinedThreadState;
+  const { labelsByAccount } = combinedThreadState;
   const { threads, isLoading, error, hasMore, isLoadingMore, loadMore } =
     isAllAccounts ? combinedThreadState : accountThreadState;
 
@@ -289,10 +288,7 @@ export function MailShell() {
   const { archive, trash, markRead, setReadState, snooze, undo } =
     useThreadActions({
       emailAccountId,
-      removeThreads: accountThreadState.removeThreads,
-      restoreThreads: accountThreadState.restoreThreads,
-      optimisticallyUpdateThreads:
-        accountThreadState.optimisticallyUpdateThreads,
+      threads,
     });
 
   const clampIndex = useCallback(
@@ -300,87 +296,96 @@ export function MailShell() {
       Math.min(Math.max(0, index), Math.max(0, threads.length - 1)),
     [threads.length],
   );
+  const openThreadSelection = useMemo<ThreadSelection | null>(() => {
+    if (!openThreadId) return null;
+    const ownerEmailAccountId = isAllAccounts
+      ? openThreadAccountId
+      : emailAccountId;
+    if (!ownerEmailAccountId) return null;
+    return {
+      emailAccountId: ownerEmailAccountId,
+      threadId: openThreadId,
+    };
+  }, [emailAccountId, isAllAccounts, openThreadAccountId, openThreadId]);
+  const openThreadKey = isAllAccounts
+    ? getThreadSelectionKey(openThreadSelection)
+    : openThreadId;
   const clampedIndex = getActiveThreadIndex({
     threadIds: orderedIds,
     focusedIndex,
-    openThreadId,
+    openThreadId: openThreadKey,
   });
   const focusedThread = threads[clampedIndex];
-  const openThread =
-    !isAllAccounts && openThreadId === focusedThread?.id
-      ? focusedThread
-      : undefined;
-  const resolvedOpenThreadId = openThread?.id;
+  const openThread = openThreadKey
+    ? threads.find((thread) => getListThreadKey(thread) === openThreadKey)
+    : undefined;
+  const resolvedOpenThreadKey = openThread
+    ? getListThreadKey(openThread)
+    : null;
   const readAttemptedForOpenThread = useRef<string | null>(null);
 
-  useEffect(() => {
-    if (!openThreadId) {
-      readAttemptedForOpenThread.current = null;
-      return;
-    }
-    if (
-      !resolvedOpenThreadId ||
-      readAttemptedForOpenThread.current === resolvedOpenThreadId
-    ) {
-      return;
-    }
-
-    // A rollback leaves the reader open. Remember the attempt so a provider
-    // failure doesn't immediately enqueue the same mutation again.
-    readAttemptedForOpenThread.current = resolvedOpenThreadId;
-    markRead([resolvedOpenThreadId]);
-  }, [markRead, openThreadId, resolvedOpenThreadId]);
-
-  // Deferred so holding J/K in split view doesn't fire a full-thread provider
-  // fetch for every row the cursor passes over — only the row you settle on.
-  const readerThreadId = useDeferredValue(isAllAccounts ? null : openThreadId);
+  // Defer the pair as one value: rendering a new id with the previous account
+  // would be worse than fetching eagerly when J/K moves between account rows.
+  const deferredReaderSelection = useDeferredValue(openThreadSelection);
+  const readerThreadKey = getThreadSelectionKey(deferredReaderSelection);
+  const openReaderThreadKey = getThreadSelectionKey(openThreadSelection);
+  const readerSelectionSettled = readerThreadKey === openReaderThreadKey;
   const threadPrefetchCoordinator = useThreadPrefetchCoordinator();
   const listPrefetchScopeIdentity = `${emailAccountId}:${isAllAccounts ? `all-accounts:${activeSplitId}` : JSON.stringify(query)}`;
   const predictivePrefetchScopeKey = `predictive:${listPrefetchScopeIdentity}`;
   const hoverPrefetchScopeKey = `hover:${listPrefetchScopeIdentity}`;
-  const adjacentPrefetchScopeKey = `adjacent:${emailAccountId}:${readerThreadId ?? "none"}`;
+  const adjacentPrefetchScopeKey = `adjacent:${readerThreadKey ?? "none"}`;
+  const threadSelections = useMemo(
+    () =>
+      threads.map((thread) => getListThreadSelection(thread, emailAccountId)),
+    [emailAccountId, threads],
+  );
   useAdjacentThreadPrefetch({
     coordinator: threadPrefetchCoordinator,
-    currentThreadId: readerThreadId,
-    emailAccountId,
+    currentThread: deferredReaderSelection,
     scopeKey: adjacentPrefetchScopeKey,
-    threadIds: isAllAccounts ? [] : orderedIds,
+    threads: threadSelections,
   });
   usePredictiveThreadPrefetch({
     coordinator: threadPrefetchCoordinator,
     emailAccountId,
-    enabled: !isAllAccounts && layout === "list" && !openThreadId,
+    enabled: layout === "list" && !openThreadId,
     focusedIndex: clampedIndex,
     scopeKey: predictivePrefetchScopeKey,
     threads,
   });
   const { schedulePrefetch, cancelPrefetch } = useHoverThreadPrefetch({
     coordinator: threadPrefetchCoordinator,
-    emailAccountId,
     scopeKey: hoverPrefetchScopeKey,
   });
   const prefetchThreadAt = useCallback(
     (index: number) => {
       const thread = threads[index];
-      // Combined-view rows belong to other accounts, so this hook's account
-      // can't prefetch them; hover prefetch serves the single-account list.
-      if (!thread || "account" in thread) return;
-      schedulePrefetch(thread.id);
+      if (!thread) return;
+      schedulePrefetch({
+        emailAccountId: getListThreadEmailAccountId(thread, emailAccountId),
+        threadId: thread.id,
+      });
     },
-    [schedulePrefetch, threads],
+    [emailAccountId, schedulePrefetch, threads],
   );
   const {
     data: openThreadData,
     error: openThreadError,
     isLoading: isOpenThreadLoading,
     mutate: refetchOpenThread,
-  } = useThread({ id: readerThreadId }, { includeDrafts: true });
+  } = useThread(
+    {
+      id: deferredReaderSelection?.threadId ?? null,
+      emailAccountId: deferredReaderSelection?.emailAccountId,
+    },
+    { includeDrafts: true },
+  );
   // Withheld until the deferred id catches up, so a fast J/K can't pair the new
   // thread's header with the previous thread's body.
-  const openMessages =
-    readerThreadId === openThreadId
-      ? (openThreadData?.thread.messages ?? NO_MESSAGES)
-      : NO_MESSAGES;
+  const openMessages = readerSelectionSettled
+    ? (openThreadData?.thread.messages ?? NO_MESSAGES)
+    : NO_MESSAGES;
 
   // The row, not the fetched thread: marking read patches the row optimistically,
   // so it is the copy that stays in step. The fetch only stands in for a link
@@ -396,48 +401,71 @@ export function MailShell() {
   );
 
   const labelHref = useCallback(
-    (labelId: string) => hrefFor({ kind: "label", labelId }),
-    [hrefFor],
+    (labelId: string) =>
+      prefixPath(
+        openThreadSelection?.emailAccountId ?? emailAccountId,
+        getMailNavPath({ kind: "label", labelId }),
+      ),
+    [emailAccountId, openThreadSelection?.emailAccountId],
   );
 
   const runOn = useCallback(
-    (
-      action: (ids: string[]) => void,
+    async (
+      action: (ids: string[]) => Promise<string[]>,
       removeFromList: boolean,
       autoAdvanceReader = false,
     ) => {
-      if (isAllAccounts) return;
       const ids = getThreadActionTargetIds({
-        openThreadId,
+        openThreadId: openThreadKey,
         activeThreadId: focusedThread
           ? getListThreadKey(focusedThread)
           : undefined,
         selectedThreadIds: [...selection.selectedIds],
       });
       if (!ids.length) return;
-      if (removeFromList && openThreadId && ids.includes(openThreadId)) {
+      const hadSelection = selection.hasSelection;
+      const queuedThreadKeys = await action(ids);
+      if (!queuedThreadKeys.length) return;
+      if (
+        removeFromList &&
+        openThreadKey &&
+        queuedThreadKeys.includes(openThreadKey)
+      ) {
         if (autoAdvanceReader) {
           const nextThread = getNextThreadAfterRemoval({
             threadIds: orderedIds,
-            currentThreadId: openThreadId,
-            removedThreadIds: ids,
+            currentThreadId: openThreadKey,
+            removedThreadIds: queuedThreadKeys,
           });
           setFocusedIndex(nextThread?.index ?? 0);
-          setOpenThreadId(nextThread?.id ?? null);
+          const nextRow = threads.find(
+            (thread) => getListThreadKey(thread) === nextThread?.id,
+          );
+          setOpenThread(
+            nextRow ? getListThreadSelection(nextRow, emailAccountId) : null,
+          );
         } else {
-          setOpenThreadId(null);
+          setOpenThread(null);
         }
       }
       selection.clear();
-      action(ids);
+      if (hadSelection && queuedThreadKeys.length < ids.length) {
+        const queued = new Set(queuedThreadKeys);
+        for (const id of ids) {
+          if (queued.has(id)) continue;
+          const index = orderedIds.indexOf(id);
+          if (index >= 0) selection.toggle(index);
+        }
+      }
     },
     [
       focusedThread,
-      isAllAccounts,
-      openThreadId,
+      openThreadKey,
       orderedIds,
       selection,
-      setOpenThreadId,
+      setOpenThread,
+      threads,
+      emailAccountId,
     ],
   );
 
@@ -447,14 +475,10 @@ export function MailShell() {
       if (!thread) return;
       setFocusedIndex(index);
       setReplyToMessageId(undefined);
-      if ("account" in thread) {
-        const params = createSearchParams({ "thread-id": thread.id });
-        redirectToSafeUrl(`/${thread.account.id}/mail?${params.toString()}`);
-        return;
-      }
-      setOpenThreadId(thread.id);
+      selection.clear();
+      setOpenThread(getListThreadSelection(thread, emailAccountId));
     },
-    [threads, setOpenThreadId],
+    [emailAccountId, selection.clear, setOpenThread, threads],
   );
 
   const move = useCallback(
@@ -464,9 +488,13 @@ export function MailShell() {
       // Once a reader is open, navigation keeps its content and position in
       // step. A closed list view still lets J/K move the row cursor alone —
       // there the cursor still signals intent, so warm the row for Enter.
-      if ((layout === "split" || openThreadId) && threads[next])
-        setOpenThreadId(threads[next].id);
-      else prefetchThreadAt(next);
+      const nextThread = threads[next];
+      if ((layout === "split" || openThreadId) && nextThread) {
+        setReplyToMessageId(undefined);
+        setOpenThread(getListThreadSelection(nextThread, emailAccountId));
+      } else {
+        prefetchThreadAt(next);
+      }
     },
     [
       clampIndex,
@@ -475,7 +503,8 @@ export function MailShell() {
       layout,
       openThreadId,
       prefetchThreadAt,
-      setOpenThreadId,
+      setOpenThread,
+      emailAccountId,
     ],
   );
 
@@ -489,226 +518,45 @@ export function MailShell() {
   );
 
   const openShortcuts = useCallback(() => setIsHelpOpen(true), []);
-  const getCombinedTargets = useCallback(() => {
-    const targetKeys = selection.targetIds(
-      focusedThread ? getListThreadKey(focusedThread) : undefined,
-    );
-    const targetKeySet = new Set(targetKeys);
-    const targets: CombinedListThread[] = [];
-    for (const thread of threads) {
-      if ("account" in thread && targetKeySet.has(getListThreadKey(thread))) {
-        targets.push(thread);
-      }
+  useEffect(() => {
+    if (!openReaderThreadKey) {
+      readAttemptedForOpenThread.current = null;
+      return;
     }
-    return { targetKeys, targets };
-  }, [focusedThread, selection, threads]);
-  const runCombinedAction = useCallback(
-    async ({
-      action,
-      successVerb,
-      actionVerb,
-      failureDescription,
-    }: {
-      action: (emailAccountId: string, threadId: string) => Promise<unknown>;
-      successVerb: string;
-      actionVerb: string;
-      failureDescription: string;
-    }) => {
-      const { targetKeys, targets } = getCombinedTargets();
-      if (!targets.length) return;
-
-      const removal = removeCombinedThreads(targetKeys);
-      selection.clear();
-      const { failedThreadKeys, succeededThreadKeys } =
-        await runCombinedThreadAction({ threads: targets, action });
-      restoreCombinedThreads(removal, failedThreadKeys);
-
-      const succeeded = new Set(succeededThreadKeys);
-      const succeededByAccount = groupThreadIdsByAccount(
-        targets.filter((thread) => succeeded.has(getListThreadKey(thread))),
-      );
-      await Promise.all(
-        [...succeededByAccount].map(([accountId, threadIds]) =>
-          removeSyncedMailboxThreads({
-            emailAccountId: accountId,
-            threadIds,
-          }).catch(() => {}),
-        ),
-      );
-      for (const accountId of succeededByAccount.keys()) {
-        requestMailboxSync(accountId);
-      }
-
-      if (succeededThreadKeys.length) {
-        toast.success(
-          summariseCombinedAction(successVerb, succeededThreadKeys.length),
-        );
-      }
-      if (failedThreadKeys.length) {
-        toast.error(
-          failedThreadKeys.length === targets.length
-            ? `There was an error ${failureDescription}`
-            : `Couldn't ${actionVerb} ${failedThreadKeys.length} of ${targets.length} conversations`,
-        );
-      }
-    },
-    [
-      getCombinedTargets,
-      removeCombinedThreads,
-      restoreCombinedThreads,
-      selection,
-    ],
-  );
-  const runCombinedReadAction = useCallback(
-    async (read: boolean) => {
-      const { targetKeys, targets } = getCombinedTargets();
-      if (!targets.length) return;
-
-      const removeFromUnread = read && activeSplitId === "unread";
-      const removal = removeFromUnread
-        ? removeCombinedThreads(targetKeys)
-        : undefined;
-      const update = removeFromUnread
-        ? undefined
-        : optimisticallyUpdateCombinedThreads(targetKeys, (thread) =>
-            withThreadReadState(thread, read),
-          );
-      selection.clear();
-
-      const { failedThreadKeys, succeededThreadKeys } =
-        await runCombinedThreadAction({
-          threads: targets,
-          action: (accountId, threadId) =>
-            markReadThreadAction(accountId, { threadId, read }),
-        });
-      if (removal) restoreCombinedThreads(removal, failedThreadKeys);
-      else update?.rollback(failedThreadKeys);
-      for (const threadKey of succeededThreadKeys) update?.commit(threadKey);
-
-      const succeeded = new Set(succeededThreadKeys);
-      const succeededByAccount = groupThreadIdsByAccount(
-        targets.filter((thread) => succeeded.has(getListThreadKey(thread))),
-      );
-      await Promise.all(
-        [...succeededByAccount].map(([accountId, threadIds]) =>
-          markSyncedMailboxThreadsRead({
-            emailAccountId: accountId,
-            read,
-            threadIds,
-          }).catch(() => {}),
-        ),
-      );
-
-      if (succeededThreadKeys.length) {
-        toast.success(
-          succeededThreadKeys.length === 1
-            ? `Marked as ${read ? "read" : "unread"}`
-            : `Marked ${succeededThreadKeys.length} conversations as ${read ? "read" : "unread"}`,
-        );
-      }
-      if (failedThreadKeys.length) {
-        toast.error(
-          failedThreadKeys.length === targets.length
-            ? `Couldn't mark as ${read ? "read" : "unread"}`
-            : `Couldn't mark ${failedThreadKeys.length} of ${targets.length} conversations as ${read ? "read" : "unread"}`,
-        );
-      }
-    },
-    [
-      activeSplitId,
-      getCombinedTargets,
-      optimisticallyUpdateCombinedThreads,
-      removeCombinedThreads,
-      restoreCombinedThreads,
-      selection,
-    ],
-  );
-  const runCombinedArchiveAction = useCallback(async () => {
-    const { targetKeys, targets } = getCombinedTargets();
-    if (!targets.length) return;
-
-    const removal = removeCombinedThreads(targetKeys);
-    selection.clear();
-    const { failedThreadKeys, succeededThreadKeys } =
-      await runCombinedBulkArchiveAction({
-        threads: targets,
-        action: bulkArchiveThreadsAction,
-      });
-    restoreCombinedThreads(removal, failedThreadKeys);
-
-    const succeeded = new Set(succeededThreadKeys);
-    const succeededByAccount = groupThreadIdsByAccount(
-      targets.filter((thread) => succeeded.has(getListThreadKey(thread))),
-    );
-    await Promise.all(
-      [...succeededByAccount].map(([accountId, threadIds]) =>
-        removeSyncedMailboxThreads({
-          emailAccountId: accountId,
-          threadIds,
-        }).catch(() => {}),
-      ),
-    );
-    for (const accountId of succeededByAccount.keys()) {
-      requestMailboxSync(accountId);
+    if (
+      !resolvedOpenThreadKey ||
+      readAttemptedForOpenThread.current === resolvedOpenThreadKey
+    ) {
+      return;
+    }
+    if (!isOpenThreadUnread) {
+      readAttemptedForOpenThread.current = resolvedOpenThreadKey;
+      return;
     }
 
-    if (succeededThreadKeys.length) {
-      toast.success(
-        summariseCombinedAction("Archived", succeededThreadKeys.length),
-      );
-    }
-    if (failedThreadKeys.length) {
-      toast.error(
-        failedThreadKeys.length === targets.length
-          ? "There was an error archiving"
-          : `Couldn't archive ${failedThreadKeys.length} of ${targets.length} conversations`,
-      );
-    }
+    // Remember the durable attempt so this reader doesn't queue duplicates
+    // while the outbox is waiting for connectivity or provider recovery.
+    readAttemptedForOpenThread.current = resolvedOpenThreadKey;
+    markRead([resolvedOpenThreadKey]);
   }, [
-    getCombinedTargets,
-    removeCombinedThreads,
-    restoreCombinedThreads,
-    selection,
+    isOpenThreadUnread,
+    markRead,
+    openReaderThreadKey,
+    resolvedOpenThreadKey,
   ]);
-  const archiveTargets = useCallback(async () => {
-    if (!isAllAccounts) {
-      runOn(
-        (ids) => {
-          const targetIds = new Set(ids);
-          archive(
-            threads.filter(
-              (thread) => !("account" in thread) && targetIds.has(thread.id),
-            ),
-          );
-        },
-        true,
-        true,
-      );
-      return;
-    }
-    await runCombinedArchiveAction();
-  }, [archive, isAllAccounts, runCombinedArchiveAction, runOn, threads]);
-  const trashTargets = useCallback(async () => {
-    if (!isAllAccounts) {
-      runOn(trash, true);
-      return;
-    }
-    await runCombinedAction({
-      action: (accountId, threadId) =>
-        trashThreadAction(accountId, { threadId }),
-      successVerb: "Deleted",
-      actionVerb: "delete",
-      failureDescription: "deleting",
-    });
-  }, [isAllAccounts, runCombinedAction, runOn, trash]);
-  const markReadTargets = useCallback(() => {
-    if (isAllAccounts) runCombinedReadAction(true);
-    else runOn(markRead, false);
-  }, [isAllAccounts, markRead, runCombinedReadAction, runOn]);
-  const markUnreadTargets = useCallback(() => {
-    if (isAllAccounts) runCombinedReadAction(false);
-    else runOn((ids) => setReadState(ids, false), false);
-  }, [isAllAccounts, runCombinedReadAction, runOn, setReadState]);
+  const archiveTargets = useCallback(
+    () => runOn(archive, true, true),
+    [archive, runOn],
+  );
+  const trashTargets = useCallback(() => runOn(trash, true), [runOn, trash]);
+  const markReadTargets = useCallback(
+    () => runOn(markRead, false),
+    [markRead, runOn],
+  );
+  const markUnreadTargets = useCallback(
+    () => runOn((ids) => setReadState(ids, false), false),
+    [runOn, setReadState],
+  );
   const snoozeTargets = useCallback(
     (until: Date) => runOn((ids) => snooze(ids, until), true),
     [runOn, snooze],
@@ -730,7 +578,7 @@ export function MailShell() {
         archive: archiveTargets,
         markRead: markReadTargets,
         markUnread: markUnreadTargets,
-        snooze: isAllAccounts ? undefined : snoozeTargets,
+        snooze: snoozeTargets,
         trash: trashTargets,
       },
       hasRead: commandTargets.some(
@@ -745,7 +593,6 @@ export function MailShell() {
       archiveTargets,
       commandTargetIds.length,
       commandTargets,
-      isAllAccounts,
       markReadTargets,
       markUnreadTargets,
       snoozeTargets,
@@ -775,7 +622,7 @@ export function MailShell() {
         : () => {
             if (isFocusMode) setIsFocusMode(false);
             else if (selection.hasSelection) selection.clear();
-            else if (layout === "list") setOpenThreadId(null);
+            else if (layout === "list") setOpenThread(null);
           },
       nextSplit: () => {
         const index = splits.findIndex((s) => s.id === activeSplitId);
@@ -790,19 +637,18 @@ export function MailShell() {
       extendSelectionUp: () => extendSelection(-1),
       archive: archiveTargets,
       delete: trashTargets,
-      reply: isAllAccounts
-        ? undefined
-        : () => {
-            if (!openThreadId && focusedThread)
-              setOpenThreadId(focusedThread.id);
-            setReplyToMessageId(openMessages?.at(-1)?.id);
-          },
-      moreActions: isAllAccounts
-        ? undefined
-        : () => setIsMenuOpen((open) => !open),
-      undo: isAllAccounts ? undefined : () => undo(),
+      reply: () => {
+        if (!openThreadId && focusedThread) {
+          setOpenThread(getListThreadSelection(focusedThread, emailAccountId));
+        }
+        setReplyToMessageId(openMessages.at(-1)?.id);
+      },
+      moreActions: openThreadId
+        ? () => setIsMenuOpen((open) => !open)
+        : undefined,
+      undo: () => undo(),
       toggleLayout: isAllAccounts ? undefined : toggleLayout,
-      focusMode: isAllAccounts ? undefined : () => setIsFocusMode((on) => !on),
+      focusMode: openThreadId ? () => setIsFocusMode((on) => !on) : undefined,
       help: () => setIsHelpOpen(true),
     };
   })();
@@ -935,7 +781,7 @@ export function MailShell() {
         );
       if (isActive) {
         await Promise.all([
-          setOpenThreadId(null),
+          setOpenThread(null),
           setScopeType("inbox"),
           item.kind === "folder"
             ? setScopeFolderId(null)
@@ -963,7 +809,7 @@ export function MailShell() {
       scopeFolderId,
       scopeLabelId,
       setActiveSplitId,
-      setOpenThreadId,
+      setOpenThread,
       setScopeFolderId,
       setScopeLabelId,
       setScopeType,
@@ -974,29 +820,45 @@ export function MailShell() {
 
   const onRemoveLabel = useCallback(
     async (labelId: string) => {
-      if (!openThreadId) return;
-      const result = await removeThreadLabelAction(emailAccountId, {
-        threadId: openThreadId,
-        labelId,
-      });
+      if (!openThreadSelection) return;
+      const result = await removeThreadLabelAction(
+        openThreadSelection.emailAccountId,
+        {
+          threadId: openThreadSelection.threadId,
+          labelId,
+        },
+      );
       if (result?.serverError || result?.validationErrors) {
         toast.error(getActionErrorMessage(result));
         return;
       }
       refetchOpenThread();
     },
-    [emailAccountId, openThreadId, refetchOpenThread],
+    [openThreadSelection, refetchOpenThread],
   );
 
-  const showList =
-    isAllAccounts || (!isFocusMode && (layout === "split" || !openThreadId));
-  const showReader =
-    !isAllAccounts && (layout === "split" || Boolean(openThreadId));
+  const showList = !isFocusMode && (layout === "split" || !openThreadSelection);
+  const showReader = layout === "split" || Boolean(openThreadSelection);
+  const readerEmailAccount = openThreadSelection
+    ? openThreadSelection.emailAccountId === emailAccountId
+      ? emailAccount
+      : accountsData?.emailAccounts.find(
+          (account) => account.id === openThreadSelection.emailAccountId,
+        )
+    : emailAccount;
+  const readerUserEmail =
+    readerEmailAccount?.email ??
+    (openThread && isCombinedListThread(openThread)
+      ? openThread.account.email
+      : userEmail);
+  const readerUserLabels = isAllAccounts
+    ? (labelsByAccount[openThreadSelection?.emailAccountId ?? ""] ?? NO_LABELS)
+    : userLabels;
 
   const selectAllAccounts = useCallback(() => {
     selection.clear();
     setFocusedIndex(0);
-    setOpenThreadId(null);
+    setOpenThread(null);
     setScopeType(null);
     setScopeLabelId(null);
     setScopeFolderId(null);
@@ -1009,7 +871,7 @@ export function MailShell() {
     selection.clear,
     setAccountScope,
     setActiveSplitId,
-    setOpenThreadId,
+    setOpenThread,
     setScopeFolderId,
     setScopeLabelId,
     setScopeType,
@@ -1126,58 +988,72 @@ export function MailShell() {
           </section>
         )}
 
-        {showReader && (
-          <ThreadReader
-            key={openThreadId ?? "empty"}
-            thread={openThread ?? null}
-            threadId={openThreadId}
-            detailSelectionSettled={readerThreadId === openThreadId}
-            loading={
-              Boolean(openThreadId) &&
-              (readerThreadId !== openThreadId || isOpenThreadLoading)
-            }
-            error={
-              readerThreadId === openThreadId ? openThreadError : undefined
-            }
-            messages={openMessages ?? []}
-            userEmail={userEmail}
-            userLabels={userLabels}
-            layout={layout}
-            isFocusMode={isFocusMode}
-            position={
-              openThread
-                ? { index: clampedIndex + 1, total: threads.length }
-                : undefined
-            }
-            labelHref={labelHref}
-            onRemoveLabel={onRemoveLabel}
-            onBack={() => {
-              setIsFocusMode(false);
-              setOpenThreadId(null);
-            }}
-            onArchive={archiveTargets}
-            onDelete={trashTargets}
-            onReply={() => setReplyToMessageId(openMessages?.at(-1)?.id)}
-            onToggleFocusMode={() => setIsFocusMode((on) => !on)}
-            showSidebarToggle={!isMailSidebarOpen}
-            refetch={refetchOpenThread}
-            autoOpenReplyForMessageId={replyToMessageId}
-            menu={
-              <ThreadActionsMenu
-                plans={openThread?.plans ?? []}
-                message={openMessages?.at(-1) ?? null}
-                setChatInput={setChatInput}
-                isUnread={isOpenThreadUnread}
-                onToggleRead={() => {
-                  if (openThreadId)
-                    setReadState([openThreadId], isOpenThreadUnread);
-                }}
-                open={isMenuOpen}
-                onOpenChange={setIsMenuOpen}
-              />
-            }
-          />
-        )}
+        {showReader && (!openThreadSelection || readerEmailAccount) ? (
+          <EmailAccountScopeProvider emailAccount={readerEmailAccount}>
+            <ThreadReader
+              key={openReaderThreadKey ?? "empty"}
+              thread={openThread ?? null}
+              threadId={openThreadId}
+              detailSelectionSettled={readerSelectionSettled}
+              loading={
+                Boolean(openThreadSelection) &&
+                (!readerSelectionSettled || isOpenThreadLoading)
+              }
+              error={readerSelectionSettled ? openThreadError : undefined}
+              messages={openMessages}
+              userEmail={readerUserEmail}
+              userLabels={readerUserLabels}
+              layout={layout}
+              isFocusMode={isFocusMode}
+              position={
+                openThread
+                  ? { index: clampedIndex + 1, total: threads.length }
+                  : undefined
+              }
+              labelHref={labelHref}
+              onRemoveLabel={onRemoveLabel}
+              onBack={() => {
+                setIsFocusMode(false);
+                setOpenThread(null);
+              }}
+              onArchive={archiveTargets}
+              onDelete={trashTargets}
+              onReply={() => setReplyToMessageId(openMessages.at(-1)?.id)}
+              onToggleFocusMode={() => setIsFocusMode((on) => !on)}
+              showSidebarToggle={!isMailSidebarOpen}
+              refetch={refetchOpenThread}
+              autoOpenReplyForMessageId={replyToMessageId}
+              menu={
+                <ThreadActionsMenu
+                  plans={openThread?.plans ?? []}
+                  message={openMessages.at(-1) ?? null}
+                  setChatInput={setChatInput}
+                  isUnread={isOpenThreadUnread}
+                  onToggleRead={() => {
+                    if (!resolvedOpenThreadKey) return;
+                    setReadState([resolvedOpenThreadKey], isOpenThreadUnread);
+                  }}
+                  showFixWithChat={
+                    !isAllAccounts ||
+                    openThreadSelection?.emailAccountId === emailAccountId
+                  }
+                  open={isMenuOpen}
+                  onOpenChange={setIsMenuOpen}
+                />
+              }
+            />
+          </EmailAccountScopeProvider>
+        ) : null}
+
+        {showReader && openThreadSelection && !readerEmailAccount ? (
+          <div
+            aria-label="Loading account"
+            className="flex min-h-0 min-w-0 flex-1 items-center justify-center text-muted-foreground text-sm"
+            role="status"
+          >
+            Loading account…
+          </div>
+        ) : null}
       </div>
 
       <MailAccountSwitcher
@@ -1189,22 +1065,6 @@ export function MailShell() {
       <ShortcutsDialog open={isHelpOpen} onOpenChange={setIsHelpOpen} />
     </div>
   );
-}
-
-function groupThreadIdsByAccount(
-  threads: Array<{ id: string; account: { id: string } }>,
-) {
-  const threadIdsByAccount = new Map<string, string[]>();
-  for (const thread of threads) {
-    const threadIds = threadIdsByAccount.get(thread.account.id) ?? [];
-    threadIds.push(thread.id);
-    threadIdsByAccount.set(thread.account.id, threadIds);
-  }
-  return threadIdsByAccount;
-}
-
-function summariseCombinedAction(verb: string, count: number) {
-  return count === 1 ? verb : `${verb} ${count} conversations`;
 }
 
 function getMailCategories({

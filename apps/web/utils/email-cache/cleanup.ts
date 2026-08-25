@@ -6,6 +6,7 @@ import {
   EMAIL_CACHE_MAX_AGE_MS,
   EMAIL_CACHE_MAX_DETAIL_BUDGET_BYTES,
   EMAIL_CACHE_MAX_VIEWS_PER_ACCOUNT,
+  MAIL_MUTATION_RETRY_WINDOW_MS,
 } from "./policy";
 
 let lastCleanupAt = 0;
@@ -47,13 +48,20 @@ async function cleanupEmailCache() {
         )
       : EMAIL_CACHE_DEFAULT_DETAIL_BUDGET_BYTES;
     const transaction = database.transaction(
-      ["threadRows", "threadViews", "threadDetails", "mailboxMessages"],
+      [
+        "threadRows",
+        "threadViews",
+        "threadDetails",
+        "mailboxMessages",
+        "mailMutations",
+      ],
       "readwrite",
     );
     const detailsStore = transaction.objectStore("threadDetails");
     const viewsStore = transaction.objectStore("threadViews");
     const rowsStore = transaction.objectStore("threadRows");
     const mailboxMessagesStore = transaction.objectStore("mailboxMessages");
+    const mailMutationsStore = transaction.objectStore("mailMutations");
     let retainedBytes = 0;
     let detailCursor = await detailsStore
       .index("byLastAccessed")
@@ -113,6 +121,22 @@ async function cleanupEmailCache() {
     while (mailboxMessageCursor) {
       await mailboxMessageCursor.delete();
       mailboxMessageCursor = await mailboxMessageCursor.continue();
+    }
+
+    let mutationCursor = await mailMutationsStore
+      .index("byUpdatedAt")
+      .openCursor(
+        IDBKeyRange.upperBound(now - MAIL_MUTATION_RETRY_WINDOW_MS, true),
+      );
+    while (mutationCursor) {
+      if (
+        mutationCursor.value.status === "succeeded" ||
+        mutationCursor.value.status === "failed" ||
+        mutationCursor.value.status === "uncertain"
+      ) {
+        await mutationCursor.delete();
+      }
+      mutationCursor = await mutationCursor.continue();
     }
 
     await transaction.done;

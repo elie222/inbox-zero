@@ -33,6 +33,11 @@ import {
 } from "@/utils/email-cache/mailbox";
 import type { ThreadsQuery } from "@/utils/threads/validation";
 import { createSearchParams } from "@/utils/url";
+import { isThreadUnread } from "./read-state";
+import {
+  applyMailMutationOverlayToThreads,
+  useMailMutationOverlay,
+} from "./use-mail-mutation-overlay";
 
 type RemovedThread = {
   thread: ListThread;
@@ -79,6 +84,11 @@ export function useMailThreads({
 }) {
   const viewKey = useMemo(() => createThreadListCacheKey(query), [query]);
   const viewIdentity = `${emailAccountId}:${viewKey}`;
+  const { isReady: mutationOverlayReady, mutations: mailMutations } =
+    useMailMutationOverlay({
+      emailAccountIds: [emailAccountId],
+      enabled,
+    });
   const getKey = useCallback(
     (pageIndex: number, previousPageData: ThreadsListResponse | null) => {
       if (!enabled) return null;
@@ -231,14 +241,31 @@ export function useMailThreads({
     ],
   );
   let readySource: "mailbox" | "persistent" | "remote" | undefined;
-  if (remoteThreads) readySource = "remote";
-  else if (syncedThreads) readySource = "mailbox";
-  else if (persistentThreads) readySource = "persistent";
-  const threads = useMemo(
-    () =>
-      sourceThreads?.filter((thread) => !hiddenThreadIds.has(thread.id)) ?? [],
-    [hiddenThreadIds, sourceThreads],
-  );
+  if (mutationOverlayReady) {
+    if (remoteThreads) readySource = "remote";
+    else if (syncedThreads) readySource = "mailbox";
+    else if (persistentThreads) readySource = "persistent";
+  }
+  const threads = useMemo(() => {
+    if (!mutationOverlayReady) return [];
+    const overlaidThreads = applyMailMutationOverlayToThreads({
+      getEmailAccountId: () => emailAccountId,
+      mutations: mailMutations,
+      threads:
+        sourceThreads?.filter((thread) => !hiddenThreadIds.has(thread.id)) ??
+        [],
+    });
+    return query.isUnread
+      ? overlaidThreads.filter((thread) => isThreadUnread(thread.messages))
+      : overlaidThreads;
+  }, [
+    emailAccountId,
+    hiddenThreadIds,
+    mailMutations,
+    mutationOverlayReady,
+    query.isUnread,
+    sourceThreads,
+  ]);
 
   useEffect(() => {
     if (!readySource || listReadyMeasurement.current.reported) return;
@@ -246,9 +273,9 @@ export function useMailThreads({
     trackMailboxListReady({
       durationMs: performance.now() - listReadyMeasurement.current.startedAt,
       source: readySource,
-      threadCount: sourceThreads?.length ?? 0,
+      threadCount: threads.length,
     });
-  }, [readySource, sourceThreads]);
+  }, [readySource, threads.length]);
 
   useEffect(() => {
     const firstPage = data?.[0];
@@ -592,8 +619,10 @@ export function useMailThreads({
 
   return {
     threads,
-    isLoading: isLoading && !sourceThreads?.length,
-    error: sourceThreads?.length ? undefined : error,
+    isLoading:
+      enabled &&
+      (!mutationOverlayReady || (isLoading && !sourceThreads?.length)),
+    error: mutationOverlayReady && !sourceThreads?.length ? error : undefined,
     hasMore: Boolean(hasMore),
     isLoadingMore:
       paginationRequestIdentity === viewIdentity ||

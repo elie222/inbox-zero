@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { SWRConfig } from "swr";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { MailMutation } from "@/utils/email-cache/mail-mutations";
 import {
   type OptimisticThreadUpdate,
   useMailThreads,
@@ -24,6 +25,11 @@ const mailbox = vi.hoisted(() => ({
 const analytics = vi.hoisted(() => ({
   trackListReady: vi.fn(),
 }));
+const mutationStore = vi.hoisted(() => ({
+  listeners: new Set<() => void>(),
+  read: vi.fn(),
+  subscribe: vi.fn(),
+}));
 
 vi.mock("@/utils/email-cache/thread-lists", () => ({
   readCachedThreadList: cache.read,
@@ -39,10 +45,15 @@ vi.mock("@/utils/email-cache/mailbox", () => ({
 vi.mock("@/utils/email-cache/analytics", () => ({
   trackMailboxListReady: analytics.trackListReady,
 }));
+vi.mock("@/utils/email-cache/mail-mutations", () => ({
+  getActiveMailMutations: mutationStore.read,
+  subscribeToMailMutations: mutationStore.subscribe,
+}));
 
 describe("useMailThreads", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    cache.read.mockResolvedValue(undefined);
     cache.remove.mockResolvedValue(undefined);
     cache.restore.mockResolvedValue(undefined);
     cache.write.mockResolvedValue(undefined);
@@ -54,6 +65,192 @@ describe("useMailThreads", () => {
         mailbox.listeners.add(listener);
         return () => mailbox.listeners.delete(listener);
       },
+    );
+    mutationStore.listeners.clear();
+    mutationStore.read.mockResolvedValue([]);
+    mutationStore.subscribe.mockImplementation((listener: () => void) => {
+      mutationStore.listeners.add(listener);
+      return () => mutationStore.listeners.delete(listener);
+    });
+  });
+
+  it("waits for the durable mutation snapshot before exposing remote rows", async () => {
+    const mutationSnapshot = Promise.withResolvers<MailMutation[]>();
+    mutationStore.read.mockReturnValue(mutationSnapshot.promise);
+    const fetcher = vi.fn().mockResolvedValue({
+      threads: [createThread("pending-archive")],
+    });
+    const { result } = renderHook(
+      () =>
+        useMailThreads({
+          emailAccountId: "account-gated",
+          query: { type: "inbox" },
+        }),
+      { wrapper: createWrapper(fetcher) },
+    );
+
+    await waitFor(() => expect(fetcher).toHaveBeenCalledOnce());
+    expect(result.current.threads).toEqual([]);
+    expect(result.current.isLoading).toBe(true);
+
+    await act(async () => {
+      mutationSnapshot.resolve([
+        createMutation({
+          emailAccountId: "account-gated",
+          kind: "archive",
+          messageIds: ["pending-archive-message"],
+          threadId: "pending-archive",
+        }),
+      ]);
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.threads).toEqual([]);
+    expect(cache.write).toHaveBeenCalledWith(
+      expect.objectContaining({
+        threads: [expect.objectContaining({ id: "pending-archive" })],
+      }),
+    );
+  });
+
+  it("applies a durable read overlay to a persistent row", async () => {
+    const network = Promise.withResolvers<unknown>();
+    cache.read.mockResolvedValue({
+      cachedAt: 100,
+      hasMore: false,
+      threads: [createThread("read-locally", ["INBOX", "UNREAD"])],
+    });
+    mutationStore.read.mockResolvedValue([
+      createMutation({
+        emailAccountId: "account-persistent-read",
+        kind: "set_read_state",
+        messageIds: ["read-locally-message"],
+        read: true,
+        threadId: "read-locally",
+      }),
+    ]);
+    const { result } = renderHook(
+      () =>
+        useMailThreads({
+          emailAccountId: "account-persistent-read",
+          query: { type: "inbox" },
+        }),
+      { wrapper: createWrapper(() => network.promise) },
+    );
+
+    await waitFor(() => expect(result.current.threads).toHaveLength(1));
+    expect(result.current.threads[0]?.messages[0]?.labelIds).toEqual(["INBOX"]);
+  });
+
+  it("removes a pending-read thread from an unread-only view", async () => {
+    mutationStore.read.mockResolvedValue([
+      createMutation({
+        emailAccountId: "account-unread-view",
+        kind: "set_read_state",
+        messageIds: ["pending-read-message"],
+        read: true,
+        threadId: "pending-read",
+      }),
+    ]);
+    const fetcher = vi.fn().mockResolvedValue({
+      threads: [createThread("pending-read", ["INBOX", "UNREAD"])],
+    });
+    const { result } = renderHook(
+      () =>
+        useMailThreads({
+          emailAccountId: "account-unread-view",
+          query: { isUnread: true, type: "inbox" },
+        }),
+      { wrapper: createWrapper(fetcher) },
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.threads).toEqual([]);
+    expect(cache.write).toHaveBeenCalledWith(
+      expect.objectContaining({
+        threads: [
+          expect.objectContaining({
+            id: "pending-read",
+            messages: [
+              expect.objectContaining({ labelIds: ["INBOX", "UNREAD"] }),
+            ],
+          }),
+        ],
+      }),
+    );
+  });
+
+  it("keeps a mailbox row when a new reply was not captured by archive", async () => {
+    const network = Promise.withResolvers<unknown>();
+    mailbox.read.mockResolvedValue({
+      after: "2026-07-24T00:00:00.000Z",
+      complete: true,
+      syncedAt: 100,
+      threads: [
+        {
+          ...createThread("new-reply"),
+          messages: [
+            createMessage("old-message", "new-reply", ["INBOX"]),
+            createMessage("new-message", "new-reply", ["INBOX", "UNREAD"]),
+          ],
+        },
+      ],
+    });
+    mutationStore.read.mockResolvedValue([
+      createMutation({
+        emailAccountId: "account-new-reply",
+        kind: "archive",
+        messageIds: ["old-message"],
+        threadId: "new-reply",
+      }),
+    ]);
+    const { result } = renderHook(
+      () =>
+        useMailThreads({
+          emailAccountId: "account-new-reply",
+          query: { type: "inbox" },
+        }),
+      { wrapper: createWrapper(() => network.promise) },
+    );
+
+    await waitFor(() => expect(result.current.threads).toHaveLength(1));
+    expect(result.current.threads[0]?.messages.map(({ id }) => id)).toEqual([
+      "new-message",
+    ]);
+  });
+
+  it("refreshes overlays when the durable mutation store changes", async () => {
+    mutationStore.read
+      .mockResolvedValueOnce([
+        createMutation({
+          emailAccountId: "account-refresh",
+          kind: "trash",
+          messageIds: ["refresh-message"],
+          threadId: "refresh",
+        }),
+      ])
+      .mockResolvedValue([]);
+    const { result } = renderHook(
+      () =>
+        useMailThreads({
+          emailAccountId: "account-refresh",
+          query: { type: "inbox" },
+        }),
+      {
+        wrapper: createWrapper(() =>
+          Promise.resolve({ threads: [createThread("refresh")] }),
+        ),
+      },
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.threads).toEqual([]);
+
+    act(() => {
+      for (const listener of mutationStore.listeners) listener();
+    });
+
+    await waitFor(() =>
+      expect(result.current.threads.map(({ id }) => id)).toEqual(["refresh"]),
     );
   });
 
@@ -832,6 +1029,47 @@ function createThread(id: string, labelIds: string[] = []) {
     plan: undefined,
     plans: [],
     snippet: id,
+  };
+}
+
+function createMessage(id: string, threadId: string, labelIds: string[]) {
+  return {
+    id,
+    threadId,
+    snippet: id,
+    subject: threadId,
+    date: "0",
+    internalDate: "0",
+    labelIds,
+    headers: { subject: threadId },
+  };
+}
+
+function createMutation(
+  value:
+    | {
+        emailAccountId: string;
+        kind: "archive" | "trash";
+        messageIds: string[];
+        threadId: string;
+      }
+    | {
+        emailAccountId: string;
+        kind: "set_read_state";
+        messageIds: string[];
+        read: boolean;
+        threadId: string;
+      },
+): MailMutation {
+  return {
+    ...value,
+    id: `${value.kind}-${value.threadId}`,
+    batchId: `${value.kind}-${value.threadId}`,
+    status: "pending",
+    attempts: 0,
+    nextAttemptAt: 0,
+    createdAt: 0,
+    updatedAt: 0,
   };
 }
 

@@ -185,27 +185,28 @@ model EmailAccount {
   accountId String  @unique
   account   Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
-  labels           Label[]
-  rules            Rule[]
-  executedRules    ExecutedRule[]
-  newsletters      Newsletter[]
-  coldEmails       ColdEmail[] // @deprecated - kept for backward compatibility during migration
-  groups           Group[]
-  categories       Category[]
-  threadTrackers   ThreadTracker[]
-  cleanupJobs      CleanupJob[]
-  cleanupThreads   CleanupThread[]
-  emailMessages    EmailMessage[]
-  emailTokens      EmailToken[]
-  knowledge        Knowledge[]
-  replyMemories    ReplyMemory[]
-  chats            Chat[]
-  chatMemories     ChatMemory[]
-  digests          Digest[]
-  scheduledActions ScheduledAction[]
-  snoozedThreads   SnoozedThread[]
-  responseTimes    ResponseTime[]
-  actions          Action[]
+  labels               Label[]
+  rules                Rule[]
+  executedRules        ExecutedRule[]
+  newsletters          Newsletter[]
+  coldEmails           ColdEmail[] // @deprecated - kept for backward compatibility during migration
+  groups               Group[]
+  categories           Category[]
+  threadTrackers       ThreadTracker[]
+  cleanupJobs          CleanupJob[]
+  cleanupThreads       CleanupThread[]
+  emailMessages        EmailMessage[]
+  emailTokens          EmailToken[]
+  knowledge            Knowledge[]
+  replyMemories        ReplyMemory[]
+  chats                Chat[]
+  chatMemories         ChatMemory[]
+  digests              Digest[]
+  scheduledActions     ScheduledAction[]
+  snoozedThreads       SnoozedThread[]
+  emailSendOperations EmailSendOperation[]
+  responseTimes        ResponseTime[]
+  actions              Action[]
 
   members                Member[]
   invitations            Invitation[]
@@ -633,13 +634,13 @@ model Action {
   messagingChannelEmailAccountId String?
   messagingChannel               MessagingChannel? @relation(fields: [messagingChannelId, messagingChannelEmailAccountId], references: [id, emailAccountId], onDelete: SetNull)
 
-  label             String? // labelName - labelId is the source of truth, and we use it when set
-  labelId           String? // Stable ID: Label ID (Gmail) or Category ID (Outlook)
-  subject           String?
-  content           String?
-  to                String?
-  cc                String?
-  bcc               String?
+  label               String? // labelName - labelId is the source of truth, and we use it when set
+  labelId             String? // Stable ID: Label ID (Gmail) or Category ID (Outlook)
+  subject             String?
+  content             String?
+  to                  String?
+  cc                  String?
+  bcc                 String?
   url                 String?
   folderName          String?
   folderId            String?
@@ -808,17 +809,36 @@ model ScheduledAction {
 }
 
 model SnoozedThread {
-  id           String              @id @default(cuid())
-  updatedAt    DateTime            @updatedAt
-  threadId     String
-  scheduledFor DateTime
-  status       SnoozedThreadStatus @default(PENDING)
+  id               String              @id @default(cuid())
+  updatedAt        DateTime            @updatedAt
+  threadId         String
+  scheduledFor     DateTime
+  status           SnoozedThreadStatus @default(PENDING)
+  clientMutationId String?
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
+  @@unique([emailAccountId, clientMutationId])
   @@index([status, scheduledFor])
   @@index([emailAccountId, threadId, status])
+}
+
+model EmailSendOperation {
+  id                  String                   @id @default(cuid())
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+  clientMutationId    String
+  payloadHash         String
+  status              EmailSendOperationStatus @default(PROCESSING)
+  processingStartedAt DateTime                 @default(now())
+  result              Json?
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([emailAccountId, clientMutationId])
+  @@index([status, updatedAt])
 }
 
 // Notes:
@@ -2100,10 +2120,17 @@ enum ScheduledActionStatus {
 }
 
 enum SnoozedThreadStatus {
+  PREPARING
   PENDING
   EXECUTING
   COMPLETED
   CANCELLED
+}
+
+enum EmailSendOperationStatus {
+  PROCESSING
+  SENT
+  UNCERTAIN
 }
 
 enum SchedulingStatus {
