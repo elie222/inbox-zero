@@ -11,8 +11,15 @@ import {
   readPublicApiJson,
 } from "@/utils/public-api-error";
 
+const { envMock } = vi.hoisted(() => ({
+  envMock: { NEXT_PUBLIC_EXTERNAL_API_ENABLED: true },
+}));
+
+vi.mock("@/env", () => ({ env: envMock }));
+
 beforeEach(() => {
   vi.clearAllMocks();
+  envMock.NEXT_PUBLIC_EXTERNAL_API_ENABLED = true;
 });
 
 describe("public-api-error", () => {
@@ -103,6 +110,20 @@ describe("public-api-error", () => {
     expect(body.error).toMatchObject({
       code: "METHOD_NOT_ALLOWED",
       message: "Method not allowed",
+    });
+  });
+
+  it("keeps API routes hidden when the external API is disabled", async () => {
+    envMock.NEXT_PUBLIC_EXTERNAL_API_ENABLED = false;
+
+    const response = createPublicApiMethodNotAllowedHandler(["GET"])();
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(response.headers.get("allow")).toBeNull();
+    expect(body.error).toMatchObject({
+      code: "NOT_FOUND",
+      message: "External API is not enabled",
     });
   });
 });

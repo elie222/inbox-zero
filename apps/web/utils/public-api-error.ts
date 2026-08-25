@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
+import { env } from "@/env";
 import { SafeError } from "@/utils/error";
 
 export const PUBLIC_API_DOCS_URL =
@@ -108,6 +109,14 @@ export function createPublicApiMethodNotAllowedHandler(
   allowedMethods: string[],
 ) {
   return function methodNotAllowed() {
+    if (!env.NEXT_PUBLIC_EXTERNAL_API_ENABLED) {
+      return publicApiErrorResponse({
+        status: 404,
+        code: "NOT_FOUND",
+        message: "External API is not enabled",
+      });
+    }
+
     return publicApiErrorResponse({
       status: 405,
       code: "METHOD_NOT_ALLOWED",
