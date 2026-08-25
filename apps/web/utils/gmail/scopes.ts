@@ -1,8 +1,6 @@
 import { env } from "@/env";
 
 const GOOGLE_CONTACTS_SCOPE = "https://www.googleapis.com/auth/contacts";
-const GOOGLE_CONTACTS_READONLY_SCOPE =
-  "https://www.googleapis.com/auth/contacts.readonly";
 
 export const REQUIRED_SCOPES = [
   "https://www.googleapis.com/auth/userinfo.profile",
@@ -14,7 +12,7 @@ export const REQUIRED_SCOPES = [
 
 export const SCOPES = [
   ...REQUIRED_SCOPES,
-  ...(env.NEXT_PUBLIC_CONTACTS_ENABLED ? [GOOGLE_CONTACTS_READONLY_SCOPE] : []),
+  ...(env.NEXT_PUBLIC_CONTACTS_ENABLED ? [GOOGLE_CONTACTS_SCOPE] : []),
 ];
 
 export const CALENDAR_SCOPES = [
@@ -28,13 +26,3 @@ export const CALENDAR_SCOPES = [
   // "https://www.googleapis.com/auth/calendar.calendars.readonly", // For reading calendar metadata
   // "https://www.googleapis.com/auth/calendar.calendars", // For creating/managing calendars
 ];
-
-export function hasGoogleScope(grantedScopes: string[], requiredScope: string) {
-  const grantedScopeSet = new Set(grantedScopes);
-
-  return (
-    grantedScopeSet.has(requiredScope) ||
-    (requiredScope === GOOGLE_CONTACTS_READONLY_SCOPE &&
-      grantedScopeSet.has(GOOGLE_CONTACTS_SCOPE))
-  );
-}
