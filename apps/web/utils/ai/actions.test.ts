@@ -506,7 +506,7 @@ describe("runActionFunction", () => {
       },
     ]);
 
-    await runActionFunction({
+    const result = await runActionFunction({
       client,
       email,
       action: {
@@ -558,6 +558,7 @@ describe("runActionFunction", () => {
         ],
       }),
     );
+    expect(result).toEqual({ sentMessageIds: ["sent-msg1"] });
   });
 
   it("passes static attachments into sent emails", async () => {
@@ -571,7 +572,7 @@ describe("runActionFunction", () => {
       },
     ]);
 
-    await runActionFunction({
+    const result = await runActionFunction({
       client,
       email,
       action: {
@@ -626,6 +627,7 @@ describe("runActionFunction", () => {
         ],
       }),
     );
+    expect(result).toEqual({ sentMessageIds: ["sent-msg1"] });
   });
 
   describe("forward", () => {
@@ -639,7 +641,7 @@ describe("runActionFunction", () => {
     it("removes message participants while forwarding to remaining recipients", async () => {
       const client = createMockEmailProvider();
 
-      await runActionFunction({
+      const result = await runActionFunction({
         client,
         email: {
           ...email,
@@ -669,6 +671,7 @@ describe("runActionFunction", () => {
           bcc: "auditor@example.com",
         }),
       );
+      expect(result).toEqual({ sentMessageIds: ["sent-msg1"] });
     });
 
     it("skips forwarding when every configured recipient is already on the message", async () => {
@@ -754,6 +757,32 @@ describe("runActionFunction", () => {
       );
       expect(client.forwardEmail.mock.calls[0]?.[1]).not.toHaveProperty("bcc");
       expect(client.forwardEmail.mock.calls[1]?.[1]).not.toHaveProperty("bcc");
+    });
+
+    it("preserves successful BCC message IDs when a later send fails", async () => {
+      const client = createMockEmailProvider();
+      vi.mocked(client.forwardEmail)
+        .mockResolvedValueOnce({ messageId: "sent-message-1" })
+        .mockRejectedValueOnce(new Error("Second send failed"));
+
+      await expect(
+        runActionFunction({
+          client,
+          email,
+          action: {
+            id: "action-1",
+            type: ActionType.FORWARD,
+            to: "sender@example.com",
+            bcc: "first@example.com, second@example.com",
+          },
+          emailAccount,
+          executedRule,
+          logger,
+        }),
+      ).rejects.toMatchObject({
+        message: "Second send failed",
+        sentMessageIds: ["sent-message-1"],
+      });
     });
 
     it("forwards when every recipient is new to the message", async () => {

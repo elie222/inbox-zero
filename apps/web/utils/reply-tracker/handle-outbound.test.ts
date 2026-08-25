@@ -5,6 +5,7 @@ import {
   createTestLogger,
 } from "@/__tests__/helpers";
 import { clearFollowUpLabel } from "@/utils/follow-up/labels";
+import { excludeRepliedSendersFromColdEmail } from "@/utils/cold-email/exclude-replied-sender";
 import {
   acquireOutboundMessageLock,
   clearOutboundMessageLock,
@@ -27,6 +28,9 @@ vi.mock("./error-logging", () => ({
 vi.mock("@/utils/follow-up/labels", () => ({
   clearFollowUpLabel: vi.fn(),
 }));
+vi.mock("@/utils/cold-email/exclude-replied-sender", () => ({
+  excludeRepliedSendersFromColdEmail: vi.fn(),
+}));
 vi.mock("@/utils/redis/message-processing", () => ({
   acquireOutboundMessageLock: vi.fn(),
   clearOutboundMessageLock: vi.fn(),
@@ -46,6 +50,7 @@ describe("handleOutboundMessage", () => {
     vi.mocked(handleOutboundReply).mockResolvedValue(undefined);
     vi.mocked(cleanupThreadAIDrafts).mockResolvedValue(undefined);
     vi.mocked(clearFollowUpLabel).mockResolvedValue(undefined);
+    vi.mocked(excludeRepliedSendersFromColdEmail).mockResolvedValue(undefined);
     vi.mocked(markOutboundMessageProcessed).mockResolvedValue(true);
     vi.mocked(clearOutboundMessageLock).mockResolvedValue(true);
   });
@@ -95,6 +100,43 @@ describe("handleOutboundMessage", () => {
       logger,
     });
 
+    expect(markOutboundMessageProcessed).toHaveBeenCalledWith({
+      emailAccountId: emailAccount.id,
+      messageId: message.id,
+      lockToken: "lock-token-1",
+    });
+    expect(clearOutboundMessageLock).not.toHaveBeenCalled();
+  });
+
+  it("un-pins cold email senders the user has replied to", async () => {
+    await handleOutboundMessage({
+      emailAccount,
+      message: message as any,
+      provider,
+      logger,
+    });
+
+    expect(excludeRepliedSendersFromColdEmail).toHaveBeenCalledWith({
+      emailAccountId: emailAccount.id,
+      message,
+      provider,
+      logger: expect.anything(),
+    });
+  });
+
+  it("continues processing when un-pinning the sender fails", async () => {
+    vi.mocked(excludeRepliedSendersFromColdEmail).mockRejectedValue(
+      new Error("exclude failed"),
+    );
+
+    await handleOutboundMessage({
+      emailAccount,
+      message: message as any,
+      provider,
+      logger,
+    });
+
+    expect(clearFollowUpLabel).toHaveBeenCalled();
     expect(markOutboundMessageProcessed).toHaveBeenCalledWith({
       emailAccountId: emailAccount.id,
       messageId: message.id,

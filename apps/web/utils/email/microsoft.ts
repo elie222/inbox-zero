@@ -102,6 +102,7 @@ import {
 } from "@/utils/microsoft/retry";
 import { shouldSkipAutoDraft } from "@/utils/auto-draft";
 import { getOutlookMailboxSyncPage } from "@/utils/outlook/mailbox-sync";
+import { requireSentMessageId } from "@/utils/email/sent-message-id";
 import { searchContacts } from "@/utils/outlook/contact";
 
 export class OutlookProvider implements EmailProvider {
@@ -737,8 +738,15 @@ export class OutlookProvider implements EmailProvider {
       from?: string;
       attachments?: MailAttachment[];
     },
-  ): Promise<void> {
-    await replyToEmail(this.client, email, content, this.logger, options);
+  ): Promise<{ messageId: string }> {
+    const result = await replyToEmail(
+      this.client,
+      email,
+      content,
+      this.logger,
+      options,
+    );
+    return { messageId: requireSentMessageId(result.id) };
   }
 
   async sendEmail(args: {
@@ -748,8 +756,9 @@ export class OutlookProvider implements EmailProvider {
     subject: string;
     messageText: string;
     attachments?: MailAttachment[];
-  }): Promise<void> {
-    await sendEmailWithPlainText(this.client, args, this.logger);
+  }): Promise<{ messageId: string }> {
+    const result = await sendEmailWithPlainText(this.client, args, this.logger);
+    return { messageId: requireSentMessageId(result.id) };
   }
 
   async sendEmailWithHtml(body: SendEmailBody) {
@@ -776,12 +785,13 @@ export class OutlookProvider implements EmailProvider {
       content?: string;
       from?: string;
     },
-  ): Promise<void> {
-    await forwardEmail(
+  ): Promise<{ messageId: string }> {
+    const result = await forwardEmail(
       this.client,
       { messageId: email.id, ...args },
       this.logger,
     );
+    return { messageId: requireSentMessageId(result.id) };
   }
 
   async markSpam(threadId: string): Promise<void> {

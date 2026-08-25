@@ -6,6 +6,7 @@ import { captureException } from "@/utils/error";
 import { handleOutboundReply } from "./outbound";
 import { cleanupThreadAIDrafts, trackSentDraftStatus } from "./draft-tracking";
 import { clearFollowUpLabel } from "@/utils/follow-up/labels";
+import { excludeRepliedSendersFromColdEmail } from "@/utils/cold-email/exclude-replied-sender";
 import { logReplyTrackerError } from "./error-logging";
 import {
   acquireOutboundMessageLock,
@@ -48,6 +49,23 @@ export async function handleOutboundMessage({
       "Outbound message already processed or currently processing, skipping.",
     );
     return;
+  }
+
+  // Before the slower tracking work below, so a fast reply from the other side is
+  // classified against the corrected pattern. Best-effort: on failure the sender
+  // just stays pinned, and the next reply to them tries again.
+  try {
+    await excludeRepliedSendersFromColdEmail({
+      emailAccountId: emailAccount.id,
+      message,
+      provider,
+      logger,
+    });
+  } catch (error) {
+    logger.error("Error excluding replied sender from cold email blocker", {
+      error,
+    });
+    captureException(error, { emailAccountId: emailAccount.id });
   }
 
   let processedSuccessfully = false;

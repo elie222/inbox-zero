@@ -60,6 +60,42 @@ afterEach(() => {
   });
 });
 
+describe("OutlookProvider.sendEmail", () => {
+  it("returns the immutable provider message ID", async () => {
+    outlookMailMock.sendEmailWithPlainText.mockResolvedValueOnce({
+      id: "sent-message-1",
+    });
+    const provider = new OutlookProvider(
+      createMockOutlookClient([]),
+      createTestLogger(),
+    );
+
+    await expect(
+      provider.sendEmail({
+        to: "recipient@example.com",
+        subject: "Subject",
+        messageText: "Message",
+      }),
+    ).resolves.toEqual({ messageId: "sent-message-1" });
+  });
+
+  it("fails when the provider omits the message ID", async () => {
+    outlookMailMock.sendEmailWithPlainText.mockResolvedValueOnce({});
+    const provider = new OutlookProvider(
+      createMockOutlookClient([]),
+      createTestLogger(),
+    );
+
+    await expect(
+      provider.sendEmail({
+        to: "recipient@example.com",
+        subject: "Subject",
+        messageText: "Message",
+      }),
+    ).rejects.toThrow("Provider did not return a sent message ID");
+  });
+});
+
 describe("OutlookProvider.getLatestMessageInThread", () => {
   it("uses converted date fallback when receivedDateTime is missing", async () => {
     vi.useFakeTimers();
