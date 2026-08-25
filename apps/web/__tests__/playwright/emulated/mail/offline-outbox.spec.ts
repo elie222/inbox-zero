@@ -265,6 +265,11 @@ function clearThreadDetails(
         openRequest.onerror = () => reject(openRequest.error);
         openRequest.onsuccess = () => {
           const database = openRequest.result;
+          if (!database.objectStoreNames.contains("threadDetails")) {
+            database.close();
+            resolve();
+            return;
+          }
           const transaction = database.transaction(
             "threadDetails",
             "readwrite",

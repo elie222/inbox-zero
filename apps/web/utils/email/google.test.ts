@@ -154,7 +154,7 @@ describe("GmailProvider snapshot mutations", () => {
   it("bounds concurrent captured-message trash requests", async () => {
     let active = 0;
     let peakActive = 0;
-    const trash = vi.fn(async () => {
+    const trash = vi.fn().mockImplementation(async () => {
       active += 1;
       peakActive = Math.max(peakActive, active);
       await new Promise((resolve) => setTimeout(resolve, 1));

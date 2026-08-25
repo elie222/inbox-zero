@@ -156,7 +156,7 @@ export function useThreadActions({
       const targets = resolveTargets(threadKeys);
       const snapshots = await enqueueTargets(targets, { kind: action });
       if (!snapshots.length) {
-        if (targets.length) {
+        if (threadKeys.length) {
           toast.error(
             action === "archive"
               ? "Couldn't queue archiving"
@@ -168,7 +168,7 @@ export function useThreadActions({
 
       const batch: UndoableBatch = { action, snapshots, undone: false };
       lastAction.current = batch;
-      const failedCount = targets.length - snapshots.length;
+      const failedCount = threadKeys.length - snapshots.length;
       toast.success(
         summarise(
           action === "archive" ? "Archived" : "Deleted",
@@ -186,8 +186,8 @@ export function useThreadActions({
       if (failedCount) {
         toast.error(
           action === "archive"
-            ? `Couldn't queue ${failedCount} of ${targets.length} for archiving`
-            : `Couldn't queue ${failedCount} of ${targets.length} for deletion`,
+            ? `Couldn't queue ${failedCount} of ${threadKeys.length} for archiving`
+            : `Couldn't queue ${failedCount} of ${threadKeys.length} for deletion`,
         );
       }
       return snapshots.map((snapshot) => snapshot.key);
@@ -202,12 +202,12 @@ export function useThreadActions({
         kind: "set_read_state",
         read,
       });
-      const failedCount = targets.length - snapshots.length;
+      const failedCount = threadKeys.length - snapshots.length;
       if (failedCount) {
         toast.error(
-          failedCount === targets.length
+          failedCount === threadKeys.length
             ? `Couldn't queue marking as ${read ? "read" : "unread"}`
-            : `Couldn't queue ${failedCount} of ${targets.length} as ${read ? "read" : "unread"}`,
+            : `Couldn't queue ${failedCount} of ${threadKeys.length} as ${read ? "read" : "unread"}`,
         );
       }
       return snapshots.map((snapshot) => snapshot.key);
@@ -222,7 +222,7 @@ export function useThreadActions({
         kind: "snooze",
         scheduledFor: snoozedUntil.toISOString(),
       });
-      const failedCount = targets.length - snapshots.length;
+      const failedCount = threadKeys.length - snapshots.length;
       if (snapshots.length) {
         toast.success(
           snapshots.length === 1
@@ -232,11 +232,11 @@ export function useThreadActions({
       }
       if (failedCount) {
         toast.error(
-          failedCount === targets.length
-            ? targets.length === 1
+          failedCount === threadKeys.length
+            ? threadKeys.length === 1
               ? "Couldn't queue snoozing"
               : "Couldn't queue snoozing conversations"
-            : `Couldn't queue ${failedCount} of ${targets.length} for snoozing`,
+            : `Couldn't queue ${failedCount} of ${threadKeys.length} for snoozing`,
         );
       }
       return snapshots.map((snapshot) => snapshot.key);

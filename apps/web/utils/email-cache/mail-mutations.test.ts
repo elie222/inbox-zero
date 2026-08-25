@@ -170,6 +170,39 @@ describe("mail mutation outbox", () => {
     ).resolves.toMatchObject({ id: "archive", attempts: 2 });
   });
 
+  it("does not let an expired lease owner overwrite the new owner", async () => {
+    await enqueueMailMutation(
+      {
+        id: "archive",
+        emailAccountId: "account",
+        threadId: "thread",
+        messageIds: ["message"],
+        kind: "archive",
+      },
+      10,
+    );
+    await claimNextMailMutation({ ownerId: "worker-1", leaseMs: 10, now: 10 });
+    await claimNextMailMutation({ ownerId: "worker-2", leaseMs: 100, now: 21 });
+
+    await completeMailMutation("archive", undefined, "worker-1");
+    await retryMailMutation(
+      "archive",
+      { error: "stale failure", nextAttemptAt: 30 },
+      "worker-1",
+    );
+
+    await expect(getMailMutation("archive")).resolves.toMatchObject({
+      leaseOwner: "worker-2",
+      status: "processing",
+    });
+
+    await completeMailMutation("archive", undefined, "worker-2");
+    await expect(getMailMutation("archive")).resolves.toMatchObject({
+      leaseOwner: undefined,
+      status: "succeeded",
+    });
+  });
+
   it("does not let later work pass an earlier retry for the same thread", async () => {
     await enqueueMailMutation(
       {

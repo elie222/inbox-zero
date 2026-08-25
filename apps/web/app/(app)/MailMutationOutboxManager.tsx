@@ -62,7 +62,9 @@ export function MailMutationOutboxManager() {
           }
           active += 1;
           processMutationWithLeaseHeartbeat(mutation, ownerId)
-            .catch(() => retryMutation(mutation, "Mutation request failed"))
+            .catch(() =>
+              retryMutation(mutation, "Mutation request failed", ownerId),
+            )
             .finally(() => {
               active -= 1;
               drain();
@@ -126,15 +128,20 @@ async function processMutationWithLeaseHeartbeat(
     );
   }, LEASE_MS / 2);
   try {
-    await processMutation(mutation);
+    await processMutation(mutation, ownerId);
   } finally {
     clearInterval(heartbeat);
   }
 }
 
-async function processMutation(mutation: MailMutation) {
+async function processMutation(mutation: MailMutation, ownerId: string) {
   if (isExpiredUnsyncedSnooze(mutation)) {
-    await failMailMutation(mutation.id, "failed", "Snooze time has passed");
+    await failMailMutation(
+      mutation.id,
+      "failed",
+      "Snooze time has passed",
+      ownerId,
+    );
     return;
   }
   const request = withRequestTimeout(executeMutationRequest(mutation));
@@ -143,7 +150,7 @@ async function processMutation(mutation: MailMutation) {
       ? await reconcileReplyRequest(mutation, request)
       : await request;
   if (!result) {
-    await retryMutation(mutation, "Mutation request failed");
+    await retryMutation(mutation, "Mutation request failed", ownerId);
     return;
   }
   switch (result.status) {
@@ -153,6 +160,7 @@ async function processMutation(mutation: MailMutation) {
         await completeMailMutation(
           mutation.id,
           "result" in result ? result.result : undefined,
+          ownerId,
         );
         requestMailboxSync(mutation.emailAccountId);
         return;
@@ -163,29 +171,39 @@ async function processMutation(mutation: MailMutation) {
       try {
         await syncMailboxNow(mutation.emailAccountId);
       } catch {
-        await retryMutation(mutation, "Mailbox reconciliation failed");
+        await retryMutation(mutation, "Mailbox reconciliation failed", ownerId);
         return;
       }
       await completeMailMutation(
         mutation.id,
         "result" in result ? result.result : undefined,
+        ownerId,
       );
       return;
     case "blocked_auth":
-      await blockMailMutationForAuth(mutation.id, "Reconnect this account");
+      await blockMailMutationForAuth(
+        mutation.id,
+        "Reconnect this account",
+        ownerId,
+      );
       return;
     case "uncertain":
       await failMailMutation(
         mutation.id,
         "uncertain",
         "Delivery outcome is unknown; check Sent before retrying.",
+        ownerId,
       );
       return;
     case "rejected":
-      await failMailMutation(mutation.id, "failed", result.error);
+      await failMailMutation(mutation.id, "failed", result.error, ownerId);
       return;
     case "retry":
-      await retryMutation(mutation, "Provider temporarily unavailable");
+      await retryMutation(
+        mutation,
+        "Provider temporarily unavailable",
+        ownerId,
+      );
   }
 }
 
@@ -265,15 +283,23 @@ function waitForReceiptPoll(signal: AbortSignal) {
   });
 }
 
-async function retryMutation(mutation: MailMutation, error: string) {
+async function retryMutation(
+  mutation: MailMutation,
+  error: string,
+  ownerId: string,
+) {
   const delay = Math.min(
     1000 * 2 ** Math.max(0, mutation.attempts - 1),
     60_000,
   );
-  await retryMailMutation(mutation.id, {
-    error,
-    nextAttemptAt: Date.now() + delay,
-  });
+  await retryMailMutation(
+    mutation.id,
+    {
+      error,
+      nextAttemptAt: Date.now() + delay,
+    },
+    ownerId,
+  );
 }
 
 function toActionInput(mutation: MailMutation): ExecuteMailMutationBody {

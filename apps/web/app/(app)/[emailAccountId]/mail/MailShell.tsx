@@ -975,7 +975,6 @@ export function MailShell() {
                 onArchiveSelected={archiveTargets}
                 onDeleteSelected={trashTargets}
                 onClearSelection={selection.clear}
-                emptyTitle="Nothing in this view"
                 showLoadMore={hasMore}
                 isLoadingMore={isLoadingMore}
                 onLoadMore={loadMore}

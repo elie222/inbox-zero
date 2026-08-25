@@ -233,12 +233,20 @@ export async function renewMailMutationLease(
   return renewed;
 }
 
-export async function completeMailMutation(id: string, result?: unknown) {
-  await updateMutation(id, {
-    status: "succeeded",
-    lastError: undefined,
-    result,
-  });
+export async function completeMailMutation(
+  id: string,
+  result?: unknown,
+  ownerId?: string,
+) {
+  await updateMutation(
+    id,
+    {
+      status: "succeeded",
+      lastError: undefined,
+      result,
+    },
+    ownerId,
+  );
 }
 
 export async function claimNextMailMutationNotification(now = Date.now()) {
@@ -281,16 +289,29 @@ export async function claimMailMutationNotification(
 export async function retryMailMutation(
   id: string,
   options: { error: string; nextAttemptAt: number },
+  ownerId?: string,
 ) {
-  await updateMutation(id, {
-    status: "retry_wait",
-    nextAttemptAt: options.nextAttemptAt,
-    lastError: options.error,
-  });
+  await updateMutation(
+    id,
+    {
+      status: "retry_wait",
+      nextAttemptAt: options.nextAttemptAt,
+      lastError: options.error,
+    },
+    ownerId,
+  );
 }
 
-export async function blockMailMutationForAuth(id: string, error: string) {
-  await updateMutation(id, { status: "blocked_auth", lastError: error });
+export async function blockMailMutationForAuth(
+  id: string,
+  error: string,
+  ownerId?: string,
+) {
+  await updateMutation(
+    id,
+    { status: "blocked_auth", lastError: error },
+    ownerId,
+  );
 }
 
 export async function resumeBlockedMailMutations(now = Date.now()) {
@@ -320,8 +341,9 @@ export async function failMailMutation(
   id: string,
   status: "failed" | "uncertain",
   error: string,
+  ownerId?: string,
 ) {
-  await updateMutation(id, { status, lastError: error });
+  await updateMutation(id, { status, lastError: error }, ownerId);
 }
 
 export async function cancelPendingMailMutation(id: string) {
@@ -347,13 +369,19 @@ export function subscribeToMailMutations(listener: () => void) {
   return () => listeners.delete(listener);
 }
 
-async function updateMutation(id: string, update: Partial<StoredMailMutation>) {
+async function updateMutation(
+  id: string,
+  update: Partial<StoredMailMutation>,
+  ownerId?: string,
+) {
   const database = await getEmailCacheDatabase();
   if (!database) return;
   const transaction = database.transaction("mailMutations", "readwrite");
   const store = transaction.objectStore("mailMutations");
   const mutation = await store.get(id);
-  if (mutation) {
+  const canUpdate =
+    mutation && (ownerId === undefined || mutation.leaseOwner === ownerId);
+  if (canUpdate) {
     await store.put({
       ...mutation,
       ...update,
@@ -363,7 +391,7 @@ async function updateMutation(id: string, update: Partial<StoredMailMutation>) {
     });
   }
   await transaction.done;
-  if (mutation) notifyMailMutationChange();
+  if (canUpdate) notifyMailMutationChange();
 }
 
 function getStoredPayload(input: EnqueueMailMutationInput): unknown {

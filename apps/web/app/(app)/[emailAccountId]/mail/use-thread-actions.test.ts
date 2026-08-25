@@ -91,6 +91,33 @@ describe("useThreadActions durable mutations", () => {
     expect(notifications.error).toHaveBeenCalledWith("Couldn't queue deletion");
   });
 
+  it("reports actions whose reader target has no retained list row", async () => {
+    const { result } = renderActions({ threads: [] });
+
+    await act(() => result.current.archive(["missing-thread"]));
+    await act(() => result.current.setReadState(["missing-thread"], true));
+    await act(() =>
+      result.current.snooze(
+        ["missing-thread"],
+        new Date("2026-08-26T09:00:00Z"),
+      ),
+    );
+
+    expect(notifications.error).toHaveBeenCalledTimes(3);
+    expect(outbox.enqueue).not.toHaveBeenCalled();
+  });
+
+  it("counts unresolved rows in partial-action feedback", async () => {
+    const { result } = renderActions();
+
+    await act(() => result.current.archive(["thread", "missing-thread"]));
+
+    expect(outbox.enqueue).toHaveBeenCalledTimes(1);
+    expect(notifications.error).toHaveBeenCalledWith(
+      "Couldn't queue 1 of 2 for archiving",
+    );
+  });
+
   it("does not resolve a read change before the durable overlay can observe it", async () => {
     let persist: ((mutation: MailMutation) => void) | undefined;
     outbox.enqueue.mockReturnValue(

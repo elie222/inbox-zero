@@ -95,7 +95,11 @@ describe("MailMutationOutboxManager", () => {
     reconciliation.resolve({ hasMore: false, pagesSynced: 1 });
     await settlePromises();
 
-    expect(outbox.complete).toHaveBeenCalledWith(mutation.id, undefined);
+    expect(outbox.complete).toHaveBeenCalledWith(
+      mutation.id,
+      undefined,
+      expect.any(String),
+    );
     expect(cache.settle.mock.invocationCallOrder[0]).toBeLessThan(
       outbox.complete.mock.invocationCallOrder[0],
     );
@@ -145,10 +149,14 @@ describe("MailMutationOutboxManager", () => {
     await settlePromises();
 
     expect(cache.settle).toHaveBeenCalledWith(mutation);
-    expect(outbox.retry).toHaveBeenCalledWith(mutation.id, {
-      error: "Mailbox reconciliation failed",
-      nextAttemptAt: expect.any(Number),
-    });
+    expect(outbox.retry).toHaveBeenCalledWith(
+      mutation.id,
+      {
+        error: "Mailbox reconciliation failed",
+        nextAttemptAt: expect.any(Number),
+      },
+      expect.any(String),
+    );
     expect(outbox.complete).not.toHaveBeenCalled();
   });
 
@@ -168,7 +176,11 @@ describe("MailMutationOutboxManager", () => {
     await settlePromises();
 
     expect(cache.settle).not.toHaveBeenCalled();
-    expect(outbox.complete).toHaveBeenCalledWith(mutation.id, result);
+    expect(outbox.complete).toHaveBeenCalledWith(
+      mutation.id,
+      result,
+      expect.any(String),
+    );
   });
 
   it("keeps high-attempt retries durable and wakes exactly when due", async () => {
@@ -333,7 +345,11 @@ describe("MailMutationOutboxManager", () => {
 
     expect(action.execute).toHaveBeenCalledTimes(2);
     expect(mailbox.request).toHaveBeenCalledWith("account");
-    expect(outbox.complete).toHaveBeenCalledWith(mutation.id, result);
+    expect(outbox.complete).toHaveBeenCalledWith(
+      mutation.id,
+      result,
+      expect.any(String),
+    );
   });
 
   it("settles a reply from its receipt without waiting for mailbox refresh", async () => {
@@ -358,7 +374,11 @@ describe("MailMutationOutboxManager", () => {
     );
     expect(mailbox.request).toHaveBeenCalledWith("account");
     expect(mailbox.syncNow).not.toHaveBeenCalled();
-    expect(outbox.complete).toHaveBeenCalledWith(mutation.id, result);
+    expect(outbox.complete).toHaveBeenCalledWith(
+      mutation.id,
+      result,
+      expect.any(String),
+    );
   });
 
   it("bounds a lost state-mutation request before retrying", async () => {
@@ -372,10 +392,14 @@ describe("MailMutationOutboxManager", () => {
     await act(() => vi.advanceTimersByTimeAsync(20_000));
     await settlePromises();
 
-    expect(outbox.retry).toHaveBeenCalledWith(mutation.id, {
-      error: "Mutation request failed",
-      nextAttemptAt: expect.any(Number),
-    });
+    expect(outbox.retry).toHaveBeenCalledWith(
+      mutation.id,
+      {
+        error: "Mutation request failed",
+        nextAttemptAt: expect.any(Number),
+      },
+      expect.any(String),
+    );
   });
 });
 
