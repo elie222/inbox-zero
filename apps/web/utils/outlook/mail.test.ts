@@ -1,9 +1,14 @@
 import type { Message } from "@microsoft/microsoft-graph-types";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { OutlookClient } from "@/utils/outlook/client";
-import { createTestLogger } from "@/__tests__/helpers";
+import { createTestLogger, getMockMessage } from "@/__tests__/helpers";
 import type { EmailForAction } from "@/utils/ai/types";
-import { draftEmail, forwardEmail, sendEmailWithHtml } from "./mail";
+import {
+  draftEmail,
+  forwardEmail,
+  replyToEmail,
+  sendEmailWithHtml,
+} from "./mail";
 
 vi.mock("@/utils/mail", () => ({
   ensureEmailSendingEnabled: vi.fn(),
@@ -67,7 +72,7 @@ describe("sendEmailWithHtml", () => {
     );
     expect(sendPost).toHaveBeenCalledTimes(1);
     expect(result).toEqual({
-      id: "",
+      id: "draft-1",
       conversationId: "conversation-1",
     });
   });
@@ -352,6 +357,32 @@ describe("sendEmailWithHtml", () => {
   });
 });
 
+describe("replyToEmail", () => {
+  it("returns the immutable draft ID after sending", async () => {
+    const createReplyDraft = vi.fn(async () => ({ id: "draft-1" }) as Message);
+    const updateDraft = vi.fn(async () => ({}));
+    const sendDraft = vi.fn(async () => ({}));
+    const client = createMockOutlookClient((path) => {
+      if (path === "/me/messages/message-1/createReply") {
+        return { post: createReplyDraft };
+      }
+      if (path === "/me/messages/draft-1") return { patch: updateDraft };
+      if (path === "/me/messages/draft-1/send") return { post: sendDraft };
+      throw new Error(`Unexpected API path: ${path}`);
+    });
+
+    const result = await replyToEmail(
+      client,
+      getMockMessage({ id: "message-1" }) as EmailForAction,
+      "Reply content",
+      createTestLogger(),
+    );
+
+    expect(sendDraft).toHaveBeenCalledTimes(1);
+    expect(result.id).toBe("draft-1");
+  });
+});
+
 describe("forwardEmail", () => {
   it("creates a forward draft, applies the formatted sender, and sends it", async () => {
     const getMessage = vi.fn(
@@ -404,7 +435,7 @@ describe("forwardEmail", () => {
       throw new Error(`Unexpected API path: ${path}`);
     });
 
-    await forwardEmail(
+    const result = await forwardEmail(
       client,
       {
         messageId: "message-1",
@@ -457,6 +488,7 @@ describe("forwardEmail", () => {
       }),
     );
     expect(sendDraft).toHaveBeenCalledTimes(1);
+    expect(result.id).toBe("draft-1");
   });
 });
 
