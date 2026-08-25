@@ -16,10 +16,12 @@ import type {
 import type { EmailProvider } from "@/utils/email/types";
 import {
   getActionResultError,
+  getSentMessageIds,
   isActionResultSkipped,
   normalizeActionExecutionError,
   persistExecutedActionOutcome,
 } from "@/utils/ai/executed-action-outcome";
+import { isSendingActionType } from "@/utils/ai/sending-action";
 
 const MODULE = "scheduled-actions-executor";
 
@@ -186,6 +188,9 @@ async function executeDelayedAction({
       staticAttachments: actionItem.staticAttachments ?? undefined,
       selectedAttachments: actionItem.selectedAttachments ?? undefined,
       executedRuleId: scheduledAction.executedRuleId,
+      ...(isSendingActionType(actionItem.type)
+        ? { executionStartedAt: new Date() }
+        : {}),
     },
   });
 
@@ -232,6 +237,7 @@ async function executeDelayedAction({
       actionId: executedAction.id,
       status: ExecutedActionStatus.FAILED,
       error: normalizeActionExecutionError(error),
+      sentMessageIds: getSentMessageIds(error),
       logger: log,
     });
     throw error;
@@ -271,6 +277,7 @@ async function executeDelayedAction({
     actionId: executedAction.id,
     status: ExecutedActionStatus.SUCCEEDED,
     error: null,
+    sentMessageIds: getSentMessageIds(actionResult),
     logger: log,
   });
 
