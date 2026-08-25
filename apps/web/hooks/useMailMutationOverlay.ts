@@ -19,6 +19,15 @@ type MutationSnapshot = {
 
 type OverlayMessage = Pick<ParsedMessage, "id" | "labelIds">;
 
+type ReconciliationState = {
+  emailAccountId: string;
+  isRunning: boolean;
+  pendingIds: Set<string>;
+  retryAttempts: number;
+  retryTimer: ReturnType<typeof setTimeout> | undefined;
+  stopped: boolean;
+};
+
 const RECONCILIATION_RETRY_MS = 1000;
 const MAX_RECONCILIATION_RETRY_MS = 30_000;
 
@@ -96,14 +105,9 @@ export function useRetainedMailMutationOverlay({
   });
   const onReconcileRef = useRef(onReconcile);
   const previous = useRef<MutationSnapshot | undefined>(undefined);
-  const reconciliationState = useRef({
-    emailAccountId,
-    isRunning: false,
-    pendingIds: new Set<string>(),
-    retryAttempts: 0,
-    retryTimer: undefined as ReturnType<typeof setTimeout> | undefined,
-    stopped: false,
-  });
+  const reconciliationState = useRef<ReconciliationState>(
+    createReconciliationState(emailAccountId),
+  );
   const runReconciliationRef = useRef<() => void>(() => {});
   const [retained, setRetained] = useState<MutationSnapshot>();
 
@@ -116,14 +120,7 @@ export function useRetainedMailMutationOverlay({
     if (previousState.emailAccountId !== emailAccountId) {
       previousState.stopped = true;
       if (previousState.retryTimer) clearTimeout(previousState.retryTimer);
-      reconciliationState.current = {
-        emailAccountId,
-        isRunning: false,
-        pendingIds: new Set<string>(),
-        retryAttempts: 0,
-        retryTimer: undefined,
-        stopped: false,
-      };
+      reconciliationState.current = createReconciliationState(emailAccountId);
     }
     const state = reconciliationState.current;
     state.stopped = false;
@@ -152,16 +149,15 @@ export function useRetainedMailMutationOverlay({
         if (state.stopped || reconciliationState.current !== state) return;
         for (const id of completedIds) state.pendingIds.delete(id);
         state.retryAttempts = 0;
-        setRetained((snapshot) =>
-          snapshot?.identity === state.emailAccountId
-            ? {
-                ...snapshot,
-                mutations: snapshot.mutations.filter(
-                  (mutation) => !completedIds.has(mutation.id),
-                ),
-              }
-            : snapshot,
-        );
+        setRetained((snapshot) => {
+          if (snapshot?.identity !== state.emailAccountId) return snapshot;
+          return {
+            ...snapshot,
+            mutations: snapshot.mutations.filter(
+              (mutation) => !completedIds.has(mutation.id),
+            ),
+          };
+        });
       })
       .catch(() => {
         if (state.stopped || reconciliationState.current !== state) return;
@@ -273,13 +269,15 @@ export function useRetainedMailMutationOverlay({
     reconcileCompleted,
   ]);
 
+  const mutations =
+    retained?.identity === emailAccountId
+      ? mergeMutations(retained.mutations, active.mutations)
+      : active.mutations;
+
   return {
     isReady: active.isReady,
     isReadable: active.isReadable,
-    mutations:
-      retained?.identity === emailAccountId
-        ? mergeMutations(retained.mutations, active.mutations)
-        : active.mutations,
+    mutations,
     retainMutations,
   };
 }
@@ -314,14 +312,25 @@ export function applyMailMutationOverlayToThreads<
       emailAccountId,
       currentMessages as ParsedMessage[],
     ) as NonNullable<Thread["messages"]>;
-    overlaidThreads.push(
+    const messagesUnchanged =
       messages.length === currentMessages.length &&
-        messages.every((message, index) => message === currentMessages[index])
-        ? thread
-        : { ...thread, messages },
-    );
+      messages.every((message, index) => message === currentMessages[index]);
+    overlaidThreads.push(messagesUnchanged ? thread : { ...thread, messages });
   }
   return overlaidThreads;
+}
+
+function createReconciliationState(
+  emailAccountId: string,
+): ReconciliationState {
+  return {
+    emailAccountId,
+    isRunning: false,
+    pendingIds: new Set<string>(),
+    retryAttempts: 0,
+    retryTimer: undefined,
+    stopped: false,
+  };
 }
 
 function mergeMutations(left: MailMutation[], right: MailMutation[]) {

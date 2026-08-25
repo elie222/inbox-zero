@@ -150,7 +150,7 @@ export function createSenderQueue(createPayload: CreatePayload) {
     progressQueue = clearAccountItems(progressQueue, emailAccountId);
     transientQueue = clearAccountItems(transientQueue, emailAccountId);
     for (const queueKey of trackedBatchByQueueKey.keys()) {
-      if (queueKey.startsWith(`${emailAccountId}:`)) {
+      if (isAccountQueueKey(queueKey, emailAccountId)) {
         trackedBatchByQueueKey.delete(queueKey);
       }
     }
@@ -172,9 +172,11 @@ export function createSenderQueue(createPayload: CreatePayload) {
 
     return () => {
       const observerCount = (observedAccounts.get(emailAccountId) ?? 1) - 1;
-      if (observerCount > 0)
+      if (observerCount > 0) {
         observedAccounts.set(emailAccountId, observerCount);
-      else observedAccounts.delete(emailAccountId);
+      } else {
+        observedAccounts.delete(emailAccountId);
+      }
 
       if (!observedAccounts.size) {
         unsubscribeFromMutations?.();
@@ -239,7 +241,7 @@ export function createSenderQueue(createPayload: CreatePayload) {
     }
     progressQueue = clearAccountItems(progressQueue, emailAccountId);
     for (const [queueKey, batchId] of trackedBatchByQueueKey) {
-      if (!queueKey.startsWith(`${emailAccountId}:`)) continue;
+      if (!isAccountQueueKey(queueKey, emailAccountId)) continue;
       const item = batchItems.get(batchId)?.item;
       if (item) progressQueue.set(queueKey, item);
     }
@@ -292,7 +294,7 @@ export function createSenderQueue(createPayload: CreatePayload) {
     let failedItems = 0;
 
     for (const [queueKey, item] of queue) {
-      if (!queueKey.startsWith(`${emailAccountId}:`)) continue;
+      if (!isAccountQueueKey(queueKey, emailAccountId)) continue;
       if (item.status === "completed") completedItems += 1;
       else if (item.status === "failed") failedItems += 1;
       else activeItems += 1;
@@ -450,9 +452,13 @@ function clearAccountItems(
 ) {
   const nextQueue = new Map(queue);
   for (const queueKey of nextQueue.keys()) {
-    if (queueKey.startsWith(`${emailAccountId}:`)) nextQueue.delete(queueKey);
+    if (isAccountQueueKey(queueKey, emailAccountId)) nextQueue.delete(queueKey);
   }
   return nextQueue;
+}
+
+function isAccountQueueKey(queueKey: string, emailAccountId: string) {
+  return queueKey.startsWith(`${emailAccountId}:`);
 }
 
 function getQueueKey(emailAccountId: string, sender: string) {

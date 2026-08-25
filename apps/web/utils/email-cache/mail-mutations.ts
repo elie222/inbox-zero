@@ -242,10 +242,7 @@ export async function claimNextMailMutation({
       continue;
     }
 
-    if (
-      mutation.status === "awaiting_sync" ||
-      mutation.status === "reconciling"
-    ) {
+    if (isSyncMailMutationStatus(mutation.status)) {
       blockedThreads.add(threadKey);
       continue;
     }
@@ -342,10 +339,8 @@ export async function claimNextMailMutationSyncGroup({
     ) {
       continue;
     }
-    const syncMutations = group.mutations.filter(
-      (mutation) =>
-        mutation.status === "awaiting_sync" ||
-        mutation.status === "reconciling",
+    const syncMutations = group.mutations.filter((mutation) =>
+      isSyncMailMutationStatus(mutation.status),
     );
     if (!syncMutations.length) continue;
     if (
@@ -577,11 +572,11 @@ export async function cancelPendingMailMutation(id: string) {
   const store = transaction.objectStore("mailMutations");
   const mutation = await store.get(id);
   const cancelled =
-    Boolean(mutation) &&
-    (mutation?.status === "pending" ||
-      mutation?.status === "retry_wait" ||
-      mutation?.status === "blocked_auth") &&
-    !mutation?.leaseOwner;
+    mutation !== undefined &&
+    (mutation.status === "pending" ||
+      mutation.status === "retry_wait" ||
+      mutation.status === "blocked_auth") &&
+    !mutation.leaseOwner;
   if (cancelled) await store.delete(id);
   await transaction.done;
   if (cancelled) notifyMailMutationChange();
@@ -767,6 +762,10 @@ function isProviderActiveMailMutationStatus(
   status: StoredMailMutation["status"],
 ) {
   return PROVIDER_ACTIVE_STATUSES.has(status);
+}
+
+function isSyncMailMutationStatus(status: StoredMailMutation["status"]) {
+  return status === "awaiting_sync" || status === "reconciling";
 }
 
 function readActiveStoredMutations(index: {
