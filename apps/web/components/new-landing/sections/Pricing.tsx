@@ -23,7 +23,6 @@ import {
   Paragraph,
   SectionHeading,
   SectionSubtitle,
-  Subheading,
 } from "@/components/new-landing/common/Typography";
 import {
   Badge,
@@ -249,13 +248,17 @@ function PricingCard({
           <div className="flex gap-2 items-end">
             {price ? (
               <>
-                <Subheading>${price}</Subheading>
+                <div className="font-title text-[#242424] text-[1.7rem] md:text-[2.5rem] leading-tight">
+                  ${price}
+                </div>
                 <Paragraph size="xs" color="light" className="-translate-y-1">
                   /user /month
                 </Paragraph>
               </>
             ) : (
-              <Subheading>Contact us</Subheading>
+              <div className="font-title text-[#242424] text-[1.7rem] md:text-[2.5rem] leading-tight">
+                Contact us
+              </div>
             )}
           </div>
           <Button auto size="lg" variant={tier.button.variant} asChild>

@@ -66,6 +66,7 @@ const jsonLd: WithContext<WebApplication> = {
   ],
   publisher: {
     "@type": "Organization",
+    "@id": toAbsoluteUrl("/#organization"),
     name: BRAND_NAME,
     url: env.NEXT_PUBLIC_BASE_URL,
     logo: {
