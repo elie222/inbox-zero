@@ -1,5 +1,8 @@
 import type { people_v1 } from "@googleapis/people";
-import { normalizeContactCandidates } from "@/utils/email/contact";
+import {
+  MAX_CONTACT_RESULTS,
+  normalizeContactCandidates,
+} from "@/utils/email/contact";
 
 export async function searchContacts(client: people_v1.People, query: string) {
   const readMasks: (keyof people_v1.Schema$Person)[] = [
@@ -11,7 +14,7 @@ export async function searchContacts(client: people_v1.People, query: string) {
   const res = await client.people.searchContacts({
     query,
     readMask: readMasks.join(","),
-    pageSize: 10,
+    pageSize: MAX_CONTACT_RESULTS,
   });
 
   return normalizeContactCandidates(

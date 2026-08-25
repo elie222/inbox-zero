@@ -6,9 +6,11 @@ export type EmailContact = {
   profilePictureUrl?: string;
 };
 
+export const MAX_CONTACT_RESULTS = 10;
+
 export function normalizeContactCandidates(
   candidates: EmailContact[],
-  maxResults = 10,
+  maxResults = MAX_CONTACT_RESULTS,
 ) {
   if (maxResults <= 0) return [];
 

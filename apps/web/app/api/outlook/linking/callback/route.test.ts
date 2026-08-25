@@ -102,7 +102,7 @@ vi.mock("@/utils/outlook/scopes", () => ({
     "offline_access",
     "Mail.ReadWrite",
     "Mail.Send",
-    "People.Read",
+    "Contacts.Read",
     "MailboxSettings.ReadWrite",
   ],
 }));
