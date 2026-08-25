@@ -121,12 +121,17 @@ export function createMockEmailProvider(
       failedThreadIds: [],
     }),
     archiveMessage: vi.fn().mockResolvedValue(undefined),
+    archiveMessages: vi.fn().mockResolvedValue(undefined),
+    unarchiveMessages: vi.fn().mockResolvedValue(undefined),
+    trashMessages: vi.fn().mockResolvedValue(undefined),
+    untrashMessages: vi.fn().mockResolvedValue(undefined),
     trashThread: vi.fn().mockResolvedValue(undefined),
     unarchiveThread: vi.fn().mockResolvedValue(undefined),
     markSpam: vi.fn().mockResolvedValue(undefined),
     starMessage: vi.fn().mockResolvedValue(undefined),
     markRead: vi.fn().mockResolvedValue(undefined),
     markReadThread: vi.fn().mockResolvedValue(undefined),
+    markMessagesReadState: vi.fn().mockResolvedValue(undefined),
     moveThreadToFolder: vi.fn().mockResolvedValue(undefined),
 
     // Labeling

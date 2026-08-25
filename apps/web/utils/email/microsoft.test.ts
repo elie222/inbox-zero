@@ -175,6 +175,76 @@ describe("OutlookProvider.getLatestMessageInThread", () => {
   });
 });
 
+describe("OutlookProvider snapshot mutations", () => {
+  it.each([
+    ["archiveMessages", "archive"],
+    ["trashMessages", "deleteditems"],
+    ["unarchiveMessages", "inbox"],
+    ["untrashMessages", "inbox"],
+  ] as const)("%s moves each unique captured message", async (method, destinationId) => {
+    const post = vi.fn().mockResolvedValue({});
+    const api = vi.fn(() => ({ post }));
+    const provider = new OutlookProvider(
+      { getClient: () => ({ api }) } as never,
+      createTestLogger(),
+    );
+
+    await provider[method](["one", "one", "two"]);
+
+    expect(api.mock.calls.map(([path]) => path)).toEqual([
+      "/me/messages/one/move",
+      "/me/messages/two/move",
+    ]);
+    expect(post).toHaveBeenCalledTimes(2);
+    expect(post).toHaveBeenCalledWith({ destinationId });
+  });
+
+  it("patches read state on each unique captured message", async () => {
+    const patch = vi.fn().mockResolvedValue({});
+    const api = vi.fn(() => ({ patch }));
+    const provider = new OutlookProvider(
+      { getClient: () => ({ api }) } as never,
+      createTestLogger(),
+    );
+
+    await provider.markMessagesReadState(["one", "one", "two"], false);
+
+    expect(api.mock.calls.map(([path]) => path)).toEqual([
+      "/me/messages/one",
+      "/me/messages/two",
+    ]);
+    expect(patch).toHaveBeenCalledTimes(2);
+    expect(patch).toHaveBeenCalledWith({ isRead: false });
+  });
+
+  it("treats missing snapshot messages as already applied", async () => {
+    const post = vi
+      .fn()
+      .mockRejectedValue(
+        Object.assign(new Error("missing"), { statusCode: 404 }),
+      );
+    const provider = new OutlookProvider(
+      { getClient: () => ({ api: () => ({ post }) }) } as never,
+      createTestLogger(),
+    );
+
+    await expect(provider.archiveMessages(["gone"])).resolves.toBeUndefined();
+  });
+
+  it("propagates non-idempotent provider failures", async () => {
+    const failure = Object.assign(new Error("forbidden"), { statusCode: 403 });
+    const patch = vi.fn().mockRejectedValue(failure);
+    const provider = new OutlookProvider(
+      { getClient: () => ({ api: () => ({ patch }) }) } as never,
+      createTestLogger(),
+    );
+
+    await expect(
+      provider.markMessagesReadState(["message"], true),
+    ).rejects.toMatchObject({ error: failure });
+  });
+});
+
 describe("OutlookProvider.getSentMessageIds", () => {
   it("queries sent items with sentDateTime bounds", async () => {
     const client = createMockOutlookClient([

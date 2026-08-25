@@ -2,6 +2,10 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { prefetchThreadDetail } from "./thread-prefetch";
+import {
+  createThreadRequest,
+  fetchThreadRequest,
+} from "@/utils/email-cache/thread-request";
 
 const threadCache = vi.hoisted(() => ({
   read: vi.fn(),
@@ -109,6 +113,36 @@ describe("prefetchThreadDetail", () => {
       html: "<p>network</p>",
       messageId: "thread-2-message",
     });
+  });
+
+  it("shares its in-flight account-scoped request with the reader", async () => {
+    threadCache.read.mockResolvedValue(undefined);
+    const response = Promise.withResolvers<{
+      thread: { id: string; messages: [] };
+    }>();
+    const prefetchFetcher = vi.fn(() => response.promise);
+    const prefetch = prefetchThreadDetail({
+      emailAccountId: "account-combined-row",
+      threadId: "thread-opened",
+      fetcher: prefetchFetcher,
+      mutate: vi.fn().mockResolvedValue(undefined),
+    });
+    await vi.waitFor(() => expect(prefetchFetcher).toHaveBeenCalledTimes(1));
+
+    const request = createThreadRequest({
+      emailAccountId: "account-combined-row",
+      threadId: "thread-opened",
+      options: { includeDrafts: true },
+    });
+    const readerFetcher = vi.fn();
+    const readerRequest = fetchThreadRequest(request, readerFetcher);
+
+    expect(readerFetcher).not.toHaveBeenCalled();
+    response.resolve({ thread: { id: "thread-opened", messages: [] } });
+    await expect(readerRequest).resolves.toEqual({
+      thread: { id: "thread-opened", messages: [] },
+    });
+    await prefetch;
   });
 
   it("skips html preparation when cancellation happens after hydrating from disk", async () => {

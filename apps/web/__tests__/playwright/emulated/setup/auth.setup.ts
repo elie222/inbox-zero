@@ -62,7 +62,17 @@ async function markOnboardingComplete(email: string) {
          WHERE email = $1`,
         [email],
       );
-      if (result.rowCount === 1) return;
+      if (result.rowCount === 1) {
+        const account = await client.query(
+          `UPDATE "EmailAccount"
+           SET "behaviorProfile" = '{}'::jsonb,
+               "personaAnalysis" = '{}'::jsonb,
+               "writingStyle" = 'Playwright seeded writing style'
+           WHERE email = $1`,
+          [email],
+        );
+        if (account.rowCount === 1) return;
+      }
       await new Promise((resolve) => setTimeout(resolve, 250));
     }
     throw new Error(`Timed out waiting for the OAuth user row for ${email}`);

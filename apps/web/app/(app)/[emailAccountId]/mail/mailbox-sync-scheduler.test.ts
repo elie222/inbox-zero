@@ -139,6 +139,31 @@ describe("mailbox sync scheduler", () => {
     second.resolve(SYNC_RESULT);
     await expect(next).resolves.toEqual(SYNC_RESULT);
   });
+
+  it("runs a fresh request after an existing account sync settles", async () => {
+    const first = Promise.withResolvers<typeof SYNC_RESULT>();
+    const second = Promise.withResolvers<typeof SYNC_RESULT>();
+    const sync = vi
+      .fn()
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+    const scheduler = createMailboxSyncScheduler({ maxConcurrent: 1, sync });
+
+    const existing = scheduler.run({ emailAccountId: "account-1" });
+    const fresh = scheduler.runAfterCurrent({
+      emailAccountId: "account-1",
+      priority: true,
+    });
+    expect(sync).toHaveBeenCalledOnce();
+
+    first.resolve(SYNC_RESULT);
+    await expect(existing).resolves.toEqual(SYNC_RESULT);
+    await settlePromises();
+    expect(sync).toHaveBeenCalledTimes(2);
+
+    second.resolve(SYNC_RESULT);
+    await expect(fresh).resolves.toEqual(SYNC_RESULT);
+  });
 });
 
 function settlePromises() {

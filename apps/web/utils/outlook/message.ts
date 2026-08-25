@@ -972,7 +972,7 @@ export function convertMessage(
       date: message.receivedDateTime || new Date().toISOString(),
       // RFC 5322 Message-ID header, needed for cross-provider email threading (e.g., Outlook -> Gmail)
       "message-id": message.internetMessageId || "",
-      "in-reply-to": getInternetHeader(message, "in-reply-to"),
+      "in-reply-to": getInternetHeader(message, "in-reply-to") ?? undefined,
     },
     subject: message.subject || "",
     date: message.receivedDateTime || new Date().toISOString(),

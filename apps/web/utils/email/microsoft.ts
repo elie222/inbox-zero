@@ -104,6 +104,7 @@ import { shouldSkipAutoDraft } from "@/utils/auto-draft";
 import { getOutlookMailboxSyncPage } from "@/utils/outlook/mailbox-sync";
 import { requireSentMessageId } from "@/utils/email/sent-message-id";
 import { searchContacts } from "@/utils/outlook/contact";
+import { mapWithConcurrency } from "@/utils/async";
 
 export class OutlookProvider implements EmailProvider {
   readonly name = "microsoft";
@@ -1983,6 +1984,62 @@ export class OutlookProvider implements EmailProvider {
       });
       throw error;
     }
+  }
+
+  async archiveMessages(messageIds: string[]): Promise<void> {
+    await this.moveMessageSnapshots(messageIds, "archive");
+  }
+
+  async unarchiveMessages(messageIds: string[]): Promise<void> {
+    await this.moveMessageSnapshots(messageIds, "inbox");
+  }
+
+  async trashMessages(messageIds: string[]): Promise<void> {
+    await this.moveMessageSnapshots(messageIds, "deleteditems");
+  }
+
+  async untrashMessages(messageIds: string[]): Promise<void> {
+    await this.moveMessageSnapshots(messageIds, "inbox");
+  }
+
+  async markMessagesReadState(
+    messageIds: string[],
+    read: boolean,
+  ): Promise<void> {
+    await mapWithConcurrency([...new Set(messageIds)], 4, async (messageId) => {
+      try {
+        await withMicrosoftGraphWriteRetry(
+          () =>
+            this.client
+              .getClient()
+              .api(`/me/messages/${messageId}`)
+              .patch({ isRead: read }),
+          this.logger,
+        );
+      } catch (error) {
+        if (extractErrorInfo(error).status !== 404) throw error;
+      }
+    });
+  }
+
+  private async moveMessageSnapshots(
+    messageIds: string[],
+    destinationId: "archive" | "deleteditems" | "inbox",
+  ) {
+    await mapWithConcurrency([...new Set(messageIds)], 4, async (messageId) => {
+      try {
+        await withMicrosoftGraphWriteRetry(
+          () =>
+            this.client
+              .getClient()
+              .api(`/me/messages/${messageId}/move`)
+              .post({ destinationId }),
+          this.logger,
+        );
+      } catch (error) {
+        if (extractErrorInfo(error).status !== 404) throw error;
+      }
+    });
   }
 
   async bulkArchiveFromSenders(

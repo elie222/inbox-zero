@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { SWRConfig } from "swr";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { MailMutation } from "@/utils/email-cache/mail-mutations";
 import { useCombinedMailThreads } from "./use-combined-mail-threads";
 
 const cache = vi.hoisted(() => ({
@@ -17,6 +18,11 @@ const mailbox = vi.hoisted(() => ({
   read: vi.fn(),
   subscribe: vi.fn(),
 }));
+const mutationStore = vi.hoisted(() => ({
+  listeners: new Set<() => void>(),
+  read: vi.fn(),
+  subscribe: vi.fn(),
+}));
 
 vi.mock("@/utils/email-cache/thread-lists", () => ({
   readCachedThreadList: cache.read,
@@ -27,6 +33,10 @@ vi.mock("@/utils/email-cache/thread-lists", () => ({
 vi.mock("@/utils/email-cache/mailbox", () => ({
   readCombinedSyncedMailboxThreads: mailbox.read,
   subscribeToMailboxStore: mailbox.subscribe,
+}));
+vi.mock("@/utils/email-cache/mail-mutations", () => ({
+  getActiveMailMutations: mutationStore.read,
+  subscribeToMailMutations: mutationStore.subscribe,
 }));
 
 describe("useCombinedMailThreads", () => {
@@ -44,10 +54,119 @@ describe("useCombinedMailThreads", () => {
         return () => mailbox.listeners.delete(listener);
       },
     );
+    mutationStore.listeners.clear();
+    mutationStore.read.mockResolvedValue([]);
+    mutationStore.subscribe.mockImplementation((listener: () => void) => {
+      mutationStore.listeners.add(listener);
+      return () => mutationStore.listeners.delete(listener);
+    });
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it("applies durable overlays by composite account and thread identity", async () => {
+    const network = Promise.withResolvers<unknown>();
+    mailbox.read.mockResolvedValue({
+      accountStates: ACCOUNT_STATES,
+      complete: true,
+      missingAccountIds: [],
+      threads: [
+        createThread("account-1", "shared"),
+        createThread("account-2", "shared"),
+      ],
+      truncated: false,
+    });
+    mutationStore.read.mockResolvedValue([
+      createMutation({
+        emailAccountId: "account-1",
+        kind: "archive",
+        messageIds: ["shared-message"],
+        threadId: "shared",
+      }),
+      createMutation({
+        emailAccountId: "account-2",
+        kind: "set_read_state",
+        messageIds: ["shared-message"],
+        read: false,
+        threadId: "shared",
+      }),
+    ]);
+
+    const { result } = renderHook(
+      () =>
+        useCombinedMailThreads({
+          accounts: ACCOUNTS,
+          emailAccountId: "account-1",
+          enabled: true,
+          isUnread: false,
+        }),
+      { wrapper: createWrapper(() => network.promise) },
+    );
+
+    await waitFor(() => expect(result.current.threads).toHaveLength(1));
+    expect(result.current.threads[0]?.account.id).toBe("account-2");
+    expect(result.current.threads[0]?.messages[0]?.labelIds).toEqual([
+      "INBOX",
+      "UNREAD",
+    ]);
+    await waitFor(() => expect(cache.write).toHaveBeenCalled());
+    expect(cache.write).toHaveBeenCalledWith(
+      expect.objectContaining({
+        threads: expect.arrayContaining([
+          expect.objectContaining({ id: "account-1:shared" }),
+          expect.objectContaining({ id: "account-2:shared" }),
+        ]),
+      }),
+    );
+  });
+
+  it("removes only the pending-read owner from an unread-only view", async () => {
+    const network = Promise.withResolvers<unknown>();
+    mailbox.read.mockResolvedValue({
+      accountStates: ACCOUNT_STATES,
+      complete: true,
+      missingAccountIds: [],
+      threads: [
+        createUnreadThread("account-1", "pending-read"),
+        createUnreadThread("account-2", "still-unread"),
+      ],
+      truncated: false,
+    });
+    mutationStore.read.mockResolvedValue([
+      createMutation({
+        emailAccountId: "account-1",
+        kind: "set_read_state",
+        messageIds: ["pending-read-message"],
+        read: true,
+        threadId: "pending-read",
+      }),
+    ]);
+    const { result } = renderHook(
+      () =>
+        useCombinedMailThreads({
+          accounts: ACCOUNTS,
+          emailAccountId: "account-1",
+          enabled: true,
+          isUnread: true,
+        }),
+      { wrapper: createWrapper(() => network.promise) },
+    );
+
+    await waitFor(() =>
+      expect(
+        result.current.threads.map((thread) => [thread.account.id, thread.id]),
+      ).toEqual([["account-2", "still-unread"]]),
+    );
+    expect(cache.write).toHaveBeenCalledWith(
+      expect.objectContaining({
+        threads: expect.arrayContaining([
+          expect.objectContaining({ id: "account-1:pending-read" }),
+          expect.objectContaining({ id: "account-2:still-unread" }),
+        ]),
+      }),
+    );
   });
 
   it("renders a complete merged mailbox while the server revalidates", async () => {
@@ -1067,6 +1186,45 @@ function createThread(
     plan: undefined,
     plans: [],
     snippet: id,
+  };
+}
+
+function createUnreadThread(accountId: string, id: string) {
+  const thread = createThread(accountId, id);
+  return {
+    ...thread,
+    messages: thread.messages.map((message) => ({
+      ...message,
+      labelIds: ["INBOX", "UNREAD"],
+    })),
+  };
+}
+
+function createMutation(
+  value:
+    | {
+        emailAccountId: string;
+        kind: "archive";
+        messageIds: string[];
+        threadId: string;
+      }
+    | {
+        emailAccountId: string;
+        kind: "set_read_state";
+        messageIds: string[];
+        read: boolean;
+        threadId: string;
+      },
+): MailMutation {
+  return {
+    ...value,
+    id: `${value.emailAccountId}-${value.kind}`,
+    batchId: `${value.emailAccountId}-${value.kind}`,
+    status: "pending",
+    attempts: 0,
+    nextAttemptAt: 0,
+    createdAt: 0,
+    updatedAt: 0,
   };
 }
 

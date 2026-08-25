@@ -8,6 +8,7 @@ import { clearEmailCache, getEmailCacheDatabase } from "./database";
 import {
   EMAIL_CACHE_MAILBOX_MAX_AGE_MS,
   EMAIL_CACHE_MAX_AGE_MS,
+  MAIL_MUTATION_RETRY_WINDOW_MS,
 } from "./policy";
 
 const storageDescriptor = Object.getOwnPropertyDescriptor(navigator, "storage");
@@ -110,6 +111,56 @@ describe("email cache cleanup", () => {
     ).resolves.toBeDefined();
     await expect(
       database?.get("mailboxMessages", ["account-1", "refresh-margin-message"]),
+    ).resolves.toBeDefined();
+  });
+
+  it("removes old terminal mutations but never active durable work", async () => {
+    const database = await getEmailCacheDatabase();
+    expect(database).toBeDefined();
+    const now = Date.now();
+    const expiredAt = now - MAIL_MUTATION_RETRY_WINDOW_MS - 1;
+    const base = {
+      batchId: "batch",
+      emailAccountId: "account-1",
+      threadId: "thread",
+      messageIds: ["message"],
+      kind: "archive" as const,
+      payload: {},
+      attempts: 1,
+      nextAttemptAt: expiredAt,
+      createdAt: expiredAt,
+    };
+    await database?.put("mailMutations", {
+      ...base,
+      id: "old-success",
+      status: "succeeded",
+      updatedAt: expiredAt,
+    });
+    await database?.put("mailMutations", {
+      ...base,
+      id: "old-retry",
+      status: "retry_wait",
+      updatedAt: expiredAt,
+    });
+    await database?.put("mailMutations", {
+      ...base,
+      id: "recent-failure",
+      status: "failed",
+      updatedAt: now,
+    });
+
+    scheduleEmailCacheCleanup({ force: true });
+
+    await waitFor(async () => {
+      await expect(
+        database?.get("mailMutations", "old-success"),
+      ).resolves.toBeUndefined();
+    });
+    await expect(
+      database?.get("mailMutations", "old-retry"),
+    ).resolves.toBeDefined();
+    await expect(
+      database?.get("mailMutations", "recent-failure"),
     ).resolves.toBeDefined();
   });
 });

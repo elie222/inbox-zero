@@ -98,6 +98,43 @@ describe("useThread", () => {
     );
   });
 
+  it("uses an explicit owning account for combined-mail threads", async () => {
+    cache.read.mockResolvedValue(undefined);
+    const fetcher = vi.fn().mockResolvedValue({
+      thread: { id: "shared-thread", messages: [{ id: "secondary" }] },
+    });
+
+    const { result } = renderHook(
+      () =>
+        useThread({
+          emailAccountId: "account-2",
+          id: "shared-thread",
+        }),
+      { wrapper: createWrapper(fetcher) },
+    );
+
+    await waitFor(() =>
+      expect(result.current.data?.thread.messages[0]?.id).toBe("secondary"),
+    );
+    expect(fetcher).toHaveBeenCalledWith([
+      "/api/threads/shared-thread",
+      "account-2",
+    ]);
+    expect(cache.read).toHaveBeenCalledWith({
+      emailAccountId: "account-2",
+      threadId: "shared-thread",
+      variant: "drafts:0|replies:0",
+    });
+    await waitFor(() =>
+      expect(cache.write).toHaveBeenCalledWith(
+        expect.objectContaining({
+          emailAccountId: "account-2",
+          threadId: "shared-thread",
+        }),
+      ),
+    );
+  });
+
   it("never lets a late disk read overwrite fresher network data", async () => {
     const disk = Promise.withResolvers<unknown>();
     const network = Promise.withResolvers<unknown>();
