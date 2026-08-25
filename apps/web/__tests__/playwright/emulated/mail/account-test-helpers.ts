@@ -15,19 +15,25 @@ export async function createSecondEmailAccount(
 
   try {
     await client.query("BEGIN");
-    const userResult = await client.query<{ userId: string }>(
-      `SELECT "userId" FROM "EmailAccount" WHERE id = $1`,
-      [primaryEmailAccountId],
-    );
-    const userId = userResult.rows[0]?.userId;
-    if (!userId) throw new Error("Could not find the Playwright account user");
-
-    await client.query(
+    const accountResult = await client.query<{ userId: string }>(
       `INSERT INTO "Account"
-        (id, "createdAt", "updatedAt", "userId", provider, type, "providerAccountId")
-       VALUES ($1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $2, 'google', 'oidc', $3)`,
-      [accountId, userId, `playwright-provider-${suffix}`],
+        (id, "createdAt", "updatedAt", "userId", provider, type,
+         "providerAccountId", refresh_token, "refreshTokenExpiresAt",
+         access_token, expires_at, token_type, scope)
+       SELECT $1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, email_account."userId",
+         'google', 'oidc', $2, account.refresh_token,
+         account."refreshTokenExpiresAt", account.access_token,
+         account.expires_at, account.token_type, account.scope
+       FROM "EmailAccount" email_account
+       JOIN "Account" account ON account.id = email_account."accountId"
+       WHERE email_account.id = $3 AND account.refresh_token IS NOT NULL
+       RETURNING "userId"`,
+      [accountId, `playwright-provider-${suffix}`, primaryEmailAccountId],
     );
+    const userId = accountResult.rows[0]?.userId;
+    if (!userId)
+      throw new Error("Could not clone the Playwright account credentials");
+
     await client.query(
       `INSERT INTO "EmailAccount"
         (id, email, name, signature, "createdAt", "updatedAt", "userId", "accountId")
