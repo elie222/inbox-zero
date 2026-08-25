@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { REQUIRED_SCOPES, SCOPES } from "./scopes";
 
 vi.mock("@/env", () => ({
   env: {
@@ -6,8 +7,6 @@ vi.mock("@/env", () => ({
     NEXT_PUBLIC_EMAIL_SEND_ENABLED: false,
   },
 }));
-
-import { REQUIRED_SCOPES, SCOPES } from "./scopes";
 
 describe("Outlook scopes", () => {
   it("requests read access to saved contacts when suggestions are enabled", () => {

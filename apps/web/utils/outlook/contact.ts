@@ -1,3 +1,4 @@
+import type { Contact } from "@microsoft/microsoft-graph-types";
 import type { Logger } from "@/utils/logger";
 import { withMicrosoftGraphRetry } from "@/utils/microsoft/retry";
 import type { OutlookClient } from "@/utils/outlook/client";
@@ -13,15 +14,8 @@ const CONTACTS_PAGE_SIZE = 50;
 // with few or no matches.
 const MAX_CONTACT_PAGES = 20;
 
-type OutlookContact = {
-  displayName?: string | null;
-  emailAddresses?: Array<{
-    address?: string | null;
-  }> | null;
-};
-
 type OutlookContactsPage = {
-  value?: OutlookContact[];
+  value?: Contact[];
   "@odata.nextLink"?: string;
 };
 
