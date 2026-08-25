@@ -1,12 +1,22 @@
+import type { Contact } from "@microsoft/microsoft-graph-types";
 import type { Logger } from "@/utils/logger";
 import { withMicrosoftGraphRetry } from "@/utils/microsoft/retry";
 import type { OutlookClient } from "@/utils/outlook/client";
-import { normalizeContactCandidates } from "@/utils/email/contact";
+import {
+  type EmailContact,
+  MAX_CONTACT_RESULTS,
+  normalizeContactCandidates,
+} from "@/utils/email/contact";
 
-type OutlookPerson = {
-  displayName?: string | null;
-  scoredEmailAddresses?: Array<{ address?: string | null }> | null;
-  userPrincipalName?: string | null;
+const CONTACTS_PAGE_SIZE = 50;
+// Graph contacts don't support substring filtering server-side, so we page
+// through saved contacts client-side; the cap bounds round-trips for queries
+// with few or no matches.
+const MAX_CONTACT_PAGES = 20;
+
+type OutlookContactsPage = {
+  value?: Contact[];
+  "@odata.nextLink"?: string;
 };
 
 export async function searchContacts(
@@ -14,35 +24,52 @@ export async function searchContacts(
   query: string,
   logger: Logger,
 ) {
-  let request = client
-    .getClient()
-    .api("/me/people")
-    .select("displayName,scoredEmailAddresses,userPrincipalName");
+  const graphClient = client.getClient();
+  const normalizedQuery = query.trim().toLowerCase();
+  const candidates: EmailContact[] = [];
+  let contacts: EmailContact[] = [];
+  let request = graphClient
+    .api("/me/contacts")
+    .select("displayName,emailAddresses")
+    .top(CONTACTS_PAGE_SIZE);
 
-  const trimmedQuery = query.trim();
-  if (trimmedQuery) request = request.search(trimmedQuery);
+  for (let pageIndex = 0; pageIndex < MAX_CONTACT_PAGES; pageIndex++) {
+    const page: OutlookContactsPage = await withMicrosoftGraphRetry(
+      () => request.get(),
+      logger,
+    );
+    for (const contact of page.value ?? []) {
+      const emailAddresses =
+        contact.emailAddresses?.flatMap((email) =>
+          email.address ? [email.address] : [],
+        ) ?? [];
+      const matchesQuery =
+        !normalizedQuery ||
+        contact.displayName?.toLowerCase().includes(normalizedQuery) ||
+        emailAddresses.some((emailAddress) =>
+          emailAddress.toLowerCase().includes(normalizedQuery),
+        );
 
-  const response: { value?: OutlookPerson[] } = await withMicrosoftGraphRetry(
-    () => request.top(10).get(),
-    logger,
-  );
+      if (!matchesQuery) continue;
 
-  return normalizeContactCandidates(
-    response.value?.flatMap((person) => {
-      const addresses = person.scoredEmailAddresses?.length
-        ? person.scoredEmailAddresses.map((email) => email.address)
-        : [person.userPrincipalName];
-
-      return addresses.flatMap((emailAddress) =>
-        emailAddress
-          ? [
-              {
-                emailAddress,
-                name: person.displayName ?? undefined,
-              },
-            ]
-          : [],
+      candidates.push(
+        ...emailAddresses.map((emailAddress) => ({
+          emailAddress,
+          name: contact.displayName ?? undefined,
+        })),
       );
-    }) ?? [],
-  );
+    }
+
+    contacts = normalizeContactCandidates(candidates, MAX_CONTACT_RESULTS);
+    if (contacts.length === MAX_CONTACT_RESULTS) return contacts;
+
+    const nextLink = page["@odata.nextLink"];
+    if (!nextLink) return contacts;
+    request = graphClient.api(nextLink);
+  }
+
+  logger.warn("Stopped Outlook contact search after max pages", {
+    maxPages: MAX_CONTACT_PAGES,
+  });
+  return contacts;
 }

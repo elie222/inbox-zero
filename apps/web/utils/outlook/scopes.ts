@@ -15,7 +15,7 @@ export const REQUIRED_SCOPES = [
 
 export const SCOPES = [
   ...REQUIRED_SCOPES,
-  ...(env.NEXT_PUBLIC_CONTACTS_ENABLED ? ["People.Read"] : []),
+  ...(env.NEXT_PUBLIC_CONTACTS_ENABLED ? ["Contacts.Read"] : []),
 ] as const;
 
 export const CALENDAR_SCOPES = [
