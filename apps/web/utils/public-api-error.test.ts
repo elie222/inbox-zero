@@ -1,13 +1,19 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ZodError } from "zod";
 import { SafeError } from "@/utils/error";
 import {
   createPublicApiErrorBody,
+  createPublicApiMethodNotAllowedHandler,
   isPublicApiPath,
   publicApiErrorCodeFromStatus,
   publicApiErrorFromUnknown,
   publicApiErrorResponse,
+  readPublicApiJson,
 } from "@/utils/public-api-error";
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 
 describe("public-api-error", () => {
   it("detects public API paths", () => {
@@ -22,6 +28,7 @@ describe("public-api-error", () => {
     expect(publicApiErrorCodeFromStatus(401)).toBe("UNAUTHORIZED");
     expect(publicApiErrorCodeFromStatus(403)).toBe("FORBIDDEN");
     expect(publicApiErrorCodeFromStatus(404)).toBe("NOT_FOUND");
+    expect(publicApiErrorCodeFromStatus(405)).toBe("METHOD_NOT_ALLOWED");
     expect(publicApiErrorCodeFromStatus(429)).toBe("RATE_LIMITED");
     expect(publicApiErrorCodeFromStatus(500)).toBe("INTERNAL_ERROR");
   });
@@ -49,7 +56,6 @@ describe("public-api-error", () => {
         {
           code: "invalid_type",
           expected: "string",
-          received: "undefined",
           path: ["name"],
           message: "Required",
         },
@@ -72,6 +78,31 @@ describe("public-api-error", () => {
     expect(authBody.error).toMatchObject({
       code: "UNAUTHORIZED",
       message: "Invalid API key",
+    });
+  });
+
+  it("rejects malformed JSON as a structured bad request", async () => {
+    const request = new Request("https://example.com/api/v1/rules", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{not-json",
+    });
+
+    await expect(readPublicApiJson(request)).rejects.toMatchObject({
+      safeMessage: "Request body must be valid JSON",
+      statusCode: 400,
+    });
+  });
+
+  it("returns structured method errors with an Allow header", async () => {
+    const response = createPublicApiMethodNotAllowedHandler(["GET", "POST"])();
+    const body = await response.json();
+
+    expect(response.status).toBe(405);
+    expect(response.headers.get("allow")).toBe("GET, POST");
+    expect(body.error).toMatchObject({
+      code: "METHOD_NOT_ALLOWED",
+      message: "Method not allowed",
     });
   });
 });

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
   OpenAPIRegistry,
-  OpenApiGeneratorV3,
+  OpenApiGeneratorV31,
   extendZodWithOpenApi,
 } from "@asteasolutions/zod-to-openapi";
 import {
@@ -42,6 +42,7 @@ const publicApiErrorSchema = z
         "UNAUTHORIZED",
         "FORBIDDEN",
         "NOT_FOUND",
+        "METHOD_NOT_ALLOWED",
         "RATE_LIMITED",
         "INTERNAL_ERROR",
       ]),
@@ -55,50 +56,9 @@ const API_KEY_SCOPE_DESCRIPTIONS = Object.fromEntries(
   API_KEY_SCOPE_OPTIONS.map((scope) => [scope.value, scope.description]),
 ) as Record<(typeof API_KEY_SCOPE_OPTIONS)[number]["value"], string>;
 
-function errorResponses(
-  statuses: Array<400 | 401 | 403 | 404 | 429 | 500>,
-): Record<
-  number,
-  {
-    description: string;
-    content: {
-      "application/json": {
-        schema: typeof publicApiErrorSchema;
-      };
-    };
-  }
-> {
-  const descriptions: Record<number, string> = {
-    400: "Invalid query, path, or request body",
-    401: "Missing, invalid, or expired API key",
-    403: "API key lacks a required scope or is not account-scoped",
-    404: "Resource or route not found",
-    429: "Rate limited by the API or email provider",
-    500: "Unexpected server error",
-  };
-
-  return Object.fromEntries(
-    statuses.map((status) => [
-      status,
-      {
-        description: descriptions[status],
-        content: {
-          "application/json": {
-            schema: publicApiErrorSchema,
-          },
-        },
-      },
-    ]),
-  );
-}
-
-function apiKeySecurity(scopes: ApiKeyScopeValue[]) {
-  return [{ ApiKeyAuth: scopes }];
-}
-
-export function createPublicOpenApiDocument(options?: { customHost?: string }) {
+export function createPublicOpenApiDocument() {
   const registry = createRegistry();
-  const generator = new OpenApiGeneratorV3(registry.definitions);
+  const generator = new OpenApiGeneratorV31(registry.definitions);
 
   return generator.generateDocument({
     openapi: "3.1.0",
@@ -114,23 +74,16 @@ export function createPublicOpenApiDocument(options?: { customHost?: string }) {
       ].join(" "),
     },
     servers: [
-      ...(options?.customHost
-        ? [{ url: `${options.customHost}/api/v1`, description: "Custom host" }]
-        : []),
       {
-        url: `${env.NEXT_PUBLIC_BASE_URL}/api/v1`,
+        url: `${env.NEXT_PUBLIC_BASE_URL.replace(/\/$/, "")}/api/v1`,
         description: "Primary server",
       },
-      { url: "http://localhost:3000/api/v1", description: "Local development" },
     ],
     security: [{ ApiKeyAuth: [] }],
   });
 }
 
-export function getPublicOpenApiResponse(options?: {
-  customHost?: string;
-  contentType?: string;
-}) {
+export function getPublicOpenApiResponse(options?: { contentType?: string }) {
   if (!env.NEXT_PUBLIC_EXTERNAL_API_ENABLED) {
     return NextResponse.json(
       createPublicApiErrorBody({
@@ -142,9 +95,7 @@ export function getPublicOpenApiResponse(options?: {
     );
   }
 
-  const docs = createPublicOpenApiDocument({
-    customHost: options?.customHost,
-  });
+  const docs = createPublicOpenApiDocument();
 
   return new NextResponse(JSON.stringify(docs), {
     headers: {
@@ -170,20 +121,7 @@ function createRegistry() {
         ([scope, description]) => `- ${scope}: ${description}`,
       ),
     ].join("\n"),
-  });
-
-  // Machine-readable scope catalog for agents. Auth still uses API-Key;
-  // this oauth2 scheme only declares scopes_supported-style metadata.
-  registry.registerComponent("securitySchemes", "ApiKeyScopes", {
-    type: "oauth2",
-    description:
-      "API key permission scopes. Create keys with selected scopes in the product Settings UI; send the key via the API-Key header (ApiKeyAuth).",
-    flows: {
-      clientCredentials: {
-        tokenUrl: PUBLIC_API_DOCS_URL,
-        scopes: API_KEY_SCOPE_DESCRIPTIONS,
-      },
-    },
+    "x-scopes": API_KEY_SCOPE_DESCRIPTIONS,
   });
 
   registry.registerPath({
@@ -193,6 +131,7 @@ function createRegistry() {
     description:
       "Get email statistics grouped by time period. Returns counts of emails by status (all, sent, read, unread, archived, unarchived) for each period.",
     security: apiKeySecurity(["STATS_READ"]),
+    "x-required-scopes": ["STATS_READ"],
     request: {
       query: statsByPeriodQuerySchema,
     },
@@ -205,7 +144,7 @@ function createRegistry() {
           },
         },
       },
-      ...errorResponses([400, 401, 403, 429, 500]),
+      ...errorResponses([400, 401, 403, 405, 429, 500]),
     },
   });
 
@@ -216,6 +155,7 @@ function createRegistry() {
     description:
       "Get email response time statistics. Returns summary stats, distribution, and trend data showing how quickly you respond to emails.",
     security: apiKeySecurity(["STATS_READ"]),
+    "x-required-scopes": ["STATS_READ"],
     request: {
       query: responseTimeQuerySchema,
     },
@@ -228,7 +168,7 @@ function createRegistry() {
           },
         },
       },
-      ...errorResponses([400, 401, 403, 429, 500]),
+      ...errorResponses([400, 401, 403, 405, 429, 500]),
     },
   });
 
@@ -238,6 +178,7 @@ function createRegistry() {
     operationId: "listRules",
     description: "List automation rules for the scoped inbox account.",
     security: apiKeySecurity(["RULES_READ"]),
+    "x-required-scopes": ["RULES_READ"],
     responses: {
       200: {
         description: "Successful response",
@@ -247,7 +188,7 @@ function createRegistry() {
           },
         },
       },
-      ...errorResponses([401, 403, 429, 500]),
+      ...errorResponses([401, 403, 405, 429, 500]),
     },
   });
 
@@ -257,6 +198,7 @@ function createRegistry() {
     operationId: "createRule",
     description: "Create an automation rule for the scoped inbox account.",
     security: apiKeySecurity(["RULES_WRITE"]),
+    "x-required-scopes": ["RULES_WRITE"],
     request: {
       body: {
         content: {
@@ -275,7 +217,7 @@ function createRegistry() {
           },
         },
       },
-      ...errorResponses([400, 401, 403, 429, 500]),
+      ...errorResponses([400, 401, 403, 405, 429, 500]),
     },
   });
 
@@ -285,6 +227,7 @@ function createRegistry() {
     operationId: "getRule",
     description: "Get a single automation rule for the scoped inbox account.",
     security: apiKeySecurity(["RULES_READ"]),
+    "x-required-scopes": ["RULES_READ"],
     request: {
       params: rulePathParamsSchema,
     },
@@ -297,7 +240,7 @@ function createRegistry() {
           },
         },
       },
-      ...errorResponses([400, 401, 403, 404, 429, 500]),
+      ...errorResponses([400, 401, 403, 404, 405, 429, 500]),
     },
   });
 
@@ -307,6 +250,7 @@ function createRegistry() {
     operationId: "replaceRule",
     description: "Replace an automation rule for the scoped inbox account.",
     security: apiKeySecurity(["RULES_WRITE"]),
+    "x-required-scopes": ["RULES_WRITE"],
     request: {
       params: rulePathParamsSchema,
       body: {
@@ -326,7 +270,7 @@ function createRegistry() {
           },
         },
       },
-      ...errorResponses([400, 401, 403, 404, 429, 500]),
+      ...errorResponses([400, 401, 403, 404, 405, 429, 500]),
     },
   });
 
@@ -336,6 +280,7 @@ function createRegistry() {
     operationId: "deleteRule",
     description: "Delete an automation rule for the scoped inbox account.",
     security: apiKeySecurity(["RULES_WRITE"]),
+    "x-required-scopes": ["RULES_WRITE"],
     request: {
       params: rulePathParamsSchema,
     },
@@ -343,9 +288,51 @@ function createRegistry() {
       204: {
         description: "Rule deleted",
       },
-      ...errorResponses([400, 401, 403, 404, 429, 500]),
+      ...errorResponses([400, 401, 403, 404, 405, 429, 500]),
     },
   });
 
   return registry;
+}
+
+function errorResponses(
+  statuses: Array<400 | 401 | 403 | 404 | 405 | 429 | 500>,
+): Record<
+  number,
+  {
+    description: string;
+    content: {
+      "application/json": {
+        schema: typeof publicApiErrorSchema;
+      };
+    };
+  }
+> {
+  const descriptions: Record<number, string> = {
+    400: "Invalid query, path, or request body",
+    401: "Missing, invalid, or expired API key",
+    403: "API key lacks a required scope or is not account-scoped",
+    404: "Resource or route not found",
+    405: "HTTP method is not supported for this route",
+    429: "Rate limited by the API or email provider",
+    500: "Unexpected server error",
+  };
+
+  return Object.fromEntries(
+    statuses.map((status) => [
+      status,
+      {
+        description: descriptions[status],
+        content: {
+          "application/json": {
+            schema: publicApiErrorSchema,
+          },
+        },
+      },
+    ]),
+  );
+}
+
+function apiKeySecurity(scopes: ApiKeyScopeValue[]) {
+  return [{ ApiKeyAuth: scopes }];
 }

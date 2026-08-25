@@ -9,7 +9,22 @@ import {
   ruleRequestBodySchema,
 } from "@/app/api/v1/rules/validation";
 import { assertCanUseDigestsIfNeeded } from "@/utils/premium/server";
-import { publicApiErrorResponse } from "@/utils/public-api-error";
+import {
+  createPublicApiMethodNotAllowedHandler,
+  publicApiErrorResponse,
+  readPublicApiJson,
+} from "@/utils/public-api-error";
+
+export const POST = createPublicApiMethodNotAllowedHandler([
+  "GET",
+  "PUT",
+  "DELETE",
+]);
+export const PATCH = createPublicApiMethodNotAllowedHandler([
+  "GET",
+  "PUT",
+  "DELETE",
+]);
 
 export const GET = withAccountApiKey(
   "v1/rules/detail",
@@ -41,7 +56,7 @@ export const PUT = withAccountApiKey(
   async (request, { params }) => {
     const { emailAccountId, provider, userId } = request.apiAuth;
     const routeParams = rulePathParamsSchema.parse(await params);
-    const body = ruleRequestBodySchema.parse(await request.json());
+    const body = ruleRequestBodySchema.parse(await readPublicApiJson(request));
     const ruleInput = toRuleWriteInput(body);
 
     const existingRule = await prisma.rule.findFirst({

@@ -99,6 +99,7 @@ API errors are returned as structured JSON:
 | `401` | `UNAUTHORIZED` | The `API-Key` header is missing, invalid, or expired |
 | `403` | `FORBIDDEN` | The key lacks a required scope or is not account-scoped |
 | `404` | `NOT_FOUND` | The requested route or rule does not exist |
+| `405` | `METHOD_NOT_ALLOWED` | The route exists, but does not support the requested HTTP method |
 | `429` | `RATE_LIMITED` | Rate limited by the API or email provider |
 | `500` | `INTERNAL_ERROR` | An unexpected server error occurred |
 

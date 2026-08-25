@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import staticOpenApiDocument from "../../../docs/openapi.json";
 
 vi.mock("@/env", () => ({
   env: {
@@ -23,24 +24,17 @@ describe("createPublicOpenApiDocument", () => {
     const docs = createPublicOpenApiDocument();
 
     expect(docs.openapi).toBe("3.1.0");
-    expect(docs.components?.securitySchemes?.ApiKeyAuth).toMatchObject({
+    const apiKeyAuth = docs.components?.securitySchemes?.ApiKeyAuth;
+    expect(apiKeyAuth).toMatchObject({
       type: "apiKey",
       name: "API-Key",
+      "x-scopes": {
+        STATS_READ: expect.any(String),
+        RULES_READ: expect.any(String),
+        RULES_WRITE: expect.any(String),
+      },
     });
-    expect(docs.components?.securitySchemes?.ApiKeyScopes).toMatchObject({
-      type: "oauth2",
-    });
-    expect(
-      (
-        docs.components?.securitySchemes?.ApiKeyScopes as {
-          flows?: { clientCredentials?: { scopes?: Record<string, string> } };
-        }
-      ).flows?.clientCredentials?.scopes,
-    ).toMatchObject({
-      STATS_READ: expect.any(String),
-      RULES_READ: expect.any(String),
-      RULES_WRITE: expect.any(String),
-    });
+    expect(docs.components?.securitySchemes).not.toHaveProperty("ApiKeyScopes");
 
     const operationIds: string[] = [];
     for (const pathItem of Object.values(docs.paths ?? {})) {
@@ -67,8 +61,38 @@ describe("createPublicOpenApiDocument", () => {
     expect(docs.paths?.["/stats/by-period"]?.get?.security).toEqual([
       { ApiKeyAuth: ["STATS_READ"] },
     ]);
+    expect(
+      docs.paths?.["/stats/by-period"]?.get?.["x-required-scopes"],
+    ).toEqual(["STATS_READ"]);
     expect(docs.paths?.["/rules"]?.post?.security).toEqual([
       { ApiKeyAuth: ["RULES_WRITE"] },
     ]);
+    expect(docs.paths?.["/rules"]?.post?.["x-required-scopes"]).toEqual([
+      "RULES_WRITE",
+    ]);
+    expect(docs.paths?.["/rules"]?.post?.responses?.["405"]).toBeTruthy();
+    expect(JSON.stringify(docs)).not.toContain('"nullable"');
+  });
+
+  it("only advertises configured servers", async () => {
+    const { createPublicOpenApiDocument } = await import(
+      "@/utils/public-openapi"
+    );
+    const docs = createPublicOpenApiDocument();
+
+    expect(docs.servers).toEqual([
+      {
+        url: "https://www.getinboxzero.com/api/v1",
+        description: "Primary server",
+      },
+    ]);
+  });
+
+  it("keeps the checked-in document in sync", async () => {
+    const { createPublicOpenApiDocument } = await import(
+      "@/utils/public-openapi"
+    );
+
+    expect(staticOpenApiDocument).toEqual(createPublicOpenApiDocument());
   });
 });

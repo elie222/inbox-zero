@@ -8,11 +8,7 @@
   "servers": [
     {
       "url": "https://www.getinboxzero.com/api/v1",
-      "description": "Production server"
-    },
-    {
-      "url": "http://localhost:3000/api/v1",
-      "description": "Local development"
+      "description": "Primary server"
     }
   ],
   "security": [
@@ -26,211 +22,15 @@
         "type": "apiKey",
         "in": "header",
         "name": "API-Key",
-        "description": "Account-scoped API key created in Settings.\nOperations declare the scopes they require.\nAvailable scopes:\n- RULES_READ: List and inspect automation rules for this inbox.\n- RULES_WRITE: Create, update, and delete automation rules for this inbox.\n- STATS_READ: Read aggregated inbox statistics for this inbox."
-      },
-      "ApiKeyScopes": {
-        "type": "oauth2",
-        "description": "API key permission scopes. Create keys with selected scopes in the product Settings UI; send the key via the API-Key header (ApiKeyAuth).",
-        "flows": {
-          "clientCredentials": {
-            "tokenUrl": "https://docs.getinboxzero.com/api-reference/introduction",
-            "scopes": {
-              "RULES_READ": "List and inspect automation rules for this inbox.",
-              "RULES_WRITE": "Create, update, and delete automation rules for this inbox.",
-              "STATS_READ": "Read aggregated inbox statistics for this inbox."
-            }
-          }
+        "description": "Account-scoped API key created in Settings.\nOperations declare the scopes they require.\nAvailable scopes:\n- RULES_READ: List and inspect automation rules for this inbox.\n- RULES_WRITE: Create, update, and delete automation rules for this inbox.\n- STATS_READ: Read aggregated inbox statistics for this inbox.",
+        "x-scopes": {
+          "RULES_READ": "List and inspect automation rules for this inbox.",
+          "RULES_WRITE": "Create, update, and delete automation rules for this inbox.",
+          "STATS_READ": "Read aggregated inbox statistics for this inbox."
         }
       }
     },
     "schemas": {
-      "ActionType": {
-        "type": "string",
-        "enum": [
-          "LABEL",
-          "ARCHIVE",
-          "MARK_READ",
-          "STAR",
-          "DRAFT_EMAIL",
-          "DRAFT_MESSAGING_CHANNEL",
-          "REPLY",
-          "FORWARD",
-          "SEND_EMAIL",
-          "MARK_SPAM",
-          "DIGEST",
-          "CALL_WEBHOOK",
-          "MOVE_FOLDER",
-          "NOTIFY_MESSAGING_CHANNEL",
-          "NOTIFY_SENDER",
-          "DELETE"
-        ]
-      },
-      "RuleCondition": {
-        "type": "object",
-        "properties": {
-          "conditionalOperator": {
-            "type": "string",
-            "enum": [
-              "AND",
-              "OR"
-            ],
-            "nullable": true
-          },
-          "aiInstructions": {
-            "type": "string",
-            "nullable": true
-          },
-          "static": {
-            "type": "object",
-            "nullable": true,
-            "properties": {
-              "from": {
-                "type": "string",
-                "nullable": true
-              },
-              "to": {
-                "type": "string",
-                "nullable": true
-              },
-              "subject": {
-                "type": "string",
-                "nullable": true
-              }
-            }
-          }
-        }
-      },
-      "RuleActionFields": {
-        "type": "object",
-        "properties": {
-          "label": {
-            "type": "string",
-            "nullable": true
-          },
-          "to": {
-            "type": "string",
-            "nullable": true
-          },
-          "cc": {
-            "type": "string",
-            "nullable": true
-          },
-          "bcc": {
-            "type": "string",
-            "nullable": true
-          },
-          "subject": {
-            "type": "string",
-            "nullable": true
-          },
-          "content": {
-            "type": "string",
-            "nullable": true
-          },
-          "webhookUrl": {
-            "type": "string",
-            "nullable": true
-          },
-          "folderName": {
-            "type": "string",
-            "nullable": true
-          }
-        }
-      },
-      "RuleAction": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "$ref": "#/components/schemas/ActionType"
-          },
-          "messagingChannelId": {
-            "type": "string",
-            "nullable": true
-          },
-          "fields": {
-            "$ref": "#/components/schemas/RuleActionFields"
-          },
-          "delayInMinutes": {
-            "type": "number",
-            "nullable": true
-          }
-        },
-        "required": [
-          "type"
-        ]
-      },
-      "Rule": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "enabled": {
-            "type": "boolean"
-          },
-          "runOnThreads": {
-            "type": "boolean"
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "condition": {
-            "$ref": "#/components/schemas/RuleCondition"
-          },
-          "actions": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/RuleAction"
-            }
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "enabled",
-          "runOnThreads",
-          "createdAt",
-          "updatedAt",
-          "condition",
-          "actions"
-        ]
-      },
-      "RuleRequestBody": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "minLength": 1
-          },
-          "runOnThreads": {
-            "type": "boolean",
-            "default": true
-          },
-          "condition": {
-            "$ref": "#/components/schemas/RuleCondition"
-          },
-          "actions": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/RuleAction"
-            },
-            "minItems": 1
-          }
-        },
-        "required": [
-          "name",
-          "condition",
-          "actions"
-        ]
-      },
       "PublicApiError": {
         "type": "object",
         "properties": {
@@ -244,6 +44,7 @@
                   "UNAUTHORIZED",
                   "FORBIDDEN",
                   "NOT_FOUND",
+                  "METHOD_NOT_ALLOWED",
                   "RATE_LIMITED",
                   "INTERNAL_ERROR"
                 ]
@@ -272,6 +73,7 @@
   "paths": {
     "/stats/by-period": {
       "get": {
+        "operationId": "getStatsByPeriod",
         "description": "Get email statistics grouped by time period. Returns counts of emails by status (all, sent, read, unread, archived, unarchived) for each period.",
         "security": [
           {
@@ -279,6 +81,9 @@
               "STATS_READ"
             ]
           }
+        ],
+        "x-required-scopes": [
+          "STATS_READ"
         ],
         "parameters": [
           {
@@ -298,8 +103,10 @@
           },
           {
             "schema": {
-              "type": "number",
-              "nullable": true
+              "type": [
+                "number",
+                "null"
+              ]
             },
             "required": false,
             "name": "fromDate",
@@ -307,8 +114,10 @@
           },
           {
             "schema": {
-              "type": "number",
-              "nullable": true
+              "type": [
+                "number",
+                "null"
+              ]
             },
             "required": false,
             "name": "toDate",
@@ -415,74 +224,8 @@
               }
             }
           },
-          "429": {
-            "description": "Rate limited by the API or email provider",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PublicApiError"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Unexpected server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PublicApiError"
-                }
-              }
-            }
-          }
-        },
-        "operationId": "getStatsByPeriod"
-      }
-    },
-    "/rules": {
-      "get": {
-        "description": "List automation rules for the scoped inbox account.",
-        "security": [
-          {
-            "ApiKeyAuth": [
-              "RULES_READ"
-            ]
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "rules": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/Rule"
-                      }
-                    }
-                  },
-                  "required": [
-                    "rules"
-                  ]
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Missing, invalid, or expired API key",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PublicApiError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "API key lacks a required scope or is not account-scoped",
+          "405": {
+            "description": "HTTP method is not supported for this route",
             "content": {
               "application/json": {
                 "schema": {
@@ -511,403 +254,12 @@
               }
             }
           }
-        },
-        "operationId": "listRules"
-      },
-      "post": {
-        "description": "Create an automation rule for the scoped inbox account.",
-        "security": [
-          {
-            "ApiKeyAuth": [
-              "RULES_WRITE"
-            ]
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RuleRequestBody"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "rule": {
-                      "$ref": "#/components/schemas/Rule"
-                    }
-                  },
-                  "required": [
-                    "rule"
-                  ]
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid query, path, or request body",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PublicApiError"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Missing, invalid, or expired API key",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PublicApiError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "API key lacks a required scope or is not account-scoped",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PublicApiError"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited by the API or email provider",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PublicApiError"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Unexpected server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PublicApiError"
-                }
-              }
-            }
-          }
-        },
-        "operationId": "createRule"
-      }
-    },
-    "/rules/{id}": {
-      "get": {
-        "description": "Get a single automation rule for the scoped inbox account.",
-        "security": [
-          {
-            "ApiKeyAuth": [
-              "RULES_READ"
-            ]
-          }
-        ],
-        "parameters": [
-          {
-            "schema": {
-              "type": "string"
-            },
-            "required": true,
-            "name": "id",
-            "in": "path"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "rule": {
-                      "$ref": "#/components/schemas/Rule"
-                    }
-                  },
-                  "required": [
-                    "rule"
-                  ]
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid query, path, or request body",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PublicApiError"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Missing, invalid, or expired API key",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PublicApiError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "API key lacks a required scope or is not account-scoped",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PublicApiError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Resource or route not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PublicApiError"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited by the API or email provider",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PublicApiError"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Unexpected server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PublicApiError"
-                }
-              }
-            }
-          }
-        },
-        "operationId": "getRule"
-      },
-      "put": {
-        "description": "Replace an automation rule for the scoped inbox account.",
-        "security": [
-          {
-            "ApiKeyAuth": [
-              "RULES_WRITE"
-            ]
-          }
-        ],
-        "parameters": [
-          {
-            "schema": {
-              "type": "string"
-            },
-            "required": true,
-            "name": "id",
-            "in": "path"
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RuleRequestBody"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "rule": {
-                      "$ref": "#/components/schemas/Rule"
-                    }
-                  },
-                  "required": [
-                    "rule"
-                  ]
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid query, path, or request body",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PublicApiError"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Missing, invalid, or expired API key",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PublicApiError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "API key lacks a required scope or is not account-scoped",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PublicApiError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Resource or route not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PublicApiError"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited by the API or email provider",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PublicApiError"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Unexpected server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PublicApiError"
-                }
-              }
-            }
-          }
-        },
-        "operationId": "replaceRule"
-      },
-      "delete": {
-        "description": "Delete an automation rule for the scoped inbox account.",
-        "security": [
-          {
-            "ApiKeyAuth": [
-              "RULES_WRITE"
-            ]
-          }
-        ],
-        "parameters": [
-          {
-            "schema": {
-              "type": "string"
-            },
-            "required": true,
-            "name": "id",
-            "in": "path"
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Rule deleted"
-          },
-          "400": {
-            "description": "Invalid query, path, or request body",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PublicApiError"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Missing, invalid, or expired API key",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PublicApiError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "API key lacks a required scope or is not account-scoped",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PublicApiError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Resource or route not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PublicApiError"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited by the API or email provider",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PublicApiError"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Unexpected server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PublicApiError"
-                }
-              }
-            }
-          }
-        },
-        "operationId": "deleteRule"
+        }
       }
     },
     "/stats/response-time": {
       "get": {
+        "operationId": "getStatsResponseTime",
         "description": "Get email response time statistics. Returns summary stats, distribution, and trend data showing how quickly you respond to emails.",
         "security": [
           {
@@ -916,11 +268,16 @@
             ]
           }
         ],
+        "x-required-scopes": [
+          "STATS_READ"
+        ],
         "parameters": [
           {
             "schema": {
-              "type": "number",
-              "nullable": true
+              "type": [
+                "number",
+                "null"
+              ]
             },
             "required": false,
             "name": "fromDate",
@@ -928,8 +285,10 @@
           },
           {
             "schema": {
-              "type": "number",
-              "nullable": true
+              "type": [
+                "number",
+                "null"
+              ]
             },
             "required": false,
             "name": "toDate",
@@ -957,8 +316,10 @@
                           "type": "number"
                         },
                         "previousPeriodComparison": {
-                          "type": "object",
-                          "nullable": true,
+                          "type": [
+                            "object",
+                            "null"
+                          ],
                           "properties": {
                             "medianResponseTime": {
                               "type": "number"
@@ -1020,8 +381,11 @@
                             "type": "string"
                           },
                           "periodDate": {
-                            "type": "string",
-                            "nullable": true
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time"
                           },
                           "medianResponseTime": {
                             "type": "number"
@@ -1086,6 +450,16 @@
               }
             }
           },
+          "405": {
+            "description": "HTTP method is not supported for this route",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
           "429": {
             "description": "Rate limited by the API or email provider",
             "content": {
@@ -1106,9 +480,1753 @@
               }
             }
           }
+        }
+      }
+    },
+    "/rules": {
+      "get": {
+        "operationId": "listRules",
+        "description": "List automation rules for the scoped inbox account.",
+        "security": [
+          {
+            "ApiKeyAuth": [
+              "RULES_READ"
+            ]
+          }
+        ],
+        "x-required-scopes": [
+          "RULES_READ"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "rules": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "enabled": {
+                            "type": "boolean"
+                          },
+                          "runOnThreads": {
+                            "type": "boolean"
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "updatedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "condition": {
+                            "type": "object",
+                            "properties": {
+                              "conditionalOperator": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "enum": [
+                                  "AND",
+                                  "OR",
+                                  null
+                                ]
+                              },
+                              "aiInstructions": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "static": {
+                                "type": "object",
+                                "properties": {
+                                  "from": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "to": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "subject": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "from",
+                                  "to",
+                                  "subject"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "conditionalOperator",
+                              "aiInstructions",
+                              "static"
+                            ]
+                          },
+                          "actions": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "type": {
+                                  "type": "string",
+                                  "enum": [
+                                    "LABEL",
+                                    "ARCHIVE",
+                                    "MARK_READ",
+                                    "STAR",
+                                    "DRAFT_EMAIL",
+                                    "DRAFT_MESSAGING_CHANNEL",
+                                    "REPLY",
+                                    "FORWARD",
+                                    "SEND_EMAIL",
+                                    "MARK_SPAM",
+                                    "DIGEST",
+                                    "CALL_WEBHOOK",
+                                    "MOVE_FOLDER",
+                                    "NOTIFY_MESSAGING_CHANNEL",
+                                    "NOTIFY_SENDER",
+                                    "DELETE",
+                                    "INTEGRATION"
+                                  ]
+                                },
+                                "messagingChannelId": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "format": "cuid"
+                                },
+                                "fields": {
+                                  "type": "object",
+                                  "properties": {
+                                    "label": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "to": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "cc": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "bcc": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "subject": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "content": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "webhookUrl": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "folderName": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "label",
+                                    "to",
+                                    "cc",
+                                    "bcc",
+                                    "subject",
+                                    "content",
+                                    "webhookUrl",
+                                    "folderName"
+                                  ]
+                                },
+                                "delayInMinutes": {
+                                  "type": [
+                                    "number",
+                                    "null"
+                                  ]
+                                },
+                                "integrationName": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "integrationToolName": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "integrationArgs": {
+                                  "type": [
+                                    "object",
+                                    "null"
+                                  ],
+                                  "additionalProperties": {}
+                                }
+                              },
+                              "required": [
+                                "type",
+                                "fields",
+                                "delayInMinutes",
+                                "integrationName",
+                                "integrationToolName",
+                                "integrationArgs"
+                              ]
+                            }
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "enabled",
+                          "runOnThreads",
+                          "createdAt",
+                          "updatedAt",
+                          "condition",
+                          "actions"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "rules"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key lacks a required scope or is not account-scoped",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "HTTP method is not supported for this route",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited by the API or email provider",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createRule",
+        "description": "Create an automation rule for the scoped inbox account.",
+        "security": [
+          {
+            "ApiKeyAuth": [
+              "RULES_WRITE"
+            ]
+          }
+        ],
+        "x-required-scopes": [
+          "RULES_WRITE"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "runOnThreads": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "condition": {
+                    "type": "object",
+                    "properties": {
+                      "conditionalOperator": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "enum": [
+                          "AND",
+                          "OR",
+                          null
+                        ]
+                      },
+                      "aiInstructions": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "static": {
+                        "type": [
+                          "object",
+                          "null"
+                        ],
+                        "properties": {
+                          "from": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "to": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "subject": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "actions": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "LABEL",
+                            "ARCHIVE",
+                            "MARK_READ",
+                            "STAR",
+                            "DRAFT_EMAIL",
+                            "DRAFT_MESSAGING_CHANNEL",
+                            "REPLY",
+                            "FORWARD",
+                            "SEND_EMAIL",
+                            "MARK_SPAM",
+                            "DIGEST",
+                            "CALL_WEBHOOK",
+                            "MOVE_FOLDER",
+                            "NOTIFY_MESSAGING_CHANNEL",
+                            "NOTIFY_SENDER",
+                            "DELETE"
+                          ]
+                        },
+                        "messagingChannelId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "cuid"
+                        },
+                        "fields": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "properties": {
+                            "label": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "to": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "cc": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "bcc": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "subject": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "content": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "webhookUrl": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "folderName": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          }
+                        },
+                        "delayInMinutes": {
+                          "type": [
+                            "number",
+                            "null"
+                          ],
+                          "minimum": 1,
+                          "maximum": 129600
+                        }
+                      },
+                      "required": [
+                        "type"
+                      ]
+                    },
+                    "minItems": 1
+                  }
+                },
+                "required": [
+                  "name",
+                  "condition",
+                  "actions"
+                ]
+              }
+            }
+          }
         },
-        "operationId": "getStatsResponseTime"
+        "responses": {
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "rule": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "runOnThreads": {
+                          "type": "boolean"
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "condition": {
+                          "type": "object",
+                          "properties": {
+                            "conditionalOperator": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "enum": [
+                                "AND",
+                                "OR",
+                                null
+                              ]
+                            },
+                            "aiInstructions": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "static": {
+                              "type": "object",
+                              "properties": {
+                                "from": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "to": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "subject": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "from",
+                                "to",
+                                "subject"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "conditionalOperator",
+                            "aiInstructions",
+                            "static"
+                          ]
+                        },
+                        "actions": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "LABEL",
+                                  "ARCHIVE",
+                                  "MARK_READ",
+                                  "STAR",
+                                  "DRAFT_EMAIL",
+                                  "DRAFT_MESSAGING_CHANNEL",
+                                  "REPLY",
+                                  "FORWARD",
+                                  "SEND_EMAIL",
+                                  "MARK_SPAM",
+                                  "DIGEST",
+                                  "CALL_WEBHOOK",
+                                  "MOVE_FOLDER",
+                                  "NOTIFY_MESSAGING_CHANNEL",
+                                  "NOTIFY_SENDER",
+                                  "DELETE",
+                                  "INTEGRATION"
+                                ]
+                              },
+                              "messagingChannelId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "format": "cuid"
+                              },
+                              "fields": {
+                                "type": "object",
+                                "properties": {
+                                  "label": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "to": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "cc": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "bcc": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "subject": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "content": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "webhookUrl": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "folderName": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "label",
+                                  "to",
+                                  "cc",
+                                  "bcc",
+                                  "subject",
+                                  "content",
+                                  "webhookUrl",
+                                  "folderName"
+                                ]
+                              },
+                              "delayInMinutes": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              },
+                              "integrationName": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "integrationToolName": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "integrationArgs": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "additionalProperties": {}
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "fields",
+                              "delayInMinutes",
+                              "integrationName",
+                              "integrationToolName",
+                              "integrationArgs"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "enabled",
+                        "runOnThreads",
+                        "createdAt",
+                        "updatedAt",
+                        "condition",
+                        "actions"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "rule"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query, path, or request body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key lacks a required scope or is not account-scoped",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "HTTP method is not supported for this route",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited by the API or email provider",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rules/{id}": {
+      "get": {
+        "operationId": "getRule",
+        "description": "Get a single automation rule for the scoped inbox account.",
+        "security": [
+          {
+            "ApiKeyAuth": [
+              "RULES_READ"
+            ]
+          }
+        ],
+        "x-required-scopes": [
+          "RULES_READ"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "rule": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "runOnThreads": {
+                          "type": "boolean"
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "condition": {
+                          "type": "object",
+                          "properties": {
+                            "conditionalOperator": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "enum": [
+                                "AND",
+                                "OR",
+                                null
+                              ]
+                            },
+                            "aiInstructions": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "static": {
+                              "type": "object",
+                              "properties": {
+                                "from": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "to": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "subject": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "from",
+                                "to",
+                                "subject"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "conditionalOperator",
+                            "aiInstructions",
+                            "static"
+                          ]
+                        },
+                        "actions": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "LABEL",
+                                  "ARCHIVE",
+                                  "MARK_READ",
+                                  "STAR",
+                                  "DRAFT_EMAIL",
+                                  "DRAFT_MESSAGING_CHANNEL",
+                                  "REPLY",
+                                  "FORWARD",
+                                  "SEND_EMAIL",
+                                  "MARK_SPAM",
+                                  "DIGEST",
+                                  "CALL_WEBHOOK",
+                                  "MOVE_FOLDER",
+                                  "NOTIFY_MESSAGING_CHANNEL",
+                                  "NOTIFY_SENDER",
+                                  "DELETE",
+                                  "INTEGRATION"
+                                ]
+                              },
+                              "messagingChannelId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "format": "cuid"
+                              },
+                              "fields": {
+                                "type": "object",
+                                "properties": {
+                                  "label": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "to": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "cc": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "bcc": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "subject": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "content": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "webhookUrl": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "folderName": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "label",
+                                  "to",
+                                  "cc",
+                                  "bcc",
+                                  "subject",
+                                  "content",
+                                  "webhookUrl",
+                                  "folderName"
+                                ]
+                              },
+                              "delayInMinutes": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              },
+                              "integrationName": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "integrationToolName": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "integrationArgs": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "additionalProperties": {}
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "fields",
+                              "delayInMinutes",
+                              "integrationName",
+                              "integrationToolName",
+                              "integrationArgs"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "enabled",
+                        "runOnThreads",
+                        "createdAt",
+                        "updatedAt",
+                        "condition",
+                        "actions"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "rule"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query, path, or request body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key lacks a required scope or is not account-scoped",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource or route not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "HTTP method is not supported for this route",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited by the API or email provider",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "replaceRule",
+        "description": "Replace an automation rule for the scoped inbox account.",
+        "security": [
+          {
+            "ApiKeyAuth": [
+              "RULES_WRITE"
+            ]
+          }
+        ],
+        "x-required-scopes": [
+          "RULES_WRITE"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "runOnThreads": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "condition": {
+                    "type": "object",
+                    "properties": {
+                      "conditionalOperator": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "enum": [
+                          "AND",
+                          "OR",
+                          null
+                        ]
+                      },
+                      "aiInstructions": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "static": {
+                        "type": [
+                          "object",
+                          "null"
+                        ],
+                        "properties": {
+                          "from": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "to": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "subject": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "actions": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "LABEL",
+                            "ARCHIVE",
+                            "MARK_READ",
+                            "STAR",
+                            "DRAFT_EMAIL",
+                            "DRAFT_MESSAGING_CHANNEL",
+                            "REPLY",
+                            "FORWARD",
+                            "SEND_EMAIL",
+                            "MARK_SPAM",
+                            "DIGEST",
+                            "CALL_WEBHOOK",
+                            "MOVE_FOLDER",
+                            "NOTIFY_MESSAGING_CHANNEL",
+                            "NOTIFY_SENDER",
+                            "DELETE"
+                          ]
+                        },
+                        "messagingChannelId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "cuid"
+                        },
+                        "fields": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "properties": {
+                            "label": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "to": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "cc": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "bcc": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "subject": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "content": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "webhookUrl": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "folderName": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          }
+                        },
+                        "delayInMinutes": {
+                          "type": [
+                            "number",
+                            "null"
+                          ],
+                          "minimum": 1,
+                          "maximum": 129600
+                        }
+                      },
+                      "required": [
+                        "type"
+                      ]
+                    },
+                    "minItems": 1
+                  }
+                },
+                "required": [
+                  "name",
+                  "condition",
+                  "actions"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "rule": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "runOnThreads": {
+                          "type": "boolean"
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "condition": {
+                          "type": "object",
+                          "properties": {
+                            "conditionalOperator": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "enum": [
+                                "AND",
+                                "OR",
+                                null
+                              ]
+                            },
+                            "aiInstructions": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "static": {
+                              "type": "object",
+                              "properties": {
+                                "from": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "to": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "subject": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "from",
+                                "to",
+                                "subject"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "conditionalOperator",
+                            "aiInstructions",
+                            "static"
+                          ]
+                        },
+                        "actions": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "LABEL",
+                                  "ARCHIVE",
+                                  "MARK_READ",
+                                  "STAR",
+                                  "DRAFT_EMAIL",
+                                  "DRAFT_MESSAGING_CHANNEL",
+                                  "REPLY",
+                                  "FORWARD",
+                                  "SEND_EMAIL",
+                                  "MARK_SPAM",
+                                  "DIGEST",
+                                  "CALL_WEBHOOK",
+                                  "MOVE_FOLDER",
+                                  "NOTIFY_MESSAGING_CHANNEL",
+                                  "NOTIFY_SENDER",
+                                  "DELETE",
+                                  "INTEGRATION"
+                                ]
+                              },
+                              "messagingChannelId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "format": "cuid"
+                              },
+                              "fields": {
+                                "type": "object",
+                                "properties": {
+                                  "label": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "to": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "cc": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "bcc": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "subject": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "content": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "webhookUrl": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "folderName": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "label",
+                                  "to",
+                                  "cc",
+                                  "bcc",
+                                  "subject",
+                                  "content",
+                                  "webhookUrl",
+                                  "folderName"
+                                ]
+                              },
+                              "delayInMinutes": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              },
+                              "integrationName": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "integrationToolName": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "integrationArgs": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "additionalProperties": {}
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "fields",
+                              "delayInMinutes",
+                              "integrationName",
+                              "integrationToolName",
+                              "integrationArgs"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "enabled",
+                        "runOnThreads",
+                        "createdAt",
+                        "updatedAt",
+                        "condition",
+                        "actions"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "rule"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query, path, or request body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key lacks a required scope or is not account-scoped",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource or route not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "HTTP method is not supported for this route",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited by the API or email provider",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteRule",
+        "description": "Delete an automation rule for the scoped inbox account.",
+        "security": [
+          {
+            "ApiKeyAuth": [
+              "RULES_WRITE"
+            ]
+          }
+        ],
+        "x-required-scopes": [
+          "RULES_WRITE"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Rule deleted"
+          },
+          "400": {
+            "description": "Invalid query, path, or request body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key lacks a required scope or is not account-scoped",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource or route not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "HTTP method is not supported for this route",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited by the API or email provider",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicApiError"
+                }
+              }
+            }
+          }
+        }
       }
     }
-  }
+  },
+  "webhooks": {}
 }

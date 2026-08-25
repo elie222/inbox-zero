@@ -1,5 +1,13 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiClient, buildApiUrl, normalizeBaseUrl } from "./client";
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("normalizeBaseUrl", () => {
   it("appends the API path when given a site origin", () => {
@@ -70,6 +78,5 @@ describe("ApiClient errors", () => {
     });
 
     await expect(client.get("/rules")).rejects.toThrow("Missing API key");
-    vi.unstubAllGlobals();
   });
 });

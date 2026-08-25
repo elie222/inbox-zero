@@ -1,12 +1,14 @@
 import { withError } from "@/utils/middleware";
 import { getPublicOpenApiResponse } from "@/utils/public-openapi";
+import { createPublicApiMethodNotAllowedHandler } from "@/utils/public-api-error";
 
-export const GET = withError("v1/openapi", async (request) => {
-  const { searchParams } = new URL(request.url);
-  const customHost = searchParams.get("host") ?? undefined;
+export const POST = createPublicApiMethodNotAllowedHandler(["GET"]);
+export const PUT = createPublicApiMethodNotAllowedHandler(["GET"]);
+export const PATCH = createPublicApiMethodNotAllowedHandler(["GET"]);
+export const DELETE = createPublicApiMethodNotAllowedHandler(["GET"]);
 
-  return getPublicOpenApiResponse({
-    customHost,
+export const GET = withError("v1/openapi", async () =>
+  getPublicOpenApiResponse({
     contentType: "application/json",
-  });
-});
+  }),
+);
