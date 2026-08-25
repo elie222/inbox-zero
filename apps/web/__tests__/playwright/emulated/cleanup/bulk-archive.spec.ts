@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import {
   CLEANUP_ARCHIVE_THREAD_ID,
   CLEANUP_KEEP_THREAD_ID,
@@ -27,6 +27,7 @@ test.afterEach(async () => {
 test("archives only selected senders from a category", async ({ page }) => {
   test.setTimeout(360_000);
   if (!fixture) throw new Error("Cleanup fixture was not initialized");
+  await stubMailboxSync(page, fixture.emailAccountId);
   await openCleanupFeature(page, fixture, "bulk-archive");
   await expect(page.getByRole("heading", { name: "Bulk Archive" })).toBeVisible(
     { timeout: 60_000 },
@@ -62,3 +63,20 @@ test("archives only selected senders from a category", async ({ page }) => {
     conversations.getByText("Cleanup Category Keep Candidate", { exact: true }),
   ).toBeVisible();
 });
+
+function stubMailboxSync(page: Page, emailAccountId: string) {
+  return page.route("**/api/mobile/mailbox-sync", (route) =>
+    route.fulfill({
+      body: JSON.stringify({
+        accountId: emailAccountId,
+        cursor: "playwright-cleanup-sync",
+        deletedMessageIds: [],
+        hasMore: false,
+        reset: false,
+        upsertedMessages: [],
+      }),
+      contentType: "application/json",
+      status: 200,
+    }),
+  );
+}
