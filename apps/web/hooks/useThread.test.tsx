@@ -16,8 +16,8 @@ vi.mock("@/providers/EmailAccountProvider", () => ({
 }));
 
 vi.mock("@/utils/email-cache/threads", () => ({
-  readCachedThread: cache.read,
-  writeCachedThread: cache.write,
+  readCachedThreadDetail: cache.read,
+  writeCachedThreadDetail: cache.write,
 }));
 
 describe("useThread", () => {
@@ -61,7 +61,41 @@ describe("useThread", () => {
     network.resolve({
       thread: { id: "thread-1", messages: [{ id: "network" }] },
     });
+    await waitFor(() =>
+      expect(result.current.data?.thread.messages[0]?.id).toBe("network"),
+    );
     await waitFor(() => expect(cache.write).toHaveBeenCalled());
+  });
+
+  it("falls back to the network when no cached detail exists", async () => {
+    const network = Promise.withResolvers<unknown>();
+    cache.read.mockResolvedValue(undefined);
+    const fetcher = vi.fn(() => network.promise);
+
+    const { result } = renderHook(() => useThread({ id: "thread-1" }), {
+      wrapper: createWrapper(fetcher),
+    });
+
+    expect(result.current.data).toBeUndefined();
+    expect(result.current.isLoading).toBe(true);
+
+    network.resolve({
+      thread: { id: "thread-1", messages: [{ id: "network-only" }] },
+    });
+
+    await waitFor(() =>
+      expect(result.current.data?.thread.messages[0]?.id).toBe("network-only"),
+    );
+    expect(result.current.isLoading).toBe(false);
+    expect(cache.write).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          thread: { id: "thread-1", messages: [{ id: "network-only" }] },
+        },
+        emailAccountId: "account-1",
+        threadId: "thread-1",
+      }),
+    );
   });
 
   it("never lets a late disk read overwrite fresher network data", async () => {

@@ -11,6 +11,7 @@ import {
 import useSWRInfinite from "swr/infinite";
 import type { ListThread } from "@/app/(app)/[emailAccountId]/mail/types";
 import type { ThreadsListResponse } from "@/app/api/threads/route";
+import { trackMailboxListReady } from "@/utils/email-cache/analytics";
 import { createThreadListCacheKey } from "@/utils/email-cache/keys";
 import {
   readCachedThreadList,
@@ -20,11 +21,16 @@ import {
   writeCachedThreadRows,
 } from "@/utils/email-cache/thread-lists";
 import { restoreThreadOrder } from "@/utils/email-cache/thread-order";
+import { getThreadTimestamp } from "@/utils/threads/sort";
 import {
   EMAIL_CACHE_MEASURES,
   finishEmailCacheMeasure,
   startEmailCacheMeasure,
 } from "@/utils/email-cache/telemetry";
+import {
+  readSyncedMailboxThreads,
+  subscribeToMailboxStore,
+} from "@/utils/email-cache/mailbox";
 import type { ThreadsQuery } from "@/utils/threads/validation";
 import { createSearchParams } from "@/utils/url";
 
@@ -51,6 +57,15 @@ type PersistentView = {
   cachedAt: number;
   hasMore: boolean;
   threads: ListThread[];
+};
+
+type SyncedView = {
+  identity: string;
+  after: string;
+  complete: boolean;
+  syncedAt: number;
+  threads: ListThread[];
+  truncated: boolean;
 };
 
 export function useMailThreads({
@@ -92,6 +107,7 @@ export function useMailThreads({
       revalidateFirstPage: false,
     });
   const [persistent, setPersistent] = useState<PersistentView>();
+  const [synced, setSynced] = useState<SyncedView>();
   const [paginationRequestIdentity, setPaginationRequestIdentity] =
     useState<string>();
   const paginationRetryIdentity = useRef<string | undefined>(undefined);
@@ -102,11 +118,33 @@ export function useMailThreads({
   const pendingReconciliationWrites = useRef(0);
   const [, renderHiddenChanges] = useReducer((version) => version + 1, 0);
   const remoteIdentity = useRef<string | undefined>(undefined);
+  const remoteSnapshot = useRef<{
+    firstPage?: ThreadsListResponse;
+    loadedAt: number;
+  }>({ loadedAt: 0 });
+  const queryRef = useRef(query);
   // Auto-load can fire from the cursor and the bottom sentinel in the same
   // tick; two setSize(+1) calls would skip a page token.
   const loadMoreLock = useRef(false);
+  const listReadyMeasurement = useRef({
+    identity: viewIdentity,
+    reported: false,
+    startedAt: performance.now(),
+  });
+
+  if (listReadyMeasurement.current.identity !== viewIdentity) {
+    listReadyMeasurement.current = {
+      identity: viewIdentity,
+      reported: false,
+      startedAt: performance.now(),
+    };
+  }
 
   remoteIdentity.current = data?.[0] ? viewIdentity : undefined;
+  queryRef.current = query;
+  if (data?.[0] && remoteSnapshot.current.firstPage !== data[0]) {
+    remoteSnapshot.current = { firstPage: data[0], loadedAt: Date.now() };
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -127,6 +165,35 @@ export function useMailThreads({
     };
   }, [emailAccountId, viewIdentity, viewKey]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const loadSyncedView = () => {
+      readSyncedMailboxThreads({
+        emailAccountId,
+        query: queryRef.current,
+      }).then((snapshot) => {
+        if (cancelled || !snapshot) return;
+        setSynced({
+          identity: viewIdentity,
+          after: snapshot.after,
+          complete: snapshot.complete,
+          syncedAt: snapshot.syncedAt,
+          threads: snapshot.threads,
+          truncated: snapshot.truncated,
+        });
+      });
+    };
+    const unsubscribe = subscribeToMailboxStore((changedAccountId) => {
+      if (changedAccountId === emailAccountId) loadSyncedView();
+    });
+    loadSyncedView();
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [emailAccountId, viewIdentity]);
+
   const hiddenThreadIds =
     hiddenByView.current.get(viewIdentity) ?? EMPTY_THREAD_IDS;
   const remoteThreads = useMemo(
@@ -135,12 +202,53 @@ export function useMailThreads({
   );
   const persistentThreads =
     persistent?.identity === viewIdentity ? persistent.threads : undefined;
-  const sourceThreads = remoteThreads ?? persistentThreads;
+  const syncedThreads =
+    synced?.identity === viewIdentity &&
+    (synced.complete || synced.threads.length > 0)
+      ? synced.threads
+      : undefined;
+  const sourceThreads = useMemo(
+    () =>
+      remoteThreads &&
+      syncedThreads &&
+      synced?.complete &&
+      synced.syncedAt > remoteSnapshot.current.loadedAt
+        ? mergeSyncedThreads({
+            remoteThreads,
+            syncedThreads,
+            syncedAfter: synced.after,
+            syncedTruncated: synced.truncated,
+          })
+        : (remoteThreads ?? syncedThreads ?? persistentThreads),
+    [
+      persistentThreads,
+      remoteThreads,
+      synced?.after,
+      synced?.complete,
+      synced?.syncedAt,
+      synced?.truncated,
+      syncedThreads,
+    ],
+  );
+  let readySource: "mailbox" | "persistent" | "remote" | undefined;
+  if (remoteThreads) readySource = "remote";
+  else if (syncedThreads) readySource = "mailbox";
+  else if (persistentThreads) readySource = "persistent";
   const threads = useMemo(
     () =>
       sourceThreads?.filter((thread) => !hiddenThreadIds.has(thread.id)) ?? [],
     [hiddenThreadIds, sourceThreads],
   );
+
+  useEffect(() => {
+    if (!readySource || listReadyMeasurement.current.reported) return;
+    listReadyMeasurement.current.reported = true;
+    trackMailboxListReady({
+      durationMs: performance.now() - listReadyMeasurement.current.startedAt,
+      source: readySource,
+      threadCount: sourceThreads?.length ?? 0,
+    });
+  }, [readySource, sourceThreads]);
 
   useEffect(() => {
     const firstPage = data?.[0];
@@ -219,8 +327,8 @@ export function useMailThreads({
           }
         }
       } else {
-        const threadOrder = persistentThreads?.map((thread) => thread.id) ?? [];
-        for (const [index, thread] of (persistentThreads ?? []).entries()) {
+        const threadOrder = sourceThreads?.map((thread) => thread.id) ?? [];
+        for (const [index, thread] of (sourceThreads ?? []).entries()) {
           if (targets.has(thread.id) && !alreadyHidden.has(thread.id)) {
             entries.set(thread.id, {
               thread,
@@ -269,7 +377,7 @@ export function useMailThreads({
 
       return { viewIdentity, entries };
     },
-    [data, emailAccountId, mutate, persistentThreads, viewIdentity, viewKey],
+    [data, emailAccountId, mutate, sourceThreads, viewIdentity, viewKey],
   );
 
   const restoreThreads = useCallback(
@@ -293,6 +401,14 @@ export function useMailThreads({
       );
       renderHiddenChanges();
       setPersistent((current) =>
+        current?.identity === viewIdentity
+          ? {
+              ...current,
+              threads: insertRestoredThreads(current.threads, restoring),
+            }
+          : current,
+      );
+      setSynced((current) =>
         current?.identity === viewIdentity
           ? {
               ...current,
@@ -385,6 +501,14 @@ export function useMailThreads({
               }
             : current,
         );
+        setSynced((current) =>
+          current?.identity === viewIdentity
+            ? {
+                ...current,
+                threads: replaceThreads(current.threads, updates),
+              }
+            : current,
+        );
         const localUpdate = mutate(
           (pages) =>
             pages?.map((page) => ({
@@ -449,7 +573,9 @@ export function useMailThreads({
 
   const hasMore = data
     ? Boolean(data.at(-1)?.nextPageToken)
-    : persistent?.identity === viewIdentity && persistent.hasMore;
+    : persistent?.identity === viewIdentity
+      ? persistent.hasMore
+      : Boolean(syncedThreads?.length);
 
   useEffect(() => {
     const loadedPageCount = data?.length ?? 0;
@@ -466,8 +592,8 @@ export function useMailThreads({
 
   return {
     threads,
-    isLoading: isLoading && !sourceThreads,
-    error: sourceThreads ? undefined : error,
+    isLoading: isLoading && !sourceThreads?.length,
+    error: sourceThreads?.length ? undefined : error,
     hasMore: Boolean(hasMore),
     isLoadingMore:
       paginationRequestIdentity === viewIdentity ||
@@ -496,6 +622,50 @@ export function useMailThreads({
 }
 
 const EMPTY_THREAD_IDS = new Set<string>();
+
+function mergeSyncedThreads({
+  remoteThreads,
+  syncedThreads,
+  syncedAfter,
+  syncedTruncated,
+}: {
+  remoteThreads: ListThread[];
+  syncedThreads: ListThread[];
+  syncedAfter: string;
+  syncedTruncated: boolean;
+}) {
+  const syncedAfterTimestamp = new Date(syncedAfter).getTime();
+  const oldestSyncedTimestamp = Math.min(
+    ...syncedThreads.map(getThreadTimestamp),
+  );
+  const authoritativeCutoff = syncedTruncated
+    ? Math.max(syncedAfterTimestamp, oldestSyncedTimestamp)
+    : syncedAfterTimestamp;
+  const remoteThreadsById = new Map(
+    remoteThreads.map((thread) => [thread.id, thread]),
+  );
+  const threadsById = new Map(
+    remoteThreads
+      .filter((thread) => {
+        const timestamp = getThreadTimestamp(thread);
+        return syncedTruncated
+          ? timestamp <= authoritativeCutoff
+          : timestamp < authoritativeCutoff;
+      })
+      .map((thread) => [thread.id, thread]),
+  );
+  for (const thread of syncedThreads) {
+    const remoteThread = remoteThreadsById.get(thread.id);
+    threadsById.set(thread.id, {
+      ...thread,
+      plan: remoteThread?.plan ?? thread.plan,
+      plans: remoteThread?.plans ?? thread.plans,
+    });
+  }
+  return [...threadsById.values()].sort(
+    (left, right) => getThreadTimestamp(right) - getThreadTimestamp(left),
+  );
+}
 
 function replaceThreads(
   threads: ListThread[],

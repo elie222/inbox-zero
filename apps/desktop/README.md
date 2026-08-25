@@ -29,17 +29,21 @@ pnpm --filter @inboxzero/desktop dist:mac
 pnpm --filter @inboxzero/desktop dist:win
 ```
 
-Installers land in `apps/desktop/release/`. Unsigned local builds are fine for testing; macOS Gatekeeper will warn until the app is signed and notarized.
+Installers land in `apps/desktop/release/`. Use `pnpm dev` for unsigned local testing; packaged macOS builds require the Developer ID certificate configured below.
+
+The Mac app is distributed directly as a signed and notarized DMG/ZIP. It is not a Mac App Store build, so it does not use Apple's App Sandbox or Mac App Store update and payment policies.
 
 ## Release
 
 Push a `desktop-v*` tag or run the **Desktop Release** workflow. That builds macOS (dmg/zip, arm64 + x64) and Windows (NSIS, x64 + arm64) and can publish a GitHub Release.
 
-Signing is optional until these GitHub secrets exist:
+The macOS release requires these GitHub secrets:
 
 - `MAC_CSC_LINK` / `MAC_CSC_KEY_PASSWORD` — Developer ID Application `.p12` (base64) for signed Mac builds
-- `WIN_CSC_LINK` / `WIN_CSC_KEY_PASSWORD` — Windows Authenticode `.p12` (base64)
+- `APPLE_API_KEY_ID` / `APPLE_API_ISSUER` / `APPLE_API_KEY_P8` / `APPLE_TEAM_ID` — Apple credentials used to notarize the signed build
 
-Signing secrets do not notarize. `mac.notarize` is hardcoded off in `electron-builder.yml`; Gatekeeper still warns until that is turned on with Apple notarization credentials. Same Apple Developer team as the iOS app can issue the Developer ID certificate; that is not a Mac App Store build.
+Windows signing uses `WIN_CSC_LINK` / `WIN_CSC_KEY_PASSWORD` for the Authenticode `.p12`.
+
+`electron-builder.yml` keeps `mac.notarize` enabled. App Store Connect API credentials are also accepted by Apple's notarization service; using them here does not make the output a Mac App Store build.
 
 Packaged apps check `https://github.com/elie222/inbox-zero/releases/download/desktop-updates` for `latest-mac.yml` / `latest.yml`. That feed is a stable GitHub release; the installers stay on `desktop-v*` releases.

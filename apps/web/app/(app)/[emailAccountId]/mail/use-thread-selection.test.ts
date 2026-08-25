@@ -21,6 +21,15 @@ describe("useThreadSelection", () => {
     expect(result.current.hasSelection).toBe(false);
   });
 
+  it("selects every row in the current mail view", () => {
+    const { result } = setup();
+
+    act(() => result.current.toggle(2));
+    act(() => result.current.selectAll());
+
+    expect([...result.current.selectedIds]).toEqual(IDS);
+  });
+
   it("shift-clicks a range from the last toggled row", () => {
     const { result } = setup();
 

@@ -1,9 +1,8 @@
-import { z } from "zod";
 import type { gmail_v1 } from "@googleapis/gmail";
 import MailComposer from "nodemailer/lib/mail-composer";
 import type Mail from "nodemailer/lib/mailer";
 import type { Attachment } from "nodemailer/lib/mailer";
-import { type WithMailerAttachments, zodAttachment } from "@/utils/types/mail";
+import type { SendEmailBody, WithMailerAttachments } from "@/utils/types/mail";
 import { convertEmailHtmlToText } from "@/utils/mail";
 import {
   forwardEmailHtml,
@@ -31,25 +30,6 @@ import {
 
 const logger = createScopedLogger("gmail/mail");
 
-export const sendEmailBody = z.object({
-  replyToEmail: z
-    .object({
-      threadId: z.string(),
-      headerMessageId: z.string(), // this is different to the gmail message id and looks something like <123...abc@mail.example.com>
-      references: z.string().optional(), // for threading
-      messageId: z.string().optional(), // platform-specific message ID (Graph ID for Outlook)
-    })
-    .optional(),
-  to: z.string(),
-  from: z.string().optional(),
-  cc: z.string().optional(),
-  bcc: z.string().optional(),
-  replyTo: z.string().optional(),
-  subject: z.string(),
-  messageHtml: z.string(),
-  attachments: z.array(zodAttachment).optional(),
-});
-export type SendEmailBody = z.infer<typeof sendEmailBody>;
 type MailSendEmailBody = WithMailerAttachments<SendEmailBody>;
 
 const encodeMessage = (message: Buffer) =>
@@ -61,7 +41,9 @@ const encodeMessage = (message: Buffer) =>
 
 export const createMail = async (options: Mail.Options) => {
   const mailComposer = new MailComposer(options);
-  const message = await mailComposer.compile().build();
+  const compiledMessage = mailComposer.compile();
+  compiledMessage.keepBcc = true;
+  const message = await compiledMessage.build();
   return encodeMessage(message);
 };
 

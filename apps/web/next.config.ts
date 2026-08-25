@@ -41,6 +41,9 @@ const nextConfig: NextConfig = {
           // API while on TypeScript 6 so next build keeps filtering test/
           // mock diagnostics instead of failing on known test-only debt.
           useTypeScriptCli: false,
+          serverActions: {
+            bodySizeLimit: "26mb",
+          },
           ...(isDevelopment
             ? {
                 // This app has a large route graph. Avoid front-loading all

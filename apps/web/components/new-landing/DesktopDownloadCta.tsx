@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Apple, Download, Monitor } from "lucide-react";
+import { Download, Monitor } from "lucide-react";
 import { BlurFade } from "@/components/new-landing/common/BlurFade";
 import { Button } from "@/components/new-landing/common/Button";
 import { Paragraph } from "@/components/new-landing/common/Typography";
+import { Apple } from "@/components/new-landing/icons/Apple";
 import {
   DESKTOP_GITHUB_REPO,
   detectDesktopClientPlatform,

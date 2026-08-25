@@ -13,3 +13,12 @@ export type MailLayoutMode = "list" | "split";
 export function getListThreadKey(thread: ListThread) {
   return "account" in thread ? `${thread.account.id}:${thread.id}` : thread.id;
 }
+
+export function getListThreadMessageIds(thread: {
+  messageIds?: string[];
+  messages: Array<{ id: string }>;
+}) {
+  return thread.messageIds?.length
+    ? thread.messageIds
+    : thread.messages.map((message) => message.id);
+}

@@ -1,5 +1,38 @@
 import { expect, test } from "@playwright/test";
+import { getEmailAccountId } from "../account-test-helpers";
 import { conversationWithSubject, openMail } from "./mail-test-helpers";
+
+test("starts mailbox warming from the app shell before mail opens", async ({
+  page,
+}) => {
+  const emailAccountId = await getEmailAccountId(page);
+  const syncAccountIds = new Set<string>();
+
+  await page.route("**/api/mobile/mailbox-sync", async (route) => {
+    const syncAccountId = await route
+      .request()
+      .headerValue("X-Email-Account-ID");
+    if (syncAccountId) syncAccountIds.add(syncAccountId);
+    await route.fulfill({
+      body: JSON.stringify({
+        accountId: syncAccountId ?? emailAccountId,
+        cursor: `${syncAccountId ?? emailAccountId}-cursor`,
+        deletedMessageIds: [],
+        hasMore: false,
+        reset: false,
+        upsertedMessages: [],
+      }),
+      contentType: "application/json",
+      status: 200,
+    });
+  });
+
+  await page.goto(`/${emailAccountId}/settings`);
+  await expect(
+    page.getByRole("heading", { name: "Settings", exact: true }),
+  ).toBeVisible();
+  await expect.poll(() => [...syncAccountIds]).toContain(emailAccountId);
+});
 
 test("opens a complete conversation and updates its read state", async ({
   page,
@@ -51,6 +84,54 @@ test("opens a complete conversation and updates its read state", async ({
   await expect(page).not.toHaveURL(/thread-id=/);
 });
 
+test("opening a prefetched conversation reuses the in-flight detail request", async ({
+  page,
+}) => {
+  let threadDetailRequestCount = 0;
+  const releaseFirstRequest = Promise.withResolvers<void>();
+
+  await page.route(
+    "**/api/threads/thr_playwright_reader?includeDrafts=true",
+    async (route) => {
+      threadDetailRequestCount += 1;
+      const responsePromise = route.fetch();
+      if (threadDetailRequestCount === 1) {
+        await releaseFirstRequest.promise;
+      }
+      const response = await responsePromise;
+      await route.fulfill({ response });
+    },
+  );
+  const { conversations } = await openMail(page);
+
+  const readerConversation = conversationWithSubject(
+    page,
+    conversations,
+    "Re: Reader Navigation Message",
+  );
+  await readerConversation.hover();
+  await expect.poll(() => threadDetailRequestCount).toBe(1);
+
+  await readerConversation.click();
+  await expect(
+    page.getByRole("heading", { name: "Re: Reader Navigation Message" }),
+  ).toBeVisible();
+  await expect(page.getByTestId("thread-reader")).toHaveAttribute(
+    "data-detail-selection-settled",
+    "true",
+  );
+  expect(threadDetailRequestCount).toBe(1);
+  releaseFirstRequest.resolve();
+
+  await expect(
+    page.getByRole("heading", { name: "Re: Reader Navigation Message" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("First message in the reader conversation."),
+  ).toBeVisible();
+  expect(threadDetailRequestCount).toBe(1);
+});
+
 test("filters the mail list by state, category, and label", async ({
   page,
 }) => {
@@ -98,7 +179,7 @@ test("navigates drafts and sent mail from the sidebar", async ({ page }) => {
   await expect(draft).toHaveCount(0);
 });
 
-test("creates a label and shows every keyboard workflow", async ({
+test("creates and edits a label and shows every keyboard workflow", async ({
   page,
 }, testInfo) => {
   await openMail(page);
@@ -109,6 +190,31 @@ test("creates a label and shows every keyboard workflow", async ({
   await page.getByRole("button", { name: "Add", exact: true }).click();
   await expect(
     page.getByRole("link", { name: labelName, exact: true }),
+  ).toBeVisible();
+
+  await page
+    .getByRole("link", { name: labelName, exact: true })
+    .click({ button: "right" });
+  const editMenuItem = page.getByRole("menuitem", { name: "Edit" });
+  await expect(editMenuItem).toBeVisible();
+  await testInfo.attach("gmail-label-context-menu", {
+    body: await page.screenshot(),
+    contentType: "image/png",
+  });
+  await editMenuItem.click();
+  const editDialog = page.getByRole("dialog", { name: "Edit label" });
+  const updatedLabelName = `${labelName} edited`;
+  await editDialog
+    .getByRole("textbox", { name: "label name" })
+    .fill(updatedLabelName);
+  await editDialog.getByRole("radio", { name: "Dark blue" }).click();
+  await testInfo.attach("gmail-label-editor", {
+    body: await page.screenshot(),
+    contentType: "image/png",
+  });
+  await editDialog.getByRole("button", { name: "Save" }).click();
+  await expect(
+    page.getByRole("link", { name: updatedLabelName, exact: true }),
   ).toBeVisible();
 
   await page.getByRole("button", { name: /^Keyboard shortcuts/ }).click();

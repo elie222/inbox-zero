@@ -84,6 +84,16 @@ vi.mock("@/utils/auth", () => ({
 }));
 
 vi.mock("@/utils/outlook/scopes", () => ({
+  REQUIRED_SCOPES: [
+    "openid",
+    "profile",
+    "email",
+    "User.Read",
+    "offline_access",
+    "Mail.ReadWrite",
+    "Mail.Send",
+    "MailboxSettings.ReadWrite",
+  ],
   SCOPES: [
     "openid",
     "profile",
@@ -92,6 +102,7 @@ vi.mock("@/utils/outlook/scopes", () => ({
     "offline_access",
     "Mail.ReadWrite",
     "Mail.Send",
+    "People.Read",
     "MailboxSettings.ReadWrite",
   ],
 }));
@@ -169,7 +180,7 @@ describe("outlook linking callback route", () => {
     expect(mockClearOAuthCode).toHaveBeenCalledWith("valid-auth-code");
   });
 
-  it("allows successful linking when Microsoft token scope omits OIDC scopes", async () => {
+  it("allows linking without optional contact access", async () => {
     mockHandleAccountLinking.mockResolvedValue({
       type: "continue_create",
     });

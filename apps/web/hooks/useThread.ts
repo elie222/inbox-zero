@@ -3,8 +3,8 @@ import useSWR, { useSWRConfig } from "swr";
 import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import {
-  readCachedThread,
-  writeCachedThread,
+  readCachedThreadDetail,
+  writeCachedThreadDetail,
 } from "@/utils/email-cache/threads";
 import {
   createThreadRequest,
@@ -64,7 +64,7 @@ export function useThread(
     let cancelled = false;
     const startedAt = startEmailCacheMeasure();
 
-    readCachedThread<ThreadResponse>({
+    readCachedThreadDetail({
       emailAccountId,
       threadId: id,
       variant: request.variant,
@@ -87,7 +87,7 @@ export function useThread(
 
   useEffect(() => {
     if (!remoteData || !request || !id) return;
-    writeCachedThread({
+    writeCachedThreadDetail({
       emailAccountId,
       threadId: id,
       variant: request.variant,

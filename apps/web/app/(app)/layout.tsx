@@ -14,6 +14,7 @@ import { AssessUser } from "@/app/(app)/[emailAccountId]/assess";
 import { SentryIdentify } from "@/app/(app)/sentry-identify";
 import { AiAutomationStatusBanner } from "@/app/(app)/AiAutomationStatusBanner";
 import { ErrorMessages } from "@/app/(app)/ErrorMessages";
+import { MailboxSyncManager } from "@/app/(app)/MailboxSyncManager";
 import { ProviderRateLimitBanner } from "@/app/(app)/ProviderRateLimitBanner";
 import { QueueInitializer } from "@/store/QueueInitializer";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -90,6 +91,7 @@ export default async function AppLayout({
               !bypassPremiumChecks || Boolean(process.env.FEEDBACK_WEBHOOK_URL)
             }
           >
+            <MailboxSyncManager />
             <AiAutomationStatusBanner />
             <ErrorMessages />
             <ProviderRateLimitBanner />

@@ -1,5 +1,7 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 import { conversationWithSubject, openMail } from "./mail-test-helpers";
+
+const commandModifier = process.platform === "darwin" ? "Meta" : "Control";
 
 test("archives a selected conversation and restores it with undo", async ({
   page,
@@ -76,3 +78,49 @@ test("selects ranges and opens conversations with the keyboard", async ({
   await page.keyboard.press("Escape");
   await expect(conversations).toBeVisible();
 });
+
+test("selects every conversation with Command A", async ({ page }) => {
+  const { conversations } = await openMail(page);
+  const options = conversations.getByRole("option");
+  const conversationCount = await options.count();
+  expect(conversationCount).toBeGreaterThan(1);
+
+  await page.getByRole("button", { name: /Search or jump/ }).click();
+  const commandInput = page.getByPlaceholder("Type a command or search...");
+  const query = "archive";
+  await commandInput.fill(query);
+  await page.keyboard.press(`${commandModifier}+KeyA`);
+
+  await expect
+    .poll(() =>
+      commandInput.evaluate((input: HTMLInputElement) => ({
+        end: input.selectionEnd,
+        start: input.selectionStart,
+      })),
+    )
+    .toEqual({ end: query.length, start: 0 });
+  await expect.poll(() => allRowsAreSelected(options, false)).toBe(true);
+  await page.keyboard.press("Escape");
+  await expect(commandInput).toBeHidden();
+
+  await options.nth(1).getByRole("checkbox").click();
+  await expect(page.getByText("1 selected", { exact: true })).toBeVisible();
+
+  await page.keyboard.press(`${commandModifier}+KeyA`);
+
+  await expect(
+    page.getByText(`${conversationCount} selected`, { exact: true }),
+  ).toBeVisible();
+  await expect(options).toHaveCount(conversationCount);
+  await expect.poll(() => allRowsAreSelected(options, true)).toBe(true);
+});
+
+function allRowsAreSelected(rows: Locator, selected: boolean) {
+  return rows.evaluateAll(
+    (options, expected) =>
+      options.every(
+        (option) => option.getAttribute("aria-selected") === String(expected),
+      ),
+    selected,
+  );
+}

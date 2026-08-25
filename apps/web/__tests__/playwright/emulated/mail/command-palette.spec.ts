@@ -223,9 +223,15 @@ async function attachScreenshotForChangedTest(
 
   if (!changedTestFiles.has(testFile)) return;
 
+  const screenshotPath = testInfo.outputPath(`${name}.png`);
+  await locator.screenshot({
+    animations: "disabled",
+    caret: "hide",
+    path: screenshotPath,
+  });
   await testInfo.attach(name, {
-    body: await locator.screenshot(),
     contentType: "image/png",
+    path: screenshotPath,
   });
 }
 

@@ -2,6 +2,7 @@ import type { Message } from "@microsoft/microsoft-graph-types";
 import type { OutlookClient } from "@/utils/outlook/client";
 import type { ParsedMessage } from "@/utils/types";
 import type { Attachment as MailAttachment } from "nodemailer/lib/mailer";
+import { toMailerAttachments } from "@/utils/types/mail";
 import {
   getMessage,
   getMessages,
@@ -70,7 +71,10 @@ import type {
   SentMessagePage,
   BulkArchiveThread,
   BulkArchiveResult,
+  EmailLabelUpdate,
 } from "@/utils/email/types";
+import type { SendEmailBody } from "@/utils/types/mail";
+import { getOutlookCategoryPreset } from "@/utils/outlook/category-colors";
 import { unwatchOutlook, watchOutlook } from "@/utils/outlook/watch";
 import { escapeODataString } from "@/utils/outlook/odata-escape";
 import {
@@ -82,6 +86,8 @@ import {
   getOrCreateOutlookFolderIdByName,
   getOutlookFolderTree,
   addOutlookSystemFolderTypes,
+  deleteOutlookFolder,
+  renameOutlookFolder,
 } from "@/utils/outlook/folders";
 import { extractSignatureFromHtml } from "@/utils/email/signature-extraction";
 import {
@@ -96,6 +102,7 @@ import {
 } from "@/utils/microsoft/retry";
 import { shouldSkipAutoDraft } from "@/utils/auto-draft";
 import { getOutlookMailboxSyncPage } from "@/utils/outlook/mailbox-sync";
+import { searchContacts } from "@/utils/outlook/contact";
 
 export class OutlookProvider implements EmailProvider {
   readonly name = "microsoft";
@@ -745,27 +752,15 @@ export class OutlookProvider implements EmailProvider {
     await sendEmailWithPlainText(this.client, args, this.logger);
   }
 
-  async sendEmailWithHtml(body: {
-    replyToEmail?: {
-      threadId: string;
-      headerMessageId: string;
-      references?: string;
-      messageId?: string;
-    };
-    to: string;
-    from?: string;
-    cc?: string;
-    bcc?: string;
-    replyTo?: string;
-    subject: string;
-    messageHtml: string;
-    attachments?: Array<{
-      filename: string;
-      content: string;
-      contentType: string;
-    }>;
-  }) {
-    const result = await sendEmailWithHtml(this.client, body, this.logger);
+  async sendEmailWithHtml(body: SendEmailBody) {
+    const result = await sendEmailWithHtml(
+      this.client,
+      {
+        ...body,
+        attachments: toMailerAttachments(body.attachments),
+      },
+      this.logger,
+    );
     return {
       messageId: result.id || "",
       threadId: result.conversationId || "",
@@ -991,10 +986,38 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async deleteLabel(labelId: string): Promise<void> {
-    await this.client
-      .getClient()
-      .api(`/me/outlook/masterCategories/${labelId}`)
-      .delete();
+    try {
+      await withMicrosoftGraphRetry(
+        () =>
+          this.client
+            .getClient()
+            .api(`/me/outlook/masterCategories/${encodeURIComponent(labelId)}`)
+            .delete(),
+        this.logger,
+      );
+    } catch (error) {
+      if (extractErrorInfo(error).status !== 404) throw error;
+      this.logger.info("Category was already deleted", { labelId });
+    }
+    this.client.invalidateCategoryMapCache();
+  }
+
+  async updateLabel(labelId: string, update: EmailLabelUpdate): Promise<void> {
+    if (update.name)
+      throw new Error("Microsoft category names cannot be changed");
+    if (!update.color) throw new Error("Microsoft category color is required");
+    const color = getOutlookCategoryPreset(update.color.backgroundColor);
+    if (!color) throw new Error("Unsupported Microsoft category color");
+
+    await withMicrosoftGraphWriteRetry(
+      () =>
+        this.client
+          .getClient()
+          .api(`/me/outlook/masterCategories/${encodeURIComponent(labelId)}`)
+          .patch({ color }),
+      this.logger,
+    );
+    this.client.invalidateCategoryMapCache();
   }
 
   async getOrCreateInboxZeroLabel(key: InboxZeroLabel): Promise<EmailLabel> {
@@ -1433,6 +1456,10 @@ export class OutlookProvider implements EmailProvider {
 
   getAccessToken(): string {
     return this.client.getAccessToken();
+  }
+
+  async searchContacts(query: string) {
+    return searchContacts(this.client, query, this.logger);
   }
 
   async markReadThread(threadId: string, read: boolean): Promise<void> {
@@ -2003,6 +2030,14 @@ export class OutlookProvider implements EmailProvider {
       folderName,
       this.logger,
     );
+  }
+
+  async renameFolder(folderId: string, name: string): Promise<void> {
+    await renameOutlookFolder(this.client, folderId, name, this.logger);
+  }
+
+  async deleteFolder(folderId: string): Promise<void> {
+    await deleteOutlookFolder(this.client, folderId, this.logger);
   }
 
   async getFolders() {

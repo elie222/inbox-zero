@@ -16,7 +16,17 @@ const notifications = vi.hoisted(() => ({
   success: vi.fn(),
 }));
 const markReadThreadAction = vi.hoisted(() => vi.fn());
+const bulkArchiveThreadsAction = vi.hoisted(() => vi.fn());
 const snoozeThreadsAction = vi.hoisted(() => vi.fn());
+const mailboxCache = vi.hoisted(() => ({
+  markRead: vi.fn(),
+  remove: vi.fn(),
+}));
+const mailboxSync = vi.hoisted(() => ({ request: vi.fn() }));
+const reverseActions = vi.hoisted(() => ({
+  unarchive: vi.fn(),
+  untrash: vi.fn(),
+}));
 
 vi.mock("@/store/archive-queue", () => ({
   archiveEmails: queue.archive,
@@ -26,19 +36,48 @@ vi.mock("@/store/archive-queue", () => ({
 }));
 vi.mock("@/utils/actions/mail", () => ({
   markReadThreadAction,
-  unarchiveThreadAction: vi.fn(),
-  untrashThreadAction: vi.fn(),
+  unarchiveThreadAction: reverseActions.unarchive,
+  untrashThreadAction: reverseActions.untrash,
+}));
+vi.mock("@/utils/actions/mail-bulk-action", () => ({
+  bulkArchiveThreadsAction,
 }));
 vi.mock("@/utils/actions/snooze", () => ({ snoozeThreadsAction }));
+vi.mock("@/utils/email-cache/mailbox", () => ({
+  markSyncedMailboxThreadsRead: mailboxCache.markRead,
+  removeSyncedMailboxThreads: mailboxCache.remove,
+}));
+vi.mock("./use-mailbox-sync", () => ({
+  requestMailboxSync: mailboxSync.request,
+}));
 vi.mock("sonner", () => ({ toast: notifications }));
 
 describe("useThreadActions read state", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     markReadThreadAction.mockResolvedValue({});
+    mailboxCache.markRead.mockResolvedValue(undefined);
+    mailboxCache.remove.mockResolvedValue(undefined);
+    reverseActions.unarchive.mockResolvedValue({});
+    reverseActions.untrash.mockResolvedValue({});
     snoozeThreadsAction.mockResolvedValue({
       data: { failedThreadIds: [], succeededThreadIds: ["thread"] },
     });
+    bulkArchiveThreadsAction.mockImplementation(
+      async (
+        _emailAccountId,
+        input: { threads: Array<{ threadId: string }> },
+      ) => ({
+        data: {
+          failedThreadIds: [],
+          succeededThreadIds: input.threads.map((thread) => thread.threadId),
+        },
+      }),
+    );
+    queue.cancel.mockImplementation(({ threadIds }) => ({
+      cancelled: [],
+      notCancelled: threadIds,
+    }));
   });
 
   it("marks an unread row locally before queueing the provider update", () => {
@@ -75,6 +114,11 @@ describe("useThreadActions read state", () => {
     const callbacks = queue.markRead.mock.calls[0]?.[0];
     callbacks.onSuccess("thread");
     expect(transaction.commit).toHaveBeenCalledWith("thread");
+    expect(mailboxCache.markRead).toHaveBeenCalledWith({
+      emailAccountId: "account",
+      read: true,
+      threadIds: ["thread"],
+    });
   });
 
   it("rolls back failed rows together after the batch settles", () => {
@@ -158,6 +202,11 @@ describe("useThreadActions read state", () => {
       read: false,
     });
     expect(transaction.commit).toHaveBeenCalledWith("thread");
+    expect(mailboxCache.markRead).toHaveBeenCalledWith({
+      emailAccountId: "account",
+      read: false,
+      threadIds: ["thread"],
+    });
   });
 
   it("rolls back a rejected read-state toggle", async () => {
@@ -211,6 +260,128 @@ describe("useThreadActions read state", () => {
       snoozedUntil: until,
     });
     expect(restoreThreads).toHaveBeenCalledWith(removal, ["thread-two"]);
+    expect(mailboxCache.remove).toHaveBeenCalledWith({
+      emailAccountId: "account",
+      threadIds: ["thread-one"],
+    });
+  });
+
+  it("archives 300 conversations with one bulk action", async () => {
+    const threads = Array.from({ length: 300 }, (_, index) =>
+      createThread(["INBOX"], `thread-${index}`),
+    );
+    const { result } = renderHook(() =>
+      useThreadActions({
+        emailAccountId: "account",
+        removeThreads: vi.fn(() => ({
+          entries: new Map(),
+          viewIdentity: "view",
+        })),
+        restoreThreads: vi.fn(),
+        optimisticallyUpdateThreads: vi.fn(),
+      }),
+    );
+
+    await act(() => result.current.archive(threads));
+
+    expect(queue.archive).not.toHaveBeenCalled();
+    expect(bulkArchiveThreadsAction).toHaveBeenCalledOnce();
+    expect(bulkArchiveThreadsAction).toHaveBeenCalledWith("account", {
+      threads: threads.map((thread) => ({
+        threadId: thread.id,
+        messageIds: thread.messageIds,
+      })),
+    });
+    expect(mailboxCache.remove).toHaveBeenCalledWith({
+      emailAccountId: "account",
+      threadIds: threads.map((thread) => thread.id),
+    });
+    expect(mailboxSync.request).toHaveBeenCalledWith("account");
+  });
+
+  it("splits selections above the server action limit", async () => {
+    const threads = Array.from({ length: 501 }, (_, index) =>
+      createThread(["INBOX"], `thread-${index}`),
+    );
+    const { result } = renderHook(() =>
+      useThreadActions({
+        emailAccountId: "account",
+        removeThreads: vi.fn(() => ({
+          entries: new Map(),
+          viewIdentity: "view",
+        })),
+        restoreThreads: vi.fn(),
+        optimisticallyUpdateThreads: vi.fn(),
+      }),
+    );
+
+    await act(() => result.current.archive(threads));
+
+    expect(bulkArchiveThreadsAction).toHaveBeenCalledTimes(2);
+    expect(
+      bulkArchiveThreadsAction.mock.calls.map((call) => call[1].threads.length),
+    ).toEqual([500, 1]);
+    expect(mailboxCache.remove).toHaveBeenCalledWith({
+      emailAccountId: "account",
+      threadIds: threads.map((thread) => thread.id),
+    });
+  });
+
+  it("restores only conversations rejected by the bulk provider", async () => {
+    const removal = { entries: new Map(), viewIdentity: "view" };
+    const restoreThreads = vi.fn();
+    bulkArchiveThreadsAction.mockResolvedValue({
+      data: {
+        failedThreadIds: ["thread-two"],
+        succeededThreadIds: ["thread-one"],
+      },
+    });
+    const { result } = renderHook(() =>
+      useThreadActions({
+        emailAccountId: "account",
+        removeThreads: vi.fn(() => removal),
+        restoreThreads,
+        optimisticallyUpdateThreads: vi.fn(),
+      }),
+    );
+
+    await act(() =>
+      result.current.archive([
+        createThread(["INBOX"], "thread-one"),
+        createThread(["INBOX"], "thread-two"),
+      ]),
+    );
+
+    expect(restoreThreads).toHaveBeenCalledWith(removal, ["thread-two"]);
+    expect(mailboxCache.remove).toHaveBeenCalledWith({
+      emailAccountId: "account",
+      threadIds: ["thread-one"],
+    });
+    expect(notifications.error).toHaveBeenCalledWith(
+      "Couldn't archive 1 of 2 conversations",
+    );
+  });
+
+  it("requests a fresh delta after undo restores a local row", async () => {
+    const removal = { entries: new Map(), viewIdentity: "view" };
+    const restoreThreads = vi.fn();
+    const { result } = renderHook(() =>
+      useThreadActions({
+        emailAccountId: "account",
+        removeThreads: vi.fn(() => removal),
+        restoreThreads,
+        optimisticallyUpdateThreads: vi.fn(),
+      }),
+    );
+
+    await act(() => result.current.archive([createThread(["INBOX"])]));
+    await act(() => result.current.undo());
+
+    expect(reverseActions.unarchive).toHaveBeenCalledWith("account", {
+      threadId: "thread",
+    });
+    expect(restoreThreads).toHaveBeenCalledWith(removal, ["thread"]);
+    expect(mailboxSync.request).toHaveBeenCalledWith("account");
   });
 
   it("chunks snooze actions at the server validation limit", async () => {
@@ -249,16 +420,21 @@ describe("useThreadActions read state", () => {
   });
 });
 
-function createThread(labelIds: string[]): ListThread {
+function createThread(
+  labelIds: string[],
+  id = "thread",
+  messageIds = [`${id}-message`],
+): ListThread {
   return {
-    id: "thread",
+    id,
+    messageIds,
     snippet: "snippet",
     plan: undefined,
     plans: [],
     messages: [
       {
-        id: "message",
-        threadId: "thread",
+        id: messageIds[0] ?? `${id}-message`,
+        threadId: id,
         snippet: "snippet",
         subject: "Subject",
         date: "0",

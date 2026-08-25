@@ -532,7 +532,11 @@ export function getMockOrganizationMembership({
       members: [
         {
           emailAccount: {
-            user: { id: ownerUserId, premiumId: ownerPremiumId },
+            user: {
+              id: ownerUserId,
+              premiumId: ownerPremiumId,
+              premiumAdminId: null,
+            },
           },
         },
       ],

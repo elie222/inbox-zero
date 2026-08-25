@@ -337,6 +337,7 @@ function account(id: string): Account {
 function thread(id: string, internalDate: string): ThreadListItem {
   return {
     id,
+    messageIds: [`${id}-message`],
     snippet: id,
     plan: undefined,
     plans: [],

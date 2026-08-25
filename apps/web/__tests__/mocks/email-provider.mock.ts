@@ -90,6 +90,7 @@ export function createMockEmailProvider(
     searchMessages: vi
       .fn()
       .mockResolvedValue({ messages: [], nextPageToken: undefined }),
+    searchContacts: vi.fn().mockResolvedValue([]),
     getMessagesFromSender: vi
       .fn()
       .mockResolvedValue({ messages: [], nextPageToken: undefined }),
@@ -107,6 +108,7 @@ export function createMockEmailProvider(
       .fn()
       .mockResolvedValue({ id: "label-123", name: "Test Label", type: "user" }),
     deleteLabel: vi.fn().mockResolvedValue(undefined),
+    updateLabel: vi.fn().mockResolvedValue(undefined),
     getOrCreateInboxZeroLabel: vi
       .fn()
       .mockResolvedValue({ id: "iz-label", name: "Inbox Zero", type: "user" }),

@@ -1,0 +1,296 @@
+.surface {
+  --email-editor-border: hsl(var(--border, 214 32% 91%));
+  --email-editor-muted: hsl(var(--muted, 210 40% 96%));
+  --email-editor-muted-foreground: hsl(var(--muted-foreground, 215 16% 47%));
+  --email-editor-foreground: hsl(var(--foreground, 222 47% 11%));
+  --email-editor-background: hsl(var(--background, 0 0% 100%));
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  overflow: visible;
+  color: var(--email-editor-foreground);
+  background: var(--email-editor-background);
+  border: 1px solid var(--email-editor-border);
+  border-radius: 0.5rem;
+}
+
+.surface[data-email-editor-appearance="seamless"] {
+  border: 0;
+  border-radius: 0;
+}
+
+.editor {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.editor > div {
+  min-height: 100%;
+}
+
+.editor [data-email-editor-content] {
+  min-height: 200px;
+  padding: 0.75rem;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  outline: none;
+}
+
+.surface[data-email-editor-appearance="seamless"]
+  .editor
+  [data-email-editor-content] {
+  min-height: 100%;
+  padding: 1rem;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+
+.editor [data-email-editor-content] p {
+  margin: 0 0 0.65em;
+}
+
+.editor [data-email-editor-content] p:last-child {
+  margin-bottom: 0;
+}
+
+.editor [data-email-editor-content] ul,
+.editor [data-email-editor-content] ol {
+  padding-inline-start: 1.5rem;
+  margin: 0.5rem 0;
+}
+
+.editor [data-email-editor-content] ul {
+  list-style: disc;
+}
+
+.editor [data-email-editor-content] ol {
+  list-style: decimal;
+}
+
+.editor [data-email-editor-content] blockquote {
+  padding-inline-start: 0.75rem;
+  margin: 0.75rem 0;
+  color: var(--email-editor-muted-foreground);
+  border-inline-start: 3px solid var(--email-editor-border);
+}
+
+.editor [data-email-editor-content] a {
+  color: #2563eb;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.editor [data-email-editor-content] img {
+  display: inline-block;
+  max-width: min(100%, 640px);
+  max-height: 420px;
+  margin: 0.25rem 0;
+  vertical-align: middle;
+  border-radius: 0.375rem;
+}
+
+.editor [data-email-editor-content] img[class~="ProseMirror-selectednode"] {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.editor
+  [data-email-editor-content]
+  p[class~="is-editor-empty"]:first-child::before {
+  float: left;
+  height: 0;
+  color: var(--email-editor-muted-foreground);
+  pointer-events: none;
+  content: attr(data-placeholder);
+}
+
+.bubbleToolbar {
+  display: flex;
+  gap: 0.125rem;
+  align-items: center;
+}
+
+.bubbleToolbar {
+  max-width: calc(100vw - 1rem);
+  padding: 0.35rem;
+  overflow-x: auto;
+  color: #fff;
+  background: #34373d;
+  border-radius: 0.5rem;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 25%);
+}
+
+.toolbarButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 0.5rem;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: 0.35rem;
+}
+
+.toolbarButton:hover,
+.toolbarButton:focus-visible,
+.toolbarButtonActive {
+  color: var(--email-editor-foreground);
+  outline: none;
+  background: var(--email-editor-muted);
+}
+
+.bubbleToolbar .toolbarButton:hover,
+.bubbleToolbar .toolbarButton:focus-visible,
+.bubbleToolbar .toolbarButtonActive {
+  color: #fff;
+  background: #545860;
+}
+
+.toolbarButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.separator {
+  width: 1px;
+  height: 1.25rem;
+  margin: 0 0.25rem;
+  background: var(--email-editor-border);
+}
+
+.linkPanel {
+  position: absolute;
+  right: 0.5rem;
+  bottom: 0.75rem;
+  z-index: 60;
+  width: min(24rem, calc(100% - 1rem));
+  padding: 0.75rem;
+  background: var(--email-editor-background);
+  border: 1px solid var(--email-editor-border);
+  border-radius: 0.5rem;
+  box-shadow: 0 12px 32px rgb(0 0 0 / 18%);
+}
+
+.linkPanel label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.linkInput {
+  width: 100%;
+  height: 2.25rem;
+  padding: 0 0.6rem;
+  font: inherit;
+  color: inherit;
+  background: var(--email-editor-background);
+  border: 1px solid var(--email-editor-border);
+  border-radius: 0.35rem;
+}
+
+.linkActions {
+  display: flex;
+  gap: 0.4rem;
+  justify-content: flex-end;
+  margin-top: 0.65rem;
+}
+
+.linkError,
+.fallbackWarning {
+  font-size: 0.75rem;
+  color: #b42318;
+}
+
+.fallbackWarning {
+  padding: 0.6rem 0.75rem;
+  margin: 0;
+  background: #fff8e7;
+  border-bottom: 1px solid var(--email-editor-border);
+}
+
+.fallbackEditor {
+  min-height: 200px;
+  padding: 0.75rem;
+  outline: none;
+}
+
+.surface[data-email-editor-appearance="seamless"] .fallbackEditor {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.preservedBlock {
+  margin: 0.5rem 0;
+  color: var(--email-editor-muted-foreground);
+  border-top: 1px solid var(--email-editor-border);
+}
+
+.preservedSummary {
+  display: flex;
+  gap: 0.45rem;
+  align-items: center;
+  min-height: 2.25rem;
+  padding: 0.25rem 0;
+  font-size: 0.75rem;
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+}
+
+.preservedSummary::-webkit-details-marker {
+  display: none;
+}
+
+.removePreservedButton {
+  width: 1.75rem;
+  height: 1.75rem;
+  margin-left: auto;
+  font-size: 1.1rem;
+  color: inherit;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+}
+
+.removePreservedButton:hover,
+.removePreservedButton:focus-visible {
+  color: var(--email-editor-foreground);
+  outline: none;
+  background: var(--email-editor-muted);
+}
+
+.quotePreview,
+.signaturePreview {
+  width: 100%;
+  background: #fff;
+  border: 0;
+}
+
+.quotePreview {
+  height: 12rem;
+}
+
+.signaturePreview {
+  height: 6rem;
+}
+
+@media (max-width: 640px) {
+  .toolbarButton {
+    min-width: 2.25rem;
+  }
+
+  .editor [data-email-editor-content],
+  .fallbackEditor {
+    min-height: 160px;
+  }
+}

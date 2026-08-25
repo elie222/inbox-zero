@@ -68,6 +68,7 @@ export const GET = withEmailProvider("threads/batch", async (request) => {
             // type promises them, so send the empty case rather than nothing.
             return {
               id: thread.id,
+              messageIds: thread.messages.map((message) => message.id),
               messages: filteredMessages,
               snippet: thread.snippet,
               plan: undefined,
