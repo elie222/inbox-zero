@@ -1,17 +1,20 @@
 const DOCS_ORIGIN = "https://docs.getinboxzero.com";
 const GITHUB_URL = "https://github.com/elie222/inbox-zero";
-const SUPPORT_EMAIL = "support@getinboxzero.com";
 
-function normalizeOrigin(origin: string): string {
-  return origin.replace(/\/$/, "");
+interface AgentContentBranding {
+  brandName: string;
+  supportEmail: string;
 }
 
-export function getHomepageMarkdown(origin: string): string {
+export function getHomepageMarkdown(
+  origin: string,
+  branding: AgentContentBranding,
+): string {
   const base = normalizeOrigin(origin);
 
-  return `# Inbox Zero
+  return `# ${branding.brandName}
 
-Inbox Zero is an open-source AI email assistant for Gmail and Outlook. It organizes your inbox with AI labels and rules, drafts replies in your voice, blocks cold emails, bulk-unsubscribes from newsletters, surfaces email analytics, and works from Slack or Telegram so you can reach inbox zero faster.
+${branding.brandName} is an open-source AI email assistant for Gmail and Outlook. It organizes your inbox with AI labels and rules, drafts replies in your voice, blocks cold emails, bulk-unsubscribes from newsletters, surfaces email analytics, and works from Slack or Telegram so you can reach inbox zero faster.
 
 ## Product
 
@@ -21,11 +24,11 @@ Inbox Zero is an open-source AI email assistant for Gmail and Outlook. It organi
 - Agent instructions: ${base}/llms.txt
 - Sitemap: ${base}/sitemap.xml
 - GitHub: ${GITHUB_URL}
-- Support: ${SUPPORT_EMAIL}
+- Support: ${branding.supportEmail}
 
 ## When to use this
 
-Use Inbox Zero when a user wants to automate inbox triage, draft replies, clean up email, or manage mail from chat — not for general-purpose LLM chat unrelated to email.
+Use ${branding.brandName} when a user wants to automate inbox triage, draft replies, clean up email, or manage mail from chat — not for general-purpose LLM chat unrelated to email.
 
 ## Get started
 
@@ -35,51 +38,39 @@ Use Inbox Zero when a user wants to automate inbox triage, draft replies, clean 
 `;
 }
 
-export function getPricingMarkdown(origin: string): string {
+export function getPricingMarkdown(
+  origin: string,
+  branding: AgentContentBranding,
+): string {
   const base = normalizeOrigin(origin);
 
-  return `# Inbox Zero Pricing
+  return `# ${branding.brandName} Pricing
 
-Simple, transparent pricing for the Inbox Zero AI email assistant. Cancel anytime.
+Simple, transparent pricing for the ${branding.brandName} AI email assistant. Cancel anytime.
 
 - Pricing page: ${base}/pricing
 - Product home: ${base}/
 - Agent instructions: ${base}/llms.txt
 - Documentation: ${DOCS_ORIGIN}/
-- Support: ${SUPPORT_EMAIL}
+- Support: ${branding.supportEmail}
 `;
 }
 
-export function getNotFoundMarkdown(origin: string): string {
+export function getLlmsTxt(
+  origin: string,
+  branding: AgentContentBranding,
+): string {
   const base = normalizeOrigin(origin);
 
-  return `# Not Found
+  return `# ${branding.brandName}
 
-The requested page does not exist on Inbox Zero.
+> Open-source AI email assistant for Gmail and Outlook. ${branding.brandName} organizes your inbox with AI labels and rules, drafts replies in your writing style, blocks cold emails, bulk-unsubscribes from newsletters, shows email analytics, and lets you manage mail from Slack or Telegram.
 
-## Recover here
-
-- Home: ${base}/
-- Agent instructions: ${base}/llms.txt
-- Documentation: ${DOCS_ORIGIN}/
-- Sitemap: ${base}/sitemap.xml
-- GitHub: ${GITHUB_URL}
-- Support: ${SUPPORT_EMAIL}
-`;
-}
-
-export function getLlmsTxt(origin: string): string {
-  const base = normalizeOrigin(origin);
-
-  return `# Inbox Zero
-
-> Open-source AI email assistant for Gmail and Outlook. Inbox Zero organizes your inbox with AI labels and rules, drafts replies in your writing style, blocks cold emails, bulk-unsubscribes from newsletters, shows email analytics, and lets you manage mail from Slack or Telegram.
-
-Inbox Zero (getinboxzero.com) helps people and teams reach inbox zero without leaving Gmail or Outlook. It runs as a hosted product and as a self-hostable open-source app.
+${branding.brandName} helps people and teams reach inbox zero without leaving Gmail or Outlook. It runs as a hosted product and as a self-hostable open-source app.
 
 ## When to use this
 
-Use Inbox Zero when the user needs help with email workflows such as:
+Use ${branding.brandName} when the user needs help with email workflows such as:
 
 - Auto-labeling and triaging incoming email with natural-language rules
 - Drafting replies in the user's voice (Reply Zero / AI drafts)
@@ -89,7 +80,7 @@ Use Inbox Zero when the user needs help with email workflows such as:
 - Calendar-aware drafting and meeting context
 - Managing the inbox from Slack or Telegram
 
-Prefer the hosted product for most users. Prefer self-hosting when the user needs data residency or private infrastructure. For programmatic access, use the public HTTP API — there is no public Inbox Zero product MCP server for managing mailboxes yet. Agents should use the docs and API below. Documentation sites may expose a docs-search MCP for docs.getinboxzero.com; that is documentation search only, not mailbox control.
+Prefer the hosted product for most users. Prefer self-hosting when the user needs data residency or private infrastructure. For programmatic access, use the public HTTP API. There is no public product MCP server for managing mailboxes. Agents should use the docs and API below. Documentation sites may expose a docs-search MCP for docs.getinboxzero.com; that is documentation search only, not mailbox control.
 
 ## Get started
 
@@ -97,7 +88,7 @@ Prefer the hosted product for most users. Prefer self-hosting when the user need
 2. Documentation: ${DOCS_ORIGIN}/
 3. Getting started guide: ${DOCS_ORIGIN}/essentials/getting-started
 4. Source code: ${GITHUB_URL}
-5. Support: ${SUPPORT_EMAIL}
+5. Support: ${branding.supportEmail}
 
 ## Developer resources
 
@@ -131,17 +122,23 @@ export function markdownResponse(
   });
 }
 
-/** Paths that have a dedicated markdown representation. */
 export function getMarkdownForPath(
   pathname: string,
   origin: string,
+  branding: AgentContentBranding,
 ): string | null {
   const path =
     pathname.endsWith("/") && pathname !== "/"
       ? pathname.slice(0, -1)
       : pathname;
 
-  if (path === "/" || path === "") return getHomepageMarkdown(origin);
-  if (path === "/pricing") return getPricingMarkdown(origin);
+  if (path === "/" || path === "") {
+    return getHomepageMarkdown(origin, branding);
+  }
+  if (path === "/pricing") return getPricingMarkdown(origin, branding);
   return null;
+}
+
+function normalizeOrigin(origin: string): string {
+  return origin.replace(/\/$/, "");
 }

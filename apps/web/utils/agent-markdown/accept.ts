@@ -26,7 +26,7 @@ export function parseAcceptHeader(header: string | null): AcceptEntry[] {
     let q = 1;
     for (const param of segments.slice(1)) {
       const [rawName, rawValue] = param.split("=").map((s) => s.trim());
-      if (rawName === "q" && rawValue != null) {
+      if (rawName?.toLowerCase() === "q" && rawValue != null) {
         const parsed = Number(rawValue);
         if (!Number.isNaN(parsed)) {
           q = Math.min(1, Math.max(0, parsed));
@@ -36,20 +36,6 @@ export function parseAcceptHeader(header: string | null): AcceptEntry[] {
 
     return [{ type, q, position }];
   });
-}
-
-function specificity(type: string): number {
-  if (type === "*/*") return 0;
-  if (type.endsWith("/*")) return 1;
-  return 2;
-}
-
-function matches(entryType: string, candidate: string): boolean {
-  if (entryType === "*/*") return true;
-  if (entryType.endsWith("/*")) {
-    return candidate.startsWith(entryType.slice(0, -1));
-  }
-  return entryType === candidate;
 }
 
 /**
@@ -103,6 +89,8 @@ export function prefersMarkdown(acceptHeader: string | null): boolean {
 /** Append Accept to Vary without dropping existing tokens (e.g. RSC vary). */
 export function appendVaryAccept(headers: Headers): void {
   const existing = headers.get("vary");
+  if (existing === "*") return;
+
   if (!existing) {
     headers.set("Vary", "Accept");
     return;
@@ -112,4 +100,18 @@ export function appendVaryAccept(headers: Headers): void {
   if (!tokens.includes("accept")) {
     headers.set("Vary", `${existing}, Accept`);
   }
+}
+
+function specificity(type: string): number {
+  if (type === "*/*") return 0;
+  if (type.endsWith("/*")) return 1;
+  return 2;
+}
+
+function matches(entryType: string, candidate: string): boolean {
+  if (entryType === "*/*") return true;
+  if (entryType.endsWith("/*")) {
+    return candidate.startsWith(entryType.slice(0, -1));
+  }
+  return entryType === candidate;
 }

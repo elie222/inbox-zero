@@ -1,10 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   appendVaryAccept,
   parseAcceptHeader,
   preferredType,
   prefersMarkdown,
 } from "./accept";
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 
 describe("parseAcceptHeader", () => {
   it("returns an empty list for missing headers", () => {
@@ -19,6 +23,12 @@ describe("parseAcceptHeader", () => {
       { type: "text/markdown", q: 1, position: 0 },
       { type: "text/html", q: 0.8, position: 1 },
       { type: "*/*", q: 0.1, position: 2 },
+    ]);
+  });
+
+  it("parses parameter names case-insensitively", () => {
+    expect(parseAcceptHeader("text/markdown;Q=0.4")).toEqual([
+      { type: "text/markdown", q: 0.4, position: 0 },
     ]);
   });
 });
@@ -79,5 +89,11 @@ describe("appendVaryAccept", () => {
     const headers = new Headers({ Vary: "Accept, Accept-Encoding" });
     appendVaryAccept(headers);
     expect(headers.get("vary")).toBe("Accept, Accept-Encoding");
+  });
+
+  it("preserves a wildcard Vary value", () => {
+    const headers = new Headers({ Vary: "*" });
+    appendVaryAccept(headers);
+    expect(headers.get("vary")).toBe("*");
   });
 });
