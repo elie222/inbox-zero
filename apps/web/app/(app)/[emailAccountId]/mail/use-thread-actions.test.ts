@@ -148,6 +148,22 @@ describe("useThreadActions durable mutations", () => {
     expect(queued).toEqual(["thread"]);
   });
 
+  it("confirms explicit read-state changes after they are durable", async () => {
+    const { result } = renderActions();
+
+    await act(() => result.current.setReadState(["thread"], false));
+
+    expect(notifications.success).toHaveBeenCalledWith("Marked as unread");
+  });
+
+  it("does not notify for automatic mark-read changes", async () => {
+    const { result } = renderActions();
+
+    await act(() => result.current.markRead(["thread"]));
+
+    expect(notifications.success).not.toHaveBeenCalled();
+  });
+
   it("queues same-id combined rows under their owning accounts in one batch", async () => {
     const threads = [
       createThread(["INBOX"], {

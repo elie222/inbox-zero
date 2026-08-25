@@ -80,8 +80,8 @@ test("keeps a reply queued across reload and sends it after reconnect", async ({
   page,
 }, testInfo) => {
   await stubMailboxSync(page);
-  const { conversations, emailAccountId } = await openMail(page);
-  await conversationWithSubject(page, conversations, REPLY_SUBJECT).click();
+  const { emailAccountId } = await openMail(page);
+  await page.goto(`/${emailAccountId}/mail?thread-id=${REPLY_THREAD_ID}`);
   await expect(
     page.getByText("Please reply to this seeded conversation."),
   ).toBeVisible({ timeout: 60_000 });

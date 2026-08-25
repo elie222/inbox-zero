@@ -196,13 +196,20 @@ export function useThreadActions({
   );
 
   const setReadState = useCallback(
-    async (threadKeys: string[], read: boolean) => {
+    async (threadKeys: string[], read: boolean, notifySuccess = true) => {
       const targets = resolveTargets(threadKeys);
       const snapshots = await enqueueTargets(targets, {
         kind: "set_read_state",
         read,
       });
       const failedCount = threadKeys.length - snapshots.length;
+      if (snapshots.length && notifySuccess) {
+        toast.success(
+          snapshots.length === 1
+            ? `Marked as ${read ? "read" : "unread"}`
+            : `Marked ${snapshots.length} conversations as ${read ? "read" : "unread"}`,
+        );
+      }
       if (failedCount) {
         toast.error(
           failedCount === threadKeys.length
@@ -254,7 +261,7 @@ export function useThreadActions({
       [runUndoable],
     ),
     markRead: useCallback(
-      (threadKeys: string[]) => setReadState(threadKeys, true),
+      (threadKeys: string[]) => setReadState(threadKeys, true, false),
       [setReadState],
     ),
     setReadState,
