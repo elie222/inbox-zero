@@ -48,7 +48,10 @@ import type { ThreadMessage } from "@/components/email-list/types";
 import { useMailThreads } from "@/app/(app)/[emailAccountId]/mail/use-mail-threads";
 import { requestMailboxSync } from "@/app/(app)/[emailAccountId]/mail/use-mailbox-sync";
 import { useCombinedMailThreads } from "@/app/(app)/[emailAccountId]/mail/use-combined-mail-threads";
-import { runCombinedThreadAction } from "@/app/(app)/[emailAccountId]/mail/combined-thread-actions";
+import {
+  runCombinedBulkArchiveAction,
+  runCombinedThreadAction,
+} from "@/app/(app)/[emailAccountId]/mail/combined-thread-actions";
 import { useAdjacentThreadPrefetch } from "@/app/(app)/[emailAccountId]/mail/use-adjacent-thread-prefetch";
 import { useHoverThreadPrefetch } from "@/app/(app)/[emailAccountId]/mail/use-hover-thread-prefetch";
 import { useThreadPrefetchCoordinator } from "@/app/(app)/[emailAccountId]/mail/thread-prefetch-coordinator";
@@ -89,7 +92,6 @@ import {
   updateMailPreferencesAction,
 } from "@/utils/actions/mail-split";
 import {
-  archiveThreadAction,
   createLabelAction,
   deleteMailboxItemAction,
   markReadThreadAction,
@@ -97,6 +99,7 @@ import {
   trashThreadAction,
   updateMailboxItemAction,
 } from "@/utils/actions/mail";
+import { bulkArchiveThreadsAction } from "@/utils/actions/mail-bulk-action";
 import {
   mailSplitToThreadsQuery,
   mailTypeToThreadsQuery,
@@ -620,19 +623,71 @@ export function MailShell() {
       selection,
     ],
   );
+  const runCombinedArchiveAction = useCallback(async () => {
+    const { targetKeys, targets } = getCombinedTargets();
+    if (!targets.length) return;
+
+    const removal = removeCombinedThreads(targetKeys);
+    selection.clear();
+    const { failedThreadKeys, succeededThreadKeys } =
+      await runCombinedBulkArchiveAction({
+        threads: targets,
+        action: bulkArchiveThreadsAction,
+      });
+    restoreCombinedThreads(removal, failedThreadKeys);
+
+    const succeeded = new Set(succeededThreadKeys);
+    const succeededByAccount = groupThreadIdsByAccount(
+      targets.filter((thread) => succeeded.has(getListThreadKey(thread))),
+    );
+    await Promise.all(
+      [...succeededByAccount].map(([accountId, threadIds]) =>
+        removeSyncedMailboxThreads({
+          emailAccountId: accountId,
+          threadIds,
+        }).catch(() => {}),
+      ),
+    );
+    for (const accountId of succeededByAccount.keys()) {
+      requestMailboxSync(accountId);
+    }
+
+    if (succeededThreadKeys.length) {
+      toast.success(
+        summariseCombinedAction("Archived", succeededThreadKeys.length),
+      );
+    }
+    if (failedThreadKeys.length) {
+      toast.error(
+        failedThreadKeys.length === targets.length
+          ? "There was an error archiving"
+          : `Couldn't archive ${failedThreadKeys.length} of ${targets.length} conversations`,
+      );
+    }
+  }, [
+    getCombinedTargets,
+    removeCombinedThreads,
+    restoreCombinedThreads,
+    selection,
+  ]);
   const archiveTargets = useCallback(async () => {
     if (!isAllAccounts) {
-      runOn(archive, true, true);
+      runOn(
+        (ids) => {
+          const targetIds = new Set(ids);
+          archive(
+            threads.filter(
+              (thread) => !("account" in thread) && targetIds.has(thread.id),
+            ),
+          );
+        },
+        true,
+        true,
+      );
       return;
     }
-    await runCombinedAction({
-      action: (accountId, threadId) =>
-        archiveThreadAction(accountId, { threadId }),
-      successVerb: "Archived",
-      actionVerb: "archive",
-      failureDescription: "archiving",
-    });
-  }, [archive, isAllAccounts, runCombinedAction, runOn]);
+    await runCombinedArchiveAction();
+  }, [archive, isAllAccounts, runCombinedArchiveAction, runOn, threads]);
   const trashTargets = useCallback(async () => {
     if (!isAllAccounts) {
       runOn(trash, true);

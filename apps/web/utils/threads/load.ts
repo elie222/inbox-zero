@@ -66,6 +66,7 @@ export async function loadThreads({
     const plans = aggregateThreadPlans(
       executedRulesByThreadId.get(thread.id) ?? [],
     );
+    const messageIds = thread.messages.map((message) => message.id);
     const messages = thread.messages.filter((message) => {
       if (!message.headers?.from) return true;
       return !isIgnoredSender(message.headers.from);
@@ -74,6 +75,7 @@ export async function loadThreads({
 
     return {
       id: thread.id,
+      messageIds,
       messages,
       snippet: thread.snippet,
       plan: plans.at(0),
@@ -93,6 +95,7 @@ export function toListThreads({ threads, nextPageToken }: LoadedThreads) {
   return {
     threads: threads.map((thread) => ({
       id: thread.id,
+      messageIds: thread.messageIds,
       snippet: thread.snippet,
       plan: thread.plan,
       plans: thread.plans,

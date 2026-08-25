@@ -5,7 +5,6 @@ import { format } from "date-fns";
 import chunk from "lodash/chunk";
 import { toast } from "sonner";
 import {
-  archiveEmails,
   cancelQueuedThreads,
   deleteEmails,
   markReadThreads,
@@ -21,7 +20,10 @@ import type {
   OptimisticThreadUpdate,
   ThreadRemoval,
 } from "@/app/(app)/[emailAccountId]/mail/use-mail-threads";
-import type { ListThread } from "@/app/(app)/[emailAccountId]/mail/types";
+import {
+  getListThreadMessageIds,
+  type ListThread,
+} from "@/app/(app)/[emailAccountId]/mail/types";
 import { snoozeThreadsAction } from "@/utils/actions/snooze";
 import { mapWithConcurrency } from "@/utils/async";
 import {
@@ -29,8 +31,11 @@ import {
   removeSyncedMailboxThreads,
 } from "@/utils/email-cache/mailbox";
 import { requestMailboxSync } from "@/app/(app)/[emailAccountId]/mail/use-mailbox-sync";
+import { bulkArchiveThreadsAction } from "@/utils/actions/mail-bulk-action";
+import { BULK_ARCHIVE_THREADS_ACTION_LIMIT } from "@/utils/actions/mail-bulk-action.constants";
 
 const THREAD_ACTION_CONCURRENCY = 10;
+const BULK_ARCHIVE_ACTION_CONCURRENCY = 4;
 const SNOOZE_ACTION_BATCH_CONCURRENCY = 2;
 const SNOOZE_ACTION_BATCH_SIZE = 100;
 
@@ -46,9 +51,9 @@ type UndoableBatch = {
 /**
  * Archive and delete with a real undo.
  *
- * Undo tries to cancel the queued job first: the queue usually drains in well
- * under a second, but when it hasn't, cancelling avoids a pointless round trip
- * to the provider and back. Anything already sent gets reversed properly.
+ * Delete jobs may still be waiting in the queue, while bulk archives have
+ * already completed before their undo becomes available. Anything sent to the
+ * provider gets reversed properly.
  */
 export function useThreadActions({
   emailAccountId,
@@ -65,6 +70,7 @@ export function useThreadActions({
   ) => OptimisticThreadUpdate;
 }) {
   const lastAction = useRef<UndoableBatch | null>(null);
+  const actionSequence = useRef(0);
 
   // Takes the batch to reverse rather than reading the latest one: each toast
   // must undo the action it announced, even after another archive has happened.
@@ -117,16 +123,21 @@ export function useThreadActions({
     await undoBatch(batch);
   }, [undoBatch]);
 
-  const run = useCallback(
-    (type: UndoableAction, threadIds: string[]) => {
+  const trash = useCallback(
+    (threadIds: string[]) => {
       if (!threadIds.length) return;
 
+      actionSequence.current += 1;
       const removal = removeThreads(threadIds);
-      const batch: UndoableBatch = { type, threadIds, removal, undone: false };
+      const batch: UndoableBatch = {
+        type: "delete",
+        threadIds,
+        removal,
+        undone: false,
+      };
       lastAction.current = batch;
 
-      const queue = type === "archive" ? archiveEmails : deleteEmails;
-      queue({
+      deleteEmails({
         threadIds,
         emailAccountId,
         onSuccess: (threadId) => {
@@ -138,31 +149,95 @@ export function useThreadActions({
             .finally(() => requestMailboxSync(emailAccountId));
         },
         // The queue reports the specific thread that failed; the rest of the
-        // batch archived fine and must stay gone.
+        // batch was deleted and must stay gone.
         onError: (threadId) => {
           restoreThreads(removal, [threadId]);
-          toast.error(
-            type === "archive"
-              ? "There was an error archiving"
-              : "There was an error deleting",
-          );
+          toast.error("There was an error deleting");
         },
       });
 
-      toast.success(
-        summarise(
-          type === "archive" ? "Archived" : "Deleted",
-          threadIds.length,
+      toast.success(summarise("Deleted", threadIds.length), {
+        action: {
+          label: `Undo · ${getShortcutHint("undo")}`,
+          onClick: () => {
+            undoBatch(batch);
+          },
+        },
+      });
+    },
+    [emailAccountId, removeThreads, restoreThreads, undoBatch],
+  );
+
+  const archive = useCallback(
+    async (threads: ListThread[]) => {
+      if (!threads.length) return;
+
+      const sequence = ++actionSequence.current;
+      lastAction.current = null;
+      const threadIds = threads.map((thread) => thread.id);
+      const removal = removeThreads(threadIds);
+      const responses = await mapWithConcurrency(
+        chunk(threads, BULK_ARCHIVE_THREADS_ACTION_LIMIT),
+        BULK_ARCHIVE_ACTION_CONCURRENCY,
+        (batch) =>
+          bulkArchiveThreadsAction(emailAccountId, {
+            threads: batch.map((thread) => ({
+              threadId: thread.id,
+              messageIds: getListThreadMessageIds(thread),
+            })),
+          }).catch(() => null),
+      );
+      const succeededThreadIds = new Set(
+        responses.flatMap(
+          (response) => response?.data?.succeededThreadIds ?? [],
         ),
-        {
+      );
+      const providerFailedThreadIds = new Set(
+        responses.flatMap((response) => response?.data?.failedThreadIds ?? []),
+      );
+      const failedThreadIds = threadIds.filter(
+        (threadId) =>
+          providerFailedThreadIds.has(threadId) ||
+          !succeededThreadIds.has(threadId),
+      );
+      const failedThreadIdSet = new Set(failedThreadIds);
+      const successfulThreadIds = threadIds.filter(
+        (threadId) => !failedThreadIdSet.has(threadId),
+      );
+
+      restoreThreads(removal, failedThreadIds);
+
+      if (successfulThreadIds.length) {
+        await removeSyncedMailboxThreads({
+          emailAccountId,
+          threadIds: successfulThreadIds,
+        }).catch(() => {});
+        requestMailboxSync(emailAccountId);
+
+        const batch: UndoableBatch = {
+          type: "archive",
+          threadIds: successfulThreadIds,
+          removal,
+          undone: false,
+        };
+        if (actionSequence.current === sequence) lastAction.current = batch;
+        toast.success(summarise("Archived", successfulThreadIds.length), {
           action: {
             label: `Undo · ${getShortcutHint("undo")}`,
             onClick: () => {
               undoBatch(batch);
             },
           },
-        },
-      );
+        });
+      }
+
+      if (failedThreadIds.length) {
+        toast.error(
+          failedThreadIds.length === threadIds.length
+            ? "There was an error archiving"
+            : `Couldn't archive ${failedThreadIds.length} of ${threadIds.length} conversations`,
+        );
+      }
     },
     [emailAccountId, removeThreads, restoreThreads, undoBatch],
   );
@@ -305,8 +380,8 @@ export function useThreadActions({
   );
 
   return {
-    archive: useCallback((ids: string[]) => run("archive", ids), [run]),
-    trash: useCallback((ids: string[]) => run("delete", ids), [run]),
+    archive,
+    trash,
     markRead,
     setReadState,
     snooze,
