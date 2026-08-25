@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Client } from "pg";
+import type { Account } from "@/generated/prisma/client";
 
 export async function createSecondEmailAccount(
   primaryEmailAccountId: string,
@@ -15,7 +16,7 @@ export async function createSecondEmailAccount(
 
   try {
     await client.query("BEGIN");
-    const accountResult = await client.query<{ userId: string }>(
+    const accountResult = await client.query<Pick<Account, "userId">>(
       `INSERT INTO "Account"
         (id, "createdAt", "updatedAt", "userId", provider, type,
          "providerAccountId", refresh_token, "refreshTokenExpiresAt",
