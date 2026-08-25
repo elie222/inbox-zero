@@ -4,9 +4,50 @@ import { formatEmailDate } from "@/utils/gmail/reply";
 
 import {
   buildReplyMessageText,
+  createMail,
   convertTextToHtmlParagraphs,
   stripHtmlTagsForPlainText,
 } from "@/utils/gmail/mail";
+
+describe("createMail", () => {
+  it("keeps BCC recipients in raw messages sent through the Gmail API", async () => {
+    const raw = await createMail({
+      from: "sender@example.com",
+      to: "recipient@example.com",
+      bcc: "hidden@example.com",
+      subject: "Test",
+      text: "Message",
+    });
+
+    const message = Buffer.from(raw, "base64url").toString("utf8");
+
+    expect(message).toContain("Bcc: hidden@example.com");
+  });
+
+  it("encodes inline images with Content-ID MIME semantics", async () => {
+    const raw = await createMail({
+      from: "sender@example.com",
+      to: "recipient@example.com",
+      subject: "Inline image",
+      html: '<p>Diagram <img src="cid:diagram@example"></p>',
+      attachments: [
+        {
+          filename: "diagram.png",
+          content: Buffer.from("image-bytes"),
+          contentType: "image/png",
+          contentDisposition: "inline",
+          cid: "diagram@example",
+        },
+      ],
+    });
+
+    const message = Buffer.from(raw, "base64url").toString("utf8");
+
+    expect(message).toContain("Content-ID: <diagram@example>");
+    expect(message).toContain("Content-Disposition: inline");
+    expect(message).toContain('src="cid:diagram@example"');
+  });
+});
 
 describe("convertTextToHtmlParagraphs", () => {
   it("separates paragraphs on blank lines", () => {

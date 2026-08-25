@@ -11,15 +11,35 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { isGoogleProvider } from "@/utils/email/provider-types";
+import { prefixPath } from "@/utils/path";
 import { useAccount } from "@/providers/EmailAccountProvider";
 
 export default function RequestAccessPage() {
-  const { provider } = useAccount();
+  const { emailAccountId, provider } = useAccount();
 
   return (
     <div className="container px-2 pt-2 sm:px-4 sm:pt-8">
       <div className="mx-auto max-w-2xl space-y-4 sm:space-y-8">
         <EarlyAccessFeatures />
+        <Card>
+          <CardHeader>
+            <CardTitle>Mail</CardTitle>
+            <CardDescription>
+              Open your inbox in the Inbox Zero mail client.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {emailAccountId ? (
+              <Button asChild>
+                <Link href={prefixPath(emailAccountId, "/mail")}>
+                  Open Mail
+                </Link>
+              </Button>
+            ) : (
+              <Button disabled>Open Mail</Button>
+            )}
+          </CardContent>
+        </Card>
         {isGoogleProvider(provider) && (
           <>
             <Card>

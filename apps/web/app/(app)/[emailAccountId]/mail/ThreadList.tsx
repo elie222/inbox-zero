@@ -38,7 +38,6 @@ export type ThreadListProps = {
   onArchiveSelected: () => void;
   onDeleteSelected: () => void;
   onClearSelection: () => void;
-  emptyTitle: string;
   showLoadMore: boolean;
   isLoadingMore: boolean;
   onLoadMore: () => void;
@@ -64,7 +63,6 @@ export function ThreadList({
   onArchiveSelected,
   onDeleteSelected,
   onClearSelection,
-  emptyTitle,
   showLoadMore,
   isLoadingMore,
   onLoadMore,
@@ -145,22 +143,8 @@ export function ThreadList({
         ref={setScrollRoot}
       >
         {threads.length === 0 ? (
-          <div className="px-6 py-12 text-center">
-            <div className="text-foreground text-sm">{emptyTitle}</div>
-            <div className="mt-1.5 text-muted-foreground text-xs">
-              Nothing here right now.
-            </div>
-            {showLoadMore ? (
-              <Button
-                className="mt-4"
-                disabled={isLoadingMore}
-                onClick={onLoadMore}
-                size="sm"
-                variant="outline"
-              >
-                {isLoadingMore ? "Loading more" : "Load more"}
-              </Button>
-            ) : null}
+          <div className="px-6 py-12 text-center text-muted-foreground text-sm">
+            No emails in this view
           </div>
         ) : (
           <>

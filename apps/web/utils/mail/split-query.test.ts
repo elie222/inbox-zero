@@ -23,18 +23,18 @@ describe("mailSplitToThreadsQuery", () => {
     });
   });
 
-  it("queries by label id, not by label name", () => {
+  it("limits label splits to matching inbox mail", () => {
     expect(
       mailSplitToThreadsQuery(split(MailSplitKind.LABEL, "Label_42")),
-    ).toEqual({ labelId: "Label_42" });
+    ).toEqual({ labelIds: ["Label_42", "INBOX"] });
   });
 
-  it("passes a provider category through as the type", () => {
+  it("limits provider category splits to matching inbox mail", () => {
     expect(
       mailSplitToThreadsQuery(
         split(MailSplitKind.CATEGORY, "CATEGORY_PERSONAL"),
       ),
-    ).toEqual({ type: "CATEGORY_PERSONAL" });
+    ).toEqual({ labelIds: ["CATEGORY_PERSONAL", "INBOX"] });
   });
 
   it.each([

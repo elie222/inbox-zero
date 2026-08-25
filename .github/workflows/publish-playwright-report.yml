@@ -1,0 +1,171 @@
+name: publish Playwright report
+
+on:
+  workflow_run:
+    workflows: [Playwright]
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: playwright-publication
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: >-
+      (github.event.workflow_run.conclusion == 'success' ||
+       github.event.workflow_run.conclusion == 'failure' ||
+       github.event.workflow_run.conclusion == 'timed_out') &&
+      (github.event.workflow_run.event == 'pull_request' ||
+       (github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_branch == 'main'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # workflow_run has repository secrets. Always use trusted default-branch code here;
+      # never check out or execute the contributor's pull-request revision.
+      - name: Check out trusted source
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        shell: bash
+        run: |
+          git init .
+          git remote add origin "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git"
+          git fetch --depth=1 origin "$DEFAULT_BRANCH"
+          git checkout --detach FETCH_HEAD
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: bash scripts/pnpm-install-without-desktop.sh --frozen-lockfile
+      - name: Read Playwright job result
+        id: playwright
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        shell: bash
+        run: |
+          result="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/jobs?per_page=100" \
+            --jq '[.jobs[] | select(.name == "Web E2E") | .conclusion] | unique | if length == 1 then .[0] else error("expected exactly one Playwright job") end')"
+          case "$result" in
+            success|failure) ;;
+            timed_out) ;;
+            *) echo "Unexpected Playwright job conclusion: $result" >&2; exit 1 ;;
+          esac
+          echo "job_result=$result" >> "$GITHUB_OUTPUT"
+          if [[ "$result" == "timed_out" ]]; then result="failure"; fi
+          echo "result=$result" >> "$GITHUB_OUTPUT"
+      - name: Resolve pull request
+        if: github.event.workflow_run.event == 'pull_request'
+        id: pull_request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          HEAD_OWNER: ${{ github.event.workflow_run.head_repository.owner.login }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        shell: bash
+        run: |
+          pulls="$(gh api --method GET "repos/${GITHUB_REPOSITORY}/pulls" \
+            -f state=all \
+            -f head="${HEAD_OWNER}:${HEAD_BRANCH}" \
+            -F per_page=100)"
+          number="$(jq -r --arg sha "$HEAD_SHA" \
+            '[.[] | select(.head.sha == $sha)] | if length == 1 then .[0].number else empty end' \
+            <<<"$pulls")"
+          if [[ -z "$number" ]]; then
+            echo "::warning::Could not resolve a pull request for ${HEAD_OWNER}:${HEAD_BRANCH} at ${HEAD_SHA}."
+          fi
+          echo "number=$number" >> "$GITHUB_OUTPUT"
+      - name: Check for Playwright artifact
+        id: artifact
+        env:
+          ARTIFACT_NAME: playwright-artifacts-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PLAYWRIGHT_JOB_RESULT: ${{ steps.playwright.outputs.job_result }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        shell: bash
+        run: |
+          artifacts="$(gh api --method GET \
+            "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts?name=${ARTIFACT_NAME}")"
+          count="$(jq --arg name "$ARTIFACT_NAME" \
+            '[.artifacts[] | select(.name == $name and .expired == false)] | length' \
+            <<<"$artifacts")"
+          if [[ "$count" == "1" ]]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          elif [[ "$count" == "0" && "$PLAYWRIGHT_JOB_RESULT" == "timed_out" ]]; then
+            echo "::warning::The timed-out Playwright job ended before it uploaded an artifact. Publishing an empty gallery."
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Expected exactly one unexpired Playwright artifact; found $count." >&2
+            exit 1
+          fi
+      - name: Download Playwright artifacts
+        if: steps.artifact.outputs.exists == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: playwright-artifacts-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
+          path: .tmp/playwright-artifact
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+      - name: Publish trusted Playwright screenshot gallery
+        id: publish
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ vars.S3_REGION }}
+          AWS_EC2_METADATA_DISABLED: "true"
+          S3_BUCKET: ${{ vars.S3_BUCKET }}
+          S3_ENDPOINT: ${{ vars.S3_ENDPOINT }}
+          PLAYWRIGHT_RESULT: ${{ steps.playwright.outputs.result }}
+          PLAYWRIGHT_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          PLAYWRIGHT_RUN_ID: ${{ github.event.workflow_run.id }}
+          PLAYWRIGHT_RUN_NUMBER: ${{ github.event.workflow_run.run_number }}
+          PLAYWRIGHT_RUN_URL: ${{ github.event.workflow_run.html_url }}
+          PLAYWRIGHT_SHA: ${{ github.event.workflow_run.head_sha }}
+          PLAYWRIGHT_EVENT: ${{ github.event.workflow_run.event }}
+          PLAYWRIGHT_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          PLAYWRIGHT_REPORT_DIR: ${{ github.workspace }}/.tmp/playwright-artifact/playwright-report
+          PLAYWRIGHT_TEST_RESULTS_DIR: ${{ github.workspace }}/.tmp/playwright-artifact/test-results
+          PLAYWRIGHT_PR_NUMBER: ${{ steps.pull_request.outputs.number }}
+          PLAYWRIGHT_REPOSITORY_URL: ${{ github.server_url }}/${{ github.repository }}
+          PLAYWRIGHT_PUBLISH_REPORT: ${{ github.event.workflow_run.event == 'push' }}
+        run: bash scripts/publish-playwright-report.sh
+      - name: Link screenshot gallery from pull request
+        if: >-
+          github.event.workflow_run.event == 'pull_request' &&
+          steps.pull_request.outputs.number != '' &&
+          steps.publish.outputs.latest_pr_run == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          S3_BUCKET: ${{ vars.S3_BUCKET }}
+          S3_ENDPOINT: ${{ vars.S3_ENDPOINT }}
+          PR_NUMBER: ${{ steps.pull_request.outputs.number }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        shell: bash
+        run: |
+          if [[ ! "$PR_NUMBER" =~ ^[1-9][0-9]*$ ]]; then
+            echo "PR_NUMBER must be a positive integer." >&2
+            exit 1
+          fi
+          public_base_url="https://${S3_BUCKET}.${S3_ENDPOINT#https://}/playwright"
+          gallery_url="$public_base_url/prs/$PR_NUMBER/index.html"
+          marker="<!-- inbox-zero-playwright-screenshots -->"
+          body="$(printf '%s\n### Playwright screenshots\n[Open screenshot gallery](%s) · [Dashboard](%s/index.html) · [CI run](%s)\n\nUpdated for commit `%s`.' \
+            "$marker" "$gallery_url" "$public_base_url" "$RUN_URL" "${SHA:0:7}")"
+          comment_id="$(gh api --paginate --slurp \
+            "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments?per_page=100" | \
+            jq -r --arg marker "$marker" \
+              '[.[][] | select(.user.login == "github-actions[bot]" and (.body | contains($marker)))] | last | .id // empty')"
+          payload="$(jq -n --arg body "$body" '{body: $body}')"
+          if [[ -n "$comment_id" ]]; then
+            gh api --method PATCH "repos/${GITHUB_REPOSITORY}/issues/comments/${comment_id}" --input - <<<"$payload"
+          else
+            gh api --method POST "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" --input - <<<"$payload"
+          fi

@@ -4,11 +4,12 @@ import { runRulesAction } from "@/utils/actions/ai-rule";
 import { pushToAiQueueAtom, removeFromAiQueueAtom } from "@/store/ai-queue";
 import { isDefined } from "@/utils/types";
 import { aiQueue } from "@/utils/queue/ai-queue";
-import type { ThreadsResponse } from "@/app/api/threads/route";
 
 export const runAiRules = async (
   emailAccountId: string,
-  threadsArray: ThreadsResponse["threads"],
+  threadsArray: Array<
+    { id: string; messages: Array<{ id: string }> } | null | undefined
+  >,
   rerun: boolean,
   signal?: AbortSignal,
 ) => {
@@ -38,7 +39,7 @@ export const runAiRules = async (
         .add(
           async () => {
             try {
-              const message = thread.messages?.[thread.messages.length - 1];
+              const message = thread.messages.at(-1);
               if (!message) return;
 
               const result = await runRulesAction(emailAccountId, {

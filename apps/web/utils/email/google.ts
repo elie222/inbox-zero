@@ -1,6 +1,7 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import chunk from "lodash/chunk";
 import type { Attachment as MailAttachment } from "nodemailer/lib/mailer";
+import { toMailerAttachments } from "@/utils/types/mail";
 import type { MessageWithPayload, ParsedMessage } from "@/utils/types";
 import { parseMessage } from "@/utils/gmail/message";
 import {
@@ -53,7 +54,11 @@ import {
   getThreadsFromSenderWithSubject,
 } from "@/utils/gmail/thread";
 import { getMessagesBatch } from "@/utils/gmail/message";
-import { getAccessTokenFromClient } from "@/utils/gmail/client";
+import {
+  getAccessTokenFromClient,
+  getContactsClient,
+} from "@/utils/gmail/client";
+import { searchContacts } from "@/utils/gmail/contact";
 import { getGmailAttachment } from "@/utils/gmail/attachment";
 import {
   getThreadsBatch,
@@ -84,7 +89,9 @@ import type {
   SentMessagePage,
   BulkArchiveThread,
   BulkArchiveResult,
+  EmailLabelUpdate,
 } from "@/utils/email/types";
+import type { SendEmailBody } from "@/utils/types/mail";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 import { getGmailSignatures } from "@/utils/gmail/signature-settings";
 import { withRateLimitRecording } from "@/utils/email/rate-limit";
@@ -974,26 +981,11 @@ export class GmailProvider implements EmailProvider {
     await sendEmailWithPlainText(this.client, args);
   }
 
-  async sendEmailWithHtml(body: {
-    replyToEmail?: {
-      threadId: string;
-      headerMessageId: string;
-      references?: string;
-    };
-    to: string;
-    from?: string;
-    cc?: string;
-    bcc?: string;
-    replyTo?: string;
-    subject: string;
-    messageHtml: string;
-    attachments?: Array<{
-      filename: string;
-      content: string;
-      contentType: string;
-    }>;
-  }) {
-    const result = await sendEmailWithHtml(this.client, body);
+  async sendEmailWithHtml(body: SendEmailBody) {
+    const result = await sendEmailWithHtml(this.client, {
+      ...body,
+      attachments: toMailerAttachments(body.attachments),
+    });
     return {
       messageId: result.data.id || "",
       threadId: result.data.threadId || "",
@@ -1102,9 +1094,24 @@ export class GmailProvider implements EmailProvider {
   }
 
   async deleteLabel(labelId: string): Promise<void> {
-    await this.client.users.labels.delete({
+    try {
+      await withGmailRetry(() =>
+        this.client.users.labels.delete({
+          userId: "me",
+          id: labelId,
+        }),
+      );
+    } catch (error) {
+      if (extractErrorInfo(error).status !== 404) throw error;
+      this.logger.info("Label was already deleted", { labelId });
+    }
+  }
+
+  async updateLabel(labelId: string, update: EmailLabelUpdate): Promise<void> {
+    await this.client.users.labels.patch({
       userId: "me",
       id: labelId,
+      requestBody: update,
     });
   }
 
@@ -1394,6 +1401,13 @@ export class GmailProvider implements EmailProvider {
     return getAccessTokenFromClient(this.client);
   }
 
+  async searchContacts(query: string) {
+    const client = getContactsClient({ accessToken: this.getAccessToken() });
+    return this.withRateLimitTracking("search-contacts", () =>
+      searchContacts(client, query),
+    );
+  }
+
   async markReadThread(threadId: string, read: boolean): Promise<void> {
     await markReadThread({
       gmail: this.client,
@@ -1658,6 +1672,14 @@ export class GmailProvider implements EmailProvider {
 
   async getFolderCounts() {
     return [];
+  }
+
+  async renameFolder(_folderId: string, _name: string): Promise<void> {
+    this.logger.warn("Renaming folders is not supported for Gmail");
+  }
+
+  async deleteFolder(_folderId: string): Promise<void> {
+    this.logger.warn("Deleting folders is not supported for Gmail");
   }
 
   async moveThreadToFolder(

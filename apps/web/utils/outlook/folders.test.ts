@@ -4,6 +4,8 @@ import {
   getOutlookRootFolders,
   getOutlookChildFolders,
   addOutlookSystemFolderTypes,
+  deleteOutlookFolder,
+  renameOutlookFolder,
 } from "./folders";
 import type { OutlookClient } from "./client";
 import { createTestLogger } from "@/__tests__/helpers";
@@ -13,7 +15,36 @@ const logger = createTestLogger();
 // Mock the retry wrapper to just execute the function directly
 vi.mock("@/utils/microsoft/retry", () => ({
   withMicrosoftGraphRetry: <T>(fn: () => Promise<T>) => fn(),
+  withMicrosoftGraphWriteRetry: <T>(fn: () => Promise<T>) => fn(),
 }));
+
+describe("Outlook folder mutations", () => {
+  it("renames the selected folder", async () => {
+    const patch = vi.fn().mockResolvedValue(undefined);
+    const api = vi.fn().mockReturnValue({ patch });
+    const client = {
+      getClient: () => ({ api }),
+    } as unknown as OutlookClient;
+
+    await renameOutlookFolder(client, "folder/id", "Projects", logger);
+
+    expect(api).toHaveBeenCalledWith("/me/mailFolders/folder%2Fid");
+    expect(patch).toHaveBeenCalledWith({ displayName: "Projects" });
+  });
+
+  it("deletes the selected folder", async () => {
+    const deleteFolder = vi.fn().mockResolvedValue(undefined);
+    const api = vi.fn().mockReturnValue({ delete: deleteFolder });
+    const client = {
+      getClient: () => ({ api }),
+    } as unknown as OutlookClient;
+
+    await deleteOutlookFolder(client, "folder/id", logger);
+
+    expect(api).toHaveBeenCalledWith("/me/mailFolders/folder%2Fid");
+    expect(deleteFolder).toHaveBeenCalledOnce();
+  });
+});
 
 function createMockClient(
   mockResponses: Record<string, { value: unknown[] }>,

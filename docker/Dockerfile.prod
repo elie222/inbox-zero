@@ -20,6 +20,7 @@ COPY apps/image-proxy/package.json apps/image-proxy/package.json
 COPY apps/image-proxy-aws/package.json apps/image-proxy-aws/package.json
 COPY packages/api/package.json packages/api/package.json
 COPY packages/cli/package.json packages/cli/package.json
+COPY packages/email-editor/package.json packages/email-editor/package.json
 COPY packages/image-proxy/package.json packages/image-proxy/package.json
 COPY packages/loops/package.json packages/loops/package.json
 COPY packages/resend/package.json packages/resend/package.json
@@ -71,6 +72,8 @@ ARG NEXT_PUBLIC_DIGEST_ENABLED="NEXT_PUBLIC_DIGEST_ENABLED_PLACEHOLDER"
 ENV NEXT_PUBLIC_DIGEST_ENABLED=${NEXT_PUBLIC_DIGEST_ENABLED}
 ARG NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED="NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED_PLACEHOLDER"
 ENV NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED=${NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED}
+ARG NEXT_PUBLIC_EXTERNAL_API_ENABLED="NEXT_PUBLIC_EXTERNAL_API_ENABLED_PLACEHOLDER"
+ENV NEXT_PUBLIC_EXTERNAL_API_ENABLED=${NEXT_PUBLIC_EXTERNAL_API_ENABLED}
 ARG NEXT_PUBLIC_AI_MODEL_SETTINGS_DISABLED="NEXT_PUBLIC_AI_MODEL_SETTINGS_DISABLED_PLACEHOLDER"
 ENV NEXT_PUBLIC_AI_MODEL_SETTINGS_DISABLED=${NEXT_PUBLIC_AI_MODEL_SETTINGS_DISABLED}
 

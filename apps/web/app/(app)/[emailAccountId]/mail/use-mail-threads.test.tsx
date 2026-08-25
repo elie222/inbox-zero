@@ -16,6 +16,14 @@ const cache = vi.hoisted(() => ({
   write: vi.fn(),
   writeRows: vi.fn(),
 }));
+const mailbox = vi.hoisted(() => ({
+  listeners: new Set<(emailAccountId: string) => void>(),
+  read: vi.fn(),
+  subscribe: vi.fn(),
+}));
+const analytics = vi.hoisted(() => ({
+  trackListReady: vi.fn(),
+}));
 
 vi.mock("@/utils/email-cache/thread-lists", () => ({
   readCachedThreadList: cache.read,
@@ -23,6 +31,13 @@ vi.mock("@/utils/email-cache/thread-lists", () => ({
   restoreCachedThreadsToView: cache.restore,
   writeCachedThreadList: cache.write,
   writeCachedThreadRows: cache.writeRows,
+}));
+vi.mock("@/utils/email-cache/mailbox", () => ({
+  readSyncedMailboxThreads: mailbox.read,
+  subscribeToMailboxStore: mailbox.subscribe,
+}));
+vi.mock("@/utils/email-cache/analytics", () => ({
+  trackMailboxListReady: analytics.trackListReady,
 }));
 
 describe("useMailThreads", () => {
@@ -32,6 +47,115 @@ describe("useMailThreads", () => {
     cache.restore.mockResolvedValue(undefined);
     cache.write.mockResolvedValue(undefined);
     cache.writeRows.mockResolvedValue(undefined);
+    mailbox.listeners.clear();
+    mailbox.read.mockResolvedValue(undefined);
+    mailbox.subscribe.mockImplementation(
+      (listener: (emailAccountId: string) => void) => {
+        mailbox.listeners.add(listener);
+        return () => mailbox.listeners.delete(listener);
+      },
+    );
+  });
+
+  it("supports optimistic actions before the server mailbox page arrives", async () => {
+    const network = Promise.withResolvers<unknown>();
+    cache.read.mockResolvedValue(undefined);
+    mailbox.read.mockResolvedValue({
+      after: "2026-07-24T00:00:00.000Z",
+      complete: true,
+      syncedAt: 100,
+      threads: [createThread("local", ["INBOX", "UNREAD"])],
+    });
+    const { result } = renderHook(
+      () =>
+        useMailThreads({
+          emailAccountId: "account-local",
+          query: { type: "inbox" },
+        }),
+      { wrapper: createWrapper(() => network.promise) },
+    );
+    await waitFor(() => expect(result.current.threads).toHaveLength(1));
+    expect(analytics.trackListReady).toHaveBeenCalledWith(
+      expect.objectContaining({ source: "mailbox", threadCount: 1 }),
+    );
+
+    let removal!: ReturnType<typeof result.current.removeThreads>;
+    act(() => {
+      removal = result.current.removeThreads(["local"]);
+    });
+    expect(result.current.threads).toEqual([]);
+
+    act(() => result.current.restoreThreads(removal, ["local"]));
+    expect(result.current.threads.map((thread) => thread.id)).toEqual([
+      "local",
+    ]);
+
+    act(() => {
+      result.current.optimisticallyUpdateThreads(["local"], (thread) => ({
+        ...thread,
+        snippet: "updated locally",
+      }));
+    });
+    expect(result.current.threads[0]?.snippet).toBe("updated locally");
+    expect(mailbox.read).toHaveBeenCalledOnce();
+  });
+
+  it("uses newer synced messages without losing server rule metadata", async () => {
+    const plan = { id: "execution-1", rule: { id: "rule-1" } };
+    const remoteThread = {
+      ...createThread("shared"),
+      plan,
+      plans: [plan],
+      snippet: "remote",
+    };
+    remoteThread.messages[0]!.internalDate = "2026-08-22T00:00:00.000Z";
+    const syncedThread = {
+      ...createThread("shared"),
+      snippet: "synced",
+    };
+    syncedThread.messages[0]!.internalDate = "2026-08-23T00:00:00.000Z";
+    const remoteOlderThread = createThread("remote-older");
+    remoteOlderThread.messages[0]!.internalDate = "2026-08-10T00:00:00.000Z";
+    mailbox.read
+      .mockResolvedValueOnce({
+        after: "2026-07-24T00:00:00.000Z",
+        complete: true,
+        syncedAt: 1,
+        truncated: false,
+        threads: [syncedThread],
+      })
+      .mockResolvedValue({
+        after: "2026-07-24T00:00:00.000Z",
+        complete: true,
+        syncedAt: Number.MAX_SAFE_INTEGER,
+        truncated: true,
+        threads: [syncedThread],
+      });
+    const query = { type: "inbox" };
+    const { result } = renderHook(
+      () => useMailThreads({ emailAccountId: "account-merge", query }),
+      {
+        wrapper: createWrapper(() =>
+          Promise.resolve({ threads: [remoteThread, remoteOlderThread] }),
+        ),
+      },
+    );
+    await waitFor(() =>
+      expect(result.current.threads[0]?.snippet).toBe("remote"),
+    );
+
+    act(() => {
+      for (const listener of mailbox.listeners) listener("account-merge");
+    });
+
+    await waitFor(() =>
+      expect(result.current.threads[0]?.snippet).toBe("synced"),
+    );
+    expect(result.current.threads.map((thread) => thread.id)).toEqual([
+      "shared",
+      "remote-older",
+    ]);
+    expect(result.current.threads[0]).toMatchObject({ plan, plans: [plan] });
   });
 
   it("renders the cached first page while the server revalidates", async () => {
@@ -56,6 +180,57 @@ describe("useMailThreads", () => {
       expect(result.current.isLoading).toBe(false);
       expect(result.current.hasMore).toBe(true);
     });
+    expect(analytics.trackListReady).toHaveBeenCalledWith(
+      expect.objectContaining({ source: "persistent", threadCount: 1 }),
+    );
+  });
+
+  it("keeps loading when an empty cached page is awaiting server rows", async () => {
+    const network = Promise.withResolvers<unknown>();
+    cache.read.mockResolvedValue({
+      cachedAt: 100,
+      hasMore: true,
+      threads: [],
+    });
+
+    const { result } = renderHook(
+      () =>
+        useMailThreads({
+          emailAccountId: "account-empty-cache",
+          query: { type: "inbox" },
+        }),
+      { wrapper: createWrapper(() => network.promise) },
+    );
+
+    await waitFor(() => expect(result.current.hasMore).toBe(true));
+    expect(result.current.threads).toEqual([]);
+    expect(result.current.isLoading).toBe(true);
+  });
+
+  it("surfaces an initial request failure when the cache has no rows", async () => {
+    const requestError = new Error("request failed");
+    const pendingRetry = Promise.withResolvers<unknown>();
+    const fetcher = vi
+      .fn()
+      .mockRejectedValueOnce(requestError)
+      .mockReturnValue(pendingRetry.promise);
+    cache.read.mockResolvedValue({
+      cachedAt: 100,
+      hasMore: true,
+      threads: [],
+    });
+
+    const { result } = renderHook(
+      () =>
+        useMailThreads({
+          emailAccountId: "account-empty-cache-error",
+          query: { type: "inbox" },
+        }),
+      { wrapper: createWrapper(fetcher) },
+    );
+
+    expect(result.current.threads).toEqual([]);
+    await waitFor(() => expect(result.current.error).toBe(requestError));
   });
 
   it("keeps network rows when the disk read finishes later", async () => {
@@ -76,6 +251,9 @@ describe("useMailThreads", () => {
       network.resolve({ threads: [createThread("network")] });
     });
     await waitFor(() => expect(result.current.threads[0]?.id).toBe("network"));
+    expect(analytics.trackListReady).toHaveBeenCalledWith(
+      expect.objectContaining({ source: "remote", threadCount: 1 }),
+    );
 
     await act(async () => {
       disk.resolve({

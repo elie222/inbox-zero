@@ -6,6 +6,8 @@ import type {
   OutlookSystemFolder,
 } from "@/utils/outlook/folders";
 import type { Attachment as MailAttachment } from "nodemailer/lib/mailer";
+import type { SendEmailBody } from "@/utils/types/mail";
+import type { EmailContact } from "@/utils/email/contact";
 
 export interface EmailThread {
   historyId?: string;
@@ -36,6 +38,16 @@ export interface EmailLabel {
   threadsUnread?: number;
   type: string;
 }
+
+export type EmailLabelColor = {
+  backgroundColor: string;
+  textColor: string;
+};
+
+export type EmailLabelUpdate = {
+  color?: EmailLabelColor;
+  name?: string;
+};
 
 export type EmailFolderCount = {
   id: string;
@@ -125,6 +137,7 @@ export interface EmailProvider {
   createLabel(name: string, description?: string): Promise<EmailLabel>;
   deleteDraft(draftId: string): Promise<void>;
   deleteFilter(id: string): Promise<{ status: number }>;
+  deleteFolder(folderId: string): Promise<void>;
   deleteLabel(labelId: string): Promise<void>;
   draftEmail(
     email: ParsedMessage,
@@ -276,6 +289,7 @@ export interface EmailProvider {
   readonly name: "google" | "microsoft";
   removeThreadLabel(threadId: string, labelId: string): Promise<void>;
   removeThreadLabels(threadId: string, labelIds: string[]): Promise<void>;
+  renameFolder(folderId: string, name: string): Promise<void>;
   replyToEmail(
     email: ParsedMessage,
     content: string,
@@ -285,6 +299,7 @@ export interface EmailProvider {
       attachments?: MailAttachment[];
     },
   ): Promise<void>;
+  searchContacts(query: string): Promise<EmailContact[]>;
   searchMessages(options: {
     query: string;
     maxResults?: number;
@@ -304,26 +319,7 @@ export interface EmailProvider {
     messageText: string;
     attachments?: MailAttachment[];
   }): Promise<void>;
-  sendEmailWithHtml(body: {
-    replyToEmail?: {
-      threadId: string;
-      headerMessageId: string;
-      references?: string;
-      messageId?: string; // Platform-specific message ID (Graph ID for Outlook)
-    };
-    to: string;
-    from?: string;
-    cc?: string;
-    bcc?: string;
-    replyTo?: string;
-    subject: string;
-    messageHtml: string;
-    attachments?: Array<{
-      filename: string;
-      content: string;
-      contentType: string;
-    }>;
-  }): Promise<{
+  sendEmailWithHtml(body: SendEmailBody): Promise<{
     messageId: string;
     threadId: string;
   }>;
@@ -348,6 +344,7 @@ export interface EmailProvider {
       subject?: string;
     },
   ): Promise<void>;
+  updateLabel(labelId: string, update: EmailLabelUpdate): Promise<void>;
   watchEmails(): Promise<{
     expirationDate: Date;
     subscriptionId?: string;

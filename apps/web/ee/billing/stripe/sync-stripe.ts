@@ -1,4 +1,5 @@
 import { after } from "next/server";
+import type Stripe from "stripe";
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
 import { getStripe } from "@/ee/billing/stripe";
@@ -64,13 +65,25 @@ export async function syncStripeDataToDb({
         stripeTrialEnd: null,
       };
 
-      await prisma.premium.upsert({
+      const updatedPremium = await prisma.premium.upsert({
         where: { stripeCustomerId: customerId },
         update: subscriptionData,
         create: {
           ...subscriptionData,
           stripeCustomerId: customerId,
         },
+        select: {
+          id: true,
+          users: { select: { id: true } },
+          admins: { select: { id: true } },
+        },
+      });
+
+      await connectPurchaserAsAdminIfMissing({
+        stripe,
+        customerId,
+        premium: updatedPremium,
+        logger,
       });
 
       logger.info("Updated Premium record for customer with no subscription", {
@@ -152,7 +165,15 @@ export async function syncStripeDataToDb({
       select: {
         id: true,
         users: { select: { id: true } },
+        admins: { select: { id: true } },
       },
+    });
+
+    await connectPurchaserAsAdminIfMissing({
+      stripe,
+      customerId,
+      premium: updatedPremium,
+      logger,
     });
 
     // Handle Loops events based on state changes
@@ -190,6 +211,89 @@ export async function syncStripeDataToDb({
     logger.error("Error syncing Stripe data to DB", { customerId, error });
     captureException(error, { extra: { customerId } });
     throw error;
+  }
+}
+
+export async function connectPurchaserAsAdmin({
+  stripe,
+  customerId,
+  premium,
+  logger,
+}: {
+  stripe: Stripe;
+  customerId: string;
+  premium: { id: string; users: { id: string }[] };
+  logger: Logger;
+}): Promise<boolean> {
+  const customer = await stripe.customers.retrieve(customerId);
+  if (customer.deleted) {
+    logger.warn("Cannot record premium admin: Stripe customer is deleted", {
+      customerId,
+      premiumId: premium.id,
+    });
+    return false;
+  }
+
+  const purchaserUserId = customer.metadata?.userId;
+  const linkedUserIds = new Set(premium.users.map((user) => user.id));
+  if (!purchaserUserId || !linkedUserIds.has(purchaserUserId)) {
+    logger.warn(
+      "Cannot establish purchaser from Stripe customer metadata; skipping admin assignment",
+      {
+        customerId,
+        premiumId: premium.id,
+        hasMetadataUserId: Boolean(purchaserUserId),
+      },
+    );
+    return false;
+  }
+
+  await prisma.premium.update({
+    where: {
+      id: premium.id,
+      users: { some: { id: purchaserUserId } },
+    },
+    data: { admins: { connect: { id: purchaserUserId } } },
+  });
+
+  logger.info("Recorded Stripe purchaser as premium admin", {
+    customerId,
+    premiumId: premium.id,
+    purchaserUserId,
+  });
+  return true;
+}
+
+async function connectPurchaserAsAdminIfMissing({
+  stripe,
+  customerId,
+  premium,
+  logger,
+}: {
+  stripe: Stripe;
+  customerId: string;
+  premium: {
+    id: string;
+    users: { id: string }[];
+    admins: { id: string }[];
+  };
+  logger: Logger;
+}) {
+  if (premium.admins.length > 0 || premium.users.length === 0) return;
+
+  try {
+    await connectPurchaserAsAdmin({
+      stripe,
+      customerId,
+      premium,
+      logger,
+    });
+  } catch (error) {
+    logger.error("Failed to record Stripe purchaser as premium admin", {
+      customerId,
+      error,
+    });
+    captureException(error, { extra: { customerId } });
   }
 }
 

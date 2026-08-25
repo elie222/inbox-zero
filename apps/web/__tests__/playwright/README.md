@@ -19,11 +19,16 @@ server's compiled route graph from exhausting its heap during the full suite.
 Run a spec directly with Playwright when iterating on one flow.
 
 The emulated project runs when browser-facing files change in pull requests or
-on `main`, plus the daily schedule and manual dispatches. Pull requests retain
-the HTML report, screenshots, traces, and videos as GitHub Actions artifacts.
-Intentional checkpoint screenshots are attached when their test file changed
-in a pull request or push. Every test still captures a screenshot on failure.
-Runs on `main` also publish a persistent report history to the public
-Playwright dashboard:
+on `main`, plus the daily schedule and manual dispatches. CI captures the final
+state of every test, and tests can add intentional checkpoint screenshots for
+important intermediate states. Every failure also retains its trace and video.
+
+After each pull request run, a trusted follow-up workflow publishes a
+screenshot-only gallery, compares its checkpoints with the latest successful
+`main` run, and adds or updates a pull request comment with the gallery link.
+The full HTML report stays private to the GitHub Actions artifact for pull
+requests because it was generated from contributor-controlled code. Successful
+and failed `main` runs also publish the full report and visual history to the
+public Playwright dashboard:
 
 <https://izghactions.fsn1.your-objectstorage.com/playwright/index.html>

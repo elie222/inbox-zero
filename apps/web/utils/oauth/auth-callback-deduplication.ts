@@ -8,6 +8,7 @@ import {
   setOAuthCodeResult,
 } from "@/utils/redis/oauth-code";
 import { WELCOME_PATH } from "@/utils/config";
+import { env } from "@/env";
 
 const CALLBACK_PATH_REGEX = /\/api\/auth\/(?:oauth2\/)?callback\/([^/]+)\/?$/;
 const CALLBACK_RESULT_TTL_SECONDS = 600;
@@ -47,7 +48,7 @@ export async function deduplicateOAuthCallback({
       error: claim.error,
       provider,
     });
-    return Response.redirect(new URL(WELCOME_PATH, request.url), 302);
+    return Response.redirect(getPublicRedirectUrl(), 302);
   }
 
   if (claim.status === "success") {
@@ -58,7 +59,6 @@ export async function deduplicateOAuthCallback({
       { provider },
     );
     return createCachedRedirect({
-      request,
       requestFingerprint,
       result: claim.result,
     });
@@ -66,7 +66,7 @@ export async function deduplicateOAuthCallback({
 
   if (claim.status === "timeout") {
     logger.warn("OAuth callback wait timed out", { provider });
-    return Response.redirect(new URL(WELCOME_PATH, request.url), 302);
+    return Response.redirect(getPublicRedirectUrl(), 302);
   }
 
   try {
@@ -125,11 +125,9 @@ function getOAuthCallback(request: Request) {
 }
 
 function createCachedRedirect({
-  request,
   requestFingerprint,
   result,
 }: {
-  request: Request;
   requestFingerprint?: string;
   result: OAuthCodeResult;
 }) {
@@ -138,10 +136,10 @@ function createCachedRedirect({
   const status = Number(params.status);
 
   if (!redirect) {
-    return Response.redirect(new URL(WELCOME_PATH, request.url), 302);
+    return Response.redirect(getPublicRedirectUrl(), 302);
   }
 
-  const redirectUrl = new URL(redirect, request.url);
+  const redirectUrl = getPublicRedirectUrl(redirect);
   const redirectStatus = REDIRECT_STATUSES.has(status) ? status : 302;
   const headers = new Headers({ location: redirectUrl.toString() });
 
@@ -193,4 +191,8 @@ function parseSetCookies(value: string) {
   } catch {
     return [];
   }
+}
+
+function getPublicRedirectUrl(path = WELCOME_PATH) {
+  return new URL(path, env.NEXT_PUBLIC_BASE_URL);
 }

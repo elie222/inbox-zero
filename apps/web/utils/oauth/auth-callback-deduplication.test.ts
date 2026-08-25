@@ -27,6 +27,10 @@ vi.mock("@/utils/redis/oauth-code", () => ({
   setOAuthCodeResult: mockSetOAuthCodeResult,
 }));
 
+vi.mock("@/env", () => ({
+  env: { NEXT_PUBLIC_BASE_URL: "https://example.com" },
+}));
+
 import { deduplicateOAuthCallback } from "./auth-callback-deduplication";
 
 const logger = createScopedLogger("test/auth-callback-deduplication");
@@ -160,6 +164,31 @@ describe("deduplicateOAuthCallback", () => {
     expect(handleRequest).not.toHaveBeenCalled();
   });
 
+  it("resolves relative cached redirects against the configured public URL", async () => {
+    mockClaimOAuthCodeAndWait.mockResolvedValue({
+      result: {
+        params: {
+          redirect: "/welcome-redirect",
+          status: "302",
+        },
+        requestFingerprint: REQUEST_FINGERPRINT,
+        status: "success",
+      },
+      status: "success",
+      waited: true,
+    });
+
+    const response = await deduplicateOAuthCallback({
+      request: createGoogleCallbackRequest("https://0.0.0.0:3000"),
+      handleRequest: vi.fn(),
+      logger,
+    });
+
+    expect(response.headers.get("location")).toBe(
+      "https://example.com/welcome-redirect",
+    );
+  });
+
   it("does not replay session cookies to a different OAuth state", async () => {
     mockClaimOAuthCodeAndWait.mockResolvedValue({
       result: {
@@ -251,9 +280,9 @@ describe("deduplicateOAuthCallback", () => {
   });
 });
 
-function createGoogleCallbackRequest() {
+function createGoogleCallbackRequest(origin = "https://example.com") {
   return new Request(
-    "https://example.com/api/auth/callback/google?code=oauth-code&state=oauth-state",
+    `${origin}/api/auth/callback/google?code=oauth-code&state=oauth-state`,
     { headers: { cookie: OAUTH_STATE_COOKIE } },
   );
 }

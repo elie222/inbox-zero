@@ -287,7 +287,7 @@ export function SideNav({
             <SidebarTrigger name="left-sidebar" className="ml-auto" />
           </div>
         ) : (
-          <div className="pb-2 pt-[var(--desktop-traffic-lights-height,0px)]">
+          <div data-desktop-mac-titlebar-spacer className="pb-2">
             <SidebarTrigger name="left-sidebar" />
           </div>
         )}

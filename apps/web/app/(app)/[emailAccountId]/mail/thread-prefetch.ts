@@ -5,8 +5,8 @@ import {
   fetchThreadRequest,
 } from "@/utils/email-cache/thread-request";
 import {
-  readCachedThread,
-  writeCachedThread,
+  readCachedThreadDetail,
+  writeCachedThreadDetail,
 } from "@/utils/email-cache/threads";
 import { prepareEmailHtml } from "@/utils/email/prepare-html.client";
 
@@ -33,7 +33,7 @@ export async function prefetchThreadDetail({
     threadId,
     options: { includeDrafts: true },
   });
-  const cached = await readCachedThread<ThreadResponse>({
+  const cached = await readCachedThreadDetail({
     emailAccountId,
     threadId,
     variant: request.variant,
@@ -48,6 +48,7 @@ export async function prefetchThreadDetail({
         revalidate: false,
       },
     );
+    if (isCancelled?.()) return;
     await prepareVisibleMessageHtml(cached.data);
     return;
   }
@@ -56,13 +57,14 @@ export async function prefetchThreadDetail({
     request,
     async () => (await fetcher(request.key)) as ThreadResponse | undefined,
   );
-  if (!data) return;
+  if (!data || isCancelled?.()) return;
   await mutate(request.key, data, {
     populateCache: true,
     revalidate: false,
   });
+  if (isCancelled?.()) return;
   await Promise.all([
-    writeCachedThread({
+    writeCachedThreadDetail({
       emailAccountId,
       threadId,
       variant: request.variant,

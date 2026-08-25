@@ -98,6 +98,7 @@ export const footerNavigation = {
     { name: "OpenClaw Skill", href: "/openclaw" },
   ],
   company: [
+    { name: "About", href: "/about" },
     { name: "Affiliates", href: "/affiliates", target: "_blank" },
     { name: "Blog", href: "/blog" },
     { name: "Case Studies", href: "/case-studies" },

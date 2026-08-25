@@ -11,7 +11,12 @@ import {
   type Session,
   type WebContents,
 } from "electron";
-import { startDesktopAutoUpdate, logDesktopUpdateError } from "./auto-update";
+import { configureDesktopApplicationMenu } from "./application-menu";
+import {
+  checkForDesktopUpdatesManually,
+  logDesktopUpdateError,
+  startDesktopAutoUpdate,
+} from "./auto-update";
 import {
   DESKTOP_PROTOCOL,
   findDesktopProtocolUrl,
@@ -100,6 +105,11 @@ function startDesktopApp() {
   });
 
   app.whenReady().then(async () => {
+    configureDesktopApplicationMenu(() => {
+      checkForDesktopUpdatesManually(() => {
+        isQuitting = true;
+      }).catch(logDesktopUpdateError);
+    });
     // Overlap TLS/socket setup with window creation and page load.
     session
       .fromPartition(PARTITION)
