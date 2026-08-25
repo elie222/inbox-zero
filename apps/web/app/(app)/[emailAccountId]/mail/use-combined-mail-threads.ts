@@ -586,8 +586,8 @@ export function useCombinedMailThreads({
 
   return {
     threads,
-    isLoading: isLoading && sourceThreads === undefined,
-    error: sourceThreads !== undefined ? undefined : error,
+    isLoading: isLoading && !sourceThreads?.length,
+    error: sourceThreads?.length ? undefined : error,
     hasMore: Boolean(hasMore),
     isLoadingMore: isLoadingMore || isLoadingMoreLocally,
     failedAccountIds,
