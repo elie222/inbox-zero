@@ -49,7 +49,7 @@ describe("isRuleGeneratedMessage", () => {
     });
   });
 
-  it("defers attribution while a sending action is still executing", async () => {
+  it("treats messages racing an in-flight sending action as rule-generated", async () => {
     vi.mocked(prisma.executedAction.findMany).mockResolvedValue([
       {
         sentMessageIds: [],
@@ -63,7 +63,7 @@ describe("isRuleGeneratedMessage", () => {
         threadId: "thread-1",
         messageId: "message-racing-with-send",
       }),
-    ).rejects.toThrow("Message attribution is still pending");
+    ).resolves.toBe(true);
   });
 
   it("does not treat historical rule activity as the current message", async () => {

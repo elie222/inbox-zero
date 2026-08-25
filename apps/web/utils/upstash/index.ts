@@ -9,7 +9,6 @@ const logger = createScopedLogger("upstash");
 
 type PublishToQstashOptions = {
   destinationUrl?: string;
-  waitForFallback?: boolean;
 };
 
 function getQstashClient(callbackUrl: string = getQstashCallbackBaseUrl()) {
@@ -56,7 +55,6 @@ export async function publishToQstash<T>(
     body,
     requestHeaders,
     !options?.destinationUrl,
-    options?.waitForFallback,
   );
 }
 
@@ -155,7 +153,6 @@ async function fallbackPublishToQstash<T>(
   body: T,
   headers?: HeadersInit,
   includeInternalApiHeaders = true,
-  waitForDelivery = false,
 ) {
   logger.warn("Qstash client not found");
 
@@ -167,22 +164,13 @@ async function fallbackPublishToQstash<T>(
     }
   }
 
-  const publish = async () => {
-    const response = await fetch(url, {
-      method: "POST",
-      headers: internalHeaders,
-      body: JSON.stringify(body),
-    });
-    if (!response.ok) {
-      throw new Error(`Fallback QStash request failed: ${response.status}`);
-    }
-  };
-
-  if (waitForDelivery) return publish();
-
   after(async () => {
     try {
-      await publish();
+      await fetch(url, {
+        method: "POST",
+        headers: internalHeaders,
+        body: JSON.stringify(body),
+      });
     } catch (error) {
       logger.error("Fallback QStash fetch failed", { url, error });
     }

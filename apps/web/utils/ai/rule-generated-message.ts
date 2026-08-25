@@ -34,9 +34,8 @@ export async function isRuleGeneratedMessage({
     return true;
   }
 
-  if (candidates.some(({ executionStartedAt }) => executionStartedAt)) {
-    throw new Error("Message attribution is still pending");
-  }
-
-  return false;
+  // A rule send on this thread is still in flight, so the message can't be
+  // attributed yet. Treat it as rule-generated; if it was really the user's,
+  // their next reply to the sender re-runs the exclusion.
+  return candidates.some(({ executionStartedAt }) => executionStartedAt);
 }
