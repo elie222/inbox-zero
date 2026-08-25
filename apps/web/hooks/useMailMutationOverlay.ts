@@ -94,7 +94,7 @@ export function useRetainedMailMutationOverlay({
     enabled: Boolean(emailAccountId),
   });
   const onReconcileRef = useRef(onReconcile);
-  const previous = useRef<MutationSnapshot>();
+  const previous = useRef<MutationSnapshot | undefined>(undefined);
   const reconciliationState = useRef({
     emailAccountId,
     isRunning: false,
