@@ -2,7 +2,7 @@
 
 import { env } from "@/env";
 
-export const SCOPES = [
+export const REQUIRED_SCOPES = [
   "openid",
   "profile",
   "email",
@@ -11,6 +11,11 @@ export const SCOPES = [
   "Mail.ReadWrite", // Read and write access to mailbox
   ...(env.NEXT_PUBLIC_EMAIL_SEND_ENABLED ? ["Mail.Send"] : []), // Send emails
   "MailboxSettings.ReadWrite", // Read and write mailbox settings
+] as const;
+
+export const SCOPES = [
+  ...REQUIRED_SCOPES,
+  ...(env.NEXT_PUBLIC_CONTACTS_ENABLED ? ["People.Read"] : []),
 ] as const;
 
 export const CALENDAR_SCOPES = [

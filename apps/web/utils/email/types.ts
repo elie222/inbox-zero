@@ -7,6 +7,7 @@ import type {
 } from "@/utils/outlook/folders";
 import type { Attachment as MailAttachment } from "nodemailer/lib/mailer";
 import type { SendEmailBody } from "@/utils/types/mail";
+import type { EmailContact } from "@/utils/email/contact";
 
 export interface EmailThread {
   historyId?: string;
@@ -298,6 +299,7 @@ export interface EmailProvider {
       attachments?: MailAttachment[];
     },
   ): Promise<void>;
+  searchContacts(query: string): Promise<EmailContact[]>;
   searchMessages(options: {
     query: string;
     maxResults?: number;

@@ -36,7 +36,10 @@ import {
   clearOAuthCode,
 } from "@/utils/redis/oauth-code";
 import { isDuplicateError } from "@/utils/prisma-helpers";
-import { SCOPES as OUTLOOK_SCOPES } from "@/utils/outlook/scopes";
+import {
+  REQUIRED_SCOPES as OUTLOOK_REQUIRED_SCOPES,
+  SCOPES as OUTLOOK_SCOPES,
+} from "@/utils/outlook/scopes";
 import type { Logger } from "@/utils/logger";
 
 export const GET = withError("outlook/linking/callback", async (request) => {
@@ -444,7 +447,7 @@ interface MicrosoftTokens {
   token_type?: string | null;
 }
 
-const MICROSOFT_LINKING_SCOPES_TO_VALIDATE = OUTLOOK_SCOPES.filter(
+const MICROSOFT_LINKING_SCOPES_TO_VALIDATE = OUTLOOK_REQUIRED_SCOPES.filter(
   (scope) =>
     !["openid", "profile", "email", "User.Read", "offline_access"].includes(
       scope,

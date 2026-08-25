@@ -39,7 +39,10 @@ import {
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { useHotkeys } from "react-hotkeys-hook";
 import useSWR from "swr";
-import type { ContactsResponse } from "@/app/api/google/contacts/route";
+import type {
+  ContactsErrorResponse,
+  ContactsResponse,
+} from "@/app/api/user/contacts/route";
 import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
 import { Input, Label } from "@/components/Input";
 import { ButtonLoader } from "@/components/Loading";
@@ -60,9 +63,12 @@ import { env } from "@/env";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { useModifierKey } from "@/hooks/useModifierKey";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { getAccountLinkingUrl } from "@/utils/account-linking";
 import { sendEmailAction } from "@/utils/actions/mail";
 import { extractNameFromEmail, isValidEmail } from "@/utils/email";
+import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { getActionErrorMessage } from "@/utils/error";
+import { redirectToSafeUrl } from "@/utils/redirect";
 import {
   type SendEmailBody,
   validateSendEmailPayloadSize,
@@ -101,7 +107,7 @@ type ComposeAttachment = EmailComposerAttachment & {
 type ComposeFormValues = Omit<SendEmailBody, "attachments" | "messageHtml">;
 
 export function ComposeEmailForm(props: ComposeEmailFormProps) {
-  const { emailAccountId } = useAccount();
+  const { emailAccountId, provider } = useAccount();
   const [selectedEmailAccountId, setSelectedEmailAccountId] =
     useState(emailAccountId);
   const selectedAccountOverride =
@@ -113,12 +119,16 @@ export function ComposeEmailForm(props: ComposeEmailFormProps) {
     error,
     isLoading,
   } = useEmailAccountFull(selectedAccountOverride);
+  const selectedAccountProvider =
+    props.fromAccounts?.find((account) => account.id === selectedEmailAccountId)
+      ?.account.provider ?? provider;
 
   return (
     <LoadingContent error={error} loading={isLoading}>
       {emailAccount && (
         <ComposeEmailFormContent
           {...props}
+          accountProvider={selectedAccountProvider}
           accountSignatureHtml={emailAccount.signature ?? ""}
           key={selectedEmailAccountId}
           onSelectEmailAccount={setSelectedEmailAccountId}
@@ -133,6 +143,7 @@ function ComposeEmailFormContent({
   layout = "default",
   replyingToEmail,
   fromAccounts,
+  accountProvider,
   accountSignatureHtml,
   selectedEmailAccountId,
   onSelectEmailAccount,
@@ -140,6 +151,7 @@ function ComposeEmailFormContent({
   onSuccess,
   onDiscard,
 }: ComposeEmailFormProps & {
+  accountProvider: string;
   accountSignatureHtml: string;
   selectedEmailAccountId: string;
   onSelectEmailAccount: (emailAccountId: string) => void;
@@ -178,6 +190,9 @@ function ComposeEmailFormContent({
   });
   const { draft: initialDraft, preservedBlocks } = initialComposer;
   const [searchQuery, setSearchQuery] = useState("");
+  const [contactsReconnectRequired, setContactsReconnectRequired] =
+    useState(false);
+  const [isReconnectingContacts, setIsReconnectingContacts] = useState(false);
   const [editReply, setEditReply] = useState(false);
   const [showCcBcc, setShowCcBcc] = useState(
     Boolean(replyingToEmail?.cc || replyingToEmail?.bcc),
@@ -459,12 +474,40 @@ function ComposeEmailFormContent({
     },
   );
 
-  const { data: contacts } = useSWR<ContactsResponse, { error: string }>(
-    env.NEXT_PUBLIC_CONTACTS_ENABLED
-      ? `/api/google/contacts?query=${searchQuery}`
+  const { data: contacts } = useSWR<ContactsResponse, ContactsFetchError>(
+    env.NEXT_PUBLIC_CONTACTS_ENABLED && !contactsReconnectRequired
+      ? [
+          `/api/user/contacts?query=${encodeURIComponent(searchQuery)}`,
+          selectedEmailAccountId,
+        ]
       : null,
-    { keepPreviousData: true },
+    {
+      keepPreviousData: true,
+      onError(error) {
+        if (error.info?.reconnectRequired) {
+          setContactsReconnectRequired(true);
+        }
+      },
+    },
   );
+
+  const reconnectContacts = async () => {
+    setIsReconnectingContacts(true);
+
+    try {
+      const oauthProvider = isMicrosoftProvider(accountProvider)
+        ? "microsoft"
+        : "google";
+      const url = await getAccountLinkingUrl(oauthProvider);
+      redirectToSafeUrl(url, { allowExternal: true });
+    } catch {
+      toastError({
+        title: "Error initiating reconnection",
+        description: "Please try again or contact support.",
+      });
+      setIsReconnectingContacts(false);
+    }
+  };
 
   const selectedEmailAddresses = watch("to", "").split(",").filter(Boolean);
 
@@ -607,6 +650,7 @@ function ComposeEmailFormContent({
                         <div className="relative flex-1">
                           <ComboboxInput
                             aria-label="To"
+                            id="to"
                             value={searchQuery}
                             className="w-full border-none bg-background p-0 text-sm focus:border-none focus:ring-0"
                             onChange={(event) =>
@@ -627,67 +671,76 @@ function ComposeEmailFormContent({
                             }}
                           />
 
-                          {!!contacts?.result?.length && (
+                          {contactsReconnectRequired && (
+                            <div
+                              className="absolute z-10 mt-1 flex w-80 items-center gap-3 rounded-md border bg-popover p-3 text-sm text-popover-foreground shadow-lg"
+                              role="status"
+                            >
+                              <span className="flex-1">
+                                Reconnect this account to enable contact
+                                suggestions.
+                              </span>
+                              <Button
+                                className="h-auto p-0"
+                                disabled={isReconnectingContacts}
+                                loading={isReconnectingContacts}
+                                onClick={reconnectContacts}
+                                type="button"
+                                variant="link"
+                              >
+                                Reconnect
+                              </Button>
+                            </div>
+                          )}
+
+                          {!!contacts?.contacts.length && (
                             <ComboboxOptions className="absolute z-10 mt-1 max-h-60 overflow-auto rounded-md bg-popover py-1 text-base shadow-lg ring-1 ring-border focus:outline-none sm:text-sm">
                               <ComboboxOption
                                 className="h-0 w-0 overflow-hidden"
                                 value={searchQuery}
                               />
-                              {contacts.result.map((contact) => {
-                                const emailAddress =
-                                  contact.person?.emailAddresses?.[0]?.value;
-                                if (!emailAddress) return null;
-                                const person = {
-                                  emailAddress,
-                                  name: contact.person?.names?.[0]?.displayName,
-                                  profilePictureUrl:
-                                    contact.person?.photos?.[0]?.url,
-                                };
-
-                                return (
-                                  <ComboboxOption
-                                    className={({ focus }) =>
-                                      `cursor-default select-none px-4 py-1 text-foreground ${focus ? "bg-accent" : ""}`
-                                    }
-                                    key={person.emailAddress}
-                                    value={person.emailAddress}
-                                  >
-                                    {({ selected }: { selected: boolean }) => (
-                                      <div className="my-2 flex items-center">
-                                        {selected ? (
-                                          <div className="flex h-12 w-12 items-center justify-center rounded-full">
-                                            <CheckCircleIcon className="h-6 w-6" />
-                                          </div>
-                                        ) : (
-                                          <Avatar>
-                                            <AvatarImage
-                                              src={
-                                                person.profilePictureUrl ??
-                                                undefined
-                                              }
-                                              alt={
-                                                person.emailAddress ||
-                                                "Profile picture"
-                                              }
-                                            />
-                                            <AvatarFallback>
-                                              {person.emailAddress?.[0] || "A"}
-                                            </AvatarFallback>
-                                          </Avatar>
-                                        )}
-                                        <div className="ml-4 flex flex-col justify-center">
+                              {contacts.contacts.map((contact) => (
+                                <ComboboxOption
+                                  className={({ focus }) =>
+                                    `cursor-default select-none px-4 py-1 text-foreground ${focus ? "bg-accent" : ""}`
+                                  }
+                                  key={contact.emailAddress}
+                                  value={contact.emailAddress}
+                                >
+                                  {({ selected }: { selected: boolean }) => (
+                                    <div className="my-2 flex items-center">
+                                      {selected ? (
+                                        <div className="flex h-12 w-12 items-center justify-center rounded-full">
+                                          <CheckCircleIcon className="h-6 w-6" />
+                                        </div>
+                                      ) : (
+                                        <Avatar>
+                                          <AvatarImage
+                                            src={
+                                              contact.profilePictureUrl ??
+                                              undefined
+                                            }
+                                            alt={contact.emailAddress}
+                                          />
+                                          <AvatarFallback>
+                                            {contact.emailAddress[0] || "A"}
+                                          </AvatarFallback>
+                                        </Avatar>
+                                      )}
+                                      <div className="ml-4 flex flex-col justify-center">
+                                        {contact.name && (
                                           <div className="text-foreground">
-                                            {person.name}
+                                            {contact.name}
                                           </div>
-                                          <div className="text-sm font-semibold text-muted-foreground">
-                                            {person.emailAddress}
-                                          </div>
+                                        )}
+                                        <div className="text-sm font-semibold text-muted-foreground">
+                                          {contact.emailAddress}
                                         </div>
                                       </div>
-                                    )}
-                                  </ComboboxOption>
-                                );
-                              })}
+                                    </div>
+                                  )}
+                                </ComboboxOption>
+                              ))}
                             </ComboboxOptions>
                           )}
                         </div>
@@ -898,6 +951,11 @@ function ComposeEmailFormContent({
     </form>
   );
 }
+
+type ContactsFetchError = Error & {
+  info?: Partial<ContactsErrorResponse>;
+  status?: number;
+};
 
 function getReplyToEmailPayload(
   replyingToEmail:

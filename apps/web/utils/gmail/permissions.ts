@@ -1,4 +1,4 @@
-import { SCOPES } from "@/utils/gmail/scopes";
+import { REQUIRED_SCOPES } from "@/utils/gmail/scopes";
 import {
   getAccessTokenFromClient,
   getGmailClientWithRefresh,
@@ -36,7 +36,7 @@ async function checkGmailPermissions({
     logger.error("No access token available", { emailAccountId });
     return {
       hasAllPermissions: false,
-      missingScopes: SCOPES,
+      missingScopes: [...REQUIRED_SCOPES],
       error: "No access token available",
     };
   }
@@ -54,9 +54,7 @@ async function checkGmailPermissions({
     }
 
     const grantedScopes = grantedScope.split(/[,\s]+/).filter(Boolean);
-    const missingScopes = SCOPES.filter(
-      (scope) => !grantedScopes.includes(scope),
-    );
+    const missingScopes = getMissingRequiredScopes(grantedScopes);
 
     if (missingScopes.length > 0) {
       logger.info("Missing Gmail permissions", {
@@ -99,7 +97,7 @@ async function checkGmailPermissions({
       });
       return {
         hasAllPermissions: false,
-        missingScopes: SCOPES, // Assume all scopes are missing if we can't check
+        missingScopes: [...REQUIRED_SCOPES], // Assume all scopes are missing if we can't check
         error: data.error,
       };
     }
@@ -111,9 +109,7 @@ async function checkGmailPermissions({
     }
 
     const grantedScopes = data.scope?.split(" ") || [];
-    const missingScopes = SCOPES.filter(
-      (scope) => !grantedScopes.includes(scope),
-    );
+    const missingScopes = getMissingRequiredScopes(grantedScopes);
 
     const hasAllPermissions = missingScopes.length === 0;
 
@@ -221,4 +217,9 @@ export async function handleGmailPermissionsCheck({
   }
 
   return permissionsBeforeRefresh;
+}
+
+function getMissingRequiredScopes(grantedScopes: string[]) {
+  const grantedScopeSet = new Set(grantedScopes);
+  return REQUIRED_SCOPES.filter((scope) => !grantedScopeSet.has(scope));
 }
