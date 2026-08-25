@@ -1,4 +1,8 @@
 import { expect, test, type Locator } from "@playwright/test";
+import {
+  createSecondEmailAccount,
+  deleteSecondEmailAccount,
+} from "./account-test-helpers";
 import { conversationWithSubject, openMail } from "./mail-test-helpers";
 
 test("keeps editing state stable across formatting, links, paste, and files", async ({
@@ -177,6 +181,42 @@ test("composes, sends, and reads a new message from Sent", async ({
   await page.screenshot({
     path: testInfo.outputPath("composed-message-in-sent.png"),
   });
+});
+
+test("selects the sender when composing from all accounts", async ({
+  page,
+}) => {
+  const { emailAccountId } = await openMail(page);
+  const signature = "Secondary account signature";
+  const secondAccount = await createSecondEmailAccount(emailAccountId, {
+    signature,
+  });
+
+  try {
+    await page.goto(`/${emailAccountId}/mail?accountScope=all`);
+    await page.getByRole("button", { name: /^Compose/ }).click();
+
+    const dialog = page.getByRole("dialog", { name: "New Message" });
+    const from = dialog.getByRole("combobox", { name: "From" });
+    await expect(from).toBeVisible();
+    await from.click();
+    await expect(page.getByRole("option")).toHaveCount(2);
+    await page
+      .getByRole("option", {
+        name: `${secondAccount.name} (${secondAccount.email})`,
+        exact: true,
+      })
+      .click();
+
+    await expect(from).toContainText(secondAccount.email);
+    await expect(
+      dialog
+        .frameLocator('iframe[title="Signature preview"]')
+        .getByText(signature),
+    ).toBeVisible();
+  } finally {
+    await deleteSecondEmailAccount(secondAccount.accountId);
+  }
 });
 
 test("replies inside an existing conversation", async ({ page }, testInfo) => {

@@ -134,6 +134,7 @@ export const createMockEmailProvider = (
   searchMessages: vi
     .fn()
     .mockResolvedValue({ messages: [], nextPageToken: undefined }),
+  searchContacts: vi.fn().mockResolvedValue([]),
   getMessagesFromSender: vi
     .fn()
     .mockResolvedValue({ messages: [], nextPageToken: undefined }),

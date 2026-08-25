@@ -15,6 +15,9 @@ export const EMAIL_INLINE_IMAGE_MIME_TYPES = [
   "image/webp",
 ] as const;
 
+export type EmailInlineImageMimeType =
+  (typeof EMAIL_INLINE_IMAGE_MIME_TYPES)[number];
+
 export type EmailComposerAttachment = {
   id: string;
   filename: string;
@@ -77,6 +80,7 @@ const DANGEROUS_PREVIEW_TAGS = new Set([
   "textarea",
   "video",
 ]);
+const DANGEROUS_EDITABLE_TAGS = new Set([...DANGEROUS_PREVIEW_TAGS, "select"]);
 const SAFE_PREVIEW_ATTRIBUTES = new Set([
   "abbr",
   "align",
@@ -238,6 +242,69 @@ export function sanitizePreservedEmailHtmlForPreview(html: string) {
   const fragment = parseFragment(html);
   sanitizePreviewChildren(fragment);
   return serialize(fragment);
+}
+
+/**
+ * Reduces untrusted draft HTML to the portable editable email profile.
+ * Unsupported layout containers are unwrapped, while active content and
+ * unsafe attributes are removed entirely.
+ */
+export function sanitizeEditableEmailHtml(html: string) {
+  const fragment = parseFragment(html);
+  sanitizeEditableChildren(fragment);
+  return serialize(fragment);
+}
+
+export function canOpenEmailLink(value: string) {
+  return /^(?:https?:|mailto:|tel:)/iu.test(value.trim());
+}
+
+export function normalizeEmailUrl(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const candidate = /^[a-z][a-z\d+.-]*:/iu.test(trimmed)
+    ? trimmed
+    : `https://${trimmed}`;
+  return isSafeEmailUrl(candidate) ? candidate : null;
+}
+
+export function detectInlineImageMimeType(
+  contentBase64: string,
+): EmailInlineImageMimeType | null {
+  const bytes = decodeBase64Prefix(contentBase64, 12);
+  if (
+    startsWithBytes(bytes, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+  ) {
+    return "image/png";
+  }
+  if (startsWithBytes(bytes, [0xff, 0xd8, 0xff])) return "image/jpeg";
+  if (
+    startsWithBytes(bytes, [0x47, 0x49, 0x46, 0x38, 0x37, 0x61]) ||
+    startsWithBytes(bytes, [0x47, 0x49, 0x46, 0x38, 0x39, 0x61])
+  ) {
+    return "image/gif";
+  }
+  if (
+    bytes.length >= 12 &&
+    startsWithBytes(bytes, [0x52, 0x49, 0x46, 0x46]) &&
+    startsWithBytes(bytes.slice(8), [0x57, 0x45, 0x42, 0x50])
+  ) {
+    return "image/webp";
+  }
+  return null;
+}
+
+export function createInlineContentId(domain = "inboxzero.local") {
+  if (!/^[a-z\d.-]+$/iu.test(domain) || domain.length > 200) {
+    throw new Error("Content-ID domain is invalid.");
+  }
+
+  const randomId = globalThis.crypto?.randomUUID?.();
+  const localPart =
+    randomId ??
+    `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12).padEnd(10, "0")}`;
+  return `${localPart}@${domain}`;
 }
 
 export function validateEmailAttachments(
@@ -660,6 +727,99 @@ function sanitizePreviewChildren(parent: ParentNode) {
   }
 }
 
+function sanitizeEditableChildren(parent: ParentNode) {
+  const sanitizedChildren: ChildNode[] = [];
+
+  for (const node of parent.childNodes) {
+    if (node.nodeName === "#comment") continue;
+    if (!isElement(node)) {
+      sanitizedChildren.push(node);
+      continue;
+    }
+    if (DANGEROUS_EDITABLE_TAGS.has(node.tagName)) continue;
+
+    sanitizeEditableChildren(node);
+    if (!SUPPORTED_TAGS.has(node.tagName)) {
+      for (const child of node.childNodes) {
+        child.parentNode = parent;
+        sanitizedChildren.push(child);
+      }
+      continue;
+    }
+    if (!sanitizeEditableElement(node)) continue;
+    sanitizedChildren.push(node);
+  }
+
+  parent.childNodes = sanitizedChildren;
+}
+
+function sanitizeEditableElement(element: Element) {
+  const allowedAttributes = getAllowedEditableAttributes(element.tagName);
+  element.attrs = element.attrs.filter((attribute) => {
+    if (!allowedAttributes.has(attribute.name)) return false;
+    if (attribute.name === "href") return isSafeEmailUrl(attribute.value);
+    if (attribute.name === "src") {
+      return isSafeEditableImageSource(attribute.value);
+    }
+    if (attribute.name === "data-content-id") {
+      return isSafeContentId(attribute.value);
+    }
+    if (attribute.name === "width" || attribute.name === "height") {
+      return isPositiveInteger(attribute.value);
+    }
+    if (attribute.name === "start") return /^-?\d+$/u.test(attribute.value);
+    if (attribute.name === "dir") {
+      return /^(?:ltr|rtl|auto)$/iu.test(attribute.value);
+    }
+    if (attribute.name === "style") {
+      attribute.value = sanitizeEditableStyle(element.tagName, attribute.value);
+      return Boolean(attribute.value);
+    }
+    return true;
+  });
+
+  if (element.tagName === "a") {
+    if (getAttribute(element, "href")) {
+      setAttribute(element, "target", "_blank");
+      setAttribute(element, "rel", "noopener noreferrer");
+    } else {
+      removeAttribute(element, "target");
+      removeAttribute(element, "rel");
+    }
+  }
+  if (element.tagName === "img") {
+    return Boolean(getAttribute(element, "src"));
+  }
+  return true;
+}
+
+function sanitizeEditableStyle(tagName: string, style: string) {
+  const declarations = parseStyle(style);
+
+  return [...declarations]
+    .filter(([property, value]) => {
+      if ((tagName === "div" || tagName === "p") && property === "direction") {
+        return value === "ltr" || value === "rtl";
+      }
+      if (tagName !== "span") return false;
+      if (property === "font-style") return value === "italic";
+      if (property === "font-weight") {
+        return value === "bold" || Number.parseInt(value, 10) >= 600;
+      }
+      if (property !== "text-decoration") return false;
+
+      const tokens = value.split(/\s+/u).filter(Boolean);
+      return (
+        tokens.length > 0 &&
+        tokens.every(
+          (token) => token === "underline" || token === "line-through",
+        )
+      );
+    })
+    .map(([property, value]) => `${property}:${value}`)
+    .join(";");
+}
+
 function sanitizePreviewStyle(style: string) {
   return style
     .split(";")
@@ -831,19 +991,28 @@ function getDirection(element: Element) {
 }
 
 export function isSafeEmailUrl(value: string) {
-  const normalized = value.trim().toLowerCase();
-  return (
-    normalized.startsWith("https://") ||
-    normalized.startsWith("http://") ||
-    normalized.startsWith("mailto:") ||
-    normalized.startsWith("tel:") ||
-    normalized.startsWith("#")
-  );
+  const normalized = value.trim();
+  return canOpenEmailLink(normalized) || normalized.startsWith("#");
 }
 
 function isSafeImageSource(value: string) {
   const normalized = value.trim().toLowerCase();
   return normalized.startsWith("cid:") || normalized.startsWith("blob:");
+}
+
+function isSafeEditableImageSource(value: string) {
+  const source = value.trim();
+  if (/^(?:file|content|blob):/iu.test(source)) return true;
+  if (source.startsWith("cid:")) {
+    return isSafeContentId(source.slice(4));
+  }
+  return /^data:image\/(?:gif|jpeg|png|webp);base64,[a-z\d+/]*={0,2}$/iu.test(
+    source,
+  );
+}
+
+function isPositiveInteger(value: string) {
+  return /^\d+$/u.test(value) && Number(value) > 0;
 }
 
 function isSafeContentId(value: string) {
@@ -869,32 +1038,9 @@ function decodedBase64Size(value: string) {
 }
 
 function matchesInlineImageType(attachment: EmailComposerAttachment) {
-  const bytes = decodeBase64Prefix(attachment.contentBase64, 12);
-  if (attachment.mimeType === "image/png") {
-    return startsWithBytes(
-      bytes,
-      [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a],
-    );
-  }
-  if (attachment.mimeType === "image/jpeg") {
-    return startsWithBytes(bytes, [0xff, 0xd8, 0xff]);
-  }
-  if (attachment.mimeType === "image/gif") {
-    return (
-      startsWithBytes(bytes, [0x47, 0x49, 0x46, 0x38, 0x37, 0x61]) ||
-      startsWithBytes(bytes, [0x47, 0x49, 0x46, 0x38, 0x39, 0x61])
-    );
-  }
-  if (attachment.mimeType === "image/webp") {
-    return (
-      bytes.length >= 12 &&
-      startsWithBytes(bytes, [0x52, 0x49, 0x46, 0x46]) &&
-      bytes
-        .slice(8, 12)
-        .every((byte, index) => byte === [0x57, 0x45, 0x42, 0x50][index])
-    );
-  }
-  return false;
+  return (
+    detectInlineImageMimeType(attachment.contentBase64) === attachment.mimeType
+  );
 }
 
 function decodeBase64Prefix(value: string, byteCount: number) {

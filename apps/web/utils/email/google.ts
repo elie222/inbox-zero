@@ -54,7 +54,11 @@ import {
   getThreadsFromSenderWithSubject,
 } from "@/utils/gmail/thread";
 import { getMessagesBatch } from "@/utils/gmail/message";
-import { getAccessTokenFromClient } from "@/utils/gmail/client";
+import {
+  getAccessTokenFromClient,
+  getContactsClient,
+} from "@/utils/gmail/client";
+import { searchContacts } from "@/utils/gmail/contact";
 import { getGmailAttachment } from "@/utils/gmail/attachment";
 import {
   getThreadsBatch,
@@ -1405,6 +1409,13 @@ export class GmailProvider implements EmailProvider {
 
   getAccessToken(): string {
     return getAccessTokenFromClient(this.client);
+  }
+
+  async searchContacts(query: string) {
+    const client = getContactsClient({ accessToken: this.getAccessToken() });
+    return this.withRateLimitTracking("search-contacts", () =>
+      searchContacts(client, query),
+    );
   }
 
   async markReadThread(threadId: string, read: boolean): Promise<void> {

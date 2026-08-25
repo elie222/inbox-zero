@@ -185,6 +185,54 @@ describe("useMailThreads", () => {
     );
   });
 
+  it("keeps loading when an empty cached page is awaiting server rows", async () => {
+    const network = Promise.withResolvers<unknown>();
+    cache.read.mockResolvedValue({
+      cachedAt: 100,
+      hasMore: true,
+      threads: [],
+    });
+
+    const { result } = renderHook(
+      () =>
+        useMailThreads({
+          emailAccountId: "account-empty-cache",
+          query: { type: "inbox" },
+        }),
+      { wrapper: createWrapper(() => network.promise) },
+    );
+
+    await waitFor(() => expect(result.current.hasMore).toBe(true));
+    expect(result.current.threads).toEqual([]);
+    expect(result.current.isLoading).toBe(true);
+  });
+
+  it("surfaces an initial request failure when the cache has no rows", async () => {
+    const requestError = new Error("request failed");
+    const pendingRetry = Promise.withResolvers<unknown>();
+    const fetcher = vi
+      .fn()
+      .mockRejectedValueOnce(requestError)
+      .mockReturnValue(pendingRetry.promise);
+    cache.read.mockResolvedValue({
+      cachedAt: 100,
+      hasMore: true,
+      threads: [],
+    });
+
+    const { result } = renderHook(
+      () =>
+        useMailThreads({
+          emailAccountId: "account-empty-cache-error",
+          query: { type: "inbox" },
+        }),
+      { wrapper: createWrapper(fetcher) },
+    );
+
+    expect(result.current.threads).toEqual([]);
+    await waitFor(() => expect(result.current.error).toBe(requestError));
+  });
+
   it("keeps network rows when the disk read finishes later", async () => {
     const disk = Promise.withResolvers<unknown>();
     const network = Promise.withResolvers<unknown>();

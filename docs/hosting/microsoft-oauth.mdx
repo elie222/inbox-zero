@@ -26,4 +26,6 @@ Go to [Microsoft Azure Portal](https://portal.azure.com/) and create a new app r
 7. **Configure API permissions:**
    - Go to "API permissions" > "Add a permission" > "Microsoft Graph" > "Delegated permissions"
    - Add: `openid`, `profile`, `email`, `User.Read`, `offline_access`, `Mail.ReadWrite`, `Mail.Send`, `MailboxSettings.ReadWrite`, `Calendars.Read`, `Calendars.ReadWrite`, `Files.ReadWrite`
+   - If `NEXT_PUBLIC_CONTACTS_ENABLED=true`, also add `People.Read` for contact suggestions while composing.
+   - Existing accounts can continue using core email features without `People.Read`. The composer offers an optional reconnect action if they want contact suggestions.
    - Click "Grant admin consent" if you're an admin.

@@ -85,6 +85,29 @@ describe("useCombinedMailThreads", () => {
     });
   });
 
+  it("keeps loading when an empty cached page is awaiting server rows", async () => {
+    const network = Promise.withResolvers<unknown>();
+    cache.read.mockResolvedValue({
+      hasMore: true,
+      threads: [],
+    });
+
+    const { result } = renderHook(
+      () =>
+        useCombinedMailThreads({
+          accounts: ACCOUNTS,
+          emailAccountId: "account-1",
+          enabled: true,
+          isUnread: false,
+        }),
+      { wrapper: createWrapper(() => network.promise) },
+    );
+
+    await waitFor(() => expect(result.current.hasMore).toBe(true));
+    expect(result.current.threads).toEqual([]);
+    expect(result.current.isLoading).toBe(true);
+  });
+
   it("uses a newer server page when the persisted mailbox predates the request", async () => {
     mailbox.read.mockResolvedValue({
       accountStates: ACCOUNT_STATES,

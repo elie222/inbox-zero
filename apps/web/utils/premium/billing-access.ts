@@ -1,23 +1,31 @@
 import type { Prisma } from "@/generated/prisma/client";
 import { SafeError } from "@/utils/error";
-import { isAdminForPremium } from "@/utils/premium";
 import { isOrganizationAdmin } from "@/utils/organizations/roles";
 
-export const organizationOwnerPremiumSelect = {
+export const organizationBillingPrincipalsSelect = {
   members: {
-    where: { role: "owner" },
+    where: {
+      OR: [
+        { role: "owner" },
+        { emailAccount: { user: { premiumAdminId: { not: null } } } },
+      ],
+    },
     select: {
       emailAccount: {
-        select: { user: { select: { id: true, premiumId: true } } },
+        select: {
+          user: {
+            select: { id: true, premiumId: true, premiumAdminId: true },
+          },
+        },
       },
     },
   },
-} as const;
+} satisfies Prisma.OrganizationSelect;
 
 const billingAccessMembershipSelect = {
   role: true,
   organization: {
-    select: organizationOwnerPremiumSelect,
+    select: organizationBillingPrincipalsSelect,
   },
 } as const;
 
@@ -63,28 +71,27 @@ export function canManageBilling(userId: string, user: BillingAccessUser) {
     return isOrganizationAdmin(organizationMemberships);
   }
 
-  // Every invited seat user shares the premium id and can own their own
-  // organization, so anchor on the purchaser: a premium admin, or the legacy
-  // owner whose user id doubles as the premium id.
+  // Invited seats share a premium, so billing access must stay anchored to a
+  // recorded plan admin or the legacy owner whose user ID was the premium ID.
   const premiumAdminIds = new Set(premium.admins.map((admin) => admin.id));
-  const premiumOrganizationMemberships = organizationMemberships.filter(
+  const isPurchaser = premiumAdminIds.has(userId) || premium.id === userId;
+
+  if (isPurchaser) {
+    if (organizationMemberships.length === 0) return true;
+    return isOrganizationAdmin(organizationMemberships);
+  }
+
+  const purchaserOrganizationMemberships = organizationMemberships.filter(
     (membership) =>
       membership.organization.members.some(({ emailAccount: { user } }) => {
+        if (user.premiumAdminId === premium.id) return true;
         if (user.premiumId !== premium.id) return false;
         return premiumAdminIds.has(user.id) || user.id === premium.id;
       }),
   );
+  if (purchaserOrganizationMemberships.length === 0) return false;
 
-  if (premiumOrganizationMemberships.length > 0) {
-    return isOrganizationAdmin(premiumOrganizationMemberships);
-  }
-
-  if (premium.admins.length > 0) {
-    return isAdminForPremium(premium.admins, userId);
-  }
-
-  // The initial premium migration used the owner's user ID as the premium ID.
-  return premium.id === userId;
+  return isOrganizationAdmin(purchaserOrganizationMemberships);
 }
 
 export function assertCanManageBilling(
