@@ -6,15 +6,20 @@ const mockGetMailMutationsForAccount = vi.fn();
 const mutationListeners = new Set<() => void>();
 let durableMutations: Array<Record<string, unknown>> = [];
 
-vi.mock("@/utils/email-cache/mail-mutations", () => ({
-  getMailMutationsForAccount: (
-    ...args: Parameters<typeof mockGetMailMutationsForAccount>
-  ) => mockGetMailMutationsForAccount(...args),
-  subscribeToMailMutations: (listener: () => void) => {
-    mutationListeners.add(listener);
-    return () => mutationListeners.delete(listener);
-  },
-}));
+vi.mock("@/utils/email-cache/mail-mutations", async (importOriginal) => {
+  const original =
+    await importOriginal<typeof import("@/utils/email-cache/mail-mutations")>();
+  return {
+    ...original,
+    getMailMutationsForAccount: (
+      ...args: Parameters<typeof mockGetMailMutationsForAccount>
+    ) => mockGetMailMutationsForAccount(...args),
+    subscribeToMailMutations: (listener: () => void) => {
+      mutationListeners.add(listener);
+      return () => mutationListeners.delete(listener);
+    },
+  };
+});
 
 vi.mock("@/utils/email-cache/thread-mail-mutations", () => ({
   enqueueThreadMailMutationBatch: (

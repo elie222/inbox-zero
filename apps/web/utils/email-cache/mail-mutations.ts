@@ -59,6 +59,12 @@ const channel =
 
 channel?.addEventListener("message", () => notifyListeners());
 
+export function isActiveMailMutationStatus(
+  status: StoredMailMutation["status"],
+) {
+  return ACTIVE_STATUSES.has(status);
+}
+
 export async function enqueueMailMutation(
   input: EnqueueMailMutationInput,
   now = Date.now(),
@@ -120,7 +126,7 @@ export async function getActiveMailMutations(
       )
     : await database.getAll("mailMutations");
   return records
-    .filter((mutation) => ACTIVE_STATUSES.has(mutation.status))
+    .filter((mutation) => isActiveMailMutationStatus(mutation.status))
     .sort(compareMutations)
     .map(toMailMutation);
 }
@@ -172,7 +178,7 @@ export async function getNextMailMutationWakeAt(): Promise<number | undefined> {
   const seenThreads = new Set<string>();
   const wakeTimes: number[] = [];
   for (const mutation of mutations) {
-    if (!ACTIVE_STATUSES.has(mutation.status)) continue;
+    if (!isActiveMailMutationStatus(mutation.status)) continue;
     const threadKey = `${mutation.emailAccountId}\u0000${mutation.threadId}`;
     if (seenThreads.has(threadKey)) continue;
     seenThreads.add(threadKey);
@@ -186,7 +192,7 @@ export async function getNextMailMutationWakeAt(): Promise<number | undefined> {
   for (const group of createStoredSyncGroups(mutations)) {
     if (
       group.mutations.some((mutation) =>
-        PROVIDER_ACTIVE_STATUSES.has(mutation.status),
+        isProviderActiveMailMutationStatus(mutation.status),
       )
     ) {
       continue;
@@ -224,7 +230,7 @@ export async function claimNextMailMutation({
   let changed = false;
 
   for (const mutation of mutations) {
-    if (!ACTIVE_STATUSES.has(mutation.status)) continue;
+    if (!isActiveMailMutationStatus(mutation.status)) continue;
     const threadKey = `${mutation.emailAccountId}\u0000${mutation.threadId}`;
     if (blockedThreads.has(threadKey)) continue;
 
@@ -331,7 +337,7 @@ export async function claimNextMailMutationSyncGroup({
   for (const group of groups) {
     if (
       group.mutations.some((mutation) =>
-        PROVIDER_ACTIVE_STATUSES.has(mutation.status),
+        isProviderActiveMailMutationStatus(mutation.status),
       )
     ) {
       continue;
@@ -361,6 +367,7 @@ export async function claimNextMailMutationSyncGroup({
       const updated: StoredMailMutation = {
         ...mutation,
         status: "reconciling",
+        syncAttempts: (mutation.syncAttempts ?? 0) + 1,
         leaseOwner: ownerId,
         leaseExpiresAt: now + leaseMs,
         updatedAt: now,
@@ -404,7 +411,7 @@ export async function renewMailMutationSyncGroupLease(
     reconciling.every((mutation) => mutation.leaseOwner === ownerId) &&
     !mutations.some(
       (mutation) =>
-        PROVIDER_ACTIVE_STATUSES.has(mutation.status) ||
+        isProviderActiveMailMutationStatus(mutation.status) ||
         mutation.status === "awaiting_sync",
     );
   if (renewed) {
@@ -631,6 +638,7 @@ async function enqueueInStore(
     payload: getStoredPayload(input),
     status: "pending",
     attempts: 0,
+    syncAttempts: 0,
     nextAttemptAt: now,
     createdAt: now,
     updatedAt: now,
@@ -655,7 +663,7 @@ async function updateMailMutationSyncGroup(
     mutations.some((mutation) => mutation.status === "reconciling") &&
     !mutations.some(
       (mutation) =>
-        PROVIDER_ACTIVE_STATUSES.has(mutation.status) ||
+        isProviderActiveMailMutationStatus(mutation.status) ||
         mutation.status === "awaiting_sync" ||
         (mutation.status === "reconciling" && mutation.leaseOwner !== ownerId),
     );
@@ -741,9 +749,24 @@ function createStoredSyncGroups(mutations: StoredMailMutation[]) {
   }
   return [...accounts.values()]
     .flatMap((batches) => [...batches.values()])
-    .sort((left, right) =>
-      compareMutations(left.mutations[0]!, right.mutations[0]!),
-    );
+    .sort(compareStoredSyncGroups);
+}
+
+function compareStoredSyncGroups(
+  left: StoredMailMutationSyncGroup,
+  right: StoredMailMutationSyncGroup,
+) {
+  const leftFirst = left.mutations[0];
+  const rightFirst = right.mutations[0];
+  if (!leftFirst) return rightFirst ? 1 : 0;
+  if (!rightFirst) return -1;
+  return compareMutations(leftFirst, rightFirst);
+}
+
+function isProviderActiveMailMutationStatus(
+  status: StoredMailMutation["status"],
+) {
+  return PROVIDER_ACTIVE_STATUSES.has(status);
 }
 
 function readActiveStoredMutations(index: {

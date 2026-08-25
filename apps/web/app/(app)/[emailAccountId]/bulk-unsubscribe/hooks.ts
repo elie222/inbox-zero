@@ -948,11 +948,15 @@ export function useDeleteAllFromSender<T extends Row>({
 
     posthog.capture("Clicked Delete All");
 
-    await deleteAllFromSender({
-      name: item.name,
-      onFinish: () => setDeleteAllLoading(false),
-      emailAccountId,
-    });
+    try {
+      await deleteAllFromSender({
+        name: item.name,
+        onFinish: () => setDeleteAllLoading(false),
+        emailAccountId,
+      });
+    } catch (error) {
+      captureException(error);
+    }
   };
 
   return {

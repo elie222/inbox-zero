@@ -257,11 +257,11 @@ async function reconcileSyncGroupWithLeaseHeartbeat(
 }
 
 async function retrySyncGroup(group: MailMutationSyncGroup, ownerId: string) {
-  const attempts = Math.max(
+  const syncAttempts = Math.max(
     1,
-    ...group.mutations.map((mutation) => mutation.attempts),
+    ...group.mutations.map((mutation) => mutation.syncAttempts ?? 0),
   );
-  const delay = Math.min(1000 * 2 ** Math.max(0, attempts - 1), 60_000);
+  const delay = Math.min(1000 * 2 ** Math.max(0, syncAttempts - 1), 60_000);
   await retryMailMutationSyncGroup(
     group,
     {

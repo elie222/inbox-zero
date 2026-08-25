@@ -1,6 +1,7 @@
 import { useEffect, useSyncExternalStore } from "react";
 import {
   getMailMutationsForAccount,
+  isActiveMailMutationStatus,
   type MailMutation,
   type MailMutationPayload,
   subscribeToMailMutations,
@@ -26,15 +27,6 @@ type QueueProgress = {
 };
 
 type CreatePayload = (params: { labelId?: string }) => MailMutationPayload;
-
-const ACTIVE_MUTATION_STATUSES = new Set<MailMutation["status"]>([
-  "pending",
-  "processing",
-  "retry_wait",
-  "blocked_auth",
-  "awaiting_sync",
-  "reconciling",
-]);
 
 export function createSenderQueue(createPayload: CreatePayload) {
   let durableQueue = new Map<string, QueueItem>();
@@ -414,7 +406,7 @@ function getBatchQueueItem(
   const activeThreadIds = Array.from(
     new Set(
       mutations
-        .filter((mutation) => ACTIVE_MUTATION_STATUSES.has(mutation.status))
+        .filter((mutation) => isActiveMailMutationStatus(mutation.status))
         .map((mutation) => mutation.threadId),
     ),
   );

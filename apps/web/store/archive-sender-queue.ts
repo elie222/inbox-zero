@@ -19,11 +19,13 @@ export function useArchiveSenderQueueActions(emailAccountId: string) {
       let queuedSenders = 0;
 
       for (const sender of getUniqueSenders(senders)) {
-        const queued = await addToArchiveSenderThreadQueue({
-          sender,
-          emailAccountId,
-        });
-        if (queued) queuedSenders += 1;
+        try {
+          const queued = await addToArchiveSenderThreadQueue({
+            sender,
+            emailAccountId,
+          });
+          if (queued) queuedSenders += 1;
+        } catch {}
       }
 
       return queuedSenders;

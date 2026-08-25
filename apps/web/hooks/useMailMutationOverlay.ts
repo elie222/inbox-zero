@@ -5,6 +5,7 @@ import { createMailMutationOverlay } from "@/utils/email-cache/mail-mutation-ove
 import {
   getActiveMailMutations,
   getMailMutations,
+  isActiveMailMutationStatus,
   type MailMutation,
   subscribeToMailMutations,
 } from "@/utils/email-cache/mail-mutations";
@@ -106,25 +107,25 @@ export function useRetainedMailMutationOverlay({
   const runReconciliationRef = useRef<() => void>(() => {});
   const [retained, setRetained] = useState<MutationSnapshot>();
 
-  if (reconciliationState.current.emailAccountId !== emailAccountId) {
-    reconciliationState.current.stopped = true;
-    reconciliationState.current = {
-      emailAccountId,
-      isRunning: false,
-      pendingIds: new Set<string>(),
-      retryAttempts: 0,
-      retryTimer: undefined,
-      stopped: false,
-    };
-  }
-
   useEffect(() => {
     onReconcileRef.current = onReconcile;
   }, [onReconcile]);
 
   useEffect(() => {
+    const previousState = reconciliationState.current;
+    if (previousState.emailAccountId !== emailAccountId) {
+      previousState.stopped = true;
+      if (previousState.retryTimer) clearTimeout(previousState.retryTimer);
+      reconciliationState.current = {
+        emailAccountId,
+        isRunning: false,
+        pendingIds: new Set<string>(),
+        retryAttempts: 0,
+        retryTimer: undefined,
+        stopped: false,
+      };
+    }
     const state = reconciliationState.current;
-    if (state.emailAccountId !== emailAccountId) return;
     state.stopped = false;
     return () => {
       state.stopped = true;
@@ -132,7 +133,7 @@ export function useRetainedMailMutationOverlay({
     };
   }, [emailAccountId]);
 
-  runReconciliationRef.current = () => {
+  const runReconciliation = useCallback(() => {
     const state = reconciliationState.current;
     if (
       state.stopped ||
@@ -186,16 +187,20 @@ export function useRetainedMailMutationOverlay({
           queueMicrotask(() => runReconciliationRef.current());
         }
       });
-  };
+  }, []);
+
+  useEffect(() => {
+    runReconciliationRef.current = runReconciliation;
+  }, [runReconciliation]);
 
   const reconcileCompleted = useCallback(
     (ids: string[]) => {
       const state = reconciliationState.current;
       if (state.emailAccountId !== emailAccountId || state.stopped) return;
       for (const id of ids) state.pendingIds.add(id);
-      runReconciliationRef.current();
+      runReconciliation();
     },
-    [emailAccountId],
+    [emailAccountId, runReconciliation],
   );
 
   const retainMutations = useCallback(
@@ -223,7 +228,7 @@ export function useRetainedMailMutationOverlay({
         .then((stored) => {
           const activeIds = new Set(
             stored
-              .filter((mutation) => isActiveMutation(mutation))
+              .filter((mutation) => isActiveMailMutationStatus(mutation.status))
               .map((mutation) => mutation.id),
           );
           reconcileCompleted(ids.filter((id) => !activeIds.has(id)));
@@ -323,15 +328,4 @@ function mergeMutations(left: MailMutation[], right: MailMutation[]) {
   const mutations = new Map(left.map((mutation) => [mutation.id, mutation]));
   for (const mutation of right) mutations.set(mutation.id, mutation);
   return [...mutations.values()];
-}
-
-function isActiveMutation(mutation: MailMutation) {
-  return (
-    mutation.status === "pending" ||
-    mutation.status === "processing" ||
-    mutation.status === "retry_wait" ||
-    mutation.status === "blocked_auth" ||
-    mutation.status === "awaiting_sync" ||
-    mutation.status === "reconciling"
-  );
 }

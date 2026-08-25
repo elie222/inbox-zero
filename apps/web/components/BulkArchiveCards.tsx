@@ -240,21 +240,28 @@ export function BulkArchiveCards({
     setLoadingCategories((prev) => ({ ...prev, [categoryName]: true }));
 
     try {
+      let failedToQueue = false;
       for (const sender of selectedToProcess) {
-        if (bulkAction === "markRead") {
-          await addToMarkReadSenderQueue({
-            sender: sender.address,
-            emailAccountId,
-          });
-        }
+        try {
+          if (bulkAction === "markRead") {
+            await addToMarkReadSenderQueue({
+              sender: sender.address,
+              emailAccountId,
+            });
+          }
 
-        if (bulkAction === "delete") {
-          await addToDeleteSenderQueue({
-            sender: sender.address,
-            emailAccountId,
-          });
+          if (bulkAction === "delete") {
+            await addToDeleteSenderQueue({
+              sender: sender.address,
+              emailAccountId,
+            });
+          }
+        } catch {
+          failedToQueue = true;
         }
       }
+
+      if (failedToQueue) throw new Error("Some sender actions were not queued");
 
       if (bulkAction === "archive") {
         await queueArchiveSenders({

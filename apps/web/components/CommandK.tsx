@@ -93,10 +93,8 @@ function CommandPaletteContent({
 
   const { emailAccountId } = useAccount();
   const { threadId, showEmail } = displayedEmail;
-  const { data: displayedThread } = useThread(
-    { id: threadId },
-    { includeDrafts: true },
-  );
+  const { data: displayedThread, isLoading: isDisplayedThreadLoading } =
+    useThread({ id: threadId }, { includeDrafts: true });
   const { onOpen: onOpenComposeModal } = useComposeModal();
   const { commands, isLoading } = useCommandPaletteCommands({
     enabled: !mailCommandContext,
@@ -105,23 +103,30 @@ function CommandPaletteContent({
   const shortcutHandlers: ShortcutHandlers = {
     commandPalette: () => setOpen((wasOpen) => !wasOpen),
     compose: onOpenComposeModal,
-    archive:
-      threadId && displayedThread?.thread.id === threadId
-        ? async () => {
-            try {
-              await enqueueThreadMailMutationBatch({
-                emailAccountId,
-                payload: { kind: "archive" },
-                threads: [displayedThread.thread],
-              });
-              showEmail(null);
-            } catch {
-              toastError({
-                description: "Couldn't queue archiving this email",
-              });
-            }
+    archive: threadId
+      ? async () => {
+          if (displayedThread?.thread.id !== threadId) {
+            toastError({
+              description: isDisplayedThreadLoading
+                ? "Email is still loading"
+                : "Email is unavailable",
+            });
+            return;
           }
-        : undefined,
+          try {
+            await enqueueThreadMailMutationBatch({
+              emailAccountId,
+              payload: { kind: "archive" },
+              threads: [displayedThread.thread],
+            });
+            showEmail(null);
+          } catch {
+            toastError({
+              description: "Couldn't queue archiving this email",
+            });
+          }
+        }
+      : undefined,
     snooze: mailCommandContext?.actions.snooze
       ? () => {
           setSearch("");

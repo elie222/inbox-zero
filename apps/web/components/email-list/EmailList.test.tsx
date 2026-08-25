@@ -1,12 +1,19 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Thread } from "./types";
 import { EmailList } from "./EmailList";
 
 const outbox = vi.hoisted(() => ({ enqueue: vi.fn(), retain: vi.fn() }));
 const query = vi.hoisted(() => ({ setThreadId: vi.fn() }));
+const overlay = vi.hoisted(() => ({ ready: true }));
 
 vi.mock("nuqs", () => ({
   useQueryState: () => [null, query.setThreadId],
@@ -22,7 +29,7 @@ vi.mock("@/hooks/useMailMutationOverlay", () => ({
   applyMailMutationOverlayToThreads: ({ threads }: { threads: Thread[] }) =>
     threads,
   useRetainedMailMutationOverlay: () => ({
-    isReady: true,
+    isReady: overlay.ready,
     mutations: [],
     retainMutations: outbox.retain,
   }),
@@ -75,8 +82,11 @@ vi.mock("sonner", () => ({
 }));
 
 describe("EmailList durable actions", () => {
+  afterEach(cleanup);
+
   beforeEach(() => {
     vi.clearAllMocks();
+    overlay.ready = true;
     outbox.enqueue.mockResolvedValue({
       batchId: "batch",
       mutations: [{ id: "mutation" }],
@@ -86,7 +96,10 @@ describe("EmailList durable actions", () => {
   it("persists exact archive and read snapshots and injects their overlays", async () => {
     const thread = {
       id: "thread-1",
-      messages: [{ id: "message-1" }, { id: "message-2" }],
+      messages: [
+        { id: "message-1" },
+        { id: "message-2", labelIds: ["UNREAD"] },
+      ],
       plan: undefined,
       plans: [],
       snippet: "Preview",
@@ -117,4 +130,36 @@ describe("EmailList durable actions", () => {
     );
     expect(outbox.retain).toHaveBeenLastCalledWith([{ id: "read-mutation" }]);
   });
+
+  it("does not queue a read mutation for an already-read thread", () => {
+    const thread = createThread();
+    render(<EmailList threads={[thread]} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open thread-1" }));
+
+    expect(outbox.enqueue).not.toHaveBeenCalled();
+  });
+
+  it("does not show an empty state before the mutation overlay is ready", () => {
+    overlay.ready = false;
+    render(
+      <EmailList
+        threads={[]}
+        emptyMessage="No emails"
+        hideActionBarWhenEmpty
+      />,
+    );
+
+    expect(screen.queryByText("No emails")).toBeNull();
+  });
 });
+
+function createThread() {
+  return {
+    id: "thread-1",
+    messages: [{ id: "message-1", labelIds: ["INBOX"] }],
+    plan: undefined,
+    plans: [],
+    snippet: "Preview",
+  } as unknown as Thread;
+}

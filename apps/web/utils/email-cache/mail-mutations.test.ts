@@ -16,6 +16,7 @@ import {
   getMailMutations,
   getMailMutationsForAccount,
   getNextMailMutationWakeAt,
+  isActiveMailMutationStatus,
   completeMailMutation,
   completeMailMutationSyncGroup,
   failMailMutation,
@@ -30,6 +31,22 @@ import {
 
 describe("mail mutation outbox", () => {
   beforeEach(clearEmailCache);
+
+  it("classifies every durable nonterminal status as active", () => {
+    for (const status of [
+      "pending",
+      "processing",
+      "retry_wait",
+      "blocked_auth",
+      "awaiting_sync",
+      "reconciling",
+    ] as const) {
+      expect(isActiveMailMutationStatus(status)).toBe(true);
+    }
+    for (const status of ["succeeded", "failed", "uncertain"] as const) {
+      expect(isActiveMailMutationStatus(status)).toBe(false);
+    }
+  });
 
   it("atomically persists exact account snapshots under one batch", async () => {
     const mutations = await enqueueMailMutationBatch(
@@ -627,6 +644,9 @@ describe("mail mutation outbox", () => {
       leaseMs: 10,
       now: 20,
     });
+    expect(group).toMatchObject({
+      mutations: [{ id: "applied", syncAttempts: 1 }],
+    });
     await retryMailMutationSyncGroup(
       group!,
       { error: "Sync failed", nextAttemptAt: 50 },
@@ -634,7 +654,7 @@ describe("mail mutation outbox", () => {
     );
 
     await expect(getActiveMailMutations()).resolves.toMatchObject([
-      { id: "applied", status: "awaiting_sync" },
+      { id: "applied", status: "awaiting_sync", syncAttempts: 1 },
     ]);
     await expect(
       claimNextMailMutation({ ownerId: "provider", leaseMs: 100, now: 60 }),
@@ -646,15 +666,16 @@ describe("mail mutation outbox", () => {
         now: 49,
       }),
     ).resolves.toBeUndefined();
-    await expect(
-      claimNextMailMutationSyncGroup({
-        ownerId: "sync-2",
-        leaseMs: 10,
-        now: 50,
-      }),
-    ).resolves.toMatchObject({ mutations: [{ id: "applied" }] });
+    const retriedGroup = await claimNextMailMutationSyncGroup({
+      ownerId: "sync-2",
+      leaseMs: 10,
+      now: 50,
+    });
+    expect(retriedGroup).toMatchObject({
+      mutations: [{ id: "applied", syncAttempts: 2 }],
+    });
     await expect(getActiveMailMutations()).resolves.toMatchObject([
-      { id: "applied", status: "reconciling" },
+      { id: "applied", status: "reconciling", syncAttempts: 2 },
     ]);
   });
 
@@ -692,7 +713,7 @@ describe("mail mutation outbox", () => {
         now: 31,
       }),
     ).resolves.toMatchObject({
-      mutations: [{ id: "applied", leaseOwner: "sync-2" }],
+      mutations: [{ id: "applied", leaseOwner: "sync-2", syncAttempts: 2 }],
     });
   });
 

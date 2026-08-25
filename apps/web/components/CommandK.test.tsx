@@ -16,6 +16,7 @@ const thread = vi.hoisted(() => ({
       messages: [{ id: "message-1" }, { id: "message-2" }],
     },
   } as { thread: { id: string; messages: { id: string }[] } } | undefined,
+  isLoading: false,
 }));
 const outbox = vi.hoisted(() => ({ enqueue: vi.fn() }));
 const notifications = vi.hoisted(() => ({ error: vi.fn() }));
@@ -30,7 +31,7 @@ vi.mock("@/hooks/useDisplayedEmail", () => ({
   }),
 }));
 vi.mock("@/hooks/useThread", () => ({
-  useThread: () => ({ data: thread.data }),
+  useThread: () => ({ data: thread.data, isLoading: thread.isLoading }),
 }));
 vi.mock("@/providers/EmailAccountProvider", () => ({
   useAccount: () => ({ emailAccountId: "account-1" }),
@@ -85,6 +86,7 @@ describe("CommandK side-panel archive", () => {
         messages: [{ id: "message-1" }, { id: "message-2" }],
       },
     };
+    thread.isLoading = false;
     outbox.enqueue.mockResolvedValue({ batchId: "batch", mutations: [] });
     shortcuts.handlers = undefined;
   });
@@ -128,10 +130,19 @@ describe("CommandK side-panel archive", () => {
     });
   });
 
-  it("does not offer archive until the full thread snapshot is available", () => {
+  it("keeps archive bound while the full thread snapshot is loading", async () => {
     thread.data = undefined;
+    thread.isLoading = true;
     render(<CommandK />);
 
-    expect(shortcuts.handlers?.archive).toBeUndefined();
+    expect(shortcuts.handlers?.archive).toBeTypeOf("function");
+
+    await act(async () => shortcuts.handlers?.archive?.());
+
+    expect(outbox.enqueue).not.toHaveBeenCalled();
+    expect(displayedEmail.showEmail).not.toHaveBeenCalled();
+    expect(notifications.error).toHaveBeenCalledWith({
+      description: "Email is still loading",
+    });
   });
 });

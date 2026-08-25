@@ -5,7 +5,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ArchiveProgress } from "./ArchiveProgress";
 
 const mockUseArchiveQueueProgress = vi.fn();
+const mockClearArchiveSenderStatuses = vi.fn();
 vi.mock("@/store/archive-sender-queue", () => ({
+  clearArchiveSenderStatuses: (
+    ...args: Parameters<typeof mockClearArchiveSenderStatuses>
+  ) => mockClearArchiveSenderStatuses(...args),
   useArchiveQueueProgress: (
     ...args: Parameters<typeof mockUseArchiveQueueProgress>
   ) => mockUseArchiveQueueProgress(...args),
@@ -17,6 +21,7 @@ vi.mock("@/providers/EmailAccountProvider", () => ({
 
 describe("ArchiveProgress", () => {
   beforeEach(() => {
+    vi.useRealTimers();
     vi.clearAllMocks();
     mockUseArchiveQueueProgress.mockReturnValue(undefined);
   });
@@ -49,6 +54,22 @@ describe("ArchiveProgress", () => {
       screen.getByText("Archiving finished: 2 succeeded, 1 failed."),
     ).toBeTruthy();
     expect(screen.getByText("3 of 3 senders processed")).toBeTruthy();
+  });
+
+  it("clears completed account progress after it has been shown", async () => {
+    vi.useFakeTimers();
+    mockUseArchiveQueueProgress.mockReturnValue({
+      activeItems: 0,
+      totalItems: 3,
+      completedItems: 3,
+      failedItems: 0,
+      settledItems: 3,
+    });
+    render(<ArchiveProgress />);
+
+    await vi.advanceTimersByTimeAsync(3000);
+
+    expect(mockClearArchiveSenderStatuses).toHaveBeenCalledWith("account-1");
   });
 
   it("stays hidden without a durable sender batch", () => {

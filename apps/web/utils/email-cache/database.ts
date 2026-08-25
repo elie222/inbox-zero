@@ -82,6 +82,7 @@ export type StoredMailMutation = {
     | "failed"
     | "uncertain";
   attempts: number;
+  syncAttempts?: number;
   nextAttemptAt: number;
   leaseOwner?: string;
   leaseExpiresAt?: number;

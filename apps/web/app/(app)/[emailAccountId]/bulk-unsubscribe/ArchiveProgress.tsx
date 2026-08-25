@@ -1,7 +1,10 @@
 "use client";
 
-import { memo } from "react";
-import { useArchiveQueueProgress } from "@/store/archive-sender-queue";
+import { memo, useEffect } from "react";
+import {
+  clearArchiveSenderStatuses,
+  useArchiveQueueProgress,
+} from "@/store/archive-sender-queue";
 import { ProgressPanel } from "@/components/ProgressPanel";
 import { useAccount } from "@/providers/EmailAccountProvider";
 
@@ -12,6 +15,15 @@ export const ArchiveProgress = memo(() => {
   const completedItems = bulkArchiveProgress?.completedItems ?? 0;
   const failedItems = bulkArchiveProgress?.failedItems ?? 0;
   const activeItems = bulkArchiveProgress?.activeItems ?? 0;
+
+  useEffect(() => {
+    if (!totalItems || activeItems) return;
+    const timeoutId = setTimeout(
+      () => clearArchiveSenderStatuses(emailAccountId),
+      3000,
+    );
+    return () => clearTimeout(timeoutId);
+  }, [activeItems, emailAccountId, totalItems]);
 
   if (!totalItems) return null;
 

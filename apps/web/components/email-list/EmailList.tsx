@@ -26,6 +26,7 @@ import { ButtonLoader } from "@/components/Loading";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { isThreadUnread } from "@/app/(app)/[emailAccountId]/mail/read-state";
 import {
   applyMailMutationOverlayToThreads,
   useRetainedMailMutationOverlay,
@@ -356,6 +357,8 @@ export function EmailList({
 
   const isEmpty = threads.length === 0;
 
+  if (!mutationOverlayReady) return null;
+
   return (
     <>
       {!(isEmpty && hideActionBarWhenEmpty) && (
@@ -425,15 +428,19 @@ export function EmailList({
 
                   if (!alreadyOpen) scrollToId(thread.id);
 
-                  enqueueThreadMailMutationBatch({
-                    emailAccountId,
-                    payload: { kind: "set_read_state", read: true },
-                    threads: [thread],
-                  })
-                    .then((queued) => retainMutations(queued.mutations))
-                    .catch(() => {
-                      toast.error("Couldn't queue marking this email as read");
-                    });
+                  if (isThreadUnread(thread.messages)) {
+                    enqueueThreadMailMutationBatch({
+                      emailAccountId,
+                      payload: { kind: "set_read_state", read: true },
+                      threads: [thread],
+                    })
+                      .then((queued) => retainMutations(queued.mutations))
+                      .catch(() => {
+                        toast.error(
+                          "Couldn't queue marking this email as read",
+                        );
+                      });
+                  }
                 };
 
                 return (

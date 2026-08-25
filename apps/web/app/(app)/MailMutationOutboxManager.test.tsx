@@ -250,6 +250,38 @@ describe("MailMutationOutboxManager", () => {
     expect(outbox.completeSyncGroup).not.toHaveBeenCalled();
   });
 
+  it("backs off from the persisted reconciliation attempt after reload", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    const group = {
+      batchId: "batch",
+      emailAccountId: "account",
+      mutations: [
+        {
+          ...archiveMutation(),
+          status: "reconciling" as const,
+          syncAttempts: 4,
+        },
+      ],
+    };
+    outbox.claimSyncGroup
+      .mockResolvedValueOnce(group)
+      .mockResolvedValue(undefined);
+    mailbox.syncNow.mockRejectedValue(new Error("sync failed"));
+
+    render(<MailMutationOutboxManager />);
+    await settlePromises();
+
+    expect(outbox.retrySyncGroup).toHaveBeenCalledWith(
+      group,
+      {
+        error: "Mailbox reconciliation failed",
+        nextAttemptAt: 8000,
+      },
+      expect.any(String),
+    );
+  });
+
   it("does not remove cached mail when the server reconciles an expired snooze", async () => {
     const mutation = {
       ...archiveMutation({ attempts: 2 }),

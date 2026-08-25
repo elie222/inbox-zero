@@ -154,7 +154,7 @@ describe("bulk unsubscribe hooks", () => {
       expect(result.current.deleteAllLoading).toBe(false);
     });
 
-    it("clears loading when durable storage rejects the batch", async () => {
+    it("handles durable storage rejection and still clears loading", async () => {
       fetchAllSenderThreadsMock.mockResolvedValue({
         threads: [{ id: "thread-1", messages: [{ id: "message-1" }] }],
       });
@@ -169,10 +169,12 @@ describe("bulk unsubscribe hooks", () => {
         }),
       );
 
-      await expect(
-        act(async () => result.current.onDeleteAll()),
-      ).rejects.toThrow("storage unavailable");
+      await act(async () => result.current.onDeleteAll());
+
       expect(result.current.deleteAllLoading).toBe(false);
+      expect(captureExceptionMock).toHaveBeenCalledWith(
+        expect.objectContaining({ message: "storage unavailable" }),
+      );
     });
   });
 

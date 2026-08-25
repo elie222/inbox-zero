@@ -11,15 +11,20 @@ const mockGetMailMutationsForAccount = vi.fn();
 const mutationListeners = new Set<() => void>();
 let durableMutations: Array<Record<string, unknown>> = [];
 
-vi.mock("@/utils/email-cache/mail-mutations", () => ({
-  getMailMutationsForAccount: (
-    ...args: Parameters<typeof mockGetMailMutationsForAccount>
-  ) => mockGetMailMutationsForAccount(...args),
-  subscribeToMailMutations: (listener: () => void) => {
-    mutationListeners.add(listener);
-    return () => mutationListeners.delete(listener);
-  },
-}));
+vi.mock("@/utils/email-cache/mail-mutations", async (importOriginal) => {
+  const original =
+    await importOriginal<typeof import("@/utils/email-cache/mail-mutations")>();
+  return {
+    ...original,
+    getMailMutationsForAccount: (
+      ...args: Parameters<typeof mockGetMailMutationsForAccount>
+    ) => mockGetMailMutationsForAccount(...args),
+    subscribeToMailMutations: (listener: () => void) => {
+      mutationListeners.add(listener);
+      return () => mutationListeners.delete(listener);
+    },
+  };
+});
 
 vi.mock("@/utils/email-cache/thread-mail-mutations", () => ({
   enqueueThreadMailMutationBatch: (
@@ -436,6 +441,33 @@ describe("archive sender queue", () => {
     expect(progressResult.current).toBeUndefined();
   });
 
+  it("continues queueing other senders after one sender fails", async () => {
+    mockFetchWithAccount
+      .mockRejectedValueOnce(new Error("Failed to fetch first sender"))
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: [] }),
+      });
+    const { jotaiStore } = await import("@/store");
+    const { useArchiveSenderQueueActions } = await import(
+      "./archive-sender-queue"
+    );
+    const { result } = renderHook(
+      () => useArchiveSenderQueueActions("account-1"),
+      { wrapper: createWrapper(jotaiStore) },
+    );
+
+    let queuedSenders = 0;
+    await act(async () => {
+      queuedSenders = await result.current.queueArchiveSenders({
+        senders: ["first@example.com", "second@example.com"],
+      });
+    });
+
+    expect(queuedSenders).toBe(1);
+    expect(mockFetchWithAccount).toHaveBeenCalledTimes(2);
+  });
+
   it("keeps failed fetches visible and allows retrying them", async () => {
     mockFetchWithAccount
       .mockRejectedValueOnce(new Error("Failed to fetch threads"))
@@ -468,7 +500,7 @@ describe("archive sender queue", () => {
         actionResult.current.queueArchiveSenders({
           senders: ["sender@example.com"],
         }),
-      ).rejects.toThrow("Failed to fetch threads");
+      ).resolves.toBe(0);
     });
 
     expect(statusResult.current).toMatchObject({
