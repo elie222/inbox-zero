@@ -1,8 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  MailMutationReceiptKind,
-  MailMutationReceiptStatus,
-} from "@/generated/prisma/enums";
+import { EmailSendOperationStatus } from "@/generated/prisma/enums";
 import { getMockEmailAccountWithAccount } from "@/__tests__/helpers";
 import prisma from "@/utils/__mocks__/prisma";
 import { executeMailMutationAction } from "./mail-mutation";
@@ -60,7 +57,7 @@ describe("executeMailMutationAction", () => {
       id: "snooze",
       status: "PENDING",
     });
-    prisma.mailMutationReceipt.findUnique.mockResolvedValue(null);
+    prisma.emailSendOperation.findUnique.mockResolvedValue(null);
   });
 
   it("applies an immutable archive snapshot", async () => {
@@ -180,8 +177,8 @@ describe("executeMailMutationAction", () => {
   });
 
   it("persists a reply result and returns it without sending again", async () => {
-    const receipt = getReceipt();
-    prisma.mailMutationReceipt.create.mockResolvedValue(receipt);
+    const operation = getSendOperation();
+    prisma.emailSendOperation.create.mockResolvedValue(operation);
     mocks.sendEmailWithHtml.mockResolvedValue({
       messageId: "message",
       threadId: "thread",
@@ -194,9 +191,9 @@ describe("executeMailMutationAction", () => {
       result: { messageId: "message", threadId: "thread" },
     });
 
-    prisma.mailMutationReceipt.findUnique.mockResolvedValue({
-      ...receipt,
-      status: MailMutationReceiptStatus.APPLIED,
+    prisma.emailSendOperation.findUnique.mockResolvedValue({
+      ...operation,
+      status: EmailSendOperationStatus.SENT,
       result: { messageId: "message", threadId: "thread" },
     });
     const replay = await executeMailMutationAction("account-1", input);
@@ -205,9 +202,9 @@ describe("executeMailMutationAction", () => {
   });
 
   it("reconciles an applied reply before creating a provider client", async () => {
-    prisma.mailMutationReceipt.findUnique.mockResolvedValue({
-      ...getReceipt(),
-      status: MailMutationReceiptStatus.APPLIED,
+    prisma.emailSendOperation.findUnique.mockResolvedValue({
+      ...getSendOperation(),
+      status: EmailSendOperationStatus.SENT,
       result: { messageId: "message", threadId: "thread" },
     });
     mocks.createEmailProvider.mockRejectedValue(new Error("expired auth"));
@@ -222,8 +219,8 @@ describe("executeMailMutationAction", () => {
   });
 
   it("marks a stale processing reply uncertain without sending", async () => {
-    prisma.mailMutationReceipt.findUnique.mockResolvedValue(getReceipt());
-    prisma.mailMutationReceipt.updateMany.mockResolvedValue({ count: 1 });
+    prisma.emailSendOperation.findUnique.mockResolvedValue(getSendOperation());
+    prisma.emailSendOperation.updateMany.mockResolvedValue({ count: 1 });
 
     const result = await executeMailMutationAction("account-1", replyInput());
 
@@ -232,7 +229,7 @@ describe("executeMailMutationAction", () => {
   });
 
   it("rejects a reply mutation ID reused for a different thread snapshot", async () => {
-    prisma.mailMutationReceipt.findUnique.mockResolvedValue(getReceipt());
+    prisma.emailSendOperation.findUnique.mockResolvedValue(getSendOperation());
 
     const result = await executeMailMutationAction("account-1", {
       ...replyInput(),
@@ -246,27 +243,27 @@ describe("executeMailMutationAction", () => {
     expect(mocks.sendEmailWithHtml).not.toHaveBeenCalled();
   });
 
-  it("marks an ambiguous reply send uncertain without deleting its receipt", async () => {
-    const receipt = getReceipt();
-    prisma.mailMutationReceipt.create.mockResolvedValue(receipt);
+  it("marks an ambiguous reply send uncertain without deleting its operation", async () => {
+    const operation = getSendOperation();
+    prisma.emailSendOperation.create.mockResolvedValue(operation);
     mocks.sendEmailWithHtml.mockRejectedValue(new Error("fetch failed"));
 
     const result = await executeMailMutationAction("account-1", replyInput());
 
     expect(result?.data).toEqual({ status: "uncertain" });
-    expect(prisma.mailMutationReceipt.updateMany).toHaveBeenCalledWith({
+    expect(prisma.emailSendOperation.updateMany).toHaveBeenCalledWith({
       where: {
-        id: "receipt",
-        status: MailMutationReceiptStatus.PROCESSING,
+        id: "operation",
+        status: EmailSendOperationStatus.PROCESSING,
       },
-      data: { status: MailMutationReceiptStatus.UNCERTAIN },
+      data: { status: EmailSendOperationStatus.UNCERTAIN },
     });
-    expect(prisma.mailMutationReceipt.deleteMany).not.toHaveBeenCalled();
+    expect(prisma.emailSendOperation.deleteMany).not.toHaveBeenCalled();
   });
 
-  it("retries an explicit reply throttle after deleting the unsent receipt", async () => {
-    const receipt = getReceipt();
-    prisma.mailMutationReceipt.create.mockResolvedValue(receipt);
+  it("retries an explicit reply throttle after deleting the unsent operation", async () => {
+    const operation = getSendOperation();
+    prisma.emailSendOperation.create.mockResolvedValue(operation);
     mocks.sendEmailWithHtml.mockRejectedValue(
       new Error("Batch request failed", {
         cause: Object.assign(new Error("Provider request was throttled"), {
@@ -278,10 +275,45 @@ describe("executeMailMutationAction", () => {
     const result = await executeMailMutationAction("account-1", replyInput());
 
     expect(result?.data).toEqual({ status: "retry" });
-    expect(prisma.mailMutationReceipt.deleteMany).toHaveBeenCalledWith({
-      where: { id: "receipt" },
+    expect(prisma.emailSendOperation.deleteMany).toHaveBeenCalledWith({
+      where: { id: "operation" },
     });
-    expect(prisma.mailMutationReceipt.updateMany).not.toHaveBeenCalled();
+    expect(prisma.emailSendOperation.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("does not send a queued email after the retry window has elapsed", async () => {
+    const result = await executeMailMutationAction("account-1", {
+      ...replyInput(),
+      queuedAt: 0,
+    });
+
+    expect(result?.data).toEqual({
+      status: "rejected",
+      error: "Queued email is too old to send safely",
+    });
+    expect(prisma.emailSendOperation.create).not.toHaveBeenCalled();
+    expect(mocks.sendEmailWithHtml).not.toHaveBeenCalled();
+  });
+
+  it("reconciles an old queued email while its sent operation still exists", async () => {
+    prisma.emailSendOperation.findUnique.mockResolvedValue({
+      ...getSendOperation(),
+      payloadHash:
+        "230eefe5fafb5561ec27294a022a1d657997caa91f9615f066bfce181c1a2e26",
+      status: EmailSendOperationStatus.SENT,
+      result: { messageId: "message", threadId: "thread" },
+    });
+
+    const result = await executeMailMutationAction("account-1", {
+      ...replyInput(),
+      queuedAt: 0,
+    });
+
+    expect(result?.data).toEqual({
+      status: "already_applied",
+      result: { messageId: "message", threadId: "thread" },
+    });
+    expect(mocks.sendEmailWithHtml).not.toHaveBeenCalled();
   });
 });
 
@@ -291,20 +323,20 @@ function replyInput() {
     mutationId,
     threadId: "thread",
     messageIds: ["one"],
+    queuedAt: Date.parse("2099-01-01T00:00:00.000Z"),
     email: { to: "to@example.com", subject: "Hi", messageHtml: "<p>Hi</p>" },
   };
 }
 
-function getReceipt() {
+function getSendOperation() {
   return {
-    id: "receipt",
+    id: "operation",
     createdAt: new Date(0),
     updatedAt: new Date(0),
     clientMutationId: mutationId,
-    kind: MailMutationReceiptKind.REPLY,
     payloadHash:
-      "be75732f41910eeff36332d0b9d0a37b74279c32ef6996f896e6eebd06b99644",
-    status: MailMutationReceiptStatus.PROCESSING,
+      "4b2bc95a57ac227662e7cf4fcdf78bdea75af4f5cf9d4dff14c838bf66d1cded",
+    status: EmailSendOperationStatus.PROCESSING,
     processingStartedAt: new Date(0),
     result: null,
     emailAccountId: "account-1",

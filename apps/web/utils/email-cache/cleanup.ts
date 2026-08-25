@@ -3,10 +3,10 @@ import {
   EMAIL_CACHE_CLEANUP_INTERVAL_MS,
   EMAIL_CACHE_DEFAULT_DETAIL_BUDGET_BYTES,
   EMAIL_CACHE_MAILBOX_MAX_AGE_MS,
-  EMAIL_CACHE_MAIL_MUTATION_RETENTION_MS,
   EMAIL_CACHE_MAX_AGE_MS,
   EMAIL_CACHE_MAX_DETAIL_BUDGET_BYTES,
   EMAIL_CACHE_MAX_VIEWS_PER_ACCOUNT,
+  MAIL_MUTATION_RETRY_WINDOW_MS,
 } from "./policy";
 
 let lastCleanupAt = 0;
@@ -126,10 +126,7 @@ async function cleanupEmailCache() {
     let mutationCursor = await mailMutationsStore
       .index("byUpdatedAt")
       .openCursor(
-        IDBKeyRange.upperBound(
-          now - EMAIL_CACHE_MAIL_MUTATION_RETENTION_MS,
-          true,
-        ),
+        IDBKeyRange.upperBound(now - MAIL_MUTATION_RETRY_WINDOW_MS, true),
       );
     while (mutationCursor) {
       if (

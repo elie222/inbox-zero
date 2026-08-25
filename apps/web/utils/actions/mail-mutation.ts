@@ -1,10 +1,7 @@
 "use server";
 
 import { createHash } from "node:crypto";
-import {
-  MailMutationReceiptKind,
-  MailMutationReceiptStatus,
-} from "@/generated/prisma/enums";
+import { EmailSendOperationStatus } from "@/generated/prisma/enums";
 import { actionClient } from "@/utils/actions/safe-action";
 import {
   executeMailMutationBody,
@@ -14,6 +11,7 @@ import { createEmailProvider } from "@/utils/email/provider";
 import { classifyEmailAccountProviderIssue } from "@/utils/email/provider-health";
 import { isEmailProviderRateLimitError } from "@/utils/email/is-provider-rate-limit-error";
 import { isGoogleProvider } from "@/utils/email/provider-types";
+import { MAIL_MUTATION_RETRY_WINDOW_MS } from "@/utils/email-cache/policy";
 import {
   extractErrorInfo as extractGmailErrorInfo,
   isRetryableError as isGmailRetryableError,
@@ -175,32 +173,42 @@ async function executeReplyMutation({
         threadId: input.threadId,
         messageIds: input.messageIds,
         email: input.email,
+        queuedAt: input.queuedAt,
       }),
     )
     .digest("hex");
-  const existing = await getOrCreateReplyReceipt({
-    emailAccountId,
-    mutationId: input.mutationId,
-    payloadHash,
-  });
+  const found = await findEmailSendOperation(emailAccountId, input.mutationId);
+  if (!found && input.queuedAt < Date.now() - MAIL_MUTATION_RETRY_WINDOW_MS) {
+    return {
+      status: "rejected" as const,
+      error: "Queued email is too old to send safely",
+    };
+  }
+  const existing = found
+    ? { ...found, created: false }
+    : await createEmailSendOperation({
+        emailAccountId,
+        mutationId: input.mutationId,
+        payloadHash,
+      });
   if (existing.payloadHash !== payloadHash) {
     return { status: "rejected" as const, error: "Mutation ID was reused" };
   }
-  if (existing.status === MailMutationReceiptStatus.APPLIED) {
+  if (existing.status === EmailSendOperationStatus.SENT) {
     return { status: "already_applied" as const, result: existing.result };
   }
-  if (existing.status === MailMutationReceiptStatus.UNCERTAIN) {
+  if (existing.status === EmailSendOperationStatus.UNCERTAIN) {
     return { status: "uncertain" as const };
   }
   if (!existing.created) {
     const staleBefore = new Date(Date.now() - REPLY_PROCESSING_LEASE_MS);
-    const stale = await prisma.mailMutationReceipt.updateMany({
+    const stale = await prisma.emailSendOperation.updateMany({
       where: {
         id: existing.id,
-        status: MailMutationReceiptStatus.PROCESSING,
+        status: EmailSendOperationStatus.PROCESSING,
         processingStartedAt: { lte: staleBefore },
       },
-      data: { status: MailMutationReceiptStatus.UNCERTAIN },
+      data: { status: EmailSendOperationStatus.UNCERTAIN },
     });
     return stale.count
       ? { status: "uncertain" as const }
@@ -210,14 +218,14 @@ async function executeReplyMutation({
   try {
     const emailProvider = await getEmailProvider();
     const result = await emailProvider.sendEmailWithHtml(input.email);
-    await prisma.mailMutationReceipt.update({
+    await prisma.emailSendOperation.update({
       where: { id: existing.id },
-      data: { result, status: MailMutationReceiptStatus.APPLIED },
+      data: { result, status: EmailSendOperationStatus.SENT },
     });
     return { status: "applied" as const, result };
   } catch (error) {
     if (isEmailProviderRateLimitError({ error, provider })) {
-      await prisma.mailMutationReceipt.deleteMany({
+      await prisma.emailSendOperation.deleteMany({
         where: { id: existing.id },
       });
       return { status: "retry" as const };
@@ -228,20 +236,34 @@ async function executeReplyMutation({
         provider: provider as "google" | "microsoft",
       })
     ) {
-      await prisma.mailMutationReceipt.deleteMany({
+      await prisma.emailSendOperation.deleteMany({
         where: { id: existing.id },
       });
       return { status: "blocked_auth" as const };
     }
-    await prisma.mailMutationReceipt.updateMany({
-      where: { id: existing.id, status: MailMutationReceiptStatus.PROCESSING },
-      data: { status: MailMutationReceiptStatus.UNCERTAIN },
+    await prisma.emailSendOperation.updateMany({
+      where: { id: existing.id, status: EmailSendOperationStatus.PROCESSING },
+      data: { status: EmailSendOperationStatus.UNCERTAIN },
     });
     return { status: "uncertain" as const };
   }
 }
 
-async function getOrCreateReplyReceipt({
+async function findEmailSendOperation(
+  emailAccountId: string,
+  mutationId: string,
+) {
+  return prisma.emailSendOperation.findUnique({
+    where: {
+      emailAccountId_clientMutationId: {
+        emailAccountId,
+        clientMutationId: mutationId,
+      },
+    },
+  });
+}
+
+async function createEmailSendOperation({
   emailAccountId,
   mutationId,
   payloadHash,
@@ -250,37 +272,21 @@ async function getOrCreateReplyReceipt({
   mutationId: string;
   payloadHash: string;
 }) {
-  const existing = await prisma.mailMutationReceipt.findUnique({
-    where: {
-      emailAccountId_clientMutationId: {
-        emailAccountId,
-        clientMutationId: mutationId,
-      },
-    },
-  });
-  if (existing) return { ...existing, created: false };
   try {
-    const receipt = await prisma.mailMutationReceipt.create({
+    const operation = await prisma.emailSendOperation.create({
       data: {
         clientMutationId: mutationId,
         emailAccountId,
-        kind: MailMutationReceiptKind.REPLY,
         payloadHash,
       },
     });
-    return { ...receipt, created: true };
+    return { ...operation, created: true };
   } catch (error) {
     if (!isDuplicateError(error, ["emailAccountId", "clientMutationId"]))
       throw error;
-    const receipt = await prisma.mailMutationReceipt.findUniqueOrThrow({
-      where: {
-        emailAccountId_clientMutationId: {
-          emailAccountId,
-          clientMutationId: mutationId,
-        },
-      },
-    });
-    return { ...receipt, created: false };
+    const operation = await findEmailSendOperation(emailAccountId, mutationId);
+    if (!operation) throw error;
+    return { ...operation, created: false };
   }
 }
 

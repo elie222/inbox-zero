@@ -352,7 +352,7 @@ describe("MailMutationOutboxManager", () => {
     );
   });
 
-  it("settles a reply from its receipt without waiting for mailbox refresh", async () => {
+  it("settles a reply from its send operation without waiting for mailbox refresh", async () => {
     vi.useFakeTimers();
     const mutation = replyMutation();
     const result = { messageId: "message-2", threadId: "thread" };
@@ -360,14 +360,14 @@ describe("MailMutationOutboxManager", () => {
     action.execute.mockReturnValue(new Promise(() => {}));
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(Response.json({ status: "applied", result })),
+      vi.fn().mockResolvedValue(Response.json({ status: "sent", result })),
     );
 
     render(<MailMutationOutboxManager />);
     await settlePromises();
 
     expect(fetch).toHaveBeenCalledWith(
-      `/api/mail-mutation-receipts/${mutation.id}`,
+      `/api/email-send-operations/${mutation.id}`,
       {
         headers: { "X-Email-Account-ID": "account" },
       },

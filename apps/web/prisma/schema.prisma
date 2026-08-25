@@ -204,7 +204,7 @@ model EmailAccount {
   digests              Digest[]
   scheduledActions     ScheduledAction[]
   snoozedThreads       SnoozedThread[]
-  mailMutationReceipts MailMutationReceipt[]
+  emailSendOperations EmailSendOperation[]
   responseTimes        ResponseTime[]
   actions              Action[]
 
@@ -824,22 +824,21 @@ model SnoozedThread {
   @@index([emailAccountId, threadId, status])
 }
 
-model MailMutationReceipt {
-  id                  String                    @id @default(cuid())
-  createdAt           DateTime                  @default(now())
-  updatedAt           DateTime                  @updatedAt
+model EmailSendOperation {
+  id                  String                   @id @default(cuid())
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
   clientMutationId    String
-  kind                MailMutationReceiptKind
   payloadHash         String
-  status              MailMutationReceiptStatus @default(PROCESSING)
-  processingStartedAt DateTime                  @default(now())
+  status              EmailSendOperationStatus @default(PROCESSING)
+  processingStartedAt DateTime                 @default(now())
   result              Json?
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
   @@unique([emailAccountId, clientMutationId])
-  @@index([status, processingStartedAt])
+  @@index([status, updatedAt])
 }
 
 // Notes:
@@ -2128,13 +2127,9 @@ enum SnoozedThreadStatus {
   CANCELLED
 }
 
-enum MailMutationReceiptKind {
-  REPLY
-}
-
-enum MailMutationReceiptStatus {
+enum EmailSendOperationStatus {
   PROCESSING
-  APPLIED
+  SENT
   UNCERTAIN
 }
 

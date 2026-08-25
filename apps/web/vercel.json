@@ -137,6 +137,10 @@
       "schedule": "30 3 * * *"
     },
     {
+      "path": "/api/cron/email-send-operation-retention",
+      "schedule": "45 3 * * *"
+    },
+    {
       "path": "/api/cron/draft-cleanup",
       "schedule": "0 4 * * *"
     }

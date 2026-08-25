@@ -146,7 +146,7 @@ test("keeps a reply queued across reload and sends it after reconnect", async ({
       page.evaluate(
         async ({ accountId, mutationId }) => {
           const response = await fetch(
-            `/api/mail-mutation-receipts/${mutationId}`,
+            `/api/email-send-operations/${mutationId}`,
             { headers: { "X-Email-Account-ID": accountId } },
           );
           return response.json();

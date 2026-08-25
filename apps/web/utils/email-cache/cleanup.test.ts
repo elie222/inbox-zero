@@ -7,8 +7,8 @@ import { scheduleEmailCacheCleanup } from "./cleanup";
 import { clearEmailCache, getEmailCacheDatabase } from "./database";
 import {
   EMAIL_CACHE_MAILBOX_MAX_AGE_MS,
-  EMAIL_CACHE_MAIL_MUTATION_RETENTION_MS,
   EMAIL_CACHE_MAX_AGE_MS,
+  MAIL_MUTATION_RETRY_WINDOW_MS,
 } from "./policy";
 
 const storageDescriptor = Object.getOwnPropertyDescriptor(navigator, "storage");
@@ -118,7 +118,7 @@ describe("email cache cleanup", () => {
     const database = await getEmailCacheDatabase();
     expect(database).toBeDefined();
     const now = Date.now();
-    const expiredAt = now - EMAIL_CACHE_MAIL_MUTATION_RETENTION_MS - 1;
+    const expiredAt = now - MAIL_MUTATION_RETRY_WINDOW_MS - 1;
     const base = {
       batchId: "batch",
       emailAccountId: "account-1",

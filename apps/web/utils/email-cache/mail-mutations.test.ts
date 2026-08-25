@@ -116,7 +116,7 @@ describe("mail mutation outbox", () => {
     ).toMatchObject({ id: "other" });
   });
 
-  it("reclaims an expired reply lease so the server receipt decides the outcome", async () => {
+  it("reclaims an expired reply lease so the server send operation decides the outcome", async () => {
     await enqueueMailMutation(
       {
         id: "reply",

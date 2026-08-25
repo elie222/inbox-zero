@@ -9,7 +9,7 @@ import {
 import { executeMailMutationAction } from "@/utils/actions/mail-mutation";
 import type { ExecuteMailMutationBody } from "@/utils/actions/mail-mutation.validation";
 import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
-import { mailMutationReceiptResponse } from "@/utils/email-cache/mail-mutation-receipt";
+import { emailSendOperationResponse } from "@/utils/email-cache/email-send-operation";
 import { isExpiredUnsyncedSnooze } from "@/utils/email-cache/mail-mutation-policy";
 import { settleMailMutationInCache } from "@/utils/email-cache/mail-mutation-settlement";
 import {
@@ -28,7 +28,7 @@ import {
 
 const REQUEST_TIMEOUT_MS = 20 * 1000;
 const LEASE_MS = 30 * 1000;
-const RECEIPT_POLL_INTERVAL_MS = 1000;
+const SEND_OPERATION_POLL_INTERVAL_MS = 1000;
 const MAX_CONCURRENCY = 2;
 
 export function MailMutationOutboxManager() {
@@ -224,14 +224,14 @@ async function reconcileReplyRequest(
   try {
     return await Promise.race([
       request,
-      pollReplyReceipt(mutation, controller.signal),
+      pollEmailSendOperation(mutation, controller.signal),
     ]);
   } finally {
     controller.abort();
   }
 }
 
-async function pollReplyReceipt(
+async function pollEmailSendOperation(
   mutation: Extract<MailMutation, { kind: "reply" }>,
   signal: AbortSignal,
 ): ReturnType<typeof executeMutationRequest> {
@@ -239,24 +239,24 @@ async function pollReplyReceipt(
   while (!signal.aborted && Date.now() < deadline) {
     try {
       const response = await fetch(
-        `/api/mail-mutation-receipts/${encodeURIComponent(mutation.id)}`,
+        `/api/email-send-operations/${encodeURIComponent(mutation.id)}`,
         {
           headers: { [EMAIL_ACCOUNT_HEADER]: mutation.emailAccountId },
         },
       );
       if (response.status === 401) return { status: "blocked_auth" };
       if (response.ok) {
-        const receipt = mailMutationReceiptResponse.safeParse(
+        const operation = emailSendOperationResponse.safeParse(
           await response.json(),
         );
-        if (receipt.success) {
-          if (receipt.data.status === "applied") {
+        if (operation.success) {
+          if (operation.data.status === "sent") {
             return {
               status: "already_applied",
-              result: receipt.data.result,
+              result: operation.data.result,
             };
           }
-          if (receipt.data.status === "uncertain") {
+          if (operation.data.status === "uncertain") {
             return { status: "uncertain" };
           }
         }
@@ -264,14 +264,14 @@ async function pollReplyReceipt(
     } catch {
       if (signal.aborted) break;
     }
-    await waitForReceiptPoll(signal);
+    await waitForSendOperationPoll(signal);
   }
-  throw new Error("Reply receipt reconciliation timed out");
+  throw new Error("Email send reconciliation timed out");
 }
 
-function waitForReceiptPoll(signal: AbortSignal) {
+function waitForSendOperationPoll(signal: AbortSignal) {
   return new Promise<void>((resolve) => {
-    const timer = setTimeout(resolve, RECEIPT_POLL_INTERVAL_MS);
+    const timer = setTimeout(resolve, SEND_OPERATION_POLL_INTERVAL_MS);
     signal.addEventListener(
       "abort",
       () => {
@@ -325,7 +325,12 @@ function toActionInput(mutation: MailMutation): ExecuteMailMutationBody {
         snoozeMutationId: mutation.snoozeMutationId,
       };
     case "reply":
-      return { ...base, kind: mutation.kind, email: mutation.email };
+      return {
+        ...base,
+        kind: mutation.kind,
+        email: mutation.email,
+        queuedAt: mutation.createdAt,
+      };
     default:
       return { ...base, kind: mutation.kind };
   }
