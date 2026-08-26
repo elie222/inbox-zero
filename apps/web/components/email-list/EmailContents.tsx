@@ -8,8 +8,19 @@ import {
   prepareSanitizedEmailHtml,
   sanitizeEmailHtml,
 } from "@/utils/email/prepare-html.client";
+import type { ParsedMessage } from "@/utils/types";
+import {
+  getInlineImageContentIds,
+  normalizeContentId,
+  rewriteInlineImageSources,
+} from "@/utils/email/inline-images";
+import {
+  fetchAttachment,
+  getAttachmentUrl,
+} from "@/utils/attachments/download";
 
 const SANS_FONT_STACK = `ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`;
+const NO_INLINE_ATTACHMENTS: ParsedMessage["inline"] = [];
 /**
  * Reading size for a message body that brought no styling of its own. Shared by
  * both paths: Tailwind classes can't reach inside the iframe, so plain text has
@@ -20,9 +31,13 @@ const BODY_TYPE = { fontSize: "14.5px", lineHeight: 1.65 } as const;
 export function HtmlEmail({
   html,
   messageId,
+  emailAccountId,
+  inlineAttachments = NO_INLINE_ATTACHMENTS,
 }: {
   html: string;
   messageId: string;
+  emailAccountId?: string;
+  inlineAttachments?: ParsedMessage["inline"];
 }) {
   const sanitizedHtml = useMemo(() => sanitizeEmailHtml(html), [html]);
   const [showReplies, setShowReplies] = useState(false);
@@ -37,15 +52,33 @@ export function HtmlEmail({
 
   useEffect(() => {
     let cancelled = false;
+    const objectUrls: string[] = [];
     setRenderHtml(
       getPreparedEmailHtml({ messageId, sourceHtml: sanitizedHtml }) ??
         sanitizedHtml,
     );
 
-    prepareSanitizedEmailHtml({ messageId, sourceHtml: sanitizedHtml }).then(
-      (rewrittenHtml) => {
-        if (cancelled) return;
-        startTransition(() => setRenderHtml(rewrittenHtml));
+    Promise.all([
+      prepareSanitizedEmailHtml({ messageId, sourceHtml: sanitizedHtml }),
+      loadInlineImageSources({
+        emailAccountId,
+        html: sanitizedHtml,
+        inlineAttachments,
+        messageId,
+      }),
+    ]).then(
+      ([rewrittenHtml, inlineImages]) => {
+        const loadedObjectUrls = Object.values(inlineImages);
+        if (cancelled) {
+          for (const objectUrl of loadedObjectUrls) {
+            URL.revokeObjectURL(objectUrl);
+          }
+          return;
+        }
+        objectUrls.push(...loadedObjectUrls);
+        startTransition(() =>
+          setRenderHtml(rewriteInlineImageSources(rewrittenHtml, inlineImages)),
+        );
       },
       () => {
         if (cancelled) return;
@@ -55,8 +88,9 @@ export function HtmlEmail({
 
     return () => {
       cancelled = true;
+      for (const objectUrl of objectUrls) URL.revokeObjectURL(objectUrl);
     };
-  }, [messageId, sanitizedHtml]);
+  }, [emailAccountId, inlineAttachments, messageId, sanitizedHtml]);
 
   const { mainContent, hasReplies } = useMemo(
     () => getEmailContent(renderHtml),
@@ -243,12 +277,15 @@ function getIframeHtml(
     imageProxyBaseUrl && imageProxyOrigin && html.includes(imageProxyBaseUrl)
       ? imageProxyOrigin
       : "https:";
+  const localImageSourceDirective = html.includes("blob:")
+    ? "data: blob:"
+    : "data:";
 
   const securityHeaders = `
     <meta http-equiv="Content-Security-Policy" content="
       default-src 'none';
       style-src 'unsafe-inline';
-      img-src data: ${imageSourceDirective};
+      img-src ${localImageSourceDirective} ${imageSourceDirective};
       font-src 'none';
       media-src 'none';
       connect-src 'none';
@@ -288,6 +325,53 @@ function getIframeHtml(
 
   const htmlWithHead = wrapWithProperStructure(html);
   return addDarkModeClass(htmlWithHead, isDarkMode);
+}
+
+async function loadInlineImageSources({
+  emailAccountId,
+  html,
+  inlineAttachments,
+  messageId,
+}: {
+  emailAccountId?: string;
+  html: string;
+  inlineAttachments: ParsedMessage["inline"];
+  messageId: string;
+}): Promise<Record<string, string>> {
+  if (!emailAccountId || !inlineAttachments.length) return {};
+
+  const attachmentByContentId = new Map<
+    string,
+    ParsedMessage["inline"][number]
+  >();
+  for (const attachment of inlineAttachments) {
+    const contentId = normalizeContentId(attachment.headers["content-id"]);
+    if (contentId) attachmentByContentId.set(contentId, attachment);
+  }
+
+  const entries = await Promise.all(
+    getInlineImageContentIds(html).map(async (contentId) => {
+      const attachment = attachmentByContentId.get(contentId);
+      if (!attachment?.attachmentId) return;
+
+      try {
+        const blob = await fetchAttachment({
+          emailAccountId,
+          url: getAttachmentUrl({
+            messageId,
+            attachmentId: attachment.attachmentId,
+            mimeType: attachment.mimeType,
+            filename: attachment.filename,
+          }),
+        });
+        return [contentId, URL.createObjectURL(blob)] as const;
+      } catch {
+        return;
+      }
+    }),
+  );
+
+  return Object.fromEntries(entries.filter((entry) => entry !== undefined));
 }
 
 function addDarkModeClass(html: string, isDarkMode: boolean) {

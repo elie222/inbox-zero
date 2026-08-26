@@ -34,6 +34,7 @@ describe("HtmlEmail", () => {
 
   afterEach(() => {
     cleanup();
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
@@ -106,6 +107,63 @@ describe("HtmlEmail", () => {
         "img-src data: https://app.example.com;",
       );
     });
+  });
+
+  it("resolves authenticated cid images to temporary local URLs", async () => {
+    const html = '<img src="cid:screenshot@inboxzero.local" />';
+    const objectUrl = "blob:https://app.example.com/inline-image";
+    const createObjectUrl = vi
+      .spyOn(URL, "createObjectURL")
+      .mockReturnValue(objectUrl);
+    const revokeObjectUrl = vi.spyOn(URL, "revokeObjectURL");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (input: string) =>
+        input === "/api/email/render-html"
+          ? {
+              ok: true,
+              json: async () => ({ html }),
+            }
+          : {
+              ok: true,
+              blob: async () => new Blob(["image"], { type: "image/png" }),
+            },
+      ),
+    );
+
+    const { getByTitle, unmount } = render(
+      <HtmlEmail
+        emailAccountId="account-1"
+        html={html}
+        inlineAttachments={[
+          {
+            attachmentId: "attachment-1",
+            filename: "screenshot.png",
+            headers: {
+              "content-description": "",
+              "content-id": "<screenshot@inboxzero.local>",
+              "content-transfer-encoding": "base64",
+              "content-type": "image/png",
+            },
+            mimeType: "image/png",
+            size: 5,
+          },
+        ]}
+        messageId="message-inline"
+      />,
+    );
+
+    const iframe = getByTitle("Email content preview");
+    await waitFor(() => {
+      expect(iframe.getAttribute("srcdoc")).toContain(`src="${objectUrl}"`);
+      expect(iframe.getAttribute("srcdoc")).toContain(
+        "img-src data: blob: https:;",
+      );
+    });
+    expect(createObjectUrl).toHaveBeenCalledOnce();
+
+    unmount();
+    expect(revokeObjectUrl).toHaveBeenCalledWith(objectUrl);
   });
 });
 

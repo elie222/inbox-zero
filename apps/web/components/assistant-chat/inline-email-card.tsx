@@ -622,6 +622,7 @@ function EmailPreview({
   compact?: boolean;
   showDetails?: boolean;
 }) {
+  const { emailAccountId } = useAccount();
   const { data, isLoading, error } = useThread({ id: threadId });
 
   if (isLoading) {
@@ -653,7 +654,12 @@ function EmailPreview({
   const body = (
     <>
       {lastMessage.textHtml ? (
-        <HtmlEmail html={lastMessage.textHtml} messageId={lastMessage.id} />
+        <HtmlEmail
+          emailAccountId={emailAccountId}
+          html={lastMessage.textHtml}
+          inlineAttachments={lastMessage.inline}
+          messageId={lastMessage.id}
+        />
       ) : (
         <PlainEmail
           text={

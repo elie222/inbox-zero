@@ -7,7 +7,10 @@ import type { ThreadMessage } from "@/components/email-list/types";
 import { CardBasic } from "@/components/ui/card";
 import { toastError } from "@/components/Toast";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { fetchAttachment } from "@/utils/attachments/download";
+import {
+  fetchAttachment,
+  getAttachmentUrl,
+} from "@/utils/attachments/download";
 
 export function EmailAttachments({ message }: { message: ThreadMessage }) {
   const { emailAccountId } = useAccount();
@@ -45,14 +48,12 @@ export function EmailAttachments({ message }: { message: ThreadMessage }) {
   return (
     <div className="mt-4 grid grid-cols-2 gap-2 xl:grid-cols-3">
       {message.attachments?.map((attachment) => {
-        const searchParams = new URLSearchParams({
+        const url = getAttachmentUrl({
           messageId: message.id,
           attachmentId: attachment.attachmentId,
           mimeType: attachment.mimeType,
           filename: attachment.filename,
         });
-
-        const url = `/api/messages/attachment?${searchParams.toString()}`;
 
         return (
           <CardBasic key={attachment.attachmentId} className="p-4">
