@@ -143,6 +143,20 @@ test("keeps editing state stable across formatting, links, paste, and files", as
   await expect(dialog).toHaveAttribute("data-compose-expanded", "false");
 });
 
+test("does not add a line break for the send shortcut", async ({ page }) => {
+  await openMail(page);
+  await page.getByRole("button", { name: /^Compose/ }).click();
+
+  const dialog = page.getByRole("dialog", { name: "New Message" });
+  const editor = dialog.locator("[contenteditable='true']");
+  await editor.pressSequentially("Draft body");
+  const initialHtml = await editor.innerHTML();
+
+  await editor.press("ControlOrMeta+Enter");
+
+  await expect(editor).toHaveJSProperty("innerHTML", initialHtml);
+});
+
 test("composes, sends, and reads a new message from Sent", async ({
   page,
 }, testInfo) => {
