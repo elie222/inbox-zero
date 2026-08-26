@@ -1,12 +1,16 @@
 import { Buffer } from "node:buffer";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { withEmailProvider } from "@/utils/middleware";
+import { createEmailProvider } from "@/utils/email/provider";
+import { withEmailAccount } from "@/utils/middleware";
+import prisma from "@/utils/prisma";
 import { EMAIL_SEND_LIMITS, sendEmailBody } from "@/utils/types/mail";
 import { executeDurableEmailSend } from "@/utils/email/durable-email-send";
+import { executeStagedDurableEmailSend } from "@/utils/email/email-attachment-staging";
 import {
   durableEmailSendBody,
   durableMultipartEmailSendPayload,
+  durableStagedEmailSendBody,
 } from "@/utils/email/durable-email-send.validation";
 
 export type SendMessageResponse = {
@@ -25,34 +29,58 @@ export type DurableSendMessageResponse = Awaited<
  * Durable clients can instead send multipart attachment bytes alongside a
  * content-free envelope in the `payload` field.
  */
-export const POST = withEmailProvider("messages/send", async (request) => {
+export const POST = withEmailAccount("messages/send", async (request) => {
+  const providerName = await getProviderName(
+    request.auth.emailAccountId,
+    request.auth.userId,
+  );
+  let emailProviderPromise: ReturnType<typeof createEmailProvider> | undefined;
+  const getEmailProvider = () => {
+    emailProviderPromise ??= createEmailProvider({
+      emailAccountId: request.auth.emailAccountId,
+      provider: providerName,
+      logger: request.logger,
+    });
+    return emailProviderPromise;
+  };
   if (isMultipartRequest(request)) {
     validateMultipartContentLength(request.headers.get("content-length"));
     const input = await parseDurableMultipartRequest(request);
     const result = await executeDurableEmailSend({
       emailAccountId: request.auth.emailAccountId,
-      getEmailProvider: async () => request.emailProvider,
+      getEmailProvider,
       input,
-      provider: request.emailProvider.name,
+      provider: providerName,
     });
     return NextResponse.json(result);
   }
 
   const json: unknown = await request.json();
   if (isDurableSend(json)) {
+    if (hasStagedAttachments(json)) {
+      const input = durableStagedEmailSendBody.parse(json);
+      const result = await executeStagedDurableEmailSend({
+        emailAccountId: request.auth.emailAccountId,
+        getEmailProvider,
+        input,
+        provider: providerName,
+      });
+      return NextResponse.json(result);
+    }
     const input = durableEmailSendBody.parse(json);
     const result = await executeDurableEmailSend({
       emailAccountId: request.auth.emailAccountId,
-      getEmailProvider: async () => request.emailProvider,
+      getEmailProvider,
       input,
-      provider: request.emailProvider.name,
+      provider: providerName,
     });
     return NextResponse.json(result);
   }
   const body = sendEmailBody.parse(json);
 
   try {
-    const result = await request.emailProvider.sendEmailWithHtml(body);
+    const emailProvider = await getEmailProvider();
+    const result = await emailProvider.sendEmailWithHtml(body);
 
     return NextResponse.json({
       success: true,
@@ -72,8 +100,39 @@ export const POST = withEmailProvider("messages/send", async (request) => {
   }
 });
 
+async function getProviderName(emailAccountId: string, userId: string) {
+  const emailAccount = await prisma.emailAccount.findUnique({
+    where: { id: emailAccountId, userId },
+    select: { account: { select: { provider: true } } },
+  });
+  return z.string().min(1).parse(emailAccount?.account.provider);
+}
+
 function isDurableSend(value: unknown): value is { mutationId: unknown } {
   return typeof value === "object" && value !== null && "mutationId" in value;
+}
+
+function hasStagedAttachments(value: unknown) {
+  if (typeof value !== "object" || value === null || !("email" in value)) {
+    return false;
+  }
+  const email = value.email;
+  if (
+    typeof email !== "object" ||
+    email === null ||
+    !("attachments" in email)
+  ) {
+    return false;
+  }
+  return (
+    Array.isArray(email.attachments) &&
+    email.attachments.some(
+      (attachment) =>
+        typeof attachment === "object" &&
+        attachment !== null &&
+        "stagedAttachmentId" in attachment,
+    )
+  );
 }
 
 function isMultipartRequest(request: Request) {

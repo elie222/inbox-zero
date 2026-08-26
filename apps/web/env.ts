@@ -53,6 +53,9 @@ const parsedEnv = createEnv({
     NODE_ENV: z.enum(["development", "production", "test"]),
     DATABASE_URL: z.string().url(),
     DATABASE_URL_UNPOOLED: z.string().url().optional(),
+    BLOB_READ_WRITE_TOKEN: z.string().min(1).optional(),
+    BLOB_STORE_ID: z.string().min(1).optional(),
+    VERCEL_OIDC_TOKEN: z.string().min(1).optional(),
     PREVIEW_DATABASE_URL: z.string().url().optional(),
     PREVIEW_DATABASE_URL_UNPOOLED: z.preprocess(
       (value) => value ?? process.env.DATABASE_URL_UNPOOLED,

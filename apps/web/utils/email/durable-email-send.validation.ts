@@ -19,7 +19,7 @@ export const DURABLE_MULTIPART_EMAIL_SEND_LIMITS = {
   maxPayloadBytes: 5 * 1024 * 1024,
 } as const;
 
-const multipartAttachmentMetadata = z.strictObject({
+export const durableAttachmentMetadata = z.strictObject({
   id: z.string().min(1).max(512),
   filename: z.string().min(1).max(1024),
   mimeType: z
@@ -32,8 +32,8 @@ const multipartAttachmentMetadata = z.strictObject({
   contentId: z.string().min(1).max(512).optional(),
 });
 
-const multipartAttachments = z
-  .array(multipartAttachmentMetadata)
+export const durableAttachmentMetadataList = z
+  .array(durableAttachmentMetadata)
   .superRefine((attachments, context) => {
     const validation = validateEmailAttachmentMetadata(
       attachments satisfies EmailAttachmentMetadata[],
@@ -45,12 +45,38 @@ const multipartAttachments = z
     });
   });
 
+export const opaqueAttachmentStageId = z
+  .string()
+  .regex(/^[A-Za-z0-9_-]{1,128}$/u);
+
 export const durableMultipartEmailSendBody = durableEmailSendBody.extend({
   email: z.object({
     ...sendEmailBody.shape,
-    attachments: multipartAttachments.optional(),
+    attachments: durableAttachmentMetadataList.optional(),
   }),
 });
+
+export const durableStagedEmailSendBody = durableEmailSendBody.extend({
+  email: z.object({
+    ...sendEmailBody.shape,
+    attachments: z
+      .array(
+        durableAttachmentMetadata.extend({
+          stagedAttachmentId: opaqueAttachmentStageId,
+        }),
+      )
+      .superRefine((attachments, context) => {
+        const validation = validateEmailAttachmentMetadata(attachments);
+        if (validation.valid) return;
+        context.addIssue({ code: "custom", message: validation.error });
+      })
+      .optional(),
+  }),
+});
+
+export type DurableStagedEmailSendBody = z.infer<
+  typeof durableStagedEmailSendBody
+>;
 
 export const durableMultipartEmailSendPayload = z
   .string()

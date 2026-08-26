@@ -8,7 +8,7 @@ import prisma from "@/utils/prisma";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import type { DurableEmailSendBody } from "./durable-email-send.validation";
 
-const PROCESSING_LEASE_MS = 2 * 60 * 1000;
+export const DURABLE_EMAIL_PROCESSING_LEASE_MS = 2 * 60 * 1000;
 
 export class DurableEmailPreparationRejectedError extends Error {
   constructor(message: string) {
@@ -67,7 +67,9 @@ export async function executeDurableEmailSend({
     return { status: "uncertain" as const };
   }
   if (!existing.created) {
-    const staleBefore = new Date(Date.now() - PROCESSING_LEASE_MS);
+    const staleBefore = new Date(
+      Date.now() - DURABLE_EMAIL_PROCESSING_LEASE_MS,
+    );
     if (existing.providerStartedAt === null) {
       await prisma.emailSendOperation.deleteMany({
         where: {

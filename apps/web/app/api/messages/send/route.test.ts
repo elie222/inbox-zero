@@ -6,29 +6,39 @@ import { EMAIL_SEND_LIMITS } from "@/utils/types/mail";
 import { POST } from "./route";
 
 const executeDurableEmailSend = vi.hoisted(() => vi.fn());
+const executeStagedDurableEmailSend = vi.hoisted(() => vi.fn());
+const findEmailAccount = vi.hoisted(() => vi.fn());
+const createEmailProvider = vi.hoisted(() => vi.fn());
 const emailProvider = vi.hoisted(() => ({
   name: "google" as const,
   sendEmailWithHtml: vi.fn(),
 }));
 
 type MockedRequest = NextRequest & {
-  auth: { emailAccountId: string };
-  emailProvider: typeof emailProvider;
+  auth: { emailAccountId: string; userId: string };
   logger: { error: () => void };
 };
 
 vi.mock("@/utils/email/durable-email-send", () => ({
   executeDurableEmailSend,
 }));
+vi.mock("@/utils/email/email-attachment-staging", () => ({
+  executeStagedDurableEmailSend,
+}));
+vi.mock("@/utils/email/provider", () => ({
+  createEmailProvider,
+}));
+vi.mock("@/utils/prisma", () => ({
+  default: { emailAccount: { findUnique: findEmailAccount } },
+}));
 
 vi.mock("@/utils/middleware", () => ({
-  withEmailProvider:
+  withEmailAccount:
     (_name: string, handler: (request: MockedRequest) => Promise<Response>) =>
     (request: NextRequest) =>
       handler(
         Object.assign(request, {
-          auth: { emailAccountId: "account-1" },
-          emailProvider,
+          auth: { emailAccountId: "account-1", userId: "user-1" },
           logger: { error: vi.fn() },
         }) as MockedRequest,
       ),
@@ -37,9 +47,33 @@ vi.mock("@/utils/middleware", () => ({
 describe("POST /api/messages/send", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    createEmailProvider.mockResolvedValue(emailProvider);
+    findEmailAccount.mockResolvedValue({ account: { provider: "google" } });
     executeDurableEmailSend.mockResolvedValue({
       status: "applied",
       result: { messageId: "message-1", threadId: "thread-1" },
+    });
+    executeStagedDurableEmailSend.mockResolvedValue({
+      status: "applied",
+      result: { messageId: "message-1", threadId: "thread-1" },
+    });
+  });
+
+  it("scopes the provider lookup to the authenticated account owner", async () => {
+    emailProvider.sendEmailWithHtml.mockResolvedValue({
+      messageId: "message-1",
+      threadId: "thread-1",
+    });
+
+    await post({
+      to: "recipient@example.com",
+      subject: "Hello",
+      messageHtml: "<p>Hello</p>",
+    });
+
+    expect(findEmailAccount).toHaveBeenCalledWith({
+      where: { id: "account-1", userId: "user-1" },
+      select: { account: { select: { provider: true } } },
     });
   });
 
@@ -106,6 +140,44 @@ describe("POST /api/messages/send", () => {
     ).rejects.toThrow();
     expect(emailProvider.sendEmailWithHtml).not.toHaveBeenCalled();
     expect(executeDurableEmailSend).not.toHaveBeenCalled();
+  });
+
+  it("routes opaque staged attachment references through lazy materialization", async () => {
+    const input = {
+      ...durableInput([]),
+      email: {
+        ...durableInput([]).email,
+        attachments: [
+          {
+            ...attachmentMetadata(),
+            stagedAttachmentId: "cm1234567890abcdefghijklm",
+          },
+        ],
+      },
+    };
+
+    const response = await post(input);
+
+    await expect(response.json()).resolves.toMatchObject({ status: "applied" });
+    expect(executeStagedDurableEmailSend).toHaveBeenCalledWith({
+      emailAccountId: "account-1",
+      getEmailProvider: expect.any(Function),
+      input,
+      provider: "google",
+    });
+    expect(executeDurableEmailSend).not.toHaveBeenCalled();
+    expect(createEmailProvider).not.toHaveBeenCalled();
+  });
+
+  it("rejects staged aggregate limits before any DB or Blob work", async () => {
+    const input = durableInput([]);
+    input.email.attachments = Array.from({ length: 11 }, (_, index) => ({
+      ...attachmentMetadata({ id: `attachment-${index}` }),
+      stagedAttachmentId: `stage-${index}`,
+    }));
+
+    await expect(post(input)).rejects.toThrow("Attach at most 10 files.");
+    expect(executeStagedDurableEmailSend).not.toHaveBeenCalled();
   });
 
   it("rejects durable sends without a message to reconcile", async () => {
@@ -218,6 +290,7 @@ describe("POST /api/messages/send", () => {
         body: await encoded.arrayBuffer(),
         headers: { "content-type": String(contentType) },
       }),
+      { params: Promise.resolve({}) },
     );
 
     await expect(response.json()).resolves.toEqual({
@@ -358,6 +431,7 @@ describe("POST /api/messages/send", () => {
           body: formData,
           headers: { "content-length": String(25 * 1024 * 1024 + 1) },
         }),
+        { params: Promise.resolve({}) },
       ),
     ).rejects.toThrow();
     expect(executeDurableEmailSend).not.toHaveBeenCalled();
@@ -377,9 +451,9 @@ describe("POST /api/messages/send", () => {
     });
     expect(request.headers.get("content-length")).toBeNull();
 
-    await expect(POST(request)).rejects.toThrow(
-      "The multipart request is too large.",
-    );
+    await expect(
+      POST(request, { params: Promise.resolve({}) }),
+    ).rejects.toThrow("The multipart request is too large.");
     expect(executeDurableEmailSend).not.toHaveBeenCalled();
   });
 
@@ -404,6 +478,7 @@ function post(body: unknown) {
       body: JSON.stringify(body),
       headers: { "content-type": "application/json" },
     }),
+    { params: Promise.resolve({}) },
   );
 }
 
@@ -413,6 +488,7 @@ function postMultipart(payload: unknown, files: File[]) {
       method: "POST",
       body: multipartForm(payload, files),
     }),
+    { params: Promise.resolve({}) },
   );
 }
 
