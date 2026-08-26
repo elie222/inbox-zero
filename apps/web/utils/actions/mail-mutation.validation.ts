@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { sendEmailBody } from "@/utils/types/mail";
+import { durableEmailSendBody } from "@/utils/email/durable-email-send.validation";
 
 const snapshot = z.object({
   mutationId: z.string().uuid(),
@@ -24,13 +24,8 @@ export const executeMailMutationBody = z.discriminatedUnion("kind", [
     kind: z.literal("cancel_snooze"),
     snoozeMutationId: z.string().uuid(),
   }),
-  z.object({
+  durableEmailSendBody.extend({
     kind: z.literal("reply"),
-    mutationId: z.string().uuid(),
-    queuedAt: z.number().int().nonnegative(),
-    threadId: z.string().min(1).max(512),
-    messageIds: z.array(z.string().min(1).max(512)).max(1000),
-    email: sendEmailBody,
   }),
 ]);
 
