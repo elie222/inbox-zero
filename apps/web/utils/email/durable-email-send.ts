@@ -10,25 +10,37 @@ import type { DurableEmailSendBody } from "./durable-email-send.validation";
 
 const PROCESSING_LEASE_MS = 2 * 60 * 1000;
 
+export class DurableEmailPreparationRejectedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "DurableEmailPreparationRejectedError";
+  }
+}
+
 export async function executeDurableEmailSend({
   emailAccountId,
   getEmailProvider,
   input,
+  payloadHashInput,
+  prepareEmail,
   provider,
 }: {
   emailAccountId: string;
   getEmailProvider: () => Promise<EmailProvider>;
   input: DurableEmailSendBody;
+  payloadHashInput?: string;
+  prepareEmail?: () => Promise<DurableEmailSendBody["email"]>;
   provider: string;
 }) {
   const payloadHash = createHash("sha256")
     .update(
-      JSON.stringify({
-        threadId: input.threadId,
-        messageIds: input.messageIds,
-        email: input.email,
-        queuedAt: input.queuedAt,
-      }),
+      payloadHashInput ??
+        JSON.stringify({
+          threadId: input.threadId,
+          messageIds: input.messageIds,
+          email: input.email,
+          queuedAt: input.queuedAt,
+        }),
     )
     .digest("hex");
   const found = await findEmailSendOperation(emailAccountId, input.mutationId);
@@ -69,9 +81,23 @@ export async function executeDurableEmailSend({
       : { status: "retry" as const };
   }
 
+  let email = input.email;
+  if (prepareEmail) {
+    try {
+      email = await prepareEmail();
+    } catch (error) {
+      await prisma.emailSendOperation.deleteMany({
+        where: { id: existing.id },
+      });
+      return error instanceof DurableEmailPreparationRejectedError
+        ? { status: "rejected" as const, error: error.message }
+        : { status: "retry" as const };
+    }
+  }
+
   try {
     const emailProvider = await getEmailProvider();
-    const result = await emailProvider.sendEmailWithHtml(input.email);
+    const result = await emailProvider.sendEmailWithHtml(email);
     await prisma.emailSendOperation.update({
       where: { id: existing.id },
       data: { result, status: EmailSendOperationStatus.SENT },
