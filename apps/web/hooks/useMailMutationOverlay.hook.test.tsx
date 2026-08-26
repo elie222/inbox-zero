@@ -138,6 +138,26 @@ describe("useRetainedMailMutationOverlay", () => {
     expect(result.current.mutations).toEqual([]);
   });
 
+  it("clears retained mutations while the overlay is disabled", async () => {
+    const mutation = archiveMutation("account-1");
+    outbox.active = [mutation];
+    const reconciliation = Promise.withResolvers<void>();
+    const { result, rerender } = renderHook(
+      ({ enabled }) =>
+        useRetainedMailMutationOverlay({
+          emailAccountId: "account-1",
+          enabled,
+          onReconcile: () => reconciliation.promise,
+        }),
+      { initialProps: { enabled: true } },
+    );
+    await waitFor(() => expect(result.current.mutations).toEqual([mutation]));
+
+    rerender({ enabled: false });
+
+    expect(result.current.mutations).toEqual([]);
+  });
+
   it("revalidates an injected mutation that completed before active loading", async () => {
     const succeeded = {
       ...archiveMutation("account-1"),

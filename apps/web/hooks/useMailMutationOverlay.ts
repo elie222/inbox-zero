@@ -145,12 +145,23 @@ export function useRetainedMailMutationOverlay({
       reconciliationState.current = createReconciliationState(emailAccountId);
     }
     const state = reconciliationState.current;
-    state.stopped = false;
+    state.stopped = !enabled;
     return () => {
       state.stopped = true;
       if (state.retryTimer) clearTimeout(state.retryTimer);
     };
-  }, [emailAccountId]);
+  }, [emailAccountId, enabled]);
+
+  useEffect(() => {
+    if (enabled) return;
+    previous.current = undefined;
+    const state = reconciliationState.current;
+    state.pendingIds.clear();
+    state.retryAttempts = 0;
+    if (state.retryTimer) clearTimeout(state.retryTimer);
+    state.retryTimer = undefined;
+    setRetained(undefined);
+  }, [enabled]);
 
   const runReconciliation = useCallback(() => {
     const state = reconciliationState.current;
@@ -294,10 +305,13 @@ export function useRetainedMailMutationOverlay({
     reconcileCompleted,
   ]);
 
-  const mutations =
-    retained?.identity === emailAccountId
-      ? mergeMutations(retained.mutations, active.mutations)
-      : active.mutations;
+  let mutations: MailMutation[] = [];
+  if (enabled) {
+    mutations =
+      retained?.identity === emailAccountId
+        ? mergeMutations(retained.mutations, active.mutations)
+        : active.mutations;
+  }
 
   return {
     isReady: active.isReady,

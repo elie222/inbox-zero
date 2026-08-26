@@ -295,6 +295,17 @@ function seedAccountIsolationMailbox(
         openRequest.onerror = () => reject(openRequest.error);
         openRequest.onsuccess = () => {
           const database = openRequest.result;
+          const requiredStores = ["mailboxMessages", "mailboxSyncStates"];
+          const missingStores = requiredStores.filter(
+            (store) => !database.objectStoreNames.contains(store),
+          );
+          if (missingStores.length) {
+            database.close();
+            reject(
+              new Error(`Missing object stores: ${missingStores.join(", ")}`),
+            );
+            return;
+          }
           const transaction = database.transaction(
             ["mailboxMessages", "mailboxSyncStates"],
             "readwrite",
