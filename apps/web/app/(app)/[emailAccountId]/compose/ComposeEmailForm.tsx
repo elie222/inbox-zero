@@ -83,6 +83,7 @@ import {
   type ComposeRecipientField,
   resolveComposeRecipientFields,
   resolveComposeRecipients,
+  resolveRecipientSelection,
 } from "./compose-recipients";
 import { queueReaderEmail } from "./queued-reply";
 
@@ -967,9 +968,9 @@ function ComposeContactRecipientField({
     <Combobox
       multiple
       onChange={(values) => {
-        const lastValue = values.at(-1);
-        if (!lastValue || !isValidEmail(lastValue)) return;
-        onSelectedRecipientsChange(name, values.join(","));
+        const selection = resolveRecipientSelection(values);
+        if (selection === null) return;
+        onSelectedRecipientsChange(name, selection);
         updateSearchQuery("");
       }}
       value={selectedEmailAddresses}
@@ -981,22 +982,21 @@ function ComposeContactRecipientField({
         )}
       >
         {selectedEmailAddresses.map((emailAddress) => (
-          <Badge
-            className="cursor-pointer rounded-md"
-            key={emailAddress}
-            onClick={() => {
-              removeSelectedEmail(emailAddress);
-              updateSearchQuery(emailAddress);
-            }}
-            variant="secondary"
-          >
-            {extractNameFromEmail(emailAddress)}
+          <Badge className="rounded-md" key={emailAddress} variant="secondary">
+            <button
+              aria-label={`Edit ${emailAddress}`}
+              className="cursor-pointer"
+              onClick={() => {
+                removeSelectedEmail(emailAddress);
+                updateSearchQuery(emailAddress);
+              }}
+              type="button"
+            >
+              {extractNameFromEmail(emailAddress)}
+            </button>
             <button
               aria-label={`Remove ${emailAddress}`}
-              onClick={(event) => {
-                event.stopPropagation();
-                removeSelectedEmail(emailAddress);
-              }}
+              onClick={() => removeSelectedEmail(emailAddress)}
               type="button"
             >
               <XIcon className="ml-1.5 size-3" />
@@ -1075,7 +1075,7 @@ function ComposeContactRecipientField({
                             src={contact.profilePictureUrl ?? undefined}
                           />
                           <AvatarFallback>
-                            {contact.emailAddress[0] || "A"}
+                            {contact.emailAddress.at(0) || "A"}
                           </AvatarFallback>
                         </Avatar>
                       )}

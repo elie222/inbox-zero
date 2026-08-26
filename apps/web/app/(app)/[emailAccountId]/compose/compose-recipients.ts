@@ -23,6 +23,16 @@ export function resolveComposeRecipientFields({
   };
 }
 
+// Returns null when the change should be ignored (e.g. the pending search
+// query is not a valid email yet). An empty array means the sole recipient
+// was deselected, so it resolves to an empty selection rather than a no-op.
+export function resolveRecipientSelection(values: string[]): string | null {
+  if (values.length === 0) return "";
+  const lastValue = values.at(-1);
+  if (!lastValue || !isValidEmail(lastValue)) return null;
+  return values.join(",");
+}
+
 export function resolveComposeRecipients({
   selectedRecipients,
   pendingRecipient,
