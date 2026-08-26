@@ -143,18 +143,39 @@ test("keeps editing state stable across formatting, links, paste, and files", as
   await expect(dialog).toHaveAttribute("data-compose-expanded", "false");
 });
 
-test("does not add a line break for the send shortcut", async ({ page }) => {
-  await openMail(page);
+test("does not add a line break for the send shortcut", async ({
+  page,
+}, testInfo) => {
+  const { conversations } = await openMail(page);
+  const subject = `Shortcut Message ${testInfo.retry}`;
   await page.getByRole("button", { name: /^Compose/ }).click();
 
   const dialog = page.getByRole("dialog", { name: "New Message" });
   const editor = dialog.locator("[contenteditable='true']");
+  await dialog
+    .getByRole("textbox", { name: "To" })
+    .fill("recipient@example.com");
+  await dialog.getByPlaceholder("Subject").fill(subject);
   await editor.pressSequentially("Draft body");
-  const initialHtml = await editor.innerHTML();
 
   await editor.press("ControlOrMeta+Enter");
 
-  await expect(editor).toHaveJSProperty("innerHTML", initialHtml);
+  await expect(dialog).toBeHidden();
+  await expect(page.getByText("Email sent!", { exact: true })).toBeVisible();
+  await page.getByRole("link", { name: /^Sent/ }).click();
+  const sentConversation = conversationWithSubject(
+    page,
+    conversations,
+    subject,
+  );
+  await sentConversation.click();
+  const sentBody = page
+    .frameLocator('iframe[title="Email content preview"]')
+    .locator("body");
+  await expect(sentBody).toHaveText("Draft body");
+  expect(await sentBody.evaluate((element) => element.innerText)).toBe(
+    "Draft body",
+  );
 });
 
 test("composes, sends, and reads a new message from Sent", async ({
