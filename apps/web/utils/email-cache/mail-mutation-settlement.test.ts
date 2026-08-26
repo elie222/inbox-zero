@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 
 import "fake-indexeddb/auto";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { clearEmailCache, getEmailCacheDatabase } from "./database";
+import { subscribeToMailboxStore } from "./mailbox";
 import { settleMailMutationInCache } from "./mail-mutation-settlement";
 import type { MailMutation } from "./mail-mutations";
 
@@ -104,6 +105,18 @@ describe("mail mutation cache settlement", () => {
     ).resolves.toMatchObject({
       data: { messages: [{ id: "old", labelIds: ["INBOX"] }] },
     });
+  });
+
+  it("notifies the live mailbox after settling cached state", async () => {
+    const listener = vi.fn();
+    const unsubscribe = subscribeToMailboxStore(listener);
+
+    try {
+      await settleMailMutationInCache(mutation("old"));
+      expect(listener).toHaveBeenCalledExactlyOnceWith("account-1");
+    } finally {
+      unsubscribe();
+    }
   });
 });
 

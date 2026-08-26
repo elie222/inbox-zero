@@ -9,8 +9,12 @@ import {
 } from "@playwright/test";
 import { Client } from "pg";
 import { getEmailAccountId } from "../account-test-helpers";
+import { readLatestMailMutation } from "./mail-test-helpers";
 
 const commandModifier = process.platform === "darwin" ? "Meta" : "Control";
+const SIDE_PANEL_ARCHIVE_MESSAGE_ID = "msg_playwright_archive";
+const SIDE_PANEL_ARCHIVE_SUBJECT = "Archive Action Message";
+const SIDE_PANEL_ARCHIVE_THREAD_ID = "thr_playwright_archive";
 const SEEDED_THREAD_IDS = [
   "thr_playwright_1",
   "thr_playwright_2",
@@ -20,9 +24,62 @@ let emailAccountIdForCleanup: string | undefined;
 
 test.afterEach(async ({ request }) => {
   if (emailAccountIdForCleanup) {
-    await restoreActiveSnoozes(request, emailAccountIdForCleanup);
+    const emailAccountId = emailAccountIdForCleanup;
     emailAccountIdForCleanup = undefined;
+    try {
+      await restoreActiveSnoozes(request, emailAccountId);
+    } finally {
+      await request.post(
+        `/api/threads/${SIDE_PANEL_ARCHIVE_THREAD_ID}/unarchive`,
+        { headers: { "X-Email-Account-ID": emailAccountId } },
+      );
+    }
   }
+});
+
+test("Command K archives the open side-panel conversation through the durable outbox", async ({
+  page,
+}) => {
+  const emailAccountId = await getEmailAccountId(page);
+  emailAccountIdForCleanup = emailAccountId;
+  await stubMailboxSync(page, emailAccountId);
+  await page.request.post(
+    `/api/threads/${SIDE_PANEL_ARCHIVE_THREAD_ID}/unarchive`,
+    { headers: { "X-Email-Account-ID": emailAccountId } },
+  );
+
+  await page.goto(
+    `/${emailAccountId}/mail?side-panel-thread-id=${SIDE_PANEL_ARCHIVE_THREAD_ID}`,
+  );
+  const sidePanel = page
+    .getByRole("dialog")
+    .filter({ hasText: SIDE_PANEL_ARCHIVE_SUBJECT });
+  await expect(sidePanel).toBeVisible({ timeout: 60_000 });
+  const archivedConversation = page
+    .locator('[role="listbox"][aria-label="Conversations"] [role="option"]')
+    .filter({ hasText: SIDE_PANEL_ARCHIVE_SUBJECT });
+  await expect(archivedConversation).toHaveCount(1, { timeout: 60_000 });
+  await page.keyboard.press(`${commandModifier}+KeyK`);
+  const archiveCommand = page.getByRole("option", {
+    exact: true,
+    name: "Archive E",
+  });
+  await expect(archiveCommand).toBeVisible();
+  await archiveCommand.click();
+
+  await expect(sidePanel).toBeHidden();
+  await expect
+    .poll(
+      () =>
+        readLatestMailMutation(page, {
+          emailAccountId,
+          kind: "archive",
+          threadId: SIDE_PANEL_ARCHIVE_THREAD_ID,
+        }),
+      { timeout: 60_000 },
+    )
+    .toMatchObject({ status: "succeeded" });
+  await expect(archivedConversation).toHaveCount(0);
 });
 
 test("Command K acts on highlighted and selected conversations", async ({
@@ -232,6 +289,48 @@ async function attachScreenshotForChangedTest(
   await testInfo.attach(name, {
     contentType: "image/png",
     path: screenshotPath,
+  });
+}
+
+function stubMailboxSync(page: Page, emailAccountId: string) {
+  let seededArchiveMessage = false;
+  return page.route("**/api/mobile/mailbox-sync", (route) => {
+    const internalDate = new Date().toISOString();
+    const upsertedMessages = seededArchiveMessage
+      ? []
+      : [
+          {
+            date: internalDate,
+            headers: {
+              date: internalDate,
+              from: "Erin Example <erin@example.com>",
+              subject: SIDE_PANEL_ARCHIVE_SUBJECT,
+              to: "playwright-test@gmail.com",
+            },
+            historyId: "playwright-command-palette-history",
+            id: SIDE_PANEL_ARCHIVE_MESSAGE_ID,
+            inline: [],
+            internalDate,
+            labelIds: ["INBOX"],
+            snippet:
+              "This conversation is reserved for archive and undo coverage.",
+            subject: SIDE_PANEL_ARCHIVE_SUBJECT,
+            threadId: SIDE_PANEL_ARCHIVE_THREAD_ID,
+          },
+        ];
+    seededArchiveMessage = true;
+    return route.fulfill({
+      body: JSON.stringify({
+        accountId: emailAccountId,
+        cursor: "playwright-command-palette-sync",
+        deletedMessageIds: [],
+        hasMore: false,
+        reset: false,
+        upsertedMessages,
+      }),
+      contentType: "application/json",
+      status: 200,
+    });
   });
 }
 

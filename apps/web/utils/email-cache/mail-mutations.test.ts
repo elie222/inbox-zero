@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import "fake-indexeddb/auto";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { clearEmailCache, getEmailCacheDatabase } from "./database";
 import {
   cancelPendingMailMutation,
@@ -27,6 +27,7 @@ import {
   renewMailMutationLease,
   renewMailMutationSyncGroupLease,
   resumeBlockedMailMutations,
+  subscribeToMailMutations,
 } from "./mail-mutations";
 
 describe("mail mutation outbox", () => {
@@ -85,6 +86,25 @@ describe("mail mutation outbox", () => {
     ]);
     expect(mutations[0]?.batchId).toBe(mutations[1]?.batchId);
     await expect(getActiveMailMutations()).resolves.toHaveLength(2);
+  });
+
+  it("announces newly persisted mutations to live overlays", async () => {
+    const listener = vi.fn();
+    const unsubscribe = subscribeToMailMutations(listener);
+
+    try {
+      const mutation = await enqueueMailMutation({
+        id: "announced",
+        emailAccountId: "account-1",
+        threadId: "thread-1",
+        messageIds: ["message-1"],
+        kind: "archive",
+      });
+
+      expect(listener).toHaveBeenCalledWith([mutation]);
+    } finally {
+      unsubscribe();
+    }
   });
 
   it("persists client sender metadata on every mutation in a batch", async () => {

@@ -34,9 +34,11 @@ const MAX_RECONCILIATION_RETRY_MS = 30_000;
 export function useMailMutationOverlay({
   emailAccountIds,
   enabled,
+  onMutationsEnqueued,
 }: {
   emailAccountIds: string[];
   enabled: boolean;
+  onMutationsEnqueued?: (mutations: MailMutation[]) => void;
 }) {
   const accountIdentity = useMemo(
     () => [...new Set(emailAccountIds)].sort().join("\u0000"),
@@ -44,6 +46,11 @@ export function useMailMutationOverlay({
   );
   const identity = enabled ? accountIdentity || "*" : "disabled";
   const [snapshot, setSnapshot] = useState<MutationSnapshot>();
+  const onMutationsEnqueuedRef = useRef(onMutationsEnqueued);
+
+  useEffect(() => {
+    onMutationsEnqueuedRef.current = onMutationsEnqueued;
+  }, [onMutationsEnqueued]);
 
   useEffect(() => {
     if (!enabled) {
@@ -76,7 +83,16 @@ export function useMailMutationOverlay({
           setSnapshot({ identity, mutations: [], readable: false });
         });
     };
-    const unsubscribe = subscribeToMailMutations(load);
+    const unsubscribe = subscribeToMailMutations((mutations) => {
+      const matchingMutations = mutations?.filter(
+        (mutation) =>
+          !accountIds.size || accountIds.has(mutation.emailAccountId),
+      );
+      if (matchingMutations?.length) {
+        onMutationsEnqueuedRef.current?.(matchingMutations);
+      }
+      load();
+    });
     load();
 
     return () => {
@@ -94,14 +110,20 @@ export function useMailMutationOverlay({
 
 export function useRetainedMailMutationOverlay({
   emailAccountId,
+  enabled = Boolean(emailAccountId),
   onReconcile,
 }: {
   emailAccountId: string;
+  enabled?: boolean;
   onReconcile: () => unknown;
 }) {
+  const retainMutationsRef = useRef<(mutations: MailMutation[]) => void>(
+    () => {},
+  );
   const active = useMailMutationOverlay({
     emailAccountIds: [emailAccountId],
-    enabled: Boolean(emailAccountId),
+    enabled,
+    onMutationsEnqueued: (mutations) => retainMutationsRef.current(mutations),
   });
   const onReconcileRef = useRef(onReconcile);
   const previous = useRef<MutationSnapshot | undefined>(undefined);
@@ -233,6 +255,9 @@ export function useRetainedMailMutationOverlay({
     },
     [emailAccountId, reconcileCompleted],
   );
+  useEffect(() => {
+    retainMutationsRef.current = retainMutations;
+  }, [retainMutations]);
 
   useEffect(() => {
     if (!active.isReady || !active.isReadable) return;

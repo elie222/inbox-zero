@@ -94,7 +94,7 @@ export async function applyMailboxSyncPage({
 
   if (!isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
   scheduleEmailCacheCleanup();
-  notifyMailboxListeners(emailAccountId);
+  notifyMailboxStoreChange(emailAccountId);
 }
 
 export async function readMailboxSyncState(emailAccountId: string) {
@@ -390,7 +390,7 @@ export async function markSyncedMailboxThreadsRead({
 
   await transaction.done;
   if (!isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
-  notifyMailboxListeners(emailAccountId);
+  notifyMailboxStoreChange(emailAccountId);
 }
 
 export async function removeSyncedMailboxThreads({
@@ -426,7 +426,7 @@ export async function removeSyncedMailboxThreads({
 
   await transaction.done;
   if (!isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
-  notifyMailboxListeners(emailAccountId);
+  notifyMailboxStoreChange(emailAccountId);
 }
 
 export function subscribeToMailboxStore(
@@ -436,7 +436,7 @@ export function subscribeToMailboxStore(
   return () => mailboxListeners.delete(listener);
 }
 
-function notifyMailboxListeners(emailAccountId: string) {
+export function notifyMailboxStoreChange(emailAccountId: string) {
   for (const listener of mailboxListeners) listener(emailAccountId);
 }
 
