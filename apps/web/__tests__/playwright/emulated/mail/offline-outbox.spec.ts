@@ -1,10 +1,22 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
-import { conversationWithSubject, openMail } from "./mail-test-helpers";
+import {
+  createSecondEmailAccount,
+  deleteSecondEmailAccount,
+} from "./account-test-helpers";
+import {
+  clearMailMutations,
+  conversationWithSubject,
+  openMail,
+  readLatestMailMutation,
+} from "./mail-test-helpers";
 
 const ARCHIVE_SUBJECT = "Archive Action Message";
 const ARCHIVE_THREAD_ID = "thr_playwright_archive";
 const REPLY_SUBJECT = "Reply Workflow Message";
 const REPLY_THREAD_ID = "thr_playwright_reply";
+const ISOLATED_THREAD_ID = "playwright-account-isolation-thread";
+const PRIMARY_ISOLATION_SUBJECT = "Primary durable mutation control";
+const SECONDARY_ISOLATION_SUBJECT = "Secondary durable mutation target";
 
 test("keeps a queued archive hidden across reload and replays it after reconnect", async ({
   page,
@@ -34,7 +46,7 @@ test("keeps a queued archive hidden across reload and replays it after reconnect
     await expect(conversation).toHaveCount(0);
     await expect
       .poll(() =>
-        readMailMutation(page, {
+        readLatestMailMutation(page, {
           emailAccountId,
           kind: "archive",
           threadId: ARCHIVE_THREAD_ID,
@@ -60,7 +72,7 @@ test("keeps a queued archive hidden across reload and replays it after reconnect
     await expect
       .poll(
         () =>
-          readMailMutation(page, {
+          readLatestMailMutation(page, {
             emailAccountId,
             kind: "archive",
             threadId: ARCHIVE_THREAD_ID,
@@ -109,7 +121,7 @@ test("keeps a reply queued across reload and sends it after reconnect", async ({
     ).toBeVisible();
     await expect
       .poll(() =>
-        readMailMutation(page, {
+        readLatestMailMutation(page, {
           emailAccountId,
           kind: "reply",
           threadId: REPLY_THREAD_ID,
@@ -124,7 +136,7 @@ test("keeps a reply queued across reload and sends it after reconnect", async ({
     await page.waitForLoadState("networkidle");
     await expect
       .poll(() =>
-        readMailMutation(page, {
+        readLatestMailMutation(page, {
           emailAccountId,
           kind: "reply",
           threadId: REPLY_THREAD_ID,
@@ -136,7 +148,7 @@ test("keeps a reply queued across reload and sends it after reconnect", async ({
       contentType: "image/png",
     });
 
-    const queuedReply = await readMailMutation(page, {
+    const queuedReply = await readLatestMailMutation(page, {
       emailAccountId,
       kind: "reply",
       threadId: REPLY_THREAD_ID,
@@ -160,7 +172,7 @@ test("keeps a reply queued across reload and sends it after reconnect", async ({
     ).toBeVisible();
     await expect
       .poll(() =>
-        readMailMutation(page, {
+        readLatestMailMutation(page, {
           emailAccountId,
           kind: "reply",
           threadId: REPLY_THREAD_ID,
@@ -173,7 +185,7 @@ test("keeps a reply queued across reload and sends it after reconnect", async ({
     await expect
       .poll(
         () =>
-          readMailMutation(page, {
+          readLatestMailMutation(page, {
             emailAccountId,
             kind: "reply",
             threadId: REPLY_THREAD_ID,
@@ -192,55 +204,177 @@ test("keeps a reply queued across reload and sends it after reconnect", async ({
   }
 });
 
-async function readMailMutation(
-  page: Page,
-  expected: { emailAccountId: string; kind: string; threadId: string },
-) {
+test("keeps a unified-mailbox mutation isolated to its owning account", async ({
+  page,
+}) => {
+  const { emailAccountId } = await openMail(page);
+  const secondAccount = await createSecondEmailAccount(emailAccountId);
+
   try {
-    return await page.evaluate(
-      async (match) =>
-        await new Promise<Record<string, unknown> | undefined>(
-          (resolve, reject) => {
-            const openRequest = indexedDB.open("inbox-zero-email-cache");
-            openRequest.onerror = () => reject(openRequest.error);
-            openRequest.onsuccess = () => {
-              const database = openRequest.result;
-              if (!database.objectStoreNames.contains("mailMutations")) {
-                database.close();
-                resolve(undefined);
-                return;
-              }
-              const transaction = database.transaction(
-                "mailMutations",
-                "readonly",
-              );
-              transaction.onerror = () => reject(transaction.error);
-              const request = transaction.objectStore("mailMutations").getAll();
-              request.onerror = () => reject(request.error);
-              request.onsuccess = () => {
-                database.close();
-                resolve(
-                  request.result
-                    .filter(
-                      (mutation) =>
-                        mutation.emailAccountId === match.emailAccountId &&
-                        mutation.kind === match.kind &&
-                        mutation.threadId === match.threadId,
-                    )
-                    .sort((left, right) => right.createdAt - left.createdAt)[0],
-                );
-              };
-            };
-          },
-        ),
-      expected,
+    await page.route("**/api/threads/all?**", (route) =>
+      route.abort("connectionfailed"),
     );
-  } catch (error) {
-    if (String(error).includes("Execution context was destroyed")) {
-      return;
+    await page.route("**/api/mobile/mailbox-sync", (route) =>
+      route.abort("connectionfailed"),
+    );
+    await page.route("**/*", blockServerActions);
+    await seedAccountIsolationMailbox(page, emailAccountId, secondAccount.id);
+
+    await page.goto(`/${emailAccountId}/mail?accountScope=all`);
+    const conversations = page.getByRole("listbox", {
+      name: "Conversations",
+    });
+    const primaryConversation = conversationWithSubject(
+      page,
+      conversations,
+      PRIMARY_ISOLATION_SUBJECT,
+    );
+    const secondaryConversation = conversationWithSubject(
+      page,
+      conversations,
+      SECONDARY_ISOLATION_SUBJECT,
+    );
+    await expect(primaryConversation).toBeVisible();
+    await expect(secondaryConversation).toBeVisible();
+
+    await secondaryConversation.getByRole("checkbox").click();
+    await page.getByRole("button", { name: /^Archive E$/ }).click();
+    await expect(secondaryConversation).toHaveCount(0);
+    await expect(primaryConversation).toBeVisible();
+    await expect
+      .poll(() =>
+        readLatestMailMutation(page, {
+          emailAccountId: secondAccount.id,
+          kind: "archive",
+          threadId: ISOLATED_THREAD_ID,
+        }),
+      )
+      .toMatchObject({ status: "retry_wait" });
+    await expect
+      .poll(() =>
+        readLatestMailMutation(page, {
+          emailAccountId,
+          kind: "archive",
+          threadId: ISOLATED_THREAD_ID,
+        }),
+      )
+      .toBeUndefined();
+
+    await page.reload();
+    await expect(primaryConversation).toBeVisible();
+    await expect(secondaryConversation).toHaveCount(0);
+  } finally {
+    try {
+      await clearMailMutations(page, {
+        emailAccountId: secondAccount.id,
+        threadId: ISOLATED_THREAD_ID,
+      });
+    } finally {
+      await deleteSecondEmailAccount(secondAccount.accountId);
     }
-    throw error;
   }
+});
+
+function blockServerActions(route: Route) {
+  const request = route.request();
+  if (request.method() === "POST" && request.headers()["next-action"]) {
+    return route.abort("connectionfailed");
+  }
+  return route.fallback();
+}
+
+function seedAccountIsolationMailbox(
+  page: Page,
+  primaryAccountId: string,
+  secondaryAccountId: string,
+) {
+  return page.evaluate(
+    async ({ primaryAccountId, secondaryAccountId, threadId, subjects }) =>
+      await new Promise<void>((resolve, reject) => {
+        const openRequest = indexedDB.open("inbox-zero-email-cache");
+        openRequest.onerror = () => reject(openRequest.error);
+        openRequest.onsuccess = () => {
+          const database = openRequest.result;
+          const requiredStores = ["mailboxMessages", "mailboxSyncStates"];
+          const missingStores = requiredStores.filter(
+            (store) => !database.objectStoreNames.contains(store),
+          );
+          if (missingStores.length) {
+            database.close();
+            reject(
+              new Error(`Missing object stores: ${missingStores.join(", ")}`),
+            );
+            return;
+          }
+          const transaction = database.transaction(
+            ["mailboxMessages", "mailboxSyncStates"],
+            "readwrite",
+          );
+          transaction.onerror = () => reject(transaction.error);
+          transaction.oncomplete = () => {
+            database.close();
+            resolve();
+          };
+
+          const now = Date.now();
+          const messages = transaction.objectStore("mailboxMessages");
+          const states = transaction.objectStore("mailboxSyncStates");
+          for (const [index, account] of [
+            {
+              emailAccountId: primaryAccountId,
+              subject: subjects.primary,
+            },
+            {
+              emailAccountId: secondaryAccountId,
+              subject: subjects.secondary,
+            },
+          ].entries()) {
+            const receivedAt = now - index * 1000;
+            const internalDate = new Date(receivedAt).toISOString();
+            const messageId = `${account.emailAccountId}-isolation-message`;
+            messages.put({
+              data: {
+                date: internalDate,
+                headers: {
+                  date: internalDate,
+                  from: "Unified Sender <unified@example.com>",
+                  subject: account.subject,
+                  to: "playwright-test@gmail.com",
+                },
+                id: messageId,
+                internalDate,
+                labelIds: ["INBOX"],
+                snippet: `${account.subject} snippet`,
+                subject: account.subject,
+                threadId,
+              },
+              emailAccountId: account.emailAccountId,
+              lastAccessedAt: now,
+              messageId,
+              receivedAt,
+              threadId,
+            });
+            states.put({
+              after: new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString(),
+              completedAt: now,
+              cursor: `${account.emailAccountId}-isolation-cursor`,
+              emailAccountId: account.emailAccountId,
+              hasMore: false,
+              lastSyncedAt: now,
+            });
+          }
+        };
+      }),
+    {
+      primaryAccountId,
+      secondaryAccountId,
+      subjects: {
+        primary: PRIMARY_ISOLATION_SUBJECT,
+        secondary: SECONDARY_ISOLATION_SUBJECT,
+      },
+      threadId: ISOLATED_THREAD_ID,
+    },
+  );
 }
 
 function setNavigatorOnline(page: Page, online: boolean) {

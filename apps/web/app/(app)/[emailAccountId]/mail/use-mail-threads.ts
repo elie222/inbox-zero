@@ -36,7 +36,7 @@ import { createSearchParams } from "@/utils/url";
 import { isThreadUnread } from "./read-state";
 import {
   applyMailMutationOverlayToThreads,
-  useMailMutationOverlay,
+  useRetainedMailMutationOverlay,
 } from "@/hooks/useMailMutationOverlay";
 
 type RemovedThread = {
@@ -84,11 +84,6 @@ export function useMailThreads({
 }) {
   const viewKey = useMemo(() => createThreadListCacheKey(query), [query]);
   const viewIdentity = `${emailAccountId}:${viewKey}`;
-  const { isReady: mutationOverlayReady, mutations: mailMutations } =
-    useMailMutationOverlay({
-      emailAccountIds: [emailAccountId],
-      enabled,
-    });
   const getKey = useCallback(
     (pageIndex: number, previousPageData: ThreadsListResponse | null) => {
       if (!enabled) return null;
@@ -115,6 +110,13 @@ export function useMailThreads({
       keepPreviousData: false,
       revalidateOnFocus: false,
       revalidateFirstPage: false,
+    });
+  const reconcileMailMutations = useCallback(() => mutate(), [mutate]);
+  const { isReady: mutationOverlayReady, mutations: mailMutations } =
+    useRetainedMailMutationOverlay({
+      emailAccountId,
+      enabled,
+      onReconcile: reconcileMailMutations,
     });
   const [persistent, setPersistent] = useState<PersistentView>();
   const [synced, setSynced] = useState<SyncedView>();

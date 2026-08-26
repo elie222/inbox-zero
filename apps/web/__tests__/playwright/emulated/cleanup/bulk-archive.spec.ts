@@ -1,4 +1,8 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page, type Route } from "@playwright/test";
+import {
+  conversationWithSubject,
+  readLatestMailMutation,
+} from "../mail/mail-test-helpers";
 import {
   CLEANUP_ARCHIVE_THREAD_ID,
   CLEANUP_KEEP_THREAD_ID,
@@ -9,35 +13,163 @@ import {
   restoreCleanupThreads,
 } from "./cleanup-test-helpers";
 
+const ARCHIVE_SENDER = "cleanup-archive@example.com";
+const ARCHIVE_SUBJECT = "Cleanup Category Archive Candidate";
+const KEEP_SUBJECT = "Cleanup Category Keep Candidate";
 let fixture: CleanupFixture | undefined;
 
 test.beforeEach(async ({ page }) => {
   fixture = undefined;
   fixture = await prepareCleanupFixture(page);
-  await restoreCleanupThreads(page, fixture.emailAccountId, [
-    CLEANUP_ARCHIVE_THREAD_ID,
-    CLEANUP_KEEP_THREAD_ID,
-  ]);
+  await restoreFixtureThreads(page, fixture.emailAccountId);
 });
 
-test.afterEach(async () => {
-  if (fixture) await cleanUpFixture(fixture);
+test.afterEach(async ({ page }) => {
+  if (!fixture) return;
+  try {
+    await restoreFixtureThreads(page, fixture.emailAccountId);
+  } finally {
+    await cleanUpFixture(fixture);
+  }
 });
 
-test("archives only selected senders from a category", async ({ page }) => {
+test("rehydrates an interrupted sender archive and completes after reconnect", async ({
+  page,
+}) => {
   test.setTimeout(360_000);
   if (!fixture) throw new Error("Cleanup fixture was not initialized");
   await stubMailboxSync(page, fixture.emailAccountId);
   await openCleanupFeature(page, fixture, "bulk-archive");
-  await expect(page.getByRole("heading", { name: "Bulk Archive" })).toBeVisible(
-    { timeout: 60_000 },
-  );
+  await selectOnlyArchiveSender(page);
 
-  const newsletterCard = page
-    .locator('[role="button"]')
-    .filter({ has: page.getByRole("heading", { name: "Newsletter" }) });
-  await newsletterCard.click();
+  try {
+    await page.route("**/*", blockServerActions);
+    await newsletterCard(page)
+      .getByRole("button", { name: "Archive 1 of 2" })
+      .click();
 
+    await expect
+      .poll(() =>
+        readLatestMailMutation(page, {
+          emailAccountId: fixture?.emailAccountId ?? "",
+          kind: "archive",
+          sender: ARCHIVE_SENDER,
+          threadId: CLEANUP_ARCHIVE_THREAD_ID,
+        }),
+      )
+      .toMatchObject({
+        clientSource: { kind: "sender", sender: ARCHIVE_SENDER },
+        status: "retry_wait",
+      });
+
+    await page.reload();
+    await expect(
+      page.getByRole("heading", { name: "Bulk Archive" }),
+    ).toBeVisible({ timeout: 60_000 });
+    await expect(
+      page.getByText("Archiving 1 of 1 senders...", { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText("0 / 1", { exact: true })).toBeVisible();
+
+    await page.unroute("**/*", blockServerActions);
+    await page.evaluate(() => window.dispatchEvent(new Event("online")));
+    await expect
+      .poll(
+        () =>
+          readLatestMailMutation(page, {
+            emailAccountId: fixture?.emailAccountId ?? "",
+            kind: "archive",
+            sender: ARCHIVE_SENDER,
+            threadId: CLEANUP_ARCHIVE_THREAD_ID,
+          }),
+        { timeout: 60_000 },
+      )
+      .toMatchObject({ status: "succeeded" });
+
+    await assertOnlySelectedSenderWasRemovedFromInbox(page, fixture);
+  } finally {
+    await page.unroute("**/*", blockServerActions);
+  }
+});
+
+test("marks a selected sender read through the durable sender queue", async ({
+  page,
+}) => {
+  test.setTimeout(360_000);
+  if (!fixture) throw new Error("Cleanup fixture was not initialized");
+  await stubMailboxSync(page, fixture.emailAccountId);
+
+  try {
+    await openCleanupFeature(page, fixture, "bulk-archive");
+    await chooseBulkAction(page, "Mark as read");
+    await selectOnlyArchiveSender(page);
+    await newsletterCard(page)
+      .getByRole("button", { name: "Mark 1 of 2 as read" })
+      .click();
+
+    await expect
+      .poll(
+        () =>
+          readLatestMailMutation(page, {
+            emailAccountId: fixture?.emailAccountId ?? "",
+            kind: "set_read_state",
+            sender: ARCHIVE_SENDER,
+            threadId: CLEANUP_ARCHIVE_THREAD_ID,
+          }),
+        { timeout: 60_000 },
+      )
+      .toMatchObject({ payload: { read: true }, status: "succeeded" });
+    await expect(
+      page.getByText("Marked 1 read!", { exact: true }),
+    ).toBeVisible();
+    await expect
+      .poll(() =>
+        getThreadLabelIds(
+          page,
+          fixture?.emailAccountId ?? "",
+          CLEANUP_ARCHIVE_THREAD_ID,
+        ),
+      )
+      .not.toContain("UNREAD");
+  } finally {
+    await restoreUnreadState(page, fixture);
+  }
+});
+
+test("deletes a selected sender through the durable sender queue", async ({
+  page,
+}) => {
+  test.setTimeout(360_000);
+  if (!fixture) throw new Error("Cleanup fixture was not initialized");
+  await stubMailboxSync(page, fixture.emailAccountId);
+  await openCleanupFeature(page, fixture, "bulk-archive");
+  await chooseBulkAction(page, "Delete");
+  await selectOnlyArchiveSender(page);
+
+  page.once("dialog", (dialog) => dialog.accept());
+  await newsletterCard(page)
+    .getByRole("button", { name: "Delete 1 of 2" })
+    .click();
+
+  await expect
+    .poll(
+      () =>
+        readLatestMailMutation(page, {
+          emailAccountId: fixture?.emailAccountId ?? "",
+          kind: "trash",
+          sender: ARCHIVE_SENDER,
+          threadId: CLEANUP_ARCHIVE_THREAD_ID,
+        }),
+      { timeout: 60_000 },
+    )
+    .toMatchObject({ status: "succeeded" });
+  await expect(page.getByText("Deleted 1!", { exact: true })).toBeVisible();
+  await assertOnlySelectedSenderWasRemovedFromInbox(page, fixture);
+});
+
+async function selectOnlyArchiveSender(page: Page) {
+  const card = newsletterCard(page);
+  await card.click();
   await expect(
     page.getByText("2 of 2 selected", { exact: true }),
   ).toBeVisible();
@@ -45,24 +177,120 @@ test("archives only selected senders from a category", async ({ page }) => {
   await expect(
     page.getByText("1 of 2 selected", { exact: true }),
   ).toBeVisible();
+}
 
-  await newsletterCard.getByRole("button", { name: "Archive 1 of 2" }).click();
-  await expect(page.getByText("Archived 1!", { exact: true })).toBeVisible({
-    timeout: 120_000,
+async function chooseBulkAction(page: Page, action: "Delete" | "Mark as read") {
+  await page.getByRole("button", { name: "Settings" }).click();
+  const settings = page.getByRole("dialog", {
+    name: "Bulk Archive Settings",
   });
+  await settings.getByRole("combobox").click();
+  await page.getByRole("option", { name: action }).click();
+  await settings.getByRole("button", { name: "Close" }).click();
+}
 
-  await openCleanupFeature(page, fixture, "mail");
+async function assertOnlySelectedSenderWasRemovedFromInbox(
+  page: Page,
+  cleanupFixture: CleanupFixture,
+) {
+  await openCleanupFeature(page, cleanupFixture, "mail");
   const conversations = page.getByRole("listbox", { name: "Conversations" });
   await expect(conversations).toBeVisible({ timeout: 120_000 });
   await expect(
-    conversations.getByText("Cleanup Category Archive Candidate", {
-      exact: true,
-    }),
+    conversationWithSubject(page, conversations, ARCHIVE_SUBJECT),
   ).toHaveCount(0);
   await expect(
-    conversations.getByText("Cleanup Category Keep Candidate", { exact: true }),
+    conversationWithSubject(page, conversations, KEEP_SUBJECT),
   ).toBeVisible();
-});
+}
+
+async function restoreUnreadState(page: Page, cleanupFixture: CleanupFixture) {
+  await openCleanupFeature(page, cleanupFixture, "mail");
+  const conversations = page.getByRole("listbox", { name: "Conversations" });
+  const conversation = conversationWithSubject(
+    page,
+    conversations,
+    ARCHIVE_SUBJECT,
+  );
+  await expect(conversation).toBeVisible();
+  await conversation.click();
+  await page.getByRole("button", { name: /^More actions/ }).click();
+  const markUnread = page.getByRole("menuitem", { name: "Mark as unread" });
+  const markRead = page.getByRole("menuitem", { name: "Mark as read" });
+  await expect(markUnread.or(markRead)).toBeVisible();
+  if (await markUnread.isVisible()) {
+    await markUnread.click();
+    await expect
+      .poll(() =>
+        getThreadLabelIds(
+          page,
+          cleanupFixture.emailAccountId,
+          CLEANUP_ARCHIVE_THREAD_ID,
+        ),
+      )
+      .toContain("UNREAD");
+  } else {
+    await page.keyboard.press("Escape");
+  }
+}
+
+async function getThreadLabelIds(
+  page: Page,
+  emailAccountId: string,
+  threadId: string,
+) {
+  const response = await page.request.get(`/api/threads/${threadId}`, {
+    headers: { "X-Email-Account-ID": emailAccountId },
+  });
+  if (!response.ok()) {
+    throw new Error(`Thread request failed with ${response.status()}`);
+  }
+  const result = (await response.json()) as {
+    thread: { messages: { labelIds?: string[] }[] };
+  };
+  return Array.from(
+    new Set(
+      result.thread.messages.flatMap((message) => message.labelIds ?? []),
+    ),
+  );
+}
+
+function newsletterCard(page: Page) {
+  return page
+    .locator('[role="button"]')
+    .filter({ has: page.getByRole("heading", { name: "Newsletter" }) });
+}
+
+function blockServerActions(route: Route) {
+  const request = route.request();
+  if (request.method() === "POST" && request.headers()["next-action"]) {
+    return route.abort("connectionfailed");
+  }
+  return route.fallback();
+}
+
+async function restoreFixtureThreads(page: Page, emailAccountId: string) {
+  const threadIds = [CLEANUP_ARCHIVE_THREAD_ID, CLEANUP_KEEP_THREAD_ID];
+  for (const threadId of threadIds) {
+    await expect
+      .poll(
+        async () => {
+          try {
+            const response = await page.request.post(
+              `/api/threads/${threadId}/untrash`,
+              { headers: { "X-Email-Account-ID": emailAccountId } },
+            );
+            return response.ok();
+          } catch {
+            return false;
+          }
+        },
+        { timeout: 120_000 },
+      )
+      .toBe(true);
+  }
+  await restoreCleanupThreads(page, emailAccountId, threadIds);
+}
 
 function stubMailboxSync(page: Page, emailAccountId: string) {
   return page.route("**/api/mobile/mailbox-sync", (route) =>

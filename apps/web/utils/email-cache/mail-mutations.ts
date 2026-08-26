@@ -51,13 +51,22 @@ const PROVIDER_ACTIVE_STATUSES = new Set<StoredMailMutation["status"]>(
   PROVIDER_ACTIVE_STATUS_VALUES,
 );
 
-const listeners = new Set<() => void>();
+const listeners = new Set<(mutations?: MailMutation[]) => void>();
 const channel =
   typeof window === "undefined" || typeof BroadcastChannel === "undefined"
     ? null
     : new BroadcastChannel("inbox-zero-mail-mutations");
 
-channel?.addEventListener("message", () => notifyListeners());
+channel?.addEventListener("message", (event: MessageEvent<unknown>) => {
+  const mutationIds = getMutationChangeIds(event.data);
+  if (!mutationIds?.length) {
+    notifyListeners();
+    return;
+  }
+  getMailMutations(mutationIds)
+    .then((mutations) => notifyListeners(mutations))
+    .catch(() => notifyListeners());
+});
 
 export function isActiveMailMutationStatus(
   status: StoredMailMutation["status"],
@@ -109,8 +118,9 @@ export async function enqueueMailMutationBatch(
     await transaction.done.catch(() => {});
     throw error;
   }
-  notifyMailMutationChange();
-  return storedMutations.map(toMailMutation);
+  const mutations = storedMutations.map(toMailMutation);
+  notifyMailMutationChange(mutations);
+  return mutations;
 }
 
 export async function getActiveMailMutations(
@@ -583,7 +593,9 @@ export async function cancelPendingMailMutation(id: string) {
   return cancelled;
 }
 
-export function subscribeToMailMutations(listener: () => void) {
+export function subscribeToMailMutations(
+  listener: (mutations?: MailMutation[]) => void,
+) {
   listeners.add(listener);
   return () => listeners.delete(listener);
 }
@@ -783,13 +795,27 @@ function readActiveStoredMutations(index: {
   ).then((mutations) => mutations.flat());
 }
 
-function notifyMailMutationChange() {
-  notifyListeners();
-  channel?.postMessage(null);
+function notifyMailMutationChange(mutations?: MailMutation[]) {
+  notifyListeners(mutations);
+  channel?.postMessage(
+    mutations?.length
+      ? { mutationIds: mutations.map((mutation) => mutation.id) }
+      : null,
+  );
 }
 
-function notifyListeners() {
-  for (const listener of listeners) listener();
+function notifyListeners(mutations?: MailMutation[]) {
+  for (const listener of listeners) listener(mutations);
+}
+
+function getMutationChangeIds(value: unknown) {
+  if (!value || typeof value !== "object" || !("mutationIds" in value)) {
+    return;
+  }
+  const { mutationIds } = value;
+  return Array.isArray(mutationIds)
+    ? mutationIds.filter((id): id is string => typeof id === "string")
+    : undefined;
 }
 
 type MailMutationWriteStore = {

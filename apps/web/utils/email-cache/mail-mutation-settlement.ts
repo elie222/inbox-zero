@@ -1,5 +1,6 @@
 import type { ParsedMessage } from "@/utils/types";
 import { getEmailCacheDatabase } from "./database";
+import { notifyMailboxStoreChange } from "./mailbox";
 import { updateMessageReadState } from "./mail-mutation-overlay";
 import type { MailMutation } from "./mail-mutations";
 
@@ -83,6 +84,7 @@ export async function settleMailMutationInCache(mutation: MailMutation) {
     viewCursor = await viewCursor.continue();
   }
   await transaction.done;
+  notifyMailboxStoreChange(mutation.emailAccountId);
 }
 
 function updateRowData(data: unknown, mutation: MailMutation): unknown {

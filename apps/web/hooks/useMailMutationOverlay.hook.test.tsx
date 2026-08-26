@@ -8,7 +8,7 @@ import { useRetainedMailMutationOverlay } from "./useMailMutationOverlay";
 const outbox = vi.hoisted(() => ({
   active: [] as MailMutation[],
   activeError: false,
-  listener: undefined as (() => void) | undefined,
+  listener: undefined as ((mutations?: MailMutation[]) => void) | undefined,
   stored: new Map<string, MailMutation>(),
 }));
 
@@ -30,10 +30,12 @@ vi.mock("@/utils/email-cache/mail-mutations", async (importOriginal) => {
         return mutation ? [mutation] : [];
       }),
     ),
-    subscribeToMailMutations: vi.fn((listener: () => void) => {
-      outbox.listener = listener;
-      return vi.fn();
-    }),
+    subscribeToMailMutations: vi.fn(
+      (listener: (mutations?: MailMutation[]) => void) => {
+        outbox.listener = listener;
+        return vi.fn();
+      },
+    ),
   };
 });
 
@@ -136,6 +138,26 @@ describe("useRetainedMailMutationOverlay", () => {
     expect(result.current.mutations).toEqual([]);
   });
 
+  it("clears retained mutations while the overlay is disabled", async () => {
+    const mutation = archiveMutation("account-1");
+    outbox.active = [mutation];
+    const reconciliation = Promise.withResolvers<void>();
+    const { result, rerender } = renderHook(
+      ({ enabled }) =>
+        useRetainedMailMutationOverlay({
+          emailAccountId: "account-1",
+          enabled,
+          onReconcile: () => reconciliation.promise,
+        }),
+      { initialProps: { enabled: true } },
+    );
+    await waitFor(() => expect(result.current.mutations).toEqual([mutation]));
+
+    rerender({ enabled: false });
+
+    expect(result.current.mutations).toEqual([]);
+  });
+
   it("revalidates an injected mutation that completed before active loading", async () => {
     const succeeded = {
       ...archiveMutation("account-1"),
@@ -154,6 +176,28 @@ describe("useRetainedMailMutationOverlay", () => {
     act(() => result.current.retainMutations([succeeded]));
 
     await waitFor(() => expect(onReconcile).toHaveBeenCalledOnce());
+    await waitFor(() => expect(result.current.mutations).toEqual([]));
+  });
+
+  it("retains an enqueued mutation announced before active loading", async () => {
+    const mutation = archiveMutation("account-1");
+    outbox.stored.set(mutation.id, { ...mutation, status: "succeeded" });
+    const reconciliation = Promise.withResolvers<void>();
+    const onReconcile = vi.fn(() => reconciliation.promise);
+    const { result } = renderHook(() =>
+      useRetainedMailMutationOverlay({
+        emailAccountId: "account-1",
+        onReconcile,
+      }),
+    );
+    await waitFor(() => expect(result.current.isReady).toBe(true));
+
+    act(() => outbox.listener?.([mutation]));
+
+    await waitFor(() => expect(onReconcile).toHaveBeenCalledOnce());
+    expect(result.current.mutations).toEqual([mutation]);
+
+    reconciliation.resolve();
     await waitFor(() => expect(result.current.mutations).toEqual([]));
   });
 
