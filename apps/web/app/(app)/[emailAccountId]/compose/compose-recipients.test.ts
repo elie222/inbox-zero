@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { resolveComposeRecipients } from "./compose-recipients";
+import {
+  resolveComposeRecipientFields,
+  resolveComposeRecipients,
+} from "./compose-recipients";
 
 describe("resolveComposeRecipients", () => {
   it("commits a valid recipient that is still in the contact search input", () => {
@@ -36,5 +39,26 @@ describe("resolveComposeRecipients", () => {
         pendingRecipient: "second@",
       }),
     ).toBe("first@example.com");
+  });
+
+  it("commits pending contact entries from every recipient field", () => {
+    expect(
+      resolveComposeRecipientFields({
+        selectedRecipients: {
+          to: "to@example.com",
+          cc: "first-cc@example.com",
+          bcc: undefined,
+        },
+        pendingRecipients: {
+          to: "",
+          cc: "second-cc@example.com",
+          bcc: "bcc@example.com",
+        },
+      }),
+    ).toEqual({
+      to: "to@example.com",
+      cc: "first-cc@example.com,second-cc@example.com",
+      bcc: "bcc@example.com",
+    });
   });
 });

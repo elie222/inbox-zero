@@ -65,7 +65,11 @@ import { useModifierKey } from "@/hooks/useModifierKey";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { getAccountLinkingUrl } from "@/utils/account-linking";
 import { sendEmailAction } from "@/utils/actions/mail";
-import { extractNameFromEmail, isValidEmail } from "@/utils/email";
+import {
+  extractNameFromEmail,
+  isValidEmail,
+  splitRecipientList,
+} from "@/utils/email";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { getActionErrorMessage } from "@/utils/error";
 import { redirectToSafeUrl } from "@/utils/redirect";
@@ -74,7 +78,11 @@ import {
   validateSendEmailPayloadSize,
 } from "@/utils/types/mail";
 import { cn } from "@/utils";
-import { resolveComposeRecipients } from "./compose-recipients";
+import {
+  type ComposeRecipientField,
+  resolveComposeRecipientFields,
+  resolveComposeRecipients,
+} from "./compose-recipients";
 import { queueReaderEmail } from "./queued-reply";
 
 export type ReplyingToEmail = {
@@ -190,7 +198,13 @@ function ComposeEmailFormContent({
     return { draft, preservedBlocks };
   });
   const { draft: initialDraft, preservedBlocks } = initialComposer;
-  const [searchQuery, setSearchQuery] = useState("");
+  const [activeRecipientField, setActiveRecipientField] =
+    useState<ComposeRecipientField>("to");
+  const pendingRecipientsRef = useRef<Record<ComposeRecipientField, string>>({
+    to: "",
+    cc: "",
+    bcc: "",
+  });
   const [contactsReconnectRequired, setContactsReconnectRequired] =
     useState(false);
   const [isReconnectingContacts, setIsReconnectingContacts] = useState(false);
@@ -366,11 +380,15 @@ function ComposeEmailFormContent({
 
   const onSubmit: SubmitHandler<ComposeFormValues> = useCallback(
     async (data) => {
-      const to = resolveComposeRecipients({
-        selectedRecipients: data.to,
-        pendingRecipient: searchQuery,
+      const recipients = resolveComposeRecipientFields({
+        selectedRecipients: {
+          to: data.to,
+          cc: data.cc,
+          bcc: data.bcc,
+        },
+        pendingRecipients: pendingRecipientsRef.current,
       });
-      if (!to) {
+      if (!recipients.to) {
         toastError({ description: "Enter a valid recipient email address." });
         return;
       }
@@ -403,7 +421,7 @@ function ComposeEmailFormContent({
             });
       const enrichedData: SendEmailBody = {
         ...data,
-        to,
+        ...recipients,
         replyToEmail: getReplyToEmailPayload(data.replyToEmail),
         messageHtml: combineEmailHtml({
           editableHtml,
@@ -501,7 +519,6 @@ function ComposeEmailFormContent({
       preservedBlocks,
       refetch,
       replyingToEmail,
-      searchQuery,
       selectedEmailAccountId,
     ],
   );
@@ -517,23 +534,6 @@ function ComposeEmailFormContent({
       enableOnContentEditable: true,
       eventListenerOptions: { capture: true },
       preventDefault: true,
-    },
-  );
-
-  const { data: contacts } = useSWR<ContactsResponse, ContactsFetchError>(
-    env.NEXT_PUBLIC_CONTACTS_ENABLED && !contactsReconnectRequired
-      ? [
-          `/api/user/contacts?query=${encodeURIComponent(searchQuery)}`,
-          selectedEmailAccountId,
-        ]
-      : null,
-    {
-      keepPreviousData: true,
-      onError(error) {
-        if (error.info?.reconnectRequired) {
-          setContactsReconnectRequired(true);
-        }
-      },
     },
   );
 
@@ -555,23 +555,25 @@ function ComposeEmailFormContent({
     }
   };
 
-  const selectedEmailAddresses = watch("to", "").split(",").filter(Boolean);
+  const updatePendingRecipient = useCallback(
+    (field: ComposeRecipientField, query: string) => {
+      pendingRecipientsRef.current[field] = query;
+    },
+    [],
+  );
 
-  const onRemoveSelectedEmail = (emailAddress: string) => {
-    setValue(
-      "to",
-      selectedEmailAddresses
-        .filter((email) => email !== emailAddress)
-        .join(","),
-    );
-  };
-
-  const handleComboboxOnChange = (values: string[]) => {
-    const lastValue = values.at(-1);
-    if (lastValue && isValidEmail(lastValue)) {
-      setValue("to", values.join(","));
-      setSearchQuery("");
-    }
+  const recipientFieldProps = {
+    emailAccountId: selectedEmailAccountId,
+    isReconnectingContacts,
+    onActivate: setActiveRecipientField,
+    onReconnectContacts: reconnectContacts,
+    onReconnectRequired: () => setContactsReconnectRequired(true),
+    onSearchQueryChange: updatePendingRecipient,
+    onSelectedRecipientsChange: (
+      field: ComposeRecipientField,
+      recipients: string,
+    ) => setValue(field, recipients),
+    reconnectRequired: contactsReconnectRequired,
   };
 
   const handleFileInput =
@@ -660,138 +662,15 @@ function ComposeEmailFormContent({
                   <div className="flex space-x-2">
                     {!isComposeWindow && (
                       <div className="mt-2">
-                        <Label name="to" label="To" />
+                        <Label label="To" name="to" />
                       </div>
                     )}
-                    <Combobox
-                      value={selectedEmailAddresses}
-                      onChange={handleComboboxOnChange}
-                      multiple
-                    >
-                      <div className="flex min-h-10 w-full flex-1 flex-wrap items-center gap-1.5 rounded-md text-sm disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-muted-foreground">
-                        {selectedEmailAddresses.map((emailAddress) => (
-                          <Badge
-                            key={emailAddress}
-                            variant="secondary"
-                            className="cursor-pointer rounded-md"
-                            onClick={() => {
-                              onRemoveSelectedEmail(emailAddress);
-                              setSearchQuery(emailAddress);
-                            }}
-                          >
-                            {extractNameFromEmail(emailAddress)}
-                            <button
-                              aria-label={`Remove ${emailAddress}`}
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                onRemoveSelectedEmail(emailAddress);
-                              }}
-                            >
-                              <XIcon className="ml-1.5 size-3" />
-                            </button>
-                          </Badge>
-                        ))}
-
-                        <div className="relative flex-1">
-                          <ComboboxInput
-                            aria-label="To"
-                            id="to"
-                            value={searchQuery}
-                            className="w-full border-none bg-background p-0 text-sm focus:border-none focus:ring-0"
-                            onChange={(event) =>
-                              setSearchQuery(event.target.value)
-                            }
-                            onKeyUp={(event) => {
-                              if (event.key !== "Enter") return;
-                              event.preventDefault();
-                              if (!isValidEmail(searchQuery.trim())) return;
-                              setValue(
-                                "to",
-                                resolveComposeRecipients({
-                                  selectedRecipients: watch("to"),
-                                  pendingRecipient: searchQuery,
-                                }),
-                              );
-                              setSearchQuery("");
-                            }}
-                          />
-
-                          {contactsReconnectRequired && (
-                            <div
-                              className="absolute z-10 mt-1 flex w-80 items-center gap-3 rounded-md border bg-popover p-3 text-sm text-popover-foreground shadow-lg"
-                              role="status"
-                            >
-                              <span className="flex-1">
-                                Reconnect this account to enable contact
-                                suggestions.
-                              </span>
-                              <Button
-                                className="h-auto p-0"
-                                disabled={isReconnectingContacts}
-                                loading={isReconnectingContacts}
-                                onClick={reconnectContacts}
-                                type="button"
-                                variant="link"
-                              >
-                                Reconnect
-                              </Button>
-                            </div>
-                          )}
-
-                          {!!contacts?.contacts.length && (
-                            <ComboboxOptions className="absolute z-10 mt-1 max-h-60 overflow-auto rounded-md bg-popover py-1 text-base shadow-lg ring-1 ring-border focus:outline-none sm:text-sm">
-                              <ComboboxOption
-                                className="h-0 w-0 overflow-hidden"
-                                value={searchQuery}
-                              />
-                              {contacts.contacts.map((contact) => (
-                                <ComboboxOption
-                                  className={({ focus }) =>
-                                    `cursor-default select-none px-4 py-1 text-foreground ${focus ? "bg-accent" : ""}`
-                                  }
-                                  key={contact.emailAddress}
-                                  value={contact.emailAddress}
-                                >
-                                  {({ selected }: { selected: boolean }) => (
-                                    <div className="my-2 flex items-center">
-                                      {selected ? (
-                                        <div className="flex h-12 w-12 items-center justify-center rounded-full">
-                                          <CheckCircleIcon className="h-6 w-6" />
-                                        </div>
-                                      ) : (
-                                        <Avatar>
-                                          <AvatarImage
-                                            src={
-                                              contact.profilePictureUrl ??
-                                              undefined
-                                            }
-                                            alt={contact.emailAddress}
-                                          />
-                                          <AvatarFallback>
-                                            {contact.emailAddress[0] || "A"}
-                                          </AvatarFallback>
-                                        </Avatar>
-                                      )}
-                                      <div className="ml-4 flex flex-col justify-center">
-                                        {contact.name && (
-                                          <div className="text-foreground">
-                                            {contact.name}
-                                          </div>
-                                        )}
-                                        <div className="text-sm font-semibold text-muted-foreground">
-                                          {contact.emailAddress}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  )}
-                                </ComboboxOption>
-                              ))}
-                            </ComboboxOptions>
-                          )}
-                        </div>
-                      </div>
-                    </Combobox>
+                    <ComposeContactRecipientField
+                      {...recipientFieldProps}
+                      active={activeRecipientField === "to"}
+                      name="to"
+                      selectedRecipients={watch("to") ?? ""}
+                    />
                   </div>
                 ) : (
                   <Input
@@ -826,20 +705,29 @@ function ComposeEmailFormContent({
                   isComposeWindow && "border-b py-2",
                 )}
               >
-                <Input
-                  type="text"
-                  name="cc"
-                  label="Cc"
-                  registerProps={register("cc")}
-                  error={errors.cc}
-                />
-                <Input
-                  type="text"
-                  name="bcc"
-                  label="Bcc"
-                  registerProps={register("bcc")}
-                  error={errors.bcc}
-                />
+                {(["cc", "bcc"] as const).map((field) =>
+                  env.NEXT_PUBLIC_CONTACTS_ENABLED ? (
+                    <div key={field}>
+                      <Label label={RECIPIENT_LABELS[field]} name={field} />
+                      <ComposeContactRecipientField
+                        {...recipientFieldProps}
+                        active={activeRecipientField === field}
+                        className="mt-1 border border-slate-300 px-3 shadow-sm focus-within:border-black focus-within:ring-1 focus-within:ring-black dark:border-slate-700 dark:focus-within:border-slate-400 dark:focus-within:ring-slate-400"
+                        name={field}
+                        selectedRecipients={watch(field) ?? ""}
+                      />
+                    </div>
+                  ) : (
+                    <Input
+                      error={errors[field]}
+                      key={field}
+                      label={RECIPIENT_LABELS[field]}
+                      name={field}
+                      registerProps={register(field)}
+                      type="text"
+                    />
+                  ),
+                )}
               </div>
             )}
 
@@ -995,6 +883,218 @@ function ComposeEmailFormContent({
         </div>
       </div>
     </form>
+  );
+}
+
+const RECIPIENT_LABELS: Record<ComposeRecipientField, string> = {
+  to: "To",
+  cc: "Cc",
+  bcc: "Bcc",
+};
+
+function ComposeContactRecipientField({
+  active,
+  className,
+  emailAccountId,
+  isReconnectingContacts,
+  name,
+  onActivate,
+  onReconnectContacts,
+  onReconnectRequired,
+  onSearchQueryChange,
+  onSelectedRecipientsChange,
+  reconnectRequired,
+  selectedRecipients,
+}: {
+  active: boolean;
+  className?: string;
+  emailAccountId: string;
+  isReconnectingContacts: boolean;
+  name: ComposeRecipientField;
+  onActivate: (field: ComposeRecipientField) => void;
+  onReconnectContacts: () => void;
+  onReconnectRequired: () => void;
+  onSearchQueryChange: (field: ComposeRecipientField, query: string) => void;
+  onSelectedRecipientsChange: (
+    field: ComposeRecipientField,
+    recipients: string,
+  ) => void;
+  reconnectRequired: boolean;
+  selectedRecipients: string;
+}) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const label = RECIPIENT_LABELS[name];
+  const selectedEmailAddresses = splitRecipientList(selectedRecipients);
+
+  const { data: contacts } = useSWR<ContactsResponse, ContactsFetchError>(
+    reconnectRequired
+      ? null
+      : [
+          `/api/user/contacts?query=${encodeURIComponent(searchQuery)}`,
+          emailAccountId,
+        ],
+    {
+      keepPreviousData: true,
+      onError(error) {
+        if (error.info?.reconnectRequired) onReconnectRequired();
+      },
+    },
+  );
+
+  // The local input state resets on unmount (e.g. hiding Cc/Bcc), so the
+  // parent's pending entry must reset with it or hidden text would still send.
+  useEffect(
+    () => () => onSearchQueryChange(name, ""),
+    [name, onSearchQueryChange],
+  );
+
+  const updateSearchQuery = (query: string) => {
+    setSearchQuery(query);
+    onSearchQueryChange(name, query);
+  };
+
+  const removeSelectedEmail = (emailAddress: string) => {
+    onSelectedRecipientsChange(
+      name,
+      selectedEmailAddresses
+        .filter((email) => email !== emailAddress)
+        .join(","),
+    );
+  };
+
+  return (
+    <Combobox
+      multiple
+      onChange={(values) => {
+        const lastValue = values.at(-1);
+        if (!lastValue || !isValidEmail(lastValue)) return;
+        onSelectedRecipientsChange(name, values.join(","));
+        updateSearchQuery("");
+      }}
+      value={selectedEmailAddresses}
+    >
+      <div
+        className={cn(
+          "flex min-h-10 w-full flex-1 flex-wrap items-center gap-1.5 rounded-md text-sm disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-muted-foreground",
+          className,
+        )}
+      >
+        {selectedEmailAddresses.map((emailAddress) => (
+          <Badge
+            className="cursor-pointer rounded-md"
+            key={emailAddress}
+            onClick={() => {
+              removeSelectedEmail(emailAddress);
+              updateSearchQuery(emailAddress);
+            }}
+            variant="secondary"
+          >
+            {extractNameFromEmail(emailAddress)}
+            <button
+              aria-label={`Remove ${emailAddress}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                removeSelectedEmail(emailAddress);
+              }}
+              type="button"
+            >
+              <XIcon className="ml-1.5 size-3" />
+            </button>
+          </Badge>
+        ))}
+
+        <div className="relative min-w-32 flex-1">
+          <ComboboxInput
+            aria-label={label}
+            className="w-full border-none bg-background p-0 text-sm focus:border-none focus:ring-0"
+            id={name}
+            onChange={(event) => updateSearchQuery(event.target.value)}
+            onFocus={() => onActivate(name)}
+            onKeyUp={(event) => {
+              if (event.key !== "Enter") return;
+              event.preventDefault();
+              if (!isValidEmail(searchQuery.trim())) return;
+              onSelectedRecipientsChange(
+                name,
+                resolveComposeRecipients({
+                  selectedRecipients,
+                  pendingRecipient: searchQuery,
+                }),
+              );
+              updateSearchQuery("");
+            }}
+            value={searchQuery}
+          />
+
+          {active && reconnectRequired && (
+            <div
+              className="absolute z-10 mt-1 flex w-80 items-center gap-3 rounded-md border bg-popover p-3 text-sm text-popover-foreground shadow-lg"
+              role="status"
+            >
+              <span className="flex-1">
+                Reconnect this account to enable contact suggestions.
+              </span>
+              <Button
+                className="h-auto p-0"
+                disabled={isReconnectingContacts}
+                loading={isReconnectingContacts}
+                onClick={onReconnectContacts}
+                type="button"
+                variant="link"
+              >
+                Reconnect
+              </Button>
+            </div>
+          )}
+
+          {active && !!contacts?.contacts.length && (
+            <ComboboxOptions className="absolute z-10 mt-1 max-h-60 overflow-auto rounded-md bg-popover py-1 text-base shadow-lg ring-1 ring-border focus:outline-none sm:text-sm">
+              <ComboboxOption
+                className="h-0 w-0 overflow-hidden"
+                value={searchQuery}
+              />
+              {contacts.contacts.map((contact) => (
+                <ComboboxOption
+                  className={({ focus }) =>
+                    `cursor-default select-none px-4 py-1 text-foreground ${focus ? "bg-accent" : ""}`
+                  }
+                  key={contact.emailAddress}
+                  value={contact.emailAddress}
+                >
+                  {({ selected }: { selected: boolean }) => (
+                    <div className="my-2 flex items-center">
+                      {selected ? (
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full">
+                          <CheckCircleIcon className="h-6 w-6" />
+                        </div>
+                      ) : (
+                        <Avatar>
+                          <AvatarImage
+                            alt={contact.emailAddress}
+                            src={contact.profilePictureUrl ?? undefined}
+                          />
+                          <AvatarFallback>
+                            {contact.emailAddress[0] || "A"}
+                          </AvatarFallback>
+                        </Avatar>
+                      )}
+                      <div className="ml-4 flex flex-col justify-center">
+                        {contact.name && (
+                          <div className="text-foreground">{contact.name}</div>
+                        )}
+                        <div className="text-sm font-semibold text-muted-foreground">
+                          {contact.emailAddress}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </ComboboxOption>
+              ))}
+            </ComboboxOptions>
+          )}
+        </div>
+      </div>
+    </Combobox>
   );
 }
 
