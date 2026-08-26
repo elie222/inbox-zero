@@ -69,7 +69,3 @@ export const durableMultipartEmailSendPayload = z
     }
   })
   .pipe(durableMultipartEmailSendBody);
-
-export type DurableMultipartEmailSendBody = z.infer<
-  typeof durableMultipartEmailSendBody
->;

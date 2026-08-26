@@ -134,13 +134,14 @@ async function parseDurableMultipartRequest(request: Request) {
     .max(EMAIL_SEND_LIMITS.maxSerializedPayloadBytes)
     .parse(estimatedSerializedBytes);
 
-  const attachments = await Promise.all(
-    metadata.map(async ({ mimeType, ...attachment }, index) => ({
+  const attachments = [];
+  for (const [index, { mimeType, ...attachment }] of metadata.entries()) {
+    attachments.push({
       ...attachment,
       content: Buffer.from(await files[index].arrayBuffer()).toString("base64"),
       contentType: mimeType,
-    })),
-  );
+    });
+  }
 
   return durableEmailSendBody.parse({
     ...input,
@@ -153,32 +154,38 @@ async function parseDurableMultipartRequest(request: Request) {
 }
 
 async function readBoundedMultipartFormData(request: Request) {
-  const reader = z
-    .custom<ReadableStreamDefaultReader<Uint8Array>>((value) => Boolean(value))
-    .parse(request.body?.getReader());
-
-  const chunks: Uint8Array[] = [];
+  const body = z
+    .custom<ReadableStream<Uint8Array>>((value) => Boolean(value))
+    .parse(request.body);
+  const reader = body.getReader();
   let receivedBytes = 0;
-  try {
-    while (true) {
+  const boundedBody = new ReadableStream<Uint8Array>({
+    async pull(controller) {
       const { done, value } = await reader.read();
-      if (done) break;
-      receivedBytes += value.byteLength;
-      if (receivedBytes > EMAIL_SEND_LIMITS.maxSerializedPayloadBytes) {
-        validateMultipartRequestSize(receivedBytes);
+      if (done) {
+        reader.releaseLock();
+        controller.close();
+        return;
       }
-      chunks.push(value);
-    }
-  } finally {
-    reader.releaseLock();
-  }
+      try {
+        receivedBytes += value.byteLength;
+        validateMultipartRequestSize(receivedBytes);
+        controller.enqueue(value);
+      } catch (error) {
+        reader.releaseLock();
+        controller.error(error);
+      }
+    },
+    async cancel(reason) {
+      await reader.cancel(reason);
+    },
+  });
 
   const contentType = z.string().parse(request.headers.get("content-type"));
-  const multipartResponse = new Response(new Blob(chunks), {
+  const multipartResponse = new Response(boundedBody, {
     headers: { "content-type": contentType },
   });
-  const formData = await multipartResponse.formData().catch(() => null);
-  return z.instanceof(FormData).parse(formData);
+  return multipartResponse.formData();
 }
 
 function validateMultipartRequestSize(length: number) {
