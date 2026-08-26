@@ -167,6 +167,7 @@ export function MailShell() {
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [replyToMessageId, setReplyToMessageId] = useState<string>();
+  const pendingReplyThreadKey = useRef<string | null>(null);
   const isMailSidebarOpen = openSidebars.includes("left-sidebar");
 
   const isAllAccounts = accountScope === "all";
@@ -386,6 +387,31 @@ export function MailShell() {
   const openMessages = readerSelectionSettled
     ? (openThreadData?.thread.messages ?? NO_MESSAGES)
     : NO_MESSAGES;
+  const requestReaderReply = useCallback(() => {
+    const messageId = openMessages.at(-1)?.id;
+    if (messageId) {
+      pendingReplyThreadKey.current = null;
+      setReplyToMessageId(messageId);
+      return;
+    }
+
+    pendingReplyThreadKey.current = openReaderThreadKey;
+  }, [openMessages, openReaderThreadKey]);
+
+  useEffect(() => {
+    const pendingThreadKey = pendingReplyThreadKey.current;
+    if (!pendingThreadKey) return;
+    if (pendingThreadKey !== openReaderThreadKey) {
+      pendingReplyThreadKey.current = null;
+      return;
+    }
+
+    const messageId = openMessages.at(-1)?.id;
+    if (!readerSelectionSettled || !messageId) return;
+
+    pendingReplyThreadKey.current = null;
+    setReplyToMessageId(messageId);
+  }, [openMessages, openReaderThreadKey, readerSelectionSettled]);
 
   // The row, not the fetched thread: marking read patches the row optimistically,
   // so it is the copy that stays in step. The fetch only stands in for a link
@@ -616,9 +642,7 @@ export function MailShell() {
     return {
       next: () => move(1),
       previous: () => move(-1),
-      open: openThreadId
-        ? () => setReplyToMessageId(openMessages.at(-1)?.id)
-        : () => openAt(clampedIndex),
+      open: openThreadId ? requestReaderReply : () => openAt(clampedIndex),
       backToList: isMailOverlayOpen
         ? undefined
         : () => {
@@ -1020,7 +1044,7 @@ export function MailShell() {
               }}
               onArchive={archiveTargets}
               onDelete={trashTargets}
-              onReply={() => setReplyToMessageId(openMessages.at(-1)?.id)}
+              onReply={requestReaderReply}
               onToggleFocusMode={() => setIsFocusMode((on) => !on)}
               showSidebarToggle={!isMailSidebarOpen}
               refetch={refetchOpenThread}

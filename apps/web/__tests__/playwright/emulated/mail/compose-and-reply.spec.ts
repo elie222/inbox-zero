@@ -222,6 +222,18 @@ test("selects the sender when composing from all accounts", async ({
 test("opens and sends a reply from the reader with Enter", async ({
   page,
 }, testInfo) => {
+  const releaseThreadRequest = Promise.withResolvers<void>();
+  let threadRequestStarted = false;
+  await page.route(
+    "**/api/threads/thr_playwright_reply?includeDrafts=true",
+    async (route) => {
+      threadRequestStarted = true;
+      const responsePromise = route.fetch();
+      await releaseThreadRequest.promise;
+      const response = await responsePromise;
+      await route.fulfill({ response });
+    },
+  );
   const { conversations } = await openMail(page);
   const replyConversation = conversationWithSubject(
     page,
@@ -229,13 +241,16 @@ test("opens and sends a reply from the reader with Enter", async ({
     "Reply Workflow Message",
   );
   await replyConversation.click();
+  await expect.poll(() => threadRequestStarted).toBe(true);
+  await page.keyboard.press("Enter");
+  releaseThreadRequest.resolve();
+
   await expect(
     page.getByText("Please reply to this seeded conversation."),
   ).toBeVisible();
   const sentByMe = page.getByText("Me", { exact: true });
   const initialSentByMeCount = await sentByMe.count();
 
-  await page.keyboard.press("Enter");
   const replyEditor = page.locator("[contenteditable='true']");
   await expect(replyEditor).toBeVisible();
   await expect(replyEditor).toHaveCount(1);
