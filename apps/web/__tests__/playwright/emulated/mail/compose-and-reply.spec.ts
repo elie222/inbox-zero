@@ -219,7 +219,9 @@ test("selects the sender when composing from all accounts", async ({
   }
 });
 
-test("replies inside an existing conversation", async ({ page }, testInfo) => {
+test("opens and sends a reply from the reader with Enter", async ({
+  page,
+}, testInfo) => {
   const { conversations } = await openMail(page);
   const replyConversation = conversationWithSubject(
     page,
@@ -233,7 +235,7 @@ test("replies inside an existing conversation", async ({ page }, testInfo) => {
   const sentByMe = page.getByText("Me", { exact: true });
   const initialSentByMeCount = await sentByMe.count();
 
-  await page.getByRole("button", { name: /^Reply R$/ }).click();
+  await page.keyboard.press("Enter");
   const replyEditor = page.locator("[contenteditable='true']");
   await expect(replyEditor).toBeVisible();
   await expect(replyEditor).toHaveCount(1);

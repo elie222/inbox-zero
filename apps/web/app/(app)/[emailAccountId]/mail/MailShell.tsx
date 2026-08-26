@@ -616,7 +616,9 @@ export function MailShell() {
     return {
       next: () => move(1),
       previous: () => move(-1),
-      open: () => openAt(clampedIndex),
+      open: openThreadId
+        ? () => setReplyToMessageId(openMessages.at(-1)?.id)
+        : () => openAt(clampedIndex),
       backToList: isMailOverlayOpen
         ? undefined
         : () => {
