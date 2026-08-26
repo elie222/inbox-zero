@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   getMessagesBatch,
   hasPreviousCommunicationsWithSenderOrDomain,
+  parseMessage,
 } from "./message";
 import { getBatch } from "@/utils/gmail/batch";
 import { createTestLogger } from "@/__tests__/helpers";
@@ -17,6 +18,48 @@ vi.mock("gmail-api-parse-message", () => ({
 
 afterEach(() => {
   vi.restoreAllMocks();
+});
+
+describe("parseMessage", () => {
+  it("keeps large inline images out of the downloadable attachment list", () => {
+    const inlineImage = {
+      attachmentId: "inline-image",
+      filename: "screenshot.png",
+      headers: {
+        "content-description": "",
+        "content-disposition": "inline; filename=screenshot.png",
+        "content-id": "<screenshot@inboxzero.local>",
+        "content-transfer-encoding": "base64",
+        "content-type": "image/png",
+      },
+      mimeType: "image/png",
+      size: 100_000,
+    };
+    const document = {
+      attachmentId: "document",
+      filename: "report.pdf",
+      headers: {
+        "content-description": "",
+        "content-disposition": "attachment; filename=report.pdf",
+        "content-id": "",
+        "content-transfer-encoding": "base64",
+        "content-type": "application/pdf",
+      },
+      mimeType: "application/pdf",
+      size: 200_000,
+    };
+
+    const message = parseMessage({
+      attachments: [inlineImage, document],
+      headers: { date: "", subject: "" },
+      id: "message-1",
+      inline: [],
+      threadId: "thread-1",
+    } as never);
+
+    expect(message.inline).toEqual([inlineImage]);
+    expect(message.attachments).toEqual([document]);
+  });
 });
 
 describe("getMessagesBatch", () => {

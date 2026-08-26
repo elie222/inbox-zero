@@ -18,10 +18,17 @@ export function parseMessage(
   message: MessageWithPayload,
 ): ParsedMessage & { subject: string; date: string } {
   const parsed = parse(message) as ParsedMessage;
+  const inlineAttachments = parsed.attachments?.filter(isInlineAttachment);
+  const attachments = parsed.attachments?.filter(
+    (attachment) => !isInlineAttachment(attachment),
+  );
+
   return {
     ...parsed,
+    attachments: attachments?.length ? attachments : undefined,
     subject: parsed.headers?.subject || "",
     date: parsed.headers?.date || "",
+    inline: [...(parsed.inline ?? []), ...(inlineAttachments ?? [])],
     // gmail-api-parse-message converts internalDate to a number, but our type expects string
     internalDate:
       parsed.internalDate != null ? String(parsed.internalDate) : null,
@@ -213,6 +220,17 @@ function isMessage(
   message: gmail_v1.Schema$Message,
 ): message is { id: string; threadId: string } {
   return !!message.id && !!message.threadId;
+}
+
+function isInlineAttachment(
+  attachment: NonNullable<ParsedMessage["attachments"]>[number],
+) {
+  return (
+    attachment.headers["content-disposition"]
+      ?.split(";", 1)[0]
+      ?.trim()
+      .toLowerCase() === "inline"
+  );
 }
 
 export async function queryBatchMessages(

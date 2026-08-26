@@ -57,6 +57,7 @@ export function EmailMessage({
   onSendSuccess: (messageId: string, threadId: string) => void;
   generateNudge?: boolean;
 }) {
+  const { emailAccountId } = useAccount();
   // `null` follows `defaultShowReply`, which the reader's Reply button flips
   // long after this message mounted.
   const [replyOverride, setReplyOverride] = useState<boolean | null>(null);
@@ -97,7 +98,12 @@ export function EmailMessage({
           {showDetails && <EmailDetails message={message} />}
 
           {message.textHtml ? (
-            <HtmlEmail html={message.textHtml} messageId={message.id} />
+            <HtmlEmail
+              emailAccountId={emailAccountId}
+              html={message.textHtml}
+              inlineAttachments={message.inline}
+              messageId={message.id}
+            />
           ) : (
             <PlainEmail text={message.textPlain || ""} />
           )}

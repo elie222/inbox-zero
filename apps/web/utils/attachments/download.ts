@@ -1,5 +1,26 @@
 import { fetchWithAccount } from "@/utils/fetch";
 
+export function getAttachmentUrl({
+  messageId,
+  attachmentId,
+  mimeType,
+  filename,
+}: {
+  messageId: string;
+  attachmentId: string;
+  mimeType: string;
+  filename: string;
+}) {
+  const searchParams = new URLSearchParams({
+    messageId,
+    attachmentId,
+    mimeType,
+    filename,
+  });
+
+  return `/api/messages/attachment?${searchParams.toString()}`;
+}
+
 export async function fetchAttachment({
   url,
   emailAccountId,
