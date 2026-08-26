@@ -39,9 +39,15 @@ describe("getRecordingStatusBadge", () => {
   });
 
   it.each([
-    MeetingRecordingStatus.IN_CALL,
-    MeetingRecordingStatus.RECORDING,
-  ])("shows processing after the scheduled end while the recorder is still in progress (%s)", (status) => {
+    [
+      MeetingRecordingStatus.IN_CALL,
+      { label: "Notetaker joined", variant: "default" },
+    ],
+    [
+      MeetingRecordingStatus.RECORDING,
+      { label: "Recording", variant: "green" },
+    ],
+  ] as const)("uses the bot status after the scheduled end while capture is still in progress (%s)", (status, expectedBadge) => {
     expect(
       getRecordingStatusBadge({
         status,
@@ -49,7 +55,7 @@ describe("getRecordingStatusBadge", () => {
         endTime: new Date("2026-07-30T16:30:00.000Z"),
         now: NOW,
       }),
-    ).toEqual({ label: "Processing", variant: "secondary" });
+    ).toEqual(expectedBadge);
   });
 
   it("keeps actionable recorder progress visible while the meeting is ongoing", () => {
