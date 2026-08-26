@@ -414,40 +414,40 @@ function useIframeHeight(iframeRef: React.RefObject<HTMLIFrameElement | null>) {
   const [height, setHeight] = useState(0);
 
   useEffect(() => {
-    let attempts = 0;
-    const maxAttempts = 5;
-    const initialDelay = 100;
+    const iframe = iframeRef.current;
+    if (!iframe) return;
 
     const updateHeight = () => {
-      try {
-        if (iframeRef.current?.contentWindow) {
-          const newHeight =
-            iframeRef.current.contentWindow.document.documentElement
-              ?.scrollHeight;
-          if (newHeight) {
-            setHeight(newHeight);
-            return true;
-          }
-        }
-      } catch (error) {
-        console.error("Failed to get iframe height:", error);
-      }
-      return false;
+      const iframeDocument = iframe.contentDocument;
+      if (!iframeDocument) return;
+
+      const newHeight = Math.max(
+        iframeDocument.documentElement.scrollHeight,
+        iframeDocument.body.scrollHeight,
+      );
+      if (newHeight) setHeight(newHeight);
     };
 
-    const attemptUpdate = () => {
-      if (attempts >= maxAttempts) return;
+    const resizeObserver = new ResizeObserver(updateHeight);
 
-      const success = updateHeight();
-      if (!success) {
-        attempts++;
-        setTimeout(attemptUpdate, initialDelay * 2 ** attempts);
-      }
+    const observeDocument = () => {
+      resizeObserver.disconnect();
+      const iframeDocument = iframe.contentDocument;
+      if (!iframeDocument) return;
+
+      updateHeight();
+      resizeObserver.observe(iframeDocument.documentElement);
+      resizeObserver.observe(iframeDocument.body);
     };
 
-    const initialTimeoutId = setTimeout(attemptUpdate, initialDelay);
-    return () => clearTimeout(initialTimeoutId);
-  }, [iframeRef?.current?.contentWindow]);
+    iframe.addEventListener("load", observeDocument);
+    observeDocument();
+
+    return () => {
+      iframe.removeEventListener("load", observeDocument);
+      resizeObserver.disconnect();
+    };
+  }, [iframeRef]);
 
   return height;
 }
