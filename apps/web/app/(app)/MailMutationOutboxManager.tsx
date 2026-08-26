@@ -31,6 +31,7 @@ import {
   retryMailMutationSyncGroup,
   subscribeToMailMutations,
 } from "@/utils/email-cache/mail-mutations";
+import { randomUuid } from "@/utils/uuid";
 
 const REQUEST_TIMEOUT_MS = 20 * 1000;
 const LEASE_MS = 30 * 1000;
@@ -40,7 +41,7 @@ const MAX_CONCURRENCY = 2;
 export function MailMutationOutboxManager() {
   useEffect(() => {
     removeLegacyMailActionQueue();
-    const ownerId = crypto.randomUUID();
+    const ownerId = randomUuid();
     let active = 0;
     let activeSyncs = 0;
     let stopped = false;

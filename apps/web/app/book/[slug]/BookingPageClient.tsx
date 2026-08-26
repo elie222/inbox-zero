@@ -12,6 +12,7 @@ import { ArrowLeft, ArrowRight, Check, Info } from "lucide-react";
 import type { GetPublicBookingLinkResponse } from "@/app/api/public/booking-links/[slug]/route";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/utils";
+import { randomUuid } from "@/utils/uuid";
 import { BookingSidebar } from "./BookingSidebar";
 import { useAvailability } from "./useAvailability";
 import { PickTimeStep, useSlotSelection } from "./PickTimeStep";
@@ -104,7 +105,7 @@ export function BookingPageClient({
           guestName: formValues.name,
           guestEmail: formValues.email,
           guestNote: formValues.note || undefined,
-          idempotencyToken: crypto.randomUUID(),
+          idempotencyToken: randomUuid(),
         }),
       });
       const body = await response.json();

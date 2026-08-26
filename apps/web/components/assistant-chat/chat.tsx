@@ -40,6 +40,7 @@ import {
   getChatHistoryLabel,
 } from "@/components/assistant-chat/chat-history-types";
 import { RenameChatDialog } from "@/components/assistant-chat/RenameChatDialog";
+import { randomUuid } from "@/utils/uuid";
 import { DeleteChatDialog } from "@/components/assistant-chat/DeleteChatDialog";
 
 const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB
@@ -114,7 +115,7 @@ export function Chat({
         const reader = new FileReader();
         reader.onload = () => {
           resolve({
-            id: crypto.randomUUID(),
+            id: randomUuid(),
             name: file.name,
             url: reader.result as string,
             contentType: file.type,

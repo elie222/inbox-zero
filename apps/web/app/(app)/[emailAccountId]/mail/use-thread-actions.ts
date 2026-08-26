@@ -9,6 +9,7 @@ import {
   enqueueMailMutation,
   type MailMutationPayload,
 } from "@/utils/email-cache/mail-mutations";
+import { randomUuid } from "@/utils/uuid";
 import {
   getListThreadEmailAccountId,
   getListThreadKey,
@@ -78,7 +79,7 @@ export function useThreadActions({
       payload: MailMutationPayload,
     ) => {
       if (!targets.length) return [];
-      const batchId = crypto.randomUUID();
+      const batchId = randomUuid();
       const results = await Promise.allSettled(
         targets.map((target) =>
           enqueueMailMutation({
@@ -108,7 +109,7 @@ export function useThreadActions({
 
     const compensationKind =
       batch.action === "archive" ? "unarchive" : "untrash";
-    const batchId = crypto.randomUUID();
+    const batchId = randomUuid();
     const results = await Promise.allSettled(
       batch.snapshots.map(async (snapshot) => {
         const cancelled = await cancelPendingMailMutation(snapshot.mutationId);

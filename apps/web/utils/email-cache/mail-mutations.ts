@@ -1,4 +1,5 @@
 import type { SendEmailBody } from "@/utils/types/mail";
+import { randomUuid } from "@/utils/uuid";
 import {
   getEmailCacheDatabase,
   type MailMutationClientSource,
@@ -94,11 +95,11 @@ export async function enqueueMailMutationBatch(
   if (suppliedBatchIds.size > 1) {
     throw new Error("Mail mutation batches must use one batch ID");
   }
-  const batchId = suppliedBatchIds.values().next().value ?? crypto.randomUUID();
+  const batchId = suppliedBatchIds.values().next().value ?? randomUuid();
   const preparedInputs = inputs.map((input) => ({
     ...input,
     batchId,
-    id: input.id ?? crypto.randomUUID(),
+    id: input.id ?? randomUuid(),
   }));
   const database = await getEmailCacheDatabase();
   if (!database) throw new Error("Offline mail storage is unavailable");

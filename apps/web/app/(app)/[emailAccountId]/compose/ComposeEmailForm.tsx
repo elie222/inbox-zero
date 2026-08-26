@@ -74,6 +74,7 @@ import {
   validateSendEmailPayloadSize,
 } from "@/utils/types/mail";
 import { cn } from "@/utils";
+import { randomUuid } from "@/utils/uuid";
 import { resolveComposeRecipients } from "./compose-recipients";
 import { queueReaderEmail } from "./queued-reply";
 
@@ -1029,7 +1030,7 @@ function createComposeAttachmentMetadata(
   file: File,
   disposition: ComposeAttachment["disposition"],
 ): EmailAttachmentMetadata {
-  const id = crypto.randomUUID();
+  const id = randomUuid();
   return {
     id,
     filename: file.name,
