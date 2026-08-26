@@ -40,7 +40,17 @@ export const POST = withError(
 );
 
 async function runRetention(request: RequestWithLogger) {
-  const attachments = await cleanupEmailAttachmentStages();
+  let attachments: Awaited<
+    ReturnType<typeof cleanupEmailAttachmentStages>
+  > | null = null;
+  try {
+    attachments = await cleanupEmailAttachmentStages();
+  } catch (error) {
+    request.logger.error("Failed to clean up staged email attachments", {
+      error,
+    });
+    captureException(error);
+  }
   const deleted = await deleteExpiredEmailSendOperations();
   request.logger.info("Deleted expired email send operations", {
     attachments,

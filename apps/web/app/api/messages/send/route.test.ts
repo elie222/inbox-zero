@@ -437,23 +437,29 @@ describe("POST /api/messages/send", () => {
     expect(executeDurableEmailSend).not.toHaveBeenCalled();
   });
 
-  it("bounds the actual multipart body when Content-Length is absent", async () => {
-    const formData = multipartForm(durableInput([]), [
-      new File(
-        [new Uint8Array(EMAIL_SEND_LIMITS.maxSerializedPayloadBytes + 1)],
-        "oversized.bin",
-        { type: "application/octet-stream" },
-      ),
-    ]);
+  it("bounds and cancels an oversized multipart body without Content-Length", async () => {
+    const cancel = vi.fn();
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          new Uint8Array(EMAIL_SEND_LIMITS.maxSerializedPayloadBytes + 1),
+        );
+      },
+      cancel,
+    });
     const request = new NextRequest("http://localhost/api/messages/send", {
       method: "POST",
-      body: formData,
-    });
-    expect(request.headers.get("content-length")).toBeNull();
+      body,
+      duplex: "half",
+      headers: {
+        "content-type": "multipart/form-data; boundary=attachment-boundary",
+      },
+    } satisfies RequestInit & { duplex: "half" });
 
     await expect(
       POST(request, { params: Promise.resolve({}) }),
     ).rejects.toThrow("The multipart request is too large.");
+    expect(cancel).toHaveBeenCalledOnce();
     expect(executeDurableEmailSend).not.toHaveBeenCalled();
   });
 

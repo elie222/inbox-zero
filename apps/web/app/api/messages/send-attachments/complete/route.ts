@@ -8,15 +8,16 @@ import {
 import { completeEmailAttachmentsBody } from "@/utils/email/email-attachment-staging.validation";
 import { withEmailAccount } from "@/utils/middleware";
 
+export type CompleteEmailAttachmentsResponse = Awaited<
+  ReturnType<typeof getData>
+>;
+
 export const POST = withEmailAccount(
   "messages/send-attachments/complete",
   async (request) => {
     const input = completeEmailAttachmentsBody.parse(await request.json());
     try {
-      const result = await completeEmailAttachments({
-        emailAccountId: request.auth.emailAccountId,
-        input,
-      });
+      const result = await getData(request.auth.emailAccountId, input);
       return NextResponse.json(result);
     } catch (error) {
       if (error instanceof EmailAttachmentStageIncompleteError) {
@@ -32,3 +33,10 @@ export const POST = withEmailAccount(
     }
   },
 );
+
+async function getData(
+  emailAccountId: string,
+  input: Parameters<typeof completeEmailAttachments>[0]["input"],
+) {
+  return completeEmailAttachments({ emailAccountId, input });
+}

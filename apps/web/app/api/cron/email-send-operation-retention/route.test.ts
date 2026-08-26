@@ -71,6 +71,27 @@ describe("email send operation retention cron route", () => {
     expect(deleteExpiredMock).toHaveBeenCalledOnce();
   });
 
+  it("continues operation retention when attachment cleanup fails", async () => {
+    const error = new Error("Blob service unavailable");
+    cleanupAttachmentsMock.mockRejectedValue(error);
+
+    const response = await GET(
+      new NextRequest(
+        "http://localhost:3000/api/cron/email-send-operation-retention",
+        { headers: { authorization: "Bearer cron-secret" } },
+      ),
+      { params: Promise.resolve({}) },
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      attachments: null,
+      deleted: 3,
+    });
+    expect(deleteExpiredMock).toHaveBeenCalledOnce();
+    expect(captureExceptionMock).toHaveBeenCalledWith(error);
+  });
+
   it("rejects POST requests without the cron secret", async () => {
     const response = await POST(
       new NextRequest(

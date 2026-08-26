@@ -11,18 +11,19 @@ vi.mock("@/utils/email/email-attachment-staging", () => ({
   EmailAttachmentStageConflictError: class EmailAttachmentStageConflictError extends Error {},
   EmailAttachmentStageUnavailableError: class EmailAttachmentStageUnavailableError extends Error {},
 }));
-vi.mock("@/utils/middleware", () => ({
-  withEmailAccount:
-    (_name: string, handler: (request: MockedRequest) => Promise<Response>) =>
-    (request: NextRequest) =>
-      handler(
-        Object.assign(request, {
-          auth: { emailAccountId: "account-1" },
-        }) as MockedRequest,
-      ),
-}));
+vi.mock("@/utils/middleware", async () => {
+  const { createWithEmailAccountTestMiddleware } = await vi.importActual<
+    typeof import("@/__tests__/helpers")
+  >("@/__tests__/helpers");
 
-type MockedRequest = NextRequest & { auth: { emailAccountId: string } };
+  return createWithEmailAccountTestMiddleware({
+    auth: {
+      userId: "user-1",
+      emailAccountId: "account-1",
+      email: "user@example.com",
+    },
+  });
+});
 
 describe("POST /api/messages/send-attachments/stage", () => {
   beforeEach(() => vi.clearAllMocks());

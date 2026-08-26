@@ -231,8 +231,11 @@ async function readBoundedMultipartFormData(request: Request) {
         validateMultipartRequestSize(receivedBytes);
         controller.enqueue(value);
       } catch (error) {
-        reader.releaseLock();
-        controller.error(error);
+        try {
+          await reader.cancel(error);
+        } finally {
+          controller.error(error);
+        }
       }
     },
     async cancel(reason) {
