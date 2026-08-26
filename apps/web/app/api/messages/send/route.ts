@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { withEmailProvider } from "@/utils/middleware";
 import { sendEmailBody } from "@/utils/types/mail";
+import { executeDurableEmailSend } from "@/utils/email/durable-email-send";
+import { durableEmailSendBody } from "@/utils/email/durable-email-send.validation";
 
 export type SendMessageResponse = {
   success: true;
@@ -15,7 +17,18 @@ export type SendMessageResponse = {
  * an existing thread, or omit it to send a new email.
  */
 export const POST = withEmailProvider("messages/send", async (request) => {
-  const body = sendEmailBody.parse(await request.json());
+  const json: unknown = await request.json();
+  if (isDurableSend(json)) {
+    const input = durableEmailSendBody.parse(json);
+    const result = await executeDurableEmailSend({
+      emailAccountId: request.auth.emailAccountId,
+      getEmailProvider: async () => request.emailProvider,
+      input,
+      provider: request.emailProvider.name,
+    });
+    return NextResponse.json(result);
+  }
+  const body = sendEmailBody.parse(json);
 
   try {
     const result = await request.emailProvider.sendEmailWithHtml(body);
@@ -37,3 +50,7 @@ export const POST = withEmailProvider("messages/send", async (request) => {
     );
   }
 });
+
+function isDurableSend(value: unknown): value is { mutationId: unknown } {
+  return typeof value === "object" && value !== null && "mutationId" in value;
+}
