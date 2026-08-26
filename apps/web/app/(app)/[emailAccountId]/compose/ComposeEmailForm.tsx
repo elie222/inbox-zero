@@ -515,6 +515,7 @@ function ComposeEmailFormContent({
     {
       enableOnFormTags: true,
       enableOnContentEditable: true,
+      eventListenerOptions: { capture: true },
       preventDefault: true,
     },
   );
