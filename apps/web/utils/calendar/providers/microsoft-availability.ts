@@ -136,8 +136,8 @@ export function createMicrosoftAvailabilityProvider(
 function isMissingCalendarError(error: unknown) {
   if (typeof error !== "object" || error === null) return false;
 
-  const graphError = error as { code?: unknown; statusCode?: unknown };
   return (
-    graphError.statusCode === 404 || graphError.code === "ErrorItemNotFound"
+    ("statusCode" in error && error.statusCode === 404) ||
+    ("code" in error && error.code === "ErrorItemNotFound")
   );
 }
