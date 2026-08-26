@@ -41,23 +41,26 @@ async function fetchGoogleCalendarBusyPeriods({
         response.data.calendars,
       )) {
         if (calendar.errors?.length) {
-          logger.error("Google Calendar returned availability errors", {
-            ...getCalendarAvailabilityErrorLogContext(
-              new CalendarAvailabilityError({
-                provider: "google",
-                calendarErrors: [
-                  { calendarId: _calendarId, errors: calendar.errors },
-                ],
-              }),
-            ),
+          const availabilityError = new CalendarAvailabilityError({
+            provider: "google",
+            calendarErrors: [
+              { calendarId: _calendarId, errors: calendar.errors },
+            ],
           });
-          if (failOnCalendarError) {
-            throw new CalendarAvailabilityError({
-              provider: "google",
-              calendarErrors: [
-                { calendarId: _calendarId, errors: calendar.errors },
-              ],
+          const logContext =
+            getCalendarAvailabilityErrorLogContext(availabilityError);
+          const calendarIsMissing = isMissingCalendar(calendar.errors);
+
+          if (calendarIsMissing) {
+            logger.warn("Skipping unavailable Google calendar", logContext);
+          } else {
+            logger.error("Google Calendar returned availability errors", {
+              ...logContext,
             });
+          }
+
+          if (failOnCalendarError && !calendarIsMissing) {
+            throw availabilityError;
           }
           continue;
         }
@@ -127,4 +130,8 @@ export function createGoogleAvailabilityProvider(
       });
     },
   };
+}
+
+function isMissingCalendar(errors: calendar_v3.Schema$Error[]) {
+  return errors.every((error) => error.reason === "notFound");
 }

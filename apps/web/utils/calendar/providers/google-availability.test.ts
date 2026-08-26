@@ -51,7 +51,7 @@ describe("createGoogleAvailabilityProvider", () => {
   });
 
   it("fails closed on individual calendar errors when requested", async () => {
-    const calendarErrors = [{ reason: "notFound" }];
+    const calendarErrors = [{ reason: "internalError" }];
     query.mockResolvedValue({
       data: {
         calendars: {
@@ -82,5 +82,45 @@ describe("createGoogleAvailabilityProvider", () => {
       provider: "google",
       calendarErrors: [{ calendarId: "cal-1", errors: calendarErrors }],
     } satisfies Partial<CalendarAvailabilityError>);
+  });
+
+  it("ignores a missing calendar when failing closed", async () => {
+    query.mockResolvedValue({
+      data: {
+        calendars: {
+          "disconnected-calendar": {
+            errors: [{ reason: "notFound" }],
+          },
+          "connected-calendar": {
+            busy: [
+              {
+                start: "2026-05-04T10:00:00.000Z",
+                end: "2026-05-04T11:00:00.000Z",
+              },
+            ],
+          },
+        },
+      },
+    });
+
+    const provider = createGoogleAvailabilityProvider(logger);
+    const result = await provider.fetchBusyPeriods({
+      accessToken: "token",
+      calendarIds: ["disconnected-calendar", "connected-calendar"],
+      connectionId: "connection-id",
+      emailAccountId: "email-account-id",
+      expiresAt: Date.now() + 60_000,
+      failOnCalendarError: true,
+      refreshToken: "refresh-token",
+      timeMax: "2026-05-05T00:00:00.000Z",
+      timeMin: "2026-05-04T00:00:00.000Z",
+    });
+
+    expect(result).toEqual([
+      {
+        start: "2026-05-04T10:00:00.000Z",
+        end: "2026-05-04T11:00:00.000Z",
+      },
+    ]);
   });
 });
