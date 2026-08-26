@@ -322,18 +322,30 @@ function stubMailboxSync(page: Page, emailAccountId: string) {
 }
 
 async function getCleanupMailboxMessages(page: Page, emailAccountId: string) {
-  const response = await page.request.get("/api/threads?type=inbox&view=list", {
-    headers: { "X-Email-Account-ID": emailAccountId },
-  });
-  if (!response.ok()) {
-    throw new Error(`Inbox request failed with ${response.status()}`);
-  }
-  const result = (await response.json()) as {
-    threads: { id: string; messages: unknown[] }[];
-  };
-  return result.threads
-    .filter((thread) =>
-      CLEANUP_MAILBOX_THREAD_IDS.some((threadId) => threadId === thread.id),
+  let messages: unknown[] | undefined;
+  await expect
+    .poll(
+      async () => {
+        try {
+          const response = await page.request.get(
+            `/api/threads/batch?threadIds=${CLEANUP_MAILBOX_THREAD_IDS.join(",")}`,
+            { headers: { "X-Email-Account-ID": emailAccountId } },
+          );
+          if (!response.ok()) return false;
+
+          const result = (await response.json()) as {
+            threads: { messages: unknown[] }[];
+          };
+          messages = result.threads.flatMap((thread) => thread.messages);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      { timeout: 120_000 },
     )
-    .flatMap((thread) => thread.messages);
+    .toBe(true);
+
+  if (!messages) throw new Error("Mailbox thread request returned no messages");
+  return messages;
 }
