@@ -5,6 +5,7 @@ import {
 } from "../mail/mail-test-helpers";
 import {
   CLEANUP_ARCHIVE_THREAD_ID,
+  CLEANUP_BLOCK_THREAD_ID,
   CLEANUP_KEEP_THREAD_ID,
   cleanUpFixture,
   type CleanupFixture,
@@ -16,6 +17,14 @@ import {
 const ARCHIVE_SENDER = "cleanup-archive@example.com";
 const ARCHIVE_SUBJECT = "Cleanup Category Archive Candidate";
 const KEEP_SUBJECT = "Cleanup Category Keep Candidate";
+const BULK_ARCHIVE_THREAD_IDS = [
+  CLEANUP_ARCHIVE_THREAD_ID,
+  CLEANUP_KEEP_THREAD_ID,
+];
+const CLEANUP_MAILBOX_THREAD_IDS = [
+  CLEANUP_BLOCK_THREAD_ID,
+  ...BULK_ARCHIVE_THREAD_IDS,
+];
 let fixture: CleanupFixture | undefined;
 
 test.beforeEach(async ({ page }) => {
@@ -270,8 +279,7 @@ function blockServerActions(route: Route) {
 }
 
 async function restoreFixtureThreads(page: Page, emailAccountId: string) {
-  const threadIds = [CLEANUP_ARCHIVE_THREAD_ID, CLEANUP_KEEP_THREAD_ID];
-  for (const threadId of threadIds) {
+  for (const threadId of BULK_ARCHIVE_THREAD_IDS) {
     await expect
       .poll(
         async () => {
@@ -289,22 +297,43 @@ async function restoreFixtureThreads(page: Page, emailAccountId: string) {
       )
       .toBe(true);
   }
-  await restoreCleanupThreads(page, emailAccountId, threadIds);
+  await restoreCleanupThreads(page, emailAccountId, BULK_ARCHIVE_THREAD_IDS);
 }
 
 function stubMailboxSync(page: Page, emailAccountId: string) {
-  return page.route("**/api/mobile/mailbox-sync", (route) =>
-    route.fulfill({
+  return page.route("**/api/mobile/mailbox-sync", async (route) => {
+    const upsertedMessages = await getCleanupMailboxMessages(
+      page,
+      emailAccountId,
+    );
+    return route.fulfill({
       body: JSON.stringify({
         accountId: emailAccountId,
         cursor: "playwright-cleanup-sync",
         deletedMessageIds: [],
         hasMore: false,
         reset: false,
-        upsertedMessages: [],
+        upsertedMessages,
       }),
       contentType: "application/json",
       status: 200,
-    }),
-  );
+    });
+  });
+}
+
+async function getCleanupMailboxMessages(page: Page, emailAccountId: string) {
+  const response = await page.request.get("/api/threads?type=inbox&view=list", {
+    headers: { "X-Email-Account-ID": emailAccountId },
+  });
+  if (!response.ok()) {
+    throw new Error(`Inbox request failed with ${response.status()}`);
+  }
+  const result = (await response.json()) as {
+    threads: { id: string; messages: unknown[] }[];
+  };
+  return result.threads
+    .filter((thread) =>
+      CLEANUP_MAILBOX_THREAD_IDS.some((threadId) => threadId === thread.id),
+    )
+    .flatMap((thread) => thread.messages);
 }
