@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { POST } from "./route";
 
 const executeDurableEmailSend = vi.hoisted(() => vi.fn());
 const emailProvider = vi.hoisted(() => ({
@@ -7,24 +8,28 @@ const emailProvider = vi.hoisted(() => ({
   sendEmailWithHtml: vi.fn(),
 }));
 
+type MockedRequest = NextRequest & {
+  auth: { emailAccountId: string };
+  emailProvider: typeof emailProvider;
+  logger: { error: () => void };
+};
+
 vi.mock("@/utils/email/durable-email-send", () => ({
   executeDurableEmailSend,
 }));
 
 vi.mock("@/utils/middleware", () => ({
   withEmailProvider:
-    (_name: string, handler: (request: any) => Promise<Response>) =>
+    (_name: string, handler: (request: MockedRequest) => Promise<Response>) =>
     (request: NextRequest) =>
       handler(
         Object.assign(request, {
           auth: { emailAccountId: "account-1" },
           emailProvider,
           logger: { error: vi.fn() },
-        }),
+        }) as MockedRequest,
       ),
 }));
-
-import { POST } from "./route";
 
 describe("POST /api/messages/send", () => {
   beforeEach(() => vi.clearAllMocks());
@@ -95,6 +100,23 @@ describe("POST /api/messages/send", () => {
       }),
     ).rejects.toThrow();
     expect(emailProvider.sendEmailWithHtml).not.toHaveBeenCalled();
+    expect(executeDurableEmailSend).not.toHaveBeenCalled();
+  });
+
+  it("rejects durable sends without a message to reconcile", async () => {
+    await expect(
+      post({
+        mutationId: "41ec6d2b-d0e8-4f75-924a-f6f4e5bab4cf",
+        queuedAt: 1_788_000_000_000,
+        threadId: "thread-1",
+        messageIds: [],
+        email: {
+          to: "recipient@example.com",
+          subject: "Re: Hello",
+          messageHtml: "<p>Reply</p>",
+        },
+      }),
+    ).rejects.toThrow();
     expect(executeDurableEmailSend).not.toHaveBeenCalled();
   });
 });

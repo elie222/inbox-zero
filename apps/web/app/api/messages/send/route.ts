@@ -10,6 +10,10 @@ export type SendMessageResponse = {
   threadId: string;
 };
 
+export type DurableSendMessageResponse = Awaited<
+  ReturnType<typeof executeDurableEmailSend>
+>;
+
 /**
  * REST equivalent of `sendEmailAction` for clients that cannot call server
  * actions (e.g. the mobile app). Accepts the same `sendEmailBody` payload:
