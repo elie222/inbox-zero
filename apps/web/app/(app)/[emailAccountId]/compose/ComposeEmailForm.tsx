@@ -77,6 +77,7 @@ import {
   type SendEmailBody,
   validateSendEmailPayloadSize,
 } from "@/utils/types/mail";
+import { randomUuid } from "@/utils/uuid";
 import { cn } from "@/utils";
 import {
   type ComposeRecipientField,
@@ -1129,7 +1130,7 @@ function createComposeAttachmentMetadata(
   file: File,
   disposition: ComposeAttachment["disposition"],
 ): EmailAttachmentMetadata {
-  const id = crypto.randomUUID();
+  const id = randomUuid();
   return {
     id,
     filename: file.name,

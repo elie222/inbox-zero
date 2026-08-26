@@ -30,6 +30,7 @@ import {
 } from "@/components/ai-elements/prompt-input";
 import { useLocalStorage } from "usehooks-ts";
 import { useSession } from "@/utils/auth-client";
+import { randomUuid } from "@/utils/uuid";
 import type { UseChatHelpers } from "@ai-sdk/react";
 import type { ChatMessage } from "@/components/assistant-chat/types";
 import type { MessageContext } from "@/utils/ai/assistant/chat-context-validation";
@@ -114,7 +115,7 @@ export function Chat({
         const reader = new FileReader();
         reader.onload = () => {
           resolve({
-            id: crypto.randomUUID(),
+            id: randomUuid(),
             name: file.name,
             url: reader.result as string,
             contentType: file.type,

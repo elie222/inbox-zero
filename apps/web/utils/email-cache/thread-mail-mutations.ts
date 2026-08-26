@@ -3,6 +3,7 @@ import {
   type MailMutationPayload,
 } from "./mail-mutations";
 import type { MailMutationClientSource } from "./database";
+import { randomUuid } from "@/utils/uuid";
 
 type ThreadMailMutationTarget = {
   id: string;
@@ -11,7 +12,7 @@ type ThreadMailMutationTarget = {
 
 export async function enqueueThreadMailMutationBatch(
   {
-    batchId = crypto.randomUUID(),
+    batchId = randomUuid(),
     clientSource,
     emailAccountId,
     payload,
