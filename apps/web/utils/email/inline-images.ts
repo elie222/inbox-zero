@@ -1,10 +1,10 @@
 const DOCUMENT_PATTERN = /<!doctype|<html[\s>]|<head[\s>]|<body[\s>]/i;
 
 export function getInlineImageContentIds(html: string): string[] {
-  const document = new DOMParser().parseFromString(html, "text/html");
+  const parsedDocument = new DOMParser().parseFromString(html, "text/html");
   const contentIds = new Set<string>();
 
-  for (const image of document.querySelectorAll("img[src]")) {
+  for (const image of parsedDocument.querySelectorAll("img[src]")) {
     const contentId = getContentIdFromSource(image.getAttribute("src"));
     if (contentId) contentIds.add(contentId);
   }
@@ -27,10 +27,10 @@ export function rewriteInlineImageSources(
   if (!normalizedSources.size) return html;
 
   const isDocument = DOCUMENT_PATTERN.test(html);
-  const document = new DOMParser().parseFromString(html, "text/html");
+  const parsedDocument = new DOMParser().parseFromString(html, "text/html");
   let changed = false;
 
-  for (const image of document.querySelectorAll("img[src]")) {
+  for (const image of parsedDocument.querySelectorAll("img[src]")) {
     const contentId = getContentIdFromSource(image.getAttribute("src"));
     if (!contentId) continue;
 
@@ -43,8 +43,8 @@ export function rewriteInlineImageSources(
 
   if (!changed) return html;
   return isDocument
-    ? document.documentElement.outerHTML
-    : document.body.innerHTML;
+    ? parsedDocument.documentElement.outerHTML
+    : parsedDocument.body.innerHTML;
 }
 
 export function normalizeContentId(value: string | null | undefined) {
