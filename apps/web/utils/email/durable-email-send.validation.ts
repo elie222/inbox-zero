@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  EMAIL_ATTACHMENT_LIMITS,
   type EmailAttachmentMetadata,
   validateEmailAttachmentMetadata,
 } from "@inboxzero/email-editor/core";
@@ -34,16 +35,8 @@ export const durableAttachmentMetadata = z.strictObject({
 
 export const durableAttachmentMetadataList = z
   .array(durableAttachmentMetadata)
-  .superRefine((attachments, context) => {
-    const validation = validateEmailAttachmentMetadata(
-      attachments satisfies EmailAttachmentMetadata[],
-    );
-    if (validation.valid) return;
-    context.addIssue({
-      code: "custom",
-      message: validation.error,
-    });
-  });
+  .max(EMAIL_ATTACHMENT_LIMITS.maxFiles)
+  .superRefine(validateDurableAttachmentList);
 
 export const opaqueAttachmentStageId = z
   .string()
@@ -65,11 +58,8 @@ export const durableStagedEmailSendBody = durableEmailSendBody.extend({
           stagedAttachmentId: opaqueAttachmentStageId,
         }),
       )
-      .superRefine((attachments, context) => {
-        const validation = validateEmailAttachmentMetadata(attachments);
-        if (validation.valid) return;
-        context.addIssue({ code: "custom", message: validation.error });
-      })
+      .max(EMAIL_ATTACHMENT_LIMITS.maxFiles)
+      .superRefine(validateDurableAttachmentList)
       .optional(),
   }),
 });
@@ -95,3 +85,12 @@ export const durableMultipartEmailSendPayload = z
     }
   })
   .pipe(durableMultipartEmailSendBody);
+
+function validateDurableAttachmentList(
+  attachments: EmailAttachmentMetadata[],
+  context: z.RefinementCtx,
+) {
+  const validation = validateEmailAttachmentMetadata(attachments);
+  if (validation.valid) return;
+  context.addIssue({ code: "custom", message: validation.error });
+}

@@ -40,10 +40,16 @@ describe("email attachment staging", () => {
     mockedEnv.BLOB_READ_WRITE_TOKEN = "blob-token";
     mockedEnv.BLOB_STORE_ID = undefined;
     delete process.env.VERCEL;
-    delete process.env.VERCEL_OIDC_TOKEN;
-    prisma.$transaction.mockImplementation(async (callback) =>
-      callback(prisma as never),
-    );
+    prisma.$queryRaw.mockResolvedValue([
+      {
+        reservation: {
+          outcome: "reserved",
+          operationIsTerminal: false,
+          recoverPendingIds: [],
+          stageIds: ["stage-1"],
+        },
+      },
+    ]);
     prisma.emailSendOperation.findUnique.mockResolvedValue(null);
     prisma.emailSendOperation.findMany.mockResolvedValue([]);
     prisma.emailSendAttachmentStage.findMany.mockResolvedValue([]);
@@ -87,9 +93,26 @@ describe("email attachment staging", () => {
     ).rejects.toBeInstanceOf(EmailAttachmentStageUnavailableError);
   });
 
+  it("lets the Blob SDK resolve request-scoped OIDC credentials", async () => {
+    mockedEnv.BLOB_READ_WRITE_TOKEN = undefined;
+    mockedEnv.BLOB_STORE_ID = "store-1";
+    process.env.VERCEL = "1";
+    prisma.emailSendAttachmentStage.findMany.mockResolvedValue([stageRow()]);
+
+    await stageEmailAttachments({
+      emailAccountId: "account-1",
+      input: stageInput(),
+      now: NOW,
+    });
+
+    const options = blob.issueSignedToken.mock.calls[0][0];
+    expect(options).toMatchObject({ storeId: "store-1" });
+    expect(options).not.toHaveProperty("oidcToken");
+  });
+
   it("creates a server-owned intent and an exact private PUT URL", async () => {
     const created = stageRow();
-    prisma.emailSendAttachmentStage.create.mockResolvedValue(created);
+    prisma.emailSendAttachmentStage.findMany.mockResolvedValue([created]);
 
     const result = await stageEmailAttachments({
       emailAccountId: "account-1",
@@ -110,17 +133,7 @@ describe("email attachment staging", () => {
         },
       ],
     });
-    expect(prisma.emailSendAttachmentStage.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        emailAccountId: "account-1",
-        mutationId: MUTATION_ID,
-        attachmentId: "attachment-1",
-        pathname: expect.stringMatching(/^mail-attachments\/[a-f0-9]{32}$/u),
-      }),
-    });
-    expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
-      isolationLevel: "Serializable",
-    });
+    expect(prisma.$queryRaw).toHaveBeenCalledOnce();
     expect(blob.issueSignedToken).toHaveBeenCalledWith(
       expect.objectContaining({
         operations: ["put"],
@@ -142,8 +155,8 @@ describe("email attachment staging", () => {
   });
 
   it("rejects reuse of an attachment ID with changed metadata", async () => {
-    prisma.emailSendAttachmentStage.findMany.mockResolvedValue([
-      stageRow({ filename: "different.txt" }),
+    prisma.$queryRaw.mockResolvedValue([
+      { reservation: { outcome: "metadata_changed" } },
     ]);
 
     await expect(
@@ -157,10 +170,9 @@ describe("email attachment staging", () => {
   });
 
   it("enforces an account-level live staging quota", async () => {
-    prisma.emailSendAttachmentStage.aggregate.mockResolvedValue({
-      _count: { _all: 100 },
-      _sum: { size: 1 },
-    } as never);
+    prisma.$queryRaw.mockResolvedValue([
+      { reservation: { outcome: "quota_exceeded" } },
+    ]);
 
     await expect(
       stageEmailAttachments({
@@ -171,23 +183,34 @@ describe("email attachment staging", () => {
     ).rejects.toThrow("Too many attachments are waiting to send.");
   });
 
-  it("releases a stale pre-provider claim before safely restaging", async () => {
-    const deleted = stageRow({
-      status: EmailSendAttachmentStageStatus.DELETED,
-      etag: "old-etag",
-      deletedAt: new Date(NOW.getTime() - 1),
+  it("deletes stale bytes before asking the client to reserve again", async () => {
+    const stale = stageRow({
+      status: EmailSendAttachmentStageStatus.DELETE_PENDING,
     });
-    prisma.emailSendAttachmentStage.findMany.mockResolvedValue([deleted]);
-    prisma.emailSendOperation.findUnique.mockResolvedValue({
-      id: "operation-1",
-      processingStartedAt: new Date(NOW.getTime() - 10 * 60 * 1000),
-      providerStartedAt: null,
-      status: "PROCESSING",
-    } as never);
-    prisma.emailSendOperation.deleteMany.mockResolvedValue({ count: 1 });
-    prisma.emailSendAttachmentStage.update.mockResolvedValue(
+    prisma.$queryRaw.mockResolvedValue([
+      {
+        reservation: {
+          outcome: "cleanup_required",
+          cleanupIds: [stale.id],
+        },
+      },
+    ]);
+    prisma.emailSendAttachmentStage.findMany.mockResolvedValue([stale]);
+
+    await expect(
+      stageEmailAttachments({
+        emailAccountId: "account-1",
+        input: stageInput(),
+        now: NOW,
+      }),
+    ).rejects.toThrow("Attachment storage is being refreshed");
+    expect(blob.del).toHaveBeenCalledWith(stale.pathname, expect.anything());
+  });
+
+  it("releases a stale pre-provider claim before safely restaging", async () => {
+    prisma.emailSendAttachmentStage.findMany.mockResolvedValue([
       stageRow({ pathname: "mail-attachments/new", status: "PENDING" }),
-    );
+    ]);
 
     await expect(
       stageEmailAttachments({
@@ -196,19 +219,7 @@ describe("email attachment staging", () => {
         now: NOW,
       }),
     ).resolves.toMatchObject({ mode: "staged" });
-    expect(prisma.emailSendOperation.deleteMany).toHaveBeenCalledWith({
-      where: expect.objectContaining({
-        id: "operation-1",
-        providerStartedAt: null,
-      }),
-    });
-    expect(prisma.emailSendAttachmentStage.update).toHaveBeenCalledWith({
-      where: { id: deleted.id },
-      data: expect.objectContaining({
-        etag: null,
-        status: EmailSendAttachmentStageStatus.PENDING,
-      }),
-    });
+    expect(blob.issueSignedToken).toHaveBeenCalledOnce();
   });
 
   it("scopes completion to the authenticated account and mutation", async () => {
@@ -257,6 +268,16 @@ describe("email attachment staging", () => {
   it("recognizes a completed PENDING upload after a lost client response", async () => {
     const pending = stageRow();
     prisma.emailSendAttachmentStage.findMany.mockResolvedValue([pending]);
+    prisma.$queryRaw.mockResolvedValue([
+      {
+        reservation: {
+          outcome: "reserved",
+          operationIsTerminal: false,
+          recoverPendingIds: [pending.id],
+          stageIds: [pending.id],
+        },
+      },
+    ]);
     blob.head.mockResolvedValue({
       pathname: pending.pathname,
       size: pending.size,
@@ -345,10 +366,11 @@ describe("email attachment staging", () => {
       status: EmailSendAttachmentStageStatus.READY,
       etag: "etag-1",
     });
+    const oversized = cancellableByteStream("longer");
     prisma.emailSendAttachmentStage.findMany.mockResolvedValue([ready]);
     blob.get.mockResolvedValue({
       statusCode: 200,
-      stream: byteStream("longer"),
+      stream: oversized.stream,
       blob: {
         pathname: ready.pathname,
         etag: "etag-1",
@@ -384,6 +406,48 @@ describe("email attachment staging", () => {
       ready.pathname,
       expect.objectContaining({ ifMatch: "etag-1" }),
     );
+    expect(oversized.cancel).toHaveBeenCalledOnce();
+  });
+
+  it("cancels a truncated Blob read before retrying", async () => {
+    const ready = stageRow({
+      status: EmailSendAttachmentStageStatus.READY,
+      etag: "etag-1",
+    });
+    const truncated = readerStream("hi");
+    prisma.emailSendAttachmentStage.findMany.mockResolvedValue([ready]);
+    blob.get.mockResolvedValue({
+      statusCode: 200,
+      stream: truncated.stream,
+      blob: {
+        pathname: ready.pathname,
+        etag: "etag-1",
+        size: 5,
+        contentType: "text/plain",
+      },
+    });
+    executeDurableEmailSend.mockImplementationOnce(async (options) => {
+      try {
+        await options.prepareEmail();
+        return { status: "applied" };
+      } catch {
+        return { status: "retry" };
+      }
+    });
+
+    await expect(
+      executeStagedDurableEmailSend({
+        emailAccountId: "account-1",
+        getEmailProvider: vi.fn(),
+        input: sendInput(),
+        provider: "google",
+      }),
+    ).resolves.toEqual({
+      status: "retry",
+      retryReason: "attachment_staging_invalid",
+    });
+    expect(truncated.cancel).toHaveBeenCalledOnce();
+    expect(truncated.releaseLock).toHaveBeenCalledOnce();
   });
 
   it("does no Blob read when the durable executor reports a replay", async () => {
@@ -586,4 +650,37 @@ function byteStream(value: string) {
       controller.close();
     },
   });
+}
+
+function cancellableByteStream(value: string) {
+  const cancel = vi.fn();
+  let sent = false;
+  const stream = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      if (sent) return;
+      sent = true;
+      controller.enqueue(new TextEncoder().encode(value));
+    },
+    cancel,
+  });
+  return { cancel, stream };
+}
+
+function readerStream(value: string) {
+  const cancel = vi.fn().mockResolvedValue(undefined);
+  const releaseLock = vi.fn();
+  const read = vi
+    .fn()
+    .mockResolvedValueOnce({
+      done: false,
+      value: new TextEncoder().encode(value),
+    })
+    .mockResolvedValueOnce({ done: true, value: undefined });
+  return {
+    cancel,
+    releaseLock,
+    stream: {
+      getReader: () => ({ cancel, read, releaseLock }),
+    } as unknown as ReadableStream<Uint8Array>,
+  };
 }

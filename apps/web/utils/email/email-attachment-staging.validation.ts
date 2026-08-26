@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { EMAIL_ATTACHMENT_LIMITS } from "@inboxzero/email-editor/core";
 import {
   durableAttachmentMetadataList,
   opaqueAttachmentStageId,
@@ -20,7 +21,7 @@ export const completeEmailAttachmentsBody = z.strictObject({
       }),
     )
     .min(1)
-    .max(10),
+    .max(EMAIL_ATTACHMENT_LIMITS.maxFiles),
 });
 
 export type StageEmailAttachmentsBody = z.infer<

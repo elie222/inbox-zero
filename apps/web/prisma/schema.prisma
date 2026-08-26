@@ -863,7 +863,7 @@ model EmailSendAttachmentStage {
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
-  @@unique([emailAccountId, mutationId, attachmentId])
+  @@unique([emailAccountId, mutationId, attachmentId], map: "EmailSendStage_account_mutation_attachment_key")
   @@index([emailAccountId, mutationId])
   @@index([status, expiresAt])
   @@index([status, updatedAt])

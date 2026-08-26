@@ -9,14 +9,12 @@ import {
   presignUrl,
   BlobNotFoundError,
 } from "@vercel/blob";
+import { z } from "zod";
 import {
   EmailSendAttachmentStageStatus,
   EmailSendOperationStatus,
 } from "@/generated/prisma/enums";
-import type {
-  EmailSendAttachmentStage,
-  Prisma,
-} from "@/generated/prisma/client";
+import type { EmailSendAttachmentStage } from "@/generated/prisma/client";
 import { env } from "@/env";
 import {
   DURABLE_EMAIL_PROCESSING_LEASE_MS,
@@ -46,6 +44,23 @@ const REPLAYABLE_STAGE_STATUSES = new Set<EmailSendAttachmentStageStatus>([
   EmailSendAttachmentStageStatus.DELETE_PENDING,
   EmailSendAttachmentStageStatus.DELETED,
 ]);
+const stageReservationResult = z.discriminatedUnion("outcome", [
+  z.object({
+    outcome: z.literal("reserved"),
+    operationIsTerminal: z.boolean(),
+    recoverPendingIds: z.array(z.string()),
+    stageIds: z.array(z.string()),
+  }),
+  z.object({
+    outcome: z.literal("cleanup_required"),
+    cleanupIds: z.array(z.string()),
+  }),
+  z.object({ outcome: z.literal("attachment_set_changed") }),
+  z.object({ outcome: z.literal("metadata_changed") }),
+  z.object({ outcome: z.literal("terminal_metadata_missing") }),
+  z.object({ outcome: z.literal("operation_processing") }),
+  z.object({ outcome: z.literal("quota_exceeded") }),
+]);
 
 type AttachmentMetadata = StageEmailAttachmentsBody["attachments"][number];
 type StageRow = EmailSendAttachmentStage;
@@ -58,7 +73,8 @@ export class EmailAttachmentStageConsumedError extends Error {}
 
 export function getEmailAttachmentDeliveryMode(): "direct" | "staged" {
   const hasBlobCredentials = Boolean(
-    env.BLOB_READ_WRITE_TOKEN || (env.VERCEL_OIDC_TOKEN && env.BLOB_STORE_ID),
+    env.BLOB_READ_WRITE_TOKEN ||
+      (env.BLOB_STORE_ID && process.env.VERCEL === "1"),
   );
   if (hasBlobCredentials) return "staged";
   if (process.env.VERCEL === "1") {
@@ -99,11 +115,7 @@ export async function stageEmailAttachments({
     );
   }
   const { operationIsTerminal, stagedRows } = reservation;
-  const existingPendingIds = new Set(
-    reservation.preexistingRows
-      .filter((row) => row.status === EmailSendAttachmentStageStatus.PENDING)
-      .map(({ id }) => id),
-  );
+  const existingPendingIds = new Set(reservation.recoverPendingIds);
 
   return {
     mode: "staged" as const,
@@ -155,187 +167,56 @@ async function reserveStageRows({
 }) {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
-      return await prisma.$transaction(
-        async (database) => {
-          let operation = await database.emailSendOperation.findUnique({
-            where: {
-              emailAccountId_clientMutationId: {
-                emailAccountId,
-                clientMutationId: input.mutationId,
-              },
-            },
-            select: {
-              id: true,
-              processingStartedAt: true,
-              providerStartedAt: true,
-              status: true,
-            },
-          });
-          if (
-            operation?.status === EmailSendOperationStatus.PROCESSING &&
-            operation.processingStartedAt <=
-              new Date(now.getTime() - DURABLE_EMAIL_PROCESSING_LEASE_MS)
-          ) {
-            if (operation.providerStartedAt === null) {
-              const released = await database.emailSendOperation.deleteMany({
-                where: {
-                  id: operation.id,
-                  status: EmailSendOperationStatus.PROCESSING,
-                  providerStartedAt: null,
-                },
-              });
-              if (released.count > 0) operation = null;
-            } else {
-              const uncertain = await database.emailSendOperation.updateMany({
-                where: {
-                  id: operation.id,
-                  status: EmailSendOperationStatus.PROCESSING,
-                  providerStartedAt: { not: null },
-                },
-                data: { status: EmailSendOperationStatus.UNCERTAIN },
-              });
-              if (uncertain.count > 0) {
-                operation = {
-                  ...operation,
-                  status: EmailSendOperationStatus.UNCERTAIN,
-                };
-              }
-            }
-          }
-          const operationIsTerminal =
-            operation?.status === EmailSendOperationStatus.SENT ||
-            operation?.status === EmailSendOperationStatus.UNCERTAIN;
-          const rows = await findStageRows(
-            database,
-            emailAccountId,
-            input.mutationId,
-          );
-          const rowsByAttachmentId = new Map(
-            rows.map((row) => [row.attachmentId, row]),
-          );
-          if (
-            rows.length > 0 &&
-            (rows.length !== input.attachments.length ||
-              input.attachments.some(
-                (attachment) => !rowsByAttachmentId.has(attachment.id),
-              ))
-          ) {
-            throw new EmailAttachmentStageConflictError(
-              "The attachment set changed for this queued email.",
-            );
-          }
-          for (const attachment of input.attachments) {
-            const existing = rowsByAttachmentId.get(attachment.id);
-            if (existing && !stageMetadataMatches(existing, attachment)) {
-              throw new EmailAttachmentStageConflictError(
-                "An attachment ID was reused with different metadata.",
-              );
-            }
-          }
-          if (
-            operationIsTerminal &&
-            input.attachments.some(
-              (attachment) => !rowsByAttachmentId.has(attachment.id),
-            )
-          ) {
-            throw new EmailAttachmentStageConflictError(
-              "The completed send no longer has attachment replay metadata.",
-            );
-          }
-
-          const cleanupRows = operationIsTerminal
-            ? []
-            : rows.filter(
-                (row) =>
-                  row.status ===
-                    EmailSendAttachmentStageStatus.DELETE_PENDING ||
-                  (row.status !== EmailSendAttachmentStageStatus.DELETED &&
-                    row.expiresAt <= now),
-              );
-          const additions = input.attachments.filter((attachment) => {
-            const existing = rowsByAttachmentId.get(attachment.id);
-            return (
-              !existing ||
-              (!operationIsTerminal &&
-                existing.status === EmailSendAttachmentStageStatus.DELETED)
-            );
-          });
-          if (
-            operation?.status === EmailSendOperationStatus.PROCESSING &&
-            (cleanupRows.length > 0 || additions.length > 0)
-          ) {
-            throw new EmailAttachmentStageConflictError(
-              "This email is already being prepared for sending.",
-            );
-          }
-          if (cleanupRows.length > 0) {
-            await database.emailSendAttachmentStage.updateMany({
-              where: { id: { in: cleanupRows.map(({ id }) => id) } },
-              data: { status: EmailSendAttachmentStageStatus.DELETE_PENDING },
-            });
-            return {
-              cleanupRows,
-              operationIsTerminal,
-              preexistingRows: rows,
-              stagedRows: [] as StageRow[],
-            };
-          }
-
-          await assertAccountStageCapacity(
-            database,
-            emailAccountId,
-            additions,
-            now,
-          );
-          const stagedRows: StageRow[] = [];
-          for (const attachment of input.attachments) {
-            const existing = rowsByAttachmentId.get(attachment.id);
-            if (
-              existing?.status === EmailSendAttachmentStageStatus.DELETED &&
-              !operationIsTerminal
-            ) {
-              stagedRows.push(
-                await database.emailSendAttachmentStage.update({
-                  where: { id: existing.id },
-                  data: {
-                    pathname: createStagePathname(),
-                    status: EmailSendAttachmentStageStatus.PENDING,
-                    etag: null,
-                    deletedAt: null,
-                    expiresAt: new Date(now.getTime() + STAGE_LIFETIME_MS),
-                  },
-                }),
-              );
-            } else if (existing) {
-              stagedRows.push(existing);
-            } else {
-              stagedRows.push(
-                await database.emailSendAttachmentStage.create({
-                  data: {
-                    emailAccountId,
-                    mutationId: input.mutationId,
-                    attachmentId: attachment.id,
-                    pathname: createStagePathname(),
-                    filename: attachment.filename,
-                    mimeType: attachment.mimeType,
-                    size: attachment.size,
-                    disposition: attachment.disposition,
-                    contentId: attachment.contentId,
-                    expiresAt: new Date(now.getTime() + STAGE_LIFETIME_MS),
-                  },
-                }),
-              );
-            }
-          }
+      const attachments = input.attachments.map((attachment) => ({
+        ...attachment,
+        pathname: createStagePathname(),
+        stageId: createStageId(),
+      }));
+      const [databaseResult] = await prisma.$queryRaw<
+        { reservation: unknown }[]
+      >`
+        SELECT "reserveEmailSendAttachmentStages"(
+          ${emailAccountId}::TEXT,
+          ${input.mutationId}::TEXT,
+          ${now}::TIMESTAMP(3),
+          ${new Date(now.getTime() - DURABLE_EMAIL_PROCESSING_LEASE_MS)}::TIMESTAMP(3),
+          ${new Date(now.getTime() + STAGE_LIFETIME_MS)}::TIMESTAMP(3),
+          ${JSON.stringify(attachments)}::JSONB,
+          ${MAX_LIVE_STAGES_PER_ACCOUNT}::INTEGER,
+          ${MAX_LIVE_STAGE_BYTES_PER_ACCOUNT}::BIGINT
+        ) AS reservation
+      `;
+      const reservation = parseStageReservation(databaseResult?.reservation);
+      if (reservation.outcome !== "reserved") {
+        if (reservation.outcome === "cleanup_required") {
+          const cleanupIds = new Set(reservation.cleanupIds);
+          const cleanupRows = (
+            await findStageRows(emailAccountId, input.mutationId)
+          ).filter((row) => cleanupIds.has(row.id));
           return {
             cleanupRows,
-            operationIsTerminal,
-            preexistingRows: rows,
-            stagedRows,
+            operationIsTerminal: false,
+            recoverPendingIds: [] as string[],
+            stagedRows: [] as StageRow[],
           };
-        },
-        { isolationLevel: "Serializable" },
-      );
+        }
+        throwStageReservationConflict(reservation.outcome);
+      }
+
+      const rows = await findStageRows(emailAccountId, input.mutationId);
+      const rowsById = new Map(rows.map((row) => [row.id, row]));
+      const stagedRows = reservation.stageIds.map((id) => rowsById.get(id));
+      if (stagedRows.some((row) => !row)) {
+        throw new EmailAttachmentStageConflictError(
+          "The attachment reservation changed unexpectedly.",
+        );
+      }
+      return {
+        cleanupRows: [] as StageRow[],
+        operationIsTerminal: reservation.operationIsTerminal,
+        recoverPendingIds: reservation.recoverPendingIds,
+        stagedRows: stagedRows as StageRow[],
+      };
     } catch (error) {
       if (attempt < 2 && isRetryableStageReservationError(error)) continue;
       throw error;
@@ -807,24 +688,26 @@ async function readExactBlobBytes(
       if (done) break;
       received += value.byteLength;
       if (received > expectedSize) {
+        await reader.cancel().catch(() => undefined);
         throw new EmailAttachmentStageInvalidError(
           "The staged attachment is larger than expected.",
         );
       }
       chunks.push(value);
     }
+    if (received !== expectedSize) {
+      await reader.cancel().catch(() => undefined);
+      throw new EmailAttachmentStageInvalidError(
+        "The staged attachment size changed.",
+      );
+    }
+    return Buffer.concat(
+      chunks.map((chunk) => Buffer.from(chunk)),
+      received,
+    );
   } finally {
     reader.releaseLock();
   }
-  if (received !== expectedSize) {
-    throw new EmailAttachmentStageInvalidError(
-      "The staged attachment size changed.",
-    );
-  }
-  return Buffer.concat(
-    chunks.map((chunk) => Buffer.from(chunk)),
-    received,
-  );
 }
 
 async function cleanupAppliedStages(rows: StageRow[]) {
@@ -887,38 +770,6 @@ async function createStageUploadUrl(row: StageRow, now: Date) {
   return { url: presignedUrl, expiresAt };
 }
 
-async function assertAccountStageCapacity(
-  database: Prisma.TransactionClient,
-  emailAccountId: string,
-  additions: AttachmentMetadata[],
-  now: Date,
-) {
-  if (additions.length === 0) return;
-  const live = await database.emailSendAttachmentStage.aggregate({
-    where: {
-      emailAccountId,
-      status: {
-        in: [
-          EmailSendAttachmentStageStatus.PENDING,
-          EmailSendAttachmentStageStatus.READY,
-        ],
-      },
-      expiresAt: { gt: now },
-    },
-    _count: { _all: true },
-    _sum: { size: true },
-  });
-  const addedBytes = additions.reduce((total, item) => total + item.size, 0);
-  if (
-    live._count._all + additions.length > MAX_LIVE_STAGES_PER_ACCOUNT ||
-    (live._sum.size ?? 0) + addedBytes > MAX_LIVE_STAGE_BYTES_PER_ACCOUNT
-  ) {
-    throw new EmailAttachmentStageConflictError(
-      "Too many attachments are waiting to send.",
-    );
-  }
-}
-
 function stageMetadataMatches(row: StageRow, metadata: AttachmentMetadata) {
   return (
     row.attachmentId === metadata.id &&
@@ -930,12 +781,8 @@ function stageMetadataMatches(row: StageRow, metadata: AttachmentMetadata) {
   );
 }
 
-function findStageRows(
-  database: Prisma.TransactionClient,
-  emailAccountId: string,
-  mutationId: string,
-) {
-  return database.emailSendAttachmentStage.findMany({
+function findStageRows(emailAccountId: string, mutationId: string) {
+  return prisma.emailSendAttachmentStage.findMany({
     where: { emailAccountId, mutationId },
     orderBy: { createdAt: "asc" },
   });
@@ -945,17 +792,61 @@ function createStagePathname() {
   return `mail-attachments/${randomUUID().replaceAll("-", "")}`;
 }
 
+function createStageId() {
+  return randomUUID().replaceAll("-", "");
+}
+
 function isRetryableStageReservationError(error: unknown) {
   if (typeof error !== "object" || error === null || !("code" in error)) {
     return false;
   }
-  return error.code === "P2002" || error.code === "P2034";
+  if (error.code === "P2002" || error.code === "P2034") return true;
+  if (error.code !== "P2010" || !("meta" in error)) return false;
+  const meta = error.meta;
+  if (typeof meta !== "object" || meta === null || !("code" in meta)) {
+    return false;
+  }
+  return meta.code === "23505" || meta.code === "40001";
+}
+
+function parseStageReservation(value: unknown) {
+  return stageReservationResult.parse(value);
+}
+
+function throwStageReservationConflict(
+  outcome: Exclude<
+    z.infer<typeof stageReservationResult>["outcome"],
+    "cleanup_required" | "reserved"
+  >,
+): never {
+  if (outcome === "attachment_set_changed") {
+    throw new EmailAttachmentStageConflictError(
+      "The attachment set changed for this queued email.",
+    );
+  }
+  if (outcome === "metadata_changed") {
+    throw new EmailAttachmentStageConflictError(
+      "An attachment ID was reused with different metadata.",
+    );
+  }
+  if (outcome === "terminal_metadata_missing") {
+    throw new EmailAttachmentStageConflictError(
+      "The completed send no longer has attachment replay metadata.",
+    );
+  }
+  if (outcome === "operation_processing") {
+    throw new EmailAttachmentStageConflictError(
+      "This email is already being prepared for sending.",
+    );
+  }
+  throw new EmailAttachmentStageConflictError(
+    "Too many attachments are waiting to send.",
+  );
 }
 
 function blobCommandOptions() {
   return {
     token: env.BLOB_READ_WRITE_TOKEN,
-    oidcToken: env.VERCEL_OIDC_TOKEN,
     storeId: env.BLOB_STORE_ID,
   };
 }
