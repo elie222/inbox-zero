@@ -3,7 +3,8 @@
 -- for the attachment-preparation phase.
 ALTER TABLE "EmailSendOperation" ADD COLUMN "providerStartedAt" TIMESTAMP(3);
 UPDATE "EmailSendOperation"
-SET "providerStartedAt" = "processingStartedAt";
+SET "providerStartedAt" = "processingStartedAt"
+WHERE "status" = 'PROCESSING';
 
 -- CreateEnum
 CREATE TYPE "EmailSendAttachmentStageStatus" AS ENUM ('PENDING', 'READY', 'DELETE_PENDING', 'DELETED');

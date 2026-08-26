@@ -22,6 +22,7 @@ import {
 } from "@/utils/email/durable-email-send";
 import type { EmailProvider } from "@/utils/email/types";
 import { MAIL_MUTATION_RETRY_WINDOW_MS } from "@/utils/email-cache/policy";
+import { mapWithConcurrency } from "@/utils/async";
 import prisma from "@/utils/prisma";
 import { sendEmailBody } from "@/utils/types/mail";
 import {
@@ -229,8 +230,7 @@ async function recoverCompletedPendingStage(row: StageRow) {
   let blob: Awaited<ReturnType<typeof head>>;
   try {
     blob = await head(row.pathname, blobCommandOptions());
-  } catch (error) {
-    if (error instanceof BlobNotFoundError) return null;
+  } catch {
     return null;
   }
   if (
@@ -261,25 +261,27 @@ export async function completeEmailAttachments({
   input: CompleteEmailAttachmentsBody;
   now?: Date;
 }) {
-  const operation = await prisma.emailSendOperation.findUnique({
-    where: {
-      emailAccountId_clientMutationId: {
-        emailAccountId,
-        clientMutationId: input.mutationId,
+  const [operation, rows] = await Promise.all([
+    prisma.emailSendOperation.findUnique({
+      where: {
+        emailAccountId_clientMutationId: {
+          emailAccountId,
+          clientMutationId: input.mutationId,
+        },
       },
-    },
-    select: { status: true },
-  });
+      select: { status: true },
+    }),
+    prisma.emailSendAttachmentStage.findMany({
+      where: {
+        emailAccountId,
+        mutationId: input.mutationId,
+        id: { in: input.attachments.map(({ stageId }) => stageId) },
+      },
+    }),
+  ]);
   const operationIsTerminal =
     operation?.status === EmailSendOperationStatus.SENT ||
     operation?.status === EmailSendOperationStatus.UNCERTAIN;
-  const rows = await prisma.emailSendAttachmentStage.findMany({
-    where: {
-      emailAccountId,
-      mutationId: input.mutationId,
-      id: { in: input.attachments.map(({ stageId }) => stageId) },
-    },
-  });
   const rowsById = new Map(rows.map((row) => [row.id, row]));
   const completed = await mapWithConcurrency(
     input.attachments,
@@ -789,7 +791,7 @@ function findStageRows(emailAccountId: string, mutationId: string) {
 }
 
 function createStagePathname() {
-  return `mail-attachments/${randomUUID().replaceAll("-", "")}`;
+  return `mail-attachments/${createStageId()}`;
 }
 
 function createStageId() {
@@ -849,25 +851,4 @@ function blobCommandOptions() {
     token: env.BLOB_READ_WRITE_TOKEN,
     storeId: env.BLOB_STORE_ID,
   };
-}
-
-async function mapWithConcurrency<Item, Result>(
-  items: readonly Item[],
-  concurrency: number,
-  task: (item: Item, index: number) => Promise<Result>,
-): Promise<Result[]> {
-  const results = new Array<Result>(items.length);
-  let nextIndex = 0;
-  const workers = Array.from(
-    { length: Math.min(concurrency, items.length) },
-    async () => {
-      while (nextIndex < items.length) {
-        const index = nextIndex;
-        nextIndex += 1;
-        results[index] = await task(items[index], index);
-      }
-    },
-  );
-  await Promise.all(workers);
-  return results;
 }
