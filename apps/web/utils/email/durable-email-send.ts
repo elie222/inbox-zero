@@ -68,11 +68,23 @@ export async function executeDurableEmailSend({
   }
   if (!existing.created) {
     const staleBefore = new Date(Date.now() - PROCESSING_LEASE_MS);
+    if (existing.providerStartedAt === null) {
+      await prisma.emailSendOperation.deleteMany({
+        where: {
+          id: existing.id,
+          status: EmailSendOperationStatus.PROCESSING,
+          processingStartedAt: { lte: staleBefore },
+          providerStartedAt: null,
+        },
+      });
+      return { status: "retry" as const };
+    }
     const stale = await prisma.emailSendOperation.updateMany({
       where: {
         id: existing.id,
         status: EmailSendOperationStatus.PROCESSING,
         processingStartedAt: { lte: staleBefore },
+        providerStartedAt: { not: null },
       },
       data: { status: EmailSendOperationStatus.UNCERTAIN },
     });
@@ -82,17 +94,21 @@ export async function executeDurableEmailSend({
   }
 
   let email = input.email;
-  if (prepareEmail) {
-    try {
+  try {
+    if (prepareEmail) {
       email = await prepareEmail();
-    } catch (error) {
-      await prisma.emailSendOperation.deleteMany({
-        where: { id: existing.id },
-      });
-      return error instanceof DurableEmailPreparationRejectedError
-        ? { status: "rejected" as const, error: error.message }
-        : { status: "retry" as const };
     }
+    await prisma.emailSendOperation.update({
+      where: { id: existing.id },
+      data: { providerStartedAt: new Date() },
+    });
+  } catch (error) {
+    await prisma.emailSendOperation.deleteMany({
+      where: { id: existing.id },
+    });
+    return error instanceof DurableEmailPreparationRejectedError
+      ? { status: "rejected" as const, error: error.message }
+      : { status: "retry" as const };
   }
 
   try {
