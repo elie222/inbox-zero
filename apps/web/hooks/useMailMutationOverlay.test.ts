@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { MailMutation } from "@/utils/email-cache/mail-mutations";
 import type { ParsedMessage } from "@/utils/types";
-import { applyMailMutationOverlayToThreads } from "./use-mail-mutation-overlay";
+import { applyMailMutationOverlayToThreads } from "./useMailMutationOverlay";
 
 describe("applyMailMutationOverlayToThreads", () => {
   it("uses account and thread identity when provider ids collide", () => {

@@ -448,10 +448,10 @@ export class GmailProvider implements EmailProvider {
     }
   }
 
-  async archiveMessages(messageIds: string[]): Promise<void> {
+  async archiveMessages(messageIds: string[], labelId?: string): Promise<void> {
     for (const messageIdsChunk of chunk([...new Set(messageIds)], 1000)) {
       if (messageIdsChunk.length)
-        await this.archiveMessagesBulk(messageIdsChunk);
+        await this.archiveMessagesBulk(messageIdsChunk, labelId);
     }
   }
 
@@ -511,7 +511,10 @@ export class GmailProvider implements EmailProvider {
     }
   }
 
-  private async archiveMessagesBulk(messageIds: string[]): Promise<void> {
+  private async archiveMessagesBulk(
+    messageIds: string[],
+    labelId?: string,
+  ): Promise<void> {
     const log = this.logger.with({
       action: "archiveMessagesBulk",
       messageIds: messageIds,
@@ -522,6 +525,7 @@ export class GmailProvider implements EmailProvider {
         userId: "me",
         requestBody: {
           ids: messageIds,
+          ...(labelId ? { addLabelIds: [labelId] } : {}),
           removeLabelIds: [GmailLabel.INBOX],
         },
       });

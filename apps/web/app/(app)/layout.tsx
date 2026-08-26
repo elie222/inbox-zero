@@ -17,7 +17,6 @@ import { ErrorMessages } from "@/app/(app)/ErrorMessages";
 import { MailboxSyncManager } from "@/app/(app)/MailboxSyncManager";
 import { MailMutationOutboxManager } from "@/app/(app)/MailMutationOutboxManager";
 import { ProviderRateLimitBanner } from "@/app/(app)/ProviderRateLimitBanner";
-import { QueueInitializer } from "@/store/QueueInitializer";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { EmailViewer } from "@/components/EmailViewer";
 import { AnnouncementDialog } from "@/components/feature-announcements/AnnouncementDialog";
@@ -105,7 +104,6 @@ export default async function AppLayout({
             <PostHogIdentify />
 
             <CommandK />
-            <QueueInitializer />
             <AssessUser />
             <SentryIdentify email={session.user.email} />
           </ErrorBoundary>

@@ -1986,7 +1986,10 @@ export class OutlookProvider implements EmailProvider {
     }
   }
 
-  async archiveMessages(messageIds: string[]): Promise<void> {
+  async archiveMessages(
+    messageIds: string[],
+    _labelId?: string,
+  ): Promise<void> {
     await this.moveMessageSnapshots(messageIds, "archive");
   }
 

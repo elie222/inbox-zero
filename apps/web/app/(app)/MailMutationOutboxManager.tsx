@@ -14,15 +14,21 @@ import { isExpiredUnsyncedSnooze } from "@/utils/email-cache/mail-mutation-polic
 import { settleMailMutationInCache } from "@/utils/email-cache/mail-mutation-settlement";
 import {
   blockMailMutationForAuth,
+  claimNextMailMutationSyncGroup,
   claimNextMailMutationNotification,
   claimNextMailMutation,
   completeMailMutation,
+  completeMailMutationSyncGroup,
   failMailMutation,
   getNextMailMutationWakeAt,
+  markMailMutationAwaitingSync,
   type MailMutation,
+  type MailMutationSyncGroup,
   renewMailMutationLease,
+  renewMailMutationSyncGroupLease,
   resumeBlockedMailMutations,
   retryMailMutation,
+  retryMailMutationSyncGroup,
   subscribeToMailMutations,
 } from "@/utils/email-cache/mail-mutations";
 
@@ -33,17 +39,20 @@ const MAX_CONCURRENCY = 2;
 
 export function MailMutationOutboxManager() {
   useEffect(() => {
+    removeLegacyMailActionQueue();
     const ownerId = crypto.randomUUID();
     let active = 0;
+    let activeSyncs = 0;
     let stopped = false;
     let drainScheduled = false;
+    let syncDrainScheduled = false;
     let wakeTimer: ReturnType<typeof setTimeout> | undefined;
 
     const scheduleWake = async () => {
       const wakeAt = await getNextMailMutationWakeAt();
       if (stopped || wakeAt === undefined) return;
       if (wakeTimer) clearTimeout(wakeTimer);
-      wakeTimer = setTimeout(drain, Math.max(0, wakeAt - Date.now()));
+      wakeTimer = setTimeout(drainAll, Math.max(0, wakeAt - Date.now()));
     };
 
     const drain = () => {
@@ -72,10 +81,38 @@ export function MailMutationOutboxManager() {
         }
       });
     };
+    const drainSyncGroups = () => {
+      if (stopped || syncDrainScheduled || !navigator.onLine) return;
+      syncDrainScheduled = true;
+      queueMicrotask(async () => {
+        syncDrainScheduled = false;
+        while (!stopped && activeSyncs < MAX_CONCURRENCY && navigator.onLine) {
+          const group = await claimNextMailMutationSyncGroup({
+            leaseMs: LEASE_MS,
+            ownerId,
+          });
+          if (!group) {
+            scheduleWake().catch(() => {});
+            break;
+          }
+          activeSyncs += 1;
+          reconcileSyncGroupWithLeaseHeartbeat(group, ownerId)
+            .catch(() => retrySyncGroup(group, ownerId))
+            .finally(() => {
+              activeSyncs -= 1;
+              drainSyncGroups();
+            });
+        }
+      });
+    };
+    const drainAll = () => {
+      drain();
+      drainSyncGroups();
+    };
     const resumeAndDrain = () => {
       resumeBlockedMailMutations()
         .catch(() => {})
-        .finally(drain);
+        .finally(drainAll);
     };
     const onVisibility = () => {
       if (document.visibilityState === "visible") resumeAndDrain();
@@ -95,14 +132,14 @@ export function MailMutationOutboxManager() {
     };
     const onMutationChange = () => {
       if (wakeTimer) clearTimeout(wakeTimer);
-      drain();
+      drainAll();
       surfaceNotifications().catch(() => {});
     };
     const unsubscribe = subscribeToMailMutations(onMutationChange);
     window.addEventListener("online", resumeAndDrain);
     window.addEventListener("focus", resumeAndDrain);
     document.addEventListener("visibilitychange", onVisibility);
-    drain();
+    drainAll();
     surfaceNotifications().catch(() => {});
 
     return () => {
@@ -168,13 +205,7 @@ async function processMutation(mutation: MailMutation, ownerId: string) {
       if (!isSnoozeReconciliation(result)) {
         await settleMailMutationInCache(mutation);
       }
-      try {
-        await syncMailboxNow(mutation.emailAccountId);
-      } catch {
-        await retryMutation(mutation, "Mailbox reconciliation failed", ownerId);
-        return;
-      }
-      await completeMailMutation(
+      await markMailMutationAwaitingSync(
         mutation.id,
         "result" in result ? result.result : undefined,
         ownerId,
@@ -205,6 +236,40 @@ async function processMutation(mutation: MailMutation, ownerId: string) {
         ownerId,
       );
   }
+}
+
+async function reconcileSyncGroupWithLeaseHeartbeat(
+  group: MailMutationSyncGroup,
+  ownerId: string,
+) {
+  const heartbeat = setInterval(() => {
+    renewMailMutationSyncGroupLease(group, {
+      leaseMs: LEASE_MS,
+      ownerId,
+    }).catch(() => {});
+  }, LEASE_MS / 2);
+  try {
+    await syncMailboxNow(group.emailAccountId);
+    await completeMailMutationSyncGroup(group, ownerId);
+  } finally {
+    clearInterval(heartbeat);
+  }
+}
+
+async function retrySyncGroup(group: MailMutationSyncGroup, ownerId: string) {
+  const syncAttempts = Math.max(
+    1,
+    ...group.mutations.map((mutation) => mutation.syncAttempts ?? 0),
+  );
+  const delay = Math.min(1000 * 2 ** Math.max(0, syncAttempts - 1), 60_000);
+  await retryMailMutationSyncGroup(
+    group,
+    {
+      error: "Mailbox reconciliation failed",
+      nextAttemptAt: Date.now() + delay,
+    },
+    ownerId,
+  );
 }
 
 async function executeMutationRequest(mutation: MailMutation) {
@@ -310,6 +375,8 @@ function toActionInput(mutation: MailMutation): ExecuteMailMutationBody {
     messageIds: mutation.messageIds,
   };
   switch (mutation.kind) {
+    case "archive":
+      return { ...base, kind: mutation.kind, labelId: mutation.labelId };
     case "set_read_state":
       return { ...base, kind: mutation.kind, read: mutation.read };
     case "snooze":
@@ -365,4 +432,11 @@ async function withRequestTimeout<T>(request: Promise<T>) {
   } finally {
     if (timer) clearTimeout(timer);
   }
+}
+
+function removeLegacyMailActionQueue() {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem("gmailActionQueue");
+  } catch {}
 }

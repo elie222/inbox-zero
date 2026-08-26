@@ -92,7 +92,7 @@ export type BulkArchiveResult = {
 
 export interface EmailProvider {
   archiveMessage(messageId: string): Promise<void>;
-  archiveMessages(messageIds: string[]): Promise<void>;
+  archiveMessages(messageIds: string[], labelId?: string): Promise<void>;
   archiveThread(threadId: string, ownerEmail: string): Promise<void>;
   archiveThreadWithLabel(
     threadId: string,

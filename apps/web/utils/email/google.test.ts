@@ -120,6 +120,23 @@ describe("GmailProvider.bulkArchiveThreads", () => {
 });
 
 describe("GmailProvider snapshot mutations", () => {
+  it("adds an archive label in the same Gmail batch modification", async () => {
+    const batchModify = vi.fn().mockResolvedValue({ data: {} });
+    const provider = new GmailProvider(createGmailClient({ batchModify }));
+
+    await provider.archiveMessages(["one", "two"], "label-id");
+
+    expect(batchModify).toHaveBeenCalledOnce();
+    expect(batchModify).toHaveBeenCalledWith({
+      userId: "me",
+      requestBody: {
+        ids: ["one", "two"],
+        addLabelIds: ["label-id"],
+        removeLabelIds: [GmailLabel.INBOX],
+      },
+    });
+  });
+
   it("deduplicates and chunks archived message IDs", async () => {
     const batchModify = vi.fn().mockResolvedValue({ data: {} });
     const provider = new GmailProvider(createGmailClient({ batchModify }));

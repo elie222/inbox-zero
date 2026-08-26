@@ -217,6 +217,20 @@ describe("OutlookProvider snapshot mutations", () => {
     expect(patch).toHaveBeenCalledWith({ isRead: false });
   });
 
+  it("archives captured messages when an optional provider label is supplied", async () => {
+    const post = vi.fn().mockResolvedValue({});
+    const api = vi.fn(() => ({ post }));
+    const provider = new OutlookProvider(
+      { getClient: () => ({ api }) } as never,
+      createTestLogger(),
+    );
+
+    await provider.archiveMessages(["message"], "google-only-label");
+
+    expect(api).toHaveBeenCalledWith("/me/messages/message/move");
+    expect(post).toHaveBeenCalledWith({ destinationId: "archive" });
+  });
+
   it("treats missing snapshot messages as already applied", async () => {
     const post = vi
       .fn()

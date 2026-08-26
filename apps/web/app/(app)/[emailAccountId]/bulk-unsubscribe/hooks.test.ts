@@ -12,6 +12,8 @@ const {
   decrementCreditMock,
   queueArchiveSendersMock,
   addToArchiveSenderThreadQueueMock,
+  enqueueThreadMailMutationBatchMock,
+  fetchAllSenderThreadsMock,
   toastErrorMock,
   captureExceptionMock,
 } = vi.hoisted(() => ({
@@ -20,6 +22,8 @@ const {
   decrementCreditMock: vi.fn(),
   queueArchiveSendersMock: vi.fn(),
   addToArchiveSenderThreadQueueMock: vi.fn(),
+  enqueueThreadMailMutationBatchMock: vi.fn(),
+  fetchAllSenderThreadsMock: vi.fn(),
   toastErrorMock: vi.fn(),
   captureExceptionMock: vi.fn(),
 }));
@@ -40,7 +44,13 @@ vi.mock("@/store/archive-sender-queue", () => ({
   }),
 }));
 
-vi.mock("@/store/archive-queue", () => ({ deleteEmails: vi.fn() }));
+vi.mock("@/store/fetch-sender-threads", () => ({
+  fetchAllSenderThreads: fetchAllSenderThreadsMock,
+}));
+
+vi.mock("@/utils/email-cache/thread-mail-mutations", () => ({
+  enqueueThreadMailMutationBatch: enqueueThreadMailMutationBatchMock,
+}));
 
 vi.mock("@/utils/actions/mail-bulk-action", () => ({
   bulkArchiveAction: vi.fn(),
@@ -54,8 +64,6 @@ vi.mock("@/hooks/useProductAnalytics", () => ({
 vi.mock("next-safe-action/hooks", () => ({
   useAction: () => ({ executeAsync: vi.fn(), isExecuting: false }),
 }));
-
-vi.mock("@/utils/fetch", () => ({ fetchWithAccount: vi.fn() }));
 
 vi.mock("@/utils/error", async (importOriginal) => {
   const original = await importOriginal<typeof import("@/utils/error")>();
@@ -81,6 +89,7 @@ import {
   useAutoArchive,
   useBulkAutoArchive,
   useBulkUnsubscribe,
+  useDeleteAllFromSender,
   useUnsubscribe,
 } from "./hooks";
 
@@ -108,6 +117,65 @@ describe("bulk unsubscribe hooks", () => {
     decrementCreditMock.mockResolvedValue(undefined);
     queueArchiveSendersMock.mockResolvedValue(1);
     addToArchiveSenderThreadQueueMock.mockResolvedValue(undefined);
+    enqueueThreadMailMutationBatchMock.mockResolvedValue({
+      batchId: "batch",
+      mutations: [],
+    });
+    fetchAllSenderThreadsMock.mockResolvedValue({ threads: [] });
+  });
+
+  describe("useDeleteAllFromSender", () => {
+    it("queues every exact sender thread snapshot before clearing loading", async () => {
+      const threads = [
+        { id: "thread-1", messages: [{ id: "message-1" }] },
+        { id: "thread-2", messages: [{ id: "message-2" }] },
+      ];
+      fetchAllSenderThreadsMock.mockResolvedValue({ threads });
+      const posthog = { capture: vi.fn() };
+      const { result } = renderHook(() =>
+        useDeleteAllFromSender({
+          item: getRow(),
+          posthog: posthog as never,
+          emailAccountId: EMAIL_ACCOUNT_ID,
+        }),
+      );
+
+      await act(async () => result.current.onDeleteAll());
+
+      expect(fetchAllSenderThreadsMock).toHaveBeenCalledWith({
+        sender: SENDER,
+        emailAccountId: EMAIL_ACCOUNT_ID,
+      });
+      expect(enqueueThreadMailMutationBatchMock).toHaveBeenCalledWith({
+        emailAccountId: EMAIL_ACCOUNT_ID,
+        payload: { kind: "trash" },
+        threads,
+      });
+      expect(result.current.deleteAllLoading).toBe(false);
+    });
+
+    it("handles durable storage rejection and still clears loading", async () => {
+      fetchAllSenderThreadsMock.mockResolvedValue({
+        threads: [{ id: "thread-1", messages: [{ id: "message-1" }] }],
+      });
+      enqueueThreadMailMutationBatchMock.mockRejectedValue(
+        new Error("storage unavailable"),
+      );
+      const { result } = renderHook(() =>
+        useDeleteAllFromSender({
+          item: getRow(),
+          posthog: { capture: vi.fn() } as never,
+          emailAccountId: EMAIL_ACCOUNT_ID,
+        }),
+      );
+
+      await act(async () => result.current.onDeleteAll());
+
+      expect(result.current.deleteAllLoading).toBe(false);
+      expect(captureExceptionMock).toHaveBeenCalledWith(
+        expect.objectContaining({ message: "storage unavailable" }),
+      );
+    });
   });
 
   describe("useAutoArchive", () => {
