@@ -1,8 +1,13 @@
+import { Buffer } from "node:buffer";
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { withEmailProvider } from "@/utils/middleware";
-import { sendEmailBody } from "@/utils/types/mail";
+import { EMAIL_SEND_LIMITS, sendEmailBody } from "@/utils/types/mail";
 import { executeDurableEmailSend } from "@/utils/email/durable-email-send";
-import { durableEmailSendBody } from "@/utils/email/durable-email-send.validation";
+import {
+  durableEmailSendBody,
+  durableMultipartEmailSendPayload,
+} from "@/utils/email/durable-email-send.validation";
 
 export type SendMessageResponse = {
   success: true;
@@ -16,11 +21,23 @@ export type DurableSendMessageResponse = Awaited<
 
 /**
  * REST equivalent of `sendEmailAction` for clients that cannot call server
- * actions (e.g. the mobile app). Accepts the same `sendEmailBody` payload:
- * pass `replyToEmail` (threadId + headerMessageId + references) to reply on
- * an existing thread, or omit it to send a new email.
+ * actions. JSON requests accept either `sendEmailBody` or its durable envelope.
+ * Durable clients can instead send multipart attachment bytes alongside a
+ * content-free envelope in the `payload` field.
  */
 export const POST = withEmailProvider("messages/send", async (request) => {
+  if (isMultipartRequest(request)) {
+    validateMultipartContentLength(request.headers.get("content-length"));
+    const input = await parseDurableMultipartRequest(request);
+    const result = await executeDurableEmailSend({
+      emailAccountId: request.auth.emailAccountId,
+      getEmailProvider: async () => request.emailProvider,
+      input,
+      provider: request.emailProvider.name,
+    });
+    return NextResponse.json(result);
+  }
+
   const json: unknown = await request.json();
   if (isDurableSend(json)) {
     const input = durableEmailSendBody.parse(json);
@@ -57,4 +74,118 @@ export const POST = withEmailProvider("messages/send", async (request) => {
 
 function isDurableSend(value: unknown): value is { mutationId: unknown } {
   return typeof value === "object" && value !== null && "mutationId" in value;
+}
+
+function isMultipartRequest(request: Request) {
+  return (
+    request.headers
+      .get("content-type")
+      ?.split(";", 1)[0]
+      ?.trim()
+      .toLowerCase() === "multipart/form-data"
+  );
+}
+
+function validateMultipartContentLength(value: string | null) {
+  if (value === null) return;
+  const contentLength = z
+    .string()
+    .regex(/^\d+$/)
+    .transform(Number)
+    .refine(Number.isSafeInteger)
+    .parse(value);
+  validateMultipartRequestSize(contentLength);
+}
+
+async function parseDurableMultipartRequest(request: Request) {
+  const formData = await readBoundedMultipartFormData(request);
+  z.array(z.enum(["payload", "attachment"])).parse([...formData.keys()]);
+
+  const [payload] = z.tuple([z.string()]).parse(formData.getAll("payload"));
+  const input = durableMultipartEmailSendPayload.parse(payload);
+  const files = z
+    .array(z.instanceof(File))
+    .parse(formData.getAll("attachment"));
+  const metadata = input.email.attachments ?? [];
+
+  z.number()
+    .refine((count) => count === metadata.length)
+    .parse(files.length);
+  for (const [index, file] of files.entries()) {
+    const attachment = metadata[index];
+    z.object({
+      filename: z.literal(attachment.filename),
+      mimeType: z.literal(attachment.mimeType.toLowerCase()),
+      size: z.literal(attachment.size),
+    }).parse({
+      filename: file.name,
+      mimeType: file.type.toLowerCase(),
+      size: file.size,
+    });
+  }
+
+  const estimatedSerializedBytes =
+    new TextEncoder().encode(payload).byteLength +
+    metadata.reduce(
+      (total, attachment) => total + 4 * Math.ceil(attachment.size / 3),
+      0,
+    );
+  z.number()
+    .max(EMAIL_SEND_LIMITS.maxSerializedPayloadBytes)
+    .parse(estimatedSerializedBytes);
+
+  const attachments = await Promise.all(
+    metadata.map(async ({ mimeType, ...attachment }, index) => ({
+      ...attachment,
+      content: Buffer.from(await files[index].arrayBuffer()).toString("base64"),
+      contentType: mimeType,
+    })),
+  );
+
+  return durableEmailSendBody.parse({
+    ...input,
+    email: {
+      ...input.email,
+      attachments:
+        input.email.attachments === undefined ? undefined : attachments,
+    },
+  });
+}
+
+async function readBoundedMultipartFormData(request: Request) {
+  const reader = z
+    .custom<ReadableStreamDefaultReader<Uint8Array>>((value) => Boolean(value))
+    .parse(request.body?.getReader());
+
+  const chunks: Uint8Array[] = [];
+  let receivedBytes = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      receivedBytes += value.byteLength;
+      if (receivedBytes > EMAIL_SEND_LIMITS.maxSerializedPayloadBytes) {
+        validateMultipartRequestSize(receivedBytes);
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const contentType = z.string().parse(request.headers.get("content-type"));
+  const multipartResponse = new Response(new Blob(chunks), {
+    headers: { "content-type": contentType },
+  });
+  const formData = await multipartResponse.formData().catch(() => null);
+  return z.instanceof(FormData).parse(formData);
+}
+
+function validateMultipartRequestSize(length: number) {
+  z.number()
+    .refine(
+      (value) => value <= EMAIL_SEND_LIMITS.maxSerializedPayloadBytes,
+      "The multipart request is too large.",
+    )
+    .parse(length);
 }
