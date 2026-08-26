@@ -74,12 +74,19 @@ async function fetchMicrosoftCalendarBusyPeriods({
           nextLink = response["@odata.nextLink"];
         } while (nextLink);
       } catch (calendarError) {
-        logger.error("Error fetching calendar events", {
-          calendarId,
-          error: calendarError,
-        });
+        const calendarIsMissing = isMissingCalendarError(calendarError);
+        if (calendarIsMissing) {
+          logger.warn("Skipping unavailable Microsoft calendar", {
+            calendarIdIsPrimary: calendarId === "primary",
+          });
+        } else {
+          logger.error("Error fetching calendar events", {
+            calendarId,
+            error: calendarError,
+          });
+        }
 
-        if (failOnCalendarError) throw calendarError;
+        if (failOnCalendarError && !calendarIsMissing) throw calendarError;
       }
     }
 
@@ -124,4 +131,13 @@ export function createMicrosoftAvailabilityProvider(
       });
     },
   };
+}
+
+function isMissingCalendarError(error: unknown) {
+  if (typeof error !== "object" || error === null) return false;
+
+  const graphError = error as { code?: unknown; statusCode?: unknown };
+  return (
+    graphError.statusCode === 404 || graphError.code === "ErrorItemNotFound"
+  );
 }
