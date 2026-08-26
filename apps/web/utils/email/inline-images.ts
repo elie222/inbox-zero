@@ -16,14 +16,11 @@ export function rewriteInlineImageSources(
   html: string,
   sourceByContentId: Record<string, string>,
 ): string {
-  const normalizedSources = new Map(
-    Object.entries(sourceByContentId).flatMap(([contentId, source]) => {
-      const normalizedContentId = normalizeContentId(contentId);
-      return normalizedContentId
-        ? ([[normalizedContentId, source]] as const)
-        : [];
-    }),
-  );
+  const normalizedSources = new Map<string, string>();
+  for (const [contentId, source] of Object.entries(sourceByContentId)) {
+    const normalizedContentId = normalizeContentId(contentId);
+    if (normalizedContentId) normalizedSources.set(normalizedContentId, source);
+  }
   if (!normalizedSources.size) return html;
 
   const isDocument = DOCUMENT_PATTERN.test(html);

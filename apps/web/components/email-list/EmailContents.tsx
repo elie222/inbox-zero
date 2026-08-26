@@ -337,15 +337,18 @@ async function loadInlineImageSources({
   html: string;
   inlineAttachments: ParsedMessage["inline"];
   messageId: string;
-}) {
+}): Promise<Record<string, string>> {
   if (!emailAccountId || !inlineAttachments.length) return {};
 
-  const attachmentByContentId = new Map(
-    inlineAttachments.flatMap((attachment) => {
-      const contentId = normalizeContentId(attachment.headers["content-id"]);
-      return contentId ? [[contentId, attachment] as const] : [];
-    }),
-  );
+  const attachmentByContentId = new Map<
+    string,
+    ParsedMessage["inline"][number]
+  >();
+  for (const attachment of inlineAttachments) {
+    const contentId = normalizeContentId(attachment.headers["content-id"]);
+    if (contentId) attachmentByContentId.set(contentId, attachment);
+  }
+
   const entries = await Promise.all(
     getInlineImageContentIds(html).map(async (contentId) => {
       const attachment = attachmentByContentId.get(contentId);

@@ -35,7 +35,7 @@ describe("parseMessage", () => {
       mimeType: "image/png",
       size: 100_000,
     };
-    const document = {
+    const pdfAttachment = {
       attachmentId: "document",
       filename: "report.pdf",
       headers: {
@@ -50,7 +50,7 @@ describe("parseMessage", () => {
     };
 
     const message = parseMessage({
-      attachments: [inlineImage, document],
+      attachments: [inlineImage, pdfAttachment],
       headers: { date: "", subject: "" },
       id: "message-1",
       inline: [],
@@ -58,7 +58,7 @@ describe("parseMessage", () => {
     } as never);
 
     expect(message.inline).toEqual([inlineImage]);
-    expect(message.attachments).toEqual([document]);
+    expect(message.attachments).toEqual([pdfAttachment]);
   });
 });
 
