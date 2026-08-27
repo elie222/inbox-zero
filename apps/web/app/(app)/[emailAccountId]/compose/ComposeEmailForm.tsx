@@ -655,6 +655,19 @@ function ComposeEmailFormContent({
                 isComposeWindow && "min-h-11 items-center border-b",
               )}
             >
+              {showCcBcc && (
+                <button
+                  aria-label="Hide Cc/Bcc"
+                  className={cn(
+                    "order-last mt-2 text-xs text-muted-foreground hover:text-foreground",
+                    isComposeWindow && "mt-0",
+                  )}
+                  onClick={() => setShowCcBcc(false)}
+                  type="button"
+                >
+                  Cc/Bcc
+                </button>
+              )}
               {isComposeWindow && <ComposeFieldLabel htmlFor="to" label="To" />}
               <div className="min-w-0 flex-1">
                 {env.NEXT_PUBLIC_CONTACTS_ENABLED ? (
@@ -808,17 +821,18 @@ function ComposeEmailFormContent({
                   />
                 )}
               </div>
-              <button
-                className={cn(
-                  "mt-2 text-xs text-muted-foreground hover:text-foreground",
-                  isComposeWindow && "mt-0",
-                )}
-                onClick={() => setShowCcBcc((visible) => !visible)}
-                tabIndex={showCcBcc ? -1 : undefined}
-                type="button"
-              >
-                Cc/Bcc
-              </button>
+              {!showCcBcc && (
+                <button
+                  className={cn(
+                    "mt-2 text-xs text-muted-foreground hover:text-foreground",
+                    isComposeWindow && "mt-0",
+                  )}
+                  onClick={() => setShowCcBcc(true)}
+                  type="button"
+                >
+                  Cc/Bcc
+                </button>
+              )}
             </div>
 
             {showCcBcc && (

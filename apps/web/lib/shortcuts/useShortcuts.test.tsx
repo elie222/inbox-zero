@@ -159,7 +159,7 @@ function renderShortcuts(
     <ShortcutsProvider scopes={scopes}>
       <Bindings handlers={handlers} />
       <textarea />
-      <div role="dialog">
+      <div aria-label="Test dialog" role="dialog">
         <button type="button">Dialog action</button>
       </div>
       {withEmailEditor && (
