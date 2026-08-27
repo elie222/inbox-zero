@@ -24,6 +24,7 @@ export type SplitTabsProps = {
   onDelete: (splitId: string) => void;
   newSplitOptions: NewSplitOption[];
   onCreateSplit: (draft: NewSplitDraft) => void;
+  onCreateSplitFromPrompt: (prompt: string) => Promise<boolean>;
   className?: string;
 };
 
@@ -34,6 +35,7 @@ export function SplitTabs({
   onDelete,
   newSplitOptions,
   onCreateSplit,
+  onCreateSplitFromPrompt,
   className,
 }: SplitTabsProps) {
   return (
@@ -81,7 +83,11 @@ export function SplitTabs({
         );
       })}
 
-      <NewSplitPopover options={newSplitOptions} onCreate={onCreateSplit} />
+      <NewSplitPopover
+        options={newSplitOptions}
+        onCreate={onCreateSplit}
+        onCreateFromPrompt={onCreateSplitFromPrompt}
+      />
 
       <div className="flex-1" />
       <Kbd title="Next split">{getShortcutHint("nextSplit")}</Kbd>
