@@ -24,6 +24,10 @@ import {
   getMeetingContext,
   formatMeetingContextForPrompt,
 } from "@/utils/meeting-briefs/recipient-context";
+import {
+  getRecordedMeetingContext,
+  formatRecordedMeetingContextForPrompt,
+} from "@/utils/meeting-recorder/reply-context";
 import { DraftReplyConfidence } from "@/generated/prisma/enums";
 import { meetsDraftReplyConfidenceRequirement } from "@/utils/ai/reply/draft-confidence";
 import type { DraftAttribution } from "@/utils/ai/reply/draft-attribution";
@@ -302,6 +306,12 @@ async function generateDraftContent(
           activeBookingLinks[0]?.minimumNoticeMinutes ?? undefined,
       }),
   );
+  // Other To/CC recipients, used for privacy filtering of meeting context:
+  // only meetings where ALL recipients were attendees are included.
+  const additionalRecipients = [
+    ...extractEmailAddresses(lastMessage.headers.to),
+    ...extractEmailAddresses(lastMessage.headers.cc ?? ""),
+  ].filter((email) => email.toLowerCase() !== emailAccount.email.toLowerCase());
   const [
     knowledgeResult,
     replyMemorySelection,
@@ -311,6 +321,7 @@ async function generateDraftContent(
     emailAccountSettings,
     mcpResult,
     upcomingMeetings,
+    recordedMeetings,
     emailHistorySummary,
     attachmentSelection,
     activeBookingLinks,
@@ -343,14 +354,13 @@ async function generateDraftContent(
     getMeetingContext({
       emailAccountId: emailAccount.id,
       recipientEmail: senderEmail,
-      // extract all other recipients (To, CC) for privacy filtering
-      // only meetings where ALL recipients were attendees will be included
-      additionalRecipients: [
-        ...extractEmailAddresses(lastMessage.headers.to),
-        ...extractEmailAddresses(lastMessage.headers.cc ?? ""),
-      ].filter(
-        (email) => email.toLowerCase() !== emailAccount.email.toLowerCase(),
-      ),
+      additionalRecipients,
+      logger,
+    }),
+    getRecordedMeetingContext({
+      emailAccountId: emailAccount.id,
+      recipientEmail: senderEmail,
+      additionalRecipients,
       logger,
     }),
     historicalMessagesForLLM?.length
@@ -377,6 +387,10 @@ async function generateDraftContent(
   } = replyMemorySelection;
   const meetingContext = formatMeetingContextForPrompt(
     upcomingMeetings,
+    emailAccount.timezone,
+  );
+  const recordedMeetingContext = formatRecordedMeetingContextForPrompt(
+    recordedMeetings,
     emailAccount.timezone,
   );
   const precedentThreadCount = emailHistoryContext?.relevantEmails.length ?? 0;
@@ -407,6 +421,10 @@ async function generateDraftContent(
     writingStyle: { custom: !!writingStyle },
     externalTools: { injected: !!mcpResult?.response },
     meetings: { injected: !!meetingContext, count: upcomingMeetings.length },
+    recordedMeetings: {
+      injected: !!recordedMeetingContext,
+      count: recordedMeetings.length,
+    },
     attachments: {
       injected: !!attachmentSelection.attachmentContext,
       selectedCount: attachmentSelection.selectedAttachments.length,
@@ -441,6 +459,7 @@ async function generateDraftContent(
     hasConfiguredSignature: !!emailAccountSettings?.signature?.trim(),
     mcpContext: mcpResult?.response || null,
     meetingContext,
+    recordedMeetingContext,
     attachmentContext: attachmentSelection.attachmentContext,
   });
 

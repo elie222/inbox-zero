@@ -86,6 +86,7 @@ const getUserPrompt = ({
   learnedWritingStyle,
   mcpContext,
   meetingContext,
+  recordedMeetingContext,
   attachmentContext,
   hasConfiguredSignature,
   currentDate,
@@ -102,6 +103,7 @@ const getUserPrompt = ({
   learnedWritingStyle: string | null;
   mcpContext: string | null;
   meetingContext: string | null;
+  recordedMeetingContext: string | null;
   attachmentContext: string | null;
   hasConfiguredSignature: boolean;
   currentDate?: Date;
@@ -209,12 +211,14 @@ ${mcpContext}
     !emailHistoryContext?.relevantEmails.length &&
     !mcpContext &&
     !meetingContext &&
+    !recordedMeetingContext &&
     !attachmentContext
       ? `No additional factual context was provided beyond the email thread.
 `
       : "";
 
   const upcomingMeetingsContext = meetingContext || "";
+  const recordedMeetingsContext = recordedMeetingContext || "";
   const selectedAttachments = attachmentContext
     ? `Selected PDF attachments that will be included with this draft:
 
@@ -243,6 +247,7 @@ ${schedulingContext}
 ${mcpToolsContext}
 ${missingExternalContext}
 ${upcomingMeetingsContext}
+${recordedMeetingsContext}
 ${selectedAttachments}
 
 Here is the context of the email thread (from oldest to newest):
@@ -285,6 +290,7 @@ export async function aiDraftReplyWithConfidence({
   learnedWritingStyle = null,
   mcpContext,
   meetingContext,
+  recordedMeetingContext = null,
   attachmentContext = null,
   hasConfiguredSignature = false,
   currentDate,
@@ -301,6 +307,7 @@ export async function aiDraftReplyWithConfidence({
   learnedWritingStyle?: string | null;
   mcpContext: string | null;
   meetingContext: string | null;
+  recordedMeetingContext?: string | null;
   attachmentContext?: string | null;
   hasConfiguredSignature?: boolean;
   currentDate?: Date;
@@ -341,6 +348,7 @@ export async function aiDraftReplyWithConfidence({
     learnedWritingStyle: advisoryLearnedWritingStyle,
     mcpContext,
     meetingContext,
+    recordedMeetingContext,
     attachmentContext,
     hasConfiguredSignature,
     currentDate,
@@ -404,6 +412,7 @@ export async function aiDraftReply({
   learnedWritingStyle = null,
   mcpContext,
   meetingContext,
+  recordedMeetingContext = null,
   attachmentContext = null,
   hasConfiguredSignature = false,
   currentDate,
@@ -420,6 +429,7 @@ export async function aiDraftReply({
   learnedWritingStyle?: string | null;
   mcpContext: string | null;
   meetingContext: string | null;
+  recordedMeetingContext?: string | null;
   attachmentContext?: string | null;
   hasConfiguredSignature?: boolean;
   currentDate?: Date;
@@ -437,6 +447,7 @@ export async function aiDraftReply({
     learnedWritingStyle,
     mcpContext,
     meetingContext,
+    recordedMeetingContext,
     attachmentContext,
     hasConfiguredSignature,
     currentDate,
