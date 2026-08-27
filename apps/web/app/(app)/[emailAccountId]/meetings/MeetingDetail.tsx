@@ -122,6 +122,7 @@ export function MeetingDetail({
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
+                    type="button"
                     variant="ghost"
                     size="icon"
                     aria-label="Meeting options"
