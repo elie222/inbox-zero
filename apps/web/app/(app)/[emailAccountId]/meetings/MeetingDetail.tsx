@@ -118,7 +118,7 @@ export function MeetingDetail({
                 </DialogDescription>
               )}
             </div>
-            {data && (
+            {data?.recording && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
