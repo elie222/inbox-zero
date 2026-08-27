@@ -6,6 +6,7 @@ import { GroupItemType } from "@/generated/prisma/enums";
 import { env } from "@/env";
 import prisma from "@/utils/__mocks__/prisma";
 import { extractEmailAddress } from "@/utils/email";
+import { createGenerateObject } from "@/utils/llms";
 
 vi.mock("@/utils/prisma");
 
@@ -218,10 +219,12 @@ describe("isColdEmail", () => {
     });
 
     expect(result.isColdEmail).toBe(false);
+    expect(result.reason).toBe("applicationSender");
     expect(prisma.groupItem.findFirst).not.toHaveBeenCalled();
     expect(
       mockProvider.hasPreviousCommunicationsWithSenderOrDomain,
     ).not.toHaveBeenCalled();
+    expect(createGenerateObject).not.toHaveBeenCalled();
   });
 
   // Blocking a sender we could not verify is worse than missing a cold email.

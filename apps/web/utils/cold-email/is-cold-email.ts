@@ -22,6 +22,7 @@ export const COLD_EMAIL_FOLDER_NAME = "Cold Emails";
 
 type ColdEmailBlockerReason =
   | "hasPreviousEmail"
+  | "applicationSender"
   | "ai"
   | "ai-already-labeled"
   | "excluded";
@@ -60,7 +61,7 @@ export async function isColdEmail({
 
   if (isSameEmailAddress(email.from, env.RESEND_FROM_EMAIL)) {
     logger.info("Sender is the application notification sender");
-    return { isColdEmail: false, reason: "hasPreviousEmail" };
+    return { isColdEmail: false, reason: "applicationSender" };
   }
 
   // Nobody at your own company is a cold emailer. Checked here rather than only at the
