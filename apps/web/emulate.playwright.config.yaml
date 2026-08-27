@@ -2,6 +2,7 @@ google:
   users:
     - email: __PLAYWRIGHT_TEST_EMAIL__
       name: Smoke Test User
+      picture: "__PLAYWRIGHT_PROFILE_PICTURE__"
   oauth_clients:
     - client_id: client_id
       client_secret: client_secret
@@ -153,6 +154,24 @@ google:
         - INBOX
         - UNREAD
       internal_date: "1735038000000"
+    - id: msg_playwright_reader_visual_sent
+      thread_id: thr_playwright_reader_visual
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      from: __PLAYWRIGHT_TEST_EMAIL__
+      to: Morgan Example <morgan@example.com>
+      subject: Reader Visual Message
+      body_text: The earlier sent message keeps the conversation context visible.
+      label_ids:
+        - SENT
+      internal_date: "1734951600000"
+    - id: msg_playwright_reader_visual_received
+      thread_id: thr_playwright_reader_visual
+      user_email: __PLAYWRIGHT_TEST_EMAIL__
+      raw: "__PLAYWRIGHT_READER_VISUAL_RAW__"
+      label_ids:
+        - INBOX
+        - UNREAD
+      internal_date: "1734955200000"
     - id: msg_playwright_cleanup_block
       thread_id: thr_playwright_cleanup_block
       user_email: __PLAYWRIGHT_TEST_EMAIL__

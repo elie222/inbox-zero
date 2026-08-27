@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import Image from "next/image";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { DownloadIcon } from "lucide-react";
+import { DownloadIcon, ImageIcon } from "lucide-react";
 import type { ThreadMessage } from "@/components/email-list/types";
 import { CardBasic } from "@/components/ui/card";
 import { toastError } from "@/components/Toast";
@@ -46,7 +47,7 @@ export function EmailAttachments({ message }: { message: ThreadMessage }) {
   };
 
   return (
-    <div className="mt-4 grid grid-cols-2 gap-2 xl:grid-cols-3">
+    <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
       {message.attachments?.map((attachment) => {
         const url = getAttachmentUrl({
           messageId: message.id,
@@ -56,31 +57,99 @@ export function EmailAttachments({ message }: { message: ThreadMessage }) {
         });
 
         return (
-          <CardBasic key={attachment.attachmentId} className="p-4">
-            <div className="text-muted-foreground">{attachment.filename}</div>
-            <div className="mt-4 flex items-center justify-between">
-              <div className="text-muted-foreground">
-                {mimeTypeToString(attachment.mimeType)}
+          <CardBasic
+            key={attachment.attachmentId}
+            className="overflow-hidden p-0"
+          >
+            {attachment.mimeType.startsWith("image/") && emailAccountId ? (
+              <AttachmentImagePreview
+                key={`${emailAccountId}:${url}`}
+                emailAccountId={emailAccountId}
+                filename={attachment.filename}
+                url={url}
+              />
+            ) : null}
+            <div className="p-4">
+              <div className="truncate text-sm" title={attachment.filename}>
+                {attachment.filename}
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                type="button"
-                disabled={!emailAccountId || isDownloading}
-                onClick={() =>
-                  downloadAttachment({
-                    filename: attachment.filename,
-                    url,
-                  })
-                }
-              >
-                <DownloadIcon className="mr-2 h-4 w-4" />
-                Download
-              </Button>
+              <div className="mt-3 flex items-center justify-between gap-3">
+                <div className="text-muted-foreground">
+                  {mimeTypeToString(attachment.mimeType)}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  disabled={!emailAccountId || isDownloading}
+                  onClick={() =>
+                    downloadAttachment({
+                      filename: attachment.filename,
+                      url,
+                    })
+                  }
+                >
+                  <DownloadIcon className="mr-2 h-4 w-4" />
+                  Download
+                </Button>
+              </div>
             </div>
           </CardBasic>
         );
       })}
+    </div>
+  );
+}
+
+function AttachmentImagePreview({
+  emailAccountId,
+  filename,
+  url,
+}: {
+  emailAccountId: string;
+  filename: string;
+  url: string;
+}) {
+  const [previewUrl, setPreviewUrl] = useState<string>();
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    let objectUrl: string | undefined;
+
+    fetchAttachment({ url, emailAccountId }).then(
+      (blob) => {
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setPreviewUrl(objectUrl);
+      },
+      () => {
+        if (!cancelled) setFailed(true);
+      },
+    );
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [emailAccountId, url]);
+
+  return (
+    <div className="relative flex aspect-video items-center justify-center overflow-hidden border-border/60 border-b bg-muted/40">
+      {previewUrl ? (
+        <Image
+          fill
+          unoptimized
+          alt={filename}
+          className="object-contain"
+          sizes="(min-width: 1280px) 33vw, 50vw"
+          src={previewUrl}
+        />
+      ) : failed ? (
+        <ImageIcon className="size-8 text-muted-foreground/60" />
+      ) : (
+        <div className="size-full animate-pulse bg-muted" />
+      )}
     </div>
   );
 }

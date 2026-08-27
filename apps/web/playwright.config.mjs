@@ -160,6 +160,9 @@ function writeEmulateSeed({ baseURL, playwrightTestEmail, runId }) {
   const redirectUri = new URL("/api/auth/oauth2/callback/google", baseURL).href;
   const meetingStart = new Date(Date.now() + 2 * 60 * 60 * 1000);
   const meetingEnd = new Date(meetingStart.getTime() + 30 * 60 * 1000);
+  const profileImage = fs.readFileSync(
+    path.join(process.cwd(), "public/splash_screens/icon.png"),
+  );
 
   fs.mkdirSync(outputDir, { recursive: true });
 
@@ -168,11 +171,55 @@ function writeEmulateSeed({ baseURL, playwrightTestEmail, runId }) {
     .replaceAll("__PLAYWRIGHT_TEST_EMAIL__", playwrightTestEmail)
     .replaceAll("__PLAYWRIGHT_TEST_REDIRECT_URI__", redirectUri)
     .replaceAll("__PLAYWRIGHT_MEETING_START__", meetingStart.toISOString())
-    .replaceAll("__PLAYWRIGHT_MEETING_END__", meetingEnd.toISOString());
+    .replaceAll("__PLAYWRIGHT_MEETING_END__", meetingEnd.toISOString())
+    .replaceAll(
+      "__PLAYWRIGHT_PROFILE_PICTURE__",
+      `data:image/png;base64,${profileImage.toString("base64")}`,
+    )
+    .replaceAll(
+      "__PLAYWRIGHT_READER_VISUAL_RAW__",
+      createReaderVisualMessage({
+        attachment: profileImage,
+        recipient: playwrightTestEmail,
+      }),
+    );
 
   fs.writeFileSync(outputPath, seed);
 
   return outputPath;
+}
+
+function createReaderVisualMessage({ attachment, recipient }) {
+  const boundary = "playwright-reader-visual-boundary";
+  const html = [
+    "<div><p>The current reply stays concise and easy to scan.</p>",
+    "<p>The attached image should appear as a preview below.</p></div>",
+    '<div id="divRplyFwdMsg"><hr><div><b>From:</b> Previous sender</div></div>',
+    "<div><p>This earlier quoted message is hidden until expanded.</p></div>",
+  ].join("");
+  const mime = [
+    "From: Morgan Example <morgan@example.com>",
+    `To: ${recipient}`,
+    "Subject: Re: Reader Visual Message",
+    "MIME-Version: 1.0",
+    `Content-Type: multipart/mixed; boundary="${boundary}"`,
+    "",
+    `--${boundary}`,
+    'Content-Type: text/html; charset="UTF-8"',
+    "Content-Transfer-Encoding: 8bit",
+    "",
+    html,
+    `--${boundary}`,
+    'Content-Type: image/png; name="reader-preview.png"',
+    'Content-Disposition: attachment; filename="reader-preview.png"',
+    "Content-Transfer-Encoding: base64",
+    "",
+    attachment.toString("base64"),
+    `--${boundary}--`,
+    "",
+  ].join("\r\n");
+
+  return Buffer.from(mime, "utf8").toString("base64url");
 }
 
 function getUrlPort(url) {
