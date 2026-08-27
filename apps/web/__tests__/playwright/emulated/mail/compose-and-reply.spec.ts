@@ -5,6 +5,38 @@ import {
 } from "./account-test-helpers";
 import { conversationWithSubject, openMail } from "./mail-test-helpers";
 
+test("keeps keyboard focus in the composer and follows the message field order", async ({
+  page,
+}) => {
+  await openMail(page);
+  await page.getByRole("button", { name: /^Compose/ }).click();
+
+  const dialog = page.getByRole("dialog", { name: "New Message" });
+  await dialog.getByRole("button", { name: "Cc/Bcc" }).click();
+  await dialog.getByRole("textbox", { name: "To" }).focus();
+
+  for (const field of [
+    dialog.getByRole("textbox", { exact: true, name: "Cc" }),
+    dialog.getByRole("textbox", { exact: true, name: "Bcc" }),
+    dialog.getByPlaceholder("Subject"),
+    dialog.getByRole("textbox", { name: "Email message" }),
+    dialog.getByRole("button", { name: /^Send/ }),
+    dialog.getByRole("button", { name: "Attach files" }),
+    dialog.getByRole("button", { name: "Insert inline images" }),
+    dialog.getByRole("button", { name: "Discard draft" }),
+  ]) {
+    await page.keyboard.press("Tab");
+    await expect(field).toBeFocused();
+  }
+
+  // Focus wraps from the dialog's last control back to its first instead of
+  // escaping the non-modal composer.
+  await page.keyboard.press("Tab");
+  await expect(
+    dialog.getByRole("button", { name: "Expand compose" }),
+  ).toBeFocused();
+});
+
 test("focuses the message field from the empty composer body", async ({
   page,
 }) => {

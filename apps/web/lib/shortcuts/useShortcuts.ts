@@ -173,6 +173,14 @@ function resolveTarget(
   ) {
     return;
   }
+  if (
+    target?.type === "entry" &&
+    target.entry.id === "nextSplit" &&
+    event.target instanceof Element &&
+    event.target.closest('[role="dialog"]')
+  ) {
+    return;
+  }
   return target;
 }
 

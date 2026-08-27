@@ -814,6 +814,7 @@ function ComposeEmailFormContent({
                   isComposeWindow && "mt-0",
                 )}
                 onClick={() => setShowCcBcc((visible) => !visible)}
+                tabIndex={showCcBcc ? -1 : undefined}
                 type="button"
               >
                 Cc/Bcc
