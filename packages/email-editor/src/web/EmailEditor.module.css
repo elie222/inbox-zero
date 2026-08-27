@@ -39,10 +39,15 @@
   outline: none;
 }
 
+.surface[data-email-editor-appearance="seamless"] .editor > div {
+  display: flex;
+  flex-direction: column;
+}
+
 .surface[data-email-editor-appearance="seamless"]
   .editor
   [data-email-editor-content] {
-  min-height: 100%;
+  flex: 1;
   padding: 1rem;
   font-size: 0.9375rem;
   line-height: 1.6;
