@@ -26,7 +26,7 @@ export function shouldRunEvalTests(): boolean {
  * Runs a describe block for each model in the eval matrix.
  *
  * When EVAL_MODELS is not set, runs a single block using the catalog's
- * default model (deepseek-v4-flash), so results are comparable across
+ * default model (gpt-5.6-luna), so results are comparable across
  * machines regardless of local env model configuration.
  *
  * When EVAL_MODELS=all or a JSON array, runs one block per model
@@ -48,7 +48,7 @@ export function describeEvalMatrix(
   const models = getEvalModels();
 
   if (models.length === 0) {
-    const fallback = EVAL_MODEL_CATALOG["deepseek-v4-flash"];
+    const fallback = EVAL_MODEL_CATALOG["gpt-5.6-luna"];
     describe(name, () => {
       fn(fallback, getEmailAccountForModel(fallback, overrides));
     });
