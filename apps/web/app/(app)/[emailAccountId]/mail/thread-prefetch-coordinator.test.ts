@@ -56,7 +56,7 @@ describe("createThreadPrefetchCoordinator", () => {
     );
   });
 
-  it("dedupes by cache identity and upgrades a queued thread to the higher priority", async () => {
+  it("dedupes queued work by cache identity", async () => {
     const resolvers = new Map<string, () => void>();
     threadPrefetch.prefetch.mockImplementation(
       ({ threadId }: { threadId: string }) =>
@@ -66,11 +66,11 @@ describe("createThreadPrefetchCoordinator", () => {
     );
     const coordinator = createCoordinator();
 
-    coordinator.schedule(job("thread-1", "focused"));
-    coordinator.schedule(job("thread-2", "focused"));
-    coordinator.schedule(job("thread-3", "nearby"));
-    coordinator.schedule(job("thread-4", "focused"));
-    coordinator.schedule(job("thread-3", "hover"));
+    coordinator.schedule(job("thread-1"));
+    coordinator.schedule(job("thread-2"));
+    coordinator.schedule(job("thread-3"));
+    coordinator.schedule(job("thread-4"));
+    coordinator.schedule(job("thread-3"));
 
     expect(getCalledThreadIds()).toEqual(["thread-1", "thread-2"]);
 
@@ -92,8 +92,8 @@ describe("createThreadPrefetchCoordinator", () => {
     const coordinator = createCoordinator();
 
     coordinator.scheduleMany([
-      job("thread-shared", "focused", "account-1"),
-      job("thread-shared", "focused", "account-2"),
+      job("thread-shared", "account-1"),
+      job("thread-shared", "account-2"),
     ]);
 
     expect(threadPrefetch.prefetch).toHaveBeenCalledTimes(2);
@@ -154,22 +154,22 @@ describe("createThreadPrefetchCoordinator", () => {
     const coordinator = createCoordinator();
 
     coordinator.scheduleMany([
-      { ...job("hover-active"), scopeKey: "hover-scope" },
-      { ...job("predictive-active"), scopeKey: "predictive-scope" },
-      { ...job("hover-queued"), scopeKey: "hover-scope" },
-      { ...job("predictive-queued"), scopeKey: "predictive-scope" },
+      { ...job("first-active"), scopeKey: "first-scope" },
+      { ...job("second-active"), scopeKey: "second-scope" },
+      { ...job("first-queued"), scopeKey: "first-scope" },
+      { ...job("second-queued"), scopeKey: "second-scope" },
     ]);
-    coordinator.cancelScope("predictive-scope");
+    coordinator.cancelScope("second-scope");
 
     expect(activeJobs[0]?.isCancelled?.()).toBe(false);
     expect(activeJobs[1]?.isCancelled?.()).toBe(true);
 
-    resolvers.get("hover-active")?.();
+    resolvers.get("first-active")?.();
     await vi.waitFor(() =>
       expect(getCalledThreadIds()).toEqual([
-        "hover-active",
-        "predictive-active",
-        "hover-queued",
+        "first-active",
+        "second-active",
+        "first-queued",
       ]),
     );
   });
@@ -254,14 +254,9 @@ function getCalledThreadIds() {
   );
 }
 
-function job(
-  threadId: string,
-  priority = "focused",
-  emailAccountId = "account-1",
-) {
+function job(threadId: string, emailAccountId = "account-1") {
   return {
     emailAccountId,
-    priority: priority as "adjacent" | "focused" | "hover" | "nearby",
     scopeKey: "scope-a",
     threadId,
   };

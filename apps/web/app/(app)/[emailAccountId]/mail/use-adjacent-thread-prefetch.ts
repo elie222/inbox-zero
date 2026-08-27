@@ -36,7 +36,6 @@ export function useAdjacentThreadPrefetch({
       coordinator.scheduleMany(
         adjacentThreads.map((thread) => ({
           emailAccountId: thread.emailAccountId,
-          priority: "adjacent" as const,
           scopeKey,
           threadId: thread.threadId,
         })),

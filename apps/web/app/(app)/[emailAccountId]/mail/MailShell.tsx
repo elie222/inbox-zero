@@ -41,7 +41,6 @@ import {
   getThreadActionTargetIds,
 } from "@/app/(app)/[emailAccountId]/mail/thread-list-behavior";
 import {
-  getListThreadEmailAccountId,
   getListThreadKey,
   getListThreadSelection,
   getThreadSelectionKey,
@@ -53,9 +52,7 @@ import type { ThreadMessage } from "@/components/email-list/types";
 import { useMailThreads } from "@/app/(app)/[emailAccountId]/mail/use-mail-threads";
 import { useCombinedMailThreads } from "@/app/(app)/[emailAccountId]/mail/use-combined-mail-threads";
 import { useAdjacentThreadPrefetch } from "@/app/(app)/[emailAccountId]/mail/use-adjacent-thread-prefetch";
-import { useHoverThreadPrefetch } from "@/app/(app)/[emailAccountId]/mail/use-hover-thread-prefetch";
 import { useThreadPrefetchCoordinator } from "@/app/(app)/[emailAccountId]/mail/thread-prefetch-coordinator";
-import { usePredictiveThreadPrefetch } from "@/app/(app)/[emailAccountId]/mail/use-predictive-thread-prefetch";
 import { useThreadActions } from "@/app/(app)/[emailAccountId]/mail/use-thread-actions";
 import { useThreadSelection } from "@/app/(app)/[emailAccountId]/mail/use-thread-selection";
 import { isThreadUnread } from "@/app/(app)/[emailAccountId]/mail/read-state";
@@ -333,9 +330,6 @@ export function MailShell() {
   const openReaderThreadKey = getThreadSelectionKey(openThreadSelection);
   const readerSelectionSettled = readerThreadKey === openReaderThreadKey;
   const threadPrefetchCoordinator = useThreadPrefetchCoordinator();
-  const listPrefetchScopeIdentity = `${emailAccountId}:${isAllAccounts ? `all-accounts:${activeSplitId}` : JSON.stringify(query)}`;
-  const predictivePrefetchScopeKey = `predictive:${listPrefetchScopeIdentity}`;
-  const hoverPrefetchScopeKey = `hover:${listPrefetchScopeIdentity}`;
   const adjacentPrefetchScopeKey = `adjacent:${readerThreadKey ?? "none"}`;
   const threadSelections = useMemo(
     () =>
@@ -348,29 +342,6 @@ export function MailShell() {
     scopeKey: adjacentPrefetchScopeKey,
     threads: threadSelections,
   });
-  usePredictiveThreadPrefetch({
-    coordinator: threadPrefetchCoordinator,
-    emailAccountId,
-    enabled: layout === "list" && !openThreadId,
-    focusedIndex: clampedIndex,
-    scopeKey: predictivePrefetchScopeKey,
-    threads,
-  });
-  const { schedulePrefetch, cancelPrefetch } = useHoverThreadPrefetch({
-    coordinator: threadPrefetchCoordinator,
-    scopeKey: hoverPrefetchScopeKey,
-  });
-  const prefetchThreadAt = useCallback(
-    (index: number) => {
-      const thread = threads[index];
-      if (!thread) return;
-      schedulePrefetch({
-        emailAccountId: getListThreadEmailAccountId(thread, emailAccountId),
-        threadId: thread.id,
-      });
-    },
-    [emailAccountId, schedulePrefetch, threads],
-  );
   const {
     data: openThreadData,
     error: openThreadError,
@@ -519,8 +490,6 @@ export function MailShell() {
       if ((layout === "split" || openThreadId) && nextThread) {
         setReplyToMessageId(undefined);
         setOpenThread(getListThreadSelection(nextThread, emailAccountId));
-      } else {
-        prefetchThreadAt(next);
       }
     },
     [
@@ -529,7 +498,6 @@ export function MailShell() {
       threads,
       layout,
       openThreadId,
-      prefetchThreadAt,
       setOpenThread,
       emailAccountId,
     ],
@@ -1023,8 +991,6 @@ export function MailShell() {
                 onOpenThread={openAt}
                 onToggleSelect={selection.toggle}
                 onSelectRangeTo={selection.selectRangeTo}
-                onPrefetchThread={prefetchThreadAt}
-                onPrefetchCancel={cancelPrefetch}
                 onArchiveSelected={archiveTargets}
                 onDeleteSelected={trashTargets}
                 onClearSelection={selection.clear}
