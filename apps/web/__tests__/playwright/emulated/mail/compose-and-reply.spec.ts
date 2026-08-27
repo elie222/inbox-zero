@@ -12,7 +12,13 @@ test("keeps keyboard focus in the composer and follows the message field order",
   await page.getByRole("button", { name: /^Compose/ }).click();
 
   const dialog = page.getByRole("dialog", { name: "New Message" });
-  await dialog.getByRole("button", { name: "Cc/Bcc" }).click();
+  const showCcBccButton = dialog.getByRole("button", { name: "Cc/Bcc" });
+  await showCcBccButton.focus();
+  await showCcBccButton.press("Enter");
+  await expect(
+    dialog.getByRole("button", { name: "Hide Cc/Bcc" }),
+  ).toBeFocused();
+
   const toField = dialog.getByRole("textbox", { name: "To" });
   await toField.focus();
 

@@ -204,6 +204,7 @@ function ComposeEmailFormContent({
   const isMountedRef = useRef(true);
   const editorRef = useRef<EmailEditorHandle>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const hideCcBccButtonRef = useRef<HTMLButtonElement>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const inlineImageInputRef = useRef<HTMLInputElement>(null);
   const { symbol } = useModifierKey();
@@ -663,6 +664,7 @@ function ComposeEmailFormContent({
                     isComposeWindow && "mt-0",
                   )}
                   onClick={() => setShowCcBcc(false)}
+                  ref={hideCcBccButtonRef}
                   type="button"
                 >
                   Cc/Bcc
@@ -827,7 +829,12 @@ function ComposeEmailFormContent({
                     "mt-2 text-xs text-muted-foreground hover:text-foreground",
                     isComposeWindow && "mt-0",
                   )}
-                  onClick={() => setShowCcBcc(true)}
+                  onClick={() => {
+                    setShowCcBcc(true);
+                    requestAnimationFrame(() =>
+                      hideCcBccButtonRef.current?.focus(),
+                    );
+                  }}
                   type="button"
                 >
                   Cc/Bcc

@@ -175,7 +175,7 @@ function resolveTarget(
   }
   if (
     target?.type === "entry" &&
-    target.entry.id === "nextSplit" &&
+    (target.entry.id === "open" || target.entry.id === "nextSplit") &&
     event.target instanceof Element &&
     event.target.closest('[role="dialog"]')
   ) {
