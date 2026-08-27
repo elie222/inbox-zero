@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/utils";
+import { useCloseComposeOnMailExit } from "./useCloseComposeOnMailExit";
 
 type Context = {
   onOpen: () => void;
@@ -30,8 +31,9 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
   const searchParams = useSearchParams();
   const { isModalOpen, openModal, closeModal } = useModal();
   const [isExpanded, setIsExpanded] = useState(false);
+  const isMailView = pathname.endsWith("/mail");
   const isAllAccountsMailView =
-    pathname.endsWith("/mail") && searchParams.get("accountScope") === "all";
+    isMailView && searchParams.get("accountScope") === "all";
   const { data: accountsData } = useAccounts(isAllAccountsMailView);
   const openCompose = useCallback(() => {
     setIsExpanded(false);
@@ -41,6 +43,7 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
     setIsExpanded(false);
     closeModal();
   }, [closeModal]);
+  useCloseComposeOnMailExit({ isMailView, closeCompose });
 
   return (
     <ComposeModalContext.Provider value={{ onOpen: openCompose }}>
