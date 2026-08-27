@@ -3,8 +3,10 @@ import { isColdEmail } from "./is-cold-email";
 import { getEmailAccount } from "@/__tests__/helpers";
 import type { EmailForLLM } from "@/utils/types";
 import { GroupItemType } from "@/generated/prisma/enums";
+import { env } from "@/env";
 import prisma from "@/utils/__mocks__/prisma";
 import { extractEmailAddress } from "@/utils/email";
+import { createGenerateObject } from "@/utils/llms";
 
 vi.mock("@/utils/prisma");
 
@@ -196,6 +198,33 @@ describe("isColdEmail", () => {
     });
 
     expect(result.isColdEmail).toBe(false);
+  });
+
+  it("should not classify the application notification sender as cold", async () => {
+    const result = await isColdEmail({
+      email: {
+        id: "msg-application-notification",
+        from: env.RESEND_FROM_EMAIL,
+        to: "user@customer.test",
+        subject: "Product update",
+        content: "Here is the latest product update.",
+        date: new Date(),
+      },
+      emailAccount: getEmailAccount({
+        id: "test-account-id",
+        email: "user@customer.test",
+      }),
+      provider: mockProvider as never,
+      coldEmailRule: { instructions: "test instructions", groupId: "group-id" },
+    });
+
+    expect(result.isColdEmail).toBe(false);
+    expect(result.reason).toBe("applicationSender");
+    expect(prisma.groupItem.findFirst).not.toHaveBeenCalled();
+    expect(
+      mockProvider.hasPreviousCommunicationsWithSenderOrDomain,
+    ).not.toHaveBeenCalled();
+    expect(createGenerateObject).not.toHaveBeenCalled();
   });
 
   // Blocking a sender we could not verify is worse than missing a cold email.

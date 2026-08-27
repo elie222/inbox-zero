@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { env } from "@/env";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Group, GroupItem, Rule } from "@/generated/prisma/client";
 import { GroupItemType } from "@/generated/prisma/enums";
@@ -10,13 +11,18 @@ import type { EmailForLLM } from "@/utils/types";
 import type { EmailProvider } from "@/utils/email/types";
 import { getModel, type ModelType } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
-import { extractEmailAddress, isSameOrganization } from "@/utils/email";
+import {
+  extractEmailAddress,
+  isSameEmailAddress,
+  isSameOrganization,
+} from "@/utils/email";
 import { hasPriorContactOrAssumeYes } from "@/utils/cold-email/has-prior-contact";
 
 export const COLD_EMAIL_FOLDER_NAME = "Cold Emails";
 
 type ColdEmailBlockerReason =
   | "hasPreviousEmail"
+  | "applicationSender"
   | "ai"
   | "ai-already-labeled"
   | "excluded";
@@ -52,6 +58,11 @@ export async function isColdEmail({
   });
 
   logger.info("Checking is cold email");
+
+  if (isSameEmailAddress(email.from, env.RESEND_FROM_EMAIL)) {
+    logger.info("Sender is the application notification sender");
+    return { isColdEmail: false, reason: "applicationSender" };
+  }
 
   // Nobody at your own company is a cold emailer. Checked here rather than only at the
   // actions, so a colleague is never labelled or archived either.
