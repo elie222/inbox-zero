@@ -25,6 +25,8 @@ export type SplitTabsProps = {
   newSplitOptions: NewSplitOption[];
   onCreateSplit: (draft: NewSplitDraft) => void;
   onCreateSplitFromPrompt: (prompt: string) => Promise<boolean>;
+  /** The All accounts view only shows built-in tabs, so creation is hidden there. */
+  canCreateSplits: boolean;
   className?: string;
 };
 
@@ -36,6 +38,7 @@ export function SplitTabs({
   newSplitOptions,
   onCreateSplit,
   onCreateSplitFromPrompt,
+  canCreateSplits,
   className,
 }: SplitTabsProps) {
   return (
@@ -83,11 +86,13 @@ export function SplitTabs({
         );
       })}
 
-      <NewSplitPopover
-        options={newSplitOptions}
-        onCreate={onCreateSplit}
-        onCreateFromPrompt={onCreateSplitFromPrompt}
-      />
+      {canCreateSplits && (
+        <NewSplitPopover
+          options={newSplitOptions}
+          onCreate={onCreateSplit}
+          onCreateFromPrompt={onCreateSplitFromPrompt}
+        />
+      )}
 
       <div className="flex-1" />
       <Kbd title="Next split">{getShortcutHint("nextSplit")}</Kbd>

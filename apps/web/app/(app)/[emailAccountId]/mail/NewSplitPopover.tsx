@@ -91,7 +91,7 @@ export function NewSplitPopover({
 
   const submitSelection = (event: FormEvent) => {
     event.preventDefault();
-    if (!selected) return;
+    if (!selected || isCreating) return;
     onCreate({
       name: name.trim() || selected.name,
       kind: selected.kind,
@@ -201,7 +201,12 @@ export function NewSplitPopover({
             />
 
             <div className="flex gap-2">
-              <Button type="submit" variant="gradient" size="xs-2">
+              <Button
+                type="submit"
+                variant="gradient"
+                size="xs-2"
+                disabled={isCreating}
+              >
                 Add split
               </Button>
               <Button

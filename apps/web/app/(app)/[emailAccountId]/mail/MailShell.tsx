@@ -998,6 +998,7 @@ export function MailShell() {
                 newSplitOptions={newSplitOptions}
                 onCreateSplit={onCreateSplit}
                 onCreateSplitFromPrompt={onCreateSplitFromPrompt}
+                canCreateSplits={!isAllAccounts}
               />
             )}
             {isAllAccounts && combinedThreadState.failedAccountIds.length ? (
