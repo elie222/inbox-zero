@@ -56,8 +56,10 @@ test("uses Drive folders to complete auto-file attachment setup", async ({
   await expect(previewButton).toBeEnabled({ timeout: 60_000 });
   await previewButton.click();
 
-  await expectEmptyPreview(page);
-  await page.getByRole("button", { name: "Start auto-filing anyway" }).click();
+  await expectPreviewedSeedAttachment(page);
+  await page
+    .getByRole("button", { name: "Looks good, start auto-filing" })
+    .click();
 
   await expect(
     page.getByRole("heading", { name: "Auto-file attachments" }),
@@ -69,21 +71,16 @@ test("uses Drive folders to complete auto-file attachment setup", async ({
   await expect(page.getByText("Smoke Docs", { exact: true })).toBeVisible();
 });
 
-async function expectEmptyPreview(page: Parameters<typeof openAttachments>[0]) {
-  const emptyPreview = page.getByText(
-    "We couldn't find recent emails with attachments to preview.",
-    { exact: true },
-  );
-
-  try {
-    await expect(emptyPreview).toBeVisible({ timeout: 90_000 });
-  } catch {
-    await openAttachments(page);
-    const previewButton = page.getByRole("button", {
-      name: "Preview with my recent emails",
-    });
-    await expect(previewButton).toBeEnabled({ timeout: 120_000 });
-    await previewButton.click();
-    await expect(emptyPreview).toBeVisible({ timeout: 120_000 });
-  }
+// The shared emulator seed includes an inbox message carrying
+// reader-preview.png, so the preview always finds at least that attachment
+// and the empty state is unreachable.
+async function expectPreviewedSeedAttachment(
+  page: Parameters<typeof openAttachments>[0],
+) {
+  await expect(
+    page.getByText("reader-preview.png", { exact: true }),
+  ).toBeVisible({ timeout: 120_000 });
+  await expect(
+    page.getByRole("button", { name: "Looks good, start auto-filing" }),
+  ).toBeEnabled({ timeout: 120_000 });
 }
