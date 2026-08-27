@@ -5,6 +5,26 @@ import {
 } from "./account-test-helpers";
 import { conversationWithSubject, openMail } from "./mail-test-helpers";
 
+test("focuses the message field from the empty composer body", async ({
+  page,
+}) => {
+  await openMail(page);
+  await page.getByRole("button", { name: /^Compose/ }).click();
+
+  const dialog = page.getByRole("dialog", { name: "New Message" });
+  const editorRoot = dialog.locator("[data-email-editor-root]");
+  const editor = editorRoot.locator("[contenteditable='true']");
+  await expect(editor).toBeVisible();
+  await dialog.getByPlaceholder("Subject").focus();
+  await expect(editor).not.toBeFocused();
+
+  // The empty composer's content is a single paragraph at the top, so the
+  // root's center point lands in the empty body area below it.
+  await editorRoot.click();
+
+  await expect(editor).toBeFocused();
+});
+
 test("keeps editing state stable across formatting, links, paste, and files", async ({
   page,
 }, testInfo) => {
