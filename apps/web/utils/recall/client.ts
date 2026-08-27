@@ -33,6 +33,18 @@ const DEFAULT_RECALL_REGION = "us-west-2";
 // Use participant presence to end successful recordings; a calendar duration
 // is not the call's actual lifetime.
 const EVERYONE_LEFT_TIMEOUT_SECONDS = 2;
+const MEETING_BOT_NAME_MATCHES = [
+  "notetaker",
+  "recorder",
+  "copilot",
+  "grain",
+  "fellow",
+  "tl;dv",
+  "read.ai",
+  "fathom",
+  "otter.ai",
+  "fireflies.ai",
+];
 
 // Overridden only to point at the local emulator, same as GOOGLE_BASE_URL.
 function getRecallApiBase(): string {
@@ -91,6 +103,20 @@ export class RecallBotProvider implements MeetingBotProvider {
         join_at: joinAt.toISOString(),
         automatic_leave: {
           everyone_left_timeout: { timeout: EVERYONE_LEFT_TIMEOUT_SECONDS },
+          // Timings are in seconds.
+          bot_detection: {
+            using_participant_names: {
+              matches: MEETING_BOT_NAME_MATCHES,
+              activate_after: 0,
+              timeout: 5,
+            },
+            using_participant_events: {
+              // Give real attendees time to speak or share before using
+              // inactivity as a fallback signal for unfamiliar bots.
+              activate_after: 120,
+              timeout: 10,
+            },
+          },
         },
         ...(cameraImage && {
           automatic_video_output: {
