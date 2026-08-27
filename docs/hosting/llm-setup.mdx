@@ -27,6 +27,7 @@ Use one of these provider values before the colon in `*_LLMS` entries:
 | [Google Gemini (AI Studio)](https://ai.google.dev/gemini-api/docs) | `google` |
 | [Google Vertex AI](https://ai-sdk.dev/providers/ai-sdk-providers/google-vertex) | `vertex` |
 | [OpenRouter](https://openrouter.ai/docs/quickstart) | `openrouter` |
+| [OrcaRouter](https://www.orcarouter.ai) | `orcarouter` |
 | [Groq](https://console.groq.com/docs/quickstart) | `groq` |
 | [Vercel AI Gateway](https://ai-sdk.dev/providers/ai-sdk-providers/ai-gateway) | `aigateway` |
 | [AWS Bedrock](https://ai-sdk.dev/providers/ai-sdk-providers/amazon-bedrock) | `bedrock` |
@@ -86,6 +87,14 @@ Add fallbacks by adding more entries to the same role list:
 DEFAULT_LLMS=openrouter:anthropic/claude-sonnet-4.6,openai:gpt-5.4-mini
 ECONOMY_LLMS=openrouter:google/gemini-2.5-flash,openai:gpt-5.4-nano
 CHAT_LLMS=openrouter:anthropic/claude-haiku-4.5,openai:gpt-5.4-mini
+```
+
+Or with OrcaRouter:
+
+```env
+DEFAULT_LLMS=orcarouter:anthropic/claude-sonnet-4.6,openai:gpt-5.4-mini
+ECONOMY_LLMS=orcarouter:orcarouter/auto,openai:gpt-5.4-nano
+CHAT_LLMS=orcarouter:orcarouter/auto,openai:gpt-5.4-mini
 ```
 
 Unsupported providers, entries without configured credentials, entries without models, and duplicates are skipped with warnings.

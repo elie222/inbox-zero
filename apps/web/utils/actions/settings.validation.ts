@@ -33,6 +33,7 @@ export const saveAiSettingsBody = z.object({
     Provider.GOOGLE,
     Provider.GROQ,
     Provider.OPENROUTER,
+    Provider.ORCAROUTER,
   ]),
   aiModel: z.string(),
   aiApiKey: z.string().optional(),

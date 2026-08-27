@@ -23,6 +23,9 @@ describe("buildLegacyLlmsEnv", () => {
       buildLegacyLlmsEnv({ DEFAULT_LLM_PROVIDER: "openrouter" }).DEFAULT_LLMS,
     ).toBe("openrouter:anthropic/claude-sonnet-4.6");
     expect(
+      buildLegacyLlmsEnv({ DEFAULT_LLM_PROVIDER: "orcarouter" }).DEFAULT_LLMS,
+    ).toBe("orcarouter:orcarouter/auto");
+    expect(
       buildLegacyLlmsEnv({
         DEFAULT_LLM_PROVIDER: "ollama",
         OLLAMA_MODEL: "qwen3.5:4b",
