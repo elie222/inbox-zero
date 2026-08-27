@@ -111,7 +111,6 @@ export const useNavigation = () => {
               name: "Meetings",
               href: prefixPath(currentEmailAccountId, "/meetings"),
               icon: MicIcon,
-              beta: true,
             },
           ]
         : []),

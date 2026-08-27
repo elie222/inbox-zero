@@ -88,6 +88,7 @@ import { useShortcuts } from "@/lib/shortcuts/useShortcuts";
 import type { ShortcutHandlers } from "@/lib/shortcuts/registry";
 import {
   createMailSplitAction,
+  createMailSplitFromPromptAction,
   deleteMailSplitAction,
   updateMailPreferencesAction,
 } from "@/utils/actions/mail-split";
@@ -723,6 +724,30 @@ export function MailShell() {
     [emailAccountId, mutateSettings],
   );
 
+  const onCreateSplitFromPrompt = useCallback(
+    async (prompt: string) => {
+      const result = await createMailSplitFromPromptAction(emailAccountId, {
+        prompt,
+        options: newSplitOptions.map(({ id, name, kind, value }) => ({
+          id,
+          name,
+          kind,
+          value,
+        })),
+      });
+      if (result?.serverError || result?.validationErrors) {
+        toast.error(getActionErrorMessage(result));
+        return false;
+      }
+      await mutateSettings();
+      // Jump to the new tab so the user immediately sees what the AI matched.
+      const split = result?.data?.split;
+      if (split) setActiveSplitId(split.id);
+      return true;
+    },
+    [emailAccountId, newSplitOptions, mutateSettings, setActiveSplitId],
+  );
+
   const onDeleteSplit = useCallback(
     async (splitId: string) => {
       if (activeSplitId === splitId) setActiveSplitId("all");
@@ -972,6 +997,8 @@ export function MailShell() {
                 onDelete={onDeleteSplit}
                 newSplitOptions={newSplitOptions}
                 onCreateSplit={onCreateSplit}
+                onCreateSplitFromPrompt={onCreateSplitFromPrompt}
+                canCreateSplits={!isAllAccounts}
               />
             )}
             {isAllAccounts && combinedThreadState.failedAccountIds.length ? (

@@ -219,6 +219,7 @@ function ComposeEmailFormContent({
   const isMountedRef = useRef(true);
   const editorRef = useRef<EmailEditorHandle>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const hideCcBccButtonRef = useRef<HTMLButtonElement>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const inlineImageInputRef = useRef<HTMLInputElement>(null);
   const { symbol } = useModifierKey();
@@ -658,6 +659,20 @@ function ComposeEmailFormContent({
                 isComposeWindow && "min-h-11 items-center border-b",
               )}
             >
+              {showCcBcc && (
+                <button
+                  aria-label="Hide Cc/Bcc"
+                  className={cn(
+                    "order-last mt-2 text-xs text-muted-foreground hover:text-foreground",
+                    isComposeWindow && "mt-0",
+                  )}
+                  onClick={() => setShowCcBcc(false)}
+                  ref={hideCcBccButtonRef}
+                  type="button"
+                >
+                  Cc/Bcc
+                </button>
+              )}
               {isComposeWindow && <ComposeFieldLabel htmlFor="to" label="To" />}
               <div className="min-w-0 flex-1">
                 {env.NEXT_PUBLIC_CONTACTS_ENABLED ? (
@@ -688,16 +703,23 @@ function ComposeEmailFormContent({
                   />
                 )}
               </div>
-              <button
-                className={cn(
-                  "mt-2 text-xs text-muted-foreground hover:text-foreground",
-                  isComposeWindow && "mt-0",
-                )}
-                onClick={() => setShowCcBcc((visible) => !visible)}
-                type="button"
-              >
-                Cc/Bcc
-              </button>
+              {!showCcBcc && (
+                <button
+                  className={cn(
+                    "mt-2 text-xs text-muted-foreground hover:text-foreground",
+                    isComposeWindow && "mt-0",
+                  )}
+                  onClick={() => {
+                    setShowCcBcc(true);
+                    requestAnimationFrame(() =>
+                      hideCcBccButtonRef.current?.focus(),
+                    );
+                  }}
+                  type="button"
+                >
+                  Cc/Bcc
+                </button>
+              )}
             </div>
 
             {showCcBcc && (

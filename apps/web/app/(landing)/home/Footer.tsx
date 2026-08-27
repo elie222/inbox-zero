@@ -19,6 +19,7 @@ export const footerNavigation = {
     { name: "Telegram AI Assistant", href: "/telegram-integration" },
     { name: "Teams AI Assistant", href: "/teams-integration" },
     { name: "Brief My Meeting", href: "/brief-my-meeting" },
+    { name: "AI Meeting Notetaker", href: "/ai-meeting-notetaker" },
     { name: "Reply Zero", href: "/reply-zero-ai" },
     { name: "Bulk Email Unsubscriber", href: "/bulk-email-unsubscriber" },
     { name: "Clean your inbox", href: "/clean-inbox" },

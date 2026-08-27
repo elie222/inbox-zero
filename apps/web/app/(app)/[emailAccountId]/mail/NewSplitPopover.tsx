@@ -1,9 +1,17 @@
 "use client";
 
 import { type FormEvent, useState } from "react";
-import { PlusIcon } from "lucide-react";
+import { CheckIcon, Loader2Icon, PlusIcon, SparklesIcon } from "lucide-react";
 import { MailSplitKind } from "@/generated/prisma/enums";
 import { Button } from "@/components/ui/button";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { Input } from "@/components/ui/input";
 import {
   Popover,
@@ -35,6 +43,8 @@ export type NewSplitDraft = {
 export type NewSplitPopoverProps = {
   options: NewSplitOption[];
   onCreate: (draft: NewSplitDraft) => void;
+  /** Resolves a free-text description into a split. Returns whether it succeeded. */
+  onCreateFromPrompt: (prompt: string) => Promise<boolean>;
 };
 
 const GROUP_TITLES: { group: NewSplitOptionGroup; title: string }[] = [
@@ -44,8 +54,14 @@ const GROUP_TITLES: { group: NewSplitOptionGroup; title: string }[] = [
   { group: "label", title: "Label" },
 ];
 
-export function NewSplitPopover({ options, onCreate }: NewSplitPopoverProps) {
+export function NewSplitPopover({
+  options,
+  onCreate,
+  onCreateFromPrompt,
+}: NewSplitPopoverProps) {
   const [open, setOpen] = useState(false);
+  const [prompt, setPrompt] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [name, setName] = useState("");
 
@@ -54,14 +70,28 @@ export function NewSplitPopover({ options, onCreate }: NewSplitPopoverProps) {
   const changeOpen = (next: boolean) => {
     setOpen(next);
     if (!next) {
+      setPrompt("");
       setSelectedId(null);
       setName("");
     }
   };
 
-  const submit = (event: FormEvent) => {
+  const submitPrompt = async (event: FormEvent) => {
     event.preventDefault();
-    if (!selected) return;
+    const trimmed = prompt.trim();
+    if (!trimmed || isCreating) return;
+    setIsCreating(true);
+    try {
+      const created = await onCreateFromPrompt(trimmed);
+      if (created) changeOpen(false);
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const submitSelection = (event: FormEvent) => {
+    event.preventDefault();
+    if (!selected || isCreating) return;
     onCreate({
       name: name.trim() || selected.name,
       kind: selected.kind,
@@ -79,12 +109,47 @@ export function NewSplitPopover({ options, onCreate }: NewSplitPopoverProps) {
         <PlusIcon className="size-3.5" />
       </PopoverTrigger>
       <PopoverContent align="start" className="w-80 p-3 text-foreground">
-        <form onSubmit={submit}>
-          <p className="mb-2.5 font-medium text-foreground text-xs">
-            New split
-          </p>
+        <p className="mb-2.5 font-medium text-foreground text-xs">New split</p>
 
-          <div className="mb-3 flex flex-col gap-2.5">
+        <form onSubmit={submitPrompt} className="mb-2.5 flex gap-1.5">
+          <Input
+            value={prompt}
+            onChange={(event) => setPrompt(event.target.value)}
+            placeholder='Describe it, e.g. "receipts" or "unread"'
+            aria-label="Describe this split"
+            maxLength={300}
+            disabled={isCreating}
+            className="h-8 text-xs"
+          />
+          <Button
+            type="submit"
+            variant="gradient"
+            size="xs-2"
+            aria-label="Create split from description"
+            disabled={!prompt.trim() || isCreating}
+          >
+            {isCreating ? (
+              <Loader2Icon className="size-3.5 animate-spin" />
+            ) : (
+              <SparklesIcon className="size-3.5" />
+            )}
+          </Button>
+        </form>
+
+        <p className="mb-1.5 text-muted-foreground text-xs">Or pick one:</p>
+
+        <Command
+          filter={filterByName}
+          className="mb-2.5 rounded-lg border border-border"
+        >
+          <CommandInput
+            placeholder="Search labels and categories"
+            className="h-8 text-xs"
+          />
+          <CommandList className="max-h-44">
+            <CommandEmpty className="py-3 text-center text-muted-foreground text-xs">
+              No matches
+            </CommandEmpty>
             {GROUP_TITLES.map(({ group, title }) => {
               const groupOptions = options.filter(
                 (option) => option.group === group,
@@ -92,74 +157,86 @@ export function NewSplitPopover({ options, onCreate }: NewSplitPopoverProps) {
               if (!groupOptions.length) return null;
 
               return (
-                <fieldset key={group} className="flex flex-col gap-1.5">
-                  <legend className="text-muted-foreground text-xs">
-                    {title}
-                  </legend>
-                  <div className="flex flex-wrap gap-1.5">
-                    {groupOptions.map((option) => (
-                      <button
-                        key={option.id}
-                        type="button"
-                        aria-pressed={option.id === selectedId}
-                        onClick={() => {
-                          setSelectedId(option.id);
-                          setName(option.name);
-                        }}
+                <CommandGroup key={group} heading={title}>
+                  {groupOptions.map((option) => (
+                    <CommandItem
+                      key={option.id}
+                      value={option.id}
+                      keywords={[option.name, title]}
+                      onSelect={() => {
+                        setSelectedId(option.id);
+                        setName(option.name);
+                      }}
+                      className="text-xs"
+                    >
+                      {option.name}
+                      <CheckIcon
                         className={cn(
-                          "rounded-full border px-2.5 py-0.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                          "ml-auto size-3.5",
                           option.id === selectedId
-                            ? "border-primary/30 bg-primary/10 text-primary"
-                            : "border-border bg-muted text-muted-foreground hover:text-foreground",
+                            ? "opacity-100"
+                            : "opacity-0",
                         )}
-                      >
-                        {option.name}
-                      </button>
-                    ))}
-                  </div>
-                </fieldset>
+                      />
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
               );
             })}
-          </div>
+          </CommandList>
+        </Command>
 
-          <p className="mb-2.5 rounded-lg border border-border bg-muted px-2.5 py-2 text-muted-foreground text-xs">
-            {summarize(selected)}
-          </p>
+        {selected && (
+          <form onSubmit={submitSelection}>
+            <p className="mb-2.5 rounded-lg border border-border bg-muted px-2.5 py-2 text-muted-foreground text-xs">
+              {summarize(selected)}
+            </p>
 
-          <Input
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            placeholder="Name this split"
-            aria-label="Split name"
-            className="mb-2.5 h-8 text-xs"
-          />
+            <Input
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Name this split"
+              aria-label="Split name"
+              className="mb-2.5 h-8 text-xs"
+            />
 
-          <div className="flex gap-2">
-            <Button
-              type="submit"
-              variant="gradient"
-              size="xs-2"
-              disabled={!selected}
-            >
-              Add split
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="xs-2"
-              onClick={() => changeOpen(false)}
-            >
-              Cancel
-            </Button>
-          </div>
-        </form>
+            <div className="flex gap-2">
+              <Button
+                type="submit"
+                variant="gradient"
+                size="xs-2"
+                disabled={isCreating}
+              >
+                Add split
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="xs-2"
+                onClick={() => changeOpen(false)}
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        )}
       </PopoverContent>
     </Popover>
   );
 }
 
-function summarize(option: NewSplitOption | undefined): string {
-  if (!option) return "Pick what this split should contain";
+// Match on the option's name and group only; the default cmdk filter would also
+// match against the value string, which is an opaque label id here.
+function filterByName(
+  _value: string,
+  search: string,
+  keywords?: string[],
+): number {
+  const haystack = (keywords ?? []).join(" ").toLowerCase();
+  return haystack.includes(search.toLowerCase().trim()) ? 1 : 0;
+}
+
+function summarize(option: NewSplitOption): string {
   switch (option.kind) {
     case MailSplitKind.INBOX:
       return "Shows everything in the inbox";

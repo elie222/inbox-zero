@@ -4,9 +4,11 @@ import { MailLayout, MailSplitKind } from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
 import {
   createMailSplitAction,
+  createMailSplitFromPromptAction,
   renameMailSplitAction,
   updateMailPreferencesAction,
 } from "@/utils/actions/mail-split";
+import { aiPromptToSplit } from "@/utils/ai/split/prompt-to-split";
 
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/auth", () => ({
@@ -14,8 +16,26 @@ vi.mock("@/utils/auth", () => ({
     user: { id: "user-1", email: "user@example.com" },
   })),
 }));
+vi.mock("@/utils/ai/split/prompt-to-split", () => ({
+  aiPromptToSplit: vi.fn(),
+}));
 
 const EMAIL_ACCOUNT_ID = "email-account-1";
+
+const PROMPT_OPTIONS = [
+  {
+    id: "state:unread",
+    name: "Unread",
+    kind: MailSplitKind.UNREAD,
+    value: null,
+  },
+  {
+    id: "label:label-1",
+    name: "Receipts",
+    kind: MailSplitKind.LABEL,
+    value: "label-1",
+  },
+];
 
 describe("mail split actions", () => {
   beforeEach(() => {
@@ -97,6 +117,63 @@ describe("mail split actions", () => {
     });
 
     expect(result?.serverError).toBe('You already have a "Unread" split.');
+  });
+
+  it("creates the split the AI matched from a description", async () => {
+    vi.mocked(aiPromptToSplit).mockResolvedValue({
+      reasoning: "Receipts filters for what the user described",
+      optionId: "label:label-1",
+      name: "Receipts",
+    });
+    const split = {
+      id: "split-1",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      name: "Receipts",
+      kind: MailSplitKind.LABEL,
+      value: "label-1",
+      order: 0,
+      emailAccountId: EMAIL_ACCOUNT_ID,
+    };
+    prisma.$transaction.mockResolvedValue([
+      [{ locked: true }],
+      [{ status: "created", ...split }],
+    ] as never);
+
+    const result = await createMailSplitFromPromptAction(EMAIL_ACCOUNT_ID, {
+      prompt: "my receipts",
+      options: PROMPT_OPTIONS,
+    });
+
+    expect(result?.data).toEqual({ split });
+    // Label ids are stripped before the prompt; the AI only sees id/name/kind.
+    expect(aiPromptToSplit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: "my receipts",
+        options: [
+          { id: "state:unread", name: "Unread", kind: MailSplitKind.UNREAD },
+          { id: "label:label-1", name: "Receipts", kind: MailSplitKind.LABEL },
+        ],
+      }),
+    );
+  });
+
+  it("returns a user-safe error when the AI response isn't one of the options", async () => {
+    vi.mocked(aiPromptToSplit).mockResolvedValue({
+      reasoning: "Invented an option that does not exist",
+      optionId: "label:made-up",
+      name: "Boss",
+    });
+
+    const result = await createMailSplitFromPromptAction(EMAIL_ACCOUNT_ID, {
+      prompt: "emails from my boss",
+      options: PROMPT_OPTIONS,
+    });
+
+    expect(result?.serverError).toBe(
+      "Couldn't match that to a label or category. Try different wording, or pick one from the list.",
+    );
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it("returns a user-safe error when a rename duplicates a split", async () => {

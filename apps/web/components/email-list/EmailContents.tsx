@@ -1,5 +1,6 @@
 import { startTransition, useMemo, useState, useRef, useEffect } from "react";
 import { useTheme } from "next-themes";
+import { EllipsisIcon } from "lucide-react";
 import { decodeHtmlEntities } from "@/utils/gmail/decode";
 import {
   getPreparedEmailHtml,
@@ -18,6 +19,7 @@ import {
   fetchAttachment,
   getAttachmentUrl,
 } from "@/utils/attachments/download";
+import { splitEmailContent } from "@/utils/email/split-email-content.client";
 
 const SANS_FONT_STACK = `ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`;
 const NO_INLINE_ATTACHMENTS: ParsedMessage["inline"] = [];
@@ -92,8 +94,8 @@ export function HtmlEmail({
     };
   }, [emailAccountId, inlineAttachments, messageId, sanitizedHtml]);
 
-  const { mainContent, hasReplies } = useMemo(
-    () => getEmailContent(renderHtml),
+  const { mainContent, hasQuotedContent } = useMemo(
+    () => splitEmailContent(renderHtml),
     [renderHtml],
   );
 
@@ -121,13 +123,17 @@ export function HtmlEmail({
         sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
         referrerPolicy="no-referrer"
       />
-      {hasReplies && (
+      {hasQuotedContent && (
         <button
           type="button"
-          className="absolute bottom-0 left-0 text-muted-foreground hover:text-foreground"
+          aria-expanded={showReplies}
+          aria-label={
+            showReplies ? "Hide quoted content" : "Show quoted content"
+          }
+          className="mt-1 inline-flex h-5 items-center rounded-full bg-muted px-2 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
           onClick={() => setShowReplies(!showReplies)}
         >
-          ...
+          <EllipsisIcon className="size-4" />
         </button>
       )}
     </div>
@@ -144,25 +150,6 @@ export function PlainEmail({ text }: { text: string }) {
       {decodeHtmlEntities(text)}
     </pre>
   );
-}
-
-function getEmailContent(html: string) {
-  const doc = new DOMParser().parseFromString(html, "text/html");
-  const quoteContainer = doc.querySelector(".gmail_quote_container");
-
-  if (!quoteContainer) {
-    return { mainContent: html, hasReplies: false };
-  }
-
-  // Clone the document and remove the quote container
-  const mainDoc = doc.cloneNode(true) as Document;
-  const mainQuoteContainer = mainDoc.querySelector(".gmail_quote_container");
-  mainQuoteContainer?.remove();
-
-  return {
-    mainContent: mainDoc.body.innerHTML,
-    hasReplies: true,
-  };
 }
 
 function getIframeHtml(
@@ -414,40 +401,40 @@ function useIframeHeight(iframeRef: React.RefObject<HTMLIFrameElement | null>) {
   const [height, setHeight] = useState(0);
 
   useEffect(() => {
-    let attempts = 0;
-    const maxAttempts = 5;
-    const initialDelay = 100;
+    const iframe = iframeRef.current;
+    if (!iframe) return;
 
     const updateHeight = () => {
-      try {
-        if (iframeRef.current?.contentWindow) {
-          const newHeight =
-            iframeRef.current.contentWindow.document.documentElement
-              ?.scrollHeight;
-          if (newHeight) {
-            setHeight(newHeight);
-            return true;
-          }
-        }
-      } catch (error) {
-        console.error("Failed to get iframe height:", error);
-      }
-      return false;
+      const iframeDocument = iframe.contentDocument;
+      if (!iframeDocument) return;
+
+      const newHeight = Math.max(
+        iframeDocument.documentElement.scrollHeight,
+        iframeDocument.body.scrollHeight,
+      );
+      if (newHeight) setHeight(newHeight);
     };
 
-    const attemptUpdate = () => {
-      if (attempts >= maxAttempts) return;
+    const resizeObserver = new ResizeObserver(updateHeight);
 
-      const success = updateHeight();
-      if (!success) {
-        attempts++;
-        setTimeout(attemptUpdate, initialDelay * 2 ** attempts);
-      }
+    const observeDocument = () => {
+      resizeObserver.disconnect();
+      const iframeDocument = iframe.contentDocument;
+      if (!iframeDocument) return;
+
+      updateHeight();
+      resizeObserver.observe(iframeDocument.documentElement);
+      resizeObserver.observe(iframeDocument.body);
     };
 
-    const initialTimeoutId = setTimeout(attemptUpdate, initialDelay);
-    return () => clearTimeout(initialTimeoutId);
-  }, [iframeRef?.current?.contentWindow]);
+    iframe.addEventListener("load", observeDocument);
+    observeDocument();
+
+    return () => {
+      iframe.removeEventListener("load", observeDocument);
+      resizeObserver.disconnect();
+    };
+  }, [iframeRef]);
 
   return height;
 }

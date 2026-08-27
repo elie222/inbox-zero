@@ -304,6 +304,11 @@ const plusTier: Tier = {
         "Each user gets 2 email accounts included. Additional email accounts are billed at the standard per-seat rate.",
     },
     {
+      text: "AI meeting notetaker",
+      tooltip:
+        "A notetaker joins your video calls and turns them into transcripts, summaries, recap emails, and follow-up drafts.",
+    },
+    {
       text: "Slack integration",
       tooltip:
         "Forward important emails and notifications to your Slack channels automatically.",

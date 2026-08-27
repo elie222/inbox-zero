@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 
 import React from "react";
-import { cleanup, render, waitFor } from "@testing-library/react";
+import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next-themes", () => ({
@@ -20,9 +20,22 @@ import { HtmlEmail, PlainEmail } from "./EmailContents";
 
 (globalThis as { React?: typeof React }).React = React;
 
+let triggerResize: (() => void) | undefined;
+
+class MockResizeObserver {
+  constructor(callback: ResizeObserverCallback) {
+    triggerResize = () => callback([], this);
+  }
+
+  disconnect() {}
+  observe() {}
+  unobserve() {}
+}
+
 describe("HtmlEmail", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubGlobal("ResizeObserver", MockResizeObserver);
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
@@ -107,6 +120,40 @@ describe("HtmlEmail", () => {
         "img-src data: https://app.example.com;",
       );
     });
+  });
+
+  it("expands when an image increases the iframe document height after loading", async () => {
+    const { getByTitle } = render(
+      <HtmlEmail
+        html='<img src="https://cdn.example.com/tall-image.png" />'
+        messageId="message-tall-image"
+      />,
+    );
+    const iframe = getByTitle("Email content preview") as HTMLIFrameElement;
+    let contentHeight = 40;
+
+    Object.defineProperty(
+      iframe.contentDocument!.documentElement,
+      "scrollHeight",
+      {
+        configurable: true,
+        get: () => contentHeight,
+      },
+    );
+
+    iframe.dispatchEvent(new Event("load"));
+    await waitFor(() =>
+      expect(Number.parseFloat(iframe.style.height)).toBeGreaterThanOrEqual(40),
+    );
+
+    contentHeight = 640;
+    act(() => triggerResize?.());
+
+    await waitFor(() =>
+      expect(Number.parseFloat(iframe.style.height)).toBeGreaterThanOrEqual(
+        640,
+      ),
+    );
   });
 
   it("resolves authenticated cid images to temporary local URLs", async () => {

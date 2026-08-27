@@ -66,6 +66,30 @@ describe("useShortcuts", () => {
     expect(commandPalette).not.toHaveBeenCalled();
   });
 
+  it("leaves Tab and Enter navigation inside dialogs to the browser", () => {
+    const open = vi.fn();
+    const nextSplit = vi.fn();
+    renderShortcuts({ nextSplit, open });
+
+    const mailEvent = press({ key: "Tab", code: "Tab" });
+    const mailOpenEvent = press({ key: "Enter", code: "Enter" });
+    const dialogTabEvent = press(
+      { key: "Tab", code: "Tab" },
+      screen.getByRole("button", { name: "Dialog action" }),
+    );
+    const dialogOpenEvent = press(
+      { key: "Enter", code: "Enter" },
+      screen.getByRole("button", { name: "Dialog action" }),
+    );
+
+    expect(nextSplit).toHaveBeenCalledOnce();
+    expect(open).toHaveBeenCalledOnce();
+    expect(mailEvent.defaultPrevented).toBe(true);
+    expect(mailOpenEvent.defaultPrevented).toBe(true);
+    expect(dialogTabEvent.defaultPrevented).toBe(false);
+    expect(dialogOpenEvent.defaultPrevented).toBe(false);
+  });
+
   it("ignores modified presses of a plain shortcut", () => {
     const archive = vi.fn();
     renderShortcuts({ archive });
@@ -144,6 +168,9 @@ function renderShortcuts(
     <ShortcutsProvider scopes={scopes}>
       <Bindings handlers={handlers} />
       <textarea />
+      <div aria-label="Test dialog" role="dialog">
+        <button type="button">Dialog action</button>
+      </div>
       {withEmailEditor && (
         <div
           aria-label="Email message"
@@ -164,7 +191,11 @@ function Bindings({ handlers }: { handlers: ShortcutHandlers }) {
 }
 
 function press(init: KeyboardEventInit, target: Element = document.body) {
-  const event = new KeyboardEvent("keydown", { bubbles: true, ...init });
+  const event = new KeyboardEvent("keydown", {
+    bubbles: true,
+    cancelable: true,
+    ...init,
+  });
   fireEvent(target, event);
   return event;
 }

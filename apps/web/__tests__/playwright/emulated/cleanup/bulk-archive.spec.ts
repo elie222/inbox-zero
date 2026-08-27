@@ -150,11 +150,12 @@ test("deletes a selected sender through the durable sender queue", async ({
 }) => {
   test.setTimeout(360_000);
   if (!fixture) throw new Error("Cleanup fixture was not initialized");
-  await stubMailboxSync(page, fixture.emailAccountId);
+  const mailboxSync = await stubMailboxSync(page, fixture.emailAccountId);
   await openCleanupFeature(page, fixture, "bulk-archive");
   await chooseBulkAction(page, "Delete");
   await selectOnlyArchiveSender(page);
 
+  mailboxSync.expectDeleted(CLEANUP_ARCHIVE_THREAD_ID);
   page.once("dialog", (dialog) => dialog.accept());
   await newsletterCard(page)
     .getByRole("button", { name: "Delete 1 of 2" })
@@ -300,40 +301,94 @@ async function restoreFixtureThreads(page: Page, emailAccountId: string) {
   await restoreCleanupThreads(page, emailAccountId, BULK_ARCHIVE_THREAD_IDS);
 }
 
-function stubMailboxSync(page: Page, emailAccountId: string) {
-  return page.route("**/api/mobile/mailbox-sync", async (route) => {
-    const upsertedMessages = await getCleanupMailboxMessages(
+async function stubMailboxSync(page: Page, emailAccountId: string) {
+  const initialThreads = await getCleanupMailboxThreads(
+    page,
+    emailAccountId,
+    CLEANUP_MAILBOX_THREAD_IDS,
+  );
+  const deletedThreadIds = new Set<string>();
+
+  await page.route("**/api/mobile/mailbox-sync", async (route) => {
+    const expectedThreadIds = CLEANUP_MAILBOX_THREAD_IDS.filter(
+      (threadId) => !deletedThreadIds.has(threadId),
+    );
+    const threads = await getCleanupMailboxThreads(
       page,
       emailAccountId,
+      expectedThreadIds,
     );
-    return route.fulfill({
+    const returnedThreadIds = new Set(threads.map((thread) => thread.id));
+    const deletedMessageIds = initialThreads
+      .filter(
+        (thread) =>
+          deletedThreadIds.has(thread.id) && !returnedThreadIds.has(thread.id),
+      )
+      .flatMap((thread) => thread.messages.map((message) => message.id));
+
+    await route.fulfill({
       body: JSON.stringify({
         accountId: emailAccountId,
         cursor: "playwright-cleanup-sync",
-        deletedMessageIds: [],
+        deletedMessageIds,
         hasMore: false,
         reset: false,
-        upsertedMessages,
+        upsertedMessages: threads.flatMap((thread) => thread.messages),
       }),
       contentType: "application/json",
       status: 200,
     });
   });
+
+  return {
+    expectDeleted(threadId: string) {
+      deletedThreadIds.add(threadId);
+    },
+  };
 }
 
-async function getCleanupMailboxMessages(page: Page, emailAccountId: string) {
-  const response = await page.request.get("/api/threads?type=inbox&view=list", {
-    headers: { "X-Email-Account-ID": emailAccountId },
-  });
-  if (!response.ok()) {
-    throw new Error(`Inbox request failed with ${response.status()}`);
-  }
-  const result = (await response.json()) as {
-    threads: { id: string; messages: unknown[] }[];
-  };
-  return result.threads
-    .filter((thread) =>
-      CLEANUP_MAILBOX_THREAD_IDS.some((threadId) => threadId === thread.id),
+async function getCleanupMailboxThreads(
+  page: Page,
+  emailAccountId: string,
+  expectedThreadIds: string[],
+) {
+  let threads: { id: string; messages: { id: string }[] }[] | undefined;
+  await expect
+    .poll(
+      async () => {
+        try {
+          const response = await page.request.get(
+            `/api/threads/batch?threadIds=${CLEANUP_MAILBOX_THREAD_IDS.join(",")}`,
+            { headers: { "X-Email-Account-ID": emailAccountId } },
+          );
+          if (!response.ok()) return false;
+
+          const result = (await response.json()) as {
+            threads: { id: string; messages: { id: string }[] }[];
+          };
+          const returnedThreadIds = new Set(
+            result.threads.map((thread) => thread.id),
+          );
+          if (
+            !expectedThreadIds.every((threadId) =>
+              returnedThreadIds.has(threadId),
+            )
+          ) {
+            return false;
+          }
+
+          threads = result.threads;
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      { timeout: 120_000 },
     )
-    .flatMap((thread) => thread.messages);
+    .toBe(true);
+
+  if (!threads?.length) {
+    throw new Error("Mailbox thread request returned no threads");
+  }
+  return threads;
 }

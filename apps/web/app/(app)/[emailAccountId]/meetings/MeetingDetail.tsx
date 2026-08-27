@@ -25,6 +25,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { getMeetingDetailState } from "@/app/(app)/[emailAccountId]/meetings/meeting-detail-state";
 import { useMeetingRecorderMeeting } from "@/hooks/useMeetingRecorder";
+import { useProductAnalytics } from "@/hooks/useProductAnalytics";
 import { formatTranscriptTimestamp } from "@/utils/meeting-recorder/transcript-prompt";
 
 export function MeetingDetail({
@@ -35,6 +36,7 @@ export function MeetingDetail({
   onClose: () => void;
 }) {
   const { emailAccountId } = useAccount();
+  const analytics = useProductAnalytics();
   const { data, isLoading, error } = useMeetingRecorderMeeting(
     meetingId,
     emailAccountId,
@@ -174,6 +176,11 @@ export function MeetingDetail({
                     href={getFollowUpDraftUrl(data.id, emailAccountId)}
                     target="_blank"
                     rel="noopener noreferrer"
+                    onClick={() =>
+                      analytics.captureAction(
+                        "meeting_recorder_follow_up_draft_opened",
+                      )
+                    }
                   >
                     Go to drafts
                   </a>

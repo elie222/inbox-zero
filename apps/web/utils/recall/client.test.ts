@@ -49,6 +49,25 @@ describe("RecallBotProvider", () => {
     });
   });
 
+  it("leaves promptly when only other meeting bots remain", async () => {
+    const { RecallBotProvider } = await import("@/utils/recall/client");
+    const provider = new RecallBotProvider(createTestLogger());
+
+    await provider.scheduleBot({
+      meetingUrl: "https://meet.google.com/abc-defg-hij",
+      joinAt: new Date("2026-05-04T09:00:00.000Z"),
+    });
+
+    const request = vi.mocked(fetch).mock.calls[0]?.[1];
+    const botDetection = JSON.parse(request?.body as string).automatic_leave
+      ?.bot_detection;
+    expect(botDetection.using_participant_names.matches).toContain("notetaker");
+    expect(botDetection.using_participant_names.activate_after).toBe(0);
+    expect(
+      botDetection.using_participant_events.activate_after,
+    ).toBeGreaterThan(0);
+  });
+
   it("schedules the bot without video when the camera image cannot be loaded", async () => {
     const readError = Object.assign(new Error("Temporary read failure"), {
       code: "EIO",
@@ -69,14 +88,13 @@ describe("RecallBotProvider", () => {
 
     expect(fetch).toHaveBeenCalledTimes(1);
     const request = vi.mocked(fetch).mock.calls[0]?.[1];
-    expect(JSON.parse(request?.body as string)).toEqual({
+    const requestBody = JSON.parse(request?.body as string);
+    expect(requestBody).toMatchObject({
       meeting_url: "https://meet.google.com/abc-defg-hij",
       bot_name: "Inbox Zero Notetaker",
       join_at: "2026-05-04T09:00:00.000Z",
-      automatic_leave: {
-        everyone_left_timeout: { timeout: 2 },
-      },
     });
+    expect(requestBody).not.toHaveProperty("automatic_video_output");
   });
 
   it("retries loading the camera image for the next bot", async () => {

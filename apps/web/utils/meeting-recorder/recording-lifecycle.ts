@@ -23,14 +23,6 @@ export const CHANGEABLE_STATUSES: MeetingRecordingStatus[] = [
   MeetingRecordingStatus.SCHEDULED,
 ];
 
-// The bot is in the call with capture still underway. A recording still in one
-// of these states after the meeting's scheduled end means the call ran long and
-// the recording is wrapping up, not missing.
-export const STILL_CAPTURING_STATUSES: MeetingRecordingStatus[] = [
-  MeetingRecordingStatus.IN_CALL,
-  MeetingRecordingStatus.RECORDING,
-];
-
 // The bot engaged with the call (tried to join, or failed trying) but delivered
 // no media. A recording still in one of these states after the meeting ended
 // produced nothing.
@@ -43,7 +35,8 @@ export const NO_RECORDING_STATUSES: MeetingRecordingStatus[] = [
 // The bot made it into the call, so media exists or is still being captured.
 // Meetings in these states must never be presented as "not recorded".
 export const CAPTURED_MEETING_STATUSES: MeetingRecordingStatus[] = [
-  ...STILL_CAPTURING_STATUSES,
+  MeetingRecordingStatus.IN_CALL,
+  MeetingRecordingStatus.RECORDING,
   MeetingRecordingStatus.CALL_ENDED,
   MeetingRecordingStatus.DONE,
 ];

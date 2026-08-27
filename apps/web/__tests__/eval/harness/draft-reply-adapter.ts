@@ -49,6 +49,7 @@ export async function invokeDraftReply({
     learnedWritingStyle: context.learnedWritingStyle,
     mcpContext: context.mcpContext,
     meetingContext: context.meetingContext,
+    recordedMeetingContext: context.recordedMeetingContext,
     attachmentContext: context.attachmentContext,
     hasConfiguredSignature: input.hasConfiguredSignature,
     currentDate: input.currentDate ? new Date(input.currentDate) : undefined,

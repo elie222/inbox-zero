@@ -141,6 +141,7 @@ describe("LLM use cases", () => {
       [LlmUseCase.ParseFilingReply]: "economy",
       [LlmUseCase.PersonaAnalysis]: "economy",
       [LlmUseCase.PromptToRules]: "chat",
+      [LlmUseCase.PromptToSplit]: "economy",
       [LlmUseCase.ReplyContextCollector]: "economy",
       [LlmUseCase.ReplyMemoryExtraction]: "economy",
       [LlmUseCase.ReplyMemorySelection]: "economy",

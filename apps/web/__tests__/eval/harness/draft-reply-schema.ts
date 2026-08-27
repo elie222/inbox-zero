@@ -69,6 +69,7 @@ export const draftReplyContextSchema = z.object({
   learnedWritingStyle: z.string().nullable().default(null),
   mcpContext: z.string().nullable().default(null),
   meetingContext: z.string().nullable().default(null),
+  recordedMeetingContext: z.string().nullable().default(null),
   attachmentContext: z.string().nullable().default(null),
 });
 

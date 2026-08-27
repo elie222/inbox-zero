@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState, useRef, useEffect } from "react";
+import useSWR from "swr";
 import {
   ForwardIcon,
   ReplyIcon,
@@ -14,7 +15,7 @@ import {
 } from "@/utils/email";
 import { formatShortDate } from "@/utils/date";
 import { ComposeEmailFormLazy } from "@/app/(app)/[emailAccountId]/compose/ComposeEmailFormLazy";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import type { ParsedMessage } from "@/utils/types";
@@ -34,6 +35,8 @@ import { Loading } from "@/components/Loading";
 import { MessageText } from "@/components/Typography";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { formatReplySubject } from "@/utils/email/subject";
+import { env } from "@/env";
+import type { ContactsResponse } from "@/app/api/user/contacts/route";
 
 export function EmailMessage({
   message,
@@ -152,13 +155,27 @@ function MessageHeader({
   onForward: () => void;
   onToggle?: () => void;
 }) {
-  const { userEmail } = useAccount();
+  const { emailAccount, emailAccountId, userEmail } = useAccount();
 
   const isSent = message.labelIds?.includes(GmailLabel.SENT) ?? false;
   const senderEmail = extractEmailAddress(message.headers.from);
   const senderName = isSent
     ? "Me"
     : extractNameFromEmail(message.headers.from) || senderEmail;
+  const { data: contacts } = useSWR<ContactsResponse>(
+    env.NEXT_PUBLIC_CONTACTS_ENABLED && !isSent && senderEmail && emailAccountId
+      ? [
+          `/api/user/contacts?query=${encodeURIComponent(senderEmail)}`,
+          emailAccountId,
+        ]
+      : null,
+    { revalidateOnFocus: false, shouldRetryOnError: false },
+  );
+  const senderImage = isSent
+    ? emailAccount?.image
+    : contacts?.contacts.find((contact) =>
+        isSameEmailAddress(contact.emailAddress, senderEmail),
+      )?.profilePictureUrl;
 
   // Collapsing is the thread's call, so a row is only interactive once it has
   // been handed a toggle.
@@ -196,6 +213,7 @@ function MessageHeader({
       )}
     >
       <Avatar aria-hidden className="size-7">
+        <AvatarImage alt="" src={senderImage || undefined} />
         <AvatarFallback
           className={cn(
             "font-semibold text-[10px] tracking-wide",

@@ -1,5 +1,5 @@
-// crypto.randomUUID is only available in secure contexts, so plain-HTTP
-// deployments (e.g. self-hosted over http) need a getRandomValues fallback.
+// crypto.randomUUID is only defined in secure contexts (HTTPS/localhost), so
+// self-hosted deployments served over plain HTTP need the manual v4 fallback.
 export function randomUuid(): string {
   if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
   const bytes = crypto.getRandomValues(new Uint8Array(16));
@@ -11,6 +11,6 @@ export function randomUuid(): string {
     hex.slice(4, 6).join(""),
     hex.slice(6, 8).join(""),
     hex.slice(8, 10).join(""),
-    hex.slice(10).join(""),
+    hex.slice(10, 16).join(""),
   ].join("-");
 }

@@ -30,7 +30,6 @@ import {
 } from "@/components/ai-elements/prompt-input";
 import { useLocalStorage } from "usehooks-ts";
 import { useSession } from "@/utils/auth-client";
-import { randomUuid } from "@/utils/uuid";
 import type { UseChatHelpers } from "@ai-sdk/react";
 import type { ChatMessage } from "@/components/assistant-chat/types";
 import type { MessageContext } from "@/utils/ai/assistant/chat-context-validation";
@@ -41,6 +40,7 @@ import {
   getChatHistoryLabel,
 } from "@/components/assistant-chat/chat-history-types";
 import { RenameChatDialog } from "@/components/assistant-chat/RenameChatDialog";
+import { randomUuid } from "@/utils/uuid";
 import { DeleteChatDialog } from "@/components/assistant-chat/DeleteChatDialog";
 
 const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB

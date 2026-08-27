@@ -1,3 +1,4 @@
+import { webcrypto } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { randomUuid } from "./uuid";
 
@@ -13,9 +14,9 @@ describe("randomUuid", () => {
     expect(randomUuid()).toMatch(UUID_V4_REGEX);
   });
 
-  it("returns a v4 UUID when crypto.randomUUID is unavailable (insecure context)", () => {
+  it("falls back when crypto.randomUUID is unavailable (insecure context)", () => {
     vi.stubGlobal("crypto", {
-      getRandomValues: crypto.getRandomValues.bind(crypto),
+      getRandomValues: (array: Uint8Array) => webcrypto.getRandomValues(array),
     });
 
     const first = randomUuid();

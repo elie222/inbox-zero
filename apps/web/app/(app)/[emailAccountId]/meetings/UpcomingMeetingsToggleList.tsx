@@ -21,6 +21,7 @@ import type { GetMeetingRecorderUpcomingResponse } from "@/app/api/user/meeting-
 import { MeetingListItem } from "@/app/(app)/[emailAccountId]/meetings/MeetingListItem";
 import { MEETING_DETAIL_STATUSES } from "@/utils/meeting-recorder/recording-lifecycle";
 import { useMeetingRecorderUpcoming } from "@/hooks/useMeetingRecorder";
+import { useProductAnalytics } from "@/hooks/useProductAnalytics";
 import { setMeetingJoinOverrideAction } from "@/utils/actions/meeting-recorder";
 import { getActionErrorMessage } from "@/utils/error";
 
@@ -33,6 +34,7 @@ export function UpcomingMeetingsToggleList({
   emailAccountId: string;
   onOpenMeeting: (meetingId: string) => void;
 }) {
+  const analytics = useProductAnalytics();
   const { data, isLoading, error, mutate } =
     useMeetingRecorderUpcoming(emailAccountId);
   const [pendingEventId, setPendingEventId] = useState<string | null>(null);
@@ -55,6 +57,9 @@ export function UpcomingMeetingsToggleList({
   );
 
   const toggleEvent = (event: UpcomingEvent, join: boolean) => {
+    analytics.captureAction("meeting_recorder_join_override_toggled", {
+      join,
+    });
     setPendingEventId(event.id);
     execute({ join, calendarEventId: event.id });
   };
