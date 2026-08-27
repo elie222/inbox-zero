@@ -112,10 +112,10 @@ async function createMailSplitOrThrow(
     if (!result) {
       throw new SafeError("Could not create split. Please try again.");
     }
-    if (result.status === "duplicate") {
-      throw new SafeError(`You already have a "${data.name}" split.`);
-    }
-    if (result.status === "limit") {
+    if (result.status !== "created") {
+      if (result.status === "duplicate") {
+        throw new SafeError(`You already have a "${data.name}" split.`);
+      }
       throw new SafeError(`You can only have ${MAX_SPLITS} splits.`);
     }
 
