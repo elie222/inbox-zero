@@ -4,6 +4,8 @@ import { createReferral } from "@/utils/referral/referral-code";
 import { captureException } from "@/utils/error";
 import { saveTokens } from "@/utils/auth/save-tokens";
 import { createOutlookClient } from "@/utils/outlook/client";
+import { getContactsClient } from "@/utils/gmail/client";
+import { ensureEmailAccountsWatched } from "@/utils/email/watch-manager";
 import {
   betterAuthConfig,
   handleLinkAccount,
@@ -54,6 +56,16 @@ vi.mock("@googleapis/gmail", () => ({
 }));
 vi.mock("@/utils/outlook/client", () => ({
   createOutlookClient: vi.fn(),
+}));
+vi.mock("@/utils/gmail/client", () => ({
+  getContactsClient: vi.fn(),
+}));
+vi.mock("@/utils/email/watch-manager", () => ({
+  ensureEmailAccountsWatched: vi.fn(),
+}));
+vi.mock("@/utils/premium/seats", () => ({
+  claimPendingPremiumInvite: vi.fn(),
+  updateAccountSeats: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("@/utils/encryption", () => ({
   encryptToken: vi.fn((t) => t),
@@ -353,6 +365,48 @@ describe("handleLinkAccount", () => {
         code: "email_already_linked",
         message: "email_already_linked",
       },
+    });
+  });
+
+  it("re-registers email watches after a Google account is linked", async () => {
+    vi.mocked(getContactsClient).mockReturnValue({
+      people: {
+        get: vi.fn().mockResolvedValue({
+          data: {
+            emailAddresses: [
+              {
+                value: "user@example.com",
+                metadata: { primary: true },
+              },
+            ],
+            names: [{ displayName: "Test User", metadata: { primary: true } }],
+            photos: [],
+          },
+        }),
+      },
+    } as any);
+    prisma.emailAccount.findUnique.mockResolvedValue(null);
+    prisma.user.findUnique.mockResolvedValue({
+      email: "user@example.com",
+      name: "Test User",
+      image: null,
+    } as any);
+    prisma.$transaction.mockResolvedValue([
+      { id: "email_account_1" },
+      { id: "account_1" },
+    ] as any);
+    vi.mocked(ensureEmailAccountsWatched).mockResolvedValue([]);
+
+    await handleLinkAccount({
+      id: "account_1",
+      userId: "user_1",
+      providerId: "google",
+      accessToken: "access_token",
+    } as any);
+
+    expect(ensureEmailAccountsWatched).toHaveBeenCalledWith({
+      userIds: ["user_1"],
+      logger: expect.anything(),
     });
   });
 });

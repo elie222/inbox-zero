@@ -12,6 +12,7 @@ const {
   mockGetToken,
   mockFetchGoogleOpenIdProfile,
   mockIsGoogleOauthEmulationEnabled,
+  mockEnsureEmailAccountsWatched,
   mockAuth,
 } = vi.hoisted(() => ({
   mockValidateOAuthCallback: vi.fn(),
@@ -23,6 +24,7 @@ const {
   mockGetToken: vi.fn(),
   mockFetchGoogleOpenIdProfile: vi.fn(),
   mockIsGoogleOauthEmulationEnabled: vi.fn(() => true),
+  mockEnsureEmailAccountsWatched: vi.fn(),
   mockAuth: vi.fn(),
 }));
 
@@ -83,6 +85,10 @@ vi.mock("@/utils/auth", () => ({
   auth: mockAuth,
 }));
 
+vi.mock("@/utils/email/watch-manager", () => ({
+  ensureEmailAccountsWatched: mockEnsureEmailAccountsWatched,
+}));
+
 vi.mock("@/utils/error", async (importActual) => {
   const actual = await importActual<typeof import("@/utils/error")>();
   return actual;
@@ -108,6 +114,7 @@ describe("google linking callback route", () => {
     });
     mockGetOAuthCodeResult.mockResolvedValue(null);
     mockAcquireOAuthCodeLock.mockResolvedValue(true);
+    mockEnsureEmailAccountsWatched.mockResolvedValue([]);
     mockAuth.mockResolvedValue({
       user: {
         id: "user-123",
@@ -166,6 +173,10 @@ describe("google linking callback route", () => {
     expect(prisma.account.create).not.toHaveBeenCalled();
     expect(mockSetOAuthCodeResult).toHaveBeenCalledWith("valid-auth-code", {
       success: "tokens_updated",
+    });
+    expect(mockEnsureEmailAccountsWatched).toHaveBeenCalledWith({
+      userIds: ["user-123"],
+      logger: expect.anything(),
     });
   });
 

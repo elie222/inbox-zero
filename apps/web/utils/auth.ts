@@ -22,6 +22,7 @@ import {
   isGoogleProvider,
   isMicrosoftProvider,
 } from "@/utils/email/provider-types";
+import { ensureEmailAccountsWatched } from "@/utils/email/watch-manager";
 import { captureException } from "@/utils/error";
 import { getContactsClient as getGoogleContactsClient } from "@/utils/gmail/client";
 import { SCOPES as GMAIL_SCOPES } from "@/utils/gmail/scopes";
@@ -745,6 +746,19 @@ export async function handleLinkAccount(account: Account) {
         error,
       });
       captureException(error, { extra: { userId: account.userId } });
+    });
+
+    await ensureEmailAccountsWatched({
+      userIds: [account.userId],
+      logger,
+    }).catch((error) => {
+      logger.error("[linkAccount] Error re-registering email watches", {
+        userId: account.userId,
+        error,
+      });
+      captureException(error, {
+        extra: { userId: account.userId, location: "linkAccountWatch" },
+      });
     });
 
     logger.info("[linkAccount] Successfully linked account", {
