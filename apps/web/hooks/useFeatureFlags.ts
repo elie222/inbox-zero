@@ -23,8 +23,7 @@ export function useMeetingBriefsEnabled() {
 }
 
 export function useMeetingRecorderEnabled() {
-  const posthogEnabled = useFeatureFlagEnabled("meeting-recorder");
-  return env.NEXT_PUBLIC_MEETING_RECORDER_ENABLED || posthogEnabled;
+  return env.NEXT_PUBLIC_MEETING_RECORDER_ENABLED;
 }
 
 // Returns undefined while the PostHog flag is still loading

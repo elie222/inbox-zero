@@ -39,6 +39,13 @@ export const draftContextMetadataSchema = z.object({
     injected: z.boolean(),
     count: z.number(),
   }),
+  // Optional: rows written before this field existed are still parsed.
+  recordedMeetings: z
+    .object({
+      injected: z.boolean(),
+      count: z.number(),
+    })
+    .optional(),
   attachments: z.object({
     injected: z.boolean(),
     selectedCount: z.number(),
