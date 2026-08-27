@@ -60,6 +60,7 @@ export function NewSplitPopover({
   onCreateFromPrompt,
 }: NewSplitPopoverProps) {
   const [open, setOpen] = useState(false);
+  const [isBrowsing, setIsBrowsing] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -70,6 +71,7 @@ export function NewSplitPopover({
   const changeOpen = (next: boolean) => {
     setOpen(next);
     if (!next) {
+      setIsBrowsing(false);
       setPrompt("");
       setSelectedId(null);
       setName("");
@@ -109,115 +111,138 @@ export function NewSplitPopover({
         <PlusIcon className="size-3.5" />
       </PopoverTrigger>
       <PopoverContent align="start" className="w-80 p-3 text-foreground">
-        <p className="mb-2.5 font-medium text-foreground text-xs">New split</p>
-
-        <form onSubmit={submitPrompt} className="mb-2.5 flex gap-1.5">
-          <Input
-            value={prompt}
-            onChange={(event) => setPrompt(event.target.value)}
-            placeholder='Describe it, e.g. "receipts" or "unread"'
-            aria-label="Describe this split"
-            maxLength={300}
-            disabled={isCreating}
-            className="h-8 text-xs"
-          />
+        <div className="mb-2.5 flex items-center justify-between">
+          <p className="font-medium text-foreground text-xs">New split</p>
           <Button
-            type="submit"
-            variant="gradient"
-            size="xs-2"
-            aria-label="Create split from description"
-            disabled={!prompt.trim() || isCreating}
+            type="button"
+            variant="link"
+            size="xs"
+            className="h-auto p-0 text-muted-foreground"
+            onClick={() => {
+              setIsBrowsing((current) => !current);
+              setPrompt("");
+              setSelectedId(null);
+              setName("");
+            }}
           >
-            {isCreating ? (
-              <Loader2Icon className="size-3.5 animate-spin" />
-            ) : (
-              <SparklesIcon className="size-3.5" />
-            )}
+            {isBrowsing ? "Describe instead" : "Choose manually"}
           </Button>
-        </form>
+        </div>
 
-        <p className="mb-1.5 text-muted-foreground text-xs">Or pick one:</p>
+        {isBrowsing ? (
+          <>
+            <Command
+              filter={filterByName}
+              className="mb-2.5 rounded-lg border border-border"
+            >
+              <CommandInput
+                value={prompt}
+                onValueChange={setPrompt}
+                placeholder="Search labels and categories"
+                className="h-8 text-xs"
+              />
+              <CommandList className="max-h-44">
+                <CommandEmpty className="py-3 text-center text-muted-foreground text-xs">
+                  No matches
+                </CommandEmpty>
+                {GROUP_TITLES.map(({ group, title }) => {
+                  const groupOptions = options.filter(
+                    (option) => option.group === group,
+                  );
+                  if (!groupOptions.length) return null;
 
-        <Command
-          filter={filterByName}
-          className="mb-2.5 rounded-lg border border-border"
-        >
-          <CommandInput
-            placeholder="Search labels and categories"
-            className="h-8 text-xs"
-          />
-          <CommandList className="max-h-44">
-            <CommandEmpty className="py-3 text-center text-muted-foreground text-xs">
-              No matches
-            </CommandEmpty>
-            {GROUP_TITLES.map(({ group, title }) => {
-              const groupOptions = options.filter(
-                (option) => option.group === group,
-              );
-              if (!groupOptions.length) return null;
+                  return (
+                    <CommandGroup key={group} heading={title}>
+                      {groupOptions.map((option) => (
+                        <CommandItem
+                          key={option.id}
+                          value={option.id}
+                          keywords={[option.name, title]}
+                          onSelect={() => {
+                            setSelectedId(option.id);
+                            setName(option.name);
+                            setPrompt("");
+                          }}
+                          className="text-xs"
+                        >
+                          {option.name}
+                          <CheckIcon
+                            className={cn(
+                              "ml-auto size-3.5",
+                              option.id === selectedId
+                                ? "opacity-100"
+                                : "opacity-0",
+                            )}
+                          />
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  );
+                })}
+              </CommandList>
+            </Command>
 
-              return (
-                <CommandGroup key={group} heading={title}>
-                  {groupOptions.map((option) => (
-                    <CommandItem
-                      key={option.id}
-                      value={option.id}
-                      keywords={[option.name, title]}
-                      onSelect={() => {
-                        setSelectedId(option.id);
-                        setName(option.name);
-                      }}
-                      className="text-xs"
-                    >
-                      {option.name}
-                      <CheckIcon
-                        className={cn(
-                          "ml-auto size-3.5",
-                          option.id === selectedId
-                            ? "opacity-100"
-                            : "opacity-0",
-                        )}
-                      />
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              );
-            })}
-          </CommandList>
-        </Command>
+            {selected && (
+              <form onSubmit={submitSelection}>
+                <p className="mb-2.5 rounded-lg border border-border bg-muted px-2.5 py-2 text-muted-foreground text-xs">
+                  {summarize(selected)}
+                </p>
 
-        {selected && (
-          <form onSubmit={submitSelection}>
-            <p className="mb-2.5 rounded-lg border border-border bg-muted px-2.5 py-2 text-muted-foreground text-xs">
-              {summarize(selected)}
-            </p>
+                <Input
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  placeholder="Name this split"
+                  aria-label="Split name"
+                  className="mb-2.5 h-8 text-xs"
+                />
 
+                <div className="flex gap-2">
+                  <Button
+                    type="submit"
+                    variant="gradient"
+                    size="xs-2"
+                    disabled={isCreating}
+                  >
+                    Add split
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="xs-2"
+                    onClick={() => changeOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </form>
+            )}
+          </>
+        ) : (
+          <form onSubmit={submitPrompt} className="flex gap-1.5">
             <Input
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              placeholder="Name this split"
-              aria-label="Split name"
-              className="mb-2.5 h-8 text-xs"
+              value={prompt}
+              onChange={(event) => setPrompt(event.target.value)}
+              placeholder='Describe it, e.g. "social" or "unread"'
+              aria-label="Describe this split"
+              maxLength={300}
+              disabled={isCreating}
+              className="h-8 text-xs focus-visible:ring-border focus-visible:ring-offset-0"
             />
-
-            <div className="flex gap-2">
-              <Button
-                type="submit"
-                variant="gradient"
-                size="xs-2"
-                disabled={isCreating}
-              >
-                Add split
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="xs-2"
-                onClick={() => changeOpen(false)}
-              >
-                Cancel
-              </Button>
-            </div>
+            <Button
+              type="submit"
+              variant="ghost"
+              size="iconSm"
+              aria-label="Create split from description"
+              title="Create split from description"
+              disabled={!prompt.trim() || isCreating}
+              className="text-muted-foreground"
+            >
+              {isCreating ? (
+                <Loader2Icon className="size-3.5 animate-spin" />
+              ) : (
+                <SparklesIcon className="size-3.5" />
+              )}
+            </Button>
           </form>
         )}
       </PopoverContent>
@@ -225,8 +250,6 @@ export function NewSplitPopover({
   );
 }
 
-// Match on the option's name and group only; the default cmdk filter would also
-// match against the value string, which is an opaque label id here.
 function filterByName(
   _value: string,
   search: string,
