@@ -688,6 +688,7 @@ export async function handleLinkAccount(account: Account) {
         logger,
       });
 
+      await ensureEmailWatchesAfterLink(account.userId);
       return;
     }
     const user = await prisma.user.findUnique({
@@ -748,18 +749,7 @@ export async function handleLinkAccount(account: Account) {
       captureException(error, { extra: { userId: account.userId } });
     });
 
-    await ensureEmailAccountsWatched({
-      userIds: [account.userId],
-      logger,
-    }).catch((error) => {
-      logger.error("[linkAccount] Error re-registering email watches", {
-        userId: account.userId,
-        error,
-      });
-      captureException(error, {
-        extra: { userId: account.userId, location: "linkAccountWatch" },
-      });
-    });
+    await ensureEmailWatchesAfterLink(account.userId);
 
     logger.info("[linkAccount] Successfully linked account", {
       email: user.email,
@@ -820,5 +810,20 @@ async function autoJoinOrganization(emailAccountId: string) {
     emailAccountId,
     organizationId,
     memberId: member.id,
+  });
+}
+
+async function ensureEmailWatchesAfterLink(userId: string) {
+  await ensureEmailAccountsWatched({
+    userIds: [userId],
+    logger,
+  }).catch((error) => {
+    logger.error("[linkAccount] Error re-registering email watches", {
+      userId,
+      error,
+    });
+    captureException(error, {
+      extra: { userId, location: "linkAccountWatch" },
+    });
   });
 }
