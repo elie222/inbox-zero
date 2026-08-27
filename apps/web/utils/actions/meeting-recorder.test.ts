@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MeetingJoinRule } from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
 import {
+  deleteMeetingNotesAction,
   setMeetingJoinOverrideAction,
   updateMeetingRecorderSettingsAction,
 } from "./meeting-recorder";
@@ -43,6 +44,47 @@ vi.mock("@/utils/meeting-recorder/reconcile", () => ({
 }));
 
 const EMAIL_ACCOUNT_ID = "email-account-1";
+
+describe("deleteMeetingNotesAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockAuth.mockResolvedValue({
+      user: { id: "user-1", email: "user@example.com" },
+    });
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      email: "user@example.com",
+      account: { userId: "user-1", provider: "google" },
+    } as never);
+  });
+
+  it("deletes the recording only through a meeting owned by the account", async () => {
+    prisma.meetingRecording.deleteMany.mockResolvedValue({ count: 1 });
+
+    const result = await deleteMeetingNotesAction(EMAIL_ACCOUNT_ID, {
+      meetingId: "meeting-1",
+    });
+
+    expect(prisma.meetingRecording.deleteMany).toHaveBeenCalledWith({
+      where: {
+        emailAccountId: EMAIL_ACCOUNT_ID,
+        meetings: {
+          some: { id: "meeting-1", emailAccountId: EMAIL_ACCOUNT_ID },
+        },
+      },
+    });
+    expect(result?.serverError).toBeUndefined();
+  });
+
+  it("does not delete notes that do not belong to the account", async () => {
+    prisma.meetingRecording.deleteMany.mockResolvedValue({ count: 0 });
+
+    const result = await deleteMeetingNotesAction(EMAIL_ACCOUNT_ID, {
+      meetingId: "another-account-meeting",
+    });
+
+    expect(result?.serverError).toBe("Meeting not found");
+  });
+});
 
 describe("setMeetingJoinOverrideAction", () => {
   beforeEach(() => {

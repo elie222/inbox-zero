@@ -19,3 +19,7 @@ export const setMeetingJoinOverrideBody = z.object({
   calendarEventId: z.string(),
   join: z.boolean(),
 });
+
+export const deleteMeetingNotesBody = z.object({
+  meetingId: z.string(),
+});

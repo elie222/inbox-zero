@@ -5,6 +5,7 @@ import { differenceInMinutes } from "date-fns/differenceInMinutes";
 import { MeetingJoinRule } from "@/generated/prisma/enums";
 import { actionClient } from "@/utils/actions/safe-action";
 import {
+  deleteMeetingNotesBody,
   setMeetingJoinOverrideBody,
   updateMeetingRecorderSettingsBody,
 } from "@/utils/actions/meeting-recorder.validation";
@@ -24,6 +25,20 @@ import {
   upsertMeeting,
 } from "@/utils/meeting-recorder/reconcile";
 import prisma from "@/utils/prisma";
+
+export const deleteMeetingNotesAction = actionClient
+  .metadata({ name: "deleteMeetingNotes" })
+  .inputSchema(deleteMeetingNotesBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { meetingId } }) => {
+    const deleted = await prisma.meetingRecording.deleteMany({
+      where: {
+        emailAccountId,
+        meetings: { some: { id: meetingId, emailAccountId } },
+      },
+    });
+
+    if (deleted.count === 0) throw new SafeError("Meeting not found");
+  });
 
 export const updateMeetingRecorderSettingsAction = actionClient
   .metadata({ name: "updateMeetingRecorderSettings" })
