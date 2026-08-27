@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Prisma } from "@/generated/prisma/client";
 import { MeetingJoinRule } from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
 import {
@@ -57,31 +58,55 @@ describe("deleteMeetingNotesAction", () => {
     } as never);
   });
 
-  it("deletes the recording only through a meeting owned by the account", async () => {
-    prisma.meetingRecording.deleteMany.mockResolvedValue({ count: 1 });
+  it("clears the summary and deletes the recording atomically", async () => {
+    const clearMeeting = Promise.resolve({}) as never;
+    const deleteRecording = Promise.resolve({}) as never;
+    prisma.meeting.findFirst.mockResolvedValue({
+      recordingId: "recording-1",
+    } as never);
+    prisma.meeting.update.mockReturnValue(clearMeeting);
+    prisma.meetingRecording.delete.mockReturnValue(deleteRecording);
 
     const result = await deleteMeetingNotesAction(EMAIL_ACCOUNT_ID, {
       meetingId: "meeting-1",
     });
 
-    expect(prisma.meetingRecording.deleteMany).toHaveBeenCalledWith({
+    expect(prisma.meeting.findFirst).toHaveBeenCalledWith({
       where: {
+        id: "meeting-1",
         emailAccountId: EMAIL_ACCOUNT_ID,
-        meetings: {
-          some: { id: "meeting-1", emailAccountId: EMAIL_ACCOUNT_ID },
-        },
+        recording: { emailAccountId: EMAIL_ACCOUNT_ID },
       },
+      select: { recordingId: true },
     });
+    expect(prisma.meeting.update).toHaveBeenCalledWith({
+      where: {
+        id: "meeting-1",
+        emailAccountId: EMAIL_ACCOUNT_ID,
+        recordingId: "recording-1",
+      },
+      data: { recordingId: null, summary: Prisma.DbNull },
+    });
+    expect(prisma.meetingRecording.delete).toHaveBeenCalledWith({
+      where: { id: "recording-1" },
+    });
+    expect(prisma.$transaction).toHaveBeenCalledWith([
+      clearMeeting,
+      deleteRecording,
+    ]);
     expect(result?.serverError).toBeUndefined();
   });
 
   it("does not delete notes that do not belong to the account", async () => {
-    prisma.meetingRecording.deleteMany.mockResolvedValue({ count: 0 });
+    prisma.meeting.findFirst.mockResolvedValue(null);
 
     const result = await deleteMeetingNotesAction(EMAIL_ACCOUNT_ID, {
       meetingId: "another-account-meeting",
     });
 
+    expect(prisma.meeting.update).not.toHaveBeenCalled();
+    expect(prisma.meetingRecording.delete).not.toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
     expect(result?.serverError).toBe("Meeting not found");
   });
 });

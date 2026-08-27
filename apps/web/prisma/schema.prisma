@@ -1548,7 +1548,7 @@ model Meeting {
   recapSentAt            DateTime?
 
   recordingId String?
-  recording   MeetingRecording? @relation(fields: [recordingId], references: [id], onDelete: Cascade)
+  recording   MeetingRecording? @relation(fields: [recordingId], references: [id], onDelete: SetNull)
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)

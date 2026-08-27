@@ -158,6 +158,37 @@ describe.skipIf(!RUN_DB_TESTS)(
       ).resolves.toBeNull();
     });
 
+    test("preserves the meeting when its recording is deleted", async () => {
+      await reconcile.reconcileSingleEvent({
+        emailAccount: account(accountAId, ACCOUNT_A),
+        event: calendarEvent(),
+        logger,
+      });
+
+      const meeting = await prisma.meeting.findFirstOrThrow({
+        where: { emailAccountId: accountAId },
+      });
+      const recording = await prisma.meetingRecording.findFirstOrThrow({
+        where: { meetings: { some: { id: meeting.id } } },
+      });
+      await prisma.meeting.update({
+        where: { id: meeting.id },
+        data: { summary: { overview: "Stored notes" } },
+      });
+
+      await prisma.meetingRecording.delete({
+        where: { id: recording.id },
+      });
+
+      await expect(
+        prisma.meeting.findUnique({ where: { id: meeting.id } }),
+      ).resolves.toMatchObject({
+        id: meeting.id,
+        recordingId: null,
+        summary: { overview: "Stored notes" },
+      });
+    });
+
     test("updates the bot name for an existing scheduled recording", async () => {
       const event = calendarEvent();
       const emailAccount = account(accountAId, ACCOUNT_A);

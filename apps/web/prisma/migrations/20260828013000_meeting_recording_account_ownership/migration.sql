@@ -58,6 +58,6 @@ ALTER TABLE "Meeting" DROP CONSTRAINT "Meeting_recordingId_fkey";
 ALTER TABLE "Meeting"
 ADD CONSTRAINT "Meeting_recordingId_fkey"
 FOREIGN KEY ("recordingId") REFERENCES "MeetingRecording"("id")
-ON DELETE CASCADE ON UPDATE CASCADE;
+ON DELETE SET NULL ON UPDATE CASCADE;
 
 COMMIT;
