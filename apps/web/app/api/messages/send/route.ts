@@ -6,11 +6,11 @@ import { withEmailAccount } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 import { EMAIL_SEND_LIMITS, sendEmailBody } from "@/utils/types/mail";
 import { executeDurableEmailSend } from "@/utils/email/durable-email-send";
-import { executeStagedDurableEmailSend } from "@/utils/email/email-attachment-staging";
 import {
+  DURABLE_MULTIPART_ATTACHMENT_LIMIT_MESSAGE,
+  DURABLE_MULTIPART_EMAIL_SEND_LIMITS,
   durableEmailSendBody,
   durableMultipartEmailSendPayload,
-  durableStagedEmailSendBody,
 } from "@/utils/email/durable-email-send.validation";
 
 export type SendMessageResponse = {
@@ -30,22 +30,11 @@ export type DurableSendMessageResponse = Awaited<
  * content-free envelope in the `payload` field.
  */
 export const POST = withEmailAccount("messages/send", async (request) => {
-  const providerName = await getProviderName(
-    request.auth.emailAccountId,
-    request.auth.userId,
-  );
-  let emailProviderPromise: ReturnType<typeof createEmailProvider> | undefined;
-  const getEmailProvider = () => {
-    emailProviderPromise ??= createEmailProvider({
-      emailAccountId: request.auth.emailAccountId,
-      provider: providerName,
-      logger: request.logger,
-    });
-    return emailProviderPromise;
-  };
   if (isMultipartRequest(request)) {
     validateMultipartContentLength(request.headers.get("content-length"));
     const input = await parseDurableMultipartRequest(request);
+    const { getEmailProvider, providerName } =
+      await getProviderContext(request);
     const result = await executeDurableEmailSend({
       emailAccountId: request.auth.emailAccountId,
       getEmailProvider,
@@ -57,17 +46,9 @@ export const POST = withEmailAccount("messages/send", async (request) => {
 
   const json: unknown = await request.json();
   if (isDurableSend(json)) {
-    if (hasStagedAttachments(json)) {
-      const input = durableStagedEmailSendBody.parse(json);
-      const result = await executeStagedDurableEmailSend({
-        emailAccountId: request.auth.emailAccountId,
-        getEmailProvider,
-        input,
-        provider: providerName,
-      });
-      return NextResponse.json(result);
-    }
     const input = durableEmailSendBody.parse(json);
+    const { getEmailProvider, providerName } =
+      await getProviderContext(request);
     const result = await executeDurableEmailSend({
       emailAccountId: request.auth.emailAccountId,
       getEmailProvider,
@@ -79,6 +60,7 @@ export const POST = withEmailAccount("messages/send", async (request) => {
   const body = sendEmailBody.parse(json);
 
   try {
+    const { getEmailProvider } = await getProviderContext(request);
     const emailProvider = await getEmailProvider();
     const result = await emailProvider.sendEmailWithHtml(body);
 
@@ -100,39 +82,35 @@ export const POST = withEmailAccount("messages/send", async (request) => {
   }
 });
 
-async function getProviderName(emailAccountId: string, userId: string) {
+async function getProviderContext(request: {
+  auth: { emailAccountId: string; userId: string };
+  logger: Parameters<typeof createEmailProvider>[0]["logger"];
+}) {
   const emailAccount = await prisma.emailAccount.findUnique({
-    where: { id: emailAccountId, userId },
+    where: {
+      id: request.auth.emailAccountId,
+      userId: request.auth.userId,
+    },
     select: { account: { select: { provider: true } } },
   });
-  return z.string().min(1).parse(emailAccount?.account.provider);
+  const providerName = z.string().min(1).parse(emailAccount?.account.provider);
+  let emailProviderPromise: ReturnType<typeof createEmailProvider> | undefined;
+
+  return {
+    providerName,
+    getEmailProvider: () => {
+      emailProviderPromise ??= createEmailProvider({
+        emailAccountId: request.auth.emailAccountId,
+        provider: providerName,
+        logger: request.logger,
+      });
+      return emailProviderPromise;
+    },
+  };
 }
 
 function isDurableSend(value: unknown): value is { mutationId: unknown } {
   return typeof value === "object" && value !== null && "mutationId" in value;
-}
-
-function hasStagedAttachments(value: unknown) {
-  if (typeof value !== "object" || value === null || !("email" in value)) {
-    return false;
-  }
-  const email = value.email;
-  if (
-    typeof email !== "object" ||
-    email === null ||
-    !("attachments" in email)
-  ) {
-    return false;
-  }
-  return (
-    Array.isArray(email.attachments) &&
-    email.attachments.some(
-      (attachment) =>
-        typeof attachment === "object" &&
-        attachment !== null &&
-        "stagedAttachmentId" in attachment,
-    )
-  );
 }
 
 function isMultipartRequest(request: Request) {
@@ -167,6 +145,9 @@ async function parseDurableMultipartRequest(request: Request) {
     .parse(formData.getAll("attachment"));
   const metadata = input.email.attachments ?? [];
 
+  validateDirectAttachmentTotalBytes(
+    files.reduce((total, file) => total + file.size, 0),
+  );
   z.number()
     .refine((count) => count === metadata.length)
     .parse(files.length);
@@ -255,6 +236,15 @@ function validateMultipartRequestSize(length: number) {
     .refine(
       (value) => value <= EMAIL_SEND_LIMITS.maxSerializedPayloadBytes,
       "The multipart request is too large.",
+    )
+    .parse(length);
+}
+
+function validateDirectAttachmentTotalBytes(length: number) {
+  z.number()
+    .max(
+      DURABLE_MULTIPART_EMAIL_SEND_LIMITS.maxAttachmentBytes,
+      DURABLE_MULTIPART_ATTACHMENT_LIMIT_MESSAGE,
     )
     .parse(length);
 }

@@ -1,12 +1,7 @@
-import { createHash } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EmailSendOperationStatus } from "@/generated/prisma/enums";
 import { getMockEmailAccountWithAccount } from "@/__tests__/helpers";
 import prisma from "@/utils/__mocks__/prisma";
-import {
-  DurableEmailPreparationRejectedError,
-  executeDurableEmailSend,
-} from "@/utils/email/durable-email-send";
 import { executeMailMutationAction } from "./mail-mutation";
 
 vi.mock("@/utils/prisma");
@@ -243,24 +238,12 @@ describe("executeMailMutationAction", () => {
   });
 
   it("marks a stale processing reply uncertain without sending", async () => {
-    prisma.emailSendOperation.findUnique.mockResolvedValue({
-      ...getSendOperation(),
-      providerStartedAt: new Date(0),
-    });
+    prisma.emailSendOperation.findUnique.mockResolvedValue(getSendOperation());
     prisma.emailSendOperation.updateMany.mockResolvedValue({ count: 1 });
 
     const result = await executeMailMutationAction("account-1", replyInput());
 
     expect(result?.data).toEqual({ status: "uncertain" });
-    expect(prisma.emailSendOperation.updateMany).toHaveBeenCalledWith({
-      where: {
-        id: "operation",
-        providerStartedAt: { not: null },
-        status: EmailSendOperationStatus.PROCESSING,
-        processingStartedAt: { lte: expect.any(Date) },
-      },
-      data: { status: EmailSendOperationStatus.UNCERTAIN },
-    });
     expect(mocks.sendEmailWithHtml).not.toHaveBeenCalled();
   });
 
@@ -351,203 +334,6 @@ describe("executeMailMutationAction", () => {
     });
     expect(mocks.sendEmailWithHtml).not.toHaveBeenCalled();
   });
-
-  it.each([
-    {
-      expectedStatus: "already_applied",
-      operationStatus: EmailSendOperationStatus.SENT,
-    },
-    {
-      expectedStatus: "uncertain",
-      operationStatus: EmailSendOperationStatus.UNCERTAIN,
-    },
-    {
-      expectedStatus: "uncertain",
-      operationStatus: EmailSendOperationStatus.PROCESSING,
-      providerStartedAt: new Date(0),
-      staleCount: 1,
-    },
-    {
-      expectedStatus: "retry",
-      operationStatus: EmailSendOperationStatus.PROCESSING,
-      processingStartedAt: new Date(),
-      providerStartedAt: null,
-    },
-  ])("does not prepare an email for a duplicate $expectedStatus result", async ({
-    expectedStatus,
-    operationStatus,
-    processingStartedAt,
-    providerStartedAt,
-    staleCount,
-  }) => {
-    const canonicalInput = "stable-canonical-input";
-    prisma.emailSendOperation.findUnique.mockResolvedValue({
-      ...getSendOperation(),
-      payloadHash: createHash("sha256").update(canonicalInput).digest("hex"),
-      processingStartedAt:
-        processingStartedAt ?? getSendOperation().processingStartedAt,
-      providerStartedAt: providerStartedAt ?? null,
-      status: operationStatus,
-      result:
-        operationStatus === EmailSendOperationStatus.SENT
-          ? { messageId: "message", threadId: "thread" }
-          : null,
-    });
-    if (staleCount !== undefined) {
-      prisma.emailSendOperation.updateMany.mockResolvedValue({
-        count: staleCount,
-      });
-    }
-    const prepareEmail = vi.fn();
-    const getEmailProvider = vi.fn();
-
-    const result = await executeDurableEmailSend({
-      emailAccountId: "account-1",
-      getEmailProvider,
-      input: replyInput(),
-      payloadHashInput: canonicalInput,
-      prepareEmail,
-      provider: "google",
-    });
-
-    expect(result.status).toBe(expectedStatus);
-    expect(prepareEmail).not.toHaveBeenCalled();
-    expect(getEmailProvider).not.toHaveBeenCalled();
-  });
-
-  it("releases a stale operation that crashed before calling the provider", async () => {
-    const canonicalInput = "stable-canonical-input";
-    prisma.emailSendOperation.findUnique.mockResolvedValue({
-      ...getSendOperation(),
-      payloadHash: createHash("sha256").update(canonicalInput).digest("hex"),
-      providerStartedAt: null,
-    });
-    const prepareEmail = vi.fn();
-    const getEmailProvider = vi.fn();
-
-    const result = await executeDurableEmailSend({
-      emailAccountId: "account-1",
-      getEmailProvider,
-      input: replyInput(),
-      payloadHashInput: canonicalInput,
-      prepareEmail,
-      provider: "google",
-    });
-
-    expect(result).toEqual({ status: "retry" });
-    expect(prisma.emailSendOperation.deleteMany).toHaveBeenCalledWith({
-      where: {
-        id: "operation",
-        processingStartedAt: { lte: expect.any(Date) },
-        providerStartedAt: null,
-        status: EmailSendOperationStatus.PROCESSING,
-      },
-    });
-    expect(prepareEmail).not.toHaveBeenCalled();
-    expect(getEmailProvider).not.toHaveBeenCalled();
-    expect(prisma.emailSendOperation.updateMany).not.toHaveBeenCalled();
-  });
-
-  it("prepares a newly claimed email before creating the provider", async () => {
-    const operation = getSendOperation();
-    prisma.emailSendOperation.create.mockResolvedValue(operation);
-    const preparedEmail = {
-      ...replyInput().email,
-      attachments: [
-        {
-          filename: "report.txt",
-          content: "cmVwb3J0",
-          contentType: "text/plain",
-        },
-      ],
-    };
-    const prepareEmail = vi.fn().mockResolvedValue(preparedEmail);
-    const getEmailProvider = vi.fn().mockResolvedValue({
-      sendEmailWithHtml: mocks.sendEmailWithHtml,
-    });
-    mocks.sendEmailWithHtml.mockResolvedValue({
-      messageId: "message",
-      threadId: "thread",
-    });
-
-    const result = await executeDurableEmailSend({
-      emailAccountId: "account-1",
-      getEmailProvider,
-      input: replyInput(),
-      prepareEmail,
-      provider: "google",
-    });
-
-    expect(result.status).toBe("applied");
-    expect(prepareEmail).toHaveBeenCalledBefore(getEmailProvider);
-    expect(prisma.emailSendOperation.update).toHaveBeenNthCalledWith(1, {
-      where: { id: "operation" },
-      data: { providerStartedAt: expect.any(Date) },
-    });
-    expect(prepareEmail).toHaveBeenCalledBefore(
-      prisma.emailSendOperation.update,
-    );
-    expect(prisma.emailSendOperation.update).toHaveBeenCalledBefore(
-      getEmailProvider,
-    );
-    expect(getEmailProvider).toHaveBeenCalledBefore(mocks.sendEmailWithHtml);
-    expect(mocks.sendEmailWithHtml).toHaveBeenCalledWith(preparedEmail);
-  });
-
-  it("releases a newly claimed operation when preparation can be retried", async () => {
-    const operation = getSendOperation();
-    prisma.emailSendOperation.create.mockResolvedValue(operation);
-    const prepareEmail = vi
-      .fn()
-      .mockRejectedValue(new Error("blob unavailable"));
-    const getEmailProvider = vi.fn();
-
-    const result = await executeDurableEmailSend({
-      emailAccountId: "account-1",
-      getEmailProvider,
-      input: replyInput(),
-      prepareEmail,
-      provider: "google",
-    });
-
-    expect(result).toEqual({ status: "retry" });
-    expect(prisma.emailSendOperation.deleteMany).toHaveBeenCalledWith({
-      where: { id: "operation" },
-    });
-    expect(getEmailProvider).not.toHaveBeenCalled();
-    expect(prisma.emailSendOperation.updateMany).not.toHaveBeenCalled();
-  });
-
-  it("rejects a definitive preparation failure before creating the provider", async () => {
-    const operation = getSendOperation();
-    prisma.emailSendOperation.create.mockResolvedValue(operation);
-    const prepareEmail = vi
-      .fn()
-      .mockRejectedValue(
-        new DurableEmailPreparationRejectedError(
-          "The staged attachments are invalid",
-        ),
-      );
-    const getEmailProvider = vi.fn();
-
-    const result = await executeDurableEmailSend({
-      emailAccountId: "account-1",
-      getEmailProvider,
-      input: replyInput(),
-      prepareEmail,
-      provider: "google",
-    });
-
-    expect(result).toEqual({
-      status: "rejected",
-      error: "The staged attachments are invalid",
-    });
-    expect(prisma.emailSendOperation.deleteMany).toHaveBeenCalledWith({
-      where: { id: "operation" },
-    });
-    expect(getEmailProvider).not.toHaveBeenCalled();
-    expect(prisma.emailSendOperation.updateMany).not.toHaveBeenCalled();
-  });
 });
 
 function replyInput() {
@@ -571,7 +357,6 @@ function getSendOperation() {
       "4b2bc95a57ac227662e7cf4fcdf78bdea75af4f5cf9d4dff14c838bf66d1cded",
     status: EmailSendOperationStatus.PROCESSING,
     processingStartedAt: new Date(0),
-    providerStartedAt: null,
     result: null,
     emailAccountId: "account-1",
   };

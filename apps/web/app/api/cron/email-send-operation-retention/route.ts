@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { hasCronSecret, hasPostCronSecret } from "@/utils/cron";
 import { deleteExpiredEmailSendOperations } from "@/utils/email-send-operation-retention";
-import { cleanupEmailAttachmentStages } from "@/utils/email/email-attachment-staging";
 import { captureException } from "@/utils/error";
 import { type RequestWithLogger, withError } from "@/utils/middleware";
 
@@ -40,21 +39,9 @@ export const POST = withError(
 );
 
 async function runRetention(request: RequestWithLogger) {
-  let attachments: Awaited<
-    ReturnType<typeof cleanupEmailAttachmentStages>
-  > | null = null;
-  try {
-    attachments = await cleanupEmailAttachmentStages();
-  } catch (error) {
-    request.logger.error("Failed to clean up staged email attachments", {
-      error,
-    });
-    captureException(error);
-  }
   const deleted = await deleteExpiredEmailSendOperations();
   request.logger.info("Deleted expired email send operations", {
-    attachments,
     count: deleted,
   });
-  return NextResponse.json({ attachments, deleted });
+  return NextResponse.json({ deleted });
 }

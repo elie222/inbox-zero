@@ -134,7 +134,6 @@
     "@upstash/qstash": "2.11.3",
     "@upstash/redis": "1.38.1",
     "@vercel/analytics": "2.0.1",
-    "@vercel/blob": "2.8.0",
     "@vercel/queue": "0.4.0",
     "@vercel/speed-insights": "2.0.0",
     "ai": "6.0.219",

@@ -1,6 +1,5 @@
 import { z } from "zod";
 import {
-  EMAIL_ATTACHMENT_LIMITS,
   type EmailAttachmentMetadata,
   validateEmailAttachmentMetadata,
 } from "@inboxzero/email-editor/core";
@@ -17,10 +16,13 @@ export const durableEmailSendBody = z.object({
 export type DurableEmailSendBody = z.infer<typeof durableEmailSendBody>;
 
 export const DURABLE_MULTIPART_EMAIL_SEND_LIMITS = {
+  maxAttachmentBytes: 3 * 1024 * 1024,
   maxPayloadBytes: 5 * 1024 * 1024,
 } as const;
+export const DURABLE_MULTIPART_ATTACHMENT_LIMIT_MESSAGE =
+  "Attachments must total 3 MB or less. Use Gmail or Outlook for larger files.";
 
-export const durableAttachmentMetadata = z.strictObject({
+const multipartAttachmentMetadata = z.strictObject({
   id: z.string().min(1).max(512),
   filename: z.string().min(1).max(1024),
   mimeType: z
@@ -33,40 +35,37 @@ export const durableAttachmentMetadata = z.strictObject({
   contentId: z.string().min(1).max(512).optional(),
 });
 
-export const durableAttachmentMetadataList = z
-  .array(durableAttachmentMetadata)
-  .max(EMAIL_ATTACHMENT_LIMITS.maxFiles)
-  .superRefine(validateDurableAttachmentList);
+const multipartAttachments = z
+  .array(multipartAttachmentMetadata)
+  .superRefine((attachments, context) => {
+    const validation = validateEmailAttachmentMetadata(
+      attachments satisfies EmailAttachmentMetadata[],
+    );
+    if (!validation.valid) {
+      context.addIssue({
+        code: "custom",
+        message: validation.error,
+      });
+    }
 
-export const opaqueAttachmentStageId = z
-  .string()
-  .regex(/^[A-Za-z0-9_-]{1,128}$/u);
+    const totalBytes = attachments.reduce(
+      (total, attachment) => total + attachment.size,
+      0,
+    );
+    if (totalBytes > DURABLE_MULTIPART_EMAIL_SEND_LIMITS.maxAttachmentBytes) {
+      context.addIssue({
+        code: "custom",
+        message: DURABLE_MULTIPART_ATTACHMENT_LIMIT_MESSAGE,
+      });
+    }
+  });
 
 export const durableMultipartEmailSendBody = durableEmailSendBody.extend({
   email: z.object({
     ...sendEmailBody.shape,
-    attachments: durableAttachmentMetadataList.optional(),
+    attachments: multipartAttachments.optional(),
   }),
 });
-
-export const durableStagedEmailSendBody = durableEmailSendBody.extend({
-  email: z.object({
-    ...sendEmailBody.shape,
-    attachments: z
-      .array(
-        durableAttachmentMetadata.extend({
-          stagedAttachmentId: opaqueAttachmentStageId,
-        }),
-      )
-      .max(EMAIL_ATTACHMENT_LIMITS.maxFiles)
-      .superRefine(validateDurableAttachmentList)
-      .optional(),
-  }),
-});
-
-export type DurableStagedEmailSendBody = z.infer<
-  typeof durableStagedEmailSendBody
->;
 
 export const durableMultipartEmailSendPayload = z
   .string()
@@ -85,12 +84,3 @@ export const durableMultipartEmailSendPayload = z
     }
   })
   .pipe(durableMultipartEmailSendBody);
-
-function validateDurableAttachmentList(
-  attachments: EmailAttachmentMetadata[],
-  context: z.RefinementCtx,
-) {
-  const validation = validateEmailAttachmentMetadata(attachments);
-  if (validation.valid) return;
-  context.addIssue({ code: "custom", message: validation.error });
-}
