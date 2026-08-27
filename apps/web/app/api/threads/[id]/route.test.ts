@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SafeError } from "@/utils/error";
+import { GET } from "./route";
 
 const mockGetThread = vi.fn();
 
@@ -40,8 +41,6 @@ vi.mock("@/utils/middleware", () => ({
       }
     },
 }));
-
-import { GET } from "./route";
 
 describe("GET /api/threads/[id]", () => {
   beforeEach(() => {

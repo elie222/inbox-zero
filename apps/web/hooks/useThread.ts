@@ -75,7 +75,7 @@ export function useThread(
             }
 
             const data = (await fetcher(request.key)) as ThreadResponse;
-            await writeCachedThreadDetail({
+            writeCachedThreadDetail({
               emailAccountId,
               threadId: id,
               variant: request.variant,
