@@ -67,10 +67,12 @@ export function MeetingDetail({
   const analytics = useProductAnalytics();
   const { mutate } = useSWRConfig();
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const { data, isLoading, error } = useMeetingRecorderMeeting(
-    meetingId,
-    emailAccountId,
-  );
+  const {
+    data,
+    isLoading,
+    error,
+    mutate: mutateMeeting,
+  } = useMeetingRecorderMeeting(meetingId, emailAccountId);
 
   const summary = data?.summary;
   const transcript = data?.recording?.transcript;
@@ -85,12 +87,15 @@ export function MeetingDetail({
     deleteMeetingNotesAction.bind(null, emailAccountId),
     {
       onSuccess: async () => {
-        await mutate(
-          getAccountScopedKey(
-            "/api/user/meeting-recorder/meetings",
-            emailAccountId,
+        await Promise.all([
+          mutateMeeting(undefined, { revalidate: false }),
+          mutate(
+            getAccountScopedKey(
+              "/api/user/meeting-recorder/meetings",
+              emailAccountId,
+            ),
           ),
-        );
+        ]);
         toastSuccess({ description: "Meeting notes deleted." });
         setIsDeleteOpen(false);
         onClose();
