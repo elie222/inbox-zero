@@ -18,6 +18,29 @@ export const createMailSplitBody = z
   });
 export type CreateMailSplitBody = z.infer<typeof createMailSplitBody>;
 
+// The client sends the account's available options (labels, categories, states)
+// so the server doesn't have to re-fetch them from the provider; the AI only
+// ever picks one of these, so a made-up option can't produce a split.
+const splitPromptOption = z
+  .object({
+    id: z.string().min(1),
+    name: z.string().trim().min(1),
+    kind: z.nativeEnum(MailSplitKind),
+    value: z.string().trim().min(1).nullish(),
+  })
+  .refine((data) => !requiresValue(data.kind) || !!data.value, {
+    message: "Label and category splits need a value",
+    path: ["value"],
+  });
+
+export const createMailSplitFromPromptBody = z.object({
+  prompt: z.string().trim().min(1).max(300),
+  options: z.array(splitPromptOption).min(1).max(500),
+});
+export type CreateMailSplitFromPromptBody = z.infer<
+  typeof createMailSplitFromPromptBody
+>;
+
 export const renameMailSplitBody = z.object({
   id: z.string(),
   name: z.string().trim().min(1).max(60),
