@@ -11,17 +11,27 @@ test("shows a combined picker and creates a matching split", async ({
   const search = page.getByRole("combobox", {
     name: "Search or describe a split",
   });
-  await search.fill("Posts from social networks");
   await expect(
-    page.getByRole("option", {
-      name: "Create “Posts from social networks”",
-    }),
+    page.getByRole("option", { name: "Promotions", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("option", { name: "Project Alpha", exact: true }),
   ).toBeVisible();
   await expect(page.getByText(/Compiling/)).toBeHidden();
   // Keep Next's development indicator out of product screenshots.
   await page.locator("nextjs-portal").evaluateAll((portals) => {
     for (const portal of portals) portal.remove();
   });
+  await page.screenshot({
+    path: testInfo.outputPath("mail-new-split-initial.png"),
+  });
+
+  await search.fill("Posts from social networks");
+  await expect(
+    page.getByRole("option", {
+      name: "Create “Posts from social networks”",
+    }),
+  ).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath("mail-new-split-description.png"),
   });
