@@ -1,10 +1,10 @@
 import type { SendEmailBody } from "@/utils/types/mail";
-import { randomUuid } from "@/utils/uuid";
 import {
   getEmailCacheDatabase,
   type MailMutationClientSource,
   type StoredMailMutation,
 } from "./database";
+import { randomUuid } from "@/utils/uuid";
 
 export type MailMutationPayload =
   | { kind: "archive"; labelId?: string }

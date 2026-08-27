@@ -18,6 +18,12 @@ describe("randomUuid", () => {
     vi.stubGlobal("crypto", {
       getRandomValues: (array: Uint8Array) => webcrypto.getRandomValues(array),
     });
-    expect(randomUuid()).toMatch(UUID_V4_REGEX);
+
+    const first = randomUuid();
+    const second = randomUuid();
+
+    expect(first).toMatch(UUID_V4_REGEX);
+    expect(second).toMatch(UUID_V4_REGEX);
+    expect(first).not.toEqual(second);
   });
 });
