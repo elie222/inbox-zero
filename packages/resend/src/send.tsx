@@ -58,11 +58,6 @@ import InvoiceEmail, { type InvoiceEmailProps } from "../emails/invoice";
 const RESEND_NOT_CONFIGURED_MESSAGE =
   "Resend is not configured. You need to add a RESEND_API_KEY in your .env file for emails to work.";
 
-type EmailSendResult = {
-  data: { id: string } | null;
-  error: null;
-};
-
 const sendEmail = async ({
   from,
   to,
@@ -82,7 +77,7 @@ const sendEmail = async ({
   tags?: { name: string; value: string }[];
   unsubscribeToken: string;
   baseUrl: string;
-}): Promise<EmailSendResult | undefined> => {
+}) => {
   if (!isTransactionalEmailConfigured()) {
     console.log(RESEND_NOT_CONFIGURED_MESSAGE);
     return;
@@ -133,7 +128,7 @@ const sendTransactionalEmail = async ({
   tags?: { name: string; value: string }[];
   attachments?: TransactionalEmailAttachment[];
   idempotencyKey?: string;
-}): Promise<EmailSendResult | undefined> => {
+}) => {
   if (!isTransactionalEmailConfigured()) {
     console.log(RESEND_NOT_CONFIGURED_MESSAGE);
     return;
@@ -423,7 +418,7 @@ export const sendColdEmailNotification = async ({
   subject: string;
   inReplyTo?: string; // Message-ID of original email for threading
   emailProps: ColdEmailNotificationProps;
-}): Promise<EmailSendResult> => {
+}) => {
   if (!isTransactionalEmailConfigured()) {
     console.log(RESEND_NOT_CONFIGURED_MESSAGE);
     return { data: null, error: null };
@@ -585,9 +580,7 @@ export const sendInvoiceEmail = async ({
     tags: [{ name: "category", value: "invoice" }],
   });
 
-function toEmailSendResult(
-  result: TransactionalEmailProviderResult | null,
-): EmailSendResult {
+function toEmailSendResult(result: TransactionalEmailProviderResult | null) {
   return {
     data: result?.messageId ? { id: result.messageId } : null,
     error: null,
