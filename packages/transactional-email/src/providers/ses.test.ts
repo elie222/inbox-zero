@@ -70,12 +70,14 @@ describe("SES transactional email provider", () => {
           Attachments: [
             {
               ContentDisposition: "ATTACHMENT",
+              ContentTransferEncoding: "BASE64",
               FileName: "invoice.pdf",
               RawContent: new Uint8Array([1, 2, 3]),
             },
             {
               ContentDisposition: "INLINE",
               ContentId: "logo",
+              ContentTransferEncoding: "BASE64",
               ContentType: "image/png",
               FileName: "logo.png",
               RawContent: Buffer.from("logo"),

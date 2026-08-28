@@ -56,6 +56,7 @@ async function toSesAttachment(attachment: TransactionalEmailAttachment) {
       ? ("INLINE" as const)
       : ("ATTACHMENT" as const),
     ContentId: attachment.contentId,
+    ContentTransferEncoding: "BASE64" as const,
     ContentType: attachment.contentType,
     FileName: getAttachmentFilename(attachment),
     RawContent: await getAttachmentContent(attachment),
