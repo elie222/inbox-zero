@@ -227,6 +227,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
             compactions: [],
           }) as never,
       );
+      prisma.chat.findUnique.mockResolvedValue(null);
       prisma.chatMessage.upsert.mockResolvedValue({} as never);
       prisma.chatMessage.findUnique.mockResolvedValue(null);
       prisma.chatMessage.create.mockResolvedValue({} as never);

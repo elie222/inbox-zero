@@ -3,6 +3,7 @@ import prisma from "@/utils/__mocks__/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
 import {
   buildAffirmativeReactionMessage,
+  buildFollowUpHiddenContextMessage,
   buildHandledPendingEmailCard,
   buildPendingEmailConfirmationCard,
   buildPendingEmailCardFallbackText,
@@ -17,6 +18,7 @@ import {
   normalizeMessagingAssistantText,
   normalizeMessagingUserText,
   stripLeadingSlackMention,
+  upsertMessagingChat,
 } from "@/utils/messaging/chat-sdk/bot";
 
 vi.mock("@/utils/prisma");
@@ -641,5 +643,121 @@ describe("hasUnsupportedMessagingAttachment", () => {
         } as any,
       }),
     ).toBe(true);
+  });
+});
+
+describe("buildFollowUpHiddenContextMessage", () => {
+  it("returns null when the message is not a reply to a follow-up notification", () => {
+    expect(
+      buildFollowUpHiddenContextMessage({
+        followUpContext: null,
+        userMessageId: "slack-msg-1",
+      }),
+    ).toBeNull();
+  });
+
+  it("returns a hidden user message that pins the referenced email", () => {
+    const message = buildFollowUpHiddenContextMessage({
+      followUpContext: {
+        emailAccountId: "email-account-1",
+        threadId: "thread-abc",
+        messageId: "message-xyz",
+      },
+      userMessageId: "slack-msg-1",
+    });
+
+    expect(message).not.toBeNull();
+    expect(message?.role).toBe("user");
+    expect(message?.id).toBe("slack-msg-1-follow-up-context");
+
+    const text = (message?.parts[0] as { type: "text"; text: string }).text;
+    expect(text).toContain("thread-abc");
+    expect(text).toContain("message-xyz");
+  });
+});
+
+describe("upsertMessagingChat", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("creates a new chat without clearing history", async () => {
+    prisma.chat.findUnique.mockResolvedValue(null);
+    prisma.chat.upsert.mockResolvedValue({
+      id: "telegram-123",
+      lastSeenRulesRevision: null,
+      messages: [],
+      compactions: [],
+    } as any);
+
+    await upsertMessagingChat({
+      chatId: "telegram-123",
+      emailAccountId: "email-account-b",
+    });
+
+    expect(prisma.chat.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "telegram-123" },
+        create: {
+          id: "telegram-123",
+          emailAccountId: "email-account-b",
+        },
+        update: { emailAccountId: "email-account-b" },
+      }),
+    );
+  });
+
+  it("clears account-specific history when the chat changes accounts", async () => {
+    prisma.chat.findUnique.mockResolvedValue({
+      emailAccountId: "email-account-a",
+    } as any);
+    prisma.chat.upsert.mockResolvedValue({
+      id: "telegram-123",
+      lastSeenRulesRevision: null,
+      messages: [],
+      compactions: [],
+    } as any);
+
+    await upsertMessagingChat({
+      chatId: "telegram-123",
+      emailAccountId: "email-account-b",
+    });
+
+    expect(prisma.chat.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: {
+          emailAccountId: "email-account-b",
+          messages: { deleteMany: {} },
+          compactions: { deleteMany: {} },
+          memories: { set: [] },
+          compactionCount: 0,
+          lastSeenRulesRevision: null,
+        },
+      }),
+    );
+  });
+
+  it("keeps history when the chat remains on the same account", async () => {
+    prisma.chat.findUnique.mockResolvedValue({
+      emailAccountId: "email-account-b",
+    } as any);
+    prisma.chat.upsert.mockResolvedValue({
+      id: "telegram-123",
+      lastSeenRulesRevision: 3,
+      messages: [{ id: "message-1", role: "user", parts: [] }],
+      compactions: [{ id: "compaction-1" }],
+    } as any);
+
+    const chat = await upsertMessagingChat({
+      chatId: "telegram-123",
+      emailAccountId: "email-account-b",
+    });
+
+    expect(chat.messages).toHaveLength(1);
+    expect(prisma.chat.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: { emailAccountId: "email-account-b" },
+      }),
+    );
   });
 });
