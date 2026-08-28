@@ -1,6 +1,6 @@
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
-import { sendReconnectionEmail } from "@inboxzero/resend";
+import { sendReconnectionEmail } from "@inboxzero/transactional-email";
 import { env } from "@/env";
 import {
   addUserErrorMessage,

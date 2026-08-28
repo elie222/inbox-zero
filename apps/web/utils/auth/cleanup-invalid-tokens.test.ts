@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import { cleanupInvalidTokens } from "./cleanup-invalid-tokens";
-import { sendReconnectionEmail } from "@inboxzero/resend";
+import { sendReconnectionEmail } from "@inboxzero/transactional-email";
 import {
   addUserErrorMessage,
   addUserErrorMessageWithNotification,
@@ -11,7 +11,7 @@ import { createTestLogger } from "@/__tests__/helpers";
 const logger = createTestLogger();
 
 vi.mock("@/utils/prisma");
-vi.mock("@inboxzero/resend", () => ({
+vi.mock("@inboxzero/transactional-email", () => ({
   sendReconnectionEmail: vi.fn(),
 }));
 vi.mock("@/utils/error-messages", () => ({
