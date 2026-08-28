@@ -23,6 +23,14 @@ SET "emailAccountId" = meeting."emailAccountId"
 FROM "Meeting" AS meeting
 WHERE recording.id = meeting."recordingId";
 
+-- The account-scoped active key retains ownership when a meeting is unlinked
+-- before its provider cancellation finishes.
+UPDATE "MeetingRecording" AS recording
+SET "emailAccountId" = account.id
+FROM "EmailAccount" AS account
+WHERE recording."emailAccountId" IS NULL
+  AND account.id = split_part(recording."activeKey", ':', 1);
+
 -- An unowned bot whose provider media has not been deleted still carries the
 -- only cancellation and cleanup handle. Abort without deleting it so provider
 -- reconciliation can finish before this migration is retried.
