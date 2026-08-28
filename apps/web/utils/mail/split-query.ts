@@ -9,6 +9,8 @@ export type MailSplit = {
   value: string | null;
 };
 
+export type PortableLabelSplit = MailSplit & { labelName: string };
+
 /**
  * Every split is its own server query. Filtering a paginated list client-side would
  * only ever search the pages already loaded, which silently under-reports.
@@ -37,4 +39,15 @@ export function mailTypeToThreadsQuery(type: string): ThreadsQuery {
     return { type: "inbox", inboxSection: type };
   }
   return { type };
+}
+
+export function getPortableLabelSplits(
+  splits: MailSplit[],
+  labelsById: Record<string, { name: string }>,
+): PortableLabelSplit[] {
+  return splits.flatMap((split) => {
+    if (split.kind !== MailSplitKind.LABEL || !split.value) return [];
+    const labelName = labelsById[split.value]?.name.trim();
+    return labelName ? [{ ...split, labelName }] : [];
+  });
 }

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { MailSplitKind } from "@/generated/prisma/enums";
-import { mailSplitToThreadsQuery } from "@/utils/mail/split-query";
+import {
+  getPortableLabelSplits,
+  mailSplitToThreadsQuery,
+} from "@/utils/mail/split-query";
 
 function split(
   kind: MailSplitKind,
@@ -53,5 +56,27 @@ describe("mailSplitToThreadsQuery", () => {
     expect(() => mailSplitToThreadsQuery(split(kind))).toThrow(
       /has no (label|category)/,
     );
+  });
+});
+
+describe("getPortableLabelSplits", () => {
+  it("uses the source label name as the cross-account identity", () => {
+    const labelSplit = {
+      ...split(MailSplitKind.LABEL, "source-label-id"),
+      name: "Custom tab title",
+    };
+
+    expect(
+      getPortableLabelSplits(
+        [labelSplit, split(MailSplitKind.CATEGORY, "CATEGORY_UPDATES")],
+        { "source-label-id": { name: "Receipts" } },
+      ),
+    ).toEqual([{ ...labelSplit, labelName: "Receipts" }]);
+  });
+
+  it("omits label splits whose source label no longer exists", () => {
+    expect(
+      getPortableLabelSplits([split(MailSplitKind.LABEL, "missing-label")], {}),
+    ).toEqual([]);
   });
 });

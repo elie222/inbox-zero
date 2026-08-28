@@ -96,6 +96,7 @@ import {
   updateMailboxItemAction,
 } from "@/utils/actions/mail";
 import {
+  getPortableLabelSplits,
   mailSplitToThreadsQuery,
   mailTypeToThreadsQuery,
 } from "@/utils/mail/split-query";
@@ -238,23 +239,36 @@ export function MailShell() {
   }, [scopeFolderId, scopeLabelId, scopeType]);
   const isScoped = !isAllAccounts && scopeQuery !== null;
 
+  const combinedLabelSplits = useMemo(
+    () => getPortableLabelSplits(settings?.splits ?? [], userLabels),
+    [settings?.splits, userLabels],
+  );
+
   const splits: MailSplitTab[] = useMemo(() => {
     const builtInSplits = BUILT_IN_SPLITS.map((split) => ({
       id: split.id,
       name: split.name,
       deletable: false,
     }));
-    if (isAllAccounts) return builtInSplits;
-
     return [
       ...builtInSplits,
-      ...(settings?.splits ?? []).map((split) => ({
-        id: split.id,
-        name: split.name,
-        deletable: true,
-      })),
+      ...(isAllAccounts ? combinedLabelSplits : (settings?.splits ?? [])).map(
+        (split) => ({
+          id: split.id,
+          name: split.name,
+          deletable: true,
+        }),
+      ),
     ];
-  }, [isAllAccounts, settings?.splits]);
+  }, [combinedLabelSplits, isAllAccounts, settings?.splits]);
+  const displayedActiveSplitId = splits.some(
+    (split) => split.id === activeSplitId,
+  )
+    ? activeSplitId
+    : "all";
+  const activeCombinedLabelName = combinedLabelSplits.find(
+    (split) => split.id === displayedActiveSplitId,
+  )?.labelName;
 
   const query: ThreadsQuery = useMemo(() => {
     if (scopeQuery) return scopeQuery;
@@ -276,7 +290,8 @@ export function MailShell() {
     accounts: combinedAccounts,
     emailAccountId,
     enabled: isAllAccounts,
-    isUnread: activeSplitId === "unread",
+    isUnread: displayedActiveSplitId === "unread",
+    labelName: activeCombinedLabelName,
   });
   const { labelsByAccount } = combinedThreadState;
   const { threads, isLoading, error, hasMore, isLoadingMore, loadMore } =
@@ -620,7 +635,9 @@ export function MailShell() {
             else if (layout === "list") setOpenThread(null);
           },
       nextSplit: () => {
-        const index = splits.findIndex((s) => s.id === activeSplitId);
+        const index = splits.findIndex(
+          (split) => split.id === displayedActiveSplitId,
+        );
         const next = splits[(index + 1) % splits.length];
         if (next) setActiveSplitId(next.id);
       },
@@ -881,12 +898,16 @@ export function MailShell() {
     setScopeType(null);
     setScopeLabelId(null);
     setScopeFolderId(null);
-    if (!BUILT_IN_SPLITS.some((split) => split.id === activeSplitId)) {
+    if (
+      !BUILT_IN_SPLITS.some((split) => split.id === activeSplitId) &&
+      !combinedLabelSplits.some((split) => split.id === activeSplitId)
+    ) {
       setActiveSplitId("all");
     }
     setAccountScope("all");
   }, [
     activeSplitId,
+    combinedLabelSplits,
     selection.clear,
     setAccountScope,
     setActiveSplitId,
@@ -960,7 +981,7 @@ export function MailShell() {
             {!isScoped && (
               <SplitTabs
                 splits={splits}
-                activeSplitId={activeSplitId}
+                activeSplitId={displayedActiveSplitId}
                 onSelect={setActiveSplitId}
                 onDelete={onDeleteSplit}
                 newSplitOptions={newSplitOptions}
@@ -999,7 +1020,7 @@ export function MailShell() {
                 onLoadMore={loadMore}
                 listKey={
                   isAllAccounts
-                    ? `all-accounts:${activeSplitId}`
+                    ? `all-accounts:${displayedActiveSplitId}`
                     : JSON.stringify(query)
                 }
               />
