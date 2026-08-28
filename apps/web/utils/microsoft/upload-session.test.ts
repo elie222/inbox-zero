@@ -70,12 +70,9 @@ describe("uploadResumableChunks", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(upload(Buffer.alloc(4))).rejects.toMatchObject({
-      error: expect.objectContaining({
-        message:
-          "Upload session returned 200 without nextExpectedRanges or a created item",
-      }),
-    });
+    await expect(upload(Buffer.alloc(4))).rejects.toThrow(
+      "Upload session returned 200 without nextExpectedRanges or a created item",
+    );
     expect(getCallsByMethod(fetchMock, "DELETE")).toHaveLength(1);
   });
 
@@ -190,13 +187,9 @@ describe("uploadResumableChunks", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(upload(Buffer.alloc(4))).rejects.toMatchObject({
-      error: expect.objectContaining({
-        message: expect.stringContaining(
-          "Failed to fetch upload session status: 503",
-        ),
-      }),
-    });
+    await expect(upload(Buffer.alloc(4))).rejects.toThrow(
+      "Failed to fetch upload session status: 503",
+    );
     expect(getCallsByMethod(fetchMock, "DELETE")).toHaveLength(1);
   });
 
@@ -208,13 +201,9 @@ describe("uploadResumableChunks", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(upload(Buffer.alloc(8))).rejects.toMatchObject({
-      error: expect.objectContaining({
-        message: expect.stringContaining(
-          "Upload session did not make progress",
-        ),
-      }),
-    });
+    await expect(upload(Buffer.alloc(8))).rejects.toThrow(
+      "Upload session did not make progress",
+    );
     expect(getCallsByMethod(fetchMock, "PUT")).toHaveLength(1);
     expect(getCallsByMethod(fetchMock, "GET")).toHaveLength(1);
     expect(getCallsByMethod(fetchMock, "DELETE")).toHaveLength(1);

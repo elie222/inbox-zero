@@ -15,7 +15,10 @@ export const REQUIRED_SCOPES = [
 
 export const SCOPES = [
   ...REQUIRED_SCOPES,
-  ...(env.NEXT_PUBLIC_CONTACTS_ENABLED ? ["Contacts.Read"] : []),
+  // Contacts.Read reads the saved-contacts folder; People.Read adds the
+  // directory and recent correspondents. Both are optional, and accounts
+  // consented before either was requested keep working with whichever they hold.
+  ...(env.NEXT_PUBLIC_CONTACTS_ENABLED ? ["Contacts.Read", "People.Read"] : []),
 ] as const;
 
 export const CALENDAR_SCOPES = [
