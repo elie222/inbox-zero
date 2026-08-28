@@ -1042,17 +1042,8 @@ export function MailShell() {
               userLabels={readerUserLabels}
               layout={layout}
               isFocusMode={isFocusMode}
-              position={
-                openThread
-                  ? { index: clampedIndex + 1, total: threads.length }
-                  : undefined
-              }
               labelHref={labelHref}
               onRemoveLabel={onRemoveLabel}
-              onBack={() => {
-                setIsFocusMode(false);
-                setOpenThread(null);
-              }}
               onArchive={archiveTargets}
               onDelete={trashTargets}
               onReply={requestReaderReply}

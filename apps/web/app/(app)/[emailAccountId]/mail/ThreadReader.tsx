@@ -3,10 +3,7 @@
 import { useState, type ComponentProps, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { Loader2Icon, MailIcon } from "lucide-react";
-import {
-  ReaderNavigation,
-  ReaderToolbar,
-} from "@/app/(app)/[emailAccountId]/mail/ReaderToolbar";
+import { ReaderToolbar } from "@/app/(app)/[emailAccountId]/mail/ReaderToolbar";
 import type {
   ListThread,
   MailLayoutMode,
@@ -15,6 +12,7 @@ import { EmailThread } from "@/components/email-list/EmailThread";
 import type { ThreadMessage } from "@/components/email-list/types";
 import { getEmailMessageCellLabels } from "@/components/EmailMessageCellLabels";
 import { LoadingContent } from "@/components/LoadingContent";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import type { EmailLabels } from "@/providers/email-label-types";
 import {
   extractEmailAddress,
@@ -49,11 +47,8 @@ export type ThreadReaderProps = {
   userLabels: EmailLabels;
   layout: MailLayoutMode;
   isFocusMode: boolean;
-  /** 1-based position of the open thread in the list. */
-  position?: { index: number; total: number };
   labelHref: (labelId: string) => string;
   onRemoveLabel?: (labelId: string) => void;
-  onBack: () => void;
   onArchive: () => void;
   onReply: () => void;
   onDelete: () => void;
@@ -81,10 +76,8 @@ export function ThreadReader({
   userLabels,
   layout,
   isFocusMode,
-  position,
   labelHref,
   onRemoveLabel,
-  onBack,
   onArchive,
   onReply,
   onDelete,
@@ -147,12 +140,13 @@ export function ThreadReader({
         data-detail-selection-settled={detailSelectionSettled}
         data-testid="thread-reader"
       >
-        {layout === "list" && !isFocusMode ? (
-          <ReaderNavigation
-            onBack={onBack}
-            position={position}
-            showSidebarToggle={showSidebarToggle}
-          />
+        {layout === "list" && !isFocusMode && showSidebarToggle ? (
+          <div
+            className="hidden px-3 py-3 lg:flex"
+            data-desktop-mac-titlebar-spacer
+          >
+            <SidebarTrigger name="left-sidebar" />
+          </div>
         ) : null}
 
         <div className={readerMeasure({ layout, isFocusMode })}>
@@ -214,5 +208,5 @@ function readerMeasure({
   // ~860px: the mock's measure, and about as wide as an email body stays legible.
   if (isFocusMode) return "mx-auto w-full max-w-[54rem] px-10 py-10";
   if (layout === "split") return "px-6 py-5";
-  return "mx-auto w-full max-w-[54rem] px-6 pb-5";
+  return "mx-auto w-full max-w-[54rem] px-6 py-5";
 }

@@ -49,6 +49,6 @@ test("switches between list, split, and focused reading layouts", async ({
   await page.getByRole("button", { name: /^Exit focus mode/ }).click();
   await expect(conversations).toBeVisible();
   await page.getByRole("button", { name: "Switch list or split view" }).click();
-  await page.getByRole("button", { name: /^Back/ }).click();
+  await page.keyboard.press("Escape");
   await expect(conversations).toBeVisible();
 });

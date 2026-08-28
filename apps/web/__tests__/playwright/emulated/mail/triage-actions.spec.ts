@@ -73,7 +73,6 @@ test("selects ranges and opens conversations with the keyboard", async ({
 
   await page.keyboard.press("j");
   await page.keyboard.press("Enter");
-  await expect(page.getByRole("button", { name: /^Back/ })).toBeVisible();
   await expect(page).toHaveURL(/thread-id=/);
   await page.keyboard.press("Escape");
   await expect(conversations).toBeVisible();
