@@ -214,6 +214,7 @@ function ComposeEmailFormContent({
   const [showCcBcc, setShowCcBcc] = useState(
     Boolean(replyingToEmail?.cc || replyingToEmail?.bcc),
   );
+  const focusRecipientField = !replyingToEmail;
   const [attachments, setAttachments] = useState<ComposeAttachment[]>([]);
   const attachmentsRef = useRef<ComposeAttachment[]>([]);
   const isMountedRef = useRef(true);
@@ -685,6 +686,7 @@ function ComposeEmailFormContent({
                     <ComposeContactRecipientField
                       {...recipientFieldProps}
                       active={activeRecipientField === "to"}
+                      autoFocus={focusRecipientField}
                       name="to"
                       selectedRecipients={watch("to") ?? ""}
                     />
@@ -694,7 +696,10 @@ function ComposeEmailFormContent({
                     type="text"
                     name="to"
                     label={isComposeWindow ? undefined : "To"}
-                    registerProps={register("to", { required: true })}
+                    registerProps={{
+                      ...register("to", { required: true }),
+                      autoFocus: focusRecipientField,
+                    }}
                     error={errors.to}
                     className={cn(
                       isComposeWindow &&
@@ -773,6 +778,7 @@ function ComposeEmailFormContent({
 
       <EmailEditor
         appearance={isComposeWindow ? "seamless" : "contained"}
+        autofocus={!focusRecipientField}
         ref={editorRef}
         initialHtml={initialDraft.editableHtml}
         mode={initialDraft.mode}
@@ -918,6 +924,7 @@ const RECIPIENT_LABELS: Record<ComposeRecipientField, string> = {
 
 function ComposeContactRecipientField({
   active,
+  autoFocus,
   className,
   emailAccountId,
   isReconnectingContacts,
@@ -931,6 +938,7 @@ function ComposeContactRecipientField({
   selectedRecipients,
 }: {
   active: boolean;
+  autoFocus?: boolean;
   className?: string;
   emailAccountId: string;
   isReconnectingContacts: boolean;
@@ -1029,6 +1037,7 @@ function ComposeContactRecipientField({
         <div className="relative min-w-32 flex-1">
           <ComboboxInput
             aria-label={label}
+            autoFocus={autoFocus}
             className="w-full border-none bg-background p-0 text-sm focus:border-none focus:ring-0"
             id={name}
             onChange={(event) => updateSearchQuery(event.target.value)}
