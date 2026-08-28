@@ -118,7 +118,7 @@ export function HtmlEmail({
         ref={iframeRef}
         srcDoc={srcDoc}
         className="min-h-0 w-full"
-        style={{ height: `${iframeHeight + 3}px` }}
+        style={iframeHeight ? { height: `${iframeHeight + 3}px` } : undefined}
         title="Email content preview"
         sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
         referrerPolicy="no-referrer"

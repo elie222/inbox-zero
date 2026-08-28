@@ -156,6 +156,16 @@ describe("HtmlEmail", () => {
     );
   });
 
+  it("does not collapse cached html while measuring the iframe", () => {
+    const { getByTitle } = render(
+      <HtmlEmail html="<p>Cached email body</p>" messageId="message-cached" />,
+    );
+
+    const iframe = getByTitle("Email content preview") as HTMLIFrameElement;
+
+    expect(iframe.style.height).toBe("");
+  });
+
   it("resolves authenticated cid images to temporary local URLs", async () => {
     const html = '<img src="cid:screenshot@inboxzero.local" />';
     const objectUrl = "blob:https://app.example.com/inline-image";
