@@ -261,11 +261,8 @@ export function MailShell() {
       ),
     ];
   }, [combinedLabelSplits, isAllAccounts, settings?.splits]);
-  const displayedActiveSplitId = splits.some(
-    (split) => split.id === activeSplitId,
-  )
-    ? activeSplitId
-    : "all";
+  const displayedActiveSplitId =
+    splits.find((split) => split.id === activeSplitId)?.id ?? "all";
   const activeCombinedLabelName = combinedLabelSplits.find(
     (split) => split.id === displayedActiveSplitId,
   )?.labelName;
