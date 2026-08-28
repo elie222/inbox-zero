@@ -101,6 +101,7 @@ test("opening a conversation issues one detail request", async ({ page }) => {
     },
   );
   const { conversations } = await openMail(page);
+  expect(threadDetailRequestCount).toBe(0);
 
   const readerConversation = conversationWithSubject(
     page,
