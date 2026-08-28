@@ -1,11 +1,13 @@
 "use client";
 
-import { type FormEvent, type ReactNode, useState } from "react";
+import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArchiveIcon,
   ArrowLeftIcon,
   BellIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
   FileIcon,
   FolderIcon,
   InboxIcon,
@@ -70,23 +72,39 @@ export type MailSidebarProps = {
   onOpenShortcuts: () => void;
   labelEditMode: "color" | "name-and-color";
   labelColorOptions: readonly MailboxItemColorOption[];
+  /** Hide the categories group behind a toggle, collapsed by default. */
+  collapsibleCategories?: boolean;
   footer?: ReactNode;
   unified?: boolean;
   className?: string;
 };
 
-const SYSTEM_ITEMS = [
-  { name: "Inbox", type: "inbox", countId: "INBOX", Icon: InboxIcon },
+type SystemItem = {
+  name: string;
+  type: string;
+  /** null means the row never shows a count (a "sent unread" number is noise). */
+  countId: string | null;
+  Icon: LucideIcon;
+  emphasizeCount?: boolean;
+};
+
+const SYSTEM_ITEMS: SystemItem[] = [
+  {
+    name: "Inbox",
+    type: "inbox",
+    countId: "INBOX",
+    Icon: InboxIcon,
+    emphasizeCount: true,
+  },
   { name: "Drafts", type: "draft", countId: "DRAFT", Icon: FileIcon },
-  { name: "Sent", type: "sent", countId: "SENT", Icon: SendIcon },
+  { name: "Sent", type: "sent", countId: null, Icon: SendIcon },
   { name: "Archived", type: "archive", countId: "ARCHIVE", Icon: ArchiveIcon },
-] as const;
+];
 
 export type MailCategory = {
   name: string;
   type: string;
   Icon: LucideIcon;
-  showCount: boolean;
 };
 
 export const MAIL_CATEGORIES: MailCategory[] = [
@@ -94,31 +112,26 @@ export const MAIL_CATEGORIES: MailCategory[] = [
     name: "Personal",
     type: GmailLabel.PERSONAL,
     Icon: UserIcon,
-    showCount: true,
   },
   {
     name: "Social",
     type: GmailLabel.SOCIAL,
     Icon: Users2Icon,
-    showCount: true,
   },
   {
     name: "Updates",
     type: GmailLabel.UPDATES,
     Icon: BellIcon,
-    showCount: true,
   },
   {
     name: "Forums",
     type: GmailLabel.FORUMS,
     Icon: MessagesSquareIcon,
-    showCount: true,
   },
   {
     name: "Promotions",
     type: GmailLabel.PROMOTIONS,
     Icon: MegaphoneIcon,
-    showCount: true,
   },
 ];
 
@@ -126,7 +139,6 @@ export const OUTLOOK_INBOX_CATEGORIES: MailCategory[] =
   OUTLOOK_INBOX_SECTIONS.map((section) => ({
     ...section,
     Icon: section.type === "focused" ? SparklesIcon : InboxIcon,
-    showCount: false,
   }));
 
 export function MailSidebar({
@@ -149,6 +161,7 @@ export function MailSidebar({
   onOpenShortcuts,
   labelEditMode,
   labelColorOptions,
+  collapsibleCategories = false,
   footer,
   unified = false,
   className,
@@ -156,6 +169,16 @@ export function MailSidebar({
   const [isAddingLabel, setIsAddingLabel] = useState(false);
   const [newLabelName, setNewLabelName] = useState("");
   const sidebarFolders = getMailSidebarFolders(folders);
+
+  const isCategoryActive =
+    !activeLabelId &&
+    !activeFolderId &&
+    categories.some((category) => category.type === activeType);
+  const [showCategories, setShowCategories] = useState(isCategoryActive);
+
+  useEffect(() => {
+    if (isCategoryActive) setShowCategories(true);
+  }, [isCategoryActive]);
 
   const submitNewLabel = (event: FormEvent) => {
     event.preventDefault();
@@ -205,7 +228,7 @@ export function MailSidebar({
       <div className="-mr-1.5 flex min-h-0 flex-1 flex-col overflow-y-auto pr-1.5 scrollbar-thin">
         <nav className="flex flex-col gap-px">
           {(unified ? SYSTEM_ITEMS.slice(0, 1) : SYSTEM_ITEMS).map(
-            ({ name, type, countId, Icon }) => (
+            ({ name, type, countId, Icon, emphasizeCount }) => (
               <NavRow
                 key={type}
                 href={unified ? undefined : hrefFor({ kind: "type", type })}
@@ -220,7 +243,7 @@ export function MailSidebar({
                     ? null
                     : displayCount(countsById.get(countId))
                 }
-                emphasizeCount
+                emphasizeCount={emphasizeCount}
               />
             ),
           )}
@@ -228,21 +251,32 @@ export function MailSidebar({
 
         {!unified && categories.length > 0 && (
           <>
-            <GroupHeading>{categoryHeading}</GroupHeading>
-            <nav className="flex flex-col gap-px">
-              {categories.map(({ name, type, Icon, showCount }) => (
-                <NavRow
-                  key={type}
-                  href={hrefFor({ kind: "type", type })}
-                  active={
-                    !activeLabelId && !activeFolderId && activeType === type
-                  }
-                  icon={<Icon className="size-3.5 shrink-0" />}
-                  name={name}
-                  count={showCount ? displayCount(countsById.get(type)) : null}
-                />
-              ))}
-            </nav>
+            <GroupHeading
+              expanded={collapsibleCategories ? showCategories : undefined}
+              onToggle={
+                collapsibleCategories
+                  ? () => setShowCategories((open) => !open)
+                  : undefined
+              }
+            >
+              {categoryHeading}
+            </GroupHeading>
+            {(!collapsibleCategories || showCategories) && (
+              <nav className="flex flex-col gap-px">
+                {categories.map(({ name, type, Icon }) => (
+                  <NavRow
+                    key={type}
+                    href={hrefFor({ kind: "type", type })}
+                    active={
+                      !activeLabelId && !activeFolderId && activeType === type
+                    }
+                    icon={<Icon className="size-3.5 shrink-0" />}
+                    name={name}
+                    count={null}
+                  />
+                ))}
+              </nav>
+            )}
           </>
         )}
 
@@ -377,10 +411,35 @@ export function MailSidebar({
 function GroupHeading({
   children,
   action,
+  expanded,
+  onToggle,
 }: {
   children: ReactNode;
   action?: ReactNode;
+  expanded?: boolean;
+  onToggle?: () => void;
 }) {
+  if (onToggle) {
+    return (
+      <div className="flex items-center gap-1.5 px-2.5 pt-4 pb-1.5">
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={expanded}
+          className="flex flex-1 cursor-pointer items-center gap-1 font-medium text-muted-foreground text-xs hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <span>{children}</span>
+          {expanded ? (
+            <ChevronDownIcon className="size-3 shrink-0" />
+          ) : (
+            <ChevronRightIcon className="size-3 shrink-0" />
+          )}
+        </button>
+        {action}
+      </div>
+    );
+  }
+
   return (
     <div className="flex items-center gap-1.5 px-2.5 pt-4 pb-1.5">
       <span className="flex-1 font-medium text-muted-foreground text-xs">
@@ -409,7 +468,7 @@ function NavRow({
   const className = cn(
     "flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
     active
-      ? "bg-background font-medium text-foreground shadow-sm ring-1 ring-border"
+      ? "bg-primary/10 font-medium text-foreground"
       : "text-muted-foreground hover:bg-accent hover:text-foreground",
   );
   const content = (

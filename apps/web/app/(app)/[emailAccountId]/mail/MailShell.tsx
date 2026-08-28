@@ -932,6 +932,7 @@ export function MailShell() {
               countsById={isAllAccounts ? NO_COUNTS : countsById}
               categories={isAllAccounts ? [] : categories}
               categoryHeading={isOutlook ? "Inbox" : "Categories"}
+              collapsibleCategories={!isOutlook}
               labelsHeading={terminology.label.pluralCapitalized}
               labelSingular={terminology.label.singular}
               backToAppHref={prefixPath(emailAccountId, "/automation")}
