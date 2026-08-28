@@ -84,9 +84,7 @@ test("opens a complete conversation and updates its read state", async ({
   await expect(page).not.toHaveURL(/thread-id=/);
 });
 
-test("opening a prefetched conversation reuses the in-flight detail request", async ({
-  page,
-}) => {
+test("opening a conversation issues one detail request", async ({ page }) => {
   let threadDetailRequestCount = 0;
   const releaseFirstRequest = Promise.withResolvers<void>();
 
@@ -109,10 +107,8 @@ test("opening a prefetched conversation reuses the in-flight detail request", as
     conversations,
     "Re: Reader Navigation Message",
   );
-  await readerConversation.hover();
-  await expect.poll(() => threadDetailRequestCount).toBe(1);
-
   await readerConversation.click();
+  await expect.poll(() => threadDetailRequestCount).toBe(1);
   await expect(
     page.getByRole("heading", { name: "Re: Reader Navigation Message" }),
   ).toBeVisible();

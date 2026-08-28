@@ -12,7 +12,6 @@ const SECONDARY_UNIFIED_SUBJECT = "Secondary local unified conversation";
 const THREAD_DETAIL_VARIANT = "drafts:1|replies:0";
 const WARM_READER_BODY = "Cached reader body from IndexedDB";
 const COLD_READER_BODY = "Network reader body after cache miss";
-const REFRESHED_READER_BODY = "Fresh reader body after revalidation";
 
 test("renders a large local mailbox while server mail requests are unavailable", async ({
   page,
@@ -214,12 +213,12 @@ test("falls back to the network for an uncached thread body and persists it", as
     .toBe(COLD_READER_BODY);
 });
 
-test("shows cached reader content immediately and refreshes it from the network", async ({
+test("serves cached reader content without revalidating from the network", async ({
   page,
 }) => {
   const { conversations, emailAccountId } = await openMail(page);
   const threadId = await openFirstThread(page, conversations);
-  const network = Promise.withResolvers<void>();
+  let threadDetailRequestCount = 0;
 
   await seedThreadDetail(page, {
     emailAccountId,
@@ -227,11 +226,11 @@ test("shows cached reader content immediately and refreshes it from the network"
     threadId,
   });
   await page.route(threadDetailRoute(threadId), async (route) => {
-    await network.promise;
+    threadDetailRequestCount += 1;
     await route.fulfill({
       body: JSON.stringify(
         getThreadDetailResponse({
-          textPlain: REFRESHED_READER_BODY,
+          textPlain: COLD_READER_BODY,
           threadId,
         }),
       ),
@@ -242,11 +241,10 @@ test("shows cached reader content immediately and refreshes it from the network"
   await page.reload();
 
   await expect(readerBody(page, WARM_READER_BODY)).toBeVisible();
-  network.resolve();
-  await expect(readerBody(page, REFRESHED_READER_BODY)).toBeVisible();
-  await expect
-    .poll(() => readThreadDetailTextPlain(page, { emailAccountId, threadId }))
-    .toBe(REFRESHED_READER_BODY);
+  expect(threadDetailRequestCount).toBe(0);
+  expect(
+    await readThreadDetailTextPlain(page, { emailAccountId, threadId }),
+  ).toBe(WARM_READER_BODY);
 });
 
 async function seedLargeMailbox(page: Page, emailAccountId: string) {
