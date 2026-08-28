@@ -273,6 +273,7 @@ async function findOrCreateRecording({
   try {
     claimed = await prisma.meetingRecording.create({
       data: {
+        emailAccountId,
         botProvider: DEFAULT_MEETING_BOT_PROVIDER,
         meetingUrl,
         normalizedMeetingUrl,
@@ -362,6 +363,7 @@ async function bookBot({
       // A null activeKey keeps it out of the winner's dedup slot.
       await prisma.meetingRecording.create({
         data: {
+          emailAccountId: recording.emailAccountId,
           botProvider: recording.botProvider,
           externalBotId,
           meetingUrl: recording.meetingUrl,

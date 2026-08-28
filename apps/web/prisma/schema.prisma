@@ -218,6 +218,7 @@ model EmailAccount {
   mcpConnections         McpConnection[]
   meetingBriefings       MeetingBriefing[]
   meetings               Meeting[]
+  meetingRecordings      MeetingRecording[]
   driveConnections       DriveConnection[]
   messagingChannels      MessagingChannel[]
   documentFilings        DocumentFiling[]
@@ -1508,6 +1509,9 @@ model MeetingRecording {
   transcriptFetchedAt DateTime?
   mediaDeletedAt      DateTime?
 
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
   meetings Meeting[]
 
   @@unique([botProvider, externalBotId])
@@ -1515,6 +1519,7 @@ model MeetingRecording {
   @@index([normalizedMeetingUrl, meetingStartTime])
   @@index([status, meetingStartTime])
   @@index([status, mediaDeletedAt])
+  @@index([emailAccountId])
 }
 
 model Meeting {

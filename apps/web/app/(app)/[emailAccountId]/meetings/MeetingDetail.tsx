@@ -1,12 +1,31 @@
 "use client";
 
 import { useAccount } from "@/providers/EmailAccountProvider";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { format } from "date-fns";
-import { ChevronDownIcon, MailPlusIcon, TextQuoteIcon } from "lucide-react";
+import {
+  ChevronDownIcon,
+  MailPlusIcon,
+  MoreHorizontalIcon,
+  TextQuoteIcon,
+  Trash2Icon,
+} from "lucide-react";
+import { useAction } from "next-safe-action/hooks";
+import { useSWRConfig } from "swr";
 import { LoadingContent } from "@/components/LoadingContent";
 import { MutedText } from "@/components/Typography";
+import { toastError, toastSuccess } from "@/components/Toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardBlue, CardContent } from "@/components/ui/card";
@@ -22,11 +41,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getMeetingDetailState } from "@/app/(app)/[emailAccountId]/meetings/meeting-detail-state";
 import { useMeetingRecorderMeeting } from "@/hooks/useMeetingRecorder";
 import { useProductAnalytics } from "@/hooks/useProductAnalytics";
+import { deleteMeetingNotesAction } from "@/utils/actions/meeting-recorder";
+import { getActionErrorMessage } from "@/utils/error";
 import { formatTranscriptTimestamp } from "@/utils/meeting-recorder/transcript-prompt";
+import { getAccountScopedKey } from "@/utils/swr";
 
 export function MeetingDetail({
   meetingId,
@@ -37,10 +65,14 @@ export function MeetingDetail({
 }) {
   const { emailAccountId } = useAccount();
   const analytics = useProductAnalytics();
-  const { data, isLoading, error } = useMeetingRecorderMeeting(
-    meetingId,
-    emailAccountId,
-  );
+  const { mutate } = useSWRConfig();
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const {
+    data,
+    isLoading,
+    error,
+    mutate: mutateMeeting,
+  } = useMeetingRecorderMeeting(meetingId, emailAccountId);
 
   const summary = data?.summary;
   const transcript = data?.recording?.transcript;
@@ -51,17 +83,70 @@ export function MeetingDetail({
     recordingStatus: data?.recording?.status,
     processingStatus: data?.processingStatus,
   });
+  const { execute: deleteNotes, isExecuting: isDeleting } = useAction(
+    deleteMeetingNotesAction.bind(null, emailAccountId),
+    {
+      onSuccess: async () => {
+        await Promise.all([
+          mutateMeeting(undefined, { revalidate: false }),
+          mutate(
+            getAccountScopedKey(
+              "/api/user/meeting-recorder/meetings",
+              emailAccountId,
+            ),
+          ),
+        ]);
+        toastSuccess({ description: "Meeting notes deleted." });
+        setIsDeleteOpen(false);
+        onClose();
+      },
+      onError: ({ error: actionError }) => {
+        toastError({
+          description: getActionErrorMessage(actionError, {
+            prefix: "Failed to delete meeting notes",
+          }),
+        });
+      },
+    },
+  );
 
   return (
     <Dialog open={!!meetingId} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{data?.eventTitle ?? "Meeting"}</DialogTitle>
-          {data && (
-            <DialogDescription>
-              {formatMeetingTimeRange(data.startTime, data.endTime)}
-            </DialogDescription>
-          )}
+          <div className="flex items-start justify-between gap-3 pr-8">
+            <div className="space-y-1.5">
+              <DialogTitle>{data?.eventTitle ?? "Meeting"}</DialogTitle>
+              {data && (
+                <DialogDescription>
+                  {formatMeetingTimeRange(data.startTime, data.endTime)}
+                </DialogDescription>
+              )}
+            </div>
+            {data?.recording && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Meeting options"
+                  >
+                    <MoreHorizontalIcon className="size-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onSelect={() => setIsDeleteOpen(true)}
+                  >
+                    <Trash2Icon className="mr-2 size-4" />
+                    Delete notes
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
         </DialogHeader>
 
         <LoadingContent
@@ -225,6 +310,34 @@ export function MeetingDetail({
             </MutedText>
           )}
         </LoadingContent>
+
+        <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete meeting notes?</AlertDialogTitle>
+              <AlertDialogDescription>
+                The summary and transcript will be permanently deleted from
+                Inbox Zero. Recap emails already sent and follow-up drafts in
+                your mailbox will remain.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isDeleting}>
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                disabled={isDeleting || !meetingId}
+                onClick={(event) => {
+                  event.preventDefault();
+                  if (meetingId) deleteNotes({ meetingId });
+                }}
+              >
+                {isDeleting ? "Deleting..." : "Delete"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </DialogContent>
     </Dialog>
   );

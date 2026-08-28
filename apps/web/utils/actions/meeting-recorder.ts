@@ -2,9 +2,11 @@
 
 import { addHours } from "date-fns/addHours";
 import { differenceInMinutes } from "date-fns/differenceInMinutes";
+import { Prisma } from "@/generated/prisma/client";
 import { MeetingJoinRule } from "@/generated/prisma/enums";
 import { actionClient } from "@/utils/actions/safe-action";
 import {
+  deleteMeetingNotesBody,
   setMeetingJoinOverrideBody,
   updateMeetingRecorderSettingsBody,
 } from "@/utils/actions/meeting-recorder.validation";
@@ -24,6 +26,35 @@ import {
   upsertMeeting,
 } from "@/utils/meeting-recorder/reconcile";
 import prisma from "@/utils/prisma";
+
+export const deleteMeetingNotesAction = actionClient
+  .metadata({ name: "deleteMeetingNotes" })
+  .inputSchema(deleteMeetingNotesBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { meetingId } }) => {
+    const meeting = await prisma.meeting.findFirst({
+      where: {
+        id: meetingId,
+        emailAccountId,
+        recording: { emailAccountId },
+      },
+      select: { recordingId: true },
+    });
+    if (!meeting?.recordingId) throw new SafeError("Meeting not found");
+
+    await prisma.$transaction([
+      prisma.meeting.update({
+        where: {
+          id: meetingId,
+          emailAccountId,
+          recordingId: meeting.recordingId,
+        },
+        data: { recordingId: null, summary: Prisma.DbNull },
+      }),
+      prisma.meetingRecording.delete({
+        where: { id: meeting.recordingId },
+      }),
+    ]);
+  });
 
 export const updateMeetingRecorderSettingsAction = actionClient
   .metadata({ name: "updateMeetingRecorderSettings" })
