@@ -25,7 +25,7 @@ export type SplitTabsProps = {
   newSplitOptions: NewSplitOption[];
   onCreateSplit: (draft: NewSplitDraft) => void;
   onCreateSplitFromPrompt: (prompt: string) => Promise<boolean>;
-  /** The All accounts view only shows built-in tabs, so creation is hidden there. */
+  /** Split creation stays account-scoped, so it is hidden in All accounts. */
   canCreateSplits: boolean;
   className?: string;
 };

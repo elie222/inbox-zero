@@ -12,6 +12,7 @@ export const maxDuration = 30;
 const querySchema = z.object({
   cursor: z.string().min(1).optional(),
   limit: z.coerce.number().int().min(1).max(50).default(20),
+  labelName: z.string().trim().min(1).max(255).optional(),
   isUnread: z
     .enum(["true", "false"])
     .transform((value) => value === "true")
@@ -23,7 +24,7 @@ export type GetAllThreadsResponse = Awaited<
 >;
 
 export const GET = withAuth("threads/all", async (request) => {
-  const { cursor, limit, isUnread } = querySchema.parse(
+  const { cursor, limit, isUnread, labelName } = querySchema.parse(
     Object.fromEntries(new URL(request.url).searchParams),
   );
   const accounts = await getConnectedEmailAccounts({
@@ -41,6 +42,29 @@ export const GET = withAuth("threads/all", async (request) => {
         provider: account.provider,
         logger,
       });
+      if (labelName) {
+        const labels = await emailProvider.getLabels();
+        const normalizedLabelName = labelName.toLowerCase();
+        const matchingLabel = labels.find(
+          (label) => label.name.trim().toLowerCase() === normalizedLabelName,
+        );
+        if (!matchingLabel) {
+          return { threads: [], nextPageToken: null, labels };
+        }
+
+        const loaded = await loadThreads({
+          query: threadsQuery.parse({
+            labelIds: [matchingLabel.id, "INBOX"],
+            limit,
+            nextPageToken: pageToken,
+          }),
+          emailAccountId: account.id,
+          emailProvider,
+          messageFormat: "metadata",
+        });
+        return { ...toListThreads(loaded), labels };
+      }
+
       const [loaded, labels] = await Promise.all([
         loadThreads({
           query: threadsQuery.parse({

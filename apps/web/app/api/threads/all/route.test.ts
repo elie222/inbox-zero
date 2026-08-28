@@ -155,4 +155,72 @@ describe("GET /api/threads/all", () => {
       failedAccountIds: [],
     });
   });
+
+  it("resolves label filters to each account's matching label id", async () => {
+    getConnectedEmailAccountsMock.mockResolvedValue([
+      {
+        id: "account-1",
+        email: "first@example.com",
+        name: "First",
+        image: null,
+        provider: "google",
+      },
+      {
+        id: "account-2",
+        email: "second@example.com",
+        name: "Second",
+        image: null,
+        provider: "microsoft",
+      },
+      {
+        id: "account-3",
+        email: "third@example.com",
+        name: "Third",
+        image: null,
+        provider: "google",
+      },
+    ]);
+    createEmailProviderMock.mockImplementation(
+      async ({ emailAccountId }: { emailAccountId: string }) => ({
+        name: emailAccountId === "account-2" ? "microsoft" : "google",
+        getLabels: vi
+          .fn()
+          .mockResolvedValue(
+            emailAccountId === "account-1"
+              ? [{ id: "google-label", name: "Receipts", type: "user" }]
+              : emailAccountId === "account-2"
+                ? [{ id: "outlook-category", name: "receipts", type: "user" }]
+                : [{ id: "other-label", name: "Marketing", type: "user" }],
+          ),
+      }),
+    );
+
+    await GET(
+      new NextRequest(
+        "http://localhost:3000/api/threads/all?labelName=Receipts",
+      ),
+      {} as never,
+    );
+
+    expect(loadThreadsMock).toHaveBeenCalledTimes(2);
+    expect(loadThreadsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        emailAccountId: "account-1",
+        query: expect.objectContaining({
+          labelIds: ["google-label", "INBOX"],
+        }),
+      }),
+    );
+    expect(loadThreadsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        emailAccountId: "account-2",
+        query: expect.objectContaining({
+          labelIds: ["outlook-category", "INBOX"],
+        }),
+      }),
+    );
+    expect(loadThreadsMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({ emailAccountId: "account-3" }),
+    );
+  });
 });

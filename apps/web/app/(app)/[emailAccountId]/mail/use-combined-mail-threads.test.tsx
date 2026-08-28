@@ -227,6 +227,39 @@ describe("useCombinedMailThreads", () => {
     expect(result.current.isLoading).toBe(true);
   });
 
+  it("loads a named-label view without mixing in the generic inbox snapshot", async () => {
+    const fetcher = vi.fn(() =>
+      Promise.resolve({
+        failedAccountIds: [],
+        labelsByAccount: {},
+        nextPageToken: null,
+        threads: [createThread("account-1", "matching-label")],
+      }),
+    );
+
+    const { result } = renderHook(
+      () =>
+        useCombinedMailThreads({
+          accounts: ACCOUNTS,
+          emailAccountId: "account-1",
+          enabled: true,
+          isUnread: false,
+          labelName: "Receipts & orders",
+        }),
+      { wrapper: createWrapper(fetcher) },
+    );
+
+    await waitFor(() =>
+      expect(result.current.threads.map((thread) => thread.id)).toEqual([
+        "matching-label",
+      ]),
+    );
+    expect(fetcher).toHaveBeenCalledWith(
+      expect.stringContaining("labelName=Receipts+%26+orders"),
+    );
+    expect(mailbox.read).not.toHaveBeenCalled();
+  });
+
   it("uses a newer server page when the persisted mailbox predates the request", async () => {
     mailbox.read.mockResolvedValue({
       accountStates: ACCOUNT_STATES,
