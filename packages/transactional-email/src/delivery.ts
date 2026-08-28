@@ -4,10 +4,9 @@ import type {
   TransactionalEmailProviderResult,
 } from "./provider";
 import { createResendTransactionalEmailProvider } from "./providers/resend";
+import { createSesTransactionalEmailProvider } from "./providers/ses";
 
-const provider = process.env.RESEND_API_KEY
-  ? createResendTransactionalEmailProvider(process.env.RESEND_API_KEY)
-  : null;
+const provider = createTransactionalEmailProvider();
 
 export function isTransactionalEmailConfigured() {
   return provider !== null;
@@ -20,4 +19,16 @@ export async function deliverTransactionalEmail(
   if (!provider) return null;
 
   return provider.send(message, options);
+}
+
+function createTransactionalEmailProvider() {
+  if (process.env.TRANSACTIONAL_EMAIL_PROVIDER === "ses") {
+    return createSesTransactionalEmailProvider();
+  }
+
+  if (process.env.RESEND_API_KEY) {
+    return createResendTransactionalEmailProvider(process.env.RESEND_API_KEY);
+  }
+
+  return null;
 }

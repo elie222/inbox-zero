@@ -1,5 +1,5 @@
 import { render } from "@react-email/render";
-import { sendMeetingRecapEmail as sendViaResend } from "@inboxzero/transactional-email";
+import { sendMeetingRecapEmail as sendViaTransactionalEmail } from "@inboxzero/transactional-email";
 import MeetingRecapEmail, {
   generateMeetingRecapSubject,
   type MeetingRecapEmailProps,
@@ -52,8 +52,8 @@ export async function sendMeetingRecapEmail({
     userEmail,
     provider,
     subject: generateMeetingRecapSubject(emailProps),
-    sendViaResend: () =>
-      sendViaResend({
+    sendViaTransactionalEmail: () =>
+      sendViaTransactionalEmail({
         from: env.RESEND_FROM_EMAIL,
         to: userEmail,
         emailProps,

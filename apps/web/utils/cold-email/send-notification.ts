@@ -1,4 +1,4 @@
-import { sendColdEmailNotification as sendColdEmailNotificationViaResend } from "@inboxzero/transactional-email";
+import { sendColdEmailNotification as sendViaTransactionalEmail } from "@inboxzero/transactional-email";
 import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
 import { formatReplySubject } from "@/utils/email/subject";
@@ -16,15 +16,17 @@ export async function sendColdEmailNotification({
   originalMessageId?: string; // Message-ID of the original email for threading
   logger: Logger;
 }): Promise<{ success: boolean; error?: string }> {
-  if (!env.RESEND_API_KEY) {
-    logger.warn("Resend not configured, skipping cold email notification");
+  if (env.TRANSACTIONAL_EMAIL_PROVIDER !== "ses" && !env.RESEND_API_KEY) {
+    logger.warn(
+      "Transactional email provider not configured, skipping cold email notification",
+    );
     return { success: false, error: "Resend not configured" };
   }
 
   const subject = formatReplySubject(originalSubject);
 
   try {
-    const result = await sendColdEmailNotificationViaResend({
+    const result = await sendViaTransactionalEmail({
       from: env.RESEND_FROM_EMAIL,
       to: senderEmail,
       replyTo: recipientEmail,

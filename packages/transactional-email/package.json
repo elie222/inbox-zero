@@ -10,6 +10,7 @@
     "node": ">=22.12.0"
   },
   "dependencies": {
+    "@aws-sdk/client-sesv2": "3.1119.0",
     "@react-email/components": "1.0.12",
     "@react-email/render": "2.1.0",
     "nanoid": "6.0.0",

@@ -209,7 +209,7 @@ async function sendBriefingViaEmail({
     userEmail,
     provider,
     subject: generateMeetingBriefingSubject(emailProps),
-    sendViaResend: () =>
+    sendViaTransactionalEmail: () =>
       sendMeetingBriefingEmail({
         from: env.RESEND_FROM_EMAIL,
         to: userEmail,

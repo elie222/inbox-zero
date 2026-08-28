@@ -7,7 +7,7 @@ export async function sendNotificationEmail({
   userEmail,
   provider,
   subject,
-  sendViaResend,
+  sendViaTransactionalEmail,
   renderHtml,
   logger,
 }: {
@@ -15,18 +15,18 @@ export async function sendNotificationEmail({
   userEmail: string;
   provider: string;
   subject: string;
-  sendViaResend: () => Promise<unknown>;
+  sendViaTransactionalEmail: () => Promise<unknown>;
   renderHtml: () => Promise<string>;
   logger: Logger;
 }): Promise<void> {
-  if (env.RESEND_API_KEY) {
+  if (env.TRANSACTIONAL_EMAIL_PROVIDER === "ses" || env.RESEND_API_KEY) {
     try {
-      await sendViaResend();
-      logger.info("Sent notification email via Resend");
+      await sendViaTransactionalEmail();
+      logger.info("Sent notification email via transactional provider");
       return;
     } catch (error) {
       logger.error(
-        "Failed to send notification email via Resend, falling back to self-send",
+        "Failed to send notification email via transactional provider, falling back to self-send",
         { error },
       );
     }

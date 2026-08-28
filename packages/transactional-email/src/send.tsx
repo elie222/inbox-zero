@@ -55,8 +55,8 @@ import HostBookingRescheduledEmail, {
 } from "../emails/host-booking-rescheduled";
 import InvoiceEmail, { type InvoiceEmailProps } from "../emails/invoice";
 
-const RESEND_NOT_CONFIGURED_MESSAGE =
-  "Resend is not configured. You need to add a RESEND_API_KEY in your .env file for emails to work.";
+const TRANSACTIONAL_EMAIL_NOT_CONFIGURED_MESSAGE =
+  "A transactional email provider is not configured. Configure Resend or Amazon SES in your .env file for emails to work.";
 
 const sendEmail = async ({
   from,
@@ -79,7 +79,7 @@ const sendEmail = async ({
   baseUrl: string;
 }) => {
   if (!isTransactionalEmailConfigured()) {
-    console.log(RESEND_NOT_CONFIGURED_MESSAGE);
+    console.log(TRANSACTIONAL_EMAIL_NOT_CONFIGURED_MESSAGE);
     return;
   }
 
@@ -130,7 +130,7 @@ const sendTransactionalEmail = async ({
   idempotencyKey?: string;
 }) => {
   if (!isTransactionalEmailConfigured()) {
-    console.log(RESEND_NOT_CONFIGURED_MESSAGE);
+    console.log(TRANSACTIONAL_EMAIL_NOT_CONFIGURED_MESSAGE);
     return;
   }
 
@@ -420,7 +420,7 @@ export const sendColdEmailNotification = async ({
   emailProps: ColdEmailNotificationProps;
 }) => {
   if (!isTransactionalEmailConfigured()) {
-    console.log(RESEND_NOT_CONFIGURED_MESSAGE);
+    console.log(TRANSACTIONAL_EMAIL_NOT_CONFIGURED_MESSAGE);
     return { data: null, error: null };
   }
 

@@ -280,12 +280,20 @@ const parsedEnv = createEnv({
     // Local Recall emulation only; points the bot provider at a stand-in API.
     RECALL_BASE_URL: z.string().url().optional(),
 
+    TRANSACTIONAL_EMAIL_PROVIDER: z.preprocess(
+      optionalEnvValue,
+      z.enum(["resend", "ses"]).optional(),
+    ),
     RESEND_API_KEY: z.string().optional(),
     RESEND_AUDIENCE_ID: z.string().optional(),
     RESEND_FROM_EMAIL: z
       .string()
       .optional()
       .default("Inbox Zero <updates@transactional.getinboxzero.com>"),
+    AWS_REGION: z.string().optional(),
+    AWS_ACCESS_KEY_ID: z.string().optional(),
+    AWS_SECRET_ACCESS_KEY: z.string().optional(),
+    AWS_SESSION_TOKEN: z.string().optional(),
     CRON_SECRET: z.string().optional(),
     BLOG_SYNC_WEBHOOK_SECRET: z.string().min(1).optional(),
     BLOG_SYNC_SANITY_AUTHOR_ID: z.string().min(1).optional(),
