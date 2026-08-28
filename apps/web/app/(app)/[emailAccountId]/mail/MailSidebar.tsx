@@ -98,7 +98,7 @@ const SYSTEM_ITEMS: SystemItem[] = [
   },
   { name: "Drafts", type: "draft", countId: "DRAFT", Icon: FileIcon },
   { name: "Sent", type: "sent", countId: null, Icon: SendIcon },
-  { name: "Archived", type: "archive", countId: "ARCHIVE", Icon: ArchiveIcon },
+  { name: "Archived", type: "archive", countId: null, Icon: ArchiveIcon },
 ];
 
 export type MailCategory = {
