@@ -222,6 +222,54 @@ describe("GmailProvider snapshot mutations", () => {
   });
 });
 
+describe("GmailProvider.getThread", () => {
+  it("parses the messages returned with the thread without fetching them again", async () => {
+    const threadGet = vi.fn().mockResolvedValue({
+      data: {
+        historyId: "history-1",
+        id: "thread-1",
+        messages: [
+          {
+            historyId: "history-1",
+            id: "message-1",
+            internalDate: "1767225600000",
+            labelIds: [GmailLabel.INBOX],
+            payload: {
+              body: {},
+              headers: [
+                { name: "From", value: "sender@example.com" },
+                { name: "Subject", value: "Subject" },
+              ],
+              mimeType: "text/plain",
+            },
+            snippet: "Preview",
+            threadId: "thread-1",
+          },
+        ],
+        snippet: "Thread preview",
+      },
+    });
+    const messageGet = vi.fn();
+    const provider = new GmailProvider({
+      users: {
+        messages: { get: messageGet },
+        threads: { get: threadGet },
+      },
+    } as unknown as gmail_v1.Gmail);
+
+    const thread = await provider.getThread("thread-1");
+
+    expect(threadGet).toHaveBeenCalledOnce();
+    expect(messageGet).not.toHaveBeenCalled();
+    expect(thread).toMatchObject({
+      historyId: "history-1",
+      id: "thread-1",
+      messages: [{ id: "message-1", subject: "Subject" }],
+      snippet: "Thread preview",
+    });
+  });
+});
+
 describe("GmailProvider.getLatestMessageInThread", () => {
   afterEach(() => {
     envMock.NEXT_PUBLIC_AUTO_DRAFT_DISABLED = false;

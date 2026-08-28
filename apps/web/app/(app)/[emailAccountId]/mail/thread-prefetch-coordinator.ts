@@ -12,26 +12,15 @@ import {
 export const MAX_CONCURRENT_THREAD_PREFETCHES = 2;
 export const MAX_QUEUED_THREAD_PREFETCHES = 6;
 
-const PRIORITY_ORDER = {
-  nearby: 0,
-  focused: 1,
-  adjacent: 2,
-  hover: 3,
-} as const;
-
-export type ThreadPrefetchPriority = keyof typeof PRIORITY_ORDER;
-
 export type ThreadPrefetchJob = {
   emailAccountId: string;
   threadId: string;
-  priority: ThreadPrefetchPriority;
   scopeKey: string;
 };
 
 type ScheduledPrefetchJob = ThreadPrefetchJob & {
   cacheIdentity: string;
   coordinatorGeneration: number;
-  enqueuedAt: number;
   requestKey: ReturnType<typeof unstable_serialize>;
   scopeVersion: number;
 };
@@ -61,7 +50,6 @@ export function createThreadPrefetchCoordinator({
   let activeCount = 0;
   let coordinatorGeneration = 0;
   let disposed = false;
-  let sequence = 0;
   const jobsByIdentity = new Map<string, ThreadPrefetchQueueEntry>();
   const scopeVersions = new Map<string, number>();
 
@@ -85,11 +73,11 @@ export function createThreadPrefetchCoordinator({
     getScopeVersion(job.scopeKey) !== job.scopeVersion;
 
   const dropQueuedOverflow = () => {
-    const queued = [...jobsByIdentity.values()]
-      .filter((entry) => entry.status === "queued")
-      .sort(compareQueuedEntries);
+    const queued = [...jobsByIdentity.values()].filter(
+      (entry) => entry.status === "queued",
+    );
     while (queued.length > MAX_QUEUED_THREAD_PREFETCHES) {
-      const entry = queued.shift();
+      const entry = queued.pop();
       if (!entry) break;
       jobsByIdentity.delete(entry.job.cacheIdentity);
     }
@@ -105,10 +93,9 @@ export function createThreadPrefetchCoordinator({
       return;
     }
 
-    const next = [...jobsByIdentity.values()]
-      .filter((entry) => entry.status === "queued")
-      .sort(compareQueuedEntries)
-      .at(-1);
+    const next = [...jobsByIdentity.values()].find(
+      (entry) => entry.status === "queued",
+    );
     if (!next) return;
     if (shouldSkipJob(next.job) || isCancelled(next.job)) {
       jobsByIdentity.delete(next.job.cacheIdentity);
@@ -152,22 +139,13 @@ export function createThreadPrefetchCoordinator({
       ...job,
       cacheIdentity: request.cacheIdentity,
       coordinatorGeneration,
-      enqueuedAt: sequence,
       requestKey: unstable_serialize(request.key),
       scopeVersion: getScopeVersion(job.scopeKey),
     };
-    sequence += 1;
 
     if (shouldSkipJob(scheduledJob)) return;
     const existing = jobsByIdentity.get(request.cacheIdentity);
-    if (existing) {
-      if (existing.status === "queued") {
-        existing.job = mergeQueuedJobs(existing.job, scheduledJob);
-        dropQueuedOverflow();
-        pumpQueue();
-      }
-      return;
-    }
+    if (existing) return;
 
     jobsByIdentity.set(request.cacheIdentity, {
       job: scheduledJob,
@@ -225,28 +203,4 @@ export function useThreadPrefetchCoordinator() {
   }, [coordinator]);
 
   return coordinator;
-}
-
-function compareQueuedEntries(
-  left: ThreadPrefetchQueueEntry,
-  right: ThreadPrefetchQueueEntry,
-) {
-  return (
-    PRIORITY_ORDER[left.job.priority] - PRIORITY_ORDER[right.job.priority] ||
-    right.job.enqueuedAt - left.job.enqueuedAt
-  );
-}
-
-function mergeQueuedJobs(
-  existing: ScheduledPrefetchJob,
-  incoming: ScheduledPrefetchJob,
-): ScheduledPrefetchJob {
-  if (PRIORITY_ORDER[incoming.priority] > PRIORITY_ORDER[existing.priority]) {
-    return incoming;
-  }
-
-  return {
-    ...incoming,
-    priority: existing.priority,
-  };
 }

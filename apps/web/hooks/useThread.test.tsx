@@ -41,9 +41,8 @@ describe("useThread", () => {
     expect(cache.read).not.toHaveBeenCalled();
   });
 
-  it("renders a persistent hit while the network revalidates", async () => {
-    const network = Promise.withResolvers<unknown>();
-    const fetcher = vi.fn(() => network.promise);
+  it("returns a persistent hit without fetching the thread again", async () => {
+    const fetcher = vi.fn();
     cache.read.mockResolvedValue({
       data: { thread: { id: "thread-1", messages: [{ id: "cached" }] } },
     });
@@ -56,15 +55,73 @@ describe("useThread", () => {
       expect(result.current.data?.thread.messages[0]?.id).toBe("cached");
       expect(result.current.isLoading).toBe(false);
     });
-    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(cache.write).not.toHaveBeenCalled();
+  });
 
-    network.resolve({
+  it("uses a matching in-memory thread without reading disk or fetching", async () => {
+    const fetcher = vi.fn().mockResolvedValue({
+      thread: { id: "thread-1", messages: [{ id: "refetched" }] },
+    });
+    const memoryData = {
+      thread: { id: "thread-1", messages: [{ id: "memory" }] },
+    };
+    const fallbackKey = unstable_serialize([
+      "/api/threads/thread-1",
+      "account-1",
+    ]);
+
+    const { result } = renderHook(() => useThread({ id: "thread-1" }), {
+      wrapper: createWrapper(fetcher, {
+        cache: new Map([[fallbackKey, { data: memoryData }]]),
+      }),
+    });
+
+    expect(result.current.data).toEqual(memoryData);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(cache.read).not.toHaveBeenCalled();
+    expect(fetcher).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await result.current.mutate();
+    });
+
+    expect(cache.read).not.toHaveBeenCalled();
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(result.current.data?.thread.messages[0]?.id).toBe("refetched");
+  });
+
+  it("allows an explicit refetch after serving a persistent hit", async () => {
+    const fetcher = vi.fn().mockResolvedValue({
       thread: { id: "thread-1", messages: [{ id: "network" }] },
     });
+    cache.read.mockResolvedValue({
+      data: { thread: { id: "thread-1", messages: [{ id: "cached" }] } },
+    });
+
+    const { result } = renderHook(() => useThread({ id: "thread-1" }), {
+      wrapper: createWrapper(fetcher),
+    });
+
     await waitFor(() =>
-      expect(result.current.data?.thread.messages[0]?.id).toBe("network"),
+      expect(result.current.data?.thread.messages[0]?.id).toBe("cached"),
     );
-    await waitFor(() => expect(cache.write).toHaveBeenCalled());
+    expect(fetcher).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await result.current.mutate();
+    });
+
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(result.current.data?.thread.messages[0]?.id).toBe("network");
+    expect(cache.write).toHaveBeenCalledWith(
+      expect.objectContaining({
+        emailAccountId: "account-1",
+        threadId: "thread-1",
+      }),
+    );
   });
 
   it("falls back to the network when no cached detail exists", async () => {
@@ -135,31 +192,27 @@ describe("useThread", () => {
     );
   });
 
-  it("never lets a late disk read overwrite fresher network data", async () => {
+  it("waits for the persistent lookup before falling back to the network", async () => {
     const disk = Promise.withResolvers<unknown>();
-    const network = Promise.withResolvers<unknown>();
     cache.read.mockReturnValue(disk.promise);
-
-    const { result } = renderHook(() => useThread({ id: "thread-1" }), {
-      wrapper: createWrapper(() => network.promise),
+    const fetcher = vi.fn().mockResolvedValue({
+      thread: { id: "thread-1", messages: [{ id: "network" }] },
     });
 
+    const { result } = renderHook(() => useThread({ id: "thread-1" }), {
+      wrapper: createWrapper(fetcher),
+    });
+
+    expect(result.current.isLoading).toBe(true);
+    expect(fetcher).not.toHaveBeenCalled();
+
     await act(async () => {
-      network.resolve({
-        thread: { id: "thread-1", messages: [{ id: "network" }] },
-      });
+      disk.resolve(undefined);
     });
     await waitFor(() =>
       expect(result.current.data?.thread.messages[0]?.id).toBe("network"),
     );
-
-    await act(async () => {
-      disk.resolve({
-        data: { thread: { id: "thread-1", messages: [{ id: "cached" }] } },
-      });
-    });
-
-    expect(result.current.data?.thread.messages[0]?.id).toBe("network");
+    expect(fetcher).toHaveBeenCalledTimes(1);
     expect(cache.write).toHaveBeenCalledWith(
       expect.objectContaining({
         emailAccountId: "account-1",
@@ -200,13 +253,21 @@ describe("useThread", () => {
 function createWrapper(
   fetcher: (key: [string, string]) => unknown,
   options?: {
+    cache?: Map<string, unknown>;
     keepPreviousData?: boolean;
     fallback?: Record<string, unknown>;
   },
 ) {
+  const { cache: initialCache, ...config } = options ?? {};
   return function Wrapper({ children }: { children: ReactNode }) {
     return (
-      <SWRConfig value={{ fetcher, provider: () => new Map(), ...options }}>
+      <SWRConfig
+        value={{
+          fetcher,
+          provider: () => initialCache ?? new Map(),
+          ...config,
+        }}
+      >
         {children}
       </SWRConfig>
     );

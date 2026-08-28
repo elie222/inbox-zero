@@ -40,13 +40,11 @@ describe("useAdjacentThreadPrefetch", () => {
     expect(coordinator.scheduleMany).toHaveBeenCalledWith([
       {
         emailAccountId: "account-1",
-        priority: "adjacent",
         scopeKey: "scope-adjacent",
         threadId: "thread-1",
       },
       {
         emailAccountId: "account-1",
-        priority: "adjacent",
         scopeKey: "scope-adjacent",
         threadId: "thread-3",
       },
@@ -72,13 +70,11 @@ describe("useAdjacentThreadPrefetch", () => {
     expect(coordinator.scheduleMany).toHaveBeenCalledWith([
       {
         emailAccountId: "account-1",
-        priority: "adjacent",
         scopeKey: "scope-combined",
         threadId: "shared-thread",
       },
       {
         emailAccountId: "account-3",
-        priority: "adjacent",
         scopeKey: "scope-combined",
         threadId: "shared-thread",
       },

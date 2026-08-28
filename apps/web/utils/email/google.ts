@@ -148,14 +148,13 @@ export class GmailProvider implements EmailProvider {
         id: threadId,
       });
 
-      const messages = response.data.messages || [];
-      const messagePromises = messages.map((message) =>
-        this.getMessage(message.id!),
+      const messages = (response.data.messages || []).map((message) =>
+        parseMessage(message as MessageWithPayload),
       );
 
       return {
         id: threadId,
-        messages: await Promise.all(messagePromises),
+        messages,
         snippet: response.data.snippet || "",
         historyId: response.data.historyId || undefined,
       };

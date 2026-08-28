@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import useSWR, { useSWRConfig } from "swr";
+import { useMemo, useRef } from "react";
+import useSWR, { unstable_serialize, useSWRConfig } from "swr";
 import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import {
@@ -28,7 +28,7 @@ export function useThread(
 ) {
   const { emailAccountId: currentEmailAccountId } = useAccount();
   const emailAccountId = explicitEmailAccountId ?? currentEmailAccountId;
-  const { fetcher } = useSWRConfig();
+  const { cache, fetcher } = useSWRConfig();
   const includeDrafts = options?.includeDrafts;
   const parseReplies = options?.parseReplies;
   const request = useMemo(
@@ -42,74 +42,62 @@ export function useThread(
         : null,
     [emailAccountId, id, includeDrafts, parseReplies],
   );
+  const memoryData = request
+    ? (
+        cache.get(unstable_serialize(request.key)) as
+          | { data?: ThreadResponse }
+          | undefined
+      )?.data
+    : undefined;
+  const hasMatchingMemoryData = memoryData?.thread.id === id;
+  const checkedPersistentCache = useRef(new Set<string>());
   const swr = useSWR<ThreadResponse>(
     request?.key ?? null,
-    request && fetcher
+    request && fetcher && id
       ? () =>
-          fetchThreadRequest(
-            request,
-            async () => (await fetcher(request.key)) as ThreadResponse,
-          )
+          fetchThreadRequest(request, async () => {
+            if (
+              !hasMatchingMemoryData &&
+              !checkedPersistentCache.current.has(request.cacheIdentity)
+            ) {
+              checkedPersistentCache.current.add(request.cacheIdentity);
+              const startedAt = startEmailCacheMeasure();
+              const cached = await readCachedThreadDetail({
+                emailAccountId,
+                threadId: id,
+                variant: request.variant,
+              });
+              finishEmailCacheMeasure(
+                EMAIL_CACHE_MEASURES.threadHydration,
+                startedAt,
+              );
+              if (cached) return cached.data;
+            }
+
+            const data = (await fetcher(request.key)) as ThreadResponse;
+            writeCachedThreadDetail({
+              emailAccountId,
+              threadId: id,
+              variant: request.variant,
+              data,
+            });
+            return data;
+          })
       : null,
-    { keepPreviousData: false },
+    {
+      keepPreviousData: false,
+      revalidateOnMount: !hasMatchingMemoryData,
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+    },
   );
-  const [persistent, setPersistent] = useState<{
-    identity: string;
-    data: ThreadResponse;
-  }>();
-  const remoteIdentity = useRef<string | undefined>(undefined);
-
-  const remoteData = swr.data?.thread.id === id ? swr.data : undefined;
-  remoteIdentity.current =
-    remoteData && request ? request.cacheIdentity : undefined;
-
-  useEffect(() => {
-    if (!request || !id) return;
-    let cancelled = false;
-    const startedAt = startEmailCacheMeasure();
-
-    readCachedThreadDetail({
-      emailAccountId,
-      threadId: id,
-      variant: request.variant,
-    }).then((cached) => {
-      finishEmailCacheMeasure(EMAIL_CACHE_MEASURES.threadHydration, startedAt);
-      if (
-        cancelled ||
-        !cached ||
-        remoteIdentity.current === request.cacheIdentity
-      ) {
-        return;
-      }
-      setPersistent({ identity: request.cacheIdentity, data: cached.data });
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [emailAccountId, id, request]);
-
-  useEffect(() => {
-    if (!remoteData || !request || !id) return;
-    writeCachedThreadDetail({
-      emailAccountId,
-      threadId: id,
-      variant: request.variant,
-      data: remoteData,
-    }).catch(() => {});
-  }, [emailAccountId, id, remoteData, request]);
-
-  const persistentData =
-    persistent && persistent.identity === request?.cacheIdentity
-      ? persistent.data
-      : undefined;
-  const data = remoteData ?? persistentData;
+  const data = swr.data?.thread.id === id ? swr.data : undefined;
 
   return {
     ...swr,
     data,
     error: data ? undefined : swr.error,
-    isLoading: Boolean(swr.isLoading && !persistentData),
+    isLoading: swr.isLoading,
     isValidating: swr.isValidating,
     mutate: swr.mutate,
   };
