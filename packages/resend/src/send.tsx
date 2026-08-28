@@ -1,8 +1,14 @@
 import { render } from "@react-email/render";
 import { nanoid } from "nanoid";
-import { resend } from "./client";
 import type { ReactElement } from "react";
-import type { Attachment } from "resend";
+import {
+  deliverTransactionalEmail,
+  isTransactionalEmailConfigured,
+} from "./delivery";
+import type {
+  TransactionalEmailAttachment,
+  TransactionalEmailProviderResult,
+} from "./provider";
 import SummaryEmail, { type SummaryEmailProps } from "../emails/summary";
 import DigestEmail, {
   type DigestEmailProps,
@@ -52,6 +58,11 @@ import InvoiceEmail, { type InvoiceEmailProps } from "../emails/invoice";
 const RESEND_NOT_CONFIGURED_MESSAGE =
   "Resend is not configured. You need to add a RESEND_API_KEY in your .env file for emails to work.";
 
+type EmailSendResult = {
+  data: { id: string } | null;
+  error: null;
+};
+
 const sendEmail = async ({
   from,
   to,
@@ -71,36 +82,37 @@ const sendEmail = async ({
   tags?: { name: string; value: string }[];
   unsubscribeToken: string;
   baseUrl: string;
-}) => {
-  if (!resend) {
+}): Promise<EmailSendResult | undefined> => {
+  if (!isTransactionalEmailConfigured()) {
     console.log(RESEND_NOT_CONFIGURED_MESSAGE);
-    return Promise.resolve();
+    return;
   }
 
-  const text = await render(react, { plainText: true });
+  const [html, text] = await Promise.all([
+    render(react),
+    render(react, { plainText: true }),
+  ]);
 
-  const result = await resend.emails.send({
-    from,
-    to: test ? "delivered@resend.dev" : to,
-    subject,
-    react,
-    text,
-    headers: {
-      "List-Unsubscribe": `<${baseUrl}/api/unsubscribe?token=${unsubscribeToken}>`,
-      // From Feb 2024 Google requires this for bulk senders
-      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-      // Prevent threading on Gmail
-      "X-Entity-Ref-ID": nanoid(),
+  const result = await deliverTransactionalEmail(
+    {
+      from,
+      to,
+      subject,
+      html,
+      text,
+      headers: {
+        "List-Unsubscribe": `<${baseUrl}/api/unsubscribe?token=${unsubscribeToken}>`,
+        // From Feb 2024 Google requires this for bulk senders
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+        // Prevent threading on Gmail
+        "X-Entity-Ref-ID": nanoid(),
+      },
+      tags,
     },
-    tags,
-  });
+    { test },
+  );
 
-  if (result.error) {
-    console.error("Error sending email", result.error);
-    throw new Error(`Error sending email: ${result.error.message}`);
-  }
-
-  return result;
+  return toEmailSendResult(result);
 };
 
 const sendTransactionalEmail = async ({
@@ -119,22 +131,25 @@ const sendTransactionalEmail = async ({
   react: ReactElement;
   test?: boolean;
   tags?: { name: string; value: string }[];
-  attachments?: Attachment[];
+  attachments?: TransactionalEmailAttachment[];
   idempotencyKey?: string;
-}) => {
-  if (!resend) {
+}): Promise<EmailSendResult | undefined> => {
+  if (!isTransactionalEmailConfigured()) {
     console.log(RESEND_NOT_CONFIGURED_MESSAGE);
-    return Promise.resolve();
+    return;
   }
 
-  const text = await render(react, { plainText: true });
+  const [html, text] = await Promise.all([
+    render(react),
+    render(react, { plainText: true }),
+  ]);
 
-  const result = await resend.emails.send(
+  const result = await deliverTransactionalEmail(
     {
       from,
-      to: test ? "delivered@resend.dev" : to,
+      to,
       subject,
-      react,
+      html,
       text,
       attachments,
       headers: {
@@ -142,15 +157,10 @@ const sendTransactionalEmail = async ({
       },
       tags,
     },
-    idempotencyKey ? { idempotencyKey } : undefined,
+    { idempotencyKey, test },
   );
 
-  if (result.error) {
-    console.error("Error sending email", result.error);
-    throw new Error(`Error sending email: ${result.error.message}`);
-  }
-
-  return result;
+  return toEmailSendResult(result);
 };
 
 // export const sendStatsEmail = async ({
@@ -413,21 +423,24 @@ export const sendColdEmailNotification = async ({
   subject: string;
   inReplyTo?: string; // Message-ID of original email for threading
   emailProps: ColdEmailNotificationProps;
-}) => {
-  if (!resend) {
+}): Promise<EmailSendResult> => {
+  if (!isTransactionalEmailConfigured()) {
     console.log(RESEND_NOT_CONFIGURED_MESSAGE);
     return { data: null, error: null };
   }
 
   const react = <ColdEmailNotification {...emailProps} />;
-  const text = await render(react, { plainText: true });
+  const [html, text] = await Promise.all([
+    render(react),
+    render(react, { plainText: true }),
+  ]);
 
-  const result = await resend.emails.send({
+  const result = await deliverTransactionalEmail({
     from,
     to,
     replyTo,
     subject,
-    react,
+    html,
     text,
     // Threading headers - In-Reply-To and References make the reply appear in the same thread
     headers: inReplyTo
@@ -441,14 +454,7 @@ export const sendColdEmailNotification = async ({
     ],
   });
 
-  if (result.error) {
-    console.error("Error sending cold email notification", result.error);
-    throw new Error(
-      `Error sending cold email notification: ${result.error.message}`,
-    );
-  }
-
-  return result;
+  return toEmailSendResult(result);
 };
 
 export const sendGuestBookingConfirmationEmail = async ({
@@ -578,3 +584,12 @@ export const sendInvoiceEmail = async ({
     idempotencyKey,
     tags: [{ name: "category", value: "invoice" }],
   });
+
+function toEmailSendResult(
+  result: TransactionalEmailProviderResult | null,
+): EmailSendResult {
+  return {
+    data: result?.messageId ? { id: result.messageId } : null,
+    error: null,
+  };
+}
