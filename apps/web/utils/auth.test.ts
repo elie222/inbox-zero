@@ -1,9 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { Account } from "better-auth";
 import { cookies } from "next/headers";
 import { createReferral } from "@/utils/referral/referral-code";
 import { captureException } from "@/utils/error";
 import { saveTokens } from "@/utils/auth/save-tokens";
 import { createOutlookClient } from "@/utils/outlook/client";
+import { getContactsClient } from "@/utils/gmail/client";
+import { ensureEmailAccountsWatched } from "@/utils/email/watch-manager";
 import {
   betterAuthConfig,
   handleLinkAccount,
@@ -11,6 +14,10 @@ import {
 } from "@/utils/auth";
 import prisma from "@/utils/__mocks__/prisma";
 import { clearAccountDisconnectedErrorIfResolved } from "@/utils/error-messages";
+
+const { mockAfter } = vi.hoisted(() => ({
+  mockAfter: vi.fn(),
+}));
 
 vi.mock("better-auth", () => {
   class APIError extends Error {
@@ -55,12 +62,27 @@ vi.mock("@googleapis/gmail", () => ({
 vi.mock("@/utils/outlook/client", () => ({
   createOutlookClient: vi.fn(),
 }));
+vi.mock("@/utils/gmail/client", () => ({
+  getContactsClient: vi.fn(),
+}));
+vi.mock("@/utils/email/watch-manager", () => ({
+  ensureEmailAccountsWatched: vi.fn(),
+}));
+vi.mock("@/utils/premium/seats", () => ({
+  claimPendingPremiumInvite: vi.fn(),
+  updateAccountSeats: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock("@/utils/encryption", () => ({
   encryptToken: vi.fn((t) => t),
 }));
 
 vi.mock("next/headers", () => ({
   cookies: vi.fn(),
+}));
+
+vi.mock("next/server", async (importActual) => ({
+  ...(await importActual<typeof import("next/server")>()),
+  after: mockAfter,
 }));
 
 vi.mock("@/utils/referral/referral-code", () => ({
@@ -355,4 +377,99 @@ describe("handleLinkAccount", () => {
       },
     });
   });
+
+  it("schedules email watch registration after a Google account is linked", async () => {
+    mockGoogleProfile();
+    prisma.emailAccount.findUnique.mockResolvedValue(null);
+    const user = {
+      email: "user@example.com",
+      name: "Test User",
+      image: null,
+    };
+    prisma.user.findUnique.mockResolvedValue(
+      user as Awaited<ReturnType<typeof prisma.user.findUnique>>,
+    );
+    const transactionResult = [{ id: "email_account_1" }, { id: "account_1" }];
+    prisma.$transaction.mockResolvedValue(transactionResult as never);
+    vi.mocked(ensureEmailAccountsWatched).mockResolvedValue([]);
+
+    await handleLinkAccount(getGoogleAccount());
+
+    expect(mockAfter).toHaveBeenCalledOnce();
+    expect(ensureEmailAccountsWatched).not.toHaveBeenCalled();
+
+    await runScheduledAfterCallback();
+
+    expect(ensureEmailAccountsWatched).toHaveBeenCalledWith({
+      userIds: ["user_1"],
+      logger: expect.anything(),
+    });
+  });
+
+  it("re-registers email watches after a cross-provider account link", async () => {
+    mockGoogleProfile();
+    const existingEmailAccount = {
+      id: "email_account_1",
+      userId: "user_1",
+      accountId: "microsoft_account_1",
+      account: { provider: "microsoft" },
+    };
+    prisma.emailAccount.findUnique.mockResolvedValue(
+      existingEmailAccount as Awaited<
+        ReturnType<typeof prisma.emailAccount.findUnique>
+      >,
+    );
+    prisma.$transaction.mockResolvedValue([] as never);
+    vi.mocked(ensureEmailAccountsWatched).mockResolvedValue([]);
+
+    await handleLinkAccount(getGoogleAccount());
+
+    expect(mockAfter).toHaveBeenCalledOnce();
+
+    await runScheduledAfterCallback();
+
+    expect(ensureEmailAccountsWatched).toHaveBeenCalledWith({
+      userIds: ["user_1"],
+      logger: expect.anything(),
+    });
+  });
 });
+
+function mockGoogleProfile() {
+  const people = {
+    get: vi.fn().mockResolvedValue({
+      data: {
+        emailAddresses: [
+          {
+            value: "user@example.com",
+            metadata: { primary: true },
+          },
+        ],
+        names: [{ displayName: "Test User", metadata: { primary: true } }],
+        photos: [],
+      },
+    }),
+  } as ReturnType<typeof getContactsClient>["people"];
+
+  vi.mocked(getContactsClient).mockReturnValue({
+    people,
+  } as ReturnType<typeof getContactsClient>);
+}
+
+function getGoogleAccount(): Account {
+  return {
+    id: "account_1",
+    accountId: "provider_account_1",
+    userId: "user_1",
+    providerId: "google",
+    accessToken: "access_token",
+    createdAt: new Date("2026-01-01T00:00:00Z"),
+    updatedAt: new Date("2026-01-01T00:00:00Z"),
+  };
+}
+
+async function runScheduledAfterCallback() {
+  const callback = mockAfter.mock.calls.at(-1)?.[0];
+  expect(callback).toBeTypeOf("function");
+  await callback();
+}

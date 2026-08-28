@@ -25,6 +25,28 @@ vi.mock("swr/infinite", () => ({
     },
   }),
 }));
+vi.mock("@/hooks/useMailMutationOverlay", () => ({
+  applyMailMutationOverlayToThreads: ({ threads }: { threads: unknown[] }) =>
+    threads,
+  useRetainedMailMutationOverlay: () => ({
+    isReady: true,
+    mutations: [],
+  }),
+}));
+vi.mock("@/utils/email-cache/thread-lists", () => ({
+  readCachedThreadList: vi.fn().mockResolvedValue(undefined),
+  removeCachedThreadsFromView: vi.fn().mockResolvedValue(undefined),
+  restoreCachedThreadsToView: vi.fn().mockResolvedValue(undefined),
+  writeCachedThreadList: vi.fn().mockResolvedValue(undefined),
+  writeCachedThreadRows: vi.fn().mockResolvedValue(undefined),
+}));
+vi.mock("@/utils/email-cache/mailbox", () => ({
+  readSyncedMailboxThreads: vi.fn().mockResolvedValue(undefined),
+  subscribeToMailboxStore: vi.fn(() => () => {}),
+}));
+vi.mock("@/utils/email-cache/analytics", () => ({
+  trackMailboxListReady: vi.fn(),
+}));
 
 const ids = () => pages.current[0].threads.map((thread) => thread.id);
 
