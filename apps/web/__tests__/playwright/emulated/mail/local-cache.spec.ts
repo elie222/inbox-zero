@@ -154,7 +154,7 @@ test("opens the owning account's cached reader in place from All Accounts", asyn
       contentType: "image/png",
     });
 
-    await page.getByRole("button", { name: /^Back/ }).click();
+    await page.keyboard.press("Escape");
     await expect(conversations).toBeVisible();
     await expect(page).not.toHaveURL(/thread-id=/);
     await expect(page).not.toHaveURL(/thread-account-id=/);

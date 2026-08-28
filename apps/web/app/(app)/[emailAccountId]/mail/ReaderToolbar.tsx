@@ -3,7 +3,6 @@
 import type { ReactNode } from "react";
 import {
   ArchiveIcon,
-  ArrowLeftIcon,
   MaximizeIcon,
   MinimizeIcon,
   ReplyIcon,
@@ -14,7 +13,6 @@ import { MailLabelChip } from "@/app/(app)/[emailAccountId]/mail/MailLabelChip";
 import { Kbd } from "@/components/Kbd";
 import type { EmailMessageCellLabel } from "@/components/EmailMessageCellLabels";
 import { Button } from "@/components/ui/button";
-import { SidebarTrigger } from "@/components/ui/sidebar";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
 
 type ReaderToolbarProps = {
@@ -39,59 +37,6 @@ type ReaderToolbarProps = {
   /** The ⋯ dropdown, i.e. `ThreadActionsMenu`, composed by the shell. */
   menu?: ReactNode;
 };
-
-type ReaderNavigationProps = {
-  /** 1-based position of the open thread in the list, for the "N of M" readout. */
-  position?: { index: number; total: number };
-  onBack: () => void;
-  showSidebarToggle?: boolean;
-};
-
-export function ReaderNavigation({
-  position,
-  onBack,
-  showSidebarToggle = false,
-}: ReaderNavigationProps) {
-  return (
-    <>
-      <div className="h-5" />
-      <div className="sticky top-0 z-10 mb-4 flex items-center bg-card">
-        {showSidebarToggle ? (
-          <div className="flex w-10 shrink-0 justify-end">
-            <SidebarTrigger
-              name="left-sidebar"
-              className="hidden lg:inline-flex"
-            />
-          </div>
-        ) : null}
-
-        <div className="min-w-0 flex-1">
-          <div className="mx-auto w-full max-w-[54rem] px-6">
-            <div className="-mx-1 flex items-center gap-3 px-1 py-2">
-              <Button
-                onClick={onBack}
-                size="xs-2"
-                type="button"
-                variant="outline"
-              >
-                <ArrowLeftIcon className="mr-1.5 size-3.5" />
-                Back
-                <Kbd className="ml-1.5">{getShortcutHint("backToList")}</Kbd>
-              </Button>
-              {position ? (
-                <span className="font-mono text-muted-foreground text-xs">
-                  {`${position.index} of ${position.total}`}
-                </span>
-              ) : null}
-            </div>
-          </div>
-        </div>
-
-        {showSidebarToggle ? <div className="w-10 shrink-0" /> : null}
-      </div>
-    </>
-  );
-}
 
 /**
  * The reader's header: what the thread is, and what you can do to it.

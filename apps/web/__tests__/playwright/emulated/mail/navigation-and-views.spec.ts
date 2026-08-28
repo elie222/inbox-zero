@@ -77,8 +77,10 @@ test("opens a complete conversation and updates its read state", async ({
     page.getByRole("heading", { name: "Re: Reader Navigation Message" }),
   ).toBeVisible();
   await expect(page).toHaveURL(/thread-id=thr_playwright_reader/);
+  await expect(page.getByRole("button", { name: /^Back/ })).toHaveCount(0);
+  await expect(page.getByText(/^\d+ of \d+$/)).toHaveCount(0);
 
-  await page.getByRole("button", { name: /^Back/ }).click();
+  await page.keyboard.press("Escape");
   await expect(conversations).toBeVisible();
   await expect(readerConversation).toBeVisible();
   await expect(page).not.toHaveURL(/thread-id=/);
