@@ -210,7 +210,10 @@ async function withMicrosoftGraphRetryPolicy<T>(
           responseBody: errorInfo.responseBody,
           retryPolicy,
         });
-        throw error;
+        // Throwing the attempt context would hand callers p-retry's wrapper
+        // instead of the Graph error, so classifiers such as
+        // isOutlookAccessDeniedError would never match.
+        throw error.error;
       }
 
       const retryAfterHeader = getRetryAfterHeaderFromError(error);
@@ -251,7 +254,7 @@ async function withMicrosoftGraphRetryPolicy<T>(
           isServerError,
           isConflictError,
         });
-        throw error;
+        throw error.error;
       }
 
       if (delayMs > 0) {

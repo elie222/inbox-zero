@@ -255,7 +255,7 @@ describe("OutlookProvider snapshot mutations", () => {
 
     await expect(
       provider.markMessagesReadState(["message"], true),
-    ).rejects.toMatchObject({ error: failure });
+    ).rejects.toBe(failure);
   });
 });
 

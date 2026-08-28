@@ -317,13 +317,7 @@ describe("OneDriveProvider", () => {
         content,
         folderId: "folder-1",
       }),
-    ).rejects.toMatchObject({
-      error: expect.objectContaining({
-        message: expect.stringContaining(
-          "Failed to upload OneDrive file chunk: 500",
-        ),
-      }),
-    });
+    ).rejects.toThrow("Failed to upload OneDrive file chunk: 500");
 
     expect(
       fetchMock.mock.calls.filter(([, init]) => init?.method === "DELETE"),

@@ -9,8 +9,13 @@ vi.mock("@/env", () => ({
 }));
 
 describe("Outlook scopes", () => {
-  it("requests read access to saved contacts when suggestions are enabled", () => {
-    expect(REQUIRED_SCOPES).not.toContain("Contacts.Read");
+  it("requests both contact sources when suggestions are enabled", () => {
     expect(SCOPES).toContain("Contacts.Read");
+    expect(SCOPES).toContain("People.Read");
+  });
+
+  it("keeps contact access optional so existing accounts stay connected", () => {
+    expect(REQUIRED_SCOPES).not.toContain("Contacts.Read");
+    expect(REQUIRED_SCOPES).not.toContain("People.Read");
   });
 });
