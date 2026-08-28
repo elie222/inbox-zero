@@ -15,6 +15,10 @@ import {
 import prisma from "@/utils/__mocks__/prisma";
 import { clearAccountDisconnectedErrorIfResolved } from "@/utils/error-messages";
 
+const { mockAfter } = vi.hoisted(() => ({
+  mockAfter: vi.fn(),
+}));
+
 vi.mock("better-auth", () => {
   class APIError extends Error {
     body?: { code?: string; message?: string };
@@ -74,6 +78,11 @@ vi.mock("@/utils/encryption", () => ({
 
 vi.mock("next/headers", () => ({
   cookies: vi.fn(),
+}));
+
+vi.mock("next/server", async (importActual) => ({
+  ...(await importActual<typeof import("next/server")>()),
+  after: mockAfter,
 }));
 
 vi.mock("@/utils/referral/referral-code", () => ({
@@ -369,7 +378,7 @@ describe("handleLinkAccount", () => {
     });
   });
 
-  it("re-registers email watches after a Google account is linked", async () => {
+  it("schedules email watch registration after a Google account is linked", async () => {
     mockGoogleProfile();
     prisma.emailAccount.findUnique.mockResolvedValue(null);
     const user = {
@@ -385,6 +394,11 @@ describe("handleLinkAccount", () => {
     vi.mocked(ensureEmailAccountsWatched).mockResolvedValue([]);
 
     await handleLinkAccount(getGoogleAccount());
+
+    expect(mockAfter).toHaveBeenCalledOnce();
+    expect(ensureEmailAccountsWatched).not.toHaveBeenCalled();
+
+    await runScheduledAfterCallback();
 
     expect(ensureEmailAccountsWatched).toHaveBeenCalledWith({
       userIds: ["user_1"],
@@ -409,6 +423,10 @@ describe("handleLinkAccount", () => {
     vi.mocked(ensureEmailAccountsWatched).mockResolvedValue([]);
 
     await handleLinkAccount(getGoogleAccount());
+
+    expect(mockAfter).toHaveBeenCalledOnce();
+
+    await runScheduledAfterCallback();
 
     expect(ensureEmailAccountsWatched).toHaveBeenCalledWith({
       userIds: ["user_1"],
@@ -448,4 +466,10 @@ function getGoogleAccount(): Account {
     createdAt: new Date("2026-01-01T00:00:00Z"),
     updatedAt: new Date("2026-01-01T00:00:00Z"),
   };
+}
+
+async function runScheduledAfterCallback() {
+  const callback = mockAfter.mock.calls.at(-1)?.[0];
+  expect(callback).toBeTypeOf("function");
+  await callback();
 }

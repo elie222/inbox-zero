@@ -14,6 +14,7 @@ const {
   mockIsGoogleOauthEmulationEnabled,
   mockEnsureEmailAccountsWatched,
   mockAuth,
+  mockAfter,
 } = vi.hoisted(() => ({
   mockValidateOAuthCallback: vi.fn(),
   mockHandleAccountLinking: vi.fn(),
@@ -26,6 +27,12 @@ const {
   mockIsGoogleOauthEmulationEnabled: vi.fn(() => true),
   mockEnsureEmailAccountsWatched: vi.fn(),
   mockAuth: vi.fn(),
+  mockAfter: vi.fn(),
+}));
+
+vi.mock("next/server", async (importActual) => ({
+  ...(await importActual<typeof import("next/server")>()),
+  after: mockAfter,
 }));
 
 vi.mock("@/env", () => ({
@@ -174,6 +181,13 @@ describe("google linking callback route", () => {
     expect(mockSetOAuthCodeResult).toHaveBeenCalledWith("valid-auth-code", {
       success: "tokens_updated",
     });
+    expect(mockSetOAuthCodeResult.mock.invocationCallOrder[0]).toBeLessThan(
+      mockAfter.mock.invocationCallOrder[0],
+    );
+    expect(mockEnsureEmailAccountsWatched).not.toHaveBeenCalled();
+
+    await runScheduledAfterCallback();
+
     expect(mockEnsureEmailAccountsWatched).toHaveBeenCalledWith({
       userIds: ["user-123"],
       logger: expect.anything(),
@@ -265,3 +279,9 @@ describe("google linking callback route", () => {
     consoleWarn.mockRestore();
   });
 });
+
+async function runScheduledAfterCallback() {
+  const callback = mockAfter.mock.calls.at(-1)?.[0];
+  expect(callback).toBeTypeOf("function");
+  await callback();
+}

@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { env } from "@/env";
 import { auth } from "@/utils/auth";
 import { hash } from "@/utils/hash";
@@ -409,16 +410,22 @@ async function completeGoogleAccountLinking({
   success: "account_created_and_linked" | "account_merged" | "tokens_updated";
   targetUserId: string;
 }) {
-  await ensureEmailAccountsWatched({
-    userIds: [targetUserId],
-    logger,
-  }).catch((error) => {
-    logger.error("Failed to re-register email watches after account linking", {
-      error,
-    });
-  });
-
   await setOAuthCodeResult(code, { success });
+
+  after(() =>
+    ensureEmailAccountsWatched({
+      userIds: [targetUserId],
+      logger,
+    }).catch((error) => {
+      logger.error(
+        "Failed to re-register email watches after account linking",
+        {
+          error,
+        },
+      );
+    }),
+  );
+
   return createAccountLinkingRedirect({
     query: { success },
     stateCookieName: GOOGLE_LINKING_STATE_COOKIE_NAME,
