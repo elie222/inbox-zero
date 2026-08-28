@@ -1,6 +1,7 @@
 # Email updates
 
-This package is used to send transactional emails to users.
+This package provides transactional email templates and delivery APIs. Email
+delivery uses a provider interface, with Resend as the current implementation.
 
 ## Running locally
 

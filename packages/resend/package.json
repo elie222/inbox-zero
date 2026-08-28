@@ -3,7 +3,8 @@
   "version": "0.0.0",
   "main": "src/index.ts",
   "scripts": {
-    "dev": "email dev --port 3010"
+    "dev": "email dev --port 3010",
+    "test": "vitest run"
   },
   "engines": {
     "node": ">=22.12.0"
@@ -23,6 +24,7 @@
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.4",
     "tsconfig": "workspace:*",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "vitest": "4.1.10"
   }
 }
