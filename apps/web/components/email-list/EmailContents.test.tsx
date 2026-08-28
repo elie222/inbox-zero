@@ -51,7 +51,7 @@ describe("HtmlEmail", () => {
     vi.unstubAllGlobals();
   });
 
-  it("reuses recently prepared html after remounting the same email", async () => {
+  it("reuses prepared html without collapsing while measuring the iframe", async () => {
     const html = "<p>Hello</p>";
 
     const firstRender = render(<HtmlEmail html={html} messageId="message-1" />);
@@ -60,10 +60,16 @@ describe("HtmlEmail", () => {
     });
     firstRender.unmount();
 
-    render(<HtmlEmail html={html} messageId="message-1" />);
+    const { getByTitle } = render(
+      <HtmlEmail html={html} messageId="message-1" />,
+    );
     await waitFor(() => {
       expect(fetch).toHaveBeenCalledTimes(1);
     });
+
+    const iframe = getByTitle("Email content preview") as HTMLIFrameElement;
+    expect(iframe.getAttribute("srcdoc")).toContain("<p>proxied</p>");
+    expect(iframe.style.height).toBe("");
   });
 
   it("keeps https images allowed when proxy rewriting leaves the html unchanged", async () => {
@@ -154,16 +160,6 @@ describe("HtmlEmail", () => {
         640,
       ),
     );
-  });
-
-  it("does not collapse cached html while measuring the iframe", () => {
-    const { getByTitle } = render(
-      <HtmlEmail html="<p>Cached email body</p>" messageId="message-cached" />,
-    );
-
-    const iframe = getByTitle("Email content preview") as HTMLIFrameElement;
-
-    expect(iframe.style.height).toBe("");
   });
 
   it("resolves authenticated cid images to temporary local URLs", async () => {
