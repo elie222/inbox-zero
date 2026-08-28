@@ -22,7 +22,7 @@ vi.mock("@/env", () => ({
     RESEND_FROM_EMAIL: "from@example.com",
   },
 }));
-vi.mock("@inboxzero/resend", () => resendMocks);
+vi.mock("@inboxzero/transactional-email", () => resendMocks);
 
 const logger = createTestLogger();
 

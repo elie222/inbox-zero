@@ -33,7 +33,7 @@ COPY packages/cli/package.json packages/cli/package.json
 COPY packages/email-editor/package.json packages/email-editor/package.json
 COPY packages/image-proxy/package.json packages/image-proxy/package.json
 COPY packages/loops/package.json packages/loops/package.json
-COPY packages/resend/package.json packages/resend/package.json
+COPY packages/transactional-email/package.json packages/transactional-email/package.json
 COPY packages/scheduling/package.json packages/scheduling/package.json
 COPY packages/tinybird/package.json packages/tinybird/package.json
 COPY packages/tinybird-ai-analytics/package.json packages/tinybird-ai-analytics/package.json

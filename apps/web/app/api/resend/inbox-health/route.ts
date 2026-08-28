@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { subMonths } from "date-fns/subMonths";
-import { sendInboxHealthEmail } from "@inboxzero/resend";
+import { sendInboxHealthEmail } from "@inboxzero/transactional-email";
 import { withEmailAccount, withError } from "@/utils/middleware";
 import { env } from "@/env";
 import { isAuthorizedCronOrInternalRequest } from "@/utils/cron";

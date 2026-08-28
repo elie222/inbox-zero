@@ -40,7 +40,7 @@ vi.mock("@/utils/email/provider", () => ({
   createEmailProvider: (...args: unknown[]) => mockCreateEmailProvider(...args),
 }));
 
-vi.mock("@inboxzero/resend", () => ({
+vi.mock("@inboxzero/transactional-email", () => ({
   sendInboxHealthEmail: vi.fn(),
 }));
 

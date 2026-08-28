@@ -1,7 +1,7 @@
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
 import { captureException } from "@/utils/error";
-import { sendActionRequiredEmail } from "@inboxzero/resend";
+import { sendActionRequiredEmail } from "@inboxzero/transactional-email";
 import { env } from "@/env";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
 import type { Prisma } from "@/generated/prisma/client";

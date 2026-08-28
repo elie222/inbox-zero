@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
-import { sendActionRequiredEmail } from "@inboxzero/resend";
+import { sendActionRequiredEmail } from "@inboxzero/transactional-email";
 import {
   addUserErrorMessageWithNotification,
   clearAccountDisconnectedErrorIfResolved,
@@ -12,7 +12,7 @@ import {
 import { createTestLogger } from "@/__tests__/helpers";
 
 vi.mock("@/utils/prisma");
-vi.mock("@inboxzero/resend", () => ({
+vi.mock("@inboxzero/transactional-email", () => ({
   sendActionRequiredEmail: vi.fn(),
 }));
 vi.mock("@/env", () => ({

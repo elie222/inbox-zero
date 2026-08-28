@@ -224,9 +224,9 @@ importers:
       '@inboxzero/loops':
         specifier: workspace:*
         version: link:../../packages/loops
-      '@inboxzero/resend':
+      '@inboxzero/transactional-email':
         specifier: workspace:*
-        version: link:../../packages/resend
+        version: link:../../packages/transactional-email
       '@inboxzero/scheduling':
         specifier: workspace:*
         version: link:../../packages/scheduling
@@ -907,7 +907,7 @@ importers:
         specifier: 6.0.3
         version: 6.0.3
 
-  packages/resend:
+  packages/transactional-email:
     dependencies:
       '@react-email/components':
         specifier: 1.0.12

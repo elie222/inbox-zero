@@ -1,5 +1,5 @@
 import { env } from "@/env";
-import { sendDigestEmail } from "@inboxzero/resend";
+import { sendDigestEmail } from "@inboxzero/transactional-email";
 import {
   MessagingProvider,
   MessagingRoutePurpose,

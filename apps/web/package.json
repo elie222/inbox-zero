@@ -73,7 +73,7 @@
     "@inboxzero/email-editor": "workspace:*",
     "@inboxzero/image-proxy": "workspace:*",
     "@inboxzero/loops": "workspace:*",
-    "@inboxzero/resend": "workspace:*",
+    "@inboxzero/transactional-email": "workspace:*",
     "@inboxzero/scheduling": "workspace:*",
     "@inboxzero/tinybird": "workspace:*",
     "@inboxzero/tinybird-ai-analytics": "workspace:*",
