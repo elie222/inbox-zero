@@ -144,6 +144,7 @@ test("filters the mail list by state, category, and label", async ({
     conversationWithSubject(page, conversations, "Read Command Message"),
   ).toHaveCount(0);
 
+  await page.getByRole("button", { name: "Categories" }).click();
   await page.getByRole("link", { name: /^Promotions/ }).click();
   await expect(
     conversationWithSubject(page, conversations, "Promotion Category Message"),
