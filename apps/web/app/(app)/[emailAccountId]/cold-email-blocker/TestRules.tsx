@@ -205,14 +205,18 @@ function Result(props: { coldEmailResponse: ColdEmailBlockerResponse | null }) {
       />
     );
   }
+
+  let title = "Our AI determined this is not a cold email!";
+  if (coldEmailResponse.reason === "hasPreviousEmail") {
+    title = "This person has previously emailed you. This is not a cold email!";
+  } else if (coldEmailResponse.reason === "applicationSender") {
+    title = "This is an application notification, not a cold email!";
+  }
+
   return (
     <AlertBasic
       variant="success"
-      title={
-        coldEmailResponse.reason === "hasPreviousEmail"
-          ? "This person has previously emailed you. This is not a cold email!"
-          : "Our AI determined this is not a cold email!"
-      }
+      title={title}
       description={coldEmailResponse.aiReason}
     />
   );

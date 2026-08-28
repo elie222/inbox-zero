@@ -2,6 +2,7 @@
 
 import type { ComponentProps } from "react";
 import {
+  ExternalLinkIcon,
   MailXIcon,
   MailIcon,
   MailOpenIcon,
@@ -12,6 +13,7 @@ import { getRuleResultReasonDisplay } from "@/app/(app)/[emailAccountId]/assista
 import { MailLabelChip } from "@/app/(app)/[emailAccountId]/mail/MailLabelChip";
 import type { ThreadPlan } from "@/app/(app)/[emailAccountId]/mail/types";
 import { useUnsubscribeSender } from "@/app/(app)/[emailAccountId]/mail/use-unsubscribe-sender";
+import { getEmailMessageCellActions } from "@/components/EmailMessageCellActions";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -22,7 +24,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ActionType, ExecutedRuleStatus } from "@/generated/prisma/enums";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
+import { useAccount } from "@/providers/EmailAccountProvider";
 import { ACTION_TYPE_LABELS, getVisibleActions } from "@/utils/action-display";
+import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import type { ParsedMessage } from "@/utils/types";
 
 type FixWithChatResults = ComponentProps<typeof FixWithChat>["results"];
@@ -64,9 +68,19 @@ export function ThreadActionsMenu({
   onOpenChange,
 }: ThreadActionsMenuProps) {
   const hint = getShortcutHint("moreActions");
+  const { provider, userEmail } = useAccount();
   const { canUnsubscribe, onUnsubscribe, PremiumModal } =
     useUnsubscribeSender(message);
   const ReadIcon = isUnread ? MailOpenIcon : MailIcon;
+  const openUrl = message
+    ? getEmailMessageCellActions({
+        externalUrl: message.externalUrl,
+        messageId: message.id,
+        provider,
+        threadId: message.threadId,
+        userEmail,
+      })?.openUrl
+    : undefined;
 
   return (
     <>
@@ -99,6 +113,15 @@ export function ThreadActionsMenu({
           ))}
 
           {plans.length > 0 ? <DropdownMenuSeparator /> : null}
+
+          {openUrl ? (
+            <DropdownMenuItem asChild>
+              <a href={openUrl} rel="noopener noreferrer" target="_blank">
+                <ExternalLinkIcon className="mr-2 size-4" />
+                Open in {isMicrosoftProvider(provider) ? "Outlook" : "Gmail"}
+              </a>
+            </DropdownMenuItem>
+          ) : null}
 
           <DropdownMenuItem onSelect={onToggleRead}>
             <ReadIcon className="mr-2 size-4" />

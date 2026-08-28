@@ -167,17 +167,18 @@ test("renders a cached thread body when the reader request is offline", async ({
   page,
 }, testInfo) => {
   const { conversations, emailAccountId } = await openMail(page);
-  const threadId = await openFirstThread(page, conversations);
+  const { readerUrl, threadId } = await openFirstThread(page, conversations);
+  await leaveThreadReader(page, emailAccountId);
+  await page.route(threadDetailRoute(threadId), (route) =>
+    route.abort("connectionfailed"),
+  );
   await seedThreadDetail(page, {
     emailAccountId,
     textPlain: WARM_READER_BODY,
     threadId,
   });
 
-  await page.route(threadDetailRoute(threadId), (route) =>
-    route.abort("connectionfailed"),
-  );
-  await page.reload();
+  await page.goto(readerUrl);
 
   await expect(readerBody(page, WARM_READER_BODY)).toBeVisible();
   await testInfo.attach("cached-thread-reader", {
@@ -190,7 +191,7 @@ test("falls back to the network for an uncached thread body and persists it", as
   page,
 }) => {
   const { conversations, emailAccountId } = await openMail(page);
-  const threadId = await openFirstThread(page, conversations);
+  const { threadId } = await openFirstThread(page, conversations);
   await clearThreadDetail(page, { emailAccountId, threadId });
 
   await page.route(threadDetailRoute(threadId), async (route) => {
@@ -217,14 +218,10 @@ test("serves cached reader content without revalidating from the network", async
   page,
 }) => {
   const { conversations, emailAccountId } = await openMail(page);
-  const threadId = await openFirstThread(page, conversations);
+  const { readerUrl, threadId } = await openFirstThread(page, conversations);
   let threadDetailRequestCount = 0;
 
-  await seedThreadDetail(page, {
-    emailAccountId,
-    textPlain: WARM_READER_BODY,
-    threadId,
-  });
+  await leaveThreadReader(page, emailAccountId);
   await page.route(threadDetailRoute(threadId), async (route) => {
     threadDetailRequestCount += 1;
     await route.fulfill({
@@ -238,7 +235,13 @@ test("serves cached reader content without revalidating from the network", async
       status: 200,
     });
   });
-  await page.reload();
+  await seedThreadDetail(page, {
+    emailAccountId,
+    textPlain: WARM_READER_BODY,
+    threadId,
+  });
+
+  await page.goto(readerUrl);
 
   await expect(readerBody(page, WARM_READER_BODY)).toBeVisible();
   expect(threadDetailRequestCount).toBe(0);
@@ -404,7 +407,11 @@ async function openFirstThread(
   await conversations.getByRole("option").first().click();
   const threadId = new URL(page.url()).searchParams.get("thread-id");
   if (!threadId) throw new Error("Expected an open thread id");
-  return threadId;
+  return { readerUrl: page.url(), threadId };
+}
+
+async function leaveThreadReader(page: Page, emailAccountId: string) {
+  await page.goto(`/${emailAccountId}/settings`);
 }
 
 async function seedThreadDetail(

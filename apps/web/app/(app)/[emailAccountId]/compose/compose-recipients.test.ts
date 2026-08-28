@@ -1,5 +1,27 @@
 import { describe, expect, it } from "vitest";
-import { resolveComposeRecipients } from "./compose-recipients";
+import {
+  resolveComposeRecipientFields,
+  resolveComposeRecipients,
+  resolveRecipientSelection,
+} from "./compose-recipients";
+
+describe("resolveRecipientSelection", () => {
+  it("commits the selected recipients", () => {
+    expect(
+      resolveRecipientSelection(["first@example.com", "second@example.com"]),
+    ).toBe("first@example.com,second@example.com");
+  });
+
+  it("clears the selection when the sole recipient is deselected", () => {
+    expect(resolveRecipientSelection([])).toBe("");
+  });
+
+  it("ignores a selection ending in an incomplete search query", () => {
+    expect(
+      resolveRecipientSelection(["first@example.com", "second@"]),
+    ).toBeNull();
+  });
+});
 
 describe("resolveComposeRecipients", () => {
   it("commits a valid recipient that is still in the contact search input", () => {
@@ -36,5 +58,26 @@ describe("resolveComposeRecipients", () => {
         pendingRecipient: "second@",
       }),
     ).toBe("first@example.com");
+  });
+
+  it("commits pending contact entries from every recipient field", () => {
+    expect(
+      resolveComposeRecipientFields({
+        selectedRecipients: {
+          to: "to@example.com",
+          cc: "first-cc@example.com",
+          bcc: undefined,
+        },
+        pendingRecipients: {
+          to: "",
+          cc: "second-cc@example.com",
+          bcc: "bcc@example.com",
+        },
+      }),
+    ).toEqual({
+      to: "to@example.com",
+      cc: "first-cc@example.com,second-cc@example.com",
+      bcc: "bcc@example.com",
+    });
   });
 });

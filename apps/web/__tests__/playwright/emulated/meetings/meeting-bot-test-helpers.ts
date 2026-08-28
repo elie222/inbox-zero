@@ -242,16 +242,17 @@ async function seedRecordedMeeting(
   await client.query(
     `INSERT INTO "MeetingRecording" (
        id, "createdAt", "updatedAt", "meetingUrl", "normalizedMeetingUrl",
-       "meetingStartTime", status, transcript, "transcriptFetchedAt"
+       "meetingStartTime", status, transcript, "transcriptFetchedAt",
+       "emailAccountId"
      )
      VALUES (
        $1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
        'https://meet.google.com/recorded-demo',
        'https://meet.google.com/recorded-demo',
        CURRENT_TIMESTAMP - INTERVAL '2 hours', 'DONE', $2::jsonb,
-       CURRENT_TIMESTAMP - INTERVAL '1 hour'
+       CURRENT_TIMESTAMP - INTERVAL '1 hour', $3
      )`,
-    [fixture.recordingId, JSON.stringify(transcript)],
+    [fixture.recordingId, JSON.stringify(transcript), fixture.emailAccountId],
   );
   await client.query(
     `INSERT INTO "Meeting" (

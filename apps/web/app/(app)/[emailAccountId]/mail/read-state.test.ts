@@ -3,6 +3,12 @@ import type { ListThread } from "./types";
 import { isThreadUnread, withThreadReadState } from "./read-state";
 
 describe("thread read state", () => {
+  it("is unread when any message in the thread is unread", () => {
+    const thread = createThread([["INBOX", "UNREAD"], ["DRAFT"]]);
+
+    expect(isThreadUnread(thread.messages)).toBe(true);
+  });
+
   it("removes the unread label from every message", () => {
     const thread = createThread([
       ["INBOX", "UNREAD"],

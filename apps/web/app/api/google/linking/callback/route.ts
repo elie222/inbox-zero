@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { env } from "@/env";
 import { auth } from "@/utils/auth";
 import { hash } from "@/utils/hash";
@@ -26,6 +27,7 @@ import {
 } from "@/utils/redis/oauth-code";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import { SafeError } from "@/utils/error";
+import { ensureEmailAccountsWatched } from "@/utils/email/watch-manager";
 
 export const GET = withError("google/linking/callback", async (request) => {
   const actorUserId = (await auth(request.headers))?.user.id ?? null;
@@ -161,10 +163,11 @@ export const GET = withError("google/linking/callback", async (request) => {
         providerSubjectHash: hashOAuthAuditIdentifier(providerAccountId),
       });
 
-      await setOAuthCodeResult(code, { success: "tokens_updated" });
-      return createAccountLinkingRedirect({
-        query: { success: "tokens_updated" },
-        stateCookieName: GOOGLE_LINKING_STATE_COOKIE_NAME,
+      return completeGoogleAccountLinking({
+        code,
+        logger,
+        success: "tokens_updated",
+        targetUserId,
       });
     }
 
@@ -197,10 +200,11 @@ export const GET = withError("google/linking/callback", async (request) => {
             tokens,
           });
 
-          await setOAuthCodeResult(code, { success: "tokens_updated" });
-          return createAccountLinkingRedirect({
-            query: { success: "tokens_updated" },
-            stateCookieName: GOOGLE_LINKING_STATE_COOKIE_NAME,
+          return completeGoogleAccountLinking({
+            code,
+            logger,
+            success: "tokens_updated",
+            targetUserId,
           });
         }
       }
@@ -288,10 +292,11 @@ export const GET = withError("google/linking/callback", async (request) => {
         }
       }
 
-      await setOAuthCodeResult(code, { success: "account_created_and_linked" });
-      return createAccountLinkingRedirect({
-        query: { success: "account_created_and_linked" },
-        stateCookieName: GOOGLE_LINKING_STATE_COOKIE_NAME,
+      return completeGoogleAccountLinking({
+        code,
+        logger,
+        success: "account_created_and_linked",
+        targetUserId,
       });
     }
 
@@ -319,10 +324,11 @@ export const GET = withError("google/linking/callback", async (request) => {
         providerSubjectHash: hashOAuthAuditIdentifier(providerAccountId),
       });
 
-      await setOAuthCodeResult(code, { success: "tokens_updated" });
-      return createAccountLinkingRedirect({
-        query: { success: "tokens_updated" },
-        stateCookieName: GOOGLE_LINKING_STATE_COOKIE_NAME,
+      return completeGoogleAccountLinking({
+        code,
+        logger,
+        success: "tokens_updated",
+        targetUserId,
       });
     }
 
@@ -368,10 +374,11 @@ export const GET = withError("google/linking/callback", async (request) => {
       sourceUserId: linkingResult.sourceUserId,
     });
 
-    await setOAuthCodeResult(code, { success: successMessage });
-    return createAccountLinkingRedirect({
-      query: { success: successMessage },
-      stateCookieName: GOOGLE_LINKING_STATE_COOKIE_NAME,
+    return completeGoogleAccountLinking({
+      code,
+      logger,
+      success: successMessage,
+      targetUserId,
     });
   } catch (error) {
     await clearOAuthCode(code);
@@ -390,6 +397,39 @@ interface GoogleTokens {
   refresh_token?: string | null;
   scope?: string | null;
   token_type?: string | null;
+}
+
+async function completeGoogleAccountLinking({
+  code,
+  logger,
+  success,
+  targetUserId,
+}: {
+  code: string;
+  logger: Parameters<typeof handleOAuthCallbackError>[0]["logger"];
+  success: "account_created_and_linked" | "account_merged" | "tokens_updated";
+  targetUserId: string;
+}) {
+  await setOAuthCodeResult(code, { success });
+
+  after(() =>
+    ensureEmailAccountsWatched({
+      userIds: [targetUserId],
+      logger,
+    }).catch((error) => {
+      logger.error(
+        "Failed to re-register email watches after account linking",
+        {
+          error,
+        },
+      );
+    }),
+  );
+
+  return createAccountLinkingRedirect({
+    query: { success },
+    stateCookieName: GOOGLE_LINKING_STATE_COOKIE_NAME,
+  });
 }
 
 async function updateGoogleAccount({
