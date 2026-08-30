@@ -89,13 +89,13 @@ export function Footer({ className, variant = "default" }: FooterProps) {
         className={cn("overflow-hidden px-6 py-20 sm:py-24 lg:px-8", className)}
       >
         <nav aria-label="Footer">
-          <div className="mt-16 grid grid-cols-2 gap-8 lg:grid-cols-5 xl:col-span-2 xl:mt-0">
+          <div className="mt-16 grid grid-cols-2 gap-8 lg:grid-cols-5 lg:gap-12 xl:col-span-2 xl:mt-0">
             <div>
               <FooterList title="Product" items={footerNavigation.main} />
             </div>
             <div>
               <FooterList title="Use Cases" items={footerNavigation.useCases} />
-              <div className="mt-6">
+              <div className="mt-8">
                 <FooterList
                   title="Industries"
                   items={footerNavigation.industries}
@@ -104,7 +104,7 @@ export function Footer({ className, variant = "default" }: FooterProps) {
             </div>
             <div>
               <FooterList title="Support" items={footerNavigation.support} />
-              <div className="mt-6">
+              <div className="mt-8">
                 <FooterList title="Free Tools" items={footerNavigation.tools} />
               </div>
             </div>
@@ -113,20 +113,20 @@ export function Footer({ className, variant = "default" }: FooterProps) {
             </div>
             <div>
               <FooterList title="Legal" items={footerNavigation.legal} />
-              <div className="mt-6">
+              <div className="mt-8">
                 <FooterList title="Compare" items={footerNavigation.compare} />
               </div>
             </div>
           </div>
         </nav>
-        <div className="mt-40 flex items-center justify-between">
+        <div className="mt-32 md:mt-40 flex items-center justify-between">
           <Logo />
           <div className="flex items-center gap-4">
             {footerNavigation.social.map((item) => (
               <Link
                 key={item.name}
                 href={item.href}
-                className="text-gray-400 hover:text-gray-500"
+                className="text-gray-400 hover:text-gray-500 transition-colors"
               >
                 <span className="sr-only">{item.name}</span>
                 <item.icon className="h-6 w-6" aria-hidden="true" />
@@ -156,14 +156,14 @@ function FooterList(props: {
       >
         {props.title}
       </Paragraph>
-      <ul className="mt-6 space-y-3">
+      <ul className="mt-4 space-y-3">
         {props.items.map((item) => (
           <li key={item.name}>
             <Link
               href={item.href}
               target={item.target}
               prefetch={item.target !== "_blank"}
-              className="text-sm leading-6 text-gray-500 hover:text-gray-900"
+              className="text-sm leading-6 text-gray-500 hover:text-gray-900 transition-colors"
             >
               {item.name}
             </Link>
