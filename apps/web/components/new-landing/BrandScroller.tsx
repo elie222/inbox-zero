@@ -23,28 +23,34 @@ export const BrandScroller = ({
       <Paragraph>
         Join {userCount} professionals, including people at:
       </Paragraph>
-      <div className="group flex overflow-x-hidden py-10 [--gap:2rem] md:[--gap:3rem] [gap:var(--gap))] flex-row max-w-full [mask-image:linear-gradient(to_right,_rgba(0,_0,_0,_0),rgba(0,_0,_0,_1)_10%,rgba(0,_0,_0,_1)_90%,rgba(0,_0,_0,_0))]">
-        {new Array(4).fill(0).map((_, i) => (
-          <div
-            className={cn(
-              "flex shrink-0 justify-around [margin-right:var(--gap)] [gap:var(--gap)] flex-row [--duration:100s] opacity-90",
-              animate ? "animate-marquee" : "",
-            )}
-            key={i}
-          >
-            {brandList.map(({ alt, src, height }) => (
-              <div className="flex items-start" key={alt}>
-                <Image
-                  src={src}
-                  alt={alt}
-                  width={100}
-                  height={100}
-                  className={cn("w-auto", height || "h-5 sm:h-6 md:h-8")}
-                />
-              </div>
-            ))}
-          </div>
-        ))}
+      <div className="relative overflow-hidden">
+        {/* Left fade */}
+        <div className="pointer-events-none absolute left-0 top-0 z-10 h-full w-16 md:w-24 bg-gradient-to-r from-white to-transparent" />
+        {/* Right fade */}
+        <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-16 md:w-24 bg-gradient-to-l from-white to-transparent" />
+        <div className="group flex overflow-x-hidden py-10 [--gap:2rem] md:[--gap:3rem] [gap:var(--gap))] flex-row max-w-full">
+          {new Array(4).fill(0).map((_, i) => (
+            <div
+              className={cn(
+                "flex shrink-0 justify-around [margin-right:var(--gap)] [gap:var(--gap)] flex-row [--duration:100s] opacity-90",
+                animate ? "animate-marquee" : "",
+              )}
+              key={i}
+            >
+              {brandList.map(({ alt, src, height }) => (
+                <div className="flex items-start" key={alt}>
+                  <Image
+                    src={src}
+                    alt={alt}
+                    width={100}
+                    height={100}
+                    className={cn("w-auto", height || "h-5 sm:h-6 md:h-8")}
+                  />
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   </BlurFade>
