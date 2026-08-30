@@ -486,6 +486,31 @@ describe("GmailProvider.getThreadsWithQuery", () => {
   });
 });
 
+describe("GmailProvider.searchThreads", () => {
+  it("passes the free-text query through unscoped", async () => {
+    const getThreadsWithNextPageToken = vi
+      .spyOn(gmailThreadModule, "getThreadsWithNextPageToken")
+      .mockResolvedValue({ threads: [], nextPageToken: undefined });
+    vi.spyOn(gmailThreadModule, "getThreadsBatch").mockResolvedValue([]);
+    const provider = new GmailProvider({
+      context: {
+        _options: {
+          auth: { credentials: { access_token: "access-token" } },
+        },
+      },
+    } as any);
+
+    await provider.searchThreads({ query: "invoice from:billing@example.com" });
+
+    expect(getThreadsWithNextPageToken).toHaveBeenCalledWith(
+      expect.objectContaining({
+        q: "invoice from:billing@example.com",
+        labelIds: [],
+      }),
+    );
+  });
+});
+
 describe("GmailProvider.updateDraft", () => {
   it("keeps Gmail threading metadata and MIME-encodes non-ASCII subjects", async () => {
     const update = vi.fn().mockResolvedValue({ data: {} });

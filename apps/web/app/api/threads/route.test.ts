@@ -1,10 +1,13 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockFindMany, mockGetThreadsWithQuery } = vi.hoisted(() => ({
-  mockFindMany: vi.fn(),
-  mockGetThreadsWithQuery: vi.fn(),
-}));
+const { mockFindMany, mockGetThreadsWithQuery, mockSearchThreads } = vi.hoisted(
+  () => ({
+    mockFindMany: vi.fn(),
+    mockGetThreadsWithQuery: vi.fn(),
+    mockSearchThreads: vi.fn(),
+  }),
+);
 
 vi.mock("@/utils/prisma", () => ({
   default: {
@@ -26,7 +29,10 @@ vi.mock("@/utils/middleware", () => ({
       handler(
         Object.assign(request, {
           auth: { emailAccountId: "email-account-id" },
-          emailProvider: { getThreadsWithQuery: mockGetThreadsWithQuery },
+          emailProvider: {
+            getThreadsWithQuery: mockGetThreadsWithQuery,
+            searchThreads: mockSearchThreads,
+          },
           logger: { error: vi.fn() },
         }),
       ),
@@ -72,6 +78,7 @@ describe("GET /api/threads", () => {
     vi.clearAllMocks();
     mockFindMany.mockResolvedValue([]);
     mockGetThreadsWithQuery.mockResolvedValue({ threads: [] });
+    mockSearchThreads.mockResolvedValue({ threads: [] });
   });
 
   it("passes multiple label IDs to the email provider", async () => {
@@ -110,6 +117,21 @@ describe("GET /api/threads", () => {
       pageToken: undefined,
       messageFormat: "full",
     });
+  });
+
+  it("routes search queries to the dedicated provider search", async () => {
+    const response = await GET(
+      new NextRequest("http://localhost:3000/api/threads?q=invoice%20report"),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockSearchThreads).toHaveBeenCalledWith({
+      query: "invoice report",
+      maxResults: 50,
+      pageToken: undefined,
+      messageFormat: "full",
+    });
+    expect(mockGetThreadsWithQuery).not.toHaveBeenCalled();
   });
 
   it("passes an Outlook inbox section to the email provider", async () => {

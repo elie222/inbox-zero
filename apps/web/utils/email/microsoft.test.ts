@@ -837,6 +837,28 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
   });
 });
 
+describe("OutlookProvider.searchThreads", () => {
+  it("uses $search on the whole mailbox without $filter", async () => {
+    const client = createMockOutlookClient([
+      createMessage({ id: "message-1", conversationId: "thread-1" }),
+    ]);
+    const provider = new OutlookProvider(client);
+
+    const result = await provider.searchThreads({ query: "quarterly invoice" });
+
+    // The category-map lookup is also recorded, so find the search request.
+    const searchRequest = client
+      .getRequestLog()
+      .find((request) => request.apiPath === "/me/messages");
+    expect(searchRequest).toEqual({
+      apiPath: "/me/messages",
+      filter: undefined,
+      search: '"quarterly invoice"',
+    });
+    expect(result.threads.map((thread) => thread.id)).toEqual(["thread-1"]);
+  });
+});
+
 describe("OutlookProvider.labelMessage", () => {
   it("recreates a deleted category by name and applies it", async () => {
     vi.spyOn(outlookLabelModule, "getLabels").mockResolvedValue([]);
@@ -945,7 +967,11 @@ function createMockOutlookClient(
 ) {
   let categoryMapCache = options?.categoryMapCache ?? null;
   let folderIdCache = options?.folderIdCache ?? null;
-  const requestLog: Array<{ apiPath: string; filter?: string }> = [];
+  const requestLog: Array<{
+    apiPath: string;
+    filter?: string;
+    search?: string;
+  }> = [];
   const selectLog: string[] = [];
 
   return {
@@ -973,6 +999,7 @@ function createMockOutlookClient(
             requestLog.push({
               apiPath,
               filter: filterValue,
+              search: searchValue,
             });
             const response = options?.responsesByApiPath?.[apiPath];
             if (typeof response === "function") {

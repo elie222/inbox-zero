@@ -14,6 +14,7 @@ import {
   MESSAGE_LIST_SELECT_FIELDS,
   MESSAGE_SELECT_FIELDS,
   sanitizeKqlValue,
+  sanitizeOutlookSearchQuery,
 } from "@/utils/outlook/message";
 import {
   getLabels,
@@ -1797,6 +1798,55 @@ export class OutlookProvider implements EmailProvider {
     return {
       threads,
       nextPageToken,
+    };
+  }
+
+  async searchThreads(options: {
+    query: string;
+    maxResults?: number;
+    pageToken?: string;
+    messageFormat?: "full" | "metadata";
+  }): Promise<{
+    threads: EmailThread[];
+    nextPageToken?: string;
+  }> {
+    const searchQuery = sanitizeOutlookSearchQuery(options.query).sanitized;
+    if (!searchQuery) return { threads: [] };
+
+    const client = this.client.getClient();
+    const [folderIds, categoryMap] = await Promise.all([
+      getFolderIds(this.client, this.logger, { includeDrafts: false }),
+      getCategoryMap(this.client, this.logger),
+    ]);
+
+    const nextLink = resolveMicrosoftGraphNextLink(options.pageToken);
+    const response: { value: Message[]; "@odata.nextLink"?: string } = nextLink
+      ? await client.api(nextLink).get()
+      : // Graph forbids combining $search with $filter/$orderby and caps page
+        // size at 25. Results come back in relevance order, like Outlook's
+        // own search box, and cover the whole mailbox.
+        await client
+          .api("/me/messages")
+          .select(
+            options.messageFormat === "metadata"
+              ? MESSAGE_LIST_SELECT_FIELDS
+              : MESSAGE_SELECT_FIELDS,
+          )
+          .search(searchQuery)
+          .top(Math.min(options.maxResults || 25, 25))
+          .get();
+
+    const threads = buildOutlookThreadsFromMessages({
+      messages: response.value,
+      folderIds,
+      categoryMap,
+      excludedLabelIds: new Set(),
+      logger: this.logger,
+    });
+
+    return {
+      threads,
+      nextPageToken: response["@odata.nextLink"],
     };
   }
 

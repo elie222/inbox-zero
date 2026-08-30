@@ -1661,40 +1661,73 @@ export class GmailProvider implements EmailProvider {
           logger: this.logger,
         });
 
-      const threadIds =
-        gmailThreads?.map((t) => t.id).filter((id): id is string => !!id) || [];
-      const threads = await getThreadsBatch(
-        threadIds,
-        getAccessTokenFromClient(this.client),
-        this.logger,
-        options.messageFormat === "metadata"
-          ? { format: "metadata" }
-          : undefined,
-      );
-
-      const emailThreads: EmailThread[] = threads
-        .map((thread) => {
-          const id = thread.id;
-          if (!id) return null;
-
-          const emailThread: EmailThread = {
-            id,
-            messages:
-              thread.messages?.map((message) =>
-                parseMessage(message as MessageWithPayload),
-              ) || [],
-            snippet: decodeSnippet(thread.snippet),
-            historyId: thread.historyId || undefined,
-          };
-          return emailThread;
-        })
-        .filter((thread): thread is EmailThread => thread !== null);
-
       return {
-        threads: emailThreads,
+        threads: await this.hydrateThreads(gmailThreads, options.messageFormat),
         nextPageToken: nextPageToken || undefined,
       };
     });
+  }
+
+  async searchThreads(options: {
+    query: string;
+    maxResults?: number;
+    pageToken?: string;
+    messageFormat?: "full" | "metadata";
+  }): Promise<{
+    threads: EmailThread[];
+    nextPageToken?: string;
+  }> {
+    return this.withRateLimitTracking("search-threads", async () => {
+      // The query is passed through verbatim so Gmail operators (from:,
+      // subject:, has:attachment, ...) work like the Gmail search box.
+      // No label scoping: search covers the whole mailbox.
+      const { threads: gmailThreads, nextPageToken } =
+        await getThreadsWithNextPageToken({
+          gmail: this.client,
+          q: options.query,
+          labelIds: [],
+          maxResults: options.maxResults || 50,
+          pageToken: options.pageToken || undefined,
+          logger: this.logger,
+        });
+
+      return {
+        threads: await this.hydrateThreads(gmailThreads, options.messageFormat),
+        nextPageToken: nextPageToken || undefined,
+      };
+    });
+  }
+
+  private async hydrateThreads(
+    gmailThreads: gmail_v1.Schema$Thread[] | undefined,
+    messageFormat?: "full" | "metadata",
+  ): Promise<EmailThread[]> {
+    const threadIds =
+      gmailThreads?.map((t) => t.id).filter((id): id is string => !!id) || [];
+    const threads = await getThreadsBatch(
+      threadIds,
+      getAccessTokenFromClient(this.client),
+      this.logger,
+      messageFormat === "metadata" ? { format: "metadata" } : undefined,
+    );
+
+    return threads
+      .map((thread) => {
+        const id = thread.id;
+        if (!id) return null;
+
+        const emailThread: EmailThread = {
+          id,
+          messages:
+            thread.messages?.map((message) =>
+              parseMessage(message as MessageWithPayload),
+            ) || [],
+          snippet: decodeSnippet(thread.snippet),
+          historyId: thread.historyId || undefined,
+        };
+        return emailThread;
+      })
+      .filter((thread): thread is EmailThread => thread !== null);
   }
 
   async hasPreviousCommunicationsWithSenderOrDomain(options: {

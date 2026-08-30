@@ -15,12 +15,21 @@ export async function loadThreads({
   emailProvider: EmailProvider;
   messageFormat: "full" | "metadata";
 }) {
-  const { threads, nextPageToken } = await emailProvider.getThreadsWithQuery({
-    query,
-    maxResults: query.limit || 50,
-    pageToken: query.nextPageToken || undefined,
-    messageFormat,
-  });
+  const maxResults = query.limit || 50;
+  const pageToken = query.nextPageToken || undefined;
+  const { threads, nextPageToken } = query.q
+    ? await emailProvider.searchThreads({
+        query: query.q,
+        maxResults,
+        pageToken,
+        messageFormat,
+      })
+    : await emailProvider.getThreadsWithQuery({
+        query,
+        maxResults,
+        pageToken,
+        messageFormat,
+      });
 
   const threadIds = threads.map((thread) => thread.id);
   const executedRules = await prisma.executedRule.findMany({
