@@ -24,6 +24,7 @@ test("searches the mailbox and clears back to the inbox", async ({ page }) => {
   await searchInput.press("Enter");
 
   await expect(page).toHaveURL(/[?&]q=/);
+  expect(new URL(page.url()).searchParams.get("q")).toBe("Archive Action");
   await expect(matching).toBeVisible();
   await expect(nonMatching).toHaveCount(0);
 
