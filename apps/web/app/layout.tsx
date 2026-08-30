@@ -101,11 +101,23 @@ const jsonLd: WithContext<WebApplication> = {
 export const metadata: Metadata = {
   title,
   description,
+  keywords: [
+    "email assistant",
+    "inbox zero",
+    "AI email",
+    "gmail assistant",
+    "outlook assistant",
+    "open source email",
+    "email management",
+    "email productivity",
+    "email automation",
+  ],
   openGraph: {
     title,
     description,
     siteName: BRAND_NAME,
     type: "website",
+    locale: "en_US",
     url: env.NEXT_PUBLIC_BASE_URL,
   },
   twitter: {
