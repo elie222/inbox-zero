@@ -42,7 +42,7 @@ const awards: Award[] = [
     imageSize: 170,
   },
   {
-    title: "9k GitHub Stars",
+    title: "11k+ GitHub Stars",
     description: "Open-source. See exactly what the code does",
     image: "/images/new-landing/awards/github-stars-award.png",
     imageSize: 170,
