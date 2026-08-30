@@ -137,9 +137,9 @@ export function Pricing() {
             </Radio>
           ))}
         </RadioGroup>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
           {pricingTiers.map((tier, index) => (
-            <CardWrapper key={tier.name}>
+            <CardWrapper key={tier.name} className="h-full">
               <PricingCard
                 tier={tier}
                 tierIndex={index}
@@ -241,7 +241,7 @@ function PricingCard({
             ))}
         </div>
       }
-      className="h-full"
+      className="h-full flex flex-col justify-between"
     >
       <div className="pt-0 px-6 pb-6">
         <div className="space-y-6">
@@ -283,7 +283,7 @@ function PricingCard({
           </Button>
         </div>
       </div>
-      <CardContent className="border-t border-[#E7E7E780]">
+      <CardContent className="border-t border-[#E7E7E780] flex-1">
         {isFirstTier ? null : (
           <Paragraph size="sm" className="font-medium mb-4">
             {tier.features[0].text}
