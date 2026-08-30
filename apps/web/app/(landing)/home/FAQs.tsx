@@ -1,3 +1,7 @@
+"use client";
+
+import { useState } from "react";
+import { ChevronDownIcon } from "lucide-react";
 import { Anchor } from "@/components/new-landing/common/Anchor";
 import { Card, CardContent } from "@/components/new-landing/common/Card";
 import { CardWrapper } from "@/components/new-landing/common/CardWrapper";
@@ -11,6 +15,7 @@ import {
 } from "@/components/new-landing/common/Typography";
 import { env } from "@/env";
 import { BRAND_NAME } from "@/utils/branding";
+import { cn } from "@/utils";
 
 const faqs: {
   question: string;
@@ -101,6 +106,67 @@ const faqJsonLd = {
     .filter(Boolean),
 };
 
+function FAQItem({
+  faq,
+  index,
+}: {
+  faq: (typeof faqs)[number];
+  index: number;
+}) {
+  const [isOpen, setIsOpen] = useState(true);
+  const contentId = `faq-answer-${index}`;
+  const buttonId = `faq-question-${index}`;
+
+  return (
+    <Card
+      variant="extra-rounding"
+      className="gap-4 transition-all duration-200"
+    >
+      <CardContent>
+        <button
+          id={buttonId}
+          type="button"
+          aria-expanded={isOpen}
+          aria-controls={contentId}
+          onClick={() => setIsOpen((prev) => !prev)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setIsOpen((prev) => !prev);
+            }
+          }}
+          className="flex w-full items-center justify-between text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-lg group cursor-pointer"
+        >
+          <Paragraph
+            as="span"
+            color="gray-900"
+            className="font-semibold tracking-tight pr-4"
+          >
+            {faq.question}
+          </Paragraph>
+          <ChevronDownIcon
+            className={cn(
+              "h-5 w-5 shrink-0 text-gray-500 transition-transform duration-200",
+              isOpen ? "rotate-180" : "",
+            )}
+            aria-hidden="true"
+          />
+        </button>
+        {isOpen && (
+          <div
+            id={contentId}
+            role="region"
+            aria-labelledby={buttonId}
+            className="mt-3"
+          >
+            <Paragraph>{faq.answer}</Paragraph>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export function FAQs() {
   return (
     <Section>
@@ -112,28 +178,11 @@ export function FAQs() {
       <SectionHeading>Frequently asked questions</SectionHeading>
       <SectionContent>
         <CardWrapper>
-          <dl className="grid md:grid-cols-2 gap-6">
-            {faqs.map((faq) => (
-              <Card
-                variant="extra-rounding"
-                className="gap-4"
-                key={faq.question}
-              >
-                <CardContent>
-                  <Paragraph
-                    as="dt"
-                    color="gray-900"
-                    className="font-semibold tracking-tight mb-4"
-                  >
-                    {faq.question}
-                  </Paragraph>
-                  <dd>
-                    <Paragraph>{faq.answer}</Paragraph>
-                  </dd>
-                </CardContent>
-              </Card>
+          <div className="grid md:grid-cols-2 gap-6">
+            {faqs.map((faq, index) => (
+              <FAQItem faq={faq} index={index} key={faq.question} />
             ))}
-          </dl>
+          </div>
         </CardWrapper>
       </SectionContent>
     </Section>
