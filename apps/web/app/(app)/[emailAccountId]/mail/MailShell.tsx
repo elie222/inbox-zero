@@ -160,6 +160,7 @@ export function MailShell() {
   const [scopeType, setScopeType] = useQueryState("type");
   const [scopeLabelId, setScopeLabelId] = useQueryState("labelId");
   const [scopeFolderId, setScopeFolderId] = useQueryState("folderId");
+  const [searchParam, setSearchParam] = useQueryState("q");
 
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [isFocusMode, setIsFocusMode] = useState(false);
@@ -239,6 +240,13 @@ export function MailShell() {
   }, [scopeFolderId, scopeLabelId, scopeType]);
   const isScoped = !isAllAccounts && scopeQuery !== null;
 
+  // Combined inboxes can't search across accounts, so search is single-account.
+  const searchQuery = isAllAccounts ? null : searchParam?.trim() || null;
+  const setSearch = useCallback(
+    (value: string) => setSearchParam(value.trim() || null),
+    [setSearchParam],
+  );
+
   const combinedLabelSplits = useMemo(
     () => getPortableLabelSplits(settings?.splits ?? [], userLabels),
     [settings?.splits, userLabels],
@@ -268,6 +276,9 @@ export function MailShell() {
   )?.labelName;
 
   const query: ThreadsQuery = useMemo(() => {
+    // Search overrides split/scope and covers the whole mailbox, matching
+    // what Gmail's and Outlook's own search boxes do by default.
+    if (searchQuery) return { q: searchQuery, type: "all" };
     if (scopeQuery) return scopeQuery;
 
     const active =
@@ -276,7 +287,7 @@ export function MailShell() {
       BUILT_IN_SPLITS[0];
 
     return mailSplitToThreadsQuery(active);
-  }, [scopeQuery, activeSplitId, settings?.splits]);
+  }, [searchQuery, scopeQuery, activeSplitId, settings?.splits]);
 
   const accountThreadState = useMailThreads({
     emailAccountId,
@@ -895,6 +906,7 @@ export function MailShell() {
     setScopeType(null);
     setScopeLabelId(null);
     setScopeFolderId(null);
+    setSearchParam(null);
     if (
       !BUILT_IN_SPLITS.some((split) => split.id === activeSplitId) &&
       !combinedLabelSplits.some((split) => split.id === activeSplitId)
@@ -912,6 +924,7 @@ export function MailShell() {
     setScopeFolderId,
     setScopeLabelId,
     setScopeType,
+    setSearchParam,
   ]);
 
   return (
@@ -970,13 +983,15 @@ export function MailShell() {
           >
             <ListToolbar
               layout={layout}
+              searchQuery={searchQuery ?? ""}
+              onSearch={isAllAccounts ? undefined : setSearch}
               onOpenSearch={() => setPaletteOpen(true)}
               onToggleLayout={toggleLayout}
               onToggleAssistant={() => toggleSidebar(["chat-sidebar"])}
               showSidebarToggle={!isMailSidebarOpen}
               showLayoutToggle={!isAllAccounts}
             />
-            {!isScoped && (
+            {!isScoped && !searchQuery && (
               <SplitTabs
                 splits={splits}
                 activeSplitId={displayedActiveSplitId}

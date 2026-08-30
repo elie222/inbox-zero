@@ -112,6 +112,25 @@ describe("GET /api/threads", () => {
     });
   });
 
+  it("passes the search query to the email provider", async () => {
+    const response = await GET(
+      new NextRequest(
+        "http://localhost:3000/api/threads?q=invoice%20report&type=all",
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockGetThreadsWithQuery).toHaveBeenCalledWith({
+      query: expect.objectContaining({
+        q: "invoice report",
+        type: "all",
+      }),
+      maxResults: 50,
+      pageToken: undefined,
+      messageFormat: "full",
+    });
+  });
+
   it("passes an Outlook inbox section to the email provider", async () => {
     const response = await GET(
       new NextRequest(

@@ -335,6 +335,24 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
     });
   });
 
+  it("uses $search without $filter for free-text queries", async () => {
+    const client = createMockOutlookClient([
+      createMessage({ id: "message-1", conversationId: "thread-1" }),
+    ]);
+    const provider = new OutlookProvider(client);
+
+    const result = await provider.getThreadsWithQuery({
+      query: { q: "quarterly invoice", type: "all" },
+    });
+
+    expect(client.getRequestLog()[0]).toEqual({
+      apiPath: "/me/messages",
+      filter: undefined,
+      search: '"quarterly invoice"',
+    });
+    expect(result.threads.map((thread) => thread.id)).toEqual(["thread-1"]);
+  });
+
   it("filters returned threads by explicit labelIds", async () => {
     getFolderIdsMock.mockResolvedValue({
       inbox: "folder-inbox",
@@ -945,7 +963,11 @@ function createMockOutlookClient(
 ) {
   let categoryMapCache = options?.categoryMapCache ?? null;
   let folderIdCache = options?.folderIdCache ?? null;
-  const requestLog: Array<{ apiPath: string; filter?: string }> = [];
+  const requestLog: Array<{
+    apiPath: string;
+    filter?: string;
+    search?: string;
+  }> = [];
   const selectLog: string[] = [];
 
   return {
@@ -973,6 +995,7 @@ function createMockOutlookClient(
             requestLog.push({
               apiPath,
               filter: filterValue,
+              search: searchValue,
             });
             const response = options?.responsesByApiPath?.[apiPath];
             if (typeof response === "function") {

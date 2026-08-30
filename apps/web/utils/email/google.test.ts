@@ -456,6 +456,31 @@ describe("GmailProvider.getThreadsWithQuery", () => {
     );
   });
 
+  it("passes free-text search through to the Gmail query unscoped", async () => {
+    const getThreadsWithNextPageToken = vi
+      .spyOn(gmailThreadModule, "getThreadsWithNextPageToken")
+      .mockResolvedValue({ threads: [], nextPageToken: undefined });
+    vi.spyOn(gmailThreadModule, "getThreadsBatch").mockResolvedValue([]);
+    const provider = new GmailProvider({
+      context: {
+        _options: {
+          auth: { credentials: { access_token: "access-token" } },
+        },
+      },
+    } as any);
+
+    await provider.getThreadsWithQuery({
+      query: { q: "invoice from:billing@example.com", type: "all" },
+    });
+
+    expect(getThreadsWithNextPageToken).toHaveBeenCalledWith(
+      expect.objectContaining({
+        q: "invoice from:billing@example.com",
+        labelIds: [],
+      }),
+    );
+  });
+
   it("uses Gmail metadata format for list requests", async () => {
     vi.spyOn(
       gmailThreadModule,

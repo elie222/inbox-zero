@@ -1573,6 +1573,7 @@ export class GmailProvider implements EmailProvider {
   }> {
     return this.withRateLimitTracking("get-threads-with-query", async () => {
       const {
+        q,
         fromEmail,
         after,
         before,
@@ -1585,6 +1586,12 @@ export class GmailProvider implements EmailProvider {
 
       function getQuery() {
         const queryParts: string[] = [];
+
+        // Free-text search, passed through verbatim so Gmail operators
+        // (from:, subject:, has:attachment, ...) work like the Gmail search box.
+        if (q) {
+          queryParts.push(q);
+        }
 
         if (fromEmail) {
           queryParts.push(`from:${fromEmail}`);

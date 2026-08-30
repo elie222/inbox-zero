@@ -470,6 +470,7 @@ function groupMessagesByThread(messages: ParsedMessage[]) {
 
 function isSupportedMailboxQuery(query: ThreadsQuery) {
   if (
+    query.q ||
     query.nextPageToken ||
     query.inboxSection ||
     query.excludeLabelNames?.length

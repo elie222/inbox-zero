@@ -2,6 +2,7 @@ import { z } from "zod";
 import { microsoftGraphPageTokenSchema } from "@/utils/outlook/page-token";
 
 export const threadsQuery = z.object({
+  q: z.string().nullish(),
   fromEmail: z.string().nullish(),
   limit: z.coerce.number().max(100).nullish(),
   type: z.string().nullish(),
