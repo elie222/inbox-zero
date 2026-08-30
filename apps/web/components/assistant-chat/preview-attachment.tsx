@@ -45,6 +45,7 @@ export function PreviewAttachment({
         <Button
           variant="ghost"
           size="icon"
+          aria-label="Remove attachment"
           className="absolute top-0.5 right-0.5 size-5 rounded-full bg-black/60 p-0 text-white opacity-0 hover:bg-black/80 group-hover:opacity-100"
           onClick={onRemove}
         >

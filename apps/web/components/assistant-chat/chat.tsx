@@ -249,6 +249,7 @@ export function Chat({
             type="button"
             variant="ghost"
             size="icon"
+            aria-label="Attach images"
             className="size-9 rounded-full text-muted-foreground hover:text-foreground"
             onClick={() => {
               analytics.captureAction("chat_attach_button_clicked", {
@@ -453,7 +454,12 @@ function NewChatButton() {
 
   return (
     <Tooltip content="Start a new conversation">
-      <Button variant="ghost" size="icon" onClick={setNewChat}>
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={setNewChat}
+        aria-label="Start a new conversation"
+      >
         <PlusIcon className="size-5" />
         <span className="sr-only">New Chat</span>
       </Button>
