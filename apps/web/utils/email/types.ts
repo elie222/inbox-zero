@@ -312,6 +312,16 @@ export interface EmailProvider {
     messages: ParsedMessage[];
     nextPageToken?: string;
   }>;
+  /** Free-text search over the whole mailbox, like the provider's own search box. */
+  searchThreads(options: {
+    query: string;
+    maxResults?: number;
+    pageToken?: string;
+    messageFormat?: "full" | "metadata";
+  }): Promise<{
+    threads: EmailThread[];
+    nextPageToken?: string;
+  }>;
   sendDraft(draftId: string): Promise<{ messageId: string; threadId: string }>;
   sendEmail(args: {
     to: string;

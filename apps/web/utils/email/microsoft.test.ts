@@ -335,24 +335,6 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
     });
   });
 
-  it("uses $search without $filter for free-text queries", async () => {
-    const client = createMockOutlookClient([
-      createMessage({ id: "message-1", conversationId: "thread-1" }),
-    ]);
-    const provider = new OutlookProvider(client);
-
-    const result = await provider.getThreadsWithQuery({
-      query: { q: "quarterly invoice", type: "all" },
-    });
-
-    expect(client.getRequestLog()[0]).toEqual({
-      apiPath: "/me/messages",
-      filter: undefined,
-      search: '"quarterly invoice"',
-    });
-    expect(result.threads.map((thread) => thread.id)).toEqual(["thread-1"]);
-  });
-
   it("filters returned threads by explicit labelIds", async () => {
     getFolderIdsMock.mockResolvedValue({
       inbox: "folder-inbox",
@@ -852,6 +834,24 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
 
     expect(result.threads.map((thread) => thread.id)).toEqual(["thread-sent"]);
     expect(getCategoryMapSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("OutlookProvider.searchThreads", () => {
+  it("uses $search on the whole mailbox without $filter", async () => {
+    const client = createMockOutlookClient([
+      createMessage({ id: "message-1", conversationId: "thread-1" }),
+    ]);
+    const provider = new OutlookProvider(client);
+
+    const result = await provider.searchThreads({ query: "quarterly invoice" });
+
+    expect(client.getRequestLog()[0]).toEqual({
+      apiPath: "/me/messages",
+      filter: undefined,
+      search: '"quarterly invoice"',
+    });
+    expect(result.threads.map((thread) => thread.id)).toEqual(["thread-1"]);
   });
 });
 

@@ -278,7 +278,7 @@ export function MailShell() {
   const query: ThreadsQuery = useMemo(() => {
     // Search overrides split/scope and covers the whole mailbox, matching
     // what Gmail's and Outlook's own search boxes do by default.
-    if (searchQuery) return { q: searchQuery, type: "all" };
+    if (searchQuery) return { q: searchQuery };
     if (scopeQuery) return scopeQuery;
 
     const active =
