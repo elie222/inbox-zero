@@ -84,7 +84,9 @@ test("selects every conversation with Command A", async ({ page }) => {
   const conversationCount = await options.count();
   expect(conversationCount).toBeGreaterThan(1);
 
-  await page.getByRole("button", { name: /Search or jump/ }).click();
+  // The toolbar slot is the mail search input now, so open the palette with
+  // its keyboard shortcut instead.
+  await page.keyboard.press(`${commandModifier}+KeyK`);
   const commandInput = page.getByPlaceholder("Type a command or search...");
   const query = "archive";
   await commandInput.fill(query);
