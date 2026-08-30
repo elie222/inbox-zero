@@ -846,7 +846,11 @@ describe("OutlookProvider.searchThreads", () => {
 
     const result = await provider.searchThreads({ query: "quarterly invoice" });
 
-    expect(client.getRequestLog()[0]).toEqual({
+    // The category-map lookup is also recorded, so find the search request.
+    const searchRequest = client
+      .getRequestLog()
+      .find((request) => request.apiPath === "/me/messages");
+    expect(searchRequest).toEqual({
       apiPath: "/me/messages",
       filter: undefined,
       search: '"quarterly invoice"',
