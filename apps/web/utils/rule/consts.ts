@@ -3,6 +3,16 @@ import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { ActionType, SystemType } from "@/generated/prisma/enums";
 import { env } from "@/env";
 
+export const STANDARD_CATEGORY_SYSTEM_TYPES = [
+  SystemType.TO_REPLY,
+  SystemType.NEWSLETTER,
+  SystemType.MARKETING,
+  SystemType.CALENDAR,
+  SystemType.RECEIPT,
+  SystemType.NOTIFICATION,
+  SystemType.COLD_EMAIL,
+] as const;
+
 const ruleConfig: Record<
   SystemType,
   {

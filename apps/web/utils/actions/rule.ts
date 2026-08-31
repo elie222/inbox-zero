@@ -43,6 +43,7 @@ import {
   getSystemRuleActionTypes,
   getCategoryAction,
   getActionTypesForCategoryAction,
+  STANDARD_CATEGORY_SYSTEM_TYPES,
 } from "@/utils/rule/consts";
 import { actionClient, actionClientUser } from "@/utils/actions/safe-action";
 import { assertRuleIsNotOrgManaged } from "@/utils/organizations/rules";
@@ -59,6 +60,7 @@ import { getEmailAccountForRuleExecution } from "@/utils/user/get";
 import type { AttachmentSourceInput } from "@/utils/attachments/source-schema";
 import { assertCanUseDigestsIfNeeded } from "@/utils/premium/server";
 import { toCreateOrUpdateRuleCondition } from "@/utils/rule/create-rule-condition";
+import { seedDefaultMailSplits } from "@/utils/mail/default-splits.server";
 
 export const createRuleAction = actionClient
   .metadata({ name: "createRule" })
@@ -347,6 +349,7 @@ export const createRulesOnboardingAction = actionClient
       if (!emailAccount) throw new SafeError("User not found");
 
       const promises: Promise<unknown>[] = [];
+      const systemRulePromises: Array<ReturnType<typeof upsertSystemRule>> = [];
 
       const isSet = (
         value: string | undefined | null,
@@ -391,6 +394,7 @@ export const createRulesOnboardingAction = actionClient
           });
         })();
 
+        systemRulePromises.push(promise);
         promises.push(promise);
       }
 
@@ -411,17 +415,7 @@ export const createRulesOnboardingAction = actionClient
       }
 
       // Process system rules
-      const systemRules = [
-        SystemType.TO_REPLY,
-        SystemType.NEWSLETTER,
-        SystemType.MARKETING,
-        SystemType.CALENDAR,
-        SystemType.RECEIPT,
-        SystemType.NOTIFICATION,
-        SystemType.COLD_EMAIL,
-      ];
-
-      for (const type of systemRules) {
+      for (const type of STANDARD_CATEGORY_SYSTEM_TYPES) {
         const config = systemCategoryMap.get(type);
         if (config && isSet(config.action)) {
           createSystemRuleForOnboarding(type, config.action);
@@ -484,6 +478,18 @@ export const createRulesOnboardingAction = actionClient
       }
 
       await Promise.allSettled(promises);
+
+      const systemRuleResults = await Promise.allSettled(systemRulePromises);
+      try {
+        await seedDefaultMailSplits({
+          emailAccountId,
+          rules: systemRuleResults.flatMap((result) =>
+            result.status === "fulfilled" ? [result.value] : [],
+          ),
+        });
+      } catch (error) {
+        logger.error("Error creating default mail splits", { error });
+      }
 
       after(() =>
         bulkProcessInboxEmails({
