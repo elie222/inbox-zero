@@ -22,7 +22,7 @@ import {
   findDesktopProtocolUrl,
   getDesktopAppOrigin,
   getDesktopBrowserStartUrl,
-  getDesktopLoginUrl,
+  getDesktopHomeUrl,
   getDesktopPostAuthUrl,
   getDesktopSessionRestoreUrl,
   getDesktopWindowChrome,
@@ -44,7 +44,7 @@ let pendingAuthUrl: string | null = null;
 let pendingCallbackPath: string | null = null;
 let isQuitting = false;
 const appOrigin = getDesktopAppOrigin();
-const loginUrl = getDesktopLoginUrl(appOrigin);
+const homeUrl = getDesktopHomeUrl(appOrigin);
 
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
@@ -174,7 +174,7 @@ function createMainWindow() {
 }
 
 function getStartUrl(): string {
-  return getDesktopSessionRestoreUrl(appOrigin, readLastAppUrl()) ?? loginUrl;
+  return getDesktopSessionRestoreUrl(appOrigin, readLastAppUrl()) ?? homeUrl;
 }
 
 function trackLastAppUrl(contents: WebContents) {

@@ -3,6 +3,7 @@ import {
   findDesktopProtocolUrl,
   getDesktopAppOrigin,
   getDesktopBrowserStartUrl,
+  getDesktopHomeUrl,
   getDesktopLoginUrl,
   DESKTOP_WINDOW_DRAG_CSS,
   getDesktopPostAuthUrl,
@@ -24,6 +25,9 @@ describe("desktop shell helpers", () => {
     );
     expect(getDesktopLoginUrl("https://www.getinboxzero.com")).toBe(
       "https://www.getinboxzero.com/login",
+    );
+    expect(getDesktopHomeUrl("https://www.getinboxzero.com")).toBe(
+      "https://www.getinboxzero.com/welcome-redirect?mode=mail",
     );
   });
 
@@ -120,7 +124,7 @@ describe("desktop shell helpers", () => {
     expect(isAllowedExternalUrl("inboxzero://auth-callback")).toBe(false);
   });
 
-  it("loads a validated post-auth path and falls back to login", () => {
+  it("loads a validated post-auth path and falls back to mail", () => {
     expect(
       getDesktopPostAuthUrl(
         "https://www.getinboxzero.com",
@@ -134,7 +138,7 @@ describe("desktop shell helpers", () => {
         "https://www.getinboxzero.com",
         "https://evil.test",
       ),
-    ).toBe("https://www.getinboxzero.com/login");
+    ).toBe("https://www.getinboxzero.com/welcome-redirect?mode=mail");
     expect(normalizeDesktopCallbackPath("//evil.test")).toBeNull();
     expect(normalizeDesktopCallbackPath("/.//evil.test")).toBe("/evil.test");
     expect(
@@ -186,11 +190,17 @@ describe("desktop shell helpers", () => {
     expect(shouldPersistDesktopUrl(`${origin}/loginish`, origin)).toBe(true);
   });
 
-  it("restores only validated same-origin URLs on launch", () => {
+  it("restores only validated mail URLs on launch", () => {
     const origin = "https://www.getinboxzero.com";
     expect(
+      getDesktopSessionRestoreUrl(
+        origin,
+        `${origin}/account-1/mail?type=archive`,
+      ),
+    ).toBe(`${origin}/account-1/mail?type=archive`);
+    expect(
       getDesktopSessionRestoreUrl(origin, `${origin}/account-1/automation`),
-    ).toBe(`${origin}/account-1/automation`);
+    ).toBeNull();
     expect(getDesktopSessionRestoreUrl(origin, `${origin}/login`)).toBeNull();
     expect(
       getDesktopSessionRestoreUrl(origin, "https://evil.test/automation"),
