@@ -15,6 +15,7 @@ import {
 } from "@/utils/actions/mail-split.validation";
 import { aiPromptToSplit } from "@/utils/ai/split/prompt-to-split";
 import { getEmailAccountWithAi } from "@/utils/user/get";
+import { lockMailSplits } from "@/utils/mail/split-lock";
 
 const MAX_SPLITS = 12;
 
@@ -193,13 +194,4 @@ async function createMailSplit({
   ]);
 
   return results[0];
-}
-
-function lockMailSplits(emailAccountId: string) {
-  return prisma.$queryRaw`
-    SELECT true AS locked
-    FROM (
-      SELECT pg_advisory_xact_lock(742931, hashtext(${emailAccountId}))
-    ) lock
-  `;
 }
