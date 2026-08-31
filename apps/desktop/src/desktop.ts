@@ -23,6 +23,10 @@ export function getDesktopLoginUrl(appOrigin: string): string {
   return new URL("/login", appOrigin).toString();
 }
 
+export function getDesktopHomeUrl(appOrigin: string): string {
+  return new URL("/welcome-redirect?mode=mail", appOrigin).toString();
+}
+
 export function getDesktopBrowserStartUrl(
   appOrigin: string,
   provider: DesktopAuthProvider,
@@ -141,10 +145,10 @@ export function getDesktopPostAuthUrl(
   appOrigin: string,
   callbackPath?: string | null,
 ): string {
-  return new URL(
-    normalizeDesktopCallbackPath(callbackPath) ?? "/login",
-    appOrigin,
-  ).toString();
+  const normalizedCallbackPath = normalizeDesktopCallbackPath(callbackPath);
+  return normalizedCallbackPath
+    ? new URL(normalizedCallbackPath, appOrigin).toString()
+    : getDesktopHomeUrl(appOrigin);
 }
 
 export function findDesktopProtocolUrl(argv: readonly string[]): string | null {
@@ -180,7 +184,15 @@ export function getDesktopSessionRestoreUrl(
 ): string | null {
   if (typeof persistedUrl !== "string") return null;
   if (!shouldPersistDesktopUrl(persistedUrl, appOrigin)) return null;
-  return new URL(persistedUrl).toString();
+  const parsed = new URL(persistedUrl);
+  // Mail is the desktop's primary mode. Preserve its selected view across a
+  // full restart, but send utility pages back through the desktop home gate.
+  if (!isDesktopMailPath(parsed.pathname)) return null;
+  return parsed.toString();
+}
+
+function isDesktopMailPath(pathname: string): boolean {
+  return pathname === "/mail" || /^\/[^/]+\/mail\/?$/u.test(pathname);
 }
 
 const DESKTOP_WINDOW_BACKGROUND = "#ffffff";
