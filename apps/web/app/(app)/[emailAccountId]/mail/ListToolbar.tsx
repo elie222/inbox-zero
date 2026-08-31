@@ -125,7 +125,7 @@ function MailSearchInput({
         placeholder="Search mail"
         enterKeyHint="search"
         aria-label="Search mail"
-        className="h-full min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground"
+        className="h-full min-w-0 flex-1 border-0 bg-transparent p-0 text-foreground outline-none focus:ring-0 placeholder:text-muted-foreground"
         onKeyDown={(event) => {
           if (event.key !== "Escape") return;
           if (inputRef.current?.value || searchQuery) {
