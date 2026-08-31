@@ -5,6 +5,24 @@ import {
 } from "./EmailMessageCellLabels";
 
 describe("getEmailMessageCellLabels", () => {
+  it("hides Gmail system categories while keeping user labels", () => {
+    const labels = getEmailMessageCellLabels({
+      labelIds: ["CATEGORY_PERSONAL", "label-calendar"],
+      userLabels: {
+        CATEGORY_PERSONAL: {
+          id: "CATEGORY_PERSONAL",
+          name: "CATEGORY_PERSONAL",
+        },
+        "label-calendar": {
+          id: "label-calendar",
+          name: "Calendar",
+        },
+      },
+    });
+
+    expect(labels).toEqual([{ id: "label-calendar", name: "Calendar" }]);
+  });
+
   it("does not infer Outlook sent mail as archived just because it is outside the inbox", () => {
     const labels = getEmailMessageCellLabels({
       labelIds: ["SENT", "Awaiting Reply"],

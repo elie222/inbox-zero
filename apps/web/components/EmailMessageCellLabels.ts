@@ -29,7 +29,8 @@ export function getEmailMessageCellLabels({
   provider?: string | null;
 }): EmailMessageCellLabel[] | undefined {
   const labels = labelIds
-    ?.map((idOrName) => {
+    ?.filter((labelId) => !GMAIL_CATEGORY_LABELS.has(labelId))
+    .map((idOrName) => {
       const label =
         userLabels[idOrName] ??
         Object.values(userLabels).find(
@@ -76,7 +77,7 @@ export function getEmailThreadLabels({
     ...new Set(
       [...messages].reverse().flatMap((message) => message.labelIds ?? []),
     ),
-  ].filter((labelId) => !GMAIL_CATEGORY_LABELS.has(labelId));
+  ];
 
   return getEmailMessageCellLabels({ labelIds, userLabels }) ?? [];
 }
