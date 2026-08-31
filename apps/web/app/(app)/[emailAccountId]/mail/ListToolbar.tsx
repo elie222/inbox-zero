@@ -69,15 +69,16 @@ export function ListToolbar({
       )}
 
       {showLayoutToggle ? (
-        <Tooltip content="Switch list / split view">
+        <Tooltip
+          content={`Switch list / split view (${getShortcutHint("toggleLayout")})`}
+        >
           <button
             type="button"
             onClick={onToggleLayout}
             aria-label="Switch list or split view"
-            className={toolbarButton}
+            className={cn(toolbarButton, "w-8 justify-center px-0")}
           >
             <LayoutIcon className="size-3.5" />
-            <Kbd>{getShortcutHint("toggleLayout")}</Kbd>
           </button>
         </Tooltip>
       ) : null}
@@ -87,7 +88,10 @@ export function ListToolbar({
           type="button"
           onClick={onToggleAssistant}
           aria-label="Toggle the assistant"
-          className={cn(toolbarButton, "px-0 w-8 justify-center")}
+          className={cn(
+            toolbarButton,
+            "w-8 justify-center border-blue-600 bg-blue-600 px-0 text-white hover:border-blue-700 hover:bg-blue-700 hover:text-white dark:border-blue-700 dark:bg-blue-700 dark:hover:border-blue-800 dark:hover:bg-blue-800",
+          )}
         >
           <SparklesIcon className="size-3.5" />
         </button>
