@@ -17,6 +17,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useAccounts } from "@/hooks/useAccounts";
 import { cn } from "@/utils";
@@ -100,22 +105,27 @@ export function MailAccountSwitcher({
         >
           {data.emailAccounts.length > 1 ? (
             <>
-              <DropdownMenuItem
-                className="gap-3 rounded-xl p-3"
-                onSelect={onSelectAll}
-              >
-                <AllAccountsIcon />
-                <span className="font-medium">All accounts</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="gap-3 rounded-xl px-3 py-2 text-muted-foreground"
-                onSelect={() => setIsSelectionOpen(true)}
-              >
-                <span className="flex size-8 items-center justify-center">
-                  <SlidersHorizontalIcon className="size-4" />
-                </span>
-                <span className="font-medium text-sm">Choose accounts</span>
-              </DropdownMenuItem>
+              <div className="flex items-stretch gap-1">
+                <DropdownMenuItem
+                  className="min-w-0 flex-1 gap-3 rounded-xl p-3"
+                  onSelect={onSelectAll}
+                >
+                  <AllAccountsIcon />
+                  <span className="font-medium">All accounts</span>
+                </DropdownMenuItem>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <DropdownMenuItem
+                      aria-label="Choose accounts"
+                      className="w-10 justify-center rounded-xl p-0 text-muted-foreground"
+                      onSelect={() => setIsSelectionOpen(true)}
+                    >
+                      <SlidersHorizontalIcon />
+                    </DropdownMenuItem>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">Choose accounts</TooltipContent>
+                </Tooltip>
+              </div>
               <DropdownMenuSeparator />
             </>
           ) : null}
