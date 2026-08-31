@@ -14,12 +14,7 @@ import { getEmailMessageCellLabels } from "@/components/EmailMessageCellLabels";
 import { LoadingContent } from "@/components/LoadingContent";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import type { EmailLabels } from "@/providers/email-label-types";
-import {
-  extractEmailAddress,
-  extractNameFromEmail,
-  isSameEmailAddress,
-  participant,
-} from "@/utils/email";
+import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
 
 const SenderContextSheet = dynamic(
   () =>
@@ -43,7 +38,6 @@ export type ThreadReaderProps = {
    * arrives from a second fetch; the header renders before it lands.
    */
   messages: ThreadMessage[];
-  userEmail: string;
   userLabels: EmailLabels;
   layout: MailLayoutMode;
   isFocusMode: boolean;
@@ -72,7 +66,6 @@ export function ThreadReader({
   loading,
   error,
   messages,
-  userEmail,
   userLabels,
   layout,
   isFocusMode,
@@ -87,9 +80,12 @@ export function ThreadReader({
   autoOpenReplyForMessageId,
   menu,
 }: ThreadReaderProps) {
-  const [senderContextState, setSenderContextState] = useState<
-    "unloaded" | "open" | "closed"
-  >("unloaded");
+  const [senderContext, setSenderContext] = useState<{
+    messageId: string;
+    senderEmail: string;
+    senderName: string;
+    open: boolean;
+  } | null>(null);
   const headerMessage = thread?.messages.at(-1) ?? messages.at(-1);
 
   if (error || !headerMessage) {
@@ -119,17 +115,11 @@ export function ThreadReader({
     );
   }
 
-  const sender = participant(headerMessage, userEmail);
   const labels =
     getEmailMessageCellLabels({
       labelIds: headerMessage.labelIds,
       userLabels,
     }) ?? [];
-
-  const senderEmail = extractEmailAddress(sender);
-  const senderName = extractNameFromEmail(sender);
-  const canResearchSender =
-    Boolean(senderEmail) && !isSameEmailAddress(senderEmail, userEmail);
 
   return (
     <>
@@ -157,16 +147,9 @@ export function ThreadReader({
             menu={menu}
             onArchive={onArchive}
             onDelete={onDelete}
-            onOpenSenderContext={
-              canResearchSender
-                ? () => setSenderContextState("open")
-                : undefined
-            }
             onRemoveLabel={onRemoveLabel}
             onReply={onReply}
             onToggleFocusMode={onToggleFocusMode}
-            senderEmail={senderEmail}
-            senderName={senderName}
             subject={headerMessage.headers.subject}
           />
 
@@ -175,6 +158,16 @@ export function ThreadReader({
               autoOpenReplyForMessageId={autoOpenReplyForMessageId}
               key={threadId}
               messages={messages}
+              onOpenSenderContext={(message) => {
+                const senderEmail = extractEmailAddress(message.headers.from);
+                setSenderContext({
+                  messageId: message.id,
+                  senderEmail,
+                  senderName:
+                    extractNameFromEmail(message.headers.from) || senderEmail,
+                  open: true,
+                });
+              }}
               refetch={refetch}
               showReplyButton
             />
@@ -182,17 +175,19 @@ export function ThreadReader({
         </div>
       </div>
 
-      {senderContextState === "unloaded" ? null : (
+      {senderContext ? (
         <SenderContextSheet
-          messageId={headerMessage.id}
+          messageId={senderContext.messageId}
           onOpenChange={(open: boolean) =>
-            setSenderContextState(open ? "open" : "closed")
+            setSenderContext((current) =>
+              current ? { ...current, open } : current,
+            )
           }
-          open={senderContextState === "open"}
-          senderEmail={senderEmail}
-          senderName={senderName}
+          open={senderContext.open}
+          senderEmail={senderContext.senderEmail}
+          senderName={senderContext.senderName}
         />
-      )}
+      ) : null}
     </>
   );
 }
@@ -207,6 +202,6 @@ function readerMeasure({
 }) {
   // ~860px: the mock's measure, and about as wide as an email body stays legible.
   if (isFocusMode) return "mx-auto w-full max-w-[54rem] px-10 py-10";
-  if (layout === "split") return "px-6 py-5";
-  return "mx-auto w-full max-w-[54rem] px-6 py-5";
+  if (layout === "split") return "px-6 pt-8 pb-5";
+  return "mx-auto w-full max-w-[54rem] px-6 pt-8 pb-5";
 }
