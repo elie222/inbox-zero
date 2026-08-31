@@ -182,12 +182,18 @@ export function MailShell() {
   );
   const combinedAccounts = useMemo(
     () =>
-      (accountsData?.emailAccounts ?? []).map(({ id, email, name, image }) => ({
-        id,
-        email,
-        name,
-        image,
-      })),
+      (accountsData?.emailAccounts ?? [])
+        .filter(
+          (emailAccount) =>
+            emailAccount.includeInAllAccounts &&
+            emailAccount.account.disconnectedAt === null,
+        )
+        .map(({ id, email, name, image }) => ({
+          id,
+          email,
+          name,
+          image,
+        })),
     [accountsData?.emailAccounts],
   );
   const accountLayout: MailLayoutMode =

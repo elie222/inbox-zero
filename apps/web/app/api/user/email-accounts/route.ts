@@ -27,6 +27,7 @@ async function getEmailAccounts({ userId }: { userId: string }) {
       accountId: true,
       name: true,
       image: true,
+      includeInAllAccounts: true,
       account: {
         select: {
           disconnectedAt: true,

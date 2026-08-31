@@ -1,9 +1,14 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
-import { ChevronsUpDownIcon, PlusIcon } from "lucide-react";
+import {
+  ChevronsUpDownIcon,
+  PlusIcon,
+  SlidersHorizontalIcon,
+} from "lucide-react";
 import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
+import { AllAccountsSelectionDialog } from "@/app/(app)/[emailAccountId]/mail/AllAccountsSelectionDialog";
 import { ProfileImage } from "@/components/ProfileImage";
 import {
   DropdownMenu,
@@ -26,8 +31,9 @@ export function MailAccountSwitcher({
   onSelectAll: () => void;
   variant: "compact" | "sidebar";
 }) {
-  const { data } = useAccounts();
+  const { data, mutate } = useAccounts();
   const { emailAccount } = useAccount();
+  const [isSelectionOpen, setIsSelectionOpen] = useState(false);
 
   if (!data) return null;
 
@@ -93,13 +99,25 @@ export function MailAccountSwitcher({
           sideOffset={8}
         >
           {data.emailAccounts.length > 1 ? (
-            <DropdownMenuItem
-              className="gap-3 rounded-xl p-3"
-              onSelect={onSelectAll}
-            >
-              <AllAccountsIcon />
-              <span className="font-medium">All accounts</span>
-            </DropdownMenuItem>
+            <>
+              <DropdownMenuItem
+                className="gap-3 rounded-xl p-3"
+                onSelect={onSelectAll}
+              >
+                <AllAccountsIcon />
+                <span className="font-medium">All accounts</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="gap-3 rounded-xl px-3 py-2 text-muted-foreground"
+                onSelect={() => setIsSelectionOpen(true)}
+              >
+                <span className="flex size-8 items-center justify-center">
+                  <SlidersHorizontalIcon className="size-4" />
+                </span>
+                <span className="font-medium text-sm">Choose accounts</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>
           ) : null}
           {data.emailAccounts.map((account) => (
             <AccountItem account={account} key={account.id} />
@@ -117,6 +135,13 @@ export function MailAccountSwitcher({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      {isSelectionOpen ? (
+        <AllAccountsSelectionDialog
+          emailAccounts={data.emailAccounts}
+          onClose={() => setIsSelectionOpen(false)}
+          onSaved={mutate}
+        />
+      ) : null}
     </div>
   );
 }
