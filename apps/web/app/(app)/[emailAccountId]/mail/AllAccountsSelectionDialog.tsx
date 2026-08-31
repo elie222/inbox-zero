@@ -56,8 +56,7 @@ export function AllAccountsSelectionDialog({
         <DialogHeader>
           <DialogTitle>Choose accounts</DialogTitle>
           <DialogDescription>
-            Select which inboxes appear in All Accounts. You can still open any
-            account separately. Keep at least one selected.
+            Choose which accounts appear in All Accounts.
           </DialogDescription>
         </DialogHeader>
 
