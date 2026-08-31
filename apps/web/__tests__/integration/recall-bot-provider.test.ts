@@ -1,5 +1,6 @@
 import {
   afterAll,
+  afterEach,
   beforeAll,
   beforeEach,
   describe,
@@ -42,7 +43,14 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       provider = new RecallBotProvider(createTestLogger());
     });
 
-    beforeEach(() => emulator.reset());
+    beforeEach(() => {
+      emulator.reset();
+      vi.spyOn(Date, "now").mockReturnValue(
+        new Date("2026-05-04T08:00:00.000Z").getTime(),
+      );
+    });
+
+    afterEach(() => vi.restoreAllMocks());
 
     afterAll(() => emulator?.close());
 
