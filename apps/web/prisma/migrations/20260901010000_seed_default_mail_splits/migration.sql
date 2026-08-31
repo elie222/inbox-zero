@@ -1,3 +1,50 @@
+BEGIN;
+
+CREATE TEMP TABLE "DefaultMailSplitAccount" ON COMMIT DROP AS
+SELECT DISTINCT r."emailAccountId"
+FROM "Rule" AS r
+INNER JOIN "Action" AS a
+  ON a."ruleId" = r."id"
+  AND a."emailAccountId" = r."emailAccountId"
+WHERE r."systemType" IN (
+  'TO_REPLY',
+  'NEWSLETTER',
+  'MARKETING',
+  'CALENDAR',
+  'RECEIPT',
+  'NOTIFICATION',
+  'COLD_EMAIL'
+)
+  AND r."enabled" = true
+  AND a."type" = 'LABEL'
+  AND a."labelId" IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1
+    FROM "Action" AS moves_out_of_inbox
+    WHERE moves_out_of_inbox."ruleId" = r."id"
+      AND moves_out_of_inbox."emailAccountId" = r."emailAccountId"
+      AND moves_out_of_inbox."type" IN ('ARCHIVE', 'MOVE_FOLDER')
+  )
+  AND NOT EXISTS (
+    SELECT 1
+    FROM "MailSplit" AS existing
+    WHERE existing."emailAccountId" = r."emailAccountId"
+  );
+
+-- Serialize the backfill with live split creation for each eligible account.
+DO $$
+DECLARE
+  account RECORD;
+BEGIN
+  FOR account IN
+    SELECT "emailAccountId"
+    FROM "DefaultMailSplitAccount"
+    ORDER BY "emailAccountId"
+  LOOP
+    PERFORM pg_advisory_xact_lock(742931, hashtext(account."emailAccountId"));
+  END LOOP;
+END $$;
+
 WITH "standardRuleLabels" AS (
   SELECT DISTINCT ON (r."emailAccountId", r."systemType")
     r."id" AS "ruleId",
@@ -15,6 +62,8 @@ WITH "standardRuleLabels" AS (
       WHEN 'COLD_EMAIL' THEN 6
     END AS "standardOrder"
   FROM "Rule" AS r
+  INNER JOIN "DefaultMailSplitAccount" AS target
+    ON target."emailAccountId" = r."emailAccountId"
   INNER JOIN "Action" AS a
     ON a."ruleId" = r."id"
     AND a."emailAccountId" = r."emailAccountId"
@@ -74,3 +123,5 @@ SELECT
   "emailAccountId"
 FROM "rankedSplits"
 ON CONFLICT DO NOTHING;
+
+COMMIT;

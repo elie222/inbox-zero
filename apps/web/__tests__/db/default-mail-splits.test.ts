@@ -1,17 +1,12 @@
 import { Client } from "pg";
-import {
-  afterAll,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  test,
-} from "vitest";
+import { afterAll, beforeEach, describe, expect, test } from "vitest";
 import {
   ActionType,
   MailSplitKind,
   SystemType,
 } from "@/generated/prisma/enums";
+import prisma from "@/utils/prisma";
+import { seedDefaultMailSplits } from "@/utils/mail/default-splits.server";
 
 const RUN_DB_TESTS = process.env.RUN_DB_TESTS;
 
@@ -19,18 +14,9 @@ describe.skipIf(!RUN_DB_TESTS)(
   "default mail splits (real database)",
   { timeout: 30_000 },
   () => {
-    let prisma: typeof import("@/utils/prisma").default;
-    let seedDefaultMailSplits: typeof import("@/utils/mail/default-splits.server").seedDefaultMailSplits;
     let emailAccountId: string;
 
     const accountEmail = "default-mail-splits-test@example.com";
-
-    beforeAll(async () => {
-      prisma = (await import("@/utils/prisma")).default;
-      ({ seedDefaultMailSplits } = await import(
-        "@/utils/mail/default-splits.server"
-      ));
-    });
 
     beforeEach(async () => {
       await prisma.user.deleteMany({ where: { email: accountEmail } });

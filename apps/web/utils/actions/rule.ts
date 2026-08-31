@@ -349,7 +349,9 @@ export const createRulesOnboardingAction = actionClient
       if (!emailAccount) throw new SafeError("User not found");
 
       const promises: Promise<unknown>[] = [];
-      const systemRulePromises: Array<ReturnType<typeof upsertSystemRule>> = [];
+      const defaultSplitRulePromises: Array<
+        ReturnType<typeof upsertSystemRule>
+      > = [];
 
       const isSet = (
         value: string | undefined | null,
@@ -394,8 +396,9 @@ export const createRulesOnboardingAction = actionClient
           });
         })();
 
-        systemRulePromises.push(promise);
         promises.push(promise);
+
+        return promise;
       }
 
       async function deleteRule(
@@ -418,7 +421,9 @@ export const createRulesOnboardingAction = actionClient
       for (const type of STANDARD_CATEGORY_SYSTEM_TYPES) {
         const config = systemCategoryMap.get(type);
         if (config && isSet(config.action)) {
-          createSystemRuleForOnboarding(type, config.action);
+          defaultSplitRulePromises.push(
+            createSystemRuleForOnboarding(type, config.action),
+          );
         } else {
           deleteRule(type, emailAccountId);
         }
@@ -479,13 +484,11 @@ export const createRulesOnboardingAction = actionClient
 
       await Promise.allSettled(promises);
 
-      const systemRuleResults = await Promise.allSettled(systemRulePromises);
       try {
+        const systemRules = await Promise.all(defaultSplitRulePromises);
         await seedDefaultMailSplits({
           emailAccountId,
-          rules: systemRuleResults.flatMap((result) =>
-            result.status === "fulfilled" ? [result.value] : [],
-          ),
+          rules: systemRules,
         });
       } catch (error) {
         logger.error("Error creating default mail splits", { error });
