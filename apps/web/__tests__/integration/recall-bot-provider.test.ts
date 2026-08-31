@@ -97,6 +97,43 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       expect(create?.body).not.toHaveProperty("recording_config");
     });
 
+    test.each([
+      { joinAt: "2026-05-04T07:55:00.000Z", state: "past" },
+      { joinAt: "", state: "empty" },
+      { joinAt: "not-a-date", state: "malformed" },
+    ])("rejects a $state join time like Recall", async ({ joinAt }) => {
+      const response = await fetch(`${emulator.apiBase}/bot/`, {
+        method: "POST",
+        headers: {
+          Authorization: `Token ${emulator.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          meeting_url: "https://meet.google.com/abc-defg-hij",
+          join_at: joinAt,
+        }),
+      });
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toMatchObject({
+        join_at: expect.any(Array),
+      });
+    });
+
+    test("joins an ongoing meeting without scheduling it in the past", async () => {
+      const { externalBotId } = await provider.scheduleBot({
+        meetingUrl: "https://meet.google.com/abc-defg-hij",
+        joinAt: new Date("2026-05-04T07:55:00.000Z"),
+      });
+
+      expect(emulator.getBot(externalBotId)?.join_at).toBeNull();
+      const create = emulator.requests.find(
+        (request) =>
+          request.method === "POST" && request.path === "/api/v1/bot/",
+      );
+      expect(create?.body).not.toHaveProperty("join_at");
+    });
+
     test("requests async transcription for a finished recording", async () => {
       const { externalBotId } = await provider.scheduleBot({
         meetingUrl: "https://meet.google.com/abc-defg-hij",
