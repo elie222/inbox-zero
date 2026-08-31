@@ -44,7 +44,6 @@ import {
   getListThreadKey,
   getListThreadSelection,
   getThreadSelectionKey,
-  isCombinedListThread,
   type MailLayoutMode,
   type ThreadSelection,
 } from "@/app/(app)/[emailAccountId]/mail/types";
@@ -890,11 +889,6 @@ export function MailShell() {
           (account) => account.id === openThreadSelection.emailAccountId,
         )
     : emailAccount;
-  const readerUserEmail =
-    readerEmailAccount?.email ??
-    (openThread && isCombinedListThread(openThread)
-      ? openThread.account.email
-      : userEmail);
   const readerUserLabels = isAllAccounts
     ? (labelsByAccount[openThreadSelection?.emailAccountId ?? ""] ?? NO_LABELS)
     : userLabels;
@@ -1054,7 +1048,6 @@ export function MailShell() {
               }
               error={readerSelectionSettled ? openThreadError : undefined}
               messages={openMessages}
-              userEmail={readerUserEmail}
               userLabels={readerUserLabels}
               layout={layout}
               isFocusMode={isFocusMode}
