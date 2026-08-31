@@ -17,7 +17,24 @@ test("chooses which accounts appear in All Accounts", async ({
       .getByRole("button", { name: /playwright-test\+/i })
       .last()
       .click();
-    await page.getByRole("menuitem", { name: "Choose accounts" }).click();
+    const chooseAccountsMenuItem = page.getByRole("menuitem", {
+      name: "Choose accounts",
+    });
+    await expect(chooseAccountsMenuItem).toBeVisible();
+
+    await page.locator("nextjs-portal").evaluateAll((portals) => {
+      for (const portal of portals) portal.remove();
+    });
+    const menuScreenshot = await page.screenshot({
+      animations: "disabled",
+      path: testInfo.outputPath("all-accounts-menu.png"),
+    });
+    await testInfo.attach("all-accounts-menu", {
+      body: menuScreenshot,
+      contentType: "image/png",
+    });
+
+    await chooseAccountsMenuItem.click();
 
     const dialog = page.getByRole("dialog", { name: "Choose accounts" });
     await expect(dialog).toBeVisible();
@@ -28,9 +45,6 @@ test("chooses which accounts appear in All Accounts", async ({
       dialog.getByRole("checkbox", { name: new RegExp(secondAccount.name) }),
     ).toBeChecked();
 
-    await page.locator("nextjs-portal").evaluateAll((portals) => {
-      for (const portal of portals) portal.remove();
-    });
     const screenshot = await page.screenshot({
       animations: "disabled",
       path: testInfo.outputPath("all-accounts-selection.png"),
