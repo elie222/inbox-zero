@@ -1,9 +1,14 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
-import { ChevronsUpDownIcon, PlusIcon } from "lucide-react";
+import {
+  ChevronsUpDownIcon,
+  PlusIcon,
+  SlidersHorizontalIcon,
+} from "lucide-react";
 import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
+import { AllAccountsSelectionDialog } from "@/app/(app)/[emailAccountId]/mail/AllAccountsSelectionDialog";
 import { ProfileImage } from "@/components/ProfileImage";
 import {
   DropdownMenu,
@@ -12,6 +17,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useAccounts } from "@/hooks/useAccounts";
 import { cn } from "@/utils";
@@ -26,8 +36,9 @@ export function MailAccountSwitcher({
   onSelectAll: () => void;
   variant: "compact" | "sidebar";
 }) {
-  const { data } = useAccounts();
+  const { data, mutate } = useAccounts();
   const { emailAccount } = useAccount();
+  const [isSelectionOpen, setIsSelectionOpen] = useState(false);
 
   if (!data) return null;
 
@@ -93,13 +104,30 @@ export function MailAccountSwitcher({
           sideOffset={8}
         >
           {data.emailAccounts.length > 1 ? (
-            <DropdownMenuItem
-              className="gap-3 rounded-xl p-3"
-              onSelect={onSelectAll}
-            >
-              <AllAccountsIcon />
-              <span className="font-medium">All accounts</span>
-            </DropdownMenuItem>
+            <>
+              <div className="flex items-stretch gap-1">
+                <DropdownMenuItem
+                  className="min-w-0 flex-1 gap-3 rounded-xl p-3"
+                  onSelect={onSelectAll}
+                >
+                  <AllAccountsIcon />
+                  <span className="font-medium">All accounts</span>
+                </DropdownMenuItem>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <DropdownMenuItem
+                      aria-label="Choose accounts"
+                      className="w-10 justify-center rounded-xl p-0 text-muted-foreground"
+                      onSelect={() => setIsSelectionOpen(true)}
+                    >
+                      <SlidersHorizontalIcon />
+                    </DropdownMenuItem>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">Choose accounts</TooltipContent>
+                </Tooltip>
+              </div>
+              <DropdownMenuSeparator />
+            </>
           ) : null}
           {data.emailAccounts.map((account) => (
             <AccountItem account={account} key={account.id} />
@@ -117,6 +145,13 @@ export function MailAccountSwitcher({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      {isSelectionOpen ? (
+        <AllAccountsSelectionDialog
+          emailAccounts={data.emailAccounts}
+          onClose={() => setIsSelectionOpen(false)}
+          onSaved={mutate}
+        />
+      ) : null}
     </div>
   );
 }

@@ -29,6 +29,7 @@ export const GET = withAuth("threads/all", async (request) => {
   );
   const accounts = await getConnectedEmailAccounts({
     userId: request.auth.userId,
+    includeInAllAccounts: true,
   });
   const result = await loadCombinedThreads({
     accounts,
