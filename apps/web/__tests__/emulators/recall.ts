@@ -345,10 +345,10 @@ export async function createRecallEmulator({
     }
 
     if (method === "DELETE") {
-      // Recall answers 400 once the bot is in the call: too late to cancel.
+      // Recall answers 405 once the bot is dispatched: too late to delete.
       if (!isScheduled(bot)) {
         return {
-          status: 400,
+          status: 405,
           body: {
             code: "cannot_delete_bot",
             detail:
