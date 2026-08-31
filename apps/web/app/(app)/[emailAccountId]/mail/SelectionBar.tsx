@@ -1,8 +1,12 @@
 "use client";
 
-import { getShortcutHint } from "@/lib/shortcuts/registry";
 import { Button } from "@/components/ui/button";
-import { Kbd } from "@/components/Kbd";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { getShortcutHint } from "@/lib/shortcuts/registry";
 
 export type SelectionBarProps = {
   selectedCount: number;
@@ -29,19 +33,27 @@ export function SelectionBar({
 
       <div className="flex-1" />
 
-      <Button onClick={onArchive} size="xs-2" variant="outline">
-        Archive
-        <Kbd className="ml-1.5">{getShortcutHint("archive")}</Kbd>
-      </Button>
-      <Button
-        className="hover:border-destructive/30 hover:bg-destructive/5 hover:text-destructive"
-        onClick={onDelete}
-        size="xs-2"
-        variant="outline"
-      >
-        Delete
-        <Kbd className="ml-1.5">{getShortcutHint("delete")}</Kbd>
-      </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button onClick={onArchive} size="xs-2" variant="outline">
+            Archive
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Archive ({getShortcutHint("archive")})</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            className="hover:border-destructive/30 hover:bg-destructive/5 hover:text-destructive"
+            onClick={onDelete}
+            size="xs-2"
+            variant="outline"
+          >
+            Delete
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Delete ({getShortcutHint("delete")})</TooltipContent>
+      </Tooltip>
       <Button onClick={onClear} size="xs-2" variant="ghost">
         Clear
       </Button>
