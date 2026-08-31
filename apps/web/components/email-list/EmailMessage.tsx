@@ -239,6 +239,7 @@ function MessageHeader({
 
       {canResearchSender ? (
         <Button
+          type="button"
           aria-label={`View public profile for ${senderName}`}
           className="h-7 shrink-0 gap-1 px-1.5"
           onClick={(event) => {
