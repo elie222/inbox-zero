@@ -89,6 +89,7 @@ describe("mailbox sync coordinator", () => {
         emailAccountId: "account-1",
         fetchPage: resumedFetch,
         maxPages: 1,
+        now: new Date("2026-08-23T12:00:00.000Z"),
       }),
     ).resolves.toEqual({ hasMore: false, pagesSynced: 1 });
     expect(resumedFetch).toHaveBeenCalledWith({
