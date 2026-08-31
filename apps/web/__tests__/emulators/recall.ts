@@ -260,11 +260,14 @@ export async function createRecallEmulator({
         body: { meeting_url: ["Not a valid meeting URL."] },
       };
     }
-    if (payload.join_at && new Date(payload.join_at).getTime() <= Date.now()) {
-      return {
-        status: 400,
-        body: { join_at: ["The datetime must be in the future."] },
-      };
+    if (payload.join_at !== undefined) {
+      const joinAt = new Date(payload.join_at).getTime();
+      if (Number.isNaN(joinAt) || joinAt <= Date.now()) {
+        return {
+          status: 400,
+          body: { join_at: ["The datetime must be in the future."] },
+        };
+      }
     }
 
     const bot: RecallEmulatorBot = {

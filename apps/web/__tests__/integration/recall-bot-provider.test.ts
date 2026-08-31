@@ -97,7 +97,11 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       expect(create?.body).not.toHaveProperty("recording_config");
     });
 
-    test("rejects a past join time like Recall", async () => {
+    test.each([
+      { joinAt: "2026-05-04T07:55:00.000Z", state: "past" },
+      { joinAt: "", state: "empty" },
+      { joinAt: "not-a-date", state: "malformed" },
+    ])("rejects a $state join time like Recall", async ({ joinAt }) => {
       const response = await fetch(`${emulator.apiBase}/bot/`, {
         method: "POST",
         headers: {
@@ -106,7 +110,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
         },
         body: JSON.stringify({
           meeting_url: "https://meet.google.com/abc-defg-hij",
-          join_at: "2026-05-04T07:55:00.000Z",
+          join_at: joinAt,
         }),
       });
 
