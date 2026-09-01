@@ -1,15 +1,24 @@
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
 import { getLemonCustomer } from "@/ee/billing/lemon/index";
+import type { Prisma } from "@/generated/prisma/client";
 
-type LemonPremium = {
-  id: string;
-  users: Array<{
-    id: string;
-    email: string;
-    emailAccounts: Array<{ email: string }>;
-  }>;
-};
+export const premiumAdminBackfillSelect = {
+  id: true,
+  stripeCustomerId: true,
+  lemonSqueezyCustomerId: true,
+  users: {
+    select: {
+      id: true,
+      email: true,
+      emailAccounts: { select: { email: true } },
+    },
+  },
+} satisfies Prisma.PremiumSelect;
+
+export type PremiumAdminBackfill = Prisma.PremiumGetPayload<{
+  select: typeof premiumAdminBackfillSelect;
+}>;
 
 export async function connectLemonCustomerAsAdmin({
   customerId,
@@ -17,7 +26,7 @@ export async function connectLemonCustomerAsAdmin({
   logger,
 }: {
   customerId: number;
-  premium: LemonPremium;
+  premium: PremiumAdminBackfill;
   logger: Logger;
 }): Promise<boolean> {
   const response = await getLemonCustomer(customerId.toString());

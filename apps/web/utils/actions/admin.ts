@@ -11,7 +11,10 @@ import {
   syncStripeDataToDb,
 } from "@/ee/billing/stripe/sync-stripe";
 import { getStripe } from "@/ee/billing/stripe";
-import { connectLemonCustomerAsAdmin } from "@/ee/billing/lemon/admin";
+import {
+  connectLemonCustomerAsAdmin,
+  premiumAdminBackfillSelect,
+} from "@/ee/billing/lemon/admin";
 import { premiumEntitlementSelect } from "@/utils/premium";
 import { createEmailProvider } from "@/utils/email/provider";
 import { processProviderHistory } from "@/utils/webhook/process-history";
@@ -34,10 +37,13 @@ import {
   cleanupAIDraftsForAccount,
   getConfiguredDraftCleanupDays,
 } from "@/utils/ai/draft-cleanup";
+import { mapWithConcurrency } from "@/utils/async";
 import {
   getAdminResponseTimeProviderDelayMs,
   getResponseTimeStats,
 } from "@/utils/stats/response-time/controller";
+
+const PREMIUM_ADMIN_BACKFILL_CONCURRENCY = 5;
 
 export const adminProcessHistoryAction = adminActionClient
   .metadata({ name: "adminProcessHistory" })
@@ -160,65 +166,65 @@ export const adminBackfillPremiumAdminsAction = adminActionClient
         admins: { none: {} },
         users: { some: {} },
       },
-      select: {
-        id: true,
-        stripeCustomerId: true,
-        lemonSqueezyCustomerId: true,
-        users: {
-          select: {
-            id: true,
-            email: true,
-            emailAccounts: { select: { email: true } },
-          },
-        },
-      },
+      select: premiumAdminBackfillSelect,
     });
-    const stripe = premiumsWithoutAdmins.some(
-      (premium) => premium.stripeCustomerId,
-    )
-      ? getStripe()
-      : null;
-
-    let backfilled = 0;
-    let skipped = 0;
-
-    for (const premium of premiumsWithoutAdmins) {
-      let connected = false;
-
-      if (stripe && premium.stripeCustomerId) {
-        try {
-          connected = await connectPurchaserAsAdmin({
-            stripe,
-            customerId: premium.stripeCustomerId,
-            premium,
-            logger,
-          });
-        } catch (error) {
-          logger.error("Failed to backfill premium admin from Stripe", {
-            premiumId: premium.id,
-            error,
-          });
-        }
+    let stripe: Stripe | null = null;
+    if (premiumsWithoutAdmins.some((premium) => premium.stripeCustomerId)) {
+      try {
+        stripe = getStripe();
+      } catch (error) {
+        logger.error("Failed to initialize Stripe for premium admin backfill", {
+          error,
+        });
       }
-
-      if (!connected && premium.lemonSqueezyCustomerId) {
-        try {
-          connected = await connectLemonCustomerAsAdmin({
-            customerId: premium.lemonSqueezyCustomerId,
-            premium,
-            logger,
-          });
-        } catch (error) {
-          logger.error("Failed to backfill premium admin from Lemon Squeezy", {
-            premiumId: premium.id,
-            error,
-          });
-        }
-      }
-
-      if (connected) backfilled++;
-      else skipped++;
     }
+
+    const results = await mapWithConcurrency(
+      premiumsWithoutAdmins,
+      PREMIUM_ADMIN_BACKFILL_CONCURRENCY,
+      async (premium) => {
+        let connected = false;
+
+        if (stripe && premium.stripeCustomerId) {
+          try {
+            connected = await connectPurchaserAsAdmin({
+              stripe,
+              customerId: premium.stripeCustomerId,
+              premium,
+              logger,
+            });
+          } catch (error) {
+            logger.error("Failed to backfill premium admin from Stripe", {
+              premiumId: premium.id,
+              error,
+            });
+          }
+        }
+
+        if (!connected && premium.lemonSqueezyCustomerId) {
+          try {
+            connected = await connectLemonCustomerAsAdmin({
+              customerId: premium.lemonSqueezyCustomerId,
+              premium,
+              logger,
+            });
+          } catch (error) {
+            logger.error(
+              "Failed to backfill premium admin from Lemon Squeezy",
+              {
+                premiumId: premium.id,
+                error,
+              },
+            );
+          }
+        }
+
+        return connected;
+      },
+    );
+
+    const backfilled = results.filter(Boolean).length;
+    const skipped = results.length - backfilled;
 
     logger.info("Completed premium admin backfill", { backfilled, skipped });
     return { backfilled, skipped };
