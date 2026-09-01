@@ -41,14 +41,12 @@ test("creates, edits, toggles, and deletes a manual automation rule", async ({
     name: "Add rule manually",
   });
   await expect(async () => {
-    if (!(await createDialog.isVisible())) {
-      if (!(await addRuleManually.isVisible())) {
-        await page.getByRole("button", { name: "Add Rule" }).click();
-      }
-      await addRuleManually.click();
-    }
-    await expect(createDialog).toBeVisible({ timeout: 5000 });
+    if (await addRuleManually.isVisible()) return;
+    await page.getByRole("button", { name: "Add Rule" }).click();
+    await expect(addRuleManually).toBeVisible({ timeout: 5000 });
   }).toPass({ timeout: 30_000 });
+  await addRuleManually.click();
+  await expect(createDialog).toBeVisible();
 
   await createDialog
     .getByPlaceholder(
