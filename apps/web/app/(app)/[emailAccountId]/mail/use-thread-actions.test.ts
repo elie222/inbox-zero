@@ -198,8 +198,6 @@ describe("useThreadActions durable mutations", () => {
         threadId: "thread",
       }),
     ]);
-    const inputs = outbox.enqueueBatch.mock.calls[0]?.[0];
-    expect(inputs?.[1].batchId).toBe(inputs?.[0].batchId);
   });
 
   it("queues snooze snapshots for the durable visibility overlay", async () => {

@@ -68,7 +68,10 @@ export async function settleMailMutationBatchInCache(
     );
     appendMutation(
       mutationsByCompositeRow,
-      `${mutation.emailAccountId}:${mutation.threadId}`,
+      getMailMutationThreadKey(
+        mutation.emailAccountId,
+        `${mutation.emailAccountId}:${mutation.threadId}`,
+      ),
       mutation,
     );
   }
@@ -81,7 +84,9 @@ export async function settleMailMutationBatchInCache(
       ...(mutationsByRawRow.get(
         getMailMutationThreadKey(row.emailAccountId, row.threadId),
       ) ?? []),
-      ...(mutationsByCompositeRow.get(row.threadId) ?? []),
+      ...(mutationsByCompositeRow.get(
+        getMailMutationThreadKey(row.emailAccountId, row.threadId),
+      ) ?? []),
     ];
     if (matchingMutations.length) {
       const updated = matchingMutations.reduce<unknown>(

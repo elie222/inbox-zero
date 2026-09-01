@@ -45,6 +45,31 @@ describe("mail mutation cache settlement", () => {
     ).resolves.toMatchObject({ threadIds: ["shared"] });
   });
 
+  it("scopes legacy composite rows to their owning account", async () => {
+    const database = await getEmailCacheDatabase();
+    for (const emailAccountId of ["account-1", "account-2"]) {
+      await database?.put("threadRows", {
+        emailAccountId,
+        threadId: "account-1:shared",
+        data: {
+          id: "shared",
+          messages: [{ id: `${emailAccountId}-message` }],
+        },
+        fetchedAt: 1,
+        lastAccessedAt: 1,
+      });
+    }
+
+    await settleMailMutationInCache(mutation("account-1-message"));
+
+    await expect(
+      database?.get("threadRows", ["account-1", "account-1:shared"]),
+    ).resolves.toBeUndefined();
+    await expect(
+      database?.get("threadRows", ["account-2", "account-1:shared"]),
+    ).resolves.toBeDefined();
+  });
+
   it("preserves a new untargeted message in the same cached thread", async () => {
     const database = await getEmailCacheDatabase();
     await database?.put("threadRows", {

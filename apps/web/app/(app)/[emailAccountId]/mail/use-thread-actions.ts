@@ -90,10 +90,11 @@ export function useThreadActions({
           })),
         );
 
-        return targets.map((target, index) => ({
-          ...target,
-          mutationId: mutations[index]!.id,
-        }));
+        return targets.map((target, index) => {
+          const mutation = mutations.at(index);
+          if (!mutation) throw new Error("Missing queued mail mutation");
+          return { ...target, mutationId: mutation.id };
+        });
       } catch {
         return [];
       }
