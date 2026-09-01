@@ -1,4 +1,5 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
+import { test } from "../playwright-test";
 import { openSettings } from "./settings-test-helpers";
 
 let previousTheme: string | null | undefined;

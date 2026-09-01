@@ -1,4 +1,6 @@
-import { expect, test, type Page, type Route } from "@playwright/test";
+import { expect, type Page, type Route } from "@playwright/test";
+import { capturePlaywrightCheckpoint } from "../playwright-evidence";
+import { test } from "../playwright-test";
 import {
   createSecondEmailAccount,
   deleteSecondEmailAccount,
@@ -62,10 +64,11 @@ test("keeps a queued archive hidden across reload and replays it after reconnect
     await expect(
       conversationWithSubject(page, reloadedConversations, ARCHIVE_SUBJECT),
     ).toHaveCount(0);
-    await testInfo.attach("durable-archive-after-reload", {
-      body: await page.screenshot(),
-      contentType: "image/png",
-    });
+    await capturePlaywrightCheckpoint(
+      page,
+      testInfo,
+      "durable-archive-after-reload",
+    );
 
     await page.unroute("**/*", blockServerActions);
     await page.evaluate(() => window.dispatchEvent(new Event("online")));
@@ -143,10 +146,11 @@ test("keeps a reply queued across reload and sends it after reconnect", async ({
         }),
       )
       .toMatchObject({ status: "pending" });
-    await testInfo.attach("durable-reply-after-reload", {
-      body: await page.screenshot(),
-      contentType: "image/png",
-    });
+    await capturePlaywrightCheckpoint(
+      page,
+      testInfo,
+      "durable-reply-after-reload",
+    );
 
     const queuedReply = await readLatestMailMutation(page, {
       emailAccountId,

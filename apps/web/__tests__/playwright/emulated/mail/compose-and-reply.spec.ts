@@ -1,4 +1,6 @@
-import { expect, test, type Locator } from "@playwright/test";
+import { expect, type Locator } from "@playwright/test";
+import { capturePlaywrightCheckpoint } from "../playwright-evidence";
+import { test } from "../playwright-test";
 import {
   createSecondEmailAccount,
   deleteSecondEmailAccount,
@@ -188,24 +190,18 @@ test("keeps editing state stable across formatting, links, paste, and files", as
   await expect(
     page.getByRole("toolbar", { name: "Selection formatting" }),
   ).toBeVisible();
-  await page.screenshot({
-    path: testInfo.outputPath("composer-selection.png"),
-  });
+  await capturePlaywrightCheckpoint(page, testInfo, "composer-selection");
 
   await editor.press("ArrowRight");
   await expect(formatting).toBeHidden();
-  await page.screenshot({
-    path: testInfo.outputPath("composer-compact.png"),
-  });
+  await capturePlaywrightCheckpoint(page, testInfo, "composer-compact");
 
   await dialog.getByRole("button", { name: "Expand compose" }).click();
   await expect(dialog).toHaveAttribute("data-compose-expanded", "true");
   await expect(
     dialog.getByRole("button", { name: "Restore compose" }),
   ).toBeVisible();
-  await page.screenshot({
-    path: testInfo.outputPath("composer-expanded.png"),
-  });
+  await capturePlaywrightCheckpoint(page, testInfo, "composer-expanded");
 
   await dialog.getByRole("button", { name: "Restore compose" }).click();
   await expect(dialog).toHaveAttribute("data-compose-expanded", "false");
@@ -281,9 +277,7 @@ test("composes, sends, and reads a new message from Sent", async ({
       .frameLocator('iframe[title="Email content preview"]')
       .getByText("A composed message body."),
   ).toBeVisible();
-  await page.screenshot({
-    path: testInfo.outputPath("composed-message-in-sent.png"),
-  });
+  await capturePlaywrightCheckpoint(page, testInfo, "composed-message-in-sent");
 });
 
 test("selects the sender when composing from all accounts", async ({
@@ -363,16 +357,12 @@ test("opens and sends a reply from the reader with Enter", async ({
   const replyBody = `A reply sent through the mail reader. ${testInfo.retry}`;
   await replyEditor.pressSequentially(replyBody);
   await expect(replyEditor).toContainText(replyBody);
-  await page.screenshot({
-    path: testInfo.outputPath("protected-quoted-reply.png"),
-  });
+  await capturePlaywrightCheckpoint(page, testInfo, "protected-quoted-reply");
   await page.getByRole("button", { name: /^Send/ }).click();
 
   await expect(page.getByText("Email sent!", { exact: true })).toBeVisible();
   await expect(sentByMe).toHaveCount(initialSentByMeCount + 1);
-  await page.screenshot({
-    path: testInfo.outputPath("reply-sent-in-thread.png"),
-  });
+  await capturePlaywrightCheckpoint(page, testInfo, "reply-sent-in-thread");
 });
 
 async function selectEditorText(editor: Locator, text: string) {

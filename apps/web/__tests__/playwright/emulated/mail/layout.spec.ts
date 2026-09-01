@@ -1,4 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
+import { capturePlaywrightCheckpoint } from "../playwright-evidence";
+import { test } from "../playwright-test";
 import { conversationWithSubject, openMail } from "./mail-test-helpers";
 
 test("switches between list, split, and focused reading layouts", async ({
@@ -7,16 +9,12 @@ test("switches between list, split, and focused reading layouts", async ({
   const { conversations } = await openMail(page);
   const emptyReader = page.getByText("Nothing selected", { exact: true });
   await expect(emptyReader).toBeHidden();
-  await page.screenshot({
-    path: testInfo.outputPath("mail-list-layout.png"),
-  });
+  await capturePlaywrightCheckpoint(page, testInfo, "mail-list-layout");
 
   await page.getByRole("button", { name: "Switch list or split view" }).click();
   await expect(emptyReader).toBeVisible();
   await expect(conversations).toBeVisible();
-  await page.screenshot({
-    path: testInfo.outputPath("mail-split-layout.png"),
-  });
+  await capturePlaywrightCheckpoint(page, testInfo, "mail-split-layout");
 
   await conversationWithSubject(
     page,
@@ -33,18 +31,18 @@ test("switches between list, split, and focused reading layouts", async ({
     });
   await expect(messageBody).toBeVisible();
   await expect(conversations).toBeVisible();
-  await page.screenshot({
-    path: testInfo.outputPath("mail-selected-conversation-layout.png"),
-  });
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "mail-selected-conversation-layout",
+  );
 
   await page.getByRole("button", { name: /^Focus mode/ }).click();
   await expect(conversations).toBeHidden();
   await expect(
     page.getByRole("button", { name: /^Exit focus mode/ }),
   ).toBeVisible();
-  await page.screenshot({
-    path: testInfo.outputPath("mail-focus-layout.png"),
-  });
+  await capturePlaywrightCheckpoint(page, testInfo, "mail-focus-layout");
 
   await page.getByRole("button", { name: /^Exit focus mode/ }).click();
   await expect(conversations).toBeVisible();

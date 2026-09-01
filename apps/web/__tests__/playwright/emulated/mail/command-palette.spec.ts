@@ -1,7 +1,6 @@
 import path from "node:path";
 import {
   expect,
-  test,
   type APIRequestContext,
   type Locator,
   type Page,
@@ -9,6 +8,8 @@ import {
 } from "@playwright/test";
 import { Client } from "pg";
 import { getEmailAccountId } from "../account-test-helpers";
+import { capturePlaywrightCheckpoint } from "../playwright-evidence";
+import { test } from "../playwright-test";
 import { readLatestMailMutation } from "./mail-test-helpers";
 
 const commandModifier = process.platform === "darwin" ? "Meta" : "Control";
@@ -280,16 +281,7 @@ async function attachScreenshotForChangedTest(
 
   if (!changedTestFiles.has(testFile)) return;
 
-  const screenshotPath = testInfo.outputPath(`${name}.png`);
-  await locator.screenshot({
-    animations: "disabled",
-    caret: "hide",
-    path: screenshotPath,
-  });
-  await testInfo.attach(name, {
-    contentType: "image/png",
-    path: screenshotPath,
-  });
+  await capturePlaywrightCheckpoint(locator, testInfo, name);
 }
 
 function stubMailboxSync(page: Page, emailAccountId: string) {

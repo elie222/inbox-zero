@@ -1,4 +1,5 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
+import { test } from "../playwright-test";
 import { getEmailAccountId } from "../account-test-helpers";
 import {
   cleanupSeededChat,

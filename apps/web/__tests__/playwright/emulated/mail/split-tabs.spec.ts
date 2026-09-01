@@ -1,4 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
+import { capturePlaywrightCheckpoint } from "../playwright-evidence";
+import { test } from "../playwright-test";
 import { conversationWithSubject, openMail } from "./mail-test-helpers";
 
 test("shows a combined picker and creates a matching split", async ({
@@ -22,9 +24,7 @@ test("shows a combined picker and creates a matching split", async ({
   await page.locator("nextjs-portal").evaluateAll((portals) => {
     for (const portal of portals) portal.remove();
   });
-  await page.screenshot({
-    path: testInfo.outputPath("mail-new-split-initial.png"),
-  });
+  await capturePlaywrightCheckpoint(page, testInfo, "mail-new-split-initial");
 
   await search.fill("Posts from social networks");
   await expect(
@@ -32,9 +32,11 @@ test("shows a combined picker and creates a matching split", async ({
       name: "Create “Posts from social networks”",
     }),
   ).toBeVisible();
-  await page.screenshot({
-    path: testInfo.outputPath("mail-new-split-description.png"),
-  });
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "mail-new-split-description",
+  );
 
   await search.fill("Promotions");
   const promotionsOption = page.getByRole("option", {
@@ -42,9 +44,11 @@ test("shows a combined picker and creates a matching split", async ({
     exact: true,
   });
   await expect(promotionsOption).toBeVisible();
-  await page.screenshot({
-    path: testInfo.outputPath("mail-new-split-existing-option.png"),
-  });
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "mail-new-split-existing-option",
+  );
 
   await promotionsOption.click();
   const promotionsSplit = page.getByRole("button", {
@@ -59,9 +63,7 @@ test("shows a combined picker and creates a matching split", async ({
     conversationWithSubject(page, conversations, "Promotion Category Message"),
   ).toBeVisible();
   await expect(conversations.getByRole("option")).toHaveCount(1);
-  await page.screenshot({
-    path: testInfo.outputPath("mail-new-split-created.png"),
-  });
+  await capturePlaywrightCheckpoint(page, testInfo, "mail-new-split-created");
 
   await page
     .getByRole("button", { name: "Remove the Promotions split" })

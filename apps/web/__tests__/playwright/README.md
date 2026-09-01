@@ -16,7 +16,24 @@ real-provider tests cannot accidentally reuse emulated authentication state.
 The package-level emulated command runs each product area with a fresh Next and
 emulator process, then merges their reports. This prevents the development
 server's compiled route graph from exhausting its heap during the full suite.
-Run a spec directly with Playwright when iterating on one flow.
+Pass one or more areas or spec paths when iterating on focused flows:
+
+```sh
+pnpm -F inbox-zero-ai test:playwright:emulated mail
+pnpm -F inbox-zero-ai test:playwright:emulated mail/layout.spec.ts
+pnpm -F inbox-zero-ai test:playwright:emulated automation settings
+```
+
+Every emulated test stores a stable final-state screenshot when it passes and
+Playwright's automatic failure screenshot when it fails. The shared fixture
+also attaches `browser-evidence` JSON containing the final URL and title,
+console errors, uncaught page errors, failed network requests, and HTTP error
+responses. Uncaught page errors fail otherwise-passing tests.
+
+Use `capturePlaywrightCheckpoint` from `emulated/playwright-evidence.ts` for
+meaningful intermediate states. It writes the screenshot where the public
+gallery can compare it with `main` and attaches the same image to the full
+Playwright report.
 
 The emulated project runs when browser-facing files change in pull requests or
 on `main`, plus the daily schedule and manual dispatches. CI captures the final

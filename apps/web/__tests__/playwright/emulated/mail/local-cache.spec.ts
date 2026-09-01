@@ -1,4 +1,6 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
+import { capturePlaywrightCheckpoint } from "../playwright-evidence";
+import { test } from "../playwright-test";
 import {
   createSecondEmailAccount,
   deleteSecondEmailAccount,
@@ -41,10 +43,7 @@ test("renders a large local mailbox while server mail requests are unavailable",
     ),
     contentType: "application/json",
   });
-  await testInfo.attach("large-local-mailbox", {
-    body: await page.screenshot(),
-    contentType: "image/png",
-  });
+  await capturePlaywrightCheckpoint(page, testInfo, "large-local-mailbox");
 });
 
 test("renders and isolates two locally cached accounts without server mail requests", async ({
@@ -84,10 +83,7 @@ test("renders and isolates two locally cached accounts without server mail reque
       .poll(() => [...syncAccountIds].sort())
       .toEqual([emailAccountId, secondAccount.id].sort());
 
-    await testInfo.attach("local-unified-mailbox", {
-      body: await page.screenshot(),
-      contentType: "image/png",
-    });
+    await capturePlaywrightCheckpoint(page, testInfo, "local-unified-mailbox");
   } finally {
     await deleteSecondEmailAccount(secondAccount.accountId);
   }
@@ -149,10 +145,11 @@ test("opens the owning account's cached reader in place from All Accounts", asyn
           (window as unknown as Record<string, unknown>).__combinedReaderWindow,
       ),
     ).toBe(true);
-    await testInfo.attach("all-accounts-cached-reader", {
-      body: await page.screenshot(),
-      contentType: "image/png",
-    });
+    await capturePlaywrightCheckpoint(
+      page,
+      testInfo,
+      "all-accounts-cached-reader",
+    );
 
     await page.keyboard.press("Escape");
     await expect(conversations).toBeVisible();
@@ -181,10 +178,7 @@ test("renders a cached thread body when the reader request is offline", async ({
   await page.goto(readerUrl);
 
   await expect(readerBody(page, WARM_READER_BODY)).toBeVisible();
-  await testInfo.attach("cached-thread-reader", {
-    body: await page.screenshot(),
-    contentType: "image/png",
-  });
+  await capturePlaywrightCheckpoint(page, testInfo, "cached-thread-reader");
 });
 
 test("falls back to the network for an uncached thread body and persists it", async ({
