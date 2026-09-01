@@ -20,6 +20,18 @@ describe("emulated Playwright suite selection", () => {
     });
   });
 
+  test("keeps compose changes in the mail area", () => {
+    const selection = selectChangedPlaywrightTargets(
+      "apps/web/app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
+      appRoot,
+    );
+
+    expect(selection).toMatchObject({
+      runFullSuite: false,
+      targetFiles: ["__tests__/playwright/emulated/mail"],
+    });
+  });
+
   test("uses imports to select every area affected by a shared hook", () => {
     const selection = selectChangedPlaywrightTargets(
       "apps/web/hooks/useCalendars.ts",

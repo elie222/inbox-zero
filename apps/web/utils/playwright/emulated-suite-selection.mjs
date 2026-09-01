@@ -80,6 +80,7 @@ const directSuiteMappings = [
   ["app/(app)/[emailAccountId]/assistant/", ["automation"]],
   ["app/(app)/[emailAccountId]/calendars/", ["calendars"]],
   ["app/(app)/[emailAccountId]/channels/", ["channels"]],
+  ["app/(app)/[emailAccountId]/compose/", ["mail"]],
   ["app/(app)/[emailAccountId]/stats/", ["cleanup/analytics.spec.ts"]],
   [
     "app/(app)/[emailAccountId]/bulk-archive/",
