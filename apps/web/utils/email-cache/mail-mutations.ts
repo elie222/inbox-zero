@@ -317,11 +317,15 @@ export async function claimNextMailMutationBatch({
         blockedThreads.add(threadKey);
         continue;
       }
-      const nextMessageIds = new Set([
-        ...claimedMessageIds,
-        ...mutation.messageIds,
-      ]);
-      if (nextMessageIds.size > BULK_ARCHIVE_MESSAGES_ACTION_LIMIT) {
+      const newMessageCount = new Set(
+        mutation.messageIds.filter(
+          (messageId) => !claimedMessageIds.has(messageId),
+        ),
+      ).size;
+      if (
+        claimedMessageIds.size + newMessageCount >
+        BULK_ARCHIVE_MESSAGES_ACTION_LIMIT
+      ) {
         break;
       }
     } else {
