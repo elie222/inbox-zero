@@ -69,6 +69,18 @@ describe("deleteDraftAction", () => {
     expect(mocks.markTrackedDraftDeleted).not.toHaveBeenCalled();
   });
 
+  it("reports when the provider draft cannot be found", async () => {
+    mocks.getDraftIdForMessage.mockResolvedValue(null);
+
+    const result = await deleteDraftAction(EMAIL_ACCOUNT_ID, {
+      draftMessageId: "message-1",
+    });
+
+    expect(result?.serverError).toBe("Could not find this draft to delete.");
+    expect(mocks.deleteDraft).not.toHaveBeenCalled();
+    expect(mocks.markTrackedDraftDeleted).not.toHaveBeenCalled();
+  });
+
   it("completes deletion when the tracking update fails", async () => {
     mocks.markTrackedDraftDeleted.mockRejectedValue(
       new Error("Database unavailable"),
