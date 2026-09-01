@@ -123,6 +123,40 @@ describe("OutlookProvider.getThread", () => {
   });
 });
 
+describe("OutlookProvider.getThreadsWithLabel", () => {
+  it("returns messages chronologically while using the newest snippet", async () => {
+    const provider = new OutlookProvider(
+      createMockOutlookClient([
+        createMessage({
+          id: "newest",
+          receivedDateTime: "2026-01-02T00:00:00.000Z",
+          bodyPreview: "Newest preview",
+        }),
+        createMessage({
+          id: "oldest",
+          receivedDateTime: "2026-01-01T00:00:00.000Z",
+          bodyPreview: "Oldest preview",
+        }),
+      ]),
+    );
+    vi.spyOn(provider, "getLabelById").mockResolvedValue({
+      id: "label-1",
+      name: "Follow up",
+      type: "user",
+    });
+
+    const [thread] = await provider.getThreadsWithLabel({
+      labelId: "label-1",
+    });
+
+    expect(thread?.messages.map((message) => message.id)).toEqual([
+      "oldest",
+      "newest",
+    ]);
+    expect(thread?.snippet).toBe("Newest preview");
+  });
+});
+
 describe("OutlookProvider.getLatestMessageInThread", () => {
   it("uses converted date fallback when receivedDateTime is missing", async () => {
     vi.useFakeTimers();
