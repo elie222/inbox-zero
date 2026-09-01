@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   cleanupAIDraftsForAccount,
   cleanupConfiguredAIDrafts,
+  markTrackedDraftDeleted,
 } from "@/utils/ai/draft-cleanup";
 import { createTestLogger } from "@/__tests__/helpers";
 import { ActionType, DraftEmailStatus } from "@/generated/prisma/enums";
@@ -12,6 +13,7 @@ const mocks = vi.hoisted(() => ({
       findMany: vi.fn(),
     },
     executedAction: {
+      findFirst: vi.fn(),
       findMany: vi.fn(),
       update: vi.fn(),
     },
@@ -254,6 +256,68 @@ describe("cleanupAIDraftsForAccount", () => {
       alreadyGone: 1,
       cleanupDays: 14,
     });
+  });
+});
+
+describe("markTrackedDraftDeleted", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("marks the tracked draft as cleaned up", async () => {
+    mocks.prisma.executedAction.findFirst.mockResolvedValue({
+      id: "action-1",
+      draftStatus: DraftEmailStatus.PENDING,
+      wasDraftSent: false,
+    });
+
+    await markTrackedDraftDeleted({
+      draftId: "draft-1",
+      emailAccountId: "email-account-1",
+    });
+
+    expect(mocks.prisma.executedAction.findFirst).toHaveBeenCalledWith({
+      where: {
+        draftId: "draft-1",
+        executedRule: { emailAccountId: "email-account-1" },
+        type: ActionType.DRAFT_EMAIL,
+      },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, draftStatus: true, wasDraftSent: true },
+    });
+    expect(mocks.prisma.executedAction.update).toHaveBeenCalledWith({
+      where: { id: "action-1" },
+      data: {
+        draftStatus: DraftEmailStatus.CLEANED_UP_UNUSED,
+        wasDraftSent: null,
+      },
+    });
+  });
+
+  it("does nothing when the draft is not tracked", async () => {
+    mocks.prisma.executedAction.findFirst.mockResolvedValue(null);
+
+    await markTrackedDraftDeleted({
+      draftId: "draft-untracked",
+      emailAccountId: "email-account-1",
+    });
+
+    expect(mocks.prisma.executedAction.update).not.toHaveBeenCalled();
+  });
+
+  it("does not overwrite terminal draft statuses", async () => {
+    mocks.prisma.executedAction.findFirst.mockResolvedValue({
+      id: "action-sent",
+      draftStatus: DraftEmailStatus.LIKELY_SENT,
+      wasDraftSent: null,
+    });
+
+    await markTrackedDraftDeleted({
+      draftId: "draft-1",
+      emailAccountId: "email-account-1",
+    });
+
+    expect(mocks.prisma.executedAction.update).not.toHaveBeenCalled();
   });
 });
 

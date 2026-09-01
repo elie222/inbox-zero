@@ -1,5 +1,9 @@
 import { describe, expect, it, vi, type Mock } from "vitest";
-import { deleteDraft, getDraft } from "@/utils/gmail/draft";
+import {
+  deleteDraft,
+  getDraft,
+  getDraftIdForMessage,
+} from "@/utils/gmail/draft";
 import { GmailLabel } from "@/utils/gmail/label";
 
 vi.mock("@/utils/gmail/retry", () => ({
@@ -67,6 +71,38 @@ describe("gmail/draft", () => {
     const result = await getDraft("r-1", gmail);
     expect(result).not.toBeNull();
     expect(result?.labelIds).toEqual([GmailLabel.DRAFT]);
+  });
+
+  it("getDraftIdForMessage finds a draft across pages", async () => {
+    const list = vi
+      .fn()
+      .mockResolvedValueOnce({
+        data: {
+          drafts: [{ id: "r-1", message: { id: "m-1" } }],
+          nextPageToken: "next-page",
+        },
+      })
+      .mockResolvedValueOnce({
+        data: { drafts: [{ id: "r-2", message: { id: "m-2" } }] },
+      });
+    const gmail = { users: { drafts: { list } } } as any;
+
+    await expect(getDraftIdForMessage(gmail, "m-2")).resolves.toBe("r-2");
+    expect(list).toHaveBeenCalledTimes(2);
+  });
+
+  it("getDraftIdForMessage returns null when the draft is absent", async () => {
+    const gmail = {
+      users: {
+        drafts: {
+          list: vi.fn().mockResolvedValue({
+            data: { drafts: [{ id: "r-1", message: { id: "m-1" } }] },
+          }),
+        },
+      },
+    } as any;
+
+    await expect(getDraftIdForMessage(gmail, "m-2")).resolves.toBeNull();
   });
 
   it("deleteDraft skips drafts.delete when getDraft returns null", async () => {

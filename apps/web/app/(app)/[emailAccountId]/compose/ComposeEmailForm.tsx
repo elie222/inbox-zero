@@ -45,7 +45,7 @@ import type {
 } from "@/app/api/user/contacts/route";
 import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
 import { Input, Label } from "@/components/Input";
-import { ButtonLoader } from "@/components/Loading";
+import { ButtonLoader, LoadingMiniSpinner } from "@/components/Loading";
 import { LoadingContent } from "@/components/LoadingContent";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -109,6 +109,7 @@ type ComposeEmailFormProps = {
   refetch?: () => void;
   onSuccess?: (messageId: string, threadId: string) => void;
   onDiscard?: () => void;
+  isDiscarding?: boolean;
 };
 
 type ComposeAttachment = EmailComposerAttachment & {
@@ -161,6 +162,7 @@ function ComposeEmailFormContent({
   refetch,
   onSuccess,
   onDiscard,
+  isDiscarding,
 }: ComposeEmailFormProps & {
   accountProvider: string;
   accountSignatureHtml: string;
@@ -900,14 +902,18 @@ function ComposeEmailFormContent({
                 isComposeWindow &&
                   "text-muted-foreground hover:text-foreground",
               )}
-              disabled={isSubmitting}
+              disabled={isSubmitting || isDiscarding}
               onClick={onDiscard}
               size={isComposeWindow ? "iconSm" : "icon"}
               title="Discard draft"
               type="button"
               variant="ghost"
             >
-              <TrashIcon className="size-4" />
+              {isDiscarding ? (
+                <LoadingMiniSpinner />
+              ) : (
+                <TrashIcon className="size-4" />
+              )}
             </Button>
           )}
         </div>

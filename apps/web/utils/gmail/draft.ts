@@ -60,6 +60,33 @@ export async function getDraft(draftId: string, gmail: gmail_v1.Gmail) {
   }
 }
 
+export async function getDraftIdForMessage(
+  gmail: gmail_v1.Gmail,
+  messageId: string,
+): Promise<string | null> {
+  // Gmail draft ids (r-NNN) differ from the draft's message id; drafts.list is
+  // the only way to map one to the other.
+  let pageToken: string | undefined;
+  do {
+    const response = await withGmailRetry(() =>
+      gmail.users.drafts.list({
+        userId: "me",
+        maxResults: 500,
+        pageToken,
+      }),
+    );
+
+    const draft = response.data.drafts?.find(
+      (draft) => draft.message?.id === messageId,
+    );
+    if (draft?.id) return draft.id;
+
+    pageToken = response.data.nextPageToken ?? undefined;
+  } while (pageToken);
+
+  return null;
+}
+
 function isNotFoundError(error: unknown): boolean {
   if (isGmailError(error) && error.code === 404) return true;
   // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape

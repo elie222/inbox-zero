@@ -135,6 +135,37 @@ export async function cleanupAIDraftsForAccount({
   };
 }
 
+export async function markTrackedDraftDeleted({
+  draftId,
+  emailAccountId,
+}: {
+  draftId: string;
+  emailAccountId: string;
+}) {
+  const trackedDraft = await prisma.executedAction.findFirst({
+    where: {
+      draftId,
+      executedRule: { emailAccountId },
+      type: ActionType.DRAFT_EMAIL,
+    },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, draftStatus: true, wasDraftSent: true },
+  });
+  if (!trackedDraft) return;
+
+  const statusData = getDraftCleanupStatusData({
+    draftStatus: trackedDraft.draftStatus,
+    wasDraftSent: trackedDraft.wasDraftSent,
+    status: DraftEmailStatus.CLEANED_UP_UNUSED,
+  });
+  if (statusData) {
+    await prisma.executedAction.update({
+      where: { id: trackedDraft.id },
+      data: statusData,
+    });
+  }
+}
+
 export async function cleanupConfiguredAIDrafts({
   logger,
 }: {

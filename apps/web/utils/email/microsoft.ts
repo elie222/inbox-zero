@@ -586,6 +586,13 @@ export class OutlookProvider implements EmailProvider {
     return getDraft({ client: this.client, draftId, logger: this.logger });
   }
 
+  async getDraftIdForMessage(messageId: string): Promise<string | null> {
+    // Outlook drafts are addressed by their message id; verify it is still a
+    // draft so a stale caller can't delete a sent message.
+    const draft = await this.getDraft(messageId);
+    return draft ? messageId : null;
+  }
+
   async deleteDraft(draftId: string): Promise<void> {
     await deleteDraft({ client: this.client, draftId, logger: this.logger });
   }

@@ -169,6 +169,7 @@ export interface EmailProvider {
     attachmentId: string,
   ): Promise<{ data: string; size: number }>;
   getDraft(draftId: string): Promise<ParsedMessage | null>;
+  getDraftIdForMessage(messageId: string): Promise<string | null>;
   getDrafts(options?: { maxResults?: number }): Promise<ParsedMessage[]>;
   getFiltersList(): Promise<EmailFilter[]>;
   getFolderCounts(): Promise<EmailFolderCount[]>;
