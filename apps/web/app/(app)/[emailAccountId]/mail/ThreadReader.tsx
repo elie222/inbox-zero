@@ -43,6 +43,7 @@ export type ThreadReaderProps = {
   isFocusMode: boolean;
   labelHref: (labelId: string) => string;
   onRemoveLabel?: (labelId: string) => void;
+  onBackToInbox: () => void;
   onArchive: () => void;
   onReply: () => void;
   onDelete: () => void;
@@ -71,6 +72,7 @@ export function ThreadReader({
   isFocusMode,
   labelHref,
   onRemoveLabel,
+  onBackToInbox,
   onArchive,
   onReply,
   onDelete,
@@ -146,6 +148,7 @@ export function ThreadReader({
             labels={labels}
             menu={menu}
             onArchive={onArchive}
+            onBackToInbox={onBackToInbox}
             onDelete={onDelete}
             onRemoveLabel={onRemoveLabel}
             onReply={onReply}

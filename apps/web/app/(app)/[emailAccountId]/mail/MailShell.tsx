@@ -632,6 +632,11 @@ export function MailShell() {
   const isMailOverlayOpen =
     isHelpOpen || isPaletteOpen || (isMenuOpen && Boolean(openThreadId));
 
+  const closeReader = () => {
+    setIsFocusMode(false);
+    setOpenThread(null);
+  };
+
   // Not memoised: `useShortcuts` keeps handlers in a ref and only re-registers
   // when the set of handled ids changes, so a stable identity buys nothing.
   const handlers: ShortcutHandlers = (() => {
@@ -645,7 +650,7 @@ export function MailShell() {
         : () => {
             if (isFocusMode) setIsFocusMode(false);
             else if (selection.hasSelection) selection.clear();
-            else if (layout === "list") setOpenThread(null);
+            else if (layout === "list") closeReader();
           },
       nextSplit: () => {
         const index = splits.findIndex(
@@ -1059,6 +1064,7 @@ export function MailShell() {
               isFocusMode={isFocusMode}
               labelHref={labelHref}
               onRemoveLabel={onRemoveLabel}
+              onBackToInbox={closeReader}
               onArchive={archiveTargets}
               onDelete={trashTargets}
               onReply={requestReaderReply}

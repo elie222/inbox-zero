@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import {
   ArchiveIcon,
+  ArrowLeftIcon,
   MaximizeIcon,
   MinimizeIcon,
   ReplyIcon,
@@ -25,6 +26,7 @@ type ReaderToolbarProps = {
   labelHref: (labelId: string) => string;
   onRemoveLabel?: (labelId: string) => void;
   isFocusMode: boolean;
+  onBackToInbox: () => void;
   onArchive: () => void;
   onReply: () => void;
   onDelete: () => void;
@@ -42,6 +44,7 @@ export function ReaderToolbar({
   labelHref,
   onRemoveLabel,
   isFocusMode,
+  onBackToInbox,
   onArchive,
   onReply,
   onDelete,
@@ -52,6 +55,17 @@ export function ReaderToolbar({
 
   return (
     <div className="flex flex-wrap items-start gap-x-4 gap-y-3 pb-6">
+      <Button
+        aria-label="Back to inbox"
+        className="h-7 w-7"
+        onClick={onBackToInbox}
+        size="icon"
+        title="Back to inbox"
+        variant="ghost"
+      >
+        <ArrowLeftIcon className="size-3.5" />
+      </Button>
+
       <div className="min-w-56 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="font-title font-medium text-2xl text-foreground leading-tight tracking-tight">
