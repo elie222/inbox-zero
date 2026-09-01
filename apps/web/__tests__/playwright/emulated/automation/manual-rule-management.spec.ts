@@ -36,10 +36,20 @@ test("creates, edits, toggles, and deletes a manual automation rule", async ({
     page.getByRole("heading", { name: "AI Assistant", exact: true }),
   );
 
-  await page.getByRole("button", { name: "Add Rule" }).click();
-  await page.getByRole("button", { name: "Add rule manually" }).click();
-
   const createDialog = page.getByRole("dialog", { name: "Create Rule" });
+  const addRuleManually = page.getByRole("button", {
+    name: "Add rule manually",
+  });
+  await expect(async () => {
+    if (!(await createDialog.isVisible())) {
+      if (!(await addRuleManually.isVisible())) {
+        await page.getByRole("button", { name: "Add Rule" }).click();
+      }
+      await addRuleManually.click();
+    }
+    await expect(createDialog).toBeVisible({ timeout: 5000 });
+  }).toPass({ timeout: 30_000 });
+
   await createDialog
     .getByPlaceholder(
       "e.g. Newsletters, regular content from publications, blogs, or services I've subscribed to",

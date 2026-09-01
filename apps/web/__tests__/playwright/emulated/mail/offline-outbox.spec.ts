@@ -1,4 +1,4 @@
-import { expect, type Page, type Route } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
 import {
@@ -220,8 +220,14 @@ test("keeps a unified-mailbox mutation isolated to its owning account", async ({
     await page.route("**/api/mobile/mailbox-sync", (route) =>
       route.abort("connectionfailed"),
     );
-    await page.route("**/*", blockServerActions);
     await seedAccountIsolationMailbox(page, emailAccountId, secondAccount.id);
+    await page.addInitScript(() => {
+      Object.defineProperty(window.navigator, "onLine", {
+        configurable: true,
+        get: () => localStorage.getItem("playwright-mail-online") !== "false",
+      });
+    });
+    await setNavigatorOnline(page, false);
 
     await page.goto(`/${emailAccountId}/mail?accountScope=all`);
     const conversations = page.getByRole("listbox", {
@@ -252,7 +258,7 @@ test("keeps a unified-mailbox mutation isolated to its owning account", async ({
           threadId: ISOLATED_THREAD_ID,
         }),
       )
-      .toMatchObject({ status: "retry_wait" });
+      .toMatchObject({ status: "pending" });
     await expect
       .poll(() =>
         readLatestMailMutation(page, {
@@ -273,18 +279,14 @@ test("keeps a unified-mailbox mutation isolated to its owning account", async ({
         threadId: ISOLATED_THREAD_ID,
       });
     } finally {
-      await deleteSecondEmailAccount(secondAccount.accountId);
+      try {
+        await setNavigatorOnline(page, true);
+      } finally {
+        await deleteSecondEmailAccount(secondAccount.accountId);
+      }
     }
   }
 });
-
-function blockServerActions(route: Route) {
-  const request = route.request();
-  if (request.method() === "POST" && request.headers()["next-action"]) {
-    return route.abort("connectionfailed");
-  }
-  return route.fallback();
-}
 
 function seedAccountIsolationMailbox(
   page: Page,
