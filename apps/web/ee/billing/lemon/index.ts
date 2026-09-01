@@ -32,7 +32,7 @@ export async function updateSubscriptionItemQuantity(options: {
 
 export async function getLemonCustomer(customerId: string) {
   setUpLemon();
-  return getCustomer(customerId, { include: ["subscriptions", "orders"] });
+  return getCustomer(customerId);
 }
 
 export async function activateLemonLicenseKey(
