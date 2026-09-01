@@ -76,6 +76,22 @@ describe("aiTranslateEmails", () => {
     );
   });
 
+  it("normalizes blank entries in mixed requests to empty strings", async () => {
+    mockGenerateObject.mockResolvedValue({
+      object: {
+        translations: ["Hello", "   "],
+      },
+    });
+
+    const result = await aiTranslateEmails({
+      texts: ["Hola", "   "],
+      targetLanguage: "en",
+      emailAccount: getEmailAccount(),
+    });
+
+    expect(result).toEqual(["Hello", ""]);
+  });
+
   it("throws when the model returns the wrong number of translations", async () => {
     mockGenerateObject.mockResolvedValue({
       object: {
@@ -114,7 +130,7 @@ describe("aiTranslateEmails", () => {
     expect(call.prompt).not.toContain(`${"a".repeat(30_000)}...`);
   });
 
-  it("pins the output schema length to the number of input texts", async () => {
+  it("validates translation count after generation instead of in the provider schema", async () => {
     mockGenerateObject.mockResolvedValue({
       object: {
         translations: ["one", "two", "three"],
@@ -138,6 +154,6 @@ describe("aiTranslateEmails", () => {
     ).toBe(true);
     expect(
       call.schema.safeParse({ translations: ["one", "two"] }).success,
-    ).toBe(false);
+    ).toBe(true);
   });
 });
