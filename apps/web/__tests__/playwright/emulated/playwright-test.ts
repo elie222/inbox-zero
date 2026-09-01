@@ -35,6 +35,7 @@ export const test = base.extend<BrowserEvidenceFixtures>({
   browserEvidence: [
     async ({ page }, use, testInfo) => {
       const diagnostics: BrowserDiagnostic[] = [];
+      let finalStateCaptureFailed = false;
       const onConsole = (message: ConsoleMessage) => {
         if (message.type() !== "error") return;
         addDiagnostic(diagnostics, {
@@ -65,7 +66,9 @@ export const test = base.extend<BrowserEvidenceFixtures>({
         const request = response.request();
         addDiagnostic(diagnostics, {
           kind: "http-error",
-          message: `${response.status()} ${response.statusText()}`.trim(),
+          message: sanitizeBrowserDiagnosticText(
+            `${response.status()} ${response.statusText()}`.trim(),
+          ),
           method: request.method(),
           resourceType: request.resourceType(),
           url: sanitizeUrl(response.url()),
@@ -92,6 +95,7 @@ export const test = base.extend<BrowserEvidenceFixtures>({
           try {
             await capturePlaywrightCheckpoint(page, testInfo, "final-state");
           } catch (error) {
+            finalStateCaptureFailed = true;
             addDiagnostic(diagnostics, {
               kind: "evidence-error",
               message: sanitizeBrowserDiagnosticText(
@@ -108,7 +112,9 @@ export const test = base.extend<BrowserEvidenceFixtures>({
             {
               diagnostics,
               page: {
-                title: pageTitle,
+                title: pageTitle
+                  ? sanitizeBrowserDiagnosticText(pageTitle)
+                  : null,
                 url: page.isClosed() ? null : sanitizeUrl(page.url()),
               },
             },
@@ -127,6 +133,11 @@ export const test = base.extend<BrowserEvidenceFixtures>({
           `Uncaught browser error${pageErrors.length === 1 ? "" : "s"}:\n${pageErrors
             .map((error) => error.message)
             .join("\n\n")}`,
+        );
+      }
+      if (finalStateCaptureFailed && testInfo.errors.length === 0) {
+        throw new Error(
+          "Final-state evidence capture failed. See browser-evidence for details.",
         );
       }
     },
