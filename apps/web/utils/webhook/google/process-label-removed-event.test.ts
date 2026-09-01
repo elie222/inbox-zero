@@ -10,7 +10,10 @@ import {
 } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
-import { findRuleByLabelId } from "@/utils/rule/classification-feedback";
+import {
+  findRuleByLabelId,
+  saveClassificationFeedback,
+} from "@/utils/rule/classification-feedback";
 
 const logger = createTestLogger();
 
@@ -22,6 +25,9 @@ vi.mock("@/utils/prisma", () => ({
     },
     groupItem: {
       deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+    },
+    classificationFeedback: {
+      count: vi.fn().mockResolvedValue(0),
     },
   },
 }));
@@ -246,6 +252,28 @@ describe("process-label-removed-event", () => {
       );
       expect(saveLearnedPattern).toHaveBeenCalledWith(
         expect.objectContaining({ ruleId: "rule-2" }),
+      );
+    });
+
+    it("records feedback but does not learn an exclusion for a bulk label removal", async () => {
+      vi.mocked(findRuleByLabelId).mockResolvedValue({
+        id: "rule-123",
+        systemType: SystemType.NEWSLETTER,
+      } as any);
+
+      const historyItem = createLabelRemovedHistoryItem("123", "thread-123", [
+        "label-2",
+      ]);
+
+      await handleLabelRemovedEvent(
+        historyItem.item,
+        { ...defaultOptions, bulkRemovedLabelIds: new Set(["label-2"]) },
+        logger,
+      );
+
+      expect(saveLearnedPattern).not.toHaveBeenCalled();
+      expect(saveClassificationFeedback).toHaveBeenCalledWith(
+        expect.objectContaining({ ruleId: "rule-123", messageId: "123" }),
       );
     });
 

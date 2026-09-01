@@ -23,9 +23,11 @@ export async function handleLabelRemovedEvent(
   {
     emailAccount,
     provider,
+    bulkRemovedLabelIds,
   }: {
     emailAccount: EmailAccountWithAI;
     provider: EmailProvider;
+    bulkRemovedLabelIds?: Set<string>;
   },
   logger: Logger,
 ) {
@@ -87,6 +89,7 @@ export async function handleLabelRemovedEvent(
         messageId,
         threadId,
         emailAccountId,
+        isBulkRemoval: bulkRemovedLabelIds?.has(labelId) ?? false,
         logger,
       });
     } catch (error) {
@@ -105,6 +108,7 @@ async function learnFromRemovedLabel({
   messageId,
   threadId,
   emailAccountId,
+  isBulkRemoval,
   logger,
 }: {
   labelId: string;
@@ -112,6 +116,7 @@ async function learnFromRemovedLabel({
   messageId: string;
   threadId: string;
   emailAccountId: string;
+  isBulkRemoval: boolean;
   logger: Logger;
 }) {
   logger = logger.with({ labelId });
@@ -125,6 +130,7 @@ async function learnFromRemovedLabel({
     messageId,
     threadId,
     emailAccountId,
+    isBulkRemoval,
     logger,
   });
 
