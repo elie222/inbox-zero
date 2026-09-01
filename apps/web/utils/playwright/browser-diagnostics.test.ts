@@ -4,7 +4,7 @@ import { sanitizeBrowserDiagnosticText } from "./browser-diagnostics";
 describe("sanitizeBrowserDiagnosticText", () => {
   it("redacts credentials and mailbox addresses from diagnostic evidence", () => {
     const token = "x".repeat(24);
-    const text = `Request failed for user@example.com with Bearer ${token}`;
+    const text = `Request failed for Jöhn@example.com with Bearer ${token}`;
 
     const sanitized = sanitizeBrowserDiagnosticText(text);
 
@@ -12,7 +12,7 @@ describe("sanitizeBrowserDiagnosticText", () => {
       "Request failed for [REDACTED:EMAIL] with Bearer [REDACTED:CREDENTIAL]",
     );
     expect(sanitized).not.toContain(token);
-    expect(sanitized).not.toContain("user@example.com");
+    expect(sanitized).not.toContain("Jöhn@example.com");
   });
 
   it("truncates after redaction", () => {

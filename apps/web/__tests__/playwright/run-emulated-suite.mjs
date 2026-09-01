@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, rmSync, statSync } from "node:fs";
 import path from "node:path";
 
 const fullSuites = [
@@ -21,7 +21,9 @@ const cleanupSuites = fullSuites.filter((suite) =>
   suite.startsWith("cleanup/"),
 );
 const requestedTargets = getRequestedPlaywrightTargets(process.argv.slice(2));
-const changedTargetFiles = getChangedPlaywrightTargetFiles();
+const changedTargetFiles = requestedTargets.length
+  ? []
+  : getChangedPlaywrightTargetFiles();
 const targets = requestedTargets.length
   ? requestedTargets
   : changedTargetFiles.length
@@ -179,7 +181,8 @@ function getRequestedPlaywrightTargets(args) {
 
       if (
         !resolvedPath.startsWith(`${emulatedTestsPath}${path.sep}`) ||
-        !existsSync(resolvedPath)
+        !existsSync(resolvedPath) ||
+        !isRequestedPlaywrightTarget(resolvedPath)
       ) {
         throw new Error(
           `Unknown emulated Playwright target: ${argument}. Use an area such as "mail" or a spec path relative to __tests__/playwright/emulated.`,
@@ -259,6 +262,22 @@ function getPlaywrightTargetPath(target) {
 
 function isEmulatedSpecFile(file) {
   return /^__tests__\/playwright\/emulated\/.*\.spec\.[cm]?[jt]sx?$/.test(file);
+}
+
+function isRequestedPlaywrightTarget(targetPath) {
+  const stats = statSync(targetPath);
+  if (stats.isFile()) return isPlaywrightSpecFile(targetPath);
+  if (!stats.isDirectory()) return false;
+
+  return readdirSync(targetPath, { withFileTypes: true }).some((entry) => {
+    const entryPath = path.join(targetPath, entry.name);
+    if (entry.isDirectory()) return isRequestedPlaywrightTarget(entryPath);
+    return entry.isFile() && isPlaywrightSpecFile(entry.name);
+  });
+}
+
+function isPlaywrightSpecFile(file) {
+  return /\.spec\.[cm]?[jt]sx?$/.test(file);
 }
 
 function isEmulatedSupportFile(file) {

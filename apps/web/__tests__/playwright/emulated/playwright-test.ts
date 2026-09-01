@@ -8,7 +8,12 @@ import { capturePlaywrightCheckpoint } from "./playwright-evidence";
 import { sanitizeBrowserDiagnosticText } from "@/utils/playwright/browser-diagnostics";
 
 type BrowserDiagnostic = {
-  kind: "console-error" | "http-error" | "page-error" | "request-failed";
+  kind:
+    | "console-error"
+    | "evidence-error"
+    | "http-error"
+    | "page-error"
+    | "request-failed";
   location?: {
     columnNumber?: number;
     lineNumber?: number;
@@ -83,6 +88,21 @@ export const test = base.extend<BrowserEvidenceFixtures>({
         const pageTitle = page.isClosed()
           ? null
           : await page.title().catch(() => null);
+        if (!page.isClosed() && testInfo.errors.length === 0) {
+          try {
+            await capturePlaywrightCheckpoint(page, testInfo, "final-state");
+          } catch (error) {
+            addDiagnostic(diagnostics, {
+              kind: "evidence-error",
+              message: sanitizeBrowserDiagnosticText(
+                error instanceof Error
+                  ? (error.stack ?? error.message)
+                  : String(error),
+              ),
+            });
+          }
+        }
+
         await testInfo.attach("browser-evidence", {
           body: JSON.stringify(
             {
@@ -97,10 +117,6 @@ export const test = base.extend<BrowserEvidenceFixtures>({
           ),
           contentType: "application/json",
         });
-
-        if (!page.isClosed() && testInfo.errors.length === 0) {
-          await capturePlaywrightCheckpoint(page, testInfo, "final-state");
-        }
       }
 
       const pageErrors = diagnostics.filter(
