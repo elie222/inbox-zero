@@ -40,6 +40,23 @@ describe("outlook/draft", () => {
     ).resolves.toEqual({ id: "draft-1", version: 'W/"version-1"' });
   });
 
+  it("rejects a draft reference when the Drafts folder is unavailable", async () => {
+    mocks.getFolderIds.mockResolvedValue({});
+    const client = createOutlookReadClient({
+      id: "draft-1",
+      parentFolderId: "drafts",
+      "@odata.etag": 'W/"version-1"',
+    });
+
+    await expect(
+      getDraftReference({
+        client,
+        messageId: "draft-1",
+        logger: createTestLogger(),
+      }),
+    ).resolves.toBeNull();
+  });
+
   it("returns true when the draft is deleted", async () => {
     const deleteRequest = vi.fn().mockResolvedValue(undefined);
     const { client, header } = createOutlookClient(deleteRequest);
@@ -77,6 +94,7 @@ describe("outlook/draft", () => {
       deleteDraft({
         client,
         draftId: "draft-1",
+        version: 'W/"version-1"',
         logger: createTestLogger(),
       }),
     ).resolves.toBe(false);

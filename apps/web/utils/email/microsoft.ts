@@ -600,10 +600,15 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async deleteDraft(draftId: string, version?: string): Promise<boolean> {
+    const draftReference = version
+      ? { id: draftId, version }
+      : await this.getDraftReferenceForMessage(draftId);
+    if (!draftReference) return false;
+
     return deleteDraft({
       client: this.client,
-      draftId,
-      version,
+      draftId: draftReference.id,
+      version: draftReference.version,
       logger: this.logger,
     });
   }

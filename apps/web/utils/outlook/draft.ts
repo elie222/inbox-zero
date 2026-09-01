@@ -48,6 +48,10 @@ export async function getDraftReference({
     logger,
   });
   if (!draft) return null;
+  if (!draft.folderIds.drafts) {
+    logger.warn("Could not verify the Outlook Drafts folder");
+    return null;
+  }
 
   const version = (draft.message as { "@odata.etag"?: string })["@odata.etag"];
   if (!version) {
@@ -107,14 +111,16 @@ export async function deleteDraft({
 }: {
   client: OutlookClient;
   draftId: string;
-  version?: string;
+  version: string;
   logger: Logger;
 }): Promise<boolean> {
   try {
     logger.info("Deleting draft", { draftId });
 
-    const request = client.getClient().api(`/me/messages/${draftId}`);
-    if (version) request.header("If-Match", version);
+    const request = client
+      .getClient()
+      .api(`/me/messages/${draftId}`)
+      .header("If-Match", version);
 
     await withMicrosoftGraphWriteRetry(() => request.delete(), logger);
 
