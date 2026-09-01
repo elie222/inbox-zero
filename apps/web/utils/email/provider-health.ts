@@ -83,6 +83,7 @@ export function classifyEmailAccountProviderIssue({
   provider: "google" | "microsoft";
 }): ProviderIssue | null {
   const message = getErrorMessage(error);
+  const normalizedMessage = message?.toLowerCase() ?? "";
 
   if (
     provider === "google" &&
@@ -95,7 +96,10 @@ export function classifyEmailAccountProviderIssue({
   if (
     provider === "microsoft" &&
     isOutlookAccessDeniedError(error) &&
-    !message?.includes("Cannot save changes made to an item to store")
+    normalizedMessage.includes(
+      "access is denied. check credentials and try again",
+    ) &&
+    !normalizedMessage.includes("cannot save changes made to an item to store")
   ) {
     return { reason: "insufficient_permissions" };
   }

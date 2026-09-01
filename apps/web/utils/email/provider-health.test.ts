@@ -146,7 +146,7 @@ describe("provider health", () => {
       emailAccountId: "email-account-1",
       provider: "microsoft",
       error: new Error(
-        "Access is denied. Check credentials and try again. Cannot save changes made to an item to store.",
+        "Access is denied. Check credentials and try again. CANNOT SAVE CHANGES MADE TO AN ITEM TO STORE.",
       ),
       logger,
       operation: "removeThreadLabels",
@@ -172,6 +172,21 @@ describe("provider health", () => {
       reason: "insufficient_permissions",
       logger,
     });
+  });
+
+  it("does not disconnect Outlook accounts for code-only access denials", async () => {
+    const logger = createScopedLogger("provider-health-test");
+
+    await recordEmailAccountProviderIssue({
+      emailAccountId: "email-account-1",
+      provider: "microsoft",
+      error: { code: "ErrorAccessDenied" },
+      logger,
+      operation: "getMessage",
+    });
+
+    expect(cleanupInvalidTokens).not.toHaveBeenCalled();
+    expect(claimProviderIssueCleanupInRedis).not.toHaveBeenCalled();
   });
 
   it("does not treat malformed Outlook requests as permanent credential failures", () => {
