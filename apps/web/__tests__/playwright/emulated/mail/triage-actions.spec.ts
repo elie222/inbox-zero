@@ -15,7 +15,7 @@ test("archives a selected conversation and restores it with undo", async ({
   );
 
   await archiveConversation
-    .getByRole("checkbox", { name: "Select conversation from Erin Example" })
+    .getByRole("checkbox", { name: "Select conversation with Erin Example" })
     .click();
   await expect(page.getByText("1 selected", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Archive", exact: true }).click();
