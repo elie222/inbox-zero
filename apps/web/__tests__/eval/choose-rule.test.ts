@@ -1,5 +1,6 @@
 import { describe, test, expect, afterAll } from "vitest";
-import { SystemType } from "@/generated/prisma/enums";
+import { ActionType, SystemType } from "@/generated/prisma/enums";
+import type { Action } from "@/generated/prisma/client";
 import {
   describeEvalMatrix,
   shouldRunEvalTests,
@@ -21,9 +22,15 @@ const logger = createScopedLogger("eval-choose-rule");
 // Default system rules — mirrors what aiChooseRule actually receives in production.
 // Cold email is handled in a prior step and conversation status (to_reply/fyi/etc)
 // is resolved in a later step. Step 2 sees these rules + the collapsed "Conversations" meta-rule.
+// System rules carry their default actions so the picker sees which ones hide
+// the email (Marketing archives) versus only label it.
 const systemRule = (type: SystemType) => {
   const config = getRuleConfig(type);
-  return getRule(config.instructions, [], config.name);
+  const actions = [{ type: ActionType.LABEL, label: config.label }];
+  if (config.categoryAction === "label_archive") {
+    actions.push({ type: ActionType.ARCHIVE, label: null });
+  }
+  return getRule(config.instructions, actions as Action[], config.name);
 };
 
 const newsletter = systemRule(SystemType.NEWSLETTER);
@@ -673,6 +680,43 @@ Customer Experience Team, GreenLeaf
 
 You're receiving this because you purchased from GreenLeaf. Manage preferences or unsubscribe.
 GreenLeaf Goods LLC | 200 Elm Street, Portland, OR 97201`,
+    }),
+    expectedRule: "Marketing",
+  },
+  // --- Archive-sensitive: bulk-looking mail from a community the user belongs to ---
+  {
+    email: getEmail({
+      from: "Dana Whitfield <president@maplegrovepta.example>",
+      to: "undisclosed-recipients:;",
+      subject: "Thank you for a great year - join us again this fall",
+      listUnsubscribe: "<https://maplegrovepta.example/unsubscribe>",
+      content: `Hello everyone!
+
+If you are receiving this you were a PTA member or an active supporter last year. Thank you! We had an incredibly successful year and that was possible because of you.
+
+Membership for the new school year is now open. Dues are $15 per family and go directly to classroom supplies and the fall festival. You can renew at the link below or at the welcome table on the first day of school.
+
+Our first general meeting is Tuesday September 16 at 6:30pm in the library. Childcare will be provided.
+
+Warmly,
+Dana
+Maple Grove PTA President`,
+    }),
+    // Must not fall into Marketing, which archives. Any label-only rule is acceptable.
+    expectedRule: ["Notification", "Newsletter", "Conversations", "Calendar"],
+  },
+  {
+    email: getEmail({
+      from: "Summit Outfitters <deals@summitoutfitters.example>",
+      subject: "Last chance: 30% off all jackets ends tonight",
+      listUnsubscribe: "<https://summitoutfitters.example/unsubscribe>",
+      content: `Our biggest jacket sale of the season ends at midnight.
+
+Save 30% on every jacket, plus free shipping on orders over $75. Use code JACKET30 at checkout.
+
+Shop the sale now before sizes sell out.
+
+You are receiving this email because you signed up for Summit Outfitters offers. Unsubscribe.`,
     }),
     expectedRule: "Marketing",
   },

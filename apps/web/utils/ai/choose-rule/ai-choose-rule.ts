@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ActionType } from "@/generated/prisma/enums";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { isDefined, type EmailForLLM } from "@/utils/types";
@@ -8,7 +9,12 @@ import {
   appendOllamaOnlySystemGuidance,
   isOllamaProvider,
 } from "@/utils/llms/ollama-guidance";
-import { getUserInfoPrompt, getUserRulesPrompt } from "@/utils/ai/helpers";
+import {
+  formatRuleActions,
+  getUserInfoPrompt,
+  getUserRulesPrompt,
+  type RuleActionSummary,
+} from "@/utils/ai/helpers";
 import { sortRulesByCanonicalOrder } from "@/utils/rule/sort";
 import type { Logger } from "@/utils/logger";
 import type { ClassificationFeedbackItem } from "@/utils/rule/classification-feedback";
@@ -16,13 +22,23 @@ import type { ClassificationFeedbackItem } from "@/utils/rule/classification-fee
 type GetAiResponseOptions = {
   email: EmailForLLM;
   emailAccount: EmailAccountWithAI;
-  rules: { name: string; instructions: string; systemType?: string | null }[];
+  rules: {
+    name: string;
+    instructions: string;
+    systemType?: string | null;
+    actions?: RuleActionSummary[];
+  }[];
   modelType?: ModelType;
   classificationFeedback?: ClassificationFeedbackItem[] | null;
 };
 
 export async function aiChooseRule<
-  T extends { name: string; instructions: string; systemType?: string | null },
+  T extends {
+    name: string;
+    instructions: string;
+    systemType?: string | null;
+    actions?: RuleActionSummary[];
+  },
 >({
   email,
   rules,
@@ -166,6 +182,7 @@ async function getAiResponseSingleRule({
   - When multiple rules match, choose the more specific one that best matches the email's content.
   - Rules about requiring replies should be prioritized when the email clearly needs a response.
   ${METADATA_GUIDELINE}
+  ${getActionAwarenessGuideline(rules)}
   </guidelines>
 </instructions>
 
@@ -239,10 +256,10 @@ async function getAiResponseMultiRule({
   classificationFeedback?: ClassificationFeedbackItem[] | null;
 }) {
   const rulesSection = rules
-    .map(
-      (rule) =>
-        `<rule>\n<name>${rule.name}</name>\n<instructions>${rule.instructions}</instructions>\n</rule>`,
-    )
+    .map((rule) => {
+      const actions = formatRuleActions(rule.actions);
+      return `<rule>\n<name>${rule.name}</name>\n<instructions>${rule.instructions}</instructions>${actions ? `\n<actions>${actions}</actions>` : ""}\n</rule>`;
+    })
     .join("\n");
 
   const system = `You are an AI assistant that helps people manage their emails.
@@ -266,6 +283,7 @@ async function getAiResponseMultiRule({
   - Do not be greedy - only select rules that add meaningful context.
   - Be concise in your reasoning - avoid repetitive explanations.
   ${METADATA_GUIDELINE}
+  ${getActionAwarenessGuideline(rules)}
   </guidelines>
 </instructions>
 
@@ -350,6 +368,25 @@ ${stringifyEmail(email, 500)}
 
 const METADATA_GUIDELINE =
   "- Consider email metadata (e.g. List-Unsubscribe headers) alongside content.";
+
+const HIDING_ACTION_TYPES = new Set<ActionType>([
+  ActionType.ARCHIVE,
+  ActionType.MOVE_FOLDER,
+  ActionType.DELETE,
+  ActionType.MARK_SPAM,
+]);
+
+// Only worth the prompt space when a wrong pick would actually hide the email.
+function getActionAwarenessGuideline(
+  rules: { actions?: RuleActionSummary[] }[],
+) {
+  const hasHidingRule = rules.some((rule) =>
+    rule.actions?.some((action) => HIDING_ACTION_TYPES.has(action.type)),
+  );
+  if (!hasHidingRule) return "";
+
+  return "- Each rule lists the actions it takes. Rules that archive, move, delete, or mark as spam hide the email from the user, so reserve them for promotional or automated bulk mail. Mailings from groups the user is part of (their school, club, team, or local community) are not promotional even when sent in bulk with an unsubscribe link: prefer a rule that only labels over one that hides them.";
+}
 
 function logAiChooseRuleResult<
   T extends { name: string; systemType?: string | null },

@@ -1,3 +1,4 @@
+import { ActionType } from "@/generated/prisma/enums";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   getUserInfoPrompt,
@@ -77,6 +78,34 @@ describe("getUserInfoPrompt", () => {
 });
 
 describe("getUserRulesPrompt", () => {
+  it("lists what a rule will do when actions are provided", () => {
+    const result = getUserRulesPrompt({
+      rules: [
+        {
+          name: "Marketing",
+          instructions: "Promotional emails",
+          actions: [
+            { type: ActionType.LABEL, label: "Marketing" },
+            { type: ActionType.ARCHIVE },
+          ],
+        },
+        { name: "Receipts", instructions: "Receipts", actions: [] },
+      ],
+    });
+
+    expect(result).toBe(`<user_rules>
+<rule>
+  <name>Marketing</name>
+  <criteria>Promotional emails</criteria>
+  <actions>label as "Marketing", archive (removes it from the inbox)</actions>
+</rule>
+<rule>
+  <name>Receipts</name>
+  <criteria>Receipts</criteria>
+</rule>
+</user_rules>`);
+  });
+
   it("should format single rule", () => {
     const rules = [
       {
