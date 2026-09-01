@@ -161,7 +161,10 @@ function buildCreateOrGetTool({
 
         if (candidates.length > 1) {
           return {
-            error: `Multiple ${terms.resourcePlural} match "${input.name}". Use the exact name or full path.`,
+            error:
+              terms.resource === "label"
+                ? `Multiple labels match "${input.name}". Use the exact name or full path.`
+                : `Multiple categories match "${input.name}". Use the exact name.`,
             [terms.resourcePlural]: candidates.map(pickLabelFields),
           };
         }
