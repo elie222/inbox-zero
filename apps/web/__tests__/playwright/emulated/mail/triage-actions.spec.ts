@@ -9,7 +9,14 @@ import {
 } from "./mail-test-helpers";
 
 const commandModifier = process.platform === "darwin" ? "Meta" : "Control";
-let readStateCleanup: { emailAccountId: string; threadId: string } | undefined;
+let readStateCleanup:
+  | {
+      emailAccountId: string;
+      listQuery: string;
+      subject: string;
+      threadId: string;
+    }
+  | undefined;
 
 test.afterEach(async ({ page }) => {
   const cleanup = readStateCleanup;
@@ -78,6 +85,8 @@ test("marks selected conversations as unread", async ({ page }, testInfo) => {
   const { conversations, emailAccountId } = await openMail(page);
   readStateCleanup = {
     emailAccountId,
+    listQuery: "type=inbox",
+    subject: "Read Command Message",
     threadId: "thr_playwright_2",
   };
   const conversation = conversationWithSubject(
@@ -115,6 +124,8 @@ test("marks an open conversation as unread", async ({ page }, testInfo) => {
   await stubMailboxSync(page, emailAccountId, "thr_playwright_label");
   readStateCleanup = {
     emailAccountId,
+    listQuery: "type=label&labelId=Label_project",
+    subject: "Project Label Message",
     threadId: "thr_playwright_label",
   };
   await page.goto(
@@ -232,24 +243,49 @@ function allRowsAreSelected(rows: Locator, selected: boolean) {
 
 async function restoreReadState(
   page: Page,
-  { emailAccountId, threadId }: { emailAccountId: string; threadId: string },
+  {
+    emailAccountId,
+    listQuery,
+    subject,
+    threadId,
+  }: {
+    emailAccountId: string;
+    listQuery: string;
+    subject: string;
+    threadId: string;
+  },
 ) {
-  await page.goto(`/${emailAccountId}/mail?type=sent&thread-id=${threadId}`);
-  await page.getByRole("button", { name: /^More actions/ }).click();
-  const markRead = page.getByRole("menuitem", { name: "Mark as read" });
-  const markUnread = page.getByRole("menuitem", { name: "Mark as unread" });
-  await expect(markRead.or(markUnread)).toBeVisible();
-  if (!(await markRead.isVisible())) {
-    await page.keyboard.press("Escape");
+  await page.goto(`/${emailAccountId}/mail?${listQuery}`);
+  const conversations = page.getByRole("listbox", { name: "Conversations" });
+  await expect(conversations).toBeVisible();
+  await conversationWithSubject(page, conversations, subject).click();
+  await expect(page.getByRole("heading", { name: subject })).toBeVisible();
+  await expect
+    .poll(() => isThreadUnread(page, emailAccountId, threadId), {
+      timeout: 60_000,
+    })
+    .toBe(false);
+}
+
+async function isThreadUnread(
+  page: Page,
+  emailAccountId: string,
+  threadId: string,
+) {
+  try {
+    const response = await page.request.get(`/api/threads/${threadId}`, {
+      headers: { "X-Email-Account-ID": emailAccountId },
+    });
+    if (!response.ok()) return;
+    const { thread } = (await response.json()) as {
+      thread: { messages: { labelIds?: string[] }[] };
+    };
+    return thread.messages.some((message) =>
+      message.labelIds?.includes("UNREAD"),
+    );
+  } catch {
     return;
   }
-
-  await markRead.click();
-  await expectReadStateMutation(page, {
-    emailAccountId,
-    threadId,
-    read: true,
-  });
 }
 
 function stubMailboxSync(page: Page, emailAccountId: string, threadId: string) {
