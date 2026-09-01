@@ -704,6 +704,7 @@ Maple Grove PTA President`,
     }),
     // Must not fall into Marketing, which archives. Any label-only rule is acceptable.
     expectedRule: ["Notification", "Newsletter", "Conversations", "Calendar"],
+    forbiddenRules: ["Marketing"],
   },
   {
     email: getEmail({
@@ -761,6 +762,13 @@ describe.runIf(shouldRunEval)("Eval: Choose Rule", () => {
             expect(result.rules).toEqual([]);
           } else {
             expect(acceptable).toContain(actual);
+          }
+
+          if ("forbiddenRules" in tc) {
+            const selected = result.rules.map((r) => r.rule.name);
+            expect(
+              selected.filter((name) => tc.forbiddenRules.includes(name)),
+            ).toEqual([]);
           }
         },
         TIMEOUT,

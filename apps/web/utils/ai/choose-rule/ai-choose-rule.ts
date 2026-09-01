@@ -369,6 +369,28 @@ ${stringifyEmail(email, 500)}
 const METADATA_GUIDELINE =
   "- Consider email metadata (e.g. List-Unsubscribe headers) alongside content.";
 
+function formatClassificationFeedback(
+  feedback: ClassificationFeedbackItem[] | null | undefined,
+): string {
+  if (!feedback?.length) return "";
+
+  const lines = feedback.map((entry) => {
+    const subject = entry.subject
+      ? `"${entry.subject}"`
+      : "(email no longer available)";
+    if (entry.eventType === "LABEL_ADDED") {
+      return `- ${subject} → ${entry.ruleName}`;
+    }
+    return `- ${subject} removed from ${entry.ruleName}`;
+  });
+
+  return `<classification_feedback>
+User has manually classified emails from this sender into these rules:
+${lines.join("\n")}
+These are hints from past user actions. Still evaluate the current email on its own merits.
+</classification_feedback>`;
+}
+
 const HIDING_ACTION_TYPES = new Set<ActionType>([
   ActionType.ARCHIVE,
   ActionType.MOVE_FOLDER,
@@ -448,28 +470,6 @@ function logAiChooseRuleResult<
 
 function joinLogValues(values: (string | null | undefined)[]) {
   return values.filter(isDefined).join(", ");
-}
-
-function formatClassificationFeedback(
-  feedback: ClassificationFeedbackItem[] | null | undefined,
-): string {
-  if (!feedback?.length) return "";
-
-  const lines = feedback.map((entry) => {
-    const subject = entry.subject
-      ? `"${entry.subject}"`
-      : "(email no longer available)";
-    if (entry.eventType === "LABEL_ADDED") {
-      return `- ${subject} → ${entry.ruleName}`;
-    }
-    return `- ${subject} removed from ${entry.ruleName}`;
-  });
-
-  return `<classification_feedback>
-User has manually classified emails from this sender into these rules:
-${lines.join("\n")}
-These are hints from past user actions. Still evaluate the current email on its own merits.
-</classification_feedback>`;
 }
 
 const OLLAMA_MULTI_RULE_SELECTION_GUIDANCE = [

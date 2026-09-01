@@ -1,13 +1,11 @@
+import type { Action } from "@/generated/prisma/client";
 import { ActionType } from "@/generated/prisma/enums";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { stringifyEmail } from "@/utils/stringify-email";
 import type { EmailForLLM } from "@/utils/types";
 
-export type RuleActionSummary = {
-  type: ActionType;
-  label?: string | null;
-  folderName?: string | null;
-};
+export type RuleActionSummary = Pick<Action, "type"> &
+  Partial<Pick<Action, "label" | "folderName">>;
 
 export function getTodayForLLM(date: Date = new Date()) {
   return `Today's date and time is: ${date.toISOString()}.`;
