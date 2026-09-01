@@ -171,7 +171,13 @@ describe("adminBackfillPremiumAdminsAction", () => {
         id: "stripe-premium",
         stripeCustomerId: "cus_123",
         lemonSqueezyCustomerId: null,
-        users: [],
+        users: [
+          {
+            id: "stripe-user",
+            email: "stripe-owner@example.com",
+            emailAccounts: [],
+          },
+        ],
       },
       {
         id: "lemon-premium",
