@@ -433,7 +433,9 @@ export function subscribeToMailboxStore(
   listener: (emailAccountId: string) => void,
 ) {
   mailboxListeners.add(listener);
-  return () => mailboxListeners.delete(listener);
+  return () => {
+    mailboxListeners.delete(listener);
+  };
 }
 
 export function notifyMailboxStoreChange(emailAccountId: string) {

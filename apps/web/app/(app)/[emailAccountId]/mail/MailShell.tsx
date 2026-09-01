@@ -336,6 +336,7 @@ export function MailShell() {
   threadsRef.current = threads;
   const setReadState = useCallback(
     async (threadKeys: string[], read: boolean, notifySuccess = true) => {
+      const threadsBeforeQueue = threadsRef.current;
       const queuedKeys = await queueReadState(threadKeys, read, notifySuccess);
       if (!isAllAccounts) {
         adjustInboxUnread(
@@ -343,7 +344,7 @@ export function MailShell() {
             inboxFolderId,
             read,
             threadKeys: queuedKeys,
-            threads: threadsRef.current,
+            threads: threadsBeforeQueue,
           }),
         );
       }

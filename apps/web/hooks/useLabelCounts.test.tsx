@@ -4,6 +4,7 @@ import type { PropsWithChildren } from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { SWRConfig } from "swr";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { useLabelCounts } from "./useLabelCounts";
 
 const mailbox = vi.hoisted(() => {
   const listeners = new Set<(emailAccountId: string) => void>();
@@ -16,7 +17,9 @@ const mailbox = vi.hoisted(() => {
     },
     subscribe: vi.fn((listener: (emailAccountId: string) => void) => {
       listeners.add(listener);
-      return () => listeners.delete(listener);
+      return () => {
+        listeners.delete(listener);
+      };
     }),
   };
 });
@@ -24,8 +27,6 @@ const mailbox = vi.hoisted(() => {
 vi.mock("@/utils/email-cache/mailbox", () => ({
   subscribeToMailboxStore: mailbox.subscribe,
 }));
-
-import { useLabelCounts } from "./useLabelCounts";
 
 const initialResponse = {
   counts: [
@@ -84,17 +85,17 @@ describe("useLabelCounts", () => {
 });
 
 function createWrapper(fetcher: () => unknown) {
-  return function Wrapper({ children }: PropsWithChildren) {
-    return (
-      <SWRConfig
-        value={{
-          fetcher,
-          provider: () => new Map(),
-          shouldRetryOnError: false,
-        }}
-      >
-        {children}
-      </SWRConfig>
-    );
-  };
+  const Wrapper = ({ children }: PropsWithChildren) => (
+    <SWRConfig
+      value={{
+        fetcher,
+        provider: () => new Map(),
+        shouldRetryOnError: false,
+      }}
+    >
+      {children}
+    </SWRConfig>
+  );
+
+  return Wrapper;
 }
