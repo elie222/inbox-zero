@@ -49,6 +49,23 @@ Would you be open to a quick call next week to see if we can help?`,
     }),
     expectedColdEmail: true,
   },
+  {
+    name: "recruiter interview invitation is not cold",
+    email: getEmail({
+      from: "talent@company.example",
+      subject: "Interview for Head of Sales at Company",
+      content: `Hi Alex,
+
+I'm a Talent Partner at Company. I came across your profile and think you'd be a strong fit for our Head of Sales role.
+
+Would you be open to a 30 minute intro call this week or next? Happy to share the job description and compensation range ahead of time.
+
+Best,
+Jordan`,
+      date: new Date("2026-04-21T10:00:00Z"),
+    }),
+    expectedColdEmail: false,
+  },
 ];
 
 describe.runIf(shouldRunEval)("Eval: cold email", () => {
