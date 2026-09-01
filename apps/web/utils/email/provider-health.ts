@@ -3,7 +3,6 @@ import {
   getErrorMessage,
   isGmailInsufficientPermissionsError,
   isInvalidGrantError,
-  isOutlookAccessDeniedError,
 } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
 import {
@@ -89,10 +88,6 @@ export function classifyEmailAccountProviderIssue({
     (isGmailInsufficientPermissionsError(error) ||
       message?.includes("Request had insufficient authentication scopes"))
   ) {
-    return { reason: "insufficient_permissions" };
-  }
-
-  if (provider === "microsoft" && isOutlookAccessDeniedError(error)) {
     return { reason: "insufficient_permissions" };
   }
 

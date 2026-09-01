@@ -138,22 +138,21 @@ describe("provider health", () => {
     );
   });
 
-  it("records Outlook access denied as action-required permission issues", async () => {
+  it("does not disconnect Outlook accounts for item access failures", async () => {
     const logger = createMockLogger();
 
     await recordEmailAccountProviderIssue({
       emailAccountId: "email-account-1",
       provider: "microsoft",
-      error: new Error("Access is denied. Check credentials and try again."),
+      error: new Error(
+        "Access is denied. Check credentials and try again. Cannot save changes made to an item to store.",
+      ),
       logger,
-      operation: "getMessage",
+      operation: "removeThreadLabels",
     });
 
-    expect(cleanupInvalidTokens).toHaveBeenCalledWith({
-      emailAccountId: "email-account-1",
-      reason: "insufficient_permissions",
-      logger,
-    });
+    expect(cleanupInvalidTokens).not.toHaveBeenCalled();
+    expect(claimProviderIssueCleanupInRedis).not.toHaveBeenCalled();
   });
 
   it("does not treat malformed Outlook requests as permanent credential failures", () => {
