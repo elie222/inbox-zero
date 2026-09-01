@@ -8,6 +8,7 @@ import {
   claimMailMutationNotification,
   claimNextMailMutationNotification,
   claimNextMailMutation,
+  claimNextMailMutationBatch,
   claimNextMailMutationSyncGroup,
   enqueueMailMutation,
   enqueueMailMutationBatch,
@@ -22,8 +23,10 @@ import {
   failMailMutation,
   markMailMutationAwaitingSync,
   retryMailMutation,
+  retryMailMutationBatch,
   retryMailMutationSyncGroup,
   blockMailMutationForAuth,
+  renewMailMutationBatchLease,
   renewMailMutationLease,
   renewMailMutationSyncGroupLease,
   resumeBlockedMailMutations,
@@ -398,6 +401,108 @@ describe("mail mutation outbox", () => {
     expect(
       await claimNextMailMutation({ ownerId: "worker", leaseMs: 100, now: 40 }),
     ).toMatchObject({ id: "other" });
+  });
+
+  it("leases compatible archives from one durable batch together", async () => {
+    await enqueueMailMutationBatch(
+      [
+        {
+          id: "first",
+          batchId: "archive-batch",
+          emailAccountId: "account",
+          threadId: "thread-1",
+          messageIds: ["message-1"],
+          kind: "archive",
+        },
+        {
+          id: "second",
+          batchId: "archive-batch",
+          emailAccountId: "account",
+          threadId: "thread-2",
+          messageIds: ["message-2"],
+          kind: "archive",
+        },
+      ],
+      10,
+    );
+    await enqueueMailMutation(
+      {
+        id: "other",
+        batchId: "other-batch",
+        emailAccountId: "account",
+        threadId: "thread-3",
+        messageIds: ["message-3"],
+        kind: "archive",
+      },
+      20,
+    );
+
+    await expect(
+      claimNextMailMutationBatch({
+        maxBatchSize: 500,
+        ownerId: "worker",
+        leaseMs: 100,
+        now: 30,
+      }),
+    ).resolves.toMatchObject([
+      { id: "first", attempts: 1, status: "processing" },
+      { id: "second", attempts: 1, status: "processing" },
+    ]);
+    await expect(
+      renewMailMutationBatchLease(["first", "second"], {
+        leaseMs: 200,
+        ownerId: "worker",
+        now: 40,
+      }),
+    ).resolves.toBe(2);
+    await expect(
+      claimNextMailMutation({ ownerId: "worker", leaseMs: 100, now: 30 }),
+    ).resolves.toMatchObject({ id: "other" });
+  });
+
+  it("transitions a claimed batch with one mutation notification", async () => {
+    await enqueueMailMutationBatch(
+      [
+        {
+          id: "first",
+          emailAccountId: "account",
+          threadId: "thread-1",
+          messageIds: ["message-1"],
+          kind: "archive",
+        },
+        {
+          id: "second",
+          emailAccountId: "account",
+          threadId: "thread-2",
+          messageIds: ["message-2"],
+          kind: "archive",
+        },
+      ],
+      10,
+    );
+    await claimNextMailMutationBatch({
+      maxBatchSize: 500,
+      ownerId: "worker",
+      leaseMs: 100,
+      now: 20,
+    });
+    const listener = vi.fn();
+    const unsubscribe = subscribeToMailMutations(listener);
+
+    await retryMailMutationBatch(
+      [
+        { id: "first", error: "offline", nextAttemptAt: 100 },
+        { id: "second", error: "offline", nextAttemptAt: 100 },
+      ],
+      "worker",
+    );
+
+    expect(listener).toHaveBeenCalledOnce();
+    await expect(getMailMutations(["first", "second"])).resolves.toMatchObject([
+      { id: "first", status: "retry_wait", nextAttemptAt: 100 },
+      { id: "second", status: "retry_wait", nextAttemptAt: 100 },
+    ]);
+    unsubscribe();
   });
 
   it("reclaims an expired reply lease so the server send operation decides the outcome", async () => {

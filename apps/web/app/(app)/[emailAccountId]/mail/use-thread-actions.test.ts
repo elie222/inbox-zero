@@ -9,6 +9,7 @@ import { useThreadActions } from "./use-thread-actions";
 const outbox = vi.hoisted(() => ({
   cancel: vi.fn(),
   enqueue: vi.fn(),
+  enqueueBatch: vi.fn(),
 }));
 const notifications = vi.hoisted(() => ({
   error: vi.fn(),
@@ -18,6 +19,7 @@ const notifications = vi.hoisted(() => ({
 vi.mock("@/utils/email-cache/mail-mutations", () => ({
   cancelPendingMailMutation: outbox.cancel,
   enqueueMailMutation: outbox.enqueue,
+  enqueueMailMutationBatch: outbox.enqueueBatch,
 }));
 vi.mock("sonner", () => ({ toast: notifications }));
 
@@ -28,13 +30,18 @@ describe("useThreadActions durable mutations", () => {
     outbox.enqueue.mockImplementation(async (input) =>
       createMutation(input.kind, input.id),
     );
+    outbox.enqueueBatch.mockImplementation(async (inputs) =>
+      inputs.map((input, index) =>
+        createMutation(input.kind, input.id ?? `mutation-id-${index}`),
+      ),
+    );
   });
 
   it("does not resolve an archive until its exact snapshot is durable", async () => {
     let persist: ((mutation: MailMutation) => void) | undefined;
-    outbox.enqueue.mockReturnValue(
-      new Promise<MailMutation>((resolve) => {
-        persist = resolve;
+    outbox.enqueueBatch.mockReturnValue(
+      new Promise<MailMutation[]>((resolve) => {
+        persist = (mutation) => resolve([mutation]);
       }),
     );
     const { result } = renderActions();
@@ -44,13 +51,14 @@ describe("useThreadActions durable mutations", () => {
       queued = await result.current.archive(["thread"]);
     });
 
-    expect(outbox.enqueue).toHaveBeenCalledWith({
-      batchId: expect.any(String),
-      emailAccountId: "account",
-      kind: "archive",
-      messageIds: ["message-one", "message-two"],
-      threadId: "thread",
-    });
+    expect(outbox.enqueueBatch).toHaveBeenCalledWith([
+      {
+        emailAccountId: "account",
+        kind: "archive",
+        messageIds: ["message-one", "message-two"],
+        threadId: "thread",
+      },
+    ]);
     expect(queued).toBeUndefined();
 
     persist?.(createMutation("archive"));
@@ -70,16 +78,16 @@ describe("useThreadActions durable mutations", () => {
 
     await act(() => result.current.archive(["thread"]));
 
-    expect(outbox.enqueue).toHaveBeenCalledWith(
+    expect(outbox.enqueueBatch).toHaveBeenCalledWith([
       expect.objectContaining({
         kind: "archive",
         messageIds: ["message-one", "message-two", "filtered-message"],
       }),
-    );
+    ]);
   });
 
   it("leaves a row unchanged when its mutation cannot be stored", async () => {
-    outbox.enqueue.mockRejectedValue(new Error("IndexedDB unavailable"));
+    outbox.enqueueBatch.mockRejectedValue(new Error("IndexedDB unavailable"));
     const { result } = renderActions();
 
     let queued: string[] = [];
@@ -104,7 +112,7 @@ describe("useThreadActions durable mutations", () => {
     );
 
     expect(notifications.error).toHaveBeenCalledTimes(3);
-    expect(outbox.enqueue).not.toHaveBeenCalled();
+    expect(outbox.enqueueBatch).not.toHaveBeenCalled();
   });
 
   it("counts unresolved rows in partial-action feedback", async () => {
@@ -112,7 +120,7 @@ describe("useThreadActions durable mutations", () => {
 
     await act(() => result.current.archive(["thread", "missing-thread"]));
 
-    expect(outbox.enqueue).toHaveBeenCalledTimes(1);
+    expect(outbox.enqueueBatch).toHaveBeenCalledOnce();
     expect(notifications.error).toHaveBeenCalledWith(
       "Couldn't queue 1 of 2 for archiving",
     );
@@ -120,9 +128,9 @@ describe("useThreadActions durable mutations", () => {
 
   it("does not resolve a read change before the durable overlay can observe it", async () => {
     let persist: ((mutation: MailMutation) => void) | undefined;
-    outbox.enqueue.mockReturnValue(
-      new Promise<MailMutation>((resolve) => {
-        persist = resolve;
+    outbox.enqueueBatch.mockReturnValue(
+      new Promise<MailMutation[]>((resolve) => {
+        persist = (mutation) => resolve([mutation]);
       }),
     );
     const { result } = renderActions();
@@ -136,7 +144,7 @@ describe("useThreadActions durable mutations", () => {
     persist?.(createMutation("set_read_state"));
     await action;
 
-    expect(outbox.enqueue).toHaveBeenCalledWith(
+    expect(outbox.enqueueBatch).toHaveBeenCalledWith([
       expect.objectContaining({
         emailAccountId: "account",
         kind: "set_read_state",
@@ -144,7 +152,7 @@ describe("useThreadActions durable mutations", () => {
         read: true,
         threadId: "thread",
       }),
-    );
+    ]);
     expect(queued).toEqual(["thread"]);
   });
 
@@ -179,23 +187,19 @@ describe("useThreadActions durable mutations", () => {
       result.current.archive(["account-one:thread", "account-two:thread"]),
     );
 
-    expect(outbox.enqueue).toHaveBeenCalledTimes(2);
-    expect(outbox.enqueue).toHaveBeenNthCalledWith(
-      1,
+    expect(outbox.enqueueBatch).toHaveBeenCalledOnce();
+    expect(outbox.enqueueBatch).toHaveBeenCalledWith([
       expect.objectContaining({
         emailAccountId: "account-one",
         threadId: "thread",
       }),
-    );
-    expect(outbox.enqueue).toHaveBeenNthCalledWith(
-      2,
       expect.objectContaining({
         emailAccountId: "account-two",
         threadId: "thread",
       }),
-    );
-    const firstBatchId = outbox.enqueue.mock.calls[0]?.[0].batchId;
-    expect(outbox.enqueue.mock.calls[1]?.[0].batchId).toBe(firstBatchId);
+    ]);
+    const inputs = outbox.enqueueBatch.mock.calls[0]?.[0];
+    expect(inputs?.[1].batchId).toBe(inputs?.[0].batchId);
   });
 
   it("queues snooze snapshots for the durable visibility overlay", async () => {
@@ -204,12 +208,12 @@ describe("useThreadActions durable mutations", () => {
 
     await act(() => result.current.snooze(["thread"], until));
 
-    expect(outbox.enqueue).toHaveBeenCalledWith(
+    expect(outbox.enqueueBatch).toHaveBeenCalledWith([
       expect.objectContaining({
         kind: "snooze",
         scheduledFor: until.toISOString(),
       }),
-    );
+    ]);
   });
 
   it("retains the opened snapshot after the durable overlay hides its row", async () => {
@@ -223,14 +227,14 @@ describe("useThreadActions durable mutations", () => {
 
     await act(() => result.current.setReadState(["thread"], false));
 
-    expect(outbox.enqueue).toHaveBeenCalledWith(
+    expect(outbox.enqueueBatch).toHaveBeenCalledWith([
       expect.objectContaining({
         emailAccountId: "account",
         messageIds: ["message-one", "message-two"],
         read: false,
         threadId: "thread",
       }),
-    );
+    ]);
   });
 
   it("does not reuse a same-id snapshot after the account route changes", async () => {
@@ -257,13 +261,13 @@ describe("useThreadActions durable mutations", () => {
 
     await act(() => result.current.archive(["thread"]));
 
-    expect(outbox.enqueue).toHaveBeenCalledWith(
+    expect(outbox.enqueueBatch).toHaveBeenCalledWith([
       expect.objectContaining({
         emailAccountId: "account-two",
         messageIds: ["new-message-one", "new-message-two"],
         threadId: "thread",
       }),
-    );
+    ]);
   });
 
   it("undo cancels a pending archive so the durable overlay restores it", async () => {
@@ -272,8 +276,8 @@ describe("useThreadActions durable mutations", () => {
     await act(() => result.current.archive(["thread"]));
     await act(() => result.current.undo());
 
-    expect(outbox.cancel).toHaveBeenCalledWith("mutation-id");
-    expect(outbox.enqueue).toHaveBeenCalledTimes(1);
+    expect(outbox.cancel).toHaveBeenCalledWith("mutation-id-0");
+    expect(outbox.enqueue).not.toHaveBeenCalled();
     expect(notifications.success).toHaveBeenCalledWith("Restored");
   });
 
@@ -284,7 +288,7 @@ describe("useThreadActions durable mutations", () => {
     await act(() => result.current.trash(["thread"]));
     await act(() => result.current.undo());
 
-    expect(outbox.enqueue).toHaveBeenNthCalledWith(2, {
+    expect(outbox.enqueue).toHaveBeenCalledWith({
       batchId: expect.any(String),
       emailAccountId: "account",
       kind: "untrash",
@@ -297,7 +301,6 @@ describe("useThreadActions durable mutations", () => {
   it("does not restore an undo whose compensation cannot be persisted", async () => {
     outbox.cancel.mockResolvedValue(false);
     outbox.enqueue
-      .mockResolvedValueOnce(createMutation("archive"))
       .mockRejectedValueOnce(new Error("disk full"))
       .mockResolvedValueOnce(createMutation("unarchive"));
     const { result } = renderActions();
@@ -309,7 +312,7 @@ describe("useThreadActions durable mutations", () => {
 
     await act(() => result.current.undo());
 
-    expect(outbox.enqueue).toHaveBeenCalledTimes(3);
+    expect(outbox.enqueue).toHaveBeenCalledTimes(2);
     expect(notifications.success).toHaveBeenCalledWith("Restored");
   });
 });

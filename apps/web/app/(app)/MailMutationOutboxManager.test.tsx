@@ -4,32 +4,40 @@ import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MailMutationOutboxManager } from "./MailMutationOutboxManager";
 
-const action = vi.hoisted(() => ({ execute: vi.fn() }));
-const cache = vi.hoisted(() => ({ settle: vi.fn() }));
+const action = vi.hoisted(() => ({ execute: vi.fn(), executeBatch: vi.fn() }));
+const cache = vi.hoisted(() => ({ settle: vi.fn(), settleBatch: vi.fn() }));
 const mailbox = vi.hoisted(() => ({ request: vi.fn(), syncNow: vi.fn() }));
 const outbox = vi.hoisted(() => ({
   blockAuth: vi.fn(),
+  blockAuthBatch: vi.fn(),
   claim: vi.fn(),
+  claimBatch: vi.fn(),
   claimSyncGroup: vi.fn(),
   claimNotification: vi.fn(),
   complete: vi.fn(),
   completeSyncGroup: vi.fn(),
   fail: vi.fn(),
+  failBatch: vi.fn(),
   getNextWakeAt: vi.fn(),
   markAwaitingSync: vi.fn(),
+  markBatchAwaitingSync: vi.fn(),
   renew: vi.fn(),
+  renewBatch: vi.fn(),
   renewSyncGroup: vi.fn(),
   resumeBlocked: vi.fn(),
   retry: vi.fn(),
+  retryBatch: vi.fn(),
   retrySyncGroup: vi.fn(),
   subscribe: vi.fn(),
 }));
 const toast = vi.hoisted(() => ({ error: vi.fn() }));
 
 vi.mock("@/utils/actions/mail-mutation", () => ({
+  executeArchiveMutationBatchAction: action.executeBatch,
   executeMailMutationAction: action.execute,
 }));
 vi.mock("@/utils/email-cache/mail-mutation-settlement", () => ({
+  settleMailMutationBatchInCache: cache.settleBatch,
   settleMailMutationInCache: cache.settle,
 }));
 vi.mock("@/app/(app)/[emailAccountId]/mail/use-mailbox-sync", () => ({
@@ -38,18 +46,24 @@ vi.mock("@/app/(app)/[emailAccountId]/mail/use-mailbox-sync", () => ({
 }));
 vi.mock("@/utils/email-cache/mail-mutations", () => ({
   blockMailMutationForAuth: outbox.blockAuth,
+  blockMailMutationBatchForAuth: outbox.blockAuthBatch,
   claimNextMailMutation: outbox.claim,
+  claimNextMailMutationBatch: outbox.claimBatch,
   claimNextMailMutationSyncGroup: outbox.claimSyncGroup,
   claimNextMailMutationNotification: outbox.claimNotification,
   completeMailMutation: outbox.complete,
   completeMailMutationSyncGroup: outbox.completeSyncGroup,
   failMailMutation: outbox.fail,
+  failMailMutationBatch: outbox.failBatch,
   getNextMailMutationWakeAt: outbox.getNextWakeAt,
   markMailMutationAwaitingSync: outbox.markAwaitingSync,
+  markMailMutationBatchAwaitingSync: outbox.markBatchAwaitingSync,
   renewMailMutationLease: outbox.renew,
+  renewMailMutationBatchLease: outbox.renewBatch,
   renewMailMutationSyncGroupLease: outbox.renewSyncGroup,
   resumeBlockedMailMutations: outbox.resumeBlocked,
   retryMailMutation: outbox.retry,
+  retryMailMutationBatch: outbox.retryBatch,
   retryMailMutationSyncGroup: outbox.retrySyncGroup,
   subscribeToMailMutations: outbox.subscribe,
 }));
@@ -69,10 +83,15 @@ describe("MailMutationOutboxManager", () => {
       return vi.fn();
     });
     outbox.claim.mockResolvedValue(undefined);
+    outbox.claimBatch.mockImplementation(async (options) => {
+      const mutation = await outbox.claim(options);
+      return mutation ? [mutation] : [];
+    });
     outbox.claimSyncGroup.mockResolvedValue(undefined);
     outbox.claimNotification.mockResolvedValue(undefined);
     outbox.getNextWakeAt.mockResolvedValue(undefined);
     outbox.renew.mockResolvedValue(false);
+    outbox.renewBatch.mockResolvedValue(0);
     outbox.renewSyncGroup.mockResolvedValue([]);
     outbox.resumeBlocked.mockResolvedValue(0);
     mailbox.syncNow.mockResolvedValue({ hasMore: false, pagesSynced: 1 });
@@ -179,6 +198,62 @@ describe("MailMutationOutboxManager", () => {
       group,
       expect.any(String),
     );
+  });
+
+  it("executes a durable archive batch with one provider request", async () => {
+    const first = archiveMutation({ id: "first", threadId: "thread-1" });
+    const second = archiveMutation({ id: "second", threadId: "thread-2" });
+    outbox.claimBatch
+      .mockResolvedValueOnce([first, second])
+      .mockResolvedValue([]);
+    action.executeBatch.mockResolvedValue({ data: { status: "applied" } });
+
+    render(<MailMutationOutboxManager />);
+    await settlePromises();
+
+    expect(action.executeBatch).toHaveBeenCalledOnce();
+    expect(action.executeBatch).toHaveBeenCalledWith("account", {
+      mutations: [{ messageIds: ["message"] }, { messageIds: ["message"] }],
+    });
+    expect(action.execute).not.toHaveBeenCalled();
+    expect(cache.settleBatch).toHaveBeenCalledOnce();
+    expect(cache.settleBatch).toHaveBeenCalledWith([first, second]);
+    expect(outbox.markBatchAwaitingSync).toHaveBeenCalledWith(
+      ["first", "second"],
+      expect.any(String),
+    );
+    expect(outbox.retry).not.toHaveBeenCalled();
+  });
+
+  it("keeps every throttled archive in the durable retry queue", async () => {
+    const first = archiveMutation({ id: "first", threadId: "thread-1" });
+    const second = archiveMutation({ id: "second", threadId: "thread-2" });
+    outbox.claimBatch
+      .mockResolvedValueOnce([first, second])
+      .mockResolvedValue([]);
+    action.executeBatch.mockResolvedValue({ data: { status: "retry" } });
+
+    render(<MailMutationOutboxManager />);
+    await settlePromises();
+
+    expect(outbox.retryBatch).toHaveBeenCalledWith(
+      [
+        {
+          id: "first",
+          error: "Provider temporarily unavailable",
+          nextAttemptAt: expect.any(Number),
+        },
+        {
+          id: "second",
+          error: "Provider temporarily unavailable",
+          nextAttemptAt: expect.any(Number),
+        },
+      ],
+      expect.any(String),
+    );
+    expect(outbox.retry).not.toHaveBeenCalled();
+    expect(cache.settleBatch).not.toHaveBeenCalled();
+    expect(outbox.fail).not.toHaveBeenCalled();
   });
 
   it("forwards a durable archive label to the provider action", async () => {

@@ -1,66 +1,103 @@
 import type { ParsedMessage } from "@/utils/types";
 import { getEmailCacheDatabase } from "./database";
 import { notifyMailboxStoreChange } from "./mailbox";
-import { updateMessageReadState } from "./mail-mutation-overlay";
+import {
+  getMailMutationThreadKey,
+  updateMessageReadState,
+} from "./mail-mutation-overlay";
 import type { MailMutation } from "./mail-mutations";
 
 export async function settleMailMutationInCache(mutation: MailMutation) {
-  if (
-    mutation.kind === "unarchive" ||
-    mutation.kind === "untrash" ||
-    mutation.kind === "cancel_snooze" ||
-    mutation.kind === "reply"
-  ) {
-    return;
-  }
+  await settleMailMutationBatchInCache([mutation]);
+}
+
+export async function settleMailMutationBatchInCache(
+  mutations: MailMutation[],
+) {
+  const applicable = mutations.filter(isCacheSettlementMutation);
+  if (!applicable.length) return;
   const database = await getEmailCacheDatabase();
   if (!database) return;
   const transaction = database.transaction(
     ["mailboxMessages", "threadRows", "threadViews"],
     "readwrite",
   );
-  const messageIds = new Set(mutation.messageIds);
+  const mailboxMessages = transaction.objectStore("mailboxMessages");
+  const settledAt = Date.now();
 
-  if (mutation.kind === "set_read_state") {
-    for (const messageId of messageIds) {
-      const key = [mutation.emailAccountId, messageId] as [string, string];
-      const record = await transaction.objectStore("mailboxMessages").get(key);
-      if (record) {
-        await transaction.objectStore("mailboxMessages").put({
-          ...record,
-          data: updateMessageReadState(record.data, mutation.read),
-          lastAccessedAt: Date.now(),
-        });
+  if (applicable.some((mutation) => mutation.kind === "set_read_state")) {
+    for (const mutation of applicable) {
+      for (const messageId of new Set(mutation.messageIds)) {
+        const key = [mutation.emailAccountId, messageId] as [string, string];
+        if (mutation.kind !== "set_read_state") {
+          await mailboxMessages.delete(key);
+          continue;
+        }
+        const record = await mailboxMessages.get(key);
+        if (record) {
+          await mailboxMessages.put({
+            ...record,
+            data: updateMessageReadState(record.data, mutation.read),
+            lastAccessedAt: settledAt,
+          });
+        }
       }
     }
   } else {
+    const deleteKeys = new Map<string, [string, string]>();
+    for (const mutation of applicable) {
+      for (const messageId of mutation.messageIds) {
+        deleteKeys.set(`${mutation.emailAccountId}\u0000${messageId}`, [
+          mutation.emailAccountId,
+          messageId,
+        ]);
+      }
+    }
     await Promise.all(
-      [...messageIds].map((messageId) =>
-        transaction
-          .objectStore("mailboxMessages")
-          .delete([mutation.emailAccountId, messageId]),
-      ),
+      [...deleteKeys.values()].map((key) => mailboxMessages.delete(key)),
     );
   }
 
-  const rawKey = mutation.threadId;
-  const compositeKey = `${mutation.emailAccountId}:${mutation.threadId}`;
+  const mutationsByRawRow = new Map<string, MailMutation[]>();
+  const mutationsByCompositeRow = new Map<string, MailMutation[]>();
+  for (const mutation of applicable) {
+    appendMutation(
+      mutationsByRawRow,
+      getMailMutationThreadKey(mutation.emailAccountId, mutation.threadId),
+      mutation,
+    );
+    appendMutation(
+      mutationsByCompositeRow,
+      `${mutation.emailAccountId}:${mutation.threadId}`,
+      mutation,
+    );
+  }
+
   const removedRowKeys = new Set<string>();
   let cursor = await transaction.objectStore("threadRows").openCursor();
   while (cursor) {
     const row = cursor.value;
-    const isRawOwnerRow =
-      row.emailAccountId === mutation.emailAccountId && row.threadId === rawKey;
-    if (isRawOwnerRow || row.threadId === compositeKey) {
-      const updated = updateRowData(row.data, mutation);
+    const matchingMutations = [
+      ...(mutationsByRawRow.get(
+        getMailMutationThreadKey(row.emailAccountId, row.threadId),
+      ) ?? []),
+      ...(mutationsByCompositeRow.get(row.threadId) ?? []),
+    ];
+    if (matchingMutations.length) {
+      const updated = matchingMutations.reduce<unknown>(
+        (data, mutation) => updateRowData(data, mutation),
+        row.data,
+      );
       if (updated === undefined) {
-        removedRowKeys.add(`${row.emailAccountId}\u0000${row.threadId}`);
+        removedRowKeys.add(
+          getMailMutationThreadKey(row.emailAccountId, row.threadId),
+        );
         await cursor.delete();
       } else if (updated !== row.data) {
         await cursor.update({
           ...row,
           data: updated,
-          lastAccessedAt: Date.now(),
+          lastAccessedAt: settledAt,
         });
       }
     }
@@ -72,19 +109,44 @@ export async function settleMailMutationInCache(mutation: MailMutation) {
     const view = viewCursor.value;
     const threadIds = view.threadIds.filter(
       (threadId) =>
-        !removedRowKeys.has(`${view.emailAccountId}\u0000${threadId}`),
+        !removedRowKeys.has(
+          getMailMutationThreadKey(view.emailAccountId, threadId),
+        ),
     );
     if (threadIds.length !== view.threadIds.length) {
       await viewCursor.update({
         ...view,
         threadIds,
-        lastAccessedAt: Date.now(),
+        lastAccessedAt: settledAt,
       });
     }
     viewCursor = await viewCursor.continue();
   }
   await transaction.done;
-  notifyMailboxStoreChange(mutation.emailAccountId);
+  for (const emailAccountId of new Set(
+    applicable.map((mutation) => mutation.emailAccountId),
+  )) {
+    notifyMailboxStoreChange(emailAccountId);
+  }
+}
+
+function isCacheSettlementMutation(mutation: MailMutation) {
+  return (
+    mutation.kind !== "unarchive" &&
+    mutation.kind !== "untrash" &&
+    mutation.kind !== "cancel_snooze" &&
+    mutation.kind !== "reply"
+  );
+}
+
+function appendMutation(
+  mutations: Map<string, MailMutation[]>,
+  key: string,
+  mutation: MailMutation,
+) {
+  const existing = mutations.get(key) ?? [];
+  existing.push(mutation);
+  mutations.set(key, existing);
 }
 
 function updateRowData(data: unknown, mutation: MailMutation): unknown {

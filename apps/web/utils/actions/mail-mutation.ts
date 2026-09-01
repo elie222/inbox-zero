@@ -1,7 +1,10 @@
 "use server";
 
 import { actionClient } from "@/utils/actions/safe-action";
-import { executeMailMutationBody } from "./mail-mutation.validation";
+import {
+  executeArchiveMutationBatchBody,
+  executeMailMutationBody,
+} from "./mail-mutation.validation";
 import { executeDurableEmailSend } from "@/utils/email/durable-email-send";
 import { createEmailProvider } from "@/utils/email/provider";
 import { classifyEmailAccountProviderIssue } from "@/utils/email/provider-health";
@@ -20,6 +23,26 @@ import {
   cancelSnoozedThreadByClientMutationId,
   prepareSnoozedThread,
 } from "@/utils/snooze/scheduler";
+
+export const executeArchiveMutationBatchAction = actionClient
+  .metadata({ name: "executeArchiveMutationBatch" })
+  .inputSchema(executeArchiveMutationBatchBody)
+  .action(async ({ ctx, parsedInput }) => {
+    const { emailAccountId, logger, provider } = ctx;
+    try {
+      const emailProvider = await createEmailProvider({
+        emailAccountId,
+        provider,
+        logger,
+      });
+      await emailProvider.archiveMessages(
+        parsedInput.mutations.flatMap((mutation) => mutation.messageIds),
+      );
+      return { status: "applied" as const };
+    } catch (error) {
+      return classifyFailure({ error, provider });
+    }
+  });
 
 export const executeMailMutationAction = actionClient
   .metadata({ name: "executeMailMutation" })

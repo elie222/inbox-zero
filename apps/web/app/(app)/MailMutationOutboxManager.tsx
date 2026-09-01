@@ -6,28 +6,39 @@ import {
   requestMailboxSync,
   syncMailboxNow,
 } from "@/app/(app)/[emailAccountId]/mail/use-mailbox-sync";
-import { executeMailMutationAction } from "@/utils/actions/mail-mutation";
+import {
+  executeArchiveMutationBatchAction,
+  executeMailMutationAction,
+} from "@/utils/actions/mail-mutation";
 import type { ExecuteMailMutationBody } from "@/utils/actions/mail-mutation.validation";
+import { BULK_ARCHIVE_THREADS_ACTION_LIMIT } from "@/utils/actions/mail-bulk-action.constants";
 import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
 import { emailSendOperationResponse } from "@/utils/email-cache/email-send-operation";
 import { isExpiredUnsyncedSnooze } from "@/utils/email-cache/mail-mutation-policy";
-import { settleMailMutationInCache } from "@/utils/email-cache/mail-mutation-settlement";
+import {
+  settleMailMutationBatchInCache,
+  settleMailMutationInCache,
+} from "@/utils/email-cache/mail-mutation-settlement";
 import {
   blockMailMutationForAuth,
-  claimNextMailMutationSyncGroup,
+  blockMailMutationBatchForAuth,
+  claimNextMailMutationBatch,
   claimNextMailMutationNotification,
-  claimNextMailMutation,
+  claimNextMailMutationSyncGroup,
   completeMailMutation,
   completeMailMutationSyncGroup,
   failMailMutation,
+  failMailMutationBatch,
   getNextMailMutationWakeAt,
   markMailMutationAwaitingSync,
+  markMailMutationBatchAwaitingSync,
   type MailMutation,
   type MailMutationSyncGroup,
-  renewMailMutationLease,
+  renewMailMutationBatchLease,
   renewMailMutationSyncGroupLease,
   resumeBlockedMailMutations,
   retryMailMutation,
+  retryMailMutationBatch,
   retryMailMutationSyncGroup,
   subscribeToMailMutations,
 } from "@/utils/email-cache/mail-mutations";
@@ -62,19 +73,18 @@ export function MailMutationOutboxManager() {
       queueMicrotask(async () => {
         drainScheduled = false;
         while (!stopped && active < MAX_CONCURRENCY && navigator.onLine) {
-          const mutation = await claimNextMailMutation({
+          const mutations = await claimNextMailMutationBatch({
             leaseMs: LEASE_MS,
+            maxBatchSize: BULK_ARCHIVE_THREADS_ACTION_LIMIT,
             ownerId,
           });
-          if (!mutation) {
+          if (!mutations.length) {
             scheduleWake().catch(() => {});
             break;
           }
           active += 1;
-          processMutationWithLeaseHeartbeat(mutation, ownerId)
-            .catch(() =>
-              retryMutation(mutation, "Mutation request failed", ownerId),
-            )
+          processMutationBatchWithLeaseHeartbeat(mutations, ownerId)
+            .catch(() => retryClaimedMutationBatch(mutations, ownerId))
             .finally(() => {
               active -= 1;
               drain();
@@ -156,17 +166,23 @@ export function MailMutationOutboxManager() {
   return null;
 }
 
-async function processMutationWithLeaseHeartbeat(
-  mutation: MailMutation,
+async function processMutationBatchWithLeaseHeartbeat(
+  mutations: MailMutation[],
   ownerId: string,
 ) {
   const heartbeat = setInterval(() => {
-    renewMailMutationLease(mutation.id, { leaseMs: LEASE_MS, ownerId }).catch(
-      () => {},
-    );
+    renewMailMutationBatchLease(
+      mutations.map((mutation) => mutation.id),
+      { leaseMs: LEASE_MS, ownerId },
+    ).catch(() => {});
   }, LEASE_MS / 2);
   try {
-    await processMutation(mutation, ownerId);
+    if (mutations.length === 1) {
+      const mutation = mutations[0];
+      if (mutation) await processMutation(mutation, ownerId);
+    } else {
+      await processArchiveMutationBatch(mutations, ownerId);
+    }
   } finally {
     clearInterval(heartbeat);
   }
@@ -234,6 +250,64 @@ async function processMutation(mutation: MailMutation, ownerId: string) {
       await retryMutation(
         mutation,
         "Provider temporarily unavailable",
+        ownerId,
+      );
+  }
+}
+
+async function processArchiveMutationBatch(
+  mutations: MailMutation[],
+  ownerId: string,
+) {
+  const first = mutations[0];
+  if (
+    !first ||
+    mutations.some(
+      (mutation) =>
+        mutation.kind !== "archive" ||
+        mutation.labelId ||
+        mutation.emailAccountId !== first.emailAccountId ||
+        mutation.batchId !== first.batchId,
+    )
+  ) {
+    throw new Error("Incompatible mail mutation batch");
+  }
+
+  const result = await withRequestTimeout(
+    executeArchiveMutationBatchAction(first.emailAccountId, {
+      mutations: mutations.map((mutation) => ({
+        messageIds: mutation.messageIds,
+      })),
+    }),
+  );
+  if (!result?.data) throw new Error("Mutation request failed");
+  const mutationIds = mutations.map((mutation) => mutation.id);
+
+  switch (result.data.status) {
+    case "applied":
+      await settleMailMutationBatchInCache(mutations);
+      await markMailMutationBatchAwaitingSync(mutationIds, ownerId);
+      return;
+    case "blocked_auth":
+      await blockMailMutationBatchForAuth(
+        mutationIds,
+        "Reconnect this account",
+        ownerId,
+      );
+      return;
+    case "rejected":
+      await failMailMutationBatch(
+        mutationIds,
+        "failed",
+        result.data.error,
+        ownerId,
+      );
+      return;
+    case "retry":
+      await retryMailMutationBatch(
+        mutations.map((mutation) =>
+          toMutationBatchRetry(mutation, "Provider temporarily unavailable"),
+        ),
         ownerId,
       );
   }
@@ -354,18 +428,36 @@ async function retryMutation(
   error: string,
   ownerId: string,
 ) {
+  await retryMailMutation(
+    mutation.id,
+    getMutationRetryOptions(mutation, error),
+    ownerId,
+  );
+}
+
+function retryClaimedMutationBatch(mutations: MailMutation[], ownerId: string) {
+  const mutation = mutations[0];
+  if (mutations.length === 1 && mutation) {
+    return retryMutation(mutation, "Mutation request failed", ownerId);
+  }
+  return retryMailMutationBatch(
+    mutations.map((mutation) =>
+      toMutationBatchRetry(mutation, "Mutation request failed"),
+    ),
+    ownerId,
+  );
+}
+
+function toMutationBatchRetry(mutation: MailMutation, error: string) {
+  return { id: mutation.id, ...getMutationRetryOptions(mutation, error) };
+}
+
+function getMutationRetryOptions(mutation: MailMutation, error: string) {
   const delay = Math.min(
     1000 * 2 ** Math.max(0, mutation.attempts - 1),
     60_000,
   );
-  await retryMailMutation(
-    mutation.id,
-    {
-      error,
-      nextAttemptAt: Date.now() + delay,
-    },
-    ownerId,
-  );
+  return { error, nextAttemptAt: Date.now() + delay };
 }
 
 function toActionInput(mutation: MailMutation): ExecuteMailMutationBody {
