@@ -53,7 +53,12 @@ import {
   getThreadsFromSenderWithSubject,
 } from "@/utils/outlook/thread";
 import { getOutlookAttachment } from "@/utils/outlook/attachment";
-import { getDraft, deleteDraft, sendDraft } from "@/utils/outlook/draft";
+import {
+  getDraft,
+  getDraftReference,
+  deleteDraft,
+  sendDraft,
+} from "@/utils/outlook/draft";
 import {
   getFiltersList,
   createFilter,
@@ -586,8 +591,26 @@ export class OutlookProvider implements EmailProvider {
     return getDraft({ client: this.client, draftId, logger: this.logger });
   }
 
-  async deleteDraft(draftId: string): Promise<void> {
-    await deleteDraft({ client: this.client, draftId, logger: this.logger });
+  async getDraftReferenceForMessage(messageId: string) {
+    return getDraftReference({
+      client: this.client,
+      messageId,
+      logger: this.logger,
+    });
+  }
+
+  async deleteDraft(draftId: string, version?: string): Promise<boolean> {
+    const draftReference = version
+      ? { id: draftId, version }
+      : await this.getDraftReferenceForMessage(draftId);
+    if (!draftReference) return false;
+
+    return deleteDraft({
+      client: this.client,
+      draftId: draftReference.id,
+      version: draftReference.version,
+      logger: this.logger,
+    });
   }
 
   async sendDraft(

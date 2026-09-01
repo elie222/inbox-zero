@@ -45,7 +45,7 @@ import type {
 } from "@/app/api/user/contacts/route";
 import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
 import { Input, Label } from "@/components/Input";
-import { ButtonLoader } from "@/components/Loading";
+import { ButtonLoader, LoadingMiniSpinner } from "@/components/Loading";
 import { LoadingContent } from "@/components/LoadingContent";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -108,7 +108,9 @@ type ComposeEmailFormProps = {
   replyingToEmail?: ReplyingToEmail;
   refetch?: () => void;
   onSuccess?: (messageId: string, threadId: string) => void;
+  onClose?: () => void;
   onDiscard?: () => void;
+  isDiscarding?: boolean;
 };
 
 type ComposeAttachment = EmailComposerAttachment & {
@@ -160,7 +162,9 @@ function ComposeEmailFormContent({
   onSelectEmailAccount,
   refetch,
   onSuccess,
+  onClose,
   onDiscard,
+  isDiscarding,
 }: ComposeEmailFormProps & {
   accountProvider: string;
   accountSignatureHtml: string;
@@ -480,7 +484,7 @@ function ComposeEmailFormContent({
             toastSuccess({
               description: getQueuedEmailDescription(outcome.reason),
             });
-            onDiscard?.();
+            onClose?.();
           } else if (outcome.status === "uncertain") {
             if (outcome.ownsNotification) {
               toastError({
@@ -488,7 +492,7 @@ function ComposeEmailFormContent({
                   "This reply may have sent. Check Sent before retrying.",
               });
             }
-            onDiscard?.();
+            onClose?.();
           } else if (outcome.ownsNotification) {
             toastError({ description: outcome.error });
           }
@@ -518,7 +522,7 @@ function ComposeEmailFormContent({
     },
     [
       initialDraft,
-      onDiscard,
+      onClose,
       onSuccess,
       preservedBlocks,
       refetch,
@@ -900,14 +904,18 @@ function ComposeEmailFormContent({
                 isComposeWindow &&
                   "text-muted-foreground hover:text-foreground",
               )}
-              disabled={isSubmitting}
+              disabled={isSubmitting || isDiscarding}
               onClick={onDiscard}
               size={isComposeWindow ? "iconSm" : "icon"}
               title="Discard draft"
               type="button"
               variant="ghost"
             >
-              <TrashIcon className="size-4" />
+              {isDiscarding ? (
+                <LoadingMiniSpinner />
+              ) : (
+                <TrashIcon className="size-4" />
+              )}
             </Button>
           )}
         </div>

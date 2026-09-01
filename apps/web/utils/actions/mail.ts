@@ -20,6 +20,7 @@ import {
 import { MailSplitKind } from "@/generated/prisma/enums";
 import { isGmailLabelColor } from "@/utils/gmail/label-colors";
 import { getOutlookCategoryPreset } from "@/utils/outlook/category-colors";
+import { markTrackedDraftDeleted } from "@/utils/ai/draft-cleanup";
 
 const isStatusOk = (status: number) => status >= 200 && status < 300;
 
@@ -413,6 +414,41 @@ export const sendEmailAction = actionClient
         messageId: result.messageId,
         threadId: result.threadId,
       };
+    },
+  );
+
+export const deleteDraftAction = actionClient
+  .metadata({ name: "deleteDraft" })
+  .inputSchema(z.object({ draftMessageId: z.string() }))
+  .action(
+    async ({
+      ctx: { emailAccountId, provider: providerName, logger },
+      parsedInput: { draftMessageId },
+    }) => {
+      const provider = await createEmailProvider({
+        emailAccountId,
+        provider: providerName,
+        logger,
+      });
+      const draft = await provider.getDraftReferenceForMessage(draftMessageId);
+      if (!draft) {
+        throw new SafeError("Could not find this draft to delete.");
+      }
+
+      const wasDeleted = await provider.deleteDraft(draft.id, draft.version);
+      if (!wasDeleted) return;
+
+      try {
+        await markTrackedDraftDeleted({
+          draftId: draft.id,
+          emailAccountId,
+          logger,
+        });
+      } catch (error) {
+        logger.error("Failed to update tracking after deleting draft", {
+          error,
+        });
+      }
     },
   );
 

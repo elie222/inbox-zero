@@ -66,7 +66,12 @@ import {
   getThreadsWithNextPageToken,
 } from "@/utils/gmail/thread";
 import { decodeSnippet } from "@/utils/gmail/decode";
-import { getDraft, deleteDraft, sendDraft } from "@/utils/gmail/draft";
+import {
+  getDraft,
+  getDraftIdForMessage,
+  deleteDraft,
+  sendDraft,
+} from "@/utils/gmail/draft";
 import {
   extractErrorInfo,
   isRetryableError,
@@ -870,8 +875,13 @@ export class GmailProvider implements EmailProvider {
     return getDraft(draftId, this.client);
   }
 
-  async deleteDraft(draftId: string): Promise<void> {
-    await deleteDraft(this.client, draftId);
+  async getDraftReferenceForMessage(messageId: string) {
+    const draftId = await getDraftIdForMessage(this.client, messageId);
+    return draftId ? { id: draftId } : null;
+  }
+
+  async deleteDraft(draftId: string): Promise<boolean> {
+    return deleteDraft(this.client, draftId);
   }
 
   async sendDraft(

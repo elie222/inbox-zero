@@ -36,3 +36,12 @@ export function isNotFoundError(error: unknown): boolean {
   }
   return false;
 }
+
+export function isPreconditionFailedError(error: unknown): boolean {
+  return (
+    error !== null &&
+    typeof error === "object" &&
+    "statusCode" in error &&
+    (error as { statusCode: unknown }).statusCode === 412
+  );
+}

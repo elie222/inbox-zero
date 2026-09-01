@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState, useRef, useEffect } from "react";
+import { useAction } from "next-safe-action/hooks";
 import useSWR from "swr";
 import {
   ForwardIcon,
@@ -28,6 +29,7 @@ import { cn } from "@/utils";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { GmailLabel } from "@/utils/gmail/label";
 import { generateNudgeReplyAction } from "@/utils/actions/generate-reply";
+import { deleteDraftAction } from "@/utils/actions/mail";
 import type { ThreadMessage } from "@/components/email-list/types";
 import { EmailDetails } from "@/components/email-list/EmailDetails";
 import { HtmlEmail, PlainEmail } from "@/components/email-list/EmailContents";
@@ -38,6 +40,8 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { formatReplySubject } from "@/utils/email/subject";
 import { env } from "@/env";
 import type { ContactsResponse } from "@/app/api/user/contacts/route";
+import { toastError } from "@/components/Toast";
+import { getActionErrorMessage } from "@/utils/error";
 
 export function EmailMessage({
   message,
@@ -436,6 +440,31 @@ function ReplyPanel({
     return prepareForwardingEmail(message);
   }, [showReply, message, draftMessage, reply]);
 
+  const { execute: discardDraft, isExecuting: isDiscardingDraft } = useAction(
+    deleteDraftAction.bind(null, emailAccountId),
+    {
+      onSuccess: () => {
+        refetch();
+        onCloseCompose();
+      },
+      onError: (error) => {
+        toastError({
+          description: getActionErrorMessage(error.error, {
+            prefix: "Failed to discard draft",
+          }),
+        });
+      },
+    },
+  );
+
+  const onDiscard = useCallback(() => {
+    if (!draftMessage) {
+      onCloseCompose();
+      return;
+    }
+    discardDraft({ draftMessageId: draftMessage.id });
+  }, [draftMessage, discardDraft, onCloseCompose]);
+
   return (
     <Card className="mt-6 rounded-xl p-3" ref={replyRef}>
       {isGeneratingReply ? (
@@ -455,7 +484,9 @@ function ReplyPanel({
         </div>
       ) : (
         <ComposeEmailFormLazy
-          onDiscard={onCloseCompose}
+          isDiscarding={isDiscardingDraft}
+          onClose={onCloseCompose}
+          onDiscard={onDiscard}
           onSuccess={(messageId: string, threadId: string) => {
             onSendSuccess(messageId, threadId);
             onCloseCompose();

@@ -107,7 +107,8 @@ export const createMockEmailProvider = (
   markReadThread: vi.fn().mockResolvedValue(undefined),
   markMessagesReadState: vi.fn().mockResolvedValue(undefined),
   getDraft: vi.fn().mockResolvedValue(null),
-  deleteDraft: vi.fn().mockResolvedValue(undefined),
+  getDraftReferenceForMessage: vi.fn().mockResolvedValue(null),
+  deleteDraft: vi.fn().mockResolvedValue(true),
   sendDraft: vi
     .fn()
     .mockResolvedValue({ messageId: "sent-msg1", threadId: "thread1" }),
