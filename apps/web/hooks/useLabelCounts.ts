@@ -32,6 +32,7 @@ export function useLabelCounts({ emailAccountId }: { emailAccountId: string }) {
     mutate(
       (current) => {
         if (
+          pendingInboxUnread.current.emailAccountId !== emailAccountId ||
           !pendingInboxUnread.current.delta ||
           !current?.counts.some((count) => count.id === GmailLabel.INBOX)
         ) {
@@ -43,7 +44,7 @@ export function useLabelCounts({ emailAccountId }: { emailAccountId: string }) {
       },
       { revalidate: false },
     );
-  }, [mutate]);
+  }, [emailAccountId, mutate]);
 
   useEffect(() => {
     if (!data || !pendingInboxUnread.current.delta) return;
@@ -52,14 +53,19 @@ export function useLabelCounts({ emailAccountId }: { emailAccountId: string }) {
 
   const adjustInboxUnread = useCallback(
     (delta: number) => {
-      if (!delta) return;
+      if (
+        !delta ||
+        pendingInboxUnread.current.emailAccountId !== emailAccountId
+      ) {
+        return;
+      }
       pendingInboxUnread.current.delta += delta;
       if (!dataRef.current) {
         return;
       }
       applyPendingInboxUnreadDelta();
     },
-    [applyPendingInboxUnreadDelta],
+    [applyPendingInboxUnreadDelta, emailAccountId],
   );
 
   const countsById = useMemo(

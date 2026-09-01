@@ -148,6 +148,26 @@ describe("useLabelCounts", () => {
       expect(result.current.countsById.get("INBOX")?.unread).toBe(4),
     );
   });
+
+  it("ignores an unread update resumed from the previous account", async () => {
+    const fetcher = vi.fn().mockResolvedValue(initialResponse);
+    const { result, rerender } = renderHook(
+      ({ emailAccountId }) => useLabelCounts({ emailAccountId }),
+      {
+        initialProps: { emailAccountId: "account-1" },
+        wrapper: createWrapper(fetcher),
+      },
+    );
+
+    await waitFor(() =>
+      expect(result.current.countsById.get("INBOX")?.unread).toBe(4),
+    );
+    const previousAccountAdjustInboxUnread = result.current.adjustInboxUnread;
+    rerender({ emailAccountId: "account-2" });
+    act(() => previousAccountAdjustInboxUnread(-1));
+
+    expect(result.current.countsById.get("INBOX")?.unread).toBe(4);
+  });
 });
 
 function createWrapper(fetcher: () => unknown) {
