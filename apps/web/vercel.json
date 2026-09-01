@@ -113,6 +113,10 @@
       "schedule": "0 8 * * *"
     },
     {
+      "path": "/api/resend/summary/all",
+      "schedule": "0 9 * * 1"
+    },
+    {
       "path": "/api/meeting-briefs",
       "schedule": "*/15 * * * *"
     },
