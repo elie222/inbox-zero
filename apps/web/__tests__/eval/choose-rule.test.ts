@@ -748,7 +748,14 @@ describe.runIf(shouldRunEval)("Eval: Choose Rule", () => {
           const acceptable = Array.isArray(tc.expectedRule)
             ? tc.expectedRule
             : [tc.expectedRule ?? "no match"];
-          const pass = acceptable.includes(actual);
+          const forbiddenSelected = result.rules
+            .map((r) => r.rule.name)
+            .filter(
+              (name) =>
+                "forbiddenRules" in tc && tc.forbiddenRules.includes(name),
+            );
+          const pass =
+            acceptable.includes(actual) && forbiddenSelected.length === 0;
 
           evalReporter.record({
             testName,
@@ -764,12 +771,7 @@ describe.runIf(shouldRunEval)("Eval: Choose Rule", () => {
             expect(acceptable).toContain(actual);
           }
 
-          if ("forbiddenRules" in tc) {
-            const selected = result.rules.map((r) => r.rule.name);
-            expect(
-              selected.filter((name) => tc.forbiddenRules.includes(name)),
-            ).toEqual([]);
-          }
+          expect(forbiddenSelected).toEqual([]);
         },
         TIMEOUT,
       );
