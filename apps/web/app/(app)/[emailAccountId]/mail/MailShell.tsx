@@ -341,6 +341,7 @@ export function MailShell() {
       if (!isAllAccounts) {
         adjustInboxUnread(
           getInboxUnreadDelta({
+            countByMessage: isOutlook,
             inboxFolderId,
             read,
             threadKeys: queuedKeys,
@@ -350,7 +351,13 @@ export function MailShell() {
       }
       return queuedKeys;
     },
-    [adjustInboxUnread, inboxFolderId, isAllAccounts, queueReadState],
+    [
+      adjustInboxUnread,
+      inboxFolderId,
+      isAllAccounts,
+      isOutlook,
+      queueReadState,
+    ],
   );
   const markRead = useCallback(
     (threadKeys: string[]) => setReadState(threadKeys, true, false),

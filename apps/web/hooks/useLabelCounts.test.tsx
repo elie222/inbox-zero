@@ -82,6 +82,30 @@ describe("useLabelCounts", () => {
     );
     expect(fetcher).toHaveBeenCalledOnce();
   });
+
+  it("applies an unread delta queued before counts load", async () => {
+    let resolveResponse:
+      | ((response: typeof initialResponse) => void)
+      | undefined;
+    const fetcher = vi.fn(
+      () =>
+        new Promise<typeof initialResponse>((resolve) => {
+          resolveResponse = resolve;
+        }),
+    );
+    const { result } = renderHook(
+      () => useLabelCounts({ emailAccountId: "account-1" }),
+      { wrapper: createWrapper(fetcher) },
+    );
+
+    await waitFor(() => expect(resolveResponse).toBeTypeOf("function"));
+    act(() => result.current.adjustInboxUnread(-1));
+    await act(async () => resolveResponse?.(initialResponse));
+
+    await waitFor(() =>
+      expect(result.current.countsById.get("INBOX")?.unread).toBe(3),
+    );
+  });
 });
 
 function createWrapper(fetcher: () => unknown) {

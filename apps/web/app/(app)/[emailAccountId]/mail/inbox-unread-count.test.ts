@@ -34,17 +34,18 @@ describe("getInboxUnreadDelta", () => {
     ).toBe(1);
   });
 
-  it("recognizes the Outlook inbox folder", () => {
-    const thread = createThread("outlook", ["UNREAD"], "outlook-inbox");
+  it("counts each unread Outlook inbox message", () => {
+    const thread = createThread("outlook", ["UNREAD"], "outlook-inbox", 2);
 
     expect(
       getInboxUnreadDelta({
+        countByMessage: true,
         inboxFolderId: "outlook-inbox",
         read: true,
         threadKeys: [thread.id],
         threads: [thread],
       }),
-    ).toBe(-1);
+    ).toBe(-2);
   });
 });
 
@@ -52,24 +53,23 @@ function createThread(
   id: string,
   labelIds: string[],
   parentFolderId?: string,
+  messageCount = 1,
 ): ListThread {
   return {
     id,
     snippet: "snippet",
     plan: undefined,
     plans: [],
-    messages: [
-      {
-        id: `message-${id}`,
-        threadId: id,
-        snippet: "snippet",
-        subject: "Subject",
-        date: "0",
-        internalDate: "0",
-        labelIds,
-        parentFolderId,
-        headers: { subject: "Subject" },
-      },
-    ],
+    messages: Array.from({ length: messageCount }, (_, index) => ({
+      id: `message-${id}-${index}`,
+      threadId: id,
+      snippet: "snippet",
+      subject: "Subject",
+      date: "0",
+      internalDate: "0",
+      labelIds,
+      parentFolderId,
+      headers: { subject: "Subject" },
+    })),
   };
 }
