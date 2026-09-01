@@ -137,7 +137,9 @@ export function selectChangedPlaywrightTargets(changedFilesInput, appRoot) {
 
   for (const file of changedFiles) {
     if (isEmulatedSpecFile(file.appPath)) {
-      targetFiles.add(file.appPath);
+      if (existsSync(path.join(appRoot, file.appPath))) {
+        targetFiles.add(file.appPath);
+      }
       continue;
     }
 
@@ -332,7 +334,8 @@ function isFullSuiteFile({ repoPath, appPath }) {
     repoPath === "scripts/pnpm-install-without-desktop.sh" ||
     repoPath.startsWith("apps/web/next.config.") ||
     repoPath === "apps/web/__tests__/playwright/run-emulated-suite.mjs" ||
-    repoPath === "apps/web/utils/playwright/emulated-suite-selection.mjs"
+    (repoPath.startsWith("apps/web/utils/playwright/") &&
+      !isNonRuntimeFile(appPath))
   );
 }
 

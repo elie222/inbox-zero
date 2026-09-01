@@ -70,6 +70,28 @@ describe("emulated Playwright suite selection", () => {
     expect(selection.targetFiles).toEqual([]);
   });
 
+  test("keeps shared Playwright runtime utilities on the full suite", () => {
+    const selection = selectChangedPlaywrightTargets(
+      "apps/web/utils/playwright/browser-diagnostics.ts",
+      appRoot,
+    );
+
+    expect(selection.runFullSuite).toBe(true);
+    expect(selection.targetFiles).toEqual([]);
+  });
+
+  test("does not try to run a deleted spec", () => {
+    const selection = selectChangedPlaywrightTargets(
+      "apps/web/__tests__/playwright/emulated/mail/deleted.spec.ts",
+      appRoot,
+    );
+
+    expect(selection).toMatchObject({
+      runFullSuite: false,
+      targetFiles: [],
+    });
+  });
+
   test("selects all areas when a common app dependency changes", () => {
     const selection = selectChangedPlaywrightTargets(
       "apps/web/components/SideNavWithTopNav.tsx",
