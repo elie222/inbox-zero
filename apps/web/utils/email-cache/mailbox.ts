@@ -577,6 +577,7 @@ function toListMessage(message: ParsedMessage) {
     date: message.date,
     internalDate: message.internalDate,
     labelIds: message.labelIds,
+    parentFolderId: message.parentFolderId,
     headers: message.headers,
   };
 }
