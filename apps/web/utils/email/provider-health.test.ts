@@ -8,6 +8,7 @@ import {
   claimProviderIssueCleanupInRedis,
   releaseProviderIssueCleanupClaimInRedis,
 } from "@/utils/redis/provider-issue-cleanup";
+import { createScopedLogger } from "@/utils/logger";
 
 vi.mock("@/utils/auth/cleanup-invalid-tokens", () => ({
   cleanupInvalidTokens: vi.fn(),
@@ -139,7 +140,7 @@ describe("provider health", () => {
   });
 
   it("does not disconnect Outlook accounts for item access failures", async () => {
-    const logger = createMockLogger();
+    const logger = createScopedLogger("provider-health-test");
 
     await recordEmailAccountProviderIssue({
       emailAccountId: "email-account-1",
