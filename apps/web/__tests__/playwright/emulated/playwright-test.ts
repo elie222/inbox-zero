@@ -5,6 +5,7 @@ import {
   type Response,
 } from "@playwright/test";
 import { capturePlaywrightCheckpoint } from "./playwright-evidence";
+import { sanitizeBrowserDiagnosticText } from "@/utils/playwright/browser-diagnostics";
 
 type BrowserDiagnostic = {
   kind: "console-error" | "http-error" | "page-error" | "request-failed";
@@ -24,7 +25,6 @@ type BrowserEvidenceFixtures = {
 };
 
 const MAX_DIAGNOSTICS_PER_KIND = 50;
-const MAX_MESSAGE_LENGTH = 2000;
 
 export const test = base.extend<BrowserEvidenceFixtures>({
   browserEvidence: [
@@ -35,19 +35,21 @@ export const test = base.extend<BrowserEvidenceFixtures>({
         addDiagnostic(diagnostics, {
           kind: "console-error",
           location: sanitizeLocation(message.location()),
-          message: truncate(message.text()),
+          message: sanitizeBrowserDiagnosticText(message.text()),
         });
       };
       const onPageError = (error: Error) => {
         addDiagnostic(diagnostics, {
           kind: "page-error",
-          message: truncate(error.stack ?? error.message),
+          message: sanitizeBrowserDiagnosticText(error.stack ?? error.message),
         });
       };
       const onRequestFailed = (request: Request) => {
         addDiagnostic(diagnostics, {
           kind: "request-failed",
-          message: truncate(request.failure()?.errorText ?? "Unknown failure"),
+          message: sanitizeBrowserDiagnosticText(
+            request.failure()?.errorText ?? "Unknown failure",
+          ),
           method: request.method(),
           resourceType: request.resourceType(),
           url: sanitizeUrl(request.url()),
@@ -155,10 +157,4 @@ function sanitizeUrl(value: string) {
   } catch {
     return value.split(/[?#]/, 1)[0] ?? "";
   }
-}
-
-function truncate(value: string) {
-  return value.length <= MAX_MESSAGE_LENGTH
-    ? value
-    : `${value.slice(0, MAX_MESSAGE_LENGTH)}…`;
 }

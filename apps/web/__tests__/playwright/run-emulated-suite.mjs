@@ -170,8 +170,8 @@ function getRequestedPlaywrightTargets(args) {
     .filter((argument) => argument !== "--")
     .map((argument) => {
       const normalizedArgument = argument
-        .replace(/^apps\/web\//, "")
         .replace(/^\.\//, "")
+        .replace(/^apps\/web\//, "")
         .replace(/\/$/, "");
       const targetPath = getPlaywrightTargetPath(normalizedArgument);
       const resolvedPath = path.resolve(targetPath);
