@@ -37,9 +37,16 @@ gallery can compare it with `main` and attaches the same image to the full
 Playwright report.
 
 The emulated project runs when browser-facing files change in pull requests or
-on `main`, plus the daily schedule and manual dispatches. CI captures the final
-state of every test, and tests can add intentional checkpoint screenshots for
-important intermediate states. Every failure also retains its trace and video.
+on `main`, plus the daily schedule and manual dispatches. Pull requests run only
+the affected product areas. The selector traces imports from each tested Next.js
+route, combines those results with explicit product boundaries, and runs an
+entire area when its product code changes or only a spec when that spec changes.
+Shared Playwright setup and configuration changes use the full suite. Pushes to
+`main`, scheduled runs, and manual runs also keep the full suite as a backstop.
+
+CI captures the final state of every selected test, and tests can add
+intentional checkpoint screenshots for important intermediate states. Every
+failure also retains its trace and video.
 
 After each pull request run, a trusted follow-up workflow publishes a
 screenshot-only gallery, compares its checkpoints with the latest successful

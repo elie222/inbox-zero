@@ -1,34 +1,30 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, rmSync, statSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import path from "node:path";
-
-const fullSuites = [
-  "attachments",
-  "automation",
-  "calendars",
-  "channels",
-  "chat",
-  "cleanup/analytics.spec.ts",
-  "cleanup/bulk-archive.spec.ts",
-  "cleanup/bulk-unsubscribe.spec.ts",
-  "integrations",
-  "mail",
-  "meetings",
-  "onboarding",
-  "settings",
-];
-const cleanupSuites = fullSuites.filter((suite) =>
-  suite.startsWith("cleanup/"),
-);
+import {
+  fullSuites,
+  selectChangedPlaywrightTargets,
+} from "../../utils/playwright/emulated-suite-selection.mjs";
 const requestedTargets = getRequestedPlaywrightTargets(process.argv.slice(2));
-const changedTargetFiles = requestedTargets.length
-  ? []
-  : getChangedPlaywrightTargetFiles();
+const changedSelection = requestedTargets.length
+  ? undefined
+  : selectChangedPlaywrightTargets(
+      process.env.PLAYWRIGHT_CHANGED_FILES,
+      process.cwd(),
+    );
+const changedTargetFiles = changedSelection?.targetFiles ?? [];
 const targets = requestedTargets.length
   ? requestedTargets
-  : changedTargetFiles.length
-    ? getChangedPlaywrightTargets(changedTargetFiles)
-    : getFullSuiteTargets();
+  : changedSelection?.runFullSuite
+    ? getFullSuiteTargets()
+    : getChangedPlaywrightTargets(changedTargetFiles);
 const dryRun = process.env.PLAYWRIGHT_DRY_RUN === "1";
 const playwrightRunRootDir = path.resolve(".tmp/playwright");
 const blobReportDir = path.join(playwrightRunRootDir, "blob-report");
@@ -47,9 +43,15 @@ let failed = false;
 
 if (requestedTargets.length) {
   console.log(`Running ${targets.length} requested Playwright target(s).`);
-} else if (changedTargetFiles.length) {
-  console.log(
-    `Running ${targets.length} Playwright target(s) for changed files.`,
+} else {
+  console.log(changedSelection.reason);
+  console.log(`Running ${targets.length} Playwright target(s).`);
+}
+
+if (!dryRun && !targets.length) {
+  writeFileSync(
+    path.join(testResultsDir, "selection.json"),
+    `${JSON.stringify({ reason: changedSelection.reason }, null, 2)}\n`,
   );
 }
 
@@ -89,7 +91,7 @@ for (const target of targets) {
   if (result.status !== 0) failed = true;
 }
 
-if (!dryRun) {
+if (!dryRun && targets.length) {
   const mergeResult = runPlaywright(
     ["merge-reports", "--reporter=html", blobReportDir],
     { PLAYWRIGHT_HTML_OPEN: "never" },
@@ -119,52 +121,6 @@ function runPlaywright(args, extraEnv) {
 
   if (result.error) throw result.error;
   return result;
-}
-
-function getChangedPlaywrightTargetFiles() {
-  const changedFilesInput = process.env.PLAYWRIGHT_CHANGED_TEST_FILES?.trim();
-  if (!changedFilesInput) return [];
-
-  const normalizedFiles = [
-    ...new Set(
-      changedFilesInput
-        .split(/\r?\n/)
-        .map((file) => file.trim())
-        .filter(Boolean)
-        .map((file) => file.replace(/^apps\/web\//, "")),
-    ),
-  ];
-
-  if (
-    normalizedFiles.some((file) =>
-      file.startsWith("__tests__/playwright/emulated/setup/"),
-    )
-  ) {
-    console.log("Playwright setup changed; running the full emulated suite.");
-    return [];
-  }
-  if (normalizedFiles.some(isSharedEmulatedSupportFile)) {
-    console.log(
-      "Shared Playwright support changed; running the full emulated suite.",
-    );
-    return [];
-  }
-
-  const changedSpecFiles = normalizedFiles.filter((file) =>
-    isEmulatedSpecFile(file),
-  );
-  const changedSupportBoundaries = new Set(
-    normalizedFiles
-      .filter((file) => isEmulatedSupportFile(file))
-      .flatMap(getChangedSupportBoundaries),
-  );
-
-  return [
-    ...changedSpecFiles,
-    ...[...changedSupportBoundaries].map((boundary) =>
-      getPlaywrightTargetPath(boundary),
-    ),
-  ];
 }
 
 function getRequestedPlaywrightTargets(args) {
@@ -247,21 +203,9 @@ function getChangedFileBoundary(file) {
   return relativePath.split("/")[0];
 }
 
-function getChangedSupportBoundaries(file) {
-  const boundary = getChangedFileBoundary(file);
-
-  if (boundary.startsWith("cleanup/")) return cleanupSuites;
-
-  return [boundary];
-}
-
 function getPlaywrightTargetPath(target) {
   if (target.startsWith("__tests__/playwright/")) return target;
   return `__tests__/playwright/emulated/${target}`;
-}
-
-function isEmulatedSpecFile(file) {
-  return /^__tests__\/playwright\/emulated\/.*\.spec\.[cm]?[jt]sx?$/.test(file);
 }
 
 function isRequestedPlaywrightTarget(targetPath) {
@@ -278,20 +222,6 @@ function isRequestedPlaywrightTarget(targetPath) {
 
 function isPlaywrightSpecFile(file) {
   return /\.spec\.[cm]?[jt]sx?$/.test(file);
-}
-
-function isEmulatedSupportFile(file) {
-  return (
-    file.startsWith("__tests__/playwright/emulated/") &&
-    !file.startsWith("__tests__/playwright/emulated/setup/") &&
-    !isEmulatedSpecFile(file)
-  );
-}
-
-function isSharedEmulatedSupportFile(file) {
-  if (!isEmulatedSupportFile(file)) return false;
-  const relativePath = file.replace(/^__tests__\/playwright\/emulated\//, "");
-  return !relativePath.includes("/");
 }
 
 function isIntegrationsTarget(targetPath) {
