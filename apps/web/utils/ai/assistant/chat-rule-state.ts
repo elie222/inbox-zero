@@ -111,7 +111,7 @@ export async function loadAssistantRuleSnapshot({
 
   const currentLabelNames = await loadCurrentLabelNames({
     emailAccountId,
-    provider: emailAccount?.account.provider,
+    provider: emailAccount?.account?.provider,
     labelIds: (emailAccount?.rules ?? []).flatMap((rule) =>
       rule.actions.map((action) => action.labelId),
     ),

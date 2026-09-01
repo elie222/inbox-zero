@@ -9,6 +9,8 @@ const labels = [
   { id: "4", name: "OG" },
   { id: "5", name: "2024 Taxes" },
   { id: "6", name: "Receipts" },
+  { id: "7", name: "1: Follow Up" },
+  { id: "8", name: "01 - Follow Up" },
 ];
 
 const find = (name: string) =>
@@ -28,6 +30,10 @@ describe("findOrderPrefixedLabelMatches", () => {
 
   it("does not treat a four digit year as an order prefix", () => {
     expect(find("Taxes")).toEqual([]);
+  });
+
+  it("returns every label that matches once prefixes are ignored", () => {
+    expect(find("Follow Up")).toEqual(["7", "8"]);
   });
 
   it("excludes exact matches and unrelated labels", () => {

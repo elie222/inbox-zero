@@ -126,48 +126,44 @@ function buildCreateOrGetTool({
           };
         }
 
+        // A bare name may match a numbered label ("7: OG") and, for Gmail, a
+        // nested one ("Projects/OG"). Only reuse when the match is unambiguous.
         const prefixedMatches = findOrderPrefixedLabelMatches({
           labels: hiddenAware,
           name: input.name,
           getLabelName: (label) => label.name,
           normalize: normalizeLabelName,
         });
+        const nestedMatches =
+          terms.resource === "label"
+            ? findNestedLabelMatches({
+                labels: hiddenAware,
+                name: input.name,
+                getLabelName: (label) => label.name,
+                normalize: normalizeLabelName,
+              })
+            : [];
+        const candidates = [
+          ...new Map(
+            [...prefixedMatches, ...nestedMatches].map((label) => [
+              label.id,
+              label,
+            ]),
+          ).values(),
+        ];
 
-        if (prefixedMatches.length === 1) {
+        if (candidates.length === 1) {
           return {
             created: false,
-            [terms.resource]: pickLabelFields(prefixedMatches[0]),
+            [terms.resource]: pickLabelFields(candidates[0]),
           };
         }
 
-        if (prefixedMatches.length > 1) {
+        if (candidates.length > 1) {
           return {
-            error: `Multiple ${terms.resourcePlural} match "${input.name}" once numbering prefixes are ignored. Use the exact name.`,
-            [terms.resourcePlural]: prefixedMatches.map(pickLabelFields),
+            error: `Multiple ${terms.resourcePlural} match "${input.name}". Use the exact name or full path.`,
+            [terms.resourcePlural]: candidates.map(pickLabelFields),
           };
-        }
-
-        if (terms.resource === "label") {
-          const nestedMatches = findNestedLabelMatches({
-            labels: hiddenAware,
-            name: input.name,
-            getLabelName: (label) => label.name,
-            normalize: normalizeLabelName,
-          });
-
-          if (nestedMatches.length === 1) {
-            return {
-              created: false,
-              label: pickLabelFields(nestedMatches[0]),
-            };
-          }
-
-          if (nestedMatches.length > 1) {
-            return {
-              error: `Multiple Gmail labels match "${input.name}". Use the full label path.`,
-              labels: nestedMatches.map(pickLabelFields),
-            };
-          }
         }
 
         const created = await emailProvider.createLabel(input.name);

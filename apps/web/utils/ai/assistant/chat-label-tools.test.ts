@@ -195,6 +195,38 @@ describe("chat label tools", () => {
     expect(createLabel).not.toHaveBeenCalled();
   });
 
+  it("does not create a label when several numbered labels share the name", async () => {
+    const getLabels = vi.fn().mockResolvedValue([
+      { id: "label-1", name: "1: OG", type: "user" },
+      { id: "label-7", name: "7: OG", type: "user" },
+      { id: "label-nested", name: "School/OG", type: "user" },
+    ]);
+    const createLabel = vi.fn();
+
+    vi.mocked(createEmailProvider).mockResolvedValue(
+      createMockEmailProvider({ getLabels, createLabel }),
+    );
+
+    const toolInstance = createOrGetLabelTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    const result = await (toolInstance.execute as any)({ name: "OG" });
+
+    expect(result).toEqual({
+      error: 'Multiple labels match "OG". Use the exact name or full path.',
+      labels: [
+        { id: "label-1", name: "1: OG", type: "user" },
+        { id: "label-7", name: "7: OG", type: "user" },
+        { id: "label-nested", name: "School/OG", type: "user" },
+      ],
+    });
+    expect(createLabel).not.toHaveBeenCalled();
+  });
+
   it("does not create a Gmail label when its leaf name is ambiguous", async () => {
     const getLabels = vi.fn().mockResolvedValue([
       { id: "label-1", name: "L3/L4", type: "user" },
@@ -219,7 +251,7 @@ describe("chat label tools", () => {
     const result = await (toolInstance.execute as any)({ name: "L4" });
 
     expect(result).toEqual({
-      error: 'Multiple Gmail labels match "L4". Use the full label path.',
+      error: 'Multiple labels match "L4". Use the exact name or full path.',
       labels: [
         { id: "label-1", name: "L3/L4", type: "user" },
         { id: "label-2", name: "Projects/L4", type: "user" },
