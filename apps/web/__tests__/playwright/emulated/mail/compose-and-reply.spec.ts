@@ -1,4 +1,4 @@
-import { expect, type Locator } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
 import {
@@ -319,6 +319,7 @@ test("selects the sender when composing from all accounts", async ({
 test("opens and sends a reply from the reader with Enter", async ({
   page,
 }, testInfo) => {
+  await stubMailboxSync(page);
   const releaseThreadRequest = Promise.withResolvers<void>();
   let threadRequestStarted = false;
   await page.route(
@@ -385,4 +386,24 @@ async function selectEditorText(editor: Locator, text: string) {
     }
     throw new Error(`Could not find text to select: ${selectedText}`);
   }, text);
+}
+
+function stubMailboxSync(page: Page) {
+  return page.route("**/api/mobile/mailbox-sync", async (route) => {
+    const emailAccountId = await route
+      .request()
+      .headerValue("X-Email-Account-ID");
+    await route.fulfill({
+      body: JSON.stringify({
+        accountId: emailAccountId,
+        cursor: "playwright-compose-sync",
+        deletedMessageIds: [],
+        hasMore: false,
+        reset: false,
+        upsertedMessages: [],
+      }),
+      contentType: "application/json",
+      status: 200,
+    });
+  });
 }

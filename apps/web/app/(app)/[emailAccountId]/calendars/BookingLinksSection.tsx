@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Copy, ExternalLink, Link2, Settings2, Zap } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { useForm, type SubmitHandler } from "react-hook-form";
@@ -197,22 +197,6 @@ function CalendarBookingLinkCard({
     },
   );
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
-  } = useForm<z.infer<typeof updateBookingLinkBody>>({
-    resolver: zodResolver(updateBookingLinkBody),
-    defaultValues: { bookingLink: calendarBookingLink || "" },
-  });
-
-  useEffect(() => {
-    if (calendarBookingLink !== null || data) {
-      reset({ bookingLink: calendarBookingLink || "" });
-    }
-  }, [calendarBookingLink, reset, data]);
-
   const onSubmit: SubmitHandler<z.infer<typeof updateBookingLinkBody>> = (
     formData,
   ) => {
@@ -239,33 +223,61 @@ function CalendarBookingLinkCard({
             <span className="text-sm text-muted-foreground">
               Using Inbox Zero booking link
             </span>
-          ) : (
-            <form
-              onSubmit={handleSubmit(onSubmit)}
-              className="flex flex-col gap-2 sm:flex-row sm:items-center w-full md:w-auto"
-            >
-              <div className="w-full sm:w-80">
-                <Input
-                  type="url"
-                  name="bookingLink"
-                  placeholder="https://cal.com/your-link"
-                  registerProps={register("bookingLink")}
-                  error={errors.bookingLink}
-                />
-              </div>
-              <Button
-                type="submit"
-                loading={isExecuting}
-                size="sm"
-                className="w-full sm:w-auto"
-              >
-                Save
-              </Button>
-            </form>
-          )}
+          ) : data ? (
+            <CalendarBookingLinkForm
+              key={calendarBookingLink || "empty"}
+              bookingLink={calendarBookingLink}
+              isExecuting={isExecuting}
+              onSubmit={onSubmit}
+            />
+          ) : null}
         </LoadingContent>
       }
     />
+  );
+}
+
+function CalendarBookingLinkForm({
+  bookingLink,
+  isExecuting,
+  onSubmit,
+}: {
+  bookingLink: string | null;
+  isExecuting: boolean;
+  onSubmit: SubmitHandler<z.infer<typeof updateBookingLinkBody>>;
+}) {
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<z.infer<typeof updateBookingLinkBody>>({
+    resolver: zodResolver(updateBookingLinkBody),
+    defaultValues: { bookingLink: bookingLink || "" },
+  });
+
+  return (
+    <form
+      onSubmit={handleSubmit(onSubmit)}
+      className="flex flex-col gap-2 sm:flex-row sm:items-center w-full md:w-auto"
+    >
+      <div className="w-full sm:w-80">
+        <Input
+          type="url"
+          name="bookingLink"
+          placeholder="https://cal.com/your-link"
+          registerProps={register("bookingLink")}
+          error={errors.bookingLink}
+        />
+      </div>
+      <Button
+        type="submit"
+        loading={isExecuting}
+        size="sm"
+        className="w-full sm:w-auto"
+      >
+        Save
+      </Button>
+    </form>
   );
 }
 

@@ -30,20 +30,19 @@ test("keeps a queued archive hidden across reload and replays it after reconnect
     conversations,
     ARCHIVE_SUBJECT,
   );
-  const blockServerActions = (route: Route) => {
-    const request = route.request();
-    if (request.method() === "POST" && request.headers()["next-action"]) {
-      return route.abort("connectionfailed");
-    }
-    return route.fallback();
-  };
+  await page.addInitScript(() => {
+    Object.defineProperty(window.navigator, "onLine", {
+      configurable: true,
+      get: () => localStorage.getItem("playwright-mail-online") !== "false",
+    });
+  });
+  await setNavigatorOnline(page, false);
 
   try {
-    await page.route("**/*", blockServerActions);
     await conversation
       .getByRole("checkbox", { name: "Select conversation from Erin Example" })
       .click();
-    await page.getByRole("button", { name: /^Archive E$/ }).click();
+    await page.getByRole("button", { name: "Archive", exact: true }).click();
 
     await expect(conversation).toHaveCount(0);
     await expect
@@ -54,7 +53,7 @@ test("keeps a queued archive hidden across reload and replays it after reconnect
           threadId: ARCHIVE_THREAD_ID,
         }),
       )
-      .toMatchObject({ status: "retry_wait" });
+      .toMatchObject({ status: "pending" });
 
     await page.reload();
     const reloadedConversations = page.getByRole("listbox", {
@@ -70,7 +69,7 @@ test("keeps a queued archive hidden across reload and replays it after reconnect
       "durable-archive-after-reload",
     );
 
-    await page.unroute("**/*", blockServerActions);
+    await setNavigatorOnline(page, true);
     await page.evaluate(() => window.dispatchEvent(new Event("online")));
     await expect
       .poll(
@@ -84,7 +83,7 @@ test("keeps a queued archive hidden across reload and replays it after reconnect
       )
       .toMatchObject({ status: "succeeded" });
   } finally {
-    await page.unroute("**/*", blockServerActions);
+    await setNavigatorOnline(page, true);
     await page.request.post(`/api/threads/${ARCHIVE_THREAD_ID}/unarchive`, {
       headers: { "X-Email-Account-ID": emailAccountId },
     });
@@ -242,7 +241,7 @@ test("keeps a unified-mailbox mutation isolated to its owning account", async ({
     await expect(secondaryConversation).toBeVisible();
 
     await secondaryConversation.getByRole("checkbox").click();
-    await page.getByRole("button", { name: /^Archive E$/ }).click();
+    await page.getByRole("button", { name: "Archive", exact: true }).click();
     await expect(secondaryConversation).toHaveCount(0);
     await expect(primaryConversation).toBeVisible();
     await expect
