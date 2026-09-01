@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { Logger } from "@/utils/logger";
 import { createEmailProvider } from "@/utils/email/provider";
 import { findNestedLabelMatches } from "@/utils/label/find-nested-label-matches";
+import { findOrderPrefixedLabelMatches } from "@/utils/label/find-order-prefixed-label-matches";
 import { normalizeLabelName } from "@/utils/label/normalize-label-name";
 import { posthogCaptureEvent } from "@/utils/posthog";
 
@@ -90,8 +91,8 @@ function buildCreateOrGetTool({
   return tool({
     description:
       terms.resource === "label"
-        ? `Reuse an existing Gmail label by exact path. A leaf name also reuses a uniquely matching nested label; if multiple nested labels share that leaf, this returns their full paths instead of creating a root label. Create the label only when no match exists. Do not call ${listToolName} first — this tool handles resolution and creation in one step.`
-        : `Reuse an existing ${terms.resource} by exact name or create it if it does not exist yet. Do not call ${listToolName} first — this tool handles the check-and-create in one step.`,
+        ? `Reuse an existing Gmail label by exact path. A leaf name also reuses a uniquely matching nested label, and an unnumbered name reuses a uniquely matching numbered label (e.g. "OG" reuses "7: OG"); if multiple labels match, this returns them instead of creating a new one. Create the label only when no match exists. Do not call ${listToolName} first — this tool handles resolution and creation in one step.`
+        : `Reuse an existing ${terms.resource} by exact name (an unnumbered name also reuses a uniquely matching numbered ${terms.resource}) or create it if it does not exist yet. Do not call ${listToolName} first — this tool handles the check-and-create in one step.`,
     inputSchema,
     execute: async (input) => {
       trackToolCall({ tool: terms.createToolName, email, logger });
@@ -122,6 +123,27 @@ function buildCreateOrGetTool({
           return {
             created: false,
             [terms.resource]: pickLabelFields(existingHidden),
+          };
+        }
+
+        const prefixedMatches = findOrderPrefixedLabelMatches({
+          labels: hiddenAware,
+          name: input.name,
+          getLabelName: (label) => label.name,
+          normalize: normalizeLabelName,
+        });
+
+        if (prefixedMatches.length === 1) {
+          return {
+            created: false,
+            [terms.resource]: pickLabelFields(prefixedMatches[0]),
+          };
+        }
+
+        if (prefixedMatches.length > 1) {
+          return {
+            error: `Multiple ${terms.resourcePlural} match "${input.name}" once numbering prefixes are ignored. Use the exact name.`,
+            [terms.resourcePlural]: prefixedMatches.map(pickLabelFields),
           };
         }
 

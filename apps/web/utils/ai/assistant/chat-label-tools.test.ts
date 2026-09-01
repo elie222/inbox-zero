@@ -168,6 +168,33 @@ describe("chat label tools", () => {
     expect(createLabel).not.toHaveBeenCalled();
   });
 
+  it("reuses a numbered label when asked for its unnumbered name", async () => {
+    const getLabels = vi.fn().mockResolvedValue([
+      { id: "label-1", name: "1: To Reply", type: "user" },
+      { id: "label-7", name: "7: OG", type: "user" },
+    ]);
+    const createLabel = vi.fn();
+
+    vi.mocked(createEmailProvider).mockResolvedValue(
+      createMockEmailProvider({ getLabels, createLabel }),
+    );
+
+    const toolInstance = createOrGetLabelTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    const result = await (toolInstance.execute as any)({ name: "OG" });
+
+    expect(result).toEqual({
+      created: false,
+      label: { id: "label-7", name: "7: OG", type: "user" },
+    });
+    expect(createLabel).not.toHaveBeenCalled();
+  });
+
   it("does not create a Gmail label when its leaf name is ambiguous", async () => {
     const getLabels = vi.fn().mockResolvedValue([
       { id: "label-1", name: "L3/L4", type: "user" },
