@@ -26,4 +26,10 @@ describe("sanitizeBrowserDiagnosticText", () => {
     expect(sanitized).not.toContain(token);
     expect(sanitized.endsWith("…")).toBe(true);
   });
+
+  it("preserves package version strings", () => {
+    const text = "Failed to load chalk@5.0.0 and node@20.11.1";
+
+    expect(sanitizeBrowserDiagnosticText(text)).toBe(text);
+  });
 });
