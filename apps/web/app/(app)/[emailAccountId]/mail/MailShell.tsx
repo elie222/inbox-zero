@@ -55,6 +55,7 @@ import { useThreadPrefetchCoordinator } from "@/app/(app)/[emailAccountId]/mail/
 import { useThreadActions } from "@/app/(app)/[emailAccountId]/mail/use-thread-actions";
 import { useThreadSelection } from "@/app/(app)/[emailAccountId]/mail/use-thread-selection";
 import { isThreadUnread } from "@/app/(app)/[emailAccountId]/mail/read-state";
+import { getInboxUnreadDelta } from "@/app/(app)/[emailAccountId]/mail/inbox-unread-count";
 import { MailLayout, MailSplitKind } from "@/generated/prisma/enums";
 import { useChat } from "@/providers/ChatProvider";
 import { Sidebar, useSidebar } from "@/components/ui/sidebar";
@@ -135,7 +136,11 @@ export function MailShell() {
   const { userLabels } = useEmail();
   const { visibleLabels, mutate: mutateLabels } = useSplitLabels();
   const { folders, mutate: mutateFolders } = useFolders(provider);
-  const { countsById, mutate: mutateCounts } = useLabelCounts();
+  const {
+    adjustInboxUnread,
+    countsById,
+    mutate: mutateCounts,
+  } = useLabelCounts({ emailAccountId });
   const { data: settings, mutate: mutateSettings } = useMailSettings();
   const { onOpen: openCompose } = useComposeModal();
   const { setInput: setChatInput } = useChat();
@@ -312,11 +317,44 @@ export function MailShell() {
 
   const orderedIds = useMemo(() => threads.map(getListThreadKey), [threads]);
   const selection = useThreadSelection(orderedIds);
-  const { archive, trash, markRead, setReadState, snooze, undo } =
-    useThreadActions({
-      emailAccountId,
-      threads,
-    });
+  const {
+    archive,
+    trash,
+    setReadState: queueReadState,
+    snooze,
+    undo,
+  } = useThreadActions({
+    emailAccountId,
+    threads,
+  });
+  const inboxFolderId = folders.find(
+    (folder) => folder.systemType === "INBOX",
+  )?.id;
+  // Behind a ref so setReadState stays referentially stable across thread-list
+  // refreshes, matching useThreadActions.
+  const threadsRef = useRef(threads);
+  threadsRef.current = threads;
+  const setReadState = useCallback(
+    async (threadKeys: string[], read: boolean, notifySuccess = true) => {
+      const queuedKeys = await queueReadState(threadKeys, read, notifySuccess);
+      if (!isAllAccounts) {
+        adjustInboxUnread(
+          getInboxUnreadDelta({
+            inboxFolderId,
+            read,
+            threadKeys: queuedKeys,
+            threads: threadsRef.current,
+          }),
+        );
+      }
+      return queuedKeys;
+    },
+    [adjustInboxUnread, inboxFolderId, isAllAccounts, queueReadState],
+  );
+  const markRead = useCallback(
+    (threadKeys: string[]) => setReadState(threadKeys, true, false),
+    [setReadState],
+  );
 
   const clampIndex = useCallback(
     (index: number) =>
