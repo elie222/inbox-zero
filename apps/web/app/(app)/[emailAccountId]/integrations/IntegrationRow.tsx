@@ -93,7 +93,8 @@ export function IntegrationRow({
       analytics.captureAction("integration_connect_failed", {
         integration: integration.name,
         reason: "auth_url_error",
-        error_message: error instanceof Error ? error.message : undefined,
+        error_message:
+          error instanceof Error && error.message ? error.message : undefined,
       });
       console.error(
         `Failed to initiate ${integration.name} connection:`,
