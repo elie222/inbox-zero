@@ -51,6 +51,9 @@ export async function recordLabelRemovalLearning({
     return;
   }
 
+  // Gmail callers record this removal's feedback row first, so the count
+  // includes it. Concurrent webhook pages can still race past this check; the
+  // batch-level isBulkRemoval flag is the primary guard for large sweeps.
   const recentRemovals = await prisma.classificationFeedback.count({
     where: {
       emailAccountId,

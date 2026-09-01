@@ -259,7 +259,7 @@ describe("process-label-removed-event", () => {
       vi.mocked(findRuleByLabelId).mockResolvedValue({
         id: "rule-123",
         systemType: SystemType.NEWSLETTER,
-      } as any);
+      } satisfies NonNullable<Awaited<ReturnType<typeof findRuleByLabelId>>>);
 
       const historyItem = createLabelRemovedHistoryItem("123", "thread-123", [
         "label-2",

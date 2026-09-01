@@ -224,6 +224,12 @@ async function processHistory(options: ProcessHistoryOptions, logger: Logger) {
 
   if (!history?.length) return;
 
+  // Gmail splits one user action across many history records, so count
+  // removals over the whole batch rather than per record.
+  const bulkRemovedLabelIds = getBulkRemovedLabelIds(
+    history.flatMap((h) => h.labelsRemoved || []),
+  );
+
   for (const h of history) {
     const historyMessages = [
       ...(h.messagesAdded || []),
@@ -232,8 +238,6 @@ async function processHistory(options: ProcessHistoryOptions, logger: Logger) {
     ];
 
     if (!historyMessages.length) continue;
-
-    const bulkRemovedLabelIds = getBulkRemovedLabelIds(h.labelsRemoved || []);
 
     const allEvents = [
       ...(h.messagesAdded || [])
