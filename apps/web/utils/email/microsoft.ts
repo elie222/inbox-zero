@@ -593,8 +593,8 @@ export class OutlookProvider implements EmailProvider {
     return draft ? messageId : null;
   }
 
-  async deleteDraft(draftId: string): Promise<void> {
-    await deleteDraft({ client: this.client, draftId, logger: this.logger });
+  async deleteDraft(draftId: string): Promise<boolean> {
+    return deleteDraft({ client: this.client, draftId, logger: this.logger });
   }
 
   async sendDraft(

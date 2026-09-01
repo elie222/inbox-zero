@@ -485,6 +485,7 @@ function ReplyPanel({
       ) : (
         <ComposeEmailFormLazy
           isDiscarding={isDiscardingDraft}
+          onClose={onCloseCompose}
           onDiscard={onDiscard}
           onSuccess={(messageId: string, threadId: string) => {
             onSendSuccess(messageId, threadId);

@@ -879,8 +879,8 @@ export class GmailProvider implements EmailProvider {
     return getDraftIdForMessage(this.client, messageId);
   }
 
-  async deleteDraft(draftId: string): Promise<void> {
-    await deleteDraft(this.client, draftId);
+  async deleteDraft(draftId: string): Promise<boolean> {
+    return deleteDraft(this.client, draftId);
   }
 
   async sendDraft(

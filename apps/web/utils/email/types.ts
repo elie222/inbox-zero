@@ -136,7 +136,7 @@ export interface EmailProvider {
     removeLabelIds?: string[];
   }): Promise<{ status: number }>;
   createLabel(name: string, description?: string): Promise<EmailLabel>;
-  deleteDraft(draftId: string): Promise<void>;
+  deleteDraft(draftId: string): Promise<boolean>;
   deleteFilter(id: string): Promise<{ status: number }>;
   deleteFolder(folderId: string): Promise<void>;
   deleteLabel(labelId: string): Promise<void>;

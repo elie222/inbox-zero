@@ -435,8 +435,16 @@ export const deleteDraftAction = actionClient
         throw new SafeError("Could not find this draft to delete.");
       }
 
-      await provider.deleteDraft(draftId);
-      await markTrackedDraftDeleted({ draftId, emailAccountId });
+      const wasDeleted = await provider.deleteDraft(draftId);
+      if (!wasDeleted) return;
+
+      try {
+        await markTrackedDraftDeleted({ draftId, emailAccountId, logger });
+      } catch (error) {
+        logger.error("Failed to update tracking after deleting draft", {
+          error,
+        });
+      }
     },
   );
 

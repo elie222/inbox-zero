@@ -274,6 +274,7 @@ describe("markTrackedDraftDeleted", () => {
     await markTrackedDraftDeleted({
       draftId: "draft-1",
       emailAccountId: "email-account-1",
+      logger,
     });
 
     expect(mocks.prisma.executedAction.findFirst).toHaveBeenCalledWith({
@@ -300,6 +301,7 @@ describe("markTrackedDraftDeleted", () => {
     await markTrackedDraftDeleted({
       draftId: "draft-untracked",
       emailAccountId: "email-account-1",
+      logger,
     });
 
     expect(mocks.prisma.executedAction.update).not.toHaveBeenCalled();
@@ -315,6 +317,7 @@ describe("markTrackedDraftDeleted", () => {
     await markTrackedDraftDeleted({
       draftId: "draft-1",
       emailAccountId: "email-account-1",
+      logger,
     });
 
     expect(mocks.prisma.executedAction.update).not.toHaveBeenCalled();

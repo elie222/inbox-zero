@@ -107,7 +107,7 @@ export async function deleteDraft({
   client: OutlookClient;
   draftId: string;
   logger: Logger;
-}) {
+}): Promise<boolean> {
   try {
     logger.info("Deleting draft", { draftId });
 
@@ -119,10 +119,11 @@ export async function deleteDraft({
     );
 
     logger.info("Draft deleted successfully", { draftId });
+    return true;
   } catch (error) {
     if (isNotFoundError(error)) {
       logger.info("Draft not found or already deleted", { draftId });
-      return;
+      return false;
     }
 
     logger.error("Failed to delete draft", { draftId, error });

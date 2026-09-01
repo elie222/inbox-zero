@@ -108,6 +108,7 @@ type ComposeEmailFormProps = {
   replyingToEmail?: ReplyingToEmail;
   refetch?: () => void;
   onSuccess?: (messageId: string, threadId: string) => void;
+  onClose?: () => void;
   onDiscard?: () => void;
   isDiscarding?: boolean;
 };
@@ -161,6 +162,7 @@ function ComposeEmailFormContent({
   onSelectEmailAccount,
   refetch,
   onSuccess,
+  onClose,
   onDiscard,
   isDiscarding,
 }: ComposeEmailFormProps & {
@@ -482,7 +484,7 @@ function ComposeEmailFormContent({
             toastSuccess({
               description: getQueuedEmailDescription(outcome.reason),
             });
-            onDiscard?.();
+            onClose?.();
           } else if (outcome.status === "uncertain") {
             if (outcome.ownsNotification) {
               toastError({
@@ -490,7 +492,7 @@ function ComposeEmailFormContent({
                   "This reply may have sent. Check Sent before retrying.",
               });
             }
-            onDiscard?.();
+            onClose?.();
           } else if (outcome.ownsNotification) {
             toastError({ description: outcome.error });
           }
@@ -520,7 +522,7 @@ function ComposeEmailFormContent({
     },
     [
       initialDraft,
-      onDiscard,
+      onClose,
       onSuccess,
       preservedBlocks,
       refetch,

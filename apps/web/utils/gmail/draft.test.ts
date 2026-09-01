@@ -105,6 +105,27 @@ describe("gmail/draft", () => {
     await expect(getDraftIdForMessage(gmail, "m-2")).resolves.toBeNull();
   });
 
+  it("getDraftIdForMessage stops when a page token repeats", async () => {
+    const list = vi.fn().mockResolvedValue({
+      data: { drafts: [], nextPageToken: "repeated-page" },
+    });
+    const gmail = { users: { drafts: { list } } } as any;
+
+    await expect(getDraftIdForMessage(gmail, "m-1")).resolves.toBeNull();
+    expect(list).toHaveBeenCalledTimes(2);
+  });
+
+  it("getDraftIdForMessage bounds the number of pages", async () => {
+    let pageNumber = 0;
+    const list = vi.fn().mockImplementation(async () => ({
+      data: { drafts: [], nextPageToken: `page-${pageNumber++}` },
+    }));
+    const gmail = { users: { drafts: { list } } } as any;
+
+    await expect(getDraftIdForMessage(gmail, "m-1")).resolves.toBeNull();
+    expect(list).toHaveBeenCalledTimes(10);
+  });
+
   it("deleteDraft skips drafts.delete when getDraft returns null", async () => {
     const draftsDelete = vi.fn().mockResolvedValue({ status: 204 });
     const gmail = {
@@ -125,7 +146,7 @@ describe("gmail/draft", () => {
       labelIds: [GmailLabel.SENT],
     });
 
-    await deleteDraft(gmail, "r-1");
+    await expect(deleteDraft(gmail, "r-1")).resolves.toBe(false);
     expect(draftsDelete).not.toHaveBeenCalled();
   });
 
@@ -155,7 +176,7 @@ describe("gmail/draft", () => {
       date: "",
     });
 
-    await deleteDraft(gmail, "r-1");
+    await expect(deleteDraft(gmail, "r-1")).resolves.toBe(true);
     expect(draftsDelete).toHaveBeenCalledTimes(1);
   });
 });

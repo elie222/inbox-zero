@@ -4,6 +4,7 @@ import { createEmailProvider } from "@/utils/email/provider";
 import { isDraftUnmodified } from "@/utils/ai/choose-rule/draft-management";
 import type { Logger } from "@/utils/logger";
 import { DEFAULT_AI_DRAFT_CLEANUP_DAYS } from "@/utils/ai/draft-cleanup-settings";
+import { withPrismaRetry } from "@/utils/prisma-retry";
 
 export async function cleanupAIDraftsForAccount({
   emailAccountId,
@@ -138,19 +139,25 @@ export async function cleanupAIDraftsForAccount({
 export async function markTrackedDraftDeleted({
   draftId,
   emailAccountId,
+  logger,
 }: {
   draftId: string;
   emailAccountId: string;
+  logger: Logger;
 }) {
-  const trackedDraft = await prisma.executedAction.findFirst({
-    where: {
-      draftId,
-      executedRule: { emailAccountId },
-      type: ActionType.DRAFT_EMAIL,
-    },
-    orderBy: { createdAt: "desc" },
-    select: { id: true, draftStatus: true, wasDraftSent: true },
-  });
+  const trackedDraft = await withPrismaRetry(
+    () =>
+      prisma.executedAction.findFirst({
+        where: {
+          draftId,
+          executedRule: { emailAccountId },
+          type: ActionType.DRAFT_EMAIL,
+        },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, draftStatus: true, wasDraftSent: true },
+      }),
+    { logger },
+  );
   if (!trackedDraft) return;
 
   const statusData = getDraftCleanupStatusData({
@@ -159,10 +166,14 @@ export async function markTrackedDraftDeleted({
     status: DraftEmailStatus.CLEANED_UP_UNUSED,
   });
   if (statusData) {
-    await prisma.executedAction.update({
-      where: { id: trackedDraft.id },
-      data: statusData,
-    });
+    await withPrismaRetry(
+      () =>
+        prisma.executedAction.update({
+          where: { id: trackedDraft.id },
+          data: statusData,
+        }),
+      { logger },
+    );
   }
 }
 
