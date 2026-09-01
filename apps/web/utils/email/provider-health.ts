@@ -3,6 +3,7 @@ import {
   getErrorMessage,
   isGmailInsufficientPermissionsError,
   isInvalidGrantError,
+  isOutlookAccessDeniedError,
 } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
 import {
@@ -87,6 +88,14 @@ export function classifyEmailAccountProviderIssue({
     provider === "google" &&
     (isGmailInsufficientPermissionsError(error) ||
       message?.includes("Request had insufficient authentication scopes"))
+  ) {
+    return { reason: "insufficient_permissions" };
+  }
+
+  if (
+    provider === "microsoft" &&
+    isOutlookAccessDeniedError(error) &&
+    !message?.includes("Cannot save changes made to an item to store")
   ) {
     return { reason: "insufficient_permissions" };
   }

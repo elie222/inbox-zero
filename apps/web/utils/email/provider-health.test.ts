@@ -156,6 +156,24 @@ describe("provider health", () => {
     expect(claimProviderIssueCleanupInRedis).not.toHaveBeenCalled();
   });
 
+  it("records Outlook authorization failures as permission issues", async () => {
+    const logger = createScopedLogger("provider-health-test");
+
+    await recordEmailAccountProviderIssue({
+      emailAccountId: "email-account-1",
+      provider: "microsoft",
+      error: new Error("Access is denied. Check credentials and try again."),
+      logger,
+      operation: "getMessage",
+    });
+
+    expect(cleanupInvalidTokens).toHaveBeenCalledWith({
+      emailAccountId: "email-account-1",
+      reason: "insufficient_permissions",
+      logger,
+    });
+  });
+
   it("does not treat malformed Outlook requests as permanent credential failures", () => {
     expect(
       classifyEmailAccountProviderIssue({
