@@ -249,6 +249,7 @@ export function Chat({
             type="button"
             variant="ghost"
             size="icon"
+            aria-label="Attach images"
             className="size-9 rounded-full text-muted-foreground hover:text-foreground"
             onClick={() => {
               analytics.captureAction("chat_attach_button_clicked", {
