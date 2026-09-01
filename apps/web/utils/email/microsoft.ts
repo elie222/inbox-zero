@@ -149,7 +149,7 @@ export class OutlookProvider implements EmailProvider {
       return {
         id: threadId,
         messages,
-        snippet: messages[0]?.snippet || "",
+        snippet: messages.at(-1)?.snippet || "",
       };
     } catch (error) {
       const context = {
@@ -1334,7 +1334,7 @@ export class OutlookProvider implements EmailProvider {
         threads.push({
           id: conversationId,
           messages,
-          snippet: messages[0]?.snippet || "",
+          snippet: messages.at(-1)?.snippet || "",
         });
       } catch (error) {
         this.logger.warn("Failed to fetch thread messages for conversationId", {

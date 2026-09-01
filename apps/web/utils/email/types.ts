@@ -242,6 +242,7 @@ export interface EmailProvider {
     maxResults?: number;
   }): Promise<EmailThread[]>;
   getSignatures(): Promise<EmailSignature[]>;
+  // Thread messages are returned in chronological order (oldest first).
   getThread(threadId: string): Promise<EmailThread>;
   getThreadMessages(threadId: string): Promise<ParsedMessage[]>;
   getThreadMessagesInInbox(threadId: string): Promise<ParsedMessage[]>;
