@@ -158,8 +158,8 @@ async function fetchThreadAndConversationMessages(
   threadMessages: ParsedMessage[];
   previousConversationMessages: ParsedMessage[] | null;
 }> {
-  // Normalize provider-specific ordering (Outlook returns newest-first).
-  // Downstream drafting logic expects chronological order (oldest -> newest).
+  // Providers return chronological order; sort defensively since drafting
+  // logic breaks silently if messages arrive out of order.
   const threadMessages = (await client.getThreadMessages(threadId)).sort(
     sortByInternalDate("asc"),
   );
