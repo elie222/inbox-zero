@@ -5,6 +5,7 @@ import { SafeError } from "@/utils/error";
 import { auth } from "@/utils/auth";
 import {
   getRemainingUnsubscribeCredits,
+  isPremiumRecord,
   premiumEntitlementSelect,
 } from "@/utils/premium";
 import {
@@ -103,6 +104,7 @@ async function getUser({
     announcementDismissedAt: user.announcementDismissedAt,
     dismissedHints: user.dismissedHints,
     premium,
+    isPremium: isPremiumRecord(user.premium),
     // Resolved here so the client never compares periods against its own clock.
     unsubscribeCreditsRemaining: getRemainingUnsubscribeCredits(
       user.premium ?? {},

@@ -111,7 +111,38 @@ describe("user/me route", () => {
         name: "Example User",
       },
     ]);
+    expect(body.isPremium).toBe(false);
     expect(body.canManageBilling).toBe(true);
+  });
+
+  it("returns authoritative premium access for active admin grants", async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: "user-1",
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      aiProvider: null,
+      aiModel: null,
+      aiApiKey: null,
+      webhookSecret: null,
+      announcementDismissedAt: null,
+      dismissedHints: [],
+      premium: {
+        id: "premium-1",
+        admins: [{ id: "user-1" }],
+        adminGrantExpiresAt: new Date("2036-01-01T00:00:00.000Z"),
+        adminGrantTier: "BUSINESS_PLUS_ANNUALLY",
+        tier: "BUSINESS_PLUS_ANNUALLY",
+      },
+      emailAccounts: [],
+    } as unknown as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+
+    const response = await GET(
+      new NextRequest("http://localhost:3000/api/user/me"),
+      {} as never,
+    );
+
+    const body = await response.json();
+
+    expect(body.isPremium).toBe(true);
   });
 
   it("denies billing access to an organization member even when they are a plan admin", async () => {
