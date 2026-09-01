@@ -15,12 +15,6 @@ import { sleep } from "@/utils/sleep";
 
 const ONLINE_MEETING_JOIN_URL_POLL_DELAYS_MS = [500, 1000, 2000] as const;
 const MICROSOFT_TEAMS_PROVIDER = "teamsForBusiness";
-// Graph ignores isOnlineMeeting and onlineMeetingProvider on consumer
-// calendars: the event comes back with isOnlineMeeting false and onlineMeeting
-// null, and no join URL is ever produced. Personal Outlook.com accounts offer
-// only skypeForConsumer, so requesting a meeting there costs several round
-// trips and delays every booking without ever returning a link.
-const UNSUPPORTED_ONLINE_MEETING_PROVIDERS = ["skypeForConsumer", "unknown"];
 
 export interface MicrosoftCalendarConnectionParams {
   accessToken: string | null;
@@ -162,8 +156,6 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
           logger: this.logger,
         })
       : null;
-    // Null fields mean the calendar cannot host an online meeting at all, so
-    // the follow-up refetch and patch below would never find a join URL.
     const requestedOnlineMeeting = Boolean(onlineMeetingFields);
     const response: MicrosoftEvent = await client
       .api(`/me/calendars/${input.calendarId}/events`)
@@ -230,12 +222,11 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
       });
     }
 
-    if (useMicrosoftTeams && !videoConferenceLink) {
+    if (requestedOnlineMeeting && !videoConferenceLink) {
       this.logger.warn(
         "Microsoft online meeting link missing after event creation",
         {
           eventId: response.id,
-          requestedOnlineMeeting,
           isOnlineMeeting: response.isOnlineMeeting,
           onlineMeetingProvider: response.onlineMeetingProvider,
         },
@@ -324,11 +315,19 @@ async function getOnlineMeetingFields({
     logger,
   });
 
-  const onlineMeetingProvider = selectOnlineMeetingProvider(settings);
+  let onlineMeetingProvider = settings?.defaultOnlineMeetingProvider;
+  if (
+    !settings ||
+    settings.allowedOnlineMeetingProviders?.includes(MICROSOFT_TEAMS_PROVIDER)
+  ) {
+    onlineMeetingProvider = MICROSOFT_TEAMS_PROVIDER;
+  }
 
+  // Personal Outlook calendars advertise Skype but ignore meeting fields.
   if (
     !onlineMeetingProvider ||
-    UNSUPPORTED_ONLINE_MEETING_PROVIDERS.includes(onlineMeetingProvider)
+    onlineMeetingProvider === "skypeForConsumer" ||
+    onlineMeetingProvider === "unknown"
   ) {
     logger.warn("Calendar cannot generate an online meeting link", {
       calendarId,
@@ -343,21 +342,6 @@ async function getOnlineMeetingFields({
     isOnlineMeeting: true,
     onlineMeetingProvider,
   } satisfies MicrosoftOnlineMeetingFields;
-}
-
-function selectOnlineMeetingProvider(
-  settings: MicrosoftCalendarOnlineMeetingSettings | null,
-) {
-  // Teams is the right assumption when the lookup fails: only work and school
-  // calendars can generate a link, and those allow Teams.
-  if (!settings) return MICROSOFT_TEAMS_PROVIDER;
-  if (
-    settings.allowedOnlineMeetingProviders?.includes(MICROSOFT_TEAMS_PROVIDER)
-  ) {
-    return MICROSOFT_TEAMS_PROVIDER;
-  }
-
-  return settings.defaultOnlineMeetingProvider;
 }
 
 async function getCalendarOnlineMeetingSettings({

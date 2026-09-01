@@ -308,9 +308,6 @@ describe("MicrosoftCalendarEventProvider", () => {
     expect(result.videoConferenceLink).toBe("https://teams.example.com/join");
   });
 
-  // Graph ignores isOnlineMeeting on consumer calendars and never returns a
-  // join URL, so requesting one only delays the booking behind refetches and a
-  // patch that cannot succeed.
   it("does not request an online meeting on a personal Outlook calendar", async () => {
     graphMocks.get.mockResolvedValue({
       id: "calendar-id",
