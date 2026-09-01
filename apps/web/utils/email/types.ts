@@ -90,6 +90,11 @@ export type BulkArchiveResult = {
   failedThreadIds: string[];
 };
 
+type DraftReference = {
+  id: string;
+  version?: string;
+};
+
 export interface EmailProvider {
   archiveMessage(messageId: string): Promise<void>;
   archiveMessages(messageIds: string[], labelId?: string): Promise<void>;
@@ -136,7 +141,7 @@ export interface EmailProvider {
     removeLabelIds?: string[];
   }): Promise<{ status: number }>;
   createLabel(name: string, description?: string): Promise<EmailLabel>;
-  deleteDraft(draftId: string): Promise<boolean>;
+  deleteDraft(draftId: string, version?: string): Promise<boolean>;
   deleteFilter(id: string): Promise<{ status: number }>;
   deleteFolder(folderId: string): Promise<void>;
   deleteLabel(labelId: string): Promise<void>;
@@ -169,7 +174,9 @@ export interface EmailProvider {
     attachmentId: string,
   ): Promise<{ data: string; size: number }>;
   getDraft(draftId: string): Promise<ParsedMessage | null>;
-  getDraftIdForMessage(messageId: string): Promise<string | null>;
+  getDraftReferenceForMessage(
+    messageId: string,
+  ): Promise<DraftReference | null>;
   getDrafts(options?: { maxResults?: number }): Promise<ParsedMessage[]>;
   getFiltersList(): Promise<EmailFilter[]>;
   getFolderCounts(): Promise<EmailFolderCount[]>;

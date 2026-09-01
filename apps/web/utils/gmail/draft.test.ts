@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, type Mock } from "vitest";
+import type { gmail_v1 } from "googleapis";
 import {
   deleteDraft,
   getDraft,
@@ -85,22 +86,18 @@ describe("gmail/draft", () => {
       .mockResolvedValueOnce({
         data: { drafts: [{ id: "r-2", message: { id: "m-2" } }] },
       });
-    const gmail = { users: { drafts: { list } } } as any;
+    const gmail = createGmailDraftListClient(list);
 
     await expect(getDraftIdForMessage(gmail, "m-2")).resolves.toBe("r-2");
     expect(list).toHaveBeenCalledTimes(2);
   });
 
   it("getDraftIdForMessage returns null when the draft is absent", async () => {
-    const gmail = {
-      users: {
-        drafts: {
-          list: vi.fn().mockResolvedValue({
-            data: { drafts: [{ id: "r-1", message: { id: "m-1" } }] },
-          }),
-        },
-      },
-    } as any;
+    const gmail = createGmailDraftListClient(
+      vi.fn().mockResolvedValue({
+        data: { drafts: [{ id: "r-1", message: { id: "m-1" } }] },
+      }),
+    );
 
     await expect(getDraftIdForMessage(gmail, "m-2")).resolves.toBeNull();
   });
@@ -109,7 +106,7 @@ describe("gmail/draft", () => {
     const list = vi.fn().mockResolvedValue({
       data: { drafts: [], nextPageToken: "repeated-page" },
     });
-    const gmail = { users: { drafts: { list } } } as any;
+    const gmail = createGmailDraftListClient(list);
 
     await expect(getDraftIdForMessage(gmail, "m-1")).resolves.toBeNull();
     expect(list).toHaveBeenCalledTimes(2);
@@ -120,7 +117,7 @@ describe("gmail/draft", () => {
     const list = vi.fn().mockImplementation(async () => ({
       data: { drafts: [], nextPageToken: `page-${pageNumber++}` },
     }));
-    const gmail = { users: { drafts: { list } } } as any;
+    const gmail = createGmailDraftListClient(list);
 
     await expect(getDraftIdForMessage(gmail, "m-1")).resolves.toBeNull();
     expect(list).toHaveBeenCalledTimes(10);
@@ -180,3 +177,9 @@ describe("gmail/draft", () => {
     expect(draftsDelete).toHaveBeenCalledTimes(1);
   });
 });
+
+function createGmailDraftListClient(
+  list: gmail_v1.Gmail["users"]["drafts"]["list"],
+) {
+  return { users: { drafts: { list } } } as unknown as gmail_v1.Gmail;
+}

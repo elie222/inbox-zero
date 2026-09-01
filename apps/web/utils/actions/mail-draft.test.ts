@@ -13,7 +13,7 @@ vi.mock("@/utils/auth", () => ({
 const mocks = vi.hoisted(() => ({
   createEmailProvider: vi.fn(),
   deleteDraft: vi.fn(),
-  getDraftIdForMessage: vi.fn(),
+  getDraftReferenceForMessage: vi.fn(),
   markTrackedDraftDeleted: vi.fn(),
 }));
 
@@ -38,9 +38,12 @@ describe("deleteDraftAction", () => {
     );
     mocks.createEmailProvider.mockResolvedValue({
       deleteDraft: mocks.deleteDraft,
-      getDraftIdForMessage: mocks.getDraftIdForMessage,
+      getDraftReferenceForMessage: mocks.getDraftReferenceForMessage,
     });
-    mocks.getDraftIdForMessage.mockResolvedValue("draft-1");
+    mocks.getDraftReferenceForMessage.mockResolvedValue({
+      id: "draft-1",
+      version: 'W/"version-1"',
+    });
     mocks.deleteDraft.mockResolvedValue(true);
   });
 
@@ -58,7 +61,7 @@ describe("deleteDraftAction", () => {
     );
   });
 
-  it("preserves tracking when the draft is no longer deletable", async () => {
+  it("preserves tracking when the draft changes before deletion", async () => {
     mocks.deleteDraft.mockResolvedValue(false);
 
     const result = await deleteDraftAction(EMAIL_ACCOUNT_ID, {
@@ -66,11 +69,12 @@ describe("deleteDraftAction", () => {
     });
 
     expect(result?.serverError).toBeUndefined();
+    expect(mocks.deleteDraft).toHaveBeenCalledWith("draft-1", 'W/"version-1"');
     expect(mocks.markTrackedDraftDeleted).not.toHaveBeenCalled();
   });
 
   it("reports when the provider draft cannot be found", async () => {
-    mocks.getDraftIdForMessage.mockResolvedValue(null);
+    mocks.getDraftReferenceForMessage.mockResolvedValue(null);
 
     const result = await deleteDraftAction(EMAIL_ACCOUNT_ID, {
       draftMessageId: "message-1",
@@ -91,6 +95,6 @@ describe("deleteDraftAction", () => {
     });
 
     expect(result?.serverError).toBeUndefined();
-    expect(mocks.deleteDraft).toHaveBeenCalledWith("draft-1");
+    expect(mocks.deleteDraft).toHaveBeenCalledWith("draft-1", 'W/"version-1"');
   });
 });

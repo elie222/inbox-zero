@@ -129,6 +129,7 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
               <ComposeEmailFormLazy
                 fromAccounts={accountsData?.emailAccounts}
                 layout="window"
+                onClose={closeCompose}
                 onDiscard={closeCompose}
                 onSuccess={closeCompose}
               />
