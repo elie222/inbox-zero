@@ -1032,6 +1032,7 @@ export function MailShell() {
                 onSelectRangeTo={selection.selectRangeTo}
                 onArchiveSelected={archiveTargets}
                 onDeleteSelected={trashTargets}
+                onMarkUnreadSelected={markUnreadTargets}
                 onClearSelection={selection.clear}
                 showLoadMore={hasMore}
                 isLoadingMore={isLoadingMore}
@@ -1067,6 +1068,7 @@ export function MailShell() {
               onBackToInbox={closeReader}
               onArchive={archiveTargets}
               onDelete={trashTargets}
+              onMarkUnread={markUnreadTargets}
               onReply={requestReaderReply}
               onToggleFocusMode={() => setIsFocusMode((on) => !on)}
               showSidebarToggle={!isMailSidebarOpen}

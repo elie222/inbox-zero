@@ -1,6 +1,11 @@
-import { expect, type Locator } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
+import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
-import { conversationWithSubject, openMail } from "./mail-test-helpers";
+import {
+  conversationWithSubject,
+  openMail,
+  readLatestMailMutation,
+} from "./mail-test-helpers";
 
 const commandModifier = process.platform === "darwin" ? "Meta" : "Control";
 
@@ -56,6 +61,81 @@ test("deletes an open conversation and returns to the list", async ({
     { headers: { "X-Email-Account-ID": emailAccountId } },
   );
   expect(restoreResponse.ok()).toBeTruthy();
+});
+
+test("marks selected conversations as unread", async ({ page }, testInfo) => {
+  const { conversations, emailAccountId } = await openMail(page);
+  const conversation = conversationWithSubject(
+    page,
+    conversations,
+    "Read Command Message",
+  );
+
+  await conversation
+    .getByRole("checkbox", { name: "Select conversation with Bob Example" })
+    .click();
+  const markUnread = page.getByRole("button", {
+    name: "Mark as unread",
+    exact: true,
+  });
+  await expect(markUnread).toBeVisible();
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "mail-selection-mark-unread",
+  );
+
+  await markUnread.click();
+
+  await expect(page.getByText("1 selected", { exact: true })).toBeHidden();
+  await expectReadStateMutation(page, {
+    emailAccountId,
+    threadId: "thr_playwright_2",
+    read: false,
+  });
+
+  await conversation.click();
+  await expectReadStateMutation(page, {
+    emailAccountId,
+    threadId: "thr_playwright_2",
+    read: true,
+  });
+});
+
+test("marks an open conversation as unread", async ({ page }, testInfo) => {
+  const { conversations, emailAccountId } = await openMail(page);
+  const conversation = conversationWithSubject(
+    page,
+    conversations,
+    "Project Label Message",
+  );
+  await conversation.click();
+  await expect(
+    page.getByRole("heading", { name: "Project Label Message" }),
+  ).toBeVisible();
+
+  const markUnread = page.getByRole("button", {
+    name: "Mark as unread",
+    exact: true,
+  });
+  await expect(markUnread).toBeVisible();
+  await capturePlaywrightCheckpoint(page, testInfo, "mail-reader-mark-unread");
+
+  await markUnread.click();
+
+  await expectReadStateMutation(page, {
+    emailAccountId,
+    threadId: "thr_playwright_label",
+    read: false,
+  });
+
+  await page.getByRole("button", { name: /^More actions/ }).click();
+  await page.getByRole("menuitem", { name: "Mark as read" }).click();
+  await expectReadStateMutation(page, {
+    emailAccountId,
+    threadId: "thr_playwright_label",
+    read: true,
+  });
 });
 
 test("selects ranges and opens conversations with the keyboard", async ({
@@ -116,6 +196,25 @@ test("selects every conversation with Command A", async ({ page }) => {
   await expect(options).toHaveCount(conversationCount);
   await expect.poll(() => allRowsAreSelected(options, true)).toBe(true);
 });
+
+function expectReadStateMutation(
+  page: Page,
+  {
+    emailAccountId,
+    threadId,
+    read,
+  }: { emailAccountId: string; threadId: string; read: boolean },
+) {
+  return expect
+    .poll(() =>
+      readLatestMailMutation(page, {
+        emailAccountId,
+        kind: "set_read_state",
+        threadId,
+      }),
+    )
+    .toMatchObject({ payload: { read } });
+}
 
 function allRowsAreSelected(rows: Locator, selected: boolean) {
   return rows.evaluateAll(

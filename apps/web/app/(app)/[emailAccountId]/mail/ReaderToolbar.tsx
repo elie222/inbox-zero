@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import {
   ArchiveIcon,
   ArrowLeftIcon,
+  MailIcon,
   MaximizeIcon,
   MinimizeIcon,
   ReplyIcon,
@@ -28,6 +29,7 @@ type ReaderToolbarProps = {
   isFocusMode: boolean;
   onBackToInbox: () => void;
   onArchive: () => void;
+  onMarkUnread: () => void;
   onReply: () => void;
   onDelete: () => void;
   onToggleFocusMode: () => void;
@@ -46,6 +48,7 @@ export function ReaderToolbar({
   isFocusMode,
   onBackToInbox,
   onArchive,
+  onMarkUnread,
   onReply,
   onDelete,
   onToggleFocusMode,
@@ -90,6 +93,10 @@ export function ReaderToolbar({
           <ArchiveIcon className="mr-1.5 size-3.5" />
           Archive
           <Kbd className="ml-1.5">{getShortcutHint("archive")}</Kbd>
+        </Button>
+        <Button onClick={onMarkUnread} size="xs-2" variant="outline">
+          <MailIcon className="mr-1.5 size-3.5" />
+          Mark as unread
         </Button>
         <Button onClick={onReply} size="xs-2" variant="outline">
           <ReplyIcon className="mr-1.5 size-3.5" />
