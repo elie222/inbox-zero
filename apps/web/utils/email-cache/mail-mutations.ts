@@ -970,7 +970,7 @@ function isOversizedArchiveMutation(mutation: {
 }) {
   return (
     mutation.kind === "archive" &&
-    mutation.messageIds.length > BULK_ARCHIVE_MESSAGES_ACTION_LIMIT
+    new Set(mutation.messageIds).size > BULK_ARCHIVE_MESSAGES_ACTION_LIMIT
   );
 }
 

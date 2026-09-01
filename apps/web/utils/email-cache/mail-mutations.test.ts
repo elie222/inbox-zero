@@ -505,6 +505,20 @@ describe("mail mutation outbox", () => {
     await expect(getMailMutation("oversized")).resolves.toBeUndefined();
   });
 
+  it("accepts duplicate IDs when the unique snapshot fits the limit", async () => {
+    const messageIds = createMessageIds(1000);
+
+    await expect(
+      enqueueMailMutation({
+        id: "at-limit",
+        emailAccountId: "account",
+        threadId: "thread",
+        messageIds: [...messageIds, "message-0"],
+        kind: "archive",
+      }),
+    ).resolves.toMatchObject({ messageIds });
+  });
+
   it("terminally rejects a pre-existing oversized archive", async () => {
     const database = await getEmailCacheDatabase();
     await database?.put("mailMutations", {
