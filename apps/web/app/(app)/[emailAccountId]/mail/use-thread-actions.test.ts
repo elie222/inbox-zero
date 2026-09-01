@@ -115,6 +115,47 @@ describe("useThreadActions durable mutations", () => {
     expect(outbox.enqueueBatch).not.toHaveBeenCalled();
   });
 
+  it("queues a fetched reader target that has no retained list row", async () => {
+    const readerTarget = createReaderTarget();
+    const { result } = renderActions({ threads: [], readerTarget });
+
+    await act(() => result.current.setReadState(["reader-thread"], false));
+
+    expect(outbox.enqueueBatch).toHaveBeenCalledWith([
+      expect.objectContaining({
+        emailAccountId: "account",
+        messageIds: ["reader-message-one", "reader-message-two"],
+        read: false,
+        threadId: "reader-thread",
+      }),
+    ]);
+  });
+
+  it("does not retain a direct reader target after the reader closes", async () => {
+    const readerTarget = createReaderTarget();
+    const { result, rerender } = renderHook(
+      ({
+        activeReaderTarget,
+      }: {
+        activeReaderTarget: typeof readerTarget | null;
+      }) =>
+        useThreadActions({
+          emailAccountId: "account",
+          readerTarget: activeReaderTarget,
+          threads: [],
+        }),
+      { initialProps: { activeReaderTarget: readerTarget } },
+    );
+
+    rerender({ activeReaderTarget: null });
+    await act(() => result.current.setReadState(["reader-thread"], false));
+
+    expect(outbox.enqueueBatch).not.toHaveBeenCalled();
+    expect(notifications.error).toHaveBeenCalledWith(
+      "Couldn't queue marking as unread",
+    );
+  });
+
   it("counts unresolved rows in partial-action feedback", async () => {
     const { result } = renderActions();
 
@@ -317,15 +358,32 @@ describe("useThreadActions durable mutations", () => {
 
 function renderActions({
   threads = [createThread(["INBOX", "UNREAD"])],
+  readerTarget,
 }: {
   threads?: ListThread[];
+  readerTarget?: {
+    emailAccountId: string;
+    key: string;
+    messageIds: string[];
+    threadId: string;
+  };
 } = {}) {
   return renderHook(() =>
     useThreadActions({
       emailAccountId: "account",
+      readerTarget,
       threads,
     }),
   );
+}
+
+function createReaderTarget() {
+  return {
+    emailAccountId: "account",
+    key: "reader-thread",
+    messageIds: ["reader-message-one", "reader-message-two"],
+    threadId: "reader-thread",
+  };
 }
 
 function createThread(

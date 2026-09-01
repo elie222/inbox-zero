@@ -312,11 +312,6 @@ export function MailShell() {
 
   const orderedIds = useMemo(() => threads.map(getListThreadKey), [threads]);
   const selection = useThreadSelection(orderedIds);
-  const { archive, trash, markRead, setReadState, snooze, undo } =
-    useThreadActions({
-      emailAccountId,
-      threads,
-    });
 
   const clampIndex = useCallback(
     (index: number) =>
@@ -346,9 +341,6 @@ export function MailShell() {
   const openThread = openThreadKey
     ? threads.find((thread) => getListThreadKey(thread) === openThreadKey)
     : undefined;
-  const resolvedOpenThreadKey = openThread
-    ? getListThreadKey(openThread)
-    : null;
   const readAttemptedForOpenThread = useRef<string | null>(null);
 
   // Defer the pair as one value: rendering a new id with the previous account
@@ -387,6 +379,37 @@ export function MailShell() {
   const openMessages = readerSelectionSettled
     ? (openThreadData?.thread.messages ?? NO_MESSAGES)
     : NO_MESSAGES;
+  const readerTarget = useMemo(() => {
+    if (
+      !readerSelectionSettled ||
+      !openThreadSelection ||
+      !openThreadKey ||
+      !openThreadData?.thread
+    ) {
+      return null;
+    }
+
+    return {
+      emailAccountId: openThreadSelection.emailAccountId,
+      key: openThreadKey,
+      messageIds: openThreadData.thread.messages.map((message) => message.id),
+      threadId: openThreadData.thread.id,
+    };
+  }, [
+    openThreadData?.thread,
+    openThreadKey,
+    openThreadSelection,
+    readerSelectionSettled,
+  ]);
+  const { archive, trash, markRead, setReadState, snooze, undo } =
+    useThreadActions({
+      emailAccountId,
+      readerTarget,
+      threads,
+    });
+  const resolvedOpenThreadKey = openThread
+    ? getListThreadKey(openThread)
+    : readerTarget?.key;
   const requestReaderReply = useCallback(() => {
     const messageId = openMessages.at(-1)?.id;
     if (messageId) {
@@ -1032,6 +1055,7 @@ export function MailShell() {
                 onSelectRangeTo={selection.selectRangeTo}
                 onArchiveSelected={archiveTargets}
                 onDeleteSelected={trashTargets}
+                onMarkUnreadSelected={markUnreadTargets}
                 onClearSelection={selection.clear}
                 showLoadMore={hasMore}
                 isLoadingMore={isLoadingMore}
@@ -1067,6 +1091,7 @@ export function MailShell() {
               onBackToInbox={closeReader}
               onArchive={archiveTargets}
               onDelete={trashTargets}
+              onMarkUnread={markUnreadTargets}
               onReply={requestReaderReply}
               onToggleFocusMode={() => setIsFocusMode((on) => !on)}
               showSidebarToggle={!isMailSidebarOpen}

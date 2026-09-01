@@ -11,6 +11,7 @@ import { getShortcutHint } from "@/lib/shortcuts/registry";
 export type SelectionBarProps = {
   selectedCount: number;
   onArchive: () => void;
+  onMarkUnread: () => void;
   onDelete: () => void;
   onClear: () => void;
 };
@@ -19,6 +20,7 @@ export type SelectionBarProps = {
 export function SelectionBar({
   selectedCount,
   onArchive,
+  onMarkUnread,
   onDelete,
   onClear,
 }: SelectionBarProps) {
@@ -41,6 +43,9 @@ export function SelectionBar({
         </TooltipTrigger>
         <TooltipContent>Archive ({getShortcutHint("archive")})</TooltipContent>
       </Tooltip>
+      <Button onClick={onMarkUnread} size="xs-2" variant="outline">
+        Mark as unread
+      </Button>
       <Tooltip>
         <TooltipTrigger asChild>
           <Button

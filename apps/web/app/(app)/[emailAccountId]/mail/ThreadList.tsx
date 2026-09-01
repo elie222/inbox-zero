@@ -33,6 +33,7 @@ export type ThreadListProps = {
   onToggleSelect: (index: number) => void;
   onSelectRangeTo: (index: number) => void;
   onArchiveSelected: () => void;
+  onMarkUnreadSelected: () => void;
   onDeleteSelected: () => void;
   onClearSelection: () => void;
   showLoadMore: boolean;
@@ -56,6 +57,7 @@ export function ThreadList({
   onToggleSelect,
   onSelectRangeTo,
   onArchiveSelected,
+  onMarkUnreadSelected,
   onDeleteSelected,
   onClearSelection,
   showLoadMore,
@@ -129,6 +131,7 @@ export function ThreadList({
           onArchive={onArchiveSelected}
           onClear={onClearSelection}
           onDelete={onDeleteSelected}
+          onMarkUnread={onMarkUnreadSelected}
           selectedCount={selectedCount}
         />
       ) : null}

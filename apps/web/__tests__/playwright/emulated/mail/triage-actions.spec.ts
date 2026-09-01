@@ -1,8 +1,29 @@
-import { expect, type Locator } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
+import { getEmailAccountId } from "../account-test-helpers";
+import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
-import { conversationWithSubject, openMail } from "./mail-test-helpers";
+import {
+  conversationWithSubject,
+  openMail,
+  readLatestMailMutation,
+} from "./mail-test-helpers";
 
 const commandModifier = process.platform === "darwin" ? "Meta" : "Control";
+let readStateCleanup:
+  | {
+      emailAccountId: string;
+      listQuery: string;
+      subject: string;
+      threadId: string;
+    }
+  | undefined;
+
+test.afterEach(async ({ page }) => {
+  const cleanup = readStateCleanup;
+  readStateCleanup = undefined;
+  if (!cleanup || page.isClosed()) return;
+  await restoreReadState(page, cleanup);
+});
 
 test("archives a selected conversation and restores it with undo", async ({
   page,
@@ -56,6 +77,78 @@ test("deletes an open conversation and returns to the list", async ({
     { headers: { "X-Email-Account-ID": emailAccountId } },
   );
   expect(restoreResponse.ok()).toBeTruthy();
+});
+
+test("marks selected conversations as unread", async ({ page }, testInfo) => {
+  const accountId = await getEmailAccountId(page);
+  await stubMailboxSync(page, accountId, "thr_playwright_2");
+  const { conversations, emailAccountId } = await openMail(page);
+  readStateCleanup = {
+    emailAccountId,
+    listQuery: "type=inbox",
+    subject: "Read Command Message",
+    threadId: "thr_playwright_2",
+  };
+  const conversation = conversationWithSubject(
+    page,
+    conversations,
+    "Read Command Message",
+  );
+
+  await conversation
+    .getByRole("checkbox", { name: "Select conversation with Bob Example" })
+    .click();
+  const markUnread = page.getByRole("button", {
+    name: "Mark as unread",
+    exact: true,
+  });
+  await expect(markUnread).toBeVisible();
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "mail-selection-mark-unread",
+  );
+
+  await markUnread.click();
+
+  await expect(page.getByText("1 selected", { exact: true })).toBeHidden();
+  await expectReadStateMutation(page, {
+    emailAccountId,
+    threadId: "thr_playwright_2",
+    read: false,
+  });
+});
+
+test("marks an open conversation as unread", async ({ page }, testInfo) => {
+  const emailAccountId = await getEmailAccountId(page);
+  await stubMailboxSync(page, emailAccountId, "thr_playwright_label");
+  readStateCleanup = {
+    emailAccountId,
+    listQuery: "type=label&labelId=Label_project",
+    subject: "Project Label Message",
+    threadId: "thr_playwright_label",
+  };
+  await page.goto(
+    `/${emailAccountId}/mail?type=sent&thread-id=thr_playwright_label`,
+  );
+  await expect(
+    page.getByRole("heading", { name: "Project Label Message" }),
+  ).toBeVisible();
+
+  const markUnread = page.getByRole("button", {
+    name: "Mark as unread",
+    exact: true,
+  });
+  await expect(markUnread).toBeVisible();
+  await capturePlaywrightCheckpoint(page, testInfo, "mail-reader-mark-unread");
+
+  await markUnread.click();
+
+  await expectReadStateMutation(page, {
+    emailAccountId,
+    threadId: "thr_playwright_label",
+    read: false,
+  });
 });
 
 test("selects ranges and opens conversations with the keyboard", async ({
@@ -117,6 +210,27 @@ test("selects every conversation with Command A", async ({ page }) => {
   await expect.poll(() => allRowsAreSelected(options, true)).toBe(true);
 });
 
+function expectReadStateMutation(
+  page: Page,
+  {
+    emailAccountId,
+    threadId,
+    read,
+  }: { emailAccountId: string; threadId: string; read: boolean },
+) {
+  return expect
+    .poll(
+      () =>
+        readLatestMailMutation(page, {
+          emailAccountId,
+          kind: "set_read_state",
+          threadId,
+        }),
+      { timeout: 60_000 },
+    )
+    .toMatchObject({ payload: { read }, status: "succeeded" });
+}
+
 function allRowsAreSelected(rows: Locator, selected: boolean) {
   return rows.evaluateAll(
     (options, expected) =>
@@ -125,4 +239,76 @@ function allRowsAreSelected(rows: Locator, selected: boolean) {
       ),
     selected,
   );
+}
+
+async function restoreReadState(
+  page: Page,
+  {
+    emailAccountId,
+    listQuery,
+    subject,
+    threadId,
+  }: {
+    emailAccountId: string;
+    listQuery: string;
+    subject: string;
+    threadId: string;
+  },
+) {
+  await page.goto(`/${emailAccountId}/mail?${listQuery}`);
+  const conversations = page.getByRole("listbox", { name: "Conversations" });
+  await expect(conversations).toBeVisible();
+  await conversationWithSubject(page, conversations, subject).click();
+  await expect(page.getByRole("heading", { name: subject })).toBeVisible();
+  await expect
+    .poll(() => isThreadUnread(page, emailAccountId, threadId), {
+      timeout: 60_000,
+    })
+    .toBe(false);
+}
+
+async function isThreadUnread(
+  page: Page,
+  emailAccountId: string,
+  threadId: string,
+) {
+  try {
+    const response = await page.request.get(`/api/threads/${threadId}`, {
+      headers: { "X-Email-Account-ID": emailAccountId },
+    });
+    if (!response.ok()) return;
+    const { thread } = (await response.json()) as {
+      thread: { messages: { labelIds?: string[] }[] };
+    };
+    return thread.messages.some((message) =>
+      message.labelIds?.includes("UNREAD"),
+    );
+  } catch {
+    return;
+  }
+}
+
+function stubMailboxSync(page: Page, emailAccountId: string, threadId: string) {
+  return page.route("**/api/mobile/mailbox-sync", async (route) => {
+    const response = await page.request.get(`/api/threads/${threadId}`, {
+      headers: { "X-Email-Account-ID": emailAccountId },
+    });
+    expect(response.ok()).toBeTruthy();
+    const { thread } = (await response.json()) as {
+      thread: { messages: unknown[] };
+    };
+
+    await route.fulfill({
+      body: JSON.stringify({
+        accountId: emailAccountId,
+        cursor: "playwright-triage-actions-sync",
+        deletedMessageIds: [],
+        hasMore: false,
+        reset: false,
+        upsertedMessages: thread.messages,
+      }),
+      contentType: "application/json",
+      status: 200,
+    });
+  });
 }
