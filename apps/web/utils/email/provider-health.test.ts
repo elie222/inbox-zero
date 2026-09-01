@@ -156,13 +156,13 @@ describe("provider health", () => {
     expect(claimProviderIssueCleanupInRedis).not.toHaveBeenCalled();
   });
 
-  it("records Outlook authorization failures as permission issues", async () => {
+  it("records Outlook authorization failures case-insensitively", async () => {
     const logger = createScopedLogger("provider-health-test");
 
     await recordEmailAccountProviderIssue({
       emailAccountId: "email-account-1",
       provider: "microsoft",
-      error: new Error("Access is denied. Check credentials and try again."),
+      error: new Error("ACCESS IS DENIED. CHECK CREDENTIALS AND TRY AGAIN."),
       logger,
       operation: "getMessage",
     });

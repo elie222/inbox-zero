@@ -3,7 +3,6 @@ import {
   getErrorMessage,
   isGmailInsufficientPermissionsError,
   isInvalidGrantError,
-  isOutlookAccessDeniedError,
 } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
 import {
@@ -95,7 +94,6 @@ export function classifyEmailAccountProviderIssue({
 
   if (
     provider === "microsoft" &&
-    isOutlookAccessDeniedError(error) &&
     normalizedMessage.includes(
       "access is denied. check credentials and try again",
     ) &&
