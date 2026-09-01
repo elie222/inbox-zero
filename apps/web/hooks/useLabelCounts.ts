@@ -25,29 +25,38 @@ export function useLabelCounts({ emailAccountId }: { emailAccountId: string }) {
     [emailAccountId, mutate],
   );
 
+  const applyPendingInboxUnreadDelta = useCallback(() => {
+    mutate(
+      (current) => {
+        if (
+          !pendingInboxUnreadDelta.current ||
+          !current?.counts.some((count) => count.id === GmailLabel.INBOX)
+        ) {
+          return current;
+        }
+        const delta = pendingInboxUnreadDelta.current;
+        pendingInboxUnreadDelta.current = 0;
+        return applyInboxUnreadDelta(current, delta);
+      },
+      { revalidate: false },
+    );
+  }, [mutate]);
+
   useEffect(() => {
     if (!data || !pendingInboxUnreadDelta.current) return;
-    const delta = pendingInboxUnreadDelta.current;
-    pendingInboxUnreadDelta.current = 0;
-    mutate((current) => applyInboxUnreadDelta(current, delta), {
-      revalidate: false,
-    });
-  }, [data, mutate]);
+    applyPendingInboxUnreadDelta();
+  }, [applyPendingInboxUnreadDelta, data]);
 
   const adjustInboxUnread = useCallback(
     (delta: number) => {
       if (!delta) return;
+      pendingInboxUnreadDelta.current += delta;
       if (!dataRef.current) {
-        pendingInboxUnreadDelta.current += delta;
         return;
       }
-      const totalDelta = pendingInboxUnreadDelta.current + delta;
-      pendingInboxUnreadDelta.current = 0;
-      mutate((current) => applyInboxUnreadDelta(current, totalDelta), {
-        revalidate: false,
-      });
+      applyPendingInboxUnreadDelta();
     },
-    [mutate],
+    [applyPendingInboxUnreadDelta],
   );
 
   const countsById = useMemo(

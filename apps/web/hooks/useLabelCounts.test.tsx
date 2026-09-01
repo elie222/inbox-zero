@@ -106,6 +106,25 @@ describe("useLabelCounts", () => {
       expect(result.current.countsById.get("INBOX")?.unread).toBe(3),
     );
   });
+
+  it("retains an unread delta when a partial response omits the inbox", async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce({ counts: [], partial: true })
+      .mockResolvedValueOnce(initialResponse);
+    const { result } = renderHook(
+      () => useLabelCounts({ emailAccountId: "account-1" }),
+      { wrapper: createWrapper(fetcher) },
+    );
+
+    await waitFor(() => expect(fetcher).toHaveBeenCalledOnce());
+    act(() => result.current.adjustInboxUnread(-1));
+    act(() => mailbox.emit("account-1"));
+
+    await waitFor(() =>
+      expect(result.current.countsById.get("INBOX")?.unread).toBe(3),
+    );
+  });
 });
 
 function createWrapper(fetcher: () => unknown) {
