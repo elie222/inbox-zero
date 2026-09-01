@@ -90,6 +90,9 @@ export async function enqueueMailMutationBatch(
   now = Date.now(),
 ): Promise<MailMutation[]> {
   if (!inputs.length) return [];
+  if (inputs.some(isOversizedArchiveMutation)) {
+    throw new Error("Archive mutation contains too many messages");
+  }
   const suppliedBatchIds = new Set(
     inputs.flatMap((input) => (input.batchId ? [input.batchId] : [])),
   );
@@ -269,6 +272,7 @@ export async function claimNextMailMutationBatch({
   ).sort(compareMutations);
   const blockedThreads = new Set<string>();
   const claimed: StoredMailMutation[] = [];
+  const rejected: StoredMailMutation[] = [];
   let claimedMessageCount = 0;
   let batchKey: string | undefined;
 
@@ -291,6 +295,19 @@ export async function claimNextMailMutationBatch({
     }
 
     if (mutation.status === "blocked_auth" || mutation.nextAttemptAt > now) {
+      blockedThreads.add(threadKey);
+      continue;
+    }
+
+    if (isOversizedArchiveMutation(mutation)) {
+      rejected.push({
+        ...mutation,
+        status: "failed",
+        lastError: "Archive contains too many messages",
+        leaseOwner: undefined,
+        leaseExpiresAt: undefined,
+        updatedAt: now,
+      });
       blockedThreads.add(threadKey);
       continue;
     }
@@ -324,10 +341,12 @@ export async function claimNextMailMutationBatch({
     if (!batchKey || claimed.length >= maxBatchSize) break;
   }
 
-  await Promise.all(claimed.map((mutation) => store.put(mutation)));
+  await Promise.all(
+    [...rejected, ...claimed].map((mutation) => store.put(mutation)),
+  );
 
   await transaction.done;
-  if (claimed.length) notifyMailMutationChange();
+  if (rejected.length || claimed.length) notifyMailMutationChange();
   return claimed.map(toMailMutation);
 }
 
@@ -943,6 +962,16 @@ function getProviderBatchKey(mutation: StoredMailMutation) {
     return;
   }
   return `${mutation.emailAccountId}\u0000${mutation.batchId}\u0000archive`;
+}
+
+function isOversizedArchiveMutation(mutation: {
+  kind: string;
+  messageIds: string[];
+}) {
+  return (
+    mutation.kind === "archive" &&
+    mutation.messageIds.length > BULK_ARCHIVE_MESSAGES_ACTION_LIMIT
+  );
 }
 
 function readActiveStoredMutations(index: {

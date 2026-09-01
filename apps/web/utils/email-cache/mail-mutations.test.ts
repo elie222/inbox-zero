@@ -491,6 +491,51 @@ describe("mail mutation outbox", () => {
     ).resolves.toMatchObject([{ id: "first", status: "processing" }]);
   });
 
+  it("rejects oversized archive snapshots before persistence", async () => {
+    await expect(
+      enqueueMailMutation({
+        id: "oversized",
+        emailAccountId: "account",
+        threadId: "thread",
+        messageIds: createMessageIds(1001),
+        kind: "archive",
+      }),
+    ).rejects.toThrow("Archive mutation contains too many messages");
+
+    await expect(getMailMutation("oversized")).resolves.toBeUndefined();
+  });
+
+  it("terminally rejects a pre-existing oversized archive", async () => {
+    const database = await getEmailCacheDatabase();
+    await database?.put("mailMutations", {
+      id: "oversized",
+      batchId: "batch",
+      emailAccountId: "account",
+      threadId: "thread",
+      messageIds: createMessageIds(1001),
+      kind: "archive",
+      payload: {},
+      status: "pending",
+      attempts: 0,
+      nextAttemptAt: 0,
+      createdAt: 10,
+      updatedAt: 10,
+    });
+
+    await expect(
+      claimNextMailMutationBatch({
+        maxBatchSize: 500,
+        ownerId: "worker",
+        leaseMs: 100,
+        now: 20,
+      }),
+    ).resolves.toEqual([]);
+    await expect(getMailMutation("oversized")).resolves.toMatchObject({
+      status: "failed",
+      attempts: 0,
+    });
+  });
+
   it("transitions a claimed batch with one mutation notification", async () => {
     await enqueueMailMutationBatch(
       [
