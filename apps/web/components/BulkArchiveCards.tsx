@@ -518,7 +518,6 @@ function SenderRow({
         <Button
           variant="ghost"
           size="icon"
-          aria-label="Edit category"
           className="size-8 text-muted-foreground hover:text-foreground"
           onClick={(e) => {
             e.stopPropagation();

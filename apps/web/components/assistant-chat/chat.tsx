@@ -454,12 +454,7 @@ function NewChatButton() {
 
   return (
     <Tooltip content="Start a new conversation">
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={setNewChat}
-        aria-label="Start a new conversation"
-      >
+      <Button variant="ghost" size="icon" onClick={setNewChat}>
         <PlusIcon className="size-5" />
         <span className="sr-only">New Chat</span>
       </Button>

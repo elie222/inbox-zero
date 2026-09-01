@@ -95,7 +95,6 @@ export function ExamplesDialog({
                 variant="ghost"
                 size="icon"
                 onClick={handleBackToPersonas}
-                aria-label="Back to personas"
                 className="h-8 w-8"
               >
                 <ArrowLeftIcon className="size-4" />
