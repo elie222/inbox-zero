@@ -24,11 +24,12 @@ pnpm -F inbox-zero-ai test:playwright:emulated mail/layout.spec.ts
 pnpm -F inbox-zero-ai test:playwright:emulated automation settings
 ```
 
-Every emulated test stores a stable final-state screenshot when it passes and
-Playwright's automatic failure screenshot when it fails. The shared fixture
-also attaches `browser-evidence` JSON containing the final URL and title,
-console errors, uncaught page errors, failed network requests, and HTTP error
-responses. Uncaught page errors fail otherwise-passing tests.
+Every emulated product test stores a stable final-state screenshot when it
+passes and Playwright's automatic failure screenshot when it fails. The shared
+fixture also attaches `browser-evidence` JSON containing the final URL and
+title, console errors, uncaught page errors, failed network requests, and HTTP
+error responses. Uncaught page errors fail otherwise-passing tests unless a
+flow explicitly expects browser errors while simulating a network outage.
 
 Use `capturePlaywrightCheckpoint` from `emulated/playwright-evidence.ts` for
 meaningful intermediate states. It writes the screenshot where the public

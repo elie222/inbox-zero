@@ -28,6 +28,8 @@ const CLEANUP_MAILBOX_THREAD_IDS = [
 ];
 let fixture: CleanupFixture | undefined;
 
+test.use({ allowPageErrors: true });
+
 test.beforeEach(async ({ page }) => {
   fixture = undefined;
   fixture = await prepareCleanupFixture(page);

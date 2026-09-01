@@ -26,14 +26,16 @@ type BrowserDiagnostic = {
 };
 
 type BrowserEvidenceFixtures = {
+  allowPageErrors: boolean;
   browserEvidence: undefined;
 };
 
 const MAX_DIAGNOSTICS_PER_KIND = 50;
 
 export const test = base.extend<BrowserEvidenceFixtures>({
+  allowPageErrors: [false, { option: true }],
   browserEvidence: [
-    async ({ page }, use, testInfo) => {
+    async ({ allowPageErrors, page }, use, testInfo) => {
       const diagnostics: BrowserDiagnostic[] = [];
       let finalStateCaptureFailed = false;
       const onConsole = (message: ConsoleMessage) => {
@@ -128,7 +130,11 @@ export const test = base.extend<BrowserEvidenceFixtures>({
       const pageErrors = diagnostics.filter(
         (diagnostic) => diagnostic.kind === "page-error",
       );
-      if (pageErrors.length > 0 && testInfo.errors.length === 0) {
+      if (
+        pageErrors.length > 0 &&
+        !allowPageErrors &&
+        testInfo.errors.length === 0
+      ) {
         throw new Error(
           `Uncaught browser error${pageErrors.length === 1 ? "" : "s"}:\n${pageErrors
             .map((error) => error.message)

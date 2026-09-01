@@ -1,7 +1,6 @@
-import { expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 import { getEmailAccount } from "../account-test-helpers";
-import { test } from "../playwright-test";
 
 const PLAYWRIGHT_TEST_EMAIL =
   process.env.PLAYWRIGHT_TEST_EMAIL || "playwright-test@gmail.com";
