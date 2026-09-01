@@ -1,7 +1,6 @@
 import path from "node:path";
 import {
   expect,
-  test,
   type APIRequestContext,
   type Locator,
   type Page,
@@ -9,6 +8,8 @@ import {
 } from "@playwright/test";
 import { Client } from "pg";
 import { getEmailAccountId } from "../account-test-helpers";
+import { capturePlaywrightCheckpoint } from "../playwright-evidence";
+import { test } from "../playwright-test";
 import { readLatestMailMutation } from "./mail-test-helpers";
 
 const commandModifier = process.platform === "darwin" ? "Meta" : "Control";
@@ -187,10 +188,10 @@ test("Command K acts on highlighted and selected conversations", async ({
   await expect(palette).toBeHidden();
 
   await conversations
-    .getByRole("checkbox", { name: "Select conversation from Alice Example" })
+    .getByRole("checkbox", { name: "Select conversation with Alice Example" })
     .click();
   await conversations
-    .getByRole("checkbox", { name: "Select conversation from Bob Example" })
+    .getByRole("checkbox", { name: "Select conversation with Bob Example" })
     .click();
 
   await page.keyboard.press(`${commandModifier}+KeyK`);
@@ -210,10 +211,10 @@ test("Command K acts on highlighted and selected conversations", async ({
   await palette.getByRole("option", { name: "Mark 2 as read" }).click();
   await expect(palette).toBeHidden();
   await conversations
-    .getByRole("checkbox", { name: "Select conversation from Alice Example" })
+    .getByRole("checkbox", { name: "Select conversation with Alice Example" })
     .click();
   await conversations
-    .getByRole("checkbox", { name: "Select conversation from Bob Example" })
+    .getByRole("checkbox", { name: "Select conversation with Bob Example" })
     .click();
   await page.keyboard.press(`${commandModifier}+KeyK`);
   await expect(
@@ -234,7 +235,7 @@ async function ensureReadState(
   read: boolean,
 ) {
   const checkbox = conversations.getByRole("checkbox", {
-    name: `Select conversation from ${sender}`,
+    name: `Select conversation with ${sender}`,
   });
   await checkbox.click();
   const selectionCount = page.getByText("1 selected", { exact: true });
@@ -280,16 +281,7 @@ async function attachScreenshotForChangedTest(
 
   if (!changedTestFiles.has(testFile)) return;
 
-  const screenshotPath = testInfo.outputPath(`${name}.png`);
-  await locator.screenshot({
-    animations: "disabled",
-    caret: "hide",
-    path: screenshotPath,
-  });
-  await testInfo.attach(name, {
-    contentType: "image/png",
-    path: screenshotPath,
-  });
+  await capturePlaywrightCheckpoint(locator, testInfo, name);
 }
 
 function stubMailboxSync(page: Page, emailAccountId: string) {

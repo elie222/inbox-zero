@@ -100,7 +100,9 @@ export class RecallBotProvider implements MeetingBotProvider {
       body: {
         meeting_url: meetingUrl,
         bot_name: botName,
-        join_at: joinAt.toISOString(),
+        // Recall rejects a past `join_at`. Omitting it creates an ad-hoc bot
+        // that joins an ongoing meeting immediately.
+        ...(joinAt.getTime() > Date.now() && { join_at: joinAt.toISOString() }),
         automatic_leave: {
           everyone_left_timeout: { timeout: EVERYONE_LEFT_TIMEOUT_SECONDS },
           // Timings are in seconds.
@@ -178,7 +180,7 @@ export class RecallBotProvider implements MeetingBotProvider {
         return;
       }
 
-      if (!isAlreadyJoining(error)) throw error;
+      if (!isDispatched(error)) throw error;
 
       try {
         await this.request(`/bot/${externalBotId}/leave_call/`, {
@@ -291,10 +293,10 @@ function isMissing(error: unknown): boolean {
   return error instanceof RecallApiError && error.status === 404;
 }
 
-function isAlreadyJoining(error: unknown): boolean {
+function isDispatched(error: unknown): boolean {
   return (
     error instanceof RecallApiError &&
-    error.status === 400 &&
+    (error.status === 400 || error.status === 405) &&
     getRecallErrorCode(error) === "cannot_delete_bot"
   );
 }

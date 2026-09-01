@@ -10,6 +10,7 @@ export function EmailThread({
   autoOpenReplyForMessageId,
   topRightComponent,
   onSendSuccess,
+  onOpenSenderContext,
   withHeader,
 }: {
   messages: ThreadMessage[];
@@ -18,6 +19,7 @@ export function EmailThread({
   autoOpenReplyForMessageId?: string;
   topRightComponent?: React.ReactNode;
   onSendSuccess?: (messageId: string, threadId: string) => void;
+  onOpenSenderContext?: (message: ThreadMessage) => void;
   withHeader?: boolean;
 }) {
   // Place draft messages as replies to their parent message
@@ -106,6 +108,7 @@ export function EmailThread({
               generateNudge={defaultShowReply && !draftMessage?.textHtml}
               key={message.id}
               message={message}
+              onOpenSenderContext={onOpenSenderContext}
               onSendSuccess={(messageId) => {
                 setExpandedMessageIds((prev) => {
                   if (prev.has(messageId)) return prev;

@@ -3,6 +3,7 @@
 import { memo, useMemo, type Ref } from "react";
 import { MailLabelChip } from "@/app/(app)/[emailAccountId]/mail/MailLabelChip";
 import { isThreadUnread } from "@/app/(app)/[emailAccountId]/mail/read-state";
+import { getThreadParticipantNames } from "@/app/(app)/[emailAccountId]/mail/thread-participants";
 import type {
   ListThread,
   MailLayoutMode,
@@ -19,7 +20,6 @@ import {
 import type { EmailLabels } from "@/providers/email-label-types";
 import { cn } from "@/utils";
 import { internalDateToDate } from "@/utils/date";
-import { extractNameFromEmail, participant } from "@/utils/email";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { GmailLabel } from "@/utils/gmail/label";
 
@@ -71,6 +71,13 @@ export const ThreadRow = memo(function ThreadRow({
     [thread.messages, userLabels],
   );
 
+  const account = "account" in thread ? thread.account : null;
+  const accountEmail = account?.email ?? userEmail;
+  const participantSummary = useMemo(
+    () => getThreadParticipantNames(thread.messages, accountEmail).join(", "),
+    [thread.messages, accountEmail],
+  );
+
   if (!message) return null;
 
   const isUnread = isThreadUnread(thread.messages);
@@ -78,10 +85,7 @@ export const ThreadRow = memo(function ThreadRow({
   const isDraft = message.labelIds?.includes(GmailLabel.DRAFT) ?? false;
   const isWide = layout === "list" && !compact;
 
-  const account = "account" in thread ? thread.account : null;
-  const sender = extractNameFromEmail(
-    participant(message, account?.email ?? userEmail),
-  );
+  const messageCount = thread.messages.length;
   const subject = message.headers.subject;
   const snippet = decodeSnippet(thread.snippet || message.snippet);
   const chips = labels.slice(0, isWide ? 3 : 2);
@@ -97,7 +101,7 @@ export const ThreadRow = memo(function ThreadRow({
     <span className={cn("relative size-3.5 shrink-0", !isWide && "mt-0.5")}>
       {selectionEnabled ? (
         <Checkbox
-          aria-label={`Select conversation from ${sender}`}
+          aria-label={`Select conversation with ${participantSummary}`}
           checked={isSelected}
           className={cn(
             "absolute inset-0 size-3.5 rounded border-input transition-opacity [&_svg]:size-2.5",
@@ -135,6 +139,26 @@ export const ThreadRow = memo(function ThreadRow({
   const draftMarker = isDraft ? (
     <span className="shrink-0 text-primary text-sm">Draft</span>
   ) : null;
+  const messageCountMarker =
+    messageCount > 1 ? (
+      <span className="shrink-0 font-normal text-muted-foreground text-xs">
+        ({messageCount})
+      </span>
+    ) : null;
+  const participantLine = (
+    <>
+      <span
+        className={cn(
+          "min-w-0 flex-1 truncate text-foreground text-sm",
+          isUnread && "font-semibold",
+        )}
+      >
+        {participantSummary}
+      </span>
+      {draftMarker}
+      {messageCountMarker}
+    </>
+  );
 
   return (
     <div
@@ -168,15 +192,7 @@ export const ThreadRow = memo(function ThreadRow({
       {isWide ? (
         <>
           <div className="flex w-48 shrink-0 items-baseline gap-1.5 overflow-hidden whitespace-nowrap">
-            <span
-              className={cn(
-                "truncate text-foreground text-sm",
-                isUnread && "font-semibold",
-              )}
-            >
-              {sender}
-            </span>
-            {draftMarker}
+            {participantLine}
           </div>
           <div className="flex min-w-0 flex-1 items-center gap-2.5">
             {account ? <AccountAvatar account={account} /> : null}
@@ -206,15 +222,7 @@ export const ThreadRow = memo(function ThreadRow({
       ) : (
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <div className="flex items-baseline gap-1.5">
-            <span
-              className={cn(
-                "min-w-0 flex-1 truncate text-foreground text-sm",
-                isUnread && "font-semibold",
-              )}
-            >
-              {sender}
-            </span>
-            {draftMarker}
+            {participantLine}
             <div className="ml-auto shrink-0">{date}</div>
           </div>
           <div

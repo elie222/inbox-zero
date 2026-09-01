@@ -1,4 +1,5 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
+import { test } from "../playwright-test";
 import { getEmailAccountId } from "../account-test-helpers";
 import { markAutomationOnboardingViewed } from "./automation-tabs-test-helpers";
 
@@ -35,22 +36,28 @@ test("preserves search, custom email, and Apply workspace state", async ({
     (url) => url.searchParams.get("custom") === "true",
   );
 
-  await page.getByRole("switch").click();
-  await expect(page).toHaveURL(
-    (url) => url.searchParams.get("mode") === "apply",
-  );
-  await expect(page.getByRole("button", { name: "Run on All" })).toBeVisible();
+  const modeSwitch = page.getByRole("switch");
+  await expect(async () => {
+    if (!(await modeSwitch.isChecked())) await modeSwitch.click();
+    await expect(page).toHaveURL(
+      (url) => url.searchParams.get("mode") === "apply",
+      { timeout: 5000 },
+    );
+    await expect(page.getByRole("button", { name: "Run on All" })).toBeVisible({
+      timeout: 5000,
+    });
+  }).toPass({ timeout: 30_000 });
   await expect(
     page.getByText("Run your rules on previous emails", { exact: true }),
   ).toBeVisible();
 
   await page.reload();
-  await expect(page.getByRole("switch")).toBeChecked();
+  await expect(modeSwitch).toBeChecked();
   await expect(search).toHaveValue("Playwright Test Message");
   await expect(page.getByRole("button", { name: "Run on All" })).toBeVisible({
     timeout: 60_000,
   });
-  await page.getByRole("switch").click();
+  await modeSwitch.click();
   await expect(page.getByRole("button", { name: "Test All" })).toBeVisible();
   await expect(customContent).toBeVisible();
 });

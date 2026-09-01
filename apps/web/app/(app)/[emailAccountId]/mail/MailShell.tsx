@@ -44,7 +44,6 @@ import {
   getListThreadKey,
   getListThreadSelection,
   getThreadSelectionKey,
-  isCombinedListThread,
   type MailLayoutMode,
   type ThreadSelection,
 } from "@/app/(app)/[emailAccountId]/mail/types";
@@ -182,12 +181,18 @@ export function MailShell() {
   );
   const combinedAccounts = useMemo(
     () =>
-      (accountsData?.emailAccounts ?? []).map(({ id, email, name, image }) => ({
-        id,
-        email,
-        name,
-        image,
-      })),
+      (accountsData?.emailAccounts ?? [])
+        .filter(
+          (emailAccount) =>
+            emailAccount.includeInAllAccounts &&
+            emailAccount.account.disconnectedAt === null,
+        )
+        .map(({ id, email, name, image }) => ({
+          id,
+          email,
+          name,
+          image,
+        })),
     [accountsData?.emailAccounts],
   );
   const accountLayout: MailLayoutMode =
@@ -627,6 +632,11 @@ export function MailShell() {
   const isMailOverlayOpen =
     isHelpOpen || isPaletteOpen || (isMenuOpen && Boolean(openThreadId));
 
+  const closeReader = () => {
+    setIsFocusMode(false);
+    setOpenThread(null);
+  };
+
   // Not memoised: `useShortcuts` keeps handlers in a ref and only re-registers
   // when the set of handled ids changes, so a stable identity buys nothing.
   const handlers: ShortcutHandlers = (() => {
@@ -640,7 +650,7 @@ export function MailShell() {
         : () => {
             if (isFocusMode) setIsFocusMode(false);
             else if (selection.hasSelection) selection.clear();
-            else if (layout === "list") setOpenThread(null);
+            else if (layout === "list") closeReader();
           },
       nextSplit: () => {
         const index = splits.findIndex(
@@ -890,11 +900,6 @@ export function MailShell() {
           (account) => account.id === openThreadSelection.emailAccountId,
         )
     : emailAccount;
-  const readerUserEmail =
-    readerEmailAccount?.email ??
-    (openThread && isCombinedListThread(openThread)
-      ? openThread.account.email
-      : userEmail);
   const readerUserLabels = isAllAccounts
     ? (labelsByAccount[openThreadSelection?.emailAccountId ?? ""] ?? NO_LABELS)
     : userLabels;
@@ -1054,12 +1059,12 @@ export function MailShell() {
               }
               error={readerSelectionSettled ? openThreadError : undefined}
               messages={openMessages}
-              userEmail={readerUserEmail}
               userLabels={readerUserLabels}
               layout={layout}
               isFocusMode={isFocusMode}
               labelHref={labelHref}
               onRemoveLabel={onRemoveLabel}
+              onBackToInbox={closeReader}
               onArchive={archiveTargets}
               onDelete={trashTargets}
               onReply={requestReaderReply}

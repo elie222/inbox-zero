@@ -1,29 +1,30 @@
 import { spawnSync } from "node:child_process";
-import { mkdirSync, rmSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import path from "node:path";
-
-const fullSuites = [
-  "attachments",
-  "automation",
-  "calendars",
-  "channels",
-  "chat",
-  "cleanup/analytics.spec.ts",
-  "cleanup/bulk-archive.spec.ts",
-  "cleanup/bulk-unsubscribe.spec.ts",
-  "integrations",
-  "mail",
-  "meetings",
-  "onboarding",
-  "settings",
-];
-const cleanupSuites = fullSuites.filter((suite) =>
-  suite.startsWith("cleanup/"),
-);
-const changedTargetFiles = getChangedPlaywrightTargetFiles();
-const targets = changedTargetFiles.length
-  ? getChangedPlaywrightTargets(changedTargetFiles)
-  : getFullSuiteTargets();
+import {
+  fullSuites,
+  selectChangedPlaywrightTargets,
+} from "../../utils/playwright/emulated-suite-selection.mjs";
+const requestedTargets = getRequestedPlaywrightTargets(process.argv.slice(2));
+const changedSelection = requestedTargets.length
+  ? undefined
+  : selectChangedPlaywrightTargets(
+      process.env.PLAYWRIGHT_CHANGED_FILES,
+      process.cwd(),
+    );
+const changedTargetFiles = changedSelection?.targetFiles ?? [];
+const targets = requestedTargets.length
+  ? requestedTargets
+  : changedSelection?.runFullSuite
+    ? getFullSuiteTargets()
+    : getChangedPlaywrightTargets(changedTargetFiles);
 const dryRun = process.env.PLAYWRIGHT_DRY_RUN === "1";
 const playwrightRunRootDir = path.resolve(".tmp/playwright");
 const blobReportDir = path.join(playwrightRunRootDir, "blob-report");
@@ -40,9 +41,17 @@ if (!dryRun) {
 
 let failed = false;
 
-if (changedTargetFiles.length) {
-  console.log(
-    `Running ${targets.length} Playwright target(s) for changed files.`,
+if (requestedTargets.length) {
+  console.log(`Running ${targets.length} requested Playwright target(s).`);
+} else {
+  console.log(changedSelection.reason);
+  console.log(`Running ${targets.length} Playwright target(s).`);
+}
+
+if (!dryRun && !targets.length) {
+  writeFileSync(
+    path.join(testResultsDir, "selection.json"),
+    `${JSON.stringify({ reason: changedSelection.reason }, null, 2)}\n`,
   );
 }
 
@@ -82,7 +91,7 @@ for (const target of targets) {
   if (result.status !== 0) failed = true;
 }
 
-if (!dryRun) {
+if (!dryRun && targets.length) {
   const mergeResult = runPlaywright(
     ["merge-reports", "--reporter=html", blobReportDir],
     { PLAYWRIGHT_HTML_OPEN: "never" },
@@ -114,44 +123,33 @@ function runPlaywright(args, extraEnv) {
   return result;
 }
 
-function getChangedPlaywrightTargetFiles() {
-  const changedFilesInput = process.env.PLAYWRIGHT_CHANGED_TEST_FILES?.trim();
-  if (!changedFilesInput) return [];
+function getRequestedPlaywrightTargets(args) {
+  return args
+    .filter((argument) => argument !== "--")
+    .map((argument) => {
+      const normalizedArgument = argument
+        .replace(/^\.\//, "")
+        .replace(/^apps\/web\//, "")
+        .replace(/\/$/, "");
+      const targetPath = getPlaywrightTargetPath(normalizedArgument);
+      const resolvedPath = path.resolve(targetPath);
+      const emulatedTestsPath = path.resolve("__tests__/playwright/emulated");
 
-  const normalizedFiles = [
-    ...new Set(
-      changedFilesInput
-        .split(/\r?\n/)
-        .map((file) => file.trim())
-        .filter(Boolean)
-        .map((file) => file.replace(/^apps\/web\//, "")),
-    ),
-  ];
+      if (
+        !resolvedPath.startsWith(`${emulatedTestsPath}${path.sep}`) ||
+        !existsSync(resolvedPath) ||
+        !isRequestedPlaywrightTarget(resolvedPath)
+      ) {
+        throw new Error(
+          `Unknown emulated Playwright target: ${argument}. Use an area such as "mail" or a spec path relative to __tests__/playwright/emulated.`,
+        );
+      }
 
-  if (
-    normalizedFiles.some((file) =>
-      file.startsWith("__tests__/playwright/emulated/setup/"),
-    )
-  ) {
-    console.log("Playwright setup changed; running the full emulated suite.");
-    return [];
-  }
-
-  const changedSpecFiles = normalizedFiles.filter((file) =>
-    isEmulatedSpecFile(file),
-  );
-  const changedSupportBoundaries = new Set(
-    normalizedFiles
-      .filter((file) => isEmulatedSupportFile(file))
-      .flatMap(getChangedSupportBoundaries),
-  );
-
-  return [
-    ...changedSpecFiles,
-    ...[...changedSupportBoundaries].map((boundary) =>
-      getPlaywrightTargetPath(boundary),
-    ),
-  ];
+      return {
+        name: normalizedArgument.replaceAll(/[/.]/g, "-"),
+        paths: [targetPath],
+      };
+    });
 }
 
 function getFullSuiteTargets() {
@@ -205,29 +203,25 @@ function getChangedFileBoundary(file) {
   return relativePath.split("/")[0];
 }
 
-function getChangedSupportBoundaries(file) {
-  const boundary = getChangedFileBoundary(file);
-
-  if (boundary.startsWith("cleanup/")) return cleanupSuites;
-
-  return [boundary];
-}
-
 function getPlaywrightTargetPath(target) {
   if (target.startsWith("__tests__/playwright/")) return target;
   return `__tests__/playwright/emulated/${target}`;
 }
 
-function isEmulatedSpecFile(file) {
-  return /^__tests__\/playwright\/emulated\/.*\.spec\.[cm]?[jt]sx?$/.test(file);
+function isRequestedPlaywrightTarget(targetPath) {
+  const stats = statSync(targetPath);
+  if (stats.isFile()) return isPlaywrightSpecFile(targetPath);
+  if (!stats.isDirectory()) return false;
+
+  return readdirSync(targetPath, { withFileTypes: true }).some((entry) => {
+    const entryPath = path.join(targetPath, entry.name);
+    if (entry.isDirectory()) return isRequestedPlaywrightTarget(entryPath);
+    return entry.isFile() && isPlaywrightSpecFile(entry.name);
+  });
 }
 
-function isEmulatedSupportFile(file) {
-  return (
-    file.startsWith("__tests__/playwright/emulated/") &&
-    !file.startsWith("__tests__/playwright/emulated/setup/") &&
-    !isEmulatedSpecFile(file)
-  );
+function isPlaywrightSpecFile(file) {
+  return /\.spec\.[cm]?[jt]sx?$/.test(file);
 }
 
 function isIntegrationsTarget(targetPath) {

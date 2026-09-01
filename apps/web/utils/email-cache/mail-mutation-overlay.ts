@@ -67,7 +67,7 @@ export function createMailMutationOverlay(mutations: MailMutation[]) {
     if (visible !== undefined) {
       const visibility = getOrCreate(
         threadVisibility,
-        threadKey(mutation.emailAccountId, mutation.threadId),
+        getMailMutationThreadKey(mutation.emailAccountId, mutation.threadId),
         () => new Map<string, boolean>(),
       );
       for (const messageId of mutation.messageIds) {
@@ -102,7 +102,7 @@ export function createMailMutationOverlay(mutations: MailMutation[]) {
     ) {
       if (messageIds.length === 0) return false;
       const visibility = threadVisibility.get(
-        threadKey(emailAccountId, threadId),
+        getMailMutationThreadKey(emailAccountId, threadId),
       );
       return messageIds.every(
         (messageId) => visibility?.get(messageId) === false,
@@ -127,7 +127,10 @@ function createOverlayState(): OverlayState {
   return { readStates: new Map(), visibility: new Map() };
 }
 
-function threadKey(emailAccountId: string, threadId: string) {
+export function getMailMutationThreadKey(
+  emailAccountId: string,
+  threadId: string,
+) {
   return `${emailAccountId}\u0000${threadId}`;
 }
 

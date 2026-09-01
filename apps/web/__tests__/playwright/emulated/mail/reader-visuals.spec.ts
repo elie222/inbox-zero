@@ -1,4 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
+import { capturePlaywrightCheckpoint } from "../playwright-evidence";
+import { test } from "../playwright-test";
 import { conversationWithSubject, openMail } from "./mail-test-helpers";
 
 test("captures the rich message reader states", async ({ page }, testInfo) => {
@@ -44,15 +46,15 @@ test("captures the rich message reader states", async ({ page }, testInfo) => {
     page.getByRole("button", { name: "Show quoted content" }),
   ).toBeVisible();
 
-  await page.screenshot({
-    path: testInfo.outputPath("mail-reader-rich-message.png"),
-  });
+  await capturePlaywrightCheckpoint(page, testInfo, "mail-reader-rich-message");
 
   await page.getByRole("button", { name: "Show details", exact: true }).click();
   await expect(page.getByText("From:", { exact: true })).toBeVisible();
-  await page.screenshot({
-    path: testInfo.outputPath("mail-reader-message-details.png"),
-  });
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "mail-reader-message-details",
+  );
 
   await page.getByRole("button", { name: "Show quoted content" }).click();
   await expect(
@@ -60,7 +62,9 @@ test("captures the rich message reader states", async ({ page }, testInfo) => {
       "This earlier quoted message is hidden until expanded.",
     ),
   ).toBeVisible();
-  await page.screenshot({
-    path: testInfo.outputPath("mail-reader-quoted-content.png"),
-  });
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "mail-reader-quoted-content",
+  );
 });

@@ -5,6 +5,7 @@ import {
   ReplyIcon,
   ChevronsUpDownIcon,
   ChevronsDownUpIcon,
+  UserRoundSearchIcon,
 } from "lucide-react";
 import { Tooltip } from "@/components/Tooltip";
 import {
@@ -47,6 +48,7 @@ export function EmailMessage({
   expanded,
   onToggle,
   onSendSuccess,
+  onOpenSenderContext,
   generateNudge,
 }: {
   message: ThreadMessage;
@@ -58,6 +60,7 @@ export function EmailMessage({
   /** Absent when the thread has a single message, which never collapses. */
   onToggle?: () => void;
   onSendSuccess: (messageId: string, threadId: string) => void;
+  onOpenSenderContext?: (message: ThreadMessage) => void;
   generateNudge?: boolean;
 }) {
   const { emailAccountId } = useAccount();
@@ -88,6 +91,7 @@ export function EmailMessage({
         expanded={expanded}
         message={message}
         onForward={onForward}
+        onOpenSenderContext={onOpenSenderContext}
         onReply={onReply}
         onToggle={onToggle}
         showDetails={showDetails}
@@ -144,6 +148,7 @@ function MessageHeader({
   showReplyButton,
   onReply,
   onForward,
+  onOpenSenderContext,
   onToggle,
 }: {
   message: ParsedMessage;
@@ -153,6 +158,7 @@ function MessageHeader({
   showReplyButton: boolean;
   onReply: () => void;
   onForward: () => void;
+  onOpenSenderContext?: (message: ThreadMessage) => void;
   onToggle?: () => void;
 }) {
   const { emailAccount, emailAccountId, userEmail } = useAccount();
@@ -176,6 +182,11 @@ function MessageHeader({
     : contacts?.contacts.find((contact) =>
         isSameEmailAddress(contact.emailAddress, senderEmail),
       )?.profilePictureUrl;
+  const canResearchSender =
+    Boolean(onOpenSenderContext) &&
+    !isSent &&
+    Boolean(senderEmail) &&
+    !isSameEmailAddress(senderEmail, userEmail);
 
   // Collapsing is the thread's call, so a row is only interactive once it has
   // been handed a toggle.
@@ -226,16 +237,42 @@ function MessageHeader({
         </AvatarFallback>
       </Avatar>
 
-      <span
-        className={cn(
-          "shrink-0 truncate text-sm",
-          expanded
-            ? "font-semibold text-foreground"
-            : "font-medium text-secondary-foreground",
-        )}
-      >
-        {senderName}
-      </span>
+      {canResearchSender ? (
+        <Button
+          type="button"
+          aria-label={`View public profile for ${senderName}`}
+          className="h-7 shrink-0 gap-1 px-1.5"
+          onClick={(event) => {
+            event.stopPropagation();
+            onOpenSenderContext?.(message);
+          }}
+          title="View public profile"
+          variant="ghost"
+        >
+          <span
+            className={cn(
+              "truncate text-sm",
+              expanded
+                ? "font-semibold text-foreground"
+                : "font-medium text-secondary-foreground",
+            )}
+          >
+            {senderName}
+          </span>
+          <UserRoundSearchIcon className="size-3.5 text-muted-foreground" />
+        </Button>
+      ) : (
+        <span
+          className={cn(
+            "shrink-0 truncate text-sm",
+            expanded
+              ? "font-semibold text-foreground"
+              : "font-medium text-secondary-foreground",
+          )}
+        >
+          {senderName}
+        </span>
+      )}
 
       {expanded ? (
         <>

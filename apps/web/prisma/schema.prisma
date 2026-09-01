@@ -159,6 +159,8 @@ model EmailAccount {
 
   mailLayout MailLayout @default(LIST)
 
+  includeInAllAccounts Boolean @default(true)
+
   meetingBriefingsEnabled       Boolean @default(false)
   meetingBriefingsMinutesBefore Int     @default(240) // 4 hours in minutes
   meetingBriefsSendEmail        Boolean @default(true)

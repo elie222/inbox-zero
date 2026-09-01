@@ -3,13 +3,16 @@ import prisma from "@/utils/prisma";
 export async function getConnectedEmailAccounts({
   userId,
   accountId,
+  includeInAllAccounts,
 }: {
   userId: string;
   accountId?: string;
+  includeInAllAccounts?: boolean;
 }) {
   const accounts = await prisma.emailAccount.findMany({
     where: {
       ...(accountId ? { id: accountId } : {}),
+      ...(includeInAllAccounts ? { includeInAllAccounts: true } : {}),
       userId,
       account: { disconnectedAt: null },
     },

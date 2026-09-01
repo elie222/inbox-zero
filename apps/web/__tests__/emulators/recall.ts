@@ -260,6 +260,15 @@ export async function createRecallEmulator({
         body: { meeting_url: ["Not a valid meeting URL."] },
       };
     }
+    if (payload.join_at !== undefined) {
+      const joinAt = new Date(payload.join_at).getTime();
+      if (Number.isNaN(joinAt) || joinAt <= Date.now()) {
+        return {
+          status: 400,
+          body: { join_at: ["The datetime must be in the future."] },
+        };
+      }
+    }
 
     const bot: RecallEmulatorBot = {
       id: `bot_${nextId++}`,
@@ -345,10 +354,10 @@ export async function createRecallEmulator({
     }
 
     if (method === "DELETE") {
-      // Recall answers 400 once the bot is in the call: too late to cancel.
+      // Recall answers 405 once the bot is dispatched: too late to delete.
       if (!isScheduled(bot)) {
         return {
-          status: 400,
+          status: 405,
           body: {
             code: "cannot_delete_bot",
             detail:

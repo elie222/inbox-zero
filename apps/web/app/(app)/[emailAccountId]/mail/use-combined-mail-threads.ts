@@ -109,10 +109,11 @@ export function useCombinedMailThreads({
     () =>
       createThreadListCacheKey({
         scope: "combined",
+        accountIdentity,
         isUnread: isUnread || undefined,
         labelName,
       }),
-    [isUnread, labelName],
+    [accountIdentity, isUnread, labelName],
   );
   const viewIdentity = `${emailAccountId}:${accountIdentity}:${viewKey}`;
   const { fetcher } = useSWRConfig();
@@ -126,6 +127,7 @@ export function useCombinedMailThreads({
         return null;
       }
       const params = createSearchParams({
+        accountSet: accountIdentity,
         limit: COMBINED_PAGE_SIZE,
         isUnread: isUnread || undefined,
         labelName,
@@ -133,7 +135,7 @@ export function useCombinedMailThreads({
       });
       return `/api/threads/all?${params.toString()}`;
     },
-    [enabled, isUnread, labelName],
+    [accountIdentity, enabled, isUnread, labelName],
   );
   const fetchCombinedPage = useCallback(
     async (key: string) => {

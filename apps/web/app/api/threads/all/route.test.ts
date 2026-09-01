@@ -78,6 +78,7 @@ describe("GET /api/threads/all", () => {
 
     expect(getConnectedEmailAccountsMock).toHaveBeenCalledWith({
       userId: "user-1",
+      includeInAllAccounts: true,
     });
     expect(createEmailProviderMock).toHaveBeenCalledWith(
       expect.objectContaining({

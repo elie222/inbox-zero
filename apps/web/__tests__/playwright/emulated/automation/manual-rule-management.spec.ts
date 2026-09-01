@@ -1,4 +1,5 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
+import { test } from "../playwright-test";
 import { getEmailAccountId } from "../account-test-helpers";
 import {
   cleanupTestRules,
@@ -35,10 +36,18 @@ test("creates, edits, toggles, and deletes a manual automation rule", async ({
     page.getByRole("heading", { name: "AI Assistant", exact: true }),
   );
 
-  await page.getByRole("button", { name: "Add Rule" }).click();
-  await page.getByRole("button", { name: "Add rule manually" }).click();
-
   const createDialog = page.getByRole("dialog", { name: "Create Rule" });
+  const addRuleManually = page.getByRole("button", {
+    name: "Add rule manually",
+  });
+  await expect(async () => {
+    if (await addRuleManually.isVisible()) return;
+    await page.getByRole("button", { name: "Add Rule" }).click();
+    await expect(addRuleManually).toBeVisible({ timeout: 5000 });
+  }).toPass({ timeout: 30_000 });
+  await addRuleManually.click();
+  await expect(createDialog).toBeVisible();
+
   await createDialog
     .getByPlaceholder(
       "e.g. Newsletters, regular content from publications, blogs, or services I've subscribed to",

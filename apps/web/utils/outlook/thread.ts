@@ -38,7 +38,7 @@ export async function getThread(
     return messages.value.sort((a, b) => {
       const dateA = new Date(a.receivedDateTime || 0).getTime();
       const dateB = new Date(b.receivedDateTime || 0).getTime();
-      return dateB - dateA; // desc order (newest first)
+      return dateA - dateB;
     });
   } catch (error) {
     // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape

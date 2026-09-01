@@ -2,7 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EmailSendOperationStatus } from "@/generated/prisma/enums";
 import { getMockEmailAccountWithAccount } from "@/__tests__/helpers";
 import prisma from "@/utils/__mocks__/prisma";
-import { executeMailMutationAction } from "./mail-mutation";
+import {
+  executeArchiveMutationBatchAction,
+  executeMailMutationAction,
+} from "./mail-mutation";
 
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/auth", () => ({
@@ -73,6 +76,53 @@ describe("executeMailMutationAction", () => {
       ["one", "two"],
       undefined,
     );
+  });
+
+  it("applies a durable archive batch with one provider operation", async () => {
+    const result = await executeArchiveMutationBatchAction("account-1", {
+      mutations: [
+        { messageIds: ["one", "two"] },
+        { messageIds: ["two", "three"] },
+      ],
+    });
+
+    expect(result?.data).toEqual({ status: "applied" });
+    expect(mocks.archiveMessages).toHaveBeenCalledOnce();
+    expect(mocks.archiveMessages).toHaveBeenCalledWith([
+      "one",
+      "two",
+      "two",
+      "three",
+    ]);
+  });
+
+  it("classifies a throttled archive batch for durable retry", async () => {
+    mocks.archiveMessages.mockRejectedValue(
+      Object.assign(new Error("Provider request was throttled"), {
+        response: { status: 429 },
+      }),
+    );
+
+    const result = await executeArchiveMutationBatchAction("account-1", {
+      mutations: [{ messageIds: ["message"] }],
+    });
+
+    expect(result?.data).toEqual({ status: "retry" });
+  });
+
+  it("rejects a permanently invalid archive batch", async () => {
+    mocks.archiveMessages.mockRejectedValue(
+      Object.assign(new Error("Invalid message snapshot"), { status: 400 }),
+    );
+
+    const result = await executeArchiveMutationBatchAction("account-1", {
+      mutations: [{ messageIds: ["message"] }],
+    });
+
+    expect(result?.data).toEqual({
+      status: "rejected",
+      error: "Provider rejected the mutation",
+    });
   });
 
   it("applies an archive label to the immutable snapshot", async () => {

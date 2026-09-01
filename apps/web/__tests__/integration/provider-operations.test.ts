@@ -14,6 +14,7 @@ import { describe, test, expect, beforeAll, afterAll, vi } from "vitest";
 import {
   createGmailTestHarness,
   createOutlookTestHarness,
+  type GmailTestHarness,
   type ProviderTestHarness,
 } from "./helpers";
 
@@ -59,6 +60,16 @@ function gmailSeedMessages(email: string) {
       label_ids: ["INBOX"],
       internal_date: "1711900120000",
     },
+    ...Array.from({ length: 100 }, (_, index) => ({
+      id: `msg_bulk_${index}`,
+      user_email: email,
+      from: "bulk-sender@example.com",
+      to: email,
+      subject: `Bulk archive ${index}`,
+      body_text: "Archive this message",
+      label_ids: ["INBOX"],
+      internal_date: String(1_711_800_000_000 + index * 1000),
+    })),
   ];
 }
 
@@ -229,7 +240,9 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
   "Provider operations — Gmail",
   { timeout: 30_000 },
   () => {
-    let harness: ProviderTestHarness & { emulator: any };
+    let harness: ProviderTestHarness & {
+      gmailClient: GmailTestHarness["gmailClient"];
+    };
 
     beforeAll(async () => {
       const h = await createGmailTestHarness({
@@ -239,6 +252,7 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       });
       harness = {
         emulator: h.emulator,
+        gmailClient: h.gmailClient,
         provider: h.provider,
         email: GMAIL_EMAIL,
       };
@@ -249,6 +263,34 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
     });
 
     providerTestSuite(() => harness, "Gmail");
+
+    test("archiveMessages removes a large snapshot from the inbox", async () => {
+      const messageIds = Array.from(
+        { length: 100 },
+        (_, index) => `msg_bulk_${index}`,
+      );
+
+      await harness.provider.archiveMessages(messageIds);
+
+      const inbox = await harness.gmailClient.users.messages.list({
+        userId: "me",
+        labelIds: ["INBOX"],
+        maxResults: 500,
+      });
+      const inboxIds = new Set(
+        inbox.data.messages?.map((message) => message.id) ?? [],
+      );
+      expect(messageIds.some((messageId) => inboxIds.has(messageId))).toBe(
+        false,
+      );
+      for (const messageId of ["msg_bulk_0", "msg_bulk_50", "msg_bulk_99"]) {
+        const message = await harness.gmailClient.users.messages.get({
+          userId: "me",
+          id: messageId,
+        });
+        expect(message.data.threadId).toBeDefined();
+      }
+    });
   },
 );
 

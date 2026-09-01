@@ -1,5 +1,7 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
+import { test } from "../playwright-test";
 import { getEmailAccountId } from "../account-test-helpers";
+import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { conversationWithSubject, openMail } from "./mail-test-helpers";
 
 test("starts mailbox warming from the app shell before mail opens", async ({
@@ -36,7 +38,7 @@ test("starts mailbox warming from the app shell before mail opens", async ({
 
 test("opens a complete conversation and updates its read state", async ({
   page,
-}) => {
+}, testInfo) => {
   const { conversations } = await openMail(page);
   const readerConversation = conversationWithSubject(
     page,
@@ -44,6 +46,17 @@ test("opens a complete conversation and updates its read state", async ({
     "Re: Reader Navigation Message",
   );
   await expect(readerConversation).toBeVisible();
+  await expect(
+    readerConversation.getByText("Dana Example, me", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    readerConversation.getByText("(2)", { exact: true }),
+  ).toBeVisible();
+  await capturePlaywrightCheckpoint(
+    readerConversation,
+    testInfo,
+    "thread-list-participants",
+  );
 
   await readerConversation.click();
 
@@ -77,9 +90,18 @@ test("opens a complete conversation and updates its read state", async ({
     page.getByRole("heading", { name: "Re: Reader Navigation Message" }),
   ).toBeVisible();
   await expect(page).toHaveURL(/thread-id=thr_playwright_reader/);
-  await expect(page.getByRole("button", { name: /^Back/ })).toHaveCount(0);
+  const backToInbox = page.getByRole("button", { name: "Back to inbox" });
+  await expect(backToInbox).toBeVisible();
   await expect(page.getByText(/^\d+ of \d+$/)).toHaveCount(0);
 
+  await backToInbox.click();
+  await expect(readerConversation).toBeVisible();
+  await expect(page).not.toHaveURL(/thread-id=/);
+
+  await readerConversation.click();
+  await expect(
+    page.getByRole("heading", { name: "Re: Reader Navigation Message" }),
+  ).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(conversations).toBeVisible();
   await expect(readerConversation).toBeVisible();
@@ -197,10 +219,7 @@ test("creates and edits a label and shows every keyboard workflow", async ({
     .click({ button: "right" });
   const editMenuItem = page.getByRole("menuitem", { name: "Edit" });
   await expect(editMenuItem).toBeVisible();
-  await testInfo.attach("gmail-label-context-menu", {
-    body: await page.screenshot(),
-    contentType: "image/png",
-  });
+  await capturePlaywrightCheckpoint(page, testInfo, "gmail-label-context-menu");
   await editMenuItem.click();
   const editDialog = page.getByRole("dialog", { name: "Edit label" });
   const updatedLabelName = `${labelName} edited`;
@@ -208,10 +227,7 @@ test("creates and edits a label and shows every keyboard workflow", async ({
     .getByRole("textbox", { name: "label name" })
     .fill(updatedLabelName);
   await editDialog.getByRole("radio", { name: "Dark blue" }).click();
-  await testInfo.attach("gmail-label-editor", {
-    body: await page.screenshot(),
-    contentType: "image/png",
-  });
+  await capturePlaywrightCheckpoint(page, testInfo, "gmail-label-editor");
   await editDialog.getByRole("button", { name: "Save" }).click();
   await expect(
     page.getByRole("link", { name: updatedLabelName, exact: true }),

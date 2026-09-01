@@ -1,4 +1,6 @@
-import { expect, test, type Page, type Route } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
+import { capturePlaywrightCheckpoint } from "../playwright-evidence";
+import { test } from "../playwright-test";
 import {
   createSecondEmailAccount,
   deleteSecondEmailAccount,
@@ -28,20 +30,19 @@ test("keeps a queued archive hidden across reload and replays it after reconnect
     conversations,
     ARCHIVE_SUBJECT,
   );
-  const blockServerActions = (route: Route) => {
-    const request = route.request();
-    if (request.method() === "POST" && request.headers()["next-action"]) {
-      return route.abort("connectionfailed");
-    }
-    return route.fallback();
-  };
+  await page.addInitScript(() => {
+    Object.defineProperty(window.navigator, "onLine", {
+      configurable: true,
+      get: () => localStorage.getItem("playwright-mail-online") !== "false",
+    });
+  });
+  await setNavigatorOnline(page, false);
 
   try {
-    await page.route("**/*", blockServerActions);
     await conversation
-      .getByRole("checkbox", { name: "Select conversation from Erin Example" })
+      .getByRole("checkbox", { name: "Select conversation with Erin Example" })
       .click();
-    await page.getByRole("button", { name: /^Archive E$/ }).click();
+    await page.getByRole("button", { name: "Archive", exact: true }).click();
 
     await expect(conversation).toHaveCount(0);
     await expect
@@ -52,7 +53,7 @@ test("keeps a queued archive hidden across reload and replays it after reconnect
           threadId: ARCHIVE_THREAD_ID,
         }),
       )
-      .toMatchObject({ status: "retry_wait" });
+      .toMatchObject({ status: "pending" });
 
     await page.reload();
     const reloadedConversations = page.getByRole("listbox", {
@@ -62,12 +63,13 @@ test("keeps a queued archive hidden across reload and replays it after reconnect
     await expect(
       conversationWithSubject(page, reloadedConversations, ARCHIVE_SUBJECT),
     ).toHaveCount(0);
-    await testInfo.attach("durable-archive-after-reload", {
-      body: await page.screenshot(),
-      contentType: "image/png",
-    });
+    await capturePlaywrightCheckpoint(
+      page,
+      testInfo,
+      "durable-archive-after-reload",
+    );
 
-    await page.unroute("**/*", blockServerActions);
+    await setNavigatorOnline(page, true);
     await page.evaluate(() => window.dispatchEvent(new Event("online")));
     await expect
       .poll(
@@ -81,7 +83,7 @@ test("keeps a queued archive hidden across reload and replays it after reconnect
       )
       .toMatchObject({ status: "succeeded" });
   } finally {
-    await page.unroute("**/*", blockServerActions);
+    await setNavigatorOnline(page, true);
     await page.request.post(`/api/threads/${ARCHIVE_THREAD_ID}/unarchive`, {
       headers: { "X-Email-Account-ID": emailAccountId },
     });
@@ -143,10 +145,11 @@ test("keeps a reply queued across reload and sends it after reconnect", async ({
         }),
       )
       .toMatchObject({ status: "pending" });
-    await testInfo.attach("durable-reply-after-reload", {
-      body: await page.screenshot(),
-      contentType: "image/png",
-    });
+    await capturePlaywrightCheckpoint(
+      page,
+      testInfo,
+      "durable-reply-after-reload",
+    );
 
     const queuedReply = await readLatestMailMutation(page, {
       emailAccountId,
@@ -217,8 +220,14 @@ test("keeps a unified-mailbox mutation isolated to its owning account", async ({
     await page.route("**/api/mobile/mailbox-sync", (route) =>
       route.abort("connectionfailed"),
     );
-    await page.route("**/*", blockServerActions);
     await seedAccountIsolationMailbox(page, emailAccountId, secondAccount.id);
+    await page.addInitScript(() => {
+      Object.defineProperty(window.navigator, "onLine", {
+        configurable: true,
+        get: () => localStorage.getItem("playwright-mail-online") !== "false",
+      });
+    });
+    await setNavigatorOnline(page, false);
 
     await page.goto(`/${emailAccountId}/mail?accountScope=all`);
     const conversations = page.getByRole("listbox", {
@@ -238,7 +247,7 @@ test("keeps a unified-mailbox mutation isolated to its owning account", async ({
     await expect(secondaryConversation).toBeVisible();
 
     await secondaryConversation.getByRole("checkbox").click();
-    await page.getByRole("button", { name: /^Archive E$/ }).click();
+    await page.getByRole("button", { name: "Archive", exact: true }).click();
     await expect(secondaryConversation).toHaveCount(0);
     await expect(primaryConversation).toBeVisible();
     await expect
@@ -249,7 +258,7 @@ test("keeps a unified-mailbox mutation isolated to its owning account", async ({
           threadId: ISOLATED_THREAD_ID,
         }),
       )
-      .toMatchObject({ status: "retry_wait" });
+      .toMatchObject({ status: "pending" });
     await expect
       .poll(() =>
         readLatestMailMutation(page, {
@@ -270,18 +279,14 @@ test("keeps a unified-mailbox mutation isolated to its owning account", async ({
         threadId: ISOLATED_THREAD_ID,
       });
     } finally {
-      await deleteSecondEmailAccount(secondAccount.accountId);
+      try {
+        await setNavigatorOnline(page, true);
+      } finally {
+        await deleteSecondEmailAccount(secondAccount.accountId);
+      }
     }
   }
 });
-
-function blockServerActions(route: Route) {
-  const request = route.request();
-  if (request.method() === "POST" && request.headers()["next-action"]) {
-    return route.abort("connectionfailed");
-  }
-  return route.fallback();
-}
 
 function seedAccountIsolationMailbox(
   page: Page,

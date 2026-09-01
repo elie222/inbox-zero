@@ -14,6 +14,7 @@ on:
       - "apps/web/utils/auth.ts"
       - "apps/web/utils/auth-client.ts"
       - "apps/web/utils/middleware.ts"
+      - "apps/web/utils/playwright/**"
       - "apps/web/__tests__/playwright/**"
       - "apps/web/emulate.playwright.config.yaml"
       - "apps/web/playwright.config.mjs"
@@ -42,6 +43,7 @@ on:
       - "apps/web/utils/auth.ts"
       - "apps/web/utils/auth-client.ts"
       - "apps/web/utils/middleware.ts"
+      - "apps/web/utils/playwright/**"
       - "apps/web/__tests__/playwright/**"
       - "apps/web/emulate.playwright.config.yaml"
       - "apps/web/playwright.config.mjs"
@@ -124,29 +126,35 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Find changed Playwright files
+      - name: Find changed files
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
           set -euo pipefail
 
-          changed_files_path="$RUNNER_TEMP/changed-playwright-files.txt"
+          changed_files_path="$RUNNER_TEMP/changed-files.txt"
+          changed_test_files_path="$RUNNER_TEMP/changed-playwright-files.txt"
           : > "$changed_files_path"
+          : > "$changed_test_files_path"
 
-          if [[ "$GITHUB_EVENT_NAME" == "pull_request" || "$GITHUB_EVENT_NAME" == "push" ]] &&
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]] &&
             [[ -n "$BASE_SHA" ]] &&
             [[ "$BASE_SHA" != "0000000000000000000000000000000000000000" ]]; then
             git fetch --no-tags --depth=1 origin "$BASE_SHA"
-            git diff --name-only --diff-filter=ACMR "$BASE_SHA" "$GITHUB_SHA" -- \
-              apps/web/__tests__/playwright | \
-              sed 's#^apps/web/##' \
-                > "$changed_files_path"
+            git diff --name-only --diff-filter=ACMRD "$BASE_SHA" "$GITHUB_SHA" \
+              > "$changed_files_path"
+            grep '^apps/web/__tests__/playwright/' "$changed_files_path" | \
+              sed 's#^apps/web/##' > "$changed_test_files_path" || true
           fi
 
+          delimiter="PLAYWRIGHT_FILES_$(openssl rand -hex 16)"
           {
-            echo "PLAYWRIGHT_CHANGED_TEST_FILES<<EOF"
+            echo "PLAYWRIGHT_CHANGED_FILES<<$delimiter"
             cat "$changed_files_path"
-            echo "EOF"
+            echo "$delimiter"
+            echo "PLAYWRIGHT_CHANGED_TEST_FILES<<$delimiter"
+            cat "$changed_test_files_path"
+            echo "$delimiter"
           } >> "$GITHUB_ENV"
 
       - name: Setup pnpm
