@@ -3,7 +3,6 @@ import {
   getErrorMessage,
   isGmailInsufficientPermissionsError,
   isInvalidGrantError,
-  isOutlookAccessDeniedError,
 } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
 import {
@@ -83,6 +82,7 @@ export function classifyEmailAccountProviderIssue({
   provider: "google" | "microsoft";
 }): ProviderIssue | null {
   const message = getErrorMessage(error);
+  const normalizedMessage = message?.toLowerCase() ?? "";
 
   if (
     provider === "google" &&
@@ -92,7 +92,13 @@ export function classifyEmailAccountProviderIssue({
     return { reason: "insufficient_permissions" };
   }
 
-  if (provider === "microsoft" && isOutlookAccessDeniedError(error)) {
+  if (
+    provider === "microsoft" &&
+    normalizedMessage.includes(
+      "access is denied. check credentials and try again",
+    ) &&
+    !normalizedMessage.includes("cannot save changes made to an item to store")
+  ) {
     return { reason: "insufficient_permissions" };
   }
 

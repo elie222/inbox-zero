@@ -8,6 +8,7 @@ import {
   claimProviderIssueCleanupInRedis,
   releaseProviderIssueCleanupClaimInRedis,
 } from "@/utils/redis/provider-issue-cleanup";
+import { createScopedLogger } from "@/utils/logger";
 
 vi.mock("@/utils/auth/cleanup-invalid-tokens", () => ({
   cleanupInvalidTokens: vi.fn(),
@@ -138,13 +139,30 @@ describe("provider health", () => {
     );
   });
 
-  it("records Outlook access denied as action-required permission issues", async () => {
-    const logger = createMockLogger();
+  it("does not disconnect Outlook accounts for item access failures", async () => {
+    const logger = createScopedLogger("provider-health-test");
 
     await recordEmailAccountProviderIssue({
       emailAccountId: "email-account-1",
       provider: "microsoft",
-      error: new Error("Access is denied. Check credentials and try again."),
+      error: new Error(
+        "Access is denied. Check credentials and try again. CANNOT SAVE CHANGES MADE TO AN ITEM TO STORE.",
+      ),
+      logger,
+      operation: "removeThreadLabels",
+    });
+
+    expect(cleanupInvalidTokens).not.toHaveBeenCalled();
+    expect(claimProviderIssueCleanupInRedis).not.toHaveBeenCalled();
+  });
+
+  it("records Outlook authorization failures case-insensitively", async () => {
+    const logger = createScopedLogger("provider-health-test");
+
+    await recordEmailAccountProviderIssue({
+      emailAccountId: "email-account-1",
+      provider: "microsoft",
+      error: new Error("ACCESS IS DENIED. CHECK CREDENTIALS AND TRY AGAIN."),
       logger,
       operation: "getMessage",
     });
@@ -154,6 +172,21 @@ describe("provider health", () => {
       reason: "insufficient_permissions",
       logger,
     });
+  });
+
+  it("does not disconnect Outlook accounts for code-only access denials", async () => {
+    const logger = createScopedLogger("provider-health-test");
+
+    await recordEmailAccountProviderIssue({
+      emailAccountId: "email-account-1",
+      provider: "microsoft",
+      error: { code: "ErrorAccessDenied" },
+      logger,
+      operation: "getMessage",
+    });
+
+    expect(cleanupInvalidTokens).not.toHaveBeenCalled();
+    expect(claimProviderIssueCleanupInRedis).not.toHaveBeenCalled();
   });
 
   it("does not treat malformed Outlook requests as permanent credential failures", () => {
