@@ -125,6 +125,29 @@ describe("useLabelCounts", () => {
       expect(result.current.countsById.get("INBOX")?.unread).toBe(3),
     );
   });
+
+  it("discards a pending unread delta when the account changes", async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce({ counts: [], partial: true })
+      .mockResolvedValueOnce(initialResponse);
+    const { result, rerender } = renderHook(
+      ({ emailAccountId }) => useLabelCounts({ emailAccountId }),
+      {
+        initialProps: { emailAccountId: "account-1" },
+        wrapper: createWrapper(fetcher),
+      },
+    );
+
+    await waitFor(() => expect(fetcher).toHaveBeenCalledOnce());
+    act(() => result.current.adjustInboxUnread(-1));
+    rerender({ emailAccountId: "account-2" });
+    act(() => mailbox.emit("account-2"));
+
+    await waitFor(() =>
+      expect(result.current.countsById.get("INBOX")?.unread).toBe(4),
+    );
+  });
 });
 
 function createWrapper(fetcher: () => unknown) {

@@ -14,7 +14,10 @@ export function useLabelCounts({ emailAccountId }: { emailAccountId: string }) {
     { shouldRetryOnError: false },
   );
   const dataRef = useRef(data);
-  const pendingInboxUnreadDelta = useRef(0);
+  const pendingInboxUnread = useRef({ emailAccountId, delta: 0 });
+  if (pendingInboxUnread.current.emailAccountId !== emailAccountId) {
+    pendingInboxUnread.current = { emailAccountId, delta: 0 };
+  }
   dataRef.current = data;
 
   useEffect(
@@ -29,13 +32,13 @@ export function useLabelCounts({ emailAccountId }: { emailAccountId: string }) {
     mutate(
       (current) => {
         if (
-          !pendingInboxUnreadDelta.current ||
+          !pendingInboxUnread.current.delta ||
           !current?.counts.some((count) => count.id === GmailLabel.INBOX)
         ) {
           return current;
         }
-        const delta = pendingInboxUnreadDelta.current;
-        pendingInboxUnreadDelta.current = 0;
+        const delta = pendingInboxUnread.current.delta;
+        pendingInboxUnread.current.delta = 0;
         return applyInboxUnreadDelta(current, delta);
       },
       { revalidate: false },
@@ -43,14 +46,14 @@ export function useLabelCounts({ emailAccountId }: { emailAccountId: string }) {
   }, [mutate]);
 
   useEffect(() => {
-    if (!data || !pendingInboxUnreadDelta.current) return;
+    if (!data || !pendingInboxUnread.current.delta) return;
     applyPendingInboxUnreadDelta();
   }, [applyPendingInboxUnreadDelta, data]);
 
   const adjustInboxUnread = useCallback(
     (delta: number) => {
       if (!delta) return;
-      pendingInboxUnreadDelta.current += delta;
+      pendingInboxUnread.current.delta += delta;
       if (!dataRef.current) {
         return;
       }
