@@ -40,7 +40,7 @@ test("keeps a queued archive hidden across reload and replays it after reconnect
 
   try {
     await conversation
-      .getByRole("checkbox", { name: "Select conversation from Erin Example" })
+      .getByRole("checkbox", { name: "Select conversation with Erin Example" })
       .click();
     await page.getByRole("button", { name: "Archive", exact: true }).click();
 
