@@ -23,6 +23,17 @@ describe("executeArchiveMutationBatchBody", () => {
 
     expect(result.success).toBe(false);
   });
+
+  it("counts unique IDs across the provider request", () => {
+    const result = executeArchiveMutationBatchBody.safeParse({
+      mutations: [
+        { messageIds: messageIds(600) },
+        { messageIds: [...messageIds(400, 600), "message-0"] },
+      ],
+    });
+
+    expect(result.success).toBe(true);
+  });
 });
 
 function messageIds(count: number, offset = 0) {

@@ -491,6 +491,40 @@ describe("mail mutation outbox", () => {
     ).resolves.toMatchObject([{ id: "first", status: "processing" }]);
   });
 
+  it("counts unique snapshots across a provider batch", async () => {
+    await enqueueMailMutationBatch(
+      [
+        {
+          id: "first",
+          emailAccountId: "account",
+          threadId: "thread-1",
+          messageIds: createMessageIds(600),
+          kind: "archive",
+        },
+        {
+          id: "second",
+          emailAccountId: "account",
+          threadId: "thread-2",
+          messageIds: [...createMessageIds(400, 600), "message-0"],
+          kind: "archive",
+        },
+      ],
+      10,
+    );
+
+    await expect(
+      claimNextMailMutationBatch({
+        maxBatchSize: 500,
+        ownerId: "worker",
+        leaseMs: 100,
+        now: 20,
+      }),
+    ).resolves.toMatchObject([
+      { id: "first", status: "processing" },
+      { id: "second", status: "processing" },
+    ]);
+  });
+
   it("rejects oversized archive snapshots before persistence", async () => {
     await expect(
       enqueueMailMutation({

@@ -273,7 +273,7 @@ export async function claimNextMailMutationBatch({
   const blockedThreads = new Set<string>();
   const claimed: StoredMailMutation[] = [];
   const rejected: StoredMailMutation[] = [];
-  let claimedMessageCount = 0;
+  const claimedMessageIds = new Set<string>();
   let batchKey: string | undefined;
 
   for (const mutation of mutations) {
@@ -317,10 +317,11 @@ export async function claimNextMailMutationBatch({
         blockedThreads.add(threadKey);
         continue;
       }
-      if (
-        claimedMessageCount + mutation.messageIds.length >
-        BULK_ARCHIVE_MESSAGES_ACTION_LIMIT
-      ) {
+      const nextMessageIds = new Set([
+        ...claimedMessageIds,
+        ...mutation.messageIds,
+      ]);
+      if (nextMessageIds.size > BULK_ARCHIVE_MESSAGES_ACTION_LIMIT) {
         break;
       }
     } else {
@@ -336,7 +337,9 @@ export async function claimNextMailMutationBatch({
       updatedAt: now,
     };
     claimed.push(leased);
-    claimedMessageCount += mutation.messageIds.length;
+    for (const messageId of mutation.messageIds) {
+      claimedMessageIds.add(messageId);
+    }
     blockedThreads.add(threadKey);
     if (!batchKey || claimed.length >= maxBatchSize) break;
   }

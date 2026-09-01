@@ -41,10 +41,9 @@ export const executeArchiveMutationBatchBody = z
       .max(BULK_ARCHIVE_THREADS_ACTION_LIMIT),
   })
   .superRefine(({ mutations }, context) => {
-    const messageCount = mutations.reduce(
-      (total, mutation) => total + mutation.messageIds.length,
-      0,
-    );
+    const messageCount = new Set(
+      mutations.flatMap((mutation) => mutation.messageIds),
+    ).size;
     if (messageCount > BULK_ARCHIVE_MESSAGES_ACTION_LIMIT) {
       context.addIssue({
         code: "custom",
