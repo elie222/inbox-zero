@@ -7,6 +7,7 @@ import { getShortcutHint } from "@/lib/shortcuts/registry";
 import {
   cancelPendingMailMutation,
   enqueueMailMutation,
+  enqueueMailMutationBatch,
   type MailMutationPayload,
 } from "@/utils/email-cache/mail-mutations";
 import { randomUuid } from "@/utils/uuid";
@@ -79,25 +80,24 @@ export function useThreadActions({
       payload: MailMutationPayload,
     ) => {
       if (!targets.length) return [];
-      const batchId = randomUuid();
-      const results = await Promise.allSettled(
-        targets.map((target) =>
-          enqueueMailMutation({
+      try {
+        const mutations = await enqueueMailMutationBatch(
+          targets.map((target) => ({
             ...payload,
-            batchId,
             emailAccountId: target.emailAccountId,
             messageIds: target.messageIds,
             threadId: target.threadId,
-          }),
-        ),
-      );
+          })),
+        );
 
-      return results.flatMap((result, index) => {
-        const target = targets[index];
-        return result.status === "fulfilled" && target
-          ? [{ ...target, mutationId: result.value.id }]
-          : [];
-      });
+        return targets.map((target, index) => {
+          const mutation = mutations.at(index);
+          if (!mutation) throw new Error("Missing queued mail mutation");
+          return { ...target, mutationId: mutation.id };
+        });
+      } catch {
+        return [];
+      }
     },
     [],
   );

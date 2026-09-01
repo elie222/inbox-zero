@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  BULK_ARCHIVE_MESSAGES_ACTION_LIMIT,
+  BULK_ARCHIVE_THREADS_ACTION_LIMIT,
+} from "@/utils/actions/mail-bulk-action.constants";
 import { durableEmailSendBody } from "@/utils/email/durable-email-send.validation";
 
 const snapshot = z.object({
@@ -28,5 +32,25 @@ export const executeMailMutationBody = z.discriminatedUnion("kind", [
     kind: z.literal("reply"),
   }),
 ]);
+
+export const executeArchiveMutationBatchBody = z
+  .object({
+    mutations: z
+      .array(snapshot.pick({ messageIds: true }))
+      .min(1)
+      .max(BULK_ARCHIVE_THREADS_ACTION_LIMIT),
+  })
+  .superRefine(({ mutations }, context) => {
+    const messageCount = new Set(
+      mutations.flatMap((mutation) => mutation.messageIds),
+    ).size;
+    if (messageCount > BULK_ARCHIVE_MESSAGES_ACTION_LIMIT) {
+      context.addIssue({
+        code: "custom",
+        message: "Archive batch contains too many messages",
+        path: ["mutations"],
+      });
+    }
+  });
 
 export type ExecuteMailMutationBody = z.infer<typeof executeMailMutationBody>;
