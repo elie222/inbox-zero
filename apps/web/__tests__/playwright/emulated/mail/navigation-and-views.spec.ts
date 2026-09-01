@@ -38,7 +38,7 @@ test("starts mailbox warming from the app shell before mail opens", async ({
 
 test("opens a complete conversation and updates its read state", async ({
   page,
-}) => {
+}, testInfo) => {
   const { conversations } = await openMail(page);
   const readerConversation = conversationWithSubject(
     page,
@@ -46,6 +46,17 @@ test("opens a complete conversation and updates its read state", async ({
     "Re: Reader Navigation Message",
   );
   await expect(readerConversation).toBeVisible();
+  await expect(
+    readerConversation.getByText("Dana Example, me", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    readerConversation.getByText("(2)", { exact: true }),
+  ).toBeVisible();
+  await capturePlaywrightCheckpoint(
+    readerConversation,
+    testInfo,
+    "thread-list-participants",
+  );
 
   await readerConversation.click();
 
