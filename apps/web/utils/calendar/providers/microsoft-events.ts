@@ -182,7 +182,7 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
         })),
         ...(onlineMeetingFields ?? {}),
         location:
-          !requestedOnlineMeeting && input.locationValue
+          !useMicrosoftTeams && input.locationValue
             ? { displayName: input.locationValue }
             : undefined,
       });
@@ -315,18 +315,23 @@ async function getOnlineMeetingFields({
     logger,
   });
 
-  // Prefer Teams when the calendar allows it; otherwise fall back to the
-  // calendar's default provider (personal Outlook calendars don't allow
-  // teamsForBusiness). When the settings fetch fails, still request Teams.
-  const onlineMeetingProvider =
+  let onlineMeetingProvider = settings?.defaultOnlineMeetingProvider;
+  if (
     !settings ||
     settings.allowedOnlineMeetingProviders?.includes(MICROSOFT_TEAMS_PROVIDER)
-      ? MICROSOFT_TEAMS_PROVIDER
-      : settings.defaultOnlineMeetingProvider;
+  ) {
+    onlineMeetingProvider = MICROSOFT_TEAMS_PROVIDER;
+  }
 
-  if (!onlineMeetingProvider || onlineMeetingProvider === "unknown") {
-    logger.warn("No online meeting provider is available for calendar", {
+  // Personal Outlook calendars advertise Skype but ignore meeting fields.
+  if (
+    !onlineMeetingProvider ||
+    onlineMeetingProvider === "skypeForConsumer" ||
+    onlineMeetingProvider === "unknown"
+  ) {
+    logger.warn("Calendar cannot generate an online meeting link", {
       calendarId,
+      onlineMeetingProvider,
       allowedOnlineMeetingProviders: settings?.allowedOnlineMeetingProviders,
       defaultOnlineMeetingProvider: settings?.defaultOnlineMeetingProvider,
     });
