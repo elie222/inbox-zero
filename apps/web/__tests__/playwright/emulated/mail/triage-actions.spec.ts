@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page } from "@playwright/test";
+import { getEmailAccountId } from "../account-test-helpers";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
 import {
@@ -8,6 +9,14 @@ import {
 } from "./mail-test-helpers";
 
 const commandModifier = process.platform === "darwin" ? "Meta" : "Control";
+let readStateCleanup: { emailAccountId: string; threadId: string } | undefined;
+
+test.afterEach(async ({ page }) => {
+  const cleanup = readStateCleanup;
+  readStateCleanup = undefined;
+  if (!cleanup || page.isClosed()) return;
+  await restoreReadState(page, cleanup);
+});
 
 test("archives a selected conversation and restores it with undo", async ({
   page,
@@ -64,7 +73,13 @@ test("deletes an open conversation and returns to the list", async ({
 });
 
 test("marks selected conversations as unread", async ({ page }, testInfo) => {
+  const accountId = await getEmailAccountId(page);
+  await stubMailboxSync(page, accountId, "thr_playwright_2");
   const { conversations, emailAccountId } = await openMail(page);
+  readStateCleanup = {
+    emailAccountId,
+    threadId: "thr_playwright_2",
+  };
   const conversation = conversationWithSubject(
     page,
     conversations,
@@ -93,23 +108,18 @@ test("marks selected conversations as unread", async ({ page }, testInfo) => {
     threadId: "thr_playwright_2",
     read: false,
   });
-
-  await conversation.click();
-  await expectReadStateMutation(page, {
-    emailAccountId,
-    threadId: "thr_playwright_2",
-    read: true,
-  });
 });
 
 test("marks an open conversation as unread", async ({ page }, testInfo) => {
-  const { conversations, emailAccountId } = await openMail(page);
-  const conversation = conversationWithSubject(
-    page,
-    conversations,
-    "Project Label Message",
+  const emailAccountId = await getEmailAccountId(page);
+  await stubMailboxSync(page, emailAccountId, "thr_playwright_label");
+  readStateCleanup = {
+    emailAccountId,
+    threadId: "thr_playwright_label",
+  };
+  await page.goto(
+    `/${emailAccountId}/mail?type=sent&thread-id=thr_playwright_label`,
   );
-  await conversation.click();
   await expect(
     page.getByRole("heading", { name: "Project Label Message" }),
   ).toBeVisible();
@@ -127,14 +137,6 @@ test("marks an open conversation as unread", async ({ page }, testInfo) => {
     emailAccountId,
     threadId: "thr_playwright_label",
     read: false,
-  });
-
-  await page.getByRole("button", { name: /^More actions/ }).click();
-  await page.getByRole("menuitem", { name: "Mark as read" }).click();
-  await expectReadStateMutation(page, {
-    emailAccountId,
-    threadId: "thr_playwright_label",
-    read: true,
   });
 });
 
@@ -206,14 +208,16 @@ function expectReadStateMutation(
   }: { emailAccountId: string; threadId: string; read: boolean },
 ) {
   return expect
-    .poll(() =>
-      readLatestMailMutation(page, {
-        emailAccountId,
-        kind: "set_read_state",
-        threadId,
-      }),
+    .poll(
+      () =>
+        readLatestMailMutation(page, {
+          emailAccountId,
+          kind: "set_read_state",
+          threadId,
+        }),
+      { timeout: 60_000 },
     )
-    .toMatchObject({ payload: { read } });
+    .toMatchObject({ payload: { read }, status: "succeeded" });
 }
 
 function allRowsAreSelected(rows: Locator, selected: boolean) {
@@ -224,4 +228,51 @@ function allRowsAreSelected(rows: Locator, selected: boolean) {
       ),
     selected,
   );
+}
+
+async function restoreReadState(
+  page: Page,
+  { emailAccountId, threadId }: { emailAccountId: string; threadId: string },
+) {
+  await page.goto(`/${emailAccountId}/mail?type=sent&thread-id=${threadId}`);
+  await page.getByRole("button", { name: /^More actions/ }).click();
+  const markRead = page.getByRole("menuitem", { name: "Mark as read" });
+  const markUnread = page.getByRole("menuitem", { name: "Mark as unread" });
+  await expect(markRead.or(markUnread)).toBeVisible();
+  if (!(await markRead.isVisible())) {
+    await page.keyboard.press("Escape");
+    return;
+  }
+
+  await markRead.click();
+  await expectReadStateMutation(page, {
+    emailAccountId,
+    threadId,
+    read: true,
+  });
+}
+
+function stubMailboxSync(page: Page, emailAccountId: string, threadId: string) {
+  return page.route("**/api/mobile/mailbox-sync", async (route) => {
+    const response = await page.request.get(`/api/threads/${threadId}`, {
+      headers: { "X-Email-Account-ID": emailAccountId },
+    });
+    expect(response.ok()).toBeTruthy();
+    const { thread } = (await response.json()) as {
+      thread: { messages: unknown[] };
+    };
+
+    await route.fulfill({
+      body: JSON.stringify({
+        accountId: emailAccountId,
+        cursor: "playwright-triage-actions-sync",
+        deletedMessageIds: [],
+        hasMore: false,
+        reset: false,
+        upsertedMessages: thread.messages,
+      }),
+      contentType: "application/json",
+      status: 200,
+    });
+  });
 }

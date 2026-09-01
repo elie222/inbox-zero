@@ -28,6 +28,8 @@ type ThreadSnapshot = {
   threadId: string;
 };
 
+type ThreadActionTarget = Omit<ThreadSnapshot, "mutationId">;
+
 type UndoableBatch = {
   action: UndoableAction;
   snapshots: ThreadSnapshot[];
@@ -36,42 +38,41 @@ type UndoableBatch = {
 
 export function useThreadActions({
   emailAccountId,
+  readerTarget,
   threads,
 }: {
   emailAccountId: string;
+  readerTarget?: ThreadActionTarget | null;
   threads: ListThread[];
 }) {
   const lastAction = useRef<UndoableBatch | null>(null);
   const retainedEmailAccountId = useRef(emailAccountId);
-  const threadsByKey = useRef(new Map<string, ListThread>());
+  const targetsByKey = useRef(new Map<string, ThreadActionTarget>());
   if (retainedEmailAccountId.current !== emailAccountId) {
     retainedEmailAccountId.current = emailAccountId;
-    threadsByKey.current.clear();
+    targetsByKey.current.clear();
     lastAction.current = null;
   }
   for (const thread of threads) {
-    threadsByKey.current.set(getListThreadKey(thread), thread);
+    const target = getThreadActionTarget(thread, emailAccountId);
+    if (target) targetsByKey.current.set(target.key, target);
+  }
+  if (readerTarget) {
+    const messageIds = [...new Set(readerTarget.messageIds)];
+    if (messageIds.length) {
+      targetsByKey.current.set(readerTarget.key, {
+        ...readerTarget,
+        messageIds,
+      });
+    }
   }
 
   const resolveTargets = useCallback(
     (threadKeys: string[]) =>
       threadKeys
-        .map((key) => {
-          const thread = threadsByKey.current.get(key);
-          if (!thread) return;
-          const messageIds = [...new Set(getListThreadMessageIds(thread))];
-          if (!messageIds.length) return;
-          return {
-            emailAccountId: getListThreadEmailAccountId(thread, emailAccountId),
-            key,
-            messageIds,
-            threadId: thread.id,
-          };
-        })
-        .filter((target): target is Omit<ThreadSnapshot, "mutationId"> =>
-          Boolean(target),
-        ),
-    [emailAccountId],
+        .map((key) => targetsByKey.current.get(key))
+        .filter((target): target is ThreadActionTarget => Boolean(target)),
+    [],
   );
 
   const enqueueTargets = useCallback(
@@ -273,4 +274,19 @@ export function useThreadActions({
 
 function summarise(verb: string, count: number) {
   return count === 1 ? verb : `${verb} ${count} conversations`;
+}
+
+function getThreadActionTarget(
+  thread: ListThread,
+  currentEmailAccountId: string,
+): ThreadActionTarget | undefined {
+  const messageIds = [...new Set(getListThreadMessageIds(thread))];
+  if (!messageIds.length) return;
+
+  return {
+    emailAccountId: getListThreadEmailAccountId(thread, currentEmailAccountId),
+    key: getListThreadKey(thread),
+    messageIds,
+    threadId: thread.id,
+  };
 }
