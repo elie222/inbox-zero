@@ -1,4 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
+import { test } from "../playwright-test";
 import {
   CLEANUP_BLOCK_THREAD_ID,
   cleanUpFixture,

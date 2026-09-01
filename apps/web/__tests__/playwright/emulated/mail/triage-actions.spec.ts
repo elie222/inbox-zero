@@ -1,4 +1,5 @@
-import { expect, test, type Locator } from "@playwright/test";
+import { expect, type Locator } from "@playwright/test";
+import { test } from "../playwright-test";
 import { conversationWithSubject, openMail } from "./mail-test-helpers";
 
 const commandModifier = process.platform === "darwin" ? "Meta" : "Control";
@@ -17,7 +18,7 @@ test("archives a selected conversation and restores it with undo", async ({
     .getByRole("checkbox", { name: "Select conversation from Erin Example" })
     .click();
   await expect(page.getByText("1 selected", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: /^Archive E$/ }).click();
+  await page.getByRole("button", { name: "Archive", exact: true }).click();
 
   await expect(archiveConversation).toHaveCount(0);
   const notifications = page.getByRole("region", {

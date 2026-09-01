@@ -31,6 +31,7 @@ const nextConfig: NextConfig = {
   // their caches prevents a new Turbopack process from restoring stale tasks.
   ...(playwrightRunId
     ? {
+        devIndicators: false,
         distDir: path.join(".tmp", "playwright", playwrightRunId, "next"),
       }
     : {}),

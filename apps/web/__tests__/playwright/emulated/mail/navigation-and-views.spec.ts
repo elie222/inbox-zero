@@ -1,5 +1,7 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
+import { test } from "../playwright-test";
 import { getEmailAccountId } from "../account-test-helpers";
+import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { conversationWithSubject, openMail } from "./mail-test-helpers";
 
 test("starts mailbox warming from the app shell before mail opens", async ({
@@ -197,10 +199,7 @@ test("creates and edits a label and shows every keyboard workflow", async ({
     .click({ button: "right" });
   const editMenuItem = page.getByRole("menuitem", { name: "Edit" });
   await expect(editMenuItem).toBeVisible();
-  await testInfo.attach("gmail-label-context-menu", {
-    body: await page.screenshot(),
-    contentType: "image/png",
-  });
+  await capturePlaywrightCheckpoint(page, testInfo, "gmail-label-context-menu");
   await editMenuItem.click();
   const editDialog = page.getByRole("dialog", { name: "Edit label" });
   const updatedLabelName = `${labelName} edited`;
@@ -208,10 +207,7 @@ test("creates and edits a label and shows every keyboard workflow", async ({
     .getByRole("textbox", { name: "label name" })
     .fill(updatedLabelName);
   await editDialog.getByRole("radio", { name: "Dark blue" }).click();
-  await testInfo.attach("gmail-label-editor", {
-    body: await page.screenshot(),
-    contentType: "image/png",
-  });
+  await capturePlaywrightCheckpoint(page, testInfo, "gmail-label-editor");
   await editDialog.getByRole("button", { name: "Save" }).click();
   await expect(
     page.getByRole("link", { name: updatedLabelName, exact: true }),

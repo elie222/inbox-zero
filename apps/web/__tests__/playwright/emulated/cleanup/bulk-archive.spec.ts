@@ -1,4 +1,5 @@
-import { expect, test, type Page, type Route } from "@playwright/test";
+import { expect, type Page, type Route } from "@playwright/test";
+import { test } from "../playwright-test";
 import {
   conversationWithSubject,
   readLatestMailMutation,
@@ -27,6 +28,8 @@ const CLEANUP_MAILBOX_THREAD_IDS = [
 ];
 let fixture: CleanupFixture | undefined;
 
+const offlineTest = test.extend({ allowPageErrors: true });
+
 test.beforeEach(async ({ page }) => {
   fixture = undefined;
   fixture = await prepareCleanupFixture(page);
@@ -42,64 +45,65 @@ test.afterEach(async ({ page }) => {
   }
 });
 
-test("rehydrates an interrupted sender archive and completes after reconnect", async ({
-  page,
-}) => {
-  test.setTimeout(360_000);
-  if (!fixture) throw new Error("Cleanup fixture was not initialized");
-  await stubMailboxSync(page, fixture.emailAccountId);
-  await openCleanupFeature(page, fixture, "bulk-archive");
-  await selectOnlyArchiveSender(page);
+offlineTest(
+  "rehydrates an interrupted sender archive and completes after reconnect",
+  async ({ page }) => {
+    test.setTimeout(360_000);
+    if (!fixture) throw new Error("Cleanup fixture was not initialized");
+    await stubMailboxSync(page, fixture.emailAccountId);
+    await openCleanupFeature(page, fixture, "bulk-archive");
+    await selectOnlyArchiveSender(page);
 
-  try {
-    await page.route("**/*", blockServerActions);
-    await newsletterCard(page)
-      .getByRole("button", { name: "Archive 1 of 2" })
-      .click();
+    try {
+      await page.route("**/*", blockServerActions);
+      await newsletterCard(page)
+        .getByRole("button", { name: "Archive 1 of 2" })
+        .click();
 
-    await expect
-      .poll(() =>
-        readLatestMailMutation(page, {
-          emailAccountId: fixture?.emailAccountId ?? "",
-          kind: "archive",
-          sender: ARCHIVE_SENDER,
-          threadId: CLEANUP_ARCHIVE_THREAD_ID,
-        }),
-      )
-      .toMatchObject({
-        clientSource: { kind: "sender", sender: ARCHIVE_SENDER },
-        status: "retry_wait",
-      });
-
-    await page.reload();
-    await expect(
-      page.getByRole("heading", { name: "Bulk Archive" }),
-    ).toBeVisible({ timeout: 60_000 });
-    await expect(
-      page.getByText("Archiving 1 of 1 senders...", { exact: true }),
-    ).toBeVisible();
-    await expect(page.getByText("0 / 1", { exact: true })).toBeVisible();
-
-    await page.unroute("**/*", blockServerActions);
-    await page.evaluate(() => window.dispatchEvent(new Event("online")));
-    await expect
-      .poll(
-        () =>
+      await expect
+        .poll(() =>
           readLatestMailMutation(page, {
             emailAccountId: fixture?.emailAccountId ?? "",
             kind: "archive",
             sender: ARCHIVE_SENDER,
             threadId: CLEANUP_ARCHIVE_THREAD_ID,
           }),
-        { timeout: 60_000 },
-      )
-      .toMatchObject({ status: "succeeded" });
+        )
+        .toMatchObject({
+          clientSource: { kind: "sender", sender: ARCHIVE_SENDER },
+          status: "retry_wait",
+        });
 
-    await assertOnlySelectedSenderWasRemovedFromInbox(page, fixture);
-  } finally {
-    await page.unroute("**/*", blockServerActions);
-  }
-});
+      await page.reload();
+      await expect(
+        page.getByRole("heading", { name: "Bulk Archive" }),
+      ).toBeVisible({ timeout: 60_000 });
+      await expect(
+        page.getByText("Archiving 1 of 1 senders...", { exact: true }),
+      ).toBeVisible();
+      await expect(page.getByText("0 / 1", { exact: true })).toBeVisible();
+
+      await page.unroute("**/*", blockServerActions);
+      await page.evaluate(() => window.dispatchEvent(new Event("online")));
+      await expect
+        .poll(
+          () =>
+            readLatestMailMutation(page, {
+              emailAccountId: fixture?.emailAccountId ?? "",
+              kind: "archive",
+              sender: ARCHIVE_SENDER,
+              threadId: CLEANUP_ARCHIVE_THREAD_ID,
+            }),
+          { timeout: 60_000 },
+        )
+        .toMatchObject({ status: "succeeded" });
+
+      await assertOnlySelectedSenderWasRemovedFromInbox(page, fixture);
+    } finally {
+      await page.unroute("**/*", blockServerActions);
+    }
+  },
+);
 
 test("marks a selected sender read through the durable sender queue", async ({
   page,

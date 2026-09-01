@@ -1,4 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
+import { capturePlaywrightCheckpoint } from "../playwright-evidence";
+import { test } from "../playwright-test";
 import {
   createSecondEmailAccount,
   deleteSecondEmailAccount,
@@ -25,14 +27,7 @@ test("chooses which accounts appear in All Accounts", async ({
     await page.locator("nextjs-portal").evaluateAll((portals) => {
       for (const portal of portals) portal.remove();
     });
-    const menuScreenshot = await page.screenshot({
-      animations: "disabled",
-      path: testInfo.outputPath("all-accounts-menu.png"),
-    });
-    await testInfo.attach("all-accounts-menu", {
-      body: menuScreenshot,
-      contentType: "image/png",
-    });
+    await capturePlaywrightCheckpoint(page, testInfo, "all-accounts-menu");
 
     await chooseAccountsMenuItem.click();
 
@@ -45,14 +40,7 @@ test("chooses which accounts appear in All Accounts", async ({
       dialog.getByRole("checkbox", { name: new RegExp(secondAccount.name) }),
     ).toBeChecked();
 
-    const screenshot = await page.screenshot({
-      animations: "disabled",
-      path: testInfo.outputPath("all-accounts-selection.png"),
-    });
-    await testInfo.attach("all-accounts-selection", {
-      body: screenshot,
-      contentType: "image/png",
-    });
+    await capturePlaywrightCheckpoint(page, testInfo, "all-accounts-selection");
 
     await dialog
       .getByRole("checkbox", { name: new RegExp(secondAccount.name) })
