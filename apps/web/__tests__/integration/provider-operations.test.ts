@@ -283,6 +283,13 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       expect(messageIds.some((messageId) => inboxIds.has(messageId))).toBe(
         false,
       );
+      for (const messageId of ["msg_bulk_0", "msg_bulk_50", "msg_bulk_99"]) {
+        const message = await harness.gmailClient.users.messages.get({
+          userId: "me",
+          id: messageId,
+        });
+        expect(message.data.threadId).toBeDefined();
+      }
     });
   },
 );

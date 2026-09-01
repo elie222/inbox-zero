@@ -1,4 +1,5 @@
 import type { SendEmailBody } from "@/utils/types/mail";
+import { BULK_ARCHIVE_MESSAGES_ACTION_LIMIT } from "@/utils/actions/mail-bulk-action.constants";
 import {
   getEmailCacheDatabase,
   type MailMutationClientSource,
@@ -268,6 +269,7 @@ export async function claimNextMailMutationBatch({
   ).sort(compareMutations);
   const blockedThreads = new Set<string>();
   const claimed: StoredMailMutation[] = [];
+  let claimedMessageCount = 0;
   let batchKey: string | undefined;
 
   for (const mutation of mutations) {
@@ -298,6 +300,12 @@ export async function claimNextMailMutationBatch({
         blockedThreads.add(threadKey);
         continue;
       }
+      if (
+        claimedMessageCount + mutation.messageIds.length >
+        BULK_ARCHIVE_MESSAGES_ACTION_LIMIT
+      ) {
+        break;
+      }
     } else {
       batchKey = getProviderBatchKey(mutation);
     }
@@ -311,6 +319,7 @@ export async function claimNextMailMutationBatch({
       updatedAt: now,
     };
     claimed.push(leased);
+    claimedMessageCount += mutation.messageIds.length;
     blockedThreads.add(threadKey);
     if (!batchKey || claimed.length >= maxBatchSize) break;
   }

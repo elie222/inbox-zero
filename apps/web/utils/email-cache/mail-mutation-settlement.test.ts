@@ -53,7 +53,7 @@ describe("mail mutation cache settlement", () => {
         threadId: "account-1:shared",
         data: {
           id: "shared",
-          messages: [{ id: `${emailAccountId}-message` }],
+          messages: [{ id: "account-1-message" }],
         },
         fetchedAt: 1,
         lastAccessedAt: 1,

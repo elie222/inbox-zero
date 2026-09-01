@@ -460,6 +460,37 @@ describe("mail mutation outbox", () => {
     ).resolves.toMatchObject({ id: "other" });
   });
 
+  it("bounds a provider batch by total message snapshots", async () => {
+    await enqueueMailMutationBatch(
+      [
+        {
+          id: "first",
+          emailAccountId: "account",
+          threadId: "thread-1",
+          messageIds: createMessageIds(600),
+          kind: "archive",
+        },
+        {
+          id: "second",
+          emailAccountId: "account",
+          threadId: "thread-2",
+          messageIds: createMessageIds(600, 600),
+          kind: "archive",
+        },
+      ],
+      10,
+    );
+
+    await expect(
+      claimNextMailMutationBatch({
+        maxBatchSize: 500,
+        ownerId: "worker",
+        leaseMs: 100,
+        now: 20,
+      }),
+    ).resolves.toMatchObject([{ id: "first", status: "processing" }]);
+  });
+
   it("transitions a claimed batch with one mutation notification", async () => {
     await enqueueMailMutationBatch(
       [
@@ -1079,3 +1110,10 @@ describe("mail mutation outbox", () => {
     });
   });
 });
+
+function createMessageIds(count: number, offset = 0) {
+  return Array.from(
+    { length: count },
+    (_, index) => `message-${offset + index}`,
+  );
+}
