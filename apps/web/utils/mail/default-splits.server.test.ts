@@ -112,6 +112,32 @@ describe("seedDefaultMailSplits", () => {
       },
     });
   });
+
+  it("does not partially add defaults when the account has too few slots", async () => {
+    prisma.$transaction.mockResolvedValue([
+      [{ locked: true }],
+      [{ availableCount: 1, missingCount: 2 }],
+    ] as never);
+
+    await expect(
+      setDefaultMailSplits({
+        emailAccountId: "account-id",
+        defaultSplits: [
+          {
+            name: "Receipt",
+            kind: MailSplitKind.LABEL,
+            value: "receipt-label",
+          },
+          {
+            name: "Newsletter",
+            kind: MailSplitKind.LABEL,
+            value: "newsletter-label",
+          },
+        ],
+        enabled: true,
+      }),
+    ).resolves.toEqual({ status: "limit" });
+  });
 });
 
 function rule(systemType: SystemType, labelId: string) {

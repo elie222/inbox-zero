@@ -156,6 +156,8 @@ export function MailShell() {
   const [activeSplitId, setActiveSplitId] = useQueryState("split", {
     defaultValue: "all",
   });
+  const activeSplitIdRef = useRef(activeSplitId);
+  activeSplitIdRef.current = activeSplitId;
   const [accountScope, setAccountScope] = useQueryState("accountScope");
   const [scopeType, setScopeType] = useQueryState("type");
   const [scopeLabelId, setScopeLabelId] = useQueryState("labelId");
@@ -214,19 +216,12 @@ export function MailShell() {
         // the UI showing a preference the server never accepted.
         if (result?.serverError || result?.validationErrors)
           throw new Error(getActionErrorMessage(result));
-        return {
-          layout: next,
-          splits: current?.splits ?? [],
-          defaultSplits: current?.defaultSplits ?? [],
-        };
+        return current ? { ...current, layout: next } : undefined;
       },
       {
-        optimisticData: (current) => ({
-          layout: next,
-          splits: current?.splits ?? [],
-          defaultSplits: current?.defaultSplits ?? [],
-        }),
-        revalidate: false,
+        optimisticData: (current) =>
+          current ? { ...current, layout: next } : undefined,
+        revalidate: settings === undefined,
         rollbackOnError: true,
       },
     ).catch((error) => {
@@ -234,7 +229,7 @@ export function MailShell() {
         error instanceof Error ? error.message : "Couldn't save that",
       );
     });
-  }, [emailAccountId, layout, mutateSettings]);
+  }, [emailAccountId, layout, mutateSettings, settings]);
 
   // A sidebar selection scopes the whole list, which replaces the split tabs —
   // splits are a way of slicing the inbox, not of slicing an arbitrary view.
@@ -293,8 +288,15 @@ export function MailShell() {
         defaultLabelIds.has(split.value),
     );
   }, [settings?.defaultSplits, settings?.splits]);
-  const canAddDefaultSplits =
-    savedDefaultSplits.length < (settings?.defaultSplits.length ?? 0);
+  const canAddDefaultSplits = (settings?.defaultSplits ?? []).some(
+    (defaultSplit) =>
+      !(settings?.splits ?? []).some(
+        (split) =>
+          split.name === defaultSplit.name ||
+          (split.kind === MailSplitKind.LABEL &&
+            split.value === defaultSplit.value),
+      ),
+  );
   const canRemoveDefaultSplits = savedDefaultSplits.length > 0;
 
   const query: ThreadsQuery = useMemo(() => {
@@ -785,10 +787,6 @@ export function MailShell() {
 
   const onSetDefaultSplits = useCallback(
     async (enabled: boolean) => {
-      const shouldResetActiveSplit =
-        !enabled &&
-        savedDefaultSplits.some((split) => split.id === activeSplitId);
-
       const result = await setDefaultMailSplitsAction(emailAccountId, {
         enabled,
       });
@@ -797,16 +795,17 @@ export function MailShell() {
         return false;
       }
       await mutateSettings();
-      if (shouldResetActiveSplit) setActiveSplitId("all");
+      if (
+        !enabled &&
+        savedDefaultSplits.some(
+          (split) => split.id === activeSplitIdRef.current,
+        )
+      ) {
+        setActiveSplitId("all");
+      }
       return true;
     },
-    [
-      activeSplitId,
-      emailAccountId,
-      mutateSettings,
-      savedDefaultSplits,
-      setActiveSplitId,
-    ],
+    [emailAccountId, mutateSettings, savedDefaultSplits, setActiveSplitId],
   );
 
   const onCreateLabel = useCallback(

@@ -89,8 +89,8 @@ test("organizes split choices and manages all rule labels", async ({
   page,
 }, testInfo) => {
   const emailAccountId = await getEmailAccountId(page);
-  defaultSplitEmailAccountId = emailAccountId;
   await seedDefaultSplitRule(emailAccountId);
+  defaultSplitEmailAccountId = emailAccountId;
   await openMail(page);
 
   await page.getByRole("button", { name: "New split" }).click();

@@ -104,11 +104,14 @@ export const setDefaultMailSplitsAction = actionClient
   .action(async ({ ctx: { emailAccountId }, parsedInput: { enabled } }) => {
     const defaultSplits =
       await getDefaultMailSplitDraftsForAccount(emailAccountId);
-    await setDefaultMailSplits({
+    const result = await setDefaultMailSplits({
       emailAccountId,
       defaultSplits,
       enabled,
     });
+    if (result?.status === "limit") {
+      throw new SafeError(`You can only have ${MAX_MAIL_SPLITS} splits.`);
+    }
   });
 
 export const updateMailPreferencesAction = actionClient

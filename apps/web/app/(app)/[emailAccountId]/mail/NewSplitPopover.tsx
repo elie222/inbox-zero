@@ -66,16 +66,20 @@ export function NewSplitPopover({
   const [prompt, setPrompt] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [isUpdatingDefaults, setIsUpdatingDefaults] = useState(false);
+  const isBusy = isCreating || isUpdatingDefaults;
   const trimmedPrompt = prompt.trim();
   const normalizedPrompt = trimmedPrompt.toLowerCase();
-  const hasMatchingOption = options.some((option) => {
-    const groupTitle = GROUPS.find(
-      ({ group }) => group === option.group,
-    )?.title;
-    return `${option.name} ${groupTitle ?? ""}`
-      .toLowerCase()
-      .includes(normalizedPrompt);
-  });
+  const hasMatchingOption =
+    options.some((option) => {
+      const groupTitle = GROUPS.find(
+        ({ group }) => group === option.group,
+      )?.title;
+      return `${option.name} ${groupTitle ?? ""}`
+        .toLowerCase()
+        .includes(normalizedPrompt);
+    }) ||
+    (canAddDefaultSplits && "add all labels".includes(normalizedPrompt)) ||
+    (canRemoveDefaultSplits && "remove all labels".includes(normalizedPrompt));
 
   const changeOpen = (next: boolean) => {
     setOpen(next);
@@ -83,7 +87,7 @@ export function NewSplitPopover({
   };
 
   const createFromPrompt = async () => {
-    if (!trimmedPrompt || isCreating) return;
+    if (!trimmedPrompt || isBusy) return;
     setIsCreating(true);
     try {
       const created = await onCreateFromPrompt(trimmedPrompt);
@@ -94,7 +98,7 @@ export function NewSplitPopover({
   };
 
   const createFromOption = (option: NewSplitOption) => {
-    if (isCreating) return;
+    if (isBusy) return;
     onCreate({
       name: option.name,
       kind: option.kind,
@@ -104,7 +108,7 @@ export function NewSplitPopover({
   };
 
   const updateDefaultSplits = async (enabled: boolean) => {
-    if (isUpdatingDefaults) return;
+    if (isBusy) return;
     setIsUpdatingDefaults(true);
     try {
       const updated = await onSetDefaultSplits(enabled);
@@ -130,7 +134,7 @@ export function NewSplitPopover({
             placeholder="Search or describe a split"
             aria-label="Search or describe a split"
             maxLength={300}
-            disabled={isCreating}
+            disabled={isBusy}
             className="h-9 text-xs"
           />
           <CommandList className="max-h-56">
@@ -140,7 +144,7 @@ export function NewSplitPopover({
                   forceMount
                   value={`create:${trimmedPrompt}`}
                   onSelect={createFromPrompt}
-                  disabled={isCreating}
+                  disabled={isBusy}
                   className="gap-2 text-xs"
                 >
                   {isCreating ? (
@@ -171,7 +175,7 @@ export function NewSplitPopover({
                       value="default-labels:add"
                       keywords={["Add all", "Labels"]}
                       onSelect={() => updateDefaultSplits(true)}
-                      disabled={isUpdatingDefaults}
+                      disabled={isBusy}
                       className="text-primary text-xs"
                     >
                       Add all
@@ -182,7 +186,7 @@ export function NewSplitPopover({
                       value="default-labels:remove"
                       keywords={["Remove all", "Labels"]}
                       onSelect={() => updateDefaultSplits(false)}
-                      disabled={isUpdatingDefaults}
+                      disabled={isBusy}
                       className="text-primary text-xs"
                     >
                       Remove all
@@ -194,7 +198,7 @@ export function NewSplitPopover({
                       value={option.id}
                       keywords={title ? [option.name, title] : [option.name]}
                       onSelect={() => createFromOption(option)}
-                      disabled={isCreating}
+                      disabled={isBusy}
                       className="text-xs"
                     >
                       {option.name}

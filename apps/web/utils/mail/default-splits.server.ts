@@ -101,7 +101,7 @@ export async function setDefaultMailSplits({
         },
       }),
     ]);
-    return;
+    return { status: "success" as const };
   }
 
   const rows = defaultSplits.map((split, order) => ({
@@ -110,9 +110,9 @@ export async function setDefaultMailSplits({
     order,
   }));
 
-  await prisma.$transaction([
+  const [, results] = await prisma.$transaction([
     lockMailSplits(emailAccountId),
-    prisma.$executeRaw`
+    prisma.$queryRaw<Array<{ availableCount: number; missingCount: number }>>`
       WITH split_state AS (
         SELECT
           COUNT(*)::integer AS count,
@@ -144,33 +144,48 @@ export async function setDefaultMailSplits({
             )
         )
         ORDER BY defaults."order"
-        LIMIT (
-          SELECT GREATEST(${MAX_MAIL_SPLITS} - split_state.count, 0)
-          FROM split_state
+      ),
+      inserted_defaults AS (
+        INSERT INTO "MailSplit" (
+          "id",
+          "createdAt",
+          "updatedAt",
+          "name",
+          "kind",
+          "value",
+          "order",
+          "emailAccountId"
         )
-      )
-      INSERT INTO "MailSplit" (
-        "id",
-        "createdAt",
-        "updatedAt",
-        "name",
-        "kind",
-        "value",
-        "order",
-        "emailAccountId"
+        SELECT
+          missing_defaults."id",
+          CURRENT_TIMESTAMP,
+          CURRENT_TIMESTAMP,
+          missing_defaults."name",
+          missing_defaults."kind"::"MailSplitKind",
+          missing_defaults."value",
+          split_state.next_order + missing_defaults.offset,
+          ${emailAccountId}
+        FROM missing_defaults
+        CROSS JOIN split_state
+        WHERE (
+          SELECT COUNT(*) FROM missing_defaults
+        ) <= GREATEST(${MAX_MAIL_SPLITS} - split_state.count, 0)
+        ON CONFLICT DO NOTHING
+        RETURNING "id"
       )
       SELECT
-        missing_defaults."id",
-        CURRENT_TIMESTAMP,
-        CURRENT_TIMESTAMP,
-        missing_defaults."name",
-        missing_defaults."kind"::"MailSplitKind",
-        missing_defaults."value",
-        split_state.next_order + missing_defaults.offset,
-        ${emailAccountId}
-      FROM missing_defaults
-      CROSS JOIN split_state
-      ON CONFLICT DO NOTHING
+        (SELECT COUNT(*)::integer FROM missing_defaults) AS "missingCount",
+        GREATEST(${MAX_MAIL_SPLITS} - split_state.count, 0)::integer
+          AS "availableCount"
+      FROM split_state
     `,
   ]);
+
+  const result = results[0];
+  return {
+    status:
+      result && result.missingCount > result.availableCount
+        ? ("limit" as const)
+        : ("success" as const),
+  };
 }
