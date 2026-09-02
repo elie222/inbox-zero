@@ -66,6 +66,35 @@ Jordan`,
     }),
     expectedColdEmail: false,
   },
+  {
+    name: "templated recruiter fishing is cold",
+    email: getEmail({
+      from: "sam@talentbridge.example",
+      subject: "Open to new opportunities?",
+      content: `Hi,
+
+I work with a number of fast-growing companies that are hiring across sales, marketing, and engineering. Are you open to hearing about new opportunities? If so, reply with your CV and I'll be in touch.
+
+Sam`,
+      date: new Date("2026-04-21T10:00:00Z"),
+    }),
+    expectedColdEmail: true,
+  },
+  {
+    name: "inbound prospect with a concrete need is not cold",
+    email: getEmail({
+      from: "dana@northwind.example",
+      subject: "Pricing for 40 seats and SSO",
+      content: `Hi,
+
+I run operations at Northwind and we're evaluating tools to replace our current setup for a team of 40. Do you support SSO and what would pricing look like for that size? Happy to jump on a call this week if easier.
+
+Thanks,
+Dana`,
+      date: new Date("2026-04-21T10:00:00Z"),
+    }),
+    expectedColdEmail: false,
+  },
 ];
 
 describe.runIf(shouldRunEval)("Eval: cold email", () => {
