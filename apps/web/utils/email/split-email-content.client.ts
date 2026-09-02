@@ -4,7 +4,6 @@ const QUOTED_CONTENT_SELECTOR = [
   "blockquote.gmail_quote",
   'div[id$="divRplyFwdMsg"]',
   'div[id$="appendonsend"]',
-  'div.WordSection1 > div[style*="border:none" i][style*="border-top:solid #E1E1E1 1.0pt" i][style*="padding:3.0pt 0in 0in 0in" i]',
   ".yahoo_quoted",
   ".moz-cite-prefix",
   'blockquote[type="cite"]',
@@ -15,7 +14,7 @@ export function splitEmailContent(html: string): {
   hasQuotedContent: boolean;
 } {
   const doc = new DOMParser().parseFromString(html, "text/html");
-  const quoteBoundary = doc.querySelector(QUOTED_CONTENT_SELECTOR);
+  const quoteBoundary = findQuoteBoundary(doc);
 
   if (!quoteBoundary) {
     return { mainContent: html, hasQuotedContent: false };
@@ -27,6 +26,40 @@ export function splitEmailContent(html: string): {
     mainContent: doc.body.innerHTML,
     hasQuotedContent: true,
   };
+}
+
+function findQuoteBoundary(doc: Document) {
+  return Array.from(
+    doc.querySelectorAll(`${QUOTED_CONTENT_SELECTOR}, div[style]`),
+  ).find(
+    (element) =>
+      element.matches(QUOTED_CONTENT_SELECTOR) ||
+      isOutlookDesktopReplyHeader(element),
+  );
+}
+
+function isOutlookDesktopReplyHeader(element: Element) {
+  if (element.tagName !== "DIV" || !element.closest(".WordSection1")) {
+    return false;
+  }
+
+  const style = (element as HTMLElement).style;
+  const borderColor = style.borderTopColor.replaceAll(" ", "").toLowerCase();
+  const hasOutlookDividerStyle =
+    style.borderTopStyle === "solid" &&
+    style.borderTopWidth === "1pt" &&
+    ["#e1e1e1", "rgb(225,225,225)"].includes(borderColor) &&
+    style.paddingTop === "3pt";
+
+  if (!hasOutlookDividerStyle) return false;
+
+  const header = element.querySelector("p.MsoNormal");
+  if (!header) return false;
+
+  return (
+    header.querySelectorAll("b").length >= 2 &&
+    Boolean(header.querySelector("br"))
+  );
 }
 
 function removeBoundaryAndFollowingContent(

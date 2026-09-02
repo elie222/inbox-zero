@@ -51,6 +51,26 @@ describe("splitEmailContent", () => {
     });
   });
 
+  it("collapses an equivalent Outlook reply style inside a wrapper", () => {
+    const result = splitEmailContent(
+      [
+        '<div class="WordSection1">',
+        '<p class="MsoNormal">Current reply</p>',
+        "<div>",
+        '<div style="padding: 3pt 0cm 0cm 0cm; border-top: 1.0pt solid rgb(225, 225, 225)">',
+        '<p class="MsoNormal"><b>Header one:</b> Value<br><b>Header two:</b> Value</p>',
+        "</div>",
+        '<p class="MsoNormal">Earlier message</p>',
+        "</div>",
+        "</div>",
+      ].join(""),
+    );
+
+    expect(result.hasQuotedContent).toBe(true);
+    expect(result.mainContent).toContain("Current reply");
+    expect(result.mainContent).not.toContain("Earlier message");
+  });
+
   it("preserves an Outlook-styled divider that is not a reply header", () => {
     const html = [
       '<div class="WordSection1">',
