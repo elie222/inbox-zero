@@ -50,7 +50,7 @@ test("opens a complete conversation and updates its read state", async ({
     readerConversation.getByText("Dana Example, me", { exact: true }),
   ).toBeVisible();
   await expect(
-    readerConversation.getByText("(2)", { exact: true }),
+    readerConversation.getByText("2", { exact: true }),
   ).toBeVisible();
   await capturePlaywrightCheckpoint(
     readerConversation,
