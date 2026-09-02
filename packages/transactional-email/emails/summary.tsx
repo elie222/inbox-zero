@@ -312,11 +312,15 @@ function ReplyTracker({
 
   const hiddenNeedsReply = Math.max(needsReplyCount - needsReply.length, 0);
   const hiddenAwaiting = Math.max(awaitingReplyCount - awaitingReply.length, 0);
+  const hiddenNeedsAction = Math.max(needsActionCount - needsAction.length, 0);
   const footnote = [
     hiddenNeedsReply > 0
       ? `And ${hiddenNeedsReply} more waiting for your reply.`
       : null,
     hiddenAwaiting > 0 ? `And ${hiddenAwaiting} more awaiting a reply.` : null,
+    hiddenNeedsAction > 0
+      ? `And ${hiddenNeedsAction} more needing action.`
+      : null,
   ]
     .filter(Boolean)
     .join(" ");
@@ -522,8 +526,9 @@ function groupArchivedEmailsByRule(archivedEmails: ArchivedEmailItem[]) {
 
 function splitFrom(from: string) {
   const match = from.match(/^\s*"?([^"<]*?)"?\s*<([^>]+)>\s*$/);
-  if (match?.[1]) return { name: match[1], address: match[2] };
-  return { name: from, address: "" };
+  if (!match) return { name: from, address: "" };
+  const [, name, address] = match;
+  return name ? { name, address } : { name: address, address: "" };
 }
 
 function formatDay(date: Date) {
