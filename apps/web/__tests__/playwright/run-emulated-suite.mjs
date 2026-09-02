@@ -240,9 +240,9 @@ function isIntegrationsTarget(targetPath) {
 }
 
 function isAutomationTarget(targetPath) {
-  return /\/automation(?:\/|$)/.test(targetPath);
+  return /[\\/]automation(?:[\\/]|$)/.test(targetPath);
 }
 
 function isSettingsTarget(targetPath) {
-  return /\/settings(?:\/|$)/.test(targetPath);
+  return /[\\/]settings(?:[\\/]|$)/.test(targetPath);
 }

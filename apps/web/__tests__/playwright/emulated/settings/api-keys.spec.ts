@@ -4,7 +4,7 @@ import { test } from "../playwright-test";
 import { getEmailAccountId } from "../account-test-helpers";
 import { openSettings } from "./settings-test-helpers";
 
-const API_KEY_NAME = "Playwright API key";
+const API_KEY_NAME = `Playwright API key ${process.env.PLAYWRIGHT_RUN_ID ?? process.pid}`;
 
 let emailAccountIdForCleanup: string | undefined;
 

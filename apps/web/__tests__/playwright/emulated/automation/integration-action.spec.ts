@@ -130,7 +130,7 @@ async function setupTodoistState(emailAccountId: string) {
     const integrationId = integrationResult.rows[0]?.id;
     if (!integrationId) throw new Error("Could not seed Todoist integration");
 
-    const connectionId = `${emailAccountId}-playwright-todoist`;
+    const connectionId = getTodoistConnectionId(emailAccountId);
     await client.query(
       `INSERT INTO "McpConnection" (
          id, name, "isActive", "accessToken", "integrationId",
@@ -163,11 +163,8 @@ async function cleanupTodoistState(emailAccountId?: string) {
     );
     await client.query(
       `DELETE FROM "McpConnection"
-       WHERE "emailAccountId" = $1
-         AND "integrationId" = (
-           SELECT id FROM "McpIntegration" WHERE name = 'todoist'
-         )`,
-      [emailAccountId],
+       WHERE id = $1`,
+      [getTodoistConnectionId(emailAccountId)],
     );
     await client.query(
       `DELETE FROM "McpIntegration"
@@ -201,6 +198,10 @@ async function getTodoistRuleState(emailAccountId: string) {
     );
     return result.rows[0];
   });
+}
+
+function getTodoistConnectionId(emailAccountId: string) {
+  return `${emailAccountId}-playwright-todoist`;
 }
 
 async function withClient<T>(callback: (client: Client) => Promise<T>) {
