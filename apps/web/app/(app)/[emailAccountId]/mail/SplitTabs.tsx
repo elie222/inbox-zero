@@ -1,6 +1,7 @@
 "use client";
 
 import { XIcon } from "lucide-react";
+import { useEffect, useRef } from "react";
 import {
   type NewSplitDraft,
   type NewSplitOption,
@@ -41,8 +42,28 @@ export function SplitTabs({
   canCreateSplits,
   className,
 }: SplitTabsProps) {
+  const tabsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const tabs = tabsRef.current;
+    const focusedTab = document.activeElement;
+    if (
+      !(focusedTab instanceof HTMLButtonElement) ||
+      !tabs?.contains(focusedTab) ||
+      !focusedTab.hasAttribute("data-split-id")
+    ) {
+      return;
+    }
+
+    const activeTab = Array.from(
+      tabs.querySelectorAll<HTMLButtonElement>("button[data-split-id]"),
+    ).find((tab) => tab.dataset.splitId === activeSplitId);
+    activeTab?.focus({ preventScroll: true });
+  }, [activeSplitId]);
+
   return (
     <div
+      ref={tabsRef}
       className={cn(
         // Padded to sit under the toolbar's search field rather than against
         // the column edge, and ruled off so the tabs read as a header for the
@@ -66,6 +87,7 @@ export function SplitTabs({
           >
             <button
               type="button"
+              data-split-id={split.id}
               onClick={() => onSelect(split.id)}
               aria-current={active ? "true" : undefined}
               className="py-0.5 pr-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
