@@ -11,10 +11,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ThreadMessage } from "@/components/email-list/types";
 import { EmailMessage } from "@/components/email-list/EmailMessage";
 
-const actions = vi.hoisted(() => ({ executeAsync: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  executeAsync: vi.fn(),
+  toastError: vi.fn(),
+}));
 
 vi.mock("next-safe-action/hooks", () => ({
-  useAction: () => actions,
+  useAction: () => ({ executeAsync: mocks.executeAsync }),
 }));
 vi.mock("swr", () => ({
   default: () => ({ data: undefined }),
@@ -42,7 +45,7 @@ vi.mock("@/components/email-list/EmailAttachments", () => ({
 vi.mock("@/components/email-list/EmailDetails", () => ({
   EmailDetails: () => null,
 }));
-vi.mock("@/components/Toast", () => ({ toastError: vi.fn() }));
+vi.mock("@/components/Toast", () => ({ toastError: mocks.toastError }));
 vi.mock("@/utils/actions/mail", () => ({ deleteDraftAction: vi.fn() }));
 vi.mock("@/utils/actions/generate-reply", () => ({
   generateNudgeReplyAction: vi.fn(),
@@ -73,11 +76,12 @@ describe("EmailMessage draft recovery", () => {
 
   it("keeps a newer compose mode open when an earlier discard fails", async () => {
     let rejectDiscard: (error: Error) => void = () => {};
-    actions.executeAsync.mockReturnValue(
+    mocks.executeAsync.mockReturnValue(
       new Promise((_, reject) => {
         rejectDiscard = reject;
       }),
     );
+    const refetch = vi.fn();
 
     render(
       <EmailMessage
@@ -86,7 +90,7 @@ describe("EmailMessage draft recovery", () => {
         expanded
         message={createMessage("message-1")}
         onSendSuccess={vi.fn()}
-        refetch={vi.fn()}
+        refetch={refetch}
         showReplyButton
       />,
     );
@@ -103,6 +107,10 @@ describe("EmailMessage draft recovery", () => {
     });
 
     expect(screen.getByTestId("composer").textContent).toContain("forward");
+    expect(mocks.toastError).toHaveBeenCalledWith({
+      description: "Failed to discard draft",
+    });
+    expect(refetch).toHaveBeenCalledTimes(1);
   });
 });
 
