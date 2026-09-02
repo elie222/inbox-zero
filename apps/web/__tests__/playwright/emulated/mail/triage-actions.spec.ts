@@ -76,8 +76,16 @@ test("advances the split reader after archiving an open conversation", async ({
   await page.getByRole("button", { name: "Unread", exact: true }).click();
   await expect(conversation).toHaveCount(0);
 
+  let archived = false;
+  let restoreSucceeded: boolean | undefined;
   try {
     await page.getByRole("button", { name: "Archive", exact: true }).click();
+    await expect(
+      page
+        .getByRole("region", { name: "Notifications alt+T" })
+        .getByText("Archived", { exact: true }),
+    ).toBeVisible();
+    archived = true;
 
     await expect(conversations).toBeVisible();
     await expect
@@ -95,12 +103,17 @@ test("advances the split reader after archiving an open conversation", async ({
       "split-reader-after-archive",
     );
   } finally {
-    const restoreResponse = await page.request.post(
-      "/api/threads/thr_playwright_3/unarchive",
-      { headers: { "X-Email-Account-ID": emailAccountId } },
-    );
-    expect(restoreResponse.ok()).toBeTruthy();
+    if (archived) {
+      restoreSucceeded = (
+        await page.request
+          .post("/api/threads/thr_playwright_3/unarchive", {
+            headers: { "X-Email-Account-ID": emailAccountId },
+          })
+          .catch(() => undefined)
+      )?.ok();
+    }
   }
+  expect(restoreSucceeded).toBe(true);
 });
 
 test("selects ranges and opens conversations with the keyboard", async ({
