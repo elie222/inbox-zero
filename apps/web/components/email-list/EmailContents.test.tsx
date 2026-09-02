@@ -21,6 +21,7 @@ import { HtmlEmail, PlainEmail } from "./EmailContents";
 (globalThis as { React?: typeof React }).React = React;
 
 let triggerResize: (() => void) | undefined;
+let animationFrameCallbacks: FrameRequestCallback[] = [];
 
 class MockResizeObserver {
   constructor(callback: ResizeObserverCallback) {
@@ -35,7 +36,16 @@ class MockResizeObserver {
 describe("HtmlEmail", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    animationFrameCallbacks = [];
     vi.stubGlobal("ResizeObserver", MockResizeObserver);
+    vi.stubGlobal(
+      "requestAnimationFrame",
+      vi.fn((callback: FrameRequestCallback) => {
+        animationFrameCallbacks.push(callback);
+        return animationFrameCallbacks.length;
+      }),
+    );
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
@@ -154,6 +164,39 @@ describe("HtmlEmail", () => {
 
     contentHeight = 640;
     act(() => triggerResize?.());
+
+    await waitFor(() =>
+      expect(Number.parseFloat(iframe.style.height)).toBeGreaterThanOrEqual(
+        640,
+      ),
+    );
+  });
+
+  it("measures the email document before its resources finish loading", async () => {
+    vi.mocked(fetch).mockReturnValue(new Promise(() => {}));
+    const { getByTitle } = render(
+      <HtmlEmail html="<p>Long email</p>" messageId="message-loading" />,
+    );
+    const iframe = getByTitle("Email content preview") as HTMLIFrameElement;
+    let iframeDocument = iframe.contentDocument;
+    const emailDocument = document.implementation.createHTMLDocument("email");
+
+    Object.defineProperty(emailDocument.documentElement, "scrollHeight", {
+      configurable: true,
+      value: 640,
+    });
+    Object.defineProperty(emailDocument.body, "scrollHeight", {
+      configurable: true,
+      value: 640,
+    });
+    Object.defineProperty(iframe, "contentDocument", {
+      configurable: true,
+      get: () => iframeDocument,
+    });
+
+    await waitFor(() => expect(animationFrameCallbacks).not.toHaveLength(0));
+    iframeDocument = emailDocument;
+    act(() => animationFrameCallbacks.shift()?.(0));
 
     await waitFor(() =>
       expect(Number.parseFloat(iframe.style.height)).toBeGreaterThanOrEqual(

@@ -110,7 +110,7 @@ export function HtmlEmail({
     [renderHtml, mainContent, showReplies, isDarkMode],
   );
 
-  const iframeHeight = useIframeHeight(iframeRef);
+  const iframeHeight = useIframeHeight(iframeRef, srcDoc);
 
   return (
     <div className="relative min-w-0 overflow-x-hidden">
@@ -397,20 +397,29 @@ function addDarkModeClass(html: string, isDarkMode: boolean) {
   }
 }
 
-function useIframeHeight(iframeRef: React.RefObject<HTMLIFrameElement | null>) {
+function useIframeHeight(
+  iframeRef: React.RefObject<HTMLIFrameElement | null>,
+  srcDoc: string,
+) {
   const [height, setHeight] = useState(0);
 
   useEffect(() => {
     const iframe = iframeRef.current;
     if (!iframe) return;
+    let animationFrameId: number | undefined;
+    let remainingDocumentChecks = 10;
+    let observedRoot: HTMLElement | null = null;
+    const initialRoot = iframe.contentDocument?.documentElement ?? null;
 
     const updateHeight = () => {
       const iframeDocument = iframe.contentDocument;
       if (!iframeDocument) return;
+      const { body, documentElement } = iframeDocument;
+      if (!body || !documentElement) return;
 
       const newHeight = Math.max(
-        iframeDocument.documentElement.scrollHeight,
-        iframeDocument.body.scrollHeight,
+        documentElement.scrollHeight,
+        body.scrollHeight,
       );
       if (newHeight) setHeight(newHeight);
     };
@@ -418,23 +427,57 @@ function useIframeHeight(iframeRef: React.RefObject<HTMLIFrameElement | null>) {
     const resizeObserver = new ResizeObserver(updateHeight);
 
     const observeDocument = () => {
-      resizeObserver.disconnect();
+      if (iframe.srcdoc !== srcDoc) return;
       const iframeDocument = iframe.contentDocument;
       if (!iframeDocument) return;
+      const { body, documentElement: root } = iframeDocument;
+      if (!body || !root) return;
+      if (root === observedRoot) return;
 
+      resizeObserver.disconnect();
+      observedRoot = root;
       updateHeight();
-      resizeObserver.observe(iframeDocument.documentElement);
-      resizeObserver.observe(iframeDocument.body);
+      resizeObserver.observe(root);
+      resizeObserver.observe(body);
     };
 
-    iframe.addEventListener("load", observeDocument);
+    const stopWatchingForDocument = () => {
+      if (animationFrameId === undefined) return;
+      cancelAnimationFrame(animationFrameId);
+      animationFrameId = undefined;
+    };
+
+    const watchForDocument = () => {
+      observeDocument();
+      remainingDocumentChecks -= 1;
+      if (
+        (observedRoot && observedRoot !== initialRoot) ||
+        remainingDocumentChecks === 0
+      ) {
+        animationFrameId = undefined;
+        return;
+      }
+      animationFrameId = requestAnimationFrame(watchForDocument);
+    };
+
+    const onLoad = () => {
+      stopWatchingForDocument();
+      observeDocument();
+      updateHeight();
+    };
+
+    iframe.addEventListener("load", onLoad);
     observeDocument();
+    // `load` waits for remote images. Catch the `srcDoc` document swap first so
+    // its parsed layout can be measured while those images are still loading.
+    animationFrameId = requestAnimationFrame(watchForDocument);
 
     return () => {
-      iframe.removeEventListener("load", observeDocument);
+      iframe.removeEventListener("load", onLoad);
+      stopWatchingForDocument();
       resizeObserver.disconnect();
     };
-  }, [iframeRef]);
+  }, [iframeRef, srcDoc]);
 
   return height;
 }
