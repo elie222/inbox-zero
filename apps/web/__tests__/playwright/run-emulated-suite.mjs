@@ -84,7 +84,6 @@ for (const target of targets) {
           : {}),
         ...(target.paths.some(isAutomationTarget)
           ? {
-              MCP_SERVER_URL_OVERRIDES: "{}",
               NEXT_PUBLIC_INTEGRATIONS_ENABLED: "true",
               NEXT_PUBLIC_INTEGRATION_ACTION_ENABLED: "true",
               PLAYWRIGHT_TODOIST_ENABLED: "true",

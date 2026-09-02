@@ -179,8 +179,8 @@ smallest automated boundary that exercises the behavior:
 
 1. **Emulated Playwright test** — for deterministic browser behavior that can
    run without third-party credentials. Add it under
-   `apps/web/__tests__/playwright/emulated/<area>/` and follow that folder's
-   README and fixture patterns.
+   `apps/web/__tests__/playwright/emulated/<area>/` and follow
+   `apps/web/__tests__/playwright/README.md` and the existing fixture patterns.
 
 2. **Real-provider E2E flow** — for Gmail or Outlook delivery, webhooks,
    provider labels, drafts, or other production-path behavior. Add it under

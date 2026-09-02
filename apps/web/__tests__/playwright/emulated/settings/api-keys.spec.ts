@@ -4,7 +4,7 @@ import { test } from "../playwright-test";
 import { getEmailAccountId } from "../account-test-helpers";
 import { openSettings } from "./settings-test-helpers";
 
-const API_KEY_NAME = `Playwright API key ${process.env.PLAYWRIGHT_RUN_ID ?? process.pid}`;
+const API_KEY_NAME = `Playwright API key ${process.env.PLAYWRIGHT_RUN_ID ?? `${process.pid}-${Date.now()}`}`;
 
 let emailAccountIdForCleanup: string | undefined;
 
@@ -57,7 +57,7 @@ test("creates, authorizes, lists, and revokes an API key", async ({
   expect(invalidResponse.status()).toBe(401);
 
   await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: "View keys (1)" }).click();
+  await page.getByRole("button", { name: /^View keys/ }).click();
   const keysDialog = page.getByRole("dialog", { name: "API Keys" });
   const keyRow = keysDialog.getByRole("row").filter({ hasText: API_KEY_NAME });
   await expect(keyRow).toContainText("Read rules");

@@ -193,7 +193,9 @@ async function getTodoistRuleState(emailAccountId: string) {
               a."integrationArgs"
        FROM "Rule" r
        JOIN "Action" a ON a."ruleId" = r.id
-       WHERE r."emailAccountId" = $1 AND r.name = $2`,
+       WHERE r."emailAccountId" = $1 AND r.name = $2
+       ORDER BY a.id
+       LIMIT 1`,
       [emailAccountId, RULE_NAME],
     );
     return result.rows[0];
