@@ -25,7 +25,24 @@ describe("parseCsv", () => {
     ]);
   });
 
+  it("treats a lone CR as a line terminator", () => {
+    expect(parseCsv("id,value\r1,x\r2,y")).toEqual([
+      { id: "1", value: "x" },
+      { id: "2", value: "y" },
+    ]);
+    expect(parseCsv("id,value\r1,x\r")).toEqual([{ id: "1", value: "x" }]);
+  });
+
+  it("skips blank lines but not single-field rows", () => {
+    expect(parseCsv("id,value\n\n1,x\n\n")).toEqual([{ id: "1", value: "x" }]);
+    expect(() => parseCsv('id,value\n1,x\n""\n')).toThrow(/row 3/);
+  });
+
   it("rejects rows whose field count does not match the header", () => {
     expect(() => parseCsv("id,value\n1,x,extra\n")).toThrow(/row 2/);
+  });
+
+  it("rejects input that ends inside a quoted field", () => {
+    expect(() => parseCsv('id,value\n1,"open')).toThrow(/quoted field/);
   });
 });

@@ -22,6 +22,10 @@ import { createScopedLogger } from "@/utils/logger";
 // rule's actions in the prompt (what ships) and once with actions stripped (the
 // prompt before actions were added). Only the "with actions" arm asserts.
 //
+// The CSV is read from every EVAL_DATA_DIRS root that has it and merged by
+// case_id, later roots overriding earlier ones (same overlay convention as
+// load-cases.ts).
+//
 // EVAL_DATA_DIRS=/path/to/inbox-zero-evals/datasets pnpm test-ai eval/choose-rule-categorization-data
 // Bounded: EVAL_SAMPLES=100 EVAL_DATA_DIRS=... pnpm test-ai eval/choose-rule-categorization-data
 // Multi-model: EVAL_MODELS=all EVAL_DATA_DIRS=... pnpm test-ai eval/choose-rule-categorization-data
@@ -32,10 +36,10 @@ const TIMEOUT = 180_000;
 vi.setConfig({ maxConcurrency: 3 });
 const logger = createScopedLogger("eval-choose-rule-categorization-data");
 
-const datasetPath = findDatasetPath(getEvalDataDirs());
-const shouldRunEval = shouldRunEvalTests() && datasetPath !== null;
+const datasetPaths = findDatasetPaths(getEvalDataDirs());
+const shouldRunEval = shouldRunEvalTests() && datasetPaths.length > 0;
 
-if (!datasetPath) {
+if (datasetPaths.length === 0) {
   logger.info(
     `Skipped: no ${DATASET_RELATIVE_PATH} found under EVAL_DATA_DIRS. The dataset is not part of this repository.`,
   );
@@ -140,11 +144,17 @@ describe.runIf(shouldRunEval)("Eval: Choose Rule (categorization data)", () => {
   const evalReporter = createEvalReporter({
     evalName: "choose-rule-categorization-data",
   });
+  // The stripped-actions arm is reported separately so the headline numbers
+  // and history only reflect the prompt that ships.
+  const baselineReporter = createEvalReporter({
+    evalName: "choose-rule-categorization-data-without-actions",
+    reportPathSuffix: "-without-actions",
+  });
   const outcomes: Outcome[] = [];
 
   // describe.runIf still runs the collector when skipped, so only read the
   // dataset when the suite is actually going to run.
-  const dataset = loadDataset(shouldRunEval ? datasetPath : null);
+  const dataset = loadDataset(shouldRunEval ? datasetPaths : []);
   const cases = sampleStratified(dataset.cases, readSampleSize());
 
   describeEvalMatrix("choose-rule categorization", (model, emailAccount) => {
@@ -174,7 +184,7 @@ describe.runIf(shouldRunEval)("Eval: Choose Rule (categorization data)", () => {
             const pass =
               evalCase.acceptableRules.includes(actual) && !wronglyHidden;
 
-            evalReporter.record({
+            (variant.gate ? evalReporter : baselineReporter).record({
               testName,
               model: model.label,
               pass,
@@ -209,6 +219,7 @@ describe.runIf(shouldRunEval)("Eval: Choose Rule (categorization data)", () => {
 
   afterAll(() => {
     evalReporter.printReport();
+    baselineReporter.printReport();
     logDatasetSummary(dataset, cases);
     logOutcomeSummary(outcomes);
   });
@@ -226,27 +237,64 @@ type EvalCase = {
   auditDisagrees: boolean;
 };
 
+type DatasetIssue = {
+  file: string;
+  caseId: string | null;
+  message: string;
+};
+
 type Dataset = {
   cases: EvalCase[];
+  issues: DatasetIssue[];
+  rowsPerFile: Record<string, number>;
   skippedGoldCounts: Record<string, number>;
   ruleCounts: Record<string, number>;
 };
 
-function findDatasetPath(roots: string[]): string | null {
-  const candidates = roots
+function findDatasetPaths(roots: string[]): string[] {
+  return roots
     .map((root) => path.join(root, DATASET_RELATIVE_PATH))
     .filter((candidate) => existsSync(candidate));
-  return candidates.at(-1) ?? null;
 }
 
-function loadDataset(filePath: string | null): Dataset {
+function loadDataset(filePaths: string[]): Dataset {
   const cases: EvalCase[] = [];
+  const issues: DatasetIssue[] = [];
+  const rowsPerFile: Record<string, number> = {};
   const skippedGoldCounts: Record<string, number> = {};
   const ruleCounts: Record<string, number> = {};
-  if (!filePath) return { cases, skippedGoldCounts, ruleCounts };
+  const rowsById = new Map<string, z.infer<typeof datasetRowSchema>>();
 
-  for (const raw of parseCsv(readFileSync(filePath, "utf8"))) {
-    const row = datasetRowSchema.parse(raw);
+  for (const file of filePaths) {
+    // parseCsv rejects the whole file on a field-count mismatch, so a
+    // structurally broken overlay is skipped as a unit rather than per row.
+    const rawRows = readCsvRows(file);
+    if (!rawRows.ok) {
+      issues.push({ file, caseId: null, message: rawRows.message });
+      continue;
+    }
+
+    rowsPerFile[file] = rawRows.rows.length;
+    for (const raw of rawRows.rows) {
+      const parsed = datasetRowSchema.safeParse(raw);
+      if (!parsed.success) {
+        issues.push({
+          file,
+          caseId: raw.case_id || null,
+          message: parsed.error.issues
+            .map(
+              (issue) =>
+                `${issue.path.join(".") || "<root>"}: ${issue.message}`,
+            )
+            .join("; "),
+        });
+        continue;
+      }
+      rowsById.set(parsed.data.case_id, parsed.data);
+    }
+  }
+
+  for (const row of rowsById.values()) {
     const goldRules = goldLabelToRuleNames[row.gold];
     if (!goldRules) {
       skippedGoldCounts[row.gold] = (skippedGoldCounts[row.gold] ?? 0) + 1;
@@ -283,7 +331,22 @@ function loadDataset(filePath: string | null): Dataset {
     });
   }
 
-  return { cases, skippedGoldCounts, ruleCounts };
+  return { cases, issues, rowsPerFile, skippedGoldCounts, ruleCounts };
+}
+
+function readCsvRows(
+  file: string,
+):
+  | { ok: true; rows: Record<string, string>[] }
+  | { ok: false; message: string } {
+  try {
+    return { ok: true, rows: parseCsv(readFileSync(file, "utf8")) };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : "unreadable CSV",
+    };
+  }
 }
 
 function readSampleSize(): number | null {
@@ -342,8 +405,17 @@ function logDatasetSummary(dataset: Dataset, cases: EvalCase[]) {
     0,
   );
   logger.info("Dataset summary", {
-    datasetPath,
+    datasetRoots: Object.keys(dataset.rowsPerFile).length,
+    rowsPerFile: dataset.rowsPerFile,
+    mergedRows: dataset.cases.length + skipped,
     mappedRows: dataset.cases.length,
+    skippedInvalidRows: dataset.issues.length,
+    invalidRowReasons: dataset.issues
+      .slice(0, 5)
+      .map(
+        (issue) =>
+          `${issue.file}${issue.caseId ? ` [${issue.caseId}]` : ""}: ${issue.message}`,
+      ),
     rowsPerRule: dataset.ruleCounts,
     skippedUnmappableRows: skipped,
     skippedGoldValues: dataset.skippedGoldCounts,

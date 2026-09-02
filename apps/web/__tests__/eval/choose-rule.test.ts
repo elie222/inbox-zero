@@ -742,6 +742,7 @@ describe.runIf(shouldRunEval)("Eval: Choose Rule", () => {
   // and history only reflect the prompt that ships.
   const baselineReporter = createEvalReporter({
     evalName: "choose-rule-without-actions",
+    reportPathSuffix: "-without-actions",
   });
 
   describeEvalMatrix("choose-rule", (model, emailAccount) => {

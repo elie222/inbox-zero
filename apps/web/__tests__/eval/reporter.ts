@@ -19,6 +19,11 @@ export interface EvalRecord {
 
 export interface EvalReporterOptions {
   evalName?: string;
+  /**
+   * Appended to the `EVAL_REPORT_PATH` basename (before the extension) so a
+   * secondary reporter in the same suite does not overwrite the primary report.
+   */
+  reportPathSuffix?: string;
 }
 
 export interface CachedEvalOptions {
@@ -50,10 +55,12 @@ class EvalReporter {
   private readonly records: EvalRecord[] = [];
   private readonly usageEvents: AiUsageEvent[] = [];
   private readonly evalName: string | undefined;
+  private readonly reportPathSuffix: string | undefined;
   private unsubscribeFromUsage: (() => void) | undefined;
 
   constructor(options: EvalReporterOptions = {}) {
     this.evalName = options.evalName;
+    this.reportPathSuffix = options.reportPathSuffix;
     this.unsubscribeFromUsage = subscribeToAiUsage((event) => {
       this.usageEvents.push(event);
     });
@@ -141,7 +148,12 @@ class EvalReporter {
       console.log(`\n${reportParts.join("\n\n")}`);
 
       if (process.env.EVAL_REPORT_PATH) {
-        this.writeReport(resolveEvalReportPath(process.env.EVAL_REPORT_PATH));
+        this.writeReport(
+          appendReportPathSuffix(
+            resolveEvalReportPath(process.env.EVAL_REPORT_PATH),
+            this.reportPathSuffix,
+          ),
+        );
       }
 
       this.writeHistoryReport();
@@ -579,6 +591,15 @@ function resolveEvalReportPath(filePath: string): string {
   if (path.isAbsolute(filePath)) return filePath;
 
   return path.join(findWorkspaceRoot(process.cwd()), filePath);
+}
+
+function appendReportPathSuffix(
+  filePath: string,
+  suffix: string | undefined,
+): string {
+  if (!suffix) return filePath;
+  const extension = path.extname(filePath);
+  return `${filePath.slice(0, filePath.length - extension.length)}${suffix}${extension}`;
 }
 
 type EvalResultCacheMode = "off" | "readonly" | "readwrite" | "refresh";

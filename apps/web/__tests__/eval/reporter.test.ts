@@ -85,6 +85,43 @@ describe("eval reporter", () => {
     ).toBe(false);
   });
 
+  it("writes suffixed report paths alongside the primary report", () => {
+    const { workspaceRoot, packageDir } = createTempWorkspace();
+    process.chdir(packageDir);
+    process.env.EVAL_REPORT_PATH = ".context/evals/report.md";
+    vi.spyOn(console, "log").mockImplementation(() => {});
+
+    const reporter = createEvalReporter({ evalName: "example eval" });
+    reporter.record({
+      testName: "example",
+      model: "Gemini 3 Flash",
+      pass: true,
+    });
+    reporter.printReport();
+
+    const baselineReporter = createEvalReporter({
+      evalName: "example eval baseline",
+      reportPathSuffix: "-baseline",
+    });
+    baselineReporter.record({
+      testName: "example",
+      model: "Gemini 3 Flash",
+      pass: false,
+    });
+    baselineReporter.printReport();
+
+    const evalsDir = path.join(workspaceRoot, ".context", "evals");
+    expect(
+      JSON.parse(fs.readFileSync(path.join(evalsDir, "report.json"), "utf8")),
+    ).toEqual([{ testName: "example", model: "Gemini 3 Flash", pass: true }]);
+    expect(
+      JSON.parse(
+        fs.readFileSync(path.join(evalsDir, "report-baseline.json"), "utf8"),
+      ),
+    ).toEqual([{ testName: "example", model: "Gemini 3 Flash", pass: false }]);
+    expect(fs.existsSync(path.join(evalsDir, "report-baseline.md"))).toBe(true);
+  });
+
   it("includes usage cost totals in the markdown report", async () => {
     const { workspaceRoot, packageDir } = createTempWorkspace();
     process.chdir(packageDir);

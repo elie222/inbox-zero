@@ -8,16 +8,14 @@ export function parseCsv(text: string): Record<string, string>[] {
   const [header, ...rows] = parseCsvRows(text.replace(/^\uFEFF/, ""));
   if (!header) return [];
 
-  return rows
-    .filter((row) => !(row.length === 1 && row[0] === ""))
-    .map((row, index) => {
-      if (row.length !== header.length) {
-        throw new Error(
-          `CSV row ${index + 2} has ${row.length} fields, expected ${header.length}`,
-        );
-      }
-      return Object.fromEntries(header.map((key, i) => [key, row[i] ?? ""]));
-    });
+  return rows.map((row, index) => {
+    if (row.length !== header.length) {
+      throw new Error(
+        `CSV row ${index + 2} has ${row.length} fields, expected ${header.length}`,
+      );
+    }
+    return Object.fromEntries(header.map((key, i) => [key, row[i] ?? ""]));
+  });
 }
 
 function parseCsvRows(text: string): string[][] {
@@ -25,6 +23,7 @@ function parseCsvRows(text: string): string[][] {
   let row: string[] = [];
   let field = "";
   let inQuotes = false;
+  let lineStart = 0;
 
   for (let i = 0; i < text.length; i++) {
     const char = text[i];
@@ -46,8 +45,13 @@ function parseCsvRows(text: string): string[][] {
     } else if (char === ",") {
       row.push(field);
       field = "";
-    } else if (char === "\n" || (char === "\r" && text[i + 1] === "\n")) {
-      if (char === "\r") i++;
+    } else if (char === "\n" || char === "\r") {
+      // Only a terminator with nothing before it on the line is a blank line;
+      // a line holding just `""` is a real single-field row.
+      const blankLine = i === lineStart;
+      if (char === "\r" && text[i + 1] === "\n") i++;
+      lineStart = i + 1;
+      if (blankLine) continue;
       row.push(field);
       rows.push(row);
       row = [];
@@ -57,7 +61,11 @@ function parseCsvRows(text: string): string[][] {
     }
   }
 
-  if (field.length > 0 || row.length > 0) {
+  if (inQuotes) {
+    throw new Error("CSV ends inside a quoted field (unterminated quote)");
+  }
+
+  if (text.length > lineStart) {
     row.push(field);
     rows.push(row);
   }
