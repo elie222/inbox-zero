@@ -11,13 +11,17 @@ import {
   createMailSplitFromPromptBody,
   deleteMailSplitBody,
   renameMailSplitBody,
+  setDefaultMailSplitsBody,
   updateMailPreferencesBody,
 } from "@/utils/actions/mail-split.validation";
 import { aiPromptToSplit } from "@/utils/ai/split/prompt-to-split";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { lockMailSplits } from "@/utils/mail/split-lock";
-
-const MAX_SPLITS = 12;
+import { MAX_MAIL_SPLITS } from "@/utils/mail/split-constants";
+import {
+  getDefaultMailSplitDraftsForAccount,
+  setDefaultMailSplits,
+} from "@/utils/mail/default-splits.server";
 
 export const createMailSplitAction = actionClient
   .metadata({ name: "createMailSplit" })
@@ -94,6 +98,19 @@ export const deleteMailSplitAction = actionClient
     await prisma.mailSplit.deleteMany({ where: { id, emailAccountId } });
   });
 
+export const setDefaultMailSplitsAction = actionClient
+  .metadata({ name: "setDefaultMailSplits" })
+  .inputSchema(setDefaultMailSplitsBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { enabled } }) => {
+    const defaultSplits =
+      await getDefaultMailSplitDraftsForAccount(emailAccountId);
+    await setDefaultMailSplits({
+      emailAccountId,
+      defaultSplits,
+      enabled,
+    });
+  });
+
 export const updateMailPreferencesAction = actionClient
   .metadata({ name: "updateMailPreferences" })
   .inputSchema(updateMailPreferencesBody)
@@ -117,7 +134,7 @@ async function createMailSplitOrThrow(
       if (result.status === "duplicate") {
         throw new SafeError(`You already have a "${data.name}" split.`);
       }
-      throw new SafeError(`You can only have ${MAX_SPLITS} splits.`);
+      throw new SafeError(`You can only have ${MAX_MAIL_SPLITS} splits.`);
     }
 
     const { status: _, ...split } = result;
@@ -177,7 +194,7 @@ async function createMailSplit({
           split_state.next_order,
           ${emailAccountId}
         FROM split_state
-        WHERE split_state.count < ${MAX_SPLITS}
+        WHERE split_state.count < ${MAX_MAIL_SPLITS}
           AND NOT split_state.name_exists
         RETURNING *
       )

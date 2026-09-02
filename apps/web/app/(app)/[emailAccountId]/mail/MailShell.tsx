@@ -86,6 +86,7 @@ import {
   createMailSplitAction,
   createMailSplitFromPromptAction,
   deleteMailSplitAction,
+  setDefaultMailSplitsAction,
   updateMailPreferencesAction,
 } from "@/utils/actions/mail-split";
 import {
@@ -279,6 +280,20 @@ export function MailShell() {
   const activeCombinedLabelName = combinedLabelSplits.find(
     (split) => split.id === displayedActiveSplitId,
   )?.labelName;
+  const savedDefaultSplits = useMemo(() => {
+    const defaultLabelIds = new Set(
+      (settings?.defaultSplits ?? []).map((split) => split.value),
+    );
+    return (settings?.splits ?? []).filter(
+      (split) =>
+        split.kind === MailSplitKind.LABEL &&
+        split.value &&
+        defaultLabelIds.has(split.value),
+    );
+  }, [settings?.defaultSplits, settings?.splits]);
+  const canAddDefaultSplits =
+    savedDefaultSplits.length < (settings?.defaultSplits.length ?? 0);
+  const canRemoveDefaultSplits = savedDefaultSplits.length > 0;
 
   const query: ThreadsQuery = useMemo(() => {
     // Search overrides split/scope and covers the whole mailbox, matching
@@ -766,6 +781,34 @@ export function MailShell() {
     [emailAccountId, mutateSettings, activeSplitId, setActiveSplitId],
   );
 
+  const onSetDefaultSplits = useCallback(
+    async (enabled: boolean) => {
+      if (
+        !enabled &&
+        savedDefaultSplits.some((split) => split.id === activeSplitId)
+      ) {
+        setActiveSplitId("all");
+      }
+
+      const result = await setDefaultMailSplitsAction(emailAccountId, {
+        enabled,
+      });
+      if (result?.serverError || result?.validationErrors) {
+        toast.error(getActionErrorMessage(result));
+        return false;
+      }
+      await mutateSettings();
+      return true;
+    },
+    [
+      activeSplitId,
+      emailAccountId,
+      mutateSettings,
+      savedDefaultSplits,
+      setActiveSplitId,
+    ],
+  );
+
   const onCreateLabel = useCallback(
     async (name: string) => {
       const result = await createLabelAction(emailAccountId, { name });
@@ -1005,6 +1048,9 @@ export function MailShell() {
                 newSplitOptions={newSplitOptions}
                 onCreateSplit={onCreateSplit}
                 onCreateSplitFromPrompt={onCreateSplitFromPrompt}
+                canAddDefaultSplits={canAddDefaultSplits}
+                canRemoveDefaultSplits={canRemoveDefaultSplits}
+                onSetDefaultSplits={onSetDefaultSplits}
                 canCreateSplits={!isAllAccounts}
               />
             )}

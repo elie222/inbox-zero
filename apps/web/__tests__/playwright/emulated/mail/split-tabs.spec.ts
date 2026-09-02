@@ -1,7 +1,21 @@
 import { expect } from "@playwright/test";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
-import { conversationWithSubject, openMail } from "./mail-test-helpers";
+import { getEmailAccountId } from "../account-test-helpers";
+import {
+  cleanupDefaultSplitRule,
+  conversationWithSubject,
+  openMail,
+  seedDefaultSplitRule,
+} from "./mail-test-helpers";
+
+let defaultSplitEmailAccountId: string | undefined;
+
+test.afterEach(async () => {
+  if (!defaultSplitEmailAccountId) return;
+  await cleanupDefaultSplitRule(defaultSplitEmailAccountId);
+  defaultSplitEmailAccountId = undefined;
+});
 
 test("shows a combined picker and creates a matching split", async ({
   page,
@@ -69,4 +83,45 @@ test("shows a combined picker and creates a matching split", async ({
     .getByRole("button", { name: "Remove the Promotions split" })
     .click();
   await expect(promotionsSplit).toHaveCount(0);
+});
+
+test("organizes split choices and manages all rule labels", async ({
+  page,
+}, testInfo) => {
+  const emailAccountId = await getEmailAccountId(page);
+  defaultSplitEmailAccountId = emailAccountId;
+  await seedDefaultSplitRule(emailAccountId);
+  await openMail(page);
+
+  await page.getByRole("button", { name: "New split" }).click();
+
+  await expect(page.getByText("State", { exact: true })).toHaveCount(0);
+  const headingElements = page.locator("[cmdk-group-heading]");
+  await expect(headingElements.filter({ hasText: /^Labels/ })).toBeVisible();
+  await expect(
+    headingElements.filter({ hasText: /^Categories$/ }),
+  ).toBeVisible();
+  const groupHeadings = await headingElements.allTextContents();
+  expect(
+    groupHeadings.findIndex((heading) => heading.startsWith("Labels")),
+  ).toBeLessThan(
+    groupHeadings.findIndex((heading) => heading.startsWith("Categories")),
+  );
+
+  await page.getByRole("option", { name: "Add all" }).click();
+  const calendarSplit = page.getByRole("button", {
+    name: "Calendar",
+    exact: true,
+  });
+  await expect(calendarSplit).toBeVisible();
+  await page.getByRole("button", { name: "New split" }).click();
+  await expect(page.getByRole("option", { name: "Remove all" })).toBeVisible();
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "mail-rule-label-splits-added",
+  );
+
+  await page.getByRole("option", { name: "Remove all" }).click();
+  await expect(calendarSplit).toHaveCount(0);
 });
