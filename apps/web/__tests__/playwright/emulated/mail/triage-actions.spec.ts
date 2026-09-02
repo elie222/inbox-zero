@@ -80,12 +80,12 @@ test("advances the split reader after archiving an open conversation", async ({
   let restoreSucceeded: boolean | undefined;
   try {
     await page.getByRole("button", { name: "Archive", exact: true }).click();
+    archived = true;
     await expect(
       page
         .getByRole("region", { name: "Notifications alt+T" })
         .getByText("Archived", { exact: true }),
     ).toBeVisible();
-    archived = true;
 
     await expect(conversations).toBeVisible();
     await expect
