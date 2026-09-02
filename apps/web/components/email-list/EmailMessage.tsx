@@ -75,14 +75,38 @@ export function EmailMessage({
 
   const [showDetails, setShowDetails] = useState(false);
   const [showForward, setShowForward] = useState(false);
+  const composeSessionRef = useRef(0);
 
-  const onReply = useCallback(() => setReplyOverride(true), []);
-  const onForward = useCallback(() => setShowForward(true), []);
+  const onReply = useCallback(() => {
+    composeSessionRef.current += 1;
+    setReplyOverride(true);
+    setShowForward(false);
+  }, []);
+  const onForward = useCallback(() => {
+    composeSessionRef.current += 1;
+    setReplyOverride(false);
+    setShowForward(true);
+  }, []);
 
   const onCloseCompose = useCallback(() => {
     setReplyOverride(false);
     setShowForward(false);
   }, []);
+
+  const onStartDiscard = useCallback(() => {
+    const composeSession = composeSessionRef.current;
+    onCloseCompose();
+    return composeSession;
+  }, [onCloseCompose]);
+
+  const onRestoreCompose = useCallback(
+    (composeSession: number) => {
+      if (composeSessionRef.current !== composeSession) return;
+      if (showReply) onReply();
+      else onForward();
+    },
+    [onForward, onReply, showReply],
+  );
 
   const toggleDetails = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -128,7 +152,9 @@ export function EmailMessage({
               generateNudge={generateNudge}
               message={message}
               onCloseCompose={onCloseCompose}
+              onRestoreCompose={onRestoreCompose}
               onSendSuccess={onSendSuccess}
+              onStartDiscard={onStartDiscard}
               refetch={refetch}
               showReply={showReply}
             />
@@ -350,6 +376,8 @@ function ReplyPanel({
   refetch,
   onSendSuccess,
   onCloseCompose,
+  onRestoreCompose,
+  onStartDiscard,
   defaultShowReply,
   showReply,
   draftMessage,
@@ -359,6 +387,8 @@ function ReplyPanel({
   refetch: () => void;
   onSendSuccess: (messageId: string, threadId: string) => void;
   onCloseCompose: () => void;
+  onRestoreCompose: (composeSession: number) => void;
+  onStartDiscard: () => number;
   defaultShowReply?: boolean;
   showReply: boolean;
   draftMessage?: ThreadMessage;
@@ -440,30 +470,43 @@ function ReplyPanel({
     return prepareForwardingEmail(message);
   }, [showReply, message, draftMessage, reply]);
 
-  const { execute: discardDraft, isExecuting: isDiscardingDraft } = useAction(
+  const { executeAsync: discardDraft } = useAction(
     deleteDraftAction.bind(null, emailAccountId),
-    {
-      onSuccess: () => {
-        refetch();
-        onCloseCompose();
-      },
-      onError: (error) => {
-        toastError({
-          description: getActionErrorMessage(error.error, {
-            prefix: "Failed to discard draft",
-          }),
-        });
-      },
-    },
   );
 
-  const onDiscard = useCallback(() => {
+  const onDiscard = useCallback(async () => {
     if (!draftMessage) {
       onCloseCompose();
       return;
     }
-    discardDraft({ draftMessageId: draftMessage.id });
-  }, [draftMessage, discardDraft, onCloseCompose]);
+
+    const discardPromise = discardDraft({ draftMessageId: draftMessage.id });
+    const composeSession = onStartDiscard();
+
+    try {
+      const result = await discardPromise;
+      if (result?.serverError || result?.validationErrors) {
+        toastError({
+          description: getActionErrorMessage(result, {
+            prefix: "Failed to discard draft",
+          }),
+        });
+        onRestoreCompose(composeSession);
+      }
+    } catch {
+      toastError({ description: "Failed to discard draft" });
+      onRestoreCompose(composeSession);
+    } finally {
+      refetch();
+    }
+  }, [
+    draftMessage,
+    discardDraft,
+    onCloseCompose,
+    onRestoreCompose,
+    onStartDiscard,
+    refetch,
+  ]);
 
   return (
     <Card className="mt-6 rounded-xl p-3" ref={replyRef}>
@@ -484,7 +527,6 @@ function ReplyPanel({
         </div>
       ) : (
         <ComposeEmailFormLazy
-          isDiscarding={isDiscardingDraft}
           onClose={onCloseCompose}
           onDiscard={onDiscard}
           onSuccess={(messageId: string, threadId: string) => {

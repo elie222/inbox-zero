@@ -26,21 +26,32 @@ export function PreservedBlockDetails({
       open={open}
       onToggle={(event) => setOpen(event.currentTarget.open)}
     >
-      <summary className={styles.preservedSummary}>
+      <summary
+        aria-label={
+          block.kind === "quote"
+            ? `${open ? "Hide" : "Show"} quoted message`
+            : undefined
+        }
+        className={styles.preservedSummary}
+      >
         <span aria-hidden>{block.kind === "quote" ? "⋯" : "—"}</span>
-        <span>{title}</span>
-        <button
-          aria-label={`Remove ${title.toLowerCase()}`}
-          className={styles.removePreservedButton}
-          onClick={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            onRemove();
-          }}
-          type="button"
-        >
-          ×
-        </button>
+        {block.kind === "signature" && (
+          <>
+            <span>{title}</span>
+            <button
+              aria-label={`Remove ${title.toLowerCase()}`}
+              className={styles.removePreservedButton}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                onRemove();
+              }}
+              type="button"
+            >
+              ×
+            </button>
+          </>
+        )}
       </summary>
       <iframe
         className={

@@ -355,11 +355,22 @@ test("opens and sends a reply from the reader with Enter", async ({
   await expect(
     page.locator("[data-email-preserved-kind='quote']"),
   ).toBeVisible();
+  await expect(page.getByLabel("Show quoted message")).toBeVisible();
+  await expect(page.getByText("Quoted message", { exact: true })).toHaveCount(
+    0,
+  );
+  await expect(
+    page.getByRole("button", { name: "Remove quoted message" }),
+  ).toHaveCount(0);
   const replyBody = `A reply sent through the mail reader. ${testInfo.retry}`;
   await replyEditor.pressSequentially(replyBody);
   await expect(replyEditor).toContainText(replyBody);
+  const sendButton = page.getByRole("button", { name: "Send", exact: true });
+  await expect(sendButton).toHaveText("Send");
+  await sendButton.hover();
+  await expect(page.getByRole("tooltip")).toHaveText(/(?:⌘|Ctrl)\+Enter/);
   await capturePlaywrightCheckpoint(page, testInfo, "protected-quoted-reply");
-  await page.getByRole("button", { name: /^Send/ }).click();
+  await sendButton.click();
 
   await expect(page.getByText("Email sent!", { exact: true })).toBeVisible();
   await expect(sentByMe).toHaveCount(initialSentByMeCount + 1);
