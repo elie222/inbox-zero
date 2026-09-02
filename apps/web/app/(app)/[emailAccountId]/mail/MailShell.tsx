@@ -217,12 +217,14 @@ export function MailShell() {
         return {
           layout: next,
           splits: current?.splits ?? [],
+          defaultSplits: current?.defaultSplits ?? [],
         };
       },
       {
         optimisticData: (current) => ({
           layout: next,
           splits: current?.splits ?? [],
+          defaultSplits: current?.defaultSplits ?? [],
         }),
         revalidate: false,
         rollbackOnError: true,
