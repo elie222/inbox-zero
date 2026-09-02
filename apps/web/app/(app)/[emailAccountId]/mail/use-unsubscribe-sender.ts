@@ -87,7 +87,7 @@ export function useUnsubscribeSender(
     senderEmail &&
       senderStats &&
       autoArchivedSender !== canonicalSenderEmail &&
-      sender?.status !== NewsletterStatus.AUTO_ARCHIVED,
+      senderStats.searchedSenderStatus !== NewsletterStatus.AUTO_ARCHIVED,
   );
 
   const onUnsubscribe = useCallback(async () => {
