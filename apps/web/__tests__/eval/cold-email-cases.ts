@@ -621,9 +621,10 @@ I'm programming the productivity track at Product Summit this October. We'd like
     }),
   },
   {
+    // A reseller or referral ask with a demand signal; models split on it.
     name: "enterprise business development wanting to connect",
     category: "partnership",
-    expected: false,
+    expected: "either",
     email: getEmail({
       from: "Amit Rao <amit.rao@meridiantech.example>",
       subject: "Acme <> Meridian",
