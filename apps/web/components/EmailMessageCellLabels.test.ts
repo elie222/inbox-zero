@@ -140,27 +140,27 @@ describe("getEmailThreadLabels", () => {
     expect(labels).toEqual([{ id: "label-actioned", name: "Actioned" }]);
   });
 
-  it("prioritizes labels from newer messages", () => {
+  it("keeps older message labels in the consistent display order", () => {
     const labels = getEmailThreadLabels({
       messages: [
-        { labelIds: ["label-older"] },
-        { labelIds: ["DRAFT", "label-newer"] },
+        { labelIds: ["label-alpha"] },
+        { labelIds: ["DRAFT", "label-zulu"] },
       ],
       userLabels: {
-        "label-older": {
-          id: "label-older",
-          name: "Older",
+        "label-alpha": {
+          id: "label-alpha",
+          name: "Alpha",
         },
-        "label-newer": {
-          id: "label-newer",
-          name: "Newer",
+        "label-zulu": {
+          id: "label-zulu",
+          name: "Zulu",
         },
       },
     });
 
     expect(labels).toEqual([
-      { id: "label-newer", name: "Newer" },
-      { id: "label-older", name: "Older" },
+      { id: "label-alpha", name: "Alpha" },
+      { id: "label-zulu", name: "Zulu" },
     ]);
   });
 });
