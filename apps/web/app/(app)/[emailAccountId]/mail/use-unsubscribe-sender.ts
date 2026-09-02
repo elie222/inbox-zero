@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import useSWR from "swr";
 import { toast } from "sonner";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
@@ -45,11 +45,11 @@ export function useUnsubscribeSender(
   const { hasUnsubscribeAccess, mutate: refetchPremium } = usePremium();
   const { PremiumModal, openModal } = usePremiumModal();
   const { queueArchiveSenders } = useArchiveSenderQueueActions(emailAccountId);
+  const [autoArchivedSender, setAutoArchivedSender] = useState<string | null>(
+    null,
+  );
 
   const listUnsubscribeHeader = message?.headers["list-unsubscribe"] ?? null;
-  const headerUnsubscribeLink = getUserFacingUnsubscribeLink({
-    listUnsubscribeHeader,
-  });
   const from = message?.headers.from ?? "";
   const senderEmail = extractEmailAddress(from);
   const senderName = extractNameFromEmail(from);
@@ -57,22 +57,23 @@ export function useUnsubscribeSender(
     ? `/api/user/stats/newsletters?${createSearchParams({
         types: [],
         search: senderEmail,
+        orderBy: "emails",
+        orderDirection: "desc",
         includeMissingUnsubscribe: true,
       })}`
     : null;
   const { data: senderStats } = useSWR<NewsletterStatsResponse>(
-    loadStoredLink && !headerUnsubscribeLink && senderStatsUrl
-      ? [senderStatsUrl, emailAccountId]
-      : null,
+    loadStoredLink && senderStatsUrl ? [senderStatsUrl, emailAccountId] : null,
     {
       revalidateOnFocus: false,
       revalidateOnReconnect: false,
     },
   );
   const canonicalSenderEmail = canonicalizeEmailAddress(senderEmail);
-  const unsubscribeLink = senderStats?.newsletters.find(
+  const sender = senderStats?.newsletters.find(
     (sender) => sender.name === canonicalSenderEmail,
-  )?.unsubscribeLink;
+  );
+  const unsubscribeLink = sender?.unsubscribeLink;
   const httpLink = getHttpUnsubscribeLink({
     unsubscribeLink,
     listUnsubscribeHeader,
@@ -82,7 +83,12 @@ export function useUnsubscribeSender(
     listUnsubscribeHeader,
   });
   const canUnsubscribe = Boolean(senderEmail && userFacingLink);
-  const canAutoArchive = Boolean(senderEmail);
+  const canAutoArchive = Boolean(
+    senderEmail &&
+      senderStats &&
+      autoArchivedSender !== canonicalSenderEmail &&
+      sender?.status !== NewsletterStatus.AUTO_ARCHIVED,
+  );
 
   const onUnsubscribe = useCallback(async () => {
     if (!(canUnsubscribe && userFacingLink)) return;
@@ -166,6 +172,7 @@ export function useUnsubscribeSender(
         status: NewsletterStatus.AUTO_ARCHIVED,
       });
       assertActionSucceeded(result);
+      setAutoArchivedSender(canonicalSenderEmail);
       await decrementUnsubscribeCreditAction();
       await queueArchiveSenders({ senders: [senderEmail] });
       await refetchPremium();
@@ -180,6 +187,7 @@ export function useUnsubscribeSender(
     }
   }, [
     canAutoArchive,
+    canonicalSenderEmail,
     emailAccountId,
     hasUnsubscribeAccess,
     openModal,

@@ -35,10 +35,14 @@ test("captures the rich message reader states", async ({ page }, testInfo) => {
     "mail-reader-toolbar-shortcut-hover",
   );
 
+  const senderStatsResponse = page.waitForResponse((response) =>
+    response.url().includes("/api/user/stats/newsletters"),
+  );
   await page.getByRole("button", { name: /^More actions/ }).click();
   await expect(
     page.getByRole("menuitem", { name: "Auto archive future emails" }),
   ).toBeVisible();
+  expect((await senderStatsResponse).ok()).toBe(true);
   await capturePlaywrightCheckpoint(
     page,
     testInfo,

@@ -94,7 +94,7 @@ export function ReaderToolbar({
         >
           <ArchiveIcon className="mr-1.5 size-3.5" />
           Archive
-          <Kbd className="ml-1.5 hidden group-hover:inline-flex group-focus-visible:inline-flex">
+          <Kbd className="invisible ml-1.5 inline-flex group-hover:visible group-focus-visible:visible">
             {getShortcutHint("archive")}
           </Kbd>
         </Button>
@@ -106,7 +106,7 @@ export function ReaderToolbar({
         >
           <ReplyIcon className="mr-1.5 size-3.5" />
           Reply
-          <Kbd className="ml-1.5 hidden group-hover:inline-flex group-focus-visible:inline-flex">
+          <Kbd className="invisible ml-1.5 inline-flex group-hover:visible group-focus-visible:visible">
             {getShortcutHint("reply")}
           </Kbd>
         </Button>

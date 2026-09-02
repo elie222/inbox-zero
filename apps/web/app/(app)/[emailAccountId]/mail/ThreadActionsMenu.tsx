@@ -120,7 +120,7 @@ export function ThreadActionsMenu({
                 Matched reason
               </DropdownMenuSubTrigger>
               <DropdownMenuPortal>
-                <DropdownMenuSubContent className="w-[min(24rem,calc(100vw-1rem))] p-0">
+                <DropdownMenuSubContent className="max-h-[var(--radix-dropdown-menu-content-available-height)] w-[min(24rem,calc(100vw-1rem))] overflow-y-auto p-0">
                   {plans.map((plan) => (
                     <RuleAttribution
                       key={plan.id}
