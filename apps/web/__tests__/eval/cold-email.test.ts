@@ -1,5 +1,6 @@
-import { afterAll, describe, expect, test } from "vitest";
-import { getEmail } from "@/__tests__/helpers";
+import { afterAll, describe, expect, test, vi } from "vitest";
+import { coldEmailCases } from "@/__tests__/eval/cold-email-cases";
+import { PREVIOUS_DEFAULT_COLD_EMAIL_PROMPT } from "@/__tests__/eval/cold-email-previous-prompt";
 import {
   describeEvalMatrix,
   shouldRunEvalTests,
@@ -8,132 +9,123 @@ import { createEvalReporter } from "@/__tests__/eval/reporter";
 import { isColdEmail } from "@/utils/cold-email/is-cold-email";
 
 // pnpm test-ai eval/cold-email
-// Multi-model: EVAL_MODELS=all pnpm test-ai eval/cold-email
+// Multi-model: EVAL_MODELS=gpt-5.6-luna,deepseek-v4-flash pnpm test-ai eval/cold-email
+//
+// Every case runs under two prompts so a prompt change can be measured:
+//   current  = DEFAULT_COLD_EMAIL_PROMPT (what the code ships; asserted)
+//   previous = the exact default most accounts were running before the rewrite
+//              (recorded for comparison only, never fails the suite)
 
 const shouldRunEval = shouldRunEvalTests();
-const TIMEOUT = 60_000;
+const TIMEOUT = 180_000;
 
-const testCases = [
-  {
-    name: "third-party introduction is not cold",
-    email: getEmail({
-      from: "claire@example.com",
-      to: "alice@example.com, bob@example.com",
-      subject: "Intro: Alice <> Bob",
-      content: `Hi Alice and Bob,
+// Slower providers time out when every case fires at once.
+vi.setConfig({ maxConcurrency: 3 });
 
-Good speaking with both of you earlier.
+const promptVariants = [
+  { label: "current", instructions: null },
+  { label: "previous", instructions: PREVIOUS_DEFAULT_COLD_EMAIL_PROMPT },
+] as const;
 
-Alice is building workflow software for operations teams.
-Bob leads a firm that works with companies in that space.
-
-Thought it would be useful to connect you two directly.
-
-Best,
-Claire`,
-      date: new Date("2026-04-21T10:00:00Z"),
-    }),
-    expectedColdEmail: false,
-  },
-  {
-    name: "direct service pitch is cold",
-    email: getEmail({
-      from: "growth@agency.example",
-      subject: "Can we help your team ship faster?",
-      content: `Hi there,
-
-We help software teams move faster with product design, engineering, and recruiting support.
-
-Would you be open to a quick call next week to see if we can help?`,
-      date: new Date("2026-04-21T10:00:00Z"),
-    }),
-    expectedColdEmail: true,
-  },
-  {
-    name: "unsolicited recruiter outreach is cold",
-    email: getEmail({
-      from: "talent@company.example",
-      subject: "Interview for Head of Sales at Company",
-      content: `Hi Alex,
-
-I'm a Talent Partner at Company. I came across your profile and think you'd be a strong fit for our Head of Sales role.
-
-Would you be open to a 30 minute intro call this week or next? Happy to share the job description and compensation range ahead of time.
-
-Best,
-Jordan`,
-      date: new Date("2026-04-21T10:00:00Z"),
-    }),
-    expectedColdEmail: true,
-  },
-  {
-    name: "templated recruiter fishing is cold",
-    email: getEmail({
-      from: "sam@talentbridge.example",
-      subject: "Open to new opportunities?",
-      content: `Hi,
-
-I work with a number of fast-growing companies that are hiring across sales, marketing, and engineering. Are you open to hearing about new opportunities? If so, reply with your CV and I'll be in touch.
-
-Sam`,
-      date: new Date("2026-04-21T10:00:00Z"),
-    }),
-    expectedColdEmail: true,
-  },
-  {
-    name: "inbound prospect with a concrete need is not cold",
-    email: getEmail({
-      from: "dana@northwind.example",
-      subject: "Pricing for 40 seats and SSO",
-      content: `Hi,
-
-I run operations at Northwind and we're evaluating tools to replace our current setup for a team of 40. Do you support SSO and what would pricing look like for that size? Happy to jump on a call this week if easier.
-
-Thanks,
-Dana`,
-      date: new Date("2026-04-21T10:00:00Z"),
-    }),
-    expectedColdEmail: false,
-  },
-];
+type Outcome = {
+  model: string;
+  variant: string;
+  name: string;
+  category: string;
+  expected: boolean | "either";
+  actual: boolean;
+  reason: string | null | undefined;
+};
 
 describe.runIf(shouldRunEval)("Eval: cold email", () => {
   const evalReporter = createEvalReporter({ evalName: "cold-email" });
+  const outcomes: Outcome[] = [];
 
   describeEvalMatrix("cold email", (model, emailAccount) => {
-    for (const testCase of testCases) {
-      test(
-        testCase.name,
-        async () => {
-          const result = await isColdEmail({
-            email: testCase.email,
-            emailAccount,
-            provider: {
-              hasPreviousCommunicationsWithSenderOrDomain: async () => false,
-            } as any,
-            coldEmailRule: null,
-          });
+    for (const variant of promptVariants) {
+      for (const testCase of coldEmailCases) {
+        test.concurrent(
+          `${variant.label} | ${testCase.name}`,
+          async () => {
+            const result = await isColdEmail({
+              email: testCase.email,
+              emailAccount,
+              provider: {
+                hasPreviousCommunicationsWithSenderOrDomain: async () => false,
+              } as any,
+              coldEmailRule: variant.instructions
+                ? { instructions: variant.instructions, groupId: null }
+                : null,
+            });
 
-          const actual = String(result.isColdEmail);
-          const expected = String(testCase.expectedColdEmail);
-          const pass = result.isColdEmail === testCase.expectedColdEmail;
+            outcomes.push({
+              model: model.label,
+              variant: variant.label,
+              name: testCase.name,
+              category: testCase.category,
+              expected: testCase.expected,
+              actual: result.isColdEmail,
+              reason: result.aiReason,
+            });
 
-          evalReporter.record({
-            testName: testCase.name,
-            model: model.label,
-            pass,
-            actual,
-            expected,
-          });
+            // Borderline cases only appear in the custom summary so the
+            // reporter's totals cover scored cases alone.
+            if (testCase.expected === "either") return;
 
-          expect(result.isColdEmail).toBe(testCase.expectedColdEmail);
-        },
-        TIMEOUT,
-      );
+            evalReporter.record({
+              testName: `${variant.label} | ${testCase.name}`,
+              model: model.label,
+              pass: result.isColdEmail === testCase.expected,
+              actual: String(result.isColdEmail),
+              expected: String(testCase.expected),
+            });
+
+            // The previous prompt is a comparison baseline, not a gate.
+            if (variant.label === "current") {
+              expect(result.isColdEmail).toBe(testCase.expected);
+            }
+          },
+          TIMEOUT,
+        );
+      }
     }
   });
 
   afterAll(() => {
+    console.log(summarizeOutcomes(outcomes));
     evalReporter.printReport();
   });
 });
+
+function summarizeOutcomes(outcomes: Outcome[]) {
+  const scored = outcomes.filter((o) => o.expected !== "either");
+  const groups = new Map<string, Outcome[]>();
+  for (const o of scored) {
+    const key = `${o.model} | ${o.variant}`;
+    groups.set(key, [...(groups.get(key) ?? []), o]);
+  }
+
+  const lines = ["", "Cold email eval: accuracy by model and prompt", ""];
+  for (const [key, group] of groups) {
+    const correct = group.filter((o) => o.actual === o.expected).length;
+    const falseCold = group.filter((o) => o.actual && !o.expected);
+    const missedCold = group.filter((o) => !o.actual && o.expected);
+    lines.push(
+      `${key}: ${correct}/${group.length} correct, ${falseCold.length} wrongly cold, ${missedCold.length} missed cold`,
+    );
+    for (const o of [...falseCold, ...missedCold]) {
+      lines.push(`  - ${o.actual ? "wrongly cold" : "missed cold"}: ${o.name}`);
+    }
+  }
+
+  const either = outcomes.filter((o) => o.expected === "either");
+  if (either.length) {
+    lines.push("", "Borderline cases (not scored):");
+    for (const o of either) {
+      lines.push(
+        `  ${o.model} | ${o.variant} | ${o.name}: ${o.actual ? "cold" : "not cold"}`,
+      );
+    }
+  }
+  return lines.join("\n");
+}
