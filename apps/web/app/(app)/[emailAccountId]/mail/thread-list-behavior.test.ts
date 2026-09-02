@@ -68,6 +68,7 @@ describe("getNextThreadAfterRemoval", () => {
       getNextThreadAfterRemoval({
         threadIds: ["one", "two", "three"],
         currentThreadId: "two",
+        currentThreadIndex: 1,
         removedThreadIds: ["two"],
       }),
     ).toEqual({ id: "three", index: 1 });
@@ -78,6 +79,7 @@ describe("getNextThreadAfterRemoval", () => {
       getNextThreadAfterRemoval({
         threadIds: ["one", "two", "three", "four"],
         currentThreadId: "two",
+        currentThreadIndex: 1,
         removedThreadIds: ["two", "three"],
       }),
     ).toEqual({ id: "four", index: 1 });
@@ -88,6 +90,7 @@ describe("getNextThreadAfterRemoval", () => {
       getNextThreadAfterRemoval({
         threadIds: ["one", "two", "three", "four"],
         currentThreadId: "three",
+        currentThreadIndex: 2,
         removedThreadIds: ["one", "three"],
       }),
     ).toEqual({ id: "four", index: 1 });
@@ -98,9 +101,32 @@ describe("getNextThreadAfterRemoval", () => {
       getNextThreadAfterRemoval({
         threadIds: ["one", "two", "three"],
         currentThreadId: "three",
+        currentThreadIndex: 2,
         removedThreadIds: ["two", "three"],
       }),
     ).toEqual({ id: "one", index: 0 });
+  });
+
+  it("uses the last known index when the open thread already left the list", () => {
+    expect(
+      getNextThreadAfterRemoval({
+        threadIds: ["one", "three", "four"],
+        currentThreadId: "two",
+        currentThreadIndex: 1,
+        removedThreadIds: ["two"],
+      }),
+    ).toEqual({ id: "three", index: 1 });
+  });
+
+  it("uses the previous thread when the missing open thread was last", () => {
+    expect(
+      getNextThreadAfterRemoval({
+        threadIds: ["one", "two"],
+        currentThreadId: "three",
+        currentThreadIndex: 2,
+        removedThreadIds: ["three"],
+      }),
+    ).toEqual({ id: "two", index: 1 });
   });
 
   it("closes the reader when every thread is removed", () => {
@@ -108,6 +134,7 @@ describe("getNextThreadAfterRemoval", () => {
       getNextThreadAfterRemoval({
         threadIds: ["one", "two"],
         currentThreadId: "one",
+        currentThreadIndex: 0,
         removedThreadIds: ["one", "two"],
       }),
     ).toBeNull();

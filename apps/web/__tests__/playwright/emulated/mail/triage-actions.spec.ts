@@ -1,4 +1,6 @@
 import { expect, type Locator } from "@playwright/test";
+import type { MailSettingsResponse } from "@/app/api/mail/settings/route";
+import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
 import { conversationWithSubject, openMail } from "./mail-test-helpers";
 
@@ -56,6 +58,98 @@ test("deletes an open conversation and returns to the list", async ({
     { headers: { "X-Email-Account-ID": emailAccountId } },
   );
   expect(restoreResponse.ok()).toBeTruthy();
+});
+
+test("advances the split reader after archiving an open conversation", async ({
+  page,
+}, testInfo) => {
+  const settingsResponsePromise = page.waitForResponse(
+    (response) =>
+      response.request().method() === "GET" &&
+      new URL(response.url()).pathname === "/api/mail/settings",
+  );
+  const { conversations, emailAccountId } = await openMail(page);
+  const settingsResponse = await settingsResponsePromise;
+  expect(settingsResponse.ok()).toBeTruthy();
+  const settings = (await settingsResponse.json()) as MailSettingsResponse;
+  const emptyReader = page.getByText("Nothing selected", { exact: true });
+  if (settings.layout === "SPLIT") {
+    await expect(emptyReader).toBeVisible();
+  } else {
+    await page
+      .getByRole("button", { name: "Switch list or split view" })
+      .click();
+    await expect(emptyReader).toBeVisible();
+  }
+  const conversation = conversationWithSubject(
+    page,
+    conversations,
+    "Second Unread Command Message",
+  );
+  await conversation.click();
+  await expect(
+    page.getByRole("heading", { name: "Second Unread Command Message" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: /^More actions/ }).click();
+  await page.getByRole("menuitem", { name: "Mark as unread" }).click();
+  await expect(
+    page.getByText("Marked as unread", { exact: true }),
+  ).toBeVisible();
+
+  await conversationWithSubject(
+    page,
+    conversations,
+    "Read Command Message",
+  ).click();
+  await expect(
+    page.getByRole("heading", { name: "Read Command Message" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Unread", exact: true }).click();
+  await expect(conversation).toBeVisible();
+  await conversation.click();
+  await expect(
+    page.getByRole("heading", { name: "Second Unread Command Message" }),
+  ).toBeVisible();
+  await expect(conversation).toHaveCount(0);
+
+  let archived = false;
+  let restoreSucceeded: boolean | undefined;
+  try {
+    await page.getByRole("button", { name: "Archive", exact: true }).click();
+    archived = true;
+    await expect(
+      page
+        .getByRole("region", { name: "Notifications alt+T" })
+        .getByText("Archived", { exact: true }),
+    ).toBeVisible();
+
+    await expect(conversations).toBeVisible();
+    await expect
+      .poll(() => new URL(page.url()).searchParams.get("thread-id"))
+      .not.toBe("thr_playwright_3");
+    await expect
+      .poll(() => new URL(page.url()).searchParams.get("thread-id"))
+      .not.toBeNull();
+    await expect(
+      page.getByRole("button", { name: "Archive", exact: true }),
+    ).toBeVisible();
+    await capturePlaywrightCheckpoint(
+      page,
+      testInfo,
+      "split-reader-after-archive",
+    );
+  } finally {
+    if (archived) {
+      restoreSucceeded = (
+        await page.request
+          .post("/api/threads/thr_playwright_3/unarchive", {
+            headers: { "X-Email-Account-ID": emailAccountId },
+          })
+          .catch(() => undefined)
+      )?.ok();
+    }
+  }
+  expect(restoreSucceeded).toBe(true);
 });
 
 test("selects ranges and opens conversations with the keyboard", async ({

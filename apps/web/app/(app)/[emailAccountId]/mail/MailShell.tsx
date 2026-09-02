@@ -485,6 +485,7 @@ export function MailShell() {
           const nextThread = getNextThreadAfterRemoval({
             threadIds: orderedIds,
             currentThreadId: openThreadKey,
+            currentThreadIndex: focusedIndex,
             removedThreadIds: queuedThreadKeys,
           });
           setFocusedIndex(nextThread?.index ?? 0);
@@ -510,6 +511,7 @@ export function MailShell() {
     },
     [
       focusedThread,
+      focusedIndex,
       openThreadKey,
       orderedIds,
       selection,
