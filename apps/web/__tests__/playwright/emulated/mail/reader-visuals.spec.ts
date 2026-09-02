@@ -26,14 +26,10 @@ test("captures the rich message reader states", async ({ page }, testInfo) => {
   ).toHaveCount(0);
 
   const archiveButton = page.getByRole("button", { name: /^Archive/ });
-  await expect(archiveButton.locator("kbd")).toBeHidden();
+  await expect(archiveButton.locator("kbd")).toHaveCount(0);
   await archiveButton.hover();
-  await expect(archiveButton.locator("kbd")).toBeVisible();
-  await capturePlaywrightCheckpoint(
-    page,
-    testInfo,
-    "mail-reader-toolbar-shortcut-hover",
-  );
+  await expect(page.getByRole("tooltip")).toHaveCount(0);
+  await capturePlaywrightCheckpoint(page, testInfo, "mail-reader-toolbar");
 
   const senderStatsResponse = page.waitForResponse((response) =>
     response.url().includes("/api/user/stats/newsletters"),
@@ -42,6 +38,10 @@ test("captures the rich message reader states", async ({ page }, testInfo) => {
   await expect(
     page.getByRole("menuitem", { name: "Auto archive future emails" }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("menuitem", { name: "Mark as spam" }),
+  ).toBeVisible();
+  await expect(page.getByRole("menuitem").last()).toHaveText(/Open in Gmail/);
   expect((await senderStatsResponse).ok()).toBe(true);
   await capturePlaywrightCheckpoint(
     page,

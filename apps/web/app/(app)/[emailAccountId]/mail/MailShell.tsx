@@ -336,7 +336,7 @@ export function MailShell() {
 
   const orderedIds = useMemo(() => threads.map(getListThreadKey), [threads]);
   const selection = useThreadSelection(orderedIds);
-  const { archive, trash, markRead, setReadState, snooze, undo } =
+  const { archive, trash, markRead, markSpam, setReadState, snooze, undo } =
     useThreadActions({
       emailAccountId,
       threads,
@@ -598,6 +598,10 @@ export function MailShell() {
     [archive, runOn],
   );
   const trashTargets = useCallback(() => runOn(trash, true), [runOn, trash]);
+  const markSpamTargets = useCallback(
+    () => runOn(markSpam, true),
+    [markSpam, runOn],
+  );
   const markReadTargets = useCallback(
     () => runOn(markRead, false),
     [markRead, runOn],
@@ -1130,6 +1134,7 @@ export function MailShell() {
                   message={openMessages.at(-1) ?? null}
                   setChatInput={setChatInput}
                   isUnread={isOpenThreadUnread}
+                  onMarkSpam={markSpamTargets}
                   onToggleRead={() => {
                     if (!resolvedOpenThreadKey) return;
                     setReadState([resolvedOpenThreadKey], isOpenThreadUnread);

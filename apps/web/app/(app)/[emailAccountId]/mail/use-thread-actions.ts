@@ -252,6 +252,30 @@ export function useThreadActions({
     [enqueueTargets, resolveTargets],
   );
 
+  const markSpam = useCallback(
+    async (threadKeys: string[]) => {
+      const targets = resolveTargets(threadKeys);
+      const snapshots = await enqueueTargets(targets, { kind: "spam" });
+      const failedCount = threadKeys.length - snapshots.length;
+      if (snapshots.length) {
+        toast.success(
+          snapshots.length === 1
+            ? "Marked as spam"
+            : `Marked ${snapshots.length} conversations as spam`,
+        );
+      }
+      if (failedCount) {
+        toast.error(
+          failedCount === threadKeys.length
+            ? "Couldn't queue marking as spam"
+            : `Couldn't queue ${failedCount} of ${threadKeys.length} as spam`,
+        );
+      }
+      return snapshots.map((snapshot) => snapshot.key);
+    },
+    [enqueueTargets, resolveTargets],
+  );
+
   return {
     archive: useCallback(
       (threadKeys: string[]) => runUndoable("archive", threadKeys),
@@ -265,6 +289,7 @@ export function useThreadActions({
       (threadKeys: string[]) => setReadState(threadKeys, true, false),
       [setReadState],
     ),
+    markSpam,
     setReadState,
     snooze,
     undo,

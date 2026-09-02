@@ -8,6 +8,7 @@ import {
   MailIcon,
   MailOpenIcon,
   MoreHorizontalIcon,
+  ShieldAlertIcon,
   SparklesIcon,
 } from "lucide-react";
 import { FixWithChat } from "@/app/(app)/[emailAccountId]/assistant/FixWithChat";
@@ -52,6 +53,7 @@ export type ThreadActionsMenuProps = {
   /** `setInput` from `useChat()`: the fix flow seeds the assistant with it. */
   setChatInput: (input: string) => void;
   isUnread: boolean;
+  onMarkSpam: () => void;
   onToggleRead: () => void;
   /** Chat remains scoped to the route account, so cross-account rows hide it. */
   showFixWithChat?: boolean;
@@ -68,6 +70,7 @@ export function ThreadActionsMenu({
   message,
   setChatInput,
   isUnread,
+  onMarkSpam,
   onToggleRead,
   showFixWithChat = true,
   open,
@@ -110,7 +113,7 @@ export function ThreadActionsMenu({
 
         <DropdownMenuContent
           align="end"
-          className="w-[min(24rem,calc(100vw-1rem))]"
+          className="w-56"
           onEscapeKeyDown={(event) => event.stopPropagation()}
         >
           {plans.length > 0 ? (
@@ -137,18 +140,14 @@ export function ThreadActionsMenu({
 
           {plans.length > 0 ? <DropdownMenuSeparator /> : null}
 
-          {openUrl ? (
-            <DropdownMenuItem asChild>
-              <a href={openUrl} rel="noopener noreferrer" target="_blank">
-                <ExternalLinkIcon className="mr-2 size-4" />
-                Open in {isMicrosoftProvider(provider) ? "Outlook" : "Gmail"}
-              </a>
-            </DropdownMenuItem>
-          ) : null}
-
           <DropdownMenuItem onSelect={onToggleRead}>
             <ReadIcon className="mr-2 size-4" />
             {isUnread ? "Mark as read" : "Mark as unread"}
+          </DropdownMenuItem>
+
+          <DropdownMenuItem onSelect={onMarkSpam}>
+            <ShieldAlertIcon className="mr-2 size-4" />
+            Mark as spam
           </DropdownMenuItem>
 
           {canUnsubscribe ? (
@@ -162,6 +161,15 @@ export function ThreadActionsMenu({
             <DropdownMenuItem onSelect={onAutoArchive}>
               <ArchiveRestoreIcon className="mr-2 size-4" />
               Auto archive future emails
+            </DropdownMenuItem>
+          ) : null}
+
+          {openUrl ? (
+            <DropdownMenuItem asChild>
+              <a href={openUrl} rel="noopener noreferrer" target="_blank">
+                <ExternalLinkIcon className="mr-2 size-4" />
+                Open in {isMicrosoftProvider(provider) ? "Outlook" : "Gmail"}
+              </a>
             </DropdownMenuItem>
           ) : null}
         </DropdownMenuContent>

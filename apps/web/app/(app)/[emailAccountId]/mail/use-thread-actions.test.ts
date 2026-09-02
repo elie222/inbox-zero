@@ -214,6 +214,22 @@ describe("useThreadActions durable mutations", () => {
     ]);
   });
 
+  it("queues spam snapshots for durable removal", async () => {
+    const { result } = renderActions();
+
+    await act(() => result.current.markSpam(["thread"]));
+
+    expect(outbox.enqueueBatch).toHaveBeenCalledWith([
+      {
+        emailAccountId: "account",
+        kind: "spam",
+        messageIds: ["message-one", "message-two"],
+        threadId: "thread",
+      },
+    ]);
+    expect(notifications.success).toHaveBeenCalledWith("Marked as spam");
+  });
+
   it("retains the opened snapshot after the durable overlay hides its row", async () => {
     const thread = createThread(["INBOX", "UNREAD"]);
     const { result, rerender } = renderHook(

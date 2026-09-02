@@ -66,6 +66,7 @@ export type StoredMailMutation = {
     | "unarchive"
     | "trash"
     | "untrash"
+    | "spam"
     | "set_read_state"
     | "snooze"
     | "cancel_snooze"

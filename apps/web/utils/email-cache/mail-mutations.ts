@@ -12,6 +12,7 @@ export type MailMutationPayload =
   | { kind: "unarchive" }
   | { kind: "trash" }
   | { kind: "untrash" }
+  | { kind: "spam" }
   | { kind: "set_read_state"; read: boolean }
   | { kind: "snooze"; scheduledFor: string }
   | { kind: "cancel_snooze"; snoozeMutationId: string }

@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => ({
   cancelSnooze: vi.fn(),
   createEmailProvider: vi.fn(),
   prepareSnooze: vi.fn(),
+  markSpam: vi.fn(),
   sendEmailWithHtml: vi.fn(),
   unarchiveMessages: vi.fn(),
 }));
@@ -47,10 +48,12 @@ describe("executeMailMutationAction", () => {
     );
     mocks.createEmailProvider.mockResolvedValue({
       archiveMessages: mocks.archiveMessages,
+      markSpam: mocks.markSpam,
       sendEmailWithHtml: mocks.sendEmailWithHtml,
       unarchiveMessages: mocks.unarchiveMessages,
     });
     mocks.archiveMessages.mockResolvedValue(undefined);
+    mocks.markSpam.mockResolvedValue(undefined);
     mocks.unarchiveMessages.mockResolvedValue(undefined);
     mocks.prepareSnooze.mockResolvedValue({
       created: true,
@@ -76,6 +79,18 @@ describe("executeMailMutationAction", () => {
       ["one", "two"],
       undefined,
     );
+  });
+
+  it("marks the captured thread as spam", async () => {
+    const result = await executeMailMutationAction("account-1", {
+      kind: "spam",
+      mutationId,
+      threadId: "thread",
+      messageIds: ["one", "two"],
+    });
+
+    expect(result?.data).toEqual({ status: "applied" });
+    expect(mocks.markSpam).toHaveBeenCalledWith("thread");
   });
 
   it("applies a durable archive batch with one provider operation", async () => {
