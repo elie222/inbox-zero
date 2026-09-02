@@ -49,6 +49,21 @@ describe("parseFromSplitInput", () => {
     expect(parseFromSplitInput("@a..b.com")).toBeNull();
     expect(parseFromSplitInput("unread")).toBeNull();
     expect(parseFromSplitInput("receipts label")).toBeNull();
+    expect(
+      parseFromSplitInput(
+        'all emails from "user@example.com..evil" that are in the inbox',
+      ),
+    ).toBeNull();
+  });
+
+  it("keeps long filter names unique when truncated", () => {
+    const longLocal = `${"a".repeat(50)}@example.com`;
+    const longerLocal = `${"a".repeat(51)}@example.com`;
+    const first = parseFromSplitInput(longLocal);
+    const second = parseFromSplitInput(longerLocal);
+    expect(first?.name).not.toEqual(second?.name);
+    expect(first?.name.length).toBeLessThanOrEqual(60);
+    expect(second?.name.length).toBeLessThanOrEqual(60);
   });
 });
 

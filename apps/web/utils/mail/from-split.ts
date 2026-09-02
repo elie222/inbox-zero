@@ -43,7 +43,7 @@ export function parseFromSplitInput(input: string): ParsedFromSplit | null {
   // Phrases like "all emails from @domain that are in the inbox"
   const phraseEmail = trimmed.match(
     new RegExp(
-      String.raw`\bfrom\s+(?:address\s+)?(?:"|')?(${EMAIL_RE.source})(?:"|')?`,
+      String.raw`\bfrom\s+(?:address\s+)?(?:"|')?(${EMAIL_RE.source})(?:"|')?(?=\s|$)`,
       "i",
     ),
   );
@@ -54,7 +54,7 @@ export function parseFromSplitInput(input: string): ParsedFromSplit | null {
 
   const phraseDomain = trimmed.match(
     new RegExp(
-      String.raw`\bfrom\s+(?:domain\s+)?(?:"|')?@(${DNS_DOMAIN})(?:"|')?`,
+      String.raw`\bfrom\s+(?:domain\s+)?(?:"|')?@(${DNS_DOMAIN})(?:"|')?(?=\s|$)`,
       "i",
     ),
   );
@@ -77,16 +77,28 @@ export function getFromFilterDomain(value: string): string | null {
   return null;
 }
 
-/** Prefer the full address so distinct senders with the same local part don't collide. */
+/**
+ * Prefer the full address so distinct senders with the same local part don't
+ * collide. Names are capped at 60 chars (DB limit); longer values get a short
+ * hash suffix so truncated names stay unique.
+ */
 export function nameFromFromValue(value: string): string {
   const trimmed = value.trim().toLowerCase();
-  if (isFromDomainFilter(trimmed)) {
-    return trimmed.slice(1).slice(0, 60);
-  }
-  return trimmed.slice(0, 60);
+  const base = isFromDomainFilter(trimmed) ? trimmed.slice(1) : trimmed;
+  if (base.length <= 60) return base;
+  const suffix = shortHash(base);
+  return `${base.slice(0, 60 - suffix.length - 1)}-${suffix}`;
 }
 
 function isMostlyAddress(candidate: string, match: string): boolean {
   const remainder = candidate.replace(match, "").replace(/[\s<>"']/g, "");
   return remainder.length === 0;
+}
+
+function shortHash(value: string): string {
+  let hash = 0;
+  for (let i = 0; i < value.length; i++) {
+    hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
+  }
+  return hash.toString(36).slice(0, 6);
 }
