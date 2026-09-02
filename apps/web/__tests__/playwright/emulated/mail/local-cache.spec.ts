@@ -9,6 +9,9 @@ import { conversationWithSubject, openMail } from "./mail-test-helpers";
 
 const MESSAGE_COUNT = 5000;
 const FIRST_LOCAL_SUBJECT = "Local mailbox load test 0";
+const READER_CACHE_BODY =
+  "This sender is reserved for the bulk unsubscribe flow.";
+const READER_CACHE_SUBJECT = "Cleanup Block Candidate";
 const PRIMARY_UNIFIED_SUBJECT = "Primary local unified conversation";
 const SECONDARY_UNIFIED_SUBJECT = "Secondary local unified conversation";
 const THREAD_DETAIL_VARIANT = "drafts:1|replies:0";
@@ -164,7 +167,11 @@ test("renders a cached thread body when the reader request is offline", async ({
   page,
 }, testInfo) => {
   const { conversations, emailAccountId } = await openMail(page);
-  const { readerUrl, threadId } = await openFirstThread(page, conversations);
+  const { readerUrl, threadId } = await openFirstThread(
+    page,
+    conversations,
+    emailAccountId,
+  );
   await leaveThreadReader(page, emailAccountId);
   await page.route(threadDetailRoute(threadId), (route) =>
     route.abort("connectionfailed"),
@@ -185,7 +192,11 @@ test("falls back to the network for an uncached thread body and persists it", as
   page,
 }) => {
   const { conversations, emailAccountId } = await openMail(page);
-  const { threadId } = await openFirstThread(page, conversations);
+  const { threadId } = await openFirstThread(
+    page,
+    conversations,
+    emailAccountId,
+  );
   await clearThreadDetail(page, { emailAccountId, threadId });
 
   await page.route(threadDetailRoute(threadId), async (route) => {
@@ -212,7 +223,11 @@ test("serves cached reader content without revalidating from the network", async
   page,
 }) => {
   const { conversations, emailAccountId } = await openMail(page);
-  const { readerUrl, threadId } = await openFirstThread(page, conversations);
+  const { readerUrl, threadId } = await openFirstThread(
+    page,
+    conversations,
+    emailAccountId,
+  );
   let threadDetailRequestCount = 0;
 
   await leaveThreadReader(page, emailAccountId);
@@ -397,10 +412,20 @@ async function seedUnifiedMailbox(
 async function openFirstThread(
   page: Page,
   conversations: ReturnType<Page["getByRole"]>,
+  emailAccountId: string,
 ) {
-  await conversations.getByRole("option").first().click();
+  const conversation = conversationWithSubject(
+    page,
+    conversations,
+    READER_CACHE_SUBJECT,
+  );
+  await expect(conversation).toBeVisible();
+  await conversation.click();
   const threadId = new URL(page.url()).searchParams.get("thread-id");
   if (!threadId) throw new Error("Expected an open thread id");
+  await expect
+    .poll(() => readThreadDetailTextPlain(page, { emailAccountId, threadId }))
+    .toBe(READER_CACHE_BODY);
   return { readerUrl: page.url(), threadId };
 }
 

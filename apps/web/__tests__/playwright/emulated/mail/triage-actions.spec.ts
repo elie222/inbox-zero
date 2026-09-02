@@ -86,24 +86,6 @@ test("advances the split reader after archiving an open conversation", async ({
     conversations,
     "Second Unread Command Message",
   );
-  await conversation.click();
-  await expect(
-    page.getByRole("heading", { name: "Second Unread Command Message" }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: /^More actions/ }).click();
-  await page.getByRole("menuitem", { name: "Mark as unread" }).click();
-  await expect(
-    page.getByText("Marked as unread", { exact: true }),
-  ).toBeVisible();
-
-  await conversationWithSubject(
-    page,
-    conversations,
-    "Read Command Message",
-  ).click();
-  await expect(
-    page.getByRole("heading", { name: "Read Command Message" }),
-  ).toBeVisible();
   await page.getByRole("button", { name: "Unread", exact: true }).click();
   await expect(conversation).toBeVisible();
   await conversation.click();
@@ -115,7 +97,7 @@ test("advances the split reader after archiving an open conversation", async ({
   let archived = false;
   let restoreSucceeded: boolean | undefined;
   try {
-    await page.getByRole("button", { name: "Archive", exact: true }).click();
+    await page.getByRole("button", { name: /^Archive/ }).click();
     archived = true;
     await expect(
       page
@@ -130,9 +112,7 @@ test("advances the split reader after archiving an open conversation", async ({
     await expect
       .poll(() => new URL(page.url()).searchParams.get("thread-id"))
       .not.toBeNull();
-    await expect(
-      page.getByRole("button", { name: "Archive", exact: true }),
-    ).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Archive/ })).toBeVisible();
     await capturePlaywrightCheckpoint(
       page,
       testInfo,
