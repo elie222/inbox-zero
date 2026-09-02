@@ -11,7 +11,6 @@ Examples of cold emails:
 Unsolicited outreach is NOT a cold email when it is specific to you and worth your attention, such as:
 - A potential customer or partner with a concrete need or opportunity
 - An investor that wants to learn more or invest in the company
-- A specific offer or request addressed to you personally about your work or role, rather than a template
 
 Emails that are NOT cold emails include:
 - Email from a friend or colleague

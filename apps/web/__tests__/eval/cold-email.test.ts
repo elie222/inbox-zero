@@ -50,7 +50,7 @@ Would you be open to a quick call next week to see if we can help?`,
     expectedColdEmail: true,
   },
   {
-    name: "recruiter interview invitation is not cold",
+    name: "unsolicited recruiter outreach is cold",
     email: getEmail({
       from: "talent@company.example",
       subject: "Interview for Head of Sales at Company",
@@ -64,7 +64,7 @@ Best,
 Jordan`,
       date: new Date("2026-04-21T10:00:00Z"),
     }),
-    expectedColdEmail: false,
+    expectedColdEmail: true,
   },
   {
     name: "templated recruiter fishing is cold",
