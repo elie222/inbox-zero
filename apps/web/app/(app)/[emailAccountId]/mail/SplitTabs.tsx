@@ -43,22 +43,21 @@ export function SplitTabs({
   className,
 }: SplitTabsProps) {
   const tabsRef = useRef<HTMLDivElement>(null);
+  const activeTabRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const tabs = tabsRef.current;
     const focusedTab = document.activeElement;
     if (
+      !activeSplitId ||
       !(focusedTab instanceof HTMLButtonElement) ||
       !tabs?.contains(focusedTab) ||
-      !focusedTab.hasAttribute("data-split-id")
+      !focusedTab.hasAttribute("data-split-tab")
     ) {
       return;
     }
 
-    const activeTab = Array.from(
-      tabs.querySelectorAll<HTMLButtonElement>("button[data-split-id]"),
-    ).find((tab) => tab.dataset.splitId === activeSplitId);
-    activeTab?.focus({ preventScroll: true });
+    activeTabRef.current?.focus({ preventScroll: true });
   }, [activeSplitId]);
 
   return (
@@ -87,7 +86,8 @@ export function SplitTabs({
           >
             <button
               type="button"
-              data-split-id={split.id}
+              ref={active ? activeTabRef : undefined}
+              data-split-tab
               onClick={() => onSelect(split.id)}
               aria-current={active ? "true" : undefined}
               className="py-0.5 pr-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
