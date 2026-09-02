@@ -86,6 +86,7 @@ import {
   createMailSplitAction,
   createMailSplitFromPromptAction,
   deleteMailSplitAction,
+  setDefaultMailSplitsAction,
   updateMailPreferencesAction,
 } from "@/utils/actions/mail-split";
 import {
@@ -155,6 +156,8 @@ export function MailShell() {
   const [activeSplitId, setActiveSplitId] = useQueryState("split", {
     defaultValue: "all",
   });
+  const activeSplitIdRef = useRef(activeSplitId);
+  activeSplitIdRef.current = activeSplitId;
   const [accountScope, setAccountScope] = useQueryState("accountScope");
   const [scopeType, setScopeType] = useQueryState("type");
   const [scopeLabelId, setScopeLabelId] = useQueryState("labelId");
@@ -202,7 +205,10 @@ export function MailShell() {
   // Written through the SWR cache rather than mirrored in local state, so the
   // preference has one source of truth and every reader sees the new value.
   const toggleLayout = useCallback(() => {
+    if (!settings) return;
+
     const next = layout === "split" ? MailLayout.LIST : MailLayout.SPLIT;
+    const loadedSettings = settings;
 
     mutateSettings(
       async (current) => {
@@ -213,15 +219,12 @@ export function MailShell() {
         // the UI showing a preference the server never accepted.
         if (result?.serverError || result?.validationErrors)
           throw new Error(getActionErrorMessage(result));
-        return {
-          layout: next,
-          splits: current?.splits ?? [],
-        };
+        return { ...(current ?? loadedSettings), layout: next };
       },
       {
         optimisticData: (current) => ({
+          ...(current ?? loadedSettings),
           layout: next,
-          splits: current?.splits ?? [],
         }),
         revalidate: false,
         rollbackOnError: true,
@@ -231,7 +234,7 @@ export function MailShell() {
         error instanceof Error ? error.message : "Couldn't save that",
       );
     });
-  }, [emailAccountId, layout, mutateSettings]);
+  }, [emailAccountId, layout, mutateSettings, settings]);
 
   // A sidebar selection scopes the whole list, which replaces the split tabs —
   // splits are a way of slicing the inbox, not of slicing an arbitrary view.
@@ -279,6 +282,27 @@ export function MailShell() {
   const activeCombinedLabelName = combinedLabelSplits.find(
     (split) => split.id === displayedActiveSplitId,
   )?.labelName;
+  const savedDefaultSplits = useMemo(() => {
+    const defaultLabelIds = new Set(
+      (settings?.defaultSplits ?? []).map((split) => split.value),
+    );
+    return (settings?.splits ?? []).filter(
+      (split) =>
+        split.kind === MailSplitKind.LABEL &&
+        split.value &&
+        defaultLabelIds.has(split.value),
+    );
+  }, [settings?.defaultSplits, settings?.splits]);
+  const canAddDefaultSplits = (settings?.defaultSplits ?? []).some(
+    (defaultSplit) =>
+      !(settings?.splits ?? []).some(
+        (split) =>
+          split.name === defaultSplit.name ||
+          (split.kind === MailSplitKind.LABEL &&
+            split.value === defaultSplit.value),
+      ),
+  );
+  const canRemoveDefaultSplits = savedDefaultSplits.length > 0;
 
   const query: ThreadsQuery = useMemo(() => {
     // Search overrides split/scope and covers the whole mailbox, matching
@@ -766,6 +790,29 @@ export function MailShell() {
     [emailAccountId, mutateSettings, activeSplitId, setActiveSplitId],
   );
 
+  const onSetDefaultSplits = useCallback(
+    async (enabled: boolean) => {
+      const result = await setDefaultMailSplitsAction(emailAccountId, {
+        enabled,
+      });
+      if (result?.serverError || result?.validationErrors) {
+        toast.error(getActionErrorMessage(result));
+        return false;
+      }
+      await mutateSettings();
+      if (
+        !enabled &&
+        savedDefaultSplits.some(
+          (split) => split.id === activeSplitIdRef.current,
+        )
+      ) {
+        setActiveSplitId("all");
+      }
+      return true;
+    },
+    [emailAccountId, mutateSettings, savedDefaultSplits, setActiveSplitId],
+  );
+
   const onCreateLabel = useCallback(
     async (name: string) => {
       const result = await createLabelAction(emailAccountId, { name });
@@ -1005,6 +1052,9 @@ export function MailShell() {
                 newSplitOptions={newSplitOptions}
                 onCreateSplit={onCreateSplit}
                 onCreateSplitFromPrompt={onCreateSplitFromPrompt}
+                canAddDefaultSplits={canAddDefaultSplits}
+                canRemoveDefaultSplits={canRemoveDefaultSplits}
+                onSetDefaultSplits={onSetDefaultSplits}
                 canCreateSplits={!isAllAccounts}
               />
             )}

@@ -1,11 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Prisma } from "@/generated/prisma/client";
-import { MailLayout, MailSplitKind } from "@/generated/prisma/enums";
+import {
+  ActionType,
+  MailLayout,
+  MailSplitKind,
+  SystemType,
+} from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
 import {
   createMailSplitAction,
   createMailSplitFromPromptAction,
   renameMailSplitAction,
+  setDefaultMailSplitsAction,
   updateMailPreferencesAction,
 } from "@/utils/actions/mail-split";
 import { aiPromptToSplit } from "@/utils/ai/split/prompt-to-split";
@@ -185,6 +191,29 @@ describe("mail split actions", () => {
     });
 
     expect(result?.serverError).toBe('You already have a "Unread" split.');
+  });
+
+  it("returns a user-safe error instead of partially adding defaults", async () => {
+    prisma.rule.findMany.mockResolvedValue([
+      {
+        systemType: SystemType.RECEIPT,
+        actions: [{ type: ActionType.LABEL, labelId: "receipt-label" }],
+      },
+      {
+        systemType: SystemType.NEWSLETTER,
+        actions: [{ type: ActionType.LABEL, labelId: "newsletter-label" }],
+      },
+    ] as never);
+    prisma.$transaction.mockResolvedValue([
+      [{ locked: true }],
+      [{ availableCount: 1, missingCount: 2 }],
+    ] as never);
+
+    const result = await setDefaultMailSplitsAction(EMAIL_ACCOUNT_ID, {
+      enabled: true,
+    });
+
+    expect(result?.serverError).toBe("You can only have 12 splits.");
   });
 
   it("persists the selected mail layout", async () => {

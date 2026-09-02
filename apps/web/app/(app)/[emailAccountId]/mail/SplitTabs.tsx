@@ -26,6 +26,9 @@ export type SplitTabsProps = {
   newSplitOptions: NewSplitOption[];
   onCreateSplit: (draft: NewSplitDraft) => void;
   onCreateSplitFromPrompt: (prompt: string) => Promise<boolean>;
+  canAddDefaultSplits: boolean;
+  canRemoveDefaultSplits: boolean;
+  onSetDefaultSplits: (enabled: boolean) => Promise<boolean>;
   /** Split creation stays account-scoped, so it is hidden in All accounts. */
   canCreateSplits: boolean;
   className?: string;
@@ -39,6 +42,9 @@ export function SplitTabs({
   newSplitOptions,
   onCreateSplit,
   onCreateSplitFromPrompt,
+  canAddDefaultSplits,
+  canRemoveDefaultSplits,
+  onSetDefaultSplits,
   canCreateSplits,
   className,
 }: SplitTabsProps) {
@@ -113,6 +119,9 @@ export function SplitTabs({
           options={newSplitOptions}
           onCreate={onCreateSplit}
           onCreateFromPrompt={onCreateSplitFromPrompt}
+          canAddDefaultSplits={canAddDefaultSplits}
+          canRemoveDefaultSplits={canRemoveDefaultSplits}
+          onSetDefaultSplits={onSetDefaultSplits}
         />
       )}
 
