@@ -1,7 +1,7 @@
 -- Move accounts still on a stock Cold Email prompt to the new default. The two
 -- matched texts are the exact previous defaults; customized prompts are left alone.
 UPDATE "Rule"
-SET "instructions" = $q$Cold emails are unsolicited outreach from someone you have no existing relationship with, sent to get something from you rather than because you need it. Block outreach that doesn't matter to you and let through outreach that does.
+SET "instructions" = $q$Cold emails are unsolicited outreach from someone you have no existing relationship with, sent to get something from you rather than because you need it. The aim is to recognise outreach that doesn't matter to you while not mistaking outreach that does.
 
 Examples of cold emails:
 - Sell a product or service (e.g., agency pitching their services)
