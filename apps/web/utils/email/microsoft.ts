@@ -1839,7 +1839,15 @@ export class OutlookProvider implements EmailProvider {
       collectedMessages.push(...response.value);
       nextPageToken = response["@odata.nextLink"];
 
-      if (!requiresLocalLabelFiltering || !nextPageToken) break;
+      // Domain $search pages are capped at 25 and may be thinned by local
+      // after/before/unread/inboxSection filters — keep paging for those too.
+      const requiresDomainSearchPaging = Boolean(domainFromFilter);
+      if (
+        (!requiresLocalLabelFiltering && !requiresDomainSearchPaging) ||
+        !nextPageToken
+      ) {
+        break;
+      }
 
       const matchedThreads = buildOutlookThreadsFromMessages({
         messages: collectedMessages,

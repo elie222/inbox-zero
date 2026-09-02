@@ -450,6 +450,53 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
       top: 25,
     });
   });
+  it("keeps paging domain FROM searches until enough threads match local filters", async () => {
+    const client = createMockOutlookClient([], {
+      responsesByApiPath: {
+        "/me/mailFolders/inbox/messages": {
+          value: [
+            createMessage({
+              id: "read-message",
+              conversationId: "read-thread",
+              parentFolderId: "inbox-folder-id",
+              isRead: true,
+            }),
+          ],
+          "@odata.nextLink":
+            "https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$skiptoken=next",
+        },
+        "https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$skiptoken=next":
+          {
+            value: [
+              createMessage({
+                id: "unread-message",
+                conversationId: "unread-thread",
+                parentFolderId: "inbox-folder-id",
+                isRead: false,
+              }),
+            ],
+          },
+      },
+    });
+    const provider = new OutlookProvider(client);
+
+    const result = await provider.getThreadsWithQuery({
+      query: {
+        type: "inbox",
+        fromEmail: "@example.com",
+        isUnread: true,
+      },
+      maxResults: 1,
+    });
+
+    expect(result.threads.map((thread) => thread.id)).toEqual([
+      "unread-thread",
+    ]);
+    expect(client.getRequestLog().map((request) => request.apiPath)).toEqual([
+      "/me/mailFolders/inbox/messages",
+      "https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$skiptoken=next",
+    ]);
+  });
 
   it("keeps exact FROM address queries on $filter with the inbox folder", async () => {
     const client = createMockOutlookClient([
