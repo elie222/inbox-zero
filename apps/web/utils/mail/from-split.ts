@@ -5,9 +5,12 @@ export type ParsedFromSplit = {
   name: string;
 };
 
-const EMAIL_RE =
-  /[a-z0-9](?:[a-z0-9._%+-]*[a-z0-9])?@[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\.[a-z]{2,}/i;
-const DOMAIN_RE = /@([a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\.[a-z]{2,})/i;
+const LOCAL_PART = "[a-z0-9](?:[a-z0-9_%+-]|[.](?=[a-z0-9]))*";
+const DNS_DOMAIN = String.raw`[a-z0-9](?:[a-z0-9-]|[.](?=[a-z0-9]))*\.[a-z]{2,}`;
+
+// Dot-atom local part and DNS labels; rejects consecutive dots.
+const EMAIL_RE = new RegExp(`${LOCAL_PART}@${DNS_DOMAIN}`, "i");
+const DOMAIN_RE = new RegExp(`@(${DNS_DOMAIN})`, "i");
 
 /**
  * Extract a sender or domain filter from a short split description.
@@ -17,8 +20,9 @@ export function parseFromSplitInput(input: string): ParsedFromSplit | null {
   const trimmed = input.trim();
   if (!trimmed) return null;
 
+  // Require a separator after "from" so addresses like from@example.com stay intact.
   const fromPrefixed = trimmed.match(
-    /^(?:from)\s*:?\s*(.+?)(?:\s+(?:in\s+)?(?:the\s+)?inbox)?$/i,
+    /^(?:from)(?:\s*:\s*|\s+)(.+?)(?:\s+(?:in\s+)?(?:the\s+)?inbox)?$/i,
   );
   const candidate = (fromPrefixed?.[1] ?? trimmed)
     .trim()
@@ -38,7 +42,10 @@ export function parseFromSplitInput(input: string): ParsedFromSplit | null {
 
   // Phrases like "all emails from @domain that are in the inbox"
   const phraseEmail = trimmed.match(
-    /\bfrom\s+(?:address\s+)?(?:"|')?([a-z0-9](?:[a-z0-9._%+-]*[a-z0-9])?@[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\.[a-z]{2,})(?:"|')?/i,
+    new RegExp(
+      String.raw`\bfrom\s+(?:address\s+)?(?:"|')?(${EMAIL_RE.source})(?:"|')?`,
+      "i",
+    ),
   );
   if (phraseEmail) {
     const value = phraseEmail[1].toLowerCase();
@@ -46,7 +53,10 @@ export function parseFromSplitInput(input: string): ParsedFromSplit | null {
   }
 
   const phraseDomain = trimmed.match(
-    /\bfrom\s+(?:domain\s+)?(?:"|')?@([a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\.[a-z]{2,})(?:"|')?/i,
+    new RegExp(
+      String.raw`\bfrom\s+(?:domain\s+)?(?:"|')?@(${DNS_DOMAIN})(?:"|')?`,
+      "i",
+    ),
   );
   if (phraseDomain) {
     const value = `@${phraseDomain[1].toLowerCase()}`;
@@ -67,13 +77,13 @@ export function getFromFilterDomain(value: string): string | null {
   return null;
 }
 
+/** Prefer the full address so distinct senders with the same local part don't collide. */
 export function nameFromFromValue(value: string): string {
   const trimmed = value.trim().toLowerCase();
   if (isFromDomainFilter(trimmed)) {
     return trimmed.slice(1).slice(0, 60);
   }
-  const local = trimmed.split("@")[0]?.trim();
-  return (local || trimmed).slice(0, 60);
+  return trimmed.slice(0, 60);
 }
 
 function isMostlyAddress(candidate: string, match: string): boolean {

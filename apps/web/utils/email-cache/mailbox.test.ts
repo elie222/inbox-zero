@@ -352,6 +352,47 @@ describe("synced mailbox cache", () => {
     ]);
   });
 
+  it("matches domain from-filters against sender suffixes", async () => {
+    await applyMailboxSyncPage({
+      emailAccountId: "account-1",
+      after: new Date("2026-07-24T00:00:00.000Z"),
+      page: {
+        cursor: "cursor",
+        deletedMessageIds: [],
+        hasMore: false,
+        reset: true,
+        upsertedMessages: [
+          getMessage({
+            id: "domain-match",
+            threadId: "domain-thread",
+            from: "Bot <noreply@crisp.email>",
+            internalDate: "2026-08-22T10:00:00.000Z",
+            labelIds: ["INBOX"],
+          }),
+          getMessage({
+            id: "domain-miss",
+            threadId: "other-domain-thread",
+            from: "Other <person@example.com>",
+            internalDate: "2026-08-22T11:00:00.000Z",
+            labelIds: ["INBOX"],
+          }),
+        ],
+      },
+    });
+
+    const snapshot = await readSyncedMailboxThreads({
+      emailAccountId: "account-1",
+      query: {
+        type: "inbox",
+        fromEmail: "@crisp.email",
+      },
+    });
+
+    expect(snapshot?.threads.map((thread) => thread.id)).toEqual([
+      "domain-thread",
+    ]);
+  });
+
   it("falls back for views the inbox snapshot cannot answer correctly", async () => {
     await applyMailboxSyncPage({
       emailAccountId: "account-1",

@@ -1,5 +1,6 @@
 import { internalDateToDate, sortByInternalDate } from "@/utils/date";
 import { canonicalizeEmailAddress } from "@/utils/email";
+import { getFromFilterDomain } from "@/utils/mail/from-split";
 import type { MailboxSyncPage } from "@/utils/email/types";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
 import type { CombinedListThread } from "@/utils/threads/load-combined";
@@ -529,12 +530,14 @@ function threadMatchesQuery(messages: ParsedMessage[], query: ThreadsQuery) {
   }
 
   return messages.some((message) => {
-    if (
-      query.fromEmail &&
-      canonicalizeEmailAddress(message.headers.from) !==
-        canonicalizeEmailAddress(query.fromEmail)
-    ) {
-      return false;
+    if (query.fromEmail) {
+      const messageFrom = canonicalizeEmailAddress(message.headers.from);
+      const domain = getFromFilterDomain(query.fromEmail);
+      if (domain) {
+        if (!messageFrom.endsWith(`@${domain}`)) return false;
+      } else if (messageFrom !== canonicalizeEmailAddress(query.fromEmail)) {
+        return false;
+      }
     }
     const timestamp = getMessageTimestamp(message);
     if (query.after && timestamp <= query.after.getTime()) return false;

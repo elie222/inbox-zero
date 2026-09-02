@@ -13,10 +13,10 @@ describe("parseFromSplitInput", () => {
     });
   });
 
-  it("parses a bare email address", () => {
+  it("uses the full address as the tab name", () => {
     expect(parseFromSplitInput("Support@Example.com")).toEqual({
       value: "support@example.com",
-      name: "support",
+      name: "support@example.com",
     });
   });
 
@@ -37,7 +37,16 @@ describe("parseFromSplitInput", () => {
     });
   });
 
-  it("returns null for unrelated descriptions", () => {
+  it("keeps addresses whose local part is from", () => {
+    expect(parseFromSplitInput("from@example.com")).toEqual({
+      value: "from@example.com",
+      name: "from@example.com",
+    });
+  });
+
+  it("rejects malformed addresses and domains", () => {
+    expect(parseFromSplitInput("a..b@example.com")).toBeNull();
+    expect(parseFromSplitInput("@a..b.com")).toBeNull();
     expect(parseFromSplitInput("unread")).toBeNull();
     expect(parseFromSplitInput("receipts label")).toBeNull();
   });
