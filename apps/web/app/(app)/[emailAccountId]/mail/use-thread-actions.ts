@@ -28,6 +28,8 @@ type ThreadSnapshot = {
   threadId: string;
 };
 
+type ThreadActionTarget = Omit<ThreadSnapshot, "mutationId">;
+
 type UndoableBatch = {
   action: UndoableAction;
   snapshots: ThreadSnapshot[];
@@ -36,42 +38,42 @@ type UndoableBatch = {
 
 export function useThreadActions({
   emailAccountId,
+  readerTarget,
   threads,
 }: {
   emailAccountId: string;
+  readerTarget?: ThreadActionTarget;
   threads: ListThread[];
 }) {
   const lastAction = useRef<UndoableBatch | null>(null);
   const retainedEmailAccountId = useRef(emailAccountId);
-  const threadsByKey = useRef(new Map<string, ListThread>());
+  const targetsByKey = useRef(new Map<string, ThreadActionTarget>());
   if (retainedEmailAccountId.current !== emailAccountId) {
     retainedEmailAccountId.current = emailAccountId;
-    threadsByKey.current.clear();
+    targetsByKey.current.clear();
     lastAction.current = null;
   }
+  if (readerTarget?.messageIds.length) {
+    targetsByKey.current.set(readerTarget.key, readerTarget);
+  }
   for (const thread of threads) {
-    threadsByKey.current.set(getListThreadKey(thread), thread);
+    const messageIds = [...new Set(getListThreadMessageIds(thread))];
+    if (!messageIds.length) continue;
+    const key = getListThreadKey(thread);
+    targetsByKey.current.set(key, {
+      emailAccountId: getListThreadEmailAccountId(thread, emailAccountId),
+      key,
+      messageIds,
+      threadId: thread.id,
+    });
   }
 
   const resolveTargets = useCallback(
     (threadKeys: string[]) =>
       threadKeys
-        .map((key) => {
-          const thread = threadsByKey.current.get(key);
-          if (!thread) return;
-          const messageIds = [...new Set(getListThreadMessageIds(thread))];
-          if (!messageIds.length) return;
-          return {
-            emailAccountId: getListThreadEmailAccountId(thread, emailAccountId),
-            key,
-            messageIds,
-            threadId: thread.id,
-          };
-        })
-        .filter((target): target is Omit<ThreadSnapshot, "mutationId"> =>
-          Boolean(target),
-        ),
-    [emailAccountId],
+        .map((key) => targetsByKey.current.get(key))
+        .filter((target): target is ThreadActionTarget => Boolean(target)),
+    [],
   );
 
   const enqueueTargets = useCallback(

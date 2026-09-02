@@ -336,11 +336,6 @@ export function MailShell() {
 
   const orderedIds = useMemo(() => threads.map(getListThreadKey), [threads]);
   const selection = useThreadSelection(orderedIds);
-  const { archive, trash, markRead, markSpam, setReadState, snooze, undo } =
-    useThreadActions({
-      emailAccountId,
-      threads,
-    });
 
   const clampIndex = useCallback(
     (index: number) =>
@@ -411,6 +406,29 @@ export function MailShell() {
   const openMessages = readerSelectionSettled
     ? (openThreadData?.thread.messages ?? NO_MESSAGES)
     : NO_MESSAGES;
+  const readerTarget = useMemo(() => {
+    if (!openThreadKey || !openThreadSelection || !readerSelectionSettled)
+      return;
+    const messageIds = [...new Set(openMessages.map((message) => message.id))];
+    if (!messageIds.length) return;
+    return {
+      emailAccountId: openThreadSelection.emailAccountId,
+      key: openThreadKey,
+      messageIds,
+      threadId: openThreadSelection.threadId,
+    };
+  }, [
+    openMessages,
+    openThreadKey,
+    openThreadSelection,
+    readerSelectionSettled,
+  ]);
+  const { archive, trash, markRead, markSpam, setReadState, snooze, undo } =
+    useThreadActions({
+      emailAccountId,
+      readerTarget,
+      threads,
+    });
   const requestReaderReply = useCallback(() => {
     const messageId = openMessages.at(-1)?.id;
     if (messageId) {

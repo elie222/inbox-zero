@@ -11,6 +11,7 @@ export async function runThreadMessageMutation({
   messageHandler,
   failureMessage,
   continueOnError = false,
+  throwIfAllFail = false,
 }: {
   messageIds: string[];
   threadId: string;
@@ -18,6 +19,7 @@ export async function runThreadMessageMutation({
   messageHandler: (messageId: string) => Promise<unknown>;
   failureMessage: string;
   continueOnError?: boolean;
+  throwIfAllFail?: boolean;
 }) {
   if (messageIds.length === 0) return;
 
@@ -47,6 +49,9 @@ export async function runThreadMessageMutation({
   if (!continueOnError && failures.length > 0) {
     throw failures[0].result.reason;
   }
+  if (throwIfAllFail && failures.length === messageIds.length) {
+    throw failures[0].result.reason;
+  }
 }
 
 /**
@@ -59,12 +64,14 @@ export async function processThreadMessagesFallback({
   logger,
   messageHandler,
   noMessagesMessage,
+  throwIfAllFail = false,
 }: {
   client: OutlookClient;
   threadId: string;
   logger: Logger;
   messageHandler: (messageId: string) => Promise<unknown>;
   noMessagesMessage: string;
+  throwIfAllFail?: boolean;
 }) {
   const messages = await client
     .getClient()
@@ -85,6 +92,7 @@ export async function processThreadMessagesFallback({
       messageHandler,
       failureMessage: "Failed to process message in thread fallback",
       continueOnError: true,
+      throwIfAllFail,
     });
   } else {
     logger.warn(noMessagesMessage, { threadId });
