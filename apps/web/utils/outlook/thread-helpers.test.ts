@@ -48,7 +48,7 @@ describe("runThreadMessageMutation", () => {
   });
 
   it("throws the provider error when every attempted mutation fails", async () => {
-    const messageHandler = vi.fn().mockRejectedValue(new Error("move failed"));
+    const messageHandler = vi.fn().mockRejectedValue("move failed");
 
     await expect(
       runThreadMessageMutation({
@@ -60,7 +60,7 @@ describe("runThreadMessageMutation", () => {
         throwIfAllFail: true,
         messageHandler,
       }),
-    ).rejects.toThrow("move failed");
+    ).rejects.toEqual(new Error("move failed"));
 
     expect(messageHandler).toHaveBeenCalledTimes(2);
   });

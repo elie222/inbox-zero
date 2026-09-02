@@ -365,9 +365,6 @@ export function MailShell() {
   const openThread = openThreadKey
     ? threads.find((thread) => getListThreadKey(thread) === openThreadKey)
     : undefined;
-  const resolvedOpenThreadKey = openThread
-    ? getListThreadKey(openThread)
-    : null;
   const readAttemptedForOpenThread = useRef<string | null>(null);
 
   // Defer the pair as one value: rendering a new id with the previous account
@@ -591,26 +588,21 @@ export function MailShell() {
       return;
     }
     if (
-      !resolvedOpenThreadKey ||
-      readAttemptedForOpenThread.current === resolvedOpenThreadKey
+      !openThreadKey ||
+      readAttemptedForOpenThread.current === openThreadKey
     ) {
       return;
     }
     if (!isOpenThreadUnread) {
-      readAttemptedForOpenThread.current = resolvedOpenThreadKey;
+      readAttemptedForOpenThread.current = openThreadKey;
       return;
     }
 
     // Remember the durable attempt so this reader doesn't queue duplicates
     // while the outbox is waiting for connectivity or provider recovery.
-    readAttemptedForOpenThread.current = resolvedOpenThreadKey;
-    markRead([resolvedOpenThreadKey]);
-  }, [
-    isOpenThreadUnread,
-    markRead,
-    openReaderThreadKey,
-    resolvedOpenThreadKey,
-  ]);
+    readAttemptedForOpenThread.current = openThreadKey;
+    markRead([openThreadKey]);
+  }, [isOpenThreadUnread, markRead, openReaderThreadKey, openThreadKey]);
   const archiveTargets = useCallback(
     () => runOn(archive, true, true),
     [archive, runOn],
@@ -1154,8 +1146,8 @@ export function MailShell() {
                   isUnread={isOpenThreadUnread}
                   onMarkSpam={markSpamTargets}
                   onToggleRead={() => {
-                    if (!resolvedOpenThreadKey) return;
-                    setReadState([resolvedOpenThreadKey], isOpenThreadUnread);
+                    if (!openThreadKey) return;
+                    setReadState([openThreadKey], isOpenThreadUnread);
                   }}
                   showFixWithChat={
                     !isAllAccounts ||

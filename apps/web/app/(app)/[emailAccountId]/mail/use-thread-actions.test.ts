@@ -253,6 +253,36 @@ describe("useThreadActions durable mutations", () => {
     ]);
   });
 
+  it("clears a fetched reader snapshot when the reader closes", async () => {
+    const readerTarget = {
+      emailAccountId: "account",
+      key: "reader-thread",
+      messageIds: ["reader-message"],
+      threadId: "reader-thread",
+    };
+    const { result, rerender } = renderHook(
+      ({ target }) =>
+        useThreadActions({
+          emailAccountId: "account",
+          readerTarget: target,
+          threads: [],
+        }),
+      {
+        initialProps: {
+          target: readerTarget as typeof readerTarget | undefined,
+        },
+      },
+    );
+
+    rerender({ target: undefined });
+    await act(() => result.current.markSpam(["reader-thread"]));
+
+    expect(outbox.enqueueBatch).not.toHaveBeenCalled();
+    expect(notifications.error).toHaveBeenCalledWith(
+      "Couldn't queue marking as spam",
+    );
+  });
+
   it("retains the opened snapshot after the durable overlay hides its row", async () => {
     const thread = createThread(["INBOX", "UNREAD"]);
     const { result, rerender } = renderHook(

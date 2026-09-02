@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
@@ -47,31 +47,40 @@ export function useThreadActions({
 }) {
   const lastAction = useRef<UndoableBatch | null>(null);
   const retainedEmailAccountId = useRef(emailAccountId);
-  const targetsByKey = useRef(new Map<string, ThreadActionTarget>());
-  if (retainedEmailAccountId.current !== emailAccountId) {
-    retainedEmailAccountId.current = emailAccountId;
-    targetsByKey.current.clear();
-    lastAction.current = null;
-  }
-  if (readerTarget?.messageIds.length) {
-    targetsByKey.current.set(readerTarget.key, readerTarget);
-  }
-  for (const thread of threads) {
-    const messageIds = [...new Set(getListThreadMessageIds(thread))];
-    if (!messageIds.length) continue;
-    const key = getListThreadKey(thread);
-    targetsByKey.current.set(key, {
-      emailAccountId: getListThreadEmailAccountId(thread, emailAccountId),
-      key,
-      messageIds,
-      threadId: thread.id,
-    });
-  }
+  const listTargetsByKey = useRef(new Map<string, ThreadActionTarget>());
+  const activeReaderTarget = useRef<ThreadActionTarget | undefined>(undefined);
+  useEffect(() => {
+    if (retainedEmailAccountId.current !== emailAccountId) {
+      retainedEmailAccountId.current = emailAccountId;
+      listTargetsByKey.current.clear();
+      lastAction.current = null;
+    }
+    activeReaderTarget.current = readerTarget?.messageIds.length
+      ? readerTarget
+      : undefined;
+    for (const thread of threads) {
+      const messageIds = [...new Set(getListThreadMessageIds(thread))];
+      if (!messageIds.length) continue;
+      const key = getListThreadKey(thread);
+      listTargetsByKey.current.set(key, {
+        emailAccountId: getListThreadEmailAccountId(thread, emailAccountId),
+        key,
+        messageIds,
+        threadId: thread.id,
+      });
+    }
+  }, [emailAccountId, readerTarget, threads]);
 
   const resolveTargets = useCallback(
     (threadKeys: string[]) =>
       threadKeys
-        .map((key) => targetsByKey.current.get(key))
+        .map((key) => {
+          const listTarget = listTargetsByKey.current.get(key);
+          if (listTarget) return listTarget;
+          return activeReaderTarget.current?.key === key
+            ? activeReaderTarget.current
+            : undefined;
+        })
         .filter((target): target is ThreadActionTarget => Boolean(target)),
     [],
   );

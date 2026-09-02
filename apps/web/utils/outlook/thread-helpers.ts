@@ -46,11 +46,16 @@ export async function runThreadMessageMutation({
     });
   }
 
-  if (!continueOnError && failures.length > 0) {
-    throw failures[0].result.reason;
+  const firstFailure = failures[0];
+  if (!firstFailure) return;
+  const reason = firstFailure.result.reason;
+  const error = reason instanceof Error ? reason : new Error(String(reason));
+
+  if (!continueOnError) {
+    throw error;
   }
   if (throwIfAllFail && failures.length === messageIds.length) {
-    throw failures[0].result.reason;
+    throw error;
   }
 }
 
