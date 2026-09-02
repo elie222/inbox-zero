@@ -82,6 +82,16 @@ for (const target of targets) {
         ...(target.paths.some(isIntegrationsTarget)
           ? { NEXT_PUBLIC_INTEGRATIONS_ENABLED: "true" }
           : {}),
+        ...(target.paths.some(isAutomationTarget)
+          ? {
+              NEXT_PUBLIC_INTEGRATIONS_ENABLED: "true",
+              NEXT_PUBLIC_INTEGRATION_ACTION_ENABLED: "true",
+              PLAYWRIGHT_TODOIST_ENABLED: "true",
+            }
+          : {}),
+        ...(target.paths.some(isSettingsTarget)
+          ? { NEXT_PUBLIC_EXTERNAL_API_ENABLED: "true" }
+          : {}),
       },
     );
   } finally {
@@ -225,5 +235,13 @@ function isPlaywrightSpecFile(file) {
 }
 
 function isIntegrationsTarget(targetPath) {
-  return /\/integrations(?:\/|$)/.test(targetPath);
+  return /[\\\\/]integrations(?:[\\\\/]|$)/.test(targetPath);
+}
+
+function isAutomationTarget(targetPath) {
+  return /[\\/]automation(?:[\\/]|$)/.test(targetPath);
+}
+
+function isSettingsTarget(targetPath) {
+  return /[\\/]settings(?:[\\/]|$)/.test(targetPath);
 }
