@@ -235,7 +235,7 @@ function isPlaywrightSpecFile(file) {
 }
 
 function isIntegrationsTarget(targetPath) {
-  return /\/integrations(?:\/|$)/.test(targetPath);
+  return /[\\\\/]integrations(?:[\\\\/]|$)/.test(targetPath);
 }
 
 function isAutomationTarget(targetPath) {
