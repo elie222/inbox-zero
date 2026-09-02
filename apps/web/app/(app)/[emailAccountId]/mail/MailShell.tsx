@@ -86,6 +86,7 @@ import {
   createMailSplitAction,
   createMailSplitFromPromptAction,
   deleteMailSplitAction,
+  renameMailSplitAction,
   setDefaultMailSplitsAction,
   updateMailPreferencesAction,
 } from "@/utils/actions/mail-split";
@@ -815,6 +816,21 @@ export function MailShell() {
     [emailAccountId, mutateSettings, activeSplitId, setActiveSplitId],
   );
 
+  const onRenameSplit = useCallback(
+    async (splitId: string, name: string) => {
+      const result = await renameMailSplitAction(emailAccountId, {
+        id: splitId,
+        name,
+      });
+      if (result?.serverError || result?.validationErrors) {
+        toast.error(getActionErrorMessage(result));
+        return;
+      }
+      mutateSettings();
+    },
+    [emailAccountId, mutateSettings],
+  );
+
   const onSetDefaultSplits = useCallback(
     async (enabled: boolean) => {
       const result = await setDefaultMailSplitsAction(emailAccountId, {
@@ -1074,6 +1090,7 @@ export function MailShell() {
                 activeSplitId={displayedActiveSplitId}
                 onSelect={setActiveSplitId}
                 onDelete={onDeleteSplit}
+                onRename={onRenameSplit}
                 newSplitOptions={newSplitOptions}
                 onCreateSplit={onCreateSplit}
                 onCreateSplitFromPrompt={onCreateSplitFromPrompt}

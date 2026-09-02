@@ -84,6 +84,7 @@ import type { SendEmailBody } from "@/utils/types/mail";
 import { getOutlookCategoryPreset } from "@/utils/outlook/category-colors";
 import { unwatchOutlook, watchOutlook } from "@/utils/outlook/watch";
 import { escapeODataString } from "@/utils/outlook/odata-escape";
+import { getFromFilterDomain } from "@/utils/mail/from-split";
 import {
   extractEmailAddress,
   getSearchTermForSender,
@@ -1699,8 +1700,16 @@ export class OutlookProvider implements EmailProvider {
       }
 
       if (fromEmail) {
-        const escapedEmail = escapeODataString(fromEmail);
-        filters.push(`from/emailAddress/address eq '${escapedEmail}'`);
+        const domain = getFromFilterDomain(fromEmail);
+        if (domain) {
+          // Domain filters can't use eq; endsWith needs the advanced query headers below.
+          filters.push(
+            `endswith(from/emailAddress/address,'@${escapeODataString(domain)}')`,
+          );
+        } else {
+          const escapedEmail = escapeODataString(fromEmail);
+          filters.push(`from/emailAddress/address eq '${escapedEmail}'`);
+        }
       }
 
       if (after) {
@@ -1729,6 +1738,14 @@ export class OutlookProvider implements EmailProvider {
             : MESSAGE_SELECT_FIELDS,
         )
         .top(maxResults);
+
+      const domainFromFilter =
+        fromEmail != null ? getFromFilterDomain(fromEmail) : null;
+
+      if (domainFromFilter) {
+        // endsWith is an advanced query; Graph requires these headers.
+        request = request.header("ConsistencyLevel", "eventual").count(true);
+      }
 
       if (filter) {
         request = request.filter(filter);

@@ -49,12 +49,24 @@ describe("mailSplitToThreadsQuery", () => {
     ).toEqual({ type: "inbox", inboxSection });
   });
 
+  it("limits from splits to matching inbox senders or domains", () => {
+    expect(
+      mailSplitToThreadsQuery(
+        split(MailSplitKind.FROM, "@getinboxzero.on.crisp.email"),
+      ),
+    ).toEqual({ type: "inbox", fromEmail: "@getinboxzero.on.crisp.email" });
+    expect(
+      mailSplitToThreadsQuery(split(MailSplitKind.FROM, "a@example.com")),
+    ).toEqual({ type: "inbox", fromEmail: "a@example.com" });
+  });
+
   it.each([
     MailSplitKind.LABEL,
     MailSplitKind.CATEGORY,
+    MailSplitKind.FROM,
   ])("throws rather than silently querying the whole inbox when %s has no value", (kind) => {
     expect(() => mailSplitToThreadsQuery(split(kind))).toThrow(
-      /has no (label|category)/,
+      /has no (label|category|sender)/,
     );
   });
 });

@@ -1,10 +1,13 @@
 import { z } from "zod";
 import { MailLayout, MailSplitKind } from "@/generated/prisma/enums";
+import { parseFromSplitInput } from "@/utils/mail/from-split";
 
 // LABEL splits carry a provider label id; CATEGORY splits carry a provider category
 // (e.g. CATEGORY_PERSONAL). INBOX and UNREAD need no value.
 const requiresValue = (kind: MailSplitKind) =>
-  kind === MailSplitKind.LABEL || kind === MailSplitKind.CATEGORY;
+  kind === MailSplitKind.LABEL ||
+  kind === MailSplitKind.CATEGORY ||
+  kind === MailSplitKind.FROM;
 
 export const createMailSplitBody = z
   .object({
@@ -13,9 +16,20 @@ export const createMailSplitBody = z
     value: z.string().trim().min(1).nullish(),
   })
   .refine((data) => !requiresValue(data.kind) || !!data.value, {
-    message: "Label and category splits need a value",
+    message: "Label, category, and from splits need a value",
     path: ["value"],
-  });
+  })
+  .refine(
+    (data) =>
+      data.kind !== MailSplitKind.FROM ||
+      !data.value ||
+      parseFromSplitInput(data.value)?.value ===
+        data.value.trim().toLowerCase(),
+    {
+      message: "From splits need an email address or @domain",
+      path: ["value"],
+    },
+  );
 export type CreateMailSplitBody = z.infer<typeof createMailSplitBody>;
 
 // The client sends the account's available options (labels, categories, states)
@@ -29,7 +43,7 @@ const splitPromptOption = z
     value: z.string().trim().min(1).nullish(),
   })
   .refine((data) => !requiresValue(data.kind) || !!data.value, {
-    message: "Label and category splits need a value",
+    message: "Label, category, and from splits need a value",
     path: ["value"],
   });
 

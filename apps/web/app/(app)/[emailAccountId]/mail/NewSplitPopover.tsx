@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { Loader2Icon, PlusIcon, SparklesIcon } from "lucide-react";
-import type { MailSplitKind } from "@/generated/prisma/enums";
+import { MailSplitKind } from "@/generated/prisma/enums";
+import { parseFromSplitInput } from "@/utils/mail/from-split";
 import {
   Command,
   CommandGroup,
@@ -69,6 +70,7 @@ export function NewSplitPopover({
   const isBusy = isCreating || isUpdatingDefaults;
   const trimmedPrompt = prompt.trim();
   const normalizedPrompt = trimmedPrompt.toLowerCase();
+  const fromFilter = parseFromSplitInput(trimmedPrompt);
   const hasMatchingOption =
     options.some((option) => {
       const groupTitle = GROUPS.find(
@@ -138,7 +140,35 @@ export function NewSplitPopover({
             className="h-9 text-xs"
           />
           <CommandList className="max-h-56">
-            {trimmedPrompt && !hasMatchingOption && (
+            {fromFilter && (
+              <CommandGroup forceMount heading="From">
+                <CommandItem
+                  forceMount
+                  value={`from:${fromFilter.value}`}
+                  keywords={[
+                    fromFilter.value,
+                    fromFilter.name,
+                    "from",
+                    "inbox",
+                  ]}
+                  onSelect={() => {
+                    if (isBusy) return;
+                    onCreate({
+                      name: fromFilter.name,
+                      kind: MailSplitKind.FROM,
+                      value: fromFilter.value,
+                    });
+                    changeOpen(false);
+                  }}
+                  disabled={isBusy}
+                  className="text-xs"
+                >
+                  <span className="truncate">{fromFilter.value} in Inbox</span>
+                </CommandItem>
+              </CommandGroup>
+            )}
+
+            {trimmedPrompt && !hasMatchingOption && !fromFilter && (
               <CommandGroup forceMount>
                 <CommandItem
                   forceMount
