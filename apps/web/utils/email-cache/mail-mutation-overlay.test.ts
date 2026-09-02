@@ -72,13 +72,23 @@ describe("mail mutation overlay", () => {
       }),
     ).toBe(false);
   });
+
+  it("hides messages marked as spam", () => {
+    const result = applyMailMutationOverlayToMessages({
+      emailAccountId: "account",
+      messages: [message("spam", "thread", ["INBOX"])],
+      mutations: [mutation({ id: "spam", kind: "spam", messageIds: ["spam"] })],
+    });
+
+    expect(result).toEqual([]);
+  });
 });
 
 function mutation(
   value:
     | {
         id: string;
-        kind: "archive" | "unarchive";
+        kind: "archive" | "unarchive" | "spam";
         messageIds: string[];
       }
     | {

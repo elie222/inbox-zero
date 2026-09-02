@@ -36,6 +36,7 @@ export async function markSpam(
         ),
       failureMessage: "Failed to move message to spam",
       continueOnError: true,
+      throwIfAllFail: true,
     });
   } catch (error) {
     // If the filter fails, try a different approach
@@ -60,6 +61,7 @@ export async function markSpam(
           ),
         noMessagesMessage:
           "No messages found for conversationId, skipping spam move",
+        throwIfAllFail: true,
       });
     } catch (directError) {
       logger.error("Failed to mark message as spam", {

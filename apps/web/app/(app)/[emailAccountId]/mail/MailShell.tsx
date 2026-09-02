@@ -336,11 +336,6 @@ export function MailShell() {
 
   const orderedIds = useMemo(() => threads.map(getListThreadKey), [threads]);
   const selection = useThreadSelection(orderedIds);
-  const { archive, trash, markRead, setReadState, snooze, undo } =
-    useThreadActions({
-      emailAccountId,
-      threads,
-    });
 
   const clampIndex = useCallback(
     (index: number) =>
@@ -370,9 +365,6 @@ export function MailShell() {
   const openThread = openThreadKey
     ? threads.find((thread) => getListThreadKey(thread) === openThreadKey)
     : undefined;
-  const resolvedOpenThreadKey = openThread
-    ? getListThreadKey(openThread)
-    : null;
   const readAttemptedForOpenThread = useRef<string | null>(null);
 
   // Defer the pair as one value: rendering a new id with the previous account
@@ -411,6 +403,29 @@ export function MailShell() {
   const openMessages = readerSelectionSettled
     ? (openThreadData?.thread.messages ?? NO_MESSAGES)
     : NO_MESSAGES;
+  const readerTarget = useMemo(() => {
+    if (!openThreadKey || !openThreadSelection || !readerSelectionSettled)
+      return;
+    const messageIds = [...new Set(openMessages.map((message) => message.id))];
+    if (!messageIds.length) return;
+    return {
+      emailAccountId: openThreadSelection.emailAccountId,
+      key: openThreadKey,
+      messageIds,
+      threadId: openThreadSelection.threadId,
+    };
+  }, [
+    openMessages,
+    openThreadKey,
+    openThreadSelection,
+    readerSelectionSettled,
+  ]);
+  const { archive, trash, markRead, markSpam, setReadState, snooze, undo } =
+    useThreadActions({
+      emailAccountId,
+      readerTarget,
+      threads,
+    });
   const requestReaderReply = useCallback(() => {
     const messageId = openMessages.at(-1)?.id;
     if (messageId) {
@@ -573,31 +588,39 @@ export function MailShell() {
       return;
     }
     if (
-      !resolvedOpenThreadKey ||
-      readAttemptedForOpenThread.current === resolvedOpenThreadKey
+      !openThreadKey ||
+      !readerSelectionSettled ||
+      !openMessages.length ||
+      readAttemptedForOpenThread.current === openThreadKey
     ) {
       return;
     }
     if (!isOpenThreadUnread) {
-      readAttemptedForOpenThread.current = resolvedOpenThreadKey;
+      readAttemptedForOpenThread.current = openThreadKey;
       return;
     }
 
     // Remember the durable attempt so this reader doesn't queue duplicates
     // while the outbox is waiting for connectivity or provider recovery.
-    readAttemptedForOpenThread.current = resolvedOpenThreadKey;
-    markRead([resolvedOpenThreadKey]);
+    readAttemptedForOpenThread.current = openThreadKey;
+    markRead([openThreadKey]);
   }, [
     isOpenThreadUnread,
     markRead,
+    openMessages.length,
     openReaderThreadKey,
-    resolvedOpenThreadKey,
+    openThreadKey,
+    readerSelectionSettled,
   ]);
   const archiveTargets = useCallback(
     () => runOn(archive, true, true),
     [archive, runOn],
   );
   const trashTargets = useCallback(() => runOn(trash, true), [runOn, trash]);
+  const markSpamTargets = useCallback(
+    () => runOn(markSpam, true),
+    [markSpam, runOn],
+  );
   const markReadTargets = useCallback(
     () => runOn(markRead, false),
     [markRead, runOn],
@@ -1130,9 +1153,10 @@ export function MailShell() {
                   message={openMessages.at(-1) ?? null}
                   setChatInput={setChatInput}
                   isUnread={isOpenThreadUnread}
+                  onMarkSpam={markSpamTargets}
                   onToggleRead={() => {
-                    if (!resolvedOpenThreadKey) return;
-                    setReadState([resolvedOpenThreadKey], isOpenThreadUnread);
+                    if (!openThreadKey) return;
+                    setReadState([openThreadKey], isOpenThreadUnread);
                   }}
                   showFixWithChat={
                     !isAllAccounts ||

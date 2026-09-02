@@ -214,6 +214,75 @@ describe("useThreadActions durable mutations", () => {
     ]);
   });
 
+  it("queues spam snapshots for durable removal", async () => {
+    const { result } = renderActions();
+
+    await act(() => result.current.markSpam(["thread"]));
+
+    expect(outbox.enqueueBatch).toHaveBeenCalledWith([
+      {
+        emailAccountId: "account",
+        kind: "spam",
+        messageIds: ["message-one", "message-two"],
+        threadId: "thread",
+      },
+    ]);
+    expect(notifications.success).toHaveBeenCalledWith("Marked as spam");
+  });
+
+  it("queues a fetched reader snapshot that is absent from the list", async () => {
+    const { result } = renderActions({
+      threads: [],
+      readerTarget: {
+        emailAccountId: "account",
+        key: "reader-thread",
+        messageIds: ["reader-message"],
+        threadId: "reader-thread",
+      },
+    });
+
+    await act(() => result.current.markSpam(["reader-thread"]));
+
+    expect(outbox.enqueueBatch).toHaveBeenCalledWith([
+      {
+        emailAccountId: "account",
+        kind: "spam",
+        messageIds: ["reader-message"],
+        threadId: "reader-thread",
+      },
+    ]);
+  });
+
+  it("clears a fetched reader snapshot when the reader closes", async () => {
+    const readerTarget = {
+      emailAccountId: "account",
+      key: "reader-thread",
+      messageIds: ["reader-message"],
+      threadId: "reader-thread",
+    };
+    const { result, rerender } = renderHook(
+      ({ target }) =>
+        useThreadActions({
+          emailAccountId: "account",
+          readerTarget: target,
+          threads: [],
+        }),
+      {
+        initialProps: {
+          target: readerTarget as typeof readerTarget | undefined,
+        },
+      },
+    );
+
+    rerender({ target: undefined });
+    await act(() => result.current.markSpam(["reader-thread"]));
+
+    expect(outbox.enqueueBatch).not.toHaveBeenCalled();
+    expect(notifications.error).toHaveBeenCalledWith(
+      "Couldn't queue marking as spam",
+    );
+  });
+
   it("retains the opened snapshot after the durable overlay hides its row", async () => {
     const thread = createThread(["INBOX", "UNREAD"]);
     const { result, rerender } = renderHook(
@@ -317,12 +386,20 @@ describe("useThreadActions durable mutations", () => {
 
 function renderActions({
   threads = [createThread(["INBOX", "UNREAD"])],
+  readerTarget,
 }: {
   threads?: ListThread[];
+  readerTarget?: {
+    emailAccountId: string;
+    key: string;
+    messageIds: string[];
+    threadId: string;
+  };
 } = {}) {
   return renderHook(() =>
     useThreadActions({
       emailAccountId: "account",
+      readerTarget,
       threads,
     }),
   );

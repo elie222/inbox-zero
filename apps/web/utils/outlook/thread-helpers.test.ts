@@ -39,9 +39,28 @@ describe("runThreadMessageMutation", () => {
         logger: createTestLogger(),
         failureMessage: "Failed to mutate message",
         continueOnError: true,
+        throwIfAllFail: true,
         messageHandler,
       }),
     ).resolves.toBeUndefined();
+
+    expect(messageHandler).toHaveBeenCalledTimes(2);
+  });
+
+  it("throws the provider error when every attempted mutation fails", async () => {
+    const messageHandler = vi.fn().mockRejectedValue("move failed");
+
+    await expect(
+      runThreadMessageMutation({
+        messageIds: ["msg1", "msg2"],
+        threadId: "conv1",
+        logger: createTestLogger(),
+        failureMessage: "Failed to mutate message",
+        continueOnError: true,
+        throwIfAllFail: true,
+        messageHandler,
+      }),
+    ).rejects.toEqual(new Error("move failed"));
 
     expect(messageHandler).toHaveBeenCalledTimes(2);
   });
