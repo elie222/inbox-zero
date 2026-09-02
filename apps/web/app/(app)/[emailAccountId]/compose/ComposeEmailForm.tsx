@@ -45,13 +45,13 @@ import type {
 } from "@/app/api/user/contacts/route";
 import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
 import { Input, Label } from "@/components/Input";
-import { ButtonLoader, LoadingMiniSpinner } from "@/components/Loading";
+import { ButtonLoader } from "@/components/Loading";
 import { LoadingContent } from "@/components/LoadingContent";
+import { Tooltip } from "@/components/Tooltip";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CommandShortcut } from "@/components/ui/command";
 import {
   Select,
   SelectContent,
@@ -110,7 +110,6 @@ type ComposeEmailFormProps = {
   onSuccess?: (messageId: string, threadId: string) => void;
   onClose?: () => void;
   onDiscard?: () => void;
-  isDiscarding?: boolean;
 };
 
 type ComposeAttachment = EmailComposerAttachment & {
@@ -164,7 +163,6 @@ function ComposeEmailFormContent({
   onSuccess,
   onClose,
   onDiscard,
-  isDiscarding,
 }: ComposeEmailFormProps & {
   accountProvider: string;
   accountSignatureHtml: string;
@@ -838,21 +836,24 @@ function ComposeEmailFormContent({
         )}
       >
         <div className="flex items-center">
-          <Button
-            className={cn(
-              isComposeWindow &&
-                "h-9 px-0 font-semibold text-foreground hover:bg-transparent hover:text-foreground",
-            )}
-            disabled={isSubmitting}
-            type="submit"
-            variant={isComposeWindow ? "ghost" : "default"}
-          >
-            {isSubmitting && <ButtonLoader />}
-            Send
-            {!isComposeWindow && (
-              <CommandShortcut className="ml-2">{symbol}+Enter</CommandShortcut>
-            )}
-          </Button>
+          {isComposeWindow ? (
+            <Button
+              className="h-9 px-0 font-semibold text-foreground hover:bg-transparent hover:text-foreground"
+              disabled={isSubmitting}
+              type="submit"
+              variant="ghost"
+            >
+              {isSubmitting && <ButtonLoader />}
+              Send
+            </Button>
+          ) : (
+            <Tooltip content={`${symbol}+Enter`}>
+              <Button disabled={isSubmitting} type="submit" variant="gradient">
+                {isSubmitting && <ButtonLoader />}
+                Send
+              </Button>
+            </Tooltip>
+          )}
         </div>
 
         <div className="flex items-center gap-0.5 text-muted-foreground">
@@ -904,18 +905,14 @@ function ComposeEmailFormContent({
                 isComposeWindow &&
                   "text-muted-foreground hover:text-foreground",
               )}
-              disabled={isSubmitting || isDiscarding}
+              disabled={isSubmitting}
               onClick={onDiscard}
               size={isComposeWindow ? "iconSm" : "icon"}
               title="Discard draft"
               type="button"
               variant="ghost"
             >
-              {isDiscarding ? (
-                <LoadingMiniSpinner />
-              ) : (
-                <TrashIcon className="size-4" />
-              )}
+              <TrashIcon className="size-4" />
             </Button>
           )}
         </div>

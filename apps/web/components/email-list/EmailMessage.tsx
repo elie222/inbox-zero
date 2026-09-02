@@ -440,30 +440,34 @@ function ReplyPanel({
     return prepareForwardingEmail(message);
   }, [showReply, message, draftMessage, reply]);
 
-  const { execute: discardDraft, isExecuting: isDiscardingDraft } = useAction(
+  const { executeAsync: discardDraft } = useAction(
     deleteDraftAction.bind(null, emailAccountId),
-    {
-      onSuccess: () => {
-        refetch();
-        onCloseCompose();
-      },
-      onError: (error) => {
-        toastError({
-          description: getActionErrorMessage(error.error, {
-            prefix: "Failed to discard draft",
-          }),
-        });
-      },
-    },
   );
 
-  const onDiscard = useCallback(() => {
+  const onDiscard = useCallback(async () => {
     if (!draftMessage) {
       onCloseCompose();
       return;
     }
-    discardDraft({ draftMessageId: draftMessage.id });
-  }, [draftMessage, discardDraft, onCloseCompose]);
+
+    const discardPromise = discardDraft({ draftMessageId: draftMessage.id });
+    onCloseCompose();
+
+    try {
+      const result = await discardPromise;
+      if (result?.serverError || result?.validationErrors) {
+        toastError({
+          description: getActionErrorMessage(result, {
+            prefix: "Failed to discard draft",
+          }),
+        });
+      }
+    } catch {
+      toastError({ description: "Failed to discard draft" });
+    } finally {
+      refetch();
+    }
+  }, [draftMessage, discardDraft, onCloseCompose, refetch]);
 
   return (
     <Card className="mt-6 rounded-xl p-3" ref={replyRef}>
@@ -484,7 +488,6 @@ function ReplyPanel({
         </div>
       ) : (
         <ComposeEmailFormLazy
-          isDiscarding={isDiscardingDraft}
           onClose={onCloseCompose}
           onDiscard={onDiscard}
           onSuccess={(messageId: string, threadId: string) => {
