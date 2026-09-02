@@ -142,14 +142,14 @@ export const ThreadRow = memo(function ThreadRow({
   const messageCountMarker =
     messageCount > 1 ? (
       <span className="shrink-0 font-normal text-muted-foreground text-xs">
-        ({messageCount})
+        {messageCount}
       </span>
     ) : null;
   const participantLine = (
     <>
       <span
         className={cn(
-          "min-w-0 flex-1 truncate text-foreground text-sm",
+          "min-w-0 truncate text-foreground text-sm",
           isUnread && "font-semibold",
         )}
       >
@@ -191,7 +191,7 @@ export const ThreadRow = memo(function ThreadRow({
 
       {isWide ? (
         <>
-          <div className="flex w-48 shrink-0 items-baseline gap-1.5 overflow-hidden whitespace-nowrap">
+          <div className="flex w-48 shrink-0 items-baseline gap-1 overflow-hidden whitespace-nowrap">
             {participantLine}
           </div>
           <div className="flex min-w-0 flex-1 items-center gap-2.5">
@@ -221,7 +221,7 @@ export const ThreadRow = memo(function ThreadRow({
         </>
       ) : (
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <div className="flex items-baseline gap-1.5">
+          <div className="flex items-baseline gap-1">
             {participantLine}
             <div className="ml-auto shrink-0">{date}</div>
           </div>
