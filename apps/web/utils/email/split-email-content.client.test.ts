@@ -15,11 +15,11 @@ describe("splitEmailContent", () => {
     });
   });
 
-  it("collapses an Outlook reply header and all content after it", () => {
+  it("collapses a provider-prefixed Outlook reply header and all later content", () => {
     const result = splitEmailContent(
       [
         "<div>Current reply</div>",
-        '<div id="divRplyFwdMsg"><hr><b>From:</b> Previous sender</div>',
+        '<div id="m_123_x_divRplyFwdMsg"><hr><b>From:</b> Previous sender</div>',
         "<div>Earlier message</div>",
         "<blockquote>Oldest message</blockquote>",
       ].join(""),
@@ -27,6 +27,26 @@ describe("splitEmailContent", () => {
 
     expect(result).toEqual({
       mainContent: "<div>Current reply</div>",
+      hasQuotedContent: true,
+    });
+  });
+
+  it("collapses an Outlook desktop reply header without a provider id", () => {
+    const result = splitEmailContent(
+      [
+        '<div class="WordSection1">',
+        '<p class="MsoNormal">Current reply</p>',
+        '<div style="border:none;border-top:solid #E1E1E1 1.0pt;padding:3.0pt 0in 0in 0in">',
+        '<p class="MsoNormal"><b>From:</b> Previous sender<br><b>Sent:</b> Earlier</p>',
+        "</div>",
+        '<p class="MsoNormal">Earlier message</p>',
+        "</div>",
+      ].join(""),
+    );
+
+    expect(result).toEqual({
+      mainContent:
+        '<div class="WordSection1"><p class="MsoNormal">Current reply</p></div>',
       hasQuotedContent: true,
     });
   });
