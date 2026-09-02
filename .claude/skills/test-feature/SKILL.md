@@ -1,6 +1,6 @@
 ---
 name: test-feature
-description: "End-to-end feature testing — browser QA, API verification, eval tests, or any combination. Covers browser interactions (via agent-browser CLI), Google Workspace operations (gws CLI), API calls, and LLM eval tests. Can also persist tests as reusable QA flows or eval files."
+description: "End-to-end feature testing — browser QA, API verification, eval tests, or any combination. Covers browser interactions (via agent-browser CLI), Google Workspace operations (gws CLI), API calls, and LLM eval tests. Can also persist checks as reusable automated tests."
 disable-model-invocation: true
 argument-hint: "<description of feature to test>"
 ---
@@ -174,11 +174,21 @@ Always include screenshots — even for passing tests. The user wants to see wha
 
 ## Step 5: Persist (if appropriate)
 
-After testing, ask the user if this should become a reusable test. Two options:
+After testing, ask the user if this should become a reusable test. Choose the
+smallest automated boundary that exercises the behavior:
 
-1. **Browser QA flow** — if the test is primarily UI-driven and would catch regressions, create a flow spec in `qa/browser-flows/` following the template. This can then be re-run with `/qa-run`.
+1. **Emulated Playwright test** — for deterministic browser behavior that can
+   run without third-party credentials. Add it under
+   `apps/web/__tests__/playwright/emulated/<area>/` and follow that folder's
+   README and fixture patterns.
 
-2. **Eval test** — if the test is about AI output quality, write a proper eval test in `__tests__/eval/` that can be run with `pnpm test-ai`.
+2. **Real-provider E2E flow** — for Gmail or Outlook delivery, webhooks,
+   provider labels, drafts, or other production-path behavior. Add it under
+   `apps/web/__tests__/e2e/flows/` without replacing provider operations with
+   emulator or database shortcuts.
+
+3. **Eval test** — if the test is about AI output quality, write a proper eval
+   test in `apps/web/__tests__/eval/` that can be run with `pnpm test-ai`.
 
 Don't persist trivial one-off checks (like "does this page load"). Persist tests that verify important behavior someone might break later.
 
@@ -209,8 +219,6 @@ gws calendar events insert --params '{"calendarId": "primary"}' --json '{"summar
 - `CRITERIA.*` — ACCURACY, COMPLETENESS, TONE, CONCISENESS, NO_HALLUCINATION, CORRECT_FORMAT
 
 ### Existing QA infrastructure
-- Flow specs: `qa/browser-flows/*.md`
-- Flow runner: `/qa-run`
-- Flow creator: `/qa-new-flow`
-- E2E tests: `__tests__/e2e/flows/`
-- Eval tests: `__tests__/eval/`
+- Emulated browser tests: `apps/web/__tests__/playwright/emulated/`
+- Real-provider E2E tests: `apps/web/__tests__/e2e/flows/`
+- Eval tests: `apps/web/__tests__/eval/`

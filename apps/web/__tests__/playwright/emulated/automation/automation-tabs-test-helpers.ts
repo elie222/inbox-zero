@@ -303,13 +303,15 @@ export async function getAutomationSettingsState(emailAccountId: string) {
       includeReferralSignature: boolean;
       multiRuleSelectionEnabled: boolean;
       sensitiveDataPolicy: string | null;
+      writingStyle: string | null;
     }>(
       `SELECT about,
               "allowHiddenAiDraftLinks",
               "draftReplyConfidence"::text,
               "includeReferralSignature",
               "multiRuleSelectionEnabled",
-              "sensitiveDataPolicy"
+              "sensitiveDataPolicy",
+              "writingStyle"
        FROM "EmailAccount" WHERE id = $1`,
       [emailAccountId],
     );

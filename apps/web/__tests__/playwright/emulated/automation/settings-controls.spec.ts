@@ -74,6 +74,27 @@ test("persists personalization, drafting, and advanced settings", async ({
       about: "I lead product. Keep replies concise and surface customer risks.",
     });
 
+  const writingStyleItem = getAutomationSettingsCard(page, "Writing style");
+  await writingStyleItem.getByRole("button", { name: "Set" }).click();
+  const writingStyleDialog = page.getByRole("dialog", {
+    name: "Writing style",
+  });
+  await writingStyleDialog
+    .locator('[contenteditable="true"]')
+    .fill("Use short paragraphs, a warm tone, and direct recommendations.");
+  await writingStyleDialog.getByRole("button", { name: "Save" }).click();
+  await expect(
+    page.getByText("Writing style saved!", { exact: true }),
+  ).toBeVisible({ timeout: 60_000 });
+  await expect
+    .poll(() => getAutomationSettingsState(emailAccountId), {
+      timeout: 60_000,
+    })
+    .toMatchObject({
+      writingStyle:
+        "Use short paragraphs, a warm tone, and direct recommendations.",
+    });
+
   const draftConfidence = page.getByRole("combobox", {
     name: "Draft confidence",
   });
@@ -134,6 +155,17 @@ test("persists personalization, drafting, and advanced settings", async ({
   await expect(referralItem.getByRole("switch")).toBeChecked();
   await expect(hiddenLinksItem.getByRole("switch")).toBeChecked();
   await expect(sensitiveData).toContainText("Block");
+
+  await expect(
+    writingStyleItem.getByRole("button", { name: "Edit" }),
+  ).toBeVisible({ timeout: 60_000 });
+  await writingStyleItem.getByRole("button", { name: "Edit" }).click();
+  await expect(
+    writingStyleDialog.locator('[contenteditable="true"]'),
+  ).toHaveText(
+    "Use short paragraphs, a warm tone, and direct recommendations.",
+  );
+  await page.keyboard.press("Escape");
 
   await personalInstructionsItem.getByRole("button", { name: "Edit" }).click();
   await expect(personalInstructionsDialog.getByRole("textbox")).toHaveValue(
