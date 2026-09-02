@@ -130,7 +130,7 @@ describe("OutlookProvider.getThread", () => {
           id: "draft-reply",
           isDraft: true,
           parentFolderId: "drafts-folder-id",
-          receivedDateTime: "2026-01-02T00:00:00.000Z",
+          receivedDateTime: undefined,
         }),
       ]),
       createTestLogger(),

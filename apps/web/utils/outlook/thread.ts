@@ -36,8 +36,14 @@ export async function getThread(
 
     // Sort in memory to avoid "restriction or sort order is too complex" error
     return messages.value.sort((a, b) => {
-      const dateA = new Date(a.receivedDateTime || 0).getTime();
-      const dateB = new Date(b.receivedDateTime || 0).getTime();
+      const dateA =
+        a.isDraft && !a.receivedDateTime
+          ? Number.POSITIVE_INFINITY
+          : new Date(a.receivedDateTime || 0).getTime();
+      const dateB =
+        b.isDraft && !b.receivedDateTime
+          ? Number.POSITIVE_INFINITY
+          : new Date(b.receivedDateTime || 0).getTime();
       return dateA - dateB;
     });
   } catch (error) {
