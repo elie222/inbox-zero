@@ -128,7 +128,7 @@ export function EmailMessage({
               generateNudge={generateNudge}
               message={message}
               onCloseCompose={onCloseCompose}
-              onOpenCompose={onReply}
+              onOpenCompose={showReply ? onReply : onForward}
               onSendSuccess={onSendSuccess}
               refetch={refetch}
               showReply={showReply}
