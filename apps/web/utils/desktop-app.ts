@@ -36,6 +36,7 @@ export function shouldCheckForDesktopWebUpdate({
   if (!isDesktopApp || !isOnline || !isVisible) return false;
   return (
     lastCheckedAt === null ||
+    now < lastCheckedAt ||
     now - lastCheckedAt >= DESKTOP_WEB_UPDATE_CHECK_INTERVAL_MS
   );
 }

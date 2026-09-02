@@ -69,4 +69,16 @@ describe("shouldCheckForDesktopWebUpdate", () => {
       }),
     ).toBe(true);
   });
+
+  it("checks when the previous timestamp is ahead of the current clock", () => {
+    expect(
+      shouldCheckForDesktopWebUpdate({
+        isDesktopApp: true,
+        isOnline: true,
+        isVisible: true,
+        lastCheckedAt: now + 1,
+        now,
+      }),
+    ).toBe(true);
+  });
 });
