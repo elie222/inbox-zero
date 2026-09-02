@@ -1701,15 +1701,11 @@ export class OutlookProvider implements EmailProvider {
 
       if (fromEmail) {
         const domain = getFromFilterDomain(fromEmail);
-        if (domain) {
-          // Domain filters can't use eq; endsWith needs the advanced query headers below.
-          filters.push(
-            `endswith(from/emailAddress/address,'@${escapeODataString(domain)}')`,
-          );
-        } else {
+        if (!domain) {
           const escapedEmail = escapeODataString(fromEmail);
           filters.push(`from/emailAddress/address eq '${escapedEmail}'`);
         }
+        // Domain filters use $search below — endswith is unsupported on message from/.
       }
 
       if (after) {
@@ -1742,17 +1738,19 @@ export class OutlookProvider implements EmailProvider {
       const domainFromFilter =
         fromEmail != null ? getFromFilterDomain(fromEmail) : null;
 
+      // Graph forbids combining $search with $filter/$orderby. Domain sender
+      // matching has to go through $search; exact addresses keep using $filter.
       if (domainFromFilter) {
-        // endsWith is an advanced query; Graph requires these headers.
-        request = request.header("ConsistencyLevel", "eventual").count(true);
-      }
+        const escapedDomain = domainFromFilter.replace(/"/g, "");
+        request = request.search(`"from:@${escapedDomain}"`);
+      } else {
+        if (filter) {
+          request = request.filter(filter);
+        }
 
-      if (filter) {
-        request = request.filter(filter);
-      }
-
-      if (!fromEmail) {
-        request = request.orderby("receivedDateTime DESC");
+        if (!fromEmail) {
+          request = request.orderby("receivedDateTime DESC");
+        }
       }
 
       return await request.get();

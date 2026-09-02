@@ -126,6 +126,12 @@ function SplitTab({
   const [isEditing, setIsEditing] = useState(false);
   const [draftName, setDraftName] = useState(split.name);
 
+  const startRename = () => {
+    if (!split.deletable) return;
+    setDraftName(split.name);
+    setIsEditing(true);
+  };
+
   const commitRename = () => {
     const next = draftName.trim();
     setIsEditing(false);
@@ -173,10 +179,12 @@ function SplitTab({
           ref={active ? activeTabRef : undefined}
           data-split-tab
           onClick={() => onSelect(split.id)}
-          onDoubleClick={() => {
-            if (!split.deletable) return;
-            setDraftName(split.name);
-            setIsEditing(true);
+          onDoubleClick={startRename}
+          onKeyDown={(event) => {
+            if (event.key === "F2") {
+              event.preventDefault();
+              startRename();
+            }
           }}
           aria-current={active ? "true" : undefined}
           title={split.deletable ? "Double-click to rename" : undefined}
