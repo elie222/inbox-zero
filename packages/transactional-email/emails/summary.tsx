@@ -44,13 +44,11 @@ export interface SummaryEmailProps {
 const FONT = "'Helvetica Neue', Helvetica, Arial, sans-serif";
 const ACCENT = "#2563EB";
 
-type Badge = { bg: string; border: string; color: string };
-
 const BADGES = {
   green: { bg: "#F3FFEF", border: "#DDF4D3", color: "#17A34A" },
   orange: { bg: "#FFF5EF", border: "#FCE2D5", color: "#E65707" },
   blue: { bg: "#EFF6FF", border: "#D6E8FC", color: ACCENT },
-} satisfies Record<string, Badge>;
+};
 
 export default function SummaryEmail(props: SummaryEmailProps) {
   const {
@@ -76,7 +74,7 @@ export default function SummaryEmail(props: SummaryEmailProps) {
   ].join(", ");
 
   return (
-    <Html>
+    <Html lang="en">
       <Head />
       <Preview>{preview}. Here's your week in email.</Preview>
       <Tailwind>
@@ -303,7 +301,16 @@ function ReplyTracker({
     return null;
   }
 
+  const hiddenNeedsReply = Math.max(needsReplyCount - needsReply.length, 0);
   const hiddenAwaiting = Math.max(awaitingReplyCount - awaitingReply.length, 0);
+  const footnote = [
+    hiddenNeedsReply > 0
+      ? `And ${hiddenNeedsReply} more waiting for your reply.`
+      : null,
+    hiddenAwaiting > 0 ? `And ${hiddenAwaiting} more awaiting a reply.` : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <Card
@@ -311,11 +318,7 @@ function ReplyTracker({
       badge={`${needsReplyCount} need you`}
       badgeStyle={BADGES.orange}
       description="Conversations still open on either side."
-      footnote={
-        hiddenAwaiting > 0
-          ? `And ${hiddenAwaiting} more awaiting a reply.`
-          : undefined
-      }
+      footnote={footnote || undefined}
       cta={{
         href: `${baseUrl}/reply-tracker`,
         label: "Open Reply Zero",
@@ -373,7 +376,7 @@ function Card({
 }: {
   title: string;
   badge: string;
-  badgeStyle: Badge;
+  badgeStyle: (typeof BADGES)[keyof typeof BADGES];
   description: string;
   footnote?: string;
   cta: { href: string; label: string; primary?: boolean };
@@ -516,6 +519,7 @@ function splitFrom(from: string) {
 
 function formatDay(date: Date) {
   return new Date(date).toLocaleDateString("en-US", {
+    timeZone: "UTC",
     month: "short",
     day: "numeric",
   });
