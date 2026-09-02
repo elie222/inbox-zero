@@ -75,14 +75,38 @@ export function EmailMessage({
 
   const [showDetails, setShowDetails] = useState(false);
   const [showForward, setShowForward] = useState(false);
+  const composeSessionRef = useRef(0);
 
-  const onReply = useCallback(() => setReplyOverride(true), []);
-  const onForward = useCallback(() => setShowForward(true), []);
+  const onReply = useCallback(() => {
+    composeSessionRef.current += 1;
+    setReplyOverride(true);
+    setShowForward(false);
+  }, []);
+  const onForward = useCallback(() => {
+    composeSessionRef.current += 1;
+    setReplyOverride(false);
+    setShowForward(true);
+  }, []);
 
   const onCloseCompose = useCallback(() => {
     setReplyOverride(false);
     setShowForward(false);
   }, []);
+
+  const onStartDiscard = useCallback(() => {
+    const composeSession = composeSessionRef.current;
+    onCloseCompose();
+    return composeSession;
+  }, [onCloseCompose]);
+
+  const onRestoreCompose = useCallback(
+    (composeSession: number) => {
+      if (composeSessionRef.current !== composeSession) return;
+      if (showReply) onReply();
+      else onForward();
+    },
+    [onForward, onReply, showReply],
+  );
 
   const toggleDetails = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -128,8 +152,9 @@ export function EmailMessage({
               generateNudge={generateNudge}
               message={message}
               onCloseCompose={onCloseCompose}
-              onOpenCompose={showReply ? onReply : onForward}
+              onRestoreCompose={onRestoreCompose}
               onSendSuccess={onSendSuccess}
+              onStartDiscard={onStartDiscard}
               refetch={refetch}
               showReply={showReply}
             />
@@ -351,7 +376,8 @@ function ReplyPanel({
   refetch,
   onSendSuccess,
   onCloseCompose,
-  onOpenCompose,
+  onRestoreCompose,
+  onStartDiscard,
   defaultShowReply,
   showReply,
   draftMessage,
@@ -361,7 +387,8 @@ function ReplyPanel({
   refetch: () => void;
   onSendSuccess: (messageId: string, threadId: string) => void;
   onCloseCompose: () => void;
-  onOpenCompose: () => void;
+  onRestoreCompose: (composeSession: number) => void;
+  onStartDiscard: () => number;
   defaultShowReply?: boolean;
   showReply: boolean;
   draftMessage?: ThreadMessage;
@@ -454,7 +481,7 @@ function ReplyPanel({
     }
 
     const discardPromise = discardDraft({ draftMessageId: draftMessage.id });
-    onCloseCompose();
+    const composeSession = onStartDiscard();
 
     try {
       const result = await discardPromise;
@@ -464,15 +491,22 @@ function ReplyPanel({
             prefix: "Failed to discard draft",
           }),
         });
-        onOpenCompose();
+        onRestoreCompose(composeSession);
       }
     } catch {
       toastError({ description: "Failed to discard draft" });
-      onOpenCompose();
+      onRestoreCompose(composeSession);
     } finally {
       refetch();
     }
-  }, [draftMessage, discardDraft, onCloseCompose, onOpenCompose, refetch]);
+  }, [
+    draftMessage,
+    discardDraft,
+    onCloseCompose,
+    onRestoreCompose,
+    onStartDiscard,
+    refetch,
+  ]);
 
   return (
     <Card className="mt-6 rounded-xl p-3" ref={replyRef}>
