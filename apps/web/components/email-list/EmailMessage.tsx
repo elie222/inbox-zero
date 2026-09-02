@@ -128,6 +128,7 @@ export function EmailMessage({
               generateNudge={generateNudge}
               message={message}
               onCloseCompose={onCloseCompose}
+              onOpenCompose={onReply}
               onSendSuccess={onSendSuccess}
               refetch={refetch}
               showReply={showReply}
@@ -350,6 +351,7 @@ function ReplyPanel({
   refetch,
   onSendSuccess,
   onCloseCompose,
+  onOpenCompose,
   defaultShowReply,
   showReply,
   draftMessage,
@@ -359,6 +361,7 @@ function ReplyPanel({
   refetch: () => void;
   onSendSuccess: (messageId: string, threadId: string) => void;
   onCloseCompose: () => void;
+  onOpenCompose: () => void;
   defaultShowReply?: boolean;
   showReply: boolean;
   draftMessage?: ThreadMessage;
@@ -461,13 +464,15 @@ function ReplyPanel({
             prefix: "Failed to discard draft",
           }),
         });
+        onOpenCompose();
       }
     } catch {
       toastError({ description: "Failed to discard draft" });
+      onOpenCompose();
     } finally {
       refetch();
     }
-  }, [draftMessage, discardDraft, onCloseCompose, refetch]);
+  }, [draftMessage, discardDraft, onCloseCompose, onOpenCompose, refetch]);
 
   return (
     <Card className="mt-6 rounded-xl p-3" ref={replyRef}>
