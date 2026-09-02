@@ -51,6 +51,21 @@ describe("splitEmailContent", () => {
     });
   });
 
+  it("collapses a provider-prefixed append-on-send marker", () => {
+    const result = splitEmailContent(
+      [
+        "<div>Current reply</div>",
+        '<div id="m_123_x_appendonsend"></div>',
+        "<div>Earlier message</div>",
+      ].join(""),
+    );
+
+    expect(result).toEqual({
+      mainContent: "<div>Current reply</div>",
+      hasQuotedContent: true,
+    });
+  });
+
   it("collapses a standalone provider quote block", () => {
     const result = splitEmailContent(
       '<div>Current reply</div><blockquote type="cite">Earlier message</blockquote>',
