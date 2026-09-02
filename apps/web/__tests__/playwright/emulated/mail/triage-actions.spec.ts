@@ -63,7 +63,13 @@ test("advances the split reader after archiving an open conversation", async ({
   page,
 }, testInfo) => {
   const { conversations, emailAccountId } = await openMail(page);
-  await page.getByRole("button", { name: "Switch list or split view" }).click();
+  const emptyReader = page.getByText("Nothing selected", { exact: true });
+  if (!(await emptyReader.isVisible())) {
+    await page
+      .getByRole("button", { name: "Switch list or split view" })
+      .click();
+    await expect(emptyReader).toBeVisible();
+  }
   const conversation = conversationWithSubject(
     page,
     conversations,
@@ -73,7 +79,26 @@ test("advances the split reader after archiving an open conversation", async ({
   await expect(
     page.getByRole("heading", { name: "Second Unread Command Message" }),
   ).toBeVisible();
+  await page.getByRole("button", { name: /^More actions/ }).click();
+  await page.getByRole("menuitem", { name: "Mark as unread" }).click();
+  await expect(
+    page.getByText("Marked as unread", { exact: true }),
+  ).toBeVisible();
+
+  await conversationWithSubject(
+    page,
+    conversations,
+    "Read Command Message",
+  ).click();
+  await expect(
+    page.getByRole("heading", { name: "Read Command Message" }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Unread", exact: true }).click();
+  await expect(conversation).toBeVisible();
+  await conversation.click();
+  await expect(
+    page.getByRole("heading", { name: "Second Unread Command Message" }),
+  ).toBeVisible();
   await expect(conversation).toHaveCount(0);
 
   let archived = false;
