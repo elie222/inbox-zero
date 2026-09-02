@@ -1,4 +1,5 @@
 import { expect, type Locator } from "@playwright/test";
+import type { MailSettingsResponse } from "@/app/api/mail/settings/route";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
 import { conversationWithSubject, openMail } from "./mail-test-helpers";
@@ -62,9 +63,19 @@ test("deletes an open conversation and returns to the list", async ({
 test("advances the split reader after archiving an open conversation", async ({
   page,
 }, testInfo) => {
+  const settingsResponsePromise = page.waitForResponse(
+    (response) =>
+      response.request().method() === "GET" &&
+      new URL(response.url()).pathname === "/api/mail/settings",
+  );
   const { conversations, emailAccountId } = await openMail(page);
+  const settingsResponse = await settingsResponsePromise;
+  expect(settingsResponse.ok()).toBeTruthy();
+  const settings = (await settingsResponse.json()) as MailSettingsResponse;
   const emptyReader = page.getByText("Nothing selected", { exact: true });
-  if (!(await emptyReader.isVisible())) {
+  if (settings.layout === "SPLIT") {
+    await expect(emptyReader).toBeVisible();
+  } else {
     await page
       .getByRole("button", { name: "Switch list or split view" })
       .click();
