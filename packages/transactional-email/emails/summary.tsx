@@ -4,6 +4,7 @@ import {
   Container,
   Head,
   Html,
+  Img,
   Link,
   Preview,
   Row,
@@ -80,9 +81,17 @@ export default function SummaryEmail(props: SummaryEmailProps) {
       <Tailwind>
         <Body className="m-0 bg-[#FDFDFD] p-0" style={{ fontFamily: FONT }}>
           <Container className="mx-auto w-full max-w-[600px] px-3 pb-12 pt-10">
-            <Text className="m-0 pb-9 text-center text-[20px] font-medium leading-6 tracking-[-0.02em] text-[#242424]">
-              inbox zero
-            </Text>
+            <Section className="pb-9 text-center">
+              <Link href={baseUrl}>
+                <Img
+                  src={`${baseUrl}/logo-wordmark.png`}
+                  width="209"
+                  height="25"
+                  alt="Inbox Zero"
+                  className="mx-auto my-0"
+                />
+              </Link>
+            </Section>
 
             <Section className="px-2 pb-7">
               <Text
