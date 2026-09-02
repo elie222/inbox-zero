@@ -1,4 +1,4 @@
-import { describe, test, expect, afterAll } from "vitest";
+import { afterAll, describe, expect, test, vi } from "vitest";
 import { ActionType, SystemType } from "@/generated/prisma/enums";
 import type { Action } from "@/generated/prisma/client";
 import {
@@ -16,7 +16,8 @@ import { createScopedLogger } from "@/utils/logger";
 // Multi-model: EVAL_MODELS=all pnpm test-ai eval/choose-rule
 
 const shouldRunEval = shouldRunEvalTests();
-const TIMEOUT = 60_000;
+const TIMEOUT = 180_000;
+vi.setConfig({ maxConcurrency: 3 });
 const logger = createScopedLogger("eval-choose-rule");
 
 // Default system rules — mirrors what aiChooseRule actually receives in production.
@@ -723,58 +724,76 @@ You are receiving this email because you signed up for Summit Outfitters offers.
   },
 ];
 
+// The single-rule suite runs twice: with each rule's actions in the prompt (what
+// ships) and with actions stripped, which reproduces the prompt before actions
+// were added. The stripped run is a baseline for comparison and never fails.
+const ruleContextVariants = [
+  { label: "with actions", rules, gate: true },
+  {
+    label: "without actions",
+    rules: rules.map((rule) => ({ ...rule, actions: [] })),
+    gate: false,
+  },
+] as const;
+
 describe.runIf(shouldRunEval)("Eval: Choose Rule", () => {
   const evalReporter = createEvalReporter({ evalName: "choose-rule" });
 
   describeEvalMatrix("choose-rule", (model, emailAccount) => {
-    for (const tc of testCases) {
-      const expectedLabel = Array.isArray(tc.expectedRule)
-        ? tc.expectedRule.join(" | ")
-        : (tc.expectedRule ?? "no match");
-      const testName = `${tc.email.from} / ${tc.email.subject} → ${expectedLabel}`;
-      test(
-        testName,
-        async () => {
-          const result = await aiChooseRule({
-            email: tc.email,
-            rules,
-            emailAccount,
-            logger,
-          });
+    for (const variant of ruleContextVariants) {
+      for (const tc of testCases) {
+        const expectedLabel = Array.isArray(tc.expectedRule)
+          ? tc.expectedRule.join(" | ")
+          : (tc.expectedRule ?? "no match");
+        const testName = `${variant.label} | ${tc.email.from} / ${tc.email.subject} → ${expectedLabel}`;
+        test.concurrent(
+          testName,
+          async () => {
+            const result = await aiChooseRule({
+              email: tc.email,
+              rules: variant.rules,
+              emailAccount,
+              logger,
+            });
 
-          const primaryRule = result.rules.find((r) => r.isPrimary);
-          const actual =
-            primaryRule?.rule.name ?? result.rules[0]?.rule.name ?? "no match";
-          const acceptable = Array.isArray(tc.expectedRule)
-            ? tc.expectedRule
-            : [tc.expectedRule ?? "no match"];
-          const forbiddenSelected = result.rules
-            .map((r) => r.rule.name)
-            .filter(
-              (name) =>
-                "forbiddenRules" in tc && tc.forbiddenRules.includes(name),
-            );
-          const pass =
-            acceptable.includes(actual) && forbiddenSelected.length === 0;
+            const primaryRule = result.rules.find((r) => r.isPrimary);
+            const actual =
+              primaryRule?.rule.name ??
+              result.rules[0]?.rule.name ??
+              "no match";
+            const acceptable = Array.isArray(tc.expectedRule)
+              ? tc.expectedRule
+              : [tc.expectedRule ?? "no match"];
+            const forbiddenSelected = result.rules
+              .map((r) => r.rule.name)
+              .filter(
+                (name) =>
+                  "forbiddenRules" in tc && tc.forbiddenRules.includes(name),
+              );
+            const pass =
+              acceptable.includes(actual) && forbiddenSelected.length === 0;
 
-          evalReporter.record({
-            testName,
-            model: model.label,
-            pass,
-            expected: expectedLabel,
-            actual,
-          });
+            evalReporter.record({
+              testName,
+              model: model.label,
+              pass,
+              expected: expectedLabel,
+              actual,
+            });
 
-          if (tc.expectedRule === null) {
-            expect(result.rules).toEqual([]);
-          } else {
-            expect(acceptable).toContain(actual);
-          }
+            if (!variant.gate) return;
 
-          expect(forbiddenSelected).toEqual([]);
-        },
-        TIMEOUT,
-      );
+            if (tc.expectedRule === null) {
+              expect(result.rules).toEqual([]);
+            } else {
+              expect(acceptable).toContain(actual);
+            }
+
+            expect(forbiddenSelected).toEqual([]);
+          },
+          TIMEOUT,
+        );
+      }
     }
   });
 

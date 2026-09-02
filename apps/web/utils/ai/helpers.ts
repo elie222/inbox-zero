@@ -2,7 +2,7 @@ import type { Action } from "@/generated/prisma/client";
 import { ActionType } from "@/generated/prisma/enums";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { stringifyEmail } from "@/utils/stringify-email";
-import type { EmailForLLM } from "@/utils/types";
+import { type EmailForLLM, isDefined } from "@/utils/types";
 
 export type RuleActionSummary = Pick<Action, "type"> &
   Partial<Pick<Action, "label" | "folderName">>;
@@ -75,24 +75,19 @@ export const getEmailListPrompt = ({
     .join("\n");
 };
 
-const ACTION_DESCRIPTIONS: Record<ActionType, string> = {
-  [ActionType.ARCHIVE]: "archive (removes it from the inbox)",
+// Only actions that change what the user sees, or that send something on their
+// behalf, affect how careful the picker should be. Notifications, digests,
+// webhooks, stars, and integrations are left out on purpose.
+const ACTION_DESCRIPTIONS: Partial<Record<ActionType, string>> = {
   [ActionType.LABEL]: "label",
+  [ActionType.ARCHIVE]: "archive (removes it from the inbox)",
+  [ActionType.MOVE_FOLDER]: "move to a folder",
+  [ActionType.MARK_READ]: "mark as read",
+  [ActionType.MARK_SPAM]: "mark as spam",
+  [ActionType.DELETE]: "delete",
   [ActionType.REPLY]: "send a reply",
   [ActionType.SEND_EMAIL]: "send an email",
   [ActionType.FORWARD]: "forward",
-  [ActionType.DRAFT_EMAIL]: "draft a reply",
-  [ActionType.DRAFT_MESSAGING_CHANNEL]: "draft a reply in chat",
-  [ActionType.NOTIFY_MESSAGING_CHANNEL]: "send a chat notification",
-  [ActionType.MARK_SPAM]: "mark as spam",
-  [ActionType.CALL_WEBHOOK]: "call a webhook",
-  [ActionType.MARK_READ]: "mark as read",
-  [ActionType.STAR]: "star",
-  [ActionType.DELETE]: "delete",
-  [ActionType.DIGEST]: "add to the digest",
-  [ActionType.MOVE_FOLDER]: "move to a folder",
-  [ActionType.NOTIFY_SENDER]: "notify the sender",
-  [ActionType.INTEGRATION]: "run an integration action",
 };
 
 // Tells the rule picker what a match will do, so it can be more careful with
@@ -110,5 +105,6 @@ export function formatRuleActions(actions?: RuleActionSummary[] | null) {
       }
       return ACTION_DESCRIPTIONS[action.type];
     })
+    .filter(isDefined)
     .join(", ");
 }

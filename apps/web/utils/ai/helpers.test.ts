@@ -106,6 +106,39 @@ describe("getUserRulesPrompt", () => {
 </user_rules>`);
   });
 
+  it("omits actions that do not change what the user sees", () => {
+    const result = getUserRulesPrompt({
+      rules: [
+        {
+          name: "Job hunt",
+          instructions: "Recruiter emails",
+          actions: [
+            { type: ActionType.LABEL, label: "Job hunt" },
+            { type: ActionType.STAR },
+            { type: ActionType.NOTIFY_MESSAGING_CHANNEL },
+            { type: ActionType.DIGEST },
+          ],
+        },
+        {
+          name: "Alerts",
+          instructions: "Server alerts",
+          actions: [
+            { type: ActionType.NOTIFY_MESSAGING_CHANNEL },
+            { type: ActionType.CALL_WEBHOOK },
+          ],
+        },
+      ],
+    });
+
+    expect(result).toContain('<actions>label as "Job hunt"</actions>');
+    expect(result).not.toContain("notification");
+    expect(result).not.toContain("digest");
+    expect(result).not.toContain("star");
+    expect(result).not.toMatch(
+      /<name>Alerts<\/name>\n {2}<criteria>Server alerts<\/criteria>\n {2}<actions>/,
+    );
+  });
+
   it("should format single rule", () => {
     const rules = [
       {
