@@ -3,6 +3,25 @@ import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
 import { conversationWithSubject, openMail } from "./mail-test-helpers";
 
+test("moves focus with the active split when cycling by keyboard", async ({
+  page,
+}, testInfo) => {
+  await openMail(page);
+
+  const activeSplit = page.locator('button[aria-current="true"]');
+  await expect(activeSplit).toBeVisible();
+  await activeSplit.click();
+
+  await page.keyboard.press("Tab");
+
+  await expect(activeSplit).toBeFocused();
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "mail-split-keyboard-focus",
+  );
+});
+
 test("shows a combined picker and creates a matching split", async ({
   page,
 }, testInfo) => {
