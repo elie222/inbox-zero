@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from "react";
 import useSWR from "swr";
 import type { LabelCountsResponse } from "@/app/api/labels/counts/route";
 import { subscribeToMailboxStore } from "@/utils/email-cache/mailbox";
@@ -15,10 +21,11 @@ export function useLabelCounts({ emailAccountId }: { emailAccountId: string }) {
   );
   const dataRef = useRef(data);
   const pendingInboxUnread = useRef({ emailAccountId, delta: 0 });
-  if (pendingInboxUnread.current.emailAccountId !== emailAccountId) {
-    pendingInboxUnread.current = { emailAccountId, delta: 0 };
-  }
   dataRef.current = data;
+
+  useLayoutEffect(() => {
+    pendingInboxUnread.current = { emailAccountId, delta: 0 };
+  }, [emailAccountId]);
 
   useEffect(
     () =>

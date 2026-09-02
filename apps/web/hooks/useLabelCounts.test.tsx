@@ -111,7 +111,7 @@ describe("useLabelCounts", () => {
     const fetcher = vi
       .fn()
       .mockResolvedValueOnce({ counts: [], partial: true })
-      .mockResolvedValueOnce(initialResponse);
+      .mockResolvedValue(initialResponse);
     const { result } = renderHook(
       () => useLabelCounts({ emailAccountId: "account-1" }),
       { wrapper: createWrapper(fetcher) },
@@ -147,6 +147,14 @@ describe("useLabelCounts", () => {
     await waitFor(() =>
       expect(result.current.countsById.get("INBOX")?.unread).toBe(4),
     );
+
+    rerender({ emailAccountId: "account-1" });
+    act(() => mailbox.emit("account-1"));
+
+    await waitFor(() =>
+      expect(result.current.countsById.get("INBOX")?.unread).toBe(4),
+    );
+    expect(fetcher).toHaveBeenCalledTimes(3);
   });
 
   it("ignores an unread update resumed from the previous account", async () => {
