@@ -205,7 +205,10 @@ export function MailShell() {
   // Written through the SWR cache rather than mirrored in local state, so the
   // preference has one source of truth and every reader sees the new value.
   const toggleLayout = useCallback(() => {
+    if (!settings) return;
+
     const next = layout === "split" ? MailLayout.LIST : MailLayout.SPLIT;
+    const loadedSettings = settings;
 
     mutateSettings(
       async (current) => {
@@ -216,12 +219,14 @@ export function MailShell() {
         // the UI showing a preference the server never accepted.
         if (result?.serverError || result?.validationErrors)
           throw new Error(getActionErrorMessage(result));
-        return current ? { ...current, layout: next } : undefined;
+        return { ...(current ?? loadedSettings), layout: next };
       },
       {
-        optimisticData: (current) =>
-          current ? { ...current, layout: next } : undefined,
-        revalidate: settings === undefined,
+        optimisticData: (current) => ({
+          ...(current ?? loadedSettings),
+          layout: next,
+        }),
+        revalidate: false,
         rollbackOnError: true,
       },
     ).catch((error) => {
