@@ -1780,9 +1780,9 @@ export class OutlookProvider implements EmailProvider {
       return {
         ...response,
         value: filterMessagesForDomainSearchConstraints(response.value ?? [], {
-          after,
-          before,
-          isUnread,
+          after: after ?? undefined,
+          before: before ?? undefined,
+          isUnread: isUnread ?? undefined,
           inboxSection: folderId ? undefined : inboxSection,
         }),
       };
@@ -2450,9 +2450,9 @@ function filterMessagesForDomainSearchConstraints(
     isUnread,
     inboxSection,
   }: {
-    after?: Date;
-    before?: Date;
-    isUnread?: boolean;
+    after?: Date | null;
+    before?: Date | null;
+    isUnread?: boolean | null;
     inboxSection?: string | null;
   },
 ): Message[] {
