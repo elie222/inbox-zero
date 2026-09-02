@@ -76,6 +76,34 @@ describe("getEmailMessageCellLabels", () => {
 });
 
 describe("getEmailThreadLabels", () => {
+  it("orders the same labels consistently regardless of provider order", () => {
+    const userLabels = {
+      "label-actioned": {
+        id: "label-actioned",
+        name: "Actioned",
+      },
+      "label-receipt": {
+        id: "label-receipt",
+        name: "Receipt",
+      },
+    };
+
+    const actionedFirst = getEmailThreadLabels({
+      messages: [{ labelIds: ["label-actioned", "label-receipt"] }],
+      userLabels,
+    });
+    const receiptFirst = getEmailThreadLabels({
+      messages: [{ labelIds: ["label-receipt", "label-actioned"] }],
+      userLabels,
+    });
+
+    expect(actionedFirst).toEqual([
+      { id: "label-actioned", name: "Actioned" },
+      { id: "label-receipt", name: "Receipt" },
+    ]);
+    expect(receiptFirst).toEqual(actionedFirst);
+  });
+
   it("hides Gmail system categories while keeping user labels", () => {
     const categoryIds = [
       "CATEGORY_PERSONAL",
