@@ -526,8 +526,8 @@ function formatDay(date: Date) {
 }
 
 function formatPeriod(end: Date) {
-  const start = new Date(end);
-  start.setDate(start.getDate() - 6);
+  // Subtract in UTC milliseconds so local DST transitions cannot shift the day.
+  const start = new Date(new Date(end).getTime() - 6 * 24 * 60 * 60 * 1000);
   return `${formatDay(start)} to ${formatDay(end)}`;
 }
 
