@@ -157,6 +157,13 @@ describe.runIf(shouldRunEval)("Eval: Choose Rule (categorization data)", () => {
   const dataset = loadDataset(shouldRunEval ? datasetPaths : []);
   const cases = sampleStratified(dataset.cases, readSampleSize());
 
+  // A broken or empty dataset must not produce a green run with no records.
+  test("dataset loaded and mapped to at least one case", () => {
+    const fileLevelIssues = dataset.issues.filter((issue) => !issue.caseId);
+    expect(fileLevelIssues).toEqual([]);
+    expect(cases.length).toBeGreaterThan(0);
+  });
+
   describeEvalMatrix("choose-rule categorization", (model, emailAccount) => {
     for (const variant of ruleContextVariants) {
       for (const evalCase of cases) {
@@ -269,6 +276,9 @@ function loadDataset(filePaths: string[]): Dataset {
     // parseCsv rejects the whole file on a field-count mismatch, so a
     // structurally broken overlay is skipped as a unit rather than per row.
     const rawRows = readCsvRows(file);
+    // Later roots may override earlier ones by case_id, but a repeated id
+    // inside one file is a data error, not an overlay.
+    const seenInFile = new Set<string>();
     if (!rawRows.ok) {
       issues.push({ file, caseId: null, message: rawRows.message });
       continue;
@@ -290,6 +300,15 @@ function loadDataset(filePaths: string[]): Dataset {
         });
         continue;
       }
+      if (seenInFile.has(parsed.data.case_id)) {
+        issues.push({
+          file,
+          caseId: parsed.data.case_id,
+          message: "duplicate case_id within the same file; later copy ignored",
+        });
+        continue;
+      }
+      seenInFile.add(parsed.data.case_id);
       rowsById.set(parsed.data.case_id, parsed.data);
     }
   }
