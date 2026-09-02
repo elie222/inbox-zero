@@ -407,7 +407,6 @@ function useIframeHeight(
     const iframe = iframeRef.current;
     if (!iframe) return;
     let animationFrameId: number | undefined;
-    let remainingDocumentChecks = 10;
     let observedRoot: HTMLElement | null = null;
     const initialRoot = iframe.contentDocument?.documentElement ?? null;
 
@@ -449,11 +448,7 @@ function useIframeHeight(
 
     const watchForDocument = () => {
       observeDocument();
-      remainingDocumentChecks -= 1;
-      if (
-        (observedRoot && observedRoot !== initialRoot) ||
-        remainingDocumentChecks === 0
-      ) {
+      if (observedRoot && observedRoot !== initialRoot) {
         animationFrameId = undefined;
         return;
       }

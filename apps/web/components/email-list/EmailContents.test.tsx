@@ -180,7 +180,7 @@ describe("HtmlEmail", () => {
     );
   });
 
-  it("keeps watching for the email document after a stale load event", async () => {
+  it("keeps watching until the email document replaces the placeholder", async () => {
     vi.mocked(fetch).mockReturnValue(new Promise(() => {}));
     const { getByTitle } = render(
       <HtmlEmail html="<p>Long email</p>" messageId="message-loading" />,
@@ -206,6 +206,11 @@ describe("HtmlEmail", () => {
     iframe.dispatchEvent(new Event("load"));
 
     expect(animationFrames).not.toHaveLength(0);
+    for (let frame = 0; frame < 10; frame += 1) {
+      act(() => animationFrames.shift()?.callback(frame));
+    }
+    expect(animationFrames).not.toHaveLength(0);
+
     iframeDocument = emailDocument;
     act(() => animationFrames.shift()?.callback(0));
 
