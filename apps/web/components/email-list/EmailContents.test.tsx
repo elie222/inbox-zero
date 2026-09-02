@@ -164,6 +164,7 @@ describe("HtmlEmail", () => {
         get: () => contentHeight,
       },
     );
+    addEmailDocumentMarker(iframe, iframe.contentDocument);
 
     iframe.dispatchEvent(new Event("load"));
     await waitFor(() =>
@@ -188,6 +189,7 @@ describe("HtmlEmail", () => {
     const iframe = getByTitle("Email content preview") as HTMLIFrameElement;
     let iframeDocument = iframe.contentDocument;
     const emailDocument = document.implementation.createHTMLDocument("email");
+    addEmailDocumentMarker(iframe, emailDocument);
 
     Object.defineProperty(emailDocument.documentElement, "scrollHeight", {
       configurable: true,
@@ -213,6 +215,7 @@ describe("HtmlEmail", () => {
 
     iframeDocument = emailDocument;
     act(() => animationFrames.shift()?.callback(0));
+    expect(animationFrames).toHaveLength(0);
 
     await waitFor(() =>
       expect(Number.parseFloat(iframe.style.height)).toBeGreaterThanOrEqual(
@@ -294,3 +297,15 @@ describe("PlainEmail", () => {
     expect(container.textContent).not.toContain("&#39;");
   });
 });
+
+function addEmailDocumentMarker(
+  iframe: HTMLIFrameElement,
+  targetDocument: Document | null,
+) {
+  if (!targetDocument) throw new Error("Expected an iframe document");
+  const marker = new DOMParser()
+    .parseFromString(iframe.srcdoc, "text/html")
+    .querySelector('meta[name="inbox-zero-email-document"]');
+  if (!marker) throw new Error("Expected an email document marker");
+  targetDocument.head.append(marker.cloneNode());
+}
