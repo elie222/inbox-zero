@@ -251,6 +251,7 @@ export interface EmailProvider {
   }): Promise<EmailThread[]>;
   getSignatures(): Promise<EmailSignature[]>;
   // Thread messages are returned in chronological order (oldest first).
+  // getThread includes draft messages; getThreadMessages excludes them.
   getThread(threadId: string): Promise<EmailThread>;
   getThreadMessages(threadId: string): Promise<ParsedMessage[]>;
   getThreadMessagesInInbox(threadId: string): Promise<ParsedMessage[]>;
