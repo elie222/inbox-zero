@@ -2,7 +2,11 @@ import { expect } from "@playwright/test";
 import { test } from "../playwright-test";
 import { getEmailAccountId } from "../account-test-helpers";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
-import { conversationWithSubject, openMail } from "./mail-test-helpers";
+import {
+  conversationWithSubject,
+  openMail,
+  readLatestMailMutation,
+} from "./mail-test-helpers";
 
 test("starts mailbox warming from the app shell before mail opens", async ({
   page,
@@ -151,6 +155,65 @@ test("opening a conversation issues one detail request", async ({ page }) => {
     page.getByText("First message in the reader conversation."),
   ).toBeVisible();
   expect(threadDetailRequestCount).toBe(1);
+});
+
+test("waits for a direct reader snapshot before marking it read", async ({
+  page,
+}) => {
+  const emailAccountId = await getEmailAccountId(page);
+  const releaseThreadDetail = Promise.withResolvers<void>();
+  let threadDetailRequestCount = 0;
+
+  await page.addInitScript(() => {
+    Object.defineProperty(window.navigator, "onLine", {
+      configurable: true,
+      get: () => false,
+    });
+  });
+  await page.route(
+    "**/api/threads/thr_playwright_reader?includeDrafts=true",
+    async (route) => {
+      threadDetailRequestCount += 1;
+      const response = await route.fetch();
+      const data = (await response.json()) as {
+        thread: { messages: Array<{ labelIds?: string[] | null }> };
+      };
+      data.thread.messages = data.thread.messages.map((message) => ({
+        ...message,
+        labelIds: [...new Set([...(message.labelIds ?? []), "UNREAD"])],
+      }));
+      await releaseThreadDetail.promise;
+      await route.fulfill({ json: data });
+    },
+  );
+
+  await page.goto(
+    `/${emailAccountId}/mail?labelId=Label_project&thread-id=thr_playwright_reader`,
+  );
+  await expect.poll(() => threadDetailRequestCount).toBe(1);
+  await expect
+    .poll(() =>
+      readLatestMailMutation(page, {
+        emailAccountId,
+        kind: "set_read_state",
+        threadId: "thr_playwright_reader",
+      }),
+    )
+    .toBeUndefined();
+
+  releaseThreadDetail.resolve();
+  await expect(
+    page.getByText("First message in the reader conversation."),
+  ).toBeVisible();
+  await expect
+    .poll(() =>
+      readLatestMailMutation(page, {
+        emailAccountId,
+        kind: "set_read_state",
+        threadId: "thr_playwright_reader",
+      }),
+    )
+    .toMatchObject({ payload: { read: true }, status: "pending" });
 });
 
 test("filters the mail list by state, category, and label", async ({

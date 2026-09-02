@@ -589,6 +589,8 @@ export function MailShell() {
     }
     if (
       !openThreadKey ||
+      !readerSelectionSettled ||
+      !openMessages.length ||
       readAttemptedForOpenThread.current === openThreadKey
     ) {
       return;
@@ -602,7 +604,14 @@ export function MailShell() {
     // while the outbox is waiting for connectivity or provider recovery.
     readAttemptedForOpenThread.current = openThreadKey;
     markRead([openThreadKey]);
-  }, [isOpenThreadUnread, markRead, openReaderThreadKey, openThreadKey]);
+  }, [
+    isOpenThreadUnread,
+    markRead,
+    openMessages.length,
+    openReaderThreadKey,
+    openThreadKey,
+    readerSelectionSettled,
+  ]);
   const archiveTargets = useCallback(
     () => runOn(archive, true, true),
     [archive, runOn],
