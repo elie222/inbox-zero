@@ -25,6 +25,31 @@ test("captures the rich message reader states", async ({ page }, testInfo) => {
     ),
   ).toHaveCount(0);
 
+  const archiveButton = page.getByRole("button", { name: /^Archive/ });
+  await expect(archiveButton.locator("kbd")).toBeHidden();
+  await archiveButton.hover();
+  await expect(archiveButton.locator("kbd")).toBeVisible();
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "mail-reader-toolbar-shortcut-hover",
+  );
+
+  const senderStatsResponse = page.waitForResponse((response) =>
+    response.url().includes("/api/user/stats/newsletters"),
+  );
+  await page.getByRole("button", { name: /^More actions/ }).click();
+  await expect(
+    page.getByRole("menuitem", { name: "Auto archive future emails" }),
+  ).toBeVisible();
+  expect((await senderStatsResponse).ok()).toBe(true);
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "mail-reader-sender-actions",
+  );
+  await page.keyboard.press("Escape");
+
   const attachmentPreview = page.getByRole("img", {
     name: "reader-preview.png",
   });

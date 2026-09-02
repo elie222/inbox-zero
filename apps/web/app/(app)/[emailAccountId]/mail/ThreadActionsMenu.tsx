@@ -2,11 +2,13 @@
 
 import type { ComponentProps } from "react";
 import {
+  ArchiveRestoreIcon,
   ExternalLinkIcon,
   MailXIcon,
   MailIcon,
   MailOpenIcon,
   MoreHorizontalIcon,
+  SparklesIcon,
 } from "lucide-react";
 import { FixWithChat } from "@/app/(app)/[emailAccountId]/assistant/FixWithChat";
 import { getRuleResultReasonDisplay } from "@/app/(app)/[emailAccountId]/assistant/ResultDisplay";
@@ -19,7 +21,11 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuPortal,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ActionType, ExecutedRuleStatus } from "@/generated/prisma/enums";
@@ -69,8 +75,13 @@ export function ThreadActionsMenu({
 }: ThreadActionsMenuProps) {
   const hint = getShortcutHint("moreActions");
   const { provider, userEmail } = useAccount();
-  const { canUnsubscribe, onUnsubscribe, PremiumModal } =
-    useUnsubscribeSender(message);
+  const {
+    canAutoArchive,
+    canUnsubscribe,
+    onAutoArchive,
+    onUnsubscribe,
+    PremiumModal,
+  } = useUnsubscribeSender(message, { loadStoredLink: Boolean(open) });
   const ReadIcon = isUnread ? MailOpenIcon : MailIcon;
   const openUrl = message
     ? getEmailMessageCellActions({
@@ -102,15 +113,27 @@ export function ThreadActionsMenu({
           className="w-[min(24rem,calc(100vw-1rem))]"
           onEscapeKeyDown={(event) => event.stopPropagation()}
         >
-          {plans.map((plan) => (
-            <RuleAttribution
-              key={plan.id}
-              message={message}
-              plan={plan}
-              setChatInput={setChatInput}
-              showFixWithChat={showFixWithChat}
-            />
-          ))}
+          {plans.length > 0 ? (
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <SparklesIcon className="mr-2 size-4" />
+                Matched reason
+              </DropdownMenuSubTrigger>
+              <DropdownMenuPortal>
+                <DropdownMenuSubContent className="max-h-[var(--radix-dropdown-menu-content-available-height)] w-[min(24rem,calc(100vw-1rem))] overflow-y-auto p-0">
+                  {plans.map((plan) => (
+                    <RuleAttribution
+                      key={plan.id}
+                      message={message}
+                      plan={plan}
+                      setChatInput={setChatInput}
+                      showFixWithChat={showFixWithChat}
+                    />
+                  ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuPortal>
+            </DropdownMenuSub>
+          ) : null}
 
           {plans.length > 0 ? <DropdownMenuSeparator /> : null}
 
@@ -131,7 +154,14 @@ export function ThreadActionsMenu({
           {canUnsubscribe ? (
             <DropdownMenuItem onSelect={onUnsubscribe}>
               <MailXIcon className="mr-2 size-4" />
-              Unsubscribe
+              Unsubscribe from sender
+            </DropdownMenuItem>
+          ) : null}
+
+          {canAutoArchive ? (
+            <DropdownMenuItem onSelect={onAutoArchive}>
+              <ArchiveRestoreIcon className="mr-2 size-4" />
+              Auto archive future emails
             </DropdownMenuItem>
           ) : null}
         </DropdownMenuContent>

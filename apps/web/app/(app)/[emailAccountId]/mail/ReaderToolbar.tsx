@@ -86,15 +86,29 @@ export function ReaderToolbar({
       </div>
 
       <div className="ml-auto flex flex-wrap items-center gap-1.5">
-        <Button onClick={onArchive} size="xs-2" variant="outline">
+        <Button
+          className="group"
+          onClick={onArchive}
+          size="xs-2"
+          variant="outline"
+        >
           <ArchiveIcon className="mr-1.5 size-3.5" />
           Archive
-          <Kbd className="ml-1.5">{getShortcutHint("archive")}</Kbd>
+          <Kbd className="invisible ml-1.5 inline-flex group-hover:visible group-focus-visible:visible">
+            {getShortcutHint("archive")}
+          </Kbd>
         </Button>
-        <Button onClick={onReply} size="xs-2" variant="outline">
+        <Button
+          className="group"
+          onClick={onReply}
+          size="xs-2"
+          variant="outline"
+        >
           <ReplyIcon className="mr-1.5 size-3.5" />
           Reply
-          <Kbd className="ml-1.5">{getShortcutHint("reply")}</Kbd>
+          <Kbd className="invisible ml-1.5 inline-flex group-hover:visible group-focus-visible:visible">
+            {getShortcutHint("reply")}
+          </Kbd>
         </Button>
         <Button
           aria-label={`Delete (${getShortcutHint("delete")})`}
