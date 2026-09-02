@@ -6,6 +6,7 @@ import { ThreadRow } from "@/app/(app)/[emailAccountId]/mail/ThreadRow";
 import type {
   ListThread,
   MailLayoutMode,
+  MailListDensityMode,
 } from "@/app/(app)/[emailAccountId]/mail/types";
 import { getListThreadKey } from "@/app/(app)/[emailAccountId]/mail/types";
 import {
@@ -21,6 +22,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 export type ThreadListProps = {
   threads: ListThread[];
   layout: MailLayoutMode;
+  density: MailListDensityMode;
   userEmail: string;
   userLabels: EmailLabels;
   labelsByAccount?: Record<string, EmailLabels>;
@@ -45,6 +47,7 @@ export type ThreadListProps = {
 export function ThreadList({
   threads,
   layout,
+  density,
   userEmail,
   userLabels,
   labelsByAccount,
@@ -154,6 +157,7 @@ export function ThreadList({
                   <ThreadRow
                     hasAnySelection={selectionEnabled && selectedCount > 0}
                     compact={isMobile}
+                    density={density}
                     index={index}
                     isFocused={index === focusedIndex}
                     isSelected={selectionEnabled && isSelected(threadKey)}

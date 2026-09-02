@@ -10,6 +10,9 @@ export type ThreadPlan = NonNullable<ListThread["plans"]>[number];
 /** Split view is the two-column list + reader; list view gives the list the full width. */
 export type MailLayoutMode = "list" | "split";
 
+/** Compact shows a one-line snippet; expanded shows ~5 lines of the available snippet. */
+export type MailListDensityMode = "compact" | "expanded";
+
 export type ThreadSelection = {
   emailAccountId: string;
   threadId: string;

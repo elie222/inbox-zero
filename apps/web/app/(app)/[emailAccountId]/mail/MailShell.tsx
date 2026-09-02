@@ -45,6 +45,7 @@ import {
   getListThreadSelection,
   getThreadSelectionKey,
   type MailLayoutMode,
+  type MailListDensityMode,
   type ThreadSelection,
 } from "@/app/(app)/[emailAccountId]/mail/types";
 import type { ThreadMessage } from "@/components/email-list/types";
@@ -55,7 +56,11 @@ import { useThreadPrefetchCoordinator } from "@/app/(app)/[emailAccountId]/mail/
 import { useThreadActions } from "@/app/(app)/[emailAccountId]/mail/use-thread-actions";
 import { useThreadSelection } from "@/app/(app)/[emailAccountId]/mail/use-thread-selection";
 import { isThreadUnread } from "@/app/(app)/[emailAccountId]/mail/read-state";
-import { MailLayout, MailSplitKind } from "@/generated/prisma/enums";
+import {
+  MailLayout,
+  MailListDensity,
+  MailSplitKind,
+} from "@/generated/prisma/enums";
 import { useChat } from "@/providers/ChatProvider";
 import { Sidebar, useSidebar } from "@/components/ui/sidebar";
 import { useAtom, useSetAtom } from "jotai";
@@ -201,6 +206,8 @@ export function MailShell() {
   const accountLayout: MailLayoutMode =
     settings?.layout === MailLayout.SPLIT ? "split" : "list";
   const layout = isAllAccounts ? "list" : accountLayout;
+  const density: MailListDensityMode =
+    settings?.density === MailListDensity.EXPANDED ? "expanded" : "compact";
 
   // Written through the SWR cache rather than mirrored in local state, so the
   // preference has one source of truth and every reader sees the new value.
@@ -235,6 +242,39 @@ export function MailShell() {
       );
     });
   }, [emailAccountId, layout, mutateSettings, settings]);
+
+  const toggleDensity = useCallback(() => {
+    if (!settings) return;
+
+    const next =
+      density === "expanded"
+        ? MailListDensity.COMPACT
+        : MailListDensity.EXPANDED;
+    const loadedSettings = settings;
+
+    mutateSettings(
+      async (current) => {
+        const result = await updateMailPreferencesAction(emailAccountId, {
+          density: next,
+        });
+        if (result?.serverError || result?.validationErrors)
+          throw new Error(getActionErrorMessage(result));
+        return { ...(current ?? loadedSettings), density: next };
+      },
+      {
+        optimisticData: (current) => ({
+          ...(current ?? loadedSettings),
+          density: next,
+        }),
+        revalidate: false,
+        rollbackOnError: true,
+      },
+    ).catch((error) => {
+      toast.error(
+        error instanceof Error ? error.message : "Couldn't save that",
+      );
+    });
+  }, [density, emailAccountId, mutateSettings, settings]);
 
   // A sidebar selection scopes the whole list, which replaces the split tabs —
   // splits are a way of slicing the inbox, not of slicing an arbitrary view.
@@ -727,6 +767,7 @@ export function MailShell() {
         : undefined,
       undo: () => undo(),
       toggleLayout: isAllAccounts ? undefined : toggleLayout,
+      toggleDensity,
       focusMode: openThreadId ? () => setIsFocusMode((on) => !on) : undefined,
       help: () => setIsHelpOpen(true),
     };
@@ -1060,10 +1101,12 @@ export function MailShell() {
           >
             <ListToolbar
               layout={layout}
+              density={density}
               searchQuery={searchQuery ?? ""}
               onSearch={isAllAccounts ? undefined : setSearch}
               onOpenSearch={() => setPaletteOpen(true)}
               onToggleLayout={toggleLayout}
+              onToggleDensity={toggleDensity}
               onToggleAssistant={() => toggleSidebar(["chat-sidebar"])}
               showSidebarToggle={!isMailSidebarOpen}
               showLayoutToggle={!isAllAccounts}
@@ -1096,6 +1139,7 @@ export function MailShell() {
               <ThreadList
                 threads={threads}
                 layout={layout}
+                density={density}
                 userEmail={userEmail}
                 userLabels={isAllAccounts ? NO_LABELS : userLabels}
                 labelsByAccount={labelsByAccount}

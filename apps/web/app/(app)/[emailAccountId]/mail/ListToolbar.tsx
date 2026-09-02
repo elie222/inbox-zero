@@ -2,21 +2,27 @@
 
 import { useRef } from "react";
 import {
+  AlignJustifyIcon,
   ColumnsIcon,
   RowsIcon,
   SearchIcon,
   SparklesIcon,
+  TextIcon,
   XIcon,
 } from "lucide-react";
 import { Kbd } from "@/components/Kbd";
 import { Tooltip } from "@/components/Tooltip";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import type { MailLayoutMode } from "@/app/(app)/[emailAccountId]/mail/types";
+import type {
+  MailLayoutMode,
+  MailListDensityMode,
+} from "@/app/(app)/[emailAccountId]/mail/types";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
 import { cn } from "@/utils";
 
 export type ListToolbarProps = {
   layout: MailLayoutMode;
+  density: MailListDensityMode;
   showLayoutToggle?: boolean;
   /** Committed search query. Only meaningful when `onSearch` is provided. */
   searchQuery?: string;
@@ -24,21 +30,25 @@ export type ListToolbarProps = {
   onSearch?: (query: string) => void;
   onOpenSearch: () => void;
   onToggleLayout: () => void;
+  onToggleDensity: () => void;
   onToggleAssistant: () => void;
   showSidebarToggle?: boolean;
 };
 
 export function ListToolbar({
   layout,
+  density,
   showLayoutToggle = true,
   searchQuery = "",
   onSearch,
   onOpenSearch,
   onToggleLayout,
+  onToggleDensity,
   onToggleAssistant,
   showSidebarToggle = false,
 }: ListToolbarProps) {
   const LayoutIcon = layout === "split" ? ColumnsIcon : RowsIcon;
+  const DensityIcon = density === "expanded" ? AlignJustifyIcon : TextIcon;
 
   return (
     <div
@@ -82,6 +92,20 @@ export function ListToolbar({
           </button>
         </Tooltip>
       ) : null}
+
+      <Tooltip
+        content={`Switch compact / expanded snippets (${getShortcutHint("toggleDensity")})`}
+      >
+        <button
+          type="button"
+          onClick={onToggleDensity}
+          aria-label="Switch compact or expanded snippets"
+          aria-pressed={density === "expanded"}
+          className={cn(toolbarButton, "w-8 justify-center px-0")}
+        >
+          <DensityIcon className="size-3.5" />
+        </button>
+      </Tooltip>
 
       <Tooltip content="Assistant">
         <button
