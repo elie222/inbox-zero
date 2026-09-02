@@ -328,7 +328,7 @@ function ReplyTracker({
   return (
     <Card
       title="Reply Zero"
-      badge={`${needsReplyCount} need you`}
+      badge={`${needsReplyCount + needsActionCount} need you`}
       badgeStyle={BADGES.orange}
       description="Conversations still open on either side."
       footnote={footnote || undefined}
