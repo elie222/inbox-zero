@@ -355,9 +355,7 @@ test("opens and sends a reply from the reader with Enter", async ({
   await expect(
     page.locator("[data-email-preserved-kind='quote']"),
   ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Show quoted message" }),
-  ).toBeVisible();
+  await expect(page.getByLabel("Show quoted message")).toBeVisible();
   await expect(page.getByText("Quoted message", { exact: true })).toHaveCount(
     0,
   );
