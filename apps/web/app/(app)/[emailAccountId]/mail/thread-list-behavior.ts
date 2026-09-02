@@ -38,18 +38,21 @@ export function getThreadActionTargetIds({
 export function getNextThreadAfterRemoval({
   threadIds,
   currentThreadId,
+  currentThreadIndex,
   removedThreadIds,
 }: {
   threadIds: string[];
   currentThreadId: string;
+  currentThreadIndex: number;
   removedThreadIds: string[];
 }): { id: string; index: number } | null {
   const currentIndex = threadIds.indexOf(currentThreadId);
-  if (currentIndex < 0) return null;
 
   const removed = new Set(removedThreadIds);
   let nextThreadId: string | undefined;
-  for (let index = currentIndex + 1; index < threadIds.length; index++) {
+  const nextIndex =
+    currentIndex >= 0 ? currentIndex + 1 : Math.max(0, currentThreadIndex);
+  for (let index = nextIndex; index < threadIds.length; index++) {
     const threadId = threadIds[index];
     if (threadId && !removed.has(threadId)) {
       nextThreadId = threadId;
@@ -57,7 +60,11 @@ export function getNextThreadAfterRemoval({
     }
   }
   if (!nextThreadId) {
-    for (let index = currentIndex - 1; index >= 0; index--) {
+    const previousIndex =
+      currentIndex >= 0
+        ? currentIndex - 1
+        : Math.min(currentThreadIndex - 1, threadIds.length - 1);
+    for (let index = previousIndex; index >= 0; index--) {
       const threadId = threadIds[index];
       if (threadId && !removed.has(threadId)) {
         nextThreadId = threadId;
