@@ -785,12 +785,9 @@ export function MailShell() {
 
   const onSetDefaultSplits = useCallback(
     async (enabled: boolean) => {
-      if (
+      const shouldResetActiveSplit =
         !enabled &&
-        savedDefaultSplits.some((split) => split.id === activeSplitId)
-      ) {
-        setActiveSplitId("all");
-      }
+        savedDefaultSplits.some((split) => split.id === activeSplitId);
 
       const result = await setDefaultMailSplitsAction(emailAccountId, {
         enabled,
@@ -800,6 +797,7 @@ export function MailShell() {
         return false;
       }
       await mutateSettings();
+      if (shouldResetActiveSplit) setActiveSplitId("all");
       return true;
     },
     [

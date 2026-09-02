@@ -44,12 +44,15 @@ export type NewSplitPopoverProps = {
   onSetDefaultSplits: (enabled: boolean) => Promise<boolean>;
 };
 
-const GROUPS: { group: NewSplitOptionGroup; title?: string }[] = [
-  { group: "state" },
+const GROUPS = [
+  { group: "state", title: undefined },
   { group: "label", title: "Labels" },
   { group: "inbox", title: "Inbox" },
   { group: "category", title: "Categories" },
-];
+] as const satisfies readonly {
+  group: NewSplitOptionGroup;
+  title?: string;
+}[];
 
 export function NewSplitPopover({
   options,

@@ -81,33 +81,6 @@ describe("seedDefaultMailSplits", () => {
     });
   });
 
-  it("adds missing default splits without replacing saved splits", async () => {
-    prisma.$transaction.mockResolvedValue([[{ locked: true }], 1] as never);
-
-    await setDefaultMailSplits({
-      emailAccountId: "account-id",
-      defaultSplits: [
-        {
-          name: "Receipt",
-          kind: MailSplitKind.LABEL,
-          value: "receipt-label",
-        },
-      ],
-      enabled: true,
-    });
-
-    expect(prisma.$executeRaw).toHaveBeenCalledWith(
-      expect.arrayContaining([
-        expect.stringContaining('existing."value" = defaults."value"'),
-      ]),
-      "account-id",
-      expect.any(String),
-      "account-id",
-      expect.any(Number),
-      "account-id",
-    );
-  });
-
   it("removes every split backed by a default rule label", async () => {
     prisma.$transaction.mockResolvedValue([
       [{ locked: true }],

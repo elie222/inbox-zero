@@ -6,8 +6,6 @@ import { lockMailSplits } from "@/utils/mail/split-lock";
 import { MAX_MAIL_SPLITS } from "@/utils/mail/split-constants";
 import { STANDARD_CATEGORY_SYSTEM_TYPES } from "@/utils/rule/consts";
 
-type DefaultMailSplit = ReturnType<typeof getDefaultMailSplitDrafts>[number];
-
 export async function getDefaultMailSplitDraftsForAccount(
   emailAccountId: string,
 ) {
@@ -87,7 +85,7 @@ export async function setDefaultMailSplits({
   enabled,
 }: {
   emailAccountId: string;
-  defaultSplits: DefaultMailSplit[];
+  defaultSplits: ReturnType<typeof getDefaultMailSplitDrafts>;
   enabled: boolean;
 }) {
   if (defaultSplits.length === 0) return;
