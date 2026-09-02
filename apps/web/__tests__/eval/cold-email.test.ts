@@ -1,5 +1,7 @@
 import { afterAll, describe, expect, test, vi } from "vitest";
 import { coldEmailCases } from "@/__tests__/eval/cold-email-cases";
+import { createMockEmailProvider } from "@/utils/__mocks__/email-provider";
+import { createScopedLogger } from "@/utils/logger";
 import { PREVIOUS_DEFAULT_COLD_EMAIL_PROMPT } from "@/__tests__/eval/cold-email-previous-prompt";
 import {
   describeEvalMatrix,
@@ -18,6 +20,12 @@ import { isColdEmail } from "@/utils/cold-email/is-cold-email";
 
 const shouldRunEval = shouldRunEvalTests();
 const TIMEOUT = 180_000;
+const logger = createScopedLogger("eval-cold-email");
+
+// Every sender is a stranger: the eval measures the AI step, not prior-contact short-circuits.
+const provider = createMockEmailProvider({
+  hasPreviousCommunicationsWithSenderOrDomain: async () => false,
+});
 
 // Slower providers time out when every case fires at once.
 vi.setConfig({ maxConcurrency: 3 });
@@ -32,7 +40,7 @@ type Outcome = {
   variant: string;
   name: string;
   category: string;
-  expected: boolean | "either";
+  expected: (typeof coldEmailCases)[number]["expected"];
   actual: boolean;
   reason: string | null | undefined;
 };
@@ -50,9 +58,7 @@ describe.runIf(shouldRunEval)("Eval: cold email", () => {
             const result = await isColdEmail({
               email: testCase.email,
               emailAccount,
-              provider: {
-                hasPreviousCommunicationsWithSenderOrDomain: async () => false,
-              } as any,
+              provider,
               coldEmailRule: variant.instructions
                 ? { instructions: variant.instructions, groupId: null }
                 : null,
@@ -92,7 +98,7 @@ describe.runIf(shouldRunEval)("Eval: cold email", () => {
   });
 
   afterAll(() => {
-    console.log(summarizeOutcomes(outcomes));
+    logger.info(summarizeOutcomes(outcomes));
     evalReporter.printReport();
   });
 });

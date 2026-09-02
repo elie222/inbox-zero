@@ -1,6 +1,6 @@
 import { getEmail } from "@/__tests__/helpers";
 
-export type ColdEmailCase = {
+type ColdEmailCase = {
   name: string;
   category: string;
   // "either" marks a case where both answers are defensible; it is recorded but not asserted.
@@ -540,6 +540,150 @@ Rafael`,
       content: `Hi,
 
 I've taken over as your account manager for the platform you host on. Wanted to introduce myself and see if you have any questions about your current plan or the credits program before renewal.`,
+      date,
+    }),
+  },
+  {
+    name: "reply to our own outbound campaign",
+    category: "customer",
+    expected: false,
+    email: getEmail({
+      from: "Felix Andersson <felix@brightlane.example>",
+      subject: "Re: One trick that changed how I handle email",
+      content: `Thanks for this. I tried the setup you described but the labels don't show up in my mobile app. Is that expected or did I miss a step?`,
+      date,
+    }),
+  },
+  {
+    name: "existing user asking to change plan",
+    category: "customer",
+    expected: false,
+    email: getEmail({
+      from: "Casey Tran <casey@tranconsulting.example>",
+      subject: "Lower plan",
+      content: `Hi, I'm on the top tier but only use one inbox now. Can you move me down to the basic plan from next month? Happy to keep paying annually.`,
+      date,
+    }),
+  },
+  {
+    name: "german language support question",
+    category: "customer",
+    expected: false,
+    email: getEmail({
+      from: "Jonas Keller <jonas.keller@mail.example>",
+      subject: "Frage zur Kalenderverbindung",
+      content: `Hallo,
+
+seit dem Update wird mein Kalender nicht mehr synchronisiert. Ich habe die Verbindung zweimal neu hergestellt. Können Sie das bitte prüfen?
+
+Viele Grüße
+Jonas`,
+      date,
+    }),
+  },
+  {
+    name: "security researcher reporting a vulnerability",
+    category: "inbound report",
+    expected: false,
+    email: getEmail({
+      from: "Amara Osei <amara@mail.example>",
+      subject: "Possible open redirect on acme.example",
+      content: `Hi,
+
+I found what looks like an open redirect on your login callback that could be used for phishing. I haven't shared it anywhere. Where should I send the details, and do you have a disclosure policy?`,
+      date,
+    }),
+  },
+  {
+    name: "podcast host inviting the founder as a guest",
+    category: "media",
+    expected: false,
+    email: getEmail({
+      from: "Ravi Nair <ravi@founderhours.example>",
+      subject: "Guest spot on Founder Hours",
+      content: `Hi,
+
+I host Founder Hours, a weekly interview show for early-stage B2B founders. Your approach to email automation came up in a listener survey, and I'd love to have you on for 40 minutes. We record remotely and publish within two weeks. Any interest?`,
+      date,
+    }),
+  },
+  {
+    name: "conference organizer offering a speaking slot",
+    category: "media",
+    expected: false,
+    email: getEmail({
+      from: "Helena Marsh <helena@productsummit.example>",
+      subject: "Speaking at Product Summit in October",
+      content: `Hi,
+
+I'm programming the productivity track at Product Summit this October. We'd like to offer you a 25 minute slot on building AI features that users trust. Travel and hotel are covered. Could you let me know by the end of the month?`,
+      date,
+    }),
+  },
+  {
+    name: "enterprise business development wanting to connect",
+    category: "partnership",
+    expected: false,
+    email: getEmail({
+      from: "Amit Rao <amit.rao@meridiantech.example>",
+      subject: "Acme <> Meridian",
+      content: `Hi,
+
+I lead partnerships for Meridian's workplace software group. Several of our enterprise customers have asked about email automation for their support teams and your name came up twice. Would you be open to a call to explore whether a reseller or referral arrangement makes sense?`,
+      date,
+    }),
+  },
+  {
+    name: "acquisition interest",
+    category: "inbound money",
+    expected: false,
+    email: getEmail({
+      from: "Victoria Lam <victoria@harborgroup.example>",
+      subject: "Confidential: interest in Acme",
+      content: `Hi,
+
+I'm on the corporate development team at Harbor Group. We're looking at the email productivity space and Acme is on our shortlist. If you're open to it, I'd like to set up an introductory conversation with our head of product. Everything stays confidential.`,
+      date,
+    }),
+  },
+  {
+    name: "teammate of a customer asking to be added",
+    category: "customer",
+    expected: false,
+    email: getEmail({
+      from: "Owen Hart <owen@lumenagency.example>",
+      subject: "Adding me to our Acme workspace",
+      content:
+        "Hi, my colleague Sofia set up Acme for our agency last week and said I should ask you to add me to the same account rather than start a new trial. My email is this one. Thanks!",
+      date,
+    }),
+  },
+  {
+    name: "candidate following up after an interview",
+    category: "applicant",
+    expected: false,
+    email: getEmail({
+      from: "Lena Novak <lena.novak@mail.example>",
+      subject: "Thank you for yesterday",
+      content: `Hi,
+
+Thank you for taking the time to interview me for the support engineer role yesterday. I enjoyed the conversation about the Outlook sync issues. If it's useful I can send over the debugging write-up I mentioned.
+
+Best,
+Lena`,
+      date,
+    }),
+  },
+  {
+    name: "user asking permission to reuse content",
+    category: "inbound request",
+    expected: false,
+    email: getEmail({
+      from: "Ben Okafor <ben@teachingemail.example>",
+      subject: "Using your inbox zero guide in a course",
+      content: `Hi,
+
+I teach a small online course on email habits and would like to include two diagrams from your blog post on inbox triage, with credit and a link. Is that okay with you?`,
       date,
     }),
   },
