@@ -268,6 +268,42 @@ describe("GmailProvider.getThread", () => {
       snippet: "Thread preview",
     });
   });
+
+  it("excludes drafts by default and includes them when requested", async () => {
+    const threadGet = vi.fn().mockResolvedValue({
+      data: {
+        id: "thread-1",
+        messages: [
+          {
+            id: "message-1",
+            labelIds: [GmailLabel.INBOX],
+            payload: { body: {}, headers: [], mimeType: "text/plain" },
+            threadId: "thread-1",
+          },
+          {
+            id: "draft-1",
+            labelIds: [GmailLabel.DRAFT],
+            payload: { body: {}, headers: [], mimeType: "text/plain" },
+            threadId: "thread-1",
+          },
+        ],
+      },
+    });
+    const provider = new GmailProvider({
+      users: { threads: { get: threadGet } },
+    } as unknown as gmail_v1.Gmail);
+
+    const thread = await provider.getThread("thread-1");
+    const threadWithDrafts = await provider.getThread("thread-1", {
+      includeDrafts: true,
+    });
+
+    expect(thread.messages.map((message) => message.id)).toEqual(["message-1"]);
+    expect(threadWithDrafts.messages.map((message) => message.id)).toEqual([
+      "message-1",
+      "draft-1",
+    ]);
+  });
 });
 
 describe("GmailProvider.getLatestMessageInThread", () => {

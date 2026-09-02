@@ -78,6 +78,7 @@ import type {
   BulkArchiveThread,
   BulkArchiveResult,
   EmailLabelUpdate,
+  GetThreadOptions,
 } from "@/utils/email/types";
 import type { SendEmailBody } from "@/utils/types/mail";
 import { getOutlookCategoryPreset } from "@/utils/outlook/category-colors";
@@ -147,15 +148,16 @@ export class OutlookProvider implements EmailProvider {
     }));
   }
 
-  async getThread(threadId: string): Promise<EmailThread> {
+  async getThread(
+    threadId: string,
+    options?: GetThreadOptions,
+  ): Promise<EmailThread> {
     try {
       const messages = await getThreadMessages(
         threadId,
         this.client,
         this.logger,
-        {
-          includeDrafts: true,
-        },
+        options,
       );
 
       return {
