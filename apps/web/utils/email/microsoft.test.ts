@@ -122,7 +122,7 @@ describe("OutlookProvider.getThread", () => {
     expect(thread.snippet).toBe("Newest preview");
   });
 
-  it("includes drafts in the thread view", async () => {
+  it("excludes drafts by default", async () => {
     const provider = new OutlookProvider(
       createMockOutlookClient([
         createMessage({ id: "received-message" }),
@@ -137,6 +137,29 @@ describe("OutlookProvider.getThread", () => {
     );
 
     const thread = await provider.getThread("thread-1");
+
+    expect(thread.messages.map((message) => message.id)).toEqual([
+      "received-message",
+    ]);
+  });
+
+  it("includes drafts when requested", async () => {
+    const provider = new OutlookProvider(
+      createMockOutlookClient([
+        createMessage({ id: "received-message" }),
+        createMessage({
+          id: "draft-reply",
+          isDraft: true,
+          parentFolderId: "drafts-folder-id",
+          receivedDateTime: undefined,
+        }),
+      ]),
+      createTestLogger(),
+    );
+
+    const thread = await provider.getThread("thread-1", {
+      includeDrafts: true,
+    });
 
     expect(thread.messages.map((message) => message.id)).toEqual([
       "received-message",

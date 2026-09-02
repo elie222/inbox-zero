@@ -56,12 +56,7 @@ export function ThreadContent({
   topRightComponent?: React.ReactNode;
   onSendSuccess?: (messageId: string, threadId: string) => void;
 }) {
-  const { data, isLoading, error, mutate } = useThread(
-    { id: threadId },
-    {
-      includeDrafts: true,
-    },
-  );
+  const { data, isLoading, error, mutate } = useThread({ id: threadId });
 
   return (
     <ErrorBoundary extra={{ component: "ThreadContent", threadId }}>

@@ -94,7 +94,7 @@ function CommandPaletteContent({
   const { emailAccountId } = useAccount();
   const { threadId, showEmail } = displayedEmail;
   const { data: displayedThread, isLoading: isDisplayedThreadLoading } =
-    useThread({ id: threadId }, { includeDrafts: true });
+    useThread({ id: threadId });
   const { onOpen: onOpenComposeModal } = useComposeModal();
   const { commands, isLoading } = useCommandPaletteCommands({
     enabled: !mailCommandContext,
