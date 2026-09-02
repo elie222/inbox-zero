@@ -6,7 +6,7 @@ export type ParsedFromSplit = {
 };
 
 const LOCAL_PART = "[a-z0-9](?:[a-z0-9_%+-]|[.](?=[a-z0-9]))*";
-const DNS_DOMAIN = String.raw`[a-z0-9](?:[a-z0-9-]|[.](?=[a-z0-9]))*\.[a-z]{2,}`;
+const DNS_DOMAIN = String.raw`[a-z0-9](?:[a-z0-9]|[.-](?=[a-z0-9]))*\.[a-z]{2,}`;
 
 // Dot-atom local part and DNS labels; rejects consecutive dots.
 const EMAIL_RE = new RegExp(`${LOCAL_PART}@${DNS_DOMAIN}`, "i");

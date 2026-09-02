@@ -1663,10 +1663,31 @@ export class OutlookProvider implements EmailProvider {
     );
     const maxResults = options.maxResults || 50;
 
+    const domainFromFilter =
+      fromEmail != null ? getFromFilterDomain(fromEmail) : null;
+    const domainSearchConstraints = domainFromFilter
+      ? {
+          after: after ?? undefined,
+          before: before ?? undefined,
+          isUnread: isUnread ?? undefined,
+          inboxSection: folderId ? undefined : inboxSection,
+        }
+      : null;
+
     const fetchThreadPage = async (pageToken?: string) => {
       const nextLink = resolveMicrosoftGraphNextLink(pageToken);
       if (nextLink) {
-        return await client.api(nextLink).get();
+        const response = await client.api(nextLink).get();
+        if (!domainSearchConstraints) {
+          return response;
+        }
+        return {
+          ...response,
+          value: filterMessagesForDomainSearchConstraints(
+            response.value ?? [],
+            domainSearchConstraints,
+          ),
+        };
       }
 
       // Determine endpoint and build filters based on query type
@@ -1724,9 +1745,6 @@ export class OutlookProvider implements EmailProvider {
         filters.push(`inferenceClassification eq '${inboxSection}'`);
       }
 
-      const domainFromFilter =
-        fromEmail != null ? getFromFilterDomain(fromEmail) : null;
-
       // Graph forbids combining $search with $filter/$orderby. Scope domain
       // sender searches via a folder endpoint so inbox (etc.) still applies.
       if (
@@ -1746,13 +1764,19 @@ export class OutlookProvider implements EmailProvider {
       const filter = filters.length > 0 ? filters.join(" and ") : undefined;
       const pageSize = domainFromFilter ? Math.min(maxResults, 25) : maxResults;
 
+      const selectFields =
+        options.messageFormat === "metadata"
+          ? MESSAGE_LIST_SELECT_FIELDS
+          : MESSAGE_SELECT_FIELDS;
+      // Domain+$search cannot $filter inboxSection; select it for local filtering.
+      const domainSelectFields =
+        domainFromFilter && inboxSection && !folderId
+          ? `${selectFields},inferenceClassification`
+          : selectFields;
+
       let request = client
         .api(endpoint)
-        .select(
-          options.messageFormat === "metadata"
-            ? MESSAGE_LIST_SELECT_FIELDS
-            : MESSAGE_SELECT_FIELDS,
-        )
+        .select(domainSelectFields)
         .top(pageSize);
 
       // Exact addresses keep using $filter; domain matching uses $search.
@@ -1773,18 +1797,16 @@ export class OutlookProvider implements EmailProvider {
 
       // Folder scope is preserved via endpoint; remaining constraints that
       // would have been $filter must be applied locally for domain searches.
-      if (!domainFromFilter) {
+      if (!domainSearchConstraints) {
         return response;
       }
 
       return {
         ...response,
-        value: filterMessagesForDomainSearchConstraints(response.value ?? [], {
-          after: after ?? undefined,
-          before: before ?? undefined,
-          isUnread: isUnread ?? undefined,
-          inboxSection: folderId ? undefined : inboxSection,
-        }),
+        value: filterMessagesForDomainSearchConstraints(
+          response.value ?? [],
+          domainSearchConstraints,
+        ),
       };
     };
 
@@ -2468,11 +2490,8 @@ function filterMessagesForDomainSearchConstraints(
 
     if (isUnread && message.isRead !== false) return false;
 
-    if (
-      inboxSection &&
-      message.inferenceClassification &&
-      message.inferenceClassification !== inboxSection
-    ) {
+    if (inboxSection && message.inferenceClassification !== inboxSection) {
+      // Missing inferenceClassification fails closed once we select the field.
       return false;
     }
 

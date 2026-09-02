@@ -210,7 +210,9 @@ function SplitTab({
             }
           }}
           aria-current={active ? "true" : undefined}
-          title={split.deletable ? "Double-click to rename" : undefined}
+          title={
+            split.deletable ? "Double-click or press F2 to rename" : undefined
+          }
           className="py-0.5 pr-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {split.name}

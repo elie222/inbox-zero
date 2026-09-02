@@ -47,6 +47,8 @@ describe("parseFromSplitInput", () => {
   it("rejects malformed addresses and domains", () => {
     expect(parseFromSplitInput("a..b@example.com")).toBeNull();
     expect(parseFromSplitInput("@a..b.com")).toBeNull();
+    expect(parseFromSplitInput("@a-.com")).toBeNull();
+    expect(parseFromSplitInput("user@x-.com")).toBeNull();
     expect(parseFromSplitInput("unread")).toBeNull();
     expect(parseFromSplitInput("receipts label")).toBeNull();
     expect(
