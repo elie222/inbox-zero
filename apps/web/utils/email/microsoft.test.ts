@@ -121,6 +121,29 @@ describe("OutlookProvider.getThread", () => {
     ]);
     expect(thread.snippet).toBe("Newest preview");
   });
+
+  it("includes drafts in the thread view", async () => {
+    const provider = new OutlookProvider(
+      createMockOutlookClient([
+        createMessage({ id: "received-message" }),
+        createMessage({
+          id: "draft-reply",
+          isDraft: true,
+          parentFolderId: "drafts-folder-id",
+          receivedDateTime: "2026-01-02T00:00:00.000Z",
+        }),
+      ]),
+      createTestLogger(),
+    );
+
+    const thread = await provider.getThread("thread-1");
+
+    expect(thread.messages.map((message) => message.id)).toEqual([
+      "received-message",
+      "draft-reply",
+    ]);
+    expect(thread.messages.at(-1)?.labelIds).toContain("DRAFT");
+  });
 });
 
 describe("OutlookProvider.getThreadsWithLabel", () => {

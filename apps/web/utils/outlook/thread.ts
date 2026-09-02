@@ -223,14 +223,15 @@ export async function getThreadMessages(
   threadId: string,
   client: OutlookClient,
   logger: Logger,
+  { includeDrafts = false }: { includeDrafts?: boolean } = {},
 ): Promise<ParsedMessage[]> {
   const [messages, folderIds, categoryMap] = await Promise.all([
     getThread(threadId, client, logger),
-    getFolderIds(client, logger, { includeDrafts: false }),
+    getFolderIds(client, logger, { includeDrafts }),
     getCategoryMap(client, logger),
   ]);
 
   return messages
-    .filter((msg) => !msg.isDraft)
+    .filter((msg) => includeDrafts || !msg.isDraft)
     .map((msg) => convertMessage(msg, folderIds, categoryMap));
 }
