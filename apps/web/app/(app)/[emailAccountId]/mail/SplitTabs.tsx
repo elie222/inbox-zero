@@ -125,6 +125,8 @@ function SplitTab({
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [draftName, setDraftName] = useState(split.name);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const wasEditingRef = useRef(false);
 
   const startRename = () => {
     if (!split.deletable) return;
@@ -132,14 +134,35 @@ function SplitTab({
     setIsEditing(true);
   };
 
+  const stopEditing = () => {
+    setIsEditing(false);
+  };
+
   const commitRename = () => {
     const next = draftName.trim();
-    setIsEditing(false);
+    stopEditing();
     if (!next || next === split.name) {
       setDraftName(split.name);
       return;
     }
     onRename(split.id, next.slice(0, 60));
+  };
+
+  // F2 rename unmounts the input; restore focus so keyboard users keep place.
+  useEffect(() => {
+    if (wasEditingRef.current && !isEditing) {
+      buttonRef.current?.focus({ preventScroll: true });
+    }
+    wasEditingRef.current = isEditing;
+  }, [isEditing]);
+
+  const setTabButtonRef = (node: HTMLButtonElement | null) => {
+    buttonRef.current = node;
+    if (active) {
+      (
+        activeTabRef as React.MutableRefObject<HTMLButtonElement | null>
+      ).current = node;
+    }
   };
 
   return (
@@ -164,7 +187,7 @@ function SplitTab({
             if (event.key === "Escape") {
               event.preventDefault();
               setDraftName(split.name);
-              setIsEditing(false);
+              stopEditing();
             }
           }}
           aria-label={`Rename the ${split.name} split`}
@@ -176,7 +199,7 @@ function SplitTab({
       ) : (
         <button
           type="button"
-          ref={active ? activeTabRef : undefined}
+          ref={setTabButtonRef}
           data-split-tab
           onClick={() => onSelect(split.id)}
           onDoubleClick={startRename}
