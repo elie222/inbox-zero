@@ -85,7 +85,11 @@ export function ReaderToolbar({
         </div>
       </div>
 
-      <div className="ml-auto flex flex-wrap items-center gap-1.5">
+      <div
+        aria-label="Thread actions"
+        className="ml-auto flex flex-wrap items-center gap-1.5"
+        role="group"
+      >
         <Button
           className="group"
           onClick={onArchive}
