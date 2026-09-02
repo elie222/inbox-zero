@@ -51,6 +51,21 @@ describe("splitEmailContent", () => {
     });
   });
 
+  it("preserves an Outlook-styled divider that is not a reply header", () => {
+    const html = [
+      '<div class="WordSection1">',
+      "<div>First section</div>",
+      '<div style="border-top:solid #E1E1E1 1.0pt">Second section</div>',
+      "<div>Final section</div>",
+      "</div>",
+    ].join("");
+
+    expect(splitEmailContent(html)).toEqual({
+      mainContent: html,
+      hasQuotedContent: false,
+    });
+  });
+
   it("collapses a provider-prefixed append-on-send marker", () => {
     const result = splitEmailContent(
       [
