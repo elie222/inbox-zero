@@ -461,9 +461,11 @@ function useIframeHeight(
     };
 
     const onLoad = () => {
-      stopWatchingForDocument();
       observeDocument();
       updateHeight();
+      if (observedRoot && observedRoot !== initialRoot) {
+        stopWatchingForDocument();
+      }
     };
 
     iframe.addEventListener("load", onLoad);
