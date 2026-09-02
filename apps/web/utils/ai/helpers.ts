@@ -77,7 +77,7 @@ export const getEmailListPrompt = ({
 
 // Only actions that change what the user sees, or that send something on their
 // behalf, affect how careful the picker should be. Notifications, digests,
-// webhooks, stars, and integrations are left out on purpose.
+// chat drafts, webhooks, stars, and integrations are left out on purpose.
 const ACTION_DESCRIPTIONS: Partial<Record<ActionType, string>> = {
   [ActionType.LABEL]: "label",
   [ActionType.ARCHIVE]: "archive (removes it from the inbox)",
@@ -88,6 +88,7 @@ const ACTION_DESCRIPTIONS: Partial<Record<ActionType, string>> = {
   [ActionType.REPLY]: "send a reply",
   [ActionType.SEND_EMAIL]: "send an email",
   [ActionType.FORWARD]: "forward",
+  [ActionType.DRAFT_EMAIL]: "draft a reply",
 };
 
 // Tells the rule picker what a match will do, so it can be more careful with

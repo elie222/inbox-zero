@@ -738,6 +738,11 @@ const ruleContextVariants = [
 
 describe.runIf(shouldRunEval)("Eval: Choose Rule", () => {
   const evalReporter = createEvalReporter({ evalName: "choose-rule" });
+  // The stripped-actions arm is reported separately so the headline numbers
+  // and history only reflect the prompt that ships.
+  const baselineReporter = createEvalReporter({
+    evalName: "choose-rule-without-actions",
+  });
 
   describeEvalMatrix("choose-rule", (model, emailAccount) => {
     for (const variant of ruleContextVariants) {
@@ -773,7 +778,7 @@ describe.runIf(shouldRunEval)("Eval: Choose Rule", () => {
             const pass =
               acceptable.includes(actual) && forbiddenSelected.length === 0;
 
-            evalReporter.record({
+            (variant.gate ? evalReporter : baselineReporter).record({
               testName,
               model: model.label,
               pass,
@@ -909,5 +914,6 @@ describe.runIf(shouldRunEval)("Eval: Choose Rule", () => {
 
   afterAll(() => {
     evalReporter.printReport();
+    baselineReporter.printReport();
   });
 });
