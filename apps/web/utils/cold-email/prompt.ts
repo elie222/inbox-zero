@@ -1,4 +1,4 @@
-export const DEFAULT_COLD_EMAIL_PROMPT = `Cold emails are unsolicited outreach from someone you have no existing relationship with, sent to get something from you rather than because you need it. The aim is to recognise outreach that doesn't matter to you while not mistaking outreach that does.
+export const DEFAULT_COLD_EMAIL_PROMPT = `Cold emails are unsolicited outreach from someone you have no existing relationship with, sent to get something from you rather than because you need it. The aim is to recognize outreach that doesn't matter to you while not mistaking outreach that does.
 
 Examples of cold emails:
 - Sell a product or service (e.g., agency pitching their services)
