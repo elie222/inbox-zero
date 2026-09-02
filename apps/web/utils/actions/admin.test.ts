@@ -1,29 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
-import type { PremiumAdminBackfill } from "@/ee/billing/lemon/admin";
 import {
-  adminBackfillPremiumAdminsAction,
   adminSyncAppleSubscriptionForUserAction,
   adminSyncStripeForUserAction,
 } from "./admin";
 
-const {
-  mockAuth,
-  mockConnectLemonCustomerAsAdmin,
-  mockConnectStripePurchaserAsAdmin,
-  mockGetStripe,
-  mockStripe,
-  mockSyncAppleSubscriptionToDb,
-  mockSyncStripeDataToDb,
-} = vi.hoisted(() => ({
-  mockAuth: vi.fn(),
-  mockConnectLemonCustomerAsAdmin: vi.fn(),
-  mockConnectStripePurchaserAsAdmin: vi.fn(),
-  mockGetStripe: vi.fn(),
-  mockStripe: {},
-  mockSyncAppleSubscriptionToDb: vi.fn(),
-  mockSyncStripeDataToDb: vi.fn(),
-}));
+const { mockAuth, mockSyncAppleSubscriptionToDb, mockSyncStripeDataToDb } =
+  vi.hoisted(() => ({
+    mockAuth: vi.fn(),
+    mockSyncAppleSubscriptionToDb: vi.fn(),
+    mockSyncStripeDataToDb: vi.fn(),
+  }));
 
 vi.mock("server-only", () => ({}));
 vi.mock("@sentry/nextjs", () => import("@/__tests__/mocks/sentry-nextjs.mock"));
@@ -38,209 +25,11 @@ vi.mock("@/env", () => ({
   },
 }));
 vi.mock("@/ee/billing/stripe/sync-stripe", () => ({
-  connectPurchaserAsAdmin: mockConnectStripePurchaserAsAdmin,
   syncStripeDataToDb: mockSyncStripeDataToDb,
-}));
-vi.mock("@/ee/billing/stripe", () => ({
-  getStripe: mockGetStripe,
-}));
-vi.mock("@/ee/billing/lemon/admin", () => ({
-  connectLemonCustomerAsAdmin: mockConnectLemonCustomerAsAdmin,
-  premiumAdminBackfillSelect: {
-    id: true,
-    stripeCustomerId: true,
-    lemonSqueezyCustomerId: true,
-    users: {
-      select: {
-        id: true,
-        email: true,
-        emailAccounts: { select: { email: true } },
-      },
-    },
-  },
 }));
 vi.mock("@/ee/billing/apple", () => ({
   syncAppleSubscriptionToDb: mockSyncAppleSubscriptionToDb,
 }));
-
-describe("adminBackfillPremiumAdminsAction", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockGetStripe.mockReturnValue(mockStripe);
-    mockAuth.mockResolvedValue({
-      user: { id: "admin-user", email: "admin@example.com" },
-    });
-  });
-
-  it("backfills Stripe and Lemon Squeezy purchasers", async () => {
-    mockPremiums([
-      {
-        id: "stripe-premium",
-        stripeCustomerId: "cus_123",
-        lemonSqueezyCustomerId: null,
-        users: [
-          {
-            id: "stripe-user",
-            email: "stripe@example.com",
-            emailAccounts: [],
-          },
-        ],
-      },
-      {
-        id: "lemon-premium",
-        stripeCustomerId: null,
-        lemonSqueezyCustomerId: 123,
-        users: [
-          {
-            id: "lemon-user",
-            email: "lemon@example.com",
-            emailAccounts: [],
-          },
-        ],
-      },
-    ]);
-    mockConnectStripePurchaserAsAdmin.mockResolvedValue(true);
-    mockConnectLemonCustomerAsAdmin.mockResolvedValue(true);
-
-    const result = await adminBackfillPremiumAdminsAction();
-
-    expect(result?.serverError).toBeUndefined();
-    expect(prisma.premium.findMany).toHaveBeenCalledWith({
-      where: {
-        OR: [
-          { stripeCustomerId: { not: null } },
-          { lemonSqueezyCustomerId: { not: null } },
-        ],
-        admins: { none: {} },
-        users: { some: {} },
-      },
-      select: {
-        id: true,
-        stripeCustomerId: true,
-        lemonSqueezyCustomerId: true,
-        users: {
-          select: {
-            id: true,
-            email: true,
-            emailAccounts: { select: { email: true } },
-          },
-        },
-      },
-    });
-    expect(mockConnectStripePurchaserAsAdmin).toHaveBeenCalledWith({
-      stripe: mockStripe,
-      customerId: "cus_123",
-      premium: expect.objectContaining({ id: "stripe-premium" }),
-      logger: expect.anything(),
-    });
-    expect(mockConnectLemonCustomerAsAdmin).toHaveBeenCalledWith({
-      customerId: 123,
-      premium: expect.objectContaining({ id: "lemon-premium" }),
-      logger: expect.anything(),
-    });
-    expect(result?.data).toEqual({ backfilled: 2, skipped: 0 });
-  });
-
-  it("uses Lemon Squeezy when Stripe cannot verify a hybrid customer", async () => {
-    mockPremiums([
-      {
-        id: "hybrid-premium",
-        stripeCustomerId: "cus_123",
-        lemonSqueezyCustomerId: 123,
-        users: [
-          {
-            id: "user-1",
-            email: "owner@example.com",
-            emailAccounts: [],
-          },
-        ],
-      },
-    ]);
-    mockConnectStripePurchaserAsAdmin.mockResolvedValue(false);
-    mockConnectLemonCustomerAsAdmin.mockResolvedValue(true);
-
-    const result = await adminBackfillPremiumAdminsAction();
-
-    expect(mockConnectLemonCustomerAsAdmin).toHaveBeenCalled();
-    expect(result?.data).toEqual({ backfilled: 1, skipped: 0 });
-  });
-
-  it("continues Lemon Squeezy backfills when Stripe cannot initialize", async () => {
-    mockPremiums([
-      {
-        id: "stripe-premium",
-        stripeCustomerId: "cus_123",
-        lemonSqueezyCustomerId: null,
-        users: [
-          {
-            id: "stripe-user",
-            email: "stripe-owner@example.com",
-            emailAccounts: [],
-          },
-        ],
-      },
-      {
-        id: "lemon-premium",
-        stripeCustomerId: null,
-        lemonSqueezyCustomerId: 123,
-        users: [
-          {
-            id: "user-1",
-            email: "owner@example.com",
-            emailAccounts: [],
-          },
-        ],
-      },
-    ]);
-    mockGetStripe.mockImplementation(() => {
-      throw new Error("Stripe unavailable");
-    });
-    mockConnectLemonCustomerAsAdmin.mockResolvedValue(true);
-
-    const result = await adminBackfillPremiumAdminsAction();
-
-    expect(mockConnectStripePurchaserAsAdmin).not.toHaveBeenCalled();
-    expect(mockConnectLemonCustomerAsAdmin).toHaveBeenCalledOnce();
-    expect(result?.data).toEqual({ backfilled: 1, skipped: 1 });
-  });
-
-  it("continues after provider errors and reports unresolved premiums", async () => {
-    mockPremiums([
-      {
-        id: "failed-premium",
-        stripeCustomerId: null,
-        lemonSqueezyCustomerId: 123,
-        users: [
-          {
-            id: "user-1",
-            email: "owner@example.com",
-            emailAccounts: [],
-          },
-        ],
-      },
-      {
-        id: "resolved-premium",
-        stripeCustomerId: null,
-        lemonSqueezyCustomerId: 456,
-        users: [
-          {
-            id: "user-2",
-            email: "owner-2@example.com",
-            emailAccounts: [],
-          },
-        ],
-      },
-    ]);
-    mockConnectLemonCustomerAsAdmin
-      .mockRejectedValueOnce(new Error("Provider unavailable"))
-      .mockResolvedValueOnce(true);
-
-    const result = await adminBackfillPremiumAdminsAction();
-
-    expect(mockConnectLemonCustomerAsAdmin).toHaveBeenCalledTimes(2);
-    expect(result?.data).toEqual({ backfilled: 1, skipped: 1 });
-  });
-});
 
 describe("adminSyncStripeForUserAction", () => {
   beforeEach(() => {
@@ -512,7 +301,3 @@ describe("adminSyncAppleSubscriptionForUserAction", () => {
     expect(mockSyncAppleSubscriptionToDb).not.toHaveBeenCalled();
   });
 });
-
-function mockPremiums(premiums: PremiumAdminBackfill[]) {
-  prisma.premium.findMany.mockResolvedValue(premiums as never);
-}
