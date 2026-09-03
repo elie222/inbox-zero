@@ -26,6 +26,9 @@ interface ProcessFilingReplyArgs {
   userEmail: string;
 }
 
+const FILING_ACTION_FAILURE_REPLY =
+  "I couldn't complete one or more requested filing changes. Please try again.";
+
 /**
  * Process a reply to a filebot notification email.
  * Uses the In-Reply-To header to find which notification was replied to,
@@ -88,11 +91,20 @@ export async function processFilingReply({
 
   const filingsById = new Map(filings.map((filing) => [filing.id, filing]));
   const processedFilingIds = new Set<string>();
+  let hadActionFailure = false;
 
   for (const action of parseResult.actions) {
     const filing = filingsById.get(action.filingId);
-    if (!filing || processedFilingIds.has(filing.id)) {
+    if (!filing) {
       logger.warn("Ignoring invalid filing reply action", {
+        filingId: action.filingId,
+      });
+      hadActionFailure = true;
+      continue;
+    }
+
+    if (processedFilingIds.has(filing.id)) {
+      logger.warn("Ignoring duplicate filing reply action", {
         filingId: action.filingId,
       });
       continue;
@@ -102,21 +114,26 @@ export async function processFilingReply({
     const filingLogger = logger.with({ filingId: filing.id });
 
     try {
-      await applyFilingReplyAction({
+      const actionSucceeded = await applyFilingReplyAction({
         action,
         emailAccountId,
         filing,
         logger: filingLogger,
       });
+      hadActionFailure ||= !actionSucceeded;
     } catch (error) {
       filingLogger.error("Failed to apply filing reply action", { error });
+      hadActionFailure = true;
     }
   }
 
-  if (parseResult.reply) {
+  const reply = hadActionFailure
+    ? FILING_ACTION_FAILURE_REPLY
+    : parseResult.reply;
+  if (reply) {
     const filebotReplyTo = getFilebotReplyTo({ userEmail });
     const filebotFrom = getFilebotFrom({ userEmail });
-    await emailProvider.replyToEmail(message, parseResult.reply, {
+    await emailProvider.replyToEmail(message, reply, {
       replyTo: filebotReplyTo,
       from: filebotFrom,
     });
@@ -164,7 +181,9 @@ async function handleUndo({
   fileId: string | null;
   driveConnection: DriveConnection;
   logger: Logger;
-}): Promise<void> {
+}): Promise<boolean> {
+  let fileMoved = true;
+
   // Move file to "To Delete" folder so user can easily find and delete
   if (fileId) {
     try {
@@ -184,6 +203,7 @@ async function handleUndo({
       await driveProvider.moveFile(fileId, toDeleteFolder.id);
     } catch (error) {
       logger.error("Failed to move file to To Delete folder", { error });
+      fileMoved = false;
     }
   }
 
@@ -191,6 +211,8 @@ async function handleUndo({
     where: { id: filingId },
     data: { status: "REJECTED" },
   });
+
+  return fileMoved;
 }
 
 async function handleMove({
@@ -215,15 +237,15 @@ async function handleMove({
   folderPath: string | null;
   emailAccountId: string;
   logger: Logger;
-}): Promise<void> {
+}): Promise<boolean> {
   if (!folderPath) {
     logger.warn("Move action but no folder path provided");
-    return;
+    return false;
   }
 
   if (!fileId) {
     logger.warn("Move action but no file ID available");
-    return;
+    return false;
   }
 
   try {
@@ -255,12 +277,14 @@ async function handleMove({
         correctedAt: new Date(),
       },
     });
+    return true;
   } catch (error) {
     logger.error("Error moving file", { error });
     await prisma.documentFiling.update({
       where: { id: filingId },
       data: { status: "ERROR" },
     });
+    return false;
   }
 }
 
@@ -361,21 +385,20 @@ async function applyFilingReplyAction({
   emailAccountId: string;
   filing: Awaited<ReturnType<typeof findFilingsFromThread>>[number];
   logger: Logger;
-}): Promise<void> {
+}): Promise<boolean> {
   switch (action.action) {
     case "approve":
       await handleApprove(filing.id);
-      break;
+      return true;
     case "undo":
-      await handleUndo({
+      return handleUndo({
         filingId: filing.id,
         fileId: filing.fileId,
         driveConnection: filing.driveConnection,
         logger,
       });
-      break;
     case "move":
-      await handleMove({
+      return handleMove({
         filingId: filing.id,
         fileId: filing.fileId,
         filingStatus: filing.status,
@@ -387,6 +410,5 @@ async function applyFilingReplyAction({
         emailAccountId,
         logger,
       });
-      break;
   }
 }

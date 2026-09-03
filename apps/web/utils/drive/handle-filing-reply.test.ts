@@ -151,7 +151,32 @@ describe("processFilingReply", () => {
     );
     expect(params.emailProvider.replyToEmail).toHaveBeenCalledWith(
       params.message,
+      expect.stringContaining("couldn't complete"),
+      expect.any(Object),
+    );
+    expect(params.emailProvider.replyToEmail).not.toHaveBeenCalledWith(
+      params.message,
       "Done",
+      expect.any(Object),
+    );
+  });
+
+  it("replaces confirmation when a requested move is incomplete", async () => {
+    const filings = getFilingBatch();
+    prisma.documentFiling.findFirst.mockResolvedValue(filings[0]);
+    prisma.documentFiling.findMany.mockResolvedValue(filings);
+    vi.mocked(aiParseFilingReply).mockResolvedValue({
+      actions: [{ filingId: "filing-1", action: "move", folderPath: null }],
+      reply: "Done",
+    });
+    const params = getReplyParams();
+
+    await processFilingReply(params);
+
+    expect(prisma.documentFiling.update).not.toHaveBeenCalled();
+    expect(params.emailProvider.replyToEmail).toHaveBeenCalledWith(
+      params.message,
+      expect.stringContaining("couldn't complete"),
       expect.any(Object),
     );
   });
