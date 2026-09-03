@@ -70,6 +70,9 @@ export const GET = withEmailProvider("threads/batch", async (request) => {
               id: thread.id,
               messageIds: thread.messages.map((message) => message.id),
               messages: filteredMessages,
+              participantMessages: thread.participantMessages?.filter(
+                (message) => !isIgnoredSender(message.headers.from),
+              ),
               snippet: thread.snippet,
               plan: undefined,
               plans: [],
