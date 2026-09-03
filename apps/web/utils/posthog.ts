@@ -478,6 +478,7 @@ export async function trackOnboardingAnswer(
     surveyGoal?: string;
     surveyCompanySize?: number;
     surveySource?: string;
+    surveyAiDiscoveryPrompt?: string;
     surveyImprovements?: string;
   },
 ) {

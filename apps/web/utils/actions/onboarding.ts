@@ -36,6 +36,7 @@ export const saveOnboardingAnswersAction = actionClientUser
           surveyGoal?: string;
           surveyCompanySize?: number;
           surveySource?: string;
+          surveyAiDiscoveryPrompt?: string;
           surveyImprovements?: string;
         } = {};
 
@@ -99,6 +100,14 @@ export const saveOnboardingAnswersAction = actionClientUser
         const sourceAnswer = getAnswerByKey("source");
         if (sourceAnswer && sourceAnswer !== "undefined") {
           result.surveySource = sourceAnswer;
+        }
+
+        const aiDiscoveryPromptAnswer = getAnswerByKey("ai_discovery_prompt");
+        if (
+          aiDiscoveryPromptAnswer &&
+          aiDiscoveryPromptAnswer !== "undefined"
+        ) {
+          result.surveyAiDiscoveryPrompt = aiDiscoveryPromptAnswer;
         }
 
         const improvementsAnswer = getAnswerByKey("improvements");

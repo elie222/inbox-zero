@@ -86,16 +86,30 @@ const SOURCES = [
 export function StepHowYouHeard({ onNext }: { onNext: () => void }) {
   const { executeAsync: saveSource } = useAction(saveOnboardingAnswersAction);
   const [showOtherInput, setShowOtherInput] = useState(false);
+  const [showAiPromptInput, setShowAiPromptInput] = useState(false);
   const [customSource, setCustomSource] = useState("");
+  const [aiDiscoveryPrompt, setAiDiscoveryPrompt] = useState("");
 
   const submitSource = useCallback(
-    (source: string) => {
+    (source: string, discoveryPrompt?: string) => {
+      const trimmedDiscoveryPrompt = discoveryPrompt?.trim();
+
       onNext();
 
       saveSource({
         surveyId: "onboarding",
-        questions: [{ key: "source", type: "single_choice" }],
-        answers: { $survey_response: source },
+        questions: [
+          { key: "source", type: "single_choice" },
+          ...(trimmedDiscoveryPrompt
+            ? [{ key: "ai_discovery_prompt", type: "open" }]
+            : []),
+        ],
+        answers: {
+          $survey_response: source,
+          ...(trimmedDiscoveryPrompt
+            ? { $survey_response_1: trimmedDiscoveryPrompt }
+            : {}),
+        },
       })
         .then((result) => {
           if (result?.serverError || result?.validationErrors) {
@@ -137,9 +151,17 @@ export function StepHowYouHeard({ onNext }: { onNext: () => void }) {
   const onSelectSource = useCallback(
     (value: string) => {
       if (value === OTHER_VALUE) {
+        setShowAiPromptInput(false);
         setShowOtherInput(true);
         return;
       }
+      if (value === "llm") {
+        setShowOtherInput(false);
+        setShowAiPromptInput(true);
+        return;
+      }
+      setShowAiPromptInput(false);
+      setShowOtherInput(false);
       submitSource(value);
     },
     [submitSource],
@@ -194,6 +216,36 @@ export function StepHowYouHeard({ onNext }: { onNext: () => void }) {
               className="w-full"
               disabled={!customSource.trim()}
             >
+              Continue
+              <ArrowRightIcon className="size-4 ml-2" />
+            </Button>
+          </div>
+        </form>
+      )}
+
+      {showAiPromptInput && (
+        <form
+          className="mt-4 space-y-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            submitSource("llm", aiDiscoveryPrompt);
+          }}
+        >
+          <Input
+            name="aiDiscoveryPrompt"
+            type="text"
+            label="What did you ask the AI? (optional)"
+            placeholder="Paste the prompt that led you to Inbox Zero"
+            registerProps={{
+              value: aiDiscoveryPrompt,
+              maxLength: 500,
+              onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
+                setAiDiscoveryPrompt(event.target.value),
+              autoFocus: true,
+            }}
+          />
+          <div className="flex w-full max-w-xs mx-auto">
+            <Button type="submit" className="w-full">
               Continue
               <ArrowRightIcon className="size-4 ml-2" />
             </Button>

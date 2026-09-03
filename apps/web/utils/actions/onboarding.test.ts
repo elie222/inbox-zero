@@ -75,6 +75,28 @@ describe("saveOnboardingAnswersAction", () => {
     expect(trackOnboardingAnswerMock).toHaveBeenCalled();
   });
 
+  it("tracks the discovery prompt for AI-referred signups", async () => {
+    prisma.user.update.mockResolvedValue({ id: "user-1" } as any);
+
+    const result = await saveOnboardingAnswersAction({
+      surveyId: "onboarding",
+      questions: [
+        { key: "source", type: "single_choice" },
+        { key: "ai_discovery_prompt", type: "open" },
+      ],
+      answers: {
+        $survey_response: "llm",
+        $survey_response_1: "best open source AI email assistant",
+      },
+    });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(trackOnboardingAnswerMock).toHaveBeenCalledWith("user@example.com", {
+      surveySource: "llm",
+      surveyAiDiscoveryPrompt: "best open source AI email assistant",
+    });
+  });
+
   it("does not schedule side effects when the DB update fails", async () => {
     prisma.user.update.mockRejectedValue(new Error("db down"));
 
