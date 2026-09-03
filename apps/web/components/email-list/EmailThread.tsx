@@ -15,6 +15,7 @@ import {
   type ReplyDraftMode,
 } from "@/utils/email-cache/reply-drafts";
 import type { StoredReplyDraft } from "@/utils/email-cache/database";
+import { internalDateToDate } from "@/utils/date";
 import { GmailLabel } from "@/utils/gmail/label";
 
 export function EmailThread({
@@ -51,30 +52,10 @@ export function EmailThread({
   const { emailAccountId } = useAccount();
   const threadId = messages[0]?.threadId ?? "";
   const { drafts: localDrafts } = useReplyDrafts(emailAccountId, threadId);
-  // Place draft messages as replies to their parent message
-  const organizedMessages = useMemo(() => {
-    const drafts = new Map<string, ThreadMessage>();
-    const regularMessages: ThreadMessage[] = [];
-
-    messages?.forEach((message) => {
-      if (message.labelIds?.includes("DRAFT")) {
-        // Get the parent message ID from the references or in-reply-to header
-        const parentId =
-          message.headers.references?.split(" ").pop() ||
-          message.headers["in-reply-to"];
-        if (parentId) {
-          drafts.set(parentId, message);
-        }
-      } else {
-        regularMessages.push(message);
-      }
-    });
-
-    return regularMessages.map((message) => ({
-      message,
-      draftMessage: drafts.get(message.headers["message-id"] || ""),
-    }));
-  }, [messages]);
+  const organizedMessages = useMemo(
+    () => organizeThreadMessages(messages),
+    [messages],
+  );
 
   const lastMessageId = organizedMessages.at(-1)?.message.id;
 
@@ -337,4 +318,58 @@ function getDefaultComposeMode({
   if (autoOpenMode) return autoOpenMode;
   if (draftMessage) return "reply" as const;
   return localDraftMode;
+}
+
+// Drafts render inline under the message they reply to, so each one has to be
+// matched to a parent. Outlook thread messages never carry a References header
+// and only expose In-Reply-To when full internet headers are fetched, which the
+// thread query does not select, so its drafts arrive with nothing to match on.
+// A draft still belongs to this thread, so anything unmatched falls back to the
+// message a reply would target: the most recent one.
+//
+// EmailMessage only accepts a single draftMessage, so when multiple drafts
+// resolve to the same parent we keep the most recent by internalDate.
+export function organizeThreadMessages(messages: ThreadMessage[] | undefined) {
+  const drafts: ThreadMessage[] = [];
+  const regularMessages: ThreadMessage[] = [];
+
+  for (const message of messages ?? []) {
+    if (message.labelIds?.includes("DRAFT")) drafts.push(message);
+    else regularMessages.push(message);
+  }
+
+  const draftsByMessageId = new Map<string, ThreadMessage[]>();
+  for (const draft of drafts) {
+    const parentId =
+      draft.headers.references?.split(" ").pop() ||
+      draft.headers["in-reply-to"];
+    const parent = parentId
+      ? regularMessages.find(
+          (message) => message.headers["message-id"] === parentId,
+        )
+      : undefined;
+    const target = parent ?? regularMessages.at(-1);
+    if (!target) continue;
+    const existing = draftsByMessageId.get(target.id);
+    if (existing) existing.push(draft);
+    else draftsByMessageId.set(target.id, [draft]);
+  }
+
+  return regularMessages.map((message) => ({
+    message,
+    draftMessage: pickMostRecentDraft(draftsByMessageId.get(message.id)),
+  }));
+}
+
+function pickMostRecentDraft(drafts: ThreadMessage[] | undefined) {
+  if (!drafts?.length) return;
+  return drafts.reduce((latest, draft) =>
+    draftRecency(draft) >= draftRecency(latest) ? draft : latest,
+  );
+}
+
+function draftRecency(draft: ThreadMessage) {
+  const value = draft.internalDate ?? draft.headers.date;
+  const time = internalDateToDate(value, { fallbackToNow: false }).getTime();
+  return Number.isNaN(time) ? 0 : time;
 }
