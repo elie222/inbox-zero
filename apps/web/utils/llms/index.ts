@@ -60,7 +60,11 @@ import {
   shouldForceNanoModel,
 } from "@/utils/llms/model-usage-guard";
 import { Provider } from "@/utils/llms/config";
-import { createClaudeCodeLanguageModelWithBridgedTools } from "@/utils/llms/cli-provider";
+import {
+  createClaudeCodeLanguageModelWithBridgedTools,
+  createGrokCliLanguageModelWithBridgedTools,
+} from "@/utils/llms/cli-provider";
+import type { McpBridgedTool } from "@/utils/llms/grok-mcp-bridge";
 import {
   appendOllamaOnlySystemGuidance,
   OLLAMA_STRUCTURED_OUTPUT_GUIDANCE,
@@ -89,11 +93,9 @@ const logger = createScopedLogger("llms");
 
 const MAX_LOG_LENGTH = 200;
 
-// The Claude Code CLI provider drops AI SDK tools at the LanguageModelV3
-// boundary. Route tool-bearing calls through the package's MCP bridge so the
-// CLI can execute them locally; clear `tools` so the AI SDK does not also try
-// to drive them. No-op for every other provider and for tool-less calls.
-async function bridgeClaudeCodeToolsIfNeeded<T extends Record<string, Tool>>({
+// Inbox Zero tools are the only app-executed tools on CLI providers. Grok's
+// bridge is request-scoped, so retries must not reuse a closed listener.
+async function bridgeCliToolsIfNeeded<T extends Record<string, Tool>>({
   provider,
   modelName,
   model,
@@ -109,12 +111,15 @@ async function bridgeClaudeCodeToolsIfNeeded<T extends Record<string, Tool>>({
   model: LanguageModelV3;
   tools: T | undefined;
   bridged: boolean;
+  callOptions: { maxRetries?: number };
 }> {
-  if (provider !== Provider.CLAUDE_CODE)
-    return { model, tools, bridged: false };
+  if (provider !== Provider.CLAUDE_CODE && provider !== Provider.GROK_CLI)
+    return { model, tools, bridged: false, callOptions: {} };
   if (!tools || Object.keys(tools).length === 0) {
-    return { model, tools, bridged: false };
+    return { model, tools, bridged: false, callOptions: {} };
   }
+
+  const callOptions = provider === Provider.GROK_CLI ? { maxRetries: 0 } : {};
 
   const activeToolSet =
     activeTools === undefined ? undefined : new Set(activeTools);
@@ -126,21 +131,18 @@ async function bridgeClaudeCodeToolsIfNeeded<T extends Record<string, Tool>>({
         ) as T);
 
   if (Object.keys(toolsToBridge).length === 0) {
-    return { model, tools: undefined, bridged: true };
+    return { model, tools: undefined, bridged: true, callOptions };
   }
 
-  const bridged = await createClaudeCodeLanguageModelWithBridgedTools({
+  const createBridgedModel =
+    provider === Provider.GROK_CLI
+      ? createGrokCliLanguageModelWithBridgedTools
+      : createClaudeCodeLanguageModelWithBridgedTools;
+  const bridged = await createBridgedModel({
     modelName,
-    tools: toolsToBridge as unknown as Record<
-      string,
-      {
-        description?: string;
-        inputSchema: unknown;
-        execute?: (input: never, options?: unknown) => unknown;
-      }
-    >,
+    tools: toolsToBridge as unknown as Record<string, McpBridgedTool>,
   });
-  return { model: bridged, tools: undefined, bridged: true };
+  return { model: bridged, tools: undefined, bridged: true, callOptions };
 }
 
 function prepareOptionsForToolBridge<TOptions extends { tools?: unknown }>({
@@ -331,7 +333,7 @@ export function createGenerateText({
         emailAccountId: emailAccount.id,
       });
 
-      const bridged = await bridgeClaudeCodeToolsIfNeeded({
+      const bridged = await bridgeCliToolsIfNeeded({
         provider: candidate.provider,
         modelName: candidate.modelName,
         model: candidate.model,
@@ -348,6 +350,7 @@ export function createGenerateText({
           ...(bridged.tools ? { tools: bridged.tools } : {}),
           ...commonOptions,
           providerOptions,
+          ...bridged.callOptions,
           model: withPosthogTracing({
             model: bridged.model,
             userEmail: emailAccount.email,
@@ -764,7 +767,7 @@ export async function chatCompletionStream(
       userId,
       emailAccountId,
     });
-    const bridgedChat = await bridgeClaudeCodeToolsIfNeeded({
+    const bridgedChat = await bridgeCliToolsIfNeeded({
       provider: candidate.provider,
       modelName: candidate.modelName,
       model: candidate.model,
@@ -787,6 +790,7 @@ export async function chatCompletionStream(
         tools: bridgedChat.tools,
         stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
         ...commonOptions,
+        ...bridgedChat.callOptions,
         providerOptions: providerOptions,
         experimental_transform: smoothStream({ chunking: "word" }),
         onStepFinish,
@@ -921,7 +925,7 @@ export async function toolCallAgentStream(options: ToolCallAgentStreamOptions) {
       userId,
       emailAccountId,
     });
-    const bridgedAgent = await bridgeClaudeCodeToolsIfNeeded({
+    const bridgedAgent = await bridgeCliToolsIfNeeded({
       provider: candidate.provider,
       modelName: candidate.modelName,
       model: candidate.model,
@@ -974,6 +978,7 @@ export async function toolCallAgentStream(options: ToolCallAgentStreamOptions) {
       stopWhen: stopWhen ?? (maxSteps ? stepCountIs(maxSteps) : undefined),
       temperature,
       ...commonOptions,
+      ...bridgedAgent.callOptions,
       providerOptions,
       onFinish: async (result) => {
         const usagePromise = saveUsageWithMetadata({
