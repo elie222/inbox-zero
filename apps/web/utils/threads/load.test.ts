@@ -125,11 +125,11 @@ describe("loadThreads", () => {
       emailProvider: emailProvider as never,
       messageFormat: "metadata",
     });
-    const listThread = toListThreads(loaded).threads[0];
+    const listThread = toListThreads(loaded).threads.at(0);
 
-    expect(loaded.threads[0]?.messages.map((message) => message.id)).toEqual([
-      "visible-message",
-    ]);
+    expect(loaded.threads.at(0)?.messages.map((message) => message.id)).toEqual(
+      ["visible-message"],
+    );
     expect(listThread?.messageIds).toEqual([
       "visible-message",
       "hidden-message",

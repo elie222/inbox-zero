@@ -441,13 +441,23 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
     } satisfies Message;
     const client = createMockOutlookClient([inboxMessage], {
       categoryMapCache: new Map(),
-      batchPost: ({ requests }) => ({
-        responses: requests.map((request) => ({
-          id: request.id,
-          status: 200,
-          body: { value: [inboxMessage, sentReply] },
-        })),
-      }),
+      batchPost: ({ requests }) => {
+        const requestUrl = new URL(
+          requests.at(0)!.url,
+          "https://graph.microsoft.com",
+        );
+        expect(requestUrl.searchParams.get("$filter")).toBe(
+          "conversationId eq 'thread-1'",
+        );
+
+        return {
+          responses: requests.map((request) => ({
+            id: request.id,
+            status: 200,
+            body: { value: [inboxMessage, sentReply] },
+          })),
+        };
+      },
     });
     const provider = new OutlookProvider(client, createTestLogger());
 
