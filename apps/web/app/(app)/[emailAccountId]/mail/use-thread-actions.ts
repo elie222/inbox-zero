@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
@@ -28,6 +28,8 @@ type ThreadSnapshot = {
   threadId: string;
 };
 
+type ThreadActionTarget = Omit<ThreadSnapshot, "mutationId">;
+
 type UndoableBatch = {
   action: UndoableAction;
   snapshots: ThreadSnapshot[];
@@ -36,42 +38,51 @@ type UndoableBatch = {
 
 export function useThreadActions({
   emailAccountId,
+  readerTarget,
   threads,
 }: {
   emailAccountId: string;
+  readerTarget?: ThreadActionTarget;
   threads: ListThread[];
 }) {
   const lastAction = useRef<UndoableBatch | null>(null);
   const retainedEmailAccountId = useRef(emailAccountId);
-  const threadsByKey = useRef(new Map<string, ListThread>());
-  if (retainedEmailAccountId.current !== emailAccountId) {
-    retainedEmailAccountId.current = emailAccountId;
-    threadsByKey.current.clear();
-    lastAction.current = null;
-  }
-  for (const thread of threads) {
-    threadsByKey.current.set(getListThreadKey(thread), thread);
-  }
+  const listTargetsByKey = useRef(new Map<string, ThreadActionTarget>());
+  const activeReaderTarget = useRef<ThreadActionTarget | undefined>(undefined);
+  useEffect(() => {
+    if (retainedEmailAccountId.current !== emailAccountId) {
+      retainedEmailAccountId.current = emailAccountId;
+      listTargetsByKey.current.clear();
+      lastAction.current = null;
+    }
+    activeReaderTarget.current = readerTarget?.messageIds.length
+      ? readerTarget
+      : undefined;
+    for (const thread of threads) {
+      const messageIds = [...new Set(getListThreadMessageIds(thread))];
+      if (!messageIds.length) continue;
+      const key = getListThreadKey(thread);
+      listTargetsByKey.current.set(key, {
+        emailAccountId: getListThreadEmailAccountId(thread, emailAccountId),
+        key,
+        messageIds,
+        threadId: thread.id,
+      });
+    }
+  }, [emailAccountId, readerTarget, threads]);
 
   const resolveTargets = useCallback(
     (threadKeys: string[]) =>
       threadKeys
         .map((key) => {
-          const thread = threadsByKey.current.get(key);
-          if (!thread) return;
-          const messageIds = [...new Set(getListThreadMessageIds(thread))];
-          if (!messageIds.length) return;
-          return {
-            emailAccountId: getListThreadEmailAccountId(thread, emailAccountId),
-            key,
-            messageIds,
-            threadId: thread.id,
-          };
+          const listTarget = listTargetsByKey.current.get(key);
+          if (listTarget) return listTarget;
+          return activeReaderTarget.current?.key === key
+            ? activeReaderTarget.current
+            : undefined;
         })
-        .filter((target): target is Omit<ThreadSnapshot, "mutationId"> =>
-          Boolean(target),
-        ),
-    [emailAccountId],
+        .filter((target): target is ThreadActionTarget => Boolean(target)),
+    [],
   );
 
   const enqueueTargets = useCallback(
@@ -252,6 +263,30 @@ export function useThreadActions({
     [enqueueTargets, resolveTargets],
   );
 
+  const markSpam = useCallback(
+    async (threadKeys: string[]) => {
+      const targets = resolveTargets(threadKeys);
+      const snapshots = await enqueueTargets(targets, { kind: "spam" });
+      const failedCount = threadKeys.length - snapshots.length;
+      if (snapshots.length) {
+        toast.success(
+          snapshots.length === 1
+            ? "Marked as spam"
+            : `Marked ${snapshots.length} conversations as spam`,
+        );
+      }
+      if (failedCount) {
+        toast.error(
+          failedCount === threadKeys.length
+            ? "Couldn't queue marking as spam"
+            : `Couldn't queue ${failedCount} of ${threadKeys.length} as spam`,
+        );
+      }
+      return snapshots.map((snapshot) => snapshot.key);
+    },
+    [enqueueTargets, resolveTargets],
+  );
+
   return {
     archive: useCallback(
       (threadKeys: string[]) => runUndoable("archive", threadKeys),
@@ -265,6 +300,7 @@ export function useThreadActions({
       (threadKeys: string[]) => setReadState(threadKeys, true, false),
       [setReadState],
     ),
+    markSpam,
     setReadState,
     snooze,
     undo,

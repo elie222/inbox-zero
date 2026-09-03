@@ -16,12 +16,9 @@ async function getThread(
   parseReplies: boolean,
   emailProvider: EmailProvider,
 ) {
-  const thread = await emailProvider.getThread(id);
+  const thread = await emailProvider.getThread(id, { includeDrafts });
 
-  let filteredMessages = includeDrafts
-    ? thread.messages
-    : thread.messages.filter((msg) => !msg.labelIds?.includes("DRAFT"));
-
+  let filteredMessages = thread.messages;
   if (parseReplies) {
     filteredMessages = filteredMessages.map(parseMessageReply);
   }

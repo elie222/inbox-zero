@@ -16,7 +16,6 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 
-/** Display grouping only — "To reply" is a LABEL split that belongs under State. */
 export type NewSplitOptionGroup = "state" | "inbox" | "category" | "label";
 
 export type NewSplitOption = {
@@ -40,33 +39,47 @@ export type NewSplitPopoverProps = {
   onCreate: (draft: NewSplitDraft) => void;
   /** Resolves a free-text description into a split. Returns whether it succeeded. */
   onCreateFromPrompt: (prompt: string) => Promise<boolean>;
+  canAddDefaultSplits: boolean;
+  canRemoveDefaultSplits: boolean;
+  onSetDefaultSplits: (enabled: boolean) => Promise<boolean>;
 };
 
-const GROUP_TITLES: { group: NewSplitOptionGroup; title: string }[] = [
-  { group: "state", title: "State" },
+const GROUPS = [
+  { group: "state", title: undefined },
+  { group: "label", title: "Labels" },
   { group: "inbox", title: "Inbox" },
-  { group: "category", title: "Category" },
-  { group: "label", title: "Label" },
-];
+  { group: "category", title: "Categories" },
+] as const satisfies readonly {
+  group: NewSplitOptionGroup;
+  title?: string;
+}[];
 
 export function NewSplitPopover({
   options,
   onCreate,
   onCreateFromPrompt,
+  canAddDefaultSplits,
+  canRemoveDefaultSplits,
+  onSetDefaultSplits,
 }: NewSplitPopoverProps) {
   const [open, setOpen] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [isCreating, setIsCreating] = useState(false);
+  const [isUpdatingDefaults, setIsUpdatingDefaults] = useState(false);
+  const isBusy = isCreating || isUpdatingDefaults;
   const trimmedPrompt = prompt.trim();
   const normalizedPrompt = trimmedPrompt.toLowerCase();
-  const hasMatchingOption = options.some((option) => {
-    const groupTitle = GROUP_TITLES.find(
-      ({ group }) => group === option.group,
-    )?.title;
-    return `${option.name} ${groupTitle ?? ""}`
-      .toLowerCase()
-      .includes(normalizedPrompt);
-  });
+  const hasMatchingOption =
+    options.some((option) => {
+      const groupTitle = GROUPS.find(
+        ({ group }) => group === option.group,
+      )?.title;
+      return `${option.name} ${groupTitle ?? ""}`
+        .toLowerCase()
+        .includes(normalizedPrompt);
+    }) ||
+    (canAddDefaultSplits && "add all labels".includes(normalizedPrompt)) ||
+    (canRemoveDefaultSplits && "remove all labels".includes(normalizedPrompt));
 
   const changeOpen = (next: boolean) => {
     setOpen(next);
@@ -74,7 +87,7 @@ export function NewSplitPopover({
   };
 
   const createFromPrompt = async () => {
-    if (!trimmedPrompt || isCreating) return;
+    if (!trimmedPrompt || isBusy) return;
     setIsCreating(true);
     try {
       const created = await onCreateFromPrompt(trimmedPrompt);
@@ -85,13 +98,24 @@ export function NewSplitPopover({
   };
 
   const createFromOption = (option: NewSplitOption) => {
-    if (isCreating) return;
+    if (isBusy) return;
     onCreate({
       name: option.name,
       kind: option.kind,
       value: option.value,
     });
     changeOpen(false);
+  };
+
+  const updateDefaultSplits = async (enabled: boolean) => {
+    if (isBusy) return;
+    setIsUpdatingDefaults(true);
+    try {
+      const updated = await onSetDefaultSplits(enabled);
+      if (updated) changeOpen(false);
+    } finally {
+      setIsUpdatingDefaults(false);
+    }
   };
 
   return (
@@ -110,7 +134,7 @@ export function NewSplitPopover({
             placeholder="Search or describe a split"
             aria-label="Search or describe a split"
             maxLength={300}
-            disabled={isCreating}
+            disabled={isBusy}
             className="h-9 text-xs"
           />
           <CommandList className="max-h-56">
@@ -120,7 +144,7 @@ export function NewSplitPopover({
                   forceMount
                   value={`create:${trimmedPrompt}`}
                   onSelect={createFromPrompt}
-                  disabled={isCreating}
+                  disabled={isBusy}
                   className="gap-2 text-xs"
                 >
                   {isCreating ? (
@@ -135,21 +159,46 @@ export function NewSplitPopover({
               </CommandGroup>
             )}
 
-            {GROUP_TITLES.map(({ group, title }) => {
+            {GROUPS.map(({ group, title }) => {
               const groupOptions = options.filter(
                 (option) => option.group === group,
               );
-              if (!groupOptions.length) return null;
+              const showDefaultControls =
+                group === "label" &&
+                (canAddDefaultSplits || canRemoveDefaultSplits);
+              if (!groupOptions.length && !showDefaultControls) return null;
 
               return (
                 <CommandGroup key={group} heading={title}>
+                  {canAddDefaultSplits && group === "label" && (
+                    <CommandItem
+                      value="default-labels:add"
+                      keywords={["Add all", "Labels"]}
+                      onSelect={() => updateDefaultSplits(true)}
+                      disabled={isBusy}
+                      className="text-primary text-xs"
+                    >
+                      Add all
+                    </CommandItem>
+                  )}
+                  {canRemoveDefaultSplits && group === "label" && (
+                    <CommandItem
+                      value="default-labels:remove"
+                      keywords={["Remove all", "Labels"]}
+                      onSelect={() => updateDefaultSplits(false)}
+                      disabled={isBusy}
+                      className="text-primary text-xs"
+                    >
+                      Remove all
+                    </CommandItem>
+                  )}
                   {groupOptions.map((option) => (
                     <CommandItem
                       key={option.id}
                       value={option.id}
-                      keywords={[option.name, title]}
+                      keywords={title ? [option.name, title] : [option.name]}
                       onSelect={() => createFromOption(option)}
-                      disabled={isCreating}
+                      disabled={isBusy}
                       className="text-xs"
                     >
                       {option.name}

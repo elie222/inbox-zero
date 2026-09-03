@@ -15,13 +15,83 @@ describe("splitEmailContent", () => {
     });
   });
 
-  it("collapses an Outlook reply header and all content after it", () => {
+  it("collapses a provider-prefixed Outlook reply header and all later content", () => {
     const result = splitEmailContent(
       [
         "<div>Current reply</div>",
-        '<div id="divRplyFwdMsg"><hr><b>From:</b> Previous sender</div>',
+        '<div id="m_123_x_divRplyFwdMsg"><hr><b>From:</b> Previous sender</div>',
         "<div>Earlier message</div>",
         "<blockquote>Oldest message</blockquote>",
+      ].join(""),
+    );
+
+    expect(result).toEqual({
+      mainContent: "<div>Current reply</div>",
+      hasQuotedContent: true,
+    });
+  });
+
+  it("collapses an Outlook desktop reply header without a provider id", () => {
+    const result = splitEmailContent(
+      [
+        '<div class="WordSection1">',
+        '<p class="MsoNormal">Current reply</p>',
+        '<div style="border:none;border-top:solid #E1E1E1 1.0pt;padding:3.0pt 0in 0in 0in">',
+        '<p class="MsoNormal"><b>From:</b> Previous sender<br><b>Sent:</b> Earlier</p>',
+        "</div>",
+        '<p class="MsoNormal">Earlier message</p>',
+        "</div>",
+      ].join(""),
+    );
+
+    expect(result).toEqual({
+      mainContent:
+        '<div class="WordSection1"><p class="MsoNormal">Current reply</p></div>',
+      hasQuotedContent: true,
+    });
+  });
+
+  it("collapses an equivalent Outlook reply style inside a wrapper", () => {
+    const result = splitEmailContent(
+      [
+        '<div class="WordSection1">',
+        '<p class="MsoNormal">Current reply</p>',
+        "<div>",
+        '<div style="padding: 3pt 0cm 0cm 0cm; border-top: 1.0pt solid rgb(225, 225, 225)">',
+        '<p class="MsoNormal"><b>Header one:</b> Value<br><b>Header two:</b> Value</p>',
+        "</div>",
+        '<p class="MsoNormal">Earlier message</p>',
+        "</div>",
+        "</div>",
+      ].join(""),
+    );
+
+    expect(result.hasQuotedContent).toBe(true);
+    expect(result.mainContent).toContain("Current reply");
+    expect(result.mainContent).not.toContain("Earlier message");
+  });
+
+  it("preserves an Outlook-styled divider that is not a reply header", () => {
+    const html = [
+      '<div class="WordSection1">',
+      "<div>First section</div>",
+      '<div style="border-top:solid #E1E1E1 1.0pt">Second section</div>',
+      "<div>Final section</div>",
+      "</div>",
+    ].join("");
+
+    expect(splitEmailContent(html)).toEqual({
+      mainContent: html,
+      hasQuotedContent: false,
+    });
+  });
+
+  it("collapses a provider-prefixed append-on-send marker", () => {
+    const result = splitEmailContent(
+      [
+        "<div>Current reply</div>",
+        '<div id="m_123_x_appendonsend"></div>',
+        "<div>Earlier message</div>",
       ].join(""),
     );
 

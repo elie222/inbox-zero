@@ -1,6 +1,7 @@
 "use client";
 
 import { XIcon } from "lucide-react";
+import { useEffect, useRef } from "react";
 import {
   type NewSplitDraft,
   type NewSplitOption,
@@ -25,6 +26,9 @@ export type SplitTabsProps = {
   newSplitOptions: NewSplitOption[];
   onCreateSplit: (draft: NewSplitDraft) => void;
   onCreateSplitFromPrompt: (prompt: string) => Promise<boolean>;
+  canAddDefaultSplits: boolean;
+  canRemoveDefaultSplits: boolean;
+  onSetDefaultSplits: (enabled: boolean) => Promise<boolean>;
   /** Split creation stays account-scoped, so it is hidden in All accounts. */
   canCreateSplits: boolean;
   className?: string;
@@ -38,11 +42,33 @@ export function SplitTabs({
   newSplitOptions,
   onCreateSplit,
   onCreateSplitFromPrompt,
+  canAddDefaultSplits,
+  canRemoveDefaultSplits,
+  onSetDefaultSplits,
   canCreateSplits,
   className,
 }: SplitTabsProps) {
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const activeTabRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const tabs = tabsRef.current;
+    const focusedTab = document.activeElement;
+    if (
+      !activeSplitId ||
+      !(focusedTab instanceof HTMLButtonElement) ||
+      !tabs?.contains(focusedTab) ||
+      !focusedTab.hasAttribute("data-split-tab")
+    ) {
+      return;
+    }
+
+    activeTabRef.current?.focus({ preventScroll: true });
+  }, [activeSplitId]);
+
   return (
     <div
+      ref={tabsRef}
       className={cn(
         // Padded to sit under the toolbar's search field rather than against
         // the column edge, and ruled off so the tabs read as a header for the
@@ -66,6 +92,8 @@ export function SplitTabs({
           >
             <button
               type="button"
+              ref={active ? activeTabRef : undefined}
+              data-split-tab
               onClick={() => onSelect(split.id)}
               aria-current={active ? "true" : undefined}
               className="py-0.5 pr-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -91,6 +119,9 @@ export function SplitTabs({
           options={newSplitOptions}
           onCreate={onCreateSplit}
           onCreateFromPrompt={onCreateSplitFromPrompt}
+          canAddDefaultSplits={canAddDefaultSplits}
+          canRemoveDefaultSplits={canRemoveDefaultSplits}
+          onSetDefaultSplits={onSetDefaultSplits}
         />
       )}
 

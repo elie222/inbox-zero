@@ -96,6 +96,7 @@ import type {
   BulkArchiveThread,
   BulkArchiveResult,
   EmailLabelUpdate,
+  GetThreadOptions,
 } from "@/utils/email/types";
 import type { SendEmailBody } from "@/utils/types/mail";
 import { createScopedLogger, type Logger } from "@/utils/logger";
@@ -146,16 +147,23 @@ export class GmailProvider implements EmailProvider {
     });
   }
 
-  async getThread(threadId: string): Promise<EmailThread> {
+  async getThread(
+    threadId: string,
+    options?: GetThreadOptions,
+  ): Promise<EmailThread> {
     return this.withRateLimitTracking("get-thread", async () => {
       const response = await this.client.users.threads.get({
         userId: "me",
         id: threadId,
       });
 
-      const messages = (response.data.messages || []).map((message) =>
-        parseMessage(message as MessageWithPayload),
-      );
+      const messages = (response.data.messages || [])
+        .map((message) => parseMessage(message as MessageWithPayload))
+        .filter(
+          (message) =>
+            options?.includeDrafts ||
+            !message.labelIds?.includes(GmailLabel.DRAFT),
+        );
 
       return {
         id: threadId,

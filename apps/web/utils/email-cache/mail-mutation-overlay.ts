@@ -3,6 +3,7 @@ import type { MailMutation } from "./mail-mutations";
 
 const HIDE_KINDS = new Set<MailMutation["kind"]>([
   "archive",
+  "spam",
   "trash",
   "snooze",
 ]);

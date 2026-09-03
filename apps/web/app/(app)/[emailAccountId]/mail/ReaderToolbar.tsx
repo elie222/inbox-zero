@@ -10,7 +10,6 @@ import {
   Trash2Icon,
 } from "lucide-react";
 import { MailLabelChip } from "@/app/(app)/[emailAccountId]/mail/MailLabelChip";
-import { Kbd } from "@/components/Kbd";
 import type { EmailMessageCellLabel } from "@/components/EmailMessageCellLabels";
 import { Button } from "@/components/ui/button";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
@@ -85,16 +84,18 @@ export function ReaderToolbar({
         </div>
       </div>
 
-      <div className="ml-auto flex flex-wrap items-center gap-1.5">
+      <div
+        aria-label="Thread actions"
+        className="ml-auto flex flex-wrap items-center gap-1.5"
+        role="group"
+      >
         <Button onClick={onArchive} size="xs-2" variant="outline">
           <ArchiveIcon className="mr-1.5 size-3.5" />
           Archive
-          <Kbd className="ml-1.5">{getShortcutHint("archive")}</Kbd>
         </Button>
         <Button onClick={onReply} size="xs-2" variant="outline">
           <ReplyIcon className="mr-1.5 size-3.5" />
           Reply
-          <Kbd className="ml-1.5">{getShortcutHint("reply")}</Kbd>
         </Button>
         <Button
           aria-label={`Delete (${getShortcutHint("delete")})`}

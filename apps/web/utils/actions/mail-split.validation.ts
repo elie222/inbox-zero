@@ -50,6 +50,9 @@ export type RenameMailSplitBody = z.infer<typeof renameMailSplitBody>;
 export const deleteMailSplitBody = z.object({ id: z.string() });
 export type DeleteMailSplitBody = z.infer<typeof deleteMailSplitBody>;
 
+export const setDefaultMailSplitsBody = z.object({ enabled: z.boolean() });
+export type SetDefaultMailSplitsBody = z.infer<typeof setDefaultMailSplitsBody>;
+
 export const updateMailPreferencesBody = z.object({
   layout: z.nativeEnum(MailLayout),
 });

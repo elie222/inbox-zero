@@ -111,7 +111,10 @@ test("keeps a reply queued across reload and sends it after reconnect", async ({
   await setNavigatorOnline(page, false);
 
   try {
-    await page.getByRole("button", { name: /^Reply R$/ }).click();
+    await page
+      .getByRole("group", { name: "Thread actions" })
+      .getByRole("button", { name: "Reply", exact: true })
+      .click();
     const editor = page.locator("[contenteditable='true']");
     await editor.pressSequentially(replyBody);
     await page.getByRole("button", { name: /^Send/ }).click();
@@ -203,7 +206,7 @@ test("keeps a reply queued across reload and sends it after reconnect", async ({
     await page.reload();
     await expect(sentByMe).toHaveCount(initialSentByMeCount + 1);
   } finally {
-    await setNavigatorOnline(page, true);
+    await restoreNavigatorOnline(page);
   }
 });
 
@@ -390,6 +393,14 @@ function setNavigatorOnline(page: Page, online: boolean) {
       get: () => localStorage.getItem("playwright-mail-online") !== "false",
     });
   }, online);
+}
+
+async function restoreNavigatorOnline(page: Page) {
+  try {
+    await setNavigatorOnline(page, true);
+  } catch (error) {
+    if (!page.isClosed()) throw error;
+  }
 }
 
 function clearThreadDetails(

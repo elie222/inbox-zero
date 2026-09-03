@@ -22,6 +22,7 @@ import {
 import { splitEmailContent } from "@/utils/email/split-email-content.client";
 
 const SANS_FONT_STACK = `ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`;
+const EMAIL_DOCUMENT_MARKER = "inbox-zero-email-document";
 const NO_INLINE_ATTACHMENTS: ParsedMessage["inline"] = [];
 /**
  * Reading size for a message body that brought no styling of its own. Shared by
@@ -99,18 +100,24 @@ export function HtmlEmail({
     [renderHtml],
   );
 
+  const displayedHtml = showReplies ? renderHtml : mainContent;
+  const documentKey = useMemo(
+    () => getIframeDocumentKey(displayedHtml, isDarkMode),
+    [displayedHtml, isDarkMode],
+  );
   const srcDoc = useMemo(
     () =>
       getIframeHtml(
-        showReplies ? renderHtml : mainContent,
+        displayedHtml,
         isDarkMode,
         IMAGE_PROXY_BASE_URL,
         IMAGE_PROXY_ORIGIN,
+        documentKey,
       ),
-    [renderHtml, mainContent, showReplies, isDarkMode],
+    [displayedHtml, isDarkMode, documentKey],
   );
 
-  const iframeHeight = useIframeHeight(iframeRef);
+  const iframeHeight = useIframeHeight(iframeRef, srcDoc, documentKey);
 
   return (
     <div className="relative min-w-0 overflow-x-hidden">
@@ -157,6 +164,7 @@ function getIframeHtml(
   isDarkMode: boolean,
   imageProxyBaseUrl: string | null,
   imageProxyOrigin: string | null,
+  documentKey: string,
 ) {
   // Count style attributes safely
   const styleAttributeCount = (html.match(/style=/g) || []).length;
@@ -289,7 +297,7 @@ function getIframeHtml(
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
   `;
 
-  const headContent = `${securityHeaders}${defaultFontStyles}<base target="_blank" rel="noopener noreferrer">`;
+  const headContent = `<meta name="${EMAIL_DOCUMENT_MARKER}" content="${documentKey}">${securityHeaders}${defaultFontStyles}<base target="_blank" rel="noopener noreferrer">`;
 
   function wrapWithProperStructure(content: string) {
     if (content.indexOf("<html") === -1) {
@@ -397,20 +405,28 @@ function addDarkModeClass(html: string, isDarkMode: boolean) {
   }
 }
 
-function useIframeHeight(iframeRef: React.RefObject<HTMLIFrameElement | null>) {
+function useIframeHeight(
+  iframeRef: React.RefObject<HTMLIFrameElement | null>,
+  srcDoc: string,
+  documentKey: string,
+) {
   const [height, setHeight] = useState(0);
 
   useEffect(() => {
     const iframe = iframeRef.current;
     if (!iframe) return;
+    let animationFrameId: number | undefined;
+    let observedRoot: HTMLElement | null = null;
 
     const updateHeight = () => {
       const iframeDocument = iframe.contentDocument;
       if (!iframeDocument) return;
+      const { body, documentElement } = iframeDocument;
+      if (!body || !documentElement) return;
 
       const newHeight = Math.max(
-        iframeDocument.documentElement.scrollHeight,
-        iframeDocument.body.scrollHeight,
+        documentElement.scrollHeight,
+        body.scrollHeight,
       );
       if (newHeight) setHeight(newHeight);
     };
@@ -418,23 +434,68 @@ function useIframeHeight(iframeRef: React.RefObject<HTMLIFrameElement | null>) {
     const resizeObserver = new ResizeObserver(updateHeight);
 
     const observeDocument = () => {
-      resizeObserver.disconnect();
+      if (iframe.srcdoc !== srcDoc) return false;
       const iframeDocument = iframe.contentDocument;
-      if (!iframeDocument) return;
+      if (!iframeDocument) return false;
+      const marker = iframeDocument.querySelector(
+        `meta[name="${EMAIL_DOCUMENT_MARKER}"]`,
+      );
+      if (marker?.getAttribute("content") !== documentKey) return false;
+      const { body, documentElement: root } = iframeDocument;
+      if (!body || !root) return false;
+      if (root === observedRoot) return true;
 
+      resizeObserver.disconnect();
+      observedRoot = root;
       updateHeight();
-      resizeObserver.observe(iframeDocument.documentElement);
-      resizeObserver.observe(iframeDocument.body);
+      resizeObserver.observe(root);
+      resizeObserver.observe(body);
+      return true;
     };
 
-    iframe.addEventListener("load", observeDocument);
-    observeDocument();
+    const stopWatchingForDocument = () => {
+      if (animationFrameId === undefined) return;
+      cancelAnimationFrame(animationFrameId);
+      animationFrameId = undefined;
+    };
+
+    const watchForDocument = () => {
+      if (observeDocument()) {
+        animationFrameId = undefined;
+        return;
+      }
+      animationFrameId = requestAnimationFrame(watchForDocument);
+    };
+
+    const onLoad = () => {
+      if (!observeDocument()) return;
+      updateHeight();
+      stopWatchingForDocument();
+    };
+
+    iframe.addEventListener("load", onLoad);
+    // `load` waits for remote images. Catch the `srcDoc` document swap first so
+    // its parsed layout can be measured while those images are still loading.
+    if (!observeDocument()) {
+      animationFrameId = requestAnimationFrame(watchForDocument);
+    }
 
     return () => {
-      iframe.removeEventListener("load", observeDocument);
+      iframe.removeEventListener("load", onLoad);
+      stopWatchingForDocument();
       resizeObserver.disconnect();
     };
-  }, [iframeRef]);
+  }, [iframeRef, srcDoc, documentKey]);
 
   return height;
+}
+
+function getIframeDocumentKey(html: string, isDarkMode: boolean) {
+  const source = `${isDarkMode ? "1" : "0"}:${html}`;
+  let hash = 2_166_136_261;
+  for (let index = 0; index < source.length; index += 1) {
+    hash ^= source.charCodeAt(index);
+    hash = Math.imul(hash, 16_777_619);
+  }
+  return `${source.length}-${(hash >>> 0).toString(36)}`;
 }

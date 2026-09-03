@@ -87,6 +87,7 @@ import {
   createMailSplitAction,
   createMailSplitFromPromptAction,
   deleteMailSplitAction,
+  setDefaultMailSplitsAction,
   updateMailPreferencesAction,
 } from "@/utils/actions/mail-split";
 import {
@@ -160,6 +161,8 @@ export function MailShell() {
   const [activeSplitId, setActiveSplitId] = useQueryState("split", {
     defaultValue: "all",
   });
+  const activeSplitIdRef = useRef(activeSplitId);
+  activeSplitIdRef.current = activeSplitId;
   const [accountScope, setAccountScope] = useQueryState("accountScope");
   const [scopeType, setScopeType] = useQueryState("type");
   const [scopeLabelId, setScopeLabelId] = useQueryState("labelId");
@@ -207,7 +210,10 @@ export function MailShell() {
   // Written through the SWR cache rather than mirrored in local state, so the
   // preference has one source of truth and every reader sees the new value.
   const toggleLayout = useCallback(() => {
+    if (!settings) return;
+
     const next = layout === "split" ? MailLayout.LIST : MailLayout.SPLIT;
+    const loadedSettings = settings;
 
     mutateSettings(
       async (current) => {
@@ -218,15 +224,12 @@ export function MailShell() {
         // the UI showing a preference the server never accepted.
         if (result?.serverError || result?.validationErrors)
           throw new Error(getActionErrorMessage(result));
-        return {
-          layout: next,
-          splits: current?.splits ?? [],
-        };
+        return { ...(current ?? loadedSettings), layout: next };
       },
       {
         optimisticData: (current) => ({
+          ...(current ?? loadedSettings),
           layout: next,
-          splits: current?.splits ?? [],
         }),
         revalidate: false,
         rollbackOnError: true,
@@ -236,7 +239,7 @@ export function MailShell() {
         error instanceof Error ? error.message : "Couldn't save that",
       );
     });
-  }, [emailAccountId, layout, mutateSettings]);
+  }, [emailAccountId, layout, mutateSettings, settings]);
 
   // A sidebar selection scopes the whole list, which replaces the split tabs —
   // splits are a way of slicing the inbox, not of slicing an arbitrary view.
@@ -284,6 +287,27 @@ export function MailShell() {
   const activeCombinedLabelName = combinedLabelSplits.find(
     (split) => split.id === displayedActiveSplitId,
   )?.labelName;
+  const savedDefaultSplits = useMemo(() => {
+    const defaultLabelIds = new Set(
+      (settings?.defaultSplits ?? []).map((split) => split.value),
+    );
+    return (settings?.splits ?? []).filter(
+      (split) =>
+        split.kind === MailSplitKind.LABEL &&
+        split.value &&
+        defaultLabelIds.has(split.value),
+    );
+  }, [settings?.defaultSplits, settings?.splits]);
+  const canAddDefaultSplits = (settings?.defaultSplits ?? []).some(
+    (defaultSplit) =>
+      !(settings?.splits ?? []).some(
+        (split) =>
+          split.name === defaultSplit.name ||
+          (split.kind === MailSplitKind.LABEL &&
+            split.value === defaultSplit.value),
+      ),
+  );
+  const canRemoveDefaultSplits = savedDefaultSplits.length > 0;
 
   const query: ThreadsQuery = useMemo(() => {
     // Search overrides split/scope and covers the whole mailbox, matching
@@ -317,52 +341,6 @@ export function MailShell() {
 
   const orderedIds = useMemo(() => threads.map(getListThreadKey), [threads]);
   const selection = useThreadSelection(orderedIds);
-  const {
-    archive,
-    trash,
-    setReadState: queueReadState,
-    snooze,
-    undo,
-  } = useThreadActions({
-    emailAccountId,
-    threads,
-  });
-  const inboxFolderId = folders.find(
-    (folder) => folder.systemType === "INBOX",
-  )?.id;
-  // Behind a ref so setReadState stays referentially stable across thread-list
-  // refreshes, matching useThreadActions.
-  const threadsRef = useRef(threads);
-  threadsRef.current = threads;
-  const setReadState = useCallback(
-    async (threadKeys: string[], read: boolean, notifySuccess = true) => {
-      const threadsBeforeQueue = threadsRef.current;
-      const queuedKeys = await queueReadState(threadKeys, read, notifySuccess);
-      if (!isAllAccounts) {
-        adjustInboxUnread(
-          getInboxUnreadDelta({
-            countByMessage: isOutlook,
-            inboxFolderId,
-            read,
-            threadKeys: queuedKeys,
-            threads: threadsBeforeQueue,
-          }),
-        );
-      }
-      return queuedKeys;
-    },
-    [
-      adjustInboxUnread,
-      inboxFolderId,
-      isAllAccounts,
-      isOutlook,
-      queueReadState,
-    ],
-  );
-  const markRead = useCallback(
-    (threadKeys: string[]) => setReadState(threadKeys, true, false),
-    [setReadState],
-  );
 
   const clampIndex = useCallback(
     (index: number) =>
@@ -392,9 +370,6 @@ export function MailShell() {
   const openThread = openThreadKey
     ? threads.find((thread) => getListThreadKey(thread) === openThreadKey)
     : undefined;
-  const resolvedOpenThreadKey = openThread
-    ? getListThreadKey(openThread)
-    : null;
   const readAttemptedForOpenThread = useRef<string | null>(null);
 
   // Defer the pair as one value: rendering a new id with the previous account
@@ -433,6 +408,71 @@ export function MailShell() {
   const openMessages = readerSelectionSettled
     ? (openThreadData?.thread.messages ?? NO_MESSAGES)
     : NO_MESSAGES;
+  const readerTarget = useMemo(() => {
+    if (!openThreadKey || !openThreadSelection || !readerSelectionSettled)
+      return;
+    const messageIds = [...new Set(openMessages.map((message) => message.id))];
+    if (!messageIds.length) return;
+    return {
+      emailAccountId: openThreadSelection.emailAccountId,
+      key: openThreadKey,
+      messageIds,
+      threadId: openThreadSelection.threadId,
+    };
+  }, [
+    openMessages,
+    openThreadKey,
+    openThreadSelection,
+    readerSelectionSettled,
+  ]);
+  const {
+    archive,
+    trash,
+    markSpam,
+    setReadState: queueReadState,
+    snooze,
+    undo,
+  } = useThreadActions({
+    emailAccountId,
+    readerTarget,
+    threads,
+  });
+  const inboxFolderId = folders.find(
+    (folder) => folder.systemType === "INBOX",
+  )?.id;
+  // Behind a ref so setReadState stays referentially stable across thread-list
+  // refreshes, matching useThreadActions.
+  const threadsRef = useRef(threads);
+  threadsRef.current = threads;
+  const setReadState = useCallback(
+    async (threadKeys: string[], read: boolean, notifySuccess = true) => {
+      const threadsBeforeQueue = threadsRef.current;
+      const queuedKeys = await queueReadState(threadKeys, read, notifySuccess);
+      if (!isAllAccounts) {
+        adjustInboxUnread(
+          getInboxUnreadDelta({
+            countByMessage: isOutlook,
+            inboxFolderId,
+            read,
+            threadKeys: queuedKeys,
+            threads: threadsBeforeQueue,
+          }),
+        );
+      }
+      return queuedKeys;
+    },
+    [
+      adjustInboxUnread,
+      inboxFolderId,
+      isAllAccounts,
+      isOutlook,
+      queueReadState,
+    ],
+  );
+  const markRead = useCallback(
+    (threadKeys: string[]) => setReadState(threadKeys, true, false),
+    [setReadState],
+  );
   const requestReaderReply = useCallback(() => {
     const messageId = openMessages.at(-1)?.id;
     if (messageId) {
@@ -507,6 +547,7 @@ export function MailShell() {
           const nextThread = getNextThreadAfterRemoval({
             threadIds: orderedIds,
             currentThreadId: openThreadKey,
+            currentThreadIndex: focusedIndex,
             removedThreadIds: queuedThreadKeys,
           });
           setFocusedIndex(nextThread?.index ?? 0);
@@ -532,6 +573,7 @@ export function MailShell() {
     },
     [
       focusedThread,
+      focusedIndex,
       openThreadKey,
       orderedIds,
       selection,
@@ -593,31 +635,39 @@ export function MailShell() {
       return;
     }
     if (
-      !resolvedOpenThreadKey ||
-      readAttemptedForOpenThread.current === resolvedOpenThreadKey
+      !openThreadKey ||
+      !readerSelectionSettled ||
+      !openMessages.length ||
+      readAttemptedForOpenThread.current === openThreadKey
     ) {
       return;
     }
     if (!isOpenThreadUnread) {
-      readAttemptedForOpenThread.current = resolvedOpenThreadKey;
+      readAttemptedForOpenThread.current = openThreadKey;
       return;
     }
 
     // Remember the durable attempt so this reader doesn't queue duplicates
     // while the outbox is waiting for connectivity or provider recovery.
-    readAttemptedForOpenThread.current = resolvedOpenThreadKey;
-    markRead([resolvedOpenThreadKey]);
+    readAttemptedForOpenThread.current = openThreadKey;
+    markRead([openThreadKey]);
   }, [
     isOpenThreadUnread,
     markRead,
+    openMessages.length,
     openReaderThreadKey,
-    resolvedOpenThreadKey,
+    openThreadKey,
+    readerSelectionSettled,
   ]);
   const archiveTargets = useCallback(
     () => runOn(archive, true, true),
     [archive, runOn],
   );
   const trashTargets = useCallback(() => runOn(trash, true), [runOn, trash]);
+  const markSpamTargets = useCallback(
+    () => runOn(markSpam, true),
+    [markSpam, runOn],
+  );
   const markReadTargets = useCallback(
     () => runOn(markRead, false),
     [markRead, runOn],
@@ -810,6 +860,29 @@ export function MailShell() {
       mutateSettings();
     },
     [emailAccountId, mutateSettings, activeSplitId, setActiveSplitId],
+  );
+
+  const onSetDefaultSplits = useCallback(
+    async (enabled: boolean) => {
+      const result = await setDefaultMailSplitsAction(emailAccountId, {
+        enabled,
+      });
+      if (result?.serverError || result?.validationErrors) {
+        toast.error(getActionErrorMessage(result));
+        return false;
+      }
+      await mutateSettings();
+      if (
+        !enabled &&
+        savedDefaultSplits.some(
+          (split) => split.id === activeSplitIdRef.current,
+        )
+      ) {
+        setActiveSplitId("all");
+      }
+      return true;
+    },
+    [emailAccountId, mutateSettings, savedDefaultSplits, setActiveSplitId],
   );
 
   const onCreateLabel = useCallback(
@@ -1051,6 +1124,9 @@ export function MailShell() {
                 newSplitOptions={newSplitOptions}
                 onCreateSplit={onCreateSplit}
                 onCreateSplitFromPrompt={onCreateSplitFromPrompt}
+                canAddDefaultSplits={canAddDefaultSplits}
+                canRemoveDefaultSplits={canRemoveDefaultSplits}
+                onSetDefaultSplits={onSetDefaultSplits}
                 canCreateSplits={!isAllAccounts}
               />
             )}
@@ -1124,9 +1200,10 @@ export function MailShell() {
                   message={openMessages.at(-1) ?? null}
                   setChatInput={setChatInput}
                   isUnread={isOpenThreadUnread}
+                  onMarkSpam={markSpamTargets}
                   onToggleRead={() => {
-                    if (!resolvedOpenThreadKey) return;
-                    setReadState([resolvedOpenThreadKey], isOpenThreadUnread);
+                    if (!openThreadKey) return;
+                    setReadState([openThreadKey], isOpenThreadUnread);
                   }}
                   showFixWithChat={
                     !isAllAccounts ||

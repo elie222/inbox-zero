@@ -1,7 +1,28 @@
 import { randomUUID } from "node:crypto";
+import { MailSplitKind } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import { getDefaultMailSplitDrafts } from "@/utils/mail/default-splits";
 import { lockMailSplits } from "@/utils/mail/split-lock";
+import { MAX_MAIL_SPLITS } from "@/utils/mail/split-constants";
+import { STANDARD_CATEGORY_SYSTEM_TYPES } from "@/utils/rule/consts";
+
+export async function getDefaultMailSplitDraftsForAccount(
+  emailAccountId: string,
+) {
+  const rules = await prisma.rule.findMany({
+    where: {
+      emailAccountId,
+      enabled: true,
+      systemType: { in: [...STANDARD_CATEGORY_SYSTEM_TYPES] },
+    },
+    select: {
+      systemType: true,
+      actions: { select: { type: true, labelId: true } },
+    },
+  });
+
+  return getDefaultMailSplitDrafts(rules);
+}
 
 export async function seedDefaultMailSplits({
   emailAccountId,
@@ -56,4 +77,115 @@ export async function seedDefaultMailSplits({
       ON CONFLICT DO NOTHING
     `,
   ]);
+}
+
+export async function setDefaultMailSplits({
+  emailAccountId,
+  defaultSplits,
+  enabled,
+}: {
+  emailAccountId: string;
+  defaultSplits: ReturnType<typeof getDefaultMailSplitDrafts>;
+  enabled: boolean;
+}) {
+  if (defaultSplits.length === 0) return;
+
+  if (!enabled) {
+    await prisma.$transaction([
+      lockMailSplits(emailAccountId),
+      prisma.mailSplit.deleteMany({
+        where: {
+          emailAccountId,
+          kind: MailSplitKind.LABEL,
+          value: { in: defaultSplits.map((split) => split.value) },
+        },
+      }),
+    ]);
+    return { status: "success" as const };
+  }
+
+  const rows = defaultSplits.map((split, order) => ({
+    id: randomUUID(),
+    ...split,
+    order,
+  }));
+
+  const [, results] = await prisma.$transaction([
+    lockMailSplits(emailAccountId),
+    prisma.$queryRaw<Array<{ availableCount: number; missingCount: number }>>`
+      WITH split_state AS (
+        SELECT
+          COUNT(*)::integer AS count,
+          COALESCE(MAX("order"), -1)::integer + 1 AS next_order
+        FROM "MailSplit"
+        WHERE "emailAccountId" = ${emailAccountId}
+      ),
+      missing_defaults AS (
+        SELECT
+          defaults.*,
+          (ROW_NUMBER() OVER (ORDER BY defaults."order") - 1)::integer AS offset
+        FROM jsonb_to_recordset(${JSON.stringify(rows)}::jsonb) AS defaults(
+          "id" text,
+          "name" text,
+          "kind" text,
+          "value" text,
+          "order" integer
+        )
+        WHERE NOT EXISTS (
+          SELECT 1
+          FROM "MailSplit" AS existing
+          WHERE existing."emailAccountId" = ${emailAccountId}
+            AND (
+              existing."name" = defaults."name"
+              OR (
+                existing."kind" = 'LABEL'::"MailSplitKind"
+                AND existing."value" = defaults."value"
+              )
+            )
+        )
+        ORDER BY defaults."order"
+      ),
+      inserted_defaults AS (
+        INSERT INTO "MailSplit" (
+          "id",
+          "createdAt",
+          "updatedAt",
+          "name",
+          "kind",
+          "value",
+          "order",
+          "emailAccountId"
+        )
+        SELECT
+          missing_defaults."id",
+          CURRENT_TIMESTAMP,
+          CURRENT_TIMESTAMP,
+          missing_defaults."name",
+          missing_defaults."kind"::"MailSplitKind",
+          missing_defaults."value",
+          split_state.next_order + missing_defaults.offset,
+          ${emailAccountId}
+        FROM missing_defaults
+        CROSS JOIN split_state
+        WHERE (
+          SELECT COUNT(*) FROM missing_defaults
+        ) <= GREATEST(${MAX_MAIL_SPLITS} - split_state.count, 0)
+        ON CONFLICT DO NOTHING
+        RETURNING "id"
+      )
+      SELECT
+        (SELECT COUNT(*)::integer FROM missing_defaults) AS "missingCount",
+        GREATEST(${MAX_MAIL_SPLITS} - split_state.count, 0)::integer
+          AS "availableCount"
+      FROM split_state
+    `,
+  ]);
+
+  const result = results[0];
+  return {
+    status:
+      result && result.missingCount > result.availableCount
+        ? ("limit" as const)
+        : ("success" as const),
+  };
 }

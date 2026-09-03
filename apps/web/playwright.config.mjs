@@ -14,6 +14,11 @@ const databaseUrl =
 const emulateBaseUrl =
   process.env.GOOGLE_BASE_URL ?? `http://localhost:${await getAvailablePort()}`;
 const emulatePort = getUrlPort(emulateBaseUrl);
+const todoistEnabled = process.env.PLAYWRIGHT_TODOIST_ENABLED === "true";
+const todoistBaseUrl = todoistEnabled
+  ? `http://localhost:${await getAvailablePort()}`
+  : undefined;
+const todoistPort = todoistBaseUrl ? getUrlPort(todoistBaseUrl) : undefined;
 const internalApiKey = process.env.INTERNAL_API_KEY ?? "secret";
 const nodeOptions = process.env.NODE_OPTIONS ?? "--max_old_space_size=6144";
 const runId = process.env.PLAYWRIGHT_RUN_ID ?? `${process.pid}-${Date.now()}`;
@@ -46,6 +51,11 @@ process.env.NODE_OPTIONS = nodeOptions;
 process.env.PLAYWRIGHT_AUTH_FILE = authStatePath;
 process.env.PLAYWRIGHT_RUN_ID = runId;
 process.env.PLAYWRIGHT_TEST_EMAIL = playwrightTestEmail;
+if (todoistBaseUrl) {
+  process.env.MCP_SERVER_URL_OVERRIDES = JSON.stringify({
+    todoist: `${todoistBaseUrl}/mcp`,
+  });
+}
 
 export default defineConfig({
   testDir: "./__tests__/playwright",
@@ -98,6 +108,17 @@ export default defineConfig({
       timeout: 240_000,
       reuseExistingServer: !process.env.CI,
     },
+    ...(todoistBaseUrl && todoistPort
+      ? [
+          {
+            command: `pnpm exec tsx scripts/todoist-mcp-emulator.ts ${todoistPort}`,
+            cwd: process.cwd(),
+            url: `${todoistBaseUrl}/health`,
+            timeout: 240_000,
+            reuseExistingServer: !process.env.CI,
+          },
+        ]
+      : []),
     {
       command: `pnpm exec next dev --turbopack --port ${basePort}`,
       cwd: process.cwd(),
@@ -121,6 +142,7 @@ export default defineConfig({
           process.env.GOOGLE_PUBSUB_VERIFICATION_TOKEN ?? "playwright-token",
         EMAIL_ENCRYPT_SECRET: process.env.EMAIL_ENCRYPT_SECRET ?? "secret",
         EMAIL_ENCRYPT_SALT: process.env.EMAIL_ENCRYPT_SALT ?? "salt",
+        API_KEY_SALT: process.env.API_KEY_SALT ?? "playwright-api-key-salt",
         INTERNAL_API_KEY: internalApiKey,
         DEFAULT_LLMS: process.env.DEFAULT_LLMS ?? "openai:gpt-5.4-mini",
         OPENAI_API_KEY: "",

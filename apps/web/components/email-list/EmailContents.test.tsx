@@ -21,6 +21,8 @@ import { HtmlEmail, PlainEmail } from "./EmailContents";
 (globalThis as { React?: typeof React }).React = React;
 
 let triggerResize: (() => void) | undefined;
+let animationFrames: Array<{ callback: FrameRequestCallback; id: number }> = [];
+let nextAnimationFrameId = 0;
 
 class MockResizeObserver {
   constructor(callback: ResizeObserverCallback) {
@@ -35,7 +37,23 @@ class MockResizeObserver {
 describe("HtmlEmail", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    animationFrames = [];
+    nextAnimationFrameId = 0;
     vi.stubGlobal("ResizeObserver", MockResizeObserver);
+    vi.stubGlobal(
+      "requestAnimationFrame",
+      vi.fn((callback: FrameRequestCallback) => {
+        const id = ++nextAnimationFrameId;
+        animationFrames.push({ callback, id });
+        return id;
+      }),
+    );
+    vi.stubGlobal(
+      "cancelAnimationFrame",
+      vi.fn((id: number) => {
+        animationFrames = animationFrames.filter((frame) => frame.id !== id);
+      }),
+    );
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
@@ -146,6 +164,7 @@ describe("HtmlEmail", () => {
         get: () => contentHeight,
       },
     );
+    addEmailDocumentMarker(iframe, iframe.contentDocument);
 
     iframe.dispatchEvent(new Event("load"));
     await waitFor(() =>
@@ -154,6 +173,49 @@ describe("HtmlEmail", () => {
 
     contentHeight = 640;
     act(() => triggerResize?.());
+
+    await waitFor(() =>
+      expect(Number.parseFloat(iframe.style.height)).toBeGreaterThanOrEqual(
+        640,
+      ),
+    );
+  });
+
+  it("keeps watching until the email document replaces the placeholder", async () => {
+    vi.mocked(fetch).mockReturnValue(new Promise(() => {}));
+    const { getByTitle } = render(
+      <HtmlEmail html="<p>Long email</p>" messageId="message-loading" />,
+    );
+    const iframe = getByTitle("Email content preview") as HTMLIFrameElement;
+    let iframeDocument = iframe.contentDocument;
+    const emailDocument = document.implementation.createHTMLDocument("email");
+    addEmailDocumentMarker(iframe, emailDocument);
+
+    Object.defineProperty(emailDocument.documentElement, "scrollHeight", {
+      configurable: true,
+      value: 640,
+    });
+    Object.defineProperty(emailDocument.body, "scrollHeight", {
+      configurable: true,
+      value: 640,
+    });
+    Object.defineProperty(iframe, "contentDocument", {
+      configurable: true,
+      get: () => iframeDocument,
+    });
+
+    await waitFor(() => expect(animationFrames).not.toHaveLength(0));
+    iframe.dispatchEvent(new Event("load"));
+
+    expect(animationFrames).not.toHaveLength(0);
+    for (let frame = 0; frame < 10; frame += 1) {
+      act(() => animationFrames.shift()?.callback(frame));
+    }
+    expect(animationFrames).not.toHaveLength(0);
+
+    iframeDocument = emailDocument;
+    act(() => animationFrames.shift()?.callback(0));
+    expect(animationFrames).toHaveLength(0);
 
     await waitFor(() =>
       expect(Number.parseFloat(iframe.style.height)).toBeGreaterThanOrEqual(
@@ -235,3 +297,15 @@ describe("PlainEmail", () => {
     expect(container.textContent).not.toContain("&#39;");
   });
 });
+
+function addEmailDocumentMarker(
+  iframe: HTMLIFrameElement,
+  targetDocument: Document | null,
+) {
+  if (!targetDocument) throw new Error("Expected an iframe document");
+  const marker = new DOMParser()
+    .parseFromString(iframe.srcdoc, "text/html")
+    .querySelector('meta[name="inbox-zero-email-document"]');
+  if (!marker) throw new Error("Expected an email document marker");
+  targetDocument.head.append(marker.cloneNode());
+}

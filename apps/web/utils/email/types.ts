@@ -95,6 +95,10 @@ type DraftReference = {
   version?: string;
 };
 
+export type GetThreadOptions = {
+  includeDrafts?: boolean;
+};
+
 export interface EmailProvider {
   archiveMessage(messageId: string): Promise<void>;
   archiveMessages(messageIds: string[], labelId?: string): Promise<void>;
@@ -250,8 +254,8 @@ export interface EmailProvider {
     maxResults?: number;
   }): Promise<EmailThread[]>;
   getSignatures(): Promise<EmailSignature[]>;
-  // Thread messages are returned in chronological order (oldest first).
-  getThread(threadId: string): Promise<EmailThread>;
+  // Thread messages are returned in chronological order with drafts excluded unless requested.
+  getThread(threadId: string, options?: GetThreadOptions): Promise<EmailThread>;
   getThreadMessages(threadId: string): Promise<ParsedMessage[]>;
   getThreadMessagesInInbox(threadId: string): Promise<ParsedMessage[]>;
   getThreads(folderId?: string): Promise<EmailThread[]>;

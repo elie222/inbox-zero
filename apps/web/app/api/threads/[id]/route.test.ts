@@ -73,10 +73,29 @@ describe("GET /api/threads/[id]", () => {
     expect(response.status).toBe(500);
     expect(await response.json()).toEqual({ error: "Failed to fetch thread" });
   });
+
+  it.each([
+    ["without drafts by default", "", false],
+    ["with drafts when requested", "?includeDrafts=true", true],
+  ])("loads the thread %s", async (_description, query, includeDrafts) => {
+    mockGetThread.mockResolvedValue({
+      id: "thread-id",
+      messages: [],
+      snippet: "",
+    });
+
+    const response = await getThread(query);
+
+    expect(response.status).toBe(200);
+    expect(mockGetThread).toHaveBeenCalledWith("thread-id", { includeDrafts });
+  });
 });
 
-function getThread() {
-  return GET(new NextRequest("http://localhost:3000/api/threads/thread-id"), {
-    params: Promise.resolve({ id: "thread-id" }),
-  });
+function getThread(query = "") {
+  return GET(
+    new NextRequest(`http://localhost:3000/api/threads/thread-id${query}`),
+    {
+      params: Promise.resolve({ id: "thread-id" }),
+    },
+  );
 }

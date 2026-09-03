@@ -9,6 +9,12 @@ Playwright tests are separated by their dependency boundary:
   Production-path scenarios against Gmail or Outlook live in `../e2e/flows/`
   and must not use emulator or database shortcuts.
 
+Persist reusable browser QA as executable tests in these suites rather than as
+manual Markdown flow specs. Split a scenario at the dependency boundary when
+needed: keep deterministic UI state and validation in emulated Playwright, and
+keep provider delivery, webhooks, labels, and provider-hosted drafts in the
+real-provider E2E suite.
+
 Within `emulated/`, group specs by product area, such as `mail/` or
 `automation/`. Keep setup files inside the boundary they support so
 real-provider tests cannot accidentally reuse emulated authentication state.
