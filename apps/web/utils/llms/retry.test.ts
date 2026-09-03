@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { RetryError } from "ai";
 import { extractLLMErrorInfo, withLLMRetry } from "./retry";
 
 vi.mock("@/utils/sleep", () => ({
@@ -222,6 +223,25 @@ describe("withLLMRetry", () => {
     const fn = vi
       .fn()
       .mockRejectedValueOnce(serverError)
+      .mockResolvedValueOnce("success after retry");
+
+    const result = await withLLMRetry(fn, { label: "test" });
+
+    expect(result).toBe("success after retry");
+    expect(fn).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries when an SDK retry error wraps a server error", async () => {
+    const retryError = new RetryError({
+      message: "Failed after multiple attempts",
+      reason: "maxRetriesExceeded",
+      errors: [
+        createError("Provider temporarily unavailable", { status: 503 }),
+      ],
+    });
+    const fn = vi
+      .fn()
+      .mockRejectedValueOnce(retryError)
       .mockResolvedValueOnce("success after retry");
 
     const result = await withLLMRetry(fn, { label: "test" });

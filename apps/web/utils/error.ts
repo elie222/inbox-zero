@@ -277,7 +277,10 @@ export function isHandledUserKeyError(error: unknown): boolean {
 
 // Handling AI quota/retry errors. This can be related to the user's own API quota or the system's quota.
 export function isAiQuotaExceededError(error: RetryError): boolean {
-  const message = error.message.toLowerCase();
+  const message = [error.message, getErrorMessage(error.lastError)]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
   const quotaErrorMessages = [
     "exceeded your current quota",
     "quota exceeded",

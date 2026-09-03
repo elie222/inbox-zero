@@ -1,5 +1,6 @@
 import "server-only";
 
+import { RetryError } from "ai";
 import pRetry from "p-retry";
 import { createScopedLogger } from "@/utils/logger";
 import { sleep } from "@/utils/sleep";
@@ -157,7 +158,10 @@ interface LLMErrorInfo {
 export function extractLLMErrorInfo(error: unknown): LLMErrorInfo {
   // biome-ignore lint/suspicious/noExplicitAny: existing loose external shape
   const err = error as any;
-  const original = err?.error ?? err;
+  const wrappedError = err?.error ?? err;
+  const original = RetryError.isInstance(wrappedError)
+    ? wrappedError.lastError
+    : wrappedError;
   const cause = original?.cause ?? original;
 
   const status: number | undefined =
