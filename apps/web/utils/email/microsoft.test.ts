@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import * as outlookMessageModule from "@/utils/outlook/message";
 import * as outlookLabelModule from "@/utils/outlook/label";
 import { createTestLogger } from "@/__tests__/helpers";
+import { getThreadParticipantNames } from "@/app/(app)/[emailAccountId]/mail/thread-participants";
 import { OutlookProvider } from "./microsoft";
 
 const { envMock, outlookMailMock, getFolderIdsMock } = vi.hoisted(() => ({
@@ -395,6 +396,79 @@ describe("OutlookProvider.getSentMessageIds", () => {
 });
 
 describe("OutlookProvider.getThreadsWithQuery", () => {
+  it("includes participants from messages outside the selected folder", async () => {
+    const inboxMessage = {
+      ...createMessage({
+        id: "inbox-message",
+        conversationId: "thread-1",
+        parentFolderId: "inbox-folder-id",
+      }),
+      from: {
+        emailAddress: {
+          name: "Dana Example",
+          address: "dana@example.com",
+        },
+      },
+      toRecipients: [
+        {
+          emailAddress: {
+            name: "Owner",
+            address: "owner@example.com",
+          },
+        },
+      ],
+    } satisfies Message;
+    const sentReply = {
+      ...createMessage({
+        id: "sent-reply",
+        conversationId: "thread-1",
+        parentFolderId: "sent-folder-id",
+      }),
+      from: {
+        emailAddress: {
+          name: "Owner",
+          address: "owner@example.com",
+        },
+      },
+      toRecipients: [
+        {
+          emailAddress: {
+            name: "Dana Example",
+            address: "dana@example.com",
+          },
+        },
+      ],
+    } satisfies Message;
+    const client = createMockOutlookClient([inboxMessage], {
+      categoryMapCache: new Map(),
+      batchPost: ({ requests }) => ({
+        responses: requests.map((request) => ({
+          id: request.id,
+          status: 200,
+          body: { value: [inboxMessage, sentReply] },
+        })),
+      }),
+    });
+    const provider = new OutlookProvider(client, createTestLogger());
+
+    const result = await provider.getThreadsWithQuery({
+      query: { type: "inbox" },
+      messageFormat: "metadata",
+    });
+    const thread = result.threads[0];
+
+    expect(thread).toBeDefined();
+    expect(
+      getThreadParticipantNames(
+        [...(thread?.participantMessages ?? []), ...(thread?.messages ?? [])],
+        "owner@example.com",
+      ),
+    ).toEqual(["Dana Example", "me"]);
+    expect(thread?.messages.map((message) => message.id)).toEqual([
+      "inbox-message",
+    ]);
+  });
+
   it("omits message bodies from metadata list requests", async () => {
     const client = createMockOutlookClient([
       createMessage({ id: "message-1", conversationId: "thread-1" }),
@@ -1070,6 +1144,15 @@ function createMockOutlookClient(
           "@odata.nextLink"?: string;
         })
     >;
+    batchPost?: (body: {
+      requests: Array<{ id: string; method: string; url: string }>;
+    }) => {
+      responses: Array<{
+        id: string;
+        status: number;
+        body: { value: Message[] };
+      }>;
+    };
   },
 ) {
   let categoryMapCache = options?.categoryMapCache ?? null;
@@ -1102,6 +1185,9 @@ function createMockOutlookClient(
           expand: () => request,
           top: () => request,
           orderby: () => request,
+          post: async (body: {
+            requests: Array<{ id: string; method: string; url: string }>;
+          }) => options?.batchPost?.(body),
           get: async () => {
             requestLog.push({
               apiPath,

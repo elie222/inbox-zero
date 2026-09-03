@@ -80,12 +80,16 @@ export async function loadThreads({
       if (!message.headers?.from) return true;
       return !isIgnoredSender(message.headers.from);
     });
+    const participantMessages = thread.participantMessages?.filter(
+      (message) => !isIgnoredSender(message.headers.from),
+    );
     if (!messages.length) return;
 
     return {
       id: thread.id,
       messageIds,
       messages,
+      participantMessages,
       snippet: thread.snippet,
       plan: plans.at(0),
       plans,
@@ -105,6 +109,7 @@ export function toListThreads({ threads, nextPageToken }: LoadedThreads) {
     threads: threads.map((thread) => ({
       id: thread.id,
       messageIds: thread.messageIds,
+      participantMessages: thread.participantMessages,
       snippet: thread.snippet,
       plan: thread.plan,
       plans: thread.plans,

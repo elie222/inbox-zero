@@ -561,6 +561,7 @@ function toListThread(
   return {
     id: threadId,
     messageIds: listMessages.map((message) => message.id),
+    participantMessages: cachedThread?.participantMessages,
     snippet: latest.snippet,
     plan: cachedThread?.plan,
     plans: cachedThread?.plans ?? [],

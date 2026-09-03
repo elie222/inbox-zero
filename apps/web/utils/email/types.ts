@@ -13,6 +13,9 @@ export interface EmailThread {
   historyId?: string;
   id: string;
   messages: ParsedMessage[];
+  participantMessages?: Array<{
+    headers: Pick<ParsedMessage["headers"], "from" | "to">;
+  }>;
   snippet: string;
 }
 
