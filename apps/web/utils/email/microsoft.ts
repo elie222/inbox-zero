@@ -84,6 +84,7 @@ import type { SendEmailBody } from "@/utils/types/mail";
 import { getOutlookCategoryPreset } from "@/utils/outlook/category-colors";
 import { unwatchOutlook, watchOutlook } from "@/utils/outlook/watch";
 import { escapeODataString } from "@/utils/outlook/odata-escape";
+import { getFromFilterDomain } from "@/utils/mail/from-split";
 import {
   extractEmailAddress,
   getSearchTermForSender,
@@ -1662,10 +1663,31 @@ export class OutlookProvider implements EmailProvider {
     );
     const maxResults = options.maxResults || 50;
 
+    const domainFromFilter =
+      fromEmail != null ? getFromFilterDomain(fromEmail) : null;
+    const domainSearchConstraints = domainFromFilter
+      ? {
+          after: after ?? undefined,
+          before: before ?? undefined,
+          isUnread: isUnread ?? undefined,
+          inboxSection: folderId ? undefined : inboxSection,
+        }
+      : null;
+
     const fetchThreadPage = async (pageToken?: string) => {
       const nextLink = resolveMicrosoftGraphNextLink(pageToken);
       if (nextLink) {
-        return await client.api(nextLink).get();
+        const response = await client.api(nextLink).get();
+        if (!domainSearchConstraints) {
+          return response;
+        }
+        return {
+          ...response,
+          value: filterMessagesForDomainSearchConstraints(
+            response.value ?? [],
+            domainSearchConstraints,
+          ),
+        };
       }
 
       // Determine endpoint and build filters based on query type
@@ -1699,8 +1721,12 @@ export class OutlookProvider implements EmailProvider {
       }
 
       if (fromEmail) {
-        const escapedEmail = escapeODataString(fromEmail);
-        filters.push(`from/emailAddress/address eq '${escapedEmail}'`);
+        const domain = getFromFilterDomain(fromEmail);
+        if (!domain) {
+          const escapedEmail = escapeODataString(fromEmail);
+          filters.push(`from/emailAddress/address eq '${escapedEmail}'`);
+        }
+        // Domain filters use $search below — endswith is unsupported on message from/.
       }
 
       if (after) {
@@ -1719,26 +1745,69 @@ export class OutlookProvider implements EmailProvider {
         filters.push(`inferenceClassification eq '${inboxSection}'`);
       }
 
+      // Graph forbids combining $search with $filter/$orderby. Scope domain
+      // sender searches via a folder endpoint so inbox (etc.) still applies.
+      if (
+        domainFromFilter &&
+        endpoint === "/me/messages" &&
+        !hasExplicitLabelFilters
+      ) {
+        const scopedEndpoint = getOutlookDomainSearchFolderEndpoint({
+          type,
+          folderId,
+        });
+        if (scopedEndpoint) {
+          endpoint = scopedEndpoint;
+        }
+      }
+
       const filter = filters.length > 0 ? filters.join(" and ") : undefined;
+      const pageSize = domainFromFilter ? Math.min(maxResults, 25) : maxResults;
+
+      const selectFields =
+        options.messageFormat === "metadata"
+          ? MESSAGE_LIST_SELECT_FIELDS
+          : MESSAGE_SELECT_FIELDS;
+      // Domain+$search cannot $filter inboxSection; select it for local filtering.
+      const domainSelectFields =
+        domainFromFilter && inboxSection && !folderId
+          ? `${selectFields},inferenceClassification`
+          : selectFields;
 
       let request = client
         .api(endpoint)
-        .select(
-          options.messageFormat === "metadata"
-            ? MESSAGE_LIST_SELECT_FIELDS
-            : MESSAGE_SELECT_FIELDS,
-        )
-        .top(maxResults);
+        .select(domainSelectFields)
+        .top(pageSize);
 
-      if (filter) {
-        request = request.filter(filter);
+      // Exact addresses keep using $filter; domain matching uses $search.
+      if (domainFromFilter) {
+        const escapedDomain = domainFromFilter.replace(/"/g, "");
+        request = request.search(`"from:@${escapedDomain}"`);
+      } else {
+        if (filter) {
+          request = request.filter(filter);
+        }
+
+        if (!fromEmail) {
+          request = request.orderby("receivedDateTime DESC");
+        }
       }
 
-      if (!fromEmail) {
-        request = request.orderby("receivedDateTime DESC");
+      const response = await request.get();
+
+      // Folder scope is preserved via endpoint; remaining constraints that
+      // would have been $filter must be applied locally for domain searches.
+      if (!domainSearchConstraints) {
+        return response;
       }
 
-      return await request.get();
+      return {
+        ...response,
+        value: filterMessagesForDomainSearchConstraints(
+          response.value ?? [],
+          domainSearchConstraints,
+        ),
+      };
     };
 
     const localPageState = parseOutlookThreadPageToken(options.pageToken);
@@ -1770,7 +1839,15 @@ export class OutlookProvider implements EmailProvider {
       collectedMessages.push(...response.value);
       nextPageToken = response["@odata.nextLink"];
 
-      if (!requiresLocalLabelFiltering || !nextPageToken) break;
+      // Domain $search pages are capped at 25 and may be thinned by local
+      // after/before/unread/inboxSection filters — keep paging for those too.
+      const requiresDomainSearchPaging = Boolean(domainFromFilter);
+      if (
+        (!requiresLocalLabelFiltering && !requiresDomainSearchPaging) ||
+        !nextPageToken
+      ) {
+        break;
+      }
 
       const matchedThreads = buildOutlookThreadsFromMessages({
         messages: collectedMessages,
@@ -2355,6 +2432,79 @@ function getRequiredOutlookThreadLabelIds({
     default:
       return [type];
   }
+}
+
+/** Folder endpoint for domain $search so inbox/sent scope is not lost. */
+function getOutlookDomainSearchFolderEndpoint({
+  type,
+  folderId,
+}: {
+  type?: string | null;
+  folderId?: string | null;
+}): string | null {
+  if (folderId) {
+    return `/me/mailFolders/${encodeURIComponent(folderId)}/messages`;
+  }
+
+  switch (type) {
+    case "sent":
+      return "/me/mailFolders/sentitems/messages";
+    case "archive":
+      return "/me/mailFolders/archive/messages";
+    case "draft":
+      return "/me/mailFolders/drafts/messages";
+    case "spam":
+      return "/me/mailFolders/junkemail/messages";
+    case "trash":
+      return "/me/mailFolders/deleteditems/messages";
+    case "all":
+      // Inbox + archive cannot be expressed as a single folder endpoint.
+      return null;
+    case "unread":
+    case "inbox":
+    case undefined:
+    case null:
+    case "undefined":
+    case "null":
+      return "/me/mailFolders/inbox/messages";
+    default:
+      return "/me/mailFolders/inbox/messages";
+  }
+}
+
+function filterMessagesForDomainSearchConstraints(
+  messages: Message[],
+  {
+    after,
+    before,
+    isUnread,
+    inboxSection,
+  }: {
+    after?: Date | null;
+    before?: Date | null;
+    isUnread?: boolean | null;
+    inboxSection?: string | null;
+  },
+): Message[] {
+  return messages.filter((message) => {
+    if (after || before) {
+      const receivedAt = message.receivedDateTime
+        ? new Date(message.receivedDateTime)
+        : null;
+      if (!receivedAt) return false;
+      if (after && receivedAt <= after) return false;
+      if (before && receivedAt >= before) return false;
+    }
+
+    if (isUnread && message.isRead !== false) return false;
+
+    if (inboxSection && message.inferenceClassification !== inboxSection) {
+      // Missing inferenceClassification fails closed once we select the field.
+      return false;
+    }
+
+    return true;
+  });
 }
 
 function getDefaultOutlookThreadFolderFilter({

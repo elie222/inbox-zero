@@ -386,6 +386,7 @@ describe("OutlookProvider.getSentMessageIds", () => {
       apiPath: "/me/mailFolders/sentitems/messages",
       filter:
         "sentDateTime ge 2026-03-31T12:00:00.000Z and sentDateTime le 2026-04-30T17:00:00.000Z",
+      top: 50,
     });
     expect(result).toEqual({
       messages: [{ id: "message-1", threadId: "thread-1" }],
@@ -423,7 +424,100 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
     expect(client.getRequestLog()[0]).toEqual({
       apiPath: "/me/mailFolders/inbox/messages",
       filter: `inferenceClassification eq '${inboxSection}'`,
+      top: 50,
     });
+  });
+
+  it("scopes domain FROM queries to the inbox via $search", async () => {
+    const client = createMockOutlookClient([
+      createMessage({
+        id: "domain-message",
+        conversationId: "domain-thread",
+        parentFolderId: "inbox-folder-id",
+      }),
+    ]);
+    const provider = new OutlookProvider(client);
+
+    await provider.getThreadsWithQuery({
+      query: { type: "inbox", fromEmail: "@getinboxzero.on.crisp.email" },
+      maxResults: 50,
+    });
+
+    expect(client.getRequestLog()[0]).toEqual({
+      apiPath: "/me/mailFolders/inbox/messages",
+      filter: undefined,
+      search: '"from:@getinboxzero.on.crisp.email"',
+      top: 25,
+    });
+  });
+  it("keeps paging domain FROM searches until enough threads match local filters", async () => {
+    const client = createMockOutlookClient([], {
+      responsesByApiPath: {
+        "/me/mailFolders/inbox/messages": {
+          value: [
+            createMessage({
+              id: "read-message",
+              conversationId: "read-thread",
+              parentFolderId: "inbox-folder-id",
+              isRead: true,
+            }),
+          ],
+          "@odata.nextLink":
+            "https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$skiptoken=next",
+        },
+        "https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$skiptoken=next":
+          {
+            value: [
+              createMessage({
+                id: "unread-message",
+                conversationId: "unread-thread",
+                parentFolderId: "inbox-folder-id",
+                isRead: false,
+              }),
+            ],
+          },
+      },
+    });
+    const provider = new OutlookProvider(client);
+
+    const result = await provider.getThreadsWithQuery({
+      query: {
+        type: "inbox",
+        fromEmail: "@example.com",
+        isUnread: true,
+      },
+      maxResults: 1,
+    });
+
+    expect(result.threads.map((thread) => thread.id)).toEqual([
+      "unread-thread",
+    ]);
+    expect(client.getRequestLog().map((request) => request.apiPath)).toEqual([
+      "/me/mailFolders/inbox/messages",
+      "https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$skiptoken=next",
+    ]);
+  });
+
+  it("keeps exact FROM address queries on $filter with the inbox folder", async () => {
+    const client = createMockOutlookClient([
+      createMessage({
+        id: "exact-message",
+        conversationId: "exact-thread",
+        parentFolderId: "inbox-folder-id",
+      }),
+    ]);
+    const provider = new OutlookProvider(client);
+
+    await provider.getThreadsWithQuery({
+      query: { type: "inbox", fromEmail: "support@example.com" },
+    });
+
+    const request = client.getRequestLog()[0];
+    expect(request?.search).toBeUndefined();
+    expect(request?.filter).toContain(
+      "from/emailAddress/address eq 'support@example.com'",
+    );
+    expect(request?.filter).toContain("parentFolderId eq");
   });
 
   it("does not apply an inbox section filter to a custom folder", async () => {
@@ -439,6 +533,7 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
     expect(client.getRequestLog()[0]).toEqual({
       apiPath: "/me/mailFolders/custom-folder/messages",
       filter: undefined,
+      top: 50,
     });
   });
 
@@ -961,6 +1056,7 @@ describe("OutlookProvider.searchThreads", () => {
       apiPath: "/me/messages",
       filter: undefined,
       search: '"quarterly invoice"',
+      top: 25,
     });
     expect(result.threads.map((thread) => thread.id)).toEqual(["thread-1"]);
   });
@@ -1078,6 +1174,7 @@ function createMockOutlookClient(
     apiPath: string;
     filter?: string;
     search?: string;
+    top?: number;
   }> = [];
   const selectLog: string[] = [];
 
@@ -1086,6 +1183,7 @@ function createMockOutlookClient(
       api: (apiPath: string) => {
         let filterValue: string | undefined;
         let searchValue: string | undefined;
+        let topValue: number | undefined;
         const request = {
           filter: (value: string) => {
             filterValue = value;
@@ -1100,13 +1198,17 @@ function createMockOutlookClient(
             return request;
           },
           expand: () => request,
-          top: () => request,
+          top: (value: number) => {
+            topValue = value;
+            return request;
+          },
           orderby: () => request,
           get: async () => {
             requestLog.push({
               apiPath,
               filter: filterValue,
               search: searchValue,
+              top: topValue,
             });
             const response = options?.responsesByApiPath?.[apiPath];
             if (typeof response === "function") {

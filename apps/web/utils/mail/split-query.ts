@@ -31,6 +31,9 @@ export function mailSplitToThreadsQuery(split: MailSplit): ThreadsQuery {
         return mailTypeToThreadsQuery(split.value);
       }
       return { labelIds: [split.value, "INBOX"] };
+    case MailSplitKind.FROM:
+      if (!split.value) throw new Error(`Split "${split.name}" has no sender`);
+      return { type: "inbox", fromEmail: split.value };
   }
 }
 

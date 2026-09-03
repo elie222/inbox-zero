@@ -125,6 +125,32 @@ describe("mail split actions", () => {
     expect(result?.serverError).toBe('You already have a "Unread" split.');
   });
 
+  it("creates a from-split directly from a sender/domain prompt without calling the AI", async () => {
+    const split = {
+      id: "split-from-1",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      name: "getinboxzero.on.crisp.email",
+      kind: MailSplitKind.FROM,
+      value: "@getinboxzero.on.crisp.email",
+      order: 0,
+      emailAccountId: EMAIL_ACCOUNT_ID,
+    };
+    prisma.$transaction.mockResolvedValue([
+      [{ locked: true }],
+      [{ status: "created", ...split }],
+    ] as never);
+
+    const result = await createMailSplitFromPromptAction(EMAIL_ACCOUNT_ID, {
+      prompt:
+        "all emails from @getinboxzero.on.crisp.email that are in the inbox",
+      options: PROMPT_OPTIONS,
+    });
+
+    expect(result?.data).toEqual({ split });
+    expect(aiPromptToSplit).not.toHaveBeenCalled();
+  });
+
   it("creates the split the AI matched from a description", async () => {
     vi.mocked(aiPromptToSplit).mockResolvedValue({
       reasoning: "Receipts filters for what the user described",

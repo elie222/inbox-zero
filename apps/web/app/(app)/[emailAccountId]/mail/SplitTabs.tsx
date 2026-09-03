@@ -1,7 +1,7 @@
 "use client";
 
 import { XIcon } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   type NewSplitDraft,
   type NewSplitOption,
@@ -23,6 +23,7 @@ export type SplitTabsProps = {
   activeSplitId: string | null;
   onSelect: (splitId: string) => void;
   onDelete: (splitId: string) => void;
+  onRename: (splitId: string, name: string) => void;
   newSplitOptions: NewSplitOption[];
   onCreateSplit: (draft: NewSplitDraft) => void;
   onCreateSplitFromPrompt: (prompt: string) => Promise<boolean>;
@@ -39,6 +40,7 @@ export function SplitTabs({
   activeSplitId,
   onSelect,
   onDelete,
+  onRename,
   newSplitOptions,
   onCreateSplit,
   onCreateSplitFromPrompt,
@@ -77,42 +79,17 @@ export function SplitTabs({
         className,
       )}
     >
-      {splits.map((split) => {
-        const active = split.id === activeSplitId;
-
-        return (
-          <div
-            key={split.id}
-            className={cn(
-              "flex items-center gap-1 rounded-full py-0.5 pr-1 pl-2.5 text-xs",
-              active
-                ? "bg-primary/10 font-medium text-primary"
-                : "text-muted-foreground hover:bg-accent hover:text-foreground",
-            )}
-          >
-            <button
-              type="button"
-              ref={active ? activeTabRef : undefined}
-              data-split-tab
-              onClick={() => onSelect(split.id)}
-              aria-current={active ? "true" : undefined}
-              className="py-0.5 pr-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              {split.name}
-            </button>
-            {active && split.deletable && (
-              <button
-                type="button"
-                onClick={() => onDelete(split.id)}
-                aria-label={`Remove the ${split.name} split`}
-                className="rounded-full p-0.5 text-primary/60 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <XIcon className="size-3" />
-              </button>
-            )}
-          </div>
-        );
-      })}
+      {splits.map((split) => (
+        <SplitTab
+          key={split.id}
+          split={split}
+          active={split.id === activeSplitId}
+          activeTabRef={activeTabRef}
+          onSelect={onSelect}
+          onDelete={onDelete}
+          onRename={onRename}
+        />
+      ))}
 
       {canCreateSplits && (
         <NewSplitPopover
@@ -127,6 +104,130 @@ export function SplitTabs({
 
       <div className="flex-1" />
       <Kbd title="Next split">{getShortcutHint("nextSplit")}</Kbd>
+    </div>
+  );
+}
+
+function SplitTab({
+  split,
+  active,
+  activeTabRef,
+  onSelect,
+  onDelete,
+  onRename,
+}: {
+  split: MailSplitTab;
+  active: boolean;
+  activeTabRef: React.RefObject<HTMLButtonElement | null>;
+  onSelect: (splitId: string) => void;
+  onDelete: (splitId: string) => void;
+  onRename: (splitId: string, name: string) => void;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [draftName, setDraftName] = useState(split.name);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const wasEditingRef = useRef(false);
+
+  const startRename = () => {
+    if (!split.deletable) return;
+    setDraftName(split.name);
+    setIsEditing(true);
+  };
+
+  const stopEditing = () => {
+    setIsEditing(false);
+  };
+
+  const commitRename = () => {
+    const next = draftName.trim();
+    stopEditing();
+    if (!next || next === split.name) {
+      setDraftName(split.name);
+      return;
+    }
+    onRename(split.id, next.slice(0, 60));
+  };
+
+  // F2 rename unmounts the input; restore focus so keyboard users keep place.
+  useEffect(() => {
+    if (wasEditingRef.current && !isEditing) {
+      buttonRef.current?.focus({ preventScroll: true });
+    }
+    wasEditingRef.current = isEditing;
+  }, [isEditing]);
+
+  const setTabButtonRef = (node: HTMLButtonElement | null) => {
+    buttonRef.current = node;
+    if (active) {
+      (
+        activeTabRef as React.MutableRefObject<HTMLButtonElement | null>
+      ).current = node;
+    }
+  };
+
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-1 rounded-full py-0.5 pr-1 pl-2.5 text-xs",
+        active
+          ? "bg-primary/10 font-medium text-primary"
+          : "text-muted-foreground hover:bg-accent hover:text-foreground",
+      )}
+    >
+      {isEditing ? (
+        <input
+          value={draftName}
+          onChange={(event) => setDraftName(event.target.value)}
+          onBlur={commitRename}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              commitRename();
+            }
+            if (event.key === "Escape") {
+              event.preventDefault();
+              setDraftName(split.name);
+              stopEditing();
+            }
+          }}
+          aria-label={`Rename the ${split.name} split`}
+          maxLength={60}
+          // biome-ignore lint/a11y/noAutofocus: renaming starts from an explicit double-click
+          autoFocus
+          className="w-24 bg-transparent py-0.5 pr-1.5 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        />
+      ) : (
+        <button
+          type="button"
+          ref={setTabButtonRef}
+          data-split-tab
+          onClick={() => onSelect(split.id)}
+          onDoubleClick={startRename}
+          onKeyDown={(event) => {
+            if (event.key === "F2") {
+              event.preventDefault();
+              startRename();
+            }
+          }}
+          aria-current={active ? "true" : undefined}
+          title={
+            split.deletable ? "Double-click or press F2 to rename" : undefined
+          }
+          className="py-0.5 pr-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {split.name}
+        </button>
+      )}
+      {active && split.deletable && !isEditing && (
+        <button
+          type="button"
+          onClick={() => onDelete(split.id)}
+          aria-label={`Remove the ${split.name} split`}
+          className="rounded-full p-0.5 text-primary/60 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <XIcon className="size-3" />
+        </button>
+      )}
     </div>
   );
 }

@@ -15,6 +15,8 @@ import {
   updateMailPreferencesBody,
 } from "@/utils/actions/mail-split.validation";
 import { aiPromptToSplit } from "@/utils/ai/split/prompt-to-split";
+import { parseFromSplitInput } from "@/utils/mail/from-split";
+import { MailSplitKind } from "@/generated/prisma/enums";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { lockMailSplits } from "@/utils/mail/split-lock";
 import { MAX_MAIL_SPLITS } from "@/utils/mail/split-constants";
@@ -43,6 +45,17 @@ export const createMailSplitFromPromptAction = actionClient
   .inputSchema(createMailSplitFromPromptBody)
   .action(
     async ({ ctx: { emailAccountId }, parsedInput: { prompt, options } }) => {
+      const fromFilter = parseFromSplitInput(prompt);
+      if (fromFilter) {
+        const split = await createMailSplitOrThrow({
+          emailAccountId,
+          name: fromFilter.name,
+          kind: MailSplitKind.FROM,
+          value: fromFilter.value,
+        });
+        return { split };
+      }
+
       const emailAccount = await getEmailAccountWithAi({ emailAccountId });
       if (!emailAccount) throw new SafeError("Email account not found");
 
@@ -127,8 +140,21 @@ export const updateMailPreferencesAction = actionClient
 async function createMailSplitOrThrow(
   data: Pick<MailSplit, "emailAccountId" | "name" | "kind" | "value">,
 ): Promise<MailSplit> {
+  let splitData = data;
+  if (splitData.kind === MailSplitKind.FROM) {
+    const parsed = parseFromSplitInput(splitData.value ?? "");
+    if (!parsed) {
+      throw new SafeError("From splits need an email address or @domain");
+    }
+    splitData = {
+      ...splitData,
+      name: splitData.name || parsed.name,
+      value: parsed.value,
+    };
+  }
+
   try {
-    const result = await createMailSplit(data);
+    const result = await createMailSplit(splitData);
 
     if (!result) {
       throw new SafeError("Could not create split. Please try again.");
