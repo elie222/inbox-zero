@@ -126,6 +126,36 @@ describe("processFilingReply", () => {
     expect(prisma.documentFiling.update).not.toHaveBeenCalled();
   });
 
+  it("continues processing the batch when one filing action fails", async () => {
+    const filings = getFilingBatch();
+    prisma.documentFiling.findFirst.mockResolvedValue(filings[0]);
+    prisma.documentFiling.findMany.mockResolvedValue(filings);
+    prisma.documentFiling.update
+      .mockRejectedValueOnce(new Error("Database unavailable"))
+      .mockResolvedValueOnce(filings[1]);
+    vi.mocked(aiParseFilingReply).mockResolvedValue({
+      actions: [
+        { filingId: "filing-1", action: "approve", folderPath: null },
+        { filingId: "filing-2", action: "approve", folderPath: null },
+      ],
+      reply: "Done",
+    });
+    const params = getReplyParams();
+
+    await processFilingReply(params);
+
+    expect(prisma.documentFiling.update).toHaveBeenCalledTimes(2);
+    expect(prisma.documentFiling.update).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ where: { id: "filing-2" } }),
+    );
+    expect(params.emailProvider.replyToEmail).toHaveBeenCalledWith(
+      params.message,
+      "Done",
+      expect.any(Object),
+    );
+  });
+
   it("limits legacy notifications without a batch ID to their anchor filing", async () => {
     const legacyFiling = {
       ...getFilingBatch()[0],

@@ -99,12 +99,18 @@ export async function processFilingReply({
     }
 
     processedFilingIds.add(filing.id);
-    await applyFilingReplyAction({
-      action,
-      emailAccountId,
-      filing,
-      logger: logger.with({ filingId: filing.id }),
-    });
+    const filingLogger = logger.with({ filingId: filing.id });
+
+    try {
+      await applyFilingReplyAction({
+        action,
+        emailAccountId,
+        filing,
+        logger: filingLogger,
+      });
+    } catch (error) {
+      filingLogger.error("Failed to apply filing reply action", { error });
+    }
   }
 
   if (parseResult.reply) {
