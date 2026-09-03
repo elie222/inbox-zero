@@ -433,7 +433,9 @@ export function subscribeToMailboxStore(
   listener: (emailAccountId: string) => void,
 ) {
   mailboxListeners.add(listener);
-  return () => mailboxListeners.delete(listener);
+  return () => {
+    mailboxListeners.delete(listener);
+  };
 }
 
 export function notifyMailboxStoreChange(emailAccountId: string) {
@@ -577,6 +579,7 @@ function toListMessage(message: ParsedMessage) {
     date: message.date,
     internalDate: message.internalDate,
     labelIds: message.labelIds,
+    parentFolderId: message.parentFolderId,
     headers: message.headers,
   };
 }
