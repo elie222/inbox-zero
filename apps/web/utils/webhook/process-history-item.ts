@@ -7,10 +7,8 @@ import {
   isFilebotNotificationMessage,
 } from "@/utils/filebot/is-filebot-email";
 import { processFilingReply } from "@/utils/drive/handle-filing-reply";
-import {
-  processAttachment,
-  getFilableAttachments,
-} from "@/utils/drive/filing-engine";
+import { getFilableAttachments } from "@/utils/drive/filing-engine";
+import { processAttachmentsForFiling } from "@/utils/drive/process-filing-attachments";
 import { handleOutboundMessage } from "@/utils/reply-tracker/handle-outbound";
 import { cleanupThreadAIDrafts } from "@/utils/reply-tracker/draft-tracking";
 import { clearFollowUpLabel } from "@/utils/follow-up/labels";
@@ -242,28 +240,20 @@ export async function processHistoryItem(
                 count: extractableAttachments.length,
               });
 
-              // Process each attachment (don't await all - let them run in background)
-              for (const attachment of extractableAttachments) {
-                await processAttachment({
-                  emailAccount: {
-                    ...emailAccount,
-                    filingEnabled: emailAccount.filingEnabled,
-                    filingPrompt: emailAccount.filingPrompt,
-                    filingConfirmationSendEmail:
-                      emailAccount.filingConfirmationSendEmail,
-                    email: emailAccount.email,
-                  },
-                  message: parsedMessage,
-                  attachment,
-                  emailProvider: provider,
-                  logger,
-                }).catch((error) => {
-                  logger.error("Failed to process attachment", {
-                    filename: attachment.filename,
-                    error,
-                  });
-                });
-              }
+              await processAttachmentsForFiling({
+                attachments: extractableAttachments,
+                emailAccount: {
+                  ...emailAccount,
+                  filingEnabled: emailAccount.filingEnabled,
+                  filingPrompt: emailAccount.filingPrompt,
+                  filingConfirmationSendEmail:
+                    emailAccount.filingConfirmationSendEmail,
+                  email: emailAccount.email,
+                },
+                message: parsedMessage,
+                emailProvider: provider,
+                logger,
+              });
             }
           },
           extra: { operation: "process-attachments" },
