@@ -475,21 +475,12 @@ async function sendNotificationEmail({
     throw error;
   }
 
-  try {
-    await prisma.documentFiling.updateMany({
-      where: {
-        id: { in: filingIds },
-        notificationClaimId,
-      },
-      data: {
-        notificationClaimId: null,
-        notificationSentAt: new Date(),
-      },
-    });
-  } catch (error) {
-    logger.error("Failed to complete filing notification claim", { error });
-    return;
-  }
+  const claimCompleted = await completeNotificationClaim({
+    filingIds,
+    logger,
+    notificationClaimId,
+  });
+  if (!claimCompleted) return;
 
   if (result.messageId) {
     try {
@@ -506,6 +497,49 @@ async function sendNotificationEmail({
     messageId: result.messageId,
     filingCount: filingIds.length,
   });
+}
+
+async function completeNotificationClaim({
+  filingIds,
+  logger,
+  notificationClaimId,
+}: {
+  filingIds: string[];
+  logger: Logger;
+  notificationClaimId: string;
+}): Promise<boolean> {
+  const notificationSentAt = new Date();
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const result = await prisma.documentFiling.updateMany({
+        where: {
+          id: { in: filingIds },
+          notificationClaimId,
+        },
+        data: {
+          notificationClaimId: null,
+          notificationSentAt,
+        },
+      });
+
+      if (result.count === filingIds.length) return true;
+
+      logger.error("Failed to complete every filing notification claim", {
+        completedCount: result.count,
+        filingCount: filingIds.length,
+      });
+      return false;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  logger.error("Failed to complete filing notification claim", {
+    error: lastError,
+  });
+  return false;
 }
 
 async function releaseNotificationClaim({

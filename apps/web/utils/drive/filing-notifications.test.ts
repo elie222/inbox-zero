@@ -261,6 +261,40 @@ describe("filing-notifications", () => {
       });
     });
 
+    it("retries a transient failure when completing the claim", async () => {
+      prisma.documentFiling.findMany.mockResolvedValue([
+        createFiling({ id: "filing-1" }),
+      ]);
+      prisma.documentFiling.updateMany
+        .mockResolvedValueOnce({ count: 1 })
+        .mockRejectedValueOnce(new Error("temporary database failure"))
+        .mockResolvedValueOnce({ count: 1 });
+
+      await sendFilingNotifications({
+        emailProvider: createMockEmailProvider({
+          sendEmailWithHtml: vi
+            .fn()
+            .mockResolvedValue({ messageId: "", threadId: "thread-1" }),
+        }),
+        userEmail: "user@example.com",
+        filingIds: ["filing-1"],
+        sourceMessage,
+        logger,
+      });
+
+      expect(prisma.documentFiling.updateMany).toHaveBeenCalledTimes(3);
+      expect(prisma.documentFiling.updateMany).toHaveBeenLastCalledWith({
+        where: {
+          id: { in: ["filing-1"] },
+          notificationClaimId: expect.any(String),
+        },
+        data: {
+          notificationClaimId: null,
+          notificationSentAt: expect.any(Date),
+        },
+      });
+    });
+
     it("keeps concurrent claims isolated when created at the same time", async () => {
       vi.useFakeTimers();
       vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
