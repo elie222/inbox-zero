@@ -216,7 +216,113 @@ describe("cached thread details", () => {
       ).content,
     ).toBeUndefined();
   });
+
+  // A record outlives the server behaviour that wrote it, so a thread stored
+  // while Outlook still returned newest-first has to be reordered on read
+  // rather than replayed in the order it was persisted.
+  it("orders a legacy record that was stored newest-first", async () => {
+    await seedLegacyThreadDetailRecord({
+      byteSize: 0,
+      data: getThreadResponseWithMessages([
+        { id: "newest", internalDate: "2026-08-27T10:00:00.000Z" },
+        { id: "middle", internalDate: "2026-08-26T10:00:00.000Z" },
+        { id: "oldest", internalDate: "2026-08-25T10:00:00.000Z" },
+      ]),
+      emailAccountId: "account-1",
+      threadId: "thread-1",
+      variant: "drafts:0|replies:0",
+    });
+
+    const cached = await readCachedThreadDetail({
+      emailAccountId: "account-1",
+      threadId: "thread-1",
+      variant: "drafts:0|replies:0",
+    });
+
+    expect(cached?.data.thread.messages.map((message) => message.id)).toEqual([
+      "oldest",
+      "middle",
+      "newest",
+    ]);
+  });
+
+  it("orders messages when writing a thread to the cache", async () => {
+    await writeCachedThreadDetail({
+      emailAccountId: "account-1",
+      threadId: "thread-1",
+      variant: "drafts:0|replies:0",
+      data: getThreadResponseWithMessages([
+        { id: "newest", internalDate: "2026-08-27T10:00:00.000Z" },
+        { id: "oldest", internalDate: "2026-08-25T10:00:00.000Z" },
+      ]),
+    });
+
+    const cached = await readCachedThreadDetail({
+      emailAccountId: "account-1",
+      threadId: "thread-1",
+      variant: "drafts:0|replies:0",
+    });
+
+    expect(cached?.data.thread.messages.map((message) => message.id)).toEqual([
+      "oldest",
+      "newest",
+    ]);
+  });
+
+  // Gmail reports epoch milliseconds where Outlook reports an ISO string.
+  it("orders messages across both internalDate formats", async () => {
+    await seedLegacyThreadDetailRecord({
+      byteSize: 0,
+      data: getThreadResponseWithMessages([
+        { id: "newest", internalDate: "1788000000000" },
+        { id: "oldest", internalDate: "2026-08-25T10:00:00.000Z" },
+      ]),
+      emailAccountId: "account-1",
+      threadId: "thread-1",
+      variant: "drafts:0|replies:0",
+    });
+
+    const cached = await readCachedThreadDetail({
+      emailAccountId: "account-1",
+      threadId: "thread-1",
+      variant: "drafts:0|replies:0",
+    });
+
+    expect(cached?.data.thread.messages.map((message) => message.id)).toEqual([
+      "oldest",
+      "newest",
+    ]);
+  });
 });
+
+function getThreadResponseWithMessages(
+  messages: Array<{ id: string; internalDate: string }>,
+): ThreadResponse {
+  return {
+    thread: {
+      historyId: "history-1",
+      id: "thread-1",
+      messages: messages.map(({ id, internalDate }) => ({
+        date: internalDate,
+        headers: {
+          date: internalDate,
+          from: "sender@example.com",
+          subject: "Subject",
+          to: "me@example.com",
+        },
+        historyId: "history-1",
+        id,
+        inline: [],
+        internalDate,
+        snippet: id,
+        subject: "Subject",
+        textPlain: id,
+        threadId: "thread-1",
+      })),
+      snippet: messages.at(-1)?.id ?? "",
+    },
+  };
+}
 
 function getThreadResponse({
   textPlain,
