@@ -10,7 +10,8 @@ minimumReleaseAge: 1440
 minimumReleaseAgeExclude:
   - "@inboxzero/*"
   - "@inbox-zero/emulate"
-  # Next.js security patch requested explicitly; remove after the 24h maturity window.
+  # Next.js security patch requested explicitly; remove after the 24h maturity
+  # window together with the matching `next` / `@next/*` entries in `.ncurc.cjs`.
   - "next"
   - "@next/*"
 
