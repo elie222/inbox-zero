@@ -175,6 +175,9 @@ export function MailShell() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [replyToMessageId, setReplyToMessageId] = useState<string>();
   const pendingReplyThreadKey = useRef<string | null>(null);
+  // Serializes density preference writes so overlapping toggles cannot
+  // finish out of order and overwrite EmailAccount.mailListDensity.
+  const densityWriteQueueRef = useRef(Promise.resolve());
   const isMailSidebarOpen = openSidebars.includes("left-sidebar");
 
   const isAllAccounts = accountScope === "all";
@@ -206,8 +209,14 @@ export function MailShell() {
   const accountLayout: MailLayoutMode =
     settings?.layout === MailLayout.SPLIT ? "split" : "list";
   const layout = isAllAccounts ? "list" : accountLayout;
-  const density: MailListDensityMode =
+  const accountDensity: MailListDensityMode =
     settings?.density === MailListDensity.EXPANDED ? "expanded" : "compact";
+  // All-accounts has no single EmailAccount preference owner (same reason the
+  // layout toggle is hidden), so keep rows compact rather than projecting the
+  // current account's density onto every mailbox.
+  const density: MailListDensityMode = isAllAccounts
+    ? "compact"
+    : accountDensity;
 
   // Written through the SWR cache rather than mirrored in local state, so the
   // preference has one source of truth and every reader sees the new value.
@@ -252,28 +261,37 @@ export function MailShell() {
         : MailListDensity.EXPANDED;
     const loadedSettings = settings;
 
+    // Optimistic UI immediately so rapid toggles still feel instant.
     mutateSettings(
-      async (current) => {
-        const result = await updateMailPreferencesAction(emailAccountId, {
-          density: next,
-        });
-        if (result?.serverError || result?.validationErrors)
-          throw new Error(getActionErrorMessage(result));
-        return { ...(current ?? loadedSettings), density: next };
-      },
+      (current) => ({ ...(current ?? loadedSettings), density: next }),
       {
         optimisticData: (current) => ({
           ...(current ?? loadedSettings),
           density: next,
         }),
         revalidate: false,
-        rollbackOnError: true,
+        populateCache: true,
       },
-    ).catch((error) => {
-      toast.error(
-        error instanceof Error ? error.message : "Couldn't save that",
-      );
-    });
+    ).catch(() => undefined);
+
+    // Persist in order. Each click captures its own `next`, so a compact →
+    // expanded → compact burst writes the same sequence and cannot land with
+    // an older response overwriting the latest choice.
+    densityWriteQueueRef.current = densityWriteQueueRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        const result = await updateMailPreferencesAction(emailAccountId, {
+          density: next,
+        });
+        if (result?.serverError || result?.validationErrors)
+          throw new Error(getActionErrorMessage(result));
+      })
+      .catch((error) => {
+        toast.error(
+          error instanceof Error ? error.message : "Couldn't save that",
+        );
+        mutateSettings().catch(() => undefined);
+      });
   }, [density, emailAccountId, mutateSettings, settings]);
 
   // A sidebar selection scopes the whole list, which replaces the split tabs —
@@ -767,7 +785,7 @@ export function MailShell() {
         : undefined,
       undo: () => undo(),
       toggleLayout: isAllAccounts ? undefined : toggleLayout,
-      toggleDensity,
+      toggleDensity: isAllAccounts ? undefined : toggleDensity,
       focusMode: openThreadId ? () => setIsFocusMode((on) => !on) : undefined,
       help: () => setIsHelpOpen(true),
     };
@@ -1110,6 +1128,7 @@ export function MailShell() {
               onToggleAssistant={() => toggleSidebar(["chat-sidebar"])}
               showSidebarToggle={!isMailSidebarOpen}
               showLayoutToggle={!isAllAccounts}
+              showDensityToggle={!isAllAccounts}
             />
             {!isScoped && !searchQuery && (
               <SplitTabs

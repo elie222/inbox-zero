@@ -80,12 +80,13 @@ export function ThreadList({
 
   // Keep the J/K cursor on screen without centering every row. Layout phase so
   // a held arrow key never paints a selected row that's already off-screen.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: density changes row height without changing focusedIndex
   useLayoutEffect(() => {
     if (!scrollRoot || focusedIndex < 0 || !focusedThreadId) return;
     const row = focusedRowRef.current;
     if (!row) return;
     scrollElementIntoContainer(scrollRoot, row);
-  }, [focusedIndex, focusedThreadId, scrollRoot]);
+  }, [density, focusedIndex, focusedThreadId, scrollRoot]);
 
   useEffect(() => {
     if (prefetchListKey.current !== listKey) {

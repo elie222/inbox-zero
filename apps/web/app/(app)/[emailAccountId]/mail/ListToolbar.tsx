@@ -24,6 +24,7 @@ export type ListToolbarProps = {
   layout: MailLayoutMode;
   density: MailListDensityMode;
   showLayoutToggle?: boolean;
+  showDensityToggle?: boolean;
   /** Committed search query. Only meaningful when `onSearch` is provided. */
   searchQuery?: string;
   /** When provided, the toolbar shows a real mail search input. */
@@ -39,6 +40,7 @@ export function ListToolbar({
   layout,
   density,
   showLayoutToggle = true,
+  showDensityToggle = true,
   searchQuery = "",
   onSearch,
   onOpenSearch,
@@ -93,19 +95,21 @@ export function ListToolbar({
         </Tooltip>
       ) : null}
 
-      <Tooltip
-        content={`Switch compact / expanded snippets (${getShortcutHint("toggleDensity")})`}
-      >
-        <button
-          type="button"
-          onClick={onToggleDensity}
-          aria-label="Switch compact or expanded snippets"
-          aria-pressed={density === "expanded"}
-          className={cn(toolbarButton, "w-8 justify-center px-0")}
+      {showDensityToggle ? (
+        <Tooltip
+          content={`Switch compact / expanded snippets (${getShortcutHint("toggleDensity")})`}
         >
-          <DensityIcon className="size-3.5" />
-        </button>
-      </Tooltip>
+          <button
+            type="button"
+            onClick={onToggleDensity}
+            aria-label="Switch compact or expanded snippets"
+            aria-pressed={density === "expanded"}
+            className={cn(toolbarButton, "w-8 justify-center px-0")}
+          >
+            <DensityIcon className="size-3.5" />
+          </button>
+        </Tooltip>
+      ) : null}
 
       <Tooltip content="Assistant">
         <button
