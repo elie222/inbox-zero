@@ -7,7 +7,7 @@ import {
 } from "@/__tests__/mocks/email-provider.mock";
 import { getEmailAccount, createTestLogger } from "@/__tests__/helpers";
 import { handleOutboundMessage } from "@/utils/reply-tracker/handle-outbound";
-import { processAttachment } from "@/utils/drive/filing-engine";
+import { processAttachmentsForFiling } from "@/utils/drive/process-filing-attachments";
 import {
   DraftReplyConfidence,
   NewsletterStatus,
@@ -46,7 +46,9 @@ vi.mock("@/utils/reply-tracker/handle-outbound", () => ({
 }));
 vi.mock("@/utils/drive/filing-engine", () => ({
   getFilableAttachments: vi.fn((message) => message.attachments ?? []),
-  processAttachment: vi.fn().mockResolvedValue({ success: true }),
+}));
+vi.mock("@/utils/drive/process-filing-attachments", () => ({
+  processAttachmentsForFiling: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("@/utils/otp-push", () => ({
   sendOtpPushNotification: vi.fn().mockResolvedValue(undefined),
@@ -571,9 +573,9 @@ describe("Provider Edge Cases", () => {
         },
       );
 
-      expect(processAttachment).toHaveBeenCalledWith(
+      expect(processAttachmentsForFiling).toHaveBeenCalledWith(
         expect.objectContaining({
-          attachment,
+          attachments: [attachment],
           emailProvider: provider,
           message,
         }),
