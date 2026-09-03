@@ -147,12 +147,27 @@ describe("filing-notifications", () => {
           messageHtml: expect.stringMatching(/first\.pdf[\s\S]*second\.pdf/),
         }),
       );
-      expect(prisma.documentFiling.updateMany).toHaveBeenCalledWith({
+      const notificationClaimId =
+        prisma.documentFiling.updateMany.mock.calls[0]?.[0].data
+          .notificationClaimId;
+      expect(notificationClaimId).toEqual(expect.any(String));
+      expect(prisma.documentFiling.updateMany).toHaveBeenNthCalledWith(1, {
         where: {
           id: { in: ["filing-1", "filing-2"] },
+          notificationClaimId: null,
           notificationSentAt: null,
         },
-        data: { notificationSentAt: expect.any(Date) },
+        data: { notificationClaimId },
+      });
+      expect(prisma.documentFiling.updateMany).toHaveBeenNthCalledWith(2, {
+        where: {
+          id: { in: ["filing-1", "filing-2"] },
+          notificationClaimId,
+        },
+        data: {
+          notificationClaimId: null,
+          notificationSentAt: expect.any(Date),
+        },
       });
       expect(prisma.documentFiling.update).toHaveBeenCalledWith({
         where: { id: "filing-1" },
@@ -177,6 +192,7 @@ describe("filing-notifications", () => {
         expect.objectContaining({
           where: {
             id: { in: ["filing-1", "filing-2"] },
+            notificationClaimId: null,
             notificationSentAt: null,
           },
         }),
@@ -203,12 +219,15 @@ describe("filing-notifications", () => {
       });
 
       expect(sendEmailWithHtml).not.toHaveBeenCalled();
+      const notificationClaimId =
+        prisma.documentFiling.updateMany.mock.calls[0]?.[0].data
+          .notificationClaimId;
       expect(prisma.documentFiling.updateMany).toHaveBeenLastCalledWith({
         where: {
           id: { in: ["filing-1", "filing-2"] },
-          notificationSentAt: expect.any(Date),
+          notificationClaimId,
         },
-        data: { notificationSentAt: null },
+        data: { notificationClaimId: null },
       });
     });
 
@@ -230,13 +249,80 @@ describe("filing-notifications", () => {
         }),
       ).rejects.toThrow(sendError);
 
+      const notificationClaimId =
+        prisma.documentFiling.updateMany.mock.calls[0]?.[0].data
+          .notificationClaimId;
       expect(prisma.documentFiling.updateMany).toHaveBeenLastCalledWith({
         where: {
           id: { in: ["filing-1"] },
-          notificationSentAt: expect.any(Date),
+          notificationClaimId,
         },
-        data: { notificationSentAt: null },
+        data: { notificationClaimId: null },
       });
+    });
+
+    it("keeps concurrent claims isolated when created at the same time", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
+
+      try {
+        prisma.documentFiling.findMany.mockResolvedValue([
+          createFiling({ id: "filing-1" }),
+          createFiling({ id: "filing-2" }),
+        ]);
+        const attemptedClaimIds: string[] = [];
+        let activeClaimId: string | null = null;
+        prisma.documentFiling.updateMany.mockImplementation(
+          async ({ data, where }) => {
+            if (typeof data.notificationClaimId === "string") {
+              attemptedClaimIds.push(data.notificationClaimId);
+              if (activeClaimId) return { count: 0 };
+
+              activeClaimId = data.notificationClaimId;
+              return { count: 2 };
+            }
+
+            if (where.notificationClaimId !== activeClaimId) {
+              return { count: 0 };
+            }
+
+            activeClaimId = null;
+            return { count: 2 };
+          },
+        );
+
+        const sendStarted = createDeferred<void>();
+        const pendingSend = createDeferred<{
+          messageId: string;
+          threadId: string;
+        }>();
+        const sendEmailWithHtml = vi.fn(() => {
+          sendStarted.resolve();
+          return pendingSend.promise;
+        });
+        const params = {
+          emailProvider: createMockEmailProvider({ sendEmailWithHtml }),
+          userEmail: "user@example.com",
+          filingIds: ["filing-1", "filing-2"],
+          sourceMessage,
+          logger,
+        };
+
+        const firstSend = sendFilingNotifications(params);
+        await sendStarted.promise;
+        await sendFilingNotifications(params);
+
+        expect(sendEmailWithHtml).toHaveBeenCalledOnce();
+        expect(new Set(attemptedClaimIds).size).toBe(2);
+        expect(activeClaimId).toBe(attemptedClaimIds[0]);
+
+        pendingSend.resolve({ messageId: "sent-123", threadId: "thread-1" });
+        await firstSend;
+
+        expect(activeClaimId).toBeNull();
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 });
@@ -275,8 +361,21 @@ function createFiling({
     feedbackAt: null,
     notificationMessageId: null,
     notificationSentAt: null,
+    notificationClaimId: null,
     driveConnectionId: "drive-1",
     emailAccountId: "account-1",
     driveConnection: { provider },
   };
+}
+
+function createDeferred<T>(): {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+} {
+  let resolve = (_value: T) => {};
+  const promise = new Promise<T>((promiseResolve) => {
+    resolve = promiseResolve;
+  });
+
+  return { promise, resolve };
 }

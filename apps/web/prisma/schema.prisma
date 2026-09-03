@@ -1736,6 +1736,7 @@ model DocumentFiling {
 
   notificationMessageId String?   @unique
   notificationSentAt    DateTime?
+  notificationClaimId   String?
 
   driveConnectionId String
   driveConnection   DriveConnection @relation(fields: [driveConnectionId], references: [id], onDelete: Cascade)

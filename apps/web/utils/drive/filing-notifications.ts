@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import prisma from "@/utils/prisma";
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
@@ -158,6 +159,7 @@ export async function sendFilingNotifications({
   const filings = await prisma.documentFiling.findMany({
     where: {
       id: { in: filingIds },
+      notificationClaimId: null,
       notificationSentAt: null,
     },
     include: {
@@ -429,20 +431,21 @@ async function sendNotificationEmail({
   subject: string;
   userEmail: string;
 }): Promise<void> {
-  const notificationSentAt = new Date();
+  const notificationClaimId = randomUUID();
   const claim = await prisma.documentFiling.updateMany({
     where: {
       id: { in: filingIds },
+      notificationClaimId: null,
       notificationSentAt: null,
     },
-    data: { notificationSentAt },
+    data: { notificationClaimId },
   });
 
   if (claim.count !== filingIds.length) {
     await releaseNotificationClaim({
       filingIds,
       logger,
-      notificationSentAt,
+      notificationClaimId,
     });
     logger.info("Filing notification already claimed", {
       filingCount: filingIds.length,
@@ -465,11 +468,27 @@ async function sendNotificationEmail({
     await releaseNotificationClaim({
       filingIds,
       logger,
-      notificationSentAt,
+      notificationClaimId,
     });
 
     logger.error("Failed to send filing notification", { error });
     throw error;
+  }
+
+  try {
+    await prisma.documentFiling.updateMany({
+      where: {
+        id: { in: filingIds },
+        notificationClaimId,
+      },
+      data: {
+        notificationClaimId: null,
+        notificationSentAt: new Date(),
+      },
+    });
+  } catch (error) {
+    logger.error("Failed to complete filing notification claim", { error });
+    return;
   }
 
   if (result.messageId) {
@@ -492,19 +511,19 @@ async function sendNotificationEmail({
 async function releaseNotificationClaim({
   filingIds,
   logger,
-  notificationSentAt,
+  notificationClaimId,
 }: {
   filingIds: string[];
   logger: Logger;
-  notificationSentAt: Date;
+  notificationClaimId: string;
 }): Promise<void> {
   try {
     await prisma.documentFiling.updateMany({
       where: {
         id: { in: filingIds },
-        notificationSentAt,
+        notificationClaimId,
       },
-      data: { notificationSentAt: null },
+      data: { notificationClaimId: null },
     });
   } catch (error) {
     logger.error("Failed to release filing notification claim", { error });
