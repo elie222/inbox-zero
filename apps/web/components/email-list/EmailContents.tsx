@@ -125,6 +125,7 @@ export function HtmlEmail({
         ref={iframeRef}
         srcDoc={srcDoc}
         className="min-h-0 w-full"
+        height={1}
         style={iframeHeight ? { height: `${iframeHeight + 3}px` } : undefined}
         title="Email content preview"
         sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
@@ -410,7 +411,10 @@ function useIframeHeight(
   srcDoc: string,
   documentKey: string,
 ) {
-  const [height, setHeight] = useState(0);
+  const [measurement, setMeasurement] = useState<{
+    documentKey: string;
+    height: number;
+  }>();
 
   useEffect(() => {
     const iframe = iframeRef.current;
@@ -428,7 +432,7 @@ function useIframeHeight(
         documentElement.scrollHeight,
         body.scrollHeight,
       );
-      if (newHeight) setHeight(newHeight);
+      if (newHeight) setMeasurement({ documentKey, height: newHeight });
     };
 
     const resizeObserver = new ResizeObserver(updateHeight);
@@ -487,7 +491,7 @@ function useIframeHeight(
     };
   }, [iframeRef, srcDoc, documentKey]);
 
-  return height;
+  return measurement?.documentKey === documentKey ? measurement.height : 0;
 }
 
 function getIframeDocumentKey(html: string, isDarkMode: boolean) {

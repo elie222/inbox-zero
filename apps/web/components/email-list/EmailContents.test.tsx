@@ -1,7 +1,13 @@
 /** @vitest-environment jsdom */
 
 import React from "react";
-import { act, cleanup, render, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next-themes", () => ({
@@ -147,6 +153,7 @@ describe("HtmlEmail", () => {
   });
 
   it("expands when an image increases the iframe document height after loading", async () => {
+    vi.mocked(fetch).mockReturnValue(new Promise(() => {}));
     const { getByTitle } = render(
       <HtmlEmail
         html='<img src="https://cdn.example.com/tall-image.png" />'
@@ -179,6 +186,52 @@ describe("HtmlEmail", () => {
         640,
       ),
     );
+  });
+
+  it("remeasures from a minimal height when quoted content is toggled", async () => {
+    vi.mocked(fetch).mockReturnValue(new Promise(() => {}));
+    const { getByRole, getByTitle } = render(
+      <HtmlEmail
+        html={
+          '<div>Current reply</div><div class="gmail_quote"><div>Earlier message</div></div>'
+        }
+        messageId="message-with-quote"
+      />,
+    );
+    const iframe = getByTitle("Email content preview") as HTMLIFrameElement;
+    let contentHeight = 40;
+
+    Object.defineProperty(
+      iframe.contentDocument!.documentElement,
+      "scrollHeight",
+      {
+        configurable: true,
+        get: () => contentHeight,
+      },
+    );
+    Object.defineProperty(iframe.contentDocument!.body, "scrollHeight", {
+      configurable: true,
+      get: () => contentHeight,
+    });
+    addEmailDocumentMarker(iframe, iframe.contentDocument);
+    iframe.dispatchEvent(new Event("load"));
+
+    await waitFor(() => expect(iframe.style.height).toBe("43px"));
+
+    fireEvent.click(getByRole("button", { name: "Show quoted content" }));
+
+    expect(iframe.style.height).toBe("");
+    expect(iframe.getAttribute("height")).toBe("1");
+
+    contentHeight = 640;
+    addEmailDocumentMarker(iframe, iframe.contentDocument);
+    iframe.dispatchEvent(new Event("load"));
+    await waitFor(() => expect(iframe.style.height).toBe("643px"));
+
+    fireEvent.click(getByRole("button", { name: "Hide quoted content" }));
+
+    expect(iframe.style.height).toBe("");
+    expect(iframe.getAttribute("height")).toBe("1");
   });
 
   it("keeps watching until the email document replaces the placeholder", async () => {
@@ -307,5 +360,10 @@ function addEmailDocumentMarker(
     .parseFromString(iframe.srcdoc, "text/html")
     .querySelector('meta[name="inbox-zero-email-document"]');
   if (!marker) throw new Error("Expected an email document marker");
+  for (const existingMarker of targetDocument.querySelectorAll(
+    'meta[name="inbox-zero-email-document"]',
+  )) {
+    existingMarker.remove();
+  }
   targetDocument.head.append(marker.cloneNode());
 }
