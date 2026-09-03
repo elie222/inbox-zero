@@ -159,7 +159,7 @@ export async function sendFilingNotifications({
   const filings = await prisma.documentFiling.findMany({
     where: {
       id: { in: filingIds },
-      notificationClaimId: null,
+      notificationBatchId: null,
       notificationSentAt: null,
     },
     include: {
@@ -431,21 +431,21 @@ async function sendNotificationEmail({
   subject: string;
   userEmail: string;
 }): Promise<void> {
-  const notificationClaimId = randomUUID();
+  const notificationBatchId = randomUUID();
   const claim = await prisma.documentFiling.updateMany({
     where: {
       id: { in: filingIds },
-      notificationClaimId: null,
+      notificationBatchId: null,
       notificationSentAt: null,
     },
-    data: { notificationClaimId },
+    data: { notificationBatchId },
   });
 
   if (claim.count !== filingIds.length) {
-    await releaseNotificationClaim({
+    await releaseNotificationBatch({
       filingIds,
       logger,
-      notificationClaimId,
+      notificationBatchId,
     });
     logger.info("Filing notification already claimed", {
       filingCount: filingIds.length,
@@ -465,22 +465,22 @@ async function sendNotificationEmail({
       messageHtml,
     });
   } catch (error) {
-    await releaseNotificationClaim({
+    await releaseNotificationBatch({
       filingIds,
       logger,
-      notificationClaimId,
+      notificationBatchId,
     });
 
     logger.error("Failed to send filing notification", { error });
     throw error;
   }
 
-  const claimCompleted = await completeNotificationClaim({
+  const batchCompleted = await completeNotificationBatch({
     filingIds,
     logger,
-    notificationClaimId,
+    notificationBatchId,
   });
-  if (!claimCompleted) return;
+  if (!batchCompleted) return;
 
   if (result.messageId) {
     try {
@@ -499,14 +499,14 @@ async function sendNotificationEmail({
   });
 }
 
-async function completeNotificationClaim({
+async function completeNotificationBatch({
   filingIds,
   logger,
-  notificationClaimId,
+  notificationBatchId,
 }: {
   filingIds: string[];
   logger: Logger;
-  notificationClaimId: string;
+  notificationBatchId: string;
 }): Promise<boolean> {
   const notificationSentAt = new Date();
   let lastError: unknown;
@@ -516,10 +516,9 @@ async function completeNotificationClaim({
       const result = await prisma.documentFiling.updateMany({
         where: {
           id: { in: filingIds },
-          notificationClaimId,
+          notificationBatchId,
         },
         data: {
-          notificationClaimId: null,
           notificationSentAt,
         },
       });
@@ -542,22 +541,22 @@ async function completeNotificationClaim({
   return false;
 }
 
-async function releaseNotificationClaim({
+async function releaseNotificationBatch({
   filingIds,
   logger,
-  notificationClaimId,
+  notificationBatchId,
 }: {
   filingIds: string[];
   logger: Logger;
-  notificationClaimId: string;
+  notificationBatchId: string;
 }): Promise<void> {
   try {
     await prisma.documentFiling.updateMany({
       where: {
         id: { in: filingIds },
-        notificationClaimId,
+        notificationBatchId,
       },
-      data: { notificationClaimId: null },
+      data: { notificationBatchId: null },
     });
   } catch (error) {
     logger.error("Failed to release filing notification claim", { error });

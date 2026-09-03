@@ -147,25 +147,24 @@ describe("filing-notifications", () => {
           messageHtml: expect.stringMatching(/first\.pdf[\s\S]*second\.pdf/),
         }),
       );
-      const notificationClaimId =
+      const notificationBatchId =
         prisma.documentFiling.updateMany.mock.calls[0]?.[0].data
-          .notificationClaimId;
-      expect(notificationClaimId).toEqual(expect.any(String));
+          .notificationBatchId;
+      expect(notificationBatchId).toEqual(expect.any(String));
       expect(prisma.documentFiling.updateMany).toHaveBeenNthCalledWith(1, {
         where: {
           id: { in: ["filing-1", "filing-2"] },
-          notificationClaimId: null,
+          notificationBatchId: null,
           notificationSentAt: null,
         },
-        data: { notificationClaimId },
+        data: { notificationBatchId },
       });
       expect(prisma.documentFiling.updateMany).toHaveBeenNthCalledWith(2, {
         where: {
           id: { in: ["filing-1", "filing-2"] },
-          notificationClaimId,
+          notificationBatchId,
         },
         data: {
-          notificationClaimId: null,
           notificationSentAt: expect.any(Date),
         },
       });
@@ -192,7 +191,7 @@ describe("filing-notifications", () => {
         expect.objectContaining({
           where: {
             id: { in: ["filing-1", "filing-2"] },
-            notificationClaimId: null,
+            notificationBatchId: null,
             notificationSentAt: null,
           },
         }),
@@ -219,15 +218,15 @@ describe("filing-notifications", () => {
       });
 
       expect(sendEmailWithHtml).not.toHaveBeenCalled();
-      const notificationClaimId =
+      const notificationBatchId =
         prisma.documentFiling.updateMany.mock.calls[0]?.[0].data
-          .notificationClaimId;
+          .notificationBatchId;
       expect(prisma.documentFiling.updateMany).toHaveBeenLastCalledWith({
         where: {
           id: { in: ["filing-1", "filing-2"] },
-          notificationClaimId,
+          notificationBatchId,
         },
-        data: { notificationClaimId: null },
+        data: { notificationBatchId: null },
       });
     });
 
@@ -249,15 +248,15 @@ describe("filing-notifications", () => {
         }),
       ).rejects.toThrow(sendError);
 
-      const notificationClaimId =
+      const notificationBatchId =
         prisma.documentFiling.updateMany.mock.calls[0]?.[0].data
-          .notificationClaimId;
+          .notificationBatchId;
       expect(prisma.documentFiling.updateMany).toHaveBeenLastCalledWith({
         where: {
           id: { in: ["filing-1"] },
-          notificationClaimId,
+          notificationBatchId,
         },
-        data: { notificationClaimId: null },
+        data: { notificationBatchId: null },
       });
     });
 
@@ -286,10 +285,9 @@ describe("filing-notifications", () => {
       expect(prisma.documentFiling.updateMany).toHaveBeenLastCalledWith({
         where: {
           id: { in: ["filing-1"] },
-          notificationClaimId: expect.any(String),
+          notificationBatchId: expect.any(String),
         },
         data: {
-          notificationClaimId: null,
           notificationSentAt: expect.any(Date),
         },
       });
@@ -308,15 +306,15 @@ describe("filing-notifications", () => {
         let activeClaimId: string | null = null;
         prisma.documentFiling.updateMany.mockImplementation(
           async ({ data, where }) => {
-            if (typeof data.notificationClaimId === "string") {
-              attemptedClaimIds.push(data.notificationClaimId);
+            if (typeof data.notificationBatchId === "string") {
+              attemptedClaimIds.push(data.notificationBatchId);
               if (activeClaimId) return { count: 0 };
 
-              activeClaimId = data.notificationClaimId;
+              activeClaimId = data.notificationBatchId;
               return { count: 2 };
             }
 
-            if (where.notificationClaimId !== activeClaimId) {
+            if (where.notificationBatchId !== activeClaimId) {
               return { count: 0 };
             }
 
@@ -395,7 +393,7 @@ function createFiling({
     feedbackAt: null,
     notificationMessageId: null,
     notificationSentAt: null,
-    notificationClaimId: null,
+    notificationBatchId: null,
     driveConnectionId: "drive-1",
     emailAccountId: "account-1",
     driveConnection: { provider },

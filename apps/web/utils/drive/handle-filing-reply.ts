@@ -7,7 +7,10 @@ import type { DriveConnection } from "@/generated/prisma/client";
 import { extractEmailAddress } from "@/utils/email";
 import { createDriveProviderWithRefresh } from "@/utils/drive/provider";
 import { createAndSaveFilingFolder } from "@/utils/drive/folder-utils";
-import { aiParseFilingReply } from "@/utils/ai/document-filing/parse-filing-reply";
+import {
+  aiParseFilingReply,
+  type ParseFilingReplyResult,
+} from "@/utils/ai/document-filing/parse-filing-reply";
 import {
   getFilebotFrom,
   getFilebotReplyTo,
@@ -48,25 +51,18 @@ export async function processFilingReply({
     return;
   }
 
-  const filing = await findFilingFromThread({
+  const filings = await findFilingsFromThread({
     message,
     emailProvider,
     emailAccountId,
   });
 
-  if (!filing) {
-    logger.error("Filing not found for thread", {
+  if (filings.length === 0) {
+    logger.error("Filings not found for thread", {
       threadId: message.threadId,
     });
     return;
   }
-
-  if (filing.emailAccountId !== emailAccountId) {
-    logger.error("Filing does not belong to this email account");
-    return;
-  }
-
-  logger = logger.with({ filingId: filing.id });
 
   const replyContent = emailToContentForAI(message, {
     extractReply: true,
@@ -82,12 +78,34 @@ export async function processFilingReply({
 
   const parseResult = await aiParseFilingReply({
     messages,
-    filingContext: {
+    filingContexts: filings.map((filing) => ({
+      id: filing.id,
       filename: filing.filename,
       currentFolder: filing.folderPath || "root",
-    },
+    })),
     emailAccount,
   });
+
+  const filingsById = new Map(filings.map((filing) => [filing.id, filing]));
+  const processedFilingIds = new Set<string>();
+
+  for (const action of parseResult.actions) {
+    const filing = filingsById.get(action.filingId);
+    if (!filing || processedFilingIds.has(filing.id)) {
+      logger.warn("Ignoring invalid filing reply action", {
+        filingId: action.filingId,
+      });
+      continue;
+    }
+
+    processedFilingIds.add(filing.id);
+    await applyFilingReplyAction({
+      action,
+      emailAccountId,
+      filing,
+      logger: logger.with({ filingId: filing.id }),
+    });
+  }
 
   if (parseResult.reply) {
     const filebotReplyTo = getFilebotReplyTo({ userEmail });
@@ -96,36 +114,6 @@ export async function processFilingReply({
       replyTo: filebotReplyTo,
       from: filebotFrom,
     });
-  }
-
-  switch (parseResult.action) {
-    case "approve":
-      await handleApprove(filing.id);
-      break;
-    case "undo":
-      await handleUndo({
-        filingId: filing.id,
-        fileId: filing.fileId,
-        driveConnection: filing.driveConnection,
-        logger,
-      });
-      break;
-    case "move":
-      await handleMove({
-        filingId: filing.id,
-        fileId: filing.fileId,
-        filingStatus: filing.status,
-        filingFolderPath: filing.folderPath,
-        filingWasCorrected: filing.wasCorrected,
-        filingOriginalPath: filing.originalPath,
-        driveConnection: filing.driveConnection,
-        folderPath: parseResult.folderPath,
-        emailAccountId,
-        logger,
-      });
-      break;
-    case "none":
-      break;
   }
 }
 
@@ -270,12 +258,7 @@ async function handleMove({
   }
 }
 
-/**
- * Find the filing by matching the source email's message ID against the
- * reply thread. The notification is sent as a reply to the source email, so
- * both live in the same thread as any subsequent reply from the user.
- */
-async function findFilingFromThread({
+async function findFilingsFromThread({
   message,
   emailProvider,
   emailAccountId,
@@ -287,15 +270,117 @@ async function findFilingFromThread({
   const threadMessages = await emailProvider.getThreadMessages(
     message.threadId,
   );
-  if (!threadMessages?.length) return null;
+  if (!threadMessages?.length) return [];
 
-  const messageIds = threadMessages.map((m) => m.id);
+  const anchor = await findNotificationAnchor({
+    emailAccountId,
+    message,
+    threadMessages,
+  });
+  if (!anchor) return [];
+
+  return prisma.documentFiling.findMany({
+    where: {
+      ...(anchor.notificationBatchId
+        ? { emailAccountId, notificationBatchId: anchor.notificationBatchId }
+        : { id: anchor.id }),
+    },
+    include: { driveConnection: true },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
+async function findNotificationAnchor({
+  emailAccountId,
+  message,
+  threadMessages,
+}: {
+  emailAccountId: string;
+  message: ParsedMessage;
+  threadMessages: ParsedMessage[];
+}) {
+  const repliedToMessage = threadMessages.find(
+    (threadMessage) =>
+      threadMessage.headers["message-id"]?.trim() ===
+      message.headers["in-reply-to"]?.trim(),
+  );
+
+  let anchor = repliedToMessage
+    ? await prisma.documentFiling.findFirst({
+        where: {
+          emailAccountId,
+          notificationMessageId: repliedToMessage.id,
+        },
+      })
+    : null;
+
+  if (!anchor && repliedToMessage?.headers["in-reply-to"]) {
+    const sourceMessage = threadMessages.find(
+      (threadMessage) =>
+        threadMessage.headers["message-id"]?.trim() ===
+        repliedToMessage.headers["in-reply-to"]?.trim(),
+    );
+
+    if (sourceMessage) {
+      anchor = await prisma.documentFiling.findFirst({
+        where: {
+          emailAccountId,
+          messageId: sourceMessage.id,
+        },
+        orderBy: { createdAt: "desc" },
+      });
+    }
+  }
+
+  if (anchor) return anchor;
 
   return prisma.documentFiling.findFirst({
     where: {
       emailAccountId,
-      messageId: { in: messageIds },
+      messageId: {
+        in: threadMessages.map((threadMessage) => threadMessage.id),
+      },
     },
-    include: { driveConnection: true },
+    orderBy: { createdAt: "desc" },
   });
+}
+
+async function applyFilingReplyAction({
+  action,
+  emailAccountId,
+  filing,
+  logger,
+}: {
+  action: ParseFilingReplyResult["actions"][number];
+  emailAccountId: string;
+  filing: Awaited<ReturnType<typeof findFilingsFromThread>>[number];
+  logger: Logger;
+}): Promise<void> {
+  switch (action.action) {
+    case "approve":
+      await handleApprove(filing.id);
+      break;
+    case "undo":
+      await handleUndo({
+        filingId: filing.id,
+        fileId: filing.fileId,
+        driveConnection: filing.driveConnection,
+        logger,
+      });
+      break;
+    case "move":
+      await handleMove({
+        filingId: filing.id,
+        fileId: filing.fileId,
+        filingStatus: filing.status,
+        filingFolderPath: filing.folderPath,
+        filingWasCorrected: filing.wasCorrected,
+        filingOriginalPath: filing.originalPath,
+        driveConnection: filing.driveConnection,
+        folderPath: action.folderPath,
+        emailAccountId,
+        logger,
+      });
+      break;
+  }
 }

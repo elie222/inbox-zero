@@ -1736,7 +1736,7 @@ model DocumentFiling {
 
   notificationMessageId String?   @unique
   notificationSentAt    DateTime?
-  notificationClaimId   String?
+  notificationBatchId   String?
 
   driveConnectionId String
   driveConnection   DriveConnection @relation(fields: [driveConnectionId], references: [id], onDelete: Cascade)
@@ -1745,6 +1745,7 @@ model DocumentFiling {
 
   @@unique([emailAccountId, messageId, attachmentId])
   @@index([emailAccountId, status])
+  @@index([emailAccountId, notificationBatchId])
   @@index([driveConnectionId])
   @@index([messageId])
 }
