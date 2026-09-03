@@ -101,6 +101,7 @@ import {
 } from "@/utils/outlook/folders";
 import { extractSignatureFromHtml } from "@/utils/email/signature-extraction";
 import {
+  getThreadParticipantMessagesInBatches,
   moveMessagesForSenders,
   moveThreadsInBatches,
 } from "@/utils/outlook/batch";
@@ -1861,6 +1862,14 @@ export class OutlookProvider implements EmailProvider {
 
     threads = threads.slice(0, maxResults);
 
+    if (options.messageFormat === "metadata") {
+      threads = await addOutlookThreadParticipantMessages({
+        client: this.client,
+        threads,
+        logger: this.logger,
+      });
+    }
+
     return {
       threads,
       nextPageToken,
@@ -1902,13 +1911,21 @@ export class OutlookProvider implements EmailProvider {
           .top(Math.min(options.maxResults || 25, 25))
           .get();
 
-    const threads = buildOutlookThreadsFromMessages({
+    let threads = buildOutlookThreadsFromMessages({
       messages: response.value,
       folderIds,
       categoryMap,
       excludedLabelIds: new Set(),
       logger: this.logger,
     });
+
+    if (options.messageFormat === "metadata") {
+      threads = await addOutlookThreadParticipantMessages({
+        client: this.client,
+        threads,
+        logger: this.logger,
+      });
+    }
 
     return {
       threads,
@@ -2640,6 +2657,48 @@ function buildOutlookThreadsFromMessages({
         messageHasAllThreadLabels(message, requiredLabelIds),
       );
     });
+}
+
+async function addOutlookThreadParticipantMessages({
+  client,
+  threads,
+  logger,
+}: {
+  client: OutlookClient;
+  threads: EmailThread[];
+  logger: Logger;
+}): Promise<EmailThread[]> {
+  try {
+    const messagesByThreadId = await getThreadParticipantMessagesInBatches({
+      client,
+      threadIds: threads.map((thread) => thread.id),
+      logger,
+    });
+
+    return threads.map((thread) => {
+      const messages = messagesByThreadId.get(thread.id);
+      if (!messages?.length) return thread;
+
+      const participantMessages = [...messages]
+        .sort(
+          (left, right) =>
+            new Date(left.receivedDateTime || 0).getTime() -
+            new Date(right.receivedDateTime || 0).getTime(),
+        )
+        .map((message) => {
+          const { from, to } = convertMessage(message).headers;
+          return { headers: { from, to } };
+        });
+
+      return { ...thread, participantMessages };
+    });
+  } catch (error) {
+    logger.warn("Failed to hydrate Outlook thread participants", {
+      error,
+      threadCount: threads.length,
+    });
+    return threads;
+  }
 }
 
 async function ensureOutlookRequiredCategoryMap({
