@@ -429,8 +429,26 @@ async function sendNotificationEmail({
   subject: string;
   userEmail: string;
 }): Promise<void> {
+  const notificationSentAt = new Date();
+  const claim = await prisma.documentFiling.updateMany({
+    where: {
+      id: { in: filingIds },
+      notificationSentAt: null,
+    },
+    data: { notificationSentAt },
+  });
+
+  if (claim.count !== filingIds.length) {
+    logger.info("Filing notification already claimed", {
+      filingCount: filingIds.length,
+    });
+    return;
+  }
+
+  let result: Awaited<ReturnType<EmailProvider["sendEmailWithHtml"]>>;
+
   try {
-    const result = await emailProvider.sendEmailWithHtml({
+    result = await emailProvider.sendEmailWithHtml({
       replyToEmail: sourceMessage,
       to: userEmail,
       from: fromAddress,
@@ -438,38 +456,40 @@ async function sendNotificationEmail({
       subject,
       messageHtml,
     });
-    const notificationSentAt = new Date();
-
-    if (filingIds.length === 1) {
-      await prisma.documentFiling.update({
-        where: { id: filingIds[0] },
-        data: {
-          notificationMessageId: result.messageId || null,
+  } catch (error) {
+    try {
+      await prisma.documentFiling.updateMany({
+        where: {
+          id: { in: filingIds },
           notificationSentAt,
         },
+        data: { notificationSentAt: null },
       });
-    } else {
-      await prisma.documentFiling.updateMany({
-        where: { id: { in: filingIds } },
-        data: { notificationSentAt },
+    } catch (releaseError) {
+      logger.error("Failed to release filing notification claim", {
+        error: releaseError,
       });
-
-      if (result.messageId) {
-        await prisma.documentFiling.update({
-          where: { id: filingIds[0] },
-          data: { notificationMessageId: result.messageId },
-        });
-      }
     }
 
-    logger.info("Filing notification sent", {
-      messageId: result.messageId,
-      filingCount: filingIds.length,
-    });
-  } catch (error) {
     logger.error("Failed to send filing notification", { error });
     throw error;
   }
+
+  if (result.messageId) {
+    try {
+      await prisma.documentFiling.update({
+        where: { id: filingIds[0] },
+        data: { notificationMessageId: result.messageId },
+      });
+    } catch (error) {
+      logger.error("Failed to save filing notification message ID", { error });
+    }
+  }
+
+  logger.info("Filing notification sent", {
+    messageId: result.messageId,
+    filingCount: filingIds.length,
+  });
 }
 
 function buildCorrectionConfirmationHtml({

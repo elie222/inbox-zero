@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import { createMockEmailProvider } from "@/__tests__/mocks/email-provider.mock";
 import { createTestLogger } from "@/__tests__/helpers";
+import type { DocumentFiling } from "@/generated/prisma/client";
+import { DocumentFilingStatus } from "@/generated/prisma/enums";
 import {
   sendAskNotification,
   sendFiledNotification,
@@ -23,13 +25,15 @@ describe("filing-notifications", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    prisma.documentFiling.findUnique.mockResolvedValue({
-      id: filingId,
-      filename: "receipt.pdf",
-      folderPath: "Receipts",
-      reasoning: null,
-      driveConnection: { provider: "outlook" },
-    } as any);
+    prisma.documentFiling.findUnique.mockResolvedValue(
+      createFiling({
+        id: filingId,
+        filename: "receipt.pdf",
+        folderPath: "Receipts",
+        provider: "outlook",
+      }),
+    );
+    prisma.documentFiling.updateMany.mockResolvedValue({ count: 1 });
   });
 
   describe("sendFiledNotification", () => {
@@ -106,25 +110,20 @@ describe("filing-notifications", () => {
   describe("sendFilingNotifications", () => {
     it("sends one summary email for multiple filings", async () => {
       prisma.documentFiling.findMany.mockResolvedValue([
-        {
+        createFiling({
           id: "filing-1",
           filename: "first.pdf",
           folderPath: "Receipts",
-          reasoning: null,
-          status: "FILED",
-          wasAsked: false,
-          driveConnection: { provider: "google" },
-        },
-        {
+          provider: "google",
+        }),
+        createFiling({
           id: "filing-2",
           filename: "second.pdf",
           folderPath: "Invoices",
-          reasoning: null,
-          status: "FILED",
-          wasAsked: false,
-          driveConnection: { provider: "outlook" },
-        },
-      ] as any);
+          provider: "outlook",
+        }),
+      ]);
+      prisma.documentFiling.updateMany.mockResolvedValue({ count: 2 });
       const sendEmailWithHtml = vi
         .fn()
         .mockResolvedValue({ messageId: "sent-123", threadId: "thread-1" });
@@ -139,6 +138,9 @@ describe("filing-notifications", () => {
       });
 
       expect(sendEmailWithHtml).toHaveBeenCalledOnce();
+      expect(
+        prisma.documentFiling.updateMany.mock.invocationCallOrder[0],
+      ).toBeLessThan(sendEmailWithHtml.mock.invocationCallOrder[0]);
       expect(sendEmailWithHtml).toHaveBeenCalledWith(
         expect.objectContaining({
           subject: "✓ Filed 2 documents",
@@ -146,7 +148,10 @@ describe("filing-notifications", () => {
         }),
       );
       expect(prisma.documentFiling.updateMany).toHaveBeenCalledWith({
-        where: { id: { in: ["filing-1", "filing-2"] } },
+        where: {
+          id: { in: ["filing-1", "filing-2"] },
+          notificationSentAt: null,
+        },
         data: { notificationSentAt: expect.any(Date) },
       });
       expect(prisma.documentFiling.update).toHaveBeenCalledWith({
@@ -178,5 +183,91 @@ describe("filing-notifications", () => {
       );
       expect(sendEmailWithHtml).not.toHaveBeenCalled();
     });
+
+    it("does not send when another process claims the filings first", async () => {
+      prisma.documentFiling.findMany.mockResolvedValue([
+        createFiling({ id: "filing-1" }),
+        createFiling({ id: "filing-2" }),
+      ]);
+      prisma.documentFiling.updateMany.mockResolvedValue({ count: 0 });
+      const sendEmailWithHtml = vi.fn();
+
+      await sendFilingNotifications({
+        emailProvider: createMockEmailProvider({ sendEmailWithHtml }),
+        userEmail: "user@example.com",
+        filingIds: ["filing-1", "filing-2"],
+        sourceMessage,
+        logger,
+      });
+
+      expect(sendEmailWithHtml).not.toHaveBeenCalled();
+    });
+
+    it("releases the claim when sending fails", async () => {
+      prisma.documentFiling.findMany.mockResolvedValue([
+        createFiling({ id: "filing-1" }),
+      ]);
+      const sendError = new Error("send failed");
+
+      await expect(
+        sendFilingNotifications({
+          emailProvider: createMockEmailProvider({
+            sendEmailWithHtml: vi.fn().mockRejectedValue(sendError),
+          }),
+          userEmail: "user@example.com",
+          filingIds: ["filing-1"],
+          sourceMessage,
+          logger,
+        }),
+      ).rejects.toThrow(sendError);
+
+      expect(prisma.documentFiling.updateMany).toHaveBeenLastCalledWith({
+        where: {
+          id: { in: ["filing-1"] },
+          notificationSentAt: expect.any(Date),
+        },
+        data: { notificationSentAt: null },
+      });
+    });
   });
 });
+
+function createFiling({
+  id,
+  filename = "document.pdf",
+  folderPath = "Documents",
+  provider = "google",
+}: {
+  id: string;
+  filename?: string;
+  folderPath?: string;
+  provider?: string;
+}): DocumentFiling & { driveConnection: { provider: string } } {
+  const now = new Date();
+
+  return {
+    id,
+    createdAt: now,
+    updatedAt: now,
+    messageId: "message-1",
+    attachmentId: `${id}-attachment`,
+    filename,
+    folderId: "folder-1",
+    folderPath,
+    fileId: "file-1",
+    reasoning: null,
+    confidence: 1,
+    status: DocumentFilingStatus.FILED,
+    wasAsked: false,
+    wasCorrected: false,
+    originalPath: null,
+    correctedAt: null,
+    feedbackPositive: null,
+    feedbackAt: null,
+    notificationMessageId: null,
+    notificationSentAt: null,
+    driveConnectionId: "drive-1",
+    emailAccountId: "account-1",
+    driveConnection: { provider },
+  };
+}
