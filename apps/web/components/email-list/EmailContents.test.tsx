@@ -232,6 +232,11 @@ describe("HtmlEmail", () => {
 
     expect(iframe.style.height).toBe("");
     expect(iframe.getAttribute("height")).toBe("1");
+
+    contentHeight = 40;
+    addEmailDocumentMarker(iframe, iframe.contentDocument);
+    iframe.dispatchEvent(new Event("load"));
+    await waitFor(() => expect(iframe.style.height).toBe("43px"));
   });
 
   it("keeps watching until the email document replaces the placeholder", async () => {
