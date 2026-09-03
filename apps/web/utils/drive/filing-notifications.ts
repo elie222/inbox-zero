@@ -439,6 +439,11 @@ async function sendNotificationEmail({
   });
 
   if (claim.count !== filingIds.length) {
+    await releaseNotificationClaim({
+      filingIds,
+      logger,
+      notificationSentAt,
+    });
     logger.info("Filing notification already claimed", {
       filingCount: filingIds.length,
     });
@@ -457,19 +462,11 @@ async function sendNotificationEmail({
       messageHtml,
     });
   } catch (error) {
-    try {
-      await prisma.documentFiling.updateMany({
-        where: {
-          id: { in: filingIds },
-          notificationSentAt,
-        },
-        data: { notificationSentAt: null },
-      });
-    } catch (releaseError) {
-      logger.error("Failed to release filing notification claim", {
-        error: releaseError,
-      });
-    }
+    await releaseNotificationClaim({
+      filingIds,
+      logger,
+      notificationSentAt,
+    });
 
     logger.error("Failed to send filing notification", { error });
     throw error;
@@ -490,6 +487,28 @@ async function sendNotificationEmail({
     messageId: result.messageId,
     filingCount: filingIds.length,
   });
+}
+
+async function releaseNotificationClaim({
+  filingIds,
+  logger,
+  notificationSentAt,
+}: {
+  filingIds: string[];
+  logger: Logger;
+  notificationSentAt: Date;
+}): Promise<void> {
+  try {
+    await prisma.documentFiling.updateMany({
+      where: {
+        id: { in: filingIds },
+        notificationSentAt,
+      },
+      data: { notificationSentAt: null },
+    });
+  } catch (error) {
+    logger.error("Failed to release filing notification claim", { error });
+  }
 }
 
 function buildCorrectionConfirmationHtml({

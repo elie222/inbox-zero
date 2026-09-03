@@ -189,7 +189,9 @@ describe("filing-notifications", () => {
         createFiling({ id: "filing-1" }),
         createFiling({ id: "filing-2" }),
       ]);
-      prisma.documentFiling.updateMany.mockResolvedValue({ count: 0 });
+      prisma.documentFiling.updateMany
+        .mockResolvedValueOnce({ count: 1 })
+        .mockResolvedValueOnce({ count: 1 });
       const sendEmailWithHtml = vi.fn();
 
       await sendFilingNotifications({
@@ -201,6 +203,13 @@ describe("filing-notifications", () => {
       });
 
       expect(sendEmailWithHtml).not.toHaveBeenCalled();
+      expect(prisma.documentFiling.updateMany).toHaveBeenLastCalledWith({
+        where: {
+          id: { in: ["filing-1", "filing-2"] },
+          notificationSentAt: expect.any(Date),
+        },
+        data: { notificationSentAt: null },
+      });
     });
 
     it("releases the claim when sending fails", async () => {
