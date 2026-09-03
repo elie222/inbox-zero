@@ -442,10 +442,10 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
     const client = createMockOutlookClient([inboxMessage], {
       categoryMapCache: new Map(),
       batchPost: ({ requests }) => {
-        const requestUrl = new URL(
-          requests.at(0)!.url,
-          "https://graph.microsoft.com",
-        );
+        const request = requests.at(0);
+        if (!request) throw new Error("Expected participant batch request");
+
+        const requestUrl = new URL(request.url, "https://graph.microsoft.com");
         expect(requestUrl.searchParams.get("$filter")).toBe(
           "conversationId eq 'thread-1'",
         );

@@ -34,11 +34,11 @@ describe("getThreadParticipantMessagesInBatches", () => {
         requests: Array<{ id: string; url: string; method: string }>;
       }) => {
         const request = body.requests.at(0);
-        expect(request).toBeDefined();
+        if (!request) throw new Error("Expected participant batch request");
 
         if (batchPost.mock.calls.length === 1) {
           const requestUrl = new URL(
-            request!.url,
+            request.url,
             "https://graph.microsoft.com",
           );
           expect(requestUrl.searchParams.get("$filter")).toBe(
@@ -48,7 +48,7 @@ describe("getThreadParticipantMessagesInBatches", () => {
           return {
             responses: [
               {
-                id: request!.id,
+                id: request.id,
                 status: 200,
                 body: {
                   value: [{ id: "message-1" }],
@@ -59,11 +59,11 @@ describe("getThreadParticipantMessagesInBatches", () => {
           };
         }
 
-        expect(request!.url).toBe("/me/messages?$skiptoken=next-page");
+        expect(request.url).toBe("/me/messages?$skiptoken=next-page");
         return {
           responses: [
             {
-              id: request!.id,
+              id: request.id,
               status: 200,
               body: { value: [{ id: "message-2" }] },
             },
