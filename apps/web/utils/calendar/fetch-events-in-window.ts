@@ -32,7 +32,11 @@ export async function fetchCalendarEventsInWindow({
   maxResultsPerProvider: number;
   logger: Logger;
 }): Promise<CalendarEventsInWindow> {
+  logger.info("Starting calendar event window fetch");
   const providers = await createCalendarEventProviders(emailAccountId, logger);
+  logger.info("Created calendar event providers", {
+    providerCount: providers.length,
+  });
   // Zero providers never proves an empty calendar: connections are silently
   // skipped when their refresh token is gone or construction fails, and a sync
   // error may already have flipped them disconnected. Reporting complete here
@@ -44,15 +48,34 @@ export async function fetchCalendarEventsInWindow({
   const connectedCalendars = await prisma.calendarConnection.count({
     where: { emailAccountId, isConnected: true },
   });
+  logger.info("Counted connected calendars", { connectedCalendars });
 
   const results = await Promise.allSettled(
-    providers.map((provider) =>
-      provider.fetchEvents({
-        timeMin,
-        timeMax,
-        maxResults: maxResultsPerProvider,
-      }),
-    ),
+    providers.map(async (provider, providerIndex) => {
+      const providerLogger = logger.with({
+        calendarProvider: provider.constructor.name,
+        calendarProviderIndex: providerIndex,
+      });
+      providerLogger.info("Starting calendar provider event fetch");
+
+      try {
+        const events = await provider.fetchEvents({
+          timeMin,
+          timeMax,
+          maxResults: maxResultsPerProvider,
+        });
+
+        providerLogger.info("Completed calendar provider event fetch", {
+          eventCount: events.length,
+        });
+        return events;
+      } catch (error) {
+        providerLogger.error("Failed calendar provider event fetch", {
+          error,
+        });
+        throw error;
+      }
+    }),
   );
 
   const fulfilled = results.filter(
@@ -88,16 +111,22 @@ export async function fetchCalendarEventsInWindow({
     });
   }
 
-  return {
-    events: filteredEvents,
-    // A connection that never became a provider is as much a blind spot as a
-    // provider that errored, so any shortfall against the connected calendars
-    // marks the fetch incomplete.
-    complete:
-      failedProviders === 0 &&
-      !truncated &&
-      providers.length >= connectedCalendars,
-  };
+  // A connection that never became a provider is as much a blind spot as a
+  // provider that errored, so any shortfall against the connected calendars
+  // marks the fetch incomplete.
+  const complete =
+    failedProviders === 0 &&
+    !truncated &&
+    providers.length >= connectedCalendars;
+
+  logger.info("Completed calendar event window fetch", {
+    complete,
+    eventCount: filteredEvents.length,
+    failedProviders,
+    providerCount: providers.length,
+  });
+
+  return { events: filteredEvents, complete };
 }
 
 // Some clients keep a cancelled event on the calendar with a renamed title

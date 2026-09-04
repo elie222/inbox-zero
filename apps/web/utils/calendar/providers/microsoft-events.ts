@@ -121,13 +121,16 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
     timeMax?: Date;
     maxResults?: number;
   }): Promise<CalendarEvent[]> {
+    this.logger.info("Starting Microsoft calendar client setup");
     const client = await this.getClient();
+    this.logger.info("Completed Microsoft calendar client setup");
 
     // calendarView requires both start and end times, default to 30 days from timeMin
     const effectiveTimeMax =
       timeMax ?? new Date(timeMin.getTime() + 30 * 24 * 60 * 60 * 1000);
 
     // Use calendarView endpoint which correctly returns events overlapping the time range
+    this.logger.info("Starting Microsoft calendar events request");
     const response = await client
       .api("/me/calendar/calendarView")
       .query({
@@ -139,6 +142,9 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
       .get();
 
     const events: MicrosoftEvent[] = response.value || [];
+    this.logger.info("Completed Microsoft calendar events request", {
+      eventCount: events.length,
+    });
 
     return events.map((event) => this.parseEvent(event));
   }

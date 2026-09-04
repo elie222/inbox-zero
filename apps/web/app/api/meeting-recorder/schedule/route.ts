@@ -89,60 +89,81 @@ async function scheduleAllMeetingRecordings(logger: Logger) {
 
   logger.info("Found eligible meeting recorder accounts", {
     count: emailAccounts.length,
+    releaseCount: accountsToRelease.length,
   });
 
   const results = await runWithBoundedConcurrency({
     items: emailAccounts,
     concurrency: MEETING_RECORDER_ACCOUNT_CONCURRENCY,
-    run: (emailAccount) =>
-      reconcileAccount({
-        emailAccount,
-        logger: logger.with({
-          emailAccountId: emailAccount.id,
-        }),
-      }),
+    run: async (emailAccount) => {
+      const accountLogger = logger.with({ emailAccountId: emailAccount.id });
+      accountLogger.info("Starting meeting recorder account reconciliation");
+
+      try {
+        await reconcileAccount({ emailAccount, logger: accountLogger });
+        accountLogger.info("Completed meeting recorder account reconciliation");
+      } catch (error) {
+        accountLogger.error("Failed meeting recorder account reconciliation", {
+          error,
+        });
+        captureException(error, { emailAccountId: emailAccount.id });
+        throw error;
+      }
+    },
   });
 
   let successCount = 0;
   let errorCount = 0;
 
-  for (const { item: emailAccount, result } of results) {
+  for (const { result } of results) {
     if (result.status === "fulfilled") {
       successCount++;
       continue;
     }
 
-    logger
-      .with({ emailAccountId: emailAccount.id })
-      .error("Failed to reconcile meeting recordings for user", {
-        error: result.reason,
-      });
-    captureException(result.reason);
     errorCount++;
   }
+
+  logger.info("Completed meeting recorder account phase", {
+    total: emailAccounts.length,
+    success: successCount,
+    errors: errorCount,
+  });
 
   const cleanupResults = await runWithBoundedConcurrency({
     items: accountsToRelease,
     concurrency: MEETING_RECORDER_ACCOUNT_CONCURRENCY,
-    run: (emailAccount) =>
-      releaseAccountBookings({
-        emailAccountId: emailAccount.id,
-        logger: logger.with({ emailAccountId: emailAccount.id }),
-      }),
+    run: async (emailAccount) => {
+      const accountLogger = logger.with({ emailAccountId: emailAccount.id });
+      accountLogger.info("Starting ineligible account booking release");
+
+      try {
+        await releaseAccountBookings({
+          emailAccountId: emailAccount.id,
+          logger: accountLogger,
+        });
+        accountLogger.info("Completed ineligible account booking release");
+      } catch (error) {
+        accountLogger.error("Failed ineligible account booking release", {
+          error,
+        });
+        captureException(error, { emailAccountId: emailAccount.id });
+        throw error;
+      }
+    },
   });
 
-  for (const { item: emailAccount, result } of cleanupResults) {
-    if (result.status === "fulfilled") continue;
+  const cleanupErrors = cleanupResults.filter(
+    ({ result }) => result.status === "rejected",
+  ).length;
+  logger.info("Completed ineligible account cleanup phase", {
+    total: accountsToRelease.length,
+    errors: cleanupErrors,
+  });
 
-    logger
-      .with({ emailAccountId: emailAccount.id })
-      .error("Failed to release meeting recordings for an ineligible account", {
-        error: result.reason,
-      });
-    captureException(result.reason);
-  }
-
+  logger.info("Starting meeting recording sweep");
   await sweepRecordings({ logger });
+  logger.info("Completed meeting recording sweep");
 
   logger.info("Completed meeting recorder reconciliation", {
     total: emailAccounts.length,
