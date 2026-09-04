@@ -54,6 +54,18 @@ interface RecallEmulatorRequest {
   path: string;
 }
 
+interface RecallBotCreatePayload {
+  automatic_leave?: {
+    bot_detection?: {
+      using_participant_events?: unknown;
+      using_participant_names?: unknown;
+    };
+  };
+  bot_name?: string;
+  join_at?: string;
+  meeting_url?: string;
+}
+
 export interface RecallEmulator {
   /** Push the bot to the next lifecycle code, as Recall would during a call. */
   advance(botId: string, code: string, subCode?: string): void;
@@ -243,9 +255,7 @@ export async function createRecallEmulator({
   }
 
   function createBot(body: unknown): { status: number; body?: unknown } {
-    const payload = body as
-      | { meeting_url?: string; bot_name?: string; join_at?: string }
-      | undefined;
+    const payload = body as RecallBotCreatePayload | undefined;
 
     if (!payload?.meeting_url) {
       return {
@@ -268,6 +278,14 @@ export async function createRecallEmulator({
           body: { join_at: ["The datetime must be in the future."] },
         };
       }
+    }
+
+    const automaticLeaveError = validateAutomaticLeave(payload.automatic_leave);
+    if (automaticLeaveError) {
+      return {
+        status: 400,
+        body: { automatic_leave: automaticLeaveError },
+      };
     }
 
     const bot: RecallEmulatorBot = {
@@ -474,6 +492,89 @@ function safeJsonParse(raw: string): unknown {
   } catch {
     return raw;
   }
+}
+
+function validateAutomaticLeave(
+  automaticLeave: RecallBotCreatePayload["automatic_leave"],
+): unknown | null {
+  const botDetection = automaticLeave?.bot_detection;
+  if (!botDetection) return null;
+
+  const participantNames = botDetection.using_participant_names;
+  if (participantNames !== undefined) {
+    if (!isRecord(participantNames)) {
+      return {
+        bot_detection: {
+          using_participant_names: ["Expected an object."],
+        },
+      };
+    }
+
+    const errors = validateBotDetectionTiming(participantNames, true);
+    if (
+      !Array.isArray(participantNames.matches) ||
+      participantNames.matches.some(
+        (match) => typeof match !== "string" || match.length === 0,
+      )
+    ) {
+      errors.matches = ["Expected a list of non-empty strings."];
+    }
+    if (Object.keys(errors).length > 0) {
+      return {
+        bot_detection: { using_participant_names: errors },
+      };
+    }
+  }
+
+  const participantEvents = botDetection.using_participant_events;
+  if (participantEvents !== undefined) {
+    if (!isRecord(participantEvents)) {
+      return {
+        bot_detection: {
+          using_participant_events: ["Expected an object."],
+        },
+      };
+    }
+
+    const errors = validateBotDetectionTiming(participantEvents, false);
+    if (Object.keys(errors).length > 0) {
+      return {
+        bot_detection: { using_participant_events: errors },
+      };
+    }
+  }
+
+  return null;
+}
+
+function validateBotDetectionTiming(
+  config: Record<string, unknown>,
+  required: boolean,
+): Record<string, string[]> {
+  const errors: Record<string, string[]> = {};
+  if (
+    (required || config.activate_after !== undefined) &&
+    !isIntegerAtLeast(config.activate_after, 1)
+  ) {
+    errors.activate_after = [
+      "Ensure this value is greater than or equal to 1.",
+    ];
+  }
+  if (
+    (required || config.timeout !== undefined) &&
+    !isIntegerAtLeast(config.timeout, 10)
+  ) {
+    errors.timeout = ["Ensure this value is greater than or equal to 10."];
+  }
+  return errors;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isIntegerAtLeast(value: unknown, minimum: number): boolean {
+  return Number.isInteger(value) && (value as number) >= minimum;
 }
 
 /** Convenience for building the webhook bodies Recall sends. */

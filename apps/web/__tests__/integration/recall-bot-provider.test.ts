@@ -120,6 +120,60 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       });
     });
 
+    test.each([
+      {
+        field: "activate_after",
+        heuristic: "using_participant_names",
+        config: { matches: ["notetaker"], activate_after: 0, timeout: 10 },
+      },
+      {
+        field: "timeout",
+        heuristic: "using_participant_names",
+        config: { matches: ["notetaker"], activate_after: 1, timeout: 9 },
+      },
+      {
+        field: "activate_after",
+        heuristic: "using_participant_events",
+        config: { activate_after: 0, timeout: 10 },
+      },
+      {
+        field: "timeout",
+        heuristic: "using_participant_events",
+        config: { activate_after: 1, timeout: 9 },
+      },
+    ])("rejects $heuristic $field below Recall's minimum", async ({
+      field,
+      heuristic,
+      config,
+    }) => {
+      const response = await fetch(`${emulator.apiBase}/bot/`, {
+        method: "POST",
+        headers: {
+          Authorization: `Token ${emulator.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          meeting_url: "https://meet.google.com/abc-defg-hij",
+          automatic_leave: {
+            bot_detection: {
+              [heuristic]: config,
+            },
+          },
+        }),
+      });
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toMatchObject({
+        automatic_leave: {
+          bot_detection: {
+            [heuristic]: {
+              [field]: expect.any(Array),
+            },
+          },
+        },
+      });
+    });
+
     test("joins an ongoing meeting without scheduling it in the past", async () => {
       const { externalBotId } = await provider.scheduleBot({
         meetingUrl: "https://meet.google.com/abc-defg-hij",
