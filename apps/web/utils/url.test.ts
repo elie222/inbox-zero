@@ -167,40 +167,79 @@ describe("getEmailUrl", () => {
 });
 
 describe("getEmailDraftUrl", () => {
+  // Graph resolves its own webLink without any id translation, so it wins over
+  // anything assembled from a Graph REST id.
+  it("uses the Outlook link the provider supplied", () => {
+    expect(
+      getEmailDraftUrl(
+        {
+          id: "draft-123",
+          externalUrl:
+            "https://outlook.office365.com/owa/?ItemID=AAMkAG&exvsurl=1&viewmodel=ReadMessageItem",
+        },
+        "user@contoso.com",
+        "microsoft",
+      ),
+    ).toBe(
+      "https://outlook.office365.com/owa/?ItemID=AAMkAG&exvsurl=1&viewmodel=ReadMessageItem",
+    );
+  });
+
   it.each([
     {
-      name: "Google account",
-      draftMessageId: "draft-message-123",
-      emailAddress: "user@gmail.com",
-      provider: "google",
-      expected:
-        "https://mail.google.com/mail/u/?authuser=user%40gmail.com#inbox?compose=draft-message-123",
+      name: "an unexpected host",
+      externalUrl: "https://evil.example.com/mail",
     },
+    { name: "a non-https scheme", externalUrl: "http://outlook.office.com/x" },
+    { name: "an unparseable value", externalUrl: "not-a-url" },
+  ])("ignores a draft link with $name", ({ externalUrl }) => {
+    expect(
+      getEmailDraftUrl(
+        { id: "draft-123", externalUrl },
+        "user@outlook.com",
+        "microsoft",
+      ),
+    ).toBe("https://outlook.live.com/mail/0/drafts/id/draft-123");
+  });
+
+  it.each([
     {
       name: "personal Microsoft account",
-      draftMessageId: "draft-123",
+      draft: { id: "draft-123" },
       emailAddress: "user@outlook.com",
       provider: "microsoft",
-      expected:
-        "https://outlook.live.com/mail/0/deeplink/compose?itemid=draft-123&exvsurl=1",
+      expected: "https://outlook.live.com/mail/0/drafts/id/draft-123",
     },
     {
       name: "business Microsoft account",
-      draftMessageId: "draft+123/abc",
+      draft: { id: "draft+123/abc" },
       emailAddress: "user@contoso.com",
       provider: "microsoft",
+      expected: "https://outlook.office.com/mail/drafts/id/draft%2B123%2Fabc",
+    },
+    {
+      name: "Google account",
+      draft: { id: "draft-message-123", threadId: "thread-123" },
+      emailAddress: "user@gmail.com",
+      provider: "google",
       expected:
-        "https://outlook.office.com/mail/deeplink/compose?itemid=draft%2B123%2Fabc&exvsurl=1",
+        "https://mail.google.com/mail/u/?authuser=user%40gmail.com#drafts/thread-123",
+    },
+    {
+      name: "Google account without a thread",
+      draft: { id: "draft-message-123" },
+      emailAddress: "user@gmail.com",
+      provider: "google",
+      expected:
+        "https://mail.google.com/mail/u/?authuser=user%40gmail.com#drafts/draft-message-123",
     },
   ])("opens the draft for a $name", ({
-    draftMessageId,
+    draft,
     emailAddress,
     provider,
     expected,
   }) => {
-    expect(getEmailDraftUrl(draftMessageId, emailAddress, provider)).toBe(
-      expected,
-    );
+    expect(getEmailDraftUrl(draft, emailAddress, provider)).toBe(expected);
   });
 });
 
