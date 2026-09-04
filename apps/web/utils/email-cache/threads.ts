@@ -4,6 +4,7 @@ import type {
   ParsedMessage,
   ParsedMessageHeaders,
 } from "@/utils/types";
+import { sortByInternalDate } from "@/utils/date";
 import { scheduleEmailCacheCleanup } from "./cleanup";
 import {
   captureEmailCacheEpoch,
@@ -109,7 +110,13 @@ function sanitizeThreadResponse(data: ThreadResponse): ThreadResponse {
     thread: {
       historyId: data.thread.historyId,
       id: data.thread.id,
-      messages: data.thread.messages.map(sanitizeMessage),
+      // Records survive for as long as EMAIL_CACHE_MAX_AGE_MS and carry no
+      // schema version, so a payload written by an older client is replayed
+      // exactly as it was stored. Ordering is the reader's contract, not the
+      // stored payload's, so re-establish it rather than trusting the record.
+      messages: data.thread.messages
+        .map(sanitizeMessage)
+        .sort(sortByInternalDate()),
       snippet: data.thread.snippet,
     },
   };
