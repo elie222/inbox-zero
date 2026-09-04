@@ -174,6 +174,33 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)(
       });
     });
 
+    test.each([
+      { label: "false", value: false },
+      { label: "zero", value: 0 },
+      { label: "an empty string", value: "" },
+      { label: "null", value: null },
+      { label: "an array", value: [] },
+    ])("rejects $label as bot_detection", async ({ value }) => {
+      const response = await fetch(`${emulator.apiBase}/bot/`, {
+        method: "POST",
+        headers: {
+          Authorization: `Token ${emulator.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          meeting_url: "https://meet.google.com/abc-defg-hij",
+          automatic_leave: { bot_detection: value },
+        }),
+      });
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toMatchObject({
+        automatic_leave: {
+          bot_detection: expect.any(Array),
+        },
+      });
+    });
+
     test("joins an ongoing meeting without scheduling it in the past", async () => {
       const { externalBotId } = await provider.scheduleBot({
         meetingUrl: "https://meet.google.com/abc-defg-hij",

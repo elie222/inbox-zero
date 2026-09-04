@@ -54,18 +54,6 @@ interface RecallEmulatorRequest {
   path: string;
 }
 
-interface RecallBotCreatePayload {
-  automatic_leave?: {
-    bot_detection?: {
-      using_participant_events?: unknown;
-      using_participant_names?: unknown;
-    };
-  };
-  bot_name?: string;
-  join_at?: string;
-  meeting_url?: string;
-}
-
 export interface RecallEmulator {
   /** Push the bot to the next lifecycle code, as Recall would during a call. */
   advance(botId: string, code: string, subCode?: string): void;
@@ -255,23 +243,24 @@ export async function createRecallEmulator({
   }
 
   function createBot(body: unknown): { status: number; body?: unknown } {
-    const payload = body as RecallBotCreatePayload | undefined;
-
-    if (!payload?.meeting_url) {
+    if (!isRecord(body) || typeof body.meeting_url !== "string") {
       return {
         status: 400,
         body: { meeting_url: ["This field is required."] },
       };
     }
     // Recall rejects links it cannot join, and it does so permanently.
-    if (!/^https?:\/\//.test(payload.meeting_url)) {
+    if (!/^https?:\/\//.test(body.meeting_url)) {
       return {
         status: 400,
         body: { meeting_url: ["Not a valid meeting URL."] },
       };
     }
-    if (payload.join_at !== undefined) {
-      const joinAt = new Date(payload.join_at).getTime();
+    if (body.join_at !== undefined) {
+      const joinAt =
+        typeof body.join_at === "string"
+          ? new Date(body.join_at).getTime()
+          : Number.NaN;
       if (Number.isNaN(joinAt) || joinAt <= Date.now()) {
         return {
           status: 400,
@@ -280,7 +269,7 @@ export async function createRecallEmulator({
       }
     }
 
-    const automaticLeaveError = validateAutomaticLeave(payload.automatic_leave);
+    const automaticLeaveError = validateAutomaticLeave(body.automatic_leave);
     if (automaticLeaveError) {
       return {
         status: 400,
@@ -290,9 +279,9 @@ export async function createRecallEmulator({
 
     const bot: RecallEmulatorBot = {
       id: `bot_${nextId++}`,
-      meeting_url: payload.meeting_url,
-      bot_name: payload.bot_name ?? "",
-      join_at: payload.join_at ?? null,
+      meeting_url: body.meeting_url,
+      bot_name: typeof body.bot_name === "string" ? body.bot_name : "",
+      join_at: typeof body.join_at === "string" ? body.join_at : null,
       status_changes: [{ code: "ready", sub_code: null }],
       media_deleted: false,
       recording_id: `rec_${nextId++}`,
@@ -494,11 +483,15 @@ function safeJsonParse(raw: string): unknown {
   }
 }
 
-function validateAutomaticLeave(
-  automaticLeave: RecallBotCreatePayload["automatic_leave"],
-): unknown | null {
-  const botDetection = automaticLeave?.bot_detection;
-  if (!botDetection) return null;
+function validateAutomaticLeave(automaticLeave: unknown): unknown | null {
+  if (automaticLeave === undefined || automaticLeave === null) return null;
+  if (!isRecord(automaticLeave)) return ["Expected an object."];
+
+  const botDetection = automaticLeave.bot_detection;
+  if (botDetection === undefined) return null;
+  if (!isRecord(botDetection)) {
+    return { bot_detection: ["Expected an object."] };
+  }
 
   const participantNames = botDetection.using_participant_names;
   if (participantNames !== undefined) {
