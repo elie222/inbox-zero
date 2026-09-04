@@ -758,10 +758,14 @@ async function releaseMeeting({
   if (!recordingId) return;
 
   // Only detach the recording we were asked about. `recordingId` is a snapshot,
-  // so a concurrent pass may already have linked a different one, and clearing
-  // unconditionally would drop that new booking on the floor.
+  // so a concurrent pass may already have linked a different one or completed
+  // the call, and clearing unconditionally would drop that recording.
   const detached = await prisma.meeting.updateMany({
-    where: { id: meetingId, recordingId },
+    where: {
+      id: meetingId,
+      recordingId,
+      recording: { status: { in: CANCELLABLE_STATUSES } },
+    },
     data: { recordingId: null },
   });
   if (detached.count === 0) return;
