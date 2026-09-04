@@ -42,6 +42,12 @@ export async function fetchCalendarEventsInWindow({
   // error may already have flipped them disconnected. Reporting complete here
   // would let callers treat every booked meeting as deleted.
   if (providers.length === 0) {
+    logger.info("Completed calendar event window fetch", {
+      complete: false,
+      eventCount: 0,
+      failedProviders: 0,
+      providerCount: 0,
+    });
     return { events: [], complete: false };
   }
 
@@ -53,7 +59,6 @@ export async function fetchCalendarEventsInWindow({
   const results = await Promise.allSettled(
     providers.map(async (provider, providerIndex) => {
       const providerLogger = logger.with({
-        calendarProvider: provider.constructor.name,
         calendarProviderIndex: providerIndex,
       });
       providerLogger.info("Starting calendar provider event fetch");

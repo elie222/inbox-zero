@@ -130,7 +130,7 @@ async function scheduleAllMeetingRecordings(logger: Logger) {
     errors: errorCount,
   });
 
-  const cleanupResults = await runWithBoundedConcurrency({
+  await runWithBoundedConcurrency({
     items: accountsToRelease,
     concurrency: MEETING_RECORDER_ACCOUNT_CONCURRENCY,
     run: async (emailAccount) => {
@@ -153,12 +153,8 @@ async function scheduleAllMeetingRecordings(logger: Logger) {
     },
   });
 
-  const cleanupErrors = cleanupResults.filter(
-    ({ result }) => result.status === "rejected",
-  ).length;
   logger.info("Completed ineligible account cleanup phase", {
     total: accountsToRelease.length,
-    errors: cleanupErrors,
   });
 
   logger.info("Starting meeting recording sweep");
