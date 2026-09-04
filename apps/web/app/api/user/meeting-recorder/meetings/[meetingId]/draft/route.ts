@@ -50,7 +50,7 @@ export const GET = withAuth(
 
     if (!draft) return draftNotFound();
 
-    return NextResponse.redirect(getEmailDraftUrl(draft.id, email, provider));
+    return NextResponse.redirect(getEmailDraftUrl(draft, email, provider));
   },
 );
 
