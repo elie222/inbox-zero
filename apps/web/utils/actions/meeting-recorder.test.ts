@@ -15,6 +15,7 @@ const {
   mockReconcileSingleEvent,
   mockReleaseAccountBookings,
   mockReleaseAutomaticAccountBookings,
+  mockReleaseMeetingBooking,
   mockUpsertMeeting,
 } = vi.hoisted(() => ({
   mockAuth: vi.fn(),
@@ -23,6 +24,7 @@ const {
   mockReconcileSingleEvent: vi.fn(),
   mockReleaseAccountBookings: vi.fn(),
   mockReleaseAutomaticAccountBookings: vi.fn(),
+  mockReleaseMeetingBooking: vi.fn(),
   mockUpsertMeeting: vi.fn(),
 }));
 
@@ -41,6 +43,7 @@ vi.mock("@/utils/meeting-recorder/reconcile", () => ({
   reconcileSingleEvent: mockReconcileSingleEvent,
   releaseAccountBookings: mockReleaseAccountBookings,
   releaseAutomaticAccountBookings: mockReleaseAutomaticAccountBookings,
+  releaseMeetingBooking: mockReleaseMeetingBooking,
   upsertMeeting: mockUpsertMeeting,
 }));
 
@@ -146,6 +149,7 @@ describe("setMeetingJoinOverrideAction", () => {
       ],
     });
     mockUpsertMeeting.mockResolvedValue({ id: "meeting-1" });
+    mockReleaseMeetingBooking.mockResolvedValue(false);
   });
 
   it("does not book a bot for an account without the paid tier", async () => {
@@ -189,6 +193,26 @@ describe("setMeetingJoinOverrideAction", () => {
       joinOverride: false,
     });
     expect(mockReconcileSingleEvent).toHaveBeenCalled();
+    expect(result?.serverError).toBeUndefined();
+  });
+
+  it("turns off an active booking after the calendar event has ended", async () => {
+    mockFetchEvents.mockResolvedValue({ complete: true, events: [] });
+    mockReleaseMeetingBooking.mockResolvedValue(true);
+
+    const result = await setMeetingJoinOverrideAction(EMAIL_ACCOUNT_ID, {
+      join: false,
+      calendarEventId: "event-1",
+    });
+
+    expect(mockReleaseMeetingBooking).toHaveBeenCalledWith({
+      emailAccountId: EMAIL_ACCOUNT_ID,
+      calendarEventId: "event-1",
+      logger: expect.anything(),
+    });
+    expect(mockFetchEvents).not.toHaveBeenCalled();
+    expect(mockUpsertMeeting).not.toHaveBeenCalled();
+    expect(mockReconcileSingleEvent).not.toHaveBeenCalled();
     expect(result?.serverError).toBeUndefined();
   });
 
