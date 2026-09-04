@@ -109,8 +109,8 @@ export class RecallBotProvider implements MeetingBotProvider {
           bot_detection: {
             using_participant_names: {
               matches: MEETING_BOT_NAME_MATCHES,
-              activate_after: 0,
-              timeout: 5,
+              activate_after: 1,
+              timeout: 10,
             },
             using_participant_events: {
               // Give real attendees time to speak or share before using
