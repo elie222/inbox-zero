@@ -689,6 +689,8 @@ function mergeSyncedThreads({
     const remoteThread = remoteThreadsById.get(thread.id);
     threadsById.set(thread.id, {
       ...thread,
+      participantMessages:
+        remoteThread?.participantMessages ?? thread.participantMessages,
       plan: remoteThread?.plan ?? thread.plan,
       plans: remoteThread?.plans ?? thread.plans,
     });

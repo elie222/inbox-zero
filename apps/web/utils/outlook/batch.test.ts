@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { OutlookClient } from "@/utils/outlook/client";
 import { createTestLogger } from "@/__tests__/helpers";
-import { moveMessagesForSenders, moveThreadsInBatches } from "./batch";
+import {
+  getThreadParticipantMessagesInBatches,
+  moveMessagesForSenders,
+  moveThreadsInBatches,
+} from "./batch";
 
 const mockGetFolderIds = vi.fn();
 const mockUpdateEmailMessagesForSender = vi.fn();
@@ -20,6 +24,71 @@ vi.mock("@/utils/email/bulk-action-tracking", () => ({
     ...args: Parameters<typeof mockPublishBulkActionToTinybird>
   ) => mockPublishBulkActionToTinybird(...args),
 }));
+
+describe("getThreadParticipantMessagesInBatches", () => {
+  it("filters by conversation and follows continuation pages", async () => {
+    const nextLink =
+      "https://graph.microsoft.com/v1.0/me/messages?$skiptoken=next-page";
+    const batchPost = vi.fn(
+      async (body: {
+        requests: Array<{ id: string; url: string; method: string }>;
+      }) => {
+        const request = body.requests.at(0);
+        if (!request) throw new Error("Expected participant batch request");
+
+        if (batchPost.mock.calls.length === 1) {
+          const requestUrl = new URL(
+            request.url,
+            "https://graph.microsoft.com",
+          );
+          expect(requestUrl.searchParams.get("$filter")).toBe(
+            "conversationId eq 'thread-1'",
+          );
+
+          return {
+            responses: [
+              {
+                id: request.id,
+                status: 200,
+                body: {
+                  value: [{ id: "message-1" }],
+                  "@odata.nextLink": nextLink,
+                },
+              },
+            ],
+          };
+        }
+
+        expect(request.url).toBe("/me/messages?$skiptoken=next-page");
+        return {
+          responses: [
+            {
+              id: request.id,
+              status: 200,
+              body: { value: [{ id: "message-2" }] },
+            },
+          ],
+        };
+      },
+    );
+    const client = createMockOutlookClient({
+      listMessages: async () => ({ value: [] }),
+      batchPost,
+    });
+
+    const result = await getThreadParticipantMessagesInBatches({
+      client,
+      threadIds: ["thread-1"],
+      logger: createTestLogger(),
+    });
+
+    expect(batchPost).toHaveBeenCalledTimes(2);
+    expect(result.get("thread-1")?.map((message) => message.id)).toEqual([
+      "message-1",
+      "message-2",
+    ]);
+  });
+});
 
 describe("moveMessagesForSenders", () => {
   beforeEach(() => {

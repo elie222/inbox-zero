@@ -1,8 +1,10 @@
+import type { Message } from "@microsoft/microsoft-graph-types";
 import type { Logger } from "@/utils/logger";
 import type { OutlookClient } from "@/utils/outlook/client";
 import type { BulkArchiveResult, BulkArchiveThread } from "@/utils/email/types";
 import { escapeODataString } from "@/utils/outlook/odata-escape";
 import { getFolderIds } from "@/utils/outlook/message";
+import { resolveMicrosoftGraphNextLink } from "@/utils/outlook/page-token";
 import {
   publishBulkActionToTinybird,
   updateEmailMessagesForSender,
@@ -10,6 +12,8 @@ import {
 
 const GRAPH_JSON_BATCH_LIMIT = 20; // Microsoft Graph JSON batching limit
 const GRAPH_MOVE_BATCH_LIMIT = 4;
+const THREAD_PARTICIPANT_SELECT_FIELDS =
+  "id,conversationId,from,toRecipients,receivedDateTime";
 
 type GraphBatchRequestItem<TBody = unknown> = {
   id: string;
@@ -98,6 +102,84 @@ async function batch<TRequestBody = unknown, TResponseBody = unknown>({
   }
 
   return aggregatedResponses;
+}
+
+export async function getThreadParticipantMessagesInBatches({
+  client,
+  threadIds,
+  logger,
+}: {
+  client: OutlookClient;
+  threadIds: string[];
+  logger: Logger;
+}): Promise<Map<string, Message[]>> {
+  const requestIdToThreadId = new Map<string, string>();
+  let requests = threadIds.map((threadId, index) => {
+    const requestId = `thread-${index}`;
+    requestIdToThreadId.set(requestId, threadId);
+
+    const searchParams = new URLSearchParams({
+      $filter: `conversationId eq '${escapeODataString(threadId)}'`,
+      $select: THREAD_PARTICIPANT_SELECT_FIELDS,
+      $top: "100",
+    });
+
+    return {
+      id: requestId,
+      method: "GET",
+      url: `/me/messages?${searchParams}`,
+    };
+  });
+
+  const messagesByThreadId = new Map<string, Message[]>();
+  const seenNextLinks = new Set<string>();
+
+  while (requests.length) {
+    const responses = await batch<
+      never,
+      { value?: Message[]; "@odata.nextLink"?: string }
+    >({
+      client,
+      requests,
+      logger,
+      context: { threadCount: threadIds.length },
+      onFailure: ({ request, response }) => {
+        logger.warn("Failed to fetch Outlook thread participants", {
+          threadId: request ? requestIdToThreadId.get(request.id) : undefined,
+          status: response.status,
+        });
+      },
+      shouldStop: (responses) =>
+        responses.some((response) => response.status === 429),
+    });
+    const continuationRequests: typeof requests = [];
+
+    for (const response of responses) {
+      if (response.status >= 400) continue;
+
+      const threadId = requestIdToThreadId.get(response.id);
+      if (!threadId) continue;
+
+      messagesByThreadId.set(threadId, [
+        ...(messagesByThreadId.get(threadId) ?? []),
+        ...(response.body?.value ?? []),
+      ]);
+
+      const nextLink = response.body?.["@odata.nextLink"];
+      if (!nextLink || seenNextLinks.has(nextLink)) continue;
+
+      seenNextLinks.add(nextLink);
+      continuationRequests.push({
+        id: response.id,
+        method: "GET",
+        url: toGraphBatchUrl(nextLink),
+      });
+    }
+
+    requests = continuationRequests;
+  }
+
+  return messagesByThreadId;
 }
 
 async function moveMessagesInBatches({
@@ -428,4 +510,15 @@ export async function moveMessagesForSenders({
   }
 
   return movedMessagesCount;
+}
+
+function toGraphBatchUrl(nextLink: string): string {
+  const resolvedNextLink = resolveMicrosoftGraphNextLink(nextLink);
+  if (!resolvedNextLink) {
+    throw new Error("Invalid Outlook participant page token");
+  }
+
+  const url = new URL(resolvedNextLink);
+  const pathname = url.pathname.replace(/^\/(?:v1\.0|beta)(?=\/)/, "");
+  return `${pathname}${url.search}`;
 }

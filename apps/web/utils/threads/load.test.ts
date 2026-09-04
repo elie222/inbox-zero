@@ -99,6 +99,20 @@ describe("loadThreads", () => {
                 headers: { from: "Reminder <reminder@superhuman.com>" },
               },
             ],
+            participantMessages: [
+              {
+                headers: {
+                  from: "sender@example.com",
+                  to: "owner@example.com",
+                },
+              },
+              {
+                headers: {
+                  from: "Reminder <reminder@superhuman.com>",
+                  to: "owner@example.com",
+                },
+              },
+            ],
           },
         ],
         nextPageToken: null,
@@ -111,13 +125,22 @@ describe("loadThreads", () => {
       emailProvider: emailProvider as never,
       messageFormat: "metadata",
     });
+    const listThread = toListThreads(loaded).threads.at(0);
 
-    expect(loaded.threads[0]?.messages.map((message) => message.id)).toEqual([
-      "visible-message",
-    ]);
-    expect(toListThreads(loaded).threads[0]?.messageIds).toEqual([
+    expect(loaded.threads.at(0)?.messages.map((message) => message.id)).toEqual(
+      ["visible-message"],
+    );
+    expect(listThread?.messageIds).toEqual([
       "visible-message",
       "hidden-message",
+    ]);
+    expect(listThread?.participantMessages).toEqual([
+      {
+        headers: {
+          from: "sender@example.com",
+          to: "owner@example.com",
+        },
+      },
     ]);
   });
 });
