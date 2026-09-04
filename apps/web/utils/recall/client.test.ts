@@ -65,7 +65,12 @@ describe("RecallBotProvider", () => {
     const botDetection = JSON.parse(request?.body as string).automatic_leave
       ?.bot_detection;
     expect(botDetection.using_participant_names.matches).toContain("notetaker");
-    expect(botDetection.using_participant_names.activate_after).toBe(0);
+    expect(
+      botDetection.using_participant_names.activate_after,
+    ).toBeGreaterThanOrEqual(1);
+    expect(botDetection.using_participant_names.timeout).toBeGreaterThanOrEqual(
+      10,
+    );
     expect(
       botDetection.using_participant_events.activate_after,
     ).toBeGreaterThan(0);
