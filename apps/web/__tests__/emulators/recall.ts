@@ -243,25 +243,24 @@ export async function createRecallEmulator({
   }
 
   function createBot(body: unknown): { status: number; body?: unknown } {
-    const payload = body as
-      | { meeting_url?: string; bot_name?: string; join_at?: string }
-      | undefined;
-
-    if (!payload?.meeting_url) {
+    if (!isRecord(body) || typeof body.meeting_url !== "string") {
       return {
         status: 400,
         body: { meeting_url: ["This field is required."] },
       };
     }
     // Recall rejects links it cannot join, and it does so permanently.
-    if (!/^https?:\/\//.test(payload.meeting_url)) {
+    if (!/^https?:\/\//.test(body.meeting_url)) {
       return {
         status: 400,
         body: { meeting_url: ["Not a valid meeting URL."] },
       };
     }
-    if (payload.join_at !== undefined) {
-      const joinAt = new Date(payload.join_at).getTime();
+    if (body.join_at !== undefined) {
+      const joinAt =
+        typeof body.join_at === "string"
+          ? new Date(body.join_at).getTime()
+          : Number.NaN;
       if (Number.isNaN(joinAt) || joinAt <= Date.now()) {
         return {
           status: 400,
@@ -270,11 +269,19 @@ export async function createRecallEmulator({
       }
     }
 
+    const automaticLeaveError = validateAutomaticLeave(body.automatic_leave);
+    if (automaticLeaveError) {
+      return {
+        status: 400,
+        body: { automatic_leave: automaticLeaveError },
+      };
+    }
+
     const bot: RecallEmulatorBot = {
       id: `bot_${nextId++}`,
-      meeting_url: payload.meeting_url,
-      bot_name: payload.bot_name ?? "",
-      join_at: payload.join_at ?? null,
+      meeting_url: body.meeting_url,
+      bot_name: typeof body.bot_name === "string" ? body.bot_name : "",
+      join_at: typeof body.join_at === "string" ? body.join_at : null,
       status_changes: [{ code: "ready", sub_code: null }],
       media_deleted: false,
       recording_id: `rec_${nextId++}`,
@@ -474,6 +481,93 @@ function safeJsonParse(raw: string): unknown {
   } catch {
     return raw;
   }
+}
+
+function validateAutomaticLeave(automaticLeave: unknown): unknown | null {
+  if (automaticLeave === undefined || automaticLeave === null) return null;
+  if (!isRecord(automaticLeave)) return ["Expected an object."];
+
+  const botDetection = automaticLeave.bot_detection;
+  if (botDetection === undefined) return null;
+  if (!isRecord(botDetection)) {
+    return { bot_detection: ["Expected an object."] };
+  }
+
+  const participantNames = botDetection.using_participant_names;
+  if (participantNames !== undefined) {
+    if (!isRecord(participantNames)) {
+      return {
+        bot_detection: {
+          using_participant_names: ["Expected an object."],
+        },
+      };
+    }
+
+    const errors = validateBotDetectionTiming(participantNames, true);
+    if (
+      !Array.isArray(participantNames.matches) ||
+      participantNames.matches.some(
+        (match) => typeof match !== "string" || match.length === 0,
+      )
+    ) {
+      errors.matches = ["Expected a list of non-empty strings."];
+    }
+    if (Object.keys(errors).length > 0) {
+      return {
+        bot_detection: { using_participant_names: errors },
+      };
+    }
+  }
+
+  const participantEvents = botDetection.using_participant_events;
+  if (participantEvents !== undefined) {
+    if (!isRecord(participantEvents)) {
+      return {
+        bot_detection: {
+          using_participant_events: ["Expected an object."],
+        },
+      };
+    }
+
+    const errors = validateBotDetectionTiming(participantEvents, false);
+    if (Object.keys(errors).length > 0) {
+      return {
+        bot_detection: { using_participant_events: errors },
+      };
+    }
+  }
+
+  return null;
+}
+
+function validateBotDetectionTiming(
+  config: Record<string, unknown>,
+  required: boolean,
+): Record<string, string[]> {
+  const errors: Record<string, string[]> = {};
+  if (
+    (required || config.activate_after !== undefined) &&
+    !isIntegerAtLeast(config.activate_after, 1)
+  ) {
+    errors.activate_after = [
+      "Ensure this value is greater than or equal to 1.",
+    ];
+  }
+  if (
+    (required || config.timeout !== undefined) &&
+    !isIntegerAtLeast(config.timeout, 10)
+  ) {
+    errors.timeout = ["Ensure this value is greater than or equal to 10."];
+  }
+  return errors;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isIntegerAtLeast(value: unknown, minimum: number): boolean {
+  return Number.isInteger(value) && (value as number) >= minimum;
 }
 
 /** Convenience for building the webhook bodies Recall sends. */
