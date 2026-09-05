@@ -160,6 +160,13 @@ const SHORTCUT_DEFINITIONS = [
     },
   },
   {
+    id: "label",
+    keys: ["l"],
+    scope: "mail",
+    group: "Triage",
+    label: "Label",
+  },
+  {
     id: "snooze",
     keys: ["h"],
     scope: "mail",

@@ -642,6 +642,7 @@ export function useCombinedMailThreads({
     isLoadingMore: isLoadingMore || isLoadingMoreLocally,
     failedAccountIds,
     labelsByAccount,
+    refetch: mutate,
     removeThreads,
     restoreThreads,
     optimisticallyUpdateThreads,

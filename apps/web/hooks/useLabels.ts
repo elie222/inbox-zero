@@ -30,16 +30,17 @@ function isHidden(label: EmailLabel): boolean {
   return label.labelListVisibility === "labelHide";
 }
 
-function useLabelsResponse() {
+function useLabelsResponse(explicitEmailAccountId?: string) {
   const {
     emailAccount,
     isLoading: isLoadingEmailAccount,
     providerRateLimit,
   } = useAccount();
+  const key = explicitEmailAccountId
+    ? ["/api/labels", explicitEmailAccountId]
+    : "/api/labels";
   const swr = useSWR<LabelsResponse>(
-    !isLoadingEmailAccount && emailAccount && !providerRateLimit
-      ? "/api/labels"
-      : null,
+    !isLoadingEmailAccount && emailAccount && !providerRateLimit ? key : null,
     { shouldRetryOnError: false },
   );
 
@@ -69,8 +70,8 @@ export function useAllLabels() {
   };
 }
 
-export function useLabels() {
-  const { data, isLoading, error, mutate } = useLabelsResponse();
+export function useLabels(emailAccountId?: string) {
+  const { data, isLoading, error, mutate } = useLabelsResponse(emailAccountId);
 
   const userLabels: EmailLabel[] = useMemo(() => {
     if (!data?.labels) return [];

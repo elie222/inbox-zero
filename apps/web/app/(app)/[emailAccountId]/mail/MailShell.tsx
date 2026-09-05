@@ -33,6 +33,7 @@ import type {
   NewSplitDraft,
   NewSplitOption,
 } from "@/app/(app)/[emailAccountId]/mail/NewSplitPopover";
+import { LabelPickerDialog } from "@/app/(app)/[emailAccountId]/mail/LabelPickerDialog";
 import { ThreadList } from "@/app/(app)/[emailAccountId]/mail/ThreadList";
 import { ThreadReader } from "@/app/(app)/[emailAccountId]/mail/ThreadReader";
 import {
@@ -52,6 +53,7 @@ import { useMailThreads } from "@/app/(app)/[emailAccountId]/mail/use-mail-threa
 import { useCombinedMailThreads } from "@/app/(app)/[emailAccountId]/mail/use-combined-mail-threads";
 import { useAdjacentThreadPrefetch } from "@/app/(app)/[emailAccountId]/mail/use-adjacent-thread-prefetch";
 import { useThreadPrefetchCoordinator } from "@/app/(app)/[emailAccountId]/mail/thread-prefetch-coordinator";
+import { requestMailboxSync } from "@/app/(app)/[emailAccountId]/mail/use-mailbox-sync";
 import { useThreadActions } from "@/app/(app)/[emailAccountId]/mail/use-thread-actions";
 import { useThreadSelection } from "@/app/(app)/[emailAccountId]/mail/use-thread-selection";
 import { isThreadUnread } from "@/app/(app)/[emailAccountId]/mail/read-state";
@@ -167,6 +169,9 @@ export function MailShell() {
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [labelTargets, setLabelTargets] = useState<ThreadSelection[] | null>(
+    null,
+  );
   const [replyToMessageId, setReplyToMessageId] = useState<string>();
   const pendingReplyThreadKey = useRef<string | null>(null);
   const isMailSidebarOpen = openSidebars.includes("left-sidebar");
@@ -632,6 +637,42 @@ export function MailShell() {
     (until: Date) => runOn((ids) => snooze(ids, until), true),
     [runOn, snooze],
   );
+  const labelTargetKeys = (() => {
+    if (selection.hasSelection) return [...selection.selectedIds];
+    if (openThreadKey) return [openThreadKey];
+    return focusedThread ? [getListThreadKey(focusedThread)] : [];
+  })();
+  const currentLabelTargets = labelTargetKeys.flatMap((key) => {
+    const thread = threads.find((thread) => getListThreadKey(thread) === key);
+    if (thread) return [getListThreadSelection(thread, emailAccountId)];
+    return key === openThreadKey && openThreadSelection
+      ? [openThreadSelection]
+      : [];
+  });
+  const labelAccountId = currentLabelTargets[0]?.emailAccountId;
+  const labelAccount =
+    labelAccountId === emailAccountId
+      ? emailAccount
+      : accountsData?.emailAccounts.find(
+          (account) => account.id === labelAccountId,
+        );
+  const canLabel =
+    currentLabelTargets.length > 0 &&
+    currentLabelTargets.length === labelTargetKeys.length &&
+    isGoogleProvider(labelAccount?.account.provider) &&
+    currentLabelTargets.every(
+      (target) => target.emailAccountId === labelAccountId,
+    );
+  const openLabelPicker = () => {
+    if (canLabel) setLabelTargets(currentLabelTargets);
+  };
+  const pickerAccount =
+    labelTargets?.[0]?.emailAccountId === emailAccountId
+      ? emailAccount
+      : accountsData?.emailAccounts.find(
+          (account) => account.id === labelTargets?.[0]?.emailAccountId,
+        );
+
   const commandTargetIds = useMemo(
     () =>
       selection.targetIds(
@@ -678,7 +719,10 @@ export function MailShell() {
     return () => setMailCommandContext(null);
   }, [mailCommandContext, setMailCommandContext]);
   const isMailOverlayOpen =
-    isHelpOpen || isPaletteOpen || (isMenuOpen && Boolean(openThreadId));
+    isHelpOpen ||
+    isPaletteOpen ||
+    Boolean(labelTargets) ||
+    (isMenuOpen && Boolean(openThreadId));
 
   const closeReader = () => {
     setOpenThread(null);
@@ -687,7 +731,7 @@ export function MailShell() {
   // Not memoised: `useShortcuts` keeps handlers in a ref and only re-registers
   // when the set of handled ids changes, so a stable identity buys nothing.
   const handlers: ShortcutHandlers = (() => {
-    if (sidePanelThreadId) return {};
+    if (sidePanelThreadId || labelTargets) return {};
     return {
       next: (event) => {
         if (openThreadId && event?.key === "ArrowDown") return;
@@ -717,6 +761,7 @@ export function MailShell() {
       // re-extends from the same row and the range never grows.
       extendSelectionDown: () => extendSelection(1),
       extendSelectionUp: () => extendSelection(-1),
+      label: canLabel ? openLabelPicker : undefined,
       archive: archiveTargets,
       delete: trashTargets,
       reply: () => {
@@ -1109,6 +1154,7 @@ export function MailShell() {
                 onSelectRangeTo={selection.selectRangeTo}
                 onArchiveSelected={archiveTargets}
                 onDeleteSelected={trashTargets}
+                onLabelSelected={canLabel ? openLabelPicker : undefined}
                 onClearSelection={selection.clear}
                 showLoadMore={hasMore}
                 isLoadingMore={isLoadingMore}
@@ -1154,6 +1200,7 @@ export function MailShell() {
                   isUnread={isOpenThreadUnread}
                   onMarkSpam={markSpamTargets}
                   onDelete={trashTargets}
+                  onLabel={canLabel ? openLabelPicker : undefined}
                   onToggleRead={() => {
                     if (!openThreadKey) return;
                     setReadState([openThreadKey], isOpenThreadUnread);
@@ -1187,6 +1234,41 @@ export function MailShell() {
         variant="compact"
       />
 
+      {labelTargets && pickerAccount && (
+        <EmailAccountScopeProvider emailAccount={pickerAccount}>
+          <LabelPickerDialog
+            threadIds={labelTargets.map((target) => target.threadId)}
+            onClose={() => setLabelTargets(null)}
+            onApplied={(threadIds, labelId) => {
+              const keys = threadIds.map((threadId) =>
+                isAllAccounts ? `${pickerAccount.id}:${threadId}` : threadId,
+              );
+              const updater = <
+                T extends { messages: { labelIds?: string[] }[] },
+              >(
+                thread: T,
+              ): T => ({
+                ...thread,
+                messages: thread.messages.map((message) => ({
+                  ...message,
+                  labelIds: [
+                    ...new Set([...(message.labelIds ?? []), labelId]),
+                  ],
+                })),
+              });
+              const update = isAllAccounts
+                ? combinedThreadState.optimisticallyUpdateThreads(keys, updater)
+                : accountThreadState.optimisticallyUpdateThreads(keys, updater);
+              for (const key of keys) update.commit(key);
+              requestMailboxSync(pickerAccount.id);
+              refetchOpenThread();
+              if (isAllAccounts) combinedThreadState.refetch();
+              mutateLabels();
+              mutateCounts();
+            }}
+          />
+        </EmailAccountScopeProvider>
+      )}
       <ShortcutsDialog open={isHelpOpen} onOpenChange={setIsHelpOpen} />
     </div>
   );

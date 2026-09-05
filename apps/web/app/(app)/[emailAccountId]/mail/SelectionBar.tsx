@@ -13,6 +13,7 @@ export type SelectionBarProps = {
   onArchive: () => void;
   onDelete: () => void;
   onClear: () => void;
+  onLabel?: () => void;
 };
 
 /** The band above the list. Rendered only while the selection is non-empty. */
@@ -21,6 +22,7 @@ export function SelectionBar({
   onArchive,
   onDelete,
   onClear,
+  onLabel,
 }: SelectionBarProps) {
   if (selectedCount === 0) return null;
 
@@ -54,6 +56,16 @@ export function SelectionBar({
         </TooltipTrigger>
         <TooltipContent>Delete ({getShortcutHint("delete")})</TooltipContent>
       </Tooltip>
+      {onLabel && (
+        <Button
+          onClick={onLabel}
+          size="xs-2"
+          variant="outline"
+          title={`Label (${getShortcutHint("label")})`}
+        >
+          Label
+        </Button>
+      )}
       <Button onClick={onClear} size="xs-2" variant="ghost">
         Clear
       </Button>
