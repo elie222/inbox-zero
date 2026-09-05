@@ -34,16 +34,12 @@ describe("handleWebhookError", () => {
   const mockCleanupInvalidTokens = vi.mocked(cleanupInvalidTokens);
 
   describe("Gmail errors", () => {
-    it("cleans up invalid grants without reporting an unhandled webhook error", async () => {
+    it("leaves invalid-grant cleanup to the provider with the failed credential snapshot", async () => {
       const error = new Error("invalid_grant");
 
       await handleWebhookError(error, baseOptions);
 
-      expect(mockCleanupInvalidTokens).toHaveBeenCalledWith({
-        emailAccountId: "acc-123",
-        reason: "invalid_grant",
-        logger,
-      });
+      expect(mockCleanupInvalidTokens).not.toHaveBeenCalled();
       expect(trackError).not.toHaveBeenCalled();
       expect(mockRecordRateLimitFromApiError).not.toHaveBeenCalled();
     });
