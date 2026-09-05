@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   generateSecret,
+  generateEncryptionSecrets,
   generateEnvFile,
   getEnvFileName,
   isSensitiveKey,
@@ -684,4 +685,42 @@ describe("parsePortConflict", () => {
     expect(parsePortConflict("network timeout")).toBeNull();
     expect(parsePortConflict("")).toBeNull();
   });
+});
+
+describe("setup encryption secrets", () => {
+  it("preserves existing encryption material when reconfiguring", () => {
+    const existing = parseEnvFile(
+      'EMAIL_ENCRYPT_SECRET="existing#secret" # keep\nEMAIL_ENCRYPT_SALT=existing-salt # keep',
+    );
+    expect(generateEncryptionSecrets(existing)).toEqual({
+      EMAIL_ENCRYPT_SECRET: "existing#secret",
+      EMAIL_ENCRYPT_SALT: "existing-salt",
+    });
+  });
+
+  it("generates missing material for a fresh installation", () => {
+    expect(generateEncryptionSecrets({})).toEqual({
+      EMAIL_ENCRYPT_SECRET: expect.stringMatching(/^[a-f0-9]{64}$/),
+      EMAIL_ENCRYPT_SALT: expect.stringMatching(/^[a-f0-9]{32}$/),
+    });
+  });
+
+  it("ignores inline comments when reusing a database password", () => {
+    expect(
+      parseEnvFile("POSTGRES_PASSWORD=password # change this for production")
+        .POSTGRES_PASSWORD,
+    ).toBe("password");
+  });
+});
+
+it("preserves hashes in unquoted Compose database passwords", () => {
+  expect(
+    parseEnvFile("POSTGRES_PASSWORD=abc#def # comment").POSTGRES_PASSWORD,
+  ).toBe("abc#def");
+});
+
+it("keeps a commented empty database password empty", () => {
+  expect(
+    parseEnvFile("POSTGRES_PASSWORD= # set a password").POSTGRES_PASSWORD,
+  ).toBe("");
 });
