@@ -1,3 +1,7 @@
+import { z } from "zod";
+
+const deliveryTimeSchema = z.string().datetime({ offset: true });
+
 export function getReminderAfterSendTimeChange(
   sendAt: string,
   remindAt: string,
@@ -24,7 +28,7 @@ export function parseDeliveryTimes(
     typeof remindAt === "string" && remindAt ? new Date(remindAt) : null;
   if (
     typeof sendAt !== "string" ||
-    (sendDate && !Number.isFinite(sendDate.getTime()))
+    (sendAt && !deliveryTimeSchema.safeParse(sendAt).success)
   ) {
     return {
       valid: false,
@@ -33,7 +37,7 @@ export function parseDeliveryTimes(
   }
   if (
     typeof remindAt !== "string" ||
-    (reminderDate && !Number.isFinite(reminderDate.getTime()))
+    (remindAt && !deliveryTimeSchema.safeParse(remindAt).success)
   ) {
     return {
       valid: false,

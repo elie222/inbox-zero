@@ -372,7 +372,7 @@ test("opens and sends a reply from the reader with Enter", async ({
   await capturePlaywrightCheckpoint(page, testInfo, "protected-quoted-reply");
   await sendButton.click();
 
-  await expect(page.getByText("Email sent!", { exact: true })).toBeVisible();
+  await expect(replyEditor).toHaveCount(0);
   await expect(sentByMe).toHaveCount(initialSentByMeCount + 1);
   await capturePlaywrightCheckpoint(page, testInfo, "reply-sent-in-thread");
 });

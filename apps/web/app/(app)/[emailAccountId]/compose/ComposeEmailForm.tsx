@@ -39,7 +39,7 @@ import {
 } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { useHotkeys } from "react-hotkeys-hook";
-import useSWR from "swr";
+import useSWR, { useSWRConfig } from "swr";
 import type {
   ContactsErrorResponse,
   ContactsResponse,
@@ -62,15 +62,22 @@ import {
 } from "@/components/ui/select";
 import { env } from "@/env";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
+import { useLocalReplyDraft } from "@/hooks/useLocalReplyDraft";
 import { useModifierKey } from "@/hooks/useModifierKey";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { getAccountLinkingUrl } from "@/utils/account-linking";
 import { sendEmailAction } from "@/utils/actions/mail";
+import { scheduleEmailAction } from "@/utils/actions/scheduled-email";
 import {
   extractNameFromEmail,
   isValidEmail,
   splitRecipientList,
 } from "@/utils/email";
+import type { StoredReplyDraft } from "@/utils/email-cache/database";
+import {
+  createReplyDraftWriter,
+  type ReplyDraftContent,
+} from "@/utils/email-cache/reply-drafts";
 import { createPreservedEmailBlocks } from "@/utils/email/preserved-blocks";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { getActionErrorMessage } from "@/utils/error";
@@ -87,15 +94,7 @@ import {
   resolveComposeRecipients,
   resolveRecipientSelection,
 } from "./compose-recipients";
-import { useLocalReplyDraft } from "@/hooks/useLocalReplyDraft";
-import {
-  createReplyDraftWriter,
-  type ReplyDraftContent,
-} from "@/utils/email-cache/reply-drafts";
-import type { StoredReplyDraft } from "@/utils/email-cache/database";
-import { scheduleEmailAction } from "@/utils/actions/scheduled-email";
 import { DeliveryOptions } from "./DeliveryOptions";
-import { useSWRConfig } from "swr";
 import {
   getReminderAfterSendTimeChange,
   parseDeliveryTimes,
@@ -324,6 +323,8 @@ function ComposeEmailFormContent({
   const isMountedRef = useRef(true);
   const editorRef = useRef<EmailEditorHandle>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const inlineReplySummaryButtonRef = useRef<HTMLButtonElement>(null);
+  const collapseInlineReplyFieldsButtonRef = useRef<HTMLButtonElement>(null);
   const hideCcBccButtonRef = useRef<HTMLButtonElement>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const inlineImageInputRef = useRef<HTMLInputElement>(null);
@@ -880,6 +881,31 @@ function ComposeEmailFormContent({
         );
       }
     };
+  const canCollapseInlineReplyFields =
+    isInlineReply && Boolean(replyingToEmail?.to);
+  const showInlineReplySummary = canCollapseInlineReplyFields && !editReply;
+  const openInlineReplyFields = () => {
+    setEditReply(true);
+    requestAnimationFrame(() =>
+      collapseInlineReplyFieldsButtonRef.current?.focus(),
+    );
+  };
+  const closeInlineReplyFields = () => {
+    setEditReply(false);
+    requestAnimationFrame(() => inlineReplySummaryButtonRef.current?.focus());
+  };
+  const handleSendAtChange = (value: string) => {
+    const nextRemindAt = getReminderAfterSendTimeChange(value, remindAt);
+    setSubmissionError("");
+    setSendAt(value);
+    setRemindAt(nextRemindAt);
+    saveDraftRef.current({ sendAt: value, remindAt: nextRemindAt });
+  };
+  const handleRemindAtChange = (value: string) => {
+    setSubmissionError("");
+    setRemindAt(value);
+    saveDraftRef.current({ remindAt: value });
+  };
 
   return (
     <form
@@ -938,11 +964,12 @@ function ComposeEmailFormContent({
             </Select>
           </div>
         )}
-        {isInlineReply && !editReply && (
+        {showInlineReplySummary && (
           <button
             type="button"
             aria-expanded={false}
-            onClick={() => setEditReply(true)}
+            ref={inlineReplySummaryButtonRef}
+            onClick={openInlineReplyFields}
             className="flex items-center gap-1.5 rounded-sm text-left text-sm font-medium leading-5 text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <span className="text-emerald-600 dark:text-emerald-400">
@@ -1003,11 +1030,12 @@ function ComposeEmailFormContent({
                     />
                   )}
                 </div>
-                {field === "to" && (
+                {field === "to" && canCollapseInlineReplyFields && (
                   <button
                     type="button"
                     aria-label="Hide recipients"
-                    onClick={() => setEditReply(false)}
+                    ref={collapseInlineReplyFieldsButtonRef}
+                    onClick={closeInlineReplyFields}
                     className="rounded-sm text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <ChevronDownIcon className="size-3 rotate-180" />
@@ -1238,19 +1266,8 @@ function ComposeEmailFormContent({
               sendAt={sendAt}
               remindAt={remindAt}
               disabled={isSubmitting}
-              onSendAtChange={(value) => {
-                const nextRemindAt = getReminderAfterSendTimeChange(
-                  value,
-                  remindAt,
-                );
-                setSendAt(value);
-                setRemindAt(nextRemindAt);
-                saveDraftRef.current({ sendAt: value, remindAt: nextRemindAt });
-              }}
-              onRemindAtChange={(value) => {
-                setRemindAt(value);
-                saveDraftRef.current({ remindAt: value });
-              }}
+              onSendAtChange={handleSendAtChange}
+              onRemindAtChange={handleRemindAtChange}
             />
           )}
         </div>

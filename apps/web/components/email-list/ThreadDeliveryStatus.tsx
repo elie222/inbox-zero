@@ -235,6 +235,7 @@ export function ThreadDeliveryStatus({
             <div className="contents">
               {["PENDING", "BLOCKED_AUTH", "FAILED"].includes(row.status) && (
                 <Button
+                  type="button"
                   disabled={busy}
                   size="sm"
                   variant="ghost"
@@ -250,6 +251,7 @@ export function ThreadDeliveryStatus({
               )}
               {["BLOCKED_AUTH", "FAILED"].includes(row.status) && (
                 <Button
+                  type="button"
                   disabled={busy}
                   size="sm"
                   variant="ghost"
@@ -265,6 +267,7 @@ export function ThreadDeliveryStatus({
               )}
               {row.reminderStatus === "PENDING" && (
                 <Button
+                  type="button"
                   disabled={busy}
                   size="sm"
                   variant="ghost"

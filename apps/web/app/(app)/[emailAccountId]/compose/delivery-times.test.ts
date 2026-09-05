@@ -33,6 +33,8 @@ describe("changing a scheduled send time", () => {
 describe("persisted delivery times", () => {
   it.each([
     "not-a-date",
+    "2026-02-30T10:00:00Z",
+    "2025-02-29T10:00:00+02:00",
     "2026-99-99T10:00:00Z",
     " ",
   ])("rejects invalid send time %s instead of converting it to send now", (sendAt) => {

@@ -80,7 +80,7 @@ test("captures the rich message reader states", async ({ page }, testInfo) => {
   await capturePlaywrightCheckpoint(page, testInfo, "mail-reader-rich-message");
 
   await page.getByRole("button", { name: "Show details", exact: true }).click();
-  await expect(page.getByText("From:", { exact: true })).toBeVisible();
+  await expect(page.getByText("From", { exact: true })).toBeVisible();
   await capturePlaywrightCheckpoint(
     page,
     testInfo,

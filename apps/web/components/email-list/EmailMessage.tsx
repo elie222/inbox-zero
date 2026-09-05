@@ -119,7 +119,7 @@ export function EmailMessage({
     <li
       data-thread-message-id={message.id}
       data-selected={selected}
-      tabIndex={selected === undefined ? undefined : selected ? 0 : -1}
+      tabIndex={selected === undefined ? undefined : -1}
       aria-current={selected || undefined}
       onFocusCapture={onSelect}
       onClickCapture={onSelect}

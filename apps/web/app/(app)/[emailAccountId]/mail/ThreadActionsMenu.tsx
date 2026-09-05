@@ -150,7 +150,7 @@ export function ThreadActionsMenu({
           </DropdownMenuItem>
 
           <DropdownMenuItem onSelect={onDelete}>
-            <Trash2Icon className="mr-2 size-4" />
+            <Trash2Icon aria-hidden className="mr-2 size-4" />
             Delete
             <DropdownMenuShortcut>
               {getShortcutHint("delete")}

@@ -137,7 +137,7 @@ export function EmailThread({
       scopes: ["mail"],
       useKey: true,
       preventDefault: true,
-      ignoreEventWhen: (event) =>
+      ignoreEventWhen: (event: KeyboardEvent) =>
         event.isComposing ||
         window.getSelection()?.isCollapsed === false ||
         isTypingTarget(event.target) ||

@@ -212,7 +212,10 @@ async function openReply(page: Page) {
   await expect(
     page.getByRole("heading", { name: /Reply Workflow Message/ }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Reply", exact: true }).last().click();
+  await page
+    .locator('li[data-thread-message-id="msg_playwright_reply"]')
+    .getByRole("button", { name: "Reply", exact: true })
+    .click();
   await page
     .getByRole("textbox", { name: "Email message" })
     .fill("Thanks Leslie, Thursday works. I will bring the updated proposal.");

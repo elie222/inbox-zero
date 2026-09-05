@@ -67,11 +67,10 @@ test("keeps arrow navigation inside the thread and expands from its toolbar", as
   await page.setViewportSize({ width: 1440, height: 1000 });
   await messages.last().focus();
   await page.keyboard.press("Enter");
-  await expect(
-    page.getByText("Generating reply...", { exact: true }),
-  ).toHaveCount(0);
+
   const editor = page.getByRole("textbox", { name: "Email message" });
   await expect(editor).toBeFocused();
+  await expect(editor.locator("p")).toHaveText("");
   await page.getByLabel("Show quoted message").click();
   await expect(
     page.getByRole("toolbar", { name: "Selection formatting" }),
