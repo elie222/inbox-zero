@@ -23,6 +23,7 @@ import {
 } from "@headlessui/react";
 import {
   CheckCircleIcon,
+  ChevronDownIcon,
   ImageIcon,
   PaperclipIcon,
   TrashIcon,
@@ -942,25 +943,39 @@ function ComposeEmailFormContent({
           <button
             type="button"
             className={cn(
-              "flex gap-1 text-left",
+              "flex items-center gap-1 text-left",
+              isInlineReply &&
+                "gap-1.5 text-xs leading-5 text-muted-foreground hover:text-foreground",
               isComposeWindow && "min-h-11 items-center border-b",
             )}
             onClick={() => setEditReply(true)}
           >
-            <span className="text-muted-foreground text-sm">To</span>{" "}
-            <span className="max-w-md break-words text-foreground">
-              {extractNameFromEmail(watch("to") || replyingToEmail.to)}
-            </span>
+            {isInlineReply ? (
+              <>
+                <span>
+                  Reply to{" "}
+                  {extractNameFromEmail(watch("to") || replyingToEmail.to)}
+                </span>
+                <ChevronDownIcon className="size-3" />
+              </>
+            ) : (
+              <>
+                <span className="text-muted-foreground text-sm">To</span>
+                <span className="max-w-md break-words text-foreground">
+                  {extractNameFromEmail(watch("to") || replyingToEmail.to)}
+                </span>
+              </>
+            )}
           </button>
         ) : isInlineReply ? (
-          <div className="space-y-1 [&_input]:bg-transparent">
+          <div className="space-y-0.5 [&_input]:bg-transparent">
             {(
               ["to", ...(showCcBcc ? (["cc", "bcc"] as const) : [])] as const
             ).map((field) => (
-              <div key={field} className="flex min-h-8 items-center gap-2">
+              <div key={field} className="flex min-h-7 items-center gap-2">
                 <label
                   htmlFor={field}
-                  className="w-6 shrink-0 text-xs text-muted-foreground"
+                  className="w-8 shrink-0 text-xs leading-5 text-muted-foreground"
                 >
                   {RECIPIENT_LABELS[field]}
                 </label>
@@ -981,7 +996,7 @@ function ComposeEmailFormContent({
                         required: field === "to",
                       })}
                       error={errors[field]}
-                      className="h-8 rounded-none border-0 bg-transparent p-0 text-sm shadow-none focus:border-transparent focus:ring-0"
+                      className="h-7 rounded-none border-0 bg-transparent p-0 text-xs leading-5 shadow-none focus:border-transparent focus:ring-0 sm:text-xs"
                     />
                   )}
                 </div>
@@ -1019,10 +1034,11 @@ function ComposeEmailFormContent({
             ) : (
               <button
                 type="button"
+                aria-label="Edit subject"
                 onClick={() => setEditSubject(true)}
-                className="py-1 text-xs text-muted-foreground hover:text-foreground"
+                className="pt-2 pb-1 text-left text-xs leading-5 text-muted-foreground hover:text-foreground"
               >
-                Edit subject
+                {watch("subject")}
               </button>
             )}
           </div>
@@ -1151,7 +1167,7 @@ function ComposeEmailFormContent({
       </div>
 
       <EmailEditor
-        placeholder={isInlineReply ? "Reply…" : undefined}
+        placeholder={isInlineReply ? "" : undefined}
         appearance={isComposeWindow || isInlineReply ? "seamless" : "contained"}
         autofocus={!focusRecipientField}
         ref={editorRef}

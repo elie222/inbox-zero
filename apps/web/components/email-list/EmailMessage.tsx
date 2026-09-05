@@ -119,8 +119,8 @@ export function EmailMessage({
       className={cn(
         "group/message min-w-0 border-l-2 transition-colors",
         expanded
-          ? "my-2 border-border/70 px-4 py-3 focus-within:border-primary sm:px-5"
-          : "border-transparent px-4 py-1.5 hover:bg-muted/40 sm:px-5",
+          ? "my-2 border-border/70 px-2 py-3 focus-within:border-primary sm:px-5"
+          : "border-transparent px-2 py-1.5 hover:bg-muted/40 sm:px-5",
       )}
     >
       <MessageHeader
@@ -535,7 +535,7 @@ function ReplyPanel({
   ]);
 
   return (
-    <div className="mt-4 border-border/50 border-t pt-3" ref={replyRef}>
+    <div className="mt-5" ref={replyRef}>
       {isGeneratingReply ? (
         <div className="flex items-center justify-center">
           <Loading />

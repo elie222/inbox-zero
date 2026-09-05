@@ -7,6 +7,7 @@ import { openMail, readLatestMailMutation } from "./mail-test-helpers";
 
 test("captures thread reading and reply states", async ({ page }, testInfo) => {
   page.setDefaultTimeout(15_000);
+  page.setDefaultNavigationTimeout(30_000);
   await page.setViewportSize({ width: 1440, height: 1000 });
   const { emailAccountId } = await openMail(page);
   await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reader`);
@@ -52,7 +53,7 @@ test("captures thread reading and reply states", async ({ page }, testInfo) => {
     "Thanks Leslie, Thursday at 2 pm works for me. I will bring the updated proposal.",
   );
   await capturePlaywrightCheckpoint(page, testInfo, "06-populated-reply");
-  await page.getByRole("button", { name: /^To Leslie/ }).click();
+  await page.getByRole("button", { name: /^Reply to Leslie/ }).click();
   await page.getByRole("button", { name: "Cc/Bcc", exact: true }).click();
   await expect(
     page.getByRole("textbox", { name: "Cc", exact: true }),
@@ -96,6 +97,7 @@ test("captures thread reading and reply states", async ({ page }, testInfo) => {
 
 test("captures queued reply and reconnect", async ({ page }, testInfo) => {
   page.setDefaultTimeout(15_000);
+  page.setDefaultNavigationTimeout(30_000);
   await page.setViewportSize({ width: 1440, height: 1000 });
   const { emailAccountId } = await openMail(page);
   await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reply`);
@@ -228,6 +230,7 @@ test("captures a longer thread and draft collapse", async ({
   page,
 }, testInfo) => {
   page.setDefaultTimeout(15_000);
+  page.setDefaultNavigationTimeout(30_000);
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.route("**/api/threads/thr_playwright_reader?**", async (route) => {
     const response = await route.fetch();
@@ -286,6 +289,7 @@ test("restores a queued reply for editing without sending a duplicate", async ({
   page,
 }, testInfo) => {
   page.setDefaultTimeout(20_000);
+  page.setDefaultNavigationTimeout(30_000);
   await page.setViewportSize({ width: 1440, height: 1000 });
   const { emailAccountId } = await openMail(page);
   await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reply`);

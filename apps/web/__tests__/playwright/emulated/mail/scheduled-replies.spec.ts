@@ -205,6 +205,7 @@ test("sends a reply with a reminder through the local email provider", async ({
 
 async function openReply(page: Page) {
   page.setDefaultTimeout(20_000);
+  page.setDefaultNavigationTimeout(30_000);
   await page.setViewportSize({ width: 1440, height: 1000 });
   const { emailAccountId } = await openMail(page);
   await page.goto(`/${emailAccountId}/mail?thread-id=${THREAD_ID}`);

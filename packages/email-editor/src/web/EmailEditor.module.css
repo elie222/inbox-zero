@@ -108,11 +108,7 @@
 
 .editor
   [data-email-editor-content]
-  p[class~="is-editor-empty"]:first-child::before,
-[data-inline-reply="true"]
-  .editor
-  [data-email-editor-content]
-  p[class~="is-empty"]:first-child::before {
+  p[class~="is-editor-empty"]:first-child::before {
   float: left;
   height: 0;
   color: var(--email-editor-muted-foreground);
@@ -247,6 +243,11 @@
   border-top: 1px solid var(--email-editor-border);
 }
 
+[data-inline-reply="true"] .preservedBlock {
+  margin: 0;
+  border-top: 0;
+}
+
 .preservedSummary {
   display: flex;
   gap: 0.45rem;
@@ -257,6 +258,10 @@
   cursor: pointer;
   user-select: none;
   list-style: none;
+}
+
+[data-inline-reply="true"] .preservedSummary {
+  min-height: 1.5rem;
 }
 
 .preservedSummary::-webkit-details-marker {
