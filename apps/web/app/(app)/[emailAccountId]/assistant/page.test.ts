@@ -1,19 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import prisma from "@/utils/__mocks__/prisma";
 import { checkUserOwnsEmailAccount } from "@/utils/email-account";
 import AssistantPage from "./page";
 
-vi.mock("@/utils/prisma");
 vi.mock("@/utils/email-account", () => ({
   checkUserOwnsEmailAccount: vi.fn(),
-}));
-vi.mock("next/headers", () => ({
-  cookies: vi.fn().mockResolvedValue({ get: () => undefined }),
-}));
-vi.mock("next/navigation", () => ({
-  redirect: (url: string) => {
-    throw new Error(`redirect:${url}`);
-  },
 }));
 vi.mock("@/app/(app)/[emailAccountId]/PermissionsCheck", () => ({
   PermissionsCheck: () => null,
@@ -25,10 +15,9 @@ describe("AssistantPage access", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(checkUserOwnsEmailAccount).mockResolvedValue(undefined);
-    prisma.rule.findFirst.mockResolvedValue(null);
   });
 
-  it("allows the first visit without rules or an onboarding cookie", async () => {
+  it("allows access to a mailbox owned by the user", async () => {
     await expect(
       AssistantPage({
         params: Promise.resolve({ emailAccountId: "account-1" }),
