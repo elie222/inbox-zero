@@ -131,7 +131,12 @@ export function EmailMessage({
           return;
         event.preventDefault();
         event.stopPropagation();
-        onToggle?.();
+        if (event.key === "Enter" && showReplyButton) {
+          if (!expanded) onToggle?.();
+          onReply();
+        } else {
+          onToggle?.();
+        }
       }}
       className={cn(
         "group/message min-w-0 border-l-2 border-transparent outline-none transition-colors focus-within:border-primary",
@@ -161,6 +166,7 @@ export function EmailMessage({
 
           {message.textHtml ? (
             <HtmlEmail
+              onReplyMessage={showReplyButton ? onReply : undefined}
               onNavigateMessage={onNavigateMessage}
               onFocusMessage={onSelect}
               emailAccountId={emailAccountId}
@@ -264,7 +270,12 @@ function MessageHeader({
       if (event.key !== "Enter" && event.key !== " ") return;
       event.preventDefault();
       event.stopPropagation();
-      onToggle();
+      if (event.key === "Enter" && showReplyButton) {
+        if (!expanded) onToggle();
+        onReply();
+      } else {
+        onToggle();
+      }
     },
     role: "button",
     tabIndex: 0,

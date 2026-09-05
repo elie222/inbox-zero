@@ -36,6 +36,7 @@ export function HtmlEmail({
   messageId,
   emailAccountId,
   inlineAttachments = NO_INLINE_ATTACHMENTS,
+  onReplyMessage,
   onNavigateMessage,
   onFocusMessage,
 }: {
@@ -43,6 +44,7 @@ export function HtmlEmail({
   messageId: string;
   emailAccountId?: string;
   inlineAttachments?: ParsedMessage["inline"];
+  onReplyMessage?: () => void;
   onNavigateMessage?: (direction: -1 | 1) => void;
   onFocusMessage?: () => void;
 }) {
@@ -123,6 +125,7 @@ export function HtmlEmail({
 
   const iframeHeight = useEmailIframe(iframeRef, srcDoc, documentKey, {
     onNavigateMessage,
+    onReplyMessage,
     onFocusMessage,
   });
 
@@ -418,6 +421,7 @@ function useEmailIframe(
   srcDoc: string,
   documentKey: string,
   callbacks: {
+    onReplyMessage?: () => void;
     onNavigateMessage?: (direction: -1 | 1) => void;
     onFocusMessage?: () => void;
   },
@@ -439,9 +443,10 @@ function useEmailIframe(
     const selectMessage = () => callbacksRef.current.onFocusMessage?.();
     const navigateMessage = (event: KeyboardEvent) => {
       const navigate = callbacksRef.current.onNavigateMessage;
+      const reply = callbacksRef.current.onReplyMessage;
       if (
-        !navigate ||
-        (event.key !== "ArrowUp" && event.key !== "ArrowDown") ||
+        !(event.key === "Enter" ? reply : navigate) ||
+        !["Enter", "ArrowUp", "ArrowDown"].includes(event.key) ||
         event.altKey ||
         event.ctrlKey ||
         event.metaKey ||
@@ -457,8 +462,10 @@ function useEmailIframe(
         )
       )
         return;
+      if (event.key === "Enter" && target?.closest?.("a, button")) return;
       event.preventDefault();
-      navigate(event.key === "ArrowUp" ? -1 : 1);
+      if (event.key === "Enter") reply?.();
+      else navigate?.(event.key === "ArrowUp" ? -1 : 1);
     };
     const stopObservingDocument = () => {
       observedDocument?.removeEventListener("keydown", navigateMessage);

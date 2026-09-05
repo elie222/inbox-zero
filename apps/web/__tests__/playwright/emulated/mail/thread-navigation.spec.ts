@@ -65,7 +65,8 @@ test("keeps arrow navigation inside the thread and expands from its toolbar", as
     "navigation-mobile-toolbar",
   );
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.locator("body").press("Enter");
+  await messages.last().focus();
+  await page.keyboard.press("Enter");
   await expect(
     page.getByText("Generating reply...", { exact: true }),
   ).toHaveCount(0);
@@ -121,4 +122,9 @@ test("navigates messages from inside a rich email body", async ({ page }) => {
   await page.keyboard.press("ArrowDown");
   await expect(messages.last()).toHaveAttribute("aria-current", "true");
   await expect(page).toHaveURL(threadUrl);
+  await emailBody.click();
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByRole("textbox", { name: "Email message" }),
+  ).toBeVisible();
 });

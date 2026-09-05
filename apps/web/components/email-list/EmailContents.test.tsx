@@ -153,6 +153,7 @@ describe("HtmlEmail", () => {
   });
 
   it("does not grow when the document reports the iframe viewport height", async () => {
+    vi.mocked(fetch).mockReturnValue(new Promise(() => {}));
     const { getByTitle } = render(
       <HtmlEmail html="<p>Short reply</p>" messageId="short-reply" />,
     );
