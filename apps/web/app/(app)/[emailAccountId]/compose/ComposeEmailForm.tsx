@@ -1266,7 +1266,7 @@ function ComposeEmailFormContent({
           />
           <Button
             aria-label="Attach files"
-            className="text-muted-foreground hover:text-foreground"
+            className="text-muted-foreground hover:bg-transparent hover:text-foreground"
             onClick={() => attachmentInputRef.current?.click()}
             size={isComposeWindow ? "iconSm" : "icon"}
             type="button"
@@ -1285,7 +1285,7 @@ function ComposeEmailFormContent({
           />
           <Button
             aria-label="Insert inline images"
-            className="text-muted-foreground hover:text-foreground"
+            className="text-muted-foreground hover:bg-transparent hover:text-foreground"
             onClick={() => inlineImageInputRef.current?.click()}
             size={isComposeWindow ? "iconSm" : "icon"}
             type="button"
@@ -1296,7 +1296,7 @@ function ComposeEmailFormContent({
           {onDiscard && (
             <Button
               aria-label="Discard draft"
-              className="text-muted-foreground hover:text-foreground"
+              className="text-muted-foreground hover:bg-transparent hover:text-foreground"
               disabled={isSubmitting}
               onClick={async () => {
                 try {

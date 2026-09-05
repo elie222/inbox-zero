@@ -83,7 +83,7 @@ function DeliveryTimePicker({
           variant="ghost"
           size="sm"
           disabled={disabled}
-          className="px-2 text-xs text-muted-foreground hover:text-foreground"
+          className="px-2 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground"
           aria-label={label}
         >
           {value
