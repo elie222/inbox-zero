@@ -210,7 +210,7 @@ function readerMeasure({
 }) {
   // Keep the reading measure consistent between full-width and focus views.
   if (isFocusMode)
-    return "mx-auto w-full max-w-[48rem] px-2 py-6 sm:px-10 sm:py-10";
-  if (layout === "split") return "px-2 pt-6 pb-5 sm:px-6 sm:pt-8";
-  return "mx-auto w-full max-w-[48rem] px-2 pt-6 pb-5 sm:px-6 sm:pt-8";
+    return "mx-auto w-full max-w-[48rem] px-2 pt-4 pb-6 sm:px-10 sm:pt-5 sm:pb-10";
+  if (layout === "split") return "px-2 pt-4 pb-5 sm:px-6 sm:pt-5";
+  return "mx-auto w-full max-w-[48rem] px-2 pt-4 pb-5 sm:px-6 sm:pt-5";
 }

@@ -55,7 +55,7 @@ export function ReaderToolbar({
   const FocusIcon = isFocusMode ? MinimizeIcon : MaximizeIcon;
 
   return (
-    <div className="flex flex-wrap items-start gap-x-4 gap-y-3 pb-6">
+    <div className="flex flex-wrap items-start gap-x-4 gap-y-3 pb-3">
       <Button
         aria-label="Back to inbox"
         className="h-7 w-7"
