@@ -18,7 +18,7 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllEnvs());
 
 describe("migration database selection", () => {
-  it("keeps migrations on the preview database when only its pooled URL is configured", async () => {
+  it("prefers the preview pooled URL over the primary direct URL", async () => {
     vi.stubEnv("PREVIEW_DATABASE_URL", "postgresql://preview/db");
     vi.stubEnv("DIRECT_URL", "postgresql://primary/db");
     const { default: config } = await import("./prisma.config");
