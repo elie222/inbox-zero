@@ -65,11 +65,14 @@ describe("OAuth registration recovery", () => {
       codeVerifier: "verifier",
     });
     expect(registerClient).toHaveBeenCalledTimes(2);
+    expect(discoverAuthorizationServerMetadata).toHaveBeenCalledTimes(2);
   });
 
   it("retries registration when saving registered credentials fails", async () => {
     const persistIntegration =
-      prisma.mcpIntegration.upsert.getMockImplementation()!;
+      prisma.mcpIntegration.upsert.getMockImplementation();
+    if (!persistIntegration)
+      throw new Error("Integration persistence mock missing");
     prisma.mcpIntegration.upsert.mockImplementation(async (args) => {
       if (args.update.oauthClientId) {
         prisma.mcpIntegration.upsert.mockImplementation(persistIntegration);
@@ -85,6 +88,7 @@ describe("OAuth registration recovery", () => {
       codeVerifier: "verifier",
     });
     expect(registerClient).toHaveBeenCalledTimes(2);
+    expect(discoverAuthorizationServerMetadata).toHaveBeenCalledTimes(2);
   });
 
   it("reuses discovery and credentials after successful registration", async () => {
