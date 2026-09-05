@@ -153,10 +153,12 @@ jobs:
       - name: Clean up macOS signing files
         if: always() && runner.os == 'macOS'
         run: |
+          cleanup_status=0
           if [ -f "$RUNNER_TEMP/desktop-signing.keychain-db" ]; then
-            security delete-keychain "$RUNNER_TEMP/desktop-signing.keychain-db"
+            security delete-keychain "$RUNNER_TEMP/desktop-signing.keychain-db" || cleanup_status=$?
           fi
-          rm -f "$RUNNER_TEMP/desktop-signing.p12" "$RUNNER_TEMP/AuthKey.p8"
+          rm -f "$RUNNER_TEMP/desktop-signing.p12" "$RUNNER_TEMP/AuthKey.p8" || cleanup_status=$?
+          exit "$cleanup_status"
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
