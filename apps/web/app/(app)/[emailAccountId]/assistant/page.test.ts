@@ -65,7 +65,7 @@ describe("AssistantPage onboarding access", () => {
   });
 
   it("preserves access for an existing account with rules when its cookie is absent", async () => {
-    prisma.rule.findFirst.mockResolvedValue(getRule());
+    prisma.rule.findFirst.mockResolvedValue(getRule("Existing mailbox rule"));
     await expect(
       AssistantPage({
         params: Promise.resolve({ emailAccountId: "account-1" }),
@@ -73,15 +73,16 @@ describe("AssistantPage onboarding access", () => {
     ).resolves.toBeDefined();
   });
 
-  it("rejects an unowned mailbox before reading its onboarding state", async () => {
-    vi.mocked(checkUserOwnsEmailAccount).mockRejectedValue(
-      new Error("Not authenticated"),
-    );
+  it.each([
+    "Not authenticated",
+    "redirect:/no-access",
+  ])("propagates %s before reading onboarding state", async (message) => {
+    vi.mocked(checkUserOwnsEmailAccount).mockRejectedValue(new Error(message));
     await expect(
       AssistantPage({
         params: Promise.resolve({ emailAccountId: "account-1" }),
       }),
-    ).rejects.toThrow("Not authenticated");
+    ).rejects.toThrow(message);
     expect(prisma.rule.findFirst).not.toHaveBeenCalled();
   });
 });
