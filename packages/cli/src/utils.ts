@@ -216,11 +216,13 @@ export function parseEnvFile(content: string): Record<string, string> {
   const env = parseEnv(content);
   // Compose treats unspaced hashes in unquoted database passwords as literal.
   const password = [
-    ...content.matchAll(/^[ \t]*POSTGRES_PASSWORD[ \t]*=[ \t]*(.*)$/gm),
-  ]
-    .at(-1)?.[1]
-    ?.trim();
-  if (password && !password.startsWith('"') && !password.startsWith("'")) {
+    ...content.matchAll(/^[ \t]*POSTGRES_PASSWORD[ \t]*=(.*)$/gm),
+  ].at(-1)?.[1];
+  if (
+    password &&
+    !password.trim().startsWith('"') &&
+    !password.trim().startsWith("'")
+  ) {
     env.POSTGRES_PASSWORD = password.replace(/\s+#.*$/, "").trim();
   }
   return env;

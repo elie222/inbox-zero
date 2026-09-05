@@ -718,3 +718,9 @@ it("preserves hashes in unquoted Compose database passwords", () => {
     parseEnvFile("POSTGRES_PASSWORD=abc#def # comment").POSTGRES_PASSWORD,
   ).toBe("abc#def");
 });
+
+it("keeps a commented empty database password empty", () => {
+  expect(
+    parseEnvFile("POSTGRES_PASSWORD= # set a password").POSTGRES_PASSWORD,
+  ).toBe("");
+});
