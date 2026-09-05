@@ -1043,6 +1043,7 @@ function ruleConditionsForRisk(rule: CreateOrUpdateRuleInput): RuleConditions {
     from: rule.condition.static?.from ?? undefined,
     to: rule.condition.static?.to ?? undefined,
     subject: rule.condition.static?.subject ?? undefined,
+    body: rule.condition.static?.body ?? undefined,
   };
 }
 

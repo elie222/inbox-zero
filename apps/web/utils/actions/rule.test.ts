@@ -43,7 +43,7 @@ import { RULE_MANAGED_BY_ORGANIZATION_ERROR } from "@/utils/organizations/rules"
 describe("rule body conditions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(createEmailProvider).mockResolvedValue({} as any);
+    vi.mocked(createEmailProvider).mockResolvedValue({} as never);
     prisma.emailAccount.findUnique.mockResolvedValue({
       email: "owner@example.com",
       account: { userId: "u1", provider: "google" },
@@ -101,7 +101,7 @@ describe("rule body conditions", () => {
 describe("enableDraftRepliesAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(createEmailProvider).mockResolvedValue({} as any);
+    vi.mocked(createEmailProvider).mockResolvedValue({} as never);
   });
 
   it("re-enables the existing to-reply rule before adding draft actions", async () => {
@@ -182,7 +182,7 @@ describe("enableDraftRepliesAction", () => {
 describe("deleteRuleAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(createEmailProvider).mockResolvedValue({} as any);
+    vi.mocked(createEmailProvider).mockResolvedValue({} as never);
   });
 
   it("rejects deleting default rules", async () => {
@@ -218,7 +218,7 @@ describe("deleteRuleAction", () => {
 describe("updateRuleAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(createEmailProvider).mockResolvedValue({} as any);
+    vi.mocked(createEmailProvider).mockResolvedValue({} as never);
     prisma.rule.findMany.mockResolvedValue([]);
   });
 
@@ -347,7 +347,7 @@ describe("updateRuleAction", () => {
 describe("toggleRuleAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(createEmailProvider).mockResolvedValue({} as any);
+    vi.mocked(createEmailProvider).mockResolvedValue({} as never);
   });
 
   it("rejects toggling an org-managed rule copy via the personal path", async () => {
