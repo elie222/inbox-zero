@@ -364,15 +364,17 @@ async function discoverMetadata(
   const stored = await prisma.mcpIntegration.findUnique({
     where: { name: integration },
     select: {
+      oauthClientId: true,
       registeredAuthorizationUrl: true,
       registeredTokenUrl: true,
       registeredServerUrl: true,
     },
   });
 
-  // Use cached endpoints if we have them AND they match the current serverUrl
+  // Cached endpoints omit registration metadata, so only reuse them after registration succeeds.
   if (
-    stored?.registeredAuthorizationUrl &&
+    stored?.oauthClientId &&
+    stored.registeredAuthorizationUrl &&
     stored?.registeredTokenUrl &&
     stored.registeredServerUrl === serverUrl
   ) {
