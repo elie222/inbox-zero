@@ -33,6 +33,7 @@ export const pendingSendEmailToolOutputSchema = z.object({
   requiresConfirmation: z.literal(true),
   confirmationState: z.enum(["pending", "processing", "confirmed"]),
   confirmationProcessingAt: z.string().optional(),
+  emailAccountId: z.string().min(1).optional(),
   provider: z.string().optional(),
   pendingAction: z.object({
     to: z.string().trim().min(1),
@@ -54,6 +55,7 @@ export const pendingReplyEmailToolOutputSchema = z.object({
   requiresConfirmation: z.literal(true),
   confirmationState: z.enum(["pending", "processing", "confirmed"]),
   confirmationProcessingAt: z.string().optional(),
+  emailAccountId: z.string().min(1).optional(),
   pendingAction: z.object({
     messageId: z.string().trim().min(1),
     content: z.string().trim().min(1),
@@ -78,6 +80,7 @@ export const pendingForwardEmailToolOutputSchema = z.object({
   requiresConfirmation: z.literal(true),
   confirmationState: z.enum(["pending", "processing", "confirmed"]),
   confirmationProcessingAt: z.string().optional(),
+  emailAccountId: z.string().min(1).optional(),
   pendingAction: z.object({
     messageId: z.string().trim().min(1),
     to: z.string().trim().min(1),

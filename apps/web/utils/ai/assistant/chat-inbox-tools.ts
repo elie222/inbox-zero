@@ -1265,6 +1265,7 @@ export const sendEmailTool = ({
           parsedInput.data,
           from || null,
           provider,
+          emailAccountId,
         );
       } catch (error) {
         logger.error("Failed to prepare email from chat", { error });
@@ -1308,7 +1309,11 @@ export const replyEmailTool = ({
           parsedInput.data.messageId,
         );
 
-        return createPendingReplyEmailOutput(parsedInput.data, message);
+        return createPendingReplyEmailOutput(
+          parsedInput.data,
+          message,
+          emailAccountId,
+        );
       } catch (error) {
         logger.error("Failed to prepare reply from chat", { error });
         return { error: "Failed to prepare reply" };
@@ -1350,7 +1355,11 @@ export const forwardEmailTool = ({
         const message = await emailProvider.getMessage(
           parsedInput.data.messageId,
         );
-        return createPendingForwardEmailOutput(parsedInput.data, message);
+        return createPendingForwardEmailOutput(
+          parsedInput.data,
+          message,
+          emailAccountId,
+        );
       } catch (error) {
         logger.error("Failed to prepare email forward from chat", { error });
         return { error: "Failed to prepare email forward" };
@@ -1402,9 +1411,11 @@ function createPendingSendEmailOutput(
   input: z.infer<typeof sendEmailToolInputSchema>,
   from: string | null,
   provider: string,
+  emailAccountId: string,
 ) {
   return {
     success: true,
+    emailAccountId,
     actionType: "send_email" as PendingEmailActionType,
     requiresConfirmation: true,
     confirmationState: "pending" as const,
@@ -1423,9 +1434,11 @@ function createPendingSendEmailOutput(
 function createPendingReplyEmailOutput(
   input: z.infer<typeof replyEmailToolInputSchema>,
   message: ParsedMessage,
+  emailAccountId: string,
 ) {
   return {
     success: true,
+    emailAccountId,
     actionType: "reply_email" as PendingEmailActionType,
     requiresConfirmation: true,
     confirmationState: "pending" as const,
@@ -1445,9 +1458,11 @@ function createPendingReplyEmailOutput(
 function createPendingForwardEmailOutput(
   input: z.infer<typeof forwardEmailToolInputSchema>,
   message: ParsedMessage,
+  emailAccountId: string,
 ) {
   return {
     success: true,
+    emailAccountId,
     actionType: "forward_email" as PendingEmailActionType,
     requiresConfirmation: true,
     confirmationState: "pending" as const,
