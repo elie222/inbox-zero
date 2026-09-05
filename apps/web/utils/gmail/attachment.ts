@@ -45,8 +45,7 @@ export async function getGmailDraftAttachments(
   const contentId = headers.get("content-id");
   const isBody =
     payload.mimeType === "text/plain" || payload.mimeType === "text/html";
-  if (isBody && !payload.filename && !contentId && disposition !== "attachment")
-    return [];
+  if (isBody && !payload.filename && disposition !== "attachment") return [];
   if (!payload.mimeType || payload.mimeType.startsWith("multipart/")) return [];
 
   const data = payload.body?.attachmentId
@@ -60,7 +59,10 @@ export async function getGmailDraftAttachments(
       filename: payload.filename || undefined,
       contentType: payload.mimeType,
       content: Buffer.from(data, "base64url"),
-      contentDisposition: disposition === "inline" ? "inline" : "attachment",
+      contentDisposition:
+        disposition === "inline" || (!disposition && contentId)
+          ? "inline"
+          : "attachment",
       cid: contentId?.replace(/^<|>$/g, ""),
     },
   ];

@@ -548,7 +548,10 @@ describe("GmailProvider.searchThreads", () => {
 });
 
 describe("GmailProvider.updateDraft", () => {
-  it("preserves files, inline image content IDs, and the sender when editing", async () => {
+  it.each([
+    true,
+    false,
+  ])("preserves attachments and inline images (explicit disposition: %s)", async (explicitDisposition) => {
     const update = vi.fn().mockResolvedValue({ data: {} });
     const get = vi.fn().mockResolvedValue({
       data: { data: Buffer.from("attachment bytes").toString("base64url") },
@@ -566,7 +569,11 @@ describe("GmailProvider.updateDraft", () => {
       payload: {
         mimeType: "multipart/mixed",
         parts: [
-          { mimeType: "text/html", body: { data: "PHA-T2xkPC9wPg" } },
+          {
+            mimeType: "text/html",
+            body: { data: "PHA-T2xkPC9wPg" },
+            headers: [{ name: "Content-ID", value: "<body@example.com>" }],
+          },
           {
             mimeType: "application/pdf",
             filename: "report.pdf",
@@ -578,7 +585,9 @@ describe("GmailProvider.updateDraft", () => {
             filename: "logo.png",
             body: { data: Buffer.from("inline bytes").toString("base64url") },
             headers: [
-              { name: "Content-Disposition", value: "inline" },
+              ...(explicitDisposition
+                ? [{ name: "Content-Disposition", value: "inline" }]
+                : []),
               { name: "Content-ID", value: "<logo@example.com>" },
             ],
           },
@@ -597,6 +606,8 @@ describe("GmailProvider.updateDraft", () => {
     expect(mime).toContain("filename=report.pdf");
     expect(mime).toContain(Buffer.from("attachment bytes").toString("base64"));
     expect(mime).toContain("Content-ID: <logo@example.com>");
+    expect(mime).toContain("Content-Disposition: inline;");
+    expect(mime).not.toContain("Content-ID: <body@example.com>");
     expect(mime).toContain(Buffer.from("inline bytes").toString("base64"));
     expect(get).toHaveBeenCalledWith({
       userId: "me",
