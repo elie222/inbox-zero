@@ -158,7 +158,12 @@ export function ThreadDeliveryStatus({
             role="status"
             className="flex items-center gap-2 font-medium text-foreground"
           >
-            <DeliveryIcon status={row.status} offline={!online} />
+            <DeliveryIcon
+              status={
+                online && row.status === "pending" ? "processing" : row.status
+              }
+              offline={!online}
+            />
             {deliveryLabel(row, online)}
           </p>
           {row.status !== "succeeded" && row.lastError && (
@@ -175,6 +180,7 @@ export function ThreadDeliveryStatus({
             </a>
           )}
           {canEditReply &&
+            !(online && row.status === "pending") &&
             ["pending", "retry_wait", "blocked_auth", "failed"].includes(
               row.status,
             ) && (
@@ -314,7 +320,7 @@ function deliveryLabel(row: StoredMailMutation, online: boolean) {
     case "blocked_auth":
       return "Reconnect your account to send this reply";
     default:
-      return online ? "Waiting to send" : "Waiting for connection";
+      return online ? "Sending…" : "Waiting for connection";
   }
 }
 

@@ -36,6 +36,36 @@ import {
 describe("mail mutation outbox", () => {
   beforeEach(clearEmailCache);
 
+  it("sends a reply while an applied read action awaits cache sync", async () => {
+    await enqueueMailMutation(
+      {
+        id: "read",
+        emailAccountId: "account",
+        threadId: "thread",
+        messageIds: ["message"],
+        kind: "set_read_state",
+        read: true,
+      },
+      10,
+    );
+    await claimNextMailMutation({ ownerId: "worker", leaseMs: 100, now: 10 });
+    await markMailMutationAwaitingSync("read", undefined, "worker");
+    await enqueueMailMutation(
+      {
+        id: "reply",
+        emailAccountId: "account",
+        threadId: "thread",
+        messageIds: ["message"],
+        kind: "reply",
+        email: { to: "to@example.com", subject: "Hi", messageHtml: "Hi" },
+      },
+      20,
+    );
+    await expect(
+      claimNextMailMutation({ ownerId: "sender", leaseMs: 100, now: 30 }),
+    ).resolves.toMatchObject({ id: "reply" });
+  });
+
   it("classifies every durable nonterminal status as active", () => {
     for (const status of [
       "pending",
