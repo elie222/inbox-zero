@@ -1345,7 +1345,7 @@ export function updateServiceManifestSecrets(config: {
 
   for (const secretName of [...baseSecrets, ...optionalSecrets]) {
     content = normalizeSecretReference(content, secretName);
-    if (!content.includes(`${secretName}:`)) {
+    if (!new RegExp(`^\\s+${secretName}:`, "m").test(content)) {
       content = content.replace(
         /^secrets:.*$/m,
         (heading) =>

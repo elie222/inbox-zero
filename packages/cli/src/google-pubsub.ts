@@ -59,10 +59,15 @@ export function setupPubSubSubscription(
   const expectedTopic = topicName.startsWith("projects/")
     ? topicName
     : `projects/${projectId}/topics/${topicName}`;
-  if (
-    topicResult.status !== 0 ||
-    topicResult.stdout?.toString().trim() !== expectedTopic
-  ) {
+  if (topicResult.status !== 0) {
+    return {
+      success: false,
+      error:
+        topicResult.stderr?.toString() ||
+        "Failed to inspect existing subscription",
+    };
+  }
+  if (topicResult.stdout?.toString().trim() !== expectedTopic) {
     return {
       success: false,
       error: "Existing subscription does not belong to the expected topic",

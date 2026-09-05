@@ -37,8 +37,9 @@ describe("existing Google push subscription", () => {
     ).toBe(true);
     const updated = vi
       .mocked(spawnSync)
-      .mock.calls.find(([, args]) => args?.includes("modify-push-config"));
-    expect(updated?.[1]).toContain(
+      .mock.calls.filter(([, args]) => args?.includes("modify-push-config"));
+    expect(updated).toHaveLength(1);
+    expect(updated[0]?.[1]).toContain(
       "https://new.example.com/api/google/webhook?token=new-token",
     );
   });
@@ -74,6 +75,27 @@ it("reports push-configuration update failures", () => {
       ({
         status: args?.includes("describe") ? 0 : 1,
         stdout: Buffer.from("projects/project/topics/mail"),
+        stderr: Buffer.from(
+          args?.includes("create") ? "ALREADY_EXISTS" : "PERMISSION_DENIED",
+        ),
+      }) as ReturnType<typeof spawnSync>,
+  );
+  expect(
+    setupPubSubSubscription(
+      "project",
+      "mail",
+      "mail-sub",
+      "https://example.com/webhook",
+    ),
+  ).toEqual({ success: false, error: "PERMISSION_DENIED" });
+});
+
+it("reports failed subscription inspection without claiming a topic mismatch", () => {
+  vi.mocked(spawnSync).mockImplementation(
+    (_command, args) =>
+      ({
+        status: 1,
+        stdout: Buffer.from(""),
         stderr: Buffer.from(
           args?.includes("create") ? "ALREADY_EXISTS" : "PERMISSION_DENIED",
         ),

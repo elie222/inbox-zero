@@ -49,6 +49,8 @@ describe("AWS Google push setup", () => {
         "mail-app-staging-subscription",
         "--push-endpoint",
         `${options.webhookUrl}?token=verification-token`,
+        "--push-auth-service-account",
+        "pubsub-invoker@project.iam.gserviceaccount.com",
         "--push-auth-token-audience",
         options.webhookUrl,
       ]),
