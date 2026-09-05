@@ -87,7 +87,10 @@ const parsedEnv = createEnv({
     MICROSOFT_BASE_URL: z.string().url().optional(),
     MICROSOFT_CLIENT_ID: z.string().optional(),
     MICROSOFT_CLIENT_SECRET: z.string().optional(),
-    MICROSOFT_TENANT_ID: z.string().optional().default("common"),
+    MICROSOFT_TENANT_ID: z.preprocess(
+      optionalEnvValue,
+      z.string().default("common"),
+    ),
     APPLE_CLIENT_ID: z.string().optional(),
     APPLE_TEAM_ID: z.string().optional(),
     APPLE_KEY_ID: z.string().optional(),
@@ -379,7 +382,10 @@ const parsedEnv = createEnv({
     NEXT_PUBLIC_BUSINESS_ANNUALLY_VARIANT_ID: z.coerce.number().default(0),
     NEXT_PUBLIC_COPILOT_MONTHLY_VARIANT_ID: z.coerce.number().default(0),
 
-    NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS: z.number().default(5),
+    NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS: z.preprocess(
+      optionalEnvValue,
+      z.coerce.number().int().nonnegative().default(5),
+    ),
     NEXT_PUBLIC_CALL_LINK: z
       .string()
       .default("https://cal.com/team/inbox-zero/feedback"),
