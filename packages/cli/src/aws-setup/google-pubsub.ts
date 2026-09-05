@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { setupPubSubSubscription } from "../google-pubsub";
 import { putSsmParameterWithTags, runAwsCommand } from "./aws-cli";
 
 export function getWebhookUrl(
@@ -47,12 +48,13 @@ export function setupGooglePubSub(params: {
   projectId: string;
   webhookUrl: string;
   topicName: string;
+  verificationToken: string;
   envName: string;
   env: NodeJS.ProcessEnv;
 }): { success: boolean; error?: string } {
   const { appName, projectId, webhookUrl, topicName, envName, env } = params;
   const fullTopicName = `projects/${projectId}/topics/${topicName}`;
-  const subscriptionName = `${topicName}-subscription`;
+  const subscriptionName = `${topicName}-${appName}-${envName}-subscription`;
 
   // Create topic (ignore if exists)
   spawnSync(
@@ -85,38 +87,77 @@ export function setupGooglePubSub(params: {
     };
   }
 
-  // Create push subscription with OIDC authentication
-  const subResult = spawnSync(
+  const serviceAccount = `pubsub-invoker@${projectId}.iam.gserviceaccount.com`;
+  const accountResult = spawnSync(
     "gcloud",
     [
-      "pubsub",
-      "subscriptions",
+      "iam",
+      "service-accounts",
       "create",
-      subscriptionName,
-      "--topic",
-      topicName,
-      "--push-endpoint",
-      webhookUrl,
-      "--push-auth-service-account",
-      `pubsub-invoker@${projectId}.iam.gserviceaccount.com`,
-      "--push-auth-token-audience",
-      webhookUrl,
+      "pubsub-invoker",
       "--project",
       projectId,
     ],
     { stdio: "pipe" },
   );
-
-  // Ignore "already exists" error
   if (
-    subResult.status !== 0 &&
-    !subResult.stderr?.toString().includes("ALREADY_EXISTS")
+    accountResult.status !== 0 &&
+    !accountResult.stderr?.toString().includes("ALREADY_EXISTS")
   ) {
     return {
       success: false,
-      error: subResult.stderr?.toString() || "Failed to create subscription",
+      error:
+        accountResult.stderr?.toString() ||
+        "Failed to create push service account",
     };
   }
+  const projectResult = spawnSync(
+    "gcloud",
+    ["projects", "describe", projectId, "--format=value(projectNumber)"],
+    { stdio: "pipe" },
+  );
+  const projectNumber = projectResult.stdout?.toString().trim();
+  if (projectResult.status !== 0 || !projectNumber) {
+    return {
+      success: false,
+      error: "Failed to read project number for Pub/Sub authentication",
+    };
+  }
+  const tokenResult = spawnSync(
+    "gcloud",
+    [
+      "iam",
+      "service-accounts",
+      "add-iam-policy-binding",
+      serviceAccount,
+      "--member",
+      `serviceAccount:service-${projectNumber}@gcp-sa-pubsub.iam.gserviceaccount.com`,
+      "--role",
+      "roles/iam.serviceAccountTokenCreator",
+      "--project",
+      projectId,
+    ],
+    { stdio: "pipe" },
+  );
+  if (tokenResult.status !== 0) {
+    return {
+      success: false,
+      error:
+        tokenResult.stderr?.toString() ||
+        "Failed to authorize Pub/Sub OIDC tokens",
+    };
+  }
+
+  const endpoint = new URL(webhookUrl);
+  endpoint.searchParams.set("token", params.verificationToken);
+  const subResult = setupPubSubSubscription(
+    projectId,
+    topicName,
+    subscriptionName,
+    endpoint.toString(),
+    { serviceAccount, audience: webhookUrl },
+  );
+  if (!subResult.success) return subResult;
 
   const topicResult = putSsmParameterWithTags({
     env,
