@@ -54,6 +54,9 @@ export function EmailMessage({
   onOpenSenderContext,
   generateNudge,
   hasDraft = false,
+  selected,
+  onSelect,
+  onNavigateMessage,
 }: {
   message: ThreadMessage;
   draftMessage?: ThreadMessage;
@@ -67,6 +70,9 @@ export function EmailMessage({
   onOpenSenderContext?: (message: ThreadMessage) => void;
   generateNudge?: boolean;
   hasDraft?: boolean;
+  selected?: boolean;
+  onSelect?: () => void;
+  onNavigateMessage?: (direction: -1 | 1) => void;
 }) {
   const { emailAccountId } = useAccount();
   // `null` follows `defaultShowReply`, which the reader's Reply button flips
@@ -116,11 +122,28 @@ export function EmailMessage({
 
   return (
     <li
+      data-thread-message-id={message.id}
+      data-selected={selected}
+      tabIndex={selected === undefined ? undefined : selected ? 0 : -1}
+      aria-current={selected || undefined}
+      onFocusCapture={onSelect}
+      onClickCapture={onSelect}
+      onKeyDown={(event) => {
+        if (
+          event.target !== event.currentTarget ||
+          (event.key !== "Enter" && event.key !== " ")
+        )
+          return;
+        event.preventDefault();
+        event.stopPropagation();
+        onToggle?.();
+      }}
       className={cn(
-        "group/message min-w-0 border-l-2 transition-colors",
+        "group/message min-w-0 border-l-2 border-transparent outline-none transition-colors focus-within:border-primary",
+        selected && "border-primary",
         expanded
-          ? "my-2 border-border/70 px-2 py-3 focus-within:border-primary sm:px-5"
-          : "border-transparent px-2 py-1.5 hover:bg-muted/40 sm:px-5",
+          ? "my-2 px-2 py-3 sm:px-5"
+          : "px-2 py-1.5 hover:bg-muted/40 sm:px-5",
       )}
     >
       <MessageHeader
@@ -143,6 +166,8 @@ export function EmailMessage({
 
           {message.textHtml ? (
             <HtmlEmail
+              onNavigateMessage={onNavigateMessage}
+              onFocusMessage={onSelect}
               emailAccountId={emailAccountId}
               html={message.textHtml}
               inlineAttachments={message.inline}
@@ -244,6 +269,7 @@ function MessageHeader({
       if (event.target !== event.currentTarget) return;
       if (event.key !== "Enter" && event.key !== " ") return;
       event.preventDefault();
+      event.stopPropagation();
       onToggle();
     },
     role: "button",

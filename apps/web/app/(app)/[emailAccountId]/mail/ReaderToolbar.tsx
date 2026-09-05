@@ -3,6 +3,8 @@
 import type { ReactNode } from "react";
 import {
   ArchiveIcon,
+  ChevronsDownUpIcon,
+  ChevronsUpDownIcon,
   ArrowLeftIcon,
   MaximizeIcon,
   MinimizeIcon,
@@ -28,6 +30,11 @@ type ReaderToolbarProps = {
   onToggleFocusMode: () => void;
   /** The ⋯ dropdown, i.e. `ThreadActionsMenu`, composed by the shell. */
   menu?: ReactNode;
+  messageExpansion?: {
+    allExpanded: boolean;
+    canExpand: boolean;
+    onToggleAll: () => void;
+  };
 };
 
 /**
@@ -43,6 +50,7 @@ export function ReaderToolbar({
   onArchive,
   onToggleFocusMode,
   menu,
+  messageExpansion,
 }: ReaderToolbarProps) {
   const FocusIcon = isFocusMode ? MinimizeIcon : MaximizeIcon;
 
@@ -83,6 +91,30 @@ export function ReaderToolbar({
         className="ml-auto flex flex-wrap items-center gap-1.5"
         role="group"
       >
+        {messageExpansion?.canExpand && (
+          <Button
+            aria-label={
+              messageExpansion.allExpanded
+                ? "Collapse all messages"
+                : "Expand all messages"
+            }
+            title={
+              messageExpansion.allExpanded
+                ? "Collapse all messages"
+                : "Expand all messages"
+            }
+            className="h-7 w-7"
+            size="icon"
+            variant="ghost"
+            onClick={messageExpansion.onToggleAll}
+          >
+            {messageExpansion.allExpanded ? (
+              <ChevronsDownUpIcon className="size-3.5" />
+            ) : (
+              <ChevronsUpDownIcon className="size-3.5" />
+            )}
+          </Button>
+        )}
         <Button onClick={onArchive} size="xs-2" variant="outline">
           <ArchiveIcon className="mr-1.5 size-3.5" />
           Archive

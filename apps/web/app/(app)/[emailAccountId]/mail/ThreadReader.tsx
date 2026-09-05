@@ -25,6 +25,7 @@ const SenderContextSheet = dynamic(
 );
 
 export type ThreadReaderProps = {
+  enableMessageNavigation: boolean;
   /** The row that is open. It may lag behind the selected thread while loading. */
   thread: ListThread | null;
   /** The selected thread, including while its row and messages are loading. */
@@ -59,6 +60,7 @@ export type ThreadReaderProps = {
 };
 
 export function ThreadReader({
+  enableMessageNavigation,
   thread,
   threadId,
   detailSelectionSettled,
@@ -119,6 +121,23 @@ export function ThreadReader({
       userLabels,
     }) ?? [];
 
+  const renderToolbar = (
+    messageExpansion?: ComponentProps<typeof ReaderToolbar>["messageExpansion"],
+  ) => (
+    <ReaderToolbar
+      messageExpansion={messageExpansion}
+      isFocusMode={isFocusMode}
+      labelHref={labelHref}
+      labels={labels}
+      menu={menu}
+      onArchive={onArchive}
+      onBackToInbox={onBackToInbox}
+      onRemoveLabel={onRemoveLabel}
+      onToggleFocusMode={onToggleFocusMode}
+      subject={headerMessage.headers.subject}
+    />
+  );
+
   return (
     <>
       {/* White, unlike the list: the reader is its own surface, and it has to
@@ -138,20 +157,10 @@ export function ThreadReader({
         ) : null}
 
         <div className={readerMeasure({ layout, isFocusMode })}>
-          <ReaderToolbar
-            isFocusMode={isFocusMode}
-            labelHref={labelHref}
-            labels={labels}
-            menu={menu}
-            onArchive={onArchive}
-            onBackToInbox={onBackToInbox}
-            onRemoveLabel={onRemoveLabel}
-            onToggleFocusMode={onToggleFocusMode}
-            subject={headerMessage.headers.subject}
-          />
-
           {messages.length > 0 ? (
             <EmailThread
+              renderToolbar={renderToolbar}
+              enableMessageNavigation={enableMessageNavigation}
               autoOpenReplyForMessageId={autoOpenReplyForMessageId}
               key={threadId}
               messages={messages}
@@ -168,7 +177,9 @@ export function ThreadReader({
               refetch={refetch}
               showReplyButton
             />
-          ) : null}
+          ) : (
+            renderToolbar()
+          )}
         </div>
       </div>
 

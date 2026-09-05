@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef, type ReactNode } from "react";
+import { useHotkeys } from "react-hotkeys-hook";
+import { isTypingTarget } from "@/lib/shortcuts/registry";
 import { ChevronsDownUpIcon, ChevronsUpDownIcon } from "lucide-react";
 import { Tooltip } from "@/components/Tooltip";
 import type { ThreadMessage } from "@/components/email-list/types";
@@ -17,6 +19,8 @@ export function EmailThread({
   onSendSuccess,
   onOpenSenderContext,
   withHeader,
+  renderToolbar,
+  enableMessageNavigation = false,
 }: {
   messages: ThreadMessage[];
   refetch: () => void;
@@ -26,6 +30,12 @@ export function EmailThread({
   onSendSuccess?: (messageId: string, threadId: string) => void;
   onOpenSenderContext?: (message: ThreadMessage) => void;
   withHeader?: boolean;
+  enableMessageNavigation?: boolean;
+  renderToolbar?: (controls: {
+    allExpanded: boolean;
+    canExpand: boolean;
+    onToggleAll: () => void;
+  }) => ReactNode;
 }) {
   const { emailAccountId } = useAccount();
   const threadId = messages[0]?.threadId ?? "";
@@ -75,13 +85,80 @@ export function EmailThread({
   const hasLocalDraft = (id: string) =>
     localDrafts.some((draft) => draft.messageId === id);
   const allExpanded = organizedMessages.every(({ message, draftMessage }) =>
-    expanded(message.id, Boolean(draftMessage) || hasLocalDraft(message.id)),
+    expanded(
+      message.id,
+      autoOpenReplyForMessageId === message.id ||
+        recoveredReply?.messageId === message.id ||
+        Boolean(draftMessage) ||
+        hasLocalDraft(message.id),
+    ),
+  );
+
+  const toggleAll = () =>
+    setExpansionOverrides(
+      new Map(
+        organizedMessages.map(({ message }) => [
+          message.id,
+          allExpanded ? message.id === lastMessageId : true,
+        ]),
+      ),
+    );
+  const [selectedMessageId, setSelectedMessageId] = useState<string>();
+  const selectedId = organizedMessages.some(
+    ({ message }) => message.id === selectedMessageId,
+  )
+    ? selectedMessageId
+    : lastMessageId;
+  const threadRef = useRef<HTMLDivElement>(null);
+  const selectRelativeMessage = (direction: -1 | 1, fromId = selectedId) => {
+    const currentIndex = organizedMessages.findIndex(
+      ({ message }) => message.id === fromId,
+    );
+    const nextIndex = Math.max(
+      0,
+      Math.min(organizedMessages.length - 1, currentIndex + direction),
+    );
+    const nextId = organizedMessages[nextIndex]?.message.id;
+    if (!nextId) return;
+    setSelectedMessageId(nextId);
+    const element = Array.from(
+      threadRef.current?.querySelectorAll<HTMLElement>(
+        "[data-thread-message-id]",
+      ) ?? [],
+    ).find((item) => item.dataset.threadMessageId === nextId);
+    element?.focus({ preventScroll: true });
+    element?.scrollIntoView({ block: "nearest" });
+  };
+  useHotkeys(
+    "arrowup,arrowdown",
+    (event) => selectRelativeMessage(event.key === "ArrowUp" ? -1 : 1),
+    {
+      enabled: enableMessageNavigation,
+      scopes: ["mail"],
+      useKey: true,
+      preventDefault: true,
+      ignoreEventWhen: (event) =>
+        event.isComposing ||
+        window.getSelection()?.isCollapsed === false ||
+        isTypingTarget(event.target) ||
+        (event.target instanceof Element &&
+          Boolean(
+            event.target.closest(
+              '[role="dialog"], [role="menu"], [role="listbox"]',
+            ),
+          )),
+    },
   );
 
   return (
     // White regardless of the surface it is dropped on: an email body renders
     // on white inside its iframe, so anything else leaves each message boxed.
-    <div className="min-w-0 bg-card">
+    <div className="min-w-0 bg-card" ref={threadRef}>
+      {renderToolbar?.({
+        allExpanded,
+        canExpand: organizedMessages.length > 1,
+        onToggleAll: toggleAll,
+      })}
       {withHeader && (
         <div className="flex items-center justify-between">
           <div className="font-semibold text-2xl text-foreground">
@@ -93,7 +170,7 @@ export function EmailThread({
         </div>
       )}
 
-      {organizedMessages.length > 1 && (
+      {!renderToolbar && organizedMessages.length > 1 && (
         <div className="flex justify-end pt-2">
           <Tooltip
             content={
@@ -105,16 +182,7 @@ export function EmailThread({
                 allExpanded ? "Collapse all messages" : "Expand all messages"
               }
               className="size-7 text-muted-foreground"
-              onClick={() =>
-                setExpansionOverrides(
-                  new Map(
-                    organizedMessages.map(({ message }) => [
-                      message.id,
-                      allExpanded ? message.id === lastMessageId : true,
-                    ]),
-                  ),
-                )
-              }
+              onClick={toggleAll}
               size="icon"
               variant="ghost"
             >
@@ -137,6 +205,19 @@ export function EmailThread({
             hasLocalDraft(message.id);
           return (
             <EmailMessage
+              onNavigateMessage={
+                enableMessageNavigation
+                  ? (direction) => selectRelativeMessage(direction, message.id)
+                  : undefined
+              }
+              selected={
+                enableMessageNavigation ? message.id === selectedId : undefined
+              }
+              onSelect={
+                enableMessageNavigation
+                  ? () => setSelectedMessageId(message.id)
+                  : undefined
+              }
               defaultShowReply={defaultShowReply}
               draftMessage={draftMessage}
               expanded={expanded(message.id, defaultShowReply)}

@@ -8,7 +8,9 @@ const DEFAULT_SPLIT_LABEL_ID = "Label_project";
 
 export async function openMail(page: Page) {
   const emailAccountId = await getEmailAccountId(page);
-  await page.goto(`/${emailAccountId}/mail`);
+  await page.goto(`/${emailAccountId}/mail`, {
+    waitUntil: "domcontentloaded",
+  });
 
   const conversations = page.getByRole("listbox", { name: "Conversations" });
   await expect(conversations).toBeVisible({ timeout: 60_000 });

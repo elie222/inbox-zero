@@ -691,8 +691,14 @@ export function MailShell() {
   const handlers: ShortcutHandlers = (() => {
     if (sidePanelThreadId) return {};
     return {
-      next: () => move(1),
-      previous: () => move(-1),
+      next: (event) => {
+        if (openThreadId && event?.key === "ArrowDown") return;
+        move(1);
+      },
+      previous: (event) => {
+        if (openThreadId && event?.key === "ArrowUp") return;
+        move(-1);
+      },
       open: openThreadId ? requestReaderReply : () => openAt(clampedIndex),
       backToList: isMailOverlayOpen
         ? undefined
@@ -1124,6 +1130,7 @@ export function MailShell() {
         {showReader && (!openThreadSelection || readerEmailAccount) ? (
           <EmailAccountScopeProvider emailAccount={readerEmailAccount}>
             <ThreadReader
+              enableMessageNavigation={!sidePanelThreadId}
               key={openReaderThreadKey ?? "empty"}
               thread={openThread ?? null}
               threadId={openThreadId}
