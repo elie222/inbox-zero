@@ -65,8 +65,12 @@ test("keeps arrow navigation inside the thread and expands from its toolbar", as
     "navigation-mobile-toolbar",
   );
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.getByRole("button", { name: "Reply", exact: true }).last().click();
+  await page.locator("body").press("Enter");
+  await expect(
+    page.getByText("Generating reply...", { exact: true }),
+  ).toHaveCount(0);
   const editor = page.getByRole("textbox", { name: "Email message" });
+  await expect(editor).toBeFocused();
   await editor.fill(
     "A reply on the first line.\nAnother line for cursor navigation.",
   );

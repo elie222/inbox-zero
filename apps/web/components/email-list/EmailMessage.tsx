@@ -27,14 +27,11 @@ import { createReplyContent } from "@/utils/gmail/reply";
 import { cn } from "@/utils";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { GmailLabel } from "@/utils/gmail/label";
-import { generateNudgeReplyAction } from "@/utils/actions/generate-reply";
 import { deleteDraftAction } from "@/utils/actions/mail";
 import type { ThreadMessage } from "@/components/email-list/types";
 import { EmailDetails } from "@/components/email-list/EmailDetails";
 import { HtmlEmail, PlainEmail } from "@/components/email-list/EmailContents";
 import { EmailAttachments } from "@/components/email-list/EmailAttachments";
-import { Loading } from "@/components/Loading";
-import { MessageText } from "@/components/Typography";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { formatReplySubject } from "@/utils/email/subject";
 import { env } from "@/env";
@@ -52,7 +49,6 @@ export function EmailMessage({
   onToggle,
   onSendSuccess,
   onOpenSenderContext,
-  generateNudge,
   hasDraft = false,
   selected,
   onSelect,
@@ -68,7 +64,6 @@ export function EmailMessage({
   onToggle?: () => void;
   onSendSuccess: (messageId: string, threadId: string) => void;
   onOpenSenderContext?: (message: ThreadMessage) => void;
-  generateNudge?: boolean;
   hasDraft?: boolean;
   selected?: boolean;
   onSelect?: () => void;
@@ -183,7 +178,6 @@ export function EmailMessage({
             <ReplyPanel
               defaultShowReply={defaultShowReply}
               draftMessage={draftMessage}
-              generateNudge={generateNudge}
               message={message}
               onCloseCompose={onCloseCompose}
               onRestoreCompose={onRestoreCompose}
@@ -431,7 +425,6 @@ function ReplyPanel({
   defaultShowReply,
   showReply,
   draftMessage,
-  generateNudge,
 }: {
   message: ParsedMessage;
   refetch: () => void;
@@ -442,14 +435,11 @@ function ReplyPanel({
   defaultShowReply?: boolean;
   showReply: boolean;
   draftMessage?: ThreadMessage;
-  generateNudge?: boolean;
 }) {
   const { emailAccountId } = useAccount();
 
   const replyRef = useRef<HTMLDivElement>(null);
 
-  const [isGeneratingReply, setIsGeneratingReply] = useState(false);
-  const [reply, setReply] = useState<string | null>(null);
   // scroll to the reply panel when it first opens
   useEffect(() => {
     if (!defaultShowReply || !replyRef.current) return;
@@ -462,63 +452,14 @@ function ReplyPanel({
     return () => clearTimeout(scrollTimeout);
   }, [defaultShowReply]);
 
-  useEffect(() => {
-    async function generateReply() {
-      const isSent = message.labelIds?.includes("SENT");
-
-      // Doesn't need a nudge if it's not sent
-      if (!isSent) return;
-
-      setIsGeneratingReply(true);
-
-      const result = await generateNudgeReplyAction(emailAccountId, {
-        messages: [
-          {
-            id: message.id,
-            textHtml: message.textHtml,
-            textPlain: message.textPlain,
-            date: message.headers.date,
-            from: message.headers.from,
-            to: message.headers.to,
-            subject: message.headers.subject,
-          },
-        ],
-      });
-      if (result?.serverError) {
-        console.error(result);
-        setReply("");
-      } else {
-        setReply(result?.data?.text || "");
-      }
-      setIsGeneratingReply(false);
-    }
-
-    // Only generate a nudge if there's no draft message and generateNudge is true
-    if (generateNudge && !draftMessage) generateReply();
-  }, [generateNudge, message, draftMessage, emailAccountId]);
-
   const replyingToEmail: ReplyingToEmail = useMemo(() => {
     if (showReply) {
       if (draftMessage) return prepareDraftReplyEmail(draftMessage);
 
-      // use nudge if available
-      if (reply) {
-        // Convert nudge text into HTML paragraphs
-        const replyHtml = reply
-          ? reply
-              .split("\n")
-              .filter((line) => line.trim())
-              .map((line) => `<p>${line}</p>`)
-              .join("")
-          : "";
-
-        return prepareReplyingToEmail(message, replyHtml);
-      }
-
       return prepareReplyingToEmail(message);
     }
     return prepareForwardingEmail(message);
-  }, [showReply, message, draftMessage, reply]);
+  }, [showReply, message, draftMessage]);
 
   const { executeAsync: discardDraft } = useAction(
     deleteDraftAction.bind(null, emailAccountId),
@@ -560,34 +501,17 @@ function ReplyPanel({
 
   return (
     <div className="mt-5" ref={replyRef}>
-      {isGeneratingReply ? (
-        <div className="flex items-center justify-center">
-          <Loading />
-          <MessageText>Generating reply...</MessageText>
-          <Button
-            className="ml-4"
-            onClick={() => {
-              setIsGeneratingReply(false);
-            }}
-            size="sm"
-            variant="outline"
-          >
-            Skip
-          </Button>
-        </div>
-      ) : (
-        <ComposeEmailFormLazy
-          draftKeyMessageId={message.id}
-          onClose={onCloseCompose}
-          onDiscard={onDiscard}
-          onSuccess={(messageId: string, threadId: string) => {
-            onSendSuccess(messageId, threadId);
-            onCloseCompose();
-          }}
-          refetch={refetch}
-          replyingToEmail={replyingToEmail}
-        />
-      )}
+      <ComposeEmailFormLazy
+        draftKeyMessageId={message.id}
+        onClose={onCloseCompose}
+        onDiscard={onDiscard}
+        onSuccess={(messageId: string, threadId: string) => {
+          onSendSuccess(messageId, threadId);
+          onCloseCompose();
+        }}
+        refetch={refetch}
+        replyingToEmail={replyingToEmail}
+      />
     </div>
   );
 }

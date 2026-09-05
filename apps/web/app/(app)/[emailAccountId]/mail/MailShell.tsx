@@ -1178,11 +1178,11 @@ export function MailShell() {
 
         {showReader && openThreadSelection && !readerEmailAccount ? (
           <div
-            aria-label="Loading account"
+            aria-label="Loading"
             className="flex min-h-0 min-w-0 flex-1 items-center justify-center text-muted-foreground text-sm"
             role="status"
           >
-            Loading account…
+            Loading…
           </div>
         ) : null}
       </div>

@@ -222,11 +222,6 @@ export function EmailThread({
               draftMessage={draftMessage}
               expanded={expanded(message.id, defaultShowReply)}
               hasDraft={Boolean(draftMessage) || hasLocalDraft(message.id)}
-              generateNudge={
-                defaultShowReply &&
-                !draftMessage?.textHtml &&
-                !hasLocalDraft(message.id)
-              }
               key={`${message.id}:${recoveredReply?.messageId === message.id ? recoveredReply.version : 0}`}
               message={message}
               onOpenSenderContext={onOpenSenderContext}
