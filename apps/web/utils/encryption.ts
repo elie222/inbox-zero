@@ -39,8 +39,7 @@ const keyCache = new Map<KeyVersion, Buffer>();
 export function encryptToken(text: string | null): string | null {
   if (text === null || text === undefined) return null;
   if (!isConfigured(ACTIVE_VERSION)) {
-    logger.error("Encryption key not configured; refusing to encrypt");
-    return null;
+    throw new Error("Encryption key is not configured");
   }
 
   const iv = randomBytes(IV_LENGTH);

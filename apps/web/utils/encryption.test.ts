@@ -1,5 +1,6 @@
 import { createCipheriv, randomBytes, scryptSync } from "node:crypto";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { env } from "@/env";
 import { decryptToken, encryptToken } from "./encryption";
 
 const { TEST_SECRET, TEST_SALT } = vi.hoisted(() => ({
@@ -32,7 +33,21 @@ describe("Encryption Utilities", () => {
     vi.clearAllMocks();
   });
 
+  afterEach(() => {
+    env.EMAIL_ENCRYPT_SECRET = TEST_SECRET;
+    env.EMAIL_ENCRYPT_SALT = TEST_SALT;
+  });
+
   describe("encryptToken", () => {
+    it.each([
+      "EMAIL_ENCRYPT_SECRET",
+      "EMAIL_ENCRYPT_SALT",
+    ] as const)("rejects writes when %s is empty, even after caching a key", (setting) => {
+      encryptToken("warm-cache");
+      env[setting] = "";
+      expect(() => encryptToken("refresh-token")).toThrow(/not configured/);
+      expect(encryptToken(null)).toBeNull();
+    });
     it("returns null for null input", () => {
       expect(encryptToken(null)).toBeNull();
     });

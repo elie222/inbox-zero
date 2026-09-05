@@ -103,8 +103,8 @@ const parsedEnv = createEnv({
           .map((entry) => entry.trim())
           .filter(Boolean),
       ),
-    EMAIL_ENCRYPT_SECRET: z.string(),
-    EMAIL_ENCRYPT_SALT: z.string(),
+    EMAIL_ENCRYPT_SECRET: z.string().min(1),
+    EMAIL_ENCRYPT_SALT: z.string().min(1),
 
     DEFAULT_LLMS: defaultLlmsEnv, // Ordered provider:model chain; first valid entry is primary, later entries are fallbacks
     ECONOMY_LLMS: llmsEnv(legacyLlmsEnv.ECONOMY_LLMS), // Ordered provider:model chain for economy model plus fallbacks
