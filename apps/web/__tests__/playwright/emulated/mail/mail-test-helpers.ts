@@ -174,7 +174,7 @@ async function deleteDefaultSplitRule(client: Client, emailAccountId: string) {
   );
 }
 
-async function withClient<T>(callback: (client: Client) => Promise<T>) {
+export async function withClient<T>(callback: (client: Client) => Promise<T>) {
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
   try {

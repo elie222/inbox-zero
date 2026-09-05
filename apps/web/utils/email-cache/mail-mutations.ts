@@ -997,7 +997,7 @@ function readActiveStoredMutations(index: {
   ).then((mutations) => mutations.flat());
 }
 
-function notifyMailMutationChange(mutations?: MailMutation[]) {
+export function notifyMailMutationChange(mutations?: MailMutation[]) {
   notifyListeners(mutations);
   channel?.postMessage(
     mutations?.length

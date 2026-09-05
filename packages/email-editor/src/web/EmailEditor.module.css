@@ -32,7 +32,7 @@
 }
 
 .editor [data-email-editor-content] {
-  min-height: 200px;
+  min-height: var(--email-editor-content-min-height, 200px);
   padding: 0.75rem;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
@@ -48,7 +48,7 @@
   .editor
   [data-email-editor-content] {
   flex: 1;
-  padding: 1rem;
+  padding: var(--email-editor-content-padding, 1rem);
   font-size: 0.9375rem;
   line-height: 1.6;
 }
@@ -222,7 +222,7 @@
 }
 
 .fallbackEditor {
-  min-height: 200px;
+  min-height: var(--email-editor-content-min-height, 200px);
   padding: 0.75rem;
   outline: none;
 }
@@ -296,6 +296,6 @@
 
   .editor [data-email-editor-content],
   .fallbackEditor {
-    min-height: 160px;
+    min-height: var(--email-editor-content-min-height, 160px);
   }
 }

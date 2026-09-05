@@ -117,7 +117,7 @@ test("keeps a reply queued across reload and sends it after reconnect", async ({
       .click();
     const editor = page.locator("[contenteditable='true']");
     await editor.pressSequentially(replyBody);
-    await page.getByRole("button", { name: /^Send/ }).click();
+    await page.getByRole("button", { name: "Send", exact: true }).click();
 
     await expect(
       page.getByText("Email queued. It will send when you're back online.", {
