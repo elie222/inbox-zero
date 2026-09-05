@@ -43,6 +43,7 @@ const logger = createTestLogger();
 describe("ensureEmailAccountsWatched", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(cleanupInvalidTokens).mockResolvedValue(undefined);
   });
 
   it("cleans up invalid tokens when watch setup reports a detailed invalid_grant error", async () => {
@@ -69,6 +70,7 @@ describe("ensureEmailAccountsWatched", () => {
 
     vi.mocked(createEmailProvider).mockResolvedValue({
       name: "google",
+      getAccessToken: () => "access-token",
       watchEmails: vi
         .fn()
         .mockRejectedValue(
@@ -108,6 +110,7 @@ describe("ensureEmailAccountsWatched", () => {
 
     vi.mocked(createEmailProvider).mockResolvedValue({
       name: "google",
+      getAccessToken: () => "access-token",
       watchEmails: vi.fn().mockResolvedValue({
         expirationDate: new Date(Date.now() + 3_600_000),
       }),
@@ -141,6 +144,7 @@ describe("ensureEmailAccountsWatched", () => {
 
     vi.mocked(createEmailProvider).mockResolvedValue({
       name: "google",
+      getAccessToken: () => "access-token",
       watchEmails: vi.fn().mockResolvedValue({
         expirationDate: new Date(Date.now() + 3_600_000),
       }),

@@ -5,10 +5,12 @@ import { getGmailClientForEmail } from "@/utils/email-account-client";
 import { assertProviderNotRateLimited } from "@/utils/email/rate-limit";
 import { recordEmailAccountProviderIssue } from "@/utils/email/provider-health";
 
-const { gmailGetMessageMock, gmailSearchMessagesMock } = vi.hoisted(() => ({
-  gmailGetMessageMock: vi.fn(),
-  gmailSearchMessagesMock: vi.fn(),
-}));
+const { gmailGetMessageMock, gmailSearchMessagesMock, providerToken } =
+  vi.hoisted(() => ({
+    providerToken: { value: "access-token", error: null as Error | null },
+    gmailGetMessageMock: vi.fn(),
+    gmailSearchMessagesMock: vi.fn(),
+  }));
 
 vi.mock("@/utils/email-account-client", () => ({
   getGmailClientForEmail: vi.fn(),
@@ -32,7 +34,8 @@ vi.mock("@/utils/email/google", () => ({
     readonly name = "google";
 
     getAccessToken() {
-      return "access-token";
+      if (providerToken.error) throw providerToken.error;
+      return providerToken.value;
     }
 
     searchMessages(...args: unknown[]) {
@@ -54,12 +57,47 @@ vi.mock("@/utils/email/microsoft", () => ({
 describe("createEmailProvider", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    providerToken.value = "access-token";
+    providerToken.error = null;
     vi.mocked(assertProviderNotRateLimited).mockResolvedValue(undefined);
     vi.mocked(getGmailClientForEmail).mockResolvedValue({} as any);
     vi.mocked(flushLoggerSafely).mockResolvedValue(undefined);
     vi.mocked(recordEmailAccountProviderIssue).mockResolvedValue(undefined);
     gmailGetMessageMock.mockResolvedValue({});
     gmailSearchMessagesMock.mockResolvedValue({ messages: [] });
+  });
+
+  it("allows provider requests to proceed when a cached access token is unavailable", async () => {
+    const logger = createMockLogger();
+    const provider = await createEmailProvider({
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+    providerToken.error = new Error("No access token");
+    await expect(
+      provider.searchMessages({ query: "in:inbox" }),
+    ).resolves.toEqual({ messages: [] });
+    expect(gmailSearchMessagesMock).toHaveBeenCalledOnce();
+  });
+
+  it("records the token used before an operation even if the client token changes", async () => {
+    const logger = createMockLogger();
+    gmailSearchMessagesMock.mockImplementationOnce(async () => {
+      providerToken.value = "new-access-token";
+      throw new Error("invalid_grant");
+    });
+    const provider = await createEmailProvider({
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+    await expect(
+      provider.searchMessages({ query: "in:inbox" }),
+    ).rejects.toThrow("invalid_grant");
+    expect(recordEmailAccountProviderIssue).toHaveBeenCalledWith(
+      expect.objectContaining({ failedAccessToken: "access-token" }),
+    );
   });
 
   it("logs and flushes provider creation failures", async () => {
@@ -176,6 +214,7 @@ describe("createEmailProvider", () => {
       error: expect.any(Error),
       logger,
       operation: "searchMessages",
+      failedAccessToken: "access-token",
     });
   });
 
