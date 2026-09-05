@@ -165,6 +165,46 @@ describe("outbound action guardrails", () => {
     expect(createEmailProvider).not.toHaveBeenCalled();
   });
 
+  it("preserves the body scope during updates from callers that omit it", async () => {
+    prisma.rule.findUnique.mockResolvedValue({
+      instructions: null,
+      from: "sender@example.com",
+      to: null,
+      subject: null,
+      body: "invoice",
+      groupId: null,
+      actions: [],
+    } as never);
+    prisma.rule.findMany.mockResolvedValue([
+      {
+        id: "other-rule",
+        name: "Sender rule",
+        instructions: null,
+        from: "sender@example.com",
+        to: null,
+        subject: null,
+        body: null,
+        groupId: null,
+      },
+    ] as never);
+    prisma.rule.update.mockResolvedValue({
+      id: RULE_ID,
+      actions: [],
+      group: null,
+    } as never);
+
+    await expect(
+      updateRule({
+        ruleId: RULE_ID,
+        emailAccountId: EMAIL_ACCOUNT_ID,
+        provider: "google",
+        logger,
+        result: createRuleResult(),
+      }),
+    ).resolves.toMatchObject({ id: RULE_ID });
+    expect(prisma.rule.update.mock.calls[0][0].data.body).toBeUndefined();
+  });
+
   it("rejects creating a duplicate sender-only rule", async () => {
     prisma.rule.findMany.mockResolvedValue([
       {

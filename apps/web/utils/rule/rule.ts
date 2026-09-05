@@ -489,7 +489,9 @@ export async function updateRule({
         from: result.condition.static?.from,
         to: result.condition.static?.to,
         subject: result.condition.static?.subject,
-        body: result.condition.static?.body,
+        ...(result.condition.static?.body !== undefined && {
+          body: result.condition.static.body,
+        }),
         ...(runOnThreads !== undefined && { runOnThreads }),
       },
       actions: mappedActions,
