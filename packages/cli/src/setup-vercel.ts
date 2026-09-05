@@ -83,7 +83,7 @@ export function buildVercelEnvValues(config: {
         key,
         value,
         environment,
-        sensitive: isSensitiveKey(key),
+        sensitive: environment !== "development" && isSensitiveKey(key),
       });
     }
   };
