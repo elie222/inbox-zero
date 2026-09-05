@@ -309,7 +309,6 @@ function ComposeEmailFormContent({
     useState(false);
   const [isReconnectingContacts, setIsReconnectingContacts] = useState(false);
   const [editReply, setEditReply] = useState(false);
-  const [editSubject, setEditSubject] = useState(false);
   const [showCcBcc, setShowCcBcc] = useState(
     Boolean(
       storedDraft?.content?.values.cc ||
@@ -939,12 +938,12 @@ function ComposeEmailFormContent({
             </Select>
           </div>
         )}
-        {isInlineReply && (
+        {isInlineReply && !editReply && (
           <button
             type="button"
-            aria-expanded={editReply}
-            onClick={() => setEditReply(!editReply)}
-            className="flex items-center gap-1.5 text-left text-sm font-medium leading-5 text-foreground"
+            aria-expanded={false}
+            onClick={() => setEditReply(true)}
+            className="flex items-center gap-1.5 rounded-sm text-left text-sm font-medium leading-5 text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <span className="text-emerald-600 dark:text-emerald-400">
               Draft
@@ -954,12 +953,7 @@ function ComposeEmailFormContent({
               {extractNameFromEmail(watch("to") || replyingToEmail?.to || "") ||
                 "recipients"}
             </span>
-            <ChevronDownIcon
-              className={cn(
-                "size-3 shrink-0 text-muted-foreground",
-                editReply && "rotate-180",
-              )}
-            />
+            <ChevronDownIcon className="size-3 shrink-0 text-muted-foreground" />
           </button>
         )}
         {replyingToEmail?.to && !editReply ? (
@@ -979,14 +973,12 @@ function ComposeEmailFormContent({
             </button>
           )
         ) : isInlineReply ? (
-          <div className="space-y-0.5 [&_input]:bg-transparent">
-            {(
-              ["to", ...(showCcBcc ? (["cc", "bcc"] as const) : [])] as const
-            ).map((field) => (
+          <div className="space-y-1 [&_input]:bg-transparent">
+            {(["to", "cc", "bcc"] as const).map((field) => (
               <div key={field} className="flex min-h-7 items-center gap-2">
                 <label
                   htmlFor={field}
-                  className="w-12 shrink-0 text-xs leading-5 text-muted-foreground"
+                  className="w-12 shrink-0 text-sm font-medium leading-5 text-foreground"
                 >
                   {RECIPIENT_LABELS[field]}
                 </label>
@@ -1007,51 +999,33 @@ function ComposeEmailFormContent({
                         required: field === "to",
                       })}
                       error={errors[field]}
-                      className="h-7 rounded-none border-0 bg-transparent p-0 text-xs leading-5 shadow-none focus:border-transparent focus:ring-0 sm:text-xs"
+                      className="h-7 rounded-none border-0 bg-transparent p-0 text-sm leading-5 shadow-none focus:border-transparent focus:ring-0 sm:text-sm"
                     />
                   )}
                 </div>
                 {field === "to" && (
                   <button
                     type="button"
-                    aria-label={showCcBcc ? "Hide Cc/Bcc" : "Cc/Bcc"}
-                    onClick={() => setShowCcBcc(!showCcBcc)}
-                    className="shrink-0 py-2 text-xs text-muted-foreground hover:text-foreground"
+                    aria-label="Hide recipients"
+                    onClick={() => setEditReply(false)}
+                    className="rounded-sm text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    Cc/Bcc
+                    <ChevronDownIcon className="size-3 rotate-180" />
                   </button>
                 )}
               </div>
             ))}
-            {editSubject ? (
-              <div className="flex min-h-8 items-center gap-2">
-                <label
-                  htmlFor="subject"
-                  className="w-12 shrink-0 text-xs text-muted-foreground"
-                >
-                  Subject
-                </label>
-                <div className="min-w-0 flex-1">
-                  <Input
-                    type="text"
-                    name="subject"
-                    registerProps={register("subject", { required: true })}
-                    error={errors.subject}
-                    placeholder="Subject"
-                    className="h-8 rounded-none border-0 bg-transparent p-0 text-sm shadow-none focus:border-transparent focus:ring-0"
-                  />
-                </div>
-              </div>
-            ) : (
-              <button
-                type="button"
-                aria-label="Edit subject"
-                onClick={() => setEditSubject(true)}
-                className="pt-2 pb-1 text-left text-xs leading-5 text-muted-foreground hover:text-foreground"
-              >
-                Edit subject
-              </button>
-            )}
+            <div className="pt-3">
+              <Input
+                type="text"
+                name="subject"
+                registerProps={register("subject", { required: true })}
+                error={errors.subject}
+                placeholder="Subject"
+                aria-label="Subject"
+                className="h-8 rounded-none border-0 bg-transparent p-0 text-sm font-medium text-foreground shadow-none focus:border-transparent focus:ring-0 sm:text-sm"
+              />
+            </div>
           </div>
         ) : (
           <>

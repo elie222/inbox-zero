@@ -54,12 +54,13 @@ test("captures thread reading and reply states", async ({ page }, testInfo) => {
   );
   await capturePlaywrightCheckpoint(page, testInfo, "06-populated-reply");
   await page.getByRole("button", { name: /^Draft to Leslie/ }).click();
-  await page.getByRole("button", { name: "Cc/Bcc", exact: true }).click();
   await expect(
     page.getByRole("textbox", { name: "Cc", exact: true }),
   ).toBeVisible();
   await capturePlaywrightCheckpoint(page, testInfo, "07-reply-recipients");
-  await page.getByRole("button", { name: "Hide Cc/Bcc", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Hide recipients", exact: true })
+    .click();
   await expectStoredReply(
     page,
     emailAccountId,
