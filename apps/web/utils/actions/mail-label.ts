@@ -36,7 +36,7 @@ export const applyThreadLabelsAction = actionClient
       });
       const succeededThreadIds: string[] = [];
       const failedThreadIds: string[] = [];
-      results.forEach(({ item: threadId, result }) => {
+      for (const { item: threadId, result } of results) {
         if (result.status === "fulfilled") succeededThreadIds.push(threadId);
         else {
           failedThreadIds.push(threadId);
@@ -44,7 +44,7 @@ export const applyThreadLabelsAction = actionClient
             error: result.reason,
           });
         }
-      });
+      }
       return { succeededThreadIds, failedThreadIds };
     },
   );
