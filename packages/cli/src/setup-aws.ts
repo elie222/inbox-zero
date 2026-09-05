@@ -589,13 +589,17 @@ export async function runAwsSetup(options: AwsSetupOptions) {
   // Step 13: Generate and store secrets in SSM
   spinner.start("Generating secrets...");
 
+  const pubsubVerificationToken = generateSecret(32);
   const secrets: SecretConfig[] = [
     { name: "AUTH_SECRET", value: generateSecret(32) },
     { name: "EMAIL_ENCRYPT_SECRET", value: generateSecret(32) },
     { name: "EMAIL_ENCRYPT_SALT", value: generateSecret(16) },
     { name: "INTERNAL_API_KEY", value: generateSecret(32) },
     { name: "CRON_SECRET", value: generateSecret(32) },
-    { name: "GOOGLE_PUBSUB_VERIFICATION_TOKEN", value: generateSecret(32) },
+    {
+      name: "GOOGLE_PUBSUB_VERIFICATION_TOKEN",
+      value: pubsubVerificationToken,
+    },
   ];
 
   // Add Google OAuth secrets (required)
@@ -904,6 +908,7 @@ export async function runAwsSetup(options: AwsSetupOptions) {
       projectId: googleConfig.projectId,
       webhookUrl,
       topicName: domain || "inbox-zero",
+      verificationToken: pubsubVerificationToken,
       envName,
       env,
     });
@@ -1306,7 +1311,7 @@ function updateAddonsParameters(config: {
   writeFileSync(paramsFile, content);
 }
 
-function updateServiceManifestSecrets(config: {
+export function updateServiceManifestSecrets(config: {
   llmEnvVar: string;
   hasGoogleOAuth: boolean;
   enableRedis?: boolean;
@@ -1340,6 +1345,13 @@ function updateServiceManifestSecrets(config: {
 
   for (const secretName of [...baseSecrets, ...optionalSecrets]) {
     content = normalizeSecretReference(content, secretName);
+    if (!new RegExp(`^\\s+${secretName}:`, "m").test(content)) {
+      content = content.replace(
+        /^secrets:.*$/m,
+        (heading) =>
+          `${heading}\n  ${secretName}: ${getSecretReference(secretName)}`,
+      );
+    }
   }
 
   content = removeSecrets(content, [
@@ -1348,45 +1360,6 @@ function updateServiceManifestSecrets(config: {
     ...(config.enableRedis ? [] : ["REDIS_URL"]),
     ...(config.llmEnvVar === "BEDROCK_REGION" ? [] : ["BEDROCK_REGION"]),
   ]);
-
-  // Add LLM provider secret if not already present
-  if (config.llmEnvVar && !content.includes(`${config.llmEnvVar}:`)) {
-    const secretLine = `  ${config.llmEnvVar}: /copilot/\${COPILOT_APPLICATION_NAME}/\${COPILOT_ENVIRONMENT_NAME}/secrets/${config.llmEnvVar}`;
-    // Add after the last secret line (before comments or end of secrets block)
-    content = content.replace(
-      /(secrets:[\s\S]*?)((?:\n\s+#|\n[a-z]|\n$))/,
-      `$1\n${secretLine}$2`,
-    );
-  }
-
-  if (!content.includes("GOOGLE_PUBSUB_TOPIC_NAME:")) {
-    const pubsubSecret = `  GOOGLE_PUBSUB_TOPIC_NAME: ${getSecretReference("GOOGLE_PUBSUB_TOPIC_NAME")}`;
-    content = content.replace(
-      /(secrets:[\s\S]*?)((?:\n\s+#|\n[a-z]|\n$))/,
-      `$1\n${pubsubSecret}$2`,
-    );
-  }
-
-  // Add Google OAuth secrets if configured and not already present
-  if (config.hasGoogleOAuth) {
-    if (!content.includes("GOOGLE_CLIENT_ID:")) {
-      const googleSecrets = `  GOOGLE_CLIENT_ID: /copilot/\${COPILOT_APPLICATION_NAME}/\${COPILOT_ENVIRONMENT_NAME}/secrets/GOOGLE_CLIENT_ID
-  GOOGLE_CLIENT_SECRET: /copilot/\${COPILOT_APPLICATION_NAME}/\${COPILOT_ENVIRONMENT_NAME}/secrets/GOOGLE_CLIENT_SECRET`;
-      content = content.replace(
-        /(secrets:[\s\S]*?)((?:\n\s+#|\n[a-z]|\n$))/,
-        `$1\n${googleSecrets}$2`,
-      );
-    }
-  }
-
-  // Add Redis URL secret if enabled and not already present
-  if (config.enableRedis && !content.includes("REDIS_URL:")) {
-    const redisSecret = `  REDIS_URL: ${getSecretReference("REDIS_URL")}`;
-    content = content.replace(
-      /(secrets:[\s\S]*?)((?:\n\s+#|\n[a-z]|\n$))/,
-      `$1\n${redisSecret}$2`,
-    );
-  }
 
   writeFileSync(manifestPath, content);
 }

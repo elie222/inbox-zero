@@ -909,6 +909,7 @@ async function runSetupAdvanced(options: { name?: string }) {
     }
   }
 
+  const pubsubVerificationToken = generateSecret(32);
   const env: EnvConfig = {};
   const { webPort, postgresPort, redisPort, redisHttpPort, changedPorts } =
     await resolveSetupPorts({ useDockerInfra });
@@ -1001,7 +1002,7 @@ Full guide: https://docs.getinboxzero.com/self-hosting/google-oauth`,
    - Add: gmail-api-push@system.gserviceaccount.com
    - Role: Pub/Sub Publisher
 4. Create a push subscription pointing to your webhook URL:
-   - Endpoint: https://yourdomain.com/api/google/webhook
+   - Endpoint: https://yourdomain.com/api/google/webhook?token=${pubsubVerificationToken}
 5. Copy the full topic name (e.g., projects/my-project-123/topics/inbox-zero-emails)
 
 Full guide: https://docs.getinboxzero.com/self-hosting/google-pubsub`,
@@ -1157,7 +1158,7 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
   env.INTERNAL_API_KEY = generateSecret(32);
   env.API_KEY_SALT = generateSecret(32);
   env.CRON_SECRET = generateSecret(32);
-  env.GOOGLE_PUBSUB_VERIFICATION_TOKEN = generateSecret(32);
+  env.GOOGLE_PUBSUB_VERIFICATION_TOKEN = pubsubVerificationToken;
   // Google PubSub topic - only set placeholder if not already configured during Google OAuth setup
   if (!env.GOOGLE_PUBSUB_TOPIC_NAME) {
     env.GOOGLE_PUBSUB_TOPIC_NAME =
