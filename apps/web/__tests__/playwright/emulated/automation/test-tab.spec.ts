@@ -3,6 +3,52 @@ import { test } from "../playwright-test";
 import { getEmailAccountId } from "../account-test-helpers";
 import { markAutomationOnboardingViewed } from "./automation-tabs-test-helpers";
 
+for (const custom of [false, true]) {
+  test(`can test ${custom ? "custom content" : "an email"} after browser translation replaces button text`, async ({
+    page,
+  }) => {
+    const emailAccountId = await getEmailAccountId(page);
+    await markAutomationOnboardingViewed(page);
+    await page.goto(`/${emailAccountId}/automation?tab=test`);
+    if (custom) {
+      await page.getByRole("button", { name: "Custom" }).click();
+      await page
+        .locator("textarea[name=content]")
+        .fill("A routine project update.");
+    }
+    const scope = custom
+      ? page.locator("form").filter({ has: page.locator("textarea") })
+      : page.getByRole("row").filter({ hasText: "Playwright Test Message" });
+    const button = scope.getByRole("button", { name: "Test", exact: true });
+    await expect(button).toBeVisible();
+
+    await button.evaluate((element) => {
+      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+      const textNodes: Node[] = [];
+      while (walker.nextNode()) textNodes.push(walker.currentNode);
+      for (const node of textNodes) {
+        if (!node.textContent?.trim()) continue;
+        // Translation replaces React's text nodes with its own elements.
+        const translated = document.createElement("font");
+        translated.textContent = node.textContent;
+        node.parentNode?.replaceChild(translated, node);
+      }
+    });
+
+    const actionResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        !!response.request().headers()["next-action"],
+    );
+    await button.click();
+    await actionResponse;
+    await expect(scope).toBeVisible();
+    await expect(
+      scope.getByRole("button", { name: /^(Test|Retest)$/ }),
+    ).toBeEnabled();
+  });
+}
+
 test("preserves search, custom email, and Apply workspace state", async ({
   page,
 }) => {

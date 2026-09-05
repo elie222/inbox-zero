@@ -341,11 +341,13 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
                 disabled={!hasMore || isValidating}
               >
                 {!isValidating && <ChevronsDownIcon className="mr-2 size-4" />}
-                {isValidating
-                  ? "Loading..."
-                  : hasMore
-                    ? "Load More"
-                    : "No More Messages"}
+                <span>
+                  {isValidating
+                    ? "Loading..."
+                    : hasMore
+                      ? "Load More"
+                      : "No More Messages"}
+                </span>
               </Button>
             </div>
           </Card>
@@ -460,7 +462,7 @@ function ProcessRulesRow({
                 onClick={() => onRun()}
               >
                 {!isRunning && <SparklesIcon className="mr-2 size-4" />}
-                {testMode ? "Test" : "Run"}
+                <span>{testMode ? "Test" : "Run"}</span>
               </Button>
             )}
           </div>

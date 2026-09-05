@@ -1672,6 +1672,15 @@ export class OutlookProvider implements EmailProvider {
       let endpoint = "/me/messages";
       const filters: string[] = [];
 
+      // Graph requires the orderby field's filters before all other fields.
+      if (after) {
+        filters.push(`receivedDateTime gt ${after.toISOString()}`);
+      }
+
+      if (before) {
+        filters.push(`receivedDateTime lt ${before.toISOString()}`);
+      }
+
       // Route to appropriate endpoint based on type
       // parentFolderId on messages is a GUID, not a well-known name — always resolve
       if (folderId) {
@@ -1701,14 +1710,6 @@ export class OutlookProvider implements EmailProvider {
       if (fromEmail) {
         const escapedEmail = escapeODataString(fromEmail);
         filters.push(`from/emailAddress/address eq '${escapedEmail}'`);
-      }
-
-      if (after) {
-        filters.push(`receivedDateTime gt ${after.toISOString()}`);
-      }
-
-      if (before) {
-        filters.push(`receivedDateTime lt ${before.toISOString()}`);
       }
 
       if (isUnread) {
