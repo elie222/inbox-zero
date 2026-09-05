@@ -28,7 +28,8 @@ export async function getBedrockCredentials(nonInteractive: boolean) {
       },
       {
         onCancel: () => {
-          throw new Error("Bedrock setup cancelled");
+          p.cancel("Setup cancelled.");
+          process.exit(0);
         },
       },
     );

@@ -109,7 +109,7 @@ export async function runAwsSetup(options: AwsSetupOptions) {
     p.log.info("Running in non-interactive mode with defaults");
   }
 
-  const bedrockCredentials = nonInteractive
+  let bedrockCredentials = nonInteractive
     ? await getBedrockCredentials(true)
     : undefined;
 
@@ -496,6 +496,7 @@ export async function runAwsSetup(options: AwsSetupOptions) {
       p.log.info(
         "Configure Bedrock credentials with access to the selected models.",
       );
+      bedrockCredentials = await getBedrockCredentials(false);
       llmEnvVar = "BEDROCK_REGION";
       llmApiKey = region;
     } else {
@@ -618,10 +619,8 @@ export async function runAwsSetup(options: AwsSetupOptions) {
       : "projects/your-project-id/topics/inbox-zero-emails");
   secrets.push({ name: "GOOGLE_PUBSUB_TOPIC_NAME", value: pubsubTopicName });
 
-  if (llmProvider === "bedrock") {
-    const credentials =
-      bedrockCredentials ?? (await getBedrockCredentials(false));
-    for (const [name, value] of Object.entries(credentials)) {
+  if (bedrockCredentials) {
+    for (const [name, value] of Object.entries(bedrockCredentials)) {
       secrets.push({ name, value });
     }
   }
@@ -1374,7 +1373,9 @@ export function updateServiceManifestSecrets(config: {
     "UPSTASH_REDIS_URL",
     "UPSTASH_REDIS_TOKEN",
     ...(config.enableRedis ? [] : ["REDIS_URL"]),
-    ...(config.llmEnvVar === "BEDROCK_REGION" ? [] : ["BEDROCK_REGION"]),
+    ...(config.llmEnvVar === "BEDROCK_REGION"
+      ? []
+      : ["BEDROCK_REGION", "BEDROCK_ACCESS_KEY", "BEDROCK_SECRET_KEY"]),
   ]);
 
   // Add LLM provider secret if not already present
