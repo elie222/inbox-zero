@@ -294,21 +294,19 @@ function MessageHeader({
         onToggle && "cursor-pointer",
       )}
     >
-      {expanded && (
-        <Avatar aria-hidden className="size-7 shrink-0">
-          <AvatarImage alt="" src={senderImage || undefined} />
-          <AvatarFallback
-            className={cn(
-              "font-semibold text-[10px] tracking-wide",
-              isSent
-                ? "bg-primary/10 text-primary"
-                : "bg-muted text-muted-foreground",
-            )}
-          >
-            {initialsFor(senderName)}
-          </AvatarFallback>
-        </Avatar>
-      )}
+      <Avatar aria-hidden className="size-7 shrink-0">
+        <AvatarImage alt="" src={senderImage || undefined} />
+        <AvatarFallback
+          className={cn(
+            "font-semibold text-[10px] tracking-wide",
+            isSent
+              ? "bg-primary/10 text-primary"
+              : "bg-muted text-muted-foreground",
+          )}
+        >
+          {initialsFor(senderName)}
+        </AvatarFallback>
+      </Avatar>
 
       {canResearchSender ? (
         <Button

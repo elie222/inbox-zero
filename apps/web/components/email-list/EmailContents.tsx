@@ -133,7 +133,7 @@ export function HtmlEmail({
         srcDoc={srcDoc}
         className="min-h-0 w-full"
         height={1}
-        style={iframeHeight ? { height: `${iframeHeight + 3}px` } : undefined}
+        style={iframeHeight ? { height: `${iframeHeight}px` } : undefined}
         title="Email content preview"
         sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
         referrerPolicy="no-referrer"
