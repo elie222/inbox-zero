@@ -157,7 +157,10 @@ export function ComposeEmailForm(props: ComposeEmailFormProps) {
   );
   return (
     <LoadingContent
-      error={error || localDraft.error}
+      error={
+        error ||
+        (localDraft.error ? { error: localDraft.error.message } : undefined)
+      }
       loading={isLoading || localDraft.isLoading}
     >
       {emailAccount && (

@@ -129,9 +129,23 @@ test("captures queued reply and reconnect", async ({ page }, testInfo) => {
   await capturePlaywrightCheckpoint(page, testInfo, "09-queued-reply");
   await page.waitForTimeout(5500);
   await capturePlaywrightCheckpoint(page, testInfo, "10-queued-after-toast");
+  const queuedReply = await readLatestMailMutation(page, {
+    emailAccountId,
+    kind: "reply",
+    threadId: "thr_playwright_reply",
+  });
+  expect(queuedReply?.id).toEqual(expect.any(String));
   const releaseSend = Promise.withResolvers<void>();
   let sendRequestStarted = false;
-  await page.route("**/api/messages/send", async (route) => {
+  // Web sends use a Next server action on the current page URL.
+  await page.route(page.url(), async (route) => {
+    if (
+      route.request().method() !== "POST" ||
+      !route.request().postData()?.includes(`"mutationId":"${queuedReply?.id}"`)
+    ) {
+      await route.continue();
+      return;
+    }
     sendRequestStarted = true;
     await releaseSend.promise;
     await route.continue();

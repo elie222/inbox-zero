@@ -31,10 +31,7 @@ export async function scheduleEmail(
     },
   });
   if (existing) {
-    if (existing.payloadHash !== payloadHash)
-      throw new SafeError(
-        "This send request was already used for a different email.",
-      );
+    assertReusableRequest(existing, payloadHash);
     return existing;
   }
   const sendAt = input.sendAt ? new Date(input.sendAt) : now;
@@ -71,10 +68,7 @@ export async function scheduleEmail(
         },
       },
     });
-    if (duplicate.payloadHash !== payloadHash)
-      throw new SafeError(
-        "This send request was already used for a different email.",
-      );
+    assertReusableRequest(duplicate, payloadHash);
     return duplicate;
   }
 }
@@ -308,4 +302,18 @@ export async function processDueScheduledEmails(
     else await processScheduledEmail(row.id, scopedLogger, now);
   }
   return { processed: rows.length };
+}
+
+function assertReusableRequest(
+  row: Pick<ScheduledEmail, "payloadHash" | "status">,
+  payloadHash: string,
+) {
+  if (row.payloadHash !== payloadHash)
+    throw new SafeError(
+      "This send request was already used for a different email.",
+    );
+  if (row.status === "CANCELLED")
+    throw new SafeError(
+      "This scheduled reply was cancelled. Start a new reply to send this message.",
+    );
 }

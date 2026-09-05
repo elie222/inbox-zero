@@ -11,7 +11,7 @@ import {
   hasReplySince,
   processDueScheduledEmails,
 } from "./service";
-import type { ScheduledEmail } from "@/generated/prisma/client";
+import { Prisma, type ScheduledEmail } from "@/generated/prisma/client";
 import type { ParsedMessage } from "@/utils/types";
 
 vi.mock("server-only", () => ({}));
@@ -97,7 +97,10 @@ describe("scheduled replies", () => {
       }),
     );
   });
-  it("persists future replies without sending and accepts an identical retry after its date passes", async () => {
+  it.each([
+    "PENDING",
+    "SENT",
+  ] as const)("preserves %s idempotency after the scheduled date passes", async (status) => {
     prisma.scheduledEmail.findUnique.mockResolvedValue(null);
     prisma.scheduledEmail.create.mockResolvedValue(row());
     await scheduleEmail("account", input, now);
@@ -111,7 +114,7 @@ describe("scheduled replies", () => {
     });
     expect(executeDurableEmailSend).not.toHaveBeenCalled();
 
-    const persisted = row({ payloadHash: saved.payloadHash });
+    const persisted = row({ payloadHash: saved.payloadHash, status });
     prisma.scheduledEmail.findUnique.mockResolvedValue(persisted);
     expect(await scheduleEmail("account", input, new Date("2026-09-10"))).toBe(
       persisted,
@@ -128,6 +131,39 @@ describe("scheduled replies", () => {
       ),
     ).rejects.toThrow("different email");
     expect(prisma.scheduledEmail.create).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    false,
+    true,
+  ])("rejects a cancelled request even when discovered after a create race (%s)", async (createRace) => {
+    prisma.scheduledEmail.findUnique.mockResolvedValue(null);
+    prisma.scheduledEmail.create.mockResolvedValue(row());
+    await scheduleEmail("account", input, now);
+    const payloadHash =
+      prisma.scheduledEmail.create.mock.calls[0][0].data.payloadHash;
+    const cancelled = row({ status: "CANCELLED", payloadHash });
+    vi.resetAllMocks();
+    if (createRace) {
+      prisma.scheduledEmail.findUnique.mockResolvedValue(null);
+      prisma.scheduledEmail.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError("duplicate", {
+          code: "P2002",
+          clientVersion: "test",
+        }),
+      );
+      prisma.scheduledEmail.findUniqueOrThrow.mockResolvedValue(cancelled);
+    } else {
+      prisma.scheduledEmail.findUnique.mockResolvedValue(cancelled);
+    }
+    await expect(scheduleEmail("account", input, now)).rejects.toThrow(
+      "Start a new reply",
+    );
+    expect(executeDurableEmailSend).not.toHaveBeenCalled();
+    expect(prisma.scheduledEmail.updateMany).not.toHaveBeenCalled();
+    expect(prisma.scheduledEmail.create).toHaveBeenCalledTimes(
+      createRace ? 1 : 0,
+    );
   });
 
   it.each([
