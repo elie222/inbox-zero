@@ -32,8 +32,16 @@ test("captures thread reading and reply states", async ({ page }, testInfo) => {
   await expect(page.getByText("From", { exact: true })).toBeVisible();
   await capturePlaywrightCheckpoint(page, testInfo, "03-header-details");
   await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reply`);
+  const replyMessage = page.locator(
+    '[data-thread-message-id="msg_playwright_reply"]',
+  );
+  const collapsedReply = replyMessage.locator(
+    '[role="button"][aria-expanded="false"]',
+  );
+  await expect(replyMessage).toBeVisible();
+  if (await collapsedReply.count()) await collapsedReply.click();
   await expect(
-    page.getByText("Please reply to this seeded conversation."),
+    replyMessage.getByText("Please reply to this seeded conversation."),
   ).toBeVisible();
   const toolbar = page.getByRole("group", { name: "Thread actions" });
   await expect(
@@ -45,7 +53,9 @@ test("captures thread reading and reply states", async ({ page }, testInfo) => {
   await expect(page.getByRole("menuitem", { name: /^Delete/ })).toBeVisible();
   await capturePlaywrightCheckpoint(page, testInfo, "25-thread-actions-menu");
   await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: "Reply", exact: true }).last().click();
+  await replyMessage
+    .getByRole("button", { name: "Reply", exact: true })
+    .click();
   const editor = page.locator("[contenteditable='true']");
   await expect(editor).toBeVisible();
   await capturePlaywrightCheckpoint(page, testInfo, "05-empty-reply");
