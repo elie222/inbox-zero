@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { clearAccountDisconnectedErrorIfResolved } from "@/utils/error-messages";
 import prisma from "@/utils/__mocks__/prisma";
 
 const {
@@ -53,6 +54,9 @@ vi.mock("@/utils/middleware", async () => {
 });
 
 vi.mock("@/utils/prisma");
+vi.mock("@/utils/error-messages", () => ({
+  clearAccountDisconnectedErrorIfResolved: vi.fn().mockResolvedValue(undefined),
+}));
 
 vi.mock("@/utils/oauth/callback-validation", () => ({
   validateOAuthCallback: mockValidateOAuthCallback,
@@ -171,6 +175,7 @@ describe("google linking callback route", () => {
     expect(prisma.account.update).toHaveBeenCalledWith({
       where: { id: "existing-account-123" },
       data: expect.objectContaining({
+        disconnectedAt: null,
         providerAccountId: "new-provider-account-id",
         access_token: "access-token",
         refresh_token: "refresh-token",
@@ -187,6 +192,10 @@ describe("google linking callback route", () => {
     expect(mockEnsureEmailAccountsWatched).not.toHaveBeenCalled();
 
     await runScheduledAfterCallback();
+    expect(clearAccountDisconnectedErrorIfResolved).toHaveBeenCalledWith({
+      userId: "user-123",
+      logger: expect.anything(),
+    });
 
     expect(mockEnsureEmailAccountsWatched).toHaveBeenCalledWith({
       userIds: ["user-123"],
