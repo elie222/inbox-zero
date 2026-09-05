@@ -51,7 +51,7 @@ export async function getDraft(draftId: string, gmail: gmail_v1.Gmail) {
       return null;
     }
 
-    return message;
+    return { ...message, payload: response.data.message?.payload };
   } catch (error) {
     if (isNotFoundError(error)) {
       logger.info("Draft not found, returning null.", { draftId });
