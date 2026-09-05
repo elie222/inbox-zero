@@ -414,17 +414,21 @@ async function completeGoogleAccountLinking({
   await setOAuthCodeResult(code, { success });
 
   after(() =>
-    Promise.all([
-      clearAccountDisconnectedErrorIfResolved({ userId: targetUserId, logger }),
-      ensureEmailAccountsWatched({ userIds: [targetUserId], logger }),
-    ]).catch((error) => {
-      logger.error(
-        "Failed to re-register email watches after account linking",
-        {
-          error,
-        },
-      );
-    }),
+    ensureEmailAccountsWatched({ userIds: [targetUserId], logger })
+      .then(() =>
+        clearAccountDisconnectedErrorIfResolved({
+          userId: targetUserId,
+          logger,
+        }),
+      )
+      .catch((error) => {
+        logger.error(
+          "Failed to re-register email watches after account linking",
+          {
+            error,
+          },
+        );
+      }),
   );
 
   return createAccountLinkingRedirect({

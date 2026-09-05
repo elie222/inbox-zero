@@ -192,6 +192,12 @@ describe("google linking callback route", () => {
     expect(mockEnsureEmailAccountsWatched).not.toHaveBeenCalled();
 
     await runScheduledAfterCallback();
+    expect(
+      mockEnsureEmailAccountsWatched.mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      vi.mocked(clearAccountDisconnectedErrorIfResolved).mock
+        .invocationCallOrder[0],
+    );
     expect(clearAccountDisconnectedErrorIfResolved).toHaveBeenCalledWith({
       userId: "user-123",
       logger: expect.anything(),
