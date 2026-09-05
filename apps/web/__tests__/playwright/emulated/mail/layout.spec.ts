@@ -3,7 +3,7 @@ import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
 import { conversationWithSubject, openMail } from "./mail-test-helpers";
 
-test("switches between list, split, and focused reading layouts", async ({
+test("switches between list and split reading layouts", async ({
   page,
 }, testInfo) => {
   const { conversations } = await openMail(page);
@@ -37,15 +37,9 @@ test("switches between list, split, and focused reading layouts", async ({
     "mail-selected-conversation-layout",
   );
 
-  await page.getByRole("button", { name: /^Focus mode/ }).click();
-  await expect(conversations).toBeHidden();
-  await expect(
-    page.getByRole("button", { name: /^Exit focus mode/ }),
-  ).toBeVisible();
-  await capturePlaywrightCheckpoint(page, testInfo, "mail-focus-layout");
-
-  await page.getByRole("button", { name: /^Exit focus mode/ }).click();
-  await expect(conversations).toBeVisible();
+  await expect(page.getByRole("button", { name: /Focus mode/i })).toHaveCount(
+    0,
+  );
   await page.getByRole("button", { name: "Switch list or split view" }).click();
   await page.keyboard.press("Escape");
   await expect(conversations).toBeVisible();

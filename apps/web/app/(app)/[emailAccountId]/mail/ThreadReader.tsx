@@ -41,12 +41,10 @@ export type ThreadReaderProps = {
   messages: ThreadMessage[];
   userLabels: EmailLabels;
   layout: MailLayoutMode;
-  isFocusMode: boolean;
   labelHref: (labelId: string) => string;
   onRemoveLabel?: (labelId: string) => void;
   onBackToInbox: () => void;
   onArchive: () => void;
-  onToggleFocusMode: () => void;
   showSidebarToggle?: boolean;
   /** Refreshes the open thread after a reply is sent or a draft changes. */
   refetch: () => void;
@@ -69,12 +67,10 @@ export function ThreadReader({
   messages,
   userLabels,
   layout,
-  isFocusMode,
   labelHref,
   onRemoveLabel,
   onBackToInbox,
   onArchive,
-  onToggleFocusMode,
   showSidebarToggle = false,
   refetch,
   autoOpenReplyForMessageId,
@@ -126,14 +122,12 @@ export function ThreadReader({
   ) => (
     <ReaderToolbar
       messageExpansion={messageExpansion}
-      isFocusMode={isFocusMode}
       labelHref={labelHref}
       labels={labels}
       menu={menu}
       onArchive={onArchive}
       onBackToInbox={onBackToInbox}
       onRemoveLabel={onRemoveLabel}
-      onToggleFocusMode={onToggleFocusMode}
       subject={headerMessage.headers.subject}
     />
   );
@@ -147,7 +141,7 @@ export function ThreadReader({
         data-detail-selection-settled={detailSelectionSettled}
         data-testid="thread-reader"
       >
-        {layout === "list" && !isFocusMode && showSidebarToggle ? (
+        {layout === "list" && showSidebarToggle ? (
           <div
             className="hidden px-3 py-3 lg:flex"
             data-desktop-mac-titlebar-spacer
@@ -156,7 +150,7 @@ export function ThreadReader({
           </div>
         ) : null}
 
-        <div className={readerMeasure({ layout, isFocusMode })}>
+        <div className={readerMeasure({ layout })}>
           {messages.length > 0 ? (
             <EmailThread
               renderToolbar={renderToolbar}
@@ -201,16 +195,7 @@ export function ThreadReader({
 }
 
 /** A readable measure, centred whenever the reader owns the full width. */
-function readerMeasure({
-  layout,
-  isFocusMode,
-}: {
-  layout: MailLayoutMode;
-  isFocusMode: boolean;
-}) {
-  // Keep the reading measure consistent between full-width and focus views.
-  if (isFocusMode)
-    return "mx-auto w-full max-w-[48rem] px-2 pt-4 pb-6 sm:px-10 sm:pt-5 sm:pb-10";
+function readerMeasure({ layout }: { layout: MailLayoutMode }) {
   if (layout === "split") return "px-2 pt-4 pb-5 sm:px-6 sm:pt-5";
   return "mx-auto w-full max-w-[48rem] px-2 pt-4 pb-5 sm:px-6 sm:pt-5";
 }

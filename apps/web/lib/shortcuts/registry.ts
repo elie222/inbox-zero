@@ -211,13 +211,6 @@ const SHORTCUT_DEFINITIONS = [
     label: "List view / split view",
   },
   {
-    id: "focusMode",
-    keys: ["f"],
-    scope: "mail",
-    group: "View",
-    label: "Focus mode (full screen)",
-  },
-  {
     id: "help",
     keys: ["shift+?", "?"],
     display: ["?"],

@@ -165,7 +165,6 @@ export function MailShell() {
   const [searchParam, setSearchParam] = useQueryState("q");
 
   const [focusedIndex, setFocusedIndex] = useState(0);
-  const [isFocusMode, setIsFocusMode] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [replyToMessageId, setReplyToMessageId] = useState<string>();
@@ -682,7 +681,6 @@ export function MailShell() {
     isHelpOpen || isPaletteOpen || (isMenuOpen && Boolean(openThreadId));
 
   const closeReader = () => {
-    setIsFocusMode(false);
     setOpenThread(null);
   };
 
@@ -703,8 +701,7 @@ export function MailShell() {
       backToList: isMailOverlayOpen
         ? undefined
         : () => {
-            if (isFocusMode) setIsFocusMode(false);
-            else if (selection.hasSelection) selection.clear();
+            if (selection.hasSelection) selection.clear();
             else if (layout === "list") closeReader();
           },
       nextSplit: () => {
@@ -733,7 +730,6 @@ export function MailShell() {
         : undefined,
       undo: () => undo(),
       toggleLayout: isAllAccounts ? undefined : toggleLayout,
-      focusMode: openThreadId ? () => setIsFocusMode((on) => !on) : undefined,
       help: () => setIsHelpOpen(true),
     };
   })();
@@ -969,7 +965,7 @@ export function MailShell() {
     [openThreadSelection, refetchOpenThread],
   );
 
-  const showList = !isFocusMode && (layout === "split" || !openThreadSelection);
+  const showList = layout === "split" || !openThreadSelection;
   const showReader = layout === "split" || Boolean(openThreadSelection);
   const readerEmailAccount = openThreadSelection
     ? openThreadSelection.emailAccountId === emailAccountId
@@ -1014,7 +1010,7 @@ export function MailShell() {
     <div className="flex min-h-0 flex-1 flex-col bg-background">
       <div className="flex min-h-0 flex-1">
         <div className="hidden [--sidebar-width:236px] lg:contents">
-          <Sidebar name="left-sidebar" forceCollapsed={isFocusMode}>
+          <Sidebar name="left-sidebar">
             <MailSidebar
               className="h-full w-full border-r-0"
               activeType={
@@ -1143,12 +1139,10 @@ export function MailShell() {
               messages={openMessages}
               userLabels={readerUserLabels}
               layout={layout}
-              isFocusMode={isFocusMode}
               labelHref={labelHref}
               onRemoveLabel={onRemoveLabel}
               onBackToInbox={closeReader}
               onArchive={archiveTargets}
-              onToggleFocusMode={() => setIsFocusMode((on) => !on)}
               showSidebarToggle={!isMailSidebarOpen}
               refetch={refetchOpenThread}
               autoOpenReplyForMessageId={replyToMessageId}

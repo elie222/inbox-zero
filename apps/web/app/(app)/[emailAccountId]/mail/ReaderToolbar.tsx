@@ -6,13 +6,10 @@ import {
   ChevronsDownUpIcon,
   ChevronsUpDownIcon,
   ArrowLeftIcon,
-  MaximizeIcon,
-  MinimizeIcon,
 } from "lucide-react";
 import { MailLabelChip } from "@/app/(app)/[emailAccountId]/mail/MailLabelChip";
 import type { EmailMessageCellLabel } from "@/components/EmailMessageCellLabels";
 import { Button } from "@/components/ui/button";
-import { getShortcutHint } from "@/lib/shortcuts/registry";
 
 type ReaderToolbarProps = {
   subject: string;
@@ -24,10 +21,8 @@ type ReaderToolbarProps = {
    */
   labelHref: (labelId: string) => string;
   onRemoveLabel?: (labelId: string) => void;
-  isFocusMode: boolean;
   onBackToInbox: () => void;
   onArchive: () => void;
-  onToggleFocusMode: () => void;
   /** The ⋯ dropdown, i.e. `ThreadActionsMenu`, composed by the shell. */
   menu?: ReactNode;
   messageExpansion?: {
@@ -45,15 +40,11 @@ export function ReaderToolbar({
   labels,
   labelHref,
   onRemoveLabel,
-  isFocusMode,
   onBackToInbox,
   onArchive,
-  onToggleFocusMode,
   menu,
   messageExpansion,
 }: ReaderToolbarProps) {
-  const FocusIcon = isFocusMode ? MinimizeIcon : MaximizeIcon;
-
   return (
     <div className="flex flex-wrap items-start gap-x-4 gap-y-3 pb-3">
       <Button
@@ -118,17 +109,6 @@ export function ReaderToolbar({
         <Button onClick={onArchive} size="xs-2" variant="outline">
           <ArchiveIcon className="mr-1.5 size-3.5" />
           Archive
-        </Button>
-        <Button
-          aria-label={`${isFocusMode ? "Exit focus mode" : "Focus mode"} (${getShortcutHint("focusMode")})`}
-          aria-pressed={isFocusMode}
-          className="h-7 w-7"
-          onClick={onToggleFocusMode}
-          size="icon"
-          title={`${isFocusMode ? "Exit focus mode" : "Focus mode"} (${getShortcutHint("focusMode")})`}
-          variant="outline"
-        >
-          <FocusIcon className="size-3.5" />
         </Button>
         {menu}
       </div>
