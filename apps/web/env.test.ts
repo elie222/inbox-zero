@@ -35,6 +35,23 @@ describe("env LLM compatibility conversion", () => {
     Object.assign(process.env, originalEnv);
   });
 
+  it.each([
+    "",
+    "   ",
+  ])("uses the documented default for blank Microsoft tenant %j", async (tenant) => {
+    process.env.DEFAULT_LLMS = "openai:gpt-5.4-mini";
+    process.env.MICROSOFT_TENANT_ID = tenant;
+    const { env } = await import("./env");
+    expect(env.MICROSOFT_TENANT_ID).toBe("common");
+  });
+
+  it("accepts a configured unsubscribe credit limit from the environment", async () => {
+    process.env.DEFAULT_LLMS = "openai:gpt-5.4-mini";
+    process.env.NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS = "10";
+    const { env } = await import("./env");
+    expect(env.NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS).toBe(10);
+  });
+
   it("converts legacy default model and fallbacks into DEFAULT_LLMS", async () => {
     process.env.DEFAULT_LLM_PROVIDER = "openai";
     process.env.DEFAULT_LLM_MODEL = "gpt-5.4-mini";
