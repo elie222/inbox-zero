@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useAction } from "next-safe-action/hooks";
 import { PlusIcon, TagIcon } from "lucide-react";
 import { toast } from "sonner";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -43,12 +42,6 @@ export function LabelPickerDialog({
   const pending = useRef(false);
   const [remainingThreadIds, setRemainingThreadIds] = useState(threadIds);
   const createdLabel = useRef<{ name: string; id: string } | null>(null);
-  const { executeAsync: createLabel } = useAction(
-    createLabelAction.bind(null, emailAccountId),
-  );
-  const { executeAsync: applyLabel } = useAction(
-    applyThreadLabelsAction.bind(null, emailAccountId),
-  );
   const name = search.trim();
   const canCreate =
     name.length > 0 &&
@@ -65,7 +58,7 @@ export function LabelPickerDialog({
       if (!id) {
         if (createdLabel.current?.name === name) id = createdLabel.current.id;
         else {
-          const result = await createLabel({ name });
+          const result = await createLabelAction(emailAccountId, { name });
           if (!result?.data?.id)
             throw new Error(getActionErrorMessage(result ?? {}));
           id = result.data.id;
@@ -77,7 +70,10 @@ export function LabelPickerDialog({
         await applyThreadLabelsInBatches({
           threadIds: remainingThreadIds,
           applyBatch: async (threadIds) => {
-            const result = await applyLabel({ threadIds, labelId: id });
+            const result = await applyThreadLabelsAction(emailAccountId, {
+              threadIds,
+              labelId: id,
+            });
             if (!result?.data)
               throw new Error(getActionErrorMessage(result ?? {}));
             return result.data;
@@ -92,10 +88,10 @@ export function LabelPickerDialog({
         );
       }
       setRemainingThreadIds(failedThreadIds);
-      if (error) throw error;
       if (failedThreadIds.length) {
         toast.error(
-          `Couldn't label ${failedThreadIds.length} conversations. Select a label to retry.`,
+          `Couldn't label ${failedThreadIds.length} conversation${failedThreadIds.length === 1 ? "" : "s"}. Select a label to retry.`,
+          { description: error instanceof Error ? error.message : undefined },
         );
       } else onClose();
     } catch (error) {

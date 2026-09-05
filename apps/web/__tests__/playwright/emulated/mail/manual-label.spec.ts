@@ -144,3 +144,51 @@ test("L labels the open conversation after it leaves the unread list", async ({
     expect.arrayContaining(["INBOX", "Label_project"]),
   );
 });
+
+test("keeps conversations available to retry after an interrupted labeling request", async ({
+  page,
+}) => {
+  const { conversations, emailAccountId } = await openMail(page);
+  const conversation = conversationWithSubject(
+    page,
+    conversations,
+    "Keyboard Navigation Message",
+  );
+  await conversation.getByRole("checkbox").click();
+  await page.keyboard.press("l");
+  const picker = page.getByRole("dialog", { name: "Label conversations" });
+  const labelOption = picker.getByRole("option", {
+    name: "Project Alpha",
+    exact: true,
+  });
+  await expect(labelOption).toBeVisible();
+  await page.route("**/mail**", async (route) => {
+    if (route.request().method() === "POST") await route.abort("failed");
+    else await route.continue();
+  });
+  await labelOption.click();
+  await expect(
+    page.getByText("Couldn't label 1 conversation. Select a label to retry.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(picker).toBeVisible();
+  await expect(labelOption).toBeEnabled();
+  await page.unroute("**/mail**");
+  await labelOption.click();
+  await expect(picker).toBeHidden();
+  await expect(
+    conversation.getByText("Project Alpha", { exact: true }),
+  ).toBeVisible();
+  const response = await page.request.get(
+    "/api/threads/thr_playwright_keyboard",
+    {
+      headers: { "X-Email-Account-ID": emailAccountId },
+    },
+  );
+  expect(response.ok()).toBeTruthy();
+  const { thread } = await response.json();
+  expect(thread.messages[0].labelIds).toEqual(
+    expect.arrayContaining(["INBOX", "Label_project"]),
+  );
+});
