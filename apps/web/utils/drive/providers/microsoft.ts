@@ -169,6 +169,7 @@ export class OneDriveProvider implements DriveProvider {
         .api(
           `/me/drive/items/${folderId}:/${encodeURIComponent(normalizedFilename)}:/content`,
         )
+        .query({ "@microsoft.graph.conflictBehavior": "rename" })
         .header("Content-Type", mimeType)
         .put(content);
 
