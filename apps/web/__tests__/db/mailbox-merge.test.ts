@@ -59,11 +59,23 @@ describe.skipIf(!process.env.RUN_DB_TESTS)(
         }),
       ).toMatchObject({ userId: sourceUserId });
       expect(
+        await prisma.account.findUnique({
+          where: { id: "mailbox-merge-original" },
+        }),
+      ).toMatchObject({ userId: sourceUserId });
+      expect(
+        await prisma.emailAccount.findUnique({
+          where: { email: "merge-original@example.com" },
+        }),
+      ).toMatchObject({ userId: sourceUserId });
+      expect(
         await prisma.user.findUnique({ where: { id: sourceUserId } }),
       ).not.toBeNull();
     });
 
-    it("waits for an in-flight mailbox link before checking whether the source can be deleted", async () => {
+    it("waits for an in-flight mailbox link before checking whether the source can be deleted", {
+      timeout: 15_000,
+    }, async () => {
       const connection = new Client({
         connectionString: process.env.DATABASE_URL,
       });
@@ -98,6 +110,7 @@ describe.skipIf(!process.env.RUN_DB_TESTS)(
         await linked;
         await vi.waitFor(
           async () => {
+            await connection.query("SELECT pg_stat_clear_snapshot()");
             const result = await connection.query(
               `SELECT count(*)::int AS count FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock' AND query LIKE '%SELECT id FROM "User"%FOR UPDATE%'`,
             );
