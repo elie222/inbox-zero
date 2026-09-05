@@ -245,7 +245,11 @@ describe("mergeAccount", () => {
         },
       });
       expect(prisma.user.delete).toHaveBeenCalledWith({
-        where: { id: sourceUserId },
+        where: {
+          id: sourceUserId,
+          accounts: { none: {} },
+          emailAccounts: { none: {} },
+        },
       });
     });
 

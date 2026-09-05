@@ -97,6 +97,9 @@ export async function mergeAccount({
   });
 
   await prisma.$transaction([
+    // Foreign-key checks for new links must finish before the deletion check,
+    // or wait until this transaction has committed.
+    prisma.$queryRaw`SELECT id FROM "User" WHERE id = ${sourceUserId} FOR UPDATE`,
     prisma.account.update({
       where: { id: sourceAccountId },
       data: { userId: targetUserId },
@@ -110,7 +113,11 @@ export async function mergeAccount({
       },
     }),
     prisma.user.delete({
-      where: { id: sourceUserId },
+      where: {
+        id: sourceUserId,
+        accounts: { none: {} },
+        emailAccounts: { none: {} },
+      },
     }),
   ]);
 
