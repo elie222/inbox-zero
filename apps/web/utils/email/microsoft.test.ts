@@ -395,6 +395,25 @@ describe("OutlookProvider.getSentMessageIds", () => {
 });
 
 describe("OutlookProvider.getThreadsWithQuery", () => {
+  it.each([
+    true,
+    undefined,
+  ])("puts date filters before folder and read filters for historical inbox queries (unread: %s)", async (isUnread) => {
+    const client = createMockOutlookClient([]);
+    const provider = new OutlookProvider(client);
+    const after = new Date("2025-04-01T00:00:00.000Z");
+    const before = new Date("2025-05-01T00:00:00.000Z");
+
+    await provider.getThreadsWithQuery({
+      query: { type: "inbox", after, before, isUnread },
+    });
+
+    // Graph rejects sorted message queries when non-sort fields precede the date filter.
+    expect(client.getRequestLog().at(0)?.filter).toBe(
+      `receivedDateTime gt ${after.toISOString()} and receivedDateTime lt ${before.toISOString()} and parentFolderId eq 'inbox-folder-id'${isUnread ? " and isRead eq false" : ""}`,
+    );
+  });
+
   it("omits message bodies from metadata list requests", async () => {
     const client = createMockOutlookClient([
       createMessage({ id: "message-1", conversationId: "thread-1" }),

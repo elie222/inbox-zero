@@ -215,7 +215,7 @@ export function BulkRunRules() {
                 enabled={includeRead}
                 onChange={(enabled) => setIncludeRead(enabled)}
                 disabled={isProcessing || !isBusinessPlusTier}
-                disabledTooltipText={
+                explainText={
                   !isBusinessPlusTier && hasAiAccess
                     ? "Including read emails is available on the Professional plan."
                     : undefined
@@ -309,7 +309,7 @@ export function BulkRunRules() {
                     includeRead,
                     rerun: isRerunEnabled,
                   })}{" "}
-                  found in the selected date range.
+                  found in your inbox in the selected date range.
                 </div>
               )}
             </div>
