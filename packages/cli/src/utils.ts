@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { parseEnv } from "node:util";
 
 // Environment variable builder
 export type EnvConfig = Record<string, string | undefined>;
@@ -212,23 +213,7 @@ export function isSensitiveKey(key: string): boolean {
 }
 
 export function parseEnvFile(content: string): Record<string, string> {
-  const env: Record<string, string> = {};
-  for (const line of content.split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-    const eqIndex = trimmed.indexOf("=");
-    if (eqIndex === -1) continue;
-    const key = trimmed.slice(0, eqIndex).trim();
-    let value = trimmed.slice(eqIndex + 1).trim();
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
-    env[key] = value;
-  }
-  return env;
+  return parseEnv(content);
 }
 
 export function updateEnvValue(
@@ -288,4 +273,11 @@ export function parsePortConflict(stderr: string): string | null {
 
 function escapeEnvQuotedValue(value: string): string {
   return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
+export function generateEncryptionSecrets(existing: EnvConfig): EnvConfig {
+  return {
+    EMAIL_ENCRYPT_SECRET: existing.EMAIL_ENCRYPT_SECRET || generateSecret(32),
+    EMAIL_ENCRYPT_SALT: existing.EMAIL_ENCRYPT_SALT || generateSecret(16),
+  };
 }

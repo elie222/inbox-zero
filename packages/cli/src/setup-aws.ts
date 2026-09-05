@@ -1787,6 +1787,7 @@ function storeSecretInSsm(
     value,
     type: "SecureString",
     errorMessage: `Failed to store ${name}`,
+    overwrite: name !== "EMAIL_ENCRYPT_SECRET" && name !== "EMAIL_ENCRYPT_SALT",
   });
 
   if (!result.success) {

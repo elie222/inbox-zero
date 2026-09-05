@@ -56,6 +56,7 @@ export function putSsmParameterWithTags(params: {
   value: string;
   type: "String" | "SecureString";
   errorMessage: string;
+  overwrite?: boolean;
 }): { success: boolean; error?: string } {
   const result = runAwsCommand(params.env, [
     "ssm",
@@ -66,9 +67,21 @@ export function putSsmParameterWithTags(params: {
     params.type,
     "--value",
     params.value,
-    "--overwrite",
+    ...(params.overwrite === false ? [] : ["--overwrite"]),
   ]);
   if (!result.success) {
+    if (
+      params.overwrite === false &&
+      result.stderr.includes("(ParameterAlreadyExists)")
+    ) {
+      addSsmParameterTags(
+        params.env,
+        params.appName,
+        params.envName,
+        params.name,
+      );
+      return { success: true };
+    }
     return { success: false, error: result.stderr || params.errorMessage };
   }
 
