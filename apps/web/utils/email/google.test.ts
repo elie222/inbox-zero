@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { gmail_v1 } from "@googleapis/gmail";
+import { gmail_v1 } from "@googleapis/gmail";
 import type { EmailThread } from "@/utils/email/types";
 import type { ParsedMessage } from "@/utils/types";
 import { GmailLabel } from "@/utils/gmail/label";
@@ -553,9 +553,10 @@ describe("GmailProvider.updateDraft", () => {
     const get = vi.fn().mockResolvedValue({
       data: { data: Buffer.from("attachment bytes").toString("base64url") },
     });
-    const provider = new GmailProvider({
-      users: { drafts: { update }, messages: { attachments: { get } } },
-    } as any);
+    const client = new gmail_v1.Gmail({});
+    client.users.drafts.update = update;
+    client.users.messages.attachments.get = get;
+    const provider = new GmailProvider(client);
     gmailDraftMock.getDraft.mockResolvedValueOnce({
       ...createParsedMessage({
         id: "draft-message-1",
@@ -607,9 +608,10 @@ describe("GmailProvider.updateDraft", () => {
   it("does not replace a draft when attachment bytes cannot be loaded", async () => {
     const update = vi.fn();
     const get = vi.fn().mockResolvedValue({ data: {} });
-    const provider = new GmailProvider({
-      users: { drafts: { update }, messages: { attachments: { get } } },
-    } as any);
+    const client = new gmail_v1.Gmail({});
+    client.users.drafts.update = update;
+    client.users.messages.attachments.get = get;
+    const provider = new GmailProvider(client);
     gmailDraftMock.getDraft.mockResolvedValueOnce({
       ...createParsedMessage({ id: "draft-message-1", internalDate: "1000" }),
       payload: {
