@@ -41,6 +41,11 @@ import {
 import { hasWebhookAction } from "@/utils/webhook-action";
 import { assertNoSenderOnlyOverlap } from "@/utils/rule/sender-scope-overlap";
 import { isIntegrationActionEnabledForEmailAccountId } from "@/utils/integration-action.server";
+import type { toCreateOrUpdateRuleCondition } from "@/utils/rule/create-rule-condition";
+
+type CreateOrUpdateRuleInput = Omit<CreateOrUpdateRuleSchema, "condition"> & {
+  condition: ReturnType<typeof toCreateOrUpdateRuleCondition>;
+};
 
 type CreateRuleEnablement =
   | { source: "default" }
@@ -82,7 +87,7 @@ function addNestedActionOwnershipToInput<T extends Record<string, unknown>>(
 }
 
 export function actionsNeedChatRiskConfirmation(
-  result: CreateOrUpdateRuleSchema,
+  result: CreateOrUpdateRuleInput,
 ): { needsConfirmation: boolean; riskMessages: string[] } {
   const ruleCtx = ruleConditionsForRisk(result);
   const messages: string[] = [];
@@ -363,7 +368,7 @@ export async function createRule({
   logger,
   enablement = { source: "default" } satisfies CreateRuleEnablement,
 }: {
-  result: CreateOrUpdateRuleSchema;
+  result: CreateOrUpdateRuleInput;
   emailAccountId: string;
   systemType?: SystemType | null;
   provider: string;
@@ -384,6 +389,7 @@ export async function createRule({
         from: result.condition.static?.from,
         to: result.condition.static?.to,
         subject: result.condition.static?.subject,
+        body: result.condition.static?.body,
       },
     });
 
@@ -425,6 +431,7 @@ export async function createRule({
         from: result.condition.static?.from,
         to: result.condition.static?.to,
         subject: result.condition.static?.subject,
+        body: result.condition.static?.body,
       },
       actions: mappedActions,
       skipSenderOnlyOverlapCheck: true,
@@ -448,7 +455,7 @@ export async function updateRule({
   runOnThreads,
 }: {
   ruleId: string;
-  result: CreateOrUpdateRuleSchema;
+  result: CreateOrUpdateRuleInput;
   emailAccountId: string;
   provider: string;
   logger: Logger;
@@ -482,6 +489,7 @@ export async function updateRule({
         from: result.condition.static?.from,
         to: result.condition.static?.to,
         subject: result.condition.static?.subject,
+        body: result.condition.static?.body,
         ...(runOnThreads !== undefined && { runOnThreads }),
       },
       actions: mappedActions,
@@ -668,7 +676,7 @@ export async function deleteRule({
 }
 
 function shouldEnable(
-  rule: CreateOrUpdateRuleSchema,
+  rule: CreateOrUpdateRuleInput,
   actions: RiskAction[],
   enablement: CreateRuleEnablement,
 ) {
@@ -1029,7 +1037,7 @@ const OUTBOUND_ACTION_TYPES: ActionType[] = [
   ActionType.FORWARD,
 ];
 
-function ruleConditionsForRisk(rule: CreateOrUpdateRuleSchema): RuleConditions {
+function ruleConditionsForRisk(rule: CreateOrUpdateRuleInput): RuleConditions {
   return {
     instructions: rule.condition.aiInstructions ?? undefined,
     from: rule.condition.static?.from ?? undefined,

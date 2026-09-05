@@ -32,12 +32,71 @@ vi.mock("@/utils/auth", () => ({
 import prisma from "@/utils/__mocks__/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
 import {
+  createRuleAction,
   deleteRuleAction,
   enableDraftRepliesAction,
   toggleRuleAction,
   updateRuleAction,
 } from "@/utils/actions/rule";
 import { RULE_MANAGED_BY_ORGANIZATION_ERROR } from "@/utils/organizations/rules";
+
+describe("rule body conditions", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(createEmailProvider).mockResolvedValue({} as any);
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      email: "owner@example.com",
+      account: { userId: "u1", provider: "google" },
+    } as never);
+    prisma.rule.findMany.mockResolvedValue([]);
+    prisma.rule.findUnique.mockResolvedValue(null);
+    prisma.rule.create.mockResolvedValue({
+      id: "rule-1",
+      actions: [],
+      group: null,
+    } as never);
+    prisma.rule.update.mockResolvedValue({
+      id: "rule-1",
+      actions: [],
+      group: null,
+    } as never);
+  });
+
+  it.each([
+    "sender@example.com",
+    null,
+  ])("persists body restrictions when creating with sender %s", async (from) => {
+    const result = await createRuleAction(
+      "ea_1" as never,
+      ruleWithBody("invoice", from) as never,
+    );
+    expect(result?.serverError).toBeUndefined();
+    expect(prisma.rule.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ body: "invoice" }),
+      }),
+    );
+  });
+
+  it.each([
+    "replacement",
+    null,
+  ])("replaces or clears the saved body restriction: %s", async (body) => {
+    const result = await updateRuleAction(
+      "ea_1" as never,
+      {
+        ...ruleWithBody(body, "sender@example.com"),
+        id: "rule-1",
+      } as never,
+    );
+    expect(result?.serverError).toBeUndefined();
+    expect(prisma.rule.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ body }),
+      }),
+    );
+  });
+});
 
 describe("enableDraftRepliesAction", () => {
   beforeEach(() => {
@@ -312,3 +371,22 @@ describe("toggleRuleAction", () => {
     expect(setRuleEnabledMock).not.toHaveBeenCalled();
   });
 });
+
+function ruleWithBody(body: string | null, from: string | null) {
+  return {
+    name: "Invoices",
+    runOnThreads: true,
+    conditionalOperator: "AND",
+    actions: [{ type: ActionType.ARCHIVE, delayInMinutes: null }],
+    conditions: [
+      {
+        type: ConditionType.STATIC,
+        from,
+        body,
+        to: null,
+        subject: null,
+        instructions: null,
+      },
+    ],
+  };
+}

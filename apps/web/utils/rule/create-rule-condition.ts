@@ -1,6 +1,13 @@
 import type { CreateOrUpdateRuleSchema } from "@/utils/ai/rule/create-rule-schema";
 
-type RuleCondition = CreateOrUpdateRuleSchema["condition"];
+type RuleCondition = Omit<CreateOrUpdateRuleSchema["condition"], "static"> & {
+  static?: {
+    from?: string | null;
+    to?: string | null;
+    subject?: string | null;
+    body?: string | null;
+  } | null;
+};
 
 export function toCreateOrUpdateRuleCondition({
   conditionalOperator,
@@ -13,44 +20,28 @@ export function toCreateOrUpdateRuleCondition({
     from?: string | null;
     to?: string | null;
     subject?: string | null;
+    body?: string | null;
   } | null;
 }): RuleCondition {
   const staticCondition = {
     from: valueOrNull(staticInput?.from),
     to: valueOrNull(staticInput?.to),
     subject: valueOrNull(staticInput?.subject),
+    body: valueOrNull(staticInput?.body),
   };
   const normalizedAiInstructions = valueOrNull(aiInstructions);
 
-  if (normalizedAiInstructions) {
+  if (
+    normalizedAiInstructions ||
+    staticCondition.from ||
+    staticCondition.to ||
+    staticCondition.subject ||
+    staticCondition.body
+  ) {
     return {
       conditionalOperator,
       aiInstructions: normalizedAiInstructions,
       static: staticCondition,
-    };
-  }
-
-  if (staticCondition.from) {
-    return {
-      conditionalOperator,
-      aiInstructions: normalizedAiInstructions,
-      static: { ...staticCondition, from: staticCondition.from },
-    };
-  }
-
-  if (staticCondition.to) {
-    return {
-      conditionalOperator,
-      aiInstructions: normalizedAiInstructions,
-      static: { ...staticCondition, to: staticCondition.to },
-    };
-  }
-
-  if (staticCondition.subject) {
-    return {
-      conditionalOperator,
-      aiInstructions: normalizedAiInstructions,
-      static: { ...staticCondition, subject: staticCondition.subject },
     };
   }
 

@@ -4,7 +4,7 @@ import { toCreateOrUpdateRuleCondition } from "@/utils/rule/create-rule-conditio
 
 type RuleWriteInput = {
   name: string;
-  condition: CreateOrUpdateRuleSchema["condition"];
+  condition: ReturnType<typeof toCreateOrUpdateRuleCondition>;
   actions: CreateOrUpdateRuleSchema["actions"];
   runOnThreads: boolean;
 };
