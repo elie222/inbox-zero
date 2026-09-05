@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { clearAccountDisconnectedErrorIfResolved } from "@/utils/error-messages";
 import prisma from "@/utils/__mocks__/prisma";
 
 const {
@@ -53,6 +54,9 @@ vi.mock("@/utils/middleware", async () => {
 });
 
 vi.mock("@/utils/prisma");
+vi.mock("@/utils/error-messages", () => ({
+  clearAccountDisconnectedErrorIfResolved: vi.fn().mockResolvedValue(undefined),
+}));
 
 vi.mock("@/utils/oauth/callback-validation", () => ({
   validateOAuthCallback: mockValidateOAuthCallback,
@@ -154,7 +158,14 @@ describe("google linking callback route", () => {
     } as Awaited<ReturnType<typeof prisma.account.update>>);
   });
 
-  it("updates an existing same-user Google account in emulation instead of creating a duplicate", async () => {
+  it.each([
+    false,
+    true,
+  ])("restores an existing same-user account without duplication (watch lookup fails: %s)", async (watchFails) => {
+    if (watchFails)
+      mockEnsureEmailAccountsWatched.mockRejectedValueOnce(
+        new Error("watch lookup failed"),
+      );
     mockHandleAccountLinking.mockResolvedValue({
       type: "continue_create",
     });
@@ -171,6 +182,7 @@ describe("google linking callback route", () => {
     expect(prisma.account.update).toHaveBeenCalledWith({
       where: { id: "existing-account-123" },
       data: expect.objectContaining({
+        disconnectedAt: null,
         providerAccountId: "new-provider-account-id",
         access_token: "access-token",
         refresh_token: "refresh-token",
@@ -187,6 +199,16 @@ describe("google linking callback route", () => {
     expect(mockEnsureEmailAccountsWatched).not.toHaveBeenCalled();
 
     await runScheduledAfterCallback();
+    expect(
+      mockEnsureEmailAccountsWatched.mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      vi.mocked(clearAccountDisconnectedErrorIfResolved).mock
+        .invocationCallOrder[0],
+    );
+    expect(clearAccountDisconnectedErrorIfResolved).toHaveBeenCalledWith({
+      userId: "user-123",
+      logger: expect.anything(),
+    });
 
     expect(mockEnsureEmailAccountsWatched).toHaveBeenCalledWith({
       userIds: ["user-123"],
