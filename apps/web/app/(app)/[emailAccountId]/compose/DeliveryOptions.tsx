@@ -1,12 +1,10 @@
 "use client";
 
-import { type ReactNode, useState } from "react";
+import { useState } from "react";
 import {
-  BellIcon,
   CalendarDaysIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  ClockIcon,
   XIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -36,14 +34,12 @@ export function DeliveryOptions({
         value={sendAt}
         onChange={onSendAtChange}
         disabled={disabled}
-        icon={<ClockIcon className="size-3.5" />}
       />
       <DeliveryTimePicker
         label="Remind me"
         value={remindAt}
         onChange={onRemindAtChange}
         disabled={disabled}
-        icon={<BellIcon className="size-3.5" />}
         after={sendAt}
       />
     </>
@@ -55,14 +51,12 @@ function DeliveryTimePicker({
   value,
   onChange,
   disabled,
-  icon,
   after,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   disabled: boolean;
-  icon: ReactNode;
   after?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -89,10 +83,9 @@ function DeliveryTimePicker({
           variant="ghost"
           size="sm"
           disabled={disabled}
-          className="gap-1.5 px-2 text-xs"
+          className="px-2 text-xs text-muted-foreground hover:text-foreground"
           aria-label={label}
         >
-          {icon}
           {value
             ? new Date(value).toLocaleString(undefined, {
                 month: "short",
