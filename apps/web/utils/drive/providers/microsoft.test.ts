@@ -170,7 +170,7 @@ describe("OneDriveProvider", () => {
     const header = vi.fn(() => ({ put }));
     const query = vi.fn(() => ({ header }));
     const api = vi.fn(() => ({ header, query }));
-    vi.mocked(Client.init).mockReturnValue({ api } as any);
+    vi.mocked(Client.init).mockReturnValue({ api } as unknown as Client);
 
     const provider = new OneDriveProvider("token", createTestLogger());
     const file = await provider.uploadFile({
@@ -187,7 +187,7 @@ describe("OneDriveProvider", () => {
       "@microsoft.graph.conflictBehavior": "rename",
     });
     expect(put).toHaveBeenCalledTimes(1);
-    expect(put.mock.calls[0]?.[0]).toBe(content);
+    expect(put.mock.calls.at(0)?.at(0)).toBe(content);
     expect(file).toMatchObject({ id: "new-file", name: "invoice 1.pdf" });
   });
 
