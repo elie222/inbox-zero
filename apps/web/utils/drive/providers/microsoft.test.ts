@@ -68,7 +68,8 @@ describe("OneDriveProvider", () => {
       size: content.length,
     }));
     const header = vi.fn(() => ({ put }));
-    const api = vi.fn(() => ({ header }));
+    const query = vi.fn(() => ({ header }));
+    const api = vi.fn(() => ({ header, query }));
 
     vi.mocked(Client.init).mockReturnValue({ api } as any);
 
@@ -98,7 +99,8 @@ describe("OneDriveProvider", () => {
       size: content.length,
     }));
     const header = vi.fn(() => ({ put }));
-    const api = vi.fn(() => ({ header }));
+    const query = vi.fn(() => ({ header }));
+    const api = vi.fn(() => ({ header, query }));
 
     vi.mocked(Client.init).mockReturnValue({ api } as any);
 
@@ -127,11 +129,12 @@ describe("OneDriveProvider", () => {
       parentReference: { id: "folder-1" },
     }));
     const header = vi.fn(() => ({ put }));
+    const query = vi.fn(() => ({ header }));
     const api = vi.fn((path: string) => {
       if (path.endsWith("/createUploadSession")) {
         throw new Error("Should not create an upload session for 4MB files");
       }
-      return { header };
+      return { header, query };
     });
 
     vi.mocked(Client.init).mockReturnValue({ api } as any);
@@ -150,6 +153,42 @@ describe("OneDriveProvider", () => {
     );
     expect(put).toHaveBeenCalledTimes(1);
     expect(put.mock.calls[0]?.[0]).toHaveLength(4 * 1024 * 1024);
+  });
+
+  it.each([
+    1,
+    4 * 1024 * 1024,
+  ])("requests a renamed file instead of replacing existing content for a %i-byte upload", async (size) => {
+    const content = Buffer.alloc(size);
+    const put = vi.fn(async (_content: Buffer) => ({
+      id: "new-file",
+      name: "invoice 1.pdf",
+      file: { mimeType: "application/pdf" },
+      parentReference: { id: "folder-1" },
+      size,
+    }));
+    const header = vi.fn(() => ({ put }));
+    const query = vi.fn(() => ({ header }));
+    const api = vi.fn(() => ({ header, query }));
+    vi.mocked(Client.init).mockReturnValue({ api } as any);
+
+    const provider = new OneDriveProvider("token", createTestLogger());
+    const file = await provider.uploadFile({
+      filename: "invoice.pdf",
+      mimeType: "application/pdf",
+      content,
+      folderId: "folder-1",
+    });
+
+    expect(api).toHaveBeenCalledWith(
+      "/me/drive/items/folder-1:/invoice.pdf:/content",
+    );
+    expect(query).toHaveBeenCalledWith({
+      "@microsoft.graph.conflictBehavior": "rename",
+    });
+    expect(put).toHaveBeenCalledTimes(1);
+    expect(put.mock.calls[0]?.[0]).toBe(content);
+    expect(file).toMatchObject({ id: "new-file", name: "invoice 1.pdf" });
   });
 
   it("uploads files larger than 4MB via an upload session in chunks", async () => {
