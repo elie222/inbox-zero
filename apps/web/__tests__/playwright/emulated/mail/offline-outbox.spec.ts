@@ -112,8 +112,8 @@ test("keeps a reply queued across reload and sends it after reconnect", async ({
 
   try {
     await page
-      .getByRole("group", { name: "Thread actions" })
       .getByRole("button", { name: "Reply", exact: true })
+      .last()
       .click();
     const editor = page.locator("[contenteditable='true']");
     await editor.pressSequentially(replyBody);

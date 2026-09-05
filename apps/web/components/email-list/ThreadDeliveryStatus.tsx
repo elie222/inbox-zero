@@ -16,6 +16,7 @@ import {
   retryScheduledEmailAction,
 } from "@/utils/actions/scheduled-email";
 import { getActionErrorMessage } from "@/utils/error";
+import { getLatestScheduledSendId } from "@/components/email-list/latest-scheduled-send";
 
 export function ThreadDeliveryStatus({
   emailAccountId,
@@ -85,8 +86,9 @@ export function ThreadDeliveryStatus({
       },
     },
   );
-  const latestScheduledSendId =
-    data?.scheduledEmails.find((row) => row.status === "SENT")?.id ?? "";
+  const latestScheduledSendId = getLatestScheduledSendId(
+    data?.scheduledEmails ?? [],
+  );
   const latestOutboxSendId =
     outbox.find((row) => row.status === "succeeded")?.id ?? "";
   const completedSendKey = `${latestScheduledSendId}:${latestOutboxSendId}`;

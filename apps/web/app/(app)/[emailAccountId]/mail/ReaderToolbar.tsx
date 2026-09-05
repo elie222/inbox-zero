@@ -6,8 +6,6 @@ import {
   ArrowLeftIcon,
   MaximizeIcon,
   MinimizeIcon,
-  ReplyIcon,
-  Trash2Icon,
 } from "lucide-react";
 import { MailLabelChip } from "@/app/(app)/[emailAccountId]/mail/MailLabelChip";
 import type { EmailMessageCellLabel } from "@/components/EmailMessageCellLabels";
@@ -27,8 +25,6 @@ type ReaderToolbarProps = {
   isFocusMode: boolean;
   onBackToInbox: () => void;
   onArchive: () => void;
-  onReply: () => void;
-  onDelete: () => void;
   onToggleFocusMode: () => void;
   /** The ⋯ dropdown, i.e. `ThreadActionsMenu`, composed by the shell. */
   menu?: ReactNode;
@@ -45,8 +41,6 @@ export function ReaderToolbar({
   isFocusMode,
   onBackToInbox,
   onArchive,
-  onReply,
-  onDelete,
   onToggleFocusMode,
   menu,
 }: ReaderToolbarProps) {
@@ -92,20 +86,6 @@ export function ReaderToolbar({
         <Button onClick={onArchive} size="xs-2" variant="outline">
           <ArchiveIcon className="mr-1.5 size-3.5" />
           Archive
-        </Button>
-        <Button onClick={onReply} size="xs-2" variant="outline">
-          <ReplyIcon className="mr-1.5 size-3.5" />
-          Reply
-        </Button>
-        <Button
-          aria-label={`Delete (${getShortcutHint("delete")})`}
-          className="h-7 w-7 hover:border-destructive/30 hover:bg-destructive/5 hover:text-destructive"
-          onClick={onDelete}
-          size="icon"
-          title={`Delete (${getShortcutHint("delete")})`}
-          variant="outline"
-        >
-          <Trash2Icon className="size-3.5" />
         </Button>
         <Button
           aria-label={`${isFocusMode ? "Exit focus mode" : "Focus mode"} (${getShortcutHint("focusMode")})`}

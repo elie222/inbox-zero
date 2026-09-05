@@ -336,8 +336,12 @@ export async function processDueScheduledEmails(
       emailAccountId: row.emailAccountId,
       scheduledEmailId: row.id,
     });
-    if (row.status === "SENT") await processReminder(row, scopedLogger, now);
-    else await processScheduledEmail(row.id, scopedLogger, now);
+    try {
+      if (row.status === "SENT") await processReminder(row, scopedLogger, now);
+      else await processScheduledEmail(row.id, scopedLogger, now);
+    } catch (error) {
+      scopedLogger.error("Failed to process scheduled email", { error });
+    }
   });
   return { processed: rows.length };
 }

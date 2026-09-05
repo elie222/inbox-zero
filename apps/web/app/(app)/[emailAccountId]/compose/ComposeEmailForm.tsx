@@ -95,7 +95,10 @@ import type { StoredReplyDraft } from "@/utils/email-cache/database";
 import { scheduleEmailAction } from "@/utils/actions/scheduled-email";
 import { DeliveryOptions } from "./DeliveryOptions";
 import { useSWRConfig } from "swr";
-import { getReminderAfterSendTimeChange } from "./delivery-times";
+import {
+  getReminderAfterSendTimeChange,
+  parseDeliveryTimes,
+} from "./delivery-times";
 import { queueReaderEmail } from "./queued-reply";
 
 export type ReplyingToEmail = {
@@ -157,13 +160,7 @@ export function ComposeEmailForm(props: ComposeEmailFormProps) {
       : undefined,
   );
   return (
-    <LoadingContent
-      error={
-        error ||
-        (localDraft.error ? { error: localDraft.error.message } : undefined)
-      }
-      loading={isLoading || localDraft.isLoading}
-    >
+    <LoadingContent error={error} loading={isLoading || localDraft.isLoading}>
       {emailAccount && (
         <ComposeEmailFormContent
           {...props}
@@ -218,7 +215,10 @@ function ComposeEmailFormContent({
     draftLoadError?.message ??
       (storedDraft?.content ? "Saved on this device" : ""),
   );
-  const [submissionError, setSubmissionError] = useState("");
+  const [submissionError, setSubmissionError] = useState(() => {
+    const times = parseDeliveryTimes(sendAt, remindAt);
+    return times.valid ? "" : times.error;
+  });
   const [draftWriter] = useState(() =>
     isInlineReply
       ? createReplyDraftWriter(
@@ -658,6 +658,11 @@ function ComposeEmailFormContent({
         return;
       }
 
+      const deliveryTimes = parseDeliveryTimes(sendAt, remindAt);
+      if (!deliveryTimes.valid) {
+        setSubmissionError(deliveryTimes.error);
+        return;
+      }
       setSubmissionError("");
       try {
         if (isInlineReply) {
@@ -680,8 +685,8 @@ function ComposeEmailFormContent({
             threadId: replyingToEmail!.threadId!,
             messageIds: [draftKeyMessageId!],
             email: enrichedData,
-            sendAt: sendAt ? new Date(sendAt).toISOString() : null,
-            remindAt: remindAt ? new Date(remindAt).toISOString() : null,
+            sendAt: deliveryTimes.sendAt,
+            remindAt: deliveryTimes.remindAt,
           });
           if (!result?.data) {
             setSubmissionError(

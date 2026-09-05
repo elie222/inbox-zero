@@ -45,8 +45,6 @@ export type ThreadReaderProps = {
   onRemoveLabel?: (labelId: string) => void;
   onBackToInbox: () => void;
   onArchive: () => void;
-  onReply: () => void;
-  onDelete: () => void;
   onToggleFocusMode: () => void;
   showSidebarToggle?: boolean;
   /** Refreshes the open thread after a reply is sent or a draft changes. */
@@ -74,8 +72,6 @@ export function ThreadReader({
   onRemoveLabel,
   onBackToInbox,
   onArchive,
-  onReply,
-  onDelete,
   onToggleFocusMode,
   showSidebarToggle = false,
   refetch,
@@ -149,9 +145,7 @@ export function ThreadReader({
             menu={menu}
             onArchive={onArchive}
             onBackToInbox={onBackToInbox}
-            onDelete={onDelete}
             onRemoveLabel={onRemoveLabel}
-            onReply={onReply}
             onToggleFocusMode={onToggleFocusMode}
             subject={headerMessage.headers.subject}
           />

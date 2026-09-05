@@ -33,11 +33,17 @@ test("captures thread reading and reply states", async ({ page }, testInfo) => {
   await expect(
     page.getByText("Please reply to this seeded conversation."),
   ).toBeVisible();
+  const toolbar = page.getByRole("group", { name: "Thread actions" });
+  await expect(
+    toolbar.getByRole("button", { name: "Reply", exact: true }),
+  ).toHaveCount(0);
+  await expect(toolbar.getByRole("button", { name: /^Delete/ })).toHaveCount(0);
   await capturePlaywrightCheckpoint(page, testInfo, "04-single-message");
-  await page
-    .getByRole("group", { name: "Thread actions" })
-    .getByRole("button", { name: "Reply", exact: true })
-    .click();
+  await toolbar.getByRole("button", { name: /^More actions/ }).click();
+  await expect(page.getByRole("menuitem", { name: /^Delete/ })).toBeVisible();
+  await capturePlaywrightCheckpoint(page, testInfo, "25-thread-actions-menu");
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Reply", exact: true }).last().click();
   const editor = page.locator("[contenteditable='true']");
   await expect(editor).toBeVisible();
   await capturePlaywrightCheckpoint(page, testInfo, "05-empty-reply");
@@ -104,8 +110,8 @@ test("captures queued reply and reconnect", async ({ page }, testInfo) => {
   const editor = page.locator("[contenteditable='true']");
   if (!(await editor.count()))
     await page
-      .getByRole("group", { name: "Thread actions" })
       .getByRole("button", { name: "Reply", exact: true })
+      .last()
       .click();
   await expect(editor).toBeVisible();
   await editor.fill(replyBody);
@@ -246,10 +252,7 @@ test("captures a longer thread and draft collapse", async ({
     ),
   ).toBeVisible();
   await capturePlaywrightCheckpoint(page, testInfo, "14-long-thread");
-  await page
-    .getByRole("group", { name: "Thread actions" })
-    .getByRole("button", { name: "Reply", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Reply", exact: true }).last().click();
   const editor = page.locator("[contenteditable='true']");
   await editor.fill("This reply should survive collapsing its parent message.");
   const header = page
@@ -279,10 +282,7 @@ test("restores a queued reply for editing without sending a duplicate", async ({
   await expect(
     page.getByRole("heading", { name: "Reply Workflow Message" }),
   ).toBeVisible();
-  await page
-    .getByRole("group", { name: "Thread actions" })
-    .getByRole("button", { name: "Reply", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Reply", exact: true }).last().click();
   const editor = page.getByRole("textbox", { name: "Email message" });
   const text = "I can review the updated proposal on Thursday.";
   await editor.fill(text);

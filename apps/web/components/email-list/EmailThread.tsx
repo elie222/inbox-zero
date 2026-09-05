@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { ChevronsDownUpIcon, ChevronsUpDownIcon } from "lucide-react";
+import { Tooltip } from "@/components/Tooltip";
 import type { ThreadMessage } from "@/components/email-list/types";
 import { EmailMessage } from "@/components/email-list/EmailMessage";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -92,27 +94,37 @@ export function EmailThread({
       )}
 
       {organizedMessages.length > 1 && (
-        <div className="flex items-center gap-3 pt-4">
-          <span className="text-muted-foreground text-xs">
-            {organizedMessages.length} messages
-          </span>
-          <Button
-            className="ml-auto"
-            onClick={() =>
-              setExpansionOverrides(
-                new Map(
-                  organizedMessages.map(({ message }) => [
-                    message.id,
-                    allExpanded ? message.id === lastMessageId : true,
-                  ]),
-                ),
-              )
+        <div className="flex justify-end pt-2">
+          <Tooltip
+            content={
+              allExpanded ? "Collapse all messages" : "Expand all messages"
             }
-            size="xs-2"
-            variant="ghost"
           >
-            {allExpanded ? "Collapse all" : "Expand all"}
-          </Button>
+            <Button
+              aria-label={
+                allExpanded ? "Collapse all messages" : "Expand all messages"
+              }
+              className="size-7 text-muted-foreground"
+              onClick={() =>
+                setExpansionOverrides(
+                  new Map(
+                    organizedMessages.map(({ message }) => [
+                      message.id,
+                      allExpanded ? message.id === lastMessageId : true,
+                    ]),
+                  ),
+                )
+              }
+              size="icon"
+              variant="ghost"
+            >
+              {allExpanded ? (
+                <ChevronsDownUpIcon className="size-3.5" />
+              ) : (
+                <ChevronsUpDownIcon className="size-3.5" />
+              )}
+            </Button>
+          </Tooltip>
         </div>
       )}
 

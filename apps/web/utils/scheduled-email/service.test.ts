@@ -168,6 +168,43 @@ describe("scheduled replies", () => {
     expect(provider.unarchiveThread).toHaveBeenCalledTimes(12);
   });
 
+  it("settles the remaining reminders when one initial claim fails", async () => {
+    prisma.scheduledEmail.findMany.mockResolvedValue(
+      Array.from({ length: 8 }, (_, index) =>
+        row({
+          id: `reminder-${index}`,
+          status: "SENT",
+          sentAt: new Date(now.getTime() - 60_000),
+          remindAt: now,
+          reminderStatus: "PENDING",
+        }),
+      ),
+    );
+    prisma.scheduledEmail.updateMany.mockImplementation(async (args) => {
+      if (args.where.id === "reminder-0")
+        throw new Error("claim database unavailable");
+      return { count: 1 };
+    });
+    prisma.emailAccount.findUniqueOrThrow.mockResolvedValue({
+      email: "me@example.com",
+      account: { provider: "google" },
+    } as never);
+    let completed = 0;
+    const provider = createMockEmailProvider({
+      getThreadMessages: vi.fn().mockImplementation(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 1));
+        completed += 1;
+        return [];
+      }),
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue(provider);
+    await expect(processDueScheduledEmails(logger, now)).resolves.toEqual({
+      processed: 8,
+    });
+    expect(completed).toBe(7);
+    expect(provider.unarchiveThread).toHaveBeenCalledTimes(7);
+  });
+
   it("does not send twice when another worker holds the claim", async () => {
     prisma.scheduledEmail.findUnique.mockResolvedValue(row());
     prisma.scheduledEmail.updateMany.mockResolvedValue({ count: 0 });
