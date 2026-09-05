@@ -170,7 +170,7 @@ export function buildDatabaseUrl(params: {
 }): string {
   const username = encodeURIComponent(params.username);
   const password = encodeURIComponent(params.password);
-  return `postgresql://${username}:${password}@${params.endpoint}:${params.port}/${params.database}`;
+  return `postgresql://${username}:${password}@${params.endpoint}:${params.port}/${params.database}?sslmode=verify-full`;
 }
 
 export function buildRedisUrl(params: {
