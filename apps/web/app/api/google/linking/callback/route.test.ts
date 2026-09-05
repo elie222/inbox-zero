@@ -158,7 +158,14 @@ describe("google linking callback route", () => {
     } as Awaited<ReturnType<typeof prisma.account.update>>);
   });
 
-  it("updates an existing same-user Google account in emulation instead of creating a duplicate", async () => {
+  it.each([
+    false,
+    true,
+  ])("restores an existing same-user account without duplication (watch lookup fails: %s)", async (watchFails) => {
+    if (watchFails)
+      mockEnsureEmailAccountsWatched.mockRejectedValueOnce(
+        new Error("watch lookup failed"),
+      );
     mockHandleAccountLinking.mockResolvedValue({
       type: "continue_create",
     });

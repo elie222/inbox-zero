@@ -415,7 +415,7 @@ async function completeGoogleAccountLinking({
 
   after(() =>
     ensureEmailAccountsWatched({ userIds: [targetUserId], logger })
-      .then(() =>
+      .finally(() =>
         clearAccountDisconnectedErrorIfResolved({
           userId: targetUserId,
           logger,
