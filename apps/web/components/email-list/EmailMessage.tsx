@@ -384,44 +384,45 @@ function MessageHeader({
         <span className="shrink-0 text-primary text-xs">Draft</span>
       )}
 
-      <time
-        className="ml-auto shrink-0 whitespace-nowrap pl-2.5 text-muted-foreground text-xs"
-        dateTime={message.headers.date}
-      >
-        {formatShortDate(new Date(message.headers.date))}
-      </time>
-
-      {showReplyButton && (
-        <span
-          className={cn(
-            "shrink-0 items-center transition-opacity focus-within:opacity-100 group-hover/message:opacity-100",
-            expanded ? "flex sm:opacity-0" : "hidden sm:flex sm:opacity-0",
-          )}
+      <div className="ml-auto flex shrink-0 items-center gap-2">
+        {showReplyButton && (
+          <span
+            className={cn(
+              "shrink-0 items-center transition-opacity focus-within:opacity-100 group-hover/message:opacity-100",
+              expanded ? "flex sm:opacity-0" : "hidden sm:flex sm:opacity-0",
+            )}
+          >
+            <Tooltip content="Reply">
+              <Button
+                className="size-7 text-muted-foreground"
+                onClick={compose(onReply)}
+                size="icon"
+                variant="ghost"
+              >
+                <ReplyIcon className="size-3.5" />
+                <span className="sr-only">Reply</span>
+              </Button>
+            </Tooltip>
+            <Tooltip content="Forward">
+              <Button
+                className="size-7 text-muted-foreground"
+                onClick={compose(onForward)}
+                size="icon"
+                variant="ghost"
+              >
+                <ForwardIcon className="size-3.5" />
+                <span className="sr-only">Forward</span>
+              </Button>
+            </Tooltip>
+          </span>
+        )}
+        <time
+          className="shrink-0 whitespace-nowrap text-muted-foreground text-xs"
+          dateTime={message.headers.date}
         >
-          <Tooltip content="Reply">
-            <Button
-              className="size-7 text-muted-foreground"
-              onClick={compose(onReply)}
-              size="icon"
-              variant="ghost"
-            >
-              <ReplyIcon className="size-3.5" />
-              <span className="sr-only">Reply</span>
-            </Button>
-          </Tooltip>
-          <Tooltip content="Forward">
-            <Button
-              className="size-7 text-muted-foreground"
-              onClick={compose(onForward)}
-              size="icon"
-              variant="ghost"
-            >
-              <ForwardIcon className="size-3.5" />
-              <span className="sr-only">Forward</span>
-            </Button>
-          </Tooltip>
-        </span>
-      )}
+          {formatShortDate(new Date(message.headers.date))}
+        </time>
+      </div>
     </div>
   );
 }
