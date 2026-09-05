@@ -71,6 +71,14 @@ test("keeps arrow navigation inside the thread and expands from its toolbar", as
   ).toHaveCount(0);
   const editor = page.getByRole("textbox", { name: "Email message" });
   await expect(editor).toBeFocused();
+  await page.getByLabel("Show quoted message").click();
+  await expect(
+    page.getByRole("toolbar", { name: "Selection formatting" }),
+  ).toBeHidden();
+  await page.getByLabel("Hide quoted message").click();
+  await expect(
+    page.getByRole("toolbar", { name: "Selection formatting" }),
+  ).toBeHidden();
   await editor.fill(
     "A reply on the first line.\nAnother line for cursor navigation.",
   );
