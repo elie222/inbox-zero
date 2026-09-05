@@ -65,6 +65,15 @@ export const getGmailClientWithRefresh = async ({
   if (!refreshToken) {
     // expected for disconnected accounts
     logger.warn("No refresh token", { emailAccountId });
+    await cleanupInvalidTokens({
+      emailAccountId,
+      reason: "invalid_grant",
+      failedAccessToken: accessToken ?? undefined,
+      failedRefreshToken: null,
+      logger,
+    }).catch((error) =>
+      logger.warn("Failed to record missing refresh token", { error }),
+    );
     throw new SafeError("No refresh token");
   }
 
@@ -111,7 +120,7 @@ export const getGmailClientWithRefresh = async ({
         await cleanupInvalidTokens({
           emailAccountId,
           reason: "invalid_grant",
-          failedAccessToken: accessToken,
+          failedAccessToken: accessToken ?? undefined,
           failedRefreshToken: refreshToken,
           logger,
         });

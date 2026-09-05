@@ -94,6 +94,10 @@ function withProviderFailureLogging(
         let failedAccessToken: string | undefined;
         try {
           failedAccessToken = target.getAccessToken();
+        } catch {
+          // The operation may still refresh a missing cached access token.
+        }
+        try {
           const result = value.apply(target, args);
           if (!isPromiseLike(result)) return result;
 

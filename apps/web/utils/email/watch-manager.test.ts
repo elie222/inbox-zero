@@ -43,6 +43,7 @@ const logger = createTestLogger();
 describe("ensureEmailAccountsWatched", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(cleanupInvalidTokens).mockResolvedValue(undefined);
   });
 
   it("cleans up invalid tokens when watch setup reports a detailed invalid_grant error", async () => {

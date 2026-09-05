@@ -7,7 +7,7 @@ import { recordEmailAccountProviderIssue } from "@/utils/email/provider-health";
 
 const { gmailGetMessageMock, gmailSearchMessagesMock, providerToken } =
   vi.hoisted(() => ({
-    providerToken: { value: "access-token" },
+    providerToken: { value: "access-token", error: null as Error | null },
     gmailGetMessageMock: vi.fn(),
     gmailSearchMessagesMock: vi.fn(),
   }));
@@ -34,6 +34,7 @@ vi.mock("@/utils/email/google", () => ({
     readonly name = "google";
 
     getAccessToken() {
+      if (providerToken.error) throw providerToken.error;
       return providerToken.value;
     }
 
@@ -57,12 +58,27 @@ describe("createEmailProvider", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     providerToken.value = "access-token";
+    providerToken.error = null;
     vi.mocked(assertProviderNotRateLimited).mockResolvedValue(undefined);
     vi.mocked(getGmailClientForEmail).mockResolvedValue({} as any);
     vi.mocked(flushLoggerSafely).mockResolvedValue(undefined);
     vi.mocked(recordEmailAccountProviderIssue).mockResolvedValue(undefined);
     gmailGetMessageMock.mockResolvedValue({});
     gmailSearchMessagesMock.mockResolvedValue({ messages: [] });
+  });
+
+  it("allows provider requests to proceed when a cached access token is unavailable", async () => {
+    const logger = createMockLogger();
+    const provider = await createEmailProvider({
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+    providerToken.error = new Error("No access token");
+    await expect(
+      provider.searchMessages({ query: "in:inbox" }),
+    ).resolves.toEqual({ messages: [] });
+    expect(gmailSearchMessagesMock).toHaveBeenCalledOnce();
   });
 
   it("records the token used before an operation even if the client token changes", async () => {

@@ -199,7 +199,7 @@ describe("cleanupInvalidTokens", () => {
 
     await cleanupInvalidTokens({
       emailAccountId: "ea_1",
-      failedAccessToken: "access-token",
+      failedAccessToken: null,
       reason: "invalid_grant",
       logger,
     });

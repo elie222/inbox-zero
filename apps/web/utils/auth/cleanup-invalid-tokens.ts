@@ -44,7 +44,7 @@ export async function cleanupInvalidTokens({
     logger.info(
       "Skipping credential cleanup without a failed credential snapshot",
     );
-    return;
+    return { status: "skipped" as const };
   }
   logger.info("Cleaning up invalid tokens", { reason });
 
@@ -75,7 +75,7 @@ export async function cleanupInvalidTokens({
 
   if (!emailAccount) {
     logger.warn("Email account not found");
-    return;
+    return { status: "skipped" as const };
   }
 
   const account = emailAccount.account;
@@ -87,7 +87,7 @@ export async function cleanupInvalidTokens({
       account.refresh_token !== failedRefreshToken)
   ) {
     logger.info("Skipping cleanup of superseded credentials");
-    return;
+    return { status: "skipped" as const };
   }
 
   if (account?.disconnectedAt) {
@@ -119,10 +119,8 @@ export async function cleanupInvalidTokens({
   });
 
   if (updated.count === 0) {
-    logger.info(
-      "Account already marked as disconnected (via concurrent update)",
-    );
-    return;
+    logger.info("Account changed before credential cleanup");
+    return { status: "skipped" as const };
   }
 
   const errorMessage = getAccountActionRequiredMessage(

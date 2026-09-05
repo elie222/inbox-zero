@@ -34,7 +34,7 @@ describe("handleWebhookError", () => {
   const mockCleanupInvalidTokens = vi.mocked(cleanupInvalidTokens);
 
   describe("Gmail errors", () => {
-    it("leaves invalid-grant cleanup to the provider with the failed credential snapshot", async () => {
+    it("does not clean up invalid grants without a credential snapshot", async () => {
       const error = new Error("invalid_grant");
 
       await handleWebhookError(error, baseOptions);

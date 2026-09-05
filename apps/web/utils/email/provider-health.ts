@@ -55,12 +55,19 @@ export async function recordEmailAccountProviderIssue({
   if (!shouldRecord) return;
 
   try {
-    await cleanupInvalidTokens({
+    const result = await cleanupInvalidTokens({
       emailAccountId,
       reason: issue.reason,
       failedAccessToken,
       logger,
     });
+    if (result?.status === "skipped") {
+      await releaseProviderIssueCleanupClaim({
+        emailAccountId,
+        reason: issue.reason,
+        logger,
+      });
+    }
   } catch (error) {
     logger.warn("Failed to clean up provider account issue", {
       error,
