@@ -76,5 +76,10 @@ module.exports = {
     // Stay pinned until a dedicated formatting migration.
     "ultracite",
     "@biomejs/biome",
+
+    // Temporary: keep package.json on 16.3.4 while minimumReleaseAgeExclude allows
+    // the fresh Next security patch. Remove together with that exclude after 24h.
+    "next",
+    "@next/*",
   ],
 };
