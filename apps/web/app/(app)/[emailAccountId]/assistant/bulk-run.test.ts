@@ -26,12 +26,17 @@ describe("bulk processing", () => {
     );
     await vi.waitFor(() => expect(complete).toHaveBeenCalledWith("success", 0));
 
-    const query = new URL(
-      vi.mocked(fetchWithAccount).mock.calls[0][0].url,
-      "https://example.com",
-    ).searchParams;
-    expect(new Date(query.get("after")!)).toEqual(date);
-    expect(new Date(query.get("before")!)).toEqual(new Date(2025, 3, 11));
+    const request = vi.mocked(fetchWithAccount).mock.calls.at(0)?.at(0);
+    expect(request).toBeDefined();
+    if (!request) throw new Error("Expected a thread request");
+    const query = new URL(request.url, "https://example.com").searchParams;
+    const after = query.get("after");
+    const before = query.get("before");
+    expect(after).toBeTruthy();
+    expect(before).toBeTruthy();
+    if (!after || !before) throw new Error("Expected both date bounds");
+    expect(new Date(after)).toEqual(date);
+    expect(new Date(before)).toEqual(new Date(2025, 3, 11));
     expect(date).toEqual(new Date(2025, 3, 10));
   });
 
@@ -65,7 +70,7 @@ describe("bulk processing", () => {
       expect(query.get("isUnread")).toBe(includeRead ? null : "true");
       expect(query.get("before")).toBeNull();
     }
-    expect(queries[1].get("nextPageToken")).toBe("next-page");
+    expect(queries.at(1)?.get("nextPageToken")).toBe("next-page");
     expect(runAiRules).toHaveBeenCalledWith(
       "account-id",
       [thread],

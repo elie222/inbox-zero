@@ -256,6 +256,13 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
 
   const { setInput } = useChat();
 
+  let loadMoreLabel = "No More Messages";
+  if (isValidating) {
+    loadMoreLabel = "Loading...";
+  } else if (hasMore) {
+    loadMoreLabel = "Load More";
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between gap-2 pb-6">
@@ -341,13 +348,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
                 disabled={!hasMore || isValidating}
               >
                 {!isValidating && <ChevronsDownIcon className="mr-2 size-4" />}
-                <span>
-                  {isValidating
-                    ? "Loading..."
-                    : hasMore
-                      ? "Load More"
-                      : "No More Messages"}
-                </span>
+                <span>{loadMoreLabel}</span>
               </Button>
             </div>
           </Card>

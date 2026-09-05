@@ -409,7 +409,7 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
     });
 
     // Graph rejects sorted message queries when non-sort fields precede the date filter.
-    expect(client.getRequestLog()[0]?.filter).toBe(
+    expect(client.getRequestLog().at(0)?.filter).toBe(
       `receivedDateTime gt ${after.toISOString()} and receivedDateTime lt ${before.toISOString()} and parentFolderId eq 'inbox-folder-id'${isUnread ? " and isRead eq false" : ""}`,
     );
   });

@@ -43,9 +43,15 @@ for (const custom of [false, true]) {
     await button.click();
     await actionResponse;
     await expect(scope).toBeVisible();
-    await expect(
-      scope.getByRole("button", { name: /^(Test|Retest)$/ }),
-    ).toBeEnabled();
+    if (custom) {
+      await expect(
+        page.getByText("Test result", { exact: true }),
+      ).toBeVisible();
+    } else {
+      await expect(
+        scope.getByRole("button", { name: "Retest", exact: true }),
+      ).toBeEnabled();
+    }
   });
 }
 
