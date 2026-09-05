@@ -17,7 +17,7 @@ describe("encryption without env", () => {
 
     const { encryptToken, decryptToken } = await import("./encryption");
 
-    expect(encryptToken("secret")).toBeNull();
+    expect(() => encryptToken("secret")).toThrow(/not configured/);
     expect(decryptToken("deadbeef")).toBeNull();
   });
 });

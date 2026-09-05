@@ -44,7 +44,11 @@ describe("Encryption Utilities", () => {
       "EMAIL_ENCRYPT_SALT",
     ] as const)("rejects writes when %s is empty, even after caching a key", (setting) => {
       encryptToken("warm-cache");
-      env[setting] = "";
+      if (setting === "EMAIL_ENCRYPT_SECRET") {
+        env.EMAIL_ENCRYPT_SECRET = "";
+      } else {
+        env.EMAIL_ENCRYPT_SALT = "";
+      }
       expect(() => encryptToken("refresh-token")).toThrow(/not configured/);
       expect(encryptToken(null)).toBeNull();
     });
