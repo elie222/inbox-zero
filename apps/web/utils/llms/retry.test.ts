@@ -254,9 +254,7 @@ describe("withLLMRetry", () => {
     const authError = createError("Invalid API key", { status: 401 });
     const fn = vi.fn().mockRejectedValue(authError);
 
-    await expect(withLLMRetry(fn, { label: "test" })).rejects.toMatchObject({
-      error: { message: "Invalid API key" },
-    });
+    await expect(withLLMRetry(fn, { label: "test" })).rejects.toBe(authError);
     expect(fn).toHaveBeenCalledTimes(1);
   });
 
