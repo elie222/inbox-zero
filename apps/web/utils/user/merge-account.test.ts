@@ -4,7 +4,7 @@ import prisma from "@/utils/__mocks__/prisma";
 import { getMockUserSelect, createTestLogger } from "@/__tests__/helpers";
 import { getEmailAccount } from "@/utils/redis/account-validation";
 import { redis } from "@/utils/redis";
-import { transferPremiumDuringMerge } from "@/utils/user/merge-premium";
+import { getPremiumTransferOperations } from "@/utils/user/merge-premium";
 
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/user/merge-premium");
@@ -215,7 +215,7 @@ describe("mergeAccount", () => {
       prisma.user.delete.mockResolvedValue({} as any);
       prisma.$transaction.mockImplementation((ops) => Promise.resolve(ops));
 
-      vi.mocked(transferPremiumDuringMerge).mockResolvedValue();
+      vi.mocked(getPremiumTransferOperations).mockResolvedValue([]);
 
       const result = await mergeAccount({
         sourceAccountId: accountId,
@@ -227,7 +227,7 @@ describe("mergeAccount", () => {
       });
 
       expect(result).toBe("full_merge");
-      expect(transferPremiumDuringMerge).toHaveBeenCalledWith({
+      expect(getPremiumTransferOperations).toHaveBeenCalledWith({
         sourceUserId,
         targetUserId,
         logger,
@@ -277,7 +277,7 @@ describe("mergeAccount", () => {
       prisma.user.delete.mockResolvedValue({} as any);
       prisma.$transaction.mockImplementation((ops) => Promise.resolve(ops));
 
-      vi.mocked(transferPremiumDuringMerge).mockResolvedValue();
+      vi.mocked(getPremiumTransferOperations).mockResolvedValue([]);
 
       await expect(
         getEmailAccount({ userId: sourceUserId, emailAccountId }),

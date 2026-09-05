@@ -3,10 +3,10 @@ import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { mergeAccount } from "@/utils/user/merge-account";
-import { transferPremiumDuringMerge } from "@/utils/user/merge-premium";
+import { getPremiumTransferOperations } from "@/utils/user/merge-premium";
 
 vi.mock("@/utils/user/merge-premium", () => ({
-  transferPremiumDuringMerge: vi.fn(),
+  getPremiumTransferOperations: vi.fn(),
 }));
 vi.mock("@/utils/redis/account-validation", () => ({
   invalidateAccountValidation: vi.fn(),
@@ -14,6 +14,10 @@ vi.mock("@/utils/redis/account-validation", () => ({
 
 const sourceUserId = "mailbox-merge-db-source";
 const targetUserId = "mailbox-merge-db-target";
+const premiumId = "mailbox-merge-db-premium";
+const actualPremium = await vi.importActual<
+  typeof import("@/utils/user/merge-premium")
+>("@/utils/user/merge-premium");
 const logger = createScopedLogger("mailbox-merge-test");
 
 describe.skipIf(!process.env.RUN_DB_TESTS)(
@@ -21,9 +25,11 @@ describe.skipIf(!process.env.RUN_DB_TESTS)(
   () => {
     beforeEach(async () => {
       vi.resetAllMocks();
+      vi.mocked(getPremiumTransferOperations).mockResolvedValue([]);
       await prisma.user.deleteMany({
         where: { id: { in: [sourceUserId, targetUserId] } },
       });
+      await prisma.premium.deleteMany({ where: { id: premiumId } });
       await prisma.user.createMany({
         data: [
           { id: sourceUserId, email: "merge-source@example.com" },
@@ -37,12 +43,16 @@ describe.skipIf(!process.env.RUN_DB_TESTS)(
       await prisma.user.deleteMany({
         where: { id: { in: [sourceUserId, targetUserId] } },
       });
+      await prisma.premium.deleteMany({ where: { id: premiumId } });
     });
 
     it("preserves a mailbox linked after the merge reads its source account snapshot", async () => {
-      vi.mocked(transferPremiumDuringMerge).mockImplementationOnce(async () => {
-        await createMailbox("concurrent", sourceUserId);
-      });
+      vi.mocked(getPremiumTransferOperations).mockImplementationOnce(
+        async () => {
+          await createMailbox("concurrent", sourceUserId);
+          return [];
+        },
+      );
 
       await mergeAccount({
         sourceUserId,
@@ -82,22 +92,25 @@ describe.skipIf(!process.env.RUN_DB_TESTS)(
       await connection.connect();
       const { promise: linked, resolve: signalLinked } =
         Promise.withResolvers<void>();
-      vi.mocked(transferPremiumDuringMerge).mockImplementationOnce(async () => {
-        await connection.query("BEGIN");
-        await connection.query(
-          'INSERT INTO "Account" (id, "userId", provider, "providerAccountId", "updatedAt") VALUES ($1, $2, $3, $1, NOW())',
-          ["mailbox-merge-inflight", sourceUserId, "google"],
-        );
-        await connection.query(
-          'INSERT INTO "EmailAccount" (id, "accountId", "userId", email, "updatedAt") VALUES ($1, $1, $2, $3, NOW())',
-          [
-            "mailbox-merge-inflight",
-            sourceUserId,
-            "merge-inflight@example.com",
-          ],
-        );
-        signalLinked();
-      });
+      vi.mocked(getPremiumTransferOperations).mockImplementationOnce(
+        async () => {
+          await connection.query("BEGIN");
+          await connection.query(
+            'INSERT INTO "Account" (id, "userId", provider, "providerAccountId", "updatedAt") VALUES ($1, $2, $3, $1, NOW())',
+            ["mailbox-merge-inflight", sourceUserId, "google"],
+          );
+          await connection.query(
+            'INSERT INTO "EmailAccount" (id, "accountId", "userId", email, "updatedAt") VALUES ($1, $1, $2, $3, NOW())',
+            [
+              "mailbox-merge-inflight",
+              sourceUserId,
+              "merge-inflight@example.com",
+            ],
+          );
+          signalLinked();
+          return [];
+        },
+      );
       const merging = mergeAccount({
         sourceUserId,
         targetUserId,
@@ -132,7 +145,57 @@ describe.skipIf(!process.env.RUN_DB_TESTS)(
       }
     });
 
-    it("still merges a source user whose only mailbox is being moved", async () => {
+    it("rolls back premium membership and admin access when a concurrent mailbox aborts the merge", async () => {
+      await prisma.premium.create({
+        data: {
+          id: premiumId,
+          users: { connect: { id: sourceUserId } },
+          admins: { connect: { id: sourceUserId } },
+        },
+      });
+      vi.mocked(getPremiumTransferOperations).mockImplementationOnce(
+        async (options) => {
+          const operations =
+            await actualPremium.getPremiumTransferOperations(options);
+          await createMailbox("concurrent", sourceUserId);
+          return operations;
+        },
+      );
+      await expect(
+        mergeAccount({
+          sourceUserId,
+          targetUserId,
+          sourceAccountId: "mailbox-merge-original",
+          email: "merge-original@example.com",
+          name: null,
+          logger,
+        }),
+      ).rejects.toMatchObject({ code: "P2025" });
+      expect(
+        await prisma.user.findUnique({ where: { id: targetUserId } }),
+      ).toMatchObject({
+        premiumId: null,
+        premiumAdminId: null,
+      });
+      expect(
+        await prisma.user.findUnique({ where: { id: sourceUserId } }),
+      ).toMatchObject({
+        premiumId,
+        premiumAdminId: premiumId,
+      });
+    });
+
+    it("still merges the only mailbox together with premium membership and admin access", async () => {
+      await prisma.premium.create({
+        data: {
+          id: premiumId,
+          users: { connect: { id: sourceUserId } },
+          admins: { connect: { id: sourceUserId } },
+        },
+      });
+      vi.mocked(getPremiumTransferOperations).mockImplementationOnce(
+        actualPremium.getPremiumTransferOperations,
+      );
       await expect(
         mergeAccount({
           sourceUserId,
@@ -146,6 +209,9 @@ describe.skipIf(!process.env.RUN_DB_TESTS)(
       expect(
         await prisma.user.findUnique({ where: { id: sourceUserId } }),
       ).toBeNull();
+      expect(
+        await prisma.user.findUnique({ where: { id: targetUserId } }),
+      ).toMatchObject({ premiumId, premiumAdminId: premiumId });
       expect(
         await prisma.emailAccount.findUnique({
           where: { email: "merge-original@example.com" },
