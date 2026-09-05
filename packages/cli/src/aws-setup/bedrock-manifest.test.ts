@@ -11,7 +11,7 @@ vi.mock("node:fs", () => ({
 it("passes both Bedrock runtime keys to ECS through SSM references", () => {
   vi.mocked(existsSync).mockReturnValue(true);
   vi.mocked(readFileSync).mockReturnValue(
-    "name: app\nsecrets:\n  BEDROCK_REGION: /region\n",
+    "name: app\nsecrets:\n  # BEDROCK_ACCESS_KEY: /placeholder\n  # BEDROCK_SECRET_KEY: /placeholder\n  BEDROCK_REGION: /region\n",
   );
   updateServiceManifestSecrets({
     llmEnvVar: "BEDROCK_REGION",

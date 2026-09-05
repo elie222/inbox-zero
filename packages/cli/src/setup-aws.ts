@@ -1360,7 +1360,7 @@ export function updateServiceManifestSecrets(config: {
       config.llmEnvVar === "BEDROCK_REGION" &&
       (secretName === "BEDROCK_ACCESS_KEY" ||
         secretName === "BEDROCK_SECRET_KEY") &&
-      !content.includes(`${secretName}:`)
+      !new RegExp(`^\\s+${secretName}:`, "m").test(content)
     ) {
       content = content.replace(
         /^secrets:.*$/m,
