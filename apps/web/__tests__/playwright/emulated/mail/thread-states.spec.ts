@@ -29,7 +29,7 @@ test("captures thread reading and reply states", async ({ page }, testInfo) => {
     .getByRole("button", { name: "Show details", exact: true })
     .last()
     .click();
-  await expect(page.getByText("From:", { exact: true })).toBeVisible();
+  await expect(page.getByText("From", { exact: true })).toBeVisible();
   await capturePlaywrightCheckpoint(page, testInfo, "03-header-details");
   await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reply`);
   await expect(
