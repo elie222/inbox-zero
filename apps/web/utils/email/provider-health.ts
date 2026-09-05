@@ -26,12 +26,14 @@ export async function recordEmailAccountProviderIssue({
   error,
   logger,
   operation,
+  failedAccessToken,
 }: {
   emailAccountId: string;
   provider: "google" | "microsoft";
   error: unknown;
   logger: Logger;
   operation: string;
+  failedAccessToken?: string;
 }) {
   const issue = classifyEmailAccountProviderIssue({ error, provider });
   if (!issue) return;
@@ -56,6 +58,7 @@ export async function recordEmailAccountProviderIssue({
     await cleanupInvalidTokens({
       emailAccountId,
       reason: issue.reason,
+      failedAccessToken,
       logger,
     });
   } catch (error) {

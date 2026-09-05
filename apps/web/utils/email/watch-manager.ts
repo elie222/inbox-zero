@@ -241,6 +241,7 @@ async function watchEmails({
   { success: true; expirationDate: Date } | { success: false; error: unknown }
 > {
   logger.info("Watching emails");
+  const failedAccessToken = provider.getAccessToken();
 
   try {
     if (isMicrosoftProvider(provider.name)) {
@@ -280,6 +281,7 @@ async function watchEmails({
       await cleanupInvalidTokens({
         emailAccountId,
         reason: isInvalidGrant ? "invalid_grant" : "insufficient_permissions",
+        failedAccessToken,
         logger,
       });
     } else {

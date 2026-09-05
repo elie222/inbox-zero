@@ -91,13 +91,16 @@ function withProviderFailureLogging(
       if (typeof value !== "function") return value;
 
       return (...args: unknown[]) => {
+        let failedAccessToken: string | undefined;
         try {
+          failedAccessToken = target.getAccessToken();
           const result = value.apply(target, args);
           if (!isPromiseLike(result)) return result;
 
           return result.catch(async (error: unknown) => {
             await logProviderOperationFailureSafely({
               error,
+              failedAccessToken,
               emailAccountId,
               provider,
               logger,
@@ -108,6 +111,7 @@ function withProviderFailureLogging(
         } catch (error) {
           logProviderOperationFailureSafely({
             error,
+            failedAccessToken,
             emailAccountId,
             provider,
             operation: String(property),
@@ -141,12 +145,14 @@ async function logProviderOperationFailure({
   provider,
   logger,
   operation,
+  failedAccessToken,
 }: {
   error: unknown;
   emailAccountId: string;
   provider: "google" | "microsoft";
   logger: Logger;
   operation: string;
+  failedAccessToken?: string;
 }) {
   logger.warn("Email provider operation failed", {
     error,
@@ -160,6 +166,7 @@ async function logProviderOperationFailure({
     error,
     logger,
     operation,
+    failedAccessToken,
   });
   await flushLoggerSafely(logger, {
     action: "emailProvider",
@@ -175,6 +182,7 @@ async function recordProviderIssueSafely({
   error,
   logger,
   operation,
+  failedAccessToken,
 }: ProviderOperationFailureLogInput) {
   await recordEmailAccountProviderIssue({
     emailAccountId,
@@ -182,6 +190,7 @@ async function recordProviderIssueSafely({
     error,
     logger,
     operation,
+    failedAccessToken,
   }).catch((recordError) => {
     logger.warn("Failed to record provider issue", {
       error: recordError,
@@ -198,6 +207,7 @@ type ProviderOperationFailureLogInput = {
   provider: "google" | "microsoft";
   logger: Logger;
   operation: string;
+  failedAccessToken?: string;
 };
 
 function isPromiseLike(value: unknown): value is Promise<unknown> {

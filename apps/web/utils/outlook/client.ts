@@ -257,6 +257,8 @@ export const getOutlookClientWithRefresh = async ({
         await cleanupInvalidTokens({
           emailAccountId,
           reason: "invalid_grant",
+          failedAccessToken: accessToken,
+          failedRefreshToken: refreshToken,
           logger,
         });
 

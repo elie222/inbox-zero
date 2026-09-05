@@ -221,6 +221,8 @@ describe("gmail oauth client configuration", () => {
     expect(cleanupInvalidTokens).toHaveBeenCalledWith({
       emailAccountId: "email-account-id",
       reason: "invalid_grant",
+      failedAccessToken: "stale-access-token",
+      failedRefreshToken: "refresh-token",
       logger,
     });
     expect(saveTokens).not.toHaveBeenCalled();

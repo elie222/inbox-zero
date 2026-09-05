@@ -69,6 +69,7 @@ describe("ensureEmailAccountsWatched", () => {
 
     vi.mocked(createEmailProvider).mockResolvedValue({
       name: "google",
+      getAccessToken: () => "access-token",
       watchEmails: vi
         .fn()
         .mockRejectedValue(
@@ -108,6 +109,7 @@ describe("ensureEmailAccountsWatched", () => {
 
     vi.mocked(createEmailProvider).mockResolvedValue({
       name: "google",
+      getAccessToken: () => "access-token",
       watchEmails: vi.fn().mockResolvedValue({
         expirationDate: new Date(Date.now() + 3_600_000),
       }),
@@ -141,6 +143,7 @@ describe("ensureEmailAccountsWatched", () => {
 
     vi.mocked(createEmailProvider).mockResolvedValue({
       name: "google",
+      getAccessToken: () => "access-token",
       watchEmails: vi.fn().mockResolvedValue({
         expirationDate: new Date(Date.now() + 3_600_000),
       }),
