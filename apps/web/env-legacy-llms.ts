@@ -150,6 +150,7 @@ function getLegacyProviderDefaultModel(
     openai: "gpt-5.4-mini",
     bedrock: "global.anthropic.claude-sonnet-4-6",
     openrouter: "anthropic/claude-sonnet-4.6",
+    orcarouter: "orcarouter/auto",
     groq: "llama-3.3-70b-versatile",
     aigateway: "anthropic/claude-sonnet-4.6",
     ollama: env.OLLAMA_MODEL,

@@ -98,6 +98,7 @@
         "GOOGLE_APPLICATION_CREDENTIALS",
         "GROQ_API_KEY",
         "OPENROUTER_API_KEY",
+        "ORCAROUTER_API_KEY",
         "AI_GATEWAY_API_KEY",
         "OLLAMA_BASE_URL",
         "OLLAMA_MODEL",

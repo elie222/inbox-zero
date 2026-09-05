@@ -248,6 +248,20 @@ function selectModel(
         providerOptions,
       };
     }
+    case Provider.ORCAROUTER: {
+      const modelName = aiModel || "orcarouter/auto";
+      const orcarouter = createOpenAICompatible({
+        name: "orcarouter",
+        baseURL: "https://api.orcarouter.ai/v1",
+        apiKey: resolveApiKey(aiApiKey, env.ORCAROUTER_API_KEY),
+        supportsStructuredOutputs: true,
+      });
+      return {
+        provider: Provider.ORCAROUTER,
+        modelName,
+        model: orcarouter(modelName),
+      };
+    }
     case Provider.AI_GATEWAY: {
       const modelName = aiModel || "anthropic/claude-sonnet-4.6";
       const aiGatewayApiKey = resolveApiKey(aiApiKey, env.AI_GATEWAY_API_KEY);
@@ -556,6 +570,7 @@ function getProviderApiKey(provider: string) {
       : undefined,
     [Provider.GROQ]: resolveApiKey(null, env.GROQ_API_KEY),
     [Provider.OPENROUTER]: resolveApiKey(null, env.OPENROUTER_API_KEY),
+    [Provider.ORCAROUTER]: resolveApiKey(null, env.ORCAROUTER_API_KEY),
     [Provider.AI_GATEWAY]: resolveApiKey(null, env.AI_GATEWAY_API_KEY),
     [Provider.OLLAMA]: "ollama-local",
     // Returns a placeholder so the fallback chain doesn't skip this provider

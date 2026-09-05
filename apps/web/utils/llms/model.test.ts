@@ -92,6 +92,7 @@ vi.mock("@/env", () => ({
     ANTHROPIC_API_KEY: "test-anthropic-key",
     GROQ_API_KEY: "test-groq-key",
     OPENROUTER_API_KEY: "test-openrouter-key",
+    ORCAROUTER_API_KEY: "test-orcarouter-key",
     AI_GATEWAY_API_KEY: "test-ai-gateway-key",
     OLLAMA_BASE_URL: "http://localhost:11434/api",
     OLLAMA_MODEL: "llama3",
@@ -143,6 +144,7 @@ describe("Models", () => {
     vi.mocked(env).ANTHROPIC_API_KEY = "test-anthropic-key";
     vi.mocked(env).GROQ_API_KEY = "test-groq-key";
     vi.mocked(env).OPENROUTER_API_KEY = "test-openrouter-key";
+    vi.mocked(env).ORCAROUTER_API_KEY = "test-orcarouter-key";
     vi.mocked(env).AI_GATEWAY_API_KEY = "test-ai-gateway-key";
     vi.mocked(env).OLLAMA_BASE_URL = "http://localhost:11434/api";
     vi.mocked(env).OLLAMA_MODEL = "llama3";
@@ -409,6 +411,37 @@ describe("Models", () => {
       const result = getModel(userAi);
       expect(result.provider).toBe(Provider.OPENROUTER);
       expect(result.modelName).toBe("llama-3.3-70b-versatile");
+      expect(result.model).toBeDefined();
+    });
+
+    it("should configure OrcaRouter model correctly", () => {
+      const userAi = defaultUserAi({
+        aiApiKey: "user-api-key",
+        aiProvider: Provider.ORCAROUTER,
+        aiModel: "anthropic/claude-sonnet-4.6",
+      });
+
+      const result = getModel(userAi);
+      expect(result.provider).toBe(Provider.ORCAROUTER);
+      expect(result.modelName).toBe("anthropic/claude-sonnet-4.6");
+      expect(result.model).toBeDefined();
+      expect(createOpenAICompatible).toHaveBeenCalledWith({
+        name: "orcarouter",
+        baseURL: "https://api.orcarouter.ai/v1",
+        apiKey: "user-api-key",
+        supportsStructuredOutputs: true,
+      });
+    });
+
+    it("should use the OrcaRouter default model when only the provider is set", () => {
+      const userAi = defaultUserAi({
+        aiApiKey: "user-api-key",
+        aiProvider: Provider.ORCAROUTER,
+      });
+
+      const result = getModel(userAi);
+      expect(result.provider).toBe(Provider.ORCAROUTER);
+      expect(result.modelName).toBe("orcarouter/auto");
       expect(result.model).toBeDefined();
     });
 

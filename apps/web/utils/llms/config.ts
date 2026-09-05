@@ -10,6 +10,7 @@ export const Provider = {
   GOOGLE: "google",
   GROQ: "groq",
   OPENROUTER: "openrouter",
+  ORCAROUTER: "orcarouter",
   AI_GATEWAY: "aigateway",
   OLLAMA: "ollama",
   OPENAI_COMPATIBLE: "openai-compatible",
@@ -25,5 +26,6 @@ export const providerOptions: { label: string; value: string }[] = [
   { label: "Google", value: Provider.GOOGLE },
   { label: "Groq", value: Provider.GROQ },
   { label: "OpenRouter", value: Provider.OPENROUTER },
+  { label: "OrcaRouter", value: Provider.ORCAROUTER },
   { label: "Vercel AI Gateway", value: Provider.AI_GATEWAY },
 ];

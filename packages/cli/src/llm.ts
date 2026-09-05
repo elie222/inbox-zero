@@ -11,6 +11,11 @@ export const LLM_PROVIDER_OPTIONS = [
     hint: "access multiple models",
   },
   {
+    value: "orcarouter",
+    label: "OrcaRouter",
+    hint: "access multiple models",
+  },
+  {
     value: "aigateway",
     label: "Vercel AI Gateway",
     hint: "access multiple models",
@@ -30,6 +35,7 @@ const LLM_LINKS: Record<string, string> = {
   openai: "https://platform.openai.com/api-keys",
   google: "https://aistudio.google.com/apikey",
   openrouter: "https://openrouter.ai/settings/keys",
+  orcarouter: "https://www.orcarouter.ai",
   aigateway: "https://vercel.com/docs/ai-gateway",
   groq: "https://console.groq.com/keys",
 };
@@ -46,6 +52,10 @@ const DEFAULT_MODELS = {
   openrouter: {
     default: "anthropic/claude-sonnet-4.6",
     economy: "anthropic/claude-haiku-4.5",
+  },
+  orcarouter: {
+    default: "orcarouter/auto",
+    economy: "orcarouter/auto",
   },
   aigateway: {
     default: "anthropic/claude-sonnet-4.6",

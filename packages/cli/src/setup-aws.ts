@@ -470,6 +470,11 @@ export async function runAwsSetup(options: AwsSetupOptions) {
           hint: "access multiple models",
         },
         {
+          value: "orcarouter",
+          label: "OrcaRouter",
+          hint: "access multiple models",
+        },
+        {
           value: "aigateway",
           label: "Vercel AI Gateway",
           hint: "access multiple models",
@@ -506,6 +511,9 @@ export async function runAwsSetup(options: AwsSetupOptions) {
         },
         openrouter: {
           url: "https://openrouter.ai/settings/keys",
+        },
+        orcarouter: {
+          url: "https://www.orcarouter.ai",
         },
         aigateway: {
           url: "https://vercel.com/docs/ai-gateway",
