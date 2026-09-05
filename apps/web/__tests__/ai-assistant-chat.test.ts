@@ -1939,6 +1939,7 @@ describe("aiProcessAssistantChat", () => {
 
     expect(result).toEqual({
       actionType: "send_email",
+      emailAccountId: "email-account-id",
       confirmationState: "pending",
       pendingAction: {
         to: "recipient@example.test",
@@ -1956,7 +1957,10 @@ describe("aiProcessAssistantChat", () => {
     expect(sendEmailWithHtml).not.toHaveBeenCalled();
   });
 
-  it("rejects unsupported from field in chat send params", async () => {
+  it.each([
+    "from",
+    "emailAccountId",
+  ])("rejects caller-supplied %s in chat send params", async (field) => {
     const tools = await captureToolSet(true, "google");
     mockCreateEmailProvider.mockResolvedValue({
       sendEmailWithHtml: vi.fn(),
@@ -1965,13 +1969,13 @@ describe("aiProcessAssistantChat", () => {
 
     const result = await tools.sendEmail.execute({
       to: "recipient@example.test",
-      from: "sender.alias@example.test",
+      [field]: "untrusted-mailbox",
       subject: "Subject line",
       messageHtml: "<p>Hello</p>",
     } as any);
 
     expect(result).toEqual({
-      error: 'Invalid sendEmail input: unsupported field "from"',
+      error: `Invalid sendEmail input: unsupported field "${field}"`,
     });
     expect(mockCreateEmailProvider).toHaveBeenCalledTimes(providerCallsBefore);
   });
@@ -2014,6 +2018,7 @@ describe("aiProcessAssistantChat", () => {
 
     expect(result).toEqual({
       actionType: "send_email",
+      emailAccountId: "email-account-id",
       confirmationState: "pending",
       pendingAction: {
         to: "recipient@example.test",
@@ -2051,6 +2056,7 @@ describe("aiProcessAssistantChat", () => {
 
     expect(result).toEqual({
       actionType: "forward_email",
+      emailAccountId: "email-account-id",
       confirmationState: "pending",
       pendingAction: {
         messageId: "message-1",
