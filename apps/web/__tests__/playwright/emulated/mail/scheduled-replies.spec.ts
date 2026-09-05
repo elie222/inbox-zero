@@ -16,10 +16,20 @@ test("schedules a reply with a reminder, persists it and cancels both", async ({
     const sendDialog = page.getByRole("dialog", { name: "Send later" });
     await expect(sendDialog).toBeVisible();
     await capturePlaywrightCheckpoint(page, testInfo, "16-send-later-menu");
+    await sendDialog
+      .getByRole("button", { name: "Choose date and time" })
+      .click();
+    await expect(
+      sendDialog.getByLabel("Send later date and time"),
+    ).toBeVisible();
+    await sendDialog.getByRole("button", { name: "Back", exact: true }).click();
+    await expect(sendDialog.getByLabel("Send later date and time")).toHaveCount(
+      0,
+    );
     await sendDialog.getByRole("button", { name: /Tomorrow morning/ }).click();
     await page.getByRole("button", { name: "Remind me", exact: true }).click();
     const reminderDialog = page.getByRole("dialog", { name: "Remind me" });
-    await expect(reminderDialog).toContainText("if no one replies");
+    await expect(reminderDialog).toContainText("if no reply");
     await capturePlaywrightCheckpoint(page, testInfo, "17-reminder-menu");
     await reminderDialog
       .getByRole("button", { name: /2 days after sending/ })

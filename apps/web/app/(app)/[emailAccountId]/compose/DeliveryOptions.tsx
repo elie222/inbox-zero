@@ -1,7 +1,14 @@
 "use client";
 
 import { type ReactNode, useState } from "react";
-import { BellIcon, ClockIcon, XIcon } from "lucide-react";
+import {
+  BellIcon,
+  CalendarDaysIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ClockIcon,
+  XIcon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -60,14 +67,22 @@ function DeliveryTimePicker({
 }) {
   const [open, setOpen] = useState(false);
   const [custom, setCustom] = useState("");
+  const [showCustom, setShowCustom] = useState(false);
   const isReminder = label === "Remind me";
   const earliest = Math.max(Date.now(), after ? new Date(after).getTime() : 0);
   const choose = (date: Date) => {
     onChange(date.toISOString());
+    setShowCustom(false);
     setOpen(false);
   };
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (!nextOpen) setShowCustom(false);
+      }}
+    >
       <PopoverTrigger asChild>
         <Button
           type="button"
@@ -89,80 +104,103 @@ function DeliveryTimePicker({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-72 space-y-3"
+        className="w-72 p-1"
         align="start"
         role="dialog"
         aria-label={label}
       >
-        <div>
-          <p className="font-medium text-sm">{label}</p>
-          <p className="mt-1 text-muted-foreground text-xs">
-            {isReminder
-              ? "Return this thread to your inbox if no one replies."
-              : "Sends even when the app is closed. Times are local."}
-          </p>
-        </div>
-        {[1, 2, 7].map((days) => {
-          const date = new Date(earliest);
-          date.setDate(date.getDate() + days);
-          date.setHours(9, 0, 0, 0);
-          return (
+        {showCustom ? (
+          <div className="space-y-3 p-2">
             <Button
-              key={days}
               type="button"
               variant="ghost"
-              className="flex h-auto w-full justify-between px-2 py-2 text-sm"
-              onClick={() => choose(date)}
+              size="sm"
+              className="-ml-1 h-7 gap-1 px-1 text-xs"
+              onClick={() => setShowCustom(false)}
             >
-              <span>
-                {after
-                  ? `${days} ${days === 1 ? "day" : "days"} after sending`
-                  : days === 1
-                    ? "Tomorrow morning"
-                    : `In ${days} days`}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {date.toLocaleDateString(undefined, {
-                  month: "short",
-                  day: "numeric",
-                })}{" "}
-                · 9:00
-              </span>
+              <ChevronLeftIcon className="size-3.5" />
+              Back
             </Button>
-          );
-        })}
-        <label className="block text-xs">
-          Choose a date and time
-          <input
-            aria-label={`${label} date and time`}
-            type="datetime-local"
-            value={custom}
-            onChange={(event) => setCustom(event.target.value)}
-            className="mt-2 w-full rounded-md border border-input bg-background p-2 text-sm"
-          />
-        </label>
-        <Button
-          type="button"
-          size="sm"
-          className="w-full"
-          disabled={!custom || new Date(custom).getTime() <= earliest}
-          onClick={() => choose(new Date(custom))}
-        >
-          Set time
-        </Button>
-        {value && (
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            onClick={() => {
-              onChange("");
-              setOpen(false);
-            }}
-          >
-            <XIcon className="mr-1 size-3.5" />
-            Clear time
-          </Button>
+            <label className="block text-xs text-muted-foreground">
+              Choose a date and time
+              <input
+                aria-label={`${label} date and time`}
+                type="datetime-local"
+                value={custom}
+                onChange={(event) => setCustom(event.target.value)}
+                className="mt-2 w-full rounded-md border border-input bg-background p-2 text-sm text-foreground"
+              />
+            </label>
+            <Button
+              type="button"
+              size="sm"
+              className="w-full"
+              disabled={!custom || new Date(custom).getTime() <= earliest}
+              onClick={() => choose(new Date(custom))}
+            >
+              Set time
+            </Button>
+          </div>
+        ) : (
+          <>
+            <p className="px-2 py-2 text-xs font-medium text-muted-foreground">
+              {isReminder ? "Remind me if no reply" : label}
+            </p>
+            {[1, 2, 7].map((days) => {
+              const date = new Date(earliest);
+              date.setDate(date.getDate() + days);
+              date.setHours(9, 0, 0, 0);
+              return (
+                <Button
+                  key={days}
+                  type="button"
+                  variant="ghost"
+                  className="flex h-9 w-full justify-between gap-3 px-2 text-xs font-normal"
+                  onClick={() => choose(date)}
+                >
+                  <span>
+                    {after
+                      ? `${days} ${days === 1 ? "day" : "days"} after sending`
+                      : days === 1
+                        ? "Tomorrow morning"
+                        : `In ${days} days`}
+                  </span>
+                  <span className="shrink-0 text-muted-foreground">
+                    {date.toLocaleDateString(undefined, {
+                      month: "short",
+                      day: "numeric",
+                    })}{" "}
+                    · 9:00
+                  </span>
+                </Button>
+              );
+            })}
+            <div className="my-1 border-t" />
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-9 w-full justify-start gap-2 px-2 text-xs font-normal"
+              onClick={() => setShowCustom(true)}
+            >
+              <CalendarDaysIcon className="size-3.5 text-muted-foreground" />
+              Choose date and time
+              <ChevronRightIcon className="ml-auto size-3.5 text-muted-foreground" />
+            </Button>
+            {value && (
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-9 w-full justify-start gap-2 px-2 text-xs font-normal text-muted-foreground"
+                onClick={() => {
+                  onChange("");
+                  setOpen(false);
+                }}
+              >
+                <XIcon className="size-3.5" />
+                Clear time
+              </Button>
+            )}
+          </>
         )}
       </PopoverContent>
     </Popover>

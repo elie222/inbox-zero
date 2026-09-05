@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import {
+  AlertCircleIcon,
+  CheckIcon,
+  ClockIcon,
+  LoaderCircleIcon,
+  WifiOffIcon,
+} from "lucide-react";
 import useSWR from "swr";
 import { restoreReplyFromOutbox } from "@/utils/email-cache/reply-drafts";
 import { Button } from "@/components/ui/button";
@@ -33,6 +40,11 @@ export function ThreadDeliveryStatus({
   refetch: () => void;
   canEditReply: boolean;
 }) {
+  const online = useSyncExternalStore(
+    subscribeToConnectivity,
+    () => navigator.onLine,
+    () => true,
+  );
   const [actionError, setActionError] = useState("");
   const [busy, setBusy] = useState(false);
   const { data: outbox = [], mutate: refreshOutbox } = useSWR(
@@ -136,24 +148,27 @@ export function ThreadDeliveryStatus({
         )),
   );
   return (
-    <section className="space-y-2" aria-label="Reply delivery status">
+    <section className="space-y-1" aria-label="Reply delivery status">
       {visible.map((row) => (
         <div
           key={row.id}
-          className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm"
+          className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 py-2 text-xs text-muted-foreground"
         >
-          <p role="status" className="font-medium">
-            {deliveryLabel(row)}
+          <p
+            role="status"
+            className="flex items-center gap-2 font-medium text-foreground"
+          >
+            <DeliveryIcon status={row.status} offline={!online} />
+            {deliveryLabel(row, online)}
           </p>
-          {row.status !== "succeeded" && (
-            <p className="mt-1 text-muted-foreground text-xs">
-              {row.lastError ||
-                "Your reply is saved in the outbox on this device."}
+          {row.status !== "succeeded" && row.lastError && (
+            <p className="order-last basis-full pl-5 text-muted-foreground">
+              {row.lastError}
             </p>
           )}
           {row.status === "uncertain" && (
             <a
-              className="mt-2 inline-block underline"
+              className="underline underline-offset-4"
               href={`/${emailAccountId}/mail?type=sent`}
             >
               Check Sent
@@ -167,6 +182,7 @@ export function ThreadDeliveryStatus({
                 disabled={busy}
                 type="button"
                 variant="ghost"
+                className="h-auto px-1 py-1 text-xs text-muted-foreground hover:text-foreground"
                 size="sm"
                 onClick={() =>
                   act(async () => {
@@ -190,26 +206,33 @@ export function ThreadDeliveryStatus({
         .map((row) => (
           <div
             key={row.id}
-            className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm"
+            className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 py-2 text-xs text-muted-foreground"
           >
-            <p role="status" className="font-medium">
+            <p
+              role="status"
+              className="flex items-center gap-2 font-medium text-foreground"
+            >
+              <DeliveryIcon status={row.status.toLowerCase()} />
               {scheduledDeliveryLabel(row)}
             </p>
             {row.error && (
-              <p className="mt-1 text-destructive text-xs">{row.error}</p>
+              <p className="order-last basis-full pl-5 text-destructive">
+                {row.error}
+              </p>
             )}
             {row.remindAt &&
               ["PENDING", "PROCESSING"].includes(row.reminderStatus) && (
-                <p className="mt-1 text-xs text-muted-foreground">
+                <p className="order-last basis-full pl-5 text-muted-foreground">
                   Remind me {formatTime(row.remindAt)} if no reply.
                 </p>
               )}
-            <div className="mt-1 flex flex-wrap gap-1">
+            <div className="contents">
               {["PENDING", "BLOCKED_AUTH", "FAILED"].includes(row.status) && (
                 <Button
                   disabled={busy}
                   size="sm"
                   variant="ghost"
+                  className="h-auto px-1 py-1 text-xs text-muted-foreground hover:text-foreground"
                   onClick={() =>
                     act(() =>
                       scheduledAction(cancelScheduledEmailAction, row.id),
@@ -224,6 +247,7 @@ export function ThreadDeliveryStatus({
                   disabled={busy}
                   size="sm"
                   variant="ghost"
+                  className="h-auto px-1 py-1 text-xs text-muted-foreground hover:text-foreground"
                   onClick={() =>
                     act(() =>
                       scheduledAction(retryScheduledEmailAction, row.id),
@@ -238,6 +262,7 @@ export function ThreadDeliveryStatus({
                   disabled={busy}
                   size="sm"
                   variant="ghost"
+                  className="h-auto px-1 py-1 text-xs text-muted-foreground hover:text-foreground"
                   onClick={() =>
                     act(() =>
                       scheduledAction(cancelEmailReminderAction, row.id),
@@ -249,7 +274,7 @@ export function ThreadDeliveryStatus({
               )}
               {row.status === "UNCERTAIN" && (
                 <a
-                  className="p-2 underline"
+                  className="underline underline-offset-4"
                   href={`/${emailAccountId}/mail?type=sent`}
                 >
                   Check Sent
@@ -276,7 +301,7 @@ function formatTime(value: string | Date) {
   });
 }
 
-function deliveryLabel(row: StoredMailMutation) {
+function deliveryLabel(row: StoredMailMutation, online: boolean) {
   switch (row.status) {
     case "succeeded":
       return "Reply sent";
@@ -289,7 +314,7 @@ function deliveryLabel(row: StoredMailMutation) {
     case "blocked_auth":
       return "Reconnect your account to send this reply";
     default:
-      return "Reply queued";
+      return online ? "Waiting to send" : "Waiting for connection";
   }
 }
 
@@ -308,4 +333,56 @@ function scheduledDeliveryLabel(
     default:
       return "Reply needs attention";
   }
+}
+
+function DeliveryIcon({
+  status,
+  offline = false,
+}: {
+  status: string;
+  offline?: boolean;
+}) {
+  if (status === "processing")
+    return (
+      <LoaderCircleIcon
+        aria-hidden
+        className="size-3.5 shrink-0 motion-safe:animate-spin text-muted-foreground"
+      />
+    );
+  if (status === "succeeded" || status === "sent")
+    return (
+      <CheckIcon
+        aria-hidden
+        className="size-3.5 shrink-0 text-muted-foreground"
+      />
+    );
+  if (["uncertain", "failed", "blocked_auth"].includes(status))
+    return (
+      <AlertCircleIcon
+        aria-hidden
+        className="size-3.5 shrink-0 text-destructive"
+      />
+    );
+  if (offline)
+    return (
+      <WifiOffIcon
+        aria-hidden
+        className="size-3.5 shrink-0 text-muted-foreground"
+      />
+    );
+  return (
+    <ClockIcon
+      aria-hidden
+      className="size-3.5 shrink-0 text-muted-foreground"
+    />
+  );
+}
+
+function subscribeToConnectivity(onChange: () => void) {
+  window.addEventListener("online", onChange);
+  window.addEventListener("offline", onChange);
+  return () => {
+    window.removeEventListener("online", onChange);
+    window.removeEventListener("offline", onChange);
+  };
 }

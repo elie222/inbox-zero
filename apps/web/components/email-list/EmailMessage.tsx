@@ -117,10 +117,10 @@ export function EmailMessage({
   return (
     <li
       className={cn(
-        "group/message min-w-0 rounded-lg transition-[box-shadow,border-color]",
+        "group/message min-w-0 border-l-2 transition-colors",
         expanded
-          ? "my-3 border border-border/70 bg-card p-4 shadow-sm focus-within:border-primary/30 focus-within:ring-1 focus-within:ring-primary/10 sm:p-5"
-          : "px-4 py-1.5 hover:bg-muted/40 sm:px-5",
+          ? "my-2 border-border/70 px-4 py-3 focus-within:border-primary sm:px-5"
+          : "border-transparent px-4 py-1.5 hover:bg-muted/40 sm:px-5",
       )}
     >
       <MessageHeader
@@ -138,7 +138,7 @@ export function EmailMessage({
 
       {expanded && (
         // Aligns the body with the sender's name rather than the avatar.
-        <div className="min-w-0 pt-4 sm:pl-9">
+        <div className="min-w-0 pt-3 sm:pl-9">
           {showDetails && <EmailDetails message={message} />}
 
           {message.textHtml ? (
@@ -535,7 +535,7 @@ function ReplyPanel({
   ]);
 
   return (
-    <div className="mt-5 border-border/70 border-t pt-4" ref={replyRef}>
+    <div className="mt-4 border-border/50 border-t pt-3" ref={replyRef}>
       {isGeneratingReply ? (
         <div className="flex items-center justify-center">
           <Loading />

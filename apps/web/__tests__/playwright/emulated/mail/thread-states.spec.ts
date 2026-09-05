@@ -1,4 +1,5 @@
-import { expect } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
+import type { StoredReplyDraft } from "@/utils/email-cache/database";
 import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
@@ -58,9 +59,11 @@ test("captures thread reading and reply states", async ({ page }, testInfo) => {
   ).toBeVisible();
   await capturePlaywrightCheckpoint(page, testInfo, "07-reply-recipients");
   await page.getByRole("button", { name: "Hide Cc/Bcc", exact: true }).click();
-  await expect(
-    page.getByText("Saved on this device", { exact: true }),
-  ).toBeVisible();
+  await expectStoredReply(
+    page,
+    emailAccountId,
+    "Thanks Leslie, Thursday at 2 pm works for me.",
+  );
   await page.reload();
   await expect(
     page.getByRole("heading", { name: "Reply Workflow Message" }),
@@ -70,9 +73,11 @@ test("captures thread reading and reply states", async ({ page }, testInfo) => {
   );
   await capturePlaywrightCheckpoint(page, testInfo, "08-draft-after-reload");
   await editor.fill("A reply that should survive navigation.");
-  await expect(
-    page.getByText("Saved on this device", { exact: true }),
-  ).toBeVisible();
+  await expectStoredReply(
+    page,
+    emailAccountId,
+    "A reply that should survive navigation.",
+  );
   await page.goto(`/${emailAccountId}/mail`);
   await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reply`);
   await expect(
@@ -134,7 +139,12 @@ test("captures queued reply and reconnect", async ({ page }, testInfo) => {
   const queuedToast = page.locator("[data-sonner-toast]").filter({
     hasText: "Email queued. It will send when you're back online.",
   });
-  await expect(queuedToast).toBeVisible();
+  await expect(
+    page
+      .getByRole("region", { name: "Reply delivery status" })
+      .getByText("Waiting for connection", { exact: true }),
+  ).toBeVisible();
+  await expect(queuedToast).toHaveCount(0);
   await capturePlaywrightCheckpoint(page, testInfo, "09-queued-reply");
   await expect(queuedToast).toHaveCount(0);
   await capturePlaywrightCheckpoint(page, testInfo, "10-queued-after-toast");
@@ -295,13 +305,13 @@ test("restores a queued reply for editing without sending a duplicate", async ({
   await page.getByRole("button", { name: "Send", exact: true }).click();
   const delivery = page.getByRole("region", { name: "Reply delivery status" });
   await expect(
-    delivery.getByText("Reply queued", { exact: true }),
+    delivery.getByText("Waiting for connection", { exact: true }),
   ).toBeVisible();
   await delivery.getByRole("button", { name: "Edit reply" }).click();
   await expect(editor).toContainText(text);
-  await expect(delivery.getByText("Reply queued", { exact: true })).toHaveCount(
-    0,
-  );
+  await expect(
+    delivery.getByText("Waiting for connection", { exact: true }),
+  ).toHaveCount(0);
   await expect
     .poll(() =>
       readLatestMailMutation(page, {
@@ -312,9 +322,7 @@ test("restores a queued reply for editing without sending a duplicate", async ({
     )
     .toBeUndefined();
   await editor.fill(`${text} Let's meet at 3 pm.`);
-  await expect(
-    page.getByText("Saved on this device", { exact: true }),
-  ).toBeVisible();
+  await expectStoredReply(page, emailAccountId, "Let's meet at 3 pm.");
   await capturePlaywrightCheckpoint(page, testInfo, "22-edit-queued-reply");
   await page.reload();
   await expect(editor).toContainText("Let's meet at 3 pm.");
@@ -328,3 +336,45 @@ test("restores a queued reply for editing without sending a duplicate", async ({
     )
     .toBeUndefined();
 });
+
+async function expectStoredReply(
+  page: Page,
+  emailAccountId: string,
+  text: string,
+) {
+  await expect
+    .poll(() =>
+      page.evaluate(
+        async (accountId) =>
+          await new Promise<string[]>((resolve, reject) => {
+            const request = indexedDB.open("inbox-zero-email-cache");
+            request.onerror = () => reject(request.error);
+            request.onsuccess = () => {
+              const database = request.result;
+              const transaction = database.transaction(
+                "replyDrafts",
+                "readonly",
+              );
+              const drafts = transaction
+                .objectStore("replyDrafts")
+                .index("byAccountThread")
+                .getAll([accountId, "thr_playwright_reply"]);
+              transaction.oncomplete = () => {
+                database.close();
+                resolve(
+                  (drafts.result as StoredReplyDraft[]).map(
+                    (row) => row.content?.draft.editableHtml ?? "",
+                  ),
+                );
+              };
+              transaction.onerror = () => {
+                database.close();
+                reject(transaction.error);
+              };
+            };
+          }),
+        emailAccountId,
+      ),
+    )
+    .toEqual(expect.arrayContaining([expect.stringContaining(text)]));
+}

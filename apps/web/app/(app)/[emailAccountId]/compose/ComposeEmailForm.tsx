@@ -211,9 +211,8 @@ function ComposeEmailFormContent({
     () => storedDraft?.content?.requestId ?? randomUuid(),
   );
   const deliveryPath = useRef(storedDraft?.content?.deliveryPath);
-  const [saveStatus, setSaveStatus] = useState(
-    draftLoadError?.message ??
-      (storedDraft?.content ? "Saved on this device" : ""),
+  const [draftSaveError, setDraftSaveError] = useState(
+    draftLoadError?.message ?? "",
   );
   const [submissionError, setSubmissionError] = useState(() => {
     const times = parseDeliveryTimes(sendAt, remindAt);
@@ -309,6 +308,7 @@ function ComposeEmailFormContent({
     useState(false);
   const [isReconnectingContacts, setIsReconnectingContacts] = useState(false);
   const [editReply, setEditReply] = useState(false);
+  const [editSubject, setEditSubject] = useState(false);
   const [showCcBcc, setShowCcBcc] = useState(
     Boolean(
       storedDraft?.content?.values.cc ||
@@ -350,10 +350,7 @@ function ComposeEmailFormContent({
     const content = latestDraft.current;
     if (!content || !draftWriter || draftStopped.current) return;
     const snapshot = latestDraftSnapshot.current;
-    if (snapshot === lastSavedSnapshot.current) {
-      if (isMountedRef.current) setSaveStatus("Saved on this device");
-      return;
-    }
+    if (snapshot === lastSavedSnapshot.current) return;
     draftWriter.save(content).then(
       () => {
         lastSavedSnapshot.current = snapshot;
@@ -362,11 +359,11 @@ function ComposeEmailFormContent({
           !draftStopped.current &&
           latestDraftSnapshot.current === snapshot
         )
-          setSaveStatus("Saved on this device");
+          setDraftSaveError("");
       },
       (error) => {
         if (isMountedRef.current)
-          setSaveStatus(
+          setDraftSaveError(
             error instanceof Error
               ? error.message
               : "Could not save draft on this device.",
@@ -405,7 +402,6 @@ function ComposeEmailFormContent({
     if (snapshot === latestDraftSnapshot.current) return;
     latestDraftSnapshot.current = snapshot;
     latestDraft.current = content;
-    setSaveStatus("Saving…");
     clearTimeout(draftTimer.current);
     draftTimer.current = setTimeout(persistDraft, 300);
   };
@@ -751,13 +747,14 @@ function ComposeEmailFormContent({
             return;
           }
           if (outcome.status === "sent") {
-            toastSuccess({ description: "Email sent!" });
+            if (!isInlineReply) toastSuccess({ description: "Email sent!" });
             onSuccess?.(outcome.messageId, outcome.threadId);
             refetch?.();
           } else if (outcome.status === "queued") {
-            toastSuccess({
-              description: getQueuedEmailDescription(outcome.reason),
-            });
+            if (!isInlineReply)
+              toastSuccess({
+                description: getQueuedEmailDescription(outcome.reason),
+              });
             onClose?.();
           } else if (outcome.status === "uncertain") {
             if (outcome.ownsNotification) {
@@ -886,12 +883,13 @@ function ComposeEmailFormContent({
 
   return (
     <form
+      data-inline-reply={isInlineReply || undefined}
       ref={formRef}
       style={
         isInlineReply
           ? ({
-              "--email-editor-content-min-height": "100px",
-              "--email-editor-content-padding": "0.5rem 0",
+              "--email-editor-content-min-height": "56px",
+              "--email-editor-content-padding": "0.25rem 0",
             } as CSSProperties)
           : undefined
       }
@@ -901,8 +899,7 @@ function ComposeEmailFormContent({
         isComposeWindow
           ? "flex h-full min-h-0 flex-col overflow-hidden [&_[data-email-editor-root]]:min-h-0 [&_[data-email-editor-root]]:flex-1"
           : "space-y-2",
-        isInlineReply &&
-          "space-y-3 [&_[data-email-editor-root]]:min-h-[120px] [&_[contenteditable]]:min-h-[100px]",
+        isInlineReply && "space-y-2",
       )}
     >
       <div className={cn(isComposeWindow ? "shrink-0 px-4" : "contents")}>
@@ -955,6 +952,80 @@ function ComposeEmailFormContent({
               {extractNameFromEmail(watch("to") || replyingToEmail.to)}
             </span>
           </button>
+        ) : isInlineReply ? (
+          <div className="space-y-1 [&_input]:bg-transparent">
+            {(
+              ["to", ...(showCcBcc ? (["cc", "bcc"] as const) : [])] as const
+            ).map((field) => (
+              <div key={field} className="flex min-h-8 items-center gap-2">
+                <label
+                  htmlFor={field}
+                  className="w-6 shrink-0 text-xs text-muted-foreground"
+                >
+                  {RECIPIENT_LABELS[field]}
+                </label>
+                <div className="min-w-0 flex-1">
+                  {env.NEXT_PUBLIC_CONTACTS_ENABLED ? (
+                    <ComposeContactRecipientField
+                      {...recipientFieldProps}
+                      active={activeRecipientField === field}
+                      className="min-h-8"
+                      name={field}
+                      selectedRecipients={watch(field) ?? ""}
+                    />
+                  ) : (
+                    <Input
+                      type="text"
+                      name={field}
+                      registerProps={register(field, {
+                        required: field === "to",
+                      })}
+                      error={errors[field]}
+                      className="h-8 rounded-none border-0 bg-transparent p-0 text-sm shadow-none focus:border-transparent focus:ring-0"
+                    />
+                  )}
+                </div>
+                {field === "to" && (
+                  <button
+                    type="button"
+                    aria-label={showCcBcc ? "Hide Cc/Bcc" : "Cc/Bcc"}
+                    onClick={() => setShowCcBcc(!showCcBcc)}
+                    className="shrink-0 py-2 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    Cc/Bcc
+                  </button>
+                )}
+              </div>
+            ))}
+            {editSubject ? (
+              <div className="flex min-h-8 items-center gap-2">
+                <label
+                  htmlFor="subject"
+                  className="text-xs text-muted-foreground"
+                >
+                  Subject
+                </label>
+                <div className="min-w-0 flex-1">
+                  <Input
+                    type="text"
+                    name="subject"
+                    registerProps={register("subject", { required: true })}
+                    error={errors.subject}
+                    placeholder="Subject"
+                    className="h-8 rounded-none border-0 bg-transparent p-0 text-sm shadow-none focus:border-transparent focus:ring-0"
+                  />
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setEditSubject(true)}
+                className="py-1 text-xs text-muted-foreground hover:text-foreground"
+              >
+                Edit subject
+              </button>
+            )}
+          </div>
         ) : (
           <>
             <div
@@ -1080,6 +1151,7 @@ function ComposeEmailFormContent({
       </div>
 
       <EmailEditor
+        placeholder={isInlineReply ? "Reply…" : undefined}
         appearance={isComposeWindow || isInlineReply ? "seamless" : "contained"}
         autofocus={!focusRecipientField}
         ref={editorRef}
@@ -1238,7 +1310,7 @@ function ComposeEmailFormContent({
                   onDiscard();
                 } catch (error) {
                   draftStopped.current = false;
-                  setSaveStatus(
+                  setDraftSaveError(
                     error instanceof Error
                       ? error.message
                       : "Could not discard this draft.",
@@ -1255,9 +1327,9 @@ function ComposeEmailFormContent({
           )}
         </div>
       </div>
-      {isInlineReply && saveStatus && (
-        <p role="status" className="text-xs text-muted-foreground">
-          {saveStatus}
+      {isInlineReply && draftSaveError && (
+        <p role="alert" className="text-xs text-destructive">
+          {draftSaveError}
         </p>
       )}
     </form>

@@ -21,6 +21,10 @@
   border-radius: 0;
 }
 
+[data-inline-reply="true"] .surface {
+  background: transparent;
+}
+
 .editor {
   flex: 1;
   min-height: 0;
@@ -104,7 +108,11 @@
 
 .editor
   [data-email-editor-content]
-  p[class~="is-editor-empty"]:first-child::before {
+  p[class~="is-editor-empty"]:first-child::before,
+[data-inline-reply="true"]
+  .editor
+  [data-email-editor-content]
+  p[class~="is-empty"]:first-child::before {
   float: left;
   height: 0;
   color: var(--email-editor-muted-foreground);
