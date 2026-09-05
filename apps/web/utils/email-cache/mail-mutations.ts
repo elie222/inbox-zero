@@ -756,7 +756,9 @@ export function subscribeToMailMutations(
   listener: (mutations?: MailMutation[]) => void,
 ) {
   listeners.add(listener);
-  return () => listeners.delete(listener);
+  return () => {
+    listeners.delete(listener);
+  };
 }
 
 async function enqueueInStore(

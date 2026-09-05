@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { mapWithConcurrency } from "@/utils/async";
 import type { z } from "zod";
 import type { ScheduledEmail } from "@/generated/prisma/client";
 import prisma from "@/utils/prisma";
@@ -86,6 +87,43 @@ export async function cancelScheduledEmail(emailAccountId: string, id: string) {
     throw new SafeError(
       "This email has started sending or is no longer scheduled.",
     );
+}
+
+export async function retryScheduledEmail(
+  emailAccountId: string,
+  id: string,
+  now = new Date(),
+) {
+  const row = await prisma.scheduledEmail.findUnique({
+    where: { id, emailAccountId },
+  });
+  if (!row || (row.status !== "FAILED" && row.status !== "BLOCKED_AUTH"))
+    throw new SafeError("This email cannot be retried safely.");
+  const operation = await prisma.emailSendOperation.findUnique({
+    where: {
+      emailAccountId_clientMutationId: {
+        emailAccountId,
+        clientMutationId: row.clientMutationId,
+      },
+    },
+    select: { id: true },
+  });
+  if (operation)
+    throw new SafeError(
+      "This email cannot be retried safely. Check Sent before sending again.",
+    );
+  const result = await prisma.scheduledEmail.updateMany({
+    where: { id, emailAccountId, updatedAt: row.updatedAt, status: row.status },
+    data: {
+      status: "PENDING",
+      sendAt: now,
+      executionQueuedAt: null,
+      processingStartedAt: null,
+      error: null,
+    },
+  });
+  if (!result.count)
+    throw new SafeError("This email cannot be retried safely.");
 }
 
 export async function processScheduledEmail(
@@ -293,14 +331,14 @@ export async function processDueScheduledEmails(
     orderBy: { sendAt: "asc" },
     take: 100,
   });
-  for (const row of rows) {
+  await mapWithConcurrency(rows, 5, async (row) => {
     const scopedLogger = logger.with({
       emailAccountId: row.emailAccountId,
       scheduledEmailId: row.id,
     });
     if (row.status === "SENT") await processReminder(row, scopedLogger, now);
     else await processScheduledEmail(row.id, scopedLogger, now);
-  }
+  });
   return { processed: rows.length };
 }
 

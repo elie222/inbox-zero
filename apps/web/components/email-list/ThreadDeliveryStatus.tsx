@@ -23,12 +23,14 @@ export function ThreadDeliveryStatus({
   messageIds,
   onEditReply,
   refetch,
+  canEditReply,
 }: {
   emailAccountId: string;
   threadId: string;
   messageIds: string[];
   onEditReply: (messageId: string) => void;
   refetch: () => void;
+  canEditReply: boolean;
 }) {
   const [actionError, setActionError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -155,31 +157,32 @@ export function ThreadDeliveryStatus({
               Check Sent
             </a>
           )}
-          {["pending", "retry_wait", "blocked_auth", "failed"].includes(
-            row.status,
-          ) && (
-            <Button
-              disabled={busy}
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() =>
-                act(async () => {
-                  await restoreReplyFromOutbox(row.id);
-                  onEditReply(row.messageIds[0]);
-                })
-              }
-            >
-              Edit reply
-            </Button>
-          )}
+          {canEditReply &&
+            ["pending", "retry_wait", "blocked_auth", "failed"].includes(
+              row.status,
+            ) && (
+              <Button
+                disabled={busy}
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() =>
+                  act(async () => {
+                    await restoreReplyFromOutbox(row.id, emailAccountId);
+                    onEditReply(row.messageIds[0]);
+                  })
+                }
+              >
+                Edit reply
+              </Button>
+            )}
         </div>
       ))}
       {data?.scheduledEmails
         .filter(
-          (row, index) =>
+          (row) =>
             row.status !== "SENT" ||
-            index === 0 ||
+            row.id === latestScheduledSendId ||
             ["PENDING", "PROCESSING"].includes(row.reminderStatus),
         )
         .map((row) => (

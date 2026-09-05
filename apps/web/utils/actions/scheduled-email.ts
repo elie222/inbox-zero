@@ -8,6 +8,7 @@ import {
 import {
   scheduleEmail,
   cancelScheduledEmail,
+  retryScheduledEmail,
   processScheduledEmail,
 } from "@/utils/scheduled-email/service";
 import prisma from "@/utils/prisma";
@@ -33,12 +34,7 @@ export const retryScheduledEmailAction = actionClient
   .metadata({ name: "retryScheduledEmail" })
   .inputSchema(scheduledEmailIdBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput: { id } }) => {
-    const result = await prisma.scheduledEmail.updateMany({
-      where: { id, emailAccountId, status: { in: ["BLOCKED_AUTH", "FAILED"] } },
-      data: { status: "PENDING", sendAt: new Date(), error: null },
-    });
-    if (!result.count)
-      throw new SafeError("This email cannot be retried safely.");
+    await retryScheduledEmail(emailAccountId, id);
   });
 
 export const cancelEmailReminderAction = actionClient

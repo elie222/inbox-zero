@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { BellIcon, ClockIcon, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -55,7 +55,7 @@ function DeliveryTimePicker({
   value: string;
   onChange: (value: string) => void;
   disabled: boolean;
-  icon: React.ReactNode;
+  icon: ReactNode;
   after?: string;
 }) {
   const [open, setOpen] = useState(false);

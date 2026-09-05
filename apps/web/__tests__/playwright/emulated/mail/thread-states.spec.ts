@@ -1,4 +1,5 @@
 import { expect } from "@playwright/test";
+import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
 import { openMail, readLatestMailMutation } from "./mail-test-helpers";
@@ -62,11 +63,6 @@ test("captures thread reading and reply states", async ({ page }, testInfo) => {
     "Thanks Leslie, Thursday at 2 pm works for me.",
   );
   await capturePlaywrightCheckpoint(page, testInfo, "08-draft-after-reload");
-  if (!(await editor.count()))
-    await page
-      .getByRole("group", { name: "Thread actions" })
-      .getByRole("button", { name: "Reply", exact: true })
-      .click();
   await editor.fill("A reply that should survive navigation.");
   await expect(
     page.getByText("Saved on this device", { exact: true }),
@@ -82,11 +78,6 @@ test("captures thread reading and reply states", async ({ page }, testInfo) => {
     testInfo,
     "12-draft-after-navigation",
   );
-  if (!(await editor.count()))
-    await page
-      .getByRole("group", { name: "Thread actions" })
-      .getByRole("button", { name: "Reply", exact: true })
-      .click();
   await editor.fill("Mobile reply: the proposed time works well.");
   await page.setViewportSize({ width: 390, height: 844 });
   await capturePlaywrightCheckpoint(page, testInfo, "13-mobile-reply");
@@ -100,6 +91,16 @@ test("captures queued reply and reconnect", async ({ page }, testInfo) => {
   await expect(
     page.getByRole("heading", { name: "Reply Workflow Message" }),
   ).toBeVisible();
+  const initialResponse = await page.request.get(
+    "/api/threads/thr_playwright_reply?includeDrafts=true",
+    { headers: { "X-Email-Account-ID": emailAccountId } },
+  );
+  expect(initialResponse.ok()).toBe(true);
+  const initialThread: ThreadResponse = await initialResponse.json();
+  const initialSentIds = initialThread.thread.messages
+    .filter((message) => message.labelIds?.includes("SENT"))
+    .map((message) => message.id);
+  const replyBody = `Confirmed, see you Thursday. This reply is sent only inside the local emulator. Attempt ${testInfo.retry}.`;
   const editor = page.locator("[contenteditable='true']");
   if (!(await editor.count()))
     await page
@@ -107,9 +108,7 @@ test("captures queued reply and reconnect", async ({ page }, testInfo) => {
       .getByRole("button", { name: "Reply", exact: true })
       .click();
   await expect(editor).toBeVisible();
-  await editor.fill(
-    "Confirmed, see you Thursday. This reply is sent only inside the local emulator.",
-  );
+  await editor.fill(replyBody);
   await page.evaluate(() =>
     Object.defineProperty(navigator, "onLine", {
       configurable: true,
@@ -126,8 +125,12 @@ test("captures queued reply and reconnect", async ({ page }, testInfo) => {
       }),
     )
     .toMatchObject({ status: "pending" });
+  const queuedToast = page.locator("[data-sonner-toast]").filter({
+    hasText: "Email queued. It will send when you're back online.",
+  });
+  await expect(queuedToast).toBeVisible();
   await capturePlaywrightCheckpoint(page, testInfo, "09-queued-reply");
-  await page.waitForTimeout(5500);
+  await expect(queuedToast).toHaveCount(0);
   await capturePlaywrightCheckpoint(page, testInfo, "10-queued-after-toast");
   const queuedReply = await readLatestMailMutation(page, {
     emailAccountId,
@@ -182,10 +185,26 @@ test("captures queued reply and reconnect", async ({ page }, testInfo) => {
   await expect(
     page
       .frameLocator('iframe[title="Email content preview"]')
-      .getByText(
-        "Confirmed, see you Thursday. This reply is sent only inside the local emulator.",
-      ),
+      .last()
+      .getByText(replyBody, { exact: true }),
   ).toBeVisible({ timeout: 60_000 });
+  const response = await page.request.get(
+    "/api/threads/thr_playwright_reply?includeDrafts=true",
+    { headers: { "X-Email-Account-ID": emailAccountId } },
+  );
+  expect(response.ok()).toBe(true);
+  const body: ThreadResponse = await response.json();
+  const sentMessages = body.thread.messages.filter((message) =>
+    message.labelIds?.includes("SENT"),
+  );
+  expect(sentMessages).toHaveLength(initialSentIds.length + 1);
+  const appended = sentMessages.filter(
+    (message) => !initialSentIds.includes(message.id),
+  );
+  expect(appended).toHaveLength(1);
+  expect(
+    `${appended[0].textPlain ?? ""}${appended[0].textHtml ?? ""}`,
+  ).toContain(replyBody);
   await capturePlaywrightCheckpoint(page, testInfo, "11-sent-reply");
 });
 

@@ -1,4 +1,5 @@
 import { expect, type Page } from "@playwright/test";
+import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
 import { openMail, withClient } from "./mail-test-helpers";
@@ -118,42 +119,20 @@ test("offers recovery for a failed scheduled reply and guards uncertain delivery
   }
 });
 
-async function openReply(page: Page) {
-  page.setDefaultTimeout(20_000);
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  const { emailAccountId } = await openMail(page);
-  await page.goto(`/${emailAccountId}/mail?thread-id=${THREAD_ID}`);
-  await expect(
-    page.getByText("Please reply to this seeded conversation."),
-  ).toBeVisible();
-  await page
-    .getByRole("group", { name: "Thread actions" })
-    .getByRole("button", { name: "Reply", exact: true })
-    .click();
-  await page
-    .getByRole("textbox", { name: "Email message" })
-    .fill("Thanks Leslie, Thursday works. I will bring the updated proposal.");
-  return emailAccountId;
-}
-
-function setScheduledStatus(
-  emailAccountId: string,
-  status: "FAILED" | "UNCERTAIN",
-  error: string,
-) {
-  return withClient((client) =>
-    client.query(
-      'UPDATE "ScheduledEmail" SET status = $1, error = $2 WHERE "emailAccountId" = $3 AND "threadId" = $4 AND status != \'CANCELLED\'',
-      [status, error, emailAccountId, THREAD_ID],
-    ),
-  );
-}
-
 test("sends a reply with a reminder through the local email provider", async ({
   page,
 }, testInfo) => {
   const emailAccountId = await openReply(page);
-  const message = "Confirmed for Thursday. Please bring the updated proposal.";
+  const initialResponse = await page.request.get(
+    `/api/threads/${THREAD_ID}?includeDrafts=true`,
+    { headers: { "X-Email-Account-ID": emailAccountId } },
+  );
+  expect(initialResponse.ok()).toBe(true);
+  const initialThread: ThreadResponse = await initialResponse.json();
+  const initialSentIds = initialThread.thread.messages
+    .filter((message) => message.labelIds?.includes("SENT"))
+    .map((message) => message.id);
+  const message = `Confirmed for Thursday. Please bring the updated proposal. Attempt ${testInfo.retry}.`;
   await page.getByRole("textbox", { name: "Email message" }).fill(message);
   try {
     await page.getByRole("button", { name: "Remind me", exact: true }).click();
@@ -185,13 +164,24 @@ test("sends a reply with a reminder through the local email provider", async ({
       { headers: { "X-Email-Account-ID": emailAccountId } },
     );
     expect(response.ok()).toBe(true);
-    const body = await response.json();
+    const body: ThreadResponse = await response.json();
+    const sentMessages = body.thread.messages.filter((item) =>
+      item.labelIds?.includes("SENT"),
+    );
+    expect(sentMessages).toHaveLength(initialSentIds.length + 1);
+    const appended = sentMessages.filter(
+      (item) => !initialSentIds.includes(item.id),
+    );
+    expect(appended).toHaveLength(1);
     expect(
-      body.thread.messages.some(
-        (item: { textPlain?: string; textHtml?: string }) =>
-          `${item.textPlain ?? ""}${item.textHtml ?? ""}`.includes(message),
-      ),
-    ).toBe(true);
+      `${appended[0].textPlain ?? ""}${appended[0].textHtml ?? ""}`,
+    ).toContain(message);
+    await expect(
+      page
+        .frameLocator('iframe[title="Email content preview"]')
+        .last()
+        .getByText(message, { exact: true }),
+    ).toBeVisible();
     await capturePlaywrightCheckpoint(page, testInfo, "23-sent-with-reminder");
   } finally {
     await withClient((client) =>
@@ -202,3 +192,34 @@ test("sends a reply with a reminder through the local email provider", async ({
     );
   }
 });
+
+async function openReply(page: Page) {
+  page.setDefaultTimeout(20_000);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const { emailAccountId } = await openMail(page);
+  await page.goto(`/${emailAccountId}/mail?thread-id=${THREAD_ID}`);
+  await expect(
+    page.getByRole("heading", { name: /Reply Workflow Message/ }),
+  ).toBeVisible();
+  await page
+    .getByRole("group", { name: "Thread actions" })
+    .getByRole("button", { name: "Reply", exact: true })
+    .click();
+  await page
+    .getByRole("textbox", { name: "Email message" })
+    .fill("Thanks Leslie, Thursday works. I will bring the updated proposal.");
+  return emailAccountId;
+}
+
+function setScheduledStatus(
+  emailAccountId: string,
+  status: "FAILED" | "UNCERTAIN",
+  error: string,
+) {
+  return withClient((client) =>
+    client.query(
+      'UPDATE "ScheduledEmail" SET status = $1, error = $2 WHERE "emailAccountId" = $3 AND "threadId" = $4 AND status != \'CANCELLED\'',
+      [status, error, emailAccountId, THREAD_ID],
+    ),
+  );
+}

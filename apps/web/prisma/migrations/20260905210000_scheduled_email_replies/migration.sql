@@ -25,3 +25,5 @@ CREATE INDEX "ScheduledEmail_status_sendAt_idx" ON "ScheduledEmail"("status", "s
 CREATE INDEX "ScheduledEmail_reminderStatus_remindAt_idx" ON "ScheduledEmail"("reminderStatus", "remindAt");
 CREATE INDEX "ScheduledEmail_emailAccountId_threadId_idx" ON "ScheduledEmail"("emailAccountId", "threadId");
 ALTER TABLE "ScheduledEmail" ADD CONSTRAINT "ScheduledEmail_emailAccountId_fkey" FOREIGN KEY ("emailAccountId") REFERENCES "EmailAccount"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+CREATE INDEX "ScheduledEmail_status_processingStartedAt_idx" ON "ScheduledEmail"("status", "processingStartedAt");
+CREATE INDEX "ScheduledEmail_reminderStatus_reminderStartedAt_idx" ON "ScheduledEmail"("reminderStatus", "reminderStartedAt");

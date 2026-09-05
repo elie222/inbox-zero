@@ -5,6 +5,7 @@ import {
   claimNextMailMutation,
 } from "./mail-mutations";
 import "fake-indexeddb/auto";
+import { validateEmailAttachments } from "@inboxzero/email-editor/core";
 import { beforeEach, describe, expect, it } from "vitest";
 import { clearEmailCache, clearEmailCacheForAccount } from "./database";
 import {
@@ -63,6 +64,41 @@ describe("local reply drafts", () => {
       "private@example.com",
     );
   });
+  it("does not hydrate drafts from reads overlapping account cleanup", async () => {
+    await createReplyDraftWriter(identity).save(content);
+    const read = getReplyDraft(identity);
+    const list = getReplyDrafts(identity.emailAccountId, identity.threadId);
+    const assertions = Promise.all([
+      expect(read).rejects.toThrow("cleared"),
+      expect(list).rejects.toThrow("cleared"),
+    ]);
+    await clearEmailCacheForAccount(identity.emailAccountId);
+    await assertions;
+  });
+
+  it("does not recreate an outbox draft when recovery overlaps account cleanup", async () => {
+    const queued = await enqueueMailMutation({
+      ...identity,
+      messageIds: [identity.messageId],
+      kind: "reply",
+      email: {
+        to: "person@example.com",
+        subject: "Reply",
+        messageHtml: "<p>Private draft</p>",
+      },
+    });
+    const restoring = restoreReplyFromOutbox(
+      queued.id,
+      identity.emailAccountId,
+    );
+    const assertion = expect(restoring).rejects.toThrow("cleared");
+    await clearEmailCacheForAccount(identity.emailAccountId);
+    await assertion;
+    expect(
+      await getReplyDrafts(identity.emailAccountId, identity.threadId),
+    ).toEqual([]);
+  });
+
   it("serializes pending saves before clearing and rejects stale tabs", async () => {
     const writer = createReplyDraftWriter(identity);
     const stale = createReplyDraftWriter(identity);
@@ -82,13 +118,20 @@ describe("local reply drafts", () => {
         to: "person@example.com",
         subject: "Reply",
         messageHtml: "<p>Keep this text</p>",
+        attachments: [
+          { filename: "note.txt", contentType: "text/plain", content: "aGk=" },
+        ],
       },
     });
-    await restoreReplyFromOutbox(queued.id);
+    await restoreReplyFromOutbox(queued.id, identity.emailAccountId);
     expect(await getMailMutation(queued.id)).toBeUndefined();
     expect(
       (await getReplyDraft(identity))?.content?.draft.editableHtml,
     ).toContain("Keep this text");
+    const attachments =
+      (await getReplyDraft(identity))?.content?.attachments ?? [];
+    expect(attachments).toHaveLength(1);
+    expect(validateEmailAttachments(attachments).valid).toBe(true);
   });
   it("does not restore a reply already claimed for sending", async () => {
     const queued = await enqueueMailMutation({
@@ -102,9 +145,9 @@ describe("local reply drafts", () => {
       },
     });
     await claimNextMailMutation({ ownerId: "worker", leaseMs: 30_000 });
-    await expect(restoreReplyFromOutbox(queued.id)).rejects.toThrow(
-      "already started",
-    );
+    await expect(
+      restoreReplyFromOutbox(queued.id, identity.emailAccountId),
+    ).rejects.toThrow("already started");
     expect((await getMailMutation(queued.id))?.status).toBe("processing");
     expect(await getReplyDraft(identity)).toBeUndefined();
   });

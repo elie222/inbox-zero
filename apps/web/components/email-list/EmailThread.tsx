@@ -163,9 +163,10 @@ export function EmailThread({
           );
         })}
       </ul>
-      {showReplyButton && threadId && (
+      {threadId && (
         <ThreadDeliveryStatus
           emailAccountId={emailAccountId}
+          canEditReply={showReplyButton}
           threadId={threadId}
           messageIds={messages.map((message) => message.id)}
           refetch={refetch}

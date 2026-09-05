@@ -7,6 +7,7 @@ import { executeDurableEmailSend } from "@/utils/email/durable-email-send";
 import {
   scheduleEmail,
   cancelScheduledEmail,
+  retryScheduledEmail,
   processScheduledEmail,
   hasReplySince,
   processDueScheduledEmails,
@@ -62,6 +63,111 @@ describe("scheduled replies", () => {
       }),
     );
   });
+  it.each([
+    "PROCESSING",
+    "SENT",
+    "UNCERTAIN",
+  ] as const)("rejects explicit retry while a durable %s operation exists", async (status) => {
+    prisma.scheduledEmail.findUnique.mockResolvedValue(
+      row({ status: "FAILED" }),
+    );
+    prisma.emailSendOperation.findUnique.mockResolvedValue({
+      id: "operation",
+      status,
+    } as never);
+    await expect(retryScheduledEmail("account", "id", now)).rejects.toThrow(
+      "safely",
+    );
+    expect(prisma.scheduledEmail.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("restarts an expired known-unsent retry with a fresh execution clock", async () => {
+    const expired = row({
+      status: "FAILED",
+      executionQueuedAt: new Date("2026-07-01"),
+    });
+    prisma.scheduledEmail.findUnique.mockResolvedValue(expired);
+    prisma.emailSendOperation.findUnique.mockResolvedValue(null);
+    prisma.scheduledEmail.updateMany.mockResolvedValue({ count: 1 });
+    await retryScheduledEmail("account", "id", now);
+    expect(prisma.scheduledEmail.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "id",
+        emailAccountId: "account",
+        updatedAt: expired.updatedAt,
+        status: "FAILED",
+      },
+      data: {
+        status: "PENDING",
+        sendAt: now,
+        executionQueuedAt: null,
+        processingStartedAt: null,
+        error: null,
+      },
+    });
+    prisma.scheduledEmail.findUnique.mockResolvedValue(
+      row({ executionQueuedAt: null }),
+    );
+    prisma.emailAccount.findUniqueOrThrow.mockResolvedValue({
+      account: { provider: "google" },
+    } as never);
+    vi.mocked(executeDurableEmailSend).mockResolvedValue({
+      status: "uncertain",
+    });
+    await processScheduledEmail("id", logger, now);
+    expect(executeDurableEmailSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: expect.objectContaining({ queuedAt: now.getTime() }),
+      }),
+    );
+  });
+
+  it("rejects retry if the failed row changed during the durable-operation lookup", async () => {
+    prisma.scheduledEmail.findUnique.mockResolvedValue(
+      row({ status: "FAILED" }),
+    );
+    prisma.emailSendOperation.findUnique.mockResolvedValue(null);
+    prisma.scheduledEmail.updateMany.mockResolvedValue({ count: 0 });
+    await expect(retryScheduledEmail("account", "id", now)).rejects.toThrow(
+      "safely",
+    );
+  });
+
+  it("processes due reminders concurrently with at most five provider requests in flight", async () => {
+    prisma.scheduledEmail.findMany.mockResolvedValue(
+      Array.from({ length: 12 }, (_, index) =>
+        row({
+          id: `reminder-${index}`,
+          status: "SENT",
+          sentAt: new Date(now.getTime() - 60_000),
+          remindAt: now,
+          reminderStatus: "PENDING",
+        }),
+      ),
+    );
+    prisma.scheduledEmail.updateMany.mockResolvedValue({ count: 1 });
+    prisma.emailAccount.findUniqueOrThrow.mockResolvedValue({
+      email: "me@example.com",
+      account: { provider: "google" },
+    } as never);
+    let active = 0;
+    let peak = 0;
+    const provider = createMockEmailProvider({
+      getThreadMessages: vi.fn().mockImplementation(async () => {
+        active += 1;
+        peak = Math.max(peak, active);
+        await new Promise((resolve) => setTimeout(resolve, 1));
+        active -= 1;
+        return [];
+      }),
+    });
+    vi.mocked(createEmailProvider).mockResolvedValue(provider);
+    await processDueScheduledEmails(logger, now);
+    expect(peak).toBe(5);
+    expect(active).toBe(0);
+    expect(provider.unarchiveThread).toHaveBeenCalledTimes(12);
+  });
+
   it("does not send twice when another worker holds the claim", async () => {
     prisma.scheduledEmail.findUnique.mockResolvedValue(row());
     prisma.scheduledEmail.updateMany.mockResolvedValue({ count: 0 });

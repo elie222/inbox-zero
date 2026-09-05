@@ -850,7 +850,9 @@ model ScheduledEmail {
 
   @@unique([emailAccountId, clientMutationId])
   @@index([status, sendAt])
+  @@index([status, processingStartedAt])
   @@index([reminderStatus, remindAt])
+  @@index([reminderStatus, reminderStartedAt])
   @@index([emailAccountId, threadId])
 }
 

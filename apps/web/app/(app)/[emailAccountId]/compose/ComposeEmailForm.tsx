@@ -95,6 +95,7 @@ import type { StoredReplyDraft } from "@/utils/email-cache/database";
 import { scheduleEmailAction } from "@/utils/actions/scheduled-email";
 import { DeliveryOptions } from "./DeliveryOptions";
 import { useSWRConfig } from "swr";
+import { getReminderAfterSendTimeChange } from "./delivery-times";
 import { queueReaderEmail } from "./queued-reply";
 
 export type ReplyingToEmail = {
@@ -167,6 +168,7 @@ export function ComposeEmailForm(props: ComposeEmailFormProps) {
         <ComposeEmailFormContent
           {...props}
           storedDraft={localDraft.draft}
+          draftLoadError={localDraft.error}
           accountProvider={selectedAccountProvider}
           accountSignatureHtml={emailAccount.signature ?? ""}
           key={`${selectedEmailAccountId}:${props.replyingToEmail?.threadId ?? ""}:${props.draftKeyMessageId ?? ""}`}
@@ -182,6 +184,7 @@ function ComposeEmailFormContent({
   layout = "default",
   draftKeyMessageId,
   storedDraft,
+  draftLoadError,
   replyingToEmail,
   fromAccounts,
   accountProvider,
@@ -194,6 +197,7 @@ function ComposeEmailFormContent({
   onDiscard,
 }: ComposeEmailFormProps & {
   storedDraft?: StoredReplyDraft;
+  draftLoadError?: Error;
   accountProvider: string;
   accountSignatureHtml: string;
   selectedEmailAccountId: string;
@@ -211,7 +215,8 @@ function ComposeEmailFormContent({
   );
   const deliveryPath = useRef(storedDraft?.content?.deliveryPath);
   const [saveStatus, setSaveStatus] = useState(
-    storedDraft?.content ? "Saved on this device" : "",
+    draftLoadError?.message ??
+      (storedDraft?.content ? "Saved on this device" : ""),
   );
   const [submissionError, setSubmissionError] = useState("");
   const [draftWriter] = useState(() =>
@@ -259,11 +264,11 @@ function ComposeEmailFormContent({
   const [initialComposer] = useState(() => {
     if (storedDraft?.content) {
       const { draft, preservedBlocks } = storedDraft.content;
-      const document = new DOMParser().parseFromString(
+      const parsedDraft = new DOMParser().parseFromString(
         draft.editableHtml,
         "text/html",
       );
-      for (const image of document.querySelectorAll(
+      for (const image of parsedDraft.querySelectorAll(
         'img[data-content-id], img[src^="cid:"]',
       )) {
         const contentId =
@@ -278,7 +283,7 @@ function ComposeEmailFormContent({
         }
       }
       return {
-        draft: { ...draft, editableHtml: document.body.innerHTML },
+        draft: { ...draft, editableHtml: parsedDraft.body.innerHTML },
         preservedBlocks,
       };
     }
@@ -703,7 +708,9 @@ function ComposeEmailFormContent({
           return;
         }
         const readerThreadId = replyingToEmail?.threadId?.trim();
-        const readerMessageId = replyingToEmail?.messageId;
+        const readerMessageId = isInlineReply
+          ? draftKeyMessageId
+          : replyingToEmail?.messageId;
         if (readerThreadId) {
           let outcome: Awaited<ReturnType<typeof queueReaderEmail>>;
           try {
@@ -1154,8 +1161,13 @@ function ComposeEmailFormContent({
               remindAt={remindAt}
               disabled={isSubmitting}
               onSendAtChange={(value) => {
+                const nextRemindAt = getReminderAfterSendTimeChange(
+                  value,
+                  remindAt,
+                );
                 setSendAt(value);
-                saveDraftRef.current({ sendAt: value });
+                setRemindAt(nextRemindAt);
+                saveDraftRef.current({ sendAt: value, remindAt: nextRemindAt });
               }}
               onRemindAtChange={(value) => {
                 setRemindAt(value);

@@ -14,10 +14,14 @@ export function useReplyDrafts(emailAccountId: string, threadId: string) {
   );
   useEffect(
     () =>
-      subscribeToReplyDrafts(() => {
-        mutate();
+      subscribeToReplyDrafts((scope) => {
+        if (
+          scope.emailAccountId === emailAccountId &&
+          scope.threadId === threadId
+        )
+          mutate();
       }),
-    [mutate],
+    [emailAccountId, threadId, mutate],
   );
   return { drafts: data ?? [], error, isLoading };
 }
