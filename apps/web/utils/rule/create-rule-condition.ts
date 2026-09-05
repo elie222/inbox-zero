@@ -27,7 +27,10 @@ export function toCreateOrUpdateRuleCondition({
     from: valueOrNull(staticInput?.from),
     to: valueOrNull(staticInput?.to),
     subject: valueOrNull(staticInput?.subject),
-    body: valueOrNull(staticInput?.body),
+    body:
+      staticInput?.body === undefined
+        ? undefined
+        : valueOrNull(staticInput.body),
   };
   const normalizedAiInstructions = valueOrNull(aiInstructions);
 
