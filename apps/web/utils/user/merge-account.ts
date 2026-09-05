@@ -1,5 +1,5 @@
 import prisma from "@/utils/prisma";
-import { transferPremiumDuringMerge } from "@/utils/user/merge-premium";
+import { getPremiumTransferOperations } from "@/utils/user/merge-premium";
 import type { Logger } from "@/utils/logger";
 import { invalidateAccountValidation } from "@/utils/redis/account-validation";
 
@@ -90,13 +90,17 @@ export async function mergeAccount({
     return "partial_reassign";
   }
 
-  await transferPremiumDuringMerge({
+  const premiumOperations = await getPremiumTransferOperations({
     sourceUserId,
     targetUserId,
     logger,
   });
 
   await prisma.$transaction([
+    // Foreign-key checks for new links must finish before the deletion check,
+    // or wait until this transaction has committed.
+    prisma.$queryRaw`SELECT id FROM "User" WHERE id = ${sourceUserId} FOR UPDATE`,
+    ...premiumOperations,
     prisma.account.update({
       where: { id: sourceAccountId },
       data: { userId: targetUserId },
@@ -110,7 +114,11 @@ export async function mergeAccount({
       },
     }),
     prisma.user.delete({
-      where: { id: sourceUserId },
+      where: {
+        id: sourceUserId,
+        accounts: { none: {} },
+        emailAccounts: { none: {} },
+      },
     }),
   ]);
 

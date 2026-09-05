@@ -1,0 +1,236 @@
+import { Client } from "pg";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import prisma from "@/utils/prisma";
+import { createScopedLogger } from "@/utils/logger";
+import { mergeAccount } from "@/utils/user/merge-account";
+import { getPremiumTransferOperations } from "@/utils/user/merge-premium";
+
+vi.mock("@/utils/user/merge-premium", () => ({
+  getPremiumTransferOperations: vi.fn(),
+}));
+vi.mock("@/utils/redis/account-validation", () => ({
+  invalidateAccountValidation: vi.fn(),
+}));
+
+const sourceUserId = "mailbox-merge-db-source";
+const targetUserId = "mailbox-merge-db-target";
+const premiumId = "mailbox-merge-db-premium";
+const actualPremium = await vi.importActual<
+  typeof import("@/utils/user/merge-premium")
+>("@/utils/user/merge-premium");
+const logger = createScopedLogger("mailbox-merge-test");
+
+describe.skipIf(!process.env.RUN_DB_TESTS)(
+  "mailbox merging (real database)",
+  () => {
+    beforeEach(async () => {
+      vi.resetAllMocks();
+      vi.mocked(getPremiumTransferOperations).mockResolvedValue([]);
+      await prisma.user.deleteMany({
+        where: { id: { in: [sourceUserId, targetUserId] } },
+      });
+      await prisma.premium.deleteMany({ where: { id: premiumId } });
+      await prisma.user.createMany({
+        data: [
+          { id: sourceUserId, email: "merge-source@example.com" },
+          { id: targetUserId, email: "merge-target@example.com" },
+        ],
+      });
+      await createMailbox("original", sourceUserId);
+    });
+
+    afterAll(async () => {
+      await prisma.user.deleteMany({
+        where: { id: { in: [sourceUserId, targetUserId] } },
+      });
+      await prisma.premium.deleteMany({ where: { id: premiumId } });
+    });
+
+    it("preserves a mailbox linked after the merge reads its source account snapshot", async () => {
+      vi.mocked(getPremiumTransferOperations).mockImplementationOnce(
+        async () => {
+          await createMailbox("concurrent", sourceUserId);
+          return [];
+        },
+      );
+
+      await mergeAccount({
+        sourceUserId,
+        targetUserId,
+        sourceAccountId: "mailbox-merge-original",
+        email: "merge-original@example.com",
+        name: null,
+        logger,
+      }).catch(() => undefined);
+
+      expect(
+        await prisma.emailAccount.findUnique({
+          where: { email: "merge-concurrent@example.com" },
+        }),
+      ).toMatchObject({ userId: sourceUserId });
+      expect(
+        await prisma.account.findUnique({
+          where: { id: "mailbox-merge-original" },
+        }),
+      ).toMatchObject({ userId: sourceUserId });
+      expect(
+        await prisma.emailAccount.findUnique({
+          where: { email: "merge-original@example.com" },
+        }),
+      ).toMatchObject({ userId: sourceUserId });
+      expect(
+        await prisma.user.findUnique({ where: { id: sourceUserId } }),
+      ).not.toBeNull();
+    });
+
+    it("waits for an in-flight mailbox link before checking whether the source can be deleted", {
+      timeout: 15_000,
+    }, async () => {
+      const connection = new Client({
+        connectionString: process.env.DATABASE_URL,
+      });
+      await connection.connect();
+      const { promise: linked, resolve: signalLinked } =
+        Promise.withResolvers<void>();
+      vi.mocked(getPremiumTransferOperations).mockImplementationOnce(
+        async () => {
+          await connection.query("BEGIN");
+          await connection.query(
+            'INSERT INTO "Account" (id, "userId", provider, "providerAccountId", "updatedAt") VALUES ($1, $2, $3, $1, NOW())',
+            ["mailbox-merge-inflight", sourceUserId, "google"],
+          );
+          await connection.query(
+            'INSERT INTO "EmailAccount" (id, "accountId", "userId", email, "updatedAt") VALUES ($1, $1, $2, $3, NOW())',
+            [
+              "mailbox-merge-inflight",
+              sourceUserId,
+              "merge-inflight@example.com",
+            ],
+          );
+          signalLinked();
+          return [];
+        },
+      );
+      const merging = mergeAccount({
+        sourceUserId,
+        targetUserId,
+        sourceAccountId: "mailbox-merge-original",
+        email: "merge-original@example.com",
+        name: null,
+        logger,
+      }).catch((error: unknown) => error);
+      try {
+        await linked;
+        await vi.waitFor(
+          async () => {
+            await connection.query("SELECT pg_stat_clear_snapshot()");
+            const result = await connection.query(
+              `SELECT count(*)::int AS count FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock' AND query LIKE '%SELECT id FROM "User"%FOR UPDATE%'`,
+            );
+            expect(result.rows[0].count).toBeGreaterThan(0);
+          },
+          { timeout: 5000 },
+        );
+        await connection.query("COMMIT");
+        expect(await merging).toMatchObject({ code: "P2025" });
+        expect(
+          await prisma.emailAccount.findUnique({
+            where: { email: "merge-inflight@example.com" },
+          }),
+        ).toMatchObject({ userId: sourceUserId });
+      } finally {
+        await connection.query("ROLLBACK");
+        await connection.end();
+        await merging;
+      }
+    });
+
+    it("rolls back premium membership and admin access when a concurrent mailbox aborts the merge", async () => {
+      await prisma.premium.create({
+        data: {
+          id: premiumId,
+          users: { connect: { id: sourceUserId } },
+          admins: { connect: { id: sourceUserId } },
+        },
+      });
+      vi.mocked(getPremiumTransferOperations).mockImplementationOnce(
+        async (options) => {
+          const operations =
+            await actualPremium.getPremiumTransferOperations(options);
+          await createMailbox("concurrent", sourceUserId);
+          return operations;
+        },
+      );
+      await expect(
+        mergeAccount({
+          sourceUserId,
+          targetUserId,
+          sourceAccountId: "mailbox-merge-original",
+          email: "merge-original@example.com",
+          name: null,
+          logger,
+        }),
+      ).rejects.toMatchObject({ code: "P2025" });
+      expect(
+        await prisma.user.findUnique({ where: { id: targetUserId } }),
+      ).toMatchObject({
+        premiumId: null,
+        premiumAdminId: null,
+      });
+      expect(
+        await prisma.user.findUnique({ where: { id: sourceUserId } }),
+      ).toMatchObject({
+        premiumId,
+        premiumAdminId: premiumId,
+      });
+    });
+
+    it("still merges the only mailbox together with premium membership and admin access", async () => {
+      await prisma.premium.create({
+        data: {
+          id: premiumId,
+          users: { connect: { id: sourceUserId } },
+          admins: { connect: { id: sourceUserId } },
+        },
+      });
+      vi.mocked(getPremiumTransferOperations).mockImplementationOnce(
+        actualPremium.getPremiumTransferOperations,
+      );
+      await expect(
+        mergeAccount({
+          sourceUserId,
+          targetUserId,
+          sourceAccountId: "mailbox-merge-original",
+          email: "merge-original@example.com",
+          name: null,
+          logger,
+        }),
+      ).resolves.toBe("full_merge");
+      expect(
+        await prisma.user.findUnique({ where: { id: sourceUserId } }),
+      ).toBeNull();
+      expect(
+        await prisma.user.findUnique({ where: { id: targetUserId } }),
+      ).toMatchObject({ premiumId, premiumAdminId: premiumId });
+      expect(
+        await prisma.emailAccount.findUnique({
+          where: { email: "merge-original@example.com" },
+        }),
+      ).toMatchObject({ userId: targetUserId });
+    });
+  },
+);
+
+async function createMailbox(suffix: string, userId: string) {
+  return prisma.account.create({
+    data: {
+      id: `mailbox-merge-${suffix}`,
+      userId,
+      provider: "google",
+      providerAccountId: `mailbox-merge-${suffix}`,
+      emailAccount: {
+        create: { userId, email: `merge-${suffix}@example.com` },
+      },
+    },
+  });
+}
