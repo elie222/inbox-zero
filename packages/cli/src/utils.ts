@@ -213,7 +213,17 @@ export function isSensitiveKey(key: string): boolean {
 }
 
 export function parseEnvFile(content: string): Record<string, string> {
-  return parseEnv(content);
+  const env = parseEnv(content);
+  // Compose treats unspaced hashes in unquoted database passwords as literal.
+  const password = [
+    ...content.matchAll(/^[ \t]*POSTGRES_PASSWORD[ \t]*=[ \t]*(.*)$/gm),
+  ]
+    .at(-1)?.[1]
+    ?.trim();
+  if (password && !password.startsWith('"') && !password.startsWith("'")) {
+    env.POSTGRES_PASSWORD = password.replace(/\s+#.*$/, "").trim();
+  }
+  return env;
 }
 
 export function updateEnvValue(

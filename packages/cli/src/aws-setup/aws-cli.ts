@@ -34,8 +34,8 @@ export function addSsmParameterTags(
   appName: string,
   envName: string,
   paramName: string,
-): void {
-  runAwsCommand(env, [
+): { success: boolean; error?: string } {
+  const result = runAwsCommand(env, [
     "ssm",
     "add-tags-to-resource",
     "--resource-type",
@@ -46,6 +46,12 @@ export function addSsmParameterTags(
     `Key=copilot-application,Value=${appName}`,
     `Key=copilot-environment,Value=${envName}`,
   ]);
+  if (!result.success)
+    return {
+      success: false,
+      error: result.stderr || "Failed to tag SSM parameter",
+    };
+  return { success: true };
 }
 
 export function putSsmParameterWithTags(params: {
@@ -74,19 +80,22 @@ export function putSsmParameterWithTags(params: {
       params.overwrite === false &&
       result.stderr.includes("(ParameterAlreadyExists)")
     ) {
-      addSsmParameterTags(
+      return addSsmParameterTags(
         params.env,
         params.appName,
         params.envName,
         params.name,
       );
-      return { success: true };
     }
     return { success: false, error: result.stderr || params.errorMessage };
   }
 
-  addSsmParameterTags(params.env, params.appName, params.envName, params.name);
-  return { success: true };
+  return addSsmParameterTags(
+    params.env,
+    params.appName,
+    params.envName,
+    params.name,
+  );
 }
 
 export function readSecretJson<T extends Record<string, string | undefined>>(

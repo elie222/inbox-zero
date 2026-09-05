@@ -712,3 +712,9 @@ describe("setup encryption secrets", () => {
     ).toBe("password");
   });
 });
+
+it("preserves hashes in unquoted Compose database passwords", () => {
+  expect(
+    parseEnvFile("POSTGRES_PASSWORD=abc#def # comment").POSTGRES_PASSWORD,
+  ).toBe("abc#def");
+});

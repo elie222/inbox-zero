@@ -9,6 +9,12 @@ beforeEach(() => vi.clearAllMocks());
 describe("preserving SSM secrets", () => {
   it("does not overwrite an existing secret and accepts ParameterAlreadyExists", () => {
     vi.mocked(spawnSync).mockImplementation((_command, args) => {
+      if (args?.includes("add-tags-to-resource"))
+        return {
+          status: 0,
+          stdout: Buffer.from(""),
+          stderr: Buffer.from(""),
+        } as ReturnType<typeof spawnSync>;
       const overwrites = args?.includes("--overwrite");
       return {
         status: overwrites ? 0 : 1,
@@ -57,4 +63,31 @@ describe("preserving SSM secrets", () => {
       }),
     ).toEqual({ success: false, error: "AccessDeniedException" });
   });
+});
+
+it("reports tag failures for existing parameters", () => {
+  vi.mocked(spawnSync).mockImplementation(
+    (_command, args) =>
+      ({
+        status: 1,
+        stdout: Buffer.from(""),
+        stderr: Buffer.from(
+          args?.includes("put-parameter")
+            ? "(ParameterAlreadyExists)"
+            : "AccessDeniedException",
+        ),
+      }) as ReturnType<typeof spawnSync>,
+  );
+  expect(
+    putSsmParameterWithTags({
+      env: {},
+      appName: "app",
+      envName: "test",
+      name: "/secret",
+      value: "replacement",
+      type: "SecureString",
+      errorMessage: "failed",
+      overwrite: false,
+    }),
+  ).toEqual({ success: false, error: "AccessDeniedException" });
 });
