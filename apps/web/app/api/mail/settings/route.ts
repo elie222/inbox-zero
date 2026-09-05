@@ -11,6 +11,7 @@ async function getMailSettings({ emailAccountId }: { emailAccountId: string }) {
       where: { id: emailAccountId },
       select: {
         mailLayout: true,
+        mailListDensity: true,
         mailSplits: {
           // createdAt breaks ties so tab order can't shuffle between requests
           orderBy: [{ order: "asc" }, { createdAt: "asc" }],
@@ -29,6 +30,7 @@ async function getMailSettings({ emailAccountId }: { emailAccountId: string }) {
 
   return {
     layout: emailAccount?.mailLayout ?? null,
+    density: emailAccount?.mailListDensity ?? null,
     splits: emailAccount?.mailSplits ?? [],
     defaultSplits,
   };

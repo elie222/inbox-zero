@@ -3,6 +3,7 @@ import { Prisma } from "@/generated/prisma/client";
 import {
   ActionType,
   MailLayout,
+  MailListDensity,
   MailSplitKind,
   SystemType,
 } from "@/generated/prisma/enums";
@@ -224,6 +225,17 @@ describe("mail split actions", () => {
     expect(prisma.emailAccount.update).toHaveBeenCalledWith({
       where: { id: EMAIL_ACCOUNT_ID },
       data: { mailLayout: MailLayout.SPLIT },
+    });
+  });
+
+  it("persists the selected mail list density", async () => {
+    await updateMailPreferencesAction(EMAIL_ACCOUNT_ID, {
+      density: MailListDensity.EXPANDED,
+    });
+
+    expect(prisma.emailAccount.update).toHaveBeenCalledWith({
+      where: { id: EMAIL_ACCOUNT_ID },
+      data: { mailListDensity: MailListDensity.EXPANDED },
     });
   });
 });

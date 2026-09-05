@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { MailLayout, MailSplitKind } from "@/generated/prisma/enums";
+import {
+  MailLayout,
+  MailListDensity,
+  MailSplitKind,
+} from "@/generated/prisma/enums";
 
 // LABEL splits carry a provider label id; CATEGORY splits carry a provider category
 // (e.g. CATEGORY_PERSONAL). INBOX and UNREAD need no value.
@@ -53,9 +57,14 @@ export type DeleteMailSplitBody = z.infer<typeof deleteMailSplitBody>;
 export const setDefaultMailSplitsBody = z.object({ enabled: z.boolean() });
 export type SetDefaultMailSplitsBody = z.infer<typeof setDefaultMailSplitsBody>;
 
-export const updateMailPreferencesBody = z.object({
-  layout: z.nativeEnum(MailLayout),
-});
+export const updateMailPreferencesBody = z
+  .object({
+    layout: z.nativeEnum(MailLayout).optional(),
+    density: z.nativeEnum(MailListDensity).optional(),
+  })
+  .refine((data) => data.layout !== undefined || data.density !== undefined, {
+    message: "At least one preference is required",
+  });
 export type UpdateMailPreferencesBody = z.infer<
   typeof updateMailPreferencesBody
 >;

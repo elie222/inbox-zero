@@ -6,6 +6,7 @@ import { ThreadRow } from "@/app/(app)/[emailAccountId]/mail/ThreadRow";
 import type {
   ListThread,
   MailLayoutMode,
+  MailListDensityMode,
 } from "@/app/(app)/[emailAccountId]/mail/types";
 import { getListThreadKey } from "@/app/(app)/[emailAccountId]/mail/types";
 import {
@@ -21,6 +22,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 export type ThreadListProps = {
   threads: ListThread[];
   layout: MailLayoutMode;
+  density: MailListDensityMode;
   userEmail: string;
   userLabels: EmailLabels;
   labelsByAccount?: Record<string, EmailLabels>;
@@ -45,6 +47,7 @@ export type ThreadListProps = {
 export function ThreadList({
   threads,
   layout,
+  density,
   userEmail,
   userLabels,
   labelsByAccount,
@@ -77,12 +80,13 @@ export function ThreadList({
 
   // Keep the J/K cursor on screen without centering every row. Layout phase so
   // a held arrow key never paints a selected row that's already off-screen.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: density changes row height without changing focusedIndex
   useLayoutEffect(() => {
     if (!scrollRoot || focusedIndex < 0 || !focusedThreadId) return;
     const row = focusedRowRef.current;
     if (!row) return;
     scrollElementIntoContainer(scrollRoot, row);
-  }, [focusedIndex, focusedThreadId, scrollRoot]);
+  }, [density, focusedIndex, focusedThreadId, scrollRoot]);
 
   useEffect(() => {
     if (prefetchListKey.current !== listKey) {
@@ -154,6 +158,7 @@ export function ThreadList({
                   <ThreadRow
                     hasAnySelection={selectionEnabled && selectedCount > 0}
                     compact={isMobile}
+                    density={density}
                     index={index}
                     isFocused={index === focusedIndex}
                     isSelected={selectionEnabled && isSelected(threadKey)}

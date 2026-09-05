@@ -7,7 +7,9 @@ import { getThreadParticipantNames } from "@/app/(app)/[emailAccountId]/mail/thr
 import type {
   ListThread,
   MailLayoutMode,
+  MailListDensityMode,
 } from "@/app/(app)/[emailAccountId]/mail/types";
+import { getMailListSnippetClassName } from "@/app/(app)/[emailAccountId]/mail/mail-list-density";
 import { EmailDate } from "@/components/email-list/EmailDate";
 import { getEmailThreadLabels } from "@/components/EmailMessageCellLabels";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
@@ -30,6 +32,7 @@ export type ThreadRowProps = {
   /** Position in the rendered list — selection and focus are index-addressed. */
   index: number;
   layout: MailLayoutMode;
+  density: MailListDensityMode;
   userEmail: string;
   userLabels: EmailLabels;
   isFocused: boolean;
@@ -48,6 +51,7 @@ export const ThreadRow = memo(function ThreadRow({
   thread,
   index,
   layout,
+  density,
   userEmail,
   userLabels,
   isFocused,
@@ -166,9 +170,11 @@ export const ThreadRow = memo(function ThreadRow({
       ref={rowRef}
       className={cn(
         "group relative flex cursor-pointer border-b border-border/60 outline-none",
-        isWide
+        isWide && density === "compact"
           ? "items-center gap-2.5 py-2.5 pr-5 pl-3"
-          : "items-start gap-2 px-3.5 py-2.5",
+          : isWide
+            ? "items-start gap-2.5 py-2.5 pr-5 pl-3"
+            : "items-start gap-2 px-3.5 py-2.5",
         rowBackground({ isSelected, isFocused }),
         isFocused &&
           // Inset so the marker reads as a marker rather than a border, and so
@@ -194,30 +200,66 @@ export const ThreadRow = memo(function ThreadRow({
           <div className="flex w-48 shrink-0 items-baseline gap-1 overflow-hidden whitespace-nowrap">
             {participantLine}
           </div>
-          <div className="flex min-w-0 flex-1 items-center gap-2.5">
-            {account ? <AccountAvatar account={account} /> : null}
-            {chips.map((label) => (
-              <MailLabelChip
-                color={label.color}
-                key={label.id}
-                name={label.name}
-              />
-            ))}
-            <span
-              className={cn(
-                "max-w-[46%] shrink-0 truncate whitespace-nowrap text-sm",
-                isUnread
-                  ? "font-semibold text-foreground"
-                  : "font-normal text-muted-foreground",
+          <div
+            className={cn(
+              "flex min-w-0 flex-1 gap-2.5",
+              density === "expanded"
+                ? "flex-col items-stretch"
+                : "items-center",
+            )}
+          >
+            <div className="flex min-w-0 items-center gap-2.5">
+              {account ? <AccountAvatar account={account} /> : null}
+              {chips.map((label) => (
+                <MailLabelChip
+                  color={label.color}
+                  key={label.id}
+                  name={label.name}
+                />
+              ))}
+              <span
+                className={cn(
+                  "truncate whitespace-nowrap text-sm",
+                  density === "expanded"
+                    ? "min-w-0 flex-1"
+                    : "max-w-[46%] shrink-0",
+                  isUnread
+                    ? "font-semibold text-foreground"
+                    : "font-normal text-muted-foreground",
+                )}
+              >
+                {subject}
+              </span>
+              {density === "expanded" ? null : (
+                <span
+                  className={getMailListSnippetClassName({
+                    density,
+                    variant: "wide",
+                  })}
+                >
+                  {snippet}
+                </span>
               )}
-            >
-              {subject}
-            </span>
-            <span className="min-w-0 flex-1 truncate text-muted-foreground text-sm">
-              {snippet}
-            </span>
+            </div>
+            {density === "expanded" ? (
+              <div
+                className={getMailListSnippetClassName({
+                  density,
+                  variant: "wide",
+                })}
+              >
+                {snippet}
+              </div>
+            ) : null}
           </div>
-          <div className="w-16 shrink-0 text-right">{date}</div>
+          <div
+            className={cn(
+              "w-16 shrink-0 text-right",
+              density === "expanded" && "pt-0.5",
+            )}
+          >
+            {date}
+          </div>
         </>
       ) : (
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -235,7 +277,12 @@ export const ThreadRow = memo(function ThreadRow({
           >
             {subject}
           </div>
-          <div className="truncate text-muted-foreground text-xs">
+          <div
+            className={getMailListSnippetClassName({
+              density,
+              variant: "stacked",
+            })}
+          >
             {snippet}
           </div>
           {account ? (

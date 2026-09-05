@@ -211,6 +211,13 @@ const SHORTCUT_DEFINITIONS = [
     label: "List view / split view",
   },
   {
+    id: "toggleDensity",
+    keys: ["d"],
+    scope: "mail",
+    group: "View",
+    label: "Compact / expanded snippets",
+  },
+  {
     id: "focusMode",
     keys: ["f"],
     scope: "mail",

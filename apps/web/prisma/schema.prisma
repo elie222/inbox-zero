@@ -157,7 +157,8 @@ model EmailAccount {
   allowHiddenAiDraftLinks   Boolean              @default(false)
   rulesRevision             Int                  @default(0)
 
-  mailLayout MailLayout @default(LIST)
+  mailLayout      MailLayout      @default(LIST)
+  mailListDensity MailListDensity @default(COMPACT)
 
   includeInAllAccounts Boolean @default(true)
 
@@ -1960,6 +1961,11 @@ enum Frequency {
 enum MailLayout {
   LIST
   SPLIT
+}
+
+enum MailListDensity {
+  COMPACT
+  EXPANDED
 }
 
 enum MailSplitKind {
