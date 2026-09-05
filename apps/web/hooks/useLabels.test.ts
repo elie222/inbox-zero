@@ -65,7 +65,7 @@ describe("useLabels", () => {
 
   it("scopes label requests to the conversation's account", async () => {
     mockUseAccount.mockReturnValue({
-      emailAccount: { id: "account-2" },
+      emailAccount: { id: "account-1" },
       isLoading: false,
       providerRateLimit: null,
     });

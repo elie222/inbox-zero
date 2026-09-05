@@ -57,14 +57,14 @@ export function SelectionBar({
         <TooltipContent>Delete ({getShortcutHint("delete")})</TooltipContent>
       </Tooltip>
       {onLabel && (
-        <Button
-          onClick={onLabel}
-          size="xs-2"
-          variant="outline"
-          title={`Label (${getShortcutHint("label")})`}
-        >
-          Label
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button onClick={onLabel} size="xs-2" variant="outline">
+              Label
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Label ({getShortcutHint("label")})</TooltipContent>
+        </Tooltip>
       )}
       <Button onClick={onClear} size="xs-2" variant="ghost">
         Clear

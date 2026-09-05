@@ -53,6 +53,7 @@ test("creates and applies a label to selected conversations with L", async ({
   page,
 }, testInfo) => {
   const { conversations, emailAccountId } = await openMail(page);
+  const labelName = `Manual Projects ${testInfo.retry}`;
   const first = conversationWithSubject(
     page,
     conversations,
@@ -68,27 +69,23 @@ test("creates and applies a label to selected conversations with L", async ({
   await page.keyboard.press("l");
   const picker = page.getByRole("dialog", { name: "Label conversations" });
   await expect(picker).toBeVisible();
-  await picker.getByRole("combobox").fill("Manual Projects");
+  await picker.getByRole("combobox").fill(labelName);
   await expect(
-    picker.getByRole("option", { name: "Create and apply “Manual Projects”" }),
+    picker.getByRole("option", { name: `Create and apply “${labelName}”` }),
   ).toBeVisible();
   await capturePlaywrightCheckpoint(page, testInfo, "create-label-picker");
   await picker
-    .getByRole("option", { name: "Create and apply “Manual Projects”" })
+    .getByRole("option", { name: `Create and apply “${labelName}”` })
     .click();
   await expect(picker).toBeHidden();
-  await expect(
-    first.getByText("Manual Projects", { exact: true }),
-  ).toBeVisible();
-  await expect(
-    second.getByText("Manual Projects", { exact: true }),
-  ).toBeVisible();
+  await expect(first.getByText(labelName, { exact: true })).toBeVisible();
+  await expect(second.getByText(labelName, { exact: true })).toBeVisible();
   const labelsResponse = await page.request.get("/api/labels", {
     headers: { "X-Email-Account-ID": emailAccountId },
   });
   const { labels } = await labelsResponse.json();
   const label = labels.find(
-    (label: { name: string }) => label.name === "Manual Projects",
+    (label: { name: string }) => label.name === labelName,
   );
   expect(label).toBeTruthy();
   for (const threadId of ["thr_playwright_1", "thr_playwright_2"]) {

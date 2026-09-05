@@ -24,6 +24,7 @@ import { useLabels } from "@/hooks/useLabels";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { createLabelAction } from "@/utils/actions/mail";
 import { applyThreadLabelsAction } from "@/utils/actions/mail-label";
+import { applyThreadLabelsInBatches } from "@/utils/label/apply-thread-labels";
 import { getActionErrorMessage } from "@/utils/error";
 
 export function LabelPickerDialog({
@@ -69,15 +70,19 @@ export function LabelPickerDialog({
             throw new Error(getActionErrorMessage(result ?? {}));
           id = result.data.id;
           createdLabel.current = { name, id };
-          await mutate();
+          mutate().catch(() => {});
         }
       }
-      const result = await applyLabel({
-        threadIds: remainingThreadIds,
-        labelId: id,
-      });
-      if (!result?.data) throw new Error(getActionErrorMessage(result ?? {}));
-      const { succeededThreadIds, failedThreadIds } = result.data;
+      const { succeededThreadIds, failedThreadIds, error } =
+        await applyThreadLabelsInBatches({
+          threadIds: remainingThreadIds,
+          applyBatch: async (threadIds) => {
+            const result = await applyLabel({ threadIds, labelId: id });
+            if (!result?.data)
+              throw new Error(getActionErrorMessage(result ?? {}));
+            return result.data;
+          },
+        });
       if (succeededThreadIds.length) {
         onApplied(succeededThreadIds, id);
         toast.success(
@@ -87,6 +92,7 @@ export function LabelPickerDialog({
         );
       }
       setRemainingThreadIds(failedThreadIds);
+      if (error) throw error;
       if (failedThreadIds.length) {
         toast.error(
           `Couldn't label ${failedThreadIds.length} conversations. Select a label to retry.`,

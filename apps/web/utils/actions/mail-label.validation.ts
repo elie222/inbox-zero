@@ -1,9 +1,10 @@
 import { z } from "zod";
+import { MAX_LABEL_THREADS_PER_ACTION } from "@/utils/label/apply-thread-labels";
 
 export const applyThreadLabelsBody = z.object({
   threadIds: z
     .array(z.string().min(1))
     .min(1)
-    .max(500, "Select up to 500 conversations at a time."),
+    .max(MAX_LABEL_THREADS_PER_ACTION),
   labelId: z.string().min(1),
 });

@@ -6,7 +6,11 @@ import { applyThreadLabelsBody } from "@/utils/actions/mail-label.validation";
 import { getGmailClientForEmail } from "@/utils/email-account-client";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { SafeError } from "@/utils/error";
-import { labelThread } from "@/utils/gmail/label";
+import {
+  assertProviderNotRateLimited,
+  withRateLimitRecording,
+} from "@/utils/email/rate-limit";
+import { getLabelById, labelThread } from "@/utils/gmail/label";
 
 export const applyThreadLabelsAction = actionClient
   .metadata({ name: "applyThreadLabels" })
@@ -19,11 +23,17 @@ export const applyThreadLabelsAction = actionClient
       if (!isGoogleProvider(provider)) {
         throw new SafeError("Manual labeling is available for Gmail accounts.");
       }
+      const rateLimitContext = {
+        emailAccountId,
+        provider,
+        logger,
+        source: "apply-thread-labels",
+      };
+      await assertProviderNotRateLimited(rateLimitContext);
       const gmail = await getGmailClientForEmail({ emailAccountId, logger });
-      const { data: label } = await gmail.users.labels.get({
-        userId: "me",
-        id: labelId,
-      });
+      const label = await withRateLimitRecording(rateLimitContext, () =>
+        getLabelById({ gmail, id: labelId }),
+      );
       if (label.type !== "user") {
         throw new SafeError("Select a user-created Gmail label.");
       }
@@ -31,8 +41,12 @@ export const applyThreadLabelsAction = actionClient
       const results = await runWithBoundedConcurrency({
         items: targets,
         concurrency: 5,
-        run: (threadId) =>
-          labelThread({ gmail, threadId, addLabelIds: [labelId] }),
+        run: async (threadId) => {
+          await assertProviderNotRateLimited(rateLimitContext);
+          return withRateLimitRecording(rateLimitContext, () =>
+            labelThread({ gmail, threadId, addLabelIds: [labelId] }),
+          );
+        },
       });
       const succeededThreadIds: string[] = [];
       const failedThreadIds: string[] = [];
