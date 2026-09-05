@@ -53,7 +53,7 @@ test("captures thread reading and reply states", async ({ page }, testInfo) => {
     "Thanks Leslie, Thursday at 2 pm works for me. I will bring the updated proposal.",
   );
   await capturePlaywrightCheckpoint(page, testInfo, "06-populated-reply");
-  await page.getByRole("button", { name: /^Reply to Leslie/ }).click();
+  await page.getByRole("button", { name: /^Draft to Leslie/ }).click();
   await page.getByRole("button", { name: "Cc/Bcc", exact: true }).click();
   await expect(
     page.getByRole("textbox", { name: "Cc", exact: true }),

@@ -939,34 +939,45 @@ function ComposeEmailFormContent({
             </Select>
           </div>
         )}
-        {replyingToEmail?.to && !editReply ? (
+        {isInlineReply && (
           <button
             type="button"
-            className={cn(
-              "flex items-center gap-1 text-left",
-              isInlineReply &&
-                "gap-1.5 text-xs leading-5 text-muted-foreground hover:text-foreground",
-              isComposeWindow && "min-h-11 items-center border-b",
-            )}
-            onClick={() => setEditReply(true)}
+            aria-expanded={editReply}
+            onClick={() => setEditReply(!editReply)}
+            className="flex items-center gap-1.5 text-left text-sm font-medium leading-5 text-foreground"
           >
-            {isInlineReply ? (
-              <>
-                <span>
-                  Reply to{" "}
-                  {extractNameFromEmail(watch("to") || replyingToEmail.to)}
-                </span>
-                <ChevronDownIcon className="size-3" />
-              </>
-            ) : (
-              <>
-                <span className="text-muted-foreground text-sm">To</span>
-                <span className="max-w-md break-words text-foreground">
-                  {extractNameFromEmail(watch("to") || replyingToEmail.to)}
-                </span>
-              </>
-            )}
+            <span className="text-emerald-600 dark:text-emerald-400">
+              Draft
+            </span>
+            <span className="min-w-0 truncate">
+              to{" "}
+              {extractNameFromEmail(watch("to") || replyingToEmail?.to || "") ||
+                "recipients"}
+            </span>
+            <ChevronDownIcon
+              className={cn(
+                "size-3 shrink-0 text-muted-foreground",
+                editReply && "rotate-180",
+              )}
+            />
           </button>
+        )}
+        {replyingToEmail?.to && !editReply ? (
+          !isInlineReply && (
+            <button
+              type="button"
+              className={cn(
+                "flex items-center gap-1 text-left",
+                isComposeWindow && "min-h-11 items-center border-b",
+              )}
+              onClick={() => setEditReply(true)}
+            >
+              <span className="text-muted-foreground text-sm">To</span>
+              <span className="max-w-md break-words text-foreground">
+                {extractNameFromEmail(watch("to") || replyingToEmail.to)}
+              </span>
+            </button>
+          )
         ) : isInlineReply ? (
           <div className="space-y-0.5 [&_input]:bg-transparent">
             {(
@@ -975,7 +986,7 @@ function ComposeEmailFormContent({
               <div key={field} className="flex min-h-7 items-center gap-2">
                 <label
                   htmlFor={field}
-                  className="w-8 shrink-0 text-xs leading-5 text-muted-foreground"
+                  className="w-12 shrink-0 text-xs leading-5 text-muted-foreground"
                 >
                   {RECIPIENT_LABELS[field]}
                 </label>
@@ -1016,7 +1027,7 @@ function ComposeEmailFormContent({
               <div className="flex min-h-8 items-center gap-2">
                 <label
                   htmlFor="subject"
-                  className="text-xs text-muted-foreground"
+                  className="w-12 shrink-0 text-xs text-muted-foreground"
                 >
                   Subject
                 </label>
@@ -1038,7 +1049,7 @@ function ComposeEmailFormContent({
                 onClick={() => setEditSubject(true)}
                 className="pt-2 pb-1 text-left text-xs leading-5 text-muted-foreground hover:text-foreground"
               >
-                {watch("subject")}
+                Edit subject
               </button>
             )}
           </div>
