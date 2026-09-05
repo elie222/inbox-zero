@@ -67,9 +67,35 @@ jobs:
           printf '%s\n' "$APPLE_API_KEY_P8" > "$RUNNER_TEMP/AuthKey.p8"
           echo "APPLE_API_KEY=$RUNNER_TEMP/AuthKey.p8" >> "$GITHUB_ENV"
 
+      - name: Import macOS signing certificate
+        if: runner.os == 'macOS'
+        env:
+          MAC_CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          MAC_CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          umask 077
+          certificate_path="$RUNNER_TEMP/desktop-signing.p12"
+          keychain_path="$RUNNER_TEMP/desktop-signing.keychain-db"
+          keychain_password="$(openssl rand -hex 32)"
+          echo "::add-mask::$keychain_password"
+          printf '%s' "$MAC_CSC_LINK" | base64 --decode > "$certificate_path"
+          security create-keychain -p "$keychain_password" "$keychain_path"
+          security set-keychain-settings -lut 21600 "$keychain_path"
+          security unlock-keychain -p "$keychain_password" "$keychain_path"
+          security import "$certificate_path" -k "$keychain_path" -P "$MAC_CSC_KEY_PASSWORD" -T /usr/bin/codesign -T /usr/bin/productbuild
+          # electron-builder 26.15.3 passes the certificate password here, but macOS requires the keychain password.
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$keychain_password" "$keychain_path" > /dev/null
+          security list-keychains -d user -s "$keychain_path" "$HOME/Library/Keychains/login.keychain-db"
+          echo "CSC_KEYCHAIN=$keychain_path" >> "$GITHUB_ENV"
+
       - name: Build and package
         working-directory: apps/desktop
+        shell: bash
         run: |
+          if [ "${{ runner.os }}" = "macOS" ]; then
+            unset CSC_LINK CSC_KEY_PASSWORD
+          fi
           pnpm build
           pnpm exec electron-builder ${{ matrix.args }} --publish never
 
@@ -123,6 +149,16 @@ jobs:
             echo "Expected both arm64 and x64 app bundles (arm=$has_arm x64=$has_x64)" >&2
             exit 1
           fi
+
+      - name: Clean up macOS signing files
+        if: always() && runner.os == 'macOS'
+        run: |
+          cleanup_status=0
+          if [ -f "$RUNNER_TEMP/desktop-signing.keychain-db" ]; then
+            security delete-keychain "$RUNNER_TEMP/desktop-signing.keychain-db" || cleanup_status=$?
+          fi
+          rm -f "$RUNNER_TEMP/desktop-signing.p12" "$RUNNER_TEMP/AuthKey.p8" || cleanup_status=$?
+          exit "$cleanup_status"
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
