@@ -45,8 +45,6 @@ export type ThreadReaderProps = {
   onRemoveLabel?: (labelId: string) => void;
   onBackToInbox: () => void;
   onArchive: () => void;
-  onReply: () => void;
-  onDelete: () => void;
   onToggleFocusMode: () => void;
   showSidebarToggle?: boolean;
   /** Refreshes the open thread after a reply is sent or a draft changes. */
@@ -74,8 +72,6 @@ export function ThreadReader({
   onRemoveLabel,
   onBackToInbox,
   onArchive,
-  onReply,
-  onDelete,
   onToggleFocusMode,
   showSidebarToggle = false,
   refetch,
@@ -149,9 +145,7 @@ export function ThreadReader({
             menu={menu}
             onArchive={onArchive}
             onBackToInbox={onBackToInbox}
-            onDelete={onDelete}
             onRemoveLabel={onRemoveLabel}
-            onReply={onReply}
             onToggleFocusMode={onToggleFocusMode}
             subject={headerMessage.headers.subject}
           />
@@ -203,8 +197,9 @@ function readerMeasure({
   layout: MailLayoutMode;
   isFocusMode: boolean;
 }) {
-  // ~860px: the mock's measure, and about as wide as an email body stays legible.
-  if (isFocusMode) return "mx-auto w-full max-w-[54rem] px-10 py-10";
-  if (layout === "split") return "px-6 pt-8 pb-5";
-  return "mx-auto w-full max-w-[54rem] px-6 pt-8 pb-5";
+  // Keep the reading measure consistent between full-width and focus views.
+  if (isFocusMode)
+    return "mx-auto w-full max-w-[48rem] px-2 py-6 sm:px-10 sm:py-10";
+  if (layout === "split") return "px-2 pt-6 pb-5 sm:px-6 sm:pt-8";
+  return "mx-auto w-full max-w-[48rem] px-2 pt-6 pb-5 sm:px-6 sm:pt-8";
 }

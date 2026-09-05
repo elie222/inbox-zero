@@ -19,7 +19,6 @@ import { formatShortDate } from "@/utils/date";
 import { ComposeEmailFormLazy } from "@/app/(app)/[emailAccountId]/compose/ComposeEmailFormLazy";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import type { ParsedMessage } from "@/utils/types";
 import { forwardEmailHtml, forwardEmailSubject } from "@/utils/gmail/forward";
 import { extractEmailReply } from "@/utils/parse/extract-reply.client";
@@ -54,6 +53,7 @@ export function EmailMessage({
   onSendSuccess,
   onOpenSenderContext,
   generateNudge,
+  hasDraft = false,
 }: {
   message: ThreadMessage;
   draftMessage?: ThreadMessage;
@@ -66,6 +66,7 @@ export function EmailMessage({
   onSendSuccess: (messageId: string, threadId: string) => void;
   onOpenSenderContext?: (message: ThreadMessage) => void;
   generateNudge?: boolean;
+  hasDraft?: boolean;
 }) {
   const { emailAccountId } = useAccount();
   // `null` follows `defaultShowReply`, which the reader's Reply button flips
@@ -114,7 +115,14 @@ export function EmailMessage({
   }, []);
 
   return (
-    <li className="group/message border-border/60 border-t py-4 first:border-t-0 first:pt-0">
+    <li
+      className={cn(
+        "group/message min-w-0 border-l-2 transition-colors",
+        expanded
+          ? "my-2 border-border/70 px-2 py-3 focus-within:border-primary sm:px-5"
+          : "border-transparent px-2 py-1.5 hover:bg-muted/40 sm:px-5",
+      )}
+    >
       <MessageHeader
         expanded={expanded}
         message={message}
@@ -125,11 +133,12 @@ export function EmailMessage({
         showDetails={showDetails}
         showReplyButton={showReplyButton}
         toggleDetails={toggleDetails}
+        hasDraft={hasDraft || Boolean(draftMessage)}
       />
 
       {expanded && (
         // Aligns the body with the sender's name rather than the avatar.
-        <div className="min-w-0 pt-3 pl-9">
+        <div className="min-w-0 pt-3 sm:pl-9">
           {showDetails && <EmailDetails message={message} />}
 
           {message.textHtml ? (
@@ -180,6 +189,7 @@ function MessageHeader({
   onForward,
   onOpenSenderContext,
   onToggle,
+  hasDraft,
 }: {
   message: ParsedMessage;
   expanded: boolean;
@@ -190,6 +200,7 @@ function MessageHeader({
   onForward: () => void;
   onOpenSenderContext?: (message: ThreadMessage) => void;
   onToggle?: () => void;
+  hasDraft: boolean;
 }) {
   const { emailAccount, emailAccountId, userEmail } = useAccount();
 
@@ -199,7 +210,11 @@ function MessageHeader({
     ? "Me"
     : extractNameFromEmail(message.headers.from) || senderEmail;
   const { data: contacts } = useSWR<ContactsResponse>(
-    env.NEXT_PUBLIC_CONTACTS_ENABLED && !isSent && senderEmail && emailAccountId
+    expanded &&
+      env.NEXT_PUBLIC_CONTACTS_ENABLED &&
+      !isSent &&
+      senderEmail &&
+      emailAccountId
       ? [
           `/api/user/contacts?query=${encodeURIComponent(senderEmail)}`,
           emailAccountId,
@@ -253,25 +268,30 @@ function MessageHeader({
         onToggle && "cursor-pointer",
       )}
     >
-      <Avatar aria-hidden className="size-7">
-        <AvatarImage alt="" src={senderImage || undefined} />
-        <AvatarFallback
-          className={cn(
-            "font-semibold text-[10px] tracking-wide",
-            isSent
-              ? "bg-primary/10 text-primary"
-              : "bg-muted text-muted-foreground",
-          )}
-        >
-          {initialsFor(senderName)}
-        </AvatarFallback>
-      </Avatar>
+      {expanded && (
+        <Avatar aria-hidden className="size-7 shrink-0">
+          <AvatarImage alt="" src={senderImage || undefined} />
+          <AvatarFallback
+            className={cn(
+              "font-semibold text-[10px] tracking-wide",
+              isSent
+                ? "bg-primary/10 text-primary"
+                : "bg-muted text-muted-foreground",
+            )}
+          >
+            {initialsFor(senderName)}
+          </AvatarFallback>
+        </Avatar>
+      )}
 
       {canResearchSender ? (
         <Button
           type="button"
           aria-label={`View public profile for ${senderName}`}
-          className="h-7 shrink-0 gap-1 px-1.5"
+          className={cn(
+            "h-7 min-w-0 justify-start gap-1 p-0",
+            expanded ? "max-w-40 shrink" : "w-24 shrink-0 sm:w-28",
+          )}
           onClick={(event) => {
             event.stopPropagation();
             onOpenSenderContext?.(message);
@@ -289,15 +309,17 @@ function MessageHeader({
           >
             {senderName}
           </span>
-          <UserRoundSearchIcon className="size-3.5 text-muted-foreground" />
+          {expanded && (
+            <UserRoundSearchIcon className="hidden size-3.5 shrink-0 text-muted-foreground sm:block" />
+          )}
         </Button>
       ) : (
         <span
           className={cn(
-            "shrink-0 truncate text-sm",
+            "truncate text-sm",
             expanded
-              ? "font-semibold text-foreground"
-              : "font-medium text-secondary-foreground",
+              ? "max-w-40 shrink font-semibold text-foreground"
+              : "w-24 shrink-0 font-medium text-secondary-foreground sm:w-28",
           )}
         >
           {senderName}
@@ -306,17 +328,12 @@ function MessageHeader({
 
       {expanded ? (
         <>
-          {senderEmail && senderEmail !== senderName ? (
-            <span className="truncate text-muted-foreground text-xs">
-              {senderEmail}
-            </span>
-          ) : null}
-          <span className="shrink-0 whitespace-nowrap text-muted-foreground/70 text-xs">
+          <span className="hidden min-w-0 truncate text-muted-foreground text-xs sm:block">
             {recipientSummary(message.headers.to, userEmail)}
           </span>
           <Button
             aria-label={showDetails ? "Hide details" : "Show details"}
-            className="size-6 shrink-0 p-0 text-muted-foreground opacity-0 transition-opacity focus-visible:opacity-100 group-hover/message:opacity-100"
+            className="size-7 shrink-0 p-0 text-muted-foreground"
             onClick={toggleDetails}
             size="sm"
             variant="ghost"
@@ -334,6 +351,10 @@ function MessageHeader({
         </span>
       )}
 
+      {hasDraft && !expanded && (
+        <span className="shrink-0 text-primary text-xs">Draft</span>
+      )}
+
       <time
         className="ml-auto shrink-0 whitespace-nowrap pl-2.5 text-muted-foreground text-xs"
         dateTime={message.headers.date}
@@ -342,7 +363,12 @@ function MessageHeader({
       </time>
 
       {showReplyButton && (
-        <span className="flex shrink-0 items-center opacity-0 transition-opacity focus-within:opacity-100 group-hover/message:opacity-100">
+        <span
+          className={cn(
+            "shrink-0 items-center transition-opacity focus-within:opacity-100 group-hover/message:opacity-100",
+            expanded ? "flex sm:opacity-0" : "hidden sm:flex sm:opacity-0",
+          )}
+        >
           <Tooltip content="Reply">
             <Button
               className="size-7 text-muted-foreground"
@@ -509,7 +535,7 @@ function ReplyPanel({
   ]);
 
   return (
-    <Card className="mt-6 rounded-xl p-3" ref={replyRef}>
+    <div className="mt-5" ref={replyRef}>
       {isGeneratingReply ? (
         <div className="flex items-center justify-center">
           <Loading />
@@ -527,6 +553,7 @@ function ReplyPanel({
         </div>
       ) : (
         <ComposeEmailFormLazy
+          draftKeyMessageId={message.id}
           onClose={onCloseCompose}
           onDiscard={onDiscard}
           onSuccess={(messageId: string, threadId: string) => {
@@ -537,7 +564,7 @@ function ReplyPanel({
           replyingToEmail={replyingToEmail}
         />
       )}
-    </Card>
+    </div>
   );
 }
 

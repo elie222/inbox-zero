@@ -1141,8 +1141,6 @@ export function MailShell() {
               onRemoveLabel={onRemoveLabel}
               onBackToInbox={closeReader}
               onArchive={archiveTargets}
-              onDelete={trashTargets}
-              onReply={requestReaderReply}
               onToggleFocusMode={() => setIsFocusMode((on) => !on)}
               showSidebarToggle={!isMailSidebarOpen}
               refetch={refetchOpenThread}
@@ -1154,6 +1152,7 @@ export function MailShell() {
                   setChatInput={setChatInput}
                   isUnread={isOpenThreadUnread}
                   onMarkSpam={markSpamTargets}
+                  onDelete={trashTargets}
                   onToggleRead={() => {
                     if (!openThreadKey) return;
                     setReadState([openThreadKey], isOpenThreadUnread);

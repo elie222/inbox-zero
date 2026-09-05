@@ -1,6 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { ChevronsDownUpIcon, ChevronsUpDownIcon } from "lucide-react";
+import { Tooltip } from "@/components/Tooltip";
 import type { ThreadMessage } from "@/components/email-list/types";
 import { EmailMessage } from "@/components/email-list/EmailMessage";
+import { useAccount } from "@/providers/EmailAccountProvider";
+import { useReplyDrafts } from "@/hooks/useReplyDrafts";
+import { ThreadDeliveryStatus } from "@/components/email-list/ThreadDeliveryStatus";
 import { Button } from "@/components/ui/button";
 
 export function EmailThread({
@@ -22,6 +27,9 @@ export function EmailThread({
   onOpenSenderContext?: (message: ThreadMessage) => void;
   withHeader?: boolean;
 }) {
+  const { emailAccountId } = useAccount();
+  const threadId = messages[0]?.threadId ?? "";
+  const { drafts: localDrafts } = useReplyDrafts(emailAccountId, threadId);
   // Place draft messages as replies to their parent message
   const organizedMessages = useMemo(() => {
     const drafts = new Map<string, ThreadMessage>();
@@ -49,14 +57,25 @@ export function EmailThread({
 
   const lastMessageId = organizedMessages.at(-1)?.message.id;
 
-  /** Only the latest message is open: the state every thread starts in. */
-  const latestOnly = () => new Set(lastMessageId ? [lastMessageId] : []);
-
-  const [expandedMessageIds, setExpandedMessageIds] =
-    useState<Set<string>>(latestOnly);
-
-  const allExpanded = organizedMessages.every(({ message }) =>
-    expandedMessageIds.has(message.id),
+  const [expansionOverrides, setExpansionOverrides] = useState<
+    Map<string, boolean>
+  >(() => new Map());
+  const [recoveredReply, setRecoveredReply] = useState<{
+    messageId: string;
+    version: number;
+  }>();
+  useEffect(() => {
+    if (autoOpenReplyForMessageId)
+      setExpansionOverrides((previous) =>
+        new Map(previous).set(autoOpenReplyForMessageId, true),
+      );
+  }, [autoOpenReplyForMessageId]);
+  const expanded = (id: string, hasDraft: boolean) =>
+    expansionOverrides.get(id) ?? (id === lastMessageId || hasDraft);
+  const hasLocalDraft = (id: string) =>
+    localDrafts.some((draft) => draft.messageId === id);
+  const allExpanded = organizedMessages.every(({ message, draftMessage }) =>
+    expanded(message.id, Boolean(draftMessage) || hasLocalDraft(message.id)),
   );
 
   return (
@@ -75,45 +94,65 @@ export function EmailThread({
       )}
 
       {organizedMessages.length > 1 && (
-        <div className="flex items-center gap-3 pt-4">
-          <span className="text-muted-foreground text-xs">
-            {organizedMessages.length} messages
-          </span>
-          <Button
-            className="ml-auto"
-            onClick={() =>
-              setExpandedMessageIds(
-                allExpanded
-                  ? latestOnly()
-                  : new Set(organizedMessages.map(({ message }) => message.id)),
-              )
+        <div className="flex justify-end pt-2">
+          <Tooltip
+            content={
+              allExpanded ? "Collapse all messages" : "Expand all messages"
             }
-            size="xs-2"
-            variant="outline"
           >
-            {allExpanded ? "Collapse all" : "Expand all"}
-          </Button>
+            <Button
+              aria-label={
+                allExpanded ? "Collapse all messages" : "Expand all messages"
+              }
+              className="size-7 text-muted-foreground"
+              onClick={() =>
+                setExpansionOverrides(
+                  new Map(
+                    organizedMessages.map(({ message }) => [
+                      message.id,
+                      allExpanded ? message.id === lastMessageId : true,
+                    ]),
+                  ),
+                )
+              }
+              size="icon"
+              variant="ghost"
+            >
+              {allExpanded ? (
+                <ChevronsDownUpIcon className="size-3.5" />
+              ) : (
+                <ChevronsUpDownIcon className="size-3.5" />
+              )}
+            </Button>
+          </Tooltip>
         </div>
       )}
 
-      <ul className="pt-2">
+      <ul className="pt-1">
         {organizedMessages.map(({ message, draftMessage }) => {
           const defaultShowReply =
-            autoOpenReplyForMessageId === message.id || Boolean(draftMessage);
+            autoOpenReplyForMessageId === message.id ||
+            recoveredReply?.messageId === message.id ||
+            Boolean(draftMessage) ||
+            hasLocalDraft(message.id);
           return (
             <EmailMessage
               defaultShowReply={defaultShowReply}
               draftMessage={draftMessage}
-              expanded={expandedMessageIds.has(message.id)}
-              generateNudge={defaultShowReply && !draftMessage?.textHtml}
-              key={message.id}
+              expanded={expanded(message.id, defaultShowReply)}
+              hasDraft={Boolean(draftMessage) || hasLocalDraft(message.id)}
+              generateNudge={
+                defaultShowReply &&
+                !draftMessage?.textHtml &&
+                !hasLocalDraft(message.id)
+              }
+              key={`${message.id}:${recoveredReply?.messageId === message.id ? recoveredReply.version : 0}`}
               message={message}
               onOpenSenderContext={onOpenSenderContext}
               onSendSuccess={(messageId) => {
-                setExpandedMessageIds((prev) => {
-                  if (prev.has(messageId)) return prev;
-                  return new Set(prev).add(messageId);
-                });
+                setExpansionOverrides((prev) =>
+                  new Map(prev).set(messageId, true),
+                );
 
                 onSendSuccess?.(messageId, message.threadId);
               }}
@@ -122,11 +161,12 @@ export function EmailThread({
                 organizedMessages.length === 1
                   ? undefined
                   : () => {
-                      setExpandedMessageIds((prev) => {
-                        const next = new Set(prev);
-                        if (!next.delete(message.id)) next.add(message.id);
-                        return next;
-                      });
+                      setExpansionOverrides((prev) =>
+                        new Map(prev).set(
+                          message.id,
+                          !expanded(message.id, defaultShowReply),
+                        ),
+                      );
                     }
               }
               refetch={refetch}
@@ -135,6 +175,24 @@ export function EmailThread({
           );
         })}
       </ul>
+      {threadId && (
+        <ThreadDeliveryStatus
+          emailAccountId={emailAccountId}
+          canEditReply={showReplyButton}
+          threadId={threadId}
+          messageIds={messages.map((message) => message.id)}
+          refetch={refetch}
+          onEditReply={(messageId) => {
+            setExpansionOverrides((previous) =>
+              new Map(previous).set(messageId, true),
+            );
+            setRecoveredReply((previous) => ({
+              messageId,
+              version: (previous?.version ?? 0) + 1,
+            }));
+          }}
+        />
+      )}
     </div>
   );
 }
