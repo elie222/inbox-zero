@@ -339,6 +339,9 @@ export function MailSidebar({
                 <LabelBranch
                   key={node.label.id}
                   node={node}
+                  hasNestedLabels={labelTree.some(
+                    (root) => root.children.length > 0,
+                  )}
                   activeLabelId={activeLabelId}
                   hrefFor={hrefFor}
                   countsById={countsById}
@@ -397,6 +400,7 @@ export function MailSidebar({
 
 function LabelBranch({
   node,
+  hasNestedLabels,
   ...props
 }: Pick<
   MailSidebarProps,
@@ -408,17 +412,25 @@ function LabelBranch({
   | "labelColorOptions"
   | "onEditMailboxItem"
   | "onDeleteMailboxItem"
-> & { node: SidebarLabel }) {
-  const [collapsedFor, setCollapsedFor] = useState<string | null | undefined>();
+> & { node: SidebarLabel; hasNestedLabels: boolean }) {
   const { label, children } = node;
   const activeDescendantId = children.some((child) =>
     containsLabel(child, props.activeLabelId),
   )
     ? props.activeLabelId
     : null;
-  // Reveal a newly selected descendant without opening unrelated branches.
-  const expanded =
-    collapsedFor === undefined || collapsedFor !== activeDescendantId;
+  const [expansion, setExpansion] = useState({
+    activeDescendantId,
+    expanded: true,
+  });
+  // Reveal each newly selected descendant while retaining unrelated collapse choices.
+  if (expansion.activeDescendantId !== activeDescendantId) {
+    setExpansion({
+      activeDescendantId,
+      expanded: activeDescendantId !== null || expansion.expanded,
+    });
+  }
+  const { expanded } = expansion;
 
   return (
     <div>
@@ -438,9 +450,9 @@ function LabelBranch({
               aria-label={`${expanded ? "Collapse" : "Expand"} ${label.name}`}
               aria-expanded={expanded}
               onClick={() =>
-                setCollapsedFor(expanded ? activeDescendantId : undefined)
+                setExpansion({ activeDescendantId, expanded: !expanded })
               }
-              className="absolute top-1/2 left-0 z-10 -translate-y-1/2 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="absolute top-1/2 left-0 z-10 flex size-6 -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {expanded ? (
                 <ChevronDownIcon className="size-3" />
@@ -464,14 +476,19 @@ function LabelBranch({
             }
             name={node.name}
             count={displayCount(props.countsById.get(label.id))}
-            nested
+            nested={hasNestedLabels}
           />
         </div>
       </MailboxItemContextMenu>
       {expanded && children.length > 0 && (
         <div className="ml-3">
           {children.map((child) => (
-            <LabelBranch key={child.label.id} node={child} {...props} />
+            <LabelBranch
+              key={child.label.id}
+              node={child}
+              hasNestedLabels={hasNestedLabels}
+              {...props}
+            />
           ))}
         </div>
       )}
@@ -540,7 +557,7 @@ function NavRow({
 }) {
   const className = cn(
     "flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-    nested && "pl-4",
+    nested && "pl-7",
     active
       ? "bg-primary/10 font-medium text-foreground"
       : "text-muted-foreground hover:bg-accent hover:text-foreground",

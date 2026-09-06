@@ -328,6 +328,15 @@ test("creates and edits a label and shows every keyboard workflow", async ({
     .click();
   await grandchild.click();
   await expect(grandchild).toHaveAttribute("aria-current", "page");
+  await page
+    .getByRole("button", { name: `Collapse ${updatedLabelName}`, exact: true })
+    .click();
+  await expect(grandchild).toBeHidden();
+  await page.getByRole("link", { name: /^Inbox(?:\s+\d+)?$/ }).click();
+  await expect(grandchild).toBeHidden();
+  await page.goBack();
+  await expect(grandchild).toBeVisible();
+  await expect(grandchild).toHaveAttribute("aria-current", "page");
   await grandchild.click({ button: "right" });
   await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
   await expect(
