@@ -76,9 +76,7 @@ export function Toaster() {
         unstyled: true,
         classNames: {
           toast:
-            "relative flex w-full items-center gap-3 overflow-hidden rounded-lg border border-border bg-popover py-3 pl-4 pr-2 text-popover-foreground shadow-lg before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-blue-600 dark:before:bg-blue-400",
-          error: "before:bg-destructive",
-          warning: "before:bg-amber-500",
+            "relative flex w-full items-center gap-3 overflow-hidden rounded-lg border border-border bg-popover py-3 pl-4 pr-2 text-popover-foreground shadow-lg before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-blue-500 data-[type=error]:before:bg-destructive data-[type=warning]:before:bg-amber-500",
           icon: "relative flex size-4 shrink-0 items-center justify-center",
           content: "min-w-0 flex-1",
           title: "text-sm font-medium leading-5",
