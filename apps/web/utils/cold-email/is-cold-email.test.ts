@@ -14,10 +14,7 @@ vi.mock("@/env", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/env")>();
   return {
     ...actual,
-    env: {
-      ...actual.env,
-      WHITELIST_FROM: "welcome@service.example OR service.example",
-    },
+    env: { ...actual.env },
   };
 });
 
@@ -44,6 +41,7 @@ const mockProvider = {
 describe("isColdEmail", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    env.WHITELIST_FROM = "welcome@service.example OR service.example";
   });
 
   it("should recognize a known cold email sender even when from field format differs", async () => {
@@ -241,7 +239,10 @@ describe("isColdEmail", () => {
   it.each([
     "welcome@service.example",
     '"Service team" <WELCOME@SERVICE.EXAMPLE>',
+    "updates@another.example",
   ])("should exempt the whitelisted sender %s even with a learned cold pattern", async (from) => {
+    env.WHITELIST_FROM =
+      "welcome@service.example OR service.example OR updates@another.example";
     vi.mocked(prisma.groupItem.findFirst).mockResolvedValue({
       id: "group-item-id",
       type: GroupItemType.FROM,
@@ -273,10 +274,26 @@ describe("isColdEmail", () => {
   });
 
   it.each([
-    "other@service.example",
-    "welcome@service.example.attacker.test",
-    '"welcome@service.example" <sender@attacker.test>',
-  ])("should not extend the whitelist to %s", async (from) => {
+    {
+      from: "other@service.example",
+      whitelist: "welcome@service.example OR service.example",
+    },
+    {
+      from: "welcome@service.example.attacker.test",
+      whitelist: "welcome@service.example",
+    },
+    {
+      from: '"welcome@service.example" <sender@attacker.test>',
+      whitelist: "welcome@service.example",
+    },
+    { from: "invalid sender", whitelist: "invalid whitelist" },
+    { from: "invalid sender", whitelist: "service.example" },
+    { from: "welcome@service.example", whitelist: undefined },
+  ])("should not exempt $from with whitelist $whitelist", async ({
+    from,
+    whitelist,
+  }) => {
+    env.WHITELIST_FROM = whitelist;
     vi.mocked(prisma.groupItem.findFirst).mockResolvedValue({
       id: "group-item-id",
       type: GroupItemType.FROM,

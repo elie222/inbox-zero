@@ -59,9 +59,15 @@ export async function isColdEmail({
 
   logger.info("Checking is cold email");
 
+  const applicationSenders = [
+    env.RESEND_FROM_EMAIL,
+    ...(env.WHITELIST_FROM?.split(/\s+OR\s+/) || []),
+  ];
   if (
-    isSameEmailAddress(email.from, env.RESEND_FROM_EMAIL) ||
-    (env.WHITELIST_FROM && isSameEmailAddress(email.from, env.WHITELIST_FROM))
+    applicationSenders.some((sender) => {
+      const address = extractEmailAddress(sender);
+      return !!address && isSameEmailAddress(email.from, address);
+    })
   ) {
     logger.info("Sender is an application sender");
     return { isColdEmail: false, reason: "applicationSender" };
