@@ -173,8 +173,8 @@ For each failure, open its logs or linked report. Use
 `gh run view <run-id> --log-failed` for GitHub Actions when available. Fix and
 validate failures caused by the PR. If a failure is unrelated or inaccessible,
 record the evidence and report the blocker without claiming the PR is clean.
-Do not start comparison runs, rerun CI, or sync the base branch solely to make
-an unrelated failure pass.
+Do not start comparison runs or sync the base solely to make an unrelated
+failure pass. Do not mutate external checks unless authorized.
 
 ## 8. Address review comments
 
