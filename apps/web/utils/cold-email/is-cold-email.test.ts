@@ -10,6 +10,17 @@ import { createGenerateObject } from "@/utils/llms";
 
 vi.mock("@/utils/prisma");
 
+vi.mock("@/env", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/env")>();
+  return {
+    ...actual,
+    env: {
+      ...actual.env,
+      WHITELIST_FROM: "welcome@service.example OR service.example",
+    },
+  };
+});
+
 vi.mock("./cold-email-rule", () => ({
   getColdEmailRule: vi.fn(),
 }));
@@ -225,6 +236,71 @@ describe("isColdEmail", () => {
       mockProvider.hasPreviousCommunicationsWithSenderOrDomain,
     ).not.toHaveBeenCalled();
     expect(createGenerateObject).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "welcome@service.example",
+    '"Service team" <WELCOME@SERVICE.EXAMPLE>',
+  ])("should exempt the whitelisted sender %s even with a learned cold pattern", async (from) => {
+    vi.mocked(prisma.groupItem.findFirst).mockResolvedValue({
+      id: "group-item-id",
+      type: GroupItemType.FROM,
+      value: "welcome@service.example",
+      exclude: false,
+      group: { id: "group-id", name: "Cold Email" },
+    } as any);
+
+    const result = await isColdEmail({
+      email: {
+        id: "msg-onboarding",
+        from,
+        to: "user@customer.test",
+        subject: "Finish setting up your account",
+        content: "Your workspace is ready to configure.",
+        date: new Date(),
+      },
+      emailAccount: getEmailAccount({ email: "user@customer.test" }),
+      provider: mockProvider as never,
+      coldEmailRule: { instructions: "test instructions", groupId: "group-id" },
+    });
+
+    expect(result).toEqual({ isColdEmail: false, reason: "applicationSender" });
+    expect(prisma.groupItem.findFirst).not.toHaveBeenCalled();
+    expect(
+      mockProvider.hasPreviousCommunicationsWithSenderOrDomain,
+    ).not.toHaveBeenCalled();
+    expect(createGenerateObject).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "other@service.example",
+    "welcome@service.example.attacker.test",
+    '"welcome@service.example" <sender@attacker.test>',
+  ])("should not extend the whitelist to %s", async (from) => {
+    vi.mocked(prisma.groupItem.findFirst).mockResolvedValue({
+      id: "group-item-id",
+      type: GroupItemType.FROM,
+      value: extractEmailAddress(from),
+      exclude: false,
+      group: { id: "group-id", name: "Cold Email" },
+    } as any);
+
+    const result = await isColdEmail({
+      email: {
+        id: "msg-untrusted",
+        from,
+        to: "user@customer.test",
+        subject: "Hello",
+        content: "Can we schedule a sales call?",
+        date: new Date(),
+      },
+      emailAccount: getEmailAccount({ email: "user@customer.test" }),
+      provider: mockProvider as never,
+      coldEmailRule: { instructions: "test instructions", groupId: "group-id" },
+    });
+
+    expect(result.isColdEmail).toBe(true);
+    expect(result.reason).toBe("ai-already-labeled");
   });
 
   // Blocking a sender we could not verify is worse than missing a cold email.
