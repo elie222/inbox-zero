@@ -97,12 +97,21 @@ test("opens a complete conversation and updates its read state", async ({
         threadId: "thr_playwright_reader",
       }),
     )
-    .toMatchObject({ payload: { read: false } });
+    .toMatchObject({ payload: { read: false }, status: "succeeded" });
 
   await readerConversation.click();
   await expect(
     page.getByRole("heading", { name: "Re: Reader Navigation Message" }),
   ).toBeVisible();
+  await expect
+    .poll(() =>
+      readLatestMailMutation(page, {
+        emailAccountId,
+        kind: "set_read_state",
+        threadId: "thr_playwright_reader",
+      }),
+    )
+    .toMatchObject({ payload: { read: true }, status: "succeeded" });
   await page.keyboard.press("Escape");
   await expect(conversations).toBeVisible();
   await expect(readerConversation).toBeVisible();
