@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import { Loader2Icon } from "lucide-react";
 import { toast } from "sonner";
 import { LoadingContent } from "@/components/LoadingContent";
 import {
@@ -141,6 +142,7 @@ export function LabelPickerDialog({
         <Command className="[&_[cmdk-input-wrapper]>svg]:hidden">
           <CommandInput
             aria-label="Search labels"
+            className="pr-8"
             placeholder={isMove ? "Move to…" : "Label as…"}
             value={search}
             onValueChange={setSearch}
@@ -175,9 +177,15 @@ export function LabelPickerDialog({
           </LoadingContent>
         </Command>
         {isPending && (
-          <p className="sr-only" role="status">
-            {isMove ? "Moving…" : "Applying label…"}
-          </p>
+          <div
+            className="absolute top-3.5 right-3 text-muted-foreground"
+            role="status"
+          >
+            <Loader2Icon aria-hidden className="size-4 animate-spin" />
+            <span className="sr-only">
+              {isMove ? "Moving…" : "Applying label…"}
+            </span>
+          </div>
         )}
       </DialogContent>
     </Dialog>
