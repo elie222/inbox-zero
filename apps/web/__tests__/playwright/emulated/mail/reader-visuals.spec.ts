@@ -158,3 +158,84 @@ test("offers to disable auto archive for an enabled sender", async ({
     }),
   ).toHaveCount(0);
 });
+
+test("opens the sender profile beside the reader", async ({
+  page,
+}, testInfo) => {
+  await page.route("**/api/user/public-contact-context/**", (route) =>
+    route.fulfill({
+      json: {
+        status: "found",
+        context: {
+          role: "Head of Product",
+          company: {
+            name: "Example Labs",
+            domain: "example.com",
+            website: "https://example.com",
+            description: "Builds collaboration tools for distributed teams.",
+            industry: "Software",
+            employeeCount: "51-200 employees",
+            funding: "Series A",
+          },
+          sources: ["https://example.com/team", "https://example.com/about"],
+          confidence: "high",
+        },
+      },
+    }),
+  );
+  const { conversations } = await openMail(page);
+  await conversationWithSubject(
+    page,
+    conversations,
+    "Re: Reader Visual Message",
+  ).click();
+  const subject = page.getByRole("heading", {
+    name: "Re: Reader Visual Message",
+  });
+  await expect(subject).toBeVisible();
+
+  await page
+    .getByRole("button", {
+      exact: true,
+      name: "View public profile for Morgan Example",
+    })
+    .click();
+  const panel = page.getByTestId("sender-context-panel");
+  await expect(panel).toBeVisible();
+  await expect(panel.getByText("Head of Product")).toBeVisible();
+  await expect(panel.getByText("Example Labs")).toBeVisible();
+  // Beside the reader, not over it: the email stays readable and nothing dims.
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(subject).toBeVisible();
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "mail-reader-sender-profile",
+  );
+
+  // Too narrow for a second column, so the same profile slides over instead.
+  await page.setViewportSize({ width: 900, height: 720 });
+  const sheet = page.getByRole("dialog");
+  await expect(sheet).toBeVisible();
+  await expect(sheet.getByText("Head of Product")).toBeVisible();
+  await expect(panel).toHaveCount(0);
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "mail-reader-sender-profile-narrow",
+  );
+
+  await sheet.getByRole("button", { name: "Close" }).click();
+  await expect(sheet).toHaveCount(0);
+
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page
+    .getByRole("button", {
+      exact: true,
+      name: "View public profile for Morgan Example",
+    })
+    .click();
+  await expect(panel).toBeVisible();
+  await panel.getByRole("button", { name: "Close sender profile" }).click();
+  await expect(panel).toHaveCount(0);
+});
