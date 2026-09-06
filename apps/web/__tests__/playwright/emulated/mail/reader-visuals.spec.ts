@@ -250,6 +250,7 @@ test("opens the sender profile beside the reader", async ({
     })
     .click();
   await expect(panel).toBeVisible();
+  await expect(panel).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(panel).toHaveCount(0);
   await expect(subject).toBeVisible();

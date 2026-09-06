@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback } from "react";
 import {
   Building2Icon,
   ExternalLinkIcon,
@@ -52,12 +52,10 @@ export function SenderContextPanel({
   const isResearching =
     isLoading ||
     (data?.status === "unavailable" && data.reason === "research_in_progress");
-  const inlineRef = useRef<HTMLElement>(null);
-
-  // Takes focus like the sheet does, so Escape lands on the pane and can
-  // dismiss it from the keyboard.
-  useEffect(() => {
-    inlineRef.current?.focus();
+  // Focus as soon as the inline pane mounts, including when resizing from
+  // the sheet, so an immediate Escape is handled by the pane.
+  const inlineRef = useCallback((element: HTMLElement | null) => {
+    element?.focus();
   }, []);
 
   const body = (
@@ -119,6 +117,7 @@ export function SenderContextPanel({
         if (event.key !== "Escape") return;
         // Stopped here so the mail shell's Escape shortcut, which listens on
         // the document, doesn't also close the whole reader.
+        event.preventDefault();
         event.stopPropagation();
         onClose();
       }}
