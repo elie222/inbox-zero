@@ -302,6 +302,39 @@ test("creates and edits a label and shows every keyboard workflow", async ({
     page.getByRole("link", { name: updatedLabelName, exact: true }),
   ).toBeVisible();
 
+  for (const name of [
+    `${updatedLabelName}/Clients`,
+    `${updatedLabelName}/Clients/Acme`,
+  ]) {
+    await page.getByRole("button", { name: "Create label" }).click();
+    await page.getByRole("textbox", { name: "New label name" }).fill(name);
+    await page.getByRole("button", { name: "Add", exact: true }).click();
+    await expect(
+      page.getByRole("link", { name: name.split("/").at(-1), exact: true }),
+    ).toBeVisible();
+  }
+  const child = page.getByRole("link", { name: "Clients", exact: true });
+  const grandchild = page.getByRole("link", { name: "Acme", exact: true });
+  await expect(child).toBeVisible();
+  await expect(grandchild).toBeVisible();
+  await capturePlaywrightCheckpoint(page, testInfo, "gmail-nested-labels");
+  await page
+    .getByRole("button", { name: `Collapse ${updatedLabelName}`, exact: true })
+    .click();
+  await expect(child).toBeHidden();
+  await expect(grandchild).toBeHidden();
+  await page
+    .getByRole("button", { name: `Expand ${updatedLabelName}`, exact: true })
+    .click();
+  await grandchild.click();
+  await expect(grandchild).toHaveAttribute("aria-current", "page");
+  await grandchild.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
+  await expect(
+    editDialog.getByRole("textbox", { name: "label name" }),
+  ).toHaveValue(`${updatedLabelName}/Clients/Acme`);
+  await editDialog.getByRole("button", { name: "Cancel" }).click();
+
   await page.getByRole("button", { name: /^Keyboard shortcuts/ }).click();
   const dialog = page.getByRole("dialog", { name: "Keyboard shortcuts" });
   await expect(dialog).toBeVisible();
