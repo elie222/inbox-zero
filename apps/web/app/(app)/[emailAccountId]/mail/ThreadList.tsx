@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { SelectionBar } from "@/app/(app)/[emailAccountId]/mail/SelectionBar";
 import { ThreadRow } from "@/app/(app)/[emailAccountId]/mail/ThreadRow";
 import type {
   ListThread,
@@ -32,10 +31,6 @@ export type ThreadListProps = {
   onOpenThread: (index: number) => void;
   onToggleSelect: (index: number) => void;
   onSelectRangeTo: (index: number) => void;
-  onArchiveSelected: () => void;
-  onDeleteSelected: () => void;
-  onLabelSelected?: () => void;
-  onClearSelection: () => void;
   showLoadMore: boolean;
   isLoadingMore: boolean;
   onLoadMore: () => void;
@@ -56,10 +51,6 @@ export function ThreadList({
   onOpenThread,
   onToggleSelect,
   onSelectRangeTo,
-  onArchiveSelected,
-  onDeleteSelected,
-  onLabelSelected,
-  onClearSelection,
   showLoadMore,
   isLoadingMore,
   onLoadMore,
@@ -126,16 +117,6 @@ export function ThreadList({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      {selectionEnabled ? (
-        <SelectionBar
-          onArchive={onArchiveSelected}
-          onClear={onClearSelection}
-          onDelete={onDeleteSelected}
-          onLabel={onLabelSelected}
-          selectedCount={selectedCount}
-        />
-      ) : null}
-
       <div
         className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
         ref={setScrollRoot}
