@@ -61,7 +61,7 @@ export function buildPersistedRuleActions({
   notifyMessagingChannelId: string | null | undefined;
   webhookActionsEnabled: boolean;
 }) {
-  const actions = removeDuplicateActionIds(
+  const actions = preservePersistedActionIds(
     denormalizeDraftReplyActions(
       formActions.map((action) => {
         if (
@@ -74,6 +74,7 @@ export function buildPersistedRuleActions({
         return action;
       }),
     ),
+    originalActions,
   );
 
   if (!webhookActionsEnabled) {
@@ -108,15 +109,38 @@ export function buildPersistedRuleActions({
   return restorePersistedActionSequence({ actions, originalActions });
 }
 
-function removeDuplicateActionIds(actions: RuleFormAction[]) {
-  const seenIds = new Set<string>();
+function preservePersistedActionIds(
+  actions: RuleFormAction[],
+  originalActions: RuleFormAction[],
+) {
+  const preferredIndexById = new Map<string, number>();
 
-  return actions.map((action) => {
+  for (const [index, action] of actions.entries()) {
+    if (!action.id || preferredIndexById.has(action.id)) continue;
+
+    const originalAction = originalActions.find(
+      (original) => original.id === action.id,
+    );
+    const matchingOriginalIndex = originalAction
+      ? actions.findIndex(
+          (candidate) =>
+            candidate.id === originalAction.id &&
+            candidate.type === originalAction.type &&
+            candidate.messagingChannelId === originalAction.messagingChannelId,
+        )
+      : -1;
+
+    preferredIndexById.set(
+      action.id,
+      matchingOriginalIndex === -1 ? index : matchingOriginalIndex,
+    );
+  }
+
+  return actions.map((action, index) => {
     if (!action.id) return action;
-    if (seenIds.has(action.id)) return { ...action, id: undefined };
-
-    seenIds.add(action.id);
-    return action;
+    return preferredIndexById.get(action.id) === index
+      ? action
+      : { ...action, id: undefined };
   });
 }
 

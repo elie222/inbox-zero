@@ -171,4 +171,48 @@ describe("rule form action conversion", () => {
       }),
     );
   });
+
+  it("keeps a messaging draft id on its existing destination when adding email", () => {
+    const originalActions = [
+      {
+        id: "action-chat-draft",
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        messagingChannelId: "cmessagingchannel1234567890123",
+        content: { value: "Draft response", setManually: true },
+        delayInMinutes: 30,
+      },
+      {
+        id: "action-label",
+        type: ActionType.LABEL,
+        labelId: { value: "label-1", name: "Follow up" },
+      },
+    ];
+
+    const persistedActions = buildPersistedRuleActions({
+      formActions: [
+        originalActions[1],
+        {
+          ...originalActions[0],
+          type: ActionType.DRAFT_EMAIL,
+          messagingChannelId: null,
+        },
+        originalActions[0],
+      ],
+      originalActions,
+      includeDigestAction: false,
+      notifyMessagingChannelId: null,
+      webhookActionsEnabled: true,
+    });
+
+    expect(persistedActions.map((action) => action.id)).toEqual([
+      "action-chat-draft",
+      "action-label",
+      undefined,
+    ]);
+    expect(persistedActions.map((action) => action.type)).toEqual([
+      ActionType.DRAFT_MESSAGING_CHANNEL,
+      ActionType.LABEL,
+      ActionType.DRAFT_EMAIL,
+    ]);
+  });
 });
