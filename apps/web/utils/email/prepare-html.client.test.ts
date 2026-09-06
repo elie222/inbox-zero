@@ -24,12 +24,16 @@ describe("sanitizeEmailHtml", () => {
       </html>
     `);
 
-    const document = new DOMParser().parseFromString(sanitized, "text/html");
+    const parsedDocument = new DOMParser().parseFromString(
+      sanitized,
+      "text/html",
+    );
 
-    expect(document.body.getAttribute("style")).toBe(
+    expect(sanitized).toMatch(/^<!doctype html>/i);
+    expect(parsedDocument.body.getAttribute("style")).toBe(
       "background: #222; color: #eee",
     );
-    expect(document.head.querySelector("style")?.textContent).toContain(
+    expect(parsedDocument.head.querySelector("style")?.textContent).toContain(
       "p { margin: 0; }",
     );
   });
@@ -44,10 +48,15 @@ describe("sanitizeEmailHtml", () => {
       </html>
     `);
 
-    const document = new DOMParser().parseFromString(sanitized, "text/html");
+    const parsedDocument = new DOMParser().parseFromString(
+      sanitized,
+      "text/html",
+    );
 
-    expect(document.querySelector("script")).toBeNull();
-    expect(document.body.hasAttribute("onload")).toBe(false);
-    expect(document.querySelector("img")?.hasAttribute("onerror")).toBe(false);
+    expect(parsedDocument.querySelector("script")).toBeNull();
+    expect(parsedDocument.body.hasAttribute("onload")).toBe(false);
+    expect(parsedDocument.querySelector("img")?.hasAttribute("onerror")).toBe(
+      false,
+    );
   });
 });
