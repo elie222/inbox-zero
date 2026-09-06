@@ -11,7 +11,7 @@ export function isWhitelistedSender(
   return (
     whitelist?.split(/\s+OR\s+/i).some((entry) => {
       const whitelistedAddress = extractEmailAddress(entry).toLowerCase();
-      return !!whitelistedAddress && address === whitelistedAddress;
+      return address === whitelistedAddress;
     }) ?? false
   );
 }
