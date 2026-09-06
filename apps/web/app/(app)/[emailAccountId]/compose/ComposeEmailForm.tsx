@@ -161,15 +161,14 @@ export function ComposeEmailForm(props: ComposeEmailFormProps) {
           messageId: props.draftSessionId,
         }
       : undefined,
-    props.draftMode === "forward" &&
-      props.draftKeyMessageId &&
-      props.replyingToEmail?.threadId
+    props.draftKeyMessageId && props.replyingToEmail?.threadId
       ? {
           emailAccountId: selectedEmailAccountId,
           threadId: props.replyingToEmail.threadId,
           messageId: props.draftKeyMessageId,
         }
       : undefined,
+    props.draftMode,
   );
   return (
     <LoadingContent error={error} loading={isLoading || localDraft.isLoading}>

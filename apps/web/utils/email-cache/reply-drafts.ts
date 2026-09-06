@@ -44,7 +44,7 @@ export function getReplyDraftSessionId(
   messageId: string,
   mode: ReplyDraftMode,
 ) {
-  return mode === "reply" ? messageId : `${messageId}:forward`;
+  return `${messageId}:${mode}`;
 }
 channel?.addEventListener("message", (event) => {
   const scope = event.data;
@@ -84,18 +84,18 @@ export async function getReplyDraft(identity: ReplyDraftIdentity) {
 export async function getReplyDraftForSession(
   identity: ReplyDraftIdentity,
   legacyIdentity?: ReplyDraftIdentity,
+  mode?: ReplyDraftMode,
 ) {
   const draft = await getReplyDraft(identity);
-  if (draft || !legacyIdentity) return draft;
+  if (draft || !legacyIdentity || !mode) return draft;
 
   const legacyDraft = await getReplyDraft(legacyIdentity);
-  if (!legacyDraft?.content || getReplyDraftMode(legacyDraft) !== "forward")
-    return;
+  if (!legacyDraft?.content || getReplyDraftMode(legacyDraft) !== mode) return;
 
   try {
     await createReplyDraftWriter(identity).save({
       ...legacyDraft.content,
-      composeMode: "forward",
+      composeMode: mode,
     });
   } catch {
     const concurrentDraft = await getReplyDraft(identity).catch(
@@ -106,7 +106,7 @@ export async function getReplyDraftForSession(
         ...legacyDraft,
         messageId: identity.messageId,
         revision: 0,
-        content: { ...legacyDraft.content, composeMode: "forward" },
+        content: { ...legacyDraft.content, composeMode: mode },
       }
     );
   }

@@ -97,8 +97,8 @@ describe("local reply drafts", () => {
     await createReplyDraftWriter(identity).save(content);
 
     const [migrated, concurrentMigration] = await Promise.all([
-      getReplyDraftForSession(forwardIdentity, identity),
-      getReplyDraftForSession(forwardIdentity, identity),
+      getReplyDraftForSession(forwardIdentity, identity, "forward"),
+      getReplyDraftForSession(forwardIdentity, identity, "forward"),
     ]);
 
     expect(migrated?.content).toMatchObject({ composeMode: "forward" });
@@ -106,6 +106,27 @@ describe("local reply drafts", () => {
       composeMode: "forward",
     });
     expect(migrated?.content?.draft.editableHtml).toBe("<p>My reply</p>");
+    expect((await getReplyDraft(identity))?.content).toBeNull();
+  });
+  it("migrates a legacy reply draft to its separate session", async () => {
+    await createReplyDraftWriter(identity).save({
+      ...content,
+      values: {
+        ...content.values,
+        replyToEmail: {
+          threadId: identity.threadId,
+          headerMessageId: "header-message-id",
+        },
+      },
+    });
+
+    const migrated = await getReplyDraftForSession(
+      replyIdentity,
+      identity,
+      "reply",
+    );
+
+    expect(migrated?.content).toMatchObject({ composeMode: "reply" });
     expect((await getReplyDraft(identity))?.content).toBeNull();
   });
   it("does not hydrate drafts from reads overlapping account cleanup", async () => {

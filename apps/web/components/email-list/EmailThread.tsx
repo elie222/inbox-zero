@@ -289,6 +289,7 @@ function getLocalDraftMode(drafts: StoredReplyDraft[], messageId: string) {
   const latest = drafts
     .filter(
       (draft) =>
+        draft.messageId === messageId ||
         draft.messageId === getReplyDraftSessionId(messageId, "reply") ||
         draft.messageId === getReplyDraftSessionId(messageId, "forward"),
     )
