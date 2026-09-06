@@ -85,7 +85,7 @@ describe("EmailMessage draft recovery", () => {
 
     render(
       <EmailMessage
-        defaultShowReply
+        defaultComposeMode="reply"
         draftMessage={createMessage("draft-1")}
         expanded
         message={createMessage("message-1")}

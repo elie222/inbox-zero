@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import useSWR from "swr";
 import { restoreReplyFromOutbox } from "@/utils/email-cache/reply-drafts";
+import type { ReplyDraftMode } from "@/utils/email-cache/reply-drafts";
 import { Button } from "@/components/ui/button";
 import {
   getEmailCacheDatabase,
@@ -36,7 +37,7 @@ export function ThreadDeliveryStatus({
   emailAccountId: string;
   threadId: string;
   messageIds: string[];
-  onEditReply: (messageId: string) => void;
+  onEditReply: (messageId: string, mode: ReplyDraftMode) => void;
   refetch: () => void;
   canEditReply: boolean;
 }) {
@@ -192,8 +193,11 @@ export function ThreadDeliveryStatus({
                 size="sm"
                 onClick={() =>
                   act(async () => {
-                    await restoreReplyFromOutbox(row.id, emailAccountId);
-                    onEditReply(row.messageIds[0]);
+                    const restored = await restoreReplyFromOutbox(
+                      row.id,
+                      emailAccountId,
+                    );
+                    onEditReply(restored.messageId, restored.mode);
                   })
                 }
               >

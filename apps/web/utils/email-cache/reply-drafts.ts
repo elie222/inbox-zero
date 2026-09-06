@@ -16,6 +16,7 @@ import {
 } from "./database";
 
 export type ReplyDraftContent = {
+  composeMode?: ReplyDraftMode;
   requestId?: string;
   deliveryPath?: "scheduled" | "outbox";
   values: Omit<SendEmailBody, "attachments" | "messageHtml">;
@@ -30,12 +31,21 @@ export type ReplyDraftIdentity = Pick<
   StoredReplyDraft,
   "emailAccountId" | "threadId" | "messageId"
 >;
+export type ReplyDraftMode = "reply" | "forward";
 type ReplyDraftScope = Pick<ReplyDraftIdentity, "emailAccountId" | "threadId">;
 const listeners = new Set<(scope: ReplyDraftScope) => void>();
+const pendingWrites = new Map<string, Promise<unknown>>();
 const channel =
   typeof window !== "undefined" && typeof BroadcastChannel !== "undefined"
     ? new BroadcastChannel("inbox-zero-reply-drafts")
     : null;
+
+export function getReplyDraftSessionId(
+  messageId: string,
+  mode: ReplyDraftMode,
+) {
+  return `${messageId}:${mode}`;
+}
 channel?.addEventListener("message", (event) => {
   const scope = event.data;
   if (
@@ -57,6 +67,7 @@ export function subscribeToReplyDrafts(
 
 export async function getReplyDraft(identity: ReplyDraftIdentity) {
   const epoch = captureEmailCacheEpoch(identity.emailAccountId);
+  await pendingWrites.get(getReplyDraftIdentityKey(identity))?.catch(() => {});
   const database = await getEmailCacheDatabase();
   if (!database)
     throw new Error("Draft storage is unavailable on this device.");
@@ -68,6 +79,103 @@ export async function getReplyDraft(identity: ReplyDraftIdentity) {
   if (!isEmailCacheEpochCurrent(identity.emailAccountId, epoch))
     throw new Error("This account’s local draft storage was cleared.");
   return draft;
+}
+
+export async function getReplyDraftForSession(
+  identity: ReplyDraftIdentity,
+  legacyIdentity?: ReplyDraftIdentity,
+  mode?: ReplyDraftMode,
+) {
+  const epoch = captureEmailCacheEpoch(identity.emailAccountId);
+  const draft = await getReplyDraft(identity);
+  if (draft || !legacyIdentity || !mode) return draft;
+
+  try {
+    await pendingWrites
+      .get(getReplyDraftIdentityKey(legacyIdentity))
+      ?.catch(() => {});
+    const database = await getEmailCacheDatabase();
+    if (!database)
+      throw new Error("Draft storage is unavailable on this device.");
+    if (!isEmailCacheEpochCurrent(identity.emailAccountId, epoch))
+      throw new Error("This account’s local draft storage was cleared.");
+
+    const transaction = database.transaction("replyDrafts", "readwrite");
+    const store = transaction.store;
+    const currentDraft = await store.get([
+      identity.emailAccountId,
+      identity.threadId,
+      identity.messageId,
+    ]);
+    if (currentDraft) {
+      await transaction.done;
+      if (!isEmailCacheEpochCurrent(identity.emailAccountId, epoch))
+        throw new Error("This account’s local draft storage was cleared.");
+      return currentDraft;
+    }
+
+    const legacyDraft = await store.get([
+      legacyIdentity.emailAccountId,
+      legacyIdentity.threadId,
+      legacyIdentity.messageId,
+    ]);
+    if (!legacyDraft?.content || getReplyDraftMode(legacyDraft) !== mode) {
+      await transaction.done;
+      if (!isEmailCacheEpochCurrent(identity.emailAccountId, epoch))
+        throw new Error("This account’s local draft storage was cleared.");
+      return;
+    }
+
+    const migratedDraft: StoredReplyDraft = {
+      ...identity,
+      content: { ...legacyDraft.content, composeMode: mode },
+      revision: 1,
+      updatedAt: Date.now(),
+    };
+    await store.put(migratedDraft);
+    await store.put({
+      ...legacyDraft,
+      content: null,
+      revision: legacyDraft.revision + 1,
+      updatedAt: Date.now(),
+    });
+    await transaction.done;
+    if (!isEmailCacheEpochCurrent(identity.emailAccountId, epoch))
+      throw new Error("This account’s local draft storage was cleared.");
+    notifyReplyDraftChange(identity);
+    notifyReplyDraftChange(legacyIdentity);
+    return migratedDraft;
+  } catch (error) {
+    if (!isEmailCacheEpochCurrent(identity.emailAccountId, epoch))
+      throw new Error("This account’s local draft storage was cleared.");
+    const concurrentDraft = await getReplyDraft(identity).catch(
+      () => undefined,
+    );
+    if (concurrentDraft) return concurrentDraft;
+
+    const legacyDraft = await getReplyDraft(legacyIdentity).catch(
+      () => undefined,
+    );
+    if (
+      legacyDraft?.content &&
+      getReplyDraftMode(legacyDraft) === mode &&
+      isEmailCacheEpochCurrent(identity.emailAccountId, epoch)
+    ) {
+      return {
+        ...legacyDraft,
+        messageId: identity.messageId,
+        revision: 0,
+        content: { ...legacyDraft.content, composeMode: mode },
+      };
+    }
+    throw error;
+  }
+}
+
+export function getReplyDraftMode(draft: StoredReplyDraft) {
+  if (!draft.content) return;
+  if (draft.content.composeMode) return draft.content.composeMode;
+  return draft.content.values.replyToEmail ? "reply" : "forward";
 }
 
 export async function getReplyDrafts(emailAccountId: string, threadId: string) {
@@ -126,11 +234,16 @@ export function createReplyDraftWriter(
         await transaction.done;
         revision += 1;
         if (Boolean(previous?.content) !== Boolean(content)) {
-          for (const listener of listeners) listener(identity);
-          channel?.postMessage(identity);
+          notifyReplyDraftChange(identity);
         }
       });
     pending = operation;
+    const identityKey = getReplyDraftIdentityKey(identity);
+    pendingWrites.set(identityKey, operation);
+    operation.then(
+      () => clearPendingWrite(identityKey, operation),
+      () => clearPendingWrite(identityKey, operation),
+    );
     return operation;
   };
   return {
@@ -144,9 +257,30 @@ export function createReplyDraftWriter(
     clear() {
       stopped = true;
       // Keep a revision tombstone so an older tab cannot resurrect a sent draft.
-      return write(null);
+      return write(null).catch((error) => {
+        stopped = false;
+        throw error;
+      });
     },
   };
+}
+
+function getReplyDraftIdentityKey(identity: ReplyDraftIdentity) {
+  return JSON.stringify([
+    identity.emailAccountId,
+    identity.threadId,
+    identity.messageId,
+  ]);
+}
+
+function clearPendingWrite(identityKey: string, operation: Promise<unknown>) {
+  if (pendingWrites.get(identityKey) === operation)
+    pendingWrites.delete(identityKey);
+}
+
+function notifyReplyDraftChange(scope: ReplyDraftScope) {
+  for (const listener of listeners) listener(scope);
+  channel?.postMessage(scope);
 }
 
 export async function restoreReplyFromOutbox(
@@ -163,9 +297,11 @@ export async function restoreReplyFromOutbox(
   if (row?.kind !== "reply" || row.emailAccountId !== emailAccountId)
     throw new Error("Queued reply was not found.");
   const email = sendEmailBody.parse((row.payload as { email: unknown }).email);
+  const composeMode: ReplyDraftMode = email.replyToEmail ? "reply" : "forward";
   const draft = prepareEmailDraft({ html: email.messageHtml });
   const { attachments, messageHtml: _messageHtml, ...values } = email;
   const content: ReplyDraftContent = {
+    composeMode,
     values,
     draft,
     preservedBlocks: createPreservedEmailBlocks(draft),
@@ -179,13 +315,14 @@ export async function restoreReplyFromOutbox(
       contentId: file.contentId,
     })),
   };
+  const originalMessageId = row.messageIds[0];
+  if (!originalMessageId)
+    throw new Error("The reply's original message is unavailable.");
   const identity = {
     emailAccountId: row.emailAccountId,
     threadId: row.threadId,
-    messageId: row.messageIds[0],
+    messageId: getReplyDraftSessionId(originalMessageId, composeMode),
   };
-  if (!identity.messageId)
-    throw new Error("The reply's original message is unavailable.");
   if (!isEmailCacheEpochCurrent(emailAccountId, epoch))
     throw new Error("This account’s local draft storage was cleared.");
   const transaction = database.transaction(
@@ -226,4 +363,5 @@ export async function restoreReplyFromOutbox(
   for (const listener of listeners) listener(identity);
   channel?.postMessage(identity);
   notifyMailMutationChange();
+  return { messageId: originalMessageId, mode: composeMode };
 }

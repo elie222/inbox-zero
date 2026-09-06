@@ -242,6 +242,36 @@ test("does not add a line break for the send shortcut", async ({
   );
 });
 
+test("attaches files and discards a compose draft with shortcuts", async ({
+  page,
+}, testInfo) => {
+  await openMail(page);
+  await page.getByRole("button", { name: /^Compose/ }).click();
+
+  const dialog = page.getByRole("dialog", { name: "New Message" });
+  const editor = dialog.locator("[contenteditable='true']");
+  const attachButton = dialog.getByRole("button", { name: "Attach files" });
+  await attachButton.hover();
+  await expect(page.getByRole("tooltip")).toContainText("Attach files");
+  await expect(page.getByRole("tooltip").locator("kbd")).toHaveText("⌘⇧U");
+  await capturePlaywrightCheckpoint(page, testInfo, "composer-shortcut-hint");
+
+  const fileChooserPromise = page.waitForEvent("filechooser");
+  await editor.press("ControlOrMeta+Shift+u");
+  const fileChooser = await fileChooserPromise;
+  await fileChooser.setFiles({
+    name: "notes.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("Attachment contents"),
+  });
+  await expect(dialog.getByRole("list", { name: "Attachments" })).toContainText(
+    "notes.txt",
+  );
+
+  await editor.press("ControlOrMeta+Shift+,");
+  await expect(dialog).toBeHidden();
+});
+
 test("composes, sends, and reads a new message from Sent", async ({
   page,
 }, testInfo) => {
@@ -367,14 +397,64 @@ test("opens and sends a reply from the reader with Enter", async ({
   await expect(replyEditor).toContainText(replyBody);
   const sendButton = page.getByRole("button", { name: "Send", exact: true });
   await expect(sendButton).toHaveText("Send");
+
+  await replyEditor.press("ControlOrMeta+Shift+l");
+  await expect(page.getByRole("dialog", { name: "Send later" })).toBeVisible();
+  await capturePlaywrightCheckpoint(page, testInfo, "send-later-shortcut");
+
+  await page.getByRole("button", { name: "Choose date and time" }).click();
+  await page
+    .getByLabel("Send later date and time")
+    .press("ControlOrMeta+Shift+h");
+  await expect(page.getByRole("dialog", { name: "Remind me" })).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  await replyEditor.press("ControlOrMeta+Shift+l");
+  await expect(page.getByRole("dialog", { name: "Send later" })).toBeVisible();
+  await expect(page.getByLabel("Send later date and time")).toBeHidden();
+  await page.keyboard.press("Escape");
+
   await sendButton.hover();
-  await expect(page.getByRole("tooltip")).toHaveText(/(?:⌘|Ctrl)\+Enter/);
+  const sendTooltip = page.getByRole("tooltip");
+  await expect(sendTooltip).toContainText("Send and mark done");
+  await expect(sendTooltip.locator("kbd")).toHaveText(["⌘↵", "⌘⇧↵"]);
   await capturePlaywrightCheckpoint(page, testInfo, "protected-quoted-reply");
   await sendButton.click();
 
   await expect(replyEditor).toHaveCount(0);
   await expect(sentByMe).toHaveCount(initialSentByMeCount + 1);
   await capturePlaywrightCheckpoint(page, testInfo, "reply-sent-in-thread");
+});
+
+test("keeps reply and forward drafts in separate composer sessions", async ({
+  page,
+}) => {
+  const { emailAccountId } = await openMail(page);
+  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reply`);
+  const message = page.locator(
+    '[data-thread-message-id="msg_playwright_reply"]',
+  );
+  await expect(message).toBeVisible();
+
+  await message.getByRole("button", { name: "Reply", exact: true }).click();
+  const editor = page.getByRole("textbox", { name: "Email message" });
+  await editor.fill("Reply-only draft text");
+
+  await message.getByRole("button", { name: "Forward", exact: true }).click();
+  await expect(editor).not.toContainText("Reply-only draft text");
+  await expect(message.getByRole("textbox", { name: "To" })).toHaveValue("");
+  await editor.fill("Forward-only draft text");
+
+  await message.getByRole("button", { name: "Reply", exact: true }).click();
+  await expect(editor).toContainText("Reply-only draft text");
+  await page.getByRole("button", { name: /^Draft to Leslie/ }).click();
+  await expect(message.getByRole("textbox", { name: "To" })).toHaveValue(
+    /leslie@example\.com/i,
+  );
+
+  await message.getByRole("button", { name: "Forward", exact: true }).click();
+  await expect(editor).toContainText("Forward-only draft text");
+  await expect(message.getByRole("textbox", { name: "To" })).toHaveValue("");
 });
 
 async function selectEditorText(editor: Locator, text: string) {

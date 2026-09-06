@@ -2,13 +2,19 @@
 
 import { useEffect, useState } from "react";
 import {
-  getReplyDraft,
+  getReplyDraftForSession,
   type ReplyDraftIdentity,
 } from "@/utils/email-cache/reply-drafts";
 import type { StoredReplyDraft } from "@/utils/email-cache/database";
 
-export function useLocalReplyDraft(identity: ReplyDraftIdentity | undefined) {
-  const key = identity ? JSON.stringify(identity) : "";
+export function useLocalReplyDraft(
+  identity: ReplyDraftIdentity | undefined,
+  legacyIdentity?: ReplyDraftIdentity,
+  mode?: "reply" | "forward",
+) {
+  const key = identity
+    ? JSON.stringify({ identity, legacyIdentity, mode })
+    : "";
   const [loaded, setLoaded] = useState<{
     key: string;
     draft?: StoredReplyDraft;
@@ -17,7 +23,16 @@ export function useLocalReplyDraft(identity: ReplyDraftIdentity | undefined) {
   useEffect(() => {
     if (!key) return;
     let cancelled = false;
-    getReplyDraft(JSON.parse(key)).then(
+    const identities = JSON.parse(key) as {
+      identity: ReplyDraftIdentity;
+      legacyIdentity?: ReplyDraftIdentity;
+      mode?: "reply" | "forward";
+    };
+    getReplyDraftForSession(
+      identities.identity,
+      identities.legacyIdentity,
+      identities.mode,
+    ).then(
       (draft) => {
         if (!cancelled) setLoaded({ key, draft });
       },
