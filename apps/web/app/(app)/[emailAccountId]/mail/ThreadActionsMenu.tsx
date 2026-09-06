@@ -2,8 +2,10 @@
 
 import type { ComponentProps } from "react";
 import {
+  ArchiveIcon,
   ArchiveRestoreIcon,
   ExternalLinkIcon,
+  FolderInputIcon,
   MailXIcon,
   MailIcon,
   MailOpenIcon,
@@ -58,8 +60,10 @@ export type ThreadActionsMenuProps = {
   isUnread: boolean;
   onMarkSpam: () => void;
   onDelete: () => void;
-  onToggleRead: () => void;
+  onMarkRead: () => void;
+  onMarkUnread: () => void;
   onLabel?: () => void;
+  onMove?: () => void;
   /** Chat remains scoped to the route account, so cross-account rows hide it. */
   showFixWithChat?: boolean;
   open?: boolean;
@@ -77,8 +81,10 @@ export function ThreadActionsMenu({
   isUnread,
   onMarkSpam,
   onDelete,
-  onToggleRead,
+  onMarkRead,
+  onMarkUnread,
   onLabel,
+  onMove,
   showFixWithChat = true,
   open,
   onOpenChange,
@@ -86,13 +92,15 @@ export function ThreadActionsMenu({
   const hint = getShortcutHint("moreActions");
   const { provider, userEmail } = useAccount();
   const {
-    canAutoArchive,
+    canManageAutoArchive,
     canUnsubscribe,
-    onAutoArchive,
+    isAutoArchived,
+    isAutoArchiveStatusLoading,
+    isUpdatingAutoArchive,
+    onToggleAutoArchive,
     onUnsubscribe,
     PremiumModal,
   } = useUnsubscribeSender(message, { loadStoredLink: Boolean(open) });
-  const ReadIcon = isUnread ? MailOpenIcon : MailIcon;
   const openUrl = message
     ? getEmailMessageCellActions({
         externalUrl: message.externalUrl,
@@ -157,9 +165,29 @@ export function ThreadActionsMenu({
             </DropdownMenuItem>
           )}
 
-          <DropdownMenuItem onSelect={onToggleRead}>
-            <ReadIcon className="mr-2 size-4" />
-            {isUnread ? "Mark as read" : "Mark as unread"}
+          {onMove && (
+            <DropdownMenuItem onSelect={onMove}>
+              <FolderInputIcon className="mr-2 size-4" />
+              Move
+              <DropdownMenuShortcut>
+                {getShortcutHint("move")}
+              </DropdownMenuShortcut>
+            </DropdownMenuItem>
+          )}
+
+          {isUnread ? (
+            <DropdownMenuItem onSelect={onMarkRead}>
+              <MailOpenIcon className="mr-2 size-4" />
+              Mark as read
+            </DropdownMenuItem>
+          ) : null}
+
+          <DropdownMenuItem onSelect={onMarkUnread}>
+            <MailIcon className="mr-2 size-4" />
+            Mark as unread
+            <DropdownMenuShortcut>
+              {getShortcutHint("markUnread")}
+            </DropdownMenuShortcut>
           </DropdownMenuItem>
 
           <DropdownMenuItem onSelect={onDelete}>
@@ -173,19 +201,34 @@ export function ThreadActionsMenu({
           <DropdownMenuItem onSelect={onMarkSpam}>
             <ShieldAlertIcon className="mr-2 size-4" />
             Mark as spam
+            <DropdownMenuShortcut>
+              {getShortcutHint("markSpam")}
+            </DropdownMenuShortcut>
           </DropdownMenuItem>
 
-          {canUnsubscribe ? (
-            <DropdownMenuItem onSelect={onUnsubscribe}>
+          {canManageAutoArchive ? (
+            <DropdownMenuItem
+              disabled={!canUnsubscribe}
+              onSelect={onUnsubscribe}
+            >
               <MailXIcon className="mr-2 size-4" />
               Unsubscribe from sender
             </DropdownMenuItem>
           ) : null}
 
-          {canAutoArchive ? (
-            <DropdownMenuItem onSelect={onAutoArchive}>
-              <ArchiveRestoreIcon className="mr-2 size-4" />
-              Auto archive future emails
+          {canManageAutoArchive ? (
+            <DropdownMenuItem
+              disabled={isAutoArchiveStatusLoading || isUpdatingAutoArchive}
+              onSelect={onToggleAutoArchive}
+            >
+              {isAutoArchived ? (
+                <ArchiveRestoreIcon className="mr-2 size-4" />
+              ) : (
+                <ArchiveIcon className="mr-2 size-4" />
+              )}
+              {isAutoArchived
+                ? "Disable auto archive"
+                : "Auto archive future emails"}
             </DropdownMenuItem>
           ) : null}
 
@@ -194,6 +237,9 @@ export function ThreadActionsMenu({
               <a href={openUrl} rel="noopener noreferrer" target="_blank">
                 <ExternalLinkIcon className="mr-2 size-4" />
                 Open in {isMicrosoftProvider(provider) ? "Outlook" : "Gmail"}
+                <DropdownMenuShortcut>
+                  {getShortcutHint("openExternal")}
+                </DropdownMenuShortcut>
               </a>
             </DropdownMenuItem>
           ) : null}

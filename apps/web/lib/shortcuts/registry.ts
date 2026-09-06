@@ -145,6 +145,13 @@ const SHORTCUT_DEFINITIONS = [
     label: "Back to the app",
   },
   {
+    id: "openExternal",
+    keys: ["g>g"],
+    scope: "mail",
+    group: "Navigate",
+    label: "Open in email provider",
+  },
+  {
     id: "commandPalette",
     keys: ["mod+k"],
     scope: "global",
@@ -202,6 +209,29 @@ const SHORTCUT_DEFINITIONS = [
     label: "Label",
   },
   {
+    id: "markUnread",
+    keys: ["u"],
+    scope: "mail",
+    group: "Triage",
+    label: "Mark as unread",
+  },
+  {
+    id: "move",
+    keys: ["v"],
+    scope: "mail",
+    group: "Triage",
+    label: "Move",
+  },
+  {
+    // `!` sits behind shift on US layouts and in front of it on others.
+    id: "markSpam",
+    keys: ["shift+!", "!"],
+    display: ["!"],
+    scope: "mail",
+    group: "Triage",
+    label: "Mark as spam",
+  },
+  {
     id: "snooze",
     keys: ["h"],
     scope: "mail",
@@ -247,7 +277,7 @@ const SHORTCUT_DEFINITIONS = [
   },
   {
     id: "toggleLayout",
-    keys: ["v"],
+    keys: ["shift+v"],
     scope: "mail",
     group: "View",
     label: "List view / split view",

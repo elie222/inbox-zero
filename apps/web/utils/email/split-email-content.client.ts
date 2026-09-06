@@ -8,11 +8,13 @@ const QUOTED_CONTENT_SELECTOR = [
   ".moz-cite-prefix",
   'blockquote[type="cite"]',
 ].join(", ");
+const DOCUMENT_STRUCTURE_PATTERN = /<(?:html|body)(?:\s|>)/i;
 
 export function splitEmailContent(html: string): {
   mainContent: string;
   hasQuotedContent: boolean;
 } {
+  const hasDocumentStructure = DOCUMENT_STRUCTURE_PATTERN.test(html);
   const doc = new DOMParser().parseFromString(html, "text/html");
   const quoteBoundary = findQuoteBoundary(doc);
 
@@ -23,8 +25,16 @@ export function splitEmailContent(html: string): {
   removeBoundaryAndFollowingContent(quoteBoundary, doc.body);
   trimQuoteSpacing(doc.body);
 
+  let mainContent = doc.body.innerHTML;
+  if (hasDocumentStructure) {
+    const documentType = doc.doctype
+      ? new XMLSerializer().serializeToString(doc.doctype)
+      : "";
+    mainContent = `${documentType}${doc.documentElement.outerHTML}`;
+  }
+
   return {
-    mainContent: doc.body.innerHTML,
+    mainContent,
     hasQuotedContent: true,
   };
 }

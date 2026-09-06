@@ -175,7 +175,7 @@ export default async function RootLayout({
           </Suspense>
           <GlobalProviders>
             {children}
-            <Toaster closeButton richColors theme="light" visibleToasts={9} />
+            <Toaster />
           </GlobalProviders>
         </PostHogProvider>
         <Analytics />

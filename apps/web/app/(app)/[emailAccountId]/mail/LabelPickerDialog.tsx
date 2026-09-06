@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { PlusIcon, TagIcon } from "lucide-react";
+import { FolderInputIcon, PlusIcon, TagIcon } from "lucide-react";
 import { toast } from "sonner";
 import { LoadingContent } from "@/components/LoadingContent";
 import {
@@ -30,10 +30,12 @@ export function LabelPickerDialog({
   threadIds,
   onClose,
   onApplied,
+  mode = "label",
 }: {
   threadIds: string[];
   onClose: () => void;
   onApplied: (threadIds: string[], labelId: string) => void;
+  mode?: "label" | "move";
 }) {
   const { emailAccountId } = useAccount();
   const { userLabels, isLoading, error, mutate } = useLabels(emailAccountId);
@@ -42,6 +44,7 @@ export function LabelPickerDialog({
   const pending = useRef(false);
   const [remainingThreadIds, setRemainingThreadIds] = useState(threadIds);
   const createdLabel = useRef<{ name: string; id: string } | null>(null);
+  const isMove = mode === "move";
   const name = search.trim();
   const canCreate =
     name.length > 0 &&
@@ -73,6 +76,7 @@ export function LabelPickerDialog({
             const result = await applyThreadLabelsAction(emailAccountId, {
               threadIds,
               labelId: id,
+              removeFromInbox: isMove,
             });
             if (!result?.data)
               throw new Error(getActionErrorMessage(result ?? {}));
@@ -81,24 +85,21 @@ export function LabelPickerDialog({
         });
       if (succeededThreadIds.length) {
         onApplied(succeededThreadIds, id);
-        toast.success(
-          succeededThreadIds.length === 1
-            ? "Label applied"
-            : `Label applied to ${succeededThreadIds.length} conversations`,
-        );
+        toast.success(getSuccessMessage(mode, succeededThreadIds.length));
       }
       setRemainingThreadIds(failedThreadIds);
       if (failedThreadIds.length) {
-        toast.error(
-          `Couldn't label ${failedThreadIds.length} conversation${failedThreadIds.length === 1 ? "" : "s"}. Select a label to retry.`,
-          { description: error instanceof Error ? error.message : undefined },
-        );
+        toast.error(getPartialFailureMessage(mode, failedThreadIds.length), {
+          description: error instanceof Error ? error.message : undefined,
+        });
       } else onClose();
     } catch (error) {
       toast.error(
         error instanceof Error
           ? error.message
-          : "Couldn't apply label. Please try again.",
+          : isMove
+            ? "Couldn't move conversations. Please try again."
+            : "Couldn't apply label. Please try again.",
       );
     } finally {
       pending.current = false;
@@ -118,12 +119,11 @@ export function LabelPickerDialog({
         onEscapeKeyDown={(event) => event.stopPropagation()}
       >
         <DialogHeader className="px-4 pt-4 pb-3">
-          <DialogTitle>Label conversations</DialogTitle>
+          <DialogTitle>
+            {isMove ? "Move conversations" : "Label conversations"}
+          </DialogTitle>
           <DialogDescription>
-            {remainingThreadIds.length === 1
-              ? "Apply a label to this conversation."
-              : `Apply a label to ${remainingThreadIds.length} conversations.`}{" "}
-            Conversations stay where they are.
+            {getDescription(mode, remainingThreadIds.length)}
           </DialogDescription>
         </DialogHeader>
         <Command>
@@ -146,7 +146,11 @@ export function LabelPickerDialog({
                     onSelect={() => apply(label.id)}
                     disabled={isPending}
                   >
-                    <TagIcon className="mr-2 size-4 shrink-0" />
+                    {isMove ? (
+                      <FolderInputIcon className="mr-2 size-4 shrink-0" />
+                    ) : (
+                      <TagIcon className="mr-2 size-4 shrink-0" />
+                    )}
                     <span className="break-all">{label.name}</span>
                   </CommandItem>
                 ))}
@@ -166,10 +170,35 @@ export function LabelPickerDialog({
         </Command>
         {isPending && (
           <p className="px-4 py-2 text-muted-foreground text-sm" role="status">
-            Applying label…
+            {isMove ? "Moving…" : "Applying label…"}
           </p>
         )}
       </DialogContent>
     </Dialog>
   );
+}
+
+function getSuccessMessage(mode: "label" | "move", count: number) {
+  if (mode === "move")
+    return count === 1 ? "Moved" : `Moved ${count} conversations`;
+  return count === 1
+    ? "Label applied"
+    : `Label applied to ${count} conversations`;
+}
+
+function getPartialFailureMessage(mode: "label" | "move", count: number) {
+  const action = mode === "move" ? "move" : "label";
+  const plural = count === 1 ? "" : "s";
+  return `Couldn't ${action} ${count} conversation${plural}. Select a label to retry.`;
+}
+
+function getDescription(mode: "label" | "move", count: number) {
+  if (mode === "move") {
+    return count === 1
+      ? "Move this conversation out of the inbox and apply a label."
+      : `Move ${count} conversations out of the inbox and apply a label.`;
+  }
+  return count === 1
+    ? "Apply a label to this conversation. Conversations stay where they are."
+    : `Apply a label to ${count} conversations. Conversations stay where they are.`;
 }

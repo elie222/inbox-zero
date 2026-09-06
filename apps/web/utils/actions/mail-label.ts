@@ -10,7 +10,7 @@ import {
   assertProviderNotRateLimited,
   withRateLimitRecording,
 } from "@/utils/email/rate-limit";
-import { getLabelById, labelThread } from "@/utils/gmail/label";
+import { getLabelById, GmailLabel, labelThread } from "@/utils/gmail/label";
 
 export const applyThreadLabelsAction = actionClient
   .metadata({ name: "applyThreadLabels" })
@@ -18,7 +18,7 @@ export const applyThreadLabelsAction = actionClient
   .action(
     async ({
       ctx: { emailAccountId, provider, logger },
-      parsedInput: { threadIds, labelId },
+      parsedInput: { threadIds, labelId, removeFromInbox },
     }) => {
       if (!isGoogleProvider(provider)) {
         throw new SafeError("Manual labeling is available for Gmail accounts.");
@@ -44,7 +44,12 @@ export const applyThreadLabelsAction = actionClient
         run: async (threadId) => {
           await assertProviderNotRateLimited(rateLimitContext);
           return withRateLimitRecording(rateLimitContext, () =>
-            labelThread({ gmail, threadId, addLabelIds: [labelId] }),
+            labelThread({
+              gmail,
+              threadId,
+              addLabelIds: [labelId],
+              removeLabelIds: removeFromInbox ? [GmailLabel.INBOX] : undefined,
+            }),
           );
         },
       });

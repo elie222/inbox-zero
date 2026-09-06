@@ -24,7 +24,10 @@ const inFlightPreparation = new Map<
 >();
 
 export function sanitizeEmailHtml(html: string) {
-  return DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
+  return `<!doctype html>${DOMPurify.sanitize(html, {
+    USE_PROFILES: { html: true },
+    WHOLE_DOCUMENT: true,
+  })}`;
 }
 
 export function getPreparedEmailHtml({

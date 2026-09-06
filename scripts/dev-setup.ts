@@ -10,7 +10,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { homedir } from "node:os";
-import { basename, resolve } from "node:path";
+import { basename, delimiter, dirname, resolve } from "node:path";
 import { spawn } from "node:child_process";
 import net from "node:net";
 
@@ -35,6 +35,12 @@ type CliConfig = {
   options: CliOptions;
 };
 
+type PortlessProxy = {
+  https: boolean;
+  port: number;
+  source: "PORTLESS_* env" | "persisted proxy state" | "assumed default";
+};
+
 type WorktreeState = {
   authMode: AuthMode;
   baseUrl: string;
@@ -47,6 +53,7 @@ type WorktreeState = {
   microsoftEmulatorPort?: number;
   port: number;
   portlessName?: string;
+  portlessProxy?: PortlessProxy;
   repoName: string;
   urlMode: UrlMode;
   version: 1;
@@ -84,10 +91,14 @@ const SHARED_ENV_TEST_PATH = resolve(SHARED_ENV_DIR, ".env.test");
 const SHARED_ENV_E2E_PATH = resolve(SHARED_ENV_DIR, ".env.e2e");
 const STATE_PATH = resolve(CONTEXT_DIR, "dev-setup.json");
 const LOCAL_DATABASE_HOSTS = new Set(["127.0.0.1", "::1", "localhost"]);
+const LOCAL_DATABASE_HOST = "127.0.0.1";
 const LOCAL_REDIS_HOST = "127.0.0.1";
 const LOCAL_REDIS_HTTP_PORT = 8079;
 const LOCAL_REDIS_PORT = 6380;
 const LOCAL_REDIS_TOKEN = "dev_token";
+const PORTLESS_STATE_DIR =
+  process.env.PORTLESS_STATE_DIR || resolve(homedir(), ".portless");
+const PORTLESS_FALLBACK_PROXY_PORT = 1355;
 const WORKTREE_DATABASE_PREFIX = "inboxzero_wt_";
 const SAFE_DATABASE_NAME_PATTERN = /^[a-zA-Z0-9_-]+$/;
 const APP_ENV_LINKS = [
@@ -214,6 +225,7 @@ async function ensureWorktreeDatabase(
 async function runDev(state: WorktreeState) {
   printStateSummary("Starting dev setup", state);
 
+  const appCommand = buildAppCommand(state);
   const childProcesses: Array<ReturnType<typeof spawn>> = [];
   const registerChild = (child: ReturnType<typeof spawn>) => {
     childProcesses.push(child);
@@ -280,26 +292,6 @@ async function runDev(state: WorktreeState) {
   }
 
   const runtimeEnv = buildRuntimeEnv(state);
-  const appCommand =
-    state.urlMode === "portless"
-      ? {
-          args: [
-            "run",
-            "--name",
-            state.portlessName || slugify(state.repoName),
-            "--app-port",
-            String(state.port),
-            "pnpm",
-            "--dir",
-            APP_DIR,
-            "dev",
-          ],
-          command: "portless",
-        }
-      : {
-          args: ["--dir", APP_DIR, "dev"],
-          command: "pnpm",
-        };
 
   await new Promise<void>((resolvePromise, reject) => {
     const app = registerChild(
@@ -404,7 +396,12 @@ function buildRuntimeEnv(state: WorktreeState) {
     "PREVIEW_DATABASE_URL_UNPOOLED",
   ]) {
     const value = localEnv[key];
-    if (value) overrides[key] = replaceDatabaseName(value, state.dbName);
+    if (value) {
+      overrides[key] = replaceDatabaseName(
+        pinLoopbackDatabaseHost(value),
+        state.dbName,
+      );
+    }
   }
 
   if (state.authMode === "emulate") {
@@ -556,26 +553,26 @@ function buildBaseUrl({
   branch,
   port,
   portlessName,
-  urlMode,
+  portlessProxy,
 }: {
   branch: string;
   port: number;
   portlessName: string;
-  urlMode: UrlMode;
+  portlessProxy?: PortlessProxy;
 }) {
-  if (urlMode !== "portless") return `http://localhost:${port}`;
+  if (!portlessProxy) return `http://localhost:${port}`;
 
   const repoLabel = slugify(portlessName);
   const branchLabel = slugify(branch);
   const host = isLinkedWorktree()
     ? `${branchLabel}.${repoLabel}.localhost`
     : `${repoLabel}.localhost`;
+  const scheme = portlessProxy.https ? "https" : "http";
+  const defaultPort = portlessProxy.https ? 443 : 80;
+  const portSuffix =
+    portlessProxy.port === defaultPort ? "" : `:${portlessProxy.port}`;
 
-  if (process.env.PORTLESS_HTTPS === "1") {
-    return `https://${host}`;
-  }
-
-  return `http://${host}:1355`;
+  return `${scheme}://${host}${portSuffix}`;
 }
 
 function buildDatabaseName(branch: string) {
@@ -691,7 +688,7 @@ async function ensureLocalPostgres(localEnv: Record<string, string>) {
       cwd: ROOT_DIR,
       env: {
         ...process.env,
-        POSTGRES_BIND_HOST: parsedUrl.hostname === "::1" ? "::1" : "127.0.0.1",
+        POSTGRES_BIND_HOST: LOCAL_DATABASE_HOST,
         POSTGRES_DB: getDatabaseName(databaseUrl),
         POSTGRES_PASSWORD: decodeURIComponent(parsedUrl.password),
         POSTGRES_PORT: String(port),
@@ -878,6 +875,7 @@ async function captureCommand(command: string, args: string[]) {
 }
 
 function printStateSummary(prefix: string, state: WorktreeState) {
+  const proxy = state.portlessProxy;
   console.log(
     [
       `${prefix}:`,
@@ -885,7 +883,11 @@ function printStateSummary(prefix: string, state: WorktreeState) {
       `db=${state.dbName}`,
       `url=${state.baseUrl}`,
       `auth=${state.authMode}`,
-    ].join(" "),
+      proxy &&
+        `proxy=${proxy.https ? "https" : "http"}:${proxy.port} (${proxy.source})`,
+    ]
+      .filter(Boolean)
+      .join(" "),
   );
 }
 
@@ -1012,7 +1014,7 @@ function resolveTemplateDatabaseUrl(
     localEnv.PREVIEW_DATABASE_URL_UNPOOLED;
 
   if (databaseUrl || options?.required === false) {
-    return databaseUrl;
+    return databaseUrl && pinLoopbackDatabaseHost(databaseUrl);
   }
 
   const purpose = options?.purpose ?? "use as a local database template";
@@ -1210,11 +1212,13 @@ async function resolveWorktreeState(options: CliOptions): Promise<WorktreeState>
   const dbName = buildDatabaseName(branch);
   const portlessName =
     options.portlessName ?? existingState?.portlessName ?? slugify(repoName);
+  const portlessProxy =
+    urlMode === "portless" ? resolvePortlessProxy() : undefined;
   const baseUrl = buildBaseUrl({
     branch,
     port,
     portlessName,
-    urlMode,
+    portlessProxy,
   });
   const googleEmulatorPort = authMode === "emulate" ? port + 2 : undefined;
   const microsoftEmulatorPort = authMode === "emulate" ? port + 3 : undefined;
@@ -1237,8 +1241,121 @@ async function resolveWorktreeState(options: CliOptions): Promise<WorktreeState>
     microsoftEmulatorPort,
     port,
     portlessName,
+    portlessProxy,
     repoName,
     urlMode,
     version: 1,
   };
+}
+
+function buildAppCommand(state: WorktreeState) {
+  if (state.urlMode !== "portless") {
+    return { args: ["--dir", APP_DIR, "dev"], command: "pnpm" };
+  }
+
+  const portlessBinary = resolvePortlessBinary();
+  if (!portlessBinary) {
+    throw new Error(
+      "Could not find the `portless` binary in node_modules/.bin, next to the current Node binary, or on PATH. Install portless (`npm install -g portless`) or rerun with `--url localhost`.",
+    );
+  }
+
+  return {
+    args: [
+      "run",
+      "--name",
+      state.portlessName || slugify(state.repoName),
+      "--app-port",
+      String(state.port),
+      "pnpm",
+      "--dir",
+      APP_DIR,
+      "dev",
+    ],
+    command: portlessBinary,
+  };
+}
+
+function resolvePortlessBinary() {
+  const searchDirs = [
+    resolve(ROOT_DIR, "node_modules/.bin"),
+    resolve(APP_DIR, "node_modules/.bin"),
+    dirname(process.execPath),
+    ...(process.env.PATH ?? "").split(delimiter),
+  ];
+
+  for (const dir of searchDirs) {
+    if (!dir) continue;
+    const candidate = resolve(dir, "portless");
+    if (existsSync(candidate)) return candidate;
+  }
+
+  return null;
+}
+
+// Mirrors how portless picks its proxy config: explicit PORTLESS_* env wins,
+// then the state persisted by the most recent proxy run, then a plain HTTP
+// proxy on the fallback port.
+function resolvePortlessProxy(): PortlessProxy {
+  const envHttps = parseBooleanEnv(process.env.PORTLESS_HTTPS);
+  const envPort = parsePositiveInteger(process.env.PORTLESS_PORT);
+  const persistedPort = parsePositiveInteger(
+    readOptionalFile(resolve(PORTLESS_STATE_DIR, "proxy.port")),
+  );
+  const persistedHttps =
+    persistedPort != null &&
+    existsSync(resolve(PORTLESS_STATE_DIR, "proxy.tls"));
+
+  if (envHttps != null || envPort != null) {
+    return {
+      https: envHttps ?? persistedHttps,
+      port: envPort ?? persistedPort ?? (envHttps ? 443 : 80),
+      source: "PORTLESS_* env",
+    };
+  }
+
+  if (persistedPort != null) {
+    return {
+      https: persistedHttps,
+      port: persistedPort,
+      source: "persisted proxy state",
+    };
+  }
+
+  return {
+    https: false,
+    port: PORTLESS_FALLBACK_PROXY_PORT,
+    source: "assumed default",
+  };
+}
+
+// macOS resolves `localhost` to ::1 first (psql and Node alike), which can hit
+// a different Postgres than the Docker one listening on 127.0.0.1.
+function pinLoopbackDatabaseHost(databaseUrl: string) {
+  const url = new URL(databaseUrl);
+  // URL.hostname keeps the brackets around IPv6 literals ("[::1]").
+  const hostname = url.hostname.replace(/^\[|\]$/g, "");
+  if (!LOCAL_DATABASE_HOSTS.has(hostname)) return databaseUrl;
+  url.hostname = LOCAL_DATABASE_HOST;
+  return url.toString();
+}
+
+function parseBooleanEnv(value: string | undefined) {
+  if (value === "1" || value === "true") return true;
+  if (value === "0" || value === "false") return false;
+  return;
+}
+
+function parsePositiveInteger(value: string | undefined) {
+  if (!value) return;
+  const parsed = Number.parseInt(value.trim(), 10);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+function readOptionalFile(path: string) {
+  try {
+    return readFileSync(path, "utf8");
+  } catch {
+    return;
+  }
 }

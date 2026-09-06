@@ -70,6 +70,11 @@ describe("shortcut registry", () => {
     expect(formatShortcutKeys(getShortcut("switchAllAccounts"))).toBe(
       "⌘/Ctrl+0",
     );
+    expect(formatShortcutKeys(getShortcut("markUnread"))).toBe("U");
+    expect(formatShortcutKeys(getShortcut("move"))).toBe("V");
+    expect(formatShortcutKeys(getShortcut("toggleLayout"))).toBe("⇧V");
+    expect(formatShortcutKeys(getShortcut("markSpam"))).toBe("!");
+    expect(formatShortcutKeys(getShortcut("openExternal"))).toBe("G G");
   });
 });
 
