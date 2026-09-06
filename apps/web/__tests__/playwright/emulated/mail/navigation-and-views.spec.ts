@@ -105,14 +105,16 @@ test("opens a complete conversation and updates its read state", async ({
   await expect(page.getByText(/^\d+ of \d+$/)).toHaveCount(0);
   await expect(page).not.toHaveURL(/thread-id=/);
   await expect
-    .poll(() =>
-      readLatestMailMutation(page, {
-        emailAccountId,
-        kind: "set_read_state",
-        threadId: "thr_playwright_reader",
-      }),
+    .poll(
+      () =>
+        readLatestMailMutation(page, {
+          emailAccountId,
+          kind: "set_read_state",
+          threadId: "thr_playwright_reader",
+        }),
+      { timeout: 60_000 },
     )
-    .toMatchObject({ payload: { read: false } });
+    .toMatchObject({ payload: { read: false }, status: "succeeded" });
 });
 
 test("opening a conversation issues one detail request", async ({ page }) => {
