@@ -328,13 +328,16 @@ test("creates and edits a label and shows every keyboard workflow", async ({
     .click();
   await grandchild.click();
   await expect(grandchild).toHaveAttribute("aria-current", "page");
+  const selectedLabelUrl = page.url();
   await page
     .getByRole("button", { name: `Collapse ${updatedLabelName}`, exact: true })
     .click();
   await expect(grandchild).toBeHidden();
   await page.getByRole("link", { name: /^Inbox(?:\s+\d+)?$/ }).click();
+  await expect(page).toHaveURL(/type=inbox/);
   await expect(grandchild).toBeHidden();
   await page.goBack();
+  await expect(page).toHaveURL(selectedLabelUrl);
   await expect(grandchild).toBeVisible();
   await expect(grandchild).toHaveAttribute("aria-current", "page");
   await grandchild.click({ button: "right" });
@@ -350,7 +353,7 @@ test("creates and edits a label and shows every keyboard workflow", async ({
   await expect(dialog.getByText("Next message", { exact: true })).toBeVisible();
   await expect(dialog.getByText("Archive", { exact: true })).toBeVisible();
   await expect(dialog.getByText("New message", { exact: true })).toBeVisible();
-  await expect(dialog.getByText("Send reply", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("Send", { exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
 });

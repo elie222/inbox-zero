@@ -171,6 +171,7 @@ export function MailSidebar({
   const [newLabelName, setNewLabelName] = useState("");
   const sidebarFolders = getMailSidebarFolders(folders);
   const labelTree = getLabelTree(labels, labelEditMode === "name-and-color");
+  const hasNestedLabels = labelTree.some((root) => root.children.length > 0);
 
   const isCategoryActive =
     !activeLabelId &&
@@ -339,9 +340,7 @@ export function MailSidebar({
                 <LabelBranch
                   key={node.label.id}
                   node={node}
-                  hasNestedLabels={labelTree.some(
-                    (root) => root.children.length > 0,
-                  )}
+                  hasNestedLabels={hasNestedLabels}
                   activeLabelId={activeLabelId}
                   hrefFor={hrefFor}
                   countsById={countsById}
