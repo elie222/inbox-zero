@@ -149,6 +149,17 @@ describe("local reply drafts", () => {
     await assertions;
   });
 
+  it("does not migrate a legacy draft while account cleanup is running", async () => {
+    await createReplyDraftWriter(identity).save(content);
+    const migration = getReplyDraftForSession(replyIdentity, identity, "reply");
+    const assertion = expect(migration).rejects.toThrow("cleared");
+    await clearEmailCacheForAccount(identity.emailAccountId);
+    await assertion;
+    expect(
+      await getReplyDrafts(identity.emailAccountId, identity.threadId),
+    ).toEqual([]);
+  });
+
   it("does not recreate an outbox draft when recovery overlaps account cleanup", async () => {
     const queued = await enqueueMailMutation({
       ...identity,

@@ -86,34 +86,90 @@ export async function getReplyDraftForSession(
   legacyIdentity?: ReplyDraftIdentity,
   mode?: ReplyDraftMode,
 ) {
+  const epoch = captureEmailCacheEpoch(identity.emailAccountId);
   const draft = await getReplyDraft(identity);
   if (draft || !legacyIdentity || !mode) return draft;
 
-  const legacyDraft = await getReplyDraft(legacyIdentity);
-  if (!legacyDraft?.content || getReplyDraftMode(legacyDraft) !== mode) return;
-
   try {
-    await createReplyDraftWriter(identity).save({
-      ...legacyDraft.content,
-      composeMode: mode,
+    await pendingWrites
+      .get(getReplyDraftIdentityKey(legacyIdentity))
+      ?.catch(() => {});
+    const database = await getEmailCacheDatabase();
+    if (!database)
+      throw new Error("Draft storage is unavailable on this device.");
+    if (!isEmailCacheEpochCurrent(identity.emailAccountId, epoch))
+      throw new Error("This account’s local draft storage was cleared.");
+
+    const transaction = database.transaction("replyDrafts", "readwrite");
+    const store = transaction.store;
+    const currentDraft = await store.get([
+      identity.emailAccountId,
+      identity.threadId,
+      identity.messageId,
+    ]);
+    if (currentDraft) {
+      await transaction.done;
+      if (!isEmailCacheEpochCurrent(identity.emailAccountId, epoch))
+        throw new Error("This account’s local draft storage was cleared.");
+      return currentDraft;
+    }
+
+    const legacyDraft = await store.get([
+      legacyIdentity.emailAccountId,
+      legacyIdentity.threadId,
+      legacyIdentity.messageId,
+    ]);
+    if (!legacyDraft?.content || getReplyDraftMode(legacyDraft) !== mode) {
+      await transaction.done;
+      if (!isEmailCacheEpochCurrent(identity.emailAccountId, epoch))
+        throw new Error("This account’s local draft storage was cleared.");
+      return;
+    }
+
+    const migratedDraft: StoredReplyDraft = {
+      ...identity,
+      content: { ...legacyDraft.content, composeMode: mode },
+      revision: 1,
+      updatedAt: Date.now(),
+    };
+    await store.put(migratedDraft);
+    await store.put({
+      ...legacyDraft,
+      content: null,
+      revision: legacyDraft.revision + 1,
+      updatedAt: Date.now(),
     });
-  } catch {
+    await transaction.done;
+    if (!isEmailCacheEpochCurrent(identity.emailAccountId, epoch))
+      throw new Error("This account’s local draft storage was cleared.");
+    notifyReplyDraftChange(identity);
+    notifyReplyDraftChange(legacyIdentity);
+    return migratedDraft;
+  } catch (error) {
+    if (!isEmailCacheEpochCurrent(identity.emailAccountId, epoch))
+      throw new Error("This account’s local draft storage was cleared.");
     const concurrentDraft = await getReplyDraft(identity).catch(
       () => undefined,
     );
-    return (
-      concurrentDraft ?? {
+    if (concurrentDraft) return concurrentDraft;
+
+    const legacyDraft = await getReplyDraft(legacyIdentity).catch(
+      () => undefined,
+    );
+    if (
+      legacyDraft?.content &&
+      getReplyDraftMode(legacyDraft) === mode &&
+      isEmailCacheEpochCurrent(identity.emailAccountId, epoch)
+    ) {
+      return {
         ...legacyDraft,
         messageId: identity.messageId,
         revision: 0,
         content: { ...legacyDraft.content, composeMode: mode },
-      }
-    );
+      };
+    }
+    throw error;
   }
-  await createReplyDraftWriter(legacyIdentity, legacyDraft.revision)
-    .clear()
-    .catch(() => {});
-  return getReplyDraft(identity);
 }
 
 export function getReplyDraftMode(draft: StoredReplyDraft) {
@@ -178,8 +234,7 @@ export function createReplyDraftWriter(
         await transaction.done;
         revision += 1;
         if (Boolean(previous?.content) !== Boolean(content)) {
-          for (const listener of listeners) listener(identity);
-          channel?.postMessage(identity);
+          notifyReplyDraftChange(identity);
         }
       });
     pending = operation;
@@ -221,6 +276,11 @@ function getReplyDraftIdentityKey(identity: ReplyDraftIdentity) {
 function clearPendingWrite(identityKey: string, operation: Promise<unknown>) {
   if (pendingWrites.get(identityKey) === operation)
     pendingWrites.delete(identityKey);
+}
+
+function notifyReplyDraftChange(scope: ReplyDraftScope) {
+  for (const listener of listeners) listener(scope);
+  channel?.postMessage(scope);
 }
 
 export async function restoreReplyFromOutbox(

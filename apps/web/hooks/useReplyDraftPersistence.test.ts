@@ -11,7 +11,9 @@ const { save, clear } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/utils/email-cache/reply-drafts", async (importOriginal) => ({
-  ...(await importOriginal()),
+  ...(await importOriginal<
+    typeof import("@/utils/email-cache/reply-drafts")
+  >()),
   createReplyDraftWriter: () => ({ save, clear }),
 }));
 
