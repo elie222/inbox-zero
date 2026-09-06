@@ -478,7 +478,11 @@ export async function runAwsSetup(options: AwsSetupOptions) {
     );
   }
   const pubsubSubscriptionName = `${topicId}-${APP_NAME}-${envName}-subscription`;
-  if (configureGoogle && pubsubSubscriptionName.length > 255) {
+  if (
+    configureGoogle &&
+    useWebhookGateway &&
+    pubsubSubscriptionName.length > 255
+  ) {
     throw new Error(
       "The generated Pub/Sub subscription name exceeds 255 characters; choose a shorter topic ID or environment name",
     );

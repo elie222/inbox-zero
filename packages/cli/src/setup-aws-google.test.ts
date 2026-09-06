@@ -194,3 +194,30 @@ it("rejects a topic that makes the deployment subscription name too long", async
       ),
   ).toBe(false);
 });
+
+it("allows a long valid topic when no webhook subscription is requested", async () => {
+  vi.stubEnv(
+    "GOOGLE_PUBSUB_TOPIC_NAME",
+    `projects/project/topics/${"m".repeat(240)}`,
+  );
+  vi.mocked(p.confirm).mockImplementation(
+    async (options) =>
+      !options.message.includes("Redis") &&
+      !options.message.includes("webhook gateway"),
+  );
+  await expect(
+    runAwsSetup({
+      profile: "test",
+      region: "us-east-1",
+      environment: "staging",
+    }),
+  ).resolves.toBeUndefined();
+  expect(
+    vi
+      .mocked(spawnSync)
+      .mock.calls.some(
+        ([command, args]) =>
+          command === "gcloud" && args?.includes("subscriptions"),
+      ),
+  ).toBe(false);
+});
