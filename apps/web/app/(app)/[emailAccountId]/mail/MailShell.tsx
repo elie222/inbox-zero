@@ -131,7 +131,7 @@ const NO_COUNTS = new Map<string, LabelCount>();
 
 type MailActionTarget = {
   key: string;
-  messages: ThreadMessage[];
+  messages: readonly { labelIds?: string[] | null }[];
   selection: ThreadSelection;
   thread?: ListThread;
 };
