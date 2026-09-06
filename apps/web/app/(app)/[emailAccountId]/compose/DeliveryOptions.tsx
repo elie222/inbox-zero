@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { forwardRef, useImperativeHandle, useState } from "react";
 import {
   CalendarDaysIcon,
   ChevronLeftIcon,
@@ -13,20 +13,35 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { ComposeShortcutTooltipContent } from "./ComposeShortcutTooltipContent";
 
-export function DeliveryOptions({
-  sendAt,
-  remindAt,
-  disabled,
-  onSendAtChange,
-  onRemindAtChange,
-}: {
-  sendAt: string;
-  remindAt: string;
-  disabled: boolean;
-  onSendAtChange: (value: string) => void;
-  onRemindAtChange: (value: string) => void;
-}) {
+export type DeliveryOptionsHandle = {
+  open: (option: "sendLater" | "remindMe") => void;
+};
+
+export const DeliveryOptions = forwardRef<
+  DeliveryOptionsHandle,
+  {
+    sendAt: string;
+    remindAt: string;
+    disabled: boolean;
+    onSendAtChange: (value: string) => void;
+    onRemindAtChange: (value: string) => void;
+  }
+>(function DeliveryOptions(
+  { sendAt, remindAt, disabled, onSendAtChange, onRemindAtChange },
+  ref,
+) {
+  const [openOption, setOpenOption] = useState<"sendLater" | "remindMe" | null>(
+    null,
+  );
+  useImperativeHandle(ref, () => ({ open: setOpenOption }), []);
+
   return (
     <>
       <DeliveryTimePicker
@@ -34,6 +49,9 @@ export function DeliveryOptions({
         value={sendAt}
         onChange={onSendAtChange}
         disabled={disabled}
+        open={openOption === "sendLater"}
+        onOpenChange={(open) => setOpenOption(open ? "sendLater" : null)}
+        shortcut="sendLater"
       />
       <DeliveryTimePicker
         label="Remind me"
@@ -41,10 +59,13 @@ export function DeliveryOptions({
         onChange={onRemindAtChange}
         disabled={disabled}
         after={sendAt}
+        open={openOption === "remindMe"}
+        onOpenChange={(open) => setOpenOption(open ? "remindMe" : null)}
+        shortcut="remindMe"
       />
     </>
   );
-}
+});
 
 function DeliveryTimePicker({
   label,
@@ -52,14 +73,19 @@ function DeliveryTimePicker({
   onChange,
   disabled,
   after,
+  open,
+  onOpenChange,
+  shortcut,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   disabled: boolean;
   after?: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  shortcut: "sendLater" | "remindMe";
 }) {
-  const [open, setOpen] = useState(false);
   const [custom, setCustom] = useState("");
   const [showCustom, setShowCustom] = useState(false);
   const isReminder = label === "Remind me";
@@ -67,35 +93,42 @@ function DeliveryTimePicker({
   const choose = (date: Date) => {
     onChange(date.toISOString());
     setShowCustom(false);
-    setOpen(false);
+    onOpenChange(false);
   };
   return (
     <Popover
       open={open}
       onOpenChange={(nextOpen) => {
-        setOpen(nextOpen);
+        onOpenChange(nextOpen);
         if (!nextOpen) setShowCustom(false);
       }}
     >
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          disabled={disabled}
-          className="px-2 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground"
-          aria-label={label}
-        >
-          {value
-            ? new Date(value).toLocaleString(undefined, {
-                month: "short",
-                day: "numeric",
-                hour: "numeric",
-                minute: "2-digit",
-              })
-            : label}
-        </Button>
-      </PopoverTrigger>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={disabled}
+              className="px-2 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground"
+              aria-label={label}
+            >
+              {value
+                ? new Date(value).toLocaleString(undefined, {
+                    month: "short",
+                    day: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })
+                : label}
+            </Button>
+          </PopoverTrigger>
+        </TooltipTrigger>
+        <TooltipContent>
+          <ComposeShortcutTooltipContent shortcuts={[shortcut]} />
+        </TooltipContent>
+      </Tooltip>
       <PopoverContent
         className="w-72 p-1"
         align="start"
@@ -186,7 +219,7 @@ function DeliveryTimePicker({
                 className="h-9 w-full justify-start gap-2 px-2 text-xs font-normal text-muted-foreground"
                 onClick={() => {
                   onChange("");
-                  setOpen(false);
+                  onOpenChange(false);
                 }}
               >
                 <XIcon className="size-3.5" />

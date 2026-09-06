@@ -158,6 +158,7 @@ export function ThreadReader({
               autoOpenReplyForMessageId={autoOpenReplyForMessageId}
               key={threadId}
               messages={messages}
+              onMarkDone={onArchive}
               onOpenSenderContext={(message) => {
                 const senderEmail = extractEmailAddress(message.headers.from);
                 setSenderContext({

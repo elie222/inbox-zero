@@ -54,6 +54,37 @@ describe("useShortcuts", () => {
     expect(send).toHaveBeenCalledOnce();
   });
 
+  it("runs compose modifier shortcuts while the user is typing", () => {
+    const sendAndMarkDone = vi.fn();
+    const sendLater = vi.fn();
+    const remindMe = vi.fn();
+    const attachFiles = vi.fn();
+    const discardDraft = vi.fn();
+    renderShortcuts({
+      sendAndMarkDone,
+      sendLater,
+      remindMe,
+      attachFiles,
+      discardDraft,
+    });
+    const textbox = screen.getByRole("textbox");
+
+    press(
+      { key: "Enter", code: "Enter", ctrlKey: true, shiftKey: true },
+      textbox,
+    );
+    press({ key: "l", code: "KeyL", ctrlKey: true, shiftKey: true }, textbox);
+    press({ key: "h", code: "KeyH", ctrlKey: true, shiftKey: true }, textbox);
+    press({ key: "u", code: "KeyU", ctrlKey: true, shiftKey: true }, textbox);
+    press({ key: "<", code: "Comma", ctrlKey: true, shiftKey: true }, textbox);
+
+    expect(sendAndMarkDone).toHaveBeenCalledOnce();
+    expect(sendLater).toHaveBeenCalledOnce();
+    expect(remindMe).toHaveBeenCalledOnce();
+    expect(attachFiles).toHaveBeenCalledOnce();
+    expect(discardDraft).toHaveBeenCalledOnce();
+  });
+
   it("leaves Mod-K to an email editor's link control", () => {
     const commandPalette = vi.fn();
     renderShortcuts({ commandPalette }, MAIL_SCOPES, true);

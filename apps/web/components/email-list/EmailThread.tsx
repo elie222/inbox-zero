@@ -23,6 +23,7 @@ export function EmailThread({
   autoOpenReplyForMessageId,
   topRightComponent,
   onSendSuccess,
+  onMarkDone,
   onOpenSenderContext,
   withHeader,
   renderToolbar,
@@ -34,6 +35,7 @@ export function EmailThread({
   autoOpenReplyForMessageId?: string;
   topRightComponent?: React.ReactNode;
   onSendSuccess?: (messageId: string, threadId: string) => void;
+  onMarkDone?: () => void;
   onOpenSenderContext?: (message: ThreadMessage) => void;
   withHeader?: boolean;
   enableMessageNavigation?: boolean;
@@ -236,6 +238,7 @@ export function EmailThread({
               key={`${message.id}:${recoveredReply?.messageId === message.id ? recoveredReply.version : 0}`}
               message={message}
               onOpenSenderContext={onOpenSenderContext}
+              onMarkDone={onMarkDone}
               onSendSuccess={(messageId) => {
                 setExpansionOverrides((prev) =>
                   new Map(prev).set(messageId, true),
