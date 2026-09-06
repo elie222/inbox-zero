@@ -187,31 +187,34 @@ export function useUnsubscribeSender(
         sender: canonicalSenderEmail,
         enabled: !isAutoArchived,
       });
-
-      if (isAutoArchived) {
-        toast.success(
-          `Future emails from ${senderName} will stay in the inbox`,
-          {
-            id: toastId,
-          },
-        );
-      } else {
-        await decrementUnsubscribeCreditAction();
-        await queueArchiveSenders({ senders: [senderEmail] });
-        await refetchPremium();
-        toast.success(`Future emails from ${senderName} will be archived`, {
-          id: toastId,
-        });
-      }
     } catch (error) {
       captureException(error);
       toast.error(
         `Couldn't ${isAutoArchived ? "disable" : "enable"} auto archive for ${senderName}`,
         { id: toastId },
       );
+      return;
     } finally {
       setIsUpdatingAutoArchive(false);
     }
+
+    if (isAutoArchived) {
+      toast.success(`Future emails from ${senderName} will stay in the inbox`, {
+        id: toastId,
+      });
+      return;
+    }
+
+    toast.success(`Future emails from ${senderName} will be archived`, {
+      id: toastId,
+    });
+
+    // These follow-up tasks do not change the provider filter that was just
+    // committed, so their failures must not report the enable as unsuccessful.
+    queueArchiveSenders({ senders: [senderEmail] }).catch(captureException);
+    decrementUnsubscribeCreditAction()
+      .then(() => refetchPremium())
+      .catch(captureException);
   }, [
     canonicalSenderEmail,
     emailAccountId,
