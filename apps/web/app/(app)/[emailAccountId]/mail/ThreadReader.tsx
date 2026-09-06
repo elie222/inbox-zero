@@ -12,7 +12,6 @@ import { EmailThread } from "@/components/email-list/EmailThread";
 import type { ThreadMessage } from "@/components/email-list/types";
 import { getEmailMessageCellLabels } from "@/components/EmailMessageCellLabels";
 import { LoadingContent } from "@/components/LoadingContent";
-import { SidebarTrigger } from "@/components/ui/sidebar";
 import type { EmailLabels } from "@/providers/email-label-types";
 import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
 
@@ -117,6 +116,9 @@ export function ThreadReader({
       userLabels,
     }) ?? [];
 
+  /** No list column beside us, so the reader carries the sidebar toggle. */
+  const ownsFullWidth = layout === "list" && showSidebarToggle;
+
   const renderToolbar = (
     messageExpansion?: ComponentProps<typeof ReaderToolbar>["messageExpansion"],
   ) => (
@@ -128,6 +130,7 @@ export function ThreadReader({
       onArchive={onArchive}
       onBackToInbox={onBackToInbox}
       onRemoveLabel={onRemoveLabel}
+      showSidebarToggle={ownsFullWidth}
       subject={headerMessage.headers.subject}
     />
   );
@@ -141,16 +144,10 @@ export function ThreadReader({
         data-detail-selection-settled={detailSelectionSettled}
         data-testid="thread-reader"
       >
-        {layout === "list" && showSidebarToggle ? (
-          <div
-            className="hidden px-3 py-3 lg:flex"
-            data-desktop-mac-titlebar-spacer
-          >
-            <SidebarTrigger name="left-sidebar" />
-          </div>
-        ) : null}
-
-        <div className={readerMeasure({ layout })}>
+        <div
+          className={readerMeasure({ layout })}
+          data-desktop-mac-titlebar-spacer={ownsFullWidth || undefined}
+        >
           {messages.length > 0 ? (
             <EmailThread
               renderToolbar={renderToolbar}

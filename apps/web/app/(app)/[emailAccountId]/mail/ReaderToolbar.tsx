@@ -10,6 +10,7 @@ import {
 import { MailLabelChip } from "@/app/(app)/[emailAccountId]/mail/MailLabelChip";
 import type { EmailMessageCellLabel } from "@/components/EmailMessageCellLabels";
 import { Button } from "@/components/ui/button";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 
 type ReaderToolbarProps = {
   subject: string;
@@ -23,6 +24,8 @@ type ReaderToolbarProps = {
   onRemoveLabel?: (labelId: string) => void;
   onBackToInbox: () => void;
   onArchive: () => void;
+  /** Sits beside the back arrow when the reader owns the full width. */
+  showSidebarToggle?: boolean;
   /** The ⋯ dropdown, i.e. `ThreadActionsMenu`, composed by the shell. */
   menu?: ReactNode;
   messageExpansion?: {
@@ -42,21 +45,31 @@ export function ReaderToolbar({
   onRemoveLabel,
   onBackToInbox,
   onArchive,
+  showSidebarToggle = false,
   menu,
   messageExpansion,
 }: ReaderToolbarProps) {
   return (
     <div className="flex flex-wrap items-start gap-x-4 gap-y-3 pb-3">
-      <Button
-        aria-label="Back to inbox"
-        className="h-7 w-7"
-        onClick={onBackToInbox}
-        size="icon"
-        title="Back to inbox"
-        variant="ghost"
-      >
-        <ArrowLeftIcon className="size-3.5" />
-      </Button>
+      <div className="flex items-center gap-1">
+        {showSidebarToggle ? (
+          <SidebarTrigger
+            className="hidden lg:inline-flex"
+            name="left-sidebar"
+          />
+        ) : null}
+
+        <Button
+          aria-label="Back to inbox"
+          className="h-7 w-7"
+          onClick={onBackToInbox}
+          size="icon"
+          title="Back to inbox"
+          variant="ghost"
+        >
+          <ArrowLeftIcon className="size-3.5" />
+        </Button>
+      </div>
 
       <div className="min-w-56 flex-1">
         <div className="flex flex-wrap items-center gap-2">
