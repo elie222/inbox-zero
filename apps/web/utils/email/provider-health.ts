@@ -92,22 +92,11 @@ export function classifyEmailAccountProviderIssue({
   provider: "google" | "microsoft";
 }): ProviderIssue | null {
   const message = getErrorMessage(error);
-  const normalizedMessage = message?.toLowerCase() ?? "";
 
   if (
     provider === "google" &&
     (isGmailInsufficientPermissionsError(error) ||
       message?.includes("Request had insufficient authentication scopes"))
-  ) {
-    return { reason: "insufficient_permissions" };
-  }
-
-  if (
-    provider === "microsoft" &&
-    normalizedMessage.includes(
-      "access is denied. check credentials and try again",
-    ) &&
-    !normalizedMessage.includes("cannot save changes made to an item to store")
   ) {
     return { reason: "insufficient_permissions" };
   }
