@@ -2,6 +2,7 @@
 
 import type { ComponentProps } from "react";
 import {
+  ArchiveIcon,
   ArchiveRestoreIcon,
   ExternalLinkIcon,
   MailXIcon,
@@ -58,7 +59,8 @@ export type ThreadActionsMenuProps = {
   isUnread: boolean;
   onMarkSpam: () => void;
   onDelete: () => void;
-  onToggleRead: () => void;
+  onMarkRead: () => void;
+  onMarkUnread: () => void;
   onLabel?: () => void;
   /** Chat remains scoped to the route account, so cross-account rows hide it. */
   showFixWithChat?: boolean;
@@ -77,7 +79,8 @@ export function ThreadActionsMenu({
   isUnread,
   onMarkSpam,
   onDelete,
-  onToggleRead,
+  onMarkRead,
+  onMarkUnread,
   onLabel,
   showFixWithChat = true,
   open,
@@ -86,13 +89,15 @@ export function ThreadActionsMenu({
   const hint = getShortcutHint("moreActions");
   const { provider, userEmail } = useAccount();
   const {
-    canAutoArchive,
+    canManageAutoArchive,
     canUnsubscribe,
-    onAutoArchive,
+    isAutoArchived,
+    isAutoArchiveStatusLoading,
+    isUpdatingAutoArchive,
+    onToggleAutoArchive,
     onUnsubscribe,
     PremiumModal,
   } = useUnsubscribeSender(message, { loadStoredLink: Boolean(open) });
-  const ReadIcon = isUnread ? MailOpenIcon : MailIcon;
   const openUrl = message
     ? getEmailMessageCellActions({
         externalUrl: message.externalUrl,
@@ -157,9 +162,19 @@ export function ThreadActionsMenu({
             </DropdownMenuItem>
           )}
 
-          <DropdownMenuItem onSelect={onToggleRead}>
-            <ReadIcon className="mr-2 size-4" />
-            {isUnread ? "Mark as read" : "Mark as unread"}
+          {isUnread ? (
+            <DropdownMenuItem onSelect={onMarkRead}>
+              <MailOpenIcon className="mr-2 size-4" />
+              Mark as read
+            </DropdownMenuItem>
+          ) : null}
+
+          <DropdownMenuItem onSelect={onMarkUnread}>
+            <MailIcon className="mr-2 size-4" />
+            Mark as unread
+            <DropdownMenuShortcut>
+              {getShortcutHint("markUnread")}
+            </DropdownMenuShortcut>
           </DropdownMenuItem>
 
           <DropdownMenuItem onSelect={onDelete}>
@@ -175,17 +190,29 @@ export function ThreadActionsMenu({
             Mark as spam
           </DropdownMenuItem>
 
-          {canUnsubscribe ? (
-            <DropdownMenuItem onSelect={onUnsubscribe}>
+          {canManageAutoArchive ? (
+            <DropdownMenuItem
+              disabled={!canUnsubscribe}
+              onSelect={onUnsubscribe}
+            >
               <MailXIcon className="mr-2 size-4" />
               Unsubscribe from sender
             </DropdownMenuItem>
           ) : null}
 
-          {canAutoArchive ? (
-            <DropdownMenuItem onSelect={onAutoArchive}>
-              <ArchiveRestoreIcon className="mr-2 size-4" />
-              Auto archive future emails
+          {canManageAutoArchive ? (
+            <DropdownMenuItem
+              disabled={isAutoArchiveStatusLoading || isUpdatingAutoArchive}
+              onSelect={onToggleAutoArchive}
+            >
+              {isAutoArchived ? (
+                <ArchiveRestoreIcon className="mr-2 size-4" />
+              ) : (
+                <ArchiveIcon className="mr-2 size-4" />
+              )}
+              {isAutoArchived
+                ? "Disable auto archive"
+                : "Auto archive future emails"}
             </DropdownMenuItem>
           ) : null}
 

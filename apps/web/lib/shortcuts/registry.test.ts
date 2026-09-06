@@ -47,6 +47,7 @@ describe("shortcut registry", () => {
     expect(formatShortcutKeys(getShortcut("send"))).toBe("⌘↵");
     expect(formatShortcutKeys(getShortcut("backToApp"))).toBe("G A");
     expect(formatShortcutKeys(getShortcut("delete"))).toBe("#");
+    expect(formatShortcutKeys(getShortcut("markUnread"))).toBe("U");
   });
 });
 

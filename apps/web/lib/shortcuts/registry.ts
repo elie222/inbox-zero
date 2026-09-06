@@ -167,6 +167,13 @@ const SHORTCUT_DEFINITIONS = [
     label: "Label",
   },
   {
+    id: "markUnread",
+    keys: ["u"],
+    scope: "mail",
+    group: "Triage",
+    label: "Mark as unread",
+  },
+  {
     id: "snooze",
     keys: ["h"],
     scope: "mail",

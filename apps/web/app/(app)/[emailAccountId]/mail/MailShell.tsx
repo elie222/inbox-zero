@@ -661,7 +661,7 @@ export function MailShell() {
     [markRead, runOn],
   );
   const markUnreadTargets = useCallback(
-    () => runOn((ids) => setReadState(ids, false), false),
+    () => runOn((ids) => setReadState(ids, false), true),
     [runOn, setReadState],
   );
   const snoozeTargets = useCallback(
@@ -768,6 +768,7 @@ export function MailShell() {
       extendSelectionUp: () => extendSelection(-1),
       label: canLabel ? openLabelPicker : undefined,
       archive: archiveTargets,
+      markUnread: markUnreadTargets,
       delete: trashTargets,
       reply: () => {
         if (!openThreadId && focusedThread) {
@@ -1206,10 +1207,11 @@ export function MailShell() {
                   onMarkSpam={markSpamTargets}
                   onDelete={trashTargets}
                   onLabel={canLabel ? openLabelPicker : undefined}
-                  onToggleRead={() => {
+                  onMarkRead={() => {
                     if (!openThreadKey) return;
-                    setReadState([openThreadKey], isOpenThreadUnread);
+                    setReadState([openThreadKey], true);
                   }}
+                  onMarkUnread={markUnreadTargets}
                   showFixWithChat={
                     !isAllAccounts ||
                     openThreadSelection?.emailAccountId === emailAccountId

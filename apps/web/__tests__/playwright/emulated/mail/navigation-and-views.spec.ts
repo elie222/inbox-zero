@@ -43,7 +43,7 @@ test("starts mailbox warming from the app shell before mail opens", async ({
 test("opens a complete conversation and updates its read state", async ({
   page,
 }, testInfo) => {
-  const { conversations } = await openMail(page);
+  const { conversations, emailAccountId } = await openMail(page);
   const readerConversation = conversationWithSubject(
     page,
     conversations,
@@ -80,27 +80,24 @@ test("opens a complete conversation and updates its read state", async ({
   await page.getByRole("button", { name: /^More actions/ }).click();
   const markUnread = page.getByRole("menuitem", { name: "Mark as unread" });
   await expect(markUnread).toBeVisible();
-  await markUnread.click();
+  await expect(markUnread).toContainText("U");
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("KeyU");
   await expect(
     page.getByText("Marked as unread", { exact: true }),
   ).toBeVisible();
-
-  await page.getByRole("button", { name: /^More actions/ }).click();
-  const markRead = page.getByRole("menuitem", { name: "Mark as read" });
-  await expect(markRead).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(markRead).toBeHidden();
-  await expect(
-    page.getByRole("heading", { name: "Re: Reader Navigation Message" }),
-  ).toBeVisible();
-  await expect(page).toHaveURL(/thread-id=thr_playwright_reader/);
-  const backToInbox = page.getByRole("button", { name: "Back to inbox" });
-  await expect(backToInbox).toBeVisible();
+  await expect(conversations).toBeVisible();
   await expect(page.getByText(/^\d+ of \d+$/)).toHaveCount(0);
-
-  await backToInbox.click();
-  await expect(readerConversation).toBeVisible();
   await expect(page).not.toHaveURL(/thread-id=/);
+  await expect
+    .poll(() =>
+      readLatestMailMutation(page, {
+        emailAccountId,
+        kind: "set_read_state",
+        threadId: "thr_playwright_reader",
+      }),
+    )
+    .toMatchObject({ payload: { read: false } });
 
   await readerConversation.click();
   await expect(
