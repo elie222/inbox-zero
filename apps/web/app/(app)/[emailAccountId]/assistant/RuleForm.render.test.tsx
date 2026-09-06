@@ -599,6 +599,71 @@ describe("RuleForm", () => {
       ],
     });
   });
+
+  it("optimistically caches reconstructed actions and revalidates failed saves", async () => {
+    const mutate = vi.fn();
+    mockUpdateRuleAction.mockResolvedValueOnce({});
+    const view = render(
+      <RuleForm
+        alwaysEditMode
+        mutate={mutate}
+        rule={{
+          id: "cmjzoasfv000004ld2qar07t3",
+          name: "Delayed draft rule",
+          instructions: null,
+          groupId: null,
+          runOnThreads: false,
+          digest: false,
+          conditionalOperator: LogicalOperator.AND,
+          conditions: [
+            {
+              type: ConditionType.STATIC,
+              from: "sender@example.com",
+              to: null,
+              subject: null,
+              body: null,
+              instructions: null,
+            },
+          ],
+          actions: [
+            {
+              id: "action-draft",
+              type: ActionType.DRAFT_EMAIL,
+              content: { value: "Thanks" },
+              delayInMinutes: 30,
+            },
+            {
+              id: "action-label",
+              type: ActionType.LABEL,
+              labelId: { value: "label-1", name: "Follow up" },
+            },
+          ],
+        }}
+      />,
+    );
+
+    fireEvent.click(
+      within(view.container).getByRole("button", { name: "Save" }),
+    );
+
+    await waitFor(() => expect(mutate).toHaveBeenCalledTimes(2));
+
+    const optimisticActions = mutate.mock.calls[0]?.[0]?.rule.actions;
+    expect(optimisticActions).toEqual([
+      expect.objectContaining({
+        id: "action-draft",
+        type: ActionType.DRAFT_EMAIL,
+        delayInMinutes: 30,
+      }),
+      expect.objectContaining({
+        id: "action-label",
+        type: ActionType.LABEL,
+      }),
+    ]);
+    expect(optimisticActions[1]).not.toHaveProperty("delayInMinutes");
+    expect(mutate.mock.calls[0]?.[1]).toBe(false);
+    expect(mutate).toHaveBeenNthCalledWith(2);
+  });
 });
 
 function createMessagingChannel({

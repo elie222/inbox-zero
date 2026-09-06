@@ -905,140 +905,76 @@ async function reservePendingAssistantEmailAction({
   persistenceWaitMs?: number;
   logger: Logger;
 }) {
-  const matchEmailParts = (parts: unknown) =>
-    !!findPendingAssistantEmailPart({ parts, toolCallId, actionType });
   const waitForPersistenceMs = waitForPersistence
     ? (persistenceWaitMs ?? PENDING_ACTION_PERSIST_WAIT_MS)
     : undefined;
 
-  const chatMessage = await findChatMessageForPendingAction({
+  const reservation = await reservePendingAssistantPart({
     chatId,
     chatMessageId,
     emailAccountId,
     logger,
-    matchParts: matchEmailParts,
+    findPart: (parts) =>
+      findPendingAssistantEmailPart({ parts, toolCallId, actionType }),
+    getConfirmed: (lookup) =>
+      lookup.output.confirmationState === "confirmed" &&
+      lookup.output.confirmationResult
+        ? lookup.output.confirmationResult
+        : null,
+    validateLookup: (lookup) => {
+      if (lookup.output.emailAccountId !== emailAccountId) {
+        throw new SafeError(
+          "The sending mailbox for this draft could not be verified. Prepare the draft again in the account you want to send from.",
+        );
+      }
+    },
     logPrefix: "Assistant email confirmation",
     waitForPersistenceMs,
+    inProgressError: CONFIRMATION_IN_PROGRESS_ERROR,
+    onMessageNotFound: () =>
+      warnAndThrowAssistantEmailConfirmationError({
+        logger,
+        logMessage:
+          "Assistant email confirmation failed: chat message not found",
+        safeMessage: "Chat message not found",
+        chatMessageId,
+        toolCallId,
+        actionType,
+      }),
+    onPartNotFound: (resolvedChatMessageId) =>
+      warnAndThrowAssistantEmailConfirmationError({
+        logger,
+        logMessage:
+          "Assistant email confirmation failed: pending assistant action not found",
+        safeMessage: "Pending assistant action not found",
+        chatMessageId: resolvedChatMessageId,
+        toolCallId,
+        actionType,
+      }),
+    onRaceMessageNotFound: (resolvedChatMessageId) =>
+      warnAndThrowAssistantEmailConfirmationError({
+        logger,
+        logMessage:
+          "Assistant email confirmation failed after reservation race: chat message not found",
+        safeMessage: "Chat message not found",
+        chatMessageId: resolvedChatMessageId,
+        toolCallId,
+        actionType,
+      }),
   });
 
-  if (!chatMessage) {
-    warnAndThrowAssistantEmailConfirmationError({
-      logger,
-      logMessage: "Assistant email confirmation failed: chat message not found",
-      safeMessage: "Chat message not found",
-      chatMessageId,
-      toolCallId,
-      actionType,
-    });
-  }
-
-  const lookup = findPendingAssistantEmailPart({
-    parts: chatMessage.parts,
-    toolCallId,
-    actionType,
-  });
-  if (!lookup) {
-    warnAndThrowAssistantEmailConfirmationError({
-      logger,
-      logMessage:
-        "Assistant email confirmation failed: pending assistant action not found",
-      safeMessage: "Pending assistant action not found",
-      chatMessageId: chatMessage.id,
-      toolCallId,
-      actionType,
-    });
-  }
-
-  if (
-    lookup.output.confirmationState === "confirmed" &&
-    lookup.output.confirmationResult
-  ) {
+  if (reservation.status === "confirmed") {
     return {
       status: "confirmed" as const,
-      confirmationResult: lookup.output.confirmationResult,
+      confirmationResult: reservation.value,
     };
   }
 
-  if (lookup.output.emailAccountId !== emailAccountId) {
-    throw new SafeError(
-      "The sending mailbox for this draft could not be verified. Prepare the draft again in the account you want to send from.",
-    );
-  }
-
-  if (
-    lookup.output.confirmationState === "processing" &&
-    !hasProcessingLeaseExpired(lookup.output.confirmationProcessingAt)
-  ) {
-    throw new SafeError(CONFIRMATION_IN_PROGRESS_ERROR);
-  }
-
-  const processingAt = new Date().toISOString();
-  const processingParts = updateAssistantEmailPartWithProcessing({
-    parts: lookup.parts,
-    partIndex: lookup.index,
-    processingAt,
-  });
-
-  const claim = await prisma.chatMessage.updateMany({
-    where: {
-      id: chatMessage.id,
-      chatId: chatMessage.chatId,
-      updatedAt: chatMessage.updatedAt,
-    },
-    data: {
-      parts: processingParts as Prisma.InputJsonValue,
-    },
-  });
-
-  if (claim.count === 1) {
-    return {
-      status: "reserved" as const,
-      chatMessageId: chatMessage.id,
-      output: lookup.output,
-      parts: processingParts,
-      partIndex: lookup.index,
-    };
-  }
-
-  const latestMessage = await findChatMessageForPendingAction({
-    chatId,
-    chatMessageId,
-    emailAccountId,
-    logger,
-    matchParts: matchEmailParts,
-    logPrefix: "Assistant email confirmation",
-    waitForPersistenceMs,
-  });
-
-  if (!latestMessage) {
-    warnAndThrowAssistantEmailConfirmationError({
-      logger,
-      logMessage:
-        "Assistant email confirmation failed after reservation race: chat message not found",
-      safeMessage: "Chat message not found",
-      chatMessageId: chatMessage.id,
-      toolCallId,
-      actionType,
-    });
-  }
-
-  const latestLookup = findPendingAssistantEmailPart({
-    parts: latestMessage.parts,
-    toolCallId,
-    actionType,
-  });
-
-  if (
-    latestLookup?.output.confirmationState === "confirmed" &&
-    latestLookup.output.confirmationResult
-  ) {
-    return {
-      status: "confirmed" as const,
-      confirmationResult: latestLookup.output.confirmationResult,
-    };
-  }
-
-  throw new SafeError(CONFIRMATION_IN_PROGRESS_ERROR);
+  return {
+    status: "reserved" as const,
+    chatMessageId: reservation.chatMessageId,
+    output: reservation.lookup.output,
+  };
 }
 
 async function clearPendingPartProcessing({
@@ -1328,121 +1264,61 @@ async function reservePendingAssistantSaveMemory({
   waitForPersistence?: boolean;
   logger: Logger;
 }) {
-  const matchSaveMemoryParts = (parts: unknown) =>
-    !!findPendingAssistantSaveMemoryPart({ parts, toolCallId });
   const waitForPersistenceMs = waitForPersistence
     ? PENDING_ACTION_PERSIST_WAIT_MS
     : undefined;
 
-  const chatMessage = await findChatMessageForPendingAction({
+  const reservation = await reservePendingAssistantPart({
     chatId,
     chatMessageId,
     emailAccountId,
     logger,
-    matchParts: matchSaveMemoryParts,
+    findPart: (parts) =>
+      findPendingAssistantSaveMemoryPart({ parts, toolCallId }),
+    getConfirmed: (lookup) =>
+      lookup.output.confirmationState === "confirmed" &&
+      lookup.output.confirmationResult
+        ? lookup.output.confirmationResult
+        : null,
     logPrefix: "Assistant save memory confirmation",
     waitForPersistenceMs,
-  });
-
-  if (!chatMessage) {
-    logger.warn("Assistant save memory confirmation: chat message not found", {
-      chatMessageId,
-      toolCallId,
-    });
-    throw new SafeError("Chat message not found");
-  }
-
-  const lookup = findPendingAssistantSaveMemoryPart({
-    parts: chatMessage.parts,
-    toolCallId,
-  });
-
-  if (!lookup) {
-    logger.warn("Assistant save memory confirmation: pending not found", {
-      chatMessageId: chatMessage.id,
-      toolCallId,
-    });
-    throw new SafeError("Pending memory save not found");
-  }
-
-  if (
-    lookup.output.confirmationState === "confirmed" &&
-    lookup.output.confirmationResult
-  ) {
-    return {
-      status: "confirmed" as const,
-      content: lookup.output.confirmationResult.content,
-      confirmationResult: lookup.output.confirmationResult,
-    };
-  }
-
-  if (
-    lookup.output.confirmationState === "processing" &&
-    !hasProcessingLeaseExpired(lookup.output.confirmationProcessingAt)
-  ) {
-    throw new SafeError(SAVE_MEMORY_CONFIRMATION_IN_PROGRESS_ERROR);
-  }
-
-  const processingAt = new Date().toISOString();
-  const processingParts = updateAssistantEmailPartWithProcessing({
-    parts: lookup.parts,
-    partIndex: lookup.index,
-    processingAt,
-  });
-
-  const claim = await prisma.chatMessage.updateMany({
-    where: {
-      id: chatMessage.id,
-      chatId: chatMessage.chatId,
-      updatedAt: chatMessage.updatedAt,
+    inProgressError: SAVE_MEMORY_CONFIRMATION_IN_PROGRESS_ERROR,
+    onMessageNotFound: () => {
+      logger.warn(
+        "Assistant save memory confirmation: chat message not found",
+        {
+          chatMessageId,
+          toolCallId,
+        },
+      );
+      throw new SafeError("Chat message not found");
     },
-    data: {
-      parts: processingParts as Prisma.InputJsonValue,
+    onPartNotFound: (resolvedChatMessageId) => {
+      logger.warn("Assistant save memory confirmation: pending not found", {
+        chatMessageId: resolvedChatMessageId,
+        toolCallId,
+      });
+      throw new SafeError("Pending memory save not found");
+    },
+    onRaceMessageNotFound: () => {
+      throw new SafeError("Chat message not found");
     },
   });
 
-  if (claim.count === 1) {
-    return {
-      status: "reserved" as const,
-      chatMessageId: chatMessage.id,
-      output: lookup.output,
-      parts: processingParts,
-      partIndex: lookup.index,
-      toolInput: lookup.toolInput,
-    };
-  }
-
-  const latestMessage = await findChatMessageForPendingAction({
-    chatId,
-    chatMessageId,
-    emailAccountId,
-    logger,
-    matchParts: matchSaveMemoryParts,
-    logPrefix: "Assistant save memory confirmation",
-    waitForPersistenceMs,
-  });
-
-  if (!latestMessage) {
-    throw new SafeError("Chat message not found");
-  }
-
-  const latestLookup = findPendingAssistantSaveMemoryPart({
-    parts: latestMessage.parts,
-    toolCallId,
-  });
-
-  if (
-    latestLookup?.output.confirmationState === "confirmed" &&
-    latestLookup.output.confirmationResult
-  ) {
+  if (reservation.status === "confirmed") {
     return {
       status: "confirmed" as const,
-      content: latestLookup.output.confirmationResult.content,
-      confirmationResult: latestLookup.output.confirmationResult,
+      content: reservation.value.content,
+      confirmationResult: reservation.value,
     };
   }
 
-  throw new SafeError(SAVE_MEMORY_CONFIRMATION_IN_PROGRESS_ERROR);
+  return {
+    status: "reserved" as const,
+    chatMessageId: reservation.chatMessageId,
+    output: reservation.lookup.output,
+    toolInput: reservation.lookup.toolInput,
+  };
 }
 
 async function reservePendingAssistantCreateRule({
@@ -1460,62 +1336,138 @@ async function reservePendingAssistantCreateRule({
   waitForPersistence?: boolean;
   logger: Logger;
 }) {
-  const matchCreateRuleParts = (parts: unknown) =>
-    !!findPendingAssistantCreateRulePart({ parts, toolCallId });
   const waitForPersistenceMs = waitForPersistence
     ? PENDING_ACTION_PERSIST_WAIT_MS
     : undefined;
 
-  const chatMessage = await findChatMessageForPendingAction({
+  const reservation = await reservePendingAssistantPart({
     chatId,
     chatMessageId,
     emailAccountId,
     logger,
-    matchParts: matchCreateRuleParts,
+    findPart: (parts) =>
+      findPendingAssistantCreateRulePart({ parts, toolCallId }),
+    getConfirmed: (lookup) =>
+      lookup.output.confirmationState === "confirmed" && lookup.output.ruleId
+        ? lookup.output.ruleId
+        : null,
     logPrefix: "Assistant create rule confirmation",
     waitForPersistenceMs,
+    inProgressError: CONFIRMATION_IN_PROGRESS_ERROR,
+    onMessageNotFound: () => {
+      logger.warn(
+        "Assistant create rule confirmation: chat message not found",
+        {
+          chatMessageId,
+          toolCallId,
+        },
+      );
+      throw new SafeError("Chat message not found");
+    },
+    onPartNotFound: (resolvedChatMessageId) => {
+      logger.warn("Assistant create rule confirmation: pending not found", {
+        chatMessageId: resolvedChatMessageId,
+        toolCallId,
+      });
+      throw new SafeError("Pending rule creation not found");
+    },
+    onRaceMessageNotFound: () => {
+      throw new SafeError("Chat message not found");
+    },
   });
 
-  if (!chatMessage) {
-    logger.warn("Assistant create rule confirmation: chat message not found", {
-      chatMessageId,
-      toolCallId,
-    });
-    throw new SafeError("Chat message not found");
-  }
-
-  const lookup = findPendingAssistantCreateRulePart({
-    parts: chatMessage.parts,
-    toolCallId,
-  });
-
-  if (!lookup) {
-    logger.warn("Assistant create rule confirmation: pending not found", {
-      chatMessageId: chatMessage.id,
-      toolCallId,
-    });
-    throw new SafeError("Pending rule creation not found");
-  }
-
-  if (lookup.output.confirmationState === "confirmed" && lookup.output.ruleId) {
+  if (reservation.status === "confirmed") {
     return {
       status: "confirmed" as const,
-      ruleId: lookup.output.ruleId,
+      ruleId: reservation.value,
     };
   }
+
+  return {
+    status: "reserved" as const,
+    chatMessageId: reservation.chatMessageId,
+    output: reservation.lookup.output,
+    toolInput: reservation.lookup.toolInput,
+  };
+}
+
+async function reservePendingAssistantPart<
+  TLookup extends {
+    index: number;
+    parts: unknown[];
+    output: {
+      confirmationState: string;
+      confirmationProcessingAt?: string | null;
+    };
+  },
+  TConfirmed,
+>({
+  chatId,
+  chatMessageId,
+  emailAccountId,
+  logger,
+  findPart,
+  getConfirmed,
+  validateLookup,
+  logPrefix,
+  waitForPersistenceMs,
+  inProgressError,
+  onMessageNotFound,
+  onPartNotFound,
+  onRaceMessageNotFound,
+}: {
+  chatId: string;
+  chatMessageId?: string;
+  emailAccountId: string;
+  logger: Logger;
+  findPart: (parts: unknown) => TLookup | null;
+  getConfirmed: (lookup: TLookup) => TConfirmed | null;
+  validateLookup?: (lookup: TLookup) => void;
+  logPrefix: string;
+  waitForPersistenceMs?: number;
+  inProgressError: string;
+  onMessageNotFound: () => never;
+  onPartNotFound: (chatMessageId: string) => never;
+  onRaceMessageNotFound: (chatMessageId: string) => never;
+}): Promise<
+  | { status: "confirmed"; value: TConfirmed }
+  | { status: "reserved"; chatMessageId: string; lookup: TLookup }
+> {
+  const findMessage = () =>
+    findChatMessageForPendingAction({
+      chatId,
+      chatMessageId,
+      emailAccountId,
+      logger,
+      matchParts: (parts) => !!findPart(parts),
+      logPrefix,
+      waitForPersistenceMs,
+    });
+
+  const chatMessage = await findMessage();
+  if (!chatMessage) return onMessageNotFound();
+
+  const lookup = findPart(chatMessage.parts);
+  if (!lookup) return onPartNotFound(chatMessage.id);
+
+  const confirmed = getConfirmed(lookup);
+  if (confirmed !== null) {
+    return { status: "confirmed", value: confirmed };
+  }
+
+  validateLookup?.(lookup);
 
   if (
     lookup.output.confirmationState === "processing" &&
     !hasProcessingLeaseExpired(lookup.output.confirmationProcessingAt)
   ) {
-    throw new SafeError(CONFIRMATION_IN_PROGRESS_ERROR);
+    throw new SafeError(inProgressError);
   }
 
-  const processingAt = new Date().toISOString();
   const processingParts = updateAssistantEmailPartWithProcessing({
     parts: lookup.parts,
     partIndex: lookup.index,
-    processingAt,
+    processingAt: new Date().toISOString(),
   });
 
   const claim = await prisma.chatMessage.updateMany({
@@ -1531,45 +1483,24 @@ async function reservePendingAssistantCreateRule({
 
   if (claim.count === 1) {
     return {
-      status: "reserved" as const,
+      status: "reserved",
       chatMessageId: chatMessage.id,
-      output: lookup.output,
-      parts: processingParts,
-      partIndex: lookup.index,
-      toolInput: lookup.toolInput,
+      lookup,
     };
   }
 
-  const latestMessage = await findChatMessageForPendingAction({
-    chatId,
-    chatMessageId,
-    emailAccountId,
-    logger,
-    matchParts: matchCreateRuleParts,
-    logPrefix: "Assistant create rule confirmation",
-    waitForPersistenceMs,
-  });
+  const latestMessage = await findMessage();
+  if (!latestMessage) return onRaceMessageNotFound(chatMessage.id);
 
-  if (!latestMessage) {
-    throw new SafeError("Chat message not found");
+  const latestLookup = findPart(latestMessage.parts);
+  if (latestLookup) {
+    const latestConfirmed = getConfirmed(latestLookup);
+    if (latestConfirmed !== null) {
+      return { status: "confirmed", value: latestConfirmed };
+    }
   }
 
-  const latestLookup = findPendingAssistantCreateRulePart({
-    parts: latestMessage.parts,
-    toolCallId,
-  });
-
-  if (
-    latestLookup?.output.confirmationState === "confirmed" &&
-    latestLookup.output.ruleId
-  ) {
-    return {
-      status: "confirmed" as const,
-      ruleId: latestLookup.output.ruleId,
-    };
-  }
-
-  throw new SafeError(CONFIRMATION_IN_PROGRESS_ERROR);
+  throw new SafeError(inProgressError);
 }
 
 async function persistConfirmedAssistantCreateRulePart({

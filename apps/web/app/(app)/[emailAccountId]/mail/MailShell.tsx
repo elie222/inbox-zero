@@ -39,7 +39,7 @@ import { ThreadReader } from "@/app/(app)/[emailAccountId]/mail/ThreadReader";
 import {
   getActiveThreadIndex,
   getNextThreadAfterRemoval,
-  getThreadActionTargetIds,
+  resolveThreadActionTargets,
 } from "@/app/(app)/[emailAccountId]/mail/thread-list-behavior";
 import {
   getListThreadKey,
@@ -424,6 +424,38 @@ export function MailShell() {
     openThreadSelection,
     readerSelectionSettled,
   ]);
+  const actionTargets = useMemo(() => {
+    const listTargets = threads.map((thread) => ({
+      key: getListThreadKey(thread),
+      messages: thread.messages,
+      selection: getListThreadSelection(thread, emailAccountId),
+    }));
+    const openTarget =
+      openThreadKey && openThreadSelection && (openThread || readerTarget)
+        ? {
+            key: openThreadKey,
+            messages: openThread?.messages ?? openMessages,
+            selection: openThreadSelection,
+          }
+        : undefined;
+
+    return resolveThreadActionTargets({
+      focusedKey: focusedThread ? getListThreadKey(focusedThread) : undefined,
+      listTargets,
+      openTarget,
+      selectedKeys: [...selection.selectedIds],
+    });
+  }, [
+    emailAccountId,
+    focusedThread,
+    openMessages,
+    openThread,
+    openThreadKey,
+    openThreadSelection,
+    readerTarget,
+    selection.selectedIds,
+    threads,
+  ]);
   const { archive, trash, markRead, markSpam, setReadState, snooze, undo } =
     useThreadActions({
       emailAccountId,
@@ -456,12 +488,17 @@ export function MailShell() {
     setReplyToMessageId(messageId);
   }, [openMessages, openReaderThreadKey, readerSelectionSettled]);
 
-  // The row, not the fetched thread: marking read patches the row optimistically,
-  // so it is the copy that stays in step. The fetch only stands in for a link
-  // straight into a conversation, where there is no row yet.
-  const isOpenThreadUnread = isThreadUnread(
-    openThread?.messages ?? openMessages,
-  );
+  // Let the fetched snapshot decide the initial read state. Once marking has
+  // been attempted, the optimistically patched row is the copy that stays in
+  // step while the fetched snapshot may still be stale.
+  const initialReadStateMessages = openMessages.length
+    ? openMessages
+    : (openThread?.messages ?? openMessages);
+  const readStateMessages =
+    readAttemptedForOpenThread.current === openThreadKey
+      ? (openThread?.messages ?? openMessages)
+      : initialReadStateMessages;
+  const isOpenThreadUnread = isThreadUnread(readStateMessages);
 
   const hrefFor = useCallback(
     (target: MailNavTarget) =>
@@ -484,13 +521,7 @@ export function MailShell() {
       removeFromList: boolean,
       autoAdvanceReader = false,
     ) => {
-      const ids = getThreadActionTargetIds({
-        openThreadId: openThreadKey,
-        activeThreadId: focusedThread
-          ? getListThreadKey(focusedThread)
-          : undefined,
-        selectedThreadIds: [...selection.selectedIds],
-      });
+      const ids = actionTargets.map((target) => target.key);
       if (!ids.length) return;
       const hadSelection = selection.hasSelection;
       const queuedThreadKeys = await action(ids);
@@ -529,7 +560,7 @@ export function MailShell() {
       }
     },
     [
-      focusedThread,
+      actionTargets,
       focusedIndex,
       openThreadKey,
       orderedIds,
@@ -637,18 +668,7 @@ export function MailShell() {
     (until: Date) => runOn((ids) => snooze(ids, until), true),
     [runOn, snooze],
   );
-  const labelTargetKeys = (() => {
-    if (selection.hasSelection) return [...selection.selectedIds];
-    if (openThreadKey) return [openThreadKey];
-    return focusedThread ? [getListThreadKey(focusedThread)] : [];
-  })();
-  const currentLabelTargets = labelTargetKeys.flatMap((key) => {
-    const thread = threads.find((thread) => getListThreadKey(thread) === key);
-    if (thread) return [getListThreadSelection(thread, emailAccountId)];
-    return key === openThreadKey && openThreadSelection
-      ? [openThreadSelection]
-      : [];
-  });
+  const currentLabelTargets = actionTargets.map((target) => target.selection);
   const labelAccountId = currentLabelTargets[0]?.emailAccountId;
   const labelAccount =
     labelAccountId === emailAccountId
@@ -658,7 +678,6 @@ export function MailShell() {
         );
   const canLabel =
     currentLabelTargets.length > 0 &&
-    currentLabelTargets.length === labelTargetKeys.length &&
     isGoogleProvider(labelAccount?.account.provider) &&
     currentLabelTargets.every(
       (target) => target.emailAccountId === labelAccountId,
@@ -673,17 +692,6 @@ export function MailShell() {
           (account) => account.id === labelTargets?.[0]?.emailAccountId,
         );
 
-  const commandTargetIds = useMemo(
-    () =>
-      selection.targetIds(
-        focusedThread ? getListThreadKey(focusedThread) : undefined,
-      ),
-    [selection, focusedThread],
-  );
-  const commandTargets = useMemo(() => {
-    const ids = new Set(commandTargetIds);
-    return threads.filter((thread) => ids.has(getListThreadKey(thread)));
-  }, [commandTargetIds, threads]);
   const mailCommandContext = useMemo(
     () => ({
       actions: {
@@ -693,18 +701,15 @@ export function MailShell() {
         snooze: snoozeTargets,
         trash: trashTargets,
       },
-      hasRead: commandTargets.some(
-        (thread) => !isThreadUnread(thread.messages),
+      hasRead: actionTargets.some((target) => !isThreadUnread(target.messages)),
+      hasUnread: actionTargets.some((target) =>
+        isThreadUnread(target.messages),
       ),
-      hasUnread: commandTargets.some((thread) =>
-        isThreadUnread(thread.messages),
-      ),
-      targetCount: commandTargetIds.length,
+      targetCount: actionTargets.length,
     }),
     [
       archiveTargets,
-      commandTargetIds.length,
-      commandTargets,
+      actionTargets,
       markReadTargets,
       markUnreadTargets,
       snoozeTargets,

@@ -1518,6 +1518,53 @@ describe("confirmAssistantSaveMemory", () => {
     expect(prisma.chatMessage.updateMany).not.toHaveBeenCalled();
     expect(prisma.chatMemory.create).not.toHaveBeenCalled();
   });
+
+  it("returns the confirmed memory when another request wins the reservation race", async () => {
+    const confirmationResult = {
+      content: "Prefer formal replies with the standard confidential footer.",
+      confirmedAt: "2026-02-23T00:01:00.000Z",
+    };
+
+    prisma.chatMessage.findFirst
+      .mockResolvedValueOnce({
+        id: "chat-message-1",
+        chatId: "chat-1",
+        updatedAt: new Date("2026-02-23T00:00:00.000Z"),
+        parts: [buildPendingSaveMemoryPart()],
+      } as any)
+      .mockResolvedValueOnce({
+        id: "chat-message-1",
+        chatId: "chat-1",
+        updatedAt: new Date("2026-02-23T00:01:00.000Z"),
+        parts: [
+          {
+            ...buildPendingSaveMemoryPart(),
+            output: {
+              ...buildPendingSaveMemoryPart().output,
+              confirmationState: "confirmed",
+              confirmationResult,
+            },
+          },
+        ],
+      } as any);
+    prisma.chatMessage.updateMany.mockResolvedValue({ count: 0 } as any);
+
+    const result = await confirmAssistantSaveMemoryForAccount({
+      chatId: "chat-1",
+      chatMessageId: "chat-message-1",
+      toolCallId: "tool-1",
+      emailAccountId: "ea_1",
+      logger: createTestLogger(),
+    });
+
+    expect(result).toMatchObject({
+      confirmationState: "confirmed",
+      confirmationResult,
+    });
+    expect(prisma.chatMessage.updateMany).toHaveBeenCalledTimes(1);
+    expect(prisma.chatMemory.findFirst).not.toHaveBeenCalled();
+    expect(prisma.chatMemory.create).not.toHaveBeenCalled();
+  });
 });
 
 function buildPendingSendPart() {

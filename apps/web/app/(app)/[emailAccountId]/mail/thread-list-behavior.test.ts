@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getActiveThreadIndex,
   getNextThreadAfterRemoval,
-  getThreadActionTargetIds,
+  resolveThreadActionTargets,
   scrollElementIntoContainer,
   shouldPrefetchMoreThreads,
   THREAD_PREFETCH_REMAINING,
@@ -40,25 +40,61 @@ describe("getActiveThreadIndex", () => {
   });
 });
 
-describe("getThreadActionTargetIds", () => {
+describe("resolveThreadActionTargets", () => {
   it("targets an open reader that is missing from the current list", () => {
     expect(
-      getThreadActionTargetIds({
-        openThreadId: "missing",
-        activeThreadId: undefined,
-        selectedThreadIds: ["one"],
+      resolveThreadActionTargets({
+        focusedKey: undefined,
+        listTargets: [target("one", "account-1")],
+        openTarget: target("missing", "account-1"),
+        selectedKeys: ["one"],
       }),
-    ).toEqual(["missing"]);
+    ).toEqual([target("missing", "account-1")]);
   });
 
-  it("preserves an explicit selection when the open reader is in the list", () => {
+  it("preserves row selection when a listed reader is open", () => {
     expect(
-      getThreadActionTargetIds({
-        openThreadId: "two",
-        activeThreadId: "two",
-        selectedThreadIds: ["one", "two"],
+      resolveThreadActionTargets({
+        focusedKey: "two",
+        listTargets: [target("one", "account-1"), target("two", "account-1")],
+        openTarget: target("two", "account-1"),
+        selectedKeys: ["one", "two"],
       }),
-    ).toEqual(["one", "two"]);
+    ).toEqual([target("one", "account-1"), target("two", "account-1")]);
+  });
+
+  it("drops selected rows that disappeared from the filtered list", () => {
+    expect(
+      resolveThreadActionTargets({
+        focusedKey: "visible",
+        listTargets: [target("visible", "account-1")],
+        openTarget: undefined,
+        selectedKeys: ["filtered", "visible"],
+      }),
+    ).toEqual([target("visible", "account-1")]);
+  });
+
+  it("retains account ownership for cross-account selections", () => {
+    expect(
+      resolveThreadActionTargets({
+        focusedKey: "account-1:shared",
+        listTargets: [
+          target("account-1:shared", "account-1", "shared"),
+          target("account-2:shared", "account-2", "shared"),
+        ],
+        openTarget: undefined,
+        selectedKeys: ["account-1:shared", "account-2:shared"],
+      }).map(({ key, selection }) => ({ key, selection })),
+    ).toEqual([
+      {
+        key: "account-1:shared",
+        selection: { emailAccountId: "account-1", threadId: "shared" },
+      },
+      {
+        key: "account-2:shared",
+        selection: { emailAccountId: "account-2", threadId: "shared" },
+      },
+    ]);
   });
 });
 
@@ -140,6 +176,14 @@ describe("getNextThreadAfterRemoval", () => {
     ).toBeNull();
   });
 });
+
+function target(key: string, emailAccountId: string, threadId = key) {
+  return {
+    key,
+    selection: { emailAccountId, threadId },
+    thread: { key },
+  };
+}
 
 describe("shouldPrefetchMoreThreads", () => {
   it("does not prefetch when there is no next page", () => {

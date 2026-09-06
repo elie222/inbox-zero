@@ -1,18 +1,6 @@
-import type { Page } from "@playwright/test";
 import { Client } from "pg";
 
 export const SEEDED_CHAT_ID = "playwright-manage-chat";
-
-export async function markAssistantOnboardingViewed(page: Page) {
-  await page.goto("/");
-  await page.context().addCookies([
-    {
-      name: "viewed_assistant_onboarding",
-      value: "true",
-      url: new URL(page.url()).origin,
-    },
-  ]);
-}
 
 export async function seedChat(emailAccountId: string) {
   const client = new Client({ connectionString: process.env.DATABASE_URL });

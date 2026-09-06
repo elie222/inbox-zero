@@ -208,11 +208,9 @@ type LlmEmailAccount = {
 };
 
 export type ToolCallAgentResolvedModel = {
-  excludedTools: string[];
   modelName?: string;
   provider: string;
   providerOptions: LLMProviderOptions;
-  replacedTools: string[];
 };
 
 const commonOptions: {
@@ -937,31 +935,10 @@ export async function toolCallAgentStream(options: ToolCallAgentStreamOptions) {
       provider: candidate.provider,
       modelName: candidate.modelName,
     });
-    const excludedTools: string[] = [];
-    const replacedTools: string[] = [];
-
-    if (replacedTools.length > 0) {
-      logger.warn("Replacing incompatible tools for model", {
-        provider: candidate.provider,
-        modelName: candidate.modelName,
-        replacedTools,
-      });
-    }
-
-    if (excludedTools.length > 0) {
-      logger.warn("Excluding unsupported tools for model", {
-        provider: candidate.provider,
-        modelName: candidate.modelName,
-        excludedTools,
-      });
-    }
-
     onModelResolved?.({
       provider: candidate.provider,
       modelName: candidate.modelName,
       providerOptions,
-      replacedTools,
-      excludedTools,
     });
 
     const agent = new ToolLoopAgent({

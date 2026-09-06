@@ -5,7 +5,6 @@ import {
   isEmailCacheEpochCurrent,
 } from "./database";
 import { EMAIL_CACHE_MAX_AGE_MS } from "./policy";
-import { restoreThreadOrder, type ThreadRestorePosition } from "./thread-order";
 
 type ThreadRow = { id: string };
 
@@ -143,83 +142,5 @@ export async function readCachedThreadList<T extends ThreadRow>({
     };
   } catch {
     return;
-  }
-}
-
-export async function removeCachedThreadsFromView({
-  emailAccountId,
-  viewKey,
-  threadIds,
-}: {
-  emailAccountId: string;
-  viewKey: string;
-  threadIds: string[];
-}) {
-  const epoch = captureEmailCacheEpoch(emailAccountId);
-
-  try {
-    const database = await getEmailCacheDatabase();
-    if (!database || !isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
-    const transaction = database.transaction("threadViews", "readwrite");
-    const store = transaction.objectStore("threadViews");
-    const view = await store.get([emailAccountId, viewKey]);
-    if (!view) return;
-
-    const removed = new Set(threadIds);
-    await store.put({
-      ...view,
-      threadIds: view.threadIds.filter((threadId) => !removed.has(threadId)),
-      lastAccessedAt: Date.now(),
-    });
-    await transaction.done;
-  } catch {
-    // Optimistic UI state remains authoritative if persistence is unavailable.
-  }
-}
-
-export async function restoreCachedThreadsToView<T extends ThreadRow>({
-  emailAccountId,
-  viewKey,
-  entries,
-}: {
-  emailAccountId: string;
-  viewKey: string;
-  entries: Array<{ thread: T } & Omit<ThreadRestorePosition, "threadId">>;
-}) {
-  const epoch = captureEmailCacheEpoch(emailAccountId);
-
-  try {
-    const database = await getEmailCacheDatabase();
-    if (!database || !isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
-    const transaction = database.transaction(
-      ["threadRows", "threadViews"],
-      "readwrite",
-    );
-    const views = transaction.objectStore("threadViews");
-    const view = await views.get([emailAccountId, viewKey]);
-    if (!view) return;
-
-    const now = Date.now();
-    const threadIds = restoreThreadOrder(
-      view.threadIds,
-      entries.map((entry) => ({
-        threadId: entry.thread.id,
-        index: entry.index,
-        threadOrder: entry.threadOrder,
-      })),
-    );
-    for (const entry of entries) {
-      await transaction.objectStore("threadRows").put({
-        emailAccountId,
-        threadId: entry.thread.id,
-        data: entry.thread,
-        fetchedAt: now,
-        lastAccessedAt: now,
-      });
-    }
-    await views.put({ ...view, threadIds, lastAccessedAt: now });
-    await transaction.done;
-  } catch {
-    // Optimistic UI state remains authoritative if persistence is unavailable.
   }
 }

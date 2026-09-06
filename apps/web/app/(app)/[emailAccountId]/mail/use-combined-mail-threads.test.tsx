@@ -9,8 +9,6 @@ import { useCombinedMailThreads } from "./use-combined-mail-threads";
 
 const cache = vi.hoisted(() => ({
   read: vi.fn(),
-  remove: vi.fn(),
-  restore: vi.fn(),
   write: vi.fn(),
 }));
 const mailbox = vi.hoisted(() => ({
@@ -26,8 +24,6 @@ const mutationStore = vi.hoisted(() => ({
 
 vi.mock("@/utils/email-cache/thread-lists", () => ({
   readCachedThreadList: cache.read,
-  removeCachedThreadsFromView: cache.remove,
-  restoreCachedThreadsToView: cache.restore,
   writeCachedThreadList: cache.write,
 }));
 vi.mock("@/utils/email-cache/mailbox", () => ({
@@ -43,8 +39,6 @@ describe("useCombinedMailThreads", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     cache.read.mockResolvedValue(undefined);
-    cache.remove.mockResolvedValue(undefined);
-    cache.restore.mockResolvedValue(undefined);
     cache.write.mockResolvedValue(undefined);
     mailbox.listeners.clear();
     mailbox.read.mockResolvedValue(undefined);
@@ -120,6 +114,50 @@ describe("useCombinedMailThreads", () => {
         ]),
       }),
     );
+  });
+
+  it("keeps a completed archive overlaid until the combined list reconciles", async () => {
+    const network = Promise.withResolvers<unknown>();
+    mailbox.read.mockResolvedValue({
+      accountStates: ACCOUNT_STATES,
+      complete: true,
+      missingAccountIds: [],
+      threads: [createThread("account-1", "archived")],
+      truncated: false,
+    });
+    mutationStore.read.mockResolvedValue([
+      createMutation({
+        emailAccountId: "account-1",
+        kind: "archive",
+        messageIds: ["archived-message"],
+        threadId: "archived",
+      }),
+    ]);
+
+    const { result } = renderHook(
+      () =>
+        useCombinedMailThreads({
+          accounts: ACCOUNTS,
+          emailAccountId: "account-1",
+          enabled: true,
+          isUnread: false,
+        }),
+      { wrapper: createWrapper(() => network.promise) },
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.threads).toEqual([]);
+
+    mutationStore.read.mockResolvedValue([]);
+    act(() => {
+      for (const listener of mutationStore.listeners) listener();
+    });
+    await waitFor(() => expect(mutationStore.read).toHaveBeenCalledTimes(2));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(result.current.threads).toEqual([]);
   });
 
   it("removes only the pending-read owner from an unread-only view", async () => {
@@ -874,253 +912,6 @@ describe("useCombinedMailThreads", () => {
     expect(result.current.threads.map((thread) => thread.id)).toEqual([
       "newer",
     ]);
-  });
-
-  it("removes and restores same-id threads independently by account", async () => {
-    const network = Promise.withResolvers<unknown>();
-    mailbox.read.mockResolvedValue({
-      accountStates: ACCOUNT_STATES,
-      complete: true,
-      missingAccountIds: [],
-      threads: [
-        createThread("account-1", "shared"),
-        createThread("account-2", "shared"),
-      ],
-      truncated: false,
-    });
-    const { result } = renderHook(
-      () =>
-        useCombinedMailThreads({
-          accounts: ACCOUNTS,
-          emailAccountId: "account-1",
-          enabled: true,
-          isUnread: false,
-        }),
-      { wrapper: createWrapper(() => network.promise) },
-    );
-    await waitFor(() => expect(result.current.threads).toHaveLength(2));
-
-    let removal!: ReturnType<typeof result.current.removeThreads>;
-    act(() => {
-      removal = result.current.removeThreads(["account-1:shared"]);
-    });
-    expect(result.current.threads.map((thread) => thread.account.id)).toEqual([
-      "account-2",
-    ]);
-
-    act(() => result.current.restoreThreads(removal, ["account-1:shared"]));
-    expect(result.current.threads.map((thread) => thread.account.id)).toEqual([
-      "account-1",
-      "account-2",
-    ]);
-  });
-
-  it("shows a thread again after its removal is confirmed and new mail arrives", async () => {
-    const freshAccountStates = createAccountStates(Number.MAX_SAFE_INTEGER);
-    mailbox.read
-      .mockResolvedValueOnce({
-        accountStates: freshAccountStates,
-        complete: true,
-        missingAccountIds: [],
-        threads: [createThread("account-1", "returning")],
-        truncated: false,
-      })
-      .mockResolvedValueOnce({
-        accountStates: freshAccountStates,
-        complete: true,
-        missingAccountIds: [],
-        threads: [],
-        truncated: false,
-      })
-      .mockResolvedValue({
-        accountStates: freshAccountStates,
-        complete: true,
-        missingAccountIds: [],
-        threads: [
-          createThread("account-1", "returning", "2026-08-23T11:00:00.000Z"),
-        ],
-        truncated: false,
-      });
-    const { result } = renderHook(
-      () =>
-        useCombinedMailThreads({
-          accounts: ACCOUNTS,
-          emailAccountId: "account-1",
-          enabled: true,
-          isUnread: false,
-        }),
-      {
-        wrapper: createWrapper(() =>
-          Promise.resolve({
-            failedAccountIds: [],
-            labelsByAccount: {},
-            nextPageToken: null,
-            threads: [createThread("account-1", "returning")],
-          }),
-        ),
-      },
-    );
-    await waitFor(() => expect(result.current.threads).toHaveLength(1));
-
-    act(() => result.current.removeThreads(["account-1:returning"]));
-    expect(result.current.threads).toHaveLength(0);
-
-    act(() => {
-      for (const listener of mailbox.listeners) listener("account-1");
-    });
-    await waitFor(() => expect(mailbox.read).toHaveBeenCalledTimes(2));
-
-    act(() => {
-      for (const listener of mailbox.listeners) listener("account-1");
-    });
-    await waitFor(() =>
-      expect(result.current.threads.map((thread) => thread.id)).toEqual([
-        "returning",
-      ]),
-    );
-  });
-
-  it("keeps a removed thread hidden until a newer sync confirms absence", async () => {
-    mailbox.read
-      .mockResolvedValueOnce({
-        accountStates: ACCOUNT_STATES,
-        complete: true,
-        missingAccountIds: [],
-        threads: [createThread("account-1", "provider-stale")],
-        truncated: false,
-      })
-      .mockResolvedValueOnce({
-        accountStates: ACCOUNT_STATES,
-        complete: true,
-        missingAccountIds: [],
-        threads: [],
-        truncated: false,
-      })
-      .mockResolvedValueOnce({
-        accountStates: createAccountStates(Number.MAX_SAFE_INTEGER - 2, false),
-        complete: false,
-        missingAccountIds: [],
-        threads: [],
-        truncated: false,
-      })
-      .mockResolvedValueOnce({
-        accountStates: createAccountStates(Number.MAX_SAFE_INTEGER - 1),
-        complete: true,
-        missingAccountIds: [],
-        threads: [createThread("account-1", "provider-stale")],
-        truncated: false,
-      })
-      .mockResolvedValueOnce({
-        accountStates: createAccountStates(Number.MAX_SAFE_INTEGER),
-        complete: true,
-        missingAccountIds: [],
-        threads: [],
-        truncated: false,
-      })
-      .mockResolvedValue({
-        accountStates: createAccountStates(Number.MAX_SAFE_INTEGER),
-        complete: true,
-        missingAccountIds: [],
-        threads: [createThread("account-1", "provider-stale")],
-        truncated: false,
-      });
-    const { result } = renderHook(
-      () =>
-        useCombinedMailThreads({
-          accounts: ACCOUNTS,
-          emailAccountId: "account-1",
-          enabled: true,
-          isUnread: false,
-        }),
-      {
-        wrapper: createWrapper(() =>
-          Promise.resolve({
-            failedAccountIds: [],
-            labelsByAccount: {},
-            nextPageToken: null,
-            threads: [createThread("account-1", "provider-stale")],
-          }),
-        ),
-      },
-    );
-    await waitFor(() => expect(result.current.threads).toHaveLength(1));
-
-    act(() => result.current.removeThreads(["account-1:provider-stale"]));
-    expect(result.current.threads).toHaveLength(0);
-
-    for (const expectedReadCount of [2, 3, 4]) {
-      await act(async () => {
-        for (const listener of mailbox.listeners) listener("account-1");
-        await Promise.resolve();
-      });
-      await waitFor(() =>
-        expect(mailbox.read).toHaveBeenCalledTimes(expectedReadCount),
-      );
-    }
-    expect(result.current.threads).toHaveLength(0);
-
-    await act(async () => {
-      for (const listener of mailbox.listeners) listener("account-1");
-      await Promise.resolve();
-    });
-    await waitFor(() => expect(mailbox.read).toHaveBeenCalledTimes(5));
-
-    await act(async () => {
-      for (const listener of mailbox.listeners) listener("account-1");
-      await Promise.resolve();
-    });
-    await waitFor(() =>
-      expect(result.current.threads.map((thread) => thread.id)).toEqual([
-        "provider-stale",
-      ]),
-    );
-  });
-
-  it("does not restore a failed page-two action into the first-page cache", async () => {
-    const fetcher = vi.fn((key: string) =>
-      Promise.resolve(
-        key.includes("cursor=next-page")
-          ? {
-              failedAccountIds: [],
-              labelsByAccount: {},
-              nextPageToken: null,
-              threads: [createThread("account-2", "page-two")],
-            }
-          : {
-              failedAccountIds: [],
-              labelsByAccount: {},
-              nextPageToken: "next-page",
-              threads: [createThread("account-1", "page-one")],
-            },
-      ),
-    );
-    const { result } = renderHook(
-      () =>
-        useCombinedMailThreads({
-          accounts: ACCOUNTS,
-          emailAccountId: "account-1",
-          enabled: true,
-          isUnread: false,
-        }),
-      { wrapper: createWrapper(fetcher) },
-    );
-    await waitFor(() => expect(result.current.threads).toHaveLength(1));
-
-    act(() => result.current.loadMore());
-    await waitFor(() => expect(result.current.threads).toHaveLength(2));
-
-    let removal!: ReturnType<typeof result.current.removeThreads>;
-    act(() => {
-      removal = result.current.removeThreads(["account-2:page-two"]);
-      result.current.restoreThreads(removal, ["account-2:page-two"]);
-    });
-
-    await waitFor(() => expect(cache.restore).toHaveBeenCalledOnce());
-    expect(cache.restore).toHaveBeenCalledWith({
-      emailAccountId: "account-1",
-      entries: [],
-      viewKey: expect.any(String),
-    });
   });
 
   it("updates and rolls back one account without touching a same-id thread", async () => {

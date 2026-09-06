@@ -12,8 +12,6 @@ import {
 
 const cache = vi.hoisted(() => ({
   read: vi.fn(),
-  remove: vi.fn(),
-  restore: vi.fn(),
   write: vi.fn(),
   writeRows: vi.fn(),
 }));
@@ -33,8 +31,6 @@ const mutationStore = vi.hoisted(() => ({
 
 vi.mock("@/utils/email-cache/thread-lists", () => ({
   readCachedThreadList: cache.read,
-  removeCachedThreadsFromView: cache.remove,
-  restoreCachedThreadsToView: cache.restore,
   writeCachedThreadList: cache.write,
   writeCachedThreadRows: cache.writeRows,
 }));
@@ -54,8 +50,6 @@ describe("useMailThreads", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     cache.read.mockResolvedValue(undefined);
-    cache.remove.mockResolvedValue(undefined);
-    cache.restore.mockResolvedValue(undefined);
     cache.write.mockResolvedValue(undefined);
     cache.writeRows.mockResolvedValue(undefined);
     mailbox.listeners.clear();
@@ -254,7 +248,7 @@ describe("useMailThreads", () => {
     );
   });
 
-  it("supports optimistic actions before the server mailbox page arrives", async () => {
+  it("supports optimistic updates before the server mailbox page arrives", async () => {
     const network = Promise.withResolvers<unknown>();
     cache.read.mockResolvedValue(undefined);
     mailbox.read.mockResolvedValue({
@@ -275,17 +269,6 @@ describe("useMailThreads", () => {
     expect(analytics.trackListReady).toHaveBeenCalledWith(
       expect.objectContaining({ source: "mailbox", threadCount: 1 }),
     );
-
-    let removal!: ReturnType<typeof result.current.removeThreads>;
-    act(() => {
-      removal = result.current.removeThreads(["local"]);
-    });
-    expect(result.current.threads).toEqual([]);
-
-    act(() => result.current.restoreThreads(removal, ["local"]));
-    expect(result.current.threads.map((thread) => thread.id)).toEqual([
-      "local",
-    ]);
 
     act(() => {
       result.current.optimisticallyUpdateThreads(["local"], (thread) => ({
@@ -461,45 +444,6 @@ describe("useMailThreads", () => {
     });
 
     expect(result.current.threads[0]?.id).toBe("network");
-  });
-
-  it("persists optimistic archive and undo from a warm page", async () => {
-    const network = Promise.withResolvers<unknown>();
-    cache.read.mockResolvedValue({
-      cachedAt: 100,
-      hasMore: false,
-      threads: [createThread("one"), createThread("two")],
-    });
-    const { result } = renderHook(
-      () =>
-        useMailThreads({
-          emailAccountId: "account-mutation",
-          query: { type: "inbox" },
-        }),
-      { wrapper: createWrapper(() => network.promise) },
-    );
-    await waitFor(() => expect(result.current.threads).toHaveLength(2));
-
-    let removal!: ReturnType<typeof result.current.removeThreads>;
-    act(() => {
-      removal = result.current.removeThreads(["one"]);
-    });
-    expect(result.current.threads.map((thread) => thread.id)).toEqual(["two"]);
-    expect(cache.remove).toHaveBeenCalledWith(
-      expect.objectContaining({
-        emailAccountId: "account-mutation",
-        threadIds: ["one"],
-      }),
-    );
-
-    act(() => result.current.restoreThreads(removal, ["one"]));
-    expect(result.current.threads.map((thread) => thread.id)).toEqual([
-      "one",
-      "two",
-    ]);
-    expect(cache.restore).toHaveBeenCalledWith(
-      expect.objectContaining({ emailAccountId: "account-mutation" }),
-    );
   });
 
   it("updates cached rows immediately and can roll them back", async () => {

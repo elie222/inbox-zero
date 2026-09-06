@@ -21,18 +21,31 @@ export function getActiveThreadIndex({
   return openThreadIndex;
 }
 
-export function getThreadActionTargetIds({
-  openThreadId,
-  activeThreadId,
-  selectedThreadIds,
+export function resolveThreadActionTargets<T extends { key: string }>({
+  focusedKey,
+  listTargets,
+  openTarget,
+  selectedKeys,
 }: {
-  openThreadId: string | null;
-  activeThreadId: string | undefined;
-  selectedThreadIds: string[];
-}): string[] {
-  if (openThreadId && !activeThreadId) return [openThreadId];
-  if (selectedThreadIds.length) return selectedThreadIds;
-  return activeThreadId ? [activeThreadId] : [];
+  focusedKey: string | undefined;
+  listTargets: T[];
+  openTarget: T | undefined;
+  selectedKeys: string[];
+}): T[] {
+  const targetsByKey = new Map(
+    listTargets.map((target) => [target.key, target]),
+  );
+
+  if (openTarget && !targetsByKey.has(openTarget.key)) return [openTarget];
+  if (selectedKeys.length) {
+    return selectedKeys.flatMap((key) => {
+      const target = targetsByKey.get(key);
+      return target ? [target] : [];
+    });
+  }
+  if (openTarget) return [targetsByKey.get(openTarget.key) ?? openTarget];
+  const focusedTarget = focusedKey ? targetsByKey.get(focusedKey) : undefined;
+  return focusedTarget ? [focusedTarget] : [];
 }
 
 export function getNextThreadAfterRemoval({

@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useReducer,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWRInfinite from "swr/infinite";
 import type { ListThread } from "@/app/(app)/[emailAccountId]/mail/types";
 import type { ThreadsListResponse } from "@/app/api/threads/route";
@@ -15,12 +8,9 @@ import { trackMailboxListReady } from "@/utils/email-cache/analytics";
 import { createThreadListCacheKey } from "@/utils/email-cache/keys";
 import {
   readCachedThreadList,
-  removeCachedThreadsFromView,
-  restoreCachedThreadsToView,
   writeCachedThreadList,
   writeCachedThreadRows,
 } from "@/utils/email-cache/thread-lists";
-import { restoreThreadOrder } from "@/utils/email-cache/thread-order";
 import { getThreadTimestamp } from "@/utils/threads/sort";
 import {
   EMAIL_CACHE_MEASURES,
@@ -38,18 +28,6 @@ import {
   applyMailMutationOverlayToThreads,
   useRetainedMailMutationOverlay,
 } from "@/hooks/useMailMutationOverlay";
-
-type RemovedThread = {
-  thread: ListThread;
-  pageIndex: number;
-  index: number;
-  threadOrder: readonly string[];
-};
-
-export type ThreadRemoval = {
-  viewIdentity: string;
-  entries: Map<string, RemovedThread>;
-};
 
 export type OptimisticThreadUpdate = {
   threadIds: string[];
@@ -123,12 +101,10 @@ export function useMailThreads({
   const [paginationRequestIdentity, setPaginationRequestIdentity] =
     useState<string>();
   const paginationRetryIdentity = useRef<string | undefined>(undefined);
-  const hiddenByView = useRef(new Map<string, Set<string>>());
   const optimisticUpdateTokens = useRef(new Map<string, symbol>());
   const revalidationRequested = useRef(false);
   const revalidationInProgress = useRef(false);
   const pendingReconciliationWrites = useRef(0);
-  const [, renderHiddenChanges] = useReducer((version) => version + 1, 0);
   const remoteIdentity = useRef<string | undefined>(undefined);
   const remoteSnapshot = useRef<{
     firstPage?: ThreadsListResponse;
@@ -206,8 +182,6 @@ export function useMailThreads({
     };
   }, [emailAccountId, viewIdentity]);
 
-  const hiddenThreadIds =
-    hiddenByView.current.get(viewIdentity) ?? EMPTY_THREAD_IDS;
   const remoteThreads = useMemo(
     () => data?.flatMap((page) => page.threads),
     [data],
@@ -253,16 +227,13 @@ export function useMailThreads({
     const overlaidThreads = applyMailMutationOverlayToThreads({
       getEmailAccountId: () => emailAccountId,
       mutations: mailMutations,
-      threads:
-        sourceThreads?.filter((thread) => !hiddenThreadIds.has(thread.id)) ??
-        [],
+      threads: sourceThreads ?? [],
     });
     return query.isUnread
       ? overlaidThreads.filter((thread) => isThreadUnread(thread.messages))
       : overlaidThreads;
   }, [
     emailAccountId,
-    hiddenThreadIds,
     mailMutations,
     mutationOverlayReady,
     query.isUnread,
@@ -285,12 +256,10 @@ export function useMailThreads({
     writeCachedThreadList({
       emailAccountId,
       viewKey,
-      threads: firstPage.threads.filter(
-        (thread) => !hiddenThreadIds.has(thread.id),
-      ),
+      threads: firstPage.threads,
       hasMore: Boolean(firstPage.nextPageToken),
     }).catch(() => {});
-  }, [data, emailAccountId, hiddenThreadIds, viewKey]);
+  }, [data, emailAccountId, viewKey]);
 
   useEffect(() => {
     if (!paginationRequestIdentity) return;
@@ -331,145 +300,6 @@ export function useMailThreads({
       setSize((current) => current + 1).catch(() => {});
     }
   }, [data, error, mutate, paginationRequestIdentity, setSize, viewIdentity]);
-
-  const removeThreads = useCallback(
-    (threadIds: string[]): ThreadRemoval => {
-      const entries = new Map<string, RemovedThread>();
-      if (!threadIds.length) return { viewIdentity, entries };
-
-      const targets = new Set(threadIds);
-      const alreadyHidden =
-        hiddenByView.current.get(viewIdentity) ?? EMPTY_THREAD_IDS;
-
-      if (data) {
-        for (const [pageIndex, page] of data.entries()) {
-          const threadOrder = page.threads.map((thread) => thread.id);
-          for (const [index, thread] of page.threads.entries()) {
-            if (targets.has(thread.id) && !alreadyHidden.has(thread.id)) {
-              entries.set(thread.id, {
-                thread,
-                pageIndex,
-                index,
-                threadOrder,
-              });
-            }
-          }
-        }
-      } else {
-        const threadOrder = sourceThreads?.map((thread) => thread.id) ?? [];
-        for (const [index, thread] of (sourceThreads ?? []).entries()) {
-          if (targets.has(thread.id) && !alreadyHidden.has(thread.id)) {
-            entries.set(thread.id, {
-              thread,
-              pageIndex: 0,
-              index,
-              threadOrder,
-            });
-          }
-        }
-      }
-
-      const removedThreadIds = [...entries.keys()];
-      if (!removedThreadIds.length) return { viewIdentity, entries };
-      const removedIds = new Set(removedThreadIds);
-
-      hiddenByView.current.set(
-        viewIdentity,
-        new Set([...alreadyHidden, ...removedThreadIds]),
-      );
-      renderHiddenChanges();
-      setPersistent((current) =>
-        current?.identity === viewIdentity
-          ? {
-              ...current,
-              threads: current.threads.filter(
-                (thread) => !removedIds.has(thread.id),
-              ),
-            }
-          : current,
-      );
-      mutate(
-        (pages) =>
-          pages?.map((page) => ({
-            ...page,
-            threads: page.threads.filter(
-              (thread) => !removedIds.has(thread.id),
-            ),
-          })),
-        { revalidate: false, populateCache: true },
-      ).catch(() => {});
-      removeCachedThreadsFromView({
-        emailAccountId,
-        viewKey,
-        threadIds: removedThreadIds,
-      }).catch(() => {});
-
-      return { viewIdentity, entries };
-    },
-    [data, emailAccountId, mutate, sourceThreads, viewIdentity, viewKey],
-  );
-
-  const restoreThreads = useCallback(
-    (removal: ThreadRemoval, threadIds: string[]) => {
-      if (removal.viewIdentity !== viewIdentity) return;
-
-      const restoring = threadIds
-        .map((id) => removal.entries.get(id))
-        .filter((entry): entry is RemovedThread => entry !== undefined);
-      if (!restoring.length) return;
-
-      for (const entry of restoring) removal.entries.delete(entry.thread.id);
-      const restoringIds = new Set(restoring.map((entry) => entry.thread.id));
-      hiddenByView.current.set(
-        viewIdentity,
-        new Set(
-          [...(hiddenByView.current.get(viewIdentity) ?? [])].filter(
-            (id) => !restoringIds.has(id),
-          ),
-        ),
-      );
-      renderHiddenChanges();
-      setPersistent((current) =>
-        current?.identity === viewIdentity
-          ? {
-              ...current,
-              threads: insertRestoredThreads(current.threads, restoring),
-            }
-          : current,
-      );
-      setSynced((current) =>
-        current?.identity === viewIdentity
-          ? {
-              ...current,
-              threads: insertRestoredThreads(current.threads, restoring),
-            }
-          : current,
-      );
-      mutate(
-        (pages) =>
-          pages?.map((page, pageIndex) => ({
-            ...page,
-            threads: insertRestoredThreads(
-              page.threads,
-              restoring.filter((entry) => entry.pageIndex === pageIndex),
-            ),
-          })),
-        { revalidate: false, populateCache: true },
-      ).catch(() => {});
-      restoreCachedThreadsToView({
-        emailAccountId,
-        viewKey,
-        entries: restoring
-          .filter((entry) => entry.pageIndex === 0)
-          .map(({ thread, index, threadOrder }) => ({
-            thread,
-            index,
-            threadOrder,
-          })),
-      }).catch(() => {});
-    },
-    [emailAccountId, mutate, viewIdentity, viewKey],
-  );
 
   const reconcileOptimisticUpdates = useCallback(
     function reconcileOptimisticUpdates() {
@@ -646,13 +476,9 @@ export function useMailThreads({
         setPaginationRequestIdentity(viewIdentity);
       }
     }, [data, setSize, viewIdentity]),
-    removeThreads,
-    restoreThreads,
     optimisticallyUpdateThreads,
   };
 }
-
-const EMPTY_THREAD_IDS = new Set<string>();
 
 function mergeSyncedThreads({
   remoteThreads,
@@ -703,27 +529,4 @@ function replaceThreads(
   replacements: ReadonlyMap<string, ListThread>,
 ) {
   return threads.map((thread) => replacements.get(thread.id) ?? thread);
-}
-
-function insertRestoredThreads(
-  threads: ListThread[],
-  restoring: Array<Pick<RemovedThread, "thread" | "index" | "threadOrder">>,
-) {
-  if (!restoring.length) return threads;
-  const threadsById = new Map(
-    [...threads, ...restoring.map((entry) => entry.thread)].map((thread) => [
-      thread.id,
-      thread,
-    ]),
-  );
-  return restoreThreadOrder(
-    threads.map((thread) => thread.id),
-    restoring.map(({ thread, index, threadOrder }) => ({
-      threadId: thread.id,
-      index,
-      threadOrder,
-    })),
-  )
-    .map((threadId) => threadsById.get(threadId))
-    .filter((thread): thread is ListThread => thread !== undefined);
 }
