@@ -1,8 +1,9 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
+import type { ReplyDraftContent } from "./reply-drafts";
 import type { ParsedMessage } from "@/utils/types";
 
 const DATABASE_NAME = "inbox-zero-email-cache";
-const DATABASE_VERSION = 4;
+const DATABASE_VERSION = 5;
 
 export type CachedThreadRow = {
   emailAccountId: string;
@@ -94,6 +95,15 @@ export type StoredMailMutation = {
   result?: unknown;
 };
 
+export type StoredReplyDraft = {
+  emailAccountId: string;
+  threadId: string;
+  messageId: string;
+  revision: number;
+  content: ReplyDraftContent | null;
+  updatedAt: number;
+};
+
 interface EmailCacheSchema extends DBSchema {
   mailboxMessages: {
     key: [emailAccountId: string, messageId: string];
@@ -119,6 +129,11 @@ interface EmailCacheSchema extends DBSchema {
       byNextAttempt: [status: string, nextAttemptAt: number];
       byUpdatedAt: number;
     };
+  };
+  replyDrafts: {
+    key: [emailAccountId: string, threadId: string, messageId: string];
+    value: StoredReplyDraft;
+    indexes: { byAccount: string; byAccountThread: [string, string] };
   };
   threadDetails: {
     key: [emailAccountId: string, threadId: string, variant: string];
@@ -193,6 +208,14 @@ export function getEmailCacheDatabase() {
           .createIndex("byAccountReceivedAt", ["emailAccountId", "receivedAt"]);
       }
 
+      if (oldVersion < 5) {
+        const drafts = database.createObjectStore("replyDrafts", {
+          keyPath: ["emailAccountId", "threadId", "messageId"],
+        });
+        drafts.createIndex("byAccount", "emailAccountId");
+        drafts.createIndex("byAccountThread", ["emailAccountId", "threadId"]);
+      }
+
       if (oldVersion < 4) {
         const mutations = database.createObjectStore("mailMutations", {
           keyPath: "id",
@@ -256,6 +279,7 @@ export async function clearEmailCache() {
         "mailboxMessages",
         "mailboxSyncStates",
         "mailMutations",
+        "replyDrafts",
       ],
       "readwrite",
     );
@@ -266,6 +290,7 @@ export async function clearEmailCache() {
       transaction.objectStore("mailboxMessages").clear(),
       transaction.objectStore("mailboxSyncStates").clear(),
       transaction.objectStore("mailMutations").clear(),
+      transaction.objectStore("replyDrafts").clear(),
       transaction.done,
     ]);
   } catch {
@@ -296,6 +321,7 @@ export async function clearEmailCacheForAccount(emailAccountId: string) {
         "mailboxMessages",
         "mailboxSyncStates",
         "mailMutations",
+        "replyDrafts",
       ],
       "readwrite",
     );
@@ -304,20 +330,29 @@ export async function clearEmailCacheForAccount(emailAccountId: string) {
     const details = transaction.objectStore("threadDetails");
     const messages = transaction.objectStore("mailboxMessages");
     const mutations = transaction.objectStore("mailMutations");
-    const [rowKeys, viewKeys, detailKeys, messageKeys, mutationKeys] =
-      await Promise.all([
-        rows.index("byAccount").getAllKeys(emailAccountId),
-        views.index("byAccount").getAllKeys(emailAccountId),
-        details.index("byAccount").getAllKeys(emailAccountId),
-        messages.index("byAccount").getAllKeys(emailAccountId),
-        mutations.index("byAccount").getAllKeys(emailAccountId),
-      ]);
+    const drafts = transaction.objectStore("replyDrafts");
+    const [
+      rowKeys,
+      viewKeys,
+      detailKeys,
+      messageKeys,
+      mutationKeys,
+      draftKeys,
+    ] = await Promise.all([
+      rows.index("byAccount").getAllKeys(emailAccountId),
+      views.index("byAccount").getAllKeys(emailAccountId),
+      details.index("byAccount").getAllKeys(emailAccountId),
+      messages.index("byAccount").getAllKeys(emailAccountId),
+      mutations.index("byAccount").getAllKeys(emailAccountId),
+      drafts.index("byAccount").getAllKeys(emailAccountId),
+    ]);
     await Promise.all([
       ...rowKeys.map((key) => rows.delete(key)),
       ...viewKeys.map((key) => views.delete(key)),
       ...detailKeys.map((key) => details.delete(key)),
       ...messageKeys.map((key) => messages.delete(key)),
       ...mutationKeys.map((key) => mutations.delete(key)),
+      ...draftKeys.map((key) => drafts.delete(key)),
       transaction.objectStore("mailboxSyncStates").delete(emailAccountId),
     ]);
     await transaction.done;

@@ -60,7 +60,10 @@ import {
   getContactsClient,
 } from "@/utils/gmail/client";
 import { searchContacts } from "@/utils/gmail/contact";
-import { getGmailAttachment } from "@/utils/gmail/attachment";
+import {
+  getGmailAttachment,
+  getGmailDraftAttachments,
+} from "@/utils/gmail/attachment";
 import {
   getThreadsBatch,
   getThreadsWithNextPageToken,
@@ -960,17 +963,23 @@ export class GmailProvider implements EmailProvider {
   ): Promise<void> {
     this.logger.info("Updating Gmail draft", { draftId });
 
-    // Get the current draft to preserve some fields
     const currentDraft = await getDraft(draftId, this.client);
     if (!currentDraft) {
       throw new Error(`Draft ${draftId} not found`);
     }
 
-    const subject = params.subject || currentDraft.subject || "";
-    const content = params.messageHtml || currentDraft.textHtml || "";
+    const subject = params.subject ?? currentDraft.subject ?? "";
+    const content = params.messageHtml ?? currentDraft.textHtml ?? "";
+    const attachments = await getGmailDraftAttachments(
+      this.client,
+      currentDraft.id,
+      currentDraft.payload,
+    );
 
     const encodedMessage = await createMail({
+      from: currentDraft.headers?.from,
       to: currentDraft.headers?.to || "",
+      attachments,
       cc: currentDraft.headers?.cc,
       bcc: currentDraft.headers?.bcc,
       replyTo: currentDraft.headers?.["reply-to"],

@@ -8,6 +8,7 @@ import { program } from "commander";
 import * as p from "@clack/prompts";
 import {
   generateSecret,
+  generateEncryptionSecrets,
   generateEnvFile,
   isSensitiveKey,
   parseEnvFile,
@@ -589,10 +590,10 @@ async function runSetupQuick(options: { name?: string }) {
   spinner.start("Generating configuration...");
 
   // Reuse existing database password to avoid mismatch with Docker volume
-  const existingDbPassword = readExistingDbPassword(envFile);
+  const existingEnv = readExistingEnv(envFile);
 
   const redisToken = generateSecret(32);
-  const dbPassword = existingDbPassword || generateSecret(16);
+  const dbPassword = existingEnv.POSTGRES_PASSWORD || generateSecret(16);
   const env: EnvConfig = {
     NODE_ENV: "production",
     // Database (Docker internal networking)
@@ -603,15 +604,14 @@ async function runSetupQuick(options: { name?: string }) {
     REDIS_PORT: redisPort,
     REDIS_HTTP_PORT: redisHttpPort,
     WEB_PORT: webPort,
-    DATABASE_URL: `postgresql://postgres:${dbPassword}@db:5432/inboxzero`,
+    DATABASE_URL: `postgresql://postgres:${encodeURIComponent(dbPassword)}@db:5432/inboxzero`,
     UPSTASH_REDIS_TOKEN: redisToken,
     UPSTASH_REDIS_URL: "http://serverless-redis-http:80",
     QUEUE_BACKEND: "internal",
     INTERNAL_API_URL: "http://web:3000",
     // Secrets
     AUTH_SECRET: generateSecret(32),
-    EMAIL_ENCRYPT_SECRET: generateSecret(32),
-    EMAIL_ENCRYPT_SALT: generateSecret(16),
+    ...generateEncryptionSecrets(existingEnv),
     INTERNAL_API_KEY: generateSecret(32),
     API_KEY_SALT: generateSecret(32),
     CRON_SECRET: generateSecret(32),
@@ -910,6 +910,7 @@ async function runSetupAdvanced(options: { name?: string }) {
   }
 
   const pubsubVerificationToken = generateSecret(32);
+  const existingEnv = readExistingEnv(envFile);
   const env: EnvConfig = {};
   const { webPort, postgresPort, redisPort, redisHttpPort, changedPorts } =
     await resolveSetupPorts({ useDockerInfra });
@@ -1120,7 +1121,7 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
     // Using Docker Compose for Postgres/Redis
     env.POSTGRES_USER = "postgres";
     env.POSTGRES_PASSWORD =
-      readExistingDbPassword(envFile) ||
+      existingEnv.POSTGRES_PASSWORD ||
       (isDevMode ? "password" : generateSecret(16));
     env.POSTGRES_DB = "inboxzero";
     env.POSTGRES_PORT = postgresPort;
@@ -1132,13 +1133,13 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
 
     if (runWebInDocker) {
       // Web app runs in Docker: use container hostnames
-      env.DATABASE_URL = `postgresql://${env.POSTGRES_USER}:${env.POSTGRES_PASSWORD}@db:5432/${env.POSTGRES_DB}`;
+      env.DATABASE_URL = `postgresql://${encodeURIComponent(env.POSTGRES_USER)}:${encodeURIComponent(env.POSTGRES_PASSWORD)}@db:5432/${env.POSTGRES_DB}`;
       env.DIRECT_URL = env.DATABASE_URL;
       env.UPSTASH_REDIS_URL = "http://serverless-redis-http:80";
       env.INTERNAL_API_URL = "http://web:3000";
     } else {
       // Web app runs on host: containers expose ports to localhost
-      env.DATABASE_URL = `postgresql://${env.POSTGRES_USER}:${env.POSTGRES_PASSWORD}@localhost:${postgresPort}/${env.POSTGRES_DB}`;
+      env.DATABASE_URL = `postgresql://${encodeURIComponent(env.POSTGRES_USER)}:${encodeURIComponent(env.POSTGRES_PASSWORD)}@localhost:${postgresPort}/${env.POSTGRES_DB}`;
       env.DIRECT_URL = env.DATABASE_URL;
       env.UPSTASH_REDIS_URL = `http://localhost:${redisHttpPort}`;
       env.INTERNAL_API_URL = `http://localhost:${webPort}`;
@@ -1153,8 +1154,7 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
 
   // Secrets (same for both modes)
   env.AUTH_SECRET = generateSecret(32);
-  env.EMAIL_ENCRYPT_SECRET = generateSecret(32);
-  env.EMAIL_ENCRYPT_SALT = generateSecret(16);
+  Object.assign(env, generateEncryptionSecrets(existingEnv));
   env.INTERNAL_API_KEY = generateSecret(32);
   env.API_KEY_SALT = generateSecret(32);
   env.CRON_SECRET = generateSecret(32);
@@ -1828,10 +1828,9 @@ function logPortConflictGuidance() {
   );
 }
 
-function readExistingDbPassword(envFile: string): string | undefined {
-  if (!existsSync(envFile)) return;
-  const existing = parseEnvFile(readFileSync(envFile, "utf-8"));
-  return existing.POSTGRES_PASSWORD || undefined;
+function readExistingEnv(envFile: string): EnvConfig {
+  if (!existsSync(envFile)) return {};
+  return parseEnvFile(readFileSync(envFile, "utf-8"));
 }
 
 function checkContainersRunning(composeArgs: string[]): boolean {

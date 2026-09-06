@@ -10,6 +10,8 @@ import {
   MoreHorizontalIcon,
   ShieldAlertIcon,
   SparklesIcon,
+  Trash2Icon,
+  TagIcon,
 } from "lucide-react";
 import { FixWithChat } from "@/app/(app)/[emailAccountId]/assistant/FixWithChat";
 import { getRuleResultReasonDisplay } from "@/app/(app)/[emailAccountId]/assistant/ResultDisplay";
@@ -24,6 +26,7 @@ import {
   DropdownMenuItem,
   DropdownMenuPortal,
   DropdownMenuSeparator,
+  DropdownMenuShortcut,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
@@ -54,7 +57,9 @@ export type ThreadActionsMenuProps = {
   setChatInput: (input: string) => void;
   isUnread: boolean;
   onMarkSpam: () => void;
+  onDelete: () => void;
   onToggleRead: () => void;
+  onLabel?: () => void;
   /** Chat remains scoped to the route account, so cross-account rows hide it. */
   showFixWithChat?: boolean;
   open?: boolean;
@@ -71,7 +76,9 @@ export function ThreadActionsMenu({
   setChatInput,
   isUnread,
   onMarkSpam,
+  onDelete,
   onToggleRead,
+  onLabel,
   showFixWithChat = true,
   open,
   onOpenChange,
@@ -140,9 +147,27 @@ export function ThreadActionsMenu({
 
           {plans.length > 0 ? <DropdownMenuSeparator /> : null}
 
+          {onLabel && (
+            <DropdownMenuItem onSelect={onLabel}>
+              <TagIcon className="mr-2 size-4" />
+              Label
+              <DropdownMenuShortcut>
+                {getShortcutHint("label")}
+              </DropdownMenuShortcut>
+            </DropdownMenuItem>
+          )}
+
           <DropdownMenuItem onSelect={onToggleRead}>
             <ReadIcon className="mr-2 size-4" />
             {isUnread ? "Mark as read" : "Mark as unread"}
+          </DropdownMenuItem>
+
+          <DropdownMenuItem onSelect={onDelete}>
+            <Trash2Icon aria-hidden className="mr-2 size-4" />
+            Delete
+            <DropdownMenuShortcut>
+              {getShortcutHint("delete")}
+            </DropdownMenuShortcut>
           </DropdownMenuItem>
 
           <DropdownMenuItem onSelect={onMarkSpam}>

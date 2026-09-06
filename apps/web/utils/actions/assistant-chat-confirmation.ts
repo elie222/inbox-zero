@@ -959,6 +959,12 @@ async function reservePendingAssistantEmailAction({
     };
   }
 
+  if (lookup.output.emailAccountId !== emailAccountId) {
+    throw new SafeError(
+      "The sending mailbox for this draft could not be verified. Prepare the draft again in the account you want to send from.",
+    );
+  }
+
   if (
     lookup.output.confirmationState === "processing" &&
     !hasProcessingLeaseExpired(lookup.output.confirmationProcessingAt)

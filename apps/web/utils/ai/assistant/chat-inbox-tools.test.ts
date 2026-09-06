@@ -104,6 +104,7 @@ describe("chat inbox tools", () => {
       actionType: "send_email",
       requiresConfirmation: true,
       confirmationState: "pending",
+      emailAccountId: "email-account-1",
       pendingAction: {
         to: "recipient@example.com",
         subject: "Hello",
@@ -182,6 +183,7 @@ describe("chat inbox tools", () => {
       actionType: "reply_email",
       requiresConfirmation: true,
       confirmationState: "pending",
+      emailAccountId: "email-account-1",
       pendingAction: {
         messageId: "message-1",
         content: "Thanks for the update.",
@@ -243,6 +245,7 @@ describe("chat inbox tools", () => {
       actionType: "forward_email",
       requiresConfirmation: true,
       confirmationState: "pending",
+      emailAccountId: "email-account-1",
       pendingAction: {
         messageId: "message-1",
         to: "recipient@example.com",

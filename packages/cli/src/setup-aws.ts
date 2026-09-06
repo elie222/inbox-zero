@@ -3,6 +3,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import * as p from "@clack/prompts";
 import { putSsmParameterWithTags } from "./aws-setup/aws-cli";
+import { getBedrockCredentials } from "./aws-setup/bedrock";
 import { getWebhookUrl, setupGooglePubSub } from "./aws-setup/google-pubsub";
 import {
   ensureDatabaseUrlParameters,
@@ -107,6 +108,10 @@ export async function runAwsSetup(options: AwsSetupOptions) {
   if (nonInteractive) {
     p.log.info("Running in non-interactive mode with defaults");
   }
+
+  let bedrockCredentials = nonInteractive
+    ? await getBedrockCredentials(true)
+    : undefined;
 
   // Cleanup any leftover files from a previous interrupted run
   cleanupInterruptedRun();
@@ -452,11 +457,11 @@ export async function runAwsSetup(options: AwsSetupOptions) {
   let llmEnvVar = "";
 
   if (nonInteractive) {
-    // Use Bedrock as default since it uses AWS credentials (no API key needed)
+    // Explicit runtime credentials are validated before provisioning.
     llmProvider = "bedrock";
     llmEnvVar = "BEDROCK_REGION";
     llmApiKey = region;
-    p.log.info("LLM provider: AWS Bedrock (uses AWS credentials)");
+    p.log.info("LLM provider: AWS Bedrock");
   } else {
     const llmChoice = await p.select({
       message: "LLM Provider:",
@@ -489,8 +494,9 @@ export async function runAwsSetup(options: AwsSetupOptions) {
     // Get LLM API key
     if (llmProvider === "bedrock") {
       p.log.info(
-        "Bedrock uses AWS credentials. Make sure your IAM user has Bedrock access.",
+        "Configure Bedrock credentials with access to the selected models.",
       );
+      bedrockCredentials = await getBedrockCredentials(false);
       llmEnvVar = "BEDROCK_REGION";
       llmApiKey = region;
     } else {
@@ -616,6 +622,12 @@ export async function runAwsSetup(options: AwsSetupOptions) {
       ? `projects/${googleConfig.projectId}/topics/inbox-zero-emails`
       : "projects/your-project-id/topics/inbox-zero-emails");
   secrets.push({ name: "GOOGLE_PUBSUB_TOPIC_NAME", value: pubsubTopicName });
+
+  if (bedrockCredentials) {
+    for (const [name, value] of Object.entries(bedrockCredentials)) {
+      secrets.push({ name, value });
+    }
+  }
 
   // Add LLM API key
   if (llmEnvVar && llmApiKey) {
@@ -1337,6 +1349,9 @@ export function updateServiceManifestSecrets(config: {
   ];
   const optionalSecrets = [
     ...(config.llmEnvVar ? [config.llmEnvVar] : []),
+    ...(config.llmEnvVar === "BEDROCK_REGION"
+      ? ["BEDROCK_ACCESS_KEY", "BEDROCK_SECRET_KEY"]
+      : []),
     ...(config.hasGoogleOAuth
       ? ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"]
       : []),
@@ -1358,7 +1373,9 @@ export function updateServiceManifestSecrets(config: {
     "UPSTASH_REDIS_URL",
     "UPSTASH_REDIS_TOKEN",
     ...(config.enableRedis ? [] : ["REDIS_URL"]),
-    ...(config.llmEnvVar === "BEDROCK_REGION" ? [] : ["BEDROCK_REGION"]),
+    ...(config.llmEnvVar === "BEDROCK_REGION"
+      ? []
+      : ["BEDROCK_REGION", "BEDROCK_ACCESS_KEY", "BEDROCK_SECRET_KEY"]),
   ]);
 
   writeFileSync(manifestPath, content);
@@ -1760,6 +1777,7 @@ function storeSecretInSsm(
     value,
     type: "SecureString",
     errorMessage: `Failed to store ${name}`,
+    overwrite: name !== "EMAIL_ENCRYPT_SECRET" && name !== "EMAIL_ENCRYPT_SALT",
   });
 
   if (!result.success) {

@@ -3,16 +3,13 @@
 import type { ReactNode } from "react";
 import {
   ArchiveIcon,
+  ChevronsDownUpIcon,
+  ChevronsUpDownIcon,
   ArrowLeftIcon,
-  MaximizeIcon,
-  MinimizeIcon,
-  ReplyIcon,
-  Trash2Icon,
 } from "lucide-react";
 import { MailLabelChip } from "@/app/(app)/[emailAccountId]/mail/MailLabelChip";
 import type { EmailMessageCellLabel } from "@/components/EmailMessageCellLabels";
 import { Button } from "@/components/ui/button";
-import { getShortcutHint } from "@/lib/shortcuts/registry";
 
 type ReaderToolbarProps = {
   subject: string;
@@ -24,14 +21,15 @@ type ReaderToolbarProps = {
    */
   labelHref: (labelId: string) => string;
   onRemoveLabel?: (labelId: string) => void;
-  isFocusMode: boolean;
   onBackToInbox: () => void;
   onArchive: () => void;
-  onReply: () => void;
-  onDelete: () => void;
-  onToggleFocusMode: () => void;
   /** The ⋯ dropdown, i.e. `ThreadActionsMenu`, composed by the shell. */
   menu?: ReactNode;
+  messageExpansion?: {
+    allExpanded: boolean;
+    canExpand: boolean;
+    onToggleAll: () => void;
+  };
 };
 
 /**
@@ -42,18 +40,13 @@ export function ReaderToolbar({
   labels,
   labelHref,
   onRemoveLabel,
-  isFocusMode,
   onBackToInbox,
   onArchive,
-  onReply,
-  onDelete,
-  onToggleFocusMode,
   menu,
+  messageExpansion,
 }: ReaderToolbarProps) {
-  const FocusIcon = isFocusMode ? MinimizeIcon : MaximizeIcon;
-
   return (
-    <div className="flex flex-wrap items-start gap-x-4 gap-y-3 pb-6">
+    <div className="flex flex-wrap items-start gap-x-4 gap-y-3 pb-3">
       <Button
         aria-label="Back to inbox"
         className="h-7 w-7"
@@ -89,34 +82,33 @@ export function ReaderToolbar({
         className="ml-auto flex flex-wrap items-center gap-1.5"
         role="group"
       >
+        {messageExpansion?.canExpand && (
+          <Button
+            aria-label={
+              messageExpansion.allExpanded
+                ? "Collapse all messages"
+                : "Expand all messages"
+            }
+            title={
+              messageExpansion.allExpanded
+                ? "Collapse all messages"
+                : "Expand all messages"
+            }
+            className="h-7 w-7"
+            size="icon"
+            variant="ghost"
+            onClick={messageExpansion.onToggleAll}
+          >
+            {messageExpansion.allExpanded ? (
+              <ChevronsDownUpIcon className="size-3.5" />
+            ) : (
+              <ChevronsUpDownIcon className="size-3.5" />
+            )}
+          </Button>
+        )}
         <Button onClick={onArchive} size="xs-2" variant="outline">
           <ArchiveIcon className="mr-1.5 size-3.5" />
           Archive
-        </Button>
-        <Button onClick={onReply} size="xs-2" variant="outline">
-          <ReplyIcon className="mr-1.5 size-3.5" />
-          Reply
-        </Button>
-        <Button
-          aria-label={`Delete (${getShortcutHint("delete")})`}
-          className="h-7 w-7 hover:border-destructive/30 hover:bg-destructive/5 hover:text-destructive"
-          onClick={onDelete}
-          size="icon"
-          title={`Delete (${getShortcutHint("delete")})`}
-          variant="outline"
-        >
-          <Trash2Icon className="size-3.5" />
-        </Button>
-        <Button
-          aria-label={`${isFocusMode ? "Exit focus mode" : "Focus mode"} (${getShortcutHint("focusMode")})`}
-          aria-pressed={isFocusMode}
-          className="h-7 w-7"
-          onClick={onToggleFocusMode}
-          size="icon"
-          title={`${isFocusMode ? "Exit focus mode" : "Focus mode"} (${getShortcutHint("focusMode")})`}
-          variant="outline"
-        >
-          <FocusIcon className="size-3.5" />
         </Button>
         {menu}
       </div>

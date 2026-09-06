@@ -25,6 +25,7 @@ const SenderContextSheet = dynamic(
 );
 
 export type ThreadReaderProps = {
+  enableMessageNavigation: boolean;
   /** The row that is open. It may lag behind the selected thread while loading. */
   thread: ListThread | null;
   /** The selected thread, including while its row and messages are loading. */
@@ -40,14 +41,10 @@ export type ThreadReaderProps = {
   messages: ThreadMessage[];
   userLabels: EmailLabels;
   layout: MailLayoutMode;
-  isFocusMode: boolean;
   labelHref: (labelId: string) => string;
   onRemoveLabel?: (labelId: string) => void;
   onBackToInbox: () => void;
   onArchive: () => void;
-  onReply: () => void;
-  onDelete: () => void;
-  onToggleFocusMode: () => void;
   showSidebarToggle?: boolean;
   /** Refreshes the open thread after a reply is sent or a draft changes. */
   refetch: () => void;
@@ -61,6 +58,7 @@ export type ThreadReaderProps = {
 };
 
 export function ThreadReader({
+  enableMessageNavigation,
   thread,
   threadId,
   detailSelectionSettled,
@@ -69,14 +67,10 @@ export function ThreadReader({
   messages,
   userLabels,
   layout,
-  isFocusMode,
   labelHref,
   onRemoveLabel,
   onBackToInbox,
   onArchive,
-  onReply,
-  onDelete,
-  onToggleFocusMode,
   showSidebarToggle = false,
   refetch,
   autoOpenReplyForMessageId,
@@ -123,6 +117,21 @@ export function ThreadReader({
       userLabels,
     }) ?? [];
 
+  const renderToolbar = (
+    messageExpansion?: ComponentProps<typeof ReaderToolbar>["messageExpansion"],
+  ) => (
+    <ReaderToolbar
+      messageExpansion={messageExpansion}
+      labelHref={labelHref}
+      labels={labels}
+      menu={menu}
+      onArchive={onArchive}
+      onBackToInbox={onBackToInbox}
+      onRemoveLabel={onRemoveLabel}
+      subject={headerMessage.headers.subject}
+    />
+  );
+
   return (
     <>
       {/* White, unlike the list: the reader is its own surface, and it has to
@@ -132,7 +141,7 @@ export function ThreadReader({
         data-detail-selection-settled={detailSelectionSettled}
         data-testid="thread-reader"
       >
-        {layout === "list" && !isFocusMode && showSidebarToggle ? (
+        {layout === "list" && showSidebarToggle ? (
           <div
             className="hidden px-3 py-3 lg:flex"
             data-desktop-mac-titlebar-spacer
@@ -141,23 +150,11 @@ export function ThreadReader({
           </div>
         ) : null}
 
-        <div className={readerMeasure({ layout, isFocusMode })}>
-          <ReaderToolbar
-            isFocusMode={isFocusMode}
-            labelHref={labelHref}
-            labels={labels}
-            menu={menu}
-            onArchive={onArchive}
-            onBackToInbox={onBackToInbox}
-            onDelete={onDelete}
-            onRemoveLabel={onRemoveLabel}
-            onReply={onReply}
-            onToggleFocusMode={onToggleFocusMode}
-            subject={headerMessage.headers.subject}
-          />
-
+        <div className={readerMeasure({ layout })}>
           {messages.length > 0 ? (
             <EmailThread
+              renderToolbar={renderToolbar}
+              enableMessageNavigation={enableMessageNavigation}
               autoOpenReplyForMessageId={autoOpenReplyForMessageId}
               key={threadId}
               messages={messages}
@@ -174,7 +171,9 @@ export function ThreadReader({
               refetch={refetch}
               showReplyButton
             />
-          ) : null}
+          ) : (
+            renderToolbar()
+          )}
         </div>
       </div>
 
@@ -196,15 +195,7 @@ export function ThreadReader({
 }
 
 /** A readable measure, centred whenever the reader owns the full width. */
-function readerMeasure({
-  layout,
-  isFocusMode,
-}: {
-  layout: MailLayoutMode;
-  isFocusMode: boolean;
-}) {
-  // ~860px: the mock's measure, and about as wide as an email body stays legible.
-  if (isFocusMode) return "mx-auto w-full max-w-[54rem] px-10 py-10";
-  if (layout === "split") return "px-6 pt-8 pb-5";
-  return "mx-auto w-full max-w-[54rem] px-6 pt-8 pb-5";
+function readerMeasure({ layout }: { layout: MailLayoutMode }) {
+  if (layout === "split") return "px-2 pt-4 pb-5 sm:px-6 sm:pt-5";
+  return "mx-auto w-full max-w-[48rem] px-2 pt-4 pb-5 sm:px-6 sm:pt-5";
 }

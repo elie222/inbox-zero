@@ -12,6 +12,7 @@ import {
   fullSuites,
   selectChangedPlaywrightTargets,
 } from "../../utils/playwright/emulated-suite-selection.mjs";
+import { shardPlaywrightTargets } from "../../utils/playwright/emulated-suite-sharding.mjs";
 const requestedTargets = getRequestedPlaywrightTargets(process.argv.slice(2));
 const changedSelection = requestedTargets.length
   ? undefined
@@ -20,11 +21,16 @@ const changedSelection = requestedTargets.length
       process.cwd(),
     );
 const changedTargetFiles = changedSelection?.targetFiles ?? [];
-const targets = requestedTargets.length
+const selectedTargets = requestedTargets.length
   ? requestedTargets
   : changedSelection?.runFullSuite
     ? getFullSuiteTargets()
     : getChangedPlaywrightTargets(changedTargetFiles);
+const targets = shardPlaywrightTargets(
+  selectedTargets,
+  process.env.PLAYWRIGHT_SHARD,
+);
+const shardSuffix = process.env.PLAYWRIGHT_SHARD?.replace("/", "-of-");
 const dryRun = process.env.PLAYWRIGHT_DRY_RUN === "1";
 const playwrightRunRootDir = path.resolve(".tmp/playwright");
 const blobReportDir = path.join(playwrightRunRootDir, "blob-report");
@@ -40,6 +46,7 @@ if (!dryRun) {
 }
 
 let failed = false;
+const timings = [];
 
 if (requestedTargets.length) {
   console.log(`Running ${targets.length} requested Playwright target(s).`);
@@ -50,8 +57,11 @@ if (requestedTargets.length) {
 
 if (!dryRun && !targets.length) {
   writeFileSync(
-    path.join(testResultsDir, "selection.json"),
-    `${JSON.stringify({ reason: changedSelection.reason }, null, 2)}\n`,
+    path.join(
+      testResultsDir,
+      shardSuffix ? `selection-${shardSuffix}.json` : "selection.json",
+    ),
+    `${JSON.stringify({ reason: changedSelection?.reason ?? "No targets assigned to this shard." }, null, 2)}\n`,
   );
 }
 
@@ -62,6 +72,7 @@ for (const target of targets) {
     : `${process.pid}-${target.name}-${Date.now()}`;
   const targetRunDir = path.join(playwrightRunRootDir, targetRunId);
   let result;
+  const startedAt = Date.now();
 
   try {
     result = runPlaywright(
@@ -98,10 +109,24 @@ for (const target of targets) {
     if (!dryRun) rmSync(targetRunDir, { force: true, recursive: true });
   }
 
+  const seconds = Math.round((Date.now() - startedAt) / 1000);
+  timings.push({ target: target.name, seconds, status: result.status });
+  console.log(
+    `Finished ${target.name} in ${seconds}s (exit ${result.status}).`,
+  );
+  if (!dryRun) {
+    writeFileSync(
+      path.join(
+        testResultsDir,
+        shardSuffix ? `timings-${shardSuffix}.json` : "timings.json",
+      ),
+      JSON.stringify(timings, null, 2),
+    );
+  }
   if (result.status !== 0) failed = true;
 }
 
-if (!dryRun && targets.length) {
+if (!dryRun && targets.length && !process.env.PLAYWRIGHT_SHARD) {
   const mergeResult = runPlaywright(
     ["merge-reports", "--reporter=html", blobReportDir],
     { PLAYWRIGHT_HTML_OPEN: "never" },

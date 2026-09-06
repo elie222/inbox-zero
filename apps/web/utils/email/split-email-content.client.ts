@@ -21,6 +21,7 @@ export function splitEmailContent(html: string): {
   }
 
   removeBoundaryAndFollowingContent(quoteBoundary, doc.body);
+  trimQuoteSpacing(doc.body);
 
   return {
     mainContent: doc.body.innerHTML,
@@ -78,5 +79,24 @@ function removeBoundaryAndFollowingContent(
 
     if (current === boundary) parent.removeChild(current);
     current = parent;
+  }
+}
+
+function trimQuoteSpacing(parent: Element) {
+  while (parent.lastChild) {
+    const node = parent.lastChild;
+    if (node.nodeType === Node.TEXT_NODE && !node.textContent?.trim()) {
+      node.remove();
+      continue;
+    }
+    if (!(node instanceof Element)) break;
+    if (
+      !node.matches("br, div, p") ||
+      Array.from(node.attributes).some((attribute) => attribute.name !== "dir")
+    )
+      break;
+    trimQuoteSpacing(node);
+    if (node.childNodes.length) break;
+    node.remove();
   }
 }

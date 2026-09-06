@@ -72,7 +72,11 @@ concurrency:
 
 jobs:
   playwright:
-    name: Web E2E
+    name: E2E shard ${{ matrix.shard }}/4
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     runs-on: ubuntu-latest
     timeout-minutes: 75
     services:
@@ -106,6 +110,7 @@ jobs:
           - 8079:80
 
     env:
+      PLAYWRIGHT_SHARD: ${{ matrix.shard }}/4
       NODE_ENV: development
       NODE_OPTIONS: --max_old_space_size=6144
       NEXT_PUBLIC_BASE_URL: http://localhost:3000
@@ -190,9 +195,53 @@ jobs:
         run: pnpm -F inbox-zero-ai test:playwright:emulated
 
       - name: Upload Playwright artifacts
-        if: >-
-          always() &&
-          (github.event_name == 'pull_request' || github.ref == 'refs/heads/main')
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-shard-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard }}
+          path: |
+            apps/web/.tmp/playwright/blob-report
+            apps/web/test-results
+          include-hidden-files: true
+          compression-level: 1
+          retention-days: 7
+          if-no-files-found: warn
+
+  report:
+    name: Web E2E
+    needs: playwright
+    if: ${{ always() && !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: pnpm
+      - name: Install dependencies
+        run: bash scripts/pnpm-install-without-desktop.sh --frozen-lockfile
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+      - name: Download shard reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: playwright-shard-${{ github.run_id }}-${{ github.run_attempt }}-*
+          path: apps/web
+          merge-multiple: true
+      - name: Merge browser reports
+        shell: bash
+        run: |
+          if compgen -G 'apps/web/.tmp/playwright/blob-report/*.zip' > /dev/null; then
+            pnpm -F inbox-zero-ai exec playwright merge-reports --reporter=html .tmp/playwright/blob-report
+          else
+            echo "No browser targets were selected."
+          fi
+        env:
+          PLAYWRIGHT_HTML_OPEN: never
+      - name: Upload Playwright artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-artifacts-${{ github.run_id }}-${{ github.run_attempt }}
@@ -202,3 +251,8 @@ jobs:
           compression-level: 1
           retention-days: 7
           if-no-files-found: warn
+      - name: Require every shard to pass
+        if: always()
+        env:
+          SHARD_RESULT: ${{ needs.playwright.result }}
+        run: test "$SHARD_RESULT" = success

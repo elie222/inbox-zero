@@ -1,4 +1,5 @@
 import { after } from "next/server";
+import { clearAccountDisconnectedErrorIfResolved } from "@/utils/error-messages";
 import { env } from "@/env";
 import { auth } from "@/utils/auth";
 import { hash } from "@/utils/hash";
@@ -413,17 +414,21 @@ async function completeGoogleAccountLinking({
   await setOAuthCodeResult(code, { success });
 
   after(() =>
-    ensureEmailAccountsWatched({
-      userIds: [targetUserId],
-      logger,
-    }).catch((error) => {
-      logger.error(
-        "Failed to re-register email watches after account linking",
-        {
-          error,
-        },
-      );
-    }),
+    ensureEmailAccountsWatched({ userIds: [targetUserId], logger })
+      .finally(() =>
+        clearAccountDisconnectedErrorIfResolved({
+          userId: targetUserId,
+          logger,
+        }),
+      )
+      .catch((error) => {
+        logger.error(
+          "Failed to re-register email watches after account linking",
+          {
+            error,
+          },
+        );
+      }),
   );
 
   return createAccountLinkingRedirect({
@@ -447,6 +452,7 @@ async function updateGoogleAccount({
       ...(providerAccountId && {
         providerAccountId,
       }),
+      disconnectedAt: null,
       access_token: tokens.access_token,
       ...(tokens.refresh_token != null && {
         refresh_token: tokens.refresh_token,

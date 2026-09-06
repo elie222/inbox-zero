@@ -36,11 +36,17 @@ export function HtmlEmail({
   messageId,
   emailAccountId,
   inlineAttachments = NO_INLINE_ATTACHMENTS,
+  onReplyMessage,
+  onNavigateMessage,
+  onFocusMessage,
 }: {
   html: string;
   messageId: string;
   emailAccountId?: string;
   inlineAttachments?: ParsedMessage["inline"];
+  onReplyMessage?: () => void;
+  onNavigateMessage?: (direction: -1 | 1) => void;
+  onFocusMessage?: () => void;
 }) {
   const sanitizedHtml = useMemo(() => sanitizeEmailHtml(html), [html]);
   const [showReplies, setShowReplies] = useState(false);
@@ -117,7 +123,11 @@ export function HtmlEmail({
     [displayedHtml, isDarkMode, documentKey],
   );
 
-  const iframeHeight = useIframeHeight(iframeRef, srcDoc, documentKey);
+  const iframeHeight = useEmailIframe(iframeRef, srcDoc, documentKey, {
+    onNavigateMessage,
+    onReplyMessage,
+    onFocusMessage,
+  });
 
   return (
     <div className="relative min-w-0 overflow-x-hidden">
@@ -126,7 +136,7 @@ export function HtmlEmail({
         srcDoc={srcDoc}
         className="min-h-0 w-full"
         height={1}
-        style={iframeHeight ? { height: `${iframeHeight + 3}px` } : undefined}
+        style={iframeHeight ? { height: `${iframeHeight}px` } : undefined}
         title="Email content preview"
         sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
         referrerPolicy="no-referrer"
@@ -406,11 +416,18 @@ function addDarkModeClass(html: string, isDarkMode: boolean) {
   }
 }
 
-function useIframeHeight(
+function useEmailIframe(
   iframeRef: React.RefObject<HTMLIFrameElement | null>,
   srcDoc: string,
   documentKey: string,
+  callbacks: {
+    onReplyMessage?: () => void;
+    onNavigateMessage?: (direction: -1 | 1) => void;
+    onFocusMessage?: () => void;
+  },
 ) {
+  const callbacksRef = useRef(callbacks);
+  callbacksRef.current = callbacks;
   const [measurement, setMeasurement] = useState<{
     documentKey: string;
     height: number;
@@ -421,6 +438,40 @@ function useIframeHeight(
     if (!iframe) return;
     let animationFrameId: number | undefined;
     let observedRoot: HTMLElement | null = null;
+    let observedDocument: Document | null = null;
+
+    const selectMessage = () => callbacksRef.current.onFocusMessage?.();
+    const navigateMessage = (event: KeyboardEvent) => {
+      const navigate = callbacksRef.current.onNavigateMessage;
+      const reply = callbacksRef.current.onReplyMessage;
+      if (
+        !(event.key === "Enter" ? reply : navigate) ||
+        !["Enter", "ArrowUp", "ArrowDown"].includes(event.key) ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.shiftKey ||
+        event.isComposing ||
+        observedDocument?.getSelection()?.isCollapsed === false
+      )
+        return;
+      const target = event.target as HTMLElement | null;
+      if (
+        target?.closest?.(
+          'input, textarea, select, [contenteditable]:not([contenteditable="false"])',
+        )
+      )
+        return;
+      if (event.key === "Enter" && target?.closest?.("a, button")) return;
+      event.preventDefault();
+      if (event.key === "Enter") reply?.();
+      else navigate?.(event.key === "ArrowUp" ? -1 : 1);
+    };
+    const stopObservingDocument = () => {
+      observedDocument?.removeEventListener("keydown", navigateMessage);
+      observedDocument?.removeEventListener("pointerdown", selectMessage);
+      observedDocument?.removeEventListener("focusin", selectMessage);
+    };
 
     const updateHeight = () => {
       const iframeDocument = iframe.contentDocument;
@@ -450,6 +501,11 @@ function useIframeHeight(
       if (root === observedRoot) return true;
 
       resizeObserver.disconnect();
+      stopObservingDocument();
+      observedDocument = iframeDocument;
+      observedDocument.addEventListener("keydown", navigateMessage);
+      observedDocument.addEventListener("pointerdown", selectMessage);
+      observedDocument.addEventListener("focusin", selectMessage);
       observedRoot = root;
       updateHeight();
       resizeObserver.observe(root);
@@ -488,6 +544,7 @@ function useIframeHeight(
       iframe.removeEventListener("load", onLoad);
       stopWatchingForDocument();
       resizeObserver.disconnect();
+      stopObservingDocument();
     };
   }, [iframeRef, srcDoc, documentKey]);
 

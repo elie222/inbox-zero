@@ -116,7 +116,7 @@ export function validateSendEmailPayloadSize(
   };
 }
 
-function decodedBase64Size(value: string) {
+export function decodedBase64Size(value: string) {
   const normalized = value.trim();
   const padding = normalized.endsWith("==")
     ? 2

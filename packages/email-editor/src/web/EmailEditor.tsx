@@ -15,6 +15,7 @@ import {
   useEditorState,
   type Editor,
 } from "@tiptap/react";
+import { TextSelection } from "@tiptap/pm/state";
 import { BubbleMenu } from "@tiptap/react/menus";
 import { DOMSerializer, Fragment, type Node } from "@tiptap/pm/model";
 import {
@@ -386,7 +387,12 @@ const RichEmailEditor = forwardRef<
       <BubbleMenu
         editor={editor}
         options={{ offset: 8, placement: "bottom" }}
-        shouldShow={({ from, to }) => from !== to || editor.isActive("link")}
+        shouldShow={({ state, from, to }) =>
+          editor.isFocused &&
+          state.selection instanceof TextSelection &&
+          from !== to &&
+          Boolean(state.doc.textBetween(from, to).trim())
+        }
       >
         <div
           aria-label="Selection formatting"
@@ -404,21 +410,21 @@ const RichEmailEditor = forwardRef<
             label="Bulleted list"
             onPress={() => editor.chain().focus().toggleBulletList().run()}
           >
-            •
+            <FormattingIcon kind="bullets" />
           </ToolbarButton>
           <ToolbarButton
             active={toolbarState?.orderedList}
             label="Numbered list"
             onPress={() => editor.chain().focus().toggleOrderedList().run()}
           >
-            1.
+            <FormattingIcon kind="numbers" />
           </ToolbarButton>
           <ToolbarButton
             active={toolbarState?.blockquote}
             label="Block quote"
             onPress={() => editor.chain().focus().toggleBlockquote().run()}
           >
-            “ ”
+            <FormattingIcon kind="quote" />
           </ToolbarButton>
           <span aria-hidden className={styles.separator} />
           <ToolbarButton
@@ -426,14 +432,14 @@ const RichEmailEditor = forwardRef<
             label="Left-to-right text"
             onPress={() => setBlockDirection(editor, "ltr")}
           >
-            LTR
+            <FormattingIcon kind="ltr" />
           </ToolbarButton>
           <ToolbarButton
             active={toolbarState?.direction === "rtl"}
             label="Right-to-left text"
             onPress={() => setBlockDirection(editor, "rtl")}
           >
-            RTL
+            <FormattingIcon kind="rtl" />
           </ToolbarButton>
         </div>
       </BubbleMenu>
@@ -660,7 +666,7 @@ function MarkButtons({
         label="Add or edit link"
         onPress={onLink}
       >
-        Link
+        <FormattingIcon kind="link" />
       </ToolbarButton>
     </>
   );
@@ -806,4 +812,34 @@ function emptyEditorValue(
     mode,
     preservedBlockIds: [],
   };
+}
+
+function FormattingIcon({
+  kind,
+}: {
+  kind: "bullets" | "numbers" | "quote" | "ltr" | "rtl" | "link";
+}) {
+  const paths = {
+    bullets: "M9 6h12M9 12h12M9 18h12M3 6h.01M3 12h.01M3 18h.01",
+    numbers: "M10 6h11M10 12h11M10 18h11M3 4h1v5M3 9h2M3 14c3-2 4 1 1 3l-1 2h3",
+    quote: "M9 5H3v7h5c0 4-2 6-5 7M21 5h-6v7h5c0 4-2 6-5 7",
+    ltr: "M4 4h16M4 9h10M4 14h16M4 20h14M15 17l3 3-3 3",
+    rtl: "M4 4h16M10 9h10M4 14h16M6 20h14M9 17l-3 3 3 3",
+    link: "M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-2 2M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l2-2",
+  };
+  return (
+    <svg
+      aria-hidden="true"
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d={paths[kind]} />
+    </svg>
+  );
 }

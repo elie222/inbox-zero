@@ -8,7 +8,9 @@ const DEFAULT_SPLIT_LABEL_ID = "Label_project";
 
 export async function openMail(page: Page) {
   const emailAccountId = await getEmailAccountId(page);
-  await page.goto(`/${emailAccountId}/mail`);
+  await page.goto(`/${emailAccountId}/mail`, {
+    waitUntil: "domcontentloaded",
+  });
 
   const conversations = page.getByRole("listbox", { name: "Conversations" });
   await expect(conversations).toBeVisible({ timeout: 60_000 });
@@ -174,7 +176,7 @@ async function deleteDefaultSplitRule(client: Client, emailAccountId: string) {
   );
 }
 
-async function withClient<T>(callback: (client: Client) => Promise<T>) {
+export async function withClient<T>(callback: (client: Client) => Promise<T>) {
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
   try {

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { gmail_v1 } from "@googleapis/gmail";
+import { gmail_v1 } from "@googleapis/gmail";
 import type { EmailThread } from "@/utils/email/types";
 import type { ParsedMessage } from "@/utils/types";
 import { GmailLabel } from "@/utils/gmail/label";
@@ -548,6 +548,101 @@ describe("GmailProvider.searchThreads", () => {
 });
 
 describe("GmailProvider.updateDraft", () => {
+  it.each([
+    true,
+    false,
+  ])("preserves attachments and inline images (explicit disposition: %s)", async (explicitDisposition) => {
+    const update = vi.fn().mockResolvedValue({ data: {} });
+    const get = vi.fn().mockResolvedValue({
+      data: { data: Buffer.from("attachment bytes").toString("base64url") },
+    });
+    const client = new gmail_v1.Gmail({});
+    client.users.drafts.update = update;
+    client.users.messages.attachments.get = get;
+    const provider = new GmailProvider(client);
+    gmailDraftMock.getDraft.mockResolvedValueOnce({
+      ...createParsedMessage({
+        id: "draft-message-1",
+        internalDate: "1000",
+        headers: { from: "alias@example.com" },
+      }),
+      payload: {
+        mimeType: "multipart/mixed",
+        parts: [
+          {
+            mimeType: "text/html",
+            body: { data: "PHA-T2xkPC9wPg" },
+            headers: [{ name: "Content-ID", value: "<body@example.com>" }],
+          },
+          {
+            mimeType: "application/pdf",
+            filename: "report.pdf",
+            body: { attachmentId: "file-1" },
+            headers: [{ name: "Content-Disposition", value: "attachment" }],
+          },
+          {
+            mimeType: "image/png",
+            filename: "logo.png",
+            body: { data: Buffer.from("inline bytes").toString("base64url") },
+            headers: [
+              ...(explicitDisposition
+                ? [{ name: "Content-Disposition", value: "inline" }]
+                : []),
+              { name: "Content-ID", value: "<logo@example.com>" },
+            ],
+          },
+        ],
+      },
+    });
+
+    await provider.updateDraft("r-123", {
+      messageHtml: '<p>Edited</p><img src="cid:logo@example.com">',
+    });
+
+    const mime = decodeBase64Url(
+      update.mock.calls[0][0].requestBody.message.raw,
+    );
+    expect(mime).toContain("From: alias@example.com");
+    expect(mime).toContain("filename=report.pdf");
+    expect(mime).toContain(Buffer.from("attachment bytes").toString("base64"));
+    expect(mime).toContain("Content-ID: <logo@example.com>");
+    expect(mime).toContain("Content-Disposition: inline;");
+    expect(mime).not.toContain("Content-ID: <body@example.com>");
+    expect(mime).toContain(Buffer.from("inline bytes").toString("base64"));
+    expect(get).toHaveBeenCalledWith({
+      userId: "me",
+      messageId: "draft-message-1",
+      id: "file-1",
+    });
+  });
+
+  it("does not replace a draft when attachment bytes cannot be loaded", async () => {
+    const update = vi.fn();
+    const get = vi.fn().mockResolvedValue({ data: {} });
+    const client = new gmail_v1.Gmail({});
+    client.users.drafts.update = update;
+    client.users.messages.attachments.get = get;
+    const provider = new GmailProvider(client);
+    gmailDraftMock.getDraft.mockResolvedValueOnce({
+      ...createParsedMessage({ id: "draft-message-1", internalDate: "1000" }),
+      payload: {
+        mimeType: "multipart/mixed",
+        parts: [
+          {
+            mimeType: "application/pdf",
+            filename: "report.pdf",
+            body: { attachmentId: "file-1" },
+          },
+        ],
+      },
+    });
+
+    await expect(
+      provider.updateDraft("r-123", { messageHtml: "<p>Edited</p>" }),
+    ).rejects.toThrow("Missing Gmail attachment data");
+    expect(update).not.toHaveBeenCalled();
+  });
+
   it("keeps Gmail threading metadata and MIME-encodes non-ASCII subjects", async () => {
     const update = vi.fn().mockResolvedValue({ data: {} });
     const provider = new GmailProvider({

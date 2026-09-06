@@ -102,6 +102,36 @@ describe("createRuleTool overlap guard", () => {
     ]);
   });
 
+  it.each([
+    "google",
+    "microsoft",
+  ])("preserves requested archive delays for %s", async (provider) => {
+    const result = await createRuleTool({
+      email: "user@example.com",
+      emailAccountId: "email-account-id",
+      provider,
+      logger,
+    }).execute({
+      name: "Archive invoices tomorrow",
+      condition: {
+        aiInstructions: "Invoices",
+        static: null,
+        conditionalOperator: null,
+      },
+      actions: [
+        { type: ActionType.ARCHIVE, fields: null, delayInMinutes: 1440 },
+      ],
+    });
+    expect(result.success).toBe(true);
+    expect(mockCreateRule).toHaveBeenCalledWith(
+      expect.objectContaining({
+        result: expect.objectContaining({
+          actions: [expect.objectContaining({ delayInMinutes: 1440 })],
+        }),
+      }),
+    );
+  });
+
   it("blocks overlapping sender-only rules", async () => {
     const result = await createRuleTool({
       email: "user@example.com",

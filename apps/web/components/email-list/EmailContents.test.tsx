@@ -152,6 +152,30 @@ describe("HtmlEmail", () => {
     });
   });
 
+  it("does not grow when the document reports the iframe viewport height", async () => {
+    vi.mocked(fetch).mockReturnValue(new Promise(() => {}));
+    const { getByTitle } = render(
+      <HtmlEmail html="<p>Short reply</p>" messageId="short-reply" />,
+    );
+    const iframe = getByTitle("Email content preview") as HTMLIFrameElement;
+    Object.defineProperty(
+      iframe.contentDocument!.documentElement,
+      "scrollHeight",
+      {
+        configurable: true,
+        get: () => Math.max(40, Number.parseFloat(iframe.style.height) || 0),
+      },
+    );
+    addEmailDocumentMarker(iframe, iframe.contentDocument);
+    iframe.dispatchEvent(new Event("load"));
+    await waitFor(() =>
+      expect(Number.parseFloat(iframe.style.height)).toBeGreaterThanOrEqual(40),
+    );
+    const initialHeight = iframe.style.height;
+    act(() => triggerResize?.());
+    expect(iframe.style.height).toBe(initialHeight);
+  });
+
   it("expands when an image increases the iframe document height after loading", async () => {
     vi.mocked(fetch).mockReturnValue(new Promise(() => {}));
     const { getByTitle } = render(
@@ -216,7 +240,7 @@ describe("HtmlEmail", () => {
     addEmailDocumentMarker(iframe, iframe.contentDocument);
     iframe.dispatchEvent(new Event("load"));
 
-    await waitFor(() => expect(iframe.style.height).toBe("43px"));
+    await waitFor(() => expect(iframe.style.height).toBe("40px"));
 
     fireEvent.click(getByRole("button", { name: "Show quoted content" }));
 
@@ -226,7 +250,7 @@ describe("HtmlEmail", () => {
     contentHeight = 640;
     addEmailDocumentMarker(iframe, iframe.contentDocument);
     iframe.dispatchEvent(new Event("load"));
-    await waitFor(() => expect(iframe.style.height).toBe("643px"));
+    await waitFor(() => expect(iframe.style.height).toBe("640px"));
 
     fireEvent.click(getByRole("button", { name: "Hide quoted content" }));
 
@@ -236,7 +260,7 @@ describe("HtmlEmail", () => {
     contentHeight = 40;
     addEmailDocumentMarker(iframe, iframe.contentDocument);
     iframe.dispatchEvent(new Event("load"));
-    await waitFor(() => expect(iframe.style.height).toBe("43px"));
+    await waitFor(() => expect(iframe.style.height).toBe("40px"));
   });
 
   it("keeps watching until the email document replaces the placeholder", async () => {

@@ -4,6 +4,20 @@ import { describe, expect, it } from "vitest";
 import { splitEmailContent } from "./split-email-content.client";
 
 describe("splitEmailContent", () => {
+  it("removes blank quote spacing without removing reply content", () => {
+    const result = splitEmailContent(
+      '<p>Reply</p><br><div dir="ltr"></div><br><div class="gmail_quote">History</div>',
+    );
+    expect(result.mainContent).toBe("<p>Reply</p>");
+  });
+  it("preserves trailing images and styled content before a quote", () => {
+    const content =
+      '<div><img src="cid:signature"></div><div style="height:20px"></div>';
+    expect(
+      splitEmailContent(`${content}<div class="gmail_quote">History</div>`)
+        .mainContent,
+    ).toBe(content);
+  });
   it("collapses a Gmail quote container", () => {
     const result = splitEmailContent(
       '<div>Current reply</div><div class="gmail_quote_container"><div>Earlier message</div></div>',

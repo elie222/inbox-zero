@@ -187,28 +187,29 @@ model EmailAccount {
   accountId String  @unique
   account   Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
-  labels               Label[]
-  rules                Rule[]
-  executedRules        ExecutedRule[]
-  newsletters          Newsletter[]
-  coldEmails           ColdEmail[] // @deprecated - kept for backward compatibility during migration
-  groups               Group[]
-  categories           Category[]
-  threadTrackers       ThreadTracker[]
-  cleanupJobs          CleanupJob[]
-  cleanupThreads       CleanupThread[]
-  emailMessages        EmailMessage[]
-  emailTokens          EmailToken[]
-  knowledge            Knowledge[]
-  replyMemories        ReplyMemory[]
-  chats                Chat[]
-  chatMemories         ChatMemory[]
-  digests              Digest[]
-  scheduledActions     ScheduledAction[]
-  snoozedThreads       SnoozedThread[]
+  labels              Label[]
+  rules               Rule[]
+  executedRules       ExecutedRule[]
+  newsletters         Newsletter[]
+  coldEmails          ColdEmail[] // @deprecated - kept for backward compatibility during migration
+  groups              Group[]
+  categories          Category[]
+  threadTrackers      ThreadTracker[]
+  cleanupJobs         CleanupJob[]
+  cleanupThreads      CleanupThread[]
+  emailMessages       EmailMessage[]
+  emailTokens         EmailToken[]
+  knowledge           Knowledge[]
+  replyMemories       ReplyMemory[]
+  chats               Chat[]
+  chatMemories        ChatMemory[]
+  digests             Digest[]
+  scheduledActions    ScheduledAction[]
+  snoozedThreads      SnoozedThread[]
   emailSendOperations EmailSendOperation[]
-  responseTimes        ResponseTime[]
-  actions              Action[]
+  scheduledEmails     ScheduledEmail[]
+  responseTimes       ResponseTime[]
+  actions             Action[]
 
   members                Member[]
   invitations            Invitation[]
@@ -825,6 +826,52 @@ model SnoozedThread {
   @@unique([emailAccountId, clientMutationId])
   @@index([status, scheduledFor])
   @@index([emailAccountId, threadId, status])
+}
+
+model ScheduledEmail {
+  id                  String               @id @default(cuid())
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  emailAccountId      String
+  emailAccount        EmailAccount         @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  clientMutationId    String
+  payloadHash         String
+  payload             Json
+  threadId            String
+  sendAt              DateTime
+  status              ScheduledEmailStatus @default(PENDING)
+  processingStartedAt DateTime?
+  executionQueuedAt   DateTime?
+  sentAt              DateTime?
+  error               String?
+  remindAt            DateTime?
+  reminderStatus      EmailReminderStatus  @default(NONE)
+  reminderStartedAt   DateTime?
+
+  @@unique([emailAccountId, clientMutationId])
+  @@index([status, sendAt])
+  @@index([status, processingStartedAt])
+  @@index([reminderStatus, remindAt])
+  @@index([reminderStatus, reminderStartedAt])
+  @@index([emailAccountId, threadId])
+}
+
+enum ScheduledEmailStatus {
+  PENDING
+  PROCESSING
+  SENT
+  BLOCKED_AUTH
+  UNCERTAIN
+  FAILED
+  CANCELLED
+}
+
+enum EmailReminderStatus {
+  NONE
+  PENDING
+  PROCESSING
+  COMPLETED
+  CANCELLED
 }
 
 model EmailSendOperation {

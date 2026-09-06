@@ -160,6 +160,13 @@ const SHORTCUT_DEFINITIONS = [
     },
   },
   {
+    id: "label",
+    keys: ["l"],
+    scope: "mail",
+    group: "Triage",
+    label: "Label",
+  },
+  {
     id: "snooze",
     keys: ["h"],
     scope: "mail",
@@ -209,13 +216,6 @@ const SHORTCUT_DEFINITIONS = [
     scope: "mail",
     group: "View",
     label: "List view / split view",
-  },
-  {
-    id: "focusMode",
-    keys: ["f"],
-    scope: "mail",
-    group: "View",
-    label: "Focus mode (full screen)",
   },
   {
     id: "help",

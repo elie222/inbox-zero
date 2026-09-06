@@ -29,6 +29,24 @@ describe("provider health", () => {
     );
   });
 
+  it("releases cleanup deduplication when the failed credentials have been superseded", async () => {
+    vi.mocked(cleanupInvalidTokens).mockResolvedValueOnce({
+      status: "skipped",
+    });
+    await recordEmailAccountProviderIssue({
+      emailAccountId: "email-account-1",
+      provider: "google",
+      error: new Error("invalid_grant"),
+      failedAccessToken: "old-token",
+      operation: "getMessage",
+      logger: createMockLogger(),
+    });
+    expect(releaseProviderIssueCleanupClaimInRedis).toHaveBeenCalledWith({
+      emailAccountId: "email-account-1",
+      reason: "invalid_grant",
+    });
+  });
+
   it("records missing refresh token failures as reconnect-required issues", async () => {
     const logger = createMockLogger();
 

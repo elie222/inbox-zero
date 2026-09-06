@@ -272,6 +272,7 @@ export async function claimNextMailMutationBatch({
     await readActiveStoredMutations(store.index("byNextAttempt"))
   ).sort(compareMutations);
   const blockedThreads = new Set<string>();
+  const syncingThreads = new Set<string>();
   const claimed: StoredMailMutation[] = [];
   const rejected: StoredMailMutation[] = [];
   const claimedMessageIds = new Set<string>();
@@ -291,6 +292,11 @@ export async function claimNextMailMutationBatch({
     }
 
     if (isSyncMailMutationStatus(mutation.status)) {
+      syncingThreads.add(threadKey);
+      continue;
+    }
+    // Sending does not depend on refreshing an already-applied mailbox action.
+    if (syncingThreads.has(threadKey) && mutation.kind !== "reply") {
       blockedThreads.add(threadKey);
       continue;
     }
@@ -756,7 +762,9 @@ export function subscribeToMailMutations(
   listener: (mutations?: MailMutation[]) => void,
 ) {
   listeners.add(listener);
-  return () => listeners.delete(listener);
+  return () => {
+    listeners.delete(listener);
+  };
 }
 
 async function enqueueInStore(
@@ -997,7 +1005,7 @@ function readActiveStoredMutations(index: {
   ).then((mutations) => mutations.flat());
 }
 
-function notifyMailMutationChange(mutations?: MailMutation[]) {
+export function notifyMailMutationChange(mutations?: MailMutation[]) {
   notifyListeners(mutations);
   channel?.postMessage(
     mutations?.length
