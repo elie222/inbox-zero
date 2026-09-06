@@ -71,12 +71,10 @@ test("creates and applies a label to selected conversations with L", async ({
   await expect(picker).toBeVisible();
   await picker.getByRole("combobox").fill(labelName);
   await expect(
-    picker.getByRole("option", { name: `Create and apply “${labelName}”` }),
+    picker.getByRole("option", { name: `Create “${labelName}”` }),
   ).toBeVisible();
   await capturePlaywrightCheckpoint(page, testInfo, "create-label-picker");
-  await picker
-    .getByRole("option", { name: `Create and apply “${labelName}”` })
-    .click();
+  await picker.getByRole("option", { name: `Create “${labelName}”` }).click();
   await expect(picker).toBeHidden();
   await expect(first.getByText(labelName, { exact: true })).toBeVisible();
   await expect(second.getByText(labelName, { exact: true })).toBeVisible();
