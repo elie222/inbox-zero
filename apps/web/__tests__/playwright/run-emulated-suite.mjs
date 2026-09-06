@@ -30,7 +30,12 @@ const selectedPaths = requestedPaths.length
     : (changedSelection?.targetFiles ?? []);
 const targets = expandPlaywrightTargets(selectedPaths, process.cwd());
 if (listTargets) {
-  console.log(JSON.stringify(targets));
+  await new Promise((resolve, reject) => {
+    process.stdout.write(`${JSON.stringify(targets)}\n`, (error) => {
+      if (error) reject(error);
+      else resolve();
+    });
+  });
   process.exit(0);
 }
 const dryRun = process.env.PLAYWRIGHT_DRY_RUN === "1";

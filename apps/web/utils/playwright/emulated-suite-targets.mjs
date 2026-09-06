@@ -9,7 +9,8 @@ export function expandPlaywrightTargets(paths, appRoot) {
   return [...files].sort().map((file) => ({
     name: file
       .replace(/^__tests__\/playwright\/emulated\//, "")
-      .replaceAll(/[/.]/g, "-"),
+      .replaceAll("_", "__")
+      .replaceAll("/", "_s"),
     path: file,
   }));
 }

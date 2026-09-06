@@ -80,6 +80,8 @@ jobs:
       changed_tests: ${{ steps.changes.outputs.PLAYWRIGHT_CHANGED_TEST_FILES }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Find changed files
         id: changes
         env:
@@ -190,6 +192,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -246,6 +250,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:

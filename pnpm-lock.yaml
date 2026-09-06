@@ -736,8 +736,8 @@ importers:
         specifier: 11.0.0
         version: 11.0.0
       emulate:
-        specifier: npm:@inbox-zero/emulate@0.9.0
-        version: '@inbox-zero/emulate@0.9.0'
+        specifier: npm:@inbox-zero/emulate@0.11.1
+        version: '@inbox-zero/emulate@0.11.1'
       esbuild:
         specifier: 0.28.1
         version: 0.28.1
@@ -3071,8 +3071,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@inbox-zero/emulate@0.9.0':
-    resolution: {integrity: sha512-ID/4A4fQzKMCl7SVN/oIW75nFhQ43ObVcDT7boygsKlJEt/L9X/EPtMdVuV6+m4Eo7aovqGQp0yDUj5ysc3lkw==}
+  '@inbox-zero/emulate@0.11.1':
+    resolution: {integrity: sha512-MewAp3r9XQEdoxO+sEPz4d6hLVmjC4xlo5Ct/6NsQ3QXaSCyjziE8bRPu4Ta3pWKSPGe8hw1qxjI7U11NEXGSw==}
     hasBin: true
 
   '@inquirer/ansi@1.0.2':
@@ -15311,7 +15311,7 @@ snapshots:
   '@img/sharp-win32-x64@0.35.3':
     optional: true
 
-  '@inbox-zero/emulate@0.9.0':
+  '@inbox-zero/emulate@0.11.1':
     dependencies:
       commander: 14.0.3
       picocolors: 1.1.1

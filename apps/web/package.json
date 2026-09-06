@@ -245,7 +245,7 @@
     "cross-env": "10.1.0",
     "dotenv": "17.4.2",
     "dotenv-cli": "11.0.0",
-    "emulate": "npm:@inbox-zero/emulate@0.9.0",
+    "emulate": "npm:@inbox-zero/emulate@0.11.1",
     "esbuild": "0.28.1",
     "fake-indexeddb": "6.2.5",
     "jsdom": "27.3.0",
