@@ -39,13 +39,14 @@ import { ThreadReader } from "@/app/(app)/[emailAccountId]/mail/ThreadReader";
 import {
   getActiveThreadIndex,
   getNextThreadAfterRemoval,
-  getThreadActionTargetIds,
+  resolveThreadActionTargets,
 } from "@/app/(app)/[emailAccountId]/mail/thread-list-behavior";
 import {
   getListThreadKey,
   getListThreadSelection,
   getThreadSelectionKey,
   type MailLayoutMode,
+  type ListThread,
   type ThreadSelection,
 } from "@/app/(app)/[emailAccountId]/mail/types";
 import type { ThreadMessage } from "@/components/email-list/types";
@@ -127,6 +128,13 @@ const OUTLOOK_LABEL_COLOR_OPTIONS = OUTLOOK_CATEGORY_COLORS.map((option) => ({
   textColor: "#000000",
 }));
 const NO_COUNTS = new Map<string, LabelCount>();
+
+type MailActionTarget = {
+  key: string;
+  messages: ThreadMessage[];
+  selection: ThreadSelection;
+  thread?: ListThread;
+};
 
 export function MailShell() {
   const { emailAccount, emailAccountId, userEmail, provider } = useAccount();
@@ -407,6 +415,37 @@ export function MailShell() {
   const openMessages = readerSelectionSettled
     ? (openThreadData?.thread.messages ?? NO_MESSAGES)
     : NO_MESSAGES;
+  const actionTargets = useMemo(() => {
+    const listTargets: MailActionTarget[] = threads.map((thread) => ({
+      key: getListThreadKey(thread),
+      messages: thread.messages,
+      selection: getListThreadSelection(thread, emailAccountId),
+      thread,
+    }));
+    const openTarget =
+      openThreadKey && openThreadSelection
+        ? {
+            key: openThreadKey,
+            messages: openMessages,
+            selection: openThreadSelection,
+          }
+        : undefined;
+
+    return resolveThreadActionTargets({
+      focusedKey: focusedThread ? getListThreadKey(focusedThread) : undefined,
+      listTargets,
+      openTarget,
+      selectedKeys: [...selection.selectedIds],
+    });
+  }, [
+    emailAccountId,
+    focusedThread,
+    openMessages,
+    openThreadKey,
+    openThreadSelection,
+    selection.selectedIds,
+    threads,
+  ]);
   const readerTarget = useMemo(() => {
     if (!openThreadKey || !openThreadSelection || !readerSelectionSettled)
       return;
@@ -484,13 +523,7 @@ export function MailShell() {
       removeFromList: boolean,
       autoAdvanceReader = false,
     ) => {
-      const ids = getThreadActionTargetIds({
-        openThreadId: openThreadKey,
-        activeThreadId: focusedThread
-          ? getListThreadKey(focusedThread)
-          : undefined,
-        selectedThreadIds: [...selection.selectedIds],
-      });
+      const ids = actionTargets.map((target) => target.key);
       if (!ids.length) return;
       const hadSelection = selection.hasSelection;
       const queuedThreadKeys = await action(ids);
@@ -529,7 +562,7 @@ export function MailShell() {
       }
     },
     [
-      focusedThread,
+      actionTargets,
       focusedIndex,
       openThreadKey,
       orderedIds,
@@ -637,18 +670,7 @@ export function MailShell() {
     (until: Date) => runOn((ids) => snooze(ids, until), true),
     [runOn, snooze],
   );
-  const labelTargetKeys = (() => {
-    if (selection.hasSelection) return [...selection.selectedIds];
-    if (openThreadKey) return [openThreadKey];
-    return focusedThread ? [getListThreadKey(focusedThread)] : [];
-  })();
-  const currentLabelTargets = labelTargetKeys.flatMap((key) => {
-    const thread = threads.find((thread) => getListThreadKey(thread) === key);
-    if (thread) return [getListThreadSelection(thread, emailAccountId)];
-    return key === openThreadKey && openThreadSelection
-      ? [openThreadSelection]
-      : [];
-  });
+  const currentLabelTargets = actionTargets.map((target) => target.selection);
   const labelAccountId = currentLabelTargets[0]?.emailAccountId;
   const labelAccount =
     labelAccountId === emailAccountId
@@ -658,7 +680,6 @@ export function MailShell() {
         );
   const canLabel =
     currentLabelTargets.length > 0 &&
-    currentLabelTargets.length === labelTargetKeys.length &&
     isGoogleProvider(labelAccount?.account.provider) &&
     currentLabelTargets.every(
       (target) => target.emailAccountId === labelAccountId,
@@ -673,17 +694,6 @@ export function MailShell() {
           (account) => account.id === labelTargets?.[0]?.emailAccountId,
         );
 
-  const commandTargetIds = useMemo(
-    () =>
-      selection.targetIds(
-        focusedThread ? getListThreadKey(focusedThread) : undefined,
-      ),
-    [selection, focusedThread],
-  );
-  const commandTargets = useMemo(() => {
-    const ids = new Set(commandTargetIds);
-    return threads.filter((thread) => ids.has(getListThreadKey(thread)));
-  }, [commandTargetIds, threads]);
   const mailCommandContext = useMemo(
     () => ({
       actions: {
@@ -693,18 +703,15 @@ export function MailShell() {
         snooze: snoozeTargets,
         trash: trashTargets,
       },
-      hasRead: commandTargets.some(
-        (thread) => !isThreadUnread(thread.messages),
+      hasRead: actionTargets.some((target) => !isThreadUnread(target.messages)),
+      hasUnread: actionTargets.some((target) =>
+        isThreadUnread(target.messages),
       ),
-      hasUnread: commandTargets.some((thread) =>
-        isThreadUnread(thread.messages),
-      ),
-      targetCount: commandTargetIds.length,
+      targetCount: actionTargets.length,
     }),
     [
       archiveTargets,
-      commandTargetIds.length,
-      commandTargets,
+      actionTargets,
       markReadTargets,
       markUnreadTargets,
       snoozeTargets,
