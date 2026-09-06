@@ -1333,7 +1333,9 @@ function resolvePortlessProxy(): PortlessProxy {
 // a different Postgres than the Docker one listening on 127.0.0.1.
 function pinLoopbackDatabaseHost(databaseUrl: string) {
   const url = new URL(databaseUrl);
-  if (!LOCAL_DATABASE_HOSTS.has(url.hostname)) return databaseUrl;
+  // URL.hostname keeps the brackets around IPv6 literals ("[::1]").
+  const hostname = url.hostname.replace(/^\[|\]$/g, "");
+  if (!LOCAL_DATABASE_HOSTS.has(hostname)) return databaseUrl;
   url.hostname = LOCAL_DATABASE_HOST;
   return url.toString();
 }
