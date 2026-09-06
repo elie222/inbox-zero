@@ -196,7 +196,7 @@ export async function restoreReplyFromOutbox(
   if (row?.kind !== "reply" || row.emailAccountId !== emailAccountId)
     throw new Error("Queued reply was not found.");
   const email = sendEmailBody.parse((row.payload as { email: unknown }).email);
-  const composeMode = email.replyToEmail ? "reply" : "forward";
+  const composeMode: ReplyDraftMode = email.replyToEmail ? "reply" : "forward";
   const draft = prepareEmailDraft({ html: email.messageHtml });
   const { attachments, messageHtml: _messageHtml, ...values } = email;
   const content: ReplyDraftContent = {
