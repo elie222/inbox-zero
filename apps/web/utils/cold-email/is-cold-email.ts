@@ -11,11 +11,8 @@ import type { EmailForLLM } from "@/utils/types";
 import type { EmailProvider } from "@/utils/email/types";
 import { getModel, type ModelType } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
-import {
-  extractEmailAddress,
-  isSameEmailAddress,
-  isSameOrganization,
-} from "@/utils/email";
+import { extractEmailAddress, isSameOrganization } from "@/utils/email";
+import { isWhitelistedSender } from "@/utils/email/whitelist";
 import { hasPriorContactOrAssumeYes } from "@/utils/cold-email/has-prior-contact";
 
 export const COLD_EMAIL_FOLDER_NAME = "Cold Emails";
@@ -59,15 +56,9 @@ export async function isColdEmail({
 
   logger.info("Checking is cold email");
 
-  const applicationSenders = [
-    env.RESEND_FROM_EMAIL,
-    ...(env.WHITELIST_FROM?.split(/\s+OR\s+/) || []),
-  ];
   if (
-    applicationSenders.some((sender) => {
-      const address = extractEmailAddress(sender);
-      return !!address && isSameEmailAddress(email.from, address);
-    })
+    isWhitelistedSender(email.from, env.RESEND_FROM_EMAIL) ||
+    isWhitelistedSender(email.from, env.WHITELIST_FROM)
   ) {
     logger.info("Sender is an application sender");
     return { isColdEmail: false, reason: "applicationSender" };
