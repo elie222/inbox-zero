@@ -124,7 +124,9 @@ jobs:
       - name: Select isolated specs
         id: targets
         working-directory: apps/web
-        run: echo "targets=$(node __tests__/playwright/run-emulated-suite.mjs --list-targets)" >> "$GITHUB_OUTPUT"
+        run: |
+          targets="$(node __tests__/playwright/run-emulated-suite.mjs --list-targets)"
+          echo "targets=$targets" >> "$GITHUB_OUTPUT"
 
   playwright:
     name: E2E ${{ matrix.target.name }}
