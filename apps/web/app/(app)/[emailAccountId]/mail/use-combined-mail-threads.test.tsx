@@ -116,6 +116,50 @@ describe("useCombinedMailThreads", () => {
     );
   });
 
+  it("keeps a completed archive overlaid until the combined list reconciles", async () => {
+    const network = Promise.withResolvers<unknown>();
+    mailbox.read.mockResolvedValue({
+      accountStates: ACCOUNT_STATES,
+      complete: true,
+      missingAccountIds: [],
+      threads: [createThread("account-1", "archived")],
+      truncated: false,
+    });
+    mutationStore.read.mockResolvedValue([
+      createMutation({
+        emailAccountId: "account-1",
+        kind: "archive",
+        messageIds: ["archived-message"],
+        threadId: "archived",
+      }),
+    ]);
+
+    const { result } = renderHook(
+      () =>
+        useCombinedMailThreads({
+          accounts: ACCOUNTS,
+          emailAccountId: "account-1",
+          enabled: true,
+          isUnread: false,
+        }),
+      { wrapper: createWrapper(() => network.promise) },
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.threads).toEqual([]);
+
+    mutationStore.read.mockResolvedValue([]);
+    act(() => {
+      for (const listener of mutationStore.listeners) listener();
+    });
+    await waitFor(() => expect(mutationStore.read).toHaveBeenCalledTimes(2));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(result.current.threads).toEqual([]);
+  });
+
   it("removes only the pending-read owner from an unread-only view", async () => {
     const network = Promise.withResolvers<unknown>();
     mailbox.read.mockResolvedValue({

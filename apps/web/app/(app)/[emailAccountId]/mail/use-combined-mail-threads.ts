@@ -26,7 +26,7 @@ import { createSearchParams } from "@/utils/url";
 import { isThreadUnread } from "./read-state";
 import {
   applyMailMutationOverlayToThreads,
-  useMailMutationOverlay,
+  useRetainedMailMutationOverlay,
 } from "@/hooks/useMailMutationOverlay";
 
 type CombinedThread = GetAllThreadsResponse["threads"][number];
@@ -73,11 +73,6 @@ export function useCombinedMailThreads({
     () => accounts.map((account) => account.id),
     [accounts],
   );
-  const { isReady: mutationOverlayReady, mutations: mailMutations } =
-    useMailMutationOverlay({
-      emailAccountIds: mutationAccountIds,
-      enabled,
-    });
   const viewKey = useMemo(
     () =>
       createThreadListCacheKey({
@@ -134,6 +129,13 @@ export function useCombinedMailThreads({
         revalidateOnFocus: false,
       },
     );
+  const reconcileMailMutations = useCallback(() => mutate(), [mutate]);
+  const { isReady: mutationOverlayReady, mutations: mailMutations } =
+    useRetainedMailMutationOverlay({
+      emailAccountIds: mutationAccountIds,
+      enabled,
+      onReconcile: reconcileMailMutations,
+    });
   const [persistent, setPersistent] = useState<PersistentCombinedView>();
   const [synced, setSynced] = useState<SyncedCombinedView>();
   const [localPagination, setLocalPagination] = useState({

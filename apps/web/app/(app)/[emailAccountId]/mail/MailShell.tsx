@@ -46,7 +46,6 @@ import {
   getListThreadSelection,
   getThreadSelectionKey,
   type MailLayoutMode,
-  type ListThread,
   type ThreadSelection,
 } from "@/app/(app)/[emailAccountId]/mail/types";
 import type { ThreadMessage } from "@/components/email-list/types";
@@ -128,13 +127,6 @@ const OUTLOOK_LABEL_COLOR_OPTIONS = OUTLOOK_CATEGORY_COLORS.map((option) => ({
   textColor: "#000000",
 }));
 const NO_COUNTS = new Map<string, LabelCount>();
-
-type MailActionTarget = {
-  key: string;
-  messages: readonly { labelIds?: string[] | null }[];
-  selection: ThreadSelection;
-  thread?: ListThread;
-};
 
 export function MailShell() {
   const { emailAccount, emailAccountId, userEmail, provider } = useAccount();
@@ -415,37 +407,6 @@ export function MailShell() {
   const openMessages = readerSelectionSettled
     ? (openThreadData?.thread.messages ?? NO_MESSAGES)
     : NO_MESSAGES;
-  const actionTargets = useMemo(() => {
-    const listTargets: MailActionTarget[] = threads.map((thread) => ({
-      key: getListThreadKey(thread),
-      messages: thread.messages,
-      selection: getListThreadSelection(thread, emailAccountId),
-      thread,
-    }));
-    const openTarget =
-      openThreadKey && openThreadSelection
-        ? {
-            key: openThreadKey,
-            messages: openMessages,
-            selection: openThreadSelection,
-          }
-        : undefined;
-
-    return resolveThreadActionTargets({
-      focusedKey: focusedThread ? getListThreadKey(focusedThread) : undefined,
-      listTargets,
-      openTarget,
-      selectedKeys: [...selection.selectedIds],
-    });
-  }, [
-    emailAccountId,
-    focusedThread,
-    openMessages,
-    openThreadKey,
-    openThreadSelection,
-    selection.selectedIds,
-    threads,
-  ]);
   const readerTarget = useMemo(() => {
     if (!openThreadKey || !openThreadSelection || !readerSelectionSettled)
       return;
@@ -462,6 +423,38 @@ export function MailShell() {
     openThreadKey,
     openThreadSelection,
     readerSelectionSettled,
+  ]);
+  const actionTargets = useMemo(() => {
+    const listTargets = threads.map((thread) => ({
+      key: getListThreadKey(thread),
+      messages: thread.messages,
+      selection: getListThreadSelection(thread, emailAccountId),
+    }));
+    const openTarget =
+      openThreadKey && openThreadSelection && (openThread || readerTarget)
+        ? {
+            key: openThreadKey,
+            messages: openThread?.messages ?? openMessages,
+            selection: openThreadSelection,
+          }
+        : undefined;
+
+    return resolveThreadActionTargets({
+      focusedKey: focusedThread ? getListThreadKey(focusedThread) : undefined,
+      listTargets,
+      openTarget,
+      selectedKeys: [...selection.selectedIds],
+    });
+  }, [
+    emailAccountId,
+    focusedThread,
+    openMessages,
+    openThread,
+    openThreadKey,
+    openThreadSelection,
+    readerTarget,
+    selection.selectedIds,
+    threads,
   ]);
   const { archive, trash, markRead, markSpam, setReadState, snooze, undo } =
     useThreadActions({
