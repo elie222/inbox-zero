@@ -7,8 +7,6 @@ import {
   type NewSplitOption,
   NewSplitPopover,
 } from "@/app/(app)/[emailAccountId]/mail/NewSplitPopover";
-import { Kbd } from "@/components/Kbd";
-import { getShortcutHint } from "@/lib/shortcuts/registry";
 import { cn } from "@/utils";
 
 export type MailSplitTab = {
@@ -124,9 +122,6 @@ export function SplitTabs({
           onSetDefaultSplits={onSetDefaultSplits}
         />
       )}
-
-      <div className="flex-1" />
-      <Kbd title="Next split">{getShortcutHint("nextSplit")}</Kbd>
     </div>
   );
 }

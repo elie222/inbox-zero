@@ -22,6 +22,8 @@ test("moves focus with the active split when cycling by keyboard", async ({
 }, testInfo) => {
   await openMail(page);
 
+  await expect(page.getByTitle("Next split")).toHaveCount(0);
+
   const activeSplit = page.locator('button[aria-current="true"]');
   await expect(activeSplit).toBeVisible();
   await activeSplit.click();
