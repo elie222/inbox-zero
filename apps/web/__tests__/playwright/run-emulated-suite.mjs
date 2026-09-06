@@ -12,25 +12,27 @@ import {
   fullSuites,
   selectChangedPlaywrightTargets,
 } from "../../utils/playwright/emulated-suite-selection.mjs";
-import { shardPlaywrightTargets } from "../../utils/playwright/emulated-suite-sharding.mjs";
-const requestedTargets = getRequestedPlaywrightTargets(process.argv.slice(2));
-const changedSelection = requestedTargets.length
+import { expandPlaywrightTargets } from "../../utils/playwright/emulated-suite-targets.mjs";
+const listTargets = process.argv.includes("--list-targets");
+const requestedPaths = getRequestedPlaywrightPaths(
+  process.argv.slice(2).filter((argument) => argument !== "--list-targets"),
+);
+const changedSelection = requestedPaths.length
   ? undefined
   : selectChangedPlaywrightTargets(
       process.env.PLAYWRIGHT_CHANGED_FILES,
       process.cwd(),
     );
-const changedTargetFiles = changedSelection?.targetFiles ?? [];
-const selectedTargets = requestedTargets.length
-  ? requestedTargets
+const selectedPaths = requestedPaths.length
+  ? requestedPaths
   : changedSelection?.runFullSuite
-    ? getFullSuiteTargets()
-    : getChangedPlaywrightTargets(changedTargetFiles);
-const targets = shardPlaywrightTargets(
-  selectedTargets,
-  process.env.PLAYWRIGHT_SHARD,
-);
-const shardSuffix = process.env.PLAYWRIGHT_SHARD?.replace("/", "-of-");
+    ? fullSuites.map(getPlaywrightTargetPath)
+    : (changedSelection?.targetFiles ?? []);
+const targets = expandPlaywrightTargets(selectedPaths, process.cwd());
+if (listTargets) {
+  console.log(JSON.stringify(targets));
+  process.exit(0);
+}
 const dryRun = process.env.PLAYWRIGHT_DRY_RUN === "1";
 const playwrightRunRootDir = path.resolve(".tmp/playwright");
 const blobReportDir = path.join(playwrightRunRootDir, "blob-report");
@@ -48,7 +50,7 @@ if (!dryRun) {
 let failed = false;
 const timings = [];
 
-if (requestedTargets.length) {
+if (requestedPaths.length) {
   console.log(`Running ${targets.length} requested Playwright target(s).`);
 } else {
   console.log(changedSelection.reason);
@@ -57,11 +59,8 @@ if (requestedTargets.length) {
 
 if (!dryRun && !targets.length) {
   writeFileSync(
-    path.join(
-      testResultsDir,
-      shardSuffix ? `selection-${shardSuffix}.json` : "selection.json",
-    ),
-    `${JSON.stringify({ reason: changedSelection?.reason ?? "No targets assigned to this shard." }, null, 2)}\n`,
+    path.join(testResultsDir, "selection.json"),
+    `${JSON.stringify({ reason: changedSelection?.reason ?? "No browser specs selected." }, null, 2)}\n`,
   );
 }
 
@@ -81,7 +80,7 @@ for (const target of targets) {
         "-c",
         "playwright.config.mjs",
         "--project=emulated",
-        ...target.paths,
+        target.path,
       ],
       {
         PLAYWRIGHT_BLOB_REPORT_FILE: path.join(
@@ -90,17 +89,17 @@ for (const target of targets) {
         ),
         PLAYWRIGHT_OUTPUT_DIR: path.join(testResultsDir, target.name),
         PLAYWRIGHT_RUN_ID: targetRunId,
-        ...(target.paths.some(isIntegrationsTarget)
+        ...(isIntegrationsTarget(target.path)
           ? { NEXT_PUBLIC_INTEGRATIONS_ENABLED: "true" }
           : {}),
-        ...(target.paths.some(isAutomationTarget)
+        ...(isAutomationTarget(target.path)
           ? {
               NEXT_PUBLIC_INTEGRATIONS_ENABLED: "true",
               NEXT_PUBLIC_INTEGRATION_ACTION_ENABLED: "true",
               PLAYWRIGHT_TODOIST_ENABLED: "true",
             }
           : {}),
-        ...(target.paths.some(isSettingsTarget)
+        ...(isSettingsTarget(target.path)
           ? { NEXT_PUBLIC_EXTERNAL_API_ENABLED: "true" }
           : {}),
       },
@@ -116,17 +115,14 @@ for (const target of targets) {
   );
   if (!dryRun) {
     writeFileSync(
-      path.join(
-        testResultsDir,
-        shardSuffix ? `timings-${shardSuffix}.json` : "timings.json",
-      ),
+      path.join(testResultsDir, `timings-${target.name}.json`),
       JSON.stringify(timings, null, 2),
     );
   }
   if (result.status !== 0) failed = true;
 }
 
-if (!dryRun && targets.length && !process.env.PLAYWRIGHT_SHARD) {
+if (!dryRun && targets.length && !process.env.PLAYWRIGHT_SKIP_REPORT_MERGE) {
   const mergeResult = runPlaywright(
     ["merge-reports", "--reporter=html", blobReportDir],
     { PLAYWRIGHT_HTML_OPEN: "never" },
@@ -158,7 +154,7 @@ function runPlaywright(args, extraEnv) {
   return result;
 }
 
-function getRequestedPlaywrightTargets(args) {
+function getRequestedPlaywrightPaths(args) {
   return args
     .filter((argument) => argument !== "--")
     .map((argument) => {
@@ -180,62 +176,8 @@ function getRequestedPlaywrightTargets(args) {
         );
       }
 
-      return {
-        name: normalizedArgument.replaceAll(/[/.]/g, "-"),
-        paths: [targetPath],
-      };
+      return targetPath;
     });
-}
-
-function getFullSuiteTargets() {
-  return fullSuites.map((suite) => ({
-    name: suite.replaceAll(/[/.]/g, "-"),
-    paths: [`__tests__/playwright/emulated/${suite}`],
-  }));
-}
-
-function getChangedPlaywrightTargets(files) {
-  const filesByBoundary = new Map();
-
-  for (const file of files) {
-    const boundary = getChangedFileBoundary(file);
-    const existingFiles = filesByBoundary.get(boundary) ?? [];
-    existingFiles.push(file);
-    filesByBoundary.set(boundary, existingFiles);
-  }
-
-  const knownBoundaries = new Set(fullSuites);
-  const orderedTargets = fullSuites
-    .map((suite) => {
-      const filesForSuite = filesByBoundary.get(suite);
-      if (!filesForSuite?.length) return;
-      const suitePath = getPlaywrightTargetPath(suite);
-
-      return {
-        name: suite.replaceAll(/[/.]/g, "-"),
-        paths: filesForSuite.includes(suitePath) ? [suitePath] : filesForSuite,
-      };
-    })
-    .filter(Boolean);
-
-  const extraTargets = [...filesByBoundary.entries()]
-    .filter(([boundary]) => !knownBoundaries.has(boundary))
-    .map(([boundary, filesForBoundary]) => ({
-      name: boundary.replaceAll(/[/.]/g, "-"),
-      paths: filesForBoundary.includes(getPlaywrightTargetPath(boundary))
-        ? [getPlaywrightTargetPath(boundary)]
-        : filesForBoundary,
-    }));
-
-  return [...orderedTargets, ...extraTargets];
-}
-
-function getChangedFileBoundary(file) {
-  const relativePath = file.replace(/^__tests__\/playwright\/emulated\//, "");
-
-  if (relativePath.startsWith("cleanup/")) return relativePath;
-
-  return relativePath.split("/")[0];
 }
 
 function getPlaywrightTargetPath(target) {

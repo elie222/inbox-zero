@@ -136,6 +136,7 @@ function useShortcutBucket(
     delimiter: HOTKEYS_DELIMITER,
     eventListenerOptions: bucket.capture ? { capture: true } : undefined,
     sequenceTimeoutMs: SEQUENCE_TIMEOUT_MS,
+    ignoreEventWhen: (event) => event.defaultPrevented,
     preventDefault,
   });
 }

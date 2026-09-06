@@ -173,6 +173,23 @@ describe("useShortcuts", () => {
     expect(archive).not.toHaveBeenCalled();
   });
 
+  it("does not navigate away when a popover has already handled Escape", () => {
+    const backToList = vi.fn();
+    renderShortcuts({ backToList });
+    const event = new KeyboardEvent("keydown", {
+      key: "Escape",
+      code: "Escape",
+      bubbles: true,
+      cancelable: true,
+    });
+    event.preventDefault();
+    fireEvent(screen.getByRole("textbox"), event);
+    expect(backToList).not.toHaveBeenCalled();
+
+    press({ key: "Escape", code: "Escape" }, screen.getByRole("textbox"));
+    expect(backToList).toHaveBeenCalledOnce();
+  });
+
   it("uses the reader action shortcuts", () => {
     const backToList = vi.fn();
     const markUnread = vi.fn();

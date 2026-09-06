@@ -71,14 +71,71 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  select:
+    name: Select browser specs
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      targets: ${{ steps.targets.outputs.targets }}
+      changed_tests: ${{ steps.changes.outputs.PLAYWRIGHT_CHANGED_TEST_FILES }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Find changed files
+        id: changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+
+          changed_files_path="$RUNNER_TEMP/changed-files.txt"
+          changed_test_files_path="$RUNNER_TEMP/changed-playwright-files.txt"
+          : > "$changed_files_path"
+          : > "$changed_test_files_path"
+
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]] &&
+            [[ -n "$BASE_SHA" ]] &&
+            [[ "$BASE_SHA" != "0000000000000000000000000000000000000000" ]]; then
+            git fetch --no-tags --depth=1 origin "$BASE_SHA"
+            git diff --name-only --diff-filter=ACMRD "$BASE_SHA" "$GITHUB_SHA" \
+              > "$changed_files_path"
+            grep '^apps/web/__tests__/playwright/' "$changed_files_path" | \
+              sed 's#^apps/web/##' > "$changed_test_files_path" || true
+          fi
+
+          delimiter="PLAYWRIGHT_FILES_$(openssl rand -hex 16)"
+          {
+            echo "PLAYWRIGHT_CHANGED_FILES<<$delimiter"
+            cat "$changed_files_path"
+            echo "$delimiter"
+            echo "PLAYWRIGHT_CHANGED_TEST_FILES<<$delimiter"
+            cat "$changed_test_files_path"
+            echo "$delimiter"
+          } | tee -a "$GITHUB_ENV" >> "$GITHUB_OUTPUT"
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: pnpm
+      - name: Install dependencies
+        run: bash scripts/pnpm-install-without-desktop.sh --frozen-lockfile
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+      - name: Select isolated specs
+        id: targets
+        working-directory: apps/web
+        run: echo "targets=$(node __tests__/playwright/run-emulated-suite.mjs --list-targets)" >> "$GITHUB_OUTPUT"
+
   playwright:
-    name: E2E shard ${{ matrix.shard }}/4
+    name: E2E ${{ matrix.target.name }}
+    needs: select
+    if: needs.select.outputs.targets != '[]'
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        target: ${{ fromJSON(needs.select.outputs.targets) }}
     runs-on: ubuntu-latest
-    timeout-minutes: 75
+    timeout-minutes: 8
     services:
       postgres:
         image: postgres:16
@@ -110,7 +167,8 @@ jobs:
           - 8079:80
 
     env:
-      PLAYWRIGHT_SHARD: ${{ matrix.shard }}/4
+      PLAYWRIGHT_SKIP_REPORT_MERGE: "1"
+      PLAYWRIGHT_CHANGED_TEST_FILES: ${{ needs.select.outputs.changed_tests }}
       NODE_ENV: development
       NODE_OPTIONS: --max_old_space_size=6144
       NEXT_PUBLIC_BASE_URL: http://localhost:3000
@@ -130,37 +188,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Find changed files
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: |
-          set -euo pipefail
-
-          changed_files_path="$RUNNER_TEMP/changed-files.txt"
-          changed_test_files_path="$RUNNER_TEMP/changed-playwright-files.txt"
-          : > "$changed_files_path"
-          : > "$changed_test_files_path"
-
-          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]] &&
-            [[ -n "$BASE_SHA" ]] &&
-            [[ "$BASE_SHA" != "0000000000000000000000000000000000000000" ]]; then
-            git fetch --no-tags --depth=1 origin "$BASE_SHA"
-            git diff --name-only --diff-filter=ACMRD "$BASE_SHA" "$GITHUB_SHA" \
-              > "$changed_files_path"
-            grep '^apps/web/__tests__/playwright/' "$changed_files_path" | \
-              sed 's#^apps/web/##' > "$changed_test_files_path" || true
-          fi
-
-          delimiter="PLAYWRIGHT_FILES_$(openssl rand -hex 16)"
-          {
-            echo "PLAYWRIGHT_CHANGED_FILES<<$delimiter"
-            cat "$changed_files_path"
-            echo "$delimiter"
-            echo "PLAYWRIGHT_CHANGED_TEST_FILES<<$delimiter"
-            cat "$changed_test_files_path"
-            echo "$delimiter"
-          } >> "$GITHUB_ENV"
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -192,13 +219,15 @@ jobs:
 
       - name: Run Playwright tests
         id: playwright_tests
-        run: pnpm -F inbox-zero-ai test:playwright:emulated
+        run: pnpm -F inbox-zero-ai test:playwright:emulated "$TEST_TARGET"
+        env:
+          TEST_TARGET: ${{ matrix.target.path }}
 
       - name: Upload Playwright artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-shard-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard }}
+          name: playwright-spec-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.target.name }}
           path: |
             apps/web/.tmp/playwright/blob-report
             apps/web/test-results
@@ -209,7 +238,7 @@ jobs:
 
   report:
     name: Web E2E
-    needs: playwright
+    needs: [select, playwright]
     if: ${{ always() && !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -224,10 +253,10 @@ jobs:
         run: bash scripts/pnpm-install-without-desktop.sh --frozen-lockfile
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
-      - name: Download shard reports
+      - name: Download spec reports
         uses: actions/download-artifact@v4
         with:
-          pattern: playwright-shard-${{ github.run_id }}-${{ github.run_attempt }}-*
+          pattern: playwright-spec-${{ github.run_id }}-${{ github.run_attempt }}-*
           path: apps/web
           merge-multiple: true
       - name: Merge browser reports
@@ -251,8 +280,14 @@ jobs:
           compression-level: 1
           retention-days: 7
           if-no-files-found: warn
-      - name: Require every shard to pass
+      - name: Require every selected spec to pass
         if: always()
         env:
-          SHARD_RESULT: ${{ needs.playwright.result }}
-        run: test "$SHARD_RESULT" = success
+          SELECTION_RESULT: ${{ needs.select.result }}
+          TARGETS: ${{ needs.select.outputs.targets }}
+          TEST_RESULT: ${{ needs.playwright.result }}
+        run: |
+          test "$SELECTION_RESULT" = success
+          if [ "$TARGETS" != "[]" ]; then
+            test "$TEST_RESULT" = success
+          fi

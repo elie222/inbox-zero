@@ -133,6 +133,7 @@ export default defineConfig({
         NODE_OPTIONS: nodeOptions,
         NEXT_PUBLIC_BASE_URL: baseURL,
         DATABASE_URL: databaseUrl,
+        PREVIEW_DATABASE_URL: databaseUrl,
         AUTH_SECRET: process.env.AUTH_SECRET ?? "secret",
         GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID ?? "client_id",
         GOOGLE_CLIENT_SECRET:
@@ -161,12 +162,17 @@ export default defineConfig({
         RESEND_FROM_EMAIL: "",
         LOOPS_API_SECRET: "",
         DUB_API_KEY: "",
+        FB_CONVERSION_API_ACCESS_TOKEN: "",
+        FB_PIXEL_ID: "",
+        CONVERSION_ANALYTICS_SERVER_URL: "",
+        CONVERSION_ANALYTICS_SERVER_SECRET: "",
         POSTHOG_API_SECRET: "",
         NEXT_PUBLIC_POSTHOG_KEY: "",
         NEXT_PUBLIC_POSTHOG_API_HOST: "",
         NEXT_PUBLIC_DUB_REFER_DOMAIN: "",
         NEXT_PUBLIC_IS_RESEND_CONFIGURED: "",
         NEXT_PUBLIC_CONTACTS_ENABLED: "false",
+        NEXT_PUBLIC_EMAIL_SEND_ENABLED: "true",
         NEXT_PUBLIC_MEETING_RECORDER_ENABLED: "true",
         PLAYWRIGHT_TEST_EMAIL: playwrightTestEmail,
       },
@@ -190,7 +196,7 @@ function writeEmulateSeed({ baseURL, playwrightTestEmail, runId }) {
 
   fs.mkdirSync(outputDir, { recursive: true });
 
-  const seed = fs
+  let seed = fs
     .readFileSync(templatePath, "utf8")
     .replaceAll("__PLAYWRIGHT_TEST_EMAIL__", playwrightTestEmail)
     .replaceAll("__PLAYWRIGHT_TEST_REDIRECT_URI__", redirectUri)
@@ -207,6 +213,22 @@ function writeEmulateSeed({ baseURL, playwrightTestEmail, runId }) {
         recipient: playwrightTestEmail,
       }),
     );
+
+  // Mailbox synchronization only covers recent mail. Preserve the fixture's
+  // ordering without letting fixed seed dates age out of that window.
+  const messageDates = [
+    ...new Set(
+      [...seed.matchAll(/internal_date: "(\d+)"/g)].map((match) =>
+        Number(match[1]),
+      ),
+    ),
+  ].sort((left, right) => right - left);
+  const yesterday = Date.now() - 24 * 60 * 60 * 1000;
+  seed = seed.replaceAll(/internal_date: "(\d+)"/g, (_, timestamp) => {
+    const date =
+      yesterday - messageDates.indexOf(Number(timestamp)) * 60 * 60 * 1000;
+    return `internal_date: "${date}"`;
+  });
 
   fs.writeFileSync(outputPath, seed);
 

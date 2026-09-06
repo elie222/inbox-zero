@@ -308,7 +308,7 @@ test("creates and edits a label and shows every keyboard workflow", async ({
   await expect(dialog.getByText("Next message", { exact: true })).toBeVisible();
   await expect(dialog.getByText("Archive", { exact: true })).toBeVisible();
   await expect(dialog.getByText("New message", { exact: true })).toBeVisible();
-  await expect(dialog.getByText("Send reply", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("Send", { exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
 });

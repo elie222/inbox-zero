@@ -19,9 +19,11 @@ Within `emulated/`, group specs by product area, such as `mail/` or
 `automation/`. Keep setup files inside the boundary they support so
 real-provider tests cannot accidentally reuse emulated authentication state.
 
-The package-level emulated command runs each product area with a fresh Next and
-emulator process, then merges their reports. This prevents the development
-server's compiled route graph from exhausting its heap during the full suite.
+The package-level emulated command runs each spec with a fresh Next process,
+emulator, and authenticated mailbox, then merges the reports. Tests inside a
+spec remain serial. This avoids state leaking between specs and bounds the
+development server's compiled route graph. CI selects the affected specs once
+and runs each spec in its own matrix job.
 Pass one or more areas or spec paths when iterating on focused flows:
 
 ```sh
