@@ -13,6 +13,7 @@ export function splitEmailContent(html: string): {
   mainContent: string;
   hasQuotedContent: boolean;
 } {
+  const hasDocumentStructure = /<(?:html|body)(?:\s|>)/i.test(html);
   const doc = new DOMParser().parseFromString(html, "text/html");
   const quoteBoundary = findQuoteBoundary(doc);
 
@@ -24,7 +25,9 @@ export function splitEmailContent(html: string): {
   trimQuoteSpacing(doc.body);
 
   return {
-    mainContent: doc.body.innerHTML,
+    mainContent: hasDocumentStructure
+      ? doc.documentElement.outerHTML
+      : doc.body.innerHTML,
     hasQuotedContent: true,
   };
 }

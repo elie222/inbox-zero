@@ -29,6 +29,25 @@ describe("splitEmailContent", () => {
     });
   });
 
+  it("preserves document-level styles when collapsing quoted content", () => {
+    const result = splitEmailContent(
+      '<html><head><style>p { margin: 0; }</style></head><body style="background: #222; color: #eee"><p>Current reply</p><div class="gmail_quote">Earlier message</div></body></html>',
+    );
+    const document = new DOMParser().parseFromString(
+      result.mainContent,
+      "text/html",
+    );
+
+    expect(result.hasQuotedContent).toBe(true);
+    expect(document.body.getAttribute("style")).toBe(
+      "background: #222; color: #eee",
+    );
+    expect(document.head.querySelector("style")?.textContent).toContain(
+      "p { margin: 0; }",
+    );
+    expect(document.body.textContent).toBe("Current reply");
+  });
+
   it("collapses a provider-prefixed Outlook reply header and all later content", () => {
     const result = splitEmailContent(
       [
