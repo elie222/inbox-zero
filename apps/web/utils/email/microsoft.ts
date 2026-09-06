@@ -691,16 +691,27 @@ export class OutlookProvider implements EmailProvider {
     params: {
       messageHtml?: string;
       subject?: string;
+      to?: string;
+      cc?: string;
+      bcc?: string;
     },
   ): Promise<void> {
     this.logger.info("Updating draft", { draftId });
 
     const body: Record<string, unknown> = {};
-    if (params.messageHtml) {
+    if (params.messageHtml !== undefined) {
       body.body = { contentType: "html", content: params.messageHtml };
     }
-    if (params.subject) {
+    if (params.subject !== undefined) {
       body.subject = params.subject;
+    }
+
+    for (const field of ["to", "cc", "bcc"] as const) {
+      if (params[field] !== undefined)
+        body[`${field}Recipients`] = toGraphRecipients(
+          params[field],
+          this.logger,
+        );
     }
 
     await withMicrosoftGraphWriteRetry(

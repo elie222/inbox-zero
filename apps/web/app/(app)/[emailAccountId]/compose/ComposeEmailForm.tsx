@@ -63,13 +63,14 @@ import {
 import { env } from "@/env";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { useLocalReplyDraft } from "@/hooks/useLocalReplyDraft";
+import { useProviderDraftAutosave } from "@/hooks/useProviderDraftAutosave";
 import { useReplyDraftPersistence } from "@/hooks/useReplyDraftPersistence";
 import { MAIL_SHORTCUT_SCOPES } from "@/lib/shortcuts/registry";
 import { ShortcutsProvider } from "@/lib/shortcuts/ShortcutsProvider";
 import { useShortcuts } from "@/lib/shortcuts/useShortcuts";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { getAccountLinkingUrl } from "@/utils/account-linking";
-import { sendEmailAction } from "@/utils/actions/mail";
+import { sendEmailAction, updateDraftAction } from "@/utils/actions/mail";
 import { scheduleEmailAction } from "@/utils/actions/scheduled-email";
 import {
   extractNameFromEmail,
@@ -123,6 +124,7 @@ export type ReplyingToEmail = {
 type ComposeEmailFormProps = {
   fromAccounts?: GetEmailAccountsResponse["emailAccounts"];
   layout?: "default" | "window";
+  providerDraftMessageId?: string;
   draftKeyMessageId?: string;
   draftMode?: ReplyDraftMode;
   draftSessionId?: string;
@@ -131,7 +133,7 @@ type ComposeEmailFormProps = {
   onSuccess?: (messageId: string, threadId: string) => void;
   onMarkDone?: () => void;
   onClose?: () => void;
-  onDiscard?: () => boolean | Promise<boolean>;
+  onDiscard?: (draftId?: string) => boolean | Promise<boolean>;
 };
 
 type ComposeAttachment = EmailComposerAttachment & {
@@ -197,6 +199,7 @@ export function ComposeEmailForm(props: ComposeEmailFormProps) {
 function ComposeEmailFormContent({
   layout = "default",
   draftKeyMessageId,
+  providerDraftMessageId,
   draftMode,
   draftSessionId,
   storedDraft,
@@ -236,6 +239,7 @@ function ComposeEmailFormContent({
     return times.valid ? "" : times.error;
   });
   const editorInitialized = useRef(false);
+  const providerDraftId = useRef(storedDraft?.content?.providerDraftId);
 
   const [restoredAttachments] = useState<ComposeAttachment[]>(() =>
     (storedDraft?.content?.attachments ?? []).map((attachment) => ({
@@ -343,11 +347,18 @@ function ComposeEmailFormContent({
     },
   });
 
+  const lastDraftContent = useRef<ReplyDraftContent | undefined>(undefined);
   const getDraftContent = (options?: {
     sendAt?: string;
     remindAt?: string;
   }): ReplyDraftContent | undefined => {
-    if (!editorRef.current) return;
+    if (!editorRef.current)
+      return lastDraftContent.current
+        ? {
+            ...lastDraftContent.current,
+            providerDraftId: providerDraftId.current,
+          }
+        : undefined;
     const value = editorRef.current.getValue();
     const values = { ...getValues() };
     for (const field of ["to", "cc", "bcc"] as const) {
@@ -355,7 +366,8 @@ function ComposeEmailFormContent({
       if (pending)
         values[field] = [values[field], pending].filter(Boolean).join(", ");
     }
-    return {
+    const content: ReplyDraftContent = {
+      providerDraftId: providerDraftId.current,
       composeMode: draftMode,
       requestId,
       deliveryPath: deliveryPath.current,
@@ -374,9 +386,11 @@ function ComposeEmailFormContent({
       sendAt: options?.sendAt ?? sendAt,
       remindAt: options?.remindAt ?? remindAt,
     };
+    lastDraftContent.current = content;
+    return content;
   };
   const {
-    capture: captureDraft,
+    capture: captureLocalDraft,
     clear: clearLocalDraft,
     flush: flushDraft,
     saveError: draftSaveError,
@@ -393,6 +407,61 @@ function ComposeEmailFormContent({
     loadError: draftLoadError,
     getContent: getDraftContent,
   });
+  const providerAutosave = useProviderDraftAutosave({
+    enabled: Boolean(providerDraftMessageId),
+    getContent: () => {
+      const content = getDraftContent();
+      if (!content) return;
+      const blocks = new Set(content.preservedBlocks.map((block) => block.id));
+      return {
+        subject: content.values.subject ?? "",
+        to: content.values.to ?? "",
+        cc: content.values.cc ?? "",
+        bcc: content.values.bcc ?? "",
+        hasNewAttachments: content.attachments.length > 0,
+        messageHtml: combineEmailHtml({
+          editableHtml:
+            content.draft.mode === "fallback"
+              ? content.draft.editableHtml
+              : finalizeEditableEmailHtml({
+                  html: content.draft.editableHtml,
+                  inlineAttachments: content.attachments,
+                }),
+          signatureHtml: blocks.has("signature")
+            ? content.draft.signatureHtml
+            : "",
+          quotedHtml: blocks.has("quote") ? content.draft.quotedHtml : "",
+        }),
+      };
+    },
+    save: async ({ hasNewAttachments, ...content }) => {
+      if (hasNewAttachments)
+        throw new Error(
+          "Drafts with newly added attachments are saved on this device until sent.",
+        );
+      const result = await updateDraftAction(selectedEmailAccountId, {
+        ...content,
+        draftMessageId: providerDraftMessageId!,
+        draftId: providerDraftId.current,
+      });
+      if (!result?.data) throw new Error(getActionErrorMessage(result ?? {}));
+      providerDraftId.current = result.data.draftId;
+      captureLocalDraft();
+      await flushDraft();
+    },
+  });
+  const { stop: stopProviderAutosave, resume: resumeProviderAutosave } =
+    providerAutosave;
+  const captureDraft = useCallback(
+    (options?: { sendAt?: string; remindAt?: string }) => {
+      captureLocalDraft(options);
+      providerAutosave.capture();
+    },
+    [captureLocalDraft, providerAutosave.capture],
+  );
+  useEffect(() => {
+    if (storedDraft?.content) captureDraft();
+  }, [storedDraft, captureDraft]);
   useEffect(() => {
     const subscription = watch(() => captureDraft());
     return () => subscription.unsubscribe();
@@ -632,6 +701,7 @@ function ComposeEmailFormContent({
         return;
       }
       setSubmissionError("");
+      await stopProviderAutosave();
       try {
         if (isInlineReply) {
           if (deliveryPath.current === "outbox" && (sendAt || remindAt)) {
@@ -763,11 +833,15 @@ function ComposeEmailFormContent({
           "Could not confirm delivery. Check the thread status before trying again.",
         );
         toastError({ description: "There was an error sending the email :(" });
+      } finally {
+        resumeProviderAutosave();
       }
 
       refetch?.();
     },
     [
+      stopProviderAutosave,
+      resumeProviderAutosave,
       initialDraft,
       isInlineReply,
       sendAt,
@@ -869,9 +943,14 @@ function ComposeEmailFormContent({
   const handleDiscard = useCallback(async () => {
     if (!onDiscard || isSubmitting) return;
     try {
-      if ((await onDiscard()) === false) return;
+      await stopProviderAutosave();
+      if ((await onDiscard(providerDraftId.current)) === false) {
+        resumeProviderAutosave();
+        return;
+      }
       await clearLocalDraft();
     } catch (error) {
+      resumeProviderAutosave();
       toastError({
         description:
           error instanceof Error
@@ -879,7 +958,13 @@ function ComposeEmailFormContent({
             : "Could not discard this draft.",
       });
     }
-  }, [clearLocalDraft, isSubmitting, onDiscard]);
+  }, [
+    clearLocalDraft,
+    isSubmitting,
+    onDiscard,
+    stopProviderAutosave,
+    resumeProviderAutosave,
+  ]);
 
   useShortcuts({
     send: (event) => {
@@ -1372,6 +1457,11 @@ function ComposeEmailFormContent({
           )}
         </div>
       </div>
+      {providerAutosave.error && (
+        <p role="alert" className="text-xs text-destructive">
+          {providerAutosave.error}
+        </p>
+      )}
       {isInlineReply && draftSaveError && (
         <p role="alert" className="text-xs text-destructive">
           {draftSaveError}

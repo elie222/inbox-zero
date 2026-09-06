@@ -959,6 +959,9 @@ export class GmailProvider implements EmailProvider {
     params: {
       messageHtml?: string;
       subject?: string;
+      to?: string;
+      cc?: string;
+      bcc?: string;
     },
   ): Promise<void> {
     this.logger.info("Updating Gmail draft", { draftId });
@@ -978,10 +981,10 @@ export class GmailProvider implements EmailProvider {
 
     const encodedMessage = await createMail({
       from: currentDraft.headers?.from,
-      to: currentDraft.headers?.to || "",
+      to: params.to ?? currentDraft.headers?.to ?? "",
       attachments,
-      cc: currentDraft.headers?.cc,
-      bcc: currentDraft.headers?.bcc,
+      cc: params.cc ?? currentDraft.headers?.cc,
+      bcc: params.bcc ?? currentDraft.headers?.bcc,
       replyTo: currentDraft.headers?.["reply-to"],
       subject,
       text: convertEmailHtmlToText({ htmlText: content }),

@@ -60,6 +60,29 @@ afterEach(() => {
   });
 });
 
+describe("OutlookProvider.updateDraft", () => {
+  it("clears draft fields and updates recipients", async () => {
+    const patch = vi.fn().mockResolvedValue({});
+    const client = createMockOutlookClient([]);
+    client.getClient = () => ({ api: () => ({ patch }) });
+    const provider = new OutlookProvider(client, createTestLogger());
+    await provider.updateDraft("draft-1", {
+      messageHtml: "",
+      subject: "",
+      to: "person@example.com",
+      cc: "",
+      bcc: "",
+    });
+    expect(patch).toHaveBeenCalledWith({
+      body: { contentType: "html", content: "" },
+      subject: "",
+      toRecipients: [{ emailAddress: { address: "person@example.com" } }],
+      ccRecipients: [],
+      bccRecipients: [],
+    });
+  });
+});
+
 describe("OutlookProvider.sendEmail", () => {
   it("returns the immutable provider message ID", async () => {
     outlookMailMock.sendEmailWithPlainText.mockResolvedValueOnce({

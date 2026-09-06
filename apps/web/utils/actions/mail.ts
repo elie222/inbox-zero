@@ -12,6 +12,7 @@ import {
   unarchiveThreadBody,
   untrashThreadBody,
   updateMailboxItemBody,
+  updateDraftBody,
 } from "@/utils/actions/mail.validation";
 import {
   isGoogleProvider,
@@ -417,20 +418,57 @@ export const sendEmailAction = actionClient
     },
   );
 
-export const deleteDraftAction = actionClient
-  .metadata({ name: "deleteDraft" })
-  .inputSchema(z.object({ draftMessageId: z.string() }))
+export const updateDraftAction = actionClient
+  .metadata({ name: "updateDraft" })
+  .inputSchema(updateDraftBody)
   .action(
     async ({
       ctx: { emailAccountId, provider: providerName, logger },
-      parsedInput: { draftMessageId },
+      parsedInput,
     }) => {
       const provider = await createEmailProvider({
         emailAccountId,
         provider: providerName,
         logger,
       });
-      const draft = await provider.getDraftReferenceForMessage(draftMessageId);
+      const draftId =
+        parsedInput.draftId ??
+        (await provider.getDraftReferenceForMessage(parsedInput.draftMessageId))
+          ?.id;
+      if (!draftId || !(await provider.getDraft(draftId)))
+        throw new SafeError("Could not find this draft to update.");
+      const {
+        draftMessageId: _messageId,
+        draftId: _draftId,
+        ...content
+      } = parsedInput;
+      await provider.updateDraft(draftId, content);
+      return { draftId };
+    },
+  );
+
+export const deleteDraftAction = actionClient
+  .metadata({ name: "deleteDraft" })
+  .inputSchema(
+    z.object({ draftMessageId: z.string(), draftId: z.string().optional() }),
+  )
+  .action(
+    async ({
+      ctx: { emailAccountId, provider: providerName, logger },
+      parsedInput: { draftMessageId, draftId },
+    }) => {
+      const provider = await createEmailProvider({
+        emailAccountId,
+        provider: providerName,
+        logger,
+      });
+      const draft = draftId
+        ? await provider
+            .getDraft(draftId)
+            .then((message) =>
+              message ? provider.getDraftReferenceForMessage(message.id) : null,
+            )
+        : await provider.getDraftReferenceForMessage(draftMessageId);
       if (!draft) {
         throw new SafeError("Could not find this draft to delete.");
       }

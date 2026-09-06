@@ -16,6 +16,7 @@ import {
 } from "./database";
 
 export type ReplyDraftContent = {
+  providerDraftId?: string;
   composeMode?: ReplyDraftMode;
   requestId?: string;
   deliveryPath?: "scheduled" | "outbox";

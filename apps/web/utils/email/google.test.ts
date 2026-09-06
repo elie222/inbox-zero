@@ -669,6 +669,9 @@ describe("GmailProvider.updateDraft", () => {
     await provider.updateDraft("r-123", {
       subject,
       messageHtml: "<p>Edited response.</p>",
+      to: "updated@example.com",
+      cc: "",
+      bcc: "",
     });
 
     expect(update).toHaveBeenCalledWith({
@@ -691,6 +694,8 @@ describe("GmailProvider.updateDraft", () => {
       "References: <root@example.com> <original@example.com>",
     );
     expect(decodedMessage).toContain("Edited response.");
+    expect(decodedMessage).toContain("To: updated@example.com");
+    expect(decodedMessage).not.toContain("To: sender@example.com");
   });
 });
 
