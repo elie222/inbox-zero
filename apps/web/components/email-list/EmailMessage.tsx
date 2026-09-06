@@ -121,6 +121,24 @@ export function EmailMessage({
     setShowDetails((prev) => !prev);
   }, []);
 
+  const onMessageKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLElement>) => {
+      if (
+        event.target !== event.currentTarget ||
+        (event.key !== "Enter" && event.key !== " ")
+      )
+        return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.key === "Enter" && expanded && showReplyButton) {
+        onReply();
+      } else {
+        onToggle?.();
+      }
+    },
+    [expanded, onReply, onToggle, showReplyButton],
+  );
+
   return (
     <li
       data-thread-message-id={message.id}
@@ -129,21 +147,7 @@ export function EmailMessage({
       aria-current={selected || undefined}
       onFocusCapture={onSelect}
       onClickCapture={onSelect}
-      onKeyDown={(event) => {
-        if (
-          event.target !== event.currentTarget ||
-          (event.key !== "Enter" && event.key !== " ")
-        )
-          return;
-        event.preventDefault();
-        event.stopPropagation();
-        if (event.key === "Enter" && showReplyButton) {
-          if (!expanded) onToggle?.();
-          onReply();
-        } else {
-          onToggle?.();
-        }
-      }}
+      onKeyDown={onMessageKeyDown}
       className={cn(
         "group/message min-w-0 border-l-2 border-transparent outline-none transition-colors focus-within:border-primary",
         selected && "border-primary",
@@ -159,6 +163,7 @@ export function EmailMessage({
         onOpenSenderContext={onOpenSenderContext}
         onReply={onReply}
         onToggle={onToggle}
+        onToggleKeyDown={onMessageKeyDown}
         showDetails={showDetails}
         showReplyButton={showReplyButton}
         toggleDetails={toggleDetails}
@@ -222,6 +227,7 @@ function MessageHeader({
   onForward,
   onOpenSenderContext,
   onToggle,
+  onToggleKeyDown,
   hasDraft,
 }: {
   message: ParsedMessage;
@@ -233,6 +239,7 @@ function MessageHeader({
   onForward: () => void;
   onOpenSenderContext?: (message: ThreadMessage) => void;
   onToggle?: () => void;
+  onToggleKeyDown: React.KeyboardEventHandler<HTMLElement>;
   hasDraft: boolean;
 }) {
   const { emailAccount, emailAccountId, userEmail } = useAccount();
@@ -271,20 +278,7 @@ function MessageHeader({
   const toggleProps: React.ComponentProps<"div"> | undefined = onToggle && {
     "aria-expanded": expanded,
     onClick: onToggle,
-    onKeyDown: (event: React.KeyboardEvent) => {
-      // Keydown bubbles, so without this the row would swallow Enter/Space
-      // aimed at the buttons nested inside it.
-      if (event.target !== event.currentTarget) return;
-      if (event.key !== "Enter" && event.key !== " ") return;
-      event.preventDefault();
-      event.stopPropagation();
-      if (event.key === "Enter" && showReplyButton) {
-        if (!expanded) onToggle();
-        onReply();
-      } else {
-        onToggle();
-      }
-    },
+    onKeyDown: onToggleKeyDown,
     role: "button",
     tabIndex: 0,
   };

@@ -906,7 +906,16 @@ export function MailShell() {
         if (openThreadId && event?.key === "ArrowUp") return;
         move(-1);
       },
-      open: openThreadId ? requestReaderReply : () => openAt(clampedIndex),
+      open: openThreadId
+        ? (event) => {
+            if (
+              event?.target instanceof Element &&
+              event.target.closest("[data-thread-message-id]")
+            )
+              return;
+            requestReaderReply();
+          }
+        : () => openAt(clampedIndex),
       backToList: isMailOverlayOpen
         ? undefined
         : () => {

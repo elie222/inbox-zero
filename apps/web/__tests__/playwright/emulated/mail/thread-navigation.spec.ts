@@ -127,3 +127,36 @@ test("navigates messages from inside a rich email body", async ({ page }) => {
     page.getByRole("textbox", { name: "Email message" }),
   ).toBeVisible();
 });
+
+test("expands a collapsed message before Enter opens a reply", async ({
+  page,
+}, testInfo) => {
+  const { emailAccountId } = await openMail(page);
+  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reader`, {
+    waitUntil: "domcontentloaded",
+  });
+
+  const message = page.locator("li[data-thread-message-id]").first();
+  const header = message.locator('[role="button"][aria-expanded]');
+  const editor = message.getByRole("textbox", { name: "Email message" });
+  await expect(header).toHaveAttribute("aria-expanded", "false");
+
+  await message.focus();
+  await page.keyboard.press("Enter");
+
+  await expect(header).toHaveAttribute("aria-expanded", "true");
+  await expect(message.locator(".animate-spin")).toHaveCount(0);
+  await expect(editor).toHaveCount(0);
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "collapsed-message-expanded-with-enter",
+  );
+
+  await message.focus();
+  await page.keyboard.press("Enter");
+  await expect(editor).toBeFocused();
+  await expect(
+    page.getByRole("textbox", { name: "Email message" }),
+  ).toHaveCount(1);
+});
