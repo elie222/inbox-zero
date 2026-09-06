@@ -54,7 +54,11 @@ export function LabelPickerDialog({
           ...label,
           displayName: getLabelDisplayName(label.id, label.name),
         }))
-        .sort((a, b) => a.displayName.localeCompare(b.displayName)),
+        .sort(
+          (a, b) =>
+            a.displayName.localeCompare(b.displayName, "en") ||
+            a.id.localeCompare(b.id, "en"),
+        ),
     [userLabels],
   );
   const canCreate =
