@@ -45,6 +45,11 @@ describe("shortcut registry", () => {
     expect(formatShortcutKeys(getShortcut("commandPalette"))).toBe("⌘K");
     expect(formatShortcutKeys(getShortcut("selectAll"))).toBe("⌘A");
     expect(formatShortcutKeys(getShortcut("send"))).toBe("⌘↵");
+    expect(formatShortcutKeys(getShortcut("sendAndMarkDone"))).toBe("⌘⇧↵");
+    expect(formatShortcutKeys(getShortcut("sendLater"))).toBe("⌘⇧L");
+    expect(formatShortcutKeys(getShortcut("remindMe"))).toBe("⌘⇧H");
+    expect(formatShortcutKeys(getShortcut("attachFiles"))).toBe("⌘⇧U");
+    expect(formatShortcutKeys(getShortcut("discardDraft"))).toBe("⌘⇧,");
     expect(formatShortcutKeys(getShortcut("backToApp"))).toBe("G A");
     expect(formatShortcutKeys(getShortcut("delete"))).toBe("#");
   });

@@ -216,10 +216,13 @@ function writeEmulateSeed({ baseURL, playwrightTestEmail, runId }) {
 function createReaderVisualMessage({ attachment, recipient }) {
   const boundary = "playwright-reader-visual-boundary";
   const html = [
+    '<!doctype html><html lang="en"><head><style>p { margin: 0 0 16px; }</style></head>',
+    '<body style="margin: 0; padding: 16px; background: #232326; color: #f4e9da; font-family: Arial, sans-serif">',
     "<div><p>The current reply stays concise and easy to scan.</p>",
     "<p>The attached image should appear as a preview below.</p></div>",
     '<div id="divRplyFwdMsg"><hr><div><b>From:</b> Previous sender</div></div>',
     "<div><p>This earlier quoted message is hidden until expanded.</p></div>",
+    "</body></html>",
   ].join("");
   const mime = [
     "From: Morgan Example <morgan@example.com>",

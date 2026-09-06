@@ -54,6 +54,37 @@ describe("useShortcuts", () => {
     expect(send).toHaveBeenCalledOnce();
   });
 
+  it("runs compose modifier shortcuts while the user is typing", () => {
+    const sendAndMarkDone = vi.fn();
+    const sendLater = vi.fn();
+    const remindMe = vi.fn();
+    const attachFiles = vi.fn();
+    const discardDraft = vi.fn();
+    renderShortcuts({
+      sendAndMarkDone,
+      sendLater,
+      remindMe,
+      attachFiles,
+      discardDraft,
+    });
+    const textbox = screen.getByRole("textbox");
+
+    press(
+      { key: "Enter", code: "Enter", ctrlKey: true, shiftKey: true },
+      textbox,
+    );
+    press({ key: "l", code: "KeyL", ctrlKey: true, shiftKey: true }, textbox);
+    press({ key: "h", code: "KeyH", ctrlKey: true, shiftKey: true }, textbox);
+    press({ key: "u", code: "KeyU", ctrlKey: true, shiftKey: true }, textbox);
+    press({ key: "<", code: "Comma", ctrlKey: true, shiftKey: true }, textbox);
+
+    expect(sendAndMarkDone).toHaveBeenCalledOnce();
+    expect(sendLater).toHaveBeenCalledOnce();
+    expect(remindMe).toHaveBeenCalledOnce();
+    expect(attachFiles).toHaveBeenCalledOnce();
+    expect(discardDraft).toHaveBeenCalledOnce();
+  });
+
   it("leaves Mod-K to an email editor's link control", () => {
     const commandPalette = vi.fn();
     renderShortcuts({ commandPalette }, MAIL_SCOPES, true);
@@ -66,10 +97,11 @@ describe("useShortcuts", () => {
     expect(commandPalette).not.toHaveBeenCalled();
   });
 
-  it("leaves Tab and Enter navigation inside dialogs to the browser", () => {
+  it("leaves dialog navigation keys to the browser", () => {
+    const backToList = vi.fn();
     const open = vi.fn();
     const nextSplit = vi.fn();
-    renderShortcuts({ nextSplit, open });
+    renderShortcuts({ backToList, nextSplit, open });
 
     const mailEvent = press({ key: "Tab", code: "Tab" });
     const mailOpenEvent = press({ key: "Enter", code: "Enter" });
@@ -81,13 +113,19 @@ describe("useShortcuts", () => {
       { key: "Enter", code: "Enter" },
       screen.getByRole("button", { name: "Dialog action" }),
     );
+    const dialogEscapeEvent = press(
+      { key: "Escape", code: "Escape" },
+      screen.getByRole("button", { name: "Dialog action" }),
+    );
 
     expect(nextSplit).toHaveBeenCalledOnce();
     expect(open).toHaveBeenCalledOnce();
+    expect(backToList).not.toHaveBeenCalled();
     expect(mailEvent.defaultPrevented).toBe(true);
     expect(mailOpenEvent.defaultPrevented).toBe(true);
     expect(dialogTabEvent.defaultPrevented).toBe(false);
     expect(dialogOpenEvent.defaultPrevented).toBe(false);
+    expect(dialogEscapeEvent.defaultPrevented).toBe(false);
   });
 
   it("ignores modified presses of a plain shortcut", () => {

@@ -29,6 +29,38 @@ describe("splitEmailContent", () => {
     });
   });
 
+  it("preserves document-level styles when collapsing quoted content", () => {
+    const result = splitEmailContent(
+      '<!doctype html><html><head><style>p { margin: 0; }</style></head><body style="background: #222; color: #eee"><p>Current reply</p><div class="gmail_quote">Earlier message</div></body></html>',
+    );
+    const parsedDocument = new DOMParser().parseFromString(
+      result.mainContent,
+      "text/html",
+    );
+
+    expect(result.hasQuotedContent).toBe(true);
+    expect(result.mainContent).toMatch(/^<!doctype html>/i);
+    expect(parsedDocument.body.getAttribute("style")).toBe(
+      "background: #222; color: #eee",
+    );
+    expect(parsedDocument.head.querySelector("style")?.textContent).toContain(
+      "p { margin: 0; }",
+    );
+    expect(parsedDocument.body.textContent).toBe("Current reply");
+  });
+
+  it("preserves legacy doctype identifiers when collapsing quoted content", () => {
+    const legacyDoctype =
+      '<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">';
+    const result = splitEmailContent(
+      `${legacyDoctype}<html><body><p>Current reply</p><div class="gmail_quote">Earlier message</div></body></html>`,
+    );
+
+    expect(result.mainContent).toMatch(
+      /^<!DOCTYPE html PUBLIC "-\/\/W3C\/\/DTD HTML 4\.01 Transitional\/\/EN" "http:\/\/www\.w3\.org\/TR\/html4\/loose\.dtd">/,
+    );
+  });
+
   it("collapses a provider-prefixed Outlook reply header and all later content", () => {
     const result = splitEmailContent(
       [

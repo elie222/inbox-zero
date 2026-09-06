@@ -54,6 +54,7 @@ export function EmailMessage({
   expanded,
   onToggle,
   onSendSuccess,
+  onMarkDone,
   onOpenSenderContext,
   hasDraft = false,
   selected,
@@ -69,6 +70,7 @@ export function EmailMessage({
   /** Absent when the thread has a single message, which never collapses. */
   onToggle?: () => void;
   onSendSuccess: (messageId: string, threadId: string) => void;
+  onMarkDone?: () => void;
   onOpenSenderContext?: (message: ThreadMessage) => void;
   hasDraft?: boolean;
   selected?: boolean;
@@ -193,6 +195,7 @@ export function EmailMessage({
               onCloseCompose={onCloseCompose}
               onRestoreCompose={onRestoreCompose}
               onSendSuccess={onSendSuccess}
+              onMarkDone={onMarkDone}
               onStartDiscard={onStartDiscard}
               refetch={refetch}
               composeMode={composeMode}
@@ -436,6 +439,7 @@ function ReplyPanel({
   message,
   refetch,
   onSendSuccess,
+  onMarkDone,
   onCloseCompose,
   onRestoreCompose,
   onStartDiscard,
@@ -446,6 +450,7 @@ function ReplyPanel({
   message: ParsedMessage;
   refetch: () => void;
   onSendSuccess: (messageId: string, threadId: string) => void;
+  onMarkDone?: () => void;
   onCloseCompose: () => void;
   onRestoreCompose: (composeSession: ComposeSession) => void;
   onStartDiscard: () => ComposeSession | undefined;
@@ -529,6 +534,7 @@ function ReplyPanel({
         draftSessionId={getReplyDraftSessionId(message.id, composeMode)}
         onClose={onCloseCompose}
         onDiscard={onDiscard}
+        onMarkDone={onMarkDone}
         onSuccess={(messageId: string, threadId: string) => {
           onSendSuccess(messageId, threadId);
           onCloseCompose();
