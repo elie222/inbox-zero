@@ -805,8 +805,14 @@ export function MailShell() {
         if (next) setActiveSplitId(next.id);
       },
       switchAccount: (event) => {
-        const accountIndex = Number(event?.key) - 1;
-        const account = accountsData?.emailAccounts[accountIndex];
+        const accountNumber = Number(event?.key);
+        if (
+          !Number.isInteger(accountNumber) ||
+          accountNumber < 1 ||
+          accountNumber > 9
+        )
+          return;
+        const account = accountsData?.emailAccounts.at(accountNumber - 1);
         if (account && account.id !== emailAccountId) selectAccount(account.id);
       },
       switchAllAccounts: selectAllAccounts,
