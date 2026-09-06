@@ -442,7 +442,6 @@ test("opens and sends a reply from the reader with Enter", async ({
 test("opens a sent forward in its provider thread", async ({
   page,
 }, testInfo) => {
-  await stubMailboxSync(page);
   const { emailAccountId } = await openMail(page);
   await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reply`);
   const sourceMessage = page.locator(

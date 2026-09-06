@@ -18,7 +18,7 @@ export function expandPlaywrightTargets(paths, appRoot) {
 function getSpecFiles(targetPath, appRoot) {
   const absolutePath = path.resolve(appRoot, targetPath);
   if (statSync(absolutePath).isFile()) {
-    return /\.spec\.[cm]?[jt]sx?$/.test(targetPath) ? [targetPath] : [];
+    return targetPath.endsWith(".spec.ts") ? [targetPath] : [];
   }
   return readdirSync(absolutePath, { withFileTypes: true }).flatMap((entry) =>
     getSpecFiles(`${targetPath}/${entry.name}`, appRoot),

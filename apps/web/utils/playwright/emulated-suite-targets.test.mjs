@@ -18,6 +18,8 @@ test("isolates every selected spec once, including nested specs and overlapping 
     "reply.spec.ts",
     "list.spec.ts",
     "helper.ts",
+    "unsupported.spec.tsx",
+    "unsupported.spec.js",
     "nested/offline.spec.ts",
   ]) {
     writeFileSync(path.join(appRoot, mail, file), "");

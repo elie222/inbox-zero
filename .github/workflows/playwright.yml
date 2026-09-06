@@ -80,8 +80,6 @@ jobs:
       changed_tests: ${{ steps.changes.outputs.PLAYWRIGHT_CHANGED_TEST_FILES }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
       - name: Find changed files
         id: changes
         env:
@@ -114,6 +112,9 @@ jobs:
             echo "$delimiter"
           } | tee -a "$GITHUB_ENV" >> "$GITHUB_OUTPUT"
 
+      # Checkout's recursive auth cleanup fails on this repository's unmapped gitlink.
+      - name: Remove checkout credentials
+        run: git config --local --unset-all "http.${GITHUB_SERVER_URL}/.extraheader"
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -192,8 +193,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          persist-credentials: false
+
+      - name: Remove checkout credentials
+        run: git config --local --unset-all "http.${GITHUB_SERVER_URL}/.extraheader"
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -250,8 +252,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
+      - name: Remove checkout credentials
+        run: git config --local --unset-all "http.${GITHUB_SERVER_URL}/.extraheader"
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
