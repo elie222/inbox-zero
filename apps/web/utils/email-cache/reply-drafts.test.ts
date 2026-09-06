@@ -13,6 +13,7 @@ import {
   createReplyDraftWriter,
   getReplyDraft,
   getReplyDrafts,
+  getReplyDraftSessionId,
   type ReplyDraftContent,
 } from "./reply-drafts";
 
@@ -20,6 +21,10 @@ const identity = {
   emailAccountId: "account",
   threadId: "thread",
   messageId: "parent",
+};
+const replyIdentity = {
+  ...identity,
+  messageId: getReplyDraftSessionId(identity.messageId, "reply"),
 };
 const content: ReplyDraftContent = {
   values: {
@@ -64,6 +69,25 @@ describe("local reply drafts", () => {
       "private@example.com",
     );
   });
+  it("keeps reply and forward sessions isolated for the same message", async () => {
+    const forwardIdentity = {
+      ...identity,
+      messageId: getReplyDraftSessionId(identity.messageId, "forward"),
+    };
+    await createReplyDraftWriter(replyIdentity).save(content);
+    await createReplyDraftWriter(forwardIdentity).save({
+      ...content,
+      values: { ...content.values, to: "" },
+      draft: { ...content.draft, editableHtml: "<p>Forward text</p>" },
+    });
+
+    expect(
+      (await getReplyDraft(replyIdentity))?.content?.draft.editableHtml,
+    ).toBe("<p>My reply</p>");
+    expect(
+      (await getReplyDraft(forwardIdentity))?.content?.draft.editableHtml,
+    ).toBe("<p>Forward text</p>");
+  });
   it("does not hydrate drafts from reads overlapping account cleanup", async () => {
     await createReplyDraftWriter(identity).save(content);
     const read = getReplyDraft(identity);
@@ -82,6 +106,10 @@ describe("local reply drafts", () => {
       messageIds: [identity.messageId],
       kind: "reply",
       email: {
+        replyToEmail: {
+          threadId: identity.threadId,
+          headerMessageId: "header-message-id",
+        },
         to: "person@example.com",
         subject: "Reply",
         messageHtml: "<p>Private draft</p>",
@@ -109,12 +137,23 @@ describe("local reply drafts", () => {
     await expect(stale.save(content)).rejects.toThrow("another tab");
     expect(await getReplyDrafts("account", "thread")).toEqual([]);
   });
+  it("does not leave a writer closed when clearing fails", async () => {
+    const stale = createReplyDraftWriter(identity);
+    await createReplyDraftWriter(identity).save(content);
+
+    await expect(stale.clear()).rejects.toThrow("another tab");
+    await expect(stale.save(content)).rejects.toThrow("another tab");
+  });
   it("restores a queued reply for editing atomically without losing its body", async () => {
     const queued = await enqueueMailMutation({
       ...identity,
       messageIds: [identity.messageId],
       kind: "reply",
       email: {
+        replyToEmail: {
+          threadId: identity.threadId,
+          headerMessageId: "header-message-id",
+        },
         to: "person@example.com",
         subject: "Reply",
         messageHtml: "<p>Keep this text</p>",
@@ -126,12 +165,42 @@ describe("local reply drafts", () => {
     await restoreReplyFromOutbox(queued.id, identity.emailAccountId);
     expect(await getMailMutation(queued.id)).toBeUndefined();
     expect(
-      (await getReplyDraft(identity))?.content?.draft.editableHtml,
+      (await getReplyDraft(replyIdentity))?.content?.draft.editableHtml,
     ).toContain("Keep this text");
     const attachments =
-      (await getReplyDraft(identity))?.content?.attachments ?? [];
+      (await getReplyDraft(replyIdentity))?.content?.attachments ?? [];
     expect(attachments).toHaveLength(1);
     expect(validateEmailAttachments(attachments).valid).toBe(true);
+  });
+  it("restores a queued forward into its forward session", async () => {
+    const queued = await enqueueMailMutation({
+      ...identity,
+      messageIds: [identity.messageId],
+      kind: "reply",
+      email: {
+        to: "person@example.com",
+        subject: "Fwd: Reply",
+        messageHtml: "<p>Forward this text</p>",
+      },
+    });
+
+    const restored = await restoreReplyFromOutbox(
+      queued.id,
+      identity.emailAccountId,
+    );
+
+    expect(restored).toEqual({
+      messageId: identity.messageId,
+      mode: "forward",
+    });
+    expect(
+      (
+        await getReplyDraft({
+          ...identity,
+          messageId: getReplyDraftSessionId(identity.messageId, "forward"),
+        })
+      )?.content,
+    ).toMatchObject({ composeMode: "forward" });
   });
   it("does not restore a reply already claimed for sending", async () => {
     const queued = await enqueueMailMutation({

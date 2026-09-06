@@ -130,7 +130,10 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
                 fromAccounts={accountsData?.emailAccounts}
                 layout="window"
                 onClose={closeCompose}
-                onDiscard={closeCompose}
+                onDiscard={() => {
+                  closeCompose();
+                  return true;
+                }}
                 onSuccess={closeCompose}
               />
             </div>

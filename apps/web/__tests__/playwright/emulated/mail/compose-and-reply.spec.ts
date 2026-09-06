@@ -377,6 +377,37 @@ test("opens and sends a reply from the reader with Enter", async ({
   await capturePlaywrightCheckpoint(page, testInfo, "reply-sent-in-thread");
 });
 
+test("keeps reply and forward drafts in separate composer sessions", async ({
+  page,
+}) => {
+  const { emailAccountId } = await openMail(page);
+  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reply`);
+  const message = page.locator(
+    '[data-thread-message-id="msg_playwright_reply"]',
+  );
+  await expect(message).toBeVisible();
+
+  await message.getByRole("button", { name: "Reply", exact: true }).click();
+  const editor = page.getByRole("textbox", { name: "Email message" });
+  await editor.fill("Reply-only draft text");
+
+  await message.getByRole("button", { name: "Forward", exact: true }).click();
+  await expect(editor).not.toContainText("Reply-only draft text");
+  await expect(message.getByRole("textbox", { name: "To" })).toHaveValue("");
+  await editor.fill("Forward-only draft text");
+
+  await message.getByRole("button", { name: "Reply", exact: true }).click();
+  await expect(editor).toContainText("Reply-only draft text");
+  await page.getByRole("button", { name: /^Draft to Leslie/ }).click();
+  await expect(message.getByRole("textbox", { name: "To" })).toHaveValue(
+    /leslie@example\.com/i,
+  );
+
+  await message.getByRole("button", { name: "Forward", exact: true }).click();
+  await expect(editor).toContainText("Forward-only draft text");
+  await expect(message.getByRole("textbox", { name: "To" })).toHaveValue("");
+});
+
 async function selectEditorText(editor: Locator, text: string) {
   await editor.evaluate((element, selectedText) => {
     const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
