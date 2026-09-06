@@ -49,6 +49,18 @@ describe("splitEmailContent", () => {
     expect(parsedDocument.body.textContent).toBe("Current reply");
   });
 
+  it("preserves legacy doctype identifiers when collapsing quoted content", () => {
+    const legacyDoctype =
+      '<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">';
+    const result = splitEmailContent(
+      `${legacyDoctype}<html><body><p>Current reply</p><div class="gmail_quote">Earlier message</div></body></html>`,
+    );
+
+    expect(result.mainContent).toMatch(
+      /^<!DOCTYPE html PUBLIC "-\/\/W3C\/\/DTD HTML 4\.01 Transitional\/\/EN" "http:\/\/www\.w3\.org\/TR\/html4\/loose\.dtd">/,
+    );
+  });
+
   it("collapses a provider-prefixed Outlook reply header and all later content", () => {
     const result = splitEmailContent(
       [

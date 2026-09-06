@@ -13,6 +13,19 @@ vi.mock("@/env", () => ({
 import { sanitizeEmailHtml } from "./prepare-html.client";
 
 describe("sanitizeEmailHtml", () => {
+  it("wraps and sanitizes email fragments as complete documents", () => {
+    const sanitized = sanitizeEmailHtml(
+      "<div onclick=\"alert('unsafe')\">Readable content</div>",
+    );
+    const parsedDocument = new DOMParser().parseFromString(
+      sanitized,
+      "text/html",
+    );
+
+    expect(sanitized).toMatch(/^<!doctype html><html><head><\/head><body>/i);
+    expect(parsedDocument.body.innerHTML).toBe("<div>Readable content</div>");
+  });
+
   it("preserves document-level styles used by email content", () => {
     const sanitized = sanitizeEmailHtml(`
       <!doctype html>

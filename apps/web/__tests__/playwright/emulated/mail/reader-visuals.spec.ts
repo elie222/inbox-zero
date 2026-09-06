@@ -28,6 +28,9 @@ test("captures the rich message reader states", async ({ page }, testInfo) => {
     "rgb(244, 233, 218)",
   );
   await expect(
+    emailFrame.getByText("The current reply stays concise and easy to scan."),
+  ).toHaveCSS("margin-bottom", "16px");
+  await expect(
     emailFrame.getByText(
       "This earlier quoted message is hidden until expanded.",
     ),

@@ -27,7 +27,9 @@ export function splitEmailContent(html: string): {
 
   let mainContent = doc.body.innerHTML;
   if (hasDocumentStructure) {
-    const documentType = doc.doctype ? `<!doctype ${doc.doctype.name}>` : "";
+    const documentType = doc.doctype
+      ? new XMLSerializer().serializeToString(doc.doctype)
+      : "";
     mainContent = `${documentType}${doc.documentElement.outerHTML}`;
   }
 
