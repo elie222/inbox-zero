@@ -1,0 +1,67 @@
+{
+  "account-selection.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/MailSidebar.tsx",
+    "app/(app)/[emailAccountId]/mail/use-combined-mail-threads.ts"
+  ],
+  "command-palette.spec.ts": [
+    "components/CommandK.tsx",
+    "store/command-palette.ts",
+    "app/(app)/[emailAccountId]/mail/snooze-command-palette.ts"
+  ],
+  "compose-and-reply.spec.ts": [
+    "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
+    "components/email-list/EmailThread.tsx"
+  ],
+  "layout.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/ThreadList.tsx",
+    "app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx"
+  ],
+  "local-cache.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/use-mailbox-sync.ts",
+    "app/(app)/[emailAccountId]/mail/use-mail-threads.ts",
+    "app/(app)/[emailAccountId]/mail/use-combined-mail-threads.ts",
+    "utils/email-cache/threads.ts"
+  ],
+  "manual-label.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx",
+    "app/(app)/[emailAccountId]/mail/MailLabelChip.tsx",
+    "app/(app)/[emailAccountId]/mail/ThreadActionsMenu.tsx"
+  ],
+  "navigation-and-views.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/MailSidebar.tsx",
+    "app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx",
+    "app/(app)/[emailAccountId]/mail/ShortcutsDialog.tsx"
+  ],
+  "offline-outbox.spec.ts": [
+    "app/(app)/MailMutationOutboxManager.tsx",
+    "utils/email-cache/mail-mutations.ts",
+    "components/email-list/ThreadDeliveryStatus.tsx"
+  ],
+  "plain-text-links.spec.ts": ["components/email-list/EmailMessage.tsx"],
+  "reader-visuals.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/ThreadReader.tsx"
+  ],
+  "scheduled-replies.spec.ts": [
+    "components/email-list/ThreadDeliveryStatus.tsx",
+    "components/email-list/EmailThread.tsx"
+  ],
+  "search.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/ListToolbar.tsx",
+    "app/(app)/[emailAccountId]/mail/use-mail-threads.ts"
+  ],
+  "split-tabs.spec.ts": ["app/(app)/[emailAccountId]/mail/SplitTabs.tsx"],
+  "thread-navigation.spec.ts": [
+    "components/email-list/EmailThread.tsx",
+    "app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx",
+    "app/(app)/[emailAccountId]/mail/use-adjacent-thread-prefetch.ts"
+  ],
+  "thread-states.spec.ts": [
+    "components/email-list/EmailThread.tsx",
+    "components/email-list/ThreadDeliveryStatus.tsx"
+  ],
+  "triage-actions.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/ListToolbar.tsx",
+    "app/(app)/[emailAccountId]/mail/use-thread-actions.ts",
+    "app/(app)/[emailAccountId]/mail/use-thread-selection.ts"
+  ]
+}

@@ -46,11 +46,32 @@ Playwright report.
 
 The emulated project runs when browser-facing files change in pull requests or
 on `main`, plus the daily schedule and manual dispatches. Pull requests run only
-the affected product areas. The selector traces imports from each tested Next.js
-route, combines those results with explicit product boundaries, and runs an
-entire area when its product code changes or only a spec when that spec changes.
+the affected product areas and features. The selector traces imports from each
+tested Next.js route and combines those results with explicit product boundaries.
+An area's optional `coverage.json` maps each spec filename to the app-relative
+component or hook entry points that its assertions and screenshots exercise.
+For example, the mail split-tabs spec owns `SplitTabs.tsx`; changes to that
+component or its imported split picker select the same spec. Multiple matching
+specs are combined, including any specs directly changed by the PR.
+
+Declare the feature being exercised, rather than its whole page or shell, and
+reuse existing specs and screenshot checkpoints. Shared app dependencies, route
+entry points, and area files with no matching feature keep the whole area.
+Missing entry points or a spec without a declaration also disable narrowing for
+that area. Areas without a manifest retain their existing selection behavior.
+Mail is the first area with feature declarations.
+
+On PRs, UI dependencies under `utils/` and `lib/` also trigger selection; unrelated
+utilities with no connection to tested routes are skipped. Unit-test changes
+alone do not select browser tests.
 Shared Playwright setup and configuration changes use the full suite. Pushes to
 `main`, scheduled runs, and manual runs also keep the full suite as a backstop.
+
+Run `node apps/web/scripts/measure-playwright-selection.mjs` from the repository
+root to record selected spec counts for representative changes. An optional
+first argument loads another selector module, allowing before/after comparisons
+against the same source tree. These are job-count measurements, not wall-clock
+predictions; see [the initial comparison](selection-comparison.md).
 
 CI captures the final state of every selected test, and tests can add
 intentional checkpoint screenshots for important intermediate states. Every
