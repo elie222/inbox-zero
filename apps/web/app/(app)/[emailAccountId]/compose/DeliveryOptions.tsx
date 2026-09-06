@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useImperativeHandle, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 import {
   CalendarDaysIcon,
   ChevronLeftIcon,
@@ -90,6 +90,12 @@ function DeliveryTimePicker({
   const [showCustom, setShowCustom] = useState(false);
   const isReminder = label === "Remind me";
   const earliest = Math.max(Date.now(), after ? new Date(after).getTime() : 0);
+  useEffect(() => {
+    if (!open) {
+      setCustom("");
+      setShowCustom(false);
+    }
+  }, [open]);
   const choose = (date: Date) => {
     onChange(date.toISOString());
     setShowCustom(false);
