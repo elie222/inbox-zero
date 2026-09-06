@@ -253,7 +253,11 @@ test("attaches files and discards a compose draft with shortcuts", async ({
   const attachButton = dialog.getByRole("button", { name: "Attach files" });
   await attachButton.hover();
   await expect(page.getByRole("tooltip")).toContainText("Attach files");
-  await expect(page.getByRole("tooltip").locator("kbd")).toHaveText("⌘⇧U");
+  await expect(page.getByRole("tooltip").locator("kbd")).toHaveText([
+    "⌘",
+    "shift",
+    "U",
+  ]);
   await capturePlaywrightCheckpoint(page, testInfo, "composer-shortcut-hint");
 
   const fileChooserPromise = page.waitForEvent("filechooser");
@@ -417,7 +421,13 @@ test("opens and sends a reply from the reader with Enter", async ({
   await sendButton.hover();
   const sendTooltip = page.getByRole("tooltip");
   await expect(sendTooltip).toContainText("Send and mark done");
-  await expect(sendTooltip.locator("kbd")).toHaveText(["⌘↵", "⌘⇧↵"]);
+  await expect(sendTooltip.locator("kbd")).toHaveText([
+    "⌘",
+    "enter",
+    "⌘",
+    "shift",
+    "enter",
+  ]);
   await capturePlaywrightCheckpoint(page, testInfo, "protected-quoted-reply");
   await sendButton.click();
 

@@ -417,6 +417,23 @@ export function getShortcutHint(id: ShortcutId): string {
   return formatShortcutKeys(getShortcut(id));
 }
 
+/**
+ * One label per key of the first binding, e.g. `["⌘", "shift", "enter"]`, for
+ * surfaces that render a key per block. Modifiers are spelled out because the
+ * stacked symbols (`⌘⇧↵`) are unreadable at tooltip size.
+ */
+export function getShortcutKeyLabels(id: ShortcutId): string[] {
+  const entry = getShortcut(id);
+  const [binding] = entry.display ?? entry.keys;
+
+  return binding
+    .split(SEQUENCE_SPLIT_KEY)
+    .flatMap((step) => step.split("+"))
+    .map(
+      (token) => KEY_WORDS[token] ?? KEY_SYMBOLS[token] ?? token.toUpperCase(),
+    );
+}
+
 /** Feeds ⌘K: an entry appears once its handler is registered. */
 export function buildShortcutPaletteCommands(
   handlers: ShortcutHandlers,
@@ -575,6 +592,19 @@ const KEY_SYMBOLS: Record<string, string> = {
   arrowdown: "↓",
   arrowleft: "←",
   arrowright: "→",
+};
+
+/** Overrides `KEY_SYMBOLS` where a word reads better than a symbol. */
+const KEY_WORDS: Record<string, string> = {
+  modorctrl: "⌘/ctrl",
+  ctrl: "ctrl",
+  alt: "option",
+  shift: "shift",
+  enter: "enter",
+  escape: "esc",
+  tab: "tab",
+  backspace: "delete",
+  space: "space",
 };
 
 function formatKey(key: string): string {
