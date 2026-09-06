@@ -1,5 +1,6 @@
 import LinkifyIt from "linkify-it";
 import tlds from "tlds";
+import { getSafeEmailLinkUrl } from "./safe-email-link-url";
 
 type PlainTextSegment =
   | { type: "text"; text: string }
@@ -15,7 +16,7 @@ export function linkifyPlainText(text: string): PlainTextSegment[] {
   let lastIndex = 0;
 
   for (const match of matches) {
-    const href = getSafeHref(match.url);
+    const href = getSafeEmailLinkUrl(match.url);
     if (!href) continue;
 
     if (match.index > lastIndex) {
@@ -30,13 +31,4 @@ export function linkifyPlainText(text: string): PlainTextSegment[] {
   }
 
   return segments.length ? segments : [{ type: "text", text }];
-}
-
-function getSafeHref(href: string) {
-  try {
-    const url = new URL(href);
-    return ["http:", "https:", "mailto:"].includes(url.protocol) ? href : null;
-  } catch {
-    return null;
-  }
 }

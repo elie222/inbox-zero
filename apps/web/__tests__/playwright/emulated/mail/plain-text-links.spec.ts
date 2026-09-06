@@ -1,10 +1,9 @@
 import { expect } from "@playwright/test";
 import type { ThreadResponse } from "@/app/api/threads/[id]/route";
-import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
 import { openMail } from "./mail-test-helpers";
 
-test("renders links in plain text messages", async ({ page }, testInfo) => {
+test("renders links in plain text messages", async ({ page }) => {
   await page.route("**/api/threads/thr_playwright_reader?**", async (route) => {
     const response = await route.fetch();
     const body: ThreadResponse = await response.json();
@@ -41,6 +40,4 @@ test("renders links in plain text messages", async ({ page }, testInfo) => {
   );
   await expect(domainLink).toHaveAttribute("target", "_blank");
   await expect(domainLink).toHaveAttribute("rel", "noopener noreferrer");
-
-  await capturePlaywrightCheckpoint(page, testInfo, "mail-reader-plain-links");
 });
