@@ -488,12 +488,17 @@ export function MailShell() {
     setReplyToMessageId(messageId);
   }, [openMessages, openReaderThreadKey, readerSelectionSettled]);
 
-  // The row, not the fetched thread: marking read patches the row optimistically,
-  // so it is the copy that stays in step. The fetch only stands in for a link
-  // straight into a conversation, where there is no row yet.
-  const isOpenThreadUnread = isThreadUnread(
-    openThread?.messages ?? openMessages,
-  );
+  // Let the fetched snapshot decide the initial read state. Once marking has
+  // been attempted, the optimistically patched row is the copy that stays in
+  // step while the fetched snapshot may still be stale.
+  const initialReadStateMessages = openMessages.length
+    ? openMessages
+    : (openThread?.messages ?? openMessages);
+  const readStateMessages =
+    readAttemptedForOpenThread.current === openThreadKey
+      ? (openThread?.messages ?? openMessages)
+      : initialReadStateMessages;
+  const isOpenThreadUnread = isThreadUnread(readStateMessages);
 
   const hrefFor = useCallback(
     (target: MailNavTarget) =>
