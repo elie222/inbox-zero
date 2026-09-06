@@ -34,6 +34,7 @@ import {
   type CSSProperties,
   useCallback,
   useEffect,
+  useId,
   useRef,
   useState,
 } from "react";
@@ -324,6 +325,7 @@ function ComposeEmailFormContent({
   const inlineImageInputRef = useRef<HTMLInputElement>(null);
   const sendAndMarkDoneButtonRef = useRef<HTMLButtonElement>(null);
   const deliveryOptionsRef = useRef<DeliveryOptionsHandle>(null);
+  const shortcutOwnerId = useId();
   const {
     register,
     getValues,
@@ -881,12 +883,19 @@ function ComposeEmailFormContent({
 
   useShortcuts({
     send: (event) => {
-      if (!isShortcutForForm(event, formRef.current) || isSubmitting) return;
+      if (
+        !isShortcutForForm(event, formRef.current, shortcutOwnerId) ||
+        isSubmitting
+      )
+        return;
       formRef.current?.requestSubmit();
     },
     sendAndMarkDone: onMarkDone
       ? (event) => {
-          if (!isShortcutForForm(event, formRef.current) || isSubmitting)
+          if (
+            !isShortcutForForm(event, formRef.current, shortcutOwnerId) ||
+            isSubmitting
+          )
             return;
           const submitter = sendAndMarkDoneButtonRef.current;
           if (submitter) formRef.current?.requestSubmit(submitter);
@@ -895,24 +904,29 @@ function ComposeEmailFormContent({
     sendLater:
       isInlineReply && !isSubmitting
         ? (event) => {
-            if (isShortcutForForm(event, formRef.current))
+            if (isShortcutForForm(event, formRef.current, shortcutOwnerId))
               deliveryOptionsRef.current?.open("sendLater");
           }
         : undefined,
     remindMe:
       isInlineReply && !isSubmitting
         ? (event) => {
-            if (isShortcutForForm(event, formRef.current))
+            if (isShortcutForForm(event, formRef.current, shortcutOwnerId))
               deliveryOptionsRef.current?.open("remindMe");
           }
         : undefined,
     attachFiles: (event) => {
-      if (isShortcutForForm(event, formRef.current))
-        attachmentInputRef.current?.click();
+      if (
+        !isShortcutForForm(event, formRef.current, shortcutOwnerId) ||
+        isSubmitting
+      )
+        return;
+      attachmentInputRef.current?.click();
     },
     discardDraft: onDiscard
       ? (event) => {
-          if (isShortcutForForm(event, formRef.current)) handleDiscard();
+          if (isShortcutForForm(event, formRef.current, shortcutOwnerId))
+            handleDiscard();
         }
       : undefined,
   });
@@ -1288,6 +1302,7 @@ function ComposeEmailFormContent({
               disabled={isSubmitting}
               onSendAtChange={handleSendAtChange}
               onRemindAtChange={handleRemindAtChange}
+              shortcutOwnerId={shortcutOwnerId}
             />
           )}
         </div>
@@ -1682,6 +1697,15 @@ function getQueuedEmailDescription(
 function isShortcutForForm(
   event: KeyboardEvent | undefined,
   form: HTMLFormElement | null,
+  shortcutOwnerId: string,
 ) {
-  return event?.target instanceof Node && Boolean(form?.contains(event.target));
+  if (!(event?.target instanceof Node)) return false;
+  if (form?.contains(event.target)) return true;
+  if (!(event.target instanceof Element)) return false;
+
+  return (
+    event.target
+      .closest("[data-compose-shortcut-owner]")
+      ?.getAttribute("data-compose-shortcut-owner") === shortcutOwnerId
+  );
 }

@@ -32,9 +32,17 @@ export const DeliveryOptions = forwardRef<
     disabled: boolean;
     onSendAtChange: (value: string) => void;
     onRemindAtChange: (value: string) => void;
+    shortcutOwnerId: string;
   }
 >(function DeliveryOptions(
-  { sendAt, remindAt, disabled, onSendAtChange, onRemindAtChange },
+  {
+    sendAt,
+    remindAt,
+    disabled,
+    onSendAtChange,
+    onRemindAtChange,
+    shortcutOwnerId,
+  },
   ref,
 ) {
   const [openOption, setOpenOption] = useState<"sendLater" | "remindMe" | null>(
@@ -52,6 +60,7 @@ export const DeliveryOptions = forwardRef<
         open={openOption === "sendLater"}
         onOpenChange={(open) => setOpenOption(open ? "sendLater" : null)}
         shortcut="sendLater"
+        shortcutOwnerId={shortcutOwnerId}
       />
       <DeliveryTimePicker
         label="Remind me"
@@ -62,6 +71,7 @@ export const DeliveryOptions = forwardRef<
         open={openOption === "remindMe"}
         onOpenChange={(open) => setOpenOption(open ? "remindMe" : null)}
         shortcut="remindMe"
+        shortcutOwnerId={shortcutOwnerId}
       />
     </>
   );
@@ -76,6 +86,7 @@ function DeliveryTimePicker({
   open,
   onOpenChange,
   shortcut,
+  shortcutOwnerId,
 }: {
   label: string;
   value: string;
@@ -85,6 +96,7 @@ function DeliveryTimePicker({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   shortcut: "sendLater" | "remindMe";
+  shortcutOwnerId: string;
 }) {
   const [custom, setCustom] = useState("");
   const [showCustom, setShowCustom] = useState(false);
@@ -138,6 +150,7 @@ function DeliveryTimePicker({
       <PopoverContent
         className="w-72 p-1"
         align="start"
+        data-compose-shortcut-owner={shortcutOwnerId}
         role="dialog"
         aria-label={label}
       >

@@ -401,10 +401,17 @@ test("opens and sends a reply from the reader with Enter", async ({
   await replyEditor.press("ControlOrMeta+Shift+l");
   await expect(page.getByRole("dialog", { name: "Send later" })).toBeVisible();
   await capturePlaywrightCheckpoint(page, testInfo, "send-later-shortcut");
+
+  await page.getByRole("button", { name: "Choose date and time" }).click();
+  await page
+    .getByLabel("Send later date and time")
+    .press("ControlOrMeta+Shift+h");
+  await expect(page.getByRole("dialog", { name: "Remind me" })).toBeVisible();
   await page.keyboard.press("Escape");
 
-  await replyEditor.press("ControlOrMeta+Shift+h");
-  await expect(page.getByRole("dialog", { name: "Remind me" })).toBeVisible();
+  await replyEditor.press("ControlOrMeta+Shift+l");
+  await expect(page.getByRole("dialog", { name: "Send later" })).toBeVisible();
+  await expect(page.getByLabel("Send later date and time")).toBeHidden();
   await page.keyboard.press("Escape");
 
   await sendButton.hover();
