@@ -23,13 +23,16 @@ export type MailCommandContext = {
   hasRead: boolean;
   hasUnread: boolean;
   openExternalLabel?: string;
+  target?: { emailAccountId: string; threadId: string };
   targetCount: number;
 };
 
 export type SenderCommandContext = {
+  emailAccountId: string;
   isAutoArchived: boolean;
   isAutoArchiveDisabled: boolean;
   isUnsubscribeDisabled: boolean;
+  threadId: string;
   toggleAutoArchive: () => void;
   unsubscribe: () => void;
 };

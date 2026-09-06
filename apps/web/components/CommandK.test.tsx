@@ -76,7 +76,7 @@ vi.mock("@/components/ui/command", () => ({
   CommandShortcut: () => null,
 }));
 
-describe("CommandK side-panel archive", () => {
+describe("CommandK side-panel actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     displayedEmail.threadId = "thread-1";

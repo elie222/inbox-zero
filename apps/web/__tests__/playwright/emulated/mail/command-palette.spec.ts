@@ -126,6 +126,9 @@ test("Command K acts on highlighted and selected conversations", async ({
     palette.getByRole("option", { name: "Archive conversation E" }),
   ).toBeVisible();
   await expect(
+    palette.getByRole("option", { name: "Forward F" }),
+  ).toBeVisible();
+  await expect(
     palette.getByRole("option", { name: "Mark as read" }),
   ).toBeVisible();
   await expect(palette.getByRole("option", { name: "Snooze H" })).toBeVisible();
@@ -274,6 +277,7 @@ test("the open reader exposes its actions in Command K and forwards with F", asy
   ).toBeVisible();
 
   await page.keyboard.press("Escape");
+  await expect(palette).toBeHidden();
   await page.keyboard.press("KeyF");
   await expect(page.getByRole("textbox", { name: "To" })).toBeVisible();
 });

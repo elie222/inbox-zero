@@ -497,6 +497,7 @@ export function MailShell() {
     const messageId = openMessages.at(-1)?.id;
     if (messageId) {
       pendingComposeRequest.current = null;
+      setForwardToMessageId(undefined);
       setReplyToMessageId(messageId);
       return;
     }
@@ -513,6 +514,7 @@ export function MailShell() {
     const messageId = openMessages.at(-1)?.id;
     if (messageId) {
       pendingComposeRequest.current = null;
+      setReplyToMessageId(undefined);
       setForwardToMessageId(messageId);
       return;
     }
@@ -537,8 +539,13 @@ export function MailShell() {
     if (!readerSelectionSettled || !messageId) return;
 
     pendingComposeRequest.current = null;
-    if (pendingRequest.mode === "reply") setReplyToMessageId(messageId);
-    else setForwardToMessageId(messageId);
+    if (pendingRequest.mode === "reply") {
+      setForwardToMessageId(undefined);
+      setReplyToMessageId(messageId);
+    } else {
+      setReplyToMessageId(undefined);
+      setForwardToMessageId(messageId);
+    }
   }, [openMessages, openReaderThreadKey, readerSelectionSettled]);
 
   // Let the fetched snapshot decide the initial read state. Once marking has
@@ -748,26 +755,48 @@ export function MailShell() {
     if (canLabel)
       setLabelPicker({ mode: "move", targets: currentLabelTargets });
   }, [canLabel, currentLabelTargets]);
+  const singleActionTarget =
+    actionTargets.length === 1 ? actionTargets.at(0) : undefined;
+  const requestForwardTarget = useCallback(() => {
+    if (!singleActionTarget) return;
+    if (singleActionTarget.key === openThreadKey) {
+      requestReaderForward();
+      return;
+    }
+
+    pendingComposeRequest.current = {
+      mode: "forward",
+      threadKey: singleActionTarget.key,
+    };
+    setReplyToMessageId(undefined);
+    setForwardToMessageId(undefined);
+    setOpenThread(singleActionTarget.selection);
+  }, [openThreadKey, requestReaderForward, setOpenThread, singleActionTarget]);
   const pickerAccount =
     labelPicker?.targets[0]?.emailAccountId === emailAccountId
       ? emailAccount
       : accountsData?.emailAccounts.find(
           (account) => account.id === labelPicker?.targets[0]?.emailAccountId,
         );
+  const isReaderTarget =
+    singleActionTarget !== undefined &&
+    singleActionTarget.key === openThreadKey;
 
   const mailCommandContext = useMemo(
     () => ({
       actions: {
         archive: archiveTargets,
-        forward: openThreadId ? requestReaderForward : undefined,
+        forward: singleActionTarget ? requestForwardTarget : undefined,
         label: canLabel ? openLabelPicker : undefined,
         markRead: markReadTargets,
         markSpam: markSpamTargets,
         markUnread: markUnreadTargets,
         move: canLabel ? openMovePicker : undefined,
-        openExternal: openExternalUrl
-          ? () => window.open(openExternalUrl, "_blank", "noopener,noreferrer")
-          : undefined,
+        openExternal:
+          isReaderTarget && openExternalUrl
+            ? () =>
+                window.open(openExternalUrl, "_blank", "noopener,noreferrer")
+            : undefined,
         snooze: snoozeTargets,
         trash: trashTargets,
       },
@@ -775,8 +804,15 @@ export function MailShell() {
       hasUnread: actionTargets.some((target) =>
         isThreadUnread(target.messages),
       ),
-      openExternalLabel: openExternalUrl
-        ? `Open in ${isMicrosoftProvider(readerEmailAccount?.account.provider) ? "Outlook" : "Gmail"}`
+      openExternalLabel:
+        isReaderTarget && openExternalUrl
+          ? `Open in ${isMicrosoftProvider(readerEmailAccount?.account.provider) ? "Outlook" : "Gmail"}`
+          : undefined,
+      target: singleActionTarget
+        ? {
+            emailAccountId: singleActionTarget.selection.emailAccountId,
+            threadId: singleActionTarget.selection.threadId,
+          }
         : undefined,
       targetCount: actionTargets.length,
     }),
@@ -784,15 +820,16 @@ export function MailShell() {
       archiveTargets,
       actionTargets,
       canLabel,
+      isReaderTarget,
       markReadTargets,
       markSpamTargets,
       markUnreadTargets,
       openLabelPicker,
       openMovePicker,
       openExternalUrl,
-      openThreadId,
       readerEmailAccount?.account.provider,
-      requestReaderForward,
+      requestForwardTarget,
+      singleActionTarget,
       snoozeTargets,
       trashTargets,
     ],
@@ -910,18 +947,20 @@ export function MailShell() {
       markUnread: markUnreadTargets,
       delete: trashTargets,
       reply: () => {
+        setForwardToMessageId(undefined);
         if (!openThreadId && focusedThread) {
           setOpenThread(getListThreadSelection(focusedThread, emailAccountId));
         }
         setReplyToMessageId(openMessages.at(-1)?.id);
       },
-      forward: openThreadId ? requestReaderForward : undefined,
+      forward: singleActionTarget ? requestForwardTarget : undefined,
       moreActions: openThreadId
         ? () => setIsMenuOpen((open) => !open)
         : undefined,
-      openExternal: openExternalUrl
-        ? () => window.open(openExternalUrl, "_blank", "noopener,noreferrer")
-        : undefined,
+      openExternal:
+        isReaderTarget && openExternalUrl
+          ? () => window.open(openExternalUrl, "_blank", "noopener,noreferrer")
+          : undefined,
       undo: () => undo(),
       toggleLayout: isAllAccounts ? undefined : toggleLayout,
       help: () => setIsHelpOpen(true),

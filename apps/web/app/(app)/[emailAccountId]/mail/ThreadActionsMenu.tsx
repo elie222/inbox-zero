@@ -97,7 +97,7 @@ export function ThreadActionsMenu({
   const hint = getShortcutHint("moreActions");
   const isCommandPaletteOpen = useAtomValue(commandPaletteOpenAtom);
   const setSenderCommandContext = useSetAtom(senderCommandContextAtom);
-  const { provider, userEmail } = useAccount();
+  const { emailAccountId, provider, userEmail } = useAccount();
   const {
     canManageAutoArchive,
     canUnsubscribe,
@@ -123,10 +123,12 @@ export function ThreadActionsMenu({
     () =>
       canManageAutoArchive
         ? {
+            emailAccountId,
             isAutoArchived,
             isAutoArchiveDisabled:
               isAutoArchiveStatusLoading || isUpdatingAutoArchive,
             isUnsubscribeDisabled: !canUnsubscribe,
+            threadId: message?.threadId ?? "",
             toggleAutoArchive: onToggleAutoArchive,
             unsubscribe: onUnsubscribe,
           }
@@ -134,11 +136,13 @@ export function ThreadActionsMenu({
     [
       canManageAutoArchive,
       canUnsubscribe,
+      emailAccountId,
       isAutoArchived,
       isAutoArchiveStatusLoading,
       isUpdatingAutoArchive,
       onToggleAutoArchive,
       onUnsubscribe,
+      message?.threadId,
     ],
   );
 

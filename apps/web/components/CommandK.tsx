@@ -75,13 +75,22 @@ function CommandPalette() {
   const senderCommandContext = useAtomValue(senderCommandContextAtom);
   const displayedEmail = useDisplayedEmail();
   const activeMailContext = displayedEmail.threadId ? null : mailCommandContext;
+  const senderContextMatchesTarget = Boolean(
+    activeMailContext?.target &&
+      senderCommandContext &&
+      activeMailContext.target.emailAccountId ===
+        senderCommandContext.emailAccountId &&
+      activeMailContext.target.threadId === senderCommandContext.threadId,
+  );
 
   return (
     <CommandPaletteContent
       key={activeMailContext ? "mail" : "default"}
       displayedEmail={displayedEmail}
       mailCommandContext={activeMailContext}
-      senderCommandContext={activeMailContext ? senderCommandContext : null}
+      senderCommandContext={
+        senderContextMatchesTarget ? senderCommandContext : null
+      }
     />
   );
 }
