@@ -18,6 +18,8 @@ type HotkeysEvent = Parameters<HotkeyCallback>[1];
 
 type SequenceTracker = ReturnType<typeof createSequencePrefixTracker>;
 
+const HOTKEYS_DELIMITER = "|";
+
 type ShortcutTarget =
   | { type: "entry"; entry: ShortcutEntry }
   | { type: "prefix"; key: string };
@@ -25,21 +27,27 @@ type ShortcutTarget =
 type ShortcutBucket = {
   scope: ShortcutScope;
   allowWhileTyping: boolean;
-  /** Comma separated hotkeys, the shape react-hotkeys-hook expects. */
-  keys: string;
+  capture: boolean;
+  /** Kept as entries so the comma key is distinct from the list delimiter. */
+  keys: string[];
   targets: Map<string, ShortcutTarget>;
 };
 
 // react-hotkeys-hook takes scope and typing behaviour per hook, so bindings are
 // registered as one hook per combination rather than one hook per shortcut.
 const BUCKET_SPECS = [
-  { scope: "global", allowWhileTyping: false },
-  { scope: "global", allowWhileTyping: true },
-  { scope: "mail", allowWhileTyping: false },
-  { scope: "mail", allowWhileTyping: true },
+  { scope: "global", allowWhileTyping: false, capture: false },
+  { scope: "global", allowWhileTyping: false, capture: true },
+  { scope: "global", allowWhileTyping: true, capture: false },
+  { scope: "global", allowWhileTyping: true, capture: true },
+  { scope: "mail", allowWhileTyping: false, capture: false },
+  { scope: "mail", allowWhileTyping: false, capture: true },
+  { scope: "mail", allowWhileTyping: true, capture: false },
+  { scope: "mail", allowWhileTyping: true, capture: true },
 ] as const satisfies readonly {
   scope: ShortcutScope;
   allowWhileTyping: boolean;
+  capture: boolean;
 }[];
 
 /**
@@ -62,6 +70,10 @@ export function useShortcuts(
   useShortcutBucket(buckets[1], handlersRef, sequence);
   useShortcutBucket(buckets[2], handlersRef, sequence);
   useShortcutBucket(buckets[3], handlersRef, sequence);
+  useShortcutBucket(buckets[4], handlersRef, sequence);
+  useShortcutBucket(buckets[5], handlersRef, sequence);
+  useShortcutBucket(buckets[6], handlersRef, sequence);
+  useShortcutBucket(buckets[7], handlersRef, sequence);
 }
 
 function useShortcutBucket(
@@ -114,12 +126,15 @@ function useShortcutBucket(
   );
 
   useHotkeys(bucket.keys, onHotkey, {
+    enabled: bucket.keys.length > 0,
     scopes: [bucket.scope],
     // Hotkeys are matched on the typed character so they survive keyboard
     // layouts that move `#` or `?`.
     useKey: true,
     enableOnFormTags: bucket.allowWhileTyping,
     enableOnContentEditable: bucket.allowWhileTyping,
+    delimiter: HOTKEYS_DELIMITER,
+    eventListenerOptions: bucket.capture ? { capture: true } : undefined,
     sequenceTimeoutMs: SEQUENCE_TIMEOUT_MS,
     preventDefault,
   });
@@ -146,6 +161,7 @@ function buildBuckets(signature: string): ShortcutBucket[] {
       if (!activeIds.has(entry.id)) continue;
       if (entry.scope !== spec.scope) continue;
       if (!!entry.allowWhileTyping !== spec.allowWhileTyping) continue;
+      if (!!entry.capture !== spec.capture) continue;
 
       for (const key of entry.keys) {
         targets.set(key, { type: "entry", entry });
@@ -160,7 +176,8 @@ function buildBuckets(signature: string): ShortcutBucket[] {
     return {
       scope: spec.scope,
       allowWhileTyping: spec.allowWhileTyping,
-      keys: [...targets.keys()].join(","),
+      capture: spec.capture,
+      keys: [...targets.keys()],
       targets,
     };
   });
@@ -183,7 +200,7 @@ function resolveTarget(
   }
   if (
     target?.type === "entry" &&
-    (target.entry.id === "open" || target.entry.id === "nextSplit") &&
+    ["backToList", "open", "nextSplit"].includes(target.entry.id) &&
     event.target instanceof Element &&
     event.target.closest('[role="dialog"]')
   ) {

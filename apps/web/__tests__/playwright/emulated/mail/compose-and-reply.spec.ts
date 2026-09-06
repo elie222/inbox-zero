@@ -242,6 +242,36 @@ test("does not add a line break for the send shortcut", async ({
   );
 });
 
+test("attaches files and discards a compose draft with shortcuts", async ({
+  page,
+}, testInfo) => {
+  await openMail(page);
+  await page.getByRole("button", { name: /^Compose/ }).click();
+
+  const dialog = page.getByRole("dialog", { name: "New Message" });
+  const editor = dialog.locator("[contenteditable='true']");
+  const attachButton = dialog.getByRole("button", { name: "Attach files" });
+  await attachButton.hover();
+  await expect(page.getByRole("tooltip")).toContainText("Attach files");
+  await expect(page.getByRole("tooltip").locator("kbd")).toHaveText("⌘⇧U");
+  await capturePlaywrightCheckpoint(page, testInfo, "composer-shortcut-hint");
+
+  const fileChooserPromise = page.waitForEvent("filechooser");
+  await editor.press("ControlOrMeta+Shift+u");
+  const fileChooser = await fileChooserPromise;
+  await fileChooser.setFiles({
+    name: "notes.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("Attachment contents"),
+  });
+  await expect(dialog.getByRole("list", { name: "Attachments" })).toContainText(
+    "notes.txt",
+  );
+
+  await editor.press("ControlOrMeta+Shift+,");
+  await expect(dialog).toBeHidden();
+});
+
 test("composes, sends, and reads a new message from Sent", async ({
   page,
 }, testInfo) => {
@@ -367,8 +397,27 @@ test("opens and sends a reply from the reader with Enter", async ({
   await expect(replyEditor).toContainText(replyBody);
   const sendButton = page.getByRole("button", { name: "Send", exact: true });
   await expect(sendButton).toHaveText("Send");
+
+  await replyEditor.press("ControlOrMeta+Shift+l");
+  await expect(page.getByRole("dialog", { name: "Send later" })).toBeVisible();
+  await capturePlaywrightCheckpoint(page, testInfo, "send-later-shortcut");
+
+  await page.getByRole("button", { name: "Choose date and time" }).click();
+  await page
+    .getByLabel("Send later date and time")
+    .press("ControlOrMeta+Shift+h");
+  await expect(page.getByRole("dialog", { name: "Remind me" })).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  await replyEditor.press("ControlOrMeta+Shift+l");
+  await expect(page.getByRole("dialog", { name: "Send later" })).toBeVisible();
+  await expect(page.getByLabel("Send later date and time")).toBeHidden();
+  await page.keyboard.press("Escape");
+
   await sendButton.hover();
-  await expect(page.getByRole("tooltip")).toHaveText(/(?:⌘|Ctrl)\+Enter/);
+  const sendTooltip = page.getByRole("tooltip");
+  await expect(sendTooltip).toContainText("Send and mark done");
+  await expect(sendTooltip.locator("kbd")).toHaveText(["⌘↵", "⌘⇧↵"]);
   await capturePlaywrightCheckpoint(page, testInfo, "protected-quoted-reply");
   await sendButton.click();
 

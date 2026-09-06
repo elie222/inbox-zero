@@ -22,6 +22,7 @@ export const SHORTCUT_GROUPS = [
   "Navigate",
   "Triage",
   "View",
+  "Compose",
   "Assistant & rules",
 ] as const;
 
@@ -61,6 +62,8 @@ export type ShortcutEntry = {
   allowWhileTyping?: boolean;
   /** Only available in the Electron shell, never in a browser tab. */
   desktopOnly?: boolean;
+  /** Handles the key before rich text editors can consume it. */
+  capture?: boolean;
   /** Present means the entry shows in ⌘K once a handler is registered. */
   palette?: ShortcutPalette;
   /** Fallback when no handler is injected at the call site. */
@@ -260,7 +263,7 @@ const SHORTCUT_DEFINITIONS = [
     id: "compose",
     keys: ["c"],
     scope: "global",
-    group: "Assistant & rules",
+    group: "Compose",
     label: "New message",
     palette: {
       section: "actions",
@@ -273,9 +276,56 @@ const SHORTCUT_DEFINITIONS = [
     id: "send",
     keys: ["mod+enter"],
     scope: "mail",
-    group: "Assistant & rules",
-    label: "Send reply",
+    group: "Compose",
+    label: "Send",
     allowWhileTyping: true,
+    capture: true,
+  },
+  {
+    id: "sendAndMarkDone",
+    keys: ["mod+shift+enter"],
+    scope: "mail",
+    group: "Compose",
+    label: "Send and mark done",
+    allowWhileTyping: true,
+    capture: true,
+  },
+  {
+    id: "sendLater",
+    keys: ["mod+shift+l"],
+    scope: "mail",
+    group: "Compose",
+    label: "Send later",
+    allowWhileTyping: true,
+    capture: true,
+  },
+  {
+    id: "remindMe",
+    keys: ["mod+shift+h"],
+    scope: "mail",
+    group: "Compose",
+    label: "Remind me",
+    allowWhileTyping: true,
+    capture: true,
+  },
+  {
+    id: "attachFiles",
+    keys: ["mod+shift+u"],
+    scope: "mail",
+    group: "Compose",
+    label: "Attach files",
+    allowWhileTyping: true,
+    capture: true,
+  },
+  {
+    id: "discardDraft",
+    keys: ["mod+shift+,", "mod+shift+<"],
+    display: ["mod+shift+,"],
+    scope: "mail",
+    group: "Compose",
+    label: "Discard draft",
+    allowWhileTyping: true,
+    capture: true,
   },
 ] as const satisfies readonly ShortcutEntry[];
 

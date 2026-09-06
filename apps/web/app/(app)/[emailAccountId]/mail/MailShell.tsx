@@ -1142,6 +1142,11 @@ export function MailShell() {
               onToggleAssistant={() => toggleSidebar(["chat-sidebar"])}
               showSidebarToggle={!isMailSidebarOpen}
               showLayoutToggle={!isAllAccounts}
+              selectedCount={selection.selectedCount}
+              onArchiveSelected={archiveTargets}
+              onDeleteSelected={trashTargets}
+              onLabelSelected={canLabel ? openLabelPicker : undefined}
+              onClearSelection={selection.clear}
             />
             {!isScoped && !searchQuery && (
               <SplitTabs
@@ -1180,10 +1185,6 @@ export function MailShell() {
                 onOpenThread={openAt}
                 onToggleSelect={selection.toggle}
                 onSelectRangeTo={selection.selectRangeTo}
-                onArchiveSelected={archiveTargets}
-                onDeleteSelected={trashTargets}
-                onLabelSelected={canLabel ? openLabelPicker : undefined}
-                onClearSelection={selection.clear}
                 showLoadMore={hasMore}
                 isLoadingMore={isLoadingMore}
                 onLoadMore={loadMore}
