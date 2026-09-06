@@ -73,6 +73,7 @@ afterEach(() => {
 it.each([
   "",
   "projects/project/topics/custom-mail",
+  "projects/project/topics/GoogMail~+%com",
 ])("deploys and provisions the same Google topic for override %s", async (configuredTopic) => {
   vi.stubEnv("GOOGLE_PUBSUB_TOPIC_NAME", configuredTopic);
   await runAwsSetup({
@@ -93,7 +94,9 @@ it.each([
     ([command, args]) =>
       command === "copilot" && args?.[0] === "svc" && args[1] === "deploy",
   );
-  expect(deployment).toBeGreaterThan(calls.indexOf(topicWrites[0]!));
+  const topicWrite = topicWrites[0];
+  if (!topicWrite) throw new Error("Expected the topic to be stored in SSM");
+  expect(deployment).toBeGreaterThan(calls.indexOf(topicWrite));
   const topicCreation = calls.findIndex(
     ([command, args]) =>
       command === "gcloud" &&
@@ -118,6 +121,11 @@ it.each([
 it.each([
   "projects/another-project/topics/mail",
   "invalid-topic",
+  "projects/project/topics/foo@bar",
+  "projects/project/topics/googmail",
+  "projects/project/topics/ab",
+  "projects/project/topics/1mail",
+  `projects/project/topics/${"m".repeat(256)}`,
 ])("rejects incompatible topic %s before cloud mutations", async (topic) => {
   vi.stubEnv("GOOGLE_PUBSUB_TOPIC_NAME", topic);
   await expect(
@@ -127,6 +135,56 @@ it.each([
       environment: "staging",
     }),
   ).rejects.toThrow(/GOOGLE_PUBSUB_TOPIC_NAME/);
+  expect(
+    vi
+      .mocked(spawnSync)
+      .mock.calls.some(
+        ([command, args]) =>
+          command === "copilot" && !args?.includes("--version"),
+      ),
+  ).toBe(false);
+  expect(
+    vi
+      .mocked(spawnSync)
+      .mock.calls.some(
+        ([command, args]) =>
+          command === "gcloud" &&
+          (args?.includes("pubsub") || args?.includes("iam")),
+      ),
+  ).toBe(false);
+});
+
+it("identifies an invalid topic derived from the app domain before deployment", async () => {
+  vi.mocked(p.text).mockResolvedValue("foo@bar");
+  await expect(
+    runAwsSetup({
+      profile: "test",
+      region: "us-east-1",
+      environment: "staging",
+    }),
+  ).rejects.toThrow(/topic derived from the app domain/);
+  expect(
+    vi
+      .mocked(spawnSync)
+      .mock.calls.some(
+        ([command, args]) =>
+          command === "copilot" && !args?.includes("--version"),
+      ),
+  ).toBe(false);
+});
+
+it("rejects a topic that makes the deployment subscription name too long", async () => {
+  vi.stubEnv(
+    "GOOGLE_PUBSUB_TOPIC_NAME",
+    `projects/project/topics/${"m".repeat(240)}`,
+  );
+  await expect(
+    runAwsSetup({
+      profile: "test",
+      region: "us-east-1",
+      environment: "staging",
+    }),
+  ).rejects.toThrow(/subscription name.*255/);
   expect(
     vi
       .mocked(spawnSync)

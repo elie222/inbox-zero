@@ -451,17 +451,36 @@ export async function runAwsSetup(options: AwsSetupOptions) {
     p.log.info("Google integration: Skipped (non-interactive mode)");
   }
 
+  const configuredPubsubTopic = process.env.GOOGLE_PUBSUB_TOPIC_NAME;
   const pubsubTopicName =
-    process.env.GOOGLE_PUBSUB_TOPIC_NAME ||
+    configuredPubsubTopic ||
     (googleConfig
       ? `projects/${googleConfig.projectId}/topics/${domain || "inbox-zero"}`
       : "projects/your-project-id/topics/inbox-zero-emails");
   const pubsubTopic = /^projects\/([^/\s]+)\/topics\/([^/\s]+)$/.exec(
     pubsubTopicName,
   );
+  const topicSource = configuredPubsubTopic
+    ? "GOOGLE_PUBSUB_TOPIC_NAME"
+    : "The Pub/Sub topic derived from the app domain";
   if (!pubsubTopic) {
     throw new Error(
-      "GOOGLE_PUBSUB_TOPIC_NAME must be projects/PROJECT_ID/topics/TOPIC_ID",
+      `${topicSource} must be projects/PROJECT_ID/topics/TOPIC_ID`,
+    );
+  }
+  const topicId = pubsubTopic[2];
+  if (
+    !/^[A-Za-z][A-Za-z0-9._~+%-]{2,254}$/.test(topicId) ||
+    topicId.startsWith("goog")
+  ) {
+    throw new Error(
+      `${topicSource} must use a 3–255 character topic ID starting with a letter, containing only letters, numbers, -_.~+%, and not starting with goog`,
+    );
+  }
+  const pubsubSubscriptionName = `${topicId}-${APP_NAME}-${envName}-subscription`;
+  if (configureGoogle && pubsubSubscriptionName.length > 255) {
+    throw new Error(
+      "The generated Pub/Sub subscription name exceeds 255 characters; choose a shorter topic ID or environment name",
     );
   }
   if (googleConfig && pubsubTopic[1] !== googleConfig.projectId) {
@@ -930,12 +949,11 @@ export async function runAwsSetup(options: AwsSetupOptions) {
     spinner.start("Configuring Google Cloud Pub/Sub...");
 
     const pubsubResult = await setupGooglePubSub({
-      appName: APP_NAME,
+      subscriptionName: pubsubSubscriptionName,
       projectId: googleConfig.projectId,
       webhookUrl,
-      topicName: pubsubTopic[2],
+      topicName: topicId,
       verificationToken: pubsubVerificationToken,
-      envName,
     });
 
     if (!pubsubResult.success) {

@@ -44,15 +44,13 @@ export function getWebhookUrl(
 }
 
 export async function setupGooglePubSub(params: {
-  appName: string;
+  subscriptionName: string;
   projectId: string;
   webhookUrl: string;
   topicName: string;
   verificationToken: string;
-  envName: string;
 }): Promise<{ success: boolean; error?: string }> {
-  const { appName, projectId, webhookUrl, topicName, envName } = params;
-  const subscriptionName = `${topicName}-${appName}-${envName}-subscription`;
+  const { subscriptionName, projectId, webhookUrl, topicName } = params;
 
   // Create topic (ignore if exists)
   spawnSync(

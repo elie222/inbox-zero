@@ -28,9 +28,8 @@ beforeEach(() => {
 describe("AWS Google push setup", () => {
   it("provisions OIDC authentication and a deployment-specific tokenized subscription", async () => {
     const options = {
-      appName: "app",
+      subscriptionName: "mail-app-staging-subscription",
       projectId: "project",
-      envName: "staging",
       topicName: "mail",
       webhookUrl: "https://gateway.example.com/api/google/webhook",
       verificationToken: "verification-token",
@@ -75,9 +74,8 @@ describe("AWS Google push setup", () => {
     expect(
       (
         await setupGooglePubSub({
-          appName: "app",
+          subscriptionName: "mail-app-staging-subscription",
           projectId: "project",
-          envName: "staging",
           topicName: "mail",
           webhookUrl: "https://gateway.example.com/api/google/webhook",
           verificationToken: "token",
@@ -93,7 +91,8 @@ describe("AWS Google push setup", () => {
 });
 
 it("waits and retries when a newly created service account is not visible yet", async () => {
-  const normal = vi.mocked(spawnSync).getMockImplementation()!;
+  const normal = vi.mocked(spawnSync).getMockImplementation();
+  if (!normal) throw new Error("Expected spawnSync mock implementation");
   let bindings = 0;
   vi.mocked(spawnSync).mockImplementation((command, args, options) => {
     if (
@@ -150,9 +149,8 @@ it("stops after bounded exponential retries and preserves the final error", asyn
 
 function setupOptions() {
   return {
-    appName: "app",
+    subscriptionName: "mail-app-staging-subscription",
     projectId: "project",
-    envName: "staging",
     topicName: "mail",
     webhookUrl: "https://gateway.example.com/api/google/webhook",
     verificationToken: "token",
@@ -166,7 +164,8 @@ function bindingCalls() {
     );
 }
 function mockBindingFailure(error: string) {
-  const normal = vi.mocked(spawnSync).getMockImplementation()!;
+  const normal = vi.mocked(spawnSync).getMockImplementation();
+  if (!normal) throw new Error("Expected spawnSync mock implementation");
   vi.mocked(spawnSync).mockImplementation((command, args, options) =>
     args?.includes("roles/iam.serviceAccountTokenCreator")
       ? ({
@@ -179,7 +178,8 @@ function mockBindingFailure(error: string) {
 }
 
 it("does not retry NOT_FOUND for an existing account", async () => {
-  const normal = vi.mocked(spawnSync).getMockImplementation()!;
+  const normal = vi.mocked(spawnSync).getMockImplementation();
+  if (!normal) throw new Error("Expected spawnSync mock implementation");
   vi.mocked(spawnSync).mockImplementation((command, args, options) => {
     if (args?.includes("service-accounts") && args.includes("create"))
       return {
