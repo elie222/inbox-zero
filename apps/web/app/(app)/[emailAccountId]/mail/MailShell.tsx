@@ -738,9 +738,14 @@ export function MailShell() {
 
   const selectAccount = useCallback((accountId: string) => {
     const params = new URLSearchParams(window.location.search);
+    const hasAccountScopedFilter =
+      params.has("labelId") || params.has("folderId");
     params.delete("accountScope");
     params.delete("thread-id");
     params.delete("thread-account-id");
+    params.delete("labelId");
+    params.delete("folderId");
+    if (hasAccountScopedFilter) params.delete("type");
     const query = params.toString();
     redirectToSafeUrl(`/${accountId}/mail${query ? `?${query}` : ""}`);
   }, []);
