@@ -234,14 +234,14 @@ describe("buildShortcutPaletteCommands", () => {
     const commands = buildShortcutPaletteCommands({ forward });
 
     expect(commands).toHaveLength(1);
-    expect(commands[0]).toMatchObject({
+    expect(commands.at(0)).toMatchObject({
       id: "forward",
       label: "Forward",
       section: "actions",
       shortcut: "F",
     });
 
-    commands[0].action();
+    commands.at(0)?.action();
     expect(forward).toHaveBeenCalledOnce();
   });
 });

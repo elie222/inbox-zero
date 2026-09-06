@@ -179,7 +179,10 @@ export function MailShell() {
   } | null>(null);
   const [replyToMessageId, setReplyToMessageId] = useState<string>();
   const [forwardToMessageId, setForwardToMessageId] = useState<string>();
-  const pendingReplyThreadKey = useRef<string | null>(null);
+  const pendingComposeRequest = useRef<{
+    mode: "reply" | "forward";
+    threadKey: string;
+  } | null>(null);
   const isMailSidebarOpen = openSidebars.includes("left-sidebar");
 
   useEffect(() => {
@@ -493,32 +496,49 @@ export function MailShell() {
   const requestReaderReply = useCallback(() => {
     const messageId = openMessages.at(-1)?.id;
     if (messageId) {
-      pendingReplyThreadKey.current = null;
+      pendingComposeRequest.current = null;
       setReplyToMessageId(messageId);
       return;
     }
 
-    pendingReplyThreadKey.current = openReaderThreadKey;
+    if (openReaderThreadKey) {
+      pendingComposeRequest.current = {
+        mode: "reply",
+        threadKey: openReaderThreadKey,
+      };
+    }
   }, [openMessages, openReaderThreadKey]);
 
   const requestReaderForward = useCallback(() => {
     const messageId = openMessages.at(-1)?.id;
-    if (messageId) setForwardToMessageId(messageId);
-  }, [openMessages]);
+    if (messageId) {
+      pendingComposeRequest.current = null;
+      setForwardToMessageId(messageId);
+      return;
+    }
+
+    if (openReaderThreadKey) {
+      pendingComposeRequest.current = {
+        mode: "forward",
+        threadKey: openReaderThreadKey,
+      };
+    }
+  }, [openMessages, openReaderThreadKey]);
 
   useEffect(() => {
-    const pendingThreadKey = pendingReplyThreadKey.current;
-    if (!pendingThreadKey) return;
-    if (pendingThreadKey !== openReaderThreadKey) {
-      pendingReplyThreadKey.current = null;
+    const pendingRequest = pendingComposeRequest.current;
+    if (!pendingRequest) return;
+    if (pendingRequest.threadKey !== openReaderThreadKey) {
+      pendingComposeRequest.current = null;
       return;
     }
 
     const messageId = openMessages.at(-1)?.id;
     if (!readerSelectionSettled || !messageId) return;
 
-    pendingReplyThreadKey.current = null;
-    setReplyToMessageId(messageId);
+    pendingComposeRequest.current = null;
+    if (pendingRequest.mode === "reply") setReplyToMessageId(messageId);
+    else setForwardToMessageId(messageId);
   }, [openMessages, openReaderThreadKey, readerSelectionSettled]);
 
   // Let the fetched snapshot decide the initial read state. Once marking has
