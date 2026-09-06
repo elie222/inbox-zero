@@ -1,4 +1,5 @@
 import he from "he";
+import { getSafeEmailLinkUrl } from "@/utils/email/safe-email-link-url";
 import { escapeHtml } from "@/utils/string";
 
 type RenderSafeLinksOptions = {
@@ -175,23 +176,6 @@ function getLinkDestinationLabel(url: string) {
   }
 
   return parsed.hostname.replace(WWW_PREFIX_REGEX, "");
-}
-
-function getSafeEmailLinkUrl(url: string) {
-  try {
-    const parsed = new URL(url);
-    if (
-      parsed.protocol !== "http:" &&
-      parsed.protocol !== "https:" &&
-      parsed.protocol !== "mailto:"
-    ) {
-      return null;
-    }
-
-    return parsed.toString();
-  } catch {
-    return null;
-  }
 }
 
 function stripHtmlTags(value: string) {

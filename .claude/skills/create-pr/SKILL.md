@@ -118,8 +118,9 @@ from an older commit.
 
 ## 5. Wait before every observation
 
-Run the full wait in the foreground. If the execution tool yields, poll that
-same process in slices no longer than 60 seconds until it exits.
+Before and after waiting, stop if the PR is no longer open. Run the full wait
+in the foreground. If the execution tool yields, poll that same process in
+slices no longer than 60 seconds until it exits.
 
 ```bash
 sleep <wait-seconds>
@@ -172,7 +173,8 @@ For each failure, open its logs or linked report. Use
 `gh run view <run-id> --log-failed` for GitHub Actions when available. Fix and
 validate failures caused by the PR. If a failure is unrelated or inaccessible,
 record the evidence and report the blocker without claiming the PR is clean.
-Do not rerun, approve, dismiss, or mutate an external check unless authorized.
+Do not start comparison runs or sync the base solely to make an unrelated
+failure pass. Do not mutate external checks unless authorized.
 
 ## 8. Address review comments
 

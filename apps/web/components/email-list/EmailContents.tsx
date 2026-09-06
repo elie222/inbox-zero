@@ -19,6 +19,7 @@ import {
   fetchAttachment,
   getAttachmentUrl,
 } from "@/utils/attachments/download";
+import { linkifyPlainText } from "@/utils/email/linkify-plain-text";
 import { splitEmailContent } from "@/utils/email/split-email-content.client";
 
 const SANS_FONT_STACK = `ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`;
@@ -159,13 +160,32 @@ export function HtmlEmail({
 }
 
 export function PlainEmail({ text }: { text: string }) {
+  const segments = useMemo(
+    () => linkifyPlainText(decodeHtmlEntities(text)),
+    [text],
+  );
+
   return (
     // `pre` keeps the sender's line breaks; the font stack keeps it readable.
     <pre
       className="whitespace-pre-wrap font-sans text-foreground"
       style={BODY_TYPE}
     >
-      {decodeHtmlEntities(text)}
+      {segments.map((segment, index) =>
+        segment.type === "link" ? (
+          <a
+            className="text-primary underline underline-offset-2"
+            href={segment.href}
+            key={`${segment.href}-${index}`}
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            {segment.text}
+          </a>
+        ) : (
+          segment.text
+        ),
+      )}
     </pre>
   );
 }

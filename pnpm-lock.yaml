@@ -506,6 +506,9 @@ importers:
       jsonrepair:
         specifier: 3.15.0
         version: 3.15.0
+      linkify-it:
+        specifier: 5.0.1
+        version: 5.0.1
       lodash:
         specifier: 4.18.1
         version: 4.18.1
@@ -635,6 +638,9 @@ importers:
       tailwindcss-animate:
         specifier: 1.0.7
         version: 1.0.7(tailwindcss@3.4.17)
+      tlds:
+        specifier: 1.261.0
+        version: 1.261.0
       tldts:
         specifier: 7.4.10
         version: 7.4.10
@@ -681,6 +687,9 @@ importers:
       '@types/jsdom':
         specifier: 28.0.3
         version: 28.0.3
+      '@types/linkify-it':
+        specifier: 5.0.0
+        version: 5.0.0
       '@types/lodash':
         specifier: 4.17.25
         version: 4.17.25
@@ -12297,6 +12306,10 @@ packages:
   tinyrainbow@3.1.0:
     resolution: {integrity: sha512-Bf+ILmBgretUrdJxzXM0SgXLZ3XfiaUuOj/IKQHuTXip+05Xn+uyEYdVg0kYDipTBcLrCVyUzAPz7QmArb0mmw==}
     engines: {node: '>=14.0.0'}
+
+  tlds@1.261.0:
+    resolution: {integrity: sha512-QXqwfEl9ddlGBaRFXIvNKK6OhipSiLXuRuLJX5DErz0o0Q0rYxulWLdFryTkV5PkdZct5iMInwYEGe/eR++1AA==}
+    hasBin: true
 
   tldts-core@6.1.86:
     resolution: {integrity: sha512-Je6p7pkk+KMzMv2XXKmAE3McmolOQFdxkKw0R8EYNr7sELW46JqnNeTX8ybPiQgvg1ymCoF8LXs5fzFaZvJPTA==}
@@ -26191,6 +26204,8 @@ snapshots:
       picomatch: 4.0.5
 
   tinyrainbow@3.1.0: {}
+
+  tlds@1.261.0: {}
 
   tldts-core@6.1.86: {}
 

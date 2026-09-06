@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { FolderInputIcon, PlusIcon, TagIcon } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { Loader2Icon } from "lucide-react";
 import { toast } from "sonner";
 import { LoadingContent } from "@/components/LoadingContent";
 import {
@@ -12,19 +12,21 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useLabels } from "@/hooks/useLabels";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { createLabelAction } from "@/utils/actions/mail";
 import { applyThreadLabelsAction } from "@/utils/actions/mail-label";
 import { applyThreadLabelsInBatches } from "@/utils/label/apply-thread-labels";
 import { getActionErrorMessage } from "@/utils/error";
+
+const GMAIL_CATEGORY_NAMES: Record<string, string> = {
+  CATEGORY_PERSONAL: "Personal",
+  CATEGORY_SOCIAL: "Social",
+  CATEGORY_PROMOTIONS: "Promotions",
+  CATEGORY_UPDATES: "Updates",
+  CATEGORY_FORUMS: "Forums",
+};
 
 export function LabelPickerDialog({
   threadIds,
@@ -46,10 +48,24 @@ export function LabelPickerDialog({
   const createdLabel = useRef<{ name: string; id: string } | null>(null);
   const isMove = mode === "move";
   const name = search.trim();
+  const labels = useMemo(
+    () =>
+      userLabels
+        .map((label) => ({
+          ...label,
+          displayName: getLabelDisplayName(label.id, label.name),
+        }))
+        .sort(
+          (a, b) =>
+            a.displayName.localeCompare(b.displayName, "en") ||
+            a.id.localeCompare(b.id, "en"),
+        ),
+    [userLabels],
+  );
   const canCreate =
     name.length > 0 &&
-    !userLabels.some(
-      (label) => label.name.toLowerCase() === name.toLowerCase(),
+    !labels.some(
+      (label) => label.displayName.toLowerCase() === name.toLowerCase(),
     );
 
   async function apply(labelId?: string) {
@@ -115,21 +131,19 @@ export function LabelPickerDialog({
       }}
     >
       <DialogContent
+        aria-describedby={undefined}
         className="gap-0 overflow-hidden p-0 sm:max-w-md"
+        hideCloseButton
         onEscapeKeyDown={(event) => event.stopPropagation()}
       >
-        <DialogHeader className="px-4 pt-4 pb-3">
-          <DialogTitle>
-            {isMove ? "Move conversations" : "Label conversations"}
-          </DialogTitle>
-          <DialogDescription>
-            {getDescription(mode, remainingThreadIds.length)}
-          </DialogDescription>
-        </DialogHeader>
-        <Command>
+        <DialogTitle className="sr-only">
+          {isMove ? "Move conversations" : "Label conversations"}
+        </DialogTitle>
+        <Command className="[&_[cmdk-input-wrapper]>svg]:hidden">
           <CommandInput
             aria-label="Search labels"
-            placeholder="Search or create a label…"
+            className="pr-8"
+            placeholder={isMove ? "Move to…" : "Label as…"}
             value={search}
             onValueChange={setSearch}
             disabled={isPending}
@@ -138,20 +152,15 @@ export function LabelPickerDialog({
             <CommandList aria-busy={isPending}>
               <CommandEmpty>No matching labels.</CommandEmpty>
               <CommandGroup>
-                {userLabels.map((label) => (
+                {labels.map((label) => (
                   <CommandItem
                     key={label.id}
                     value={label.id}
-                    keywords={[label.name]}
+                    keywords={[label.name, label.displayName]}
                     onSelect={() => apply(label.id)}
                     disabled={isPending}
                   >
-                    {isMove ? (
-                      <FolderInputIcon className="mr-2 size-4 shrink-0" />
-                    ) : (
-                      <TagIcon className="mr-2 size-4 shrink-0" />
-                    )}
-                    <span className="break-all">{label.name}</span>
+                    <span className="break-all">{label.displayName}</span>
                   </CommandItem>
                 ))}
                 {canCreate && (
@@ -160,8 +169,7 @@ export function LabelPickerDialog({
                     onSelect={() => apply()}
                     disabled={isPending}
                   >
-                    <PlusIcon className="mr-2 size-4 shrink-0" />
-                    <span className="break-all">Create and apply “{name}”</span>
+                    <span className="break-all">Create “{name}”</span>
                   </CommandItem>
                 )}
               </CommandGroup>
@@ -169,9 +177,15 @@ export function LabelPickerDialog({
           </LoadingContent>
         </Command>
         {isPending && (
-          <p className="px-4 py-2 text-muted-foreground text-sm" role="status">
-            {isMove ? "Moving…" : "Applying label…"}
-          </p>
+          <div
+            className="absolute top-3.5 right-3 text-muted-foreground"
+            role="status"
+          >
+            <Loader2Icon aria-hidden className="size-4 animate-spin" />
+            <span className="sr-only">
+              {isMove ? "Moving…" : "Applying label…"}
+            </span>
+          </div>
         )}
       </DialogContent>
     </Dialog>
@@ -192,13 +206,6 @@ function getPartialFailureMessage(mode: "label" | "move", count: number) {
   return `Couldn't ${action} ${count} conversation${plural}. Select a label to retry.`;
 }
 
-function getDescription(mode: "label" | "move", count: number) {
-  if (mode === "move") {
-    return count === 1
-      ? "Move this conversation out of the inbox and apply a label."
-      : `Move ${count} conversations out of the inbox and apply a label.`;
-  }
-  return count === 1
-    ? "Apply a label to this conversation. Conversations stay where they are."
-    : `Apply a label to ${count} conversations. Conversations stay where they are.`;
+function getLabelDisplayName(id: string, name: string) {
+  return GMAIL_CATEGORY_NAMES[id] ?? name;
 }
