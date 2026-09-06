@@ -84,7 +84,7 @@ export function SplitTabs({
           <div
             key={split.id}
             className={cn(
-              "flex items-center gap-1 rounded-full py-0.5 pr-1 pl-2.5 text-xs",
+              "relative flex items-center gap-1 rounded-full py-0.5 pr-1 pl-2.5 text-xs",
               active
                 ? "bg-primary/10 font-medium text-primary"
                 : "text-muted-foreground hover:bg-accent hover:text-foreground",
@@ -96,7 +96,7 @@ export function SplitTabs({
               data-split-tab
               onClick={() => onSelect(split.id)}
               aria-current={active ? "true" : undefined}
-              className="py-0.5 pr-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="py-0.5 pr-1.5 after:pointer-events-none after:absolute after:inset-0 after:rounded-full focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring"
             >
               {split.name}
             </button>
