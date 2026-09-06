@@ -66,8 +66,10 @@ describe("shortcut registry", () => {
     expect(formatShortcutKeys(getShortcut("discardDraft"))).toBe("⌘⇧,");
     expect(formatShortcutKeys(getShortcut("backToApp"))).toBe("G A");
     expect(formatShortcutKeys(getShortcut("delete"))).toBe("#");
-    expect(formatShortcutKeys(getShortcut("switchAccount"))).toBe("⌘1–9");
-    expect(formatShortcutKeys(getShortcut("switchAllAccounts"))).toBe("⌘0");
+    expect(formatShortcutKeys(getShortcut("switchAccount"))).toBe("⌘/Ctrl+1–9");
+    expect(formatShortcutKeys(getShortcut("switchAllAccounts"))).toBe(
+      "⌘/Ctrl+0",
+    );
   });
 });
 

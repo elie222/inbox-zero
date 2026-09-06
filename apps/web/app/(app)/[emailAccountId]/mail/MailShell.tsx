@@ -807,7 +807,7 @@ export function MailShell() {
       switchAccount: (event) => {
         const accountIndex = Number(event?.key) - 1;
         const account = accountsData?.emailAccounts[accountIndex];
-        if (account) selectAccount(account.id);
+        if (account && account.id !== emailAccountId) selectAccount(account.id);
       },
       switchAllAccounts: selectAllAccounts,
       select: () => selection.toggle(clampedIndex),

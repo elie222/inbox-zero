@@ -120,7 +120,7 @@ const SHORTCUT_DEFINITIONS = [
       "mod+8",
       "mod+9",
     ],
-    display: ["mod+1–9"],
+    display: ["modorctrl+1–9"],
     scope: "mail",
     group: "Navigate",
     label: "Switch account",
@@ -130,6 +130,7 @@ const SHORTCUT_DEFINITIONS = [
   {
     id: "switchAllAccounts",
     keys: ["mod+0"],
+    display: ["modorctrl+0"],
     scope: "mail",
     group: "Navigate",
     label: "All accounts",
@@ -530,6 +531,7 @@ if (process.env.NODE_ENV === "production") {
 
 const KEY_SYMBOLS: Record<string, string> = {
   mod: "⌘",
+  modorctrl: "⌘/Ctrl+",
   meta: "⌘",
   ctrl: "⌃",
   alt: "⌥",
