@@ -371,6 +371,7 @@ describe("confirmAssistantCreateRule", () => {
       confirmationState: "confirmed",
       ruleId: "rule-created-by-other-request",
     });
+    expect(prisma.chatMessage.updateMany).toHaveBeenCalledTimes(1);
     expect(createRuleMock).not.toHaveBeenCalled();
   });
 });

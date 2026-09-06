@@ -1561,6 +1561,7 @@ describe("confirmAssistantSaveMemory", () => {
       confirmationState: "confirmed",
       confirmationResult,
     });
+    expect(prisma.chatMessage.updateMany).toHaveBeenCalledTimes(1);
     expect(prisma.chatMemory.findFirst).not.toHaveBeenCalled();
     expect(prisma.chatMemory.create).not.toHaveBeenCalled();
   });
