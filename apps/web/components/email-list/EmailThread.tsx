@@ -10,6 +10,7 @@ import { useReplyDrafts } from "@/hooks/useReplyDrafts";
 import { ThreadDeliveryStatus } from "@/components/email-list/ThreadDeliveryStatus";
 import { Button } from "@/components/ui/button";
 import {
+  getReplyDraftMode,
   getReplyDraftSessionId,
   type ReplyDraftMode,
 } from "@/utils/email-cache/reply-drafts";
@@ -295,7 +296,7 @@ function getLocalDraftMode(drafts: StoredReplyDraft[], messageId: string) {
   if (!latest) return;
   return latest.messageId === getReplyDraftSessionId(messageId, "forward")
     ? ("forward" as const)
-    : ("reply" as const);
+    : getReplyDraftMode(latest);
 }
 
 function getDefaultComposeMode({

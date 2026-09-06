@@ -81,6 +81,33 @@ export async function getReplyDraft(identity: ReplyDraftIdentity) {
   return draft;
 }
 
+export async function getReplyDraftForSession(
+  identity: ReplyDraftIdentity,
+  legacyIdentity?: ReplyDraftIdentity,
+) {
+  const draft = await getReplyDraft(identity);
+  if (draft || !legacyIdentity) return draft;
+
+  const legacyDraft = await getReplyDraft(legacyIdentity);
+  if (!legacyDraft?.content || getReplyDraftMode(legacyDraft) !== "forward")
+    return;
+
+  await createReplyDraftWriter(identity).save({
+    ...legacyDraft.content,
+    composeMode: "forward",
+  });
+  await createReplyDraftWriter(legacyIdentity, legacyDraft.revision)
+    .clear()
+    .catch(() => {});
+  return getReplyDraft(identity);
+}
+
+export function getReplyDraftMode(draft: StoredReplyDraft) {
+  if (!draft.content) return;
+  if (draft.content.composeMode) return draft.content.composeMode;
+  return draft.content.values.replyToEmail ? "reply" : "forward";
+}
+
 export async function getReplyDrafts(emailAccountId: string, threadId: string) {
   const epoch = captureEmailCacheEpoch(emailAccountId);
   const database = await getEmailCacheDatabase();

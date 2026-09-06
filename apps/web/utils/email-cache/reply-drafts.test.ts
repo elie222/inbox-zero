@@ -12,6 +12,7 @@ import {
   restoreReplyFromOutbox,
   createReplyDraftWriter,
   getReplyDraft,
+  getReplyDraftForSession,
   getReplyDrafts,
   getReplyDraftSessionId,
   type ReplyDraftContent,
@@ -87,6 +88,19 @@ describe("local reply drafts", () => {
     expect(
       (await getReplyDraft(forwardIdentity))?.content?.draft.editableHtml,
     ).toBe("<p>Forward text</p>");
+  });
+  it("migrates a legacy forward draft to its separate session", async () => {
+    const forwardIdentity = {
+      ...identity,
+      messageId: getReplyDraftSessionId(identity.messageId, "forward"),
+    };
+    await createReplyDraftWriter(identity).save(content);
+
+    const migrated = await getReplyDraftForSession(forwardIdentity, identity);
+
+    expect(migrated?.content).toMatchObject({ composeMode: "forward" });
+    expect(migrated?.content?.draft.editableHtml).toBe("<p>My reply</p>");
+    expect((await getReplyDraft(identity))?.content).toBeNull();
   });
   it("does not hydrate drafts from reads overlapping account cleanup", async () => {
     await createReplyDraftWriter(identity).save(content);

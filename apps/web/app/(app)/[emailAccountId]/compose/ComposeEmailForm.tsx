@@ -161,6 +161,15 @@ export function ComposeEmailForm(props: ComposeEmailFormProps) {
           messageId: props.draftSessionId,
         }
       : undefined,
+    props.draftMode === "forward" &&
+      props.draftKeyMessageId &&
+      props.replyingToEmail?.threadId
+      ? {
+          emailAccountId: selectedEmailAccountId,
+          threadId: props.replyingToEmail.threadId,
+          messageId: props.draftKeyMessageId,
+        }
+      : undefined,
   );
   return (
     <LoadingContent error={error} loading={isLoading || localDraft.isLoading}>
@@ -1268,7 +1277,14 @@ function ComposeEmailFormContent({
                 try {
                   if ((await onDiscard()) === false) return;
                   await clearLocalDraft();
-                } catch {}
+                } catch (error) {
+                  toastError({
+                    description:
+                      error instanceof Error
+                        ? error.message
+                        : "Could not discard this draft.",
+                  });
+                }
               }}
               size={isComposeWindow ? "iconSm" : "icon"}
               title="Discard draft"

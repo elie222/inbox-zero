@@ -71,7 +71,11 @@ export function useReplyDraftPersistence({
       const content = getContentRef.current(deliveryTimes);
       if (!content) return;
       const snapshot = getReplyDraftSnapshot(content);
-      if (snapshot === latestSnapshot.current) return;
+      if (
+        snapshot === latestSnapshot.current &&
+        snapshot === queuedSnapshot.current
+      )
+        return;
 
       latest.current = content;
       latestSnapshot.current = snapshot;
