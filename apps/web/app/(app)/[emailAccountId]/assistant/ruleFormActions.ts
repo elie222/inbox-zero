@@ -125,8 +125,7 @@ function preservePersistedActionIds(
       ? actions.findIndex(
           (candidate) =>
             candidate.id === originalAction.id &&
-            candidate.type === originalAction.type &&
-            candidate.messagingChannelId === originalAction.messagingChannelId,
+            hasSamePersistedIdentity(candidate, originalAction),
         )
       : -1;
 
@@ -142,6 +141,22 @@ function preservePersistedActionIds(
       ? action
       : { ...action, id: undefined };
   });
+}
+
+function hasSamePersistedIdentity(
+  action: RuleFormAction,
+  originalAction: RuleFormAction,
+) {
+  const [normalizedAction] = normalizeDraftReplyActions([action]);
+  const [normalizedOriginalAction] = normalizeDraftReplyActions([
+    originalAction,
+  ]);
+
+  return (
+    normalizedAction?.type === normalizedOriginalAction?.type &&
+    normalizedAction?.messagingChannelId ===
+      normalizedOriginalAction?.messagingChannelId
+  );
 }
 
 function restorePersistedActionSequence({

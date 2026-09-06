@@ -128,26 +128,25 @@ describe("rule form action conversion", () => {
   });
 
   it("creates newly added draft destinations without duplicating a persisted id", () => {
-    const originalActions = [
-      {
-        id: "action-draft",
-        type: ActionType.DRAFT_EMAIL,
-        content: { value: "Draft response", setManually: true },
-        delayInMinutes: 30,
-      },
-      {
-        id: "action-label",
-        type: ActionType.LABEL,
-        labelId: { value: "label-1", name: "Follow up" },
-      },
-    ];
+    const draftAction = {
+      id: "action-draft",
+      type: ActionType.DRAFT_EMAIL,
+      content: { value: "Draft response", setManually: true },
+      delayInMinutes: 30,
+    };
+    const labelAction = {
+      id: "action-label",
+      type: ActionType.LABEL,
+      labelId: { value: "label-1", name: "Follow up" },
+    };
+    const originalActions = [draftAction, labelAction];
 
     const persistedActions = buildPersistedRuleActions({
       formActions: [
-        originalActions[1],
-        originalActions[0],
+        labelAction,
+        draftAction,
         {
-          ...originalActions[0],
+          ...draftAction,
           type: ActionType.DRAFT_MESSAGING_CHANNEL,
           messagingChannelId: "cmessagingchannel1234567890123",
         },
@@ -163,7 +162,7 @@ describe("rule form action conversion", () => {
       "action-label",
       undefined,
     ]);
-    expect(persistedActions[2]).toEqual(
+    expect(persistedActions.at(2)).toEqual(
       expect.objectContaining({
         type: ActionType.DRAFT_MESSAGING_CHANNEL,
         messagingChannelId: "cmessagingchannel1234567890123",
@@ -173,30 +172,29 @@ describe("rule form action conversion", () => {
   });
 
   it("keeps a messaging draft id on its existing destination when adding email", () => {
-    const originalActions = [
-      {
-        id: "action-chat-draft",
-        type: ActionType.DRAFT_MESSAGING_CHANNEL,
-        messagingChannelId: "cmessagingchannel1234567890123",
-        content: { value: "Draft response", setManually: true },
-        delayInMinutes: 30,
-      },
-      {
-        id: "action-label",
-        type: ActionType.LABEL,
-        labelId: { value: "label-1", name: "Follow up" },
-      },
-    ];
+    const chatDraftAction = {
+      id: "action-chat-draft",
+      type: ActionType.DRAFT_MESSAGING_CHANNEL,
+      messagingChannelId: "cmessagingchannel1234567890123",
+      content: { value: "Draft response", setManually: true },
+      delayInMinutes: 30,
+    };
+    const labelAction = {
+      id: "action-label",
+      type: ActionType.LABEL,
+      labelId: { value: "label-1", name: "Follow up" },
+    };
+    const originalActions = [chatDraftAction, labelAction];
 
     const persistedActions = buildPersistedRuleActions({
       formActions: [
-        originalActions[1],
+        labelAction,
         {
-          ...originalActions[0],
+          ...chatDraftAction,
           type: ActionType.DRAFT_EMAIL,
           messagingChannelId: null,
         },
-        originalActions[0],
+        chatDraftAction,
       ],
       originalActions,
       includeDigestAction: false,
@@ -206,6 +204,50 @@ describe("rule form action conversion", () => {
 
     expect(persistedActions.map((action) => action.id)).toEqual([
       "action-chat-draft",
+      "action-label",
+      undefined,
+    ]);
+    expect(persistedActions.map((action) => action.type)).toEqual([
+      ActionType.DRAFT_MESSAGING_CHANNEL,
+      ActionType.LABEL,
+      ActionType.DRAFT_EMAIL,
+    ]);
+  });
+
+  it("keeps a legacy channel-targeted draft id on its normalized destination", () => {
+    const legacyChatDraftAction = {
+      id: "action-legacy-chat-draft",
+      type: ActionType.DRAFT_EMAIL,
+      messagingChannelId: "cmessagingchannel1234567890123",
+      content: { value: "Draft response", setManually: true },
+    };
+    const labelAction = {
+      id: "action-label",
+      type: ActionType.LABEL,
+      labelId: { value: "label-1", name: "Follow up" },
+    };
+
+    const persistedActions = buildPersistedRuleActions({
+      formActions: [
+        labelAction,
+        {
+          ...legacyChatDraftAction,
+          type: ActionType.DRAFT_EMAIL,
+          messagingChannelId: null,
+        },
+        {
+          ...legacyChatDraftAction,
+          type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        },
+      ],
+      originalActions: [legacyChatDraftAction, labelAction],
+      includeDigestAction: false,
+      notifyMessagingChannelId: null,
+      webhookActionsEnabled: true,
+    });
+
+    expect(persistedActions.map((action) => action.id)).toEqual([
+      "action-legacy-chat-draft",
       "action-label",
       undefined,
     ]);
