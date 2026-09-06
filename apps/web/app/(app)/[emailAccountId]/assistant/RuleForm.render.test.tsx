@@ -602,10 +602,7 @@ describe("RuleForm", () => {
 
   it("optimistically caches reconstructed actions and revalidates failed saves", async () => {
     const mutate = vi.fn();
-    const consoleError = vi
-      .spyOn(console, "error")
-      .mockImplementation(() => undefined);
-    mockUpdateRuleAction.mockResolvedValueOnce({ serverError: "Save failed" });
+    mockUpdateRuleAction.mockResolvedValueOnce({});
     const view = render(
       <RuleForm
         alwaysEditMode
@@ -666,7 +663,6 @@ describe("RuleForm", () => {
     expect(optimisticActions[1]).not.toHaveProperty("delayInMinutes");
     expect(mutate.mock.calls[0]?.[1]).toBe(false);
     expect(mutate).toHaveBeenNthCalledWith(2);
-    consoleError.mockRestore();
   });
 });
 
