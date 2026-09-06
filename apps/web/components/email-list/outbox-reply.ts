@@ -1,13 +1,13 @@
 import type { StoredMailMutation } from "@/utils/email-cache/database";
 import { rewriteInlineImageSources } from "@/utils/email/inline-images";
 import type { ParsedMessage } from "@/utils/types";
-import type { SendEmailBody } from "@/utils/types/mail";
+import { sendEmailBody } from "@/utils/types/mail";
 
-export function getOutboxReplyMessage(
+export function getOutboxReplyPreview(
   row: StoredMailMutation,
   messageIds: string[],
   userEmail: string,
-): ParsedMessage | undefined {
+) {
   const result = row.result as
     | { messageId?: string; threadId?: string }
     | undefined;
@@ -18,7 +18,15 @@ export function getOutboxReplyMessage(
   )
     return;
 
-  const { email } = row.payload as { email: SendEmailBody };
+  if (
+    !row.payload ||
+    typeof row.payload !== "object" ||
+    !("email" in row.payload)
+  )
+    return;
+  const parsed = sendEmailBody.safeParse(row.payload.email);
+  if (!parsed.success) return;
+  const email = parsed.data;
   const date = new Date(row.createdAt).toISOString();
   const inlineSources = Object.fromEntries(
     (email.attachments ?? []).flatMap((attachment) =>
@@ -32,7 +40,7 @@ export function getOutboxReplyMessage(
         : [],
     ),
   );
-  return {
+  const message: ParsedMessage = {
     id: `outbox:${row.id}`,
     threadId: row.threadId,
     date,
@@ -52,4 +60,5 @@ export function getOutboxReplyMessage(
     inline: [],
     labelIds: row.status === "succeeded" ? ["SENT"] : [],
   };
+  return { message, attachments: email.attachments ?? [] };
 }

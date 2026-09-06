@@ -32,9 +32,8 @@ import {
 import { getActionErrorMessage } from "@/utils/error";
 import { getLatestScheduledSendId } from "@/components/email-list/latest-scheduled-send";
 import { EmailMessage } from "@/components/email-list/EmailMessage";
-import { getOutboxReplyMessage } from "@/components/email-list/outbox-reply";
+import { getOutboxReplyPreview } from "@/components/email-list/outbox-reply";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import type { SendEmailBody } from "@/utils/types/mail";
 
 export function ThreadDeliveryStatus({
   emailAccountId,
@@ -157,35 +156,33 @@ export function ThreadDeliveryStatus({
         .filter((row, index) => row.status !== "succeeded" || index === 0)
         .map((row) => ({
           row,
-          message: getOutboxReplyMessage(row, messageIds, userEmail),
-          attachments:
-            (row.payload as { email: SendEmailBody }).email.attachments ?? [],
+          preview: getOutboxReplyPreview(row, messageIds, userEmail),
         }))
-        .filter(({ row, message }) => row.status !== "succeeded" || message)
+        .filter(({ row, preview }) => row.status !== "succeeded" || preview)
         .reverse(),
     [outbox, messageIds, userEmail],
   );
   return (
     <section className="space-y-1" aria-label="Reply delivery status">
-      {visible.map(({ row, message, attachments }) => (
+      {visible.map(({ row, preview }) => (
         <div key={row.id}>
-          {message && (
+          {preview && (
             <>
               <ul>
                 <EmailMessage
-                  message={message}
+                  message={preview.message}
                   expanded
                   showReplyButton={false}
                   refetch={refetch}
                   onSendSuccess={refetch}
                 />
               </ul>
-              {attachments.length > 0 && (
+              {preview.attachments.length > 0 && (
                 <ul
                   aria-label="Attachments"
                   className="flex flex-wrap gap-3 px-2 sm:pl-14 text-sm"
                 >
-                  {attachments.map((attachment, index) => (
+                  {preview.attachments.map((attachment, index) => (
                     <li key={attachment.id ?? index}>
                       <a
                         className="underline underline-offset-4"
