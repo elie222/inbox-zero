@@ -54,7 +54,8 @@ export const setDefaultMailSplitsBody = z.object({ enabled: z.boolean() });
 export type SetDefaultMailSplitsBody = z.infer<typeof setDefaultMailSplitsBody>;
 
 export const updateMailPreferencesBody = z.object({
-  layout: z.nativeEnum(MailLayout),
+  layout: z.nativeEnum(MailLayout).optional(),
+  expandedPreview: z.boolean().optional(),
 });
 export type UpdateMailPreferencesBody = z.infer<
   typeof updateMailPreferencesBody
