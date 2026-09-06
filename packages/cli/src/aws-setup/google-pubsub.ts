@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { setupPubSubSubscription } from "../google-pubsub";
-import { putSsmParameterWithTags, runAwsCommand } from "./aws-cli";
+import { runAwsCommand } from "./aws-cli";
 
 export function getWebhookUrl(
   appName: string,
@@ -43,17 +43,15 @@ export function getWebhookUrl(
   return urlResult.stdout.trim();
 }
 
-export function setupGooglePubSub(params: {
+export async function setupGooglePubSub(params: {
   appName: string;
   projectId: string;
   webhookUrl: string;
   topicName: string;
   verificationToken: string;
   envName: string;
-  env: NodeJS.ProcessEnv;
-}): { success: boolean; error?: string } {
-  const { appName, projectId, webhookUrl, topicName, envName, env } = params;
-  const fullTopicName = `projects/${projectId}/topics/${topicName}`;
+}): Promise<{ success: boolean; error?: string }> {
+  const { appName, projectId, webhookUrl, topicName, envName } = params;
   const subscriptionName = `${topicName}-${appName}-${envName}-subscription`;
 
   // Create topic (ignore if exists)
@@ -123,29 +121,38 @@ export function setupGooglePubSub(params: {
       error: "Failed to read project number for Pub/Sub authentication",
     };
   }
-  const tokenResult = spawnSync(
-    "gcloud",
-    [
-      "iam",
-      "service-accounts",
-      "add-iam-policy-binding",
-      serviceAccount,
-      "--member",
-      `serviceAccount:service-${projectNumber}@gcp-sa-pubsub.iam.gserviceaccount.com`,
-      "--role",
-      "roles/iam.serviceAccountTokenCreator",
-      "--project",
-      projectId,
-    ],
-    { stdio: "pipe" },
-  );
-  if (tokenResult.status !== 0) {
-    return {
-      success: false,
-      error:
-        tokenResult.stderr?.toString() ||
-        "Failed to authorize Pub/Sub OIDC tokens",
-    };
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const tokenResult = spawnSync(
+      "gcloud",
+      [
+        "iam",
+        "service-accounts",
+        "add-iam-policy-binding",
+        serviceAccount,
+        "--member",
+        `serviceAccount:service-${projectNumber}@gcp-sa-pubsub.iam.gserviceaccount.com`,
+        "--role",
+        "roles/iam.serviceAccountTokenCreator",
+        "--project",
+        projectId,
+      ],
+      { stdio: "pipe" },
+    );
+    if (tokenResult.status === 0) break;
+    const error =
+      tokenResult.stderr?.toString() ||
+      "Failed to authorize Pub/Sub OIDC tokens";
+    const transient =
+      /\b(INTERNAL|UNAVAILABLE|DEADLINE_EXCEEDED|ABORTED)\b/.test(error) ||
+      (accountResult.status === 0 && /\bNOT_FOUND\b/.test(error));
+    if (!transient || attempt === 7) return { success: false, error };
+    // Newly created IAM accounts can take over a minute to become visible.
+    await new Promise((resolve) =>
+      setTimeout(
+        resolve,
+        Math.min((2 ** attempt + Math.random()) * 1000, 32_000),
+      ),
+    );
   }
 
   const endpoint = new URL(webhookUrl);
@@ -158,19 +165,6 @@ export function setupGooglePubSub(params: {
     { serviceAccount, audience: webhookUrl },
   );
   if (!subResult.success) return subResult;
-
-  const topicResult = putSsmParameterWithTags({
-    env,
-    appName,
-    envName,
-    name: `/copilot/${appName}/${envName}/secrets/GOOGLE_PUBSUB_TOPIC_NAME`,
-    value: fullTopicName,
-    type: "SecureString",
-    errorMessage: "Failed to store Pub/Sub topic name in SSM",
-  });
-  if (!topicResult.success) {
-    return { success: false, error: topicResult.error };
-  }
 
   return { success: true };
 }

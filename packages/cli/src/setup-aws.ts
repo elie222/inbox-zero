@@ -451,6 +451,25 @@ export async function runAwsSetup(options: AwsSetupOptions) {
     p.log.info("Google integration: Skipped (non-interactive mode)");
   }
 
+  const pubsubTopicName =
+    process.env.GOOGLE_PUBSUB_TOPIC_NAME ||
+    (googleConfig
+      ? `projects/${googleConfig.projectId}/topics/${domain || "inbox-zero"}`
+      : "projects/your-project-id/topics/inbox-zero-emails");
+  const pubsubTopic = /^projects\/([^/\s]+)\/topics\/([^/\s]+)$/.exec(
+    pubsubTopicName,
+  );
+  if (!pubsubTopic) {
+    throw new Error(
+      "GOOGLE_PUBSUB_TOPIC_NAME must be projects/PROJECT_ID/topics/TOPIC_ID",
+    );
+  }
+  if (googleConfig && pubsubTopic[1] !== googleConfig.projectId) {
+    throw new Error(
+      "GOOGLE_PUBSUB_TOPIC_NAME must belong to the selected Google Cloud project",
+    );
+  }
+
   // Step 11: Select LLM provider
   let llmProvider: string;
   let llmApiKey = "";
@@ -616,11 +635,6 @@ export async function runAwsSetup(options: AwsSetupOptions) {
     );
   }
 
-  const pubsubTopicName =
-    process.env.GOOGLE_PUBSUB_TOPIC_NAME ||
-    (googleConfig?.projectId
-      ? `projects/${googleConfig.projectId}/topics/inbox-zero-emails`
-      : "projects/your-project-id/topics/inbox-zero-emails");
   secrets.push({ name: "GOOGLE_PUBSUB_TOPIC_NAME", value: pubsubTopicName });
 
   if (bedrockCredentials) {
@@ -915,14 +929,13 @@ export async function runAwsSetup(options: AwsSetupOptions) {
   if (configureGoogle && googleConfig && webhookUrl) {
     spinner.start("Configuring Google Cloud Pub/Sub...");
 
-    const pubsubResult = setupGooglePubSub({
+    const pubsubResult = await setupGooglePubSub({
       appName: APP_NAME,
       projectId: googleConfig.projectId,
       webhookUrl,
-      topicName: domain || "inbox-zero",
+      topicName: pubsubTopic[2],
       verificationToken: pubsubVerificationToken,
       envName,
-      env,
     });
 
     if (!pubsubResult.success) {
