@@ -127,6 +127,14 @@ describe("local reply drafts", () => {
     );
 
     expect(migrated?.content).toMatchObject({ composeMode: "reply" });
+    expect(migrated?.content?.draft.editableHtml).toBe("<p>My reply</p>");
+    expect(migrated?.content?.values).toMatchObject({
+      to: "someone@example.com",
+      replyToEmail: {
+        threadId: identity.threadId,
+        headerMessageId: "header-message-id",
+      },
+    });
     expect((await getReplyDraft(identity))?.content).toBeNull();
   });
   it("does not hydrate drafts from reads overlapping account cleanup", async () => {
