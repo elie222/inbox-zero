@@ -54,6 +54,42 @@ describe("useShortcuts", () => {
     expect(send).toHaveBeenCalledOnce();
   });
 
+  it("runs modified account shortcuts while the user is typing", () => {
+    const switchAccount = vi.fn();
+    const switchAllAccounts = vi.fn();
+    renderShortcuts(
+      { switchAccount, switchAllAccounts },
+      MAIL_SCOPES,
+      false,
+      true,
+    );
+    const textbox = screen.getByRole("textbox");
+
+    const accountEvent = press(
+      { key: "2", code: "Digit2", ctrlKey: true },
+      textbox,
+    );
+    const allAccountsEvent = press(
+      { key: "0", code: "Digit0", ctrlKey: true },
+      textbox,
+    );
+
+    expect(switchAccount).toHaveBeenCalledWith(accountEvent);
+    expect(switchAllAccounts).toHaveBeenCalledWith(allAccountsEvent);
+    expect(accountEvent.defaultPrevented).toBe(true);
+    expect(allAccountsEvent.defaultPrevented).toBe(true);
+  });
+
+  it("leaves desktop account shortcuts inert in the web app", () => {
+    const switchAccount = vi.fn();
+    renderShortcuts({ switchAccount });
+
+    const event = press({ key: "1", code: "Digit1", ctrlKey: true });
+
+    expect(switchAccount).not.toHaveBeenCalled();
+    expect(event.defaultPrevented).toBe(false);
+  });
+
   it("leaves Mod-K to an email editor's link control", () => {
     const commandPalette = vi.fn();
     renderShortcuts({ commandPalette }, MAIL_SCOPES, true);
@@ -163,10 +199,11 @@ function renderShortcuts(
   handlers: ShortcutHandlers,
   scopes: ShortcutScope[] = MAIL_SCOPES,
   withEmailEditor = false,
+  isDesktopApp = false,
 ) {
   return render(
     <ShortcutsProvider scopes={scopes}>
-      <Bindings handlers={handlers} />
+      <Bindings handlers={handlers} isDesktopApp={isDesktopApp} />
       <textarea />
       <div aria-label="Test dialog" role="dialog">
         <button type="button">Dialog action</button>
@@ -185,8 +222,14 @@ function renderShortcuts(
   );
 }
 
-function Bindings({ handlers }: { handlers: ShortcutHandlers }) {
-  useShortcuts(handlers);
+function Bindings({
+  handlers,
+  isDesktopApp,
+}: {
+  handlers: ShortcutHandlers;
+  isDesktopApp: boolean;
+}) {
+  useShortcuts(handlers, { isDesktopApp });
   return null;
 }
 

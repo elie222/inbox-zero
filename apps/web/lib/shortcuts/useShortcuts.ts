@@ -43,16 +43,19 @@ const BUCKET_SPECS = [
 }[];
 
 /**
- * Binds the registry entries the caller supplies a handler for. A shortcut with
- * no handler stays unbound, so its key keeps its browser default.
+ * Binds the registry entries the caller supplies a handler for. Entries without
+ * a handler and desktop-only entries outside Electron keep their browser default.
  */
-export function useShortcuts(handlers: ShortcutHandlers): void {
+export function useShortcuts(
+  handlers: ShortcutHandlers,
+  { isDesktopApp = false }: { isDesktopApp?: boolean } = {},
+): void {
   const handlersRef = useRef(handlers);
   handlersRef.current = handlers;
 
   const [sequence] = useState(createSequencePrefixTracker);
 
-  const signature = activeShortcutIds(handlers).join(",");
+  const signature = activeShortcutIds(handlers, isDesktopApp).join(",");
   const buckets = useMemo(() => buildBuckets(signature), [signature]);
 
   useShortcutBucket(buckets[0], handlersRef, sequence);
@@ -122,9 +125,14 @@ function useShortcutBucket(
   });
 }
 
-function activeShortcutIds(handlers: ShortcutHandlers): string[] {
+function activeShortcutIds(
+  handlers: ShortcutHandlers,
+  isDesktopApp: boolean,
+): string[] {
   return SHORTCUTS.filter(
-    (entry) => handlers[entry.id as ShortcutId] ?? entry.action,
+    (entry) =>
+      (!entry.desktopOnly || isDesktopApp) &&
+      (handlers[entry.id as ShortcutId] ?? entry.action),
   ).map((entry) => entry.id);
 }
 

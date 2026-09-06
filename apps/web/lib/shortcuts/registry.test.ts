@@ -20,15 +20,29 @@ describe("shortcut registry", () => {
     expect(findShortcutConflicts(SHORTCUTS)).toEqual([]);
   });
 
-  it("lists every shortcut in exactly one help group", () => {
-    const grouped = getShortcutGroups(["global", "mail"]).flatMap(
-      ({ shortcuts }) => shortcuts,
-    );
+  it("lists every shortcut in exactly one desktop help group", () => {
+    const grouped = getShortcutGroups(["global", "mail"], {
+      isDesktopApp: true,
+    }).flatMap(({ shortcuts }) => shortcuts);
 
     expect(grouped).toHaveLength(SHORTCUTS.length);
     expect(new Set(grouped.map((entry) => entry.id)).size).toBe(
       SHORTCUTS.length,
     );
+  });
+
+  it("only lists account switching shortcuts in the desktop app", () => {
+    const webIds = getShortcutGroups(["global", "mail"], {
+      isDesktopApp: false,
+    }).flatMap(({ shortcuts }) => shortcuts.map((shortcut) => shortcut.id));
+    const desktopIds = getShortcutGroups(["global", "mail"], {
+      isDesktopApp: true,
+    }).flatMap(({ shortcuts }) => shortcuts.map((shortcut) => shortcut.id));
+
+    expect(webIds).not.toContain("switchAccount");
+    expect(webIds).not.toContain("switchAllAccounts");
+    expect(desktopIds).toContain("switchAccount");
+    expect(desktopIds).toContain("switchAllAccounts");
   });
 
   it("leaves mail shortcuts out of a global-only surface", () => {
@@ -47,6 +61,8 @@ describe("shortcut registry", () => {
     expect(formatShortcutKeys(getShortcut("send"))).toBe("⌘↵");
     expect(formatShortcutKeys(getShortcut("backToApp"))).toBe("G A");
     expect(formatShortcutKeys(getShortcut("delete"))).toBe("#");
+    expect(formatShortcutKeys(getShortcut("switchAccount"))).toBe("⌘1–9");
+    expect(formatShortcutKeys(getShortcut("switchAllAccounts"))).toBe("⌘0");
   });
 });
 

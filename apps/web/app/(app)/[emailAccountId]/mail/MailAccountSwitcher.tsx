@@ -25,14 +25,15 @@ import {
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useAccounts } from "@/hooks/useAccounts";
 import { cn } from "@/utils";
-import { redirectToSafeUrl } from "@/utils/redirect";
 
 export function MailAccountSwitcher({
   isAllAccounts,
+  onSelectAccount,
   onSelectAll,
   variant,
 }: {
   isAllAccounts: boolean;
+  onSelectAccount: (accountId: string) => void;
   onSelectAll: () => void;
   variant: "compact" | "sidebar";
 }) {
@@ -130,7 +131,11 @@ export function MailAccountSwitcher({
             </>
           ) : null}
           {data.emailAccounts.map((account) => (
-            <AccountItem account={account} key={account.id} />
+            <AccountItem
+              account={account}
+              key={account.id}
+              onSelect={onSelectAccount}
+            />
           ))}
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild className="gap-3 rounded-xl p-3">
@@ -158,20 +163,15 @@ export function MailAccountSwitcher({
 
 function AccountItem({
   account,
+  onSelect,
 }: {
   account: GetEmailAccountsResponse["emailAccounts"][number];
+  onSelect: (accountId: string) => void;
 }) {
   return (
     <DropdownMenuItem
       className="gap-3 rounded-xl p-3"
-      onSelect={() => {
-        const params = new URLSearchParams(window.location.search);
-        params.delete("accountScope");
-        params.delete("thread-id");
-        params.delete("thread-account-id");
-        const query = params.toString();
-        redirectToSafeUrl(`/${account.id}/mail${query ? `?${query}` : ""}`);
-      }}
+      onSelect={() => onSelect(account.id)}
     >
       <ProfileImage
         className="size-10"
