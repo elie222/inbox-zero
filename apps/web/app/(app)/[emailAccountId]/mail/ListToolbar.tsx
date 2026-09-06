@@ -143,7 +143,9 @@ export function ListToolbar({
       )}
 
       {showLayoutToggle && selectedCount === 0 ? (
-        <Tooltip content="Switch list / split view">
+        <Tooltip
+          content={`Switch list / split view (${getShortcutHint("toggleLayout")})`}
+        >
           <button
             type="button"
             onClick={onToggleLayout}

@@ -143,7 +143,15 @@ describe("useShortcuts", () => {
     const markSpam = vi.fn();
     const move = vi.fn();
     const openExternal = vi.fn();
-    renderShortcuts({ backToList, markSpam, markUnread, move, openExternal });
+    const toggleLayout = vi.fn();
+    renderShortcuts({
+      backToList,
+      markSpam,
+      markUnread,
+      move,
+      openExternal,
+      toggleLayout,
+    });
 
     press({ key: "Escape", code: "Escape" }, screen.getByRole("textbox"));
 
@@ -157,6 +165,11 @@ describe("useShortcuts", () => {
     press({ key: "v", code: "KeyV" });
 
     expect(move).toHaveBeenCalledOnce();
+
+    press({ key: "V", code: "KeyV", shiftKey: true });
+
+    expect(move).toHaveBeenCalledOnce();
+    expect(toggleLayout).toHaveBeenCalledOnce();
 
     press({ key: "!", code: "Digit1", shiftKey: true });
 

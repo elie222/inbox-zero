@@ -91,6 +91,7 @@ test("opens a complete conversation and updates its read state", async ({
   await expect(markUnread).toBeVisible();
   await expect(markUnread).toContainText("U");
   await page.keyboard.press("Escape");
+  await expect(markUnread).toBeHidden();
   await page.keyboard.press("KeyV");
   const moveDialog = page.getByRole("dialog", { name: "Move conversations" });
   await expect(moveDialog).toBeVisible();

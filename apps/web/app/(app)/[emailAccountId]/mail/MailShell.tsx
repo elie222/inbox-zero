@@ -810,6 +810,7 @@ export function MailShell() {
         ? () => window.open(openExternalUrl, "_blank", "noopener,noreferrer")
         : undefined,
       undo: () => undo(),
+      toggleLayout: isAllAccounts ? undefined : toggleLayout,
       help: () => setIsHelpOpen(true),
     };
   })();
@@ -1302,8 +1303,6 @@ export function MailShell() {
               requestMailboxSync(pickerAccount.id);
               refetchOpenThread();
               if (labelPicker.mode === "move") {
-                if (isAllAccounts) combinedThreadState.refetch();
-                else accountThreadState.refetch();
                 if (openThreadKey && keys.includes(openThreadKey)) {
                   setOpenThread(null);
                 }

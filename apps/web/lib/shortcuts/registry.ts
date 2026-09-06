@@ -244,6 +244,13 @@ const SHORTCUT_DEFINITIONS = [
     label: "Undo last action",
   },
   {
+    id: "toggleLayout",
+    keys: ["shift+v"],
+    scope: "mail",
+    group: "View",
+    label: "List view / split view",
+  },
+  {
     id: "help",
     keys: ["shift+?", "?"],
     display: ["?"],
