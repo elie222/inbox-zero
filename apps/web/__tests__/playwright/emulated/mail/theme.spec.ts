@@ -32,11 +32,13 @@ test("Command K changes the mail theme and remembers it after reload", async ({
     "Theme commands in dark mode",
   );
   await palette.getByRole("option", { name: "Set Theme: Light" }).click();
+  await expect(palette).toBeHidden();
   await expect(page.locator("html")).toHaveClass(/light/);
 
   await page.keyboard.press(`${commandModifier}+KeyK`);
   await palette.getByPlaceholder("Type a command or search...").fill("system");
   await palette.getByRole("option", { name: "Set Theme: System" }).click();
+  await expect(palette).toBeHidden();
   await expect(page.locator("html")).toHaveClass(/light/);
   await page.emulateMedia({ colorScheme: "dark" });
   await expect(page.locator("html")).toHaveClass(/dark/);
