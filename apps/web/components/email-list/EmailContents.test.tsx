@@ -212,6 +212,25 @@ describe("HtmlEmail", () => {
     );
   });
 
+  it("forwards with F while focus is inside the email document", () => {
+    vi.mocked(fetch).mockReturnValue(new Promise(() => {}));
+    const onForwardMessage = vi.fn();
+    const { getByTitle } = render(
+      <HtmlEmail
+        html="<p>Message body</p>"
+        messageId="message-forward"
+        onForwardMessage={onForwardMessage}
+      />,
+    );
+    const iframe = getByTitle("Email content preview") as HTMLIFrameElement;
+    addEmailDocumentMarker(iframe, iframe.contentDocument);
+    iframe.dispatchEvent(new Event("load"));
+
+    fireEvent.keyDown(iframe.contentDocument!.body, { key: "f" });
+
+    expect(onForwardMessage).toHaveBeenCalledOnce();
+  });
+
   it("remeasures from a minimal height when quoted content is toggled", async () => {
     vi.mocked(fetch).mockReturnValue(new Promise(() => {}));
     const { getByRole, getByTitle } = render(

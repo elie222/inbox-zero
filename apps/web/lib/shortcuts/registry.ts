@@ -1,4 +1,9 @@
-import { ArchiveIcon, PenLineIcon, type LucideIcon } from "lucide-react";
+import {
+  ArchiveIcon,
+  ForwardIcon,
+  PenLineIcon,
+  type LucideIcon,
+} from "lucide-react";
 import type { Command, CommandSection } from "@/lib/commands/types";
 import { createClientLogger } from "@/utils/logger-client";
 
@@ -260,6 +265,19 @@ const SHORTCUT_DEFINITIONS = [
     scope: "mail",
     group: "Triage",
     label: "Reply all",
+  },
+  {
+    id: "forward",
+    keys: ["f"],
+    scope: "mail",
+    group: "Triage",
+    label: "Forward",
+    palette: {
+      section: "actions",
+      keywords: ["forward", "send", "share"],
+      priority: 4,
+      icon: ForwardIcon,
+    },
   },
   {
     id: "moreActions",

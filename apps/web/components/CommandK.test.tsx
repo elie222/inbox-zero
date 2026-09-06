@@ -145,4 +145,16 @@ describe("CommandK side-panel archive", () => {
       description: "Email is still loading",
     });
   });
+
+  it("opens a forward composer for the latest side-panel message", () => {
+    render(<CommandK />);
+
+    act(() => shortcuts.handlers?.forward?.());
+
+    expect(displayedEmail.showEmail).toHaveBeenCalledWith({
+      threadId: "thread-1",
+      autoOpenForwardForMessageId: "message-2",
+      showReplyButton: true,
+    });
+  });
 });

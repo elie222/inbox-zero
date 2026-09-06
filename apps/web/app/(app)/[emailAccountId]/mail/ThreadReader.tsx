@@ -53,6 +53,7 @@ export type ThreadReaderProps = {
    * a message that already has an AI draft.
    */
   autoOpenReplyForMessageId?: string;
+  autoOpenForwardForMessageId?: string;
   /** The ⋯ dropdown, i.e. `ThreadActionsMenu`, composed by the shell. */
   menu?: ReactNode;
 };
@@ -74,6 +75,7 @@ export function ThreadReader({
   showSidebarToggle = false,
   refetch,
   autoOpenReplyForMessageId,
+  autoOpenForwardForMessageId,
   menu,
 }: ThreadReaderProps) {
   const [senderContext, setSenderContext] = useState<{
@@ -156,6 +158,7 @@ export function ThreadReader({
               renderToolbar={renderToolbar}
               enableMessageNavigation={enableMessageNavigation}
               autoOpenReplyForMessageId={autoOpenReplyForMessageId}
+              autoOpenForwardForMessageId={autoOpenForwardForMessageId}
               key={threadId}
               messages={messages}
               onMarkDone={onArchive}

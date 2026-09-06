@@ -10,7 +10,11 @@ import { Client } from "pg";
 import { getEmailAccountId } from "../account-test-helpers";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
-import { readLatestMailMutation } from "./mail-test-helpers";
+import {
+  conversationWithSubject,
+  openMail,
+  readLatestMailMutation,
+} from "./mail-test-helpers";
 
 const commandModifier = process.platform === "darwin" ? "Meta" : "Control";
 const SIDE_PANEL_ARCHIVE_MESSAGE_ID = "msg_playwright_archive";
@@ -125,6 +129,14 @@ test("Command K acts on highlighted and selected conversations", async ({
     palette.getByRole("option", { name: "Mark as read" }),
   ).toBeVisible();
   await expect(palette.getByRole("option", { name: "Snooze H" })).toBeVisible();
+  await expect(palette.getByRole("option", { name: "Label L" })).toBeVisible();
+  await expect(palette.getByRole("option", { name: "Move V" })).toBeVisible();
+  await expect(
+    palette.getByRole("option", { name: "Mark as spam !" }),
+  ).toBeVisible();
+  await expect(palette.getByText("navigate", { exact: true })).toHaveCount(0);
+  await expect(palette.getByText("select", { exact: true })).toHaveCount(0);
+  await expect(palette.getByText("close", { exact: true })).toHaveCount(0);
   await expect(palette).not.toContainText("Applies to");
   await attachScreenshotForChangedTest(
     testInfo,
@@ -226,6 +238,44 @@ test("Command K acts on highlighted and selected conversations", async ({
   await palette.getByRole("option", { name: "Snooze 2 conversations" }).click();
   await palette.getByRole("option", { name: "In 3 hours" }).click();
   await expect(options).toHaveCount(initialConversationCount - 2);
+});
+
+test("the open reader exposes its actions in Command K and forwards with F", async ({
+  page,
+}) => {
+  const { conversations } = await openMail(page);
+  await conversationWithSubject(
+    page,
+    conversations,
+    "Re: Reader Visual Message",
+  ).click();
+  await expect(
+    page.getByRole("heading", { name: "Re: Reader Visual Message" }),
+  ).toBeVisible();
+
+  await page.keyboard.press(`${commandModifier}+KeyK`);
+  const palette = page.getByRole("dialog");
+  await expect(
+    palette.getByRole("option", { name: "Forward F" }),
+  ).toBeVisible();
+  await expect(palette.getByRole("option", { name: "Label L" })).toBeVisible();
+  await expect(palette.getByRole("option", { name: "Move V" })).toBeVisible();
+  await expect(
+    palette.getByRole("option", { name: "Mark as spam !" }),
+  ).toBeVisible();
+  await expect(
+    palette.getByRole("option", { name: "Unsubscribe from sender" }),
+  ).toBeVisible();
+  await expect(
+    palette.getByRole("option", { name: /auto archive/i }),
+  ).toBeVisible();
+  await expect(
+    palette.getByRole("option", { name: "Open in Gmail G G" }),
+  ).toBeVisible();
+
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("KeyF");
+  await expect(page.getByRole("textbox", { name: "To" })).toBeVisible();
 });
 
 async function ensureReadState(

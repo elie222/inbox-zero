@@ -178,6 +178,7 @@ export function MailShell() {
     targets: ThreadSelection[];
   } | null>(null);
   const [replyToMessageId, setReplyToMessageId] = useState<string>();
+  const [forwardToMessageId, setForwardToMessageId] = useState<string>();
   const pendingReplyThreadKey = useRef<string | null>(null);
   const isMailSidebarOpen = openSidebars.includes("left-sidebar");
 
@@ -500,6 +501,11 @@ export function MailShell() {
     pendingReplyThreadKey.current = openReaderThreadKey;
   }, [openMessages, openReaderThreadKey]);
 
+  const requestReaderForward = useCallback(() => {
+    const messageId = openMessages.at(-1)?.id;
+    if (messageId) setForwardToMessageId(messageId);
+  }, [openMessages]);
+
   useEffect(() => {
     const pendingThreadKey = pendingReplyThreadKey.current;
     if (!pendingThreadKey) return;
@@ -604,6 +610,7 @@ export function MailShell() {
       if (!thread) return;
       setFocusedIndex(index);
       setReplyToMessageId(undefined);
+      setForwardToMessageId(undefined);
       selection.clear();
       setOpenThread(getListThreadSelection(thread, emailAccountId));
     },
@@ -620,6 +627,7 @@ export function MailShell() {
       const nextThread = threads[next];
       if ((layout === "split" || openThreadId) && nextThread) {
         setReplyToMessageId(undefined);
+        setForwardToMessageId(undefined);
         setOpenThread(getListThreadSelection(nextThread, emailAccountId));
       }
     },
@@ -695,7 +703,10 @@ export function MailShell() {
     (until: Date) => runOn((ids) => snooze(ids, until), true),
     [runOn, snooze],
   );
-  const currentLabelTargets = actionTargets.map((target) => target.selection);
+  const currentLabelTargets = useMemo(
+    () => actionTargets.map((target) => target.selection),
+    [actionTargets],
+  );
   const labelAccountId = currentLabelTargets[0]?.emailAccountId;
   const labelAccount =
     labelAccountId === emailAccountId
@@ -709,14 +720,14 @@ export function MailShell() {
     currentLabelTargets.every(
       (target) => target.emailAccountId === labelAccountId,
     );
-  const openLabelPicker = () => {
+  const openLabelPicker = useCallback(() => {
     if (canLabel)
       setLabelPicker({ mode: "label", targets: currentLabelTargets });
-  };
-  const openMovePicker = () => {
+  }, [canLabel, currentLabelTargets]);
+  const openMovePicker = useCallback(() => {
     if (canLabel)
       setLabelPicker({ mode: "move", targets: currentLabelTargets });
-  };
+  }, [canLabel, currentLabelTargets]);
   const pickerAccount =
     labelPicker?.targets[0]?.emailAccountId === emailAccountId
       ? emailAccount
@@ -728,8 +739,15 @@ export function MailShell() {
     () => ({
       actions: {
         archive: archiveTargets,
+        forward: openThreadId ? requestReaderForward : undefined,
+        label: canLabel ? openLabelPicker : undefined,
         markRead: markReadTargets,
+        markSpam: markSpamTargets,
         markUnread: markUnreadTargets,
+        move: canLabel ? openMovePicker : undefined,
+        openExternal: openExternalUrl
+          ? () => window.open(openExternalUrl, "_blank", "noopener,noreferrer")
+          : undefined,
         snooze: snoozeTargets,
         trash: trashTargets,
       },
@@ -737,13 +755,24 @@ export function MailShell() {
       hasUnread: actionTargets.some((target) =>
         isThreadUnread(target.messages),
       ),
+      openExternalLabel: openExternalUrl
+        ? `Open in ${isMicrosoftProvider(readerEmailAccount?.account.provider) ? "Outlook" : "Gmail"}`
+        : undefined,
       targetCount: actionTargets.length,
     }),
     [
       archiveTargets,
       actionTargets,
+      canLabel,
       markReadTargets,
+      markSpamTargets,
       markUnreadTargets,
+      openLabelPicker,
+      openMovePicker,
+      openExternalUrl,
+      openThreadId,
+      readerEmailAccount?.account.provider,
+      requestReaderForward,
       snoozeTargets,
       trashTargets,
     ],
@@ -866,6 +895,7 @@ export function MailShell() {
         }
         setReplyToMessageId(openMessages.at(-1)?.id);
       },
+      forward: openThreadId ? requestReaderForward : undefined,
       moreActions: openThreadId
         ? () => setIsMenuOpen((open) => !open)
         : undefined,
@@ -1258,6 +1288,7 @@ export function MailShell() {
               showSidebarToggle={!isMailSidebarOpen}
               refetch={refetchOpenThread}
               autoOpenReplyForMessageId={replyToMessageId}
+              autoOpenForwardForMessageId={forwardToMessageId}
               menu={
                 <ThreadActionsMenu
                   plans={openThread?.plans ?? []}

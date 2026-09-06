@@ -19,8 +19,12 @@ import { useComposeModal } from "@/providers/ComposeModalProvider";
 import {
   commandPaletteOpenAtom,
   mailCommandContextAtom,
+  senderCommandContextAtom,
 } from "@/store/command-palette";
-import type { MailCommandContext } from "@/store/command-palette";
+import type {
+  MailCommandContext,
+  SenderCommandContext,
+} from "@/store/command-palette";
 import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useCommandPaletteCommands } from "@/hooks/useCommandPaletteCommands";
@@ -68,6 +72,7 @@ export function CommandK() {
 
 function CommandPalette() {
   const mailCommandContext = useAtomValue(mailCommandContextAtom);
+  const senderCommandContext = useAtomValue(senderCommandContextAtom);
   const displayedEmail = useDisplayedEmail();
   const activeMailContext = displayedEmail.threadId ? null : mailCommandContext;
 
@@ -76,6 +81,7 @@ function CommandPalette() {
       key={activeMailContext ? "mail" : "default"}
       displayedEmail={displayedEmail}
       mailCommandContext={activeMailContext}
+      senderCommandContext={activeMailContext ? senderCommandContext : null}
     />
   );
 }
@@ -83,9 +89,11 @@ function CommandPalette() {
 function CommandPaletteContent({
   displayedEmail,
   mailCommandContext,
+  senderCommandContext,
 }: {
   displayedEmail: ReturnType<typeof useDisplayedEmail>;
   mailCommandContext: MailCommandContext | null;
+  senderCommandContext: SenderCommandContext | null;
 }) {
   const [open, setOpen] = useAtom(commandPaletteOpenAtom);
   const [page, setPage] = React.useState<"root" | "snooze">("root");
@@ -127,6 +135,18 @@ function CommandPaletteContent({
           }
         }
       : undefined,
+    forward:
+      threadId && displayedThread?.thread.id === threadId
+        ? () => {
+            const messageId = displayedThread.thread.messages.at(-1)?.id;
+            if (!messageId) return;
+            showEmail({
+              threadId,
+              autoOpenForwardForMessageId: messageId,
+              showReplyButton: true,
+            });
+          }
+        : undefined,
     snooze: mailCommandContext?.actions.snooze
       ? () => {
           setSearch("");
@@ -145,15 +165,26 @@ function CommandPaletteContent({
     ? buildMailCommandPalette({
         actions: {
           archive: mailCommandContext.actions.archive,
+          forward: mailCommandContext.actions.forward,
+          label: mailCommandContext.actions.label,
           markRead: mailCommandContext.actions.markRead,
+          markSpam: mailCommandContext.actions.markSpam,
           markUnread: mailCommandContext.actions.markUnread,
+          move: mailCommandContext.actions.move,
           openSnooze: mailCommandContext.actions.snooze
             ? () => setPage("snooze")
             : undefined,
           trash: mailCommandContext.actions.trash,
+          openExternal: mailCommandContext.actions.openExternal,
+          toggleAutoArchive: senderCommandContext?.toggleAutoArchive,
+          unsubscribe: senderCommandContext?.unsubscribe,
         },
         hasRead: mailCommandContext.hasRead,
         hasUnread: mailCommandContext.hasUnread,
+        isAutoArchived: senderCommandContext?.isAutoArchived,
+        isAutoArchiveDisabled: senderCommandContext?.isAutoArchiveDisabled,
+        isUnsubscribeDisabled: senderCommandContext?.isUnsubscribeDisabled,
+        openExternalLabel: mailCommandContext.openExternalLabel,
         targetCount: mailCommandContext.targetCount,
       })
     : [];
@@ -195,6 +226,7 @@ function CommandPaletteContent({
   const groupedCommands = groupCommands(filteredCommands);
 
   const executeCommand = (command: Command) => {
+    if (command.disabled) return;
     setSearch("");
     if (command.closeOnSelect !== false) {
       setOpen(false);
@@ -276,6 +308,7 @@ function CommandPaletteContent({
                       <CommandItem
                         key={command.id}
                         value={`${command.id} ${command.label} ${command.keywords?.join(" ") || ""}`}
+                        disabled={command.disabled}
                         onSelect={() => executeCommand(command)}
                       >
                         {command.icon && (
@@ -294,26 +327,6 @@ function CommandPaletteContent({
           </>
         )}
       </CommandList>
-      <div className="flex items-center justify-center gap-4 border-t px-3 py-2 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1">
-          <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">
-            ↑↓
-          </kbd>
-          navigate
-        </span>
-        <span className="flex items-center gap-1">
-          <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">
-            ↵
-          </kbd>
-          select
-        </span>
-        <span className="flex items-center gap-1">
-          <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">
-            esc
-          </kbd>
-          {page === "snooze" ? "back" : "close"}
-        </span>
-      </div>
     </CommandDialog>
   );
 }

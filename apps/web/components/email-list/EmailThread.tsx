@@ -21,6 +21,7 @@ export function EmailThread({
   refetch,
   showReplyButton,
   autoOpenReplyForMessageId,
+  autoOpenForwardForMessageId,
   topRightComponent,
   onSendSuccess,
   onMarkDone,
@@ -33,6 +34,7 @@ export function EmailThread({
   refetch: () => void;
   showReplyButton: boolean;
   autoOpenReplyForMessageId?: string;
+  autoOpenForwardForMessageId?: string;
   topRightComponent?: React.ReactNode;
   onSendSuccess?: (messageId: string, threadId: string) => void;
   onMarkDone?: () => void;
@@ -84,11 +86,12 @@ export function EmailThread({
     version: number;
   }>();
   useEffect(() => {
-    if (autoOpenReplyForMessageId)
+    const messageId = autoOpenForwardForMessageId ?? autoOpenReplyForMessageId;
+    if (messageId)
       setExpansionOverrides((previous) =>
-        new Map(previous).set(autoOpenReplyForMessageId, true),
+        new Map(previous).set(messageId, true),
       );
-  }, [autoOpenReplyForMessageId]);
+  }, [autoOpenForwardForMessageId, autoOpenReplyForMessageId]);
   const expanded = (id: string, hasDraft: boolean) =>
     expansionOverrides.get(id) ?? (id === lastMessageId || hasDraft);
   const hasLocalDraft = (id: string) =>
@@ -97,6 +100,7 @@ export function EmailThread({
     expanded(
       message.id,
       autoOpenReplyForMessageId === message.id ||
+        autoOpenForwardForMessageId === message.id ||
         recoveredReply?.messageId === message.id ||
         Boolean(draftMessage) ||
         hasLocalDraft(message.id),
@@ -208,7 +212,12 @@ export function EmailThread({
       <ul className="pt-1">
         {organizedMessages.map(({ message, draftMessage }) => {
           const defaultComposeMode = getDefaultComposeMode({
-            autoOpen: autoOpenReplyForMessageId === message.id,
+            autoOpenMode:
+              autoOpenForwardForMessageId === message.id
+                ? "forward"
+                : autoOpenReplyForMessageId === message.id
+                  ? "reply"
+                  : undefined,
             draftMessage: Boolean(draftMessage),
             localDraftMode: getLocalDraftMode(localDrafts, message.id),
             recoveredReply:
@@ -304,17 +313,18 @@ function getLocalDraftMode(drafts: StoredReplyDraft[], messageId: string) {
 }
 
 function getDefaultComposeMode({
-  autoOpen,
+  autoOpenMode,
   draftMessage,
   localDraftMode,
   recoveredReply,
 }: {
-  autoOpen: boolean;
+  autoOpenMode?: ReplyDraftMode;
   draftMessage: boolean;
   localDraftMode?: ReplyDraftMode;
   recoveredReply?: { mode: ReplyDraftMode };
 }) {
   if (recoveredReply) return recoveredReply.mode;
-  if (autoOpen || draftMessage) return "reply" as const;
+  if (autoOpenMode) return autoOpenMode;
+  if (draftMessage) return "reply" as const;
   return localDraftMode;
 }

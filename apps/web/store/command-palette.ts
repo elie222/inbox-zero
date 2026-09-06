@@ -10,14 +10,28 @@ export const commandPaletteOpenAtom = atom(false);
 export type MailCommandContext = {
   actions: {
     archive: () => void;
+    forward?: () => void;
+    label?: () => void;
     markRead?: () => void;
+    markSpam?: () => void;
     markUnread?: () => void;
+    move?: () => void;
+    openExternal?: () => void;
     snooze?: (until: Date) => void;
     trash?: () => void;
   };
   hasRead: boolean;
   hasUnread: boolean;
+  openExternalLabel?: string;
   targetCount: number;
+};
+
+export type SenderCommandContext = {
+  isAutoArchived: boolean;
+  isAutoArchiveDisabled: boolean;
+  isUnsubscribeDisabled: boolean;
+  toggleAutoArchive: () => void;
+  unsubscribe: () => void;
 };
 
 /**
@@ -25,3 +39,6 @@ export type MailCommandContext = {
  * the app-wide palette consume them without duplicating that state.
  */
 export const mailCommandContextAtom = atom<MailCommandContext | null>(null);
+
+/** Sender actions are resolved inside the reader's account-scoped provider. */
+export const senderCommandContextAtom = atom<SenderCommandContext | null>(null);
