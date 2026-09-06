@@ -702,6 +702,11 @@ function ComposeEmailFormContent({
                           "Reply queued, but its local draft copy could not be cleared.",
                       });
                     }
+                    await mutate([
+                      "thread-deliveries",
+                      selectedEmailAccountId,
+                      readerThreadId,
+                    ]);
                     onClose?.();
                   }
                 : undefined,
