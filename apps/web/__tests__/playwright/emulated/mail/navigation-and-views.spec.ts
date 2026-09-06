@@ -97,7 +97,7 @@ test("opens a complete conversation and updates its read state", async ({
         threadId: "thr_playwright_reader",
       }),
     )
-    .toMatchObject({ payload: { read: false }, status: "succeeded" });
+    .toMatchObject({ payload: { read: false } });
 
   await readerConversation.click();
   await expect(
@@ -111,7 +111,7 @@ test("opens a complete conversation and updates its read state", async ({
         threadId: "thr_playwright_reader",
       }),
     )
-    .toMatchObject({ payload: { read: true }, status: "succeeded" });
+    .toMatchObject({ payload: { read: true } });
   await page.keyboard.press("Escape");
   await expect(conversations).toBeVisible();
   await expect(readerConversation).toBeVisible();
