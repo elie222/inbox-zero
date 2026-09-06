@@ -15,6 +15,7 @@ import {
   type ReplyDraftMode,
 } from "@/utils/email-cache/reply-drafts";
 import type { StoredReplyDraft } from "@/utils/email-cache/database";
+import { GmailLabel } from "@/utils/gmail/label";
 
 export function EmailThread({
   messages,
@@ -79,7 +80,16 @@ export function EmailThread({
 
   const [expansionOverrides, setExpansionOverrides] = useState<
     Map<string, boolean>
-  >(() => new Map());
+  >(
+    () =>
+      new Map(
+        organizedMessages
+          .filter(({ message }) =>
+            message.labelIds?.includes(GmailLabel.UNREAD),
+          )
+          .map(({ message }) => [message.id, true]),
+      ),
+  );
   const [recoveredReply, setRecoveredReply] = useState<{
     messageId: string;
     mode: ReplyDraftMode;
