@@ -24,6 +24,7 @@ test("expands unread messages when opening a thread", async ({
       {
         ...first,
         id: "msg_playwright_reader_unread_history",
+        labelIds: ["INBOX", "UNREAD"],
         textPlain: "Another unread message opens with the conversation.",
         snippet: "Another unread message opens with the conversation.",
       },
@@ -37,7 +38,9 @@ test("expands unread messages when opening a thread", async ({
     waitUntil: "domcontentloaded",
   });
 
-  const headers = page.locator('[role="button"][aria-expanded]');
+  const headers = page.locator(
+    'li[data-thread-message-id] [role="button"][aria-expanded]',
+  );
   await expect(headers).toHaveCount(4);
   await expect(headers.nth(0)).toHaveAttribute("aria-expanded", "false");
   await expect(headers.nth(1)).toHaveAttribute("aria-expanded", "true");
