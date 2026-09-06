@@ -214,7 +214,7 @@ test("opens the sender profile beside the reader", async ({
   );
 
   // Too narrow for a second column, so the same profile slides over instead.
-  await page.setViewportSize({ width: 900, height: 720 });
+  await page.setViewportSize({ width: 700, height: 720 });
   const sheet = page.getByRole("dialog");
   await expect(sheet).toBeVisible();
   await expect(sheet.getByText("Head of Product")).toBeVisible();
@@ -238,4 +238,16 @@ test("opens the sender profile beside the reader", async ({
   await expect(panel).toBeVisible();
   await panel.getByRole("button", { name: "Close sender profile" }).click();
   await expect(panel).toHaveCount(0);
+
+  // Escape dismisses the pane without also backing out of the thread.
+  await page
+    .getByRole("button", {
+      exact: true,
+      name: "View public profile for Morgan Example",
+    })
+    .click();
+  await expect(panel).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(panel).toHaveCount(0);
+  await expect(subject).toBeVisible();
 });
