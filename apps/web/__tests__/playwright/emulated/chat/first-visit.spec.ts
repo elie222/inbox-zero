@@ -2,9 +2,8 @@ import { expect } from "@playwright/test";
 import { Client } from "pg";
 import { test } from "../playwright-test";
 import { getEmailAccountId } from "../account-test-helpers";
-import { markAssistantOnboardingViewed } from "./chat-test-helpers";
 
-test("routes first-time Assistant visitors through onboarding", async ({
+test("opens chat directly without rules or an onboarding cookie", async ({
   page,
 }) => {
   const emailAccountId = await getEmailAccountId(page);
@@ -23,28 +22,11 @@ test("routes first-time Assistant visitors through onboarding", async ({
 
   await page.goto(`/${emailAccountId}/assistant`);
   await expect(page).toHaveURL(
-    (url) => url.pathname === `/${emailAccountId}/onboarding`,
+    (url) => url.pathname === `/${emailAccountId}/assistant`,
   );
-  await expect(
-    page.getByRole("heading", { name: "Your inbox, automatically sorted" }),
-  ).toBeVisible();
-  await expect(page.getByTestId("chat-input")).toBeHidden();
+  await expect(page.getByTestId("chat-input")).toBeVisible();
 
   await page.goto(`/${emailAccountId}/assistant?onboarding=true`);
-  await expect(page).toHaveURL(
-    (url) => url.pathname === `/${emailAccountId}/onboarding`,
-  );
-  await expect(
-    page.getByRole("heading", { name: "Your inbox, automatically sorted" }),
-  ).toBeVisible();
-});
-
-test("opens Assistant after onboarding has been completed", async ({
-  page,
-}) => {
-  const emailAccountId = await getEmailAccountId(page);
-  await markAssistantOnboardingViewed(page);
-  await page.goto(`/${emailAccountId}/assistant`);
   await expect(page).toHaveURL(
     (url) => url.pathname === `/${emailAccountId}/assistant`,
   );
