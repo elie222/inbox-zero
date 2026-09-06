@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import {
   Building2Icon,
   ExternalLinkIcon,
@@ -7,80 +8,138 @@ import {
   SparklesIcon,
   UsersIcon,
   WalletCardsIcon,
+  XIcon,
 } from "lucide-react";
 import { usePublicContactContext } from "@/app/(app)/[emailAccountId]/mail/use-public-contact-context";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Sheet,
   SheetContent,
   SheetDescription,
-  SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
 import type { PublicContactContextUnavailableReason } from "@/utils/ai/public-contact-context";
 import type { PublicContactContext } from "@/utils/ai/public-contact-context-schema";
 
-export function SenderContextSheet({
-  messageId,
-  senderName,
-  senderEmail,
-  open,
-  onOpenChange,
-}: {
+type SenderContextPanelProps = {
   messageId: string;
   senderName: string;
   senderEmail: string;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
+  /**
+   * `inline` sits beside the reader as a pane. `sheet` slides over it, for
+   * viewports too narrow to give up a column.
+   */
+  variant: "inline" | "sheet";
+  onClose: () => void;
+};
+
+/** Who a sender is, from public sources: role, company, and where that came from. */
+export function SenderContextPanel({
+  messageId,
+  senderName,
+  senderEmail,
+  variant,
+  onClose,
+}: SenderContextPanelProps) {
   const { data, isLoading, error } = usePublicContactContext({
     messageId,
-    enabled: open,
+    enabled: true,
   });
   const isResearching =
     isLoading ||
     (data?.status === "unavailable" && data.reason === "research_in_progress");
+  const inlineRef = useRef<HTMLElement>(null);
+
+  // Takes focus like the sheet does, so Escape lands on the pane and can
+  // dismiss it from the keyboard.
+  useEffect(() => {
+    inlineRef.current?.focus();
+  }, []);
+
+  const body = (
+    <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+      <LoadingContent
+        error={error}
+        errorComponent={<ContextError />}
+        loading={isResearching}
+        loadingComponent={<ContextSkeleton />}
+      >
+        {data?.status === "found" ? (
+          <PublicContext context={data.context} />
+        ) : (
+          <ContextUnavailable reason={data?.reason} />
+        )}
+      </LoadingContent>
+    </div>
+  );
+
+  const identity = (
+    <div className="flex min-w-0 flex-1 items-center gap-3 text-left">
+      <Avatar className="size-10 border border-border">
+        <AvatarFallback className="font-title font-medium text-sm">
+          {getInitials(senderName || senderEmail)}
+        </AvatarFallback>
+      </Avatar>
+      <div className="min-w-0">
+        <div className="truncate font-title font-medium text-base text-foreground">
+          {senderName}
+        </div>
+        <div className="truncate text-muted-foreground text-sm">
+          {senderEmail}
+        </div>
+      </div>
+    </div>
+  );
+
+  if (variant === "sheet") {
+    return (
+      <Sheet onOpenChange={(open) => !open && onClose()} open>
+        <SheetContent className="flex w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-md">
+          <SheetTitle className="sr-only">{senderName}</SheetTitle>
+          <SheetDescription className="sr-only">{senderEmail}</SheetDescription>
+          <div className="border-border border-b px-5 py-4 pr-12">
+            {identity}
+          </div>
+          {body}
+        </SheetContent>
+      </Sheet>
+    );
+  }
 
   return (
-    <Sheet onOpenChange={onOpenChange} open={open}>
-      <SheetContent className="flex w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-md">
-        <SheetHeader className="border-border border-b px-6 py-5 pr-12">
-          <div className="flex items-center gap-3 text-left">
-            <Avatar className="size-11 border border-border">
-              <AvatarFallback className="font-title font-medium text-sm">
-                {getInitials(senderName || senderEmail)}
-              </AvatarFallback>
-            </Avatar>
-            <div className="min-w-0">
-              <SheetTitle className="truncate font-title text-foreground">
-                {senderName}
-              </SheetTitle>
-              <SheetDescription className="truncate">
-                {senderEmail}
-              </SheetDescription>
-            </div>
-          </div>
-        </SheetHeader>
-
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
-          <LoadingContent
-            error={error}
-            errorComponent={<ContextError />}
-            loading={isResearching}
-            loadingComponent={<ContextSkeleton />}
-          >
-            {data?.status === "found" ? (
-              <PublicContext context={data.context} />
-            ) : (
-              <ContextUnavailable reason={data?.reason} />
-            )}
-          </LoadingContent>
-        </div>
-      </SheetContent>
-    </Sheet>
+    <aside
+      aria-label="Sender profile"
+      className="flex w-80 shrink-0 flex-col border-border border-l bg-card outline-none"
+      data-testid="sender-context-panel"
+      onKeyDown={(event) => {
+        if (event.key !== "Escape") return;
+        // Stopped here so the mail shell's Escape shortcut, which listens on
+        // the document, doesn't also close the whole reader.
+        event.stopPropagation();
+        onClose();
+      }}
+      ref={inlineRef}
+      tabIndex={-1}
+    >
+      <div className="flex items-start gap-2 border-border border-b px-5 py-4">
+        {identity}
+        <Button
+          aria-label="Close sender profile"
+          className="-mr-2 -mt-1 size-7 shrink-0 text-muted-foreground"
+          onClick={onClose}
+          size="icon"
+          type="button"
+          variant="ghost"
+        >
+          <XIcon className="size-4" />
+        </Button>
+      </div>
+      {body}
+    </aside>
   );
 }
 

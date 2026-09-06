@@ -253,7 +253,11 @@ test("attaches files and discards a compose draft with shortcuts", async ({
   const attachButton = dialog.getByRole("button", { name: "Attach files" });
   await attachButton.hover();
   await expect(page.getByRole("tooltip")).toContainText("Attach files");
-  await expect(page.getByRole("tooltip").locator("kbd")).toHaveText("⌘⇧U");
+  await expect(page.getByRole("tooltip").locator("kbd")).toHaveText([
+    "⌘",
+    "shift",
+    "U",
+  ]);
   await capturePlaywrightCheckpoint(page, testInfo, "composer-shortcut-hint");
 
   const fileChooserPromise = page.waitForEvent("filechooser");
@@ -420,13 +424,62 @@ test("opens and sends a reply from the reader with Enter", async ({
   await sendButton.hover();
   const sendTooltip = page.getByRole("tooltip");
   await expect(sendTooltip).toContainText("Send and mark done");
-  await expect(sendTooltip.locator("kbd")).toHaveText(["⌘↵", "⌘⇧↵"]);
+  await expect(sendTooltip.locator("kbd")).toHaveText([
+    "⌘",
+    "enter",
+    "⌘",
+    "shift",
+    "enter",
+  ]);
   await capturePlaywrightCheckpoint(page, testInfo, "protected-quoted-reply");
   await sendButton.click();
 
   await expect(replyEditor).toHaveCount(0);
   await expect(sentByMe).toHaveCount(initialSentByMeCount + 1);
   await capturePlaywrightCheckpoint(page, testInfo, "reply-sent-in-thread");
+});
+
+test("opens a sent forward in its provider thread", async ({
+  page,
+}, testInfo) => {
+  await stubMailboxSync(page);
+  const { emailAccountId } = await openMail(page);
+  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reply`);
+  const sourceMessage = page.locator(
+    '[data-thread-message-id="msg_playwright_reply"]',
+  );
+  await expect(sourceMessage).toBeVisible({ timeout: 60_000 });
+
+  await sourceMessage
+    .getByRole("button", { name: "Forward", exact: true })
+    .click();
+  await sourceMessage
+    .getByRole("textbox", { name: "To" })
+    .fill("recipient@example.com");
+  const editor = sourceMessage.getByRole("textbox", {
+    name: "Email message",
+  });
+  const forwardBody = `A forwarded message sent through the mail reader. ${testInfo.retry}`;
+  await editor.pressSequentially(forwardBody);
+  await sourceMessage
+    .getByRole("button", { name: "Send", exact: true })
+    .click();
+
+  await expect(page).not.toHaveURL(/thread-id=thr_playwright_reply/);
+  await expect(
+    page.getByRole("heading", { name: "Fwd: Reply Workflow Message" }),
+  ).toBeVisible();
+  await expect(
+    page
+      .frameLocator('iframe[title="Email content preview"]')
+      .getByText(forwardBody),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByRole("region", { name: "Reply delivery status" })
+      .getByText("Reply sent", { exact: true }),
+  ).toHaveCount(0);
+  await capturePlaywrightCheckpoint(page, testInfo, "forward-sent-in-thread");
 });
 
 test("keeps reply and forward drafts in separate composer sessions", async ({

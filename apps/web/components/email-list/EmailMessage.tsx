@@ -6,7 +6,6 @@ import {
   ReplyIcon,
   ChevronsUpDownIcon,
   ChevronsDownUpIcon,
-  UserRoundSearchIcon,
 } from "lucide-react";
 import { Tooltip } from "@/components/Tooltip";
 import {
@@ -299,6 +298,30 @@ function MessageHeader({
     open();
   };
 
+  const avatar = (
+    <Avatar aria-hidden className="size-7 shrink-0">
+      <AvatarImage alt="" src={senderImage || undefined} />
+      <AvatarFallback
+        className={cn(
+          "font-semibold text-[10px] tracking-wide",
+          isSent
+            ? "bg-primary/10 text-primary"
+            : "bg-muted text-muted-foreground",
+        )}
+      >
+        {initialsFor(senderName)}
+      </AvatarFallback>
+    </Avatar>
+  );
+  // Fixed widths on the collapsed rows keep the snippet column aligned down
+  // the thread, whichever senders are clickable.
+  const senderNameClassName = cn(
+    "truncate text-sm",
+    expanded
+      ? "max-w-40 shrink font-semibold text-foreground"
+      : "w-24 shrink-0 font-medium text-secondary-foreground sm:w-28",
+  );
+
   return (
     <div
       {...toggleProps}
@@ -307,60 +330,36 @@ function MessageHeader({
         onToggle && "cursor-pointer",
       )}
     >
-      <Avatar aria-hidden className="size-7 shrink-0">
-        <AvatarImage alt="" src={senderImage || undefined} />
-        <AvatarFallback
-          className={cn(
-            "font-semibold text-[10px] tracking-wide",
-            isSent
-              ? "bg-primary/10 text-primary"
-              : "bg-muted text-muted-foreground",
-          )}
-        >
-          {initialsFor(senderName)}
-        </AvatarFallback>
-      </Avatar>
-
       {canResearchSender ? (
-        <Button
-          type="button"
-          aria-label={`View public profile for ${senderName}`}
-          className={cn(
-            "h-7 min-w-0 justify-start gap-1 p-0",
-            expanded ? "max-w-40 shrink" : "w-24 shrink-0 sm:w-28",
-          )}
-          onClick={(event) => {
-            event.stopPropagation();
-            onOpenSenderContext?.(message);
-          }}
-          title="View public profile"
-          variant="ghost"
-        >
-          <span
+        <Tooltip content="View public profile">
+          <button
+            aria-label={`View public profile for ${senderName}`}
             className={cn(
-              "truncate text-sm",
-              expanded
-                ? "font-semibold text-foreground"
-                : "font-medium text-secondary-foreground",
+              "group/sender flex items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              expanded ? "min-w-0" : "shrink-0",
             )}
+            onClick={(event) => {
+              event.stopPropagation();
+              onOpenSenderContext?.(message);
+            }}
+            type="button"
           >
-            {senderName}
-          </span>
-          {expanded && (
-            <UserRoundSearchIcon className="hidden size-3.5 shrink-0 text-muted-foreground sm:block" />
-          )}
-        </Button>
+            {avatar}
+            <span
+              className={cn(
+                senderNameClassName,
+                "text-left underline-offset-4 group-hover/sender:underline",
+              )}
+            >
+              {senderName}
+            </span>
+          </button>
+        </Tooltip>
       ) : (
-        <span
-          className={cn(
-            "truncate text-sm",
-            expanded
-              ? "max-w-40 shrink font-semibold text-foreground"
-              : "w-24 shrink-0 font-medium text-secondary-foreground sm:w-28",
-          )}
-        >
-          {senderName}
-        </span>
+        <>
+          {avatar}
+          <span className={senderNameClassName}>{senderName}</span>
+        </>
       )}
 
       {expanded ? (

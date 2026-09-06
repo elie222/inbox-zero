@@ -8,6 +8,7 @@ import {
   findShortcutConflicts,
   formatShortcutKeys,
   getShortcut,
+  getShortcutKeyLabels,
   getShortcutGroups,
   isTypingTarget,
   SEQUENCE_TIMEOUT_MS,
@@ -75,6 +76,17 @@ describe("shortcut registry", () => {
     expect(formatShortcutKeys(getShortcut("toggleLayout"))).toBe("⇧V");
     expect(formatShortcutKeys(getShortcut("markSpam"))).toBe("!");
     expect(formatShortcutKeys(getShortcut("openExternal"))).toBe("G G");
+  });
+
+  it("splits keys into one spelled-out label per block", () => {
+    expect(getShortcutKeyLabels("send")).toEqual(["⌘", "enter"]);
+    expect(getShortcutKeyLabels("sendAndMarkDone")).toEqual([
+      "⌘",
+      "shift",
+      "enter",
+    ]);
+    expect(getShortcutKeyLabels("sendLater")).toEqual(["⌘", "shift", "L"]);
+    expect(getShortcutKeyLabels("backToApp")).toEqual(["G", "A"]);
   });
 });
 
