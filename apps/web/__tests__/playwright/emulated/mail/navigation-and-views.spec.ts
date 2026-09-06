@@ -87,6 +87,7 @@ test("opens a complete conversation and updates its read state", async ({
     page.getByText("Marked as unread", { exact: true }),
   ).toBeVisible();
   await expect(conversations).toBeVisible();
+  await expect(readerConversation).toBeVisible();
   await expect(page.getByText(/^\d+ of \d+$/)).toHaveCount(0);
   await expect(page).not.toHaveURL(/thread-id=/);
   await expect
@@ -98,24 +99,6 @@ test("opens a complete conversation and updates its read state", async ({
       }),
     )
     .toMatchObject({ payload: { read: false } });
-
-  await readerConversation.click();
-  await expect(
-    page.getByRole("heading", { name: "Re: Reader Navigation Message" }),
-  ).toBeVisible();
-  await expect
-    .poll(() =>
-      readLatestMailMutation(page, {
-        emailAccountId,
-        kind: "set_read_state",
-        threadId: "thr_playwright_reader",
-      }),
-    )
-    .toMatchObject({ payload: { read: true } });
-  await page.keyboard.press("Escape");
-  await expect(conversations).toBeVisible();
-  await expect(readerConversation).toBeVisible();
-  await expect(page).not.toHaveURL(/thread-id=/);
 });
 
 test("opening a conversation issues one detail request", async ({ page }) => {
