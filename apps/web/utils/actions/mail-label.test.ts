@@ -61,6 +61,27 @@ describe("manual thread labels", () => {
     }
   });
 
+  it("removes inbox while applying the destination label when moving", async () => {
+    const result = await applyThreadLabelsAction("account-1", {
+      threadIds: ["thread-1"],
+      labelId: "label-1",
+      removeFromInbox: true,
+    });
+
+    expect(result?.data).toEqual({
+      succeededThreadIds: ["thread-1"],
+      failedThreadIds: [],
+    });
+    expect(modify).toHaveBeenCalledWith({
+      userId: "me",
+      id: "thread-1",
+      requestBody: {
+        addLabelIds: ["label-1"],
+        removeLabelIds: ["INBOX"],
+      },
+    });
+  });
+
   it("reports partial failures so successful conversations are not retried", async () => {
     modify.mockRejectedValueOnce(new Error("Invalid request"));
     const result = await applyThreadLabelsAction("account-1", {

@@ -476,6 +476,7 @@ export function useMailThreads({
         setPaginationRequestIdentity(viewIdentity);
       }
     }, [data, setSize, viewIdentity]),
+    refetch: mutate,
     optimisticallyUpdateThreads,
   };
 }

@@ -48,6 +48,9 @@ describe("shortcut registry", () => {
     expect(formatShortcutKeys(getShortcut("backToApp"))).toBe("G A");
     expect(formatShortcutKeys(getShortcut("delete"))).toBe("#");
     expect(formatShortcutKeys(getShortcut("markUnread"))).toBe("U");
+    expect(formatShortcutKeys(getShortcut("move"))).toBe("V");
+    expect(formatShortcutKeys(getShortcut("markSpam"))).toBe("!");
+    expect(formatShortcutKeys(getShortcut("openExternal"))).toBe("G G");
   });
 });
 

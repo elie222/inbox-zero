@@ -99,10 +99,13 @@ describe("useShortcuts", () => {
     expect(archive).not.toHaveBeenCalled();
   });
 
-  it("uses Escape for back navigation and U for marking unread", () => {
+  it("uses the reader action shortcuts", () => {
     const backToList = vi.fn();
     const markUnread = vi.fn();
-    renderShortcuts({ backToList, markUnread });
+    const markSpam = vi.fn();
+    const move = vi.fn();
+    const openExternal = vi.fn();
+    renderShortcuts({ backToList, markSpam, markUnread, move, openExternal });
 
     press({ key: "Escape", code: "Escape" }, screen.getByRole("textbox"));
 
@@ -112,6 +115,19 @@ describe("useShortcuts", () => {
 
     expect(backToList).toHaveBeenCalledOnce();
     expect(markUnread).toHaveBeenCalledOnce();
+
+    press({ key: "v", code: "KeyV" });
+
+    expect(move).toHaveBeenCalledOnce();
+
+    press({ key: "!", code: "Digit1", shiftKey: true });
+
+    expect(markSpam).toHaveBeenCalledOnce();
+
+    press({ key: "g", code: "KeyG" });
+    press({ key: "g", code: "KeyG" });
+
+    expect(openExternal).toHaveBeenCalledOnce();
   });
 
   it("treats G then A as back to the app rather than reply all", () => {

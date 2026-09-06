@@ -5,6 +5,7 @@ import {
   ArchiveIcon,
   ArchiveRestoreIcon,
   ExternalLinkIcon,
+  FolderInputIcon,
   MailXIcon,
   MailIcon,
   MailOpenIcon,
@@ -62,6 +63,7 @@ export type ThreadActionsMenuProps = {
   onMarkRead: () => void;
   onMarkUnread: () => void;
   onLabel?: () => void;
+  onMove?: () => void;
   /** Chat remains scoped to the route account, so cross-account rows hide it. */
   showFixWithChat?: boolean;
   open?: boolean;
@@ -82,6 +84,7 @@ export function ThreadActionsMenu({
   onMarkRead,
   onMarkUnread,
   onLabel,
+  onMove,
   showFixWithChat = true,
   open,
   onOpenChange,
@@ -162,6 +165,16 @@ export function ThreadActionsMenu({
             </DropdownMenuItem>
           )}
 
+          {onMove && (
+            <DropdownMenuItem onSelect={onMove}>
+              <FolderInputIcon className="mr-2 size-4" />
+              Move
+              <DropdownMenuShortcut>
+                {getShortcutHint("move")}
+              </DropdownMenuShortcut>
+            </DropdownMenuItem>
+          )}
+
           {isUnread ? (
             <DropdownMenuItem onSelect={onMarkRead}>
               <MailOpenIcon className="mr-2 size-4" />
@@ -188,6 +201,9 @@ export function ThreadActionsMenu({
           <DropdownMenuItem onSelect={onMarkSpam}>
             <ShieldAlertIcon className="mr-2 size-4" />
             Mark as spam
+            <DropdownMenuShortcut>
+              {getShortcutHint("markSpam")}
+            </DropdownMenuShortcut>
           </DropdownMenuItem>
 
           {canManageAutoArchive ? (
@@ -221,6 +237,9 @@ export function ThreadActionsMenu({
               <a href={openUrl} rel="noopener noreferrer" target="_blank">
                 <ExternalLinkIcon className="mr-2 size-4" />
                 Open in {isMicrosoftProvider(provider) ? "Outlook" : "Gmail"}
+                <DropdownMenuShortcut>
+                  {getShortcutHint("openExternal")}
+                </DropdownMenuShortcut>
               </a>
             </DropdownMenuItem>
           ) : null}

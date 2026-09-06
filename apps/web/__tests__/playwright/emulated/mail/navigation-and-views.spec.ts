@@ -78,10 +78,24 @@ test("opens a complete conversation and updates its read state", async ({
   await expect(page).toHaveURL(/thread-id=thr_playwright_reader/);
 
   await page.getByRole("button", { name: /^More actions/ }).click();
+  const move = page.getByRole("menuitem", { name: "Move" });
+  await expect(move).toBeVisible();
+  await expect(move).toContainText("V");
+  const markSpam = page.getByRole("menuitem", { name: "Mark as spam" });
+  await expect(markSpam).toContainText("!");
+  const openInGmail = page.getByRole("menuitem", {
+    name: "Open in Gmail",
+  });
+  await expect(openInGmail).toContainText("G G");
   const markUnread = page.getByRole("menuitem", { name: "Mark as unread" });
   await expect(markUnread).toBeVisible();
   await expect(markUnread).toContainText("U");
   await page.keyboard.press("Escape");
+  await page.keyboard.press("KeyV");
+  const moveDialog = page.getByRole("dialog", { name: "Move conversations" });
+  await expect(moveDialog).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(moveDialog).toBeHidden();
   await page.keyboard.press("KeyU");
   await expect(
     page.getByText("Marked as unread", { exact: true }),

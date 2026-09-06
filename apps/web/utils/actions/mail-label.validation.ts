@@ -10,4 +10,5 @@ export const applyThreadLabelsBody = z.object({
       "Couldn’t process this selection. Please try again.",
     ),
   labelId: z.string().min(1),
+  removeFromInbox: z.boolean().optional(),
 });

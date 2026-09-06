@@ -105,6 +105,7 @@ import {
 import { getActionErrorMessage } from "@/utils/error";
 import { prefixPath } from "@/utils/path";
 import { LoadingContent } from "@/components/LoadingContent";
+import { getEmailMessageCellActions } from "@/components/EmailMessageCellActions";
 import type { LabelCount } from "@/app/api/labels/counts/route";
 import type { ThreadsQuery } from "@/utils/threads/validation";
 import { getEmailTerminology } from "@/utils/terminology";
@@ -169,9 +170,10 @@ export function MailShell() {
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [labelTargets, setLabelTargets] = useState<ThreadSelection[] | null>(
-    null,
-  );
+  const [labelPicker, setLabelPicker] = useState<{
+    mode: "label" | "move";
+    targets: ThreadSelection[];
+  } | null>(null);
   const [replyToMessageId, setReplyToMessageId] = useState<string>();
   const pendingReplyThreadKey = useRef<string | null>(null);
   const isMailSidebarOpen = openSidebars.includes("left-sidebar");
@@ -360,6 +362,13 @@ export function MailShell() {
   const openThreadKey = isAllAccounts
     ? getThreadSelectionKey(openThreadSelection)
     : openThreadId;
+  const readerEmailAccount = openThreadSelection
+    ? openThreadSelection.emailAccountId === emailAccountId
+      ? emailAccount
+      : accountsData?.emailAccounts.find(
+          (account) => account.id === openThreadSelection.emailAccountId,
+        )
+    : emailAccount;
   const clampedIndex = getActiveThreadIndex({
     threadIds: orderedIds,
     focusedIndex,
@@ -407,6 +416,17 @@ export function MailShell() {
   const openMessages = readerSelectionSettled
     ? (openThreadData?.thread.messages ?? NO_MESSAGES)
     : NO_MESSAGES;
+  const openExternalUrl = useMemo(() => {
+    const message = openMessages.at(-1);
+    if (!message || !readerEmailAccount) return;
+    return getEmailMessageCellActions({
+      externalUrl: message.externalUrl,
+      messageId: message.id,
+      provider: readerEmailAccount.account.provider,
+      threadId: message.threadId,
+      userEmail: readerEmailAccount.email,
+    })?.openUrl;
+  }, [openMessages, readerEmailAccount]);
   const readerTarget = useMemo(() => {
     if (!openThreadKey || !openThreadSelection || !readerSelectionSettled)
       return;
@@ -683,13 +703,18 @@ export function MailShell() {
       (target) => target.emailAccountId === labelAccountId,
     );
   const openLabelPicker = () => {
-    if (canLabel) setLabelTargets(currentLabelTargets);
+    if (canLabel)
+      setLabelPicker({ mode: "label", targets: currentLabelTargets });
+  };
+  const openMovePicker = () => {
+    if (canLabel)
+      setLabelPicker({ mode: "move", targets: currentLabelTargets });
   };
   const pickerAccount =
-    labelTargets?.[0]?.emailAccountId === emailAccountId
+    labelPicker?.targets[0]?.emailAccountId === emailAccountId
       ? emailAccount
       : accountsData?.emailAccounts.find(
-          (account) => account.id === labelTargets?.[0]?.emailAccountId,
+          (account) => account.id === labelPicker?.targets[0]?.emailAccountId,
         );
 
   const mailCommandContext = useMemo(
@@ -726,7 +751,7 @@ export function MailShell() {
   const isMailOverlayOpen =
     isHelpOpen ||
     isPaletteOpen ||
-    Boolean(labelTargets) ||
+    Boolean(labelPicker) ||
     (isMenuOpen && Boolean(openThreadId));
 
   const closeReader = () => {
@@ -736,7 +761,7 @@ export function MailShell() {
   // Not memoised: `useShortcuts` keeps handlers in a ref and only re-registers
   // when the set of handled ids changes, so a stable identity buys nothing.
   const handlers: ShortcutHandlers = (() => {
-    if (sidePanelThreadId || labelTargets) return {};
+    if (sidePanelThreadId || labelPicker) return {};
     return {
       next: (event) => {
         if (openThreadId && event?.key === "ArrowDown") return;
@@ -767,7 +792,9 @@ export function MailShell() {
       extendSelectionDown: () => extendSelection(1),
       extendSelectionUp: () => extendSelection(-1),
       label: canLabel ? openLabelPicker : undefined,
+      move: canLabel ? openMovePicker : undefined,
       archive: archiveTargets,
+      markSpam: markSpamTargets,
       markUnread: markUnreadTargets,
       delete: trashTargets,
       reply: () => {
@@ -779,8 +806,10 @@ export function MailShell() {
       moreActions: openThreadId
         ? () => setIsMenuOpen((open) => !open)
         : undefined,
+      openExternal: openExternalUrl
+        ? () => window.open(openExternalUrl, "_blank", "noopener,noreferrer")
+        : undefined,
       undo: () => undo(),
-      toggleLayout: isAllAccounts ? undefined : toggleLayout,
       help: () => setIsHelpOpen(true),
     };
   })();
@@ -1018,13 +1047,6 @@ export function MailShell() {
 
   const showList = layout === "split" || !openThreadSelection;
   const showReader = layout === "split" || Boolean(openThreadSelection);
-  const readerEmailAccount = openThreadSelection
-    ? openThreadSelection.emailAccountId === emailAccountId
-      ? emailAccount
-      : accountsData?.emailAccounts.find(
-          (account) => account.id === openThreadSelection.emailAccountId,
-        )
-    : emailAccount;
   const readerUserLabels = isAllAccounts
     ? (labelsByAccount[openThreadSelection?.emailAccountId ?? ""] ?? NO_LABELS)
     : userLabels;
@@ -1207,6 +1229,7 @@ export function MailShell() {
                   onMarkSpam={markSpamTargets}
                   onDelete={trashTargets}
                   onLabel={canLabel ? openLabelPicker : undefined}
+                  onMove={canLabel ? openMovePicker : undefined}
                   onMarkRead={() => {
                     if (!openThreadKey) return;
                     setReadState([openThreadKey], true);
@@ -1241,11 +1264,12 @@ export function MailShell() {
         variant="compact"
       />
 
-      {labelTargets && pickerAccount && (
+      {labelPicker && pickerAccount && (
         <EmailAccountScopeProvider emailAccount={pickerAccount}>
           <LabelPickerDialog
-            threadIds={labelTargets.map((target) => target.threadId)}
-            onClose={() => setLabelTargets(null)}
+            threadIds={labelPicker.targets.map((target) => target.threadId)}
+            mode={labelPicker.mode}
+            onClose={() => setLabelPicker(null)}
             onApplied={(threadIds, labelId) => {
               const keys = threadIds.map((threadId) =>
                 isAllAccounts ? `${pickerAccount.id}:${threadId}` : threadId,
@@ -1259,7 +1283,14 @@ export function MailShell() {
                 messages: thread.messages.map((message) => ({
                   ...message,
                   labelIds: [
-                    ...new Set([...(message.labelIds ?? []), labelId]),
+                    ...new Set([
+                      ...(labelPicker.mode === "move"
+                        ? (message.labelIds ?? []).filter(
+                            (existingLabelId) => existingLabelId !== "INBOX",
+                          )
+                        : (message.labelIds ?? [])),
+                      labelId,
+                    ]),
                   ],
                 })),
               });
@@ -1269,7 +1300,14 @@ export function MailShell() {
               for (const key of keys) update.commit(key);
               requestMailboxSync(pickerAccount.id);
               refetchOpenThread();
-              if (isAllAccounts) combinedThreadState.refetch();
+              if (labelPicker.mode === "move") {
+                if (isAllAccounts) combinedThreadState.refetch();
+                else accountThreadState.refetch();
+                if (openThreadKey && keys.includes(openThreadKey)) {
+                  setOpenThread(null);
+                }
+                selection.clear();
+              } else if (isAllAccounts) combinedThreadState.refetch();
               mutateLabels();
               mutateCounts();
             }}
