@@ -61,14 +61,19 @@ export function buildPersistedRuleActions({
   notifyMessagingChannelId: string | null | undefined;
   webhookActionsEnabled: boolean;
 }) {
-  const actions = denormalizeDraftReplyActions(
-    formActions.map((action) => {
-      if (isDraftReplyActionType(action.type) && !action.content?.setManually) {
-        return { ...action, content: { value: "", ai: false } };
-      }
+  const actions = removeDuplicateActionIds(
+    denormalizeDraftReplyActions(
+      formActions.map((action) => {
+        if (
+          isDraftReplyActionType(action.type) &&
+          !action.content?.setManually
+        ) {
+          return { ...action, content: { value: "", ai: false } };
+        }
 
-      return action;
-    }),
+        return action;
+      }),
+    ),
   );
 
   if (!webhookActionsEnabled) {
@@ -101,6 +106,18 @@ export function buildPersistedRuleActions({
   }
 
   return restorePersistedActionSequence({ actions, originalActions });
+}
+
+function removeDuplicateActionIds(actions: RuleFormAction[]) {
+  const seenIds = new Set<string>();
+
+  return actions.map((action) => {
+    if (!action.id) return action;
+    if (seenIds.has(action.id)) return { ...action, id: undefined };
+
+    seenIds.add(action.id);
+    return action;
+  });
 }
 
 function restorePersistedActionSequence({

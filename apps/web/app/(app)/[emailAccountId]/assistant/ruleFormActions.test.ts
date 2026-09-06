@@ -126,4 +126,49 @@ describe("rule form action conversion", () => {
       ]),
     );
   });
+
+  it("creates newly added draft destinations without duplicating a persisted id", () => {
+    const originalActions = [
+      {
+        id: "action-draft",
+        type: ActionType.DRAFT_EMAIL,
+        content: { value: "Draft response", setManually: true },
+        delayInMinutes: 30,
+      },
+      {
+        id: "action-label",
+        type: ActionType.LABEL,
+        labelId: { value: "label-1", name: "Follow up" },
+      },
+    ];
+
+    const persistedActions = buildPersistedRuleActions({
+      formActions: [
+        originalActions[1],
+        originalActions[0],
+        {
+          ...originalActions[0],
+          type: ActionType.DRAFT_MESSAGING_CHANNEL,
+          messagingChannelId: "cmessagingchannel1234567890123",
+        },
+      ],
+      originalActions,
+      includeDigestAction: false,
+      notifyMessagingChannelId: null,
+      webhookActionsEnabled: true,
+    });
+
+    expect(persistedActions.map((action) => action.id)).toEqual([
+      "action-draft",
+      "action-label",
+      undefined,
+    ]);
+    expect(persistedActions[2]).toEqual(
+      expect.objectContaining({
+        type: ActionType.DRAFT_MESSAGING_CHANNEL,
+        messagingChannelId: "cmessagingchannel1234567890123",
+        delayInMinutes: 30,
+      }),
+    );
+  });
 });
