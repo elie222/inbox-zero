@@ -239,12 +239,12 @@ export function EmailThread({
               message={message}
               onOpenSenderContext={onOpenSenderContext}
               onMarkDone={onMarkDone}
-              onSendSuccess={(messageId) => {
+              onSendSuccess={(messageId, sentThreadId) => {
                 setExpansionOverrides((prev) =>
                   new Map(prev).set(messageId, true),
                 );
 
-                onSendSuccess?.(messageId, message.threadId);
+                onSendSuccess?.(messageId, sentThreadId);
               }}
               // A one-message thread has nothing to collapse back to.
               onToggle={

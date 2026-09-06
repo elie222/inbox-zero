@@ -1257,6 +1257,19 @@ export function MailShell() {
               onArchive={archiveTargets}
               showSidebarToggle={!isMailSidebarOpen}
               refetch={refetchOpenThread}
+              onSendSuccess={(_messageId, sentThreadId) => {
+                if (
+                  !openThreadSelection ||
+                  !sentThreadId.trim() ||
+                  sentThreadId === openThreadSelection.threadId
+                )
+                  return;
+                setReplyToMessageId(undefined);
+                setOpenThread({
+                  emailAccountId: openThreadSelection.emailAccountId,
+                  threadId: sentThreadId,
+                });
+              }}
               autoOpenReplyForMessageId={replyToMessageId}
               menu={
                 <ThreadActionsMenu
