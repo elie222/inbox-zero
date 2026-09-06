@@ -92,10 +92,24 @@ export async function getReplyDraftForSession(
   if (!legacyDraft?.content || getReplyDraftMode(legacyDraft) !== "forward")
     return;
 
-  await createReplyDraftWriter(identity).save({
-    ...legacyDraft.content,
-    composeMode: "forward",
-  });
+  try {
+    await createReplyDraftWriter(identity).save({
+      ...legacyDraft.content,
+      composeMode: "forward",
+    });
+  } catch {
+    const concurrentDraft = await getReplyDraft(identity).catch(
+      () => undefined,
+    );
+    return (
+      concurrentDraft ?? {
+        ...legacyDraft,
+        messageId: identity.messageId,
+        revision: 0,
+        content: { ...legacyDraft.content, composeMode: "forward" },
+      }
+    );
+  }
   await createReplyDraftWriter(legacyIdentity, legacyDraft.revision)
     .clear()
     .catch(() => {});

@@ -89,16 +89,22 @@ describe("local reply drafts", () => {
       (await getReplyDraft(forwardIdentity))?.content?.draft.editableHtml,
     ).toBe("<p>Forward text</p>");
   });
-  it("migrates a legacy forward draft to its separate session", async () => {
+  it("migrates a legacy forward draft across concurrent readers", async () => {
     const forwardIdentity = {
       ...identity,
       messageId: getReplyDraftSessionId(identity.messageId, "forward"),
     };
     await createReplyDraftWriter(identity).save(content);
 
-    const migrated = await getReplyDraftForSession(forwardIdentity, identity);
+    const [migrated, concurrentMigration] = await Promise.all([
+      getReplyDraftForSession(forwardIdentity, identity),
+      getReplyDraftForSession(forwardIdentity, identity),
+    ]);
 
     expect(migrated?.content).toMatchObject({ composeMode: "forward" });
+    expect(concurrentMigration?.content).toMatchObject({
+      composeMode: "forward",
+    });
     expect(migrated?.content?.draft.editableHtml).toBe("<p>My reply</p>");
     expect((await getReplyDraft(identity))?.content).toBeNull();
   });
