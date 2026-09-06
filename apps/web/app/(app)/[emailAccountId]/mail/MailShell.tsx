@@ -764,14 +764,26 @@ export function MailShell() {
       return;
     }
 
+    const targetIndex = threads.findIndex(
+      (thread) => getListThreadKey(thread) === singleActionTarget.key,
+    );
+    const targetThreadKey = getThreadSelectionKey(singleActionTarget.selection);
+    if (!targetThreadKey) return;
     pendingComposeRequest.current = {
       mode: "forward",
-      threadKey: singleActionTarget.key,
+      threadKey: targetThreadKey,
     };
+    if (targetIndex >= 0) setFocusedIndex(targetIndex);
     setReplyToMessageId(undefined);
     setForwardToMessageId(undefined);
     setOpenThread(singleActionTarget.selection);
-  }, [openThreadKey, requestReaderForward, setOpenThread, singleActionTarget]);
+  }, [
+    openThreadKey,
+    requestReaderForward,
+    setOpenThread,
+    singleActionTarget,
+    threads,
+  ]);
   const pickerAccount =
     labelPicker?.targets[0]?.emailAccountId === emailAccountId
       ? emailAccount
