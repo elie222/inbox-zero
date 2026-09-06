@@ -118,9 +118,9 @@ from an older commit.
 
 ## 5. Wait before every observation
 
-Before waiting, stop if the PR is no longer open. Run the full wait in the
-foreground. If the execution tool yields, poll that same process in slices no
-longer than 60 seconds until it exits.
+Before and after waiting, stop if the PR is no longer open. Run the full wait
+in the foreground. If the execution tool yields, poll that same process in
+slices no longer than 60 seconds until it exits.
 
 ```bash
 sleep <wait-seconds>
