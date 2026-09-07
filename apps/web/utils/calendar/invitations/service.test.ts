@@ -47,6 +47,31 @@ beforeEach(() => {
 });
 
 describe("responding to calendar invitations", () => {
+  it("uses email fallback when the calendar has no refresh token", async () => {
+    mocks.connections.mockResolvedValue([
+      { provider: "google", refreshToken: null },
+    ]);
+    await expect(respondToCalendarInvitation(params)).resolves.toEqual({
+      response: "accepted",
+      calendarSynced: false,
+    });
+    expect(mocks.findEvent).not.toHaveBeenCalled();
+    expect(sendEmail).toHaveBeenCalledOnce();
+  });
+
+  it("skips unusable calendar credentials before checking a usable connection", async () => {
+    mocks.connections.mockResolvedValue([
+      { provider: "google", refreshToken: null },
+      { provider: "microsoft", refreshToken: "refresh" },
+    ]);
+    await expect(respondToCalendarInvitation(params)).resolves.toEqual({
+      response: "accepted",
+      calendarSynced: true,
+    });
+    expect(mocks.findEvent).toHaveBeenCalledOnce();
+    expect(sendEmail).not.toHaveBeenCalled();
+  });
+
   it("sends an iMIP reply when no matching calendar is connected", async () => {
     await expect(respondToCalendarInvitation(params)).resolves.toEqual({
       response: "accepted",
@@ -65,7 +90,9 @@ describe("responding to calendar invitations", () => {
   });
 
   it("updates a matched event without sending a duplicate reply email", async () => {
-    mocks.connections.mockResolvedValue([{ provider: "google" }]);
+    mocks.connections.mockResolvedValue([
+      { provider: "google", refreshToken: "refresh" },
+    ]);
     await expect(respondToCalendarInvitation(params)).resolves.toEqual({
       response: "accepted",
       calendarSynced: true,
@@ -75,7 +102,9 @@ describe("responding to calendar invitations", () => {
   });
 
   it("does not send an email fallback after a calendar write failure", async () => {
-    mocks.connections.mockResolvedValue([{ provider: "google" }]);
+    mocks.connections.mockResolvedValue([
+      { provider: "google", refreshToken: "refresh" },
+    ]);
     mocks.respond.mockRejectedValue(new Error("Provider unavailable"));
     await expect(respondToCalendarInvitation(params)).rejects.toThrow(
       "Provider unavailable",
@@ -115,7 +144,9 @@ describe("responding to calendar invitations", () => {
 
 describe("loading calendar invitations", () => {
   it("returns the current calendar response without exposing raw invitation data", async () => {
-    mocks.connections.mockResolvedValue([{ provider: "google" }]);
+    mocks.connections.mockResolvedValue([
+      { provider: "google", refreshToken: "refresh" },
+    ]);
     mocks.findEvent.mockResolvedValue({ id: "event", response: "accepted" });
     expect(await getCalendarInvitation(params)).toEqual({
       invitation: {
@@ -137,8 +168,8 @@ describe("loading calendar invitations", () => {
 
   it("rejects ambiguous calendar matches without sending a response", async () => {
     mocks.connections.mockResolvedValue([
-      { provider: "google" },
-      { provider: "microsoft" },
+      { provider: "google", refreshToken: "refresh" },
+      { provider: "microsoft", refreshToken: "refresh" },
     ]);
     await expect(respondToCalendarInvitation(params)).rejects.toThrow(
       "multiple calendars",

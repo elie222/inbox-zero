@@ -150,6 +150,7 @@ async function findInvitationEvent({
   });
   const matches = [];
   for (const connection of connections) {
+    if (!connection.refreshToken) continue;
     if (
       !isGoogleProvider(connection.provider) &&
       !isMicrosoftProvider(connection.provider)
