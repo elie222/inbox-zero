@@ -27,6 +27,7 @@ import { buildThreadingHeaders } from "@/utils/email/threading";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
 import { getMessage } from "@/utils/gmail/message";
 import { getDraftIdForMessage } from "@/utils/gmail/draft";
+import { SafeError } from "@/utils/error";
 import { GmailLabel } from "@/utils/gmail/label";
 import { convertNewlinesToBr, textToHtmlParagraphs } from "@/utils/string";
 import {
@@ -118,13 +119,13 @@ export async function sendEmailWithHtml(
     const message = await getMessage(replyToEmail.messageId, gmail, "metadata");
     if (message.labelIds?.includes(GmailLabel.DRAFT)) {
       if (message.labelIds.includes(GmailLabel.SENT)) {
-        throw new Error(
+        throw new SafeError(
           "This draft is already marked as sent. Reopen the thread before sending.",
         );
       }
       const draftId = await getDraftIdForMessage(gmail, replyToEmail.messageId);
       if (!draftId) {
-        throw new Error(
+        throw new SafeError(
           "The draft changed or is no longer available. Reopen the thread before sending.",
         );
       }
