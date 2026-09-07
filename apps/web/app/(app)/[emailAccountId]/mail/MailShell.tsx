@@ -5,6 +5,7 @@ import {
   useCallback,
   useDeferredValue,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -185,6 +186,8 @@ export function MailShell() {
     mode: "reply" | "forward";
     threadKey: string;
   } | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const pendingSearchFocusRef = useRef(false);
   const isMailSidebarOpen = openSidebars.includes("left-sidebar");
 
   useEffect(() => {
@@ -1024,8 +1027,36 @@ export function MailShell() {
       toggleLayout: isAllAccounts ? undefined : toggleLayout,
       togglePreview,
       help: () => setIsHelpOpen(true),
+      search: isMailOverlayOpen
+        ? undefined
+        : () => {
+            if (isAllAccounts) {
+              setPaletteOpen(true);
+              return;
+            }
+            if (selection.hasSelection) selection.clear();
+            if (layout === "list" && openThreadId) closeReader();
+            pendingSearchFocusRef.current = true;
+            const input = searchInputRef.current;
+            if (input) {
+              pendingSearchFocusRef.current = false;
+              input.focus();
+              input.select();
+            }
+          },
     };
   })();
+
+  useLayoutEffect(() => {
+    // The search field remounts when selection clears or the list returns, so
+    // consume a pending `/` focus after whichever commit actually rendered it.
+    if (!pendingSearchFocusRef.current) return;
+    const input = searchInputRef.current;
+    if (!input) return;
+    pendingSearchFocusRef.current = false;
+    input.focus();
+    input.select();
+  });
 
   useShortcuts(handlers, { isDesktopApp });
 
@@ -1324,6 +1355,7 @@ export function MailShell() {
               layout={layout}
               searchQuery={searchQuery ?? ""}
               onSearch={isAllAccounts ? undefined : setSearch}
+              searchInputRef={searchInputRef}
               onOpenSearch={() => setPaletteOpen(true)}
               onToggleLayout={toggleLayout}
               expandedPreview={expandedPreview}

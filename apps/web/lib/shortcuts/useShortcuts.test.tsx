@@ -24,6 +24,29 @@ describe("useShortcuts", () => {
     expect(snooze).toHaveBeenCalledOnce();
   });
 
+  it("runs the search shortcut for slash", () => {
+    const search = vi.fn();
+    renderShortcuts({ search });
+
+    const event = press({ key: "/", code: "Slash" });
+
+    expect(search).toHaveBeenCalledOnce();
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it("leaves slash to the field while the user is typing", () => {
+    const search = vi.fn();
+    renderShortcuts({ search });
+
+    const event = press(
+      { key: "/", code: "Slash" },
+      screen.getByRole("textbox"),
+    );
+
+    expect(search).not.toHaveBeenCalled();
+    expect(event.defaultPrevented).toBe(false);
+  });
+
   it("leaves mail shortcuts inert outside the mail scope", () => {
     const archive = vi.fn();
     const commandPalette = vi.fn();
@@ -137,7 +160,8 @@ describe("useShortcuts", () => {
     const backToList = vi.fn();
     const open = vi.fn();
     const nextSplit = vi.fn();
-    renderShortcuts({ backToList, nextSplit, open });
+    const search = vi.fn();
+    renderShortcuts({ backToList, nextSplit, open, search });
 
     const mailEvent = press({ key: "Tab", code: "Tab" });
     const mailOpenEvent = press({ key: "Enter", code: "Enter" });
@@ -153,15 +177,21 @@ describe("useShortcuts", () => {
       { key: "Escape", code: "Escape" },
       screen.getByRole("button", { name: "Dialog action" }),
     );
+    const dialogSearchEvent = press(
+      { key: "/", code: "Slash" },
+      screen.getByRole("button", { name: "Dialog action" }),
+    );
 
     expect(nextSplit).toHaveBeenCalledOnce();
     expect(open).toHaveBeenCalledOnce();
     expect(backToList).not.toHaveBeenCalled();
+    expect(search).not.toHaveBeenCalled();
     expect(mailEvent.defaultPrevented).toBe(true);
     expect(mailOpenEvent.defaultPrevented).toBe(true);
     expect(dialogTabEvent.defaultPrevented).toBe(false);
     expect(dialogOpenEvent.defaultPrevented).toBe(false);
     expect(dialogEscapeEvent.defaultPrevented).toBe(false);
+    expect(dialogSearchEvent.defaultPrevented).toBe(false);
   });
 
   it("ignores modified presses of a plain shortcut", () => {

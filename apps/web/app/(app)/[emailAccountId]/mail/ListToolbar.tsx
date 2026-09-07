@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, type RefObject } from "react";
 import {
   ArchiveIcon,
   ColumnsIcon,
@@ -27,6 +27,8 @@ export type ListToolbarProps = {
   searchQuery?: string;
   /** When provided, the toolbar shows a real mail search input. */
   onSearch?: (query: string) => void;
+  /** Lets `/` focus the mail search field from the shortcut handler. */
+  searchInputRef?: RefObject<HTMLInputElement | null>;
   onOpenSearch: () => void;
   onToggleLayout: () => void;
   onTogglePreview: () => void;
@@ -46,6 +48,7 @@ export function ListToolbar({
   expandedPreview,
   searchQuery = "",
   onSearch,
+  searchInputRef,
   onOpenSearch,
   onToggleLayout,
   onTogglePreview,
@@ -129,7 +132,11 @@ export function ListToolbar({
           </Tooltip>
         </>
       ) : onSearch ? (
-        <MailSearchInput searchQuery={searchQuery} onSearch={onSearch} />
+        <MailSearchInput
+          searchQuery={searchQuery}
+          onSearch={onSearch}
+          inputRef={searchInputRef}
+        />
       ) : (
         // Opens the command palette rather than searching mail — combined
         // inboxes can't search across accounts yet, so promising search we
@@ -204,11 +211,14 @@ export function ListToolbar({
 function MailSearchInput({
   searchQuery,
   onSearch,
+  inputRef: inputRefProp,
 }: {
   searchQuery: string;
   onSearch: (query: string) => void;
+  inputRef?: RefObject<HTMLInputElement | null>;
 }) {
-  const inputRef = useRef<HTMLInputElement>(null);
+  const localRef = useRef<HTMLInputElement>(null);
+  const inputRef = inputRefProp ?? localRef;
 
   return (
     <form
@@ -221,7 +231,7 @@ function MailSearchInput({
         event.preventDefault();
         onSearch(inputRef.current?.value.trim() ?? "");
       }}
-      className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-sidebar px-2.5 text-muted-foreground text-sm transition-colors focus-within:border-[hsl(var(--border-strong))] focus-within:bg-background hover:border-[hsl(var(--border-strong))]"
+      className="group flex h-8 min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-sidebar px-2.5 text-muted-foreground text-sm transition-colors focus-within:border-[hsl(var(--border-strong))] focus-within:bg-background hover:border-[hsl(var(--border-strong))]"
     >
       <SearchIcon className="size-3.5 shrink-0" />
       <input
@@ -250,7 +260,11 @@ function MailSearchInput({
         >
           <XIcon className="size-3.5" />
         </button>
-      ) : null}
+      ) : (
+        <Kbd className="pointer-events-none shrink-0 group-focus-within:invisible">
+          {getShortcutHint("search")}
+        </Kbd>
+      )}
     </form>
   );
 }
