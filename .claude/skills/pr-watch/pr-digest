@@ -22,6 +22,8 @@ SHOW_ALL=0
 die() { echo "pr-digest: $*" >&2; exit 1; }
 
 # A failed API call must never look like a clean PR, so every fetch is checked.
+# `die` inside a command substitution only exits the subshell, so every caller
+# must also carry `|| die` for the abort to reach the script.
 api() {
   local out
   out=$(gh api "$@" 2>&1) || die "gh api $1 failed: $(head -1 <<<"$out")"
@@ -61,7 +63,8 @@ logs() {
 reply() {
   local repo id=$1 body=$2 pr
   repo=$(gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null) || die "not a GitHub repo"
-  pr=$(api "repos/$repo/pulls/comments/$id" --jq '.pull_request_url | split("/") | last')
+  pr=$(api "repos/$repo/pulls/comments/$id" --jq '.pull_request_url | split("/") | last') \
+    || die "could not read comment $id"
   [ -n "$pr" ] || die "could not resolve the pull request for comment $id"
   api "repos/$repo/pulls/$pr/comments/$id/replies" -f body="$body" --jq '"replied \(.id)"'
 }
@@ -70,13 +73,15 @@ digest() {
   local pr=$1 repo=$2 viewer=$3
 
   local meta head state mergeable branch
-  meta=$(gh pr view "$pr" --repo "$repo" --json headRefOid,state,mergeable,headRefName) || die "no PR $pr"
+  meta=$(gh pr view "$pr" --repo "$repo" \
+    --json headRefOid,state,mergeable,headRefName,reviewDecision) || die "no PR $pr"
   head=$(jq -r .headRefOid <<<"$meta")
   state=$(jq -r .state <<<"$meta")
   mergeable=$(jq -r .mergeable <<<"$meta")
   branch=$(jq -r .headRefName <<<"$meta")
+  local decision; decision=$(jq -r '.reviewDecision // ""' <<<"$meta")
 
-  echo "PR $pr · $branch · $state · $mergeable"
+  echo "PR $pr · $branch · $state · $mergeable${decision:+ · $decision}"
   [ "$state" = "OPEN" ] || { echo "VERDICT $state"; return 0; }
 
   # Sync only matters when this checkout is on the PR's branch; inspecting
@@ -95,8 +100,8 @@ digest() {
   fi
 
   local runs statuses pending failed
-  runs=$(check_runs "$repo" "$head")
-  statuses=$(commit_statuses "$repo" "$head")
+  runs=$(check_runs "$repo" "$head") || die "could not read check runs"
+  statuses=$(commit_statuses "$repo" "$head") || die "could not read commit statuses"
 
   # Legacy commit statuses gate a PR exactly like check runs do, so they have to
   # reach the verdict rather than only being printed.
@@ -146,7 +151,8 @@ digest() {
   # Inline review threads. One stays open until *you* have replied to it; a bot
   # follow-up confirming your fix must not mark it handled.
   local inline open
-  inline=$(api --paginate "repos/$repo/pulls/$pr/comments?per_page=100" | jq -s 'add // []')
+  inline=$(api --paginate "repos/$repo/pulls/$pr/comments?per_page=100" | jq -s 'add // []') \
+    || die "could not read review comments"
   open=$(jq --arg me "$viewer" --argjson n "$BODY_CHARS" "
     $clean_def
     [.[] | select(.in_reply_to_id != null and .user.login == \$me) | .in_reply_to_id] as \$mine
@@ -159,7 +165,8 @@ digest() {
   # something since. Bot notices are counted but not expanded; a human comment
   # is feedback that must not be missed.
   local convo since bots convo_open
-  convo=$(api --paginate "repos/$repo/issues/$pr/comments?per_page=100" | jq -s 'add // []')
+  convo=$(api --paginate "repos/$repo/issues/$pr/comments?per_page=100" | jq -s 'add // []') \
+    || die "could not read conversation comments"
   since=$(jq -r --arg me "$viewer" '[.[] | select(.user.login == $me) | .created_at] | max // ""' \
     <<<"$(jq -s 'add' <<<"$inline$convo")")
   bots=$(jq '[.[] | select(.user.type == "Bot")] | length' <<<"$convo")
@@ -170,10 +177,22 @@ digest() {
          | {key: \"\(.id):\(.updated_at)\", id, author: .user.login,
             path: \"(conversation)\", line: 0, body: (.body | clean)}]" <<<"$convo")
 
-  open=$(jq -s 'add' <<<"$open$convo_open")
+  local reviews review_open
+  reviews=$(api --paginate "repos/$repo/pulls/$pr/reviews?per_page=100" | jq -s 'add // []') \
+    || die "could not read reviews"
+  review_open=$(jq --arg me "$viewer" --arg since "$since" --argjson n "$BODY_CHARS" "
+    $clean_def
+    [.[] | select(.user.type != \"Bot\" and .user.login != \$me)
+         | select((.body // \"\") != \"\")
+         | select(\$since == \"\" or .submitted_at > \$since)
+         | {key: \"\(.id):\(.submitted_at)\", id, author: .user.login,
+            path: \"(review \(.state))\", line: 0, body: (.body | clean)}]" <<<"$reviews")
+
+  open=$(jq -s 'add' <<<"$open$convo_open$review_open")
   local open_n seen_file
   open_n=$(jq length <<<"$open")
-  echo "comments $(jq length <<<"$inline") inline · $bots bot notices · $open_n awaiting your reply"
+  echo "comments $(jq length <<<"$inline") inline · $(jq length <<<"$convo") conversation ($bots bot) · $(jq length <<<"$reviews") reviews · $open_n awaiting your reply"
+  [ "$decision" = "CHANGES_REQUESTED" ] && echo "REVIEW changes requested"
 
   if [ "$open_n" -gt 0 ]; then
     # Show a finding in full once. On later cycles it stays listed — nothing is
@@ -196,14 +215,19 @@ digest() {
 
   # A verdict describes one commit. If the head moved while we were reading,
   # everything above may already be stale.
-  if [ "$(gh pr view "$pr" --repo "$repo" --json headRefOid --jq .headRefOid)" != "$head" ]; then
+  local current_head
+  current_head=$(gh pr view "$pr" --repo "$repo" --json headRefOid --jq .headRefOid) \
+    || die "could not re-read the PR head"
+  if [ "$current_head" != "$head" ]; then
     echo "VERDICT out-of-sync (head moved during this observation)"
     return 20
   fi
 
   if [ "$sync" -ne 0 ]; then echo "VERDICT out-of-sync"; return 20; fi
   if [ "$failed" -gt 0 ]; then echo "VERDICT failures"; return 10; fi
-  if [ "$open_n" -gt 0 ]; then echo "VERDICT open-comments"; return 11; fi
+  if [ "$open_n" -gt 0 ] || [ "$decision" = "CHANGES_REQUESTED" ]; then
+    echo "VERDICT open-comments"; return 11
+  fi
   if [ "$pending" -gt 0 ]; then echo "VERDICT pending ($pending)"; return 12; fi
   echo "VERDICT green"
   return 0
@@ -234,9 +258,10 @@ main() {
   if [ "$watch" -eq 1 ]; then
     local started=$SECONDS head runs statuses empty=0 left
     while :; do
-      head=$(gh pr view "$pr" --repo "$repo" --json headRefOid --jq .headRefOid)
-      runs=$(check_runs "$repo" "$head")
-      statuses=$(commit_statuses "$repo" "$head")
+      head=$(gh pr view "$pr" --repo "$repo" --json headRefOid --jq .headRefOid) \
+        || die "could not read the PR head"
+      runs=$(check_runs "$repo" "$head") || die "could not read check runs"
+      statuses=$(commit_statuses "$repo" "$head") || die "could not read commit statuses"
       if [ "$(jq '[.[] | select(.status != "completed")] | length' <<<"$runs")" = "0" ] &&
          [ "$(jq '[.[] | select(.state == "pending")] | length' <<<"$statuses")" = "0" ]; then
         # Nothing outstanding. Wait a few polls before believing a PR that has
