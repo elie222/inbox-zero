@@ -248,7 +248,8 @@ model MailSplit {
   updatedAt DateTime      @updatedAt
   name      String
   kind      MailSplitKind
-  value     String?
+  /// Label ids for LABEL splits (one or more), the category for CATEGORY splits, empty otherwise.
+  values    String[]      @default([])
   order     Int
 
   emailAccountId String

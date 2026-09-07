@@ -20,17 +20,17 @@ describe("getDefaultMailSplitDrafts", () => {
       {
         name: "To Reply",
         kind: MailSplitKind.LABEL,
-        value: "reply-label",
+        values: ["reply-label"],
       },
       {
         name: "Newsletter",
         kind: MailSplitKind.LABEL,
-        value: "newsletter-label",
+        values: ["newsletter-label"],
       },
       {
         name: "Receipt",
         kind: MailSplitKind.LABEL,
-        value: "receipt-label",
+        values: ["receipt-label"],
       },
     ]);
   });
@@ -53,7 +53,7 @@ describe("getDefaultMailSplitDrafts", () => {
       {
         name: "Notification",
         kind: MailSplitKind.LABEL,
-        value: "notification-label",
+        values: ["notification-label"],
       },
     ]);
   });

@@ -55,14 +55,14 @@ export function useCombinedMailThreads({
   emailAccountId,
   enabled,
   isUnread,
-  labelName,
+  labelNames,
   searchQuery,
 }: {
   accounts: CombinedThread["account"][];
   emailAccountId: string;
   enabled: boolean;
   isUnread: boolean;
-  labelName?: string;
+  labelNames?: string[];
   searchQuery?: string;
 }) {
   const accountIdentity = useMemo(
@@ -77,16 +77,17 @@ export function useCombinedMailThreads({
     () => accounts.map((account) => account.id),
     [accounts],
   );
+  const labelIdentity = labelNames?.length ? labelNames.join("\n") : undefined;
   const viewKey = useMemo(
     () =>
       createThreadListCacheKey({
         scope: "combined",
         accountIdentity,
         isUnread: isUnread || undefined,
-        labelName,
+        labelIdentity,
         q: searchQuery,
       }),
-    [accountIdentity, isUnread, labelName, searchQuery],
+    [accountIdentity, isUnread, labelIdentity, searchQuery],
   );
   const viewIdentity = `${emailAccountId}:${accountIdentity}:${viewKey}`;
   const { fetcher } = useSWRConfig();
@@ -99,13 +100,17 @@ export function useCombinedMailThreads({
         accountSet: accountIdentity,
         limit: COMBINED_PAGE_SIZE,
         isUnread: isUnread || undefined,
-        labelName,
         q: searchQuery,
         cursor: pageIndex > 0 ? previousPageData?.nextPageToken : undefined,
       });
+      // Repeated params rather than a joined value, because a label name may
+      // itself contain whatever separator we would pick.
+      for (const labelName of labelIdentity?.split("\n") ?? []) {
+        params.append("labelNames", labelName);
+      }
       return `/api/threads/all?${params.toString()}`;
     },
-    [accountIdentity, enabled, isUnread, labelName, searchQuery],
+    [accountIdentity, enabled, isUnread, labelIdentity, searchQuery],
   );
   const fetchCombinedPage = useCallback(
     async (key: string) => {
@@ -180,7 +185,7 @@ export function useCombinedMailThreads({
   }, [emailAccountId, enabled, viewIdentity, viewKey]);
 
   useEffect(() => {
-    if (!enabled || !accountIdentity || labelName || searchQuery) return;
+    if (!enabled || !accountIdentity || labelIdentity || searchQuery) return;
     let cancelled = false;
     const accountIds = new Set(
       accountsRef.current.map((account) => account.id),
@@ -212,7 +217,7 @@ export function useCombinedMailThreads({
     accountIdentity,
     enabled,
     isUnread,
-    labelName,
+    labelIdentity,
     searchQuery,
     localSnapshotLimit,
     viewIdentity,

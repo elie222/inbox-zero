@@ -6,6 +6,7 @@ import { withAuth } from "@/utils/middleware";
 import { loadCombinedThreads } from "@/utils/threads/load-combined";
 import { loadThreads, toListThreads } from "@/utils/threads/load";
 import { threadsQuery } from "@/utils/threads/validation";
+import { MAX_SPLIT_LABELS } from "@/utils/mail/split-constants";
 
 export const maxDuration = 30;
 
@@ -13,7 +14,8 @@ const querySchema = z.object({
   q: threadsQuery.shape.q,
   cursor: z.string().min(1).optional(),
   limit: z.coerce.number().int().min(1).max(50).default(20),
-  labelName: z.string().trim().min(1).max(255).optional(),
+  // A split can cover several labels, and each account resolves them by name.
+  labelNames: z.array(z.string().trim().min(1).max(255)).max(MAX_SPLIT_LABELS),
   isUnread: z
     .enum(["true", "false"])
     .transform((value) => value === "true")
@@ -25,9 +27,11 @@ export type GetAllThreadsResponse = Awaited<
 >;
 
 export const GET = withAuth("threads/all", async (request) => {
-  const { cursor, limit, isUnread, labelName, q } = querySchema.parse(
-    Object.fromEntries(new URL(request.url).searchParams),
-  );
+  const { searchParams } = new URL(request.url);
+  const { cursor, limit, isUnread, labelNames, q } = querySchema.parse({
+    ...Object.fromEntries(searchParams),
+    labelNames: searchParams.getAll("labelNames"),
+  });
   const accounts = await getConnectedEmailAccounts({
     userId: request.auth.userId,
     includeInAllAccounts: true,
@@ -44,19 +48,24 @@ export const GET = withAuth("threads/all", async (request) => {
         provider: account.provider,
         logger,
       });
-      if (labelName && !q) {
+      if (labelNames.length && !q) {
         const labels = await emailProvider.getLabels();
-        const normalizedLabelName = labelName.toLowerCase();
-        const matchingLabel = labels.find(
-          (label) => label.name.trim().toLowerCase() === normalizedLabelName,
+        const wanted = new Set(
+          labelNames.map((labelName) => labelName.toLowerCase()),
         );
-        if (!matchingLabel) {
+        const matchingLabelIds = labels
+          .filter((label) => wanted.has(label.name.trim().toLowerCase()))
+          .map((label) => label.id);
+        // An account missing every one of the split's labels contributes nothing.
+        if (!matchingLabelIds.length) {
           return { threads: [], nextPageToken: null, labels };
         }
 
         const loaded = await loadThreads({
           query: threadsQuery.parse({
-            labelIds: [matchingLabel.id, "INBOX"],
+            ...(matchingLabelIds.length === 1
+              ? { labelIds: [matchingLabelIds[0], "INBOX"] }
+              : { labelIds: ["INBOX"], anyLabelIds: matchingLabelIds }),
             limit,
             nextPageToken: pageToken,
           }),

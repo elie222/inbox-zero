@@ -120,6 +120,139 @@ describe("loadThreads", () => {
       "hidden-message",
     ]);
   });
+
+  describe("multi-label splits", () => {
+    const thread = (id: string, internalDate: string) => ({
+      id,
+      snippet: id,
+      messages: [
+        {
+          id: `${id}-message`,
+          threadId: id,
+          internalDate,
+          headers: { from: "sender@example.com" },
+        },
+      ],
+    });
+
+    it("queries each label separately and merges them newest-first", async () => {
+      const emailProvider = {
+        getThreadsWithQuery: vi.fn(async ({ query }) => ({
+          threads: query.labelIds.includes("label-a")
+            ? [thread("older", "1000")]
+            : [thread("newer", "2000")],
+          nextPageToken: null,
+        })),
+      };
+
+      const result = await loadThreads({
+        query: { labelIds: ["INBOX"], anyLabelIds: ["label-a", "label-b"] },
+        emailAccountId: "account-1",
+        emailProvider: emailProvider as never,
+        messageFormat: "metadata",
+      });
+
+      expect(result.threads.map((loaded) => loaded.id)).toEqual([
+        "newer",
+        "older",
+      ]);
+      // Each label keeps the caller's own filters, so the split stays in the inbox.
+      for (const [{ query }] of emailProvider.getThreadsWithQuery.mock.calls) {
+        expect(query.anyLabelIds).toBeUndefined();
+        expect(query.labelIds[0]).toBe("INBOX");
+      }
+    });
+
+    it("returns a thread carrying several of the labels only once", async () => {
+      const emailProvider = {
+        getThreadsWithQuery: vi.fn().mockResolvedValue({
+          threads: [thread("shared", "1000")],
+          nextPageToken: null,
+        }),
+      };
+
+      const result = await loadThreads({
+        query: { labelIds: ["INBOX"], anyLabelIds: ["label-a", "label-b"] },
+        emailAccountId: "account-1",
+        emailProvider: emailProvider as never,
+        messageFormat: "metadata",
+      });
+
+      expect(result.threads.map((loaded) => loaded.id)).toEqual(["shared"]);
+      expect(result.nextPageToken).toBeUndefined();
+    });
+
+    it("re-serves rows a full page could not fit before advancing a label", async () => {
+      const emailProvider = {
+        getThreadsWithQuery: vi.fn(async ({ query }) => ({
+          threads: query.labelIds.includes("label-a")
+            ? [thread("a-newest", "3000"), thread("a-oldest", "1000")]
+            : [thread("b-middle", "2000")],
+          nextPageToken: "label-page-2",
+        })),
+      };
+      const load = (nextPageToken?: string) =>
+        loadThreads({
+          query: {
+            labelIds: ["INBOX"],
+            anyLabelIds: ["label-a", "label-b"],
+            limit: 2,
+            nextPageToken,
+          },
+          emailAccountId: "account-1",
+          emailProvider: emailProvider as never,
+          messageFormat: "metadata",
+        });
+
+      const first = await load();
+      expect(first.threads.map((loaded) => loaded.id)).toEqual([
+        "a-newest",
+        "b-middle",
+      ]);
+
+      const second = await load(first.nextPageToken ?? undefined);
+      expect(second.threads.map((loaded) => loaded.id)).toContain("a-oldest");
+    });
+
+    it("fails the request rather than silently narrowing the split", async () => {
+      const emailProvider = {
+        getThreadsWithQuery: vi.fn(async ({ query }) => {
+          if (query.labelIds.includes("label-b")) throw new Error("Boom");
+          return { threads: [thread("only-a", "1000")], nextPageToken: null };
+        }),
+      };
+
+      await expect(
+        loadThreads({
+          query: { labelIds: ["INBOX"], anyLabelIds: ["label-a", "label-b"] },
+          emailAccountId: "account-1",
+          emailProvider: emailProvider as never,
+          messageFormat: "metadata",
+        }),
+      ).rejects.toThrow("Boom");
+    });
+
+    it("keeps a single label on the provider's own query", async () => {
+      const emailProvider = {
+        getThreadsWithQuery: vi.fn().mockResolvedValue({
+          threads: [],
+          nextPageToken: null,
+        }),
+      };
+
+      await loadThreads({
+        query: { labelIds: ["INBOX"], anyLabelIds: ["label-a"] },
+        emailAccountId: "account-1",
+        emailProvider: emailProvider as never,
+        messageFormat: "metadata",
+      });
+
+      expect(emailProvider.getThreadsWithQuery).toHaveBeenCalledTimes(1);
+      expect(
+        emailProvider.getThreadsWithQuery.mock.calls[0][0].query.labelIds,
+      ).toEqual(["INBOX", "label-a"]);
+    });
+  });
 });
 
 function executedRule(id: string, createdAt: Date) {

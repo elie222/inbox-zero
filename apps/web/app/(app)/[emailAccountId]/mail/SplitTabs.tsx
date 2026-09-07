@@ -6,6 +6,7 @@ import {
   type NewSplitDraft,
   type NewSplitOption,
   NewSplitPopover,
+  type NewSplitSuggestion,
 } from "@/app/(app)/[emailAccountId]/mail/NewSplitPopover";
 import { cn } from "@/utils";
 
@@ -20,8 +21,8 @@ export type SplitTabsProps = {
   onSelect: (splitId: string) => void;
   onDelete: (splitId: string) => void;
   newSplitOptions: NewSplitOption[];
-  onCreateSplit: (draft: NewSplitDraft) => void;
-  onCreateSplitFromPrompt: (prompt: string) => Promise<boolean>;
+  onCreateSplit: (draft: NewSplitDraft) => Promise<boolean>;
+  onSuggestSplit: (prompt: string) => Promise<NewSplitSuggestion | null>;
   canAddDefaultSplits: boolean;
   canRemoveDefaultSplits: boolean;
   onSetDefaultSplits: (enabled: boolean) => Promise<boolean>;
@@ -35,7 +36,7 @@ export function SplitTabs({
   onDelete,
   newSplitOptions,
   onCreateSplit,
-  onCreateSplitFromPrompt,
+  onSuggestSplit,
   canAddDefaultSplits,
   canRemoveDefaultSplits,
   onSetDefaultSplits,
@@ -108,7 +109,7 @@ export function SplitTabs({
       <NewSplitPopover
         options={newSplitOptions}
         onCreate={onCreateSplit}
-        onCreateFromPrompt={onCreateSplitFromPrompt}
+        onSuggest={onSuggestSplit}
         canAddDefaultSplits={canAddDefaultSplits}
         canRemoveDefaultSplits={canRemoveDefaultSplits}
         onSetDefaultSplits={onSetDefaultSplits}

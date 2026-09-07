@@ -95,7 +95,7 @@ import { useShortcuts } from "@/lib/shortcuts/useShortcuts";
 import type { ShortcutHandlers } from "@/lib/shortcuts/registry";
 import {
   createMailSplitAction,
-  createMailSplitFromPromptAction,
+  suggestMailSplitAction,
   deleteMailSplitAction,
   setDefaultMailSplitsAction,
   updateMailPreferencesAction,
@@ -330,18 +330,18 @@ export function MailShell() {
     splits[0] ??
     BUILT_IN_SPLITS[0];
   const displayedActiveSplitId = activeSplit.id;
-  const activeCombinedLabelName = combinedLabelSplits.find(
+  const activeCombinedLabelNames = combinedLabelSplits.find(
     (split) => split.id === displayedActiveSplitId,
-  )?.labelName;
+  )?.labelNames;
   const savedDefaultSplits = useMemo(() => {
     const defaultLabelIds = new Set(
-      (settings?.defaultSplits ?? []).map((split) => split.value),
+      (settings?.defaultSplits ?? []).map((split) => split.values[0]),
     );
     return (settings?.splits ?? []).filter(
       (split) =>
         split.kind === MailSplitKind.LABEL &&
-        split.value &&
-        defaultLabelIds.has(split.value),
+        split.values.length === 1 &&
+        defaultLabelIds.has(split.values[0]),
     );
   }, [settings?.defaultSplits, settings?.splits]);
   const canAddDefaultSplits = (settings?.defaultSplits ?? []).some(
@@ -350,7 +350,8 @@ export function MailShell() {
         (split) =>
           split.name === defaultSplit.name ||
           (split.kind === MailSplitKind.LABEL &&
-            split.value === defaultSplit.value),
+            split.values.length === 1 &&
+            split.values[0] === defaultSplit.values[0]),
       ),
   );
   const canRemoveDefaultSplits = savedDefaultSplits.length > 0;
@@ -374,7 +375,7 @@ export function MailShell() {
     emailAccountId,
     enabled: isAllAccounts,
     isUnread: !searchQuery && activeSplit.kind === MailSplitKind.UNREAD,
-    labelName: searchQuery ? undefined : activeCombinedLabelName,
+    labelNames: searchQuery ? undefined : activeCombinedLabelNames,
     searchQuery: searchQuery ?? undefined,
   });
   const { labelsByAccount } = combinedThreadState;
@@ -1091,14 +1092,14 @@ export function MailShell() {
         id: `category:${category.type}`,
         name: category.name,
         kind: MailSplitKind.CATEGORY,
-        value: category.type,
+        values: [category.type],
         group: categoryGroup,
       })),
       ...visibleLabels.map((label) => ({
         id: `label:${label.id}`,
         name: label.name,
         kind: MailSplitKind.LABEL,
-        value: label.id,
+        values: [label.id],
         group: "label" as const,
       })),
     ],
@@ -1116,35 +1117,35 @@ export function MailShell() {
       const result = await createMailSplitAction(emailAccountId, draft);
       if (result?.serverError || result?.validationErrors) {
         toast.error(getActionErrorMessage(result));
-        return;
-      }
-      mutateSettings();
-    },
-    [emailAccountId, mutateSettings],
-  );
-
-  const onCreateSplitFromPrompt = useCallback(
-    async (prompt: string) => {
-      const result = await createMailSplitFromPromptAction(emailAccountId, {
-        prompt,
-        options: newSplitOptions.map(({ id, name, kind, value }) => ({
-          id,
-          name,
-          kind,
-          value,
-        })),
-      });
-      if (result?.serverError || result?.validationErrors) {
-        toast.error(getActionErrorMessage(result));
         return false;
       }
       await mutateSettings();
-      // Jump to the new tab so the user immediately sees what the AI matched.
+      // Jump to the new tab so its mail is what the user sees next.
       const split = result?.data?.split;
       if (split) setActiveSplitId(split.id);
       return true;
     },
-    [emailAccountId, newSplitOptions, mutateSettings, setActiveSplitId],
+    [emailAccountId, mutateSettings, setActiveSplitId],
+  );
+
+  const onSuggestSplit = useCallback(
+    async (prompt: string) => {
+      const result = await suggestMailSplitAction(emailAccountId, {
+        prompt,
+        options: newSplitOptions.map(({ id, name, kind, values }) => ({
+          id,
+          name,
+          kind,
+          values,
+        })),
+      });
+      if (result?.serverError || result?.validationErrors) {
+        toast.error(getActionErrorMessage(result));
+        return null;
+      }
+      return result?.data ?? null;
+    },
+    [emailAccountId, newSplitOptions],
   );
 
   const onDeleteSplit = useCallback(
@@ -1266,7 +1267,7 @@ export function MailShell() {
           (split) =>
             split.id === activeSplitId &&
             split.kind === MailSplitKind.LABEL &&
-            split.value === item.id,
+            split.values.includes(item.id),
         );
       if (isActive) {
         await Promise.all([
@@ -1426,7 +1427,7 @@ export function MailShell() {
                 onDelete={onDeleteSplit}
                 newSplitOptions={newSplitOptions}
                 onCreateSplit={onCreateSplit}
-                onCreateSplitFromPrompt={onCreateSplitFromPrompt}
+                onSuggestSplit={onSuggestSplit}
                 canAddDefaultSplits={canAddDefaultSplits}
                 canRemoveDefaultSplits={canRemoveDefaultSplits}
                 onSetDefaultSplits={onSetDefaultSplits}

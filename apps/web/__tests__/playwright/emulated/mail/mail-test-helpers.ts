@@ -166,7 +166,7 @@ async function deleteDefaultSplitRule(client: Client, emailAccountId: string) {
     `DELETE FROM "MailSplit"
      WHERE "emailAccountId" = $1
        AND kind = 'LABEL'
-       AND value = $2
+       AND "values" = ARRAY[$2]
        AND name = 'Calendar'`,
     [emailAccountId, DEFAULT_SPLIT_LABEL_ID],
   );

@@ -39,7 +39,7 @@ export function getDefaultMailSplitDrafts(rules: RuleForDefaultSplit[]) {
           {
             name: getRuleLabel(systemType),
             kind: MailSplitKind.LABEL,
-            value: labelId,
+            values: [labelId],
           },
         ]
       : [];

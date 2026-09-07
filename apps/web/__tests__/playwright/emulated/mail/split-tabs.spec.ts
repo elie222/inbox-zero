@@ -46,7 +46,7 @@ test("shows a combined picker and creates a matching split", async ({
   await page.getByRole("button", { name: "New split" }).click();
 
   const search = page.getByRole("combobox", {
-    name: "Search or describe a split",
+    name: "Search labels and categories",
   });
   await expect(
     page.getByRole("option", { name: "Promotions", exact: true }),
@@ -61,17 +61,16 @@ test("shows a combined picker and creates a matching split", async ({
   });
   await capturePlaywrightCheckpoint(page, testInfo, "mail-new-split-initial");
 
-  await search.fill("Posts from social networks");
+  await page.getByRole("button", { name: "Describe a split instead" }).click();
   await expect(
-    page.getByRole("option", {
-      name: "Create “Posts from social networks”",
-    }),
+    page.getByRole("textbox", { name: "Describe a split" }),
   ).toBeVisible();
   await capturePlaywrightCheckpoint(
     page,
     testInfo,
     "mail-new-split-description",
   );
+  await page.getByRole("button", { name: "Back to the split list" }).click();
 
   await search.fill("Promotions");
   const promotionsOption = page.getByRole("option", {
@@ -129,22 +128,73 @@ test("organizes split choices and manages all rule labels", async ({
     groupHeadings.findIndex((heading) => heading.startsWith("Categories")),
   );
 
-  await page.getByRole("option", { name: "Add all" }).click();
+  // The bulk controls sit below the list rather than among the label rows.
+  await expect(
+    page.getByRole("option", { name: "Add a tab for each rule label" }),
+  ).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Add a tab for each rule label" })
+    .click();
   const calendarSplit = page.getByRole("button", {
     name: "Calendar",
     exact: true,
   });
   await expect(calendarSplit).toBeVisible();
   await page.getByRole("button", { name: "New split" }).click();
-  await expect(page.getByRole("option", { name: "Remove all" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Remove the rule label tabs" }),
+  ).toBeVisible();
   await capturePlaywrightCheckpoint(
     page,
     testInfo,
     "mail-rule-label-splits-added",
   );
 
-  await page.getByRole("option", { name: "Remove all" }).click();
+  await page
+    .getByRole("button", { name: "Remove the rule label tabs" })
+    .click();
   await expect(calendarSplit).toHaveCount(0);
+});
+
+test("builds one tab from several labels and names it", async ({
+  page,
+}, testInfo) => {
+  const { conversations } = await openMail(page);
+  const extraLabel = `Split Partner ${testInfo.retry}`;
+  await page.getByRole("button", { name: "Create label" }).click();
+  await page.getByRole("textbox", { name: "New label name" }).fill(extraLabel);
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(
+    page.getByRole("link", { name: extraLabel, exact: true }),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "New split" }).click();
+  await page
+    .getByRole("option", { name: "Project Alpha", exact: true })
+    .click();
+  await page.getByRole("option", { name: extraLabel, exact: true }).click();
+
+  const name = page.getByRole("textbox", { name: "Tab name" });
+  await expect(name).toHaveValue(`Project Alpha, ${extraLabel}`);
+  await name.fill("Two labels");
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "mail-new-split-multi-label",
+  );
+  await page.getByRole("button", { name: "Add tab for 2 labels" }).click();
+
+  const split = page.getByRole("button", { name: "Two labels", exact: true });
+  await expect(split).toHaveAttribute("aria-current", "true");
+  // Both labels feed one tab, so mail carrying either one shows up in it.
+  await expect(
+    conversationWithSubject(page, conversations, "Project Label Message"),
+  ).toBeVisible();
+
+  await page
+    .getByRole("button", { name: "Remove the Two labels split" })
+    .click();
+  await expect(split).toHaveCount(0);
 });
 
 for (const accountScope of ["single", "all"] as const) {
@@ -160,6 +210,7 @@ for (const accountScope of ["single", "all"] as const) {
     await page
       .getByRole("option", { name: "Project Alpha", exact: true })
       .click();
+    await page.getByRole("button", { name: "Add tab", exact: true }).click();
     const split = page.getByRole("button", {
       name: "Project Alpha",
       exact: true,

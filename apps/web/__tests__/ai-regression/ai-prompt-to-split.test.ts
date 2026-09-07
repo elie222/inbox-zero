@@ -24,6 +24,7 @@ const OPTIONS = [
   { id: "label:lbl-newsletter", name: "Newsletter", kind: MailSplitKind.LABEL },
   { id: "label:lbl-receipts", name: "Receipts", kind: MailSplitKind.LABEL },
   { id: "label:lbl-github", name: "GitHub", kind: MailSplitKind.LABEL },
+  { id: "label:lbl-invoices", name: "Invoices", kind: MailSplitKind.LABEL },
 ];
 
 describe.runIf(isAiTest)("aiPromptToSplit", () => {
@@ -36,7 +37,7 @@ describe.runIf(isAiTest)("aiPromptToSplit", () => {
         options: OPTIONS,
       });
 
-      expect(result.optionId).toBe("label:lbl-receipts");
+      expect(result.optionIds).toContain("label:lbl-receipts");
       expect(result.name).toBeTruthy();
     },
     TIMEOUT,
@@ -51,7 +52,7 @@ describe.runIf(isAiTest)("aiPromptToSplit", () => {
         options: OPTIONS,
       });
 
-      expect(result.optionId).toBe("state:unread");
+      expect(result.optionIds).toEqual(["state:unread"]);
     },
     TIMEOUT,
   );
@@ -65,7 +66,7 @@ describe.runIf(isAiTest)("aiPromptToSplit", () => {
         options: OPTIONS,
       });
 
-      expect(result.optionId).toBeNull();
+      expect(result.optionIds).toEqual([]);
     },
     TIMEOUT,
   );
@@ -81,7 +82,27 @@ describe.runIf(isAiTest)("aiPromptToSplit", () => {
         options: OPTIONS,
       });
 
-      expect(result.optionId).toBeNull();
+      expect(result.optionIds).toEqual([]);
+    },
+    TIMEOUT,
+  );
+
+  // The failure that motivated multi-label splits: a description spanning two
+  // of the user's labels used to come back as no match at all.
+  it(
+    "returns every label a description spans",
+    async () => {
+      const result = await aiPromptToSplit({
+        emailAccount: getEmailAccount(),
+        prompt: "receipts and invoices",
+        options: OPTIONS,
+      });
+
+      expect(result.optionIds.toSorted()).toEqual([
+        "label:lbl-invoices",
+        "label:lbl-receipts",
+      ]);
+      expect(result.name).toBeTruthy();
     },
     TIMEOUT,
   );

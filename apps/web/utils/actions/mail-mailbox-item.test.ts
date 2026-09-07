@@ -142,11 +142,18 @@ describe("mailbox item actions", () => {
     expect(result?.serverError).toBeUndefined();
     expect(method).toHaveBeenCalledWith(`${kind}-1`);
     if (kind === "label") {
+      // Splits keep their other labels; only ones left empty are removed.
+      expect(prisma.$executeRaw).toHaveBeenCalledWith(
+        expect.arrayContaining([expect.stringContaining("array_remove")]),
+        "label-1",
+        EMAIL_ACCOUNT_ID,
+        "label-1",
+      );
       expect(prisma.mailSplit.deleteMany).toHaveBeenCalledWith({
         where: {
           emailAccountId: EMAIL_ACCOUNT_ID,
           kind: MailSplitKind.LABEL,
-          value: "label-1",
+          values: { isEmpty: true },
         },
       });
     } else {
@@ -155,7 +162,7 @@ describe("mailbox item actions", () => {
   });
 
   it("retries saved-view cleanup after a successful provider deletion", async () => {
-    prisma.mailSplit.deleteMany.mockRejectedValueOnce(
+    prisma.$transaction.mockRejectedValueOnce(
       new Error("Database unavailable"),
     );
 
@@ -173,7 +180,7 @@ describe("mailbox item actions", () => {
     );
     expect(retryResult?.serverError).toBeUndefined();
     expect(mockDeleteLabel).toHaveBeenCalledTimes(2);
-    expect(prisma.mailSplit.deleteMany).toHaveBeenCalledTimes(2);
+    expect(prisma.$transaction).toHaveBeenCalledTimes(2);
   });
 
   it("keeps saved views when provider deletion fails", async () => {
@@ -187,7 +194,7 @@ describe("mailbox item actions", () => {
     expect(result?.serverError).toBe(
       "Failed to delete label. Please try again.",
     );
-    expect(prisma.mailSplit.deleteMany).not.toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it("rejects folder mutations for non-Outlook accounts", async () => {

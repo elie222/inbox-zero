@@ -1,45 +1,51 @@
 import { z } from "zod";
 import { MailLayout, MailSplitKind } from "@/generated/prisma/enums";
+import { MAX_SPLIT_LABELS } from "@/utils/mail/split-constants";
 
-// LABEL splits carry a provider label id; CATEGORY splits carry a provider category
-// (e.g. CATEGORY_PERSONAL). INBOX and UNREAD need no value.
-const requiresValue = (kind: MailSplitKind) =>
-  kind === MailSplitKind.LABEL || kind === MailSplitKind.CATEGORY;
+// LABEL splits carry one or more provider label ids; CATEGORY splits carry a
+// single provider category (e.g. CATEGORY_PERSONAL). INBOX and UNREAD carry none.
+const kindAndValues = {
+  kind: z.nativeEnum(MailSplitKind),
+  values: z.array(z.string().trim().min(1)).max(MAX_SPLIT_LABELS),
+};
+const hasValidValues = ({
+  kind,
+  values,
+}: {
+  kind: MailSplitKind;
+  values: string[];
+}) => {
+  if (kind === MailSplitKind.LABEL) return values.length >= 1;
+  if (kind === MailSplitKind.CATEGORY) return values.length === 1;
+  return values.length === 0;
+};
+const valuesError = {
+  message:
+    "Label splits need at least one label, category splits exactly one category",
+  path: ["values"],
+};
 
 export const createMailSplitBody = z
-  .object({
-    name: z.string().trim().min(1).max(60),
-    kind: z.nativeEnum(MailSplitKind),
-    value: z.string().trim().min(1).nullish(),
-  })
-  .refine((data) => !requiresValue(data.kind) || !!data.value, {
-    message: "Label and category splits need a value",
-    path: ["value"],
-  });
+  .object({ name: z.string().trim().min(1).max(60), ...kindAndValues })
+  .refine(hasValidValues, valuesError);
 export type CreateMailSplitBody = z.infer<typeof createMailSplitBody>;
 
 // The client sends the account's available options (labels, categories, states)
 // so the server doesn't have to re-fetch them from the provider; the AI only
-// ever picks one of these, so a made-up option can't produce a split.
+// ever picks from these, so a made-up option can't reach the UI.
 const splitPromptOption = z
   .object({
     id: z.string().min(1),
     name: z.string().trim().min(1),
-    kind: z.nativeEnum(MailSplitKind),
-    value: z.string().trim().min(1).nullish(),
+    ...kindAndValues,
   })
-  .refine((data) => !requiresValue(data.kind) || !!data.value, {
-    message: "Label and category splits need a value",
-    path: ["value"],
-  });
+  .refine(hasValidValues, valuesError);
 
-export const createMailSplitFromPromptBody = z.object({
+export const suggestMailSplitBody = z.object({
   prompt: z.string().trim().min(1).max(300),
   options: z.array(splitPromptOption).min(1).max(500),
 });
-export type CreateMailSplitFromPromptBody = z.infer<
-  typeof createMailSplitFromPromptBody
->;
+export type SuggestMailSplitBody = z.infer<typeof suggestMailSplitBody>;
 
 export const renameMailSplitBody = z.object({
   id: z.string(),

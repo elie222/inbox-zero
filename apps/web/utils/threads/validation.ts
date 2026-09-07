@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_SPLIT_LABELS } from "@/utils/mail/split-constants";
 import { microsoftGraphPageTokenSchema } from "@/utils/outlook/page-token";
 
 export const threadsQuery = z.object({
@@ -11,6 +12,9 @@ export const threadsQuery = z.object({
   nextPageToken: microsoftGraphPageTokenSchema,
   labelId: z.string().nullish(), // For Google
   labelIds: z.array(z.string()).nullish(), // For Google
+  // Threads matching any one of these labels, on top of `labelIds`, which all
+  // have to match. Served by fanning out one provider query per label.
+  anyLabelIds: z.array(z.string()).max(MAX_SPLIT_LABELS).nullish(),
   excludeLabelNames: z.array(z.string()).nullish(), // For Google
   after: z.coerce.date().nullish(),
   before: z.coerce.date().nullish(),

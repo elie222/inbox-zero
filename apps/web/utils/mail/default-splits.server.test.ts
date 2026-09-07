@@ -65,7 +65,7 @@ describe("seedDefaultMailSplits", () => {
       {
         name: "Receipt",
         kind: MailSplitKind.LABEL,
-        value: "receipt-label",
+        values: ["receipt-label"],
       },
     ]);
     expect(prisma.rule.findMany).toHaveBeenCalledWith({
@@ -93,12 +93,12 @@ describe("seedDefaultMailSplits", () => {
         {
           name: "Receipt",
           kind: MailSplitKind.LABEL,
-          value: "receipt-label",
+          values: ["receipt-label"],
         },
         {
           name: "Newsletter",
           kind: MailSplitKind.LABEL,
-          value: "newsletter-label",
+          values: ["newsletter-label"],
         },
       ],
       enabled: false,
@@ -108,7 +108,10 @@ describe("seedDefaultMailSplits", () => {
       where: {
         emailAccountId: "account-id",
         kind: MailSplitKind.LABEL,
-        value: { in: ["receipt-label", "newsletter-label"] },
+        OR: [
+          { values: { equals: ["receipt-label"] } },
+          { values: { equals: ["newsletter-label"] } },
+        ],
       },
     });
   });
@@ -126,12 +129,12 @@ describe("seedDefaultMailSplits", () => {
           {
             name: "Receipt",
             kind: MailSplitKind.LABEL,
-            value: "receipt-label",
+            values: ["receipt-label"],
           },
           {
             name: "Newsletter",
             kind: MailSplitKind.LABEL,
-            value: "newsletter-label",
+            values: ["newsletter-label"],
           },
         ],
         enabled: true,
