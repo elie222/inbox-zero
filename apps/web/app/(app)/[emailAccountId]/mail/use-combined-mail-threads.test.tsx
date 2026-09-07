@@ -64,17 +64,16 @@ describe("useCombinedMailThreads", () => {
     mailbox.read.mockResolvedValue({
       threads: [createUnreadThread("account-1", "inbox-only")],
     });
-    const fetcher = vi.fn(async (key: string) => ({
-      threads: [
-        createUnreadThread(
-          "account-1",
-          new URL(key, "http://localhost").searchParams.get("q")!,
-        ),
-      ],
-      failedAccountIds: [],
-      labelsByAccount: {},
-      nextPageToken: null,
-    }));
+    const fetcher = vi.fn(async (key: string) => {
+      const query = new URL(key, "http://localhost").searchParams.get("q");
+      if (query === null) throw new Error("Expected a search query");
+      return {
+        threads: [createUnreadThread("account-1", query)],
+        failedAccountIds: [],
+        labelsByAccount: {},
+        nextPageToken: null,
+      };
+    });
     const { result, rerender, unmount } = renderHook(
       ({ searchQuery }) =>
         useCombinedMailThreads({

@@ -153,8 +153,9 @@ for (const accountScope of ["single", "all"] as const) {
     request,
   }) => {
     const { emailAccountId } = await openMail(page);
-    if (accountScope === "all")
+    if (accountScope === "all") {
       await page.goto(`/${emailAccountId}/mail?accountScope=all`);
+    }
     await page.getByRole("button", { name: "New split" }).click();
     await page
       .getByRole("option", { name: "Project Alpha", exact: true })
