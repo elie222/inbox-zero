@@ -4,6 +4,7 @@ import { classifyEmailAccountProviderIssue } from "@/utils/email/provider-health
 import { isEmailProviderRateLimitError } from "@/utils/email/is-provider-rate-limit-error";
 import type { EmailProvider } from "@/utils/email/types";
 import { MAIL_MUTATION_RETRY_WINDOW_MS } from "@/utils/email-cache/policy";
+import { SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import type { DurableEmailSendBody } from "./durable-email-send.validation";
@@ -94,6 +95,17 @@ export async function executeDurableEmailSend({
         where: { id: existing.id },
       });
       return { status: "blocked_auth" as const };
+    }
+    // Providers throw SafeError for checks that run before anything is sent,
+    // so the outcome is known and the operation can be retried later.
+    if (error instanceof SafeError) {
+      await prisma.emailSendOperation.deleteMany({
+        where: { id: existing.id },
+      });
+      return {
+        status: "rejected" as const,
+        error: error.safeMessage ?? error.message,
+      };
     }
     await prisma.emailSendOperation.updateMany({
       where: { id: existing.id, status: EmailSendOperationStatus.PROCESSING },

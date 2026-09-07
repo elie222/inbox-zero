@@ -23,6 +23,32 @@ describe("sendEmailWithHtml", () => {
     vi.unstubAllGlobals();
   });
 
+  it("rejects a reply without a recipient before creating the reply draft", async () => {
+    const api = vi.fn(() => {
+      throw new Error("Graph should not be called");
+    });
+    const client = createMockOutlookClient(api);
+
+    await expect(
+      sendEmailWithHtml(
+        client,
+        {
+          to: "",
+          subject: "Re: Subject",
+          messageHtml: "<p>Hello</p>",
+          replyToEmail: {
+            threadId: "thread-1",
+            headerMessageId: "<message-1@example.com>",
+            messageId: "message-1",
+          },
+        },
+        createTestLogger(),
+      ),
+    ).rejects.toThrow("Recipient address is required");
+
+    expect(api).not.toHaveBeenCalled();
+  });
+
   it("parses formatted recipients when sending a new draft", async () => {
     const draftPost = vi.fn(
       async () =>
