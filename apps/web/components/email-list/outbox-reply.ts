@@ -1,7 +1,11 @@
+import { z } from "zod";
 import type { StoredMailMutation } from "@/utils/email-cache/database";
 import { rewriteInlineImageSources } from "@/utils/email/inline-images";
 import type { ParsedMessage } from "@/utils/types";
 import { sendEmailBody } from "@/utils/types/mail";
+
+// Previewing saved data needs field validation, not send-time byte and size checks.
+const outboxReplyEmail = z.object(sendEmailBody.shape);
 
 export function getOutboxReplyPreview(
   row: StoredMailMutation,
@@ -24,7 +28,7 @@ export function getOutboxReplyPreview(
     !("email" in row.payload)
   )
     return;
-  const parsed = sendEmailBody.safeParse(row.payload.email);
+  const parsed = outboxReplyEmail.safeParse(row.payload.email);
   if (!parsed.success) return;
   const email = parsed.data;
   const date = new Date(row.createdAt).toISOString();
