@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSWRConfig } from "swr";
 import useSWRInfinite from "swr/infinite";
 import type { ListThread } from "@/app/(app)/[emailAccountId]/mail/types";
 import type { ThreadsListResponse } from "@/app/api/threads/route";
@@ -34,6 +35,8 @@ export type OptimisticThreadUpdate = {
   commit: (threadId: string) => void;
   rollback: (threadIds: string[]) => void;
 };
+
+type FetchedThreadsPage = ThreadsListResponse & { requestedAt: number };
 
 type PersistentView = {
   identity: string;
@@ -83,8 +86,19 @@ export function useMailThreads({
     [emailAccountId, enabled, query],
   );
 
+  const { fetcher } = useSWRConfig();
+  const fetchPage = useCallback(
+    async (key: [string, string]) => {
+      if (!fetcher) throw new Error("SWR fetcher is unavailable");
+      const requestedAt = Date.now();
+      const page = (await fetcher(key)) as ThreadsListResponse;
+      // Cache freshness belongs to the request, not the time a split is opened.
+      return { ...page, requestedAt };
+    },
+    [fetcher],
+  );
   const { data, size, setSize, isLoading, error, mutate } =
-    useSWRInfinite<ThreadsListResponse>(getKey, {
+    useSWRInfinite<FetchedThreadsPage>(getKey, fetcher ? fetchPage : null, {
       keepPreviousData: false,
       revalidateOnFocus: false,
       revalidateFirstPage: false,
@@ -106,10 +120,7 @@ export function useMailThreads({
   const revalidationInProgress = useRef(false);
   const pendingReconciliationWrites = useRef(0);
   const remoteIdentity = useRef<string | undefined>(undefined);
-  const remoteSnapshot = useRef<{
-    firstPage?: ThreadsListResponse;
-    loadedAt: number;
-  }>({ loadedAt: 0 });
+  const remoteRequestedAt = data?.[0]?.requestedAt ?? 0;
   const queryRef = useRef(query);
   // Auto-load can fire from the cursor and the bottom sentinel in the same
   // tick; two setSize(+1) calls would skip a page token.
@@ -130,9 +141,6 @@ export function useMailThreads({
 
   remoteIdentity.current = data?.[0] ? viewIdentity : undefined;
   queryRef.current = query;
-  if (data?.[0] && remoteSnapshot.current.firstPage !== data[0]) {
-    remoteSnapshot.current = { firstPage: data[0], loadedAt: Date.now() };
-  }
 
   useEffect(() => {
     let cancelled = false;
@@ -198,7 +206,7 @@ export function useMailThreads({
       remoteThreads &&
       syncedThreads &&
       synced?.complete &&
-      synced.syncedAt > remoteSnapshot.current.loadedAt
+      synced.syncedAt > remoteRequestedAt
         ? mergeSyncedThreads({
             remoteThreads,
             syncedThreads,
@@ -209,6 +217,7 @@ export function useMailThreads({
     [
       persistentThreads,
       remoteThreads,
+      remoteRequestedAt,
       synced?.after,
       synced?.complete,
       synced?.syncedAt,

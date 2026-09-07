@@ -29,6 +29,8 @@ import {
   useRetainedMailMutationOverlay,
 } from "@/hooks/useMailMutationOverlay";
 
+type FetchedCombinedPage = GetAllThreadsResponse & { requestedAt: number };
+
 type CombinedThread = GetAllThreadsResponse["threads"][number];
 
 const COMBINED_PAGE_SIZE = 20;
@@ -85,10 +87,6 @@ export function useCombinedMailThreads({
   );
   const viewIdentity = `${emailAccountId}:${accountIdentity}:${viewKey}`;
   const { fetcher } = useSWRConfig();
-  const remoteRequest = useRef({
-    identity: viewIdentity,
-    startedAt: Date.now(),
-  });
   const getKey = useCallback(
     (pageIndex: number, previousPageData: GetAllThreadsResponse | null) => {
       if (!enabled || (previousPageData && !previousPageData.nextPageToken)) {
@@ -108,19 +106,15 @@ export function useCombinedMailThreads({
   const fetchCombinedPage = useCallback(
     async (key: string) => {
       if (!fetcher) throw new Error("SWR fetcher is unavailable");
-      const query = new URLSearchParams(key.split("?")[1]);
-      if (!query.has("cursor")) {
-        remoteRequest.current = {
-          identity: viewIdentity,
-          startedAt: Date.now(),
-        };
-      }
-      return (await fetcher(key)) as GetAllThreadsResponse;
+      const requestedAt = Date.now();
+      const page = (await fetcher(key)) as GetAllThreadsResponse;
+      // Preserve request freshness when revisiting an SWR-cached split.
+      return { ...page, requestedAt };
     },
-    [fetcher, viewIdentity],
+    [fetcher],
   );
   const { data, error, isLoading, size, setSize, mutate } =
-    useSWRInfinite<GetAllThreadsResponse>(
+    useSWRInfinite<FetchedCombinedPage>(
       getKey,
       fetcher ? fetchCombinedPage : null,
       {
@@ -146,30 +140,15 @@ export function useCombinedMailThreads({
   const accountsRef = useRef(accounts);
   const optimisticUpdateTokens = useRef(new Map<string, symbol>());
   const remoteIdentity = useRef<string | undefined>(undefined);
-  const remoteSnapshot = useRef<{
-    firstPage?: GetAllThreadsResponse;
-    loadedAt: number;
-  }>({ loadedAt: 0 });
+  const remoteRequestedAt = data?.[0]?.requestedAt ?? 0;
   const loadMoreLock = useRef(false);
   const localSnapshotLimit =
     localPagination.identity === viewIdentity
       ? localPagination.limit
       : COMBINED_PAGE_SIZE;
 
-  if (remoteRequest.current.identity !== viewIdentity) {
-    remoteRequest.current = {
-      identity: viewIdentity,
-      startedAt: Date.now(),
-    };
-  }
   remoteIdentity.current = data?.[0] ? viewIdentity : undefined;
   accountsRef.current = accounts;
-  if (data?.[0] && remoteSnapshot.current.firstPage !== data[0]) {
-    remoteSnapshot.current = {
-      firstPage: data[0],
-      loadedAt: remoteRequest.current.startedAt,
-    };
-  }
 
   useEffect(() => {
     if (!enabled) return;
@@ -254,7 +233,7 @@ export function useCombinedMailThreads({
             accountStates: syncedView.accountStates,
             failedAccountIds,
             remoteHasMore,
-            remoteLoadedAt: remoteSnapshot.current.loadedAt,
+            remoteLoadedAt: remoteRequestedAt,
             remoteThreads,
             syncedThreads,
           })
@@ -264,6 +243,7 @@ export function useCombinedMailThreads({
       failedAccountIds,
       remoteHasMore,
       remoteThreads,
+      remoteRequestedAt,
       syncedThreads,
       syncedView?.accountStates,
     ],

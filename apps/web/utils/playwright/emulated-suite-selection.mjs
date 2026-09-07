@@ -39,6 +39,8 @@ const suiteEntryFiles = new Map([
     [
       "app/(app)/[emailAccountId]/mail/layout.tsx",
       "app/(app)/[emailAccountId]/mail/page.tsx",
+      "app/(app)/[emailAccountId]/debug/mail-queue/page.tsx",
+      "app/(app)/[emailAccountId]/debug/page.tsx",
       "app/(app)/[emailAccountId]/settings/page.tsx",
     ],
   ],

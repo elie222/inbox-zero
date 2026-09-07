@@ -60,6 +60,46 @@ describe("useCombinedMailThreads", () => {
     vi.restoreAllMocks();
   });
 
+  it("does not revive an archived thread when returning to a cached combined split", async () => {
+    const clock = vi.spyOn(Date, "now").mockReturnValue(100);
+    const fetcher = vi.fn().mockImplementation(async () => ({
+      threads: [createUnreadThread("account-1", "archived-in-other-split")],
+      failedAccountIds: [],
+      labelsByAccount: {},
+      nextPageToken: null,
+    }));
+    const { result, rerender, unmount } = renderHook(
+      ({ isUnread }) =>
+        useCombinedMailThreads({
+          accounts: ACCOUNTS,
+          emailAccountId: "account-1",
+          enabled: true,
+          isUnread,
+        }),
+      { initialProps: { isUnread: false }, wrapper: createWrapper(fetcher) },
+    );
+    try {
+      await waitFor(() => expect(result.current.threads).toHaveLength(1));
+      rerender({ isUnread: true });
+      await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
+      mailbox.read.mockResolvedValue({
+        accountStates: createAccountStates(200),
+        complete: true,
+        missingAccountIds: [],
+        threads: [],
+        truncated: false,
+      });
+      clock.mockReturnValue(300);
+      rerender({ isUnread: false });
+      await waitFor(() => expect(mailbox.read).toHaveBeenCalledTimes(3));
+      await act(async () => {});
+      expect(result.current.threads).toEqual([]);
+    } finally {
+      unmount();
+      clock.mockRestore();
+    }
+  });
+
   it("applies durable overlays by composite account and thread identity", async () => {
     const network = Promise.withResolvers<unknown>();
     mailbox.read.mockResolvedValue({
