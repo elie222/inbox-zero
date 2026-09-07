@@ -34,10 +34,14 @@ export async function fetchThreadsPage({
 
   // A repeated label would run the same query twice and collide in the cursor.
   const anyLabelIds = [...new Set(query.anyLabelIds ?? [])];
+  let requiredLabelIds = query.labelIds ?? [];
+  if (!requiredLabelIds.length && query.labelId) {
+    requiredLabelIds = [query.labelId];
+  }
   const queryForLabels = (labelIds: string[]): ThreadsQuery => ({
     ...query,
     anyLabelIds: undefined,
-    labelIds: [...(query.labelIds ?? []), ...labelIds],
+    labelIds: [...requiredLabelIds, ...labelIds],
   });
 
   if (anyLabelIds.length < 2) {
