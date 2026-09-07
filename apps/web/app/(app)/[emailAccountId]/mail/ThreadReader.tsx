@@ -55,7 +55,6 @@ export type ThreadReaderProps = {
   onRemoveLabel?: (labelId: string) => void;
   onBackToInbox: () => void;
   onArchive: () => void;
-  showSidebarToggle?: boolean;
   /** Refreshes the open thread after a reply is sent or a draft changes. */
   refetch: () => void;
   /** Opens a different provider thread when a sent message starts one. */
@@ -84,7 +83,6 @@ export function ThreadReader({
   onRemoveLabel,
   onBackToInbox,
   onArchive,
-  showSidebarToggle = false,
   refetch,
   onSendSuccess,
   autoOpenReplyForMessageId,
@@ -132,9 +130,6 @@ export function ThreadReader({
       userLabels,
     }) ?? [];
 
-  /** No list column beside us, so the reader carries the sidebar toggle. */
-  const ownsFullWidth = layout === "list" && showSidebarToggle;
-
   const renderToolbar = (
     messageExpansion?: ComponentProps<typeof ReaderToolbar>["messageExpansion"],
   ) => (
@@ -146,7 +141,6 @@ export function ThreadReader({
       onArchive={onArchive}
       onBackToInbox={onBackToInbox}
       onRemoveLabel={onRemoveLabel}
-      showSidebarToggle={ownsFullWidth}
       subject={headerMessage.headers.subject}
     />
   );
@@ -160,10 +154,7 @@ export function ThreadReader({
         data-detail-selection-settled={detailSelectionSettled}
         data-testid="thread-reader"
       >
-        <div
-          className={readerMeasure({ layout })}
-          data-desktop-mac-titlebar-spacer={ownsFullWidth || undefined}
-        >
+        <div className={readerMeasure({ layout })}>
           {messages.length > 0 ? (
             <EmailThread
               renderToolbar={renderToolbar}
