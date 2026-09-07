@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 
 type ReaderToolbarProps = {
   subject: string;
+  isStarred: boolean;
   labels: EmailMessageCellLabel[];
   /**
    * Chips navigate to a label's view and nothing else: a label carries no
@@ -37,6 +38,7 @@ type ReaderToolbarProps = {
  */
 export function ReaderToolbar({
   subject,
+  isStarred,
   labels,
   labelHref,
   onRemoveLabel,
@@ -62,9 +64,19 @@ export function ReaderToolbar({
 
       <div className="min-w-56 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <h1 className="font-title font-medium text-2xl text-foreground leading-tight tracking-tight">
-            {subject}
-          </h1>
+          <div className="flex min-w-0 items-center gap-2">
+            {isStarred && (
+              <span
+                className="size-1.5 shrink-0 rounded-full bg-yellow-400"
+                role="img"
+                aria-label="Starred conversation"
+                title="Starred conversation"
+              />
+            )}
+            <h1 className="font-title font-medium text-2xl text-foreground leading-tight tracking-tight">
+              {subject}
+            </h1>
+          </div>
           {labels.map((label) => (
             <MailLabelChip
               color={label.color}

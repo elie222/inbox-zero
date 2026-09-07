@@ -9,6 +9,7 @@ import {
 import dynamic from "next/dynamic";
 import { Loader2Icon, MailIcon } from "lucide-react";
 import { ReaderToolbar } from "@/app/(app)/[emailAccountId]/mail/ReaderToolbar";
+import { isThreadStarred } from "@/app/(app)/[emailAccountId]/mail/star-state";
 import type {
   ListThread,
   MailLayoutMode,
@@ -134,6 +135,7 @@ export function ThreadReader({
     messageExpansion?: ComponentProps<typeof ReaderToolbar>["messageExpansion"],
   ) => (
     <ReaderToolbar
+      isStarred={isThreadStarred(thread?.messages ?? messages)}
       messageExpansion={messageExpansion}
       labelHref={labelHref}
       labels={labels}
