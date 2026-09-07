@@ -38,15 +38,16 @@ export async function sendEmailWithHtml(
 ): Promise<SentEmailResult> {
   ensureEmailSendingEnabled();
 
+  const toRecipients = buildGraphRecipients(body.to);
+  if (!toRecipients?.length)
+    throw new SafeError("Recipient address is required");
+
   // For replies with a message ID, use createReply for proper threading
   // Microsoft Graph's sendMail doesn't support In-Reply-To/References headers
   if (body.replyToEmail?.messageId) {
     return sendReplyUsingCreateReply(client, body, logger);
   }
 
-  const toRecipients = buildGraphRecipients(body.to);
-  if (!toRecipients?.length)
-    throw new SafeError("Recipient address is required");
   const ccRecipients = buildGraphRecipients(body.cc);
   const bccRecipients = buildGraphRecipients(body.bcc);
   const replyToRecipients = buildGraphRecipients(body.replyTo);
