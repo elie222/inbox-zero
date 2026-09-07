@@ -32,7 +32,7 @@ export function stripReferralSignature(value: string) {
 
 function createSignaturePattern(prefix: string, product: string) {
   return new RegExp(
-    `${escapeRegExp(prefix)}\\s*(?:<a\\b[^<>]*>)?${escapeRegExp(product)}(?:</a>)?(?:\\s*\\[https?://[^\\]\\s]+\\])?\\.?`,
+    `(?<=^|[\\r\\n>])[^\\S\\r\\n]*${escapeRegExp(prefix)}\\s*(?:<a\\b[^<>]*>)?${escapeRegExp(product)}(?:</a>)?(?:\\s*\\[https?://[^\\]\\s]+\\])?\\.?(?=[^\\S\\r\\n]*(?:$|[\\r\\n<]))`,
     "gi",
   );
 }
