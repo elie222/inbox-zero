@@ -59,9 +59,12 @@ describe("mail split actions", () => {
     } as never);
   });
 
-  it("rejects duplicate IDs before reordering", async () => {
+  it.each([
+    [],
+    ["split-1", "split-1"],
+  ])("rejects invalid reorder IDs: %j", async (ids) => {
     const result = await reorderMailSplitsAction(EMAIL_ACCOUNT_ID, {
-      ids: ["split-1", "split-1"],
+      ids,
     });
     expect(result?.validationErrors).toBeDefined();
     expect(prisma.$transaction).not.toHaveBeenCalled();

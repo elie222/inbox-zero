@@ -81,8 +81,8 @@ describe.skipIf(!RUN_DB_TESTS)(
       });
       expect(reordered.map(({ id }) => id)).toEqual([
         rows[2].id,
-        rows[0].id,
         rows[1].id,
+        rows[0].id,
       ]);
       expect(reordered.map(({ order }) => order)).toEqual([0, 1, 2]);
       await reorderMailSplits({

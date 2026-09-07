@@ -25,14 +25,22 @@ describe.skipIf(!process.env.RUN_DB_TESTS)("mail split migration", () => {
           UNIQUE ("emailAccountId", "name")
         );
         CREATE UNIQUE INDEX "MailSplit_emailAccountId_order_key" ON "MailSplit" ("emailAccountId", "order");
-        INSERT INTO "EmailAccount" VALUES ('new', '{}'), ('hidden', '{all,unread}'), ('custom', '{unread}');
+        INSERT INTO "EmailAccount" VALUES ('new', '{}'), ('hidden', '{all,unread}'), ('custom', '{unread}'), ('capped', '{}');
         INSERT INTO "MailSplit" VALUES ('label', NOW(), NOW(), 'All', 'LABEL', '{label-1}', 0, 'custom');
+        INSERT INTO "MailSplit"
+        SELECT 'label-' || n, NOW(), NOW(), 'Custom ' || n, 'LABEL', '{label-1}', n - 1, 'capped'
+        FROM generate_series(1, 12) n;
       `);
       await client.query(migration);
       const result = await client.query(
         'SELECT "emailAccountId", "name", "kind", "order" FROM "MailSplit" ORDER BY "emailAccountId", "order"',
       );
-      expect(result.rows).toEqual([
+      expect(
+        result.rows.filter((row) => row.emailAccountId === "capped"),
+      ).toHaveLength(14);
+      expect(
+        result.rows.filter((row) => row.emailAccountId !== "capped"),
+      ).toEqual([
         { emailAccountId: "custom", name: "All (2)", kind: "INBOX", order: 0 },
         { emailAccountId: "custom", name: "All", kind: "LABEL", order: 2 },
         { emailAccountId: "new", name: "All", kind: "INBOX", order: 0 },

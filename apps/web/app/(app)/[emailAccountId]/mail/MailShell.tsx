@@ -1143,7 +1143,6 @@ export function MailShell() {
 
   const onDeleteSplit = useCallback(
     async (splitId: string) => {
-      if (activeSplitId === splitId) setActiveSplitId(null);
       const result = await deleteMailSplitAction(emailAccountId, {
         id: splitId,
       });
@@ -1151,9 +1150,10 @@ export function MailShell() {
         toast.error(getActionErrorMessage(result));
         return;
       }
+      if (activeSplitIdRef.current === splitId) setActiveSplitId(null);
       await mutateSettings();
     },
-    [emailAccountId, mutateSettings, activeSplitId, setActiveSplitId],
+    [emailAccountId, mutateSettings, setActiveSplitId],
   );
 
   const onSetDefaultSplits = useCallback(

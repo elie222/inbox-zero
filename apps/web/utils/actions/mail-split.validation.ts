@@ -65,6 +65,7 @@ export type SetDefaultMailSplitsBody = z.infer<typeof setDefaultMailSplitsBody>;
 export const reorderMailSplitsBody = z.object({
   ids: z
     .array(z.string().min(1))
+    .min(1)
     .max(MAX_MAIL_SPLITS)
     .refine((ids) => new Set(ids).size === ids.length, {
       message: "Split IDs must be unique",

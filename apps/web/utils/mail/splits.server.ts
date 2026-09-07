@@ -106,7 +106,7 @@ export async function removeLabelFromMailSplits({
   ]);
 }
 
-/** Omitted splits retain their relative order after the visible selection. */
+/** Reorder only the selected slots so hidden splits keep their positions. */
 export async function reorderMailSplits({
   emailAccountId,
   ids,
@@ -117,18 +117,24 @@ export async function reorderMailSplits({
   await prisma.$transaction([
     lockMailSplits(emailAccountId),
     prisma.$executeRaw`
-      WITH ranked AS (
-        SELECT "id", (ROW_NUMBER() OVER (
-          ORDER BY array_position(${ids}::text[], "id") NULLS LAST,
-            "order", "createdAt", "id"
-        ) - 1)::integer AS position
+      WITH selected AS (
+        SELECT "id", "order", "createdAt"
         FROM "MailSplit"
         WHERE "emailAccountId" = ${emailAccountId}
+          AND "id" = ANY(${ids}::text[])
+      ),
+      positions AS (
+        SELECT "order", ROW_NUMBER() OVER (ORDER BY "order", "createdAt", "id") AS slot
+        FROM selected
+      ),
+      reordered AS (
+        SELECT "id", ROW_NUMBER() OVER (ORDER BY array_position(${ids}::text[], "id")) AS slot
+        FROM selected
       )
       UPDATE "MailSplit" split
-      SET "order" = ranked.position, "updatedAt" = CURRENT_TIMESTAMP
-      FROM ranked
-      WHERE split."id" = ranked."id"
+      SET "order" = positions."order", "updatedAt" = CURRENT_TIMESTAMP
+      FROM reordered JOIN positions USING (slot)
+      WHERE split."id" = reordered."id"
     `,
   ]);
 }
