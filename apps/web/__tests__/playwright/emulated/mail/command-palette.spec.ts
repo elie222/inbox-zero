@@ -243,6 +243,50 @@ test("Command K acts on highlighted and selected conversations", async ({
   await expect(options).toHaveCount(initialConversationCount - 2);
 });
 
+test("sender actions are available for a selected list row and match the reader", async ({
+  page,
+}, testInfo) => {
+  await page.route("**/api/user/stats/newsletters?**", (route) =>
+    route.fulfill({ json: { newsletters: [], searchedSenderStatus: null } }),
+  );
+  const { conversations } = await openMail(page);
+  const row = conversationWithSubject(
+    page,
+    conversations,
+    "Re: Reader Visual Message",
+  );
+  await row.getByRole("checkbox").click();
+  await page.keyboard.press(`${commandModifier}+KeyK`);
+  const palette = page.getByRole("dialog");
+  await expect(
+    palette.getByRole("option", { name: "Block sender ⇧U" }),
+  ).toBeEnabled();
+  await expect(
+    palette.getByRole("option", { name: "Auto archive future emails ⇧E" }),
+  ).toBeEnabled();
+  await capturePlaywrightCheckpoint(
+    palette,
+    testInfo,
+    "mail-list-sender-actions",
+  );
+  await page.keyboard.press("Escape");
+  await row.getByRole("checkbox").click();
+  await row.click();
+  await page.getByRole("button", { name: /^More actions/ }).click();
+  const menu = page.getByRole("menu");
+  await expect(
+    menu.getByRole("menuitem", { name: "Block sender ⇧U" }),
+  ).toBeEnabled();
+  await expect(
+    menu.getByRole("menuitem", { name: "Auto archive future emails ⇧E" }),
+  ).toBeEnabled();
+  await capturePlaywrightCheckpoint(
+    menu,
+    testInfo,
+    "mail-reader-sender-actions",
+  );
+});
+
 test("the open reader exposes its actions in Command K and forwards with F", async ({
   page,
 }) => {
@@ -267,7 +311,9 @@ test("the open reader exposes its actions in Command K and forwards with F", asy
     palette.getByRole("option", { name: "Mark as spam !" }),
   ).toBeVisible();
   await expect(
-    palette.getByRole("option", { name: "Unsubscribe from sender" }),
+    palette.getByRole("option", {
+      name: /Unsubscribe from sender|Block sender|Sender blocked/,
+    }),
   ).toBeVisible();
   await expect(
     palette.getByRole("option", { name: /auto archive/i }),

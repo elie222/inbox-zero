@@ -77,6 +77,20 @@ export type ShortcutEntry = {
 
 const SHORTCUT_DEFINITIONS = [
   {
+    id: "unsubscribe",
+    keys: ["shift+u"],
+    scope: "mail",
+    group: "Triage",
+    label: "Unsubscribe or block sender",
+  },
+  {
+    id: "toggleAutoArchive",
+    keys: ["shift+e"],
+    scope: "mail",
+    group: "Triage",
+    label: "Toggle auto archive for sender",
+  },
+  {
     id: "next",
     keys: ["j", "arrowdown"],
     scope: "mail",

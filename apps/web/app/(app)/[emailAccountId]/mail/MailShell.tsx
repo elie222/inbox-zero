@@ -25,6 +25,7 @@ import type {
   MailboxItem,
   MailboxItemEdit,
 } from "@/app/(app)/[emailAccountId]/mail/MailboxItemContextMenu";
+import { ListSenderCommands } from "@/app/(app)/[emailAccountId]/mail/ListSenderCommands";
 import { ThreadActionsMenu } from "@/app/(app)/[emailAccountId]/mail/ThreadActionsMenu";
 import { ShortcutsDialog } from "@/app/(app)/[emailAccountId]/mail/ShortcutsDialog";
 import { SplitTabs } from "@/app/(app)/[emailAccountId]/mail/SplitTabs";
@@ -60,10 +61,11 @@ import { isThreadUnread } from "@/app/(app)/[emailAccountId]/mail/read-state";
 import { MailLayout, MailSplitKind } from "@/generated/prisma/enums";
 import { useChat } from "@/providers/ChatProvider";
 import { Sidebar, useSidebar } from "@/components/ui/sidebar";
-import { useAtom, useSetAtom } from "jotai";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import {
   commandPaletteOpenAtom,
   mailCommandContextAtom,
+  senderCommandContextAtom,
 } from "@/store/command-palette";
 import {
   EmailAccountScopeProvider,
@@ -147,6 +149,7 @@ export function MailShell() {
   const { setInput: setChatInput } = useChat();
   const { state: openSidebars, toggleSidebar } = useSidebar();
   const [isPaletteOpen, setPaletteOpen] = useAtom(commandPaletteOpenAtom);
+  const senderCommandContext = useAtomValue(senderCommandContextAtom);
   const setMailCommandContext = useSetAtom(mailCommandContextAtom);
   // The side panel viewer owns the triage keys while it's open, so this screen
   // stands down rather than both archiving the same keystroke.
@@ -790,6 +793,13 @@ export function MailShell() {
       : accountsData?.emailAccounts.find(
           (account) => account.id === labelPicker?.targets[0]?.emailAccountId,
         );
+  const senderAccount =
+    singleActionTarget?.selection.emailAccountId === emailAccountId
+      ? emailAccount
+      : accountsData?.emailAccounts.find(
+          (account) =>
+            account.id === singleActionTarget?.selection.emailAccountId,
+        );
   const isReaderTarget =
     singleActionTarget !== undefined &&
     singleActionTarget.key === openThreadKey;
@@ -905,11 +915,24 @@ export function MailShell() {
     setOpenThread(null);
   };
 
-  // Not memoised: `useShortcuts` keeps handlers in a ref and only re-registers
-  // when the set of handled ids changes, so a stable identity buys nothing.
+  const senderCommands =
+    senderCommandContext?.emailAccountId ===
+      singleActionTarget?.selection.emailAccountId &&
+    senderCommandContext?.threadId === singleActionTarget?.selection.threadId
+      ? senderCommandContext
+      : null;
+  // `useShortcuts` keeps handlers in a ref, so these need no memoization.
   const handlers: ShortcutHandlers = (() => {
     if (sidePanelThreadId || labelPicker) return {};
     return {
+      unsubscribe:
+        !isMailOverlayOpen && !senderCommands?.isUnsubscribeDisabled
+          ? senderCommands?.unsubscribe
+          : undefined,
+      toggleAutoArchive:
+        !isMailOverlayOpen && !senderCommands?.isAutoArchiveDisabled
+          ? senderCommands?.toggleAutoArchive
+          : undefined,
       next: (event) => {
         if (openThreadId && event?.key === "ArrowDown") return;
         move(1);
@@ -1426,6 +1449,18 @@ export function MailShell() {
         onSelectAll={selectAllAccounts}
         variant="compact"
       />
+
+      {!isReaderTarget &&
+      singleActionTarget &&
+      senderAccount &&
+      !sidePanelThreadId ? (
+        <EmailAccountScopeProvider emailAccount={senderAccount}>
+          <ListSenderCommands
+            key={singleActionTarget.key}
+            message={singleActionTarget.messages.at(-1) ?? null}
+          />
+        </EmailAccountScopeProvider>
+      ) : null}
 
       {labelPicker && pickerAccount && (
         <EmailAccountScopeProvider emailAccount={pickerAccount}>

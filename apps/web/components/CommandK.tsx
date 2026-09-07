@@ -193,6 +193,7 @@ function CommandPaletteContent({
         isAutoArchived: senderCommandContext?.isAutoArchived,
         isAutoArchiveDisabled: senderCommandContext?.isAutoArchiveDisabled,
         isUnsubscribeDisabled: senderCommandContext?.isUnsubscribeDisabled,
+        unsubscribeLabel: senderCommandContext?.unsubscribeLabel,
         openExternalLabel: mailCommandContext.openExternalLabel,
         targetCount: mailCommandContext.targetCount,
       })
