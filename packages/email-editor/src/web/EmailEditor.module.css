@@ -86,7 +86,8 @@
   border-inline-start: 3px solid var(--email-editor-border);
 }
 
-.editor [data-email-editor-content] a {
+.editor [data-email-editor-content] a,
+.editor [data-email-url-highlight] {
   color: #2563eb;
   text-decoration: underline;
   text-underline-offset: 2px;

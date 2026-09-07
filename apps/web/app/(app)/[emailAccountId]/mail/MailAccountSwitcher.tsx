@@ -10,6 +10,7 @@ import {
 import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
 import { AllAccountsSelectionDialog } from "@/app/(app)/[emailAccountId]/mail/AllAccountsSelectionDialog";
 import { ProfileImage } from "@/components/ProfileImage";
+import { Kbd } from "@/components/Kbd";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,15 +25,22 @@ import {
 } from "@/components/ui/tooltip";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useAccounts } from "@/hooks/useAccounts";
+import {
+  formatShortcutKeys,
+  getShortcut,
+  getShortcutHint,
+} from "@/lib/shortcuts/registry";
 import { cn } from "@/utils";
 
 export function MailAccountSwitcher({
   isAllAccounts,
+  isDesktopApp,
   onSelectAccount,
   onSelectAll,
   variant,
 }: {
   isAllAccounts: boolean;
+  isDesktopApp: boolean;
   onSelectAccount: (accountId: string) => void;
   onSelectAll: () => void;
   variant: "compact" | "sidebar";
@@ -113,6 +121,11 @@ export function MailAccountSwitcher({
                 >
                   <AllAccountsIcon />
                   <span className="font-medium">All accounts</span>
+                  {isDesktopApp && (
+                    <Kbd className="ml-auto shrink-0">
+                      {getShortcutHint("switchAllAccounts")}
+                    </Kbd>
+                  )}
                 </DropdownMenuItem>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -130,11 +143,16 @@ export function MailAccountSwitcher({
               <DropdownMenuSeparator />
             </>
           ) : null}
-          {data.emailAccounts.map((account) => (
+          {data.emailAccounts.map((account, index) => (
             <AccountItem
               account={account}
               key={account.id}
               onSelect={onSelectAccount}
+              shortcutKey={
+                isDesktopApp
+                  ? getShortcut("switchAccount").keys[index]
+                  : undefined
+              }
             />
           ))}
           <DropdownMenuSeparator />
@@ -164,9 +182,11 @@ export function MailAccountSwitcher({
 function AccountItem({
   account,
   onSelect,
+  shortcutKey,
 }: {
   account: GetEmailAccountsResponse["emailAccounts"][number];
   onSelect: (accountId: string) => void;
+  shortcutKey: string | undefined;
 }) {
   return (
     <DropdownMenuItem
@@ -188,6 +208,14 @@ function AccountItem({
           </span>
         ) : null}
       </span>
+      {shortcutKey && (
+        <Kbd className="shrink-0">
+          {formatShortcutKeys({
+            ...getShortcut("switchAccount"),
+            display: [shortcutKey.replace("mod+", "modorctrl+")],
+          })}
+        </Kbd>
+      )}
     </DropdownMenuItem>
   );
 }

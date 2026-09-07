@@ -20,6 +20,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 export type ThreadListProps = {
   threads: ListThread[];
   layout: MailLayoutMode;
+  expandedPreview: boolean;
   userEmail: string;
   userLabels: EmailLabels;
   labelsByAccount?: Record<string, EmailLabels>;
@@ -41,6 +42,7 @@ export type ThreadListProps = {
 export function ThreadList({
   threads,
   layout,
+  expandedPreview,
   userEmail,
   userLabels,
   labelsByAccount,
@@ -138,6 +140,7 @@ export function ThreadList({
                   <ThreadRow
                     hasAnySelection={selectionEnabled && selectedCount > 0}
                     compact={isMobile}
+                    expandedPreview={expandedPreview}
                     index={index}
                     isFocused={index === focusedIndex}
                     isSelected={selectionEnabled && isSelected(threadKey)}

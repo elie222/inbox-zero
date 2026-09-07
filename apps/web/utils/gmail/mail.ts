@@ -25,6 +25,9 @@ import {
 import { formatReplySubject } from "@/utils/email/subject";
 import { buildThreadingHeaders } from "@/utils/email/threading";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
+import { getMessage } from "@/utils/gmail/message";
+import { getDraftIdForMessage } from "@/utils/gmail/draft";
+import { GmailLabel } from "@/utils/gmail/label";
 import { convertNewlinesToBr, textToHtmlParagraphs } from "@/utils/string";
 import {
   buildQuotedPlainText,
@@ -110,6 +113,34 @@ export async function sendEmailWithHtml(
   }
 
   const raw = await createRawMailMessage({ ...body, messageText });
+  const { replyToEmail } = body;
+  if (replyToEmail?.messageId) {
+    const message = await getMessage(replyToEmail.messageId, gmail, "metadata");
+    if (message.labelIds?.includes(GmailLabel.DRAFT)) {
+      if (message.labelIds.includes(GmailLabel.SENT)) {
+        throw new Error(
+          "This draft is already marked as sent. Reopen the thread before sending.",
+        );
+      }
+      const draftId = await getDraftIdForMessage(gmail, replyToEmail.messageId);
+      if (!draftId) {
+        throw new Error(
+          "The draft changed or is no longer available. Reopen the thread before sending.",
+        );
+      }
+
+      // Sending the existing draft consumes it and applies edits in one request.
+      return withGmailNonIdempotentWriteRetry(() =>
+        gmail.users.drafts.send({
+          userId: "me",
+          requestBody: {
+            id: draftId,
+            message: { threadId: replyToEmail.threadId, raw },
+          },
+        }),
+      );
+    }
+  }
   const result = await withGmailNonIdempotentWriteRetry(() =>
     gmail.users.messages.send({
       userId: "me",

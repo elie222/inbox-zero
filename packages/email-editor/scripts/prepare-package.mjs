@@ -48,6 +48,7 @@ const publishedPackageJson = {
 const javascriptFiles = [
   resolve(outputDirectory, "web/EmailEditor.js"),
   resolve(outputDirectory, "web/email-extensions.js"),
+  resolve(outputDirectory, "web/url-highlight.js"),
 ];
 
 await Promise.all(

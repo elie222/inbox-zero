@@ -75,6 +75,42 @@ test("focuses the message field from the empty composer body", async ({
   await expect(editor).toBeFocused();
 });
 
+test("highlights URLs while typing and pasting", async ({ page }, testInfo) => {
+  await openMail(page);
+  await page.getByRole("button", { name: /^Compose/ }).click();
+  const dialog = page.getByRole("dialog", { name: "New Message" });
+  const editor = dialog.getByRole("textbox", { name: "Email message" });
+  await editor.pressSequentially("Visit example.com/docs");
+  await expect(editor.locator("[data-email-url-highlight]")).toHaveText(
+    "example.com/docs",
+  );
+  await expect(editor.locator("[data-email-url-highlight]")).toHaveCSS(
+    "color",
+    "rgb(37, 99, 235)",
+  );
+  await editor.press("Space");
+  await editor.evaluate((element) => {
+    const clipboardData = new DataTransfer();
+    clipboardData.setData("text/plain", "More at example.org/help.");
+    element.dispatchEvent(
+      new ClipboardEvent("paste", {
+        bubbles: true,
+        cancelable: true,
+        clipboardData,
+      }),
+    );
+  });
+  await expect(editor.getByText("example.org/help", { exact: true })).toHaveCSS(
+    "color",
+    "rgb(37, 99, 235)",
+  );
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "automatic-url-highlighting",
+  );
+});
+
 test("keeps editing state stable across formatting, links, paste, and files", async ({
   page,
 }, testInfo) => {
@@ -402,6 +438,7 @@ test("opens and sends a reply from the reader with Enter", async ({
   const replyBody = `A reply sent through the mail reader. ${testInfo.retry}`;
   await replyEditor.pressSequentially(replyBody);
   await expect(replyEditor).toContainText(replyBody);
+  await capturePlaywrightCheckpoint(page, testInfo, "inline-reply-divider");
   const sendButton = page.getByRole("button", { name: "Send", exact: true });
   await expect(sendButton).toHaveText("Send");
 
@@ -422,7 +459,7 @@ test("opens and sends a reply from the reader with Enter", async ({
   await page.keyboard.press("Escape");
 
   await sendButton.hover();
-  const sendTooltip = page.getByRole("tooltip");
+  const sendTooltip = page.getByRole("tooltip", { name: /Send and mark done/ });
   await expect(sendTooltip).toContainText("Send and mark done");
   await expect(sendTooltip.locator("kbd")).toHaveText([
     "⌘",
@@ -432,9 +469,44 @@ test("opens and sends a reply from the reader with Enter", async ({
     "enter",
   ]);
   await capturePlaywrightCheckpoint(page, testInfo, "protected-quoted-reply");
+  const releaseSentRefresh = Promise.withResolvers<void>();
+  await page.route("**/api/mobile/mailbox-sync", async (route) => {
+    await releaseSentRefresh.promise;
+    await route.continue();
+  });
+  await page.route(
+    "**/api/threads/thr_playwright_reply?includeDrafts=true",
+    async (route) => {
+      const response = await route.fetch();
+      await releaseSentRefresh.promise;
+      await route.fulfill({ response });
+    },
+  );
   await sendButton.click();
 
-  await expect(replyEditor).toHaveCount(0);
+  const localReply = page.locator('[data-thread-message-id^="outbox:"]');
+  try {
+    await expect(replyEditor).toHaveCount(0);
+    await expect(
+      localReply
+        .frameLocator('iframe[title="Email content preview"]')
+        .getByText(replyBody, { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page
+        .getByRole("region", { name: "Reply delivery status" })
+        .getByText("Reply sent", { exact: true }),
+    ).toBeVisible();
+    await expect(sentByMe).toHaveCount(initialSentByMeCount + 1);
+    await capturePlaywrightCheckpoint(
+      page,
+      testInfo,
+      "reply-awaiting-thread-refresh",
+    );
+  } finally {
+    releaseSentRefresh.resolve();
+  }
+  await expect(localReply).toHaveCount(0);
   await expect(sentByMe).toHaveCount(initialSentByMeCount + 1);
   await capturePlaywrightCheckpoint(page, testInfo, "reply-sent-in-thread");
 });
