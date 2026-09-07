@@ -49,7 +49,7 @@ export async function seedDefaultMailSplits({
         "updatedAt",
         "name",
         "kind",
-        "value",
+        "values",
         "order",
         "emailAccountId"
       )
@@ -59,14 +59,14 @@ export async function seedDefaultMailSplits({
         CURRENT_TIMESTAMP,
         defaults."name",
         defaults."kind"::"MailSplitKind",
-        defaults."value",
+        defaults."values",
         defaults."order",
         ${emailAccountId}
       FROM jsonb_to_recordset(${JSON.stringify(rows)}::jsonb) AS defaults(
         "id" text,
         "name" text,
         "kind" text,
-        "value" text,
+        "values" text[],
         "order" integer
       )
       WHERE NOT EXISTS (
@@ -97,7 +97,10 @@ export async function setDefaultMailSplits({
         where: {
           emailAccountId,
           kind: MailSplitKind.LABEL,
-          value: { in: defaultSplits.map((split) => split.value) },
+          // Exact match so a split the user widened to more labels survives.
+          OR: defaultSplits.map((split) => ({
+            values: { equals: split.values },
+          })),
         },
       }),
     ]);
@@ -128,7 +131,7 @@ export async function setDefaultMailSplits({
           "id" text,
           "name" text,
           "kind" text,
-          "value" text,
+          "values" text[],
           "order" integer
         )
         WHERE NOT EXISTS (
@@ -139,7 +142,7 @@ export async function setDefaultMailSplits({
               existing."name" = defaults."name"
               OR (
                 existing."kind" = 'LABEL'::"MailSplitKind"
-                AND existing."value" = defaults."value"
+                AND existing."values" = defaults."values"
               )
             )
         )
@@ -152,7 +155,7 @@ export async function setDefaultMailSplits({
           "updatedAt",
           "name",
           "kind",
-          "value",
+          "values",
           "order",
           "emailAccountId"
         )
@@ -162,7 +165,7 @@ export async function setDefaultMailSplits({
           CURRENT_TIMESTAMP,
           missing_defaults."name",
           missing_defaults."kind"::"MailSplitKind",
-          missing_defaults."value",
+          missing_defaults."values",
           split_state.next_order + missing_defaults.offset,
           ${emailAccountId}
         FROM missing_defaults

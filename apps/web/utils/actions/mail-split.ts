@@ -1,24 +1,28 @@
 "use server";
 
-import { randomUUID } from "node:crypto";
 import type { MailSplit } from "@/generated/prisma/client";
+import { MailSplitKind } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import { actionClient } from "@/utils/actions/safe-action";
 import { SafeError } from "@/utils/error";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import {
   createMailSplitBody,
-  createMailSplitFromPromptBody,
   deleteMailSplitBody,
   renameMailSplitBody,
   setDefaultMailSplitsBody,
+  suggestMailSplitBody,
   updateMailPreferencesBody,
 } from "@/utils/actions/mail-split.validation";
 import { aiPromptToSplit } from "@/utils/ai/split/prompt-to-split";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { lockMailSplits } from "@/utils/mail/split-lock";
+import { createMailSplit } from "@/utils/mail/splits.server";
 import { BUILT_IN_SPLITS } from "@/utils/mail/built-in-splits";
-import { MAX_MAIL_SPLITS } from "@/utils/mail/split-constants";
+import {
+  MAX_MAIL_SPLITS,
+  MAX_SPLIT_LABELS,
+} from "@/utils/mail/split-constants";
 import {
   getDefaultMailSplitDraftsForAccount,
   setDefaultMailSplits,
@@ -28,45 +32,65 @@ export const createMailSplitAction = actionClient
   .metadata({ name: "createMailSplit" })
   .inputSchema(createMailSplitBody)
   .action(
-    async ({ ctx: { emailAccountId }, parsedInput: { name, kind, value } }) => {
+    async ({
+      ctx: { emailAccountId },
+      parsedInput: { name, kind, values },
+    }) => {
       const split = await createMailSplitOrThrow({
         emailAccountId,
         name,
         kind,
-        value: value ?? null,
+        values,
       });
       return { split };
     },
   );
 
-export const createMailSplitFromPromptAction = actionClient
-  .metadata({ name: "createMailSplitFromPrompt" })
-  .inputSchema(createMailSplitFromPromptBody)
+/**
+ * Resolves a description into a selection of the account's own filters. It
+ * deliberately stops short of creating the split so the picker can show what
+ * was matched and let the user adjust it first.
+ */
+export const suggestMailSplitAction = actionClient
+  .metadata({ name: "suggestMailSplit" })
+  .inputSchema(suggestMailSplitBody)
   .action(
     async ({ ctx: { emailAccountId }, parsedInput: { prompt, options } }) => {
       const emailAccount = await getEmailAccountWithAi({ emailAccountId });
       if (!emailAccount) throw new SafeError("Email account not found");
 
-      const match = await aiPromptToSplit({
+      const suggestion = await aiPromptToSplit({
         emailAccount,
         prompt,
         options: options.map(({ id, name, kind }) => ({ id, name, kind })),
       });
 
-      const option = options.find((o) => o.id === match.optionId);
-      if (!option) {
-        throw new SafeError(
-          "Couldn't match that to a label or category. Try different wording, or pick one from the list.",
-        );
-      }
-
-      const split = await createMailSplitOrThrow({
-        emailAccountId,
-        name: (match.name?.trim() || option.name).slice(0, 60),
-        kind: option.kind,
-        value: option.value ?? null,
+      const optionsById = new Map(options.map((option) => [option.id, option]));
+      const matched = suggestion.optionIds.flatMap((optionId) => {
+        const option = optionsById.get(optionId);
+        return option ? [option] : [];
       });
-      return { split };
+      // Only labels stack into one query, so a mixed pick collapses to the
+      // first option rather than producing a split we cannot run.
+      const selected = matched.every(
+        (option) => option.kind === MailSplitKind.LABEL,
+      )
+        ? matched
+        : matched.slice(0, 1);
+
+      const optionIds = [...new Set(selected.map((option) => option.id))];
+      const capped = optionIds.slice(0, MAX_SPLIT_LABELS);
+
+      return {
+        optionIds: capped,
+        // A name describing more labels than the split ends up with would lie
+        // about the tab, so a truncated match falls back to the label names.
+        name:
+          capped.length === optionIds.length
+            ? suggestion.name?.trim().slice(0, 60) || null
+            : null,
+        reasoning: suggestion.reasoning,
+      };
     },
   );
 
@@ -139,7 +163,7 @@ export const updateMailPreferencesAction = actionClient
   );
 
 async function createMailSplitOrThrow(
-  data: Pick<MailSplit, "emailAccountId" | "name" | "kind" | "value">,
+  data: Pick<MailSplit, "emailAccountId" | "name" | "kind" | "values">,
 ) {
   const builtIn = BUILT_IN_SPLITS.find((split) => split.kind === data.kind);
   if (builtIn) {
@@ -173,70 +197,4 @@ async function createMailSplitOrThrow(
     }
     throw error;
   }
-}
-
-type CreateMailSplitResult =
-  | ({ status: "created" } & MailSplit)
-  | { status: "duplicate" | "limit" };
-
-async function createMailSplit({
-  emailAccountId,
-  name,
-  kind,
-  value,
-}: Pick<MailSplit, "emailAccountId" | "name" | "kind" | "value">) {
-  const [, results] = await prisma.$transaction([
-    lockMailSplits(emailAccountId),
-    prisma.$queryRaw<CreateMailSplitResult[]>`
-      WITH split_state AS (
-        SELECT
-          COUNT(*)::integer AS count,
-          COALESCE(MAX("order"), -1)::integer + 1 AS next_order,
-          EXISTS (
-            SELECT 1
-            FROM "MailSplit"
-            WHERE "emailAccountId" = ${emailAccountId}
-              AND "name" = ${name}
-          ) AS name_exists
-        FROM "MailSplit"
-        WHERE "emailAccountId" = ${emailAccountId}
-      ),
-      inserted AS (
-        INSERT INTO "MailSplit" (
-          "id",
-          "createdAt",
-          "updatedAt",
-          "name",
-          "kind",
-          "value",
-          "order",
-          "emailAccountId"
-        )
-        SELECT
-          ${randomUUID()},
-          CURRENT_TIMESTAMP,
-          CURRENT_TIMESTAMP,
-          ${name},
-          ${kind}::"MailSplitKind",
-          ${value},
-          split_state.next_order,
-          ${emailAccountId}
-        FROM split_state
-        WHERE split_state.count < ${MAX_MAIL_SPLITS}
-          AND NOT split_state.name_exists
-        RETURNING *
-      )
-      SELECT
-        CASE
-          WHEN inserted."id" IS NOT NULL THEN 'created'
-          WHEN split_state.name_exists THEN 'duplicate'
-          ELSE 'limit'
-        END AS status,
-        inserted.*
-      FROM split_state
-      LEFT JOIN inserted ON TRUE
-    `,
-  ]);
-
-  return results[0];
 }

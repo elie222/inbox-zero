@@ -122,6 +122,47 @@ describe("loadCombinedThreads", () => {
     );
   });
 
+  it("resumes a cursor written before the shared merge shipped", async () => {
+    const legacyCursor = Buffer.from(
+      JSON.stringify({
+        version: 2,
+        accounts: {
+          "account-1": {
+            pageToken: "account-1-next",
+            consumedThreadIds: ["already-served"],
+            done: false,
+          },
+          "account-2": { pageToken: null, consumedThreadIds: [], done: true },
+        },
+      }),
+    ).toString("base64url");
+    const loadPage = vi.fn(async ({ account }: { account: Account }) => ({
+      threads: [
+        thread("already-served", "2026-08-13T10:00:00.000Z"),
+        thread(`${account.id}-next-row`, "2026-08-12T10:00:00.000Z"),
+      ],
+      nextPageToken: null,
+    }));
+
+    const result = await loadCombinedThreads({
+      accounts: [account("account-1"), account("account-2")],
+      cursor: legacyCursor,
+      limit: 20,
+      loadPage,
+      logger,
+    });
+
+    // The exhausted account stays exhausted and the other one keeps its token,
+    // rather than both restarting and re-serving rows the user already has.
+    expect(loadPage).toHaveBeenCalledTimes(1);
+    expect(loadPage).toHaveBeenCalledWith(
+      expect.objectContaining({ pageToken: "account-1-next" }),
+    );
+    expect(result.threads.map((item) => item.id)).toEqual([
+      "account-1-next-row",
+    ]);
+  });
+
   it("returns successful accounts when another mailbox fails", async () => {
     const result = await loadCombinedThreads({
       accounts: [account("working"), account("failed")],

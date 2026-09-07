@@ -6,7 +6,14 @@ import {
   SystemType,
 } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
-import { seedDefaultMailSplits } from "@/utils/mail/default-splits.server";
+import {
+  createMailSplit,
+  removeLabelFromMailSplits,
+} from "@/utils/mail/splits.server";
+import {
+  seedDefaultMailSplits,
+  setDefaultMailSplits,
+} from "@/utils/mail/default-splits.server";
 
 const RUN_DB_TESTS = process.env.RUN_DB_TESTS;
 
@@ -90,6 +97,88 @@ describe.skipIf(!RUN_DB_TESTS)(
 
       expect(splits).toHaveLength(1);
       expect(splits[0]?.id).toBe("concurrent-saved-split");
+    });
+
+    // The insert goes through raw SQL, so the array parameter needs a real
+    // database to prove it lands as a Postgres text[] rather than a string.
+    test("stores every label of a multi-label split", async () => {
+      const result = await createMailSplit({
+        emailAccountId,
+        name: "Feedback",
+        kind: MailSplitKind.LABEL,
+        values: ["label-users", "label-customers"],
+      });
+
+      expect(result?.status).toBe("created");
+      const saved = await prisma.mailSplit.findFirst({
+        where: { emailAccountId, name: "Feedback" },
+      });
+      expect(saved?.values).toEqual(["label-users", "label-customers"]);
+    });
+
+    test("adds and removes rule-label defaults without touching a widened split", async () => {
+      const defaultSplits = [
+        {
+          name: "Receipt",
+          kind: MailSplitKind.LABEL,
+          values: ["receipt-label"],
+        },
+      ];
+      await setDefaultMailSplits({
+        emailAccountId,
+        defaultSplits,
+        enabled: true,
+      });
+      const afterEnable = await prisma.mailSplit.findMany({
+        where: { emailAccountId },
+        select: { name: true },
+      });
+      expect(afterEnable.map((split) => split.name)).toEqual(["Receipt"]);
+
+      await createMailSplit({
+        emailAccountId,
+        name: "Receipts and invoices",
+        kind: MailSplitKind.LABEL,
+        values: ["receipt-label", "invoice-label"],
+      });
+
+      await setDefaultMailSplits({
+        emailAccountId,
+        defaultSplits,
+        enabled: false,
+      });
+
+      const remaining = await prisma.mailSplit.findMany({
+        where: { emailAccountId },
+      });
+      expect(remaining.map((split) => split.name)).toEqual([
+        "Receipts and invoices",
+      ]);
+    });
+
+    test("narrows splits that share a deleted label and drops the ones left empty", async () => {
+      await createMailSplit({
+        emailAccountId,
+        name: "Feedback",
+        kind: MailSplitKind.LABEL,
+        values: ["gone"],
+      });
+      await createMailSplit({
+        emailAccountId,
+        name: "Feedback and support",
+        kind: MailSplitKind.LABEL,
+        values: ["gone", "kept"],
+      });
+
+      await removeLabelFromMailSplits({ emailAccountId, labelId: "gone" });
+
+      const remaining = await prisma.mailSplit.findMany({
+        where: { emailAccountId },
+        select: { name: true, values: true },
+      });
+      expect(remaining).toEqual([
+        { name: "Feedback and support", values: ["kept"] },
+      ]);
     });
   },
 );

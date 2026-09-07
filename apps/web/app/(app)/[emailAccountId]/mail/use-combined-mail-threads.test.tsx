@@ -402,7 +402,7 @@ describe("useCombinedMailThreads", () => {
     expect(result.current.isLoading).toBe(true);
   });
 
-  it("loads a named-label view without mixing in the generic inbox snapshot", async () => {
+  it("loads a multi-label view without mixing in the generic inbox snapshot", async () => {
     const fetcher = vi.fn(() =>
       Promise.resolve({
         failedAccountIds: [],
@@ -419,7 +419,7 @@ describe("useCombinedMailThreads", () => {
           emailAccountId: "account-1",
           enabled: true,
           isUnread: false,
-          labelName: "Receipts & orders",
+          labelNames: ["Receipts & orders", "Invoices"],
         }),
       { wrapper: createWrapper(fetcher) },
     );
@@ -430,7 +430,9 @@ describe("useCombinedMailThreads", () => {
       ]),
     );
     expect(fetcher).toHaveBeenCalledWith(
-      expect.stringContaining("labelName=Receipts+%26+orders"),
+      expect.stringContaining(
+        "labelNames=Receipts+%26+orders&labelNames=Invoices",
+      ),
     );
     expect(mailbox.read).not.toHaveBeenCalled();
   });

@@ -516,6 +516,14 @@ function threadMatchesQuery(messages: ParsedMessage[], query: ThreadsQuery) {
     return false;
   }
   if (
+    query.anyLabelIds?.length &&
+    !messages.some((message) =>
+      query.anyLabelIds?.some((labelId) => message.labelIds?.includes(labelId)),
+    )
+  ) {
+    return false;
+  }
+  if (
     query.folderId &&
     !messages.some((message) => message.parentFolderId === query.folderId)
   ) {

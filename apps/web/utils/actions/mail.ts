@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import prisma from "@/utils/prisma";
+import { removeLabelFromMailSplits } from "@/utils/mail/splits.server";
 import { sendEmailBody } from "@/utils/types/mail";
 import { actionClient } from "@/utils/actions/safe-action";
 import { SafeError } from "@/utils/error";
@@ -18,7 +19,6 @@ import {
   isGoogleProvider,
   isMicrosoftProvider,
 } from "@/utils/email/provider-types";
-import { MailSplitKind } from "@/generated/prisma/enums";
 import { isGmailLabelColor } from "@/utils/gmail/label-colors";
 import { getOutlookCategoryPreset } from "@/utils/outlook/category-colors";
 import { markTrackedDraftDeleted } from "@/utils/ai/draft-cleanup";
@@ -335,13 +335,7 @@ export const deleteMailboxItemAction = actionClient
           await emailProvider.deleteFolder(id);
         } else {
           await emailProvider.deleteLabel(id);
-          await prisma.mailSplit.deleteMany({
-            where: {
-              emailAccountId,
-              kind: MailSplitKind.LABEL,
-              value: id,
-            },
-          });
+          await removeLabelFromMailSplits({ emailAccountId, labelId: id });
         }
       } catch (error) {
         logger.error("Failed to delete mailbox item", { error, kind });
