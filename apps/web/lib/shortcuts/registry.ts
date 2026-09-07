@@ -301,6 +301,13 @@ const SHORTCUT_DEFINITIONS = [
     label: "List view / split view",
   },
   {
+    id: "togglePreview",
+    keys: ["shift+p"],
+    scope: "mail",
+    group: "View",
+    label: "Short / expanded preview text",
+  },
+  {
     id: "help",
     keys: ["shift+?", "?"],
     display: ["?"],

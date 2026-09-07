@@ -37,6 +37,8 @@ export type ThreadRowProps = {
   /** Keeps every checkbox visible once the list has a selection. */
   hasAnySelection: boolean;
   compact?: boolean;
+  /** Wraps the snippet onto its own line so more of it is readable. */
+  expandedPreview?: boolean;
   selectionEnabled?: boolean;
   onOpen: (index: number) => void;
   onToggleSelect: (index: number) => void;
@@ -54,6 +56,7 @@ export const ThreadRow = memo(function ThreadRow({
   isSelected,
   hasAnySelection,
   compact = false,
+  expandedPreview = false,
   selectionEnabled = true,
   onOpen,
   onToggleSelect,
@@ -98,7 +101,12 @@ export const ThreadRow = memo(function ThreadRow({
   }
 
   const leadingIndicator = (
-    <span className={cn("relative size-3.5 shrink-0", !isWide && "mt-0.5")}>
+    <span
+      className={cn(
+        "relative size-3.5 shrink-0",
+        (!isWide || expandedPreview) && "mt-0.5",
+      )}
+    >
       {selectionEnabled ? (
         <Checkbox
           aria-label={`Select conversation with ${participantSummary}`}
@@ -145,6 +153,27 @@ export const ThreadRow = memo(function ThreadRow({
         {messageCount}
       </span>
     ) : null;
+  // The chips and subject sit on the snippet's line in short mode and above it
+  // in expanded mode, so they're built once and placed by each layout.
+  const headline = (
+    <>
+      {account ? <AccountAvatar account={account} /> : null}
+      {chips.map((label) => (
+        <MailLabelChip color={label.color} key={label.id} name={label.name} />
+      ))}
+      <span
+        className={cn(
+          "truncate whitespace-nowrap text-sm",
+          expandedPreview ? "min-w-0" : "max-w-[46%] shrink-0",
+          isUnread
+            ? "font-semibold text-foreground"
+            : "font-normal text-foreground",
+        )}
+      >
+        {subject}
+      </span>
+    </>
+  );
   const participantLine = (
     <>
       <span
@@ -167,7 +196,10 @@ export const ThreadRow = memo(function ThreadRow({
       className={cn(
         "group relative flex cursor-pointer border-b border-border/60 outline-none",
         isWide
-          ? "items-center gap-2.5 py-2.5 pr-5 pl-3"
+          ? cn(
+              "gap-2.5 py-2.5 pr-5 pl-3",
+              expandedPreview ? "items-start" : "items-center",
+            )
           : "items-start gap-2 px-3.5 py-2.5",
         rowBackground({ isSelected, isFocused }),
         isFocused &&
@@ -194,29 +226,23 @@ export const ThreadRow = memo(function ThreadRow({
           <div className="flex w-48 shrink-0 items-baseline gap-1 overflow-hidden whitespace-nowrap">
             {participantLine}
           </div>
-          <div className="flex min-w-0 flex-1 items-center gap-2.5">
-            {account ? <AccountAvatar account={account} /> : null}
-            {chips.map((label) => (
-              <MailLabelChip
-                color={label.color}
-                key={label.id}
-                name={label.name}
-              />
-            ))}
-            <span
-              className={cn(
-                "max-w-[46%] shrink-0 truncate whitespace-nowrap text-sm",
-                isUnread
-                  ? "font-semibold text-foreground"
-                  : "font-normal text-foreground",
-              )}
-            >
-              {subject}
-            </span>
-            <span className="min-w-0 flex-1 truncate text-muted-foreground text-sm">
-              {snippet}
-            </span>
-          </div>
+          {expandedPreview ? (
+            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <div className="flex min-w-0 items-center gap-2.5">
+                {headline}
+              </div>
+              <span className="line-clamp-2 text-muted-foreground text-sm">
+                {snippet}
+              </span>
+            </div>
+          ) : (
+            <div className="flex min-w-0 flex-1 items-center gap-2.5">
+              {headline}
+              <span className="min-w-0 flex-1 truncate text-muted-foreground text-sm">
+                {snippet}
+              </span>
+            </div>
+          )}
           <div className="w-16 shrink-0 text-right">{date}</div>
         </>
       ) : (
@@ -235,7 +261,12 @@ export const ThreadRow = memo(function ThreadRow({
           >
             {subject}
           </div>
-          <div className="truncate text-muted-foreground text-xs">
+          <div
+            className={cn(
+              "text-muted-foreground text-xs",
+              expandedPreview ? "line-clamp-3" : "truncate",
+            )}
+          >
             {snippet}
           </div>
           {account ? (
