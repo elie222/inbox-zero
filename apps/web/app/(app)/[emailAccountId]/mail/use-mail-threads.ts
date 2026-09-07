@@ -194,6 +194,17 @@ export function useMailThreads({
     () => data?.flatMap((page) => page.threads),
     [data],
   );
+  const remoteRequestedAtByThread = useMemo(
+    () =>
+      new Map(
+        data?.flatMap((page) =>
+          page.threads.map(
+            (thread) => [thread.id, page.requestedAt ?? 0] as const,
+          ),
+        ),
+      ),
+    [data],
+  );
   const persistentThreads =
     persistent?.identity === viewIdentity ? persistent.threads : undefined;
   const syncedThreads =
@@ -203,12 +214,12 @@ export function useMailThreads({
       : undefined;
   const sourceThreads = useMemo(
     () =>
-      remoteThreads &&
-      syncedThreads &&
-      synced?.complete &&
-      synced.syncedAt > remoteRequestedAt
+      remoteThreads && syncedThreads && synced?.complete
         ? mergeSyncedThreads({
             remoteThreads,
+            remoteRequestedAt,
+            remoteRequestedAtByThread,
+            syncedAt: synced.syncedAt,
             syncedThreads,
             syncedAfter: synced.after,
             syncedTruncated: synced.truncated,
@@ -218,6 +229,7 @@ export function useMailThreads({
       persistentThreads,
       remoteThreads,
       remoteRequestedAt,
+      remoteRequestedAtByThread,
       synced?.after,
       synced?.complete,
       synced?.syncedAt,
@@ -491,11 +503,17 @@ export function useMailThreads({
 
 function mergeSyncedThreads({
   remoteThreads,
+  remoteRequestedAt,
+  remoteRequestedAtByThread,
+  syncedAt,
   syncedThreads,
   syncedAfter,
   syncedTruncated,
 }: {
   remoteThreads: ListThread[];
+  remoteRequestedAt: number;
+  remoteRequestedAtByThread: Map<string, number>;
+  syncedAt: number;
   syncedThreads: ListThread[];
   syncedAfter: string;
   syncedTruncated: boolean;
@@ -513,6 +531,8 @@ function mergeSyncedThreads({
   const threadsById = new Map(
     remoteThreads
       .filter((thread) => {
+        if ((remoteRequestedAtByThread.get(thread.id) ?? 0) >= syncedAt)
+          return true;
         const timestamp = getThreadTimestamp(thread);
         return syncedTruncated
           ? timestamp <= authoritativeCutoff
@@ -522,6 +542,10 @@ function mergeSyncedThreads({
   );
   for (const thread of syncedThreads) {
     const remoteThread = remoteThreadsById.get(thread.id);
+    const requestedAt = remoteThread
+      ? (remoteRequestedAtByThread.get(thread.id) ?? 0)
+      : remoteRequestedAt;
+    if (requestedAt >= syncedAt) continue;
     threadsById.set(thread.id, {
       ...thread,
       plan: remoteThread?.plan ?? thread.plan,

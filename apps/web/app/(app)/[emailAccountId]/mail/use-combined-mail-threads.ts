@@ -217,6 +217,18 @@ export function useCombinedMailThreads({
     () => data?.flatMap((page) => page.threads),
     [data],
   );
+  const remoteRequestedAtByThread = useMemo(
+    () =>
+      new Map(
+        data?.flatMap((page) =>
+          page.threads.map(
+            (thread) =>
+              [getListThreadKey(thread), page.requestedAt ?? 0] as const,
+          ),
+        ),
+      ),
+    [data],
+  );
   const remoteHasMore = Boolean(data?.at(-1)?.nextPageToken);
   const failedAccountIds = useMemo(
     () => [...new Set(data?.flatMap((page) => page.failedAccountIds) ?? [])],
@@ -234,6 +246,7 @@ export function useCombinedMailThreads({
             failedAccountIds,
             remoteHasMore,
             remoteLoadedAt: remoteRequestedAt,
+            remoteRequestedAtByThread,
             remoteThreads,
             syncedThreads,
           })
@@ -244,6 +257,7 @@ export function useCombinedMailThreads({
       remoteHasMore,
       remoteThreads,
       remoteRequestedAt,
+      remoteRequestedAtByThread,
       syncedThreads,
       syncedView?.accountStates,
     ],
@@ -451,6 +465,7 @@ function mergeCombinedThreads({
   failedAccountIds,
   remoteHasMore,
   remoteLoadedAt,
+  remoteRequestedAtByThread,
   remoteThreads,
   syncedThreads,
 }: {
@@ -458,18 +473,10 @@ function mergeCombinedThreads({
   failedAccountIds: string[];
   remoteHasMore: boolean;
   remoteLoadedAt: number;
+  remoteRequestedAtByThread: Map<string, number>;
   remoteThreads: CombinedThread[];
   syncedThreads: CombinedThread[];
 }) {
-  const locallyAuthoritativeAccountIds = new Set(
-    Object.entries(accountStates)
-      .filter(
-        ([accountId, state]) =>
-          failedAccountIds.includes(accountId) ||
-          state.syncedAt > remoteLoadedAt,
-      )
-      .map(([accountId]) => accountId),
-  );
   const oldestSyncedTimestampByAccount = new Map<string, number>();
   for (const thread of syncedThreads) {
     const timestamp = getThreadTimestamp(thread);
@@ -489,7 +496,13 @@ function mergeCombinedThreads({
     remoteThreads
       .filter((thread) => {
         const state = accountStates[thread.account.id];
-        if (!state || !locallyAuthoritativeAccountIds.has(thread.account.id)) {
+        const requestedAt =
+          remoteRequestedAtByThread.get(getListThreadKey(thread)) ?? 0;
+        if (
+          !state ||
+          (!failedAccountIds.includes(thread.account.id) &&
+            state.syncedAt <= requestedAt)
+        ) {
           return true;
         }
         const afterTimestamp = new Date(state.after).getTime();
@@ -507,11 +520,15 @@ function mergeCombinedThreads({
       .map((thread) => [getListThreadKey(thread), thread]),
   );
   for (const thread of syncedThreads) {
-    const locallyAuthoritative = locallyAuthoritativeAccountIds.has(
-      thread.account.id,
-    );
-    if (!locallyAuthoritative && !remoteHasMore) continue;
     const remoteThread = remoteThreadsByKey.get(getListThreadKey(thread));
+    const state = accountStates[thread.account.id];
+    const requestedAt = remoteThread
+      ? (remoteRequestedAtByThread.get(getListThreadKey(thread)) ?? 0)
+      : remoteLoadedAt;
+    const locallyAuthoritative =
+      failedAccountIds.includes(thread.account.id) ||
+      Boolean(state && state.syncedAt > requestedAt);
+    if (!locallyAuthoritative && !remoteHasMore) continue;
     if (!locallyAuthoritative && remoteThread) continue;
     if (
       !locallyAuthoritative &&

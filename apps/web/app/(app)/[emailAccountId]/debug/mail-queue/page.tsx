@@ -25,11 +25,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import {
-  getEmailCacheDatabase,
-  type StoredMailMutation,
-  type CachedMailboxSyncState,
+import type {
+  StoredMailMutation,
+  CachedMailboxSyncState,
 } from "@/utils/email-cache/database";
+import { readMailQueueDiagnostics } from "@/utils/email-cache/mail-queue-diagnostics";
 import { isActiveMailMutationStatus } from "@/utils/email-cache/mail-mutations";
 import { prefixPath } from "@/utils/path";
 
@@ -54,19 +54,14 @@ function MailQueue({ emailAccountId }: { emailAccountId: string }) {
   const [filter, setFilter] = useState("active");
   const [limit, setLimit] = useState(50);
   const { data, error, isLoading, isValidating, mutate } = useSWR(
-    ["mail-queue-diagnostics", emailAccountId],
-    () => readQueue(emailAccountId),
+    ["mail-queue-diagnostics", emailAccountId, filter, limit],
+    async () => ({
+      ...(await readMailQueueDiagnostics({ emailAccountId, filter, limit })),
+      online: navigator.onLine,
+      readAt: Date.now(),
+    }),
     { refreshInterval: 2000, refreshWhenOffline: true },
   );
-  const mutations = data?.mutations ?? [];
-  const active = mutations.filter((mutation) =>
-    isActiveMailMutationStatus(mutation.status),
-  );
-  const visible = mutations.filter((mutation) => {
-    if (filter === "all") return true;
-    if (filter === "active") return isActiveMailMutationStatus(mutation.status);
-    return mutation.status === filter;
-  });
 
   return (
     <PageWrapper className="space-y-6 py-6">
@@ -114,15 +109,10 @@ function MailQueue({ emailAccountId }: { emailAccountId: string }) {
                   <CardTitle>Pending actions</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-3xl font-semibold">{active.length}</p>
+                  <p className="text-3xl font-semibold">{data.activeCount}</p>
                   <p className="mt-2 text-sm text-muted-foreground">
-                    Batches:{" "}
-                    {new Set(active.map((mutation) => mutation.batchId)).size} ·
-                    Message operations:{" "}
-                    {active.reduce(
-                      (sum, mutation) => sum + mutation.messageIds.length,
-                      0,
-                    )}
+                    Batches: {data.activeBatchCount} · Message operations:{" "}
+                    {data.activeMessageCount}
                   </p>
                 </CardContent>
               </Card>
@@ -180,18 +170,15 @@ function MailQueue({ emailAccountId }: { emailAccountId: string }) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="active">
-                    Pending actions ({active.length})
+                    Pending actions ({data.activeCount})
                   </SelectItem>
-                  <SelectItem value="all">All ({mutations.length})</SelectItem>
+                  <SelectItem value="all">All ({data.total})</SelectItem>
                   {Object.entries(STATUS_DESCRIPTIONS).map(
                     ([status, description]) => (
                       <SelectItem key={status} value={status}>
                         {description} (
-                        {
-                          mutations.filter(
-                            (mutation) => mutation.status === status,
-                          ).length
-                        }
+                        {data.counts[status as StoredMailMutation["status"]] ??
+                          0}
                         )
                       </SelectItem>
                     ),
@@ -199,11 +186,10 @@ function MailQueue({ emailAccountId }: { emailAccountId: string }) {
                 </SelectContent>
               </Select>
               <span className="text-sm text-muted-foreground">
-                Showing {Math.min(limit, visible.length)} of {visible.length}{" "}
-                actions
+                Showing {data.mutations.length} of {data.matchingCount} actions
               </span>
             </div>
-            {visible.length === 0 ? (
+            {data.matchingCount === 0 ? (
               <p className="rounded-md border p-6 text-sm text-muted-foreground">
                 No actions match this status.
               </p>
@@ -220,7 +206,7 @@ function MailQueue({ emailAccountId }: { emailAccountId: string }) {
                   </TableRow>
                 </TableHeader>
                 <TableBody className="[&_td]:align-top">
-                  {visible.slice(0, limit).map((mutation) => (
+                  {data.mutations.map((mutation) => (
                     <TableRow key={mutation.id}>
                       <TableCell className="whitespace-nowrap">
                         {mutation.kind.replaceAll("_", " ")}
@@ -290,7 +276,7 @@ function MailQueue({ emailAccountId }: { emailAccountId: string }) {
                 </TableBody>
               </Table>
             )}
-            {visible.length > limit && (
+            {data.matchingCount > limit && (
               <Button variant="outline" onClick={() => setLimit(limit + 50)}>
                 Show more
               </Button>
@@ -300,33 +286,6 @@ function MailQueue({ emailAccountId }: { emailAccountId: string }) {
       </LoadingContent>
     </PageWrapper>
   );
-}
-
-async function readQueue(emailAccountId: string) {
-  const database = await getEmailCacheDatabase();
-  if (!database)
-    throw new Error("Local mail storage is unavailable in this browser.");
-  const transaction = database.transaction(
-    ["mailMutations", "mailboxSyncStates"],
-    "readonly",
-  );
-  const [records, sync] = await Promise.all([
-    transaction
-      .objectStore("mailMutations")
-      .index("byAccount")
-      .getAll(emailAccountId),
-    transaction.objectStore("mailboxSyncStates").get(emailAccountId),
-  ]);
-  await transaction.done;
-  // Keep reply bodies and sender data out of the diagnostics snapshot.
-  const mutations = records.map(
-    ({ payload, clientSource, result, ...metadata }) => metadata,
-  );
-  mutations.sort(
-    (left, right) =>
-      right.createdAt - left.createdAt || left.id.localeCompare(right.id),
-  );
-  return { mutations, sync, online: navigator.onLine, readAt: Date.now() };
 }
 
 function formatTime(timestamp?: number) {

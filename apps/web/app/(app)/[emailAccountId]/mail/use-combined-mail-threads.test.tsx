@@ -100,6 +100,57 @@ describe("useCombinedMailThreads", () => {
     }
   });
 
+  it("keeps a later combined page fetched after mailbox sync", async () => {
+    const clock = vi.spyOn(Date, "now").mockReturnValue(100);
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce({
+        threads: [createThread("account-1", "old-page")],
+        failedAccountIds: [],
+        labelsByAccount: {},
+        nextPageToken: "page-2",
+      })
+      .mockResolvedValue({
+        threads: [createThread("account-1", "current-page")],
+        failedAccountIds: [],
+        labelsByAccount: {},
+        nextPageToken: null,
+      });
+    const { result, unmount } = renderHook(
+      () =>
+        useCombinedMailThreads({
+          accounts: ACCOUNTS,
+          emailAccountId: "account-1",
+          enabled: true,
+          isUnread: false,
+        }),
+      { wrapper: createWrapper(fetcher) },
+    );
+    try {
+      await waitFor(() => expect(result.current.threads).toHaveLength(1));
+      mailbox.read.mockResolvedValue({
+        accountStates: createAccountStates(200),
+        complete: true,
+        missingAccountIds: [],
+        threads: [],
+        truncated: false,
+      });
+      act(() => {
+        for (const listener of mailbox.listeners) listener("account-1");
+      });
+      await waitFor(() => expect(result.current.threads).toEqual([]));
+      clock.mockReturnValue(300);
+      act(() => result.current.loadMore());
+      await waitFor(() => expect(result.current.isLoadingMore).toBe(false));
+      expect(result.current.threads.map((thread) => thread.id)).toEqual([
+        "current-page",
+      ]);
+    } finally {
+      unmount();
+      clock.mockRestore();
+    }
+  });
+
   it("applies durable overlays by composite account and thread identity", async () => {
     const network = Promise.withResolvers<unknown>();
     mailbox.read.mockResolvedValue({

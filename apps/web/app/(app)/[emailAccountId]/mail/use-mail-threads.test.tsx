@@ -282,8 +282,11 @@ describe("useMailThreads", () => {
 
   it("does not revive an archived thread when returning to a cached split", async () => {
     const clock = vi.spyOn(Date, "now").mockReturnValue(100);
-    const thread = createThread("archived-in-other-split", ["INBOX", "UNREAD"]);
-    thread.messages[0]!.internalDate = "2026-08-23T00:00:00.000Z";
+    const thread = createThread(
+      "archived-in-other-split",
+      ["INBOX", "UNREAD"],
+      "2026-08-23T00:00:00.000Z",
+    );
     const fetcher = vi
       .fn()
       .mockImplementation(async () => ({ threads: [thread] }));
@@ -321,8 +324,11 @@ describe("useMailThreads", () => {
   it("keeps a mailbox sync that finishes while an older list request is in flight", async () => {
     const clock = vi.spyOn(Date, "now").mockReturnValue(100);
     const network = Promise.withResolvers<unknown>();
-    const archived = createThread("archived", ["INBOX"]);
-    archived.messages[0]!.internalDate = "2026-08-23T00:00:00.000Z";
+    const archived = createThread(
+      "archived",
+      ["INBOX"],
+      "2026-08-23T00:00:00.000Z",
+    );
     mailbox.read.mockResolvedValue({
       after: "2026-07-24T00:00:00.000Z",
       complete: true,
@@ -346,6 +352,51 @@ describe("useMailThreads", () => {
       });
       await waitFor(() => expect(cache.write).toHaveBeenCalled());
       expect(result.current.threads).toEqual([]);
+    } finally {
+      unmount();
+      clock.mockRestore();
+    }
+  });
+
+  it("keeps a later page fetched after mailbox sync", async () => {
+    const clock = vi.spyOn(Date, "now").mockReturnValue(100);
+    const old = createThread("old-page", ["INBOX"], "2026-08-23T00:00:00.000Z");
+    const current = createThread(
+      "current-page",
+      ["INBOX"],
+      "2026-08-23T00:00:00.000Z",
+    );
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce({ threads: [old], nextPageToken: "page-2" })
+      .mockResolvedValue({ threads: [current] });
+    const { result, unmount } = renderHook(
+      () =>
+        useMailThreads({
+          emailAccountId: "account-pages",
+          query: { type: "inbox" },
+        }),
+      { wrapper: createWrapper(fetcher) },
+    );
+    try {
+      await waitFor(() => expect(result.current.threads).toHaveLength(1));
+      mailbox.read.mockResolvedValue({
+        after: "2026-07-24T00:00:00.000Z",
+        complete: true,
+        syncedAt: 200,
+        truncated: false,
+        threads: [],
+      });
+      act(() => {
+        for (const listener of mailbox.listeners) listener("account-pages");
+      });
+      await waitFor(() => expect(result.current.threads).toEqual([]));
+      clock.mockReturnValue(300);
+      act(() => result.current.loadMore());
+      await waitFor(() => expect(result.current.isLoadingMore).toBe(false));
+      expect(result.current.threads.map((thread) => thread.id)).toEqual([
+        "current-page",
+      ]);
     } finally {
       unmount();
       clock.mockRestore();
@@ -1027,7 +1078,7 @@ describe("useMailThreads", () => {
   });
 });
 
-function createThread(id: string, labelIds: string[] = []) {
+function createThread(id: string, labelIds: string[] = [], internalDate = "0") {
   return {
     id,
     messages: [
@@ -1037,7 +1088,7 @@ function createThread(id: string, labelIds: string[] = []) {
         snippet: id,
         subject: id,
         date: "0",
-        internalDate: "0",
+        internalDate,
         labelIds,
         headers: { subject: id },
       },
