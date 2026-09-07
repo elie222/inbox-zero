@@ -264,9 +264,9 @@ test("sender actions are available for a selected list row and match the reader"
   await expect(
     palette.getByRole("option", { name: "Auto archive future emails ⇧E" }),
   ).toBeEnabled();
-  await capturePlaywrightCheckpoint(
-    palette,
+  await attachScreenshotForChangedTest(
     testInfo,
+    palette,
     "mail-list-sender-actions",
   );
   await page.keyboard.press("Escape");
@@ -280,9 +280,9 @@ test("sender actions are available for a selected list row and match the reader"
   await expect(
     menu.getByRole("menuitem", { name: "Auto archive future emails ⇧E" }),
   ).toBeEnabled();
-  await capturePlaywrightCheckpoint(
-    menu,
+  await attachScreenshotForChangedTest(
     testInfo,
+    menu,
     "mail-reader-sender-actions",
   );
 });

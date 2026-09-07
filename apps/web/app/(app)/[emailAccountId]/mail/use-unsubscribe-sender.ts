@@ -63,14 +63,17 @@ export function useUnsubscribeSender(
         includeMissingUnsubscribe: true,
       })}`
     : null;
-  const { data: senderStats, mutate: refetchSenderStats } =
-    useSWR<NewsletterStatsResponse>(
-      senderStatsUrl ? [senderStatsUrl, emailAccountId] : null,
-      {
-        revalidateOnFocus: false,
-        revalidateOnReconnect: false,
-      },
-    );
+  const {
+    data: senderStats,
+    mutate: refetchSenderStats,
+    isLoading: isSenderStatsLoading,
+  } = useSWR<NewsletterStatsResponse>(
+    senderStatsUrl ? [senderStatsUrl, emailAccountId] : null,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+    },
+  );
   const canonicalSenderEmail = canonicalizeEmailAddress(senderEmail);
   const sender = senderStats?.newsletters.find(
     (sender) => sender.name === canonicalSenderEmail,
@@ -166,7 +169,12 @@ export function useUnsubscribeSender(
   ]);
 
   const onUnsubscribe = useCallback(async () => {
-    if (!senderEmail || isUpdatingAutoArchive) return;
+    if (
+      !senderEmail ||
+      isUpdatingAutoArchive ||
+      (isSenderStatsLoading && !httpLink)
+    )
+      return;
     if (!canUnsubscribe) {
       if (isAutoArchiveStatusLoading) return;
       if (!isAutoArchived) await onToggleAutoArchive();
@@ -224,6 +232,7 @@ export function useUnsubscribeSender(
       .catch(() => {});
   }, [
     canUnsubscribe,
+    isSenderStatsLoading,
     isAutoArchiveStatusLoading,
     isUpdatingAutoArchive,
     isAutoArchived,
@@ -244,6 +253,7 @@ export function useUnsubscribeSender(
   return {
     isUnsubscribeDisabled:
       isUpdatingAutoArchive ||
+      (isSenderStatsLoading && !httpLink) ||
       (!canUnsubscribe && (isAutoArchiveStatusLoading || isAutoArchived)),
     unsubscribeLabel: canUnsubscribe
       ? "Unsubscribe from sender"
