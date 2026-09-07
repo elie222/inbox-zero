@@ -11,6 +11,7 @@ import {
   type Session,
   type WebContents,
 } from "electron";
+import { installDesktopLoadRecovery } from "./load-recovery";
 import { configureDesktopApplicationMenu } from "./application-menu";
 import {
   checkForDesktopUpdatesManually,
@@ -170,7 +171,8 @@ function createMainWindow() {
   applyNavigationPolicy(mainWindow.webContents);
   applyDesktopWindowDragRegion(mainWindow.webContents);
   trackLastAppUrl(mainWindow.webContents);
-  mainWindow.loadURL(getStartUrl()).catch(showSignInError);
+  installDesktopLoadRecovery(mainWindow.webContents, appOrigin, getStartUrl);
+  mainWindow.loadURL(getStartUrl()).catch(() => {});
 }
 
 function getStartUrl(): string {
@@ -189,6 +191,8 @@ function trackLastAppUrl(contents: WebContents) {
 }
 
 function persistLastAppUrl(url: string) {
+  // Local load recovery must not erase the last mailbox to restore.
+  if (url.startsWith("data:") || url === "about:blank") return;
   const file = path.join(app.getPath("userData"), LAST_APP_URL_FILE);
   try {
     if (shouldPersistDesktopUrl(url, appOrigin)) {
@@ -225,7 +229,7 @@ function applyDesktopWindowDragRegion(contents: WebContents) {
 function applyNavigationPolicy(contents: WebContents) {
   contents.setWindowOpenHandler(({ url }) => {
     if (isAllowedDesktopNavigation(url, appOrigin)) {
-      contents.loadURL(url).catch(showSignInError);
+      contents.loadURL(url).catch(() => {});
     } else {
       openExternal(url).catch(showSignInError);
     }
@@ -271,7 +275,7 @@ async function handleAuthCallbackUrl(url: string) {
       callback.code,
       callback.state,
     );
-    await window.loadURL(consumePostAuthUrl());
+    await window.loadURL(consumePostAuthUrl()).catch(() => {});
   } catch (error) {
     showSignInError(error);
   }

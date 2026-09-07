@@ -54,7 +54,12 @@ const nextConfig: NextConfig = {
                 // Playwright already isolates feature groups in short-lived
                 // dev servers. Restarting one mid-test aborts active requests.
                 ...(playwrightRunId
-                  ? { devMemoryThresholdRestart: false }
+                  ? {
+                      devMemoryThresholdRestart: false,
+                      // Offline tests must hydrate without Next's dev-only
+                      // WebSocket debug stream, just like a production build.
+                      reactDebugChannel: false,
+                    }
                   : {}),
               }
             : {}),
