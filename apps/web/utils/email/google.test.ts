@@ -548,6 +548,18 @@ describe("GmailProvider.searchThreads", () => {
 });
 
 describe("GmailProvider.updateDraft", () => {
+  it("does not write a draft that has been sent or deleted", async () => {
+    const update = vi.fn();
+    const provider = new GmailProvider({
+      users: { drafts: { update } },
+    } as any);
+    gmailDraftMock.getDraft.mockResolvedValueOnce(null);
+    await expect(
+      provider.updateDraft("draft-1", { messageHtml: "<p>Edit</p>" }),
+    ).rejects.toThrow("Could not find this draft to update.");
+    expect(update).not.toHaveBeenCalled();
+  });
+
   it.each([
     true,
     false,
@@ -659,6 +671,8 @@ describe("GmailProvider.updateDraft", () => {
         labelIds: [GmailLabel.DRAFT],
         headers: {
           to: "sender@example.com",
+          cc: "old-cc@example.com",
+          bcc: "old-bcc@example.com",
           subject,
           "in-reply-to": "<original@example.com>",
           references: "<root@example.com> <original@example.com>",
@@ -695,6 +709,10 @@ describe("GmailProvider.updateDraft", () => {
     );
     expect(decodedMessage).toContain("Edited response.");
     expect(decodedMessage).toContain("To: updated@example.com");
+    expect(decodedMessage).not.toMatch(/^Cc:/im);
+    expect(decodedMessage).not.toMatch(/^Bcc:/im);
+    expect(decodedMessage).not.toContain("old-cc@example.com");
+    expect(decodedMessage).not.toContain("old-bcc@example.com");
     expect(decodedMessage).not.toContain("To: sender@example.com");
   });
 });

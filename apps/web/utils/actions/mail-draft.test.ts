@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getMockEmailAccountWithAccount } from "@/__tests__/helpers";
 import prisma from "@/utils/__mocks__/prisma";
+import { SafeError } from "@/utils/error";
 import { deleteDraftAction, updateDraftAction } from "@/utils/actions/mail";
 
 vi.mock("@/utils/prisma");
@@ -72,8 +73,10 @@ describe("deleteDraftAction", () => {
     });
   });
 
-  it("does not update a draft that has been sent or deleted", async () => {
-    mocks.getDraft.mockResolvedValue(null);
+  it("reports a provider rejection when a draft has been sent or deleted", async () => {
+    mocks.updateDraft.mockRejectedValueOnce(
+      new SafeError("Could not find this draft to update."),
+    );
     const result = await updateDraftAction(EMAIL_ACCOUNT_ID, {
       draftMessageId: "old-message",
       draftId: "draft-1",
@@ -84,7 +87,7 @@ describe("deleteDraftAction", () => {
       bcc: "",
     });
     expect(result?.serverError).toBeTruthy();
-    expect(mocks.updateDraft).not.toHaveBeenCalled();
+    expect(result?.serverError).toBe("Could not find this draft to update.");
   });
 
   it("discards an autosaved draft using its current message and version", async () => {

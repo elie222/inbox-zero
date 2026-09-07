@@ -61,11 +61,24 @@ afterEach(() => {
 });
 
 describe("OutlookProvider.updateDraft", () => {
+  it("does not write a draft that has been sent or deleted", async () => {
+    const patch = vi.fn();
+    const client = createMockOutlookClient([]);
+    client.getClient = () => ({ api: () => ({ patch }) });
+    const provider = new OutlookProvider(client, createTestLogger());
+    vi.spyOn(provider, "getDraft").mockResolvedValue(null);
+    await expect(
+      provider.updateDraft("draft-1", { messageHtml: "<p>Edit</p>" }),
+    ).rejects.toThrow("Could not find this draft to update.");
+    expect(patch).not.toHaveBeenCalled();
+  });
+
   it("clears draft fields and updates recipients", async () => {
     const patch = vi.fn().mockResolvedValue({});
     const client = createMockOutlookClient([]);
     client.getClient = () => ({ api: () => ({ patch }) });
     const provider = new OutlookProvider(client, createTestLogger());
+    vi.spyOn(provider, "getDraft").mockResolvedValue({ id: "draft-1" } as any);
     await provider.updateDraft("draft-1", {
       messageHtml: "",
       subject: "",

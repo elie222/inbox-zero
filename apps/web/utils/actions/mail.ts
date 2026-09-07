@@ -435,8 +435,7 @@ export const updateDraftAction = actionClient
         parsedInput.draftId ??
         (await provider.getDraftReferenceForMessage(parsedInput.draftMessageId))
           ?.id;
-      if (!draftId || !(await provider.getDraft(draftId)))
-        throw new SafeError("Could not find this draft to update.");
+      if (!draftId) throw new SafeError("Could not find this draft to update.");
       const {
         draftMessageId: _messageId,
         draftId: _draftId,

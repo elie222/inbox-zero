@@ -435,13 +435,14 @@ function ComposeEmailFormContent({
       };
     },
     save: async ({ hasNewAttachments, ...content }) => {
+      if (!providerDraftMessageId) return;
       if (hasNewAttachments)
         throw new Error(
           "Drafts with newly added attachments are saved on this device until sent.",
         );
       const result = await updateDraftAction(selectedEmailAccountId, {
         ...content,
-        draftMessageId: providerDraftMessageId!,
+        draftMessageId: providerDraftMessageId,
         draftId: providerDraftId.current,
       });
       if (!result?.data) throw new Error(getActionErrorMessage(result ?? {}));
@@ -702,6 +703,7 @@ function ComposeEmailFormContent({
       }
       setSubmissionError("");
       await stopProviderAutosave();
+      let deliveryAccepted = false;
       try {
         if (isInlineReply) {
           if (deliveryPath.current === "outbox" && (sendAt || remindAt)) {
@@ -731,6 +733,7 @@ function ComposeEmailFormContent({
             );
             return;
           }
+          deliveryAccepted = true;
           try {
             await clearLocalDraft();
           } catch {
@@ -764,6 +767,7 @@ function ComposeEmailFormContent({
               threadId: readerThreadId,
               onQueued: isInlineReply
                 ? async () => {
+                    deliveryAccepted = true;
                     try {
                       await clearLocalDraft();
                     } catch {
@@ -787,11 +791,13 @@ function ComposeEmailFormContent({
             return;
           }
           if (outcome.status === "sent") {
+            deliveryAccepted = true;
             if (!isInlineReply) toastSuccess({ description: "Email sent!" });
             if (markDoneAfterSend) onMarkDone?.();
             onSuccess?.(outcome.messageId, outcome.threadId);
             refetch?.();
           } else if (outcome.status === "queued") {
+            deliveryAccepted = true;
             if (!isInlineReply)
               toastSuccess({
                 description: getQueuedEmailDescription(outcome.reason),
@@ -799,6 +805,7 @@ function ComposeEmailFormContent({
             if (markDoneAfterSend) onMarkDone?.();
             onClose?.();
           } else if (outcome.status === "uncertain") {
+            deliveryAccepted = true;
             if (outcome.ownsNotification) {
               toastError({
                 description:
@@ -817,6 +824,7 @@ function ComposeEmailFormContent({
           enrichedData,
         );
         if (result?.data) {
+          deliveryAccepted = true;
           toastSuccess({ description: "Email sent!" });
           if (markDoneAfterSend) onMarkDone?.();
           onSuccess?.(result.data.messageId ?? "", result.data.threadId ?? "");
@@ -834,7 +842,7 @@ function ComposeEmailFormContent({
         );
         toastError({ description: "There was an error sending the email :(" });
       } finally {
-        resumeProviderAutosave();
+        if (!deliveryAccepted) resumeProviderAutosave();
       }
 
       refetch?.();

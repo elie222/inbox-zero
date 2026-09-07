@@ -65,18 +65,19 @@ export function useProviderDraftAutosave<T>({
   useEffect(() => {
     mounted.current = true;
     const timer = setInterval(flush, 3000);
+    const flushLatest = () =>
+      active.current ? active.current.then(flush) : flush();
     const onHidden = () => {
-      if (document.visibilityState === "hidden") flush();
+      if (document.visibilityState === "hidden") flushLatest();
     };
     document.addEventListener("visibilitychange", onHidden);
-    window.addEventListener("online", flush);
+    window.addEventListener("online", flushLatest);
     return () => {
       mounted.current = false;
       clearInterval(timer);
       document.removeEventListener("visibilitychange", onHidden);
-      window.removeEventListener("online", flush);
-      if (active.current) active.current.then(flush);
-      else flush();
+      window.removeEventListener("online", flushLatest);
+      flushLatest();
     };
   }, [flush]);
 
