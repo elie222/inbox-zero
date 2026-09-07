@@ -125,19 +125,6 @@ export function EmailMessage({
   const onMessageKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLElement>) => {
       if (
-        selected !== undefined &&
-        event.key === "Escape" &&
-        !event.defaultPrevented &&
-        isTypingTarget(event.target) &&
-        event.target instanceof Element &&
-        event.target.closest('[data-inline-reply="true"]')
-      ) {
-        event.preventDefault();
-        event.stopPropagation();
-        event.currentTarget.focus({ preventScroll: true });
-        return;
-      }
-      if (
         event.target !== event.currentTarget ||
         (event.key !== "Enter" && event.key !== " ")
       )
@@ -150,7 +137,7 @@ export function EmailMessage({
         onToggle?.();
       }
     },
-    [expanded, onReply, onToggle, selected, showReplyButton],
+    [expanded, onReply, onToggle, showReplyButton],
   );
 
   return (
@@ -162,6 +149,24 @@ export function EmailMessage({
       onFocusCapture={onSelect}
       onClickCapture={onSelect}
       onKeyDown={onMessageKeyDown}
+      onKeyDownCapture={(event) => {
+        // Handle draft Escape before the rich-text editor consumes it.
+        if (
+          selected !== undefined &&
+          event.key === "Escape" &&
+          !event.defaultPrevented &&
+          isTypingTarget(event.target) &&
+          event.target instanceof Element &&
+          event.target.closest('[data-inline-reply="true"]') &&
+          !event.target.closest(
+            '[role="dialog"], [role="menu"], [role="listbox"]',
+          )
+        ) {
+          event.preventDefault();
+          event.stopPropagation();
+          event.currentTarget.focus({ preventScroll: true });
+        }
+      }}
       className={cn(
         "group/message min-w-0 border-l-2 border-transparent outline-none transition-colors focus-within:border-primary",
         selected && "border-primary",
