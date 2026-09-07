@@ -17,6 +17,7 @@ import {
 import { aiPromptToSplit } from "@/utils/ai/split/prompt-to-split";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { lockMailSplits } from "@/utils/mail/split-lock";
+import { BUILT_IN_SPLITS } from "@/utils/mail/built-in-splits";
 import { MAX_MAIL_SPLITS } from "@/utils/mail/split-constants";
 import {
   getDefaultMailSplitDraftsForAccount,
@@ -139,7 +140,18 @@ export const updateMailPreferencesAction = actionClient
 
 async function createMailSplitOrThrow(
   data: Pick<MailSplit, "emailAccountId" | "name" | "kind" | "value">,
-): Promise<MailSplit> {
+) {
+  const builtIn = BUILT_IN_SPLITS.find((split) => split.kind === data.kind);
+  if (builtIn) {
+    await prisma.$executeRaw`
+      UPDATE "EmailAccount"
+      SET "mailHiddenBuiltInSplits" = array_remove("mailHiddenBuiltInSplits", ${builtIn.id}),
+          "updatedAt" = NOW()
+      WHERE id = ${data.emailAccountId}
+    `;
+    return builtIn;
+  }
+
   try {
     const result = await createMailSplit(data);
 

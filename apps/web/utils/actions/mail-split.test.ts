@@ -57,9 +57,9 @@ describe("mail split actions", () => {
       id: "split-1",
       createdAt: new Date(),
       updatedAt: new Date(),
-      name: "Unread",
-      kind: MailSplitKind.UNREAD,
-      value: null,
+      name: "Receipts",
+      kind: MailSplitKind.LABEL,
+      value: "label-1",
       order: 0,
       emailAccountId: EMAIL_ACCOUNT_ID,
     };
@@ -69,9 +69,9 @@ describe("mail split actions", () => {
     ] as never);
 
     const result = await createMailSplitAction(EMAIL_ACCOUNT_ID, {
-      name: "Unread",
-      kind: MailSplitKind.UNREAD,
-      value: null,
+      name: "Receipts",
+      kind: MailSplitKind.LABEL,
+      value: "label-1",
     });
 
     expect(result?.data).toEqual({ split });
@@ -91,8 +91,8 @@ describe("mail split actions", () => {
 
     const result = await createMailSplitAction(EMAIL_ACCOUNT_ID, {
       name: "Later",
-      kind: MailSplitKind.UNREAD,
-      value: null,
+      kind: MailSplitKind.LABEL,
+      value: "label-1",
     });
 
     expect(result?.serverError).toBe("You can only have 12 splits.");
@@ -105,24 +105,24 @@ describe("mail split actions", () => {
     ] as never);
 
     const result = await createMailSplitAction(EMAIL_ACCOUNT_ID, {
-      name: "Unread",
-      kind: MailSplitKind.UNREAD,
-      value: null,
+      name: "Receipts",
+      kind: MailSplitKind.LABEL,
+      value: "label-1",
     });
 
-    expect(result?.serverError).toBe('You already have a "Unread" split.');
+    expect(result?.serverError).toBe('You already have a "Receipts" split.');
   });
 
   it("handles a duplicate-name constraint race with a safe error", async () => {
     prisma.$transaction.mockRejectedValue(createDuplicateNameError());
 
     const result = await createMailSplitAction(EMAIL_ACCOUNT_ID, {
-      name: "Unread",
-      kind: MailSplitKind.UNREAD,
-      value: null,
+      name: "Receipts",
+      kind: MailSplitKind.LABEL,
+      value: "label-1",
     });
 
-    expect(result?.serverError).toBe('You already have a "Unread" split.');
+    expect(result?.serverError).toBe('You already have a "Receipts" split.');
   });
 
   it("creates the split the AI matched from a description", async () => {
@@ -162,6 +162,42 @@ describe("mail split actions", () => {
         ],
       }),
     );
+  });
+
+  it.each([
+    { id: "all", name: "All", kind: MailSplitKind.INBOX },
+    { id: "unread", name: "Unread", kind: MailSplitKind.UNREAD },
+  ])("restores $name through manual and AI creation without saving a duplicate", async (builtIn) => {
+    prisma.$executeRaw.mockResolvedValue(1);
+    vi.mocked(aiPromptToSplit).mockResolvedValue({
+      reasoning: "Matches the built-in filter",
+      optionId: `state:${builtIn.id}`,
+      name: builtIn.name,
+    });
+    const draft = { name: builtIn.name, kind: builtIn.kind, value: null };
+    const manual = await createMailSplitAction(EMAIL_ACCOUNT_ID, draft);
+    const described = await createMailSplitFromPromptAction(EMAIL_ACCOUNT_ID, {
+      prompt: "restore the filter",
+      options: [{ ...draft, id: `state:${builtIn.id}` }],
+    });
+    for (const result of [manual, described]) {
+      expect(result?.data?.split).toEqual({ ...builtIn, value: null });
+    }
+    expect(prisma.$executeRaw).toHaveBeenCalledTimes(2);
+    expect(prisma.$executeRaw).toHaveBeenCalledWith(
+      expect.arrayContaining([expect.stringContaining("array_remove")]),
+      builtIn.id,
+      EMAIL_ACCOUNT_ID,
+    );
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("rejects duplicate hidden split IDs before writing preferences", async () => {
+    const result = await updateMailPreferencesAction(EMAIL_ACCOUNT_ID, {
+      hiddenBuiltInSplits: ["all", "all"],
+    });
+    expect(result?.validationErrors).toBeDefined();
+    expect(prisma.emailAccount.update).not.toHaveBeenCalled();
   });
 
   it("returns a user-safe error when the AI response isn't one of the options", async () => {

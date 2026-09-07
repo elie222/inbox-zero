@@ -179,9 +179,9 @@ for (const accountScope of ["single", "all"] as const) {
           const response = await request.get("/api/mail/settings", {
             headers: { "X-Email-Account-ID": emailAccountId },
           });
-          return (await response.json()).hiddenBuiltInSplits;
+          return new Set((await response.json()).hiddenBuiltInSplits);
         })
-        .toEqual(name === "All" ? ["all"] : ["all", "unread"]);
+        .toEqual(new Set(name === "All" ? ["all"] : ["all", "unread"]));
       await expect(page.getByRole("button", { name, exact: true })).toHaveCount(
         0,
       );
@@ -199,9 +199,9 @@ for (const accountScope of ["single", "all"] as const) {
           const response = await request.get("/api/mail/settings", {
             headers: { "X-Email-Account-ID": emailAccountId },
           });
-          return (await response.json()).hiddenBuiltInSplits;
+          return new Set((await response.json()).hiddenBuiltInSplits);
         })
-        .toEqual(name === "All" ? ["unread"] : []);
+        .toEqual(new Set(name === "All" ? ["unread"] : []));
       await expect(
         page.getByRole("button", { name, exact: true }),
       ).toBeVisible();

@@ -116,14 +116,9 @@ import { getEmailMessageCellActions } from "@/components/EmailMessageCellActions
 import type { LabelCount } from "@/app/api/labels/counts/route";
 import type { ThreadsQuery } from "@/utils/threads/validation";
 import { getEmailTerminology } from "@/utils/terminology";
+import { BUILT_IN_SPLITS } from "@/utils/mail/built-in-splits";
 import { GMAIL_LABEL_COLORS } from "@/utils/gmail/label-colors";
 import { OUTLOOK_CATEGORY_COLORS } from "@/utils/outlook/category-colors";
-
-// Built-in and saved splits resolve through the same query mapping.
-const BUILT_IN_SPLITS = [
-  { id: "all", name: "All", kind: MailSplitKind.INBOX, value: null },
-  { id: "unread", name: "Unread", kind: MailSplitKind.UNREAD, value: null },
-] as const;
 
 // Module-level so an "empty" reader doesn't hand children a new array each render.
 const NO_MESSAGES: ThreadMessage[] = [];
@@ -301,7 +296,7 @@ export function MailShell() {
 
   const splits = useMemo(() => {
     const builtInSplits = BUILT_IN_SPLITS.filter(
-      (split) => !settings?.hiddenBuiltInSplits.includes(split.id),
+      (split) => !settings?.hiddenBuiltInSplits?.includes(split.id),
     );
     const savedSplits = (settings?.splits ?? []).filter(
       (split) =>
@@ -1073,7 +1068,7 @@ export function MailShell() {
   const newSplitOptions: NewSplitOption[] = useMemo(
     () => [
       ...BUILT_IN_SPLITS.filter((split) =>
-        settings?.hiddenBuiltInSplits.includes(split.id),
+        settings?.hiddenBuiltInSplits?.includes(split.id),
       ).map((split) => ({
         ...split,
         id: `state:${split.id}`,
@@ -1105,17 +1100,6 @@ export function MailShell() {
 
   const onCreateSplit = useCallback(
     async (draft: NewSplitDraft) => {
-      const builtIn = BUILT_IN_SPLITS.find(
-        (split) => split.kind === draft.kind,
-      );
-      if (builtIn) {
-        updatePreferences({
-          hiddenBuiltInSplits: (settings?.hiddenBuiltInSplits ?? []).filter(
-            (id) => id !== builtIn.id,
-          ),
-        });
-        return;
-      }
       const result = await createMailSplitAction(emailAccountId, draft);
       if (result?.serverError || result?.validationErrors) {
         toast.error(getActionErrorMessage(result));
@@ -1123,12 +1107,7 @@ export function MailShell() {
       }
       mutateSettings();
     },
-    [
-      emailAccountId,
-      mutateSettings,
-      settings?.hiddenBuiltInSplits,
-      updatePreferences,
-    ],
+    [emailAccountId, mutateSettings],
   );
 
   const onCreateSplitFromPrompt = useCallback(
