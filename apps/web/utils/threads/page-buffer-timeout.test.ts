@@ -20,7 +20,8 @@ describe("page buffer request deadlines", () => {
     const fetch = vi.fn(
       (_url: unknown, options: RequestInit) =>
         new Promise((_resolve, reject) => {
-          const signal = options.signal!;
+          const signal = options.signal;
+          if (!signal) throw new Error("Expected a Redis request deadline");
           signals.push(signal);
           signal.addEventListener("abort", () => reject(signal.reason), {
             once: true,

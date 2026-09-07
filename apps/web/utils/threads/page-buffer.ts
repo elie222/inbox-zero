@@ -37,6 +37,7 @@ export function createPageBuffer<TItem, TMeta = unknown>(
   scope: PageBufferScope,
 ): PageBuffer<TItem, TMeta> | undefined {
   if (!env.UPSTASH_REDIS_URL || !env.UPSTASH_REDIS_TOKEN) return;
+  if (URL.parse(env.UPSTASH_REDIS_URL)?.protocol !== "https:") return;
 
   const redis = new Redis({
     url: env.UPSTASH_REDIS_URL,

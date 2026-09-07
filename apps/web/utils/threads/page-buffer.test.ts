@@ -117,6 +117,16 @@ describe("thread page buffers", () => {
     expect(redis.get).not.toHaveBeenCalled();
   });
 
+  it("does not send buffered mail over cleartext HTTP", () => {
+    const url = redisConfig.UPSTASH_REDIS_URL;
+    redisConfig.UPSTASH_REDIS_URL = "http://redis.example.com";
+    try {
+      expect(createPageBuffer(scope())).toBeUndefined();
+    } finally {
+      redisConfig.UPSTASH_REDIS_URL = url;
+    }
+  });
+
   it("disables buffering when Redis is not configured", () => {
     const token = redisConfig.UPSTASH_REDIS_TOKEN;
     redisConfig.UPSTASH_REDIS_TOKEN = undefined;
