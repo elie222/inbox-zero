@@ -35,17 +35,36 @@ test("chooses which accounts appear in All Accounts", async ({
         inboxZeroDesktop: { startAuth: async () => {} },
       });
     });
-    await page.reload();
-    await page
-      .getByRole("button", { name: /playwright-test\+/i })
-      .last()
-      .click();
-    await expect(page.getByRole("menu").locator("kbd")).toHaveText([
-      "⌘/Ctrl+0",
-      "⌘/Ctrl+1",
-      "⌘/Ctrl+2",
-    ]);
-    await capturePlaywrightCheckpoint(page, testInfo, "account-shortcuts");
+    for (const { userAgent, modifier, checkpoint } of [
+      {
+        userAgent: "Macintosh",
+        modifier: "⌘",
+        checkpoint: "account-shortcuts-mac",
+      },
+      {
+        userAgent: "Windows NT 10.0",
+        modifier: "Ctrl+",
+        checkpoint: "account-shortcuts-windows",
+      },
+    ]) {
+      await page.reload();
+      await page.evaluate((userAgent) => {
+        Object.defineProperty(navigator, "userAgent", {
+          configurable: true,
+          get: () => userAgent,
+        });
+      }, userAgent);
+      await page
+        .getByRole("button", { name: /playwright-test\+/i })
+        .last()
+        .click();
+      await expect(page.getByRole("menu").locator("kbd")).toHaveText([
+        `${modifier}0`,
+        `${modifier}1`,
+        `${modifier}2`,
+      ]);
+      await capturePlaywrightCheckpoint(page, testInfo, checkpoint);
+    }
 
     await chooseAccountsMenuItem.click();
 

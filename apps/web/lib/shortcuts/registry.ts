@@ -489,9 +489,7 @@ export function getShortcutKeyLabels(id: ShortcutId): string[] {
   return binding
     .split(SEQUENCE_SPLIT_KEY)
     .flatMap((step) => step.split("+"))
-    .map(
-      (token) => KEY_WORDS[token] ?? KEY_SYMBOLS[token] ?? token.toUpperCase(),
-    );
+    .map((token) => formatKeyToken(token, true));
 }
 
 /** Feeds ⌘K: an entry appears once its handler is registered. */
@@ -638,7 +636,6 @@ if (process.env.NODE_ENV === "production") {
 
 const KEY_SYMBOLS: Record<string, string> = {
   mod: "⌘",
-  modorctrl: "⌘/Ctrl+",
   meta: "⌘",
   ctrl: "⌃",
   alt: "⌥",
@@ -656,7 +653,6 @@ const KEY_SYMBOLS: Record<string, string> = {
 
 /** Overrides `KEY_SYMBOLS` where a word reads better than a symbol. */
 const KEY_WORDS: Record<string, string> = {
-  modorctrl: "⌘/ctrl",
   ctrl: "ctrl",
   alt: "option",
   shift: "shift",
@@ -673,10 +669,27 @@ function formatKey(key: string): string {
     .map((step) =>
       step
         .split("+")
-        .map((token) => KEY_SYMBOLS[token] ?? token.toUpperCase())
+        .map((token) => formatKeyToken(token))
         .join(""),
     )
     .join(" ");
+}
+
+function formatKeyToken(token: string, spelledOut = false): string {
+  if (token === "modorctrl") {
+    const isMac =
+      typeof window === "undefined" ||
+      /Mac|iPhone|iPod|iPad/.test(window.navigator.userAgent);
+
+    if (isMac) return "⌘";
+    return spelledOut ? "Ctrl" : "Ctrl+";
+  }
+
+  return (
+    (spelledOut ? KEY_WORDS[token] : undefined) ??
+    KEY_SYMBOLS[token] ??
+    token.toUpperCase()
+  );
 }
 
 function addOwner(

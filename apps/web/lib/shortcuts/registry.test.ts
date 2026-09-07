@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   assertNoShortcutConflicts,
   buildShortcutPaletteCommands,
@@ -17,6 +17,9 @@ import {
 } from "./registry";
 
 describe("shortcut registry", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
   it("gives every key a single owner", () => {
     expect(findShortcutConflicts(SHORTCUTS)).toEqual([]);
   });
@@ -68,16 +71,27 @@ describe("shortcut registry", () => {
     expect(formatShortcutKeys(getShortcut("discardDraft"))).toBe("⌘⇧,");
     expect(formatShortcutKeys(getShortcut("backToApp"))).toBe("G A");
     expect(formatShortcutKeys(getShortcut("delete"))).toBe("#");
-    expect(formatShortcutKeys(getShortcut("switchAccount"))).toBe("⌘/Ctrl+1–9");
-    expect(formatShortcutKeys(getShortcut("switchAllAccounts"))).toBe(
-      "⌘/Ctrl+0",
-    );
     expect(formatShortcutKeys(getShortcut("markUnread"))).toBe("U");
     expect(formatShortcutKeys(getShortcut("move"))).toBe("V");
     expect(formatShortcutKeys(getShortcut("toggleLayout"))).toBe("⇧V");
     expect(formatShortcutKeys(getShortcut("markSpam"))).toBe("!");
     expect(formatShortcutKeys(getShortcut("openExternal"))).toBe("G G");
     expect(formatShortcutKeys(getShortcut("forward"))).toBe("F");
+  });
+
+  it.each([
+    ["Macintosh", "⌘", "⌘"],
+    ["Windows NT 10.0", "Ctrl+", "Ctrl"],
+    ["X11; Linux x86_64", "Ctrl+", "Ctrl"],
+  ])("shows the account modifier for %s", (userAgent, hint, label) => {
+    vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue(userAgent);
+
+    expect(formatShortcutKeys(getShortcut("switchAccount"))).toBe(`${hint}1–9`);
+    expect(formatShortcutKeys(getShortcut("switchAllAccounts"))).toBe(
+      `${hint}0`,
+    );
+    expect(getShortcutKeyLabels("switchAccount")).toEqual([label, "1–9"]);
+    expect(getShortcutKeyLabels("switchAllAccounts")).toEqual([label, "0"]);
   });
 
   it("splits keys into one spelled-out label per block", () => {
