@@ -27,19 +27,32 @@ export function MailSidebarResizeHandle({
 }: {
   onResize: (width: number) => void;
 }) {
-  // Mirrored into state purely so the separator can expose its value.
+  // Mirrored into state purely so the separator can expose its value; the ref
+  // is what unmount cleanup can still read.
   const [width, setWidth] = useState(MAIL_SIDEBAR_DEFAULT_WIDTH);
+  const latestWidth = useRef(MAIL_SIDEBAR_DEFAULT_WIDTH);
   const panelLeftWhileDragging = useRef<number | null>(null);
 
   const measure = useCallback((handle: HTMLDivElement | null) => {
-    if (handle) setWidth(appliedWidth(handle));
+    if (!handle) return;
+    latestWidth.current = appliedWidth(handle);
+    setWidth(latestWidth.current);
   }, []);
 
   // Collapsing the sidebar mid-drag unmounts the handle before it can release
-  // the pointer, which would otherwise leave the whole page in a resizing state.
-  useEffect(() => () => releaseResizingCursor(), []);
+  // the pointer, so finish the drag here rather than stranding the page in a
+  // resizing state and losing the width the user just dragged to.
+  useEffect(
+    () => () => {
+      releaseResizingCursor();
+      if (panelLeftWhileDragging.current === null) return;
+      persistMailSidebarWidth(latestWidth.current);
+    },
+    [],
+  );
 
   const resize = (next: number) => {
+    latestWidth.current = next;
     setWidth(next);
     onResize(next);
   };
