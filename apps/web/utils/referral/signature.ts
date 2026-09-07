@@ -38,7 +38,9 @@ function getSignaturePattern(
   value: string,
   patterns: { text: RegExp; html: RegExp },
 ) {
-  return /<\/?[a-z][^<>]*>/i.test(value) ? patterns.html : patterns.text;
+  return /<\/?(?:html|body|div|p|br|span|a)(?:\s[^<>]*|\/?)>/i.test(value)
+    ? patterns.html
+    : patterns.text;
 }
 
 function createSignaturePatterns(prefix: string, product: string) {

@@ -26,6 +26,7 @@ describe("branding signatures", () => {
     "Drafted byInbox Zero",
     "Sent withInbox Zero",
     "Example > Sent with Inbox Zero",
+    "Contact <sender@example.com> Sent with Inbox Zero",
     "Sent with Inbox Zero < example",
     "<p>The report was sent with Inbox Zero sync enabled.</p>",
   ])("preserves branding phrases within authored text: %s", (body) => {
