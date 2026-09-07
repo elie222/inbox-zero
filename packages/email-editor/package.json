@@ -36,6 +36,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "linkifyjs": "4.3.3",
     "parse5": "8.0.0"
   },
   "peerDependencies": {

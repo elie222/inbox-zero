@@ -858,6 +858,9 @@ importers:
       '@tiptap/starter-kit':
         specifier: 3.30.2
         version: 3.30.2
+      linkifyjs:
+        specifier: 4.3.3
+        version: 4.3.3
       parse5:
         specifier: 8.0.0
         version: 8.0.0

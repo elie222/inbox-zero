@@ -157,7 +157,8 @@ model EmailAccount {
   allowHiddenAiDraftLinks   Boolean              @default(false)
   rulesRevision             Int                  @default(0)
 
-  mailLayout MailLayout @default(LIST)
+  mailLayout          MailLayout @default(LIST)
+  mailExpandedPreview Boolean    @default(false)
 
   includeInAllAccounts Boolean @default(true)
 

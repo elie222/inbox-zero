@@ -1,7 +1,14 @@
 "use client";
 
 import * as React from "react";
-import { ArrowLeftIcon, Loader2Icon } from "lucide-react";
+import {
+  ArrowLeftIcon,
+  Loader2Icon,
+  MonitorIcon,
+  MoonIcon,
+  SunIcon,
+} from "lucide-react";
+import { useTheme } from "next-themes";
 import { useAtom, useAtomValue } from "jotai";
 import { buildMailCommandPalette } from "@/app/(app)/[emailAccountId]/mail/mail-command-palette";
 import { buildSnoozeCommandPalette } from "@/app/(app)/[emailAccountId]/mail/snooze-command-palette";
@@ -107,6 +114,7 @@ function CommandPaletteContent({
   const [open, setOpen] = useAtom(commandPaletteOpenAtom);
   const [page, setPage] = React.useState<"root" | "snooze">("root");
   const [search, setSearch] = React.useState("");
+  const { setTheme } = useTheme();
 
   const { emailAccountId } = useAccount();
   const { threadId, showEmail } = displayedEmail;
@@ -225,7 +233,19 @@ function CommandPaletteContent({
           ...shortcutCommands.filter((command) => command.id === "compose"),
         ]
       : shortcutCommands;
-    allCommands = [...actionCommands, ...commands];
+    const themeCommands: Command[] = [
+      { theme: "dark", label: "Dark", icon: MoonIcon },
+      { theme: "light", label: "Light", icon: SunIcon },
+      { theme: "system", label: "System", icon: MonitorIcon },
+    ].map(({ theme, label, icon }) => ({
+      id: `theme-${theme}`,
+      label: `Set Theme: ${label}`,
+      icon,
+      section: "settings",
+      keywords: ["theme", "appearance", "mode", theme],
+      action: () => setTheme(theme),
+    }));
+    allCommands = [...actionCommands, ...commands, ...themeCommands];
   }
 
   const filteredCommands =
