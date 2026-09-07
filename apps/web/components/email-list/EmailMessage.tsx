@@ -128,7 +128,9 @@ export function EmailMessage({
         selected !== undefined &&
         event.key === "Escape" &&
         !event.defaultPrevented &&
-        isTypingTarget(event.target)
+        isTypingTarget(event.target) &&
+        event.target instanceof Element &&
+        event.target.closest('[data-inline-reply="true"]')
       ) {
         event.preventDefault();
         event.stopPropagation();
