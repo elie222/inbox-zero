@@ -135,7 +135,9 @@ export function ThreadReader({
     messageExpansion?: ComponentProps<typeof ReaderToolbar>["messageExpansion"],
   ) => (
     <ReaderToolbar
-      isStarred={isThreadStarred(thread?.messages ?? messages)}
+      isStarred={isThreadStarred(
+        thread?.messages.length ? thread.messages : messages,
+      )}
       messageExpansion={messageExpansion}
       labelHref={labelHref}
       labels={labels}
