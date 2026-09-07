@@ -253,7 +253,7 @@ async function getAiResponseMultiRule({
   <priority>
   - Review all available rules and select those that genuinely match this email.
   - You can select multiple rules, but BE SELECTIVE - it's rare that you need to select more than 1-2 rules.
-  - Respect each rule's stated scope. If none applies, set "noMatchFound" to true rather than choosing the closest category.
+  - Only set "noMatchFound" to true if no rules can reasonably apply. There is usually a rule that matches.
   </priority>
 
   <isPrimary_field>
