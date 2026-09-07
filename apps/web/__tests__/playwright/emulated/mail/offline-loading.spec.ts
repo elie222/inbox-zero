@@ -77,15 +77,9 @@ test("opens saved mail offline, reconnects, and clears it on sign-out", async ({
 
     await context.setOffline(true);
     await page.reload({ waitUntil: "domcontentloaded", timeout: 15_000 });
+    await expect(conversations).toBeVisible();
     await expect(
-      page.getByRole("listbox", { name: "Conversations" }),
-    ).toBeVisible();
-    await expect(
-      conversationWithSubject(
-        page,
-        page.getByRole("listbox", { name: "Conversations" }),
-        "Archive Action Message",
-      ),
+      conversationWithSubject(page, conversations, "Archive Action Message"),
     ).toBeVisible();
     await capturePlaywrightCheckpoint(
       page,
@@ -96,11 +90,7 @@ test("opens saved mail offline, reconnects, and clears it on sign-out", async ({
     await context.setOffline(false);
     await page.reload();
     await expect(
-      conversationWithSubject(
-        page,
-        page.getByRole("listbox", { name: "Conversations" }),
-        "Archive Action Message",
-      ),
+      conversationWithSubject(page, conversations, "Archive Action Message"),
     ).toBeVisible();
     await capturePlaywrightCheckpoint(page, testInfo, "mail-after-reconnect");
 

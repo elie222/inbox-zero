@@ -24,9 +24,7 @@ export function installDesktopLoadRecovery(
     showingRecovery = true;
     loadingRecoveryPage = true;
     contents.loadURL(getDesktopRecoveryPage(targetUrl)).catch(() => {});
-    retryTimeout = setTimeout(() => {
-      if (!contents.isDestroyed()) contents.loadURL(targetUrl).catch(() => {});
-    }, 10_000);
+    retryTimeout = setTimeout(retryLoad, 10_000);
   }
 
   contents.on(
@@ -70,13 +68,15 @@ export function installDesktopLoadRecovery(
       return;
     }
     cancelTimers();
-    retryTimeout = setTimeout(() => {
-      if (!contents.isDestroyed()) contents.loadURL(targetUrl).catch(() => {});
-    }, 0);
+    retryTimeout = setTimeout(retryLoad, 0);
   });
+
+  function retryLoad() {
+    if (!contents.isDestroyed()) contents.loadURL(targetUrl).catch(() => {});
+  }
 }
 
-export function getDesktopRecoveryPage(targetUrl: string) {
+function getDesktopRecoveryPage(targetUrl: string) {
   const href = targetUrl
     .replace(/&/gu, "&amp;")
     .replace(/"/gu, "&quot;")
