@@ -146,3 +146,74 @@ test("organizes split choices and manages all rule labels", async ({
   await page.getByRole("option", { name: "Remove all" }).click();
   await expect(calendarSplit).toHaveCount(0);
 });
+
+for (const accountScope of ["single", "all"] as const) {
+  test(`${accountScope}: creates and removes splits without selecting them`, async ({
+    page,
+    request,
+  }) => {
+    const { emailAccountId } = await openMail(page);
+    if (accountScope === "all") {
+      await page.goto(`/${emailAccountId}/mail?accountScope=all`);
+    }
+    await page.getByRole("button", { name: "New split" }).click();
+    await page
+      .getByRole("option", { name: "Project Alpha", exact: true })
+      .click();
+    const split = page.getByRole("button", {
+      name: "Project Alpha",
+      exact: true,
+    });
+    await expect(split).toBeVisible();
+    await page
+      .getByRole("button", { name: "Remove the Project Alpha split" })
+      .click();
+    await expect(split).toHaveCount(0);
+
+    for (const name of ["All", "Unread"] as const) {
+      await page
+        .getByRole("button", { name: `Remove the ${name} split` })
+        .click();
+      await expect
+        .poll(async () => {
+          const response = await request.get("/api/mail/settings", {
+            headers: { "X-Email-Account-ID": emailAccountId },
+          });
+          return new Set((await response.json()).hiddenBuiltInSplits);
+        })
+        .toEqual(new Set(name === "All" ? ["all"] : ["all", "unread"]));
+      await expect(page.getByRole("button", { name, exact: true })).toHaveCount(
+        0,
+      );
+    }
+    await page.reload();
+    await expect(page.getByRole("button", { name: "New split" })).toBeVisible();
+    for (const name of ["All", "Unread"]) {
+      await expect(page.getByRole("button", { name, exact: true })).toHaveCount(
+        0,
+      );
+      await page.getByRole("button", { name: "New split" }).click();
+      await page.getByRole("option", { name, exact: true }).click();
+      await expect
+        .poll(async () => {
+          const response = await request.get("/api/mail/settings", {
+            headers: { "X-Email-Account-ID": emailAccountId },
+          });
+          return new Set((await response.json()).hiddenBuiltInSplits);
+        })
+        .toEqual(new Set(name === "All" ? ["unread"] : []));
+      await expect(
+        page.getByRole("button", { name, exact: true }),
+      ).toBeVisible();
+    }
+    await page.reload();
+    await expect(
+      page.getByRole("listbox", { name: "Conversations" }),
+    ).toBeVisible();
+    for (const name of ["All", "Unread"]) {
+      await expect(
+        page.getByRole("button", { name, exact: true }),
+      ).toBeVisible();
+    }
+  });
+}

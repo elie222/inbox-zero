@@ -53,10 +53,18 @@ export type DeleteMailSplitBody = z.infer<typeof deleteMailSplitBody>;
 export const setDefaultMailSplitsBody = z.object({ enabled: z.boolean() });
 export type SetDefaultMailSplitsBody = z.infer<typeof setDefaultMailSplitsBody>;
 
+export const hiddenBuiltInSplitsSchema = z
+  .array(z.enum(["all", "unread"]))
+  .max(2)
+  .refine((ids) => new Set(ids).size === ids.length, {
+    message: "Hidden split IDs must be unique",
+  });
+
 export const updateMailPreferencesBody = z
   .object({
     layout: z.nativeEnum(MailLayout).optional(),
     expandedPreview: z.boolean().optional(),
+    hiddenBuiltInSplits: hiddenBuiltInSplitsSchema.optional(),
   })
   // Every field is optional so a caller can update one preference without
   // restating the others, which would otherwise also accept an empty update.

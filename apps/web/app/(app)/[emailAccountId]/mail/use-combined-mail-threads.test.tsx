@@ -60,6 +60,52 @@ describe("useCombinedMailThreads", () => {
     vi.restoreAllMocks();
   });
 
+  it("keeps search results separate from synced inbox threads and other searches", async () => {
+    mailbox.read.mockResolvedValue({
+      threads: [createUnreadThread("account-1", "inbox-only")],
+    });
+    const fetcher = vi.fn(async (key: string) => {
+      const query = new URL(key, "http://localhost").searchParams.get("q");
+      if (query === null) throw new Error("Expected a search query");
+      return {
+        threads: [createUnreadThread("account-1", query)],
+        failedAccountIds: [],
+        labelsByAccount: {},
+        nextPageToken: null,
+      };
+    });
+    const { result, rerender, unmount } = renderHook(
+      ({ searchQuery }) =>
+        useCombinedMailThreads({
+          accounts: ACCOUNTS,
+          emailAccountId: "account-1",
+          enabled: true,
+          isUnread: false,
+          searchQuery,
+        }),
+      {
+        initialProps: { searchQuery: "first" },
+        wrapper: createWrapper(fetcher),
+      },
+    );
+    try {
+      await waitFor(() =>
+        expect(result.current.threads.map((thread) => thread.id)).toEqual([
+          "first",
+        ]),
+      );
+      rerender({ searchQuery: "second" });
+      await waitFor(() =>
+        expect(result.current.threads.map((thread) => thread.id)).toEqual([
+          "second",
+        ]),
+      );
+      expect(mailbox.read).not.toHaveBeenCalled();
+    } finally {
+      unmount();
+    }
+  });
+
   it("does not revive an archived thread when returning to a cached combined split", async () => {
     const clock = vi.spyOn(Date, "now").mockReturnValue(100);
     const fetcher = vi.fn().mockImplementation(async () => ({
