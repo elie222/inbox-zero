@@ -5,6 +5,7 @@ import {
   OFFLINE_MAIL_CACHE_PREFIX,
   createOfflineMailCache,
   matchesOfflineMailRequest,
+  clearsOfflineMailOnGet,
 } from "../utils/offline/mail-cache";
 
 // This declares the value of `injectionPoint` to TypeScript.
@@ -85,12 +86,8 @@ const serwist = new Serwist({
         ),
     },
     {
-      matcher: ({ request, url }) =>
-        url.origin === self.location.origin &&
-        request.mode === "navigate" &&
-        ["/login", "/welcome-redirect", "/connect-mailbox"].includes(
-          url.pathname,
-        ),
+      matcher: ({ request }) =>
+        clearsOfflineMailOnGet(request, self.location.origin),
       handler: async ({ request }) => {
         await (await mailCachePromise).clear();
         return fetch(request);

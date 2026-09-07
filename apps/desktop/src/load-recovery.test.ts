@@ -147,4 +147,24 @@ describe("desktop load recovery", () => {
     await vi.advanceTimersByTimeAsync(60_000);
     expect(contents.loadURL).not.toHaveBeenCalled();
   });
+
+  it("recovers the current mailbox after client-side navigation", async () => {
+    const contents = makeContents();
+    installDesktopLoadRecovery(
+      contents as unknown as WebContents,
+      origin,
+      () => mailUrl,
+    );
+    const currentUrl = `${origin}/account-2/mail?type=archive`;
+    contents.emit("did-start-navigation", {
+      url: currentUrl,
+      isSameDocument: true,
+      isMainFrame: true,
+    });
+    await vi.advanceTimersByTimeAsync(15_000);
+    expect(contents.loadURL).not.toHaveBeenCalled();
+    contents.emit("render-process-gone", {}, { reason: "crashed" });
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(contents.loadURL).toHaveBeenLastCalledWith(currentUrl);
+  });
 });

@@ -16,6 +16,7 @@ export function createOfflineMailCache({
   cacheName: string;
 }) {
   let generation = 0;
+  let activeClears = 0;
   let writes: Promise<unknown> = Promise.resolve();
   const saves = new Map<string, Promise<void>>();
 
@@ -28,13 +29,19 @@ export function createOfflineMailCache({
 
   async function clear() {
     generation++;
-    await queueWrite(async (cache) => {
-      await Promise.all((await cache.keys()).map((key) => cache.delete(key)));
-    });
+    activeClears++;
+    saves.clear();
+    try {
+      await queueWrite(async (cache) => {
+        await Promise.all((await cache.keys()).map((key) => cache.delete(key)));
+      });
+    } finally {
+      activeClears--;
+    }
   }
 
   async function handle(request: Request, waitUntil: WaitUntil) {
-    const startedAtGeneration = generation;
+    const startedAtGeneration = activeClears ? undefined : generation;
     const url = new URL(request.url);
     // Mail's query parameters select client-side views of the same account.
     const key = `${origin}${url.pathname}`;
@@ -120,7 +127,11 @@ export function createOfflineMailCache({
 
   function save(url: string, waitUntil: WaitUntil): Promise<void> {
     const parsed = new URL(url);
-    if (parsed.origin !== origin || !isOfflineMailPath(parsed.pathname))
+    if (
+      activeClears ||
+      parsed.origin !== origin ||
+      !isOfflineMailPath(parsed.pathname)
+    )
       return Promise.resolve();
     const key = parsed.pathname;
     const existing = saves.get(key);
@@ -146,7 +157,9 @@ export function createOfflineMailCache({
         }),
         waitUntil,
       );
-    })().finally(() => saves.delete(key));
+    })().finally(() => {
+      if (saves.get(key) === saving) saves.delete(key);
+    });
     saves.set(key, saving);
     return saving;
   }
@@ -166,4 +179,17 @@ export function matchesOfflineMailRequest(request: Request, origin: string) {
 
 export function isOfflineMailPath(pathname: string) {
   return MAIL_PATH.test(pathname);
+}
+
+export function clearsOfflineMailOnGet(request: Request, origin: string) {
+  const url = new URL(request.url);
+  if (request.method !== "GET" || url.origin !== origin) return false;
+  return (
+    url.pathname === "/api/sso/signin" ||
+    url.pathname.startsWith("/api/auth/sso/") ||
+    (request.mode === "navigate" &&
+      ["/login", "/welcome-redirect", "/connect-mailbox"].includes(
+        url.pathname,
+      ))
+  );
 }

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createOfflineMailCache,
   matchesOfflineMailRequest,
+  clearsOfflineMailOnGet,
 } from "./mail-cache";
 
 const origin = "https://app.example.com";
@@ -167,6 +168,33 @@ describe("offline mail cache", () => {
     ).toBe(false);
   });
 
+  it("clears offline mail on SSO entry and callbacks without clearing it for session reads", () => {
+    for (const path of [
+      "/api/sso/signin",
+      "/api/auth/sso/callback/provider",
+      "/api/auth/sso/saml2/callback/provider",
+    ]) {
+      expect(
+        clearsOfflineMailOnGet(new Request(`${origin}${path}`), origin),
+      ).toBe(true);
+    }
+    expect(
+      clearsOfflineMailOnGet(
+        new Request(`${origin}/api/auth/get-session`),
+        origin,
+      ),
+    ).toBe(false);
+    expect(
+      clearsOfflineMailOnGet(
+        new Request("https://other.example.com/api/sso/signin"),
+        origin,
+      ),
+    ).toBe(false);
+    expect(
+      clearsOfflineMailOnGet(documentRequest(`${origin}/login`), origin),
+    ).toBe(true);
+  });
+
   it("restores account metadata but never caches arbitrary API responses", async () => {
     const cache = makeCache();
     const request = new Request(`${origin}/api/user/email-accounts`);
@@ -268,6 +296,40 @@ describe("offline mail cache", () => {
     await expect(
       cache.handle(documentRequest(`${origin}/account-2/mail`), waitUntil),
     ).rejects.toThrow();
+  });
+
+  it("does not cache requests that begin while logout is deleting pages", async () => {
+    const cache = makeCache();
+    const deletion = Promise.withResolvers<Request[]>();
+    vi.spyOn(storage, "keys").mockReturnValueOnce(deletion.promise);
+    const clearing = cache.clear();
+    network.mockResolvedValueOnce(html());
+    await cache.handle(documentRequest(), waitUntil);
+    deletion.resolve([]);
+    await clearing;
+    await Promise.all(pending);
+    expect(await storage.match(mailUrl)).toBeUndefined();
+  });
+
+  it("allows a fresh save after clearing an unfinished save", async () => {
+    const cache = makeCache();
+    const oldResponse = Promise.withResolvers<Response>();
+    const newResponse = Promise.withResolvers<Response>();
+    network.mockReturnValueOnce(oldResponse.promise);
+    const oldSave = cache.save(mailUrl, waitUntil);
+    await cache.clear();
+    network.mockReturnValueOnce(newResponse.promise);
+    const newSave = cache.save(mailUrl, waitUntil);
+    expect(network).toHaveBeenCalledTimes(2);
+    oldResponse.resolve(html("Old mailbox"));
+    await oldSave;
+    const sameSave = cache.save(mailUrl, waitUntil);
+    expect(sameSave).toBe(newSave);
+    network.mockResolvedValueOnce(Response.json({ emailAccounts: [] }));
+    newResponse.resolve(html("New mailbox"));
+    await newSave;
+    await Promise.all(pending);
+    expect(await (await storage.match(mailUrl))?.text()).toBe("New mailbox");
   });
 
   it("still returns live mail when local storage fails", async () => {

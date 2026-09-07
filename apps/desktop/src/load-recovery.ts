@@ -30,8 +30,9 @@ export function installDesktopLoadRecovery(
   contents.on(
     "did-start-navigation",
     ({ url, isSameDocument, isMainFrame }) => {
-      if (!isMainFrame || isSameDocument || !isAppUrl(url, appOrigin)) return;
+      if (!isMainFrame || !isAppUrl(url, appOrigin)) return;
       targetUrl = url;
+      if (isSameDocument) return;
       cancelTimers();
       loadTimeout = setTimeout(() => {
         contents.stop();
