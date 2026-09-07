@@ -100,7 +100,8 @@
    * Intended to be promoted to `:root` in a follow-up PR, at which point this
    * block and the `data-theme` attribute go away.
    *
-   * Dark mode deliberately has no Mail variant — it inherits `.dark` unchanged.
+   * The dark variant below swaps the near-black app palette for charcoal so
+   * the mail screen reads as one soft surface rather than panels on void.
    */
   :root[data-theme="mail"]:not(.dark) {
     --background: 0 0% 99.2%; /* #FDFDFD */
@@ -141,6 +142,47 @@
     --sidebar-accent-foreground: 0 0% 14.1%;
     --sidebar-border: 0 0% 93.7%;
     --sidebar-ring: 221.2 83.2% 53.3%;
+  }
+
+  :root[data-theme="mail"].dark {
+    --background: 220 7% 16%; /* #262A2D */
+    --foreground: 220 8% 92%; /* #E8EAED */
+
+    --muted: 220 7% 21%; /* #32363B */
+    --muted-foreground: 220 5% 62%; /* #979BA2 */
+
+    --popover: 220 7% 19%; /* #2D3034 */
+    --popover-foreground: 220 8% 92%;
+
+    --card: 220 7% 19%; /* #2D3034 */
+    --card-foreground: 220 8% 92%;
+
+    --border: 220 6% 22%; /* #35383C */
+    --input: 220 6% 22%;
+    --border-strong: 220 6% 28%; /* #43474C */
+
+    --primary: 217.2 91.2% 59.8%; /* #3B82F6 */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 7% 24%; /* #393D42 */
+    --secondary-foreground: 220 8% 85%; /* #D6D8DC */
+
+    --accent: 220 7% 24%; /* #393D42 */
+    --accent-foreground: 220 8% 95%; /* #F1F2F4 */
+
+    --destructive: 0 72% 55%; /* #DF3E3E */
+    --destructive-foreground: 0 0% 100%;
+
+    --ring: 217.2 91.2% 59.8%;
+
+    --sidebar-background: 220 7% 14%; /* #212426 */
+    --sidebar-foreground: 220 6% 80%; /* #C9CBCF */
+    --sidebar-primary: 217.2 91.2% 59.8%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 7% 21%; /* #32363B */
+    --sidebar-accent-foreground: 220 8% 95%;
+    --sidebar-border: 220 6% 20%; /* #303339 */
+    --sidebar-ring: 217.2 91.2% 59.8%;
   }
 }
 
