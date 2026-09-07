@@ -44,7 +44,10 @@ export async function writeCachedThreadDetail({
     const transaction = database.transaction("threadDetails", "readwrite");
     // Wait behind pending sync deletions before checking this response’s version.
     await transaction.store.getKey([emailAccountId, threadId, variant]);
-    if (version !== getThreadCacheVersion(emailAccountId, threadId)) {
+    if (
+      !isEmailCacheEpochCurrent(emailAccountId, epoch) ||
+      version !== getThreadCacheVersion(emailAccountId, threadId)
+    ) {
       await transaction.done;
       return;
     }
