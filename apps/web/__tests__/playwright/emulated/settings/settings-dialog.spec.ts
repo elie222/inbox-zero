@@ -31,4 +31,8 @@ test("opens settings in a dialog from a url and from the nav", async ({
   await page.getByRole("menuitem", { name: "Settings" }).click();
   await expect(page).toHaveURL(/settings=open/);
   await expect(dialogHeading).toBeVisible();
+
+  await page.goBack();
+  await expect(dialog).toBeHidden();
+  await expect(page).not.toHaveURL(/settings=open/);
 });
