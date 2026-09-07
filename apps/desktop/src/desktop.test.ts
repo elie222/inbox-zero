@@ -146,20 +146,16 @@ describe("desktop shell helpers", () => {
     ).toBe("https://www.getinboxzero.com/evil.test");
   });
 
-  it("uses a light hidden title bar so the native chrome matches the web app", () => {
+  it("uses platform-appropriate title bars and menu visibility", () => {
     expect(getDesktopWindowChrome("darwin")).toEqual({
       backgroundColor: "#ffffff",
       titleBarStyle: "hiddenInset",
       trafficLightPosition: { x: 16, y: 18 },
     });
-    expect(getDesktopWindowChrome("win32")).toMatchObject({
+    expect(getDesktopWindowChrome("win32")).toEqual({
+      autoHideMenuBar: false,
       backgroundColor: "#ffffff",
-      titleBarStyle: "hidden",
-      titleBarOverlay: {
-        color: "#ffffff",
-        height: 36,
-        symbolColor: "#0f172a",
-      },
+      titleBarStyle: "default",
     });
     expect(getDesktopWindowChrome("linux")).toEqual({
       autoHideMenuBar: true,

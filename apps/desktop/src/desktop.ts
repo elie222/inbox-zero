@@ -207,12 +207,7 @@ export const DESKTOP_MAC_HIDE_ATTRIBUTE = "data-hide-on-desktop-mac";
 export function getDesktopWindowChrome(platform = process.platform): {
   autoHideMenuBar?: boolean;
   backgroundColor: string;
-  titleBarOverlay?: {
-    color: string;
-    height: number;
-    symbolColor: string;
-  };
-  titleBarStyle?: "hidden" | "hiddenInset";
+  titleBarStyle?: "default" | "hiddenInset";
   trafficLightPosition?: { x: number; y: number };
 } {
   if (platform === "darwin") {
@@ -225,13 +220,9 @@ export function getDesktopWindowChrome(platform = process.platform): {
 
   if (platform === "win32") {
     return {
+      autoHideMenuBar: false,
       backgroundColor: DESKTOP_WINDOW_BACKGROUND,
-      titleBarOverlay: {
-        color: DESKTOP_WINDOW_BACKGROUND,
-        height: 36,
-        symbolColor: "#0f172a",
-      },
-      titleBarStyle: "hidden",
+      titleBarStyle: "default",
     };
   }
 
