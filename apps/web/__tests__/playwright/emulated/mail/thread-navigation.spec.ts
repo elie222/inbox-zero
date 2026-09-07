@@ -117,11 +117,11 @@ test("keeps arrow navigation inside the thread and expands from its toolbar", as
   const editor = page.getByRole("textbox", { name: "Email message" });
   await expect(editor).toBeFocused();
   await expect(editor.locator("p")).toHaveText("");
-  await page.getByLabel("Show quoted message").click();
+  await page.getByLabel(/^Show (signature and )?quoted message$/).click();
   await expect(
     page.getByRole("toolbar", { name: "Selection formatting" }),
   ).toBeHidden();
-  await page.getByLabel("Hide quoted message").click();
+  await page.getByLabel(/^Hide (signature and )?quoted message$/).click();
   await expect(
     page.getByRole("toolbar", { name: "Selection formatting" }),
   ).toBeHidden();

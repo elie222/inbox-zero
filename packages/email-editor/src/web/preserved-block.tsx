@@ -1,69 +1,87 @@
-import { useState } from "react";
+import { createContext, useContext } from "react";
 import styles from "./EmailEditor.module.css";
 
 export type RenderedPreservedEmailBlock = {
   id: string;
   kind: "quote" | "signature";
   previewHtml: string;
-  collapsed?: boolean;
 };
 
-export function PreservedBlockDetails({
+export type ActivePreservedBlock = Pick<
+  RenderedPreservedEmailBlock,
+  "id" | "kind"
+>;
+
+export type PreservedBlocksState = {
+  blocks: ActivePreservedBlock[];
+  expanded: boolean;
+  toggle: () => void;
+};
+
+// Signature and quote share one "⋯" toggle so the composer reads like a plain
+// email body with hidden trailing content, not a stack of labelled sections.
+export const PreservedBlocksContext = createContext<PreservedBlocksState>({
+  blocks: [],
+  expanded: false,
+  toggle: () => {},
+});
+
+export function PreservedBlockView({
   block,
   onRemove,
 }: {
   block: RenderedPreservedEmailBlock;
   onRemove: () => void;
 }) {
-  const title = block.kind === "signature" ? "Signature" : "Quoted message";
-  const [open, setOpen] = useState(
-    block.kind === "signature" || !block.collapsed,
-  );
-  const previewDocument = `<!doctype html><html><head><meta name="color-scheme" content="light"><style>html,body{margin:0;padding:0;background:#fff;color:#242424;font:13px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}body{padding:8px}img{max-width:100%;height:auto}table{max-width:100%}a{color:#2563eb}</style></head><body>${block.previewHtml}</body></html>`;
+  const { blocks, expanded, toggle } = useContext(PreservedBlocksContext);
+  const showToggle = blocks[0]?.id === block.id;
+  const hiddenContent = [
+    blocks.some((candidate) => candidate.kind === "signature") && "signature",
+    blocks.some((candidate) => candidate.kind === "quote") && "quoted message",
+  ]
+    .filter(Boolean)
+    .join(" and ");
 
   return (
-    <details
-      open={open}
-      onToggle={(event) => setOpen(event.currentTarget.open)}
-    >
-      <summary
-        aria-label={
-          block.kind === "quote"
-            ? `${open ? "Hide" : "Show"} quoted message`
-            : undefined
-        }
-        className={styles.preservedSummary}
-      >
-        <span aria-hidden>{block.kind === "quote" ? "⋯" : "—"}</span>
-        {block.kind === "signature" && (
-          <>
-            <span>{title}</span>
-            <button
-              aria-label={`Remove ${title.toLowerCase()}`}
-              className={styles.removePreservedButton}
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                onRemove();
-              }}
-              type="button"
-            >
-              ×
-            </button>
-          </>
-        )}
-      </summary>
-      <iframe
-        className={
-          block.kind === "signature"
-            ? styles.signaturePreview
-            : styles.quotePreview
-        }
-        sandbox=""
-        srcDoc={previewDocument}
-        tabIndex={-1}
-        title={`${title} preview`}
-      />
-    </details>
+    <>
+      {showToggle && (
+        <button
+          aria-expanded={expanded}
+          aria-label={`${expanded ? "Hide" : "Show"} ${hiddenContent}`}
+          className={styles.preservedToggle}
+          onClick={toggle}
+          onMouseDown={(event) => event.preventDefault()}
+          type="button"
+        >
+          ⋯
+        </button>
+      )}
+      {expanded && block.kind === "signature" && (
+        <div className={styles.signatureContent}>
+          <button
+            aria-label="Remove signature"
+            className={styles.removePreservedButton}
+            onClick={onRemove}
+            type="button"
+          >
+            ×
+          </button>
+          <div
+            className={styles.signatureHtml}
+            // biome-ignore lint/security/noDangerouslySetInnerHtml: core sanitization removes active content before the signature is rendered inline.
+            dangerouslySetInnerHTML={{ __html: block.previewHtml }}
+          />
+        </div>
+      )}
+      {expanded && block.kind === "quote" && (
+        <iframe
+          className={styles.quotePreview}
+          sandbox=""
+          srcDoc={`<!doctype html><html><head><meta name="color-scheme" content="light"><style>html,body{margin:0;padding:0;background:#fff;color:#242424;font:13px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}body{padding:8px}img{max-width:100%;height:auto}table{max-width:100%}a{color:#2563eb}</style></head><body>${block.previewHtml}</body></html>`}
+          tabIndex={-1}
+          title="Quoted message preview"
+        />
+      )}
+    </>
   );
 }

@@ -38,8 +38,7 @@ test("keeps keyboard focus in the composer and follows the message field order",
     dialog.getByRole("textbox", { exact: true, name: "Bcc" }),
     dialog.getByPlaceholder("Subject"),
     dialog.getByRole("textbox", { name: "Email message" }),
-    dialog.locator("summary", { hasText: "Signature" }),
-    dialog.getByRole("button", { name: "Remove signature" }),
+    dialog.getByRole("button", { name: "Show signature" }),
     dialog.getByRole("button", { name: /^Send/ }),
     dialog.getByRole("button", { name: "Attach files" }),
     dialog.getByRole("button", { name: "Insert inline images" }),
@@ -223,10 +222,11 @@ test("does not add a line break for the send shortcut", async ({
     .fill("recipient@example.com");
   await dialog.getByPlaceholder("Subject").fill(subject);
   await editor.pressSequentially("Draft body");
+  await dialog.getByRole("button", { name: "Show signature" }).click();
   await dialog.getByRole("button", { name: "Remove signature" }).click();
-  await expect(dialog.locator('iframe[title="Signature preview"]')).toHaveCount(
-    0,
-  );
+  await expect(
+    dialog.locator("[data-email-preserved-kind='signature']"),
+  ).toHaveCount(0);
 
   await editor.press("ControlOrMeta+Enter");
 
@@ -297,9 +297,10 @@ test("composes, sends, and reads a new message from Sent", async ({
   const composeEditor = dialog.locator("[contenteditable='true']");
   await composeEditor.pressSequentially("A composed message body.");
   await expect(composeEditor).toContainText("A composed message body.");
+  await dialog.getByRole("button", { name: "Show signature" }).click();
   await expect(
     dialog
-      .frameLocator('iframe[title="Signature preview"]')
+      .locator("[data-email-preserved-kind='signature']")
       .getByRole("link", { name: "Inbox Zero" }),
   ).toBeVisible();
   await capturePlaywrightCheckpoint(page, testInfo, "composer-with-footer");
@@ -352,9 +353,10 @@ test("selects the sender when composing from all accounts", async ({
       .click();
 
     await expect(from).toContainText(secondAccount.email);
+    await dialog.getByRole("button", { name: "Show signature" }).click();
     await expect(
       dialog
-        .frameLocator('iframe[title="Signature preview"]')
+        .locator("[data-email-preserved-kind='signature']")
         .getByText(signature),
     ).toBeVisible();
   } finally {
@@ -403,8 +405,10 @@ test("opens and sends a reply from the reader with Enter", async ({
   await expect(replyEditor).toHaveCount(1);
   await expect(
     page.locator("[data-email-preserved-kind='quote']"),
+  ).toBeAttached();
+  await expect(
+    page.getByLabel(/^Show (signature and )?quoted message$/),
   ).toBeVisible();
-  await expect(page.getByLabel("Show quoted message")).toBeVisible();
   await expect(page.getByText("Quoted message", { exact: true })).toHaveCount(
     0,
   );
