@@ -23,9 +23,9 @@ The package-level emulated command runs each spec with a fresh Next process,
 emulator, and authenticated mailbox, then merges the reports. Tests inside a
 spec remain serial. This avoids state leaking between specs and bounds the
 development server's compiled route graph. CI selects the affected specs once
-and distributes them across at most 12 matrix jobs. Each job installs dependencies,
+and distributes them across at most 20 matrix jobs. Each job installs dependencies,
 browsers, and database services once, then runs its specs sequentially with the
-same per-spec isolation. Selections of 12 or fewer specs retain one job per spec.
+same per-spec isolation. Selections of 20 or fewer specs retain one job per spec.
 The selection job lists each batch's specs in its GitHub summary; each test job
 reports per-spec durations and exit statuses. A failing spec does not skip the
 remaining specs in its batch, and any failure fails the combined `Web E2E` check.

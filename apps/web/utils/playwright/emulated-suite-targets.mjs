@@ -13,7 +13,7 @@ export function expandPlaywrightTargets(paths, appRoot) {
 }
 
 export function batchPlaywrightTargets(targets) {
-  const batchCount = Math.min(targets.length, 12);
+  const batchCount = Math.min(targets.length, 20);
   const batches = Array.from({ length: batchCount }, (_, index) => ({
     name:
       targets.length <= batchCount ? targets[index].name : `batch-${index + 1}`,

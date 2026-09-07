@@ -75,13 +75,13 @@ test("batches a full selection without losing or repeating specs", () => {
   }));
   const batches = batchPlaywrightTargets(targets);
 
-  expect(batches).toHaveLength(12);
-  expect(new Set(batches.map(({ name }) => name)).size).toBe(12);
+  expect(batches).toHaveLength(20);
+  expect(new Set(batches.map(({ name }) => name)).size).toBe(20);
   expect(batches.flatMap(({ paths }) => paths).sort()).toEqual(
     targets.map(({ path: specPath }) => specPath).sort(),
   );
   expect(
-    batches.every(({ paths }) => paths.length >= 3 && paths.length <= 4),
+    batches.every(({ paths }) => paths.length >= 2 && paths.length <= 3),
   ).toBe(true);
 });
 
