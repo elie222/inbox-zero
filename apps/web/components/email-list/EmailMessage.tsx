@@ -144,7 +144,7 @@ export function EmailMessage({
     <li
       data-thread-message-id={message.id}
       data-selected={selected}
-      tabIndex={selected === undefined ? undefined : -1}
+      tabIndex={selected !== undefined || composeMode ? -1 : undefined}
       aria-current={selected || undefined}
       onFocusCapture={onSelect}
       onClickCapture={onSelect}
@@ -152,14 +152,14 @@ export function EmailMessage({
       onKeyDownCapture={(event) => {
         // Handle draft Escape before the rich-text editor consumes it.
         if (
-          selected !== undefined &&
+          composeMode &&
           event.key === "Escape" &&
           !event.defaultPrevented &&
           isTypingTarget(event.target) &&
           event.target instanceof Element &&
           event.target.closest('[data-inline-reply="true"]') &&
           !event.target.closest(
-            '[role="dialog"], [role="menu"], [role="listbox"]',
+            '[role="dialog"], [role="menu"], [role="listbox"], [role="combobox"][aria-expanded="true"]',
           )
         ) {
           event.preventDefault();
