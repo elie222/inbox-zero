@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { CrownIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { usePremium } from "@/hooks/usePremium";
@@ -9,6 +8,7 @@ import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import type { PremiumTier } from "@/generated/prisma/enums";
 import { starterTierName } from "@/app/(app)/premium/config";
 import { ActionCard } from "@/components/ui/card";
+import { useSettingsDialog } from "@/hooks/useSettingsDialog";
 
 export function PremiumAiAssistantAlert({
   showSetApiKey,
@@ -24,6 +24,7 @@ export function PremiumAiAssistantAlert({
   activeOnly?: boolean;
 }) {
   const { PremiumModal, openModal } = usePremiumModal();
+  const { openSettings } = useSettingsDialog();
 
   const isBasicPlan = tier === "BASIC_MONTHLY" || tier === "BASIC_ANNUALLY";
 
@@ -61,8 +62,8 @@ export function PremiumAiAssistantAlert({
           title="API Key Required"
           description="You need to set an AI API key to use this feature."
           action={
-            <Button variant="primaryBlack" asChild>
-              <Link href="/settings">Set API Key</Link>
+            <Button variant="primaryBlack" onClick={openSettings}>
+              Set API Key
             </Button>
           }
         />

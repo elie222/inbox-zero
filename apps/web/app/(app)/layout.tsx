@@ -19,6 +19,7 @@ import { MailMutationOutboxManager } from "@/app/(app)/MailMutationOutboxManager
 import { ProviderRateLimitBanner } from "@/app/(app)/ProviderRateLimitBanner";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { EmailViewer } from "@/components/EmailViewer";
+import { SettingsDialog } from "@/app/(app)/settings/SettingsDialog";
 import { AnnouncementDialog } from "@/components/feature-announcements/AnnouncementDialog";
 import { captureException } from "@/utils/error";
 import prisma from "@/utils/prisma";
@@ -99,6 +100,7 @@ export default async function AppLayout({
             {children}
           </SideNavWithTopNav>
           <EmailViewer />
+          <SettingsDialog />
           <AnnouncementDialog />
           <ErrorBoundary extra={{ component: "AppLayout" }}>
             <PostHogIdentify />
