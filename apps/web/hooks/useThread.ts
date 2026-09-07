@@ -1,7 +1,8 @@
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import useSWR, { unstable_serialize, useSWRConfig } from "swr";
 import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { subscribeToMailboxStore } from "@/utils/email-cache/mailbox";
 import {
   readCachedThreadDetail,
   writeCachedThreadDetail,
@@ -87,10 +88,23 @@ export function useThread(
     {
       keepPreviousData: false,
       revalidateOnMount: !hasMatchingMemoryData,
-      revalidateOnFocus: false,
-      revalidateOnReconnect: false,
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
     },
   );
+  const { mutate } = swr;
+  useEffect(() => {
+    if (!request) return;
+    const unsubscribe = subscribeToMailboxStore((changedAccountId) => {
+      if (changedAccountId !== emailAccountId) return;
+      // Mailbox sync contains inbox summaries, not full replies and drafts.
+      checkedPersistentCache.current.add(request.cacheIdentity);
+      mutate().catch(() => {});
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, [emailAccountId, request, mutate]);
   const data = swr.data?.thread.id === id ? swr.data : undefined;
 
   return {

@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 
 import type { ReactNode } from "react";
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { SWRConfig, unstable_serialize } from "swr";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useThread } from "./useThread";
+import { notifyMailboxStoreChange } from "@/utils/email-cache/mailbox";
 
 const cache = vi.hoisted(() => ({
   read: vi.fn(),
@@ -21,6 +22,8 @@ vi.mock("@/utils/email-cache/threads", () => ({
 }));
 
 describe("useThread", () => {
+  afterEach(cleanup);
+
   beforeEach(() => {
     vi.clearAllMocks();
     cache.write.mockResolvedValue(undefined);
@@ -122,6 +125,40 @@ describe("useThread", () => {
         threadId: "thread-1",
       }),
     );
+  });
+
+  it("refreshes a cached conversation after its account syncs", async () => {
+    cache.read.mockResolvedValue({
+      data: { thread: { id: "thread-1", messages: [{ id: "old-draft" }] } },
+    });
+    const fetcher = vi.fn().mockResolvedValue({
+      thread: { id: "thread-1", messages: [{ id: "sent-reply" }] },
+    });
+    const { result, unmount } = renderHook(
+      () => useThread({ id: "thread-1" }),
+      { wrapper: createWrapper(fetcher) },
+    );
+    await waitFor(() =>
+      expect(result.current.data?.thread.messages[0]?.id).toBe("old-draft"),
+    );
+
+    await act(async () => notifyMailboxStoreChange("account-2"));
+    expect(fetcher).not.toHaveBeenCalled();
+
+    await act(async () => notifyMailboxStoreChange("account-1"));
+    await waitFor(() =>
+      expect(result.current.data?.thread.messages.map(({ id }) => id)).toEqual([
+        "sent-reply",
+      ]),
+    );
+    expect(cache.write).toHaveBeenCalledWith(
+      expect.objectContaining({ data: result.current.data }),
+    );
+
+    unmount();
+    fetcher.mockClear();
+    await act(async () => notifyMailboxStoreChange("account-1"));
+    expect(fetcher).not.toHaveBeenCalled();
   });
 
   it("falls back to the network when no cached detail exists", async () => {
