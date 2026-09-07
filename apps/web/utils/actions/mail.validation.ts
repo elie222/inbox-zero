@@ -62,3 +62,13 @@ export const deleteMailboxItemBody = z.object({
   kind: mailboxItemKind,
   id: z.string().min(1, "Mailbox item ID is required"),
 });
+
+export const updateDraftBody = z.object({
+  draftMessageId: z.string().min(1),
+  draftId: z.string().min(1).optional(),
+  messageHtml: z.string().max(1_000_000),
+  subject: z.string().max(10_000),
+  to: z.string(),
+  cc: z.string(),
+  bcc: z.string(),
+});

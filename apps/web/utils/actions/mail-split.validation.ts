@@ -53,9 +53,16 @@ export type DeleteMailSplitBody = z.infer<typeof deleteMailSplitBody>;
 export const setDefaultMailSplitsBody = z.object({ enabled: z.boolean() });
 export type SetDefaultMailSplitsBody = z.infer<typeof setDefaultMailSplitsBody>;
 
-export const updateMailPreferencesBody = z.object({
-  layout: z.nativeEnum(MailLayout),
-});
+export const updateMailPreferencesBody = z
+  .object({
+    layout: z.nativeEnum(MailLayout).optional(),
+    expandedPreview: z.boolean().optional(),
+  })
+  // Every field is optional so a caller can update one preference without
+  // restating the others, which would otherwise also accept an empty update.
+  .refine((data) => Object.values(data).some((value) => value !== undefined), {
+    message: "Provide at least one preference",
+  });
 export type UpdateMailPreferencesBody = z.infer<
   typeof updateMailPreferencesBody
 >;

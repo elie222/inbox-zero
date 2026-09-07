@@ -13,6 +13,7 @@ import {
   type RenderedPreservedEmailBlock,
 } from "./preserved-block";
 import styles from "./EmailEditor.module.css";
+import { UrlHighlight } from "./url-highlight";
 
 const PreservedEmailBlockNode = Node.create({
   name: "preservedEmailBlock",
@@ -112,6 +113,7 @@ export function createEmailEditorExtensions(placeholder: string) {
     }),
     EmailImage,
     EmailDirection,
+    UrlHighlight,
     PreservedEmailBlockNode,
     Placeholder.configure({
       placeholder,

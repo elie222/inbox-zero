@@ -481,48 +481,57 @@ function ReplyPanel({
     deleteDraftAction.bind(null, emailAccountId),
   );
 
-  const onDiscard = useCallback(async () => {
-    if (composeMode === "forward" || !draftMessage) {
-      onCloseCompose();
-      return true;
-    }
+  const onDiscard = useCallback(
+    async (draftId?: string) => {
+      if (composeMode === "forward" || !draftMessage) {
+        onCloseCompose();
+        return true;
+      }
 
-    const discardPromise = discardDraft({ draftMessageId: draftMessage.id });
-    const composeSession = onStartDiscard();
-    if (!composeSession) return false;
+      const discardPromise = discardDraft({
+        draftMessageId: draftMessage.id,
+        draftId,
+      });
+      const composeSession = onStartDiscard();
+      if (!composeSession) return false;
 
-    try {
-      const result = await discardPromise;
-      if (result?.serverError || result?.validationErrors) {
-        toastError({
-          description: getActionErrorMessage(result, {
-            prefix: "Failed to discard draft",
-          }),
-        });
+      try {
+        const result = await discardPromise;
+        if (result?.serverError || result?.validationErrors) {
+          toastError({
+            description: getActionErrorMessage(result, {
+              prefix: "Failed to discard draft",
+            }),
+          });
+          onRestoreCompose(composeSession);
+          return false;
+        }
+      } catch {
+        toastError({ description: "Failed to discard draft" });
         onRestoreCompose(composeSession);
         return false;
+      } finally {
+        refetch();
       }
-    } catch {
-      toastError({ description: "Failed to discard draft" });
-      onRestoreCompose(composeSession);
-      return false;
-    } finally {
-      refetch();
-    }
-    return true;
-  }, [
-    composeMode,
-    draftMessage,
-    discardDraft,
-    onCloseCompose,
-    onRestoreCompose,
-    onStartDiscard,
-    refetch,
-  ]);
+      return true;
+    },
+    [
+      composeMode,
+      draftMessage,
+      discardDraft,
+      onCloseCompose,
+      onRestoreCompose,
+      onStartDiscard,
+      refetch,
+    ],
+  );
 
   return (
     <div className="mt-5" ref={replyRef}>
       <ComposeEmailFormLazy
+        providerDraftMessageId={
+          composeMode === "reply" ? draftMessage?.id : undefined
+        }
         draftKeyMessageId={message.id}
         draftMode={composeMode}
         draftSessionId={getReplyDraftSessionId(message.id, composeMode)}
