@@ -1,11 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getEmail, createTestLogger } from "@/__tests__/helpers";
 import type { EmailProvider } from "@/utils/email/types";
-import { respondToCalendarInvitation } from "@/utils/calendar/respond-to-invitation";
-import { findInvitationEvent } from "@/utils/calendar/invitation-provider";
-
-vi.mock("@/utils/calendar/invitation-provider", () => ({
-  findInvitationEvent: vi.fn(),
+import {
+  getCalendarInvitation,
+  respondToCalendarInvitation,
+} from "@/utils/calendar/invitations/service";
+const mocks = vi.hoisted(() => ({
+  connections: vi.fn(),
+  findEvent: vi.fn(),
+  respond: vi.fn(),
+}));
+vi.mock("@/utils/prisma", () => ({
+  default: { calendarConnection: { findMany: mocks.connections } },
+}));
+vi.mock("@/utils/calendar/event-provider", () => ({
+  createCalendarEventProvider: () => ({
+    findInvitationEvent: mocks.findEvent,
+    respondToInvitation: mocks.respond,
+  }),
 }));
 const content =
   "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nMETHOD:REQUEST\r\nBEGIN:VEVENT\r\nUID:meeting@example.com\r\nDTSTART:20261001T100000Z\r\nORGANIZER:mailto:organizer@example.com\r\nATTENDEE:mailto:user@example.com\r\nEND:VEVENT\r\nEND:VCALENDAR";
@@ -29,7 +41,9 @@ const params = {
 beforeEach(() => {
   vi.clearAllMocks();
   getMessage.mockResolvedValue({ ...getEmail(), calendarContent: content });
-  vi.mocked(findInvitationEvent).mockResolvedValue(null);
+  mocks.connections.mockResolvedValue([]);
+  mocks.findEvent.mockResolvedValue({ id: "event", response: null });
+  mocks.respond.mockResolvedValue(undefined);
 });
 
 describe("responding to calendar invitations", () => {
@@ -51,32 +65,18 @@ describe("responding to calendar invitations", () => {
   });
 
   it("updates a matched event without sending a duplicate reply email", async () => {
-    const respondToInvitation = vi.fn();
-    vi.mocked(findInvitationEvent).mockResolvedValue({
-      event: { id: "event", response: null },
-      provider: { respondToInvitation },
-    } as unknown as NonNullable<
-      Awaited<ReturnType<typeof findInvitationEvent>>
-    >);
+    mocks.connections.mockResolvedValue([{ provider: "google" }]);
     await expect(respondToCalendarInvitation(params)).resolves.toEqual({
       response: "accepted",
       calendarSynced: true,
     });
-    expect(respondToInvitation).toHaveBeenCalledOnce();
+    expect(mocks.respond).toHaveBeenCalledOnce();
     expect(sendEmail).not.toHaveBeenCalled();
   });
 
   it("does not send an email fallback after a calendar write failure", async () => {
-    vi.mocked(findInvitationEvent).mockResolvedValue({
-      event: { id: "event", response: null },
-      provider: {
-        respondToInvitation: vi
-          .fn()
-          .mockRejectedValue(new Error("Provider unavailable")),
-      },
-    } as unknown as NonNullable<
-      Awaited<ReturnType<typeof findInvitationEvent>>
-    >);
+    mocks.connections.mockResolvedValue([{ provider: "google" }]);
+    mocks.respond.mockRejectedValue(new Error("Provider unavailable"));
     await expect(respondToCalendarInvitation(params)).rejects.toThrow(
       "Provider unavailable",
     );
@@ -108,7 +108,42 @@ describe("responding to calendar invitations", () => {
     await expect(
       respondToCalendarInvitation({ ...params, email: "other@example.com" }),
     ).rejects.toThrow("does not contain an invitation");
-    expect(findInvitationEvent).not.toHaveBeenCalled();
+    expect(mocks.connections).not.toHaveBeenCalled();
+    expect(sendEmail).not.toHaveBeenCalled();
+  });
+});
+
+describe("loading calendar invitations", () => {
+  it("returns the current calendar response without exposing raw invitation data", async () => {
+    mocks.connections.mockResolvedValue([{ provider: "google" }]);
+    mocks.findEvent.mockResolvedValue({ id: "event", response: "accepted" });
+    expect(await getCalendarInvitation(params)).toEqual({
+      invitation: {
+        title: "Calendar invitation",
+        organizer: "organizer@example.com",
+        recurring: false,
+        response: "accepted",
+        calendarSynced: true,
+      },
+    });
+    expect(mocks.connections).toHaveBeenCalledWith({
+      where: {
+        emailAccountId: "account",
+        isConnected: true,
+        email: { equals: "user@example.com", mode: "insensitive" },
+      },
+    });
+  });
+
+  it("rejects ambiguous calendar matches without sending a response", async () => {
+    mocks.connections.mockResolvedValue([
+      { provider: "google" },
+      { provider: "microsoft" },
+    ]);
+    await expect(respondToCalendarInvitation(params)).rejects.toThrow(
+      "multiple calendars",
+    );
+    expect(mocks.respond).not.toHaveBeenCalled();
     expect(sendEmail).not.toHaveBeenCalled();
   });
 });

@@ -1,4 +1,4 @@
-import { CALENDAR_INVITATION_LIMITS } from "@/utils/calendar/constants";
+import { CALENDAR_INVITATION_LIMITS } from "@/utils/calendar/invitations/constants";
 import type { gmail_v1 } from "@googleapis/gmail";
 import {
   type MessageWithPayload,

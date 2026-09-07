@@ -2,7 +2,7 @@ import type {
   CalendarInvitation,
   InvitationResponse,
   InvitationEvent,
-} from "@/utils/calendar/invitation";
+} from "@/utils/calendar/invitations/parser";
 import { SafeError } from "@/utils/error";
 import type { calendar_v3 } from "@googleapis/calendar";
 import { randomUUID } from "node:crypto";

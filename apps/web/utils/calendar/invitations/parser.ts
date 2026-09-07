@@ -1,4 +1,4 @@
-import { CALENDAR_INVITATION_LIMITS } from "@/utils/calendar/constants";
+import { CALENDAR_INVITATION_LIMITS } from "@/utils/calendar/invitations/constants";
 import ICAL from "ical.js";
 import { z } from "zod";
 

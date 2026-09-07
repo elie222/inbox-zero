@@ -3,7 +3,7 @@ import type {
   CalendarInvitation,
   InvitationResponse,
   InvitationEvent,
-} from "@/utils/calendar/invitation";
+} from "@/utils/calendar/invitations/parser";
 import { escapeODataString } from "@/utils/outlook/odata-escape";
 import type { Client } from "@microsoft/microsoft-graph-client";
 import { getCalendarClientWithRefresh } from "@/utils/outlook/calendar-client";

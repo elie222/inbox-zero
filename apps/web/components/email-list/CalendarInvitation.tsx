@@ -12,7 +12,7 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { respondToCalendarInvitationAction } from "@/utils/actions/calendar-invitation";
 import { getActionErrorMessage } from "@/utils/error";
 import type { CalendarInvitationResponse } from "@/app/api/messages/calendar-invitation/route";
-import type { InvitationResponse } from "@/utils/calendar/invitation";
+import type { InvitationResponse } from "@/utils/calendar/invitations/parser";
 
 export function CalendarInvitation({ messageId }: { messageId: string }) {
   const { emailAccountId } = useAccount();

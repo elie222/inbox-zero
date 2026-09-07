@@ -3,7 +3,7 @@ import ICAL from "ical.js";
 import {
   createCalendarReply,
   parseCalendarInvitation,
-} from "@/utils/calendar/invitation";
+} from "@/utils/calendar/invitations/parser";
 
 const invite = [
   "BEGIN:VCALENDAR",

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestLogger } from "@/__tests__/helpers";
 import { GoogleCalendarEventProvider } from "@/utils/calendar/providers/google-events";
 import { MicrosoftCalendarEventProvider } from "@/utils/calendar/providers/microsoft-events";
-import type { CalendarInvitation } from "@/utils/calendar/invitation";
+import type { CalendarInvitation } from "@/utils/calendar/invitations/parser";
 
 const mocks = vi.hoisted(() => ({
   list: vi.fn(),
