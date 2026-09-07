@@ -33,6 +33,10 @@ vi.mock("@/utils/middleware", async () => {
 
 import { GET } from "./route";
 
+vi.mock("@/utils/threads/page-buffer", () => ({
+  createPageBuffer: vi.fn(() => undefined),
+}));
+
 describe("GET /api/threads/all", () => {
   const getLabelsMock = vi.fn();
 

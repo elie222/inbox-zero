@@ -19,6 +19,7 @@ export async function loadThreads({
   const maxResults = query.limit || 50;
   const pageToken = query.nextPageToken || undefined;
   const { threads, nextPageToken } = await fetchThreadsPage({
+    emailAccountId,
     query,
     emailProvider,
     maxResults,

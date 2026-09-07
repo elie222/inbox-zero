@@ -4,9 +4,8 @@ import { mapWithConcurrency } from "@/utils/async";
  * Merges several independently paginated providers into one ordered list.
  *
  * Each source keeps its own page token, so a slow or exhausted source never
- * holds the others back. Rows a page loaded but could not fit under `limit`
- * are remembered as "consumed" instead of being dropped, so the next page
- * re-serves them before advancing that source's token.
+ * holds the others back. Unreturned rows can be buffered between requests;
+ * consumed IDs also let an expired buffer resume from the provider page.
  */
 export async function mergePaginatedSources<
   TSource extends { id: string },
@@ -22,6 +21,7 @@ export async function mergePaginatedSources<
   dedupeItemKey,
   loadPage,
   onSourceError,
+  pageBuffer,
 }: {
   sources: TSource[];
   cursor: string | null;
@@ -37,11 +37,11 @@ export async function mergePaginatedSources<
    * repeat them. Leave unset when sources never overlap.
    */
   dedupeItemKey?: (item: TItem) => string;
-  loadPage: (input: { source: TSource; pageToken?: string }) => Promise<{
-    items: TItem[];
-    nextPageToken?: string | null;
-    meta?: TMeta;
-  }>;
+  loadPage: (input: {
+    source: TSource;
+    pageToken?: string;
+  }) => Promise<PaginatedPage<TItem, TMeta>>;
+  pageBuffer?: PageBuffer<TItem, TMeta>;
   onSourceError: (input: { source: TSource; error: unknown }) => void;
 }) {
   if (!Number.isInteger(limit) || limit < 1) {
@@ -60,11 +60,24 @@ export async function mergePaginatedSources<
       const cursorState =
         previousCursor.sources[source.id] ?? INITIAL_SOURCE_CURSOR;
       try {
-        const page = await loadPage({
+        const bufferedPage = cursorState.bufferId
+          ? await pageBuffer?.read({
+              sourceId: source.id,
+              id: cursorState.bufferId,
+            })
+          : undefined;
+        const page =
+          bufferedPage ??
+          (await loadPage({
+            source,
+            pageToken: cursorState.pageToken ?? undefined,
+          }));
+        return {
           source,
-          pageToken: cursorState.pageToken ?? undefined,
-        });
-        return { source, cursorState, page };
+          cursorState,
+          page,
+          bufferId: bufferedPage ? cursorState.bufferId : undefined,
+        };
       } catch (error) {
         onSourceError({ source, error });
         return { source, cursorState, page: null };
@@ -140,40 +153,47 @@ export async function mergePaginatedSources<
   );
   const nextCursor = emptyCursor();
 
-  for (const source of sources) {
-    const sourcePage = pagesBySourceId.get(source.id);
-    if (!sourcePage) {
-      nextCursor.sources[source.id] =
-        previousCursor.sources[source.id] ?? INITIAL_SOURCE_CURSOR;
-      continue;
-    }
-    if (!sourcePage.page) {
-      nextCursor.sources[source.id] = sourcePage.cursorState;
-      continue;
-    }
+  const nextSourceStates = await Promise.all(
+    sources.map(async (source): Promise<SourceCursorState> => {
+      const sourcePage = pagesBySourceId.get(source.id);
+      if (!sourcePage) {
+        return previousCursor.sources[source.id] ?? INITIAL_SOURCE_CURSOR;
+      }
+      if (!sourcePage.page) return sourcePage.cursorState;
 
-    const consumedIds = new Set([
-      ...sourcePage.cursorState.consumedIds,
-      ...(returnedItemIdsBySource.get(source.id) ?? []),
-    ]);
-    const hasUnconsumedItems = sourcePage.page.items.some(
-      (item) => !consumedIds.has(getItemId(item)),
-    );
-    if (hasUnconsumedItems) {
-      nextCursor.sources[source.id] = {
-        ...sourcePage.cursorState,
-        consumedIds: [...consumedIds],
-      };
-    } else if (sourcePage.page.nextPageToken) {
-      nextCursor.sources[source.id] = {
-        pageToken: sourcePage.page.nextPageToken,
-        consumedIds: [],
-        done: false,
-      };
-    } else {
-      nextCursor.sources[source.id] = DONE_SOURCE_CURSOR;
-    }
-  }
+      const consumedIds = new Set([
+        ...sourcePage.cursorState.consumedIds,
+        ...(returnedItemIdsBySource.get(source.id) ?? []),
+      ]);
+      const remainingItems = sourcePage.page.items.filter(
+        (item) => !consumedIds.has(getItemId(item)),
+      );
+      if (remainingItems.length) {
+        const bufferId =
+          sourcePage.bufferId ??
+          (await pageBuffer?.write({
+            sourceId: source.id,
+            page: { ...sourcePage.page, items: remainingItems },
+          }));
+        return {
+          ...sourcePage.cursorState,
+          consumedIds: [...consumedIds],
+          bufferId,
+        };
+      }
+      if (sourcePage.page.nextPageToken) {
+        return {
+          pageToken: sourcePage.page.nextPageToken,
+          consumedIds: [],
+          done: false,
+        };
+      }
+      return DONE_SOURCE_CURSOR;
+    }),
+  );
+  nextCursor.sources = Object.fromEntries(
+    sources.map((source, index) => [source.id, nextSourceStates[index]]),
+  );
 
   if (dedupeItemKey) {
     for (const { item, itemIdBySource } of returned) {
@@ -212,7 +232,25 @@ export async function mergePaginatedSources<
   };
 }
 
+export type PaginatedPage<TItem, TMeta> = {
+  items: TItem[];
+  nextPageToken?: string | null;
+  meta?: TMeta;
+};
+
+export type PageBuffer<TItem, TMeta> = {
+  read: (input: {
+    sourceId: string;
+    id: string;
+  }) => Promise<PaginatedPage<TItem, TMeta> | undefined>;
+  write: (input: {
+    sourceId: string;
+    page: PaginatedPage<TItem, TMeta>;
+  }) => Promise<string | undefined>;
+};
+
 type SourceCursorState = {
+  bufferId?: string;
   pageToken: string | null;
   consumedIds: string[];
   done: boolean;
@@ -296,6 +334,7 @@ function toSourceCursorState(value: unknown): SourceCursorState | null {
     pageToken: value.pageToken,
     consumedIds: consumed.filter((id): id is string => typeof id === "string"),
     done: value.done,
+    bufferId: typeof value.bufferId === "string" ? value.bufferId : undefined,
   };
 }
 

@@ -1,5 +1,6 @@
 import type { EmailProvider, EmailThread } from "@/utils/email/types";
 import { mergePaginatedSources } from "@/utils/threads/merge-paginated-sources";
+import { createPageBuffer } from "@/utils/threads/page-buffer";
 import { getThreadTimestamp } from "@/utils/threads/sort";
 import type { ThreadsQuery } from "@/utils/threads/validation";
 
@@ -13,12 +14,14 @@ const LABEL_CONCURRENCY = 4;
 export async function fetchThreadsPage({
   query,
   emailProvider,
+  emailAccountId,
   maxResults,
   pageToken,
   messageFormat,
 }: {
   query: ThreadsQuery;
   emailProvider: EmailProvider;
+  emailAccountId: string;
   maxResults: number;
   pageToken?: string;
   messageFormat: "full" | "metadata";
@@ -56,6 +59,13 @@ export async function fetchThreadsPage({
   const merged = await mergePaginatedSources({
     sources: anyLabelIds.map((labelId) => ({ id: labelId })),
     cursor: pageToken ?? null,
+    pageBuffer: createPageBuffer<EmailThread>({
+      kind: "labels",
+      emailAccountId,
+      messageFormat,
+      maxResults,
+      query,
+    }),
     limit: maxResults,
     concurrency: LABEL_CONCURRENCY,
     compare: (left, right) =>
