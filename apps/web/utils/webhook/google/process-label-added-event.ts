@@ -250,23 +250,26 @@ async function recordClassificationFromLabelAdd({
 }) {
   const rule = await findRuleByLabelId({ labelId, emailAccountId });
 
-  if (rule) {
-    if (!isEligibleForClassificationFeedback(rule.systemType)) return;
+  if (rule && !isEligibleForClassificationFeedback(rule.systemType)) return;
+  if (!rule && !learnFromLabels) return;
 
-    // Self-labeling filter: skip if Inbox Zero already applied this label
-    const systemApplied = await wasLabelAppliedBySystem({
-      messageId,
-      emailAccountId,
+  // Self-labeling filter: skip if Inbox Zero already applied this label
+  // (checked even when the rule has since been disabled, so learning never
+  // turns a system action into a new rule)
+  const systemApplied = await wasLabelAppliedBySystem({
+    messageId,
+    emailAccountId,
+    labelId,
+  });
+
+  if (systemApplied) {
+    logger.trace("Label was applied by system, skipping classification", {
       labelId,
     });
+    return;
+  }
 
-    if (systemApplied) {
-      logger.trace("Label was applied by system, skipping classification", {
-        labelId,
-      });
-      return;
-    }
-
+  if (rule) {
     await saveClassificationFeedback({
       emailAccountId,
       sender,

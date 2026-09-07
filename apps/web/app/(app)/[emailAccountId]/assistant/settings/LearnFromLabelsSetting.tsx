@@ -10,11 +10,14 @@ import { useAction } from "next-safe-action/hooks";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LoadingContent } from "@/components/LoadingContent";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
+import { useAccount } from "@/providers/EmailAccountProvider";
+import { isGoogleProvider } from "@/utils/email/provider-types";
 
 export function LearnFromLabelsSetting() {
+  const { provider } = useAccount();
   const { data, isLoading, error, mutate } = useEmailAccountFull();
 
-  const { execute } = useAction(
+  const { execute, isExecuting } = useAction(
     enableLearnFromLabelsAction.bind(null, data?.id ?? ""),
     {
       onSuccess: () => {
@@ -44,6 +47,9 @@ export function LearnFromLabelsSetting() {
     [data, mutate, execute],
   );
 
+  // Driven by Gmail label events; other providers have no equivalent yet.
+  if (!isGoogleProvider(provider)) return null;
+
   return (
     <SettingCard
       title={
@@ -64,9 +70,10 @@ export function LearnFromLabelsSetting() {
         >
           <Toggle
             name="learn-from-labels"
+            ariaLabel="Learn from labels"
             enabled={enabled}
             onChange={handleToggle}
-            disabled={isLoading}
+            disabled={isLoading || isExecuting}
           />
         </LoadingContent>
       }

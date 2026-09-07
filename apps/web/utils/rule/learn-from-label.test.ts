@@ -2,9 +2,12 @@ import { vi, describe, it, expect, beforeEach } from "vitest";
 import {
   isLearnFromLabelsEnabled,
   learnSenderFromLabel,
+  unlearnSenderFromLabel,
 } from "./learn-from-label";
 import { ActionType, GroupItemSource } from "@/generated/prisma/enums";
+import type { EmailProvider } from "@/utils/email/types";
 import prisma from "@/utils/prisma";
+import { isDuplicateError } from "@/utils/prisma-helpers";
 import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
 import { createRuleWithResolvedActions } from "@/utils/rule/rule";
 import { createTestLogger } from "@/__tests__/helpers";
@@ -18,6 +21,10 @@ vi.mock("@/utils/prisma", () => ({
   },
 }));
 
+vi.mock("@/utils/prisma-helpers", () => ({
+  isDuplicateError: vi.fn().mockReturnValue(false),
+}));
+
 vi.mock("@/utils/rule/learned-patterns", () => ({
   saveLearnedPattern: vi.fn().mockResolvedValue(undefined),
 }));
@@ -29,12 +36,12 @@ vi.mock("@/utils/rule/rule", () => ({
 }));
 
 describe("learn-from-label", () => {
+  const getLabelById = vi.fn();
+  const getMessage = vi.fn();
   const mockProvider = {
-    getLabelById: vi
-      .fn()
-      .mockResolvedValue({ id: "Label_1", name: "Receipts" }),
-    getMessage: vi.fn().mockResolvedValue({ labelIds: ["Label_1"] }),
-  } as any;
+    getLabelById,
+    getMessage,
+  } as unknown as EmailProvider;
 
   const baseArgs = {
     emailAccountId: "email-account-id",
@@ -49,13 +56,9 @@ describe("learn-from-label", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(prisma.rule.findUnique).mockResolvedValue(null);
-    vi.mocked(mockProvider.getLabelById).mockResolvedValue({
-      id: "Label_1",
-      name: "Receipts",
-    });
-    vi.mocked(mockProvider.getMessage).mockResolvedValue({
-      labelIds: ["Label_1"],
-    });
+    vi.mocked(isDuplicateError).mockReturnValue(false);
+    getLabelById.mockResolvedValue({ id: "Label_1", name: "Receipts" });
+    getMessage.mockResolvedValue({ labelIds: ["Label_1"] });
   });
 
   describe("isLearnFromLabelsEnabled", () => {
@@ -97,9 +100,7 @@ describe("learn-from-label", () => {
     });
 
     it("creates a label-only rule when the email stayed in the inbox", async () => {
-      vi.mocked(mockProvider.getMessage).mockResolvedValue({
-        labelIds: ["INBOX", "Label_1"],
-      });
+      getMessage.mockResolvedValue({ labelIds: ["INBOX", "Label_1"] });
 
       await learnSenderFromLabel({ ...baseArgs, ruleId: null });
 
@@ -132,7 +133,16 @@ describe("learn-from-label", () => {
     });
 
     it("does not learn when the label cannot be read", async () => {
-      vi.mocked(mockProvider.getLabelById).mockResolvedValue(null);
+      getLabelById.mockResolvedValue(null);
+
+      await learnSenderFromLabel({ ...baseArgs, ruleId: null });
+
+      expect(createRuleWithResolvedActions).not.toHaveBeenCalled();
+      expect(saveLearnedPattern).not.toHaveBeenCalled();
+    });
+
+    it("does not create a rule when the message cannot be read", async () => {
+      getMessage.mockRejectedValue(new Error("not found"));
 
       await learnSenderFromLabel({ ...baseArgs, ruleId: null });
 
@@ -151,6 +161,22 @@ describe("learn-from-label", () => {
       expect(saveLearnedPattern).not.toHaveBeenCalled();
     });
 
+    it("learns into the rule another event just created", async () => {
+      vi.mocked(createRuleWithResolvedActions).mockRejectedValueOnce(
+        new Error("unique"),
+      );
+      vi.mocked(isDuplicateError).mockReturnValue(true);
+      vi.mocked(prisma.rule.findUnique)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ id: "concurrent-rule" } as any);
+
+      await learnSenderFromLabel({ ...baseArgs, ruleId: null });
+
+      expect(saveLearnedPattern).toHaveBeenCalledWith(
+        expect.objectContaining({ ruleId: "concurrent-rule" }),
+      );
+    });
+
     it("does not learn when rule creation fails", async () => {
       vi.mocked(createRuleWithResolvedActions).mockRejectedValueOnce(
         new Error("boom"),
@@ -159,6 +185,30 @@ describe("learn-from-label", () => {
       await learnSenderFromLabel({ ...baseArgs, ruleId: null });
 
       expect(saveLearnedPattern).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("unlearnSenderFromLabel", () => {
+    it("excludes the sender from the rule", async () => {
+      await unlearnSenderFromLabel({
+        emailAccountId: "email-account-id",
+        labelId: "Label_1",
+        sender: "sender@example.com",
+        messageId: "123",
+        threadId: "thread-123",
+        ruleId: "rule-123",
+        logger,
+      });
+
+      expect(saveLearnedPattern).toHaveBeenCalledWith(
+        expect.objectContaining({
+          emailAccountId: "email-account-id",
+          from: "sender@example.com",
+          ruleId: "rule-123",
+          exclude: true,
+          source: GroupItemSource.LABEL_REMOVED,
+        }),
+      );
     });
   });
 });

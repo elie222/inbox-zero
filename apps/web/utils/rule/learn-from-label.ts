@@ -3,6 +3,7 @@ import type { EmailProvider } from "@/utils/email/types";
 import { GmailLabel } from "@/utils/gmail/label";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
+import { isDuplicateError } from "@/utils/prisma-helpers";
 import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
 import { createRuleWithResolvedActions } from "@/utils/rule/rule";
 
@@ -71,6 +72,45 @@ export async function learnSenderFromLabel({
   });
 }
 
+/**
+ * The user took the label off again (e.g. moved the email back to the inbox).
+ * Flip the sender to an exclusion so the rule stops matching them.
+ */
+export async function unlearnSenderFromLabel({
+  emailAccountId,
+  labelId,
+  sender,
+  messageId,
+  threadId,
+  ruleId,
+  logger,
+}: {
+  emailAccountId: string;
+  labelId: string;
+  sender: string;
+  messageId: string;
+  threadId: string;
+  ruleId: string;
+  logger: Logger;
+}) {
+  logger.info("Unlearning sender from user-removed label", {
+    labelId,
+    ruleId,
+  });
+
+  await saveLearnedPattern({
+    emailAccountId,
+    from: sender,
+    ruleId,
+    exclude: true,
+    logger,
+    messageId,
+    threadId,
+    reason: "Moved out of label by user",
+    source: GroupItemSource.LABEL_REMOVED,
+  });
+}
+
 async function createRuleForLabel({
   emailAccountId,
   labelId,
@@ -92,10 +132,7 @@ async function createRuleForLabel({
 
   // A rule can carry this name without labeling with it (e.g. it was edited).
   // Don't attach learning to it, and don't try to create a duplicate.
-  const existing = await prisma.rule.findUnique({
-    where: { name_emailAccountId: { name: label.name, emailAccountId } },
-    select: { id: true },
-  });
+  const existing = await findRuleByName({ emailAccountId, name: label.name });
   if (existing) {
     logger.info("Rule with label name exists but does not label, skipping", {
       labelId,
@@ -104,9 +141,18 @@ async function createRuleForLabel({
   }
 
   // Gmail's "move to" is add-label plus remove-INBOX; a plain label add keeps
-  // the email in the inbox. Mirror what the user did.
-  const message = await provider.getMessage(messageId).catch(() => null);
-  const archived = !!message && !message.labelIds?.includes(GmailLabel.INBOX);
+  // the email in the inbox. Mirror what the user did. Without the message we
+  // can't tell which, so don't guess.
+  const message = await provider.getMessage(messageId).catch((error) => {
+    logger.warn("Could not read message while learning label rule", {
+      messageId,
+      error,
+    });
+    return null;
+  });
+  if (!message) return null;
+
+  const archived = !message.labelIds?.includes(GmailLabel.INBOX);
 
   try {
     const rule = await createRuleWithResolvedActions({
@@ -126,7 +172,30 @@ async function createRuleForLabel({
 
     return rule.id;
   } catch (error) {
+    // Labeling a thread fires one event per message; another one may have
+    // just created the rule. Learn into that one.
+    if (isDuplicateError(error, ["name", "emailAccountId"])) {
+      const created = await findRuleByName({
+        emailAccountId,
+        name: label.name,
+      });
+      if (created) return created.id;
+    }
+
     logger.error("Error creating rule from label", { labelId, error });
     return null;
   }
+}
+
+function findRuleByName({
+  emailAccountId,
+  name,
+}: {
+  emailAccountId: string;
+  name: string;
+}) {
+  return prisma.rule.findUnique({
+    where: { name_emailAccountId: { name, emailAccountId } },
+    select: { id: true },
+  });
 }

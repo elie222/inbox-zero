@@ -476,6 +476,25 @@ describe("process-label-added-event", () => {
         expect(saveClassificationFeedback).not.toHaveBeenCalled();
         expect(learnSenderFromLabel).not.toHaveBeenCalled();
       });
+
+      it("does not learn from a system-applied label whose rule is now disabled", async () => {
+        vi.mocked(findRuleByLabelId).mockResolvedValue(null);
+        vi.mocked(prisma.executedAction.findFirst).mockResolvedValueOnce({
+          id: "executed-action",
+        } as any);
+
+        await labelMessage();
+
+        expect(learnSenderFromLabel).not.toHaveBeenCalled();
+      });
+
+      it("skips the system-applied check when learning is off and no rule matches", async () => {
+        vi.mocked(isLearnFromLabelsEnabled).mockResolvedValue(false);
+
+        await labelMessage();
+
+        expect(prisma.executedAction.findFirst).not.toHaveBeenCalled();
+      });
     });
 
     describe("internal senders", () => {
