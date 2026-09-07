@@ -701,13 +701,16 @@ function NavRow({
   );
 }
 
-function RailTooltip({
+/** Names a rail control that has room for its icon only. `null` when expanded. */
+export function RailTooltip({
   label,
   children,
 }: {
-  label: string;
+  label: string | null;
   children: ReactNode;
 }) {
+  if (!label) return children;
+
   return (
     <Tooltip>
       <TooltipTrigger asChild>{children}</TooltipTrigger>

@@ -1,6 +1,12 @@
 "use client";
 
-import { type PointerEvent, useCallback, useRef, useState } from "react";
+import {
+  type PointerEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   clampMailSidebarWidth,
   MAIL_SIDEBAR_DEFAULT_WIDTH,
@@ -29,6 +35,10 @@ export function MailSidebarResizeHandle({
     if (handle) setWidth(appliedWidth(handle));
   }, []);
 
+  // Collapsing the sidebar mid-drag unmounts the handle before it can release
+  // the pointer, which would otherwise leave the whole page in a resizing state.
+  useEffect(() => () => releaseResizingCursor(), []);
+
   const resize = (next: number) => {
     setWidth(next);
     onResize(next);
@@ -45,6 +55,8 @@ export function MailSidebarResizeHandle({
       aria-valuemax={MAIL_SIDEBAR_MAX_WIDTH}
       tabIndex={0}
       onPointerDown={(event: PointerEvent<HTMLDivElement>) => {
+        // A right-click opens the context menu; it shouldn't drag the edge too.
+        if (event.button !== 0) return;
         const panel = event.currentTarget.parentElement;
         if (!panel) return;
         event.preventDefault();
@@ -62,7 +74,7 @@ export function MailSidebarResizeHandle({
       onLostPointerCapture={(event: PointerEvent<HTMLDivElement>) => {
         if (panelLeftWhileDragging.current === null) return;
         panelLeftWhileDragging.current = null;
-        delete document.body.dataset.resizing;
+        releaseResizingCursor();
         persistMailSidebarWidth(appliedWidth(event.currentTarget));
       }}
       onDoubleClick={() => {
@@ -82,6 +94,10 @@ export function MailSidebarResizeHandle({
       className="absolute inset-y-0 right-0 z-20 hidden w-2 translate-x-1/2 cursor-col-resize touch-none after:absolute after:inset-y-0 after:left-1/2 after:w-px after:-translate-x-1/2 after:transition-colors hover:after:bg-primary focus-visible:after:bg-primary focus-visible:outline-none md:block"
     />
   );
+}
+
+function releaseResizingCursor() {
+  delete document.body.dataset.resizing;
 }
 
 function appliedWidth(handle: HTMLElement): number {

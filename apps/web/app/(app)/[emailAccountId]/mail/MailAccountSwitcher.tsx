@@ -18,6 +18,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { RailTooltip } from "@/app/(app)/[emailAccountId]/mail/MailSidebar";
 import {
   Tooltip,
   TooltipContent,
@@ -82,34 +83,36 @@ export function MailAccountSwitcher({
       )}
     >
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            aria-label={collapsed ? activeLabel : undefined}
-            className={cn(
-              "flex w-full items-center rounded-xl text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              collapsed ? "justify-center" : "gap-3 px-2",
-              variant === "compact" ? "h-11" : "h-10",
-            )}
-          >
-            {activeIcon}
-            {collapsed ? null : (
-              <>
-                <span className="min-w-0 flex-1 leading-tight">
-                  <span className="block truncate font-medium text-sm">
-                    {activeLabel}
-                  </span>
-                  {activeEmail ? (
-                    <span className="block truncate text-muted-foreground text-xs">
-                      {activeEmail}
+        <RailTooltip label={collapsed ? activeLabel : null}>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              aria-label={collapsed ? activeLabel : undefined}
+              className={cn(
+                "flex w-full items-center rounded-xl text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                collapsed ? "justify-center" : "gap-3 px-2",
+                variant === "compact" ? "h-11" : "h-10",
+              )}
+            >
+              {activeIcon}
+              {collapsed ? null : (
+                <>
+                  <span className="min-w-0 flex-1 leading-tight">
+                    <span className="block truncate font-medium text-sm">
+                      {activeLabel}
                     </span>
-                  ) : null}
-                </span>
-                <ChevronsUpDownIcon className="size-4 text-muted-foreground" />
-              </>
-            )}
-          </button>
-        </DropdownMenuTrigger>
+                    {activeEmail ? (
+                      <span className="block truncate text-muted-foreground text-xs">
+                        {activeEmail}
+                      </span>
+                    ) : null}
+                  </span>
+                  <ChevronsUpDownIcon className="size-4 text-muted-foreground" />
+                </>
+              )}
+            </button>
+          </DropdownMenuTrigger>
+        </RailTooltip>
         <DropdownMenuContent
           align="start"
           className={cn(

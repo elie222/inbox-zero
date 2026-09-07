@@ -334,12 +334,15 @@ html[data-mac-desktop] [data-desktop-mac-end] {
 }
 
 /* While a panel edge is being dragged, keep the resize cursor under the pointer
-   even when it outruns the handle, and let widths track it without easing. */
+   even when it outruns the handle, and let widths track it without easing.
+   Descendants need `!important` because interactive elements set their own
+   cursor, and a fast drag regularly carries the pointer across them. */
 body[data-resizing] {
-  cursor: col-resize;
   user-select: none;
 }
 
+body[data-resizing],
 body[data-resizing] * {
+  cursor: col-resize !important;
   transition-property: none !important;
 }
