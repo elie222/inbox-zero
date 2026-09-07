@@ -100,7 +100,8 @@
    * Intended to be promoted to `:root` in a follow-up PR, at which point this
    * block and the `data-theme` attribute go away.
    *
-   * Dark mode deliberately has no Mail variant — it inherits `.dark` unchanged.
+   * The dark variant below swaps the near-black app palette for charcoal so
+   * the mail screen reads as one soft surface rather than panels on void.
    */
   :root[data-theme="mail"]:not(.dark) {
     --background: 0 0% 99.2%; /* #FDFDFD */
@@ -141,6 +142,49 @@
     --sidebar-accent-foreground: 0 0% 14.1%;
     --sidebar-border: 0 0% 93.7%;
     --sidebar-ring: 221.2 83.2% 53.3%;
+  }
+
+  :root[data-theme="mail"].dark {
+    --background: 220 7% 16%; /* #26282C */
+    --foreground: 220 8% 92%; /* #E9EAEC */
+
+    --muted: 220 7% 21%; /* #323439 */
+    --muted-foreground: 220 5% 62%; /* #999CA3 */
+
+    --popover: 220 7% 19%; /* #2D2F34 */
+    --popover-foreground: 220 8% 92%;
+
+    --card: 220 7% 19%; /* #2D2F34 */
+    --card-foreground: 220 8% 92%;
+
+    --border: 220 6% 22%; /* #35373B */
+    --input: 220 6% 22%;
+    --border-strong: 220 6% 28%; /* #43464C */
+
+    /* Lighter fills with dark text so both the fill and the tinted text on the
+       charcoal background clear WCAG AA contrast */
+    --primary: 213.1 93.9% 67.8%; /* #60A5FA */
+    --primary-foreground: 220 7% 12%; /* #1C1E21 */
+
+    --secondary: 220 7% 24%; /* #393C41 */
+    --secondary-foreground: 220 8% 85%; /* #D6D8DC */
+
+    --accent: 220 7% 24%; /* #393C41 */
+    --accent-foreground: 220 8% 95%; /* #F1F2F3 */
+
+    --destructive: 0 90.6% 70.8%; /* #F87171 */
+    --destructive-foreground: 220 7% 12%;
+
+    --ring: 213.1 93.9% 67.8%;
+
+    --sidebar-background: 220 7% 14%; /* #212326 */
+    --sidebar-foreground: 220 6% 80%; /* #C9CBCF */
+    --sidebar-primary: 213.1 93.9% 67.8%;
+    --sidebar-primary-foreground: 220 7% 12%;
+    --sidebar-accent: 220 7% 21%; /* #323439 */
+    --sidebar-accent-foreground: 220 8% 95%;
+    --sidebar-border: 220 6% 20%; /* #303236 */
+    --sidebar-ring: 213.1 93.9% 67.8%;
   }
 }
 

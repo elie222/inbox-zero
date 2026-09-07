@@ -80,6 +80,11 @@ failure also retains its trace and video.
 After each pull request run, a trusted follow-up workflow publishes a
 screenshot-only gallery, compares its checkpoints with the latest successful
 `main` run, and adds or updates a pull request comment with the gallery link.
+The comment also embeds the frames most worth a look: failure captures, new
+checkpoints, changed checkpoints from specs the pull request touched, and the
+changed checkpoints with the largest share of differing pixels against `main`.
+Hash comparison alone flags most captures as changed because of timestamps and
+other drift, so the pixel ranking is what surfaces real visual changes.
 The full HTML report stays private to the GitHub Actions artifact for pull
 requests because it was generated from contributor-controlled code. Successful
 and failed `main` runs also publish the full report and visual history to the

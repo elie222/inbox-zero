@@ -10,18 +10,21 @@ import {
 } from "node:fs/promises";
 import path from "node:path";
 import {
+  MAX_PNG_SCREENSHOT_BYTES,
+  validatePngScreenshot,
+} from "./png-validation";
+import {
   compareScreenshotsWithBaseline,
   createScreenshotManifest,
+  galleryFileName,
+  isScreenshotManifest,
   type PlaywrightScreenshot,
   renderPlaywrightDashboard,
   renderScreenshotGallery,
   shouldPublishStableMainBaseline,
   updatePlaywrightHistory,
 } from "./playwright-report-dashboard";
-import {
-  MAX_PNG_SCREENSHOT_BYTES,
-  validatePngScreenshot,
-} from "./png-validation";
+import { measureScreenshotDifference } from "./playwright-screenshot-diff";
 
 const [
   historyPath,
@@ -29,6 +32,7 @@ const [
   testResultsPath,
   galleryPath,
   baselineManifestPath,
+  baselineImagesPath,
 ] = process.argv.slice(2);
 const MAX_SCREENSHOT_COUNT = 500;
 const MAX_TOTAL_SCREENSHOT_BYTES = 100 * 1024 * 1024;
@@ -48,11 +52,16 @@ async function generateDashboard() {
     testResultsPath,
     galleryPath,
   );
+  const baseline = await readOptionalJson(baselineManifestPath);
   const comparison = compareScreenshotsWithBaseline(
     collectedScreenshots,
-    await readOptionalJson(baselineManifestPath),
+    baseline,
   );
-  const screenshots = comparison.screenshots;
+  const screenshots = await measureDifferences(
+    comparison.screenshots,
+    baseline,
+    galleryPath,
+  );
   const createdAt = new Date().toISOString();
   const dashboardUrl = getRequiredEnvironmentVariable(
     "PLAYWRIGHT_DASHBOARD_URL",
@@ -98,6 +107,36 @@ async function generateDashboard() {
   await writeFile(
     path.join(galleryPath, "manifest.json"),
     `${JSON.stringify(createScreenshotManifest(screenshots, runIdentity), null, 2)}\n`,
+  );
+  // Consumed by the pull request comment step, which runs after publication.
+  await writeFile(
+    path.join(galleryPath, "review.json"),
+    `${JSON.stringify(
+      {
+        screenshots: screenshots.map(
+          ({
+            captureType,
+            comparison,
+            difference,
+            fileName,
+            source,
+            testId,
+            title,
+          }) => ({
+            captureType,
+            comparison,
+            difference,
+            fileName,
+            source,
+            testId,
+            title,
+          }),
+        ),
+        screenshotsUrl,
+      },
+      null,
+      2,
+    )}\n`,
   );
   await writeFile(
     path.join(galleryPath, "publish-stable-baseline"),
@@ -169,11 +208,11 @@ async function collectScreenshots(
     const screenshot = await readFile(file);
     validatePngScreenshot(screenshot, file);
     const source = path.relative(resultsPath, file);
-    const fileName = `${String(index + 1).padStart(3, "0")}-${sanitizeFileName(path.basename(file))}`;
-    await copyFile(file, path.join(imagePath, fileName));
+    const fileName = galleryFileName(index, source);
+    await copyFile(file, path.join(outputPath, fileName));
     screenshots.push({
       captureType: isFailureCapture(file) ? "failure" : "checkpoint",
-      fileName: `images/${fileName}`,
+      fileName,
       hash: createHash("sha256").update(screenshot).digest("hex"),
       source,
       testId: testIdFromSource(source),
@@ -221,8 +260,51 @@ async function findPngFiles(
   return files.flat();
 }
 
-function sanitizeFileName(fileName: string): string {
-  return fileName.replaceAll(/[^a-zA-Z0-9._-]/g, "-");
+async function measureDifferences(
+  screenshots: PlaywrightScreenshot[],
+  baseline: unknown,
+  outputPath: string,
+): Promise<PlaywrightScreenshot[]> {
+  if (!baselineImagesPath || !isScreenshotManifest(baseline)) {
+    return screenshots;
+  }
+  const baselineFileNames = new Map(
+    baseline.screenshots.map((screenshot, index) => [
+      screenshot.source,
+      galleryFileName(index, screenshot.source),
+    ]),
+  );
+  // Sequential on purpose: a full suite decodes hundreds of image pairs and
+  // holding them all at once would exhaust the runner's memory.
+  const measured: PlaywrightScreenshot[] = [];
+  for (const screenshot of screenshots) {
+    const baselineFileName = baselineFileNames.get(screenshot.source);
+    if (screenshot.comparison !== "changed" || !baselineFileName) {
+      measured.push(screenshot);
+      continue;
+    }
+    const baselineFile = path.join(
+      baselineImagesPath,
+      path.basename(baselineFileName),
+    );
+    try {
+      const baselineImage = await readFile(baselineFile);
+      validatePngScreenshot(baselineImage, baselineFile);
+      measured.push({
+        ...screenshot,
+        difference: measureScreenshotDifference(
+          await readFile(path.join(outputPath, screenshot.fileName)),
+          baselineImage,
+        ),
+      });
+    } catch (error) {
+      console.warn(
+        `Skipping visual difference for ${screenshot.source}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      measured.push(screenshot);
+    }
+  }
+  return measured;
 }
 
 function titleFromFileName(fileName: string): string {

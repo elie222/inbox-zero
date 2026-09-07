@@ -2,7 +2,11 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, expect, test } from "vitest";
-import { expandPlaywrightTargets } from "./emulated-suite-targets.mjs";
+import {
+  expandPlaywrightTargets,
+  getPlaywrightSpecPathFromTargetName,
+  getPlaywrightTargetName,
+} from "./emulated-suite-targets.mjs";
 
 const appRoot = mkdtempSync(path.join(os.tmpdir(), "playwright-targets-"));
 afterEach(() => rmSync(appRoot, { recursive: true, force: true }));
@@ -37,4 +41,18 @@ test("isolates every selected spec once, including nested specs and overlapping 
     `${mail}/reply.spec.ts`,
   ]);
   expect(new Set(targets.map((target) => target.name)).size).toBe(6);
+});
+
+test("target names round-trip spec paths that contain underscores", () => {
+  for (const specPath of [
+    "mail/theme.spec.ts",
+    "mail/nested/split_tabs.spec.ts",
+    "auto_s/s_flow.spec.ts",
+  ]) {
+    const targetName = getPlaywrightTargetName(
+      `__tests__/playwright/emulated/${specPath}`,
+    );
+    expect(targetName).not.toContain("/");
+    expect(getPlaywrightSpecPathFromTargetName(targetName)).toBe(specPath);
+  }
 });

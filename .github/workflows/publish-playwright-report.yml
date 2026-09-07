@@ -156,9 +156,28 @@ jobs:
           fi
           public_base_url="https://${S3_BUCKET}.${S3_ENDPOINT#https://}/playwright"
           gallery_url="$public_base_url/prs/$PR_NUMBER/index.html"
+          review_path="$GITHUB_WORKSPACE/.tmp/playwright-dashboard/screenshots/review.json"
+          if [[ ! -f "$review_path" ]]; then
+            echo "Missing Playwright review manifest at $review_path." >&2
+            exit 1
+          fi
+          # Compare against the run's exact commit so a push that lands mid-step
+          # cannot swap in a newer head's file list.
+          base_sha="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq .base.sha)"
+          changed_paths_file="$(mktemp)"
+          gh api --paginate \
+            "repos/${GITHUB_REPOSITORY}/compare/${base_sha}...${SHA}?per_page=100" \
+            --jq '.files[].filename' > "$changed_paths_file"
           marker="<!-- inbox-zero-playwright-screenshots -->"
-          body="$(printf '%s\n### Playwright screenshots\n[Open screenshot gallery](%s) · [Dashboard](%s/index.html) · [CI run](%s)\n\nUpdated for commit `%s`.' \
-            "$marker" "$gallery_url" "$public_base_url" "$RUN_URL" "${SHA:0:7}")"
+          body="$(
+            PLAYWRIGHT_GALLERY_URL="$gallery_url" \
+            PLAYWRIGHT_DASHBOARD_URL="$public_base_url/index.html" \
+            PLAYWRIGHT_RUN_URL="$RUN_URL" \
+            PLAYWRIGHT_SHA="$SHA" \
+              pnpm -F inbox-zero-ai exec tsx scripts/build-playwright-pr-comment.ts \
+                "$review_path" \
+                "$changed_paths_file"
+          )"
           comment_id="$(gh api --paginate --slurp \
             "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments?per_page=100" | \
             jq -r --arg marker "$marker" \
