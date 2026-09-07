@@ -138,15 +138,15 @@ describe("mail queue diagnostics", () => {
       })),
       100,
     );
-    const originalGet = IDBObjectStore.prototype.get;
+    const originalOpen = IDBIndex.prototype.openKeyCursor;
     let started = false;
     let writing = Promise.resolve();
-    vi.spyOn(IDBObjectStore.prototype, "get").mockImplementation(function (
-      this: IDBObjectStore,
-      key,
+    vi.spyOn(IDBIndex.prototype, "openKeyCursor").mockImplementation(function (
+      this: IDBIndex,
+      ...args
     ) {
-      const request = originalGet.call(this, key);
-      if (this.name === "mailMutations" && !started) {
+      const request = originalOpen.apply(this, args);
+      if (this.name === "byAccountDiagnostics" && !started) {
         started = true;
         writing = failMailMutation("mutation-000", "failed", "Rejected");
       }
@@ -163,6 +163,61 @@ describe("mail queue diagnostics", () => {
       counts: { pending: 299, failed: 1 },
     });
     await writing;
+  });
+
+  it("counts an unscanned read-state action when coalescing changes its creation time", async () => {
+    await enqueueMailMutationBatch(
+      Array.from({ length: 300 }, (_, index) => ({
+        id: `mutation-${String(index).padStart(3, "0")}`,
+        emailAccountId: "account",
+        threadId: `thread-${index}`,
+        messageIds: [],
+        kind: "set_read_state" as const,
+        read: true,
+      })),
+      100,
+    );
+    const originalOpen = IDBIndex.prototype.openKeyCursor;
+    let started = false;
+    let writing: Promise<unknown> = Promise.resolve();
+    vi.spyOn(IDBIndex.prototype, "openKeyCursor").mockImplementation(function (
+      this: IDBIndex,
+      ...args
+    ) {
+      const request = originalOpen.apply(this, args);
+      if (this.name === "byAccountDiagnostics" && !started) {
+        started = true;
+        writing = enqueueMailMutationBatch(
+          [
+            {
+              id: "replacement",
+              emailAccountId: "account",
+              threadId: "thread-0",
+              messageIds: [],
+              kind: "set_read_state",
+              read: false,
+            },
+          ],
+          200,
+        );
+      }
+      return request;
+    });
+    const snapshot = await readMailQueueDiagnostics({
+      emailAccountId: "account",
+      filter: "all",
+      limit: 50,
+    });
+    await writing;
+    expect(snapshot).toMatchObject({
+      total: 300,
+      activeCount: 300,
+      counts: { pending: 300 },
+    });
+    expect(snapshot.mutations[0]).toMatchObject({
+      id: "mutation-000",
+      createdAt: 200,
+    });
   });
 
   it("discards an in-flight snapshot when the account cache is cleared", async () => {

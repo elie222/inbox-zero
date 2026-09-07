@@ -40,7 +40,9 @@ export async function readMailQueueDiagnostics({
     mutations: [...empty.mutations],
   };
   const batches = new Set<string>();
-  let before: [string, number, string] | undefined;
+  const matching: { id: string; createdAt: number }[] = [];
+  // Coalescing changes creation time, so resume scans by immutable ID.
+  let before: [string, string] | undefined;
   let complete = false;
   while (!complete) {
     const transaction = database.transaction(
@@ -66,8 +68,8 @@ export async function readMailQueueDiagnostics({
       );
     let scanned = 0;
     while (cursor && scanned < 100) {
-      const [, createdAt, id, status, batchId, messageIds] = cursor.key;
-      before = [emailAccountId, createdAt, id];
+      const [, id, createdAt, status, batchId, messageIds] = cursor.key;
+      before = [emailAccountId, id];
       scanned += 1;
       snapshot.total += 1;
       snapshot.counts[status] = (snapshot.counts[status] ?? 0) + 1;
@@ -83,19 +85,25 @@ export async function readMailQueueDiagnostics({
         (filter === "active" && active)
       ) {
         snapshot.matchingCount += 1;
-        if (snapshot.mutations.length < limit) {
-          const record = await store.get(cursor.primaryKey);
-          if (record) {
-            const { payload, clientSource, result, ...metadata } = record;
-            snapshot.mutations.push(metadata);
-          }
-        }
+        matching.push({ id, createdAt });
       }
       cursor = await cursor.continue();
     }
     complete = !cursor;
     await transaction.done;
     if (!isEmailCacheEpochCurrent(emailAccountId, epoch)) return empty;
+  }
+  matching.sort(
+    (left, right) =>
+      right.createdAt - left.createdAt || right.id.localeCompare(left.id),
+  );
+  for (const { id } of matching.slice(0, limit)) {
+    const record = await database.get("mailMutations", id);
+    if (!isEmailCacheEpochCurrent(emailAccountId, epoch)) return empty;
+    if (record) {
+      const { payload, clientSource, result, ...metadata } = record;
+      snapshot.mutations.push(metadata);
+    }
   }
   snapshot.activeBatchCount = batches.size;
   return snapshot;
