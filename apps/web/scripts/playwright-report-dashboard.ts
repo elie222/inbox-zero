@@ -31,6 +31,8 @@ export type PlaywrightRun = {
 export type PlaywrightScreenshot = {
   captureType: "checkpoint" | "failure";
   comparison: "changed" | "new" | "unavailable" | "unchanged";
+  /** Share of pixels that differ from the main baseline, when both images were available */
+  difference?: number;
   fileName: string;
   hash: string;
   source: string;
@@ -47,8 +49,14 @@ export type PlaywrightScreenshotManifest = {
 
 export type PlaywrightScreenshotMetadata = Omit<
   PlaywrightScreenshot,
-  "comparison" | "fileName"
+  "comparison" | "difference" | "fileName"
 >;
+
+/** Gallery images are numbered in manifest order, so a manifest index maps back to its file. */
+export function galleryFileName(index: number, source: string): string {
+  const baseName = source.split(/[\\/]/).at(-1) ?? source;
+  return `images/${String(index + 1).padStart(3, "0")}-${baseName.replaceAll(/[^a-zA-Z0-9._-]/g, "-")}`;
+}
 
 export function createScreenshotManifest(
   screenshots: PlaywrightScreenshot[],
@@ -414,6 +422,7 @@ export function renderScreenshotGallery(input: {
               <small>${screenshot.captureType === "failure" ? "Automatic failure capture" : "Intentional test checkpoint"} · ${escapeHtml(screenshot.testId)}</small>
               <small title="${escapeHtml(screenshot.source)}">${escapeHtml(screenshot.source)}</small>
               <small>SHA-256 ${escapeHtml(screenshot.hash.slice(0, 12))}</small>
+              ${screenshot.difference === undefined ? "" : `<small>${Math.round(screenshot.difference * 100)}% of pixels differ from main</small>`}
             </span>
           </figcaption>
         </figure>`;
@@ -615,7 +624,7 @@ function isPlaywrightRun(value: unknown): value is PlaywrightRun {
   );
 }
 
-function isScreenshotManifest(
+export function isScreenshotManifest(
   value: unknown,
 ): value is PlaywrightScreenshotManifest {
   if (!value || typeof value !== "object") return false;
