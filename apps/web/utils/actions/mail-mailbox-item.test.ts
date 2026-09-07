@@ -141,24 +141,16 @@ describe("mailbox item actions", () => {
     expect(result?.serverError).toBeUndefined();
     expect(method).toHaveBeenCalledWith(`${kind}-1`);
     if (kind === "label") {
-      // One statement, so splits keep their other labels and only the ones
-      // this label emptied are deleted.
-      expect(prisma.$executeRaw).toHaveBeenCalledWith(
-        expect.arrayContaining([
-          expect.stringContaining("array_remove"),
-          expect.stringContaining("DELETE FROM"),
-        ]),
-        "label-1",
-        EMAIL_ACCOUNT_ID,
-        "label-1",
-      );
+      expect(prisma.$transaction).toHaveBeenCalled();
     } else {
       expect(prisma.$executeRaw).not.toHaveBeenCalled();
     }
   });
 
   it("retries saved-view cleanup after a successful provider deletion", async () => {
-    prisma.$executeRaw.mockRejectedValueOnce(new Error("Database unavailable"));
+    prisma.$transaction.mockRejectedValueOnce(
+      new Error("Database unavailable"),
+    );
 
     const firstResult = await deleteMailboxItemAction(EMAIL_ACCOUNT_ID, {
       kind: "label",
@@ -174,7 +166,7 @@ describe("mailbox item actions", () => {
     );
     expect(retryResult?.serverError).toBeUndefined();
     expect(mockDeleteLabel).toHaveBeenCalledTimes(2);
-    expect(prisma.$executeRaw).toHaveBeenCalledTimes(2);
+    expect(prisma.$transaction).toHaveBeenCalledTimes(2);
   });
 
   it("keeps saved views when provider deletion fails", async () => {

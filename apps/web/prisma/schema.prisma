@@ -160,7 +160,6 @@ model EmailAccount {
 
   mailLayout          MailLayout @default(LIST)
   mailExpandedPreview Boolean    @default(false)
-  mailHiddenBuiltInSplits String[] @default([])
 
   includeInAllAccounts Boolean @default(true)
 
@@ -257,7 +256,7 @@ model MailSplit {
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
   @@unique([emailAccountId, name])
-  @@unique([emailAccountId, order])
+  @@index([emailAccountId, order])
 }
 
 model Organization {

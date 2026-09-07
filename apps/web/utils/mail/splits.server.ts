@@ -85,21 +85,50 @@ export async function removeLabelFromMailSplits({
   emailAccountId: string;
   labelId: string;
 }) {
-  // One statement so only the rows this label emptied are deleted, rather than
-  // every empty split the account happens to have.
-  await prisma.$executeRaw`
-    WITH narrowed AS (
-      UPDATE "MailSplit"
-      SET "values" = array_remove("values", ${labelId}),
-          "updatedAt" = NOW()
+  // PostgreSQL cannot update and delete the same row in one CTE statement.
+  // Delete emptied splits first, then narrow the remaining rows atomically.
+  await prisma.$transaction([
+    lockMailSplits(emailAccountId),
+    prisma.$executeRaw`
+      DELETE FROM "MailSplit"
       WHERE "emailAccountId" = ${emailAccountId}
         AND "kind" = 'LABEL'::"MailSplitKind"
         AND ${labelId} = ANY("values")
-      RETURNING "id", "values"
-    )
-    DELETE FROM "MailSplit"
-    WHERE "id" IN (
-      SELECT "id" FROM narrowed WHERE cardinality("values") = 0
-    )
-  `;
+        AND cardinality(array_remove("values", ${labelId})) = 0
+    `,
+    prisma.$executeRaw`
+      UPDATE "MailSplit"
+      SET "values" = array_remove("values", ${labelId}), "updatedAt" = NOW()
+      WHERE "emailAccountId" = ${emailAccountId}
+        AND "kind" = 'LABEL'::"MailSplitKind"
+        AND ${labelId} = ANY("values")
+    `,
+  ]);
+}
+
+/** Omitted splits retain their relative order after the visible selection. */
+export async function reorderMailSplits({
+  emailAccountId,
+  ids,
+}: {
+  emailAccountId: string;
+  ids: string[];
+}) {
+  await prisma.$transaction([
+    lockMailSplits(emailAccountId),
+    prisma.$executeRaw`
+      WITH ranked AS (
+        SELECT "id", (ROW_NUMBER() OVER (
+          ORDER BY array_position(${ids}::text[], "id") NULLS LAST,
+            "order", "createdAt", "id"
+        ) - 1)::integer AS position
+        FROM "MailSplit"
+        WHERE "emailAccountId" = ${emailAccountId}
+      )
+      UPDATE "MailSplit" split
+      SET "order" = ranked.position, "updatedAt" = CURRENT_TIMESTAMP
+      FROM ranked
+      WHERE split."id" = ranked."id"
+    `,
+  ]);
 }

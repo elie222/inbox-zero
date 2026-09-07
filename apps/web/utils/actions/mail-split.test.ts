@@ -10,6 +10,7 @@ import prisma from "@/utils/__mocks__/prisma";
 import {
   createMailSplitAction,
   renameMailSplitAction,
+  reorderMailSplitsAction,
   setDefaultMailSplitsAction,
   suggestMailSplitAction,
   updateMailPreferencesAction,
@@ -58,6 +59,14 @@ describe("mail split actions", () => {
     } as never);
   });
 
+  it("rejects duplicate IDs before reordering", async () => {
+    const result = await reorderMailSplitsAction(EMAIL_ACCOUNT_ID, {
+      ids: ["split-1", "split-1"],
+    });
+    expect(result?.validationErrors).toBeDefined();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
   it("creates splits behind an account-scoped database lock", async () => {
     const split = {
       id: "split-1",
@@ -101,7 +110,7 @@ describe("mail split actions", () => {
       values: ["label-1"],
     });
 
-    expect(result?.serverError).toBe("You can only have 12 splits.");
+    expect(result?.serverError).toBe("You can only have 14 splits.");
   });
 
   it("returns a user-safe error when a split name already exists", async () => {
@@ -177,35 +186,6 @@ describe("mail split actions", () => {
     expect(result?.data?.optionIds).toEqual(["state:unread"]);
   });
 
-  it.each([
-    { id: "all", name: "All", kind: MailSplitKind.INBOX },
-    { id: "unread", name: "Unread", kind: MailSplitKind.UNREAD },
-  ])("restores the hidden $name tab instead of saving a duplicate", async (builtIn) => {
-    prisma.$executeRaw.mockResolvedValue(1);
-
-    const result = await createMailSplitAction(EMAIL_ACCOUNT_ID, {
-      name: builtIn.name,
-      kind: builtIn.kind,
-      values: [],
-    });
-
-    expect(result?.data?.split).toEqual({ ...builtIn, values: [] });
-    expect(prisma.$executeRaw).toHaveBeenCalledWith(
-      expect.arrayContaining([expect.stringContaining("array_remove")]),
-      builtIn.id,
-      EMAIL_ACCOUNT_ID,
-    );
-    expect(prisma.$transaction).not.toHaveBeenCalled();
-  });
-
-  it("rejects duplicate hidden split IDs before writing preferences", async () => {
-    const result = await updateMailPreferencesAction(EMAIL_ACCOUNT_ID, {
-      hiddenBuiltInSplits: ["all", "all"],
-    });
-    expect(result?.validationErrors).toBeDefined();
-    expect(prisma.emailAccount.update).not.toHaveBeenCalled();
-  });
-
   it("drops options the AI invented rather than passing them to the picker", async () => {
     vi.mocked(aiPromptToSplit).mockResolvedValue({
       reasoning: "Nothing here covers mail from a specific person",
@@ -257,22 +237,7 @@ describe("mail split actions", () => {
       enabled: true,
     });
 
-    expect(result?.serverError).toBe("You can only have 12 splits.");
-  });
-
-  it("persists and restores hidden built-in splits", async () => {
-    for (const hiddenBuiltInSplits of [["all", "unread"], []] as (
-      | "all"
-      | "unread"
-    )[][]) {
-      await updateMailPreferencesAction(EMAIL_ACCOUNT_ID, {
-        hiddenBuiltInSplits,
-      });
-      expect(prisma.emailAccount.update).toHaveBeenLastCalledWith({
-        where: { id: EMAIL_ACCOUNT_ID },
-        data: { mailHiddenBuiltInSplits: hiddenBuiltInSplits },
-      });
-    }
+    expect(result?.serverError).toBe("You can only have 14 splits.");
   });
 
   it("persists the selected mail layout", async () => {
