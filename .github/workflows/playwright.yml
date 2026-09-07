@@ -137,7 +137,7 @@ jobs:
       matrix:
         batch: ${{ fromJSON(needs.select.outputs.batches) }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: ${{ matrix.batch.timeoutMinutes }}
     services:
       postgres:
         image: postgres:16

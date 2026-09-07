@@ -29,6 +29,8 @@ same per-spec isolation. Selections of 20 or fewer specs retain one job per spec
 The selection job lists each batch's specs in its GitHub summary; each test job
 reports per-spec durations and exit statuses. A failing spec does not skip the
 remaining specs in its batch, and any failure fails the combined `Web E2E` check.
+CI bounds each Playwright invocation to six minutes and allocates eight minutes
+per selected spec to its job, including setup and cleanup headroom.
 Pass one or more areas or spec paths when iterating on focused flows:
 
 ```sh
@@ -64,7 +66,11 @@ reuse existing specs and screenshot checkpoints. Shared app dependencies, route
 entry points, and area files with no matching feature keep the whole area.
 Missing entry points or a spec without a declaration also disable narrowing for
 that area. Areas without a manifest retain their existing selection behavior.
-Mail is the first area with feature declarations.
+Mail is the first area with feature declarations. Explicit shared-feature entry
+points in `sharedFeatureMappings` use focused cross-page coverage: command-palette
+changes run its command, starring, theme, and settings-dialog specs. This mapping
+does not extend to those entry points' imported foundations. Missing target specs
+fall back to broad coverage, and other files in the PR still add their own tests.
 
 On PRs, UI dependencies under `utils/` and `lib/` also trigger selection; unrelated
 utilities with no connection to tested routes are skipped. Unit-test changes

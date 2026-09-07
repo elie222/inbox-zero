@@ -83,6 +83,9 @@ test("batches a full selection without losing or repeating specs", () => {
   expect(
     batches.every(({ paths }) => paths.length >= 2 && paths.length <= 3),
   ).toBe(true);
+  expect(
+    batches.map(({ timeoutMinutes, paths }) => timeoutMinutes / paths.length),
+  ).toEqual(new Array(20).fill(8));
 });
 
 test("keeps focused selections parallel and creates no empty jobs", () => {
@@ -92,7 +95,11 @@ test("keeps focused selections parallel and creates no empty jobs", () => {
     { name: "settings_sdialog.spec.ts", path: "settings/dialog.spec.ts" },
   ];
   expect(batchPlaywrightTargets(targets)).toEqual(
-    targets.map(({ name, path: specPath }) => ({ name, paths: [specPath] })),
+    targets.map(({ name, path: specPath }) => ({
+      name,
+      paths: [specPath],
+      timeoutMinutes: 8,
+    })),
   );
 });
 
@@ -149,6 +156,7 @@ if (process.argv.includes("test")) {
       ...process.env,
       PATH: `${bin}${path.delimiter}${process.env.PATH}`,
       CALL_LOG: callLog,
+      CI: "true",
       GITHUB_STEP_SUMMARY: summary,
       PLAYWRIGHT_DRY_RUN: "",
       PLAYWRIGHT_SKIP_REPORT_MERGE: "",
@@ -175,12 +183,14 @@ if (process.argv.includes("test")) {
     ["", "true"],
   ]);
   for (const run of runs) {
+    expect(run.args).toContain("--global-timeout=360000");
     expect(existsSync(run.blob)).toBe(true);
     expect(existsSync(path.join(run.output, "evidence.json"))).toBe(true);
   }
   expect(calls.at(-1).args).toContain("merge-reports");
   const timings = readdirSync(path.join(appRoot, "test-results"))
     .filter((file) => file.startsWith("timings-"))
+    .sort()
     .flatMap((file) =>
       JSON.parse(
         readFileSync(path.join(appRoot, "test-results", file), "utf8"),

@@ -122,6 +122,8 @@ for (const target of targets) {
         "-c",
         "playwright.config.mjs",
         "--project=emulated",
+        // Leave room for runner setup within each spec's eight-minute CI budget.
+        ...(process.env.CI ? ["--global-timeout=360000"] : []),
         target.path,
       ],
       {

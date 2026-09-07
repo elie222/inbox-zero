@@ -9,4 +9,4 @@ export function getPlaywrightSpecPathFromTargetName(targetName: string): string;
 
 export function batchPlaywrightTargets(
   targets: ReadonlyArray<{ name: string; path: string }>,
-): Array<{ name: string; paths: string[] }>;
+): Array<{ name: string; paths: string[]; timeoutMinutes: number }>;

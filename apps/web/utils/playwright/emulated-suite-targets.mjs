@@ -23,7 +23,10 @@ export function batchPlaywrightTargets(targets) {
   for (const [index, target] of targets.entries()) {
     batches[index % batchCount].paths.push(target.path);
   }
-  return batches;
+  return batches.map((batch) => ({
+    ...batch,
+    timeoutMinutes: batch.paths.length * 8,
+  }));
 }
 
 /**
