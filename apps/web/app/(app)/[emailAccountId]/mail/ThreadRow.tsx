@@ -90,21 +90,20 @@ export const ThreadRow = memo(function ThreadRow({
   const snippet = decodeSnippet(thread.snippet || message.snippet);
   const chips = labels.slice(0, isWide ? 3 : 2);
   const showCheckbox = isSelected || hasAnySelection;
-  let unreadIndicatorOpacity = "opacity-0";
-  if (isUnread && !showCheckbox) {
-    unreadIndicatorOpacity = selectionEnabled
-      ? "opacity-100 group-focus-within:opacity-0 group-hover:opacity-0"
-      : "opacity-100";
-  }
 
   const leadingIndicator = (
-    <span className={cn("relative size-3.5 shrink-0", !isWide && "mt-0.5")}>
+    <span
+      className={cn(
+        "flex h-3.5 shrink-0 items-center gap-1.5",
+        !isWide && "mt-0.5",
+      )}
+    >
       {selectionEnabled ? (
         <Checkbox
           aria-label={`Select conversation with ${participantSummary}`}
           checked={isSelected}
           className={cn(
-            "absolute inset-0 size-3.5 rounded border-input transition-opacity [&_svg]:size-2.5",
+            "size-3.5 rounded border-input transition-opacity [&_svg]:size-2.5",
             showCheckbox
               ? "opacity-100"
               : "opacity-0 group-focus-within:opacity-100 group-hover:opacity-100",
@@ -120,12 +119,10 @@ export const ThreadRow = memo(function ThreadRow({
       <span
         aria-hidden
         className={cn(
-          "pointer-events-none absolute inset-0 flex items-center justify-center transition-opacity",
-          unreadIndicatorOpacity,
+          "pointer-events-none size-1.5 shrink-0 rounded-full bg-primary",
+          !isUnread && "invisible",
         )}
-      >
-        <span className="size-1.5 rounded-full bg-primary" />
-      </span>
+      />
     </span>
   );
 
