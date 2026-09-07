@@ -17,6 +17,7 @@ export interface EmailThread {
 }
 
 export type MailboxSyncPage = {
+  changedThreadIds?: string[];
   cursor: string;
   deletedMessageIds: string[];
   hasMore: boolean;
