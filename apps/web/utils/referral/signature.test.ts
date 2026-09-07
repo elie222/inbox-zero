@@ -23,6 +23,10 @@ describe("branding signatures", () => {
   it.each([
     "The report was sent with Inbox Zero sync enabled.",
     "Drafted by Inbox Zero is the footer text.",
+    "Drafted byInbox Zero",
+    "Sent withInbox Zero",
+    "Example > Sent with Inbox Zero",
+    "Sent with Inbox Zero < example",
     "<p>The report was sent with Inbox Zero sync enabled.</p>",
   ])("preserves branding phrases within authored text: %s", (body) => {
     expect(stripBrandingSignatures(body)).toBe(body);
