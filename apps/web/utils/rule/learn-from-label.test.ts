@@ -17,7 +17,11 @@ const logger = createTestLogger();
 vi.mock("@/utils/prisma", () => ({
   default: {
     emailAccount: { findUnique: vi.fn() },
-    rule: { findUnique: vi.fn().mockResolvedValue(null) },
+    rule: {
+      findUnique: vi.fn().mockResolvedValue(null),
+      findFirst: vi.fn().mockResolvedValue(null),
+    },
+    action: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
   },
 }));
 
@@ -56,6 +60,7 @@ describe("learn-from-label", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(prisma.rule.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.rule.findFirst).mockResolvedValue(null);
     vi.mocked(isDuplicateError).mockReturnValue(false);
     getLabelById.mockResolvedValue({ id: "Label_1", name: "Receipts" });
     getMessage.mockResolvedValue({ labelIds: ["Label_1"] });
@@ -129,6 +134,23 @@ describe("learn-from-label", () => {
       );
       expect(saveLearnedPattern).toHaveBeenCalledWith(
         expect.objectContaining({ ruleId: "new-rule-id" }),
+      );
+    });
+
+    it("adopts a rule that labels by name but has no label ID yet", async () => {
+      vi.mocked(prisma.rule.findFirst).mockResolvedValue({
+        id: "org-copy",
+      } as any);
+
+      await learnSenderFromLabel({ ...baseArgs, ruleId: null });
+
+      expect(createRuleWithResolvedActions).not.toHaveBeenCalled();
+      expect(prisma.action.updateMany).toHaveBeenCalledWith({
+        where: { ruleId: "org-copy", type: ActionType.LABEL, labelId: null },
+        data: { labelId: "Label_1" },
+      });
+      expect(saveLearnedPattern).toHaveBeenCalledWith(
+        expect.objectContaining({ ruleId: "org-copy" }),
       );
     });
 

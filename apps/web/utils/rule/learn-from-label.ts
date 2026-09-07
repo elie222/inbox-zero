@@ -130,6 +130,35 @@ async function createRuleForLabel({
   });
   if (!label?.name) return null;
 
+  // A rule may already label with this name but not know the ID yet (org rule
+  // copies only carry the name until they first run). Adopt it instead of
+  // creating a duplicate.
+  const byName = await prisma.rule.findFirst({
+    where: {
+      emailAccountId,
+      enabled: true,
+      actions: {
+        some: {
+          type: ActionType.LABEL,
+          labelId: null,
+          label: { equals: label.name, mode: "insensitive" },
+        },
+      },
+    },
+    select: { id: true },
+  });
+  if (byName) {
+    await prisma.action.updateMany({
+      where: { ruleId: byName.id, type: ActionType.LABEL, labelId: null },
+      data: { labelId },
+    });
+    logger.info("Adopted rule that labels by name", {
+      labelId,
+      ruleId: byName.id,
+    });
+    return byName.id;
+  }
+
   // A rule can carry this name without labeling with it (e.g. it was edited).
   // Don't attach learning to it, and don't try to create a duplicate.
   const existing = await findRuleByName({ emailAccountId, name: label.name });
