@@ -288,8 +288,7 @@
 }
 
 .quotePreview,
-.signaturePreview,
-.footerPreview {
+.signaturePreview {
   width: 100%;
   background: #fff;
   border: 0;
@@ -301,10 +300,6 @@
 
 .signaturePreview {
   height: 6rem;
-}
-
-.footerPreview {
-  height: 2.5rem;
 }
 
 @media (max-width: 640px) {

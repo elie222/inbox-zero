@@ -306,16 +306,21 @@ function ComposeEmailFormContent({
       };
     }
 
-    const draft = prepareEmailDraft({
+    const preparedDraft = prepareEmailDraft({
       html: replyingToEmail?.draftHtml ?? "",
       quotedHtml: replyingToEmail?.quotedContentHtml,
       signatureHtml:
         replyingToEmail?.signatureHtml ?? accountSignatureHtml ?? undefined,
     });
-    const preservedBlocks = createPreservedEmailBlocks(
-      draft,
-      sentWithFooterHtml,
-    );
+    // The footer travels with the signature so it lands right after it and is
+    // removed with it, without introducing another block in the composer.
+    const draft = {
+      ...preparedDraft,
+      signatureHtml: [preparedDraft.signatureHtml, sentWithFooterHtml]
+        .filter(Boolean)
+        .join("<br>"),
+    };
+    const preservedBlocks = createPreservedEmailBlocks(draft);
     return { draft, preservedBlocks };
   });
   const { draft: initialDraft, preservedBlocks } = initialComposer;
@@ -632,9 +637,6 @@ function ComposeEmailFormContent({
           editableHtml,
           signatureHtml: preservedBlockIds.has("signature")
             ? initialDraft.signatureHtml
-            : "",
-          footerHtml: preservedBlockIds.has("footer")
-            ? preservedBlocks.find((block) => block.id === "footer")?.html
             : "",
           quotedHtml: preservedBlockIds.has("quote")
             ? initialDraft.quotedHtml

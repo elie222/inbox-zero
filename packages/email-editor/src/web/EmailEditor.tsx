@@ -40,7 +40,7 @@ export type EmailEditorState = Omit<EmailEditorValue, "editableHtml">;
 
 export type EmailEditorPreservedBlock = {
   id: string;
-  kind: RenderedPreservedEmailBlock["kind"];
+  kind: "quote" | "signature";
   html: string;
   collapsed?: boolean;
 };

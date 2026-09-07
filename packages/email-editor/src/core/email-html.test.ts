@@ -136,19 +136,6 @@ describe("outgoing HTML", () => {
     );
   });
 
-  it("places the footer after the signature and before the quote", () => {
-    expect(
-      combineEmailHtml({
-        editableHtml: "<p>Hello</p>",
-        signatureHtml: "<div>Regards</div>",
-        footerHtml: '<p>Sent with <a href="https://app.example">App</a></p>',
-        quotedHtml: '<div class="gmail_quote">Original</div>',
-      }),
-    ).toBe(
-      '<p>Hello</p><br><div>Regards</div><br><p>Sent with <a href="https://app.example">App</a></p><br><div class="gmail_quote">Original</div>',
-    );
-  });
-
   it("preserves surrounding provider whitespace while combining HTML", () => {
     expect(
       combineEmailHtml({

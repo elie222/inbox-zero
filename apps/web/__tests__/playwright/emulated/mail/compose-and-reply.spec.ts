@@ -38,8 +38,8 @@ test("keeps keyboard focus in the composer and follows the message field order",
     dialog.getByRole("textbox", { exact: true, name: "Bcc" }),
     dialog.getByPlaceholder("Subject"),
     dialog.getByRole("textbox", { name: "Email message" }),
-    dialog.locator("summary", { hasText: "Footer" }),
-    dialog.getByRole("button", { name: "Remove footer" }),
+    dialog.locator("summary", { hasText: "Signature" }),
+    dialog.getByRole("button", { name: "Remove signature" }),
     dialog.getByRole("button", { name: /^Send/ }),
     dialog.getByRole("button", { name: "Attach files" }),
     dialog.getByRole("button", { name: "Insert inline images" }),
@@ -223,8 +223,10 @@ test("does not add a line break for the send shortcut", async ({
     .fill("recipient@example.com");
   await dialog.getByPlaceholder("Subject").fill(subject);
   await editor.pressSequentially("Draft body");
-  await dialog.getByRole("button", { name: "Remove footer" }).click();
-  await expect(dialog.locator('iframe[title="Footer preview"]')).toHaveCount(0);
+  await dialog.getByRole("button", { name: "Remove signature" }).click();
+  await expect(dialog.locator('iframe[title="Signature preview"]')).toHaveCount(
+    0,
+  );
 
   await editor.press("ControlOrMeta+Enter");
 
@@ -297,7 +299,7 @@ test("composes, sends, and reads a new message from Sent", async ({
   await expect(composeEditor).toContainText("A composed message body.");
   await expect(
     dialog
-      .frameLocator('iframe[title="Footer preview"]')
+      .frameLocator('iframe[title="Signature preview"]')
       .getByRole("link", { name: "Inbox Zero" }),
   ).toBeVisible();
   await capturePlaywrightCheckpoint(page, testInfo, "composer-with-footer");
