@@ -588,8 +588,9 @@ export class OutlookProvider implements EmailProvider {
     };
   }
 
-  async starMessage(messageId: string): Promise<void> {
+  async starMessage(messageId: string, starred = true): Promise<void> {
     await markStarredMessage({
+      starred,
       client: this.client,
       messageId,
       logger: this.logger,

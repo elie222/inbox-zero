@@ -874,11 +874,12 @@ export class GmailProvider implements EmailProvider {
     }
   }
 
-  async starMessage(messageId: string): Promise<void> {
+  async starMessage(messageId: string, starred = true): Promise<void> {
     await labelMessage({
       gmail: this.client,
       messageId,
-      addLabelIds: [GmailLabel.STARRED],
+      addLabelIds: starred ? [GmailLabel.STARRED] : [],
+      removeLabelIds: starred ? [] : [GmailLabel.STARRED],
     });
   }
 

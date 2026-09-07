@@ -1,5 +1,6 @@
 "use client";
 
+import { GmailLabel } from "@/utils/gmail/label";
 import {
   useCallback,
   useDeferredValue,
@@ -487,12 +488,20 @@ export function MailShell() {
     selection.selectedIds,
     threads,
   ]);
-  const { archive, trash, markRead, markSpam, setReadState, snooze, undo } =
-    useThreadActions({
-      emailAccountId,
-      readerTarget,
-      threads,
-    });
+  const {
+    archive,
+    trash,
+    markRead,
+    markSpam,
+    setReadState,
+    setStarredState,
+    snooze,
+    undo,
+  } = useThreadActions({
+    emailAccountId,
+    readerTarget,
+    threads,
+  });
   const requestReaderReply = useCallback(() => {
     const messageId = openMessages.at(-1)?.id;
     if (messageId) {
@@ -726,6 +735,17 @@ export function MailShell() {
     () => runOn((ids) => setReadState(ids, false), true),
     [runOn, setReadState],
   );
+  const allStarred =
+    actionTargets.length > 0 &&
+    actionTargets.every((target) =>
+      target.messages.some((message) =>
+        message.labelIds?.includes(GmailLabel.STARRED),
+      ),
+    );
+  const starTargets = useCallback(
+    () => runOn((ids) => setStarredState(ids, !allStarred), false),
+    [runOn, setStarredState, allStarred],
+  );
   const snoozeTargets = useCallback(
     (until: Date) => runOn((ids) => snooze(ids, until), true),
     [runOn, snooze],
@@ -800,6 +820,7 @@ export function MailShell() {
         archive: archiveTargets,
         forward: singleActionTarget ? requestForwardTarget : undefined,
         label: canLabel ? openLabelPicker : undefined,
+        star: starTargets,
         markRead: markReadTargets,
         markSpam: markSpamTargets,
         markUnread: markUnreadTargets,
@@ -812,6 +833,7 @@ export function MailShell() {
         snooze: snoozeTargets,
         trash: trashTargets,
       },
+      allStarred,
       hasRead: actionTargets.some((target) => !isThreadUnread(target.messages)),
       hasUnread: actionTargets.some((target) =>
         isThreadUnread(target.messages),
@@ -833,6 +855,8 @@ export function MailShell() {
       actionTargets,
       canLabel,
       isReaderTarget,
+      allStarred,
+      starTargets,
       markReadTargets,
       markSpamTargets,
       markUnreadTargets,
@@ -964,6 +988,7 @@ export function MailShell() {
       label: canLabel ? openLabelPicker : undefined,
       move: canLabel ? openMovePicker : undefined,
       archive: archiveTargets,
+      star: starTargets,
       markSpam: markSpamTargets,
       markUnread: markUnreadTargets,
       delete: trashTargets,

@@ -14,7 +14,7 @@ import {
 } from "@/utils/microsoft/retry";
 
 const MESSAGE_SELECT_FIELDS =
-  "id,conversationId,conversationIndex,internetMessageId,subject,bodyPreview,from,toRecipients,ccRecipients,receivedDateTime,isDraft,isRead,categories,parentFolderId,webLink";
+  "id,conversationId,conversationIndex,internetMessageId,subject,bodyPreview,from,toRecipients,ccRecipients,receivedDateTime,isDraft,isRead,flag,categories,parentFolderId,webLink";
 
 type DeltaMessage = Message & {
   "@removed"?: { reason?: string };

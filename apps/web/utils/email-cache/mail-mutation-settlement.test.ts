@@ -13,6 +13,44 @@ import type { MailMutation } from "./mail-mutations";
 describe("mail mutation cache settlement", () => {
   beforeEach(clearEmailCache);
 
+  it("persists star toggles without removing the thread or its unread state", async () => {
+    const database = await getEmailCacheDatabase();
+    await database?.put("threadRows", {
+      emailAccountId: "account-1",
+      threadId: "shared",
+      data: {
+        messages: [
+          { id: "old", labelIds: ["INBOX", "UNREAD"] },
+          { id: "new", labelIds: ["INBOX"] },
+        ],
+      },
+      fetchedAt: 1,
+      lastAccessedAt: 1,
+    });
+    for (const starred of [true, false]) {
+      await settleMailMutationInCache({
+        ...mutation("old"),
+        kind: "set_starred_state",
+        starred,
+      });
+      await expect(
+        database?.get("threadRows", ["account-1", "shared"]),
+      ).resolves.toMatchObject({
+        data: {
+          messages: [
+            {
+              id: "old",
+              labelIds: starred
+                ? ["INBOX", "UNREAD", "STARRED"]
+                : ["INBOX", "UNREAD"],
+            },
+            { id: "new", labelIds: ["INBOX"] },
+          ],
+        },
+      });
+    }
+  });
+
   it("removes only the owning raw row and matching composite rows", async () => {
     const database = await getEmailCacheDatabase();
     for (const emailAccountId of ["account-1", "account-2"]) {

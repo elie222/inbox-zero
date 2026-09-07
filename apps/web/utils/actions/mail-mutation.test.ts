@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
   createEmailProvider: vi.fn(),
   prepareSnooze: vi.fn(),
   markSpam: vi.fn(),
+  starMessage: vi.fn(),
   sendEmailWithHtml: vi.fn(),
   unarchiveMessages: vi.fn(),
 }));
@@ -49,6 +50,7 @@ describe("executeMailMutationAction", () => {
     mocks.createEmailProvider.mockResolvedValue({
       archiveMessages: mocks.archiveMessages,
       markSpam: mocks.markSpam,
+      starMessage: mocks.starMessage,
       sendEmailWithHtml: mocks.sendEmailWithHtml,
       unarchiveMessages: mocks.unarchiveMessages,
     });
@@ -64,6 +66,24 @@ describe("executeMailMutationAction", () => {
       status: "PENDING",
     });
     prisma.emailSendOperation.findUnique.mockResolvedValue(null);
+  });
+
+  it.each([
+    true,
+    false,
+  ])("sets captured messages' starred state to %s", async (starred) => {
+    const result = await executeMailMutationAction("account-1", {
+      kind: "set_starred_state",
+      mutationId,
+      threadId: "thread",
+      messageIds: ["one", "two"],
+      starred,
+    });
+    expect(result?.data).toEqual({ status: "applied" });
+    expect(mocks.starMessage.mock.calls).toEqual([
+      ["one", starred],
+      ["two", starred],
+    ]);
   });
 
   it("applies an immutable archive snapshot", async () => {

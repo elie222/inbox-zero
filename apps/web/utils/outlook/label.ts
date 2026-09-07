@@ -682,6 +682,7 @@ export async function markImportantMessage({
 }
 
 export async function markStarredMessage({
+  starred = true,
   client,
   messageId,
   logger,
@@ -689,13 +690,14 @@ export async function markStarredMessage({
   client: OutlookClient;
   messageId: string;
   logger: Logger;
+  starred?: boolean;
 }) {
   await withMicrosoftGraphWriteRetry(
     () =>
       client
         .getClient()
         .api(`/me/messages/${messageId}`)
-        .patch({ flag: { flagStatus: "flagged" } }),
+        .patch({ flag: { flagStatus: starred ? "flagged" : "notFlagged" } }),
     logger,
   );
 }

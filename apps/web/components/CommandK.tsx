@@ -1,5 +1,6 @@
 "use client";
 
+import { GmailLabel } from "@/utils/gmail/label";
 import * as React from "react";
 import {
   ArrowLeftIcon,
@@ -152,6 +153,27 @@ function CommandPaletteContent({
           }
         }
       : undefined,
+    star:
+      threadId && displayedThread?.thread.id === threadId
+        ? async () => {
+            try {
+              await enqueueThreadMailMutationBatch({
+                emailAccountId,
+                payload: {
+                  kind: "set_starred_state",
+                  starred: !displayedThread.thread.messages.some((message) =>
+                    message.labelIds?.includes(GmailLabel.STARRED),
+                  ),
+                },
+                threads: [displayedThread.thread],
+              });
+            } catch {
+              toastError({
+                description: "Couldn’t update the star for this email",
+              });
+            }
+          }
+        : undefined,
     forward:
       threadId && displayedThread?.thread.id === threadId
         ? () => {
@@ -184,6 +206,7 @@ function CommandPaletteContent({
           archive: mailCommandContext.actions.archive,
           forward: mailCommandContext.actions.forward,
           label: mailCommandContext.actions.label,
+          star: mailCommandContext.actions.star,
           markRead: mailCommandContext.actions.markRead,
           markSpam: mailCommandContext.actions.markSpam,
           markUnread: mailCommandContext.actions.markUnread,
@@ -196,6 +219,7 @@ function CommandPaletteContent({
           toggleAutoArchive: senderCommandContext?.toggleAutoArchive,
           unsubscribe: senderCommandContext?.unsubscribe,
         },
+        allStarred: mailCommandContext.allStarred,
         hasRead: mailCommandContext.hasRead,
         hasUnread: mailCommandContext.hasUnread,
         isAutoArchived: senderCommandContext?.isAutoArchived,

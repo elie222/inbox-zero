@@ -14,6 +14,7 @@ export type MailMutationPayload =
   | { kind: "untrash" }
   | { kind: "spam" }
   | { kind: "set_read_state"; read: boolean }
+  | { kind: "set_starred_state"; starred: boolean }
   | { kind: "snooze"; scheduledFor: string }
   | { kind: "cancel_snooze"; snoozeMutationId: string }
   | { kind: "reply"; email: SendEmailBody };
@@ -905,6 +906,7 @@ function getStoredPayload(input: EnqueueMailMutationInput): unknown {
     return input.labelId ? { labelId: input.labelId } : {};
   }
   if (input.kind === "set_read_state") return { read: input.read };
+  if (input.kind === "set_starred_state") return { starred: input.starred };
   if (input.kind === "snooze") return { scheduledFor: input.scheduledFor };
   if (input.kind === "cancel_snooze") {
     return { snoozeMutationId: input.snoozeMutationId };

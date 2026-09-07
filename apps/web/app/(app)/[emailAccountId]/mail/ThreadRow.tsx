@@ -81,6 +81,9 @@ export const ThreadRow = memo(function ThreadRow({
   if (!message) return null;
 
   const isUnread = isThreadUnread(thread.messages);
+  const isStarred = thread.messages.some((message) =>
+    message.labelIds?.includes(GmailLabel.STARRED),
+  );
   // Both providers normalise to this id, so this is not a provider branch.
   const isDraft = message.labelIds?.includes(GmailLabel.DRAFT) ?? false;
   const isWide = layout === "list" && !compact;
@@ -90,9 +93,9 @@ export const ThreadRow = memo(function ThreadRow({
   const snippet = decodeSnippet(thread.snippet || message.snippet);
   const chips = labels.slice(0, isWide ? 3 : 2);
   const showCheckbox = isSelected || hasAnySelection;
-  let unreadIndicatorOpacity = "opacity-0";
-  if (isUnread && !showCheckbox) {
-    unreadIndicatorOpacity = selectionEnabled
+  let indicatorOpacity = "opacity-0";
+  if ((isUnread || isStarred) && !showCheckbox) {
+    indicatorOpacity = selectionEnabled
       ? "opacity-100 group-focus-within:opacity-0 group-hover:opacity-0"
       : "opacity-100";
   }
@@ -121,10 +124,20 @@ export const ThreadRow = memo(function ThreadRow({
         aria-hidden
         className={cn(
           "pointer-events-none absolute inset-0 flex items-center justify-center transition-opacity",
-          unreadIndicatorOpacity,
+          indicatorOpacity,
         )}
       >
-        <span className="size-1.5 rounded-full bg-primary" />
+        {isStarred && (
+          <span className="relative z-10 size-1.5 rounded-full bg-yellow-400" />
+        )}
+        {isUnread && (
+          <span
+            className={cn(
+              "size-1.5 rounded-full bg-primary",
+              isStarred && "-ml-0.5",
+            )}
+          />
+        )}
       </span>
     </span>
   );
@@ -187,6 +200,7 @@ export const ThreadRow = memo(function ThreadRow({
       role="option"
       tabIndex={isFocused ? 0 : -1}
     >
+      {isStarred && <span className="sr-only">Starred conversation</span>}
       {leadingIndicator}
 
       {isWide ? (

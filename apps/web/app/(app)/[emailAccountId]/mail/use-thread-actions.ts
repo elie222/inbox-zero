@@ -231,6 +231,19 @@ export function useThreadActions({
     [enqueueTargets, resolveTargets],
   );
 
+  const setStarredState = useCallback(
+    async (threadKeys: string[], starred: boolean) => {
+      const snapshots = await enqueueTargets(resolveTargets(threadKeys), {
+        kind: "set_starred_state",
+        starred,
+      });
+      if (snapshots.length < threadKeys.length)
+        toast.error("Couldn’t update stars for all conversations");
+      return snapshots.map((snapshot) => snapshot.key);
+    },
+    [enqueueTargets, resolveTargets],
+  );
+
   const snooze = useCallback(
     async (threadKeys: string[], snoozedUntil: Date) => {
       const targets = resolveTargets(threadKeys);
@@ -299,6 +312,7 @@ export function useThreadActions({
     ),
     markSpam,
     setReadState,
+    setStarredState,
     snooze,
     undo,
   };

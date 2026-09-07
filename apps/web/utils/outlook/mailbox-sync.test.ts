@@ -35,6 +35,7 @@ describe("buildOutlookMailboxSyncPage", () => {
             bodyPreview: "Preview",
             receivedDateTime: "2026-07-31T10:00:00.000Z",
             isRead: false,
+            flag: { flagStatus: "flagged" },
             categories: ["To Reply"],
           },
           {
@@ -69,7 +70,7 @@ describe("buildOutlookMailboxSyncPage", () => {
         {
           id: "message-1",
           threadId: "thread-1",
-          labelIds: ["UNREAD", "INBOX", "category-id"],
+          labelIds: ["UNREAD", "STARRED", "INBOX", "category-id"],
           textHtml: undefined,
           textPlain: undefined,
         },

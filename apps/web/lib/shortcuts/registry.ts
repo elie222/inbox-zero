@@ -2,6 +2,7 @@ import {
   ArchiveIcon,
   ForwardIcon,
   PenLineIcon,
+  StarIcon,
   type LucideIcon,
 } from "lucide-react";
 import type { Command, CommandSection } from "@/lib/commands/types";
@@ -204,6 +205,18 @@ const SHORTCUT_DEFINITIONS = [
       keywords: ["archive", "remove", "delete"],
       priority: 0,
       icon: ArchiveIcon,
+    },
+  },
+  {
+    id: "star",
+    keys: ["s"],
+    scope: "mail",
+    group: "Triage",
+    label: "Star / unstar",
+    palette: {
+      section: "actions",
+      keywords: ["star", "unstar"],
+      icon: StarIcon,
     },
   },
   {

@@ -10,6 +10,7 @@ import {
   MailOpenIcon,
   ShieldAlertIcon,
   TagIcon,
+  StarIcon,
   Trash2Icon,
 } from "lucide-react";
 import type { Command } from "@/lib/commands/types";
@@ -19,6 +20,7 @@ type MailCommandActions = {
   archive: () => void;
   forward?: () => void;
   label?: () => void;
+  star?: () => void;
   markRead?: () => void;
   markSpam?: () => void;
   markUnread?: () => void;
@@ -32,6 +34,7 @@ type MailCommandActions = {
 
 export function buildMailCommandPalette({
   actions,
+  allStarred = false,
   hasRead,
   hasUnread,
   isAutoArchived = false,
@@ -41,6 +44,7 @@ export function buildMailCommandPalette({
   targetCount,
 }: {
   actions: MailCommandActions;
+  allStarred?: boolean;
   hasRead: boolean;
   hasUnread: boolean;
   isAutoArchived?: boolean;
@@ -214,6 +218,18 @@ export function buildMailCommandPalette({
       priority: 14,
       keywords: ["open", "external", "provider", "gmail", "outlook"],
       action: actions.openExternal,
+    });
+  }
+
+  if (actions.star) {
+    commands.push({
+      id: "mail-star",
+      label: allStarred ? "Unstar" : "Star",
+      icon: StarIcon,
+      shortcut: getShortcutHint("star"),
+      section: "actions",
+      keywords: ["star", "unstar", "favorite"],
+      action: actions.star,
     });
   }
 
