@@ -8,8 +8,10 @@ import {
   connectThreadCacheInvalidation,
   invalidateThreadCaches,
   getThreadCacheVersion,
+  canReadPersistedThread,
 } from "./thread-invalidation";
 
+import { readCachedThreadDetail } from "./threads";
 import { clearEmailCache, getEmailCacheDatabase } from "./database";
 
 const broadcast = vi.hoisted(() => {
@@ -78,9 +80,21 @@ describe("thread cache invalidation", () => {
     expect(getThreadCacheVersion("account-1", "thread-1")).not.toBe(version);
   });
 
-  it("does not refresh memory when cross-tab persisted deletion fails", async () => {
+  it("refreshes memory but blocks stale disk reads when cross-tab deletion fails", async () => {
     const database = await getEmailCacheDatabase();
     if (!database) throw new Error("Database unavailable");
+    const identity = {
+      emailAccountId: "account-failure",
+      threadId: "thread-1",
+      variant: "drafts:1|replies:0",
+    };
+    await database.put("threadDetails", {
+      ...identity,
+      data: { thread: { id: "thread-1", messages: [] } },
+      fetchedAt: Date.now(),
+      lastAccessedAt: Date.now(),
+      byteSize: 1,
+    });
     const transaction = vi
       .spyOn(database, "transaction")
       .mockImplementationOnce(() => {
@@ -92,12 +106,33 @@ describe("thread cache invalidation", () => {
       await act(async () => {
         broadcast.receive?.(
           new MessageEvent("message", {
-            data: { emailAccountId: "account-1", threadIds: [], reset: true },
+            data: {
+              emailAccountId: "account-failure",
+              threadIds: [],
+              reset: true,
+            },
           }),
         );
       });
       expect(transaction).toHaveBeenCalled();
-      expect(mutate).not.toHaveBeenCalled();
+      expect(mutate).toHaveBeenCalled();
+      await expect(readCachedThreadDetail(identity)).resolves.toBeUndefined();
+      expect(await database.count("threadDetails")).toBe(1);
+      broadcast.receive?.(
+        new MessageEvent("message", {
+          data: {
+            emailAccountId: identity.emailAccountId,
+            threadIds: [],
+            reset: true,
+          },
+        }),
+      );
+      await waitFor(async () =>
+        expect(await database.count("threadDetails")).toBe(0),
+      );
+      expect(
+        canReadPersistedThread(identity.emailAccountId, identity.threadId),
+      ).toBe(true);
     } finally {
       transaction.mockRestore();
       disconnect();

@@ -13,6 +13,9 @@ type ThreadInvalidation = {
   reset: boolean;
 };
 
+const blockedAccounts = new Set<string>();
+const blockedThreads = new Map<string, Set<string>>();
+
 const listeners = new Set<(change: ThreadInvalidation) => void>();
 const versions = new Map<
   string,
@@ -47,8 +50,19 @@ export function getThreadCacheVersion(
   return `${state.account}:${state.threads.get(threadId)}`;
 }
 
+export function canReadPersistedThread(
+  emailAccountId: string,
+  threadId: string,
+) {
+  return (
+    !blockedAccounts.has(emailAccountId) &&
+    !blockedThreads.get(emailAccountId)?.has(threadId)
+  );
+}
+
 export function invalidateThreadCaches(change: ThreadInvalidation) {
   if (!change.reset && !change.threadIds.length) return;
+  allowPersistedThreadReads(change);
   applyThreadInvalidation(change);
   channel?.postMessage(change);
 }
@@ -113,27 +127,38 @@ export function connectThreadCacheInvalidation(
 async function invalidatePersistedThreadCaches(change: ThreadInvalidation) {
   const epoch = captureEmailCacheEpoch(change.emailAccountId);
   advanceThreadCacheVersions(change);
-  const database = await getEmailCacheDatabase();
-  if (!database || !isEmailCacheEpochCurrent(change.emailAccountId, epoch))
-    return;
-  const transaction = database.transaction("threadDetails", "readwrite");
-  const store = transaction.store;
-  const keys = change.reset
-    ? await store.index("byAccount").getAllKeys(change.emailAccountId)
-    : (
-        await Promise.all(
-          change.threadIds.map((threadId) =>
-            store.getAllKeys(
-              getThreadDetailKeyRange(change.emailAccountId, threadId),
+  if (change.reset) blockedAccounts.add(change.emailAccountId);
+  else {
+    const threads =
+      blockedThreads.get(change.emailAccountId) ?? new Set<string>();
+    for (const id of change.threadIds) threads.add(id);
+    blockedThreads.set(change.emailAccountId, threads);
+  }
+  try {
+    const database = await getEmailCacheDatabase();
+    if (!database || !isEmailCacheEpochCurrent(change.emailAccountId, epoch))
+      return;
+    const transaction = database.transaction("threadDetails", "readwrite");
+    const store = transaction.store;
+    const keys = change.reset
+      ? await store.index("byAccount").getAllKeys(change.emailAccountId)
+      : (
+          await Promise.all(
+            change.threadIds.map((threadId) =>
+              store.getAllKeys(
+                getThreadDetailKeyRange(change.emailAccountId, threadId),
+              ),
             ),
-          ),
-        )
-      ).flat();
-  await Promise.all(keys.map((key) => store.delete(key)));
-  await transaction.done;
-  // Also reject reads that started while the cross-tab deletion was pending.
-  if (isEmailCacheEpochCurrent(change.emailAccountId, epoch))
-    applyThreadInvalidation(change);
+          )
+        ).flat();
+    await Promise.all(keys.map((key) => store.delete(key)));
+    await transaction.done;
+    allowPersistedThreadReads(change);
+  } finally {
+    // Failed deletion must not let the refresh hydrate stale persisted data.
+    if (isEmailCacheEpochCurrent(change.emailAccountId, epoch))
+      applyThreadInvalidation(change);
+  }
 }
 
 function applyThreadInvalidation(change: ThreadInvalidation) {
@@ -154,4 +179,16 @@ function advanceThreadCacheVersions(change: ThreadInvalidation) {
       }
     }
   }
+}
+
+function allowPersistedThreadReads(change: ThreadInvalidation) {
+  if (change.reset) {
+    blockedAccounts.delete(change.emailAccountId);
+    blockedThreads.delete(change.emailAccountId);
+    return;
+  }
+  const threads = blockedThreads.get(change.emailAccountId);
+  if (!threads) return;
+  for (const id of change.threadIds) threads.delete(id);
+  if (!threads.size) blockedThreads.delete(change.emailAccountId);
 }

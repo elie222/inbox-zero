@@ -10,7 +10,10 @@ import {
   getEmailCacheDatabase,
   isEmailCacheEpochCurrent,
 } from "./database";
-import { getThreadCacheVersion } from "./thread-invalidation";
+import {
+  getThreadCacheVersion,
+  canReadPersistedThread,
+} from "./thread-invalidation";
 import { EMAIL_CACHE_MAX_AGE_MS } from "./policy";
 
 export type CachedThreadDetail = {
@@ -77,6 +80,7 @@ export async function readCachedThreadDetail({
   threadId: string;
   variant: string;
 }): Promise<CachedThreadDetail | undefined> {
+  if (!canReadPersistedThread(emailAccountId, threadId)) return;
   const epoch = captureEmailCacheEpoch(emailAccountId);
 
   try {
@@ -106,7 +110,11 @@ export async function readCachedThreadDetail({
       byteSize,
     });
     await transaction.done;
-    if (!isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
+    if (
+      !isEmailCacheEpochCurrent(emailAccountId, epoch) ||
+      !canReadPersistedThread(emailAccountId, threadId)
+    )
+      return;
     scheduleEmailCacheCleanup();
     return {
       data: sanitized,
