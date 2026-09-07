@@ -88,8 +88,8 @@ export function useThread(
     {
       keepPreviousData: false,
       revalidateOnMount: !hasMatchingMemoryData,
-      revalidateOnFocus: true,
-      revalidateOnReconnect: true,
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
     },
   );
   const data = swr.data?.thread.id === id ? swr.data : undefined;
