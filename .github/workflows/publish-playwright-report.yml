@@ -161,10 +161,13 @@ jobs:
             echo "Missing Playwright review manifest at $review_path." >&2
             exit 1
           fi
+          # Compare against the run's exact commit so a push that lands mid-step
+          # cannot swap in a newer head's file list.
+          base_sha="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq .base.sha)"
           changed_paths_file="$(mktemp)"
           gh api --paginate \
-            "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/files?per_page=100" \
-            --jq '.[].filename' > "$changed_paths_file"
+            "repos/${GITHUB_REPOSITORY}/compare/${base_sha}...${SHA}?per_page=100" \
+            --jq '.files[].filename' > "$changed_paths_file"
           marker="<!-- inbox-zero-playwright-screenshots -->"
           body="$(
             PLAYWRIGHT_GALLERY_URL="$gallery_url" \

@@ -196,6 +196,25 @@ describe("buildPlaywrightPrComment", () => {
     );
     expect(comment).not.toContain("![");
   });
+
+  it("says when changed captures could not be measured against main", () => {
+    const comment = buildPlaywrightPrComment({
+      ...links,
+      changedPaths: [],
+      screenshots: [
+        screenshot({
+          comparison: "changed",
+          fileName: "images/001-final-state.png",
+          source: "mail_ssearch.spec.ts/search/final-state.png",
+          title: "final state",
+        }),
+      ],
+    });
+
+    expect(comment).toContain(
+      "1 changed captures could not be measured against main; review them in the gallery.",
+    );
+  });
 });
 
 function screenshot(

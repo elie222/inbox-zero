@@ -422,7 +422,7 @@ export function renderScreenshotGallery(input: {
               <small>${screenshot.captureType === "failure" ? "Automatic failure capture" : "Intentional test checkpoint"} · ${escapeHtml(screenshot.testId)}</small>
               <small title="${escapeHtml(screenshot.source)}">${escapeHtml(screenshot.source)}</small>
               <small>SHA-256 ${escapeHtml(screenshot.hash.slice(0, 12))}</small>
-              ${screenshot.difference === undefined ? "" : `<small>${Math.round(screenshot.difference * 100)}% of pixels differ from main</small>`}
+              ${screenshot.difference === undefined ? "" : `<small>${formatDifference(screenshot.difference)} of pixels differ from main</small>`}
             </span>
           </figcaption>
         </figure>`;
@@ -646,6 +646,12 @@ export function isScreenshotManifest(
       );
     })
   );
+}
+
+function formatDifference(difference: number): string {
+  return difference < 0.001
+    ? "<0.1%"
+    : `${Math.round(difference * 1000) / 10}%`;
 }
 
 function isHttpsUrl(value: unknown): value is string {

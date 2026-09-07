@@ -274,34 +274,37 @@ async function measureDifferences(
       galleryFileName(index, screenshot.source),
     ]),
   );
-  return Promise.all(
-    screenshots.map(async (screenshot) => {
-      const baselineFileName = baselineFileNames.get(screenshot.source);
-      if (screenshot.comparison !== "changed" || !baselineFileName) {
-        return screenshot;
-      }
-      const baselineFile = path.join(
-        baselineImagesPath,
-        path.basename(baselineFileName),
+  // Sequential on purpose: a full suite decodes hundreds of image pairs and
+  // holding them all at once would exhaust the runner's memory.
+  const measured: PlaywrightScreenshot[] = [];
+  for (const screenshot of screenshots) {
+    const baselineFileName = baselineFileNames.get(screenshot.source);
+    if (screenshot.comparison !== "changed" || !baselineFileName) {
+      measured.push(screenshot);
+      continue;
+    }
+    const baselineFile = path.join(
+      baselineImagesPath,
+      path.basename(baselineFileName),
+    );
+    try {
+      const baselineImage = await readFile(baselineFile);
+      validatePngScreenshot(baselineImage, baselineFile);
+      measured.push({
+        ...screenshot,
+        difference: measureScreenshotDifference(
+          await readFile(path.join(outputPath, screenshot.fileName)),
+          baselineImage,
+        ),
+      });
+    } catch (error) {
+      console.warn(
+        `Skipping visual difference for ${screenshot.source}: ${error instanceof Error ? error.message : String(error)}`,
       );
-      try {
-        const baselineImage = await readFile(baselineFile);
-        validatePngScreenshot(baselineImage, baselineFile);
-        return {
-          ...screenshot,
-          difference: measureScreenshotDifference(
-            await readFile(path.join(outputPath, screenshot.fileName)),
-            baselineImage,
-          ),
-        };
-      } catch (error) {
-        console.warn(
-          `Skipping visual difference for ${screenshot.source}: ${error instanceof Error ? error.message : String(error)}`,
-        );
-        return screenshot;
-      }
-    }),
-  );
+      measured.push(screenshot);
+    }
+  }
+  return measured;
 }
 
 function titleFromFileName(fileName: string): string {

@@ -112,10 +112,18 @@ export function buildPlaywrightPrComment(input: {
     summarizeScreenshots(input.screenshots),
   ];
 
+  const unmeasuredChanges = input.screenshots.filter(
+    (screenshot) =>
+      screenshot.captureType === "checkpoint" &&
+      screenshot.comparison === "changed" &&
+      screenshot.difference === undefined,
+  ).length;
   if (frames.length === 0) {
     lines.push(
       "",
-      "Nothing stood out against main; browse every capture in the gallery.",
+      unmeasuredChanges > 0
+        ? `${unmeasuredChanges} changed captures could not be measured against main; review them in the gallery.`
+        : "Nothing stood out against main; browse every capture in the gallery.",
     );
   } else {
     lines.push("", "#### Frames to review");

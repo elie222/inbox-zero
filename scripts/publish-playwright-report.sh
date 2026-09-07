@@ -138,10 +138,14 @@ baseline_images_dir=""
 if [[ -n "${PLAYWRIGHT_PR_NUMBER:-}" && -f "$baseline_manifest_path" ]]; then
   # The baseline images let the generator rank changed screenshots by how much
   # actually moved, which the pull request comment uses to pick frames.
-  baseline_images_run_key="$(jq -r '
+  if ! baseline_images_run_key="$(jq -r '
     if (.id | type == "string") and (.attempt | type == "number")
     then .id + "-" + (.attempt | tostring) else empty end
-  ' "$baseline_manifest_path")"
+  ' "$baseline_manifest_path" 2>"$baseline_error_path")"; then
+    echo "::warning::Could not parse the main screenshot baseline manifest; visual difference ranking will be unavailable."
+    cat "$baseline_error_path"
+    baseline_images_run_key=""
+  fi
   if [[ -n "$baseline_images_run_key" ]]; then
     baseline_images_dir="$dashboard_dir/main-baseline-images"
     if aws s3 sync \
