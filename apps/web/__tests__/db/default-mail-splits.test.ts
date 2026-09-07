@@ -129,6 +129,12 @@ describe.skipIf(!RUN_DB_TESTS)(
         defaultSplits,
         enabled: true,
       });
+      const afterEnable = await prisma.mailSplit.findMany({
+        where: { emailAccountId },
+        select: { name: true },
+      });
+      expect(afterEnable.map((split) => split.name)).toEqual(["Receipt"]);
+
       await createMailSplit({
         emailAccountId,
         name: "Receipts and invoices",

@@ -108,7 +108,7 @@ export function NewSplitPopover({
     setNote(null);
   };
 
-  const toggleLabel = (option: NewSplitOption) => {
+  const toggleOption = (option: NewSplitOption) => {
     if (selectedIds.includes(option.id)) {
       const next = selectedIds.filter((id) => id !== option.id);
       setSelectedIds(next);
@@ -134,10 +134,12 @@ export function NewSplitPopover({
     }
   };
 
+  // Several options only combine when they are all labels; a read state or a
+  // category is always on its own, so the first pick decides the kind.
   const createFromSelection = () =>
     createSplit({
       name: name.trim().slice(0, 60),
-      kind: MailSplitKind.LABEL,
+      kind: selected[0]?.kind ?? MailSplitKind.LABEL,
       values: selected.flatMap((option) => option.values),
     });
 
@@ -157,20 +159,12 @@ export function NewSplitPopover({
       const [first] = matched;
       if (!first) return;
 
-      // Only labels combine, so a read state or category is added outright.
+      // Only labels combine, so a read state or category stands alone. Either
+      // way the picker shows the match for the user to confirm or change.
       const labels = matched.filter(
         (option) => option.kind === MailSplitKind.LABEL,
       );
-      if (!labels.length) {
-        await createSplit({
-          name: (suggestion.name || first.name).slice(0, 60),
-          kind: first.kind,
-          values: first.values,
-        });
-        return;
-      }
-
-      setSelectedIds(labels.map((option) => option.id));
+      setSelectedIds(labels.length ? labels.map((o) => o.id) : [first.id]);
       setNameOverride(suggestion.name);
       setIsDescribing(false);
       setPrompt("");
@@ -279,8 +273,12 @@ export function NewSplitPopover({
                   return (
                     <CommandGroup key={group} heading={title}>
                       {groupOptions.map((option) => {
-                        const isLabel = option.kind === MailSplitKind.LABEL;
                         const isSelected = selectedIds.includes(option.id);
+                        // Labels are picked a few at a time. Anything else adds
+                        // its tab on the spot, unless the AI already put it in
+                        // the selection, where clicking takes it back out.
+                        const isToggle =
+                          option.kind === MailSplitKind.LABEL || isSelected;
                         return (
                           <CommandItem
                             key={option.id}
@@ -289,7 +287,7 @@ export function NewSplitPopover({
                             // the tick's meaning has to reach screen readers
                             // through the accessible name instead.
                             aria-label={
-                              isLabel
+                              isToggle
                                 ? `${option.name}, ${isSelected ? "selected" : "not selected"}`
                                 : undefined
                             }
@@ -297,8 +295,8 @@ export function NewSplitPopover({
                               title ? [option.name, title] : [option.name]
                             }
                             onSelect={() =>
-                              isLabel
-                                ? toggleLabel(option)
+                              isToggle
+                                ? toggleOption(option)
                                 : createSplit({
                                     name: option.name,
                                     kind: option.kind,
@@ -308,7 +306,7 @@ export function NewSplitPopover({
                             disabled={isBusy}
                             className="gap-2 text-xs"
                           >
-                            {isLabel && (
+                            {isToggle && (
                               <div
                                 className={cn(
                                   "flex size-3.5 items-center justify-center rounded-sm border border-primary",

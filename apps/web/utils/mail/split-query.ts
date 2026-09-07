@@ -61,7 +61,7 @@ export function getPortableLabelSplits(
       const labelName = labelsById[labelId]?.name.trim();
       return labelName ? [labelName] : [];
     });
-    return labelNames.length === split.values.length
+    return labelNames.length && labelNames.length === split.values.length
       ? [{ ...split, labelNames }]
       : [];
   });

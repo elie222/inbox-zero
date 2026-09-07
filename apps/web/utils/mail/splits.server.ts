@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import type { MailSplit } from "@/generated/prisma/client";
-import { MailSplitKind } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import { lockMailSplits } from "@/utils/mail/split-lock";
 import { MAX_MAIL_SPLITS } from "@/utils/mail/split-constants";
@@ -86,21 +85,21 @@ export async function removeLabelFromMailSplits({
   emailAccountId: string;
   labelId: string;
 }) {
-  await prisma.$transaction([
-    prisma.$executeRaw`
+  // One statement so only the rows this label emptied are deleted, rather than
+  // every empty split the account happens to have.
+  await prisma.$executeRaw`
+    WITH narrowed AS (
       UPDATE "MailSplit"
       SET "values" = array_remove("values", ${labelId}),
           "updatedAt" = NOW()
       WHERE "emailAccountId" = ${emailAccountId}
         AND "kind" = 'LABEL'::"MailSplitKind"
         AND ${labelId} = ANY("values")
-    `,
-    prisma.mailSplit.deleteMany({
-      where: {
-        emailAccountId,
-        kind: MailSplitKind.LABEL,
-        values: { isEmpty: true },
-      },
-    }),
-  ]);
+      RETURNING "id", "values"
+    )
+    DELETE FROM "MailSplit"
+    WHERE "id" IN (
+      SELECT "id" FROM narrowed WHERE cardinality("values") = 0
+    )
+  `;
 }

@@ -19,7 +19,7 @@ export async function mergePaginatedSources<
   concurrency,
   compare,
   getItemId,
-  getItemKey = (item, source) => `${source.id}:${getItemId(item)}`,
+  dedupeItemKey,
   loadPage,
   onSourceError,
 }: {
@@ -32,11 +32,11 @@ export async function mergePaginatedSources<
   /** Identifies a row within its own source, for consumed-row tracking. */
   getItemId: (item: TItem) => string;
   /**
-   * Identifies a row across sources. Rows sharing a key are returned once and
-   * marked consumed on every source that produced them. Defaults to keeping
-   * sources independent.
+   * Identifies a row across sources, for sources that can return the same one.
+   * Rows sharing a key are served once and remembered so a later page cannot
+   * repeat them. Leave unset when sources never overlap.
    */
-  getItemKey?: (item: TItem, source: TSource) => string;
+  dedupeItemKey?: (item: TItem) => string;
   loadPage: (input: { source: TSource; pageToken?: string }) => Promise<{
     items: TItem[];
     nextPageToken?: string | null;
@@ -74,10 +74,15 @@ export async function mergePaginatedSources<
 
   const failedSourceIds: string[] = [];
   const metaBySourceId: Record<string, TMeta> = {};
+  // Each source keeps the row's own id, because two sources can identify the
+  // same row differently and each needs its own id marked consumed.
   const candidatesByKey = new Map<
     string,
-    { item: TItem; sourceIds: Set<string> }
+    { item: TItem; itemIdBySource: Map<string, string> }
   >();
+  const previouslyEmitted = new Set(previousCursor.emitted);
+  const keyFor = (item: TItem, source: TSource) =>
+    dedupeItemKey?.(item) ?? `${source.id}:${getItemId(item)}`;
 
   for (const { source, cursorState, page } of sourcePages) {
     if (!page) {
@@ -89,13 +94,17 @@ export async function mergePaginatedSources<
     const consumedIds = new Set(cursorState.consumedIds);
     for (const item of page.items) {
       if (consumedIds.has(getItemId(item))) continue;
-      const key = getItemKey(item, source);
+      const key = keyFor(item, source);
+      if (previouslyEmitted.has(key)) continue;
       const candidate = candidatesByKey.get(key);
       if (candidate) {
-        candidate.sourceIds.add(source.id);
+        candidate.itemIdBySource.set(source.id, getItemId(item));
         continue;
       }
-      candidatesByKey.set(key, { item, sourceIds: new Set([source.id]) });
+      candidatesByKey.set(key, {
+        item,
+        itemIdBySource: new Map([[source.id, getItemId(item)]]),
+      });
     }
   }
 
@@ -104,10 +113,10 @@ export async function mergePaginatedSources<
   );
   const returned = candidates.slice(0, limit);
   const returnedItemIdsBySource = new Map<string, string[]>();
-  for (const { item, sourceIds } of returned) {
-    for (const sourceId of sourceIds) {
+  for (const { itemIdBySource } of returned) {
+    for (const [sourceId, itemId] of itemIdBySource) {
       const itemIds = returnedItemIdsBySource.get(sourceId) ?? [];
-      itemIds.push(getItemId(item));
+      itemIds.push(itemId);
       returnedItemIdsBySource.set(sourceId, itemIds);
     }
   }
@@ -152,6 +161,15 @@ export async function mergePaginatedSources<
     }
   }
 
+  // A row two sources share can sit on different provider pages, so recent
+  // keys are remembered until the slower source has caught up past them.
+  if (dedupeItemKey) {
+    nextCursor.emitted = [
+      ...returned.map(({ item }) => dedupeItemKey(item)),
+      ...previousCursor.emitted,
+    ].slice(0, EMITTED_KEY_MEMORY);
+  }
+
   return {
     items: returned.map(({ item }) => item),
     metaBySourceId,
@@ -173,7 +191,12 @@ type SourceCursorState = {
 type MergedCursor = {
   version: 3;
   sources: Record<string, SourceCursorState>;
+  /** Keys already served, so a row two sources share is not served twice. */
+  emitted: string[];
 };
+
+/** A shared row surfaces in the other source within a few pages, or never. */
+const EMITTED_KEY_MEMORY = 200;
 
 const INITIAL_SOURCE_CURSOR: SourceCursorState = {
   pageToken: null,
@@ -197,38 +220,49 @@ function decodeCursor(cursor: string | null): MergedCursor {
     const parsed: unknown = JSON.parse(
       Buffer.from(cursor, "base64url").toString("utf8"),
     );
-    if (
-      !isRecord(parsed) ||
-      parsed.version !== 3 ||
-      !isRecord(parsed.sources)
-    ) {
-      return emptyCursor();
-    }
+    if (!isRecord(parsed)) return emptyCursor();
+    // A page loaded before this shipped still holds a v2 cursor. Reading it
+    // keeps "load more" moving forward instead of restarting from page one.
+    const rawSources = parsed.version === 3 ? parsed.sources : parsed.accounts;
+    if (!isRecord(rawSources)) return emptyCursor();
 
     const sources = Object.fromEntries(
-      Object.entries(parsed.sources).filter(
-        (entry): entry is [string, SourceCursorState] =>
-          isSourceCursorState(entry[1]),
-      ),
+      Object.entries(rawSources).flatMap((entry) => {
+        const state = toSourceCursorState(entry[1]);
+        return state ? [[entry[0], state] as const] : [];
+      }),
     );
-    return { version: 3, sources };
+    return {
+      version: 3,
+      sources,
+      emitted: Array.isArray(parsed.emitted)
+        ? parsed.emitted.filter((key): key is string => typeof key === "string")
+        : [],
+    };
   } catch {
     return emptyCursor();
   }
 }
 
 function emptyCursor(): MergedCursor {
-  return { version: 3, sources: {} };
+  return { version: 3, sources: {}, emitted: [] };
 }
 
-function isSourceCursorState(value: unknown): value is SourceCursorState {
-  return (
-    isRecord(value) &&
-    (typeof value.pageToken === "string" || value.pageToken === null) &&
-    Array.isArray(value.consumedIds) &&
-    value.consumedIds.every((itemId) => typeof itemId === "string") &&
-    typeof value.done === "boolean"
-  );
+function toSourceCursorState(value: unknown): SourceCursorState | null {
+  if (!isRecord(value)) return null;
+  if (typeof value.pageToken !== "string" && value.pageToken !== null) {
+    return null;
+  }
+  if (typeof value.done !== "boolean") return null;
+  // v2 named this field consumedThreadIds.
+  const consumed = value.consumedIds ?? value.consumedThreadIds;
+  if (!Array.isArray(consumed)) return null;
+
+  return {
+    pageToken: value.pageToken,
+    consumedIds: consumed.filter((id): id is string => typeof id === "string"),
+    done: value.done,
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -78,12 +78,17 @@ export const suggestMailSplitAction = actionClient
         ? matched
         : matched.slice(0, 1);
 
+      const optionIds = [...new Set(selected.map((option) => option.id))];
+      const capped = optionIds.slice(0, MAX_SPLIT_LABELS);
+
       return {
-        optionIds: [...new Set(selected.map((option) => option.id))].slice(
-          0,
-          MAX_SPLIT_LABELS,
-        ),
-        name: suggestion.name?.trim().slice(0, 60) || null,
+        optionIds: capped,
+        // A name describing more labels than the split ends up with would lie
+        // about the tab, so a truncated match falls back to the label names.
+        name:
+          capped.length === optionIds.length
+            ? suggestion.name?.trim().slice(0, 60) || null
+            : null,
         reasoning: suggestion.reasoning,
       };
     },

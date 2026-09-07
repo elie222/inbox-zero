@@ -77,7 +77,10 @@ export function useCombinedMailThreads({
     () => accounts.map((account) => account.id),
     [accounts],
   );
-  const labelIdentity = labelNames?.length ? labelNames.join("\n") : undefined;
+  // JSON rather than a delimiter, because a label name can contain anything.
+  const labelIdentity = labelNames?.length
+    ? JSON.stringify(labelNames)
+    : undefined;
   const viewKey = useMemo(
     () =>
       createThreadListCacheKey({
@@ -105,7 +108,7 @@ export function useCombinedMailThreads({
       });
       // Repeated params rather than a joined value, because a label name may
       // itself contain whatever separator we would pick.
-      for (const labelName of labelIdentity?.split("\n") ?? []) {
+      for (const labelName of labelIdentity ? JSON.parse(labelIdentity) : []) {
         params.append("labelNames", labelName);
       }
       return `/api/threads/all?${params.toString()}`;

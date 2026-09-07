@@ -214,6 +214,64 @@ describe("loadThreads", () => {
       expect(second.threads.map((loaded) => loaded.id)).toContain("a-oldest");
     });
 
+    it("does not repeat a shared thread when the other label reaches it later", async () => {
+      const pagesByLabel: Record<string, Record<string, unknown>> = {
+        "label-a": {
+          first: {
+            threads: [thread("shared", "3000"), thread("a-old", "1000")],
+            nextPageToken: null,
+          },
+        },
+        "label-b": {
+          first: {
+            threads: [thread("b-mid", "2000")],
+            nextPageToken: "b-page-2",
+          },
+          "b-page-2": {
+            threads: [thread("shared", "3000")],
+            nextPageToken: null,
+          },
+        },
+      };
+      const emailProvider = {
+        getThreadsWithQuery: vi.fn(
+          async ({
+            query,
+            pageToken,
+          }: {
+            query: { labelIds: string[] };
+            pageToken?: string;
+          }) => {
+            const labelId = query.labelIds.includes("label-a")
+              ? "label-a"
+              : "label-b";
+            return pagesByLabel[labelId][pageToken ?? "first"];
+          },
+        ),
+      };
+      const load = (nextPageToken?: string) =>
+        loadThreads({
+          query: {
+            labelIds: ["INBOX"],
+            anyLabelIds: ["label-a", "label-b"],
+            limit: 2,
+            nextPageToken,
+          },
+          emailAccountId: "account-1",
+          emailProvider: emailProvider as never,
+          messageFormat: "metadata",
+        });
+
+      const first = await load();
+      expect(first.threads.map((loaded) => loaded.id)).toEqual([
+        "shared",
+        "b-mid",
+      ]);
+
+      const second = await load(first.nextPageToken ?? undefined);
+      expect(second.threads.map((loaded) => loaded.id)).not.toContain("shared");
+    });
+
     it("fails the request rather than silently narrowing the split", async () => {
       const emailProvider = {
         getThreadsWithQuery: vi.fn(async ({ query }) => {

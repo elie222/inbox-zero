@@ -1267,7 +1267,9 @@ export function MailShell() {
           (split) =>
             split.id === activeSplitId &&
             split.kind === MailSplitKind.LABEL &&
-            split.values.includes(item.id),
+            // A wider split survives the delete with its remaining labels.
+            split.values.length === 1 &&
+            split.values[0] === item.id,
         );
       if (isActive) {
         await Promise.all([

@@ -193,7 +193,7 @@ async function fetchThreadsPage({
       getThreadTimestamp(right) - getThreadTimestamp(left),
     getItemId: (thread: EmailThread) => thread.id,
     // A thread carrying several of the labels must still show up once.
-    getItemKey: (thread) => thread.id,
+    dedupeItemKey: (thread) => thread.id,
     loadPage: async ({ source, pageToken: labelPageToken }) => {
       const page = await emailProvider.getThreadsWithQuery({
         query: queryForLabels([source.id]),
