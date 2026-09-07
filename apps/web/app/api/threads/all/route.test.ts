@@ -116,6 +116,23 @@ describe("GET /api/threads/all", () => {
     });
   });
 
+  it("searches every included mailbox without inbox or split restrictions", async () => {
+    getConnectedEmailAccountsMock.mockResolvedValue([
+      { id: "account-1", email: "first@example.com", provider: "google" },
+      { id: "account-2", email: "second@example.com", provider: "microsoft" },
+    ]);
+    await GET(
+      new NextRequest(
+        "http://localhost:3000/api/threads/all?q=invoice&isUnread=true&labelName=Missing",
+      ),
+      {} as never,
+    );
+    expect(loadThreadsMock).toHaveBeenCalledTimes(2);
+    for (const [args] of loadThreadsMock.mock.calls) {
+      expect(args.query).toEqual({ q: "invoice", limit: 20 });
+    }
+  });
+
   it("rejects an unsafe provider cursor before loading threads", async () => {
     const cursor = Buffer.from(
       JSON.stringify({

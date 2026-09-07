@@ -10,6 +10,7 @@ import { threadsQuery } from "@/utils/threads/validation";
 export const maxDuration = 30;
 
 const querySchema = z.object({
+  q: threadsQuery.shape.q,
   cursor: z.string().min(1).optional(),
   limit: z.coerce.number().int().min(1).max(50).default(20),
   labelName: z.string().trim().min(1).max(255).optional(),
@@ -24,7 +25,7 @@ export type GetAllThreadsResponse = Awaited<
 >;
 
 export const GET = withAuth("threads/all", async (request) => {
-  const { cursor, limit, isUnread, labelName } = querySchema.parse(
+  const { cursor, limit, isUnread, labelName, q } = querySchema.parse(
     Object.fromEntries(new URL(request.url).searchParams),
   );
   const accounts = await getConnectedEmailAccounts({
@@ -43,7 +44,7 @@ export const GET = withAuth("threads/all", async (request) => {
         provider: account.provider,
         logger,
       });
-      if (labelName) {
+      if (labelName && !q) {
         const labels = await emailProvider.getLabels();
         const normalizedLabelName = labelName.toLowerCase();
         const matchingLabel = labels.find(
@@ -69,8 +70,7 @@ export const GET = withAuth("threads/all", async (request) => {
       const [loaded, labels] = await Promise.all([
         loadThreads({
           query: threadsQuery.parse({
-            type: "inbox",
-            isUnread,
+            ...(q ? { q } : { type: "inbox", isUnread }),
             limit,
             nextPageToken: pageToken,
           }),

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { withEmailAccount } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
+import { hiddenBuiltInSplitsSchema } from "@/utils/actions/mail-split.validation";
 import { getDefaultMailSplitDraftsForAccount } from "@/utils/mail/default-splits.server";
 
 export type MailSettingsResponse = Awaited<ReturnType<typeof getMailSettings>>;
@@ -12,6 +13,7 @@ async function getMailSettings({ emailAccountId }: { emailAccountId: string }) {
       select: {
         mailLayout: true,
         mailExpandedPreview: true,
+        mailHiddenBuiltInSplits: true,
         mailSplits: {
           // createdAt breaks ties so tab order can't shuffle between requests
           orderBy: [{ order: "asc" }, { createdAt: "asc" }],
@@ -31,6 +33,9 @@ async function getMailSettings({ emailAccountId }: { emailAccountId: string }) {
   return {
     layout: emailAccount?.mailLayout ?? null,
     expandedPreview: emailAccount?.mailExpandedPreview ?? false,
+    hiddenBuiltInSplits: hiddenBuiltInSplitsSchema.parse(
+      emailAccount?.mailHiddenBuiltInSplits ?? [],
+    ),
     splits: emailAccount?.mailSplits ?? [],
     defaultSplits,
   };

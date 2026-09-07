@@ -216,6 +216,21 @@ describe("mail split actions", () => {
     expect(result?.serverError).toBe("You can only have 12 splits.");
   });
 
+  it("persists and restores hidden built-in splits", async () => {
+    for (const hiddenBuiltInSplits of [["all", "unread"], []] as (
+      | "all"
+      | "unread"
+    )[][]) {
+      await updateMailPreferencesAction(EMAIL_ACCOUNT_ID, {
+        hiddenBuiltInSplits,
+      });
+      expect(prisma.emailAccount.update).toHaveBeenLastCalledWith({
+        where: { id: EMAIL_ACCOUNT_ID },
+        data: { mailHiddenBuiltInSplits: hiddenBuiltInSplits },
+      });
+    }
+  });
+
   it("persists the selected mail layout", async () => {
     await updateMailPreferencesAction(EMAIL_ACCOUNT_ID, {
       layout: MailLayout.SPLIT,

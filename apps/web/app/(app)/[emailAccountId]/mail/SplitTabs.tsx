@@ -12,8 +12,6 @@ import { cn } from "@/utils";
 export type MailSplitTab = {
   id: string;
   name: string;
-  /** Built-in splits (e.g. All) can't be removed. */
-  deletable: boolean;
 };
 
 export type SplitTabsProps = {
@@ -27,8 +25,6 @@ export type SplitTabsProps = {
   canAddDefaultSplits: boolean;
   canRemoveDefaultSplits: boolean;
   onSetDefaultSplits: (enabled: boolean) => Promise<boolean>;
-  /** Split creation stays account-scoped, so it is hidden in All accounts. */
-  canCreateSplits: boolean;
   className?: string;
 };
 
@@ -43,7 +39,6 @@ export function SplitTabs({
   canAddDefaultSplits,
   canRemoveDefaultSplits,
   onSetDefaultSplits,
-  canCreateSplits,
   className,
 }: SplitTabsProps) {
   const tabsRef = useRef<HTMLDivElement>(null);
@@ -98,30 +93,26 @@ export function SplitTabs({
             >
               {split.name}
             </button>
-            {active && split.deletable && (
-              <button
-                type="button"
-                onClick={() => onDelete(split.id)}
-                aria-label={`Remove the ${split.name} split`}
-                className="rounded-full p-0.5 text-primary/60 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <XIcon className="size-3" />
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => onDelete(split.id)}
+              aria-label={`Remove the ${split.name} split`}
+              className="rounded-full p-0.5 text-muted-foreground hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <XIcon className="size-3" />
+            </button>
           </div>
         );
       })}
 
-      {canCreateSplits && (
-        <NewSplitPopover
-          options={newSplitOptions}
-          onCreate={onCreateSplit}
-          onCreateFromPrompt={onCreateSplitFromPrompt}
-          canAddDefaultSplits={canAddDefaultSplits}
-          canRemoveDefaultSplits={canRemoveDefaultSplits}
-          onSetDefaultSplits={onSetDefaultSplits}
-        />
-      )}
+      <NewSplitPopover
+        options={newSplitOptions}
+        onCreate={onCreateSplit}
+        onCreateFromPrompt={onCreateSplitFromPrompt}
+        canAddDefaultSplits={canAddDefaultSplits}
+        canRemoveDefaultSplits={canRemoveDefaultSplits}
+        onSetDefaultSplits={onSetDefaultSplits}
+      />
     </div>
   );
 }

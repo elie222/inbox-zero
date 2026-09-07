@@ -120,12 +120,15 @@ export const updateMailPreferencesAction = actionClient
   .action(
     async ({
       ctx: { emailAccountId },
-      parsedInput: { layout, expandedPreview },
+      parsedInput: { layout, expandedPreview, hiddenBuiltInSplits },
     }) => {
       await prisma.emailAccount.update({
         where: { id: emailAccountId },
         data: {
           ...(layout === undefined ? {} : { mailLayout: layout }),
+          ...(hiddenBuiltInSplits === undefined
+            ? {}
+            : { mailHiddenBuiltInSplits: hiddenBuiltInSplits }),
           ...(expandedPreview === undefined
             ? {}
             : { mailExpandedPreview: expandedPreview }),

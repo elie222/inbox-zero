@@ -56,12 +56,14 @@ export function useCombinedMailThreads({
   enabled,
   isUnread,
   labelName,
+  searchQuery,
 }: {
   accounts: CombinedThread["account"][];
   emailAccountId: string;
   enabled: boolean;
   isUnread: boolean;
   labelName?: string;
+  searchQuery?: string;
 }) {
   const accountIdentity = useMemo(
     () =>
@@ -82,8 +84,9 @@ export function useCombinedMailThreads({
         accountIdentity,
         isUnread: isUnread || undefined,
         labelName,
+        q: searchQuery,
       }),
-    [accountIdentity, isUnread, labelName],
+    [accountIdentity, isUnread, labelName, searchQuery],
   );
   const viewIdentity = `${emailAccountId}:${accountIdentity}:${viewKey}`;
   const { fetcher } = useSWRConfig();
@@ -97,11 +100,12 @@ export function useCombinedMailThreads({
         limit: COMBINED_PAGE_SIZE,
         isUnread: isUnread || undefined,
         labelName,
+        q: searchQuery,
         cursor: pageIndex > 0 ? previousPageData?.nextPageToken : undefined,
       });
       return `/api/threads/all?${params.toString()}`;
     },
-    [accountIdentity, enabled, isUnread, labelName],
+    [accountIdentity, enabled, isUnread, labelName, searchQuery],
   );
   const fetchCombinedPage = useCallback(
     async (key: string) => {
@@ -176,7 +180,7 @@ export function useCombinedMailThreads({
   }, [emailAccountId, enabled, viewIdentity, viewKey]);
 
   useEffect(() => {
-    if (!enabled || !accountIdentity || labelName) return;
+    if (!enabled || !accountIdentity || labelName || searchQuery) return;
     let cancelled = false;
     const accountIds = new Set(
       accountsRef.current.map((account) => account.id),
@@ -209,6 +213,7 @@ export function useCombinedMailThreads({
     enabled,
     isUnread,
     labelName,
+    searchQuery,
     localSnapshotLimit,
     viewIdentity,
   ]);
