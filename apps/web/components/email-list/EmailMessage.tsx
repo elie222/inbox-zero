@@ -1,3 +1,5 @@
+import { CalendarInvitation } from "@/components/email-list/CalendarInvitation";
+import { isCalendarInvitationMessage } from "@/utils/calendar/invitations/detection";
 import { useCallback, useMemo, useState, useRef, useEffect } from "react";
 import { useAction } from "next-safe-action/hooks";
 import useSWR from "swr";
@@ -174,6 +176,10 @@ export function EmailMessage({
         // Aligns the body with the sender's name rather than the avatar.
         <div className="min-w-0 pt-3 sm:pl-9">
           {showDetails && <EmailDetails message={message} />}
+
+          {isCalendarInvitationMessage(message) && (
+            <CalendarInvitation key={message.id} messageId={message.id} />
+          )}
 
           {message.textHtml ? (
             <HtmlEmail

@@ -52,6 +52,7 @@ export type ThreadWithPayloadMessages = gmail_v1.Schema$Thread & {
 export interface ParsedMessage {
   attachments?: Attachment[];
   bodyContentType?: "text" | "html"; // For Outlook: indicates which format the body was originally in
+  calendarContent?: string;
   conversationIndex?: string | null;
   date: string;
   externalUrl?: string;
@@ -60,6 +61,7 @@ export interface ParsedMessage {
   id: string;
   inline: Inline[];
   internalDate?: string | null;
+  isMeetingInvitation?: boolean;
   labelIds?: string[];
   parentFolderId?: string;
   // For Outlook: store raw recipient data to avoid double conversion

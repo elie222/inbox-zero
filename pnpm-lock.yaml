@@ -494,6 +494,9 @@ importers:
       html-to-text:
         specifier: 10.0.0
         version: 10.0.0
+      ical.js:
+        specifier: 2.2.1
+        version: 2.2.1
       idb:
         specifier: 8.0.3
         version: 8.0.3
@@ -554,6 +557,9 @@ importers:
       pg:
         specifier: 8.22.0
         version: 8.22.0
+      postal-mime:
+        specifier: 3.0.0
+        version: 3.0.0
       posthog-js:
         specifier: 1.396.6
         version: 1.396.6
@@ -9110,6 +9116,9 @@ packages:
       typescript:
         optional: true
 
+  ical.js@2.2.1:
+    resolution: {integrity: sha512-yK/UlPbEs316igb/tjRgbFA8ZV75rCsBJp/hWOatpyaPNlgw0dGDmU+FoicOcwX4xXkeXOkYiOmCqNPFpNPkQg==}
+
   iconv-lite@0.6.3:
     resolution: {integrity: sha512-4fCk79wshMdzMp2rH06qWrJE4iolqLhCUH+OiuIgU++RB0+94NlDL81atO7GX55uUKueo0txHNtvEyI6D7WdMw==}
     engines: {node: '>=0.10.0'}
@@ -10917,6 +10926,9 @@ packages:
 
   postal-mime@2.7.5:
     resolution: {integrity: sha512-GNEXKvWFQnbgO5NlrGzVa0FmWzBZ24PersAWErttSg1Hjpf0ATxTwS5DOMGaOpTG6bUh5cTr7xi0jAD942wCJA==}
+
+  postal-mime@3.0.0:
+    resolution: {integrity: sha512-Z4a9ar2Bv3YpK3IXag+Yda30k7bMZfpRuUGyqtHnZ2pjHG8Bl62EhZIk4n1dzv00gfzP9g+94e9kd8+XmjVWLA==}
 
   postcss-import@15.1.0:
     resolution: {integrity: sha512-hpr+J05B2FVYUAXHeK1YyI267J/dDDhMU6B6civm8hSY1jYJnBXxzKDKDswzJmtLHryrjhnDjqqp/49t8FALew==}
@@ -22390,6 +22402,8 @@ snapshots:
     optionalDependencies:
       typescript: 6.0.3
 
+  ical.js@2.2.1: {}
+
   iconv-lite@0.6.3:
     dependencies:
       safer-buffer: 2.1.2
@@ -24342,6 +24356,8 @@ snapshots:
       '@babel/runtime': 7.29.2
 
   postal-mime@2.7.5: {}
+
+  postal-mime@3.0.0: {}
 
   postcss-import@15.1.0(postcss@8.5.14):
     dependencies:

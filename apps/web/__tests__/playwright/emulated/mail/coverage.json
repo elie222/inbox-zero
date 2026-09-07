@@ -3,6 +3,9 @@
     "app/(app)/[emailAccountId]/mail/MailSidebar.tsx",
     "app/(app)/[emailAccountId]/mail/use-combined-mail-threads.ts"
   ],
+  "calendar-invitation.spec.ts": [
+    "components/email-list/CalendarInvitation.tsx"
+  ],
   "command-palette.spec.ts": [
     "components/CommandK.tsx",
     "store/command-palette.ts",

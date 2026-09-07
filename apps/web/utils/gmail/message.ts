@@ -1,3 +1,4 @@
+import { CALENDAR_INVITATION_LIMITS } from "@/utils/calendar/invitations/constants";
 import type { gmail_v1 } from "@googleapis/gmail";
 import {
   type MessageWithPayload,
@@ -16,8 +17,12 @@ import type { Logger } from "@/utils/logger";
 
 export function parseMessage(
   message: MessageWithPayload,
+  options?: { includeCalendarContent?: boolean },
 ): ParsedMessage & { subject: string; date: string } {
   const parsed = parse(message) as ParsedMessage;
+  const calendarParts = getCalendarParts(message.payload);
+  const calendarData =
+    calendarParts.length === 1 ? calendarParts[0].body?.data : undefined;
   const inlineAttachments = parsed.attachments?.filter(isInlineAttachment);
   const attachments = parsed.attachments?.filter(
     (attachment) => !isInlineAttachment(attachment),
@@ -25,6 +30,15 @@ export function parseMessage(
 
   return {
     ...parsed,
+    isMeetingInvitation: calendarParts.length
+      ? calendarParts.length === 1
+      : undefined,
+    calendarContent:
+      options?.includeCalendarContent &&
+      calendarData &&
+      calendarData.length <= CALENDAR_INVITATION_LIMITS.encoded
+        ? Buffer.from(calendarData, "base64").toString("utf8")
+        : undefined,
     attachments: attachments?.length ? attachments : undefined,
     subject: parsed.headers?.subject || "",
     date: parsed.headers?.date || "",
@@ -314,4 +328,16 @@ export async function getSentMessages(
     logger,
   });
   return messages.messages;
+}
+
+function getCalendarParts(
+  part: gmail_v1.Schema$MessagePart | undefined,
+): gmail_v1.Schema$MessagePart[] {
+  if (!part) return [];
+  const parts = part.mimeType?.toLowerCase() === "text/calendar" ? [part] : [];
+  for (const child of part.parts ?? []) {
+    parts.push(...getCalendarParts(child));
+    if (parts.length > 1) break;
+  }
+  return parts;
 }

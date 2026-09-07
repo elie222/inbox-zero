@@ -1,3 +1,9 @@
+import type {
+  CalendarInvitation,
+  InvitationResponse,
+  InvitationEvent,
+} from "@/utils/calendar/invitations/parser";
+import { SafeError } from "@/utils/error";
 import type { calendar_v3 } from "@googleapis/calendar";
 import { randomUUID } from "node:crypto";
 import { BookingLinkLocationType } from "@/generated/prisma/enums";
@@ -105,6 +111,67 @@ export class GoogleCalendarEventProvider implements CalendarEventProvider {
     });
 
     return events.map((event) => this.parseEvent(event));
+  }
+
+  async findInvitationEvent(
+    invitation: CalendarInvitation,
+  ): Promise<InvitationEvent | null> {
+    // An exception must never accidentally update the whole recurring series.
+    if (invitation.recurrenceId) return null;
+    const client = await this.getClient();
+    let pageToken: string | undefined;
+    let event: calendar_v3.Schema$Event | undefined;
+    do {
+      const { data } = await client.events.list({
+        calendarId: "primary",
+        iCalUID: invitation.uid,
+        showDeleted: true,
+        maxResults: 2500,
+        pageToken,
+      });
+      for (const candidate of data.items ?? []) {
+        if (candidate.recurringEventId) continue;
+        if (event) return null;
+        event = candidate;
+      }
+      pageToken = data.nextPageToken ?? undefined;
+    } while (pageToken);
+    if (!event) return null;
+    if (event.status === "cancelled")
+      throw new SafeError("This event has been cancelled.");
+    if (
+      !event.id ||
+      event.organizer?.self ||
+      event.organizer?.email?.toLowerCase() !== invitation.organizer
+    )
+      return null;
+    const attendee = event.attendees?.find(
+      (attendee) =>
+        attendee.self && attendee.email?.toLowerCase() === invitation.attendee,
+    );
+    if (!attendee) return null;
+    if ((event.sequence ?? 0) !== invitation.sequence)
+      throw new SafeError(
+        "This invitation has changed. Please respond to the latest invitation in your calendar.",
+      );
+    return { id: event.id, response: attendee.responseStatus ?? null };
+  }
+
+  async respondToInvitation(
+    eventId: string,
+    invitation: CalendarInvitation,
+    response: InvitationResponse,
+  ) {
+    const client = await this.getClient();
+    await client.events.patch({
+      calendarId: "primary",
+      eventId,
+      sendUpdates: "all",
+      requestBody: {
+        attendeesOmitted: true,
+        attendees: [{ email: invitation.attendee, responseStatus: response }],
+      },
+    });
   }
 
   async createEvent(
