@@ -3,7 +3,7 @@ import type { ReplyDraftContent } from "./reply-drafts";
 import type { ParsedMessage } from "@/utils/types";
 
 const DATABASE_NAME = "inbox-zero-email-cache";
-const DATABASE_VERSION = 6;
+const DATABASE_VERSION = 7;
 
 export type CachedThreadRow = {
   emailAccountId: string;
@@ -131,6 +131,7 @@ interface EmailCacheSchema extends DBSchema {
       byAccountDiagnostics: [
         string,
         number,
+        string,
         StoredMailMutation["status"],
         string,
         string[],
@@ -236,12 +237,17 @@ export function getEmailCacheDatabase() {
         mutations.createIndex("byNextAttempt", ["status", "nextAttemptAt"]);
         mutations.createIndex("byUpdatedAt", "updatedAt");
       }
-      if (oldVersion < 6) {
+      if (oldVersion < 7) {
+        if (oldVersion >= 6)
+          transaction
+            .objectStore("mailMutations")
+            .deleteIndex("byAccountDiagnostics");
         transaction
           .objectStore("mailMutations")
           .createIndex("byAccountDiagnostics", [
             "emailAccountId",
             "createdAt",
+            "id",
             "status",
             "batchId",
             "messageIds",

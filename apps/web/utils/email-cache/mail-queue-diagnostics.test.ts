@@ -127,6 +127,44 @@ describe("mail queue diagnostics", () => {
     });
   });
 
+  it("allows queued writes to finish between diagnostic scan batches", async () => {
+    await enqueueMailMutationBatch(
+      Array.from({ length: 300 }, (_, index) => ({
+        id: `mutation-${String(index).padStart(3, "0")}`,
+        emailAccountId: "account",
+        threadId: `thread-${index}`,
+        messageIds: [],
+        kind: "archive" as const,
+      })),
+      100,
+    );
+    const originalGet = IDBObjectStore.prototype.get;
+    let started = false;
+    let writing = Promise.resolve();
+    vi.spyOn(IDBObjectStore.prototype, "get").mockImplementation(function (
+      this: IDBObjectStore,
+      key,
+    ) {
+      const request = originalGet.call(this, key);
+      if (this.name === "mailMutations" && !started) {
+        started = true;
+        writing = failMailMutation("mutation-000", "failed", "Rejected");
+      }
+      return request;
+    });
+    const snapshot = await readMailQueueDiagnostics({
+      emailAccountId: "account",
+      filter: "all",
+      limit: 50,
+    });
+    expect(snapshot).toMatchObject({
+      total: 300,
+      activeCount: 299,
+      counts: { pending: 299, failed: 1 },
+    });
+    await writing;
+  });
+
   it("discards an in-flight snapshot when the account cache is cleared", async () => {
     await enqueueMailMutationBatch([
       {

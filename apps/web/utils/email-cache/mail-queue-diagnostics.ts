@@ -39,50 +39,64 @@ export async function readMailQueueDiagnostics({
     counts: { ...empty.counts },
     mutations: [...empty.mutations],
   };
-  const transaction = database.transaction(
-    ["mailMutations", "mailboxSyncStates"],
-    "readonly",
-  );
-  const store = transaction.objectStore("mailMutations");
-  snapshot.sync = await transaction
-    .objectStore("mailboxSyncStates")
-    .get(emailAccountId);
   const batches = new Set<string>();
-  // Index keys provide counts and ordering without cloning queued reply bodies.
-  let cursor = await store
-    .index("byAccountDiagnostics")
-    .openKeyCursor(
-      IDBKeyRange.bound([emailAccountId], [emailAccountId, []]),
-      "prev",
+  let before: [string, number, string] | undefined;
+  let complete = false;
+  while (!complete) {
+    const transaction = database.transaction(
+      ["mailMutations", "mailboxSyncStates"],
+      "readonly",
     );
-  while (cursor) {
-    const [, , status, batchId, messageIds] = cursor.key;
-    snapshot.total += 1;
-    snapshot.counts[status] = (snapshot.counts[status] ?? 0) + 1;
-    const active = isActiveMailMutationStatus(status);
-    if (active) {
-      snapshot.activeCount += 1;
-      snapshot.activeMessageCount += messageIds.length;
-      batches.add(batchId);
-    }
-    if (
-      filter === "all" ||
-      filter === status ||
-      (filter === "active" && active)
-    ) {
-      snapshot.matchingCount += 1;
-      if (snapshot.mutations.length < limit) {
-        const record = await store.get(cursor.primaryKey);
-        if (record) {
-          const { payload, clientSource, result, ...metadata } = record;
-          snapshot.mutations.push(metadata);
+    const store = transaction.objectStore("mailMutations");
+    if (!before)
+      snapshot.sync = await transaction
+        .objectStore("mailboxSyncStates")
+        .get(emailAccountId);
+    // Short transactions let queued claims and lease renewals run between batches.
+    let cursor = await store
+      .index("byAccountDiagnostics")
+      .openKeyCursor(
+        IDBKeyRange.bound(
+          [emailAccountId],
+          before ?? [emailAccountId, []],
+          false,
+          true,
+        ),
+        "prev",
+      );
+    let scanned = 0;
+    while (cursor && scanned < 100) {
+      const [, createdAt, id, status, batchId, messageIds] = cursor.key;
+      before = [emailAccountId, createdAt, id];
+      scanned += 1;
+      snapshot.total += 1;
+      snapshot.counts[status] = (snapshot.counts[status] ?? 0) + 1;
+      const active = isActiveMailMutationStatus(status);
+      if (active) {
+        snapshot.activeCount += 1;
+        snapshot.activeMessageCount += messageIds.length;
+        batches.add(batchId);
+      }
+      if (
+        filter === "all" ||
+        filter === status ||
+        (filter === "active" && active)
+      ) {
+        snapshot.matchingCount += 1;
+        if (snapshot.mutations.length < limit) {
+          const record = await store.get(cursor.primaryKey);
+          if (record) {
+            const { payload, clientSource, result, ...metadata } = record;
+            snapshot.mutations.push(metadata);
+          }
         }
       }
+      cursor = await cursor.continue();
     }
-    cursor = await cursor.continue();
+    complete = !cursor;
+    await transaction.done;
+    if (!isEmailCacheEpochCurrent(emailAccountId, epoch)) return empty;
   }
-  await transaction.done;
-  if (!isEmailCacheEpochCurrent(emailAccountId, epoch)) return empty;
   snapshot.activeBatchCount = batches.size;
   return snapshot;
 }
