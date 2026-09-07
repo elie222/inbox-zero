@@ -232,14 +232,15 @@ describe("mail queue diagnostics", () => {
     ]);
     const originalGet = IDBObjectStore.prototype.get;
     let clearing = Promise.resolve();
-    vi.spyOn(IDBObjectStore.prototype, "get").mockImplementation(
-      function (key) {
-        const request = originalGet.call(this, key);
-        if (this.name === "mailMutations")
-          clearing = clearEmailCacheForAccount("account");
-        return request;
-      },
-    );
+    vi.spyOn(IDBObjectStore.prototype, "get").mockImplementation(function (
+      this: IDBObjectStore,
+      key,
+    ) {
+      const request = originalGet.call(this, key);
+      if (this.name === "mailMutations")
+        clearing = clearEmailCacheForAccount("account");
+      return request;
+    });
     const snapshot = await readMailQueueDiagnostics({
       emailAccountId: "account",
       filter: "all",

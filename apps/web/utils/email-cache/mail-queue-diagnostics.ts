@@ -97,10 +97,18 @@ export async function readMailQueueDiagnostics({
     (left, right) =>
       right.createdAt - left.createdAt || right.id.localeCompare(left.id),
   );
-  for (const { id } of matching.slice(0, limit)) {
-    const record = await database.get("mailMutations", id);
+  const page = matching.slice(0, limit);
+  for (let offset = 0; offset < page.length; offset += 100) {
+    const transaction = database.transaction("mailMutations", "readonly");
+    const records = await Promise.all(
+      page
+        .slice(offset, offset + 100)
+        .map(({ id }) => transaction.store.get(id)),
+    );
+    await transaction.done;
     if (!isEmailCacheEpochCurrent(emailAccountId, epoch)) return empty;
-    if (record) {
+    for (const record of records) {
+      if (!record) continue;
       const { payload, clientSource, result, ...metadata } = record;
       snapshot.mutations.push(metadata);
     }
