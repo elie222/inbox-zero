@@ -23,7 +23,12 @@ The package-level emulated command runs each spec with a fresh Next process,
 emulator, and authenticated mailbox, then merges the reports. Tests inside a
 spec remain serial. This avoids state leaking between specs and bounds the
 development server's compiled route graph. CI selects the affected specs once
-and runs each spec in its own matrix job.
+and distributes them across at most 12 matrix jobs. Each job installs dependencies,
+browsers, and database services once, then runs its specs sequentially with the
+same per-spec isolation. Selections of 12 or fewer specs retain one job per spec.
+The selection job lists each batch's specs in its GitHub summary; each test job
+reports per-spec durations and exit statuses. A failing spec does not skip the
+remaining specs in its batch, and any failure fails the combined `Web E2E` check.
 Pass one or more areas or spec paths when iterating on focused flows:
 
 ```sh
@@ -70,7 +75,7 @@ Shared Playwright setup and configuration changes use the full suite. Pushes to
 Run `node apps/web/scripts/measure-playwright-selection.mjs` from the repository
 root to record selected spec counts for representative changes. An optional
 first argument loads another selector module, allowing before/after comparisons
-against the same source tree. These are job-count measurements, not wall-clock
+against the same source tree. These are spec-count measurements, not wall-clock
 predictions; see [the initial comparison](selection-comparison.md).
 
 CI captures the final state of every selected test, and tests can add

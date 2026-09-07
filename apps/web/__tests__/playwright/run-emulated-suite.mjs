@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import {
+  appendFileSync,
   existsSync,
   mkdirSync,
   readdirSync,
@@ -12,10 +13,18 @@ import {
   fullSuites,
   selectChangedPlaywrightTargets,
 } from "../../utils/playwright/emulated-suite-selection.mjs";
-import { expandPlaywrightTargets } from "../../utils/playwright/emulated-suite-targets.mjs";
+import {
+  batchPlaywrightTargets,
+  expandPlaywrightTargets,
+} from "../../utils/playwright/emulated-suite-targets.mjs";
 const listTargets = process.argv.includes("--list-targets");
+const listBatches = process.argv.includes("--list-batches");
 const requestedPaths = getRequestedPlaywrightPaths(
-  process.argv.slice(2).filter((argument) => argument !== "--list-targets"),
+  process.argv
+    .slice(2)
+    .filter(
+      (argument) => !["--list-targets", "--list-batches"].includes(argument),
+    ),
 );
 const changedSelection = requestedPaths.length
   ? undefined
@@ -29,12 +38,34 @@ const selectedPaths = requestedPaths.length
     ? fullSuites.map(getPlaywrightTargetPath)
     : (changedSelection?.targetFiles ?? []);
 const targets = expandPlaywrightTargets(selectedPaths, process.cwd());
-if (listTargets) {
+if (listTargets || listBatches) {
+  const batches = batchPlaywrightTargets(targets);
+  if (listBatches && process.env.GITHUB_STEP_SUMMARY) {
+    appendFileSync(
+      process.env.GITHUB_STEP_SUMMARY,
+      [
+        `## Browser selection: ${targets.length} specs in ${batches.length} jobs`,
+        "",
+        changedSelection?.reason ?? "Explicitly requested specs.",
+        "",
+        "| Job | Specs |",
+        "| --- | --- |",
+        ...batches.map(
+          ({ name, paths }) =>
+            `| ${name} | ${paths.map((spec) => getRelativeSpecPath(spec)).join(", ")} |`,
+        ),
+        "",
+      ].join("\n"),
+    );
+  }
   await new Promise((resolve, reject) => {
-    process.stdout.write(`${JSON.stringify(targets)}\n`, (error) => {
-      if (error) reject(error);
-      else resolve();
-    });
+    process.stdout.write(
+      `${JSON.stringify(listBatches ? batches : targets)}\n`,
+      (error) => {
+        if (error) reject(error);
+        else resolve();
+      },
+    );
   });
   process.exit(0);
 }
@@ -53,7 +84,13 @@ if (!dryRun) {
 }
 
 let failed = false;
-const timings = [];
+
+if (!dryRun && process.env.GITHUB_STEP_SUMMARY) {
+  appendFileSync(
+    process.env.GITHUB_STEP_SUMMARY,
+    "## Isolated browser specs\n\n| Spec | Seconds | Exit status |\n| --- | ---: | ---: |\n",
+  );
+}
 
 if (requestedPaths.length) {
   console.log(`Running ${targets.length} requested Playwright target(s).`);
@@ -114,15 +151,21 @@ for (const target of targets) {
   }
 
   const seconds = Math.round((Date.now() - startedAt) / 1000);
-  timings.push({ target: target.name, seconds, status: result.status });
+  const timing = { target: target.name, seconds, status: result.status };
   console.log(
     `Finished ${target.name} in ${seconds}s (exit ${result.status}).`,
   );
   if (!dryRun) {
     writeFileSync(
       path.join(testResultsDir, `timings-${target.name}.json`),
-      JSON.stringify(timings, null, 2),
+      JSON.stringify([timing], null, 2),
     );
+    if (process.env.GITHUB_STEP_SUMMARY) {
+      appendFileSync(
+        process.env.GITHUB_STEP_SUMMARY,
+        `| ${getRelativeSpecPath(target.path)} | ${seconds} | ${result.status} |\n`,
+      );
+    }
   }
   if (result.status !== 0) failed = true;
 }
@@ -136,6 +179,10 @@ if (!dryRun && targets.length && !process.env.PLAYWRIGHT_SKIP_REPORT_MERGE) {
   if (mergeResult.status !== 0) failed = true;
 }
 process.exitCode = failed ? 1 : 0;
+
+function getRelativeSpecPath(specPath) {
+  return specPath.replace(/^__tests__\/playwright\/emulated\//, "");
+}
 
 function runPlaywright(args, extraEnv) {
   const pnpmExecutable = process.platform === "win32" ? "pnpm.cmd" : "pnpm";

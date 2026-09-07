@@ -73,7 +73,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     outputs:
-      targets: ${{ steps.targets.outputs.targets }}
+      batches: ${{ steps.targets.outputs.batches }}
       changed_tests: ${{ steps.changes.outputs.PLAYWRIGHT_CHANGED_TEST_FILES }}
     steps:
       - uses: actions/checkout@v4
@@ -121,23 +121,23 @@ jobs:
         run: bash scripts/pnpm-install-without-desktop.sh --frozen-lockfile
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
-      - name: Select isolated specs
+      - name: Select isolated spec batches
         id: targets
         working-directory: apps/web
         run: |
-          targets="$(node __tests__/playwright/run-emulated-suite.mjs --list-targets)"
-          echo "targets=$targets" >> "$GITHUB_OUTPUT"
+          batches="$(node __tests__/playwright/run-emulated-suite.mjs --list-batches)"
+          echo "batches=$batches" >> "$GITHUB_OUTPUT"
 
   playwright:
-    name: E2E ${{ matrix.target.name }}
+    name: E2E ${{ matrix.batch.name }}
     needs: select
-    if: needs.select.outputs.targets != '[]'
+    if: needs.select.outputs.batches != '[]'
     strategy:
       fail-fast: false
       matrix:
-        target: ${{ fromJSON(needs.select.outputs.targets) }}
+        batch: ${{ fromJSON(needs.select.outputs.batches) }}
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 20
     services:
       postgres:
         image: postgres:16
@@ -224,15 +224,18 @@ jobs:
 
       - name: Run Playwright tests
         id: playwright_tests
-        run: pnpm -F inbox-zero-ai test:playwright:emulated "$TEST_TARGET"
+        shell: bash
+        run: |
+          mapfile -t targets < <(jq -r '.[]' <<< "$TEST_TARGETS")
+          pnpm -F inbox-zero-ai test:playwright:emulated "${targets[@]}"
         env:
-          TEST_TARGET: ${{ matrix.target.path }}
+          TEST_TARGETS: ${{ toJSON(matrix.batch.paths) }}
 
       - name: Upload Playwright artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-spec-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.target.name }}
+          name: playwright-spec-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.batch.name }}
           path: |
             apps/web/.tmp/playwright/blob-report
             apps/web/test-results
@@ -291,7 +294,7 @@ jobs:
         if: always()
         env:
           SELECTION_RESULT: ${{ needs.select.result }}
-          TARGETS: ${{ needs.select.outputs.targets }}
+          TARGETS: ${{ needs.select.outputs.batches }}
           TEST_RESULT: ${{ needs.playwright.result }}
         run: |
           test "$SELECTION_RESULT" = success
