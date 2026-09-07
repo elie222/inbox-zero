@@ -6,6 +6,7 @@ import { withAuth } from "@/utils/middleware";
 import { loadCombinedThreads } from "@/utils/threads/load-combined";
 import { loadThreads, toListThreads } from "@/utils/threads/load";
 import { threadsQuery } from "@/utils/threads/validation";
+import { labelIdsToThreadsQuery } from "@/utils/mail/split-query";
 import { MAX_SPLIT_LABELS } from "@/utils/mail/split-constants";
 
 export const maxDuration = 30;
@@ -63,9 +64,7 @@ export const GET = withAuth("threads/all", async (request) => {
 
         const loaded = await loadThreads({
           query: threadsQuery.parse({
-            ...(matchingLabelIds.length === 1
-              ? { labelIds: [matchingLabelIds[0], "INBOX"] }
-              : { labelIds: ["INBOX"], anyLabelIds: matchingLabelIds }),
+            ...labelIdsToThreadsQuery(matchingLabelIds),
             limit,
             nextPageToken: pageToken,
           }),

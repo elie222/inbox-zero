@@ -24,9 +24,7 @@ export function mailSplitToThreadsQuery(split: MailSplit): ThreadsQuery {
     case MailSplitKind.LABEL: {
       if (!split.values.length)
         throw new Error(`Split "${split.name}" has no label`);
-      if (split.values.length === 1)
-        return { labelIds: [split.values[0], "INBOX"] };
-      return { labelIds: ["INBOX"], anyLabelIds: split.values };
+      return labelIdsToThreadsQuery(split.values);
     }
     case MailSplitKind.CATEGORY: {
       const [category] = split.values;
@@ -65,4 +63,9 @@ export function getPortableLabelSplits(
       ? [{ ...split, labelNames }]
       : [];
   });
+}
+
+export function labelIdsToThreadsQuery(labelIds: string[]): ThreadsQuery {
+  if (labelIds.length === 1) return { labelIds: [labelIds[0], "INBOX"] };
+  return { labelIds: ["INBOX"], anyLabelIds: labelIds };
 }
