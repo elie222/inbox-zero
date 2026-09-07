@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ArrowLeftIcon, Loader2Icon } from "lucide-react";
+import { ArrowLeftIcon, Loader2Icon, UsersIcon } from "lucide-react";
 import { useAtom, useAtomValue } from "jotai";
 import { buildMailCommandPalette } from "@/app/(app)/[emailAccountId]/mail/mail-command-palette";
 import { buildSnoozeCommandPalette } from "@/app/(app)/[emailAccountId]/mail/snooze-command-palette";
@@ -39,6 +39,7 @@ import {
 } from "@/lib/shortcuts/registry";
 import { useThread } from "@/hooks/useThread";
 import { enqueueThreadMailMutationBatch } from "@/utils/email-cache/thread-mail-mutations";
+import { AccountCommandList } from "@/components/AccountCommandList";
 import { toastError } from "@/components/Toast";
 
 const SECTION_ORDER: CommandSection[] = [
@@ -85,7 +86,6 @@ function CommandPalette() {
 
   return (
     <CommandPaletteContent
-      key={activeMailContext ? "mail" : "default"}
       displayedEmail={displayedEmail}
       mailCommandContext={activeMailContext}
       senderCommandContext={
@@ -105,8 +105,14 @@ function CommandPaletteContent({
   senderCommandContext: SenderCommandContext | null;
 }) {
   const [open, setOpen] = useAtom(commandPaletteOpenAtom);
-  const [page, setPage] = React.useState<"root" | "snooze">("root");
+  const [activePage, setPage] = React.useState<"root" | "snooze" | "accounts">(
+    "root",
+  );
   const [search, setSearch] = React.useState("");
+  const page =
+    activePage === "snooze" && !mailCommandContext?.actions.snooze
+      ? "root"
+      : activePage;
 
   const { emailAccountId } = useAccount();
   const { threadId, showEmail } = displayedEmail;
@@ -118,7 +124,11 @@ function CommandPaletteContent({
   });
 
   const shortcutHandlers: ShortcutHandlers = {
-    commandPalette: () => setOpen((wasOpen) => !wasOpen),
+    commandPalette: () => {
+      setPage("root");
+      setSearch("");
+      setOpen((wasOpen) => !wasOpen);
+    },
     compose: onOpenComposeModal,
     archive: threadId
       ? async () => {
@@ -226,7 +236,19 @@ function CommandPaletteContent({
           ...shortcutCommands.filter((command) => command.id === "compose"),
         ]
       : shortcutCommands;
-    allCommands = [...actionCommands, ...commands];
+    allCommands = [
+      ...actionCommands,
+      {
+        id: "switch-accounts",
+        label: "Switch accounts",
+        icon: UsersIcon,
+        section: "accounts",
+        keywords: ["switch", "accounts", "email", "inbox"],
+        closeOnSelect: false,
+        action: () => setPage("accounts"),
+      },
+      ...commands,
+    ];
   }
 
   const filteredCommands =
@@ -258,7 +280,7 @@ function CommandPaletteContent({
       open={open}
       onOpenChange={handleOpenChange}
       onEscapeKeyDown={(event) => {
-        if (page !== "snooze") return;
+        if (page === "root") return;
         event.preventDefault();
         setPage("root");
         setSearch("");
@@ -275,15 +297,26 @@ function CommandPaletteContent({
         key={page}
         autoFocus
         placeholder={
-          page === "snooze"
-            ? "When should it return? Try Friday at 3pm"
-            : "Type a command or search..."
+          {
+            root: "Type a command or search...",
+            snooze: "When should it return? Try Friday at 3pm",
+            accounts: "Search accounts...",
+          }[page]
         }
         value={search}
         onValueChange={setSearch}
       />
       <CommandList>
-        {isLoading ? (
+        {page === "accounts" ? (
+          <AccountCommandList
+            search={search}
+            onClose={() => handleOpenChange(false)}
+            onBack={() => {
+              setPage("root");
+              setSearch("");
+            }}
+          />
+        ) : isLoading ? (
           <div className="flex items-center justify-center py-6">
             <Loader2Icon className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>

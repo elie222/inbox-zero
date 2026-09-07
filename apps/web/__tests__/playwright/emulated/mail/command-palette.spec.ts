@@ -16,6 +16,11 @@ import {
   readLatestMailMutation,
 } from "./mail-test-helpers";
 
+import {
+  createSecondEmailAccount,
+  deleteSecondEmailAccount,
+} from "./account-test-helpers";
+
 const commandModifier = process.platform === "darwin" ? "Meta" : "Control";
 const SIDE_PANEL_ARCHIVE_MESSAGE_ID = "msg_playwright_archive";
 const SIDE_PANEL_ARCHIVE_SUBJECT = "Archive Action Message";
@@ -243,9 +248,80 @@ test("Command K acts on highlighted and selected conversations", async ({
   await expect(options).toHaveCount(initialConversationCount - 2);
 });
 
+test("Command K opens a searchable account list and switches the mailbox", async ({
+  page,
+}, testInfo) => {
+  const { emailAccountId } = await openMail(page);
+  const secondAccount = await createSecondEmailAccount(emailAccountId);
+  try {
+    await page.goto(
+      `/${emailAccountId}/mail?accountScope=all&labelId=Label_project&type=label`,
+    );
+    await page.keyboard.press(`${commandModifier}+KeyK`);
+    const palette = page.getByRole("dialog");
+    await palette.getByRole("combobox").fill("switch accounts");
+    await expect(
+      palette.getByRole("option", { name: "Switch accounts", exact: true }),
+    ).toBeVisible();
+    await page.keyboard.press("Enter");
+    const search = palette.getByPlaceholder("Search accounts...");
+    await expect(search).toHaveValue("");
+    await expect(
+      palette.getByRole("option", { name: secondAccount.email, exact: true }),
+    ).toBeVisible();
+    await expect(
+      palette.getByRole("option", { name: "Add or manage accounts" }),
+    ).toBeVisible();
+    await attachScreenshotForChangedTest(
+      testInfo,
+      palette,
+      "command-palette-switch-accounts",
+    );
+    await page.keyboard.press(`${commandModifier}+KeyK`);
+    await expect(palette).toBeHidden();
+    await page.keyboard.press(`${commandModifier}+KeyK`);
+    await expect(
+      palette.getByPlaceholder("Type a command or search..."),
+    ).toBeVisible();
+    await palette.getByRole("combobox").fill("switch accounts");
+    await page.keyboard.press("Enter");
+    await search.fill("no-matching-account");
+    await expect(palette.getByText("No accounts found.")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(palette).toBeVisible();
+    await expect(palette.getByRole("combobox")).toHaveValue("");
+    await palette.getByRole("combobox").fill("switch accounts");
+    await page.keyboard.press("Enter");
+    await palette
+      .getByPlaceholder("Search accounts...")
+      .fill(secondAccount.name);
+    await expect(palette.getByRole("option")).toHaveCount(1);
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(new RegExp(`/${secondAccount.id}/mail$`));
+    await expect(
+      page.getByRole("button", { name: new RegExp(secondAccount.name) }).last(),
+    ).toBeVisible();
+    await page.keyboard.press(`${commandModifier}+KeyK`);
+    await expect(
+      page.getByRole("dialog").getByPlaceholder("Type a command or search..."),
+    ).toBeVisible();
+  } finally {
+    await page.goto(`/${emailAccountId}/mail`);
+    await deleteSecondEmailAccount(secondAccount.accountId);
+  }
+});
+
 test("sender actions are available for a selected list row and match the reader", async ({
   page,
 }, testInfo) => {
+  const updateErrors: string[] = [];
+  page.on("console", (message) => {
+    if (
+      message.type() === "error" &&
+      message.text().includes("Maximum update depth exceeded")
+    )
+      updateErrors.push(message.text());
+  });
   await page.route("**/api/user/stats/newsletters?**", (route) =>
     route.fulfill({ json: { newsletters: [], searchedSenderStatus: null } }),
   );
@@ -288,6 +364,7 @@ test("sender actions are available for a selected list row and match the reader"
     menu,
     "mail-reader-sender-actions",
   );
+  expect(updateErrors).toEqual([]);
 });
 
 test("the open reader exposes its actions in Command K and forwards with F", async ({

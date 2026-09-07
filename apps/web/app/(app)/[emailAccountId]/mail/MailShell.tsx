@@ -106,6 +106,7 @@ import {
 } from "@/utils/mail/split-query";
 import { getActionErrorMessage } from "@/utils/error";
 import { prefixPath } from "@/utils/path";
+import { getMailAccountUrl } from "@/app/(app)/[emailAccountId]/mail/mail-account-url";
 import { redirectToSafeUrl } from "@/utils/redirect";
 import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -870,17 +871,7 @@ export function MailShell() {
     (isMenuOpen && Boolean(openThreadId));
 
   const selectAccount = useCallback((accountId: string) => {
-    const params = new URLSearchParams(window.location.search);
-    const hasAccountScopedFilter =
-      params.has("labelId") || params.has("folderId");
-    params.delete("accountScope");
-    params.delete("thread-id");
-    params.delete("thread-account-id");
-    params.delete("labelId");
-    params.delete("folderId");
-    if (hasAccountScopedFilter) params.delete("type");
-    const query = params.toString();
-    redirectToSafeUrl(`/${accountId}/mail${query ? `?${query}` : ""}`);
+    redirectToSafeUrl(getMailAccountUrl(accountId, window.location.search));
   }, []);
 
   const selectAllAccounts = useCallback(() => {

@@ -177,6 +177,7 @@ const SHORTCUT_DEFINITIONS = [
     group: "Navigate",
     label: "Command palette",
     allowWhileTyping: true,
+    capture: true,
   },
   {
     id: "select",
