@@ -1,0 +1,203 @@
+#!/usr/bin/env bash
+# Compact PR status for agents. Prints only what needs a decision.
+#
+#   pr-digest [PR]            one-shot digest
+#   pr-digest --watch [PR]    poll until checks settle, then digest
+#   pr-digest --all [PR]      re-print findings already shown once
+#   pr-digest --logs JOB_ID   failing CI log, stripped of timestamp noise
+#   pr-digest --reply ID BODY reply to a review comment thread
+#
+# Exit: 0 green · 10 check failures · 11 open comments · 12 still pending
+#       20 local/remote out of sync · 1 error
+set -uo pipefail
+
+POLL=${PR_DIGEST_POLL:-30}
+DEADLINE=${PR_DIGEST_DEADLINE:-3600}
+BODY_CHARS=${PR_DIGEST_BODY_CHARS:-600}
+SEEN_DIR=${PR_DIGEST_SEEN_DIR:-$HOME/.cache/pr-digest}
+SHOW_ALL=0
+
+die() { echo "pr-digest: $*" >&2; exit 1; }
+
+# CI logs are mostly prefix and dev-server chatter; a Playwright failure is a
+# handful of assertion and code-frame lines. Keep those, drop the rest.
+logs() {
+  local job=$1 keep out
+  keep='^[0-9]+\) |^ *(Error|TimeoutError|AssertionError):|^ *(Locator|Expected|Received|Timeout|Call log):|^ *- (Expect|waiting for|locator resolved)|^ *>? *[0-9]+ \| |^ *\^|^ *at .*\.(spec|test)\.[jt]sx?:[0-9]|^ *[0-9]+ (failed|passed|flaky|skipped)|^ *(✘|✗|×) |^##\[error\]'
+  out=$(gh run view --job "$job" --log-failed 2>/dev/null |
+    perl -pe 's/^[^\t]*\t[^\t]*\t\S+\s//' |
+    grep -v '^\[WebServer\]' |
+    grep -E "$keep" |
+    perl -pe 's/\e\[[0-9;]*m//g' |
+    awk '!/^##\[error\]/ || !seen[$0]++' |
+    tail -n "${PR_DIGEST_LOG_LINES:-80}")
+  if [ -n "$out" ]; then
+    echo "$out"
+  else
+    # Unrecognised format: fall back to the tail, still de-prefixed.
+    gh run view --job "$job" --log-failed 2>/dev/null |
+      perl -pe 's/^[^\t]*\t[^\t]*\t\S+\s//' |
+      grep -vE '^\s*$|^\[WebServer\]' | tail -n 40
+  fi
+}
+
+digest() {
+  local pr=$1 repo=$2 viewer=$3
+
+  local meta head state mergeable branch
+  meta=$(gh pr view "$pr" --repo "$repo" --json headRefOid,state,mergeable,headRefName) || die "no PR $pr"
+  head=$(jq -r .headRefOid <<<"$meta")
+  state=$(jq -r .state <<<"$meta")
+  mergeable=$(jq -r .mergeable <<<"$meta")
+  branch=$(jq -r .headRefName <<<"$meta")
+
+  echo "PR $pr · $branch · $state · $mergeable"
+  [ "$state" = "OPEN" ] || { echo "VERDICT $state"; return 0; }
+
+  # Sync only matters when this checkout is on the PR's branch; inspecting
+  # someone else's PR from elsewhere is not a mismatch worth reporting.
+  local sync=0 local_sha upstream_sha
+  if [ "$(git branch --show-current 2>/dev/null)" = "$branch" ]; then
+    local_sha=$(git rev-parse HEAD 2>/dev/null || echo -)
+    upstream_sha=$(git rev-parse '@{upstream}' 2>/dev/null || echo -)
+    if [ "$local_sha" != "$head" ] || [ "$upstream_sha" != "$head" ]; then
+      echo "OUT OF SYNC local=${local_sha:0:8} upstream=${upstream_sha:0:8} pr=${head:0:8}"
+      sync=20
+    fi
+  fi
+
+  local runs statuses
+  runs=$(gh api --paginate "repos/$repo/commits/$head/check-runs?per_page=100" --jq '.check_runs[] | {name,status,conclusion,html_url}' | jq -s .)
+  statuses=$(gh api "repos/$repo/commits/$head/status?per_page=100" --jq '[.statuses[] | {context,state}]')
+
+  local pending failed
+  pending=$(jq '[.[] | select(.status != "completed")] | length' <<<"$runs")
+  failed=$(jq '[.[] | select(.conclusion != null and (.conclusion | test("^(success|neutral|skipped)$") | not))] | length' <<<"$runs")
+  pending=$((pending + $(jq '[.[] | select(.state == "pending")] | length' <<<"$statuses")))
+
+  jq -r '"checks " + ([.[].conclusion // "pending"] | group_by(.) | map("\(length) \(.[0])") | join(" · "))' <<<"$runs"
+
+  local bad_statuses
+  bad_statuses=$(jq -r '.[] | select(.state != "success") | "STATUS \(.context) \(.state)"' <<<"$statuses")
+  [ -n "$bad_statuses" ] && echo "$bad_statuses"
+
+  # Failing checks, annotated with the step that broke so infra cancellations
+  # are distinguishable from real test failures without another round trip.
+  if [ "$failed" -gt 0 ]; then
+    while IFS=$'\t' read -r name conclusion url; do
+      local job step_info=""
+      job=${url##*/job/}
+      if [[ $job =~ ^[0-9]+$ ]]; then
+        step_info=$(gh api "repos/$repo/actions/jobs/$job" --jq '
+          (.steps // []) as $s
+          | ([$s[] | select(.conclusion == "failure" or .conclusion == "cancelled")] | first) as $bad
+          | if $bad == null then ""
+            else " · step \"\($bad.name)\" \($bad.conclusion)"
+                 + (if ([$s[] | select(.number > $bad.number and .conclusion == "skipped")] | length) > 0
+                    then " (later steps skipped, tests did not run)" else "" end)
+            end' 2>/dev/null)
+      fi
+      echo "FAIL $name [$conclusion]$step_info"
+      echo "     job=$job $url"
+    done < <(jq -r '.[] | select(.conclusion != null and (.conclusion | test("^(success|neutral|skipped)$") | not)) | [.name,.conclusion,.html_url] | @tsv' <<<"$runs")
+  fi
+
+  # A root comment is open until *you* have replied to it. Bot follow-ups that
+  # merely confirm a fix must not mark it handled.
+  local comments open open_n seen_file
+  comments=$(gh api --paginate "repos/$repo/pulls/$pr/comments?per_page=100" | jq -s 'add // []')
+  open=$(jq --arg me "$viewer" --argjson n "$BODY_CHARS" '
+    # Review bots pad bodies with collapsed sections, HTML markers and badge
+    # images; the prose before them is the whole finding.
+    # Bots differ in where they put the finding: cubic leads with HTML markers,
+    # CodeRabbit brackets it with tool-output blocks. Remove each <details>
+    # block from the inside out — truncating at the first one drops the prose
+    # that follows it, and cutting to the last one drops the prose between.
+    def clean:
+      gsub("<!--[\\s\\S]*?-->"; "")
+      | reduce range(0; 6) as $_ (.;
+          sub("<details>(?:(?!<details>)[\\s\\S])*?</details>"; ""))
+      | gsub("<img[^>]*alt=\"(?<a>[^\"]*)\"[^>]*>"; "\(.a)")
+      | gsub("<[^>]+>"; "") | gsub("\\s+"; " ")
+      | sub("^ +"; "") | sub(" +$"; "") | .[0:$n];
+    [.[] | select(.in_reply_to_id != null and .user.login == $me) | .in_reply_to_id] as $mine
+    | [.[] | select(.in_reply_to_id == null and .user.login != $me)
+           | select(.id as $i | ($mine | index($i)) | not)
+           | {key: "\(.id):\(.updated_at)", id, author: .user.login, path,
+              line: (.line // .original_line), body: (.body | clean)}]' <<<"$comments")
+
+  open_n=$(jq length <<<"$open")
+  echo "comments $(jq 'length' <<<"$comments") total · $open_n awaiting your reply"
+
+  if [ "$open_n" -gt 0 ]; then
+    # Show a finding in full once. On later cycles it stays listed — nothing is
+    # hidden — but as a single line, so re-observing an unfixed PR stays cheap.
+    seen_file="$SEEN_DIR/${repo//\//-}-$pr"
+    mkdir -p "$SEEN_DIR"; touch "$seen_file"
+    if [ "$SHOW_ALL" = 1 ]; then
+      jq -r '.[] | "\n[\(.id)] \(.author) \(.path):\(.line)\n  \(.body)"' <<<"$open"
+    else
+      jq -r --rawfile seen "$seen_file" '
+        ($seen | split("\n")) as $s
+        | .[] | .key as $k
+        | if ($s | index($k)) then
+                  "[\(.id)] \(.author) \(.path):\(.line) — still open (shown earlier)"
+                else "\n[\(.id)] \(.author) \(.path):\(.line)\n  \(.body)" end' <<<"$open"
+    fi
+    jq -r '.[].key' <<<"$open" >> "$seen_file"
+    sort -u -o "$seen_file" "$seen_file"
+  fi
+
+  if [ "$sync" -ne 0 ]; then echo "VERDICT out-of-sync"; return 20; fi
+  if [ "$failed" -gt 0 ]; then echo "VERDICT failures"; return 10; fi
+  if [ "$open_n" -gt 0 ]; then echo "VERDICT open-comments"; return 11; fi
+  if [ "$pending" -gt 0 ]; then echo "VERDICT pending ($pending)"; return 12; fi
+  echo "VERDICT green"
+  return 0
+}
+
+main() {
+  local watch=0 pr=""
+  while [ $# -gt 0 ]; do
+    case $1 in
+      --watch) watch=1 ;;
+      --all) SHOW_ALL=1 ;;
+      --logs) shift; logs "${1:?job id}"; exit 0 ;;
+      --reply)
+        shift
+        gh api "repos/$(gh repo view --json nameWithOwner --jq .nameWithOwner)/pulls/comments/${1:?comment id}/replies" \
+          -f body="${2:?reply body}" --jq '"replied \(.id)"'
+        exit $? ;;
+      -h|--help) sed -n '2,10p' "$0"; exit 0 ;;
+      *) pr=$1 ;;
+    esac
+    shift
+  done
+
+  command -v gh >/dev/null || die "gh not found"
+  command -v jq >/dev/null || die "jq not found"
+
+  local repo viewer
+  repo=$(gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null) || die "not a GitHub repo"
+  viewer=$(gh api user --jq .login)
+  [ -n "$pr" ] || pr=$(gh pr view --json number --jq .number 2>/dev/null) || die "no PR for this branch"
+
+  if [ "$watch" -eq 1 ]; then
+    local started=$SECONDS head
+    while [ $((SECONDS - started)) -lt "$DEADLINE" ]; do
+      head=$(gh pr view "$pr" --repo "$repo" --json headRefOid --jq .headRefOid)
+      # Settled once every check run on this exact SHA is terminal and no
+      # commit status is still pending.
+      if [ "$(gh api --paginate "repos/$repo/commits/$head/check-runs?per_page=100" --jq '[.check_runs[] | select(.status != "completed")] | length')" = "0" ] &&
+         [ "$(gh api "repos/$repo/commits/$head/status?per_page=100" --jq '[.statuses[] | select(.state == "pending")] | length')" = "0" ] &&
+         [ "$(gh api --paginate "repos/$repo/commits/$head/check-runs?per_page=100" --jq '[.check_runs[]] | length')" != "0" ]; then
+        break
+      fi
+      sleep "$POLL"
+    done
+  fi
+
+  digest "$pr" "$repo" "$viewer"
+}
+
+main "$@"
