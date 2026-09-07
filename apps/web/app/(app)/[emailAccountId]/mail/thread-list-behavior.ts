@@ -1,3 +1,6 @@
+import { formatDateGroupLabel } from "@/utils/date";
+import { getThreadTimestamp } from "@/utils/threads/sort";
+
 export const THREAD_PREFETCH_REMAINING = 8;
 export const THREAD_SCROLL_PADDING_PX = 8;
 export const THREAD_LOAD_MORE_ROOT_MARGIN = "400px 0px";
@@ -129,4 +132,34 @@ export function scrollElementIntoContainer(
   } else if (bottomOverflow > 0) {
     container.scrollTop += bottomOverflow;
   }
+}
+
+/**
+ * Splits a date-ordered list into consecutive runs that share a date heading,
+ * keeping each thread's position in the flat list so selection and focus stay
+ * index-addressed. Runs are dated with the same timestamp the list is sorted
+ * by, so a heading can never disagree with where its rows sit; undated threads
+ * get no heading rather than a fabricated one.
+ */
+export function groupThreadsByDate<
+  T extends { messages: Array<{ internalDate?: string | null }> },
+>(threads: T[], now?: Date) {
+  const groups: {
+    label: string | null;
+    startIndex: number;
+    threads: T[];
+  }[] = [];
+
+  threads.forEach((thread, index) => {
+    const timestamp = getThreadTimestamp(thread);
+    const label = timestamp
+      ? formatDateGroupLabel(new Date(timestamp), now)
+      : null;
+
+    const openGroup = groups.at(-1);
+    if (openGroup?.label === label) openGroup.threads.push(thread);
+    else groups.push({ label, startIndex: index, threads: [thread] });
+  });
+
+  return groups;
 }
