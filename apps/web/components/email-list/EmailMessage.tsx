@@ -1,5 +1,5 @@
 import { CalendarInvitation } from "@/components/email-list/CalendarInvitation";
-import { isCalendarInviteAttachment } from "@/utils/parse/calender-event";
+import { isCalendarInvitationMessage } from "@/utils/calendar/invitations/detection";
 import { useCallback, useMemo, useState, useRef, useEffect } from "react";
 import { useAction } from "next-safe-action/hooks";
 import useSWR from "swr";
@@ -177,11 +177,7 @@ export function EmailMessage({
         <div className="min-w-0 pt-3 sm:pl-9">
           {showDetails && <EmailDetails message={message} />}
 
-          {(message.calendarContent ||
-            message.isMeetingInvitation ||
-            [...(message.attachments ?? []), ...(message.inline ?? [])].some(
-              isCalendarInviteAttachment,
-            )) && (
+          {isCalendarInvitationMessage(message) && (
             <CalendarInvitation key={message.id} messageId={message.id} />
           )}
 

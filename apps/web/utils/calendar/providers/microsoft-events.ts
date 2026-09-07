@@ -20,6 +20,9 @@ import { BookingLinkLocationType } from "@/generated/prisma/enums";
 import type { Logger } from "@/utils/logger";
 import { sleep } from "@/utils/sleep";
 
+// PidLidAppointmentSequence tracks the organizer's meeting revision.
+const APPOINTMENT_SEQUENCE_PROPERTY =
+  "Integer {00062002-0000-0000-C000-000000000046} Id 0x8201";
 const ONLINE_MEETING_JOIN_URL_POLL_DELAYS_MS = [500, 1000, 2000] as const;
 const MICROSOFT_TEAMS_PROVIDER = "teamsForBusiness";
 
@@ -166,11 +169,13 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
       .query({
         $filter: `iCalUId eq '${escapeODataString(invitation.uid)}'`,
         $top: 2,
+        $expand: `singleValueExtendedProperties($filter=id eq '${APPOINTMENT_SEQUENCE_PROPERTY}')`,
       })
       .get();
     const events: Array<
       MicrosoftEvent & {
         isCancelled?: boolean;
+        singleValueExtendedProperties?: Array<{ id: string; value: string }>;
         responseStatus?: { response?: string };
       }
     > = result.value ?? [];
@@ -192,6 +197,16 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
       )
     )
       return null;
+    const revision = event.singleValueExtendedProperties?.find(
+      (property) =>
+        property.id.toLowerCase() ===
+        APPOINTMENT_SEQUENCE_PROPERTY.toLowerCase(),
+    )?.value;
+    if (!revision || !/^\d+$/.test(revision)) return null;
+    if (Number(revision) !== invitation.sequence)
+      throw new SafeError(
+        "This invitation has changed. Please respond to the latest invitation in your calendar.",
+      );
     const response = event.responseStatus?.response;
     return {
       id: event.id,

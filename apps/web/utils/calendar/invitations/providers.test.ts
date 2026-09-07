@@ -65,12 +65,33 @@ beforeEach(() => {
         organizer: { emailAddress: { address: invitation.organizer } },
         attendees: [{ emailAddress: { address: invitation.attendee } }],
         responseStatus: { response: "tentativelyAccepted" },
+        singleValueExtendedProperties: [
+          {
+            id: "Integer {00062002-0000-0000-C000-000000000046} Id 0x8201",
+            value: "2",
+          },
+        ],
       },
     ],
   });
 });
 
 describe("Google invitation responses", () => {
+  it("finds the series master even when exception instances share its UID", async () => {
+    mocks.list
+      .mockResolvedValueOnce({
+        data: {
+          items: [{ ...event, id: "exception", recurringEventId: "event" }],
+          nextPageToken: "next",
+        },
+      })
+      .mockResolvedValueOnce({ data: { items: [event] } });
+    expect(await google.findInvitationEvent(invitation)).toEqual({
+      id: "event",
+      response: "needsAction",
+    });
+  });
+
   it("does not respond to a cancelled event through the email fallback", async () => {
     mocks.list.mockResolvedValue({
       data: { items: [{ ...event, status: "cancelled" }] },
@@ -123,6 +144,19 @@ describe("Google invitation responses", () => {
 });
 
 describe("Microsoft invitation responses", () => {
+  it("rejects stale Outlook revisions", async () => {
+    await expect(
+      microsoft.findInvitationEvent({ ...invitation, sequence: 1 }),
+    ).rejects.toThrow("latest invitation");
+  });
+
+  it("uses email fallback when Outlook cannot verify the revision", async () => {
+    const result = await mocks.get();
+    result.value[0].singleValueExtendedProperties = undefined;
+    mocks.get.mockResolvedValue(result);
+    expect(await microsoft.findInvitationEvent(invitation)).toBeNull();
+  });
+
   it("rejects cancelled calendar events", async () => {
     mocks.get.mockResolvedValue({
       value: [{ id: "event", isCancelled: true }],

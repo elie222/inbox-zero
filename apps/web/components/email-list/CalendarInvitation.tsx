@@ -42,7 +42,7 @@ export function CalendarInvitation({ messageId }: { messageId: string }) {
   const invitation = data?.invitation;
   const response = submitted?.response ?? invitation?.response;
   let status =
-    "Your response will be emailed to the organizer. Calendar sync isn’t available for this invitation.";
+    "No matching calendar event was verified. Your response will be emailed to the organizer.";
   if (invitation?.calendarSynced)
     status =
       "Your response will update your calendar and notify the organizer.";

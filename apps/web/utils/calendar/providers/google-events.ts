@@ -119,15 +119,24 @@ export class GoogleCalendarEventProvider implements CalendarEventProvider {
     // An exception must never accidentally update the whole recurring series.
     if (invitation.recurrenceId) return null;
     const client = await this.getClient();
-    const { data } = await client.events.list({
-      calendarId: "primary",
-      iCalUID: invitation.uid,
-      showDeleted: true,
-      maxResults: 2,
-    });
-    const events = data.items ?? [];
-    if (events.length !== 1 || data.nextPageToken) return null;
-    const event = events[0];
+    let pageToken: string | undefined;
+    let event: calendar_v3.Schema$Event | undefined;
+    do {
+      const { data } = await client.events.list({
+        calendarId: "primary",
+        iCalUID: invitation.uid,
+        showDeleted: true,
+        maxResults: 2500,
+        pageToken,
+      });
+      for (const candidate of data.items ?? []) {
+        if (candidate.recurringEventId) continue;
+        if (event) return null;
+        event = candidate;
+      }
+      pageToken = data.nextPageToken ?? undefined;
+    } while (pageToken);
+    if (!event) return null;
     if (event.status === "cancelled")
       throw new SafeError("This event has been cancelled.");
     if (

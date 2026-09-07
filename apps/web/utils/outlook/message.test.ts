@@ -4,6 +4,7 @@ import { createTestLogger } from "@/__tests__/helpers";
 import {
   buildOutlookSearchFallbackQuery,
   convertMessage,
+  getMessage,
   queryBatchMessages,
   queryMessagesWithAttachments,
   queryMessagesWithFilters,
@@ -587,4 +588,75 @@ function createMockMessagesRequest() {
   };
 
   return request;
+}
+
+describe("calendar MIME enrichment", () => {
+  it("keeps invitation attachments when the optional MIME fetch fails", async () => {
+    const rawGet = vi
+      .fn()
+      .mockRejectedValue({ statusCode: 400, message: "MIME unavailable" });
+    const client = calendarMessageClient(rawGet);
+    const message = await getMessage("message", client, createTestLogger(), {
+      includeCalendarContent: true,
+    });
+    expect(message.isMeetingInvitation).toBe(true);
+    expect(message.attachments?.[0].attachmentId).toBe("attachment");
+    expect(message.calendarContent).toBeUndefined();
+  });
+
+  it("extracts calendar data from a native Outlook meeting message", async () => {
+    const content = "BEGIN:VCALENDAR\r\nMETHOD:REQUEST\r\nEND:VCALENDAR";
+    const rawGet = vi
+      .fn()
+      .mockResolvedValue(
+        "MIME-Version: 1.0\r\nContent-Type: text/calendar; method=REQUEST; charset=utf-8\r\n\r\n" +
+          content,
+      );
+    const message = await getMessage(
+      "message",
+      calendarMessageClient(rawGet),
+      createTestLogger(),
+      { includeCalendarContent: true },
+    );
+    expect(message.calendarContent?.trim()).toBe(
+      content.replaceAll("\r\n", "\n"),
+    );
+  });
+
+  it("does not fetch raw MIME for ordinary message reads", async () => {
+    const rawGet = vi.fn();
+    await getMessage(
+      "message",
+      calendarMessageClient(rawGet),
+      createTestLogger(),
+    );
+    expect(rawGet).not.toHaveBeenCalled();
+  });
+});
+
+function calendarMessageClient(rawGet: ReturnType<typeof vi.fn>) {
+  const request = {
+    select: vi.fn().mockReturnThis(),
+    expand: vi.fn().mockReturnThis(),
+    get: vi.fn().mockResolvedValue({
+      id: "message",
+      "@odata.type": "#microsoft.graph.eventMessageRequest",
+      attachments: [
+        {
+          id: "attachment",
+          name: "invite.ics",
+          contentType: "text/calendar",
+          size: 100,
+        },
+      ],
+    }),
+  };
+  const rawRequest = { responseType: vi.fn().mockReturnThis(), get: rawGet };
+  return {
+    getFolderIdCache: () => ({}),
+    getCategoryMapCache: () => new Map(),
+    getClient: () => ({
+      api: (path: string) => (path.endsWith("/$value") ? rawRequest : request),
+    }),
+  } as unknown as OutlookClient;
 }

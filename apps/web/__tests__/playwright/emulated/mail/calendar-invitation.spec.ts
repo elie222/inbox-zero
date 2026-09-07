@@ -9,7 +9,7 @@ test("shows inline calendar responses with the current RSVP", async ({
   await page.route("**/api/threads/thr_playwright_reader?**", async (route) => {
     const response = await route.fetch();
     const body: ThreadResponse = await response.json();
-    const message = body.thread.messages.at(-1);
+    const message = body.thread.messages.at(0);
     if (!message) throw new Error("Reader fixture has no messages");
     message.calendarContent = "BEGIN:VCALENDAR";
     await route.fulfill({ response, json: body });

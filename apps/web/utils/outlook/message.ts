@@ -848,22 +848,31 @@ export async function getMessage(
 
   const parsed = convertMessage(message, folderIds, categoryMap, logger);
   if (options?.includeCalendarContent && parsed.isMeetingInvitation) {
-    const raw: string = await withMicrosoftGraphRetry(
-      () =>
-        client
-          .getClient()
-          .api(`/me/messages/${encodeURIComponent(messageId)}/$value`)
-          .responseType(ResponseType.TEXT)
-          .get(),
-      logger,
-    );
-    if (raw.length <= 2_000_000) {
-      const mime = await PostalMime.parse(raw, { attachmentEncoding: "utf8" });
-      const calendars = mime.attachments.filter(
-        (attachment) => attachment.mimeType === "text/calendar",
+    try {
+      const raw: string = await withMicrosoftGraphRetry(
+        () =>
+          client
+            .getClient()
+            .api(`/me/messages/${encodeURIComponent(messageId)}/$value`)
+            .responseType(ResponseType.TEXT)
+            .get(),
+        logger,
       );
-      if (calendars.length === 1)
-        parsed.calendarContent = String(calendars[0].content);
+      if (raw.length <= 2_000_000) {
+        const mime = await PostalMime.parse(raw, {
+          attachmentEncoding: "utf8",
+        });
+        const calendars = mime.attachments.filter(
+          (attachment) => attachment.mimeType === "text/calendar",
+        );
+        if (calendars.length > 1) parsed.isMeetingInvitation = false;
+        if (calendars.length === 1)
+          parsed.calendarContent = String(calendars[0].content);
+      }
+    } catch (error) {
+      logger.warn("Failed to read calendar MIME content; using attachments", {
+        error,
+      });
     }
   }
   return parsed;
@@ -982,7 +991,9 @@ export function convertMessage(
   return {
     isMeetingInvitation:
       "@odata.type" in message &&
-      message["@odata.type"] === "#microsoft.graph.eventMessageRequest",
+      message["@odata.type"] === "#microsoft.graph.eventMessageRequest"
+        ? true
+        : undefined,
     id: message.id || "",
     threadId: message.conversationId || "",
     externalUrl: message.webLink || undefined,

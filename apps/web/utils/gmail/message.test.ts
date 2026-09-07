@@ -21,24 +21,56 @@ afterEach(() => {
 });
 
 describe("parseMessage", () => {
-  it("preserves inline calendar MIME data without an attachment id", () => {
-    const content = "BEGIN:VCALENDAR\r\nMETHOD:REQUEST\r\nEND:VCALENDAR";
+  it("detects calendar MIME parts without decoding their contents in lists", () => {
     const message = parseMessage({
       payload: {
         parts: [
           {
-            mimeType: "multipart/alternative",
-            parts: [
-              {
-                mimeType: "text/calendar",
-                body: { data: Buffer.from(content).toString("base64url") },
-              },
-            ],
+            mimeType: "text/calendar",
+            body: {
+              data: Buffer.from("BEGIN:VCALENDAR").toString("base64url"),
+            },
           },
         ],
       },
     });
+    expect(message.isMeetingInvitation).toBe(true);
+    expect(message.calendarContent).toBeUndefined();
+  });
+
+  it("decodes a single calendar MIME part only when requested", () => {
+    const content = "BEGIN:VCALENDAR\r\nMETHOD:REQUEST\r\nEND:VCALENDAR";
+    const message = parseMessage(
+      {
+        payload: {
+          parts: [
+            {
+              mimeType: "text/calendar",
+              body: { data: Buffer.from(content).toString("base64url") },
+            },
+          ],
+        },
+      },
+      { includeCalendarContent: true },
+    );
     expect(message.calendarContent).toBe(content);
+  });
+
+  it("rejects multiple calendar MIME parts even across nested alternatives", () => {
+    const part = {
+      mimeType: "text/calendar",
+      body: { data: Buffer.from("BEGIN:VCALENDAR").toString("base64url") },
+    };
+    const message = parseMessage(
+      {
+        payload: {
+          parts: [part, { mimeType: "multipart/alternative", parts: [part] }],
+        },
+      },
+      { includeCalendarContent: true },
+    );
+    expect(message.isMeetingInvitation).toBe(false);
+    expect(message.calendarContent).toBeUndefined();
   });
 
   it("keeps large inline images out of the downloadable attachment list", () => {

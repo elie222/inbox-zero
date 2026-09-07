@@ -11,7 +11,10 @@ import {
   isGoogleProvider,
   isMicrosoftProvider,
 } from "@/utils/email/provider-types";
-import { isCalendarInviteAttachment } from "@/utils/parse/calender-event";
+import {
+  getCalendarAttachments,
+  isCalendarInvitationMessage,
+} from "@/utils/calendar/invitations/detection";
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
 import { SafeError } from "@/utils/error";
@@ -106,12 +109,10 @@ async function getInvitationFromMessage(
   const message = await emailProvider.getMessage(messageId, {
     includeCalendarContent: true,
   });
+  if (!isCalendarInvitationMessage(message)) return null;
   if (message.calendarContent)
     return parseCalendarInvitation(message.calendarContent, email);
-  const attachments = [
-    ...(message.attachments ?? []),
-    ...(message.inline ?? []),
-  ].filter(isCalendarInviteAttachment);
+  const attachments = getCalendarAttachments(message);
   if (
     attachments.length !== 1 ||
     attachments[0].size > CALENDAR_INVITATION_LIMITS.content
