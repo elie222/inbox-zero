@@ -22,11 +22,14 @@ SHOW_ALL=0
 die() { echo "pr-digest: $*" >&2; exit 1; }
 
 # A failed API call must never look like a clean PR, so every fetch is checked.
-# `die` inside a command substitution only exits the subshell, so every caller
-# must also carry `|| die` for the abort to reach the script.
+# `die` here exits only the command substitution, so every caller carries its
+# own `|| die` for the abort to reach the script.
+# Keep stderr out of the payload — mixing it in corrupts JSON for jq.
 api() {
   local out
-  out=$(gh api "$@" 2>&1) || die "gh api $1 failed: $(head -1 <<<"$out")"
+  if ! out=$(gh api "$@" 2>/dev/null); then
+    die "gh api $1 failed: $(gh api "$@" 2>&1 | head -1)"
+  fi
   printf '%s' "$out"
 }
 
@@ -52,19 +55,23 @@ logs() {
     tail -n "${PR_DIGEST_LOG_LINES:-80}")
   if [ -n "$out" ]; then
     echo "$out"
-  else
-    gh run view --job "$job" --log-failed 2>/dev/null |
-      perl -pe 's/^[^\t]*\t[^\t]*\t\S+\s//' |
-      grep -vE '^\s*$|^\[WebServer\]' | tail -n 40
+    return 0
   fi
+  out=$(gh run view --job "$job" --log-failed 2>/dev/null |
+    perl -pe 's/^[^\t]*\t[^\t]*\t\S+\s//' |
+    grep -vE '^\s*$|^\[WebServer\]' | tail -n 40)
+  if [ -n "$out" ]; then
+    echo "$out"
+    return 0
+  fi
+  die "no failed log for job $job"
 }
 
 # The reply endpoint needs the pull number, which the comment itself carries.
 reply() {
   local repo id=$1 body=$2 pr
   repo=$(gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null) || die "not a GitHub repo"
-  pr=$(api "repos/$repo/pulls/comments/$id" --jq '.pull_request_url | split("/") | last') \
-    || die "could not read comment $id"
+  pr=$(api "repos/$repo/pulls/comments/$id" --jq '.pull_request_url | split("/") | last')
   [ -n "$pr" ] || die "could not resolve the pull request for comment $id"
   api "repos/$repo/pulls/$pr/comments/$id/replies" -f body="$body" --jq '"replied \(.id)"'
 }
@@ -146,7 +153,24 @@ digest() {
           sub("<details>(?:(?!<details>)[\\s\\S])*?</details>"; ""))
       | gsub("<img[^>]*alt=\"(?<a>[^\"]*)\"[^>]*>"; "\(.a)")
       | gsub("<[^>]+>"; "") | gsub("\\s+"; " ")
+      | explode
+      | map(select(. >= 32 and (. < 127 or . > 159)))
+      | implode
       | sub("^ +"; "") | sub(" +$"; "") | .[0:$n];'
+
+  # Deploy tables, rate-limit notices, screenshot galleries, and sticky bot
+  # summaries are status chrome — not findings that need a reply. Actionable
+  # bot conversation comments are not noise and must block green.
+  local noise_def='
+    def noise:
+      test("^\\[vc\\]:")
+      or test("(?i)is attempting to deploy a commit")
+      or test("rate limited by coderabbit")
+      or test("Review limit reached")
+      or test("(?i)<!-- *[a-z0-9-]*playwright-screenshots")
+      or test("(?i)(?:^|\\n)###? +Playwright screenshots")
+      or test("<!-- This is an auto-generated comment: summarize by coderabbit\\.ai -->")
+      or test("<h3>Greptile Summary</h3>");'
 
   # Inline review threads. One stays open until *you* have replied to it; a bot
   # follow-up confirming your fix must not mark it handled.
@@ -161,37 +185,50 @@ digest() {
            | {key: \"\(.id):\(.updated_at)\", id, author: .user.login, path,
               line: (.line // .original_line), body: (.body | clean)}]" <<<"$inline")
 
-  # Conversation comments have no threads, so "answered" means you have posted
-  # something since. Bot notices are counted but not expanded; a human comment
-  # is feedback that must not be missed.
-  local convo since bots convo_open
+  # Conversation comments have no threads. One stays open until *you* post a
+  # later conversation comment that quotes its permalink; any later post of
+  # yours is not enough, and a bot confirming a fix must not close it. Compare
+  # against updated_at so an edit after your reply reopens the finding.
+  local convo noise_n convo_open
   convo=$(api --paginate "repos/$repo/issues/$pr/comments?per_page=100" | jq -s 'add // []') \
     || die "could not read conversation comments"
-  since=$(jq -r --arg me "$viewer" '[.[] | select(.user.login == $me) | .created_at] | max // ""' \
-    <<<"$(jq -s 'add' <<<"$inline$convo")")
-  bots=$(jq '[.[] | select(.user.type == "Bot")] | length' <<<"$convo")
-  convo_open=$(jq --arg me "$viewer" --arg since "$since" --argjson n "$BODY_CHARS" "
+  noise_n=$(jq "
+    $noise_def
+    [.[] | select(.body | noise)] | length" <<<"$convo")
+  convo_open=$(jq --arg me "$viewer" --argjson n "$BODY_CHARS" "
     $clean_def
-    [.[] | select(.user.type != \"Bot\" and .user.login != \$me)
-         | select(\$since == \"\" or .created_at > \$since)
-         | {key: \"\(.id):\(.updated_at)\", id, author: .user.login,
-            path: \"(conversation)\", line: 0, body: (.body | clean)}]" <<<"$convo")
+    $noise_def
+    [.[] | select(.user.login == \$me)
+         | {id, created_at, body, html_url}] as \$mine
+    | [.[]
+       | select(.user.login != \$me)
+       | select(.body | noise | not)
+       | . as \$c
+       | select(
+           [\$mine[]
+            | select(.created_at > \$c.updated_at
+                     and (.body | (contains(\$c.html_url)
+                                   or test(\"#issuecomment-\(\$c.id)\"))))]
+           | length == 0)
+       | {key: \"\(.id):\(.updated_at)\", id, author: .user.login,
+          path: \"(conversation)\", line: 0, body: (.body | clean)}]" <<<"$convo")
 
+  # A human can request changes in a review summary with no line comment and no
+  # conversation comment attached, so that surface has to be read too.
   local reviews review_open
   reviews=$(api --paginate "repos/$repo/pulls/$pr/reviews?per_page=100" | jq -s 'add // []') \
     || die "could not read reviews"
-  review_open=$(jq --arg me "$viewer" --arg since "$since" --argjson n "$BODY_CHARS" "
+  review_open=$(jq --arg me "$viewer" --argjson n "$BODY_CHARS" "
     $clean_def
     [.[] | select(.user.type != \"Bot\" and .user.login != \$me)
          | select((.body // \"\") != \"\")
-         | select(\$since == \"\" or .submitted_at > \$since)
-         | {key: \"\(.id):\(.submitted_at)\", id, author: .user.login,
+         | {key: \"r\(.id):\(.submitted_at)\", id, author: .user.login,
             path: \"(review \(.state))\", line: 0, body: (.body | clean)}]" <<<"$reviews")
 
   open=$(jq -s 'add' <<<"$open$convo_open$review_open")
   local open_n seen_file
   open_n=$(jq length <<<"$open")
-  echo "comments $(jq length <<<"$inline") inline · $(jq length <<<"$convo") conversation ($bots bot) · $(jq length <<<"$reviews") reviews · $open_n awaiting your reply"
+  echo "comments $(jq length <<<"$inline") inline · $(jq length <<<"$convo") conversation ($noise_n noise) · $(jq length <<<"$reviews") reviews · $open_n awaiting your reply"
   [ "$decision" = "CHANGES_REQUESTED" ] && echo "REVIEW changes requested"
 
   if [ "$open_n" -gt 0 ]; then
@@ -214,11 +251,12 @@ digest() {
   fi
 
   # A verdict describes one commit. If the head moved while we were reading,
-  # everything above may already be stale.
-  local current_head
-  current_head=$(gh pr view "$pr" --repo "$repo" --json headRefOid --jq .headRefOid) \
-    || die "could not re-read the PR head"
-  if [ "$current_head" != "$head" ]; then
+  # everything above may already be stale. A failed re-read is an error, not
+  # an out-of-sync signal — callers must not push to "reconcile" a blind miss.
+  local head_now
+  head_now=$(gh pr view "$pr" --repo "$repo" --json headRefOid --jq .headRefOid) \
+    || die "could not re-read PR $pr head"
+  if [ "$head_now" != "$head" ]; then
     echo "VERDICT out-of-sync (head moved during this observation)"
     return 20
   fi
@@ -239,7 +277,12 @@ main() {
     case $1 in
       --watch) watch=1 ;;
       --all) SHOW_ALL=1 ;;
-      --logs) shift; logs "${1:?job id}"; exit 0 ;;
+      --logs)
+        shift
+        command -v perl >/dev/null || die "perl not found"
+        logs "${1:?job id}"
+        exit $?
+        ;;
       --reply) shift; reply "${1:?comment id}" "${2:?reply body}"; exit $? ;;
       -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
       *) pr=$1 ;;
@@ -252,14 +295,19 @@ main() {
 
   local repo viewer
   repo=$(gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null) || die "not a GitHub repo"
-  viewer=$(gh api user --jq .login)
+  # Prefer GraphQL: integration tokens often cannot GET /user, and a failed
+  # REST call still writes its error body to stdout — composing it with
+  # `$(a || b)` would concatenate that body onto the real login.
+  viewer=$(gh api graphql -f query='query { viewer { login } }' --jq .data.viewer.login 2>/dev/null) \
+    || viewer=$(gh api user --jq .login 2>/dev/null) \
+    || die "could not resolve authenticated user"
+  case $viewer in ''|null|\{*) die "could not resolve authenticated user" ;; esac
   [ -n "$pr" ] || pr=$(gh pr view --json number --jq .number 2>/dev/null) || die "no PR for this branch"
 
   if [ "$watch" -eq 1 ]; then
     local started=$SECONDS head runs statuses empty=0 left
     while :; do
-      head=$(gh pr view "$pr" --repo "$repo" --json headRefOid --jq .headRefOid) \
-        || die "could not read the PR head"
+      head=$(gh pr view "$pr" --repo "$repo" --json headRefOid --jq .headRefOid)
       runs=$(check_runs "$repo" "$head") || die "could not read check runs"
       statuses=$(commit_statuses "$repo" "$head") || die "could not read commit statuses"
       if [ "$(jq '[.[] | select(.status != "completed")] | length' <<<"$runs")" = "0" ] &&
