@@ -10,7 +10,6 @@ export function createPreservedEmailBlocks(
       id: "signature",
       kind: "signature",
       html: draft.signatureHtml,
-      collapsed: false,
     });
   }
   if (draft.quotedHtml) {
@@ -18,7 +17,6 @@ export function createPreservedEmailBlocks(
       id: "quote",
       kind: "quote",
       html: draft.quotedHtml,
-      collapsed: true,
     });
   }
   return blocks;

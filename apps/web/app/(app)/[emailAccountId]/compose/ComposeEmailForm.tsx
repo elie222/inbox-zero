@@ -45,6 +45,7 @@ import type {
   ContactsResponse,
 } from "@/app/api/user/contacts/route";
 import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
+import type { GetReferralCodeResponse } from "@/app/api/referrals/code/route";
 import { Input, Label } from "@/components/Input";
 import { ButtonLoader } from "@/components/Loading";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -84,8 +85,10 @@ import type {
 } from "@/utils/email-cache/reply-drafts";
 import { createPreservedEmailBlocks } from "@/utils/email/preserved-blocks";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import { renderSentWithFooterHtml } from "@/utils/email/sent-with-footer";
 import { getActionErrorMessage } from "@/utils/error";
 import { redirectToSafeUrl } from "@/utils/redirect";
+import { generateReferralLink } from "@/utils/referral/referral-link";
 import {
   type SendEmailBody,
   validateSendEmailPayloadSize,
@@ -158,6 +161,21 @@ export function ComposeEmailForm(props: ComposeEmailFormProps) {
   const selectedAccountProvider =
     props.fromAccounts?.find((account) => account.id === selectedEmailAccountId)
       ?.account.provider ?? provider;
+  const includeSentWithFooter =
+    !env.NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE &&
+    Boolean(emailAccount?.includeSentWithSignature);
+  const { data: referralCode, isLoading: isLoadingReferralCode } =
+    useSWR<GetReferralCodeResponse>(
+      includeSentWithFooter ? "/api/referrals/code" : null,
+    );
+  // A failed referral lookup still sends the footer, just without the referral link.
+  const sentWithFooterHtml = includeSentWithFooter
+    ? renderSentWithFooterHtml(
+        referralCode?.code
+          ? generateReferralLink(referralCode.code)
+          : env.NEXT_PUBLIC_BASE_URL,
+      )
+    : "";
 
   const localDraft = useLocalReplyDraft(
     props.draftSessionId && props.replyingToEmail?.threadId
@@ -177,7 +195,10 @@ export function ComposeEmailForm(props: ComposeEmailFormProps) {
     props.draftMode,
   );
   return (
-    <LoadingContent error={error} loading={isLoading || localDraft.isLoading}>
+    <LoadingContent
+      error={error}
+      loading={isLoading || localDraft.isLoading || isLoadingReferralCode}
+    >
       {emailAccount && (
         <ShortcutsProvider scopes={MAIL_SHORTCUT_SCOPES}>
           <ComposeEmailFormContent
@@ -186,6 +207,7 @@ export function ComposeEmailForm(props: ComposeEmailFormProps) {
             draftLoadError={localDraft.error}
             accountProvider={selectedAccountProvider}
             accountSignatureHtml={emailAccount.signature ?? ""}
+            sentWithFooterHtml={sentWithFooterHtml}
             key={`${selectedEmailAccountId}:${props.replyingToEmail?.threadId ?? ""}:${props.draftSessionId ?? ""}`}
             onSelectEmailAccount={setSelectedEmailAccountId}
             selectedEmailAccountId={selectedEmailAccountId}
@@ -208,6 +230,7 @@ function ComposeEmailFormContent({
   fromAccounts,
   accountProvider,
   accountSignatureHtml,
+  sentWithFooterHtml,
   selectedEmailAccountId,
   onSelectEmailAccount,
   refetch,
@@ -220,6 +243,7 @@ function ComposeEmailFormContent({
   draftLoadError?: Error;
   accountProvider: string;
   accountSignatureHtml: string;
+  sentWithFooterHtml: string;
   selectedEmailAccountId: string;
   onSelectEmailAccount: (emailAccountId: string) => void;
 }) {
@@ -286,12 +310,20 @@ function ComposeEmailFormContent({
       };
     }
 
-    const draft = prepareEmailDraft({
+    const preparedDraft = prepareEmailDraft({
       html: replyingToEmail?.draftHtml ?? "",
       quotedHtml: replyingToEmail?.quotedContentHtml,
       signatureHtml:
         replyingToEmail?.signatureHtml ?? accountSignatureHtml ?? undefined,
     });
+    // The footer travels with the signature so it lands right after it and is
+    // removed with it, without introducing another block in the composer.
+    const draft = {
+      ...preparedDraft,
+      signatureHtml: [preparedDraft.signatureHtml, sentWithFooterHtml]
+        .filter(Boolean)
+        .join("<br>"),
+    };
     const preservedBlocks = createPreservedEmailBlocks(draft);
     return { draft, preservedBlocks };
   });

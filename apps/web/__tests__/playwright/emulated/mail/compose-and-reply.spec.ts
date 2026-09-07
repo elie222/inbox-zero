@@ -38,6 +38,7 @@ test("keeps keyboard focus in the composer and follows the message field order",
     dialog.getByRole("textbox", { exact: true, name: "Bcc" }),
     dialog.getByPlaceholder("Subject"),
     dialog.getByRole("textbox", { name: "Email message" }),
+    dialog.getByRole("button", { name: "Show signature" }),
     dialog.getByRole("button", { name: /^Send/ }),
     dialog.getByRole("button", { name: "Attach files" }),
     dialog.getByRole("button", { name: "Insert inline images" }),
@@ -257,6 +258,14 @@ test("does not add a line break for the send shortcut", async ({
     .fill("recipient@example.com");
   await dialog.getByPlaceholder("Subject").fill(subject);
   await editor.pressSequentially("Draft body");
+  await dialog.getByRole("button", { name: "Show signature" }).click();
+  const signatureBlock = dialog.locator(
+    "[data-email-preserved-kind='signature']",
+  );
+  // The remove control only appears while hovering the signature.
+  await signatureBlock.hover();
+  await dialog.getByRole("button", { name: "Remove signature" }).click();
+  await expect(signatureBlock).toHaveCount(0);
 
   await editor.press("ControlOrMeta+Enter");
 
@@ -327,6 +336,13 @@ test("composes, sends, and reads a new message from Sent", async ({
   const composeEditor = dialog.locator("[contenteditable='true']");
   await composeEditor.pressSequentially("A composed message body.");
   await expect(composeEditor).toContainText("A composed message body.");
+  await dialog.getByRole("button", { name: "Show signature" }).click();
+  await expect(
+    dialog
+      .locator("[data-email-preserved-kind='signature']")
+      .getByRole("link", { name: "Inbox Zero" }),
+  ).toBeVisible();
+  await capturePlaywrightCheckpoint(page, testInfo, "composer-with-footer");
   await dialog.getByRole("button", { name: /^Send/ }).click();
 
   await expect(dialog).toBeHidden();
@@ -342,11 +358,11 @@ test("composes, sends, and reads a new message from Sent", async ({
   await sentConversation.click();
   await expect(page.getByRole("heading", { name: subject })).toBeVisible();
   await expect(page.getByText("recipient@example.com").first()).toBeVisible();
-  await expect(
-    page
-      .frameLocator('iframe[title="Email content preview"]')
-      .getByText("A composed message body."),
-  ).toBeVisible();
+  const sentMessage = page.frameLocator(
+    'iframe[title="Email content preview"]',
+  );
+  await expect(sentMessage.getByText("A composed message body.")).toBeVisible();
+  await expect(sentMessage.getByText("Sent with Inbox Zero")).toBeVisible();
   await capturePlaywrightCheckpoint(page, testInfo, "composed-message-in-sent");
 });
 
@@ -376,9 +392,10 @@ test("selects the sender when composing from all accounts", async ({
       .click();
 
     await expect(from).toContainText(secondAccount.email);
+    await dialog.getByRole("button", { name: "Show signature" }).click();
     await expect(
       dialog
-        .frameLocator('iframe[title="Signature preview"]')
+        .locator("[data-email-preserved-kind='signature']")
         .getByText(signature),
     ).toBeVisible();
   } finally {
@@ -427,8 +444,10 @@ test("opens and sends a reply from the reader with Enter", async ({
   await expect(replyEditor).toHaveCount(1);
   await expect(
     page.locator("[data-email-preserved-kind='quote']"),
+  ).toBeAttached();
+  await expect(
+    page.getByLabel(/^Show (signature and )?quoted message$/),
   ).toBeVisible();
-  await expect(page.getByLabel("Show quoted message")).toBeVisible();
   await expect(page.getByText("Quoted message", { exact: true })).toHaveCount(
     0,
   );

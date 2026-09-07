@@ -249,36 +249,69 @@
   border-top: 0;
 }
 
-.preservedSummary {
+.preservedToggle {
   display: flex;
-  gap: 0.45rem;
   align-items: center;
   min-height: 2.25rem;
   padding: 0.25rem 0;
   font-size: 0.75rem;
+  color: inherit;
   cursor: pointer;
   user-select: none;
-  list-style: none;
+  background: transparent;
+  border: 0;
 }
 
-[data-inline-reply="true"] .preservedSummary {
+.preservedToggle:hover,
+.preservedToggle:focus-visible {
+  color: var(--email-editor-foreground);
+  outline: none;
+}
+
+[data-inline-reply="true"] .preservedToggle {
   min-height: 1.5rem;
 }
 
-.preservedSummary::-webkit-details-marker {
-  display: none;
+.signatureContent {
+  position: relative;
+  padding: 0.25rem 0 0.5rem;
+  color: var(--email-editor-foreground);
+}
+
+.signatureHtml {
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+
+.signatureContent .signatureHtml img {
+  max-width: 100%;
+  height: auto;
+}
+
+.signatureContent .signatureHtml a {
+  color: #2563eb;
 }
 
 .removePreservedButton {
+  position: absolute;
+  top: 0;
+  right: 0;
   width: 1.75rem;
   height: 1.75rem;
-  margin-left: auto;
   font-size: 1.1rem;
-  color: inherit;
+  color: var(--email-editor-muted-foreground);
+  pointer-events: none;
   cursor: pointer;
   background: transparent;
   border: 0;
   border-radius: 999px;
+  opacity: 0;
+}
+
+.signatureContent:hover .removePreservedButton,
+.removePreservedButton:focus-visible {
+  pointer-events: auto;
+  opacity: 1;
 }
 
 .removePreservedButton:hover,
@@ -288,19 +321,11 @@
   background: var(--email-editor-muted);
 }
 
-.quotePreview,
-.signaturePreview {
+.quotePreview {
   width: 100%;
+  height: 12rem;
   background: #fff;
   border: 0;
-}
-
-.quotePreview {
-  height: 12rem;
-}
-
-.signaturePreview {
-  height: 6rem;
 }
 
 @media (max-width: 640px) {

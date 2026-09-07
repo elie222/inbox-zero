@@ -9,7 +9,7 @@ import {
 } from "@tiptap/react";
 import { isSafeEmailUrl } from "../core/email-html";
 import {
-  PreservedBlockDetails,
+  PreservedBlockView,
   type RenderedPreservedEmailBlock,
 } from "./preserved-block";
 import styles from "./EmailEditor.module.css";
@@ -27,7 +27,6 @@ const PreservedEmailBlockNode = Node.create({
       id: { default: "" },
       kind: { default: "quote" },
       previewHtml: { default: "" },
-      collapsed: { default: true },
     };
   },
 
@@ -129,7 +128,6 @@ function PreservedBlockNodeView({ node, deleteNode }: NodeViewProps) {
     id: String(node.attrs.id ?? ""),
     kind,
     previewHtml: String(node.attrs.previewHtml ?? ""),
-    collapsed: Boolean(node.attrs.collapsed),
   };
 
   return (
@@ -138,7 +136,7 @@ function PreservedBlockNodeView({ node, deleteNode }: NodeViewProps) {
       contentEditable={false}
       data-email-preserved-kind={kind}
     >
-      <PreservedBlockDetails block={block} onRemove={deleteNode} />
+      <PreservedBlockView block={block} onRemove={deleteNode} />
     </NodeViewWrapper>
   );
 }
