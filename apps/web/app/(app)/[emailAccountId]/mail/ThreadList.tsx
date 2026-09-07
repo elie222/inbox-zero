@@ -1,5 +1,7 @@
 "use client";
 
+import { addDays } from "date-fns/addDays";
+import { startOfDay } from "date-fns/startOfDay";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ThreadRow } from "@/app/(app)/[emailAccountId]/mail/ThreadRow";
 import type {
@@ -70,7 +72,11 @@ export function ThreadList({
   const focusedThreadId = threads[focusedIndex]
     ? getListThreadKey(threads[focusedIndex])
     : undefined;
-  const dateGroups = useMemo(() => groupThreadsByDate(threads), [threads]);
+  const dayStart = useDayStart();
+  const dateGroups = useMemo(
+    () => groupThreadsByDate(threads, dayStart),
+    [dayStart, threads],
+  );
 
   // Keep the J/K cursor on screen without centering every row. Layout phase so
   // a held arrow key never paints a selected row that's already off-screen.
@@ -204,4 +210,19 @@ export function ThreadList({
       </div>
     </div>
   );
+}
+
+/** Re-renders the list at local midnight so "Today" and "Yesterday" stay true. */
+function useDayStart() {
+  const [dayStart, setDayStart] = useState(() => startOfDay(new Date()));
+
+  useEffect(() => {
+    const timeout = setTimeout(
+      () => setDayStart(startOfDay(new Date())),
+      addDays(dayStart, 1).getTime() - Date.now(),
+    );
+    return () => clearTimeout(timeout);
+  }, [dayStart]);
+
+  return dayStart;
 }
