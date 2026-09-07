@@ -293,6 +293,10 @@ export interface EmailProvider {
     labelName: string | null;
   }): Promise<{ usedFallback?: boolean; actualLabelId?: string }>;
   markMessagesReadState(messageIds: string[], read: boolean): Promise<void>;
+  markMessagesStarredState(
+    messageIds: string[],
+    starred: boolean,
+  ): Promise<void>;
   markRead(threadId: string): Promise<void>;
   markReadThread(threadId: string, read: boolean): Promise<void>;
   markSpam(threadId: string): Promise<void>;
@@ -348,7 +352,7 @@ export interface EmailProvider {
     messageId: string;
     threadId: string;
   }>;
-  starMessage(messageId: string, starred?: boolean): Promise<void>;
+  starMessage(messageId: string): Promise<void>;
   toJSON(): { name: string; type: string };
   trashMessages(messageIds: string[]): Promise<void>;
   trashThread(

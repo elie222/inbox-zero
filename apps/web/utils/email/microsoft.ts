@@ -588,9 +588,8 @@ export class OutlookProvider implements EmailProvider {
     };
   }
 
-  async starMessage(messageId: string, starred = true): Promise<void> {
+  async starMessage(messageId: string): Promise<void> {
     await markStarredMessage({
-      starred,
       client: this.client,
       messageId,
       logger: this.logger,
@@ -2087,6 +2086,24 @@ export class OutlookProvider implements EmailProvider {
 
   async untrashMessages(messageIds: string[]): Promise<void> {
     await this.moveMessageSnapshots(messageIds, "inbox");
+  }
+
+  async markMessagesStarredState(
+    messageIds: string[],
+    starred: boolean,
+  ): Promise<void> {
+    await mapWithConcurrency([...new Set(messageIds)], 4, async (messageId) => {
+      try {
+        await markStarredMessage({
+          client: this.client,
+          messageId,
+          starred,
+          logger: this.logger,
+        });
+      } catch (error) {
+        if (extractErrorInfo(error).status !== 404) throw error;
+      }
+    });
   }
 
   async markMessagesReadState(

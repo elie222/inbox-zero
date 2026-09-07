@@ -117,7 +117,7 @@ describe("mail mutation outbox", () => {
         messageIds: ["message-3"],
       },
     ]);
-    expect(mutations[0]?.batchId).toBe(mutations[1]?.batchId);
+    expect(mutations.at(0)?.batchId).toBe(mutations[1]?.batchId);
     await expect(getActiveMailMutations()).resolves.toHaveLength(2);
   });
 
@@ -290,7 +290,7 @@ describe("mail mutation outbox", () => {
     );
     const mutations = await getActiveMailMutations();
     expect(mutations).toHaveLength(1);
-    expect(mutations[0]).toMatchObject({ starred: false });
+    expect(mutations.at(0)).toMatchObject({ starred: false });
   });
 
   it("coalesces read state changes inside the atomic batch", async () => {

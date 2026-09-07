@@ -45,7 +45,7 @@ describe("mail mutation overlay", () => {
         },
       ],
     });
-    expect(result[0]?.labelIds).toEqual(["INBOX", "UNREAD"]);
+    expect(result.at(0)?.labelIds).toEqual(["INBOX", "UNREAD"]);
   });
 
   it("hides only captured messages and applies the latest read state", () => {

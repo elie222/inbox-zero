@@ -511,6 +511,20 @@ export class GmailProvider implements EmailProvider {
     );
   }
 
+  async markMessagesStarredState(
+    messageIds: string[],
+    starred: boolean,
+  ): Promise<void> {
+    for (const ids of chunk([...new Set(messageIds)], 1000)) {
+      await this.client.users.messages.batchModify({
+        userId: "me",
+        requestBody: starred
+          ? { ids, addLabelIds: [GmailLabel.STARRED] }
+          : { ids, removeLabelIds: [GmailLabel.STARRED] },
+      });
+    }
+  }
+
   async markMessagesReadState(
     messageIds: string[],
     read: boolean,
@@ -874,12 +888,11 @@ export class GmailProvider implements EmailProvider {
     }
   }
 
-  async starMessage(messageId: string, starred = true): Promise<void> {
+  async starMessage(messageId: string): Promise<void> {
     await labelMessage({
       gmail: this.client,
       messageId,
-      addLabelIds: starred ? [GmailLabel.STARRED] : [],
-      removeLabelIds: starred ? [] : [GmailLabel.STARRED],
+      addLabelIds: [GmailLabel.STARRED],
     });
   }
 

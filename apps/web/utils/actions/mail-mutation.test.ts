@@ -21,7 +21,7 @@ const mocks = vi.hoisted(() => ({
   createEmailProvider: vi.fn(),
   prepareSnooze: vi.fn(),
   markSpam: vi.fn(),
-  starMessage: vi.fn(),
+  markMessagesStarredState: vi.fn(),
   sendEmailWithHtml: vi.fn(),
   unarchiveMessages: vi.fn(),
 }));
@@ -50,7 +50,7 @@ describe("executeMailMutationAction", () => {
     mocks.createEmailProvider.mockResolvedValue({
       archiveMessages: mocks.archiveMessages,
       markSpam: mocks.markSpam,
-      starMessage: mocks.starMessage,
+      markMessagesStarredState: mocks.markMessagesStarredState,
       sendEmailWithHtml: mocks.sendEmailWithHtml,
       unarchiveMessages: mocks.unarchiveMessages,
     });
@@ -80,10 +80,10 @@ describe("executeMailMutationAction", () => {
       starred,
     });
     expect(result?.data).toEqual({ status: "applied" });
-    expect(mocks.starMessage.mock.calls).toEqual([
-      ["one", starred],
-      ["two", starred],
-    ]);
+    expect(mocks.markMessagesStarredState).toHaveBeenCalledExactlyOnceWith(
+      ["one", "two"],
+      starred,
+    );
   });
 
   it("applies an immutable archive snapshot", async () => {
