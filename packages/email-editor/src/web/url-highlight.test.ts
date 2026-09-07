@@ -38,7 +38,7 @@ describe("URL highlighting", () => {
     expect(findUrlHighlights(doc).find()).toEqual([]);
   });
 
-  it("removes highlighting when an edit stops being a URL", () => {
+  it("does not highlight ordinary words", () => {
     const doc = schema.node("doc", null, [
       schema.node("paragraph", null, schema.text("example")),
     ]);
