@@ -370,6 +370,9 @@ export interface EmailProvider {
     params: {
       messageHtml?: string;
       subject?: string;
+      to?: string;
+      cc?: string;
+      bcc?: string;
     },
   ): Promise<void>;
   updateLabel(labelId: string, update: EmailLabelUpdate): Promise<void>;
