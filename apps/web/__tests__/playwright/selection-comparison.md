@@ -60,3 +60,22 @@ selected specs as well as the count.
   to the full area. Other product areas retain their existing routing until
   they declare feature coverage.
 - Scheduled and main-branch runs retain the full suite.
+
+## Replay of recent merged PRs
+
+Replaying complete PR file lists against this same application tree gives:
+
+| PR | Before: spec jobs | After: spec jobs |
+| --- | ---: | ---: |
+| [#3558](https://github.com/elie222/inbox-zero/pull/3558) Mail: support nested sidebar labels | 16 | 2 |
+| [#3560](https://github.com/elie222/inbox-zero/pull/3560) mail: Remove redundant split shortcut hint | 16 | 1 |
+| [#3551](https://github.com/elie222/inbox-zero/pull/3551) mail: Show sender profile beside the reader | 16 | 16 |
+| [#3559](https://github.com/elie222/inbox-zero/pull/3559) Mail: preserve message keyboard interactions | 16 | 16 |
+| [#3554](https://github.com/elie222/inbox-zero/pull/3554) mail: Render compose shortcut hints as one key per block | 16 | 37 |
+| [#3548](https://github.com/elie222/inbox-zero/pull/3548) mail: Simplify label picker | 16 | 1 |
+
+Larger mail changes keep area coverage when they touch the shell or an unmapped
+area file. The shortcut PR grows because it changed the shared
+`lib/shortcuts/registry.ts`, previously ignored by the workflow trigger and
+selector. Tracking that shared dependency intentionally adds coverage. These
+are selector replays, not new CI runs of the historical commits.

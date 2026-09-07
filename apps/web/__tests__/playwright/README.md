@@ -83,6 +83,10 @@ screenshot-only gallery, compares its checkpoints with the latest successful
 The full HTML report stays private to the GitHub Actions artifact for pull
 requests because it was generated from contributor-controlled code. Successful
 and failed `main` runs also publish the full report and visual history to the
-public Playwright dashboard:
+public Playwright dashboard. Galleries accept up to 500 PNGs totaling 100 MiB;
+individual image validation and artifact traversal limits also apply. This
+allows full-suite galleries with more than 100 checkpoints without unbounded
+artifact processing.
+
 
 <https://izghactions.fsn1.your-objectstorage.com/playwright/index.html>

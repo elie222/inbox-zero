@@ -30,7 +30,8 @@ const [
   galleryPath,
   baselineManifestPath,
 ] = process.argv.slice(2);
-const MAX_SCREENSHOT_COUNT = 100;
+const MAX_SCREENSHOT_COUNT = 500;
+const MAX_TOTAL_SCREENSHOT_BYTES = 100 * 1024 * 1024;
 const MAX_ARTIFACT_ENTRIES = 2000;
 const MAX_ARTIFACT_DEPTH = 12;
 
@@ -142,11 +143,9 @@ async function collectScreenshots(
       `Playwright artifact contains ${files.length} screenshots; maximum is ${MAX_SCREENSHOT_COUNT}`,
     );
   }
-  const imagePath = path.join(outputPath, "images");
-  await mkdir(imagePath, { recursive: true });
-
-  const screenshots: Array<Omit<PlaywrightScreenshot, "comparison">> = [];
-  for (const [index, file] of files.entries()) {
+  // Full-suite galleries exceed 100 captures; bound total bytes before decoding.
+  let totalBytes = 0;
+  for (const file of files) {
     const info = await stat(file);
     if (
       !info.isFile() ||
@@ -155,6 +154,18 @@ async function collectScreenshots(
     ) {
       throw new Error(`Invalid screenshot size for ${file}`);
     }
+    totalBytes += info.size;
+    if (totalBytes > MAX_TOTAL_SCREENSHOT_BYTES) {
+      throw new Error(
+        `Playwright artifact exceeds maximum total screenshot size of ${MAX_TOTAL_SCREENSHOT_BYTES} bytes`,
+      );
+    }
+  }
+  const imagePath = path.join(outputPath, "images");
+  await mkdir(imagePath, { recursive: true });
+
+  const screenshots: Array<Omit<PlaywrightScreenshot, "comparison">> = [];
+  for (const [index, file] of files.entries()) {
     const screenshot = await readFile(file);
     validatePngScreenshot(screenshot, file);
     const source = path.relative(resultsPath, file);
