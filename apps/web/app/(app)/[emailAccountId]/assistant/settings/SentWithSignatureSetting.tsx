@@ -17,7 +17,7 @@ export function SentWithSignatureSetting() {
   const { data, isLoading, error, mutate } = useEmailAccountFull();
   const { emailAccountId } = useAccount();
 
-  const { execute } = useAction(
+  const { execute, isExecuting } = useAction(
     updateSentWithSignatureAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
@@ -59,7 +59,7 @@ export function SentWithSignatureSetting() {
             name="sent-with-signature"
             enabled={data?.includeSentWithSignature ?? false}
             onChange={handleToggle}
-            disabled={isLoading}
+            disabled={isLoading || isExecuting}
           />
         </LoadingContent>
       }
