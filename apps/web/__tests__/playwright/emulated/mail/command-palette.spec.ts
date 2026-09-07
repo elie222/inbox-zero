@@ -264,6 +264,9 @@ test("sender actions are available for a selected list row and match the reader"
   await expect(
     palette.getByRole("option", { name: "Auto archive future emails ⇧E" }),
   ).toBeEnabled();
+  await palette
+    .getByRole("option", { name: "Auto archive future emails ⇧E" })
+    .scrollIntoViewIfNeeded();
   await attachScreenshotForChangedTest(
     testInfo,
     palette,
