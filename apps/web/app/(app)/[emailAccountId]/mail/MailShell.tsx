@@ -91,6 +91,7 @@ import {
   setDefaultMailSplitsAction,
   updateMailPreferencesAction,
 } from "@/utils/actions/mail-split";
+import type { UpdateMailPreferencesBody } from "@/utils/actions/mail-split.validation";
 import {
   createLabelAction,
   deleteMailboxItemAction,
@@ -218,40 +219,56 @@ export function MailShell() {
   const accountLayout: MailLayoutMode =
     settings?.layout === MailLayout.SPLIT ? "split" : "list";
   const layout = isAllAccounts ? "list" : accountLayout;
+  const expandedPreview = settings?.expandedPreview ?? false;
 
   // Written through the SWR cache rather than mirrored in local state, so the
   // preference has one source of truth and every reader sees the new value.
-  const toggleLayout = useCallback(() => {
-    if (!settings) return;
+  const updatePreferences = useCallback(
+    (preferences: UpdateMailPreferencesBody) => {
+      if (!settings) return;
+      const loadedSettings = settings;
 
-    const next = layout === "split" ? MailLayout.LIST : MailLayout.SPLIT;
-    const loadedSettings = settings;
+      mutateSettings(
+        async (current) => {
+          const result = await updateMailPreferencesAction(
+            emailAccountId,
+            preferences,
+          );
+          // Thrown so SWR rolls the optimistic value back rather than leaving
+          // the UI showing a preference the server never accepted.
+          if (result?.serverError || result?.validationErrors)
+            throw new Error(getActionErrorMessage(result));
+          return { ...(current ?? loadedSettings), ...preferences };
+        },
+        {
+          optimisticData: (current) => ({
+            ...(current ?? loadedSettings),
+            ...preferences,
+          }),
+          revalidate: false,
+          rollbackOnError: true,
+        },
+      ).catch((error) => {
+        toast.error(
+          error instanceof Error ? error.message : "Couldn't save that",
+        );
+      });
+    },
+    [emailAccountId, mutateSettings, settings],
+  );
 
-    mutateSettings(
-      async (current) => {
-        const result = await updateMailPreferencesAction(emailAccountId, {
-          layout: next,
-        });
-        // Thrown so SWR rolls the optimistic value back rather than leaving
-        // the UI showing a preference the server never accepted.
-        if (result?.serverError || result?.validationErrors)
-          throw new Error(getActionErrorMessage(result));
-        return { ...(current ?? loadedSettings), layout: next };
-      },
-      {
-        optimisticData: (current) => ({
-          ...(current ?? loadedSettings),
-          layout: next,
-        }),
-        revalidate: false,
-        rollbackOnError: true,
-      },
-    ).catch((error) => {
-      toast.error(
-        error instanceof Error ? error.message : "Couldn't save that",
-      );
-    });
-  }, [emailAccountId, layout, mutateSettings, settings]);
+  const toggleLayout = useCallback(
+    () =>
+      updatePreferences({
+        layout: layout === "split" ? MailLayout.LIST : MailLayout.SPLIT,
+      }),
+    [layout, updatePreferences],
+  );
+
+  const togglePreview = useCallback(
+    () => updatePreferences({ expandedPreview: !expandedPreview }),
+    [expandedPreview, updatePreferences],
+  );
 
   // A sidebar selection scopes the whole list, which replaces the split tabs —
   // splits are a way of slicing the inbox, not of slicing an arbitrary view.
@@ -984,6 +1001,7 @@ export function MailShell() {
           : undefined,
       undo: () => undo(),
       toggleLayout: isAllAccounts ? undefined : toggleLayout,
+      togglePreview,
       help: () => setIsHelpOpen(true),
     };
   })();
@@ -1286,6 +1304,8 @@ export function MailShell() {
               onSearch={isAllAccounts ? undefined : setSearch}
               onOpenSearch={() => setPaletteOpen(true)}
               onToggleLayout={toggleLayout}
+              expandedPreview={expandedPreview}
+              onTogglePreview={togglePreview}
               onToggleAssistant={() => toggleSidebar(["chat-sidebar"])}
               showSidebarToggle={!isMailSidebarOpen}
               showLayoutToggle={!isAllAccounts}
@@ -1323,6 +1343,7 @@ export function MailShell() {
               <ThreadList
                 threads={threads}
                 layout={layout}
+                expandedPreview={expandedPreview}
                 userEmail={userEmail}
                 userLabels={isAllAccounts ? NO_LABELS : userLabels}
                 labelsByAccount={labelsByAccount}

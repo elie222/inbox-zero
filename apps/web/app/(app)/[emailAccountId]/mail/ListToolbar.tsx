@@ -8,6 +8,7 @@ import {
   SearchIcon,
   SparklesIcon,
   TagIcon,
+  TextIcon,
   Trash2Icon,
   XIcon,
 } from "lucide-react";
@@ -21,12 +22,14 @@ import { cn } from "@/utils";
 export type ListToolbarProps = {
   layout: MailLayoutMode;
   showLayoutToggle?: boolean;
+  expandedPreview: boolean;
   /** Committed search query. Only meaningful when `onSearch` is provided. */
   searchQuery?: string;
   /** When provided, the toolbar shows a real mail search input. */
   onSearch?: (query: string) => void;
   onOpenSearch: () => void;
   onToggleLayout: () => void;
+  onTogglePreview: () => void;
   onToggleAssistant: () => void;
   showSidebarToggle?: boolean;
   selectedCount: number;
@@ -40,10 +43,12 @@ export type ListToolbarProps = {
 export function ListToolbar({
   layout,
   showLayoutToggle = true,
+  expandedPreview,
   searchQuery = "",
   onSearch,
   onOpenSearch,
   onToggleLayout,
+  onTogglePreview,
   onToggleAssistant,
   showSidebarToggle = false,
   selectedCount,
@@ -141,6 +146,26 @@ export function ListToolbar({
           <Kbd>{getShortcutHint("commandPalette")}</Kbd>
         </button>
       )}
+
+      {selectedCount === 0 ? (
+        <Tooltip
+          content={`${expandedPreview ? "Shorten" : "Expand"} preview text (${getShortcutHint("togglePreview")})`}
+        >
+          <button
+            type="button"
+            onClick={onTogglePreview}
+            aria-label="Expand or shorten preview text"
+            aria-pressed={expandedPreview}
+            className={cn(
+              toolbarButton,
+              "w-8 justify-center px-0",
+              expandedPreview && "bg-muted text-foreground",
+            )}
+          >
+            <TextIcon className="size-3.5" />
+          </button>
+        </Tooltip>
+      ) : null}
 
       {showLayoutToggle && selectedCount === 0 ? (
         <Tooltip
