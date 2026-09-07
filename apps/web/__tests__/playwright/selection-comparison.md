@@ -1,5 +1,25 @@
 # Browser selection comparison
 
+## Latest main integration
+
+Re-measured after incorporating main at `d7d998df4`, which added a mail-theme
+spec. Both selectors analyze this same updated tree, and the new theme spec has
+its feature coverage declared.
+
+| Isolated change | Before: spec jobs | After: spec jobs |
+| --- | ---: | ---: |
+| Split tabs, nested split picker, sender profile, sender-profile hook, or label picker (each measured separately) | 17 | 1 |
+| Sidebar | 17 | 2 |
+| Split tabs and sender profile together | 17 | 2 |
+| Mail shell | 17 | 17 |
+| Shared button or lockfile (each measured separately) | 38 | 38 |
+
+The single-feature examples now request 94.1% fewer jobs. Fresh elapsed CI
+measurements for normal feature PRs are still needed; the historical durations
+below do not include the newly added theme spec.
+
+## Original measurement with historical durations
+
 Measured on the source tree at `0a8a54d7d` (2026-09-07), comparing its original
 selector with feature coverage declarations. Both selectors received the same
 changed-file scenarios and the same application source tree. The first table

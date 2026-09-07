@@ -50,6 +50,7 @@
     "app/(app)/[emailAccountId]/mail/use-mail-threads.ts"
   ],
   "split-tabs.spec.ts": ["app/(app)/[emailAccountId]/mail/SplitTabs.tsx"],
+  "theme.spec.ts": ["components/CommandK.tsx", "components/theme-provider.tsx"],
   "thread-navigation.spec.ts": [
     "components/email-list/EmailThread.tsx",
     "app/(app)/[emailAccountId]/mail/ReaderToolbar.tsx",
