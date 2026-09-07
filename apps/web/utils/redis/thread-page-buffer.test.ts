@@ -29,10 +29,12 @@ vi.mock("@upstash/redis", () => ({
 }));
 
 const values = new Map<string, string>();
+const owners = new Map<string, Set<string>>();
 
 beforeEach(() => {
   vi.clearAllMocks();
   values.clear();
+  owners.clear();
   vi.mocked(redis.get).mockImplementation(
     async (key) => values.get(key) ?? null,
   );
@@ -42,14 +44,19 @@ beforeEach(() => {
   });
   vi.mocked(redis.eval).mockImplementation(
     async (script, [marker, key], [value]) => {
-      if (script.includes('"INCR"')) {
-        values.set(marker, String(Number(values.get(marker) ?? 0) + 1));
-        return 1;
+      if (script.includes('"SCARD"')) {
+        const tokens = owners.get(marker) ?? new Set<string>();
+        tokens.delete(value);
+        owners.set(marker, tokens);
+        values.set(marker, String(tokens.size));
+        return tokens.size;
       }
-      if (script.includes('"DECR"')) {
-        const remaining = Number(values.get(marker)) - 1;
-        values.set(marker, String(Math.max(remaining, 0)));
-        return remaining;
+      if (script.includes('"PERSIST"')) {
+        const tokens = owners.get(marker) ?? new Set<string>();
+        tokens.add(value);
+        owners.set(marker, tokens);
+        values.set(marker, String(tokens.size));
+        return 1;
       }
       if (values.has(marker)) return 0;
       values.set(key, value);
@@ -166,6 +173,23 @@ describe("thread page buffers", () => {
     } finally {
       now.mockRestore();
     }
+  });
+
+  it("releases an acquired guard after a lost response without releasing another owner", async () => {
+    await withThreadPageBufferDeletion(["account-1"], async () => {
+      const evaluate = redis.eval.getMockImplementation()!;
+      redis.eval.mockImplementationOnce(async (...args) => {
+        await evaluate(...args);
+        throw new Error("Response lost");
+      });
+      const operation = vi.fn();
+      await expect(
+        withThreadPageBufferDeletion(["account-1"], operation),
+      ).rejects.toThrow("Response lost");
+      expect(operation).not.toHaveBeenCalled();
+      expect([...values.values()]).toEqual(["1"]);
+    });
+    expect([...values.values()]).toEqual(["0"]);
   });
 
   it("releases deletion guards after a failed account deletion", async () => {

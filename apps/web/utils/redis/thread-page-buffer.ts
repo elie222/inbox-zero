@@ -126,22 +126,24 @@ export async function withThreadPageBufferDeletion<T>(
 ): Promise<T> {
   const redis = createBufferRedis();
   if (!redis) return deleteAccount();
-  const markers: string[] = [];
+  const markers: { key: string; token: string }[] = [];
   try {
     for (const emailAccountId of new Set(emailAccountIds)) {
       const prefix = getAccountPrefix(emailAccountId);
       const marker = `${prefix}:deleted`;
-      // Count concurrent deletions and remove any prior grace-period expiry.
+      const token = randomUUID();
+      // Record ownership before awaiting: Redis may succeed but lose its response.
+      markers.push({ key: marker, token });
       await redis.eval(
         `
-        redis.call("INCR", KEYS[1])
+        redis.call("SADD", KEYS[1], ARGV[1])
+        redis.call("SREM", KEYS[1], "grace")
         redis.call("PERSIST", KEYS[1])
         return 1
       `,
         [marker],
-        [],
+        [token],
       );
-      markers.push(marker);
       let cursor = 0;
       do {
         const [nextCursor, keys] = await redis.scan(cursor, {
@@ -154,19 +156,21 @@ export async function withThreadPageBufferDeletion<T>(
     }
     return await deleteAccount();
   } finally {
-    for (const marker of markers) {
+    for (const { key, token } of markers) {
       try {
         // Keep blocking factories created during deletion until they age out.
         await redis.eval(
           `
-          local remaining = redis.call("DECR", KEYS[1])
-          if remaining <= 0 then
-            redis.call("SET", KEYS[1], "0", "EX", ARGV[1])
+          redis.call("SREM", KEYS[1], ARGV[1])
+          local remaining = redis.call("SCARD", KEYS[1])
+          if remaining == 0 then
+            redis.call("SADD", KEYS[1], "grace")
+            redis.call("EXPIRE", KEYS[1], ARGV[2])
           end
           return remaining
         `,
-          [marker],
-          [BUFFER_TTL_SECONDS],
+          [key],
+          [token, BUFFER_TTL_SECONDS],
         );
       } catch {
         // A persistent marker safely disables buffering if cleanup is interrupted.
