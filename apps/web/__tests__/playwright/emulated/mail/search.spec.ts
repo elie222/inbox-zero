@@ -34,3 +34,14 @@ test("searches the mailbox and clears back to the inbox", async ({ page }) => {
   await expect(matching).toBeVisible();
   await expect(nonMatching).toBeVisible();
 });
+
+test("slash focuses the mail search bar", async ({ page }) => {
+  await openMail(page);
+  const searchInput = page.getByPlaceholder("Search mail");
+  await expect(searchInput).toBeVisible();
+  await page.getByRole("listbox", { name: "Conversations" }).click();
+
+  await page.keyboard.press("Slash");
+
+  await expect(searchInput).toBeFocused();
+});

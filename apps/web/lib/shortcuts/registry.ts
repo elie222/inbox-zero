@@ -165,6 +165,13 @@ const SHORTCUT_DEFINITIONS = [
     allowWhileTyping: true,
   },
   {
+    id: "search",
+    keys: ["/"],
+    scope: "mail",
+    group: "Navigate",
+    label: "Search",
+  },
+  {
     id: "select",
     keys: ["x"],
     scope: "mail",

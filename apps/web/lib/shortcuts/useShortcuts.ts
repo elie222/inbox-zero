@@ -201,7 +201,7 @@ function resolveTarget(
   }
   if (
     target?.type === "entry" &&
-    ["backToList", "open", "nextSplit"].includes(target.entry.id) &&
+    ["backToList", "open", "nextSplit", "search"].includes(target.entry.id) &&
     event.target instanceof Element &&
     event.target.closest('[role="dialog"]')
   ) {
