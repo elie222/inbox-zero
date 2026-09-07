@@ -92,10 +92,7 @@ import { useMailSettings } from "@/hooks/useMailSettings";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useThread } from "@/hooks/useThread";
 import { useShortcuts } from "@/lib/shortcuts/useShortcuts";
-import {
-  isTypingTarget,
-  type ShortcutHandlers,
-} from "@/lib/shortcuts/registry";
+import type { ShortcutHandlers } from "@/lib/shortcuts/registry";
 import {
   createMailSplitAction,
   createMailSplitFromPromptAction,
@@ -992,19 +989,7 @@ export function MailShell() {
         : () => openAt(clampedIndex),
       backToList: isMailOverlayOpen
         ? undefined
-        : (event) => {
-            if (
-              event?.target instanceof HTMLElement &&
-              isTypingTarget(event.target)
-            ) {
-              const message = event.target.closest<HTMLElement>(
-                "[data-thread-message-id]",
-              );
-              if (message) {
-                message.focus({ preventScroll: true });
-                return;
-              }
-            }
+        : () => {
             if (selection.hasSelection) selection.clear();
             else if (layout === "list") closeReader();
           },

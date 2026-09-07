@@ -34,6 +34,7 @@ import { EmailAttachments } from "@/components/email-list/EmailAttachments";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { formatReplySubject } from "@/utils/email/subject";
 import { env } from "@/env";
+import { isTypingTarget } from "@/lib/shortcuts/registry";
 import type { ContactsResponse } from "@/app/api/user/contacts/route";
 import { toastError } from "@/components/Toast";
 import { getActionErrorMessage } from "@/utils/error";
@@ -124,6 +125,17 @@ export function EmailMessage({
   const onMessageKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLElement>) => {
       if (
+        selected !== undefined &&
+        event.key === "Escape" &&
+        !event.defaultPrevented &&
+        isTypingTarget(event.target)
+      ) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.currentTarget.focus({ preventScroll: true });
+        return;
+      }
+      if (
         event.target !== event.currentTarget ||
         (event.key !== "Enter" && event.key !== " ")
       )
@@ -136,7 +148,7 @@ export function EmailMessage({
         onToggle?.();
       }
     },
-    [expanded, onReply, onToggle, showReplyButton],
+    [expanded, onReply, onToggle, selected, showReplyButton],
   );
 
   return (
