@@ -1277,6 +1277,7 @@ export function MailShell() {
               unified={isAllAccounts}
               footer={
                 <MailAccountSwitcher
+                  isDesktopApp={isDesktopApp}
                   isAllAccounts={isAllAccounts}
                   onSelectAccount={selectAccount}
                   onSelectAll={selectAllAccounts}
@@ -1442,6 +1443,7 @@ export function MailShell() {
       </div>
 
       <MailAccountSwitcher
+        isDesktopApp={isDesktopApp}
         isAllAccounts={isAllAccounts}
         onSelectAccount={selectAccount}
         onSelectAll={selectAllAccounts}
