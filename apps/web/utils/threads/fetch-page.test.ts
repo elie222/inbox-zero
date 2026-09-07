@@ -24,5 +24,14 @@ describe("fetchThreadsPage", () => {
     });
 
     expect(result.threads).toEqual([]);
+    const queriedLabels = emailProvider.getThreadsWithQuery.mock.calls.map(
+      ([{ query }]) => query.labelIds,
+    );
+    expect(queriedLabels).toHaveLength(anyLabelIds.length);
+    expect(queriedLabels).toEqual(
+      expect.arrayContaining(
+        anyLabelIds.map((labelId) => ["required-label", labelId]),
+      ),
+    );
   });
 });
