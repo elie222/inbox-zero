@@ -103,6 +103,44 @@ describe("synced mailbox cache", () => {
     ).toEqual(["account-2"]);
   });
 
+  it("clears every variant when a deleted draft identifies the thread", async () => {
+    const database = await getEmailCacheDatabase();
+    if (!database) throw new Error("Database unavailable");
+    for (const includeDrafts of [false, true]) {
+      await database.put("threadDetails", {
+        emailAccountId: "account-1",
+        threadId: "thread-1",
+        variant: `drafts:${includeDrafts ? 1 : 0}|replies:0`,
+        data: {
+          thread: {
+            id: "thread-1",
+            messages: [
+              getMessage({ id: "incoming", threadId: "thread-1" }),
+              ...(includeDrafts
+                ? [getMessage({ id: "draft", threadId: "thread-1" })]
+                : []),
+            ],
+          },
+        },
+        fetchedAt: 100,
+        lastAccessedAt: 100,
+        byteSize: 100,
+      });
+    }
+    await applyMailboxSyncPage({
+      emailAccountId: "account-1",
+      after: new Date("2026-07-01"),
+      page: {
+        cursor: "delta",
+        reset: false,
+        hasMore: false,
+        deletedMessageIds: ["draft"],
+        upsertedMessages: [],
+      },
+    });
+    expect(await database.count("threadDetails")).toBe(0);
+  });
+
   it("applies snapshots and deltas atomically with their cursor", async () => {
     const first = getMessage({
       id: "message-1",

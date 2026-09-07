@@ -78,6 +78,32 @@ describe("thread cache invalidation", () => {
     expect(getThreadCacheVersion("account-1", "thread-1")).not.toBe(version);
   });
 
+  it("does not refresh memory when cross-tab persisted deletion fails", async () => {
+    const database = await getEmailCacheDatabase();
+    if (!database) throw new Error("Database unavailable");
+    const transaction = vi
+      .spyOn(database, "transaction")
+      .mockImplementationOnce(() => {
+        throw new Error("Storage unavailable");
+      });
+    const mutate = vi.fn().mockResolvedValue(undefined);
+    const disconnect = connectThreadCacheInvalidation(new Map(), mutate);
+    try {
+      await act(async () => {
+        broadcast.receive?.(
+          new MessageEvent("message", {
+            data: { emailAccountId: "account-1", threadIds: [], reset: true },
+          }),
+        );
+      });
+      expect(transaction).toHaveBeenCalled();
+      expect(mutate).not.toHaveBeenCalled();
+    } finally {
+      transaction.mockRestore();
+      disconnect();
+    }
+  });
+
   it("refreshes only affected account and thread variants", async () => {
     const fetcher = vi.fn().mockResolvedValue("cached");
     const { result } = renderHook(

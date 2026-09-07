@@ -102,6 +102,7 @@ export async function applyMailboxSyncPage({
     !page.reset && deletedIds.size
       ? await details.index("byAccount").openCursor(emailAccountId)
       : null;
+  const discoveredThreadIds = new Set<string>();
   while (detailCursor) {
     const { threadId, data } = detailCursor.value;
     if (
@@ -110,10 +111,19 @@ export async function applyMailboxSyncPage({
       )
     ) {
       changedThreadIds.add(threadId);
-      await detailCursor.delete();
+      discoveredThreadIds.add(threadId);
     }
     detailCursor = await detailCursor.continue();
   }
+
+  const discoveredKeys = (
+    await Promise.all(
+      [...discoveredThreadIds].map((threadId) =>
+        details.getAllKeys(getThreadDetailKeyRange(emailAccountId, threadId)),
+      ),
+    )
+  ).flat();
+  await Promise.all(discoveredKeys.map((key) => details.delete(key)));
 
   if (page.reset) {
     const messageKeys = await messages
