@@ -75,6 +75,41 @@ test("focuses the message field from the empty composer body", async ({
   await expect(editor).toBeFocused();
 });
 
+test("highlights URLs while typing and pasting", async ({ page }, testInfo) => {
+  await openMail(page);
+  await page.getByRole("button", { name: /^Compose/ }).click();
+  const dialog = page.getByRole("dialog", { name: "New Message" });
+  const editor = dialog.getByRole("textbox", { name: "Email message" });
+  await editor.pressSequentially("Visit example.com/docs");
+  await expect(editor.locator("[data-email-url-highlight]")).toHaveText(
+    "example.com/docs",
+  );
+  await expect(editor.locator("[data-email-url-highlight]")).toHaveCSS(
+    "color",
+    "rgb(37, 99, 235)",
+  );
+  await editor.press("Space");
+  await editor.evaluate((element) => {
+    const clipboardData = new DataTransfer();
+    clipboardData.setData("text/plain", "More at example.org/help.");
+    element.dispatchEvent(
+      new ClipboardEvent("paste", {
+        bubbles: true,
+        cancelable: true,
+        clipboardData,
+      }),
+    );
+  });
+  await expect(
+    editor.getByRole("link", { name: "example.org/help" }),
+  ).toHaveCSS("color", "rgb(37, 99, 235)");
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "automatic-url-highlighting",
+  );
+});
+
 test("keeps editing state stable across formatting, links, paste, and files", async ({
   page,
 }, testInfo) => {
@@ -402,6 +437,7 @@ test("opens and sends a reply from the reader with Enter", async ({
   const replyBody = `A reply sent through the mail reader. ${testInfo.retry}`;
   await replyEditor.pressSequentially(replyBody);
   await expect(replyEditor).toContainText(replyBody);
+  await capturePlaywrightCheckpoint(page, testInfo, "inline-reply-divider");
   const sendButton = page.getByRole("button", { name: "Send", exact: true });
   await expect(sendButton).toHaveText("Send");
 
