@@ -418,6 +418,8 @@ test("leaves the draft before returning to the list with Escape", async ({
   await message.getByRole("button", { name: "Reply", exact: true }).click();
   const editor = message.getByRole("textbox", { name: "Email message" });
   await editor.fill("A draft preserved when leaving the input.");
+  // The reply tooltip owns Escape until its exit animation finishes.
+  await expect(page.getByRole("tooltip")).toHaveCount(0);
   const threadUrl = page.url();
 
   await editor.press("Escape");
