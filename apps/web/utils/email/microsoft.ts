@@ -1,3 +1,4 @@
+import { SafeError } from "@/utils/error";
 import type { Message } from "@microsoft/microsoft-graph-types";
 import type { OutlookClient } from "@/utils/outlook/client";
 import type { ParsedMessage } from "@/utils/types";
@@ -691,20 +692,38 @@ export class OutlookProvider implements EmailProvider {
     params: {
       messageHtml?: string;
       subject?: string;
+      to?: string;
+      cc?: string;
+      bcc?: string;
     },
   ): Promise<void> {
     this.logger.info("Updating draft", { draftId });
 
-    const body: Record<string, unknown> = {};
-    if (params.messageHtml) {
+    const draft = await this.getDraftReferenceForMessage(draftId);
+    if (!draft) throw new SafeError("Could not find this draft to update.");
+
+    const body: Partial<Message> = {};
+    if (params.messageHtml !== undefined) {
       body.body = { contentType: "html", content: params.messageHtml };
     }
-    if (params.subject) {
+    if (params.subject !== undefined) {
       body.subject = params.subject;
     }
 
+    if (params.to !== undefined)
+      body.toRecipients = toGraphRecipients(params.to, this.logger);
+    if (params.cc !== undefined)
+      body.ccRecipients = toGraphRecipients(params.cc, this.logger);
+    if (params.bcc !== undefined)
+      body.bccRecipients = toGraphRecipients(params.bcc, this.logger);
+
     await withMicrosoftGraphWriteRetry(
-      () => this.client.getClient().api(`/me/messages/${draftId}`).patch(body),
+      () =>
+        this.client
+          .getClient()
+          .api(`/me/messages/${draftId}`)
+          .header("If-Match", draft.version)
+          .patch(body),
       this.logger,
     );
 

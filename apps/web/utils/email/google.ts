@@ -1,5 +1,6 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import chunk from "lodash/chunk";
+import { SafeError } from "@/utils/error";
 import type { Attachment as MailAttachment } from "nodemailer/lib/mailer";
 import { mapWithConcurrency } from "@/utils/async";
 import { toMailerAttachments } from "@/utils/types/mail";
@@ -973,13 +974,16 @@ export class GmailProvider implements EmailProvider {
     params: {
       messageHtml?: string;
       subject?: string;
+      to?: string;
+      cc?: string;
+      bcc?: string;
     },
   ): Promise<void> {
     this.logger.info("Updating Gmail draft", { draftId });
 
     const currentDraft = await getDraft(draftId, this.client);
     if (!currentDraft) {
-      throw new Error(`Draft ${draftId} not found`);
+      throw new SafeError("Could not find this draft to update.");
     }
 
     const subject = params.subject ?? currentDraft.subject ?? "";
@@ -992,10 +996,10 @@ export class GmailProvider implements EmailProvider {
 
     const encodedMessage = await createMail({
       from: currentDraft.headers?.from,
-      to: currentDraft.headers?.to || "",
+      to: params.to ?? currentDraft.headers?.to ?? "",
       attachments,
-      cc: currentDraft.headers?.cc,
-      bcc: currentDraft.headers?.bcc,
+      cc: params.cc ?? currentDraft.headers?.cc,
+      bcc: params.bcc ?? currentDraft.headers?.bcc,
       replyTo: currentDraft.headers?.["reply-to"],
       subject,
       text: convertEmailHtmlToText({ htmlText: content }),
