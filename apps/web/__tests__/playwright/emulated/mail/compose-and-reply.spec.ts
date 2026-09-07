@@ -1,4 +1,5 @@
 import { expect, type Locator } from "@playwright/test";
+import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
 import {
@@ -401,6 +402,74 @@ test("selects the sender when composing from all accounts", async ({
   } finally {
     await deleteSecondEmailAccount(secondAccount.accountId);
   }
+});
+
+test("leaves the draft before returning to the list with Escape", async ({
+  page,
+}, testInfo) => {
+  const { conversations } = await openMail(page);
+  await conversationWithSubject(
+    page,
+    conversations,
+    "Reply Workflow Message",
+  ).click();
+  const message = page.locator(
+    '[data-thread-message-id="msg_playwright_reply"]',
+  );
+  await message.getByRole("button", { name: "Reply", exact: true }).click();
+  const editor = message.getByRole("textbox", { name: "Email message" });
+  await editor.fill("A draft preserved when leaving the input.");
+  // The reply tooltip owns Escape until its exit animation finishes.
+  await expect(page.getByRole("tooltip")).toHaveCount(0);
+  const threadUrl = page.url();
+
+  await editor.press("Escape");
+  await expect(message).toBeFocused();
+  await expect(page).toHaveURL(threadUrl);
+  await expect(editor).toContainText(
+    "A draft preserved when leaving the input.",
+  );
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "draft-escape-focuses-message",
+  );
+
+  await page.keyboard.press("Escape");
+  await expect(conversations).toBeVisible();
+  await expect(message).toBeHidden();
+});
+
+test("returns focus from a draft in a single-message email panel", async ({
+  page,
+}, testInfo) => {
+  const { emailAccountId } = await openMail(page);
+  await page.route("**/api/user/no-reply", async (route) => {
+    const response = await route.fetch({
+      url: new URL(
+        "/api/threads/thr_playwright_reply?includeDrafts=true",
+        route.request().url(),
+      ).toString(),
+    });
+    const { thread }: ThreadResponse = await response.json();
+    await route.fulfill({ json: [thread] });
+  });
+  await page.goto(`/${emailAccountId}/no-reply?thread-id=thr_playwright_reply`);
+  const message = page.locator(
+    '[data-thread-message-id="msg_playwright_reply"]',
+  );
+  await expect(message).toBeVisible();
+  await expect(message).not.toHaveAttribute("data-selected");
+  await message.getByRole("button", { name: "Reply", exact: true }).click();
+  const editor = message.getByRole("textbox", { name: "Email message" });
+  await editor.fill("A draft in the email panel.");
+  await expect(page.getByRole("tooltip")).toHaveCount(0);
+
+  await editor.press("Escape");
+
+  await expect(message).toBeFocused();
+  await expect(editor).toContainText("A draft in the email panel.");
+  await capturePlaywrightCheckpoint(page, testInfo, "panel-draft-escape-focus");
 });
 
 test("opens and sends a reply from the reader with Enter", async ({
