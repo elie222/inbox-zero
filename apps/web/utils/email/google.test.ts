@@ -212,7 +212,7 @@ describe("GmailProvider snapshot mutations", () => {
     const batchModify = vi.fn().mockResolvedValue({ data: {} });
     const provider = new GmailProvider(createGmailClient({ batchModify }));
     const ids = Array.from({ length: 1000 }, (_, index) => `message-${index}`);
-    await provider.markMessagesStarredState([...ids, ids.at(0)!], starred);
+    await provider.markMessagesStarredState([...ids, "message-0"], starred);
     expect(batchModify).toHaveBeenCalledExactlyOnceWith({
       userId: "me",
       requestBody: starred
