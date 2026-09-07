@@ -470,6 +470,8 @@ function toActionInput(mutation: MailMutation): ExecuteMailMutationBody {
   switch (mutation.kind) {
     case "archive":
       return { ...base, kind: mutation.kind, labelId: mutation.labelId };
+    case "set_starred_state":
+      return { ...base, kind: mutation.kind, starred: mutation.starred };
     case "set_read_state":
       return { ...base, kind: mutation.kind, read: mutation.read };
     case "snooze":

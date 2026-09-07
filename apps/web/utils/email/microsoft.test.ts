@@ -368,6 +368,37 @@ describe("OutlookProvider snapshot mutations", () => {
     expect(post).toHaveBeenCalledWith({ destinationId });
   });
 
+  it.each([
+    true,
+    false,
+  ])("limits concurrent star updates with starred=%s", async (starred) => {
+    let active = 0;
+    let peakActive = 0;
+    const patch = vi.fn(async (_path: string, _payload: unknown) => {
+      active++;
+      peakActive = Math.max(peakActive, active);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      active--;
+    });
+    const api = vi.fn((path: string) => ({
+      patch: (payload: unknown) => patch(path, payload),
+    }));
+    const provider = new OutlookProvider(
+      { getClient: () => ({ api }) } as never,
+      createTestLogger(),
+    );
+    const ids = Array.from({ length: 12 }, (_, index) => `message-${index}`);
+    await provider.markMessagesStarredState([...ids, "message-0"], starred);
+    expect(patch).toHaveBeenCalledTimes(12);
+    expect(patch.mock.calls).toEqual(
+      ids.map((id) => [
+        `/me/messages/${id}`,
+        { flag: { flagStatus: starred ? "flagged" : "notFlagged" } },
+      ]),
+    );
+    expect(peakActive).toBe(4);
+  });
+
   it("patches read state on each unique captured message", async () => {
     const patch = vi.fn().mockResolvedValue({});
     const api = vi.fn(() => ({ patch }));

@@ -206,6 +206,22 @@ describe("GmailProvider snapshot mutations", () => {
   });
 
   it.each([
+    true,
+    false,
+  ])("batches a thousand captured star updates with starred=%s", async (starred) => {
+    const batchModify = vi.fn().mockResolvedValue({ data: {} });
+    const provider = new GmailProvider(createGmailClient({ batchModify }));
+    const ids = Array.from({ length: 1000 }, (_, index) => `message-${index}`);
+    await provider.markMessagesStarredState([...ids, "message-0"], starred);
+    expect(batchModify).toHaveBeenCalledExactlyOnceWith({
+      userId: "me",
+      requestBody: starred
+        ? { ids, addLabelIds: [GmailLabel.STARRED] }
+        : { ids, removeLabelIds: [GmailLabel.STARRED] },
+    });
+  });
+
+  it.each([
     [true, { removeLabelIds: [GmailLabel.UNREAD] }],
     [false, { addLabelIds: [GmailLabel.UNREAD] }],
   ])("sets captured messages read=%s", async (read, labels) => {

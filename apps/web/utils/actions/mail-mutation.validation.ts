@@ -22,6 +22,10 @@ export const executeMailMutationBody = z.discriminatedUnion("kind", [
   snapshot.extend({ kind: z.literal("spam") }),
   snapshot.extend({ kind: z.literal("set_read_state"), read: z.boolean() }),
   snapshot.extend({
+    kind: z.literal("set_starred_state"),
+    starred: z.boolean(),
+  }),
+  snapshot.extend({
     kind: z.literal("snooze"),
     scheduledFor: z.string().datetime(),
   }),

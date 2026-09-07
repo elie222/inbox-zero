@@ -12,6 +12,7 @@ export type MailCommandContext = {
     archive: () => void;
     forward?: () => void;
     label?: () => void;
+    star?: () => void;
     markRead?: () => void;
     markSpam?: () => void;
     markUnread?: () => void;
@@ -20,6 +21,7 @@ export type MailCommandContext = {
     snooze?: (until: Date) => void;
     trash?: () => void;
   };
+  allStarred?: boolean;
   hasRead: boolean;
   hasUnread: boolean;
   openExternalLabel?: string;

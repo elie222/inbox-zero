@@ -117,7 +117,7 @@ describe("mail mutation outbox", () => {
         messageIds: ["message-3"],
       },
     ]);
-    expect(mutations[0]?.batchId).toBe(mutations[1]?.batchId);
+    expect(mutations.at(0)?.batchId).toBe(mutations[1]?.batchId);
     await expect(getActiveMailMutations()).resolves.toHaveLength(2);
   });
 
@@ -272,6 +272,25 @@ describe("mail mutation outbox", () => {
     ).rejects.toBeDefined();
 
     await expect(getActiveMailMutations()).resolves.toEqual([]);
+  });
+
+  it("coalesces same-millisecond star toggles in enqueue order", async () => {
+    const base = {
+      emailAccountId: "account",
+      threadId: "thread",
+      messageIds: ["message"],
+      kind: "set_starred_state" as const,
+    };
+    await enqueueMailMutationBatch(
+      [
+        { ...base, id: "z-star", starred: true },
+        { ...base, id: "a-unstar", starred: false },
+      ],
+      10,
+    );
+    const mutations = await getActiveMailMutations();
+    expect(mutations).toHaveLength(1);
+    expect(mutations.at(0)).toMatchObject({ starred: false });
   });
 
   it("coalesces read state changes inside the atomic batch", async () => {

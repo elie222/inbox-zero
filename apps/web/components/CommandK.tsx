@@ -1,5 +1,6 @@
 "use client";
 
+import { isThreadStarred } from "@/app/(app)/[emailAccountId]/mail/star-state";
 import * as React from "react";
 import {
   ArrowLeftIcon,
@@ -44,6 +45,8 @@ import {
   MAIL_SHORTCUT_SCOPES,
   type ShortcutHandlers,
 } from "@/lib/shortcuts/registry";
+import { useRetainedMailMutationOverlay } from "@/hooks/useMailMutationOverlay";
+import { applyMailMutationOverlayToMessages } from "@/utils/email-cache/mail-mutation-overlay";
 import { useThread } from "@/hooks/useThread";
 import { enqueueThreadMailMutationBatch } from "@/utils/email-cache/thread-mail-mutations";
 import { toastError } from "@/components/Toast";
@@ -118,8 +121,33 @@ function CommandPaletteContent({
 
   const { emailAccountId } = useAccount();
   const { threadId, showEmail } = displayedEmail;
-  const { data: displayedThread, isLoading: isDisplayedThreadLoading } =
-    useThread({ id: threadId });
+  const {
+    data: rawDisplayedThread,
+    isLoading: isDisplayedThreadLoading,
+    mutate: mutateDisplayedThread,
+  } = useThread({ id: threadId });
+  const { mutations } = useRetainedMailMutationOverlay({
+    emailAccountId,
+    enabled: Boolean(threadId),
+    onReconcile: () => mutateDisplayedThread(),
+  });
+  const displayedThread = React.useMemo(
+    () =>
+      rawDisplayedThread
+        ? {
+            ...rawDisplayedThread,
+            thread: {
+              ...rawDisplayedThread.thread,
+              messages: applyMailMutationOverlayToMessages({
+                emailAccountId,
+                messages: rawDisplayedThread.thread.messages,
+                mutations,
+              }),
+            },
+          }
+        : undefined,
+    [emailAccountId, rawDisplayedThread, mutations],
+  );
   const { onOpen: onOpenComposeModal } = useComposeModal();
   const { commands, isLoading } = useCommandPaletteCommands({
     enabled: !mailCommandContext,
@@ -148,6 +176,32 @@ function CommandPaletteContent({
           } catch {
             toastError({
               description: "Couldn't queue archiving this email",
+            });
+          }
+        }
+      : undefined,
+    star: threadId
+      ? async () => {
+          if (displayedThread?.thread.id !== threadId) {
+            toastError({
+              description: isDisplayedThreadLoading
+                ? "Email is still loading"
+                : "Email is unavailable",
+            });
+            return;
+          }
+          try {
+            await enqueueThreadMailMutationBatch({
+              emailAccountId,
+              payload: {
+                kind: "set_starred_state",
+                starred: !isThreadStarred(displayedThread.thread.messages),
+              },
+              threads: [displayedThread.thread],
+            });
+          } catch {
+            toastError({
+              description: "Couldn’t update the star for this email",
             });
           }
         }
@@ -184,6 +238,7 @@ function CommandPaletteContent({
           archive: mailCommandContext.actions.archive,
           forward: mailCommandContext.actions.forward,
           label: mailCommandContext.actions.label,
+          star: mailCommandContext.actions.star,
           markRead: mailCommandContext.actions.markRead,
           markSpam: mailCommandContext.actions.markSpam,
           markUnread: mailCommandContext.actions.markUnread,
@@ -196,6 +251,7 @@ function CommandPaletteContent({
           toggleAutoArchive: senderCommandContext?.toggleAutoArchive,
           unsubscribe: senderCommandContext?.unsubscribe,
         },
+        allStarred: mailCommandContext.allStarred,
         hasRead: mailCommandContext.hasRead,
         hasUnread: mailCommandContext.hasUnread,
         isAutoArchived: senderCommandContext?.isAutoArchived,

@@ -7,6 +7,47 @@ import {
 import type { MailMutation } from "./mail-mutations";
 
 describe("mail mutation overlay", () => {
+  it("toggles stars without changing unread state or other accounts", () => {
+    const messages = [
+      message("old", "thread", ["INBOX", "UNREAD"]),
+      message("new", "thread", ["INBOX"]),
+    ];
+    const star: MailMutation = {
+      ...mutation({ id: "star", kind: "archive", messageIds: ["old"] }),
+      kind: "set_starred_state",
+      starred: true,
+    };
+    const apply = (mutations: MailMutation[], emailAccountId = "account") =>
+      applyMailMutationOverlayToMessages({
+        emailAccountId,
+        messages,
+        mutations,
+      });
+    expect(apply([star]).map((message) => message.labelIds)).toEqual([
+      ["INBOX", "UNREAD", "STARRED"],
+      ["INBOX"],
+    ]);
+    expect(apply([star], "other")).toEqual(messages);
+    expect(
+      apply([star, { ...star, id: "unstar", createdAt: 1, starred: false }]),
+    ).toEqual(messages);
+  });
+
+  it("removes a star already present in the provider snapshot", () => {
+    const result = applyMailMutationOverlayToMessages({
+      emailAccountId: "account",
+      messages: [message("old", "thread", ["INBOX", "UNREAD", "STARRED"])],
+      mutations: [
+        {
+          ...mutation({ id: "unstar", kind: "archive", messageIds: ["old"] }),
+          kind: "set_starred_state",
+          starred: false,
+        },
+      ],
+    });
+    expect(result.at(0)?.labelIds).toEqual(["INBOX", "UNREAD"]);
+  });
+
   it("hides only captured messages and applies the latest read state", () => {
     const messages = [
       message("old", "thread", ["INBOX", "UNREAD"]),

@@ -512,6 +512,20 @@ export class GmailProvider implements EmailProvider {
     );
   }
 
+  async markMessagesStarredState(
+    messageIds: string[],
+    starred: boolean,
+  ): Promise<void> {
+    for (const ids of chunk([...new Set(messageIds)], 1000)) {
+      await this.client.users.messages.batchModify({
+        userId: "me",
+        requestBody: starred
+          ? { ids, addLabelIds: [GmailLabel.STARRED] }
+          : { ids, removeLabelIds: [GmailLabel.STARRED] },
+      });
+    }
+  }
+
   async markMessagesReadState(
     messageIds: string[],
     read: boolean,

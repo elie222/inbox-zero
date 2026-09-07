@@ -1,3 +1,4 @@
+import { GmailLabel } from "@/utils/gmail/label";
 import type { ParsedMessage } from "@/utils/types";
 import type { MailMutation } from "./mail-mutations";
 
@@ -76,6 +77,11 @@ export function createMailMutationOverlay(mutations: MailMutation[]) {
         visibility.set(messageId, visible);
       }
     }
+    if (mutation.kind === "set_starred_state") {
+      for (const messageId of mutation.messageIds) {
+        accountState.starredStates.set(messageId, mutation.starred);
+      }
+    }
     if (mutation.kind === "set_read_state") {
       for (const messageId of mutation.messageIds) {
         accountState.readStates.set(messageId, mutation.read);
@@ -91,9 +97,14 @@ export function createMailMutationOverlay(mutations: MailMutation[]) {
         .filter((message) => state.visibility.get(message.id) !== false)
         .map((message) => {
           const read = state.readStates.get(message.id);
-          return read === undefined
-            ? message
-            : updateMessageReadState(message, read);
+          const updated =
+            read === undefined
+              ? message
+              : updateMessageReadState(message, read);
+          const starred = state.starredStates.get(message.id);
+          return starred === undefined
+            ? updated
+            : updateMessageStarredState(updated, starred);
         });
     },
     isThreadHidden(
@@ -119,13 +130,28 @@ export function updateMessageReadState(message: ParsedMessage, read: boolean) {
   return { ...message, labelIds: [...labelIds] };
 }
 
+export function updateMessageStarredState(
+  message: ParsedMessage,
+  starred: boolean,
+) {
+  const labelIds = new Set(message.labelIds ?? []);
+  if (starred) labelIds.add(GmailLabel.STARRED);
+  else labelIds.delete(GmailLabel.STARRED);
+  return { ...message, labelIds: [...labelIds] };
+}
+
 type OverlayState = {
+  starredStates: Map<string, boolean>;
   readStates: Map<string, boolean>;
   visibility: Map<string, boolean>;
 };
 
 function createOverlayState(): OverlayState {
-  return { readStates: new Map(), visibility: new Map() };
+  return {
+    starredStates: new Map(),
+    readStates: new Map(),
+    visibility: new Map(),
+  };
 }
 
 export function getMailMutationThreadKey(

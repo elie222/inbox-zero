@@ -293,6 +293,10 @@ export interface EmailProvider {
     labelName: string | null;
   }): Promise<{ usedFallback?: boolean; actualLabelId?: string }>;
   markMessagesReadState(messageIds: string[], read: boolean): Promise<void>;
+  markMessagesStarredState(
+    messageIds: string[],
+    starred: boolean,
+  ): Promise<void>;
   markRead(threadId: string): Promise<void>;
   markReadThread(threadId: string, read: boolean): Promise<void>;
   markSpam(threadId: string): Promise<void>;

@@ -91,6 +91,12 @@ export const executeMailMutationAction = actionClient
         case "spam":
           await emailProvider.markSpam(parsedInput.threadId);
           break;
+        case "set_starred_state":
+          await emailProvider.markMessagesStarredState(
+            parsedInput.messageIds,
+            parsedInput.starred,
+          );
+          break;
         case "set_read_state":
           await emailProvider.markMessagesReadState(
             parsedInput.messageIds,

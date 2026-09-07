@@ -1,5 +1,6 @@
 "use client";
 
+import { isThreadStarred } from "@/app/(app)/[emailAccountId]/mail/star-state";
 import { memo, useMemo, type Ref } from "react";
 import { MailLabelChip } from "@/app/(app)/[emailAccountId]/mail/MailLabelChip";
 import { isThreadUnread } from "@/app/(app)/[emailAccountId]/mail/read-state";
@@ -84,6 +85,7 @@ export const ThreadRow = memo(function ThreadRow({
   if (!message) return null;
 
   const isUnread = isThreadUnread(thread.messages);
+  const isStarred = isThreadStarred(thread.messages);
   // Both providers normalise to this id, so this is not a provider branch.
   const isDraft = message.labelIds?.includes(GmailLabel.DRAFT) ?? false;
   const isWide = layout === "list" && !compact;
@@ -121,11 +123,20 @@ export const ThreadRow = memo(function ThreadRow({
       ) : null}
       <span
         aria-hidden
-        className={cn(
-          "pointer-events-none size-1.5 shrink-0 rounded-full bg-primary",
-          !isUnread && "invisible",
+        className="pointer-events-none flex h-1.5 w-2.5 shrink-0 items-center justify-center"
+      >
+        {isStarred && (
+          <span className="relative z-10 size-1.5 shrink-0 rounded-full bg-yellow-400" />
         )}
-      />
+        {isUnread && (
+          <span
+            className={cn(
+              "size-1.5 shrink-0 rounded-full bg-primary",
+              isStarred && "-ml-0.5",
+            )}
+          />
+        )}
+      </span>
     </span>
   );
 
@@ -211,6 +222,7 @@ export const ThreadRow = memo(function ThreadRow({
       role="option"
       tabIndex={isFocused ? 0 : -1}
     >
+      {isStarred && <span className="sr-only">Starred conversation</span>}
       {leadingIndicator}
 
       {isWide ? (

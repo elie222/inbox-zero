@@ -2107,6 +2107,24 @@ export class OutlookProvider implements EmailProvider {
     await this.moveMessageSnapshots(messageIds, "inbox");
   }
 
+  async markMessagesStarredState(
+    messageIds: string[],
+    starred: boolean,
+  ): Promise<void> {
+    await mapWithConcurrency([...new Set(messageIds)], 4, async (messageId) => {
+      try {
+        await markStarredMessage({
+          client: this.client,
+          messageId,
+          starred,
+          logger: this.logger,
+        });
+      } catch (error) {
+        if (extractErrorInfo(error).status !== 404) throw error;
+      }
+    });
+  }
+
   async markMessagesReadState(
     messageIds: string[],
     read: boolean,
