@@ -1,3 +1,4 @@
+import { stripBrandingSignatures } from "@/utils/referral/signature";
 import he from "he";
 import * as stringSimilarity from "string-similarity";
 import {
@@ -52,7 +53,7 @@ function normalizeForOutlook(content: string, stripSignature = false): string {
   const withoutSignature = stripSignature
     ? stripPlainTextSignature(withoutForwardedContent)
     : withoutForwardedContent;
-  return withoutSignature.toLowerCase().trim();
+  return stripBrandingSignatures(withoutSignature).toLowerCase().trim();
 }
 
 /**
@@ -101,7 +102,7 @@ function normalizeForGmail(content: string, stripSignature = false): string {
   const withoutSignature = stripSignature
     ? stripPlainTextSignature(withoutForwardedContent)
     : withoutForwardedContent;
-  return withoutSignature.toLowerCase().trim();
+  return stripBrandingSignatures(withoutSignature).toLowerCase().trim();
 }
 
 /**
