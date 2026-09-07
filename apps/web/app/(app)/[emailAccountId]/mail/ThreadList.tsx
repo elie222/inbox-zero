@@ -144,16 +144,18 @@ export function ThreadList({
             >
               {dateGroups.map((group) => (
                 <div
-                  aria-label={group.label}
+                  aria-label={group.label ?? undefined}
                   key={`${group.label}-${group.startIndex}`}
                   role="group"
                 >
-                  <div
-                    aria-hidden
-                    className="pt-4 pr-5 pb-1.5 pl-9 font-medium text-muted-foreground text-sm"
-                  >
-                    {group.label}
-                  </div>
+                  {group.label ? (
+                    <div
+                      aria-hidden
+                      className="pt-4 pr-5 pb-1.5 pl-9 font-medium text-muted-foreground text-sm"
+                    >
+                      {group.label}
+                    </div>
+                  ) : null}
                   {group.threads.map((thread, offset) => {
                     const index = group.startIndex + offset;
                     const threadKey = getListThreadKey(thread);

@@ -342,6 +342,27 @@ describe("groupThreadsByDate", () => {
     expect(groupThreadsByDate([thread], now)[0].label).toBe("Today");
   });
 
+  it("gives undated threads no heading instead of dating them now", () => {
+    const groups = groupThreadsByDate(
+      [
+        createDatedThread("2025-09-05T11:00:00"),
+        { messages: [{ internalDate: undefined }] },
+        { messages: [{ internalDate: "not-a-date" }] },
+      ],
+      now,
+    );
+
+    expect(
+      groups.map((group) => ({
+        label: group.label,
+        count: group.threads.length,
+      })),
+    ).toEqual([
+      { label: "Today", count: 1 },
+      { label: null, count: 2 },
+    ]);
+  });
+
   it("starts a new group when the list is not date-ordered", () => {
     const groups = groupThreadsByDate(
       [
