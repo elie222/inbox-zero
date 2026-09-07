@@ -8,7 +8,8 @@ const logger = createScopedLogger("resolve-label");
  * Resolves label name and ID pairing for a label action.
  * - If only label name is provided, looks up the labelId (creates if not found)
  * - If only labelId is provided, looks up the label name
- * - If both are provided, returns both
+ * - If both are provided, keeps the ID and refreshes the name from the provider
+ *   (the UI only updates the ID when a different label is picked)
  * - Returns null for both if lookup fails
  * - Skips resolution for AI templates (strings containing {{...}})
  */
@@ -21,7 +22,17 @@ export async function resolveLabelNameAndId({
   label?: string | null;
   labelId?: string | null;
 }): Promise<{ label: string | null; labelId: string | null }> {
-  // If we have both, return them
+  // The ID is the source of truth. A name given alongside it may be stale
+  // (label picker changed only the ID), so take the provider's name.
+  if (label && labelId && !hasVariables(label)) {
+    try {
+      const foundLabel = await emailProvider.getLabelById(labelId);
+      return { label: foundLabel?.name ?? label, labelId };
+    } catch {
+      return { label, labelId };
+    }
+  }
+
   if (label && labelId) {
     return { label, labelId };
   }
