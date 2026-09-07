@@ -100,9 +100,10 @@ test("highlights URLs while typing and pasting", async ({ page }, testInfo) => {
       }),
     );
   });
-  await expect(
-    editor.getByRole("link", { name: "example.org/help" }),
-  ).toHaveCSS("color", "rgb(37, 99, 235)");
+  await expect(editor.getByText("example.org/help", { exact: true })).toHaveCSS(
+    "color",
+    "rgb(37, 99, 235)",
+  );
   await capturePlaywrightCheckpoint(
     page,
     testInfo,
