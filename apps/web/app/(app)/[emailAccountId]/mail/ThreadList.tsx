@@ -19,7 +19,7 @@ import { LoadingMiniSpinner } from "@/components/Loading";
 import { Button } from "@/components/ui/button";
 import type { EmailLabels } from "@/providers/email-label-types";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { cn } from "@/utils/utils";
+import { cn } from "@/utils";
 
 export type ThreadListProps = {
   threads: ListThread[];
