@@ -16,6 +16,7 @@ import {
   type CachedMailboxMessage,
 } from "./database";
 
+import { getThreadDetailKeyRange } from "./keys";
 import { invalidateThreadCaches } from "./thread-invalidation";
 
 const mailboxListeners = new Set<(emailAccountId: string) => void>();
@@ -91,10 +92,7 @@ export async function applyMailboxSyncPage({
         await Promise.all(
           [...changedThreadIds].map((threadId) =>
             details.getAllKeys(
-              IDBKeyRange.bound(
-                [emailAccountId, threadId, ""],
-                [emailAccountId, threadId, []],
-              ),
+              getThreadDetailKeyRange(emailAccountId, threadId),
             ),
           ),
         )

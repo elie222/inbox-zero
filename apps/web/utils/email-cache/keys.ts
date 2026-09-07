@@ -34,6 +34,16 @@ export function createThreadDetailRequestKey({
   return [url, emailAccountId];
 }
 
+export function getThreadDetailKeyRange(
+  emailAccountId: string,
+  threadId: string,
+) {
+  return IDBKeyRange.bound(
+    [emailAccountId, threadId, ""],
+    [emailAccountId, threadId, []],
+  );
+}
+
 function normalizeValue(value: unknown): unknown {
   if (value instanceof Date) return value.toISOString();
   if (Array.isArray(value))

@@ -1,6 +1,11 @@
 import { unstable_serialize, type Cache, type ScopedMutator } from "swr";
 
-import { createThreadDetailRequestKey } from "./keys";
+import {
+  captureEmailCacheEpoch,
+  getEmailCacheDatabase,
+  isEmailCacheEpochCurrent,
+} from "./database";
+import { createThreadDetailRequestKey, getThreadDetailKeyRange } from "./keys";
 
 type ThreadInvalidation = {
   emailAccountId: string;
@@ -26,7 +31,7 @@ channel?.addEventListener("message", (event) => {
     Array.isArray(change.threadIds) &&
     change.threadIds.every((id: unknown) => typeof id === "string")
   )
-    applyThreadInvalidation(change);
+    invalidatePersistedThreadCaches(change).catch(() => {});
 });
 
 export function getThreadCacheVersion(
@@ -105,7 +110,41 @@ export function connectThreadCacheInvalidation(
   };
 }
 
+async function invalidatePersistedThreadCaches(change: ThreadInvalidation) {
+  const epoch = captureEmailCacheEpoch(change.emailAccountId);
+  advanceThreadCacheVersions(change);
+  try {
+    const database = await getEmailCacheDatabase();
+    if (!database || !isEmailCacheEpochCurrent(change.emailAccountId, epoch))
+      return;
+    const transaction = database.transaction("threadDetails", "readwrite");
+    const store = transaction.store;
+    const keys = change.reset
+      ? await store.index("byAccount").getAllKeys(change.emailAccountId)
+      : (
+          await Promise.all(
+            change.threadIds.map((threadId) =>
+              store.getAllKeys(
+                getThreadDetailKeyRange(change.emailAccountId, threadId),
+              ),
+            ),
+          )
+        ).flat();
+    await Promise.all(keys.map((key) => store.delete(key)));
+    await transaction.done;
+  } finally {
+    // Also reject reads that started while the cross-tab deletion was pending.
+    if (isEmailCacheEpochCurrent(change.emailAccountId, epoch))
+      applyThreadInvalidation(change);
+  }
+}
+
 function applyThreadInvalidation(change: ThreadInvalidation) {
+  advanceThreadCacheVersions(change);
+  for (const listener of listeners) listener(change);
+}
+
+function advanceThreadCacheVersions(change: ThreadInvalidation) {
   const state = versions.get(change.emailAccountId);
   if (state) {
     if (change.reset) {
@@ -118,5 +157,4 @@ function applyThreadInvalidation(change: ThreadInvalidation) {
       }
     }
   }
-  for (const listener of listeners) listener(change);
 }
