@@ -26,10 +26,13 @@ die() { echo "pr-digest: $*" >&2; exit 1; }
 # own `|| die` for the abort to reach the script.
 # Keep stderr out of the payload — mixing it in corrupts JSON for jq.
 api() {
-  local out
-  if ! out=$(gh api "$@" 2>/dev/null); then
-    die "gh api $1 failed: $(gh api "$@" 2>&1 | head -1)"
-  fi
+  local out err msg rc
+  err=$(mktemp) || die "mktemp failed"
+  out=$(gh api "$@" 2>"$err"); rc=$?
+  msg=$(head -1 "$err"); rm -f "$err"
+  # Capture stderr from the one call rather than re-running it. A retry of a
+  # POST that GitHub already accepted would post a second public reply.
+  [ $rc -eq 0 ] || die "gh api $1 failed: $msg"
   printf '%s' "$out"
 }
 
@@ -218,12 +221,25 @@ digest() {
   local reviews review_open
   reviews=$(api --paginate "repos/$repo/pulls/$pr/reviews?per_page=100" | jq -s 'add // []') \
     || die "could not read reviews"
-  review_open=$(jq --arg me "$viewer" --argjson n "$BODY_CHARS" "
+  # Only submitted states that ask for something: a PENDING review is an
+  # unsubmitted draft, and APPROVED or DISMISSED is not waiting on a reply. One
+  # stays open until you post a later conversation comment naming it, the same
+  # rule conversation comments use.
+  review_open=$(jq --arg me "$viewer" --argjson convo "$convo" --argjson n "$BODY_CHARS" "
     $clean_def
-    [.[] | select(.user.type != \"Bot\" and .user.login != \$me)
-         | select((.body // \"\") != \"\")
-         | {key: \"r\(.id):\(.submitted_at)\", id, author: .user.login,
-            path: \"(review \(.state))\", line: 0, body: (.body | clean)}]" <<<"$reviews")
+    [\$convo[] | select(.user.login == \$me) | {created_at, body}] as \$mine
+    | [.[] | select(.user.type != \"Bot\" and .user.login != \$me)
+           | select(.state == \"CHANGES_REQUESTED\" or .state == \"COMMENTED\")
+           | select((.body // \"\") != \"\")
+           | . as \$r
+           | select(
+               [\$mine[]
+                | select(.created_at > \$r.submitted_at
+                         and (.body | (contains(\$r.html_url)
+                                       or test(\"#pullrequestreview-\(\$r.id)\"))))]
+               | length == 0)
+           | {key: \"r\(.id):\(.submitted_at)\", id, author: .user.login,
+              path: \"(review \(.state))\", line: 0, body: (.body | clean)}]" <<<"$reviews")
 
   open=$(jq -s 'add' <<<"$open$convo_open$review_open")
   local open_n seen_file
