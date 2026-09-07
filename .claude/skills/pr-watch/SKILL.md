@@ -30,7 +30,7 @@ PRD="$(git rev-parse --show-toplevel)/.claude/skills/pr-watch/pr-digest"
 
 ## The cycle
 
-1. Run `pr-digest --watch` with **`run_in_background: true`**. It blocks until
+1. Run `"$PRD" --watch` with **`run_in_background: true`**. It blocks until
    every check run and commit status on the exact head SHA is terminal, then
    prints the digest. You are re-invoked when it exits.
 
@@ -57,7 +57,7 @@ Each `FAIL` line names the job and the step that broke. A step that failed or
 was cancelled with *"later steps skipped, tests did not run"* is infrastructure,
 not your diff — `gh run rerun <run-id> --failed` and go back to 1.
 
-Otherwise `pr-digest --logs <job-id>` for the assertion and code frame. Raw CI
+Otherwise `"$PRD" --logs <job-id>` for the assertion and code frame. Raw CI
 logs prefix every line with job name, step name, and a timestamp, and a
 Playwright job can exceed two megabytes; the flag strips all of that.
 
@@ -80,7 +80,7 @@ Mark a comment handled only after the change, the validation, and the reply have
 all succeeded.
 
 ```bash
-pr-digest --reply <comment-id> "<public-safe reply>"
+"$PRD" --reply <comment-id> "<public-safe reply>"
 ```
 
 GitHub conversation comments (as opposed to inline review comments) have no
@@ -97,6 +97,8 @@ Only after the user approves. Map the root comment id to its thread, then
 resolve just that one:
 
 ```bash
+REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
+PR_NUM=$(gh pr view --json number --jq .number)
 OWNER=${REPO%%/*}; REPO_NAME=${REPO#*/}
 THREAD_ID=$(gh api graphql --paginate -f query='
   query($owner:String!, $repo:String!, $pr:Int!, $endCursor:String) {
@@ -135,11 +137,11 @@ clean or stopped at a limit. If you stopped at a limit, say what was pending.
 ## Reference
 
 ```
-pr-digest [PR]            one-shot digest
-pr-digest --watch [PR]    block until checks settle, then digest
-pr-digest --all [PR]      reprint findings already shown once
-pr-digest --logs JOB_ID   failing CI log, stripped
-pr-digest --reply ID BODY reply to a review thread
+"$PRD" [PR]            one-shot digest
+"$PRD" --watch [PR]    block until checks settle, then digest
+"$PRD" --all [PR]      reprint findings already shown once
+"$PRD" --logs JOB_ID   failing CI log, stripped
+"$PRD" --reply ID BODY reply to a review thread
 ```
 
 Exit codes: `0` green · `10` failures · `11` open comments · `12` pending ·
