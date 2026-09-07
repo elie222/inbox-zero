@@ -1,5 +1,5 @@
 import type { gmail_v1 } from "@googleapis/gmail";
-import { describe, expect, it, vi } from "vitest";
+import { assert, describe, expect, it, vi } from "vitest";
 import { sendEmailWithHtml } from "./mail";
 
 vi.mock("@/utils/mail", async (importOriginal) => ({
@@ -32,7 +32,10 @@ describe("sending a Gmail draft from the reader", () => {
         message: { threadId: "thread-1", raw: expect.any(String) },
       },
     });
-    const raw = drafts.send.mock.calls[0][0].requestBody.message.raw;
+    const call = drafts.send.mock.calls.at(0);
+    assert.isDefined(call);
+    const [request] = call;
+    const raw = request.requestBody.message.raw;
     expect(Buffer.from(raw, "base64url").toString()).toContain("Edited reply");
     expect(messages.send).not.toHaveBeenCalled();
   });
@@ -56,6 +59,30 @@ describe("sending a Gmail draft from the reader", () => {
     drafts.list.mockResolvedValue({ data: { drafts: [] } });
 
     await expect(sendEmailWithHtml(gmail, email)).rejects.toThrow(/draft/i);
+
+    expect(drafts.send).not.toHaveBeenCalled();
+    expect(messages.send).not.toHaveBeenCalled();
+  });
+
+  it("does not resend a stale draft that is already marked sent", async () => {
+    const { gmail, drafts, messages } = createGmail();
+    messages.get.mockResolvedValue({ data: { labelIds: ["DRAFT", "SENT"] } });
+
+    await expect(sendEmailWithHtml(gmail, email)).rejects.toThrow(
+      /already.*sent/i,
+    );
+
+    expect(drafts.send).not.toHaveBeenCalled();
+    expect(messages.send).not.toHaveBeenCalled();
+  });
+
+  it("does not send a new copy when the source draft message is already gone", async () => {
+    const { gmail, drafts, messages } = createGmail();
+    messages.get.mockRejectedValue(
+      Object.assign(new Error("Not found"), { code: 404 }),
+    );
+
+    await expect(sendEmailWithHtml(gmail, email)).rejects.toThrow("Not found");
 
     expect(drafts.send).not.toHaveBeenCalled();
     expect(messages.send).not.toHaveBeenCalled();

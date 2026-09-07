@@ -117,6 +117,11 @@ export async function sendEmailWithHtml(
   if (replyToEmail?.messageId) {
     const message = await getMessage(replyToEmail.messageId, gmail, "metadata");
     if (message.labelIds?.includes(GmailLabel.DRAFT)) {
+      if (message.labelIds.includes(GmailLabel.SENT)) {
+        throw new Error(
+          "This draft is already marked as sent. Reopen the thread before sending.",
+        );
+      }
       const draftId = await getDraftIdForMessage(gmail, replyToEmail.messageId);
       if (!draftId) {
         throw new Error(
