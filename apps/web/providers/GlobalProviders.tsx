@@ -2,6 +2,11 @@
 
 import type React from "react";
 import { useEffect } from "react";
+import { usePathname } from "next/navigation";
+import {
+  SAVE_OFFLINE_MAIL,
+  isOfflineMailPath,
+} from "@/utils/offline/mail-cache";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { SerwistProvider, useSerwist } from "@serwist/next/react";
 import { toast } from "sonner";
@@ -31,9 +36,10 @@ export function GlobalProviders(props: { children: React.ReactNode }) {
 
 // SerwistProvider's own register drops the promise, so the failures that come
 // with crawlers, webviews and private browsing surface as unhandled rejections.
-// The worker is precache-only, so swallowing them is safe.
+// Registration failures must not interrupt the online app.
 function ManageServiceWorker() {
   const { serwist } = useSerwist();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (!serwist) return;
@@ -43,7 +49,14 @@ function ManageServiceWorker() {
     let lastCheckedAt: number | null = null;
     let registration: ServiceWorkerRegistration | undefined;
 
+    const saveOfflineMail = () => {
+      saveOfflineMailPage(
+        navigator.serviceWorker.controller ?? registration?.active,
+      );
+    };
+
     const notifyAboutUpdate = () => {
+      saveOfflineMail();
       if (hadController && isDesktopApp) {
         toast.info("Update available", {
           action: {
@@ -73,6 +86,7 @@ function ManageServiceWorker() {
       }
 
       lastCheckedAt = now;
+      saveOfflineMail();
       try {
         registration ??= await navigator.serviceWorker.getRegistration();
         await registration?.update();
@@ -92,6 +106,7 @@ function ManageServiceWorker() {
       .register()
       .then((serviceWorkerRegistration) => {
         registration ??= serviceWorkerRegistration;
+        saveOfflineMail();
         return checkForUpdate();
       })
       .catch(() => {});
@@ -106,5 +121,20 @@ function ManageServiceWorker() {
     };
   }, [serwist]);
 
+  useEffect(() => {
+    if (!serwist || !pathname || !isOfflineMailPath(pathname)) return;
+    saveOfflineMailPage(navigator.serviceWorker.controller);
+  }, [serwist, pathname]);
+
   return null;
+}
+
+function saveOfflineMailPage(worker: ServiceWorker | null | undefined) {
+  if (
+    !isOfflineMailPath(window.location.pathname) ||
+    !navigator.onLine ||
+    document.visibilityState !== "visible"
+  )
+    return;
+  worker?.postMessage({ type: SAVE_OFFLINE_MAIL });
 }

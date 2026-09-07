@@ -36,6 +36,11 @@
     "app/(app)/[emailAccountId]/mail/MailboxItemContextMenu.tsx",
     "app/(app)/[emailAccountId]/mail/ShortcutsDialog.tsx"
   ],
+  "offline-loading.spec.ts": [
+    "app/sw.ts",
+    "providers/GlobalProviders.tsx",
+    "utils/offline/clear-mail-cache.ts"
+  ],
   "offline-outbox.spec.ts": [
     "app/(app)/MailMutationOutboxManager.tsx",
     "utils/email-cache/mail-mutations.ts",
