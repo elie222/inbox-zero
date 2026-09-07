@@ -23,7 +23,6 @@ const SECONDARY_ISOLATION_SUBJECT = "Secondary durable mutation target";
 test("keeps a queued archive hidden across reload and replays it after reconnect", async ({
   page,
 }, testInfo) => {
-  await stubMailboxSync(page);
   const { conversations, emailAccountId } = await openMail(page);
   const conversation = conversationWithSubject(
     page,
@@ -93,7 +92,6 @@ test("keeps a queued archive hidden across reload and replays it after reconnect
 test("keeps a reply queued across reload and sends it after reconnect", async ({
   page,
 }, testInfo) => {
-  await stubMailboxSync(page);
   const { emailAccountId } = await openMail(page);
   await page.goto(`/${emailAccountId}/mail?thread-id=${REPLY_THREAD_ID}`);
   const replyMessage = page.locator(
@@ -452,24 +450,4 @@ function clearThreadDetails(
       }),
     { accountId: emailAccountId, id: threadId },
   );
-}
-
-function stubMailboxSync(page: Page) {
-  return page.route("**/api/mobile/mailbox-sync", async (route) => {
-    const emailAccountId = await route
-      .request()
-      .headerValue("X-Email-Account-ID");
-    await route.fulfill({
-      body: JSON.stringify({
-        accountId: emailAccountId,
-        cursor: "playwright-durable-sync",
-        deletedMessageIds: [],
-        hasMore: false,
-        reset: false,
-        upsertedMessages: [],
-      }),
-      contentType: "application/json",
-      status: 200,
-    });
-  });
 }

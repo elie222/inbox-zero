@@ -22,6 +22,17 @@ describe("emulated Playwright suite selection", () => {
     ]);
   });
 
+  test("selects queue diagnostics coverage when its reader changes", () => {
+    const selection = selectChangedPlaywrightTargets(
+      "apps/web/utils/email-cache/mail-queue-diagnostics.ts",
+      appRoot,
+    );
+    expect(selection).toMatchObject({
+      runFullSuite: false,
+      targetFiles: ["__tests__/playwright/emulated/mail/mail-queue.spec.ts"],
+    });
+  });
+
   test("follows nested feature imports and unions coverage across specs", () => {
     withFeatureFixture((root) => {
       const selection = selectChangedPlaywrightTargets(

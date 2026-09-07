@@ -29,6 +29,8 @@ import {
   useRetainedMailMutationOverlay,
 } from "@/hooks/useMailMutationOverlay";
 
+type FetchedCombinedPage = GetAllThreadsResponse & { requestedAt: number };
+
 type CombinedThread = GetAllThreadsResponse["threads"][number];
 
 const COMBINED_PAGE_SIZE = 20;
@@ -85,10 +87,6 @@ export function useCombinedMailThreads({
   );
   const viewIdentity = `${emailAccountId}:${accountIdentity}:${viewKey}`;
   const { fetcher } = useSWRConfig();
-  const remoteRequest = useRef({
-    identity: viewIdentity,
-    startedAt: Date.now(),
-  });
   const getKey = useCallback(
     (pageIndex: number, previousPageData: GetAllThreadsResponse | null) => {
       if (!enabled || (previousPageData && !previousPageData.nextPageToken)) {
@@ -108,19 +106,15 @@ export function useCombinedMailThreads({
   const fetchCombinedPage = useCallback(
     async (key: string) => {
       if (!fetcher) throw new Error("SWR fetcher is unavailable");
-      const query = new URLSearchParams(key.split("?")[1]);
-      if (!query.has("cursor")) {
-        remoteRequest.current = {
-          identity: viewIdentity,
-          startedAt: Date.now(),
-        };
-      }
-      return (await fetcher(key)) as GetAllThreadsResponse;
+      const requestedAt = Date.now();
+      const page = (await fetcher(key)) as GetAllThreadsResponse;
+      // Preserve request freshness when revisiting an SWR-cached split.
+      return { ...page, requestedAt };
     },
-    [fetcher, viewIdentity],
+    [fetcher],
   );
   const { data, error, isLoading, size, setSize, mutate } =
-    useSWRInfinite<GetAllThreadsResponse>(
+    useSWRInfinite<FetchedCombinedPage>(
       getKey,
       fetcher ? fetchCombinedPage : null,
       {
@@ -146,30 +140,15 @@ export function useCombinedMailThreads({
   const accountsRef = useRef(accounts);
   const optimisticUpdateTokens = useRef(new Map<string, symbol>());
   const remoteIdentity = useRef<string | undefined>(undefined);
-  const remoteSnapshot = useRef<{
-    firstPage?: GetAllThreadsResponse;
-    loadedAt: number;
-  }>({ loadedAt: 0 });
+  const remoteRequestedAt = data?.[0]?.requestedAt ?? 0;
   const loadMoreLock = useRef(false);
   const localSnapshotLimit =
     localPagination.identity === viewIdentity
       ? localPagination.limit
       : COMBINED_PAGE_SIZE;
 
-  if (remoteRequest.current.identity !== viewIdentity) {
-    remoteRequest.current = {
-      identity: viewIdentity,
-      startedAt: Date.now(),
-    };
-  }
   remoteIdentity.current = data?.[0] ? viewIdentity : undefined;
   accountsRef.current = accounts;
-  if (data?.[0] && remoteSnapshot.current.firstPage !== data[0]) {
-    remoteSnapshot.current = {
-      firstPage: data[0],
-      loadedAt: remoteRequest.current.startedAt,
-    };
-  }
 
   useEffect(() => {
     if (!enabled) return;
@@ -238,6 +217,18 @@ export function useCombinedMailThreads({
     () => data?.flatMap((page) => page.threads),
     [data],
   );
+  const remoteRequestedAtByThread = useMemo(
+    () =>
+      new Map(
+        data?.flatMap((page) =>
+          page.threads.map(
+            (thread) =>
+              [getListThreadKey(thread), page.requestedAt ?? 0] as const,
+          ),
+        ),
+      ),
+    [data],
+  );
   const remoteHasMore = Boolean(data?.at(-1)?.nextPageToken);
   const failedAccountIds = useMemo(
     () => [...new Set(data?.flatMap((page) => page.failedAccountIds) ?? [])],
@@ -254,7 +245,8 @@ export function useCombinedMailThreads({
             accountStates: syncedView.accountStates,
             failedAccountIds,
             remoteHasMore,
-            remoteLoadedAt: remoteSnapshot.current.loadedAt,
+            remoteLoadedAt: remoteRequestedAt,
+            remoteRequestedAtByThread,
             remoteThreads,
             syncedThreads,
           })
@@ -264,6 +256,8 @@ export function useCombinedMailThreads({
       failedAccountIds,
       remoteHasMore,
       remoteThreads,
+      remoteRequestedAt,
+      remoteRequestedAtByThread,
       syncedThreads,
       syncedView?.accountStates,
     ],
@@ -471,6 +465,7 @@ function mergeCombinedThreads({
   failedAccountIds,
   remoteHasMore,
   remoteLoadedAt,
+  remoteRequestedAtByThread,
   remoteThreads,
   syncedThreads,
 }: {
@@ -478,18 +473,10 @@ function mergeCombinedThreads({
   failedAccountIds: string[];
   remoteHasMore: boolean;
   remoteLoadedAt: number;
+  remoteRequestedAtByThread: Map<string, number>;
   remoteThreads: CombinedThread[];
   syncedThreads: CombinedThread[];
 }) {
-  const locallyAuthoritativeAccountIds = new Set(
-    Object.entries(accountStates)
-      .filter(
-        ([accountId, state]) =>
-          failedAccountIds.includes(accountId) ||
-          state.syncedAt > remoteLoadedAt,
-      )
-      .map(([accountId]) => accountId),
-  );
   const oldestSyncedTimestampByAccount = new Map<string, number>();
   for (const thread of syncedThreads) {
     const timestamp = getThreadTimestamp(thread);
@@ -509,7 +496,13 @@ function mergeCombinedThreads({
     remoteThreads
       .filter((thread) => {
         const state = accountStates[thread.account.id];
-        if (!state || !locallyAuthoritativeAccountIds.has(thread.account.id)) {
+        const requestedAt =
+          remoteRequestedAtByThread.get(getListThreadKey(thread)) ?? 0;
+        if (
+          !state ||
+          (!failedAccountIds.includes(thread.account.id) &&
+            state.syncedAt <= requestedAt)
+        ) {
           return true;
         }
         const afterTimestamp = new Date(state.after).getTime();
@@ -527,11 +520,15 @@ function mergeCombinedThreads({
       .map((thread) => [getListThreadKey(thread), thread]),
   );
   for (const thread of syncedThreads) {
-    const locallyAuthoritative = locallyAuthoritativeAccountIds.has(
-      thread.account.id,
-    );
-    if (!locallyAuthoritative && !remoteHasMore) continue;
     const remoteThread = remoteThreadsByKey.get(getListThreadKey(thread));
+    const state = accountStates[thread.account.id];
+    const requestedAt = remoteThread
+      ? (remoteRequestedAtByThread.get(getListThreadKey(thread)) ?? 0)
+      : remoteLoadedAt;
+    const locallyAuthoritative =
+      failedAccountIds.includes(thread.account.id) ||
+      Boolean(state && state.syncedAt > requestedAt);
+    if (!locallyAuthoritative && !remoteHasMore) continue;
     if (!locallyAuthoritative && remoteThread) continue;
     if (
       !locallyAuthoritative &&

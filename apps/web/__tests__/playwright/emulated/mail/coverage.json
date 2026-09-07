@@ -22,6 +22,10 @@
     "app/(app)/[emailAccountId]/mail/use-combined-mail-threads.ts",
     "utils/email-cache/threads.ts"
   ],
+  "mail-queue.spec.ts": [
+    "app/(app)/[emailAccountId]/debug/mail-queue/page.tsx",
+    "app/(app)/[emailAccountId]/debug/page.tsx"
+  ],
   "manual-label.spec.ts": [
     "app/(app)/[emailAccountId]/mail/LabelPickerDialog.tsx",
     "app/(app)/[emailAccountId]/mail/MailLabelChip.tsx",
