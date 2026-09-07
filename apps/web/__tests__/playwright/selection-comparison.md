@@ -2,8 +2,10 @@
 
 Measured on the source tree at `0a8a54d7d` (2026-09-07), comparing its original
 selector with feature coverage declarations. Both selectors received the same
-changed-file scenarios and the same application source tree. No tests or
-screenshot checkpoints were removed.
+changed-file scenarios and the same application source tree. The first table
+measures isolated component or hook edits (except the explicitly combined row);
+the replay table below uses complete PR file lists. No tests or screenshot
+checkpoints were removed.
 
 | Change | Before: spec jobs | After: spec jobs | Fewer jobs | Historical runner-minutes: before → after |
 | --- | ---: | ---: | ---: | ---: |
@@ -74,8 +76,12 @@ Replaying complete PR file lists against this same application tree gives:
 | [#3554](https://github.com/elie222/inbox-zero/pull/3554) mail: Render compose shortcut hints as one key per block | 16 | 37 |
 | [#3548](https://github.com/elie222/inbox-zero/pull/3548) mail: Simplify label picker | 16 | 1 |
 
-Larger mail changes keep area coverage when they touch the shell or an unmapped
-area file. The shortcut PR grows because it changed the shared
+The sender-profile PR (#3551) also changed `EmailMessage.tsx`, which selects all
+16 mail specs; it did not change the mail shell. The keyboard-interaction PR
+(#3559) changed both `EmailMessage.tsx` and `MailShell.tsx`, each of which keeps
+full mail coverage. The 16 → 1 sender-profile rows above apply to isolated edits
+to `SenderContextPanel.tsx` or `use-public-contact-context.ts`, not those complete
+PRs. The shortcut PR grows because it changed the shared
 `lib/shortcuts/registry.ts`, previously ignored by the workflow trigger and
 selector. Tracking that shared dependency intentionally adds coverage. These
 are selector replays, not new CI runs of the historical commits.
