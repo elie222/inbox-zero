@@ -7,6 +7,11 @@ import prisma from "@/utils/prisma";
 import { createTestLogger } from "@/__tests__/helpers";
 import { saveClassificationFeedback } from "@/utils/rule/classification-feedback";
 import { fetchSenderFromMessage } from "@/utils/webhook/google/fetch-sender-from-message";
+import { findRuleByLabelId } from "@/utils/rule/classification-feedback";
+import {
+  isLearnFromLabelsEnabled,
+  learnSenderFromLabel,
+} from "@/utils/rule/learn-from-label";
 
 const logger = createTestLogger();
 
@@ -72,6 +77,11 @@ vi.mock("@/utils/webhook/google/fetch-sender-from-message", () => ({
 
 vi.mock("@/utils/rule/consts", () => ({
   isEligibleForClassificationFeedback: vi.fn().mockReturnValue(true),
+}));
+
+vi.mock("@/utils/rule/learn-from-label", () => ({
+  isLearnFromLabelsEnabled: vi.fn().mockResolvedValue(false),
+  learnSenderFromLabel: vi.fn().mockResolvedValue(undefined),
 }));
 
 describe("process-label-added-event", () => {
@@ -385,6 +395,86 @@ describe("process-label-added-event", () => {
         await junkMessage();
 
         expect(mockProvider.getThreadMessages).not.toHaveBeenCalled();
+      });
+    });
+
+    describe("learning from user-applied labels", () => {
+      const labelMessage = () =>
+        handleLabelAddedEvent(
+          createLabelAddedItem("123", "thread-123", ["Label_1"]),
+          defaultOptions,
+          logger,
+        );
+
+      beforeEach(() => {
+        vi.mocked(isLearnFromLabelsEnabled).mockResolvedValue(true);
+        vi.mocked(findRuleByLabelId).mockResolvedValue(null);
+      });
+
+      it("does not check the setting for system labels", async () => {
+        await handleLabelAddedEvent(
+          createLabelAddedItem("123", "thread-123", ["STARRED"]),
+          defaultOptions,
+          logger,
+        );
+
+        expect(isLearnFromLabelsEnabled).not.toHaveBeenCalled();
+        expect(learnSenderFromLabel).not.toHaveBeenCalled();
+      });
+
+      it("does nothing when the setting is off", async () => {
+        vi.mocked(isLearnFromLabelsEnabled).mockResolvedValue(false);
+
+        await labelMessage();
+
+        expect(learnSenderFromLabel).not.toHaveBeenCalled();
+      });
+
+      it("learns the sender when no rule labels with the label yet", async () => {
+        await labelMessage();
+
+        expect(saveClassificationFeedback).not.toHaveBeenCalled();
+        expect(learnSenderFromLabel).toHaveBeenCalledWith(
+          expect.objectContaining({
+            emailAccountId: "email-account-id",
+            labelId: "Label_1",
+            sender: "sender@example.com",
+            messageId: "123",
+            threadId: "thread-123",
+            ruleId: undefined,
+          }),
+        );
+      });
+
+      it("records feedback and learns the sender for an existing rule", async () => {
+        vi.mocked(findRuleByLabelId).mockResolvedValue({
+          id: "rule-123",
+          systemType: null,
+        });
+
+        await labelMessage();
+
+        expect(saveClassificationFeedback).toHaveBeenCalledWith(
+          expect.objectContaining({ ruleId: "rule-123" }),
+        );
+        expect(learnSenderFromLabel).toHaveBeenCalledWith(
+          expect.objectContaining({ ruleId: "rule-123" }),
+        );
+      });
+
+      it("does not learn when Inbox Zero applied the label itself", async () => {
+        vi.mocked(findRuleByLabelId).mockResolvedValue({
+          id: "rule-123",
+          systemType: null,
+        });
+        vi.mocked(prisma.executedAction.findFirst).mockResolvedValueOnce({
+          id: "executed-action",
+        } as any);
+
+        await labelMessage();
+
+        expect(saveClassificationFeedback).not.toHaveBeenCalled();
+        expect(learnSenderFromLabel).not.toHaveBeenCalled();
       });
     });
 

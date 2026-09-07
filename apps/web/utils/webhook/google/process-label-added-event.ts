@@ -18,6 +18,10 @@ import {
   saveClassificationFeedback,
 } from "@/utils/rule/classification-feedback";
 import { fetchSenderFromMessage } from "@/utils/webhook/google/fetch-sender-from-message";
+import {
+  isLearnFromLabelsEnabled,
+  learnSenderFromLabel,
+} from "@/utils/rule/learn-from-label";
 import { isSameEmailAddress, isSameOrganization } from "@/utils/email";
 import { internalDateToDate } from "@/utils/date";
 import { hasPriorContactOrAssumeYes } from "@/utils/cold-email/has-prior-contact";
@@ -26,6 +30,8 @@ import { hasPriorContactOrAssumeYes } from "@/utils/cold-email/has-prior-contact
  * When labels are added to an email:
  * - SPAM label: learn sender as cold email (existing behavior)
  * - Other labels that map to rules: record as classification feedback
+ * - With "learn from labels" on: remember the sender for that label's rule,
+ *   creating the rule when none labels with it yet
  */
 export async function handleLabelAddedEvent(
   message: gmail_v1.Schema$HistoryLabelAdded,
@@ -67,6 +73,10 @@ export async function handleLabelAddedEvent(
     return;
   }
 
+  const learnFromLabels =
+    classifiableLabelIds.length > 0 &&
+    (await isLearnFromLabelsEnabled(emailAccountId));
+
   const sender = await fetchSenderFromMessage(messageId, provider, logger);
   if (!sender) return;
 
@@ -92,6 +102,8 @@ export async function handleLabelAddedEvent(
         messageId,
         threadId,
         emailAccountId,
+        learnFromLabels,
+        provider,
         logger,
       }),
     ),
@@ -223,6 +235,8 @@ async function recordClassificationFromLabelAdd({
   messageId,
   threadId,
   emailAccountId,
+  learnFromLabels,
+  provider,
   logger,
 }: {
   labelId: string;
@@ -230,35 +244,50 @@ async function recordClassificationFromLabelAdd({
   messageId: string;
   threadId: string;
   emailAccountId: string;
+  learnFromLabels: boolean;
+  provider: EmailProvider;
   logger: Logger;
 }) {
   const rule = await findRuleByLabelId({ labelId, emailAccountId });
 
-  if (!rule) return;
+  if (rule) {
+    if (!isEligibleForClassificationFeedback(rule.systemType)) return;
 
-  if (!isEligibleForClassificationFeedback(rule.systemType)) return;
-
-  // Self-labeling filter: skip if Inbox Zero already applied this label
-  const systemApplied = await wasLabelAppliedBySystem({
-    messageId,
-    emailAccountId,
-    labelId,
-  });
-
-  if (systemApplied) {
-    logger.trace("Label was applied by system, skipping classification", {
+    // Self-labeling filter: skip if Inbox Zero already applied this label
+    const systemApplied = await wasLabelAppliedBySystem({
+      messageId,
+      emailAccountId,
       labelId,
     });
-    return;
+
+    if (systemApplied) {
+      logger.trace("Label was applied by system, skipping classification", {
+        labelId,
+      });
+      return;
+    }
+
+    await saveClassificationFeedback({
+      emailAccountId,
+      sender,
+      ruleId: rule.id,
+      threadId,
+      messageId,
+      eventType: ClassificationFeedbackEventType.LABEL_ADDED,
+      logger,
+    });
   }
 
-  await saveClassificationFeedback({
+  if (!learnFromLabels) return;
+
+  await learnSenderFromLabel({
     emailAccountId,
+    labelId,
     sender,
-    ruleId: rule.id,
-    threadId,
     messageId,
-    eventType: ClassificationFeedbackEventType.LABEL_ADDED,
+    threadId,
+    ruleId: rule?.id,
+    provider,
     logger,
   });
 }

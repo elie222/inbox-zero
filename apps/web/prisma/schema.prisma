@@ -152,6 +152,7 @@ model EmailAccount {
   rulesPrompt               String? // @deprecated
   autoCategorizeSenders     Boolean              @default(false)
   multiRuleSelectionEnabled Boolean              @default(false)
+  learnFromLabels           Boolean              @default(false) // moving an email to a label teaches the sender -> label rule
   sensitiveDataPolicy       String?
   draftReplyConfidence      DraftReplyConfidence @default(ALL_EMAILS)
   draftCleanupDays          Int?                 @default(14)
