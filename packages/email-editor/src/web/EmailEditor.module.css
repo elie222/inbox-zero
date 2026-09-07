@@ -287,10 +287,8 @@
   height: auto;
 }
 
-/* Links stay visible but inert while composing, like body links without a modifier key. */
 .signatureContent .signatureHtml a {
   color: #2563eb;
-  pointer-events: none;
 }
 
 .removePreservedButton {
@@ -301,6 +299,7 @@
   height: 1.75rem;
   font-size: 1.1rem;
   color: var(--email-editor-muted-foreground);
+  pointer-events: none;
   cursor: pointer;
   background: transparent;
   border: 0;
@@ -310,6 +309,7 @@
 
 .signatureContent:hover .removePreservedButton,
 .removePreservedButton:focus-visible {
+  pointer-events: auto;
   opacity: 1;
 }
 

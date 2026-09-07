@@ -223,10 +223,13 @@ test("does not add a line break for the send shortcut", async ({
   await dialog.getByPlaceholder("Subject").fill(subject);
   await editor.pressSequentially("Draft body");
   await dialog.getByRole("button", { name: "Show signature" }).click();
+  const signatureBlock = dialog.locator(
+    "[data-email-preserved-kind='signature']",
+  );
+  // The remove control only appears while hovering the signature.
+  await signatureBlock.hover();
   await dialog.getByRole("button", { name: "Remove signature" }).click();
-  await expect(
-    dialog.locator("[data-email-preserved-kind='signature']"),
-  ).toHaveCount(0);
+  await expect(signatureBlock).toHaveCount(0);
 
   await editor.press("ControlOrMeta+Enter");
 

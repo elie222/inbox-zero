@@ -1,4 +1,4 @@
-import { createContext, useContext } from "react";
+import { createContext, type MouseEvent, useContext } from "react";
 import styles from "./EmailEditor.module.css";
 
 export type RenderedPreservedEmailBlock = {
@@ -66,10 +66,12 @@ export function PreservedBlockView({
           >
             ×
           </button>
+          {/* biome-ignore lint/a11y/useKeyWithClickEvents: the handler only suppresses link navigation; keyboard activation of a link also dispatches click. */}
           <div
             className={styles.signatureHtml}
             // biome-ignore lint/security/noDangerouslySetInnerHtml: core sanitization removes active content before the signature is rendered inline.
             dangerouslySetInnerHTML={{ __html: block.previewHtml }}
+            onClick={preventLinkNavigation}
           />
         </div>
       )}
@@ -84,4 +86,10 @@ export function PreservedBlockView({
       )}
     </>
   );
+}
+
+// Signature links stay visible but inert while composing, whether activated by
+// mouse or keyboard.
+function preventLinkNavigation(event: MouseEvent<HTMLDivElement>) {
+  if ((event.target as HTMLElement).closest("a")) event.preventDefault();
 }
