@@ -137,13 +137,18 @@ export function createOfflineMailCache({
     const existing = saves.get(key);
     if (existing) return existing;
     const startedAtGeneration = generation;
+    const backgroundWork: Promise<unknown>[] = [];
+    const trackWork: WaitUntil = (promise) => {
+      backgroundWork.push(promise);
+      waitUntil(promise);
+    };
     const saving = (async () => {
       const response = await handle(
         new Request(url, {
           credentials: "include",
           headers: { Accept: "text/html" },
         }),
-        waitUntil,
+        trackWork,
       );
       if (
         response.status !== 200 ||
@@ -155,9 +160,12 @@ export function createOfflineMailCache({
         new Request(`${origin}${ACCOUNT_PATH}`, {
           credentials: "include",
         }),
-        waitUntil,
+        trackWork,
       );
-    })().finally(() => {
+    })().finally(async () => {
+      // A cached fallback can return while the live refresh is still running.
+      await Promise.all(backgroundWork);
+      await writes;
       if (saves.get(key) === saving) saves.delete(key);
     });
     saves.set(key, saving);

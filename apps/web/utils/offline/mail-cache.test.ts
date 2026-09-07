@@ -332,6 +332,25 @@ describe("offline mail cache", () => {
     expect(await (await storage.match(mailUrl))?.text()).toBe("New mailbox");
   });
 
+  it("keeps slow saves coalesced after returning a cached fallback", async () => {
+    vi.useFakeTimers();
+    const cache = makeCache();
+    await storage.put(mailUrl, html("Saved mailbox"));
+    const liveResponse = Promise.withResolvers<Response>();
+    network.mockReturnValueOnce(liveResponse.promise);
+    network.mockResolvedValue(Response.json({ emailAccounts: [] }));
+    const firstSave = cache.save(mailUrl, waitUntil);
+    await vi.advanceTimersByTimeAsync(6000);
+    const secondSave = cache.save(mailUrl, waitUntil);
+    expect(secondSave).toBe(firstSave);
+    liveResponse.resolve(html("Refreshed mailbox"));
+    await Promise.all([firstSave, secondSave]);
+    expect(await (await storage.match(mailUrl))?.text()).toBe(
+      "Refreshed mailbox",
+    );
+    expect(network).toHaveBeenCalledTimes(2);
+  });
+
   it("still returns live mail when local storage fails", async () => {
     vi.stubGlobal("caches", {
       open: async () => {
