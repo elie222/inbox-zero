@@ -109,11 +109,18 @@ export function NewSplitPopover({
   };
 
   const toggleOption = (option: NewSplitOption) => {
+    setNote(null);
     if (selectedIds.includes(option.id)) {
       const next = selectedIds.filter((id) => id !== option.id);
       setSelectedIds(next);
       if (!next.length) setNameOverride(null);
-      setNote(null);
+      return;
+    }
+    // Only labels stack. Picking one while a read state or category is held
+    // replaces it, because that pair has no query.
+    if (selected.some((held) => held.kind !== MailSplitKind.LABEL)) {
+      setSelectedIds([option.id]);
+      setNameOverride(null);
       return;
     }
     if (selectedIds.length >= MAX_SPLIT_LABELS) {
@@ -121,7 +128,6 @@ export function NewSplitPopover({
       return;
     }
     setSelectedIds([...selectedIds, option.id]);
-    setNote(null);
   };
 
   const createSplit = async (draft: NewSplitDraft) => {

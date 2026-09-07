@@ -80,7 +80,12 @@ export async function mergePaginatedSources<
     string,
     { item: TItem; itemIdBySource: Map<string, string> }
   >();
-  const previouslyEmitted = new Set(previousCursor.emitted);
+  // A key stays here until every source has run past the row, so a row two
+  // sources share is served once however far apart their pages are.
+  const pendingByEmittedKey = new Map(
+    previousCursor.emitted.map((entry) => [entry.key, new Set(entry.pending)]),
+  );
+  const skippedItemIdsBySource = new Map<string, string[]>();
   const keyFor = (item: TItem, source: TSource) =>
     dedupeItemKey?.(item) ?? `${source.id}:${getItemId(item)}`;
 
@@ -95,7 +100,16 @@ export async function mergePaginatedSources<
     for (const item of page.items) {
       if (consumedIds.has(getItemId(item))) continue;
       const key = keyFor(item, source);
-      if (previouslyEmitted.has(key)) continue;
+      const stillPending = pendingByEmittedKey.get(key);
+      if (stillPending) {
+        // This source has now caught up to a row already served, so consume it
+        // here rather than leaving the page looking unfinished forever.
+        stillPending.delete(source.id);
+        const skipped = skippedItemIdsBySource.get(source.id) ?? [];
+        skipped.push(getItemId(item));
+        skippedItemIdsBySource.set(source.id, skipped);
+        continue;
+      }
       const candidate = candidatesByKey.get(key);
       if (candidate) {
         candidate.itemIdBySource.set(source.id, getItemId(item));
@@ -112,7 +126,7 @@ export async function mergePaginatedSources<
     compare(left.item, right.item),
   );
   const returned = candidates.slice(0, limit);
-  const returnedItemIdsBySource = new Map<string, string[]>();
+  const returnedItemIdsBySource = new Map(skippedItemIdsBySource);
   for (const { itemIdBySource } of returned) {
     for (const [sourceId, itemId] of itemIdBySource) {
       const itemIds = returnedItemIdsBySource.get(sourceId) ?? [];
@@ -161,13 +175,29 @@ export async function mergePaginatedSources<
     }
   }
 
-  // A row two sources share can sit on different provider pages, so recent
-  // keys are remembered until the slower source has caught up past them.
   if (dedupeItemKey) {
-    nextCursor.emitted = [
-      ...returned.map(({ item }) => dedupeItemKey(item)),
-      ...previousCursor.emitted,
-    ].slice(0, EMITTED_KEY_MEMORY);
+    for (const { item, itemIdBySource } of returned) {
+      const key = dedupeItemKey(item);
+      if (pendingByEmittedKey.has(key)) continue;
+      pendingByEmittedKey.set(
+        key,
+        new Set(
+          sources
+            .map((source) => source.id)
+            .filter((sourceId) => !itemIdBySource.has(sourceId)),
+        ),
+      );
+    }
+    // A source that is finished will never surface the row, so it stops
+    // holding the key and the ledger drains instead of growing.
+    nextCursor.emitted = [...pendingByEmittedKey]
+      .map(([key, pending]) => ({
+        key,
+        pending: [...pending].filter(
+          (sourceId) => nextCursor.sources[sourceId]?.done === false,
+        ),
+      }))
+      .filter((entry) => entry.pending.length > 0);
   }
 
   return {
@@ -191,12 +221,14 @@ type SourceCursorState = {
 type MergedCursor = {
   version: 3;
   sources: Record<string, SourceCursorState>;
-  /** Keys already served, so a row two sources share is not served twice. */
-  emitted: string[];
+  /**
+   * Rows already served, each with the sources that have yet to reach them, so
+   * a row two sources share is served once and then forgotten.
+   */
+  emitted: EmittedKey[];
 };
 
-/** A shared row surfaces in the other source within a few pages, or never. */
-const EMITTED_KEY_MEMORY = 200;
+type EmittedKey = { key: string; pending: string[] };
 
 const INITIAL_SOURCE_CURSOR: SourceCursorState = {
   pageToken: null,
@@ -236,7 +268,9 @@ function decodeCursor(cursor: string | null): MergedCursor {
       version: 3,
       sources,
       emitted: Array.isArray(parsed.emitted)
-        ? parsed.emitted.filter((key): key is string => typeof key === "string")
+        ? parsed.emitted.flatMap((entry) =>
+            isEmittedKey(entry) ? [entry] : [],
+          )
         : [],
     };
   } catch {
@@ -263,6 +297,15 @@ function toSourceCursorState(value: unknown): SourceCursorState | null {
     consumedIds: consumed.filter((id): id is string => typeof id === "string"),
     done: value.done,
   };
+}
+
+function isEmittedKey(value: unknown): value is EmittedKey {
+  return (
+    isRecord(value) &&
+    typeof value.key === "string" &&
+    Array.isArray(value.pending) &&
+    value.pending.every((sourceId) => typeof sourceId === "string")
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

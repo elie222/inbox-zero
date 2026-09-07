@@ -269,7 +269,10 @@ describe("loadThreads", () => {
       ]);
 
       const second = await load(first.nextPageToken ?? undefined);
-      expect(second.threads.map((loaded) => loaded.id)).not.toContain("shared");
+      expect(second.threads.map((loaded) => loaded.id)).toEqual(["a-old"]);
+      // Skipping the repeat still consumes it, so the label finishes rather
+      // than serving the same page for ever.
+      expect(second.nextPageToken).toBeUndefined();
     });
 
     it("fails the request rather than silently narrowing the split", async () => {
