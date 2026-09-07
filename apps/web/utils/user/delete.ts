@@ -1,5 +1,6 @@
 import { deleteContact as deleteLoopsContact } from "@inboxzero/loops";
 import { deleteContact as deleteResendContact } from "@inboxzero/transactional-email";
+import { deleteThreadPageBuffers } from "@/utils/redis/thread-page-buffer";
 import prisma from "@/utils/prisma";
 import { deleteTinybirdAiCalls } from "@inboxzero/tinybird-ai-analytics";
 import {
@@ -75,6 +76,8 @@ export async function deleteUser({
       logger.error("Error clearing cached research", { error });
       captureException(error);
     });
+
+    await Promise.all(emailAccountIds.map((id) => deleteThreadPageBuffers(id)));
 
     await deleteSoloOrganizations({
       organizationIds: organizationIdsToDelete,

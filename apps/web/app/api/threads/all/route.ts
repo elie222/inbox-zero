@@ -7,7 +7,7 @@ import { loadCombinedThreads } from "@/utils/threads/load-combined";
 import { loadThreads, toListThreads } from "@/utils/threads/load";
 import { threadsQuery } from "@/utils/threads/validation";
 import { labelIdsToThreadsQuery } from "@/utils/mail/split-query";
-import { createPageBuffer } from "@/utils/threads/page-buffer";
+import { createPageBuffer } from "@/utils/redis/thread-page-buffer";
 import { MAX_SPLIT_LABELS } from "@/utils/mail/split-constants";
 
 export const maxDuration = 30;

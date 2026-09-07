@@ -3,15 +3,25 @@ import prisma from "@/utils/__mocks__/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { loadThreads, toListThreads } from "@/utils/threads/load";
 import { loadCombinedThreads } from "@/utils/threads/load-combined";
-import { createPageBuffer } from "@/utils/threads/page-buffer";
+import { createPageBuffer } from "@/utils/redis/thread-page-buffer";
 
 vi.mock("@/env", () => ({
   env: {
+    EMAIL_ENCRYPT_SECRET: "test-encryption-secret",
+    EMAIL_ENCRYPT_SALT: "test-encryption-salt",
     UPSTASH_REDIS_URL: "https://redis.example.com",
     UPSTASH_REDIS_TOKEN: "test-token",
   },
 }));
-const { redis } = vi.hoisted(() => ({ redis: { get: vi.fn(), set: vi.fn() } }));
+const { redis } = vi.hoisted(() => ({
+  redis: {
+    get: vi.fn(),
+    set: vi.fn(),
+    eval: vi.fn(),
+    scan: vi.fn(),
+    del: vi.fn(),
+  },
+}));
 vi.mock("@upstash/redis", () => ({
   Redis: vi.fn(function () {
     return redis;
@@ -28,6 +38,21 @@ beforeEach(() => {
   vi.mocked(redis.set).mockImplementation(async (key, value) => {
     values.set(key, value as string);
     return "OK";
+  });
+  vi.mocked(redis.eval).mockImplementation(
+    async (_script, [marker, key], [value]) => {
+      if (values.has(marker)) return 0;
+      values.set(key, value);
+      return 1;
+    },
+  );
+  vi.mocked(redis.scan).mockImplementation(async (_cursor, { match }) => [
+    0,
+    [...values.keys()].filter((key) => key.startsWith(match.slice(0, -1))),
+  ]);
+  vi.mocked(redis.del).mockImplementation(async (...keys) => {
+    keys.forEach((key) => values.delete(key));
+    return keys.length;
   });
   prisma.executedRule.findMany.mockResolvedValue([]);
 });

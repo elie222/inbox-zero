@@ -4,6 +4,7 @@ import { z } from "zod";
 import { after } from "next/server";
 import { Prisma } from "@/generated/prisma/client";
 import prisma from "@/utils/prisma";
+import { deleteThreadPageBuffers } from "@/utils/redis/thread-page-buffer";
 import { deleteUser } from "@/utils/user/delete";
 import { actionClient, actionClientUser } from "@/utils/actions/safe-action";
 import { captureException, SafeError } from "@/utils/error";
@@ -252,6 +253,7 @@ async function runDeleteEmailAccountTransaction(
   },
 ) {
   try {
+    await deleteThreadPageBuffers(context.emailAccountId);
     await prisma.$transaction([
       prisma.$queryRaw`
         SELECT true AS locked

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { fetchThreadsPage } from "@/utils/threads/fetch-page";
 
-vi.mock("@/utils/threads/page-buffer", () => ({
+vi.mock("@/utils/redis/thread-page-buffer", () => ({
   createPageBuffer: vi.fn(() => undefined),
 }));
 

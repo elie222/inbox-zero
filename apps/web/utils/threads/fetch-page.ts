@@ -1,6 +1,6 @@
 import type { EmailProvider, EmailThread } from "@/utils/email/types";
 import { mergePaginatedSources } from "@/utils/threads/merge-paginated-sources";
-import { createPageBuffer } from "@/utils/threads/page-buffer";
+import { createPageBuffer } from "@/utils/redis/thread-page-buffer";
 import { getThreadTimestamp } from "@/utils/threads/sort";
 import type { ThreadsQuery } from "@/utils/threads/validation";
 

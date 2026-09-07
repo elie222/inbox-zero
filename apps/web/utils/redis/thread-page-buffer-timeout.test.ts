@@ -1,9 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createPageBuffer } from "@/utils/threads/page-buffer";
+import { createPageBuffer } from "@/utils/redis/thread-page-buffer";
 
 vi.mock("@/env", () => ({
   env: {
+    EMAIL_ENCRYPT_SECRET: "test-encryption-secret",
+    EMAIL_ENCRYPT_SALT: "test-encryption-salt",
     UPSTASH_REDIS_URL: "https://redis.example.com",
     UPSTASH_REDIS_TOKEN: "test-token",
   },
