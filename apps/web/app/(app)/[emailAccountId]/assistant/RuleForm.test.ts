@@ -11,6 +11,7 @@ const { mockEnv } = vi.hoisted(() => ({
 
 vi.mock("@/env", () => ({
   env: {
+    NEXT_PUBLIC_BRAND_NAME: "Inbox Zero",
     NEXT_PUBLIC_AUTO_DRAFT_DISABLED: false,
     NEXT_PUBLIC_EMAIL_SEND_ENABLED: true,
     NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED: true,

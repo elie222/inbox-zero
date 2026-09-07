@@ -85,6 +85,7 @@ import type {
 } from "@/utils/email-cache/reply-drafts";
 import { createPreservedEmailBlocks } from "@/utils/email/preserved-blocks";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import { stripBrandingSignatures } from "@/utils/referral/signature";
 import { renderSentWithFooterHtml } from "@/utils/email/sent-with-footer";
 import { getActionErrorMessage } from "@/utils/error";
 import { redirectToSafeUrl } from "@/utils/redirect";
@@ -305,7 +306,12 @@ function ComposeEmailFormContent({
         }
       }
       return {
-        draft: { ...draft, editableHtml: parsedDraft.body.innerHTML },
+        draft: {
+          ...draft,
+          editableHtml: sentWithFooterHtml
+            ? stripBrandingSignatures(parsedDraft.body.innerHTML)
+            : parsedDraft.body.innerHTML,
+        },
         preservedBlocks,
       };
     }
@@ -320,6 +326,9 @@ function ComposeEmailFormContent({
     // removed with it, without introducing another block in the composer.
     const draft = {
       ...preparedDraft,
+      editableHtml: sentWithFooterHtml
+        ? stripBrandingSignatures(preparedDraft.editableHtml)
+        : preparedDraft.editableHtml,
       signatureHtml: [preparedDraft.signatureHtml, sentWithFooterHtml]
         .filter(Boolean)
         .join("<br>"),
