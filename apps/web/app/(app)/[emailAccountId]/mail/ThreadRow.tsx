@@ -1,5 +1,6 @@
 "use client";
 
+import { isThreadStarred } from "@/app/(app)/[emailAccountId]/mail/star-state";
 import { memo, useMemo, type Ref } from "react";
 import { MailLabelChip } from "@/app/(app)/[emailAccountId]/mail/MailLabelChip";
 import { isThreadUnread } from "@/app/(app)/[emailAccountId]/mail/read-state";
@@ -81,9 +82,7 @@ export const ThreadRow = memo(function ThreadRow({
   if (!message) return null;
 
   const isUnread = isThreadUnread(thread.messages);
-  const isStarred = thread.messages.some((message) =>
-    message.labelIds?.includes(GmailLabel.STARRED),
-  );
+  const isStarred = isThreadStarred(thread.messages);
   // Both providers normalise to this id, so this is not a provider branch.
   const isDraft = message.labelIds?.includes(GmailLabel.DRAFT) ?? false;
   const isWide = layout === "list" && !compact;

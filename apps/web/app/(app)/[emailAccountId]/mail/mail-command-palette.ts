@@ -222,9 +222,13 @@ export function buildMailCommandPalette({
   }
 
   if (actions.star) {
+    const actionLabel = allStarred ? "Unstar" : "Star";
     commands.push({
       id: "mail-star",
-      label: allStarred ? "Unstar" : "Star",
+      label:
+        targetCount === 1
+          ? actionLabel
+          : `${actionLabel} ${targetCount} conversations`,
       icon: StarIcon,
       shortcut: getShortcutHint("star"),
       section: "actions",

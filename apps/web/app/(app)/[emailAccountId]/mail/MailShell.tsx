@@ -1,6 +1,6 @@
 "use client";
 
-import { GmailLabel } from "@/utils/gmail/label";
+import { isThreadStarred } from "@/app/(app)/[emailAccountId]/mail/star-state";
 import {
   useCallback,
   useDeferredValue,
@@ -737,11 +737,7 @@ export function MailShell() {
   );
   const allStarred =
     actionTargets.length > 0 &&
-    actionTargets.every((target) =>
-      target.messages.some((message) =>
-        message.labelIds?.includes(GmailLabel.STARRED),
-      ),
-    );
+    actionTargets.every((target) => isThreadStarred(target.messages));
   const starTargets = useCallback(
     () => runOn((ids) => setStarredState(ids, !allStarred), false),
     [runOn, setStarredState, allStarred],

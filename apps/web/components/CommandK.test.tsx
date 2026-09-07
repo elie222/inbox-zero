@@ -2,6 +2,7 @@
 
 import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { MailMutation } from "@/utils/email-cache/mail-mutations";
 import type { ShortcutHandlers } from "@/lib/shortcuts/registry";
 import { CommandK } from "./CommandK";
 
@@ -18,6 +19,11 @@ const thread = vi.hoisted(() => ({
   } as { thread: { id: string; messages: { id: string }[] } } | undefined,
   isLoading: false,
 }));
+const overlay = vi.hoisted(() => ({ mutations: [] as MailMutation[] }));
+vi.mock("@/hooks/useMailMutationOverlay", () => ({
+  useRetainedMailMutationOverlay: () => overlay,
+}));
+
 const outbox = vi.hoisted(() => ({ enqueue: vi.fn() }));
 const notifications = vi.hoisted(() => ({ error: vi.fn() }));
 const shortcuts = vi.hoisted(() => ({
@@ -79,6 +85,7 @@ vi.mock("@/components/ui/command", () => ({
 describe("CommandK side-panel actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    overlay.mutations = [];
     displayedEmail.threadId = "thread-1";
     thread.data = {
       thread: {
@@ -128,6 +135,50 @@ describe("CommandK side-panel actions", () => {
     expect(notifications.error).toHaveBeenCalledWith({
       description: "Couldn't queue archiving this email",
     });
+  });
+
+  it("keeps star bound while the side-panel thread is loading", async () => {
+    thread.data = undefined;
+    thread.isLoading = true;
+    render(<CommandK />);
+    await act(async () => shortcuts.handlers?.star?.());
+    expect(outbox.enqueue).not.toHaveBeenCalled();
+    expect(notifications.error).toHaveBeenCalledWith({
+      description: "Email is still loading",
+    });
+  });
+
+  it("toggles from the queued star state before provider reconciliation", async () => {
+    const view = render(<CommandK />);
+    await act(async () => shortcuts.handlers?.star?.());
+    expect(outbox.enqueue).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        payload: { kind: "set_starred_state", starred: true },
+      }),
+    );
+    overlay.mutations = [
+      {
+        id: "star",
+        batchId: "batch",
+        emailAccountId: "account-1",
+        threadId: "thread-1",
+        messageIds: ["message-1", "message-2"],
+        kind: "set_starred_state",
+        starred: true,
+        status: "pending",
+        attempts: 0,
+        nextAttemptAt: 0,
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ];
+    view.rerender(<CommandK />);
+    await act(async () => shortcuts.handlers?.star?.());
+    expect(outbox.enqueue).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        payload: { kind: "set_starred_state", starred: false },
+      }),
+    );
   });
 
   it("keeps archive bound while the full thread snapshot is loading", async () => {

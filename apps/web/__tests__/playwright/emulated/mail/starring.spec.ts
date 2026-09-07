@@ -12,6 +12,17 @@ test("toggles a star with S and the command palette while preserving unread", as
     conversations,
     "Second Unread Command Message",
   );
+  const starStatus = row.getByText("Starred conversation", { exact: true });
+  if (await starStatus.count()) {
+    await row.getByRole("checkbox").click();
+    await page.keyboard.press("s");
+    await expect(starStatus).toHaveCount(0);
+  }
+  await row.getByRole("checkbox").click();
+  await page.keyboard.press("u");
+  await expect(page.getByText("1 selected", { exact: true })).toBeHidden();
+  await page.getByRole("button", { name: "Unread", exact: true }).click();
+  await expect(row).toBeVisible();
   await row.getByRole("checkbox").click();
   await page.keyboard.press("s");
   await expect(
@@ -23,6 +34,7 @@ test("toggles a star with S and the command palette while preserving unread", as
     if (document.activeElement instanceof HTMLElement)
       document.activeElement.blur();
   });
+  await expect(row).toBeVisible();
   await capturePlaywrightCheckpoint(page, testInfo, "starred-and-unread-dots");
   await row.getByRole("checkbox").click();
   await page.keyboard.press("ControlOrMeta+k");

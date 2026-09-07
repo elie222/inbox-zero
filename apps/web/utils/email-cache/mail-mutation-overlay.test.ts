@@ -33,6 +33,21 @@ describe("mail mutation overlay", () => {
     ).toEqual(messages);
   });
 
+  it("removes a star already present in the provider snapshot", () => {
+    const result = applyMailMutationOverlayToMessages({
+      emailAccountId: "account",
+      messages: [message("old", "thread", ["INBOX", "UNREAD", "STARRED"])],
+      mutations: [
+        {
+          ...mutation({ id: "unstar", kind: "archive", messageIds: ["old"] }),
+          kind: "set_starred_state",
+          starred: false,
+        },
+      ],
+    });
+    expect(result[0]?.labelIds).toEqual(["INBOX", "UNREAD"]);
+  });
+
   it("hides only captured messages and applies the latest read state", () => {
     const messages = [
       message("old", "thread", ["INBOX", "UNREAD"]),
