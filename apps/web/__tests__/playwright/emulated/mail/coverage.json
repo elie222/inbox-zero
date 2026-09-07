@@ -50,6 +50,14 @@
     "app/(app)/[emailAccountId]/mail/use-mail-threads.ts"
   ],
   "split-tabs.spec.ts": ["app/(app)/[emailAccountId]/mail/SplitTabs.tsx"],
+  "starring.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/star-state.ts",
+    "app/(app)/[emailAccountId]/mail/ThreadRow.tsx",
+    "app/(app)/[emailAccountId]/mail/mail-command-palette.ts",
+    "app/(app)/[emailAccountId]/mail/use-thread-actions.ts",
+    "components/CommandK.tsx",
+    "lib/shortcuts/registry.ts"
+  ],
   "theme.spec.ts": ["components/CommandK.tsx", "components/theme-provider.tsx"],
   "thread-navigation.spec.ts": [
     "components/email-list/EmailThread.tsx",
