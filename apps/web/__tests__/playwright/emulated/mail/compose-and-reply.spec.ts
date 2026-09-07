@@ -403,6 +403,40 @@ test("selects the sender when composing from all accounts", async ({
   }
 });
 
+test("leaves the draft before returning to the list with Escape", async ({
+  page,
+}, testInfo) => {
+  const { conversations } = await openMail(page);
+  await conversationWithSubject(
+    page,
+    conversations,
+    "Reply Workflow Message",
+  ).click();
+  const message = page.locator(
+    '[data-thread-message-id="msg_playwright_reply"]',
+  );
+  await message.getByRole("button", { name: "Reply", exact: true }).click();
+  const editor = message.getByRole("textbox", { name: "Email message" });
+  await editor.fill("A draft preserved when leaving the input.");
+  const threadUrl = page.url();
+
+  await editor.press("Escape");
+  await expect(message).toBeFocused();
+  await expect(page).toHaveURL(threadUrl);
+  await expect(editor).toContainText(
+    "A draft preserved when leaving the input.",
+  );
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "draft-escape-focuses-message",
+  );
+
+  await page.keyboard.press("Escape");
+  await expect(conversations).toBeVisible();
+  await expect(message).toBeHidden();
+});
+
 test("opens and sends a reply from the reader with Enter", async ({
   page,
 }, testInfo) => {
