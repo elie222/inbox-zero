@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, type ComponentProps } from "react";
-import { useAtomValue, useSetAtom } from "jotai";
+import type { ComponentProps } from "react";
 import {
   ArchiveIcon,
   ArchiveRestoreIcon,
@@ -20,7 +19,7 @@ import { FixWithChat } from "@/app/(app)/[emailAccountId]/assistant/FixWithChat"
 import { getRuleResultReasonDisplay } from "@/app/(app)/[emailAccountId]/assistant/ResultDisplay";
 import { MailLabelChip } from "@/app/(app)/[emailAccountId]/mail/MailLabelChip";
 import type { ThreadPlan } from "@/app/(app)/[emailAccountId]/mail/types";
-import { useUnsubscribeSender } from "@/app/(app)/[emailAccountId]/mail/use-unsubscribe-sender";
+import { useSenderCommands } from "@/app/(app)/[emailAccountId]/mail/use-sender-commands";
 import { getEmailMessageCellActions } from "@/components/EmailMessageCellActions";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,10 +40,6 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { ACTION_TYPE_LABELS, getVisibleActions } from "@/utils/action-display";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import type { ParsedMessage } from "@/utils/types";
-import {
-  commandPaletteOpenAtom,
-  senderCommandContextAtom,
-} from "@/store/command-palette";
 
 type FixWithChatResults = ComponentProps<typeof FixWithChat>["results"];
 
@@ -95,21 +90,18 @@ export function ThreadActionsMenu({
   onOpenChange,
 }: ThreadActionsMenuProps) {
   const hint = getShortcutHint("moreActions");
-  const isCommandPaletteOpen = useAtomValue(commandPaletteOpenAtom);
-  const setSenderCommandContext = useSetAtom(senderCommandContextAtom);
-  const { emailAccountId, provider, userEmail } = useAccount();
+  const { provider, userEmail } = useAccount();
   const {
     canManageAutoArchive,
-    canUnsubscribe,
+    isUnsubscribeDisabled,
+    unsubscribeLabel,
     isAutoArchived,
     isAutoArchiveStatusLoading,
     isUpdatingAutoArchive,
     onToggleAutoArchive,
     onUnsubscribe,
     PremiumModal,
-  } = useUnsubscribeSender(message, {
-    loadStoredLink: Boolean(open || isCommandPaletteOpen),
-  });
+  } = useSenderCommands(message);
   const openUrl = message
     ? getEmailMessageCellActions({
         externalUrl: message.externalUrl,
@@ -119,41 +111,6 @@ export function ThreadActionsMenu({
         userEmail,
       })?.openUrl
     : undefined;
-  const senderCommandContext = useMemo(
-    () =>
-      canManageAutoArchive
-        ? {
-            emailAccountId,
-            isAutoArchived,
-            isAutoArchiveDisabled:
-              isAutoArchiveStatusLoading || isUpdatingAutoArchive,
-            isUnsubscribeDisabled: !canUnsubscribe,
-            threadId: message?.threadId ?? "",
-            toggleAutoArchive: onToggleAutoArchive,
-            unsubscribe: onUnsubscribe,
-          }
-        : null,
-    [
-      canManageAutoArchive,
-      canUnsubscribe,
-      emailAccountId,
-      isAutoArchived,
-      isAutoArchiveStatusLoading,
-      isUpdatingAutoArchive,
-      onToggleAutoArchive,
-      onUnsubscribe,
-      message?.threadId,
-    ],
-  );
-
-  useEffect(() => {
-    setSenderCommandContext(senderCommandContext);
-  }, [senderCommandContext, setSenderCommandContext]);
-
-  useEffect(
-    () => () => setSenderCommandContext(null),
-    [setSenderCommandContext],
-  );
 
   return (
     <>
@@ -172,7 +129,7 @@ export function ThreadActionsMenu({
 
         <DropdownMenuContent
           align="end"
-          className="w-56"
+          className="w-80 max-w-[calc(100vw-1rem)]"
           onEscapeKeyDown={(event) => event.stopPropagation()}
         >
           {plans.length > 0 ? (
@@ -252,11 +209,14 @@ export function ThreadActionsMenu({
 
           {canManageAutoArchive ? (
             <DropdownMenuItem
-              disabled={!canUnsubscribe}
+              disabled={isUnsubscribeDisabled}
               onSelect={onUnsubscribe}
             >
               <MailXIcon className="mr-2 size-4" />
-              Unsubscribe from sender
+              {unsubscribeLabel}
+              <DropdownMenuShortcut>
+                {getShortcutHint("unsubscribe")}
+              </DropdownMenuShortcut>
             </DropdownMenuItem>
           ) : null}
 
@@ -273,6 +233,9 @@ export function ThreadActionsMenu({
               {isAutoArchived
                 ? "Disable auto archive"
                 : "Auto archive future emails"}
+              <DropdownMenuShortcut>
+                {getShortcutHint("toggleAutoArchive")}
+              </DropdownMenuShortcut>
             </DropdownMenuItem>
           ) : null}
 

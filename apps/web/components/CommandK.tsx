@@ -8,6 +8,7 @@ import {
   MonitorIcon,
   MoonIcon,
   SunIcon,
+  UsersIcon,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useAtom, useAtomValue } from "jotai";
@@ -49,6 +50,7 @@ import { useRetainedMailMutationOverlay } from "@/hooks/useMailMutationOverlay";
 import { applyMailMutationOverlayToMessages } from "@/utils/email-cache/mail-mutation-overlay";
 import { useThread } from "@/hooks/useThread";
 import { enqueueThreadMailMutationBatch } from "@/utils/email-cache/thread-mail-mutations";
+import { AccountCommandList } from "@/components/AccountCommandList";
 import { toastError } from "@/components/Toast";
 
 const SECTION_ORDER: CommandSection[] = [
@@ -95,7 +97,6 @@ function CommandPalette() {
 
   return (
     <CommandPaletteContent
-      key={activeMailContext ? "mail" : "default"}
       displayedEmail={displayedEmail}
       mailCommandContext={activeMailContext}
       senderCommandContext={
@@ -115,8 +116,14 @@ function CommandPaletteContent({
   senderCommandContext: SenderCommandContext | null;
 }) {
   const [open, setOpen] = useAtom(commandPaletteOpenAtom);
-  const [page, setPage] = React.useState<"root" | "snooze">("root");
+  const [activePage, setPage] = React.useState<"root" | "snooze" | "accounts">(
+    "root",
+  );
   const [search, setSearch] = React.useState("");
+  const page =
+    activePage === "snooze" && !mailCommandContext?.actions.snooze
+      ? "root"
+      : activePage;
   const { setTheme } = useTheme();
 
   const { emailAccountId } = useAccount();
@@ -154,7 +161,11 @@ function CommandPaletteContent({
   });
 
   const shortcutHandlers: ShortcutHandlers = {
-    commandPalette: () => setOpen((wasOpen) => !wasOpen),
+    commandPalette: () => {
+      setPage("root");
+      setSearch("");
+      setOpen((wasOpen) => !wasOpen);
+    },
     compose: onOpenComposeModal,
     archive: threadId
       ? async () => {
@@ -257,6 +268,7 @@ function CommandPaletteContent({
         isAutoArchived: senderCommandContext?.isAutoArchived,
         isAutoArchiveDisabled: senderCommandContext?.isAutoArchiveDisabled,
         isUnsubscribeDisabled: senderCommandContext?.isUnsubscribeDisabled,
+        unsubscribeLabel: senderCommandContext?.unsubscribeLabel,
         openExternalLabel: mailCommandContext.openExternalLabel,
         targetCount: mailCommandContext.targetCount,
       })
@@ -301,7 +313,20 @@ function CommandPaletteContent({
       keywords: ["theme", "appearance", "mode", theme],
       action: () => setTheme(theme),
     }));
-    allCommands = [...actionCommands, ...commands, ...themeCommands];
+    allCommands = [
+      ...actionCommands,
+      {
+        id: "switch-accounts",
+        label: "Switch accounts",
+        icon: UsersIcon,
+        section: "accounts",
+        keywords: ["switch", "accounts", "email", "inbox"],
+        closeOnSelect: false,
+        action: () => setPage("accounts"),
+      },
+      ...commands,
+      ...themeCommands,
+    ];
   }
 
   const filteredCommands =
@@ -333,7 +358,7 @@ function CommandPaletteContent({
       open={open}
       onOpenChange={handleOpenChange}
       onEscapeKeyDown={(event) => {
-        if (page !== "snooze") return;
+        if (page === "root") return;
         event.preventDefault();
         setPage("root");
         setSearch("");
@@ -350,15 +375,26 @@ function CommandPaletteContent({
         key={page}
         autoFocus
         placeholder={
-          page === "snooze"
-            ? "When should it return? Try Friday at 3pm"
-            : "Type a command or search..."
+          {
+            root: "Type a command or search...",
+            snooze: "When should it return? Try Friday at 3pm",
+            accounts: "Search accounts...",
+          }[page]
         }
         value={search}
         onValueChange={setSearch}
       />
       <CommandList>
-        {isLoading ? (
+        {page === "accounts" ? (
+          <AccountCommandList
+            search={search}
+            onClose={() => handleOpenChange(false)}
+            onBack={() => {
+              setPage("root");
+              setSearch("");
+            }}
+          />
+        ) : isLoading ? (
           <div className="flex items-center justify-center py-6">
             <Loader2Icon className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>

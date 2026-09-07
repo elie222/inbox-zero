@@ -40,6 +40,7 @@ export function buildMailCommandPalette({
   isAutoArchived = false,
   isAutoArchiveDisabled = false,
   isUnsubscribeDisabled = false,
+  unsubscribeLabel = "Unsubscribe from sender",
   openExternalLabel = "Open in email provider",
   targetCount,
 }: {
@@ -50,6 +51,7 @@ export function buildMailCommandPalette({
   isAutoArchived?: boolean;
   isAutoArchiveDisabled?: boolean;
   isUnsubscribeDisabled?: boolean;
+  unsubscribeLabel?: string;
   openExternalLabel?: string;
   targetCount: number;
 }): Command[] {
@@ -183,11 +185,12 @@ export function buildMailCommandPalette({
   if (targetCount === 1 && actions.unsubscribe) {
     commands.push({
       id: "mail-unsubscribe",
-      label: "Unsubscribe from sender",
+      label: unsubscribeLabel,
+      shortcut: getShortcutHint("unsubscribe"),
       icon: MailXIcon,
       section: "actions",
       priority: 12,
-      keywords: ["unsubscribe", "newsletter", "sender"],
+      keywords: ["unsubscribe", "block", "newsletter", "sender"],
       action: actions.unsubscribe,
       disabled: isUnsubscribeDisabled,
     });
@@ -196,6 +199,7 @@ export function buildMailCommandPalette({
   if (targetCount === 1 && actions.toggleAutoArchive) {
     commands.push({
       id: "mail-auto-archive",
+      shortcut: getShortcutHint("toggleAutoArchive"),
       label: isAutoArchived
         ? "Disable auto archive"
         : "Auto archive future emails",

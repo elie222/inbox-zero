@@ -18,7 +18,6 @@ import {
 } from "lucide-react";
 import type { Command } from "@/lib/commands/types";
 import { useRules } from "@/hooks/useRules";
-import { useUser } from "@/hooks/useUser";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import {
@@ -39,7 +38,6 @@ export function useCommandPaletteCommands({
     undefined,
     enabled,
   );
-  const { data: user, isLoading: userLoading } = useUser(enabled);
   const showCleaner = useCleanerEnabled();
   const showMeetingBriefs = useMeetingBriefsEnabled();
   const showIntegrations = useIntegrationsEnabled();
@@ -187,25 +185,7 @@ export function useCommandPaletteCommands({
         router.push(prefixPath(emailAccountId, `/assistant/rule/${rule.id}`)),
     }));
 
-    const accountCommands: Command[] = (user?.emailAccounts ?? [])
-      .filter((account) => account.id !== emailAccountId)
-      .map((account, index) => ({
-        id: `account-${account.id}`,
-        label: `Switch to ${account.email}`,
-        description: account.name || undefined,
-        icon: UserIcon,
-        section: "accounts" as const,
-        priority: index + 1,
-        keywords: ["switch", "account", account.email?.toLowerCase() || ""],
-        action: () => router.push(prefixPath(account.id, "/automation")),
-      }));
-
-    return [
-      ...navigationCommands,
-      ...settingsCommands,
-      ...ruleCommands,
-      ...accountCommands,
-    ];
+    return [...navigationCommands, ...settingsCommands, ...ruleCommands];
   }, [
     emailAccountId,
     enabled,
@@ -215,11 +195,10 @@ export function useCommandPaletteCommands({
     showCleaner,
     showIntegrations,
     showMeetingBriefs,
-    user?.emailAccounts,
   ]);
 
   return {
     commands,
-    isLoading: enabled && (rulesLoading || userLoading),
+    isLoading: enabled && rulesLoading,
   };
 }

@@ -34,6 +34,7 @@ export type SenderCommandContext = {
   isAutoArchived: boolean;
   isAutoArchiveDisabled: boolean;
   isUnsubscribeDisabled: boolean;
+  unsubscribeLabel: string;
   threadId: string;
   toggleAutoArchive: () => void;
   unsubscribe: () => void;
@@ -45,5 +46,5 @@ export type SenderCommandContext = {
  */
 export const mailCommandContextAtom = atom<MailCommandContext | null>(null);
 
-/** Sender actions are resolved inside the reader's account-scoped provider. */
+/** Sender actions are resolved inside the active target's account provider. */
 export const senderCommandContextAtom = atom<SenderCommandContext | null>(null);
