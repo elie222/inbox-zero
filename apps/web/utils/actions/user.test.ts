@@ -1,4 +1,4 @@
-import { deleteThreadPageBuffers } from "@/utils/redis/thread-page-buffer";
+import { withThreadPageBufferDeletion } from "@/utils/redis/thread-page-buffer";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Prisma } from "@/generated/prisma/client";
 import prisma from "@/utils/__mocks__/prisma";
@@ -10,7 +10,7 @@ import { deleteAccountAction, deleteEmailAccountAction } from "./user";
 
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/redis/thread-page-buffer", () => ({
-  deleteThreadPageBuffers: vi.fn(async () => {}),
+  withThreadPageBufferDeletion: vi.fn(async (_ids, operation) => operation()),
 }));
 vi.mock("@/utils/auth", () => ({
   auth: vi.fn(async () => ({
@@ -69,7 +69,7 @@ describe("deleteEmailAccountAction", () => {
       accountId: "account-1",
       user: { email: "primary@example.com" },
     } as Awaited<ReturnType<typeof prisma.emailAccount.findUnique>>);
-    vi.mocked(deleteThreadPageBuffers).mockRejectedValueOnce(
+    vi.mocked(withThreadPageBufferDeletion).mockRejectedValueOnce(
       new Error("Unavailable"),
     );
     const result = await deleteEmailAccountAction({
@@ -94,11 +94,12 @@ describe("deleteEmailAccountAction", () => {
     });
 
     expect(result?.serverError).toBeUndefined();
-    expect(deleteThreadPageBuffers).toHaveBeenCalledWith(
-      "primary-email-account",
+    expect(withThreadPageBufferDeletion).toHaveBeenCalledWith(
+      ["primary-email-account"],
+      expect.any(Function),
     );
     expect(
-      vi.mocked(deleteThreadPageBuffers).mock.invocationCallOrder[0],
+      vi.mocked(withThreadPageBufferDeletion).mock.invocationCallOrder[0],
     ).toBeLessThan(prisma.$transaction.mock.invocationCallOrder[0]);
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
     expect(prisma.$queryRaw).toHaveBeenCalledWith(

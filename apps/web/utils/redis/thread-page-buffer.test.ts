@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createPageBuffer,
-  deleteThreadPageBuffers,
+  withThreadPageBufferDeletion,
 } from "@/utils/redis/thread-page-buffer";
 
 const { redisConfig } = vi.hoisted(() => ({
@@ -41,7 +41,16 @@ beforeEach(() => {
     return "OK";
   });
   vi.mocked(redis.eval).mockImplementation(
-    async (_script, [marker, key], [value]) => {
+    async (script, [marker, key], [value]) => {
+      if (script.includes('"INCR"')) {
+        values.set(marker, String(Number(values.get(marker) ?? 0) + 1));
+        return 1;
+      }
+      if (script.includes('"DECR"')) {
+        const remaining = Number(values.get(marker)) - 1;
+        values.set(marker, String(Math.max(remaining, 0)));
+        return remaining;
+      }
       if (values.has(marker)) return 0;
       values.set(key, value);
       return 1;
@@ -64,17 +73,18 @@ describe("thread page buffers", () => {
       items: [{ subject: "synthetic subject", body: "synthetic body" }],
     };
     const id = await buffer.write({ sourceId: "source", page });
+    if (!id) throw new Error("Expected a stored page");
     const [key, encoded] = [...values.entries()][0];
     expect(encoded).not.toContain("synthetic");
     expect(encoded).toMatch(/^v1:[a-f0-9]+$/);
-    expect(await buffer.read({ sourceId: "source", id: id! })).toEqual(page);
+    expect(await buffer.read({ sourceId: "source", id })).toEqual(page);
     values.set(
       key,
       `${encoded.slice(0, -2)}${encoded.endsWith("00") ? "ff" : "00"}`,
     );
-    expect(await buffer.read({ sourceId: "source", id: id! })).toBeUndefined();
+    expect(await buffer.read({ sourceId: "source", id })).toBeUndefined();
     values.set(key, JSON.stringify(page));
-    expect(await buffer.read({ sourceId: "source", id: id! })).toBeUndefined();
+    expect(await buffer.read({ sourceId: "source", id })).toBeUndefined();
   });
 
   it("rejects encrypted payloads copied from another account key", async () => {
@@ -109,7 +119,7 @@ describe("thread page buffers", () => {
     const labelId = await labels.write({ sourceId: "label", page });
     const combinedId = await combined.write({ sourceId: "account-1", page });
     const otherId = await other.write({ sourceId: "label", page });
-    await deleteThreadPageBuffers("account-1");
+    await withThreadPageBufferDeletion(["account-1"], async () => {});
     expect(
       await labels.read({ sourceId: "label", id: labelId! }),
     ).toBeUndefined();
@@ -127,23 +137,51 @@ describe("thread page buffers", () => {
     const now = vi.spyOn(Date, "now").mockReturnValue(0);
     try {
       const buffer = createPageBuffer(scope())!;
-      await deleteThreadPageBuffers("account-1");
+      await withThreadPageBufferDeletion(["account-1"], async () => {});
       values.clear();
       now.mockReturnValue(300_001);
       expect(
         await buffer.write({ sourceId: "label", page: { items: [] } }),
       ).toBeUndefined();
-      expect(redis.eval).not.toHaveBeenCalled();
+      expect(values.size).toBe(0);
     } finally {
       now.mockRestore();
     }
   });
 
+  it("blocks fresh loaders throughout long-running and overlapping deletions", async () => {
+    const now = vi.spyOn(Date, "now").mockReturnValue(0);
+    try {
+      await withThreadPageBufferDeletion(["account-1"], async () => {
+        await withThreadPageBufferDeletion(["account-1"], async () => {});
+        expect([...values.values()]).toEqual(["1"]);
+        now.mockReturnValue(600_000);
+        const freshBuffer = createPageBuffer(scope())!;
+        expect(
+          await freshBuffer.write({ sourceId: "label", page: { items: [] } }),
+        ).toBeUndefined();
+        expect([...values.values()]).toEqual(["1"]);
+      });
+      expect([...values.values()]).toEqual(["0"]);
+    } finally {
+      now.mockRestore();
+    }
+  });
+
+  it("releases deletion guards after a failed account deletion", async () => {
+    await expect(
+      withThreadPageBufferDeletion(["account-1"], async () => {
+        throw new Error("Deletion failed");
+      }),
+    ).rejects.toThrow("Deletion failed");
+    expect([...values.values()]).toEqual(["0"]);
+  });
+
   it("propagates deletion failures so callers can retry before deleting the account", async () => {
     vi.mocked(redis.scan).mockRejectedValueOnce(new Error("Unavailable"));
-    await expect(deleteThreadPageBuffers("account-1")).rejects.toThrow(
-      "Unavailable",
-    );
+    await expect(
+      withThreadPageBufferDeletion(["account-1"], async () => {}),
+    ).rejects.toThrow("Unavailable");
   });
 
   it("disables buffering without encryption settings", () => {
@@ -169,14 +207,12 @@ describe("thread page buffers", () => {
       string[]
     >(scope())!;
     const id = await firstInstance.write({ sourceId: "source", page });
-    expect(id).toEqual(expect.any(String));
+    if (!id) throw new Error("Expected a stored page");
     const secondInstance = createPageBuffer<
       (typeof page.items)[number],
       string[]
     >(scope())!;
-    expect(await secondInstance.read({ sourceId: "source", id: id! })).toEqual(
-      page,
-    );
+    expect(await secondInstance.read({ sourceId: "source", id })).toEqual(page);
     expect(redis.eval).toHaveBeenCalledWith(
       expect.any(String),
       expect.any(Array),
@@ -190,32 +226,32 @@ describe("thread page buffers", () => {
       sourceId: "source-1",
       page: { items: [{ id: "thread" }] },
     });
+    if (!id) throw new Error("Expected a stored page");
     expect(
       await createPageBuffer(scope("account-2"))!.read({
         sourceId: "source-1",
-        id: id!,
+        id,
       }),
     ).toBeUndefined();
     expect(
       await createPageBuffer(scope("account-1", "query-2"))!.read({
         sourceId: "source-1",
-        id: id!,
+        id,
       }),
     ).toBeUndefined();
-    expect(
-      await buffer.read({ sourceId: "source-2", id: id! }),
-    ).toBeUndefined();
+    expect(await buffer.read({ sourceId: "source-2", id })).toBeUndefined();
   });
 
   it("treats expired, malformed, and unavailable buffers as cache misses", async () => {
     const buffer = createPageBuffer(scope())!;
     const id = await buffer.write({ sourceId: "source", page: { items: [] } });
+    if (!id) throw new Error("Expected a stored page");
     values.clear();
-    expect(await buffer.read({ sourceId: "source", id: id! })).toBeUndefined();
+    expect(await buffer.read({ sourceId: "source", id })).toBeUndefined();
     vi.mocked(redis.get).mockResolvedValueOnce("invalid binary data");
-    expect(await buffer.read({ sourceId: "source", id: id! })).toBeUndefined();
+    expect(await buffer.read({ sourceId: "source", id })).toBeUndefined();
     vi.mocked(redis.get).mockRejectedValueOnce(new Error("Unavailable"));
-    expect(await buffer.read({ sourceId: "source", id: id! })).toBeUndefined();
+    expect(await buffer.read({ sourceId: "source", id })).toBeUndefined();
     vi.mocked(redis.eval).mockRejectedValueOnce(new Error("Unavailable"));
     expect(
       await buffer.write({ sourceId: "source", page: { items: [] } }),

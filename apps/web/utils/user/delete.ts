@@ -1,6 +1,6 @@
 import { deleteContact as deleteLoopsContact } from "@inboxzero/loops";
 import { deleteContact as deleteResendContact } from "@inboxzero/transactional-email";
-import { deleteThreadPageBuffers } from "@/utils/redis/thread-page-buffer";
+import { withThreadPageBufferDeletion } from "@/utils/redis/thread-page-buffer";
 import prisma from "@/utils/prisma";
 import { deleteTinybirdAiCalls } from "@inboxzero/tinybird-ai-analytics";
 import {
@@ -77,54 +77,54 @@ export async function deleteUser({
       captureException(error);
     });
 
-    await Promise.all(emailAccountIds.map((id) => deleteThreadPageBuffers(id)));
-
-    await deleteSoloOrganizations({
-      organizationIds: organizationIdsToDelete,
-      deletedEmailAccountIds: emailAccountIds,
-    });
-
-    const resourcesPromise = accounts.map(async (account) => {
-      if (!account.emailAccount) return Promise.resolve();
-
-      // Create email provider for unwatching
-      const emailProvider = account.access_token
-        ? await createEmailProvider({
-            emailAccountId: account.emailAccount.id,
-            provider: account.provider,
-            logger,
-          })
-        : null;
-
-      return deleteResources({
-        emailAccountId: account.emailAccount.id,
-        email: account.emailAccount.email,
-        userId,
-        emailProvider,
-        subscriptionId: account.emailAccount.watchEmailsSubscriptionId,
-        logger,
-      });
-    });
-
-    // Then proceed with the regular deletion process
-    const results = await Promise.allSettled(resourcesPromise);
-
-    logger.info("User resources deleted");
-
-    // Log any failures
-    const failures = results.filter((r) => r.status === "rejected");
-    if (failures.length > 0) {
-      logger.error("Some deletion operations failed", {
-        failures: failures.map((f) => (f as PromiseRejectedResult).reason),
+    await withThreadPageBufferDeletion(emailAccountIds, async () => {
+      await deleteSoloOrganizations({
+        organizationIds: organizationIdsToDelete,
+        deletedEmailAccountIds: emailAccountIds,
       });
 
-      const originalError = (failures[0] as PromiseRejectedResult)?.reason;
-      const customError = new Error("User deletion error");
-      customError.cause = originalError;
+      const resourcesPromise = accounts.map(async (account) => {
+        if (!account.emailAccount) return Promise.resolve();
 
-      captureException(customError, { extra: { failures } });
-      throw originalError;
-    }
+        // Create email provider for unwatching
+        const emailProvider = account.access_token
+          ? await createEmailProvider({
+              emailAccountId: account.emailAccount.id,
+              provider: account.provider,
+              logger,
+            })
+          : null;
+
+        return deleteResources({
+          emailAccountId: account.emailAccount.id,
+          email: account.emailAccount.email,
+          userId,
+          emailProvider,
+          subscriptionId: account.emailAccount.watchEmailsSubscriptionId,
+          logger,
+        });
+      });
+
+      // Then proceed with the regular deletion process
+      const results = await Promise.allSettled(resourcesPromise);
+
+      logger.info("User resources deleted");
+
+      // Log any failures
+      const failures = results.filter((r) => r.status === "rejected");
+      if (failures.length > 0) {
+        logger.error("Some deletion operations failed", {
+          failures: failures.map((f) => (f as PromiseRejectedResult).reason),
+        });
+
+        const originalError = (failures[0] as PromiseRejectedResult)?.reason;
+        const customError = new Error("User deletion error");
+        customError.cause = originalError;
+
+        captureException(customError, { extra: { failures } });
+        throw originalError;
+      }
+    });
   } catch (error) {
     logger.error("Error during user resources deletion process", {
       error,

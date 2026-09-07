@@ -120,20 +120,60 @@ export function createPageBuffer<TItem, TMeta = unknown>(
   };
 }
 
-export async function deleteThreadPageBuffers(emailAccountId: string) {
+export async function withThreadPageBufferDeletion<T>(
+  emailAccountIds: string[],
+  deleteAccount: () => Promise<T>,
+): Promise<T> {
   const redis = createBufferRedis();
-  if (!redis) return;
-  const prefix = getAccountPrefix(emailAccountId);
-  await redis.set(`${prefix}:deleted`, "1", { ex: BUFFER_TTL_SECONDS });
-  let cursor = 0;
-  do {
-    const [nextCursor, keys] = await redis.scan(cursor, {
-      match: `${prefix}:page:*`,
-      count: 100,
-    });
-    cursor = Number(nextCursor);
-    if (keys.length) await redis.del(...keys);
-  } while (cursor !== 0);
+  if (!redis) return deleteAccount();
+  const markers: string[] = [];
+  try {
+    for (const emailAccountId of new Set(emailAccountIds)) {
+      const prefix = getAccountPrefix(emailAccountId);
+      const marker = `${prefix}:deleted`;
+      // Count concurrent deletions and remove any prior grace-period expiry.
+      await redis.eval(
+        `
+        redis.call("INCR", KEYS[1])
+        redis.call("PERSIST", KEYS[1])
+        return 1
+      `,
+        [marker],
+        [],
+      );
+      markers.push(marker);
+      let cursor = 0;
+      do {
+        const [nextCursor, keys] = await redis.scan(cursor, {
+          match: `${prefix}:page:*`,
+          count: 100,
+        });
+        cursor = Number(nextCursor);
+        if (keys.length) await redis.del(...keys);
+      } while (cursor !== 0);
+    }
+    return await deleteAccount();
+  } finally {
+    for (const marker of markers) {
+      try {
+        // Keep blocking factories created during deletion until they age out.
+        await redis.eval(
+          `
+          local remaining = redis.call("DECR", KEYS[1])
+          if remaining <= 0 then
+            redis.call("SET", KEYS[1], "0", "EX", ARGV[1])
+          end
+          return remaining
+        `,
+          [marker],
+          [BUFFER_TTL_SECONDS],
+        );
+      } catch {
+        // A persistent marker safely disables buffering if cleanup is interrupted.
+        logger.warn("Could not expire thread page deletion marker");
+      }
+    }
+  }
 }
 
 function createBufferRedis() {
