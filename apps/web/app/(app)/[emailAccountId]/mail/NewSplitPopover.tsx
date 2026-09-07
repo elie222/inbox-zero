@@ -280,10 +280,19 @@ export function NewSplitPopover({
                     <CommandGroup key={group} heading={title}>
                       {groupOptions.map((option) => {
                         const isLabel = option.kind === MailSplitKind.LABEL;
+                        const isSelected = selectedIds.includes(option.id);
                         return (
                           <CommandItem
                             key={option.id}
                             value={option.id}
+                            // cmdk owns aria-selected for its own highlight, so
+                            // the tick's meaning has to reach screen readers
+                            // through the accessible name instead.
+                            aria-label={
+                              isLabel
+                                ? `${option.name}, ${isSelected ? "selected" : "not selected"}`
+                                : undefined
+                            }
                             keywords={
                               title ? [option.name, title] : [option.name]
                             }
@@ -303,7 +312,7 @@ export function NewSplitPopover({
                               <div
                                 className={cn(
                                   "flex size-3.5 items-center justify-center rounded-sm border border-primary",
-                                  selectedIds.includes(option.id)
+                                  isSelected
                                     ? "bg-primary text-primary-foreground"
                                     : "opacity-50 [&_svg]:invisible",
                                 )}

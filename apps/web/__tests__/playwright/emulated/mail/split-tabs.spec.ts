@@ -52,7 +52,7 @@ test("shows a combined picker and creates a matching split", async ({
     page.getByRole("option", { name: "Promotions", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("option", { name: "Project Alpha", exact: true }),
+    page.getByRole("option", { name: "Project Alpha, not selected" }),
   ).toBeVisible();
   await expect(page.getByText(/Compiling/)).toBeHidden();
   // Keep Next's development indicator out of product screenshots.
@@ -170,9 +170,15 @@ test("builds one tab from several labels and names it", async ({
 
   await page.getByRole("button", { name: "New split" }).click();
   await page
-    .getByRole("option", { name: "Project Alpha", exact: true })
+    .getByRole("option", { name: "Project Alpha, not selected" })
     .click();
-  await page.getByRole("option", { name: extraLabel, exact: true }).click();
+  await page
+    .getByRole("option", { name: `${extraLabel}, not selected` })
+    .click();
+  // The tick is decorative, so the row's name has to carry the state.
+  await expect(
+    page.getByRole("option", { name: "Project Alpha, selected" }),
+  ).toBeVisible();
 
   const name = page.getByRole("textbox", { name: "Tab name" });
   await expect(name).toHaveValue(`Project Alpha, ${extraLabel}`);
@@ -208,7 +214,7 @@ for (const accountScope of ["single", "all"] as const) {
     }
     await page.getByRole("button", { name: "New split" }).click();
     await page
-      .getByRole("option", { name: "Project Alpha", exact: true })
+      .getByRole("option", { name: "Project Alpha, not selected" })
       .click();
     await page.getByRole("button", { name: "Add tab", exact: true }).click();
     const split = page.getByRole("button", {
