@@ -29,8 +29,9 @@ same per-spec isolation. Selections of 20 or fewer specs retain one job per spec
 The selection job lists each batch's specs in its GitHub summary; each test job
 reports per-spec durations and exit statuses. A failing spec does not skip the
 remaining specs in its batch, and any failure fails the combined `Web E2E` check.
-CI bounds each Playwright invocation to six minutes and allocates eight minutes
-per selected spec to its job, including setup and cleanup headroom.
+CI bounds each Playwright invocation to eight minutes, including cold web-server
+startup and authentication setup. Each job gets four additional minutes for
+dependency installation and artifact handling, plus eight minutes per selected spec.
 Pass one or more areas or spec paths when iterating on focused flows:
 
 ```sh

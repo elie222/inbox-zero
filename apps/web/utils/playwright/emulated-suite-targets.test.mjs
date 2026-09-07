@@ -84,7 +84,9 @@ test("batches a full selection without losing or repeating specs", () => {
     batches.every(({ paths }) => paths.length >= 2 && paths.length <= 3),
   ).toBe(true);
   expect(
-    batches.map(({ timeoutMinutes, paths }) => timeoutMinutes / paths.length),
+    batches.map(
+      ({ timeoutMinutes, paths }) => (timeoutMinutes - 4) / paths.length,
+    ),
   ).toEqual(new Array(20).fill(8));
 });
 
@@ -98,7 +100,7 @@ test("keeps focused selections parallel and creates no empty jobs", () => {
     targets.map(({ name, path: specPath }) => ({
       name,
       paths: [specPath],
-      timeoutMinutes: 8,
+      timeoutMinutes: 12,
     })),
   );
 });
@@ -183,7 +185,7 @@ if (process.argv.includes("test")) {
     ["", "true"],
   ]);
   for (const run of runs) {
-    expect(run.args).toContain("--global-timeout=360000");
+    expect(run.args).toContain("--global-timeout=480000");
     expect(existsSync(run.blob)).toBe(true);
     expect(existsSync(path.join(run.output, "evidence.json"))).toBe(true);
   }

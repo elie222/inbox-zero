@@ -25,7 +25,7 @@ export function batchPlaywrightTargets(targets) {
   }
   return batches.map((batch) => ({
     ...batch,
-    timeoutMinutes: batch.paths.length * 8,
+    timeoutMinutes: 4 + batch.paths.length * 8,
   }));
 }
 

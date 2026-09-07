@@ -122,8 +122,8 @@ for (const target of targets) {
         "-c",
         "playwright.config.mjs",
         "--project=emulated",
-        // Leave room for runner setup within each spec's eight-minute CI budget.
-        ...(process.env.CI ? ["--global-timeout=360000"] : []),
+        // This includes cold web-server startup and authentication setup.
+        ...(process.env.CI ? ["--global-timeout=480000"] : []),
         target.path,
       ],
       {
