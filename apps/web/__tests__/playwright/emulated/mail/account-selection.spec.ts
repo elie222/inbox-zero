@@ -28,6 +28,24 @@ test("chooses which accounts appear in All Accounts", async ({
       for (const portal of portals) portal.remove();
     });
     await capturePlaywrightCheckpoint(page, testInfo, "all-accounts-menu");
+    await expect(page.getByRole("menu").locator("kbd")).toHaveCount(0);
+
+    await page.addInitScript(() => {
+      Object.assign(window, {
+        inboxZeroDesktop: { startAuth: async () => {} },
+      });
+    });
+    await page.reload();
+    await page
+      .getByRole("button", { name: /playwright-test\+/i })
+      .last()
+      .click();
+    await expect(page.getByRole("menu").locator("kbd")).toHaveText([
+      "⌘/Ctrl+0",
+      "⌘/Ctrl+1",
+      "⌘/Ctrl+2",
+    ]);
+    await capturePlaywrightCheckpoint(page, testInfo, "account-shortcuts");
 
     await chooseAccountsMenuItem.click();
 
