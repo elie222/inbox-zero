@@ -66,19 +66,44 @@ describe("OutlookProvider.updateDraft", () => {
     const client = createMockOutlookClient([]);
     client.getClient = () => ({ api: () => ({ patch }) });
     const provider = new OutlookProvider(client, createTestLogger());
-    vi.spyOn(provider, "getDraft").mockResolvedValue(null);
+    vi.spyOn(provider, "getDraftReferenceForMessage").mockResolvedValue(null);
     await expect(
       provider.updateDraft("draft-1", { messageHtml: "<p>Edit</p>" }),
     ).rejects.toThrow("Could not find this draft to update.");
     expect(patch).not.toHaveBeenCalled();
   });
 
+  it("does not update a message when the Drafts folder cannot be verified", async () => {
+    getFolderIdsMock.mockResolvedValueOnce({});
+    const patch = vi.fn();
+    const client = createMockOutlookClient([]);
+    client.getClient = () => ({
+      api: () => ({
+        get: async () => ({
+          id: "message-1",
+          parentFolderId: "sent-folder-id",
+          isDraft: false,
+        }),
+        patch,
+      }),
+    });
+    const provider = new OutlookProvider(client, createTestLogger());
+    await expect(
+      provider.updateDraft("message-1", { messageHtml: "<p>Edit</p>" }),
+    ).rejects.toThrow("Could not find this draft to update.");
+    expect(patch).not.toHaveBeenCalled();
+  });
+
   it("clears draft fields and updates recipients", async () => {
     const patch = vi.fn().mockResolvedValue({});
+    const header = vi.fn().mockReturnValue({ patch });
     const client = createMockOutlookClient([]);
-    client.getClient = () => ({ api: () => ({ patch }) });
+    client.getClient = () => ({ api: () => ({ header, patch }) });
     const provider = new OutlookProvider(client, createTestLogger());
-    vi.spyOn(provider, "getDraft").mockResolvedValue({ id: "draft-1" } as any);
+    vi.spyOn(provider, "getDraftReferenceForMessage").mockResolvedValue({
+      id: "draft-1",
+      version: 'W/"version-1"',
+    });
     await provider.updateDraft("draft-1", {
       messageHtml: "",
       subject: "",
@@ -86,6 +111,7 @@ describe("OutlookProvider.updateDraft", () => {
       cc: "",
       bcc: "",
     });
+    expect(header).toHaveBeenCalledWith("If-Match", 'W/"version-1"');
     expect(patch).toHaveBeenCalledWith({
       body: { contentType: "html", content: "" },
       subject: "",

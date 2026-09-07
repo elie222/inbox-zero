@@ -699,8 +699,8 @@ export class OutlookProvider implements EmailProvider {
   ): Promise<void> {
     this.logger.info("Updating draft", { draftId });
 
-    if (!(await this.getDraft(draftId)))
-      throw new SafeError("Could not find this draft to update.");
+    const draft = await this.getDraftReferenceForMessage(draftId);
+    if (!draft) throw new SafeError("Could not find this draft to update.");
 
     const body: Partial<Message> = {};
     if (params.messageHtml !== undefined) {
@@ -718,7 +718,12 @@ export class OutlookProvider implements EmailProvider {
       body.bccRecipients = toGraphRecipients(params.bcc, this.logger);
 
     await withMicrosoftGraphWriteRetry(
-      () => this.client.getClient().api(`/me/messages/${draftId}`).patch(body),
+      () =>
+        this.client
+          .getClient()
+          .api(`/me/messages/${draftId}`)
+          .header("If-Match", draft.version)
+          .patch(body),
       this.logger,
     );
 
