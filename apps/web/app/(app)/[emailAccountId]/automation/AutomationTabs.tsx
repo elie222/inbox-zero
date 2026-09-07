@@ -7,9 +7,16 @@ import { History } from "@/app/(app)/[emailAccountId]/assistant/History";
 import { Process } from "@/app/(app)/[emailAccountId]/assistant/Process";
 import { SettingsTab } from "@/app/(app)/[emailAccountId]/assistant/settings/SettingsTab";
 import { RulesTab } from "@/app/(app)/[emailAccountId]/assistant/RulesTabNew";
+import { TrainedSenders } from "@/app/(app)/[emailAccountId]/assistant/TrainedSenders";
 import { useInfiniteMessages } from "@/hooks/useMessages";
 
-const automationTabs = ["rules", "test", "history", "settings"] as const;
+const automationTabs = [
+  "rules",
+  "test",
+  "history",
+  "senders",
+  "settings",
+] as const;
 type AutomationTab = (typeof automationTabs)[number];
 
 const defaultTab: AutomationTab = "rules";
@@ -26,6 +33,10 @@ const tabOptions = [
   {
     id: "history",
     label: "History",
+  },
+  {
+    id: "senders",
+    label: "Trained senders",
   },
   {
     id: "settings",
@@ -63,6 +74,7 @@ export function AutomationTabs() {
         {selectedTab === "settings" && <SettingsTab />}
         {selectedTab === "test" && <Process />}
         {selectedTab === "history" && <History />}
+        {selectedTab === "senders" && <TrainedSenders />}
       </div>
     </>
   );
