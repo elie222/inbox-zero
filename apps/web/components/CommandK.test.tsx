@@ -24,6 +24,9 @@ const shortcuts = vi.hoisted(() => ({
   handlers: undefined as ShortcutHandlers | undefined,
 }));
 
+vi.mock("@/components/AccountCommandList", () => ({
+  AccountCommandList: () => null,
+}));
 vi.mock("@/hooks/useDisplayedEmail", () => ({
   useDisplayedEmail: () => ({
     threadId: displayedEmail.threadId,

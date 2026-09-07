@@ -305,9 +305,25 @@ test("Command K opens a searchable account list and switches the mailbox", async
     await expect(
       page.getByRole("dialog").getByPlaceholder("Type a command or search..."),
     ).toBeVisible();
+    await palette.getByRole("combobox").fill("switch accounts");
+    await page.keyboard.press("Enter");
+    await page.evaluate(() => {
+      document.documentElement.dataset.accountSwitchSentinel = "preserved";
+    });
+    await palette
+      .getByRole("option", { name: secondAccount.email, exact: true })
+      .click();
+    await expect(palette).toBeHidden();
+    await expect(page.locator("html")).toHaveAttribute(
+      "data-account-switch-sentinel",
+      "preserved",
+    );
   } finally {
-    await page.goto(`/${emailAccountId}/mail`);
-    await deleteSecondEmailAccount(secondAccount.accountId);
+    try {
+      await page.goto(`/${emailAccountId}/mail`);
+    } finally {
+      await deleteSecondEmailAccount(secondAccount.accountId);
+    }
   }
 });
 

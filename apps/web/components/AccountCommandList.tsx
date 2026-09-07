@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/command";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { getAccountSwitchUrl } from "@/utils/account-switch-url";
 import { prefixPath } from "@/utils/path";
 import { redirectToSafeUrl } from "@/utils/redirect";
 
@@ -49,12 +50,28 @@ export function AccountCommandList({
                 value={`account-${account.id}`}
                 onSelect={() => {
                   onClose();
+                  if (
+                    account.id === emailAccountId &&
+                    (!isMail || searchParams.get("accountScope") !== "all")
+                  )
+                    return;
                   if (isMail) {
                     redirectToSafeUrl(
                       getMailAccountUrl(account.id, window.location.search),
                     );
                   } else {
-                    router.push(prefixPath(account.id, "/automation"));
+                    const isAccountRoute =
+                      pathname.split("/")[1] === emailAccountId;
+                    redirectToSafeUrl(
+                      isAccountRoute
+                        ? getAccountSwitchUrl({
+                            pathname,
+                            currentAccountId: emailAccountId,
+                            targetAccountId: account.id,
+                            tab: searchParams.get("tab"),
+                          })
+                        : prefixPath(account.id, "/automation"),
+                    );
                   }
                 }}
               >
