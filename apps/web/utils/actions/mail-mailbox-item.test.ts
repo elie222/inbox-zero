@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getMockEmailAccountWithAccount } from "@/__tests__/helpers";
-import { MailSplitKind } from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
 import {
   deleteMailboxItemAction,
@@ -142,29 +141,24 @@ describe("mailbox item actions", () => {
     expect(result?.serverError).toBeUndefined();
     expect(method).toHaveBeenCalledWith(`${kind}-1`);
     if (kind === "label") {
-      // Splits keep their other labels; only ones left empty are removed.
+      // One statement, so splits keep their other labels and only the ones
+      // this label emptied are deleted.
       expect(prisma.$executeRaw).toHaveBeenCalledWith(
-        expect.arrayContaining([expect.stringContaining("array_remove")]),
+        expect.arrayContaining([
+          expect.stringContaining("array_remove"),
+          expect.stringContaining("DELETE FROM"),
+        ]),
         "label-1",
         EMAIL_ACCOUNT_ID,
         "label-1",
       );
-      expect(prisma.mailSplit.deleteMany).toHaveBeenCalledWith({
-        where: {
-          emailAccountId: EMAIL_ACCOUNT_ID,
-          kind: MailSplitKind.LABEL,
-          values: { isEmpty: true },
-        },
-      });
     } else {
-      expect(prisma.mailSplit.deleteMany).not.toHaveBeenCalled();
+      expect(prisma.$executeRaw).not.toHaveBeenCalled();
     }
   });
 
   it("retries saved-view cleanup after a successful provider deletion", async () => {
-    prisma.$transaction.mockRejectedValueOnce(
-      new Error("Database unavailable"),
-    );
+    prisma.$executeRaw.mockRejectedValueOnce(new Error("Database unavailable"));
 
     const firstResult = await deleteMailboxItemAction(EMAIL_ACCOUNT_ID, {
       kind: "label",
@@ -180,7 +174,7 @@ describe("mailbox item actions", () => {
     );
     expect(retryResult?.serverError).toBeUndefined();
     expect(mockDeleteLabel).toHaveBeenCalledTimes(2);
-    expect(prisma.$transaction).toHaveBeenCalledTimes(2);
+    expect(prisma.$executeRaw).toHaveBeenCalledTimes(2);
   });
 
   it("keeps saved views when provider deletion fails", async () => {
@@ -194,7 +188,7 @@ describe("mailbox item actions", () => {
     expect(result?.serverError).toBe(
       "Failed to delete label. Please try again.",
     );
-    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(prisma.$executeRaw).not.toHaveBeenCalled();
   });
 
   it("rejects folder mutations for non-Outlook accounts", async () => {
