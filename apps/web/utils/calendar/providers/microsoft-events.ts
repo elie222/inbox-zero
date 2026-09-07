@@ -1,3 +1,10 @@
+import { SafeError } from "@/utils/error";
+import type {
+  CalendarInvitation,
+  InvitationResponse,
+  InvitationEvent,
+} from "@/utils/calendar/invitation";
+import { escapeODataString } from "@/utils/outlook/odata-escape";
 import type { Client } from "@microsoft/microsoft-graph-client";
 import { getCalendarClientWithRefresh } from "@/utils/outlook/calendar-client";
 import type {
@@ -147,6 +154,66 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
     });
 
     return events.map((event) => this.parseEvent(event));
+  }
+
+  async findInvitationEvent(
+    invitation: CalendarInvitation,
+  ): Promise<InvitationEvent | null> {
+    if (invitation.recurrenceId) return null;
+    const client = await this.getClient();
+    const result = await client
+      .api("/me/calendar/events")
+      .query({
+        $filter: `iCalUId eq '${escapeODataString(invitation.uid)}'`,
+        $top: 2,
+      })
+      .get();
+    const events: Array<
+      MicrosoftEvent & {
+        isCancelled?: boolean;
+        responseStatus?: { response?: string };
+      }
+    > = result.value ?? [];
+    if (events.length !== 1 || result["@odata.nextLink"]) return null;
+    const event = events[0];
+    if (event.isCancelled)
+      throw new SafeError("This event has been cancelled.");
+    if (
+      !event.id ||
+      event.isOrganizer ||
+      event.organizer?.emailAddress?.address?.toLowerCase() !==
+        invitation.organizer
+    )
+      return null;
+    if (
+      !event.attendees?.some(
+        (attendee) =>
+          attendee.emailAddress?.address?.toLowerCase() === invitation.attendee,
+      )
+    )
+      return null;
+    const response = event.responseStatus?.response;
+    return {
+      id: event.id,
+      response:
+        response === "tentativelyAccepted" ? "tentative" : (response ?? null),
+    };
+  }
+
+  async respondToInvitation(
+    eventId: string,
+    _invitation: CalendarInvitation,
+    response: InvitationResponse,
+  ) {
+    const client = await this.getClient();
+    const action = {
+      accepted: "accept",
+      declined: "decline",
+      tentative: "tentativelyAccept",
+    }[response];
+    await client
+      .api(`/me/events/${encodeURIComponent(eventId)}/${action}`)
+      .post({ sendResponse: true });
   }
 
   async createEvent(

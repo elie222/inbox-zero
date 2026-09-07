@@ -21,6 +21,26 @@ afterEach(() => {
 });
 
 describe("parseMessage", () => {
+  it("preserves inline calendar MIME data without an attachment id", () => {
+    const content = "BEGIN:VCALENDAR\r\nMETHOD:REQUEST\r\nEND:VCALENDAR";
+    const message = parseMessage({
+      payload: {
+        parts: [
+          {
+            mimeType: "multipart/alternative",
+            parts: [
+              {
+                mimeType: "text/calendar",
+                body: { data: Buffer.from(content).toString("base64url") },
+              },
+            ],
+          },
+        ],
+      },
+    });
+    expect(message.calendarContent).toBe(content);
+  });
+
   it("keeps large inline images out of the downloadable attachment list", () => {
     const inlineImage = {
       attachmentId: "inline-image",

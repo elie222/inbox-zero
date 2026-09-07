@@ -1,3 +1,4 @@
+import { CALENDAR_INVITATION_LIMITS } from "@/utils/calendar/constants";
 import type { gmail_v1 } from "@googleapis/gmail";
 import {
   type MessageWithPayload,
@@ -25,6 +26,7 @@ export function parseMessage(
 
   return {
     ...parsed,
+    calendarContent: getCalendarContent(message.payload),
     attachments: attachments?.length ? attachments : undefined,
     subject: parsed.headers?.subject || "",
     date: parsed.headers?.date || "",
@@ -314,4 +316,21 @@ export async function getSentMessages(
     logger,
   });
   return messages.messages;
+}
+
+function getCalendarContent(
+  part: gmail_v1.Schema$MessagePart | undefined,
+): string | undefined {
+  if (!part) return;
+  if (
+    part.mimeType?.toLowerCase() === "text/calendar" &&
+    part.body?.data &&
+    part.body.data.length <= CALENDAR_INVITATION_LIMITS.encoded
+  ) {
+    return Buffer.from(part.body.data, "base64").toString("utf8");
+  }
+  for (const child of part.parts ?? []) {
+    const content = getCalendarContent(child);
+    if (content) return content;
+  }
 }
