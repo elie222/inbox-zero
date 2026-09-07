@@ -80,7 +80,7 @@ const ruleConfig: Record<
   [SystemType.MARKETING]: {
     name: "Marketing",
     instructions:
-      "Marketing: Promotional emails about products, services, sales, or offers",
+      "Marketing: Promotions, sales, and offers that can be safely archived. Exclude emails whose main purpose is account access, a transaction, or a service update, even if they include promotional content.",
     label: "Marketing",
     runOnThreads: false,
     categoryAction: "label_archive",
