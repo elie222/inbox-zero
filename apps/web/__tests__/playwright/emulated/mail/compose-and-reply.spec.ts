@@ -38,6 +38,8 @@ test("keeps keyboard focus in the composer and follows the message field order",
     dialog.getByRole("textbox", { exact: true, name: "Bcc" }),
     dialog.getByPlaceholder("Subject"),
     dialog.getByRole("textbox", { name: "Email message" }),
+    dialog.locator("summary", { hasText: "Footer" }),
+    dialog.getByRole("button", { name: "Remove footer" }),
     dialog.getByRole("button", { name: /^Send/ }),
     dialog.getByRole("button", { name: "Attach files" }),
     dialog.getByRole("button", { name: "Insert inline images" }),
@@ -221,6 +223,8 @@ test("does not add a line break for the send shortcut", async ({
     .fill("recipient@example.com");
   await dialog.getByPlaceholder("Subject").fill(subject);
   await editor.pressSequentially("Draft body");
+  await dialog.getByRole("button", { name: "Remove footer" }).click();
+  await expect(dialog.locator('iframe[title="Footer preview"]')).toHaveCount(0);
 
   await editor.press("ControlOrMeta+Enter");
 
@@ -291,6 +295,12 @@ test("composes, sends, and reads a new message from Sent", async ({
   const composeEditor = dialog.locator("[contenteditable='true']");
   await composeEditor.pressSequentially("A composed message body.");
   await expect(composeEditor).toContainText("A composed message body.");
+  await expect(
+    dialog
+      .frameLocator('iframe[title="Footer preview"]')
+      .getByRole("link", { name: "Inbox Zero" }),
+  ).toBeVisible();
+  await capturePlaywrightCheckpoint(page, testInfo, "composer-with-footer");
   await dialog.getByRole("button", { name: /^Send/ }).click();
 
   await expect(dialog).toBeHidden();
@@ -306,11 +316,11 @@ test("composes, sends, and reads a new message from Sent", async ({
   await sentConversation.click();
   await expect(page.getByRole("heading", { name: subject })).toBeVisible();
   await expect(page.getByText("recipient@example.com").first()).toBeVisible();
-  await expect(
-    page
-      .frameLocator('iframe[title="Email content preview"]')
-      .getByText("A composed message body."),
-  ).toBeVisible();
+  const sentMessage = page.frameLocator(
+    'iframe[title="Email content preview"]',
+  );
+  await expect(sentMessage.getByText("A composed message body.")).toBeVisible();
+  await expect(sentMessage.getByText("Sent with Inbox Zero")).toBeVisible();
   await capturePlaywrightCheckpoint(page, testInfo, "composed-message-in-sent");
 });
 

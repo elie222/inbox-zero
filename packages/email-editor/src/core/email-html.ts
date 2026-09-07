@@ -192,12 +192,14 @@ export function combineEmailHtml({
   editableHtml,
   quotedHtml,
   signatureHtml,
+  footerHtml,
 }: {
   editableHtml: string;
   quotedHtml?: string;
   signatureHtml?: string;
+  footerHtml?: string;
 }) {
-  return [editableHtml, signatureHtml, quotedHtml]
+  return [editableHtml, signatureHtml, footerHtml, quotedHtml]
     .filter((part): part is string => Boolean(part?.trim()))
     .join("<br>");
 }

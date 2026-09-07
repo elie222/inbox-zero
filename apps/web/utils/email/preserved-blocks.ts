@@ -3,6 +3,7 @@ import type { EmailEditorPreservedBlock } from "@inboxzero/email-editor/web";
 
 export function createPreservedEmailBlocks(
   draft: Pick<PreparedEmailDraft, "signatureHtml" | "quotedHtml">,
+  footerHtml = "",
 ): EmailEditorPreservedBlock[] {
   const blocks: EmailEditorPreservedBlock[] = [];
   if (draft.signatureHtml) {
@@ -10,6 +11,14 @@ export function createPreservedEmailBlocks(
       id: "signature",
       kind: "signature",
       html: draft.signatureHtml,
+      collapsed: false,
+    });
+  }
+  if (footerHtml) {
+    blocks.push({
+      id: "footer",
+      kind: "footer",
+      html: footerHtml,
       collapsed: false,
     });
   }

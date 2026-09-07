@@ -122,7 +122,7 @@ export function createEmailEditorExtensions(placeholder: string) {
 }
 
 function PreservedBlockNodeView({ node, deleteNode }: NodeViewProps) {
-  const kind = node.attrs.kind === "signature" ? "signature" : "quote";
+  const kind = resolvePreservedBlockKind(node.attrs.kind);
   const block: RenderedPreservedEmailBlock = {
     id: String(node.attrs.id ?? ""),
     kind,
@@ -139,6 +139,12 @@ function PreservedBlockNodeView({ node, deleteNode }: NodeViewProps) {
       <PreservedBlockDetails block={block} onRemove={deleteNode} />
     </NodeViewWrapper>
   );
+}
+
+function resolvePreservedBlockKind(
+  value: unknown,
+): RenderedPreservedEmailBlock["kind"] {
+  return value === "signature" || value === "footer" ? value : "quote";
 }
 
 function normalizeDirection(value: unknown): "ltr" | "rtl" | "auto" | null {
