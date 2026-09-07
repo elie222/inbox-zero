@@ -332,3 +332,14 @@ html[data-mac-desktop] [data-desktop-mac-end] {
   flex: none;
   margin-left: auto;
 }
+
+/* While a panel edge is being dragged, keep the resize cursor under the pointer
+   even when it outruns the handle, and let widths track it without easing. */
+body[data-resizing] {
+  cursor: col-resize;
+  user-select: none;
+}
+
+body[data-resizing] * {
+  transition-property: none !important;
+}

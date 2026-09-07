@@ -14,7 +14,6 @@ import {
 } from "lucide-react";
 import { Kbd } from "@/components/Kbd";
 import { Tooltip } from "@/components/Tooltip";
-import { SidebarTrigger } from "@/components/ui/sidebar";
 import type { MailLayoutMode } from "@/app/(app)/[emailAccountId]/mail/types";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
 import { cn } from "@/utils";
@@ -33,7 +32,6 @@ export type ListToolbarProps = {
   onToggleLayout: () => void;
   onTogglePreview: () => void;
   onToggleAssistant: () => void;
-  showSidebarToggle?: boolean;
   selectedCount: number;
   onArchiveSelected: () => void;
   onDeleteSelected: () => void;
@@ -53,7 +51,6 @@ export function ListToolbar({
   onToggleLayout,
   onTogglePreview,
   onToggleAssistant,
-  showSidebarToggle = false,
   selectedCount,
   onArchiveSelected,
   onDeleteSelected,
@@ -63,14 +60,7 @@ export function ListToolbar({
   const LayoutIcon = layout === "split" ? ColumnsIcon : RowsIcon;
 
   return (
-    <div
-      data-desktop-mac-titlebar-spacer={showSidebarToggle || undefined}
-      className="flex shrink-0 items-center gap-2 px-3 pt-3 pb-3"
-    >
-      {showSidebarToggle ? (
-        <SidebarTrigger name="left-sidebar" className="hidden lg:inline-flex" />
-      ) : null}
-
+    <div className="flex shrink-0 items-center gap-2 px-3 pt-3 pb-3">
       {/* Selection swaps the toolbar's controls in place so the list never
           shifts down to make room for a new row. */}
       {selectedCount > 0 ? (

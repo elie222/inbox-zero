@@ -19,6 +19,7 @@ import {
   PlusIcon,
   SendIcon,
   SparklesIcon,
+  TagIcon,
   UserIcon,
   Users2Icon,
 } from "lucide-react";
@@ -27,6 +28,11 @@ import { Kbd } from "@/components/Kbd";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
 import type { EmailLabel } from "@/providers/email-label-types";
 import { GmailLabel } from "@/utils/gmail/label";
@@ -75,6 +81,8 @@ export type MailSidebarProps = {
   labelColorOptions: readonly MailboxItemColorOption[];
   /** Hide the categories group behind a toggle, collapsed by default. */
   collapsibleCategories?: boolean;
+  /** Icon-only rail: rows shrink to their icon and names move into tooltips. */
+  collapsed?: boolean;
   footer?: ReactNode;
   unified?: boolean;
   className?: string;
@@ -163,6 +171,7 @@ export function MailSidebar({
   labelEditMode,
   labelColorOptions,
   collapsibleCategories = false,
+  collapsed = false,
   footer,
   unified = false,
   className,
@@ -178,6 +187,7 @@ export function MailSidebar({
     !activeFolderId &&
     categories.some((category) => category.type === activeType);
   const [showCategories, setShowCategories] = useState(isCategoryActive);
+  const showCategoryRows = !collapsibleCategories || showCategories;
 
   useEffect(() => {
     if (isCategoryActive) setShowCategories(true);
@@ -195,36 +205,63 @@ export function MailSidebar({
   return (
     <aside
       className={cn(
-        "flex w-[236px] shrink-0 flex-col overflow-hidden border-border border-r bg-sidebar px-2.5 pt-3 pb-2.5",
+        "flex w-[236px] shrink-0 flex-col overflow-hidden border-border border-r bg-sidebar pt-3 pb-2.5",
+        collapsed ? "px-1.5" : "px-2.5",
         className,
       )}
     >
-      <div className="mb-2.5 flex shrink-0 items-center gap-1">
-        <Link
-          href={backToAppHref}
-          data-desktop-mac-end
-          className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-muted-foreground text-xs hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      {collapsed ? (
+        <div
+          data-desktop-mac-titlebar-spacer
+          className="mb-2.5 flex shrink-0 justify-center"
         >
-          <ArrowLeftIcon className="size-3.5 shrink-0" />
-          <span className="flex-1 truncate" data-hide-on-desktop-mac>
-            Inbox Zero
-          </span>
-        </Link>
-        <SidebarTrigger
-          name="left-sidebar"
-          className="size-6 shrink-0 text-muted-foreground"
-        />
-      </div>
+          <SidebarTrigger
+            name="left-sidebar"
+            className="text-muted-foreground"
+          />
+        </div>
+      ) : (
+        <div className="mb-2.5 flex shrink-0 items-center gap-1">
+          <Link
+            href={backToAppHref}
+            data-desktop-mac-end
+            className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-muted-foreground text-xs hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <ArrowLeftIcon className="size-3.5 shrink-0" />
+            <span className="flex-1 truncate" data-hide-on-desktop-mac>
+              Inbox Zero
+            </span>
+          </Link>
+          <SidebarTrigger
+            name="left-sidebar"
+            className="size-6 shrink-0 text-muted-foreground"
+          />
+        </div>
+      )}
 
-      <Button
-        variant="gradient"
-        onClick={onCompose}
-        className="mb-3.5 w-full shrink-0 justify-start gap-2 rounded-xl px-3"
-      >
-        <PenLineIcon className="size-4 shrink-0" />
-        <span className="flex-1 text-left">Compose</span>
-        <Kbd variant="onColor">{getShortcutHint("compose")}</Kbd>
-      </Button>
+      {collapsed ? (
+        <RailTooltip label="Compose">
+          <Button
+            variant="gradient"
+            size="icon"
+            onClick={onCompose}
+            aria-label="Compose"
+            className="mb-3.5 size-10 shrink-0 self-center rounded-xl"
+          >
+            <PenLineIcon className="size-4" />
+          </Button>
+        </RailTooltip>
+      ) : (
+        <Button
+          variant="gradient"
+          onClick={onCompose}
+          className="mb-3.5 w-full shrink-0 justify-start gap-2 rounded-xl px-3"
+        >
+          <PenLineIcon className="size-4 shrink-0" />
+          <span className="flex-1 text-left">Compose</span>
+          <Kbd variant="onColor">{getShortcutHint("compose")}</Kbd>
+        </Button>
+      )}
 
       {/* The negative margin lets the scrollbar sit in the sidebar's own
           padding, so a platform-width bar can't crowd the unread counts. */}
@@ -247,45 +284,52 @@ export function MailSidebar({
                     : displayCount(countsById.get(countId))
                 }
                 emphasizeCount={emphasizeCount}
+                collapsed={collapsed}
               />
             ),
           )}
         </nav>
 
-        {!unified && categories.length > 0 && (
-          <>
-            <GroupHeading
-              expanded={collapsibleCategories ? showCategories : undefined}
-              onToggle={
-                collapsibleCategories
-                  ? () => setShowCategories((open) => !open)
-                  : undefined
-              }
-            >
-              {categoryHeading}
-            </GroupHeading>
-            {(!collapsibleCategories || showCategories) && (
-              <nav className="flex flex-col gap-px">
-                {categories.map(({ name, type, Icon }) => (
-                  <NavRow
-                    key={type}
-                    href={hrefFor({ kind: "type", type })}
-                    active={
-                      !activeLabelId && !activeFolderId && activeType === type
-                    }
-                    icon={<Icon className="size-3.5 shrink-0" />}
-                    name={name}
-                    count={null}
-                  />
-                ))}
-              </nav>
-            )}
-          </>
-        )}
+        {/* The rail replaces headings with a rule, so an empty group would
+            leave a stray line behind. */}
+        {!unified &&
+          categories.length > 0 &&
+          (!collapsed || showCategoryRows) && (
+            <>
+              <GroupHeading
+                collapsed={collapsed}
+                expanded={collapsibleCategories ? showCategories : undefined}
+                onToggle={
+                  collapsibleCategories
+                    ? () => setShowCategories((open) => !open)
+                    : undefined
+                }
+              >
+                {categoryHeading}
+              </GroupHeading>
+              {showCategoryRows && (
+                <nav className="flex flex-col gap-px">
+                  {categories.map(({ name, type, Icon }) => (
+                    <NavRow
+                      key={type}
+                      href={hrefFor({ kind: "type", type })}
+                      active={
+                        !activeLabelId && !activeFolderId && activeType === type
+                      }
+                      icon={<Icon className="size-3.5 shrink-0" />}
+                      name={name}
+                      count={null}
+                      collapsed={collapsed}
+                    />
+                  ))}
+                </nav>
+              )}
+            </>
+          )}
 
         {!unified && sidebarFolders.length > 0 && (
           <>
-            <GroupHeading>Folders</GroupHeading>
+            <GroupHeading collapsed={collapsed}>Folders</GroupHeading>
             <nav className="flex flex-col gap-px">
               {sidebarFolders.map((folder) => (
                 <MailboxItemContextMenu
@@ -306,11 +350,16 @@ export function MailSidebar({
                     icon={
                       <FolderIcon
                         className="size-3.5 shrink-0"
-                        style={{ marginLeft: folder.depth * 12 }}
+                        style={
+                          collapsed
+                            ? undefined
+                            : { marginLeft: folder.depth * 12 }
+                        }
                       />
                     }
                     name={folder.displayName}
                     count={displayCount(countsById.get(folder.id))}
+                    collapsed={collapsed}
                   />
                 </MailboxItemContextMenu>
               ))}
@@ -318,9 +367,10 @@ export function MailSidebar({
           </>
         )}
 
-        {!unified ? (
+        {!unified && (!collapsed || labelTree.length > 0) ? (
           <>
             <GroupHeading
+              collapsed={collapsed}
               action={
                 <button
                   type="button"
@@ -341,6 +391,7 @@ export function MailSidebar({
                   key={node.label.id}
                   node={node}
                   hasNestedLabels={hasNestedLabels}
+                  collapsed={collapsed}
                   activeLabelId={activeLabelId}
                   hrefFor={hrefFor}
                   countsById={countsById}
@@ -353,7 +404,7 @@ export function MailSidebar({
               ))}
             </nav>
 
-            {isAddingLabel ? (
+            {isAddingLabel && !collapsed ? (
               <form
                 onSubmit={submitNewLabel}
                 className="flex gap-1.5 px-2.5 py-2"
@@ -383,15 +434,28 @@ export function MailSidebar({
         ) : null}
       </div>
 
-      <button
-        type="button"
-        onClick={onOpenShortcuts}
-        className="mt-2 flex shrink-0 items-center gap-2 rounded-lg px-2.5 py-1.5 text-muted-foreground text-xs hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <KeyboardIcon className="size-3.5 shrink-0" />
-        <span className="flex-1 text-left">Keyboard shortcuts</span>
-        <Kbd>{getShortcutHint("help")}</Kbd>
-      </button>
+      {collapsed ? (
+        <RailTooltip label="Keyboard shortcuts">
+          <button
+            type="button"
+            onClick={onOpenShortcuts}
+            aria-label="Keyboard shortcuts"
+            className="mt-2 flex size-10 shrink-0 items-center justify-center self-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <KeyboardIcon className="size-4" />
+          </button>
+        </RailTooltip>
+      ) : (
+        <button
+          type="button"
+          onClick={onOpenShortcuts}
+          className="mt-2 flex shrink-0 items-center gap-2 rounded-lg px-2.5 py-1.5 text-muted-foreground text-xs hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <KeyboardIcon className="size-3.5 shrink-0" />
+          <span className="flex-1 text-left">Keyboard shortcuts</span>
+          <Kbd>{getShortcutHint("help")}</Kbd>
+        </button>
+      )}
       {footer}
     </aside>
   );
@@ -400,6 +464,7 @@ export function MailSidebar({
 function LabelBranch({
   node,
   hasNestedLabels,
+  collapsed,
   ...props
 }: Pick<
   MailSidebarProps,
@@ -411,16 +476,18 @@ function LabelBranch({
   | "labelColorOptions"
   | "onEditMailboxItem"
   | "onDeleteMailboxItem"
-> & { node: SidebarLabel; hasNestedLabels: boolean }) {
+> & { node: SidebarLabel; hasNestedLabels: boolean; collapsed: boolean }) {
   const { label, children } = node;
   const activeDescendantId = children.some((child) =>
     containsLabel(child, props.activeLabelId),
   )
     ? props.activeLabelId
     : null;
+  // Branches start closed so a deep label tree doesn't flood the sidebar; only
+  // the branch holding the open label reveals itself.
   const [expansion, setExpansion] = useState({
     activeDescendantId,
-    expanded: true,
+    expanded: activeDescendantId !== null,
   });
   // Reveal each newly selected descendant while retaining unrelated collapse choices.
   if (expansion.activeDescendantId !== activeDescendantId) {
@@ -429,7 +496,8 @@ function LabelBranch({
       expanded: activeDescendantId !== null || expansion.expanded,
     });
   }
-  const { expanded } = expansion;
+  // The rail has no room for a disclosure arrow, so it lists every label flat.
+  const expanded = collapsed || expansion.expanded;
 
   return (
     <div>
@@ -443,7 +511,7 @@ function LabelBranch({
         onDelete={props.onDeleteMailboxItem}
       >
         <div className="relative">
-          {children.length > 0 && (
+          {children.length > 0 && !collapsed && (
             <button
               type="button"
               aria-label={`${expanded ? "Collapse" : "Expand"} ${label.name}`}
@@ -464,28 +532,39 @@ function LabelBranch({
             href={props.hrefFor({ kind: "label", labelId: label.id })}
             active={props.activeLabelId === label.id}
             icon={
-              <span
-                className="size-2.5 shrink-0 rounded-full bg-muted-foreground/40"
-                style={
-                  label.color?.backgroundColor
-                    ? { backgroundColor: label.color.backgroundColor }
-                    : undefined
-                }
-              />
+              collapsed ? (
+                <TagIcon
+                  className="size-4 shrink-0"
+                  style={{ color: label.color?.backgroundColor }}
+                />
+              ) : (
+                <span
+                  className="size-2.5 shrink-0 rounded-full bg-muted-foreground/40"
+                  style={
+                    label.color?.backgroundColor
+                      ? { backgroundColor: label.color.backgroundColor }
+                      : undefined
+                  }
+                />
+              )
             }
-            name={node.name}
+            // Flattened rows lose their parent context, so the tooltip carries
+            // the full path instead of the leaf name.
+            name={collapsed ? label.name : node.name}
             count={displayCount(props.countsById.get(label.id))}
-            nested={hasNestedLabels}
+            nested={hasNestedLabels && !collapsed}
+            collapsed={collapsed}
           />
         </div>
       </MailboxItemContextMenu>
       {expanded && children.length > 0 && (
-        <div className="ml-3">
+        <div className={collapsed ? undefined : "ml-3"}>
           {children.map((child) => (
             <LabelBranch
               key={child.label.id}
               node={child}
               hasNestedLabels={hasNestedLabels}
+              collapsed={collapsed}
               {...props}
             />
           ))}
@@ -500,12 +579,17 @@ function GroupHeading({
   action,
   expanded,
   onToggle,
+  collapsed,
 }: {
   children: ReactNode;
   action?: ReactNode;
   expanded?: boolean;
   onToggle?: () => void;
+  collapsed?: boolean;
 }) {
+  // A heading can't fit in the rail, so groups are separated by a rule instead.
+  if (collapsed) return <div className="mx-auto my-2 h-px w-6 bg-border" />;
+
   if (onToggle) {
     return (
       <div className="flex items-center gap-1.5 px-2.5 pt-4 pb-1.5">
@@ -545,6 +629,7 @@ function NavRow({
   count,
   emphasizeCount,
   nested,
+  collapsed,
 }: {
   href?: string;
   active: boolean;
@@ -553,15 +638,28 @@ function NavRow({
   count: number | null;
   emphasizeCount?: boolean;
   nested?: boolean;
+  collapsed?: boolean;
 }) {
   const className = cn(
-    "flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+    "flex items-center rounded-lg text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+    collapsed
+      ? "relative mx-auto size-10 justify-center"
+      : "gap-2.5 px-2.5 py-1.5",
     nested && "pl-7",
     active
       ? "bg-primary/10 font-medium text-foreground"
       : "text-muted-foreground hover:bg-accent hover:text-foreground",
   );
-  const content = (
+  const content = collapsed ? (
+    <>
+      {icon}
+      {count !== null && (
+        // The rail has no room for a number, so unread mail shows as a dot.
+        <span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-primary" />
+      )}
+      <span className="sr-only">{name}</span>
+    </>
+  ) : (
     <>
       {icon}
       <span className="flex-1 truncate">{name}</span>
@@ -580,15 +678,7 @@ function NavRow({
     </>
   );
 
-  if (!href) {
-    return (
-      <div aria-current={active ? "page" : undefined} className={className}>
-        {content}
-      </div>
-    );
-  }
-
-  return (
+  const row = href ? (
     <Link
       href={href}
       aria-current={active ? "page" : undefined}
@@ -596,6 +686,33 @@ function NavRow({
     >
       {content}
     </Link>
+  ) : (
+    <div aria-current={active ? "page" : undefined} className={className}>
+      {content}
+    </div>
+  );
+
+  if (!collapsed) return row;
+
+  return (
+    <RailTooltip label={count === null ? name : `${name} (${count})`}>
+      {row}
+    </RailTooltip>
+  );
+}
+
+function RailTooltip({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side="right">{label}</TooltipContent>
+    </Tooltip>
   );
 }
 

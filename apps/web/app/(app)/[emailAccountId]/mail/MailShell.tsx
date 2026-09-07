@@ -2,6 +2,7 @@
 
 import { isThreadStarred } from "@/app/(app)/[emailAccountId]/mail/star-state";
 import {
+  type CSSProperties,
   useCallback,
   useDeferredValue,
   useEffect,
@@ -27,6 +28,11 @@ import type {
   MailboxItem,
   MailboxItemEdit,
 } from "@/app/(app)/[emailAccountId]/mail/MailboxItemContextMenu";
+import { MailSidebarResizeHandle } from "@/app/(app)/[emailAccountId]/mail/MailSidebarResizeHandle";
+import {
+  MAIL_SIDEBAR_DEFAULT_WIDTH,
+  MAIL_SIDEBAR_RAIL_WIDTH,
+} from "@/app/(app)/[emailAccountId]/mail/sidebar-width";
 import { ListSenderCommands } from "@/app/(app)/[emailAccountId]/mail/ListSenderCommands";
 import { ThreadActionsMenu } from "@/app/(app)/[emailAccountId]/mail/ThreadActionsMenu";
 import { ShortcutsDialog } from "@/app/(app)/[emailAccountId]/mail/ShortcutsDialog";
@@ -193,6 +199,13 @@ export function MailShell() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const pendingSearchFocusRef = useRef(false);
   const isMailSidebarOpen = openSidebars.includes("left-sidebar");
+
+  // Dragging writes straight to the CSS variable: re-rendering this screen on
+  // every pointer move would make the sidebar edge lag behind the cursor.
+  const sidebarScopeRef = useRef<HTMLDivElement>(null);
+  const setSidebarWidth = useCallback((width: number) => {
+    sidebarScopeRef.current?.style.setProperty("--sidebar-width", `${width}px`);
+  }, []);
 
   useEffect(() => {
     setIsDesktopApp(Boolean(getInboxZeroDesktopApp()));
@@ -1312,10 +1325,20 @@ export function MailShell() {
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-background">
       <div className="flex min-h-0 flex-1">
-        <div className="hidden [--sidebar-width:236px] lg:contents">
-          <Sidebar name="left-sidebar">
+        <div
+          ref={sidebarScopeRef}
+          className="hidden lg:contents"
+          style={
+            {
+              "--sidebar-width": `var(--mail-sidebar-width, ${MAIL_SIDEBAR_DEFAULT_WIDTH}px)`,
+              "--sidebar-width-icon": `${MAIL_SIDEBAR_RAIL_WIDTH}px`,
+            } as CSSProperties
+          }
+        >
+          <Sidebar name="left-sidebar" collapsible="icon">
             <MailSidebar
               className="h-full w-full border-r-0"
+              collapsed={!isMailSidebarOpen}
               activeType={
                 scopeLabelId || scopeFolderId ? null : (scopeType ?? "inbox")
               }
@@ -1348,9 +1371,13 @@ export function MailShell() {
                   onSelectAccount={selectAccount}
                   onSelectAll={selectAllAccounts}
                   variant="sidebar"
+                  collapsed={!isMailSidebarOpen}
                 />
               }
             />
+            {isMailSidebarOpen ? (
+              <MailSidebarResizeHandle onResize={setSidebarWidth} />
+            ) : null}
           </Sidebar>
         </div>
 
@@ -1375,7 +1402,6 @@ export function MailShell() {
               expandedPreview={expandedPreview}
               onTogglePreview={togglePreview}
               onToggleAssistant={() => toggleSidebar(["chat-sidebar"])}
-              showSidebarToggle={!isMailSidebarOpen}
               showLayoutToggle={!isAllAccounts}
               selectedCount={selection.selectedCount}
               onArchiveSelected={archiveTargets}
@@ -1454,7 +1480,6 @@ export function MailShell() {
               onRemoveLabel={onRemoveLabel}
               onBackToInbox={closeReader}
               onArchive={archiveTargets}
-              showSidebarToggle={!isMailSidebarOpen}
               refetch={refetchOpenThread}
               onSendSuccess={(_messageId, sentThreadId) => {
                 if (

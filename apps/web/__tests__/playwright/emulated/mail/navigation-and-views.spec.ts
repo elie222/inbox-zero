@@ -302,20 +302,35 @@ test("creates and edits a label and shows every keyboard workflow", async ({
     page.getByRole("link", { name: updatedLabelName, exact: true }),
   ).toBeVisible();
 
-  for (const name of [
-    `${updatedLabelName}/Clients`,
-    `${updatedLabelName}/Clients/Acme`,
-  ]) {
+  const createLabel = async (name: string) => {
     await page.getByRole("button", { name: "Create label" }).click();
     await page.getByRole("textbox", { name: "New label name" }).fill(name);
     await page.getByRole("button", { name: "Add", exact: true }).click();
-    await expect(
-      page.getByRole("link", { name: name.split("/").at(-1), exact: true }),
-    ).toBeVisible();
-  }
+  };
+
+  // A branch starts closed, so each nested label stays out of sight until its
+  // parent is expanded.
   const child = page.getByRole("link", { name: "Clients", exact: true });
   const grandchild = page.getByRole("link", { name: "Acme", exact: true });
+
+  await createLabel(`${updatedLabelName}/Clients`);
+  const expandParent = page.getByRole("button", {
+    name: `Expand ${updatedLabelName}`,
+    exact: true,
+  });
+  await expect(expandParent).toBeVisible();
+  await expect(child).toBeHidden();
+  await expandParent.click();
   await expect(child).toBeVisible();
+
+  await createLabel(`${updatedLabelName}/Clients/Acme`);
+  const expandChild = page.getByRole("button", {
+    name: `Expand ${updatedLabelName}/Clients`,
+    exact: true,
+  });
+  await expect(expandChild).toBeVisible();
+  await expect(grandchild).toBeHidden();
+  await expandChild.click();
   await expect(grandchild).toBeVisible();
   await capturePlaywrightCheckpoint(page, testInfo, "gmail-nested-labels");
   await page
@@ -323,9 +338,12 @@ test("creates and edits a label and shows every keyboard workflow", async ({
     .click();
   await expect(child).toBeHidden();
   await expect(grandchild).toBeHidden();
-  await page
-    .getByRole("button", { name: `Expand ${updatedLabelName}`, exact: true })
-    .click();
+  // Re-expanding only reopens the level that was collapsed; deeper branches
+  // come back closed.
+  await expandParent.click();
+  await expect(child).toBeVisible();
+  await expect(grandchild).toBeHidden();
+  await expandChild.click();
   await grandchild.click();
   await expect(grandchild).toHaveAttribute("aria-current", "page");
   const selectedLabelUrl = page.url();

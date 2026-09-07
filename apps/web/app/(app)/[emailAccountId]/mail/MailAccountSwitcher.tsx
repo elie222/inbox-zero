@@ -38,12 +38,15 @@ export function MailAccountSwitcher({
   onSelectAccount,
   onSelectAll,
   variant,
+  collapsed = false,
 }: {
   isAllAccounts: boolean;
   isDesktopApp: boolean;
   onSelectAccount: (accountId: string) => void;
   onSelectAll: () => void;
   variant: "compact" | "sidebar";
+  /** Icon-only rail: the trigger shrinks to the account avatar. */
+  collapsed?: boolean;
 }) {
   const { data, mutate } = useAccounts();
   const { emailAccount } = useAccount();
@@ -82,23 +85,29 @@ export function MailAccountSwitcher({
         <DropdownMenuTrigger asChild>
           <button
             type="button"
+            aria-label={collapsed ? activeLabel : undefined}
             className={cn(
-              "flex w-full items-center gap-3 rounded-xl px-2 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "flex w-full items-center rounded-xl text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              collapsed ? "justify-center" : "gap-3 px-2",
               variant === "compact" ? "h-11" : "h-10",
             )}
           >
             {activeIcon}
-            <span className="min-w-0 flex-1 leading-tight">
-              <span className="block truncate font-medium text-sm">
-                {activeLabel}
-              </span>
-              {activeEmail ? (
-                <span className="block truncate text-muted-foreground text-xs">
-                  {activeEmail}
+            {collapsed ? null : (
+              <>
+                <span className="min-w-0 flex-1 leading-tight">
+                  <span className="block truncate font-medium text-sm">
+                    {activeLabel}
+                  </span>
+                  {activeEmail ? (
+                    <span className="block truncate text-muted-foreground text-xs">
+                      {activeEmail}
+                    </span>
+                  ) : null}
                 </span>
-              ) : null}
-            </span>
-            <ChevronsUpDownIcon className="size-4 text-muted-foreground" />
+                <ChevronsUpDownIcon className="size-4 text-muted-foreground" />
+              </>
+            )}
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
