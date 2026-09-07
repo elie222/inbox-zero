@@ -422,7 +422,7 @@ test("opens and sends a reply from the reader with Enter", async ({
   await page.keyboard.press("Escape");
 
   await sendButton.hover();
-  const sendTooltip = page.getByRole("tooltip");
+  const sendTooltip = page.getByRole("tooltip", { name: /Send and mark done/ });
   await expect(sendTooltip).toContainText("Send and mark done");
   await expect(sendTooltip.locator("kbd")).toHaveText([
     "⌘",
