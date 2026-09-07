@@ -85,7 +85,7 @@ import type {
 } from "@/utils/email-cache/reply-drafts";
 import { createPreservedEmailBlocks } from "@/utils/email/preserved-blocks";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
-import { stripReferralSignature } from "@/utils/referral/signature";
+import { stripBrandingSignatures } from "@/utils/referral/signature";
 import { renderSentWithFooterHtml } from "@/utils/email/sent-with-footer";
 import { getActionErrorMessage } from "@/utils/error";
 import { redirectToSafeUrl } from "@/utils/redirect";
@@ -309,7 +309,7 @@ function ComposeEmailFormContent({
         draft: {
           ...draft,
           editableHtml: sentWithFooterHtml
-            ? stripReferralSignature(parsedDraft.body.innerHTML)
+            ? stripBrandingSignatures(parsedDraft.body.innerHTML)
             : parsedDraft.body.innerHTML,
         },
         preservedBlocks,
@@ -327,7 +327,7 @@ function ComposeEmailFormContent({
     const draft = {
       ...preparedDraft,
       editableHtml: sentWithFooterHtml
-        ? stripReferralSignature(preparedDraft.editableHtml)
+        ? stripBrandingSignatures(preparedDraft.editableHtml)
         : preparedDraft.editableHtml,
       signatureHtml: [preparedDraft.signatureHtml, sentWithFooterHtml]
         .filter(Boolean)

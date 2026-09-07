@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   hasReferralSignature,
   stripReferralSignature,
+  stripBrandingSignatures,
 } from "@/utils/referral/signature";
 
 describe("referral signatures", () => {
@@ -12,7 +13,30 @@ describe("referral signatures", () => {
 
     expect(stripReferralSignature(html)).toBe(`${body}${signature}<div></div>`);
     expect(hasReferralSignature(html)).toBe(true);
+    // Repeated detection must not depend on the global regex lastIndex.
     expect(hasReferralSignature(html)).toBe(true);
     expect(hasReferralSignature(stripReferralSignature(html))).toBe(false);
+  });
+});
+
+describe("branding signatures", () => {
+  it("removes both HTML footers from a draft body", () => {
+    const body = "<p>Thanks for the update.</p>";
+    expect(
+      stripBrandingSignatures(
+        `${body}<div>Drafted by <a href="https://example.com">Inbox Zero</a>.</div><div>Sent with <a href="https://example.com">Inbox Zero</a></div>`,
+      ),
+    ).toBe(`${body}<div></div><div></div>`);
+  });
+
+  it("does not consume later content through malformed links", () => {
+    const fragments = "Drafted by Inbox Zero [https:// ".repeat(10_000);
+    const anchorFragments = "Sent with <a href=broken ".repeat(10_000);
+    expect(stripBrandingSignatures(fragments)).toBe(
+      " [https:// ".repeat(10_000).trim(),
+    );
+    expect(stripBrandingSignatures(anchorFragments)).toBe(
+      anchorFragments.trim(),
+    );
   });
 });
