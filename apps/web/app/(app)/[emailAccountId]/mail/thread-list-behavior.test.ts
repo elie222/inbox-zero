@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   getActiveThreadIndex,
+  groupThreadsByDate,
   getNextThreadAfterRemoval,
   resolveThreadActionTargets,
   scrollElementIntoContainer,
@@ -301,6 +302,67 @@ describe("scrollElementIntoContainer", () => {
     expect(container.scrollTop).toBe(12);
   });
 });
+
+describe("groupThreadsByDate", () => {
+  const now = new Date("2025-09-05T12:00:00");
+
+  it("groups consecutive threads under one heading and keeps list positions", () => {
+    const groups = groupThreadsByDate(
+      [
+        createDatedThread("2025-09-05T11:00:00"),
+        createDatedThread("2025-09-05T08:00:00"),
+        createDatedThread("2025-09-04T18:00:00"),
+        createDatedThread("2025-08-30T18:00:00"),
+        createDatedThread("2025-08-02T18:00:00"),
+      ],
+      now,
+    );
+
+    expect(
+      groups.map((group) => ({
+        label: group.label,
+        startIndex: group.startIndex,
+        count: group.threads.length,
+      })),
+    ).toEqual([
+      { label: "Today", startIndex: 0, count: 2 },
+      { label: "Yesterday", startIndex: 2, count: 1 },
+      { label: "August", startIndex: 3, count: 2 },
+    ]);
+  });
+
+  it("dates a thread by its latest message", () => {
+    const thread = {
+      messages: [
+        { internalDate: "2025-08-01T09:00:00" },
+        { internalDate: "2025-09-05T09:00:00" },
+      ],
+    };
+
+    expect(groupThreadsByDate([thread], now)[0].label).toBe("Today");
+  });
+
+  it("starts a new group when the list is not date-ordered", () => {
+    const groups = groupThreadsByDate(
+      [
+        createDatedThread("2025-09-05T11:00:00"),
+        createDatedThread("2025-09-04T11:00:00"),
+        createDatedThread("2025-09-05T09:00:00"),
+      ],
+      now,
+    );
+
+    expect(groups.map((group) => group.label)).toEqual([
+      "Today",
+      "Yesterday",
+      "Today",
+    ]);
+  });
+});
+
+function createDatedThread(internalDate: string) {
+  return { messages: [{ internalDate }] };
+}
 
 function createBox({
   top,
