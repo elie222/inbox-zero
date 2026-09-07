@@ -63,9 +63,8 @@ export async function getGmailMailboxSyncPage({
       },
       logger,
     );
-    const { upsertIds, deletedIds } = getGmailMailboxChangeIds(
-      response.history ?? [],
-    );
+    const { upsertIds, deletedIds, changedThreadIds } =
+      getGmailMailboxChangeIds(response.history ?? []);
     const fetchedMessages = await fetchMessages({
       messageIds: upsertIds,
       accessToken,
@@ -96,6 +95,7 @@ export async function getGmailMailboxSyncPage({
         after: decoded.after,
         pageToken: response.nextPageToken ?? undefined,
       }),
+      changedThreadIds: [...changedThreadIds],
       deletedMessageIds: [...deletedIds],
       hasMore: Boolean(response.nextPageToken),
       reset: false,
@@ -118,11 +118,22 @@ export async function getGmailMailboxSyncPage({
 export function getGmailMailboxChangeIds(history: gmail_v1.Schema$History[]): {
   upsertIds: string[];
   deletedIds: Set<string>;
+  changedThreadIds: Set<string>;
 } {
   const upsertIds = new Set<string>();
   const deletedIds = new Set<string>();
+  const changedThreadIds = new Set<string>();
 
   for (const record of history) {
+    for (const change of [
+      ...(record.messagesAdded ?? []),
+      ...(record.messagesDeleted ?? []),
+      ...(record.labelsAdded ?? []),
+      ...(record.labelsRemoved ?? []),
+    ]) {
+      if (change.message?.threadId)
+        changedThreadIds.add(change.message.threadId);
+    }
     for (const change of record.messagesAdded ?? []) {
       if (change.message?.id) upsertIds.add(change.message.id);
     }
@@ -138,7 +149,7 @@ export function getGmailMailboxChangeIds(history: gmail_v1.Schema$History[]): {
   }
 
   for (const messageId of deletedIds) upsertIds.delete(messageId);
-  return { upsertIds: [...upsertIds], deletedIds };
+  return { upsertIds: [...upsertIds], deletedIds, changedThreadIds };
 }
 
 async function getGmailSnapshotPage({

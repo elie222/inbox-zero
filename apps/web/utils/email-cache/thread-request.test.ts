@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { createThreadRequest, fetchThreadRequest } from "./thread-request";
 
+import { invalidateThreadCaches } from "./thread-invalidation";
+
 describe("thread requests", () => {
   it("encodes provider thread IDs in the route path", () => {
     const request = createThreadRequest({
@@ -13,6 +15,27 @@ describe("thread requests", () => {
       "/api/threads/AAMk%2B%2F%3D%20folder?includeDrafts=true",
     );
     expect(request.cacheIdentity).toContain("AAMk+/= folder");
+  });
+
+  it("refetches when sync invalidates an in-flight response", async () => {
+    const response = Promise.withResolvers<string>();
+    const fetcher = vi
+      .fn()
+      .mockReturnValueOnce(response.promise)
+      .mockResolvedValue("current");
+    const request = createThreadRequest({
+      emailAccountId: "account-race",
+      threadId: "thread-1",
+    });
+    const pending = fetchThreadRequest(request, fetcher);
+    invalidateThreadCaches({
+      emailAccountId: "account-race",
+      threadIds: ["thread-1"],
+      reset: false,
+    });
+    response.resolve("stale");
+    await expect(pending).resolves.toBe("current");
+    expect(fetcher).toHaveBeenCalledTimes(2);
   });
 
   it("shares an in-flight response for the same cache identity", async () => {

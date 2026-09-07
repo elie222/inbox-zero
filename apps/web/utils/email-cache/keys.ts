@@ -17,6 +17,23 @@ export function createThreadDetailVariant(options?: {
   return `drafts:${options?.includeDrafts ? 1 : 0}|replies:${options?.parseReplies ? 1 : 0}`;
 }
 
+export function createThreadDetailRequestKey({
+  emailAccountId,
+  threadId,
+  options,
+}: {
+  emailAccountId: string;
+  threadId: string;
+  options?: { includeDrafts?: boolean; parseReplies?: boolean };
+}): [string, string] {
+  const searchParams = new URLSearchParams();
+  if (options?.includeDrafts) searchParams.set("includeDrafts", "true");
+  if (options?.parseReplies) searchParams.set("parseReplies", "true");
+  const query = searchParams.toString();
+  const url = `/api/threads/${encodeURIComponent(threadId)}${query ? `?${query}` : ""}`;
+  return [url, emailAccountId];
+}
+
 function normalizeValue(value: unknown): unknown {
   if (value instanceof Date) return value.toISOString();
   if (Array.isArray(value))

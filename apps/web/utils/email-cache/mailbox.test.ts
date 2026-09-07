@@ -23,6 +23,86 @@ describe("synced mailbox cache", () => {
     await clearEmailCache();
   });
 
+  it("invalidates all detail variants for changed threads and deleted cached drafts", async () => {
+    const database = await getEmailCacheDatabase();
+    if (!database) throw new Error("Database unavailable");
+    for (const [account, thread, variant] of [
+      ["account-1", "changed", "drafts:0|replies:0"],
+      ["account-1", "changed", "drafts:1|replies:0"],
+      ["account-1", "deleted", "drafts:1|replies:0"],
+      ["account-1", "unrelated", "drafts:1|replies:0"],
+      ["account-2", "changed", "drafts:1|replies:0"],
+    ]) {
+      await database.put("threadDetails", {
+        emailAccountId: account,
+        threadId: thread,
+        variant,
+        data: {
+          thread: {
+            id: thread,
+            messages: [
+              getMessage({
+                id: thread === "deleted" ? "draft" : thread,
+                threadId: thread,
+              }),
+            ],
+          },
+        },
+        fetchedAt: 100,
+        lastAccessedAt: 100,
+        byteSize: 100,
+      });
+    }
+    await applyMailboxSyncPage({
+      emailAccountId: "account-1",
+      after: new Date("2026-07-01"),
+      page: {
+        cursor: "delta",
+        reset: false,
+        hasMore: false,
+        changedThreadIds: ["changed"],
+        deletedMessageIds: [],
+        upsertedMessages: [],
+      },
+    });
+    expect(
+      (await database.getAll("threadDetails")).map((row) => [
+        row.emailAccountId,
+        row.threadId,
+      ]),
+    ).toEqual([
+      ["account-1", "deleted"],
+      ["account-1", "unrelated"],
+      ["account-2", "changed"],
+    ]);
+    await applyMailboxSyncPage({
+      emailAccountId: "account-1",
+      page: {
+        cursor: "delta-2",
+        reset: false,
+        hasMore: false,
+        deletedMessageIds: ["draft"],
+        upsertedMessages: [],
+      },
+    });
+    expect(
+      (await database.getAll("threadDetails")).map((row) => row.emailAccountId),
+    ).toEqual(["account-1", "account-2"]);
+    await applyMailboxSyncPage({
+      emailAccountId: "account-1",
+      page: {
+        cursor: "reset",
+        reset: true,
+        hasMore: true,
+        deletedMessageIds: [],
+        upsertedMessages: [],
+      },
+    });
+    expect(
+      (await database.getAll("threadDetails")).map((row) => row.emailAccountId),
+    ).toEqual(["account-2"]);
+  });
+
   it("applies snapshots and deltas atomically with their cursor", async () => {
     const first = getMessage({
       id: "message-1",
