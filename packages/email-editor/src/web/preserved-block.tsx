@@ -71,6 +71,7 @@ export function PreservedBlockView({
             className={styles.signatureHtml}
             // biome-ignore lint/security/noDangerouslySetInnerHtml: core sanitization removes active content before the signature is rendered inline.
             dangerouslySetInnerHTML={{ __html: block.previewHtml }}
+            onAuxClick={preventLinkNavigation}
             onClick={preventLinkNavigation}
           />
         </div>
