@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { emailOtp, signIn } from "@/utils/auth-client";
-import { redirectToSafeUrl } from "@/utils/redirect";
+import { buildRedirectUrl, redirectToSafeUrl } from "@/utils/redirect";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -53,12 +54,19 @@ export function EmailOtpForm({ callbackURL }: { callbackURL: string }) {
   });
 
   return (
-    <form className="space-y-4 pt-3" onSubmit={submit}>
+    <form className="space-y-6" onSubmit={submit}>
+      <div className="space-y-2 text-center">
+        <h1 className="font-title text-2xl">
+          {sentTo ? "Check your email" : "Sign in with email"}
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          {sentTo
+            ? "Enter your 6-digit code."
+            : "Email sign-in must be enabled in Settings."}
+        </p>
+      </div>
       {sentTo ? (
-        <>
-          <p className="text-sm text-muted-foreground">
-            Check your email for a code. It expires in 5 minutes.
-          </p>
+        <div className="space-y-2">
           <Label htmlFor="login-code">Sign-in code</Label>
           <Input
             id="login-code"
@@ -69,12 +77,9 @@ export function EmailOtpForm({ callbackURL }: { callbackURL: string }) {
             required
             {...register("code")}
           />
-        </>
+        </div>
       ) : (
-        <>
-          <p className="text-sm text-muted-foreground">
-            Enable email code sign-in in Settings first.
-          </p>
+        <div className="space-y-2">
           <Label htmlFor="login-email">Email</Label>
           <Input
             id="login-email"
@@ -83,7 +88,7 @@ export function EmailOtpForm({ callbackURL }: { callbackURL: string }) {
             required
             {...register("email")}
           />
-        </>
+        </div>
       )}
       {error && (
         <p role="alert" className="text-sm text-destructive">
@@ -91,9 +96,9 @@ export function EmailOtpForm({ callbackURL }: { callbackURL: string }) {
         </p>
       )}
       <Button className="w-full" type="submit" loading={isSubmitting}>
-        {sentTo ? "Verify code and sign in" : "Send sign-in code"}
+        {sentTo ? "Sign in" : "Send code"}
       </Button>
-      {sentTo && (
+      {sentTo ? (
         <Button
           className="w-full"
           type="button"
@@ -105,7 +110,13 @@ export function EmailOtpForm({ callbackURL }: { callbackURL: string }) {
             resetField("code");
           }}
         >
-          Back to email
+          Back
+        </Button>
+      ) : (
+        <Button className="w-full" variant="ghost" asChild>
+          <Link href={buildRedirectUrl("/login", { next: callbackURL })}>
+            Back
+          </Link>
         </Button>
       )}
     </form>

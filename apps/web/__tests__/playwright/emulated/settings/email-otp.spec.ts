@@ -32,16 +32,24 @@ test("an assistant signs in after owner opt-in and loses access when it is disab
 
     const email = process.env.PLAYWRIGHT_TEST_EMAIL!;
     await assistantPage.goto("/login?next=%2Fsettings");
+    await assistantPage.screenshot({
+      path: test.info().outputPath("login-options.png"),
+      fullPage: true,
+    });
     await assistantPage
-      .getByRole("button", { name: "Sign in with email code", exact: true })
+      .getByRole("link", { name: "Sign in with email code", exact: true })
       .click();
-    await assistantPage.getByLabel("Email", { exact: true }).fill(email);
+    await expect(assistantPage).toHaveURL(/\/login\/email\?next=/);
+    await expect(
+      assistantPage.getByRole("button", { name: "Sign in with Google" }),
+    ).toHaveCount(0);
     await assistantPage.screenshot({
       path: test.info().outputPath("email-code-login.png"),
       fullPage: true,
     });
+    await assistantPage.getByLabel("Email", { exact: true }).fill(email);
     await assistantPage
-      .getByRole("button", { name: "Send sign-in code", exact: true })
+      .getByRole("button", { name: "Send code", exact: true })
       .click();
     await expect(
       assistantPage.getByLabel("Sign-in code", { exact: true }),
@@ -71,7 +79,7 @@ test("an assistant signs in after owner opt-in and loses access when it is disab
       .toBe(true);
     await assistantPage.getByLabel("Sign-in code", { exact: true }).fill(code!);
     await assistantPage
-      .getByRole("button", { name: "Verify code and sign in" })
+      .getByRole("button", { name: "Sign in", exact: true })
       .click();
     await expect(assistantPage).toHaveURL(/\/settings$/);
     const assistantToggle = assistantPage.getByRole("switch", {
@@ -108,12 +116,12 @@ test("email code login does not disclose account existence", async ({
   await page.context().clearCookies();
   await page.goto("/login");
   await page
-    .getByRole("button", { name: "Sign in with email code", exact: true })
+    .getByRole("link", { name: "Sign in with email code", exact: true })
     .click();
   await page.getByLabel("Email", { exact: true }).fill("unknown@example.com");
-  await page
-    .getByRole("button", { name: "Send sign-in code", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Send code", exact: true }).click();
   await expect(page.getByLabel("Sign-in code", { exact: true })).toBeVisible();
-  await expect(page.getByText(/Check your email for a code/)).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Check your email" }),
+  ).toBeVisible();
 });

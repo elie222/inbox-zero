@@ -1,7 +1,5 @@
 "use client";
 
-import { cn } from "@/utils";
-import { EmailOtpForm } from "@/app/(landing)/login/EmailOtpForm";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -45,7 +43,6 @@ export function LoginForm({
   const showMicrosoftLogin = enabledProviders.includes("microsoft");
   const showSsoLogin = enabledProviders.includes("sso");
 
-  const [showEmailOtp, setShowEmailOtp] = useState(false);
   const [loadingApple, setLoadingApple] = useState(false);
   const [loadingGoogle, setLoadingGoogle] = useState(false);
   const [loadingMicrosoft, setLoadingMicrosoft] = useState(false);
@@ -103,12 +100,7 @@ export function LoginForm({
   };
 
   return (
-    <div
-      className={cn(
-        "flex flex-col justify-center gap-2 px-4",
-        !showEmailOtp && "sm:px-16",
-      )}
-    >
+    <div className="flex flex-col justify-center gap-2 px-4">
       {showGoogleLogin ? (
         <Button size="2xl" loading={loadingGoogle} onClick={handleGoogleSignIn}>
           <span className="flex items-center justify-center">
@@ -164,14 +156,11 @@ export function LoginForm({
         </UIButton>
       ) : null}
 
-      <UIButton
-        variant="ghost"
-        size="lg"
-        onClick={() => setShowEmailOtp(!showEmailOtp)}
-      >
-        Sign in with email code
+      <UIButton variant="ghost" size="lg" asChild>
+        <Link href={buildRedirectUrl("/login/email", { next: callbackURL })}>
+          Sign in with email code
+        </Link>
       </UIButton>
-      {showEmailOtp && <EmailOtpForm callbackURL={callbackURL} />}
 
       {showSsoLogin ? (
         <UIButton
