@@ -1,9 +1,4 @@
-// Persists a small whitelist of SWR cache entries to localStorage so the app
-// shell (sidebar labels, counts, folders, mail settings) renders instantly on
-// a cold load instead of flashing empty. Mail content itself is persisted
-// separately in utils/email-cache (IndexedDB).
-
-const STORAGE_PREFIX = "inbox-zero:swr:v1:";
+const STORAGE_PREFIX = "inbox-zero:swr:v2:";
 
 // These hooks use plain-string SWR keys that are not account-scoped (the
 // account travels in a request header), so the snapshot is namespaced by
