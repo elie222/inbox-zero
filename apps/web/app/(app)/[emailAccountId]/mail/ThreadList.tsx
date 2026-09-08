@@ -75,7 +75,7 @@ export function ThreadList({
     : undefined;
   const dayStart = useDayStart();
   const dateGroups = useMemo(
-    () => groupThreadsByDate(threads, dayStart),
+    () => groupThreadsByDate(threads, new Date(dayStart)),
     [dayStart, threads],
   );
 
@@ -149,7 +149,7 @@ export function ThreadList({
                   key={`${group.label}-${group.startIndex}`}
                   role="group"
                 >
-                  {group.label ? (
+                  {group.label && group.label !== "Today" ? (
                     <div
                       aria-hidden
                       className={cn(
@@ -218,16 +218,25 @@ export function ThreadList({
   );
 }
 
-/** Re-renders the list at local midnight so "Today" and "Yesterday" stay true. */
+/** Refreshes idle lists at midnight and when a suspended tab becomes active. */
 function useDayStart() {
-  const [dayStart, setDayStart] = useState(() => startOfDay(new Date()));
+  const [, setDayStart] = useState(() => startOfDay(new Date()).getTime());
+  // Read the clock on every render, even if a background timer has not fired yet.
+  const dayStart = startOfDay(new Date()).getTime();
 
   useEffect(() => {
+    const refresh = () => setDayStart(startOfDay(new Date()).getTime());
     const timeout = setTimeout(
-      () => setDayStart(startOfDay(new Date())),
-      addDays(dayStart, 1).getTime() - Date.now(),
+      refresh,
+      Math.max(0, addDays(new Date(dayStart), 1).getTime() - Date.now()),
     );
-    return () => clearTimeout(timeout);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      clearTimeout(timeout);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
   }, [dayStart]);
 
   return dayStart;
