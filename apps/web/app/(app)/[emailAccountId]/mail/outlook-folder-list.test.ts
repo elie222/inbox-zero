@@ -19,6 +19,25 @@ function folder(
 }
 
 describe("getMailSidebarFolders", () => {
+  it("keeps folders with missing child arrays without crashing", () => {
+    const leaf = folder("leaf");
+    Reflect.deleteProperty(leaf, "childFolders");
+    const systemFolder = folder("sent", [], "SENT");
+    Reflect.deleteProperty(systemFolder, "childFolders");
+
+    const result = getMailSidebarFolders([
+      folder("parent", [leaf]),
+      systemFolder,
+      folder("sibling"),
+    ]);
+
+    expect(result.map(({ id, depth }) => ({ id, depth }))).toEqual([
+      { id: "parent", depth: 0 },
+      { id: "leaf", depth: 1 },
+      { id: "sibling", depth: 0 },
+    ]);
+  });
+
   it("omits duplicate system rows but keeps folders nested below them", () => {
     const result = getMailSidebarFolders([
       folder(
