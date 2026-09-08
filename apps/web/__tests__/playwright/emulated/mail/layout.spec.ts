@@ -8,7 +8,9 @@ import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
 test("refreshes date groups after midnight when the tab resumes", async ({
   page,
 }, testInfo) => {
-  await page.clock.install({ time: new Date() });
+  // The emulator dates its newest messages 24 hours before setup.
+  const mailboxDay = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  await page.clock.install({ time: mailboxDay });
   const { conversations } = await openMail(page);
   const today = conversations.getByRole("group", {
     name: "Today",
