@@ -211,7 +211,7 @@ export const actionClientUser = baseClient.use(
       logger,
       run: () =>
         next({
-          ctx: { ...ctx, userId, userEmail, logger },
+          ctx: { ...ctx, userId, userEmail, logger, session },
         }),
     });
   },

@@ -50,7 +50,7 @@ export interface RequestWithLogger extends NextRequest {
 
 // Extended request type with validated account info
 export interface RequestWithAuth extends RequestWithLogger {
-  auth: { userId: string };
+  auth: { userId: string; emailOtp?: boolean };
 }
 
 export interface RequestWithEmailAccount extends RequestWithLogger {
@@ -333,7 +333,10 @@ async function authMiddleware(
   }
 
   const authReq = req as RequestWithAuth;
-  authReq.auth = { userId: session.user.id };
+  authReq.auth = {
+    userId: session.user.id,
+    ...(session.session?.emailOtp ? { emailOtp: true } : {}),
+  };
 
   authReq.logger = baseLogger.with({ userId: session.user.id });
   setAuditContext({ actorType: "user", userId: session.user.id });

@@ -34,7 +34,6 @@ model Account {
   @@index([userId])
 }
 
-// not in use. we only use jwt for sessions
 model Session {
   id           String   @id @default(cuid())
   sessionToken String   @unique
@@ -42,6 +41,7 @@ model Session {
   expires      DateTime
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  emailOtp     Boolean  @default(false)
   ipAddress    String?
   userAgent    String?
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -82,6 +82,7 @@ model User {
   surveyImprovements String? // open text: what user wants to improve
 
   // settings
+  emailOtpEnabled Boolean @default(false)
   aiProvider    String?
   aiModel       String?
   aiApiKey      String?
@@ -538,7 +539,6 @@ model Premium {
   @@index([pendingInvites])
 }
 
-// not in use as it's only used for passwordless login
 model VerificationToken {
   id         String   @id @default(cuid())
   createdAt  DateTime @default(now())
