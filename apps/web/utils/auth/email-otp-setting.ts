@@ -43,7 +43,7 @@ export async function updateEmailOtpSetting({
     }),
     // Clear pending codes on either transition so re-enabling cannot revive one.
     prisma.verificationToken.deleteMany({
-      where: { identifier: `sign-in-otp-${user.email.toLowerCase()}` },
+      where: { identifier: `sign-in-otp-${user.email.trim().toLowerCase()}` },
     }),
     ...(!enabled
       ? [prisma.session.deleteMany({ where: { userId, emailOtp: true } })]

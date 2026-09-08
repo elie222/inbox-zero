@@ -75,9 +75,9 @@ describe("email code access setting", () => {
     ]);
   });
 
-  it("normalizes the account email before allowing code sign-in", async () => {
+  it("normalizes the account email and pending-code identifier together", async () => {
     prisma.user.findUniqueOrThrow.mockResolvedValue({
-      email: "Owner@Example.com",
+      email: " Owner@Example.com ",
     } as never);
     await updateEmailOtpSetting({
       userId: "owner",
@@ -91,6 +91,9 @@ describe("email code access setting", () => {
         emailOtpVersion: { increment: 1 },
         email: "owner@example.com",
       },
+    });
+    expect(prisma.verificationToken.deleteMany).toHaveBeenCalledWith({
+      where: { identifier: "sign-in-otp-owner@example.com" },
     });
   });
 

@@ -122,6 +122,7 @@ test("L labels the open conversation after it leaves the unread list", async ({
   ).toBeVisible();
   await page.getByRole("button", { name: /^More actions/ }).click();
   await page.getByRole("menuitem", { name: "Mark as unread" }).click();
+  await expect(page).not.toHaveURL(/thread-id=/);
   await expect(conversations).toBeVisible();
   const emptyReader = page.getByText("Nothing selected", { exact: true });
   if (!(await emptyReader.isVisible())) {

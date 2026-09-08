@@ -21,6 +21,7 @@ test("an assistant signs in after owner opt-in and loses access when it is disab
     storageState: { cookies: [], origins: [] },
   });
   const assistantPage = await assistant.newPage();
+  let cleanupError: unknown;
   try {
     await toggle.click();
     await expect(toggle).toBeChecked();
@@ -118,19 +119,21 @@ test("an assistant signs in after owner opt-in and loses access when it is disab
       (await assistant.request.get("/api/user/email-accounts")).status(),
     ).toBe(401);
   } finally {
-    await assistant.close();
     try {
+      await assistant.close();
       if (await toggle.isChecked()) {
         await toggle.click();
         await expect(toggle).not.toBeChecked();
       }
     } catch (error) {
+      cleanupError = error;
       await test.info().attach("cleanup-error", {
         body: String(error),
         contentType: "text/plain",
       });
     }
   }
+  if (cleanupError !== undefined) throw cleanupError;
 });
 
 test("email code login does not disclose account existence", async ({
