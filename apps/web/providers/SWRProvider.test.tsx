@@ -24,7 +24,7 @@ function CacheProbe() {
 }
 
 function snapshotKey(accountId: string) {
-  return `inbox-zero:swr:v1:${accountId}`;
+  return `inbox-zero:swr:v2:${accountId}`;
 }
 
 describe("SWRProvider persisted cache", () => {
@@ -78,6 +78,10 @@ describe("SWRProvider persisted cache", () => {
       });
     });
 
+    scopedCache?.set("/api/mail/settings", {
+      data: { splits: [{ id: "a-split", values: ["a-label"] }] },
+    });
+
     accountState.emailAccountId = "account-b";
     view.rerender(
       <SWRProvider>
@@ -91,6 +95,7 @@ describe("SWRProvider persisted cache", () => {
       });
       // account-b has no counts snapshot: account-a's value must be gone.
       expect(scopedCache?.get("/api/labels/counts")?.data).toBeUndefined();
+      expect(scopedCache?.get("/api/mail/settings")?.data).toBeUndefined();
     });
   });
 
