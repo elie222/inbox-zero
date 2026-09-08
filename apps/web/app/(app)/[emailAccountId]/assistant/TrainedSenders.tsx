@@ -11,8 +11,11 @@ import { useRules } from "@/hooks/useRules";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import {
   forgetTrainedSenderAction,
+  keepSenderInInboxAction,
   moveTrainedSenderAction,
+  trainSenderToDeleteAction,
 } from "@/utils/actions/trained-senders";
+import { isDeleteEmailActionEnabled } from "@/utils/delete-email-action";
 import { getActionErrorMessage } from "@/utils/error";
 import { formatShortDate } from "@/utils/date";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -35,6 +38,7 @@ import {
   Select,
   SelectContent,
   SelectItem,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -53,7 +57,10 @@ import { Tooltip } from "@/components/Tooltip";
 type TrainedSender = TrainedSendersResponse["senders"][number];
 type RuleOption = { id: string; name: string; label: string | null };
 
-const NO_RULE = "__none__";
+// Picker values that are not rules.
+const INBOX = "__inbox__";
+const DELETE = "__delete__";
+const NONE = "__none__";
 
 export function TrainedSenders() {
   const [page, setPage] = useQueryState("page", parseAsInteger.withDefault(1));
@@ -75,10 +82,18 @@ export function TrainedSenders() {
   );
   const { data: rules } = useRules();
 
+  // Delete-only rules are represented by the "Delete" entry instead.
   const ruleOptions = useMemo<RuleOption[]>(
     () =>
       (rules ?? [])
-        .filter((rule) => rule.enabled)
+        .filter(
+          (rule) =>
+            rule.enabled &&
+            !(
+              rule.actions.length > 0 &&
+              rule.actions.every((a) => a.type === ActionType.DELETE)
+            ),
+        )
         .map((rule) => ({
           id: rule.id,
           name: rule.name,
@@ -173,34 +188,43 @@ function TrainedSenderRow({
   mutate: () => void;
 }) {
   const { emailAccountId } = useAccount();
+  const deleteEnabled = isDeleteEmailActionEnabled();
 
-  const { execute: move, isExecuting: isMoving } = useAction(
+  const feedback = (done: string) => ({
+    onSuccess: () => {
+      toastSuccess({ description: `${done} ${sender.sender}` });
+      mutate();
+    },
+    onError: (error: {
+      error: Parameters<typeof getActionErrorMessage>[0];
+    }) => {
+      toastError({ description: getActionErrorMessage(error.error) });
+    },
+  });
+
+  const move = useAction(
     moveTrainedSenderAction.bind(null, emailAccountId),
-    {
-      onSuccess: () => {
-        toastSuccess({ description: `Moved ${sender.sender}` });
-        mutate();
-      },
-      onError: (error) => {
-        toastError({ description: getActionErrorMessage(error.error) });
-      },
-    },
+    feedback("Moved"),
   );
-
-  const { execute: forget, isExecuting: isForgetting } = useAction(
+  const forget = useAction(
     forgetTrainedSenderAction.bind(null, emailAccountId),
-    {
-      onSuccess: () => {
-        toastSuccess({ description: `Forgot ${sender.sender}` });
-        mutate();
-      },
-      onError: (error) => {
-        toastError({ description: getActionErrorMessage(error.error) });
-      },
-    },
+    feedback("Forgot"),
+  );
+  const keep = useAction(
+    keepSenderInInboxAction.bind(null, emailAccountId),
+    feedback("Keeping in inbox:"),
+  );
+  const trash = useAction(
+    trainSenderToDeleteAction.bind(null, emailAccountId),
+    feedback("Deleting future mail from"),
   );
 
-  const busy = isMoving || isForgetting;
+  const busy =
+    move.isExecuting ||
+    forget.isExecuting ||
+    keep.isExecuting ||
+    trash.isExecuting;
+
   const current = sender.trainedInto[0];
   const others = sender.trainedInto.slice(1);
   // Exclusions only matter when nothing files this sender: it is being kept
@@ -208,27 +232,37 @@ function TrainedSenderRow({
   // exclusions from earlier corrections are just noise.
   const keptInInbox = !current && sender.excludedFrom.length > 0;
 
+  const value = current
+    ? current.deletes
+      ? DELETE
+      : current.id
+    : keptInInbox
+      ? INBOX
+      : NONE;
+
   // A disabled rule is not offered as a target; keep the current one
   // selectable so the value still renders.
   const options =
-    current && !ruleOptions.some((r) => r.id === current.id)
+    current && !current.deletes && !ruleOptions.some((r) => r.id === current.id)
       ? [
           ...ruleOptions,
           { id: current.id, name: `${current.name} (disabled)`, label: null },
         ]
       : ruleOptions;
 
+  const onPick = (picked: string) => {
+    if (picked === value) return;
+    if (picked === INBOX) keep.execute({ sender: sender.sender });
+    else if (picked === DELETE) trash.execute({ sender: sender.sender });
+    else if (picked !== NONE)
+      move.execute({ sender: sender.sender, ruleId: picked });
+  };
+
   return (
     <TableRow>
       <TableCell className="break-all font-medium">{sender.sender}</TableCell>
       <TableCell>
-        <Select
-          value={current?.id ?? NO_RULE}
-          onValueChange={(ruleId) => {
-            if (ruleId !== NO_RULE) move({ sender: sender.sender, ruleId });
-          }}
-          disabled={busy}
-        >
+        <Select value={value} onValueChange={onPick} disabled={busy}>
           <SelectTrigger
             className="w-56"
             aria-label={`Rule for ${sender.sender}`}
@@ -236,16 +270,24 @@ function TrainedSenderRow({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {!current && (
-              <SelectItem value={NO_RULE} disabled>
-                {keptInInbox ? "Not filed" : "Not trained"}
+            {value === NONE && (
+              <SelectItem value={NONE} disabled>
+                Not trained
               </SelectItem>
             )}
+            <SelectItem value={INBOX}>Inbox</SelectItem>
+            <SelectSeparator />
             {options.map((rule) => (
               <SelectItem key={rule.id} value={rule.id}>
                 {rule.name}
               </SelectItem>
             ))}
+            {(deleteEnabled || value === DELETE) && (
+              <>
+                <SelectSeparator />
+                <SelectItem value={DELETE}>Delete</SelectItem>
+              </>
+            )}
           </SelectContent>
         </Select>
         {others.length > 0 && (
@@ -257,7 +299,11 @@ function TrainedSenderRow({
         )}
       </TableCell>
       <TableCell>
-        {current?.label ? (
+        {current?.deletes ? (
+          <Tooltip content="Future emails from this sender go to the trash.">
+            <Badge variant="destructive">Trash</Badge>
+          </Tooltip>
+        ) : current?.label ? (
           <Badge variant="secondary">{current.label}</Badge>
         ) : current ? (
           <MutedText>No label action</MutedText>
@@ -287,7 +333,7 @@ function TrainedSenderRow({
               size="icon"
               aria-label={`Forget ${sender.sender}`}
               disabled={busy}
-              onClick={() => forget({ sender: sender.sender })}
+              onClick={() => forget.execute({ sender: sender.sender })}
             >
               <TrashIcon className="size-4" />
             </Button>

@@ -6,7 +6,7 @@ export const moveTrainedSenderBody = z.object({
 });
 export type MoveTrainedSenderBody = z.infer<typeof moveTrainedSenderBody>;
 
-export const forgetTrainedSenderBody = z.object({
+export const trainedSenderBody = z.object({
   sender: z.string().min(1),
 });
-export type ForgetTrainedSenderBody = z.infer<typeof forgetTrainedSenderBody>;
+export type TrainedSenderBody = z.infer<typeof trainedSenderBody>;

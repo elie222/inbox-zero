@@ -59,11 +59,7 @@ async function getTrainedSenders({
                   id: true,
                   name: true,
                   enabled: true,
-                  actions: {
-                    where: { type: ActionType.LABEL },
-                    select: { label: true },
-                    take: 1,
-                  },
+                  actions: { select: { type: true, label: true } },
                 },
               },
             },
@@ -82,12 +78,17 @@ async function getTrainedSenders({
 
   const senders = values.map((value) => {
     const senderItems = bySender.get(value) ?? [];
-    const toRule = (item: (typeof senderItems)[number]) => ({
-      id: item.group?.rule?.id ?? "",
-      name: item.group?.rule?.name ?? "",
-      enabled: item.group?.rule?.enabled ?? false,
-      label: item.group?.rule?.actions[0]?.label ?? null,
-    });
+    const toRule = (item: (typeof senderItems)[number]) => {
+      const rule = item.group?.rule;
+      const actions = rule?.actions ?? [];
+      return {
+        id: rule?.id ?? "",
+        name: rule?.name ?? "",
+        enabled: rule?.enabled ?? false,
+        label: actions.find((a) => a.type === ActionType.LABEL)?.label ?? null,
+        deletes: actions.some((a) => a.type === ActionType.DELETE),
+      };
+    };
     const latest = senderItems[0];
 
     return {
