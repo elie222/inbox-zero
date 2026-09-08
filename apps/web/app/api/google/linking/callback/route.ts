@@ -65,7 +65,7 @@ export const GET = withError("google/linking/callback", async (request) => {
     targetUserId,
   });
 
-  if (actorUserId && actorUserId !== targetUserId) {
+  if (!actorUserId || actorUserId !== targetUserId) {
     return createAccountLinkingRedirect({
       query: { error: "invalid_state" },
       stateCookieName: GOOGLE_LINKING_STATE_COOKIE_NAME,

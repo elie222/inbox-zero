@@ -11,7 +11,16 @@ import { SafeError } from "@/utils/error";
 import { env } from "@/env";
 import type { ApiKeyExpiryValue } from "@/utils/api-key-scopes";
 
-export const createApiKeyAction = actionClient
+const apiKeyActionClient = actionClient.use(async ({ ctx, next }) => {
+  if (ctx.session.session.emailOtp) {
+    throw new SafeError(
+      "Sign in with your connected provider to manage API keys.",
+    );
+  }
+  return next();
+});
+
+export const createApiKeyAction = apiKeyActionClient
   .metadata({ name: "createApiKey" })
   .inputSchema(createApiKeyBody)
   .action(
@@ -41,7 +50,7 @@ export const createApiKeyAction = actionClient
     },
   );
 
-export const deactivateApiKeyAction = actionClient
+export const deactivateApiKeyAction = apiKeyActionClient
   .metadata({ name: "deactivateApiKey" })
   .inputSchema(deactivateApiKeyBody)
   .action(async ({ ctx: { userId, emailAccountId }, parsedInput: { id } }) => {

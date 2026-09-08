@@ -724,7 +724,7 @@ export function MailShell() {
       return;
     }
     if (!isOpenThreadUnread) {
-      readAttemptedForOpenThread.current = openThreadKey;
+      // A cached read snapshot can arrive before a fresh unread response.
       return;
     }
 

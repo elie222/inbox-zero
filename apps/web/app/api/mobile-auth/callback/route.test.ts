@@ -51,9 +51,27 @@ describe("mobile auth callback route", () => {
     vi.clearAllMocks();
     mockEnv.MOBILE_AUTH_ORIGIN = "inboxzero://";
     mockEnv.NEXT_PUBLIC_BASE_URL = "https://www.getinboxzero.com";
-    authMock.mockResolvedValue({ user: { id: "user-1" } });
+    authMock.mockResolvedValue({
+      user: { id: "user-1" },
+      session: { emailOtp: false },
+    });
     consumeMobileAuthStateMock.mockResolvedValue({ returnUrlMode: "app-link" });
     createMobileAuthCodeMock.mockResolvedValue("one-time-code");
+  });
+
+  it("does not turn a code-based session into an unrestricted app session", async () => {
+    authMock.mockResolvedValue({
+      user: { id: "user-1" },
+      session: { emailOtp: true },
+    });
+    const response = await GET(
+      new NextRequest(
+        "https://www.getinboxzero.com/api/mobile-auth/callback?state=state-1234567890",
+      ),
+      {} as never,
+    );
+    expect(response.status).toBe(403);
+    expect(createMobileAuthCodeMock).not.toHaveBeenCalled();
   });
 
   it("redirects HTTPS app links with a one-time code and state", async () => {

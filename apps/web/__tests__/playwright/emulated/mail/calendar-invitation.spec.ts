@@ -1,7 +1,7 @@
 import { expect } from "@playwright/test";
 import type { ThreadResponse } from "@/app/api/threads/[id]/route";
+import { getEmailAccountId } from "../account-test-helpers";
 import { test } from "../playwright-test";
-import { openMail } from "./mail-test-helpers";
 
 test("shows inline calendar responses with the current RSVP", async ({
   page,
@@ -27,8 +27,15 @@ test("shows inline calendar responses with the current RSVP", async ({
       },
     }),
   );
-  const { emailAccountId } = await openMail(page);
+  const emailAccountId = await getEmailAccountId(page);
   await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reader`);
+  const invitationHeader = page
+    .locator('li[data-thread-message-id="msg_playwright_reader_1"]')
+    .locator('[role="button"][aria-expanded]');
+  await expect(invitationHeader).toBeVisible();
+  if ((await invitationHeader.getAttribute("aria-expanded")) === "false") {
+    await invitationHeader.click();
+  }
   const card = page.getByLabel("Calendar invitation", { exact: true });
   await expect(card).toBeVisible();
   await expect(

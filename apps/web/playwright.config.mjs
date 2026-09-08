@@ -14,6 +14,11 @@ const databaseUrl =
 const emulateBaseUrl =
   process.env.GOOGLE_BASE_URL ?? `http://localhost:${await getAvailablePort()}`;
 const emulatePort = getUrlPort(emulateBaseUrl);
+const emailBaseUrl =
+  process.env.PLAYWRIGHT_EMAIL_BASE_URL ??
+  `http://127.0.0.1:${await getAvailablePort()}`;
+const emailPort = getUrlPort(emailBaseUrl);
+process.env.PLAYWRIGHT_EMAIL_BASE_URL = emailBaseUrl;
 const todoistEnabled = process.env.PLAYWRIGHT_TODOIST_ENABLED === "true";
 const todoistBaseUrl = todoistEnabled
   ? `http://localhost:${await getAvailablePort()}`
@@ -104,6 +109,12 @@ export default defineConfig({
   ],
   webServer: [
     {
+      command: `node __tests__/playwright/email-server.mjs ${emailPort}`,
+      cwd: process.cwd(),
+      url: emailBaseUrl,
+      timeout: 30_000,
+    },
+    {
       command: emulateCommand,
       cwd: process.cwd(),
       url: `${emulateBaseUrl}/.well-known/openid-configuration`,
@@ -124,7 +135,7 @@ export default defineConfig({
     {
       command: `pnpm exec next dev --turbopack --port ${basePort}`,
       cwd: process.cwd(),
-      url: `${baseURL}/login`,
+      url: `${baseURL}/api/auth/ok`,
       timeout: 240_000,
       reuseExistingServer: !process.env.CI,
       env: {
@@ -157,9 +168,10 @@ export default defineConfig({
         QSTASH_TOKEN: "",
         QSTASH_CURRENT_SIGNING_KEY: "",
         QSTASH_NEXT_SIGNING_KEY: "",
-        RESEND_API_KEY: "",
-        RESEND_AUDIENCE_ID: "",
-        RESEND_FROM_EMAIL: "",
+        RESEND_API_KEY: "playwright-email-key",
+        RESEND_BASE_URL: emailBaseUrl,
+        RESEND_AUDIENCE_ID: "playwright-audience",
+        RESEND_FROM_EMAIL: "Inbox Zero <signin@example.com>",
         LOOPS_API_SECRET: "",
         DUB_API_KEY: "",
         FB_CONVERSION_API_ACCESS_TOKEN: "",

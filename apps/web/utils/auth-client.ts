@@ -1,14 +1,22 @@
 import { createAuthClient } from "better-auth/react";
 import { ssoClient } from "@better-auth/sso/client";
 import {
+  emailOTPClient,
   genericOAuthClient,
   organizationClient,
 } from "better-auth/client/plugins";
 
-export const { signIn, signOut, signUp, useSession, getSession, sso } =
-  createAuthClient({
-    plugins: [ssoClient(), organizationClient()],
-  });
+export const {
+  signIn,
+  signOut,
+  signUp,
+  useSession,
+  getSession,
+  sso,
+  emailOtp,
+} = createAuthClient({
+  plugins: [ssoClient(), organizationClient(), emailOTPClient()],
+});
 
 function createGenericOauthAuthClient() {
   return createAuthClient({

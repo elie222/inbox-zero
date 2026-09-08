@@ -17,6 +17,7 @@ import {
   WebhookIcon,
 } from "lucide-react";
 import { ApiKeysSection } from "@/app/(app)/[emailAccountId]/settings/ApiKeysSection";
+import { EmailOtpSection } from "@/app/(app)/settings/EmailOtpSection";
 import { AppearanceSection } from "@/app/(app)/settings/AppearanceSection";
 import { TeamSection } from "@/app/(app)/settings/TeamSection";
 import { BillingSection } from "@/app/(app)/[emailAccountId]/settings/BillingSection";
@@ -180,6 +181,8 @@ export function SettingsContent() {
 
       <SettingsGroup icon={<UserIcon className="size-5" />} title="Account">
         <ItemCard>
+          <EmailOtpSection />
+          <ItemSeparator />
           <AppearanceSection />
           <ItemSeparator />
           <Item size="sm">

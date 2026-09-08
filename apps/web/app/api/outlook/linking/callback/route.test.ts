@@ -139,6 +139,16 @@ describe("outlook linking callback route", () => {
     prisma.account.findUnique.mockResolvedValue(null);
   });
 
+  it("rejects signed linking state after the session is revoked", async () => {
+    mockAuth.mockResolvedValue(null);
+    const response = await GET(
+      createRequest("http://localhost:3000/api/outlook/linking/callback"),
+    );
+    expect(response.headers.get("location")).toContain("error=invalid_state");
+    expect(mockGetOAuthCodeResult).not.toHaveBeenCalled();
+    expect(mockHandleAccountLinking).not.toHaveBeenCalled();
+  });
+
   it("redirects with consent_incomplete when Microsoft linking lacks required consent", async () => {
     vi.stubGlobal(
       "fetch",

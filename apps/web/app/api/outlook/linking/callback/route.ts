@@ -103,7 +103,7 @@ export const GET = withError("outlook/linking/callback", async (request) => {
     targetUserId,
   });
 
-  if (actorUserId && actorUserId !== targetUserId) {
+  if (!actorUserId || actorUserId !== targetUserId) {
     return createAccountLinkingRedirect({
       query: { error: "invalid_state" },
       stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
