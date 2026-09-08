@@ -325,7 +325,6 @@ function PageNumbers({
           )}
           {pageWindow(page, totalPages).map((entry, index) =>
             entry === "…" ? (
-              // biome-ignore lint/suspicious/noArrayIndexKey: gaps have no identity
               <PaginationItem key={`gap-${index}`}>
                 <PaginationEllipsis />
               </PaginationItem>
