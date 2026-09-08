@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { MailLayout, MailSplitKind } from "@/generated/prisma/enums";
-import { MAX_SPLIT_LABELS } from "@/utils/mail/split-constants";
+import {
+  MAX_MAIL_SPLITS,
+  MAX_SPLIT_LABELS,
+} from "@/utils/mail/split-constants";
 
 // LABEL splits carry one or more provider label ids; CATEGORY splits carry a
 // single provider category (e.g. CATEGORY_PERSONAL). INBOX and UNREAD carry none.
@@ -59,18 +62,20 @@ export type DeleteMailSplitBody = z.infer<typeof deleteMailSplitBody>;
 export const setDefaultMailSplitsBody = z.object({ enabled: z.boolean() });
 export type SetDefaultMailSplitsBody = z.infer<typeof setDefaultMailSplitsBody>;
 
-export const hiddenBuiltInSplitsSchema = z
-  .array(z.enum(["all", "unread"]))
-  .max(2)
-  .refine((ids) => new Set(ids).size === ids.length, {
-    message: "Hidden split IDs must be unique",
-  });
+export const reorderMailSplitsBody = z.object({
+  ids: z
+    .array(z.string().min(1))
+    .min(1)
+    .max(MAX_MAIL_SPLITS)
+    .refine((ids) => new Set(ids).size === ids.length, {
+      message: "Split IDs must be unique",
+    }),
+});
 
 export const updateMailPreferencesBody = z
   .object({
     layout: z.nativeEnum(MailLayout).optional(),
     expandedPreview: z.boolean().optional(),
-    hiddenBuiltInSplits: hiddenBuiltInSplitsSchema.optional(),
   })
   // Every field is optional so a caller can update one preference without
   // restating the others, which would otherwise also accept an empty update.

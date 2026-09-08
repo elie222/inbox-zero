@@ -14,14 +14,17 @@ import {
 } from "@/components/ui/command";
 import { Input } from "@/components/ui/input";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+  Dialog,
+  DialogContent,
+  DialogTrigger,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { MAX_SPLIT_LABELS } from "@/utils/mail/split-constants";
 import { cn } from "@/utils";
 
-export type NewSplitOptionGroup = "state" | "inbox" | "category" | "label";
+type NewSplitOptionGroup = "state" | "inbox" | "category" | "label";
 
 export type NewSplitOption = {
   /** Unique across every group; identifies the choice, not the split. */
@@ -45,7 +48,7 @@ export type NewSplitSuggestion = {
   reasoning: string;
 };
 
-export type NewSplitPopoverProps = {
+type NewSplitDialogProps = {
   options: NewSplitOption[];
   onCreate: (draft: NewSplitDraft) => Promise<boolean>;
   /** Resolves a free-text description into a selection of the options above. */
@@ -70,14 +73,14 @@ const DESCRIBE_EXAMPLES = ["Mail I still owe a reply", "Invoices and receipts"];
 const FOOTER_BUTTON_CLASS =
   "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
-export function NewSplitPopover({
+export function NewSplitDialog({
   options,
   onCreate,
   onSuggest,
   canAddDefaultSplits,
   canRemoveDefaultSplits,
   onSetDefaultSplits,
-}: NewSplitPopoverProps) {
+}: NewSplitDialogProps) {
   const [open, setOpen] = useState(false);
   const [isDescribing, setIsDescribing] = useState(false);
   const [prompt, setPrompt] = useState("");
@@ -190,14 +193,20 @@ export function NewSplitPopover({
   };
 
   return (
-    <Popover open={open} onOpenChange={changeOpen}>
-      <PopoverTrigger
+    <Dialog open={open} onOpenChange={changeOpen}>
+      <DialogTrigger
         aria-label="New split"
         className="flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <PlusIcon className="size-3.5" />
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-80 p-0 text-foreground">
+      </DialogTrigger>
+      <DialogContent className="gap-0 p-0 text-foreground">
+        <DialogHeader className="p-4 pr-10">
+          <DialogTitle>New split</DialogTitle>
+          <DialogDescription>
+            Choose labels or a category for a new inbox tab.
+          </DialogDescription>
+        </DialogHeader>
         {isDescribing ? (
           <div className="space-y-3 p-3">
             <div className="flex items-center gap-2">
@@ -259,7 +268,7 @@ export function NewSplitPopover({
           </div>
         ) : (
           <div>
-            <Command filter={filterByName}>
+            <Command filter={filterByName} className="h-auto">
               <CommandInput
                 placeholder="Search labels and categories"
                 aria-label="Search labels and categories"
@@ -403,8 +412,8 @@ export function NewSplitPopover({
             )}
           </div>
         )}
-      </PopoverContent>
-    </Popover>
+      </DialogContent>
+    </Dialog>
   );
 }
 

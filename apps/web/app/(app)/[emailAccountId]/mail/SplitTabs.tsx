@@ -1,13 +1,13 @@
 "use client";
 
-import { XIcon } from "lucide-react";
+import { ManageSplitsDialog } from "@/app/(app)/[emailAccountId]/mail/ManageSplitsDialog";
 import { useEffect, useRef } from "react";
 import {
   type NewSplitDraft,
   type NewSplitOption,
-  NewSplitPopover,
+  NewSplitDialog,
   type NewSplitSuggestion,
-} from "@/app/(app)/[emailAccountId]/mail/NewSplitPopover";
+} from "@/app/(app)/[emailAccountId]/mail/NewSplitDialog";
 import { cn } from "@/utils";
 
 export type MailSplitTab = {
@@ -15,11 +15,12 @@ export type MailSplitTab = {
   name: string;
 };
 
-export type SplitTabsProps = {
+type SplitTabsProps = {
   splits: MailSplitTab[];
   activeSplitId: string | null;
   onSelect: (splitId: string) => void;
-  onDelete: (splitId: string) => void;
+  onDelete: (splitId: string) => Promise<void>;
+  onReorder: (ids: string[]) => Promise<void>;
   newSplitOptions: NewSplitOption[];
   onCreateSplit: (draft: NewSplitDraft) => Promise<boolean>;
   onSuggestSplit: (prompt: string) => Promise<NewSplitSuggestion | null>;
@@ -34,6 +35,7 @@ export function SplitTabs({
   activeSplitId,
   onSelect,
   onDelete,
+  onReorder,
   newSplitOptions,
   onCreateSplit,
   onSuggestSplit,
@@ -94,19 +96,16 @@ export function SplitTabs({
             >
               {split.name}
             </button>
-            <button
-              type="button"
-              onClick={() => onDelete(split.id)}
-              aria-label={`Remove the ${split.name} split`}
-              className="rounded-full p-0.5 text-muted-foreground hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <XIcon className="size-3" />
-            </button>
           </div>
         );
       })}
 
-      <NewSplitPopover
+      <ManageSplitsDialog
+        splits={splits}
+        onDelete={onDelete}
+        onReorder={onReorder}
+      />
+      <NewSplitDialog
         options={newSplitOptions}
         onCreate={onCreateSplit}
         onSuggest={onSuggestSplit}

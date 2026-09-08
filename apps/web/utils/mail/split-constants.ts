@@ -1,4 +1,4 @@
-export const MAX_MAIL_SPLITS = 12;
+export const MAX_MAIL_SPLITS = 14;
 
 /**
  * One provider query runs per label and each carries its own page token, so a
