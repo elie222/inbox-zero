@@ -170,7 +170,7 @@ export default defineConfig({
         QSTASH_NEXT_SIGNING_KEY: "",
         RESEND_API_KEY: "playwright-email-key",
         RESEND_BASE_URL: emailBaseUrl,
-        RESEND_AUDIENCE_ID: "",
+        RESEND_AUDIENCE_ID: "playwright-audience",
         RESEND_FROM_EMAIL: "Inbox Zero <signin@example.com>",
         LOOPS_API_SECRET: "",
         DUB_API_KEY: "",

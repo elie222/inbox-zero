@@ -91,16 +91,10 @@ describe("LoginForm", () => {
     ).toEqual(["Sign in with Google", "Sign in with Microsoft"]);
   });
 
-  it("starts Apple sign-in when the Apple option is shown", async () => {
+  it("starts Apple sign-in directly when no primary provider is configured", async () => {
     mockSignInSocial.mockResolvedValue(undefined);
 
-    render(
-      <LoginForm
-        enabledProviders={["apple"]}
-        useGoogleOauthEmulator
-        otherOptions
-      />,
-    );
+    render(<LoginForm enabledProviders={["apple"]} useGoogleOauthEmulator />);
 
     fireEvent.click(
       screen.getByRole("button", { name: /continue with apple/i }),

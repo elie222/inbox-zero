@@ -40,11 +40,16 @@ export function LoginForm({
   const next = searchParams?.get("next");
   const { callbackURL, errorCallbackURL } = getAuthCallbackUrls(next);
   const appleCallbackURL = buildConnectMailboxUrl(callbackURL);
-  const showAppleLogin = otherOptions && enabledProviders.includes("apple");
+  const showOtherOptions =
+    otherOptions ||
+    !enabledProviders.some(
+      (provider) => provider === "google" || provider === "microsoft",
+    );
+  const showAppleLogin = showOtherOptions && enabledProviders.includes("apple");
   const showGoogleLogin = !otherOptions && enabledProviders.includes("google");
   const showMicrosoftLogin =
     !otherOptions && enabledProviders.includes("microsoft");
-  const showSsoLogin = otherOptions && enabledProviders.includes("sso");
+  const showSsoLogin = showOtherOptions && enabledProviders.includes("sso");
 
   const [loadingApple, setLoadingApple] = useState(false);
   const [loadingGoogle, setLoadingGoogle] = useState(false);
@@ -158,7 +163,7 @@ export function LoginForm({
         </UIButton>
       ) : null}
 
-      {otherOptions ? (
+      {showOtherOptions ? (
         <>
           <UIButton variant="outline" size="lg" asChild>
             <Link
@@ -176,11 +181,13 @@ export function LoginForm({
               </Link>
             </UIButton>
           )}
-          <UIButton variant="ghost" size="lg" asChild>
-            <Link href={buildRedirectUrl("/login", { next: callbackURL })}>
-              Back
-            </Link>
-          </UIButton>
+          {otherOptions && (
+            <UIButton variant="ghost" size="lg" asChild>
+              <Link href={buildRedirectUrl("/login", { next: callbackURL })}>
+                Back
+              </Link>
+            </UIButton>
+          )}
         </>
       ) : (
         <UIButton variant="ghost" size="lg" asChild>

@@ -78,7 +78,9 @@ export const emailOtpBeforeHook = createAuthMiddleware(async (ctx) => {
   });
 });
 
-export const emailOtpAfterHook = createAuthMiddleware(async (ctx) => {
+export async function emailOtpAfterHook(
+  ctx: Parameters<typeof deleteSessionCookie>[0],
+) {
   if (ctx.path !== "/get-session") return;
   const session = ctx.context.session?.session as EmailOtpSession | undefined;
   if (!session?.emailOtp) return;
@@ -90,7 +92,7 @@ export const emailOtpAfterHook = createAuthMiddleware(async (ctx) => {
     ctx.context.session = null;
     throw error;
   }
-});
+}
 
 type EmailOtpSession = { id: string; userId: string; emailOtp?: boolean };
 

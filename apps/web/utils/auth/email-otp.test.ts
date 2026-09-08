@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Prisma } from "@/generated/prisma/client";
 import { makeSignature } from "better-auth/crypto";
 import { betterAuth } from "better-auth";
+import { createAuthMiddleware } from "better-auth/api";
 import { memoryAdapter } from "better-auth/adapters/memory";
 import { deliverTransactionalEmail } from "@inboxzero/transactional-email/src/delivery";
 import {
@@ -230,7 +231,17 @@ describe("email code authentication", () => {
         headers: new Headers({ cookie: `${cookie}; ${cachedCookies}` }),
       }),
     ).rejects.toMatchObject({ statusCode: 401 });
-    expect(revoked.headers.get("set-cookie")).toContain("Max-Age=0");
+    for (const cookieName of ["session_token", "session_data"]) {
+      expect(
+        revoked.headers
+          .getSetCookie()
+          .some(
+            (cookie) =>
+              cookie.includes(`better-auth.${cookieName}=`) &&
+              cookie.includes("Max-Age=0"),
+          ),
+      ).toBe(true);
+    }
   });
 });
 
@@ -255,7 +266,12 @@ function setup() {
     secret: "test-secret-with-enough-entropy-for-email-otp",
     database: memoryAdapter(database),
     plugins: [emailOtpPlugin],
-    hooks: { before: emailOtpBeforeHook, after: emailOtpAfterHook },
+    hooks: {
+      before: emailOtpBeforeHook,
+      after: createAuthMiddleware(async (ctx) => {
+        await emailOtpAfterHook(ctx);
+      }),
+    },
     databaseHooks: {
       session: { create: { before: emailOtpSessionCreationHook } },
     },
