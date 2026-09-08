@@ -4,6 +4,10 @@ import { loadThreads, toListThreads } from "./load";
 
 vi.mock("@/utils/prisma");
 
+vi.mock("@/utils/redis/thread-page-buffer", () => ({
+  createPageBuffer: vi.fn(() => undefined),
+}));
+
 describe("loadThreads", () => {
   beforeEach(() => {
     vi.clearAllMocks();

@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { fetchThreadsPage } from "@/utils/threads/fetch-page";
 
+vi.mock("@/utils/redis/thread-page-buffer", () => ({
+  createPageBuffer: vi.fn(() => undefined),
+}));
+
 describe("fetchThreadsPage", () => {
   it.each([
     { anyLabelIds: ["label-a"] },
@@ -17,6 +21,7 @@ describe("fetchThreadsPage", () => {
     };
 
     const result = await fetchThreadsPage({
+      emailAccountId: "account-1",
       query: { labelId: "required-label", anyLabelIds },
       emailProvider: emailProvider as never,
       maxResults: 50,

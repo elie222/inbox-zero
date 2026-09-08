@@ -1,3 +1,4 @@
+import { withThreadPageBufferDeletion } from "@/utils/redis/thread-page-buffer";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Prisma } from "@/generated/prisma/client";
 import { createTestLogger } from "@/__tests__/helpers";
@@ -5,6 +6,9 @@ import prisma from "@/utils/__mocks__/prisma";
 import { deleteUser } from "@/utils/user/delete";
 
 vi.mock("@/utils/prisma");
+vi.mock("@/utils/redis/thread-page-buffer", () => ({
+  withThreadPageBufferDeletion: vi.fn(async (_ids, operation) => operation()),
+}));
 vi.mock("@inboxzero/loops", () => ({
   deleteContact: vi.fn(),
 }));
@@ -100,6 +104,10 @@ describe("deleteUser", () => {
     prisma.user.deleteMany.mockResolvedValue({ count: 1 } as any);
 
     await deleteUser({ userId: "user-1", logger });
+    expect(withThreadPageBufferDeletion).toHaveBeenCalledWith(
+      ["email-account-1"],
+      expect.any(Function),
+    );
 
     expect(prisma.organization.deleteMany).toHaveBeenCalledWith({
       where: {
