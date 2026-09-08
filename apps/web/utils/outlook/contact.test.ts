@@ -3,6 +3,26 @@ import { createTestLogger } from "@/__tests__/helpers";
 import { searchContacts } from "./contact";
 
 describe("searchContacts", () => {
+  it.each([
+    ["no-reply@example.com", '"no-reply@example.com"'],
+    ["  First Last  ", '"First Last"'],
+    ['First "Nickname" Last', String.raw`"First \"Nickname\" Last"`],
+  ])("quotes the People API search literal for %s", async (query, expected) => {
+    const { api } = createGraphClient({});
+
+    await searchContacts(
+      { getClient: () => ({ api }) } as never,
+      query,
+      createTestLogger(),
+    );
+
+    const peopleRequest =
+      api.mock.results[
+        api.mock.calls.findIndex(([endpoint]) => endpoint === "/me/people")
+      ].value;
+    expect(peopleRequest.search).toHaveBeenCalledWith(expected);
+  });
+
   it("loads saved Outlook contacts and maps all usable addresses", async () => {
     const { api } = createGraphClient({
       contactPages: [

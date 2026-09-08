@@ -1,3 +1,4 @@
+import { escapeSearchValue } from "@/utils/outlook/search-escape";
 import PostalMime from "postal-mime";
 import { ResponseType } from "@microsoft/microsoft-graph-client";
 import type {
@@ -193,12 +194,12 @@ export function sanitizeKqlValue(value: string): string {
   const normalized = value.trim();
   if (!normalized) return "";
 
-  return normalized
-    .replace(OUTLOOK_SEARCH_DISALLOWED_CHARS, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace(/\\/g, "\\\\")
-    .replace(/"/g, '\\"');
+  return escapeSearchValue(
+    normalized
+      .replace(OUTLOOK_SEARCH_DISALLOWED_CHARS, " ")
+      .replace(/\s+/g, " ")
+      .trim(),
+  );
 }
 
 /**
@@ -223,7 +224,7 @@ export function sanitizeKqlFieldQuery(query: string): string {
 
   const hasSpaces = sanitizedValue.includes(" ");
 
-  sanitizedValue = sanitizedValue.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  sanitizedValue = escapeSearchValue(sanitizedValue);
 
   if (hasSpaces) {
     return `${field}:"${sanitizedValue}"`;
