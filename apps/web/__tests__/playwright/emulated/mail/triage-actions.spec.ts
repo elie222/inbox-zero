@@ -154,6 +154,45 @@ test("selects ranges and opens conversations with the keyboard", async ({
   await expect(conversations).toBeVisible();
 });
 
+test("selects and clears all conversations from the list toolbar", async ({
+  page,
+}, testInfo) => {
+  const { conversations } = await openMail(page);
+  const options = conversations.getByRole("option");
+  const conversationCount = await options.count();
+  expect(conversationCount).toBeGreaterThan(1);
+
+  const selectAll = page.getByRole("checkbox", {
+    name: "Select all conversations",
+  });
+  await expect(selectAll).not.toBeChecked();
+
+  await selectAll.click();
+
+  await expect(
+    page.getByText(`${conversationCount} selected`, { exact: true }),
+  ).toBeVisible();
+  await expect(selectAll).toBeChecked();
+  await expect.poll(() => allRowsAreSelected(options, true)).toBe(true);
+  await capturePlaywrightCheckpoint(page, testInfo, "select-all-conversations");
+
+  await options.nth(1).getByRole("checkbox").click();
+
+  await expect(
+    page.getByText(`${conversationCount - 1} selected`, { exact: true }),
+  ).toBeVisible();
+  await expect(selectAll).toHaveAttribute("aria-checked", "mixed");
+
+  await selectAll.click();
+  await expect(selectAll).toBeChecked();
+  await expect.poll(() => allRowsAreSelected(options, true)).toBe(true);
+
+  await selectAll.click();
+  await expect(selectAll).not.toBeChecked();
+  await expect(page.getByText(/\d+ selected/)).toHaveCount(0);
+  await expect.poll(() => allRowsAreSelected(options, false)).toBe(true);
+});
+
 test("selects every conversation with Command A", async ({ page }) => {
   const { conversations } = await openMail(page);
   const options = conversations.getByRole("option");
