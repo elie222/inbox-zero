@@ -1,5 +1,5 @@
 import { vi, describe, it, expect, beforeEach } from "vitest";
-import { moveTrainedSender } from "./move-trained-sender";
+import { forgetTrainedSender, moveTrainedSender } from "./move-trained-sender";
 import { GroupItemSource, GroupItemType } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import { getOrCreateGroupForRule } from "@/utils/rule/learned-patterns";
@@ -10,9 +10,8 @@ const logger = createTestLogger();
 vi.mock("@/utils/prisma", () => ({
   default: {
     groupItem: {
-      findFirst: vi.fn(),
       upsert: vi.fn(),
-      delete: vi.fn(),
+      deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
     rule: { findUnique: vi.fn() },
     $transaction: vi.fn().mockResolvedValue([]),
@@ -23,17 +22,15 @@ vi.mock("@/utils/rule/learned-patterns", () => ({
   getOrCreateGroupForRule: vi.fn().mockResolvedValue("target-group"),
 }));
 
-describe("moveTrainedSender", () => {
-  const item = {
-    id: "item-1",
-    type: GroupItemType.FROM,
-    value: "sender@example.com",
-    group: { rule: { id: "rule-old" } },
-  };
+const pattern = {
+  exclude: false,
+  reason: "Moved by user",
+  source: GroupItemSource.USER,
+};
 
+describe("moveTrainedSender", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(prisma.groupItem.findFirst).mockResolvedValue(item as any);
     vi.mocked(prisma.rule.findUnique).mockResolvedValue({
       id: "rule-new",
       name: "Receipts",
@@ -41,10 +38,10 @@ describe("moveTrainedSender", () => {
     } as any);
   });
 
-  it("adds the sender to the target rule and removes it from the old one", async () => {
+  it("adds the sender to the target rule and removes it from the others", async () => {
     await moveTrainedSender({
       emailAccountId: "email-account-id",
-      itemId: "item-1",
+      sender: "sender@example.com",
       ruleId: "rule-new",
       logger,
     });
@@ -60,49 +57,24 @@ describe("moveTrainedSender", () => {
           value: "sender@example.com",
         },
       },
-      update: {
-        exclude: false,
-        reason: "Moved by user",
-        source: GroupItemSource.USER,
-      },
+      update: pattern,
       create: {
         groupId: "target-group",
         type: GroupItemType.FROM,
         value: "sender@example.com",
-        exclude: false,
-        reason: "Moved by user",
-        source: GroupItemSource.USER,
+        ...pattern,
       },
     });
-    expect(prisma.groupItem.delete).toHaveBeenCalledWith({
-      where: { id: "item-1" },
+    expect(prisma.groupItem.deleteMany).toHaveBeenCalledWith({
+      where: {
+        type: GroupItemType.FROM,
+        value: "sender@example.com",
+        exclude: false,
+        groupId: { not: "target-group" },
+        group: { emailAccountId: "email-account-id" },
+      },
     });
     expect(prisma.$transaction).toHaveBeenCalled();
-  });
-
-  it("does nothing when the sender is already on that rule", async () => {
-    await moveTrainedSender({
-      emailAccountId: "email-account-id",
-      itemId: "item-1",
-      ruleId: "rule-old",
-      logger,
-    });
-
-    expect(prisma.rule.findUnique).not.toHaveBeenCalled();
-    expect(prisma.$transaction).not.toHaveBeenCalled();
-  });
-
-  it("rejects a sender that belongs to another account", async () => {
-    vi.mocked(prisma.groupItem.findFirst).mockResolvedValue(null);
-
-    await expect(
-      moveTrainedSender({
-        emailAccountId: "email-account-id",
-        itemId: "item-1",
-        ruleId: "rule-new",
-        logger,
-      }),
-    ).rejects.toThrow("Trained sender not found");
   });
 
   it("rejects a rule that belongs to another account", async () => {
@@ -111,11 +83,34 @@ describe("moveTrainedSender", () => {
     await expect(
       moveTrainedSender({
         emailAccountId: "email-account-id",
-        itemId: "item-1",
+        sender: "sender@example.com",
         ruleId: "rule-new",
         logger,
       }),
     ).rejects.toThrow("Rule not found");
     expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+});
+
+describe("forgetTrainedSender", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("removes the sender's inclusions but keeps exclusions", async () => {
+    await forgetTrainedSender({
+      emailAccountId: "email-account-id",
+      sender: "sender@example.com",
+      logger,
+    });
+
+    expect(prisma.groupItem.deleteMany).toHaveBeenCalledWith({
+      where: {
+        type: GroupItemType.FROM,
+        value: "sender@example.com",
+        exclude: false,
+        group: { emailAccountId: "email-account-id" },
+      },
+    });
   });
 });

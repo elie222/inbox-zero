@@ -1,77 +1,121 @@
 import { NextResponse } from "next/server";
 import { ActionType, GroupItemType } from "@/generated/prisma/enums";
+import type { Prisma } from "@/generated/prisma/client";
 import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
+
+const LIMIT = 50;
 
 export type TrainedSendersResponse = Awaited<
   ReturnType<typeof getTrainedSenders>
 >;
 
-// Every learned FROM pattern across the account's rules, with the label the
-// rule applies, so the user can see "sender -> label" in one place.
+// One row per sender across all of the account's rules: the rules it is
+// trained into (with the label each applies) and the rules it is excluded
+// from. Paginated by sender, newest first.
 async function getTrainedSenders({
   emailAccountId,
+  page,
+  query,
 }: {
   emailAccountId: string;
+  page: number;
+  query: string;
 }) {
-  const items = await prisma.groupItem.findMany({
-    where: {
-      type: GroupItemType.FROM,
-      group: { emailAccountId, rule: { isNot: null } },
-    },
-    select: {
-      id: true,
-      value: true,
-      exclude: true,
-      source: true,
-      reason: true,
-      createdAt: true,
-      group: {
+  const where: Prisma.GroupItemWhereInput = {
+    type: GroupItemType.FROM,
+    group: { emailAccountId, rule: { isNot: null } },
+    ...(query ? { value: { contains: query, mode: "insensitive" } } : {}),
+  };
+
+  const [pageSenders, allSenders] = await Promise.all([
+    prisma.groupItem.groupBy({
+      by: ["value"],
+      where,
+      _max: { createdAt: true },
+      orderBy: { _max: { createdAt: "desc" } },
+      take: LIMIT,
+      skip: (page - 1) * LIMIT,
+    }),
+    prisma.groupItem.groupBy({ by: ["value"], where }),
+  ]);
+
+  const values = pageSenders.map((s) => s.value);
+
+  const items = values.length
+    ? await prisma.groupItem.findMany({
+        where: { ...where, value: { in: values } },
         select: {
-          rule: {
+          id: true,
+          value: true,
+          exclude: true,
+          source: true,
+          reason: true,
+          createdAt: true,
+          group: {
             select: {
-              id: true,
-              name: true,
-              enabled: true,
-              actions: {
-                where: { type: ActionType.LABEL },
-                select: { label: true },
-                take: 1,
+              rule: {
+                select: {
+                  id: true,
+                  name: true,
+                  enabled: true,
+                  actions: {
+                    where: { type: ActionType.LABEL },
+                    select: { label: true },
+                    take: 1,
+                  },
+                },
               },
             },
           },
         },
-      },
-    },
-    orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: "desc" },
+      })
+    : [];
+
+  const bySender = new Map<string, typeof items>();
+  for (const item of items) {
+    const list = bySender.get(item.value) ?? [];
+    list.push(item);
+    bySender.set(item.value, list);
+  }
+
+  const senders = values.map((value) => {
+    const senderItems = bySender.get(value) ?? [];
+    const toRule = (item: (typeof senderItems)[number]) => ({
+      id: item.group?.rule?.id ?? "",
+      name: item.group?.rule?.name ?? "",
+      enabled: item.group?.rule?.enabled ?? false,
+      label: item.group?.rule?.actions[0]?.label ?? null,
+    });
+    const latest = senderItems[0];
+
+    return {
+      sender: value,
+      trainedInto: senderItems.filter((i) => !i.exclude).map(toRule),
+      excludedFrom: senderItems.filter((i) => i.exclude).map(toRule),
+      source: latest?.source ?? null,
+      reason: latest?.reason ?? null,
+      createdAt: latest?.createdAt ?? null,
+    };
   });
 
-  const senders = items.flatMap((item) => {
-    const rule = item.group?.rule;
-    if (!rule) return [];
-    return [
-      {
-        id: item.id,
-        sender: item.value,
-        exclude: item.exclude,
-        source: item.source,
-        reason: item.reason,
-        createdAt: item.createdAt,
-        rule: {
-          id: rule.id,
-          name: rule.name,
-          enabled: rule.enabled,
-          label: rule.actions[0]?.label ?? null,
-        },
-      },
-    ];
-  });
-
-  return { senders };
+  return {
+    senders,
+    total: allSenders.length,
+    totalPages: Math.max(1, Math.ceil(allSenders.length / LIMIT)),
+  };
 }
 
 export const GET = withEmailAccount("user/trained-senders", async (request) => {
   const emailAccountId = request.auth.emailAccountId;
-  const result = await getTrainedSenders({ emailAccountId });
+  const url = new URL(request.url);
+  const page = Math.max(
+    1,
+    Number.parseInt(url.searchParams.get("page") || "1") || 1,
+  );
+  const query = url.searchParams.get("q")?.trim() ?? "";
+
+  const result = await getTrainedSenders({ emailAccountId, page, query });
   return NextResponse.json(result);
 });

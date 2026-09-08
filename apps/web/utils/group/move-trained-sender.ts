@@ -1,36 +1,25 @@
-import { GroupItemSource } from "@/generated/prisma/enums";
+import { GroupItemSource, GroupItemType } from "@/generated/prisma/enums";
 import { SafeError } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { getOrCreateGroupForRule } from "@/utils/rule/learned-patterns";
 
 /**
- * Re-files a trained sender under a different rule: the pattern is added to
- * the target rule's group (as an inclusion) and removed from the current one.
+ * Files a sender under one rule: the pattern is added to that rule's group
+ * as an inclusion and removed from every other rule it was trained into.
+ * Exclusions are left alone.
  */
 export async function moveTrainedSender({
   emailAccountId,
-  itemId,
+  sender,
   ruleId,
   logger,
 }: {
   emailAccountId: string;
-  itemId: string;
+  sender: string;
   ruleId: string;
   logger: Logger;
 }) {
-  const item = await prisma.groupItem.findFirst({
-    where: { id: itemId, group: { emailAccountId } },
-    select: {
-      id: true,
-      type: true,
-      value: true,
-      group: { select: { rule: { select: { id: true } } } },
-    },
-  });
-  if (!item) throw new SafeError("Trained sender not found");
-  if (item.group?.rule?.id === ruleId) return;
-
   const rule = await prisma.rule.findUnique({
     where: { id: ruleId, emailAccountId },
     select: { id: true, name: true, groupId: true },
@@ -54,16 +43,47 @@ export async function moveTrainedSender({
   await prisma.$transaction([
     prisma.groupItem.upsert({
       where: {
-        groupId_type_value: { groupId, type: item.type, value: item.value },
+        groupId_type_value: {
+          groupId,
+          type: GroupItemType.FROM,
+          value: sender,
+        },
       },
       update: pattern,
-      create: { groupId, type: item.type, value: item.value, ...pattern },
+      create: { groupId, type: GroupItemType.FROM, value: sender, ...pattern },
     }),
-    prisma.groupItem.delete({ where: { id: item.id } }),
+    prisma.groupItem.deleteMany({
+      where: {
+        type: GroupItemType.FROM,
+        value: sender,
+        exclude: false,
+        groupId: { not: groupId },
+        group: { emailAccountId },
+      },
+    }),
   ]);
 
-  logger.info("Moved trained sender to another rule", {
-    itemId,
-    ruleId,
+  logger.info("Moved trained sender to rule", { ruleId });
+}
+
+/** Drops the sender from every rule it was trained into. Exclusions stay. */
+export async function forgetTrainedSender({
+  emailAccountId,
+  sender,
+  logger,
+}: {
+  emailAccountId: string;
+  sender: string;
+  logger: Logger;
+}) {
+  const { count } = await prisma.groupItem.deleteMany({
+    where: {
+      type: GroupItemType.FROM,
+      value: sender,
+      exclude: false,
+      group: { emailAccountId },
+    },
   });
+
+  logger.info("Forgot trained sender", { count });
 }

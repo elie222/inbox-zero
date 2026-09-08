@@ -1,15 +1,18 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
+import { parseAsInteger, parseAsString, useQueryState } from "nuqs";
 import { TrashIcon } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import type { TrainedSendersResponse } from "@/app/api/user/trained-senders/route";
 import { ActionType, GroupItemSource } from "@/generated/prisma/enums";
 import { useRules } from "@/hooks/useRules";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { moveTrainedSenderAction } from "@/utils/actions/trained-senders";
-import { deleteGroupItemAction } from "@/utils/actions/group";
+import {
+  forgetTrainedSenderAction,
+  moveTrainedSenderAction,
+} from "@/utils/actions/trained-senders";
 import { getActionErrorMessage } from "@/utils/error";
 import { formatShortDate } from "@/utils/date";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -34,20 +37,37 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { TablePagination } from "@/components/TablePagination";
 import { MutedText } from "@/components/Typography";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Tooltip } from "@/components/Tooltip";
 
 type TrainedSender = TrainedSendersResponse["senders"][number];
+type RuleOption = { id: string; name: string; label: string | null };
+
+const NO_RULE = "__none__";
 
 export function TrainedSenders() {
+  const [page, setPage] = useQueryState("page", parseAsInteger.withDefault(1));
+  const [query, setQuery] = useQueryState("q", parseAsString.withDefault(""));
+  const [draft, setDraft] = useState(query);
+
+  // Debounce typing into the URL so each keystroke doesn't refetch.
+  useEffect(() => {
+    if (draft === query) return;
+    const id = window.setTimeout(() => {
+      setQuery(draft || null);
+      setPage(null);
+    }, 300);
+    return () => window.clearTimeout(id);
+  }, [draft, query, setQuery, setPage]);
+
   const { data, isLoading, error, mutate } = useSWR<TrainedSendersResponse>(
-    "/api/user/trained-senders",
+    `/api/user/trained-senders?page=${page}&q=${encodeURIComponent(query)}`,
   );
   const { data: rules } = useRules();
-  const [query, setQuery] = useState("");
 
-  const ruleOptions = useMemo(
+  const ruleOptions = useMemo<RuleOption[]>(
     () =>
       (rules ?? [])
         .filter((rule) => rule.enabled)
@@ -61,32 +81,22 @@ export function TrainedSenders() {
     [rules],
   );
 
-  const senders = useMemo(() => {
-    const all = data?.senders ?? [];
-    const q = query.trim().toLowerCase();
-    if (!q) return all;
-    return all.filter(
-      (s) =>
-        s.sender.toLowerCase().includes(q) ||
-        s.rule.name.toLowerCase().includes(q) ||
-        (s.rule.label?.toLowerCase().includes(q) ?? false),
-    );
-  }, [data, query]);
+  const senders = data?.senders ?? [];
 
   return (
     <>
       <div className="flex items-center gap-2">
         <Input
           type="search"
-          placeholder="Filter by sender, rule, or label"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Filter by sender"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
           className="max-w-sm"
           aria-label="Filter trained senders"
         />
         {data && (
           <MutedText>
-            {senders.length} of {data.senders.length}
+            {data.total} sender{data.total === 1 ? "" : "s"}
           </MutedText>
         )}
       </div>
@@ -97,65 +107,47 @@ export function TrainedSenders() {
           error={error}
           loadingComponent={<Skeleton className="m-4 h-32 rounded" />}
         >
-          {data?.senders.length ? (
-            <TrainedSendersTable
-              senders={senders}
-              ruleOptions={ruleOptions}
-              mutate={mutate}
-            />
+          {senders.length ? (
+            <>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Sender</TableHead>
+                      <TableHead>Rule</TableHead>
+                      <TableHead>Label</TableHead>
+                      <TableHead>Learned from</TableHead>
+                      <TableHead>Added</TableHead>
+                      <TableHead />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {senders.map((sender) => (
+                      <TrainedSenderRow
+                        key={sender.sender}
+                        sender={sender}
+                        ruleOptions={ruleOptions}
+                        mutate={mutate}
+                      />
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <TablePagination totalPages={data?.totalPages ?? 1} />
+            </>
           ) : (
             <AlertBasic
-              title="No trained senders yet"
-              description="Move an email to a label, or let a rule learn a sender, and it will show up here."
+              title={query ? "No senders match" : "No trained senders yet"}
+              description={
+                query
+                  ? "Try a different filter."
+                  : "Move an email to a label, or let a rule learn a sender, and it will show up here."
+              }
             />
           )}
         </LoadingContent>
       </Card>
     </>
-  );
-}
-
-function TrainedSendersTable({
-  senders,
-  ruleOptions,
-  mutate,
-}: {
-  senders: TrainedSender[];
-  ruleOptions: { id: string; name: string; label: string | null }[];
-  mutate: () => void;
-}) {
-  return (
-    <div className="overflow-x-auto">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Sender</TableHead>
-            <TableHead>Rule</TableHead>
-            <TableHead>Label</TableHead>
-            <TableHead>Learned from</TableHead>
-            <TableHead>Added</TableHead>
-            <TableHead />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {senders.map((sender) => (
-            <TrainedSenderRow
-              key={sender.id}
-              sender={sender}
-              ruleOptions={ruleOptions}
-              mutate={mutate}
-            />
-          ))}
-          {senders.length === 0 && (
-            <TableRow>
-              <TableCell colSpan={6}>
-                <MutedText>No senders match your filter</MutedText>
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
-    </div>
   );
 }
 
@@ -165,7 +157,7 @@ function TrainedSenderRow({
   mutate,
 }: {
   sender: TrainedSender;
-  ruleOptions: { id: string; name: string; label: string | null }[];
+  ruleOptions: RuleOption[];
   mutate: () => void;
 }) {
   const { emailAccountId } = useAccount();
@@ -183,8 +175,8 @@ function TrainedSenderRow({
     },
   );
 
-  const { execute: remove, isExecuting: isRemoving } = useAction(
-    deleteGroupItemAction.bind(null, emailAccountId),
+  const { execute: forget, isExecuting: isForgetting } = useAction(
+    forgetTrainedSenderAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
         toastSuccess({ description: `Forgot ${sender.sender}` });
@@ -196,27 +188,30 @@ function TrainedSenderRow({
     },
   );
 
-  // A disabled rule is not in the options; keep it selectable so the
-  // current value still renders.
-  const options = ruleOptions.some((r) => r.id === sender.rule.id)
-    ? ruleOptions
-    : [
-        ...ruleOptions,
-        {
-          id: sender.rule.id,
-          name: `${sender.rule.name} (disabled)`,
-          label: sender.rule.label,
-        },
-      ];
+  const busy = isMoving || isForgetting;
+  const current = sender.trainedInto[0];
+  const others = sender.trainedInto.slice(1);
+
+  // A disabled rule is not offered as a target; keep the current one
+  // selectable so the value still renders.
+  const options =
+    current && !ruleOptions.some((r) => r.id === current.id)
+      ? [
+          ...ruleOptions,
+          { id: current.id, name: `${current.name} (disabled)`, label: null },
+        ]
+      : ruleOptions;
 
   return (
     <TableRow>
       <TableCell className="break-all font-medium">{sender.sender}</TableCell>
       <TableCell>
         <Select
-          value={sender.rule.id}
-          onValueChange={(ruleId) => move({ itemId: sender.id, ruleId })}
-          disabled={isMoving || isRemoving}
+          value={current?.id ?? NO_RULE}
+          onValueChange={(ruleId) => {
+            if (ruleId !== NO_RULE) move({ sender: sender.sender, ruleId });
+          }}
+          disabled={busy}
         >
           <SelectTrigger
             className="w-56"
@@ -225,6 +220,11 @@ function TrainedSenderRow({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
+            {!current && (
+              <SelectItem value={NO_RULE} disabled>
+                Not trained
+              </SelectItem>
+            )}
             {options.map((rule) => (
               <SelectItem key={rule.id} value={rule.id}>
                 {rule.name}
@@ -232,38 +232,56 @@ function TrainedSenderRow({
             ))}
           </SelectContent>
         </Select>
+        {others.length > 0 && (
+          <Tooltip content={others.map((r) => r.name).join(", ")}>
+            <MutedText className="mt-1 text-xs">
+              also in {others.length} more — picking a rule keeps only that one
+            </MutedText>
+          </Tooltip>
+        )}
       </TableCell>
       <TableCell>
-        {sender.exclude ? (
-          <Tooltip content="This sender is excluded from the rule; it never matches.">
-            <Badge variant="destructive">Excluded</Badge>
-          </Tooltip>
-        ) : sender.rule.label ? (
-          <Badge variant="secondary">{sender.rule.label}</Badge>
-        ) : (
-          <MutedText>No label action</MutedText>
-        )}
+        <div className="flex flex-wrap items-center gap-1">
+          {current?.label ? (
+            <Badge variant="secondary">{current.label}</Badge>
+          ) : current ? (
+            <MutedText>No label action</MutedText>
+          ) : null}
+          {sender.excludedFrom.length > 0 && (
+            <Tooltip
+              content={`Never matches: ${sender.excludedFrom
+                .map((r) => r.name)
+                .join(", ")}`}
+            >
+              <Badge variant="destructive">
+                Excluded from {sender.excludedFrom.length}
+              </Badge>
+            </Tooltip>
+          )}
+        </div>
       </TableCell>
       <TableCell>
         <MutedText>{describeSource(sender)}</MutedText>
       </TableCell>
       <TableCell>
         <MutedText className="whitespace-nowrap">
-          {formatShortDate(new Date(sender.createdAt))}
+          {sender.createdAt ? formatShortDate(new Date(sender.createdAt)) : "—"}
         </MutedText>
       </TableCell>
       <TableCell className="text-right">
-        <Tooltip content="Forget this sender">
-          <Button
-            variant="outline"
-            size="icon"
-            aria-label={`Forget ${sender.sender}`}
-            disabled={isMoving || isRemoving}
-            onClick={() => remove({ id: sender.id })}
-          >
-            <TrashIcon className="size-4" />
-          </Button>
-        </Tooltip>
+        {current && (
+          <Tooltip content="Forget this sender (exclusions are kept)">
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label={`Forget ${sender.sender}`}
+              disabled={busy}
+              onClick={() => forget({ sender: sender.sender })}
+            >
+              <TrashIcon className="size-4" />
+            </Button>
+          </Tooltip>
+        )}
       </TableCell>
     </TableRow>
   );
