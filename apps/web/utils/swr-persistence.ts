@@ -130,7 +130,7 @@ function persistedStorageKeys(): string[] {
   const keys: string[] = [];
   for (let index = 0; index < window.localStorage.length; index++) {
     const key = window.localStorage.key(index);
-    if (key?.startsWith(STORAGE_PREFIX)) keys.push(key);
+    if (key?.startsWith("inbox-zero:swr:")) keys.push(key);
   }
   return keys;
 }

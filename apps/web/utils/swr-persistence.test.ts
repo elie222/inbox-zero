@@ -146,12 +146,19 @@ describe("swr-persistence", () => {
   it("clears every account on logout but leaves unrelated storage", () => {
     persistSwrEntries(ACCOUNT_A, cacheWith({ "/api/labels": { labels: [] } }));
     persistSwrEntries(ACCOUNT_B, cacheWith({ "/api/labels": { labels: [] } }));
+    window.localStorage.setItem(
+      `inbox-zero:swr:v1:${ACCOUNT_A}`,
+      JSON.stringify({ "/api/labels": { labels: [] } }),
+    );
     window.localStorage.setItem("unrelated", "keep-me");
 
     clearPersistedSwrCache();
 
     expect(readPersistedSwrEntries(ACCOUNT_A).size).toBe(0);
     expect(readPersistedSwrEntries(ACCOUNT_B).size).toBe(0);
+    expect(
+      window.localStorage.getItem(`inbox-zero:swr:v1:${ACCOUNT_A}`),
+    ).toBeNull();
     expect(window.localStorage.getItem("unrelated")).toBe("keep-me");
   });
 
