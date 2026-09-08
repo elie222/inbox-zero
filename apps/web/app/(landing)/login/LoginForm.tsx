@@ -164,7 +164,7 @@ export function LoginForm({
             <Link
               href={buildRedirectUrl("/login/email", { next: callbackURL })}
             >
-              Continue with email code
+              Email code (existing accounts)
             </Link>
           </UIButton>
           {showSsoLogin && (
@@ -187,7 +187,7 @@ export function LoginForm({
           <Link
             href={buildRedirectUrl("/login/options", { next: callbackURL })}
           >
-            Other sign-in options
+            Other options
           </Link>
         </UIButton>
       )}

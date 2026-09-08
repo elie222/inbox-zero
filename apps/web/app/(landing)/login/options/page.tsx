@@ -9,7 +9,7 @@ import { normalizeInternalPath } from "@/utils/path";
 import { getEnabledLoginProviders } from "@/utils/oauth/login-providers";
 
 export const metadata: Metadata = {
-  title: getBrandTitle("Other sign-in options"),
+  title: getBrandTitle("Other options"),
 };
 
 export default async function LoginOptionsPage({
@@ -25,9 +25,7 @@ export default async function LoginOptionsPage({
   return (
     <main className="flex min-h-screen items-center justify-center px-6 py-12">
       <div className="w-full max-w-sm space-y-6">
-        <h1 className="text-center font-title text-2xl">
-          Other sign-in options
-        </h1>
+        <h1 className="text-center font-title text-2xl">Other options</h1>
         <Suspense>
           <LoginForm
             enabledProviders={Array.from(getEnabledLoginProviders())}

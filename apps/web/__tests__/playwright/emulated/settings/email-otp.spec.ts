@@ -36,12 +36,10 @@ test("an assistant signs in after owner opt-in and loses access when it is disab
       path: test.info().outputPath("login-options.png"),
       fullPage: true,
     });
-    await assistantPage
-      .getByRole("link", { name: "Other sign-in options" })
-      .click();
+    await assistantPage.getByRole("link", { name: "Other options" }).click();
     await expect(
       assistantPage.getByRole("link", {
-        name: "Continue with email code",
+        name: "Email code (existing accounts)",
         exact: true,
       }),
     ).toBeVisible();
@@ -50,7 +48,10 @@ test("an assistant signs in after owner opt-in and loses access when it is disab
       fullPage: true,
     });
     await assistantPage
-      .getByRole("link", { name: "Continue with email code", exact: true })
+      .getByRole("link", {
+        name: "Email code (existing accounts)",
+        exact: true,
+      })
       .click();
     await expect(assistantPage).toHaveURL(/\/login\/email\?next=/);
     await expect(
@@ -128,9 +129,9 @@ test("email code login does not disclose account existence", async ({
 }) => {
   await page.context().clearCookies();
   await page.goto("/login");
-  await page.getByRole("link", { name: "Other sign-in options" }).click();
+  await page.getByRole("link", { name: "Other options" }).click();
   await page
-    .getByRole("link", { name: "Continue with email code", exact: true })
+    .getByRole("link", { name: "Email code (existing accounts)", exact: true })
     .click();
   await page.getByLabel("Email", { exact: true }).fill("unknown@example.com");
   await page.getByRole("button", { name: "Send code", exact: true }).click();
