@@ -5,6 +5,40 @@ import { conversationWithSubject, openMail } from "./mail-test-helpers";
 import type { MailSettingsResponse } from "@/app/api/mail/settings/route";
 import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
 
+test("refreshes date groups after midnight when the tab resumes", async ({
+  page,
+}, testInfo) => {
+  await page.clock.install({ time: new Date() });
+  const { conversations } = await openMail(page);
+  const today = conversations.getByRole("group", {
+    name: "Today",
+    exact: true,
+  });
+  await expect(today).toBeVisible();
+  await expect(today.getByText("Today", { exact: true })).toHaveCount(0);
+  const todayCount = await today.getByRole("option").count();
+  expect(todayCount).toBeGreaterThan(0);
+
+  const afterMidnight = await page.evaluate(() => {
+    const nextDay = new Date();
+    nextDay.setDate(nextDay.getDate() + 1);
+    nextDay.setHours(0, 1, 0, 0);
+    return nextDay.getTime();
+  });
+  // Moving the clock without running timers simulates a suspended tab.
+  await page.clock.setSystemTime(afterMidnight);
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+
+  await expect(today).toHaveCount(0);
+  const yesterday = conversations.getByRole("group", {
+    name: "Yesterday",
+    exact: true,
+  });
+  await expect(yesterday.getByRole("option")).toHaveCount(todayCount);
+  await expect(yesterday.getByText("Yesterday", { exact: true })).toBeVisible();
+  await capturePlaywrightCheckpoint(page, testInfo, "mail-date-rollover");
+});
+
 test("switches between list and split reading layouts", async ({
   page,
 }, testInfo) => {
