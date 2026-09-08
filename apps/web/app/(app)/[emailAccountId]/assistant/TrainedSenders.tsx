@@ -23,6 +23,15 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -37,7 +46,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { TablePagination } from "@/components/TablePagination";
 import { MutedText } from "@/components/Typography";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Tooltip } from "@/components/Tooltip";
@@ -96,7 +104,7 @@ export function TrainedSenders() {
         />
         {data && (
           <MutedText>
-            {data.total} sender{data.total === 1 ? "" : "s"}
+            {data.total} sender{data.total === 1 ? "" : "s"} total
           </MutedText>
         )}
       </div>
@@ -133,7 +141,11 @@ export function TrainedSenders() {
                   </TableBody>
                 </Table>
               </div>
-              <TablePagination totalPages={data?.totalPages ?? 1} />
+              <PageNumbers
+                page={page}
+                totalPages={data?.totalPages ?? 1}
+                onChange={(next) => setPage(next === 1 ? null : next)}
+              />
             </>
           ) : (
             <AlertBasic
@@ -191,6 +203,10 @@ function TrainedSenderRow({
   const busy = isMoving || isForgetting;
   const current = sender.trainedInto[0];
   const others = sender.trainedInto.slice(1);
+  // Exclusions only matter when nothing files this sender: it is being kept
+  // in the inbox on purpose. Once it is trained into a rule, leftover
+  // exclusions from earlier corrections are just noise.
+  const keptInInbox = !current && sender.excludedFrom.length > 0;
 
   // A disabled rule is not offered as a target; keep the current one
   // selectable so the value still renders.
@@ -222,7 +238,7 @@ function TrainedSenderRow({
           <SelectContent>
             {!current && (
               <SelectItem value={NO_RULE} disabled>
-                Not trained
+                {keptInInbox ? "Not filed" : "Not trained"}
               </SelectItem>
             )}
             {options.map((rule) => (
@@ -241,24 +257,19 @@ function TrainedSenderRow({
         )}
       </TableCell>
       <TableCell>
-        <div className="flex flex-wrap items-center gap-1">
-          {current?.label ? (
-            <Badge variant="secondary">{current.label}</Badge>
-          ) : current ? (
-            <MutedText>No label action</MutedText>
-          ) : null}
-          {sender.excludedFrom.length > 0 && (
-            <Tooltip
-              content={`Never matches: ${sender.excludedFrom
-                .map((r) => r.name)
-                .join(", ")}`}
-            >
-              <Badge variant="destructive">
-                Excluded from {sender.excludedFrom.length}
-              </Badge>
-            </Tooltip>
-          )}
-        </div>
+        {current?.label ? (
+          <Badge variant="secondary">{current.label}</Badge>
+        ) : current ? (
+          <MutedText>No label action</MutedText>
+        ) : keptInInbox ? (
+          <Tooltip
+            content={`Never filed by: ${sender.excludedFrom
+              .map((r) => r.name)
+              .join(", ")}`}
+          >
+            <Badge variant="outline">Kept in inbox</Badge>
+          </Tooltip>
+        ) : null}
       </TableCell>
       <TableCell>
         <MutedText>{describeSource(sender)}</MutedText>
@@ -270,7 +281,7 @@ function TrainedSenderRow({
       </TableCell>
       <TableCell className="text-right">
         {current && (
-          <Tooltip content="Forget this sender (exclusions are kept)">
+          <Tooltip content="Forget this sender">
             <Button
               variant="outline"
               size="icon"
@@ -285,6 +296,79 @@ function TrainedSenderRow({
       </TableCell>
     </TableRow>
   );
+}
+
+function PageNumbers({
+  page,
+  totalPages,
+  onChange,
+}: {
+  page: number;
+  totalPages: number;
+  onChange: (page: number) => void;
+}) {
+  if (totalPages <= 1) return null;
+
+  const go = (next: number) => (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (next >= 1 && next <= totalPages && next !== page) onChange(next);
+  };
+
+  return (
+    <div className="m-4">
+      <Pagination className="justify-end">
+        <PaginationContent>
+          {page > 1 && (
+            <PaginationItem>
+              <PaginationPrevious href="#" onClick={go(page - 1)} />
+            </PaginationItem>
+          )}
+          {pageWindow(page, totalPages).map((entry, index) =>
+            entry === "…" ? (
+              // biome-ignore lint/suspicious/noArrayIndexKey: gaps have no identity
+              <PaginationItem key={`gap-${index}`}>
+                <PaginationEllipsis />
+              </PaginationItem>
+            ) : (
+              <PaginationItem key={entry}>
+                <PaginationLink
+                  href="#"
+                  isActive={entry === page}
+                  onClick={go(entry)}
+                >
+                  {entry}
+                </PaginationLink>
+              </PaginationItem>
+            ),
+          )}
+          {page < totalPages && (
+            <PaginationItem>
+              <PaginationNext href="#" onClick={go(page + 1)} />
+            </PaginationItem>
+          )}
+        </PaginationContent>
+      </Pagination>
+    </div>
+  );
+}
+
+// Every page up to 9; beyond that the first, last and a window around the
+// current page, with gaps.
+function pageWindow(page: number, totalPages: number): (number | "…")[] {
+  if (totalPages <= 9) {
+    return Array.from({ length: totalPages }, (_, i) => i + 1);
+  }
+  const pages = new Set<number>([1, totalPages]);
+  for (let p = page - 2; p <= page + 2; p++) {
+    if (p >= 1 && p <= totalPages) pages.add(p);
+  }
+  const sorted = [...pages].sort((a, b) => a - b);
+  const out: (number | "…")[] = [];
+  for (const [index, p] of sorted.entries()) {
+    if (index > 0 && p - (sorted[index - 1] as number) > 1) out.push("…");
+    out.push(p);
+  }
+  return out;
 }
 
 function describeSource(sender: TrainedSender) {
