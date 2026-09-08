@@ -135,7 +135,7 @@ export default defineConfig({
     {
       command: `pnpm exec next dev --turbopack --port ${basePort}`,
       cwd: process.cwd(),
-      url: `${baseURL}/login`,
+      url: `${baseURL}/api/auth/ok`,
       timeout: 240_000,
       reuseExistingServer: !process.env.CI,
       env: {

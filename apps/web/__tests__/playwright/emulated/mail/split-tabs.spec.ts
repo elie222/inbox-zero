@@ -1,4 +1,5 @@
 import { expect } from "@playwright/test";
+import { INITIAL_MAIL_SPLITS } from "@/utils/mail/initial-splits";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
 import { getEmailAccountId } from "../account-test-helpers";
@@ -7,9 +8,27 @@ import {
   conversationWithSubject,
   openMail,
   seedDefaultSplitRule,
+  withClient,
 } from "./mail-test-helpers";
 
 let defaultSplitEmailAccountId: string | undefined;
+
+test.beforeEach(async ({ page }) => {
+  const emailAccountId = await getEmailAccountId(page);
+  // A failed removal test must not change the starting tabs for its retry.
+  await withClient(async (client) => {
+    await client.query('DELETE FROM "MailSplit" WHERE "emailAccountId" = $1', [
+      emailAccountId,
+    ]);
+    for (const [order, split] of INITIAL_MAIL_SPLITS.entries()) {
+      await client.query(
+        `INSERT INTO "MailSplit" (id, "updatedAt", "emailAccountId", name, kind, "values", "order")
+         VALUES (gen_random_uuid()::text, NOW(), $1, $2, $3, $4, $5)`,
+        [emailAccountId, split.name, split.kind, split.values, order],
+      );
+    }
+  });
+});
 
 test.afterEach(async () => {
   if (!defaultSplitEmailAccountId) return;
@@ -237,6 +256,7 @@ for (const accountScope of ["single", "all"] as const) {
       await expect
         .poll(async () => {
           const response = await request.get("/api/mail/settings", {
+            maxRetries: 2,
             headers: { "X-Email-Account-ID": emailAccountId },
           });
           return (await response.json()).splits.some(
@@ -259,6 +279,7 @@ for (const accountScope of ["single", "all"] as const) {
       await expect
         .poll(async () => {
           const response = await request.get("/api/mail/settings", {
+            maxRetries: 2,
             headers: { "X-Email-Account-ID": emailAccountId },
           });
           return (await response.json()).splits.some(
@@ -290,8 +311,8 @@ test("keeps removal in the dialog and persists tab order", async ({
     page.getByRole("button", { name: /Remove the .* split/ }),
   ).toHaveCount(0);
   const tabs = page.locator("button[data-split-tab]");
+  await expect(tabs).toHaveText(INITIAL_MAIL_SPLITS.map((split) => split.name));
   const original = await tabs.allTextContents();
-  expect(original.length).toBeGreaterThanOrEqual(2);
   await page.getByRole("button", { name: "Manage splits" }).click();
   const dialog = page.getByRole("dialog", { name: "Manage splits" });
   await dialog

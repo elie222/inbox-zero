@@ -1,11 +1,29 @@
 import { expect } from "@playwright/test";
+import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
-import { conversationWithSubject, openMail } from "./mail-test-helpers";
+import {
+  conversationWithSubject,
+  openMail,
+  readLatestMailMutation,
+} from "./mail-test-helpers";
 
 test("applies an existing label from the reader menu and keeps the conversation in inbox", async ({
   page,
 }, testInfo) => {
+  let refreshUnreadDetail = false;
+  await page.route("**/api/threads/thr_playwright_reader?**", async (route) => {
+    const response = await route.fetch();
+    const body: ThreadResponse = await response.json();
+    // Reproduce a cached read snapshot followed by fresh unread detail.
+    for (const message of body.thread.messages) {
+      message.labelIds = (message.labelIds ?? []).filter(
+        (label) => label !== "UNREAD",
+      );
+      if (refreshUnreadDetail) message.labelIds.push("UNREAD");
+    }
+    await route.fulfill({ response, json: body });
+  });
   const { conversations, emailAccountId } = await openMail(page);
   const conversation = conversationWithSubject(
     page,
@@ -13,6 +31,12 @@ test("applies an existing label from the reader menu and keeps the conversation 
     "Re: Reader Navigation Message",
   );
   await conversation.click();
+  await expect(
+    page.getByText(
+      "A second message proves the complete conversation is rendered.",
+    ),
+  ).toBeVisible();
+
   await page.getByRole("button", { name: /^More actions/ }).click();
   await page.getByRole("menuitem", { name: /^Label/ }).click();
   const picker = page.getByRole("dialog", { name: "Label conversations" });
@@ -21,6 +45,7 @@ test("applies an existing label from the reader menu and keeps the conversation 
     picker.getByRole("option", { name: "Project Alpha", exact: true }),
   ).toBeVisible();
   await capturePlaywrightCheckpoint(page, testInfo, "search-label-picker");
+  refreshUnreadDetail = true;
   await picker
     .getByRole("option", { name: "Project Alpha", exact: true })
     .click();
@@ -28,6 +53,17 @@ test("applies an existing label from the reader menu and keeps the conversation 
   await expect(
     page.getByRole("link", { name: "Project Alpha", exact: true }).last(),
   ).toBeVisible();
+  await expect
+    .poll(
+      () =>
+        readLatestMailMutation(page, {
+          emailAccountId,
+          kind: "set_read_state",
+          threadId: "thr_playwright_reader",
+        }),
+      { timeout: 60_000 },
+    )
+    .toMatchObject({ payload: { read: true }, status: "succeeded" });
   const response = await page.request.get(
     "/api/threads/thr_playwright_reader",
     { headers: { "X-Email-Account-ID": emailAccountId } },
@@ -122,6 +158,17 @@ test("L labels the open conversation after it leaves the unread list", async ({
   ).toBeVisible();
   await page.getByRole("button", { name: /^More actions/ }).click();
   await page.getByRole("menuitem", { name: "Mark as unread" }).click();
+  await expect
+    .poll(
+      () =>
+        readLatestMailMutation(page, {
+          emailAccountId,
+          kind: "set_read_state",
+          threadId: "thr_playwright_3",
+        }),
+      { timeout: 60_000 },
+    )
+    .toMatchObject({ payload: { read: false }, status: "succeeded" });
   await expect(page).not.toHaveURL(/thread-id=/);
   await expect(conversations).toBeVisible();
   const emptyReader = page.getByText("Nothing selected", { exact: true });
