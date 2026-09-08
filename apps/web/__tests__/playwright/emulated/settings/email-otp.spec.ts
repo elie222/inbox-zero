@@ -9,7 +9,7 @@ test("an assistant signs in after owner opt-in and loses access when it is disab
 }) => {
   await openSettings(page);
   const toggle = page.getByRole("switch", {
-    name: "Email code sign-in",
+    name: "Allow sign-in with a one-time email code",
     exact: true,
   });
   await expect(toggle).toBeEnabled();
@@ -96,7 +96,7 @@ test("an assistant signs in after owner opt-in and loses access when it is disab
       .click();
     await expect(assistantPage).toHaveURL(/\/settings$/);
     const assistantToggle = assistantPage.getByRole("switch", {
-      name: "Email code sign-in",
+      name: "Allow sign-in with a one-time email code",
       exact: true,
     });
     await expect(assistantToggle).toBeChecked();

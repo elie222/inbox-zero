@@ -33,12 +33,7 @@ export function EmailOtpSection() {
       {data && (
         <Item size="sm">
           <ItemContent>
-            <ItemTitle>Email code sign-in</ItemTitle>
-            <ItemDescription className="line-clamp-none">
-              {data.canManage
-                ? "Allow full account access via email codes."
-                : "Sign in without a code to edit."}
-            </ItemDescription>
+            <ItemTitle>Allow sign-in with a one-time email code</ItemTitle>
             {!data.emailDeliveryConfigured && (
               <ItemDescription className="line-clamp-none">
                 Email delivery unavailable.
@@ -47,7 +42,7 @@ export function EmailOtpSection() {
           </ItemContent>
           <ItemActions>
             <Switch
-              aria-label="Email code sign-in"
+              aria-label="Allow sign-in with a one-time email code"
               checked={data.emailOtpEnabled}
               disabled={
                 isExecuting ||
