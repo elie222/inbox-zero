@@ -114,7 +114,9 @@ export function EmailOtpForm({ callbackURL }: { callbackURL: string }) {
         </Button>
       ) : (
         <Button className="w-full" variant="ghost" asChild>
-          <Link href={buildRedirectUrl("/login", { next: callbackURL })}>
+          <Link
+            href={buildRedirectUrl("/login/options", { next: callbackURL })}
+          >
             Back
           </Link>
         </Button>

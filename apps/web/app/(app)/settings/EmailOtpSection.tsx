@@ -35,17 +35,13 @@ export function EmailOtpSection() {
           <ItemContent>
             <ItemTitle>Email code sign-in</ItemTitle>
             <ItemDescription className="line-clamp-none">
-              Anyone with access to your email can sign in to your full Inbox
-              Zero account. Turning this off signs them out.
+              {data.canManage
+                ? "Allow full account access via email codes."
+                : "Sign in without a code to edit."}
             </ItemDescription>
-            {!data.canManage && (
-              <ItemDescription className="line-clamp-none">
-                Sign in with your connected provider to change this setting.
-              </ItemDescription>
-            )}
             {!data.emailDeliveryConfigured && (
               <ItemDescription className="line-clamp-none">
-                Email delivery is not configured. Contact your administrator.
+                Email delivery unavailable.
               </ItemDescription>
             )}
           </ItemContent>
