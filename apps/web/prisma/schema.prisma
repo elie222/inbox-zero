@@ -190,6 +190,7 @@ model EmailAccount {
   account   Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   labels              Label[]
+  labelCleanups       LabelCleanup[]
   rules               Rule[]
   executedRules       ExecutedRule[]
   newsletters         Newsletter[]
@@ -548,6 +549,32 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+// "After N days, take the label off / trash" for mail a rule filed under a
+// label, so folders like Later or Newsletters don't grow forever.
+model LabelCleanup {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  labelId      String // provider label id
+  labelName    String // for display; the id is what runs
+  afterDays    Int
+  action       LabelCleanupAction
+  lastRunAt    DateTime?
+  lastRunCount Int?
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([emailAccountId, labelId])
+  @@index([emailAccountId])
+}
+
+enum LabelCleanupAction {
+  REMOVE_LABEL
+  TRASH
 }
 
 model Label {

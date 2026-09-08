@@ -1360,6 +1360,27 @@ export class GmailProvider implements EmailProvider {
     };
   }
 
+  async listMessageIds(options: {
+    labelIds: string[];
+    query?: string;
+    maxResults?: number;
+    pageToken?: string;
+  }): Promise<{
+    messages: { id: string; threadId: string }[];
+    nextPageToken?: string;
+  }> {
+    const response = await getMessages(this.client, {
+      labelIds: options.labelIds,
+      query: options.query,
+      maxResults: options.maxResults || 100,
+      pageToken: options.pageToken || undefined,
+    });
+    return {
+      messages: response.messages || [],
+      nextPageToken: response.nextPageToken || undefined,
+    };
+  }
+
   async searchMessages(options: {
     query: string;
     maxResults?: number;
