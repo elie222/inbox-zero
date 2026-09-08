@@ -1,7 +1,6 @@
 "use client";
 
 import useSWR from "swr";
-import Link from "next/link";
 import { useAction } from "next-safe-action/hooks";
 import type { EmailOtpSettingsResponse } from "@/app/api/user/email-otp/route";
 import { updateEmailOtpAction } from "@/utils/actions/email-otp";
@@ -36,16 +35,8 @@ export function EmailOtpSection() {
           <ItemContent>
             <ItemTitle>Email code sign-in</ItemTitle>
             <ItemDescription className="line-clamp-none">
-              Allow anyone who can read {data.email} to sign in using an emailed
-              code. This gives access to your entire Inbox Zero account,
-              including all connected mailboxes, calendars, and settings.
-              Activity appears under your name.
-            </ItemDescription>
-            <ItemDescription className="line-clamp-none">
-              Your assistant can select “Sign in with email code” on the{" "}
-              <Link href="/login">login page</Link>. Turning this off ends
-              code-based sessions. Removing Gmail delegation alone does not sign
-              them out.
+              Anyone with access to your email can sign in to your full Inbox
+              Zero account. Turning this off signs them out.
             </ItemDescription>
             {!data.canManage && (
               <ItemDescription className="line-clamp-none">

@@ -115,7 +115,5 @@ test("email code login does not disclose account existence", async ({
     .getByRole("button", { name: "Send sign-in code", exact: true })
     .click();
   await expect(page.getByLabel("Sign-in code", { exact: true })).toBeVisible();
-  await expect(
-    page.getByText(/If email code sign-in is enabled/),
-  ).toBeVisible();
+  await expect(page.getByText(/Check your email for a code/)).toBeVisible();
 });

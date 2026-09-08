@@ -57,9 +57,7 @@ export function EmailOtpForm({ callbackURL }: { callbackURL: string }) {
       {sentTo ? (
         <>
           <p className="text-sm text-muted-foreground">
-            If email code sign-in is enabled for {sentTo}, a code will arrive
-            shortly. It expires in 5 minutes. To resend, go back and try again
-            after one minute.
+            Check your email for a code. It expires in 5 minutes.
           </p>
           <Label htmlFor="login-code">Sign-in code</Label>
           <Input
@@ -75,8 +73,7 @@ export function EmailOtpForm({ callbackURL }: { callbackURL: string }) {
       ) : (
         <>
           <p className="text-sm text-muted-foreground">
-            For existing accounts with email code sign-in enabled in Settings.
-            Enter the account owner’s sign-in email.
+            Enable email code sign-in in Settings first.
           </p>
           <Label htmlFor="login-email">Email</Label>
           <Input
