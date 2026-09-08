@@ -34,18 +34,19 @@ export function AppErrorBoundary({
   // biome-ignore lint/correctness/useExhaustiveDependencies: log each boundary error once with the route context captured at that time
   useEffect(() => {
     const logger = createClientLogger("app-error-boundary");
-
-    logger.error(
-      "App error boundary triggered",
-      getAppErrorBoundaryLogContext({
-        error,
-        params,
-        pathname,
-        searchParams,
-      }),
-    );
+    const context = getAppErrorBoundaryLogContext({
+      error,
+      params,
+      pathname,
+      searchParams,
+    });
+    // Correlate with the exception details without copying raw error text into Axiom.
+    const sentryEventId = Sentry.captureException(error, { extra: context });
+    logger.error("App error boundary triggered", {
+      ...context,
+      sentryEventId,
+    });
     logger.flush().catch(() => undefined);
-    Sentry.captureException(error);
   }, [error]);
 
   return (

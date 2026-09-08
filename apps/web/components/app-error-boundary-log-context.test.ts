@@ -4,19 +4,18 @@ import { getAppErrorBoundaryLogContext } from "./app-error-boundary-log-context"
 describe("getAppErrorBoundaryLogContext", () => {
   it("returns only allowlisted route context for client logs", () => {
     const context = getAppErrorBoundaryLogContext({
-      error: {
+      error: Object.assign(new Error("token=secret-value"), {
         digest: "digest-123",
-        message: "token=secret-value",
         name: "TypeError",
         stack: "stack with secret-value",
-      },
+      }),
       params: {
         emailAccountId: "account-123",
         ruleId: "rule-456",
       },
       pathname: "/mail",
       searchParams: new URLSearchParams(
-        "token=secret-value&code=oauth-code&tab=history&ruleId=query-rule-id",
+        "token=secret-value&code=oauth-code&tab=history&ruleId=query-rule-id&thread-id=thread-123&thread-account-id=account-789&q=private-search",
       ),
     });
 
@@ -29,8 +28,18 @@ describe("getAppErrorBoundaryLogContext", () => {
       safeSearchParams: {
         ruleId: "query-rule-id",
         tab: "history",
+        "thread-id": "thread-123",
+        "thread-account-id": "account-789",
       },
-      searchParamKeys: ["token", "code", "tab", "ruleId"],
+      searchParamKeys: [
+        "token",
+        "code",
+        "tab",
+        "ruleId",
+        "thread-id",
+        "thread-account-id",
+        "q",
+      ],
     });
     expect(context).not.toHaveProperty("errorMessage");
     expect(context).not.toHaveProperty("errorStack");
