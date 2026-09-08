@@ -35,16 +35,17 @@ model Account {
 }
 
 model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  emailOtp     Boolean  @default(false)
-  ipAddress    String?
-  userAgent    String?
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id              String   @id @default(cuid())
+  sessionToken    String   @unique
+  userId          String
+  expires         DateTime
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  emailOtp        Boolean  @default(false)
+  emailOtpVersion Int      @default(0)
+  ipAddress       String?
+  userAgent       String?
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   activeOrganizationId String?
   activeOrganization   Organization? @relation(fields: [activeOrganizationId], references: [id], onDelete: SetNull)
@@ -83,10 +84,11 @@ model User {
 
   // settings
   emailOtpEnabled Boolean @default(false)
-  aiProvider    String?
-  aiModel       String?
-  aiApiKey      String?
-  webhookSecret String?
+  emailOtpVersion Int     @default(0)
+  aiProvider      String?
+  aiModel         String?
+  aiApiKey        String?
+  webhookSecret   String?
 
   // referral system
   referralCode String? @unique // User's own referral code

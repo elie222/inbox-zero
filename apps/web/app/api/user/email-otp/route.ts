@@ -8,6 +8,7 @@ export type EmailOtpSettingsResponse = Awaited<ReturnType<typeof getSettings>>;
 export const GET = withAuth("user/email-otp", async (request) =>
   NextResponse.json(
     await getSettings(request.auth.userId, !!request.auth.emailOtp),
+    { headers: { "Cache-Control": "no-store" } },
   ),
 );
 

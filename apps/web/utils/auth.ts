@@ -269,6 +269,7 @@ export const betterAuthConfig = betterAuth({
   session: {
     additionalFields: {
       emailOtp: { type: "boolean", defaultValue: false, input: false },
+      emailOtpVersion: { type: "number", defaultValue: 0, input: false },
     },
     modelName: "Session",
     fields: {

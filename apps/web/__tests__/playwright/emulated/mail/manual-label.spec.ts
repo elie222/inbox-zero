@@ -108,17 +108,37 @@ test("L labels the open conversation after it leaves the unread list", async ({
   page,
 }) => {
   const { conversations, emailAccountId } = await openMail(page);
-  await page.getByRole("button", { name: "Unread", exact: true }).click();
   const conversation = conversationWithSubject(
     page,
     conversations,
     "Second Unread Command Message",
   );
+  // Restore unread state through the UI so retries do not inherit the prior read.
+  await conversation.click();
+  await expect(
+    page.getByText("Another unread message for bulk-action checks.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: /^More actions/ }).click();
+  await page.getByRole("menuitem", { name: "Mark as unread" }).click();
+  await expect(conversations).toBeVisible();
+  const emptyReader = page.getByText("Nothing selected", { exact: true });
+  if (!(await emptyReader.isVisible())) {
+    await page
+      .getByRole("button", { name: "Switch list or split view" })
+      .click();
+  }
+  await expect(emptyReader).toBeVisible();
+  await page.getByRole("button", { name: "Unread", exact: true }).click();
   await conversation.click();
   const heading = page.getByRole("heading", {
     name: "Second Unread Command Message",
   });
   await expect(heading).toBeVisible();
+  // In split view the list stays mounted: disappearance now proves filtering,
+  // rather than just switching from the list to the reader before it is ready.
+  await expect(conversations).toBeVisible();
   await expect(conversation).toHaveCount(0);
   await page.keyboard.press("l");
   const picker = page.getByRole("dialog", { name: "Label conversations" });

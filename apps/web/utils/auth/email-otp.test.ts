@@ -32,6 +32,7 @@ describe("email code authentication", () => {
     pending.length = 0;
     prisma.user.findUnique.mockResolvedValue({
       emailOtpEnabled: true,
+      emailOtpVersion: 0,
     } as never);
     prisma.session.findFirst.mockResolvedValue({ id: "active" } as never);
   });
@@ -117,7 +118,45 @@ describe("email code authentication", () => {
     expect(database.session).toHaveLength(0);
   });
 
-  it("silently throttles repeated delivery requests for the same address", async () => {
+  it("keeps a session inserted after revocation invalid after re-enabling", async () => {
+    let currentVersion = 0;
+    prisma.session.findFirst.mockImplementation(async (args) => {
+      const version = (args?.where?.user as { emailOtpVersion?: number })
+        .emailOtpVersion;
+      return version === currentVersion ? ({ id: "active" } as never) : null;
+    });
+    const { auth, request, database } = setup(() => {
+      currentVersion = 2;
+      prisma.user.findUnique.mockResolvedValue({
+        emailOtpEnabled: true,
+        emailOtpVersion: currentVersion,
+      } as never);
+    });
+    await request("/email-otp/send-verification-otp", {
+      email,
+      type: "sign-in",
+    });
+    await flushEmails();
+    const response = await request("/sign-in/email-otp", {
+      email,
+      otp: sentCode(),
+      emailOtpVersion: 2,
+    });
+    expect(response.status).toBe(200);
+    expect(database.session[0].emailOtpVersion).toBe(0);
+    const cookie = response.headers
+      .getSetCookie()
+      .map((value) => value.split(";")[0])
+      .join("; ");
+    const revoked = await auth.handler(
+      new Request("http://localhost:3000/api/auth/get-session", {
+        headers: { cookie },
+      }),
+    );
+    expect(revoked.status).toBe(401);
+  });
+
+  it("silently skips delivery when another request already holds the cooldown", async () => {
     const { request } = setup();
     prisma.verificationToken.create.mockRejectedValueOnce(
       new Prisma.PrismaClientKnownRequestError("Duplicate", {
@@ -245,7 +284,7 @@ describe("email code authentication", () => {
   });
 });
 
-function setup() {
+function setup(onSessionCreated?: () => void) {
   const database: Record<string, Record<string, unknown>[]> = {
     user: [
       {
@@ -273,11 +312,17 @@ function setup() {
       }),
     },
     databaseHooks: {
-      session: { create: { before: emailOtpSessionCreationHook } },
+      session: {
+        create: {
+          before: emailOtpSessionCreationHook,
+          after: async () => onSessionCreated?.(),
+        },
+      },
     },
     session: {
       additionalFields: {
         emailOtp: { type: "boolean", defaultValue: false, input: false },
+        emailOtpVersion: { type: "number", defaultValue: 0, input: false },
       },
       cookieCache: { enabled: true },
     },

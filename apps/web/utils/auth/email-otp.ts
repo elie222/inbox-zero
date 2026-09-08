@@ -94,7 +94,12 @@ export async function emailOtpAfterHook(
   }
 }
 
-type EmailOtpSession = { id: string; userId: string; emailOtp?: boolean };
+type EmailOtpSession = {
+  id: string;
+  userId: string;
+  emailOtp?: boolean;
+  emailOtpVersion?: number;
+};
 
 export async function emailOtpSessionCreationHook<T extends { userId: string }>(
   session: T,
@@ -103,10 +108,12 @@ export async function emailOtpSessionCreationHook<T extends { userId: string }>(
   if (context?.path !== "/sign-in/email-otp") return;
   const user = await prisma.user.findUnique({
     where: { id: session.userId },
-    select: { emailOtpEnabled: true },
+    select: { emailOtpEnabled: true, emailOtpVersion: true },
   });
   if (!user?.emailOtpEnabled) throw invalidCode();
-  return { data: { ...session, emailOtp: true } };
+  return {
+    data: { ...session, emailOtp: true, emailOtpVersion: user.emailOtpVersion },
+  };
 }
 
 async function isEmailOtpEnabled(email: string) {
@@ -117,14 +124,17 @@ async function isEmailOtpEnabled(email: string) {
   return user?.emailOtpEnabled === true;
 }
 
-async function assertEmailOtpSession(session: { id: string; userId: string }) {
+async function assertEmailOtpSession(session: EmailOtpSession) {
   const active = await prisma.session.findFirst({
     where: {
       id: session.id,
       userId: session.userId,
       emailOtp: true,
       expires: { gt: new Date() },
-      user: { emailOtpEnabled: true },
+      user: {
+        emailOtpEnabled: true,
+        emailOtpVersion: session.emailOtpVersion ?? 0,
+      },
     },
     select: { id: true },
   });

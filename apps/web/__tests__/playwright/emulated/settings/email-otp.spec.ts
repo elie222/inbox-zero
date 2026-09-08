@@ -12,6 +12,8 @@ test("an assistant signs in after owner opt-in and loses access when it is disab
     name: "Allow sign-in with a one-time email code",
     exact: true,
   });
+  const settingsResponse = await page.request.get("/api/user/email-otp");
+  expect(settingsResponse.headers()["cache-control"]).toBe("no-store");
   await expect(toggle).toBeEnabled();
   await expect(toggle).not.toBeChecked();
   const assistant = await browser.newContext({
@@ -117,9 +119,16 @@ test("an assistant signs in after owner opt-in and loses access when it is disab
     ).toBe(401);
   } finally {
     await assistant.close();
-    if (await toggle.isChecked()) {
-      await toggle.click();
-      await expect(toggle).not.toBeChecked();
+    try {
+      if (await toggle.isChecked()) {
+        await toggle.click();
+        await expect(toggle).not.toBeChecked();
+      }
+    } catch (error) {
+      await test.info().attach("cleanup-error", {
+        body: String(error),
+        contentType: "text/plain",
+      });
     }
   }
 });
@@ -140,3 +149,14 @@ test("email code login does not disclose account existence", async ({
     page.getByRole("heading", { name: "Check your email" }),
   ).toBeVisible();
 });
+
+for (const path of ["/login/email", "/login/options"]) {
+  test(`ignores repeated return paths on ${path}`, async ({ page }) => {
+    await page.context().clearCookies();
+    const response = await page.goto(
+      `${path}?next=%2Fsettings&next=%2Faccounts`,
+    );
+    expect(response?.status()).toBe(200);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  });
+}

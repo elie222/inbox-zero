@@ -15,12 +15,16 @@ export const metadata: Metadata = {
 export default async function LoginOptionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string }>;
+  searchParams: Promise<{ next?: string | string[] }>;
 }) {
   const params = await searchParams;
   const session = await auth();
   if (session?.user)
-    redirect(normalizeInternalPath(params.next) ?? WELCOME_PATH);
+    redirect(
+      normalizeInternalPath(
+        typeof params.next === "string" ? params.next : undefined,
+      ) ?? WELCOME_PATH,
+    );
 
   return (
     <main className="flex min-h-screen items-center justify-center px-6 py-12">

@@ -31,10 +31,15 @@ export async function updateEmailOtpSetting({
     where: { id: userId },
     select: { email: true },
   });
+  // Version changes also invalidate sessions inserted after the revocation delete.
   await prisma.$transaction([
     prisma.user.update({
       where: { id: userId },
-      data: { emailOtpEnabled: enabled },
+      data: {
+        emailOtpEnabled: enabled,
+        emailOtpVersion: { increment: 1 },
+        ...(enabled ? { email: user.email.trim().toLowerCase() } : {}),
+      },
     }),
     // Clear pending codes on either transition so re-enabling cannot revive one.
     prisma.verificationToken.deleteMany({

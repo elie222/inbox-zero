@@ -38,10 +38,21 @@ describe("email code access setting", () => {
         enabled: true,
       }),
     ).rejects.toThrow("connected provider");
+    expect(prisma.session.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: "session",
+        userId: "owner",
+        expires: { gt: expect.any(Date) },
+      },
+      select: { emailOtp: true },
+    });
     expect(prisma.user.update).not.toHaveBeenCalled();
   });
 
   it("disables access, removes pending codes, and revokes only code-based sessions", async () => {
+    prisma.user.update.mockResolvedValue({ id: "updated-user" } as never);
+    prisma.verificationToken.deleteMany.mockResolvedValue({ count: 1 });
+    prisma.session.deleteMany.mockResolvedValue({ count: 2 });
     await updateEmailOtpSetting({
       userId: "owner",
       sessionId: "session",
@@ -49,7 +60,7 @@ describe("email code access setting", () => {
     });
     expect(prisma.user.update).toHaveBeenCalledWith({
       where: { id: "owner" },
-      data: { emailOtpEnabled: false },
+      data: { emailOtpEnabled: false, emailOtpVersion: { increment: 1 } },
     });
     expect(prisma.session.deleteMany).toHaveBeenCalledWith({
       where: { userId: "owner", emailOtp: true },
@@ -57,7 +68,30 @@ describe("email code access setting", () => {
     expect(prisma.verificationToken.deleteMany).toHaveBeenCalledWith({
       where: { identifier: "sign-in-otp-owner@example.com" },
     });
-    expect(prisma.$transaction).toHaveBeenCalled();
+    expect(prisma.$transaction).toHaveBeenCalledWith([
+      prisma.user.update.mock.results[0].value,
+      prisma.verificationToken.deleteMany.mock.results[0].value,
+      prisma.session.deleteMany.mock.results[0].value,
+    ]);
+  });
+
+  it("normalizes the account email before allowing code sign-in", async () => {
+    prisma.user.findUniqueOrThrow.mockResolvedValue({
+      email: "Owner@Example.com",
+    } as never);
+    await updateEmailOtpSetting({
+      userId: "owner",
+      sessionId: "session",
+      enabled: true,
+    });
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: "owner" },
+      data: {
+        emailOtpEnabled: true,
+        emailOtpVersion: { increment: 1 },
+        email: "owner@example.com",
+      },
+    });
   });
 
   it("requires email delivery to enable access but still allows disabling", async () => {

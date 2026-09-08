@@ -13,10 +13,13 @@ export const metadata: Metadata = {
 export default async function EmailLoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string }>;
+  searchParams: Promise<{ next?: string | string[] }>;
 }) {
   const params = await searchParams;
-  const callbackURL = normalizeInternalPath(params.next) ?? WELCOME_PATH;
+  const callbackURL =
+    normalizeInternalPath(
+      typeof params.next === "string" ? params.next : undefined,
+    ) ?? WELCOME_PATH;
   const session = await auth();
   if (session?.user) redirect(callbackURL);
 

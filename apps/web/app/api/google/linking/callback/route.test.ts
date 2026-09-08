@@ -216,6 +216,16 @@ describe("google linking callback route", () => {
     });
   });
 
+  it("rejects signed linking state after the session is revoked", async () => {
+    mockAuth.mockResolvedValue(null);
+    const response = await GET(
+      createRequest("http://localhost:3000/api/google/linking/callback"),
+    );
+    expect(response.headers.get("location")).toContain("error=invalid_state");
+    expect(mockGetOAuthCodeResult).not.toHaveBeenCalled();
+    expect(mockHandleAccountLinking).not.toHaveBeenCalled();
+  });
+
   it("rejects existing-account recovery when the Google email claim is unverified", async () => {
     mockHandleAccountLinking.mockResolvedValue({
       type: "update_existing_account",
