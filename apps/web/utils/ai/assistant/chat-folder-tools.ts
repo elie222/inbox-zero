@@ -35,7 +35,7 @@ export const listFoldersTool = ({
 }: FolderToolOptions) =>
   tool({
     description:
-      "List Outlook mail folders for this account. Use this before moving threads to a folder when the exact folder name is unclear. Returns folder names and paths only; internal folder IDs are not shown.",
+      "List Outlook mail folders for this account. Use this to find folders before searching or moving threads. Returns names, paths, and IDs; use a folder ID in searchInbox categoryName when names are ambiguous.",
     inputSchema: z.object({}),
     execute: async () => {
       trackToolCall({ tool: "list_folders", email, logger });
@@ -47,7 +47,7 @@ export const listFoldersTool = ({
           logger,
         });
         const folders = await emailProvider.getFolders();
-        const flattenedFolders = flattenFolders(folders).map(toVisibleFolder);
+        const flattenedFolders = flattenFolders(folders);
 
         return {
           folders: flattenedFolders,

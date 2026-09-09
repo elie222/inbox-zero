@@ -566,7 +566,7 @@ export async function queryBatchMessages(
   });
 
   // Build the base request
-  let request = createMessagesRequest(client).top(maxResults);
+  let request = createMessagesRequest(client, folderId).top(maxResults);
 
   let nextPageToken: string | undefined;
 
@@ -624,11 +624,6 @@ export async function queryBatchMessages(
   } else {
     // Filter path - use $filter parameter for date filters or folder-only queries
     const filters: string[] = [];
-
-    // Add folder filter if a specific folder is requested
-    if (folderFilter) {
-      filters.push(folderFilter);
-    }
 
     if (metadataSearch.odataFilters.length) {
       filters.push(...metadataSearch.odataFilters);
@@ -949,10 +944,17 @@ export async function getMessages(
  * Helper to create a request for fetching multiple messages with standard fields selected.
  * Returns a typed request builder that can be chained with .filter(), .top(), etc.
  */
-export function createMessagesRequest(client: OutlookClient) {
+export function createMessagesRequest(
+  client: OutlookClient,
+  folderId?: string,
+) {
   return client
     .getClient()
-    .api("/me/messages")
+    .api(
+      folderId
+        ? `/me/mailFolders/${encodeURIComponent(folderId)}/messages`
+        : "/me/messages",
+    )
     .select(MESSAGE_SELECT_FIELDS)
     .expand(MESSAGE_EXPAND_ATTACHMENTS);
 }

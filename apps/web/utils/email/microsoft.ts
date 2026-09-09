@@ -93,6 +93,7 @@ import {
 import {
   getOrCreateOutlookFolderIdByName,
   getOutlookFolderTree,
+  FOLDER_SEPARATOR,
   addOutlookSystemFolderTypes,
   deleteOutlookFolder,
   renameOutlookFolder,
@@ -1274,6 +1275,49 @@ export class OutlookProvider implements EmailProvider {
     readState?: "read" | "unread";
     labelName?: string;
   }): Promise<{ messages: ParsedMessage[]; nextPageToken?: string }> {
+    let folderId: string | undefined;
+    let categoryNames: string[] = [];
+    if (options.labelName) {
+      const scope = options.labelName.trim();
+      const [folderTree, categories] = await Promise.all([
+        this.getFolders(),
+        this.getLabels(),
+      ]);
+      const folders = flattenOutlookFolders(folderTree);
+      const folderById = folders.find((folder) => folder.id === scope);
+      const categoryById = categories.find((category) => category.id === scope);
+      const matchingFolders = folderById
+        ? [folderById]
+        : folders.filter(
+            (folder) =>
+              folder.displayName.toLowerCase() === scope.toLowerCase() ||
+              folder.path.toLowerCase() === scope.toLowerCase(),
+          );
+      const matchingCategories = categoryById
+        ? [categoryById]
+        : categories.filter(
+            (category) => category.name.toLowerCase() === scope.toLowerCase(),
+          );
+
+      if (folderById) {
+        folderId = folderById.id;
+      } else if (categoryById) {
+        categoryNames = [categoryById.name];
+      } else if (matchingFolders.length + matchingCategories.length > 1) {
+        throw new Error(
+          "Outlook search scope is ambiguous. Use a folder path or ID from listFolders, or a category ID.",
+        );
+      } else if (matchingFolders.length === 1) {
+        folderId = matchingFolders[0].id;
+      } else if (matchingCategories.length === 1) {
+        categoryNames = [matchingCategories[0].name];
+      } else {
+        throw new Error(
+          "Outlook folder or category not found. List available folders and categories before retrying.",
+        );
+      }
+    }
+
     const response = await queryBatchMessages(
       this.client,
       {
@@ -1282,7 +1326,8 @@ export class OutlookProvider implements EmailProvider {
         pageToken: options.pageToken,
         fromEmail: options.fromEmail,
         readState: options.readState,
-        categoryNames: options.labelName ? [options.labelName] : [],
+        folderId,
+        categoryNames,
       },
       this.logger,
     );
@@ -2326,11 +2371,19 @@ function resolveOutlookFolderId(
 
 function flattenOutlookFolders(
   folders: Awaited<ReturnType<OutlookProvider["getFolders"]>>,
-): Awaited<ReturnType<OutlookProvider["getFolders"]>> {
-  return folders.flatMap((folder) => [
-    folder,
-    ...flattenOutlookFolders(folder.childFolders),
-  ]);
+  parentPath = "",
+): Array<
+  Awaited<ReturnType<OutlookProvider["getFolders"]>>[number] & { path: string }
+> {
+  return folders.flatMap((folder) => {
+    const path = parentPath
+      ? `${parentPath}${FOLDER_SEPARATOR}${folder.displayName}`
+      : folder.displayName;
+    return [
+      { ...folder, path },
+      ...flattenOutlookFolders(folder.childFolders, path),
+    ];
+  });
 }
 
 function filterMessagesForParticipant(

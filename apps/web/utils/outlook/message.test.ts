@@ -223,6 +223,52 @@ describe("queryBatchMessages", () => {
     expect(api).not.toHaveBeenCalled();
   });
 
+  it("queries the requested folder directly for folder-only cleanup", async () => {
+    const request = createMockMessagesRequest();
+    const api = vi.fn().mockReturnValue(request);
+    await queryBatchMessages(
+      createCachedOutlookClient(api),
+      { folderId: "folder/id", searchQuery: "" },
+      createTestLogger(),
+    );
+    expect(api).toHaveBeenCalledWith("/me/mailFolders/folder%2Fid/messages");
+    expect(request.search).not.toHaveBeenCalled();
+    expect(request.filter).not.toHaveBeenCalled();
+  });
+
+  it("preserves folder scope on continuation pages", async () => {
+    const request = createMockMessagesRequest();
+    request.get.mockResolvedValue({
+      value: [
+        {
+          id: "inside",
+          conversationId: "thread-1",
+          parentFolderId: "folder-1",
+        },
+        {
+          id: "outside",
+          conversationId: "thread-2",
+          parentFolderId: "folder-2",
+        },
+      ],
+      "@odata.nextLink":
+        "https://graph.microsoft.com/v1.0/me/messages?$skip=40",
+    });
+    const api = vi.fn().mockReturnValue(request);
+    const result = await queryBatchMessages(
+      createCachedOutlookClient(api),
+      {
+        folderId: "folder-1",
+        pageToken: "https://graph.microsoft.com/v1.0/me/messages?$skip=20",
+      },
+      createTestLogger(),
+    );
+    expect(result.messages.map((message) => message.id)).toEqual(["inside"]);
+    expect(result.nextPageToken).toBe(
+      "https://graph.microsoft.com/v1.0/me/messages?$skip=40",
+    );
+  });
+
   it("uses metadata filters for unread category searches", async () => {
     const request = createMockMessagesRequest();
     const api = vi.fn().mockReturnValue(request);
