@@ -107,10 +107,24 @@ test("keeps the collapsed signature when typing after clicking below it", async 
 
   await expect(editor).toContainText("Draft body");
   expect(
-    await signatureBlock.evaluate(
-      (block) => block.previousElementSibling?.textContent ?? "",
-    ),
-  ).toContain("Draft body");
+    await editor.evaluate((element) => {
+      const signature = element.querySelector(
+        "[data-email-preserved-kind='signature']",
+      );
+      if (!signature) return false;
+
+      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+      while (walker.nextNode()) {
+        if (walker.currentNode.textContent?.includes("Draft body")) {
+          return Boolean(
+            walker.currentNode.compareDocumentPosition(signature) &
+              Node.DOCUMENT_POSITION_FOLLOWING,
+          );
+        }
+      }
+      return false;
+    }),
+  ).toBe(true);
   await expect(signatureBlock).toHaveCount(1);
   await expect(
     dialog.getByRole("button", { name: "Show signature" }),
