@@ -111,8 +111,6 @@ async function getInvitationFromMessage(
   });
   if (!isCalendarInvitationMessage(message)) return null;
   const attachments = getCalendarAttachments(message);
-  if (message.calendarContent && attachments.length <= 1)
-    return parseCalendarInvitation(message.calendarContent, email);
   if (
     attachments.some(
       (attachment) => attachment.size > CALENDAR_INVITATION_LIMITS.content,

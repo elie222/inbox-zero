@@ -229,6 +229,31 @@ describe("loading calendar invitations", () => {
     expect(mocks.respond).not.toHaveBeenCalled();
   });
 
+  it("rejects inline content that conflicts with a single attachment", async () => {
+    getMessage.mockResolvedValue({
+      ...getEmail(),
+      calendarContent: content,
+      attachments: [
+        {
+          attachmentId: "download",
+          filename: "invite.ics",
+          size: content.length,
+        },
+      ],
+    });
+    getAttachment.mockResolvedValue({
+      data: Buffer.from(
+        content.replace("meeting@example.com", "other@example.com"),
+      ).toString("base64"),
+      size: content.length,
+    });
+    await expect(respondToCalendarInvitation(params)).rejects.toThrow(
+      "does not contain an invitation",
+    );
+    expect(sendEmail).not.toHaveBeenCalled();
+    expect(mocks.respond).not.toHaveBeenCalled();
+  });
+
   it("rejects oversized duplicate attachments before downloading", async () => {
     getMessage.mockResolvedValue({
       ...getEmail(),
