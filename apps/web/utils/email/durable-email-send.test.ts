@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import { createMockEmailProvider } from "@/utils/__mocks__/email-provider";
 import { EmailSendOperationStatus } from "@/generated/prisma/enums";
+import { createScopedLogger } from "@/utils/logger";
 import { SafeError } from "@/utils/error";
 import { executeDurableEmailSend } from "./durable-email-send";
 
@@ -42,6 +43,7 @@ describe("executeDurableEmailSend", () => {
     });
 
     const outcome = await executeDurableEmailSend({
+      logger: createScopedLogger("test"),
       emailAccountId: "account",
       getEmailProvider: async () => provider,
       input,
@@ -58,12 +60,50 @@ describe("executeDurableEmailSend", () => {
     expect(prisma.emailSendOperation.updateMany).not.toHaveBeenCalled();
   });
 
+  it("rejects provider setup failures without marking delivery uncertain", async () => {
+    const outcome = await executeDurableEmailSend({
+      logger: createScopedLogger("test"),
+      emailAccountId: "account",
+      getEmailProvider: async () => {
+        throw new Error("Provider unavailable");
+      },
+      input,
+      provider: "google",
+    });
+
+    expect(outcome.status).toBe("rejected");
+    expect(prisma.emailSendOperation.deleteMany).toHaveBeenCalled();
+    expect(prisma.emailSendOperation.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("keeps a persistence failure uncertain after the provider accepts the send", async () => {
+    const provider = createMockEmailProvider({
+      sendEmailWithHtml: vi
+        .fn()
+        .mockResolvedValue({ messageId: "sent", threadId: "thread" }),
+    });
+    prisma.emailSendOperation.update.mockRejectedValue(
+      new SafeError("Storage failed"),
+    );
+    const outcome = await executeDurableEmailSend({
+      logger: createScopedLogger("test"),
+      emailAccountId: "account",
+      getEmailProvider: async () => provider,
+      input,
+      provider: "google",
+    });
+
+    expect(outcome).toEqual({ status: "uncertain" });
+    expect(prisma.emailSendOperation.deleteMany).not.toHaveBeenCalled();
+  });
+
   it("keeps unexplained provider failures uncertain", async () => {
     const provider = createMockEmailProvider({
       sendEmailWithHtml: vi.fn().mockRejectedValue(new Error("socket hang up")),
     });
 
     const outcome = await executeDurableEmailSend({
+      logger: createScopedLogger("test"),
       emailAccountId: "account",
       getEmailProvider: async () => provider,
       input,

@@ -1,5 +1,6 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import { assert, describe, expect, it, vi } from "vitest";
+import { SafeError } from "@/utils/error";
 import { sendEmailWithHtml } from "./mail";
 
 vi.mock("@/utils/mail", async (importOriginal) => ({
@@ -82,7 +83,9 @@ describe("sending a Gmail draft from the reader", () => {
       Object.assign(new Error("Not found"), { code: 404 }),
     );
 
-    await expect(sendEmailWithHtml(gmail, email)).rejects.toThrow("Not found");
+    await expect(sendEmailWithHtml(gmail, email)).rejects.toBeInstanceOf(
+      SafeError,
+    );
 
     expect(drafts.send).not.toHaveBeenCalled();
     expect(messages.send).not.toHaveBeenCalled();
