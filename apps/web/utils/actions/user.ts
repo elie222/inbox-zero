@@ -4,6 +4,7 @@ import { z } from "zod";
 import { after } from "next/server";
 import { Prisma } from "@/generated/prisma/client";
 import prisma from "@/utils/prisma";
+import { withThreadPageBufferDeletion } from "@/utils/redis/thread-page-buffer";
 import { deleteUser } from "@/utils/user/delete";
 import { actionClient, actionClientUser } from "@/utils/actions/safe-action";
 import { captureException, SafeError } from "@/utils/error";
@@ -145,6 +146,12 @@ export const deleteEmailAccountAction = actionClientUser
         getDeleteSoloOrganizationsOperation(organizationIdsToDelete, [
           emailAccountId,
         ]);
+      const deleteRemainingMembershipsOperation = prisma.member.deleteMany({
+        where: {
+          emailAccountId,
+          organizationId: { notIn: organizationIdsToDelete },
+        },
+      });
 
       if (isPrimaryAccount) {
         // Check if there are other email accounts
@@ -174,6 +181,7 @@ export const deleteEmailAccountAction = actionClientUser
           userId,
           [
             deleteSoloOrganizationsOperation,
+            deleteRemainingMembershipsOperation,
             prisma.user.update({
               where: {
                 id: userId,
@@ -212,6 +220,7 @@ export const deleteEmailAccountAction = actionClientUser
           userId,
           [
             deleteSoloOrganizationsOperation,
+            deleteRemainingMembershipsOperation,
             prisma.emailAccount.delete({
               where: {
                 id: emailAccountId,
@@ -244,15 +253,17 @@ async function runDeleteEmailAccountTransaction(
   },
 ) {
   try {
-    await prisma.$transaction([
-      prisma.$queryRaw`
+    await withThreadPageBufferDeletion([context.emailAccountId], () =>
+      prisma.$transaction([
+        prisma.$queryRaw`
         SELECT true AS locked
         FROM (
           SELECT pg_advisory_xact_lock(539114481, hashtext(${userId}))
         ) lock
       `,
-      ...operations,
-    ]);
+        ...operations,
+      ]),
+    );
   } catch (error) {
     context.logger.error("Delete email account transaction failed", {
       error,

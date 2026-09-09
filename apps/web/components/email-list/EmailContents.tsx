@@ -1,47 +1,96 @@
 import { startTransition, useMemo, useState, useRef, useEffect } from "react";
 import { useTheme } from "next-themes";
-import DOMPurify from "dompurify";
-import { env } from "@/env";
+import { EllipsisIcon } from "lucide-react";
 import { decodeHtmlEntities } from "@/utils/gmail/decode";
-import { getImageProxyBaseUrl } from "@/utils/email/image-proxy-config";
+import {
+  getPreparedEmailHtml,
+  IMAGE_PROXY_BASE_URL,
+  IMAGE_PROXY_ORIGIN,
+  prepareSanitizedEmailHtml,
+  sanitizeEmailHtml,
+} from "@/utils/email/prepare-html.client";
+import type { ParsedMessage } from "@/utils/types";
+import {
+  getInlineImageContentIds,
+  normalizeContentId,
+  rewriteInlineImageSources,
+} from "@/utils/email/inline-images";
+import {
+  fetchAttachment,
+  getAttachmentUrl,
+} from "@/utils/attachments/download";
+import { linkifyPlainText } from "@/utils/email/linkify-plain-text";
+import { splitEmailContent } from "@/utils/email/split-email-content.client";
 
-const IMAGE_PROXY_BASE_URL = getImageProxyBaseUrl({
-  baseUrl: env.NEXT_PUBLIC_BASE_URL,
-  externalProxyBaseUrl: env.NEXT_PUBLIC_IMAGE_PROXY_BASE_URL,
-  useAppRoute: env.NEXT_PUBLIC_IMAGE_PROXY_USE_APP_ROUTE,
-});
-const IMAGE_PROXY_ORIGIN = IMAGE_PROXY_BASE_URL
-  ? new URL(IMAGE_PROXY_BASE_URL).origin
-  : null;
-const IMAGE_PROXY_ENABLED = Boolean(IMAGE_PROXY_BASE_URL);
-const IMAGE_PROXY_RENDER_ROUTE = "/api/email/render-html";
 const SANS_FONT_STACK = `ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`;
+const EMAIL_DOCUMENT_MARKER = "inbox-zero-email-document";
+const NO_INLINE_ATTACHMENTS: ParsedMessage["inline"] = [];
+/**
+ * Reading size for a message body that brought no styling of its own. Shared by
+ * both paths: Tailwind classes can't reach inside the iframe, so plain text has
+ * to restate it or the two drift apart on screen.
+ */
+const BODY_TYPE = { fontSize: "14.5px", lineHeight: 1.65 } as const;
 
-export function HtmlEmail({ html }: { html: string }) {
-  const sanitizedHtml = useMemo(() => sanitize(html), [html]);
+export function HtmlEmail({
+  html,
+  messageId,
+  emailAccountId,
+  inlineAttachments = NO_INLINE_ATTACHMENTS,
+  onReplyMessage,
+  onForwardMessage,
+  onNavigateMessage,
+  onFocusMessage,
+}: {
+  html: string;
+  messageId: string;
+  emailAccountId?: string;
+  inlineAttachments?: ParsedMessage["inline"];
+  onReplyMessage?: () => void;
+  onForwardMessage?: () => void;
+  onNavigateMessage?: (direction: -1 | 1) => void;
+  onFocusMessage?: () => void;
+}) {
+  const sanitizedHtml = useMemo(() => sanitizeEmailHtml(html), [html]);
   const [showReplies, setShowReplies] = useState(false);
-  const [renderHtml, setRenderHtml] = useState(() => sanitizedHtml);
+  const [renderHtml, setRenderHtml] = useState(
+    () =>
+      getPreparedEmailHtml({ messageId, sourceHtml: sanitizedHtml }) ??
+      sanitizedHtml,
+  );
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const { theme } = useTheme();
   const isDarkMode = theme === "dark";
 
   useEffect(() => {
     let cancelled = false;
-    const controller = new AbortController();
+    const objectUrls: string[] = [];
+    setRenderHtml(
+      getPreparedEmailHtml({ messageId, sourceHtml: sanitizedHtml }) ??
+        sanitizedHtml,
+    );
 
-    setRenderHtml(sanitizedHtml);
-
-    if (!IMAGE_PROXY_ENABLED) {
-      return () => {
-        cancelled = true;
-        controller.abort();
-      };
-    }
-
-    rewriteHtmlWithProxy(sanitizedHtml, controller.signal).then(
-      (rewrittenHtml) => {
-        if (cancelled) return;
-        startTransition(() => setRenderHtml(rewrittenHtml));
+    Promise.all([
+      prepareSanitizedEmailHtml({ messageId, sourceHtml: sanitizedHtml }),
+      loadInlineImageSources({
+        emailAccountId,
+        html: sanitizedHtml,
+        inlineAttachments,
+        messageId,
+      }),
+    ]).then(
+      ([rewrittenHtml, inlineImages]) => {
+        const loadedObjectUrls = Object.values(inlineImages);
+        if (cancelled) {
+          for (const objectUrl of loadedObjectUrls) {
+            URL.revokeObjectURL(objectUrl);
+          }
+          return;
+        }
+        objectUrls.push(...loadedObjectUrls);
+        startTransition(() =>
+          setRenderHtml(rewriteInlineImageSources(rewrittenHtml, inlineImages)),
+        );
       },
       () => {
         if (cancelled) return;
@@ -51,27 +100,38 @@ export function HtmlEmail({ html }: { html: string }) {
 
     return () => {
       cancelled = true;
-      controller.abort();
+      for (const objectUrl of objectUrls) URL.revokeObjectURL(objectUrl);
     };
-  }, [sanitizedHtml]);
+  }, [emailAccountId, inlineAttachments, messageId, sanitizedHtml]);
 
-  const { mainContent, hasReplies } = useMemo(
-    () => getEmailContent(renderHtml),
+  const { mainContent, hasQuotedContent } = useMemo(
+    () => splitEmailContent(renderHtml),
     [renderHtml],
   );
 
+  const displayedHtml = showReplies ? renderHtml : mainContent;
+  const documentKey = useMemo(
+    () => getIframeDocumentKey(displayedHtml, isDarkMode),
+    [displayedHtml, isDarkMode],
+  );
   const srcDoc = useMemo(
     () =>
       getIframeHtml(
-        showReplies ? renderHtml : mainContent,
+        displayedHtml,
         isDarkMode,
         IMAGE_PROXY_BASE_URL,
         IMAGE_PROXY_ORIGIN,
+        documentKey,
       ),
-    [renderHtml, mainContent, showReplies, isDarkMode],
+    [displayedHtml, isDarkMode, documentKey],
   );
 
-  const iframeHeight = useIframeHeight(iframeRef);
+  const iframeHeight = useEmailIframe(iframeRef, srcDoc, documentKey, {
+    onForwardMessage,
+    onNavigateMessage,
+    onReplyMessage,
+    onFocusMessage,
+  });
 
   return (
     <div className="relative min-w-0 overflow-x-hidden">
@@ -79,18 +139,23 @@ export function HtmlEmail({ html }: { html: string }) {
         ref={iframeRef}
         srcDoc={srcDoc}
         className="min-h-0 w-full"
-        style={{ height: `${iframeHeight + 3}px` }}
+        height={1}
+        style={iframeHeight ? { height: `${iframeHeight}px` } : undefined}
         title="Email content preview"
         sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
         referrerPolicy="no-referrer"
       />
-      {hasReplies && (
+      {hasQuotedContent && (
         <button
           type="button"
-          className="absolute bottom-0 left-0 text-muted-foreground hover:text-foreground"
+          aria-expanded={showReplies}
+          aria-label={
+            showReplies ? "Hide quoted content" : "Show quoted content"
+          }
+          className="mt-1 inline-flex h-5 items-center rounded-full bg-muted px-2 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
           onClick={() => setShowReplies(!showReplies)}
         >
-          ...
+          <EllipsisIcon className="size-4" />
         </button>
       )}
     </div>
@@ -98,30 +163,34 @@ export function HtmlEmail({ html }: { html: string }) {
 }
 
 export function PlainEmail({ text }: { text: string }) {
+  const segments = useMemo(
+    () => linkifyPlainText(decodeHtmlEntities(text)),
+    [text],
+  );
+
   return (
-    <pre className="whitespace-pre-wrap text-foreground">
-      {decodeHtmlEntities(text)}
+    // `pre` keeps the sender's line breaks; the font stack keeps it readable.
+    <pre
+      className="whitespace-pre-wrap font-sans text-foreground [overflow-wrap:anywhere]"
+      style={BODY_TYPE}
+    >
+      {segments.map((segment, index) =>
+        segment.type === "link" ? (
+          <a
+            className="text-primary underline underline-offset-2"
+            href={segment.href}
+            key={`${segment.href}-${index}`}
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            {segment.text}
+          </a>
+        ) : (
+          segment.text
+        ),
+      )}
     </pre>
   );
-}
-
-function getEmailContent(html: string) {
-  const doc = new DOMParser().parseFromString(html, "text/html");
-  const quoteContainer = doc.querySelector(".gmail_quote_container");
-
-  if (!quoteContainer) {
-    return { mainContent: html, hasReplies: false };
-  }
-
-  // Clone the document and remove the quote container
-  const mainDoc = doc.cloneNode(true) as Document;
-  const mainQuoteContainer = mainDoc.querySelector(".gmail_quote_container");
-  mainQuoteContainer?.remove();
-
-  return {
-    mainContent: mainDoc.body.innerHTML,
-    hasReplies: true,
-  };
 }
 
 function getIframeHtml(
@@ -129,6 +198,7 @@ function getIframeHtml(
   isDarkMode: boolean,
   imageProxyBaseUrl: string | null,
   imageProxyOrigin: string | null,
+  documentKey: string,
 ) {
   // Count style attributes safely
   const styleAttributeCount = (html.match(/style=/g) || []).length;
@@ -161,6 +231,7 @@ function getIframeHtml(
       body {
         background-color: white;
         font-family: ${SANS_FONT_STACK};
+        overflow-wrap: anywhere;
       }
       table { max-width: 100% !important; overflow-x: auto; }
       img { max-width: 100% !important; height: auto; }
@@ -189,9 +260,12 @@ function getIframeHtml(
       /* Base styles - apply our font as a baseline; inline styles on inner elements still win */
       body {
         font-family: ${SANS_FONT_STACK};
+        overflow-wrap: anywhere;
       }
       body:not([style]):not([bgcolor]) {
         margin: 0;
+        font-size: ${BODY_TYPE.fontSize};
+        line-height: ${BODY_TYPE.lineHeight};
         color: hsl(var(--foreground));
         background-color: hsl(var(--background));
       }
@@ -234,12 +308,15 @@ function getIframeHtml(
     imageProxyBaseUrl && imageProxyOrigin && html.includes(imageProxyBaseUrl)
       ? imageProxyOrigin
       : "https:";
+  const localImageSourceDirective = html.includes("blob:")
+    ? "data: blob:"
+    : "data:";
 
   const securityHeaders = `
     <meta http-equiv="Content-Security-Policy" content="
       default-src 'none';
       style-src 'unsafe-inline';
-      img-src data: ${imageSourceDirective};
+      img-src ${localImageSourceDirective} ${imageSourceDirective};
       font-src 'none';
       media-src 'none';
       connect-src 'none';
@@ -256,7 +333,7 @@ function getIframeHtml(
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
   `;
 
-  const headContent = `${securityHeaders}${defaultFontStyles}<base target="_blank" rel="noopener noreferrer">`;
+  const headContent = `<meta name="${EMAIL_DOCUMENT_MARKER}" content="${documentKey}">${securityHeaders}${defaultFontStyles}<base target="_blank" rel="noopener noreferrer">`;
 
   function wrapWithProperStructure(content: string) {
     if (content.indexOf("<html") === -1) {
@@ -281,23 +358,51 @@ function getIframeHtml(
   return addDarkModeClass(htmlWithHead, isDarkMode);
 }
 
-const sanitize = (html: string) =>
-  DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
+async function loadInlineImageSources({
+  emailAccountId,
+  html,
+  inlineAttachments,
+  messageId,
+}: {
+  emailAccountId?: string;
+  html: string;
+  inlineAttachments: ParsedMessage["inline"];
+  messageId: string;
+}): Promise<Record<string, string>> {
+  if (!emailAccountId || !inlineAttachments.length) return {};
 
-async function rewriteHtmlWithProxy(html: string, signal: AbortSignal) {
-  const response = await fetch(IMAGE_PROXY_RENDER_ROUTE, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({ html }),
-    signal,
-  });
+  const attachmentByContentId = new Map<
+    string,
+    ParsedMessage["inline"][number]
+  >();
+  for (const attachment of inlineAttachments) {
+    const contentId = normalizeContentId(attachment.headers["content-id"]);
+    if (contentId) attachmentByContentId.set(contentId, attachment);
+  }
 
-  if (!response.ok) return html;
+  const entries = await Promise.all(
+    getInlineImageContentIds(html).map(async (contentId) => {
+      const attachment = attachmentByContentId.get(contentId);
+      if (!attachment?.attachmentId) return;
 
-  const data = await response.json();
-  return typeof data?.html === "string" ? data.html : html;
+      try {
+        const blob = await fetchAttachment({
+          emailAccountId,
+          url: getAttachmentUrl({
+            messageId,
+            attachmentId: attachment.attachmentId,
+            mimeType: attachment.mimeType,
+            filename: attachment.filename,
+          }),
+        });
+        return [contentId, URL.createObjectURL(blob)] as const;
+      } catch {
+        return;
+      }
+    }),
+  );
+
+  return Object.fromEntries(entries.filter((entry) => entry !== undefined));
 }
 
 function addDarkModeClass(html: string, isDarkMode: boolean) {
@@ -336,44 +441,155 @@ function addDarkModeClass(html: string, isDarkMode: boolean) {
   }
 }
 
-function useIframeHeight(iframeRef: React.RefObject<HTMLIFrameElement | null>) {
-  const [height, setHeight] = useState(0);
+function useEmailIframe(
+  iframeRef: React.RefObject<HTMLIFrameElement | null>,
+  srcDoc: string,
+  documentKey: string,
+  callbacks: {
+    onForwardMessage?: () => void;
+    onReplyMessage?: () => void;
+    onNavigateMessage?: (direction: -1 | 1) => void;
+    onFocusMessage?: () => void;
+  },
+) {
+  const callbacksRef = useRef(callbacks);
+  callbacksRef.current = callbacks;
+  const [measurement, setMeasurement] = useState<{
+    documentKey: string;
+    height: number;
+  }>();
 
   useEffect(() => {
-    let attempts = 0;
-    const maxAttempts = 5;
-    const initialDelay = 100;
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+    let animationFrameId: number | undefined;
+    let observedRoot: HTMLElement | null = null;
+    let observedDocument: Document | null = null;
+
+    const selectMessage = () => callbacksRef.current.onFocusMessage?.();
+    const navigateMessage = (event: KeyboardEvent) => {
+      const navigate = callbacksRef.current.onNavigateMessage;
+      const reply = callbacksRef.current.onReplyMessage;
+      const forward = callbacksRef.current.onForwardMessage;
+      const key = event.key.toLowerCase();
+      const isNavigationKey = ["ArrowUp", "ArrowDown"].includes(event.key);
+      const handlesKey =
+        (event.key === "Enter" && Boolean(reply)) ||
+        (key === "f" && Boolean(forward)) ||
+        (isNavigationKey && Boolean(navigate));
+      if (
+        !handlesKey ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.shiftKey ||
+        event.isComposing ||
+        observedDocument?.getSelection()?.isCollapsed === false
+      )
+        return;
+      const target = event.target as HTMLElement | null;
+      if (
+        target?.closest?.(
+          'input, textarea, select, [contenteditable]:not([contenteditable="false"])',
+        )
+      )
+        return;
+      if (event.key === "Enter" && target?.closest?.("a, button")) return;
+      event.preventDefault();
+      if (event.key === "Enter") reply?.();
+      else if (key === "f") forward?.();
+      else navigate?.(event.key === "ArrowUp" ? -1 : 1);
+    };
+    const stopObservingDocument = () => {
+      observedDocument?.removeEventListener("keydown", navigateMessage);
+      observedDocument?.removeEventListener("pointerdown", selectMessage);
+      observedDocument?.removeEventListener("focusin", selectMessage);
+    };
 
     const updateHeight = () => {
-      try {
-        if (iframeRef.current?.contentWindow) {
-          const newHeight =
-            iframeRef.current.contentWindow.document.documentElement
-              ?.scrollHeight;
-          if (newHeight) {
-            setHeight(newHeight);
-            return true;
-          }
-        }
-      } catch (error) {
-        console.error("Failed to get iframe height:", error);
-      }
-      return false;
+      const iframeDocument = iframe.contentDocument;
+      if (!iframeDocument) return;
+      const { body, documentElement } = iframeDocument;
+      if (!body || !documentElement) return;
+
+      const newHeight = Math.max(
+        documentElement.scrollHeight,
+        body.scrollHeight,
+      );
+      if (newHeight) setMeasurement({ documentKey, height: newHeight });
     };
 
-    const attemptUpdate = () => {
-      if (attempts >= maxAttempts) return;
+    const resizeObserver = new ResizeObserver(updateHeight);
 
-      const success = updateHeight();
-      if (!success) {
-        attempts++;
-        setTimeout(attemptUpdate, initialDelay * 2 ** attempts);
-      }
+    const observeDocument = () => {
+      if (iframe.srcdoc !== srcDoc) return false;
+      const iframeDocument = iframe.contentDocument;
+      if (!iframeDocument) return false;
+      const marker = iframeDocument.querySelector(
+        `meta[name="${EMAIL_DOCUMENT_MARKER}"]`,
+      );
+      if (marker?.getAttribute("content") !== documentKey) return false;
+      const { body, documentElement: root } = iframeDocument;
+      if (!body || !root) return false;
+      if (root === observedRoot) return true;
+
+      resizeObserver.disconnect();
+      stopObservingDocument();
+      observedDocument = iframeDocument;
+      observedDocument.addEventListener("keydown", navigateMessage);
+      observedDocument.addEventListener("pointerdown", selectMessage);
+      observedDocument.addEventListener("focusin", selectMessage);
+      observedRoot = root;
+      updateHeight();
+      resizeObserver.observe(root);
+      resizeObserver.observe(body);
+      return true;
     };
 
-    const initialTimeoutId = setTimeout(attemptUpdate, initialDelay);
-    return () => clearTimeout(initialTimeoutId);
-  }, [iframeRef?.current?.contentWindow]);
+    const stopWatchingForDocument = () => {
+      if (animationFrameId === undefined) return;
+      cancelAnimationFrame(animationFrameId);
+      animationFrameId = undefined;
+    };
 
-  return height;
+    const watchForDocument = () => {
+      if (observeDocument()) {
+        animationFrameId = undefined;
+        return;
+      }
+      animationFrameId = requestAnimationFrame(watchForDocument);
+    };
+
+    const onLoad = () => {
+      if (!observeDocument()) return;
+      updateHeight();
+      stopWatchingForDocument();
+    };
+
+    iframe.addEventListener("load", onLoad);
+    // `load` waits for remote images. Catch the `srcDoc` document swap first so
+    // its parsed layout can be measured while those images are still loading.
+    if (!observeDocument()) {
+      animationFrameId = requestAnimationFrame(watchForDocument);
+    }
+
+    return () => {
+      iframe.removeEventListener("load", onLoad);
+      stopWatchingForDocument();
+      resizeObserver.disconnect();
+      stopObservingDocument();
+    };
+  }, [iframeRef, srcDoc, documentKey]);
+
+  return measurement?.documentKey === documentKey ? measurement.height : 0;
+}
+
+function getIframeDocumentKey(html: string, isDarkMode: boolean) {
+  const source = `${isDarkMode ? "1" : "0"}:${html}`;
+  let hash = 2_166_136_261;
+  for (let index = 0; index < source.length; index += 1) {
+    hash ^= source.charCodeAt(index);
+    hash = Math.imul(hash, 16_777_619);
+  }
+  return `${source.length}-${(hash >>> 0).toString(36)}`;
 }

@@ -1,17 +1,23 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useCallback, useState } from "react";
+import { Suspense, useCallback, useState } from "react";
+import { usePostHog } from "posthog-js/react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { toastError, toastSuccess } from "@/components/Toast";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { normalizeInternalPath } from "@/utils/path";
 import type {
   GetSsoSignInParams,
   GetSsoSignInResponse,
 } from "@/app/api/sso/signin/route";
+import {
+  trackAuthFailure,
+  trackAuthStarted,
+} from "@/utils/analytics/auth-funnel";
 
 const ssoLoginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -27,7 +33,19 @@ const ssoLoginSchema = z.object({
 type SsoLoginBody = z.infer<typeof ssoLoginSchema>;
 
 export default function SSOLoginPage() {
+  return (
+    <Suspense>
+      <SSOLoginForm />
+    </Suspense>
+  );
+}
+
+function SSOLoginForm() {
+  const posthog = usePostHog();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const nextPath =
+    normalizeInternalPath(searchParams?.get("next")) ?? "/accounts";
   const {
     register,
     handleSubmit,
@@ -41,13 +59,17 @@ export default function SSOLoginPage() {
   const onSubmit: SubmitHandler<SsoLoginBody> = useCallback(
     async (data) => {
       setIsSubmitting(true);
+      trackAuthStarted(posthog, "sso");
       try {
         const params: GetSsoSignInParams = {
           email: data.email,
           organizationSlug: data.organizationSlug,
         };
 
-        const paramsString = new URLSearchParams(params).toString();
+        const paramsString = new URLSearchParams({
+          ...params,
+          next: nextPath,
+        }).toString();
         const url = new URL(
           `/api/sso/signin?${paramsString}`,
           window.location.origin,
@@ -57,6 +79,11 @@ export default function SSOLoginPage() {
         const responseData = await response.json();
 
         if (!response.ok) {
+          trackAuthFailure(posthog, {
+            provider: "sso",
+            stage: "start",
+            errorCode: "sso_start_rejected",
+          });
           toastError({
             title: "SSO Sign-in Error",
             description: responseData.error || "Failed to initiate SSO sign-in",
@@ -71,6 +98,11 @@ export default function SSOLoginPage() {
           router.push(res.redirectUrl);
         }
       } catch {
+        trackAuthFailure(posthog, {
+          provider: "sso",
+          stage: "start",
+          errorCode: "network_error",
+        });
         toastError({
           title: "SSO Sign-in Error",
           description: "An unexpected error occurred. Please try again.",
@@ -79,7 +111,7 @@ export default function SSOLoginPage() {
         setIsSubmitting(false);
       }
     },
-    [router],
+    [posthog, router, nextPath],
   );
 
   return (

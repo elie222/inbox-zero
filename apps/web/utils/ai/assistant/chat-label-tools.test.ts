@@ -138,6 +138,69 @@ describe("chat label tools", () => {
     expect(getLabels).toHaveBeenCalledWith();
   });
 
+  it("reuses a unique nested Gmail label when given its leaf name", async () => {
+    const getLabels = vi.fn().mockResolvedValue([
+      { id: "label-parent", name: "L3", type: "user" },
+      { id: "label-child", name: "L3/L4", type: "user" },
+    ]);
+    const createLabel = vi.fn();
+
+    vi.mocked(createEmailProvider).mockResolvedValue(
+      createMockEmailProvider({
+        getLabels,
+        createLabel,
+      }),
+    );
+
+    const toolInstance = createOrGetLabelTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    const result = await (toolInstance.execute as any)({ name: "L4" });
+
+    expect(result).toEqual({
+      created: false,
+      label: { id: "label-child", name: "L3/L4", type: "user" },
+    });
+    expect(createLabel).not.toHaveBeenCalled();
+  });
+
+  it("does not create a Gmail label when its leaf name is ambiguous", async () => {
+    const getLabels = vi.fn().mockResolvedValue([
+      { id: "label-1", name: "L3/L4", type: "user" },
+      { id: "label-2", name: "Projects/L4", type: "user" },
+    ]);
+    const createLabel = vi.fn();
+
+    vi.mocked(createEmailProvider).mockResolvedValue(
+      createMockEmailProvider({
+        getLabels,
+        createLabel,
+      }),
+    );
+
+    const toolInstance = createOrGetLabelTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "google",
+      logger,
+    });
+
+    const result = await (toolInstance.execute as any)({ name: "L4" });
+
+    expect(result).toEqual({
+      error: 'Multiple Gmail labels match "L4". Use the full label path.',
+      labels: [
+        { id: "label-1", name: "L3/L4", type: "user" },
+        { id: "label-2", name: "Projects/L4", type: "user" },
+      ],
+    });
+    expect(createLabel).not.toHaveBeenCalled();
+  });
+
   it("creates a label when no visible or hidden normalized match exists", async () => {
     const getLabels = vi
       .fn()

@@ -4,6 +4,7 @@ import {
   isRetryableError,
   calculateRetryDelay,
   withGmailRetry,
+  withGmailNonIdempotentWriteRetry,
   MAX_GMAIL_BLOCKING_RETRY_DELAY_MS,
 } from "./retry";
 import { sleep } from "@/utils/sleep";
@@ -317,6 +318,35 @@ describe("Gmail retry helpers", () => {
 
       expect(operation).toHaveBeenCalledTimes(1);
       expect(sleep).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("withGmailNonIdempotentWriteRetry", () => {
+    it("retries an explicit throttle rejection", async () => {
+      const error = Object.assign(new Error("rate limit exceeded"), {
+        status: 429,
+      });
+      const operation = vi
+        .fn()
+        .mockRejectedValueOnce(error)
+        .mockResolvedValue("sent");
+
+      await expect(
+        withGmailNonIdempotentWriteRetry(operation, 1),
+      ).resolves.toBe("sent");
+      expect(operation).toHaveBeenCalledTimes(2);
+    });
+
+    it.each([
+      Object.assign(new Error("service unavailable"), { status: 503 }),
+      Object.assign(new Error("fetch failed"), { code: "ECONNRESET" }),
+    ])("does not retry an ambiguous failure", async (error) => {
+      const operation = vi.fn().mockRejectedValue(error);
+
+      await expect(withGmailNonIdempotentWriteRetry(operation, 5)).rejects.toBe(
+        error,
+      );
+      expect(operation).toHaveBeenCalledOnce();
     });
   });
 });

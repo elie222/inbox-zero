@@ -22,6 +22,7 @@ vi.mock("@better-auth/sso/client", () => ({
 }));
 
 vi.mock("better-auth/client/plugins", () => ({
+  emailOTPClient: vi.fn(() => "email-otp-client"),
   genericOAuthClient: vi.fn(() => "generic-oauth-client"),
   organizationClient: vi.fn(() => "organization-client"),
 }));
@@ -36,7 +37,7 @@ describe("auth-client", () => {
     await import("./auth-client");
 
     expect(mockCreateAuthClient).toHaveBeenCalledWith({
-      plugins: ["sso-client", "organization-client"],
+      plugins: ["sso-client", "organization-client", "email-otp-client"],
     });
   });
 });

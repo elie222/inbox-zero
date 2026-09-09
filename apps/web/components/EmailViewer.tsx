@@ -13,8 +13,13 @@ import { isGoogleProvider } from "@/utils/email/provider-types";
 export function EmailViewer() {
   const { provider } = useAccount();
 
-  const { threadId, showEmail, showReplyButton, autoOpenReplyForMessageId } =
-    useDisplayedEmail();
+  const {
+    threadId,
+    showEmail,
+    showReplyButton,
+    autoOpenForwardForMessageId,
+    autoOpenReplyForMessageId,
+  } = useDisplayedEmail();
 
   const hideEmail = useCallback(() => showEmail(null), [showEmail]);
   const supportsViewerReplies = isGoogleProvider(provider);
@@ -24,7 +29,7 @@ export function EmailViewer() {
       <SheetContent
         side="right"
         size="5xl"
-        className="overflow-y-auto bg-slate-100 p-0"
+        className="overflow-y-auto bg-background p-6"
         overlay="transparent"
       >
         {threadId && (
@@ -34,6 +39,11 @@ export function EmailViewer() {
             autoOpenReplyForMessageId={
               supportsViewerReplies
                 ? (autoOpenReplyForMessageId ?? undefined)
+                : undefined
+            }
+            autoOpenForwardForMessageId={
+              supportsViewerReplies
+                ? (autoOpenForwardForMessageId ?? undefined)
                 : undefined
             }
           />
@@ -47,21 +57,18 @@ export function ThreadContent({
   threadId,
   showReplyButton,
   autoOpenReplyForMessageId,
+  autoOpenForwardForMessageId,
   topRightComponent,
   onSendSuccess,
 }: {
   threadId: string;
   showReplyButton: boolean;
   autoOpenReplyForMessageId?: string;
+  autoOpenForwardForMessageId?: string;
   topRightComponent?: React.ReactNode;
   onSendSuccess?: (messageId: string, threadId: string) => void;
 }) {
-  const { data, isLoading, error, mutate } = useThread(
-    { id: threadId },
-    {
-      includeDrafts: true,
-    },
-  );
+  const { data, isLoading, error, mutate } = useThread({ id: threadId });
 
   return (
     <ErrorBoundary extra={{ component: "ThreadContent", threadId }}>
@@ -73,6 +80,7 @@ export function ThreadContent({
             refetch={mutate}
             showReplyButton={showReplyButton}
             autoOpenReplyForMessageId={autoOpenReplyForMessageId}
+            autoOpenForwardForMessageId={autoOpenForwardForMessageId}
             topRightComponent={topRightComponent}
             onSendSuccess={onSendSuccess}
             withHeader

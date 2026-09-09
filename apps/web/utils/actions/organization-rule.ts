@@ -39,7 +39,7 @@ export const createOrganizationRuleAction = actionClientUser
       const organizationRule = await createOrganizationRule({
         organizationId,
         data: rest,
-        actions: toActionInputs(actions),
+        actions: toActionInputs(actions, { includeIds: false }),
         logger,
       });
 
@@ -65,7 +65,7 @@ export const updateOrganizationRuleAction = actionClientUser
         organizationRuleId,
         organizationId,
         data: rest,
-        actions: toActionInputs(actions),
+        actions: toActionInputs(actions, { includeIds: true }),
         logger,
       });
     },
@@ -129,8 +129,10 @@ export const setMemberOrganizationRuleEnabledAction = actionClient
 
 function toActionInputs(
   actions: OrganizationRuleActionSchema[],
+  { includeIds }: { includeIds: boolean },
 ): OrganizationRuleActionInput[] {
   return actions.map((action) => ({
+    ...(includeIds && action.id ? { id: action.id } : {}),
     type: action.type,
     label: action.label ?? null,
     subject: action.subject ?? null,

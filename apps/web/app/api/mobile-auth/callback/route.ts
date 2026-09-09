@@ -40,6 +40,13 @@ export const GET = withError("mobile-auth/callback", async (request) => {
     );
   }
 
+  if (session.session.emailOtp) {
+    throw new SafeError(
+      "Sign in with your connected provider to connect the mobile app.",
+      403,
+    );
+  }
+
   const code = await createMobileAuthCode({
     state: query.state,
     userId,

@@ -1,7 +1,13 @@
 /** @vitest-environment jsdom */
 
 import React from "react";
-import { cleanup, render, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next-themes", () => ({
@@ -20,9 +26,40 @@ import { HtmlEmail, PlainEmail } from "./EmailContents";
 
 (globalThis as { React?: typeof React }).React = React;
 
+let triggerResize: (() => void) | undefined;
+let animationFrames: Array<{ callback: FrameRequestCallback; id: number }> = [];
+let nextAnimationFrameId = 0;
+
+class MockResizeObserver {
+  constructor(callback: ResizeObserverCallback) {
+    triggerResize = () => callback([], this);
+  }
+
+  disconnect() {}
+  observe() {}
+  unobserve() {}
+}
+
 describe("HtmlEmail", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    animationFrames = [];
+    nextAnimationFrameId = 0;
+    vi.stubGlobal("ResizeObserver", MockResizeObserver);
+    vi.stubGlobal(
+      "requestAnimationFrame",
+      vi.fn((callback: FrameRequestCallback) => {
+        const id = ++nextAnimationFrameId;
+        animationFrames.push({ callback, id });
+        return id;
+      }),
+    );
+    vi.stubGlobal(
+      "cancelAnimationFrame",
+      vi.fn((id: number) => {
+        animationFrames = animationFrames.filter((frame) => frame.id !== id);
+      }),
+    );
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
@@ -34,22 +71,29 @@ describe("HtmlEmail", () => {
 
   afterEach(() => {
     cleanup();
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
-  it("requests fresh rewritten html after remounting the same email", async () => {
+  it("reuses prepared html without collapsing while measuring the iframe", async () => {
     const html = "<p>Hello</p>";
 
-    const firstRender = render(<HtmlEmail html={html} />);
+    const firstRender = render(<HtmlEmail html={html} messageId="message-1" />);
     await waitFor(() => {
       expect(fetch).toHaveBeenCalledTimes(1);
     });
     firstRender.unmount();
 
-    render(<HtmlEmail html={html} />);
+    const { getByTitle } = render(
+      <HtmlEmail html={html} messageId="message-1" />,
+    );
     await waitFor(() => {
-      expect(fetch).toHaveBeenCalledTimes(2);
+      expect(fetch).toHaveBeenCalledTimes(1);
     });
+
+    const iframe = getByTitle("Email content preview") as HTMLIFrameElement;
+    expect(iframe.getAttribute("srcdoc")).toContain("<p>proxied</p>");
+    expect(iframe.style.height).toBe("");
   });
 
   it("keeps https images allowed when proxy rewriting leaves the html unchanged", async () => {
@@ -64,7 +108,10 @@ describe("HtmlEmail", () => {
     );
 
     const { getByTitle } = render(
-      <HtmlEmail html={'<img src="https://cdn.example.com/photo.png" />'} />,
+      <HtmlEmail
+        html={'<img src="https://cdn.example.com/photo.png" />'}
+        messageId="message-2"
+      />,
     );
 
     await waitFor(() => {
@@ -87,7 +134,10 @@ describe("HtmlEmail", () => {
     );
 
     const { getByTitle } = render(
-      <HtmlEmail html={'<img src="https://cdn.example.com/photo.png" />'} />,
+      <HtmlEmail
+        html={'<img src="https://cdn.example.com/photo.png" />'}
+        messageId="message-3"
+      />,
     );
 
     await waitFor(() => {
@@ -100,6 +150,236 @@ describe("HtmlEmail", () => {
         "img-src data: https://app.example.com;",
       );
     });
+  });
+
+  it("does not grow when the document reports the iframe viewport height", async () => {
+    vi.mocked(fetch).mockReturnValue(new Promise(() => {}));
+    const { getByTitle } = render(
+      <HtmlEmail html="<p>Short reply</p>" messageId="short-reply" />,
+    );
+    const iframe = getByTitle("Email content preview") as HTMLIFrameElement;
+    Object.defineProperty(
+      iframe.contentDocument!.documentElement,
+      "scrollHeight",
+      {
+        configurable: true,
+        get: () => Math.max(40, Number.parseFloat(iframe.style.height) || 0),
+      },
+    );
+    addEmailDocumentMarker(iframe, iframe.contentDocument);
+    iframe.dispatchEvent(new Event("load"));
+    await waitFor(() =>
+      expect(Number.parseFloat(iframe.style.height)).toBeGreaterThanOrEqual(40),
+    );
+    const initialHeight = iframe.style.height;
+    act(() => triggerResize?.());
+    expect(iframe.style.height).toBe(initialHeight);
+  });
+
+  it("expands when an image increases the iframe document height after loading", async () => {
+    vi.mocked(fetch).mockReturnValue(new Promise(() => {}));
+    const { getByTitle } = render(
+      <HtmlEmail
+        html='<img src="https://cdn.example.com/tall-image.png" />'
+        messageId="message-tall-image"
+      />,
+    );
+    const iframe = getByTitle("Email content preview") as HTMLIFrameElement;
+    let contentHeight = 40;
+
+    Object.defineProperty(
+      iframe.contentDocument!.documentElement,
+      "scrollHeight",
+      {
+        configurable: true,
+        get: () => contentHeight,
+      },
+    );
+    addEmailDocumentMarker(iframe, iframe.contentDocument);
+
+    iframe.dispatchEvent(new Event("load"));
+    await waitFor(() =>
+      expect(Number.parseFloat(iframe.style.height)).toBeGreaterThanOrEqual(40),
+    );
+
+    contentHeight = 640;
+    act(() => triggerResize?.());
+
+    await waitFor(() =>
+      expect(Number.parseFloat(iframe.style.height)).toBeGreaterThanOrEqual(
+        640,
+      ),
+    );
+  });
+
+  it("forwards with F while focus is inside the email document", () => {
+    vi.mocked(fetch).mockReturnValue(new Promise(() => {}));
+    const onForwardMessage = vi.fn();
+    const { getByTitle } = render(
+      <HtmlEmail
+        html="<p>Message body</p>"
+        messageId="message-forward"
+        onForwardMessage={onForwardMessage}
+      />,
+    );
+    const iframe = getByTitle("Email content preview") as HTMLIFrameElement;
+    addEmailDocumentMarker(iframe, iframe.contentDocument);
+    iframe.dispatchEvent(new Event("load"));
+
+    fireEvent.keyDown(iframe.contentDocument!.body, { key: "f" });
+
+    expect(onForwardMessage).toHaveBeenCalledOnce();
+  });
+
+  it("remeasures from a minimal height when quoted content is toggled", async () => {
+    vi.mocked(fetch).mockReturnValue(new Promise(() => {}));
+    const { getByRole, getByTitle } = render(
+      <HtmlEmail
+        html={
+          '<div>Current reply</div><div class="gmail_quote"><div>Earlier message</div></div>'
+        }
+        messageId="message-with-quote"
+      />,
+    );
+    const iframe = getByTitle("Email content preview") as HTMLIFrameElement;
+    let contentHeight = 40;
+
+    Object.defineProperty(
+      iframe.contentDocument!.documentElement,
+      "scrollHeight",
+      {
+        configurable: true,
+        get: () => contentHeight,
+      },
+    );
+    Object.defineProperty(iframe.contentDocument!.body, "scrollHeight", {
+      configurable: true,
+      get: () => contentHeight,
+    });
+    addEmailDocumentMarker(iframe, iframe.contentDocument);
+    iframe.dispatchEvent(new Event("load"));
+
+    await waitFor(() => expect(iframe.style.height).toBe("40px"));
+
+    fireEvent.click(getByRole("button", { name: "Show quoted content" }));
+
+    expect(iframe.style.height).toBe("");
+    expect(iframe.getAttribute("height")).toBe("1");
+
+    contentHeight = 640;
+    addEmailDocumentMarker(iframe, iframe.contentDocument);
+    iframe.dispatchEvent(new Event("load"));
+    await waitFor(() => expect(iframe.style.height).toBe("640px"));
+
+    fireEvent.click(getByRole("button", { name: "Hide quoted content" }));
+
+    expect(iframe.style.height).toBe("");
+    expect(iframe.getAttribute("height")).toBe("1");
+
+    contentHeight = 40;
+    addEmailDocumentMarker(iframe, iframe.contentDocument);
+    iframe.dispatchEvent(new Event("load"));
+    await waitFor(() => expect(iframe.style.height).toBe("40px"));
+  });
+
+  it("keeps watching until the email document replaces the placeholder", async () => {
+    vi.mocked(fetch).mockReturnValue(new Promise(() => {}));
+    const { getByTitle } = render(
+      <HtmlEmail html="<p>Long email</p>" messageId="message-loading" />,
+    );
+    const iframe = getByTitle("Email content preview") as HTMLIFrameElement;
+    let iframeDocument = iframe.contentDocument;
+    const emailDocument = document.implementation.createHTMLDocument("email");
+    addEmailDocumentMarker(iframe, emailDocument);
+
+    Object.defineProperty(emailDocument.documentElement, "scrollHeight", {
+      configurable: true,
+      value: 640,
+    });
+    Object.defineProperty(emailDocument.body, "scrollHeight", {
+      configurable: true,
+      value: 640,
+    });
+    Object.defineProperty(iframe, "contentDocument", {
+      configurable: true,
+      get: () => iframeDocument,
+    });
+
+    await waitFor(() => expect(animationFrames).not.toHaveLength(0));
+    iframe.dispatchEvent(new Event("load"));
+
+    expect(animationFrames).not.toHaveLength(0);
+    for (let frame = 0; frame < 10; frame += 1) {
+      act(() => animationFrames.shift()?.callback(frame));
+    }
+    expect(animationFrames).not.toHaveLength(0);
+
+    iframeDocument = emailDocument;
+    act(() => animationFrames.shift()?.callback(0));
+    expect(animationFrames).toHaveLength(0);
+
+    await waitFor(() =>
+      expect(Number.parseFloat(iframe.style.height)).toBeGreaterThanOrEqual(
+        640,
+      ),
+    );
+  });
+
+  it("resolves authenticated cid images to temporary local URLs", async () => {
+    const html = '<img src="cid:screenshot@inboxzero.local" />';
+    const objectUrl = "blob:https://app.example.com/inline-image";
+    const createObjectUrl = vi
+      .spyOn(URL, "createObjectURL")
+      .mockReturnValue(objectUrl);
+    const revokeObjectUrl = vi.spyOn(URL, "revokeObjectURL");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (input: string) =>
+        input === "/api/email/render-html"
+          ? {
+              ok: true,
+              json: async () => ({ html }),
+            }
+          : {
+              ok: true,
+              blob: async () => new Blob(["image"], { type: "image/png" }),
+            },
+      ),
+    );
+
+    const { getByTitle, unmount } = render(
+      <HtmlEmail
+        emailAccountId="account-1"
+        html={html}
+        inlineAttachments={[
+          {
+            attachmentId: "attachment-1",
+            filename: "screenshot.png",
+            headers: {
+              "content-description": "",
+              "content-id": "<screenshot@inboxzero.local>",
+              "content-transfer-encoding": "base64",
+              "content-type": "image/png",
+            },
+            mimeType: "image/png",
+            size: 5,
+          },
+        ]}
+        messageId="message-inline"
+      />,
+    );
+
+    const iframe = getByTitle("Email content preview");
+    await waitFor(() => {
+      expect(iframe.getAttribute("srcdoc")).toContain(`src="${objectUrl}"`);
+      expect(iframe.getAttribute("srcdoc")).toContain(
+        "img-src data: blob: https:;",
+      );
+    });
+    expect(createObjectUrl).toHaveBeenCalledOnce();
+
+    unmount();
+    expect(revokeObjectUrl).toHaveBeenCalledWith(objectUrl);
   });
 });
 
@@ -118,3 +398,20 @@ describe("PlainEmail", () => {
     expect(container.textContent).not.toContain("&#39;");
   });
 });
+
+function addEmailDocumentMarker(
+  iframe: HTMLIFrameElement,
+  targetDocument: Document | null,
+) {
+  if (!targetDocument) throw new Error("Expected an iframe document");
+  const marker = new DOMParser()
+    .parseFromString(iframe.srcdoc, "text/html")
+    .querySelector('meta[name="inbox-zero-email-document"]');
+  if (!marker) throw new Error("Expected an email document marker");
+  for (const existingMarker of targetDocument.querySelectorAll(
+    'meta[name="inbox-zero-email-document"]',
+  )) {
+    existingMarker.remove();
+  }
+  targetDocument.head.append(marker.cloneNode());
+}

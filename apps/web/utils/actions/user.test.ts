@@ -1,3 +1,4 @@
+import { withThreadPageBufferDeletion } from "@/utils/redis/thread-page-buffer";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Prisma } from "@/generated/prisma/client";
 import prisma from "@/utils/__mocks__/prisma";
@@ -8,6 +9,9 @@ import { deleteUser } from "@/utils/user/delete";
 import { deleteAccountAction, deleteEmailAccountAction } from "./user";
 
 vi.mock("@/utils/prisma");
+vi.mock("@/utils/redis/thread-page-buffer", () => ({
+  withThreadPageBufferDeletion: vi.fn(async (_ids, operation) => operation()),
+}));
 vi.mock("@/utils/auth", () => ({
   auth: vi.fn(async () => ({
     user: { id: "user-1", email: "primary@example.com" },
@@ -59,6 +63,22 @@ describe("deleteEmailAccountAction", () => {
     } as Awaited<ReturnType<typeof prisma.emailAccount.findUnique>>);
   });
 
+  it("keeps the account when its page buffers cannot be deleted", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      email: "secondary@example.com",
+      accountId: "account-1",
+      user: { email: "primary@example.com" },
+    } as Awaited<ReturnType<typeof prisma.emailAccount.findUnique>>);
+    vi.mocked(withThreadPageBufferDeletion).mockRejectedValueOnce(
+      new Error("Unavailable"),
+    );
+    const result = await deleteEmailAccountAction({
+      emailAccountId: "secondary-account",
+    });
+    expect(result?.serverError).toBeDefined();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
   it("promotes another account before deleting the primary account", async () => {
     prisma.emailAccount.findMany.mockResolvedValue([
       {
@@ -74,6 +94,13 @@ describe("deleteEmailAccountAction", () => {
     });
 
     expect(result?.serverError).toBeUndefined();
+    expect(withThreadPageBufferDeletion).toHaveBeenCalledWith(
+      ["primary-email-account"],
+      expect.any(Function),
+    );
+    expect(
+      vi.mocked(withThreadPageBufferDeletion).mock.invocationCallOrder[0],
+    ).toBeLessThan(prisma.$transaction.mock.invocationCallOrder[0]);
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
     expect(prisma.$queryRaw).toHaveBeenCalledWith(
       expect.arrayContaining([
@@ -274,6 +301,54 @@ describe("deleteEmailAccountAction", () => {
     expect(prisma.emailAccount.delete).not.toHaveBeenCalled();
     expect(prisma.account.delete).not.toHaveBeenCalled();
     expect(updateAccountSeats).not.toHaveBeenCalled();
+  });
+
+  it("deletes an admin membership before deleting its email account when another owner remains", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      email: "admin@example.com",
+      accountId: "account-2",
+      user: { email: "owner@example.com" },
+    } as Awaited<ReturnType<typeof prisma.emailAccount.findUnique>>);
+    prisma.member.findMany.mockResolvedValue([
+      { organizationId: "org-1" },
+    ] as Awaited<ReturnType<typeof prisma.member.findMany>>);
+    prisma.organization.findMany.mockResolvedValue([
+      {
+        id: "org-1",
+        name: "Org",
+        members: [
+          { emailAccountId: "owner-email-account", role: "owner" },
+          { emailAccountId: "admin-email-account", role: "admin" },
+        ],
+      },
+    ] as Awaited<ReturnType<typeof prisma.organization.findMany>>);
+
+    const result = await deleteEmailAccountAction({
+      emailAccountId: "admin-email-account",
+    });
+
+    expect(result?.serverError).toBeUndefined();
+    expect(prisma.member.deleteMany).toHaveBeenCalledWith({
+      where: {
+        emailAccountId: "admin-email-account",
+        organizationId: { notIn: [] },
+      },
+    });
+    expect(prisma.member.deleteMany.mock.invocationCallOrder[0]).toBeLessThan(
+      prisma.emailAccount.delete.mock.invocationCallOrder[0],
+    );
+    expect(prisma.emailAccount.delete).toHaveBeenCalledWith({
+      where: {
+        id: "admin-email-account",
+        userId: "user-1",
+        accountId: "account-2",
+        user: { email: "owner@example.com" },
+      },
+    });
+    expect(prisma.account.delete).toHaveBeenCalledWith({
+      where: { id: "account-2", userId: "user-1" },
+    });
+    expect(updateAccountSeats).toHaveBeenCalledWith({ userId: "user-1" });
   });
 
   it("deletes a solo organization before deleting its only email account", async () => {

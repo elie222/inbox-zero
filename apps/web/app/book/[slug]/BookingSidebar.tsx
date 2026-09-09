@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import type { GetPublicBookingLinkResponse } from "@/app/api/public/booking-links/[slug]/route";
 import { BookingLinkLocationType } from "@/generated/prisma/enums";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Command,
   CommandEmpty,
@@ -63,9 +64,12 @@ export function BookingSidebar({
   return (
     <div className="flex min-h-0 flex-col gap-4 overflow-y-auto p-4 sm:p-6 md:p-7">
       {backButton}
-      <div className="flex size-12 items-center justify-center rounded-full bg-blue-50 text-lg font-semibold text-blue-700 dark:bg-blue-950 dark:text-blue-300">
-        {initial}
-      </div>
+      <Avatar className="size-12">
+        <AvatarImage src={bookingLink.hostImage || undefined} alt={hostName} />
+        <AvatarFallback className="bg-blue-50 text-lg font-semibold text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+          {initial}
+        </AvatarFallback>
+      </Avatar>
       <div>
         <div className="text-sm text-muted-foreground">{hostName}</div>
         <h1 className="mt-0.5 break-words text-2xl font-medium tracking-tight text-foreground">

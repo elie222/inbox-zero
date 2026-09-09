@@ -9,7 +9,7 @@ import {
   isOllamaProvider,
 } from "@/utils/llms/ollama-guidance";
 import { getUserInfoPrompt, getUserRulesPrompt } from "@/utils/ai/helpers";
-import { sortRulesForAutomation } from "@/utils/rule/sort";
+import { sortRulesByCanonicalOrder } from "@/utils/rule/sort";
 import type { Logger } from "@/utils/logger";
 import type { ClassificationFeedbackItem } from "@/utils/rule/classification-feedback";
 
@@ -43,7 +43,7 @@ export async function aiChooseRule<
 }> {
   if (!rules.length) return { rules: [], reason: "No rules to evaluate" };
 
-  const orderedRules = sortRulesForAutomation(rules);
+  const orderedRules = sortRulesByCanonicalOrder(rules);
 
   const { result: aiResponse } = await getAiResponse({
     email,

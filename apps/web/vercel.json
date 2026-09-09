@@ -1,6 +1,6 @@
 {
   "buildCommand": "cd ../.. && if [ \"$VERCEL_ENV\" = preview ] && [ \"$IS_OAUTH_PROXY_SERVER\" != true ]; then NEXT_PUBLIC_BASE_URL=https://$VERCEL_URL turbo run build --force --filter={apps/web}...; else turbo run build --filter={apps/web}...; fi",
-  "installCommand": "cd ../.. && corepack enable && bash clone-marketing.sh && pnpm install --no-frozen-lockfile",
+  "installCommand": "cd ../.. && bash clone-marketing.sh && corepack pnpm install --filter '!@inboxzero/desktop' --no-frozen-lockfile",
   "ignoreCommand": "bash scripts/vercel-ignore-build.sh",
   "functions": {
     "app/api/follow-up-reminders/account/queue/route.ts": {
@@ -30,6 +30,24 @@
         }
       ]
     },
+    "app/api/meeting-recorder/transcript/queue/route.ts": {
+      "experimentalTriggers": [
+        {
+          "type": "queue/v2beta",
+          "topic": "meeting-recorder-transcript",
+          "retryAfterSeconds": 60
+        }
+      ]
+    },
+    "app/api/meeting-recorder/process/queue/route.ts": {
+      "experimentalTriggers": [
+        {
+          "type": "queue/v2beta",
+          "topic": "meeting-recorder-process",
+          "retryAfterSeconds": 60
+        }
+      ]
+    },
     "app/api/resend/digest/queue/route.ts": {
       "experimentalTriggers": [
         {
@@ -44,6 +62,24 @@
         {
           "type": "queue/v2beta",
           "topic": "resend-summary",
+          "retryAfterSeconds": 60
+        }
+      ]
+    },
+    "app/api/stripe/invoice-email/queue/route.ts": {
+      "experimentalTriggers": [
+        {
+          "type": "queue/v2beta",
+          "topic": "stripe-invoice-email",
+          "retryAfterSeconds": 60
+        }
+      ]
+    },
+    "app/api/resend/inbox-health/queue/route.ts": {
+      "experimentalTriggers": [
+        {
+          "type": "queue/v2beta",
+          "topic": "resend-inbox-health",
           "retryAfterSeconds": 60
         }
       ]
@@ -70,11 +106,23 @@
     },
     {
       "path": "/api/resend/digest/all",
-      "schedule": "0 * * * *"
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/resend/inbox-health/all",
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/resend/summary/all",
+      "schedule": "0 9 * * 1"
     },
     {
       "path": "/api/meeting-briefs",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/meeting-recorder/schedule",
+      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/follow-up-reminders",
@@ -87,6 +135,14 @@
     {
       "path": "/api/cron/reasoning-retention",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/mobile-push-retention",
+      "schedule": "30 3 * * *"
+    },
+    {
+      "path": "/api/cron/email-send-operation-retention",
+      "schedule": "45 3 * * *"
     },
     {
       "path": "/api/cron/draft-cleanup",

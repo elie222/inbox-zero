@@ -269,12 +269,6 @@ export const changeKeepToDoneAction = actionClient
         });
 
         if (thread) {
-          // await updateThread(userId, thread.jobId, threadId, {
-          //   archive: action === CleanAction.ARCHIVE,
-          //   status: "completed",
-          //   undone: true,
-          // });
-
           await updateThread({
             emailAccountId,
             jobId: thread.jobId,

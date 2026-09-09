@@ -1,4 +1,4 @@
-import { sendInvitationEmail } from "@inboxzero/resend";
+import { sendInvitationEmail } from "@inboxzero/transactional-email";
 import { generateSecureToken } from "@/utils/api-key";
 import { env } from "@/env";
 

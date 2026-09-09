@@ -1,14 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
+import { sendActionRequiredEmail } from "@inboxzero/transactional-email";
 import {
+  addUserErrorMessageWithNotification,
   clearAccountDisconnectedErrorIfResolved,
+  clearWatchLapsedErrorIfResolved,
   ErrorType,
   getUserErrorMessages,
+  watchLapsedErrorKey,
 } from "@/utils/error-messages";
 import { createTestLogger } from "@/__tests__/helpers";
 
 vi.mock("@/utils/prisma");
-vi.mock("@inboxzero/resend", () => ({
+vi.mock("@inboxzero/transactional-email", () => ({
   sendActionRequiredEmail: vi.fn(),
 }));
 vi.mock("@/env", () => ({
@@ -25,6 +29,7 @@ vi.mock("@/utils/unsubscribe", () => ({
 describe("getUserErrorMessages", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prisma.user.updateMany.mockResolvedValue({ count: 1 });
   });
 
   it("removes legacy trial AI limit errors from generic user errors", async () => {
@@ -88,6 +93,132 @@ describe("getUserErrorMessages", () => {
     expect(result).toEqual(errorMessages);
     expect(prisma.user.update).not.toHaveBeenCalled();
   });
+
+  it("persists the matching account link on a legacy disconnect error", async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      errorMessages: {
+        [ErrorType.ACCOUNT_DISCONNECTED]: {
+          message:
+            "Gmail is not enabled for user@example.com. Please enable Gmail for this account and reconnect it to resume automation.",
+          timestamp: "2026-08-05T12:00:00.000Z",
+        },
+      },
+    } as any);
+    prisma.emailAccount.findMany.mockResolvedValue([
+      { id: "email-account-1", email: "user@example.com" },
+      { id: "email-account-2", email: "other@example.com" },
+    ] as any);
+
+    const result = await getUserErrorMessages("user-1");
+
+    expect(result?.[ErrorType.ACCOUNT_DISCONNECTED]).toEqual(
+      expect.objectContaining({
+        actionUrl: "/email-account-1/permissions/consent",
+        actionLabel: "Reconnect account",
+      }),
+    );
+    expect(prisma.user.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "user-1",
+        errorMessages: {
+          equals: {
+            [ErrorType.ACCOUNT_DISCONNECTED]: {
+              message:
+                "Gmail is not enabled for user@example.com. Please enable Gmail for this account and reconnect it to resume automation.",
+              timestamp: "2026-08-05T12:00:00.000Z",
+            },
+          },
+        },
+      },
+      data: {
+        errorMessages: {
+          [ErrorType.ACCOUNT_DISCONNECTED]: expect.objectContaining({
+            actionUrl: "/email-account-1/permissions/consent",
+            actionLabel: "Reconnect account",
+          }),
+        },
+      },
+    });
+  });
+
+  it("persists the accounts-page fallback when a legacy error has no unique account match", async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      errorMessages: {
+        [ErrorType.ACCOUNT_DISCONNECTED]: {
+          message: "An email account was disconnected.",
+          timestamp: "2026-08-05T12:00:00.000Z",
+        },
+      },
+    } as any);
+    prisma.emailAccount.findMany.mockResolvedValue([
+      { id: "email-account-1", email: "first@example.com" },
+      { id: "email-account-2", email: "second@example.com" },
+    ] as any);
+
+    const result = await getUserErrorMessages("user-1");
+
+    expect(result?.[ErrorType.ACCOUNT_DISCONNECTED]).toEqual(
+      expect.objectContaining({
+        actionUrl: "/accounts",
+        actionLabel: "Manage accounts",
+      }),
+    );
+    expect(prisma.user.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "user-1",
+        errorMessages: {
+          equals: {
+            [ErrorType.ACCOUNT_DISCONNECTED]: {
+              message: "An email account was disconnected.",
+              timestamp: "2026-08-05T12:00:00.000Z",
+            },
+          },
+        },
+      },
+      data: {
+        errorMessages: {
+          [ErrorType.ACCOUNT_DISCONNECTED]: expect.objectContaining({
+            actionUrl: "/accounts",
+            actionLabel: "Manage accounts",
+          }),
+        },
+      },
+    });
+  });
+
+  it("returns the latest errors when another writer wins the legacy migration race", async () => {
+    const legacyError = {
+      message: "Gmail is not enabled for user@example.com.",
+      timestamp: "2026-08-05T12:00:00.000Z",
+    };
+    const concurrentError = {
+      message: "Invalid model",
+      timestamp: "2026-08-05T12:01:00.000Z",
+    };
+    prisma.user.findUnique
+      .mockResolvedValueOnce({
+        errorMessages: {
+          [ErrorType.ACCOUNT_DISCONNECTED]: legacyError,
+        },
+      } as any)
+      .mockResolvedValueOnce({
+        errorMessages: {
+          [ErrorType.ACCOUNT_DISCONNECTED]: legacyError,
+          [ErrorType.INVALID_AI_MODEL]: concurrentError,
+        },
+      } as any);
+    prisma.emailAccount.findMany.mockResolvedValue([
+      { id: "email-account-1", email: "user@example.com" },
+    ] as any);
+    prisma.user.updateMany.mockResolvedValue({ count: 0 });
+
+    const result = await getUserErrorMessages("user-1");
+
+    expect(result).toEqual({
+      [ErrorType.ACCOUNT_DISCONNECTED]: legacyError,
+      [ErrorType.INVALID_AI_MODEL]: concurrentError,
+    });
+  });
 });
 
 describe("clearAccountDisconnectedErrorIfResolved", () => {
@@ -142,6 +273,228 @@ describe("clearAccountDisconnectedErrorIfResolved", () => {
             message: "Invalid model",
             timestamp: "2026-06-24T04:00:40.506Z",
           },
+        },
+      },
+    });
+  });
+});
+
+describe("clearWatchLapsedErrorIfResolved", () => {
+  const logger = createTestLogger();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("clears only the recovered account's lapse entry, leaving other accounts' entries intact", async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      errorMessages: {
+        [watchLapsedErrorKey("email-account-1")]: {
+          message: "Automation stopped for account 1",
+          timestamp: "2026-07-01T04:00:40.506Z",
+          emailSentAt: "2026-07-01T04:00:40.506Z",
+        },
+        [watchLapsedErrorKey("email-account-2")]: {
+          message: "Automation stopped for account 2",
+          timestamp: "2026-07-01T04:00:40.506Z",
+          emailSentAt: "2026-07-01T04:00:40.506Z",
+        },
+        [ErrorType.INVALID_AI_MODEL]: {
+          message: "Invalid model",
+          timestamp: "2026-06-24T04:00:40.506Z",
+        },
+      },
+    } as any);
+
+    await clearWatchLapsedErrorIfResolved({
+      userId: "user-1",
+      emailAccountId: "email-account-1",
+      logger,
+    });
+
+    expect(prisma.emailAccount.count).not.toHaveBeenCalled();
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: "user-1" },
+      data: {
+        errorMessages: {
+          [watchLapsedErrorKey("email-account-2")]: {
+            message: "Automation stopped for account 2",
+            timestamp: "2026-07-01T04:00:40.506Z",
+            emailSentAt: "2026-07-01T04:00:40.506Z",
+          },
+          [ErrorType.INVALID_AI_MODEL]: {
+            message: "Invalid model",
+            timestamp: "2026-06-24T04:00:40.506Z",
+          },
+        },
+      },
+    });
+  });
+});
+
+describe("addUserErrorMessageWithNotification", () => {
+  const logger = createTestLogger();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("sends the notification email on the first occurrence and records emailSentAt", async () => {
+    prisma.user.findUnique.mockResolvedValue({ errorMessages: {} } as any);
+
+    await addUserErrorMessageWithNotification({
+      userId: "user-1",
+      userEmail: "user@example.com",
+      emailAccountId: "email-account-1",
+      errorType: ErrorType.EMAIL_WATCH_LAPSED,
+      errorMessage: "Automation stopped",
+      logger,
+    });
+
+    expect(sendActionRequiredEmail).toHaveBeenCalledTimes(1);
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: "user-1" },
+      data: {
+        errorMessages: {
+          [ErrorType.EMAIL_WATCH_LAPSED]: expect.objectContaining({
+            message: "Automation stopped",
+            emailSentAt: expect.any(String),
+            actionUrl: "/email-account-1/permissions/consent",
+            actionLabel: "Reconnect account",
+          }),
+        },
+      },
+    });
+  });
+
+  it("skips the write entirely once already notified with the same message", async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      errorMessages: {
+        [ErrorType.EMAIL_WATCH_LAPSED]: {
+          message: "Automation stopped",
+          timestamp: "2026-07-01T04:00:40.506Z",
+          emailSentAt: "2026-07-01T04:00:40.506Z",
+          actionUrl: "/email-account-1/permissions/consent",
+          actionLabel: "Reconnect account",
+        },
+      },
+    } as any);
+
+    await addUserErrorMessageWithNotification({
+      userId: "user-1",
+      userEmail: "user@example.com",
+      emailAccountId: "email-account-1",
+      errorType: ErrorType.EMAIL_WATCH_LAPSED,
+      errorMessage: "Automation stopped",
+      logger,
+    });
+
+    expect(sendActionRequiredEmail).not.toHaveBeenCalled();
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("updates the stored message without re-sending when the message text changes", async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      errorMessages: {
+        [ErrorType.EMAIL_WATCH_LAPSED]: {
+          message: "Automation stopped",
+          timestamp: "2026-07-01T04:00:40.506Z",
+          emailSentAt: "2026-07-01T04:00:40.506Z",
+        },
+      },
+    } as any);
+
+    await addUserErrorMessageWithNotification({
+      userId: "user-1",
+      userEmail: "user@example.com",
+      emailAccountId: "email-account-1",
+      errorType: ErrorType.EMAIL_WATCH_LAPSED,
+      errorMessage: "Automation stopped again",
+      logger,
+    });
+
+    expect(sendActionRequiredEmail).not.toHaveBeenCalled();
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: "user-1" },
+      data: {
+        errorMessages: {
+          [ErrorType.EMAIL_WATCH_LAPSED]: expect.objectContaining({
+            message: "Automation stopped again",
+            emailSentAt: "2026-07-01T04:00:40.506Z",
+          }),
+        },
+      },
+    });
+  });
+
+  it("stores and dedupes per storageKey when accounts lapse independently", async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      errorMessages: {
+        [watchLapsedErrorKey("email-account-1")]: {
+          message: "Automation stopped for account 1",
+          timestamp: "2026-07-01T04:00:40.506Z",
+          emailSentAt: "2026-07-01T04:00:40.506Z",
+        },
+      },
+    } as any);
+
+    await addUserErrorMessageWithNotification({
+      userId: "user-1",
+      userEmail: "user@example.com",
+      emailAccountId: "email-account-2",
+      errorType: ErrorType.EMAIL_WATCH_LAPSED,
+      storageKey: watchLapsedErrorKey("email-account-2"),
+      errorMessage: "Automation stopped for account 2",
+      logger,
+    });
+
+    expect(sendActionRequiredEmail).toHaveBeenCalledTimes(1);
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: "user-1" },
+      data: {
+        errorMessages: {
+          [watchLapsedErrorKey("email-account-1")]: {
+            message: "Automation stopped for account 1",
+            timestamp: "2026-07-01T04:00:40.506Z",
+            emailSentAt: "2026-07-01T04:00:40.506Z",
+          },
+          [watchLapsedErrorKey("email-account-2")]: expect.objectContaining({
+            message: "Automation stopped for account 2",
+            emailSentAt: expect.any(String),
+          }),
+        },
+      },
+    });
+  });
+
+  it("stores the account reconnect action in the banner and notification email", async () => {
+    prisma.user.findUnique.mockResolvedValue({ errorMessages: {} } as any);
+
+    await addUserErrorMessageWithNotification({
+      userId: "user-1",
+      userEmail: "user@example.com",
+      emailAccountId: "email-account-1",
+      errorType: ErrorType.ACCOUNT_DISCONNECTED,
+      errorMessage: "Gmail is not enabled",
+      logger,
+    });
+
+    expect(sendActionRequiredEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        emailProps: expect.objectContaining({
+          actionUrl: "/email-account-1/permissions/consent",
+          actionLabel: "Reconnect account",
+        }),
+      }),
+    );
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: "user-1" },
+      data: {
+        errorMessages: {
+          [ErrorType.ACCOUNT_DISCONNECTED]: expect.objectContaining({
+            actionUrl: "/email-account-1/permissions/consent",
+            actionLabel: "Reconnect account",
+          }),
         },
       },
     });

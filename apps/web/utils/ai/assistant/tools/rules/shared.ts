@@ -3,6 +3,7 @@ import type { Logger } from "@/utils/logger";
 import type {
   createRuleSchema,
   CreateOrUpdateRuleSchema,
+  RuleActionFields,
 } from "@/utils/ai/rule/create-rule-schema";
 import { posthogCaptureEvent } from "@/utils/posthog";
 import { RULE_MANAGED_BY_ORGANIZATION_ERROR } from "@/utils/organizations/rules";
@@ -20,16 +21,7 @@ const RULE_READ_FRESHNESS_WINDOW_MS = 2 * 60 * 1000;
 const RULE_NOT_FOUND_ERROR =
   "Rule not found. Try listing the rules again. The user may have made changes since you last checked.";
 
-type RuleActionFieldValues = {
-  content?: string | null;
-  to?: string | null;
-  subject?: string | null;
-  label?: string | null;
-  webhookUrl?: string | null;
-  cc?: string | null;
-  bcc?: string | null;
-  folderName?: string | null;
-};
+type RuleActionFieldValues = RuleActionFields;
 
 const providerRuleActionFieldBuilders: Record<
   string,
@@ -48,6 +40,7 @@ export function buildProviderRuleActionFields({
   fields: RuleActionFieldValues;
 }): RuleActionFieldValues {
   return {
+    ...fields,
     content: fields.content ?? null,
     to: fields.to ?? null,
     subject: fields.subject ?? null,
@@ -71,7 +64,7 @@ export function buildCreateRuleSchemaFromChatToolInput(
       fields: action.fields
         ? buildProviderRuleActionFields({ provider, fields: action.fields })
         : null,
-      delayInMinutes: null,
+      delayInMinutes: action.delayInMinutes ?? null,
     })),
   };
 }

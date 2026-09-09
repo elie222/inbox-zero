@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   createSearchParams,
+  getEmailDraftUrl,
   getEmailUrl,
   getEmailUrlForMessage,
   getEmailUrlForOptionalMessage,
@@ -160,6 +161,44 @@ describe("getEmailUrl", () => {
     expected,
   }) => {
     expect(getEmailUrl(messageOrThreadId, emailAddress, provider)).toBe(
+      expected,
+    );
+  });
+});
+
+describe("getEmailDraftUrl", () => {
+  it.each([
+    {
+      name: "Google account",
+      draftMessageId: "draft-message-123",
+      emailAddress: "user@gmail.com",
+      provider: "google",
+      expected:
+        "https://mail.google.com/mail/u/?authuser=user%40gmail.com#inbox?compose=draft-message-123",
+    },
+    {
+      name: "personal Microsoft account",
+      draftMessageId: "draft-123",
+      emailAddress: "user@outlook.com",
+      provider: "microsoft",
+      expected:
+        "https://outlook.live.com/mail/0/deeplink/compose?itemid=draft-123&exvsurl=1",
+    },
+    {
+      name: "business Microsoft account",
+      draftMessageId: "draft+123/abc",
+      emailAddress: "user@contoso.com",
+      provider: "microsoft",
+      expected:
+        "https://outlook.office.com/mail/deeplink/compose?itemid=draft%2B123%2Fabc&exvsurl=1",
+    },
+  ])("opens the draft for a $name", ({
+    draftMessageId,
+    emailAddress,
+    provider,
+    expected,
+  }) => {
+    expect(getEmailDraftUrl(draftMessageId, emailAddress, provider)).toBe(
       expected,
     );
   });

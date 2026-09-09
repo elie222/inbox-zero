@@ -1,0 +1,274 @@
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  test,
+  vi,
+} from "vitest";
+import { SnoozedThreadStatus } from "@/generated/prisma/enums";
+
+vi.mock("server-only", () => ({}));
+vi.mock("@upstash/qstash", () => ({
+  Client: class {
+    publishJSON = vi.fn().mockResolvedValue({ messageId: "test-message" });
+  },
+}));
+
+const RUN_DB_TESTS = process.env.RUN_DB_TESTS;
+
+describe.skipIf(!RUN_DB_TESTS)(
+  "snoozed thread scheduler (real database)",
+  { timeout: 30_000 },
+  () => {
+    let prisma: typeof import("@/utils/prisma").default;
+    let activatePreparedSnoozedThread: typeof import("@/utils/snooze/scheduler").activatePreparedSnoozedThread;
+    let markSnoozedThreadAsExecuting: typeof import("@/utils/snooze/scheduler").markSnoozedThreadAsExecuting;
+    let prepareSnoozedThread: typeof import("@/utils/snooze/scheduler").prepareSnoozedThread;
+    let emailAccountId: string;
+
+    const accountEmail = "snoozed-thread-scheduler-test@example.com";
+
+    beforeAll(async () => {
+      prisma = (await import("@/utils/prisma")).default;
+      ({
+        activatePreparedSnoozedThread,
+        markSnoozedThreadAsExecuting,
+        prepareSnoozedThread,
+      } = await import("@/utils/snooze/scheduler"));
+    });
+
+    beforeEach(async () => {
+      await prisma.user.deleteMany({ where: { email: accountEmail } });
+      emailAccountId = await seedAccount(prisma, accountEmail);
+    });
+
+    afterAll(async () => {
+      await prisma.user.deleteMany({ where: { email: accountEmail } });
+      await prisma.$disconnect();
+    });
+
+    test("keeps one active restore when the same thread is scheduled concurrently", async () => {
+      const scheduledFor = new Date("2026-08-17T09:00:00.000Z");
+
+      await Promise.all([
+        prepareSnoozedThread({
+          clientMutationId: "mutation-one",
+          emailAccountId,
+          scheduledFor,
+          threadId: "concurrent-thread",
+        }),
+        prepareSnoozedThread({
+          clientMutationId: "mutation-two",
+          emailAccountId,
+          scheduledFor,
+          threadId: "concurrent-thread",
+        }),
+      ]);
+      const results = await Promise.allSettled([
+        activatePreparedSnoozedThread({
+          clientMutationId: "mutation-one",
+          emailAccountId,
+          scheduledFor,
+          threadId: "concurrent-thread",
+        }),
+        activatePreparedSnoozedThread({
+          clientMutationId: "mutation-two",
+          emailAccountId,
+          scheduledFor,
+          threadId: "concurrent-thread",
+        }),
+      ]);
+
+      expect(results.every((result) => result.status === "fulfilled")).toBe(
+        true,
+      );
+      const active = await prisma.snoozedThread.findMany({
+        where: {
+          emailAccountId,
+          threadId: "concurrent-thread",
+          status: {
+            in: [SnoozedThreadStatus.PENDING, SnoozedThreadStatus.EXECUTING],
+          },
+        },
+      });
+      expect(active).toHaveLength(1);
+      expect(["mutation-one", "mutation-two"]).toContain(
+        active[0]?.clientMutationId,
+      );
+    });
+
+    test("allows only one pending or executing restore per thread", async () => {
+      const active = await prisma.snoozedThread.create({
+        data: {
+          emailAccountId,
+          scheduledFor: new Date("2026-08-17T09:00:00.000Z"),
+          threadId: "active-thread",
+        },
+      });
+
+      await expect(
+        prisma.snoozedThread.create({
+          data: {
+            emailAccountId,
+            scheduledFor: new Date("2026-08-17T10:00:00.000Z"),
+            threadId: "active-thread",
+          },
+        }),
+      ).rejects.toThrow();
+
+      await prisma.snoozedThread.update({
+        where: { id: active.id },
+        data: { status: SnoozedThreadStatus.EXECUTING },
+      });
+      await expect(
+        prisma.snoozedThread.create({
+          data: {
+            emailAccountId,
+            scheduledFor: new Date("2026-08-17T10:00:00.000Z"),
+            threadId: "active-thread",
+          },
+        }),
+      ).rejects.toThrow();
+
+      await prisma.snoozedThread.update({
+        where: { id: active.id },
+        data: { status: SnoozedThreadStatus.COMPLETED },
+      });
+      await expect(
+        prisma.snoozedThread.create({
+          data: {
+            emailAccountId,
+            scheduledFor: new Date("2026-08-17T10:00:00.000Z"),
+            threadId: "active-thread",
+          },
+        }),
+      ).resolves.toMatchObject({ status: SnoozedThreadStatus.PENDING });
+    });
+
+    test("replaces a legacy pending snooze without a mutation ID", async () => {
+      const threadId = "legacy-thread";
+      const legacy = await prisma.snoozedThread.create({
+        data: {
+          emailAccountId,
+          scheduledFor: new Date("2026-08-17T09:00:00.000Z"),
+          threadId,
+        },
+      });
+      const scheduledFor = new Date("2026-08-17T10:00:00.000Z");
+      await prepareSnoozedThread({
+        clientMutationId: "replacement",
+        emailAccountId,
+        scheduledFor,
+        threadId,
+      });
+
+      await activatePreparedSnoozedThread({
+        clientMutationId: "replacement",
+        emailAccountId,
+        scheduledFor,
+        threadId,
+      });
+
+      await expect(
+        prisma.snoozedThread.findUnique({ where: { id: legacy.id } }),
+      ).resolves.toMatchObject({ status: SnoozedThreadStatus.CANCELLED });
+      await expect(
+        prisma.snoozedThread.findUnique({
+          where: {
+            emailAccountId_clientMutationId: {
+              emailAccountId,
+              clientMutationId: "replacement",
+            },
+          },
+        }),
+      ).resolves.toMatchObject({ status: SnoozedThreadStatus.PENDING });
+    });
+
+    test("does not claim a deferred retry before it is due", async () => {
+      const scheduledFor = new Date("2026-08-17T09:05:00.000Z");
+      const snoozedThread = await prisma.snoozedThread.create({
+        data: {
+          emailAccountId,
+          scheduledFor,
+          threadId: "deferred-retry-thread",
+        },
+      });
+
+      await expect(
+        markSnoozedThreadAsExecuting(
+          snoozedThread.id,
+          new Date("2026-08-17T09:00:00.000Z"),
+        ),
+      ).resolves.toBeNull();
+      await expect(
+        markSnoozedThreadAsExecuting(snoozedThread.id, scheduledFor),
+      ).resolves.toEqual(scheduledFor);
+    });
+
+    test("rolls back cancellation when replacement creation conflicts", async () => {
+      const pending = await prisma.snoozedThread.create({
+        data: {
+          id: "pending-before-conflict",
+          emailAccountId,
+          scheduledFor: new Date("2026-08-17T09:00:00.000Z"),
+          threadId: "rollback-thread",
+        },
+      });
+      await prisma.snoozedThread.create({
+        data: {
+          id: "duplicate-id",
+          emailAccountId,
+          scheduledFor: new Date("2026-08-17T09:00:00.000Z"),
+          status: SnoozedThreadStatus.COMPLETED,
+          threadId: "historical-thread",
+        },
+      });
+
+      await expect(
+        prisma.$transaction([
+          prisma.snoozedThread.updateMany({
+            where: {
+              emailAccountId,
+              threadId: "rollback-thread",
+              status: SnoozedThreadStatus.PENDING,
+            },
+            data: { status: SnoozedThreadStatus.CANCELLED },
+          }),
+          prisma.snoozedThread.create({
+            data: {
+              id: "duplicate-id",
+              emailAccountId,
+              scheduledFor: new Date("2026-08-17T10:00:00.000Z"),
+              threadId: "rollback-thread",
+            },
+          }),
+        ]),
+      ).rejects.toThrow();
+
+      await expect(
+        prisma.snoozedThread.findUniqueOrThrow({ where: { id: pending.id } }),
+      ).resolves.toMatchObject({ status: SnoozedThreadStatus.PENDING });
+    });
+  },
+);
+
+async function seedAccount(
+  prisma: typeof import("@/utils/prisma").default,
+  email: string,
+) {
+  const user = await prisma.user.create({ data: { email } });
+  const account = await prisma.account.create({
+    data: {
+      userId: user.id,
+      provider: "google",
+      providerAccountId: `provider-${email}`,
+      type: "oauth",
+    },
+  });
+  const emailAccount = await prisma.emailAccount.create({
+    data: { accountId: account.id, email, userId: user.id },
+  });
+  return emailAccount.id;
+}

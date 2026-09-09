@@ -1,4 +1,5 @@
 import {
+  ExecutedActionStatus,
   ExecutedRuleStatus,
   ScheduledActionStatus,
 } from "@/generated/prisma/enums";
@@ -13,6 +14,14 @@ import type {
   EmailForAction,
 } from "@/utils/ai/types";
 import type { EmailProvider } from "@/utils/email/types";
+import {
+  getActionResultError,
+  getSentMessageIds,
+  isActionResultSkipped,
+  normalizeActionExecutionError,
+  persistExecutedActionOutcome,
+} from "@/utils/ai/executed-action-outcome";
+import { isSendingActionType } from "@/utils/ai/sending-action";
 
 const MODULE = "scheduled-actions-executor";
 
@@ -179,6 +188,9 @@ async function executeDelayedAction({
       staticAttachments: actionItem.staticAttachments ?? undefined,
       selectedAttachments: actionItem.selectedAttachments ?? undefined,
       executedRuleId: scheduledAction.executedRuleId,
+      ...(isSendingActionType(actionItem.type)
+        ? { executionStartedAt: new Date() }
+        : {}),
     },
   });
 
@@ -210,12 +222,62 @@ async function executeDelayedAction({
     messageId: email.id,
   });
 
-  await runActionFunction({
-    client,
-    email,
-    action: executedAction,
-    emailAccount,
-    executedRule,
+  let actionResult: unknown;
+  try {
+    actionResult = await runActionFunction({
+      client,
+      email,
+      action: executedAction,
+      emailAccount,
+      executedRule,
+      logger: log,
+    });
+  } catch (error) {
+    await persistExecutedActionOutcome({
+      actionId: executedAction.id,
+      status: ExecutedActionStatus.FAILED,
+      error: normalizeActionExecutionError(error),
+      sentMessageIds: getSentMessageIds(error),
+      logger: log,
+    });
+    throw error;
+  }
+
+  if (isActionResultSkipped(actionResult)) {
+    await persistExecutedActionOutcome({
+      actionId: executedAction.id,
+      status: ExecutedActionStatus.SKIPPED,
+      error: null,
+      logger: log,
+    });
+    log.info("Skipped delayed action", {
+      actionType: executedAction.type,
+      executedActionId: executedAction.id,
+    });
+    return executedAction;
+  }
+
+  const actionResultError = getActionResultError(
+    executedAction.type,
+    actionResult,
+  );
+  if (actionResultError) {
+    await persistExecutedActionOutcome({
+      actionId: executedAction.id,
+      status: ExecutedActionStatus.FAILED,
+      error: actionResultError,
+      logger: log,
+    });
+    throw Object.assign(new Error(actionResultError.message), {
+      code: actionResultError.code,
+    });
+  }
+
+  await persistExecutedActionOutcome({
+    actionId: executedAction.id,
+    status: ExecutedActionStatus.SUCCEEDED,
+    error: null,
+    sentMessageIds: getSentMessageIds(actionResult),
     logger: log,
   });
 

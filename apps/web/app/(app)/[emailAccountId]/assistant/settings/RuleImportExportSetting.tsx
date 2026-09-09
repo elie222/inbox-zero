@@ -53,6 +53,9 @@ export function RuleImportExportSetting({
           folderName: action.folderName,
           url: action.url,
           delayInMinutes: action.delayInMinutes,
+          integrationName: action.integrationName,
+          integrationToolName: action.integrationToolName,
+          integrationArgs: action.integrationArgs,
         })),
       }));
 

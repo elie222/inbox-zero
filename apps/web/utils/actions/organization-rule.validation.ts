@@ -4,15 +4,17 @@ import { attachmentSourceInputSchema } from "@/utils/attachments/source-schema";
 import { delayInMinutesSchema } from "@/utils/actions/rule.validation";
 import { validateLabelNameBasic } from "@/utils/gmail/label-validation";
 import {
-  isWebhookActionEnabled,
-  WEBHOOK_ACTION_DISABLED_MESSAGE,
-} from "@/utils/webhook-action";
-import { ORGANIZATION_RULE_ACTION_TYPES } from "@/utils/organizations/rule-action-types";
+  isOrganizationRuleActionTypeAvailable,
+  ORGANIZATION_RULE_ACTION_DISABLED_MESSAGE,
+  ORGANIZATION_RULE_ACTION_TYPES,
+} from "@/utils/organizations/rule-action-types";
+import { addDisabledRuleActionIssue } from "@/utils/rule-action-feature-gates";
 
 const organizationRuleActionType = z.enum(ORGANIZATION_RULE_ACTION_TYPES);
 
 export const organizationRuleActionSchema = z
   .object({
+    id: z.string().optional(),
     type: organizationRuleActionType,
     label: z.string().nullish(),
     subject: z.string().nullish(),
@@ -56,20 +58,21 @@ export const organizationRuleActionSchema = z
         path: ["to"],
       });
     }
-    if (data.type === ActionType.CALL_WEBHOOK) {
-      if (!isWebhookActionEnabled()) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: WEBHOOK_ACTION_DISABLED_MESSAGE,
-          path: ["type"],
-        });
-      } else if (!data.url?.trim()) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "Please enter a webhook URL",
-          path: ["url"],
-        });
-      }
+    if (!data.id && addDisabledRuleActionIssue(data.type, ctx)) return;
+    if (!data.id && !isOrganizationRuleActionTypeAvailable(data.type)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: ORGANIZATION_RULE_ACTION_DISABLED_MESSAGE,
+        path: ["type"],
+      });
+      return;
+    }
+    if (data.type === ActionType.CALL_WEBHOOK && !data.url?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Please enter a webhook URL",
+        path: ["url"],
+      });
     }
     if (data.type === ActionType.MOVE_FOLDER && !data.folderName?.trim()) {
       ctx.addIssue({
@@ -125,7 +128,18 @@ export const createOrganizationRuleBody = z
     actions,
     ...conditionFields,
   })
-  .refine(hasAtLeastOneCondition, conditionRefinement);
+  .refine(hasAtLeastOneCondition, conditionRefinement)
+  .superRefine((data, ctx) => {
+    data.actions.forEach((action, index) => {
+      if (action.id && !isOrganizationRuleActionTypeAvailable(action.type)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: ORGANIZATION_RULE_ACTION_DISABLED_MESSAGE,
+          path: ["actions", index, "type"],
+        });
+      }
+    });
+  });
 export type CreateOrganizationRuleBody = z.infer<
   typeof createOrganizationRuleBody
 >;

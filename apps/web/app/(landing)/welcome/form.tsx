@@ -80,6 +80,10 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
         totalSteps: survey.questions.length,
         destination: isPremium ? "setup" : "welcome-upgrade",
       });
+      // Index-based `$survey_response` / `$survey_response_N` keys — legacy PostHog
+      // format still supported. Migrating to ID-based keys needs question UUIDs from
+      // the PostHog survey and would break historical response mapping.
+      if (!surveyId) return;
       posthog.capture("survey sent", { ...responses, $survey_id: surveyId });
     },
     [posthog, analytics, questionIndex, currentQuestion.key, isPremium],

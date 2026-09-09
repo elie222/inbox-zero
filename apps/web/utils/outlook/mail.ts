@@ -1,20 +1,24 @@
-import type { Message } from "@microsoft/microsoft-graph-types";
+import type { Message, UploadSession } from "@microsoft/microsoft-graph-types";
 import type { OutlookClient } from "@/utils/outlook/client";
 import type { Attachment } from "nodemailer/lib/mailer";
-import type { SendEmailBody } from "@/utils/gmail/mail";
-import type { WithMailerAttachments } from "@/utils/types/mail";
+import type { SendEmailBody, WithMailerAttachments } from "@/utils/types/mail";
 import type { ParsedMessage } from "@/utils/types";
 import type { EmailForAction } from "@/utils/ai/types";
 import { createOutlookReplyContent } from "@/utils/outlook/reply";
-import { escapeHtml } from "@/utils/string";
+import { textToHtmlParagraphs } from "@/utils/string";
 import { forwardEmailHtml, forwardEmailSubject } from "@/utils/gmail/forward";
 import {
   buildReplyAllRecipients,
   mergeAndDedupeRecipients,
 } from "@/utils/email/reply-all";
-import { withOutlookRetry } from "@/utils/outlook/retry";
+import {
+  withMicrosoftGraphRetry,
+  withMicrosoftGraphWriteRetry,
+} from "@/utils/microsoft/retry";
 import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
+import { SafeError } from "@/utils/error";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
+import { uploadResumableChunks } from "@/utils/microsoft/upload-session";
 import type { Logger } from "@/utils/logger";
 
 type GraphRecipient = {
@@ -25,7 +29,6 @@ type MailSendEmailBody = WithMailerAttachments<SendEmailBody>;
 const MAX_GRAPH_ATTACHMENT_SIZE_BYTES = 3 * 1024 * 1024;
 const MAX_GRAPH_UPLOAD_SESSION_SIZE_BYTES = 150 * 1024 * 1024;
 const GRAPH_UPLOAD_CHUNK_SIZE_BYTES = 320 * 1024;
-
 type SentEmailResult = Pick<Message, "id" | "conversationId">;
 
 export async function sendEmailWithHtml(
@@ -35,21 +38,23 @@ export async function sendEmailWithHtml(
 ): Promise<SentEmailResult> {
   ensureEmailSendingEnabled();
 
+  const toRecipients = buildGraphRecipients(body.to);
+  if (!toRecipients?.length)
+    throw new SafeError("Recipient address is required");
+
   // For replies with a message ID, use createReply for proper threading
   // Microsoft Graph's sendMail doesn't support In-Reply-To/References headers
   if (body.replyToEmail?.messageId) {
     return sendReplyUsingCreateReply(client, body, logger);
   }
 
-  const toRecipients = buildGraphRecipients(body.to);
-  if (!toRecipients?.length) throw new Error("Recipient address is required");
   const ccRecipients = buildGraphRecipients(body.cc);
   const bccRecipients = buildGraphRecipients(body.bcc);
   const replyToRecipients = buildGraphRecipients(body.replyTo);
 
   // For new emails, create draft then send to get the conversationId.
   // sendMail returns 202 with no body, so we use the draft approach instead.
-  const draft: Message = await withOutlookRetry(
+  const draft: Message = await withMicrosoftGraphWriteRetry(
     () =>
       client
         .getClient()
@@ -77,14 +82,13 @@ export async function sendEmailWithHtml(
     });
   }
 
-  await withOutlookRetry(
+  await withMicrosoftGraphWriteRetry(
     () => client.getClient().api(`/me/messages/${draft.id}/send`).post({}),
     logger,
   );
 
-  // Draft id is no longer valid after sending; Graph doesn't return sent message id
   return {
-    id: "",
+    id: draft.id,
     conversationId: draft.conversationId,
   };
 }
@@ -103,7 +107,11 @@ export async function replyToEmail(
   message: EmailForAction,
   reply: string,
   logger: Logger,
-  options?: { replyTo?: string; from?: string; attachments?: Attachment[] },
+  options?: {
+    replyTo?: string;
+    from?: string;
+    attachments?: Attachment[];
+  },
 ) {
   ensureEmailSendingEnabled();
 
@@ -115,7 +123,7 @@ export async function replyToEmail(
   // Use createReply to create a properly threaded draft
   // Microsoft Graph's sendMail doesn't support setting In-Reply-To/References headers
   // Only createReply/createReplyAll endpoints ensure proper threading
-  const replyDraft: Message = await withOutlookRetry(
+  const replyDraft: Message = await withMicrosoftGraphWriteRetry(
     () =>
       client.getClient().api(`/me/messages/${message.id}/createReply`).post({}),
     logger,
@@ -127,7 +135,7 @@ export async function replyToEmail(
   );
 
   // Update the draft with our content
-  await withOutlookRetry(
+  await withMicrosoftGraphWriteRetry(
     () =>
       client
         .getClient()
@@ -157,14 +165,13 @@ export async function replyToEmail(
   }
 
   // Send the draft
-  await withOutlookRetry(
+  await withMicrosoftGraphWriteRetry(
     () => client.getClient().api(`/me/messages/${replyDraft.id}/send`).post({}),
     logger,
   );
 
-  // Draft ID is no longer valid after /send; Graph doesn't return sent message ID
   return {
-    id: "",
+    id: replyDraft.id,
     conversationId: replyDraft.conversationId,
   };
 }
@@ -191,7 +198,7 @@ export async function forwardEmail(
   const bccRecipients = buildGraphRecipients(options.bcc);
 
   // Get the original message
-  const originalMessage: Message = await withOutlookRetry(
+  const originalMessage: Message = await withMicrosoftGraphRetry(
     () => client.getClient().api(`/me/messages/${options.messageId}`).get(),
     logger,
   );
@@ -216,7 +223,7 @@ export async function forwardEmail(
     conversationIndex: originalMessage.conversationId || "",
   };
 
-  const forwardDraft: Message = await withOutlookRetry(
+  const forwardDraft: Message = await withMicrosoftGraphWriteRetry(
     () =>
       client
         .getClient()
@@ -230,7 +237,7 @@ export async function forwardEmail(
     forwardDraft.from?.emailAddress?.address,
   );
 
-  await withOutlookRetry(
+  await withMicrosoftGraphWriteRetry(
     () =>
       client
         .getClient()
@@ -252,14 +259,14 @@ export async function forwardEmail(
     logger,
   );
 
-  await withOutlookRetry(
+  await withMicrosoftGraphWriteRetry(
     () =>
       client.getClient().api(`/me/messages/${forwardDraft.id}/send`).post({}),
     logger,
   );
 
   return {
-    id: "",
+    id: forwardDraft.id,
     conversationId: forwardDraft.conversationId,
   };
 }
@@ -332,7 +339,7 @@ export async function draftEmail(
 
   // Get the original message's isRead status before creating the draft
   // Microsoft Graph's createReplyAll automatically marks the original as read
-  const originalMessage: Message = await withOutlookRetry(
+  const originalMessage: Message = await withMicrosoftGraphRetry(
     () =>
       client
         .getClient()
@@ -345,7 +352,7 @@ export async function draftEmail(
 
   // Use createReplyAll endpoint to create a proper reply draft
   // This ensures the draft is linked to the original message as a reply all
-  const replyDraft: Message = await withOutlookRetry(
+  const replyDraft: Message = await withMicrosoftGraphWriteRetry(
     () =>
       client
         .getClient()
@@ -363,7 +370,7 @@ export async function draftEmail(
     updateRequest.header("If-Match", etag);
   }
 
-  const updatedDraft: Message = await withOutlookRetry(
+  const updatedDraft: Message = await withMicrosoftGraphWriteRetry(
     () =>
       updateRequest.patch({
         subject: args.subject || originalEmail.headers.subject,
@@ -390,7 +397,7 @@ export async function draftEmail(
   // Restore the original message's unread status if it was unread before
   // createReplyAll automatically marks the original message as read
   if (wasUnread) {
-    await withOutlookRetry(
+    await withMicrosoftGraphWriteRetry(
       () =>
         client
           .getClient()
@@ -408,18 +415,7 @@ export async function draftEmail(
 function convertTextToHtmlParagraphs(text?: string | null): string {
   if (!text) return "";
 
-  // Split the text into paragraphs based on newline characters
-  const paragraphs = text
-    .split("\n")
-    .filter((paragraph) => paragraph.trim() !== "");
-
-  // Wrap each paragraph with <p> tags and join them back together
-  // Escape HTML to prevent prompt injection attacks
-  const htmlContent = paragraphs
-    .map((paragraph) => `<p>${escapeHtml(paragraph.trim())}</p>`)
-    .join("");
-
-  return `<html><body>${htmlContent}</body></html>`;
+  return `<html><body>${textToHtmlParagraphs(text)}</body></html>`;
 }
 
 async function sendReplyUsingCreateReply(
@@ -432,7 +428,7 @@ async function sendReplyUsingCreateReply(
   // Use createReply to create a properly threaded draft
   // Microsoft Graph's createReply automatically sets In-Reply-To and References headers
   // based on the original message, ensuring proper threading across email providers
-  const replyDraft: Message = await withOutlookRetry(
+  const replyDraft: Message = await withMicrosoftGraphWriteRetry(
     () =>
       client
         .getClient()
@@ -445,7 +441,7 @@ async function sendReplyUsingCreateReply(
   // Note: We cannot set In-Reply-To/References headers via internetMessageHeaders
   // as Microsoft Graph only allows custom headers (starting with x-) there.
   // The createReply endpoint handles standard threading headers automatically.
-  await withOutlookRetry(
+  await withMicrosoftGraphWriteRetry(
     () =>
       client
         .getClient()
@@ -477,14 +473,13 @@ async function sendReplyUsingCreateReply(
   }
 
   // Send the draft
-  await withOutlookRetry(
+  await withMicrosoftGraphWriteRetry(
     () => client.getClient().api(`/me/messages/${replyDraft.id}/send`).post({}),
     logger,
   );
 
-  // Draft ID is no longer valid after /send; Graph doesn't return sent message ID
   return {
-    id: "",
+    id: replyDraft.id,
     conversationId: replyDraft.conversationId,
   };
 }
@@ -560,7 +555,7 @@ async function addAttachmentsToDraft({
     if (!result) continue;
     const { buffer, base64 } = result;
     if (buffer.length <= MAX_GRAPH_ATTACHMENT_SIZE_BYTES) {
-      await withOutlookRetry(
+      await withMicrosoftGraphWriteRetry(
         () =>
           client
             .getClient()
@@ -570,6 +565,9 @@ async function addAttachmentsToDraft({
               name: attachment.filename || "attachment.pdf",
               contentType: attachment.contentType || "application/octet-stream",
               contentBytes: base64 ?? buffer.toString("base64"),
+              ...(attachment.cid
+                ? { contentId: attachment.cid, isInline: true }
+                : {}),
             }),
         logger,
       );
@@ -649,7 +647,7 @@ async function uploadAttachmentViaSession({
   content: Buffer;
   logger: Logger;
 }) {
-  const uploadSession = await withOutlookRetry(
+  const uploadSession = await withMicrosoftGraphWriteRetry(
     () =>
       client
         .getClient()
@@ -660,147 +658,25 @@ async function uploadAttachmentViaSession({
             name: attachment.filename || "attachment.pdf",
             contentType: attachment.contentType || "application/octet-stream",
             size: content.length,
+            ...(attachment.cid
+              ? { contentId: attachment.cid, isInline: true }
+              : {}),
           },
         }),
     logger,
   );
 
-  const uploadUrl = (uploadSession as { uploadUrl?: string }).uploadUrl;
+  const uploadUrl = (uploadSession as UploadSession).uploadUrl;
   if (!uploadUrl) {
     throw new Error("Failed to create Outlook attachment upload session");
   }
 
-  let start = 0;
-  while (start < content.length) {
-    const end = Math.min(start + GRAPH_UPLOAD_CHUNK_SIZE_BYTES, content.length);
-    const chunk = content.subarray(start, end);
-    start = await withOutlookRetry(
-      () =>
-        uploadAttachmentChunk({
-          uploadUrl,
-          chunk,
-          start,
-          end,
-          totalSize: content.length,
-        }),
-      logger,
-    );
-  }
-}
-
-async function uploadAttachmentChunk({
-  uploadUrl,
-  chunk,
-  start,
-  end,
-  totalSize,
-}: {
-  uploadUrl: string;
-  chunk: Buffer;
-  start: number;
-  end: number;
-  totalSize: number;
-}): Promise<number> {
-  const response = await fetch(uploadUrl, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/octet-stream",
-      "Content-Length": String(chunk.length),
-      "Content-Range": `bytes ${start}-${end - 1}/${totalSize}`,
-    },
-    body: new Uint8Array(chunk),
+  await uploadResumableChunks({
+    uploadUrl,
+    content,
+    chunkSizeBytes: GRAPH_UPLOAD_CHUNK_SIZE_BYTES,
+    logger,
+    action: "upload Outlook attachment chunk",
+    statusAction: "fetch Outlook upload session status",
   });
-
-  if (response.status === 201) {
-    return totalSize;
-  }
-
-  if (response.status === 200 || response.status === 202) {
-    const uploadStatus = (await response.json()) as UploadSessionStatus;
-    const nextStart = getNextExpectedRangeStart(
-      uploadStatus.nextExpectedRanges,
-    );
-    if (typeof nextStart !== "number") {
-      throw new Error(
-        `Outlook upload session returned ${response.status} without nextExpectedRanges`,
-      );
-    }
-
-    return nextStart;
-  }
-
-  if (response.status === 416) {
-    const uploadStatus = await getUploadSessionStatus(uploadUrl);
-    if (!uploadStatus) {
-      return end;
-    }
-
-    const nextStart = getNextExpectedRangeStart(
-      uploadStatus.nextExpectedRanges,
-    );
-    if (typeof nextStart === "number" && nextStart > start) {
-      return nextStart;
-    }
-
-    throw new Error(
-      "Outlook upload session returned 416 without a usable resume range",
-    );
-  }
-
-  return await throwOutlookResponseError(
-    response,
-    "upload Outlook attachment chunk",
-  );
-}
-
-interface UploadSessionStatus {
-  nextExpectedRanges?: string[];
-}
-
-async function getUploadSessionStatus(
-  uploadUrl: string,
-): Promise<UploadSessionStatus | null> {
-  const response = await fetch(uploadUrl, { method: "GET" });
-
-  if (response.status === 404 || response.status === 405) {
-    return null;
-  }
-
-  if (!response.ok) {
-    return await throwOutlookResponseError(
-      response,
-      "fetch Outlook upload session status",
-    );
-  }
-
-  return (await response.json()) as UploadSessionStatus;
-}
-
-function getNextExpectedRangeStart(nextExpectedRanges?: string[]) {
-  const nextRange = nextExpectedRanges?.[0];
-  if (!nextRange) return null;
-
-  const [rangeStart] = nextRange.split("-");
-  if (!rangeStart) return null;
-
-  const parsedRangeStart = Number.parseInt(rangeStart, 10);
-  return Number.isNaN(parsedRangeStart) ? null : parsedRangeStart;
-}
-
-async function throwOutlookResponseError(
-  response: Response,
-  action: string,
-): Promise<never> {
-  const errorText = await response.text();
-  const error = new Error(
-    `Failed to ${action}: ${response.status} ${
-      errorText || response.statusText
-    }`,
-  );
-  Object.assign(error, {
-    status: response.status,
-    body: errorText,
-    response: { headers: response.headers, status: response.status },
-  });
-  throw error;
 }

@@ -17,6 +17,8 @@ node_modules
 
 # production
 /build
+/apps/desktop/release
+/apps/desktop/build/*.provisionprofile
 
 # misc
 .DS_Store
@@ -116,3 +118,4 @@ eval-results/
 .agent-worktrees/
 .context/
 .deepsec/
+.tmp/

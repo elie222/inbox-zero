@@ -3,8 +3,6 @@ title: "Telegram Integration Setup"
 description: "Set up the Telegram bot for Inbox Zero assistant chat."
 ---
 
-# Telegram Integration Setup
-
 This guide is for self-hosted deployments that want to enable Telegram chat with the Inbox Zero assistant.
 
 ## 1. Create a Telegram bot with BotFather
@@ -24,8 +22,6 @@ curl -X POST "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook" \
   -d "secret_token=<TELEGRAM_BOT_SECRET_TOKEN>"
 ```
 
-If you do not want to use a secret token, omit `secret_token` from the command.
-
 You can verify webhook status with:
 
 ```bash
@@ -38,12 +34,12 @@ Set these in `apps/web/.env` (or your deployment env):
 
 ```bash
 TELEGRAM_BOT_TOKEN=
-TELEGRAM_BOT_SECRET_TOKEN= # optional but recommended
+TELEGRAM_BOT_SECRET_TOKEN=
 ```
 
 If `TELEGRAM_BOT_TOKEN` is missing, the Telegram connect option is hidden in the UI and `/api/telegram/events` returns `503`.
 
-If `TELEGRAM_BOT_SECRET_TOKEN` is set, webhooks must include `x-telegram-bot-api-secret-token` with the same value or requests are rejected.
+`TELEGRAM_BOT_SECRET_TOKEN` is required whenever `TELEGRAM_BOT_TOKEN` is set. The deployment fails startup validation if it is missing. Telegram sends the value in `x-telegram-bot-api-secret-token`; requests with a missing or mismatched value are rejected.
 
 ## 4. Configure bot commands and optional profile photo (one-time)
 

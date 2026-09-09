@@ -84,6 +84,16 @@ vi.mock("@/utils/auth", () => ({
 }));
 
 vi.mock("@/utils/outlook/scopes", () => ({
+  REQUIRED_SCOPES: [
+    "openid",
+    "profile",
+    "email",
+    "User.Read",
+    "offline_access",
+    "Mail.ReadWrite",
+    "Mail.Send",
+    "MailboxSettings.ReadWrite",
+  ],
   SCOPES: [
     "openid",
     "profile",
@@ -92,6 +102,7 @@ vi.mock("@/utils/outlook/scopes", () => ({
     "offline_access",
     "Mail.ReadWrite",
     "Mail.Send",
+    "Contacts.Read",
     "MailboxSettings.ReadWrite",
   ],
 }));
@@ -126,6 +137,16 @@ describe("outlook linking callback route", () => {
       },
     });
     prisma.account.findUnique.mockResolvedValue(null);
+  });
+
+  it("rejects signed linking state after the session is revoked", async () => {
+    mockAuth.mockResolvedValue(null);
+    const response = await GET(
+      createRequest("http://localhost:3000/api/outlook/linking/callback"),
+    );
+    expect(response.headers.get("location")).toContain("error=invalid_state");
+    expect(mockGetOAuthCodeResult).not.toHaveBeenCalled();
+    expect(mockHandleAccountLinking).not.toHaveBeenCalled();
   });
 
   it("redirects with consent_incomplete when Microsoft linking lacks required consent", async () => {
@@ -169,7 +190,7 @@ describe("outlook linking callback route", () => {
     expect(mockClearOAuthCode).toHaveBeenCalledWith("valid-auth-code");
   });
 
-  it("allows successful linking when Microsoft token scope omits OIDC scopes", async () => {
+  it("allows linking without optional contact access", async () => {
     mockHandleAccountLinking.mockResolvedValue({
       type: "continue_create",
     });

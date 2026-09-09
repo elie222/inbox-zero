@@ -1,6 +1,6 @@
 ---
 name: test-feature
-description: "End-to-end feature testing — browser QA, API verification, eval tests, or any combination. Covers browser interactions (via agent-browser CLI), Google Workspace operations (gws CLI), API calls, and LLM eval tests. Can also persist tests as reusable QA flows or eval files."
+description: "End-to-end feature testing — browser QA, API verification, eval tests, or any combination. Covers browser interactions (via agent-browser CLI), Google Workspace operations (gws CLI), API calls, and LLM eval tests. Can also persist checks as reusable automated tests."
 disable-model-invocation: true
 argument-hint: "<description of feature to test>"
 ---
@@ -29,6 +29,20 @@ Before testing, make sure the local environment is ready. These steps are idempo
 3. **Enable required feature flags**: Check `.env.example` for any env vars the feature needs (e.g. `NEXT_PUBLIC_EXTERNAL_API_ENABLED=true`). If any are missing from `apps/web/.env`, add them now. **IMPORTANT**: `NEXT_PUBLIC_*` vars are baked in at build time — if you add one to `.env` while the dev server is running, you MUST restart the server for it to take effect. Do this BEFORE testing, not after. Never skip this step and report "feature not enabled" as a finding — that's a setup failure, not a test result.
 4. **Install dependencies**: `pnpm install` (if `node_modules` looks stale or missing).
 5. **Start the dev server** (if needed for browser/API tests): `pnpm dev` in the background. Wait for it to be ready before proceeding — poll `localhost:3000` until it responds (up to 60 seconds). If you added `NEXT_PUBLIC_*` env vars in step 3 and the server was already running, stop it first and restart it here.
+
+### Isolated local browser QA
+
+For focused visual QA, check for a free port and initialize an isolated environment:
+
+```bash
+pnpm dev-setup init --db empty --auth emulate --url localhost --port <port>
+pnpm dev-setup dev --skip-init
+```
+
+- Include `--skip-init` on every subsequent `dev-setup dev` or `dev-setup exec` command; omitting it resets the isolated database.
+- Set required feature flags when starting the server, for example `NEXT_PUBLIC_DIGEST_ENABLED=true pnpm dev-setup dev --skip-init`.
+- Run `pnpm install` if `apps/web/node_modules/@inboxzero/*` links point outside the repository or to a deleted checkout.
+- Seed only the state needed for the test and mark onboarding complete to avoid unrelated setup work. Keep temporary auth and seed files under `.context/` and remove them afterward.
 
 ## Step 1: Plan the test
 
@@ -160,11 +174,21 @@ Always include screenshots — even for passing tests. The user wants to see wha
 
 ## Step 5: Persist (if appropriate)
 
-After testing, ask the user if this should become a reusable test. Two options:
+After testing, ask the user if this should become a reusable test. Choose the
+smallest automated boundary that exercises the behavior:
 
-1. **Browser QA flow** — if the test is primarily UI-driven and would catch regressions, create a flow spec in `qa/browser-flows/` following the template. This can then be re-run with `/qa-run`.
+1. **Emulated Playwright test** — for deterministic browser behavior that can
+   run without third-party credentials. Add it under
+   `apps/web/__tests__/playwright/emulated/<area>/` and follow
+   `apps/web/__tests__/playwright/README.md` and the existing fixture patterns.
 
-2. **Eval test** — if the test is about AI output quality, write a proper eval test in `__tests__/eval/` that can be run with `pnpm test-ai`.
+2. **Real-provider E2E flow** — for Gmail or Outlook delivery, webhooks,
+   provider labels, drafts, or other production-path behavior. Add it under
+   `apps/web/__tests__/e2e/flows/` without replacing provider operations with
+   emulator or database shortcuts.
+
+3. **Eval test** — if the test is about AI output quality, write a proper eval
+   test in `apps/web/__tests__/eval/` that can be run with `pnpm test-ai`.
 
 Don't persist trivial one-off checks (like "does this page load"). Persist tests that verify important behavior someone might break later.
 
@@ -195,8 +219,6 @@ gws calendar events insert --params '{"calendarId": "primary"}' --json '{"summar
 - `CRITERIA.*` — ACCURACY, COMPLETENESS, TONE, CONCISENESS, NO_HALLUCINATION, CORRECT_FORMAT
 
 ### Existing QA infrastructure
-- Flow specs: `qa/browser-flows/*.md`
-- Flow runner: `/qa-run`
-- Flow creator: `/qa-new-flow`
-- E2E tests: `__tests__/e2e/flows/`
-- Eval tests: `__tests__/eval/`
+- Emulated browser tests: `apps/web/__tests__/playwright/emulated/`
+- Real-provider E2E tests: `apps/web/__tests__/e2e/flows/`
+- Eval tests: `apps/web/__tests__/eval/`

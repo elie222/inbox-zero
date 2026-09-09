@@ -196,6 +196,24 @@ function getTiersAtOrAbove(minimumTier: PremiumTier): PremiumTier[] {
     .map(([tier]) => tier as PremiumTier);
 }
 
+// Legacy rows hold a bare 1-12 month, which never matches a period, so they
+// get one reset on next use.
+export const getUnsubscribePeriod = (now = new Date()): number =>
+  now.getFullYear() * 100 + now.getMonth() + 1;
+
+export const getRemainingUnsubscribeCredits = ({
+  unsubscribeCredits,
+  unsubscribeMonth,
+  now = new Date(),
+}: {
+  unsubscribeCredits?: number | null;
+  unsubscribeMonth?: number | null;
+  now?: Date;
+}): number =>
+  unsubscribeMonth === getUnsubscribePeriod(now)
+    ? (unsubscribeCredits ?? 0)
+    : env.NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS;
+
 export const hasUnsubscribeAccess = (
   tier: PremiumTier | null,
   unsubscribeCredits?: number | null,
@@ -203,8 +221,7 @@ export const hasUnsubscribeAccess = (
   if (env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) return true;
 
   if (tier) return true;
-  if (unsubscribeCredits && unsubscribeCredits > 0) return true;
-  return false;
+  return (unsubscribeCredits ?? 0) > 0;
 };
 
 export const hasAiAccess = (

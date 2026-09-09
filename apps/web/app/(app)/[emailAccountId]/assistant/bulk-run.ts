@@ -1,0 +1,154 @@
+import { addDays } from "date-fns/addDays";
+import { startOfDay } from "date-fns/startOfDay";
+import type { ThreadsResponse } from "@/app/api/threads/route";
+import type { ThreadsQuery } from "@/utils/threads/validation";
+import { runAiRules } from "@/utils/queue/email-actions";
+import { sleep } from "@/utils/sleep";
+import { toastError } from "@/components/Toast";
+import { captureException } from "@/utils/error";
+import { fetchWithAccount } from "@/utils/fetch";
+import { createSearchParams } from "@/utils/url";
+
+const BATCH_SIZE = 25;
+
+export async function onRun(
+  emailAccountId: string,
+  {
+    startDate,
+    endDate,
+    includeRead,
+    rerun,
+    maxEmails,
+  }: {
+    startDate: Date;
+    endDate?: Date;
+    includeRead?: boolean;
+    rerun?: boolean;
+    maxEmails?: number;
+  },
+  onThreadsQueued: (threads: ThreadsResponse["threads"]) => void,
+  onComplete: (
+    status: "success" | "error" | "cancelled",
+    count: number,
+  ) => void,
+) {
+  let nextPageToken = "";
+  let totalProcessed = 0;
+  let aborted = false;
+  const abortController = new AbortController();
+  // Provider "before" filters are exclusive; the selected calendar day is inclusive.
+  const before = endDate ? startOfDay(addDays(endDate, 1)) : undefined;
+
+  function abort() {
+    aborted = true;
+    abortController.abort();
+  }
+
+  async function run() {
+    while (true) {
+      if (completeIfCancelled()) return;
+
+      const query: ThreadsQuery = {
+        type: "inbox",
+        limit: BATCH_SIZE,
+        after: startDate,
+        ...(before ? { before } : {}),
+        ...(!includeRead ? { isUnread: true } : {}),
+        ...(nextPageToken ? { nextPageToken } : {}),
+      };
+
+      let response: Response;
+      try {
+        response = await fetchWithAccount({
+          url: `/api/threads?${createSearchParams(query).toString()}`,
+          emailAccountId,
+          init: { signal: abortController.signal },
+        });
+      } catch (error) {
+        if (completeIfCancelled()) return;
+        throw error;
+      }
+
+      if (completeIfCancelled()) return;
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        toastError({
+          title: "Failed to fetch emails",
+          description:
+            typeof errorData.error === "string"
+              ? errorData.error
+              : `Error: ${response.status}`,
+        });
+        onComplete("error", totalProcessed);
+        return;
+      }
+
+      const data: ThreadsResponse = await response.json();
+      if (completeIfCancelled()) return;
+
+      if (!data.threads) {
+        toastError({
+          title: "Invalid response",
+          description: "Failed to process emails. Please try again.",
+        });
+        onComplete("error", totalProcessed);
+        return;
+      }
+
+      nextPageToken = data.nextPageToken || "";
+
+      const eligibleThreads = rerun
+        ? data.threads
+        : data.threads.filter((thread) => !thread.plan);
+      const remainingEmails =
+        maxEmails === undefined ? undefined : maxEmails - totalProcessed;
+      if (remainingEmails !== undefined && remainingEmails <= 0) break;
+
+      const threadsToQueue =
+        remainingEmails === undefined
+          ? eligibleThreads
+          : eligibleThreads.slice(0, remainingEmails);
+
+      if (completeIfCancelled()) return;
+
+      onThreadsQueued(threadsToQueue);
+      await runAiRules(
+        emailAccountId,
+        threadsToQueue,
+        !!rerun,
+        abortController.signal,
+      );
+      totalProcessed += threadsToQueue.length;
+
+      if (maxEmails !== undefined && totalProcessed >= maxEmails) break;
+      if (!nextPageToken) break;
+
+      if (threadsToQueue.length === 0) {
+        await sleep(2000);
+      }
+    }
+
+    onComplete("success", totalProcessed);
+  }
+
+  function completeIfCancelled() {
+    if (!aborted) return false;
+    onComplete("cancelled", totalProcessed);
+    return true;
+  }
+
+  run().catch((error) => {
+    if (completeIfCancelled()) return;
+
+    abortController.abort();
+    captureException(error);
+    toastError({
+      title: "Failed to process emails",
+      description: error instanceof Error ? error.message : "Please try again.",
+    });
+    onComplete("error", totalProcessed);
+  });
+
+  return abort;
+}

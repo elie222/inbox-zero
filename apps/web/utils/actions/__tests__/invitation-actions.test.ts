@@ -96,6 +96,25 @@ describe("createInvitationAction", () => {
     });
   });
 
+  it("rejects invitations from organization members without admin access", async () => {
+    prisma.member.findFirst.mockResolvedValueOnce({
+      organizationId: "org_1",
+      emailAccountId: "ea_inviter",
+      role: "member",
+    } as any);
+
+    const res = await inviteMembersAction({
+      organizationId: "org_1",
+      invitations: [{ email: "user@test.com", role: "member" }],
+    });
+
+    expect(res?.serverError).toBe(
+      "Only organization owners or admins can invite members.",
+    );
+    expect(prisma.invitation.create).not.toHaveBeenCalled();
+    expect(mockSendOrganizationInvitation).not.toHaveBeenCalled();
+  });
+
   it("rolls back the pending invitation when sending the email fails", async () => {
     prisma.emailAccount.findUnique.mockResolvedValue({
       id: "ea_inviter",

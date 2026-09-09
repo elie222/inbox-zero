@@ -317,7 +317,7 @@ const testCases = [
     ],
     expected: "Notification",
   },
-  // Single email from a SaaS — onboarding/welcome. Promotional intent despite helpful tone.
+  // Onboarding plus an upgrade prompt spans notification and marketing intent.
   {
     sender: "hello@resend.com",
     emails: [
@@ -327,7 +327,7 @@ const testCases = [
           "Thanks for signing up! Here's a quick guide: 1) Verify your domain in Settings. 2) Send your first email with our REST API or Node SDK. 3) Set up webhooks for delivery tracking. Need help? Reply to this email or check our docs. Pro tip: upgrade to the Pro plan for dedicated IPs and higher sending limits.",
       },
     ],
-    expected: "Marketing",
+    expected: null,
   },
   // Single email that's clearly a newsletter — first issue received
   {

@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/utils";
 import type { ChatStatus } from "ai";
-import { Loader2Icon, SendIcon, SquareIcon, XIcon } from "lucide-react";
+import { ArrowUpIcon, Loader2Icon, SquareIcon, XIcon } from "lucide-react";
 import type {
   ComponentProps,
   ChangeEvent,
@@ -25,7 +25,7 @@ export type PromptInputProps = HTMLAttributes<HTMLFormElement>;
 export const PromptInput = ({ className, ...props }: PromptInputProps) => (
   <form
     className={cn(
-      "w-full divide-y overflow-hidden rounded-xl border bg-background shadow-sm",
+      "relative w-full overflow-hidden rounded-2xl border bg-background shadow-sm",
       className,
     )}
     {...props}
@@ -96,7 +96,7 @@ export const PromptInputToolbar = ({
   ...props
 }: PromptInputToolbarProps) => (
   <div
-    className={cn("flex items-center justify-between p-1", className)}
+    className={cn("flex items-center justify-between border-t p-1", className)}
     {...props}
   />
 );
@@ -110,7 +110,7 @@ export const PromptInputTools = ({
   <div
     className={cn(
       "flex items-center gap-1",
-      "[&_button:first-child]:rounded-bl-xl",
+      "[&_button:first-child]:rounded-bl-2xl",
       className,
     )}
     {...props}
@@ -156,10 +156,10 @@ export const PromptInputSubmit = ({
   children,
   ...props
 }: PromptInputSubmitProps) => {
-  let Icon = <SendIcon className="size-4" />;
+  let Icon = <ArrowUpIcon className="size-5" />;
 
   if (status === "submitted") {
-    Icon = <Loader2Icon className="size-4 animate-spin" />;
+    Icon = <Loader2Icon className="size-5 animate-spin" />;
   } else if (status === "streaming") {
     Icon = <SquareIcon className="size-4" />;
   } else if (status === "error") {
@@ -168,7 +168,12 @@ export const PromptInputSubmit = ({
 
   return (
     <Button
-      className={cn("gap-1.5 rounded-lg", className)}
+      className={cn(
+        variant === "default" &&
+          size === "icon" &&
+          "size-9 rounded-full bg-blue-500 text-white hover:bg-blue-600",
+        className,
+      )}
       size={size}
       type="submit"
       variant={variant}

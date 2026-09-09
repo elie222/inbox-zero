@@ -79,7 +79,9 @@ describe("getExtraAvailableActionsForRuleEditor", () => {
   it("hides webhook actions when the feature is disabled", () => {
     mockEnv.webhookActionsEnabled = false;
 
-    const actions = getExtraAvailableActionsForRuleEditor();
+    const actions = getExtraAvailableActionsForRuleEditor({
+      integrationActionsEnabled: true,
+    });
 
     expect(actions).not.toContain(ActionType.CALL_WEBHOOK);
   });
@@ -87,8 +89,35 @@ describe("getExtraAvailableActionsForRuleEditor", () => {
   it("includes webhook actions when the feature is enabled", () => {
     mockEnv.webhookActionsEnabled = true;
 
-    const actions = getExtraAvailableActionsForRuleEditor();
+    const actions = getExtraAvailableActionsForRuleEditor({
+      integrationActionsEnabled: true,
+    });
 
     expect(actions).toContain(ActionType.CALL_WEBHOOK);
+  });
+
+  it("includes the integration action for early access users", () => {
+    const actions = getExtraAvailableActionsForRuleEditor({
+      integrationActionsEnabled: true,
+    });
+
+    expect(actions).toContain(ActionType.INTEGRATION);
+  });
+
+  it("hides the integration action outside early access", () => {
+    const actions = getExtraAvailableActionsForRuleEditor({
+      integrationActionsEnabled: false,
+    });
+
+    expect(actions).not.toContain(ActionType.INTEGRATION);
+  });
+
+  it("keeps existing integration actions available outside early access", () => {
+    const actions = getExtraAvailableActionsForRuleEditor({
+      existingActionTypes: [ActionType.INTEGRATION],
+      integrationActionsEnabled: false,
+    });
+
+    expect(actions).toContain(ActionType.INTEGRATION);
   });
 });

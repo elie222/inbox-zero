@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { env } from "@/env";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Group, GroupItem, Rule } from "@/generated/prisma/client";
 import { GroupItemType } from "@/generated/prisma/enums";
@@ -10,12 +11,15 @@ import type { EmailForLLM } from "@/utils/types";
 import type { EmailProvider } from "@/utils/email/types";
 import { getModel, type ModelType } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
-import { extractEmailAddress } from "@/utils/email";
+import { extractEmailAddress, isSameOrganization } from "@/utils/email";
+import { isWhitelistedSender } from "@/utils/email/whitelist";
+import { hasPriorContactOrAssumeYes } from "@/utils/cold-email/has-prior-contact";
 
 export const COLD_EMAIL_FOLDER_NAME = "Cold Emails";
 
 type ColdEmailBlockerReason =
   | "hasPreviousEmail"
+  | "applicationSender"
   | "ai"
   | "ai-already-labeled"
   | "excluded";
@@ -51,6 +55,21 @@ export async function isColdEmail({
   });
 
   logger.info("Checking is cold email");
+
+  if (
+    isWhitelistedSender(email.from, env.RESEND_FROM_EMAIL) ||
+    isWhitelistedSender(email.from, env.WHITELIST_FROM)
+  ) {
+    logger.info("Sender is an application sender");
+    return { isColdEmail: false, reason: "applicationSender" };
+  }
+
+  // Nobody at your own company is a cold emailer. Checked here rather than only at the
+  // actions, so a colleague is never labelled or archived either.
+  if (isSameOrganization(email.from, emailAccount.email)) {
+    logger.info("Sender is internal");
+    return { isColdEmail: false, reason: "hasPreviousEmail" };
+  }
 
   // Check if we marked it as a cold email already
   const groupId = coldEmailRule?.groupId;
@@ -95,14 +114,13 @@ export async function isColdEmail({
     return { isColdEmail: false, reason: "excluded" };
   }
 
-  const hasPreviousEmail =
-    email.date && email.id
-      ? await provider.hasPreviousCommunicationsWithSenderOrDomain({
-          from: extractEmailAddress(email.from) || email.from,
-          date: email.date,
-          messageId: email.id,
-        })
-      : false;
+  const hasPreviousEmail = await hasPriorContactOrAssumeYes({
+    provider,
+    from: extractEmailAddress(email.from) || email.from,
+    date: email.date,
+    messageId: email.id,
+    logger,
+  });
 
   if (hasPreviousEmail) {
     logger.info("Has previous email");
@@ -134,26 +152,11 @@ async function aiIsColdEmail(
   coldEmailPrompt: string,
   modelType?: ModelType,
 ) {
-  const system = `You are an assistant that decides if an email is a cold email or not.
+  const system = `Decide whether the email is cold outreach. Give a concise reason.
 
 <instructions>
 ${coldEmailPrompt || DEFAULT_COLD_EMAIL_PROMPT}
-</instructions>
-
-<output_format>
-Return a JSON object with a "reason" and "coldEmail" field.
-The "reason" should be a concise explanation that explains why the email is or isn't considered a cold email.
-The "coldEmail" should be a boolean that is true if the email is a cold email and false otherwise.
-</output_format>
-
-<example_response>
-{
-  "reason": "This is someone trying to sell you services.",
-  "coldEmail": true
-}
-</example_response>
-
-Determine if the email is a cold email or not.`;
+</instructions>`;
 
   const prompt = `<email>
 ${stringifyEmail(email, 500)}

@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { parseEnv } from "node:util";
 
 // Environment variable builder
 export type EnvConfig = Record<string, string | undefined>;
@@ -17,6 +18,10 @@ export function validateConfigName(name: string): string {
     throw new Error(CONFIG_NAME_ERROR);
   }
   return name;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&");
 }
 
 export function getEnvFileName(name?: string): string {
@@ -40,10 +45,11 @@ export function generateEnvFile(config: {
   // Helper to set a value (handles both commented and uncommented lines)
   const setValue = (key: string, value: string | undefined) => {
     if (value === undefined) return;
+    const escapedKey = escapeRegExp(key);
     // Match both commented (# KEY=) and uncommented (KEY=) forms
     const patterns = [
-      new RegExp(`^${key}=.*$`, "m"),
-      new RegExp(`^# ${key}=.*$`, "m"),
+      new RegExp(`^${escapedKey}=.*$`, "m"),
+      new RegExp(`^# ${escapedKey}=.*$`, "m"),
     ];
     for (const pattern of patterns) {
       if (pattern.test(content)) {
@@ -207,21 +213,17 @@ export function isSensitiveKey(key: string): boolean {
 }
 
 export function parseEnvFile(content: string): Record<string, string> {
-  const env: Record<string, string> = {};
-  for (const line of content.split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-    const eqIndex = trimmed.indexOf("=");
-    if (eqIndex === -1) continue;
-    const key = trimmed.slice(0, eqIndex).trim();
-    let value = trimmed.slice(eqIndex + 1).trim();
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
-    env[key] = value;
+  const env = parseEnv(content);
+  // Compose treats unspaced hashes in unquoted database passwords as literal.
+  const password = [
+    ...content.matchAll(/^[ \t]*POSTGRES_PASSWORD[ \t]*=(.*)$/gm),
+  ].at(-1)?.[1];
+  if (
+    password &&
+    !password.trim().startsWith('"') &&
+    !password.trim().startsWith("'")
+  ) {
+    env.POSTGRES_PASSWORD = password.replace(/\s+#.*$/, "").trim();
   }
   return env;
 }
@@ -234,12 +236,13 @@ export function updateEnvValue(
   const needsQuotes = /[\s"'#]/.test(value) || value.includes("://");
   const formatted = needsQuotes ? `"${escapeEnvQuotedValue(value)}"` : value;
 
-  const uncommented = new RegExp(`^${key}=.*$`, "m");
+  const escapedKey = escapeRegExp(key);
+  const uncommented = new RegExp(`^${escapedKey}=.*$`, "m");
   if (uncommented.test(content)) {
     return content.replace(uncommented, () => `${key}=${formatted}`);
   }
 
-  const commented = new RegExp(`^# ${key}=.*$`, "m");
+  const commented = new RegExp(`^# ${escapedKey}=.*$`, "m");
   if (commented.test(content)) {
     return content.replace(commented, () => `${key}=${formatted}`);
   }
@@ -282,4 +285,11 @@ export function parsePortConflict(stderr: string): string | null {
 
 function escapeEnvQuotedValue(value: string): string {
   return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
+export function generateEncryptionSecrets(existing: EnvConfig): EnvConfig {
+  return {
+    EMAIL_ENCRYPT_SECRET: existing.EMAIL_ENCRYPT_SECRET || generateSecret(32),
+    EMAIL_ENCRYPT_SALT: existing.EMAIL_ENCRYPT_SALT || generateSecret(16),
+  };
 }

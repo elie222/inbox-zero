@@ -13,7 +13,12 @@ export default async function DebugPage(props: {
     <PageWrapper>
       <PageHeading>Debug</PageHeading>
 
-      <div className="mt-4 flex gap-2">
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Button variant="outline" asChild>
+          <Link href={prefixPath(emailAccountId, "/debug/mail-queue")}>
+            Mail queue
+          </Link>
+        </Button>
         <Button variant="outline" asChild>
           <Link href={prefixPath(emailAccountId, "/debug/rules")}>Rules</Link>
         </Button>

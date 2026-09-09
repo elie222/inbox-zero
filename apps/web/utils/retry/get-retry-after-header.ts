@@ -3,9 +3,13 @@ export function getRetryAfterHeaderFromError(
 ): string | undefined {
   const err = toRecord(error);
   const cause = toRecord(err.cause);
+  const nestedError = toRecord(err.error);
 
   const directHeader = getHeaderValue(toRecord(err.response).headers);
   if (directHeader) return directHeader;
+
+  const nestedHeader = getHeaderValue(toRecord(nestedError.response).headers);
+  if (nestedHeader) return nestedHeader;
 
   return getHeaderValue(toRecord(cause.response).headers);
 }

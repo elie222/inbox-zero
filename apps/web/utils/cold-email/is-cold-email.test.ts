@@ -3,10 +3,20 @@ import { isColdEmail } from "./is-cold-email";
 import { getEmailAccount } from "@/__tests__/helpers";
 import type { EmailForLLM } from "@/utils/types";
 import { GroupItemType } from "@/generated/prisma/enums";
+import { env } from "@/env";
 import prisma from "@/utils/__mocks__/prisma";
 import { extractEmailAddress } from "@/utils/email";
+import { createGenerateObject } from "@/utils/llms";
 
 vi.mock("@/utils/prisma");
+
+vi.mock("@/env", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/env")>();
+  return {
+    ...actual,
+    env: { ...actual.env },
+  };
+});
 
 vi.mock("./cold-email-rule", () => ({
   getColdEmailRule: vi.fn(),
@@ -31,6 +41,7 @@ const mockProvider = {
 describe("isColdEmail", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    env.WHITELIST_FROM = "welcome@service.example OR service.example";
   });
 
   it("should recognize a known cold email sender even when from field format differs", async () => {
@@ -139,6 +150,196 @@ describe("isColdEmail", () => {
         group: { select: { id: true, name: true } },
       },
     });
+  });
+
+  // Guarded here rather than only at the actions, so a colleague is never labelled
+  // or archived either.
+  it("should not classify a colleague as cold", async () => {
+    vi.mocked(prisma.groupItem.findFirst).mockResolvedValue(null);
+
+    const result = await isColdEmail({
+      email: {
+        id: "msg-internal",
+        from: "ceo@company.com",
+        to: "user@company.com",
+        subject: "Quick favour",
+        content: "Can you take a look at this?",
+        date: new Date(),
+      },
+      emailAccount: getEmailAccount({
+        id: "test-account-id",
+        email: "user@company.com",
+      }),
+      provider: mockProvider as never,
+      coldEmailRule: { instructions: "test instructions", groupId: "group-id" },
+    });
+
+    expect(result.isColdEmail).toBe(false);
+    expect(
+      mockProvider.hasPreviousCommunicationsWithSenderOrDomain,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("should not classify a colleague as cold when a learned pattern exists", async () => {
+    vi.mocked(prisma.groupItem.findFirst).mockResolvedValue({
+      id: "group-item-id",
+      type: GroupItemType.FROM,
+      value: "ceo@company.com",
+      exclude: false,
+      group: { id: "group-id", name: "Cold Email" },
+    } as any);
+
+    const result = await isColdEmail({
+      email: {
+        id: "msg-internal",
+        from: "ceo@company.com",
+        to: "user@company.com",
+        subject: "Quick favour",
+        content: "Can you take a look at this?",
+        date: new Date(),
+      },
+      emailAccount: getEmailAccount({
+        id: "test-account-id",
+        email: "user@company.com",
+      }),
+      provider: mockProvider as never,
+      coldEmailRule: { instructions: "test instructions", groupId: "group-id" },
+    });
+
+    expect(result.isColdEmail).toBe(false);
+  });
+
+  it("should not classify the application notification sender as cold", async () => {
+    const result = await isColdEmail({
+      email: {
+        id: "msg-application-notification",
+        from: env.RESEND_FROM_EMAIL,
+        to: "user@customer.test",
+        subject: "Product update",
+        content: "Here is the latest product update.",
+        date: new Date(),
+      },
+      emailAccount: getEmailAccount({
+        id: "test-account-id",
+        email: "user@customer.test",
+      }),
+      provider: mockProvider as never,
+      coldEmailRule: { instructions: "test instructions", groupId: "group-id" },
+    });
+
+    expect(result.isColdEmail).toBe(false);
+    expect(result.reason).toBe("applicationSender");
+    expect(prisma.groupItem.findFirst).not.toHaveBeenCalled();
+    expect(
+      mockProvider.hasPreviousCommunicationsWithSenderOrDomain,
+    ).not.toHaveBeenCalled();
+    expect(createGenerateObject).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "welcome@service.example",
+    '"Service team" <WELCOME@SERVICE.EXAMPLE>',
+    "updates@another.example",
+  ])("should exempt the whitelisted sender %s even with a learned cold pattern", async (from) => {
+    env.WHITELIST_FROM =
+      "welcome@service.example OR service.example OR updates@another.example";
+    vi.mocked(prisma.groupItem.findFirst).mockResolvedValue({
+      id: "group-item-id",
+      type: GroupItemType.FROM,
+      value: "welcome@service.example",
+      exclude: false,
+      group: { id: "group-id", name: "Cold Email" },
+    } as any);
+
+    const result = await isColdEmail({
+      email: {
+        id: "msg-onboarding",
+        from,
+        to: "user@customer.test",
+        subject: "Finish setting up your account",
+        content: "Your workspace is ready to configure.",
+        date: new Date(),
+      },
+      emailAccount: getEmailAccount({ email: "user@customer.test" }),
+      provider: mockProvider as never,
+      coldEmailRule: { instructions: "test instructions", groupId: "group-id" },
+    });
+
+    expect(result).toEqual({ isColdEmail: false, reason: "applicationSender" });
+    expect(prisma.groupItem.findFirst).not.toHaveBeenCalled();
+    expect(
+      mockProvider.hasPreviousCommunicationsWithSenderOrDomain,
+    ).not.toHaveBeenCalled();
+    expect(createGenerateObject).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    {
+      from: "other@service.example",
+      whitelist: "welcome@service.example OR service.example",
+    },
+    {
+      from: "welcome@service.example.attacker.test",
+      whitelist: "welcome@service.example",
+    },
+    {
+      from: '"welcome@service.example" <sender@attacker.test>',
+      whitelist: "welcome@service.example",
+    },
+    { from: "invalid sender", whitelist: "invalid whitelist" },
+    { from: "invalid sender", whitelist: "service.example" },
+    { from: "welcome@service.example", whitelist: undefined },
+  ])("should not exempt $from with whitelist $whitelist", async ({
+    from,
+    whitelist,
+  }) => {
+    env.WHITELIST_FROM = whitelist;
+    vi.mocked(prisma.groupItem.findFirst).mockResolvedValue({
+      id: "group-item-id",
+      type: GroupItemType.FROM,
+      value: extractEmailAddress(from),
+      exclude: false,
+      group: { id: "group-id", name: "Cold Email" },
+    } as any);
+
+    const result = await isColdEmail({
+      email: {
+        id: "msg-untrusted",
+        from,
+        to: "user@customer.test",
+        subject: "Hello",
+        content: "Can we schedule a sales call?",
+        date: new Date(),
+      },
+      emailAccount: getEmailAccount({ email: "user@customer.test" }),
+      provider: mockProvider as never,
+      coldEmailRule: { instructions: "test instructions", groupId: "group-id" },
+    });
+
+    expect(result.isColdEmail).toBe(true);
+    expect(result.reason).toBe("ai-already-labeled");
+  });
+
+  // Blocking a sender we could not verify is worse than missing a cold email.
+  it("should not classify as cold when prior contact cannot be checked", async () => {
+    vi.mocked(prisma.groupItem.findFirst).mockResolvedValue(null);
+
+    const result = await isColdEmail({
+      email: {
+        id: "msg-no-date",
+        from: "unknown@example.com",
+        to: "user@test.com",
+        subject: "Hello",
+        content: "Hello",
+        date: undefined as never,
+      },
+      emailAccount: getEmailAccount({ id: "test-account-id" }),
+      provider: mockProvider as never,
+      coldEmailRule: { instructions: "test instructions", groupId: "group-id" },
+    });
+
+    expect(result.isColdEmail).toBe(false);
+    expect(result.reason).toBe("hasPreviousEmail");
   });
 
   it("should handle various email formats consistently", async () => {

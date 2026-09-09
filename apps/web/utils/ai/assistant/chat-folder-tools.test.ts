@@ -136,7 +136,11 @@ describe("chat folder tools", () => {
     });
   });
 
-  it("does not treat folder names containing slashes as paths", async () => {
+  it.each([
+    "Client / invoices",
+    String.raw`Client\invoices`,
+    `Client${FOLDER_SEPARATOR}invoices`,
+  ])("does not create a root folder from path-like input: %s", async (name) => {
     const getOrCreateFolderIdByName = vi.fn().mockResolvedValue("folder-1");
 
     vi.mocked(createEmailProvider).mockResolvedValue(
@@ -149,17 +153,12 @@ describe("chat folder tools", () => {
     const toolInstance = createOrGetFolderTool(toolOptions);
 
     const result = await (toolInstance.execute as any)({
-      name: "Client / invoices",
+      name,
     });
 
-    expect(getOrCreateFolderIdByName).toHaveBeenCalledWith("Client / invoices");
+    expect(getOrCreateFolderIdByName).not.toHaveBeenCalled();
     expect(result).toEqual({
-      created: true,
-      folder: {
-        name: "Client / invoices",
-        path: "Client / invoices",
-        childFolderCount: 0,
-      },
+      error: "Folder path not found. Use an existing path from listFolders.",
     });
   });
 
@@ -218,7 +217,11 @@ describe("chat folder tools", () => {
     });
   });
 
-  it("accepts slash path aliases for nested folders after exact name matching", async () => {
+  it.each([
+    "Operations / Reports",
+    "Operations/Reports",
+    String.raw`Operations\Reports`,
+  ])("accepts a path alias for an existing nested folder: %s", async (folderName) => {
     const getOrCreateFolderIdByName = vi.fn();
     const moveThreadToFolder = vi.fn().mockResolvedValue(undefined);
 
@@ -248,7 +251,7 @@ describe("chat folder tools", () => {
 
     const result = await (toolInstance.execute as any)({
       threadIds: ["thread-1"],
-      folderName: "Operations / Reports",
+      folderName,
     });
 
     expect(getOrCreateFolderIdByName).not.toHaveBeenCalled();
@@ -259,11 +262,37 @@ describe("chat folder tools", () => {
     );
     expect(result).toEqual({
       success: true,
-      folderName: "Operations / Reports",
+      folderName,
       requestedCount: 1,
       successCount: 1,
       failedCount: 0,
       failedThreadIds: [],
+    });
+  });
+
+  it("does not create a root folder while moving to an unresolved path", async () => {
+    const getOrCreateFolderIdByName = vi.fn().mockResolvedValue("folder-1");
+    const moveThreadToFolder = vi.fn();
+
+    vi.mocked(createEmailProvider).mockResolvedValue(
+      createMockEmailProvider({
+        getFolders: vi.fn().mockResolvedValue([]),
+        getOrCreateFolderIdByName,
+        moveThreadToFolder,
+      }),
+    );
+
+    const toolInstance = moveThreadsToFolderTool(toolOptions);
+
+    const result = await (toolInstance.execute as any)({
+      threadIds: ["thread-1"],
+      folderName: String.raw`Operations\Reports`,
+    });
+
+    expect(getOrCreateFolderIdByName).not.toHaveBeenCalled();
+    expect(moveThreadToFolder).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      error: "Folder path not found. Use an existing path from listFolders.",
     });
   });
 

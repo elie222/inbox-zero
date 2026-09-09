@@ -8,6 +8,7 @@ import {
 import { createScopedLogger } from "@/utils/logger";
 import { convertMentionsToLabels } from "@/utils/mention";
 import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
+import { isIntegrationActionEnabledForUserId } from "@/utils/integration-action.server";
 
 const logger = createScopedLogger("ai-prompt-to-rules");
 
@@ -39,13 +40,21 @@ ${cleanedPromptFile}
     modelOptions,
     promptHardening: { trust: "trusted" },
   });
+  const integrationActionsEnabled = await isIntegrationActionEnabledForUserId(
+    emailAccount.userId,
+  );
 
   const aiResponse = await generateObject({
     ...modelOptions,
     prompt,
     system,
     schema: z.object({
-      rules: z.array(createRuleSchema(emailAccount.account.provider)),
+      rules: z.array(
+        createRuleSchema(
+          emailAccount.account.provider,
+          integrationActionsEnabled,
+        ),
+      ),
     }),
   });
 

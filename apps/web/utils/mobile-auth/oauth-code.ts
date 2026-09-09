@@ -2,7 +2,10 @@ import { createHmac, randomBytes } from "node:crypto";
 import { env } from "@/env";
 import { SafeError } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
-import type { MobileAuthReturnUrlMode } from "@/utils/mobile-auth/url";
+import {
+  isMobileAuthReturnUrlMode,
+  type MobileAuthReturnUrlMode,
+} from "@/utils/mobile-auth/url";
 import prisma from "@/utils/prisma";
 import { isNotFoundError } from "@/utils/prisma-helpers";
 
@@ -179,10 +182,10 @@ function parseStateIdentifier(
   const parts = identifier.split(":");
   if (parts.length !== 2) return null;
   const [prefix, returnUrlMode] = parts;
-  if (prefix !== MOBILE_AUTH_STATE_IDENTIFIER_PREFIX) return null;
-  if (returnUrlMode !== "app-link" && returnUrlMode !== "custom-scheme") {
+  if (prefix !== MOBILE_AUTH_STATE_IDENTIFIER_PREFIX || !returnUrlMode) {
     return null;
   }
+  if (!isMobileAuthReturnUrlMode(returnUrlMode)) return null;
   return returnUrlMode;
 }
 

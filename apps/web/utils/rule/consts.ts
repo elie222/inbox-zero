@@ -3,6 +3,16 @@ import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { ActionType, SystemType } from "@/generated/prisma/enums";
 import { env } from "@/env";
 
+export const STANDARD_CATEGORY_SYSTEM_TYPES = [
+  SystemType.TO_REPLY,
+  SystemType.NEWSLETTER,
+  SystemType.MARKETING,
+  SystemType.CALENDAR,
+  SystemType.RECEIPT,
+  SystemType.NOTIFICATION,
+  SystemType.COLD_EMAIL,
+] as const;
+
 const ruleConfig: Record<
   SystemType,
   {
@@ -70,7 +80,7 @@ const ruleConfig: Record<
   [SystemType.MARKETING]: {
     name: "Marketing",
     instructions:
-      "Marketing: Promotional emails about products, services, sales, or offers",
+      "Marketing: Promotions, sales, and offers that can be safely archived. Exclude emails whose main purpose is account access, a transaction, or a service update, even if they include promotional content.",
     label: "Marketing",
     runOnThreads: false,
     categoryAction: "label_archive",
@@ -157,19 +167,6 @@ export function getCategoryAction(systemType: SystemType, provider: string) {
   return config.categoryAction;
 }
 
-export const SYSTEM_RULE_ORDER: SystemType[] = [
-  SystemType.TO_REPLY,
-  SystemType.AWAITING_REPLY,
-  SystemType.FYI,
-  SystemType.ACTIONED,
-  SystemType.NEWSLETTER,
-  SystemType.MARKETING,
-  SystemType.CALENDAR,
-  SystemType.RECEIPT,
-  SystemType.NOTIFICATION,
-  SystemType.COLD_EMAIL,
-];
-
 export function getDefaultActions(
   systemType: SystemType,
   provider: string,
@@ -190,6 +187,9 @@ export function getDefaultActions(
   messagingChannelId: string | null;
   delayInMinutes: number | null;
   staticAttachments: null;
+  integrationName: string | null;
+  integrationToolName: string | null;
+  integrationArgs: null;
   createdAt: Date;
   updatedAt: Date;
 }> {
@@ -213,6 +213,9 @@ export function getDefaultActions(
     messagingChannelId: string | null;
     delayInMinutes: number | null;
     staticAttachments: null;
+    integrationName: string | null;
+    integrationToolName: string | null;
+    integrationArgs: null;
     createdAt: Date;
     updatedAt: Date;
   }> = [];
@@ -235,6 +238,9 @@ export function getDefaultActions(
       messagingChannelId: null,
       delayInMinutes: null,
       staticAttachments: null,
+      integrationName: null,
+      integrationToolName: null,
+      integrationArgs: null,
       createdAt: now,
       updatedAt: now,
     });
@@ -256,6 +262,9 @@ export function getDefaultActions(
       messagingChannelId: null,
       delayInMinutes: null,
       staticAttachments: null,
+      integrationName: null,
+      integrationToolName: null,
+      integrationArgs: null,
       createdAt: now,
       updatedAt: now,
     });
@@ -279,6 +288,9 @@ export function getDefaultActions(
       messagingChannelId: null,
       delayInMinutes: null,
       staticAttachments: null,
+      integrationName: null,
+      integrationToolName: null,
+      integrationArgs: null,
       createdAt: now,
       updatedAt: now,
     });
@@ -302,6 +314,9 @@ export function getDefaultActions(
       messagingChannelId: null,
       delayInMinutes: null,
       staticAttachments: null,
+      integrationName: null,
+      integrationToolName: null,
+      integrationArgs: null,
       createdAt: now,
       updatedAt: now,
     });

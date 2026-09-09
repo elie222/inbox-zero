@@ -1,6 +1,7 @@
 import prisma from "@/utils/prisma";
-import { transferPremiumDuringMerge } from "@/utils/user/merge-premium";
+import { getPremiumTransferOperations } from "@/utils/user/merge-premium";
 import type { Logger } from "@/utils/logger";
+import { invalidateAccountValidation } from "@/utils/redis/account-validation";
 
 interface MergeAccountOptions {
   email: string;
@@ -29,6 +30,13 @@ export async function mergeAccount({
     where: { id: sourceUserId },
     select: { email: true },
   });
+  const accountBeingMoved = sourceUserEmailAccounts.find(
+    (account) => account.accountId === sourceAccountId,
+  );
+
+  if (!accountBeingMoved) {
+    throw new Error("Source email account not found");
+  }
 
   if (sourceUserEmailAccounts.length > 1) {
     logger.info(
@@ -39,10 +47,7 @@ export async function mergeAccount({
       },
     );
 
-    const accountBeingMoved = sourceUserEmailAccounts.find(
-      (acc) => acc.accountId === sourceAccountId,
-    );
-    const isPrimaryAccount = accountBeingMoved?.email === sourceUser?.email;
+    const isPrimaryAccount = accountBeingMoved.email === sourceUser?.email;
 
     const accountUpdate = prisma.account.update({
       where: { id: sourceAccountId },
@@ -60,7 +65,7 @@ export async function mergeAccount({
 
     if (isPrimaryAccount) {
       const newPrimaryAccount = sourceUserEmailAccounts.find(
-        (acc) => acc.id !== accountBeingMoved?.id,
+        (acc) => acc.id !== accountBeingMoved.id,
       );
       if (newPrimaryAccount) {
         const userUpdate = prisma.user.update({
@@ -78,16 +83,24 @@ export async function mergeAccount({
     } else {
       await prisma.$transaction([accountUpdate, emailAccountUpdate]);
     }
+    await invalidateAccountValidation({
+      userId: sourceUserId,
+      emailAccountId: accountBeingMoved.id,
+    });
     return "partial_reassign";
   }
 
-  await transferPremiumDuringMerge({
+  const premiumOperations = await getPremiumTransferOperations({
     sourceUserId,
     targetUserId,
     logger,
   });
 
   await prisma.$transaction([
+    // Foreign-key checks for new links must finish before the deletion check,
+    // or wait until this transaction has committed.
+    prisma.$queryRaw`SELECT id FROM "User" WHERE id = ${sourceUserId} FOR UPDATE`,
+    ...premiumOperations,
     prisma.account.update({
       where: { id: sourceAccountId },
       data: { userId: targetUserId },
@@ -101,9 +114,18 @@ export async function mergeAccount({
       },
     }),
     prisma.user.delete({
-      where: { id: sourceUserId },
+      where: {
+        id: sourceUserId,
+        accounts: { none: {} },
+        emailAccounts: { none: {} },
+      },
     }),
   ]);
+
+  await invalidateAccountValidation({
+    userId: sourceUserId,
+    emailAccountId: accountBeingMoved.id,
+  });
 
   return "full_merge";
 }

@@ -1,80 +1,104 @@
 ---
 name: create-pr
-description: Commit changes and open a pull request with safe metadata
-disable-model-invocation: true
+description: Review the working tree, commit it safely, and open a GitHub pull request. Use when the user asks to create, open, raise, or publish a PR, or to finish changes as a PR. For watching an existing PR — CI, review bots, failures, comments — use the pr-watch skill instead.
 ---
 
-# Open a PR
+# Open a pull request
 
-Important: Steps 2 and 3 require `required_permissions: ['all']` because:
-- Pre-commit hooks need access to global npm/node paths outside the workspace
-- `gh` CLI has TLS certificate issues in sandboxed mode
+Get the change reviewed, committed with public-safe metadata, and published.
+Opening the PR is not the end of the job: hand off to `pr-watch` unless the user
+opted out of monitoring.
 
-## Critical Rules
+## Boundaries
 
-**NEVER include PII (Personally Identifiable Information) in:**
-- Commit messages
-- PR titles or descriptions
-- Branch names
-- File paths or names mentioned in commits/PRs
-- Any text that will be publicly visible
+- Use public-safe metadata. Never expose non-public personal data, account IDs,
+  tokens, secrets, or other sensitive information in a branch name, commit
+  message, or PR body. Public GitHub identities already on the PR may be
+  referenced when a reply needs them.
+- Mention related work in private repositories or services only generically,
+  such as "updated the marketing repository," without internal details.
+- If the branch already has a PR and the user asks to monitor or fix it, skip
+  creation entirely and use `pr-watch`.
 
-PII includes: names, email addresses, phone numbers, physical addresses, usernames, account IDs, API keys, tokens, passwords, or any other sensitive personal data.
+## 1. Inspect and review
 
-## Step 1: Check state (ONE command)
-
-```bash
-git branch --show-current && git status -s && git diff HEAD --stat
-```
-
-- **Always create a new branch for each PR** unless you're already on the correct branch for the current changes.
-- If on `main` OR if the current branch doesn't match the work you're committing: create a branch using the appropriate prefix:
-  - `feat/<description>` - new features
-  - `fix/<description>` - bug fixes
-  - `chore/<description>` - maintenance, refactoring, etc.
+Read `AGENTS.md`, then inspect the current branch, status, and diff:
 
 ```bash
-git checkout -b feat/<description>
+git branch --show-current && git status --short && git diff HEAD --stat
 ```
 
-Note: `git checkout -b` requires `required_permissions: ['git_write']`
+Before publishing, review the diff for correctness, security, test gaps, and
+repository conventions. Fix high-confidence bugs and mechanical issues. Do not
+expand the requested scope for optional refactors.
 
-## Step 2: Commit + Push (`required_permissions: ['all']`)
+Run focused validation appropriate to the changed files — the unit tests that
+cover them, a type check, the linter. Do not run builds or broad test suites
+when repository instructions prohibit them or the user did not request them. CI
+runs the full suites on the PR anyway, so duplicating them locally buys nothing
+and costs a great deal of time.
 
-If uncommitted changes exist:
+## 2. Branch, commit, and push
 
-**If staged files exist** (respect user's selection):
+Create a dedicated branch when on the base branch or when the current branch
+does not belong to these changes. Use a public-safe `feat/`, `fix/`, or `chore/`
+name unless repository instructions require another prefix.
+
+Respect the user's staged selection. Otherwise stage explicit paths, never
+`git add .`:
+
 ```bash
-git commit -m "<msg>" && git push
+git add <file1> <file2>
+git commit -m "<public-safe summary>"
+git push -u origin <branch>
 ```
 
-**If unstaged files exist** (add specific files, NOT `git add .`):
+If there is nothing new to commit, confirm the branch is already pushed before
+continuing.
+
+## 3. Create the PR
+
+First check whether the branch already has one, and do not create a duplicate:
+
 ```bash
-git add <file1> <file2> ... && git commit -m "<msg>" && git push
+gh pr view --json number,url,headRefName,headRefOid
 ```
 
-## Step 3: Create PR (`required_permissions: ['all']`)
+For a new PR, use this public-safe format:
 
-**Format:**
+```text
+<area>: <Title under 80 characters>
+
+<One- or two-sentence summary>
+
+- concrete change
+- concrete validation or behavior
 ```
-<feature_area>: <Title> (80 chars max)
 
-<TLDR> (1-2 sentences)
-
-- bullet 1
-- bullet 2
-```
-
-**Without skip-review:**
 ```bash
 gh pr create --title "<title>" --body "<body>"
 ```
 
-**With skip-review** (user says "skip review", "#skipreview", etc.):
+Display the PR link and branch. In the final response, include a concise
+performance note covering runtime work, database or network calls, and hot-path
+risk when relevant.
+
+## 4. Hand off to the watch
+
+If the user requested `skip review` or `#skipreview`, post that marker and stop.
+
+Otherwise start the watch in the same turn you created the PR — do not stop to
+report first. Opening a PR is not completing it, and a report delivered while
+checks are still running is a report of nothing:
+
 ```bash
-gh pr create --title "<title>" --body "<body>" && gh pr comment $(gh pr view --json number -q .number) --body "#skipreview"
+# run_in_background: true
+"$(git rev-parse --show-toplevel)/.claude/skills/pr-watch/pr-digest" --watch
 ```
 
-Display the returned PR URL as a markdown link on its own line, formatted as: `[PR #<number>](<url>)` so it's clickable.
-Display the name of the branch you created.
-In the final response, include a concise performance impact note for the PR, covering added runtime work, database/network calls, and hot-path risk when relevant.
+That call blocks until the checks on this commit are terminal and then prints a
+digest ending in a `VERDICT` line. Read `.claude/skills/pr-watch/SKILL.md` for
+how to act on each verdict, triage a failing job, and answer review comments.
+
+Starting the command matters more than remembering the skill: once it is
+running, its output tells you what to do next even if nothing reminded you.

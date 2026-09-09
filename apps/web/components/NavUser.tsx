@@ -34,11 +34,13 @@ import { EXTENSION_URL } from "@/utils/config";
 import { useCurrentOrganization } from "@/hooks/useCurrentOrganization";
 import { env } from "@/env";
 import { Referrals } from "@/components/ReferralDialog";
+import { useSettingsDialog } from "@/hooks/useSettingsDialog";
 
 export function NavUser() {
   const { emailAccountId, emailAccount, provider } = useAccount();
   const { closeMobileSidebar, isMobile, state } = useSidebar();
   const [isReferralDialogOpen, setIsReferralDialogOpen] = useState(false);
+  const { openSettings } = useSettingsDialog();
 
   const currentEmailAccountId = emailAccount?.id || emailAccountId;
   const organization = useCurrentOrganization();
@@ -87,14 +89,14 @@ export function NavUser() {
           sideOffset={4}
         >
           <DropdownMenuGroup>
-            <DropdownMenuItem asChild>
-              <Link
-                href="/settings"
-                onClick={() => closeMobileSidebar("left-sidebar")}
-              >
-                <SettingsIcon className="mr-2 size-4" />
-                Settings
-              </Link>
+            <DropdownMenuItem
+              onSelect={() => {
+                closeMobileSidebar("left-sidebar");
+                openSettings();
+              }}
+            >
+              <SettingsIcon className="mr-2 size-4" />
+              Settings
             </DropdownMenuItem>
             {!hasOrganization && (
               <DropdownMenuItem asChild>

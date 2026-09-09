@@ -20,18 +20,20 @@ export function PreWrittenDrafts({ title, subtitle }: PreWrittenDraftsProps) {
       <SectionSubtitle>{subtitle}</SectionSubtitle>
       <SectionContent className="flex justify-center">
         <Image
-          className="hidden md:block"
+          className="hidden h-auto w-full md:block"
           src="/images/new-landing/pre-written-drafts.png"
           alt="pre-written drafts"
-          width={2000}
-          height={2000}
+          width={1932}
+          height={904}
+          sizes="(min-width: 1280px) 1152px, (min-width: 1024px) calc(100vw - 64px), calc(100vw - 48px)"
         />
         <Image
-          className="block md:hidden"
+          className="block h-auto w-full md:hidden"
           src="/images/new-landing/pre-written-drafts-mobile.png"
-          alt="an organized inbox"
-          width={2000}
-          height={2000}
+          alt="pre-written drafts"
+          width={1311}
+          height={2377}
+          sizes="calc(100vw - 48px)"
         />
       </SectionContent>
     </Section>

@@ -36,7 +36,10 @@ import {
   clearOAuthCode,
 } from "@/utils/redis/oauth-code";
 import { isDuplicateError } from "@/utils/prisma-helpers";
-import { SCOPES as OUTLOOK_SCOPES } from "@/utils/outlook/scopes";
+import {
+  REQUIRED_SCOPES as OUTLOOK_REQUIRED_SCOPES,
+  SCOPES as OUTLOOK_SCOPES,
+} from "@/utils/outlook/scopes";
 import type { Logger } from "@/utils/logger";
 
 export const GET = withError("outlook/linking/callback", async (request) => {
@@ -100,7 +103,7 @@ export const GET = withError("outlook/linking/callback", async (request) => {
     targetUserId,
   });
 
-  if (actorUserId && actorUserId !== targetUserId) {
+  if (!actorUserId || actorUserId !== targetUserId) {
     return createAccountLinkingRedirect({
       query: { error: "invalid_state" },
       stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
@@ -219,6 +222,31 @@ export const GET = withError("outlook/linking/callback", async (request) => {
     if (linkingResult.type === "redirect") {
       linkingResult.response.cookies.delete(OUTLOOK_LINKING_STATE_COOKIE_NAME);
       return linkingResult.response;
+    }
+
+    if (linkingResult.type === "update_existing_account") {
+      logger.info(
+        "Updating existing Microsoft account with new providerAccountId",
+        {
+          email: providerEmail,
+          targetUserId,
+          accountId: linkingResult.existingAccountId,
+        },
+      );
+
+      await updateMicrosoftAccountTokens(
+        linkingResult.existingAccountId,
+        tokens,
+        { providerAccountId },
+      );
+
+      return completeMicrosoftTokenUpdate({
+        accountId: linkingResult.existingAccountId,
+        code,
+        logger,
+        providerEmail,
+        providerAccountId,
+      });
     }
 
     if (linkingResult.type === "continue_create") {
@@ -349,17 +377,12 @@ export const GET = withError("outlook/linking/callback", async (request) => {
         targetUserId,
         accountId: linkingResult.existingAccountId,
       });
-      logger.info("OAuth linking callback completed", {
+      return completeMicrosoftTokenUpdate({
         accountId: linkingResult.existingAccountId,
-        outcome: "tokens_updated",
-        providerEmailHash: hash(providerEmail),
-        providerSubjectHash: hashOAuthAuditIdentifier(providerAccountId),
-      });
-
-      await setOAuthCodeResult(code, { success: "tokens_updated" });
-      return createAccountLinkingRedirect({
-        query: { success: "tokens_updated" },
-        stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
+        code,
+        logger,
+        providerEmail,
+        providerAccountId,
       });
     }
 
@@ -377,15 +400,9 @@ export const GET = withError("outlook/linking/callback", async (request) => {
       logger,
     });
 
-    if (shouldMigrateProviderAccountId) {
-      await updateMicrosoftAccountTokens(
-        linkingResult.sourceAccountId,
-        tokens,
-        {
-          providerAccountId,
-        },
-      );
-    }
+    await updateMicrosoftAccountTokens(linkingResult.sourceAccountId, tokens, {
+      providerAccountId,
+    });
 
     const successMessage =
       mergeType === "full_merge"
@@ -430,12 +447,39 @@ interface MicrosoftTokens {
   token_type?: string | null;
 }
 
-const MICROSOFT_LINKING_SCOPES_TO_VALIDATE = OUTLOOK_SCOPES.filter(
+const MICROSOFT_LINKING_SCOPES_TO_VALIDATE = OUTLOOK_REQUIRED_SCOPES.filter(
   (scope) =>
     !["openid", "profile", "email", "User.Read", "offline_access"].includes(
       scope,
     ),
 );
+
+async function completeMicrosoftTokenUpdate({
+  accountId,
+  code,
+  logger,
+  providerAccountId,
+  providerEmail,
+}: {
+  accountId: string;
+  code: string;
+  logger: Logger;
+  providerAccountId: string;
+  providerEmail: string;
+}) {
+  logger.info("OAuth linking callback completed", {
+    accountId,
+    outcome: "tokens_updated",
+    providerEmailHash: hash(providerEmail),
+    providerSubjectHash: hashOAuthAuditIdentifier(providerAccountId),
+  });
+
+  await setOAuthCodeResult(code, { success: "tokens_updated" });
+  return createAccountLinkingRedirect({
+    query: { success: "tokens_updated" },
+    stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
+  });
+}
 
 function assertMicrosoftLinkingConsent(params: {
   targetUserId: string;

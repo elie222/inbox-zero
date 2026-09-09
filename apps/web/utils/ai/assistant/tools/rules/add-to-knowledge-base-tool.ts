@@ -19,7 +19,7 @@ export const addToKnowledgeBaseTool = ({
 
 Use this for reusable drafting reference material, not for global user preferences or assistant behavior. Use updatePersonalInstructions for stable tone, background, and future behavior preferences.
 
-This always creates a new entry and fails when the title already exists. To update an existing entry by title, or to append to one, use updateAssistantSettings with the draft knowledge base upsert path instead.`,
+This always creates a new entry and fails when the title already exists. To update an existing entry by title, or to append to one, use updateAssistantSettings with the draft knowledge base update path instead.`,
     inputSchema: z.object({
       title: z.string().describe("The knowledge base entry title."),
       content: z.string().describe("The knowledge base entry content."),

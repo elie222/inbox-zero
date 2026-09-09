@@ -1,5 +1,13 @@
-import { describe, expect, it } from "vitest";
-import { buildApiUrl, normalizeBaseUrl } from "./client";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ApiClient, buildApiUrl, normalizeBaseUrl } from "./client";
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("normalizeBaseUrl", () => {
   it("appends the API path when given a site origin", () => {
@@ -45,5 +53,30 @@ describe("buildApiUrl", () => {
         fromDate: "",
       }),
     ).toBe("https://www.getinboxzero.com/api/v1/stats/by-period?fromDate=");
+  });
+});
+
+describe("ApiClient errors", () => {
+  it("reads nested public API error messages", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          error: {
+            code: "UNAUTHORIZED",
+            message: "Missing API key",
+            hint: "Include a valid API-Key header.",
+          },
+        }),
+        { status: 401 },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new ApiClient({
+      apiKey: "test-key",
+      baseUrl: "https://www.getinboxzero.com",
+    });
+
+    await expect(client.get("/rules")).rejects.toThrow("Missing API key");
   });
 });

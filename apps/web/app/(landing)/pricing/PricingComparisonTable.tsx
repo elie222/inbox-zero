@@ -58,6 +58,12 @@ const features: {
     professional: true,
   },
   {
+    name: "AI meeting notetaker",
+    starter: false,
+    plus: true,
+    professional: true,
+  },
+  {
     name: "Email digests",
     starter: false,
     plus: true,
@@ -65,6 +71,12 @@ const features: {
   },
   {
     name: "Slack integration",
+    starter: false,
+    plus: true,
+    professional: true,
+  },
+  {
+    name: "App integrations (Notion, Stripe, and more)",
     starter: false,
     plus: true,
     professional: true,

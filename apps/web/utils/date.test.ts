@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  formatDateGroupLabel,
   getElapsedBusinessDaysForDisplay,
   formatInUserTimezone,
   formatTimeInUserTimezone,
@@ -254,5 +255,40 @@ describe("business day elapsed helpers", () => {
         timezone: "UTC",
       }),
     ).toBe(3);
+  });
+});
+
+describe("formatDateGroupLabel", () => {
+  const now = new Date("2025-09-05T12:00:00");
+
+  it.each([
+    { name: "today", date: "2025-09-05T09:30:00", expected: "Today" },
+    { name: "yesterday", date: "2025-09-04T23:59:00", expected: "Yesterday" },
+    {
+      name: "an earlier day this month",
+      date: "2025-09-01T08:00:00",
+      expected: "September 1st",
+    },
+    {
+      name: "a day last month",
+      date: "2025-08-22T08:00:00",
+      expected: "August",
+    },
+    {
+      name: "a day in a previous year",
+      date: "2024-08-22T08:00:00",
+      expected: "August 2024",
+    },
+  ])("labels $name", ({ date, expected }) => {
+    expect(formatDateGroupLabel(new Date(date), now)).toBe(expected);
+  });
+
+  it("labels yesterday even when it falls in the previous month", () => {
+    expect(
+      formatDateGroupLabel(
+        new Date("2025-08-31T22:00:00"),
+        new Date("2025-09-01T09:00:00"),
+      ),
+    ).toBe("Yesterday");
   });
 });

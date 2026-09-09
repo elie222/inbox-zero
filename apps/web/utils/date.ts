@@ -1,6 +1,10 @@
 import { format } from "date-fns/format";
 import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
+import { isSameDay } from "date-fns/isSameDay";
+import { isSameMonth } from "date-fns/isSameMonth";
+import { isSameYear } from "date-fns/isSameYear";
 import { isWeekend } from "date-fns/isWeekend";
+import { subDays } from "date-fns/subDays";
 import { TZDate } from "@date-fns/tz";
 import { createScopedLogger } from "@/utils/logger";
 import { captureException } from "@/utils/error";
@@ -54,6 +58,20 @@ export function formatShortDate(
   });
 
   return options.lowercase ? formattedDate : formattedDate.toUpperCase();
+}
+
+/**
+ * Labels a date for grouping an email list into sections.
+ * - Today and yesterday get their own sections.
+ * - Other days in the current month are labelled by day (e.g. "September 5th").
+ * - Earlier dates are labelled by month (e.g. "August", or "August 2024").
+ */
+export function formatDateGroupLabel(date: Date, now: Date = new Date()) {
+  if (isSameDay(date, now)) return "Today";
+  if (isSameDay(date, subDays(now, 1))) return "Yesterday";
+  if (isSameMonth(date, now)) return format(date, "MMMM do");
+  if (isSameYear(date, now)) return format(date, "MMMM");
+  return format(date, "MMMM yyyy");
 }
 
 export function dateToSeconds(date: Date) {

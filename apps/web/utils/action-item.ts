@@ -1,6 +1,13 @@
 import { ActionType } from "@/generated/prisma/enums";
 import type { Action, ExecutedAction, Prisma } from "@/generated/prisma/client";
 import { isDraftReplyActionType } from "@/utils/actions/draft-reply";
+import {
+  getIntegrationToolSpec,
+  getSelectArgOptionLabel,
+  isAiFilledArgValue,
+} from "@/utils/mcp/tool-specs";
+
+const AI_GENERATED_FIELD_VALUE = "AI-generated";
 
 const DRAFT_REPLY_FIELDS = [
   { name: "subject" as const, label: "Subject", expandable: true },
@@ -113,6 +120,7 @@ export const actionInputs: Record<
     ],
   },
   [ActionType.MARK_SPAM]: { fields: [] },
+  [ActionType.DELETE]: { fields: [] },
   [ActionType.CALL_WEBHOOK]: {
     fields: [
       {
@@ -138,20 +146,11 @@ export const actionInputs: Record<
   [ActionType.NOTIFY_SENDER]: {
     fields: [],
   },
+  [ActionType.INTEGRATION]: { fields: [] },
 };
 
 export function getActionFields(fields: Action | ExecutedAction | undefined) {
-  const res: {
-    label?: string;
-    subject?: string;
-    content?: string;
-    to?: string;
-    cc?: string;
-    bcc?: string;
-    url?: string;
-    folderName?: string;
-    folderId?: string;
-  } = {};
+  const res: Record<string, string> = {};
 
   // only return fields with a value
   if (fields?.label) res.label = fields.label;
@@ -163,6 +162,44 @@ export function getActionFields(fields: Action | ExecutedAction | undefined) {
   if (fields?.url) res.url = fields.url;
   if (fields?.folderName) res.folderName = fields.folderName;
   if (fields?.folderId) res.folderId = fields.folderId;
+
+  Object.assign(res, getIntegrationActionFields(fields));
+
+  return res;
+}
+
+/** Labels and values for integration args, read from the tool spec. */
+function getIntegrationActionFields(
+  fields: Action | ExecutedAction | undefined,
+) {
+  const spec = getIntegrationToolSpec(
+    fields?.integrationName,
+    fields?.integrationToolName,
+  );
+  if (!spec) return {};
+
+  const args = getIntegrationArgsRecord(fields?.integrationArgs);
+  const res: Record<string, string> = {};
+
+  for (const arg of spec.args) {
+    const rawValue = args?.[arg.key];
+    const value = typeof rawValue === "string" ? rawValue.trim() : "";
+
+    if (isAiFilledArgValue(arg, value)) {
+      res[arg.label] = AI_GENERATED_FIELD_VALUE;
+      continue;
+    }
+
+    const displayValue = arg.displayValueKey
+      ? args?.[arg.displayValueKey]
+      : undefined;
+    const label =
+      (typeof displayValue === "string" && displayValue) ||
+      getSelectArgOptionLabel(arg, value) ||
+      value;
+
+    if (label) res[arg.label] = label;
+  }
 
   return res;
 }
@@ -181,16 +218,23 @@ type ActionFieldsSelection = {
   folderName: string | null;
   folderId: string | null;
   delayInMinutes: number | null;
+  integrationName: string | null;
+  integrationToolName: string | null;
   staticAttachments?: Prisma.JsonValue;
   selectedAttachments?: Prisma.JsonValue;
+  integrationArgs?: Prisma.JsonValue;
 };
 
 type SanitizableActionFields = Partial<
-  Omit<ActionFieldsSelection, "staticAttachments" | "selectedAttachments">
+  Omit<
+    ActionFieldsSelection,
+    "staticAttachments" | "selectedAttachments" | "integrationArgs"
+  >
 > & {
   type: ActionType;
   staticAttachments?: Prisma.JsonValue | null;
   selectedAttachments?: Prisma.JsonValue | null;
+  integrationArgs?: Prisma.JsonValue | null;
 };
 
 export function sanitizeActionFields(
@@ -216,12 +260,15 @@ export function sanitizeActionFields(
     folderName: null,
     folderId: null,
     delayInMinutes: action.delayInMinutes || null,
+    integrationName: null,
+    integrationToolName: null,
     staticAttachments: supportsStaticAttachments
       ? (action.staticAttachments ?? undefined)
       : undefined,
     selectedAttachments: isDraftReplyActionType(action.type)
       ? (action.selectedAttachments ?? undefined)
       : undefined,
+    integrationArgs: undefined,
   };
 
   switch (action.type) {
@@ -230,6 +277,7 @@ export function sanitizeActionFields(
     case ActionType.MARK_READ:
     case ActionType.STAR:
     case ActionType.DIGEST:
+    case ActionType.DELETE:
       return base;
     case ActionType.MOVE_FOLDER: {
       return {
@@ -299,9 +347,30 @@ export function sanitizeActionFields(
     case ActionType.NOTIFY_SENDER: {
       return base;
     }
+    case ActionType.INTEGRATION: {
+      return {
+        ...base,
+        integrationName: action.integrationName ?? null,
+        integrationToolName: action.integrationToolName ?? null,
+        integrationArgs: action.integrationArgs ?? undefined,
+      };
+    }
     default:
       // biome-ignore lint/correctness/noSwitchDeclarations: intentional exhaustive check
       const exhaustiveCheck: never = action.type;
       return exhaustiveCheck;
   }
+}
+
+function getIntegrationArgsRecord(
+  integrationArgs: Prisma.JsonValue | null | undefined,
+): Record<string, unknown> | null {
+  if (
+    integrationArgs &&
+    typeof integrationArgs === "object" &&
+    !Array.isArray(integrationArgs)
+  ) {
+    return integrationArgs as Record<string, unknown>;
+  }
+  return null;
 }

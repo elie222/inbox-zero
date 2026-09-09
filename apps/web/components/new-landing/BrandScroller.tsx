@@ -10,14 +10,16 @@ import { cn } from "@/utils";
 interface BrandScrollerProps {
   animate?: boolean;
   brandList?: Brand[];
+  className?: string;
 }
 
 export const BrandScroller = ({
   brandList = BRANDS_LIST.default,
   animate = true,
+  className,
 }: BrandScrollerProps) => (
   <BlurFade duration={0.4} delay={0.125 * 10}>
-    <div className="mt-12">
+    <div className={cn("mt-12", className)}>
       <Paragraph>
         Join {userCount} professionals, including people at:
       </Paragraph>

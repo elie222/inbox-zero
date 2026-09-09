@@ -207,6 +207,7 @@ describe.runIf(shouldRunEval)(
   () => {
     beforeEach(() => {
       vi.clearAllMocks();
+      const ruleRows = cloneRuleRows(patchRuleRows);
 
       configureRuleMutationMocks({
         mockCreateRule,
@@ -215,15 +216,36 @@ describe.runIf(shouldRunEval)(
         mockSetRuleEnabled,
         mockSaveLearnedPatterns,
       });
+      mockPartialUpdateRule.mockImplementation(async ({ ruleId, data }) => {
+        const rule = ruleRows.find((candidate) => candidate.id === ruleId);
+        if (rule) {
+          Object.assign(rule, data, {
+            updatedAt: new Date("2026-03-13T00:01:00.000Z"),
+          });
+        }
+
+        return { id: ruleId };
+      });
+      mockSetRuleEnabled.mockImplementation(async ({ ruleId, enabled }) => {
+        const rule = ruleRows.find((candidate) => candidate.id === ruleId);
+        if (rule) {
+          Object.assign(rule, {
+            enabled,
+            updatedAt: new Date("2026-03-13T00:01:00.000Z"),
+          });
+        }
+
+        return { id: ruleId };
+      });
 
       configureRuleEvalPrisma({
         about,
-        ruleRows: patchRuleRows,
+        ruleRows,
       });
 
       configureRuleEvalProvider({
         mockCreateEmailProvider,
-        ruleRows: patchRuleRows,
+        ruleRows,
       });
     });
 
@@ -630,6 +652,53 @@ describe.runIf(shouldRunEval)(
         );
 
         test(
+          "pauses multiple rules through existing rule updates",
+          async () => {
+            const { toolCalls, actual } = await runAssistantChat({
+              emailAccount,
+              messages: [
+                {
+                  role: "user",
+                  content:
+                    "Pause both my Marketing and Newsletter rules for now.",
+                },
+              ],
+            });
+
+            const statusUpdates = toolCalls.filter(
+              (toolCall) =>
+                toolCall.toolName === "updateRule" &&
+                isUpdateRuleInput(toolCall.input) &&
+                isStatusOnlyEnabledUpdateInput(toolCall.input, false) &&
+                isSuccessfulOutput(toolCall.output),
+            );
+            const updatedRuleNames = statusUpdates.flatMap((toolCall) =>
+              isUpdateRuleInput(toolCall.input)
+                ? [toolCall.input.ruleName]
+                : [],
+            );
+            const firstUpdateIndex = toolCalls.findIndex(
+              (toolCall) => toolCall.toolName === "updateRule",
+            );
+            const pass =
+              statusUpdates.length === 2 &&
+              sameValues(updatedRuleNames, ["Marketing", "Newsletter"]) &&
+              hasRuleReadBeforeUpdate(toolCalls, firstUpdateIndex) &&
+              hasNoCreateDeleteOrLegacyRuleMutations(toolCalls);
+
+            evalReporter.record({
+              testName: "multiple pauses use existing rule updates",
+              model: model.label,
+              pass,
+              actual: summarizeRuleMutationCalls(toolCalls) || actual,
+            });
+
+            expect(pass).toBe(true);
+          },
+          TIMEOUT,
+        );
+
+        test(
           "deletes a rule through the confirmation-gated delete tool",
           async () => {
             const { toolCalls, actual } = await runAssistantChat({
@@ -729,6 +798,13 @@ function isDeleteRuleInput(input: unknown): input is { ruleName: string } {
 
   const value = input as { ruleName?: unknown };
   return typeof value.ruleName === "string";
+}
+
+function sameValues(actual: string[], expected: string[]) {
+  return (
+    actual.length === expected.length &&
+    expected.every((value) => actual.includes(value))
+  );
 }
 
 function patchHasActionType(input: UpdateRuleInput, actionType: ActionType) {

@@ -10,12 +10,15 @@ minimumReleaseAge: 1440
 minimumReleaseAgeExclude:
   - "@inboxzero/*"
   - "@inbox-zero/emulate"
+  # Next.js 16.3.0 requested explicitly; remove after the 24h maturity window.
+  - "next"
+  - "@next/*"
 
 overrides:
   "@hono/node-server": "1.19.14"
-  "@tiptap/core": "2.27.2"
-  "@types/react": "19.2.14"
-  "@types/react-dom": "19.2.3"
+  "@tiptap/core": "3.30.2"
+  "@types/react": "19.2.18"
+  "@types/react-dom": "19.2.4"
   "@xmldom/xmldom": "0.8.13"
   axios: "1.16.1"
   fast-xml-parser: "5.8.0"
@@ -24,11 +27,21 @@ overrides:
   jws: "4.0.1"
   linkify-it: "5.0.1"
   lodash: "4.18.1"
-  next: "16.2.6"
+  next: "16.3.0"
   postcss: "8.5.14"
+  prosemirror-model: "1.25.11"
+  prosemirror-view: "1.42.2"
   svelte: "5.55.5"
+  "undici@>=7.0.0 <8.0.0": "7.29.0"
   vite: "7.3.6"
   webpack: "5.106.2"
+
+packageExtensions:
+  # @hookform/resolvers imports zod/v4/core without declaring zod, which breaks
+  # module resolution in isolated node_modules layouts (e.g. Turbopack builds).
+  "@hookform/resolvers":
+    peerDependencies:
+      zod: "*"
 
 # Only reviewed dependencies may run install scripts.
 allowBuilds:
@@ -37,6 +50,9 @@ allowBuilds:
   "@sentry/cli": true
   braintrust: true
   core-js: true
+  # Local/desktop only. Docker, Vercel, and CI skip @inboxzero/desktop.
+  electron: true
+  electron-winstaller: true
   esbuild: true
   msgpackr-extract: true
   prisma: true

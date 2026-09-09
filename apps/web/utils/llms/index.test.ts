@@ -52,6 +52,16 @@ describe("isTransientNetworkError", () => {
     expect(isTransientNetworkError(error)).toBe(true);
   });
 
+  it("should return true when a successful provider response is truncated JSON", () => {
+    const error = new Error("Invalid JSON response");
+    error.name = "AI_APICallError";
+    error.cause = new Error(
+      "JSON parsing failed: Unexpected end of JSON input",
+    );
+
+    expect(isTransientNetworkError(error)).toBe(true);
+  });
+
   it("should return true for nested network error (AI SDK format with Error instances)", () => {
     // This is the actual format from the AI SDK - using real Error instances
     const innerCause = new Error("read ECONNRESET");
