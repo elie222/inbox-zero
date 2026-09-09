@@ -1397,6 +1397,26 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     expect(contractText).not.toMatch(/\blabels?\b/i);
   });
 
+  it("keeps sender validation without exposing unsupported regex patterns", async () => {
+    const toolInstance = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "microsoft",
+      logger,
+    });
+    const schema = toolInstance.inputSchema as any;
+    expect(schema.safeParse({ fromEmail: "sender@example.com" }).success).toBe(
+      true,
+    );
+    expect(schema.safeParse({ fromEmail: "invalid-address" }).success).toBe(
+      false,
+    );
+    const jsonSchema = await Promise.resolve(asSchema(schema).jsonSchema);
+    expect(JSON.stringify(jsonSchema.properties?.fromEmail)).not.toContain(
+      '"pattern"',
+    );
+  });
+
   it("uses provider-specific sender search contracts", () => {
     const toolOptions = {
       email: TEST_EMAIL,

@@ -8,6 +8,7 @@ import { isGoogleProvider } from "@/utils/email/provider-types";
 import {
   extractEmailAddress,
   extractUniqueEmailAddresses,
+  isValidEmail,
   splitRecipientList,
 } from "@/utils/email";
 import { getRuleLabel } from "@/utils/rule/consts";
@@ -540,7 +541,7 @@ const outlookSearchInboxInputSchema = z
     fromEmail: z
       .string()
       .trim()
-      .email()
+      .refine(isValidEmail, "Invalid email address")
       .nullish()
       .describe(
         "Exact sender email address. Use this instead of query when the sender address is known.",
