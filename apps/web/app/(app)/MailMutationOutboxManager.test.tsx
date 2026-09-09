@@ -94,7 +94,9 @@ describe("MailMutationOutboxManager", () => {
     outbox.renewBatch.mockResolvedValue(0);
     outbox.renewSyncGroup.mockResolvedValue([]);
     outbox.resumeBlocked.mockResolvedValue(0);
-    mailbox.syncNow.mockResolvedValue({ hasMore: false, pagesSynced: 1 });
+    mailbox.syncNow
+      .mockReset()
+      .mockResolvedValue({ hasMore: false, pagesSynced: 1 });
   });
 
   afterEach(() => {
@@ -274,6 +276,36 @@ describe("MailMutationOutboxManager", () => {
     });
   });
 
+  it("keeps an archived thread hidden until every mailbox page is reconciled", async () => {
+    const mutation = archiveMutation();
+    const syncGroup = wireSyncGroup(mutation);
+    const finalPage = Promise.withResolvers<{
+      hasMore: boolean;
+      pagesSynced: number;
+    }>();
+    outbox.claim.mockResolvedValueOnce(mutation).mockResolvedValue(undefined);
+    action.execute.mockResolvedValue({ data: { status: "applied" } });
+    mailbox.syncNow
+      .mockResolvedValueOnce({ hasMore: true, pagesSynced: 1 })
+      .mockReturnValueOnce(finalPage.promise);
+
+    render(<MailMutationOutboxManager />);
+    await settlePromises();
+
+    expect(cache.settle).toHaveBeenCalledWith(mutation);
+    expect(outbox.completeSyncGroup).not.toHaveBeenCalled();
+    expect(mailbox.syncNow).toHaveBeenCalledTimes(2);
+
+    finalPage.resolve({ hasMore: false, pagesSynced: 1 });
+    await settlePromises();
+
+    expect(outbox.completeSyncGroup).toHaveBeenCalledWith(
+      syncGroup,
+      expect.any(String),
+    );
+    expect(action.execute).toHaveBeenCalledOnce();
+  });
+
   it("renews the sync-group lease while mailbox reconciliation is pending", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(0);
@@ -323,6 +355,36 @@ describe("MailMutationOutboxManager", () => {
       expect.any(String),
     );
     expect(outbox.completeSyncGroup).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "later page fails",
+    "cache unavailable",
+  ])("keeps the archive pending when %s during reconciliation", async (failure) => {
+    const mutation = archiveMutation();
+    const syncGroup = wireSyncGroup(mutation);
+    outbox.claim.mockResolvedValueOnce(mutation).mockResolvedValue(undefined);
+    action.execute.mockResolvedValue({ data: { status: "applied" } });
+    mailbox.syncNow.mockResolvedValueOnce({ hasMore: true, pagesSynced: 1 });
+    if (failure === "later page fails") {
+      mailbox.syncNow.mockRejectedValueOnce(new Error("offline"));
+    } else {
+      mailbox.syncNow.mockResolvedValueOnce({ hasMore: false, pagesSynced: 0 });
+    }
+
+    render(<MailMutationOutboxManager />);
+    await settlePromises();
+
+    expect(outbox.completeSyncGroup).not.toHaveBeenCalled();
+    expect(outbox.retrySyncGroup).toHaveBeenCalledWith(
+      syncGroup,
+      {
+        error: "Mailbox reconciliation failed",
+        nextAttemptAt: expect.any(Number),
+      },
+      expect.any(String),
+    );
+    expect(action.execute).toHaveBeenCalledOnce();
   });
 
   it("backs off from the persisted reconciliation attempt after reload", async () => {
