@@ -165,6 +165,15 @@ test("restores a new message draft after closing the composer", async ({
 
   await dialog.getByRole("button", { name: "Discard draft" }).click();
   await expect(dialog).toBeHidden();
+
+  await page.getByRole("button", { name: /^Compose/ }).click();
+  await expect(toField).toHaveValue("");
+  await expect(subjectField).toHaveValue("");
+  await expect(messageField).not.toContainText(
+    "Keep this message after closing.",
+  );
+  await dialog.getByRole("button", { name: "Discard draft" }).click();
+  await expect(dialog).toBeHidden();
 });
 
 test("highlights URLs while typing and pasting", async ({ page }, testInfo) => {

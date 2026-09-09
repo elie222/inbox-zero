@@ -869,7 +869,7 @@ function ComposeEmailFormContent({
         );
         if (result?.data) {
           deliveryAccepted = true;
-          if (!replyingToEmail) {
+          if (localDraftIdentity) {
             try {
               await clearLocalDraft();
             } catch {
@@ -906,6 +906,7 @@ function ComposeEmailFormContent({
       resumeProviderAutosave,
       initialDraft,
       isInlineReply,
+      localDraftIdentity,
       sendAt,
       remindAt,
       requestId,
