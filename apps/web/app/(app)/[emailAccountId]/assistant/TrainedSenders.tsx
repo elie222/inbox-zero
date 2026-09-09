@@ -62,7 +62,16 @@ const INBOX = "__inbox__";
 const DELETE = "__delete__";
 const NONE = "__none__";
 
-export function TrainedSenders() {
+// `emailAccountId` lets a page outside the account route (the organization
+// view) render one of these per mailbox.
+// ponytail: page/q live in the URL, so stacked instances page together.
+export function TrainedSenders({
+  emailAccountId,
+}: {
+  emailAccountId?: string;
+}) {
+  const { emailAccountId: contextId } = useAccount();
+  const accountId = emailAccountId ?? contextId;
   const [page, setPage] = useQueryState("page", parseAsInteger.withDefault(1));
   const [query, setQuery] = useQueryState("q", parseAsString.withDefault(""));
   const [draft, setDraft] = useState(query);
@@ -77,10 +86,11 @@ export function TrainedSenders() {
     return () => window.clearTimeout(id);
   }, [draft, query, setQuery, setPage]);
 
-  const { data, isLoading, error, mutate } = useSWR<TrainedSendersResponse>(
+  const { data, isLoading, error, mutate } = useSWR<TrainedSendersResponse>([
     `/api/user/trained-senders?page=${page}&q=${encodeURIComponent(query)}`,
-  );
-  const { data: rules } = useRules();
+    accountId,
+  ]);
+  const { data: rules } = useRules(accountId);
 
   // Delete-only rules are represented by the "Delete" entry instead.
   const ruleOptions = useMemo<RuleOption[]>(
@@ -150,6 +160,7 @@ export function TrainedSenders() {
                         key={sender.sender}
                         sender={sender}
                         ruleOptions={ruleOptions}
+                        emailAccountId={accountId}
                         mutate={mutate}
                       />
                     ))}
@@ -181,13 +192,14 @@ export function TrainedSenders() {
 function TrainedSenderRow({
   sender,
   ruleOptions,
+  emailAccountId,
   mutate,
 }: {
   sender: TrainedSender;
   ruleOptions: RuleOption[];
+  emailAccountId: string;
   mutate: () => void;
 }) {
-  const { emailAccountId } = useAccount();
   const deleteEnabled = isDeleteEmailActionEnabled();
 
   const feedback = (done: string) => ({
