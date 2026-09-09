@@ -13,7 +13,7 @@ describe("invitation eligibility", () => {
     ).toBe(false);
   });
 
-  it("rejects multiple calendar attachments even on native meeting messages", () => {
+  it("rejects excessive calendar attachments even on native meeting messages", () => {
     const attachment = {
       attachmentId: "attachment",
       filename: "invite.ics",
@@ -30,7 +30,7 @@ describe("invitation eligibility", () => {
       isCalendarInvitationMessage({
         ...getEmail(),
         isMeetingInvitation: true,
-        attachments: [attachment, attachment],
+        attachments: [attachment, attachment, attachment],
       }),
     ).toBe(false);
   });
