@@ -220,13 +220,10 @@ const RichEmailEditor = forwardRef<
             const lastEditorChild = view.dom.lastElementChild;
             if (
               !preservedBlock &&
-              target === view.dom &&
               lastEditorChild?.matches("[data-email-preserved-kind]") &&
               event.clientY > lastEditorChild.getBoundingClientRect().bottom
             ) {
-              preservedBlock = view.dom.querySelector(
-                "[data-email-preserved-kind]",
-              );
+              preservedBlock = lastEditorChild;
             }
             if (!preservedBlock) return false;
 
