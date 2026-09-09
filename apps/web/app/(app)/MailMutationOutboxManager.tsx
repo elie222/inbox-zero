@@ -324,7 +324,14 @@ async function reconcileSyncGroupWithLeaseHeartbeat(
     }).catch(() => {});
   }, LEASE_MS / 2);
   try {
-    await syncMailboxNow(group.emailAccountId);
+    let hasMore = true;
+    while (hasMore) {
+      const result = await syncMailboxNow(group.emailAccountId);
+      if (!result.pagesSynced) {
+        throw new Error("Mailbox reconciliation made no progress");
+      }
+      hasMore = result.hasMore;
+    }
     await completeMailMutationSyncGroup(group, ownerId);
   } finally {
     clearInterval(heartbeat);

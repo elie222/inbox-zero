@@ -55,7 +55,8 @@ export async function applyMailboxSyncPage({
 }) {
   const epoch = captureEmailCacheEpoch(emailAccountId);
   const database = await getEmailCacheDatabase();
-  if (!database || !isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
+  if (!database || !isEmailCacheEpochCurrent(emailAccountId, epoch))
+    return false;
 
   const transaction = database.transaction(
     ["mailboxMessages", "mailboxSyncStates", "threadDetails"],
@@ -150,7 +151,7 @@ export async function applyMailboxSyncPage({
   ]);
   await transaction.done;
 
-  if (!isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
+  if (!isEmailCacheEpochCurrent(emailAccountId, epoch)) return false;
   invalidateThreadCaches({
     emailAccountId,
     threadIds: [...changedThreadIds],
@@ -158,6 +159,7 @@ export async function applyMailboxSyncPage({
   });
   scheduleEmailCacheCleanup();
   notifyMailboxStoreChange(emailAccountId);
+  return true;
 }
 
 export async function readMailboxSyncState(emailAccountId: string) {

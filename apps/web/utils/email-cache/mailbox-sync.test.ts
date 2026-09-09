@@ -192,7 +192,10 @@ describe("mailbox sync coordinator", () => {
     await expect(readMailboxSyncState("account-1")).resolves.toBeUndefined();
   });
 
-  it("does not repopulate an account cache cleared during a request", async () => {
+  it.each([
+    1, 2,
+  ])("does not report progress for a cache cleared during page %s", async (clearedPage) => {
+    let requests = 0;
     const requestStarted = Promise.withResolvers<void>();
     const pendingPage = Promise.withResolvers<{
       accountId: string;
@@ -205,6 +208,17 @@ describe("mailbox sync coordinator", () => {
     const sync = syncMailboxPages({
       emailAccountId: "account-1",
       fetchPage: () => {
+        requests += 1;
+        if (requests < clearedPage) {
+          return Promise.resolve({
+            accountId: "account-1",
+            cursor: "earlier-page",
+            deletedMessageIds: [],
+            hasMore: true,
+            reset: true,
+            upsertedMessages: [],
+          });
+        }
         requestStarted.resolve();
         return pendingPage.promise;
       },
@@ -223,6 +237,29 @@ describe("mailbox sync coordinator", () => {
 
     await expect(sync).resolves.toEqual({ hasMore: false, pagesSynced: 0 });
     await expect(readMailboxSyncState("account-1")).resolves.toBeUndefined();
+  });
+
+  it.each([
+    1, 2,
+  ])("does not complete when cache storage disappears on page %s", async (unavailablePage) => {
+    let requests = 0;
+    const fetchPage = vi.fn(async () => {
+      requests += 1;
+      if (requests === unavailablePage) vi.stubGlobal("indexedDB", undefined);
+      return {
+        accountId: "account-1",
+        cursor: `cursor-${requests}`,
+        deletedMessageIds: [],
+        hasMore: requests < unavailablePage,
+        reset: requests === 1,
+        upsertedMessages: [],
+      };
+    });
+
+    await expect(
+      syncMailboxPages({ emailAccountId: "account-1", fetchPage }),
+    ).rejects.toThrow("Mailbox sync page was not persisted");
+    expect(fetchPage).toHaveBeenCalledTimes(unavailablePage);
   });
 
   it("sends the account-scoped sync request through the app API", async () => {

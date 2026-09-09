@@ -72,18 +72,19 @@ export async function syncMailboxPages({
   while (hasMore && pagesSynced < maxPages) {
     const response = await fetchPage(input);
     if (!isEmailCacheEpochCurrent(emailAccountId, epoch)) {
-      return { hasMore: false, pagesSynced };
+      return { hasMore: false, pagesSynced: 0 };
     }
     if (response.accountId !== emailAccountId) {
       throw new Error("Mailbox sync response account mismatch");
     }
     const { accountId: _accountId, ...page } = response;
-    await applyMailboxSyncPage({
+    const applied = await applyMailboxSyncPage({
       emailAccountId,
       page,
       after: resumeCursor ? undefined : initialAfter,
       now: now?.getTime() ?? Date.now(),
     });
+    if (!applied) throw new Error("Mailbox sync page was not persisted");
     pagesSynced += 1;
     hasMore = page.hasMore;
     input = { cursor: page.cursor, limit: DEFAULT_PAGE_LIMIT };
