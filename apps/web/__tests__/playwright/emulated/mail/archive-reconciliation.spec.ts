@@ -78,6 +78,7 @@ test("keeps an archive hidden while mailbox sync has older pages remaining", asy
     });
   });
 
+  const cleanupErrors: unknown[] = [];
   try {
     await conversation.getByRole("checkbox").click();
     await page.getByRole("button", { name: "Archive", exact: true }).click();
@@ -112,9 +113,23 @@ test("keeps an archive hidden while mailbox sync has older pages remaining", asy
     await capturePlaywrightCheckpoint(page, testInfo, "archive-reconciled");
   } finally {
     finalPage.resolve();
-    await page.unrouteAll({ behavior: "wait" });
-    await page.request.post(`/api/threads/${THREAD_ID}/unarchive`, {
-      headers: { "X-Email-Account-ID": emailAccountId },
+    await page.unrouteAll({ behavior: "wait" }).catch((error) => {
+      cleanupErrors.push(error);
     });
+    await page.request
+      .post(`/api/threads/${THREAD_ID}/unarchive`, {
+        headers: { "X-Email-Account-ID": emailAccountId },
+      })
+      .then((response) => expect(response.ok()).toBe(true))
+      .catch((error) => {
+        cleanupErrors.push(error);
+      });
+    for (const error of cleanupErrors) {
+      testInfo.annotations.push({
+        type: "cleanup-error",
+        description: String(error),
+      });
+    }
   }
+  expect(cleanupErrors).toEqual([]);
 });
