@@ -475,15 +475,56 @@ describe("OutlookProvider.getSentMessageIds", () => {
       before: new Date("2026-04-30T17:00:00.000Z"),
     });
 
-    expect(client.getRequestLog()).toContainEqual({
-      apiPath: "/me/mailFolders/sentitems/messages",
-      filter:
-        "sentDateTime ge 2026-03-31T12:00:00.000Z and sentDateTime le 2026-04-30T17:00:00.000Z",
-    });
+    expect(client.getRequestLog()).toContainEqual(
+      expect.objectContaining({
+        apiPath: "/me/mailFolders/sentitems/messages",
+        filter:
+          "sentDateTime ge 2026-03-31T12:00:00.000Z and sentDateTime le 2026-04-30T17:00:00.000Z",
+      }),
+    );
     expect(result).toEqual({
       messages: [{ id: "message-1", threadId: "thread-1" }],
       nextPageToken: undefined,
     });
+  });
+});
+
+describe("OutlookProvider.searchMessages", () => {
+  it("uses an exact OData sender filter when fromEmail is provided", async () => {
+    getFolderIdsMock.mockResolvedValue({
+      inbox: "folder-inbox",
+      archive: "folder-archive",
+      drafts: "folder-drafts",
+      deleteditems: "folder-trash",
+      junkemail: "folder-spam",
+      sentitems: "folder-sent",
+    });
+
+    const client = createMockOutlookClient([
+      createMessage({
+        id: "message-1",
+        conversationId: "thread-1",
+        parentFolderId: "folder-inbox",
+      }),
+    ]);
+    const provider = new OutlookProvider(client);
+
+    const result = await provider.searchMessages({
+      query: "",
+      fromEmail: "sender@example.com",
+      maxResults: 20,
+    });
+
+    expect(result.messages).toHaveLength(1);
+    const senderFilterRequest = client
+      .getRequestLog()
+      .find(
+        (entry: { filter?: string }) =>
+          entry.filter === "from/emailAddress/address eq 'sender@example.com'",
+      );
+    expect(senderFilterRequest).toMatchObject({ apiPath: "/me/messages" });
+    // Graph rejects $orderby combined with a sender $filter (InefficientFilter)
+    expect(senderFilterRequest?.orderby).toBeUndefined();
   });
 });
 
@@ -532,7 +573,7 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
       query: { type: "inbox", inboxSection },
     });
 
-    expect(client.getRequestLog()[0]).toEqual({
+    expect(client.getRequestLog()[0]).toMatchObject({
       apiPath: "/me/mailFolders/inbox/messages",
       filter: `inferenceClassification eq '${inboxSection}'`,
     });
@@ -548,7 +589,7 @@ describe("OutlookProvider.getThreadsWithQuery", () => {
       query: { folderId: "custom-folder", inboxSection: "focused" },
     });
 
-    expect(client.getRequestLog()[0]).toEqual({
+    expect(client.getRequestLog()[0]).toMatchObject({
       apiPath: "/me/mailFolders/custom-folder/messages",
       filter: undefined,
     });
@@ -1189,6 +1230,7 @@ function createMockOutlookClient(
   const requestLog: Array<{
     apiPath: string;
     filter?: string;
+    orderby?: string;
     search?: string;
   }> = [];
   const selectLog: string[] = [];
@@ -1198,6 +1240,7 @@ function createMockOutlookClient(
       api: (apiPath: string) => {
         let filterValue: string | undefined;
         let searchValue: string | undefined;
+        let orderbyValue: string | undefined;
         const request = {
           filter: (value: string) => {
             filterValue = value;
@@ -1213,11 +1256,15 @@ function createMockOutlookClient(
           },
           expand: () => request,
           top: () => request,
-          orderby: () => request,
+          orderby: (value: string) => {
+            orderbyValue = value;
+            return request;
+          },
           get: async () => {
             requestLog.push({
               apiPath,
               filter: filterValue,
+              ...(orderbyValue ? { orderby: orderbyValue } : {}),
               search: searchValue,
             });
             const response = options?.responsesByApiPath?.[apiPath];
