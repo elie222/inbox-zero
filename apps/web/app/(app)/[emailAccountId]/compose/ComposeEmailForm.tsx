@@ -81,6 +81,7 @@ import {
 import type { StoredReplyDraft } from "@/utils/email-cache/database";
 import type {
   ReplyDraftContent,
+  ReplyDraftIdentity,
   ReplyDraftMode,
 } from "@/utils/email-cache/reply-drafts";
 import { createPreservedEmailBlocks } from "@/utils/email/preserved-blocks";
@@ -178,14 +179,16 @@ export function ComposeEmailForm(props: ComposeEmailFormProps) {
       )
     : "";
 
+  const localDraftIdentity = props.draftSessionId
+    ? {
+        emailAccountId: selectedEmailAccountId,
+        threadId: props.replyingToEmail?.threadId ?? props.draftSessionId,
+        messageId: props.draftSessionId,
+      }
+    : undefined;
+
   const localDraft = useLocalReplyDraft(
-    props.draftSessionId && props.replyingToEmail?.threadId
-      ? {
-          emailAccountId: selectedEmailAccountId,
-          threadId: props.replyingToEmail.threadId,
-          messageId: props.draftSessionId,
-        }
-      : undefined,
+    localDraftIdentity,
     props.draftKeyMessageId && props.replyingToEmail?.threadId
       ? {
           emailAccountId: selectedEmailAccountId,
@@ -204,6 +207,7 @@ export function ComposeEmailForm(props: ComposeEmailFormProps) {
         <ShortcutsProvider scopes={MAIL_SHORTCUT_SCOPES}>
           <ComposeEmailFormContent
             {...props}
+            localDraftIdentity={localDraftIdentity}
             storedDraft={localDraft.draft}
             draftLoadError={localDraft.error}
             accountProvider={selectedAccountProvider}
@@ -224,7 +228,6 @@ function ComposeEmailFormContent({
   draftKeyMessageId,
   providerDraftMessageId,
   draftMode,
-  draftSessionId,
   storedDraft,
   draftLoadError,
   replyingToEmail,
@@ -239,7 +242,9 @@ function ComposeEmailFormContent({
   onMarkDone,
   onClose,
   onDiscard,
+  localDraftIdentity,
 }: ComposeEmailFormProps & {
+  localDraftIdentity?: ReplyDraftIdentity;
   storedDraft?: StoredReplyDraft;
   draftLoadError?: Error;
   accountProvider: string;
@@ -436,14 +441,7 @@ function ComposeEmailFormContent({
     flush: flushDraft,
     saveError: draftSaveError,
   } = useReplyDraftPersistence({
-    identity:
-      isInlineReply && draftSessionId
-        ? {
-            emailAccountId: selectedEmailAccountId,
-            threadId: replyingToEmail!.threadId!,
-            messageId: draftSessionId,
-          }
-        : undefined,
+    identity: localDraftIdentity,
     initialRevision: storedDraft?.revision,
     loadError: draftLoadError,
     getContent: getDraftContent,
@@ -871,6 +869,16 @@ function ComposeEmailFormContent({
         );
         if (result?.data) {
           deliveryAccepted = true;
+          if (!replyingToEmail) {
+            try {
+              await clearLocalDraft();
+            } catch {
+              toastError({
+                description:
+                  "Email sent, but its local draft copy could not be cleared.",
+              });
+            }
+          }
           toastSuccess({ description: "Email sent!" });
           if (markDoneAfterSend) onMarkDone?.();
           onSuccess?.(result.data.messageId ?? "", result.data.threadId ?? "");
@@ -1516,7 +1524,7 @@ function ComposeEmailFormContent({
           {providerAutosave.error}
         </p>
       )}
-      {isInlineReply && draftSaveError && (
+      {localDraftIdentity && draftSaveError && (
         <p role="alert" className="text-xs text-destructive">
           {draftSaveError}
         </p>
