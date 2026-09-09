@@ -1803,7 +1803,7 @@ export class GmailProvider implements EmailProvider {
     expirationDate: Date;
     subscriptionId?: string;
   } | null> {
-    const res = await watchGmail(this.client);
+    const res = await watchGmail(this.client, this.logger);
 
     if (res.expiration) {
       const expirationDate = new Date(+res.expiration);
