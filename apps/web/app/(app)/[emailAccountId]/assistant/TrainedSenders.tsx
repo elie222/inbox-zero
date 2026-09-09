@@ -6,6 +6,7 @@ import { parseAsInteger, parseAsString, useQueryState } from "nuqs";
 import { TrashIcon } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import type { TrainedSendersResponse } from "@/app/api/user/trained-senders/route";
+import type { RulesResponse } from "@/app/api/user/rules/route";
 import { ActionType, GroupItemSource } from "@/generated/prisma/enums";
 import { useRules } from "@/hooks/useRules";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -55,7 +56,7 @@ import { toastError, toastSuccess } from "@/components/Toast";
 import { Tooltip } from "@/components/Tooltip";
 
 type TrainedSender = TrainedSendersResponse["senders"][number];
-type RuleOption = { id: string; name: string; label: string | null };
+export type RuleOption = { id: string; name: string; label: string | null };
 
 // Picker values that are not rules.
 const INBOX = "__inbox__";
@@ -92,27 +93,7 @@ export function TrainedSenders({
   ]);
   const { data: rules } = useRules(accountId);
 
-  // Delete-only rules are represented by the "Delete" entry instead.
-  const ruleOptions = useMemo<RuleOption[]>(
-    () =>
-      (rules ?? [])
-        .filter(
-          (rule) =>
-            rule.enabled &&
-            !(
-              rule.actions.length > 0 &&
-              rule.actions.every((a) => a.type === ActionType.DELETE)
-            ),
-        )
-        .map((rule) => ({
-          id: rule.id,
-          name: rule.name,
-          label:
-            rule.actions.find((action) => action.type === ActionType.LABEL)
-              ?.label ?? null,
-        })),
-    [rules],
-  );
+  const ruleOptions = useMemo(() => toRuleOptions(rules), [rules]);
 
   const senders = data?.senders ?? [];
 
@@ -189,15 +170,37 @@ export function TrainedSenders({
   );
 }
 
-function TrainedSenderRow({
+// Delete-only rules are represented by the "Delete" entry instead.
+export function toRuleOptions(rules: RulesResponse | undefined): RuleOption[] {
+  return (rules ?? [])
+    .filter(
+      (rule) =>
+        rule.enabled &&
+        !(
+          rule.actions.length > 0 &&
+          rule.actions.every((a) => a.type === ActionType.DELETE)
+        ),
+    )
+    .map((rule) => ({
+      id: rule.id,
+      name: rule.name,
+      label:
+        rule.actions.find((action) => action.type === ActionType.LABEL)
+          ?.label ?? null,
+    }));
+}
+
+export function TrainedSenderRow({
   sender,
   ruleOptions,
   emailAccountId,
+  mailbox,
   mutate,
 }: {
   sender: TrainedSender;
   ruleOptions: RuleOption[];
   emailAccountId: string;
+  mailbox?: string;
   mutate: () => void;
 }) {
   const deleteEnabled = isDeleteEmailActionEnabled();
@@ -272,7 +275,12 @@ function TrainedSenderRow({
 
   return (
     <TableRow>
-      <TableCell className="break-all font-medium">{sender.sender}</TableCell>
+      <TableCell className="break-all font-medium">
+        {sender.sender}
+        {mailbox && (
+          <MutedText className="text-xs font-normal">{mailbox}</MutedText>
+        )}
+      </TableCell>
       <TableCell>
         <Select value={value} onValueChange={onPick} disabled={busy}>
           <SelectTrigger
@@ -356,7 +364,7 @@ function TrainedSenderRow({
   );
 }
 
-function PageNumbers({
+export function PageNumbers({
   page,
   totalPages,
   onChange,

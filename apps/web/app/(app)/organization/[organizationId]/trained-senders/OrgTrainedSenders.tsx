@@ -1,53 +1,151 @@
 "use client";
 
-import { useMemo } from "react";
-import { TrainedSenders } from "@/app/(app)/[emailAccountId]/assistant/TrainedSenders";
+import { useEffect, useMemo, useState } from "react";
+import useSWR from "swr";
+import { parseAsInteger, parseAsString, useQueryState } from "nuqs";
+import type { AllTrainedSendersResponse } from "@/app/api/user/trained-senders/all/route";
+import {
+  PageNumbers,
+  TrainedSenderRow,
+  toRuleOptions,
+} from "@/app/(app)/[emailAccountId]/assistant/TrainedSenders";
+import { useRules } from "@/hooks/useRules";
 import { AlertBasic } from "@/components/Alert";
 import { LoadingContent } from "@/components/LoadingContent";
-import { SectionHeader } from "@/components/Typography";
-import { useAccounts } from "@/hooks/useAccounts";
-import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { MutedText } from "@/components/Typography";
 
-// One Trained senders table per mailbox in the organization. Only mailboxes the
-// signed-in user owns are shown: the account-scoped APIs behind each table
-// reject anyone else's.
-// ponytail: other members' mailboxes would need org-scoped endpoints; add when
-// an org has more than one person in it.
+// One list across every mailbox of yours in the organization, newest
+// training first. Rows act on their own mailbox.
 export function OrgTrainedSenders({
   organizationId,
 }: {
   organizationId: string;
 }) {
-  const members = useOrganizationMembers(organizationId);
-  const accounts = useAccounts();
+  const [page, setPage] = useQueryState("page", parseAsInteger.withDefault(1));
+  const [query, setQuery] = useQueryState("q", parseAsString.withDefault(""));
+  const [draft, setDraft] = useState(query);
 
-  const mailboxes = useMemo(() => {
-    const mine = new Set(accounts.data?.emailAccounts.map((a) => a.id));
-    return (members.data?.members ?? [])
-      .map((m) => m.emailAccount)
-      .filter((account) => mine.has(account.id));
-  }, [members.data, accounts.data]);
+  useEffect(() => {
+    if (draft === query) return;
+    const id = window.setTimeout(() => {
+      setQuery(draft || null);
+      setPage(null);
+    }, 300);
+    return () => window.clearTimeout(id);
+  }, [draft, query, setQuery, setPage]);
+
+  const { data, isLoading, error, mutate } = useSWR<AllTrainedSendersResponse>(
+    `/api/user/trained-senders/all?organizationId=${organizationId}&page=${page}&q=${encodeURIComponent(query)}`,
+  );
+
+  const emailById = useMemo(
+    () => new Map(data?.accounts.map((a) => [a.id, a.email])),
+    [data?.accounts],
+  );
+  const senders = data?.senders ?? [];
 
   return (
-    <LoadingContent
-      loading={members.isLoading || accounts.isLoading}
-      error={members.error || accounts.error}
-    >
-      {mailboxes.length ? (
-        <div className="space-y-8">
-          {mailboxes.map((account) => (
-            <section key={account.id}>
-              <SectionHeader className="mb-2">{account.email}</SectionHeader>
-              <TrainedSenders emailAccountId={account.id} />
-            </section>
-          ))}
-        </div>
-      ) : (
-        <AlertBasic
-          title="No mailboxes to show"
-          description="Trained senders are listed for the organization members' mailboxes that belong to you."
+    <>
+      <div className="flex items-center gap-2">
+        <Input
+          type="search"
+          placeholder="Filter by sender"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          className="max-w-sm"
+          aria-label="Filter trained senders"
         />
-      )}
-    </LoadingContent>
+        {data && (
+          <MutedText>
+            {data.total} trained sender{data.total === 1 ? "" : "s"} total
+          </MutedText>
+        )}
+      </div>
+
+      <Card className="mt-2">
+        <LoadingContent
+          loading={isLoading}
+          error={error}
+          loadingComponent={<Skeleton className="m-4 h-32 rounded" />}
+        >
+          {senders.length ? (
+            <>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Sender</TableHead>
+                      <TableHead>Rule</TableHead>
+                      <TableHead>Label</TableHead>
+                      <TableHead>Learned from</TableHead>
+                      <TableHead>Added</TableHead>
+                      <TableHead />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {senders.map((sender) => (
+                      <OrgRow
+                        key={`${sender.emailAccountId} ${sender.sender}`}
+                        sender={sender}
+                        mailbox={emailById.get(sender.emailAccountId) ?? ""}
+                        mutate={mutate}
+                      />
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <PageNumbers
+                page={page}
+                totalPages={data?.totalPages ?? 1}
+                onChange={(next) => setPage(next === 1 ? null : next)}
+              />
+            </>
+          ) : (
+            <AlertBasic
+              title={query ? "No senders match" : "No trained senders yet"}
+              description={
+                query
+                  ? "Try a different filter."
+                  : "Move an email to a label in any mailbox and it will show up here."
+              }
+            />
+          )}
+        </LoadingContent>
+      </Card>
+    </>
+  );
+}
+
+// Rules are per mailbox, so each row loads its own (SWR dedupes per mailbox).
+function OrgRow({
+  sender,
+  mailbox,
+  mutate,
+}: {
+  sender: AllTrainedSendersResponse["senders"][number];
+  mailbox: string;
+  mutate: () => void;
+}) {
+  const { data: rules } = useRules(sender.emailAccountId);
+  const ruleOptions = useMemo(() => toRuleOptions(rules), [rules]);
+
+  return (
+    <TrainedSenderRow
+      sender={sender}
+      ruleOptions={ruleOptions}
+      emailAccountId={sender.emailAccountId}
+      mailbox={mailbox}
+      mutate={mutate}
+    />
   );
 }
