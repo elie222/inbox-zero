@@ -171,7 +171,7 @@ export function PlainEmail({ text }: { text: string }) {
   return (
     // `pre` keeps the sender's line breaks; the font stack keeps it readable.
     <pre
-      className="whitespace-pre-wrap font-sans text-foreground"
+      className="whitespace-pre-wrap font-sans text-foreground [overflow-wrap:anywhere]"
       style={BODY_TYPE}
     >
       {segments.map((segment, index) =>
@@ -231,6 +231,7 @@ function getIframeHtml(
       body {
         background-color: white;
         font-family: ${SANS_FONT_STACK};
+        overflow-wrap: anywhere;
       }
       table { max-width: 100% !important; overflow-x: auto; }
       img { max-width: 100% !important; height: auto; }
@@ -259,6 +260,7 @@ function getIframeHtml(
       /* Base styles - apply our font as a baseline; inline styles on inner elements still win */
       body {
         font-family: ${SANS_FONT_STACK};
+        overflow-wrap: anywhere;
       }
       body:not([style]):not([bgcolor]) {
         margin: 0;
