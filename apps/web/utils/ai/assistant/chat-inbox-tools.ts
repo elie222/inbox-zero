@@ -1836,6 +1836,13 @@ function normalizeOutlookSearchInput({
   const explicitFromEmail = fromEmail?.trim() || null;
   const queryFromEmail =
     getStandaloneSenderEmailFromOutlookQuery(queryWithoutState);
+  if (
+    explicitFromEmail &&
+    queryFromEmail &&
+    explicitFromEmail.toLowerCase() !== queryFromEmail.toLowerCase()
+  ) {
+    throw new Error("Sender filters conflict. Use one exact sender address.");
+  }
   const effectiveFromEmail = explicitFromEmail ?? queryFromEmail;
 
   if (effectiveFromEmail) {

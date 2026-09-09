@@ -1211,6 +1211,31 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     expect(result.hasMore).toBe(true);
   });
 
+  it("rejects conflicting exact Outlook sender filters without searching", async () => {
+    const searchMessages = vi.fn();
+    vi.mocked(createEmailProvider).mockResolvedValue({
+      searchMessages,
+      getLabels: vi.fn().mockResolvedValue([]),
+    } as any);
+    const toolInstance = searchInboxTool({
+      email: TEST_EMAIL,
+      emailAccountId: "email-account-1",
+      provider: "microsoft",
+      logger,
+    });
+
+    const result: any = await (toolInstance.execute as any)({
+      query: "from:first@example.com",
+      fromEmail: "second@example.com",
+    });
+
+    expect(searchMessages).not.toHaveBeenCalled();
+    expect(result.error).toBe("Failed to search inbox");
+    expect(result.microsoftSearchFeedback.attempts[0].message).toBe(
+      "Sender filters conflict. Use one exact sender address.",
+    );
+  });
+
   it("searchInbox forwards explicit Outlook sender filters across pages", async () => {
     const searchMessages = vi.fn().mockResolvedValue({
       messages: [],
