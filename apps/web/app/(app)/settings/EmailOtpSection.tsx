@@ -16,7 +16,11 @@ import {
   ItemTitle,
 } from "@/components/ui/item";
 
-export function EmailOtpSection() {
+export function EmailOtpSection({
+  hasMultipleAccounts,
+}: {
+  hasMultipleAccounts: boolean;
+}) {
   const { data, isLoading, error, mutate } = useSWR<EmailOtpSettingsResponse>(
     "/api/user/email-otp",
   );
@@ -34,6 +38,11 @@ export function EmailOtpSection() {
         <Item size="sm">
           <ItemContent>
             <ItemTitle>Allow sign-in with a one-time email code</ItemTitle>
+            {data.emailOtpEnabled && hasMultipleAccounts && (
+              <ItemDescription className="line-clamp-none break-all">
+                Sign in with {data.email}.
+              </ItemDescription>
+            )}
             {!data.emailDeliveryConfigured && (
               <ItemDescription className="line-clamp-none">
                 Email delivery unavailable.

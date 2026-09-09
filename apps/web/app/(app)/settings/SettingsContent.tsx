@@ -181,7 +181,7 @@ export function SettingsContent() {
 
       <SettingsGroup icon={<UserIcon className="size-5" />} title="Account">
         <ItemCard>
-          <EmailOtpSection />
+          <EmailOtpSection hasMultipleAccounts={emailAccounts.length > 1} />
           <ItemSeparator />
           <AppearanceSection />
           <ItemSeparator />
