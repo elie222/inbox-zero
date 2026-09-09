@@ -11,7 +11,21 @@ test("shows inline calendar responses with the current RSVP", async ({
     const body: ThreadResponse = await response.json();
     const message = body.thread.messages.at(0);
     if (!message) throw new Error("Reader fixture has no messages");
-    message.calendarContent = "BEGIN:VCALENDAR";
+    message.isMeetingInvitation = true;
+    message.attachments = ["text/calendar", "application/ics"].map(
+      (mimeType, index) => ({
+        attachmentId: `calendar-${index}`,
+        filename: "invite.ics",
+        mimeType,
+        size: 100,
+        headers: {
+          "content-description": "",
+          "content-id": "",
+          "content-transfer-encoding": "base64",
+          "content-type": mimeType,
+        },
+      }),
+    );
     await route.fulfill({ response, json: body });
   });
   await page.route("**/api/messages/calendar-invitation?**", (route) =>

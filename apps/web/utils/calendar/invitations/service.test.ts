@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getEmail, createTestLogger } from "@/__tests__/helpers";
+import { parseMessage } from "@/utils/gmail/message";
+import { CALENDAR_INVITATION_LIMITS } from "@/utils/calendar/invitations/constants";
 import type { EmailProvider } from "@/utils/email/types";
 import {
   getCalendarInvitation,
@@ -143,6 +145,136 @@ describe("responding to calendar invitations", () => {
 });
 
 describe("loading calendar invitations", () => {
+  it.each([
+    false,
+    true,
+  ])("loads duplicate calendar attachments (inline content: %s)", async (inline) => {
+    getMessage.mockResolvedValue(
+      parseMessage(
+        {
+          payload: {
+            mimeType: "multipart/mixed",
+            body: {},
+            parts: [
+              {
+                mimeType: "multipart/alternative",
+                body: {},
+                parts: [
+                  {
+                    mimeType: "text/calendar",
+                    body: inline
+                      ? {
+                          data: Buffer.from(content).toString("base64url"),
+                          size: content.length,
+                        }
+                      : { attachmentId: "calendar", size: content.length },
+                  },
+                ],
+              },
+              {
+                mimeType: "application/ics",
+                filename: "invite.ics",
+                body: { attachmentId: "download", size: content.length },
+              },
+            ],
+          },
+        },
+        { includeCalendarContent: true },
+      ),
+    );
+    getAttachment.mockResolvedValue({
+      data: Buffer.from(content).toString("base64url"),
+      size: content.length,
+    });
+    expect((await getCalendarInvitation(params)).invitation).not.toBeNull();
+  });
+
+  it.each([
+    false,
+    true,
+  ])("rejects conflicting calendar attachments before responding (inline: %s)", async (inline) => {
+    getMessage.mockResolvedValue({
+      ...getEmail(),
+      isMeetingInvitation: true,
+      calendarContent: inline ? content : undefined,
+      attachments: [
+        {
+          attachmentId: "calendar",
+          filename: "",
+          mimeType: "text/calendar",
+          size: content.length,
+        },
+        {
+          attachmentId: "download",
+          filename: "invite.ics",
+          mimeType: "application/ics",
+          size: content.length,
+        },
+      ],
+    });
+    getAttachment.mockResolvedValueOnce({
+      data: Buffer.from(content).toString("base64"),
+      size: content.length,
+    });
+    getAttachment.mockResolvedValueOnce({
+      data: Buffer.from(
+        content.replace("meeting@example.com", "other@example.com"),
+      ).toString("base64"),
+      size: content.length,
+    });
+    await expect(respondToCalendarInvitation(params)).rejects.toThrow(
+      "does not contain an invitation",
+    );
+    expect(sendEmail).not.toHaveBeenCalled();
+    expect(mocks.respond).not.toHaveBeenCalled();
+  });
+
+  it("rejects inline content that conflicts with a single attachment", async () => {
+    getMessage.mockResolvedValue({
+      ...getEmail(),
+      calendarContent: content,
+      attachments: [
+        {
+          attachmentId: "download",
+          filename: "invite.ics",
+          size: content.length,
+        },
+      ],
+    });
+    getAttachment.mockResolvedValue({
+      data: Buffer.from(
+        content.replace("meeting@example.com", "other@example.com"),
+      ).toString("base64"),
+      size: content.length,
+    });
+    await expect(respondToCalendarInvitation(params)).rejects.toThrow(
+      "does not contain an invitation",
+    );
+    expect(sendEmail).not.toHaveBeenCalled();
+    expect(mocks.respond).not.toHaveBeenCalled();
+  });
+
+  it("rejects oversized duplicate attachments before downloading", async () => {
+    getMessage.mockResolvedValue({
+      ...getEmail(),
+      calendarContent: content,
+      attachments: [
+        {
+          attachmentId: "calendar",
+          filename: "invite.ics",
+          size: content.length,
+        },
+        {
+          attachmentId: "large-calendar",
+          filename: "invite.ics",
+          size: CALENDAR_INVITATION_LIMITS.content + 1,
+        },
+      ],
+    });
+    expect(await getCalendarInvitation(params)).toEqual({ invitation: null });
+    expect(getAttachment).not.toHaveBeenCalled();
+  });
+
   it("returns the current calendar response without exposing raw invitation data", async () => {
     mocks.connections.mockResolvedValue([
       { provider: "google", refreshToken: "refresh" },

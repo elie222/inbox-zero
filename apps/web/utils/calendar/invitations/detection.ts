@@ -1,3 +1,4 @@
+import { CALENDAR_INVITATION_LIMITS } from "@/utils/calendar/invitations/constants";
 import type { ParsedMessage } from "@/utils/types";
 import { GmailLabel } from "@/utils/gmail/label";
 import { isCalendarInviteAttachment } from "@/utils/parse/calender-event";
@@ -9,11 +10,11 @@ export function isCalendarInvitationMessage(message: ParsedMessage) {
   )
     return false;
   const attachments = getCalendarAttachments(message);
-  if (attachments.length > 1) return false;
+  if (attachments.length > CALENDAR_INVITATION_LIMITS.attachments) return false;
   return (
     !!message.calendarContent ||
     message.isMeetingInvitation === true ||
-    attachments.length === 1
+    attachments.length > 0
   );
 }
 

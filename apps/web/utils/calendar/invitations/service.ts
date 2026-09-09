@@ -110,27 +110,33 @@ async function getInvitationFromMessage(
     includeCalendarContent: true,
   });
   if (!isCalendarInvitationMessage(message)) return null;
-  if (message.calendarContent)
-    return parseCalendarInvitation(message.calendarContent, email);
   const attachments = getCalendarAttachments(message);
   if (
-    attachments.length !== 1 ||
-    attachments[0].size > CALENDAR_INVITATION_LIMITS.content
+    attachments.some(
+      (attachment) => attachment.size > CALENDAR_INVITATION_LIMITS.content,
+    )
   )
     return null;
-  const attachment = await emailProvider.getAttachment(
-    messageId,
-    attachments[0].attachmentId,
-  );
-  if (
-    attachment.size > CALENDAR_INVITATION_LIMITS.content ||
-    attachment.data.length > CALENDAR_INVITATION_LIMITS.encoded
-  )
+
+  let content = message.calendarContent || undefined;
+  if (content && content.length > CALENDAR_INVITATION_LIMITS.content)
     return null;
-  return parseCalendarInvitation(
-    Buffer.from(attachment.data, "base64").toString("utf8"),
-    email,
-  );
+  for (const metadata of attachments) {
+    const attachment = await emailProvider.getAttachment(
+      messageId,
+      metadata.attachmentId,
+    );
+    if (
+      attachment.size > CALENDAR_INVITATION_LIMITS.content ||
+      attachment.data.length > CALENDAR_INVITATION_LIMITS.encoded
+    )
+      return null;
+    const decoded = Buffer.from(attachment.data, "base64").toString("utf8");
+    // Calendar emails can include both a MIME alternative and a downloadable copy.
+    if (content !== undefined && content !== decoded) return null;
+    content = decoded;
+  }
+  return content ? parseCalendarInvitation(content, email) : null;
 }
 
 async function findInvitationEvent({
