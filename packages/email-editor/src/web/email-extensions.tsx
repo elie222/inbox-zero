@@ -19,7 +19,7 @@ const PreservedEmailBlockNode = Node.create({
   name: "preservedEmailBlock",
   group: "block",
   atom: true,
-  selectable: true,
+  selectable: false,
   isolating: true,
 
   addAttributes() {
