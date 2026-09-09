@@ -31,6 +31,7 @@ export const GET = withEmailProvider(
     const after = searchParams.get("after");
     const before = searchParams.get("before");
     const isUnread = searchParams.get("isUnread");
+    const anyOf = searchParams.get("anyOf");
     const view = threadsView.parse(searchParams.get("view"));
 
     const query = threadsQuery.parse({
@@ -47,6 +48,7 @@ export const GET = withEmailProvider(
       after,
       before,
       isUnread,
+      anyOf,
     });
 
     try {

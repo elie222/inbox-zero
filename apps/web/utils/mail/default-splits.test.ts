@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ActionType,
-  MailSplitKind,
+  MailSplitFilterKind,
   SystemType,
 } from "@/generated/prisma/enums";
 import { getDefaultMailSplitDrafts } from "@/utils/mail/default-splits";
@@ -19,18 +19,20 @@ describe("getDefaultMailSplitDrafts", () => {
     expect(getDefaultMailSplitDrafts(rules)).toEqual([
       {
         name: "To Reply",
-        kind: MailSplitKind.LABEL,
-        values: ["reply-label"],
+        labelId: "reply-label",
+        filters: [{ kind: MailSplitFilterKind.LABEL, value: "reply-label" }],
       },
       {
         name: "Newsletter",
-        kind: MailSplitKind.LABEL,
-        values: ["newsletter-label"],
+        labelId: "newsletter-label",
+        filters: [
+          { kind: MailSplitFilterKind.LABEL, value: "newsletter-label" },
+        ],
       },
       {
         name: "Receipt",
-        kind: MailSplitKind.LABEL,
-        values: ["receipt-label"],
+        labelId: "receipt-label",
+        filters: [{ kind: MailSplitFilterKind.LABEL, value: "receipt-label" }],
       },
     ]);
   });
@@ -52,8 +54,10 @@ describe("getDefaultMailSplitDrafts", () => {
     expect(getDefaultMailSplitDrafts(rules)).toEqual([
       {
         name: "Notification",
-        kind: MailSplitKind.LABEL,
-        values: ["notification-label"],
+        labelId: "notification-label",
+        filters: [
+          { kind: MailSplitFilterKind.LABEL, value: "notification-label" },
+        ],
       },
     ]);
   });

@@ -35,6 +35,60 @@ export async function fetchThreadsPage({
     });
   }
 
+  if (query.anyOf?.length) {
+    const merged = await mergePaginatedSources({
+      sources: query.anyOf.map((condition, index) => ({
+        id: String(index),
+        condition,
+      })),
+      cursor: pageToken ?? null,
+      pageBuffer: createPageBuffer<EmailThread>({
+        kind: "labels",
+        emailAccountId,
+        messageFormat,
+        maxResults,
+        query,
+      }),
+      limit: maxResults,
+      concurrency: LABEL_CONCURRENCY,
+      compare: (left, right) =>
+        getThreadTimestamp(right) - getThreadTimestamp(left),
+      getItemId: (thread: EmailThread) => thread.id,
+      dedupeItemKey: (thread) => thread.id,
+      loadPage: async ({ source, pageToken }) => {
+        const { anyOf: _anyOf, ...base } = query;
+        const { labelId, ...condition } = source.condition;
+        const page = await emailProvider.getThreadsWithQuery({
+          query: {
+            ...base,
+            ...condition,
+            labelIds: labelId
+              ? [
+                  ...(base.labelIds?.length
+                    ? base.labelIds
+                    : base.labelId
+                      ? [base.labelId]
+                      : []),
+                  labelId,
+                ]
+              : base.labelIds,
+          },
+          maxResults,
+          pageToken,
+          messageFormat,
+        });
+        return { items: page.threads, nextPageToken: page.nextPageToken };
+      },
+      onSourceError: ({ error }) => {
+        throw error;
+      },
+    });
+    return {
+      threads: merged.items,
+      nextPageToken: merged.nextPageToken ?? undefined,
+    };
+  }
+
   // A repeated label would run the same query twice and collide in the cursor.
   const anyLabelIds = [...new Set(query.anyLabelIds ?? [])];
   let requiredLabelIds = query.labelIds ?? [];

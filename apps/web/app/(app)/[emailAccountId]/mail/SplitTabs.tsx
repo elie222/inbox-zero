@@ -1,32 +1,33 @@
 "use client";
 
-import { ManageSplitsDialog } from "@/app/(app)/[emailAccountId]/mail/ManageSplitsDialog";
+import { PlusIcon } from "lucide-react";
 import { useEffect, useRef } from "react";
 import {
-  type NewSplitDraft,
-  type NewSplitOption,
-  NewSplitDialog,
-  type NewSplitSuggestion,
-} from "@/app/(app)/[emailAccountId]/mail/NewSplitDialog";
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import { Kbd } from "@/components/Kbd";
+import { getShortcutHint } from "@/lib/shortcuts/registry";
 import { cn } from "@/utils";
 
 export type MailSplitTab = {
   id: string;
   name: string;
+  /** Built-in splits (e.g. All) can't be edited or removed. */
+  deletable: boolean;
 };
 
-type SplitTabsProps = {
+export type SplitTabsProps = {
   splits: MailSplitTab[];
   activeSplitId: string | null;
   onSelect: (splitId: string) => void;
-  onDelete: (splitId: string) => Promise<void>;
-  onReorder: (ids: string[]) => Promise<void>;
-  newSplitOptions: NewSplitOption[];
-  onCreateSplit: (draft: NewSplitDraft) => Promise<boolean>;
-  onSuggestSplit: (prompt: string) => Promise<NewSplitSuggestion | null>;
-  canAddDefaultSplits: boolean;
-  canRemoveDefaultSplits: boolean;
-  onSetDefaultSplits: (enabled: boolean) => Promise<boolean>;
+  onDelete: (splitId: string) => void;
+  onEdit: (splitId: string) => void;
+  onNewSplit: () => void;
+  /** Split creation stays account-scoped, so it is hidden in All accounts. */
+  canCreateSplits: boolean;
   className?: string;
 };
 
@@ -35,13 +36,9 @@ export function SplitTabs({
   activeSplitId,
   onSelect,
   onDelete,
-  onReorder,
-  newSplitOptions,
-  onCreateSplit,
-  onSuggestSplit,
-  canAddDefaultSplits,
-  canRemoveDefaultSplits,
-  onSetDefaultSplits,
+  onEdit,
+  onNewSplit,
+  canCreateSplits,
   className,
 }: SplitTabsProps) {
   const tabsRef = useRef<HTMLDivElement>(null);
@@ -86,33 +83,48 @@ export function SplitTabs({
                 : "text-muted-foreground hover:bg-accent hover:text-foreground",
             )}
           >
-            <button
-              type="button"
-              ref={active ? activeTabRef : undefined}
-              data-split-tab
-              onClick={() => onSelect(split.id)}
-              aria-current={active ? "true" : undefined}
-              className="py-0.5 pr-1.5 after:pointer-events-none after:absolute after:inset-0 after:rounded-full focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring"
-            >
-              {split.name}
-            </button>
+            <ContextMenu>
+              <ContextMenuTrigger asChild disabled={!split.deletable}>
+                <button
+                  type="button"
+                  ref={active ? activeTabRef : undefined}
+                  data-split-tab
+                  onClick={() => onSelect(split.id)}
+                  aria-current={active ? "true" : undefined}
+                  className="py-0.5 pr-1.5 after:pointer-events-none after:absolute after:inset-0 after:rounded-full focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring"
+                >
+                  {split.name}
+                </button>
+              </ContextMenuTrigger>
+              <ContextMenuContent className="w-44">
+                <ContextMenuItem onSelect={() => onEdit(split.id)}>
+                  Edit filters and name
+                </ContextMenuItem>
+                <ContextMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onSelect={() => onDelete(split.id)}
+                >
+                  Turn off split
+                </ContextMenuItem>
+              </ContextMenuContent>
+            </ContextMenu>
           </div>
         );
       })}
 
-      <ManageSplitsDialog
-        splits={splits}
-        onDelete={onDelete}
-        onReorder={onReorder}
-      />
-      <NewSplitDialog
-        options={newSplitOptions}
-        onCreate={onCreateSplit}
-        onSuggest={onSuggestSplit}
-        canAddDefaultSplits={canAddDefaultSplits}
-        canRemoveDefaultSplits={canRemoveDefaultSplits}
-        onSetDefaultSplits={onSetDefaultSplits}
-      />
+      {canCreateSplits && (
+        <button
+          type="button"
+          aria-label="New split"
+          onClick={onNewSplit}
+          className="flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <PlusIcon className="size-3.5" />
+        </button>
+      )}
+
+      <div className="flex-1" />
+      <Kbd title="Next split">{getShortcutHint("nextSplit")}</Kbd>
     </div>
   );
 }

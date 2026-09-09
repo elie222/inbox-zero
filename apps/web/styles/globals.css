@@ -42,6 +42,7 @@
 
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-muted-foreground: var(--muted-foreground);
     --sidebar-primary: 240 5.9% 10%;
     --sidebar-primary-foreground: 0 0% 98%;
     --sidebar-accent: 240 4.8% 95.9%;
@@ -84,6 +85,7 @@
     --chart-5: oklch(0.3 0.18 250);
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-muted-foreground: var(--muted-foreground);
     --sidebar-primary: 224.3 76.3% 48%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 240 3.7% 15.9%;
@@ -135,11 +137,13 @@
     --radius: 0.5rem;
 
     --sidebar-background: 0 0% 98.4%; /* #FBFBFB */
-    --sidebar-foreground: 0 0% 23.9%;
+    --sidebar-foreground: 0 0% 32.2%; /* #525252 */
+    /* Counts and other second-rank text sit a step back from the row label */
+    --sidebar-muted-foreground: 0 0% 65.1%; /* #A6A6A6 */
     --sidebar-primary: 221.2 83.2% 53.3%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 0 0% 96.5%;
-    --sidebar-accent-foreground: 0 0% 14.1%;
+    --sidebar-accent: 0 0% 94.5%; /* #F1F1F1 */
+    --sidebar-accent-foreground: 0 0% 14.1%; /* #242424 */
     --sidebar-border: 0 0% 93.7%;
     --sidebar-ring: 221.2 83.2% 53.3%;
   }

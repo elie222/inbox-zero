@@ -1,6 +1,6 @@
 import {
   ActionType,
-  MailSplitKind,
+  MailSplitFilterKind,
   type SystemType,
 } from "@/generated/prisma/enums";
 import {
@@ -38,8 +38,8 @@ export function getDefaultMailSplitDrafts(rules: RuleForDefaultSplit[]) {
       ? [
           {
             name: getRuleLabel(systemType),
-            kind: MailSplitKind.LABEL,
-            values: [labelId],
+            labelId,
+            filters: [{ kind: MailSplitFilterKind.LABEL, value: labelId }],
           },
         ]
       : [];

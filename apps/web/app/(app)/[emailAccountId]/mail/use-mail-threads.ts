@@ -22,8 +22,10 @@ import {
   readSyncedMailboxThreads,
   subscribeToMailboxStore,
 } from "@/utils/email-cache/mailbox";
-import type { ThreadsQuery } from "@/utils/threads/validation";
-import { createSearchParams } from "@/utils/url";
+import {
+  type ThreadsQuery,
+  threadsQueryToSearchParams,
+} from "@/utils/threads/validation";
 import { isThreadUnread } from "./read-state";
 import {
   applyMailMutationOverlayToThreads,
@@ -70,7 +72,7 @@ export function useMailThreads({
       if (!enabled) return null;
       if (previousPageData && !previousPageData.nextPageToken) return null;
 
-      const params = createSearchParams({
+      const params = threadsQueryToSearchParams({
         ...query,
         view: "list",
         ...(pageIndex > 0 && previousPageData?.nextPageToken

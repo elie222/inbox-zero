@@ -1,32 +1,23 @@
 "use server";
 
 import type { MailSplit } from "@/generated/prisma/client";
-import { MailSplitKind } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import { actionClient } from "@/utils/actions/safe-action";
 import { SafeError } from "@/utils/error";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import {
+  buildMailSplitFromPromptBody,
   createMailSplitBody,
   deleteMailSplitBody,
-  renameMailSplitBody,
-  reorderMailSplitsBody,
-  setDefaultMailSplitsBody,
-  suggestMailSplitBody,
   updateMailPreferencesBody,
+  updateMailSplitBody,
 } from "@/utils/actions/mail-split.validation";
-import { aiPromptToSplit } from "@/utils/ai/split/prompt-to-split";
+import type { MailSplitFilterDraft } from "@/utils/mail/split-filters";
+import { aiPromptToSplitFilters } from "@/utils/ai/split/prompt-to-split";
 import { getEmailAccountWithAi } from "@/utils/user/get";
+import { createMailSplit, toFilterRows } from "@/utils/mail/splits.server";
 import { lockMailSplits } from "@/utils/mail/split-lock";
-import { createMailSplit, reorderMailSplits } from "@/utils/mail/splits.server";
-import {
-  MAX_MAIL_SPLITS,
-  MAX_SPLIT_LABELS,
-} from "@/utils/mail/split-constants";
-import {
-  getDefaultMailSplitDraftsForAccount,
-  setDefaultMailSplits,
-} from "@/utils/mail/default-splits.server";
+import { MAX_MAIL_SPLITS } from "@/utils/mail/split-constants";
 
 export const createMailSplitAction = actionClient
   .metadata({ name: "createMailSplit" })
@@ -34,119 +25,110 @@ export const createMailSplitAction = actionClient
   .action(
     async ({
       ctx: { emailAccountId },
-      parsedInput: { name, kind, values },
+      parsedInput: { name, filters, matchAll },
     }) => {
       const split = await createMailSplitOrThrow({
         emailAccountId,
         name,
-        kind,
-        values,
+        matchAll,
+        filters,
       });
       return { split };
     },
   );
 
-/**
- * Resolves a description into a selection of the account's own filters. It
- * deliberately stops short of creating the split so the picker can show what
- * was matched and let the user adjust it first.
- */
-export const suggestMailSplitAction = actionClient
-  .metadata({ name: "suggestMailSplit" })
-  .inputSchema(suggestMailSplitBody)
+export const updateMailSplitAction = actionClient
+  .metadata({ name: "updateMailSplit" })
+  .inputSchema(updateMailSplitBody)
   .action(
-    async ({ ctx: { emailAccountId }, parsedInput: { prompt, options } }) => {
-      const emailAccount = await getEmailAccountWithAi({ emailAccountId });
-      if (!emailAccount) throw new SafeError("Email account not found");
-
-      const suggestion = await aiPromptToSplit({
-        emailAccount,
-        prompt,
-        options: options.map(({ id, name, kind }) => ({ id, name, kind })),
-      });
-
-      const optionsById = new Map(options.map((option) => [option.id, option]));
-      const matched = suggestion.optionIds.flatMap((optionId) => {
-        const option = optionsById.get(optionId);
-        return option ? [option] : [];
-      });
-      // Only labels stack into one query, so a mixed pick collapses to the
-      // first option rather than producing a split we cannot run.
-      const selected = matched.every(
-        (option) => option.kind === MailSplitKind.LABEL,
-      )
-        ? matched
-        : matched.slice(0, 1);
-
-      const optionIds = [...new Set(selected.map((option) => option.id))];
-      const capped = optionIds.slice(0, MAX_SPLIT_LABELS);
-
-      return {
-        optionIds: capped,
-        // A name describing more labels than the split ends up with would lie
-        // about the tab, so a truncated match falls back to the label names.
-        name:
-          capped.length === optionIds.length
-            ? suggestion.name?.trim().slice(0, 60) || null
-            : null,
-        reasoning: suggestion.reasoning,
-      };
+    async ({
+      ctx: { emailAccountId },
+      parsedInput: { id, name, filters, matchAll },
+    }) => {
+      try {
+        // One transaction so a split can never end up renamed but still
+        // carrying its old conditions. Filters are replaced wholesale rather
+        // than diffed: the builder hands back the conditions it is showing, so
+        // anything missing from that list was removed.
+        const [, { count }] = await prisma.$transaction([
+          lockMailSplits(emailAccountId),
+          prisma.mailSplit.updateMany({
+            where: { id, emailAccountId },
+            data: { name, matchAll },
+          }),
+          // Scoped through the split's owner, so another account's id can't
+          // reach these rows even though `id` is caller-supplied.
+          prisma.mailSplitFilter.deleteMany({
+            where: { mailSplitId: id, mailSplit: { emailAccountId } },
+          }),
+          prisma.$executeRaw`
+            INSERT INTO "MailSplitFilter" ("id", "kind", "value", "order", "mailSplitId")
+            SELECT
+              conditions."id",
+              conditions."kind"::"MailSplitFilterKind",
+              conditions."value",
+              conditions."order",
+              ${id}
+            FROM jsonb_to_recordset(${toFilterRows(filters)}::jsonb)
+              AS conditions("id" text, "kind" text, "value" text, "order" integer)
+            WHERE EXISTS (
+              SELECT 1 FROM "MailSplit"
+              WHERE "id" = ${id} AND "emailAccountId" = ${emailAccountId}
+            )
+          `,
+        ]);
+        if (!count) throw new SafeError("Split not found");
+      } catch (error) {
+        if (isDuplicateError(error, "name")) {
+          throw new SafeError(`You already have a "${name}" split.`);
+        }
+        throw error;
+      }
     },
   );
 
-export const renameMailSplitAction = actionClient
-  .metadata({ name: "renameMailSplit" })
-  .inputSchema(renameMailSplitBody)
-  .action(async ({ ctx: { emailAccountId }, parsedInput: { id, name } }) => {
-    try {
-      const [, { count }] = await prisma.$transaction([
-        lockMailSplits(emailAccountId),
-        prisma.mailSplit.updateMany({
-          where: { id, emailAccountId },
-          data: { name },
-        }),
-      ]);
-      if (!count) throw new SafeError("Split not found");
-    } catch (error) {
-      if (isDuplicateError(error, "name")) {
-        throw new SafeError(`You already have a "${name}" split.`);
+/**
+ * Turns a description into conditions the reader then reviews in the builder —
+ * it never creates the split outright, so a wrong guess costs a click, not a tab.
+ */
+export const buildMailSplitFromPromptAction = actionClient
+  .metadata({ name: "buildMailSplitFromPrompt" })
+  .inputSchema(buildMailSplitFromPromptBody)
+  .action(
+    async ({
+      ctx: { emailAccountId },
+      parsedInput: { prompt, options, senders },
+    }) => {
+      const emailAccount = await getEmailAccountWithAi({ emailAccountId });
+      if (!emailAccount) throw new SafeError("Email account not found");
+
+      const result = await aiPromptToSplitFilters({
+        emailAccount,
+        prompt,
+        options,
+        senders,
+      });
+
+      if (!result.filters.length) {
+        throw new SafeError(
+          "I couldn't find filters in that — name a sender, label or category.",
+        );
       }
-      throw error;
-    }
-  });
+
+      return {
+        filters: result.filters,
+        name: result.name?.trim() || null,
+        matchAll: result.matchAll,
+      };
+    },
+  );
 
 export const deleteMailSplitAction = actionClient
   .metadata({ name: "deleteMailSplit" })
   .inputSchema(deleteMailSplitBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput: { id } }) => {
     // deleteMany rather than delete so another account's id can never be removed
-    await prisma.$transaction([
-      lockMailSplits(emailAccountId),
-      prisma.mailSplit.deleteMany({ where: { id, emailAccountId } }),
-    ]);
-  });
-
-export const reorderMailSplitsAction = actionClient
-  .metadata({ name: "reorderMailSplits" })
-  .inputSchema(reorderMailSplitsBody)
-  .action(async ({ ctx: { emailAccountId }, parsedInput: { ids } }) => {
-    await reorderMailSplits({ emailAccountId, ids });
-  });
-
-export const setDefaultMailSplitsAction = actionClient
-  .metadata({ name: "setDefaultMailSplits" })
-  .inputSchema(setDefaultMailSplitsBody)
-  .action(async ({ ctx: { emailAccountId }, parsedInput: { enabled } }) => {
-    const defaultSplits =
-      await getDefaultMailSplitDraftsForAccount(emailAccountId);
-    const result = await setDefaultMailSplits({
-      emailAccountId,
-      defaultSplits,
-      enabled,
-    });
-    if (result?.status === "limit") {
-      throw new SafeError(`You can only have ${MAX_MAIL_SPLITS} splits.`);
-    }
+    await prisma.mailSplit.deleteMany({ where: { id, emailAccountId } });
   });
 
 export const updateMailPreferencesAction = actionClient
@@ -169,18 +151,31 @@ export const updateMailPreferencesAction = actionClient
     },
   );
 
-async function createMailSplitOrThrow(
-  data: Pick<MailSplit, "emailAccountId" | "name" | "kind" | "values">,
-) {
+async function createMailSplitOrThrow({
+  emailAccountId,
+  name,
+  matchAll,
+  filters,
+}: {
+  emailAccountId: string;
+  name: string;
+  matchAll: boolean;
+  filters: MailSplitFilterDraft[];
+}): Promise<MailSplit> {
   try {
-    const result = await createMailSplit(data);
+    const result = await createMailSplit({
+      emailAccountId,
+      name,
+      matchAll,
+      filters,
+    });
 
     if (!result) {
       throw new SafeError("Could not create split. Please try again.");
     }
     if (result.status !== "created") {
       if (result.status === "duplicate") {
-        throw new SafeError(`You already have a "${data.name}" split.`);
+        throw new SafeError(`You already have a "${name}" split.`);
       }
       throw new SafeError(`You can only have ${MAX_MAIL_SPLITS} splits.`);
     }
@@ -189,7 +184,7 @@ async function createMailSplitOrThrow(
     return split;
   } catch (error) {
     if (isDuplicateError(error, "name")) {
-      throw new SafeError(`You already have a "${data.name}" split.`);
+      throw new SafeError(`You already have a "${name}" split.`);
     }
     throw error;
   }

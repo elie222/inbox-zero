@@ -40,3 +40,44 @@ describe("fetchThreadsPage", () => {
     );
   });
 });
+
+describe("match-any pagination", () => {
+  it("keeps overflow and deduplicates threads across condition pages", async () => {
+    const thread = (id: string, date: number) => ({
+      id,
+      messages: [{ internalDate: String(date) }],
+    });
+    const emailProvider = {
+      getThreadsWithQuery: vi.fn(async ({ query }) => ({
+        threads: query.fromEmail
+          ? [thread("newest", 4000), thread("shared", 3000)]
+          : [thread("shared", 3000), thread("oldest", 1000)],
+      })),
+    };
+    const load = (pageToken?: string) =>
+      fetchThreadsPage({
+        emailAccountId: "account-1",
+        query: {
+          labelId: "INBOX",
+          anyOf: [{ fromEmail: "sender@example.com" }, { labelId: "STARRED" }],
+        },
+        emailProvider: emailProvider as never,
+        maxResults: 2,
+        pageToken,
+        messageFormat: "metadata",
+      });
+    const first = await load();
+    expect(first.threads.map(({ id }) => id)).toEqual(["newest", "shared"]);
+    expect(first.nextPageToken).toBeTruthy();
+    const second = await load(first.nextPageToken);
+    expect(second.threads.map(({ id }) => id)).toEqual(["oldest"]);
+    expect(second.nextPageToken).toBeUndefined();
+    expect(
+      emailProvider.getThreadsWithQuery.mock.calls.some(
+        ([{ query }]) =>
+          query.labelIds?.includes("STARRED") &&
+          query.labelIds.includes("INBOX"),
+      ),
+    ).toBe(true);
+  });
+});
