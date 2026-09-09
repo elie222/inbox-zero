@@ -95,13 +95,13 @@ test("keeps the collapsed signature when typing after clicking below it", async 
   const editorBox = await editor.boundingBox();
   if (!editorBox) throw new Error("Editor has no bounding box");
 
+  const emptySpaceTop = signatureBox.y + signatureBox.height;
+  const emptySpaceHeight = editorBox.y + editorBox.height - emptySpaceTop;
+  expect(emptySpaceHeight).toBeGreaterThan(8);
   const clickPosition = {
     x: editorBox.width / 2,
-    y: editorBox.height - 4,
+    y: emptySpaceTop - editorBox.y + emptySpaceHeight / 2,
   };
-  expect(editorBox.y + clickPosition.y).toBeGreaterThan(
-    signatureBox.y + signatureBox.height,
-  );
   await editor.click({ position: clickPosition });
   await page.keyboard.type("Draft body");
 

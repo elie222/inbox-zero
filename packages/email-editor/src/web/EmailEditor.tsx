@@ -216,9 +216,18 @@ const RichEmailEditor = forwardRef<
             ) {
               return false;
             }
-            const preservedBlock = target.closest(
-              "[data-email-preserved-kind]",
-            );
+            let preservedBlock = target.closest("[data-email-preserved-kind]");
+            const lastEditorChild = view.dom.lastElementChild;
+            if (
+              !preservedBlock &&
+              target === view.dom &&
+              lastEditorChild?.matches("[data-email-preserved-kind]") &&
+              event.clientY > lastEditorChild.getBoundingClientRect().bottom
+            ) {
+              preservedBlock = view.dom.querySelector(
+                "[data-email-preserved-kind]",
+              );
+            }
             if (!preservedBlock) return false;
 
             event.preventDefault();
