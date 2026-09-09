@@ -92,16 +92,25 @@ test("keeps the collapsed signature when typing after clicking below it", async 
 
   const signatureBox = await signatureBlock.boundingBox();
   if (!signatureBox) throw new Error("Signature block has no bounding box");
+  const editorBox = await editor.boundingBox();
+  if (!editorBox) throw new Error("Editor has no bounding box");
 
-  await signatureBlock.click({
-    position: {
-      x: signatureBox.width / 2,
-      y: signatureBox.height - 4,
-    },
-  });
+  const clickPosition = {
+    x: editorBox.width / 2,
+    y: editorBox.height - 4,
+  };
+  expect(editorBox.y + clickPosition.y).toBeGreaterThan(
+    signatureBox.y + signatureBox.height,
+  );
+  await editor.click({ position: clickPosition });
   await page.keyboard.type("Draft body");
 
   await expect(editor).toContainText("Draft body");
+  expect(
+    await signatureBlock.evaluate(
+      (block) => block.previousElementSibling?.textContent ?? "",
+    ),
+  ).toContain("Draft body");
   await expect(signatureBlock).toHaveCount(1);
   await expect(
     dialog.getByRole("button", { name: "Show signature" }),

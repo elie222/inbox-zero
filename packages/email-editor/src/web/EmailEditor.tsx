@@ -209,7 +209,11 @@ const RichEmailEditor = forwardRef<
         handleDOMEvents: {
           mousedown: (view, event) => {
             const target = event.target;
-            if (!(target instanceof Element) || target.closest("button")) {
+            if (
+              !(target instanceof Element) ||
+              event.button !== 0 ||
+              target.closest("button")
+            ) {
               return false;
             }
             const preservedBlock = target.closest(
