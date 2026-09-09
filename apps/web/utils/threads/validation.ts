@@ -49,12 +49,12 @@ export type ThreadsQuery = z.infer<typeof threadsQuery>;
 // full response so a bad param can never drop data a caller depends on.
 export const threadsView = z.enum(["full", "list"]).catch("full");
 
-/** A malformed value is dropped rather than failing the whole request. */
+/** Preserve invalid input so validation rejects it instead of widening the query. */
 function parseAnyOf(value: string): unknown {
   try {
     return JSON.parse(value);
   } catch {
-    return;
+    return value;
   }
 }
 

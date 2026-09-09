@@ -168,3 +168,20 @@ describe("getPortableLabelSplits", () => {
     ).toEqual([]);
   });
 });
+
+it.each([
+  ["3d", "1m"],
+  ["1m", "3d"],
+])("uses the stricter age when matching all conditions: %s, %s", (first, second) => {
+  expect(
+    mailSplitToThreadsQuery(
+      split(
+        [first, second].map((value) => ({
+          kind: MailSplitFilterKind.OLDER_THAN,
+          value,
+        })),
+      ),
+      NOW,
+    ).before,
+  ).toEqual(new Date("2026-08-10T12:00:00.000Z"));
+});

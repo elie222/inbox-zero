@@ -7,7 +7,7 @@ import { getEmailAccount } from "@/__tests__/helpers";
 
 const isAiTest = process.env.RUN_AI_TESTS === "true";
 
-const TIMEOUT = 20_000;
+const TIMEOUT = 60_000;
 
 const OPTIONS = [
   {

@@ -94,7 +94,7 @@ Condition kinds:
 - OLDER_THAN — mail older than 3d, 1w or 1m
 
 Instructions:
-- Only use LABEL or CATEGORY when an option in <options> means the same thing as the description. Never invent an id, and never pick a loosely related option just to return something.
+- Match LABEL and CATEGORY options by their everyday meaning, including descriptions of the mail that belongs in them; the reader need not use the exact label name. Use a clear semantic fit, but never invent an id or select an unrelated option just to return something.
 - For a sender the description names, use FROM with the address. <senders> lists people the reader corresponds with; use one of those addresses when the description names a person, otherwise use an explicit email address from the description. Do not guess addresses or use bare domains.
 - Return an empty list of conditions when the description names something none of these kinds can express. An empty list is a better answer than a wrong filter.
 - Set matchAll false only when the description asks for alternatives ("X or Y"). Default to true.

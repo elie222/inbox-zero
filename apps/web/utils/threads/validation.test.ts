@@ -34,7 +34,7 @@ describe("threadsQueryToSearchParams", () => {
     ).toBe(false);
   });
 
-  it("drops an unparseable value rather than failing the request", () => {
-    expect(threadsQuery.parse({ anyOf: "not json" }).anyOf).toBeUndefined();
+  it("rejects malformed conditions instead of showing the entire inbox", () => {
+    expect(threadsQuery.safeParse({ anyOf: "not json" }).success).toBe(false);
   });
 });
