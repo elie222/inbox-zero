@@ -52,6 +52,7 @@ export const executeMailMutationAction = actionClient
 
     if (parsedInput.kind === "reply") {
       return executeDurableEmailSend({
+        logger,
         emailAccountId,
         getEmailProvider: () =>
           createEmailProvider({ emailAccountId, provider, logger }),

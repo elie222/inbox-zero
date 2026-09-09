@@ -14,6 +14,7 @@ import { createReplyContent, formatEmailDate } from "@/utils/gmail/reply";
 import type { EmailForAction } from "@/utils/ai/types";
 import { createScopedLogger } from "@/utils/logger";
 import {
+  extractErrorInfo,
   withGmailNonIdempotentWriteRetry,
   withGmailRetry,
 } from "@/utils/gmail/retry";
@@ -116,7 +117,21 @@ export async function sendEmailWithHtml(
   const raw = await createRawMailMessage({ ...body, messageText });
   const { replyToEmail } = body;
   if (replyToEmail?.messageId) {
-    const message = await getMessage(replyToEmail.messageId, gmail, "metadata");
+    const message = await getMessage(
+      replyToEmail.messageId,
+      gmail,
+      "metadata",
+    ).catch((error: unknown) => {
+      if (extractErrorInfo(error).status === 404) {
+        logger.warn("Reply source disappeared before sending", {
+          messageId: replyToEmail.messageId,
+        });
+        throw new SafeError(
+          "The reply source changed or is no longer available. Reopen the thread before sending.",
+        );
+      }
+      throw error;
+    });
     if (message.labelIds?.includes(GmailLabel.DRAFT)) {
       if (message.labelIds.includes(GmailLabel.SENT)) {
         throw new SafeError(

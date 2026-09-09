@@ -164,6 +164,7 @@ export async function processScheduledEmail(
       include: { account: true },
     });
     const outcome = await executeDurableEmailSend({
+      logger,
       emailAccountId: row.emailAccountId,
       provider: account.account.provider,
       getEmailProvider: () =>

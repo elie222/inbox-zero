@@ -36,6 +36,7 @@ export const POST = withEmailAccount("messages/send", async (request) => {
     const { getEmailProvider, providerName } =
       await getProviderContext(request);
     const result = await executeDurableEmailSend({
+      logger: request.logger,
       emailAccountId: request.auth.emailAccountId,
       getEmailProvider,
       input,
@@ -50,6 +51,7 @@ export const POST = withEmailAccount("messages/send", async (request) => {
     const { getEmailProvider, providerName } =
       await getProviderContext(request);
     const result = await executeDurableEmailSend({
+      logger: request.logger,
       emailAccountId: request.auth.emailAccountId,
       getEmailProvider,
       input,
