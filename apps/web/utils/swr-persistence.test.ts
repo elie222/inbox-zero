@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from "vitest";
+import type { MailSettingsResponse } from "@/app/api/mail/settings/route";
 import {
   accountIdFromSnapshotKey,
   clearPersistedSwrCache,
@@ -63,19 +64,22 @@ describe("swr-persistence", () => {
   });
 
   it("preserves valid cached mail settings including split filters", () => {
-    const settings = {
+    const settings: MailSettingsResponse = {
       layout: "SPLIT",
       expandedPreview: true,
       splits: [
         {
           id: "split-1",
           name: "Saved",
-          kind: "LABEL",
-          values: ["label-1", "label-2"],
+          order: 0,
+          matchAll: false,
+          filters: [
+            { kind: "LABEL", value: "label-1" },
+            { kind: "LABEL", value: "label-2" },
+          ],
         },
-        { id: "split-2", name: "Inbox", kind: "INBOX", values: [] },
+        { id: "split-2", name: "Inbox", order: 1, matchAll: true, filters: [] },
       ],
-      defaultSplits: [{ name: "Default", kind: "LABEL", values: ["label-3"] }],
     };
     persistSwrEntries(ACCOUNT_A, cacheWith({ "/api/mail/settings": settings }));
     expect(
