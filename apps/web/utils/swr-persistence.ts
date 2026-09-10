@@ -1,3 +1,26 @@
+import { z } from "zod";
+import type { MailSettingsResponse } from "@/app/api/mail/settings/route";
+import { MailLayout, MailSplitFilterKind } from "@/generated/prisma/enums";
+
+const mailSettingsCacheSchema = z.object({
+  layout: z.enum(MailLayout).nullable(),
+  expandedPreview: z.boolean(),
+  splits: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      order: z.number(),
+      matchAll: z.boolean(),
+      filters: z.array(
+        z.object({
+          kind: z.enum(MailSplitFilterKind),
+          value: z.string().nullable(),
+        }),
+      ),
+    }),
+  ),
+}) satisfies z.ZodType<MailSettingsResponse>;
+
 const STORAGE_PREFIX = "inbox-zero:swr:v2:";
 
 // These hooks use plain-string SWR keys that are not account-scoped (the
@@ -118,7 +141,16 @@ function readRawSnapshot(emailAccountId: string): Record<string, unknown> {
     }
     for (const key of PERSISTED_SWR_KEYS) {
       const data = (parsed as Record<string, unknown>)[key];
-      if (data !== undefined) snapshot[key] = data;
+      if (data === undefined) continue;
+      // Cached API responses can outlive the code that wrote them. Reject old
+      // split shapes before hydration so SWR can fetch the current settings.
+      if (
+        key === "/api/mail/settings" &&
+        !mailSettingsCacheSchema.safeParse(data).success
+      ) {
+        continue;
+      }
+      snapshot[key] = data;
     }
   } catch {
     // A corrupt snapshot must never break the app.

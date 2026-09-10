@@ -1,4 +1,5 @@
 {
+  "cached-settings.spec.ts": ["utils/swr-persistence.ts"],
   "archive-reconciliation.spec.ts": ["app/(app)/MailMutationOutboxManager.tsx"],
   "account-selection.spec.ts": [
     "app/(app)/[emailAccountId]/mail/MailSidebar.tsx",
