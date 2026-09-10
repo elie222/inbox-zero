@@ -16,6 +16,50 @@ export async function trashThread(options: {
   logger: Logger;
 }) {
   const { client, threadId, ownerEmail, actionSource, logger } = options;
+  const messageIds = await getThreadMessageIds({ client, threadId, logger });
+
+  await runThreadMessageMutation({
+    messageIds,
+    threadId,
+    logger,
+    failureMessage: "Failed to move message to trash",
+    messageHandler: (messageId) =>
+      withMicrosoftGraphWriteRetry(
+        () =>
+          client.getClient().api(`/me/messages/${messageId}/move`).post({
+            destinationId: "deleteditems",
+          }),
+        logger,
+      ),
+  });
+
+  try {
+    await publishDelete({
+      ownerEmail,
+      threadId,
+      actionSource,
+      timestamp: Date.now(),
+    });
+  } catch (error) {
+    logger.error("Failed to publish delete action", {
+      email: ownerEmail,
+      threadId,
+      error,
+    });
+  }
+
+  return { status: 200 };
+}
+
+async function getThreadMessageIds({
+  client,
+  threadId,
+  logger,
+}: {
+  client: OutlookClient;
+  threadId: string;
+  logger: Logger;
+}): Promise<string[]> {
   const escapedThreadId = threadId.replace(/'/g, "''");
   let page: { value: { id: string }[]; "@odata.nextLink"?: string } =
     await withMicrosoftGraphRetry(
@@ -47,35 +91,5 @@ export async function trashThread(options: {
     );
   }
 
-  await runThreadMessageMutation({
-    messageIds: [...messageIds],
-    threadId,
-    logger,
-    failureMessage: "Failed to move message to trash",
-    messageHandler: (messageId) =>
-      withMicrosoftGraphWriteRetry(
-        () =>
-          client.getClient().api(`/me/messages/${messageId}/move`).post({
-            destinationId: "deleteditems",
-          }),
-        logger,
-      ),
-  });
-
-  try {
-    await publishDelete({
-      ownerEmail,
-      threadId,
-      actionSource,
-      timestamp: Date.now(),
-    });
-  } catch (error) {
-    logger.error("Failed to publish delete action", {
-      email: ownerEmail,
-      threadId,
-      error,
-    });
-  }
-
-  return { status: 200 };
+  return [...messageIds];
 }

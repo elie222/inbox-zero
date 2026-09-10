@@ -2,7 +2,11 @@ import { type InferUITool, tool } from "ai";
 import { z } from "zod";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { Logger } from "@/utils/logger";
-import { FOLDER_SEPARATOR, type OutlookFolder } from "@/utils/outlook/folders";
+import {
+  FOLDER_SEPARATOR,
+  flattenOutlookFolders,
+  type OutlookFolder,
+} from "@/utils/outlook/folders";
 import { posthogCaptureEvent } from "@/utils/posthog";
 
 type FolderToolOptions = {
@@ -221,24 +225,13 @@ type FolderReference = FlattenedFolder & {
   id: string;
 };
 
-function flattenFolders(
-  folders: OutlookFolder[],
-  parentPath?: string,
-): FolderReference[] {
-  return folders.flatMap((folder) => {
-    const path = parentPath
-      ? `${parentPath}${FOLDER_SEPARATOR}${folder.displayName}`
-      : folder.displayName;
-    return [
-      {
-        id: folder.id,
-        name: folder.displayName,
-        path,
-        childFolderCount: folder.childFolderCount ?? folder.childFolders.length,
-      },
-      ...flattenFolders(folder.childFolders, path),
-    ];
-  });
+function flattenFolders(folders: OutlookFolder[]): FolderReference[] {
+  return flattenOutlookFolders(folders).map((folder) => ({
+    id: folder.id,
+    name: folder.displayName,
+    path: folder.path,
+    childFolderCount: folder.childFolderCount ?? folder.childFolders.length,
+  }));
 }
 
 function toVisibleFolder(folder: FolderReference): FlattenedFolder {

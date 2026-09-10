@@ -275,3 +275,18 @@ export async function deleteOutlookFolder(
     logger,
   );
 }
+
+export function flattenOutlookFolders(
+  folders: OutlookFolder[],
+  parentPath = "",
+): Array<OutlookFolder & { path: string }> {
+  return folders.flatMap((folder) => {
+    const path = parentPath
+      ? `${parentPath}${FOLDER_SEPARATOR}${folder.displayName}`
+      : folder.displayName;
+    return [
+      { ...folder, path },
+      ...flattenOutlookFolders(folder.childFolders, path),
+    ];
+  });
+}
