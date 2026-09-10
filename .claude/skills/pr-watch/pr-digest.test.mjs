@@ -60,7 +60,7 @@ test("unavailable job logs produce an explicit error", () => {
   assert.match(result.stderr, /logs unavailable/);
 });
 
-for (const logs of ["", " \n\t"]) {
+for (const logs of ["", " \n\t", "\u001b[31m\u001b[0m\u001b]0;title\u0007"]) {
   test(`empty job logs are unavailable: ${JSON.stringify(logs)}`, () => {
     const result = run(["--logs", "42"], { logs });
     assert.equal(result.status, 1);
