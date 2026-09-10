@@ -1088,7 +1088,8 @@ function ComposeEmailFormContent({
         isComposeWindow
           ? "flex h-full min-h-0 flex-col overflow-hidden [&_[data-email-editor-root]]:min-h-0 [&_[data-email-editor-root]]:flex-1"
           : "space-y-2",
-        isInlineReply && "space-y-2 border-t border-border pt-4",
+        isInlineReply &&
+          "space-y-2 border-t border-border pt-4 [&_[data-email-editor-root]]:text-neutral-900 dark:[&_[data-email-editor-root]]:text-neutral-100",
       )}
     >
       <div className={cn(isComposeWindow ? "shrink-0 px-4" : "contents")}>
