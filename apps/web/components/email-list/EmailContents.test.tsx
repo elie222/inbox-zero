@@ -191,7 +191,7 @@ describe("HtmlEmail", () => {
       }),
     );
 
-    const { getByTitle } = render(
+    const { getByTitle, findByTitle } = render(
       <HtmlEmail
         html={'<img src="https://cdn.example.com/photo.png" />'}
         messageId="message-3"
@@ -202,9 +202,9 @@ describe("HtmlEmail", () => {
       expect(fetch).toHaveBeenCalledTimes(1);
     });
 
-    const iframe = getByTitle(
+    const iframe = (await findByTitle(
       "Preparing email content preview",
-    ) as HTMLIFrameElement;
+    )) as HTMLIFrameElement;
     measureEmailFrame(iframe, 40);
     await waitFor(() =>
       expect(getByTitle("Email content preview")).toBe(iframe),
