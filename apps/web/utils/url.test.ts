@@ -167,8 +167,9 @@ describe("getEmailUrl", () => {
 });
 
 describe("getEmailDraftUrl", () => {
-  // Graph resolves its own webLink without any id translation, so it wins over
-  // anything assembled from a Graph REST id.
+  // Graph resolves its own webLink without any id translation; Graph REST ids
+  // cannot be substituted into OWA /drafts/id/ URLs, so untrusted or missing
+  // links yield null instead of a broken deeplink.
   it("uses the Outlook link the provider supplied", () => {
     expect(
       getEmailDraftUrl(
@@ -191,32 +192,23 @@ describe("getEmailDraftUrl", () => {
       externalUrl: "https://evil.example.com/mail",
     },
     { name: "a non-https scheme", externalUrl: "http://outlook.office.com/x" },
+    {
+      name: "a non-default port",
+      externalUrl: "https://outlook.live.com:8443/evil",
+    },
     { name: "an unparseable value", externalUrl: "not-a-url" },
-  ])("ignores a draft link with $name", ({ externalUrl }) => {
+    { name: "no provider link", externalUrl: undefined },
+  ])("returns null for a draft link with $name", ({ externalUrl }) => {
     expect(
       getEmailDraftUrl(
         { id: "draft-123", externalUrl },
         "user@outlook.com",
         "microsoft",
       ),
-    ).toBe("https://outlook.live.com/mail/0/drafts/id/draft-123");
+    ).toBeNull();
   });
 
   it.each([
-    {
-      name: "personal Microsoft account",
-      draft: { id: "draft-123" },
-      emailAddress: "user@outlook.com",
-      provider: "microsoft",
-      expected: "https://outlook.live.com/mail/0/drafts/id/draft-123",
-    },
-    {
-      name: "business Microsoft account",
-      draft: { id: "draft+123/abc" },
-      emailAddress: "user@contoso.com",
-      provider: "microsoft",
-      expected: "https://outlook.office.com/mail/drafts/id/draft%2B123%2Fabc",
-    },
     {
       name: "Google account",
       draft: { id: "draft-message-123", threadId: "thread-123" },

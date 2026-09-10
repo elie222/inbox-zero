@@ -50,7 +50,22 @@ export const GET = withAuth(
 
     if (!draft) return draftNotFound();
 
-    return NextResponse.redirect(getEmailDraftUrl(draft, email, provider));
+    const draftUrl = getEmailDraftUrl(draft, email, provider);
+    if (!draftUrl) {
+      request.logger.warn(
+        "No safe provider draft URL available for meeting follow-up draft",
+        { meetingId, provider },
+      );
+      return NextResponse.json(
+        {
+          error:
+            "The draft exists, but no trusted provider link is available to open it.",
+        },
+        { status: 422 },
+      );
+    }
+
+    return NextResponse.redirect(draftUrl);
   },
 );
 

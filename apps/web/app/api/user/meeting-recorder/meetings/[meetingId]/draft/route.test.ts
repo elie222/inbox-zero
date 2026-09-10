@@ -87,6 +87,27 @@ describe("meeting follow-up draft route", () => {
     );
   });
 
+  it("returns an explicit error when Outlook has no trusted draft link", async () => {
+    getEmailAccountMock.mockResolvedValue("user@contoso.com");
+    prisma.meeting.findFirst.mockResolvedValue({
+      followUpDraftId: "draft-resource-123",
+      emailAccount: { account: { provider: "microsoft" } },
+    } as never);
+    emailProvider.getDraft.mockResolvedValue({
+      id: "draft-message-123",
+      threadId: "thread-123",
+    });
+
+    const response = await GET(new NextRequest(requestUrl), routeContext);
+
+    expect(response.status).toBe(422);
+    expect(await response.json()).toEqual({
+      error:
+        "The draft exists, but no trusted provider link is available to open it.",
+    });
+    expect(response.headers.get("location")).toBeNull();
+  });
+
   it("rejects email accounts the user does not own", async () => {
     getEmailAccountMock.mockResolvedValue(null);
 

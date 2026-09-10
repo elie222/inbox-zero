@@ -65,7 +65,9 @@ function getTrustedMicrosoftLink(externalUrl?: string | null) {
 
   try {
     const url = new URL(externalUrl);
-    if (url.protocol !== "https:") return null;
+    // Reject non-default ports: hostname alone would allow
+    // https://outlook.live.com:8443/... through the whitelist.
+    if (url.protocol !== "https:" || url.port !== "") return null;
     return MICROSOFT_MAIL_HOSTS.includes(url.hostname) ? externalUrl : null;
   } catch {
     return null;
@@ -78,7 +80,7 @@ type ProviderUrlConfig = {
   buildDraftUrl: (
     draft: DraftLinkTarget,
     emailAddress?: string | null,
-  ) => string;
+  ) => string | null;
   selectId: (messageId: string, threadId: string) => string;
   buildSearchUrl: (from: string, emailAddress?: string | null) => string;
 };
@@ -111,11 +113,10 @@ const PROVIDER_CONFIG: Record<string, ProviderUrlConfig> = {
       return `${getOutlookBaseUrl(emailAddress)}/inbox/id/${encodedMessageId}`;
     },
     // Graph hands back a webLink that resolves the item without any id
-    // translation. The deeplink built here needs an EWS id, which a Graph REST
-    // id is not, so it only stands in when the provider gave us no link.
-    buildDraftUrl: (draft: DraftLinkTarget, emailAddress?: string | null) =>
-      getTrustedMicrosoftLink(draft.externalUrl) ??
-      `${getOutlookBaseUrl(emailAddress)}/drafts/id/${encodeURIComponent(draft.id)}`,
+    // translation. Assembling /drafts/id/<graphId> uses the wrong id space
+    // (REST vs EWS) and reproduces INB-328, so there is no Graph-id fallback.
+    buildDraftUrl: (draft: DraftLinkTarget, _emailAddress?: string | null) =>
+      getTrustedMicrosoftLink(draft.externalUrl),
     selectId: (messageId: string, _threadId: string) => messageId,
     buildSearchUrl: (from: string, emailAddress?: string | null) => {
       const query = encodeURIComponent(`from:${from}`);
@@ -151,14 +152,15 @@ export function getEmailUrl(
  * while Gmail needs the thread. Resolve the draft via `EmailProvider.getDraft`
  * at link time — its message id changes on every edit.
  *
- * Outlook lands on the draft. Gmail lands on the draft's conversation in
- * Drafts; opening its composer needs an internal id the API does not expose.
+ * Outlook returns the trusted provider webLink, or null when none is available.
+ * Gmail returns a Drafts conversation URL (composer deeplinks need an internal
+ * id the API does not expose).
  */
 export function getEmailDraftUrl(
   draft: DraftLinkTarget,
   emailAddress?: string | null,
   provider?: string,
-): string {
+): string | null {
   const config = getProviderConfig(provider);
   return config.buildDraftUrl(draft, emailAddress);
 }
