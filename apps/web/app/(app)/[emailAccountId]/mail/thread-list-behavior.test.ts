@@ -312,6 +312,7 @@ describe("groupThreadsByDate", () => {
         createDatedThread("2025-09-05T11:00:00"),
         createDatedThread("2025-09-05T08:00:00"),
         createDatedThread("2025-09-04T18:00:00"),
+        createDatedThread("2025-09-01T18:00:00"),
         createDatedThread("2025-08-30T18:00:00"),
         createDatedThread("2025-08-02T18:00:00"),
       ],
@@ -327,7 +328,8 @@ describe("groupThreadsByDate", () => {
     ).toEqual([
       { label: "Today", startIndex: 0, count: 2 },
       { label: "Yesterday", startIndex: 2, count: 1 },
-      { label: "August", startIndex: 3, count: 2 },
+      { label: "Last 7 days", startIndex: 3, count: 2 },
+      { label: "August", startIndex: 5, count: 1 },
     ]);
   });
 
