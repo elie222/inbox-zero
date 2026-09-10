@@ -1,4 +1,8 @@
-import { createThreadDetailVariant } from "./keys";
+import { getThreadCacheVersion } from "./thread-invalidation";
+import {
+  createThreadDetailVariant,
+  createThreadDetailRequestKey,
+} from "./keys";
 
 export type ThreadRequestOptions = {
   includeDrafts?: boolean;
@@ -18,16 +22,13 @@ export function createThreadRequest({
   threadId: string;
   options?: ThreadRequestOptions;
 }) {
-  const searchParams = new URLSearchParams();
-  if (options?.includeDrafts) searchParams.set("includeDrafts", "true");
-  if (options?.parseReplies) searchParams.set("parseReplies", "true");
-  const query = searchParams.toString();
-  const url = `/api/threads/${encodeURIComponent(threadId)}${query ? `?${query}` : ""}`;
   const variant = createThreadDetailVariant(options);
 
   return {
+    emailAccountId,
+    threadId,
     cacheIdentity: `${emailAccountId}:${threadId}:${variant}`,
-    key: [url, emailAccountId] as [string, string],
+    key: createThreadDetailRequestKey({ emailAccountId, threadId, options }),
     variant,
   };
 }
@@ -39,20 +40,28 @@ export function isThreadRequestInFlight(
 }
 
 export function fetchThreadRequest<T>(
-  request: Pick<ThreadRequest, "cacheIdentity">,
-  fetcher: () => T | PromiseLike<T>,
+  request: ThreadRequest,
+  fetcher: (version: string) => T | PromiseLike<T>,
 ) {
   const existing = inFlightRequests.get(request.cacheIdentity) as
     | Promise<T>
     | undefined;
   if (existing) return existing;
 
-  let fetched: Promise<T>;
-  try {
-    fetched = Promise.resolve(fetcher());
-  } catch (error) {
-    fetched = Promise.reject(error);
-  }
+  const fetched = (async () => {
+    while (true) {
+      const version = getThreadCacheVersion(
+        request.emailAccountId,
+        request.threadId,
+      );
+      const data = await fetcher(version);
+      if (
+        version ===
+        getThreadCacheVersion(request.emailAccountId, request.threadId)
+      )
+        return data;
+    }
+  })();
   const pending = fetched.finally(() => {
     if (inFlightRequests.get(request.cacheIdentity) === pending) {
       inFlightRequests.delete(request.cacheIdentity);

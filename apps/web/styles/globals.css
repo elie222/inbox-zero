@@ -42,6 +42,7 @@
 
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-muted-foreground: var(--muted-foreground);
     --sidebar-primary: 240 5.9% 10%;
     --sidebar-primary-foreground: 0 0% 98%;
     --sidebar-accent: 240 4.8% 95.9%;
@@ -84,6 +85,7 @@
     --chart-5: oklch(0.3 0.18 250);
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-muted-foreground: var(--muted-foreground);
     --sidebar-primary: 224.3 76.3% 48%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 240 3.7% 15.9%;
@@ -100,7 +102,8 @@
    * Intended to be promoted to `:root` in a follow-up PR, at which point this
    * block and the `data-theme` attribute go away.
    *
-   * Dark mode deliberately has no Mail variant — it inherits `.dark` unchanged.
+   * The dark variant below swaps the near-black app palette for charcoal so
+   * the mail screen reads as one soft surface rather than panels on void.
    */
   :root[data-theme="mail"]:not(.dark) {
     --background: 0 0% 99.2%; /* #FDFDFD */
@@ -134,13 +137,58 @@
     --radius: 0.5rem;
 
     --sidebar-background: 0 0% 98.4%; /* #FBFBFB */
-    --sidebar-foreground: 0 0% 23.9%;
+    --sidebar-foreground: 0 0% 32.2%; /* #525252 */
+    /* Counts and other second-rank text sit a step back from the row label */
+    --sidebar-muted-foreground: 0 0% 43.1%; /* #6E6E6E */
     --sidebar-primary: 221.2 83.2% 53.3%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 0 0% 96.5%;
-    --sidebar-accent-foreground: 0 0% 14.1%;
+    --sidebar-accent: 0 0% 94.5%; /* #F1F1F1 */
+    --sidebar-accent-foreground: 0 0% 14.1%; /* #242424 */
     --sidebar-border: 0 0% 93.7%;
     --sidebar-ring: 221.2 83.2% 53.3%;
+  }
+
+  :root[data-theme="mail"].dark {
+    --background: 220 7% 16%; /* #26282C */
+    --foreground: 220 8% 92%; /* #E9EAEC */
+
+    --muted: 220 7% 21%; /* #323439 */
+    --muted-foreground: 220 5% 62%; /* #999CA3 */
+
+    --popover: 220 7% 19%; /* #2D2F34 */
+    --popover-foreground: 220 8% 92%;
+
+    --card: 220 7% 19%; /* #2D2F34 */
+    --card-foreground: 220 8% 92%;
+
+    --border: 220 6% 22%; /* #35373B */
+    --input: 220 6% 22%;
+    --border-strong: 220 6% 28%; /* #43464C */
+
+    /* Lighter fills with dark text so both the fill and the tinted text on the
+       charcoal background clear WCAG AA contrast */
+    --primary: 213.1 93.9% 67.8%; /* #60A5FA */
+    --primary-foreground: 220 7% 12%; /* #1C1E21 */
+
+    --secondary: 220 7% 24%; /* #393C41 */
+    --secondary-foreground: 220 8% 85%; /* #D6D8DC */
+
+    --accent: 220 7% 24%; /* #393C41 */
+    --accent-foreground: 220 8% 95%; /* #F1F2F3 */
+
+    --destructive: 0 90.6% 70.8%; /* #F87171 */
+    --destructive-foreground: 220 7% 12%;
+
+    --ring: 213.1 93.9% 67.8%;
+
+    --sidebar-background: 220 7% 14%; /* #212326 */
+    --sidebar-foreground: 220 6% 80%; /* #C9CBCF */
+    --sidebar-primary: 213.1 93.9% 67.8%;
+    --sidebar-primary-foreground: 220 7% 12%;
+    --sidebar-accent: 220 7% 21%; /* #323439 */
+    --sidebar-accent-foreground: 220 8% 95%;
+    --sidebar-border: 220 6% 20%; /* #303236 */
+    --sidebar-ring: 213.1 93.9% 67.8%;
   }
 }
 
@@ -287,4 +335,18 @@ html[data-mac-desktop] [data-hide-on-desktop-mac] {
 html[data-mac-desktop] [data-desktop-mac-end] {
   flex: none;
   margin-left: auto;
+}
+
+/* While a panel edge is being dragged, keep the resize cursor under the pointer
+   even when it outruns the handle, and let widths track it without easing.
+   Descendants need `!important` because interactive elements set their own
+   cursor, and a fast drag regularly carries the pointer across them. */
+body[data-resizing] {
+  user-select: none;
+}
+
+body[data-resizing],
+body[data-resizing] * {
+  cursor: col-resize !important;
+  transition-property: none !important;
 }

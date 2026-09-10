@@ -105,20 +105,6 @@ describe("useThreadSelection", () => {
     expect([...result.current.selectedIds]).toEqual(["e"]);
   });
 
-  it("targets the focused row only when nothing is selected", () => {
-    const { result } = setup();
-
-    expect(result.current.targetIds("c")).toEqual(["c"]);
-
-    act(() => result.current.toggle(0));
-    expect(result.current.targetIds("c")).toEqual(["a"]);
-  });
-
-  it("targets nothing when there is no selection and no focused row", () => {
-    const { result } = setup();
-    expect(result.current.targetIds(undefined)).toEqual([]);
-  });
-
   it("drops selections that are no longer in the current mail view", () => {
     const { result, rerender } = renderHook(
       ({ ids }) => useThreadSelection(ids),
@@ -129,7 +115,6 @@ describe("useThreadSelection", () => {
     rerender({ ids: ["c", "d"] });
 
     expect(result.current.selectedCount).toBe(0);
-    expect(result.current.targetIds("c")).toEqual(["c"]);
   });
 
   it("resets positional range state when rows reorder", () => {

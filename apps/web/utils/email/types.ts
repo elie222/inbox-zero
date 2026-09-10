@@ -17,6 +17,7 @@ export interface EmailThread {
 }
 
 export type MailboxSyncPage = {
+  changedThreadIds?: string[];
   cursor: string;
   deletedMessageIds: string[];
   hasMore: boolean;
@@ -199,7 +200,10 @@ export interface EmailProvider {
     cursor?: string;
     limit: number;
   }): Promise<MailboxSyncPage>;
-  getMessage(messageId: string): Promise<ParsedMessage>;
+  getMessage(
+    messageId: string,
+    options?: { includeCalendarContent?: boolean },
+  ): Promise<ParsedMessage>;
   getMessageByRfc822MessageId(
     rfc822MessageId: string,
   ): Promise<ParsedMessage | null>;
@@ -293,6 +297,10 @@ export interface EmailProvider {
     labelName: string | null;
   }): Promise<{ usedFallback?: boolean; actualLabelId?: string }>;
   markMessagesReadState(messageIds: string[], read: boolean): Promise<void>;
+  markMessagesStarredState(
+    messageIds: string[],
+    starred: boolean,
+  ): Promise<void>;
   markRead(threadId: string): Promise<void>;
   markReadThread(threadId: string, read: boolean): Promise<void>;
   markSpam(threadId: string): Promise<void>;
@@ -319,6 +327,7 @@ export interface EmailProvider {
     query: string;
     maxResults?: number;
     pageToken?: string;
+    fromEmail?: string;
     readState?: "read" | "unread";
     labelName?: string;
   }): Promise<{
@@ -370,6 +379,9 @@ export interface EmailProvider {
     params: {
       messageHtml?: string;
       subject?: string;
+      to?: string;
+      cc?: string;
+      bcc?: string;
     },
   ): Promise<void>;
   updateLabel(labelId: string, update: EmailLabelUpdate): Promise<void>;

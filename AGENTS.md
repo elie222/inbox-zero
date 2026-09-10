@@ -82,3 +82,4 @@ See `.claude/skills/fullstack-workflow/SKILL.md` for full examples and templates
 - Forms: React Hook Form + `useAction` hook. Use `getActionErrorMessage(error.error)` for errors.
 - Loading states: use `LoadingContent` component.
 - Cursor Cloud VM setup: see `.claude/skills/cloud-dev-environment/SKILL.md`.
+- Opening a PR: `.claude/skills/create-pr/SKILL.md`. Watching one to green (CI, review bots, comments): `.claude/skills/pr-watch/SKILL.md`. Do not hand-roll `gh api` polling; `pr-watch` ships a `pr-digest` helper.

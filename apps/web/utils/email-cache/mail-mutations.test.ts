@@ -36,6 +36,36 @@ import {
 describe("mail mutation outbox", () => {
   beforeEach(clearEmailCache);
 
+  it("sends a reply while an applied read action awaits cache sync", async () => {
+    await enqueueMailMutation(
+      {
+        id: "read",
+        emailAccountId: "account",
+        threadId: "thread",
+        messageIds: ["message"],
+        kind: "set_read_state",
+        read: true,
+      },
+      10,
+    );
+    await claimNextMailMutation({ ownerId: "worker", leaseMs: 100, now: 10 });
+    await markMailMutationAwaitingSync("read", undefined, "worker");
+    await enqueueMailMutation(
+      {
+        id: "reply",
+        emailAccountId: "account",
+        threadId: "thread",
+        messageIds: ["message"],
+        kind: "reply",
+        email: { to: "to@example.com", subject: "Hi", messageHtml: "Hi" },
+      },
+      20,
+    );
+    await expect(
+      claimNextMailMutation({ ownerId: "sender", leaseMs: 100, now: 30 }),
+    ).resolves.toMatchObject({ id: "reply" });
+  });
+
   it("classifies every durable nonterminal status as active", () => {
     for (const status of [
       "pending",
@@ -87,7 +117,7 @@ describe("mail mutation outbox", () => {
         messageIds: ["message-3"],
       },
     ]);
-    expect(mutations[0]?.batchId).toBe(mutations[1]?.batchId);
+    expect(mutations.at(0)?.batchId).toBe(mutations[1]?.batchId);
     await expect(getActiveMailMutations()).resolves.toHaveLength(2);
   });
 
@@ -242,6 +272,25 @@ describe("mail mutation outbox", () => {
     ).rejects.toBeDefined();
 
     await expect(getActiveMailMutations()).resolves.toEqual([]);
+  });
+
+  it("coalesces same-millisecond star toggles in enqueue order", async () => {
+    const base = {
+      emailAccountId: "account",
+      threadId: "thread",
+      messageIds: ["message"],
+      kind: "set_starred_state" as const,
+    };
+    await enqueueMailMutationBatch(
+      [
+        { ...base, id: "z-star", starred: true },
+        { ...base, id: "a-unstar", starred: false },
+      ],
+      10,
+    );
+    const mutations = await getActiveMailMutations();
+    expect(mutations).toHaveLength(1);
+    expect(mutations.at(0)).toMatchObject({ starred: false });
   });
 
   it("coalesces read state changes inside the atomic batch", async () => {

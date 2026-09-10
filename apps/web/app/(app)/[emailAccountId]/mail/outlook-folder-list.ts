@@ -8,7 +8,10 @@ export function getMailSidebarFolders(
 ): MailSidebarFolder[] {
   return folders.flatMap((folder) => {
     const childDepth = folder.systemType ? depth : depth + 1;
-    const children = getMailSidebarFolders(folder.childFolders, childDepth);
+    const children = getMailSidebarFolders(
+      folder.childFolders ?? [],
+      childDepth,
+    );
     return folder.systemType ? children : [{ ...folder, depth }, ...children];
   });
 }

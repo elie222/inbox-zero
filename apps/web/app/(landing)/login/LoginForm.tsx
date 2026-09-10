@@ -29,19 +29,27 @@ const CONNECT_MAILBOX_PATH = "/connect-mailbox";
 export function LoginForm({
   enabledProviders,
   useGoogleOauthEmulator,
+  otherOptions = false,
 }: {
   enabledProviders: readonly LoginProvider[];
   useGoogleOauthEmulator: boolean;
+  otherOptions?: boolean;
 }) {
   const posthog = usePostHog();
   const searchParams = useSearchParams();
   const next = searchParams?.get("next");
   const { callbackURL, errorCallbackURL } = getAuthCallbackUrls(next);
   const appleCallbackURL = buildConnectMailboxUrl(callbackURL);
-  const showAppleLogin = enabledProviders.includes("apple");
-  const showGoogleLogin = enabledProviders.includes("google");
-  const showMicrosoftLogin = enabledProviders.includes("microsoft");
-  const showSsoLogin = enabledProviders.includes("sso");
+  const showOtherOptions =
+    otherOptions ||
+    !enabledProviders.some(
+      (provider) => provider === "google" || provider === "microsoft",
+    );
+  const showAppleLogin = showOtherOptions && enabledProviders.includes("apple");
+  const showGoogleLogin = !otherOptions && enabledProviders.includes("google");
+  const showMicrosoftLogin =
+    !otherOptions && enabledProviders.includes("microsoft");
+  const showSsoLogin = showOtherOptions && enabledProviders.includes("sso");
 
   const [loadingApple, setLoadingApple] = useState(false);
   const [loadingGoogle, setLoadingGoogle] = useState(false);
@@ -100,7 +108,7 @@ export function LoginForm({
   };
 
   return (
-    <div className="flex flex-col justify-center gap-2 px-4 sm:px-16">
+    <div className="flex flex-col justify-center gap-2 px-4">
       {showGoogleLogin ? (
         <Button size="2xl" loading={loadingGoogle} onClick={handleGoogleSignIn}>
           <span className="flex items-center justify-center">
@@ -137,9 +145,8 @@ export function LoginForm({
 
       {showAppleLogin ? (
         <UIButton
-          variant="ghost"
+          variant="outline"
           size="lg"
-          className="w-full hover:scale-105 transition-transform"
           loading={loadingApple}
           onClick={() =>
             handleSocialSignIn({
@@ -152,20 +159,45 @@ export function LoginForm({
             })
           }
         >
-          Sign in with Apple
+          Continue with Apple
         </UIButton>
       ) : null}
 
-      {showSsoLogin ? (
-        <UIButton
-          variant="ghost"
-          size="lg"
-          className="w-full hover:scale-105 transition-transform"
-          asChild
-        >
-          <Link href="/login/sso">Sign in with SSO</Link>
+      {showOtherOptions ? (
+        <>
+          <UIButton variant="outline" size="lg" asChild>
+            <Link
+              href={buildRedirectUrl("/login/email", { next: callbackURL })}
+            >
+              Email code (existing accounts)
+            </Link>
+          </UIButton>
+          {showSsoLogin && (
+            <UIButton variant="outline" size="lg" asChild>
+              <Link
+                href={buildRedirectUrl("/login/sso", { next: callbackURL })}
+              >
+                Continue with SSO
+              </Link>
+            </UIButton>
+          )}
+          {otherOptions && (
+            <UIButton variant="ghost" size="lg" asChild>
+              <Link href={buildRedirectUrl("/login", { next: callbackURL })}>
+                Back
+              </Link>
+            </UIButton>
+          )}
+        </>
+      ) : (
+        <UIButton variant="ghost" size="lg" asChild>
+          <Link
+            href={buildRedirectUrl("/login/options", { next: callbackURL })}
+          >
+            Other options
+          </Link>
         </UIButton>
-      ) : null}
+      )}
     </div>
   );
 }

@@ -14,6 +14,11 @@ const databaseUrl =
 const emulateBaseUrl =
   process.env.GOOGLE_BASE_URL ?? `http://localhost:${await getAvailablePort()}`;
 const emulatePort = getUrlPort(emulateBaseUrl);
+const emailBaseUrl =
+  process.env.PLAYWRIGHT_EMAIL_BASE_URL ??
+  `http://127.0.0.1:${await getAvailablePort()}`;
+const emailPort = getUrlPort(emailBaseUrl);
+process.env.PLAYWRIGHT_EMAIL_BASE_URL = emailBaseUrl;
 const todoistEnabled = process.env.PLAYWRIGHT_TODOIST_ENABLED === "true";
 const todoistBaseUrl = todoistEnabled
   ? `http://localhost:${await getAvailablePort()}`
@@ -82,6 +87,8 @@ export default defineConfig({
       ],
   use: {
     baseURL,
+    actionTimeout: 30_000,
+    navigationTimeout: 60_000,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
@@ -101,6 +108,12 @@ export default defineConfig({
     },
   ],
   webServer: [
+    {
+      command: `node __tests__/playwright/email-server.mjs ${emailPort}`,
+      cwd: process.cwd(),
+      url: emailBaseUrl,
+      timeout: 30_000,
+    },
     {
       command: emulateCommand,
       cwd: process.cwd(),
@@ -122,7 +135,7 @@ export default defineConfig({
     {
       command: `pnpm exec next dev --turbopack --port ${basePort}`,
       cwd: process.cwd(),
-      url: `${baseURL}/login`,
+      url: `${baseURL}/api/auth/ok`,
       timeout: 240_000,
       reuseExistingServer: !process.env.CI,
       env: {
@@ -131,6 +144,7 @@ export default defineConfig({
         NODE_OPTIONS: nodeOptions,
         NEXT_PUBLIC_BASE_URL: baseURL,
         DATABASE_URL: databaseUrl,
+        PREVIEW_DATABASE_URL: databaseUrl,
         AUTH_SECRET: process.env.AUTH_SECRET ?? "secret",
         GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID ?? "client_id",
         GOOGLE_CLIENT_SECRET:
@@ -154,17 +168,23 @@ export default defineConfig({
         QSTASH_TOKEN: "",
         QSTASH_CURRENT_SIGNING_KEY: "",
         QSTASH_NEXT_SIGNING_KEY: "",
-        RESEND_API_KEY: "",
-        RESEND_AUDIENCE_ID: "",
-        RESEND_FROM_EMAIL: "",
+        RESEND_API_KEY: "playwright-email-key",
+        RESEND_BASE_URL: emailBaseUrl,
+        RESEND_AUDIENCE_ID: "playwright-audience",
+        RESEND_FROM_EMAIL: "Inbox Zero <signin@example.com>",
         LOOPS_API_SECRET: "",
         DUB_API_KEY: "",
+        FB_CONVERSION_API_ACCESS_TOKEN: "",
+        FB_PIXEL_ID: "",
+        CONVERSION_ANALYTICS_SERVER_URL: "",
+        CONVERSION_ANALYTICS_SERVER_SECRET: "",
         POSTHOG_API_SECRET: "",
         NEXT_PUBLIC_POSTHOG_KEY: "",
         NEXT_PUBLIC_POSTHOG_API_HOST: "",
         NEXT_PUBLIC_DUB_REFER_DOMAIN: "",
         NEXT_PUBLIC_IS_RESEND_CONFIGURED: "",
         NEXT_PUBLIC_CONTACTS_ENABLED: "false",
+        NEXT_PUBLIC_EMAIL_SEND_ENABLED: "true",
         NEXT_PUBLIC_MEETING_RECORDER_ENABLED: "true",
         PLAYWRIGHT_TEST_EMAIL: playwrightTestEmail,
       },
@@ -188,7 +208,7 @@ function writeEmulateSeed({ baseURL, playwrightTestEmail, runId }) {
 
   fs.mkdirSync(outputDir, { recursive: true });
 
-  const seed = fs
+  let seed = fs
     .readFileSync(templatePath, "utf8")
     .replaceAll("__PLAYWRIGHT_TEST_EMAIL__", playwrightTestEmail)
     .replaceAll("__PLAYWRIGHT_TEST_REDIRECT_URI__", redirectUri)
@@ -206,6 +226,22 @@ function writeEmulateSeed({ baseURL, playwrightTestEmail, runId }) {
       }),
     );
 
+  // Mailbox synchronization only covers recent mail. Preserve the fixture's
+  // ordering without letting fixed seed dates age out of that window.
+  const messageDates = [
+    ...new Set(
+      [...seed.matchAll(/internal_date: "(\d+)"/g)].map((match) =>
+        Number(match[1]),
+      ),
+    ),
+  ].sort((left, right) => right - left);
+  const yesterday = Date.now() - 24 * 60 * 60 * 1000;
+  seed = seed.replaceAll(/internal_date: "(\d+)"/g, (_, timestamp) => {
+    const date =
+      yesterday - messageDates.indexOf(Number(timestamp)) * 60 * 60 * 1000;
+    return `internal_date: "${date}"`;
+  });
+
   fs.writeFileSync(outputPath, seed);
 
   return outputPath;
@@ -214,10 +250,13 @@ function writeEmulateSeed({ baseURL, playwrightTestEmail, runId }) {
 function createReaderVisualMessage({ attachment, recipient }) {
   const boundary = "playwright-reader-visual-boundary";
   const html = [
+    '<!doctype html><html lang="en"><head><style>p { margin: 0 0 16px; }</style></head>',
+    '<body style="margin: 0; padding: 16px; background: #232326; color: #f4e9da; font-family: Arial, sans-serif">',
     "<div><p>The current reply stays concise and easy to scan.</p>",
     "<p>The attached image should appear as a preview below.</p></div>",
     '<div id="divRplyFwdMsg"><hr><div><b>From:</b> Previous sender</div></div>',
     "<div><p>This earlier quoted message is hidden until expanded.</p></div>",
+    "</body></html>",
   ].join("");
   const mime = [
     "From: Morgan Example <morgan@example.com>",

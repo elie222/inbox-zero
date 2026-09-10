@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { normalizeInternalPath } from "@/utils/path";
 import { NextResponse } from "next/server";
 import { betterAuthConfig } from "@/utils/auth";
 import { SafeError } from "@/utils/error";
@@ -51,7 +52,8 @@ export const GET = withError("sso/signin", async (request) => {
   const ssoResponse = await betterAuthConfig.api.signInSSO({
     body: {
       providerId: provider.providerId,
-      callbackURL: "/accounts",
+      callbackURL:
+        normalizeInternalPath(searchParams.get("next")) ?? "/accounts",
       email,
       loginHint: email,
     },

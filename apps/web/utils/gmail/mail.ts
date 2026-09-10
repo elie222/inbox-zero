@@ -12,8 +12,9 @@ import {
 import type { ParsedMessage } from "@/utils/types";
 import { createReplyContent, formatEmailDate } from "@/utils/gmail/reply";
 import type { EmailForAction } from "@/utils/ai/types";
-import { createScopedLogger } from "@/utils/logger";
+import { createScopedLogger, type Logger } from "@/utils/logger";
 import {
+  extractErrorInfo,
   withGmailNonIdempotentWriteRetry,
   withGmailRetry,
 } from "@/utils/gmail/retry";
@@ -25,6 +26,10 @@ import {
 import { formatReplySubject } from "@/utils/email/subject";
 import { buildThreadingHeaders } from "@/utils/email/threading";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
+import { getMessage } from "@/utils/gmail/message";
+import { getDraftIdForMessage } from "@/utils/gmail/draft";
+import { SafeError } from "@/utils/error";
+import { GmailLabel } from "@/utils/gmail/label";
 import { convertNewlinesToBr, textToHtmlParagraphs } from "@/utils/string";
 import {
   buildQuotedPlainText,
@@ -97,6 +102,7 @@ const createRawMailMessage = async ({
 export async function sendEmailWithHtml(
   gmail: gmail_v1.Gmail,
   body: MailSendEmailBody,
+  sendLogger: Logger = logger,
 ) {
   ensureEmailSendingEnabled();
 
@@ -105,12 +111,55 @@ export async function sendEmailWithHtml(
   try {
     messageText = convertEmailHtmlToText({ htmlText: body.messageHtml });
   } catch (error) {
-    logger.error("Error converting email html to text", { error });
+    sendLogger.error("Error converting email html to text", { error });
     messageText = stripHtmlTagsForPlainText(body.messageHtml).trim();
   }
 
   const raw = await createRawMailMessage({ ...body, messageText });
-  const result = await withGmailNonIdempotentWriteRetry(() =>
+  sendLogger.info("Prepared Gmail send", getGmailSendMetadata(raw, body));
+  const { replyToEmail } = body;
+  if (replyToEmail?.messageId) {
+    const message = await getMessage(
+      replyToEmail.messageId,
+      gmail,
+      "metadata",
+    ).catch((error: unknown) => {
+      if (extractErrorInfo(error).status === 404) {
+        sendLogger.warn("Reply source disappeared before sending", {
+          messageId: replyToEmail.messageId,
+        });
+        throw new SafeError(
+          "The reply source changed or is no longer available. Reopen the thread before sending.",
+        );
+      }
+      throw error;
+    });
+    if (message.labelIds?.includes(GmailLabel.DRAFT)) {
+      if (message.labelIds.includes(GmailLabel.SENT)) {
+        throw new SafeError(
+          "This draft is already marked as sent. Reopen the thread before sending.",
+        );
+      }
+      const draftId = await getDraftIdForMessage(gmail, replyToEmail.messageId);
+      if (!draftId) {
+        throw new SafeError(
+          "The draft changed or is no longer available. Reopen the thread before sending.",
+        );
+      }
+
+      // Sending the existing draft consumes it and applies edits in one request.
+      return trackGmailSend("drafts.send", sendLogger, () =>
+        gmail.users.drafts.send({
+          userId: "me",
+          requestBody: {
+            id: draftId,
+            message: { threadId: replyToEmail.threadId, raw },
+          },
+        }),
+      );
+    }
+  }
+  const result = await trackGmailSend("messages.send", sendLogger, () =>
     gmail.users.messages.send({
       userId: "me",
       requestBody: {
@@ -422,4 +471,47 @@ function readHtmlTagName(value: string, start: number) {
   }
 
   return tagName;
+}
+
+async function trackGmailSend<T>(
+  gmailOperation: "messages.send" | "drafts.send",
+  logger: Logger,
+  send: () => Promise<T>,
+): Promise<T> {
+  const startedAt = Date.now();
+  logger.info("Gmail send request started", { gmailOperation });
+  try {
+    const result = await withGmailNonIdempotentWriteRetry(send, 5, { logger });
+    logger.info("Gmail send request accepted", {
+      gmailOperation,
+      durationMs: Date.now() - startedAt,
+    });
+    return result;
+  } catch (error) {
+    const { status, googleErrorStatus } = extractErrorInfo(error);
+    logger.warn("Gmail send request failed", {
+      gmailOperation,
+      durationMs: Date.now() - startedAt,
+      status,
+      googleErrorStatus,
+    });
+    throw error;
+  }
+}
+
+function getGmailSendMetadata(raw: string, body: MailSendEmailBody) {
+  const mime = Buffer.from(raw, "base64url");
+  const headerEnd = mime.indexOf("\r\n\r\n");
+  const mimeHeaders = mime
+    .subarray(0, headerEnd < 0 ? mime.length : headerEnd)
+    .toString("utf8");
+  return {
+    hasExplicitFrom: Boolean(body.from?.trim()),
+    hasMimeFrom: /^from:/im.test(mimeHeaders),
+    hasReplyMessageId: Boolean(body.replyToEmail?.messageId),
+    hasThreadId: Boolean(body.replyToEmail?.threadId),
+    hasInReplyTo: /^in-reply-to:/im.test(mimeHeaders),
+    mimeBytes: mime.length,
+    attachmentCount: body.attachments?.length ?? 0,
+  };
 }

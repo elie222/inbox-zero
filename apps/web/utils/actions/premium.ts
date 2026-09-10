@@ -637,6 +637,7 @@ export const generateCheckoutSessionAction = actionClientUser
         fbp: cookieStore.get("_fbp")?.value,
       }),
     };
+    const isFirstStripeSubscription = !user.premium?.stripeSubscriptionId;
 
     const checkoutParams: Stripe.Checkout.SessionCreateParams = {
       customer: stripeCustomerId,
@@ -644,7 +645,7 @@ export const generateCheckoutSessionAction = actionClientUser
       cancel_url: `${env.NEXT_PUBLIC_BASE_URL}/premium`,
       mode: "subscription",
       subscription_data: {
-        trial_period_days: 7,
+        ...(isFirstStripeSubscription ? { trial_period_days: 7 } : {}),
         ...(Object.keys(conversionMetadata).length
           ? {
               metadata: conversionMetadata,

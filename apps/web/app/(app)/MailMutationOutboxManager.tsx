@@ -324,7 +324,14 @@ async function reconcileSyncGroupWithLeaseHeartbeat(
     }).catch(() => {});
   }, LEASE_MS / 2);
   try {
-    await syncMailboxNow(group.emailAccountId);
+    let hasMore = true;
+    while (hasMore) {
+      const result = await syncMailboxNow(group.emailAccountId);
+      if (!result.pagesSynced) {
+        throw new Error("Mailbox reconciliation made no progress");
+      }
+      hasMore = result.hasMore;
+    }
     await completeMailMutationSyncGroup(group, ownerId);
   } finally {
     clearInterval(heartbeat);
@@ -470,6 +477,8 @@ function toActionInput(mutation: MailMutation): ExecuteMailMutationBody {
   switch (mutation.kind) {
     case "archive":
       return { ...base, kind: mutation.kind, labelId: mutation.labelId };
+    case "set_starred_state":
+      return { ...base, kind: mutation.kind, starred: mutation.starred };
     case "set_read_state":
       return { ...base, kind: mutation.kind, read: mutation.read };
     case "snooze":

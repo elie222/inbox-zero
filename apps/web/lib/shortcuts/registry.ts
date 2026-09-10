@@ -1,4 +1,10 @@
-import { ArchiveIcon, PenLineIcon, type LucideIcon } from "lucide-react";
+import {
+  ArchiveIcon,
+  ForwardIcon,
+  PenLineIcon,
+  StarIcon,
+  type LucideIcon,
+} from "lucide-react";
 import type { Command, CommandSection } from "@/lib/commands/types";
 import { createClientLogger } from "@/utils/logger-client";
 
@@ -22,6 +28,7 @@ export const SHORTCUT_GROUPS = [
   "Navigate",
   "Triage",
   "View",
+  "Compose",
   "Assistant & rules",
 ] as const;
 
@@ -59,6 +66,10 @@ export type ShortcutEntry = {
   display?: readonly string[];
   /** Fires even while typing. Only for modifier combos and Escape. */
   allowWhileTyping?: boolean;
+  /** Only available in the Electron shell, never in a browser tab. */
+  desktopOnly?: boolean;
+  /** Handles the key before rich text editors can consume it. */
+  capture?: boolean;
   /** Present means the entry shows in ⌘K once a handler is registered. */
   palette?: ShortcutPalette;
   /** Fallback when no handler is injected at the call site. */
@@ -66,6 +77,20 @@ export type ShortcutEntry = {
 };
 
 const SHORTCUT_DEFINITIONS = [
+  {
+    id: "unsubscribe",
+    keys: ["shift+u"],
+    scope: "mail",
+    group: "Triage",
+    label: "Unsubscribe or block sender",
+  },
+  {
+    id: "toggleAutoArchive",
+    keys: ["shift+e"],
+    scope: "mail",
+    group: "Triage",
+    label: "Toggle auto archive for sender",
+  },
   {
     id: "next",
     keys: ["j", "arrowdown"],
@@ -103,11 +128,48 @@ const SHORTCUT_DEFINITIONS = [
     label: "Next split",
   },
   {
+    id: "switchAccount",
+    keys: [
+      "mod+1",
+      "mod+2",
+      "mod+3",
+      "mod+4",
+      "mod+5",
+      "mod+6",
+      "mod+7",
+      "mod+8",
+      "mod+9",
+    ],
+    display: ["modorctrl+1–9"],
+    scope: "mail",
+    group: "Navigate",
+    label: "Switch account",
+    allowWhileTyping: true,
+    desktopOnly: true,
+  },
+  {
+    id: "switchAllAccounts",
+    keys: ["mod+0"],
+    display: ["modorctrl+0"],
+    scope: "mail",
+    group: "Navigate",
+    label: "All accounts",
+    allowWhileTyping: true,
+    desktopOnly: true,
+  },
+  {
     id: "backToApp",
     keys: ["g>a"],
     scope: "mail",
     group: "Navigate",
     label: "Back to the app",
+  },
+  {
+    id: "openExternal",
+    keys: ["g>g"],
+    scope: "mail",
+    group: "Navigate",
+    label: "Open in email provider",
   },
   {
     id: "commandPalette",
@@ -116,6 +178,14 @@ const SHORTCUT_DEFINITIONS = [
     group: "Navigate",
     label: "Command palette",
     allowWhileTyping: true,
+    capture: true,
+  },
+  {
+    id: "search",
+    keys: ["/"],
+    scope: "mail",
+    group: "Navigate",
+    label: "Search",
   },
   {
     id: "select",
@@ -160,6 +230,48 @@ const SHORTCUT_DEFINITIONS = [
     },
   },
   {
+    id: "star",
+    keys: ["s"],
+    scope: "mail",
+    group: "Triage",
+    label: "Star / unstar",
+    palette: {
+      section: "actions",
+      keywords: ["star", "unstar"],
+      icon: StarIcon,
+    },
+  },
+  {
+    id: "label",
+    keys: ["l"],
+    scope: "mail",
+    group: "Triage",
+    label: "Label",
+  },
+  {
+    id: "markUnread",
+    keys: ["u"],
+    scope: "mail",
+    group: "Triage",
+    label: "Mark as unread",
+  },
+  {
+    id: "move",
+    keys: ["v"],
+    scope: "mail",
+    group: "Triage",
+    label: "Move",
+  },
+  {
+    // `!` sits behind shift on US layouts and in front of it on others.
+    id: "markSpam",
+    keys: ["shift+!", "!"],
+    display: ["!"],
+    scope: "mail",
+    group: "Triage",
+    label: "Mark as spam",
+  },
+  {
     id: "snooze",
     keys: ["h"],
     scope: "mail",
@@ -190,6 +302,19 @@ const SHORTCUT_DEFINITIONS = [
     label: "Reply all",
   },
   {
+    id: "forward",
+    keys: ["f"],
+    scope: "mail",
+    group: "Triage",
+    label: "Forward",
+    palette: {
+      section: "actions",
+      keywords: ["forward", "send", "share"],
+      priority: 4,
+      icon: ForwardIcon,
+    },
+  },
+  {
     id: "moreActions",
     keys: ["m"],
     scope: "mail",
@@ -205,17 +330,17 @@ const SHORTCUT_DEFINITIONS = [
   },
   {
     id: "toggleLayout",
-    keys: ["v"],
+    keys: ["shift+v"],
     scope: "mail",
     group: "View",
     label: "List view / split view",
   },
   {
-    id: "focusMode",
-    keys: ["f"],
+    id: "togglePreview",
+    keys: ["shift+p"],
     scope: "mail",
     group: "View",
-    label: "Focus mode (full screen)",
+    label: "Short / expanded preview text",
   },
   {
     id: "help",
@@ -229,7 +354,7 @@ const SHORTCUT_DEFINITIONS = [
     id: "compose",
     keys: ["c"],
     scope: "global",
-    group: "Assistant & rules",
+    group: "Compose",
     label: "New message",
     palette: {
       section: "actions",
@@ -242,9 +367,56 @@ const SHORTCUT_DEFINITIONS = [
     id: "send",
     keys: ["mod+enter"],
     scope: "mail",
-    group: "Assistant & rules",
-    label: "Send reply",
+    group: "Compose",
+    label: "Send",
     allowWhileTyping: true,
+    capture: true,
+  },
+  {
+    id: "sendAndMarkDone",
+    keys: ["mod+shift+enter"],
+    scope: "mail",
+    group: "Compose",
+    label: "Send and mark done",
+    allowWhileTyping: true,
+    capture: true,
+  },
+  {
+    id: "sendLater",
+    keys: ["mod+shift+l"],
+    scope: "mail",
+    group: "Compose",
+    label: "Send later",
+    allowWhileTyping: true,
+    capture: true,
+  },
+  {
+    id: "remindMe",
+    keys: ["mod+shift+h"],
+    scope: "mail",
+    group: "Compose",
+    label: "Remind me",
+    allowWhileTyping: true,
+    capture: true,
+  },
+  {
+    id: "attachFiles",
+    keys: ["mod+shift+u"],
+    scope: "mail",
+    group: "Compose",
+    label: "Attach files",
+    allowWhileTyping: true,
+    capture: true,
+  },
+  {
+    id: "discardDraft",
+    keys: ["mod+shift+,", "mod+shift+<"],
+    display: ["mod+shift+,"],
+    scope: "mail",
+    group: "Compose",
+    label: "Discard draft",
+    allowWhileTyping: true,
+    capture: true,
   },
 ] as const satisfies readonly ShortcutEntry[];
 
@@ -274,15 +446,20 @@ export function getShortcut(id: ShortcutId): ShortcutEntry {
 
 export function getShortcutsForScopes(
   scopes: readonly ShortcutScope[],
+  { isDesktopApp = false }: { isDesktopApp?: boolean } = {},
 ): ShortcutEntry[] {
-  return SHORTCUTS.filter((entry) => scopes.includes(entry.scope));
+  return SHORTCUTS.filter(
+    (entry) =>
+      scopes.includes(entry.scope) && (!entry.desktopOnly || isDesktopApp),
+  );
 }
 
 /** Feeds the `?` help dialog so it can never drift from the handlers. */
 export function getShortcutGroups(
   scopes: readonly ShortcutScope[],
+  options: { isDesktopApp?: boolean } = {},
 ): { group: ShortcutGroup; shortcuts: ShortcutEntry[] }[] {
-  const entries = getShortcutsForScopes(scopes);
+  const entries = getShortcutsForScopes(scopes, options);
 
   return SHORTCUT_GROUPS.map((group) => ({
     group,
@@ -298,6 +475,21 @@ export function formatShortcutKeys(entry: ShortcutEntry): string {
 
 export function getShortcutHint(id: ShortcutId): string {
   return formatShortcutKeys(getShortcut(id));
+}
+
+/**
+ * One label per key of the first binding, e.g. `["⌘", "shift", "enter"]`, for
+ * surfaces that render a key per block. Modifiers are spelled out because the
+ * stacked symbols (`⌘⇧↵`) are unreadable at tooltip size.
+ */
+export function getShortcutKeyLabels(id: ShortcutId): string[] {
+  const entry = getShortcut(id);
+  const [binding] = entry.display ?? entry.keys;
+
+  return binding
+    .split(SEQUENCE_SPLIT_KEY)
+    .flatMap((step) => step.split("+"))
+    .map((token) => formatKeyToken(token, true));
 }
 
 /** Feeds ⌘K: an entry appears once its handler is registered. */
@@ -459,16 +651,45 @@ const KEY_SYMBOLS: Record<string, string> = {
   arrowright: "→",
 };
 
+/** Overrides `KEY_SYMBOLS` where a word reads better than a symbol. */
+const KEY_WORDS: Record<string, string> = {
+  ctrl: "ctrl",
+  alt: "option",
+  shift: "shift",
+  enter: "enter",
+  escape: "esc",
+  tab: "tab",
+  backspace: "delete",
+  space: "space",
+};
+
 function formatKey(key: string): string {
   return key
     .split(SEQUENCE_SPLIT_KEY)
     .map((step) =>
       step
         .split("+")
-        .map((token) => KEY_SYMBOLS[token] ?? token.toUpperCase())
+        .map((token) => formatKeyToken(token))
         .join(""),
     )
     .join(" ");
+}
+
+function formatKeyToken(token: string, spelledOut = false): string {
+  if (token === "modorctrl") {
+    const isMac =
+      typeof window === "undefined" ||
+      /Mac|iPhone|iPod|iPad/.test(window.navigator.userAgent);
+
+    if (isMac) return "⌘";
+    return spelledOut ? "Ctrl" : "Ctrl+";
+  }
+
+  return (
+    (spelledOut ? KEY_WORDS[token] : undefined) ??
+    KEY_SYMBOLS[token] ??
+    token.toUpperCase()
+  );
 }
 
 function addOwner(

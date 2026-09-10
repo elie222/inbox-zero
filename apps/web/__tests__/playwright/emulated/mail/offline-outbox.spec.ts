@@ -23,7 +23,6 @@ const SECONDARY_ISOLATION_SUBJECT = "Secondary durable mutation target";
 test("keeps a queued archive hidden across reload and replays it after reconnect", async ({
   page,
 }, testInfo) => {
-  await stubMailboxSync(page);
   const { conversations, emailAccountId } = await openMail(page);
   const conversation = conversationWithSubject(
     page,
@@ -93,11 +92,18 @@ test("keeps a queued archive hidden across reload and replays it after reconnect
 test("keeps a reply queued across reload and sends it after reconnect", async ({
   page,
 }, testInfo) => {
-  await stubMailboxSync(page);
   const { emailAccountId } = await openMail(page);
   await page.goto(`/${emailAccountId}/mail?thread-id=${REPLY_THREAD_ID}`);
+  const replyMessage = page.locator(
+    '[data-thread-message-id="msg_playwright_reply"]',
+  );
+  const collapsedReply = replyMessage.locator(
+    '[role="button"][aria-expanded="false"]',
+  );
+  await expect(replyMessage).toBeVisible();
+  if (await collapsedReply.count()) await collapsedReply.click();
   await expect(
-    page.getByText("Please reply to this seeded conversation."),
+    replyMessage.getByText("Please reply to this seeded conversation."),
   ).toBeVisible({ timeout: 60_000 });
   const sentByMe = page.getByText("Me", { exact: true });
   const initialSentByMeCount = await sentByMe.count();
@@ -111,18 +117,17 @@ test("keeps a reply queued across reload and sends it after reconnect", async ({
   await setNavigatorOnline(page, false);
 
   try {
-    await page
-      .getByRole("group", { name: "Thread actions" })
+    await replyMessage
       .getByRole("button", { name: "Reply", exact: true })
       .click();
     const editor = page.locator("[contenteditable='true']");
     await editor.pressSequentially(replyBody);
-    await page.getByRole("button", { name: /^Send/ }).click();
+    await page.getByRole("button", { name: "Send", exact: true }).click();
 
     await expect(
-      page.getByText("Email queued. It will send when you're back online.", {
-        exact: true,
-      }),
+      page
+        .getByRole("region", { name: "Reply delivery status" })
+        .getByText("Waiting for connection", { exact: true }),
     ).toBeVisible();
     await expect
       .poll(() =>
@@ -445,24 +450,4 @@ function clearThreadDetails(
       }),
     { accountId: emailAccountId, id: threadId },
   );
-}
-
-function stubMailboxSync(page: Page) {
-  return page.route("**/api/mobile/mailbox-sync", async (route) => {
-    const emailAccountId = await route
-      .request()
-      .headerValue("X-Email-Account-ID");
-    await route.fulfill({
-      body: JSON.stringify({
-        accountId: emailAccountId,
-        cursor: "playwright-durable-sync",
-        deletedMessageIds: [],
-        hasMore: false,
-        reset: false,
-        upsertedMessages: [],
-      }),
-      contentType: "application/json",
-      status: 200,
-    });
-  });
 }

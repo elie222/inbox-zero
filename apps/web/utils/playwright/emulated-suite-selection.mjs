@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import ts from "typescript";
+import { expandPlaywrightTargets } from "./emulated-suite-targets.mjs";
 
 export const fullSuites = [
   "attachments",
@@ -39,6 +40,8 @@ const suiteEntryFiles = new Map([
     [
       "app/(app)/[emailAccountId]/mail/layout.tsx",
       "app/(app)/[emailAccountId]/mail/page.tsx",
+      "app/(app)/[emailAccountId]/debug/mail-queue/page.tsx",
+      "app/(app)/[emailAccountId]/debug/page.tsx",
       "app/(app)/[emailAccountId]/settings/page.tsx",
     ],
   ],
@@ -58,6 +61,24 @@ const sharedAppEntryFiles = [
   "app/(app)/layout.tsx",
   "app/(app)/error.tsx",
   "app/(app)/[emailAccountId]/error.tsx",
+];
+
+// Shared feature entry points have focused coverage; their imported foundations
+// still use the dependency graph's broad fallback.
+const sharedFeatureMappings = [
+  {
+    files: [
+      "components/CommandK.tsx",
+      "hooks/useCommandPaletteCommands.ts",
+      "store/command-palette.ts",
+    ],
+    targets: [
+      "mail/command-palette.spec.ts",
+      "mail/starring.spec.ts",
+      "mail/theme.spec.ts",
+      "settings/settings-dialog.spec.ts",
+    ],
+  },
 ];
 
 const directSuiteMappings = [
@@ -157,19 +178,15 @@ export function selectChangedPlaywrightTargets(changedFilesInput, appRoot) {
   }
 
   if (productFiles.length) {
-    const dependenciesBySuite = getDependenciesBySuite(appRoot);
+    const { dependenciesBySuite, sharedDependencies } =
+      getDependenciesBySuite(appRoot);
     const uncoveredFiles = [];
+    const focusedSharedFiles = [];
 
     for (const file of productFiles) {
       const directlyAffectedSuites = getDirectlyAffectedSuites(file.appPath);
-      if (directlyAffectedSuites.length) {
-        for (const suite of directlyAffectedSuites) {
-          targetFiles.add(getPlaywrightTargetPath(suite));
-        }
-        continue;
-      }
-
-      if (!existsSync(path.join(appRoot, file.appPath))) {
+      const fileExists = existsSync(path.join(appRoot, file.appPath));
+      if (!fileExists && !directlyAffectedSuites.length) {
         return {
           runFullSuite: true,
           reason: `${file.repoPath} was deleted or cannot be analyzed.`,
@@ -177,9 +194,29 @@ export function selectChangedPlaywrightTargets(changedFilesInput, appRoot) {
         };
       }
 
-      const affectedSuites = fullSuites.filter((suite) =>
-        dependenciesBySuite.get(suite).has(file.appPath),
+      const sharedFeature = sharedFeatureMappings.find(({ files }) =>
+        files.includes(file.appPath),
       );
+      if (fileExists && sharedFeature) {
+        const featureTargets = sharedFeature.targets.map(
+          getPlaywrightTargetPath,
+        );
+        if (
+          featureTargets.every((target) =>
+            existsSync(path.join(appRoot, target)),
+          )
+        ) {
+          for (const target of featureTargets) targetFiles.add(target);
+          focusedSharedFiles.push(file.repoPath);
+          continue;
+        }
+      }
+
+      const affectedSuites = directlyAffectedSuites.length
+        ? directlyAffectedSuites
+        : fullSuites.filter((suite) =>
+            dependenciesBySuite.get(suite).files.has(file.appPath),
+          );
 
       if (!affectedSuites.length) {
         uncoveredFiles.push(file.repoPath);
@@ -187,18 +224,34 @@ export function selectChangedPlaywrightTargets(changedFilesInput, appRoot) {
       }
 
       for (const suite of affectedSuites) {
-        targetFiles.add(getPlaywrightTargetPath(suite));
+        const canNarrow =
+          fileExists &&
+          !sharedDependencies.has(file.appPath) &&
+          !suiteEntryFiles.get(suite).includes(file.appPath);
+        const features = canNarrow
+          ? dependenciesBySuite
+              .get(suite)
+              .features.filter(({ files }) => files.has(file.appPath))
+          : [];
+        if (features.length) {
+          for (const { target } of features) targetFiles.add(target);
+        } else {
+          targetFiles.add(getPlaywrightTargetPath(suite));
+        }
       }
     }
 
     const uncoveredReason = uncoveredFiles.length
       ? ` No emulated E2E area covers: ${uncoveredFiles.join(", ")}.`
       : "";
+    const sharedFeatureReason = focusedSharedFiles.length
+      ? ` Focused shared-feature coverage: ${focusedSharedFiles.join(", ")}.`
+      : "";
 
     return {
       runFullSuite: false,
       reason: targetFiles.size
-        ? `Selected E2E areas from the pull request's changed files.${uncoveredReason}`
+        ? `Selected E2E features and fallback areas from the pull request's changed files.${sharedFeatureReason}${uncoveredReason}`
         : `The changed files do not affect emulated browser coverage.${uncoveredReason}`,
       targetFiles: [...targetFiles],
     };
@@ -226,16 +279,68 @@ function getDirectlyAffectedSuites(appPath) {
 function getDependenciesBySuite(appRoot) {
   const importsByFile = new Map();
 
-  return new Map(
-    fullSuites.map((suite) => [
-      suite,
-      collectDependencies(
-        [...sharedAppEntryFiles, ...suiteEntryFiles.get(suite)],
-        appRoot,
-        importsByFile,
-      ),
-    ]),
-  );
+  return {
+    sharedDependencies: collectDependencies(
+      sharedAppEntryFiles,
+      appRoot,
+      importsByFile,
+    ),
+    dependenciesBySuite: new Map(
+      fullSuites.map((suite) => [
+        suite,
+        {
+          files: collectDependencies(
+            [...sharedAppEntryFiles, ...suiteEntryFiles.get(suite)],
+            appRoot,
+            importsByFile,
+          ),
+          features: getFeatureCoverage(suite, appRoot, importsByFile),
+        },
+      ]),
+    ),
+  };
+}
+
+function getFeatureCoverage(suite, appRoot, importsByFile) {
+  const target = getPlaywrightTargetPath(suite);
+  const coveragePath = path.join(appRoot, target, "coverage.json");
+  if (!existsSync(coveragePath)) return [];
+
+  let coverage;
+  try {
+    coverage = JSON.parse(readFileSync(coveragePath, "utf8"));
+  } catch {
+    return [];
+  }
+  if (!coverage || typeof coverage !== "object" || Array.isArray(coverage)) {
+    return [];
+  }
+  const specs = expandPlaywrightTargets([target], appRoot);
+  // A new spec or renamed component must not silently disappear from PR coverage.
+  if (
+    Object.keys(coverage).length !== specs.length ||
+    specs.some(({ path: spec }) => {
+      const entries = coverage[spec.slice(target.length + 1)];
+      return (
+        !Array.isArray(entries) ||
+        !entries.length ||
+        entries.some(
+          (file) =>
+            typeof file !== "string" || !existsSync(path.join(appRoot, file)),
+        )
+      );
+    })
+  )
+    return [];
+
+  return specs.map(({ path: spec }) => ({
+    target: spec,
+    files: collectDependencies(
+      coverage[spec.slice(target.length + 1)],
+      appRoot,
+      importsByFile,
+    ),
+  }));
 }
 
 function collectDependencies(entryFiles, appRoot, importsByFile) {
@@ -341,20 +446,16 @@ function isFullSuiteFile({ repoPath, appPath }) {
 }
 
 function isBrowserSourceFile(appPath) {
-  return (
-    [
-      "app/",
-      "components/",
-      "hooks/",
-      "providers/",
-      "store/",
-      "styles/",
-      "utils/auth/",
-    ].some((prefix) => appPath.startsWith(prefix)) ||
-    ["utils/auth.ts", "utils/auth-client.ts", "utils/middleware.ts"].includes(
-      appPath,
-    )
-  );
+  return [
+    "app/",
+    "components/",
+    "hooks/",
+    "providers/",
+    "store/",
+    "styles/",
+    "utils/",
+    "lib/",
+  ].some((prefix) => appPath.startsWith(prefix));
 }
 
 function isNonRuntimeFile(appPath) {

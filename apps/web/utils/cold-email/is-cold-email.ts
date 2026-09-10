@@ -11,11 +11,8 @@ import type { EmailForLLM } from "@/utils/types";
 import type { EmailProvider } from "@/utils/email/types";
 import { getModel, type ModelType } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
-import {
-  extractEmailAddress,
-  isSameEmailAddress,
-  isSameOrganization,
-} from "@/utils/email";
+import { extractEmailAddress, isSameOrganization } from "@/utils/email";
+import { isWhitelistedSender } from "@/utils/email/whitelist";
 import { hasPriorContactOrAssumeYes } from "@/utils/cold-email/has-prior-contact";
 
 export const COLD_EMAIL_FOLDER_NAME = "Cold Emails";
@@ -59,8 +56,11 @@ export async function isColdEmail({
 
   logger.info("Checking is cold email");
 
-  if (isSameEmailAddress(email.from, env.RESEND_FROM_EMAIL)) {
-    logger.info("Sender is the application notification sender");
+  if (
+    isWhitelistedSender(email.from, env.RESEND_FROM_EMAIL) ||
+    isWhitelistedSender(email.from, env.WHITELIST_FROM)
+  ) {
+    logger.info("Sender is an application sender");
     return { isColdEmail: false, reason: "applicationSender" };
   }
 
@@ -152,26 +152,11 @@ async function aiIsColdEmail(
   coldEmailPrompt: string,
   modelType?: ModelType,
 ) {
-  const system = `You are an assistant that decides if an email is a cold email or not.
+  const system = `Decide whether the email is cold outreach. Give a concise reason.
 
 <instructions>
 ${coldEmailPrompt || DEFAULT_COLD_EMAIL_PROMPT}
-</instructions>
-
-<output_format>
-Return a JSON object with a "reason" and "coldEmail" field.
-The "reason" should be a concise explanation that explains why the email is or isn't considered a cold email.
-The "coldEmail" should be a boolean that is true if the email is a cold email and false otherwise.
-</output_format>
-
-<example_response>
-{
-  "reason": "This is someone trying to sell you services.",
-  "coldEmail": true
-}
-</example_response>
-
-Determine if the email is a cold email or not.`;
+</instructions>`;
 
   const prompt = `<email>
 ${stringifyEmail(email, 500)}

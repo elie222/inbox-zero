@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { toastUndo } from "@/components/Toast";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
 import {
   cancelPendingMailMutation,
@@ -181,20 +182,16 @@ export function useThreadActions({
       const batch: UndoableBatch = { action, snapshots, undone: false };
       lastAction.current = batch;
       const failedCount = threadKeys.length - snapshots.length;
-      toast.success(
-        summarise(
+      toastUndo({
+        message: summarise(
           action === "archive" ? "Archived" : "Deleted",
           snapshots.length,
         ),
-        {
-          action: {
-            label: `Undo · ${getShortcutHint("undo")}`,
-            onClick: () => {
-              undoBatch(batch);
-            },
-          },
+        shortcut: getShortcutHint("undo"),
+        onUndo: () => {
+          undoBatch(batch);
         },
-      );
+      });
       if (failedCount) {
         toast.error(
           action === "archive"
@@ -229,6 +226,19 @@ export function useThreadActions({
             : `Couldn't queue ${failedCount} of ${threadKeys.length} as ${read ? "read" : "unread"}`,
         );
       }
+      return snapshots.map((snapshot) => snapshot.key);
+    },
+    [enqueueTargets, resolveTargets],
+  );
+
+  const setStarredState = useCallback(
+    async (threadKeys: string[], starred: boolean) => {
+      const snapshots = await enqueueTargets(resolveTargets(threadKeys), {
+        kind: "set_starred_state",
+        starred,
+      });
+      if (snapshots.length < threadKeys.length)
+        toast.error("Couldn’t update stars for all conversations");
       return snapshots.map((snapshot) => snapshot.key);
     },
     [enqueueTargets, resolveTargets],
@@ -302,6 +312,7 @@ export function useThreadActions({
     ),
     markSpam,
     setReadState,
+    setStarredState,
     snooze,
     undo,
   };

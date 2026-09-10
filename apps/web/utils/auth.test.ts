@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { MailSplitFilterKind } from "@/generated/prisma/enums";
 import type { Account } from "better-auth";
 import { cookies } from "next/headers";
 import { createReferral } from "@/utils/referral/referral-code";
@@ -395,6 +396,28 @@ describe("handleLinkAccount", () => {
 
     await handleLinkAccount(getGoogleAccount());
 
+    const upsert = prisma.emailAccount.upsert.mock.calls[0]?.[0];
+    expect(upsert?.create.mailSplits).toEqual({
+      create: [
+        {
+          name: "All",
+          matchAll: true,
+          filters: { create: [] },
+          order: 0,
+        },
+        {
+          name: "Unread",
+          matchAll: true,
+          filters: {
+            create: [
+              { kind: MailSplitFilterKind.UNREAD, value: null, order: 0 },
+            ],
+          },
+          order: 1,
+        },
+      ],
+    });
+    expect(upsert?.update).not.toHaveProperty("mailSplits");
     expect(mockAfter).toHaveBeenCalledOnce();
     expect(ensureEmailAccountsWatched).not.toHaveBeenCalled();
 

@@ -6,7 +6,10 @@ export function configureDesktopApplicationMenu(
   checkForUpdates: () => void,
   platform = process.platform,
 ) {
-  app.setAboutPanelOptions({ applicationName: PRODUCT_NAME });
+  app.setAboutPanelOptions({
+    applicationName: PRODUCT_NAME,
+    applicationVersion: app.getVersion(),
+  });
 
   const checkForUpdatesItem: MenuItemConstructorOptions = {
     label: "Check for Updates…",
@@ -42,7 +45,14 @@ export function configureDesktopApplicationMenu(
       : [
           {
             role: "help",
-            submenu: [checkForUpdatesItem],
+            submenu: [
+              checkForUpdatesItem,
+              { type: "separator" },
+              {
+                label: `About ${PRODUCT_NAME}`,
+                click: () => app.showAboutPanel(),
+              },
+            ],
           } satisfies MenuItemConstructorOptions,
         ]),
   ];

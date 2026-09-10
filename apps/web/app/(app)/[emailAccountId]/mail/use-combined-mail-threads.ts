@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useReducer,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSWRConfig } from "swr";
 import useSWRInfinite from "swr/infinite";
 import type { GetAllThreadsResponse } from "@/app/api/threads/all/route";
@@ -21,11 +14,8 @@ import {
 import { createThreadListCacheKey } from "@/utils/email-cache/keys";
 import {
   readCachedThreadList,
-  removeCachedThreadsFromView,
-  restoreCachedThreadsToView,
   writeCachedThreadList,
 } from "@/utils/email-cache/thread-lists";
-import { restoreThreadOrder } from "@/utils/email-cache/thread-order";
 import {
   EMAIL_CACHE_MEASURES,
   finishEmailCacheMeasure,
@@ -36,8 +26,10 @@ import { createSearchParams } from "@/utils/url";
 import { isThreadUnread } from "./read-state";
 import {
   applyMailMutationOverlayToThreads,
-  useMailMutationOverlay,
+  useRetainedMailMutationOverlay,
 } from "@/hooks/useMailMutationOverlay";
+
+type FetchedCombinedPage = GetAllThreadsResponse & { requestedAt: number };
 
 type CombinedThread = GetAllThreadsResponse["threads"][number];
 
@@ -46,23 +38,6 @@ const COMBINED_PAGE_SIZE = 20;
 type CachedCombinedThread = {
   id: string;
   thread: CombinedThread;
-};
-
-type RemovedCombinedThread = {
-  thread: GetAllThreadsResponse["threads"][number];
-  pageIndex: number;
-  index: number;
-  threadOrder: readonly string[];
-};
-
-type CombinedThreadRemoval = {
-  viewIdentity: string;
-  entries: Map<string, RemovedCombinedThread>;
-};
-
-type HiddenThreadConfirmation = {
-  accountId: string;
-  after: number;
 };
 
 type PersistentCombinedView = {
@@ -80,13 +55,15 @@ export function useCombinedMailThreads({
   emailAccountId,
   enabled,
   isUnread,
-  labelName,
+  labelNames,
+  searchQuery,
 }: {
   accounts: CombinedThread["account"][];
   emailAccountId: string;
   enabled: boolean;
   isUnread: boolean;
-  labelName?: string;
+  labelNames?: string[];
+  searchQuery?: string;
 }) {
   const accountIdentity = useMemo(
     () =>
@@ -100,27 +77,23 @@ export function useCombinedMailThreads({
     () => accounts.map((account) => account.id),
     [accounts],
   );
-  const { isReady: mutationOverlayReady, mutations: mailMutations } =
-    useMailMutationOverlay({
-      emailAccountIds: mutationAccountIds,
-      enabled,
-    });
+  // JSON rather than a delimiter, because a label name can contain anything.
+  const labelIdentity = labelNames?.length
+    ? JSON.stringify(labelNames)
+    : undefined;
   const viewKey = useMemo(
     () =>
       createThreadListCacheKey({
         scope: "combined",
         accountIdentity,
         isUnread: isUnread || undefined,
-        labelName,
+        labelIdentity,
+        q: searchQuery,
       }),
-    [accountIdentity, isUnread, labelName],
+    [accountIdentity, isUnread, labelIdentity, searchQuery],
   );
   const viewIdentity = `${emailAccountId}:${accountIdentity}:${viewKey}`;
   const { fetcher } = useSWRConfig();
-  const remoteRequest = useRef({
-    identity: viewIdentity,
-    startedAt: Date.now(),
-  });
   const getKey = useCallback(
     (pageIndex: number, previousPageData: GetAllThreadsResponse | null) => {
       if (!enabled || (previousPageData && !previousPageData.nextPageToken)) {
@@ -130,29 +103,30 @@ export function useCombinedMailThreads({
         accountSet: accountIdentity,
         limit: COMBINED_PAGE_SIZE,
         isUnread: isUnread || undefined,
-        labelName,
+        q: searchQuery,
         cursor: pageIndex > 0 ? previousPageData?.nextPageToken : undefined,
       });
+      // Repeated params rather than a joined value, because a label name may
+      // itself contain whatever separator we would pick.
+      for (const labelName of labelIdentity ? JSON.parse(labelIdentity) : []) {
+        params.append("labelNames", labelName);
+      }
       return `/api/threads/all?${params.toString()}`;
     },
-    [accountIdentity, enabled, isUnread, labelName],
+    [accountIdentity, enabled, isUnread, labelIdentity, searchQuery],
   );
   const fetchCombinedPage = useCallback(
     async (key: string) => {
       if (!fetcher) throw new Error("SWR fetcher is unavailable");
-      const query = new URLSearchParams(key.split("?")[1]);
-      if (!query.has("cursor")) {
-        remoteRequest.current = {
-          identity: viewIdentity,
-          startedAt: Date.now(),
-        };
-      }
-      return (await fetcher(key)) as GetAllThreadsResponse;
+      const requestedAt = Date.now();
+      const page = (await fetcher(key)) as GetAllThreadsResponse;
+      // Preserve request freshness when revisiting an SWR-cached split.
+      return { ...page, requestedAt };
     },
-    [fetcher, viewIdentity],
+    [fetcher],
   );
   const { data, error, isLoading, size, setSize, mutate } =
-    useSWRInfinite<GetAllThreadsResponse>(
+    useSWRInfinite<FetchedCombinedPage>(
       getKey,
       fetcher ? fetchCombinedPage : null,
       {
@@ -161,6 +135,13 @@ export function useCombinedMailThreads({
         revalidateOnFocus: false,
       },
     );
+  const reconcileMailMutations = useCallback(() => mutate(), [mutate]);
+  const { isReady: mutationOverlayReady, mutations: mailMutations } =
+    useRetainedMailMutationOverlay({
+      emailAccountIds: mutationAccountIds,
+      enabled,
+      onReconcile: reconcileMailMutations,
+    });
   const [persistent, setPersistent] = useState<PersistentCombinedView>();
   const [synced, setSynced] = useState<SyncedCombinedView>();
   const [localPagination, setLocalPagination] = useState({
@@ -169,37 +150,17 @@ export function useCombinedMailThreads({
   });
   const [isLoadingMoreLocally, setIsLoadingMoreLocally] = useState(false);
   const accountsRef = useRef(accounts);
-  const hiddenByView = useRef(new Map<string, Set<string>>());
-  const hiddenConfirmationsByView = useRef(
-    new Map<string, Map<string, HiddenThreadConfirmation>>(),
-  );
   const optimisticUpdateTokens = useRef(new Map<string, symbol>());
-  const [, renderHiddenChanges] = useReducer((version) => version + 1, 0);
   const remoteIdentity = useRef<string | undefined>(undefined);
-  const remoteSnapshot = useRef<{
-    firstPage?: GetAllThreadsResponse;
-    loadedAt: number;
-  }>({ loadedAt: 0 });
+  const remoteRequestedAt = data?.[0]?.requestedAt ?? 0;
   const loadMoreLock = useRef(false);
   const localSnapshotLimit =
     localPagination.identity === viewIdentity
       ? localPagination.limit
       : COMBINED_PAGE_SIZE;
 
-  if (remoteRequest.current.identity !== viewIdentity) {
-    remoteRequest.current = {
-      identity: viewIdentity,
-      startedAt: Date.now(),
-    };
-  }
   remoteIdentity.current = data?.[0] ? viewIdentity : undefined;
   accountsRef.current = accounts;
-  if (data?.[0] && remoteSnapshot.current.firstPage !== data[0]) {
-    remoteSnapshot.current = {
-      firstPage: data[0],
-      loadedAt: remoteRequest.current.startedAt,
-    };
-  }
 
   useEffect(() => {
     if (!enabled) return;
@@ -227,7 +188,7 @@ export function useCombinedMailThreads({
   }, [emailAccountId, enabled, viewIdentity, viewKey]);
 
   useEffect(() => {
-    if (!enabled || !accountIdentity || labelName) return;
+    if (!enabled || !accountIdentity || labelIdentity || searchQuery) return;
     let cancelled = false;
     const accountIds = new Set(
       accountsRef.current.map((account) => account.id),
@@ -243,35 +204,6 @@ export function useCombinedMailThreads({
         if (cancelled || generation !== readGeneration) return;
         setIsLoadingMoreLocally(false);
         if (!snapshot) return;
-        const hidden = hiddenByView.current.get(viewIdentity);
-        if (hidden?.size) {
-          const snapshotThreadKeys = new Set(
-            snapshot.threads.map(getListThreadKey),
-          );
-          const confirmations =
-            hiddenConfirmationsByView.current.get(viewIdentity);
-          const unconfirmed = new Set(
-            [...hidden].filter((threadKey) => {
-              if (snapshotThreadKeys.has(threadKey)) return true;
-              const confirmation = confirmations?.get(threadKey);
-              if (!confirmation) return true;
-              const accountState =
-                snapshot.accountStates[confirmation.accountId];
-              if (
-                !accountState?.complete ||
-                accountState.syncedAt <= confirmation.after
-              ) {
-                return true;
-              }
-              confirmations?.delete(threadKey);
-              return false;
-            }),
-          );
-          if (unconfirmed.size !== hidden.size) {
-            hiddenByView.current.set(viewIdentity, unconfirmed);
-            renderHiddenChanges();
-          }
-        }
         setSynced({ identity: viewIdentity, ...snapshot });
       });
     };
@@ -288,13 +220,26 @@ export function useCombinedMailThreads({
     accountIdentity,
     enabled,
     isUnread,
-    labelName,
+    labelIdentity,
+    searchQuery,
     localSnapshotLimit,
     viewIdentity,
   ]);
 
   const remoteThreads = useMemo(
     () => data?.flatMap((page) => page.threads),
+    [data],
+  );
+  const remoteRequestedAtByThread = useMemo(
+    () =>
+      new Map(
+        data?.flatMap((page) =>
+          page.threads.map(
+            (thread) =>
+              [getListThreadKey(thread), page.requestedAt ?? 0] as const,
+          ),
+        ),
+      ),
     [data],
   );
   const remoteHasMore = Boolean(data?.at(-1)?.nextPageToken);
@@ -313,7 +258,8 @@ export function useCombinedMailThreads({
             accountStates: syncedView.accountStates,
             failedAccountIds,
             remoteHasMore,
-            remoteLoadedAt: remoteSnapshot.current.loadedAt,
+            remoteLoadedAt: remoteRequestedAt,
+            remoteRequestedAtByThread,
             remoteThreads,
             syncedThreads,
           })
@@ -323,22 +269,22 @@ export function useCombinedMailThreads({
       failedAccountIds,
       remoteHasMore,
       remoteThreads,
+      remoteRequestedAt,
+      remoteRequestedAtByThread,
       syncedThreads,
       syncedView?.accountStates,
     ],
   );
-  const hiddenThreadKeys =
-    hiddenByView.current.get(viewIdentity) ?? EMPTY_THREAD_KEYS;
   const baseThreads = useMemo(() => {
     const byKey = new Map<string, GetAllThreadsResponse["threads"][number]>();
     for (const thread of sourceThreads ?? []) {
       const threadKey = getListThreadKey(thread);
-      if (!hiddenThreadKeys.has(threadKey)) byKey.set(threadKey, thread);
+      byKey.set(threadKey, thread);
     }
     return [...byKey.values()].sort(
       (left, right) => getThreadTimestamp(right) - getThreadTimestamp(left),
     );
-  }, [hiddenThreadKeys, sourceThreads]);
+  }, [sourceThreads]);
   const threads = useMemo(() => {
     if (!mutationOverlayReady) return [];
     const overlaidThreads = applyMailMutationOverlayToThreads({
@@ -369,16 +315,6 @@ export function useCombinedMailThreads({
     }
     return merged;
   }, [data]);
-  const pageIndexByThreadKey = useMemo(() => {
-    const pageIndexes = new Map<string, number>();
-    for (const [pageIndex, page] of (data ?? []).entries()) {
-      for (const thread of page.threads) {
-        pageIndexes.set(getListThreadKey(thread), pageIndex);
-      }
-    }
-    return pageIndexes;
-  }, [data]);
-
   useEffect(() => {
     if (!enabled || (!data?.[0] && !syncedView)) {
       return;
@@ -398,145 +334,6 @@ export function useCombinedMailThreads({
     syncedView,
     viewKey,
   ]);
-
-  const removeThreads = useCallback(
-    (threadKeys: string[]): CombinedThreadRemoval => {
-      const entries = new Map<string, RemovedCombinedThread>();
-      if (!threadKeys.length) return { viewIdentity, entries };
-      const targets = new Set(threadKeys);
-
-      const alreadyHidden =
-        hiddenByView.current.get(viewIdentity) ?? EMPTY_THREAD_KEYS;
-      const threadOrder = (sourceThreads ?? []).map(getListThreadKey);
-      for (const [index, thread] of (sourceThreads ?? []).entries()) {
-        const threadKey = getListThreadKey(thread);
-        if (targets.has(threadKey) && !alreadyHidden.has(threadKey)) {
-          entries.set(threadKey, {
-            thread,
-            pageIndex: pageIndexByThreadKey.get(threadKey) ?? 0,
-            index,
-            threadOrder,
-          });
-        }
-      }
-
-      const removedKeys = [...entries.keys()];
-      if (!removedKeys.length) return { viewIdentity, entries };
-      hiddenByView.current.set(
-        viewIdentity,
-        new Set([...alreadyHidden, ...removedKeys]),
-      );
-      const confirmations = new Map(
-        hiddenConfirmationsByView.current.get(viewIdentity),
-      );
-      const after = Date.now();
-      for (const [threadKey, entry] of entries) {
-        confirmations.set(threadKey, {
-          accountId: entry.thread.account.id,
-          after,
-        });
-      }
-      hiddenConfirmationsByView.current.set(viewIdentity, confirmations);
-      renderHiddenChanges();
-      const removed = new Set(removedKeys);
-      setPersistent((current) =>
-        current?.identity === viewIdentity
-          ? {
-              ...current,
-              threads: current.threads.filter(
-                (thread) => !removed.has(getListThreadKey(thread)),
-              ),
-            }
-          : current,
-      );
-      mutate(
-        (pages) =>
-          pages?.map((page) => ({
-            ...page,
-            threads: page.threads.filter(
-              (thread) => !removed.has(getListThreadKey(thread)),
-            ),
-          })),
-        { populateCache: true, revalidate: false },
-      ).catch(() => {});
-      removeCachedThreadsFromView({
-        emailAccountId,
-        viewKey,
-        threadIds: removedKeys,
-      }).catch(() => {});
-
-      return { viewIdentity, entries };
-    },
-    [
-      emailAccountId,
-      mutate,
-      pageIndexByThreadKey,
-      sourceThreads,
-      viewIdentity,
-      viewKey,
-    ],
-  );
-
-  const restoreThreads = useCallback(
-    (removal: CombinedThreadRemoval, threadKeys: string[]) => {
-      if (removal.viewIdentity !== viewIdentity) return;
-      const restoring = threadKeys
-        .map((threadKey) => removal.entries.get(threadKey))
-        .filter((entry): entry is RemovedCombinedThread => entry !== undefined);
-      if (!restoring.length) return;
-
-      for (const entry of restoring) {
-        removal.entries.delete(getListThreadKey(entry.thread));
-      }
-      const hidden = new Set(
-        hiddenByView.current.get(viewIdentity) ?? EMPTY_THREAD_KEYS,
-      );
-      for (const entry of restoring) {
-        hidden.delete(getListThreadKey(entry.thread));
-      }
-      hiddenByView.current.set(viewIdentity, hidden);
-      const confirmations = hiddenConfirmationsByView.current.get(viewIdentity);
-      for (const entry of restoring) {
-        confirmations?.delete(getListThreadKey(entry.thread));
-      }
-      renderHiddenChanges();
-      const firstPageEntries = restoring.filter(
-        (entry) => entry.pageIndex === 0,
-      );
-      setPersistent((current) =>
-        current?.identity === viewIdentity
-          ? {
-              ...current,
-              threads: insertRestoredCombinedThreads(
-                current.threads,
-                firstPageEntries,
-              ),
-            }
-          : current,
-      );
-      mutate(
-        (pages) =>
-          pages?.map((page, pageIndex) => ({
-            ...page,
-            threads: insertRestoredCombinedThreads(
-              page.threads,
-              restoring.filter((entry) => entry.pageIndex === pageIndex),
-            ),
-          })),
-        { populateCache: true, revalidate: false },
-      ).catch(() => {});
-      restoreCachedThreadsToView({
-        emailAccountId,
-        viewKey,
-        entries: firstPageEntries.map(({ thread, index, threadOrder }) => ({
-          thread: toCachedCombinedThread(thread),
-          index,
-          threadOrder,
-        })),
-      }).catch(() => {});
-    },
-    [emailAccountId, mutate, viewIdentity, viewKey],
-  );
 
   const optimisticallyUpdateThreads = useCallback(
     (
@@ -642,8 +439,7 @@ export function useCombinedMailThreads({
     isLoadingMore: isLoadingMore || isLoadingMoreLocally,
     failedAccountIds,
     labelsByAccount,
-    removeThreads,
-    restoreThreads,
+    refetch: mutate,
     optimisticallyUpdateThreads,
     loadMore: useCallback(() => {
       if (loadMoreLock.current || !hasMore) return;
@@ -677,13 +473,12 @@ function toCachedCombinedThread(thread: CombinedThread): CachedCombinedThread {
   return { id: getListThreadKey(thread), thread };
 }
 
-const EMPTY_THREAD_KEYS = new Set<string>();
-
 function mergeCombinedThreads({
   accountStates,
   failedAccountIds,
   remoteHasMore,
   remoteLoadedAt,
+  remoteRequestedAtByThread,
   remoteThreads,
   syncedThreads,
 }: {
@@ -691,18 +486,10 @@ function mergeCombinedThreads({
   failedAccountIds: string[];
   remoteHasMore: boolean;
   remoteLoadedAt: number;
+  remoteRequestedAtByThread: Map<string, number>;
   remoteThreads: CombinedThread[];
   syncedThreads: CombinedThread[];
 }) {
-  const locallyAuthoritativeAccountIds = new Set(
-    Object.entries(accountStates)
-      .filter(
-        ([accountId, state]) =>
-          failedAccountIds.includes(accountId) ||
-          state.syncedAt > remoteLoadedAt,
-      )
-      .map(([accountId]) => accountId),
-  );
   const oldestSyncedTimestampByAccount = new Map<string, number>();
   for (const thread of syncedThreads) {
     const timestamp = getThreadTimestamp(thread);
@@ -722,7 +509,13 @@ function mergeCombinedThreads({
     remoteThreads
       .filter((thread) => {
         const state = accountStates[thread.account.id];
-        if (!state || !locallyAuthoritativeAccountIds.has(thread.account.id)) {
+        const requestedAt =
+          remoteRequestedAtByThread.get(getListThreadKey(thread)) ?? 0;
+        if (
+          !state ||
+          (!failedAccountIds.includes(thread.account.id) &&
+            state.syncedAt <= requestedAt)
+        ) {
           return true;
         }
         const afterTimestamp = new Date(state.after).getTime();
@@ -740,11 +533,15 @@ function mergeCombinedThreads({
       .map((thread) => [getListThreadKey(thread), thread]),
   );
   for (const thread of syncedThreads) {
-    const locallyAuthoritative = locallyAuthoritativeAccountIds.has(
-      thread.account.id,
-    );
-    if (!locallyAuthoritative && !remoteHasMore) continue;
     const remoteThread = remoteThreadsByKey.get(getListThreadKey(thread));
+    const state = accountStates[thread.account.id];
+    const requestedAt = remoteThread
+      ? (remoteRequestedAtByThread.get(getListThreadKey(thread)) ?? 0)
+      : remoteLoadedAt;
+    const locallyAuthoritative =
+      failedAccountIds.includes(thread.account.id) ||
+      Boolean(state && state.syncedAt > requestedAt);
+    if (!locallyAuthoritative && !remoteHasMore) continue;
     if (!locallyAuthoritative && remoteThread) continue;
     if (
       !locallyAuthoritative &&
@@ -761,29 +558,6 @@ function mergeCombinedThreads({
   return [...threadsByKey.values()].sort(
     (left, right) => getThreadTimestamp(right) - getThreadTimestamp(left),
   );
-}
-
-function insertRestoredCombinedThreads(
-  threads: CombinedThread[],
-  restoring: RemovedCombinedThread[],
-) {
-  if (!restoring.length) return threads;
-  const threadsByKey = new Map(
-    [...threads, ...restoring.map((entry) => entry.thread)].map((thread) => [
-      getListThreadKey(thread),
-      thread,
-    ]),
-  );
-  return restoreThreadOrder(
-    threads.map(getListThreadKey),
-    restoring.map(({ thread, index, threadOrder }) => ({
-      threadId: getListThreadKey(thread),
-      index,
-      threadOrder,
-    })),
-  )
-    .map((threadKey) => threadsByKey.get(threadKey))
-    .filter((thread): thread is CombinedThread => thread !== undefined);
 }
 
 function replaceCombinedThreads(

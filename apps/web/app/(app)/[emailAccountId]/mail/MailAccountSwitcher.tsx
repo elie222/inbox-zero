@@ -10,6 +10,7 @@ import {
 import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
 import { AllAccountsSelectionDialog } from "@/app/(app)/[emailAccountId]/mail/AllAccountsSelectionDialog";
 import { ProfileImage } from "@/components/ProfileImage";
+import { Kbd } from "@/components/Kbd";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,6 +18,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { RailTooltip } from "@/app/(app)/[emailAccountId]/mail/MailSidebar";
 import {
   Tooltip,
   TooltipContent,
@@ -24,17 +26,28 @@ import {
 } from "@/components/ui/tooltip";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useAccounts } from "@/hooks/useAccounts";
+import {
+  formatShortcutKeys,
+  getShortcut,
+  getShortcutHint,
+} from "@/lib/shortcuts/registry";
 import { cn } from "@/utils";
-import { redirectToSafeUrl } from "@/utils/redirect";
 
 export function MailAccountSwitcher({
   isAllAccounts,
+  isDesktopApp,
+  onSelectAccount,
   onSelectAll,
   variant,
+  collapsed = false,
 }: {
   isAllAccounts: boolean;
+  isDesktopApp: boolean;
+  onSelectAccount: (accountId: string) => void;
   onSelectAll: () => void;
   variant: "compact" | "sidebar";
+  /** Icon-only rail: the trigger shrinks to the account avatar. */
+  collapsed?: boolean;
 }) {
   const { data, mutate } = useAccounts();
   const { emailAccount } = useAccount();
@@ -70,28 +83,36 @@ export function MailAccountSwitcher({
       )}
     >
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            className={cn(
-              "flex w-full items-center gap-3 rounded-xl px-2 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              variant === "compact" ? "h-11" : "h-10",
-            )}
-          >
-            {activeIcon}
-            <span className="min-w-0 flex-1 leading-tight">
-              <span className="block truncate font-medium text-sm">
-                {activeLabel}
-              </span>
-              {activeEmail ? (
-                <span className="block truncate text-muted-foreground text-xs">
-                  {activeEmail}
-                </span>
-              ) : null}
-            </span>
-            <ChevronsUpDownIcon className="size-4 text-muted-foreground" />
-          </button>
-        </DropdownMenuTrigger>
+        <RailTooltip label={collapsed ? activeLabel : null}>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              aria-label={collapsed ? activeLabel : undefined}
+              className={cn(
+                "flex w-full items-center rounded-xl text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                collapsed ? "justify-center" : "gap-3 px-2",
+                variant === "compact" ? "h-11" : "h-10",
+              )}
+            >
+              {activeIcon}
+              {collapsed ? null : (
+                <>
+                  <span className="min-w-0 flex-1 leading-tight">
+                    <span className="block truncate font-medium text-sm">
+                      {activeLabel}
+                    </span>
+                    {activeEmail ? (
+                      <span className="block truncate text-muted-foreground text-xs">
+                        {activeEmail}
+                      </span>
+                    ) : null}
+                  </span>
+                  <ChevronsUpDownIcon className="size-4 text-muted-foreground" />
+                </>
+              )}
+            </button>
+          </DropdownMenuTrigger>
+        </RailTooltip>
         <DropdownMenuContent
           align="start"
           className={cn(
@@ -112,6 +133,11 @@ export function MailAccountSwitcher({
                 >
                   <AllAccountsIcon />
                   <span className="font-medium">All accounts</span>
+                  {isDesktopApp && (
+                    <Kbd className="ml-auto shrink-0">
+                      {getShortcutHint("switchAllAccounts")}
+                    </Kbd>
+                  )}
                 </DropdownMenuItem>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -129,8 +155,17 @@ export function MailAccountSwitcher({
               <DropdownMenuSeparator />
             </>
           ) : null}
-          {data.emailAccounts.map((account) => (
-            <AccountItem account={account} key={account.id} />
+          {data.emailAccounts.map((account, index) => (
+            <AccountItem
+              account={account}
+              key={account.id}
+              onSelect={onSelectAccount}
+              shortcutKey={
+                isDesktopApp
+                  ? getShortcut("switchAccount").keys[index]
+                  : undefined
+              }
+            />
           ))}
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild className="gap-3 rounded-xl p-3">
@@ -158,20 +193,17 @@ export function MailAccountSwitcher({
 
 function AccountItem({
   account,
+  onSelect,
+  shortcutKey,
 }: {
   account: GetEmailAccountsResponse["emailAccounts"][number];
+  onSelect: (accountId: string) => void;
+  shortcutKey: string | undefined;
 }) {
   return (
     <DropdownMenuItem
       className="gap-3 rounded-xl p-3"
-      onSelect={() => {
-        const params = new URLSearchParams(window.location.search);
-        params.delete("accountScope");
-        params.delete("thread-id");
-        params.delete("thread-account-id");
-        const query = params.toString();
-        redirectToSafeUrl(`/${account.id}/mail${query ? `?${query}` : ""}`);
-      }}
+      onSelect={() => onSelect(account.id)}
     >
       <ProfileImage
         className="size-10"
@@ -188,6 +220,14 @@ function AccountItem({
           </span>
         ) : null}
       </span>
+      {shortcutKey && (
+        <Kbd className="shrink-0">
+          {formatShortcutKeys({
+            ...getShortcut("switchAccount"),
+            display: [shortcutKey.replace("mod+", "modorctrl+")],
+          })}
+        </Kbd>
+      )}
     </DropdownMenuItem>
   );
 }

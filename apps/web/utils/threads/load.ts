@@ -2,6 +2,7 @@ import type { EmailProvider } from "@/utils/email/types";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
 import { isDefined } from "@/utils/types";
 import prisma from "@/utils/prisma";
+import { fetchThreadsPage } from "@/utils/threads/fetch-page";
 import type { ThreadsQuery } from "@/utils/threads/validation";
 
 export async function loadThreads({
@@ -17,19 +18,14 @@ export async function loadThreads({
 }) {
   const maxResults = query.limit || 50;
   const pageToken = query.nextPageToken || undefined;
-  const { threads, nextPageToken } = query.q
-    ? await emailProvider.searchThreads({
-        query: query.q,
-        maxResults,
-        pageToken,
-        messageFormat,
-      })
-    : await emailProvider.getThreadsWithQuery({
-        query,
-        maxResults,
-        pageToken,
-        messageFormat,
-      });
+  const { threads, nextPageToken } = await fetchThreadsPage({
+    emailAccountId,
+    query,
+    emailProvider,
+    maxResults,
+    pageToken,
+    messageFormat,
+  });
 
   const threadIds = threads.map((thread) => thread.id);
   const executedRules = await prisma.executedRule.findMany({

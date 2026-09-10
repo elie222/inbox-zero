@@ -24,6 +24,29 @@ describe("useShortcuts", () => {
     expect(snooze).toHaveBeenCalledOnce();
   });
 
+  it("runs the search shortcut for slash", () => {
+    const search = vi.fn();
+    renderShortcuts({ search });
+
+    const event = press({ key: "/", code: "Slash" });
+
+    expect(search).toHaveBeenCalledOnce();
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it("leaves slash to the field while the user is typing", () => {
+    const search = vi.fn();
+    renderShortcuts({ search });
+
+    const event = press(
+      { key: "/", code: "Slash" },
+      screen.getByRole("textbox"),
+    );
+
+    expect(search).not.toHaveBeenCalled();
+    expect(event.defaultPrevented).toBe(false);
+  });
+
   it("leaves mail shortcuts inert outside the mail scope", () => {
     const archive = vi.fn();
     const commandPalette = vi.fn();
@@ -54,6 +77,73 @@ describe("useShortcuts", () => {
     expect(send).toHaveBeenCalledOnce();
   });
 
+  it("runs modified account shortcuts while the user is typing", () => {
+    const switchAccount = vi.fn();
+    const switchAllAccounts = vi.fn();
+    renderShortcuts(
+      { switchAccount, switchAllAccounts },
+      MAIL_SCOPES,
+      false,
+      true,
+    );
+    const textbox = screen.getByRole("textbox");
+
+    const accountEvent = press(
+      { key: "2", code: "Digit2", ctrlKey: true },
+      textbox,
+    );
+    const allAccountsEvent = press(
+      { key: "0", code: "Digit0", ctrlKey: true },
+      textbox,
+    );
+
+    expect(switchAccount).toHaveBeenCalledWith(accountEvent);
+    expect(switchAllAccounts).toHaveBeenCalledWith(allAccountsEvent);
+    expect(accountEvent.defaultPrevented).toBe(true);
+    expect(allAccountsEvent.defaultPrevented).toBe(true);
+  });
+
+  it("leaves desktop account shortcuts inert in the web app", () => {
+    const switchAccount = vi.fn();
+    renderShortcuts({ switchAccount });
+
+    const event = press({ key: "1", code: "Digit1", ctrlKey: true });
+
+    expect(switchAccount).not.toHaveBeenCalled();
+    expect(event.defaultPrevented).toBe(false);
+  });
+
+  it("runs compose modifier shortcuts while the user is typing", () => {
+    const sendAndMarkDone = vi.fn();
+    const sendLater = vi.fn();
+    const remindMe = vi.fn();
+    const attachFiles = vi.fn();
+    const discardDraft = vi.fn();
+    renderShortcuts({
+      sendAndMarkDone,
+      sendLater,
+      remindMe,
+      attachFiles,
+      discardDraft,
+    });
+    const textbox = screen.getByRole("textbox");
+
+    press(
+      { key: "Enter", code: "Enter", ctrlKey: true, shiftKey: true },
+      textbox,
+    );
+    press({ key: "l", code: "KeyL", ctrlKey: true, shiftKey: true }, textbox);
+    press({ key: "h", code: "KeyH", ctrlKey: true, shiftKey: true }, textbox);
+    press({ key: "u", code: "KeyU", ctrlKey: true, shiftKey: true }, textbox);
+    press({ key: "<", code: "Comma", ctrlKey: true, shiftKey: true }, textbox);
+
+    expect(sendAndMarkDone).toHaveBeenCalledOnce();
+    expect(sendLater).toHaveBeenCalledOnce();
+    expect(remindMe).toHaveBeenCalledOnce();
+    expect(attachFiles).toHaveBeenCalledOnce();
+    expect(discardDraft).toHaveBeenCalledOnce();
+  });
+
   it("leaves Mod-K to an email editor's link control", () => {
     const commandPalette = vi.fn();
     renderShortcuts({ commandPalette }, MAIL_SCOPES, true);
@@ -66,10 +156,12 @@ describe("useShortcuts", () => {
     expect(commandPalette).not.toHaveBeenCalled();
   });
 
-  it("leaves Tab and Enter navigation inside dialogs to the browser", () => {
+  it("leaves dialog navigation keys to the browser", () => {
+    const backToList = vi.fn();
     const open = vi.fn();
     const nextSplit = vi.fn();
-    renderShortcuts({ nextSplit, open });
+    const search = vi.fn();
+    renderShortcuts({ backToList, nextSplit, open, search });
 
     const mailEvent = press({ key: "Tab", code: "Tab" });
     const mailOpenEvent = press({ key: "Enter", code: "Enter" });
@@ -81,13 +173,25 @@ describe("useShortcuts", () => {
       { key: "Enter", code: "Enter" },
       screen.getByRole("button", { name: "Dialog action" }),
     );
+    const dialogEscapeEvent = press(
+      { key: "Escape", code: "Escape" },
+      screen.getByRole("button", { name: "Dialog action" }),
+    );
+    const dialogSearchEvent = press(
+      { key: "/", code: "Slash" },
+      screen.getByRole("button", { name: "Dialog action" }),
+    );
 
     expect(nextSplit).toHaveBeenCalledOnce();
     expect(open).toHaveBeenCalledOnce();
+    expect(backToList).not.toHaveBeenCalled();
+    expect(search).not.toHaveBeenCalled();
     expect(mailEvent.defaultPrevented).toBe(true);
     expect(mailOpenEvent.defaultPrevented).toBe(true);
     expect(dialogTabEvent.defaultPrevented).toBe(false);
     expect(dialogOpenEvent.defaultPrevented).toBe(false);
+    expect(dialogEscapeEvent.defaultPrevented).toBe(false);
+    expect(dialogSearchEvent.defaultPrevented).toBe(false);
   });
 
   it("ignores modified presses of a plain shortcut", () => {
@@ -99,9 +203,38 @@ describe("useShortcuts", () => {
     expect(archive).not.toHaveBeenCalled();
   });
 
-  it("uses Escape rather than U for back navigation", () => {
+  it("does not navigate away when a popover has already handled Escape", () => {
     const backToList = vi.fn();
     renderShortcuts({ backToList });
+    const event = new KeyboardEvent("keydown", {
+      key: "Escape",
+      code: "Escape",
+      bubbles: true,
+      cancelable: true,
+    });
+    event.preventDefault();
+    fireEvent(screen.getByRole("textbox"), event);
+    expect(backToList).not.toHaveBeenCalled();
+
+    press({ key: "Escape", code: "Escape" }, screen.getByRole("textbox"));
+    expect(backToList).toHaveBeenCalledOnce();
+  });
+
+  it("uses the reader action shortcuts", () => {
+    const backToList = vi.fn();
+    const markUnread = vi.fn();
+    const markSpam = vi.fn();
+    const move = vi.fn();
+    const openExternal = vi.fn();
+    const toggleLayout = vi.fn();
+    renderShortcuts({
+      backToList,
+      markSpam,
+      markUnread,
+      move,
+      openExternal,
+      toggleLayout,
+    });
 
     press({ key: "Escape", code: "Escape" }, screen.getByRole("textbox"));
 
@@ -110,6 +243,25 @@ describe("useShortcuts", () => {
     press({ key: "u", code: "KeyU" });
 
     expect(backToList).toHaveBeenCalledOnce();
+    expect(markUnread).toHaveBeenCalledOnce();
+
+    press({ key: "v", code: "KeyV" });
+
+    expect(move).toHaveBeenCalledOnce();
+
+    press({ key: "V", code: "KeyV", shiftKey: true });
+
+    expect(move).toHaveBeenCalledOnce();
+    expect(toggleLayout).toHaveBeenCalledOnce();
+
+    press({ key: "!", code: "Digit1", shiftKey: true });
+
+    expect(markSpam).toHaveBeenCalledOnce();
+
+    press({ key: "g", code: "KeyG" });
+    press({ key: "g", code: "KeyG" });
+
+    expect(openExternal).toHaveBeenCalledOnce();
   });
 
   it("treats G then A as back to the app rather than reply all", () => {
@@ -163,10 +315,11 @@ function renderShortcuts(
   handlers: ShortcutHandlers,
   scopes: ShortcutScope[] = MAIL_SCOPES,
   withEmailEditor = false,
+  isDesktopApp = false,
 ) {
   return render(
     <ShortcutsProvider scopes={scopes}>
-      <Bindings handlers={handlers} />
+      <Bindings handlers={handlers} isDesktopApp={isDesktopApp} />
       <textarea />
       <div aria-label="Test dialog" role="dialog">
         <button type="button">Dialog action</button>
@@ -185,8 +338,14 @@ function renderShortcuts(
   );
 }
 
-function Bindings({ handlers }: { handlers: ShortcutHandlers }) {
-  useShortcuts(handlers);
+function Bindings({
+  handlers,
+  isDesktopApp,
+}: {
+  handlers: ShortcutHandlers;
+  isDesktopApp: boolean;
+}) {
+  useShortcuts(handlers, { isDesktopApp });
   return null;
 }
 

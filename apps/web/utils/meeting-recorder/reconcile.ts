@@ -72,6 +72,7 @@ export async function reconcileAccount({
   const timeMin = new Date();
   const timeMax = addMinutes(timeMin, RECONCILE_WINDOW_MINUTES);
 
+  logger.info("Starting calendar fetch for meeting recorder reconciliation");
   const { events, complete } = await fetchCalendarEventsInWindow({
     emailAccountId: emailAccount.id,
     timeMin,
@@ -81,13 +82,25 @@ export async function reconcileAccount({
   });
 
   const videoEvents = events.filter((event) => event.videoConferenceLink);
+  logger.info("Completed calendar fetch for meeting recorder reconciliation", {
+    eventCount: events.length,
+    videoEventCount: videoEvents.length,
+    complete,
+  });
 
   for (const event of videoEvents) {
+    const eventLogger = logger.with({ calendarEventId: event.id });
+    eventLogger.info("Starting calendar event reconciliation");
+
     try {
-      await reconcileSingleEvent({ emailAccount, event, logger });
+      await reconcileSingleEvent({
+        emailAccount,
+        event,
+        logger: eventLogger,
+      });
+      eventLogger.info("Completed calendar event reconciliation");
     } catch (error) {
-      logger.error("Failed to reconcile calendar event", {
-        calendarEventId: event.id,
+      eventLogger.error("Failed to reconcile calendar event", {
         error,
       });
       captureException(error, { emailAccountId: emailAccount.id });
@@ -102,6 +115,9 @@ export async function reconcileAccount({
     return;
   }
 
+  logger.info("Starting release sweep for unseen meetings", {
+    seenEventCount: videoEvents.length,
+  });
   await releaseUnseenMeetings({
     emailAccount,
     seenEventIds: new Set(videoEvents.map((event) => event.id)),
@@ -109,6 +125,7 @@ export async function reconcileAccount({
     timeMax,
     logger,
   });
+  logger.info("Completed release sweep for unseen meetings");
 }
 
 /**
@@ -306,12 +323,21 @@ async function bookBot({
   const provider = createMeetingBotProvider(recording.botProvider, logger);
 
   let externalBotId: string;
+  logger.info("Starting meeting bot provider scheduling", {
+    recordingId: recording.id,
+    botProvider: recording.botProvider,
+    meetingStartTime: recording.meetingStartTime,
+  });
   try {
     ({ externalBotId } = await provider.scheduleBot({
       botName,
       meetingUrl: recording.meetingUrl,
       joinAt: recording.meetingStartTime,
     }));
+    logger.info("Completed meeting bot provider scheduling", {
+      recordingId: recording.id,
+      botProvider: recording.botProvider,
+    });
   } catch (error) {
     logger.error("Failed to schedule meeting bot", {
       recordingId: recording.id,

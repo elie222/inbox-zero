@@ -23,6 +23,8 @@ export async function queueReaderEmail({
   emailAccountId,
   messageIds,
   online,
+  onQueued,
+  mutationId,
   settlementTimeoutMs = DEFAULT_SETTLEMENT_TIMEOUT_MS,
   threadId,
 }: {
@@ -30,16 +32,38 @@ export async function queueReaderEmail({
   emailAccountId: string;
   messageIds: string[];
   online: boolean;
+  onQueued?: () => Promise<void>;
+  mutationId?: string;
   settlementTimeoutMs?: number;
   threadId: string;
 }): Promise<ReaderEmailOutcome> {
-  const mutation = await enqueueMailMutation({
-    email,
-    emailAccountId,
-    kind: "reply",
-    messageIds,
-    threadId,
-  });
+  let mutation = mutationId ? await getMailMutation(mutationId) : undefined;
+  if (!mutation) {
+    try {
+      mutation = await enqueueMailMutation({
+        ...(mutationId ? { id: mutationId } : {}),
+        email,
+        emailAccountId,
+        kind: "reply",
+        messageIds,
+        threadId,
+      });
+    } catch (error) {
+      mutation = mutationId ? await getMailMutation(mutationId) : undefined;
+      if (!mutation) throw error;
+    }
+  }
+  if (
+    mutation.kind !== "reply" ||
+    mutation.emailAccountId !== emailAccountId ||
+    mutation.threadId !== threadId ||
+    JSON.stringify(mutation.email) !== JSON.stringify(email)
+  ) {
+    throw new Error(
+      "This reply is already queued with different content. Check the thread delivery status.",
+    );
+  }
+  await onQueued?.();
   if (!online) return { status: "queued", reason: "offline", threadId };
 
   return waitForSettlement({

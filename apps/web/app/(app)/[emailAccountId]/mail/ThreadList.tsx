@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { SelectionBar } from "@/app/(app)/[emailAccountId]/mail/SelectionBar";
+import { addDays } from "date-fns/addDays";
+import { startOfDay } from "date-fns/startOfDay";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ThreadRow } from "@/app/(app)/[emailAccountId]/mail/ThreadRow";
 import type {
   ListThread,
@@ -9,6 +10,7 @@ import type {
 } from "@/app/(app)/[emailAccountId]/mail/types";
 import { getListThreadKey } from "@/app/(app)/[emailAccountId]/mail/types";
 import {
+  groupThreadsByDate,
   scrollElementIntoContainer,
   shouldPrefetchMoreThreads,
   THREAD_LOAD_MORE_ROOT_MARGIN,
@@ -17,10 +19,12 @@ import { LoadingMiniSpinner } from "@/components/Loading";
 import { Button } from "@/components/ui/button";
 import type { EmailLabels } from "@/providers/email-label-types";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/utils";
 
 export type ThreadListProps = {
   threads: ListThread[];
   layout: MailLayoutMode;
+  expandedPreview: boolean;
   userEmail: string;
   userLabels: EmailLabels;
   labelsByAccount?: Record<string, EmailLabels>;
@@ -32,9 +36,6 @@ export type ThreadListProps = {
   onOpenThread: (index: number) => void;
   onToggleSelect: (index: number) => void;
   onSelectRangeTo: (index: number) => void;
-  onArchiveSelected: () => void;
-  onDeleteSelected: () => void;
-  onClearSelection: () => void;
   showLoadMore: boolean;
   isLoadingMore: boolean;
   onLoadMore: () => void;
@@ -45,6 +46,7 @@ export type ThreadListProps = {
 export function ThreadList({
   threads,
   layout,
+  expandedPreview,
   userEmail,
   userLabels,
   labelsByAccount,
@@ -55,9 +57,6 @@ export function ThreadList({
   onOpenThread,
   onToggleSelect,
   onSelectRangeTo,
-  onArchiveSelected,
-  onDeleteSelected,
-  onClearSelection,
   showLoadMore,
   isLoadingMore,
   onLoadMore,
@@ -74,6 +73,11 @@ export function ThreadList({
   const focusedThreadId = threads[focusedIndex]
     ? getListThreadKey(threads[focusedIndex])
     : undefined;
+  const dayStart = useDayStart();
+  const dateGroups = useMemo(
+    () => groupThreadsByDate(threads, new Date(dayStart)),
+    [dayStart, threads],
+  );
 
   // Keep the J/K cursor on screen without centering every row. Layout phase so
   // a held arrow key never paints a selected row that's already off-screen.
@@ -124,15 +128,6 @@ export function ThreadList({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      {selectionEnabled ? (
-        <SelectionBar
-          onArchive={onArchiveSelected}
-          onClear={onClearSelection}
-          onDelete={onDeleteSelected}
-          selectedCount={selectedCount}
-        />
-      ) : null}
-
       <div
         className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
         ref={setScrollRoot}
@@ -148,32 +143,55 @@ export function ThreadList({
               aria-multiselectable={selectionEnabled || undefined}
               role="listbox"
             >
-              {threads.map((thread, index) => {
-                const threadKey = getListThreadKey(thread);
-                return (
-                  <ThreadRow
-                    hasAnySelection={selectionEnabled && selectedCount > 0}
-                    compact={isMobile}
-                    index={index}
-                    isFocused={index === focusedIndex}
-                    isSelected={selectionEnabled && isSelected(threadKey)}
-                    key={threadKey}
-                    layout={layout}
-                    onOpen={onOpenThread}
-                    onSelectRangeTo={onSelectRangeTo}
-                    onToggleSelect={onToggleSelect}
-                    rowRef={index === focusedIndex ? focusedRowRef : undefined}
-                    selectionEnabled={selectionEnabled}
-                    thread={thread}
-                    userEmail={userEmail}
-                    userLabels={
-                      "account" in thread
-                        ? (labelsByAccount?.[thread.account.id] ?? {})
-                        : userLabels
-                    }
-                  />
-                );
-              })}
+              {dateGroups.map((group) => (
+                <div
+                  aria-label={group.label ?? undefined}
+                  key={`${group.label}-${group.startIndex}`}
+                  role="group"
+                >
+                  {group.label && group.label !== "Today" ? (
+                    <div
+                      aria-hidden
+                      className={cn(
+                        "pt-4 pr-5 pb-1.5 font-normal text-muted-foreground text-sm",
+                        selectionEnabled ? "pl-[3.25rem]" : "pl-8",
+                      )}
+                    >
+                      {group.label}
+                    </div>
+                  ) : null}
+                  {group.threads.map((thread, offset) => {
+                    const index = group.startIndex + offset;
+                    const threadKey = getListThreadKey(thread);
+                    return (
+                      <ThreadRow
+                        hasAnySelection={selectionEnabled && selectedCount > 0}
+                        compact={isMobile}
+                        expandedPreview={expandedPreview}
+                        index={index}
+                        isFocused={index === focusedIndex}
+                        isSelected={selectionEnabled && isSelected(threadKey)}
+                        key={threadKey}
+                        layout={layout}
+                        onOpen={onOpenThread}
+                        onSelectRangeTo={onSelectRangeTo}
+                        onToggleSelect={onToggleSelect}
+                        rowRef={
+                          index === focusedIndex ? focusedRowRef : undefined
+                        }
+                        selectionEnabled={selectionEnabled}
+                        thread={thread}
+                        userEmail={userEmail}
+                        userLabels={
+                          "account" in thread
+                            ? (labelsByAccount?.[thread.account.id] ?? {})
+                            : userLabels
+                        }
+                      />
+                    );
+                  })}
+                </div>
+              ))}
             </div>
 
             {showLoadMore ? (
@@ -198,4 +216,28 @@ export function ThreadList({
       </div>
     </div>
   );
+}
+
+/** Refreshes idle lists at midnight and when a suspended tab becomes active. */
+function useDayStart() {
+  const [, setDayStart] = useState(() => startOfDay(new Date()).getTime());
+  // Read the clock on every render, even if a background timer has not fired yet.
+  const dayStart = startOfDay(new Date()).getTime();
+
+  useEffect(() => {
+    const refresh = () => setDayStart(startOfDay(new Date()).getTime());
+    const timeout = setTimeout(
+      refresh,
+      Math.max(0, addDays(new Date(dayStart), 1).getTime() - Date.now()),
+    );
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      clearTimeout(timeout);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [dayStart]);
+
+  return dayStart;
 }

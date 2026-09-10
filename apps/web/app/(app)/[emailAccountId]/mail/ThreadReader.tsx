@@ -1,9 +1,15 @@
 "use client";
 
-import { useState, type ComponentProps, type ReactNode } from "react";
+import {
+  useCallback,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+} from "react";
 import dynamic from "next/dynamic";
 import { Loader2Icon, MailIcon } from "lucide-react";
 import { ReaderToolbar } from "@/app/(app)/[emailAccountId]/mail/ReaderToolbar";
+import { isThreadStarred } from "@/app/(app)/[emailAccountId]/mail/star-state";
 import type {
   ListThread,
   MailLayoutMode,
@@ -12,19 +18,25 @@ import { EmailThread } from "@/components/email-list/EmailThread";
 import type { ThreadMessage } from "@/components/email-list/types";
 import { getEmailMessageCellLabels } from "@/components/EmailMessageCellLabels";
 import { LoadingContent } from "@/components/LoadingContent";
-import { SidebarTrigger } from "@/components/ui/sidebar";
 import type { EmailLabels } from "@/providers/email-label-types";
 import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
 
-const SenderContextSheet = dynamic(
+const SenderContextPanel = dynamic(
   () =>
-    import("@/app/(app)/[emailAccountId]/mail/SenderContextSheet").then(
-      (module) => module.SenderContextSheet,
+    import("@/app/(app)/[emailAccountId]/mail/SenderContextPanel").then(
+      (module) => module.SenderContextPanel,
     ),
   { ssr: false },
 );
 
+/**
+ * Below this the reader would be squeezed too far by a pane beside it, so the
+ * sender profile slides over the reader instead.
+ */
+const INLINE_SENDER_CONTEXT_MIN_WIDTH = 880;
+
 export type ThreadReaderProps = {
+  enableMessageNavigation: boolean;
   /** The row that is open. It may lag behind the selected thread while loading. */
   thread: ListThread | null;
   /** The selected thread, including while its row and messages are loading. */
@@ -40,27 +52,26 @@ export type ThreadReaderProps = {
   messages: ThreadMessage[];
   userLabels: EmailLabels;
   layout: MailLayoutMode;
-  isFocusMode: boolean;
   labelHref: (labelId: string) => string;
   onRemoveLabel?: (labelId: string) => void;
   onBackToInbox: () => void;
   onArchive: () => void;
-  onReply: () => void;
-  onDelete: () => void;
-  onToggleFocusMode: () => void;
-  showSidebarToggle?: boolean;
   /** Refreshes the open thread after a reply is sent or a draft changes. */
   refetch: () => void;
+  /** Opens a different provider thread when a sent message starts one. */
+  onSendSuccess?: (messageId: string, threadId: string) => void;
   /**
    * Set by the reply action. Left unset the composer still opens on its own for
    * a message that already has an AI draft.
    */
   autoOpenReplyForMessageId?: string;
+  autoOpenForwardForMessageId?: string;
   /** The ⋯ dropdown, i.e. `ThreadActionsMenu`, composed by the shell. */
   menu?: ReactNode;
 };
 
 export function ThreadReader({
+  enableMessageNavigation,
   thread,
   threadId,
   detailSelectionSettled,
@@ -69,25 +80,22 @@ export function ThreadReader({
   messages,
   userLabels,
   layout,
-  isFocusMode,
   labelHref,
   onRemoveLabel,
   onBackToInbox,
   onArchive,
-  onReply,
-  onDelete,
-  onToggleFocusMode,
-  showSidebarToggle = false,
   refetch,
+  onSendSuccess,
   autoOpenReplyForMessageId,
+  autoOpenForwardForMessageId,
   menu,
 }: ThreadReaderProps) {
   const [senderContext, setSenderContext] = useState<{
     messageId: string;
     senderEmail: string;
     senderName: string;
-    open: boolean;
   } | null>(null);
+  const [readerRef, readerWidth] = useElementWidth();
   const headerMessage = thread?.messages.at(-1) ?? messages.at(-1);
 
   if (error || !headerMessage) {
@@ -123,8 +131,26 @@ export function ThreadReader({
       userLabels,
     }) ?? [];
 
+  const renderToolbar = (
+    messageExpansion?: ComponentProps<typeof ReaderToolbar>["messageExpansion"],
+  ) => (
+    <ReaderToolbar
+      isStarred={isThreadStarred(
+        thread?.messages.length ? thread.messages : messages,
+      )}
+      messageExpansion={messageExpansion}
+      labelHref={labelHref}
+      labels={labels}
+      menu={menu}
+      onArchive={onArchive}
+      onBackToInbox={onBackToInbox}
+      onRemoveLabel={onRemoveLabel}
+      subject={headerMessage.headers.subject}
+    />
+  );
+
   return (
-    <>
+    <div className="flex min-h-0 min-w-0 flex-1" ref={readerRef}>
       {/* White, unlike the list: the reader is its own surface, and it has to
       match `EmailThread` below or the toolbar reads as a separate band. */}
       <div
@@ -132,35 +158,16 @@ export function ThreadReader({
         data-detail-selection-settled={detailSelectionSettled}
         data-testid="thread-reader"
       >
-        {layout === "list" && !isFocusMode && showSidebarToggle ? (
-          <div
-            className="hidden px-3 py-3 lg:flex"
-            data-desktop-mac-titlebar-spacer
-          >
-            <SidebarTrigger name="left-sidebar" />
-          </div>
-        ) : null}
-
-        <div className={readerMeasure({ layout, isFocusMode })}>
-          <ReaderToolbar
-            isFocusMode={isFocusMode}
-            labelHref={labelHref}
-            labels={labels}
-            menu={menu}
-            onArchive={onArchive}
-            onBackToInbox={onBackToInbox}
-            onDelete={onDelete}
-            onRemoveLabel={onRemoveLabel}
-            onReply={onReply}
-            onToggleFocusMode={onToggleFocusMode}
-            subject={headerMessage.headers.subject}
-          />
-
+        <div className={readerMeasure({ layout })}>
           {messages.length > 0 ? (
             <EmailThread
+              renderToolbar={renderToolbar}
+              enableMessageNavigation={enableMessageNavigation}
               autoOpenReplyForMessageId={autoOpenReplyForMessageId}
+              autoOpenForwardForMessageId={autoOpenForwardForMessageId}
               key={threadId}
               messages={messages}
+              onMarkDone={onArchive}
               onOpenSenderContext={(message) => {
                 const senderEmail = extractEmailAddress(message.headers.from);
                 setSenderContext({
@@ -168,43 +175,53 @@ export function ThreadReader({
                   senderEmail,
                   senderName:
                     extractNameFromEmail(message.headers.from) || senderEmail,
-                  open: true,
                 });
               }}
               refetch={refetch}
+              onSendSuccess={onSendSuccess}
               showReplyButton
             />
-          ) : null}
+          ) : (
+            renderToolbar()
+          )}
         </div>
       </div>
 
       {senderContext ? (
-        <SenderContextSheet
+        <SenderContextPanel
           messageId={senderContext.messageId}
-          onOpenChange={(open: boolean) =>
-            setSenderContext((current) =>
-              current ? { ...current, open } : current,
-            )
-          }
-          open={senderContext.open}
+          onClose={() => setSenderContext(null)}
           senderEmail={senderContext.senderEmail}
           senderName={senderContext.senderName}
+          variant={
+            readerWidth >= INLINE_SENDER_CONTEXT_MIN_WIDTH ? "inline" : "sheet"
+          }
         />
       ) : null}
-    </>
+    </div>
   );
 }
 
+/**
+ * A callback ref rather than an effect: the reader mounts its measured element
+ * only once a thread is open, after the loading branch has come and gone.
+ */
+function useElementWidth() {
+  const [width, setWidth] = useState(0);
+  const ref = useCallback((element: HTMLElement | null) => {
+    if (!element) return;
+    const observer = new ResizeObserver(([entry]) => {
+      setWidth(entry.contentRect.width);
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  return [ref, width] as const;
+}
+
 /** A readable measure, centred whenever the reader owns the full width. */
-function readerMeasure({
-  layout,
-  isFocusMode,
-}: {
-  layout: MailLayoutMode;
-  isFocusMode: boolean;
-}) {
-  // ~860px: the mock's measure, and about as wide as an email body stays legible.
-  if (isFocusMode) return "mx-auto w-full max-w-[54rem] px-10 py-10";
-  if (layout === "split") return "px-6 pt-8 pb-5";
-  return "mx-auto w-full max-w-[54rem] px-6 pt-8 pb-5";
+function readerMeasure({ layout }: { layout: MailLayoutMode }) {
+  if (layout === "split") return "px-2 pt-4 pb-5 sm:px-6 sm:pt-5";
+  return "mx-auto w-full max-w-[48rem] px-2 pt-4 pb-5 sm:px-6 sm:pt-5";
 }

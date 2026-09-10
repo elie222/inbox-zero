@@ -21,6 +21,10 @@
   border-radius: 0;
 }
 
+[data-inline-reply="true"] .surface {
+  background: transparent;
+}
+
 .editor {
   flex: 1;
   min-height: 0;
@@ -32,7 +36,7 @@
 }
 
 .editor [data-email-editor-content] {
-  min-height: 200px;
+  min-height: var(--email-editor-content-min-height, 200px);
   padding: 0.75rem;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
@@ -48,7 +52,7 @@
   .editor
   [data-email-editor-content] {
   flex: 1;
-  padding: 1rem;
+  padding: var(--email-editor-content-padding, 1rem);
   font-size: 0.9375rem;
   line-height: 1.6;
 }
@@ -82,7 +86,8 @@
   border-inline-start: 3px solid var(--email-editor-border);
 }
 
-.editor [data-email-editor-content] a {
+.editor [data-email-editor-content] a,
+.editor [data-email-url-highlight] {
   color: #2563eb;
   text-decoration: underline;
   text-underline-offset: 2px;
@@ -122,10 +127,10 @@
   max-width: calc(100vw - 1rem);
   padding: 0.35rem;
   overflow-x: auto;
-  color: #fff;
-  background: #34373d;
+  color: #c9c9c9;
+  background: #383837;
   border-radius: 0.5rem;
-  box-shadow: 0 8px 24px rgb(0 0 0 / 25%);
+  box-shadow: 0 3px 10px rgb(0 0 0 / 14%);
 }
 
 .toolbarButton {
@@ -222,7 +227,7 @@
 }
 
 .fallbackEditor {
-  min-height: 200px;
+  min-height: var(--email-editor-content-min-height, 200px);
   padding: 0.75rem;
   outline: none;
 }
@@ -239,32 +244,74 @@
   border-top: 1px solid var(--email-editor-border);
 }
 
-.preservedSummary {
+[data-inline-reply="true"] .preservedBlock {
+  margin: 0;
+  border-top: 0;
+}
+
+.preservedToggle {
   display: flex;
-  gap: 0.45rem;
   align-items: center;
   min-height: 2.25rem;
   padding: 0.25rem 0;
   font-size: 0.75rem;
+  color: inherit;
   cursor: pointer;
   user-select: none;
-  list-style: none;
+  background: transparent;
+  border: 0;
 }
 
-.preservedSummary::-webkit-details-marker {
-  display: none;
+.preservedToggle:hover,
+.preservedToggle:focus-visible {
+  color: var(--email-editor-foreground);
+  outline: none;
+}
+
+[data-inline-reply="true"] .preservedToggle {
+  min-height: 1.5rem;
+}
+
+.signatureContent {
+  position: relative;
+  padding: 0.25rem 0 0.5rem;
+  color: var(--email-editor-foreground);
+}
+
+.signatureHtml {
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+
+.signatureContent .signatureHtml img {
+  max-width: 100%;
+  height: auto;
+}
+
+.signatureContent .signatureHtml a {
+  color: #2563eb;
 }
 
 .removePreservedButton {
+  position: absolute;
+  top: 0;
+  right: 0;
   width: 1.75rem;
   height: 1.75rem;
-  margin-left: auto;
   font-size: 1.1rem;
-  color: inherit;
+  color: var(--email-editor-muted-foreground);
+  pointer-events: none;
   cursor: pointer;
   background: transparent;
   border: 0;
   border-radius: 999px;
+  opacity: 0;
+}
+
+.signatureContent:hover .removePreservedButton,
+.removePreservedButton:focus-visible {
+  pointer-events: auto;
+  opacity: 1;
 }
 
 .removePreservedButton:hover,
@@ -274,19 +321,11 @@
   background: var(--email-editor-muted);
 }
 
-.quotePreview,
-.signaturePreview {
+.quotePreview {
   width: 100%;
+  height: 12rem;
   background: #fff;
   border: 0;
-}
-
-.quotePreview {
-  height: 12rem;
-}
-
-.signaturePreview {
-  height: 6rem;
 }
 
 @media (max-width: 640px) {
@@ -296,6 +335,19 @@
 
   .editor [data-email-editor-content],
   .fallbackEditor {
-    min-height: 160px;
+    min-height: var(--email-editor-content-min-height, 160px);
   }
+}
+
+.bubbleToolbar .toolbarButton {
+  width: 1.75rem;
+  min-width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  font-size: 1rem;
+}
+.bubbleToolbar .separator {
+  height: 1rem;
+  margin: 0 0.125rem;
+  background: rgb(255 255 255 / 15%);
 }

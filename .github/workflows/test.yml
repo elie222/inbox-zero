@@ -23,7 +23,13 @@ concurrency:
 
 jobs:
   test:
+    name: Tests ${{ matrix.shard }}/2
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - uses: actions/checkout@v4
@@ -55,25 +61,31 @@ jobs:
           ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
 
       - name: Run lint check
+        if: matrix.shard == 1
         run: pnpm check
 
       - name: Check structural conventions
+        if: matrix.shard == 1
         run: pnpm konsistent
 
       - name: Check Prisma enum imports
+        if: matrix.shard == 1
         run: pnpm -F inbox-zero-ai check-enums
 
       - name: Check server action exports
+        if: matrix.shard == 1
         run: pnpm -F inbox-zero-ai check-server-actions
 
       - name: Check client redirects
+        if: matrix.shard == 1
         run: pnpm -F inbox-zero-ai check-client-redirects
 
       - name: Check test fixture hygiene
+        if: matrix.shard == 1
         run: pnpm -F inbox-zero-ai check-test-fixtures
 
       - name: Run tests
-        run: pnpm -F inbox-zero-ai test
+        run: pnpm -F inbox-zero-ai test --run --shard=${{ matrix.shard }}/2
         env:
           RUN_AI_TESTS: false
           DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/postgres"
@@ -89,9 +101,11 @@ jobs:
           NEXT_PUBLIC_BASE_URL: "http://localhost:3000"
 
       - name: Run package tests
+        if: matrix.shard == 1
         run: pnpm test:packages
 
       - name: Run integration tests
+        if: matrix.shard == 1
         run: pnpm -F inbox-zero-ai test-integration
         env:
           RUN_INTEGRATION_TESTS: true

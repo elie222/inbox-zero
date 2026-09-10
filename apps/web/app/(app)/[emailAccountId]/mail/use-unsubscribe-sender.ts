@@ -28,26 +28,27 @@ import type { ParsedMessage } from "@/utils/types";
 import { createSearchParams } from "@/utils/url";
 
 /**
- * Unsubscribing from a single message, for the reader.
+ * Sender actions shared by the mail list and reader.
  *
  * The message's `List-Unsubscribe` header is available immediately. When the
- * menu opens, the reader also checks the sender stats used by bulk unsubscribe
+ * sender is targeted, the client also checks the sender stats used by bulk unsubscribe
  * so a previously indexed link from the message body remains available here.
  *
  * A one-click header is unsubscribed server-side and the sender is marked; when
  * that fails, or when the sender only offers a mailto, the user gets the link.
  */
 export function useUnsubscribeSender(
-  message: ParsedMessage | null,
-  { loadStoredLink = false }: { loadStoredLink?: boolean } = {},
+  message: Pick<ParsedMessage, "headers" | "threadId"> | null,
 ) {
   const { emailAccountId } = useAccount();
   const { hasUnsubscribeAccess, mutate: refetchPremium } = usePremium();
   const { PremiumModal, openModal } = usePremiumModal();
   const { queueArchiveSenders } = useArchiveSenderQueueActions(emailAccountId);
-  const [autoArchivedSender, setAutoArchivedSender] = useState<string | null>(
-    null,
-  );
+  const [updatedAutoArchive, setUpdatedAutoArchive] = useState<{
+    sender: string;
+    enabled: boolean;
+  } | null>(null);
+  const [isUpdatingAutoArchive, setIsUpdatingAutoArchive] = useState(false);
 
   const listUnsubscribeHeader = message?.headers["list-unsubscribe"] ?? null;
   const from = message?.headers.from ?? "";
@@ -62,8 +63,12 @@ export function useUnsubscribeSender(
         includeMissingUnsubscribe: true,
       })}`
     : null;
-  const { data: senderStats } = useSWR<NewsletterStatsResponse>(
-    loadStoredLink && senderStatsUrl ? [senderStatsUrl, emailAccountId] : null,
+  const {
+    data: senderStats,
+    mutate: refetchSenderStats,
+    isLoading: isSenderStatsLoading,
+  } = useSWR<NewsletterStatsResponse>(
+    senderStatsUrl ? [senderStatsUrl, emailAccountId] : null,
     {
       revalidateOnFocus: false,
       revalidateOnReconnect: false,
@@ -83,15 +88,99 @@ export function useUnsubscribeSender(
     listUnsubscribeHeader,
   });
   const canUnsubscribe = Boolean(senderEmail && userFacingLink);
-  const canAutoArchive = Boolean(
-    senderEmail &&
-      senderStats &&
-      autoArchivedSender !== canonicalSenderEmail &&
-      senderStats.searchedSenderStatus !== NewsletterStatus.AUTO_ARCHIVED,
+  const updatedAutoArchiveEnabled =
+    updatedAutoArchive?.sender === canonicalSenderEmail
+      ? updatedAutoArchive.enabled
+      : undefined;
+  const isAutoArchived =
+    updatedAutoArchiveEnabled ??
+    (senderStats?.searchedSenderStatus === NewsletterStatus.AUTO_ARCHIVED ||
+      Boolean(sender?.autoArchived));
+  const isAutoArchiveStatusLoading = Boolean(
+    senderEmail && !senderStats && updatedAutoArchiveEnabled === undefined,
   );
 
+  const onToggleAutoArchive = useCallback(async () => {
+    if (!senderEmail || isAutoArchiveStatusLoading || isUpdatingAutoArchive)
+      return;
+
+    if (!isAutoArchived && !hasUnsubscribeAccess) {
+      openModal();
+      return;
+    }
+
+    setIsUpdatingAutoArchive(true);
+    const toastId = toast.loading(
+      `${isAutoArchived ? "Disabling" : "Enabling"} auto archive for ${senderName}`,
+    );
+
+    try {
+      const result = await setSenderStatusAction(emailAccountId, {
+        senderEmail,
+        status: isAutoArchived ? null : NewsletterStatus.AUTO_ARCHIVED,
+      });
+      assertActionSucceeded(result);
+      refetchSenderStats().catch(captureException);
+      setUpdatedAutoArchive({
+        sender: canonicalSenderEmail,
+        enabled: !isAutoArchived,
+      });
+    } catch (error) {
+      captureException(error);
+      toast.error(
+        `Couldn't ${isAutoArchived ? "disable" : "enable"} auto archive for ${senderName}`,
+        { id: toastId },
+      );
+      return;
+    } finally {
+      setIsUpdatingAutoArchive(false);
+    }
+
+    if (isAutoArchived) {
+      toast.success(`Future emails from ${senderName} will stay in the inbox`, {
+        id: toastId,
+      });
+      return;
+    }
+
+    toast.success(`Future emails from ${senderName} will be archived`, {
+      id: toastId,
+    });
+
+    // These follow-up tasks do not change the provider filter that was just
+    // committed, so their failures must not report the enable as unsuccessful.
+    queueArchiveSenders({ senders: [senderEmail] }).catch(captureException);
+    decrementUnsubscribeCreditAction()
+      .then(() => refetchPremium())
+      .catch(captureException);
+  }, [
+    canonicalSenderEmail,
+    refetchSenderStats,
+    emailAccountId,
+    hasUnsubscribeAccess,
+    isAutoArchived,
+    isAutoArchiveStatusLoading,
+    isUpdatingAutoArchive,
+    openModal,
+    queueArchiveSenders,
+    refetchPremium,
+    senderEmail,
+    senderName,
+  ]);
+
   const onUnsubscribe = useCallback(async () => {
-    if (!(canUnsubscribe && userFacingLink)) return;
+    if (
+      !senderEmail ||
+      isUpdatingAutoArchive ||
+      (isSenderStatsLoading && !httpLink)
+    )
+      return;
+    if (!canUnsubscribe) {
+      if (isAutoArchiveStatusLoading) return;
+      if (!isAutoArchived) await onToggleAutoArchive();
+      return;
+    }
+    if (!userFacingLink) return;
 
     if (!hasUnsubscribeAccess) {
       openModal();
@@ -143,6 +232,11 @@ export function useUnsubscribeSender(
       .catch(() => {});
   }, [
     canUnsubscribe,
+    isSenderStatsLoading,
+    isAutoArchiveStatusLoading,
+    isUpdatingAutoArchive,
+    isAutoArchived,
+    onToggleAutoArchive,
     emailAccountId,
     hasUnsubscribeAccess,
     httpLink,
@@ -156,51 +250,21 @@ export function useUnsubscribeSender(
     queueArchiveSenders,
   ]);
 
-  const onAutoArchive = useCallback(async () => {
-    if (!canAutoArchive) return;
-
-    if (!hasUnsubscribeAccess) {
-      openModal();
-      return;
-    }
-
-    const toastId = toast.loading(`Enabling auto archive for ${senderName}`);
-
-    try {
-      const result = await setSenderStatusAction(emailAccountId, {
-        senderEmail,
-        status: NewsletterStatus.AUTO_ARCHIVED,
-      });
-      assertActionSucceeded(result);
-      setAutoArchivedSender(canonicalSenderEmail);
-      await decrementUnsubscribeCreditAction();
-      await queueArchiveSenders({ senders: [senderEmail] });
-      await refetchPremium();
-      toast.success(`Future emails from ${senderName} will be archived`, {
-        id: toastId,
-      });
-    } catch (error) {
-      captureException(error);
-      toast.error(`Couldn't enable auto archive for ${senderName}`, {
-        id: toastId,
-      });
-    }
-  }, [
-    canAutoArchive,
-    canonicalSenderEmail,
-    emailAccountId,
-    hasUnsubscribeAccess,
-    openModal,
-    queueArchiveSenders,
-    refetchPremium,
-    senderEmail,
-    senderName,
-  ]);
-
   return {
-    canAutoArchive,
-    canUnsubscribe,
-    onAutoArchive,
+    isUnsubscribeDisabled:
+      isUpdatingAutoArchive ||
+      (isSenderStatsLoading && !httpLink) ||
+      (!canUnsubscribe && (isAutoArchiveStatusLoading || isAutoArchived)),
+    unsubscribeLabel: canUnsubscribe
+      ? "Unsubscribe from sender"
+      : isAutoArchived
+        ? "Sender blocked"
+        : "Block sender",
+    canManageAutoArchive: Boolean(senderEmail),
+    isAutoArchived,
+    isAutoArchiveStatusLoading,
+    isUpdatingAutoArchive,
+    onToggleAutoArchive,
     onUnsubscribe,
     PremiumModal,
   };

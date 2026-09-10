@@ -20,7 +20,7 @@ type MutationSnapshot = {
 type OverlayMessage = Pick<ParsedMessage, "id" | "labelIds">;
 
 type ReconciliationState = {
-  emailAccountId: string;
+  identity: string;
   isRunning: boolean;
   pendingIds: Set<string>;
   retryAttempts: number;
@@ -110,25 +110,36 @@ export function useMailMutationOverlay({
 
 export function useRetainedMailMutationOverlay({
   emailAccountId,
-  enabled = Boolean(emailAccountId),
+  emailAccountIds,
+  enabled = Boolean(emailAccountId || emailAccountIds?.length),
   onReconcile,
-}: {
-  emailAccountId: string;
+}: (
+  | { emailAccountId: string; emailAccountIds?: never }
+  | { emailAccountId?: never; emailAccountIds: string[] }
+) & {
   enabled?: boolean;
   onReconcile: () => unknown;
 }) {
+  const accountIds = useMemo(
+    () => emailAccountIds ?? (emailAccountId ? [emailAccountId] : []),
+    [emailAccountId, emailAccountIds],
+  );
+  const identity = useMemo(
+    () => [...new Set(accountIds)].sort().join("\u0000"),
+    [accountIds],
+  );
   const retainMutationsRef = useRef<(mutations: MailMutation[]) => void>(
     () => {},
   );
   const active = useMailMutationOverlay({
-    emailAccountIds: [emailAccountId],
+    emailAccountIds: accountIds,
     enabled,
     onMutationsEnqueued: (mutations) => retainMutationsRef.current(mutations),
   });
   const onReconcileRef = useRef(onReconcile);
   const previous = useRef<MutationSnapshot | undefined>(undefined);
   const reconciliationState = useRef<ReconciliationState>(
-    createReconciliationState(emailAccountId),
+    createReconciliationState(identity),
   );
   const runReconciliationRef = useRef<() => void>(() => {});
   const [retained, setRetained] = useState<MutationSnapshot>();
@@ -139,10 +150,10 @@ export function useRetainedMailMutationOverlay({
 
   useEffect(() => {
     const previousState = reconciliationState.current;
-    if (previousState.emailAccountId !== emailAccountId) {
+    if (previousState.identity !== identity) {
       previousState.stopped = true;
       if (previousState.retryTimer) clearTimeout(previousState.retryTimer);
-      reconciliationState.current = createReconciliationState(emailAccountId);
+      reconciliationState.current = createReconciliationState(identity);
     }
     const state = reconciliationState.current;
     state.stopped = !enabled;
@@ -150,7 +161,7 @@ export function useRetainedMailMutationOverlay({
       state.stopped = true;
       if (state.retryTimer) clearTimeout(state.retryTimer);
     };
-  }, [emailAccountId, enabled]);
+  }, [enabled, identity]);
 
   useEffect(() => {
     if (enabled) return;
@@ -183,7 +194,7 @@ export function useRetainedMailMutationOverlay({
         for (const id of completedIds) state.pendingIds.delete(id);
         state.retryAttempts = 0;
         setRetained((snapshot) => {
-          if (snapshot?.identity !== state.emailAccountId) return snapshot;
+          if (snapshot?.identity !== state.identity) return snapshot;
           return {
             ...snapshot,
             mutations: snapshot.mutations.filter(
@@ -225,27 +236,27 @@ export function useRetainedMailMutationOverlay({
   const reconcileCompleted = useCallback(
     (ids: string[]) => {
       const state = reconciliationState.current;
-      if (state.emailAccountId !== emailAccountId || state.stopped) return;
+      if (state.identity !== identity || state.stopped) return;
       for (const id of ids) state.pendingIds.add(id);
       runReconciliation();
     },
-    [emailAccountId, runReconciliation],
+    [identity, runReconciliation],
   );
 
   const retainMutations = useCallback(
     (mutations: MailMutation[]) => {
       if (!mutations.length) return;
       setRetained((snapshot) => ({
-        identity: emailAccountId,
+        identity,
         mutations: mergeMutations(
-          snapshot?.identity === emailAccountId ? snapshot.mutations : [],
+          snapshot?.identity === identity ? snapshot.mutations : [],
           mutations,
         ),
       }));
       previous.current = {
-        identity: emailAccountId,
+        identity,
         mutations: mergeMutations(
-          previous.current?.identity === emailAccountId
+          previous.current?.identity === identity
             ? previous.current.mutations
             : [],
           mutations,
@@ -264,7 +275,7 @@ export function useRetainedMailMutationOverlay({
         })
         .catch(() => {});
     },
-    [emailAccountId, reconcileCompleted],
+    [identity, reconcileCompleted],
   );
   useEffect(() => {
     retainMutationsRef.current = retainMutations;
@@ -274,9 +285,7 @@ export function useRetainedMailMutationOverlay({
     if (!active.isReady || !active.isReadable) return;
 
     const prior =
-      previous.current?.identity === emailAccountId
-        ? previous.current.mutations
-        : [];
+      previous.current?.identity === identity ? previous.current.mutations : [];
     const activeIds = new Set(active.mutations.map((mutation) => mutation.id));
     const completedIds = new Set(
       prior
@@ -285,14 +294,14 @@ export function useRetainedMailMutationOverlay({
     );
 
     setRetained((snapshot) => ({
-      identity: emailAccountId,
+      identity,
       mutations: mergeMutations(
-        snapshot?.identity === emailAccountId ? snapshot.mutations : [],
+        snapshot?.identity === identity ? snapshot.mutations : [],
         active.mutations,
       ),
     }));
     previous.current = {
-      identity: emailAccountId,
+      identity,
       mutations: active.mutations,
     };
 
@@ -301,14 +310,14 @@ export function useRetainedMailMutationOverlay({
     active.isReadable,
     active.isReady,
     active.mutations,
-    emailAccountId,
+    identity,
     reconcileCompleted,
   ]);
 
   let mutations: MailMutation[] = [];
   if (enabled) {
     mutations =
-      retained?.identity === emailAccountId
+      retained?.identity === identity
         ? mergeMutations(retained.mutations, active.mutations)
         : active.mutations;
   }
@@ -359,11 +368,9 @@ export function applyMailMutationOverlayToThreads<
   return overlaidThreads;
 }
 
-function createReconciliationState(
-  emailAccountId: string,
-): ReconciliationState {
+function createReconciliationState(identity: string): ReconciliationState {
   return {
-    emailAccountId,
+    identity,
     isRunning: false,
     pendingIds: new Set<string>(),
     retryAttempts: 0,

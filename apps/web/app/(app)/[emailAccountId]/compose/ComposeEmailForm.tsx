@@ -13,7 +13,6 @@ import {
 import {
   EmailEditor,
   type EmailEditorHandle,
-  type EmailEditorPreservedBlock,
   type EmailEditorState,
 } from "@inboxzero/email-editor/web";
 import {
@@ -24,6 +23,7 @@ import {
 } from "@headlessui/react";
 import {
   CheckCircleIcon,
+  ChevronDownIcon,
   ImageIcon,
   PaperclipIcon,
   TrashIcon,
@@ -31,19 +31,21 @@ import {
 } from "lucide-react";
 import {
   type ChangeEvent,
+  type CSSProperties,
   useCallback,
   useEffect,
+  useId,
   useRef,
   useState,
 } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
-import { useHotkeys } from "react-hotkeys-hook";
-import useSWR from "swr";
+import useSWR, { useSWRConfig } from "swr";
 import type {
   ContactsErrorResponse,
   ContactsResponse,
 } from "@/app/api/user/contacts/route";
 import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
+import type { GetReferralCodeResponse } from "@/app/api/referrals/code/route";
 import { Input, Label } from "@/components/Input";
 import { ButtonLoader } from "@/components/Loading";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -61,18 +63,33 @@ import {
 } from "@/components/ui/select";
 import { env } from "@/env";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
-import { useModifierKey } from "@/hooks/useModifierKey";
+import { useLocalReplyDraft } from "@/hooks/useLocalReplyDraft";
+import { useProviderDraftAutosave } from "@/hooks/useProviderDraftAutosave";
+import { useReplyDraftPersistence } from "@/hooks/useReplyDraftPersistence";
+import { MAIL_SHORTCUT_SCOPES } from "@/lib/shortcuts/registry";
+import { ShortcutsProvider } from "@/lib/shortcuts/ShortcutsProvider";
+import { useShortcuts } from "@/lib/shortcuts/useShortcuts";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { getAccountLinkingUrl } from "@/utils/account-linking";
-import { sendEmailAction } from "@/utils/actions/mail";
+import { sendEmailAction, updateDraftAction } from "@/utils/actions/mail";
+import { scheduleEmailAction } from "@/utils/actions/scheduled-email";
 import {
   extractNameFromEmail,
   isValidEmail,
   splitRecipientList,
 } from "@/utils/email";
+import type { StoredReplyDraft } from "@/utils/email-cache/database";
+import type {
+  ReplyDraftContent,
+  ReplyDraftMode,
+} from "@/utils/email-cache/reply-drafts";
+import { createPreservedEmailBlocks } from "@/utils/email/preserved-blocks";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import { stripBrandingSignatures } from "@/utils/referral/signature";
+import { renderSentWithFooterHtml } from "@/utils/email/sent-with-footer";
 import { getActionErrorMessage } from "@/utils/error";
 import { redirectToSafeUrl } from "@/utils/redirect";
+import { generateReferralLink } from "@/utils/referral/referral-link";
 import {
   type SendEmailBody,
   validateSendEmailPayloadSize,
@@ -85,6 +102,12 @@ import {
   resolveComposeRecipients,
   resolveRecipientSelection,
 } from "./compose-recipients";
+import { ComposeShortcutTooltipContent } from "./ComposeShortcutTooltipContent";
+import { DeliveryOptions, type DeliveryOptionsHandle } from "./DeliveryOptions";
+import {
+  getReminderAfterSendTimeChange,
+  parseDeliveryTimes,
+} from "./delivery-times";
 import { queueReaderEmail } from "./queued-reply";
 
 export type ReplyingToEmail = {
@@ -105,11 +128,16 @@ export type ReplyingToEmail = {
 type ComposeEmailFormProps = {
   fromAccounts?: GetEmailAccountsResponse["emailAccounts"];
   layout?: "default" | "window";
+  providerDraftMessageId?: string;
+  draftKeyMessageId?: string;
+  draftMode?: ReplyDraftMode;
+  draftSessionId?: string;
   replyingToEmail?: ReplyingToEmail;
   refetch?: () => void;
   onSuccess?: (messageId: string, threadId: string) => void;
+  onMarkDone?: () => void;
   onClose?: () => void;
-  onDiscard?: () => void;
+  onDiscard?: (draftId?: string) => boolean | Promise<boolean>;
 };
 
 type ComposeAttachment = EmailComposerAttachment & {
@@ -134,18 +162,58 @@ export function ComposeEmailForm(props: ComposeEmailFormProps) {
   const selectedAccountProvider =
     props.fromAccounts?.find((account) => account.id === selectedEmailAccountId)
       ?.account.provider ?? provider;
+  const includeSentWithFooter =
+    !env.NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE &&
+    Boolean(emailAccount?.includeSentWithSignature);
+  const { data: referralCode, isLoading: isLoadingReferralCode } =
+    useSWR<GetReferralCodeResponse>(
+      includeSentWithFooter ? "/api/referrals/code" : null,
+    );
+  // A failed referral lookup still sends the footer, just without the referral link.
+  const sentWithFooterHtml = includeSentWithFooter
+    ? renderSentWithFooterHtml(
+        referralCode?.code
+          ? generateReferralLink(referralCode.code)
+          : env.NEXT_PUBLIC_BASE_URL,
+      )
+    : "";
 
+  const localDraft = useLocalReplyDraft(
+    props.draftSessionId && props.replyingToEmail?.threadId
+      ? {
+          emailAccountId: selectedEmailAccountId,
+          threadId: props.replyingToEmail.threadId,
+          messageId: props.draftSessionId,
+        }
+      : undefined,
+    props.draftKeyMessageId && props.replyingToEmail?.threadId
+      ? {
+          emailAccountId: selectedEmailAccountId,
+          threadId: props.replyingToEmail.threadId,
+          messageId: props.draftKeyMessageId,
+        }
+      : undefined,
+    props.draftMode,
+  );
   return (
-    <LoadingContent error={error} loading={isLoading}>
+    <LoadingContent
+      error={error}
+      loading={isLoading || localDraft.isLoading || isLoadingReferralCode}
+    >
       {emailAccount && (
-        <ComposeEmailFormContent
-          {...props}
-          accountProvider={selectedAccountProvider}
-          accountSignatureHtml={emailAccount.signature ?? ""}
-          key={selectedEmailAccountId}
-          onSelectEmailAccount={setSelectedEmailAccountId}
-          selectedEmailAccountId={selectedEmailAccountId}
-        />
+        <ShortcutsProvider scopes={MAIL_SHORTCUT_SCOPES}>
+          <ComposeEmailFormContent
+            {...props}
+            storedDraft={localDraft.draft}
+            draftLoadError={localDraft.error}
+            accountProvider={selectedAccountProvider}
+            accountSignatureHtml={emailAccount.signature ?? ""}
+            sentWithFooterHtml={sentWithFooterHtml}
+            key={`${selectedEmailAccountId}:${props.replyingToEmail?.threadId ?? ""}:${props.draftSessionId ?? ""}`}
+            onSelectEmailAccount={setSelectedEmailAccountId}
+            selectedEmailAccountId={selectedEmailAccountId}
+          />
+        </ShortcutsProvider>
       )}
     </LoadingContent>
   );
@@ -153,52 +221,119 @@ export function ComposeEmailForm(props: ComposeEmailFormProps) {
 
 function ComposeEmailFormContent({
   layout = "default",
+  draftKeyMessageId,
+  providerDraftMessageId,
+  draftMode,
+  draftSessionId,
+  storedDraft,
+  draftLoadError,
   replyingToEmail,
   fromAccounts,
   accountProvider,
   accountSignatureHtml,
+  sentWithFooterHtml,
   selectedEmailAccountId,
   onSelectEmailAccount,
   refetch,
   onSuccess,
+  onMarkDone,
   onClose,
   onDiscard,
 }: ComposeEmailFormProps & {
+  storedDraft?: StoredReplyDraft;
+  draftLoadError?: Error;
   accountProvider: string;
   accountSignatureHtml: string;
+  sentWithFooterHtml: string;
   selectedEmailAccountId: string;
   onSelectEmailAccount: (emailAccountId: string) => void;
 }) {
   const isComposeWindow = layout === "window";
+  const isInlineReply = Boolean(draftKeyMessageId && replyingToEmail?.threadId);
+  const { mutate } = useSWRConfig();
+  const [sendAt, setSendAt] = useState(storedDraft?.content?.sendAt ?? "");
+  const [remindAt, setRemindAt] = useState(
+    storedDraft?.content?.remindAt ?? "",
+  );
+  const [requestId] = useState(
+    () => storedDraft?.content?.requestId ?? randomUuid(),
+  );
+  const deliveryPath = useRef(storedDraft?.content?.deliveryPath);
+  const [submissionError, setSubmissionError] = useState(() => {
+    const times = parseDeliveryTimes(sendAt, remindAt);
+    return times.valid ? "" : times.error;
+  });
+  const editorInitialized = useRef(false);
+  const providerDraftId = useRef(storedDraft?.content?.providerDraftId);
+
+  const [restoredAttachments] = useState<ComposeAttachment[]>(() =>
+    (storedDraft?.content?.attachments ?? []).map((attachment) => ({
+      ...attachment,
+      previewUrl:
+        attachment.disposition === "inline"
+          ? URL.createObjectURL(
+              new Blob(
+                [
+                  Uint8Array.from(atob(attachment.contentBase64), (character) =>
+                    character.charCodeAt(0),
+                  ),
+                ],
+                { type: attachment.mimeType },
+              ),
+            )
+          : undefined,
+    })),
+  );
   const [initialComposer] = useState(() => {
-    const draft = prepareEmailDraft({
+    if (storedDraft?.content) {
+      const { draft, preservedBlocks } = storedDraft.content;
+      const parsedDraft = new DOMParser().parseFromString(
+        draft.editableHtml,
+        "text/html",
+      );
+      for (const image of parsedDraft.querySelectorAll(
+        'img[data-content-id], img[src^="cid:"]',
+      )) {
+        const contentId =
+          image.getAttribute("data-content-id") ??
+          image.getAttribute("src")?.slice(4);
+        const attachment = restoredAttachments.find(
+          (item) => item.contentId === contentId,
+        );
+        if (attachment?.previewUrl && contentId) {
+          image.setAttribute("src", attachment.previewUrl);
+          image.setAttribute("data-content-id", contentId);
+        }
+      }
+      return {
+        draft: {
+          ...draft,
+          editableHtml: sentWithFooterHtml
+            ? stripBrandingSignatures(parsedDraft.body.innerHTML)
+            : parsedDraft.body.innerHTML,
+        },
+        preservedBlocks,
+      };
+    }
+
+    const preparedDraft = prepareEmailDraft({
       html: replyingToEmail?.draftHtml ?? "",
       quotedHtml: replyingToEmail?.quotedContentHtml,
       signatureHtml:
         replyingToEmail?.signatureHtml ?? accountSignatureHtml ?? undefined,
     });
-    const preservedBlocks: EmailEditorPreservedBlock[] = [
-      ...(draft.signatureHtml
-        ? [
-            {
-              id: "signature",
-              kind: "signature" as const,
-              html: draft.signatureHtml,
-              collapsed: false,
-            },
-          ]
-        : []),
-      ...(draft.quotedHtml
-        ? [
-            {
-              id: "quote",
-              kind: "quote" as const,
-              html: draft.quotedHtml,
-              collapsed: true,
-            },
-          ]
-        : []),
-    ];
+    // The footer travels with the signature so it lands right after it and is
+    // removed with it, without introducing another block in the composer.
+    const draft = {
+      ...preparedDraft,
+      editableHtml: sentWithFooterHtml
+        ? stripBrandingSignatures(preparedDraft.editableHtml)
+        : preparedDraft.editableHtml,
+      signatureHtml: [preparedDraft.signatureHtml, sentWithFooterHtml]
+        .filter(Boolean)
+        .join("<br>"),
+    };
+    const preservedBlocks = createPreservedEmailBlocks(draft);
     return { draft, preservedBlocks };
   });
   const { draft: initialDraft, preservedBlocks } = initialComposer;
@@ -214,26 +349,37 @@ function ComposeEmailFormContent({
   const [isReconnectingContacts, setIsReconnectingContacts] = useState(false);
   const [editReply, setEditReply] = useState(false);
   const [showCcBcc, setShowCcBcc] = useState(
-    Boolean(replyingToEmail?.cc || replyingToEmail?.bcc),
+    Boolean(
+      storedDraft?.content?.values.cc ||
+        storedDraft?.content?.values.bcc ||
+        replyingToEmail?.cc ||
+        replyingToEmail?.bcc,
+    ),
   );
   const focusRecipientField = !replyingToEmail;
-  const [attachments, setAttachments] = useState<ComposeAttachment[]>([]);
-  const attachmentsRef = useRef<ComposeAttachment[]>([]);
+  const [attachments, setAttachments] =
+    useState<ComposeAttachment[]>(restoredAttachments);
+  const attachmentsRef = useRef<ComposeAttachment[]>(restoredAttachments);
   const isMountedRef = useRef(true);
   const editorRef = useRef<EmailEditorHandle>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const inlineReplySummaryButtonRef = useRef<HTMLButtonElement>(null);
+  const collapseInlineReplyFieldsButtonRef = useRef<HTMLButtonElement>(null);
   const hideCcBccButtonRef = useRef<HTMLButtonElement>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const inlineImageInputRef = useRef<HTMLInputElement>(null);
-  const { symbol } = useModifierKey();
+  const sendAndMarkDoneButtonRef = useRef<HTMLButtonElement>(null);
+  const deliveryOptionsRef = useRef<DeliveryOptionsHandle>(null);
+  const shortcutOwnerId = useId();
   const {
     register,
+    getValues,
     handleSubmit,
     formState: { errors, isSubmitting },
     watch,
     setValue,
   } = useForm<ComposeFormValues>({
-    defaultValues: {
+    defaultValues: storedDraft?.content?.values ?? {
       replyToEmail: getReplyToEmailPayload(replyingToEmail),
       subject: replyingToEmail?.subject,
       to: replyingToEmail?.to,
@@ -242,10 +388,135 @@ function ComposeEmailFormContent({
     },
   });
 
-  const updateAttachments = useCallback((next: ComposeAttachment[]) => {
-    attachmentsRef.current = next;
-    setAttachments(next);
-  }, []);
+  const lastDraftContent = useRef<ReplyDraftContent | undefined>(undefined);
+  const getDraftContent = (options?: {
+    sendAt?: string;
+    remindAt?: string;
+  }): ReplyDraftContent | undefined => {
+    if (!editorRef.current)
+      return lastDraftContent.current
+        ? {
+            ...lastDraftContent.current,
+            providerDraftId: providerDraftId.current,
+          }
+        : undefined;
+    const value = editorRef.current.getValue();
+    const values = { ...getValues() };
+    for (const field of ["to", "cc", "bcc"] as const) {
+      const pending = pendingRecipientsRef.current[field].trim();
+      if (pending)
+        values[field] = [values[field], pending].filter(Boolean).join(", ");
+    }
+    const content: ReplyDraftContent = {
+      providerDraftId: providerDraftId.current,
+      composeMode: draftMode,
+      requestId,
+      deliveryPath: deliveryPath.current,
+      values,
+      draft: {
+        ...initialDraft,
+        editableHtml: value.editableHtml,
+        mode: value.mode,
+      },
+      preservedBlocks: preservedBlocks.filter((block) =>
+        value.preservedBlockIds.includes(block.id),
+      ),
+      attachments: attachmentsRef.current.map(
+        ({ previewUrl: _previewUrl, ...attachment }) => attachment,
+      ),
+      sendAt: options?.sendAt ?? sendAt,
+      remindAt: options?.remindAt ?? remindAt,
+    };
+    lastDraftContent.current = content;
+    return content;
+  };
+  const {
+    capture: captureLocalDraft,
+    clear: clearLocalDraft,
+    flush: flushDraft,
+    saveError: draftSaveError,
+  } = useReplyDraftPersistence({
+    identity:
+      isInlineReply && draftSessionId
+        ? {
+            emailAccountId: selectedEmailAccountId,
+            threadId: replyingToEmail!.threadId!,
+            messageId: draftSessionId,
+          }
+        : undefined,
+    initialRevision: storedDraft?.revision,
+    loadError: draftLoadError,
+    getContent: getDraftContent,
+  });
+  const providerAutosave = useProviderDraftAutosave({
+    enabled: Boolean(providerDraftMessageId),
+    getContent: () => {
+      const content = getDraftContent();
+      if (!content) return;
+      const blocks = new Set(content.preservedBlocks.map((block) => block.id));
+      return {
+        subject: content.values.subject ?? "",
+        to: content.values.to ?? "",
+        cc: content.values.cc ?? "",
+        bcc: content.values.bcc ?? "",
+        hasNewAttachments: content.attachments.length > 0,
+        messageHtml: combineEmailHtml({
+          editableHtml:
+            content.draft.mode === "fallback"
+              ? content.draft.editableHtml
+              : finalizeEditableEmailHtml({
+                  html: content.draft.editableHtml,
+                  inlineAttachments: content.attachments,
+                }),
+          signatureHtml: blocks.has("signature")
+            ? content.draft.signatureHtml
+            : "",
+          quotedHtml: blocks.has("quote") ? content.draft.quotedHtml : "",
+        }),
+      };
+    },
+    save: async ({ hasNewAttachments, ...content }) => {
+      if (!providerDraftMessageId) return;
+      if (hasNewAttachments)
+        throw new Error(
+          "Drafts with newly added attachments are saved on this device until sent.",
+        );
+      const result = await updateDraftAction(selectedEmailAccountId, {
+        ...content,
+        draftMessageId: providerDraftMessageId,
+        draftId: providerDraftId.current,
+      });
+      if (!result?.data) throw new Error(getActionErrorMessage(result ?? {}));
+      providerDraftId.current = result.data.draftId;
+      captureLocalDraft();
+      await flushDraft();
+    },
+  });
+  const { stop: stopProviderAutosave, resume: resumeProviderAutosave } =
+    providerAutosave;
+  const captureDraft = useCallback(
+    (options?: { sendAt?: string; remindAt?: string }) => {
+      captureLocalDraft(options);
+      providerAutosave.capture();
+    },
+    [captureLocalDraft, providerAutosave.capture],
+  );
+  useEffect(() => {
+    if (storedDraft?.content) captureDraft();
+  }, [storedDraft, captureDraft]);
+  useEffect(() => {
+    const subscription = watch(() => captureDraft());
+    return () => subscription.unsubscribe();
+  }, [captureDraft, watch]);
+
+  const updateAttachments = useCallback(
+    (next: ComposeAttachment[]) => {
+      attachmentsRef.current = next;
+      setAttachments(next);
+      captureDraft();
+    },
+    [captureDraft],
+  );
 
   const removeUnusedInlineAttachments = useCallback(
     (contentIds: string[]) => {
@@ -271,8 +542,15 @@ function ComposeEmailFormContent({
   const handleEditorStateChange = useCallback(
     (state: EmailEditorState) => {
       removeUnusedInlineAttachments(state.inlineContentIds);
+      if (!editorInitialized.current) {
+        queueMicrotask(() => {
+          editorInitialized.current = true;
+        });
+        return;
+      }
+      captureDraft();
     },
-    [removeUnusedInlineAttachments],
+    [captureDraft, removeUnusedInlineAttachments],
   );
 
   const addFiles = useCallback(
@@ -378,14 +656,19 @@ function ComposeEmailFormContent({
 
     return () => {
       isMountedRef.current = false;
-      for (const attachment of attachmentsRef.current) {
-        revokePreview(attachment);
-      }
+      const previews = [...attachmentsRef.current];
+      setTimeout(() => {
+        if (!isMountedRef.current)
+          for (const attachment of previews) revokePreview(attachment);
+      }, 0);
     };
   }, []);
 
   const onSubmit: SubmitHandler<ComposeFormValues> = useCallback(
-    async (data) => {
+    async (data, event) => {
+      const submitter = (event?.nativeEvent as SubmitEvent | undefined)
+        ?.submitter;
+      const markDoneAfterSend = submitter === sendAndMarkDoneButtonRef.current;
       const recipients = resolveComposeRecipientFields({
         selectedRecipients: {
           to: data.to,
@@ -454,36 +737,121 @@ function ComposeEmailFormContent({
         return;
       }
 
+      const deliveryTimes = parseDeliveryTimes(sendAt, remindAt);
+      if (!deliveryTimes.valid) {
+        setSubmissionError(deliveryTimes.error);
+        return;
+      }
+      setSubmissionError("");
+      await stopProviderAutosave();
+      let deliveryAccepted = false;
       try {
+        if (isInlineReply) {
+          if (deliveryPath.current === "outbox" && (sendAt || remindAt)) {
+            setSubmissionError(
+              "This reply was already submitted to the outbox. Check its delivery status before scheduling a new reply.",
+            );
+            return;
+          }
+          deliveryPath.current ??= sendAt || remindAt ? "scheduled" : "outbox";
+        }
+        captureDraft();
+        await flushDraft();
+        if (isInlineReply && deliveryPath.current === "scheduled") {
+          const result = await scheduleEmailAction(selectedEmailAccountId, {
+            clientMutationId: requestId,
+            threadId: replyingToEmail!.threadId!,
+            messageIds: [draftKeyMessageId!],
+            email: enrichedData,
+            sendAt: deliveryTimes.sendAt,
+            remindAt: deliveryTimes.remindAt,
+          });
+          if (!result?.data) {
+            setSubmissionError(
+              getActionErrorMessage(result ?? {}, {
+                prefix: "Could not schedule this reply",
+              }),
+            );
+            return;
+          }
+          deliveryAccepted = true;
+          try {
+            await clearLocalDraft();
+          } catch {
+            toastError({
+              description:
+                "Reply scheduled, but its local draft copy could not be cleared.",
+            });
+          }
+          if (markDoneAfterSend) onMarkDone?.();
+          await mutate([
+            `/api/user/scheduled-emails?threadId=${encodeURIComponent(replyingToEmail!.threadId!)}`,
+            selectedEmailAccountId,
+          ]);
+          onClose?.();
+          refetch?.();
+          return;
+        }
         const readerThreadId = replyingToEmail?.threadId?.trim();
-        const readerMessageId = replyingToEmail?.messageId;
+        const readerMessageId = isInlineReply
+          ? draftKeyMessageId
+          : replyingToEmail?.messageId;
         if (readerThreadId) {
           let outcome: Awaited<ReturnType<typeof queueReaderEmail>>;
           try {
             outcome = await queueReaderEmail({
               email: enrichedData,
+              mutationId: isInlineReply ? requestId : undefined,
               emailAccountId: selectedEmailAccountId,
               messageIds: readerMessageId ? [readerMessageId] : [],
               online: navigator.onLine,
               threadId: readerThreadId,
+              onQueued: isInlineReply
+                ? async () => {
+                    deliveryAccepted = true;
+                    try {
+                      await clearLocalDraft();
+                    } catch {
+                      toastError({
+                        description:
+                          "Reply queued, but its local draft copy could not be cleared.",
+                      });
+                    }
+                    await mutate([
+                      "thread-deliveries",
+                      selectedEmailAccountId,
+                      readerThreadId,
+                    ]);
+                    onClose?.();
+                  }
+                : undefined,
             });
           } catch (error) {
             console.error(error);
-            toastError({
-              description: "Couldn't queue this email. It hasn't been sent.",
-            });
+            const description =
+              error instanceof Error
+                ? error.message
+                : "Could not confirm this reply was queued. Check the thread delivery status before retrying.";
+            setSubmissionError(description);
+            toastError({ description });
             return;
           }
           if (outcome.status === "sent") {
-            toastSuccess({ description: "Email sent!" });
+            deliveryAccepted = true;
+            if (!isInlineReply) toastSuccess({ description: "Email sent!" });
+            if (markDoneAfterSend) onMarkDone?.();
             onSuccess?.(outcome.messageId, outcome.threadId);
             refetch?.();
           } else if (outcome.status === "queued") {
-            toastSuccess({
-              description: getQueuedEmailDescription(outcome.reason),
-            });
+            deliveryAccepted = true;
+            if (!isInlineReply)
+              toastSuccess({
+                description: getQueuedEmailDescription(outcome.reason),
+              });
+            if (markDoneAfterSend) onMarkDone?.();
             onClose?.();
           } else if (outcome.status === "uncertain") {
+            deliveryAccepted = true;
             if (outcome.ownsNotification) {
               toastError({
                 description:
@@ -502,7 +870,9 @@ function ComposeEmailFormContent({
           enrichedData,
         );
         if (result?.data) {
+          deliveryAccepted = true;
           toastSuccess({ description: "Email sent!" });
+          if (markDoneAfterSend) onMarkDone?.();
           onSuccess?.(result.data.messageId ?? "", result.data.threadId ?? "");
         } else {
           toastError({
@@ -513,34 +883,37 @@ function ComposeEmailFormContent({
         }
       } catch (error) {
         console.error(error);
+        setSubmissionError(
+          "Could not confirm delivery. Check the thread status before trying again.",
+        );
         toastError({ description: "There was an error sending the email :(" });
+      } finally {
+        if (!deliveryAccepted) resumeProviderAutosave();
       }
 
       refetch?.();
     },
     [
+      stopProviderAutosave,
+      resumeProviderAutosave,
       initialDraft,
+      isInlineReply,
+      sendAt,
+      remindAt,
+      requestId,
+      draftKeyMessageId,
+      captureDraft,
+      clearLocalDraft,
+      flushDraft,
+      mutate,
       onClose,
+      onMarkDone,
       onSuccess,
       preservedBlocks,
       refetch,
       replyingToEmail,
       selectedEmailAccountId,
     ],
-  );
-
-  useHotkeys(
-    "mod+enter",
-    (event) => {
-      event.preventDefault();
-      if (!isSubmitting) formRef.current?.requestSubmit();
-    },
-    {
-      enableOnFormTags: true,
-      enableOnContentEditable: true,
-      eventListenerOptions: { capture: true },
-      preventDefault: true,
-    },
   );
 
   const reconnectContacts = async () => {
@@ -564,8 +937,11 @@ function ComposeEmailFormContent({
   const updatePendingRecipient = useCallback(
     (field: ComposeRecipientField, query: string) => {
       pendingRecipientsRef.current[field] = query;
+      queueMicrotask(() => {
+        if (isMountedRef.current) captureDraft();
+      });
     },
-    [],
+    [captureDraft],
   );
 
   const recipientFieldProps = {
@@ -593,15 +969,126 @@ function ComposeEmailFormContent({
         );
       }
     };
+  const canCollapseInlineReplyFields =
+    isInlineReply && Boolean(replyingToEmail?.to);
+  const showInlineReplySummary = canCollapseInlineReplyFields && !editReply;
+  const openInlineReplyFields = () => {
+    setEditReply(true);
+    requestAnimationFrame(() =>
+      collapseInlineReplyFieldsButtonRef.current?.focus(),
+    );
+  };
+  const closeInlineReplyFields = () => {
+    setEditReply(false);
+    requestAnimationFrame(() => inlineReplySummaryButtonRef.current?.focus());
+  };
+  const handleSendAtChange = (value: string) => {
+    const nextRemindAt = getReminderAfterSendTimeChange(value, remindAt);
+    setSubmissionError("");
+    setSendAt(value);
+    setRemindAt(nextRemindAt);
+    captureDraft({ sendAt: value, remindAt: nextRemindAt });
+  };
+  const handleRemindAtChange = (value: string) => {
+    setSubmissionError("");
+    setRemindAt(value);
+    captureDraft({ remindAt: value });
+  };
+  const handleDiscard = useCallback(async () => {
+    if (!onDiscard || isSubmitting) return;
+    try {
+      await stopProviderAutosave();
+      if ((await onDiscard(providerDraftId.current)) === false) {
+        resumeProviderAutosave();
+        return;
+      }
+      await clearLocalDraft();
+    } catch (error) {
+      resumeProviderAutosave();
+      toastError({
+        description:
+          error instanceof Error
+            ? error.message
+            : "Could not discard this draft.",
+      });
+    }
+  }, [
+    clearLocalDraft,
+    isSubmitting,
+    onDiscard,
+    stopProviderAutosave,
+    resumeProviderAutosave,
+  ]);
+
+  useShortcuts({
+    send: (event) => {
+      if (
+        !isShortcutForForm(event, formRef.current, shortcutOwnerId) ||
+        isSubmitting
+      )
+        return;
+      formRef.current?.requestSubmit();
+    },
+    sendAndMarkDone: onMarkDone
+      ? (event) => {
+          if (
+            !isShortcutForForm(event, formRef.current, shortcutOwnerId) ||
+            isSubmitting
+          )
+            return;
+          const submitter = sendAndMarkDoneButtonRef.current;
+          if (submitter) formRef.current?.requestSubmit(submitter);
+        }
+      : undefined,
+    sendLater:
+      isInlineReply && !isSubmitting
+        ? (event) => {
+            if (isShortcutForForm(event, formRef.current, shortcutOwnerId))
+              deliveryOptionsRef.current?.open("sendLater");
+          }
+        : undefined,
+    remindMe:
+      isInlineReply && !isSubmitting
+        ? (event) => {
+            if (isShortcutForForm(event, formRef.current, shortcutOwnerId))
+              deliveryOptionsRef.current?.open("remindMe");
+          }
+        : undefined,
+    attachFiles: (event) => {
+      if (
+        !isShortcutForForm(event, formRef.current, shortcutOwnerId) ||
+        isSubmitting
+      )
+        return;
+      attachmentInputRef.current?.click();
+    },
+    discardDraft: onDiscard
+      ? (event) => {
+          if (isShortcutForForm(event, formRef.current, shortcutOwnerId))
+            handleDiscard();
+        }
+      : undefined,
+  });
 
   return (
     <form
+      data-inline-reply={isInlineReply || undefined}
       ref={formRef}
+      style={
+        isInlineReply
+          ? ({
+              "--email-editor-content-min-height": "56px",
+              "--email-editor-content-padding": "0.25rem 0",
+            } as CSSProperties)
+          : undefined
+      }
+      onInput={() => captureDraft()}
       onSubmit={handleSubmit(onSubmit)}
       className={cn(
         isComposeWindow
           ? "flex h-full min-h-0 flex-col overflow-hidden [&_[data-email-editor-root]]:min-h-0 [&_[data-email-editor-root]]:flex-1"
           : "space-y-2",
+        isInlineReply && "space-y-2 border-t border-border pt-4",
       )}
     >
       <div className={cn(isComposeWindow ? "shrink-0 px-4" : "contents")}>
@@ -640,20 +1127,97 @@ function ComposeEmailFormContent({
             </Select>
           </div>
         )}
-        {replyingToEmail?.to && !editReply ? (
+        {showInlineReplySummary && (
           <button
             type="button"
-            className={cn(
-              "flex gap-1 text-left",
-              isComposeWindow && "min-h-11 items-center border-b",
-            )}
-            onClick={() => setEditReply(true)}
+            aria-expanded={false}
+            ref={inlineReplySummaryButtonRef}
+            onClick={openInlineReplyFields}
+            className="flex items-center gap-1.5 rounded-sm text-left text-sm font-medium leading-5 text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <span className="text-green-500">Draft</span>{" "}
-            <span className="max-w-md break-words text-foreground">
-              to {extractNameFromEmail(replyingToEmail.to)}
+            <span className="text-emerald-600 dark:text-emerald-400">
+              Draft
             </span>
+            <span className="min-w-0 truncate">
+              to{" "}
+              {extractNameFromEmail(watch("to") || replyingToEmail?.to || "") ||
+                "recipients"}
+            </span>
+            <ChevronDownIcon className="size-3 shrink-0 text-muted-foreground" />
           </button>
+        )}
+        {replyingToEmail?.to && !editReply ? (
+          !isInlineReply && (
+            <button
+              type="button"
+              className={cn(
+                "flex items-center gap-1 text-left",
+                isComposeWindow && "min-h-11 items-center border-b",
+              )}
+              onClick={() => setEditReply(true)}
+            >
+              <span className="text-muted-foreground text-sm">To</span>
+              <span className="max-w-md break-words text-foreground">
+                {extractNameFromEmail(watch("to") || replyingToEmail.to)}
+              </span>
+            </button>
+          )
+        ) : isInlineReply ? (
+          <div className="space-y-1 [&_input]:bg-transparent">
+            {(["to", "cc", "bcc"] as const).map((field) => (
+              <div key={field} className="flex min-h-7 items-center gap-2">
+                <label
+                  htmlFor={field}
+                  className="w-12 shrink-0 text-sm font-medium leading-5 text-foreground"
+                >
+                  {RECIPIENT_LABELS[field]}
+                </label>
+                <div className="min-w-0 flex-1">
+                  {env.NEXT_PUBLIC_CONTACTS_ENABLED ? (
+                    <ComposeContactRecipientField
+                      {...recipientFieldProps}
+                      active={activeRecipientField === field}
+                      className="min-h-8"
+                      name={field}
+                      selectedRecipients={watch(field) ?? ""}
+                    />
+                  ) : (
+                    <Input
+                      type="text"
+                      name={field}
+                      registerProps={register(field, {
+                        required: field === "to",
+                      })}
+                      error={errors[field]}
+                      className="h-7 rounded-none border-0 bg-transparent p-0 text-sm leading-5 shadow-none focus:border-transparent focus:ring-0 sm:text-sm"
+                    />
+                  )}
+                </div>
+                {field === "to" && canCollapseInlineReplyFields && (
+                  <button
+                    type="button"
+                    aria-label="Hide recipients"
+                    ref={collapseInlineReplyFieldsButtonRef}
+                    onClick={closeInlineReplyFields}
+                    className="rounded-sm text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <ChevronDownIcon className="size-3 rotate-180" />
+                  </button>
+                )}
+              </div>
+            ))}
+            <div className="pt-3">
+              <Input
+                type="text"
+                name="subject"
+                registerProps={register("subject", { required: true })}
+                error={errors.subject}
+                placeholder="Subject"
+                aria-label="Subject"
+                className="h-8 rounded-none border-0 bg-transparent p-0 text-sm font-medium text-foreground shadow-none focus:border-transparent focus:ring-0 sm:text-sm"
+              />
+            </div>
+          </div>
         ) : (
           <>
             <div
@@ -779,7 +1343,8 @@ function ComposeEmailFormContent({
       </div>
 
       <EmailEditor
-        appearance={isComposeWindow ? "seamless" : "contained"}
+        placeholder={isInlineReply ? "" : undefined}
+        appearance={isComposeWindow || isInlineReply ? "seamless" : "contained"}
         autofocus={!focusRecipientField}
         ref={editorRef}
         initialHtml={initialDraft.editableHtml}
@@ -794,6 +1359,11 @@ function ComposeEmailFormContent({
         unsupported={initialDraft.unsupported}
       />
 
+      {submissionError && (
+        <p role="alert" className="text-destructive text-sm">
+          {submissionError}
+        </p>
+      )}
       {!!attachments.length && (
         <ul
           aria-label="Attachments"
@@ -831,28 +1401,48 @@ function ComposeEmailFormContent({
 
       <div
         className={cn(
-          "flex items-center justify-between",
+          "flex flex-wrap items-center justify-between gap-2",
           isComposeWindow && "shrink-0 border-t px-4 py-2",
         )}
       >
-        <div className="flex items-center">
-          {isComposeWindow ? (
+        <div className="flex flex-wrap items-center gap-1">
+          <Tooltip
+            contentComponent={
+              <ComposeShortcutTooltipContent
+                shortcuts={onMarkDone ? ["send", "sendAndMarkDone"] : ["send"]}
+              />
+            }
+          >
             <Button
-              className="h-9 px-0 font-semibold text-foreground hover:bg-transparent hover:text-foreground"
+              className={cn(
+                isComposeWindow &&
+                  "h-9 px-0 font-semibold text-foreground hover:bg-transparent hover:text-foreground",
+              )}
               disabled={isSubmitting}
               type="submit"
-              variant="ghost"
+              variant={isComposeWindow ? "ghost" : "gradient"}
             >
               {isSubmitting && <ButtonLoader />}
               Send
             </Button>
-          ) : (
-            <Tooltip content={`${symbol}+Enter`}>
-              <Button disabled={isSubmitting} type="submit" variant="gradient">
-                {isSubmitting && <ButtonLoader />}
-                Send
-              </Button>
-            </Tooltip>
+          </Tooltip>
+          <button
+            aria-hidden
+            hidden
+            ref={sendAndMarkDoneButtonRef}
+            tabIndex={-1}
+            type="submit"
+          />
+          {isInlineReply && (
+            <DeliveryOptions
+              ref={deliveryOptionsRef}
+              sendAt={sendAt}
+              remindAt={remindAt}
+              disabled={isSubmitting}
+              onSendAtChange={handleSendAtChange}
+              onRemindAtChange={handleRemindAtChange}
+              shortcutOwnerId={shortcutOwnerId}
+            />
           )}
         </div>
 
@@ -865,18 +1455,22 @@ function ComposeEmailFormContent({
             ref={attachmentInputRef}
             type="file"
           />
-          <Button
-            aria-label="Attach files"
-            className={cn(
-              isComposeWindow && "text-muted-foreground hover:text-foreground",
-            )}
-            onClick={() => attachmentInputRef.current?.click()}
-            size={isComposeWindow ? "iconSm" : "icon"}
-            type="button"
-            variant="ghost"
+          <Tooltip
+            contentComponent={
+              <ComposeShortcutTooltipContent shortcuts={["attachFiles"]} />
+            }
           >
-            <PaperclipIcon className="size-4" />
-          </Button>
+            <Button
+              aria-label="Attach files"
+              className="text-muted-foreground hover:bg-transparent hover:text-foreground"
+              onClick={() => attachmentInputRef.current?.click()}
+              size={isComposeWindow ? "iconSm" : "icon"}
+              type="button"
+              variant="ghost"
+            >
+              <PaperclipIcon className="size-4" />
+            </Button>
+          </Tooltip>
           <input
             accept={EMAIL_INLINE_IMAGE_MIME_TYPES.join(",")}
             className="hidden"
@@ -888,9 +1482,7 @@ function ComposeEmailFormContent({
           />
           <Button
             aria-label="Insert inline images"
-            className={cn(
-              isComposeWindow && "text-muted-foreground hover:text-foreground",
-            )}
+            className="text-muted-foreground hover:bg-transparent hover:text-foreground"
             onClick={() => inlineImageInputRef.current?.click()}
             size={isComposeWindow ? "iconSm" : "icon"}
             type="button"
@@ -899,24 +1491,36 @@ function ComposeEmailFormContent({
             <ImageIcon className="size-4" />
           </Button>
           {onDiscard && (
-            <Button
-              aria-label="Discard draft"
-              className={cn(
-                isComposeWindow &&
-                  "text-muted-foreground hover:text-foreground",
-              )}
-              disabled={isSubmitting}
-              onClick={onDiscard}
-              size={isComposeWindow ? "iconSm" : "icon"}
-              title="Discard draft"
-              type="button"
-              variant="ghost"
+            <Tooltip
+              contentComponent={
+                <ComposeShortcutTooltipContent shortcuts={["discardDraft"]} />
+              }
             >
-              <TrashIcon className="size-4" />
-            </Button>
+              <Button
+                aria-label="Discard draft"
+                className="text-muted-foreground hover:bg-transparent hover:text-foreground"
+                disabled={isSubmitting}
+                onClick={handleDiscard}
+                size={isComposeWindow ? "iconSm" : "icon"}
+                type="button"
+                variant="ghost"
+              >
+                <TrashIcon className="size-4" />
+              </Button>
+            </Tooltip>
           )}
         </div>
       </div>
+      {providerAutosave.error && (
+        <p role="alert" className="text-xs text-destructive">
+          {providerAutosave.error}
+        </p>
+      )}
+      {isInlineReply && draftSaveError && (
+        <p role="alert" className="text-xs text-destructive">
+          {draftSaveError}
+        </p>
+      )}
     </form>
   );
 }
@@ -1232,4 +1836,20 @@ function getQueuedEmailDescription(
     return "Email queued. Reconnect this account to send it.";
   }
   return "Email queued and will keep sending in the background.";
+}
+
+function isShortcutForForm(
+  event: KeyboardEvent | undefined,
+  form: HTMLFormElement | null,
+  shortcutOwnerId: string,
+) {
+  if (!(event?.target instanceof Node)) return false;
+  if (form?.contains(event.target)) return true;
+  if (!(event.target instanceof Element)) return false;
+
+  return (
+    event.target
+      .closest("[data-compose-shortcut-owner]")
+      ?.getAttribute("data-compose-shortcut-owner") === shortcutOwnerId
+  );
 }

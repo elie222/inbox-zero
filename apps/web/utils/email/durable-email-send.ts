@@ -4,7 +4,9 @@ import { classifyEmailAccountProviderIssue } from "@/utils/email/provider-health
 import { isEmailProviderRateLimitError } from "@/utils/email/is-provider-rate-limit-error";
 import type { EmailProvider } from "@/utils/email/types";
 import { MAIL_MUTATION_RETRY_WINDOW_MS } from "@/utils/email-cache/policy";
+import { SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
+import type { Logger } from "@/utils/logger";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import type { DurableEmailSendBody } from "./durable-email-send.validation";
 
@@ -14,13 +16,16 @@ export async function executeDurableEmailSend({
   emailAccountId,
   getEmailProvider,
   input,
+  logger,
   provider,
 }: {
   emailAccountId: string;
   getEmailProvider: () => Promise<EmailProvider>;
   input: DurableEmailSendBody;
+  logger: Logger;
   provider: string;
 }) {
+  logger = logger.with({ mutationId: input.mutationId });
   const payloadHash = createHash("sha256")
     .update(
       JSON.stringify({
@@ -64,27 +69,36 @@ export async function executeDurableEmailSend({
       },
       data: { status: EmailSendOperationStatus.UNCERTAIN },
     });
+    if (stale.count) logger.warn("Email send processing lease expired");
     return stale.count
       ? { status: "uncertain" as const }
       : { status: "retry" as const };
   }
 
+  let stage: "provider_setup" | "send" | "persist_result" = "provider_setup";
   try {
     const emailProvider = await getEmailProvider();
+    stage = "send";
     const result = await emailProvider.sendEmailWithHtml(input.email);
+    stage = "persist_result";
     await prisma.emailSendOperation.update({
       where: { id: existing.id },
       data: { result, status: EmailSendOperationStatus.SENT },
     });
     return { status: "applied" as const, result };
   } catch (error) {
-    if (isEmailProviderRateLimitError({ error, provider })) {
+    logger.error("Email send operation failed", { error, stage });
+    if (
+      stage !== "persist_result" &&
+      isEmailProviderRateLimitError({ error, provider })
+    ) {
       await prisma.emailSendOperation.deleteMany({
         where: { id: existing.id },
       });
       return { status: "retry" as const };
     }
     if (
+      stage !== "persist_result" &&
       classifyEmailAccountProviderIssue({
         error,
         provider: provider as "google" | "microsoft",
@@ -94,6 +108,23 @@ export async function executeDurableEmailSend({
         where: { id: existing.id },
       });
       return { status: "blocked_auth" as const };
+    }
+    // Providers throw SafeError for checks that run before anything is sent,
+    // so the outcome is known and the operation can be retried later.
+    if (
+      stage === "provider_setup" ||
+      (stage === "send" && error instanceof SafeError)
+    ) {
+      await prisma.emailSendOperation.deleteMany({
+        where: { id: existing.id },
+      });
+      return {
+        status: "rejected" as const,
+        error:
+          error instanceof SafeError
+            ? (error.safeMessage ?? error.message)
+            : "Could not prepare the email account. Please try again.",
+      };
     }
     await prisma.emailSendOperation.updateMany({
       where: { id: existing.id, status: EmailSendOperationStatus.PROCESSING },

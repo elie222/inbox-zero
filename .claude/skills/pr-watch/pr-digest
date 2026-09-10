@@ -1,0 +1,351 @@
+#!/usr/bin/env bash
+# Compact PR status for agents. Prints only what needs a decision.
+#
+#   pr-digest [PR]            one-shot digest
+#   pr-digest --watch [PR]    poll until checks settle, then digest
+#   pr-digest --all [PR]      re-print findings already shown once
+#   pr-digest --logs JOB_ID   failing CI log, stripped of timestamp noise
+#   pr-digest --reply ID BODY reply to a review comment thread
+#
+# Exit: 0 green · 10 check failures · 11 open comments · 12 still pending
+#       20 local/remote out of sync · 1 error
+set -uo pipefail
+
+POLL=${PR_DIGEST_POLL:-30}
+DEADLINE=${PR_DIGEST_DEADLINE:-3600}
+BODY_CHARS=${PR_DIGEST_BODY_CHARS:-600}
+SEEN_DIR=${PR_DIGEST_SEEN_DIR:-$HOME/.cache/pr-digest}
+# How many empty polls to allow before accepting that a PR has no check runs.
+EMPTY_POLLS=${PR_DIGEST_EMPTY_POLLS:-3}
+SHOW_ALL=0
+
+die() { echo "pr-digest: $*" >&2; exit 1; }
+
+# A failed API call must never look like a clean PR, so every fetch is checked.
+# `die` here exits only the command substitution, so every caller carries its
+# own `|| die` for the abort to reach the script.
+# Keep stderr out of the payload — mixing it in corrupts JSON for jq.
+api() {
+  local out err msg rc
+  err=$(mktemp) || die "mktemp failed"
+  out=$(gh api "$@" 2>"$err"); rc=$?
+  msg=$(head -1 "$err"); rm -f "$err"
+  # Capture stderr from the one call rather than re-running it. A retry of a
+  # POST that GitHub already accepted would post a second public reply.
+  [ $rc -eq 0 ] || die "gh api $1 failed: $msg"
+  printf '%s' "$out"
+}
+
+check_runs() {
+  api --paginate "repos/$1/commits/$2/check-runs?per_page=100" \
+    --jq '.check_runs[] | {name, status, conclusion, html_url}' | jq -s .
+}
+
+commit_statuses() {
+  api --paginate "repos/$1/commits/$2/status?per_page=100" \
+    --jq '.statuses[] | {context, state}' | jq -s .
+}
+
+logs() {
+  local job=$1 keep out
+  keep='^[0-9]+\) |^ *(Error|TimeoutError|AssertionError):|^ *(Locator|Expected|Received|Timeout|Call log):|^ *- (Expect|waiting for|locator resolved)|^ *>? *[0-9]+ \| |^ *\^|^ *at .*\.(spec|test)\.[jt]sx?:[0-9]|^ *[0-9]+ (failed|passed|flaky|skipped)|^ *(✘|✗|×) |^##\[error\]'
+  out=$(gh run view --job "$job" --log-failed 2>/dev/null |
+    perl -pe 's/^[^\t]*\t[^\t]*\t\S+\s//' |
+    grep -v '^\[WebServer\]' |
+    grep -E "$keep" |
+    perl -pe 's/\e\[[0-9;]*m//g' |
+    awk '!/^##\[error\]/ || !seen[$0]++' |
+    tail -n "${PR_DIGEST_LOG_LINES:-80}")
+  if [ -n "$out" ]; then
+    echo "$out"
+    return 0
+  fi
+  out=$(gh run view --job "$job" --log-failed 2>/dev/null |
+    perl -pe 's/^[^\t]*\t[^\t]*\t\S+\s//' |
+    grep -vE '^\s*$|^\[WebServer\]' | tail -n 40)
+  if [ -n "$out" ]; then
+    echo "$out"
+    return 0
+  fi
+  die "no failed log for job $job"
+}
+
+# The reply endpoint needs the pull number, which the comment itself carries.
+reply() {
+  local repo id=$1 body=$2 pr
+  repo=$(gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null) || die "not a GitHub repo"
+  pr=$(api "repos/$repo/pulls/comments/$id" --jq '.pull_request_url | split("/") | last')
+  [ -n "$pr" ] || die "could not resolve the pull request for comment $id"
+  api "repos/$repo/pulls/$pr/comments/$id/replies" -f body="$body" --jq '"replied \(.id)"'
+}
+
+digest() {
+  local pr=$1 repo=$2 viewer=$3
+
+  local meta head state mergeable branch
+  meta=$(gh pr view "$pr" --repo "$repo" \
+    --json headRefOid,state,mergeable,headRefName,reviewDecision) || die "no PR $pr"
+  head=$(jq -r .headRefOid <<<"$meta")
+  state=$(jq -r .state <<<"$meta")
+  mergeable=$(jq -r .mergeable <<<"$meta")
+  branch=$(jq -r .headRefName <<<"$meta")
+  local decision; decision=$(jq -r '.reviewDecision // ""' <<<"$meta")
+
+  echo "PR $pr · $branch · $state · $mergeable${decision:+ · $decision}"
+  [ "$state" = "OPEN" ] || { echo "VERDICT $state"; return 0; }
+
+  # Sync only matters when this checkout is on the PR's branch; inspecting
+  # someone else's PR from elsewhere is not a mismatch worth reporting. An
+  # upstream that will not resolve — a shallow clone, no tracking ref — is
+  # unknown rather than wrong, and must not mask the rest of the verdict.
+  local sync=0 local_sha upstream_sha
+  if [ "$(git branch --show-current 2>/dev/null)" = "$branch" ]; then
+    local_sha=$(git rev-parse HEAD 2>/dev/null || echo "")
+    upstream_sha=$(git rev-parse '@{upstream}' 2>/dev/null || echo "")
+    if { [ -n "$local_sha" ] && [ "$local_sha" != "$head" ]; } ||
+       { [ -n "$upstream_sha" ] && [ "$upstream_sha" != "$head" ]; }; then
+      echo "OUT OF SYNC local=${local_sha:0:8} upstream=${upstream_sha:0:8} pr=${head:0:8}"
+      sync=20
+    fi
+  fi
+
+  local runs statuses pending failed
+  runs=$(check_runs "$repo" "$head") || die "could not read check runs"
+  statuses=$(commit_statuses "$repo" "$head") || die "could not read commit statuses"
+
+  # Legacy commit statuses gate a PR exactly like check runs do, so they have to
+  # reach the verdict rather than only being printed.
+  pending=$(( $(jq '[.[] | select(.status != "completed")] | length' <<<"$runs") +
+              $(jq '[.[] | select(.state == "pending")] | length' <<<"$statuses") ))
+  failed=$(( $(jq '[.[] | select(.conclusion != null and (.conclusion | test("^(success|neutral|skipped)$") | not))] | length' <<<"$runs") +
+             $(jq '[.[] | select(.state | test("^(failure|error)$"))] | length' <<<"$statuses") ))
+
+  jq -r '"checks " + (if length == 0 then "none"
+    else ([.[].conclusion // "pending"] | group_by(.) | map("\(length) \(.[0])") | join(" · ")) end)' <<<"$runs"
+  jq -r '.[] | select(.state != "success") | "STATUS \(.context) \(.state)"' <<<"$statuses"
+
+  # Failing checks, annotated with the step that broke so infra cancellations
+  # are distinguishable from real test failures without another round trip.
+  if [ "$failed" -gt 0 ]; then
+    while IFS=$'\t' read -r name conclusion url; do
+      local job step_info=""
+      job=${url##*/job/}
+      if [[ $job =~ ^[0-9]+$ ]]; then
+        step_info=$(gh api "repos/$repo/actions/jobs/$job" --jq '
+          (.steps // []) as $s
+          | ([$s[] | select(.conclusion == "failure" or .conclusion == "cancelled")] | first) as $bad
+          | if $bad == null then ""
+            else " · step \"\($bad.name)\" \($bad.conclusion)"
+                 + (if ([$s[] | select(.number > $bad.number and .conclusion == "skipped")] | length) > 0
+                    then " (later steps skipped, tests did not run)" else "" end)
+            end' 2>/dev/null)
+      fi
+      echo "FAIL $name [$conclusion]$step_info"
+      echo "     job=$job $url"
+    done < <(jq -r '.[] | select(.conclusion != null and (.conclusion | test("^(success|neutral|skipped)$") | not)) | [.name,.conclusion,.html_url] | @tsv' <<<"$runs")
+  fi
+
+  # Review bots pad bodies with collapsed sections, HTML markers and badge
+  # images; the prose around them is the whole finding. Remove each <details>
+  # block from the inside out — truncating at the first one drops the prose
+  # that follows it, and cutting to the last one drops the prose between.
+  local clean_def='
+    def clean:
+      gsub("<!--[\\s\\S]*?-->"; "")
+      | reduce range(0; 6) as $_ (.;
+          sub("<details>(?:(?!<details>)[\\s\\S])*?</details>"; ""))
+      | gsub("<img[^>]*alt=\"(?<a>[^\"]*)\"[^>]*>"; "\(.a)")
+      | gsub("<[^>]+>"; "") | gsub("\\s+"; " ")
+      | explode
+      | map(select(. >= 32 and (. < 127 or . > 159)))
+      | implode
+      | sub("^ +"; "") | sub(" +$"; "") | .[0:$n];'
+
+  # Deploy tables, rate-limit notices, screenshot galleries, and sticky bot
+  # summaries are status chrome — not findings that need a reply. Actionable
+  # bot conversation comments are not noise and must block green.
+  local noise_def='
+    def noise:
+      test("^\\[vc\\]:")
+      or test("(?i)is attempting to deploy a commit")
+      or test("rate limited by coderabbit")
+      or test("Review limit reached")
+      or test("(?i)<!-- *[a-z0-9-]*playwright-screenshots")
+      or test("(?i)(?:^|\\n)###? +Playwright screenshots")
+      or test("<!-- This is an auto-generated comment: summarize by coderabbit\\.ai -->")
+      or test("<h3>Greptile Summary</h3>");'
+
+  # Inline review threads. One stays open until *you* have replied to it; a bot
+  # follow-up confirming your fix must not mark it handled.
+  local inline open
+  inline=$(api --paginate "repos/$repo/pulls/$pr/comments?per_page=100" | jq -s 'add // []') \
+    || die "could not read review comments"
+  open=$(jq --arg me "$viewer" --argjson n "$BODY_CHARS" "
+    $clean_def
+    [.[] | select(.in_reply_to_id != null and .user.login == \$me) | .in_reply_to_id] as \$mine
+    | [.[] | select(.in_reply_to_id == null and .user.login != \$me)
+           | select(.id as \$i | (\$mine | index(\$i)) | not)
+           | {key: \"\(.id):\(.updated_at)\", id, author: .user.login, path,
+              line: (.line // .original_line), body: (.body | clean)}]" <<<"$inline")
+
+  # Conversation comments have no threads. One stays open until *you* post a
+  # later conversation comment that quotes its permalink; any later post of
+  # yours is not enough, and a bot confirming a fix must not close it. Compare
+  # against updated_at so an edit after your reply reopens the finding.
+  local convo noise_n convo_open
+  convo=$(api --paginate "repos/$repo/issues/$pr/comments?per_page=100" | jq -s 'add // []') \
+    || die "could not read conversation comments"
+  noise_n=$(jq "
+    $noise_def
+    [.[] | select(.body | noise)] | length" <<<"$convo")
+  convo_open=$(jq --arg me "$viewer" --argjson n "$BODY_CHARS" "
+    $clean_def
+    $noise_def
+    [.[] | select(.user.login == \$me)
+         | {id, created_at, body, html_url}] as \$mine
+    | [.[]
+       | select(.user.login != \$me)
+       | select(.body | noise | not)
+       | . as \$c
+       | select(
+           [\$mine[]
+            | select(.created_at > \$c.updated_at
+                     and (.body | test(\"#issuecomment-\(\$c.id)([^0-9]|\$)\")))]
+           | length == 0)
+       | {key: \"\(.id):\(.updated_at)\", id, author: .user.login,
+          path: \"(conversation)\", line: 0, body: (.body | clean)}]" <<<"$convo")
+
+  # A human can request changes in a review summary with no line comment and no
+  # conversation comment attached, so that surface has to be read too.
+  local reviews review_open
+  reviews=$(api --paginate "repos/$repo/pulls/$pr/reviews?per_page=100" | jq -s 'add // []') \
+    || die "could not read reviews"
+  # Only submitted states that ask for something: a PENDING review is an
+  # unsubmitted draft, and APPROVED or DISMISSED is not waiting on a reply. One
+  # stays open until you post a later conversation comment naming it, the same
+  # rule conversation comments use.
+  local convo_file; convo_file=$(mktemp) || die "mktemp failed"
+  printf '%s' "$convo" > "$convo_file"
+  review_open=$(jq --arg me "$viewer" --slurpfile convo "$convo_file" --argjson n "$BODY_CHARS" "
+    $clean_def
+    [\$convo[0][] | select(.user.login == \$me) | {created_at, body}] as \$mine
+    | [.[] | select(.user.type != \"Bot\" and .user.login != \$me)
+           | select(.state == \"CHANGES_REQUESTED\" or .state == \"COMMENTED\")
+           | select((.body // \"\") != \"\")
+           | . as \$r
+           | select(
+               [\$mine[]
+                | select(.created_at > \$r.submitted_at
+                         and (.body | test(\"#pullrequestreview-\(\$r.id)([^0-9]|\$)\")))]
+               | length == 0)
+           | {key: \"r\(.id):\(.submitted_at)\", id, author: .user.login,
+              path: \"(review \(.state))\", line: 0, body: (.body | clean)}]" <<<"$reviews") \
+    || { rm -f "$convo_file"; die "could not classify reviews"; }
+  rm -f "$convo_file"
+
+  open=$(jq -s 'add' <<<"$open$convo_open$review_open")
+  local open_n seen_file
+  open_n=$(jq length <<<"$open")
+  echo "comments $(jq length <<<"$inline") inline · $(jq length <<<"$convo") conversation ($noise_n noise) · $(jq length <<<"$reviews") reviews · $open_n awaiting your reply"
+  [ "$decision" = "CHANGES_REQUESTED" ] && echo "REVIEW changes requested"
+
+  if [ "$open_n" -gt 0 ]; then
+    # Show a finding in full once. On later cycles it stays listed — nothing is
+    # hidden — but as a single line, so re-observing an unfixed PR stays cheap.
+    seen_file="$SEEN_DIR/${repo//\//-}-$pr"
+    mkdir -p "$SEEN_DIR"; touch "$seen_file"
+    if [ "$SHOW_ALL" = 1 ]; then
+      jq -r '.[] | "\n[\(.id)] \(.author) \(.path):\(.line)\n  \(.body)"' <<<"$open"
+    else
+      jq -r --rawfile seen "$seen_file" '
+        ($seen | split("\n")) as $s
+        | .[] | .key as $k
+        | if ($s | index($k)) then
+            "[\(.id)] \(.author) \(.path):\(.line) — still open (shown earlier)"
+          else "\n[\(.id)] \(.author) \(.path):\(.line)\n  \(.body)" end' <<<"$open"
+    fi
+    jq -r '.[].key' <<<"$open" >> "$seen_file"
+    sort -u -o "$seen_file" "$seen_file"
+  fi
+
+  # A verdict describes one commit. If the head moved while we were reading,
+  # everything above may already be stale. A failed re-read is an error, not
+  # an out-of-sync signal — callers must not push to "reconcile" a blind miss.
+  local head_now
+  head_now=$(gh pr view "$pr" --repo "$repo" --json headRefOid --jq .headRefOid) \
+    || die "could not re-read PR $pr head"
+  if [ "$head_now" != "$head" ]; then
+    echo "VERDICT out-of-sync (head moved during this observation)"
+    return 20
+  fi
+
+  if [ "$sync" -ne 0 ]; then echo "VERDICT out-of-sync"; return 20; fi
+  if [ "$failed" -gt 0 ]; then echo "VERDICT failures"; return 10; fi
+  if [ "$open_n" -gt 0 ] || [ "$decision" = "CHANGES_REQUESTED" ]; then
+    echo "VERDICT open-comments"; return 11
+  fi
+  if [ "$pending" -gt 0 ]; then echo "VERDICT pending ($pending)"; return 12; fi
+  echo "VERDICT green"
+  return 0
+}
+
+main() {
+  local watch=0 pr=""
+  while [ $# -gt 0 ]; do
+    case $1 in
+      --watch) watch=1 ;;
+      --all) SHOW_ALL=1 ;;
+      --logs)
+        shift
+        command -v perl >/dev/null || die "perl not found"
+        logs "${1:?job id}"
+        exit $?
+        ;;
+      --reply) shift; reply "${1:?comment id}" "${2:?reply body}"; exit $? ;;
+      -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+      *) pr=$1 ;;
+    esac
+    shift
+  done
+
+  command -v gh >/dev/null || die "gh not found"
+  command -v jq >/dev/null || die "jq not found"
+
+  local repo viewer
+  repo=$(gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null) || die "not a GitHub repo"
+  # Prefer GraphQL: integration tokens often cannot GET /user, and a failed
+  # REST call still writes its error body to stdout — composing it with
+  # `$(a || b)` would concatenate that body onto the real login.
+  viewer=$(gh api graphql -f query='query { viewer { login } }' --jq .data.viewer.login 2>/dev/null) \
+    || viewer=$(gh api user --jq .login 2>/dev/null) \
+    || die "could not resolve authenticated user"
+  case $viewer in ''|null|\{*) die "could not resolve authenticated user" ;; esac
+  [ -n "$pr" ] || pr=$(gh pr view --json number --jq .number 2>/dev/null) || die "no PR for this branch"
+
+  if [ "$watch" -eq 1 ]; then
+    local started=$SECONDS head runs statuses empty=0 left
+    while :; do
+      head=$(gh pr view "$pr" --repo "$repo" --json headRefOid --jq .headRefOid)
+      runs=$(check_runs "$repo" "$head") || die "could not read check runs"
+      statuses=$(commit_statuses "$repo" "$head") || die "could not read commit statuses"
+      if [ "$(jq '[.[] | select(.status != "completed")] | length' <<<"$runs")" = "0" ] &&
+         [ "$(jq '[.[] | select(.state == "pending")] | length' <<<"$statuses")" = "0" ]; then
+        # Nothing outstanding. Wait a few polls before believing a PR that has
+        # reported nothing at all, in case checks are still registering.
+        if [ "$(jq 'length' <<<"$runs")" != "0" ] ||
+           [ "$(jq 'length' <<<"$statuses")" != "0" ] ||
+           [ "$empty" -ge "$EMPTY_POLLS" ]; then
+          break
+        fi
+        empty=$((empty + 1))
+      fi
+      left=$((DEADLINE - (SECONDS - started)))
+      [ "$left" -le 0 ] && break
+      sleep "$(( POLL < left ? POLL : left ))"
+    done
+  fi
+
+  digest "$pr" "$repo" "$viewer"
+}
+
+main "$@"

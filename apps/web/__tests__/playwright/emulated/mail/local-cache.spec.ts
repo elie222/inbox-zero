@@ -328,6 +328,8 @@ async function seedUnifiedMailbox(
   primaryAccountId: string,
   secondaryAccountId: string,
 ) {
+  // Stop the active mail view before replacing messages populated by sync.
+  await page.goto(`/${primaryAccountId}/settings`);
   await page.evaluate(
     async ({ primaryAccountId, secondaryAccountId, subjects }) => {
       await new Promise<void>((resolve, reject) => {
@@ -360,6 +362,8 @@ async function seedUnifiedMailbox(
           ];
           const messages = transaction.objectStore("mailboxMessages");
           const states = transaction.objectStore("mailboxSyncStates");
+          messages.clear();
+          states.clear();
           for (const account of accounts) {
             const internalDate = new Date(account.receivedAt).toISOString();
             const messageId = `${account.emailAccountId}-shared-message`;

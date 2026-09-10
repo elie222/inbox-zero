@@ -4,6 +4,20 @@ import { describe, expect, it } from "vitest";
 import { splitEmailContent } from "./split-email-content.client";
 
 describe("splitEmailContent", () => {
+  it("removes blank quote spacing without removing reply content", () => {
+    const result = splitEmailContent(
+      '<p>Reply</p><br><div dir="ltr"></div><br><div class="gmail_quote">History</div>',
+    );
+    expect(result.mainContent).toBe("<p>Reply</p>");
+  });
+  it("preserves trailing images and styled content before a quote", () => {
+    const content =
+      '<div><img src="cid:signature"></div><div style="height:20px"></div>';
+    expect(
+      splitEmailContent(`${content}<div class="gmail_quote">History</div>`)
+        .mainContent,
+    ).toBe(content);
+  });
   it("collapses a Gmail quote container", () => {
     const result = splitEmailContent(
       '<div>Current reply</div><div class="gmail_quote_container"><div>Earlier message</div></div>',
@@ -13,6 +27,38 @@ describe("splitEmailContent", () => {
       mainContent: "<div>Current reply</div>",
       hasQuotedContent: true,
     });
+  });
+
+  it("preserves document-level styles when collapsing quoted content", () => {
+    const result = splitEmailContent(
+      '<!doctype html><html><head><style>p { margin: 0; }</style></head><body style="background: #222; color: #eee"><p>Current reply</p><div class="gmail_quote">Earlier message</div></body></html>',
+    );
+    const parsedDocument = new DOMParser().parseFromString(
+      result.mainContent,
+      "text/html",
+    );
+
+    expect(result.hasQuotedContent).toBe(true);
+    expect(result.mainContent).toMatch(/^<!doctype html>/i);
+    expect(parsedDocument.body.getAttribute("style")).toBe(
+      "background: #222; color: #eee",
+    );
+    expect(parsedDocument.head.querySelector("style")?.textContent).toContain(
+      "p { margin: 0; }",
+    );
+    expect(parsedDocument.body.textContent).toBe("Current reply");
+  });
+
+  it("preserves legacy doctype identifiers when collapsing quoted content", () => {
+    const legacyDoctype =
+      '<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">';
+    const result = splitEmailContent(
+      `${legacyDoctype}<html><body><p>Current reply</p><div class="gmail_quote">Earlier message</div></body></html>`,
+    );
+
+    expect(result.mainContent).toMatch(
+      /^<!DOCTYPE html PUBLIC "-\/\/W3C\/\/DTD HTML 4\.01 Transitional\/\/EN" "http:\/\/www\.w3\.org\/TR\/html4\/loose\.dtd">/,
+    );
   });
 
   it("collapses a provider-prefixed Outlook reply header and all later content", () => {

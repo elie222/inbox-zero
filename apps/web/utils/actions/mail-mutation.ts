@@ -52,6 +52,7 @@ export const executeMailMutationAction = actionClient
 
     if (parsedInput.kind === "reply") {
       return executeDurableEmailSend({
+        logger,
         emailAccountId,
         getEmailProvider: () =>
           createEmailProvider({ emailAccountId, provider, logger }),
@@ -90,6 +91,12 @@ export const executeMailMutationAction = actionClient
           break;
         case "spam":
           await emailProvider.markSpam(parsedInput.threadId);
+          break;
+        case "set_starred_state":
+          await emailProvider.markMessagesStarredState(
+            parsedInput.messageIds,
+            parsedInput.starred,
+          );
           break;
         case "set_read_state":
           await emailProvider.markMessagesReadState(

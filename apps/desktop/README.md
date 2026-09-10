@@ -1,6 +1,6 @@
 # Desktop app
 
-Electron shell around the hosted Inbox Zero web app. There is no backend in this package: the window loads the same Next.js origin a browser does.
+Electron shell for the hosted Inbox Zero web app.
 
 ## Run
 
@@ -16,11 +16,7 @@ Against a local web app:
 INBOX_ZERO_APP_URL=http://localhost:3000 pnpm --filter @inboxzero/desktop dev
 ```
 
-Sign-in opens the system browser, then returns through `inboxzero://` and `/api/mobile-auth/exchange-code`. Google and Microsoft OAuth are not completed inside the Electron window.
-
-The window remembers the last in-app page (stored in `userData/last-app-url`) and restores it on launch instead of going through `/login` redirects. On macOS, closing the window hides it so reopening from the dock is instant; quit with Cmd+Q.
-
-The web app defaults `DESKTOP_AUTH_ORIGIN` to `inboxzero://`, the same scheme as mobile. Override that only if the desktop protocol scheme changes.
+Sign-in uses the system browser and returns through `inboxzero://`. The web app's `DESKTOP_AUTH_ORIGIN` defaults to this scheme.
 
 ## Package
 
@@ -29,13 +25,11 @@ pnpm --filter @inboxzero/desktop dist:mac
 pnpm --filter @inboxzero/desktop dist:win
 ```
 
-Installers land in `apps/desktop/release/`. Use `pnpm dev` for unsigned local testing; packaged macOS builds require the Developer ID certificate configured below.
-
-The Mac app is distributed directly as a signed and notarized DMG/ZIP. It is not a Mac App Store build, so it does not use Apple's App Sandbox or Mac App Store update and payment policies.
+Installers land in `apps/desktop/release/`. macOS packaging requires a Developer ID certificate and notarization credentials.
 
 ## Release
 
-Push a `desktop-v*` tag or run the **Desktop Release** workflow. That builds macOS (dmg/zip, arm64 + x64) and Windows (NSIS, x64 + arm64) and can publish a GitHub Release.
+Push a `desktop-v*` tag to build and publish a release, or run the [Desktop Release workflow](../../.github/workflows/desktop-release.yml) manually with optional publishing. It packages macOS (DMG/ZIP) and Windows (NSIS) for arm64 and x64.
 
 The macOS release requires these GitHub secrets:
 
@@ -44,6 +38,4 @@ The macOS release requires these GitHub secrets:
 
 Windows signing uses `WIN_CSC_LINK` / `WIN_CSC_KEY_PASSWORD` for the Authenticode `.p12`.
 
-`electron-builder.yml` keeps `mac.notarize` enabled. App Store Connect API credentials are also accepted by Apple's notarization service; using them here does not make the output a Mac App Store build.
-
-Packaged apps check `https://github.com/elie222/inbox-zero/releases/download/desktop-updates` for `latest-mac.yml` / `latest.yml`. That feed is a stable GitHub release; the installers stay on `desktop-v*` releases.
+Auto-update metadata (`latest-mac.yml` / `latest.yml`) is published to the `desktop-updates` release; installers stay on `desktop-v*` releases.

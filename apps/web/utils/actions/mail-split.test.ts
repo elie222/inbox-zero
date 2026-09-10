@@ -1,20 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Prisma } from "@/generated/prisma/client";
-import {
-  ActionType,
-  MailLayout,
-  MailSplitKind,
-  SystemType,
-} from "@/generated/prisma/enums";
+import { MailLayout, MailSplitFilterKind } from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
 import {
+  buildMailSplitFromPromptAction,
   createMailSplitAction,
-  createMailSplitFromPromptAction,
-  renameMailSplitAction,
-  setDefaultMailSplitsAction,
+  deleteMailSplitAction,
   updateMailPreferencesAction,
+  updateMailSplitAction,
 } from "@/utils/actions/mail-split";
-import { aiPromptToSplit } from "@/utils/ai/split/prompt-to-split";
+import { aiPromptToSplitFilters } from "@/utils/ai/split/prompt-to-split";
 
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/auth", () => ({
@@ -23,25 +18,21 @@ vi.mock("@/utils/auth", () => ({
   })),
 }));
 vi.mock("@/utils/ai/split/prompt-to-split", () => ({
-  aiPromptToSplit: vi.fn(),
+  aiPromptToSplitFilters: vi.fn(),
 }));
 
 const EMAIL_ACCOUNT_ID = "email-account-1";
 
 const PROMPT_OPTIONS = [
   {
-    id: "state:unread",
-    name: "Unread",
-    kind: MailSplitKind.UNREAD,
-    value: null,
-  },
-  {
     id: "label:label-1",
     name: "Receipts",
-    kind: MailSplitKind.LABEL,
+    kind: "LABEL" as const,
     value: "label-1",
   },
 ];
+
+const UNREAD_FILTER = { kind: MailSplitFilterKind.UNREAD, value: null };
 
 describe("mail split actions", () => {
   beforeEach(() => {
@@ -52,26 +43,47 @@ describe("mail split actions", () => {
     } as never);
   });
 
+  it("only deletes filtered splits belonging to the account", async () => {
+    prisma.$transaction.mockResolvedValue([[], { count: 1 }] as never);
+    const result = await deleteMailSplitAction(EMAIL_ACCOUNT_ID, {
+      id: "custom",
+    });
+    expect(result?.serverError).toBeUndefined();
+    expect(prisma.mailSplit.deleteMany).toHaveBeenCalledWith({
+      where: {
+        id: "custom",
+        emailAccountId: EMAIL_ACCOUNT_ID,
+        filters: { some: {} },
+      },
+    });
+  });
+
+  it("reports when a protected split cannot be removed", async () => {
+    prisma.$transaction.mockResolvedValue([[], { count: 0 }] as never);
+    const result = await deleteMailSplitAction(EMAIL_ACCOUNT_ID, { id: "all" });
+    expect(result?.serverError).toBe("Split not found or cannot be removed");
+  });
+
   it("creates splits behind an account-scoped database lock", async () => {
     const split = {
       id: "split-1",
       createdAt: new Date(),
       updatedAt: new Date(),
       name: "Unread",
-      kind: MailSplitKind.UNREAD,
-      value: null,
+      matchAll: true,
       order: 0,
       emailAccountId: EMAIL_ACCOUNT_ID,
     };
     prisma.$transaction.mockResolvedValue([
       [{ locked: true }],
       [{ status: "created", ...split }],
+      1,
     ] as never);
 
     const result = await createMailSplitAction(EMAIL_ACCOUNT_ID, {
       name: "Unread",
-      kind: MailSplitKind.UNREAD,
-      value: null,
+      matchAll: true,
+      filters: [UNREAD_FILTER],
     });
 
     expect(result?.data).toEqual({ split });
@@ -87,27 +99,29 @@ describe("mail split actions", () => {
     prisma.$transaction.mockResolvedValue([
       [{ locked: true }],
       [{ status: "limit" }],
+      0,
     ] as never);
 
     const result = await createMailSplitAction(EMAIL_ACCOUNT_ID, {
       name: "Later",
-      kind: MailSplitKind.UNREAD,
-      value: null,
+      matchAll: true,
+      filters: [UNREAD_FILTER],
     });
 
-    expect(result?.serverError).toBe("You can only have 12 splits.");
+    expect(result?.serverError).toBe("You can only have 14 splits.");
   });
 
   it("returns a user-safe error when a split name already exists", async () => {
     prisma.$transaction.mockResolvedValue([
       [{ locked: true }],
       [{ status: "duplicate" }],
+      0,
     ] as never);
 
     const result = await createMailSplitAction(EMAIL_ACCOUNT_ID, {
       name: "Unread",
-      kind: MailSplitKind.UNREAD,
-      value: null,
+      matchAll: true,
+      filters: [UNREAD_FILTER],
     });
 
     expect(result?.serverError).toBe('You already have a "Unread" split.');
@@ -118,102 +132,109 @@ describe("mail split actions", () => {
 
     const result = await createMailSplitAction(EMAIL_ACCOUNT_ID, {
       name: "Unread",
-      kind: MailSplitKind.UNREAD,
-      value: null,
+      matchAll: true,
+      filters: [UNREAD_FILTER],
     });
 
     expect(result?.serverError).toBe('You already have a "Unread" split.');
   });
 
-  it("creates the split the AI matched from a description", async () => {
-    vi.mocked(aiPromptToSplit).mockResolvedValue({
-      reasoning: "Receipts filters for what the user described",
-      optionId: "label:label-1",
-      name: "Receipts",
-    });
-    const split = {
-      id: "split-1",
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      name: "Receipts",
-      kind: MailSplitKind.LABEL,
-      value: "label-1",
-      order: 0,
-      emailAccountId: EMAIL_ACCOUNT_ID,
-    };
-    prisma.$transaction.mockResolvedValue([
-      [{ locked: true }],
-      [{ status: "created", ...split }],
-    ] as never);
-
-    const result = await createMailSplitFromPromptAction(EMAIL_ACCOUNT_ID, {
-      prompt: "my receipts",
-      options: PROMPT_OPTIONS,
+  it("rejects a condition that needs a value but has none", async () => {
+    const result = await createMailSplitAction(EMAIL_ACCOUNT_ID, {
+      name: "Broken",
+      matchAll: true,
+      filters: [{ kind: MailSplitFilterKind.LABEL, value: null }],
     });
 
-    expect(result?.data).toEqual({ split });
-    // Label ids are stripped before the prompt; the AI only sees id/name/kind.
-    expect(aiPromptToSplit).toHaveBeenCalledWith(
-      expect.objectContaining({
-        prompt: "my receipts",
-        options: [
-          { id: "state:unread", name: "Unread", kind: MailSplitKind.UNREAD },
-          { id: "label:label-1", name: "Receipts", kind: MailSplitKind.LABEL },
-        ],
-      }),
-    );
-  });
-
-  it("returns a user-safe error when the AI response isn't one of the options", async () => {
-    vi.mocked(aiPromptToSplit).mockResolvedValue({
-      reasoning: "Invented an option that does not exist",
-      optionId: "label:made-up",
-      name: "Boss",
-    });
-
-    const result = await createMailSplitFromPromptAction(EMAIL_ACCOUNT_ID, {
-      prompt: "emails from my boss",
-      options: PROMPT_OPTIONS,
-    });
-
-    expect(result?.serverError).toBe(
-      "Couldn't match that to a label or category. Try different wording, or pick one from the list.",
-    );
+    expect(result?.validationErrors).toBeDefined();
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
-  it("returns a user-safe error when a rename duplicates a split", async () => {
+  it("hands the AI's conditions back for review instead of creating a split", async () => {
+    vi.mocked(aiPromptToSplitFilters).mockResolvedValue({
+      name: "Unread receipts",
+      matchAll: false,
+      filters: [
+        UNREAD_FILTER,
+        { kind: MailSplitFilterKind.LABEL, value: "label-1" },
+      ],
+    });
+
+    const result = await buildMailSplitFromPromptAction(EMAIL_ACCOUNT_ID, {
+      prompt: "receipts I have not read",
+      options: PROMPT_OPTIONS,
+      senders: [],
+    });
+
+    expect(result?.data).toEqual({
+      matchAll: false,
+      name: "Unread receipts",
+      filters: [
+        UNREAD_FILTER,
+        { kind: MailSplitFilterKind.LABEL, value: "label-1" },
+      ],
+    });
+    // Nothing is written until the reader confirms in the builder.
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("returns a user-safe error when the AI finds no usable conditions", async () => {
+    vi.mocked(aiPromptToSplitFilters).mockResolvedValue({
+      name: null,
+      matchAll: true,
+      filters: [],
+    });
+
+    const result = await buildMailSplitFromPromptAction(EMAIL_ACCOUNT_ID, {
+      prompt: "flight itineraries",
+      options: PROMPT_OPTIONS,
+      senders: [],
+    });
+
+    expect(result?.serverError).toBe(
+      "I couldn't find filters in that — name a sender, label or category.",
+    );
+  });
+
+  it("returns a user-safe error when an edit duplicates another split's name", async () => {
     prisma.$transaction.mockRejectedValue(createDuplicateNameError());
 
-    const result = await renameMailSplitAction(EMAIL_ACCOUNT_ID, {
+    const result = await updateMailSplitAction(EMAIL_ACCOUNT_ID, {
       id: "split-1",
       name: "Unread",
+      matchAll: true,
+      filters: [UNREAD_FILTER],
     });
 
     expect(result?.serverError).toBe('You already have a "Unread" split.');
   });
 
-  it("returns a user-safe error instead of partially adding defaults", async () => {
-    prisma.rule.findMany.mockResolvedValue([
-      {
-        systemType: SystemType.RECEIPT,
-        actions: [{ type: ActionType.LABEL, labelId: "receipt-label" }],
-      },
-      {
-        systemType: SystemType.NEWSLETTER,
-        actions: [{ type: ActionType.LABEL, labelId: "newsletter-label" }],
-      },
-    ] as never);
+  it("replaces an edited split's conditions in the same locked transaction", async () => {
     prisma.$transaction.mockResolvedValue([
       [{ locked: true }],
-      [{ availableCount: 1, missingCount: 2 }],
+      { count: 1 },
+      { count: 1 },
+      1,
     ] as never);
 
-    const result = await setDefaultMailSplitsAction(EMAIL_ACCOUNT_ID, {
-      enabled: true,
+    await updateMailSplitAction(EMAIL_ACCOUNT_ID, {
+      id: "split-1",
+      name: "Receipts",
+      matchAll: false,
+      filters: [{ kind: MailSplitFilterKind.LABEL, value: "label-1" }],
     });
 
-    expect(result?.serverError).toBe("You can only have 12 splits.");
+    // Scoped through the split's owner: `id` is caller-supplied, so another
+    // account's conditions must stay out of reach.
+    expect(prisma.mailSplitFilter.deleteMany).toHaveBeenCalledWith({
+      where: {
+        mailSplitId: "split-1",
+        mailSplit: { emailAccountId: EMAIL_ACCOUNT_ID },
+      },
+    });
+    // One transaction, so a split can't end up renamed but still carrying its
+    // old conditions.
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
   });
 
   it("persists the selected mail layout", async () => {

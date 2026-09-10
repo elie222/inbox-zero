@@ -1,3 +1,4 @@
+import { INITIAL_MAIL_SPLITS } from "@/utils/mail/initial-splits";
 import { expect } from "@playwright/test";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
@@ -7,14 +8,68 @@ import {
   conversationWithSubject,
   openMail,
   seedDefaultSplitRule,
+  withClient,
 } from "./mail-test-helpers";
 
 let defaultSplitEmailAccountId: string | undefined;
+
+test.beforeEach(async ({ page }) => {
+  const emailAccountId = await getEmailAccountId(page);
+  await withClient(async (client) => {
+    await client.query('DELETE FROM "MailSplit" WHERE "emailAccountId" = $1', [
+      emailAccountId,
+    ]);
+    for (const [order, split] of INITIAL_MAIL_SPLITS.entries()) {
+      const { rows } = await client.query(
+        `INSERT INTO "MailSplit" (id, "updatedAt", "emailAccountId", name, "matchAll", "order")
+         VALUES (gen_random_uuid()::text, NOW(), $1, $2, true, $3) RETURNING id`,
+        [emailAccountId, split.name, order],
+      );
+      const splitId = rows.at(0)?.id;
+      if (!splitId) throw new Error("Could not initialize split fixture");
+      for (const filter of split.filters.create) {
+        await client.query(
+          `INSERT INTO "MailSplitFilter" (id, "mailSplitId", kind, value, "order") VALUES (gen_random_uuid()::text, $1, $2, $3, $4)`,
+          [splitId, filter.kind, filter.value, filter.order],
+        );
+      }
+    }
+  });
+});
 
 test.afterEach(async () => {
   if (!defaultSplitEmailAccountId) return;
   await cleanupDefaultSplitRule(defaultSplitEmailAccountId);
   defaultSplitEmailAccountId = undefined;
+});
+
+/** Next's dev indicator otherwise lands in every product screenshot. */
+async function hideDevIndicator(page: Parameters<typeof openMail>[0]) {
+  await page.locator("nextjs-portal").evaluateAll((portals) => {
+    for (const portal of portals) portal.remove();
+  });
+}
+
+test("restores a deleted All tab and protects it from removal", async ({
+  page,
+}, testInfo) => {
+  const emailAccountId = await getEmailAccountId(page);
+  await withClient((client) =>
+    client.query(
+      'DELETE FROM "MailSplit" WHERE "emailAccountId" = $1 AND name = $2',
+      [emailAccountId, "All"],
+    ),
+  );
+  await openMail(page);
+  const allTab = page
+    .locator("button[data-split-tab]")
+    .filter({ hasText: /^All$/ });
+  await expect(allTab).toBeVisible();
+  await allTab.click({ button: "right" });
+  await expect(
+    page.getByRole("menuitem", { name: "Turn off split" }),
+  ).toBeHidden();
+  await capturePlaywrightCheckpoint(page, testInfo, "mail-protected-all-split");
 });
 
 test("moves focus with the active split when cycling by keyboard", async ({
@@ -36,75 +91,60 @@ test("moves focus with the active split when cycling by keyboard", async ({
   );
 });
 
-test("shows a combined picker and creates a matching split", async ({
+test("builds a split from conditions and shows only matching mail", async ({
   page,
 }, testInfo) => {
   const { conversations } = await openMail(page);
 
   await page.getByRole("button", { name: "New split" }).click();
-
-  const search = page.getByRole("combobox", {
-    name: "Search or describe a split",
-  });
-  await expect(
-    page.getByRole("option", { name: "Promotions", exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("option", { name: "Project Alpha", exact: true }),
-  ).toBeVisible();
+  await expect(page.getByText("New split inbox")).toBeVisible();
   await expect(page.getByText(/Compiling/)).toBeHidden();
-  // Keep Next's development indicator out of product screenshots.
-  await page.locator("nextjs-portal").evaluateAll((portals) => {
-    for (const portal of portals) portal.remove();
+  await hideDevIndicator(page);
+  await capturePlaywrightCheckpoint(page, testInfo, "mail-new-split-library");
+
+  await page.getByRole("button", { name: "Build your own" }).click();
+  await expect(page.getByText("Show mail matching")).toBeVisible();
+
+  await page.getByLabel("Condition field").first().selectOption("CATEGORY");
+  await page.getByLabel("Condition value").first().selectOption({
+    label: "Promotions",
   });
-  await capturePlaywrightCheckpoint(page, testInfo, "mail-new-split-initial");
+  await page.getByLabel("Split name").fill("Promos");
+  await capturePlaywrightCheckpoint(page, testInfo, "mail-new-split-builder");
 
-  await search.fill("Posts from social networks");
-  await expect(
-    page.getByRole("option", {
-      name: "Create “Posts from social networks”",
-    }),
-  ).toBeVisible();
-  await capturePlaywrightCheckpoint(
-    page,
-    testInfo,
-    "mail-new-split-description",
-  );
+  await page.getByRole("button", { name: "Add split" }).click();
 
-  await search.fill("Promotions");
-  const promotionsOption = page.getByRole("option", {
-    name: "Promotions",
-    exact: true,
-  });
-  await expect(promotionsOption).toBeVisible();
-  await capturePlaywrightCheckpoint(
-    page,
-    testInfo,
-    "mail-new-split-existing-option",
-  );
-
-  await promotionsOption.click();
-  const promotionsSplit = page.getByRole("button", {
-    name: "Promotions",
-    exact: true,
-  });
-  await expect(promotionsSplit).toBeVisible();
-
-  await promotionsSplit.click();
-  await expect(promotionsSplit).toHaveAttribute("aria-current", "true");
+  const promosSplit = page.getByRole("button", { name: "Promos", exact: true });
+  await expect(promosSplit).toBeVisible();
+  await expect(promosSplit).toHaveAttribute("aria-current", "true");
   await expect(
     conversationWithSubject(page, conversations, "Promotion Category Message"),
   ).toBeVisible();
   await expect(conversations.getByRole("option")).toHaveCount(1);
+  await hideDevIndicator(page);
   await capturePlaywrightCheckpoint(page, testInfo, "mail-new-split-created");
 
-  await page
-    .getByRole("button", { name: "Remove the Promotions split" })
-    .click();
-  await expect(promotionsSplit).toHaveCount(0);
+  // The tab's own menu edits the split rather than sending you back to the list.
+  await promosSplit.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Edit filters and name" }).click();
+  await expect(page.getByText("Edit split")).toBeVisible();
+  await expect(page.getByLabel("Condition value").first()).toHaveValue(
+    /PROMOTIONS/,
+  );
+  await hideDevIndicator(page);
+  await capturePlaywrightCheckpoint(page, testInfo, "mail-split-edit");
+
+  await page.getByRole("button", { name: "Add condition" }).click();
+  await expect(page.getByLabel("Condition field")).toHaveCount(2);
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(promosSplit).toBeVisible();
+
+  await promosSplit.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Turn off split" }).click();
+  await expect(promosSplit).toHaveCount(0);
 });
 
-test("organizes split choices and manages all rule labels", async ({
+test("turns a prepared split on from the library", async ({
   page,
 }, testInfo) => {
   const emailAccountId = await getEmailAccountId(page);
@@ -113,34 +153,36 @@ test("organizes split choices and manages all rule labels", async ({
   await openMail(page);
 
   await page.getByRole("button", { name: "New split" }).click();
+  await page.getByRole("button", { name: "General", exact: true }).click();
 
-  await expect(page.getByText("State", { exact: true })).toHaveCount(0);
-  const headingElements = page.locator("[cmdk-group-heading]");
-  await expect(headingElements.filter({ hasText: /^Labels/ })).toBeVisible();
+  // The library only offers label-backed entries when the account has that
+  // label; the fixture's label is "Project Alpha", so use one needing none.
+  const starredTile = page.getByRole("button", {
+    name: "Turn on the Starred split",
+  });
+  await expect(starredTile).toBeVisible();
+  await hideDevIndicator(page);
+  await capturePlaywrightCheckpoint(page, testInfo, "mail-split-library");
+
+  await starredTile.click();
   await expect(
-    headingElements.filter({ hasText: /^Categories$/ }),
+    page.getByRole("button", { name: "Turn off the Starred split" }),
   ).toBeVisible();
-  const groupHeadings = await headingElements.allTextContents();
-  expect(
-    groupHeadings.findIndex((heading) => heading.startsWith("Labels")),
-  ).toBeLessThan(
-    groupHeadings.findIndex((heading) => heading.startsWith("Categories")),
-  );
 
-  await page.getByRole("option", { name: "Add all" }).click();
-  const calendarSplit = page.getByRole("button", {
-    name: "Calendar",
+  await page.getByRole("button", { name: "Close" }).click();
+  const starredSplit = page.getByRole("button", {
+    name: "Starred",
     exact: true,
   });
-  await expect(calendarSplit).toBeVisible();
-  await page.getByRole("button", { name: "New split" }).click();
-  await expect(page.getByRole("option", { name: "Remove all" })).toBeVisible();
+  await expect(starredSplit).toBeVisible();
+  await hideDevIndicator(page);
   await capturePlaywrightCheckpoint(
     page,
     testInfo,
     "mail-rule-label-splits-added",
   );
 
-  await page.getByRole("option", { name: "Remove all" }).click();
-  await expect(calendarSplit).toHaveCount(0);
+  await starredSplit.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Turn off split" }).click();
+  await expect(starredSplit).toHaveCount(0);
 });

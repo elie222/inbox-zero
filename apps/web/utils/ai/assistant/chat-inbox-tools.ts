@@ -8,6 +8,7 @@ import { isGoogleProvider } from "@/utils/email/provider-types";
 import {
   extractEmailAddress,
   extractUniqueEmailAddresses,
+  isValidEmail,
   splitRecipientList,
 } from "@/utils/email";
 import { getRuleLabel } from "@/utils/rule/consts";
@@ -59,29 +60,6 @@ import { SafeError } from "@/utils/error";
 const SEARCH_INBOX_MAX_RESULTS = 20;
 const OUTLOOK_EMPTY_PAGE_AUTOPAGINATION_LIMIT = 5;
 const MAX_SENDER_CATEGORIZATION_WAIT_MS = 1500;
-const OUTLOOK_SCOPE_SUFFIX_TERMS = new Set([
-  "category",
-  "folder",
-  "mailbox",
-  "email",
-  "emails",
-  "message",
-  "messages",
-  "mail",
-]);
-const OUTLOOK_BOOLEAN_OPERATORS = new Set(["AND", "OR", "NOT"]);
-const OUTLOOK_TEMPORAL_SEARCH_TERMS = new Set([
-  "today",
-  "yesterday",
-  "tomorrow",
-  "week",
-  "month",
-  "year",
-  "morning",
-  "afternoon",
-  "evening",
-]);
-
 const recipientListSchema = z
   .string()
   .trim()
@@ -521,7 +499,7 @@ const gmailSearchInboxInputSchema = z.object({
     .min(1)
     .max(500)
     .describe(
-      "Search query using Gmail syntax. Supports: from:, to:, subject:, in:inbox, is:unread, has:attachment, after:YYYY/MM/DD, before:YYYY/MM/DD, label:, newer_than:, older_than:.",
+      "Gmail search query. Use from:person@example.com for an exact sender search. Also supports: to:, subject:, in:inbox, is:unread, has:attachment, after:YYYY/MM/DD, before:YYYY/MM/DD, label:, newer_than:, older_than:.",
     ),
   ...searchInboxBaseFields,
 });
@@ -534,9 +512,17 @@ const outlookSearchInboxInputSchema = z
       .max(500)
       .default("")
       .describe(
-        "Outlook search query for sender, subject, message-content, or date/age filters. Do not put a mailbox category, folder, mail class, or read/unread state here.",
+        "Outlook search for a sender name or brand, recipient, subject, message content, or date/age filters. Use to:person@example.com for an exact recipient. Do not put an exact sender address, mailbox category, folder, mail class, or read/unread state here.",
       ),
     ...searchInboxBaseFields,
+    fromEmail: z
+      .string()
+      .trim()
+      .refine(isValidEmail, "Invalid email address")
+      .nullish()
+      .describe(
+        "Exact sender email address. Use this instead of query when the sender address is known.",
+      ),
     readState: z
       .enum(["read", "unread"])
       .nullish()
@@ -549,13 +535,16 @@ const outlookSearchInboxInputSchema = z
       .min(1)
       .nullish()
       .describe(
-        "Outlook category or folder scope for a scoped inbox search or cleanup request.",
+        "Outlook category or folder name, folder path, or folder/category ID for a scoped inbox search or cleanup request.",
       ),
   })
   .refine(
-    (value) => Boolean(value.query || value.readState || value.categoryName),
+    (value) =>
+      Boolean(
+        value.query || value.fromEmail || value.readState || value.categoryName,
+      ),
     {
-      message: "query, readState, or categoryName is required",
+      message: "query, fromEmail, readState, or categoryName is required",
     },
   );
 
@@ -628,7 +617,14 @@ const outlookSearchInboxTool = ({
     execute: async (input) => {
       trackToolCall({ tool: "search_inbox", email, logger });
 
-      const { query = "", limit, pageToken, readState, categoryName } = input;
+      const {
+        query = "",
+        fromEmail,
+        limit,
+        pageToken,
+        readState,
+        categoryName,
+      } = input;
 
       try {
         const emailProvider = await createEmailProvider({
@@ -642,6 +638,7 @@ const outlookSearchInboxTool = ({
         });
         const normalizedInput = normalizeOutlookSearchInput({
           query,
+          fromEmail,
           readState,
           categoryName,
         });
@@ -1265,6 +1262,7 @@ export const sendEmailTool = ({
           parsedInput.data,
           from || null,
           provider,
+          emailAccountId,
         );
       } catch (error) {
         logger.error("Failed to prepare email from chat", { error });
@@ -1308,7 +1306,11 @@ export const replyEmailTool = ({
           parsedInput.data.messageId,
         );
 
-        return createPendingReplyEmailOutput(parsedInput.data, message);
+        return createPendingReplyEmailOutput(
+          parsedInput.data,
+          message,
+          emailAccountId,
+        );
       } catch (error) {
         logger.error("Failed to prepare reply from chat", { error });
         return { error: "Failed to prepare reply" };
@@ -1350,7 +1352,11 @@ export const forwardEmailTool = ({
         const message = await emailProvider.getMessage(
           parsedInput.data.messageId,
         );
-        return createPendingForwardEmailOutput(parsedInput.data, message);
+        return createPendingForwardEmailOutput(
+          parsedInput.data,
+          message,
+          emailAccountId,
+        );
       } catch (error) {
         logger.error("Failed to prepare email forward from chat", { error });
         return { error: "Failed to prepare email forward" };
@@ -1402,9 +1408,11 @@ function createPendingSendEmailOutput(
   input: z.infer<typeof sendEmailToolInputSchema>,
   from: string | null,
   provider: string,
+  emailAccountId: string,
 ) {
   return {
     success: true,
+    emailAccountId,
     actionType: "send_email" as PendingEmailActionType,
     requiresConfirmation: true,
     confirmationState: "pending" as const,
@@ -1423,9 +1431,11 @@ function createPendingSendEmailOutput(
 function createPendingReplyEmailOutput(
   input: z.infer<typeof replyEmailToolInputSchema>,
   message: ParsedMessage,
+  emailAccountId: string,
 ) {
   return {
     success: true,
+    emailAccountId,
     actionType: "reply_email" as PendingEmailActionType,
     requiresConfirmation: true,
     confirmationState: "pending" as const,
@@ -1445,9 +1455,11 @@ function createPendingReplyEmailOutput(
 function createPendingForwardEmailOutput(
   input: z.infer<typeof forwardEmailToolInputSchema>,
   message: ParsedMessage,
+  emailAccountId: string,
 ) {
   return {
     success: true,
+    emailAccountId,
     actionType: "forward_email" as PendingEmailActionType,
     requiresConfirmation: true,
     confirmationState: "pending" as const,
@@ -1654,7 +1666,7 @@ async function runOutlookSearch({
   addSearchQuery(fallbackQuery);
 
   let result: SearchMessagesResult | undefined;
-  let queryUsed = normalizedInput.query;
+  let executedQuery = normalizedInput.query;
   let lastError: unknown;
   const failures: Array<{ query: string; error: unknown }> = [];
   let retryGuidanceAdded = false;
@@ -1666,10 +1678,11 @@ async function runOutlookSearch({
         query: candidateQuery,
         maxResults: limit ?? SEARCH_INBOX_MAX_RESULTS,
         pageToken: pageToken ?? undefined,
+        fromEmail: normalizedInput.fromEmail ?? undefined,
         readState: normalizedInput.readState ?? undefined,
         labelName: normalizedInput.categoryName ?? undefined,
       });
-      queryUsed = candidateQuery;
+      executedQuery = candidateQuery;
       break;
     } catch (error) {
       lastError = error;
@@ -1698,6 +1711,11 @@ async function runOutlookSearch({
     }
   }
 
+  const queryUsed = formatQueryWithFromEmail(
+    executedQuery,
+    normalizedInput.fromEmail,
+  );
+
   if (!result) {
     return { queryUsed, lastError, failures };
   }
@@ -1705,25 +1723,12 @@ async function runOutlookSearch({
   result = await skipEmptyOutlookSearchPages({
     emailProvider,
     searchResult: result,
-    queryUsed,
+    query: executedQuery,
     limit,
     readState: normalizedInput.readState,
     categoryName: normalizedInput.categoryName,
+    fromEmail: normalizedInput.fromEmail,
   });
-
-  if (
-    normalizedInput.fallbackQuery &&
-    !pageToken &&
-    result.messages.length === 0 &&
-    !result.nextPageToken
-  ) {
-    result = await emailProvider.searchMessages({
-      query: normalizedInput.fallbackQuery,
-      maxResults: limit ?? SEARCH_INBOX_MAX_RESULTS,
-      readState: normalizedInput.readState ?? undefined,
-    });
-    queryUsed = normalizedInput.fallbackQuery;
-  }
 
   return { result, queryUsed, failures };
 }
@@ -1731,17 +1736,19 @@ async function runOutlookSearch({
 async function skipEmptyOutlookSearchPages({
   emailProvider,
   searchResult,
-  queryUsed,
+  query,
   limit,
   readState,
   categoryName,
+  fromEmail,
 }: {
   emailProvider: EmailProvider;
   searchResult: SearchMessagesResult;
-  queryUsed: string;
+  query: string;
   limit?: number;
   readState?: OutlookReadState | null;
   categoryName?: string | null;
+  fromEmail?: string | null;
 }) {
   let result = searchResult;
   let emptyPageSkips = 0;
@@ -1753,9 +1760,10 @@ async function skipEmptyOutlookSearchPages({
   ) {
     emptyPageSkips += 1;
     result = await emailProvider.searchMessages({
-      query: queryUsed,
+      query,
       maxResults: limit ?? SEARCH_INBOX_MAX_RESULTS,
       pageToken: result.nextPageToken,
+      fromEmail: fromEmail ?? undefined,
       readState: readState ?? undefined,
       labelName: categoryName ?? undefined,
     });
@@ -1766,17 +1774,19 @@ async function skipEmptyOutlookSearchPages({
 
 type NormalizedOutlookSearchInput = {
   query: string;
+  fromEmail?: string | null;
   readState?: OutlookReadState | null;
   categoryName?: string | null;
-  fallbackQuery?: string | null;
 };
 
 function normalizeOutlookSearchInput({
   query,
+  fromEmail,
   readState,
   categoryName,
 }: {
   query: string;
+  fromEmail?: string | null;
   readState?: OutlookReadState | null;
   categoryName?: string | null;
 }): NormalizedOutlookSearchInput {
@@ -1786,6 +1796,28 @@ function normalizeOutlookSearchInput({
   const queryWithoutState = inferredReadState
     ? stripStandaloneOutlookStateTerms(normalizedQuery).trim()
     : normalizedQuery;
+  const explicitFromEmail = fromEmail?.trim() || null;
+  const queryFromEmail =
+    getStandaloneSenderEmailFromOutlookQuery(queryWithoutState);
+  if (
+    explicitFromEmail &&
+    queryFromEmail &&
+    explicitFromEmail.toLowerCase() !== queryFromEmail.toLowerCase()
+  ) {
+    throw new Error("Sender filters conflict. Use one exact sender address.");
+  }
+  const effectiveFromEmail = explicitFromEmail ?? queryFromEmail;
+
+  if (effectiveFromEmail) {
+    const queryContainsOnlySameSender =
+      queryFromEmail?.toLowerCase() === effectiveFromEmail.toLowerCase();
+    return {
+      query: queryContainsOnlySameSender ? "" : queryWithoutState,
+      fromEmail: effectiveFromEmail,
+      readState: inferredReadState,
+      categoryName,
+    };
+  }
 
   if (categoryName) {
     return {
@@ -1802,14 +1834,12 @@ function normalizeOutlookSearchInput({
     };
   }
 
-  const scopeCandidate =
-    getOutlookFieldScopeCandidate(queryWithoutState) ??
-    getOutlookScopeCandidate(queryWithoutState);
+  const scopeCandidate = getOutlookFieldScopeCandidate(queryWithoutState);
 
   if (!scopeCandidate) {
     return {
-      query: normalizedQuery,
-      readState,
+      query: queryWithoutState,
+      readState: inferredReadState,
     };
   }
 
@@ -1817,8 +1847,23 @@ function normalizeOutlookSearchInput({
     query: "",
     readState: inferredReadState,
     categoryName: scopeCandidate,
-    fallbackQuery: normalizedQuery,
   };
+}
+
+function getStandaloneSenderEmailFromOutlookQuery(query: string) {
+  const match = query
+    .trim()
+    .match(/^from\s*:\s*["']?([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})["']?$/i);
+  return match?.[1] ?? null;
+}
+
+function formatQueryWithFromEmail(
+  query: string,
+  fromEmail: string | null | undefined,
+) {
+  if (!fromEmail) return query;
+  if (!query.trim()) return `from:${fromEmail}`;
+  return `from:${fromEmail} ${query}`;
 }
 
 function inferOutlookReadStateFromQuery(
@@ -1839,52 +1884,7 @@ function getOutlookFieldScopeCandidate(query: string) {
   const field = normalizedQuery.slice(0, colonIndex).trim().toLowerCase();
   if (field !== "category" && field !== "folder") return null;
 
-  return stripOutlookScopeDecorators(normalizedQuery.slice(colonIndex + 1));
-}
-
-function getOutlookScopeCandidate(query: string) {
-  const normalizedQuery = query.trim();
-  if (!normalizedQuery) return null;
-  if (hasOutlookTextSearchSyntax(normalizedQuery)) return null;
-  if (hasOutlookTemporalSearchTerm(normalizedQuery)) return null;
-
-  const candidate = stripOutlookScopeDecorators(normalizedQuery);
-  if (!candidate) return null;
-
-  return candidate;
-}
-
-function hasOutlookTemporalSearchTerm(query: string) {
-  return splitOutlookScopeWords(query).some((word) =>
-    OUTLOOK_TEMPORAL_SEARCH_TERMS.has(word.toLowerCase()),
-  );
-}
-
-function hasOutlookTextSearchSyntax(query: string) {
-  return (
-    hasOutlookSearchOperatorCharacters(query) ||
-    splitOutlookScopeWords(query).some((word) =>
-      OUTLOOK_BOOLEAN_OPERATORS.has(word.toUpperCase()),
-    ) ||
-    getOutlookComparisonFilters(query).length > 0
-  );
-}
-
-function hasOutlookSearchOperatorCharacters(query: string) {
-  return Array.from(query).some((char) =>
-    ["@", ":", "<", ">", "=", "{", "}", "[", "]", "|"].includes(char),
-  );
-}
-
-function stripOutlookScopeDecorators(value: string) {
-  const words = splitOutlookScopeWords(stripWrappingQuotes(value));
-  const lastWord = words.at(-1)?.toLowerCase();
-
-  if (lastWord && OUTLOOK_SCOPE_SUFFIX_TERMS.has(lastWord)) {
-    words.pop();
-  }
-
-  return words.join(" ").trim();
+  return stripWrappingQuotes(normalizedQuery.slice(colonIndex + 1));
 }
 
 function stripWrappingQuotes(value: string) {
@@ -1902,14 +1902,6 @@ function stripWrappingQuotes(value: string) {
   }
 
   return normalized;
-}
-
-function splitOutlookScopeWords(value: string) {
-  return value
-    .trim()
-    .split(/\s+/)
-    .map((word) => word.replace(/^[()]+|[()]+$/g, ""))
-    .filter(Boolean);
 }
 
 async function runThreadActionsInParallel({

@@ -17,6 +17,7 @@ import {
 const SCOPES: readonly ShortcutScope[] = ["global", "mail"];
 
 export type ShortcutsDialogProps = {
+  isDesktopApp: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 };
@@ -25,8 +26,12 @@ export type ShortcutsDialogProps = {
  * Rendered straight from the shortcut registry, so a binding can never be
  * documented here without also being bound — or bound without being documented.
  */
-export function ShortcutsDialog({ open, onOpenChange }: ShortcutsDialogProps) {
-  const groups = getShortcutGroups(SCOPES);
+export function ShortcutsDialog({
+  isDesktopApp,
+  open,
+  onOpenChange,
+}: ShortcutsDialogProps) {
+  const groups = getShortcutGroups(SCOPES, { isDesktopApp });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { APICallError, NoObjectGeneratedError } from "ai";
+import { APICallError, NoObjectGeneratedError, RetryError } from "ai";
 import { createScopedLogger } from "@/utils/logger";
 
 const { mockSentryCaptureException, mockSetUser } = vi.hoisted(() => ({
@@ -24,6 +24,7 @@ import {
   isInsufficientCreditsError,
   isContentFilterRefusal,
   isHandledUserKeyError,
+  isAiQuotaExceededError,
   isKnownApiError,
   isInvalidAIModelError,
   isKnownOutlookError,
@@ -32,6 +33,20 @@ import {
   isOutlookThrottlingError,
   markAsHandledUserKeyError,
 } from "./error";
+
+describe("isAiQuotaExceededError", () => {
+  it("detects quota errors wrapped by the AI SDK retry error", () => {
+    const error = new RetryError({
+      message: "Failed after multiple attempts",
+      reason: "maxRetriesExceeded",
+      errors: [
+        createAPICallError({ message: "Quota exceeded", statusCode: 429 }),
+      ],
+    });
+
+    expect(isAiQuotaExceededError(error)).toBe(true);
+  });
+});
 
 describe("assertActionSucceeded", () => {
   it("does not throw for a successful action result", () => {

@@ -1,3 +1,5 @@
+import { CalendarInvitation } from "@/components/email-list/CalendarInvitation";
+import { isCalendarInvitationMessage } from "@/utils/calendar/invitations/detection";
 import { useCallback, useMemo, useState, useRef, useEffect } from "react";
 import { useAction } from "next-safe-action/hooks";
 import useSWR from "swr";
@@ -6,7 +8,6 @@ import {
   ReplyIcon,
   ChevronsUpDownIcon,
   ChevronsDownUpIcon,
-  UserRoundSearchIcon,
 } from "lucide-react";
 import { Tooltip } from "@/components/Tooltip";
 import {
@@ -19,7 +20,6 @@ import { formatShortDate } from "@/utils/date";
 import { ComposeEmailFormLazy } from "@/app/(app)/[emailAccountId]/compose/ComposeEmailFormLazy";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import type { ParsedMessage } from "@/utils/types";
 import { forwardEmailHtml, forwardEmailSubject } from "@/utils/gmail/forward";
 import { extractEmailReply } from "@/utils/parse/extract-reply.client";
@@ -28,93 +28,155 @@ import { createReplyContent } from "@/utils/gmail/reply";
 import { cn } from "@/utils";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { GmailLabel } from "@/utils/gmail/label";
-import { generateNudgeReplyAction } from "@/utils/actions/generate-reply";
 import { deleteDraftAction } from "@/utils/actions/mail";
 import type { ThreadMessage } from "@/components/email-list/types";
 import { EmailDetails } from "@/components/email-list/EmailDetails";
 import { HtmlEmail, PlainEmail } from "@/components/email-list/EmailContents";
 import { EmailAttachments } from "@/components/email-list/EmailAttachments";
-import { Loading } from "@/components/Loading";
-import { MessageText } from "@/components/Typography";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { formatReplySubject } from "@/utils/email/subject";
 import { env } from "@/env";
+import { isTypingTarget } from "@/lib/shortcuts/registry";
 import type { ContactsResponse } from "@/app/api/user/contacts/route";
 import { toastError } from "@/components/Toast";
 import { getActionErrorMessage } from "@/utils/error";
+import {
+  getReplyDraftSessionId,
+  type ReplyDraftMode,
+} from "@/utils/email-cache/reply-drafts";
+
+type ComposeSession = { id: number; mode: ReplyDraftMode };
 
 export function EmailMessage({
   message,
   refetch,
   showReplyButton,
-  defaultShowReply,
+  defaultComposeMode,
   draftMessage,
   expanded,
   onToggle,
   onSendSuccess,
+  onMarkDone,
   onOpenSenderContext,
-  generateNudge,
+  hasDraft = false,
+  selected,
+  onSelect,
+  onNavigateMessage,
 }: {
   message: ThreadMessage;
   draftMessage?: ThreadMessage;
   refetch: () => void;
   showReplyButton: boolean;
-  defaultShowReply?: boolean;
+  defaultComposeMode?: ReplyDraftMode;
   expanded: boolean;
   /** Absent when the thread has a single message, which never collapses. */
   onToggle?: () => void;
   onSendSuccess: (messageId: string, threadId: string) => void;
+  onMarkDone?: () => void;
   onOpenSenderContext?: (message: ThreadMessage) => void;
-  generateNudge?: boolean;
+  hasDraft?: boolean;
+  selected?: boolean;
+  onSelect?: () => void;
+  onNavigateMessage?: (direction: -1 | 1) => void;
 }) {
   const { emailAccountId } = useAccount();
-  // `null` follows `defaultShowReply`, which the reader's Reply button flips
+  // `null` follows `defaultComposeMode`, which the reader's Reply button flips
   // long after this message mounted.
-  const [replyOverride, setReplyOverride] = useState<boolean | null>(null);
-  const showReply = replyOverride ?? Boolean(defaultShowReply);
+  const [composeOverride, setComposeOverride] = useState<
+    ReplyDraftMode | "closed" | null
+  >(null);
+  const composeMode = resolveComposeMode(composeOverride, defaultComposeMode);
 
   const [showDetails, setShowDetails] = useState(false);
-  const [showForward, setShowForward] = useState(false);
   const composeSessionRef = useRef(0);
 
   const onReply = useCallback(() => {
     composeSessionRef.current += 1;
-    setReplyOverride(true);
-    setShowForward(false);
+    setComposeOverride("reply");
   }, []);
   const onForward = useCallback(() => {
     composeSessionRef.current += 1;
-    setReplyOverride(false);
-    setShowForward(true);
+    setComposeOverride("forward");
   }, []);
 
   const onCloseCompose = useCallback(() => {
-    setReplyOverride(false);
-    setShowForward(false);
+    setComposeOverride("closed");
   }, []);
 
-  const onStartDiscard = useCallback(() => {
-    const composeSession = composeSessionRef.current;
+  const onStartDiscard = useCallback((): ComposeSession | undefined => {
+    if (!composeMode) return;
+    const composeSession = {
+      id: composeSessionRef.current,
+      mode: composeMode,
+    };
     onCloseCompose();
     return composeSession;
-  }, [onCloseCompose]);
+  }, [composeMode, onCloseCompose]);
 
-  const onRestoreCompose = useCallback(
-    (composeSession: number) => {
-      if (composeSessionRef.current !== composeSession) return;
-      if (showReply) onReply();
-      else onForward();
-    },
-    [onForward, onReply, showReply],
-  );
+  const onRestoreCompose = useCallback((composeSession: ComposeSession) => {
+    if (composeSessionRef.current !== composeSession.id) return;
+    composeSessionRef.current += 1;
+    setComposeOverride(composeSession.mode);
+  }, []);
 
   const toggleDetails = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     setShowDetails((prev) => !prev);
   }, []);
 
+  const onMessageKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLElement>) => {
+      if (
+        event.target !== event.currentTarget ||
+        (event.key !== "Enter" && event.key !== " ")
+      )
+        return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.key === "Enter" && expanded && showReplyButton) {
+        onReply();
+      } else {
+        onToggle?.();
+      }
+    },
+    [expanded, onReply, onToggle, showReplyButton],
+  );
+
   return (
-    <li className="group/message border-border/60 border-t py-4 first:border-t-0 first:pt-0">
+    <li
+      data-thread-message-id={message.id}
+      data-selected={selected}
+      tabIndex={selected !== undefined || composeMode ? -1 : undefined}
+      aria-current={selected || undefined}
+      onFocusCapture={onSelect}
+      onClickCapture={onSelect}
+      onKeyDown={onMessageKeyDown}
+      onKeyDownCapture={(event) => {
+        // Handle draft Escape before the rich-text editor consumes it.
+        if (
+          composeMode &&
+          event.key === "Escape" &&
+          !event.defaultPrevented &&
+          isTypingTarget(event.target) &&
+          event.target instanceof Element &&
+          event.target.closest('[data-inline-reply="true"]') &&
+          !event.target.closest(
+            '[role="dialog"], [role="menu"], [role="listbox"], [role="combobox"][aria-expanded="true"]',
+          )
+        ) {
+          event.preventDefault();
+          event.stopPropagation();
+          event.currentTarget.focus({ preventScroll: true });
+        }
+      }}
+      className={cn(
+        "group/message min-w-0 border-l-2 border-transparent outline-none transition-colors focus-within:border-primary",
+        selected && "border-primary",
+        expanded
+          ? "my-2 px-2 py-3 sm:px-5"
+          : "px-2 py-1.5 hover:bg-muted/40 sm:px-5",
+      )}
+    >
       <MessageHeader
         expanded={expanded}
         message={message}
@@ -122,18 +184,28 @@ export function EmailMessage({
         onOpenSenderContext={onOpenSenderContext}
         onReply={onReply}
         onToggle={onToggle}
+        onToggleKeyDown={onMessageKeyDown}
         showDetails={showDetails}
         showReplyButton={showReplyButton}
         toggleDetails={toggleDetails}
+        hasDraft={hasDraft || Boolean(draftMessage)}
       />
 
       {expanded && (
         // Aligns the body with the sender's name rather than the avatar.
-        <div className="min-w-0 pt-3 pl-9">
+        <div className="min-w-0 pt-3 sm:pl-9">
           {showDetails && <EmailDetails message={message} />}
+
+          {isCalendarInvitationMessage(message) && (
+            <CalendarInvitation key={message.id} messageId={message.id} />
+          )}
 
           {message.textHtml ? (
             <HtmlEmail
+              onForwardMessage={showReplyButton ? onForward : undefined}
+              onReplyMessage={showReplyButton ? onReply : undefined}
+              onNavigateMessage={onNavigateMessage}
+              onFocusMessage={onSelect}
               emailAccountId={emailAccountId}
               html={message.textHtml}
               inlineAttachments={message.inline}
@@ -145,18 +217,18 @@ export function EmailMessage({
 
           {message.attachments && <EmailAttachments message={message} />}
 
-          {(showReply || showForward) && (
+          {composeMode && (
             <ReplyPanel
-              defaultShowReply={defaultShowReply}
+              defaultComposeMode={defaultComposeMode}
               draftMessage={draftMessage}
-              generateNudge={generateNudge}
               message={message}
               onCloseCompose={onCloseCompose}
               onRestoreCompose={onRestoreCompose}
               onSendSuccess={onSendSuccess}
+              onMarkDone={onMarkDone}
               onStartDiscard={onStartDiscard}
               refetch={refetch}
-              showReply={showReply}
+              composeMode={composeMode}
             />
           )}
         </div>
@@ -180,6 +252,8 @@ function MessageHeader({
   onForward,
   onOpenSenderContext,
   onToggle,
+  onToggleKeyDown,
+  hasDraft,
 }: {
   message: ParsedMessage;
   expanded: boolean;
@@ -190,6 +264,8 @@ function MessageHeader({
   onForward: () => void;
   onOpenSenderContext?: (message: ThreadMessage) => void;
   onToggle?: () => void;
+  onToggleKeyDown: React.KeyboardEventHandler<HTMLElement>;
+  hasDraft: boolean;
 }) {
   const { emailAccount, emailAccountId, userEmail } = useAccount();
 
@@ -199,7 +275,11 @@ function MessageHeader({
     ? "Me"
     : extractNameFromEmail(message.headers.from) || senderEmail;
   const { data: contacts } = useSWR<ContactsResponse>(
-    env.NEXT_PUBLIC_CONTACTS_ENABLED && !isSent && senderEmail && emailAccountId
+    expanded &&
+      env.NEXT_PUBLIC_CONTACTS_ENABLED &&
+      !isSent &&
+      senderEmail &&
+      emailAccountId
       ? [
           `/api/user/contacts?query=${encodeURIComponent(senderEmail)}`,
           emailAccountId,
@@ -223,14 +303,7 @@ function MessageHeader({
   const toggleProps: React.ComponentProps<"div"> | undefined = onToggle && {
     "aria-expanded": expanded,
     onClick: onToggle,
-    onKeyDown: (event: React.KeyboardEvent) => {
-      // Keydown bubbles, so without this the row would swallow Enter/Space
-      // aimed at the buttons nested inside it.
-      if (event.target !== event.currentTarget) return;
-      if (event.key !== "Enter" && event.key !== " ") return;
-      event.preventDefault();
-      onToggle();
-    },
+    onKeyDown: onToggleKeyDown,
     role: "button",
     tabIndex: 0,
   };
@@ -245,6 +318,30 @@ function MessageHeader({
     open();
   };
 
+  const avatar = (
+    <Avatar aria-hidden className="size-7 shrink-0">
+      <AvatarImage alt="" src={senderImage || undefined} />
+      <AvatarFallback
+        className={cn(
+          "font-semibold text-[10px] tracking-wide",
+          isSent
+            ? "bg-primary/10 text-primary"
+            : "bg-muted text-muted-foreground",
+        )}
+      >
+        {initialsFor(senderName)}
+      </AvatarFallback>
+    </Avatar>
+  );
+  // Fixed widths on the collapsed rows keep the snippet column aligned down
+  // the thread, whichever senders are clickable.
+  const senderNameClassName = cn(
+    "truncate text-sm",
+    expanded
+      ? "max-w-40 shrink font-semibold text-foreground"
+      : "w-24 shrink-0 font-medium text-secondary-foreground sm:w-28",
+  );
+
   return (
     <div
       {...toggleProps}
@@ -253,70 +350,46 @@ function MessageHeader({
         onToggle && "cursor-pointer",
       )}
     >
-      <Avatar aria-hidden className="size-7">
-        <AvatarImage alt="" src={senderImage || undefined} />
-        <AvatarFallback
-          className={cn(
-            "font-semibold text-[10px] tracking-wide",
-            isSent
-              ? "bg-primary/10 text-primary"
-              : "bg-muted text-muted-foreground",
-          )}
-        >
-          {initialsFor(senderName)}
-        </AvatarFallback>
-      </Avatar>
-
       {canResearchSender ? (
-        <Button
-          type="button"
-          aria-label={`View public profile for ${senderName}`}
-          className="h-7 shrink-0 gap-1 px-1.5"
-          onClick={(event) => {
-            event.stopPropagation();
-            onOpenSenderContext?.(message);
-          }}
-          title="View public profile"
-          variant="ghost"
-        >
-          <span
+        <Tooltip content="View public profile">
+          <button
+            aria-label={`View public profile for ${senderName}`}
             className={cn(
-              "truncate text-sm",
-              expanded
-                ? "font-semibold text-foreground"
-                : "font-medium text-secondary-foreground",
+              "group/sender flex items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              expanded ? "min-w-0" : "shrink-0",
             )}
+            onClick={(event) => {
+              event.stopPropagation();
+              onOpenSenderContext?.(message);
+            }}
+            type="button"
           >
-            {senderName}
-          </span>
-          <UserRoundSearchIcon className="size-3.5 text-muted-foreground" />
-        </Button>
+            {avatar}
+            <span
+              className={cn(
+                senderNameClassName,
+                "text-left underline-offset-4 group-hover/sender:underline",
+              )}
+            >
+              {senderName}
+            </span>
+          </button>
+        </Tooltip>
       ) : (
-        <span
-          className={cn(
-            "shrink-0 truncate text-sm",
-            expanded
-              ? "font-semibold text-foreground"
-              : "font-medium text-secondary-foreground",
-          )}
-        >
-          {senderName}
-        </span>
+        <>
+          {avatar}
+          <span className={senderNameClassName}>{senderName}</span>
+        </>
       )}
 
       {expanded ? (
         <>
-          {senderEmail && senderEmail !== senderName ? (
-            <span className="truncate text-muted-foreground text-xs">
-              {senderEmail}
-            </span>
-          ) : null}
-          <span className="shrink-0 whitespace-nowrap text-muted-foreground/70 text-xs">
+          <span className="hidden min-w-0 truncate text-muted-foreground text-xs sm:block">
             {recipientSummary(message.headers.to, userEmail)}
           </span>
           <Button
             aria-label={showDetails ? "Hide details" : "Show details"}
-            className="size-6 shrink-0 p-0 text-muted-foreground opacity-0 transition-opacity focus-visible:opacity-100 group-hover/message:opacity-100"
+            className="size-7 shrink-0 p-0 text-muted-foreground"
             onClick={toggleDetails}
             size="sm"
             variant="ghost"
@@ -334,39 +407,49 @@ function MessageHeader({
         </span>
       )}
 
-      <time
-        className="ml-auto shrink-0 whitespace-nowrap pl-2.5 text-muted-foreground text-xs"
-        dateTime={message.headers.date}
-      >
-        {formatShortDate(new Date(message.headers.date))}
-      </time>
-
-      {showReplyButton && (
-        <span className="flex shrink-0 items-center opacity-0 transition-opacity focus-within:opacity-100 group-hover/message:opacity-100">
-          <Tooltip content="Reply">
-            <Button
-              className="size-7 text-muted-foreground"
-              onClick={compose(onReply)}
-              size="icon"
-              variant="ghost"
-            >
-              <ReplyIcon className="size-3.5" />
-              <span className="sr-only">Reply</span>
-            </Button>
-          </Tooltip>
-          <Tooltip content="Forward">
-            <Button
-              className="size-7 text-muted-foreground"
-              onClick={compose(onForward)}
-              size="icon"
-              variant="ghost"
-            >
-              <ForwardIcon className="size-3.5" />
-              <span className="sr-only">Forward</span>
-            </Button>
-          </Tooltip>
-        </span>
+      {hasDraft && !expanded && (
+        <span className="shrink-0 text-primary text-xs">Draft</span>
       )}
+
+      <div className="ml-auto flex shrink-0 items-center gap-2">
+        {showReplyButton && (
+          <span
+            className={cn(
+              "shrink-0 items-center transition-opacity focus-within:opacity-100 group-hover/message:opacity-100",
+              expanded ? "flex sm:opacity-0" : "hidden sm:flex sm:opacity-0",
+            )}
+          >
+            <Tooltip content="Reply">
+              <Button
+                className="size-7 text-muted-foreground"
+                onClick={compose(onReply)}
+                size="icon"
+                variant="ghost"
+              >
+                <ReplyIcon className="size-3.5" />
+                <span className="sr-only">Reply</span>
+              </Button>
+            </Tooltip>
+            <Tooltip content="Forward">
+              <Button
+                className="size-7 text-muted-foreground"
+                onClick={compose(onForward)}
+                size="icon"
+                variant="ghost"
+              >
+                <ForwardIcon className="size-3.5" />
+                <span className="sr-only">Forward</span>
+              </Button>
+            </Tooltip>
+          </span>
+        )}
+        <time
+          className="shrink-0 whitespace-nowrap text-muted-foreground text-xs"
+          dateTime={message.headers.date}
+        >
+          {formatShortDate(new Date(message.headers.date))}
+        </time>
+      </div>
     </div>
   );
 }
@@ -375,34 +458,32 @@ function ReplyPanel({
   message,
   refetch,
   onSendSuccess,
+  onMarkDone,
   onCloseCompose,
   onRestoreCompose,
   onStartDiscard,
-  defaultShowReply,
-  showReply,
+  defaultComposeMode,
+  composeMode,
   draftMessage,
-  generateNudge,
 }: {
   message: ParsedMessage;
   refetch: () => void;
   onSendSuccess: (messageId: string, threadId: string) => void;
+  onMarkDone?: () => void;
   onCloseCompose: () => void;
-  onRestoreCompose: (composeSession: number) => void;
-  onStartDiscard: () => number;
-  defaultShowReply?: boolean;
-  showReply: boolean;
+  onRestoreCompose: (composeSession: ComposeSession) => void;
+  onStartDiscard: () => ComposeSession | undefined;
+  defaultComposeMode?: ReplyDraftMode;
+  composeMode: ReplyDraftMode;
   draftMessage?: ThreadMessage;
-  generateNudge?: boolean;
 }) {
   const { emailAccountId } = useAccount();
 
   const replyRef = useRef<HTMLDivElement>(null);
 
-  const [isGeneratingReply, setIsGeneratingReply] = useState(false);
-  const [reply, setReply] = useState<string | null>(null);
   // scroll to the reply panel when it first opens
   useEffect(() => {
-    if (!defaultShowReply || !replyRef.current) return;
+    if (!defaultComposeMode || !replyRef.current) return;
 
     // Wait for the reply panel layout before scrolling.
     const scrollTimeout = setTimeout(() => {
@@ -410,134 +491,86 @@ function ReplyPanel({
     }, 500);
 
     return () => clearTimeout(scrollTimeout);
-  }, [defaultShowReply]);
-
-  useEffect(() => {
-    async function generateReply() {
-      const isSent = message.labelIds?.includes("SENT");
-
-      // Doesn't need a nudge if it's not sent
-      if (!isSent) return;
-
-      setIsGeneratingReply(true);
-
-      const result = await generateNudgeReplyAction(emailAccountId, {
-        messages: [
-          {
-            id: message.id,
-            textHtml: message.textHtml,
-            textPlain: message.textPlain,
-            date: message.headers.date,
-            from: message.headers.from,
-            to: message.headers.to,
-            subject: message.headers.subject,
-          },
-        ],
-      });
-      if (result?.serverError) {
-        console.error(result);
-        setReply("");
-      } else {
-        setReply(result?.data?.text || "");
-      }
-      setIsGeneratingReply(false);
-    }
-
-    // Only generate a nudge if there's no draft message and generateNudge is true
-    if (generateNudge && !draftMessage) generateReply();
-  }, [generateNudge, message, draftMessage, emailAccountId]);
+  }, [defaultComposeMode]);
 
   const replyingToEmail: ReplyingToEmail = useMemo(() => {
-    if (showReply) {
+    if (composeMode === "reply") {
       if (draftMessage) return prepareDraftReplyEmail(draftMessage);
-
-      // use nudge if available
-      if (reply) {
-        // Convert nudge text into HTML paragraphs
-        const replyHtml = reply
-          ? reply
-              .split("\n")
-              .filter((line) => line.trim())
-              .map((line) => `<p>${line}</p>`)
-              .join("")
-          : "";
-
-        return prepareReplyingToEmail(message, replyHtml);
-      }
 
       return prepareReplyingToEmail(message);
     }
     return prepareForwardingEmail(message);
-  }, [showReply, message, draftMessage, reply]);
+  }, [composeMode, message, draftMessage]);
 
   const { executeAsync: discardDraft } = useAction(
     deleteDraftAction.bind(null, emailAccountId),
   );
 
-  const onDiscard = useCallback(async () => {
-    if (!draftMessage) {
-      onCloseCompose();
-      return;
-    }
-
-    const discardPromise = discardDraft({ draftMessageId: draftMessage.id });
-    const composeSession = onStartDiscard();
-
-    try {
-      const result = await discardPromise;
-      if (result?.serverError || result?.validationErrors) {
-        toastError({
-          description: getActionErrorMessage(result, {
-            prefix: "Failed to discard draft",
-          }),
-        });
-        onRestoreCompose(composeSession);
+  const onDiscard = useCallback(
+    async (draftId?: string) => {
+      if (composeMode === "forward" || !draftMessage) {
+        onCloseCompose();
+        return true;
       }
-    } catch {
-      toastError({ description: "Failed to discard draft" });
-      onRestoreCompose(composeSession);
-    } finally {
-      refetch();
-    }
-  }, [
-    draftMessage,
-    discardDraft,
-    onCloseCompose,
-    onRestoreCompose,
-    onStartDiscard,
-    refetch,
-  ]);
+
+      const discardPromise = discardDraft({
+        draftMessageId: draftMessage.id,
+        draftId,
+      });
+      const composeSession = onStartDiscard();
+      if (!composeSession) return false;
+
+      try {
+        const result = await discardPromise;
+        if (result?.serverError || result?.validationErrors) {
+          toastError({
+            description: getActionErrorMessage(result, {
+              prefix: "Failed to discard draft",
+            }),
+          });
+          onRestoreCompose(composeSession);
+          return false;
+        }
+      } catch {
+        toastError({ description: "Failed to discard draft" });
+        onRestoreCompose(composeSession);
+        return false;
+      } finally {
+        refetch();
+      }
+      return true;
+    },
+    [
+      composeMode,
+      draftMessage,
+      discardDraft,
+      onCloseCompose,
+      onRestoreCompose,
+      onStartDiscard,
+      refetch,
+    ],
+  );
 
   return (
-    <Card className="mt-6 rounded-xl p-3" ref={replyRef}>
-      {isGeneratingReply ? (
-        <div className="flex items-center justify-center">
-          <Loading />
-          <MessageText>Generating reply...</MessageText>
-          <Button
-            className="ml-4"
-            onClick={() => {
-              setIsGeneratingReply(false);
-            }}
-            size="sm"
-            variant="outline"
-          >
-            Skip
-          </Button>
-        </div>
-      ) : (
-        <ComposeEmailFormLazy
-          onClose={onCloseCompose}
-          onDiscard={onDiscard}
-          onSuccess={(messageId: string, threadId: string) => {
-            onSendSuccess(messageId, threadId);
-            onCloseCompose();
-          }}
-          refetch={refetch}
-          replyingToEmail={replyingToEmail}
-        />
-      )}
-    </Card>
+    <div className="mt-5" ref={replyRef}>
+      <ComposeEmailFormLazy
+        providerDraftMessageId={
+          composeMode === "reply" ? draftMessage?.id : undefined
+        }
+        draftKeyMessageId={message.id}
+        draftMode={composeMode}
+        draftSessionId={getReplyDraftSessionId(message.id, composeMode)}
+        onClose={onCloseCompose}
+        onDiscard={onDiscard}
+        onMarkDone={onMarkDone}
+        onSuccess={(messageId: string, threadId: string) => {
+          onSendSuccess(messageId, threadId);
+          onCloseCompose();
+        }}
+        refetch={refetch}
+        replyingToEmail={replyingToEmail}
+      />
+    </div>
   );
 }
 
@@ -547,6 +580,15 @@ function initialsFor(name: string) {
   if (words.length === 0) return "?";
   if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
   return `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase();
+}
+
+function resolveComposeMode(
+  override: ReplyDraftMode | "closed" | null,
+  defaultComposeMode: ReplyDraftMode | undefined,
+) {
+  if (override === "closed") return;
+  if (override) return override;
+  return defaultComposeMode;
 }
 
 /** "to me", "to Dana", "to me and 3 others" — who a message went out to. */

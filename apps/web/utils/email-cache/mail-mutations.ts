@@ -14,6 +14,7 @@ export type MailMutationPayload =
   | { kind: "untrash" }
   | { kind: "spam" }
   | { kind: "set_read_state"; read: boolean }
+  | { kind: "set_starred_state"; starred: boolean }
   | { kind: "snooze"; scheduledFor: string }
   | { kind: "cancel_snooze"; snoozeMutationId: string }
   | { kind: "reply"; email: SendEmailBody };
@@ -113,7 +114,12 @@ export async function enqueueMailMutationBatch(
   const store = transaction.objectStore("mailMutations");
   let storedMutations: StoredMailMutation[];
   try {
-    if (preparedInputs.some((input) => input.kind === "set_read_state")) {
+    if (
+      preparedInputs.some(
+        (input) =>
+          input.kind === "set_read_state" || input.kind === "set_starred_state",
+      )
+    ) {
       storedMutations = [];
       for (const input of preparedInputs) {
         storedMutations.push(await enqueueInStore(store, input, now));
@@ -272,6 +278,7 @@ export async function claimNextMailMutationBatch({
     await readActiveStoredMutations(store.index("byNextAttempt"))
   ).sort(compareMutations);
   const blockedThreads = new Set<string>();
+  const syncingThreads = new Set<string>();
   const claimed: StoredMailMutation[] = [];
   const rejected: StoredMailMutation[] = [];
   const claimedMessageIds = new Set<string>();
@@ -291,6 +298,11 @@ export async function claimNextMailMutationBatch({
     }
 
     if (isSyncMailMutationStatus(mutation.status)) {
+      syncingThreads.add(threadKey);
+      continue;
+    }
+    // Sending does not depend on refreshing an already-applied mailbox action.
+    if (syncingThreads.has(threadKey) && mutation.kind !== "reply") {
       blockedThreads.add(threadKey);
       continue;
     }
@@ -756,7 +768,9 @@ export function subscribeToMailMutations(
   listener: (mutations?: MailMutation[]) => void,
 ) {
   listeners.add(listener);
-  return () => listeners.delete(listener);
+  return () => {
+    listeners.delete(listener);
+  };
 }
 
 async function enqueueInStore(
@@ -764,13 +778,13 @@ async function enqueueInStore(
   input: EnqueueMailMutationInput & { batchId: string; id: string },
   now: number,
 ) {
-  if (input.kind === "set_read_state") {
+  if (input.kind === "set_read_state" || input.kind === "set_starred_state") {
     const sameThread = await store
       .index("byAccountThread")
       .getAll([input.emailAccountId, input.threadId]);
     const existing = sameThread.find(
       (mutation) =>
-        mutation.kind === "set_read_state" &&
+        mutation.kind === input.kind &&
         (mutation.status === "pending" || mutation.status === "retry_wait") &&
         !mutation.leaseOwner,
     );
@@ -782,7 +796,7 @@ async function enqueueInStore(
         createdAt:
           existing.batchId === input.batchId ? existing.createdAt : now,
         messageIds: [...new Set(input.messageIds)],
-        payload: { read: input.read },
+        payload: getStoredPayload(input),
         status: "pending",
         nextAttemptAt: now,
         updatedAt: now,
@@ -897,6 +911,7 @@ function getStoredPayload(input: EnqueueMailMutationInput): unknown {
     return input.labelId ? { labelId: input.labelId } : {};
   }
   if (input.kind === "set_read_state") return { read: input.read };
+  if (input.kind === "set_starred_state") return { starred: input.starred };
   if (input.kind === "snooze") return { scheduledFor: input.scheduledFor };
   if (input.kind === "cancel_snooze") {
     return { snoozeMutationId: input.snoozeMutationId };
@@ -997,7 +1012,7 @@ function readActiveStoredMutations(index: {
   ).then((mutations) => mutations.flat());
 }
 
-function notifyMailMutationChange(mutations?: MailMutation[]) {
+export function notifyMailMutationChange(mutations?: MailMutation[]) {
   notifyListeners(mutations);
   channel?.postMessage(
     mutations?.length

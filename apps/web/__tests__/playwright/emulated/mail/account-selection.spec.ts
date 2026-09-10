@@ -28,6 +28,43 @@ test("chooses which accounts appear in All Accounts", async ({
       for (const portal of portals) portal.remove();
     });
     await capturePlaywrightCheckpoint(page, testInfo, "all-accounts-menu");
+    await expect(page.getByRole("menu").locator("kbd")).toHaveCount(0);
+
+    await page.addInitScript(() => {
+      Object.assign(window, {
+        inboxZeroDesktop: { startAuth: async () => {} },
+      });
+    });
+    for (const { userAgent, modifier, checkpoint } of [
+      {
+        userAgent: "Macintosh",
+        modifier: "⌘",
+        checkpoint: "account-shortcuts-mac",
+      },
+      {
+        userAgent: "Windows NT 10.0",
+        modifier: "Ctrl+",
+        checkpoint: "account-shortcuts-windows",
+      },
+    ]) {
+      await page.reload();
+      await page.evaluate((userAgent) => {
+        Object.defineProperty(navigator, "userAgent", {
+          configurable: true,
+          get: () => userAgent,
+        });
+      }, userAgent);
+      await page
+        .getByRole("button", { name: /playwright-test\+/i })
+        .last()
+        .click();
+      await expect(page.getByRole("menu").locator("kbd")).toHaveText([
+        `${modifier}0`,
+        `${modifier}1`,
+        `${modifier}2`,
+      ]);
+      await capturePlaywrightCheckpoint(page, testInfo, checkpoint);
+    }
 
     await chooseAccountsMenuItem.click();
 

@@ -1,8 +1,9 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
+import type { ReplyDraftContent } from "./reply-drafts";
 import type { ParsedMessage } from "@/utils/types";
 
 const DATABASE_NAME = "inbox-zero-email-cache";
-const DATABASE_VERSION = 4;
+const DATABASE_VERSION = 9;
 
 export type CachedThreadRow = {
   emailAccountId: string;
@@ -67,6 +68,7 @@ export type StoredMailMutation = {
     | "trash"
     | "untrash"
     | "spam"
+    | "set_starred_state"
     | "set_read_state"
     | "snooze"
     | "cancel_snooze"
@@ -94,6 +96,15 @@ export type StoredMailMutation = {
   result?: unknown;
 };
 
+export type StoredReplyDraft = {
+  emailAccountId: string;
+  threadId: string;
+  messageId: string;
+  revision: number;
+  content: ReplyDraftContent | null;
+  updatedAt: number;
+};
+
 interface EmailCacheSchema extends DBSchema {
   mailboxMessages: {
     key: [emailAccountId: string, messageId: string];
@@ -118,7 +129,20 @@ interface EmailCacheSchema extends DBSchema {
       byBatch: string;
       byNextAttempt: [status: string, nextAttemptAt: number];
       byUpdatedAt: number;
+      byAccountDiagnostics: [
+        string,
+        string,
+        number,
+        StoredMailMutation["status"],
+        string,
+        string[],
+      ];
     };
+  };
+  replyDrafts: {
+    key: [emailAccountId: string, threadId: string, messageId: string];
+    value: StoredReplyDraft;
+    indexes: { byAccount: string; byAccountThread: [string, string] };
   };
   threadDetails: {
     key: [emailAccountId: string, threadId: string, variant: string];
@@ -193,6 +217,14 @@ export function getEmailCacheDatabase() {
           .createIndex("byAccountReceivedAt", ["emailAccountId", "receivedAt"]);
       }
 
+      if (oldVersion < 5) {
+        const drafts = database.createObjectStore("replyDrafts", {
+          keyPath: ["emailAccountId", "threadId", "messageId"],
+        });
+        drafts.createIndex("byAccount", "emailAccountId");
+        drafts.createIndex("byAccountThread", ["emailAccountId", "threadId"]);
+      }
+
       if (oldVersion < 4) {
         const mutations = database.createObjectStore("mailMutations", {
           keyPath: "id",
@@ -205,6 +237,26 @@ export function getEmailCacheDatabase() {
         mutations.createIndex("byBatch", "batchId");
         mutations.createIndex("byNextAttempt", ["status", "nextAttemptAt"]);
         mutations.createIndex("byUpdatedAt", "updatedAt");
+      }
+      if (oldVersion < 9) {
+        // Older clients could retain details after their sync cursor had advanced.
+        transaction.objectStore("threadDetails").clear();
+      }
+      if (oldVersion < 8) {
+        if (oldVersion >= 6)
+          transaction
+            .objectStore("mailMutations")
+            .deleteIndex("byAccountDiagnostics");
+        transaction
+          .objectStore("mailMutations")
+          .createIndex("byAccountDiagnostics", [
+            "emailAccountId",
+            "id",
+            "createdAt",
+            "status",
+            "batchId",
+            "messageIds",
+          ]);
       }
     },
     blocking() {
@@ -256,6 +308,7 @@ export async function clearEmailCache() {
         "mailboxMessages",
         "mailboxSyncStates",
         "mailMutations",
+        "replyDrafts",
       ],
       "readwrite",
     );
@@ -266,6 +319,7 @@ export async function clearEmailCache() {
       transaction.objectStore("mailboxMessages").clear(),
       transaction.objectStore("mailboxSyncStates").clear(),
       transaction.objectStore("mailMutations").clear(),
+      transaction.objectStore("replyDrafts").clear(),
       transaction.done,
     ]);
   } catch {
@@ -296,6 +350,7 @@ export async function clearEmailCacheForAccount(emailAccountId: string) {
         "mailboxMessages",
         "mailboxSyncStates",
         "mailMutations",
+        "replyDrafts",
       ],
       "readwrite",
     );
@@ -304,20 +359,29 @@ export async function clearEmailCacheForAccount(emailAccountId: string) {
     const details = transaction.objectStore("threadDetails");
     const messages = transaction.objectStore("mailboxMessages");
     const mutations = transaction.objectStore("mailMutations");
-    const [rowKeys, viewKeys, detailKeys, messageKeys, mutationKeys] =
-      await Promise.all([
-        rows.index("byAccount").getAllKeys(emailAccountId),
-        views.index("byAccount").getAllKeys(emailAccountId),
-        details.index("byAccount").getAllKeys(emailAccountId),
-        messages.index("byAccount").getAllKeys(emailAccountId),
-        mutations.index("byAccount").getAllKeys(emailAccountId),
-      ]);
+    const drafts = transaction.objectStore("replyDrafts");
+    const [
+      rowKeys,
+      viewKeys,
+      detailKeys,
+      messageKeys,
+      mutationKeys,
+      draftKeys,
+    ] = await Promise.all([
+      rows.index("byAccount").getAllKeys(emailAccountId),
+      views.index("byAccount").getAllKeys(emailAccountId),
+      details.index("byAccount").getAllKeys(emailAccountId),
+      messages.index("byAccount").getAllKeys(emailAccountId),
+      mutations.index("byAccount").getAllKeys(emailAccountId),
+      drafts.index("byAccount").getAllKeys(emailAccountId),
+    ]);
     await Promise.all([
       ...rowKeys.map((key) => rows.delete(key)),
       ...viewKeys.map((key) => views.delete(key)),
       ...detailKeys.map((key) => details.delete(key)),
       ...messageKeys.map((key) => messages.delete(key)),
       ...mutationKeys.map((key) => mutations.delete(key)),
+      ...draftKeys.map((key) => drafts.delete(key)),
       transaction.objectStore("mailboxSyncStates").delete(emailAccountId),
     ]);
     await transaction.done;

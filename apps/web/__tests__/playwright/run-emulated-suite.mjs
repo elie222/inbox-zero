@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import {
+  appendFileSync,
   existsSync,
   mkdirSync,
   readdirSync,
@@ -12,19 +13,62 @@ import {
   fullSuites,
   selectChangedPlaywrightTargets,
 } from "../../utils/playwright/emulated-suite-selection.mjs";
-const requestedTargets = getRequestedPlaywrightTargets(process.argv.slice(2));
-const changedSelection = requestedTargets.length
+import {
+  batchPlaywrightTargets,
+  expandPlaywrightTargets,
+} from "../../utils/playwright/emulated-suite-targets.mjs";
+const listTargets = process.argv.includes("--list-targets");
+const listBatches = process.argv.includes("--list-batches");
+const requestedPaths = getRequestedPlaywrightPaths(
+  process.argv
+    .slice(2)
+    .filter(
+      (argument) => !["--list-targets", "--list-batches"].includes(argument),
+    ),
+);
+const changedSelection = requestedPaths.length
   ? undefined
   : selectChangedPlaywrightTargets(
       process.env.PLAYWRIGHT_CHANGED_FILES,
       process.cwd(),
     );
-const changedTargetFiles = changedSelection?.targetFiles ?? [];
-const targets = requestedTargets.length
-  ? requestedTargets
+const selectedPaths = requestedPaths.length
+  ? requestedPaths
   : changedSelection?.runFullSuite
-    ? getFullSuiteTargets()
-    : getChangedPlaywrightTargets(changedTargetFiles);
+    ? fullSuites.map(getPlaywrightTargetPath)
+    : (changedSelection?.targetFiles ?? []);
+const targets = expandPlaywrightTargets(selectedPaths, process.cwd());
+if (listTargets || listBatches) {
+  const batches = batchPlaywrightTargets(targets);
+  if (listBatches && process.env.GITHUB_STEP_SUMMARY) {
+    appendFileSync(
+      process.env.GITHUB_STEP_SUMMARY,
+      [
+        `## Browser selection: ${targets.length} specs in ${batches.length} jobs`,
+        "",
+        changedSelection?.reason ?? "Explicitly requested specs.",
+        "",
+        "| Job | Specs |",
+        "| --- | --- |",
+        ...batches.map(
+          ({ name, paths }) =>
+            `| ${name} | ${paths.map((spec) => getRelativeSpecPath(spec)).join(", ")} |`,
+        ),
+        "",
+      ].join("\n"),
+    );
+  }
+  await new Promise((resolve, reject) => {
+    process.stdout.write(
+      `${JSON.stringify(listBatches ? batches : targets)}\n`,
+      (error) => {
+        if (error) reject(error);
+        else resolve();
+      },
+    );
+  });
+  process.exit(0);
+}
 const dryRun = process.env.PLAYWRIGHT_DRY_RUN === "1";
 const playwrightRunRootDir = path.resolve(".tmp/playwright");
 const blobReportDir = path.join(playwrightRunRootDir, "blob-report");
@@ -41,7 +85,14 @@ if (!dryRun) {
 
 let failed = false;
 
-if (requestedTargets.length) {
+if (!dryRun && process.env.GITHUB_STEP_SUMMARY) {
+  appendFileSync(
+    process.env.GITHUB_STEP_SUMMARY,
+    "## Isolated browser specs\n\n| Spec | Seconds | Exit status |\n| --- | ---: | ---: |\n",
+  );
+}
+
+if (requestedPaths.length) {
   console.log(`Running ${targets.length} requested Playwright target(s).`);
 } else {
   console.log(changedSelection.reason);
@@ -51,7 +102,7 @@ if (requestedTargets.length) {
 if (!dryRun && !targets.length) {
   writeFileSync(
     path.join(testResultsDir, "selection.json"),
-    `${JSON.stringify({ reason: changedSelection.reason }, null, 2)}\n`,
+    `${JSON.stringify({ reason: changedSelection?.reason ?? "No browser specs selected." }, null, 2)}\n`,
   );
 }
 
@@ -62,6 +113,7 @@ for (const target of targets) {
     : `${process.pid}-${target.name}-${Date.now()}`;
   const targetRunDir = path.join(playwrightRunRootDir, targetRunId);
   let result;
+  const startedAt = Date.now();
 
   try {
     result = runPlaywright(
@@ -70,7 +122,9 @@ for (const target of targets) {
         "-c",
         "playwright.config.mjs",
         "--project=emulated",
-        ...target.paths,
+        // This includes cold web-server startup and authentication setup.
+        ...(process.env.CI ? ["--global-timeout=480000"] : []),
+        target.path,
       ],
       {
         PLAYWRIGHT_BLOB_REPORT_FILE: path.join(
@@ -79,17 +133,17 @@ for (const target of targets) {
         ),
         PLAYWRIGHT_OUTPUT_DIR: path.join(testResultsDir, target.name),
         PLAYWRIGHT_RUN_ID: targetRunId,
-        ...(target.paths.some(isIntegrationsTarget)
+        ...(isIntegrationsTarget(target.path)
           ? { NEXT_PUBLIC_INTEGRATIONS_ENABLED: "true" }
           : {}),
-        ...(target.paths.some(isAutomationTarget)
+        ...(isAutomationTarget(target.path)
           ? {
               NEXT_PUBLIC_INTEGRATIONS_ENABLED: "true",
               NEXT_PUBLIC_INTEGRATION_ACTION_ENABLED: "true",
               PLAYWRIGHT_TODOIST_ENABLED: "true",
             }
           : {}),
-        ...(target.paths.some(isSettingsTarget)
+        ...(isSettingsTarget(target.path)
           ? { NEXT_PUBLIC_EXTERNAL_API_ENABLED: "true" }
           : {}),
       },
@@ -98,10 +152,27 @@ for (const target of targets) {
     if (!dryRun) rmSync(targetRunDir, { force: true, recursive: true });
   }
 
+  const seconds = Math.round((Date.now() - startedAt) / 1000);
+  const timing = { target: target.name, seconds, status: result.status };
+  console.log(
+    `Finished ${target.name} in ${seconds}s (exit ${result.status}).`,
+  );
+  if (!dryRun) {
+    writeFileSync(
+      path.join(testResultsDir, `timings-${target.name}.json`),
+      JSON.stringify([timing], null, 2),
+    );
+    if (process.env.GITHUB_STEP_SUMMARY) {
+      appendFileSync(
+        process.env.GITHUB_STEP_SUMMARY,
+        `| ${getRelativeSpecPath(target.path)} | ${seconds} | ${result.status} |\n`,
+      );
+    }
+  }
   if (result.status !== 0) failed = true;
 }
 
-if (!dryRun && targets.length) {
+if (!dryRun && targets.length && !process.env.PLAYWRIGHT_SKIP_REPORT_MERGE) {
   const mergeResult = runPlaywright(
     ["merge-reports", "--reporter=html", blobReportDir],
     { PLAYWRIGHT_HTML_OPEN: "never" },
@@ -110,6 +181,10 @@ if (!dryRun && targets.length) {
   if (mergeResult.status !== 0) failed = true;
 }
 process.exitCode = failed ? 1 : 0;
+
+function getRelativeSpecPath(specPath) {
+  return specPath.replace(/^__tests__\/playwright\/emulated\//, "");
+}
 
 function runPlaywright(args, extraEnv) {
   const pnpmExecutable = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
@@ -133,7 +208,7 @@ function runPlaywright(args, extraEnv) {
   return result;
 }
 
-function getRequestedPlaywrightTargets(args) {
+function getRequestedPlaywrightPaths(args) {
   return args
     .filter((argument) => argument !== "--")
     .map((argument) => {
@@ -155,62 +230,8 @@ function getRequestedPlaywrightTargets(args) {
         );
       }
 
-      return {
-        name: normalizedArgument.replaceAll(/[/.]/g, "-"),
-        paths: [targetPath],
-      };
+      return targetPath;
     });
-}
-
-function getFullSuiteTargets() {
-  return fullSuites.map((suite) => ({
-    name: suite.replaceAll(/[/.]/g, "-"),
-    paths: [`__tests__/playwright/emulated/${suite}`],
-  }));
-}
-
-function getChangedPlaywrightTargets(files) {
-  const filesByBoundary = new Map();
-
-  for (const file of files) {
-    const boundary = getChangedFileBoundary(file);
-    const existingFiles = filesByBoundary.get(boundary) ?? [];
-    existingFiles.push(file);
-    filesByBoundary.set(boundary, existingFiles);
-  }
-
-  const knownBoundaries = new Set(fullSuites);
-  const orderedTargets = fullSuites
-    .map((suite) => {
-      const filesForSuite = filesByBoundary.get(suite);
-      if (!filesForSuite?.length) return;
-      const suitePath = getPlaywrightTargetPath(suite);
-
-      return {
-        name: suite.replaceAll(/[/.]/g, "-"),
-        paths: filesForSuite.includes(suitePath) ? [suitePath] : filesForSuite,
-      };
-    })
-    .filter(Boolean);
-
-  const extraTargets = [...filesByBoundary.entries()]
-    .filter(([boundary]) => !knownBoundaries.has(boundary))
-    .map(([boundary, filesForBoundary]) => ({
-      name: boundary.replaceAll(/[/.]/g, "-"),
-      paths: filesForBoundary.includes(getPlaywrightTargetPath(boundary))
-        ? [getPlaywrightTargetPath(boundary)]
-        : filesForBoundary,
-    }));
-
-  return [...orderedTargets, ...extraTargets];
-}
-
-function getChangedFileBoundary(file) {
-  const relativePath = file.replace(/^__tests__\/playwright\/emulated\//, "");
-
-  if (relativePath.startsWith("cleanup/")) return relativePath;
-
-  return relativePath.split("/")[0];
 }
 
 function getPlaywrightTargetPath(target) {

@@ -1,3 +1,4 @@
+import { INITIAL_MAIL_SPLITS } from "@/utils/mail/initial-splits";
 import { sso } from "@better-auth/sso";
 import { scim } from "@better-auth/scim";
 import { genericOAuth } from "better-auth/plugins/generic-oauth";
@@ -5,7 +6,7 @@ import type { GenericOAuthConfig } from "better-auth/plugins/generic-oauth";
 import { oAuthProxy } from "better-auth/plugins";
 import { createContact as createLoopsContact } from "@inboxzero/loops";
 import { createContact as createResendContact } from "@inboxzero/transactional-email";
-import type { Account, AuthContext } from "better-auth";
+import type { Account } from "better-auth";
 import { APIError, betterAuth } from "better-auth";
 import { createAuthMiddleware } from "better-auth/api";
 import { prismaAdapter } from "better-auth/adapters/prisma";
@@ -56,6 +57,13 @@ import {
   markAuthContextAsNewUser,
   trackAuthenticationCompleted,
 } from "@/utils/analytics/auth-funnel.server";
+
+import {
+  emailOtpPlugin,
+  emailOtpBeforeHook,
+  emailOtpAfterHook,
+  emailOtpSessionCreationHook,
+} from "@/utils/auth/email-otp";
 
 const logger = createScopedLogger("auth");
 const EMAIL_ALREADY_LINKED_ERROR = "email_already_linked";
@@ -231,6 +239,7 @@ export const betterAuthConfig = betterAuth({
     provider: "postgresql",
   }),
   plugins: [
+    emailOtpPlugin,
     sso({
       disableImplicitSignUp: false,
       organizationProvisioning: { disabled: true },
@@ -258,6 +267,10 @@ export const betterAuthConfig = betterAuth({
     nextCookies(), // Must be last
   ],
   session: {
+    additionalFields: {
+      emailOtp: { type: "boolean", defaultValue: false, input: false },
+      emailOtpVersion: { type: "number", defaultValue: 0, input: false },
+    },
     modelName: "Session",
     fields: {
       token: "sessionToken",
@@ -299,6 +312,11 @@ export const betterAuthConfig = betterAuth({
   },
   socialProviders,
   databaseHooks: {
+    session: {
+      create: {
+        before: emailOtpSessionCreationHook,
+      },
+    },
     user: {
       create: {
         before: async (user) => {
@@ -337,7 +355,9 @@ export const betterAuthConfig = betterAuth({
     },
   },
   hooks: {
+    before: emailOtpBeforeHook,
     after: createAuthMiddleware(async (context) => {
+      await emailOtpAfterHook(context);
       try {
         const authenticatedSession = context.context.newSession;
         if (!authenticatedSession) return;
@@ -358,8 +378,8 @@ export const betterAuthConfig = betterAuth({
   },
   onAPIError: {
     throw: true,
-    onError: (error: unknown, ctx: AuthContext) => {
-      logger.error("Auth API encountered an error", { error, ctx });
+    onError: (error: unknown) => {
+      logger.error("Auth API encountered an error", { error });
     },
     errorURL: "/login/error",
   },
@@ -717,6 +737,12 @@ export async function handleLinkAccount(account: Account) {
         create: {
           ...data,
           email: normalizedEmail,
+          mailSplits: {
+            create: INITIAL_MAIL_SPLITS.map((split, order) => ({
+              ...split,
+              order,
+            })),
+          },
         },
         select: { id: true },
       }),
@@ -770,10 +796,16 @@ export async function handleLinkAccount(account: Account) {
 
 export const auth = async (
   requestHeaders?: Headers | Awaited<ReturnType<typeof headers>>,
-) =>
-  betterAuthConfig.api.getSession({
-    headers: requestHeaders ?? (await headers()),
-  });
+) => {
+  try {
+    return await betterAuthConfig.api.getSession({
+      headers: requestHeaders ?? (await headers()),
+    });
+  } catch (error) {
+    if (error instanceof APIError && error.statusCode === 401) return null;
+    throw error;
+  }
+};
 
 async function autoJoinOrganization(emailAccountId: string) {
   const orgs = await prisma.organization.findMany({

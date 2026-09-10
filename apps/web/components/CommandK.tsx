@@ -1,7 +1,16 @@
 "use client";
 
+import { isThreadStarred } from "@/app/(app)/[emailAccountId]/mail/star-state";
 import * as React from "react";
-import { ArrowLeftIcon, Loader2Icon } from "lucide-react";
+import {
+  ArrowLeftIcon,
+  Loader2Icon,
+  MonitorIcon,
+  MoonIcon,
+  SunIcon,
+  UsersIcon,
+} from "lucide-react";
+import { useTheme } from "next-themes";
 import { useAtom, useAtomValue } from "jotai";
 import { buildMailCommandPalette } from "@/app/(app)/[emailAccountId]/mail/mail-command-palette";
 import { buildSnoozeCommandPalette } from "@/app/(app)/[emailAccountId]/mail/snooze-command-palette";
@@ -19,8 +28,12 @@ import { useComposeModal } from "@/providers/ComposeModalProvider";
 import {
   commandPaletteOpenAtom,
   mailCommandContextAtom,
+  senderCommandContextAtom,
 } from "@/store/command-palette";
-import type { MailCommandContext } from "@/store/command-palette";
+import type {
+  MailCommandContext,
+  SenderCommandContext,
+} from "@/store/command-palette";
 import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useCommandPaletteCommands } from "@/hooks/useCommandPaletteCommands";
@@ -33,8 +46,11 @@ import {
   MAIL_SHORTCUT_SCOPES,
   type ShortcutHandlers,
 } from "@/lib/shortcuts/registry";
+import { useRetainedMailMutationOverlay } from "@/hooks/useMailMutationOverlay";
+import { applyMailMutationOverlayToMessages } from "@/utils/email-cache/mail-mutation-overlay";
 import { useThread } from "@/hooks/useThread";
 import { enqueueThreadMailMutationBatch } from "@/utils/email-cache/thread-mail-mutations";
+import { AccountCommandList } from "@/components/AccountCommandList";
 import { toastError } from "@/components/Toast";
 
 const SECTION_ORDER: CommandSection[] = [
@@ -68,14 +84,24 @@ export function CommandK() {
 
 function CommandPalette() {
   const mailCommandContext = useAtomValue(mailCommandContextAtom);
+  const senderCommandContext = useAtomValue(senderCommandContextAtom);
   const displayedEmail = useDisplayedEmail();
   const activeMailContext = displayedEmail.threadId ? null : mailCommandContext;
+  const senderContextMatchesTarget = Boolean(
+    activeMailContext?.target &&
+      senderCommandContext &&
+      activeMailContext.target.emailAccountId ===
+        senderCommandContext.emailAccountId &&
+      activeMailContext.target.threadId === senderCommandContext.threadId,
+  );
 
   return (
     <CommandPaletteContent
-      key={activeMailContext ? "mail" : "default"}
       displayedEmail={displayedEmail}
       mailCommandContext={activeMailContext}
+      senderCommandContext={
+        senderContextMatchesTarget ? senderCommandContext : null
+      }
     />
   );
 }
@@ -83,25 +109,63 @@ function CommandPalette() {
 function CommandPaletteContent({
   displayedEmail,
   mailCommandContext,
+  senderCommandContext,
 }: {
   displayedEmail: ReturnType<typeof useDisplayedEmail>;
   mailCommandContext: MailCommandContext | null;
+  senderCommandContext: SenderCommandContext | null;
 }) {
   const [open, setOpen] = useAtom(commandPaletteOpenAtom);
-  const [page, setPage] = React.useState<"root" | "snooze">("root");
+  const [activePage, setPage] = React.useState<"root" | "snooze" | "accounts">(
+    "root",
+  );
   const [search, setSearch] = React.useState("");
+  const page =
+    activePage === "snooze" && !mailCommandContext?.actions.snooze
+      ? "root"
+      : activePage;
+  const { setTheme } = useTheme();
 
   const { emailAccountId } = useAccount();
   const { threadId, showEmail } = displayedEmail;
-  const { data: displayedThread, isLoading: isDisplayedThreadLoading } =
-    useThread({ id: threadId });
+  const {
+    data: rawDisplayedThread,
+    isLoading: isDisplayedThreadLoading,
+    mutate: mutateDisplayedThread,
+  } = useThread({ id: threadId });
+  const { mutations } = useRetainedMailMutationOverlay({
+    emailAccountId,
+    enabled: Boolean(threadId),
+    onReconcile: () => mutateDisplayedThread(),
+  });
+  const displayedThread = React.useMemo(
+    () =>
+      rawDisplayedThread
+        ? {
+            ...rawDisplayedThread,
+            thread: {
+              ...rawDisplayedThread.thread,
+              messages: applyMailMutationOverlayToMessages({
+                emailAccountId,
+                messages: rawDisplayedThread.thread.messages,
+                mutations,
+              }),
+            },
+          }
+        : undefined,
+    [emailAccountId, rawDisplayedThread, mutations],
+  );
   const { onOpen: onOpenComposeModal } = useComposeModal();
   const { commands, isLoading } = useCommandPaletteCommands({
     enabled: !mailCommandContext,
   });
 
   const shortcutHandlers: ShortcutHandlers = {
-    commandPalette: () => setOpen((wasOpen) => !wasOpen),
+    commandPalette: () => {
+      setPage("root");
+      setSearch("");
+      setOpen((wasOpen) => !wasOpen);
+    },
     compose: onOpenComposeModal,
     archive: threadId
       ? async () => {
@@ -127,6 +191,44 @@ function CommandPaletteContent({
           }
         }
       : undefined,
+    star: threadId
+      ? async () => {
+          if (displayedThread?.thread.id !== threadId) {
+            toastError({
+              description: isDisplayedThreadLoading
+                ? "Email is still loading"
+                : "Email is unavailable",
+            });
+            return;
+          }
+          try {
+            await enqueueThreadMailMutationBatch({
+              emailAccountId,
+              payload: {
+                kind: "set_starred_state",
+                starred: !isThreadStarred(displayedThread.thread.messages),
+              },
+              threads: [displayedThread.thread],
+            });
+          } catch {
+            toastError({
+              description: "Couldn’t update the star for this email",
+            });
+          }
+        }
+      : undefined,
+    forward:
+      threadId && displayedThread?.thread.id === threadId
+        ? () => {
+            const messageId = displayedThread.thread.messages.at(-1)?.id;
+            if (!messageId) return;
+            showEmail({
+              threadId,
+              autoOpenForwardForMessageId: messageId,
+              showReplyButton: true,
+            });
+          }
+        : undefined,
     snooze: mailCommandContext?.actions.snooze
       ? () => {
           setSearch("");
@@ -145,15 +247,29 @@ function CommandPaletteContent({
     ? buildMailCommandPalette({
         actions: {
           archive: mailCommandContext.actions.archive,
+          forward: mailCommandContext.actions.forward,
+          label: mailCommandContext.actions.label,
+          star: mailCommandContext.actions.star,
           markRead: mailCommandContext.actions.markRead,
+          markSpam: mailCommandContext.actions.markSpam,
           markUnread: mailCommandContext.actions.markUnread,
+          move: mailCommandContext.actions.move,
           openSnooze: mailCommandContext.actions.snooze
             ? () => setPage("snooze")
             : undefined,
           trash: mailCommandContext.actions.trash,
+          openExternal: mailCommandContext.actions.openExternal,
+          toggleAutoArchive: senderCommandContext?.toggleAutoArchive,
+          unsubscribe: senderCommandContext?.unsubscribe,
         },
+        allStarred: mailCommandContext.allStarred,
         hasRead: mailCommandContext.hasRead,
         hasUnread: mailCommandContext.hasUnread,
+        isAutoArchived: senderCommandContext?.isAutoArchived,
+        isAutoArchiveDisabled: senderCommandContext?.isAutoArchiveDisabled,
+        isUnsubscribeDisabled: senderCommandContext?.isUnsubscribeDisabled,
+        unsubscribeLabel: senderCommandContext?.unsubscribeLabel,
+        openExternalLabel: mailCommandContext.openExternalLabel,
         targetCount: mailCommandContext.targetCount,
       })
     : [];
@@ -185,7 +301,32 @@ function CommandPaletteContent({
           ...shortcutCommands.filter((command) => command.id === "compose"),
         ]
       : shortcutCommands;
-    allCommands = [...actionCommands, ...commands];
+    const themeCommands: Command[] = [
+      { theme: "dark", label: "Dark", icon: MoonIcon },
+      { theme: "light", label: "Light", icon: SunIcon },
+      { theme: "system", label: "System", icon: MonitorIcon },
+    ].map(({ theme, label, icon }) => ({
+      id: `theme-${theme}`,
+      label: `Set Theme: ${label}`,
+      icon,
+      section: "settings",
+      keywords: ["theme", "appearance", "mode", theme],
+      action: () => setTheme(theme),
+    }));
+    allCommands = [
+      ...actionCommands,
+      {
+        id: "switch-accounts",
+        label: "Switch accounts",
+        icon: UsersIcon,
+        section: "accounts",
+        keywords: ["switch", "accounts", "email", "inbox"],
+        closeOnSelect: false,
+        action: () => setPage("accounts"),
+      },
+      ...commands,
+      ...themeCommands,
+    ];
   }
 
   const filteredCommands =
@@ -195,6 +336,7 @@ function CommandPaletteContent({
   const groupedCommands = groupCommands(filteredCommands);
 
   const executeCommand = (command: Command) => {
+    if (command.disabled) return;
     setSearch("");
     if (command.closeOnSelect !== false) {
       setOpen(false);
@@ -216,7 +358,7 @@ function CommandPaletteContent({
       open={open}
       onOpenChange={handleOpenChange}
       onEscapeKeyDown={(event) => {
-        if (page !== "snooze") return;
+        if (page === "root") return;
         event.preventDefault();
         setPage("root");
         setSearch("");
@@ -233,15 +375,26 @@ function CommandPaletteContent({
         key={page}
         autoFocus
         placeholder={
-          page === "snooze"
-            ? "When should it return? Try Friday at 3pm"
-            : "Type a command or search..."
+          {
+            root: "Type a command or search...",
+            snooze: "When should it return? Try Friday at 3pm",
+            accounts: "Search accounts...",
+          }[page]
         }
         value={search}
         onValueChange={setSearch}
       />
       <CommandList>
-        {isLoading ? (
+        {page === "accounts" ? (
+          <AccountCommandList
+            search={search}
+            onClose={() => handleOpenChange(false)}
+            onBack={() => {
+              setPage("root");
+              setSearch("");
+            }}
+          />
+        ) : isLoading ? (
           <div className="flex items-center justify-center py-6">
             <Loader2Icon className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
@@ -276,6 +429,7 @@ function CommandPaletteContent({
                       <CommandItem
                         key={command.id}
                         value={`${command.id} ${command.label} ${command.keywords?.join(" ") || ""}`}
+                        disabled={command.disabled}
                         onSelect={() => executeCommand(command)}
                       >
                         {command.icon && (
@@ -294,26 +448,6 @@ function CommandPaletteContent({
           </>
         )}
       </CommandList>
-      <div className="flex items-center justify-center gap-4 border-t px-3 py-2 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1">
-          <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">
-            ↑↓
-          </kbd>
-          navigate
-        </span>
-        <span className="flex items-center gap-1">
-          <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">
-            ↵
-          </kbd>
-          select
-        </span>
-        <span className="flex items-center gap-1">
-          <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">
-            esc
-          </kbd>
-          {page === "snooze" ? "back" : "close"}
-        </span>
-      </div>
     </CommandDialog>
   );
 }

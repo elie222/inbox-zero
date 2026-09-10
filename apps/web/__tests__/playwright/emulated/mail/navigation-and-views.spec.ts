@@ -43,7 +43,7 @@ test("starts mailbox warming from the app shell before mail opens", async ({
 test("opens a complete conversation and updates its read state", async ({
   page,
 }, testInfo) => {
-  const { conversations } = await openMail(page);
+  const { conversations, emailAccountId } = await openMail(page);
   const readerConversation = conversationWithSubject(
     page,
     conversations,
@@ -78,38 +78,44 @@ test("opens a complete conversation and updates its read state", async ({
   await expect(page).toHaveURL(/thread-id=thr_playwright_reader/);
 
   await page.getByRole("button", { name: /^More actions/ }).click();
+  const move = page.getByRole("menuitem", { name: "Move" });
+  await expect(move).toBeVisible();
+  await expect(move).toContainText("V");
+  const markSpam = page.getByRole("menuitem", { name: "Mark as spam" });
+  await expect(markSpam).toContainText("!");
+  const openInGmail = page.getByRole("menuitem", {
+    name: "Open in Gmail",
+  });
+  await expect(openInGmail).toContainText("G G");
   const markUnread = page.getByRole("menuitem", { name: "Mark as unread" });
   await expect(markUnread).toBeVisible();
-  await markUnread.click();
+  await expect(markUnread).toContainText("U");
+  await page.keyboard.press("Escape");
+  await expect(markUnread).toBeHidden();
+  await page.keyboard.press("KeyV");
+  const moveDialog = page.getByRole("dialog", { name: "Move conversations" });
+  await expect(moveDialog).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(moveDialog).toBeHidden();
+  await page.keyboard.press("KeyU");
   await expect(
     page.getByText("Marked as unread", { exact: true }),
   ).toBeVisible();
-
-  await page.getByRole("button", { name: /^More actions/ }).click();
-  const markRead = page.getByRole("menuitem", { name: "Mark as read" });
-  await expect(markRead).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(markRead).toBeHidden();
-  await expect(
-    page.getByRole("heading", { name: "Re: Reader Navigation Message" }),
-  ).toBeVisible();
-  await expect(page).toHaveURL(/thread-id=thr_playwright_reader/);
-  const backToInbox = page.getByRole("button", { name: "Back to inbox" });
-  await expect(backToInbox).toBeVisible();
-  await expect(page.getByText(/^\d+ of \d+$/)).toHaveCount(0);
-
-  await backToInbox.click();
-  await expect(readerConversation).toBeVisible();
-  await expect(page).not.toHaveURL(/thread-id=/);
-
-  await readerConversation.click();
-  await expect(
-    page.getByRole("heading", { name: "Re: Reader Navigation Message" }),
-  ).toBeVisible();
-  await page.keyboard.press("Escape");
   await expect(conversations).toBeVisible();
   await expect(readerConversation).toBeVisible();
+  await expect(page.getByText(/^\d+ of \d+$/)).toHaveCount(0);
   await expect(page).not.toHaveURL(/thread-id=/);
+  await expect
+    .poll(
+      () =>
+        readLatestMailMutation(page, {
+          emailAccountId,
+          kind: "set_read_state",
+          threadId: "thr_playwright_reader",
+        }),
+      { timeout: 60_000 },
+    )
+    .toMatchObject({ payload: { read: false }, status: "succeeded" });
 });
 
 test("opening a conversation issues one detail request", async ({ page }) => {
@@ -296,13 +302,76 @@ test("creates and edits a label and shows every keyboard workflow", async ({
     page.getByRole("link", { name: updatedLabelName, exact: true }),
   ).toBeVisible();
 
+  const createLabel = async (name: string) => {
+    await page.getByRole("button", { name: "Create label" }).click();
+    await page.getByRole("textbox", { name: "New label name" }).fill(name);
+    await page.getByRole("button", { name: "Add", exact: true }).click();
+  };
+
+  // A branch starts closed, so each nested label stays out of sight until its
+  // parent is expanded.
+  const child = page.getByRole("link", { name: "Clients", exact: true });
+  const grandchild = page.getByRole("link", { name: "Acme", exact: true });
+
+  await createLabel(`${updatedLabelName}/Clients`);
+  const expandParent = page.getByRole("button", {
+    name: `Expand ${updatedLabelName}`,
+    exact: true,
+  });
+  await expect(expandParent).toBeVisible();
+  await expect(child).toBeHidden();
+  await expandParent.click();
+  await expect(child).toBeVisible();
+
+  await createLabel(`${updatedLabelName}/Clients/Acme`);
+  const expandChild = page.getByRole("button", {
+    name: `Expand ${updatedLabelName}/Clients`,
+    exact: true,
+  });
+  await expect(expandChild).toBeVisible();
+  await expect(grandchild).toBeHidden();
+  await expandChild.click();
+  await expect(grandchild).toBeVisible();
+  await capturePlaywrightCheckpoint(page, testInfo, "gmail-nested-labels");
+  await page
+    .getByRole("button", { name: `Collapse ${updatedLabelName}`, exact: true })
+    .click();
+  await expect(child).toBeHidden();
+  await expect(grandchild).toBeHidden();
+  // Re-expanding only reopens the level that was collapsed; deeper branches
+  // come back closed.
+  await expandParent.click();
+  await expect(child).toBeVisible();
+  await expect(grandchild).toBeHidden();
+  await expandChild.click();
+  await grandchild.click();
+  await expect(grandchild).toHaveAttribute("aria-current", "page");
+  const selectedLabelUrl = page.url();
+  await page
+    .getByRole("button", { name: `Collapse ${updatedLabelName}`, exact: true })
+    .click();
+  await expect(grandchild).toBeHidden();
+  await page.getByRole("link", { name: /^Inbox(?:\s+\d+)?$/ }).click();
+  await expect(page).toHaveURL(/type=inbox/);
+  await expect(grandchild).toBeHidden();
+  await page.goBack();
+  await expect(page).toHaveURL(selectedLabelUrl);
+  await expect(grandchild).toBeVisible();
+  await expect(grandchild).toHaveAttribute("aria-current", "page");
+  await grandchild.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
+  await expect(
+    editDialog.getByRole("textbox", { name: "label name" }),
+  ).toHaveValue(`${updatedLabelName}/Clients/Acme`);
+  await editDialog.getByRole("button", { name: "Cancel" }).click();
+
   await page.getByRole("button", { name: /^Keyboard shortcuts/ }).click();
   const dialog = page.getByRole("dialog", { name: "Keyboard shortcuts" });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByText("Next message", { exact: true })).toBeVisible();
   await expect(dialog.getByText("Archive", { exact: true })).toBeVisible();
   await expect(dialog.getByText("New message", { exact: true })).toBeVisible();
-  await expect(dialog.getByText("Send reply", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("Send", { exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
 });

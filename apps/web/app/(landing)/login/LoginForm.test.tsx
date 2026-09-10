@@ -78,7 +78,7 @@ describe("LoginForm", () => {
     window.inboxZeroDesktop = undefined;
   });
 
-  it("places Apple after Google and Microsoft when all OAuth options are shown", () => {
+  it("keeps secondary options off the main login page", () => {
     render(
       <LoginForm
         enabledProviders={["google", "microsoft", "apple", "sso"]}
@@ -88,20 +88,16 @@ describe("LoginForm", () => {
 
     expect(
       screen.getAllByRole("button").map((button) => button.textContent),
-    ).toEqual([
-      "Sign in with Google",
-      "Sign in with Microsoft",
-      "Sign in with Apple",
-    ]);
+    ).toEqual(["Sign in with Google", "Sign in with Microsoft"]);
   });
 
-  it("starts Apple sign-in when the Apple option is shown", async () => {
+  it("starts Apple sign-in directly when no primary provider is configured", async () => {
     mockSignInSocial.mockResolvedValue(undefined);
 
     render(<LoginForm enabledProviders={["apple"]} useGoogleOauthEmulator />);
 
     fireEvent.click(
-      screen.getByRole("button", { name: /sign in with apple/i }),
+      screen.getByRole("button", { name: /continue with apple/i }),
     );
 
     await waitFor(() => {
@@ -120,10 +116,16 @@ describe("LoginForm", () => {
     });
     mockSignInSocial.mockResolvedValue(undefined);
 
-    render(<LoginForm enabledProviders={["apple"]} useGoogleOauthEmulator />);
+    render(
+      <LoginForm
+        enabledProviders={["apple"]}
+        useGoogleOauthEmulator
+        otherOptions
+      />,
+    );
 
     fireEvent.click(
-      screen.getByRole("button", { name: /sign in with apple/i }),
+      screen.getByRole("button", { name: /continue with apple/i }),
     );
 
     await waitFor(() => {
@@ -202,10 +204,16 @@ describe("LoginForm", () => {
     const startAuth = vi.fn().mockResolvedValue(undefined);
     window.inboxZeroDesktop = { startAuth };
 
-    render(<LoginForm enabledProviders={["apple"]} useGoogleOauthEmulator />);
+    render(
+      <LoginForm
+        enabledProviders={["apple"]}
+        useGoogleOauthEmulator
+        otherOptions
+      />,
+    );
 
     fireEvent.click(
-      screen.getByRole("button", { name: /sign in with apple/i }),
+      screen.getByRole("button", { name: /continue with apple/i }),
     );
 
     await waitFor(() => {

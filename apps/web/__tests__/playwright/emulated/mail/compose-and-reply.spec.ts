@@ -1,4 +1,5 @@
-import { expect, type Locator, type Page } from "@playwright/test";
+import { expect, type Locator } from "@playwright/test";
+import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
 import {
@@ -38,6 +39,7 @@ test("keeps keyboard focus in the composer and follows the message field order",
     dialog.getByRole("textbox", { exact: true, name: "Bcc" }),
     dialog.getByPlaceholder("Subject"),
     dialog.getByRole("textbox", { name: "Email message" }),
+    dialog.getByRole("button", { name: "Show signature" }),
     dialog.getByRole("button", { name: /^Send/ }),
     dialog.getByRole("button", { name: "Attach files" }),
     dialog.getByRole("button", { name: "Insert inline images" }),
@@ -73,6 +75,101 @@ test("focuses the message field from the empty composer body", async ({
   await editorRoot.click();
 
   await expect(editor).toBeFocused();
+});
+
+test("keeps the collapsed signature when typing after clicking below it", async ({
+  page,
+}, testInfo) => {
+  await openMail(page);
+  await page.getByRole("button", { name: /^Compose/ }).click();
+
+  const dialog = page.getByRole("dialog", { name: "New Message" });
+  const editor = dialog.getByRole("textbox", { name: "Email message" });
+  const signatureBlock = dialog.locator(
+    "[data-email-preserved-kind='signature']",
+  );
+  await expect(signatureBlock).toBeVisible();
+
+  const signatureBox = await signatureBlock.boundingBox();
+  if (!signatureBox) throw new Error("Signature block has no bounding box");
+  const editorBox = await editor.boundingBox();
+  if (!editorBox) throw new Error("Editor has no bounding box");
+
+  const emptySpaceTop = signatureBox.y + signatureBox.height;
+  const emptySpaceHeight = editorBox.y + editorBox.height - emptySpaceTop;
+  expect(emptySpaceHeight).toBeGreaterThan(8);
+  const clickPosition = {
+    x: editorBox.width / 2,
+    y: emptySpaceTop - editorBox.y + emptySpaceHeight / 2,
+  };
+  await editor.click({ position: clickPosition });
+  await page.keyboard.type("Draft body");
+
+  await expect(editor).toContainText("Draft body");
+  expect(
+    await editor.evaluate((element) => {
+      const signature = element.querySelector(
+        "[data-email-preserved-kind='signature']",
+      );
+      if (!signature) return false;
+
+      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+      while (walker.nextNode()) {
+        if (walker.currentNode.textContent?.includes("Draft body")) {
+          return Boolean(
+            walker.currentNode.compareDocumentPosition(signature) &
+              Node.DOCUMENT_POSITION_FOLLOWING,
+          );
+        }
+      }
+      return false;
+    }),
+  ).toBe(true);
+  await expect(signatureBlock).toHaveCount(1);
+  await expect(
+    dialog.getByRole("button", { name: "Show signature" }),
+  ).toBeVisible();
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "composer-click-below-collapsed-signature",
+  );
+});
+
+test("highlights URLs while typing and pasting", async ({ page }, testInfo) => {
+  await openMail(page);
+  await page.getByRole("button", { name: /^Compose/ }).click();
+  const dialog = page.getByRole("dialog", { name: "New Message" });
+  const editor = dialog.getByRole("textbox", { name: "Email message" });
+  await editor.pressSequentially("Visit example.com/docs");
+  await expect(editor.locator("[data-email-url-highlight]")).toHaveText(
+    "example.com/docs",
+  );
+  await expect(editor.locator("[data-email-url-highlight]")).toHaveCSS(
+    "color",
+    "rgb(37, 99, 235)",
+  );
+  await editor.press("Space");
+  await editor.evaluate((element) => {
+    const clipboardData = new DataTransfer();
+    clipboardData.setData("text/plain", "More at example.org/help.");
+    element.dispatchEvent(
+      new ClipboardEvent("paste", {
+        bubbles: true,
+        cancelable: true,
+        clipboardData,
+      }),
+    );
+  });
+  await expect(editor.getByText("example.org/help", { exact: true })).toHaveCSS(
+    "color",
+    "rgb(37, 99, 235)",
+  );
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "automatic-url-highlighting",
+  );
 });
 
 test("keeps editing state stable across formatting, links, paste, and files", async ({
@@ -221,6 +318,14 @@ test("does not add a line break for the send shortcut", async ({
     .fill("recipient@example.com");
   await dialog.getByPlaceholder("Subject").fill(subject);
   await editor.pressSequentially("Draft body");
+  await dialog.getByRole("button", { name: "Show signature" }).click();
+  const signatureBlock = dialog.locator(
+    "[data-email-preserved-kind='signature']",
+  );
+  // The remove control only appears while hovering the signature.
+  await signatureBlock.hover();
+  await dialog.getByRole("button", { name: "Remove signature" }).click();
+  await expect(signatureBlock).toHaveCount(0);
 
   await editor.press("ControlOrMeta+Enter");
 
@@ -242,6 +347,40 @@ test("does not add a line break for the send shortcut", async ({
   );
 });
 
+test("attaches files and discards a compose draft with shortcuts", async ({
+  page,
+}, testInfo) => {
+  await openMail(page);
+  await page.getByRole("button", { name: /^Compose/ }).click();
+
+  const dialog = page.getByRole("dialog", { name: "New Message" });
+  const editor = dialog.locator("[contenteditable='true']");
+  const attachButton = dialog.getByRole("button", { name: "Attach files" });
+  await attachButton.hover();
+  await expect(page.getByRole("tooltip")).toContainText("Attach files");
+  await expect(page.getByRole("tooltip").locator("kbd")).toHaveText([
+    "⌘",
+    "shift",
+    "U",
+  ]);
+  await capturePlaywrightCheckpoint(page, testInfo, "composer-shortcut-hint");
+
+  const fileChooserPromise = page.waitForEvent("filechooser");
+  await editor.press("ControlOrMeta+Shift+u");
+  const fileChooser = await fileChooserPromise;
+  await fileChooser.setFiles({
+    name: "notes.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("Attachment contents"),
+  });
+  await expect(dialog.getByRole("list", { name: "Attachments" })).toContainText(
+    "notes.txt",
+  );
+
+  await editor.press("ControlOrMeta+Shift+,");
+  await expect(dialog).toBeHidden();
+});
+
 test("composes, sends, and reads a new message from Sent", async ({
   page,
 }, testInfo) => {
@@ -257,6 +396,13 @@ test("composes, sends, and reads a new message from Sent", async ({
   const composeEditor = dialog.locator("[contenteditable='true']");
   await composeEditor.pressSequentially("A composed message body.");
   await expect(composeEditor).toContainText("A composed message body.");
+  await dialog.getByRole("button", { name: "Show signature" }).click();
+  await expect(
+    dialog
+      .locator("[data-email-preserved-kind='signature']")
+      .getByRole("link", { name: "Inbox Zero" }),
+  ).toBeVisible();
+  await capturePlaywrightCheckpoint(page, testInfo, "composer-with-footer");
   await dialog.getByRole("button", { name: /^Send/ }).click();
 
   await expect(dialog).toBeHidden();
@@ -272,11 +418,11 @@ test("composes, sends, and reads a new message from Sent", async ({
   await sentConversation.click();
   await expect(page.getByRole("heading", { name: subject })).toBeVisible();
   await expect(page.getByText("recipient@example.com").first()).toBeVisible();
-  await expect(
-    page
-      .frameLocator('iframe[title="Email content preview"]')
-      .getByText("A composed message body."),
-  ).toBeVisible();
+  const sentMessage = page.frameLocator(
+    'iframe[title="Email content preview"]',
+  );
+  await expect(sentMessage.getByText("A composed message body.")).toBeVisible();
+  await expect(sentMessage.getByText("Sent with Inbox Zero")).toBeVisible();
   await capturePlaywrightCheckpoint(page, testInfo, "composed-message-in-sent");
 });
 
@@ -306,9 +452,10 @@ test("selects the sender when composing from all accounts", async ({
       .click();
 
     await expect(from).toContainText(secondAccount.email);
+    await dialog.getByRole("button", { name: "Show signature" }).click();
     await expect(
       dialog
-        .frameLocator('iframe[title="Signature preview"]')
+        .locator("[data-email-preserved-kind='signature']")
         .getByText(signature),
     ).toBeVisible();
   } finally {
@@ -316,11 +463,82 @@ test("selects the sender when composing from all accounts", async ({
   }
 });
 
+test("leaves the draft before returning to the list with Escape", async ({
+  page,
+}, testInfo) => {
+  const { conversations } = await openMail(page);
+  await conversationWithSubject(
+    page,
+    conversations,
+    "Reply Workflow Message",
+  ).click();
+  const message = page.locator(
+    '[data-thread-message-id="msg_playwright_reply"]',
+  );
+  await message.getByRole("button", { name: "Reply", exact: true }).click();
+  const editor = message.getByRole("textbox", { name: "Email message" });
+  await editor.fill("A draft preserved when leaving the input.");
+  // The reply tooltip owns Escape until its exit animation finishes.
+  await expect(page.getByRole("tooltip")).toHaveCount(0);
+  const threadUrl = page.url();
+
+  await editor.press("Escape");
+  await expect(message).toBeFocused();
+  await expect(page).toHaveURL(threadUrl);
+  await expect(editor).toContainText(
+    "A draft preserved when leaving the input.",
+  );
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "draft-escape-focuses-message",
+  );
+
+  await page.keyboard.press("Escape");
+  await expect(conversations).toBeVisible();
+  await expect(message).toBeHidden();
+});
+
+test("returns focus from a draft in a single-message email panel", async ({
+  page,
+}, testInfo) => {
+  const { emailAccountId } = await openMail(page);
+  await page.route("**/api/user/no-reply", async (route) => {
+    const response = await route.fetch({
+      url: new URL(
+        "/api/threads/thr_playwright_reply?includeDrafts=true",
+        route.request().url(),
+      ).toString(),
+    });
+    const { thread }: ThreadResponse = await response.json();
+    await route.fulfill({ json: [thread] });
+  });
+  await page.goto(`/${emailAccountId}/no-reply?thread-id=thr_playwright_reply`);
+  const message = page.locator(
+    '[data-thread-message-id="msg_playwright_reply"]',
+  );
+  await expect(message).toBeVisible();
+  await expect(message).not.toHaveAttribute("data-selected");
+  await message.getByRole("button", { name: "Reply", exact: true }).click();
+  const editor = message.getByRole("textbox", { name: "Email message" });
+  await editor.fill("A draft in the email panel.");
+  await expect(page.getByRole("tooltip")).toHaveCount(0);
+
+  await editor.press("Escape");
+
+  await expect(message).toBeFocused();
+  await expect(editor).toContainText("A draft in the email panel.");
+  await capturePlaywrightCheckpoint(page, testInfo, "panel-draft-escape-focus");
+});
+
 test("opens and sends a reply from the reader with Enter", async ({
   page,
 }, testInfo) => {
-  await stubMailboxSync(page);
   const releaseThreadRequest = Promise.withResolvers<void>();
+  await page.route("**/api/mobile/mailbox-sync", async (route) => {
+    await releaseThreadRequest.promise;
+    await route.continue();
+  });
   let threadRequestStarted = false;
   await page.route(
     "**/api/threads/thr_playwright_reply?includeDrafts=true",
@@ -354,8 +572,10 @@ test("opens and sends a reply from the reader with Enter", async ({
   await expect(replyEditor).toHaveCount(1);
   await expect(
     page.locator("[data-email-preserved-kind='quote']"),
+  ).toBeAttached();
+  await expect(
+    page.getByLabel(/^Show (signature and )?quoted message$/),
   ).toBeVisible();
-  await expect(page.getByLabel("Show quoted message")).toBeVisible();
   await expect(page.getByText("Quoted message", { exact: true })).toHaveCount(
     0,
   );
@@ -365,16 +585,150 @@ test("opens and sends a reply from the reader with Enter", async ({
   const replyBody = `A reply sent through the mail reader. ${testInfo.retry}`;
   await replyEditor.pressSequentially(replyBody);
   await expect(replyEditor).toContainText(replyBody);
+  await capturePlaywrightCheckpoint(page, testInfo, "inline-reply-divider");
   const sendButton = page.getByRole("button", { name: "Send", exact: true });
   await expect(sendButton).toHaveText("Send");
+
+  await replyEditor.press("ControlOrMeta+Shift+l");
+  await expect(page.getByRole("dialog", { name: "Send later" })).toBeVisible();
+  await capturePlaywrightCheckpoint(page, testInfo, "send-later-shortcut");
+
+  await page.getByRole("button", { name: "Choose date and time" }).click();
+  await page
+    .getByLabel("Send later date and time")
+    .press("ControlOrMeta+Shift+h");
+  await expect(page.getByRole("dialog", { name: "Remind me" })).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  await replyEditor.press("ControlOrMeta+Shift+l");
+  await expect(page.getByRole("dialog", { name: "Send later" })).toBeVisible();
+  await expect(page.getByLabel("Send later date and time")).toBeHidden();
+  await page.keyboard.press("Escape");
+
   await sendButton.hover();
-  await expect(page.getByRole("tooltip")).toHaveText(/(?:⌘|Ctrl)\+Enter/);
+  const sendTooltip = page.getByRole("tooltip", { name: /Send and mark done/ });
+  await expect(sendTooltip).toContainText("Send and mark done");
+  await expect(sendTooltip.locator("kbd")).toHaveText([
+    "⌘",
+    "enter",
+    "⌘",
+    "shift",
+    "enter",
+  ]);
   await capturePlaywrightCheckpoint(page, testInfo, "protected-quoted-reply");
+  const releaseSentRefresh = Promise.withResolvers<void>();
+  await page.route("**/api/mobile/mailbox-sync", async (route) => {
+    await releaseSentRefresh.promise;
+    await route.continue();
+  });
+  await page.route(
+    "**/api/threads/thr_playwright_reply?includeDrafts=true",
+    async (route) => {
+      const response = await route.fetch();
+      await releaseSentRefresh.promise;
+      await route.fulfill({ response });
+    },
+  );
   await sendButton.click();
 
-  await expect(page.getByText("Email sent!", { exact: true })).toBeVisible();
+  const localReply = page.locator('[data-thread-message-id^="outbox:"]');
+  try {
+    await expect(replyEditor).toHaveCount(0);
+    await expect(
+      localReply
+        .frameLocator('iframe[title="Email content preview"]')
+        .getByText(replyBody, { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page
+        .getByRole("region", { name: "Reply delivery status" })
+        .getByText("Reply sent", { exact: true }),
+    ).toBeVisible();
+    await expect(sentByMe).toHaveCount(initialSentByMeCount + 1);
+    await capturePlaywrightCheckpoint(
+      page,
+      testInfo,
+      "reply-awaiting-thread-refresh",
+    );
+  } finally {
+    releaseSentRefresh.resolve();
+  }
+  await expect(localReply).toHaveCount(0);
   await expect(sentByMe).toHaveCount(initialSentByMeCount + 1);
   await capturePlaywrightCheckpoint(page, testInfo, "reply-sent-in-thread");
+});
+
+test("opens a sent forward in its provider thread", async ({
+  page,
+}, testInfo) => {
+  const { emailAccountId } = await openMail(page);
+  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reply`);
+  const sourceMessage = page.locator(
+    '[data-thread-message-id="msg_playwright_reply"]',
+  );
+  await expect(sourceMessage).toBeVisible({ timeout: 60_000 });
+
+  await sourceMessage
+    .getByRole("button", { name: "Forward", exact: true })
+    .click();
+  await sourceMessage
+    .getByRole("textbox", { name: "To" })
+    .fill("recipient@example.com");
+  const editor = sourceMessage.getByRole("textbox", {
+    name: "Email message",
+  });
+  const forwardBody = `A forwarded message sent through the mail reader. ${testInfo.retry}`;
+  await editor.pressSequentially(forwardBody);
+  await sourceMessage
+    .getByRole("button", { name: "Send", exact: true })
+    .click();
+
+  await expect(page).not.toHaveURL(/thread-id=thr_playwright_reply/);
+  await expect(
+    page.getByRole("heading", { name: "Fwd: Reply Workflow Message" }),
+  ).toBeVisible();
+  await expect(
+    page
+      .frameLocator('iframe[title="Email content preview"]')
+      .getByText(forwardBody),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByRole("region", { name: "Reply delivery status" })
+      .getByText("Reply sent", { exact: true }),
+  ).toHaveCount(0);
+  await capturePlaywrightCheckpoint(page, testInfo, "forward-sent-in-thread");
+});
+
+test("keeps reply and forward drafts in separate composer sessions", async ({
+  page,
+}) => {
+  const { emailAccountId } = await openMail(page);
+  await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reply`);
+  const message = page.locator(
+    '[data-thread-message-id="msg_playwright_reply"]',
+  );
+  await expect(message).toBeVisible();
+
+  await message.getByRole("button", { name: "Reply", exact: true }).click();
+  const editor = page.getByRole("textbox", { name: "Email message" });
+  await editor.fill("Reply-only draft text");
+
+  await message.getByRole("button", { name: "Forward", exact: true }).click();
+  await expect(editor).not.toContainText("Reply-only draft text");
+  await expect(message.getByRole("textbox", { name: "To" })).toHaveValue("");
+  await editor.fill("Forward-only draft text");
+
+  await message.getByRole("button", { name: "Reply", exact: true }).click();
+  await expect(editor).toContainText("Reply-only draft text");
+  await page.getByRole("button", { name: /^Draft to Leslie/ }).click();
+  await expect(message.getByRole("textbox", { name: "To" })).toHaveValue(
+    /leslie@example\.com/i,
+  );
+
+  await message.getByRole("button", { name: "Forward", exact: true }).click();
+  await expect(editor).toContainText("Forward-only draft text");
+  await expect(message.getByRole("textbox", { name: "To" })).toHaveValue("");
 });
 
 async function selectEditorText(editor: Locator, text: string) {
@@ -397,24 +751,4 @@ async function selectEditorText(editor: Locator, text: string) {
     }
     throw new Error(`Could not find text to select: ${selectedText}`);
   }, text);
-}
-
-function stubMailboxSync(page: Page) {
-  return page.route("**/api/mobile/mailbox-sync", async (route) => {
-    const emailAccountId = await route
-      .request()
-      .headerValue("X-Email-Account-ID");
-    await route.fulfill({
-      body: JSON.stringify({
-        accountId: emailAccountId,
-        cursor: "playwright-compose-sync",
-        deletedMessageIds: [],
-        hasMore: false,
-        reset: false,
-        upsertedMessages: [],
-      }),
-      contentType: "application/json",
-      status: 200,
-    });
-  });
 }

@@ -5,6 +5,7 @@ import {
   useCallback,
   useId,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -15,6 +16,7 @@ import {
   useEditorState,
   type Editor,
 } from "@tiptap/react";
+import { TextSelection } from "@tiptap/pm/state";
 import { BubbleMenu } from "@tiptap/react/menus";
 import { DOMSerializer, Fragment, type Node } from "@tiptap/pm/model";
 import {
@@ -23,7 +25,9 @@ import {
 } from "../core/email-html";
 import { createEmailEditorExtensions } from "./email-extensions";
 import {
-  PreservedBlockDetails,
+  type ActivePreservedBlock,
+  PreservedBlocksContext,
+  PreservedBlockView,
   type RenderedPreservedEmailBlock,
 } from "./preserved-block";
 import styles from "./EmailEditor.module.css";
@@ -41,7 +45,6 @@ export type EmailEditorPreservedBlock = {
   id: string;
   kind: "quote" | "signature";
   html: string;
-  collapsed?: boolean;
 };
 
 export type EmailEditorHandle = {
@@ -89,7 +92,6 @@ export const EmailEditor = forwardRef<EmailEditorHandle, EmailEditorProps>(
       placeholder,
       autofocus,
       preservedBlocks: preservedBlocks.map((block) => ({
-        collapsed: block.collapsed,
         id: block.id,
         kind: block.kind,
         previewHtml: sanitizePreservedEmailHtmlForPreview(block.html),
@@ -164,8 +166,30 @@ const RichEmailEditor = forwardRef<
   const linkInputId = useId();
   const linkErrorId = `${linkInputId}-error`;
 
+  const [expanded, setExpanded] = useState(false);
+  const [activeBlocks, setActiveBlocks] = useState<ActivePreservedBlock[]>(() =>
+    preservedBlocks.map(({ id, kind }) => ({ id, kind })),
+  );
+  const preservedBlocksState = useMemo(
+    () => ({
+      blocks: activeBlocks,
+      expanded,
+      toggle: () => setExpanded((value) => !value),
+    }),
+    [activeBlocks, expanded],
+  );
+
   const emitChange = useCallback((editor: Editor) => {
-    onStateChangeRef.current?.(getRichEditorState(editor));
+    const { inlineContentIds, preservedBlocks: blocks } =
+      inspectRichEditorDocument(editor);
+    setActiveBlocks((current) =>
+      hasSamePreservedBlocks(current, blocks) ? current : blocks,
+    );
+    onStateChangeRef.current?.({
+      inlineContentIds,
+      mode: "rich",
+      preservedBlockIds: blocks.map((block) => block.id),
+    });
   }, []);
 
   const editor = useEditor(
@@ -181,6 +205,38 @@ const RichEmailEditor = forwardRef<
           "data-email-editor-content": "",
           dir: "auto",
           role: "textbox",
+        },
+        handleDOMEvents: {
+          mousedown: (view, event) => {
+            const target = event.target;
+            if (
+              !(target instanceof Element) ||
+              event.button !== 0 ||
+              target.closest("button")
+            ) {
+              return false;
+            }
+            let preservedBlock = target.closest("[data-email-preserved-kind]");
+            const lastEditorChild = view.dom.lastElementChild;
+            if (
+              !preservedBlock &&
+              lastEditorChild?.matches("[data-email-preserved-kind]") &&
+              event.clientY > lastEditorChild.getBoundingClientRect().bottom
+            ) {
+              preservedBlock = lastEditorChild;
+            }
+            if (!preservedBlock) return false;
+
+            event.preventDefault();
+            const blockPosition = view.posAtDOM(preservedBlock, 0);
+            const selection = TextSelection.near(
+              view.state.doc.resolve(blockPosition),
+              -1,
+            );
+            view.dispatch(view.state.tr.setSelection(selection));
+            view.focus();
+            return true;
+          },
         },
         handleClick: (_view, _position, event) => {
           const link = (event.target as HTMLElement | null)?.closest("a");
@@ -356,160 +412,167 @@ const RichEmailEditor = forwardRef<
   if (!editor) return <div className={styles.surface} aria-busy="true" />;
 
   return (
-    <div
-      className={styles.surface}
-      data-email-editor-root
-      data-email-editor-appearance={appearance}
-      data-email-editor-mode="rich"
-      onKeyDownCapture={(event) => {
-        const target = event.target;
-        if (
-          !(target instanceof Element) ||
-          !target.closest("[data-email-editor-content]")
-        ) {
-          return;
-        }
-        if (
-          event.key.toLowerCase() !== "k" ||
-          !(event.metaKey || event.ctrlKey)
-        ) {
-          return;
-        }
-        event.preventDefault();
-        openLinkPanel();
-      }}
-    >
-      <div className={styles.editor}>
-        <EditorContent editor={editor} />
-      </div>
-
-      <BubbleMenu
-        editor={editor}
-        options={{ offset: 8, placement: "bottom" }}
-        shouldShow={({ from, to }) => from !== to || editor.isActive("link")}
+    <PreservedBlocksContext.Provider value={preservedBlocksState}>
+      <div
+        className={styles.surface}
+        data-email-editor-root
+        data-email-editor-appearance={appearance}
+        data-email-editor-mode="rich"
+        onKeyDownCapture={(event) => {
+          const target = event.target;
+          if (
+            !(target instanceof Element) ||
+            !target.closest("[data-email-editor-content]")
+          ) {
+            return;
+          }
+          if (
+            event.key.toLowerCase() !== "k" ||
+            !(event.metaKey || event.ctrlKey)
+          ) {
+            return;
+          }
+          event.preventDefault();
+          openLinkPanel();
+        }}
       >
-        <div
-          aria-label="Selection formatting"
-          className={styles.bubbleToolbar}
-          role="toolbar"
-        >
-          <MarkButtons
-            editor={editor}
-            onLink={openLinkPanel}
-            state={toolbarState}
-          />
-          <span aria-hidden className={styles.separator} />
-          <ToolbarButton
-            active={toolbarState?.bulletList}
-            label="Bulleted list"
-            onPress={() => editor.chain().focus().toggleBulletList().run()}
-          >
-            •
-          </ToolbarButton>
-          <ToolbarButton
-            active={toolbarState?.orderedList}
-            label="Numbered list"
-            onPress={() => editor.chain().focus().toggleOrderedList().run()}
-          >
-            1.
-          </ToolbarButton>
-          <ToolbarButton
-            active={toolbarState?.blockquote}
-            label="Block quote"
-            onPress={() => editor.chain().focus().toggleBlockquote().run()}
-          >
-            “ ”
-          </ToolbarButton>
-          <span aria-hidden className={styles.separator} />
-          <ToolbarButton
-            active={toolbarState?.direction === "ltr"}
-            label="Left-to-right text"
-            onPress={() => setBlockDirection(editor, "ltr")}
-          >
-            LTR
-          </ToolbarButton>
-          <ToolbarButton
-            active={toolbarState?.direction === "rtl"}
-            label="Right-to-left text"
-            onPress={() => setBlockDirection(editor, "rtl")}
-          >
-            RTL
-          </ToolbarButton>
+        <div className={styles.editor}>
+          <EditorContent editor={editor} />
         </div>
-      </BubbleMenu>
 
-      {linkPanel && (
-        <div
-          aria-label={linkPanel.href ? "Edit link" : "Add link"}
-          className={styles.linkPanel}
-          data-email-editor-link-dialog=""
-          onKeyDown={(event) => {
-            if (event.key !== "Escape") return;
-            event.preventDefault();
-            event.stopPropagation();
-            closeLinkPanel();
-          }}
-          role="dialog"
+        <BubbleMenu
+          editor={editor}
+          options={{ offset: 8, placement: "bottom" }}
+          shouldShow={({ state, from, to }) =>
+            editor.isFocused &&
+            state.selection instanceof TextSelection &&
+            from !== to &&
+            Boolean(state.doc.textBetween(from, to).trim())
+          }
         >
-          <label htmlFor={linkInputId}>Link address</label>
-          <input
-            aria-describedby={linkError ? linkErrorId : undefined}
-            aria-invalid={Boolean(linkError)}
-            autoFocus
-            className={styles.linkInput}
-            id={linkInputId}
-            onChange={(event) => setLinkHref(event.target.value)}
-            placeholder="https://example.com"
-            type="text"
-            value={linkHref}
-            onKeyDown={(event) => {
-              if (event.key !== "Enter") return;
-              event.preventDefault();
-              applyLink();
-            }}
-          />
-          {linkError && (
-            <p className={styles.linkError} id={linkErrorId} role="alert">
-              {linkError}
-            </p>
-          )}
-          <div className={styles.linkActions}>
-            {linkPanel.href && (
-              <button
-                className={styles.toolbarButton}
-                onClick={() => openSafeLink(linkPanel.href)}
-                type="button"
-              >
-                Open
-              </button>
-            )}
-            {linkPanel.href && (
-              <button
-                className={styles.toolbarButton}
-                onClick={removeLink}
-                type="button"
-              >
-                Remove
-              </button>
-            )}
-            <button
-              className={styles.toolbarButton}
-              onClick={closeLinkPanel}
-              type="button"
+          <div
+            aria-label="Selection formatting"
+            className={styles.bubbleToolbar}
+            role="toolbar"
+          >
+            <MarkButtons
+              editor={editor}
+              onLink={openLinkPanel}
+              state={toolbarState}
+            />
+            <span aria-hidden className={styles.separator} />
+            <ToolbarButton
+              active={toolbarState?.bulletList}
+              label="Bulleted list"
+              onPress={() => editor.chain().focus().toggleBulletList().run()}
             >
-              Cancel
-            </button>
-            <button
-              className={styles.toolbarButton}
-              onClick={applyLink}
-              type="button"
+              <FormattingIcon kind="bullets" />
+            </ToolbarButton>
+            <ToolbarButton
+              active={toolbarState?.orderedList}
+              label="Numbered list"
+              onPress={() => editor.chain().focus().toggleOrderedList().run()}
             >
-              {linkPanel.href ? "Update" : "Add"}
-            </button>
+              <FormattingIcon kind="numbers" />
+            </ToolbarButton>
+            <ToolbarButton
+              active={toolbarState?.blockquote}
+              label="Block quote"
+              onPress={() => editor.chain().focus().toggleBlockquote().run()}
+            >
+              <FormattingIcon kind="quote" />
+            </ToolbarButton>
+            <span aria-hidden className={styles.separator} />
+            <ToolbarButton
+              active={toolbarState?.direction === "ltr"}
+              label="Left-to-right text"
+              onPress={() => setBlockDirection(editor, "ltr")}
+            >
+              <FormattingIcon kind="ltr" />
+            </ToolbarButton>
+            <ToolbarButton
+              active={toolbarState?.direction === "rtl"}
+              label="Right-to-left text"
+              onPress={() => setBlockDirection(editor, "rtl")}
+            >
+              <FormattingIcon kind="rtl" />
+            </ToolbarButton>
           </div>
-        </div>
-      )}
-    </div>
+        </BubbleMenu>
+
+        {linkPanel && (
+          <div
+            aria-label={linkPanel.href ? "Edit link" : "Add link"}
+            className={styles.linkPanel}
+            data-email-editor-link-dialog=""
+            onKeyDown={(event) => {
+              if (event.key !== "Escape") return;
+              event.preventDefault();
+              event.stopPropagation();
+              closeLinkPanel();
+            }}
+            role="dialog"
+          >
+            <label htmlFor={linkInputId}>Link address</label>
+            <input
+              aria-describedby={linkError ? linkErrorId : undefined}
+              aria-invalid={Boolean(linkError)}
+              autoFocus
+              className={styles.linkInput}
+              id={linkInputId}
+              onChange={(event) => setLinkHref(event.target.value)}
+              placeholder="https://example.com"
+              type="text"
+              value={linkHref}
+              onKeyDown={(event) => {
+                if (event.key !== "Enter") return;
+                event.preventDefault();
+                applyLink();
+              }}
+            />
+            {linkError && (
+              <p className={styles.linkError} id={linkErrorId} role="alert">
+                {linkError}
+              </p>
+            )}
+            <div className={styles.linkActions}>
+              {linkPanel.href && (
+                <button
+                  className={styles.toolbarButton}
+                  onClick={() => openSafeLink(linkPanel.href)}
+                  type="button"
+                >
+                  Open
+                </button>
+              )}
+              {linkPanel.href && (
+                <button
+                  className={styles.toolbarButton}
+                  onClick={removeLink}
+                  type="button"
+                >
+                  Remove
+                </button>
+              )}
+              <button
+                className={styles.toolbarButton}
+                onClick={closeLinkPanel}
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                className={styles.toolbarButton}
+                onClick={applyLink}
+                type="button"
+              >
+                {linkPanel.href ? "Update" : "Add"}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </PreservedBlocksContext.Provider>
   );
 });
 
@@ -534,6 +597,15 @@ const FallbackEmailEditor = forwardRef<
 ) {
   const editorRef = useRef<HTMLDivElement>(null);
   const [activeBlocks, setActiveBlocks] = useState(preservedBlocks);
+  const [expanded, setExpanded] = useState(false);
+  const preservedBlocksState = useMemo(
+    () => ({
+      blocks: activeBlocks.map(({ id, kind }) => ({ id, kind })),
+      expanded,
+      toggle: () => setExpanded((value) => !value),
+    }),
+    [activeBlocks, expanded],
+  );
   const currentHtmlRef = useRef(initialHtml);
   const [safeInitialHtml] = useState(() =>
     sanitizePreservedEmailHtmlForPreview(initialHtml),
@@ -561,52 +633,55 @@ const FallbackEmailEditor = forwardRef<
   );
 
   return (
-    <div
-      className={styles.surface}
-      data-email-editor-root
-      data-email-editor-appearance={appearance}
-      data-email-editor-mode="fallback"
-    >
-      <p className={styles.fallbackWarning} role="status">
-        This draft contains provider formatting that rich editing cannot safely
-        represent ({unsupported.join(", ")}). Sending it unchanged preserves the
-        original HTML; editing may simplify unsupported formatting.
-      </p>
+    <PreservedBlocksContext.Provider value={preservedBlocksState}>
       <div
-        aria-label="Email message"
-        aria-multiline="true"
-        autoFocus={autofocus}
-        className={styles.fallbackEditor}
-        contentEditable
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: core sanitization removes active content before this lossless fallback is rendered.
-        dangerouslySetInnerHTML={{ __html: safeInitialHtml }}
-        dir="auto"
-        onInput={(event) => {
-          currentHtmlRef.current = event.currentTarget.innerHTML;
-        }}
-        ref={editorRef}
-        role="textbox"
-        suppressContentEditableWarning
-        tabIndex={0}
-      />
-      {activeBlocks.map((block) => (
-        <StandalonePreservedBlock
-          block={block}
-          key={block.id}
-          onRemove={() => {
-            const next = activeBlocks.filter(
-              (candidate) => candidate.id !== block.id,
-            );
-            setActiveBlocks(next);
-            onStateChange?.({
-              inlineContentIds: [],
-              mode: "fallback",
-              preservedBlockIds: next.map((candidate) => candidate.id),
-            });
+        className={styles.surface}
+        data-email-editor-root
+        data-email-editor-appearance={appearance}
+        data-email-editor-mode="fallback"
+      >
+        <p className={styles.fallbackWarning} role="status">
+          This draft contains provider formatting that rich editing cannot
+          safely represent ({unsupported.join(", ")}). Sending it unchanged
+          preserves the original HTML; editing may simplify unsupported
+          formatting.
+        </p>
+        <div
+          aria-label="Email message"
+          aria-multiline="true"
+          autoFocus={autofocus}
+          className={styles.fallbackEditor}
+          contentEditable
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: core sanitization removes active content before this lossless fallback is rendered.
+          dangerouslySetInnerHTML={{ __html: safeInitialHtml }}
+          dir="auto"
+          onInput={(event) => {
+            currentHtmlRef.current = event.currentTarget.innerHTML;
           }}
+          ref={editorRef}
+          role="textbox"
+          suppressContentEditableWarning
+          tabIndex={0}
         />
-      ))}
-    </div>
+        {activeBlocks.map((block) => (
+          <StandalonePreservedBlock
+            block={block}
+            key={block.id}
+            onRemove={() => {
+              const next = activeBlocks.filter(
+                (candidate) => candidate.id !== block.id,
+              );
+              setActiveBlocks(next);
+              onStateChange?.({
+                inlineContentIds: [],
+                mode: "fallback",
+                preservedBlockIds: next.map((candidate) => candidate.id),
+              });
+            }}
+          />
+        ))}
+      </div>
+    </PreservedBlocksContext.Provider>
   );
 });
 
@@ -660,7 +735,7 @@ function MarkButtons({
         label="Add or edit link"
         onPress={onLink}
       >
-        Link
+        <FormattingIcon kind="link" />
       </ToolbarButton>
     </>
   );
@@ -704,14 +779,15 @@ function StandalonePreservedBlock({
 }) {
   return (
     <div className={styles.preservedBlock} contentEditable={false}>
-      <PreservedBlockDetails block={block} onRemove={onRemove} />
+      <PreservedBlockView block={block} onRemove={onRemove} />
     </div>
   );
 }
 
 function getRichEditorValue(editor: Editor): EmailEditorValue {
-  const { editableContent, inlineContentIds, preservedBlockIds } =
+  const { editableContent, inlineContentIds, preservedBlocks } =
     inspectRichEditorDocument(editor);
+  const preservedBlockIds = preservedBlocks.map((block) => block.id);
 
   const container = window.document.createElement("div");
   container.appendChild(
@@ -728,24 +804,19 @@ function getRichEditorValue(editor: Editor): EmailEditorValue {
   };
 }
 
-function getRichEditorState(editor: Editor): EmailEditorState {
-  const { inlineContentIds, preservedBlockIds } =
-    inspectRichEditorDocument(editor);
-  return {
-    inlineContentIds,
-    mode: "rich",
-    preservedBlockIds,
-  };
-}
-
 function inspectRichEditorDocument(editor: Editor) {
   const editableContent: Node[] = [];
   const inlineContentIds: string[] = [];
-  const preservedBlockIds: string[] = [];
+  const preservedBlocks: ActivePreservedBlock[] = [];
 
   editor.state.doc.forEach((node) => {
     if (node.type.name === "preservedEmailBlock") {
-      if (node.attrs.id) preservedBlockIds.push(String(node.attrs.id));
+      if (node.attrs.id) {
+        preservedBlocks.push({
+          id: String(node.attrs.id),
+          kind: node.attrs.kind === "signature" ? "signature" : "quote",
+        });
+      }
       return;
     }
 
@@ -757,7 +828,20 @@ function inspectRichEditorDocument(editor: Editor) {
     });
   });
 
-  return { editableContent, inlineContentIds, preservedBlockIds };
+  return { editableContent, inlineContentIds, preservedBlocks };
+}
+
+function hasSamePreservedBlocks(
+  current: ActivePreservedBlock[],
+  next: ActivePreservedBlock[],
+) {
+  return (
+    current.length === next.length &&
+    current.every(
+      (block, index) =>
+        block.id === next[index].id && block.kind === next[index].kind,
+    )
+  );
 }
 
 function setBlockDirection(editor: Editor, direction: "ltr" | "rtl") {
@@ -806,4 +890,34 @@ function emptyEditorValue(
     mode,
     preservedBlockIds: [],
   };
+}
+
+function FormattingIcon({
+  kind,
+}: {
+  kind: "bullets" | "numbers" | "quote" | "ltr" | "rtl" | "link";
+}) {
+  const paths = {
+    bullets: "M9 6h12M9 12h12M9 18h12M3 6h.01M3 12h.01M3 18h.01",
+    numbers: "M10 6h11M10 12h11M10 18h11M3 4h1v5M3 9h2M3 14c3-2 4 1 1 3l-1 2h3",
+    quote: "M9 5H3v7h5c0 4-2 6-5 7M21 5h-6v7h5c0 4-2 6-5 7",
+    ltr: "M4 4h16M4 9h10M4 14h16M4 20h14M15 17l3 3-3 3",
+    rtl: "M4 4h16M10 9h10M4 14h16M6 20h14M9 17l-3 3 3 3",
+    link: "M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-2 2M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l2-2",
+  };
+  return (
+    <svg
+      aria-hidden="true"
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d={paths[kind]} />
+    </svg>
+  );
 }

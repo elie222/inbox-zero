@@ -1,5 +1,6 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import chunk from "lodash/chunk";
+import { SafeError } from "@/utils/error";
 import type { Attachment as MailAttachment } from "nodemailer/lib/mailer";
 import { mapWithConcurrency } from "@/utils/async";
 import { toMailerAttachments } from "@/utils/types/mail";
@@ -60,7 +61,10 @@ import {
   getContactsClient,
 } from "@/utils/gmail/client";
 import { searchContacts } from "@/utils/gmail/contact";
-import { getGmailAttachment } from "@/utils/gmail/attachment";
+import {
+  getGmailAttachment,
+  getGmailDraftAttachments,
+} from "@/utils/gmail/attachment";
 import {
   getThreadsBatch,
   getThreadsWithNextPageToken,
@@ -231,9 +235,12 @@ export class GmailProvider implements EmailProvider {
     };
   }
 
-  async getMessage(messageId: string): Promise<ParsedMessage> {
+  async getMessage(
+    messageId: string,
+    options?: { includeCalendarContent?: boolean },
+  ): Promise<ParsedMessage> {
     const message = await getMessage(messageId, this.client, "full");
-    return parseMessage(message);
+    return parseMessage(message, options);
   }
 
   async getMessageByRfc822MessageId(
@@ -506,6 +513,20 @@ export class GmailProvider implements EmailProvider {
         }
       },
     );
+  }
+
+  async markMessagesStarredState(
+    messageIds: string[],
+    starred: boolean,
+  ): Promise<void> {
+    for (const ids of chunk([...new Set(messageIds)], 1000)) {
+      await this.client.users.messages.batchModify({
+        userId: "me",
+        requestBody: starred
+          ? { ids, addLabelIds: [GmailLabel.STARRED] }
+          : { ids, removeLabelIds: [GmailLabel.STARRED] },
+      });
+    }
   }
 
   async markMessagesReadState(
@@ -956,23 +977,32 @@ export class GmailProvider implements EmailProvider {
     params: {
       messageHtml?: string;
       subject?: string;
+      to?: string;
+      cc?: string;
+      bcc?: string;
     },
   ): Promise<void> {
     this.logger.info("Updating Gmail draft", { draftId });
 
-    // Get the current draft to preserve some fields
     const currentDraft = await getDraft(draftId, this.client);
     if (!currentDraft) {
-      throw new Error(`Draft ${draftId} not found`);
+      throw new SafeError("Could not find this draft to update.");
     }
 
-    const subject = params.subject || currentDraft.subject || "";
-    const content = params.messageHtml || currentDraft.textHtml || "";
+    const subject = params.subject ?? currentDraft.subject ?? "";
+    const content = params.messageHtml ?? currentDraft.textHtml ?? "";
+    const attachments = await getGmailDraftAttachments(
+      this.client,
+      currentDraft.id,
+      currentDraft.payload,
+    );
 
     const encodedMessage = await createMail({
-      to: currentDraft.headers?.to || "",
-      cc: currentDraft.headers?.cc,
-      bcc: currentDraft.headers?.bcc,
+      from: currentDraft.headers?.from,
+      to: params.to ?? currentDraft.headers?.to ?? "",
+      attachments,
+      cc: params.cc ?? currentDraft.headers?.cc,
+      bcc: params.bcc ?? currentDraft.headers?.bcc,
       replyTo: currentDraft.headers?.["reply-to"],
       subject,
       text: convertEmailHtmlToText({ htmlText: content }),
@@ -1078,10 +1108,14 @@ export class GmailProvider implements EmailProvider {
   }
 
   async sendEmailWithHtml(body: SendEmailBody) {
-    const result = await sendEmailWithHtml(this.client, {
-      ...body,
-      attachments: toMailerAttachments(body.attachments),
-    });
+    const result = await sendEmailWithHtml(
+      this.client,
+      {
+        ...body,
+        attachments: toMailerAttachments(body.attachments),
+      },
+      this.logger,
+    );
     return {
       messageId: result.data.id || "",
       threadId: result.data.threadId || "",
@@ -1773,7 +1807,7 @@ export class GmailProvider implements EmailProvider {
     expirationDate: Date;
     subscriptionId?: string;
   } | null> {
-    const res = await watchGmail(this.client);
+    const res = await watchGmail(this.client, this.logger);
 
     if (res.expiration) {
       const expirationDate = new Date(+res.expiration);

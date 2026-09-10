@@ -330,4 +330,48 @@ describe("confirmAssistantCreateRule", () => {
         .output.confirmationState,
     ).toBe("confirmed");
   });
+
+  it("returns the confirmed rule when another request wins the reservation race", async () => {
+    prisma.chatMessage.findFirst
+      .mockResolvedValueOnce({
+        id: "cm-1",
+        chatId: "chat-1",
+        updatedAt: new Date("2026-02-23T00:00:00.000Z"),
+        parts: [buildPendingCreateRulePart()],
+      } as never)
+      .mockResolvedValueOnce({
+        id: "cm-1",
+        chatId: "chat-1",
+        updatedAt: new Date("2026-02-23T00:01:00.000Z"),
+        parts: [
+          buildPendingCreateRulePart({
+            output: {
+              confirmationState: "confirmed",
+              ruleId: "rule-created-by-other-request",
+              confirmationResult: {
+                ruleId: "rule-created-by-other-request",
+                confirmedAt: "2026-02-23T00:01:00.000Z",
+              },
+            },
+          }),
+        ],
+      } as never);
+    prisma.chatMessage.updateMany.mockResolvedValue({ count: 0 } as never);
+
+    const result = await confirmAssistantCreateRuleForAccount({
+      chatId: "chat-1",
+      chatMessageId: "cm-1",
+      toolCallId: "tool-cr-1",
+      emailAccountId: "ea_1",
+      provider: "google",
+      logger: createTestLogger(),
+    });
+
+    expect(result).toMatchObject({
+      confirmationState: "confirmed",
+      ruleId: "rule-created-by-other-request",
+    });
+    expect(prisma.chatMessage.updateMany).toHaveBeenCalledTimes(1);
+    expect(createRuleMock).not.toHaveBeenCalled();
+  });
 });

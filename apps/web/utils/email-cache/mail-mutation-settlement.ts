@@ -4,6 +4,7 @@ import { notifyMailboxStoreChange } from "./mailbox";
 import {
   getMailMutationThreadKey,
   updateMessageReadState,
+  updateMessageStarredState,
 } from "./mail-mutation-overlay";
 import type { MailMutation } from "./mail-mutations";
 
@@ -25,11 +26,20 @@ export async function settleMailMutationBatchInCache(
   const mailboxMessages = transaction.objectStore("mailboxMessages");
   const settledAt = Date.now();
 
-  if (applicable.some((mutation) => mutation.kind === "set_read_state")) {
+  if (
+    applicable.some(
+      (mutation) =>
+        mutation.kind === "set_read_state" ||
+        mutation.kind === "set_starred_state",
+    )
+  ) {
     for (const mutation of applicable) {
       for (const messageId of new Set(mutation.messageIds)) {
         const key = [mutation.emailAccountId, messageId] as [string, string];
-        if (mutation.kind !== "set_read_state") {
+        if (
+          mutation.kind !== "set_read_state" &&
+          mutation.kind !== "set_starred_state"
+        ) {
           await mailboxMessages.delete(key);
           continue;
         }
@@ -37,7 +47,10 @@ export async function settleMailMutationBatchInCache(
         if (record) {
           await mailboxMessages.put({
             ...record,
-            data: updateMessageReadState(record.data, mutation.read),
+            data:
+              mutation.kind === "set_read_state"
+                ? updateMessageReadState(record.data, mutation.read)
+                : updateMessageStarredState(record.data, mutation.starred),
             lastAccessedAt: settledAt,
           });
         }
@@ -175,12 +188,17 @@ function updateRowData(data: unknown, mutation: MailMutation): unknown {
 
 function updateMessages(messages: unknown[], mutation: MailMutation) {
   const snapshot = new Set(mutation.messageIds);
-  if (mutation.kind === "set_read_state") {
-    return messages.map((message) =>
-      isParsedMessage(message) && snapshot.has(message.id)
+  if (
+    mutation.kind === "set_read_state" ||
+    mutation.kind === "set_starred_state"
+  ) {
+    return messages.map((message) => {
+      if (!isParsedMessage(message) || !snapshot.has(message.id))
+        return message;
+      return mutation.kind === "set_read_state"
         ? updateMessageReadState(message, mutation.read)
-        : message,
-    );
+        : updateMessageStarredState(message, mutation.starred);
+    });
   }
   return messages.filter(
     (message) => !isParsedMessage(message) || !snapshot.has(message.id),

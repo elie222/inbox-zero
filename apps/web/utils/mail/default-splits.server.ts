@@ -1,9 +1,9 @@
+import { MailSplitFilterKind } from "@/generated/prisma/enums";
+import { MAX_MAIL_SPLITS } from "@/utils/mail/split-constants";
 import { randomUUID } from "node:crypto";
-import { MailSplitKind } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import { getDefaultMailSplitDrafts } from "@/utils/mail/default-splits";
 import { lockMailSplits } from "@/utils/mail/split-lock";
-import { MAX_MAIL_SPLITS } from "@/utils/mail/split-constants";
 import { STANDARD_CATEGORY_SYSTEM_TYPES } from "@/utils/rule/consts";
 
 export async function getDefaultMailSplitDraftsForAccount(
@@ -24,61 +24,6 @@ export async function getDefaultMailSplitDraftsForAccount(
   return getDefaultMailSplitDrafts(rules);
 }
 
-export async function seedDefaultMailSplits({
-  emailAccountId,
-  rules,
-}: {
-  emailAccountId: string;
-  rules: Parameters<typeof getDefaultMailSplitDrafts>[0];
-}) {
-  const defaultSplits = getDefaultMailSplitDrafts(rules);
-  if (defaultSplits.length === 0) return;
-
-  const rows = defaultSplits.map((split, order) => ({
-    id: randomUUID(),
-    ...split,
-    order,
-  }));
-
-  await prisma.$transaction([
-    lockMailSplits(emailAccountId),
-    prisma.$executeRaw`
-      INSERT INTO "MailSplit" (
-        "id",
-        "createdAt",
-        "updatedAt",
-        "name",
-        "kind",
-        "value",
-        "order",
-        "emailAccountId"
-      )
-      SELECT
-        defaults."id",
-        CURRENT_TIMESTAMP,
-        CURRENT_TIMESTAMP,
-        defaults."name",
-        defaults."kind"::"MailSplitKind",
-        defaults."value",
-        defaults."order",
-        ${emailAccountId}
-      FROM jsonb_to_recordset(${JSON.stringify(rows)}::jsonb) AS defaults(
-        "id" text,
-        "name" text,
-        "kind" text,
-        "value" text,
-        "order" integer
-      )
-      WHERE NOT EXISTS (
-        SELECT 1
-        FROM "MailSplit"
-        WHERE "emailAccountId" = ${emailAccountId}
-      )
-      ON CONFLICT DO NOTHING
-    `,
-  ]);
-}
-
 export async function setDefaultMailSplits({
   emailAccountId,
   defaultSplits,
@@ -88,99 +33,63 @@ export async function setDefaultMailSplits({
   defaultSplits: ReturnType<typeof getDefaultMailSplitDrafts>;
   enabled: boolean;
 }) {
-  if (defaultSplits.length === 0) return;
-
+  if (!defaultSplits.length) return { status: "success" as const };
   if (!enabled) {
     await prisma.$transaction([
       lockMailSplits(emailAccountId),
       prisma.mailSplit.deleteMany({
         where: {
           emailAccountId,
-          kind: MailSplitKind.LABEL,
-          value: { in: defaultSplits.map((split) => split.value) },
+          OR: defaultSplits.map((split) => ({
+            filters: {
+              some: {},
+              every: { kind: MailSplitFilterKind.LABEL, value: split.labelId },
+            },
+          })),
         },
       }),
     ]);
     return { status: "success" as const };
   }
-
   const rows = defaultSplits.map((split, order) => ({
-    id: randomUUID(),
     ...split,
+    id: randomUUID(),
     order,
   }));
-
   const [, results] = await prisma.$transaction([
     lockMailSplits(emailAccountId),
-    prisma.$queryRaw<Array<{ availableCount: number; missingCount: number }>>`
-      WITH split_state AS (
-        SELECT
-          COUNT(*)::integer AS count,
-          COALESCE(MAX("order"), -1)::integer + 1 AS next_order
-        FROM "MailSplit"
-        WHERE "emailAccountId" = ${emailAccountId}
-      ),
-      missing_defaults AS (
-        SELECT
-          defaults.*,
-          (ROW_NUMBER() OVER (ORDER BY defaults."order") - 1)::integer AS offset
-        FROM jsonb_to_recordset(${JSON.stringify(rows)}::jsonb) AS defaults(
-          "id" text,
-          "name" text,
-          "kind" text,
-          "value" text,
-          "order" integer
-        )
+    prisma.$queryRaw<Array<{ missingCount: number; availableCount: number }>>`
+      WITH existing AS (
+        SELECT COUNT(*)::integer AS count, COALESCE(MAX("order"), -1)::integer + 1 AS next_order
+        FROM "MailSplit" WHERE "emailAccountId" = ${emailAccountId}
+      ), missing AS (
+        SELECT defaults.*, ROW_NUMBER() OVER (ORDER BY defaults."order") - 1 AS offset
+        FROM jsonb_to_recordset(${JSON.stringify(rows)}::jsonb)
+          AS defaults("id" text, "name" text, "labelId" text, "order" integer)
         WHERE NOT EXISTS (
-          SELECT 1
-          FROM "MailSplit" AS existing
-          WHERE existing."emailAccountId" = ${emailAccountId}
-            AND (
-              existing."name" = defaults."name"
-              OR (
-                existing."kind" = 'LABEL'::"MailSplitKind"
-                AND existing."value" = defaults."value"
-              )
-            )
+          SELECT 1 FROM "MailSplit" split WHERE split."emailAccountId" = ${emailAccountId}
+          AND (split."name" = defaults."name" OR (
+            EXISTS (SELECT 1 FROM "MailSplitFilter" filter WHERE filter."mailSplitId" = split."id" AND filter."kind" = 'LABEL' AND filter."value" = defaults."labelId")
+            AND NOT EXISTS (SELECT 1 FROM "MailSplitFilter" filter WHERE filter."mailSplitId" = split."id" AND (filter."kind" <> 'LABEL' OR filter."value" IS DISTINCT FROM defaults."labelId"))
+          ))
         )
-        ORDER BY defaults."order"
-      ),
-      inserted_defaults AS (
-        INSERT INTO "MailSplit" (
-          "id",
-          "createdAt",
-          "updatedAt",
-          "name",
-          "kind",
-          "value",
-          "order",
-          "emailAccountId"
-        )
-        SELECT
-          missing_defaults."id",
-          CURRENT_TIMESTAMP,
-          CURRENT_TIMESTAMP,
-          missing_defaults."name",
-          missing_defaults."kind"::"MailSplitKind",
-          missing_defaults."value",
-          split_state.next_order + missing_defaults.offset,
-          ${emailAccountId}
-        FROM missing_defaults
-        CROSS JOIN split_state
-        WHERE (
-          SELECT COUNT(*) FROM missing_defaults
-        ) <= GREATEST(${MAX_MAIL_SPLITS} - split_state.count, 0)
-        ON CONFLICT DO NOTHING
-        RETURNING "id"
+      ), inserted AS (
+        INSERT INTO "MailSplit" ("id", "createdAt", "updatedAt", "name", "matchAll", "order", "emailAccountId")
+        SELECT missing."id", NOW(), NOW(), missing."name", true, existing.next_order + missing.offset, ${emailAccountId}
+        FROM missing CROSS JOIN existing
+        WHERE (SELECT COUNT(*) FROM missing) <= GREATEST(${MAX_MAIL_SPLITS} - existing.count, 0)
+        ON CONFLICT DO NOTHING RETURNING "id"
+      ), inserted_filters AS (
+      INSERT INTO "MailSplitFilter" ("id", "kind", "value", "order", "mailSplitId")
+      SELECT missing."id" || '-filter', 'LABEL'::"MailSplitFilterKind", missing."labelId", 0, missing."id"
+      FROM missing JOIN inserted ON inserted."id" = missing."id"
+      RETURNING "id"
       )
-      SELECT
-        (SELECT COUNT(*)::integer FROM missing_defaults) AS "missingCount",
-        GREATEST(${MAX_MAIL_SPLITS} - split_state.count, 0)::integer
-          AS "availableCount"
-      FROM split_state
+      SELECT (SELECT COUNT(*)::integer FROM missing) AS "missingCount",
+        GREATEST(${MAX_MAIL_SPLITS} - existing.count, 0)::integer AS "availableCount"
+      FROM existing
     `,
   ]);
-
   const result = results[0];
   return {
     status:

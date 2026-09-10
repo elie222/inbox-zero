@@ -3,8 +3,6 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { clearEmailCache } from "./database";
 import {
   readCachedThreadList,
-  removeCachedThreadsFromView,
-  restoreCachedThreadsToView,
   writeCachedThreadList,
   writeCachedThreadRows,
 } from "./thread-lists";
@@ -102,89 +100,6 @@ describe("cached thread lists", () => {
 
     expect(first?.threads[0]?.subject).toBe("Account one");
     expect(second?.threads[0]?.subject).toBe("Account two");
-  });
-
-  it("removes and restores rows at their prior positions", async () => {
-    const threads = [
-      { id: "thread-1", subject: "One" },
-      { id: "thread-2", subject: "Two" },
-      { id: "thread-3", subject: "Three" },
-    ];
-    await writeCachedThreadList({
-      emailAccountId: "account-1",
-      viewKey: "all",
-      threads,
-      hasMore: false,
-    });
-
-    await removeCachedThreadsFromView({
-      emailAccountId: "account-1",
-      viewKey: "all",
-      threadIds: ["thread-2"],
-    });
-    expect(
-      (
-        await readCachedThreadList<TestThread>({
-          emailAccountId: "account-1",
-          viewKey: "all",
-        })
-      )?.threads.map((thread) => thread.id),
-    ).toEqual(["thread-1", "thread-3"]);
-
-    await restoreCachedThreadsToView({
-      emailAccountId: "account-1",
-      viewKey: "all",
-      entries: [{ thread: threads[1]!, index: 1 }],
-    });
-    expect(
-      (
-        await readCachedThreadList<TestThread>({
-          emailAccountId: "account-1",
-          viewKey: "all",
-        })
-      )?.threads.map((thread) => thread.id),
-    ).toEqual(["thread-1", "thread-2", "thread-3"]);
-  });
-
-  it("restores relative to a surviving neighbor after another removal", async () => {
-    const threads = [
-      { id: "thread-1", subject: "One" },
-      { id: "thread-2", subject: "Two" },
-      { id: "thread-3", subject: "Three" },
-      { id: "thread-4", subject: "Four" },
-    ];
-    await writeCachedThreadList({
-      emailAccountId: "account-1",
-      viewKey: "all",
-      threads,
-      hasMore: false,
-    });
-    await removeCachedThreadsFromView({
-      emailAccountId: "account-1",
-      viewKey: "all",
-      threadIds: ["thread-1", "thread-2"],
-    });
-
-    await restoreCachedThreadsToView({
-      emailAccountId: "account-1",
-      viewKey: "all",
-      entries: [
-        {
-          thread: threads[1]!,
-          index: 1,
-          threadOrder: threads.map((thread) => thread.id),
-        },
-      ],
-    });
-
-    expect(
-      (
-        await readCachedThreadList<TestThread>({
-          emailAccountId: "account-1",
-          viewKey: "all",
-        })
-      )?.threads.map((thread) => thread.id),
-    ).toEqual(["thread-2", "thread-3", "thread-4"]);
   });
 
   it("does not return an expired view", async () => {

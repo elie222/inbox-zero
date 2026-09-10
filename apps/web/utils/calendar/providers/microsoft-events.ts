@@ -1,3 +1,10 @@
+import { SafeError } from "@/utils/error";
+import type {
+  CalendarInvitation,
+  InvitationResponse,
+  InvitationEvent,
+} from "@/utils/calendar/invitations/parser";
+import { escapeODataString } from "@/utils/outlook/odata-escape";
 import type { Client } from "@microsoft/microsoft-graph-client";
 import { getCalendarClientWithRefresh } from "@/utils/outlook/calendar-client";
 import type {
@@ -13,6 +20,9 @@ import { BookingLinkLocationType } from "@/generated/prisma/enums";
 import type { Logger } from "@/utils/logger";
 import { sleep } from "@/utils/sleep";
 
+// PidLidAppointmentSequence tracks the organizer's meeting revision.
+const APPOINTMENT_SEQUENCE_PROPERTY =
+  "Integer {00062002-0000-0000-C000-000000000046} Id 0x8201";
 const ONLINE_MEETING_JOIN_URL_POLL_DELAYS_MS = [500, 1000, 2000] as const;
 const MICROSOFT_TEAMS_PROVIDER = "teamsForBusiness";
 
@@ -121,13 +131,16 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
     timeMax?: Date;
     maxResults?: number;
   }): Promise<CalendarEvent[]> {
+    this.logger.info("Starting Microsoft calendar client setup");
     const client = await this.getClient();
+    this.logger.info("Completed Microsoft calendar client setup");
 
     // calendarView requires both start and end times, default to 30 days from timeMin
     const effectiveTimeMax =
       timeMax ?? new Date(timeMin.getTime() + 30 * 24 * 60 * 60 * 1000);
 
     // Use calendarView endpoint which correctly returns events overlapping the time range
+    this.logger.info("Starting Microsoft calendar events request");
     const response = await client
       .api("/me/calendar/calendarView")
       .query({
@@ -139,8 +152,83 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
       .get();
 
     const events: MicrosoftEvent[] = response.value || [];
+    this.logger.info("Completed Microsoft calendar events request", {
+      eventCount: events.length,
+    });
 
     return events.map((event) => this.parseEvent(event));
+  }
+
+  async findInvitationEvent(
+    invitation: CalendarInvitation,
+  ): Promise<InvitationEvent | null> {
+    if (invitation.recurrenceId) return null;
+    const client = await this.getClient();
+    const result = await client
+      .api("/me/calendar/events")
+      .query({
+        $filter: `iCalUId eq '${escapeODataString(invitation.uid)}'`,
+        $top: 2,
+        $expand: `singleValueExtendedProperties($filter=id eq '${APPOINTMENT_SEQUENCE_PROPERTY}')`,
+      })
+      .get();
+    const events: Array<
+      MicrosoftEvent & {
+        isCancelled?: boolean;
+        singleValueExtendedProperties?: Array<{ id: string; value: string }>;
+        responseStatus?: { response?: string };
+      }
+    > = result.value ?? [];
+    if (events.length !== 1 || result["@odata.nextLink"]) return null;
+    const event = events[0];
+    if (event.isCancelled)
+      throw new SafeError("This event has been cancelled.");
+    if (
+      !event.id ||
+      event.isOrganizer ||
+      event.organizer?.emailAddress?.address?.toLowerCase() !==
+        invitation.organizer
+    )
+      return null;
+    if (
+      !event.attendees?.some(
+        (attendee) =>
+          attendee.emailAddress?.address?.toLowerCase() === invitation.attendee,
+      )
+    )
+      return null;
+    const revision = event.singleValueExtendedProperties?.find(
+      (property) =>
+        property.id.toLowerCase() ===
+        APPOINTMENT_SEQUENCE_PROPERTY.toLowerCase(),
+    )?.value;
+    if (!revision || !/^\d+$/.test(revision)) return null;
+    if (Number(revision) !== invitation.sequence)
+      throw new SafeError(
+        "This invitation has changed. Please respond to the latest invitation in your calendar.",
+      );
+    const response = event.responseStatus?.response;
+    return {
+      id: event.id,
+      response:
+        response === "tentativelyAccepted" ? "tentative" : (response ?? null),
+    };
+  }
+
+  async respondToInvitation(
+    eventId: string,
+    _invitation: CalendarInvitation,
+    response: InvitationResponse,
+  ) {
+    const client = await this.getClient();
+    const action = {
+      accepted: "accept",
+      declined: "decline",
+      tentative: "tentativelyAccept",
+    }[response];
+    await client
+      .api(`/me/events/${encodeURIComponent(eventId)}/${action}`)
+      .post({ sendResponse: true });
   }
 
   async createEvent(

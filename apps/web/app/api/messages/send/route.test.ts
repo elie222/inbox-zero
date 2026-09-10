@@ -6,6 +6,7 @@ import {
   DURABLE_MULTIPART_EMAIL_SEND_LIMITS,
 } from "@/utils/email/durable-email-send.validation";
 import { EMAIL_SEND_LIMITS } from "@/utils/types/mail";
+import { createScopedLogger, type Logger } from "@/utils/logger";
 import { POST } from "./route";
 
 const executeDurableEmailSend = vi.hoisted(() => vi.fn());
@@ -18,7 +19,7 @@ const emailProvider = vi.hoisted(() => ({
 
 type MockedRequest = NextRequest & {
   auth: { emailAccountId: string; userId: string };
-  logger: { error: () => void };
+  logger: Logger;
 };
 
 vi.mock("@/utils/email/durable-email-send", () => ({
@@ -38,7 +39,7 @@ vi.mock("@/utils/middleware", () => ({
       handler(
         Object.assign(request, {
           auth: { emailAccountId: "account-1", userId: "user-1" },
-          logger: { error: vi.fn() },
+          logger: createScopedLogger("messages-send-test"),
         }) as MockedRequest,
       ),
 }));
@@ -114,6 +115,7 @@ describe("POST /api/messages/send", () => {
       result: { messageId: "message-1", threadId: "thread-1" },
     });
     expect(executeDurableEmailSend).toHaveBeenCalledWith({
+      logger: expect.objectContaining({ error: expect.any(Function) }),
       emailAccountId: "account-1",
       getEmailProvider: expect.any(Function),
       input,
@@ -175,6 +177,7 @@ describe("POST /api/messages/send", () => {
       result: { messageId: "message-1", threadId: "thread-1" },
     });
     expect(executeDurableEmailSend).toHaveBeenCalledWith({
+      logger: expect.objectContaining({ error: expect.any(Function) }),
       emailAccountId: "account-1",
       getEmailProvider: expect.any(Function),
       input: {

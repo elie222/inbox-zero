@@ -322,7 +322,7 @@ describe("generateCheckoutSessionAction", () => {
     expect(mocks.createCheckoutSession).not.toHaveBeenCalled();
   });
 
-  it("uses a stable idempotency key for concurrent checkout requests", async () => {
+  it("includes a trial and uses a stable idempotency key for concurrent first checkouts", async () => {
     prisma.user.findUnique.mockResolvedValue({
       email: "user@example.com",
       utms: null,
@@ -358,6 +358,9 @@ describe("generateCheckoutSessionAction", () => {
     expect(mocks.createCheckoutSession.mock.calls[0][1]).toEqual(
       mocks.createCheckoutSession.mock.calls[1][1],
     );
+    expect(
+      mocks.createCheckoutSession.mock.calls[0]?.[0].subscription_data,
+    ).toHaveProperty("trial_period_days", 7);
   });
 
   it("uses a new idempotency key when the checkout quantity changes", async () => {
@@ -393,7 +396,7 @@ describe("generateCheckoutSessionAction", () => {
     );
   });
 
-  it("allows a new checkout after the previous subscription has ended", async () => {
+  it("allows a new paid checkout after the previous subscription has ended", async () => {
     prisma.user.findUnique.mockResolvedValue({
       email: "user@example.com",
       utms: null,
@@ -418,5 +421,8 @@ describe("generateCheckoutSessionAction", () => {
     });
 
     expect(result?.data).toEqual({ url: "https://stripe.test" });
+    expect(
+      mocks.createCheckoutSession.mock.calls[0]?.[0].subscription_data,
+    ).not.toHaveProperty("trial_period_days");
   });
 });

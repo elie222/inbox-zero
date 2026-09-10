@@ -23,7 +23,6 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -167,16 +166,9 @@ export function MailboxItemContextMenu({
       </ContextMenu>
 
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent>
+        <DialogContent aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>Edit {typeName}</DialogTitle>
-            <DialogDescription>
-              {editMode === "name-and-color"
-                ? `Choose a new name or color for “${item.name}”.`
-                : editMode === "color"
-                  ? `Choose a color for “${item.name}”.`
-                  : `Choose a new name for “${item.name}”.`}
-            </DialogDescription>
           </DialogHeader>
           <form onSubmit={submitEdit}>
             {showsName && (

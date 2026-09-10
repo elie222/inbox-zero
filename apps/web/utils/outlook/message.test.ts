@@ -4,6 +4,7 @@ import { createTestLogger } from "@/__tests__/helpers";
 import {
   buildOutlookSearchFallbackQuery,
   convertMessage,
+  getMessage,
   queryBatchMessages,
   queryMessagesWithAttachments,
   queryMessagesWithFilters,
@@ -222,6 +223,52 @@ describe("queryBatchMessages", () => {
     expect(api).not.toHaveBeenCalled();
   });
 
+  it("queries the requested folder directly for folder-only cleanup", async () => {
+    const request = createMockMessagesRequest();
+    const api = vi.fn().mockReturnValue(request);
+    await queryBatchMessages(
+      createCachedOutlookClient(api),
+      { folderId: "folder/id", searchQuery: "" },
+      createTestLogger(),
+    );
+    expect(api).toHaveBeenCalledWith("/me/mailFolders/folder%2Fid/messages");
+    expect(request.search).not.toHaveBeenCalled();
+    expect(request.filter).not.toHaveBeenCalled();
+  });
+
+  it("preserves folder scope on continuation pages", async () => {
+    const request = createMockMessagesRequest();
+    request.get.mockResolvedValue({
+      value: [
+        {
+          id: "inside",
+          conversationId: "thread-1",
+          parentFolderId: "folder-1",
+        },
+        {
+          id: "outside",
+          conversationId: "thread-2",
+          parentFolderId: "folder-2",
+        },
+      ],
+      "@odata.nextLink":
+        "https://graph.microsoft.com/v1.0/me/messages?$skip=40",
+    });
+    const api = vi.fn().mockReturnValue(request);
+    const result = await queryBatchMessages(
+      createCachedOutlookClient(api),
+      {
+        folderId: "folder-1",
+        pageToken: "https://graph.microsoft.com/v1.0/me/messages?$skip=20",
+      },
+      createTestLogger(),
+    );
+    expect(result.messages.map((message) => message.id)).toEqual(["inside"]);
+    expect(result.nextPageToken).toBe(
+      "https://graph.microsoft.com/v1.0/me/messages?$skip=40",
+    );
+  });
+
   it("uses metadata filters for unread category searches", async () => {
     const request = createMockMessagesRequest();
     const api = vi.fn().mockReturnValue(request);
@@ -317,6 +364,70 @@ describe("queryBatchMessages", () => {
 
     expect(request.search).toHaveBeenCalledWith('"newsletter"');
     expect(request.filter).not.toHaveBeenCalled();
+  });
+
+  it("escapes exact sender filters and omits incompatible ordering", async () => {
+    const request = createMockMessagesRequest();
+    const api = vi.fn().mockReturnValue(request);
+    const client = createCachedOutlookClient(api);
+
+    await queryBatchMessages(
+      client,
+      {
+        fromEmail: "o'connor@example.com",
+        maxResults: 20,
+      },
+      createTestLogger(),
+    );
+
+    expect(request.filter).toHaveBeenCalledWith(
+      "from/emailAddress/address eq 'o''connor@example.com'",
+    );
+    expect(request.orderby).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    undefined,
+    "https://graph.microsoft.com/v1.0/me/messages?$skiptoken=next-page",
+  ])("filters Outlook search pages to the exact sender (page: %s)", async (pageToken) => {
+    const request = createMockMessagesRequest();
+    request.get.mockResolvedValue({
+      value: [
+        {
+          id: "matching-message",
+          conversationId: "matching-thread",
+          from: { emailAddress: { address: "Sender@Example.com" } },
+        },
+        {
+          id: "non-matching-message",
+          conversationId: "non-matching-thread",
+          from: { emailAddress: { address: "other@example.com" } },
+        },
+      ],
+    });
+    const api = vi.fn().mockReturnValue(request);
+    const client = createCachedOutlookClient(api);
+
+    const result = await queryBatchMessages(
+      client,
+      {
+        searchQuery: "invoice",
+        pageToken,
+        fromEmail: "sender@example.com",
+        maxResults: 20,
+      },
+      createTestLogger(),
+    );
+
+    if (pageToken) {
+      expect(api).toHaveBeenCalledWith(pageToken);
+      expect(request.search).not.toHaveBeenCalled();
+    } else {
+      expect(request.search).toHaveBeenCalledWith('"invoice"');
+    }
+    expect(result.messages.map((message) => message.id)).toEqual([
+      "matching-message",
+    ]);
   });
 });
 
@@ -587,4 +698,75 @@ function createMockMessagesRequest() {
   };
 
   return request;
+}
+
+describe("calendar MIME enrichment", () => {
+  it("keeps invitation attachments when the optional MIME fetch fails", async () => {
+    const rawGet = vi
+      .fn()
+      .mockRejectedValue({ statusCode: 400, message: "MIME unavailable" });
+    const client = calendarMessageClient(rawGet);
+    const message = await getMessage("message", client, createTestLogger(), {
+      includeCalendarContent: true,
+    });
+    expect(message.isMeetingInvitation).toBe(true);
+    expect(message.attachments?.[0].attachmentId).toBe("attachment");
+    expect(message.calendarContent).toBeUndefined();
+  });
+
+  it("extracts calendar data from a native Outlook meeting message", async () => {
+    const content = "BEGIN:VCALENDAR\r\nMETHOD:REQUEST\r\nEND:VCALENDAR";
+    const rawGet = vi
+      .fn()
+      .mockResolvedValue(
+        "MIME-Version: 1.0\r\nContent-Type: text/calendar; method=REQUEST; charset=utf-8\r\n\r\n" +
+          content,
+      );
+    const message = await getMessage(
+      "message",
+      calendarMessageClient(rawGet),
+      createTestLogger(),
+      { includeCalendarContent: true },
+    );
+    expect(message.calendarContent?.trim()).toBe(
+      content.replaceAll("\r\n", "\n"),
+    );
+  });
+
+  it("does not fetch raw MIME for ordinary message reads", async () => {
+    const rawGet = vi.fn();
+    await getMessage(
+      "message",
+      calendarMessageClient(rawGet),
+      createTestLogger(),
+    );
+    expect(rawGet).not.toHaveBeenCalled();
+  });
+});
+
+function calendarMessageClient(rawGet: ReturnType<typeof vi.fn>) {
+  const request = {
+    select: vi.fn().mockReturnThis(),
+    expand: vi.fn().mockReturnThis(),
+    get: vi.fn().mockResolvedValue({
+      id: "message",
+      "@odata.type": "#microsoft.graph.eventMessageRequest",
+      attachments: [
+        {
+          id: "attachment",
+          name: "invite.ics",
+          contentType: "text/calendar",
+          size: 100,
+        },
+      ],
+    }),
+  };
+  const rawRequest = { responseType: vi.fn().mockReturnThis(), get: rawGet };
+  return {
+    getFolderIdCache: () => ({}),
+    getCategoryMapCache: () => new Map(),
+    getClient: () => ({
+      api: (path: string) => (path.endsWith("/$value") ? rawRequest : request),
+    }),
+  } as unknown as OutlookClient;
 }

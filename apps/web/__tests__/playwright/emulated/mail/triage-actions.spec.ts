@@ -47,7 +47,8 @@ test("deletes an open conversation and returns to the list", async ({
     page.getByRole("heading", { name: "Delete Action Message" }),
   ).toBeVisible();
 
-  await page.getByRole("button", { name: /^Delete \(/ }).click();
+  await page.getByRole("button", { name: /^More actions/ }).click();
+  await page.getByRole("menuitem", { name: /^Delete/ }).click();
 
   await expect(conversations).toBeVisible();
   await expect(deletedConversation).toHaveCount(0);

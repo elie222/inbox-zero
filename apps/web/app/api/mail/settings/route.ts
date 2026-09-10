@@ -1,36 +1,37 @@
+import { ensureAllMailSplit } from "@/utils/mail/initial-splits";
 import { NextResponse } from "next/server";
 import { withEmailAccount } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
-import { getDefaultMailSplitDraftsForAccount } from "@/utils/mail/default-splits.server";
 
 export type MailSettingsResponse = Awaited<ReturnType<typeof getMailSettings>>;
 
 async function getMailSettings({ emailAccountId }: { emailAccountId: string }) {
-  const [emailAccount, defaultSplits] = await Promise.all([
-    prisma.emailAccount.findUnique({
-      where: { id: emailAccountId },
-      select: {
-        mailLayout: true,
-        mailSplits: {
-          // createdAt breaks ties so tab order can't shuffle between requests
-          orderBy: [{ order: "asc" }, { createdAt: "asc" }],
-          select: {
-            id: true,
-            name: true,
-            kind: true,
-            value: true,
-            order: true,
+  const emailAccount = await prisma.emailAccount.findUnique({
+    where: { id: emailAccountId },
+    select: {
+      mailLayout: true,
+      mailExpandedPreview: true,
+      mailSplits: {
+        // createdAt breaks ties so tab order can't shuffle between requests
+        orderBy: [{ order: "asc" }, { createdAt: "asc" }],
+        select: {
+          id: true,
+          name: true,
+          order: true,
+          matchAll: true,
+          filters: {
+            orderBy: { order: "asc" },
+            select: { kind: true, value: true },
           },
         },
       },
-    }),
-    getDefaultMailSplitDraftsForAccount(emailAccountId),
-  ]);
+    },
+  });
 
   return {
     layout: emailAccount?.mailLayout ?? null,
-    splits: emailAccount?.mailSplits ?? [],
-    defaultSplits,
+    expandedPreview: emailAccount?.mailExpandedPreview ?? false,
+    splits: ensureAllMailSplit(emailAccount?.mailSplits ?? []),
   };
 }
 

@@ -494,6 +494,9 @@ importers:
       html-to-text:
         specifier: 10.0.0
         version: 10.0.0
+      ical.js:
+        specifier: 2.2.1
+        version: 2.2.1
       idb:
         specifier: 8.0.3
         version: 8.0.3
@@ -506,6 +509,9 @@ importers:
       jsonrepair:
         specifier: 3.15.0
         version: 3.15.0
+      linkify-it:
+        specifier: 5.0.1
+        version: 5.0.1
       lodash:
         specifier: 4.18.1
         version: 4.18.1
@@ -551,6 +557,9 @@ importers:
       pg:
         specifier: 8.22.0
         version: 8.22.0
+      postal-mime:
+        specifier: 3.0.0
+        version: 3.0.0
       posthog-js:
         specifier: 1.396.6
         version: 1.396.6
@@ -635,6 +644,9 @@ importers:
       tailwindcss-animate:
         specifier: 1.0.7
         version: 1.0.7(tailwindcss@3.4.17)
+      tlds:
+        specifier: 1.261.0
+        version: 1.261.0
       tldts:
         specifier: 7.4.10
         version: 7.4.10
@@ -681,6 +693,9 @@ importers:
       '@types/jsdom':
         specifier: 28.0.3
         version: 28.0.3
+      '@types/linkify-it':
+        specifier: 5.0.0
+        version: 5.0.0
       '@types/lodash':
         specifier: 4.17.25
         version: 4.17.25
@@ -727,8 +742,8 @@ importers:
         specifier: 11.0.0
         version: 11.0.0
       emulate:
-        specifier: npm:@inbox-zero/emulate@0.9.0
-        version: '@inbox-zero/emulate@0.9.0'
+        specifier: npm:@inbox-zero/emulate@0.11.1
+        version: '@inbox-zero/emulate@0.11.1'
       esbuild:
         specifier: 0.28.1
         version: 0.28.1
@@ -849,6 +864,9 @@ importers:
       '@tiptap/starter-kit':
         specifier: 3.30.2
         version: 3.30.2
+      linkifyjs:
+        specifier: 4.3.3
+        version: 4.3.3
       parse5:
         specifier: 8.0.0
         version: 8.0.0
@@ -3062,8 +3080,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@inbox-zero/emulate@0.9.0':
-    resolution: {integrity: sha512-ID/4A4fQzKMCl7SVN/oIW75nFhQ43ObVcDT7boygsKlJEt/L9X/EPtMdVuV6+m4Eo7aovqGQp0yDUj5ysc3lkw==}
+  '@inbox-zero/emulate@0.11.1':
+    resolution: {integrity: sha512-MewAp3r9XQEdoxO+sEPz4d6hLVmjC4xlo5Ct/6NsQ3QXaSCyjziE8bRPu4Ta3pWKSPGe8hw1qxjI7U11NEXGSw==}
     hasBin: true
 
   '@inquirer/ansi@1.0.2':
@@ -9098,6 +9116,9 @@ packages:
       typescript:
         optional: true
 
+  ical.js@2.2.1:
+    resolution: {integrity: sha512-yK/UlPbEs316igb/tjRgbFA8ZV75rCsBJp/hWOatpyaPNlgw0dGDmU+FoicOcwX4xXkeXOkYiOmCqNPFpNPkQg==}
+
   iconv-lite@0.6.3:
     resolution: {integrity: sha512-4fCk79wshMdzMp2rH06qWrJE4iolqLhCUH+OiuIgU++RB0+94NlDL81atO7GX55uUKueo0txHNtvEyI6D7WdMw==}
     engines: {node: '>=0.10.0'}
@@ -10906,6 +10927,9 @@ packages:
   postal-mime@2.7.5:
     resolution: {integrity: sha512-GNEXKvWFQnbgO5NlrGzVa0FmWzBZ24PersAWErttSg1Hjpf0ATxTwS5DOMGaOpTG6bUh5cTr7xi0jAD942wCJA==}
 
+  postal-mime@3.0.0:
+    resolution: {integrity: sha512-Z4a9ar2Bv3YpK3IXag+Yda30k7bMZfpRuUGyqtHnZ2pjHG8Bl62EhZIk4n1dzv00gfzP9g+94e9kd8+XmjVWLA==}
+
   postcss-import@15.1.0:
     resolution: {integrity: sha512-hpr+J05B2FVYUAXHeK1YyI267J/dDDhMU6B6civm8hSY1jYJnBXxzKDKDswzJmtLHryrjhnDjqqp/49t8FALew==}
     engines: {node: '>=14.0.0'}
@@ -12297,6 +12321,10 @@ packages:
   tinyrainbow@3.1.0:
     resolution: {integrity: sha512-Bf+ILmBgretUrdJxzXM0SgXLZ3XfiaUuOj/IKQHuTXip+05Xn+uyEYdVg0kYDipTBcLrCVyUzAPz7QmArb0mmw==}
     engines: {node: '>=14.0.0'}
+
+  tlds@1.261.0:
+    resolution: {integrity: sha512-QXqwfEl9ddlGBaRFXIvNKK6OhipSiLXuRuLJX5DErz0o0Q0rYxulWLdFryTkV5PkdZct5iMInwYEGe/eR++1AA==}
+    hasBin: true
 
   tldts-core@6.1.86:
     resolution: {integrity: sha512-Je6p7pkk+KMzMv2XXKmAE3McmolOQFdxkKw0R8EYNr7sELW46JqnNeTX8ybPiQgvg1ymCoF8LXs5fzFaZvJPTA==}
@@ -15298,7 +15326,7 @@ snapshots:
   '@img/sharp-win32-x64@0.35.3':
     optional: true
 
-  '@inbox-zero/emulate@0.9.0':
+  '@inbox-zero/emulate@0.11.1':
     dependencies:
       commander: 14.0.3
       picocolors: 1.1.1
@@ -22374,6 +22402,8 @@ snapshots:
     optionalDependencies:
       typescript: 6.0.3
 
+  ical.js@2.2.1: {}
+
   iconv-lite@0.6.3:
     dependencies:
       safer-buffer: 2.1.2
@@ -24327,6 +24357,8 @@ snapshots:
 
   postal-mime@2.7.5: {}
 
+  postal-mime@3.0.0: {}
+
   postcss-import@15.1.0(postcss@8.5.14):
     dependencies:
       postcss: 8.5.14
@@ -26191,6 +26223,8 @@ snapshots:
       picomatch: 4.0.5
 
   tinyrainbow@3.1.0: {}
+
+  tlds@1.261.0: {}
 
   tldts-core@6.1.86: {}
 

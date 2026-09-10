@@ -1,3 +1,4 @@
+import { cleanupInvalidTokens } from "@/utils/auth/cleanup-invalid-tokens";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   Client,
@@ -67,6 +68,27 @@ vi.mock("@/env", () => ({
 }));
 
 describe("outlook client emulator configuration", () => {
+  it("records missing refresh tokens using the failed credential snapshot", async () => {
+    const logger = createTestLogger();
+    vi.mocked(cleanupInvalidTokens).mockResolvedValueOnce(undefined);
+    await expect(
+      getOutlookClientWithRefresh({
+        accessToken: "access-token",
+        refreshToken: null,
+        expiresAt: null,
+        emailAccountId: "email-account-id",
+        logger,
+      }),
+    ).rejects.toThrow("No refresh token");
+    expect(cleanupInvalidTokens).toHaveBeenCalledWith({
+      emailAccountId: "email-account-id",
+      reason: "invalid_grant",
+      failedAccessToken: "access-token",
+      failedRefreshToken: null,
+      logger,
+    });
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
   });

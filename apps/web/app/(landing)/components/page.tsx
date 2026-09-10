@@ -38,6 +38,17 @@ import {
   useMultiSelectFilter,
 } from "@/components/MultiSelectFilter";
 import { TagInput } from "@/components/TagInput";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Select as NativeSelect } from "@/components/Select";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { Suspense, useState } from "react";
 import { PremiumAiAssistantAlert } from "@/components/PremiumAlert";
@@ -55,6 +66,7 @@ import {
 } from "@/components/ui/item";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { isValidEmail } from "@/utils/email";
+import { EmailAccountPreviewProvider } from "@/providers/EmailAccountProvider";
 import { ActionBadges } from "@/app/(app)/[emailAccountId]/assistant/Rules";
 import { DismissibleVideoCard } from "@/components/VideoCard";
 import { PremiumExpiredCardContent } from "@/components/PremiumCard";
@@ -71,6 +83,14 @@ import {
 export const maxDuration = 3;
 
 export default function Components() {
+  return (
+    <EmailAccountPreviewProvider>
+      <ComponentsDemo />
+    </EmailAccountPreviewProvider>
+  );
+}
+
+function ComponentsDemo() {
   const { selectedValues, setSelectedValues } = useMultiSelectFilter([
     "alerts",
   ]);
@@ -81,6 +101,7 @@ export default function Components() {
   ]);
   const [joinRule, setJoinRule] = useState("all");
   const [notifyByEmail, setNotifyByEmail] = useState(true);
+  const [demoCategory, setDemoCategory] = useState("newsletters");
   return (
     <Container>
       <div className="space-y-8 py-8">
@@ -813,6 +834,49 @@ export default function Components() {
               ]}
               selectedValues={selectedValues}
               setSelectedValues={setSelectedValues}
+            />
+          </div>
+        </div>
+
+        <div>
+          <div className="underline">Form fields</div>
+          <div className="mt-4 max-w-md space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="demo-input">Input</Label>
+              <Input id="demo-input" placeholder="name@company.com" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="demo-input-disabled">Input, disabled</Label>
+              <Input id="demo-input-disabled" placeholder="Disabled" disabled />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="demo-textarea">Textarea</Label>
+              <Textarea
+                id="demo-textarea"
+                placeholder="Describe what should land here…"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="demo-select">Select</Label>
+              <Select value={demoCategory} onValueChange={setDemoCategory}>
+                <SelectTrigger id="demo-select">
+                  <SelectValue placeholder="Pick a category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="receipts">Receipts</SelectItem>
+                  <SelectItem value="newsletters">Newsletters</SelectItem>
+                  <SelectItem value="updates">Updates</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <NativeSelect
+              name="demo-native-select"
+              label="Select, native"
+              options={[
+                { label: "Receipts", value: "receipts" },
+                { label: "Newsletters", value: "newsletters" },
+                { label: "Updates", value: "updates" },
+              ]}
             />
           </div>
         </div>

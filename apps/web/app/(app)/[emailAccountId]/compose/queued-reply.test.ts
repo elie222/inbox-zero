@@ -24,7 +24,10 @@ describe("queueReaderEmail", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     outbox.listener = undefined;
-    outbox.enqueue.mockResolvedValue(createMutation("pending"));
+    outbox.enqueue.mockImplementation(async (input) => ({
+      ...createMutation("pending"),
+      ...input,
+    }));
     outbox.get.mockResolvedValue(createMutation("pending"));
     outbox.claimNotification.mockResolvedValue(undefined);
   });
@@ -51,6 +54,32 @@ describe("queueReaderEmail", () => {
       threadId: "thread",
     });
     expect(outbox.get).not.toHaveBeenCalled();
+  });
+
+  it("reuses a persisted reply identity without enqueueing a duplicate", async () => {
+    await queueReaderEmail({
+      email: createEmail(),
+      emailAccountId: "account",
+      messageIds: ["message"],
+      online: false,
+      threadId: "thread",
+      mutationId: "mutation",
+    });
+    expect(outbox.enqueue).not.toHaveBeenCalled();
+  });
+
+  it("refuses changed content under an existing reply identity", async () => {
+    await expect(
+      queueReaderEmail({
+        email: { ...createEmail(), messageHtml: "Changed" },
+        emailAccountId: "account",
+        messageIds: ["message"],
+        online: false,
+        threadId: "thread",
+        mutationId: "mutation",
+      }),
+    ).rejects.toThrow("different content");
+    expect(outbox.enqueue).not.toHaveBeenCalled();
   });
 
   it("observes the persisted provider result while online", async () => {

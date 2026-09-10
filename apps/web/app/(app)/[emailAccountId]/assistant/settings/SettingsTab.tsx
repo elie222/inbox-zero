@@ -9,6 +9,7 @@ import { HiddenAiDraftLinksSetting } from "@/app/(app)/[emailAccountId]/assistan
 import { ReferralSignatureSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/ReferralSignatureSetting";
 import { LearnedPatternsSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/LearnedPatternsSetting";
 import { PersonalSignatureSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting";
+import { SentWithSignatureSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/SentWithSignatureSetting";
 import { MultiRuleSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/MultiRuleSetting";
 import { SyncToExtensionSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/SyncToExtensionSetting";
 import { WritingStyleSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/WritingStyleSetting";
@@ -38,6 +39,7 @@ export function SettingsTab() {
         <WritingStyleSetting />
         <AboutSetting />
         <PersonalSignatureSetting />
+        <SentWithSignatureSetting />
       </div>
 
       {!autoDraftDisabled && (
