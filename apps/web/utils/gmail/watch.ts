@@ -44,7 +44,9 @@ async function startGmailWatch(gmail: gmail_v1.Gmail, logger: Logger) {
 
   logger.info("Gmail watch registered", {
     gmailHistoryId: res.data.historyId,
-    expirationDate: res.data.expiration,
+    expirationDate: res.data.expiration
+      ? new Date(Number(res.data.expiration)).toISOString()
+      : undefined,
     topic: env.GOOGLE_PUBSUB_TOPIC_NAME,
   });
 
