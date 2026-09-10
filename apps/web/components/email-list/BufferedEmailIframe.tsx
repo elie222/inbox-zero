@@ -23,13 +23,16 @@ export function BufferedEmailIframe({
   isDarkMode: boolean;
   callbacks: EmailIframeCallbacks;
 }) {
-  const [visibleDocument, setVisibleDocument] = useState<EmailDocument>();
+  const [visibleDocument, setVisibleDocument] = useState<EmailDocument>(() => ({
+    srcDoc,
+    documentKey,
+  }));
   const nextDocument = useMemo(
     () => ({ srcDoc, documentKey }),
     [srcDoc, documentKey],
   );
   const documents =
-    visibleDocument && visibleDocument.documentKey !== documentKey
+    visibleDocument.documentKey !== documentKey
       ? [visibleDocument, nextDocument]
       : [nextDocument];
 

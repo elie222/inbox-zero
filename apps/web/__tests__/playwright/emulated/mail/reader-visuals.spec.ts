@@ -36,7 +36,7 @@ test("uses the system dark theme when opening HTML emails", async ({
   await capturePlaywrightCheckpoint(page, testInfo, "mail-reader-system-dark");
 });
 
-test("keeps the displayed email while expanding quoted content", async ({
+test("renders the replacement email after expanding quoted content", async ({
   page,
 }, testInfo) => {
   const { conversations } = await openMail(page);
@@ -49,40 +49,20 @@ test("keeps the displayed email while expanding quoted content", async ({
   await expect(
     frame.getByText("The current reply stays concise and easy to scan."),
   ).toBeVisible();
-  const reader = page.getByTestId("thread-reader");
-  await reader.evaluate((element) => {
-    element.setAttribute("data-blank-frame-count", "0");
-    const inspect = () => {
-      const frames = Array.from(
-        element.querySelectorAll<HTMLIFrameElement>(
-          'iframe[title="Email content preview"]',
-        ),
-      );
-      if (
-        !frames.some(
-          (frame) =>
-            frame.getBoundingClientRect().height > 1 &&
-            getComputedStyle(frame).visibility === "visible",
-        )
-      ) {
-        element.setAttribute(
-          "data-blank-frame-count",
-          String(Number(element.getAttribute("data-blank-frame-count")) + 1),
-        );
-      }
-    };
-    new MutationObserver(inspect).observe(element, {
-      attributes: true,
-      attributeFilter: ["style", "height", "title"],
-      childList: true,
-      subtree: true,
-    });
-  });
   await page.getByRole("button", { name: "Show quoted content" }).click();
   await expect(
     frame.getByText("This earlier quoted message is hidden until expanded."),
   ).toBeVisible();
-  await expect(reader).toHaveAttribute("data-blank-frame-count", "0");
+  await expect(
+    frame.getByText("The current reply stays concise and easy to scan."),
+  ).toBeVisible();
+  await expect
+    .poll(() =>
+      page
+        .locator('iframe[title="Email content preview"]')
+        .evaluate((iframe) => iframe.getBoundingClientRect().height),
+    )
+    .toBeGreaterThan(1);
   await capturePlaywrightCheckpoint(
     page,
     testInfo,

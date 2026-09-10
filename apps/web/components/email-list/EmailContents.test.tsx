@@ -97,15 +97,23 @@ describe("HtmlEmail", () => {
     expect(document.body.classList.contains("dark")).toBe(true);
   });
 
-  it("keeps the email visible while prepared HTML loads", async () => {
+  it.each([
+    false,
+    true,
+  ])("keeps the original frame during preparation (measured: %s)", async (measured) => {
     const preparation = Promise.withResolvers<Response>();
     vi.mocked(fetch).mockReturnValue(preparation.promise);
     const { getByTitle, queryByTitle } = render(
-      <HtmlEmail html="<p>Hello</p>" messageId="buffered-frame" />,
+      <HtmlEmail
+        html="<p>Hello</p>"
+        messageId={`buffered-frame-${measured}`}
+      />,
     );
     const original = getByTitle("Email content preview") as HTMLIFrameElement;
-    measureEmailFrame(original, 240);
-    await waitFor(() => expect(original.style.height).toBe("240px"));
+    if (measured) {
+      measureEmailFrame(original, 240);
+      await waitFor(() => expect(original.style.height).toBe("240px"));
+    }
     await act(async () =>
       preparation.resolve(Response.json({ html: "<p>Prepared hello</p>" })),
     );
@@ -113,7 +121,7 @@ describe("HtmlEmail", () => {
       "Preparing email content preview",
     ) as HTMLIFrameElement;
     expect(getByTitle("Email content preview")).toBe(original);
-    expect(original.style.height).toBe("240px");
+    expect(original.style.height).toBe(measured ? "240px" : "");
     expect(original.style.visibility).toBe("");
     expect(original.srcdoc).toContain("<p>Hello</p>");
     measureEmailFrame(replacement, 240);
@@ -194,12 +202,16 @@ describe("HtmlEmail", () => {
       expect(fetch).toHaveBeenCalledTimes(1);
     });
 
-    const iframe = getByTitle("Email content preview");
-    await waitFor(() => {
-      expect(iframe.getAttribute("srcdoc")).toContain(
-        "img-src data: https://app.example.com;",
-      );
-    });
+    const iframe = getByTitle(
+      "Preparing email content preview",
+    ) as HTMLIFrameElement;
+    measureEmailFrame(iframe, 40);
+    await waitFor(() =>
+      expect(getByTitle("Email content preview")).toBe(iframe),
+    );
+    expect(iframe.getAttribute("srcdoc")).toContain(
+      "img-src data: https://app.example.com;",
+    );
   });
 
   it("does not grow when the document reports the iframe viewport height", async () => {
@@ -403,6 +415,13 @@ describe("HtmlEmail", () => {
       />,
     );
 
+    await waitFor(() =>
+      expect(getByTitle("Preparing email content preview")).toBeDefined(),
+    );
+    measureEmailFrame(
+      getByTitle("Preparing email content preview") as HTMLIFrameElement,
+      40,
+    );
     await waitFor(() => {
       const iframe = getByTitle("Email content preview");
       expect(iframe.getAttribute("srcdoc")).toContain(`src="${objectUrl}"`);
