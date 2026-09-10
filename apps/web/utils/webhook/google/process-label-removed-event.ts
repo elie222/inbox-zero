@@ -123,6 +123,7 @@ async function learnFromRemovedLabel({
   threadId,
   emailAccountId,
   learnFromLabels,
+  backInInbox,
   logger,
 }: {
   labelId: string;
