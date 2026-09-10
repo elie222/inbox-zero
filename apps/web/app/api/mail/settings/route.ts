@@ -19,7 +19,7 @@ async function getMailSettings({ emailAccountId }: { emailAccountId: string }) {
             id: true,
             name: true,
             kind: true,
-            value: true,
+            values: true,
             order: true,
           },
         },

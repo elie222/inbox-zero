@@ -1,12 +1,7 @@
+import { createCalendarEventProvider } from "@/utils/calendar/event-provider";
 import { SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
-import {
-  isGoogleProvider,
-  isMicrosoftProvider,
-} from "@/utils/email/provider-types";
-import { GoogleCalendarEventProvider } from "@/utils/calendar/providers/google-events";
-import { MicrosoftCalendarEventProvider } from "@/utils/calendar/providers/microsoft-events";
 import { getProviderAlignedLocationType } from "@/utils/booking/location";
 import type { BookingLinkLocationType } from "@/generated/prisma/enums";
 import type {
@@ -51,7 +46,7 @@ export async function createCalendarEvent({
     emailAccountId,
     destinationCalendarId,
   });
-  const provider = createWritableProvider({
+  const provider = createCalendarEventProvider({
     connection: destination.connection,
     emailAccountId,
     logger,
@@ -177,7 +172,7 @@ async function getWritableProviderForExistingEvent({
     throw new SafeError("Destination calendar not found");
   }
 
-  return createWritableProvider({
+  return createCalendarEventProvider({
     connection,
     emailAccountId,
     logger,
@@ -226,38 +221,4 @@ async function getWritableCalendar({
   }
 
   return calendar;
-}
-
-function createWritableProvider({
-  connection,
-  emailAccountId,
-  logger,
-}: {
-  connection: {
-    accessToken: string | null;
-    expiresAt: Date | null;
-    id: string;
-    provider: string;
-    refreshToken: string | null;
-  };
-  emailAccountId: string;
-  logger: Logger;
-}) {
-  const providerParams = {
-    accessToken: connection.accessToken,
-    connectionId: connection.id,
-    refreshToken: connection.refreshToken,
-    expiresAt: connection.expiresAt?.getTime() ?? null,
-    emailAccountId,
-  };
-
-  if (isGoogleProvider(connection.provider)) {
-    return new GoogleCalendarEventProvider(providerParams, logger);
-  }
-
-  if (isMicrosoftProvider(connection.provider)) {
-    return new MicrosoftCalendarEventProvider(providerParams, logger);
-  }
-
-  throw new SafeError("Unsupported calendar provider");
 }

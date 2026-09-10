@@ -6,10 +6,10 @@ export type MailSplit = {
   id: string;
   name: string;
   kind: MailSplitKind;
-  value: string | null;
+  values: string[];
 };
 
-export type PortableLabelSplit = MailSplit & { labelName: string };
+export type PortableLabelSplit = MailSplit & { labelNames: string[] };
 
 /**
  * Every split is its own server query. Filtering a paginated list client-side would
@@ -21,16 +21,19 @@ export function mailSplitToThreadsQuery(split: MailSplit): ThreadsQuery {
       return { type: "inbox" };
     case MailSplitKind.UNREAD:
       return { type: "inbox", isUnread: true };
-    case MailSplitKind.LABEL:
-      if (!split.value) throw new Error(`Split "${split.name}" has no label`);
-      return { labelIds: [split.value, "INBOX"] };
-    case MailSplitKind.CATEGORY:
-      if (!split.value)
-        throw new Error(`Split "${split.name}" has no category`);
-      if (isOutlookInboxSection(split.value)) {
-        return mailTypeToThreadsQuery(split.value);
+    case MailSplitKind.LABEL: {
+      if (!split.values.length)
+        throw new Error(`Split "${split.name}" has no label`);
+      return labelIdsToThreadsQuery(split.values);
+    }
+    case MailSplitKind.CATEGORY: {
+      const [category] = split.values;
+      if (!category) throw new Error(`Split "${split.name}" has no category`);
+      if (isOutlookInboxSection(category)) {
+        return mailTypeToThreadsQuery(category);
       }
-      return { labelIds: [split.value, "INBOX"] };
+      return { labelIds: [category, "INBOX"] };
+    }
   }
 }
 
@@ -41,13 +44,28 @@ export function mailTypeToThreadsQuery(type: string): ThreadsQuery {
   return { type };
 }
 
+/**
+ * Splits the combined mailbox can run. It matches by label name because each
+ * account has its own label ids, so a split whose labels no longer resolve is
+ * dropped rather than silently run against fewer labels.
+ */
 export function getPortableLabelSplits(
   splits: MailSplit[],
   labelsById: Record<string, { name: string }>,
 ): PortableLabelSplit[] {
   return splits.flatMap((split) => {
-    if (split.kind !== MailSplitKind.LABEL || !split.value) return [];
-    const labelName = labelsById[split.value]?.name.trim();
-    return labelName ? [{ ...split, labelName }] : [];
+    if (split.kind !== MailSplitKind.LABEL) return [];
+    const labelNames = split.values.flatMap((labelId) => {
+      const labelName = labelsById[labelId]?.name.trim();
+      return labelName ? [labelName] : [];
+    });
+    return labelNames.length && labelNames.length === split.values.length
+      ? [{ ...split, labelNames }]
+      : [];
   });
+}
+
+export function labelIdsToThreadsQuery(labelIds: string[]): ThreadsQuery {
+  if (labelIds.length === 1) return { labelIds: [labelIds[0], "INBOX"] };
+  return { labelIds: ["INBOX"], anyLabelIds: labelIds };
 }

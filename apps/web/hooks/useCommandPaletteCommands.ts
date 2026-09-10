@@ -17,6 +17,7 @@ import {
   MailsIcon,
 } from "lucide-react";
 import type { Command } from "@/lib/commands/types";
+import { useSettingsDialog } from "@/hooks/useSettingsDialog";
 import { useRules } from "@/hooks/useRules";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
@@ -33,6 +34,7 @@ export function useCommandPaletteCommands({
   enabled?: boolean;
 } = {}) {
   const router = useRouter();
+  const { openSettings } = useSettingsDialog();
   const { emailAccountId, provider } = useAccount();
   const { data: rulesData, isLoading: rulesLoading } = useRules(
     undefined,
@@ -43,7 +45,21 @@ export function useCommandPaletteCommands({
   const showIntegrations = useIntegrationsEnabled();
 
   const commands = useMemo<Command[]>(() => {
-    if (!enabled) return [];
+    const generalSettingsCommands: Command[] = [
+      {
+        id: "settings-general",
+        label: "Settings",
+        description: "General account settings",
+        icon: SettingsIcon,
+        section: "settings",
+        priority: 1,
+        keywords: ["settings", "preferences", "configuration"],
+        action: () => {
+          openSettings();
+        },
+      },
+    ];
+    if (!enabled) return generalSettingsCommands;
 
     const navigationItems = [
       {
@@ -121,16 +137,6 @@ export function useCommandPaletteCommands({
 
     const settingsCommands: Command[] = [
       {
-        id: "settings-general",
-        label: "Settings",
-        description: "General account settings",
-        icon: SettingsIcon,
-        section: "settings",
-        priority: 1,
-        keywords: ["settings", "preferences", "configuration"],
-        action: () => router.push("/settings"),
-      },
-      {
         id: "settings-assistant",
         label: "Assistant Settings",
         description: "Configure AI assistant behavior",
@@ -185,11 +191,17 @@ export function useCommandPaletteCommands({
         router.push(prefixPath(emailAccountId, `/assistant/rule/${rule.id}`)),
     }));
 
-    return [...navigationCommands, ...settingsCommands, ...ruleCommands];
+    return [
+      ...navigationCommands,
+      ...generalSettingsCommands,
+      ...settingsCommands,
+      ...ruleCommands,
+    ];
   }, [
     emailAccountId,
     enabled,
     provider,
+    openSettings,
     router,
     rulesData,
     showCleaner,

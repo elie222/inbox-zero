@@ -9,6 +9,7 @@ import {
 import dynamic from "next/dynamic";
 import { Loader2Icon, MailIcon } from "lucide-react";
 import { ReaderToolbar } from "@/app/(app)/[emailAccountId]/mail/ReaderToolbar";
+import { isThreadStarred } from "@/app/(app)/[emailAccountId]/mail/star-state";
 import type {
   ListThread,
   MailLayoutMode,
@@ -55,7 +56,6 @@ export type ThreadReaderProps = {
   onRemoveLabel?: (labelId: string) => void;
   onBackToInbox: () => void;
   onArchive: () => void;
-  showSidebarToggle?: boolean;
   /** Refreshes the open thread after a reply is sent or a draft changes. */
   refetch: () => void;
   /** Opens a different provider thread when a sent message starts one. */
@@ -84,7 +84,6 @@ export function ThreadReader({
   onRemoveLabel,
   onBackToInbox,
   onArchive,
-  showSidebarToggle = false,
   refetch,
   onSendSuccess,
   autoOpenReplyForMessageId,
@@ -132,13 +131,13 @@ export function ThreadReader({
       userLabels,
     }) ?? [];
 
-  /** No list column beside us, so the reader carries the sidebar toggle. */
-  const ownsFullWidth = layout === "list" && showSidebarToggle;
-
   const renderToolbar = (
     messageExpansion?: ComponentProps<typeof ReaderToolbar>["messageExpansion"],
   ) => (
     <ReaderToolbar
+      isStarred={isThreadStarred(
+        thread?.messages.length ? thread.messages : messages,
+      )}
       messageExpansion={messageExpansion}
       labelHref={labelHref}
       labels={labels}
@@ -146,7 +145,6 @@ export function ThreadReader({
       onArchive={onArchive}
       onBackToInbox={onBackToInbox}
       onRemoveLabel={onRemoveLabel}
-      showSidebarToggle={ownsFullWidth}
       subject={headerMessage.headers.subject}
     />
   );
@@ -160,10 +158,7 @@ export function ThreadReader({
         data-detail-selection-settled={detailSelectionSettled}
         data-testid="thread-reader"
       >
-        <div
-          className={readerMeasure({ layout })}
-          data-desktop-mac-titlebar-spacer={ownsFullWidth || undefined}
-        >
+        <div className={readerMeasure({ layout })}>
           {messages.length > 0 ? (
             <EmailThread
               renderToolbar={renderToolbar}

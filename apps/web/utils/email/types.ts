@@ -17,6 +17,7 @@ export interface EmailThread {
 }
 
 export type MailboxSyncPage = {
+  changedThreadIds?: string[];
   cursor: string;
   deletedMessageIds: string[];
   hasMore: boolean;
@@ -199,7 +200,10 @@ export interface EmailProvider {
     cursor?: string;
     limit: number;
   }): Promise<MailboxSyncPage>;
-  getMessage(messageId: string): Promise<ParsedMessage>;
+  getMessage(
+    messageId: string,
+    options?: { includeCalendarContent?: boolean },
+  ): Promise<ParsedMessage>;
   getMessageByRfc822MessageId(
     rfc822MessageId: string,
   ): Promise<ParsedMessage | null>;

@@ -39,6 +39,7 @@ import {
   SCOPES as MICROSOFT_EMAIL_SCOPES,
 } from "@/utils/outlook/scopes";
 import { MICROSOFT_DRIVE_SCOPES } from "@/utils/drive/scopes";
+import { clearOfflineMailCache } from "@/utils/offline/clear-mail-cache";
 import { clearEmailCacheForAccount } from "@/utils/email-cache/database";
 import { clearPersistedSwrCacheForAccount } from "@/utils/swr-persistence";
 
@@ -164,6 +165,7 @@ function AccountOptionsDropdown({
       } else {
         clearEmailCacheForAccount(emailAccount.id).catch(() => {});
         clearPersistedSwrCacheForAccount(emailAccount.id);
+        await clearOfflineMailCache();
       }
     },
     onError: (error) => {

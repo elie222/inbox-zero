@@ -95,6 +95,7 @@ vi.mock("@/utils/ai/knowledge/extract-from-email-history", () => ({
 
 vi.mock("@/env", () => ({
   env: {
+    NEXT_PUBLIC_BRAND_NAME: "Inbox Zero",
     NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE: false,
   },
 }));

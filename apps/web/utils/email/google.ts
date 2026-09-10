@@ -235,9 +235,12 @@ export class GmailProvider implements EmailProvider {
     };
   }
 
-  async getMessage(messageId: string): Promise<ParsedMessage> {
+  async getMessage(
+    messageId: string,
+    options?: { includeCalendarContent?: boolean },
+  ): Promise<ParsedMessage> {
     const message = await getMessage(messageId, this.client, "full");
-    return parseMessage(message);
+    return parseMessage(message, options);
   }
 
   async getMessageByRfc822MessageId(

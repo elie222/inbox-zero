@@ -24,61 +24,6 @@ export async function getDefaultMailSplitDraftsForAccount(
   return getDefaultMailSplitDrafts(rules);
 }
 
-export async function seedDefaultMailSplits({
-  emailAccountId,
-  rules,
-}: {
-  emailAccountId: string;
-  rules: Parameters<typeof getDefaultMailSplitDrafts>[0];
-}) {
-  const defaultSplits = getDefaultMailSplitDrafts(rules);
-  if (defaultSplits.length === 0) return;
-
-  const rows = defaultSplits.map((split, order) => ({
-    id: randomUUID(),
-    ...split,
-    order,
-  }));
-
-  await prisma.$transaction([
-    lockMailSplits(emailAccountId),
-    prisma.$executeRaw`
-      INSERT INTO "MailSplit" (
-        "id",
-        "createdAt",
-        "updatedAt",
-        "name",
-        "kind",
-        "value",
-        "order",
-        "emailAccountId"
-      )
-      SELECT
-        defaults."id",
-        CURRENT_TIMESTAMP,
-        CURRENT_TIMESTAMP,
-        defaults."name",
-        defaults."kind"::"MailSplitKind",
-        defaults."value",
-        defaults."order",
-        ${emailAccountId}
-      FROM jsonb_to_recordset(${JSON.stringify(rows)}::jsonb) AS defaults(
-        "id" text,
-        "name" text,
-        "kind" text,
-        "value" text,
-        "order" integer
-      )
-      WHERE NOT EXISTS (
-        SELECT 1
-        FROM "MailSplit"
-        WHERE "emailAccountId" = ${emailAccountId}
-      )
-      ON CONFLICT DO NOTHING
-    `,
-  ]);
-}
-
 export async function setDefaultMailSplits({
   emailAccountId,
   defaultSplits,
@@ -97,7 +42,10 @@ export async function setDefaultMailSplits({
         where: {
           emailAccountId,
           kind: MailSplitKind.LABEL,
-          value: { in: defaultSplits.map((split) => split.value) },
+          // Exact match so a split the user widened to more labels survives.
+          OR: defaultSplits.map((split) => ({
+            values: { equals: split.values },
+          })),
         },
       }),
     ]);
@@ -128,7 +76,7 @@ export async function setDefaultMailSplits({
           "id" text,
           "name" text,
           "kind" text,
-          "value" text,
+          "values" text[],
           "order" integer
         )
         WHERE NOT EXISTS (
@@ -139,7 +87,7 @@ export async function setDefaultMailSplits({
               existing."name" = defaults."name"
               OR (
                 existing."kind" = 'LABEL'::"MailSplitKind"
-                AND existing."value" = defaults."value"
+                AND existing."values" = defaults."values"
               )
             )
         )
@@ -152,7 +100,7 @@ export async function setDefaultMailSplits({
           "updatedAt",
           "name",
           "kind",
-          "value",
+          "values",
           "order",
           "emailAccountId"
         )
@@ -162,7 +110,7 @@ export async function setDefaultMailSplits({
           CURRENT_TIMESTAMP,
           missing_defaults."name",
           missing_defaults."kind"::"MailSplitKind",
-          missing_defaults."value",
+          missing_defaults."values",
           split_state.next_order + missing_defaults.offset,
           ${emailAccountId}
         FROM missing_defaults

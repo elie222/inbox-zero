@@ -240,22 +240,24 @@ model EmailAccount {
   @@index([watchEmailsSubscriptionHistory(ops: JsonbPathOps)], type: Gin)
 }
 
-// A saved filter shown as a tab above the mail list. `value` holds the label id for
-// LABEL splits and the provider category for CATEGORY splits; it is unused for INBOX/UNREAD.
+// A saved filter shown as a tab above the mail list. `values` holds one or more label
+// ids for LABEL splits and a single provider category for CATEGORY splits; it is empty
+// for INBOX/UNREAD.
 model MailSplit {
   id        String        @id @default(cuid())
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
   name      String
   kind      MailSplitKind
-  value     String?
+  /// Label ids for LABEL splits (one or more), the category for CATEGORY splits, empty otherwise.
+  values    String[]      @default([])
   order     Int
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
   @@unique([emailAccountId, name])
-  @@unique([emailAccountId, order])
+  @@index([emailAccountId, order])
 }
 
 model Organization {

@@ -229,8 +229,11 @@ export class OutlookProvider implements EmailProvider {
     return { category, usedFallback };
   }
 
-  async getMessage(messageId: string): Promise<ParsedMessage> {
-    return getMessage(messageId, this.client, this.logger);
+  async getMessage(
+    messageId: string,
+    options?: { includeCalendarContent?: boolean },
+  ): Promise<ParsedMessage> {
+    return getMessage(messageId, this.client, this.logger, options);
   }
 
   async getMessageByRfc822MessageId(

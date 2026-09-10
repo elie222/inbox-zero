@@ -3,6 +3,29 @@ import type { ParsedMessage } from "@/utils/types";
 import { getDraftSendLogSimilarityFields } from "./draft-similarity";
 
 describe("getDraftSendLogSimilarityFields", () => {
+  it.each([
+    "",
+    "Sent with Inbox Zero",
+    "Drafted by Inbox Zero.\n\nSent with Inbox Zero",
+  ])("ignores branding changes in recorded scores: %s", (footer) => {
+    const body = "Thanks for the update.";
+    const sentText = `${body}\n\n${footer}`;
+    const fields = getDraftSendLogSimilarityFields({
+      draftText: `${body}\n\nDrafted by Inbox Zero.`,
+      sentMessage: createParsedMessage(sentText),
+      sentText,
+      draftExists: false,
+      sentMessageRepliesToSource: true,
+    });
+    expect(fields.bodySimilarityScore).toBe(1);
+    expect(fields.similarityMetadata.draft.comparableBodyLength).toBe(
+      body.length,
+    );
+    expect(fields.similarityMetadata.sent.comparableBodyLength).toBe(
+      body.length,
+    );
+  });
+
   it("records normalized reply lengths without signatures or quoted content", () => {
     const accountSignature = [
       "Sender Name",

@@ -1,3 +1,4 @@
+import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import { internalDateToDate, sortByInternalDate } from "@/utils/date";
 import { canonicalizeEmailAddress } from "@/utils/email";
 import type { MailboxSyncPage } from "@/utils/email/types";
@@ -14,6 +15,9 @@ import {
   isEmailCacheEpochCurrent,
   type CachedMailboxMessage,
 } from "./database";
+
+import { getThreadDetailKeyRange } from "./keys";
+import { invalidateThreadCaches } from "./thread-invalidation";
 
 const mailboxListeners = new Set<(emailAccountId: string) => void>();
 const INDEXED_DB_BATCH_SIZE = 50;
@@ -54,7 +58,7 @@ export async function applyMailboxSyncPage({
   if (!database || !isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
 
   const transaction = database.transaction(
-    ["mailboxMessages", "mailboxSyncStates"],
+    ["mailboxMessages", "mailboxSyncStates", "threadDetails"],
     "readwrite",
   );
   const messages = transaction.objectStore("mailboxMessages");
@@ -66,6 +70,60 @@ export async function applyMailboxSyncPage({
     await transaction.done.catch(() => {});
     throw new Error("Mailbox sync reset requires an after date");
   }
+
+  const changedThreadIds = new Set([
+    ...(page.changedThreadIds ?? []),
+    ...page.upsertedMessages.map((message) => message.threadId),
+  ]);
+  const deletedIds = new Set(page.deletedMessageIds);
+  const deletedMessages = await Promise.all(
+    page.deletedMessageIds.map((id) => messages.get([emailAccountId, id])),
+  );
+  for (const message of deletedMessages) {
+    if (message) {
+      changedThreadIds.add(message.threadId);
+      deletedIds.delete(message.messageId);
+    }
+  }
+  const details = transaction.objectStore("threadDetails");
+  const detailKeys = page.reset
+    ? await details.index("byAccount").getAllKeys(emailAccountId)
+    : (
+        await Promise.all(
+          [...changedThreadIds].map((threadId) =>
+            details.getAllKeys(
+              getThreadDetailKeyRange(emailAccountId, threadId),
+            ),
+          ),
+        )
+      ).flat();
+  await Promise.all(detailKeys.map((key) => details.delete(key)));
+  let detailCursor =
+    !page.reset && deletedIds.size
+      ? await details.index("byAccount").openCursor(emailAccountId)
+      : null;
+  const discoveredThreadIds = new Set<string>();
+  while (detailCursor) {
+    const { threadId, data } = detailCursor.value;
+    if (
+      (data as ThreadResponse).thread.messages.some((message) =>
+        deletedIds.has(message.id),
+      )
+    ) {
+      changedThreadIds.add(threadId);
+      discoveredThreadIds.add(threadId);
+    }
+    detailCursor = await detailCursor.continue();
+  }
+
+  const discoveredKeys = (
+    await Promise.all(
+      [...discoveredThreadIds].map((threadId) =>
+        details.getAllKeys(getThreadDetailKeyRange(emailAccountId, threadId)),
+      ),
+    )
+  ).flat();
+  await Promise.all(discoveredKeys.map((key) => details.delete(key)));
 
   if (page.reset) {
     const messageKeys = await messages
@@ -93,6 +151,11 @@ export async function applyMailboxSyncPage({
   await transaction.done;
 
   if (!isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
+  invalidateThreadCaches({
+    emailAccountId,
+    threadIds: [...changedThreadIds],
+    reset: page.reset,
+  });
   scheduleEmailCacheCleanup();
   notifyMailboxStoreChange(emailAccountId);
 }
@@ -511,6 +574,14 @@ function threadMatchesQuery(messages: ParsedMessage[], query: ThreadsQuery) {
     requiredLabelIds.length &&
     !messages.some((message) =>
       requiredLabelIds.every((labelId) => message.labelIds?.includes(labelId)),
+    )
+  ) {
+    return false;
+  }
+  if (
+    query.anyLabelIds?.length &&
+    !messages.some((message) =>
+      query.anyLabelIds?.some((labelId) => message.labelIds?.includes(labelId)),
     )
   ) {
     return false;

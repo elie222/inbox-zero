@@ -2,6 +2,7 @@
 
 import { isThreadStarred } from "@/app/(app)/[emailAccountId]/mail/star-state";
 import {
+  type CSSProperties,
   useCallback,
   useDeferredValue,
   useEffect,
@@ -27,15 +28,19 @@ import type {
   MailboxItem,
   MailboxItemEdit,
 } from "@/app/(app)/[emailAccountId]/mail/MailboxItemContextMenu";
+import { MailSidebarResizeHandle } from "@/app/(app)/[emailAccountId]/mail/MailSidebarResizeHandle";
+import {
+  MAIL_SIDEBAR_DEFAULT_WIDTH,
+  MAIL_SIDEBAR_RAIL_WIDTH,
+} from "@/app/(app)/[emailAccountId]/mail/sidebar-width";
 import { ListSenderCommands } from "@/app/(app)/[emailAccountId]/mail/ListSenderCommands";
 import { ThreadActionsMenu } from "@/app/(app)/[emailAccountId]/mail/ThreadActionsMenu";
 import { ShortcutsDialog } from "@/app/(app)/[emailAccountId]/mail/ShortcutsDialog";
 import { SplitTabs } from "@/app/(app)/[emailAccountId]/mail/SplitTabs";
-import type { MailSplitTab } from "@/app/(app)/[emailAccountId]/mail/SplitTabs";
 import type {
   NewSplitDraft,
   NewSplitOption,
-} from "@/app/(app)/[emailAccountId]/mail/NewSplitPopover";
+} from "@/app/(app)/[emailAccountId]/mail/NewSplitDialog";
 import { LabelPickerDialog } from "@/app/(app)/[emailAccountId]/mail/LabelPickerDialog";
 import { ThreadList } from "@/app/(app)/[emailAccountId]/mail/ThreadList";
 import { ThreadReader } from "@/app/(app)/[emailAccountId]/mail/ThreadReader";
@@ -63,7 +68,7 @@ import { isThreadUnread } from "@/app/(app)/[emailAccountId]/mail/read-state";
 import { MailLayout, MailSplitKind } from "@/generated/prisma/enums";
 import { useChat } from "@/providers/ChatProvider";
 import { Sidebar, useSidebar } from "@/components/ui/sidebar";
-import { useAtom, useAtomValue, useSetAtom } from "jotai";
+import { useAtomValue, useSetAtom } from "jotai";
 import {
   commandPaletteOpenAtom,
   mailCommandContextAtom,
@@ -90,8 +95,9 @@ import { useShortcuts } from "@/lib/shortcuts/useShortcuts";
 import type { ShortcutHandlers } from "@/lib/shortcuts/registry";
 import {
   createMailSplitAction,
-  createMailSplitFromPromptAction,
+  suggestMailSplitAction,
   deleteMailSplitAction,
+  reorderMailSplitsAction,
   setDefaultMailSplitsAction,
   updateMailPreferencesAction,
 } from "@/utils/actions/mail-split";
@@ -117,15 +123,9 @@ import { getEmailMessageCellActions } from "@/components/EmailMessageCellActions
 import type { LabelCount } from "@/app/api/labels/counts/route";
 import type { ThreadsQuery } from "@/utils/threads/validation";
 import { getEmailTerminology } from "@/utils/terminology";
+import { INITIAL_MAIL_SPLITS } from "@/utils/mail/initial-splits";
 import { GMAIL_LABEL_COLORS } from "@/utils/gmail/label-colors";
 import { OUTLOOK_CATEGORY_COLORS } from "@/utils/outlook/category-colors";
-
-// Always present, never deletable. Everything else is a saved split. They carry
-// a kind so built-ins and saved splits resolve through one mapping.
-const BUILT_IN_SPLITS = [
-  { id: "all", name: "All", kind: MailSplitKind.INBOX, value: null },
-  { id: "unread", name: "Unread", kind: MailSplitKind.UNREAD, value: null },
-] as const;
 
 // Module-level so an "empty" reader doesn't hand children a new array each render.
 const NO_MESSAGES: ThreadMessage[] = [];
@@ -152,7 +152,7 @@ export function MailShell() {
   const { onOpen: openCompose } = useComposeModal();
   const { setInput: setChatInput } = useChat();
   const { state: openSidebars, toggleSidebar } = useSidebar();
-  const [isPaletteOpen, setPaletteOpen] = useAtom(commandPaletteOpenAtom);
+  const isPaletteOpen = useAtomValue(commandPaletteOpenAtom);
   const senderCommandContext = useAtomValue(senderCommandContextAtom);
   const setMailCommandContext = useSetAtom(mailCommandContextAtom);
   // The side panel viewer owns the triage keys while it's open, so this screen
@@ -165,9 +165,7 @@ export function MailShell() {
   });
   const openThreadId = openThreadQuery["thread-id"];
   const openThreadAccountId = openThreadQuery["thread-account-id"];
-  const [activeSplitId, setActiveSplitId] = useQueryState("split", {
-    defaultValue: "all",
-  });
+  const [activeSplitId, setActiveSplitId] = useQueryState("split");
   const activeSplitIdRef = useRef(activeSplitId);
   activeSplitIdRef.current = activeSplitId;
   const [accountScope, setAccountScope] = useQueryState("accountScope");
@@ -193,6 +191,13 @@ export function MailShell() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const pendingSearchFocusRef = useRef(false);
   const isMailSidebarOpen = openSidebars.includes("left-sidebar");
+
+  // Dragging writes straight to the CSS variable: re-rendering this screen on
+  // every pointer move would make the sidebar edge lag behind the cursor.
+  const sidebarScopeRef = useRef<HTMLDivElement>(null);
+  const setSidebarWidth = useCallback((width: number) => {
+    sidebarScopeRef.current?.style.setProperty("--sidebar-width", `${width}px`);
+  }, []);
 
   useEffect(() => {
     setIsDesktopApp(Boolean(getInboxZeroDesktopApp()));
@@ -290,8 +295,7 @@ export function MailShell() {
   }, [scopeFolderId, scopeLabelId, scopeType]);
   const isScoped = !isAllAccounts && scopeQuery !== null;
 
-  // Combined inboxes can't search across accounts, so search is single-account.
-  const searchQuery = isAllAccounts ? null : searchParam?.trim() || null;
+  const searchQuery = searchParam?.trim() || null;
   const setSearch = useCallback(
     (value: string) => setSearchParam(value.trim() || null),
     [setSearchParam],
@@ -302,37 +306,32 @@ export function MailShell() {
     [settings?.splits, userLabels],
   );
 
-  const splits: MailSplitTab[] = useMemo(() => {
-    const builtInSplits = BUILT_IN_SPLITS.map((split) => ({
-      id: split.id,
-      name: split.name,
-      deletable: false,
-    }));
-    return [
-      ...builtInSplits,
-      ...(isAllAccounts ? combinedLabelSplits : (settings?.splits ?? [])).map(
-        (split) => ({
-          id: split.id,
-          name: split.name,
-          deletable: true,
-        }),
+  const splits = useMemo(
+    () =>
+      (settings?.splits ?? []).filter(
+        (split) =>
+          !isAllAccounts ||
+          split.kind === MailSplitKind.INBOX ||
+          split.kind === MailSplitKind.UNREAD ||
+          combinedLabelSplits.some((portable) => portable.id === split.id),
       ),
-    ];
-  }, [combinedLabelSplits, isAllAccounts, settings?.splits]);
-  const displayedActiveSplitId =
-    splits.find((split) => split.id === activeSplitId)?.id ?? "all";
-  const activeCombinedLabelName = combinedLabelSplits.find(
+    [settings?.splits, isAllAccounts, combinedLabelSplits],
+  );
+  const activeSplit =
+    splits.find((split) => split.id === activeSplitId) ?? splits[0];
+  const displayedActiveSplitId = activeSplit?.id ?? null;
+  const activeCombinedLabelNames = combinedLabelSplits.find(
     (split) => split.id === displayedActiveSplitId,
-  )?.labelName;
+  )?.labelNames;
   const savedDefaultSplits = useMemo(() => {
     const defaultLabelIds = new Set(
-      (settings?.defaultSplits ?? []).map((split) => split.value),
+      (settings?.defaultSplits ?? []).map((split) => split.values[0]),
     );
     return (settings?.splits ?? []).filter(
       (split) =>
         split.kind === MailSplitKind.LABEL &&
-        split.value &&
-        defaultLabelIds.has(split.value),
+        split.values.length === 1 &&
+        defaultLabelIds.has(split.values[0]),
     );
   }, [settings?.defaultSplits, settings?.splits]);
   const canAddDefaultSplits = (settings?.defaultSplits ?? []).some(
@@ -341,7 +340,8 @@ export function MailShell() {
         (split) =>
           split.name === defaultSplit.name ||
           (split.kind === MailSplitKind.LABEL &&
-            split.value === defaultSplit.value),
+            split.values.length === 1 &&
+            split.values[0] === defaultSplit.values[0]),
       ),
   );
   const canRemoveDefaultSplits = savedDefaultSplits.length > 0;
@@ -352,13 +352,10 @@ export function MailShell() {
     if (searchQuery) return { q: searchQuery };
     if (scopeQuery) return scopeQuery;
 
-    const active =
-      settings?.splits?.find((split) => split.id === activeSplitId) ??
-      BUILT_IN_SPLITS.find((split) => split.id === activeSplitId) ??
-      BUILT_IN_SPLITS[0];
-
-    return mailSplitToThreadsQuery(active);
-  }, [searchQuery, scopeQuery, activeSplitId, settings?.splits]);
+    return activeSplit
+      ? mailSplitToThreadsQuery(activeSplit)
+      : { type: "inbox" };
+  }, [searchQuery, scopeQuery, activeSplit]);
 
   const accountThreadState = useMailThreads({
     emailAccountId,
@@ -369,8 +366,9 @@ export function MailShell() {
     accounts: combinedAccounts,
     emailAccountId,
     enabled: isAllAccounts,
-    isUnread: displayedActiveSplitId === "unread",
-    labelName: activeCombinedLabelName,
+    isUnread: !searchQuery && activeSplit?.kind === MailSplitKind.UNREAD,
+    labelNames: searchQuery ? undefined : activeCombinedLabelNames,
+    searchQuery: searchQuery ?? undefined,
   });
   const { labelsByAccount } = combinedThreadState;
   const { threads, isLoading, error, hasMore, isLoadingMore, loadMore } =
@@ -923,14 +921,20 @@ export function MailShell() {
     setScopeFolderId(null);
     setSearchParam(null);
     if (
-      !BUILT_IN_SPLITS.some((split) => split.id === activeSplitId) &&
+      !settings?.splits.some(
+        (split) =>
+          split.id === activeSplitId &&
+          (split.kind === MailSplitKind.INBOX ||
+            split.kind === MailSplitKind.UNREAD),
+      ) &&
       !combinedLabelSplits.some((split) => split.id === activeSplitId)
     ) {
-      setActiveSplitId("all");
+      setActiveSplitId(null);
     }
     setAccountScope("all");
   }, [
     activeSplitId,
+    settings?.splits,
     combinedLabelSplits,
     selection.clear,
     setAccountScope,
@@ -1044,10 +1048,6 @@ export function MailShell() {
       search: isMailOverlayOpen
         ? undefined
         : () => {
-            if (isAllAccounts) {
-              setPaletteOpen(true);
-              return;
-            }
             if (selection.hasSelection) selection.clear();
             if (layout === "list" && openThreadId) closeReader();
             pendingSearchFocusRef.current = true;
@@ -1079,29 +1079,30 @@ export function MailShell() {
     : "category";
   const newSplitOptions: NewSplitOption[] = useMemo(
     () => [
-      {
-        id: "state:unread",
-        name: "Unread",
-        kind: MailSplitKind.UNREAD,
-        value: null,
-        group: "state",
-      },
-      ...categories.map((category) => ({
+      ...INITIAL_MAIL_SPLITS.filter(
+        (initial) =>
+          !settings?.splits.some((split) => split.kind === initial.kind),
+      ).map((split) => ({
+        ...split,
+        id: `state:${split.kind}`,
+        group: "state" as const,
+      })),
+      ...(isAllAccounts ? [] : categories).map((category) => ({
         id: `category:${category.type}`,
         name: category.name,
         kind: MailSplitKind.CATEGORY,
-        value: category.type,
+        values: [category.type],
         group: categoryGroup,
       })),
       ...visibleLabels.map((label) => ({
         id: `label:${label.id}`,
         name: label.name,
         kind: MailSplitKind.LABEL,
-        value: label.id,
+        values: [label.id],
         group: "label" as const,
       })),
     ],
-    [categories, categoryGroup, visibleLabels],
+    [categories, categoryGroup, visibleLabels, isAllAccounts, settings?.splits],
   );
 
   const onCreateSplit = useCallback(
@@ -1109,40 +1110,39 @@ export function MailShell() {
       const result = await createMailSplitAction(emailAccountId, draft);
       if (result?.serverError || result?.validationErrors) {
         toast.error(getActionErrorMessage(result));
-        return;
-      }
-      mutateSettings();
-    },
-    [emailAccountId, mutateSettings],
-  );
-
-  const onCreateSplitFromPrompt = useCallback(
-    async (prompt: string) => {
-      const result = await createMailSplitFromPromptAction(emailAccountId, {
-        prompt,
-        options: newSplitOptions.map(({ id, name, kind, value }) => ({
-          id,
-          name,
-          kind,
-          value,
-        })),
-      });
-      if (result?.serverError || result?.validationErrors) {
-        toast.error(getActionErrorMessage(result));
         return false;
       }
       await mutateSettings();
-      // Jump to the new tab so the user immediately sees what the AI matched.
+      // Jump to the new tab so its mail is what the user sees next.
       const split = result?.data?.split;
       if (split) setActiveSplitId(split.id);
       return true;
     },
-    [emailAccountId, newSplitOptions, mutateSettings, setActiveSplitId],
+    [emailAccountId, mutateSettings, setActiveSplitId],
+  );
+
+  const onSuggestSplit = useCallback(
+    async (prompt: string) => {
+      const result = await suggestMailSplitAction(emailAccountId, {
+        prompt,
+        options: newSplitOptions.map(({ id, name, kind, values }) => ({
+          id,
+          name,
+          kind,
+          values,
+        })),
+      });
+      if (result?.serverError || result?.validationErrors) {
+        toast.error(getActionErrorMessage(result));
+        return null;
+      }
+      return result?.data ?? null;
+    },
+    [emailAccountId, newSplitOptions],
   );
 
   const onDeleteSplit = useCallback(
     async (splitId: string) => {
-      if (activeSplitId === splitId) setActiveSplitId("all");
       const result = await deleteMailSplitAction(emailAccountId, {
         id: splitId,
       });
@@ -1150,9 +1150,10 @@ export function MailShell() {
         toast.error(getActionErrorMessage(result));
         return;
       }
-      mutateSettings();
+      if (activeSplitIdRef.current === splitId) setActiveSplitId(null);
+      await mutateSettings();
     },
-    [emailAccountId, mutateSettings, activeSplitId, setActiveSplitId],
+    [emailAccountId, mutateSettings, setActiveSplitId],
   );
 
   const onSetDefaultSplits = useCallback(
@@ -1171,7 +1172,7 @@ export function MailShell() {
           (split) => split.id === activeSplitIdRef.current,
         )
       ) {
-        setActiveSplitId("all");
+        setActiveSplitId(null);
       }
       return true;
     },
@@ -1243,7 +1244,9 @@ export function MailShell() {
           (split) =>
             split.id === activeSplitId &&
             split.kind === MailSplitKind.LABEL &&
-            split.value === item.id,
+            // A wider split survives the delete with its remaining labels.
+            split.values.length === 1 &&
+            split.values[0] === item.id,
         );
       if (isActive) {
         await Promise.all([
@@ -1254,7 +1257,7 @@ export function MailShell() {
             : setScopeLabelId(null),
         ]);
       }
-      if (deletedActiveSplit) setActiveSplitId("all");
+      if (deletedActiveSplit) setActiveSplitId(null);
       await Promise.all([
         item.kind === "folder" ? mutateFolders() : mutateLabels(),
         mutateCounts(),
@@ -1312,10 +1315,20 @@ export function MailShell() {
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-background">
       <div className="flex min-h-0 flex-1">
-        <div className="hidden [--sidebar-width:236px] lg:contents">
-          <Sidebar name="left-sidebar">
+        <div
+          ref={sidebarScopeRef}
+          className="hidden lg:contents"
+          style={
+            {
+              "--sidebar-width": `var(--mail-sidebar-width, ${MAIL_SIDEBAR_DEFAULT_WIDTH}px)`,
+              "--sidebar-width-icon": `${MAIL_SIDEBAR_RAIL_WIDTH}px`,
+            } as CSSProperties
+          }
+        >
+          <Sidebar name="left-sidebar" collapsible="icon">
             <MailSidebar
               className="h-full w-full border-r-0"
+              collapsed={!isMailSidebarOpen}
               activeType={
                 scopeLabelId || scopeFolderId ? null : (scopeType ?? "inbox")
               }
@@ -1348,9 +1361,13 @@ export function MailShell() {
                   onSelectAccount={selectAccount}
                   onSelectAll={selectAllAccounts}
                   variant="sidebar"
+                  collapsed={!isMailSidebarOpen}
                 />
               }
             />
+            {isMailSidebarOpen ? (
+              <MailSidebarResizeHandle onResize={setSidebarWidth} />
+            ) : null}
           </Sidebar>
         </div>
 
@@ -1368,14 +1385,12 @@ export function MailShell() {
             <ListToolbar
               layout={layout}
               searchQuery={searchQuery ?? ""}
-              onSearch={isAllAccounts ? undefined : setSearch}
+              onSearch={setSearch}
               searchInputRef={searchInputRef}
-              onOpenSearch={() => setPaletteOpen(true)}
               onToggleLayout={toggleLayout}
               expandedPreview={expandedPreview}
               onTogglePreview={togglePreview}
               onToggleAssistant={() => toggleSidebar(["chat-sidebar"])}
-              showSidebarToggle={!isMailSidebarOpen}
               showLayoutToggle={!isAllAccounts}
               selectedCount={selection.selectedCount}
               onArchiveSelected={archiveTargets}
@@ -1389,13 +1404,23 @@ export function MailShell() {
                 activeSplitId={displayedActiveSplitId}
                 onSelect={setActiveSplitId}
                 onDelete={onDeleteSplit}
+                onReorder={async (ids) => {
+                  const result = await reorderMailSplitsAction(emailAccountId, {
+                    ids,
+                  });
+                  if (result?.serverError || result?.validationErrors) {
+                    toast.error(getActionErrorMessage(result));
+                    return;
+                  }
+                  if (!activeSplitId) setActiveSplitId(displayedActiveSplitId);
+                  await mutateSettings();
+                }}
                 newSplitOptions={newSplitOptions}
                 onCreateSplit={onCreateSplit}
-                onCreateSplitFromPrompt={onCreateSplitFromPrompt}
+                onSuggestSplit={onSuggestSplit}
                 canAddDefaultSplits={canAddDefaultSplits}
                 canRemoveDefaultSplits={canRemoveDefaultSplits}
                 onSetDefaultSplits={onSetDefaultSplits}
-                canCreateSplits={!isAllAccounts}
               />
             )}
             {isAllAccounts && combinedThreadState.failedAccountIds.length ? (
@@ -1426,7 +1451,7 @@ export function MailShell() {
                 onLoadMore={loadMore}
                 listKey={
                   isAllAccounts
-                    ? `all-accounts:${displayedActiveSplitId}`
+                    ? `all-accounts:${searchQuery ?? displayedActiveSplitId}`
                     : JSON.stringify(query)
                 }
               />
@@ -1454,7 +1479,6 @@ export function MailShell() {
               onRemoveLabel={onRemoveLabel}
               onBackToInbox={closeReader}
               onArchive={archiveTargets}
-              showSidebarToggle={!isMailSidebarOpen}
               refetch={refetchOpenThread}
               onSendSuccess={(_messageId, sentThreadId) => {
                 if (

@@ -7,51 +7,14 @@ import {
 import prisma from "@/utils/__mocks__/prisma";
 import {
   getDefaultMailSplitDraftsForAccount,
-  seedDefaultMailSplits,
   setDefaultMailSplits,
 } from "@/utils/mail/default-splits.server";
 
 vi.mock("@/utils/prisma");
 
-describe("seedDefaultMailSplits", () => {
+describe("default mail splits", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-  });
-
-  it("seeds standard rule labels for an account without saved splits", async () => {
-    prisma.$transaction.mockResolvedValue([[{ locked: true }], 1] as never);
-
-    await seedDefaultMailSplits({
-      emailAccountId: "account-id",
-      rules: [rule(SystemType.RECEIPT, "receipt-label")],
-    });
-
-    expect(prisma.$queryRaw).toHaveBeenCalledWith(
-      expect.arrayContaining([
-        expect.stringContaining("pg_advisory_xact_lock"),
-      ]),
-      "account-id",
-    );
-    expect(prisma.$executeRaw).toHaveBeenCalledWith(
-      expect.arrayContaining([expect.stringContaining("WHERE NOT EXISTS")]),
-      "account-id",
-      expect.any(String),
-      "account-id",
-    );
-  });
-
-  it("does not access the database when no rule can produce an inbox split", async () => {
-    await seedDefaultMailSplits({
-      emailAccountId: "account-id",
-      rules: [
-        {
-          systemType: SystemType.RECEIPT,
-          actions: [{ type: ActionType.MOVE_FOLDER, labelId: null }],
-        },
-      ],
-    });
-
-    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it("loads the enabled standard rules that can provide default splits", async () => {
@@ -65,7 +28,7 @@ describe("seedDefaultMailSplits", () => {
       {
         name: "Receipt",
         kind: MailSplitKind.LABEL,
-        value: "receipt-label",
+        values: ["receipt-label"],
       },
     ]);
     expect(prisma.rule.findMany).toHaveBeenCalledWith({
@@ -93,12 +56,12 @@ describe("seedDefaultMailSplits", () => {
         {
           name: "Receipt",
           kind: MailSplitKind.LABEL,
-          value: "receipt-label",
+          values: ["receipt-label"],
         },
         {
           name: "Newsletter",
           kind: MailSplitKind.LABEL,
-          value: "newsletter-label",
+          values: ["newsletter-label"],
         },
       ],
       enabled: false,
@@ -108,7 +71,10 @@ describe("seedDefaultMailSplits", () => {
       where: {
         emailAccountId: "account-id",
         kind: MailSplitKind.LABEL,
-        value: { in: ["receipt-label", "newsletter-label"] },
+        OR: [
+          { values: { equals: ["receipt-label"] } },
+          { values: { equals: ["newsletter-label"] } },
+        ],
       },
     });
   });
@@ -126,12 +92,12 @@ describe("seedDefaultMailSplits", () => {
           {
             name: "Receipt",
             kind: MailSplitKind.LABEL,
-            value: "receipt-label",
+            values: ["receipt-label"],
           },
           {
             name: "Newsletter",
             kind: MailSplitKind.LABEL,
-            value: "newsletter-label",
+            values: ["newsletter-label"],
           },
         ],
         enabled: true,

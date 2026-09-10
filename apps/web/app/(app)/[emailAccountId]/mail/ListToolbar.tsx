@@ -14,7 +14,6 @@ import {
 } from "lucide-react";
 import { Kbd } from "@/components/Kbd";
 import { Tooltip } from "@/components/Tooltip";
-import { SidebarTrigger } from "@/components/ui/sidebar";
 import type { MailLayoutMode } from "@/app/(app)/[emailAccountId]/mail/types";
 import { getShortcutHint } from "@/lib/shortcuts/registry";
 import { cn } from "@/utils";
@@ -23,17 +22,14 @@ export type ListToolbarProps = {
   layout: MailLayoutMode;
   showLayoutToggle?: boolean;
   expandedPreview: boolean;
-  /** Committed search query. Only meaningful when `onSearch` is provided. */
-  searchQuery?: string;
-  /** When provided, the toolbar shows a real mail search input. */
-  onSearch?: (query: string) => void;
+  /** Committed search query. */
+  searchQuery: string;
+  onSearch: (query: string) => void;
   /** Lets `/` focus the mail search field from the shortcut handler. */
   searchInputRef?: RefObject<HTMLInputElement | null>;
-  onOpenSearch: () => void;
   onToggleLayout: () => void;
   onTogglePreview: () => void;
   onToggleAssistant: () => void;
-  showSidebarToggle?: boolean;
   selectedCount: number;
   onArchiveSelected: () => void;
   onDeleteSelected: () => void;
@@ -49,11 +45,9 @@ export function ListToolbar({
   searchQuery = "",
   onSearch,
   searchInputRef,
-  onOpenSearch,
   onToggleLayout,
   onTogglePreview,
   onToggleAssistant,
-  showSidebarToggle = false,
   selectedCount,
   onArchiveSelected,
   onDeleteSelected,
@@ -63,14 +57,7 @@ export function ListToolbar({
   const LayoutIcon = layout === "split" ? ColumnsIcon : RowsIcon;
 
   return (
-    <div
-      data-desktop-mac-titlebar-spacer={showSidebarToggle || undefined}
-      className="flex shrink-0 items-center gap-2 px-3 pt-3 pb-3"
-    >
-      {showSidebarToggle ? (
-        <SidebarTrigger name="left-sidebar" className="hidden lg:inline-flex" />
-      ) : null}
-
+    <div className="flex shrink-0 items-center gap-2 px-3 pt-3 pb-3">
       {/* Selection swaps the toolbar's controls in place so the list never
           shifts down to make room for a new row. */}
       {selectedCount > 0 ? (
@@ -131,27 +118,12 @@ export function ListToolbar({
             </button>
           </Tooltip>
         </>
-      ) : onSearch ? (
+      ) : (
         <MailSearchInput
           searchQuery={searchQuery}
           onSearch={onSearch}
           inputRef={searchInputRef}
         />
-      ) : (
-        // Opens the command palette rather than searching mail — combined
-        // inboxes can't search across accounts yet, so promising search we
-        // don't have would mislead.
-        <button
-          type="button"
-          onClick={onOpenSearch}
-          className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-sidebar px-2.5 text-muted-foreground text-sm transition-colors hover:border-[hsl(var(--border-strong))] hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <SearchIcon className="size-3.5 shrink-0" />
-          <span className="min-w-0 flex-1 truncate text-left">
-            Search or jump to…
-          </span>
-          <Kbd>{getShortcutHint("commandPalette")}</Kbd>
-        </button>
       )}
 
       {selectedCount === 0 ? (

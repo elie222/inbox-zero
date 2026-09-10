@@ -11,6 +11,72 @@ import { expandPlaywrightTargets } from "./emulated-suite-targets.mjs";
 const appRoot = path.resolve(import.meta.dirname, "../..");
 
 describe("emulated Playwright suite selection", () => {
+  test.each([
+    "components/CommandK.tsx",
+    "hooks/useCommandPaletteCommands.ts",
+    "store/command-palette.ts",
+  ])("selects explicit shared-feature coverage for %s", (file) => {
+    const selection = selectChangedPlaywrightTargets(
+      `apps/web/${file}`,
+      appRoot,
+    );
+    expect(selection.runFullSuite).toBe(false);
+    expect(selection.targetFiles.sort()).toEqual([
+      "__tests__/playwright/emulated/mail/command-palette.spec.ts",
+      "__tests__/playwright/emulated/mail/starring.spec.ts",
+      "__tests__/playwright/emulated/mail/theme.spec.ts",
+      "__tests__/playwright/emulated/settings/settings-dialog.spec.ts",
+    ]);
+  });
+
+  test("unions shared-feature coverage with other changes in the same PR", () => {
+    const selection = selectChangedPlaywrightTargets(
+      [
+        "apps/web/hooks/useCommandPaletteCommands.ts",
+        "apps/web/app/(app)/[emailAccountId]/mail/ThreadList.tsx",
+        "apps/web/__tests__/playwright/emulated/settings/settings-dialog.spec.ts",
+      ].join("\n"),
+      appRoot,
+    );
+    expect(
+      expandPlaywrightTargets(selection.targetFiles, appRoot),
+    ).toHaveLength(5);
+    expect(selection.targetFiles).toContain(
+      "__tests__/playwright/emulated/mail/layout.spec.ts",
+    );
+    expect(selection.reason).toContain("hooks/useCommandPaletteCommands.ts");
+  });
+
+  test("keeps broad coverage when a shared feature's test coverage is missing", () => {
+    withFeatureFixture((root, write) => {
+      write("app/layout.tsx", 'import "@/components/CommandK";');
+      write("components/CommandK.tsx", "");
+      const selection = selectChangedPlaywrightTargets(
+        "apps/web/components/CommandK.tsx",
+        root,
+      );
+      expect(selection.targetFiles).toEqual(
+        fullSuites.map((suite) => `__tests__/playwright/emulated/${suite}`),
+      );
+    });
+  });
+
+  test("a shared-feature edit does not narrow other foundational changes", () => {
+    const selection = selectChangedPlaywrightTargets(
+      [
+        "apps/web/hooks/useCommandPaletteCommands.ts",
+        "apps/web/components/SideNavWithTopNav.tsx",
+      ].join("\n"),
+      appRoot,
+    );
+    expect(expandPlaywrightTargets(selection.targetFiles, appRoot)).toEqual(
+      expandPlaywrightTargets(
+        fullSuites.map((suite) => `__tests__/playwright/emulated/${suite}`),
+        appRoot,
+      ),
+    );
+  });
+
   test("selects the split feature instead of every mail spec", () => {
     const selection = selectChangedPlaywrightTargets(
       "apps/web/app/(app)/[emailAccountId]/mail/SplitTabs.tsx",

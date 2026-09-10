@@ -10,10 +10,10 @@ import {
 import { MailLabelChip } from "@/app/(app)/[emailAccountId]/mail/MailLabelChip";
 import type { EmailMessageCellLabel } from "@/components/EmailMessageCellLabels";
 import { Button } from "@/components/ui/button";
-import { SidebarTrigger } from "@/components/ui/sidebar";
 
 type ReaderToolbarProps = {
   subject: string;
+  isStarred: boolean;
   labels: EmailMessageCellLabel[];
   /**
    * Chips navigate to a label's view and nothing else: a label carries no
@@ -24,8 +24,6 @@ type ReaderToolbarProps = {
   onRemoveLabel?: (labelId: string) => void;
   onBackToInbox: () => void;
   onArchive: () => void;
-  /** Sits beside the back arrow when the reader owns the full width. */
-  showSidebarToggle?: boolean;
   /** The ⋯ dropdown, i.e. `ThreadActionsMenu`, composed by the shell. */
   menu?: ReactNode;
   messageExpansion?: {
@@ -40,25 +38,18 @@ type ReaderToolbarProps = {
  */
 export function ReaderToolbar({
   subject,
+  isStarred,
   labels,
   labelHref,
   onRemoveLabel,
   onBackToInbox,
   onArchive,
-  showSidebarToggle = false,
   menu,
   messageExpansion,
 }: ReaderToolbarProps) {
   return (
     <div className="flex flex-wrap items-start gap-x-4 gap-y-3 pb-3">
       <div className="flex items-center gap-1">
-        {showSidebarToggle ? (
-          <SidebarTrigger
-            className="hidden lg:inline-flex"
-            name="left-sidebar"
-          />
-        ) : null}
-
         <Button
           aria-label="Back to inbox"
           className="h-7 w-7"
@@ -73,9 +64,19 @@ export function ReaderToolbar({
 
       <div className="min-w-56 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <h1 className="font-title font-medium text-2xl text-foreground leading-tight tracking-tight">
-            {subject}
-          </h1>
+          <div className="flex min-w-0 items-center gap-2">
+            {isStarred && (
+              <span
+                className="size-1.5 shrink-0 rounded-full bg-yellow-400"
+                role="img"
+                aria-label="Starred conversation"
+                title="Starred conversation"
+              />
+            )}
+            <h1 className="font-title font-medium text-2xl text-foreground leading-tight tracking-tight">
+              {subject}
+            </h1>
+          </div>
           {labels.map((label) => (
             <MailLabelChip
               color={label.color}

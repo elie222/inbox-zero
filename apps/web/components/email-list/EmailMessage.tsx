@@ -1,3 +1,5 @@
+import { CalendarInvitation } from "@/components/email-list/CalendarInvitation";
+import { isCalendarInvitationMessage } from "@/utils/calendar/invitations/detection";
 import { useCallback, useMemo, useState, useRef, useEffect } from "react";
 import { useAction } from "next-safe-action/hooks";
 import useSWR from "swr";
@@ -34,6 +36,7 @@ import { EmailAttachments } from "@/components/email-list/EmailAttachments";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { formatReplySubject } from "@/utils/email/subject";
 import { env } from "@/env";
+import { isTypingTarget } from "@/lib/shortcuts/registry";
 import type { ContactsResponse } from "@/app/api/user/contacts/route";
 import { toastError } from "@/components/Toast";
 import { getActionErrorMessage } from "@/utils/error";
@@ -143,11 +146,29 @@ export function EmailMessage({
     <li
       data-thread-message-id={message.id}
       data-selected={selected}
-      tabIndex={selected === undefined ? undefined : -1}
+      tabIndex={selected !== undefined || composeMode ? -1 : undefined}
       aria-current={selected || undefined}
       onFocusCapture={onSelect}
       onClickCapture={onSelect}
       onKeyDown={onMessageKeyDown}
+      onKeyDownCapture={(event) => {
+        // Handle draft Escape before the rich-text editor consumes it.
+        if (
+          composeMode &&
+          event.key === "Escape" &&
+          !event.defaultPrevented &&
+          isTypingTarget(event.target) &&
+          event.target instanceof Element &&
+          event.target.closest('[data-inline-reply="true"]') &&
+          !event.target.closest(
+            '[role="dialog"], [role="menu"], [role="listbox"], [role="combobox"][aria-expanded="true"]',
+          )
+        ) {
+          event.preventDefault();
+          event.stopPropagation();
+          event.currentTarget.focus({ preventScroll: true });
+        }
+      }}
       className={cn(
         "group/message min-w-0 border-l-2 border-transparent outline-none transition-colors focus-within:border-primary",
         selected && "border-primary",
@@ -174,6 +195,10 @@ export function EmailMessage({
         // Aligns the body with the sender's name rather than the avatar.
         <div className="min-w-0 pt-3 sm:pl-9">
           {showDetails && <EmailDetails message={message} />}
+
+          {isCalendarInvitationMessage(message) && (
+            <CalendarInvitation key={message.id} messageId={message.id} />
+          )}
 
           {message.textHtml ? (
             <HtmlEmail

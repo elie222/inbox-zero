@@ -46,13 +46,13 @@ test("shows a combined picker and creates a matching split", async ({
   await page.getByRole("button", { name: "New split" }).click();
 
   const search = page.getByRole("combobox", {
-    name: "Search or describe a split",
+    name: "Search labels and categories",
   });
   await expect(
     page.getByRole("option", { name: "Promotions", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("option", { name: "Project Alpha", exact: true }),
+    page.getByRole("option", { name: "Project Alpha, not selected" }),
   ).toBeVisible();
   await expect(page.getByText(/Compiling/)).toBeHidden();
   // Keep Next's development indicator out of product screenshots.
@@ -61,17 +61,16 @@ test("shows a combined picker and creates a matching split", async ({
   });
   await capturePlaywrightCheckpoint(page, testInfo, "mail-new-split-initial");
 
-  await search.fill("Posts from social networks");
+  await page.getByRole("button", { name: "Describe a split instead" }).click();
   await expect(
-    page.getByRole("option", {
-      name: "Create “Posts from social networks”",
-    }),
+    page.getByRole("textbox", { name: "Describe a split" }),
   ).toBeVisible();
   await capturePlaywrightCheckpoint(
     page,
     testInfo,
     "mail-new-split-description",
   );
+  await page.getByRole("button", { name: "Back to the split list" }).click();
 
   await search.fill("Promotions");
   const promotionsOption = page.getByRole("option", {
@@ -100,6 +99,7 @@ test("shows a combined picker and creates a matching split", async ({
   await expect(conversations.getByRole("option")).toHaveCount(1);
   await capturePlaywrightCheckpoint(page, testInfo, "mail-new-split-created");
 
+  await page.getByRole("button", { name: "Manage splits" }).click();
   await page
     .getByRole("button", { name: "Remove the Promotions split" })
     .click();
@@ -129,20 +129,201 @@ test("organizes split choices and manages all rule labels", async ({
     groupHeadings.findIndex((heading) => heading.startsWith("Categories")),
   );
 
-  await page.getByRole("option", { name: "Add all" }).click();
+  // The bulk controls sit below the list rather than among the label rows.
+  await expect(
+    page.getByRole("option", { name: "Add a tab for each rule label" }),
+  ).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Add a tab for each rule label" })
+    .click();
   const calendarSplit = page.getByRole("button", {
     name: "Calendar",
     exact: true,
   });
   await expect(calendarSplit).toBeVisible();
   await page.getByRole("button", { name: "New split" }).click();
-  await expect(page.getByRole("option", { name: "Remove all" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Remove the rule label tabs" }),
+  ).toBeVisible();
   await capturePlaywrightCheckpoint(
     page,
     testInfo,
     "mail-rule-label-splits-added",
   );
 
-  await page.getByRole("option", { name: "Remove all" }).click();
+  await page
+    .getByRole("button", { name: "Remove the rule label tabs" })
+    .click();
   await expect(calendarSplit).toHaveCount(0);
+});
+
+test("builds one tab from several labels and names it", async ({
+  page,
+}, testInfo) => {
+  const { conversations } = await openMail(page);
+  const extraLabel = `Split Partner ${testInfo.retry}`;
+  await page.getByRole("button", { name: "Create label" }).click();
+  await page.getByRole("textbox", { name: "New label name" }).fill(extraLabel);
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(
+    page.getByRole("link", { name: extraLabel, exact: true }),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "New split" }).click();
+  await page
+    .getByRole("option", { name: "Project Alpha, not selected" })
+    .click();
+  await page
+    .getByRole("option", { name: `${extraLabel}, not selected` })
+    .click();
+  // The tick is decorative, so the row's name has to carry the state.
+  await expect(
+    page.getByRole("option", { name: "Project Alpha, selected" }),
+  ).toBeVisible();
+
+  const name = page.getByRole("textbox", { name: "Tab name" });
+  await expect(name).toHaveValue(`Project Alpha, ${extraLabel}`);
+  await name.fill("Two labels");
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "mail-new-split-multi-label",
+  );
+  await page.getByRole("button", { name: "Add tab for 2 labels" }).click();
+
+  const split = page.getByRole("button", { name: "Two labels", exact: true });
+  await expect(split).toHaveAttribute("aria-current", "true");
+  // Both labels feed one tab, so mail carrying either one shows up in it.
+  await expect(
+    conversationWithSubject(page, conversations, "Project Label Message"),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "Manage splits" }).click();
+  await page
+    .getByRole("button", { name: "Remove the Two labels split" })
+    .click();
+  await expect(split).toHaveCount(0);
+});
+
+for (const accountScope of ["single", "all"] as const) {
+  test(`${accountScope}: creates and removes splits without selecting them`, async ({
+    page,
+    request,
+  }) => {
+    const { emailAccountId } = await openMail(page);
+    if (accountScope === "all") {
+      await page.goto(`/${emailAccountId}/mail?accountScope=all`);
+    }
+    await page.getByRole("button", { name: "New split" }).click();
+    await page
+      .getByRole("option", { name: "Project Alpha, not selected" })
+      .click();
+    await page.getByRole("button", { name: "Add tab", exact: true }).click();
+    const split = page.getByRole("button", {
+      name: "Project Alpha",
+      exact: true,
+    });
+    await expect(split).toBeVisible();
+    await page.getByRole("button", { name: "Manage splits" }).click();
+    await page
+      .getByRole("button", { name: "Remove the Project Alpha split" })
+      .click();
+    await expect(split).toHaveCount(0);
+
+    for (const name of ["All", "Unread"] as const) {
+      await page
+        .getByRole("button", { name: `Remove the ${name} split` })
+        .click();
+      await expect
+        .poll(async () => {
+          const response = await request.get("/api/mail/settings", {
+            headers: { "X-Email-Account-ID": emailAccountId },
+          });
+          return (await response.json()).splits.some(
+            (split: { name: string }) => split.name === name,
+          );
+        })
+        .toBe(false);
+      await expect(page.getByRole("button", { name, exact: true })).toHaveCount(
+        0,
+      );
+    }
+    await page.reload();
+    await expect(page.getByRole("button", { name: "New split" })).toBeVisible();
+    for (const name of ["All", "Unread"]) {
+      await expect(page.getByRole("button", { name, exact: true })).toHaveCount(
+        0,
+      );
+      await page.getByRole("button", { name: "New split" }).click();
+      await page.getByRole("option", { name, exact: true }).click();
+      await expect
+        .poll(async () => {
+          const response = await request.get("/api/mail/settings", {
+            headers: { "X-Email-Account-ID": emailAccountId },
+          });
+          return (await response.json()).splits.some(
+            (split: { name: string }) => split.name === name,
+          );
+        })
+        .toBe(true);
+      await expect(
+        page.getByRole("button", { name, exact: true }),
+      ).toBeVisible();
+    }
+    await page.reload();
+    await expect(
+      page.getByRole("listbox", { name: "Conversations" }),
+    ).toBeVisible();
+    for (const name of ["All", "Unread"]) {
+      await expect(
+        page.getByRole("button", { name, exact: true }),
+      ).toBeVisible();
+    }
+  });
+}
+
+test("keeps removal in the dialog and persists tab order", async ({
+  page,
+}, testInfo) => {
+  await openMail(page);
+  await expect(
+    page.getByRole("button", { name: /Remove the .* split/ }),
+  ).toHaveCount(0);
+  const tabs = page.locator("button[data-split-tab]");
+  const original = await tabs.allTextContents();
+  expect(original.length).toBeGreaterThanOrEqual(2);
+  await page.getByRole("button", { name: "Manage splits" }).click();
+  const dialog = page.getByRole("dialog", { name: "Manage splits" });
+  await dialog
+    .getByRole("button", { name: `Move ${original[1]} up`, exact: true })
+    .click();
+  await expect(
+    dialog.getByRole("button", { name: `Move ${original[1]} up`, exact: true }),
+  ).toBeDisabled();
+  await expect(dialog.getByRole("list")).toHaveAttribute("aria-busy", "false");
+  await capturePlaywrightCheckpoint(page, testInfo, "mail-manage-splits");
+  await dialog.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(tabs.first()).toHaveText(original[1]);
+  await expect(tabs.filter({ hasText: original[0] })).toHaveAttribute(
+    "aria-current",
+    "true",
+  );
+  await page.reload();
+  await expect(tabs.first()).toHaveText(original[1]);
+  await page.getByRole("button", { name: "Manage splits" }).click();
+  const rows = dialog.getByRole("listitem");
+  await rows.nth(1).locator("[data-drag-split]").dragTo(rows.first());
+  await expect(dialog.getByRole("list")).toHaveAttribute("aria-busy", "false");
+  await dialog.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(tabs).toHaveText(original);
+  await page.reload();
+  await expect(tabs).toHaveText(original);
+  await expect(
+    page.getByRole("listbox", { name: "Conversations" }),
+  ).toBeVisible();
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "mail-splits-clean-tab-bar",
+  );
 });

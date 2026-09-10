@@ -43,4 +43,14 @@ test("toggles a star with S and the command palette while preserving unread", as
   await expect(
     row.getByText("Starred conversation", { exact: true }),
   ).toHaveCount(0);
+  await row.click();
+  const readerStarStatus = page
+    .getByTestId("thread-reader")
+    .getByRole("img", { name: "Starred conversation", exact: true });
+  await expect(readerStarStatus).toHaveCount(0);
+  await page.keyboard.press("s");
+  await expect(readerStarStatus).toBeVisible();
+  await capturePlaywrightCheckpoint(page, testInfo, "starred-reader-subject");
+  await page.keyboard.press("s");
+  await expect(readerStarStatus).toHaveCount(0);
 });

@@ -32,7 +32,7 @@ describe("getGmailMailboxSyncPage", () => {
           messagesAdded: [
             { message: { id: "inbox-message" } },
             { message: { id: "unavailable-label-message" } },
-            { message: { id: "archived-message" } },
+            { message: { id: "archived-message", threadId: "changed-thread" } },
             { message: { id: "old-message" } },
             { message: { id: "missing-message" } },
           ],
@@ -88,6 +88,7 @@ describe("getGmailMailboxSyncPage", () => {
       "inbox-message",
       "unavailable-label-message",
     ]);
+    expect(page.changedThreadIds).toEqual(["changed-thread"]);
     expect(page.deletedMessageIds).toEqual([
       "deleted-message",
       "archived-message",

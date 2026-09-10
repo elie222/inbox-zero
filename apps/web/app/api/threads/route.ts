@@ -20,11 +20,14 @@ export const GET = withEmailProvider(
     const nextPageToken = searchParams.get("nextPageToken");
     const q = searchParams.get("q");
     const labelId = searchParams.get("labelId");
-    const labelIds = searchParams
-      .getAll("labelIds")
-      .flatMap((value) => value.split(","))
-      .map((labelId) => labelId.trim())
-      .filter(Boolean);
+    const readLabelIds = (key: string) =>
+      searchParams
+        .getAll(key)
+        .flatMap((value) => value.split(","))
+        .map((labelId) => labelId.trim())
+        .filter(Boolean);
+    const labelIds = readLabelIds("labelIds");
+    const anyLabelIds = readLabelIds("anyLabelIds");
     const after = searchParams.get("after");
     const before = searchParams.get("before");
     const isUnread = searchParams.get("isUnread");
@@ -40,6 +43,7 @@ export const GET = withEmailProvider(
       q,
       labelId,
       labelIds: labelIds.length ? labelIds : undefined,
+      anyLabelIds: anyLabelIds.length ? anyLabelIds : undefined,
       after,
       before,
       isUnread,

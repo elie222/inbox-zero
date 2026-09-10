@@ -19,6 +19,7 @@ import { LoadingMiniSpinner } from "@/components/Loading";
 import { Button } from "@/components/ui/button";
 import type { EmailLabels } from "@/providers/email-label-types";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/utils";
 
 export type ThreadListProps = {
   threads: ListThread[];
@@ -151,7 +152,10 @@ export function ThreadList({
                   {group.label ? (
                     <div
                       aria-hidden
-                      className="pt-4 pr-5 pb-1.5 pl-9 font-medium text-muted-foreground text-sm"
+                      className={cn(
+                        "pt-4 pr-5 pb-1.5 font-normal text-muted-foreground text-sm",
+                        selectionEnabled ? "pl-[3.25rem]" : "pl-8",
+                      )}
                     >
                       {group.label}
                     </div>

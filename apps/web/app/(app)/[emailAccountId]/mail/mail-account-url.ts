@@ -3,6 +3,7 @@ export function getMailAccountUrl(accountId: string, search: string) {
   const hasAccountScopedFilter =
     params.has("labelId") || params.has("folderId");
   params.delete("accountScope");
+  params.delete("split");
   params.delete("thread-id");
   params.delete("thread-account-id");
   params.delete("side-panel-thread-id");
