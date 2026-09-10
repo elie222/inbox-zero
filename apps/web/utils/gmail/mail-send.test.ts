@@ -1,5 +1,6 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import { assert, describe, expect, it, vi } from "vitest";
+import { createScopedLogger } from "@/utils/logger";
 import { SafeError } from "@/utils/error";
 import { sendEmailWithHtml } from "./mail";
 
@@ -20,6 +21,42 @@ const email = {
 };
 
 describe("sending a Gmail draft from the reader", () => {
+  it("reports the actual MIME sender presence and failed send endpoint without message content", async () => {
+    const { gmail, messages } = createGmail();
+    messages.get.mockResolvedValue({ data: { labelIds: ["INBOX"] } });
+    const failure = Object.assign(new Error("Bad Gateway"), { code: 502 });
+    messages.send.mockRejectedValue(failure);
+    const logger = createScopedLogger("test");
+    const info = vi.spyOn(logger, "info");
+    const warn = vi.spyOn(logger, "warn");
+    await expect(sendEmailWithHtml(gmail, email, logger)).rejects.toBe(failure);
+    expect(info).toHaveBeenCalledWith(
+      "Prepared Gmail send",
+      expect.objectContaining({
+        hasExplicitFrom: false,
+        hasMimeFrom: false,
+        hasReplyMessageId: true,
+        hasThreadId: true,
+        mimeBytes: expect.any(Number),
+      }),
+    );
+    expect(warn).toHaveBeenCalledWith(
+      "Gmail send request failed",
+      expect.objectContaining({
+        gmailOperation: "messages.send",
+        status: 502,
+        durationMs: expect.any(Number),
+      }),
+    );
+    expect(messages.send).toHaveBeenCalledTimes(1);
+    expect(
+      JSON.stringify([...info.mock.calls, ...warn.mock.calls]),
+    ).not.toContain(email.to);
+    expect(
+      JSON.stringify([...info.mock.calls, ...warn.mock.calls]),
+    ).not.toContain(email.messageHtml);
+  });
+
   it("consumes the existing draft and sends the edited content", async () => {
     const { gmail, drafts, messages } = createGmail();
 

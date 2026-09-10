@@ -10,7 +10,7 @@ export const SENSITIVE_FIELD_NAMES = new Set([
   "replyTo",
 ]);
 
-// Secrets that must never leave the process.
+// Secrets and encoded payloads that must never leave the process.
 export const REDACTED_FIELD_NAMES = new Set([
   "accessToken",
   "access_token",
@@ -22,6 +22,7 @@ export const REDACTED_FIELD_NAMES = new Set([
   "set-cookie",
   "authorization",
   "requestBodyValues",
+  "raw",
   "receivedState",
   "systemInstruction",
   "contents",
