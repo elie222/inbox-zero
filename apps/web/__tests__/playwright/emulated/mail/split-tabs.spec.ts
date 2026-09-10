@@ -1,3 +1,4 @@
+import { MAX_MAIL_SPLITS } from "@/utils/mail/split-constants";
 import { INITIAL_MAIL_SPLITS } from "@/utils/mail/initial-splits";
 import { expect } from "@playwright/test";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
@@ -60,6 +61,19 @@ test("restores a deleted All tab and protects it from removal", async ({
       [emailAccountId, "All"],
     ),
   );
+  await withClient(async (client) => {
+    for (let index = 1; index < MAX_MAIL_SPLITS; index++) {
+      await client.query(
+        `WITH split AS (
+          INSERT INTO "MailSplit" (id, "updatedAt", "emailAccountId", name, "matchAll", "order")
+          VALUES (gen_random_uuid()::text, NOW(), $1, $2, true, $3) RETURNING id
+        )
+        INSERT INTO "MailSplitFilter" (id, "mailSplitId", kind, "order")
+        SELECT gen_random_uuid()::text, id, 'UNREAD', 0 FROM split`,
+        [emailAccountId, `Split ${index}`, index + 1],
+      );
+    }
+  });
   await openMail(page);
   const allTab = page
     .locator("button[data-split-tab]")
@@ -70,6 +84,33 @@ test("restores a deleted All tab and protects it from removal", async ({
     page.getByRole("menuitem", { name: "Turn off split" }),
   ).toBeHidden();
   await capturePlaywrightCheckpoint(page, testInfo, "mail-protected-all-split");
+  await page.getByRole("button", { name: "New split", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Move All down", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "Move Unread up", exact: true }),
+  ).toBeDisabled();
+  await expect(page.locator('[data-drag-split="all"]')).toHaveAttribute(
+    "draggable",
+    "false",
+  );
+  const tabs = page.locator("button[data-split-tab]");
+  const original = await tabs.allTextContents();
+  expect(original).toHaveLength(MAX_MAIL_SPLITS + 1);
+  await page
+    .getByRole("button", { name: "Move Unread down", exact: true })
+    .click();
+  const expected = [
+    original[0],
+    original[2],
+    original[1],
+    ...original.slice(3),
+  ];
+  await expect(tabs).toHaveText(expected);
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+  await page.reload();
+  await expect(tabs).toHaveText(expected);
 });
 
 test("moves focus with the active split when cycling by keyboard", async ({

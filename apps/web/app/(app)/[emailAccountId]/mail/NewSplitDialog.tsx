@@ -122,8 +122,10 @@ export function NewSplitDialog({
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
 
   const moveSplit = async (id: string, targetId: string) => {
-    if (isBusy || id === targetId) return;
-    const ids = existingSplits.map((split) => split.id);
+    if (isBusy || id === targetId || id === "all" || targetId === "all") return;
+    const ids = existingSplits
+      .filter((split) => split.id !== "all")
+      .map((split) => split.id);
     const from = ids.indexOf(id);
     const to = ids.indexOf(targetId);
     if (from < 0 || to < 0) return;
@@ -442,7 +444,8 @@ export function NewSplitDialog({
                           draggedId === split.id && "opacity-50",
                         )}
                         onDragOver={(event) => {
-                          if (!draggedId || isBusy) return;
+                          if (!draggedId || isBusy || split.id === "all")
+                            return;
                           event.preventDefault();
                           event.dataTransfer.dropEffect = "move";
                           setDropTargetId(split.id);
@@ -456,10 +459,15 @@ export function NewSplitDialog({
                         }}
                       >
                         <span
-                          draggable={!isBusy}
+                          draggable={!isBusy && split.id !== "all"}
                           data-drag-split={split.id}
                           aria-hidden="true"
-                          className="cursor-grab p-1 text-muted-foreground active:cursor-grabbing"
+                          className={cn(
+                            "p-1 text-muted-foreground",
+                            split.id === "all"
+                              ? "invisible"
+                              : "cursor-grab active:cursor-grabbing",
+                          )}
                           onDragStart={(event) => {
                             event.dataTransfer.setData("text/plain", split.id);
                             event.dataTransfer.effectAllowed = "move";
@@ -486,7 +494,12 @@ export function NewSplitDialog({
                           size="icon"
                           className="size-7 text-muted-foreground"
                           aria-label={`Move ${split.name} up`}
-                          disabled={isBusy || index === 0}
+                          disabled={
+                            isBusy ||
+                            split.id === "all" ||
+                            index === 0 ||
+                            existingSplits[index - 1].id === "all"
+                          }
                           onClick={() =>
                             moveSplit(split.id, existingSplits[index - 1].id)
                           }
@@ -499,7 +512,9 @@ export function NewSplitDialog({
                           className="size-7 text-muted-foreground"
                           aria-label={`Move ${split.name} down`}
                           disabled={
-                            isBusy || index === existingSplits.length - 1
+                            isBusy ||
+                            split.id === "all" ||
+                            index === existingSplits.length - 1
                           }
                           onClick={() =>
                             moveSplit(split.id, existingSplits[index + 1].id)
