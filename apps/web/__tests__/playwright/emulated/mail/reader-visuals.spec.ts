@@ -3,6 +3,73 @@ import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
 import { conversationWithSubject, openMail } from "./mail-test-helpers";
 
+test("uses the system dark theme when opening HTML emails", async ({
+  page,
+}, testInfo) => {
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.addInitScript(() => localStorage.setItem("theme", "system"));
+  await page.route(
+    "**/api/threads/thr_playwright_reader_visual?**",
+    async (route) => {
+      const response = await route.fetch();
+      const body = await response.json();
+      for (const message of body.thread.messages) {
+        message.textHtml = "<p>A simple message in the system theme.</p>";
+      }
+      await route.fulfill({ response, json: body });
+    },
+  );
+  const { conversations } = await openMail(page);
+  await conversationWithSubject(
+    page,
+    conversations,
+    "Re: Reader Visual Message",
+  ).click();
+  const emailFrame = page
+    .frameLocator('iframe[title="Email content preview"]')
+    .last();
+  await expect(
+    emailFrame.getByText("A simple message in the system theme."),
+  ).toBeVisible();
+  await expect(emailFrame.locator("html")).toHaveCSS("color-scheme", "dark");
+  await expect(emailFrame.locator("body")).toHaveCSS("color-scheme", "dark");
+  await capturePlaywrightCheckpoint(page, testInfo, "mail-reader-system-dark");
+});
+
+test("renders the replacement email after expanding quoted content", async ({
+  page,
+}, testInfo) => {
+  const { conversations } = await openMail(page);
+  await conversationWithSubject(
+    page,
+    conversations,
+    "Re: Reader Visual Message",
+  ).click();
+  const frame = page.frameLocator('iframe[title="Email content preview"]');
+  await expect(
+    frame.getByText("The current reply stays concise and easy to scan."),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Show quoted content" }).click();
+  await expect(
+    frame.getByText("This earlier quoted message is hidden until expanded."),
+  ).toBeVisible();
+  await expect(
+    frame.getByText("The current reply stays concise and easy to scan."),
+  ).toBeVisible();
+  await expect
+    .poll(() =>
+      page
+        .locator('iframe[title="Email content preview"]')
+        .evaluate((iframe) => iframe.getBoundingClientRect().height),
+    )
+    .toBeGreaterThan(1);
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "mail-reader-quote-swap-complete",
+  );
+});
+
 test("captures the rich message reader states", async ({ page }, testInfo) => {
   const releaseSenderStats = Promise.withResolvers<void>();
   await page.route("**/api/user/stats/newsletters?**", async (route) => {
