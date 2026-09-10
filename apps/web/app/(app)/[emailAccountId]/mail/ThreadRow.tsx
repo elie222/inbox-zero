@@ -227,7 +227,7 @@ export const ThreadRow = memo(function ThreadRow({
 
       {isWide ? (
         <>
-          <div className="flex w-48 shrink-0 items-baseline gap-1 overflow-hidden whitespace-nowrap">
+          <div className="flex w-64 shrink-0 items-baseline gap-1 overflow-hidden whitespace-nowrap">
             {participantLine}
           </div>
           {expandedPreview ? (

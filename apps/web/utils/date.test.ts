@@ -263,11 +263,17 @@ describe("formatDateGroupLabel", () => {
 
   it.each([
     { name: "today", date: "2025-09-05T09:30:00", expected: "Today" },
+    { name: "later today", date: "2025-09-05T23:30:00", expected: "Today" },
     { name: "yesterday", date: "2025-09-04T23:59:00", expected: "Yesterday" },
     {
-      name: "an earlier day this month",
+      name: "an earlier day this week",
       date: "2025-09-01T08:00:00",
-      expected: "September 1st",
+      expected: "Last 7 days",
+    },
+    {
+      name: "the oldest day of the past week",
+      date: "2025-08-30T00:00:00",
+      expected: "Last 7 days",
     },
     {
       name: "a day last month",
@@ -278,6 +284,11 @@ describe("formatDateGroupLabel", () => {
       name: "a day in a previous year",
       date: "2024-08-22T08:00:00",
       expected: "August 2024",
+    },
+    {
+      name: "a day ahead of today",
+      date: "2025-09-20T08:00:00",
+      expected: "September 20th, 2025",
     },
   ])("labels $name", ({ date, expected }) => {
     expect(formatDateGroupLabel(new Date(date), now)).toBe(expected);
@@ -290,5 +301,14 @@ describe("formatDateGroupLabel", () => {
         new Date("2025-09-01T09:00:00"),
       ),
     ).toBe("Yesterday");
+  });
+
+  it("labels days older than a week but still in this month", () => {
+    expect(
+      formatDateGroupLabel(
+        new Date("2025-09-05T08:00:00"),
+        new Date("2025-09-20T09:00:00"),
+      ),
+    ).toBe("Earlier this month");
   });
 });
