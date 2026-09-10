@@ -36,22 +36,9 @@ test("uses the system dark theme when opening HTML emails", async ({
   await capturePlaywrightCheckpoint(page, testInfo, "mail-reader-system-dark");
 });
 
-test("keeps the displayed email while image preparation finishes", async ({
+test("keeps the displayed email while expanding quoted content", async ({
   page,
 }, testInfo) => {
-  const preparation = Promise.withResolvers<void>();
-  await page.route("**/api/email/render-html", async (route) => {
-    const { html } = route.request().postDataJSON();
-    await preparation.promise;
-    await route.fulfill({
-      json: {
-        html: html.replace(
-          "The current reply stays concise and easy to scan.",
-          "Image preparation completed.",
-        ),
-      },
-    });
-  });
   const { conversations } = await openMail(page);
   await conversationWithSubject(
     page,
@@ -91,13 +78,15 @@ test("keeps the displayed email while image preparation finishes", async ({
       subtree: true,
     });
   });
-  preparation.resolve();
-  await expect(frame.getByText("Image preparation completed.")).toBeVisible();
+  await page.getByRole("button", { name: "Show quoted content" }).click();
+  await expect(
+    frame.getByText("This earlier quoted message is hidden until expanded."),
+  ).toBeVisible();
   await expect(reader).toHaveAttribute("data-blank-frame-count", "0");
   await capturePlaywrightCheckpoint(
     page,
     testInfo,
-    "mail-reader-preparation-complete",
+    "mail-reader-quote-swap-complete",
   );
 });
 
