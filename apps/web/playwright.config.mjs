@@ -183,7 +183,8 @@ export default defineConfig({
         NEXT_PUBLIC_POSTHOG_API_HOST: "",
         NEXT_PUBLIC_DUB_REFER_DOMAIN: "",
         NEXT_PUBLIC_IS_RESEND_CONFIGURED: "",
-        NEXT_PUBLIC_CONTACTS_ENABLED: "false",
+        NEXT_PUBLIC_CONTACTS_ENABLED:
+          process.env.NEXT_PUBLIC_CONTACTS_ENABLED ?? "false",
         NEXT_PUBLIC_EMAIL_SEND_ENABLED: "true",
         NEXT_PUBLIC_MEETING_RECORDER_ENABLED: "true",
         PLAYWRIGHT_TEST_EMAIL: playwrightTestEmail,

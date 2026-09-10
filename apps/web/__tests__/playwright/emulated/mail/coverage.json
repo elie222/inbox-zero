@@ -13,6 +13,9 @@
     "store/command-palette.ts",
     "app/(app)/[emailAccountId]/mail/snooze-command-palette.ts"
   ],
+  "contact-autocomplete.spec.ts": [
+    "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx"
+  ],
   "compose-and-reply.spec.ts": [
     "app/(app)/[emailAccountId]/compose/ComposeEmailForm.tsx",
     "components/email-list/EmailThread.tsx"
