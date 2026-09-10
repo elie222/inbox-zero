@@ -63,36 +63,6 @@ describe("swr-persistence", () => {
     expect(readPersistedSwrEntries(ACCOUNT_A).size).toBe(0);
   });
 
-  it.each([
-    { kind: "LABEL", value: "label-1" },
-    { kind: "LABEL", values: ["label-1"] },
-    { matchAll: true, filters: null },
-    { matchAll: true, filters: [null] },
-  ])("discards incompatible settings while keeping other cached data: %j", (split) => {
-    window.localStorage.setItem(
-      `inbox-zero:swr:v2:${ACCOUNT_A}`,
-      JSON.stringify({
-        "/api/mail/settings": {
-          layout: "LIST",
-          expandedPreview: false,
-          splits: [{ id: "split-1", name: "Saved", order: 0, ...split }],
-        },
-        "/api/labels": { labels: [] },
-      }),
-    );
-
-    const restored = readPersistedSwrEntries(ACCOUNT_A);
-    expect(restored.has("/api/mail/settings")).toBe(false);
-    expect(restored.get("/api/labels")?.data).toEqual({ labels: [] });
-
-    persistSwrEntries(ACCOUNT_A, cacheWith({ "/api/labels": { labels: [] } }));
-    expect(
-      JSON.parse(
-        window.localStorage.getItem(`inbox-zero:swr:v2:${ACCOUNT_A}`) ?? "{}",
-      ),
-    ).not.toHaveProperty("/api/mail/settings");
-  });
-
   it("preserves valid cached mail settings including split filters", () => {
     const settings: MailSettingsResponse = {
       layout: "SPLIT",

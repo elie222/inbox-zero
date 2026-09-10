@@ -53,6 +53,7 @@
 - Never use dynamic Prisma transactions (`prisma.$transaction(async (tx) => ...)`).
 
 ## Change Philosophy
+- Keep resource-specific validation in the owning feature; shared infrastructure should stay resource-agnostic.
 - Prefer the simplest, most readable change; only keep backwards compatibility when explicitly requested.
 - Do not optimize for migration paths: refactor call sites directly, including larger coordinated changes when clarity improves.
 - This is a public repository. Never include non-public data or internal details from private repositories or services in repository content or GitHub metadata; describe related private work only generically (for example, “updated the marketing repository”).
