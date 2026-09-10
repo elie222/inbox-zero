@@ -52,7 +52,7 @@ export function EmailMessage({
   refetch,
   showReplyButton,
   defaultComposeMode,
-  draftMessage,
+  draftMessages,
   expanded,
   onToggle,
   onSendSuccess,
@@ -64,7 +64,7 @@ export function EmailMessage({
   onNavigateMessage,
 }: {
   message: ThreadMessage;
-  draftMessage?: ThreadMessage;
+  draftMessages?: ThreadMessage[];
   refetch: () => void;
   showReplyButton: boolean;
   defaultComposeMode?: ReplyDraftMode;
@@ -86,6 +86,31 @@ export function EmailMessage({
     ReplyDraftMode | "closed" | null
   >(null);
   const composeMode = resolveComposeMode(composeOverride, defaultComposeMode);
+  const serverDrafts = draftMessages ?? [];
+  const [dismissedDraftIds, setDismissedDraftIds] = useState(
+    () => new Set<string>(),
+  );
+  useEffect(() => {
+    const liveIds = new Set(serverDrafts.map((draft) => draft.id));
+    setDismissedDraftIds((previous) => {
+      const next = new Set(
+        [...previous].filter((draftId) => liveIds.has(draftId)),
+      );
+      return next.size === previous.size ? previous : next;
+    });
+  }, [serverDrafts]);
+  const visibleDrafts = serverDrafts.filter(
+    (draft) => !dismissedDraftIds.has(draft.id),
+  );
+  // Server drafts render their own composers. A blank reply/forward panel is
+  // only needed when there are no server drafts at all, or the user explicitly
+  // opened Reply/Forward. Dismissing a server draft must not open a blank one.
+  const showBlankComposer =
+    composeOverride === "reply" ||
+    composeOverride === "forward" ||
+    (composeOverride === null &&
+      Boolean(composeMode) &&
+      serverDrafts.length === 0);
 
   const [showDetails, setShowDetails] = useState(false);
   const composeSessionRef = useRef(0);
@@ -188,7 +213,7 @@ export function EmailMessage({
         showDetails={showDetails}
         showReplyButton={showReplyButton}
         toggleDetails={toggleDetails}
-        hasDraft={hasDraft || Boolean(draftMessage)}
+        hasDraft={hasDraft || visibleDrafts.length > 0}
       />
 
       {expanded && (
@@ -217,10 +242,51 @@ export function EmailMessage({
 
           {message.attachments && <EmailAttachments message={message} />}
 
-          {composeMode && (
+          {visibleDrafts.map((draft, index) => (
             <ReplyPanel
-              defaultComposeMode={defaultComposeMode}
-              draftMessage={draftMessage}
+              key={draft.id}
+              autoScroll={
+                !showBlankComposer && index === visibleDrafts.length - 1
+              }
+              defaultComposeMode="reply"
+              draftMessage={draft}
+              message={message}
+              onCloseCompose={() =>
+                setDismissedDraftIds((previous) =>
+                  new Set(previous).add(draft.id),
+                )
+              }
+              onRestoreCompose={(composeSession) => {
+                // Ignore stale restores if the user already opened another
+                // composer (Reply/Forward increments composeSessionRef).
+                if (composeSessionRef.current !== composeSession.id) return;
+                setDismissedDraftIds((previous) => {
+                  const next = new Set(previous);
+                  next.delete(draft.id);
+                  return next;
+                });
+              }}
+              onSendSuccess={onSendSuccess}
+              onMarkDone={onMarkDone}
+              onStartDiscard={() => {
+                setDismissedDraftIds((previous) =>
+                  new Set(previous).add(draft.id),
+                );
+                return {
+                  id: composeSessionRef.current,
+                  mode: "reply" as const,
+                };
+              }}
+              refetch={refetch}
+              composeMode="reply"
+            />
+          ))}
+          {showBlankComposer && composeMode && (
+            <ReplyPanel
+              autoScroll
+              defaultComposeMode={
+                composeOverride !== null ? undefined : defaultComposeMode
+              }
               message={message}
               onCloseCompose={onCloseCompose}
               onRestoreCompose={onRestoreCompose}
@@ -465,6 +531,7 @@ function ReplyPanel({
   defaultComposeMode,
   composeMode,
   draftMessage,
+  autoScroll = false,
 }: {
   message: ParsedMessage;
   refetch: () => void;
@@ -476,6 +543,7 @@ function ReplyPanel({
   defaultComposeMode?: ReplyDraftMode;
   composeMode: ReplyDraftMode;
   draftMessage?: ThreadMessage;
+  autoScroll?: boolean;
 }) {
   const { emailAccountId } = useAccount();
 
@@ -483,7 +551,7 @@ function ReplyPanel({
 
   // scroll to the reply panel when it first opens
   useEffect(() => {
-    if (!defaultComposeMode || !replyRef.current) return;
+    if (!autoScroll || !replyRef.current) return;
 
     // Wait for the reply panel layout before scrolling.
     const scrollTimeout = setTimeout(() => {
@@ -491,7 +559,7 @@ function ReplyPanel({
     }, 500);
 
     return () => clearTimeout(scrollTimeout);
-  }, [defaultComposeMode]);
+  }, [autoScroll]);
 
   const replyingToEmail: ReplyingToEmail = useMemo(() => {
     if (composeMode === "reply") {
@@ -557,9 +625,12 @@ function ReplyPanel({
         providerDraftMessageId={
           composeMode === "reply" ? draftMessage?.id : undefined
         }
-        draftKeyMessageId={message.id}
+        draftKeyMessageId={draftMessage?.id ?? message.id}
         draftMode={composeMode}
-        draftSessionId={getReplyDraftSessionId(message.id, composeMode)}
+        draftSessionId={getReplyDraftSessionId(
+          draftMessage?.id ?? message.id,
+          composeMode,
+        )}
         onClose={onCloseCompose}
         onDiscard={onDiscard}
         onMarkDone={onMarkDone}

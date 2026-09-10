@@ -87,13 +87,13 @@ export function EmailThread({
     expansionOverrides.get(id) ?? (id === lastMessageId || hasDraft);
   const hasLocalDraft = (id: string) =>
     Boolean(getLocalDraftMode(localDrafts, id));
-  const allExpanded = organizedMessages.every(({ message, draftMessage }) =>
+  const allExpanded = organizedMessages.every(({ message, draftMessages }) =>
     expanded(
       message.id,
       autoOpenReplyForMessageId === message.id ||
         autoOpenForwardForMessageId === message.id ||
         recoveredReply?.messageId === message.id ||
-        Boolean(draftMessage) ||
+        draftMessages.length > 0 ||
         hasLocalDraft(message.id),
     ),
   );
@@ -201,7 +201,7 @@ export function EmailThread({
       )}
 
       <ul className="pt-1">
-        {organizedMessages.map(({ message, draftMessage }) => {
+        {organizedMessages.map(({ message, draftMessages }) => {
           const defaultComposeMode = getDefaultComposeMode({
             autoOpenMode:
               autoOpenForwardForMessageId === message.id
@@ -209,7 +209,7 @@ export function EmailThread({
                 : autoOpenReplyForMessageId === message.id
                   ? "reply"
                   : undefined,
-            draftMessage: Boolean(draftMessage),
+            draftMessage: draftMessages.length > 0,
             localDraftMode: getLocalDraftMode(localDrafts, message.id),
             recoveredReply:
               recoveredReply?.messageId === message.id
@@ -232,9 +232,9 @@ export function EmailThread({
                   : undefined
               }
               defaultComposeMode={defaultComposeMode}
-              draftMessage={draftMessage}
+              draftMessages={draftMessages}
               expanded={expanded(message.id, Boolean(defaultComposeMode))}
-              hasDraft={Boolean(draftMessage) || hasLocalDraft(message.id)}
+              hasDraft={draftMessages.length > 0 || hasLocalDraft(message.id)}
               key={`${message.id}:${recoveredReply?.messageId === message.id ? recoveredReply.version : 0}`}
               message={message}
               onOpenSenderContext={onOpenSenderContext}
@@ -327,8 +327,9 @@ function getDefaultComposeMode({
 // A draft still belongs to this thread, so anything unmatched falls back to the
 // message a reply would target: the most recent one.
 //
-// EmailMessage only accepts a single draftMessage, so when multiple drafts
-// resolve to the same parent we keep the most recent by internalDate.
+// Multiple drafts may resolve to the same parent (especially Outlook drafts with
+// no threading headers). Keep all of them, ordered oldest → newest, so none are
+// dropped when EmailMessage renders one composer per draft.
 export function organizeThreadMessages(messages: ThreadMessage[] | undefined) {
   const drafts: ThreadMessage[] = [];
   const regularMessages: ThreadMessage[] = [];
@@ -357,14 +358,15 @@ export function organizeThreadMessages(messages: ThreadMessage[] | undefined) {
 
   return regularMessages.map((message) => ({
     message,
-    draftMessage: pickMostRecentDraft(draftsByMessageId.get(message.id)),
+    draftMessages: sortDraftsOldestFirst(
+      draftsByMessageId.get(message.id) ?? [],
+    ),
   }));
 }
 
-function pickMostRecentDraft(drafts: ThreadMessage[] | undefined) {
-  if (!drafts?.length) return;
-  return drafts.reduce((latest, draft) =>
-    draftRecency(draft) >= draftRecency(latest) ? draft : latest,
+function sortDraftsOldestFirst(drafts: ThreadMessage[]) {
+  return [...drafts].sort(
+    (left, right) => draftRecency(left) - draftRecency(right),
   );
 }
 

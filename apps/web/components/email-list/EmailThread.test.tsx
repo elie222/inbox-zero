@@ -14,8 +14,10 @@ describe("organizeThreadMessages", () => {
       "first",
       "second",
     ]);
-    expect(organized.at(0)?.draftMessage?.id).toBe("draft");
-    expect(organized.at(1)?.draftMessage).toBeUndefined();
+    expect(organized.at(0)?.draftMessages.map((draft) => draft.id)).toEqual([
+      "draft",
+    ]);
+    expect(organized.at(1)?.draftMessages).toEqual([]);
   });
 
   it("prefers the last entry of the references header", () => {
@@ -28,7 +30,9 @@ describe("organizeThreadMessages", () => {
 
     const organized = organizeThreadMessages([first, second, draft]);
 
-    expect(organized.at(1)?.draftMessage?.id).toBe("draft");
+    expect(organized.at(1)?.draftMessages.map((draft) => draft.id)).toEqual([
+      "draft",
+    ]);
   });
 
   // Outlook thread messages carry no References header and expose In-Reply-To
@@ -42,8 +46,10 @@ describe("organizeThreadMessages", () => {
     const organized = organizeThreadMessages([first, second, draft]);
 
     expect(organized).toHaveLength(2);
-    expect(organized.at(0)?.draftMessage).toBeUndefined();
-    expect(organized.at(1)?.draftMessage?.id).toBe("outlook-draft");
+    expect(organized.at(0)?.draftMessages).toEqual([]);
+    expect(organized.at(1)?.draftMessages.map((draft) => draft.id)).toEqual([
+      "outlook-draft",
+    ]);
   });
 
   it("shows a draft whose parent is not part of the thread", () => {
@@ -52,7 +58,9 @@ describe("organizeThreadMessages", () => {
 
     const organized = organizeThreadMessages([only, draft]);
 
-    expect(organized.at(0)?.draftMessage?.id).toBe("draft");
+    expect(organized.at(0)?.draftMessages.map((draft) => draft.id)).toEqual([
+      "draft",
+    ]);
   });
 
   it("falls back to the last message when no message id matches the draft's parent", () => {
@@ -62,12 +70,13 @@ describe("organizeThreadMessages", () => {
 
     const organized = organizeThreadMessages([first, second, draft]);
 
-    expect(organized.at(0)?.draftMessage).toBeUndefined();
-    expect(organized.at(1)?.draftMessage?.id).toBe("draft");
+    expect(organized.at(0)?.draftMessages).toEqual([]);
+    expect(organized.at(1)?.draftMessages.map((draft) => draft.id)).toEqual([
+      "draft",
+    ]);
   });
 
-
-  it("keeps the most recent draft when several resolve to the same parent", () => {
+  it("keeps all drafts when several resolve to the same parent", () => {
     const only = createMessage({ id: "only", messageId: "<only@mail>" });
     const older = createDraft({
       id: "older-draft",
@@ -81,7 +90,10 @@ describe("organizeThreadMessages", () => {
     const organized = organizeThreadMessages([only, older, newer]);
 
     expect(organized).toHaveLength(1);
-    expect(organized.at(0)?.draftMessage?.id).toBe("newer-draft");
+    expect(organized.at(0)?.draftMessages.map((draft) => draft.id)).toEqual([
+      "older-draft",
+      "newer-draft",
+    ]);
   });
 
   it("returns nothing for a thread that holds only a draft", () => {

@@ -86,7 +86,7 @@ describe("EmailMessage draft recovery", () => {
     render(
       <EmailMessage
         defaultComposeMode="reply"
-        draftMessage={createMessage("draft-1")}
+        draftMessages={[createMessage("draft-1")]}
         expanded
         message={createMessage("message-1")}
         onSendSuccess={vi.fn()}
