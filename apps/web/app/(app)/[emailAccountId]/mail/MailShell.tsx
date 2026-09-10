@@ -1421,7 +1421,10 @@ export function MailShell() {
             />
             {!isScoped && !searchQuery && (
               <SplitTabs
-                splits={splits.map((split) => ({ ...split, deletable: true }))}
+                splits={splits.map((split) => ({
+                  ...split,
+                  deletable: split.filters.length > 0,
+                }))}
                 activeSplitId={displayedActiveSplitId}
                 onSelect={setActiveSplitId}
                 onDelete={onDeleteSplit}
