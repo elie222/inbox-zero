@@ -10,8 +10,13 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const mockTheme = vi.hoisted(() => ({
+  theme: "light",
+  resolvedTheme: "light",
+}));
+
 vi.mock("next-themes", () => ({
-  useTheme: () => ({ theme: "light" }),
+  useTheme: () => mockTheme,
 }));
 
 vi.mock("@/env", () => ({
@@ -43,6 +48,8 @@ class MockResizeObserver {
 describe("HtmlEmail", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockTheme.theme = "light";
+    mockTheme.resolvedTheme = "light";
     animationFrames = [];
     nextAnimationFrameId = 0;
     vi.stubGlobal("ResizeObserver", MockResizeObserver);
@@ -73,6 +80,49 @@ describe("HtmlEmail", () => {
     cleanup();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+  });
+
+  it("applies the resolved system theme to the email document", () => {
+    mockTheme.theme = "system";
+    mockTheme.resolvedTheme = "dark";
+    const { getByTitle } = render(
+      <HtmlEmail html="<p>Hello</p>" messageId="system-theme" />,
+    );
+    const iframe = getByTitle("Email content preview") as HTMLIFrameElement;
+    const document = new DOMParser().parseFromString(
+      iframe.srcdoc,
+      "text/html",
+    );
+    expect(document.documentElement.classList.contains("dark")).toBe(true);
+    expect(document.body.classList.contains("dark")).toBe(true);
+  });
+
+  it("keeps the email visible while prepared HTML loads", async () => {
+    const preparation = Promise.withResolvers<Response>();
+    vi.mocked(fetch).mockReturnValue(preparation.promise);
+    const { getByTitle, queryByTitle } = render(
+      <HtmlEmail html="<p>Hello</p>" messageId="buffered-frame" />,
+    );
+    const original = getByTitle("Email content preview") as HTMLIFrameElement;
+    measureEmailFrame(original, 240);
+    await waitFor(() => expect(original.style.height).toBe("240px"));
+    await act(async () =>
+      preparation.resolve(Response.json({ html: "<p>Prepared hello</p>" })),
+    );
+    const replacement = getByTitle(
+      "Preparing email content preview",
+    ) as HTMLIFrameElement;
+    expect(getByTitle("Email content preview")).toBe(original);
+    expect(original.style.height).toBe("240px");
+    expect(original.style.visibility).toBe("");
+    expect(original.srcdoc).toContain("<p>Hello</p>");
+    measureEmailFrame(replacement, 240);
+    await waitFor(() =>
+      expect(getByTitle("Email content preview")).toBe(replacement),
+    );
+    expect(queryByTitle("Preparing email content preview")).toBeNull();
+    expect(original.isConnected).toBe(false);
+    expect(replacement.style.height).toBe("240px");
   });
 
   it("reuses prepared html without collapsing while measuring the iframe", async () => {
@@ -231,7 +281,7 @@ describe("HtmlEmail", () => {
     expect(onForwardMessage).toHaveBeenCalledOnce();
   });
 
-  it("remeasures from a minimal height when quoted content is toggled", async () => {
+  it("keeps the current layout until quoted content is ready to replace it", async () => {
     vi.mocked(fetch).mockReturnValue(new Promise(() => {}));
     const { getByRole, getByTitle } = render(
       <HtmlEmail
@@ -241,45 +291,29 @@ describe("HtmlEmail", () => {
         messageId="message-with-quote"
       />,
     );
-    const iframe = getByTitle("Email content preview") as HTMLIFrameElement;
-    let contentHeight = 40;
-
-    Object.defineProperty(
-      iframe.contentDocument!.documentElement,
-      "scrollHeight",
-      {
-        configurable: true,
-        get: () => contentHeight,
-      },
-    );
-    Object.defineProperty(iframe.contentDocument!.body, "scrollHeight", {
-      configurable: true,
-      get: () => contentHeight,
-    });
-    addEmailDocumentMarker(iframe, iframe.contentDocument);
-    iframe.dispatchEvent(new Event("load"));
-
-    await waitFor(() => expect(iframe.style.height).toBe("40px"));
-
+    const initial = getByTitle("Email content preview") as HTMLIFrameElement;
+    measureEmailFrame(initial, 40);
+    await waitFor(() => expect(initial.style.height).toBe("40px"));
     fireEvent.click(getByRole("button", { name: "Show quoted content" }));
-
-    expect(iframe.style.height).toBe("");
-    expect(iframe.getAttribute("height")).toBe("1");
-
-    contentHeight = 640;
-    addEmailDocumentMarker(iframe, iframe.contentDocument);
-    iframe.dispatchEvent(new Event("load"));
-    await waitFor(() => expect(iframe.style.height).toBe("640px"));
-
+    const expanded = getByTitle(
+      "Preparing email content preview",
+    ) as HTMLIFrameElement;
+    expect(initial.style.height).toBe("40px");
+    expect(expanded.getAttribute("height")).toBe("1");
+    measureEmailFrame(expanded, 640);
+    await waitFor(() =>
+      expect(getByTitle("Email content preview")).toBe(expanded),
+    );
     fireEvent.click(getByRole("button", { name: "Hide quoted content" }));
-
-    expect(iframe.style.height).toBe("");
-    expect(iframe.getAttribute("height")).toBe("1");
-
-    contentHeight = 40;
-    addEmailDocumentMarker(iframe, iframe.contentDocument);
-    iframe.dispatchEvent(new Event("load"));
-    await waitFor(() => expect(iframe.style.height).toBe("40px"));
+    const collapsed = getByTitle(
+      "Preparing email content preview",
+    ) as HTMLIFrameElement;
+    expect(expanded.style.height).toBe("640px");
+    measureEmailFrame(collapsed, 40);
+    await waitFor(() =>
+      expect(getByTitle("Email content preview")).toBe(collapsed),
+    );
+    expect(collapsed.style.height).toBe("40px");
   });
 
   it("keeps watching until the email document replaces the placeholder", async () => {
@@ -369,8 +403,8 @@ describe("HtmlEmail", () => {
       />,
     );
 
-    const iframe = getByTitle("Email content preview");
     await waitFor(() => {
+      const iframe = getByTitle("Email content preview");
       expect(iframe.getAttribute("srcdoc")).toContain(`src="${objectUrl}"`);
       expect(iframe.getAttribute("srcdoc")).toContain(
         "img-src data: blob: https:;",
@@ -414,4 +448,13 @@ function addEmailDocumentMarker(
     existingMarker.remove();
   }
   targetDocument.head.append(marker.cloneNode());
+}
+
+function measureEmailFrame(iframe: HTMLIFrameElement, height: number) {
+  Object.defineProperty(iframe.contentDocument!.body, "scrollHeight", {
+    configurable: true,
+    value: height,
+  });
+  addEmailDocumentMarker(iframe, iframe.contentDocument);
+  fireEvent.load(iframe);
 }

@@ -1,4 +1,8 @@
-import { startTransition, useMemo, useState, useRef, useEffect } from "react";
+import { startTransition, useMemo, useState, useEffect } from "react";
+import {
+  BufferedEmailIframe,
+  EMAIL_DOCUMENT_MARKER,
+} from "@/components/email-list/BufferedEmailIframe";
 import { useTheme } from "next-themes";
 import { EllipsisIcon } from "lucide-react";
 import { decodeHtmlEntities } from "@/utils/gmail/decode";
@@ -23,7 +27,6 @@ import { linkifyPlainText } from "@/utils/email/linkify-plain-text";
 import { splitEmailContent } from "@/utils/email/split-email-content.client";
 
 const SANS_FONT_STACK = `ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`;
-const EMAIL_DOCUMENT_MARKER = "inbox-zero-email-document";
 const NO_INLINE_ATTACHMENTS: ParsedMessage["inline"] = [];
 /**
  * Reading size for a message body that brought no styling of its own. Shared by
@@ -58,9 +61,8 @@ export function HtmlEmail({
       getPreparedEmailHtml({ messageId, sourceHtml: sanitizedHtml }) ??
       sanitizedHtml,
   );
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-  const { theme } = useTheme();
-  const isDarkMode = theme === "dark";
+  const { resolvedTheme } = useTheme();
+  const isDarkMode = resolvedTheme === "dark";
 
   useEffect(() => {
     let cancelled = false;
@@ -126,24 +128,18 @@ export function HtmlEmail({
     [displayedHtml, isDarkMode, documentKey],
   );
 
-  const iframeHeight = useEmailIframe(iframeRef, srcDoc, documentKey, {
-    onForwardMessage,
-    onNavigateMessage,
-    onReplyMessage,
-    onFocusMessage,
-  });
-
   return (
     <div className="relative min-w-0 overflow-x-hidden">
-      <iframe
-        ref={iframeRef}
+      <BufferedEmailIframe
         srcDoc={srcDoc}
-        className="min-h-0 w-full"
-        height={1}
-        style={iframeHeight ? { height: `${iframeHeight}px` } : undefined}
-        title="Email content preview"
-        sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
-        referrerPolicy="no-referrer"
+        documentKey={documentKey}
+        isDarkMode={isDarkMode}
+        callbacks={{
+          onForwardMessage,
+          onNavigateMessage,
+          onReplyMessage,
+          onFocusMessage,
+        }}
       />
       {hasQuotedContent && (
         <button
@@ -244,6 +240,7 @@ function getIframeHtml(
         --foreground: 222.2 47.4% 11.2%;
         --muted-foreground: 215.4 16.3% 46.9%;
         --background: 0 0% 100%;
+        background-color: hsl(var(--background));
       }
 
       .dark {
@@ -418,170 +415,30 @@ function addDarkModeClass(html: string, isDarkMode: boolean) {
       return `<body class="${darkClass}">${html}</body>`;
     }
 
-    return html.replace(/<body([^>]*)>/i, (match, attributes = "") => {
-      try {
-        const existingClass = attributes.match(/class=["']([^"']*)["']/);
-        if (existingClass) {
-          const combinedClass =
-            `${existingClass[1].trim()} ${darkClass}`.trim();
-          return match.replace(
-            /class=["']([^"']*)["']/i,
-            `class="${combinedClass}"`,
-          );
+    return html.replace(
+      /<(html|body)([^>]*)>/gi,
+      (match, tag, attributes = "") => {
+        try {
+          const existingClass = attributes.match(/class=["']([^"']*)["']/);
+          if (existingClass) {
+            const combinedClass =
+              `${existingClass[1].trim()} ${darkClass}`.trim();
+            return match.replace(
+              /class=["']([^"']*)["']/i,
+              `class="${combinedClass}"`,
+            );
+          }
+          return `<${tag}${attributes} class="${darkClass}">`;
+        } catch {
+          // If regex matching fails, just add the class
+          return `<${tag}${attributes} class="${darkClass}">`;
         }
-        return `<body${attributes} class="${darkClass}">`;
-      } catch {
-        // If regex matching fails, just add the class
-        return `<body${attributes} class="${darkClass}">`;
-      }
-    });
+      },
+    );
   } catch {
     // If all else fails, return a safe fallback
     return `<body class="${isDarkMode ? "dark" : ""}"></body>`;
   }
-}
-
-function useEmailIframe(
-  iframeRef: React.RefObject<HTMLIFrameElement | null>,
-  srcDoc: string,
-  documentKey: string,
-  callbacks: {
-    onForwardMessage?: () => void;
-    onReplyMessage?: () => void;
-    onNavigateMessage?: (direction: -1 | 1) => void;
-    onFocusMessage?: () => void;
-  },
-) {
-  const callbacksRef = useRef(callbacks);
-  callbacksRef.current = callbacks;
-  const [measurement, setMeasurement] = useState<{
-    documentKey: string;
-    height: number;
-  }>();
-
-  useEffect(() => {
-    const iframe = iframeRef.current;
-    if (!iframe) return;
-    let animationFrameId: number | undefined;
-    let observedRoot: HTMLElement | null = null;
-    let observedDocument: Document | null = null;
-
-    const selectMessage = () => callbacksRef.current.onFocusMessage?.();
-    const navigateMessage = (event: KeyboardEvent) => {
-      const navigate = callbacksRef.current.onNavigateMessage;
-      const reply = callbacksRef.current.onReplyMessage;
-      const forward = callbacksRef.current.onForwardMessage;
-      const key = event.key.toLowerCase();
-      const isNavigationKey = ["ArrowUp", "ArrowDown"].includes(event.key);
-      const handlesKey =
-        (event.key === "Enter" && Boolean(reply)) ||
-        (key === "f" && Boolean(forward)) ||
-        (isNavigationKey && Boolean(navigate));
-      if (
-        !handlesKey ||
-        event.altKey ||
-        event.ctrlKey ||
-        event.metaKey ||
-        event.shiftKey ||
-        event.isComposing ||
-        observedDocument?.getSelection()?.isCollapsed === false
-      )
-        return;
-      const target = event.target as HTMLElement | null;
-      if (
-        target?.closest?.(
-          'input, textarea, select, [contenteditable]:not([contenteditable="false"])',
-        )
-      )
-        return;
-      if (event.key === "Enter" && target?.closest?.("a, button")) return;
-      event.preventDefault();
-      if (event.key === "Enter") reply?.();
-      else if (key === "f") forward?.();
-      else navigate?.(event.key === "ArrowUp" ? -1 : 1);
-    };
-    const stopObservingDocument = () => {
-      observedDocument?.removeEventListener("keydown", navigateMessage);
-      observedDocument?.removeEventListener("pointerdown", selectMessage);
-      observedDocument?.removeEventListener("focusin", selectMessage);
-    };
-
-    const updateHeight = () => {
-      const iframeDocument = iframe.contentDocument;
-      if (!iframeDocument) return;
-      const { body, documentElement } = iframeDocument;
-      if (!body || !documentElement) return;
-
-      const newHeight = Math.max(
-        documentElement.scrollHeight,
-        body.scrollHeight,
-      );
-      if (newHeight) setMeasurement({ documentKey, height: newHeight });
-    };
-
-    const resizeObserver = new ResizeObserver(updateHeight);
-
-    const observeDocument = () => {
-      if (iframe.srcdoc !== srcDoc) return false;
-      const iframeDocument = iframe.contentDocument;
-      if (!iframeDocument) return false;
-      const marker = iframeDocument.querySelector(
-        `meta[name="${EMAIL_DOCUMENT_MARKER}"]`,
-      );
-      if (marker?.getAttribute("content") !== documentKey) return false;
-      const { body, documentElement: root } = iframeDocument;
-      if (!body || !root) return false;
-      if (root === observedRoot) return true;
-
-      resizeObserver.disconnect();
-      stopObservingDocument();
-      observedDocument = iframeDocument;
-      observedDocument.addEventListener("keydown", navigateMessage);
-      observedDocument.addEventListener("pointerdown", selectMessage);
-      observedDocument.addEventListener("focusin", selectMessage);
-      observedRoot = root;
-      updateHeight();
-      resizeObserver.observe(root);
-      resizeObserver.observe(body);
-      return true;
-    };
-
-    const stopWatchingForDocument = () => {
-      if (animationFrameId === undefined) return;
-      cancelAnimationFrame(animationFrameId);
-      animationFrameId = undefined;
-    };
-
-    const watchForDocument = () => {
-      if (observeDocument()) {
-        animationFrameId = undefined;
-        return;
-      }
-      animationFrameId = requestAnimationFrame(watchForDocument);
-    };
-
-    const onLoad = () => {
-      if (!observeDocument()) return;
-      updateHeight();
-      stopWatchingForDocument();
-    };
-
-    iframe.addEventListener("load", onLoad);
-    // `load` waits for remote images. Catch the `srcDoc` document swap first so
-    // its parsed layout can be measured while those images are still loading.
-    if (!observeDocument()) {
-      animationFrameId = requestAnimationFrame(watchForDocument);
-    }
-
-    return () => {
-      iframe.removeEventListener("load", onLoad);
-      stopWatchingForDocument();
-      resizeObserver.disconnect();
-      stopObservingDocument();
-    };
-  }, [iframeRef, srcDoc, documentKey]);
-
-  return measurement?.documentKey === documentKey ? measurement.height : 0;
 }
 
 function getIframeDocumentKey(html: string, isDarkMode: boolean) {
