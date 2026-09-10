@@ -16,9 +16,12 @@ jobs:
   handoff:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
       - name: Create replacement PR and reply on #3497
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: elie222/inbox-zero
           BRANCH: cursor/fix-3497-outlook-thread-drafts-ad3a
           SHA: ${{ github.sha }}
         run: |
@@ -27,10 +30,9 @@ jobs:
           COMPARE="https://github.com/elie222/inbox-zero/compare/main...${BRANCH}?expand=1"
           TREE="https://github.com/elie222/inbox-zero/tree/${BRANCH}"
 
-          # Create replacement PR if missing
-          existing="$(gh pr list --head "$BRANCH" --base main --json number --jq '.[0].number // empty')"
+          existing="$(gh pr list --repo "$GH_REPO" --head "$BRANCH" --base main --json number --jq '.[0].number // empty')"
           if [ -z "$existing" ]; then
-            gh pr create --base main --head "$BRANCH" \
+            gh pr create --repo "$GH_REPO" --base main --head "$BRANCH" \
               --title "mail: Show Outlook drafts in the thread view (INB-349)" \
               --body "$(cat <<EOF
           ## Summary
@@ -50,8 +52,7 @@ jobs:
             echo "PR already exists: #$existing"
           fi
 
-          # Comment on #3497 pointing at the replacement
-          gh api repos/elie222/inbox-zero/issues/3497/comments -f body="$(cat <<EOF
+          gh api "repos/${GH_REPO}/issues/3497/comments" -f body="$(cat <<EOF
           ## Replacement branch (INB-349)
 
           Fork head could not be updated after rebase from the cloud agent (workflows / PR-write limits).
@@ -70,8 +71,7 @@ jobs:
           EOF
           )"
 
-          # Review thread replies
-          gh api repos/elie222/inbox-zero/pulls/3497/comments/3928235426/replies -f body="$(cat <<EOF
+          gh api "repos/${GH_REPO}/pulls/3497/comments/3928235426/replies" -f body="$(cat <<EOF
           Addressed on [\`${BRANCH}\`](${TREE}) (\`${SHA:0:9}\`).
 
           **Decision:** keep **all** drafts under the resolved parent. \`organizeThreadMessages\` now returns \`draftMessages: ThreadMessage[]\` (oldest → newest), and \`EmailMessage\` renders one composer per draft. No silent \`Map.set\` overwrite.
@@ -80,14 +80,14 @@ jobs:
           EOF
           )"
 
-          gh api repos/elie222/inbox-zero/pulls/3497/comments/3928249533/replies -f body="$(cat <<EOF
+          gh api "repos/${GH_REPO}/pulls/3497/comments/3928249533/replies" -f body="$(cat <<EOF
           Agreed — fixed on [\`${BRANCH}\`](${TREE}) (\`${SHA:0:9}\`).
 
           Multiple drafts that resolve to the same parent (including Outlook no-header fallbacks) are all retained, and each gets its own composer under that parent. Added a regression test for two drafts → one parent.
           EOF
           )"
 
-          gh api repos/elie222/inbox-zero/pulls/3497/comments/3928249539/replies -f body="$(cat <<EOF
+          gh api "repos/${GH_REPO}/pulls/3497/comments/3928249539/replies" -f body="$(cat <<EOF
           Fixed on [\`${BRANCH}\`](${TREE}) (\`${SHA:0:9}\`): renamed to **\"falls back to the last message when no message id matches the draft's parent\"** so the title matches the assertion.
           EOF
           )"
