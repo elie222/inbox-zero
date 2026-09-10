@@ -250,7 +250,7 @@ function DetailsStep({
               value={name}
               onChange={(event) => setName(event.target.value)}
               required
-              className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
             />
           </FormField>
           <FormField label="Email" required>
@@ -259,7 +259,7 @@ function DetailsStep({
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               required
-              className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
             />
           </FormField>
           <FormField label="What would you like to discuss?" optional>
@@ -267,7 +267,7 @@ function DetailsStep({
               value={note}
               onChange={(event) => setNote(event.target.value)}
               rows={4}
-              className="block w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="block w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
             />
           </FormField>
         </div>
