@@ -46,6 +46,34 @@ describe("Other inbox membership", () => {
     expect(threadMatchesSplit(thread(["INBOX"]), all, now)).toBe(false);
   });
 
+  it.each([
+    undefined,
+    null,
+    "",
+    "invalid",
+    "2026-01-10T12:00:00Z",
+  ])("keeps mail with a non-old timestamp in Other: %s", (internalDate) => {
+    const conversation = thread(["INBOX"]);
+    conversation.messages[0].internalDate = internalDate;
+    expect(
+      createOtherSplitFilter(
+        [{ matchAll: true, filters: [{ kind: "OLDER_THAN", value: "3d" }] }],
+        now,
+      )(conversation),
+    ).toBe(true);
+  });
+
+  it("recognizes old ISO timestamps", () => {
+    const conversation = thread(["INBOX"]);
+    conversation.messages[0].internalDate = "2026-01-01T12:00:00Z";
+    expect(
+      createOtherSplitFilter(
+        [{ matchAll: true, filters: [{ kind: "OLDER_THAN", value: "3d" }] }],
+        now,
+      )(conversation),
+    ).toBe(false);
+  });
+
   it("matches sender, read state, category and age together", () => {
     const split: MailSplit = {
       ...important,

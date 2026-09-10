@@ -186,10 +186,10 @@ export async function readSyncedMailboxThreads({
   limit?: number;
 }): Promise<SyncedMailboxSnapshot | undefined> {
   if (!isSupportedMailboxQuery(query)) return;
-  const isOther = createOtherSplitFilter(query.excludeSplits ?? []);
   const epoch = captureEmailCacheEpoch(emailAccountId);
 
   try {
+    const isOther = createOtherSplitFilter(query.excludeSplits ?? []);
     const database = await getEmailCacheDatabase();
     if (!database || !isEmailCacheEpochCurrent(emailAccountId, epoch)) return;
     const transaction = database.transaction(

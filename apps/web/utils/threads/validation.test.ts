@@ -75,3 +75,21 @@ it("round-trips Other exclusions and rejects unsupported query combinations", ()
       .success,
   ).toBe(false);
 });
+
+it.each([
+  { isUnread: true },
+  { labelIds: ["STARRED"] },
+  { labelId: "STARRED" },
+  { fromEmail: "sender@example.com" },
+  { after: new Date() },
+  { before: new Date() },
+  { excludeLabelNames: ["Newsletter"] },
+])("rejects extra predicates in Other queries: %j", (predicate) => {
+  expect(
+    threadsQuery.safeParse({
+      type: "inbox",
+      excludeSplits: [{ matchAll: true, filters: [{ kind: "UNREAD" }] }],
+      ...predicate,
+    }).success,
+  ).toBe(false);
+});

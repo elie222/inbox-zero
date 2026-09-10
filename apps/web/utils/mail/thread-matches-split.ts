@@ -1,3 +1,4 @@
+import { internalDateToDate } from "@/utils/date";
 import { isSameEmailAddress } from "@/utils/email";
 import type { ParsedMessage } from "@/utils/types";
 import { mailSplitToThreadsQuery } from "@/utils/mail/split-query";
@@ -61,11 +62,15 @@ function matchesMessage(
     !isSameEmailAddress(message.headers.from, query.fromEmail)
   )
     return false;
-  if (
-    query.before &&
-    Number(message.internalDate) >=
-      Math.floor(query.before.getTime() / 1000) * 1000
-  )
-    return false;
+  if (query.before) {
+    const timestamp = internalDateToDate(message.internalDate, {
+      fallbackToNow: false,
+    }).getTime();
+    if (
+      !Number.isFinite(timestamp) ||
+      timestamp >= Math.floor(query.before.getTime() / 1000) * 1000
+    )
+      return false;
+  }
   return true;
 }

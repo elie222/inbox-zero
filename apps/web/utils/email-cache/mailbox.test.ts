@@ -57,6 +57,22 @@ describe("synced mailbox cache", () => {
     expect(result?.threads.map(({ id }) => id)).toEqual(["other"]);
   });
 
+  it("falls back when a cached exclusion filter is malformed", async () => {
+    const result = await readSyncedMailboxThreads({
+      emailAccountId: "account-1",
+      query: {
+        type: "inbox",
+        excludeSplits: [
+          {
+            matchAll: true,
+            filters: [{ kind: "OLDER_THAN", value: "invalid" }],
+          },
+        ],
+      },
+    });
+    expect(result).toBeUndefined();
+  });
+
   it("invalidates all detail variants for changed threads and deleted cached drafts", async () => {
     const database = await getEmailCacheDatabase();
     if (!database) throw new Error("Database unavailable");

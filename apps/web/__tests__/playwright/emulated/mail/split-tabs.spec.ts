@@ -242,5 +242,21 @@ test("Other excludes enabled splits and restores mail when a split is disabled",
     .getByRole("button", { name: "Promos", exact: true })
     .click({ button: "right" });
   await page.getByRole("menuitem", { name: "Turn off split" }).click();
+  await page.getByRole("button", { name: "Other", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Other", exact: true }),
+  ).toHaveAttribute("aria-current", "true");
   await expect(promotion).toBeVisible();
+
+  await page.getByRole("button", { name: "New split" }).click();
+  await page.getByRole("button", { name: "Build your own" }).click();
+  await page.getByLabel("Condition field").first().selectOption("STARRED");
+  await page.getByLabel("Split name").fill("Other");
+  await page.getByRole("button", { name: "Add split" }).click();
+  await expect(
+    page.getByRole("button", { name: "Other (custom)", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Other", exact: true }),
+  ).toBeVisible();
 });

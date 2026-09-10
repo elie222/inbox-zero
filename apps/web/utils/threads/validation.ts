@@ -83,6 +83,13 @@ export const threadsQuery = z
       !query.excludeSplits?.length ||
       (query.type === "inbox" &&
         !query.q &&
+        !query.fromEmail &&
+        !query.labelId &&
+        !query.labelIds?.length &&
+        !query.excludeLabelNames?.length &&
+        !query.after &&
+        !query.before &&
+        !query.isUnread &&
         !query.folderId &&
         !query.inboxSection &&
         !query.anyOf?.length &&

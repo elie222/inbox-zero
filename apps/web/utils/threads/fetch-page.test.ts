@@ -117,19 +117,22 @@ describe("Other pagination", () => {
     });
     expect(result.threads.map(({ id }) => id)).toEqual(["kept"]);
     expect(result.nextPageToken).toBe("third");
-    expect(emailProvider.getThreadsWithQuery.mock.calls[1][0].pageToken).toBe(
-      "second",
-    );
+    expect(
+      emailProvider.getThreadsWithQuery.mock.calls.at(1)?.at(0)?.pageToken,
+    ).toBe("second");
   });
 
   it("bounds empty scans and preserves the next page for sparse inboxes", async () => {
     let page = 0;
     const emailProvider = {
       name: "google",
-      getThreadsWithQuery: vi.fn(async () => ({
-        threads: [thread("excluded", ["newsletter"])],
-        nextPageToken: String(++page),
-      })),
+      getThreadsWithQuery: vi.fn(async () => {
+        page += 1;
+        return {
+          threads: [thread("excluded", ["newsletter"])],
+          nextPageToken: String(page),
+        };
+      }),
     };
     const result = await fetchThreadsPage({
       query: { type: "inbox", excludeSplits },
