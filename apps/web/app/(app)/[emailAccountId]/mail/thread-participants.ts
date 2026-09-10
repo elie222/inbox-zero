@@ -3,10 +3,12 @@ import {
   extractNameFromEmail,
   splitRecipientList,
 } from "@/utils/email";
+import { GmailLabel } from "@/utils/gmail/label";
 import type { ParsedMessageHeaders } from "@/utils/types";
 
 type ParticipantMessage = {
   headers: Pick<ParsedMessageHeaders, "from" | "to">;
+  labelIds?: string[] | null;
 };
 
 export function getThreadParticipantNames(
@@ -15,16 +17,23 @@ export function getThreadParticipantNames(
 ) {
   const normalizedUserEmail = canonicalizeEmailAddress(userEmail);
   const senders = new Map<string, string>();
+  const nonDraftMessages = messages.filter(
+    (message) => !message.labelIds?.includes(GmailLabel.DRAFT),
+  );
 
-  for (const message of messages) {
+  for (const message of nonDraftMessages) {
     addParticipant(senders, message.headers.from, normalizedUserEmail);
   }
 
-  const isOutgoingOnly = senders.size === 1 && senders.has(normalizedUserEmail);
-  if (!isOutgoingOnly) return [...senders.values()];
+  const hasOnlyAccountOwnerAsSender =
+    senders.size === 1 && senders.has(normalizedUserEmail);
+  if (senders.size > 0 && !hasOnlyAccountOwnerAsSender) {
+    return [...senders.values()];
+  }
 
   const recipients = new Map<string, string>();
-  for (const message of messages) {
+  const recipientMessages = senders.size > 0 ? nonDraftMessages : messages;
+  for (const message of recipientMessages) {
     for (const recipient of splitRecipientList(message.headers.to)) {
       addParticipant(recipients, recipient, normalizedUserEmail);
     }
