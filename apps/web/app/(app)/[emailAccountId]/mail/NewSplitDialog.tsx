@@ -18,7 +18,10 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import type { MailSplitFilterDraft } from "@/utils/mail/split-filters";
+import {
+  MAX_SPLIT_FILTERS,
+  type MailSplitFilterDraft,
+} from "@/utils/mail/split-filters";
 import { OLDER_THAN_OPTIONS } from "@/utils/mail/split-query";
 import {
   libraryDefinition,
@@ -190,20 +193,38 @@ export function NewSplitDialog({
       categories.map((choice) => [choice.name.toLowerCase(), choice.value]),
     );
 
-    return SPLIT_LIBRARY.filter((entry) => entry.category === category).flatMap(
-      (entry) => {
-        const filters = resolveLibraryEntry(entry, {
-          labelsByName,
-          categoriesByName,
-        });
-        return filters ? [{ entry, filters }] : [];
-      },
-    );
-  }, [categories, category, labels]);
+    return SPLIT_LIBRARY.filter(
+      (entry) =>
+        entry.category === category &&
+        (supportsStarred ||
+          !entry.conditions.some((condition) => condition.kind === "STARRED")),
+    ).flatMap((entry) => {
+      const filters = resolveLibraryEntry(entry, {
+        labelsByName,
+        categoriesByName,
+      });
+      return filters ? [{ entry, filters }] : [];
+    });
+  }, [categories, category, labels, supportsStarred]);
 
-  const isOn = useCallback(
-    (entryName: string) =>
-      existingSplits.some((split) => split.name === entryName),
+  const findLibrarySplit = useCallback(
+    (entry: SplitLibraryEntry, filters: MailSplitFilterDraft[]) =>
+      existingSplits.find(
+        (split) =>
+          split.name === entry.name &&
+          split.matchAll === (entry.matchAll ?? true) &&
+          split.filters.length === filters.length &&
+          JSON.stringify(
+            split.filters
+              .map((filter) => [filter.kind, filter.value ?? null])
+              .sort(),
+          ) ===
+            JSON.stringify(
+              filters
+                .map((filter) => [filter.kind, filter.value ?? null])
+                .sort(),
+            ),
+      ),
     [existingSplits],
   );
 
@@ -234,7 +255,7 @@ export function NewSplitDialog({
     if (isBusy) return;
     setIsBusy(true);
     try {
-      const existing = existingSplits.find((s) => s.name === entry.name);
+      const existing = findLibrarySplit(entry, filters);
       if (existing) await onDelete(existing.id);
       else
         await onCreate({
@@ -400,7 +421,7 @@ export function NewSplitDialog({
                     <LibraryTile
                       key={entry.name}
                       entry={entry}
-                      on={isOn(entry.name)}
+                      on={!!findLibrarySplit(entry, filters)}
                       disabled={isBusy}
                       onInfo={() => setDetail(entry)}
                       onToggle={() => toggleLibraryEntry(entry, filters)}
@@ -466,8 +487,13 @@ export function NewSplitDialog({
 
             <button
               type="button"
+              disabled={conditions.length >= MAX_SPLIT_FILTERS}
               onClick={() =>
-                setConditions((current) => [...current, newCondition()])
+                setConditions((current) =>
+                  current.length < MAX_SPLIT_FILTERS
+                    ? [...current, newCondition()]
+                    : current,
+                )
               }
               className="mt-3 inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-primary text-xs hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
@@ -520,7 +546,12 @@ export function NewSplitDialog({
                     setDetail(null);
                   }}
                 >
-                  {isOn(detail.name) ? "Turn off split" : "Turn on split"}
+                  {findLibrarySplit(
+                    detail,
+                    libraryFiltersFor(detail, labels, categories) ?? [],
+                  )
+                    ? "Turn off split"
+                    : "Turn on split"}
                 </Button>
               </>
             ) : mode === "build" ? (

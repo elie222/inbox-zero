@@ -24,7 +24,7 @@ export type SplitTabsProps = {
   activeSplitId: string | null;
   onSelect: (splitId: string) => void;
   onDelete: (splitId: string) => void;
-  onEdit: (splitId: string) => void;
+  onEdit?: (splitId: string) => void;
   onNewSplit: () => void;
   /** Split creation stays account-scoped, so it is hidden in All accounts. */
   canCreateSplits: boolean;
@@ -97,9 +97,11 @@ export function SplitTabs({
                 </button>
               </ContextMenuTrigger>
               <ContextMenuContent className="w-44">
-                <ContextMenuItem onSelect={() => onEdit(split.id)}>
-                  Edit filters and name
-                </ContextMenuItem>
+                {onEdit && (
+                  <ContextMenuItem onSelect={() => onEdit(split.id)}>
+                    Edit filters and name
+                  </ContextMenuItem>
+                )}
                 <ContextMenuItem
                   className="text-destructive focus:text-destructive"
                   onSelect={() => onDelete(split.id)}

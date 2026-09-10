@@ -1,3 +1,4 @@
+import { INITIAL_MAIL_SPLITS } from "@/utils/mail/initial-splits";
 import { expect } from "@playwright/test";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
@@ -7,9 +8,32 @@ import {
   conversationWithSubject,
   openMail,
   seedDefaultSplitRule,
+  withClient,
 } from "./mail-test-helpers";
 
 let defaultSplitEmailAccountId: string | undefined;
+
+test.beforeEach(async ({ page }) => {
+  const emailAccountId = await getEmailAccountId(page);
+  await withClient(async (client) => {
+    await client.query('DELETE FROM "MailSplit" WHERE "emailAccountId" = $1', [
+      emailAccountId,
+    ]);
+    for (const [order, split] of INITIAL_MAIL_SPLITS.entries()) {
+      const { rows } = await client.query(
+        `INSERT INTO "MailSplit" (id, "updatedAt", "emailAccountId", name, "matchAll", "order")
+         VALUES (gen_random_uuid()::text, NOW(), $1, $2, true, $3) RETURNING id`,
+        [emailAccountId, split.name, order],
+      );
+      for (const filter of split.filters.create) {
+        await client.query(
+          `INSERT INTO "MailSplitFilter" (id, "mailSplitId", kind, value, "order") VALUES (gen_random_uuid()::text, $1, $2, $3, $4)`,
+          [rows[0].id, filter.kind, filter.value, filter.order],
+        );
+      }
+    }
+  });
+});
 
 test.afterEach(async () => {
   if (!defaultSplitEmailAccountId) return;

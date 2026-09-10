@@ -122,6 +122,13 @@ export async function removeLabelFromMailSplits({
         },
       },
     }),
+    prisma.mailSplit.updateMany({
+      where: {
+        emailAccountId,
+        filters: { some: { kind: MailSplitFilterKind.LABEL, value: labelId } },
+      },
+      data: { updatedAt: new Date() },
+    }),
     prisma.mailSplitFilter.deleteMany({
       where: {
         kind: MailSplitFilterKind.LABEL,

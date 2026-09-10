@@ -1425,10 +1425,14 @@ export function MailShell() {
                 activeSplitId={displayedActiveSplitId}
                 onSelect={setActiveSplitId}
                 onDelete={onDeleteSplit}
-                onEdit={(splitId) => {
-                  setEditingSplitId(splitId);
-                  setIsNewSplitOpen(true);
-                }}
+                onEdit={
+                  isAllAccounts
+                    ? undefined
+                    : (splitId) => {
+                        setEditingSplitId(splitId);
+                        setIsNewSplitOpen(true);
+                      }
+                }
                 onNewSplit={() => {
                   setEditingSplitId(null);
                   setIsNewSplitOpen(true);

@@ -38,3 +38,14 @@ describe("threadsQueryToSearchParams", () => {
     expect(threadsQuery.safeParse({ anyOf: "not json" }).success).toBe(false);
   });
 });
+
+it.each([
+  { anyOf: [{}] },
+  { anyOf: [{ unknown: true }] },
+  { anyOf: [{ labelId: "" }] },
+  { anyOf: [{ labelId: "one", fromEmail: "sender@example.com" }] },
+  { q: "search", anyOf: [{ isUnread: true }] },
+  { type: "sent", anyOf: [{ isUnread: true }] },
+])("rejects ambiguous split queries: %j", (query) => {
+  expect(threadsQuery.safeParse(query).success).toBe(false);
+});

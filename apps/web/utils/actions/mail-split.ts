@@ -117,7 +117,7 @@ export const buildMailSplitFromPromptAction = actionClient
 
       return {
         filters: result.filters,
-        name: result.name?.trim() || null,
+        name: result.name?.trim().slice(0, 60) || null,
         matchAll: result.matchAll,
       };
     },
@@ -128,7 +128,10 @@ export const deleteMailSplitAction = actionClient
   .inputSchema(deleteMailSplitBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput: { id } }) => {
     // deleteMany rather than delete so another account's id can never be removed
-    await prisma.mailSplit.deleteMany({ where: { id, emailAccountId } });
+    await prisma.$transaction([
+      lockMailSplits(emailAccountId),
+      prisma.mailSplit.deleteMany({ where: { id, emailAccountId } }),
+    ]);
   });
 
 export const updateMailPreferencesAction = actionClient

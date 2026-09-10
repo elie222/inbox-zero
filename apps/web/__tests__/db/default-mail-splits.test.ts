@@ -211,6 +211,29 @@ describe.skipIf(!RUN_DB_TESTS)(
       ]);
     });
 
+    test("reports the split limit without partially adding defaults", async () => {
+      await prisma.mailSplit.createMany({
+        data: Array.from({ length: 13 }, (_, order) => ({
+          name: `Existing ${order}`,
+          emailAccountId,
+          order,
+        })),
+      });
+      const result = await setDefaultMailSplits({
+        emailAccountId,
+        enabled: true,
+        defaultSplits: ["One", "Two"].map((name) => ({
+          name,
+          labelId: name,
+          filters: [{ kind: MailSplitFilterKind.LABEL, value: name }],
+        })),
+      });
+      expect(result.status).toBe("limit");
+      expect(await prisma.mailSplit.count({ where: { emailAccountId } })).toBe(
+        13,
+      );
+    });
+
     test("narrows splits that share a deleted label and drops the ones left empty", async () => {
       await createMailSplit({
         emailAccountId,

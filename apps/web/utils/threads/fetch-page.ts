@@ -58,20 +58,18 @@ export async function fetchThreadsPage({
       loadPage: async ({ source, pageToken }) => {
         const { anyOf: _anyOf, ...base } = query;
         const { labelId, ...condition } = source.condition;
+        const requiredLabelIds = base.labelIds?.length
+          ? base.labelIds
+          : base.labelId
+            ? [base.labelId]
+            : ["INBOX"];
         const page = await emailProvider.getThreadsWithQuery({
           query: {
             ...base,
             ...condition,
             labelIds: labelId
-              ? [
-                  ...(base.labelIds?.length
-                    ? base.labelIds
-                    : base.labelId
-                      ? [base.labelId]
-                      : []),
-                  labelId,
-                ]
-              : base.labelIds,
+              ? [...requiredLabelIds, labelId]
+              : requiredLabelIds,
           },
           maxResults,
           pageToken,

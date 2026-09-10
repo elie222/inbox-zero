@@ -1,9 +1,13 @@
 import { z } from "zod";
+import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { MailSplitFilterKind } from "@/generated/prisma/enums";
 import { createGenerateObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
-import type { MailSplitFilterDraft } from "@/utils/mail/split-filters";
+import {
+  MAX_SPLIT_FILTERS,
+  type MailSplitFilterDraft,
+} from "@/utils/mail/split-filters";
 import { OLDER_THAN_OPTIONS } from "@/utils/mail/split-query";
 
 export type SplitPromptOption = {
@@ -61,6 +65,7 @@ const promptToSplitSchema = z.object({
           ),
       }),
     )
+    .max(MAX_SPLIT_FILTERS)
     .describe("The conditions that define this split. Empty when none fit."),
 });
 
@@ -81,13 +86,14 @@ export async function aiPromptToSplitFilters({
   options: SplitPromptOption[];
   senders: string[];
 }): Promise<PromptToSplitFiltersResult> {
+  const supportsStarred = !isMicrosoftProvider(emailAccount.account.provider);
   const system = `You turn a description of an inbox split into a set of filter conditions.
 
 A split is a tab in the mail client showing a slice of the inbox. The reader reviews and edits your conditions before the split is saved, so prefer a small, obviously-correct set over a clever one.
 
 Condition kinds:
 - UNREAD — mail the reader has not opened
-- STARRED — mail the reader starred
+${supportsStarred ? "- STARRED — mail the reader starred" : "- STARRED is unavailable for this account. Do not return this condition."}
 - LABEL — one of the reader's labels, chosen by optionId from <options>
 - CATEGORY — one of the provider categories, chosen by optionId from <options>
 - FROM — a sender's email address
@@ -134,7 +140,10 @@ ${prompt}
   return {
     name: result.object.name,
     matchAll: result.object.matchAll,
-    filters: toFilters(result.object.conditions, options),
+    filters: toFilters(result.object.conditions, options).filter(
+      (filter) =>
+        supportsStarred || filter.kind !== MailSplitFilterKind.STARRED,
+    ),
   };
 }
 

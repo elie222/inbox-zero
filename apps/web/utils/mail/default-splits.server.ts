@@ -33,7 +33,7 @@ export async function setDefaultMailSplits({
   defaultSplits: ReturnType<typeof getDefaultMailSplitDrafts>;
   enabled: boolean;
 }) {
-  if (!defaultSplits.length) return;
+  if (!defaultSplits.length) return { status: "success" as const };
   if (!enabled) {
     await prisma.$transaction([
       lockMailSplits(emailAccountId),
@@ -49,16 +49,16 @@ export async function setDefaultMailSplits({
         },
       }),
     ]);
-    return;
+    return { status: "success" as const };
   }
   const rows = defaultSplits.map((split, order) => ({
     ...split,
     id: randomUUID(),
     order,
   }));
-  await prisma.$transaction([
+  const [, results] = await prisma.$transaction([
     lockMailSplits(emailAccountId),
-    prisma.$executeRaw`
+    prisma.$queryRaw<Array<{ missingCount: number; availableCount: number }>>`
       WITH existing AS (
         SELECT COUNT(*)::integer AS count, COALESCE(MAX("order"), -1)::integer + 1 AS next_order
         FROM "MailSplit" WHERE "emailAccountId" = ${emailAccountId}
@@ -79,10 +79,22 @@ export async function setDefaultMailSplits({
         FROM missing CROSS JOIN existing
         WHERE (SELECT COUNT(*) FROM missing) <= GREATEST(${MAX_MAIL_SPLITS} - existing.count, 0)
         ON CONFLICT DO NOTHING RETURNING "id"
-      )
+      ), inserted_filters AS (
       INSERT INTO "MailSplitFilter" ("id", "kind", "value", "order", "mailSplitId")
       SELECT missing."id" || '-filter', 'LABEL'::"MailSplitFilterKind", missing."labelId", 0, missing."id"
       FROM missing JOIN inserted ON inserted."id" = missing."id"
+      RETURNING "id"
+      )
+      SELECT (SELECT COUNT(*)::integer FROM missing) AS "missingCount",
+        GREATEST(${MAX_MAIL_SPLITS} - existing.count, 0)::integer AS "availableCount"
+      FROM existing
     `,
   ]);
+  const result = results[0];
+  return {
+    status:
+      result && result.missingCount > result.availableCount
+        ? ("limit" as const)
+        : ("success" as const),
+  };
 }

@@ -18,9 +18,12 @@ export const mailSplitFilterSchema = z
     value: z.string().trim().min(1).max(320).nullish(),
   })
   .refine(
-    (filter) => !KINDS_REQUIRING_VALUE.has(filter.kind) || !!filter.value,
+    (filter) =>
+      KINDS_REQUIRING_VALUE.has(filter.kind)
+        ? !!filter.value
+        : filter.value == null,
     {
-      message: "This condition needs a value",
+      message: "Provide a value only for conditions that require one",
       path: ["value"],
     },
   )

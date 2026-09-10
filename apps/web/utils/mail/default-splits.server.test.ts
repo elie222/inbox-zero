@@ -17,8 +17,11 @@ describe("setDefaultMailSplits", () => {
     vi.clearAllMocks();
   });
 
-  it("seeds standard rule labels for an account without saved splits", async () => {
-    prisma.$transaction.mockResolvedValue([[{ locked: true }], 1] as never);
+  it("locks the account before changing standard rule splits", async () => {
+    prisma.$transaction.mockResolvedValue([
+      [{ locked: true }],
+      [{ missingCount: 1, availableCount: 14 }],
+    ] as never);
 
     await setDefaultMailSplits({
       emailAccountId: "account-id",
