@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { MailSplitKind } from "@/generated/prisma/enums";
+import { MailSplitFilterKind } from "@/generated/prisma/enums";
 import type { Account } from "better-auth";
 import { cookies } from "next/headers";
 import { createReferral } from "@/utils/referral/referral-code";
@@ -399,8 +399,22 @@ describe("handleLinkAccount", () => {
     const upsert = prisma.emailAccount.upsert.mock.calls[0]?.[0];
     expect(upsert?.create.mailSplits).toEqual({
       create: [
-        { name: "All", kind: MailSplitKind.INBOX, values: [], order: 0 },
-        { name: "Unread", kind: MailSplitKind.UNREAD, values: [], order: 1 },
+        {
+          name: "All",
+          matchAll: true,
+          filters: { create: [] },
+          order: 0,
+        },
+        {
+          name: "Unread",
+          matchAll: true,
+          filters: {
+            create: [
+              { kind: MailSplitFilterKind.UNREAD, value: null, order: 0 },
+            ],
+          },
+          order: 1,
+        },
       ],
     });
     expect(upsert?.update).not.toHaveProperty("mailSplits");

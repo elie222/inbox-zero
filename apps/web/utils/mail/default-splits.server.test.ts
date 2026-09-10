@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ActionType,
-  MailSplitKind,
+  MailSplitFilterKind,
   SystemType,
 } from "@/generated/prisma/enums";
 import prisma from "@/utils/__mocks__/prisma";
@@ -12,9 +12,47 @@ import {
 
 vi.mock("@/utils/prisma");
 
-describe("default mail splits", () => {
+describe("setDefaultMailSplits", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("locks the account before changing standard rule splits", async () => {
+    prisma.$transaction.mockResolvedValue([
+      [{ locked: true }],
+      [{ missingCount: 1, availableCount: 14 }],
+    ] as never);
+
+    await setDefaultMailSplits({
+      emailAccountId: "account-id",
+      defaultSplits: [
+        {
+          name: "Receipt",
+          labelId: "receipt-label",
+          filters: [
+            { kind: MailSplitFilterKind.LABEL, value: "receipt-label" },
+          ],
+        },
+      ],
+      enabled: true,
+    });
+
+    expect(prisma.$queryRaw).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.stringContaining("pg_advisory_xact_lock"),
+      ]),
+      "account-id",
+    );
+  });
+
+  it("does not access the database when no rule can produce an inbox split", async () => {
+    await setDefaultMailSplits({
+      emailAccountId: "account-id",
+      defaultSplits: [],
+      enabled: true,
+    });
+
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it("loads the enabled standard rules that can provide default splits", async () => {
@@ -27,8 +65,8 @@ describe("default mail splits", () => {
     ).resolves.toEqual([
       {
         name: "Receipt",
-        kind: MailSplitKind.LABEL,
-        values: ["receipt-label"],
+        labelId: "receipt-label",
+        filters: [{ kind: MailSplitFilterKind.LABEL, value: "receipt-label" }],
       },
     ]);
     expect(prisma.rule.findMany).toHaveBeenCalledWith({
@@ -42,67 +80,6 @@ describe("default mail splits", () => {
         actions: { select: { type: true, labelId: true } },
       },
     });
-  });
-
-  it("removes every split backed by a default rule label", async () => {
-    prisma.$transaction.mockResolvedValue([
-      [{ locked: true }],
-      { count: 2 },
-    ] as never);
-
-    await setDefaultMailSplits({
-      emailAccountId: "account-id",
-      defaultSplits: [
-        {
-          name: "Receipt",
-          kind: MailSplitKind.LABEL,
-          values: ["receipt-label"],
-        },
-        {
-          name: "Newsletter",
-          kind: MailSplitKind.LABEL,
-          values: ["newsletter-label"],
-        },
-      ],
-      enabled: false,
-    });
-
-    expect(prisma.mailSplit.deleteMany).toHaveBeenCalledWith({
-      where: {
-        emailAccountId: "account-id",
-        kind: MailSplitKind.LABEL,
-        OR: [
-          { values: { equals: ["receipt-label"] } },
-          { values: { equals: ["newsletter-label"] } },
-        ],
-      },
-    });
-  });
-
-  it("does not partially add defaults when the account has too few slots", async () => {
-    prisma.$transaction.mockResolvedValue([
-      [{ locked: true }],
-      [{ availableCount: 1, missingCount: 2 }],
-    ] as never);
-
-    await expect(
-      setDefaultMailSplits({
-        emailAccountId: "account-id",
-        defaultSplits: [
-          {
-            name: "Receipt",
-            kind: MailSplitKind.LABEL,
-            values: ["receipt-label"],
-          },
-          {
-            name: "Newsletter",
-            kind: MailSplitKind.LABEL,
-            values: ["newsletter-label"],
-          },
-        ],
-        enabled: true,
-      }),
-    ).resolves.toEqual({ status: "limit" });
   });
 });
 

@@ -1,14 +1,12 @@
-import { MailSplitKind } from "@/generated/prisma/enums";
+import { MailSplitFilterKind } from "@/generated/prisma/enums";
 
 export const INITIAL_MAIL_SPLITS = [
-  {
-    name: "All",
-    kind: MailSplitKind.INBOX,
-    values: [] as string[],
-  },
+  { name: "All", matchAll: true, filters: { create: [] } },
   {
     name: "Unread",
-    kind: MailSplitKind.UNREAD,
-    values: [] as string[],
+    matchAll: true,
+    filters: {
+      create: [{ kind: MailSplitFilterKind.UNREAD, value: null, order: 0 }],
+    },
   },
-] as const;
+];

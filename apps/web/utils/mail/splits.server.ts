@@ -1,23 +1,30 @@
 import { randomUUID } from "node:crypto";
 import type { MailSplit } from "@/generated/prisma/client";
+import { MailSplitFilterKind } from "@/generated/prisma/enums";
+import type { MailSplitFilterDraft } from "@/utils/mail/split-filters";
 import prisma from "@/utils/prisma";
 import { lockMailSplits } from "@/utils/mail/split-lock";
 import { MAX_MAIL_SPLITS } from "@/utils/mail/split-constants";
 
-export type CreateMailSplitResult =
+type CreateMailSplitResult =
   | ({ status: "created" } & MailSplit)
   | { status: "duplicate" | "limit" };
 
-/**
- * Inserts a split only if the account is under its limit and the name is free,
- * so two concurrent creates can't race past either check.
- */
 export async function createMailSplit({
   emailAccountId,
   name,
-  kind,
-  values,
-}: Pick<MailSplit, "emailAccountId" | "name" | "kind" | "values">) {
+  matchAll,
+  filters,
+}: {
+  emailAccountId: string;
+  name: string;
+  matchAll: boolean;
+  filters: MailSplitFilterDraft[];
+}) {
+  // The id is chosen up front so the split and its conditions can be written in
+  // one transaction without a round trip in between.
+  const splitId = randomUUID();
+
   const [, results] = await prisma.$transaction([
     lockMailSplits(emailAccountId),
     prisma.$queryRaw<CreateMailSplitResult[]>`
@@ -40,18 +47,16 @@ export async function createMailSplit({
           "createdAt",
           "updatedAt",
           "name",
-          "kind",
-          "values",
+          "matchAll",
           "order",
           "emailAccountId"
         )
         SELECT
-          ${randomUUID()},
+          ${splitId},
           CURRENT_TIMESTAMP,
           CURRENT_TIMESTAMP,
           ${name},
-          ${kind}::"MailSplitKind",
-          ${values},
+          ${matchAll},
           split_state.next_order,
           ${emailAccountId}
         FROM split_state
@@ -69,15 +74,36 @@ export async function createMailSplit({
       FROM split_state
       LEFT JOIN inserted ON TRUE
     `,
+    // Guarded on the split existing, so a rejected insert above (limit reached,
+    // duplicate name) can't leave conditions pointing at nothing.
+    prisma.$executeRaw`
+      INSERT INTO "MailSplitFilter" ("id", "kind", "value", "order", "mailSplitId")
+      SELECT
+        conditions."id",
+        conditions."kind"::"MailSplitFilterKind",
+        conditions."value",
+        conditions."order",
+        ${splitId}
+      FROM jsonb_to_recordset(${toFilterRows(filters)}::jsonb)
+        AS conditions("id" text, "kind" text, "value" text, "order" integer)
+      WHERE EXISTS (SELECT 1 FROM "MailSplit" WHERE "id" = ${splitId})
+    `,
   ]);
 
   return results[0];
 }
 
-/**
- * Keeps splits usable after a label is deleted: wider splits carry on without
- * it, and a split it was the only label of has nothing left to show.
- */
+export function toFilterRows(filters: MailSplitFilterDraft[]) {
+  return JSON.stringify(
+    filters.map((filter, order) => ({
+      id: randomUUID(),
+      kind: filter.kind,
+      value: filter.value ?? null,
+      order,
+    })),
+  );
+}
+
 export async function removeLabelFromMailSplits({
   emailAccountId,
   labelId,
@@ -85,24 +111,31 @@ export async function removeLabelFromMailSplits({
   emailAccountId: string;
   labelId: string;
 }) {
-  // PostgreSQL cannot update and delete the same row in one CTE statement.
-  // Delete emptied splits first, then narrow the remaining rows atomically.
   await prisma.$transaction([
     lockMailSplits(emailAccountId),
-    prisma.$executeRaw`
-      DELETE FROM "MailSplit"
-      WHERE "emailAccountId" = ${emailAccountId}
-        AND "kind" = 'LABEL'::"MailSplitKind"
-        AND ${labelId} = ANY("values")
-        AND cardinality(array_remove("values", ${labelId})) = 0
-    `,
-    prisma.$executeRaw`
-      UPDATE "MailSplit"
-      SET "values" = array_remove("values", ${labelId}), "updatedAt" = NOW()
-      WHERE "emailAccountId" = ${emailAccountId}
-        AND "kind" = 'LABEL'::"MailSplitKind"
-        AND ${labelId} = ANY("values")
-    `,
+    prisma.mailSplit.deleteMany({
+      where: {
+        emailAccountId,
+        filters: {
+          some: {},
+          every: { kind: MailSplitFilterKind.LABEL, value: labelId },
+        },
+      },
+    }),
+    prisma.mailSplit.updateMany({
+      where: {
+        emailAccountId,
+        filters: { some: { kind: MailSplitFilterKind.LABEL, value: labelId } },
+      },
+      data: { updatedAt: new Date() },
+    }),
+    prisma.mailSplitFilter.deleteMany({
+      where: {
+        kind: MailSplitFilterKind.LABEL,
+        value: labelId,
+        mailSplit: { emailAccountId },
+      },
+    }),
   ]);
 }
 

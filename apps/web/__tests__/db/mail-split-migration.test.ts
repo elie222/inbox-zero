@@ -17,6 +17,7 @@ describe.skipIf(!process.env.RUN_DB_TESTS)("mail split migration", () => {
     try {
       await client.query(`
         BEGIN;
+        CREATE TYPE pg_temp."MailSplitKind" AS ENUM ('INBOX', 'UNREAD', 'LABEL', 'CATEGORY');
         CREATE TEMP TABLE "EmailAccount" ("id" text PRIMARY KEY, "mailHiddenBuiltInSplits" text[] NOT NULL DEFAULT '{}');
         CREATE TEMP TABLE "MailSplit" (
           "id" text PRIMARY KEY, "createdAt" timestamp, "updatedAt" timestamp,

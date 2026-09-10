@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, test } from "vitest";
-import { MailSplitKind } from "@/generated/prisma/enums";
+import { MailSplitFilterKind } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import {
   createMailSplit,
@@ -41,12 +41,24 @@ describe.skipIf(!RUN_DB_TESTS)(
     });
 
     test("stores, deletes, and restores inbox and unread splits as rows", async () => {
-      for (const kind of [MailSplitKind.INBOX, MailSplitKind.UNREAD]) {
-        const draft = { emailAccountId, name: kind, kind, values: [] };
+      for (const kind of ["INBOX", MailSplitFilterKind.UNREAD]) {
+        const draft = {
+          emailAccountId,
+          name: kind,
+          matchAll: true,
+          filters:
+            kind === "INBOX"
+              ? []
+              : [{ kind: MailSplitFilterKind.UNREAD, value: null }],
+        };
         expect((await createMailSplit(draft))?.status).toBe("created");
-        await prisma.mailSplit.deleteMany({ where: { emailAccountId, kind } });
+        await prisma.mailSplit.deleteMany({
+          where: { emailAccountId, name: kind },
+        });
         expect(
-          await prisma.mailSplit.count({ where: { emailAccountId, kind } }),
+          await prisma.mailSplit.count({
+            where: { emailAccountId, name: kind },
+          }),
         ).toBe(0);
         expect((await createMailSplit(draft))?.status).toBe("created");
       }
@@ -58,15 +70,24 @@ describe.skipIf(!RUN_DB_TESTS)(
     test("reorders every kind while keeping omitted rows and ignoring stale IDs", async () => {
       const rows = [];
       for (const kind of [
-        MailSplitKind.INBOX,
-        MailSplitKind.UNREAD,
-        MailSplitKind.LABEL,
-      ]) {
+        "INBOX",
+        MailSplitFilterKind.UNREAD,
+        MailSplitFilterKind.LABEL,
+      ] as const) {
         const row = await createMailSplit({
           emailAccountId,
           name: kind,
-          kind,
-          values: kind === MailSplitKind.LABEL ? ["label-1"] : [],
+          matchAll: true,
+          filters:
+            kind === "INBOX"
+              ? []
+              : [
+                  {
+                    kind,
+                    value:
+                      kind === MailSplitFilterKind.LABEL ? "label-1" : null,
+                  },
+                ],
         });
         if (row?.status !== "created") throw new Error("Could not seed split");
         rows.push(row);
@@ -103,8 +124,11 @@ describe.skipIf(!RUN_DB_TESTS)(
         createMailSplit({
           emailAccountId,
           name: "New",
-          kind: MailSplitKind.LABEL,
-          values: ["new-label"],
+          matchAll: false,
+          filters: ["new-label"].map((value) => ({
+            kind: MailSplitFilterKind.LABEL,
+            value,
+          })),
         }),
       ]);
       const concurrent = await prisma.mailSplit.findMany({
@@ -120,29 +144,36 @@ describe.skipIf(!RUN_DB_TESTS)(
       expect(concurrent.map(({ order }) => order)).toEqual([0, 1, 2, 3]);
     });
 
-    // The insert goes through raw SQL, so the array parameter needs a real
-    // database to prove it lands as a Postgres text[] rather than a string.
     test("stores every label of a multi-label split", async () => {
       const result = await createMailSplit({
         emailAccountId,
         name: "Feedback",
-        kind: MailSplitKind.LABEL,
-        values: ["label-users", "label-customers"],
+        matchAll: false,
+        filters: ["label-users", "label-customers"].map((value) => ({
+          kind: MailSplitFilterKind.LABEL,
+          value,
+        })),
       });
 
       expect(result?.status).toBe("created");
       const saved = await prisma.mailSplit.findFirst({
         where: { emailAccountId, name: "Feedback" },
+        include: { filters: { orderBy: { order: "asc" } } },
       });
-      expect(saved?.values).toEqual(["label-users", "label-customers"]);
+      expect(saved?.filters.map((filter) => filter.value)).toEqual([
+        "label-users",
+        "label-customers",
+      ]);
     });
 
     test("adds and removes rule-label defaults without touching a widened split", async () => {
       const defaultSplits = [
         {
           name: "Receipt",
-          kind: MailSplitKind.LABEL,
-          values: ["receipt-label"],
+          labelId: "receipt-label",
+          filters: [
+            { kind: MailSplitFilterKind.LABEL, value: "receipt-label" },
+          ],
         },
       ];
       await setDefaultMailSplits({
@@ -159,8 +190,11 @@ describe.skipIf(!RUN_DB_TESTS)(
       await createMailSplit({
         emailAccountId,
         name: "Receipts and invoices",
-        kind: MailSplitKind.LABEL,
-        values: ["receipt-label", "invoice-label"],
+        matchAll: false,
+        filters: ["receipt-label", "invoice-label"].map((value) => ({
+          kind: MailSplitFilterKind.LABEL,
+          value,
+        })),
       });
 
       await setDefaultMailSplits({
@@ -177,28 +211,57 @@ describe.skipIf(!RUN_DB_TESTS)(
       ]);
     });
 
+    test("reports the split limit without partially adding defaults", async () => {
+      await prisma.mailSplit.createMany({
+        data: Array.from({ length: 13 }, (_, order) => ({
+          name: `Existing ${order}`,
+          emailAccountId,
+          order,
+        })),
+      });
+      const result = await setDefaultMailSplits({
+        emailAccountId,
+        enabled: true,
+        defaultSplits: ["One", "Two"].map((name) => ({
+          name,
+          labelId: name,
+          filters: [{ kind: MailSplitFilterKind.LABEL, value: name }],
+        })),
+      });
+      expect(result.status).toBe("limit");
+      expect(await prisma.mailSplit.count({ where: { emailAccountId } })).toBe(
+        13,
+      );
+    });
+
     test("narrows splits that share a deleted label and drops the ones left empty", async () => {
       await createMailSplit({
         emailAccountId,
         name: "Feedback",
-        kind: MailSplitKind.LABEL,
-        values: ["gone"],
+        matchAll: false,
+        filters: ["gone"].map((value) => ({
+          kind: MailSplitFilterKind.LABEL,
+          value,
+        })),
       });
       await createMailSplit({
         emailAccountId,
         name: "Feedback and support",
-        kind: MailSplitKind.LABEL,
-        values: ["gone", "kept"],
+        matchAll: false,
+        filters: ["gone", "kept"].map((value) => ({
+          kind: MailSplitFilterKind.LABEL,
+          value,
+        })),
       });
 
       await removeLabelFromMailSplits({ emailAccountId, labelId: "gone" });
 
       const remaining = await prisma.mailSplit.findMany({
         where: { emailAccountId },
-        select: { name: true, values: true },
+        select: { name: true, filters: { select: { value: true } } },
       });
       expect(remaining).toEqual([
-        { name: "Feedback and support", values: ["kept"] },
+        { name: "Feedback and support", filters: [{ value: "kept" }] },
       ]);
     });
   },

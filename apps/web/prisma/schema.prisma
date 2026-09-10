@@ -246,20 +246,37 @@ model EmailAccount {
 // ids for LABEL splits and a single provider category for CATEGORY splits; it is empty
 // for INBOX/UNREAD.
 model MailSplit {
-  id        String        @id @default(cuid())
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   name      String
-  kind      MailSplitKind
-  /// Label ids for LABEL splits (one or more), the category for CATEGORY splits, empty otherwise.
-  values    String[]      @default([])
   order     Int
+  /// Whether every filter must match, or any one of them ("Show mail matching
+  /// all/any of these conditions"). A split with no filters is the plain inbox.
+  matchAll  Boolean  @default(true)
 
   emailAccountId String
-  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  emailAccount   EmailAccount      @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  filters        MailSplitFilter[]
 
   @@unique([emailAccountId, name])
   @@index([emailAccountId, order])
+}
+
+/// One condition row in the split builder. A split may hold several of the same
+/// kind (two senders, two labels), so kind is deliberately not unique per split.
+model MailSplitFilter {
+  id    String              @id @default(cuid())
+  kind  MailSplitFilterKind
+  value String?
+  order Int
+
+  mailSplitId String
+  mailSplit   MailSplit @relation(fields: [mailSplitId], references: [id], onDelete: Cascade)
+
+  @@unique([mailSplitId, order])
+  @@index([mailSplitId])
+  @@index([kind, value])
 }
 
 model Organization {
@@ -2015,11 +2032,13 @@ enum MailLayout {
   SPLIT
 }
 
-enum MailSplitKind {
-  INBOX
+enum MailSplitFilterKind {
   UNREAD
+  STARRED
   LABEL
   CATEGORY
+  FROM
+  OLDER_THAN
 }
 
 enum DraftReplyConfidence {

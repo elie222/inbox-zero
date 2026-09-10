@@ -165,8 +165,7 @@ async function deleteDefaultSplitRule(client: Client, emailAccountId: string) {
   await client.query(
     `DELETE FROM "MailSplit"
      WHERE "emailAccountId" = $1
-       AND kind = 'LABEL'
-       AND "values" = ARRAY[$2]
+       AND EXISTS (SELECT 1 FROM "MailSplitFilter" f WHERE f."mailSplitId" = "MailSplit".id AND f.kind = 'LABEL' AND f.value = $2)
        AND name = 'Calendar'`,
     [emailAccountId, DEFAULT_SPLIT_LABEL_ID],
   );
