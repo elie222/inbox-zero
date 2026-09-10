@@ -77,6 +77,65 @@ test("focuses the message field from the empty composer body", async ({
   await expect(editor).toBeFocused();
 });
 
+test("keeps the collapsed signature when typing after clicking below it", async ({
+  page,
+}, testInfo) => {
+  await openMail(page);
+  await page.getByRole("button", { name: /^Compose/ }).click();
+
+  const dialog = page.getByRole("dialog", { name: "New Message" });
+  const editor = dialog.getByRole("textbox", { name: "Email message" });
+  const signatureBlock = dialog.locator(
+    "[data-email-preserved-kind='signature']",
+  );
+  await expect(signatureBlock).toBeVisible();
+
+  const signatureBox = await signatureBlock.boundingBox();
+  if (!signatureBox) throw new Error("Signature block has no bounding box");
+  const editorBox = await editor.boundingBox();
+  if (!editorBox) throw new Error("Editor has no bounding box");
+
+  const emptySpaceTop = signatureBox.y + signatureBox.height;
+  const emptySpaceHeight = editorBox.y + editorBox.height - emptySpaceTop;
+  expect(emptySpaceHeight).toBeGreaterThan(8);
+  const clickPosition = {
+    x: editorBox.width / 2,
+    y: emptySpaceTop - editorBox.y + emptySpaceHeight / 2,
+  };
+  await editor.click({ position: clickPosition });
+  await page.keyboard.type("Draft body");
+
+  await expect(editor).toContainText("Draft body");
+  expect(
+    await editor.evaluate((element) => {
+      const signature = element.querySelector(
+        "[data-email-preserved-kind='signature']",
+      );
+      if (!signature) return false;
+
+      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+      while (walker.nextNode()) {
+        if (walker.currentNode.textContent?.includes("Draft body")) {
+          return Boolean(
+            walker.currentNode.compareDocumentPosition(signature) &
+              Node.DOCUMENT_POSITION_FOLLOWING,
+          );
+        }
+      }
+      return false;
+    }),
+  ).toBe(true);
+  await expect(signatureBlock).toHaveCount(1);
+  await expect(
+    dialog.getByRole("button", { name: "Show signature" }),
+  ).toBeVisible();
+  await capturePlaywrightCheckpoint(
+    page,
+    testInfo,
+    "composer-click-below-collapsed-signature",
+  );
+});
+
 test("highlights URLs while typing and pasting", async ({ page }, testInfo) => {
   await openMail(page);
   await page.getByRole("button", { name: /^Compose/ }).click();
