@@ -99,6 +99,11 @@ export async function handleLabelRemovedEvent(
         threadId,
         emailAccountId,
         learnFromLabels,
+        // Labels also come off when mail is trashed or purged; only a message
+        // that is back in the inbox is the user saying "not that folder".
+        backInInbox:
+          !!message.message?.labelIds?.includes(GmailLabel.INBOX) &&
+          !message.message?.labelIds?.includes(GmailLabel.TRASH),
         logger,
       });
     } catch (error) {
@@ -126,6 +131,7 @@ async function learnFromRemovedLabel({
   threadId: string;
   emailAccountId: string;
   learnFromLabels: boolean;
+  backInInbox: boolean;
   logger: Logger;
 }) {
   logger = logger.with({ labelId });
@@ -158,7 +164,7 @@ async function learnFromRemovedLabel({
   // for senders trained by "learn from labels" (custom and label-created rules).
   const coveredAbove =
     !!rule?.systemType && shouldLearnFromLabelRemoval(rule.systemType);
-  if (learnFromLabels && rule && sender && !coveredAbove) {
+  if (learnFromLabels && backInInbox && rule && sender && !coveredAbove) {
     await unlearnSenderFromLabel({
       emailAccountId,
       labelId,

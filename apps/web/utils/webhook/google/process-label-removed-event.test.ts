@@ -134,9 +134,16 @@ describe("process-label-removed-event", () => {
   };
 
   describe("learn from labels undo", () => {
-    const removeLabel = () =>
+    const removeLabel = (currentLabels = ["INBOX"]) =>
       handleLabelRemovedEvent(
-        createLabelRemovedHistoryItem("123", "thread-123", ["label-2"]).item,
+        {
+          message: {
+            id: "123",
+            threadId: "thread-123",
+            labelIds: currentLabels,
+          },
+          labelIds: ["label-2"],
+        } as gmail_v1.Schema$HistoryLabelRemoved,
         defaultOptions,
         logger,
       );
@@ -195,6 +202,28 @@ describe("process-label-removed-event", () => {
       vi.mocked(findRuleByLabelId).mockResolvedValue(null);
 
       await removeLabel();
+
+      expect(unlearnSenderFromLabel).not.toHaveBeenCalled();
+    });
+
+    it("does not unlearn when the label came off because the mail was trashed", async () => {
+      vi.mocked(findRuleByLabelId).mockResolvedValue({
+        id: "rule-custom",
+        systemType: null,
+      });
+
+      await removeLabel(["TRASH"]);
+
+      expect(unlearnSenderFromLabel).not.toHaveBeenCalled();
+    });
+
+    it("does not unlearn when the mail stayed archived", async () => {
+      vi.mocked(findRuleByLabelId).mockResolvedValue({
+        id: "rule-custom",
+        systemType: null,
+      });
+
+      await removeLabel([]);
 
       expect(unlearnSenderFromLabel).not.toHaveBeenCalled();
     });
