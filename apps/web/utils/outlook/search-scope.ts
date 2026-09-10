@@ -11,15 +11,13 @@ export async function resolveOutlookSearchScope({
   if (!scope) return { categoryNames: [] };
 
   const trimmedScope = scope.trim();
-  const [folderTree, categories] = await Promise.all([
-    emailProvider.getFolders(),
-    emailProvider.getLabels(),
-  ]);
+  const folderTree = await emailProvider.getFolders();
   const folders = flattenOutlookFolders(folderTree);
 
   const folderById = folders.find((folder) => folder.id === trimmedScope);
   if (folderById) return { folderId: folderById.id, categoryNames: [] };
 
+  const categories = await emailProvider.getLabels();
   const categoryById = categories.find(
     (category) => category.id === trimmedScope,
   );

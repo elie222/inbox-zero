@@ -192,6 +192,9 @@ describe("OutlookProvider.searchMessages", () => {
     await expect(
       provider.searchMessages({ query: "", labelName: "Receipts" }),
     ).rejects.toThrow("ambiguous");
+    vi.spyOn(provider, "getLabels").mockRejectedValue(
+      new Error("Categories unavailable"),
+    );
     await provider.searchMessages({ query: "", labelName: "folder-1" });
     expect(query).toHaveBeenCalledWith(
       expect.anything(),

@@ -214,7 +214,12 @@ describe.runIf(shouldRunEval)("Eval: assistant chat Outlook folders", () => {
                 outputText.includes(`Operations${FOLDER_SEPARATOR}Reports`) &&
                 folderIds.length > 0 &&
                 finalText.trim().length > 0 &&
-                folderIds.every((id) => !finalText.includes(id)) &&
+                folderIds.every(
+                  (id) =>
+                    typeof id === "string" &&
+                    id.trim().length > 0 &&
+                    !finalText.includes(id),
+                ) &&
                 !toolCalls.some(
                   (toolCall) =>
                     toolCall.toolName === "listCategories" ||
