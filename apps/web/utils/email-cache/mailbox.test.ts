@@ -23,6 +23,40 @@ describe("synced mailbox cache", () => {
     await clearEmailCache();
   });
 
+  it("excludes named splits from cached Other results", async () => {
+    await applyMailboxSyncPage({
+      emailAccountId: "account-1",
+      after: new Date("2020-01-01"),
+      page: {
+        cursor: "complete",
+        reset: true,
+        hasMore: false,
+        deletedMessageIds: [],
+        upsertedMessages: [
+          getMessage({
+            id: "important",
+            threadId: "important",
+            labelIds: ["INBOX", "IMPORTANT"],
+          }),
+          getMessage({ id: "other", threadId: "other", labelIds: ["INBOX"] }),
+        ],
+      },
+    });
+    const result = await readSyncedMailboxThreads({
+      emailAccountId: "account-1",
+      query: {
+        type: "inbox",
+        excludeSplits: [
+          {
+            matchAll: true,
+            filters: [{ kind: "LABEL", value: "IMPORTANT" }],
+          },
+        ],
+      },
+    });
+    expect(result?.threads.map(({ id }) => id)).toEqual(["other"]);
+  });
+
   it("invalidates all detail variants for changed threads and deleted cached drafts", async () => {
     const database = await getEmailCacheDatabase();
     if (!database) throw new Error("Database unavailable");

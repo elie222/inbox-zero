@@ -1,3 +1,4 @@
+import { GmailLabel } from "@/utils/gmail/label";
 import { MailSplitFilterKind } from "@/generated/prisma/enums";
 import type { MailSplitFilterDraft } from "@/utils/mail/split-filters";
 
@@ -22,6 +23,12 @@ export type SplitLibraryEntry = {
 };
 
 export const SPLIT_LIBRARY: SplitLibraryEntry[] = [
+  {
+    name: "Important",
+    category: "General",
+    description: "Based on Gmail’s importance markers.",
+    conditions: [{ kind: "LABEL", labelName: GmailLabel.IMPORTANT }],
+  },
   {
     name: "To reply",
     category: "General",

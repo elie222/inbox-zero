@@ -1,5 +1,6 @@
 "use client";
 
+import { createOtherSplitFilter } from "@/utils/mail/thread-matches-split";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSWRConfig } from "swr";
 import useSWRInfinite from "swr/infinite";
@@ -252,14 +253,17 @@ export function useMailThreads({
       mutations: mailMutations,
       threads: sourceThreads ?? [],
     });
-    return query.isUnread
-      ? overlaidThreads.filter((thread) => isThreadUnread(thread.messages))
-      : overlaidThreads;
+    const isOther = createOtherSplitFilter(query.excludeSplits ?? []);
+    return overlaidThreads.filter(
+      (thread) =>
+        (!query.isUnread || isThreadUnread(thread.messages)) && isOther(thread),
+    );
   }, [
     emailAccountId,
     mailMutations,
     mutationOverlayReady,
     query.isUnread,
+    query.excludeSplits,
     sourceThreads,
   ]);
 

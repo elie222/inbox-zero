@@ -1,6 +1,12 @@
 import { z } from "zod";
-import { MAX_SPLIT_FILTERS } from "@/utils/mail/split-filters";
-import { MAX_SPLIT_LABELS } from "@/utils/mail/split-constants";
+import {
+  MAX_SPLIT_FILTERS,
+  mailSplitFiltersSchema,
+} from "@/utils/mail/split-filters";
+import {
+  MAX_MAIL_SPLITS,
+  MAX_SPLIT_LABELS,
+} from "@/utils/mail/split-constants";
 import { microsoftGraphPageTokenSchema } from "@/utils/outlook/page-token";
 import { createSearchParams } from "@/utils/url";
 
@@ -27,6 +33,26 @@ export type ThreadsQueryLeaf = z.infer<typeof threadsQueryLeaf>;
 
 export const threadsQuery = z
   .object({
+    excludeSplits: z.preprocess(
+      (value) => (typeof value === "string" ? parseAnyOf(value) : value),
+      z
+        .array(
+          z.object({
+            matchAll: z.boolean(),
+            filters: mailSplitFiltersSchema.refine(
+              (filters) =>
+                filters.every(
+                  (filter) =>
+                    filter.kind !== "CATEGORY" ||
+                    !["focused", "other"].includes(filter.value ?? ""),
+                ),
+              { message: "Other split exclusions require Gmail conditions" },
+            ),
+          }),
+        )
+        .max(MAX_MAIL_SPLITS)
+        .nullish(),
+    ),
     q: z.string().nullish(),
     fromEmail: z.string().nullish(),
     limit: z.coerce.number().max(100).nullish(),
@@ -52,6 +78,17 @@ export const threadsQuery = z
       z.array(threadsQueryLeaf).max(MAX_SPLIT_FILTERS).nullish(),
     ),
   })
+  .refine(
+    (query) =>
+      !query.excludeSplits?.length ||
+      (query.type === "inbox" &&
+        !query.q &&
+        !query.folderId &&
+        !query.inboxSection &&
+        !query.anyOf?.length &&
+        !query.anyLabelIds?.length),
+    { message: "Other split exclusions require a plain inbox query" },
+  )
   .refine(
     (query) =>
       !query.anyOf?.length ||
@@ -83,9 +120,12 @@ function parseAnyOf(value: string): unknown {
 export function threadsQueryToSearchParams(
   query: ThreadsQuery & Record<string, unknown>,
 ) {
-  const { anyOf, ...rest } = query;
+  const { anyOf, excludeSplits, ...rest } = query;
   return createSearchParams({
     ...rest,
+    ...(excludeSplits?.length
+      ? { excludeSplits: JSON.stringify(excludeSplits) }
+      : {}),
     ...(anyOf?.length ? { anyOf: JSON.stringify(anyOf) } : {}),
   });
 }
