@@ -263,6 +263,7 @@ describe("formatDateGroupLabel", () => {
 
   it.each([
     { name: "today", date: "2025-09-05T09:30:00", expected: "Today" },
+    { name: "later today", date: "2025-09-05T23:30:00", expected: "Today" },
     { name: "yesterday", date: "2025-09-04T23:59:00", expected: "Yesterday" },
     {
       name: "an earlier day this week",
@@ -283,6 +284,11 @@ describe("formatDateGroupLabel", () => {
       name: "a day in a previous year",
       date: "2024-08-22T08:00:00",
       expected: "August 2024",
+    },
+    {
+      name: "a day ahead of today",
+      date: "2025-09-20T08:00:00",
+      expected: "September 20th, 2025",
     },
   ])("labels $name", ({ date, expected }) => {
     expect(formatDateGroupLabel(new Date(date), now)).toBe(expected);
