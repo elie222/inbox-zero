@@ -3,6 +3,16 @@ import { defineConfig } from "@playwright/test";
 import baseConfig from "../../../playwright.config.mjs";
 
 const providerUrl = process.env.GOOGLE_BASE_URL;
+const providerAddress = new URL(providerUrl);
+if (
+  providerAddress.protocol !== "http:" ||
+  !["127.0.0.1", "localhost"].includes(providerAddress.hostname) ||
+  !providerAddress.port
+) {
+  throw new Error(
+    "Mail simulation requires a local HTTP GOOGLE_BASE_URL with an explicit port",
+  );
+}
 
 export default defineConfig({
   ...baseConfig,
@@ -36,7 +46,7 @@ export default defineConfig({
     reuseExistingServer: false,
     ...(server.url === `${providerUrl}/.well-known/openid-configuration`
       ? {
-          command: `node __tests__/playwright/mail-simulation/server.mjs ${new URL(providerUrl).port}`,
+          command: `node __tests__/playwright/mail-simulation/server.mjs ${providerAddress.port}`,
         }
       : {}),
   })),

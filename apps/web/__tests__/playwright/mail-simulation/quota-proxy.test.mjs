@@ -121,3 +121,26 @@ test("batch request targets cannot escape the local upstream", async () => {
     await proxy.close();
   }
 });
+
+test("quota retries wait only until sufficient weighted capacity expires", () => {
+  let now = 0;
+  const ledger = createQuotaLedger(
+    { userUnits: 60, projectUnits: 80 },
+    () => now,
+  );
+  ledger.admit("messages.get").release();
+  now = 10_000;
+  ledger.admit("threads.get").release();
+  ledger.admit("messages.get", "other").release();
+  now = 55_000;
+  assert.equal(ledger.admit("messages.get").event.retryAfterMs, 5000);
+  assert.equal(ledger.admit("threads.get").event.retryAfterMs, 15_000);
+  assert.equal(ledger.admit("threads.get", "third").event.retryAfterMs, 15_000);
+});
+
+test("concurrency retries do not impose a full quota window", () => {
+  const ledger = createQuotaLedger({ concurrency: 1 });
+  const active = ledger.admit("threads.get");
+  assert.equal(ledger.admit("threads.get").event.retryAfterMs, 1000);
+  active.release();
+});

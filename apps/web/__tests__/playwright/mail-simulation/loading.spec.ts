@@ -44,6 +44,13 @@ test(`measures current client under ${profile}`, async ({
     bytesPerSecond: 2_000_000,
   });
   let detailRequests = 0;
+  const threadStatuses = new Map<string, number>();
+  page.on("response", (response) => {
+    const path = new URL(response.url()).pathname;
+    if (path.startsWith("/api/threads/sim_thread_"))
+      threadStatuses.set(path, response.status());
+  });
+  let scenarioFailed = false;
   page.on("request", (request) => {
     if (/\/api\/threads\/sim_thread_/.test(request.url())) detailRequests++;
   });
@@ -99,6 +106,7 @@ test(`measures current client under ${profile}`, async ({
     for (const key of ["j", "j", "j", "k", "j", "j", "k"]) {
       await page.keyboard.press(key);
     }
+    await expect(page).toHaveURL(/thread-id=sim_thread_3(?:&|$)/);
     const selectedId = new URL(page.url()).searchParams.get("thread-id");
     const selectedThread = Number(selectedId?.replace("sim_thread_", ""));
     expect(
@@ -118,12 +126,12 @@ test(`measures current client under ${profile}`, async ({
     const switchStart = performance.now();
     const switchRequests = detailRequests;
     for (let index = 0; index < 12; index++) {
-      await page
-        .getByRole("button", {
-          name: index % 2 === 0 ? "Unread" : "All",
-          exact: true,
-        })
-        .click();
+      const split = page.getByRole("button", {
+        name: index % 2 === 0 ? "Unread" : "All",
+        exact: true,
+      });
+      await split.click();
+      await expect(split).toHaveAttribute("aria-current", "true");
     }
     await expect(
       page.getByRole("button", { name: "All", exact: true }),
@@ -163,6 +171,7 @@ test(`measures current client under ${profile}`, async ({
         waitUntil: "domcontentloaded",
       });
       const loaded = await waitForBody(page, 30);
+      expect(threadStatuses.get("/api/threads/sim_thread_30")).toBe(429);
       samples.push({
         scenario: "uncached-open-during-quota-exhaustion",
         durationMs: performance.now() - started,
@@ -206,8 +215,24 @@ test(`measures current client under ${profile}`, async ({
         detailRequests: detailRequests - recoveryRequests,
       });
     }
+  } catch (error) {
+    scenarioFailed = true;
+    throw error;
   } finally {
-    await report(page, testInfo, samples, phases);
+    try {
+      await report(page, testInfo, samples, phases);
+    } catch (error) {
+      if (!scenarioFailed) {
+        expect
+          .soft(false, "Simulation reporting failed; inspect the test logs")
+          .toBe(true);
+      }
+      console.error("Simulation reporting failed", error);
+      testInfo.annotations.push({
+        type: "report-error",
+        description: "Simulation reporting failed; inspect the test logs.",
+      });
+    }
   }
 });
 

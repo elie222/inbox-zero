@@ -14,7 +14,7 @@ for (const profile of profiles) {
   const destination = path.join(output, profile);
   mkdirSync(destination, { recursive: true });
   const result = spawnSync(
-    "pnpm",
+    process.platform === "win32" ? "pnpm.cmd" : "pnpm",
     [
       "exec",
       "playwright",
@@ -25,6 +25,7 @@ for (const profile of profiles) {
     ],
     {
       stdio: "inherit",
+      shell: process.platform === "win32",
       env: {
         ...process.env,
         MAIL_SIMULATION_PROFILE: profile,

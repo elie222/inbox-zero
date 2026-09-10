@@ -43,7 +43,10 @@ const emulator = await createEmulator({
           client_id: "client_id",
           client_secret: "client_secret",
           redirect_uris: [
-            `${process.env.NEXT_PUBLIC_BASE_URL}/api/auth/oauth2/callback/google`,
+            new URL(
+              "/api/auth/oauth2/callback/google",
+              process.env.NEXT_PUBLIC_BASE_URL,
+            ).href,
           ],
         },
       ],
@@ -63,7 +66,12 @@ for (const signal of ["SIGINT", "SIGTERM"])
   process.on(signal, async () => {
     const deadline = setTimeout(() => process.exit(0), 5000);
     deadline.unref();
-    await proxy.close();
-    await emulator.close();
+    for (const close of [() => proxy.close(), () => emulator.close()]) {
+      try {
+        await close();
+      } catch (error) {
+        console.error("Simulation shutdown failed", error);
+      }
+    }
     process.exit(0);
   });

@@ -95,15 +95,35 @@ export function createQuotaLedger(options = {}, now = Date.now) {
       const active = activeByUser.get(user) ?? 0;
       let reason = null;
       let status = 0;
+      let retryAfterMs = 0;
       if (active >= config.concurrency) {
         reason = "concurrentLimitExceeded";
         status = 429;
+        retryAfterMs = 1000;
       } else if (userUsage + cost > config.userUnits) {
         reason = "userRateLimitExceeded";
         status = 403;
       } else if (projectUsage + cost > config.projectUnits) {
         reason = "rateLimitExceeded";
         status = 403;
+      }
+      if (status === 403) {
+        retryAfterMs = Math.max(
+          quotaRetryDelay(
+            usage.filter((entry) => entry.user === user),
+            config.userUnits,
+            cost,
+            config.windowMs,
+            time,
+          ),
+          quotaRetryDelay(
+            usage,
+            config.projectUnits,
+            cost,
+            config.windowMs,
+            time,
+          ),
+        );
       }
       const event = {
         time,
@@ -114,6 +134,7 @@ export function createQuotaLedger(options = {}, now = Date.now) {
         active,
         bytes: 0,
         status,
+        retryAfterMs,
       };
       events.push(event);
       if (reason) return { event, release() {} };
@@ -204,7 +225,7 @@ export async function createQuotaProxy({ upstream, port = 0, options }) {
     const admission = name ? ledger.admit(name) : null;
     const event = admission?.event;
     if (event?.reason) {
-      const seconds = Math.ceil(ledger.config.windowMs / 1000);
+      const seconds = Math.max(1, Math.ceil(event.retryAfterMs / 1000));
       return {
         status: event.status,
         headers: {
@@ -281,8 +302,24 @@ export async function createQuotaProxy({ upstream, port = 0, options }) {
     ledger,
     close: () =>
       new Promise((resolve) => {
-        server.close(resolve);
-        server.closeAllConnections();
+        const deadline = setTimeout(() => server.closeAllConnections(), 1000);
+        deadline.unref();
+        server.close(() => {
+          clearTimeout(deadline);
+          resolve();
+        });
       }),
   };
+}
+
+function quotaRetryDelay(entries, limit, cost, windowMs, now) {
+  let remaining = entries.reduce((sum, entry) => sum + entry.cost, 0);
+  if (remaining + cost <= limit) return 0;
+  for (const entry of entries) {
+    remaining -= entry.cost;
+    if (remaining + cost <= limit)
+      return Math.max(1, entry.time + windowMs - now);
+  }
+  // A deliberately undersized test budget cannot recover without a reset.
+  return windowMs;
 }

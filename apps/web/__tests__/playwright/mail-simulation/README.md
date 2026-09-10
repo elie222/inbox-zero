@@ -63,6 +63,9 @@ Sources, checked 2026-09-10:
 - https://developers.google.com/workspace/gmail/api/guides/handle-errors
 - https://developers.google.com/workspace/gmail/api/guides/batch
 
+The dedicated config requires a loopback HTTP provider URL with an explicit port;
+remote providers and HTTPS are not supported. OAuth callback URLs are normalized.
+
 The published schedule uses 6,000 units per user/project/minute and 1,200,000 per
 project/minute; `threads.get` costs 40. Existing Cloud projects can retain older
 quotas. Configure the ledger with the actual project's settings before drawing
@@ -72,6 +75,9 @@ The proxy uses a rolling 60-second window, counts every admitted attempt, and
 meters GET batch parts individually. Batches can return HTTP 200 with individual
 403/429 failures. Rejected admissions do not consume the simulated quota. This
 is an explicit model, not Google's undisclosed window/admission algorithm.
+Quota rejections return the delay until sufficient weighted capacity expires;
+concurrency rejections use a one-second backoff. A budget smaller than one request
+requires a manual reset and uses the configured window as its retry interval.
 
 Latency defaults to 250 ms and transfer delay to 2 MB/s per response. Concurrent
 batch parts count separately. The main profiles set the concurrency threshold to 100 to isolate quota and
