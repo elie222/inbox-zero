@@ -183,19 +183,23 @@ export async function createQuotaProxy({ upstream, port = 0, options }) {
     } catch (error) {
       if (req.url === "/__simulation") {
         res.writeHead(409, { "content-type": "application/json" });
-        res.end(JSON.stringify({ error: String(error) }));
+        res.end(JSON.stringify({ error: "Simulation reset is not available" }));
         return;
       }
-      harnessErrors.push(String(error));
+      harnessErrors.push("Simulation request failed; inspect the server logs");
+      console.error("Simulation request failed", error);
       res.writeHead(500, { "content-type": "application/json" });
-      res.end(JSON.stringify({ error: String(error) }));
+      res.end(JSON.stringify({ error: "Simulation request failed" }));
     }
   });
   async function forward(method, path, headers, body) {
-    const target = new URL(path, upstream);
-    if (target.origin !== new URL(upstream).origin) {
+    const requested = new URL(path, upstream);
+    const target = new URL(upstream);
+    if (requested.origin !== target.origin) {
       throw new Error("Simulation requests must stay on the local upstream");
     }
+    target.pathname = requested.pathname;
+    target.search = requested.search;
     const name = gmailMethod(method, path);
     const admission = name ? ledger.admit(name) : null;
     const event = admission?.event;

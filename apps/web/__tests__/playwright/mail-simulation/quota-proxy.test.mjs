@@ -109,7 +109,13 @@ test("batch request targets cannot escape the local upstream", async () => {
       body: "--batch\nContent-Type: application/http\n\nGET https://example.com/gmail/v1/users/me/threads/a\n\n--batch--",
     });
     assert.equal(response.status, 500);
-    assert.match(await response.text(), /must stay on the local upstream/);
+    assert.deepEqual(await response.json(), {
+      error: "Simulation request failed",
+    });
+    const diagnostics = await fetch(`${proxy.url}/__simulation`).then(
+      (result) => result.json(),
+    );
+    assert.equal(diagnostics.harnessErrors.length, 1);
     assert.equal(proxy.ledger.events.length, 0);
   } finally {
     await proxy.close();
