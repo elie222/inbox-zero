@@ -4,6 +4,7 @@ import * as outlookMessageModule from "@/utils/outlook/message";
 import * as outlookLabelModule from "@/utils/outlook/label";
 import { createTestLogger } from "@/__tests__/helpers";
 import { OutlookProvider } from "./microsoft";
+import { FOLDER_SEPARATOR } from "@/utils/outlook/folders";
 
 const { envMock, outlookMailMock, getFolderIdsMock } = vi.hoisted(() => ({
   envMock: {
@@ -57,6 +58,150 @@ afterEach(() => {
     deleteditems: "trash-folder-id",
     junkemail: "spam-folder-id",
     sentitems: "sent-folder-id",
+  });
+});
+
+describe("OutlookProvider.searchMessages", () => {
+  it("resolves a nested folder and searches its messages without a category filter", async () => {
+    const message = createMessage({
+      id: "matching-message",
+      parentFolderId: "nested-folder",
+    });
+    const client = createMockOutlookClient([message]);
+    const provider = new OutlookProvider(client, createTestLogger());
+    vi.spyOn(provider, "getFolders").mockResolvedValue([
+      {
+        id: "parent",
+        displayName: "Parent",
+        childFolders: [
+          { id: "nested-folder", displayName: "Receipts", childFolders: [] },
+        ],
+      },
+    ]);
+    vi.spyOn(provider, "getLabels").mockResolvedValue([]);
+
+    const result = await provider.searchMessages({
+      query: "invoice",
+      labelName: "receipts",
+    });
+
+    expect(result.messages.map((message) => message.id)).toEqual([
+      "matching-message",
+    ]);
+    expect(client.getRequestLog()).toContainEqual({
+      apiPath: "/me/mailFolders/nested-folder/messages",
+      search: '"invoice"',
+      filter: undefined,
+    });
+  });
+
+  it("resolves a full folder path when leaf names are duplicated", async () => {
+    const query = vi
+      .spyOn(outlookMessageModule, "queryBatchMessages")
+      .mockResolvedValue({ messages: [] });
+    const provider = new OutlookProvider(
+      createMockOutlookClient([]),
+      createTestLogger(),
+    );
+    vi.spyOn(provider, "getFolders").mockResolvedValue([
+      {
+        id: "parent",
+        displayName: "Parent",
+        childFolders: [
+          { id: "nested", displayName: "Receipts", childFolders: [] },
+        ],
+      },
+      { id: "root", displayName: "Receipts", childFolders: [] },
+    ]);
+    vi.spyOn(provider, "getLabels").mockResolvedValue([]);
+    await provider.searchMessages({
+      query: "",
+      labelName: `Parent${FOLDER_SEPARATOR}Receipts`,
+    });
+    expect(query).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ folderId: "nested", categoryNames: [] }),
+      expect.anything(),
+    );
+    query.mockRestore();
+  });
+
+  it("preserves categories as category filters", async () => {
+    const query = vi
+      .spyOn(outlookMessageModule, "queryBatchMessages")
+      .mockResolvedValueOnce({ messages: [] });
+    const provider = new OutlookProvider(
+      createMockOutlookClient([]),
+      createTestLogger(),
+    );
+    vi.spyOn(provider, "getFolders").mockResolvedValue([]);
+    vi.spyOn(provider, "getLabels").mockResolvedValue([
+      { id: "category-1", name: "Receipts", type: "user" },
+    ]);
+
+    await provider.searchMessages({ query: "", labelName: "receipts" });
+
+    expect(query).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        categoryNames: ["Receipts"],
+        folderId: undefined,
+      }),
+      expect.anything(),
+    );
+    query.mockRestore();
+  });
+
+  it("rejects ambiguous names and unknown scopes before searching", async () => {
+    const query = vi.spyOn(outlookMessageModule, "queryBatchMessages");
+    const provider = new OutlookProvider(
+      createMockOutlookClient([]),
+      createTestLogger(),
+    );
+    vi.spyOn(provider, "getFolders").mockResolvedValue([
+      { id: "folder-1", displayName: "Receipts", childFolders: [] },
+      { id: "folder-2", displayName: "Receipts", childFolders: [] },
+    ]);
+    vi.spyOn(provider, "getLabels").mockResolvedValue([]);
+
+    await expect(
+      provider.searchMessages({ query: "", labelName: "Receipts" }),
+    ).rejects.toThrow("ambiguous");
+    await expect(
+      provider.searchMessages({ query: "", labelName: "Missing" }),
+    ).rejects.toThrow("not found");
+    expect(query).not.toHaveBeenCalled();
+    query.mockRestore();
+  });
+
+  it("accepts an exact folder ID when folder and category names collide", async () => {
+    const query = vi
+      .spyOn(outlookMessageModule, "queryBatchMessages")
+      .mockResolvedValue({ messages: [] });
+    const provider = new OutlookProvider(
+      createMockOutlookClient([]),
+      createTestLogger(),
+    );
+    vi.spyOn(provider, "getFolders").mockResolvedValue([
+      { id: "folder-1", displayName: "Receipts", childFolders: [] },
+    ]);
+    vi.spyOn(provider, "getLabels").mockResolvedValue([
+      { id: "category-1", name: "Receipts", type: "user" },
+    ]);
+
+    await expect(
+      provider.searchMessages({ query: "", labelName: "Receipts" }),
+    ).rejects.toThrow("ambiguous");
+    vi.spyOn(provider, "getLabels").mockRejectedValue(
+      new Error("Categories unavailable"),
+    );
+    await provider.searchMessages({ query: "", labelName: "folder-1" });
+    expect(query).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ folderId: "folder-1", categoryNames: [] }),
+      expect.anything(),
+    );
+    query.mockRestore();
   });
 });
 

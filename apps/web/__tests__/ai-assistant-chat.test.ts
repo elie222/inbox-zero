@@ -220,7 +220,7 @@ describe("aiProcessAssistantChat", () => {
   }, 30_000);
 
   it.each([
-    ["web", 240_000],
+    ["web", 720_000],
     ["messaging", 60_000],
   ] as const)(
     "continues %s tool calls without a step cap and reserves time for a final response",

@@ -85,6 +85,7 @@ import type { SendEmailBody } from "@/utils/types/mail";
 import { getOutlookCategoryPreset } from "@/utils/outlook/category-colors";
 import { unwatchOutlook, watchOutlook } from "@/utils/outlook/watch";
 import { escapeODataString } from "@/utils/outlook/odata-escape";
+import { resolveOutlookSearchScope } from "@/utils/outlook/search-scope";
 import {
   extractEmailAddress,
   getSearchTermForSender,
@@ -93,6 +94,7 @@ import {
 import {
   getOrCreateOutlookFolderIdByName,
   getOutlookFolderTree,
+  flattenOutlookFolders,
   addOutlookSystemFolderTypes,
   deleteOutlookFolder,
   renameOutlookFolder,
@@ -1274,6 +1276,11 @@ export class OutlookProvider implements EmailProvider {
     readState?: "read" | "unread";
     labelName?: string;
   }): Promise<{ messages: ParsedMessage[]; nextPageToken?: string }> {
+    const { folderId, categoryNames } = await resolveOutlookSearchScope({
+      emailProvider: this,
+      scope: options.labelName,
+    });
+
     const response = await queryBatchMessages(
       this.client,
       {
@@ -1282,7 +1289,8 @@ export class OutlookProvider implements EmailProvider {
         pageToken: options.pageToken,
         fromEmail: options.fromEmail,
         readState: options.readState,
-        categoryNames: options.labelName ? [options.labelName] : [],
+        folderId,
+        categoryNames,
       },
       this.logger,
     );
@@ -2322,15 +2330,6 @@ function resolveOutlookFolderId(
 ): string | undefined {
   const folderKey = LABEL_TO_FOLDER_KEY[labelId.toUpperCase()];
   return folderKey ? folderIds[folderKey] : undefined;
-}
-
-function flattenOutlookFolders(
-  folders: Awaited<ReturnType<OutlookProvider["getFolders"]>>,
-): Awaited<ReturnType<OutlookProvider["getFolders"]>> {
-  return folders.flatMap((folder) => [
-    folder,
-    ...flattenOutlookFolders(folder.childFolders),
-  ]);
 }
 
 function filterMessagesForParticipant(

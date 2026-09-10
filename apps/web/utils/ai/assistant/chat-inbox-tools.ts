@@ -60,29 +60,6 @@ import { SafeError } from "@/utils/error";
 const SEARCH_INBOX_MAX_RESULTS = 20;
 const OUTLOOK_EMPTY_PAGE_AUTOPAGINATION_LIMIT = 5;
 const MAX_SENDER_CATEGORIZATION_WAIT_MS = 1500;
-const OUTLOOK_SCOPE_SUFFIX_TERMS = new Set([
-  "category",
-  "folder",
-  "mailbox",
-  "email",
-  "emails",
-  "message",
-  "messages",
-  "mail",
-]);
-const OUTLOOK_BOOLEAN_OPERATORS = new Set(["AND", "OR", "NOT"]);
-const OUTLOOK_TEMPORAL_SEARCH_TERMS = new Set([
-  "today",
-  "yesterday",
-  "tomorrow",
-  "week",
-  "month",
-  "year",
-  "morning",
-  "afternoon",
-  "evening",
-]);
-
 const recipientListSchema = z
   .string()
   .trim()
@@ -558,7 +535,7 @@ const outlookSearchInboxInputSchema = z
       .min(1)
       .nullish()
       .describe(
-        "Outlook category or folder scope for a scoped inbox search or cleanup request.",
+        "Outlook category or folder name, folder path, or folder/category ID for a scoped inbox search or cleanup request.",
       ),
   })
   .refine(
@@ -1734,7 +1711,7 @@ async function runOutlookSearch({
     }
   }
 
-  let queryUsed = formatQueryWithFromEmail(
+  const queryUsed = formatQueryWithFromEmail(
     executedQuery,
     normalizedInput.fromEmail,
   );
@@ -1752,20 +1729,6 @@ async function runOutlookSearch({
     categoryName: normalizedInput.categoryName,
     fromEmail: normalizedInput.fromEmail,
   });
-
-  if (
-    normalizedInput.fallbackQuery &&
-    !pageToken &&
-    result.messages.length === 0 &&
-    !result.nextPageToken
-  ) {
-    result = await emailProvider.searchMessages({
-      query: normalizedInput.fallbackQuery,
-      maxResults: limit ?? SEARCH_INBOX_MAX_RESULTS,
-      readState: normalizedInput.readState ?? undefined,
-    });
-    queryUsed = normalizedInput.fallbackQuery;
-  }
 
   return { result, queryUsed, failures };
 }
@@ -1814,7 +1777,6 @@ type NormalizedOutlookSearchInput = {
   fromEmail?: string | null;
   readState?: OutlookReadState | null;
   categoryName?: string | null;
-  fallbackQuery?: string | null;
 };
 
 function normalizeOutlookSearchInput({
@@ -1872,14 +1834,12 @@ function normalizeOutlookSearchInput({
     };
   }
 
-  const scopeCandidate =
-    getOutlookFieldScopeCandidate(queryWithoutState) ??
-    getOutlookScopeCandidate(queryWithoutState);
+  const scopeCandidate = getOutlookFieldScopeCandidate(queryWithoutState);
 
   if (!scopeCandidate) {
     return {
-      query: normalizedQuery,
-      readState,
+      query: queryWithoutState,
+      readState: inferredReadState,
     };
   }
 
@@ -1887,7 +1847,6 @@ function normalizeOutlookSearchInput({
     query: "",
     readState: inferredReadState,
     categoryName: scopeCandidate,
-    fallbackQuery: normalizedQuery,
   };
 }
 
@@ -1925,52 +1884,7 @@ function getOutlookFieldScopeCandidate(query: string) {
   const field = normalizedQuery.slice(0, colonIndex).trim().toLowerCase();
   if (field !== "category" && field !== "folder") return null;
 
-  return stripOutlookScopeDecorators(normalizedQuery.slice(colonIndex + 1));
-}
-
-function getOutlookScopeCandidate(query: string) {
-  const normalizedQuery = query.trim();
-  if (!normalizedQuery) return null;
-  if (hasOutlookTextSearchSyntax(normalizedQuery)) return null;
-  if (hasOutlookTemporalSearchTerm(normalizedQuery)) return null;
-
-  const candidate = stripOutlookScopeDecorators(normalizedQuery);
-  if (!candidate) return null;
-
-  return candidate;
-}
-
-function hasOutlookTemporalSearchTerm(query: string) {
-  return splitOutlookScopeWords(query).some((word) =>
-    OUTLOOK_TEMPORAL_SEARCH_TERMS.has(word.toLowerCase()),
-  );
-}
-
-function hasOutlookTextSearchSyntax(query: string) {
-  return (
-    hasOutlookSearchOperatorCharacters(query) ||
-    splitOutlookScopeWords(query).some((word) =>
-      OUTLOOK_BOOLEAN_OPERATORS.has(word.toUpperCase()),
-    ) ||
-    getOutlookComparisonFilters(query).length > 0
-  );
-}
-
-function hasOutlookSearchOperatorCharacters(query: string) {
-  return Array.from(query).some((char) =>
-    ["@", ":", "<", ">", "=", "{", "}", "[", "]", "|"].includes(char),
-  );
-}
-
-function stripOutlookScopeDecorators(value: string) {
-  const words = splitOutlookScopeWords(stripWrappingQuotes(value));
-  const lastWord = words.at(-1)?.toLowerCase();
-
-  if (lastWord && OUTLOOK_SCOPE_SUFFIX_TERMS.has(lastWord)) {
-    words.pop();
-  }
-
-  return words.join(" ").trim();
+  return stripWrappingQuotes(normalizedQuery.slice(colonIndex + 1));
 }
 
 function stripWrappingQuotes(value: string) {
@@ -1988,14 +1902,6 @@ function stripWrappingQuotes(value: string) {
   }
 
   return normalized;
-}
-
-function splitOutlookScopeWords(value: string) {
-  return value
-    .trim()
-    .split(/\s+/)
-    .map((word) => word.replace(/^[()]+|[()]+$/g, ""))
-    .filter(Boolean);
 }
 
 async function runThreadActionsInParallel({

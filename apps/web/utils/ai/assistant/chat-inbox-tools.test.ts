@@ -1450,7 +1450,7 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     );
   });
 
-  it("searchInbox normalizes simple Outlook scope queries before provider search", async () => {
+  it("searchInbox keeps bare Outlook text queries as text", async () => {
     const searchMessages = vi.fn().mockResolvedValue({
       messages: [],
       nextPageToken: undefined,
@@ -1474,11 +1474,11 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     });
 
     expect(searchMessages).toHaveBeenNthCalledWith(1, {
-      query: "",
+      query: "Operations folder",
       maxResults: 20,
       pageToken: undefined,
       readState: "unread",
-      labelName: "Operations",
+      labelName: undefined,
     });
   });
 
@@ -1507,11 +1507,11 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     });
 
     expect(searchMessages).toHaveBeenCalledWith({
-      query: "",
+      query: "newsletter",
       maxResults: 20,
       pageToken: undefined,
       readState: "unread",
-      labelName: "newsletter",
+      labelName: undefined,
     });
   });
 
@@ -1613,7 +1613,7 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     expect(result.hasMore).toBe(false);
   });
 
-  it("searchInbox falls back to Outlook text search when a normalized scope is conclusively empty", async () => {
+  it("searchInbox preserves an empty Outlook folder scope", async () => {
     const searchMessages = vi
       .fn()
       .mockResolvedValueOnce({
@@ -1638,7 +1638,7 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     });
 
     const result: any = await (toolInstance.execute as any)({
-      query: "invoice",
+      query: 'folder:"invoice"',
       limit: 20,
     });
 
@@ -1649,15 +1649,11 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
       readState: undefined,
       labelName: "invoice",
     });
-    expect(searchMessages).toHaveBeenNthCalledWith(2, {
-      query: "invoice",
-      maxResults: 20,
-      readState: undefined,
-    });
-    expect(result.queryUsed).toBe("invoice");
+    expect(searchMessages).toHaveBeenCalledTimes(1);
+    expect(result.queryUsed).toBe("");
   });
 
-  it("searchInbox falls back to Outlook text search after empty structured pages end", async () => {
+  it("searchInbox preserves Outlook scope after empty structured pages end", async () => {
     const searchMessages = vi
       .fn()
       .mockResolvedValueOnce({
@@ -1686,7 +1682,7 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
     });
 
     const result: any = await (toolInstance.execute as any)({
-      query: "invoice",
+      query: 'folder:"invoice"',
       limit: 20,
     });
 
@@ -1704,12 +1700,8 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
       readState: undefined,
       labelName: "invoice",
     });
-    expect(searchMessages).toHaveBeenNthCalledWith(3, {
-      query: "invoice",
-      maxResults: 20,
-      readState: undefined,
-    });
-    expect(result.queryUsed).toBe("invoice");
+    expect(searchMessages).toHaveBeenCalledTimes(2);
+    expect(result.queryUsed).toBe("");
   });
 
   it("searchInbox does not pass structured Outlook filters to Google", async () => {
@@ -1849,7 +1841,10 @@ describe("chat inbox tools - bulk pagination guidance (INB-134)", () => {
       limit: 20,
     });
 
-    expect(result.microsoftSearchFeedback.retryQueries).toContain(
+    expect(searchMessages).toHaveBeenCalledWith(
+      expect.objectContaining({ query: String.raw`"Folder \\ Review"` }),
+    );
+    expect(result.microsoftSearchFeedback.retryQueries).not.toContain(
       String.raw`"Folder \\ Review"`,
     );
   });

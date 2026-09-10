@@ -49,11 +49,11 @@ import { getAssistantChatProvider } from "./chat-provider-shared";
 import { LlmUseCase } from "@/utils/llms/use-cases";
 import { isIntegrationActionEnabledForUserId } from "@/utils/integration-action.server";
 
-export const maxDuration = 300;
+export const maxDuration = 800;
 // Increment when chat prompts, tools, or routing change so run quality remains attributable.
-export const ASSISTANT_CHAT_PIPELINE_VERSION = 8;
+export const ASSISTANT_CHAT_PIPELINE_VERSION = 9;
 const ASSISTANT_CHAT_TOOL_BUDGET_MS = {
-  web: 240_000,
+  web: 720_000,
   messaging: 60_000,
 } satisfies Record<"web" | "messaging", number>;
 
