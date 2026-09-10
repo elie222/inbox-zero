@@ -186,3 +186,35 @@ test("turns a prepared split on from the library", async ({
   await page.getByRole("menuitem", { name: "Turn off split" }).click();
   await expect(starredSplit).toHaveCount(0);
 });
+
+test("reorders splits with arrows and dragging and persists tab order", async ({
+  page,
+}, testInfo) => {
+  await openMail(page);
+  const tabs = page.locator("button[data-split-tab]");
+  const original = await tabs.allTextContents();
+  expect(original.length).toBeGreaterThan(1);
+  await page.getByRole("button", { name: "New split", exact: true }).click();
+  const list = page.getByRole("list", { name: "Split order" });
+  await page
+    .getByRole("button", { name: `Move ${original[0]} down`, exact: true })
+    .click();
+  await expect(list).toHaveAttribute("aria-busy", "false");
+  const expected = [original[1], original[0], ...original.slice(2)];
+  await expect(tabs).toHaveText(expected);
+  await expect(
+    page.getByRole("button", { name: "Turn off the All split", exact: true }),
+  ).toBeDisabled();
+  await hideDevIndicator(page);
+  await capturePlaywrightCheckpoint(page, testInfo, "mail-sortable-splits");
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+  await page.reload();
+  await expect(tabs).toHaveText(expected);
+  await page.getByRole("button", { name: "New split", exact: true }).click();
+  const rows = list.getByRole("listitem");
+  await rows.nth(0).locator("[data-drag-split]").dragTo(rows.nth(1));
+  await expect(tabs).toHaveText(original);
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+  await page.reload();
+  await expect(tabs).toHaveText(original);
+});

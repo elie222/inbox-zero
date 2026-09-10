@@ -2,6 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  CheckIcon,
+  GripVerticalIcon,
   ChevronLeftIcon,
   Loader2Icon,
   PlusIcon,
@@ -75,6 +79,8 @@ export type NewSplitDialogProps = {
     filters: MailSplitFilterDraft[];
   }) => Promise<boolean>;
   onDelete: (id: string) => Promise<boolean>;
+  onReorder: (ids: string[]) => Promise<boolean>;
+  onEdit: (id: string) => void;
   onDescribe: (prompt: string) => Promise<{
     filters: MailSplitFilterDraft[];
     name: string | null;
@@ -100,6 +106,8 @@ export function NewSplitDialog({
   onCreate,
   onUpdate,
   onDelete,
+  onReorder,
+  onEdit,
   onDescribe,
 }: NewSplitDialogProps) {
   const [mode, setMode] = useState<"library" | "build" | "describe">("library");
@@ -110,6 +118,34 @@ export function NewSplitDialog({
   const [name, setName] = useState("");
   const [prompt, setPrompt] = useState("");
   const [isBusy, setIsBusy] = useState(false);
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
+
+  const moveSplit = async (id: string, targetId: string) => {
+    if (isBusy || id === targetId) return;
+    const ids = existingSplits.map((split) => split.id);
+    const from = ids.indexOf(id);
+    const to = ids.indexOf(targetId);
+    if (from < 0 || to < 0) return;
+    ids.splice(from, 1);
+    ids.splice(to, 0, id);
+    setIsBusy(true);
+    try {
+      await onReorder(ids);
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  const removeSplit = async (id: string) => {
+    if (isBusy) return;
+    setIsBusy(true);
+    try {
+      await onDelete(id);
+    } finally {
+      setIsBusy(false);
+    }
+  };
 
   const fields = useMemo(
     () =>
@@ -390,27 +426,100 @@ export function NewSplitDialog({
 
               {category === YOUR_SPLITS ? (
                 existingSplits.length ? (
-                  <div className="grid grid-cols-2 gap-2">
-                    {existingSplits.map((split) => (
-                      <div
+                  <ul
+                    className="space-y-1"
+                    aria-label="Split order"
+                    aria-busy={isBusy}
+                  >
+                    {existingSplits.map((split, index) => (
+                      <li
                         key={split.id}
-                        className="flex min-w-0 items-center gap-2 rounded-xl border border-primary/25 bg-primary/5 px-3 py-2.5 text-primary"
+                        className={cn(
+                          "flex min-w-0 items-center gap-1 rounded-lg px-1 py-1.5",
+                          dropTargetId === split.id
+                            ? "bg-accent ring-1 ring-border"
+                            : "hover:bg-muted/50",
+                          draggedId === split.id && "opacity-50",
+                        )}
+                        onDragOver={(event) => {
+                          if (!draggedId || isBusy) return;
+                          event.preventDefault();
+                          event.dataTransfer.dropEffect = "move";
+                          setDropTargetId(split.id);
+                        }}
+                        onDragLeave={() => setDropTargetId(null)}
+                        onDrop={(event) => {
+                          event.preventDefault();
+                          if (draggedId) moveSplit(draggedId, split.id);
+                          setDraggedId(null);
+                          setDropTargetId(null);
+                        }}
                       >
-                        <span className="min-w-0 flex-1 truncate font-medium text-[13px]">
-                          {split.name}
+                        <span
+                          draggable={!isBusy}
+                          data-drag-split={split.id}
+                          aria-hidden="true"
+                          className="cursor-grab p-1 text-muted-foreground active:cursor-grabbing"
+                          onDragStart={(event) => {
+                            event.dataTransfer.setData("text/plain", split.id);
+                            event.dataTransfer.effectAllowed = "move";
+                            setDraggedId(split.id);
+                          }}
+                          onDragEnd={() => {
+                            setDraggedId(null);
+                            setDropTargetId(null);
+                          }}
+                        >
+                          <GripVerticalIcon className="size-3.5" />
                         </span>
                         <button
                           type="button"
-                          disabled={!split.filters.length}
-                          aria-label={`Turn off the ${split.name} split`}
-                          onClick={() => onDelete(split.id)}
-                          className="flex size-4.5 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground hover:bg-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          disabled={isBusy || !split.filters.length}
+                          aria-label={`Edit the ${split.name} split`}
+                          onClick={() => onEdit(split.id)}
+                          className="min-w-0 flex-1 truncate rounded text-left font-medium text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         >
-                          <XIcon className="size-2.5" />
+                          {split.name}
                         </button>
-                      </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-7 text-muted-foreground"
+                          aria-label={`Move ${split.name} up`}
+                          disabled={isBusy || index === 0}
+                          onClick={() =>
+                            moveSplit(split.id, existingSplits[index - 1].id)
+                          }
+                        >
+                          <ArrowUpIcon className="size-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-7 text-muted-foreground"
+                          aria-label={`Move ${split.name} down`}
+                          disabled={
+                            isBusy || index === existingSplits.length - 1
+                          }
+                          onClick={() =>
+                            moveSplit(split.id, existingSplits[index + 1].id)
+                          }
+                        >
+                          <ArrowDownIcon className="size-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-7 text-muted-foreground"
+                          disabled={isBusy || !split.filters.length}
+                          aria-label={`Turn off the ${split.name} split`}
+                          onClick={() => removeSplit(split.id)}
+                        >
+                          <XIcon className="size-3.5" />
+                        </Button>
+                      </li>
                     ))}
-                  </div>
+                  </ul>
                 ) : (
                   <p className="text-muted-foreground text-xs leading-relaxed">
                     Splits you build yourself land here.
@@ -683,13 +792,15 @@ function LibraryTile({
         onClick={onToggle}
         disabled={disabled}
         className={cn(
-          "flex size-4.5 shrink-0 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-          on
-            ? "bg-primary text-primary-foreground hover:bg-destructive"
-            : "text-muted-foreground hover:bg-primary/10 hover:text-primary",
+          "flex size-6 shrink-0 items-center justify-center rounded-md hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          on ? "text-primary" : "text-muted-foreground hover:text-foreground",
         )}
       >
-        {on ? <CheckGlyph /> : <PlusIcon className="size-3" />}
+        {on ? (
+          <CheckIcon className="size-3.5" />
+        ) : (
+          <PlusIcon className="size-3.5" />
+        )}
       </button>
     </div>
   );
@@ -810,23 +921,6 @@ function InfoGlyph() {
       <circle cx="12" cy="12" r="9" />
       <path d="M12 11v5" />
       <path d="M12 8h.01" />
-    </svg>
-  );
-}
-
-function CheckGlyph() {
-  return (
-    <svg
-      aria-hidden
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="3"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="size-2.5"
-    >
-      <path d="m5 12 5 5L20 7" />
     </svg>
   );
 }
