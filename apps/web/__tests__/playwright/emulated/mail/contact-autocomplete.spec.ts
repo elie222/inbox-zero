@@ -7,10 +7,15 @@ test("suggests contacts in every recipient field and reuses cached searches", as
   page,
 }, testInfo) => {
   const queries: string[] = [];
+  let releaseSearch: () => void = () => {};
+  const pendingSearch = new Promise<void>((resolve) => {
+    releaseSearch = resolve;
+  });
   await page.route("**/api/user/contacts?*", async (route) => {
     const query =
       new URL(route.request().url()).searchParams.get("query") ?? "";
     queries.push(query);
+    if (query === "unmatched") await pendingSearch;
     await route.fulfill({
       json: {
         contacts:
@@ -47,10 +52,21 @@ test("suggests contacts in every recipient field and reuses cached searches", as
   await expect(page.getByRole("option", { name: "First Contact" })).toHaveCount(
     0,
   );
+  const unmatchedRequest = page.waitForRequest((request) =>
+    request.url().includes("/api/user/contacts?query=unmatched"),
+  );
   await to.fill("unmatched");
+  await unmatchedRequest;
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      }),
+  );
   await expect(
     page.getByRole("option", { name: "Second Contact" }),
   ).toHaveCount(0);
+  releaseSearch();
   await to.fill("");
 
   await dialog.getByRole("button", { name: "Cc/Bcc" }).click();

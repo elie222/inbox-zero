@@ -1578,7 +1578,8 @@ function ComposeContactRecipientField({
         ],
     {
       dedupingInterval: 5 * 60 * 1000,
-      revalidateOnFocus: false,
+      keepPreviousData: false,
+      revalidateOnFocus: true,
       onError(error) {
         if (error.info?.reconnectRequired) onReconnectRequired();
       },
