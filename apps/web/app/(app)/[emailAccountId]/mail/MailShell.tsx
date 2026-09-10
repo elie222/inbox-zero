@@ -314,7 +314,13 @@ export function MailShell() {
   const splits = useMemo(
     () =>
       [
-        ...(settings?.splits ?? []),
+        ...(settings?.splits ?? []).map((split) => ({
+          ...split,
+          name:
+            isGoogle && split.name.trim().toLowerCase() === "other"
+              ? `${split.name} (custom)`
+              : split.name,
+        })),
         ...(isGoogle && !isAllAccounts
           ? [
               {
@@ -1442,7 +1448,7 @@ export function MailShell() {
               <SplitTabs
                 splits={splits.map((split) => ({
                   ...split,
-                  deletable: split.id !== OTHER_SPLIT_ID,
+                  deletable: split.filters.length > 0,
                 }))}
                 activeSplitId={displayedActiveSplitId}
                 onSelect={setActiveSplitId}

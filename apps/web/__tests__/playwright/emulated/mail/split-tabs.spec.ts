@@ -50,6 +50,28 @@ async function hideDevIndicator(page: Parameters<typeof openMail>[0]) {
   });
 }
 
+test("restores a deleted All tab and protects it from removal", async ({
+  page,
+}, testInfo) => {
+  const emailAccountId = await getEmailAccountId(page);
+  await withClient((client) =>
+    client.query(
+      'DELETE FROM "MailSplit" WHERE "emailAccountId" = $1 AND name = $2',
+      [emailAccountId, "All"],
+    ),
+  );
+  await openMail(page);
+  const allTab = page
+    .locator("button[data-split-tab]")
+    .filter({ hasText: /^All$/ });
+  await expect(allTab).toBeVisible();
+  await allTab.click({ button: "right" });
+  await expect(
+    page.getByRole("menuitem", { name: "Turn off split" }),
+  ).toBeHidden();
+  await capturePlaywrightCheckpoint(page, testInfo, "mail-protected-all-split");
+});
+
 test("moves focus with the active split when cycling by keyboard", async ({
   page,
 }, testInfo) => {

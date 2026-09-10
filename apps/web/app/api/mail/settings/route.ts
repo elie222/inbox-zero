@@ -1,3 +1,4 @@
+import { ensureAllMailSplit } from "@/utils/mail/initial-splits";
 import { NextResponse } from "next/server";
 import { withEmailAccount } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
@@ -30,7 +31,7 @@ async function getMailSettings({ emailAccountId }: { emailAccountId: string }) {
   return {
     layout: emailAccount?.mailLayout ?? null,
     expandedPreview: emailAccount?.mailExpandedPreview ?? false,
-    splits: emailAccount?.mailSplits ?? [],
+    splits: ensureAllMailSplit(emailAccount?.mailSplits ?? []),
   };
 }
 

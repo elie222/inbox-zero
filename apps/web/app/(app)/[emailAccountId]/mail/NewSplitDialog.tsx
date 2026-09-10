@@ -401,6 +401,7 @@ export function NewSplitDialog({
                         </span>
                         <button
                           type="button"
+                          disabled={!split.filters.length}
                           aria-label={`Turn off the ${split.name} split`}
                           onClick={() => onDelete(split.id)}
                           className="flex size-4.5 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground hover:bg-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

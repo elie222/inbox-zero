@@ -128,10 +128,13 @@ export const deleteMailSplitAction = actionClient
   .inputSchema(deleteMailSplitBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput: { id } }) => {
     // deleteMany rather than delete so another account's id can never be removed
-    await prisma.$transaction([
+    const [, { count }] = await prisma.$transaction([
       lockMailSplits(emailAccountId),
-      prisma.mailSplit.deleteMany({ where: { id, emailAccountId } }),
+      prisma.mailSplit.deleteMany({
+        where: { id, emailAccountId, filters: { some: {} } },
+      }),
     ]);
+    if (!count) throw new SafeError("Split not found or cannot be removed");
   });
 
 export const updateMailPreferencesAction = actionClient

@@ -132,7 +132,7 @@ export function ManageSplitsDialog({
                 size="icon"
                 className="size-8 text-muted-foreground hover:text-destructive"
                 aria-label={`Remove the ${split.name} split`}
-                disabled={isSaving}
+                disabled={isSaving || !split.deletable}
                 onClick={() => remove(split.id)}
               >
                 <Trash2Icon className="size-4" />

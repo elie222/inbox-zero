@@ -38,6 +38,25 @@ describe("getThreadParticipantNames", () => {
     ).toEqual(["Bah"]);
   });
 
+  it("does not count an unsent draft as participation by the account owner", () => {
+    expect(
+      getThreadParticipantNames(
+        [
+          message({
+            from: "Bah <bah@example.com>",
+            to: "owner@example.com",
+          }),
+          message({
+            from: "owner@example.com",
+            to: "Bah <bah@example.com>",
+            labelIds: ["DRAFT"],
+          }),
+        ],
+        "owner@example.com",
+      ),
+    ).toEqual(["Bah"]);
+  });
+
   it("keeps recipient names for an outgoing-only thread", () => {
     expect(
       getThreadParticipantNames(
@@ -51,8 +70,31 @@ describe("getThreadParticipantNames", () => {
       ),
     ).toEqual(["Jordan", "Taylor"]);
   });
+
+  it("keeps recipient names for a draft-only thread", () => {
+    expect(
+      getThreadParticipantNames(
+        [
+          message({
+            from: "owner@example.com",
+            to: "Jordan <jordan@example.com>",
+            labelIds: ["DRAFT"],
+          }),
+        ],
+        "owner@example.com",
+      ),
+    ).toEqual(["Jordan"]);
+  });
 });
 
-function message({ from, to }: { from: string; to: string }) {
-  return { headers: { from, to } };
+function message({
+  from,
+  to,
+  labelIds,
+}: {
+  from: string;
+  to: string;
+  labelIds?: string[];
+}) {
+  return { headers: { from, to }, labelIds };
 }

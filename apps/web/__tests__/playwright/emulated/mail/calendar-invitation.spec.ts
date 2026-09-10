@@ -3,6 +3,11 @@ import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import { getEmailAccountId } from "../account-test-helpers";
 import { test } from "../playwright-test";
 
+test.afterEach(async ({ page }) => {
+  // Background revalidation can still be fetching when the assertions finish.
+  await page.unrouteAll({ behavior: "wait" });
+});
+
 test("shows inline calendar responses with the current RSVP", async ({
   page,
 }, testInfo) => {

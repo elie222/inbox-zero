@@ -206,6 +206,38 @@ const RichEmailEditor = forwardRef<
           dir: "auto",
           role: "textbox",
         },
+        handleDOMEvents: {
+          mousedown: (view, event) => {
+            const target = event.target;
+            if (
+              !(target instanceof Element) ||
+              event.button !== 0 ||
+              target.closest("button")
+            ) {
+              return false;
+            }
+            let preservedBlock = target.closest("[data-email-preserved-kind]");
+            const lastEditorChild = view.dom.lastElementChild;
+            if (
+              !preservedBlock &&
+              lastEditorChild?.matches("[data-email-preserved-kind]") &&
+              event.clientY > lastEditorChild.getBoundingClientRect().bottom
+            ) {
+              preservedBlock = lastEditorChild;
+            }
+            if (!preservedBlock) return false;
+
+            event.preventDefault();
+            const blockPosition = view.posAtDOM(preservedBlock, 0);
+            const selection = TextSelection.near(
+              view.state.doc.resolve(blockPosition),
+              -1,
+            );
+            view.dispatch(view.state.tr.setSelection(selection));
+            view.focus();
+            return true;
+          },
+        },
         handleClick: (_view, _position, event) => {
           const link = (event.target as HTMLElement | null)?.closest("a");
           if (!(link instanceof HTMLAnchorElement)) return false;
