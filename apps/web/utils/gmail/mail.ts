@@ -114,7 +114,19 @@ export async function sendEmailWithHtml(
     messageText = stripHtmlTagsForPlainText(body.messageHtml).trim();
   }
 
-  const raw = await createRawMailMessage({ ...body, messageText });
+  let from = body.from?.trim();
+  if (!from) {
+    const profile = await withGmailRetry(() =>
+      gmail.users.getProfile({ userId: "me" }),
+    );
+    from = profile.data.emailAddress?.trim();
+    if (!from) {
+      throw new SafeError(
+        "Could not determine the sender address. Reconnect the account before sending.",
+      );
+    }
+  }
+  const raw = await createRawMailMessage({ ...body, from, messageText });
   const { replyToEmail } = body;
   if (replyToEmail?.messageId) {
     const message = await getMessage(

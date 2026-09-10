@@ -20,6 +20,39 @@ const email = {
 };
 
 describe("sending a Gmail draft from the reader", () => {
+  it("adds the authenticated mailbox as sender when none is supplied", async () => {
+    const { gmail, messages } = createGmail();
+    await sendEmailWithHtml(gmail, { ...email, replyToEmail: undefined });
+    const raw = messages.send.mock.calls[0][0].requestBody.raw;
+    expect(Buffer.from(raw, "base64url").toString()).toContain(
+      "From: sender@example.com\r\n",
+    );
+  });
+
+  it("preserves an explicit sender without fetching the profile", async () => {
+    const { gmail, messages, getProfile } = createGmail();
+    await sendEmailWithHtml(gmail, {
+      ...email,
+      from: "Support <alias@example.com>",
+      replyToEmail: undefined,
+    });
+    const raw = messages.send.mock.calls[0][0].requestBody.raw;
+    expect(Buffer.from(raw, "base64url").toString()).toContain(
+      "From: Support <alias@example.com>\r\n",
+    );
+    expect(getProfile).not.toHaveBeenCalled();
+  });
+
+  it("does not send when the authenticated sender cannot be determined", async () => {
+    const { gmail, messages, drafts, getProfile } = createGmail();
+    getProfile.mockResolvedValue({ data: {} });
+    await expect(sendEmailWithHtml(gmail, email)).rejects.toBeInstanceOf(
+      SafeError,
+    );
+    expect(messages.send).not.toHaveBeenCalled();
+    expect(drafts.send).not.toHaveBeenCalled();
+  });
+
   it("consumes the existing draft and sends the edited content", async () => {
     const { gmail, drafts, messages } = createGmail();
 
@@ -38,6 +71,9 @@ describe("sending a Gmail draft from the reader", () => {
     const [request] = call;
     const raw = request.requestBody.message.raw;
     expect(Buffer.from(raw, "base64url").toString()).toContain("Edited reply");
+    expect(Buffer.from(raw, "base64url").toString()).toContain(
+      "From: sender@example.com\r\n",
+    );
     expect(messages.send).not.toHaveBeenCalled();
   });
 
@@ -135,8 +171,14 @@ function createGmail() {
       >()
       .mockResolvedValue(sent),
   };
+  const getProfile = vi
+    .fn<() => Promise<{ data: { emailAddress?: string } }>>()
+    .mockResolvedValue({ data: { emailAddress: "sender@example.com" } });
   return {
-    gmail: { users: { messages, drafts } } as unknown as gmail_v1.Gmail,
+    getProfile,
+    gmail: {
+      users: { messages, drafts, getProfile },
+    } as unknown as gmail_v1.Gmail,
     messages,
     drafts,
   };
