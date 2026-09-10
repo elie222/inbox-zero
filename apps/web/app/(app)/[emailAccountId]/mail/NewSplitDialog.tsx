@@ -445,7 +445,7 @@ export function NewSplitDialog({
                 aria-label="Match all or any condition"
                 value={matchAll ? "all" : "any"}
                 onChange={(event) => setMatchAll(event.target.value === "all")}
-                className="h-7 rounded-lg border border-border bg-background py-0 pr-8 pl-1.5 text-foreground text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="h-7 rounded-lg border border-border bg-background py-0 pr-8 pl-1.5 text-foreground text-xs outline-none transition-[color,box-shadow] focus:border-ring focus:ring-[3px] focus:ring-ring/50"
               >
                 <option value="all">all</option>
                 <option value="any">any</option>
@@ -749,7 +749,7 @@ function ConditionRow({
         onChange={(event) =>
           onChangeField(event.target.value as MailSplitFilterKind)
         }
-        className="h-8 w-[132px] shrink-0 rounded-lg border border-border bg-background px-2 text-foreground text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="h-8 w-[132px] shrink-0 rounded-lg border border-border bg-background px-2 text-foreground text-xs outline-none transition-[color,box-shadow] focus:border-ring focus:ring-[3px] focus:ring-ring/50"
       >
         {fields.map((field) => (
           <option key={field.kind} value={field.kind}>
@@ -773,7 +773,7 @@ function ConditionRow({
           aria-label="Condition value"
           value={condition.value ?? ""}
           onChange={(event) => onChangeValue(event.target.value)}
-          className="h-8 min-w-0 flex-1 rounded-lg border border-border bg-background px-2 text-foreground text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="h-8 min-w-0 flex-1 rounded-lg border border-border bg-background px-2 text-foreground text-xs outline-none transition-[color,box-shadow] focus:border-ring focus:ring-[3px] focus:ring-ring/50"
         >
           {valueOptions.map((option) => (
             <option key={option.id} value={option.value}>
