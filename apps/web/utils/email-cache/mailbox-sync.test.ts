@@ -71,6 +71,37 @@ describe("mailbox sync coordinator", () => {
     });
   });
 
+  it("batches expanded history pages and normalizes ISO arrival timestamps", async () => {
+    const notifyNewMail = vi.fn();
+    vi.mocked(getInboxZeroDesktopApp).mockReturnValue({
+      startAuth: vi.fn(),
+      notifyNewMail,
+    });
+    const receivedAt = "2026-01-01T12:00:00.000Z";
+    await syncMailboxPages({
+      emailAccountId: "account-1",
+      fetchPage: vi.fn().mockResolvedValue({
+        accountId: "account-1",
+        cursor: "cursor-1",
+        deletedMessageIds: [],
+        hasMore: false,
+        reset: true,
+        upsertedMessages: Array.from({ length: 101 }, (_, index) => ({
+          id: `message-${index}`,
+          threadId: `thread-${index}`,
+          internalDate: receivedAt,
+          labelIds: ["INBOX", "UNREAD"],
+        })),
+      }),
+    });
+    expect(notifyNewMail).toHaveBeenCalledTimes(2);
+    expect(notifyNewMail.mock.calls[0][0].messages).toHaveLength(100);
+    expect(notifyNewMail.mock.calls[1][0]).toEqual({
+      emailAccountId: "account-1",
+      messages: [{ id: "message-100", receivedAt: Date.parse(receivedAt) }],
+    });
+  });
+
   it("starts with a recent snapshot and follows cursors to completion", async () => {
     const fetchPage = vi
       .fn()

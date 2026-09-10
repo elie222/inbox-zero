@@ -222,12 +222,9 @@ function getStartUrl(): string {
 }
 
 function trackLastAppUrl(contents: WebContents) {
-  contents.on(
-    "did-start-navigation",
-    (_event, _url, isInPlace, isMainFrame) => {
-      if (isMainFrame && !isInPlace) clearMailIndicators();
-    },
-  );
+  contents.on("did-start-navigation", ({ isSameDocument, isMainFrame }) => {
+    if (isMainFrame && !isSameDocument) clearMailIndicators();
+  });
   contents.on("did-navigate", (_event, url) => {
     persistLastAppUrl(url);
   });
@@ -241,7 +238,7 @@ function trackLastAppUrl(contents: WebContents) {
 function persistLastAppUrl(url: string) {
   // Local load recovery must not erase the last mailbox to restore.
   if (url.startsWith("data:") || url === "about:blank") return;
-  if (new URL(url).pathname === "/login") clearMailIndicators();
+  if (URL.parse(url)?.pathname === "/login") clearMailIndicators();
   const file = path.join(app.getPath("userData"), LAST_APP_URL_FILE);
   try {
     if (shouldPersistDesktopUrl(url, appOrigin)) {
@@ -260,7 +257,7 @@ function isTrustedMailEvent(event: IpcMainEvent) {
   return (
     event.sender === mainWindow?.webContents &&
     event.senderFrame === event.sender.mainFrame &&
-    new URL(event.senderFrame.url).origin === appOrigin
+    event.senderFrame.origin === appOrigin
   );
 }
 

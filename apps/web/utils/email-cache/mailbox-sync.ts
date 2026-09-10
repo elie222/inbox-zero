@@ -89,9 +89,9 @@ export async function syncMailboxPages({
     if (!isEmailCacheEpochCurrent(emailAccountId, epoch)) {
       return { hasMore: false, pagesSynced };
     }
-    getInboxZeroDesktopApp()?.notifyNewMail?.({
-      emailAccountId,
-      messages: page.upsertedMessages
+    const notifyNewMail = getInboxZeroDesktopApp()?.notifyNewMail;
+    if (notifyNewMail) {
+      const messages = page.upsertedMessages
         .filter(
           (message) =>
             message.labelIds?.includes("INBOX") &&
@@ -99,9 +99,18 @@ export async function syncMailboxPages({
         )
         .map((message) => ({
           id: message.id,
-          receivedAt: Number(message.internalDate),
-        })),
-    });
+          receivedAt: Number.isFinite(Number(message.internalDate))
+            ? Number(message.internalDate)
+            : Date.parse(message.internalDate ?? ""),
+        }));
+      // Provider history pages can expand beyond the desktop IPC batch limit.
+      for (let offset = 0; offset < messages.length; offset += 100) {
+        notifyNewMail({
+          emailAccountId,
+          messages: messages.slice(offset, offset + 100),
+        });
+      }
+    }
     pagesSynced += 1;
     hasMore = page.hasMore;
     input = { cursor: page.cursor, limit: DEFAULT_PAGE_LIMIT };

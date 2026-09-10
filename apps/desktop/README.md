@@ -26,7 +26,6 @@ New unread inbox mail produces a native notification while the app is in the bac
 
 The app must remain running; hiding the Mac window is supported, fully quitting stops updates. macOS notifications require a signed app and notification permission in System Settings. Use the OS notification settings to disable alerts or sounds. Both the desktop release and hosted web changes are needed; older desktop versions safely ignore the new integration.
 
-
 ## Package
 
 ```sh
