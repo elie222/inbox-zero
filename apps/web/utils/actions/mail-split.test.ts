@@ -5,6 +5,7 @@ import prisma from "@/utils/__mocks__/prisma";
 import {
   buildMailSplitFromPromptAction,
   createMailSplitAction,
+  deleteMailSplitAction,
   updateMailPreferencesAction,
   updateMailSplitAction,
 } from "@/utils/actions/mail-split";
@@ -40,6 +41,27 @@ describe("mail split actions", () => {
       email: "user@example.com",
       account: { userId: "user-1", provider: "google" },
     } as never);
+  });
+
+  it("only deletes filtered splits belonging to the account", async () => {
+    prisma.$transaction.mockResolvedValue([[], { count: 1 }] as never);
+    const result = await deleteMailSplitAction(EMAIL_ACCOUNT_ID, {
+      id: "custom",
+    });
+    expect(result?.serverError).toBeUndefined();
+    expect(prisma.mailSplit.deleteMany).toHaveBeenCalledWith({
+      where: {
+        id: "custom",
+        emailAccountId: EMAIL_ACCOUNT_ID,
+        filters: { some: {} },
+      },
+    });
+  });
+
+  it("reports when a protected split cannot be removed", async () => {
+    prisma.$transaction.mockResolvedValue([[], { count: 0 }] as never);
+    const result = await deleteMailSplitAction(EMAIL_ACCOUNT_ID, { id: "all" });
+    expect(result?.serverError).toBe("Split not found or cannot be removed");
   });
 
   it("creates splits behind an account-scoped database lock", async () => {
