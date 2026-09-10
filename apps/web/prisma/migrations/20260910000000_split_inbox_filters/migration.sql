@@ -22,6 +22,9 @@ CREATE INDEX "MailSplitFilter_kind_value_idx" ON "MailSplitFilter"("kind", "valu
 ALTER TABLE "MailSplitFilter" ADD CONSTRAINT "MailSplitFilter_mailSplitId_fkey"
     FOREIGN KEY ("mailSplitId") REFERENCES "MailSplit"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
+-- Invalid legacy label/category rows had no usable definition; do not widen them into inbox views.
+DELETE FROM "MailSplit" WHERE "kind" IN ('LABEL', 'CATEGORY') AND cardinality("values") = 0;
+
 -- Preserve existing label unions as "match any", and built-in inbox rows as
 -- filterless splits. Order and ids remain unchanged.
 UPDATE "MailSplit" SET "matchAll" = false WHERE "kind" = 'LABEL' AND cardinality("values") > 1;

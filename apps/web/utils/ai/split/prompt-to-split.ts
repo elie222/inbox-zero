@@ -137,13 +137,15 @@ ${prompt}
     schema: promptToSplitSchema,
   });
 
+  const filters = toFilters(result.object.conditions, options);
+  const allConditionsSupported =
+    filters.length === result.object.conditions.length &&
+    (supportsStarred ||
+      filters.every((filter) => filter.kind !== MailSplitFilterKind.STARRED));
   return {
     name: result.object.name,
     matchAll: result.object.matchAll,
-    filters: toFilters(result.object.conditions, options).filter(
-      (filter) =>
-        supportsStarred || filter.kind !== MailSplitFilterKind.STARRED,
-    ),
+    filters: allConditionsSupported ? filters : [],
   };
 }
 

@@ -20,7 +20,7 @@ describe.skipIf(!process.env.RUN_DB_TESTS)("split filter migration", () => {
         SET LOCAL search_path = split_filter_migration_test;
         CREATE TYPE "MailSplitKind" AS ENUM ('INBOX', 'UNREAD', 'LABEL', 'CATEGORY');
         CREATE TABLE "MailSplit" ("id" text PRIMARY KEY, "kind" "MailSplitKind", "values" text[]);
-        INSERT INTO "MailSplit" VALUES ('all', 'INBOX', '{}'), ('unread', 'UNREAD', '{}'), ('labels', 'LABEL', '{one,two}'), ('category', 'CATEGORY', '{CATEGORY_PROMOTIONS}');
+        INSERT INTO "MailSplit" VALUES ('empty-label', 'LABEL', '{}'), ('empty-category', 'CATEGORY', '{}'), ('all', 'INBOX', '{}'), ('unread', 'UNREAD', '{}'), ('labels', 'LABEL', '{one,two}'), ('category', 'CATEGORY', '{CATEGORY_PROMOTIONS}');
       `);
       await client.query(migration);
       const result = await client.query(

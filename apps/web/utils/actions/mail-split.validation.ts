@@ -45,7 +45,7 @@ export type SplitPromptOptionInput = z.infer<typeof splitPromptOption>;
 export const buildMailSplitFromPromptBody = z.object({
   prompt: z.string().trim().min(1).max(300),
   options: z.array(splitPromptOption).max(500),
-  senders: z.array(z.string().trim().min(1).max(320)).max(200),
+  senders: z.array(z.string().trim().max(320).pipe(z.email())).max(200),
 });
 export type BuildMailSplitFromPromptBody = z.infer<
   typeof buildMailSplitFromPromptBody
