@@ -58,11 +58,9 @@ export async function fetchThreadsPage({
       loadPage: async ({ source, pageToken }) => {
         const { anyOf: _anyOf, ...base } = query;
         const { labelId, ...condition } = source.condition;
-        const requiredLabelIds = base.labelIds?.length
-          ? base.labelIds
-          : base.labelId
-            ? [base.labelId]
-            : ["INBOX"];
+        let requiredLabelIds = ["INBOX"];
+        if (base.labelIds?.length) requiredLabelIds = base.labelIds;
+        else if (base.labelId) requiredLabelIds = [base.labelId];
         const page = await emailProvider.getThreadsWithQuery({
           query: {
             ...base,

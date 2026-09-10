@@ -25,10 +25,12 @@ test.beforeEach(async ({ page }) => {
          VALUES (gen_random_uuid()::text, NOW(), $1, $2, true, $3) RETURNING id`,
         [emailAccountId, split.name, order],
       );
+      const splitId = rows.at(0)?.id;
+      if (!splitId) throw new Error("Could not initialize split fixture");
       for (const filter of split.filters.create) {
         await client.query(
           `INSERT INTO "MailSplitFilter" (id, "mailSplitId", kind, value, "order") VALUES (gen_random_uuid()::text, $1, $2, $3, $4)`,
-          [rows[0].id, filter.kind, filter.value, filter.order],
+          [splitId, filter.kind, filter.value, filter.order],
         );
       }
     }

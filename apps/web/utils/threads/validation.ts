@@ -19,11 +19,7 @@ const threadsQueryLeaf = z
   .refine(
     (leaf) =>
       Object.values(leaf).filter(
-        (value) =>
-          value !== null &&
-          value !== undefined &&
-          value !== "" &&
-          value !== false,
+        (value) => value !== null && value !== undefined,
       ).length === 1,
     { message: "Each match-any branch must contain one condition" },
   );
