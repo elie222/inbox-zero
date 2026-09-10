@@ -1,7 +1,8 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import { assert, describe, expect, it, vi } from "vitest";
+import { getMockMessage } from "@/__tests__/helpers";
 import { SafeError } from "@/utils/error";
-import { sendEmailWithHtml } from "./mail";
+import { forwardEmail, replyToEmail, sendEmailWithHtml } from "./mail";
 
 vi.mock("@/utils/mail", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/utils/mail")>()),
@@ -51,6 +52,27 @@ describe("sending a Gmail draft from the reader", () => {
     );
     expect(messages.send).not.toHaveBeenCalled();
     expect(drafts.send).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "reply",
+    "forward",
+  ] as const)("adds a sender for a %s without an explicit sender", async (kind) => {
+    const { gmail, messages } = createGmail();
+    const message = getMockMessage();
+    if (kind === "reply") {
+      await replyToEmail(gmail, message, "Reply content");
+    } else {
+      await forwardEmail(
+        gmail,
+        { ...message, attachments: [] },
+        { to: "recipient@example.com" },
+      );
+    }
+    const raw = messages.send.mock.calls[0][0].requestBody.raw;
+    expect(Buffer.from(raw, "base64url").toString()).toContain(
+      "From: sender@example.com\r\n",
+    );
   });
 
   it("consumes the existing draft and sends the edited content", async () => {

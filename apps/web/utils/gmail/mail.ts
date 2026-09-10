@@ -114,18 +114,7 @@ export async function sendEmailWithHtml(
     messageText = stripHtmlTagsForPlainText(body.messageHtml).trim();
   }
 
-  let from = body.from?.trim();
-  if (!from) {
-    const profile = await withGmailRetry(() =>
-      gmail.users.getProfile({ userId: "me" }),
-    );
-    from = profile.data.emailAddress?.trim();
-    if (!from) {
-      throw new SafeError(
-        "Could not determine the sender address. Reconnect the account before sending.",
-      );
-    }
-  }
+  const from = await resolveSender(gmail, body.from);
   const raw = await createRawMailMessage({ ...body, from, messageText });
   const { replyToEmail } = body;
   if (replyToEmail?.messageId) {
@@ -216,7 +205,7 @@ export async function replyToEmail(
   // Only replying to the original sender
   const raw = await createRawMailMessage({
     to: message.headers["reply-to"] || message.headers.from,
-    from,
+    from: await resolveSender(gmail, from),
     replyTo: options?.replyTo,
     subject: formatReplySubject(message.headers.subject),
     messageText,
@@ -280,7 +269,7 @@ export async function forwardEmail(
 
   const raw = await createRawMailMessage({
     to: options.to,
-    from: options.from,
+    from: await resolveSender(gmail, options.from),
     cc: options.cc,
     bcc: options.bcc,
     subject: forwardEmailSubject(message.headers.subject),
@@ -481,4 +470,20 @@ function readHtmlTagName(value: string, start: number) {
   }
 
   return tagName;
+}
+
+async function resolveSender(gmail: gmail_v1.Gmail, suppliedFrom?: string) {
+  const from = suppliedFrom?.trim();
+  if (from) return from;
+
+  const profile = await withGmailRetry(() =>
+    gmail.users.getProfile({ userId: "me" }),
+  );
+  const emailAddress = profile.data.emailAddress?.trim();
+  if (!emailAddress) {
+    throw new SafeError(
+      "Could not determine the sender address. Reconnect the account before sending.",
+    );
+  }
+  return emailAddress;
 }
