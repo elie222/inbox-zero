@@ -116,20 +116,7 @@ export async function sendEmailWithHtml(
   }
 
   const raw = await createRawMailMessage({ ...body, messageText });
-  const mime = Buffer.from(raw, "base64url");
-  const headerEnd = mime.indexOf("\r\n\r\n");
-  const mimeHeaders = mime
-    .subarray(0, headerEnd < 0 ? mime.length : headerEnd)
-    .toString("utf8");
-  sendLogger.info("Prepared Gmail send", {
-    hasExplicitFrom: Boolean(body.from?.trim()),
-    hasMimeFrom: /^from:/im.test(mimeHeaders),
-    hasReplyMessageId: Boolean(body.replyToEmail?.messageId),
-    hasThreadId: Boolean(body.replyToEmail?.threadId),
-    hasInReplyTo: /^in-reply-to:/im.test(mimeHeaders),
-    mimeBytes: mime.length,
-    attachmentCount: body.attachments?.length ?? 0,
-  });
+  sendLogger.info("Prepared Gmail send", getGmailSendMetadata(raw, body));
   const { replyToEmail } = body;
   if (replyToEmail?.messageId) {
     const message = await getMessage(
@@ -510,4 +497,21 @@ async function trackGmailSend<T>(
     });
     throw error;
   }
+}
+
+function getGmailSendMetadata(raw: string, body: MailSendEmailBody) {
+  const mime = Buffer.from(raw, "base64url");
+  const headerEnd = mime.indexOf("\r\n\r\n");
+  const mimeHeaders = mime
+    .subarray(0, headerEnd < 0 ? mime.length : headerEnd)
+    .toString("utf8");
+  return {
+    hasExplicitFrom: Boolean(body.from?.trim()),
+    hasMimeFrom: /^from:/im.test(mimeHeaders),
+    hasReplyMessageId: Boolean(body.replyToEmail?.messageId),
+    hasThreadId: Boolean(body.replyToEmail?.threadId),
+    hasInReplyTo: /^in-reply-to:/im.test(mimeHeaders),
+    mimeBytes: mime.length,
+    attachmentCount: body.attachments?.length ?? 0,
+  };
 }
