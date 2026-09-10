@@ -47,12 +47,13 @@ export const POST = withError("google/webhook", async (request) => {
   logger = logger.with({
     email: decodedData.emailAddress,
     historyId: decodedData.historyId,
-    pubsubMessageId: body.message?.messageId,
-    pubsubPublishTime: body.message?.publishTime,
-    pubsubSubscription: body.subscription,
+    queueMessageId: body.message?.messageId,
+    subscriptionId: body.subscription,
   });
 
-  logger.info("Received webhook - acknowledging immediately");
+  logger.info("Received webhook - acknowledging immediately", {
+    sentAt: body.message?.publishTime,
+  });
 
   const emailAccount = await getWebhookEmailAccount(
     { email: decodedData.emailAddress.toLowerCase() },
