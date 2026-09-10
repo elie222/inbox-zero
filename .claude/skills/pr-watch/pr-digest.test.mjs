@@ -45,13 +45,13 @@ test("reads completed-job logs directly and preserves startup and type errors", 
   const result = run(["--logs", "42"], { logs: [
     "2026-01-01T00:00:00Z \u001b[31m[WebServer] Error: listen EADDRINUSE: address already in use :3000\u001b[0m",
     "2026-01-01T00:00:01Z Error: Timed out waiting 240000ms from config.webServer.",
-    "2026-01-01T00:00:02Z Type error: Type boolean is not assignable to true.",
+    "\u001b]0;untrusted title\u0007\u001b[2J2026-01-01T00:00:02Z Type error: Type boolean is not assignable to true.",
   ].join("\n") });
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /EADDRINUSE/);
   assert.match(result.stdout, /Timed out waiting 240000ms/);
   assert.match(result.stdout, /Type error:/);
-  assert.doesNotMatch(result.stdout, /\u001b\[/);
+  assert.doesNotMatch(result.stdout, /[\u0000-\u0008\u000b-\u001f\u007f]|untrusted title/);
 });
 
 test("unavailable job logs produce an explicit error", () => {
@@ -77,12 +77,14 @@ const a = process.argv.slice(2);
 const f = JSON.parse(process.env.DIGEST_FIXTURE);
 const route = a.find(value => value.startsWith('repos/')) || '';
 let data;
+if (a.includes('--help')) { process.stdout.write('--allow-escape-sequences'); process.exit(0); }
 if (a[0] === 'repo') data = { nameWithOwner: 'example/repo' };
 else if (a[0] === 'pr') data = { number: 1, headRefOid: 'abc', headRefName: 'feature', state: 'OPEN', mergeable: 'MERGEABLE', reviewDecision: '' };
 else if (a.includes('graphql')) data = { data: { viewer: { login: 'owner' } } };
 else if (route.includes('/check-runs')) data = { check_runs: f.checks || [] };
 else if (route.includes('/status?')) data = { statuses: f.statuses || [] };
 else if (route.endsWith('/logs')) {
+  if (!a.includes('--allow-escape-sequences')) { process.stderr.write('Escape sequences require opt-in'); process.exit(1); }
   if (f.logs === undefined) { process.stderr.write('Logs not available'); process.exit(1); }
   process.stdout.write(f.logs); process.exit(0);
 }

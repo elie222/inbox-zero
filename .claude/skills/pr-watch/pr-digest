@@ -48,11 +48,15 @@ commit_statuses() {
 
 logs() {
   local job=$1 repo raw cleaned out startup
+  local log_flag=""
+  if gh api --help 2>/dev/null | grep -- --allow-escape-sequences >/dev/null; then
+    log_flag=--allow-escape-sequences
+  fi
   repo=$(gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null) || die "not a GitHub repo"
   # The completed job's endpoint works while sibling jobs are still running.
-  raw=$(api "repos/$repo/actions/jobs/$job/logs") || die "job $job logs unavailable; inspect the job URL and retry log retrieval when available"
+  raw=$(api "repos/$repo/actions/jobs/$job/logs" ${log_flag:+"$log_flag"}) || die "job $job logs unavailable; inspect the job URL and retry log retrieval when available"
   [ -n "${raw//[[:space:]]/}" ] || die "job $job logs unavailable; no log content was returned"
-  cleaned=$(printf '%s\n' "$raw" | perl -pe 's/\e\[[0-9;]*m//g; s/^[^\t]*\t[^\t]*\t\S+\s//; s/^\d{4}-\d\d-\d\dT\S+\s//')
+  cleaned=$(printf '%s\n' "$raw" | perl -0777 -pe 's/\e\][^\a\e]*(?:\a|\e\\)//g; s/\e[P^_X].*?\e\\//sg; s/\e\[[0-?]*[ -\/]*[@-~]//g; s/\e[ -\/]*[@-~]//g; s/[\x00-\x08\x0b-\x1f\x7f]//g; s/^[^\t\n]*\t[^\t\n]*\t\S+[^\S\n]//mg; s/^\d{4}-\d\d-\d\dT\S+[^\S\n]//mg')
   out=$(printf '%s\n' "$cleaned" |
     grep -E -A 3 -B 2 '(^|[^a-zA-Z])(Error|TimeoutError|AssertionError|Type error|error TS[0-9]+|ERR_|EADDRINUSE|ECONNREFUSED|timed out|Timed out|timeout|failed|Failed|FAIL|Cannot find|Cannot resolve|Cannot connect)|config\.webServer|^ *[0-9]+\) |^ *(Locator|Expected|Received|Call log):|^ *>? *[0-9]+ \| |^ *at .*\.(spec|test)\.[jt]sx?:[0-9]|^ *[0-9]+ (passed|flaky|skipped)|^##\[error\]' |
     tail -n "${PR_DIGEST_LOG_LINES:-80}")
