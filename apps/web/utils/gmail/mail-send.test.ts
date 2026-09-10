@@ -1,8 +1,8 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import { assert, describe, expect, it, vi } from "vitest";
-import { getMockMessage } from "@/__tests__/helpers";
+import { createScopedLogger } from "@/utils/logger";
 import { SafeError } from "@/utils/error";
-import { forwardEmail, replyToEmail, sendEmailWithHtml } from "./mail";
+import { sendEmailWithHtml } from "./mail";
 
 vi.mock("@/utils/mail", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/utils/mail")>()),
@@ -21,58 +21,40 @@ const email = {
 };
 
 describe("sending a Gmail draft from the reader", () => {
-  it("adds the authenticated mailbox as sender when none is supplied", async () => {
+  it("reports the actual MIME sender presence and failed send endpoint without message content", async () => {
     const { gmail, messages } = createGmail();
-    await sendEmailWithHtml(gmail, { ...email, replyToEmail: undefined });
-    const raw = messages.send.mock.calls[0][0].requestBody.raw;
-    expect(Buffer.from(raw, "base64url").toString()).toContain(
-      "From: sender@example.com\r\n",
+    messages.get.mockResolvedValue({ data: { labelIds: ["INBOX"] } });
+    const failure = Object.assign(new Error("Bad Gateway"), { code: 502 });
+    messages.send.mockRejectedValue(failure);
+    const logger = createScopedLogger("test");
+    const info = vi.spyOn(logger, "info");
+    const warn = vi.spyOn(logger, "warn");
+    await expect(sendEmailWithHtml(gmail, email, logger)).rejects.toBe(failure);
+    expect(info).toHaveBeenCalledWith(
+      "Prepared Gmail send",
+      expect.objectContaining({
+        hasExplicitFrom: false,
+        hasMimeFrom: false,
+        hasReplyMessageId: true,
+        hasThreadId: true,
+        mimeBytes: expect.any(Number),
+      }),
     );
-  });
-
-  it("preserves an explicit sender without fetching the profile", async () => {
-    const { gmail, messages, getProfile } = createGmail();
-    await sendEmailWithHtml(gmail, {
-      ...email,
-      from: "Support <alias@example.com>",
-      replyToEmail: undefined,
-    });
-    const raw = messages.send.mock.calls[0][0].requestBody.raw;
-    expect(Buffer.from(raw, "base64url").toString()).toContain(
-      "From: Support <alias@example.com>\r\n",
+    expect(warn).toHaveBeenCalledWith(
+      "Gmail send request failed",
+      expect.objectContaining({
+        gmailOperation: "messages.send",
+        status: 502,
+        durationMs: expect.any(Number),
+      }),
     );
-    expect(getProfile).not.toHaveBeenCalled();
-  });
-
-  it("does not send when the authenticated sender cannot be determined", async () => {
-    const { gmail, messages, drafts, getProfile } = createGmail();
-    getProfile.mockResolvedValue({ data: {} });
-    await expect(sendEmailWithHtml(gmail, email)).rejects.toBeInstanceOf(
-      SafeError,
-    );
-    expect(messages.send).not.toHaveBeenCalled();
-    expect(drafts.send).not.toHaveBeenCalled();
-  });
-
-  it.each([
-    "reply",
-    "forward",
-  ] as const)("adds a sender for a %s without an explicit sender", async (kind) => {
-    const { gmail, messages } = createGmail();
-    const message = getMockMessage();
-    if (kind === "reply") {
-      await replyToEmail(gmail, message, "Reply content");
-    } else {
-      await forwardEmail(
-        gmail,
-        { ...message, attachments: [] },
-        { to: "recipient@example.com" },
-      );
-    }
-    const raw = messages.send.mock.calls[0][0].requestBody.raw;
-    expect(Buffer.from(raw, "base64url").toString()).toContain(
-      "From: sender@example.com\r\n",
-    );
+    expect(messages.send).toHaveBeenCalledTimes(1);
+    expect(
+      JSON.stringify([...info.mock.calls, ...warn.mock.calls]),
+    ).not.toContain(email.to);
+    expect(
+      JSON.stringify([...info.mock.calls, ...warn.mock.calls]),
+    ).not.toContain(email.messageHtml);
   });
 
   it("consumes the existing draft and sends the edited content", async () => {
@@ -93,9 +75,6 @@ describe("sending a Gmail draft from the reader", () => {
     const [request] = call;
     const raw = request.requestBody.message.raw;
     expect(Buffer.from(raw, "base64url").toString()).toContain("Edited reply");
-    expect(Buffer.from(raw, "base64url").toString()).toContain(
-      "From: sender@example.com\r\n",
-    );
     expect(messages.send).not.toHaveBeenCalled();
   });
 
@@ -193,14 +172,8 @@ function createGmail() {
       >()
       .mockResolvedValue(sent),
   };
-  const getProfile = vi
-    .fn<() => Promise<{ data: { emailAddress?: string } }>>()
-    .mockResolvedValue({ data: { emailAddress: "sender@example.com" } });
   return {
-    getProfile,
-    gmail: {
-      users: { messages, drafts, getProfile },
-    } as unknown as gmail_v1.Gmail,
+    gmail: { users: { messages, drafts } } as unknown as gmail_v1.Gmail,
     messages,
     drafts,
   };

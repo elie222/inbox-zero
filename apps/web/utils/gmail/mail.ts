@@ -12,7 +12,7 @@ import {
 import type { ParsedMessage } from "@/utils/types";
 import { createReplyContent, formatEmailDate } from "@/utils/gmail/reply";
 import type { EmailForAction } from "@/utils/ai/types";
-import { createScopedLogger } from "@/utils/logger";
+import { createScopedLogger, type Logger } from "@/utils/logger";
 import {
   extractErrorInfo,
   withGmailNonIdempotentWriteRetry,
@@ -102,6 +102,7 @@ const createRawMailMessage = async ({
 export async function sendEmailWithHtml(
   gmail: gmail_v1.Gmail,
   body: MailSendEmailBody,
+  sendLogger: Logger = logger,
 ) {
   ensureEmailSendingEnabled();
 
@@ -110,12 +111,25 @@ export async function sendEmailWithHtml(
   try {
     messageText = convertEmailHtmlToText({ htmlText: body.messageHtml });
   } catch (error) {
-    logger.error("Error converting email html to text", { error });
+    sendLogger.error("Error converting email html to text", { error });
     messageText = stripHtmlTagsForPlainText(body.messageHtml).trim();
   }
 
-  const from = await resolveSender(gmail, body.from);
-  const raw = await createRawMailMessage({ ...body, from, messageText });
+  const raw = await createRawMailMessage({ ...body, messageText });
+  const mime = Buffer.from(raw, "base64url");
+  const headerEnd = mime.indexOf("\r\n\r\n");
+  const mimeHeaders = mime
+    .subarray(0, headerEnd < 0 ? mime.length : headerEnd)
+    .toString("utf8");
+  sendLogger.info("Prepared Gmail send", {
+    hasExplicitFrom: Boolean(body.from?.trim()),
+    hasMimeFrom: /^from:/im.test(mimeHeaders),
+    hasReplyMessageId: Boolean(body.replyToEmail?.messageId),
+    hasThreadId: Boolean(body.replyToEmail?.threadId),
+    hasInReplyTo: /^in-reply-to:/im.test(mimeHeaders),
+    mimeBytes: mime.length,
+    attachmentCount: body.attachments?.length ?? 0,
+  });
   const { replyToEmail } = body;
   if (replyToEmail?.messageId) {
     const message = await getMessage(
@@ -124,7 +138,7 @@ export async function sendEmailWithHtml(
       "metadata",
     ).catch((error: unknown) => {
       if (extractErrorInfo(error).status === 404) {
-        logger.warn("Reply source disappeared before sending", {
+        sendLogger.warn("Reply source disappeared before sending", {
           messageId: replyToEmail.messageId,
         });
         throw new SafeError(
@@ -147,7 +161,7 @@ export async function sendEmailWithHtml(
       }
 
       // Sending the existing draft consumes it and applies edits in one request.
-      return withGmailNonIdempotentWriteRetry(() =>
+      return trackGmailSend("drafts.send", sendLogger, () =>
         gmail.users.drafts.send({
           userId: "me",
           requestBody: {
@@ -158,7 +172,7 @@ export async function sendEmailWithHtml(
       );
     }
   }
-  const result = await withGmailNonIdempotentWriteRetry(() =>
+  const result = await trackGmailSend("messages.send", sendLogger, () =>
     gmail.users.messages.send({
       userId: "me",
       requestBody: {
@@ -205,7 +219,7 @@ export async function replyToEmail(
   // Only replying to the original sender
   const raw = await createRawMailMessage({
     to: message.headers["reply-to"] || message.headers.from,
-    from: await resolveSender(gmail, from),
+    from,
     replyTo: options?.replyTo,
     subject: formatReplySubject(message.headers.subject),
     messageText,
@@ -269,7 +283,7 @@ export async function forwardEmail(
 
   const raw = await createRawMailMessage({
     to: options.to,
-    from: await resolveSender(gmail, options.from),
+    from: options.from,
     cc: options.cc,
     bcc: options.bcc,
     subject: forwardEmailSubject(message.headers.subject),
@@ -472,18 +486,28 @@ function readHtmlTagName(value: string, start: number) {
   return tagName;
 }
 
-async function resolveSender(gmail: gmail_v1.Gmail, suppliedFrom?: string) {
-  const from = suppliedFrom?.trim();
-  if (from) return from;
-
-  const profile = await withGmailRetry(() =>
-    gmail.users.getProfile({ userId: "me" }),
-  );
-  const emailAddress = profile.data.emailAddress?.trim();
-  if (!emailAddress) {
-    throw new SafeError(
-      "Could not determine the sender address. Reconnect the account before sending.",
-    );
+async function trackGmailSend<T>(
+  gmailOperation: "messages.send" | "drafts.send",
+  logger: Logger,
+  send: () => Promise<T>,
+): Promise<T> {
+  const startedAt = Date.now();
+  logger.info("Gmail send request started", { gmailOperation });
+  try {
+    const result = await withGmailNonIdempotentWriteRetry(send, 5, { logger });
+    logger.info("Gmail send request accepted", {
+      gmailOperation,
+      durationMs: Date.now() - startedAt,
+    });
+    return result;
+  } catch (error) {
+    const { status, googleErrorStatus } = extractErrorInfo(error);
+    logger.warn("Gmail send request failed", {
+      gmailOperation,
+      durationMs: Date.now() - startedAt,
+      status,
+      googleErrorStatus,
+    });
+    throw error;
   }
-  return emailAddress;
 }

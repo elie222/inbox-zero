@@ -1108,10 +1108,14 @@ export class GmailProvider implements EmailProvider {
   }
 
   async sendEmailWithHtml(body: SendEmailBody) {
-    const result = await sendEmailWithHtml(this.client, {
-      ...body,
-      attachments: toMailerAttachments(body.attachments),
-    });
+    const result = await sendEmailWithHtml(
+      this.client,
+      {
+        ...body,
+        attachments: toMailerAttachments(body.attachments),
+      },
+      this.logger,
+    );
     return {
       messageId: result.data.id || "",
       threadId: result.data.threadId || "",
