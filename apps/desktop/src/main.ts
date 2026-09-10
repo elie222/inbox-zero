@@ -6,10 +6,12 @@ import {
   dialog,
   ipcMain,
   nativeTheme,
+  Notification,
   session,
   shell,
   type Session,
   type WebContents,
+  type IpcMainEvent,
 } from "electron";
 import { installDesktopLoadRecovery } from "./load-recovery";
 import { configureDesktopApplicationMenu } from "./application-menu";
@@ -35,6 +37,7 @@ import {
   parseDesktopAuthCallback,
   shouldPersistDesktopUrl,
 } from "./desktop";
+import { createMailNotificationTracker } from "./mail-notifications";
 
 const PARTITION = "persist:inbox-zero";
 const PENDING_CALLBACK_PATH_FILE = "pending-auth-callback-path";
@@ -46,6 +49,8 @@ let pendingCallbackPath: string | null = null;
 let isQuitting = false;
 const appOrigin = getDesktopAppOrigin();
 const homeUrl = getDesktopHomeUrl(appOrigin);
+const trackNewMail = createMailNotificationTracker();
+const mailNotifications = new Map<string, Notification>();
 
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
@@ -56,6 +61,42 @@ if (!gotTheLock) {
 
 function startDesktopApp() {
   nativeTheme.themeSource = "light";
+  app.setAppUserModelId("com.getinboxzero.desktop");
+
+  ipcMain.on("desktop:unread-count", (event, count: unknown) => {
+    if (!isTrustedMailEvent(event)) return;
+    if (typeof count !== "number" || !Number.isSafeInteger(count) || count < 0)
+      return;
+    setUnreadBadge(count);
+  });
+  ipcMain.on("desktop:new-mail", (event, payload: unknown) => {
+    if (!isTrustedMailEvent(event)) return;
+    const mail = trackNewMail(payload);
+    if (!mail || mainWindow?.isFocused() || !Notification.isSupported()) return;
+    const notification = new Notification({
+      title: "Inbox Zero",
+      body:
+        mail.count === 1
+          ? "You have a new email"
+          : `You have ${mail.count} new emails`,
+    });
+    mailNotifications.get(mail.emailAccountId)?.close();
+    mailNotifications.set(mail.emailAccountId, notification);
+    notification.on("click", () => {
+      focusMainWindow();
+      mainWindow
+        ?.loadURL(new URL(`/${mail.emailAccountId}/mail`, appOrigin).toString())
+        .catch(() => {});
+    });
+    const release = () => {
+      if (mailNotifications.get(mail.emailAccountId) === notification) {
+        mailNotifications.delete(mail.emailAccountId);
+      }
+    };
+    notification.on("close", release);
+    notification.on("failed", release);
+    notification.show();
+  });
 
   app.on("second-instance", (_event, argv) => {
     const protocolUrl = findDesktopProtocolUrl(argv);
@@ -150,6 +191,7 @@ function createMainWindow() {
       contextIsolation: true,
       sandbox: true,
       nodeIntegration: false,
+      backgroundThrottling: false,
     },
   });
 
@@ -180,6 +222,12 @@ function getStartUrl(): string {
 }
 
 function trackLastAppUrl(contents: WebContents) {
+  contents.on(
+    "did-start-navigation",
+    (_event, _url, isInPlace, isMainFrame) => {
+      if (isMainFrame && !isInPlace) clearMailIndicators();
+    },
+  );
   contents.on("did-navigate", (_event, url) => {
     persistLastAppUrl(url);
   });
@@ -193,6 +241,7 @@ function trackLastAppUrl(contents: WebContents) {
 function persistLastAppUrl(url: string) {
   // Local load recovery must not erase the last mailbox to restore.
   if (url.startsWith("data:") || url === "about:blank") return;
+  if (new URL(url).pathname === "/login") clearMailIndicators();
   const file = path.join(app.getPath("userData"), LAST_APP_URL_FILE);
   try {
     if (shouldPersistDesktopUrl(url, appOrigin)) {
@@ -205,6 +254,26 @@ function persistLastAppUrl(url: string) {
   } catch {
     // Restoring the last page is best-effort; never break navigation over it.
   }
+}
+
+function isTrustedMailEvent(event: IpcMainEvent) {
+  return (
+    event.sender === mainWindow?.webContents &&
+    event.senderFrame === event.sender.mainFrame &&
+    new URL(event.senderFrame.url).origin === appOrigin
+  );
+}
+
+function setUnreadBadge(count: number) {
+  if (process.platform === "darwin")
+    app.dock?.setBadge(count ? String(count) : "");
+  else if (process.platform === "linux") app.setBadgeCount(count);
+}
+
+function clearMailIndicators() {
+  setUnreadBadge(0);
+  for (const notification of mailNotifications.values()) notification.close();
+  mailNotifications.clear();
 }
 
 function readLastAppUrl(): string | null {

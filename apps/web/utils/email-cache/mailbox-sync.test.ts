@@ -1,5 +1,6 @@
 import "fake-indexeddb/auto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
 import { clearEmailCache, getEmailCacheDatabase } from "./database";
 import { readMailboxSyncState } from "./mailbox";
 import {
@@ -8,15 +9,66 @@ import {
   syncMailboxPages,
 } from "./mailbox-sync";
 
+vi.mock("@/utils/desktop-app", () => ({ getInboxZeroDesktopApp: vi.fn() }));
+
 describe("mailbox sync coordinator", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
+    vi.mocked(getInboxZeroDesktopApp).mockReturnValue(undefined);
     await clearEmailCache();
   });
 
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
+  });
+
+  it("forwards only unread inbox arrivals to desktop notifications", async () => {
+    const notifyNewMail = vi.fn();
+    vi.mocked(getInboxZeroDesktopApp).mockReturnValue({
+      startAuth: vi.fn(),
+      notifyNewMail,
+    });
+    await syncMailboxPages({
+      emailAccountId: "account-1",
+      fetchPage: vi.fn().mockResolvedValue({
+        accountId: "account-1",
+        cursor: "cursor-1",
+        deletedMessageIds: [],
+        hasMore: false,
+        reset: true,
+        upsertedMessages: [
+          {
+            id: "new",
+            threadId: "t1",
+            internalDate: "1000",
+            labelIds: ["INBOX", "UNREAD"],
+          },
+          {
+            id: "read",
+            threadId: "t2",
+            internalDate: "1000",
+            labelIds: ["INBOX"],
+          },
+          {
+            id: "archived",
+            threadId: "t3",
+            internalDate: "1000",
+            labelIds: ["UNREAD"],
+          },
+          {
+            id: "sent",
+            threadId: "t4",
+            internalDate: "1000",
+            labelIds: ["SENT"],
+          },
+        ],
+      }),
+    });
+    expect(notifyNewMail).toHaveBeenCalledWith({
+      emailAccountId: "account-1",
+      messages: [{ id: "new", receivedAt: 1000 }],
+    });
   });
 
   it("starts with a recent snapshot and follows cursors to completion", async () => {

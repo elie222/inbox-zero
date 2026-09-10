@@ -1,6 +1,7 @@
 import type { MailboxSyncResponse } from "@/app/api/mobile/mailbox-sync/route";
 import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
 import { ONE_DAY_MS } from "@/utils/date";
+import { getInboxZeroDesktopApp } from "@/utils/desktop-app";
 import { captureEmailCacheEpoch, isEmailCacheEpochCurrent } from "./database";
 import { applyMailboxSyncPage, readMailboxSyncState } from "./mailbox";
 
@@ -85,6 +86,22 @@ export async function syncMailboxPages({
       now: now?.getTime() ?? Date.now(),
     });
     if (!applied) throw new Error("Mailbox sync page was not persisted");
+    if (!isEmailCacheEpochCurrent(emailAccountId, epoch)) {
+      return { hasMore: false, pagesSynced };
+    }
+    getInboxZeroDesktopApp()?.notifyNewMail?.({
+      emailAccountId,
+      messages: page.upsertedMessages
+        .filter(
+          (message) =>
+            message.labelIds?.includes("INBOX") &&
+            message.labelIds.includes("UNREAD"),
+        )
+        .map((message) => ({
+          id: message.id,
+          receivedAt: Number(message.internalDate),
+        })),
+    });
     pagesSynced += 1;
     hasMore = page.hasMore;
     input = { cursor: page.cursor, limit: DEFAULT_PAGE_LIMIT };

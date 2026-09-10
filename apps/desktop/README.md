@@ -18,6 +18,15 @@ INBOX_ZERO_APP_URL=http://localhost:3000 pnpm --filter @inboxzero/desktop dev
 
 Sign-in uses the system browser and returns through `inboxzero://`. The web app's `DESKTOP_AUTH_ORIGIN` defaults to this scheme.
 
+## Mail badge and notifications
+
+The macOS Dock badge shows the combined unread inbox count across connected accounts, refreshed about once a minute and on focus. Linux uses the supported launcher badge; Windows does not currently display a numeric badge.
+
+New unread inbox mail produces a native notification while the app is in the background. Clicking it opens that account's inbox. Alerts contain no sender or subject preview. Mail from before app startup or more than five minutes ago is suppressed, and repeated sync results do not replay alerts. Notifications follow the existing mailbox sync schedule (normally about a minute), rather than a server push channel.
+
+The app must remain running; hiding the Mac window is supported, fully quitting stops updates. macOS notifications require a signed app and notification permission in System Settings. Use the OS notification settings to disable alerts or sounds. Both the desktop release and hosted web changes are needed; older desktop versions safely ignore the new integration.
+
+
 ## Package
 
 ```sh
