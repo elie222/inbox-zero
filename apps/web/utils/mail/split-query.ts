@@ -1,5 +1,8 @@
 import { MailSplitFilterKind } from "@/generated/prisma/enums";
-import type { ThreadsQuery } from "@/utils/threads/validation";
+import type {
+  ThreadsQuery,
+  ThreadsQueryLeaf,
+} from "@/utils/threads/validation";
 import { isOutlookInboxSection } from "@/utils/mail/outlook-inbox";
 
 export type MailSplitFilter = {
@@ -128,7 +131,7 @@ function matchAllQuery(split: MailSplit, now: Date): ThreadsQuery {
  * condition becomes its own leaf and the provider ORs them inside the inbox.
  */
 function matchAnyQuery(split: MailSplit, now: Date): ThreadsQuery {
-  const anyOf = split.filters.map((filter) => {
+  const anyOf = split.filters.map<ThreadsQueryLeaf>((filter) => {
     switch (filter.kind) {
       case MailSplitFilterKind.UNREAD:
         return { isUnread: true };
