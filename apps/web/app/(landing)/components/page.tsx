@@ -66,6 +66,7 @@ import {
 } from "@/components/ui/item";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { isValidEmail } from "@/utils/email";
+import { EmailAccountPreviewProvider } from "@/providers/EmailAccountProvider";
 import { ActionBadges } from "@/app/(app)/[emailAccountId]/assistant/Rules";
 import { DismissibleVideoCard } from "@/components/VideoCard";
 import { PremiumExpiredCardContent } from "@/components/PremiumCard";
@@ -82,6 +83,14 @@ import {
 export const maxDuration = 3;
 
 export default function Components() {
+  return (
+    <EmailAccountPreviewProvider>
+      <ComponentsDemo />
+    </EmailAccountPreviewProvider>
+  );
+}
+
+function ComponentsDemo() {
   const { selectedValues, setSelectedValues } = useMultiSelectFilter([
     "alerts",
   ]);
@@ -831,12 +840,6 @@ export default function Components() {
 
         <div>
           <div className="underline">Form fields</div>
-          <MutedText className="mt-2">
-            Focus one of these to check the ring. The @tailwindcss/forms plugin
-            paints its own focus border on native fields, so anything styled
-            like these has to set a focus border color of its own or the two
-            outlines stack up.
-          </MutedText>
           <div className="mt-4 max-w-md space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="demo-input">Input</Label>
