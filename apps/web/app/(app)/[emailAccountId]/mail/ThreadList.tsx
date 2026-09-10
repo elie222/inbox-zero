@@ -132,7 +132,7 @@ export function ThreadList({
         className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
         ref={setScrollRoot}
       >
-        {threads.length === 0 ? (
+        {threads.length === 0 && !showLoadMore ? (
           <div className="px-6 py-12 text-center text-muted-foreground text-sm">
             No emails in this view
           </div>

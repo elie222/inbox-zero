@@ -23,6 +23,12 @@ export type SplitLibraryEntry = {
 
 export const SPLIT_LIBRARY: SplitLibraryEntry[] = [
   {
+    name: "Important",
+    category: "General",
+    description: "Based on Gmail’s importance markers.",
+    conditions: [{ kind: "LABEL", labelName: "Important" }],
+  },
+  {
     name: "To reply",
     category: "General",
     description:

@@ -49,6 +49,7 @@ export const GET = withEmailProvider(
       before,
       isUnread,
       anyOf,
+      excludeSplits: searchParams.get("excludeSplits"),
     });
 
     try {
