@@ -51,6 +51,7 @@ logs() {
   repo=$(gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null) || die "not a GitHub repo"
   # The completed job's endpoint works while sibling jobs are still running.
   raw=$(api "repos/$repo/actions/jobs/$job/logs") || die "job $job logs unavailable; inspect the job URL and retry log retrieval when available"
+  [ -n "${raw//[[:space:]]/}" ] || die "job $job logs unavailable; no log content was returned"
   cleaned=$(printf '%s\n' "$raw" | perl -pe 's/\e\[[0-9;]*m//g; s/^[^\t]*\t[^\t]*\t\S+\s//; s/^\d{4}-\d\d-\d\dT\S+\s//')
   out=$(printf '%s\n' "$cleaned" |
     grep -E -A 3 -B 2 '(^|[^a-zA-Z])(Error|TimeoutError|AssertionError|Type error|error TS[0-9]+|ERR_|EADDRINUSE|ECONNREFUSED|timed out|Timed out|timeout|failed|Failed|FAIL|Cannot find|Cannot resolve|Cannot connect)|config\.webServer|^ *[0-9]+\) |^ *(Locator|Expected|Received|Call log):|^ *>? *[0-9]+ \| |^ *at .*\.(spec|test)\.[jt]sx?:[0-9]|^ *[0-9]+ (passed|flaky|skipped)|^##\[error\]' |

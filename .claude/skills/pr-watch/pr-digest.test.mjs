@@ -16,7 +16,7 @@ for (const conclusion of ["failure", "timed_out", "cancelled"]) {
     assert.equal(result.status, 10, result.stderr);
     assert.match(result.stdout, /VERDICT failures/);
     assert.match(result.stdout, /PENDING Slow browser tests/);
-    assert.doesNotMatch(result.stdout, /tests did not run/);
+    assert.ok(result.stdout.includes(`FAIL Web E2E [${conclusion}] · step "Build app" failure (later steps skipped)`), result.stdout);
   });
 }
 
@@ -59,6 +59,14 @@ test("unavailable job logs produce an explicit error", () => {
   assert.equal(result.status, 1);
   assert.match(result.stderr, /logs unavailable/);
 });
+
+for (const logs of ["", " \n\t"]) {
+  test(`empty job logs are unavailable: ${JSON.stringify(logs)}`, () => {
+    const result = run(["--logs", "42"], { logs });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /logs unavailable; no log content was returned/);
+  });
+}
 
 function run(args, fixture, env = {}) {
   const dir = mkdtempSync(path.join(tmpdir(), "pr-digest-test-"));
