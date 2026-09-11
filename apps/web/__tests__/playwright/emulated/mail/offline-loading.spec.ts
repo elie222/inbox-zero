@@ -90,7 +90,7 @@ test("opens saved mail offline, reconnects, and clears it on sign-out", async ({
     );
 
     await context.setOffline(false);
-    await page.reload();
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 15_000 });
     await expect(
       conversationWithSubject(page, conversations, "Archive Action Message"),
     ).toBeVisible();
@@ -122,15 +122,6 @@ test("opens saved mail offline, reconnects, and clears it on sign-out", async ({
       .toBe(0);
   } finally {
     await context.setOffline(false);
-    await page
-      .evaluate(async () => {
-        await Promise.all(
-          (await navigator.serviceWorker.getRegistrations()).map(
-            (registration) => registration.unregister(),
-          ),
-        );
-      })
-      .catch(() => {});
     if (!production) await rm(workerFile, { force: true });
   }
 });
