@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { gmail_v1 } from "@googleapis/gmail";
+import { auth, gmail_v1 } from "@googleapis/gmail";
 import type { EmailThread } from "@/utils/email/types";
 import type { ParsedMessage } from "@/utils/types";
 import { GmailLabel } from "@/utils/gmail/label";
@@ -528,11 +528,9 @@ describe("GmailProvider.getThreadsWithQuery", () => {
           ],
         },
       ]);
-    const provider = new GmailProvider({
-      context: {
-        _options: { auth: { credentials: { access_token: "access-token" } } },
-      },
-    } as gmail_v1.Gmail);
+    const oauth = new auth.OAuth2();
+    oauth.setCredentials({ access_token: "access-token" });
+    const provider = new GmailProvider(new gmail_v1.Gmail({ auth: oauth }));
     const result = await provider.getThreadsWithQuery({
       query: { fromEmail: "@example.com", labelIds: ["INBOX"] },
       maxResults: 1,
