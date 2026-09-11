@@ -74,6 +74,37 @@ describe("offline mail cache", () => {
     expect(await (await response).text()).toBe("Saved mailbox");
   });
 
+  it("serves the saved mailbox while a background cache write is stalled", async () => {
+    const cache = makeCache();
+    network.mockResolvedValueOnce(html());
+    await cache.handle(documentRequest(), waitUntil);
+    await Promise.all(pending);
+
+    let finishWrite!: () => void;
+    const writing = new Promise<void>((resolve) => {
+      finishWrite = resolve;
+    });
+    vi.spyOn(storage, "put").mockReturnValueOnce(writing);
+    network.mockResolvedValueOnce(html("Refreshed mailbox"));
+    await cache.handle(documentRequest(), waitUntil);
+
+    vi.useFakeTimers();
+    network.mockImplementation(() => new Promise(() => {}));
+    let body: string | undefined;
+    const response = cache
+      .handle(documentRequest(), waitUntil)
+      .then(async (result) => {
+        body = await result.text();
+      });
+    await vi.advanceTimersByTimeAsync(3000);
+    try {
+      expect(body).toBe("Saved mailbox");
+    } finally {
+      finishWrite();
+      await response;
+    }
+  });
+
   it("uses saved mail when response headers arrive but the page body stalls", async () => {
     const cache = makeCache();
     network.mockResolvedValueOnce(html());
