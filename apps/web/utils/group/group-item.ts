@@ -31,7 +31,7 @@ export async function saveGroupItem({
   reason?: string | null;
   threadId?: string | null;
   messageId?: string | null;
-  source?: GroupItemSource | null;
+  source: GroupItemSource;
 }) {
   const normalizedValue = normalizeGroupItemValue(value);
   if (!normalizedValue) throw new Error("Learned pattern cannot be empty");

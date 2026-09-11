@@ -28,7 +28,7 @@ export async function saveLearnedPattern({
   reason?: string | null;
   threadId?: string | null;
   messageId?: string | null;
-  source?: GroupItemSource | null;
+  source: GroupItemSource;
 }) {
   const rule = await prisma.rule.findUnique({
     where: { id: ruleId, emailAccountId },

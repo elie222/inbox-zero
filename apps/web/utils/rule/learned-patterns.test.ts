@@ -49,6 +49,7 @@ describe("saveLearnedPattern", () => {
     vi.mocked(prisma.rule.findUnique).mockResolvedValue(null);
 
     await saveLearnedPattern({
+      source: GroupItemSource.AI,
       emailAccountId: "email-account-id",
       from: "test@example.com",
       ruleId: "nonexistent-rule",
@@ -67,6 +68,7 @@ describe("saveLearnedPattern", () => {
       groupId: existingGroupId,
     } as any);
     await saveLearnedPattern({
+      source: GroupItemSource.AI,
       emailAccountId: "email-account-id",
       from: "test@example.com",
       ruleId: "rule-id",
@@ -91,6 +93,7 @@ describe("saveLearnedPattern", () => {
       groupId: "group-id",
     } as any);
     await saveLearnedPattern({
+      source: GroupItemSource.AI,
       emailAccountId: "email-account-id",
       from: "\t Sender@Example.COM\n",
       ruleId: "rule-id",
@@ -216,6 +219,7 @@ describe("saveLearnedPattern", () => {
       id: newGroupId,
     } as any);
     await saveLearnedPattern({
+      source: GroupItemSource.AI,
       emailAccountId: "email-account-id",
       from: "test@example.com",
       ruleId: "rule-id",
@@ -290,6 +294,7 @@ describe("saveLearnedPattern", () => {
     } as any);
     vi.mocked(prisma.rule.update).mockResolvedValue({} as any);
     await saveLearnedPattern({
+      source: GroupItemSource.AI,
       emailAccountId: "email-account-id",
       from: "test@example.com",
       ruleId: "rule-id",
