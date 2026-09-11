@@ -29,6 +29,7 @@ export function EmailThread({
   onOpenSenderContext,
   withHeader,
   renderToolbar,
+  renderMessageMenu,
   enableMessageNavigation = false,
 }: {
   messages: ThreadMessage[];
@@ -42,6 +43,7 @@ export function EmailThread({
   onOpenSenderContext?: (message: ThreadMessage) => void;
   withHeader?: boolean;
   enableMessageNavigation?: boolean;
+  renderMessageMenu?: (message: ThreadMessage) => ReactNode;
   renderToolbar?: (controls: {
     allExpanded: boolean;
     canExpand: boolean;
@@ -51,30 +53,10 @@ export function EmailThread({
   const { emailAccountId } = useAccount();
   const threadId = messages[0]?.threadId ?? "";
   const { drafts: localDrafts } = useReplyDrafts(emailAccountId, threadId);
-  // Place draft messages as replies to their parent message
-  const organizedMessages = useMemo(() => {
-    const drafts = new Map<string, ThreadMessage>();
-    const regularMessages: ThreadMessage[] = [];
-
-    messages?.forEach((message) => {
-      if (message.labelIds?.includes("DRAFT")) {
-        // Get the parent message ID from the references or in-reply-to header
-        const parentId =
-          message.headers.references?.split(" ").pop() ||
-          message.headers["in-reply-to"];
-        if (parentId) {
-          drafts.set(parentId, message);
-        }
-      } else {
-        regularMessages.push(message);
-      }
-    });
-
-    return regularMessages.map((message) => ({
-      message,
-      draftMessage: drafts.get(message.headers["message-id"] || ""),
-    }));
-  }, [messages]);
+  const organizedMessages = useMemo(
+    () => organizeMessages(messages),
+    [messages],
+  );
 
   const lastMessageId = organizedMessages.at(-1)?.message.id;
 
@@ -253,9 +235,14 @@ export function EmailThread({
               defaultComposeMode={defaultComposeMode}
               draftMessage={draftMessage}
               expanded={expanded(message.id, Boolean(defaultComposeMode))}
-              hasDraft={Boolean(draftMessage) || hasLocalDraft(message.id)}
+              hasDraft={
+                message.labelIds?.includes(GmailLabel.DRAFT) ||
+                Boolean(draftMessage) ||
+                hasLocalDraft(message.id)
+              }
               key={`${message.id}:${recoveredReply?.messageId === message.id ? recoveredReply.version : 0}`}
               message={message}
+              menu={renderMessageMenu?.(message)}
               onOpenSenderContext={onOpenSenderContext}
               onMarkDone={onMarkDone}
               onSendSuccess={(messageId, sentThreadId) => {
@@ -279,7 +266,9 @@ export function EmailThread({
                     }
               }
               refetch={refetch}
-              showReplyButton={showReplyButton}
+              showReplyButton={
+                showReplyButton && !message.labelIds?.includes(GmailLabel.DRAFT)
+              }
             />
           );
         })}
@@ -337,4 +326,36 @@ function getDefaultComposeMode({
   if (autoOpenMode) return autoOpenMode;
   if (draftMessage) return "reply" as const;
   return localDraftMode;
+}
+
+function organizeMessages(messages: ThreadMessage[]) {
+  const drafts = new Map<string, ThreadMessage>();
+  const regularMessages: ThreadMessage[] = [];
+  const parentMessageIds = new Set(
+    messages
+      .filter((message) => !message.labelIds?.includes(GmailLabel.DRAFT))
+      .map((message) => message.headers["message-id"])
+      .filter(Boolean),
+  );
+
+  messages?.forEach((message) => {
+    if (message.labelIds?.includes(GmailLabel.DRAFT)) {
+      // Get the parent message ID from the references or in-reply-to header
+      const parentId =
+        message.headers.references?.split(" ").pop() ||
+        message.headers["in-reply-to"];
+      if (parentId && parentMessageIds.has(parentId)) {
+        drafts.set(parentId, message);
+      } else {
+        regularMessages.push(message);
+      }
+    } else {
+      regularMessages.push(message);
+    }
+  });
+
+  return regularMessages.map((message) => ({
+    message,
+    draftMessage: drafts.get(message.headers["message-id"] || ""),
+  }));
 }
