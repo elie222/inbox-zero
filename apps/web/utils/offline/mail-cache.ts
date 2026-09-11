@@ -56,7 +56,7 @@ export function createOfflineMailCache({
     const cached = async () => {
       if (startedAtGeneration !== generation) return;
       try {
-        await writes;
+        // A stalled refresh must not block reading the previously saved page.
         const response = await (await caches.open(cacheName)).match(key);
         return startedAtGeneration === generation ? response : undefined;
       } catch {
