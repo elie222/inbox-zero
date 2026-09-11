@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
+import { connection } from "next/server";
 import { auth, betterAuthConfig } from "@/utils/auth";
 import { getMcpServerAccess } from "@/utils/mcp/access";
 import { isMcpServerAvailable, MCP_SCOPES } from "@/utils/mcp/config";
@@ -11,6 +12,8 @@ export default async function McpConsentPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  // The MCP flag can be enabled at runtime after a build with it disabled.
+  await connection();
   if (!isMcpServerAvailable()) notFound();
   const params = await searchParams;
   const session = await auth();
