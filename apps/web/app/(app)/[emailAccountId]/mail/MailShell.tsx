@@ -1,5 +1,7 @@
 "use client";
 
+import { MailPanelErrorBoundary } from "@/app/(app)/[emailAccountId]/mail/MailPanelErrorBoundary";
+
 import { GmailLabel } from "@/utils/gmail/label";
 import { isThreadStarred } from "@/app/(app)/[emailAccountId]/mail/star-state";
 import {
@@ -1549,109 +1551,126 @@ export function MailShell() {
                 their connections.
               </div>
             ) : null}
-            <LoadingContent
-              loading={isLoading && !threads.length}
-              error={error}
+            <MailPanelErrorBoundary
+              resetKey={JSON.stringify([
+                emailAccountId,
+                isAllAccounts,
+                query,
+                displayedActiveSplitId,
+                searchQuery,
+              ])}
+              title="Unable to show your mail list"
             >
-              <ThreadList
-                threads={threads}
-                layout={layout}
-                expandedPreview={expandedPreview}
-                userEmail={userEmail}
-                userLabels={isAllAccounts ? NO_LABELS : userLabels}
-                labelsByAccount={labelsByAccount}
-                focusedIndex={clampedIndex}
-                isSelected={selection.isSelected}
-                selectedCount={selection.selectedCount}
-                onOpenThread={openAt}
-                onToggleSelect={selection.toggle}
-                onSelectRangeTo={selection.selectRangeTo}
-                showLoadMore={hasMore}
-                isLoadingMore={isLoadingMore}
-                onLoadMore={loadMore}
-                listKey={
-                  isAllAccounts
-                    ? `all-accounts:${searchQuery ?? displayedActiveSplitId}`
-                    : JSON.stringify(query)
-                }
-              />
-            </LoadingContent>
+              <LoadingContent
+                loading={isLoading && !threads.length}
+                error={error}
+              >
+                <ThreadList
+                  threads={threads}
+                  layout={layout}
+                  expandedPreview={expandedPreview}
+                  userEmail={userEmail}
+                  userLabels={isAllAccounts ? NO_LABELS : userLabels}
+                  labelsByAccount={labelsByAccount}
+                  focusedIndex={clampedIndex}
+                  isSelected={selection.isSelected}
+                  selectedCount={selection.selectedCount}
+                  onOpenThread={openAt}
+                  onToggleSelect={selection.toggle}
+                  onSelectRangeTo={selection.selectRangeTo}
+                  showLoadMore={hasMore}
+                  isLoadingMore={isLoadingMore}
+                  onLoadMore={loadMore}
+                  listKey={
+                    isAllAccounts
+                      ? `all-accounts:${searchQuery ?? displayedActiveSplitId}`
+                      : JSON.stringify(query)
+                  }
+                />
+              </LoadingContent>
+            </MailPanelErrorBoundary>
           </section>
         )}
 
         {showReader && (!openThreadSelection || readerEmailAccount) ? (
-          <EmailAccountScopeProvider emailAccount={readerEmailAccount}>
-            <BufferedThreadReader
-              key={readerEmailAccount?.id ?? "empty"}
-              threadKey={openReaderThreadKey ?? "empty"}
-              dataReady={
-                !openThreadSelection ||
-                (readerSelectionSettled &&
-                  Boolean(openThreadData || openThreadError))
-              }
-              onReady={setVisibleReaderThreadKey}
-            >
-              <ThreadReader
-                enableMessageNavigation={!sidePanelThreadId}
-                thread={openThread ?? null}
-                threadId={openThreadId}
-                detailSelectionSettled={readerSelectionSettled}
-                loading={
-                  Boolean(openThreadSelection) &&
-                  (!readerSelectionSettled || isOpenThreadLoading)
+          <MailPanelErrorBoundary
+            resetKey={openReaderThreadKey ?? "empty"}
+            title="Unable to show this conversation"
+            onBack={closeReader}
+          >
+            <EmailAccountScopeProvider emailAccount={readerEmailAccount}>
+              <BufferedThreadReader
+                key={readerEmailAccount?.id ?? "empty"}
+                threadKey={openReaderThreadKey ?? "empty"}
+                dataReady={
+                  !openThreadSelection ||
+                  (readerSelectionSettled &&
+                    Boolean(openThreadData || openThreadError))
                 }
-                error={readerSelectionSettled ? openThreadError : undefined}
-                messages={openMessages}
-                userLabels={readerUserLabels}
-                layout={layout}
-                labelHref={labelHref}
-                onRemoveLabel={onRemoveLabel}
-                onBackToInbox={closeReader}
-                onArchive={archiveTargets}
-                refetch={refetchOpenThread}
-                onSendSuccess={(_messageId, sentThreadId) => {
-                  if (
-                    !openThreadSelection ||
-                    !sentThreadId.trim() ||
-                    sentThreadId === openThreadSelection.threadId
-                  )
-                    return;
-                  setReplyToMessageId(undefined);
-                  setOpenThread({
-                    emailAccountId: openThreadSelection.emailAccountId,
-                    threadId: sentThreadId,
-                  });
-                }}
-                autoOpenReplyForMessageId={replyToMessageId}
-                autoOpenForwardForMessageId={forwardToMessageId}
-                menu={
-                  <ThreadActionsMenu
-                    plans={openThread?.plans ?? []}
-                    message={openMessages.at(-1) ?? null}
-                    setChatInput={setChatInput}
-                    isUnread={isOpenThreadUnread}
-                    isStarred={allStarred}
-                    onToggleStar={starTargets}
-                    onMarkSpam={markSpamTargets}
-                    onDelete={trashTargets}
-                    onLabel={canLabel ? openLabelPicker : undefined}
-                    onMove={canLabel ? openMovePicker : undefined}
-                    onMarkRead={() => {
-                      if (!openThreadKey) return;
-                      setReadState([openThreadKey], true);
-                    }}
-                    onMarkUnread={markUnreadTargets}
-                    showFixWithChat={
-                      !isAllAccounts ||
-                      openThreadSelection?.emailAccountId === emailAccountId
-                    }
-                    open={isMenuOpen}
-                    onOpenChange={setIsMenuOpen}
-                  />
-                }
-              />
-            </BufferedThreadReader>
-          </EmailAccountScopeProvider>
+                onReady={setVisibleReaderThreadKey}
+              >
+                <ThreadReader
+                  enableMessageNavigation={!sidePanelThreadId}
+                  thread={openThread ?? null}
+                  threadId={openThreadId}
+                  detailSelectionSettled={readerSelectionSettled}
+                  loading={
+                    Boolean(openThreadSelection) &&
+                    (!readerSelectionSettled || isOpenThreadLoading)
+                  }
+                  error={readerSelectionSettled ? openThreadError : undefined}
+                  messages={openMessages}
+                  userLabels={readerUserLabels}
+                  layout={layout}
+                  labelHref={labelHref}
+                  onRemoveLabel={onRemoveLabel}
+                  onBackToInbox={closeReader}
+                  onArchive={archiveTargets}
+                  refetch={refetchOpenThread}
+                  onSendSuccess={(_messageId, sentThreadId) => {
+                    if (
+                      !openThreadSelection ||
+                      !sentThreadId.trim() ||
+                      sentThreadId === openThreadSelection.threadId
+                    )
+                      return;
+                    setReplyToMessageId(undefined);
+                    setOpenThread({
+                      emailAccountId: openThreadSelection.emailAccountId,
+                      threadId: sentThreadId,
+                    });
+                  }}
+                  autoOpenReplyForMessageId={replyToMessageId}
+                  autoOpenForwardForMessageId={forwardToMessageId}
+                  menu={
+                    <ThreadActionsMenu
+                      plans={openThread?.plans ?? []}
+                      message={openMessages.at(-1) ?? null}
+                      setChatInput={setChatInput}
+                      isUnread={isOpenThreadUnread}
+                      isStarred={allStarred}
+                      onToggleStar={starTargets}
+                      onMarkSpam={markSpamTargets}
+                      onDelete={trashTargets}
+                      onLabel={canLabel ? openLabelPicker : undefined}
+                      onMove={canLabel ? openMovePicker : undefined}
+                      onMarkRead={() => {
+                        if (!openThreadKey) return;
+                        setReadState([openThreadKey], true);
+                      }}
+                      onMarkUnread={markUnreadTargets}
+                      showFixWithChat={
+                        !isAllAccounts ||
+                        openThreadSelection?.emailAccountId === emailAccountId
+                      }
+                      open={isMenuOpen}
+                      onOpenChange={setIsMenuOpen}
+                    />
+                  }
+                />
+              </BufferedThreadReader>
+            </EmailAccountScopeProvider>
+          </MailPanelErrorBoundary>
         ) : null}
 
         {showReader && openThreadSelection && !readerEmailAccount ? (

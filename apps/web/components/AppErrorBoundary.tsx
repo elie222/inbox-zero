@@ -4,7 +4,7 @@ import * as Sentry from "@sentry/nextjs";
 import { AlertCircle, Home, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { useParams, usePathname, useSearchParams } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { env } from "@/env";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,10 +20,17 @@ import { createClientLogger } from "@/utils/logger-client";
 export function AppErrorBoundary({
   error,
   reset,
+  title = "Something went wrong",
+  description,
+  onBack,
 }: {
   error: Error & { digest?: string };
   reset: () => void;
+  title?: string;
+  description?: string;
+  onBack?: () => void;
 }) {
+  const [supportReference, setSupportReference] = useState<string>();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const params = useParams<{
@@ -42,6 +49,7 @@ export function AppErrorBoundary({
     });
     // Correlate with the exception details without copying raw error text into Axiom.
     const sentryEventId = Sentry.captureException(error, { extra: context });
+    setSupportReference(sentryEventId);
     logger.error("App error boundary triggered", {
       ...context,
       sentryEventId,
@@ -56,16 +64,22 @@ export function AppErrorBoundary({
           <EmptyMedia variant="icon" className="bg-destructive/10">
             <AlertCircle className="text-destructive" />
           </EmptyMedia>
-          <EmptyTitle>Something went wrong</EmptyTitle>
+          <EmptyTitle>{title}</EmptyTitle>
           <EmptyDescription>
-            {error.message || "An unexpected error occurred."}
+            {description ||
+              "We couldn’t load this view. Try again. If the problem continues, contact support with the reference below."}
           </EmptyDescription>
         </EmptyHeader>
-        <div className="mt-6 flex flex-col gap-2 sm:flex-row">
+        <div className="mt-6 flex flex-col flex-wrap justify-center gap-2 sm:flex-row">
           <Button onClick={reset} variant="outline">
             <RotateCcw className="mr-2 size-4" />
             Try again
           </Button>
+          {onBack && (
+            <Button onClick={onBack} variant="outline">
+              Back to inbox
+            </Button>
+          )}
           <Button asChild>
             <Link href="/">
               <Home className="mr-2 size-4" />
@@ -73,11 +87,17 @@ export function AppErrorBoundary({
             </Link>
           </Button>
         </div>
+        {supportReference && (
+          <p className="break-all text-xs text-muted-foreground">
+            Support reference:{" "}
+            <span className="select-all font-mono">{supportReference}</span>
+          </p>
+        )}
         <p className="mt-6 text-sm text-muted-foreground">
           If this error persists, please contact support at{" "}
           <a
-            href={`mailto:${env.NEXT_PUBLIC_SUPPORT_EMAIL}`}
-            className="underline"
+            href={`mailto:${env.NEXT_PUBLIC_SUPPORT_EMAIL}?${new URLSearchParams({ subject: "App error report", body: `Support reference: ${supportReference || error.digest || "Unavailable"}\n\nWhat were you doing when the error occurred?\n` })}`}
+            className="break-all underline"
           >
             {env.NEXT_PUBLIC_SUPPORT_EMAIL}
           </a>
