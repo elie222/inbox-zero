@@ -12,6 +12,7 @@ import {
 import type { ParsedMessage } from "@/utils/types";
 import { createReplyContent, formatEmailDate } from "@/utils/gmail/reply";
 import type { EmailForAction } from "@/utils/ai/types";
+import { extractEmailAddress } from "@/utils/email";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 import {
   extractErrorInfo,
@@ -190,6 +191,8 @@ export async function replyToEmail(
   options?: {
     replyTo?: string;
     attachments?: Attachment[];
+    replyAll?: boolean;
+    userEmails?: string | string[];
   },
 ) {
   ensureEmailSendingEnabled();
@@ -203,10 +206,21 @@ export async function replyToEmail(
     message,
   });
 
-  // Only replying to the original sender
+  const replyAllRecipients = options?.replyAll
+    ? buildReplyAllRecipients(
+        message.headers,
+        undefined,
+        options.userEmails ?? extractEmailAddress(from || ""),
+      )
+    : null;
+
   const raw = await createRawMailMessage({
-    to: message.headers["reply-to"] || message.headers.from,
+    to:
+      replyAllRecipients?.to ||
+      message.headers["reply-to"] ||
+      message.headers.from,
     from,
+    cc: replyAllRecipients ? formatCcList(replyAllRecipients.cc) : undefined,
     replyTo: options?.replyTo,
     subject: formatReplySubject(message.headers.subject),
     messageText,

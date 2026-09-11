@@ -17,6 +17,7 @@ import type { EmailProvider } from "@/utils/email/types";
 import type { ParsedMessage } from "@/utils/types";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { getFormattedSenderAddress } from "@/utils/email/get-formatted-sender-address";
+import { buildReplyAllRecipients, formatCcList } from "@/utils/email/reply-all";
 import { runWithBoundedConcurrency } from "@/utils/async";
 import { findNestedLabelMatches } from "@/utils/label/find-nested-label-matches";
 import { normalizeLabelName } from "@/utils/label/normalize-label-name";
@@ -112,6 +113,12 @@ const replyEmailToolInputSchema = z
       .min(1)
       .max(10_000)
       .describe("Reply body content to include in the draft."),
+    replyAll: z
+      .boolean()
+      .optional()
+      .describe(
+        "Set to true only when the user asks to reply all or include all original recipients.",
+      ),
   })
   .strict();
 const forwardEmailToolInputSchema = z
@@ -1310,6 +1317,7 @@ export const replyEmailTool = ({
           parsedInput.data,
           message,
           emailAccountId,
+          email,
         );
       } catch (error) {
         logger.error("Failed to prepare reply from chat", { error });
@@ -1432,7 +1440,13 @@ function createPendingReplyEmailOutput(
   input: z.infer<typeof replyEmailToolInputSchema>,
   message: ParsedMessage,
   emailAccountId: string,
+  userEmail: string,
 ) {
+  const replyAll = input.replyAll === true;
+  const replyAllRecipients = replyAll
+    ? buildReplyAllRecipients(message.headers, undefined, userEmail)
+    : null;
+
   return {
     success: true,
     emailAccountId,
@@ -1442,6 +1456,13 @@ function createPendingReplyEmailOutput(
     pendingAction: {
       messageId: input.messageId,
       content: input.content,
+      ...(replyAllRecipients
+        ? {
+            replyAll: true,
+            to: replyAllRecipients.to,
+            cc: formatCcList(replyAllRecipients.cc) ?? null,
+          }
+        : {}),
     },
     reference: {
       messageId: message.id,

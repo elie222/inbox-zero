@@ -111,6 +111,7 @@ export async function replyToEmail(
     replyTo?: string;
     from?: string;
     attachments?: Attachment[];
+    replyAll?: boolean;
   },
 ) {
   ensureEmailSendingEnabled();
@@ -120,60 +121,99 @@ export async function replyToEmail(
     message,
   });
 
-  // Use createReply to create a properly threaded draft
-  // Microsoft Graph's sendMail doesn't support setting In-Reply-To/References headers
-  // Only createReply/createReplyAll endpoints ensure proper threading
-  const replyDraft: Message = await withMicrosoftGraphWriteRetry(
-    () =>
-      client.getClient().api(`/me/messages/${message.id}/createReply`).post({}),
-    logger,
-  );
+  const isReplyAll = options?.replyAll === true;
+  const performReply = async () => {
+    // Graph's sendMail doesn't set In-Reply-To/References headers needed for threading.
+    const replyDraft: Message = await withMicrosoftGraphWriteRetry(
+      () =>
+        client
+          .getClient()
+          .api(
+            `/me/messages/${message.id}/${isReplyAll ? "createReplyAll" : "createReply"}`,
+          )
+          .post({}),
+      logger,
+    );
 
-  const fromField = buildGraphFromField(
-    options?.from,
-    replyDraft.from?.emailAddress?.address,
-  );
+    const fromField = buildGraphFromField(
+      options?.from,
+      replyDraft.from?.emailAddress?.address,
+    );
 
-  // Update the draft with our content
-  await withMicrosoftGraphWriteRetry(
+    await withMicrosoftGraphWriteRetry(
+      () =>
+        client
+          .getClient()
+          .api(`/me/messages/${replyDraft.id}`)
+          .patch({
+            body: {
+              contentType: "html",
+              content: html,
+            },
+            ...(fromField ? { from: fromField } : {}),
+            ...(options?.replyTo
+              ? {
+                  replyTo: [{ emailAddress: { address: options.replyTo } }],
+                }
+              : {}),
+          }),
+      logger,
+    );
+
+    if (options?.attachments?.length) {
+      await addAttachmentsToDraft({
+        client,
+        draftId: replyDraft.id || "",
+        attachments: options.attachments,
+        logger,
+      });
+    }
+
+    await withMicrosoftGraphWriteRetry(
+      () =>
+        client.getClient().api(`/me/messages/${replyDraft.id}/send`).post({}),
+      logger,
+    );
+
+    return {
+      id: replyDraft.id,
+      conversationId: replyDraft.conversationId,
+    };
+  };
+
+  if (!isReplyAll) {
+    return performReply();
+  }
+
+  const original: Message = await withMicrosoftGraphRetry(
     () =>
       client
         .getClient()
-        .api(`/me/messages/${replyDraft.id}`)
-        .patch({
-          body: {
-            contentType: "html",
-            content: html,
-          },
-          ...(fromField ? { from: fromField } : {}),
-          ...(options?.replyTo
-            ? {
-                replyTo: [{ emailAddress: { address: options.replyTo } }],
-              }
-            : {}),
-        }),
+        .api(`/me/messages/${message.id}`)
+        .select("isRead")
+        .get(),
     logger,
   );
+  const wasUnread = original.isRead === false;
 
-  if (options?.attachments?.length) {
-    await addAttachmentsToDraft({
-      client,
-      draftId: replyDraft.id || "",
-      attachments: options.attachments,
-      logger,
-    });
+  try {
+    return await performReply();
+  } finally {
+    if (wasUnread) {
+      try {
+        await withMicrosoftGraphWriteRetry(
+          () =>
+            client
+              .getClient()
+              .api(`/me/messages/${message.id}`)
+              .patch({ isRead: false }),
+          logger,
+        );
+      } catch (restoreError) {
+        logger.error("Failed to restore unread status", { restoreError });
+      }
+    }
   }
-
-  // Send the draft
-  await withMicrosoftGraphWriteRetry(
-    () => client.getClient().api(`/me/messages/${replyDraft.id}/send`).post({}),
-    logger,
-  );
-
-  return {
-    id: replyDraft.id,
-    conversationId: replyDraft.conversationId,
-  };
 }
 
 export async function forwardEmail(

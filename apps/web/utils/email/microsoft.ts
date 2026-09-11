@@ -795,6 +795,7 @@ export class OutlookProvider implements EmailProvider {
       replyTo?: string;
       from?: string;
       attachments?: MailAttachment[];
+      replyAll?: boolean;
     },
   ): Promise<{ messageId: string }> {
     const result = await replyToEmail(
