@@ -2,9 +2,6 @@ import { z } from "zod";
 import { createGenerateObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { getModelForUseCase, LlmUseCase } from "@/utils/llms/use-cases";
-import { createScopedLogger } from "@/utils/logger";
-
-const logger = createScopedLogger("translate-email");
 
 const MAX_TEXT_LENGTH = 30_000;
 
@@ -56,31 +53,33 @@ ${formatTextsForPrompt(truncatedTexts)}`;
     ...modelOptions,
     system,
     prompt,
-    schema: z.object({
-      translations: z
-        .array(z.string())
-        .describe(
-          "Translated texts in the same order and length as the input texts",
-        ),
-    }),
+    schema: translationSchema(texts.length),
   });
 
-  const translations = result.object.translations;
-
-  if (translations.length !== texts.length) {
-    logger.error("Translation count mismatch", {
-      expected: texts.length,
-      actual: translations.length,
-      targetLanguage,
-    });
-    throw new Error(
-      `Expected ${texts.length} translations, received ${translations.length}`,
-    );
-  }
-
-  return translations.map((translation, index) =>
+  return result.object.translations.map((translation, index) =>
     texts[index].trim() ? translation : "",
   );
+}
+
+function translationSchema(textCount: number) {
+  return z.object({
+    translations: z
+      .array(z.string())
+      // `.length()` compiles to JSON Schema minItems/maxItems, which OpenRouter
+      // still forwards. superRefine keeps the check in Zod so generateObject
+      // can retry via TypeValidationError / NoObjectGeneratedError.
+      .superRefine((translations, ctx) => {
+        if (translations.length !== textCount) {
+          ctx.addIssue({
+            code: "custom",
+            message: `Expected ${textCount} translations, received ${translations.length}`,
+          });
+        }
+      })
+      .describe(
+        "Translated texts in the same order and length as the input texts",
+      ),
+  });
 }
 
 function formatTextsForPrompt(texts: string[]) {
