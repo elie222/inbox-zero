@@ -35,8 +35,6 @@ export const executeMailMutationBody = z.discriminatedUnion("kind", [
   }),
   durableEmailSendBody.extend({
     kind: z.literal("reply"),
-    threadId: z.string().min(1).max(512),
-    messageIds: z.array(z.string().min(1).max(512)).min(1).max(1000),
   }),
 ]);
 
