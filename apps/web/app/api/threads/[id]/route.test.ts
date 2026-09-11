@@ -65,13 +65,29 @@ describe("GET /api/threads/[id]", () => {
     });
   });
 
-  it("keeps unrelated provider failures generic", async () => {
-    mockGetThread.mockRejectedValue(new Error("Provider failed"));
+  it.each([
+    new Error("Provider failed"),
+    Object.assign(new Error("Permission denied"), {
+      errors: [{ reason: "insufficientPermissions" }],
+    }),
+  ])("passes provider failures to shared middleware: %s", async (error) => {
+    mockGetThread.mockRejectedValue(error);
+    await expect(getThread()).rejects.toBe(error);
+  });
 
+  it("preserves safe authorization failures for middleware", async () => {
+    mockGetThread.mockRejectedValue(
+      new SafeError(
+        "Microsoft authorization has expired. Please reconnect.",
+        401,
+      ),
+    );
     const response = await getThread();
-
-    expect(response.status).toBe(500);
-    expect(await response.json()).toEqual({ error: "Failed to fetch thread" });
+    expect(response.status).toBe(401);
+    expect(await response.json()).toEqual({
+      error: "Microsoft authorization has expired. Please reconnect.",
+      isKnownError: true,
+    });
   });
 
   it.each([

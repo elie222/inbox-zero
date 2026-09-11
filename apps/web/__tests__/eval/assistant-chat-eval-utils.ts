@@ -6,6 +6,27 @@ import { writeEvalDebugArtifact } from "@/__tests__/eval/debug-artifacts";
 import { aiProcessAssistantChat } from "@/utils/ai/assistant/chat";
 import type { Logger } from "@/utils/logger";
 
+const assistantWriteToolNames = new Set([
+  "startSenderCategorization",
+  "manageSenderCategory",
+  "manageInbox",
+  "createRule",
+  "updateRule",
+  "deleteRule",
+  "updateLearnedPatterns",
+  "updatePersonalInstructions",
+  "sendEmail",
+  "replyEmail",
+  "forwardEmail",
+  "createOrGetLabel",
+  "createOrGetCategory",
+  "createOrGetFolder",
+  "moveThreadsToFolder",
+  "updateAssistantSettings",
+  "saveMemory",
+  "addToKnowledgeBase",
+]);
+
 export type RecordedToolCall = {
   toolCallId?: string;
   toolName: string;
@@ -317,4 +338,14 @@ export function hasLabelAction(
       action.type === ActionType.LABEL &&
       action.fields?.label === expectedLabel,
   );
+}
+
+export function hasAssistantWriteToolCalls(toolCalls: RecordedToolCall[]) {
+  return toolCalls.some((toolCall) =>
+    isAssistantWriteToolName(toolCall.toolName),
+  );
+}
+
+export function isAssistantWriteToolName(toolName: string) {
+  return assistantWriteToolNames.has(toolName);
 }

@@ -8,6 +8,7 @@
         "VERCEL_URL",
         "NODE_ENV",
         "SKIP_TYPE_CHECK",
+        "INBOX_ZERO_ENV_FILE",
         "DATABASE_URL",
         "DIRECT_URL",
         "DATABASE_URL_UNPOOLED",

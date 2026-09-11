@@ -1,12 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { MailSplitFilterKind } from "@/generated/prisma/enums";
 import type { Account } from "better-auth";
+import { setSessionCookie } from "better-auth/cookies";
 import { cookies } from "next/headers";
 import { createReferral } from "@/utils/referral/referral-code";
 import { captureException } from "@/utils/error";
 import { saveTokens } from "@/utils/auth/save-tokens";
 import { createOutlookClient } from "@/utils/outlook/client";
-import { getContactsClient } from "@/utils/gmail/client";
+import { fetchGoogleOpenIdProfile } from "@/utils/google/oauth";
 import { ensureEmailAccountsWatched } from "@/utils/email/watch-manager";
 import {
   betterAuthConfig,
@@ -45,6 +46,13 @@ vi.mock("better-auth", () => {
   };
 });
 vi.mock("@/utils/prisma");
+vi.mock("better-auth/cookies", async (importActual) => ({
+  ...(await importActual<typeof import("better-auth/cookies")>()),
+  setSessionCookie: vi.fn(),
+}));
+vi.mock("@/utils/redis/account-validation", () => ({
+  invalidateAccountValidation: vi.fn(),
+}));
 vi.mock("@/utils/error-messages", () => ({
   addUserErrorMessage: vi.fn().mockResolvedValue(undefined),
   clearAccountDisconnectedErrorIfResolved: vi.fn().mockResolvedValue(undefined),
@@ -63,8 +71,9 @@ vi.mock("@googleapis/gmail", () => ({
 vi.mock("@/utils/outlook/client", () => ({
   createOutlookClient: vi.fn(),
 }));
-vi.mock("@/utils/gmail/client", () => ({
-  getContactsClient: vi.fn(),
+vi.mock("@/utils/google/oauth", async (importActual) => ({
+  ...(await importActual<typeof import("@/utils/google/oauth")>()),
+  fetchGoogleOpenIdProfile: vi.fn(),
 }));
 vi.mock("@/utils/email/watch-manager", () => ({
   ensureEmailAccountsWatched: vi.fn(),
@@ -320,6 +329,75 @@ describe("handleLinkAccount", () => {
     vi.clearAllMocks();
   });
 
+  it.each([
+    "/callback/google",
+    "/callback/:id",
+    "/oauth2/callback/google",
+  ])("renames and refreshes the new session on %s", async (path) => {
+    mockGoogleProfile();
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      id: "mailbox",
+      email: "old@example.com",
+      userId: "user_1",
+      accountId: "account_1",
+      account: { provider: "google" },
+    } as any);
+    prisma.user.findUnique.mockImplementation(async ({ where }) =>
+      where.id
+        ? ({ email: "old@example.com", name: "Test User", image: null } as any)
+        : null,
+    );
+    prisma.$transaction.mockResolvedValue([{ id: "mailbox" }, {}] as never);
+    const context = { path, params: { id: "google" }, context: {} as any };
+    const options = (betterAuthConfig as any).options;
+    await options.databaseHooks.account.update.after(
+      getGoogleAccount(),
+      context,
+    );
+    context.context.newSession = {
+      user: { id: "user_1", email: "old@example.com", emailVerified: false },
+      session: {},
+    };
+    await options.hooks.after(context);
+    expect(prisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { email: "user@example.com", emailVerified: true },
+      }),
+    );
+    expect(setSessionCookie).toHaveBeenCalledWith(
+      expect.objectContaining({ path }),
+      expect.objectContaining({
+        user: expect.objectContaining({
+          email: "user@example.com",
+          emailVerified: true,
+        }),
+      }),
+    );
+  });
+
+  it("does not rename during token refresh", async () => {
+    mockGoogleProfile();
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      id: "mailbox",
+      email: "old@example.com",
+      userId: "user_1",
+      accountId: "account_1",
+      account: { provider: "google" },
+    } as any);
+    prisma.user.findUnique.mockResolvedValue({
+      email: "old@example.com",
+    } as any);
+    prisma.$transaction.mockResolvedValue([{ id: "mailbox" }, {}] as never);
+    await (betterAuthConfig as any).options.databaseHooks.account.update.after(
+      getGoogleAccount(),
+      { path: "/get-access-token", context: {} },
+    );
+    expect(prisma.user.update).not.toHaveBeenCalled();
+    expect(prisma.emailAccount.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { name: "Test User", image: null } }),
+    );
+  });
+
   it("skips auth-only providers without requiring an access token", async () => {
     await expect(
       handleLinkAccount({
@@ -398,9 +476,13 @@ describe("handleLinkAccount", () => {
       name: "Test User",
       image: null,
     } as any);
-    prisma.emailAccount.upsert.mockImplementation(({ where }) => {
-      if (where.accountId !== mailbox.accountId) {
-        throw new Error("Unique constraint failed on accountId");
+    prisma.emailAccount.update.mockImplementation(({ where }) => {
+      if (
+        where.id !== mailbox.id ||
+        where.userId !== mailbox.userId ||
+        where.accountId !== mailbox.accountId
+      ) {
+        throw new Error("Mailbox ownership changed");
       }
       return Promise.resolve(mailbox) as any;
     });
@@ -410,9 +492,11 @@ describe("handleLinkAccount", () => {
       handleLinkAccount(getGoogleAccount()),
     ).resolves.toBeUndefined();
 
-    const upsert = prisma.emailAccount.upsert.mock.calls[0]?.[0];
-    expect(upsert?.update).not.toHaveProperty("email");
-    expect(upsert?.update).not.toHaveProperty("mailSplits");
+    expect(prisma.emailAccount.upsert).not.toHaveBeenCalled();
+    const update = prisma.emailAccount.update.mock.calls[0]?.[0];
+    expect(update?.data).not.toHaveProperty("email");
+    expect(update?.data).not.toHaveProperty("userId");
+    expect(update?.data).not.toHaveProperty("mailSplits");
     expect(clearAccountDisconnectedErrorIfResolved).toHaveBeenCalled();
     expect(mockAfter).toHaveBeenCalledOnce();
   });
@@ -520,24 +604,13 @@ describe("handleLinkAccount", () => {
 });
 
 function mockGoogleProfile() {
-  const people = {
-    get: vi.fn().mockResolvedValue({
-      data: {
-        emailAddresses: [
-          {
-            value: "user@example.com",
-            metadata: { primary: true },
-          },
-        ],
-        names: [{ displayName: "Test User", metadata: { primary: true } }],
-        photos: [],
-      },
-    }),
-  } as ReturnType<typeof getContactsClient>["people"];
-
-  vi.mocked(getContactsClient).mockReturnValue({
-    people,
-  } as ReturnType<typeof getContactsClient>);
+  vi.mocked(fetchGoogleOpenIdProfile).mockResolvedValue({
+    email: "user@example.com",
+    sub: "provider_account_1",
+    name: "Test User",
+    email_verified: true,
+    hd: "example.com",
+  });
 }
 
 function getGoogleAccount(): Account {

@@ -14,6 +14,43 @@ beforeEach(() => {
 });
 
 describe("bulk processing", () => {
+  it.each([
+    undefined,
+    false,
+    true,
+  ])("preserves the draft choice across pages and reruns (%s)", async (generateDraftReplies) => {
+    const thread = {
+      id: "thread-id",
+      messages: [{ id: "message-id" }],
+      plan: {},
+    };
+    vi.mocked(fetchWithAccount)
+      .mockResolvedValueOnce(
+        Response.json({ threads: [thread], nextPageToken: "next-page" }),
+      )
+      .mockResolvedValueOnce(Response.json({ threads: [thread] }));
+    const complete = vi.fn();
+    await onRun(
+      "account-id",
+      { startDate: new Date(2025, 3, 1), rerun: true, generateDraftReplies },
+      vi.fn(),
+      complete,
+    );
+    await vi.waitFor(() => expect(complete).toHaveBeenCalledWith("success", 2));
+    expect(runAiRules).toHaveBeenCalledTimes(2);
+    for (const call of vi.mocked(runAiRules).mock.calls) {
+      expect(call).toEqual([
+        "account-id",
+        [thread],
+        true,
+        {
+          signal: expect.any(AbortSignal),
+          skipDraftReplies: !generateDraftReplies,
+        },
+      ]);
+    }
+  });
+
   it("includes the entire selected end date, including a same-day range", async () => {
     const date = new Date(2025, 3, 10);
     const complete = vi.fn();
@@ -71,11 +108,9 @@ describe("bulk processing", () => {
       expect(query.get("before")).toBeNull();
     }
     expect(queries.at(1)?.get("nextPageToken")).toBe("next-page");
-    expect(runAiRules).toHaveBeenCalledWith(
-      "account-id",
-      [thread],
-      false,
-      expect.any(AbortSignal),
-    );
+    expect(runAiRules).toHaveBeenCalledWith("account-id", [thread], false, {
+      signal: expect.any(AbortSignal),
+      skipDraftReplies: true,
+    });
   });
 });

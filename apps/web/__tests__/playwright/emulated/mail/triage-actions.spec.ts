@@ -1,4 +1,5 @@
 import { expect, type Locator } from "@playwright/test";
+import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import type { MailSettingsResponse } from "@/app/api/mail/settings/route";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
 import { test } from "../playwright-test";
@@ -64,6 +65,14 @@ test("deletes an open conversation and returns to the list", async ({
 test("advances the split reader after archiving an open conversation", async ({
   page,
 }, testInfo) => {
+  await page.route("**/api/threads/thr_playwright_3?**", async (route) => {
+    const response = await route.fetch();
+    const body: ThreadResponse = await response.json();
+    for (const message of body.thread.messages) {
+      message.textHtml = "<p>Message body for keyboard shortcut coverage.</p>";
+    }
+    await route.fulfill({ response, json: body });
+  });
   const settingsResponsePromise = page.waitForResponse(
     (response) =>
       response.request().method() === "GET" &&
@@ -98,7 +107,24 @@ test("advances the split reader after archiving an open conversation", async ({
   let archived = false;
   let restoreSucceeded: boolean | undefined;
   try {
-    await page.getByRole("button", { name: /^Archive/ }).click();
+    const emailFrame = page
+      .locator('iframe[title="Email content preview"]')
+      .last();
+    await expect(emailFrame).toHaveAttribute("data-email-ready", "true");
+    const emailBody = emailFrame.contentFrame().locator("body");
+    await emailBody.click();
+    await emailBody.press("h");
+    await expect(
+      page.getByPlaceholder("When should it return? Try Friday at 3pm"),
+    ).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(
+      page.getByPlaceholder("Type a command or search..."),
+    ).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toBeHidden();
+    await emailBody.click();
+    await emailBody.press("e");
     archived = true;
     await expect(
       page

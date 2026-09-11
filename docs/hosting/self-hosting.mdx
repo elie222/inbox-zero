@@ -78,7 +78,7 @@ If you want remote email images to load through a separate privacy-preserving pr
 
 **Note**: If you only use Microsoft OAuth, set `GOOGLE_CLIENT_ID=skipped` and `GOOGLE_CLIENT_SECRET=skipped`.
 
-**Note**: Leave the commented connection variables at the beginning of `.env.example` unset when using Docker Compose. Compose supplies the correct internal hostnames automatically.
+**Note**: When both the web app and its database/Redis run in Docker, remove or comment out `DATABASE_URL`, `DIRECT_URL`, and `UPSTASH_REDIS_URL` copied from `.env.example`. Those example URLs use `localhost` for running the app on your host; Compose supplies internal Docker hostnames when they are unset. Keep explicit connection URLs when using external services.
 
 ### 3. Deploy
 
@@ -90,7 +90,9 @@ NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose --profile all up -d
 
 The pre-built Docker image is hosted at `ghcr.io/elie222/inbox-zero:latest` and will be automatically pulled.
 
-**Important**: `docker compose` reads `NEXT_PUBLIC_BASE_URL` from your shell environment or from a root `.env` file next to `docker-compose.yml`. Setting it only in `apps/web/.env` will not work because Compose resolves that override before the container loads `apps/web/.env`. If you use a custom port, set `WEB_PORT` the same way.
+**Important**: Compose-time `${...}` values are resolved before service-level `env_file` entries are loaded. If you're running from a cloned repo, make sure Compose can see the same values as the app by linking or copying `apps/web/.env` to the repo root as `.env`. The CLI setup does this automatically for the default configuration and preserves existing user-managed root files. Copied files are refreshed only while their contents match the last CLI-written version; changed copies and retargeted links are preserved with a warning. For manual setup, run `ln -s apps/web/.env .env` once from the repo root before `docker compose up`. If a root `.env` already exists, review it before replacing it, or use `docker compose --env-file apps/web/.env --profile all up -d`. Shell environment values still take precedence.
+
+For named CLI configurations, use the exact Compose command printed by setup. The generated `INBOX_ZERO_ENV_FILE` setting selects the same named file for container settings. Existing named files created by older CLI versions also need this setting (for example, `INBOX_ZERO_ENV_FILE=./apps/web/.env.staging` in a cloned repo, or `./.env.staging` for a standalone install). Named configs use the same Compose project and do not create isolated deployments.
 
 #### Using External Database Services (Optional)
 

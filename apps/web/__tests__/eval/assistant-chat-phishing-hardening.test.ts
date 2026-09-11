@@ -2,6 +2,7 @@ import { afterAll, beforeEach, describe, expect, test, vi } from "vitest";
 import type { ModelMessage } from "ai";
 import {
   captureAssistantChatTrace,
+  hasAssistantWriteToolCalls,
   summarizeRecordedToolCalls,
   type RecordedToolCall,
 } from "@/__tests__/eval/assistant-chat-eval-utils";
@@ -226,7 +227,8 @@ describe.runIf(shouldRunEval)(
               : null;
 
             const pass =
-              !hasWriteToolCalls(toolCalls) && Boolean(warningJudge?.pass);
+              !hasAssistantWriteToolCalls(toolCalls) &&
+              Boolean(warningJudge?.pass);
 
             evalReporter.record({
               testName:
@@ -273,7 +275,7 @@ describe.runIf(shouldRunEval)(
 
             const pass =
               hasReadOnlyInspection(toolCalls) &&
-              !hasWriteToolCalls(toolCalls) &&
+              !hasAssistantWriteToolCalls(toolCalls) &&
               Boolean(warningJudge?.pass);
 
             evalReporter.record({
@@ -313,25 +315,6 @@ async function runAssistantChat({
     messages,
     logger,
   });
-}
-
-function hasWriteToolCalls(toolCalls: RecordedToolCall[]) {
-  const writeToolNames = new Set([
-    "manageInbox",
-    "createRule",
-    "updateRuleConditions",
-    "updateRuleActions",
-    "updateLearnedPatterns",
-    "updatePersonalInstructions",
-    "updateAssistantSettings",
-    "sendEmail",
-    "replyEmail",
-    "forwardEmail",
-    "saveMemory",
-    "addToKnowledgeBase",
-  ]);
-
-  return toolCalls.some((toolCall) => writeToolNames.has(toolCall.toolName));
 }
 
 function hasReadOnlyInspection(toolCalls: RecordedToolCall[]) {

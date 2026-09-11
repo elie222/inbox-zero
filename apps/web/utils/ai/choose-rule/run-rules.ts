@@ -109,6 +109,7 @@ export async function runRules({
   modelType,
   logger,
   skipArchive,
+  skipDraftReplies,
 }: {
   provider: EmailProvider;
   message: ParsedMessage;
@@ -118,6 +119,7 @@ export async function runRules({
   modelType: ModelType;
   logger: Logger;
   skipArchive?: boolean;
+  skipDraftReplies?: boolean;
 }): Promise<RunRulesResult[]> {
   const batchTimestamp = new Date(); // Single timestamp for this batch execution
   const { regularRules, conversationRules } = prepareRulesWithMetaRule(rules);
@@ -191,7 +193,10 @@ export async function runRules({
     }
   }
 
-  const finalMatches = limitDraftEmailActions(matchesWithFlags, logger);
+  const executableMatches = skipDraftReplies
+    ? removeDraftReplyActionsFromMatches(matchesWithFlags)
+    : matchesWithFlags;
+  const finalMatches = limitDraftEmailActions(executableMatches, logger);
 
   logger.trace("Matching rule", () => ({
     module: MODULE,
@@ -260,6 +265,7 @@ export async function runRules({
       batchTimestamp,
       logger,
       skipArchive,
+      skipDraftReplies,
     );
 
     executedRules.push({
@@ -374,6 +380,7 @@ async function executeMatchedRule(
   batchTimestamp: Date,
   logger: Logger,
   skipArchive?: boolean,
+  skipDraftReplies?: boolean,
 ) {
   const blockedActionTypes = getBlockedLowTrustStaticFromActionTypes(
     rule.from,
@@ -410,10 +417,15 @@ async function executeMatchedRule(
     logger,
   });
 
-  if (actionItems.length === 0 && blockedActionTypes.length) {
-    const reasonToUse = reason
-      ? `${reason}. ${LOW_TRUST_STATIC_FROM_OUTBOUND_MESSAGE}`
+  const skippedDraftOnlyRule = skipDraftReplies && rule.actions.length === 0;
+  if (
+    actionItems.length === 0 &&
+    (blockedActionTypes.length || skippedDraftOnlyRule)
+  ) {
+    const skipReason = skippedDraftOnlyRule
+      ? "Draft replies were disabled for this bulk run"
       : LOW_TRUST_STATIC_FROM_OUTBOUND_MESSAGE;
+    const reasonToUse = reason ? `${reason}. ${skipReason}` : skipReason;
     let executedRule = null;
 
     if (!isTest) {
@@ -984,4 +996,18 @@ function collectMessagingChannelsFromOtherRules<
   }
 
   return actions;
+}
+
+function removeDraftReplyActionsFromMatches<
+  T extends { rule: RuleWithActions },
+>(matches: T[]): T[] {
+  return matches.map((match) => ({
+    ...match,
+    rule: {
+      ...match.rule,
+      actions: match.rule.actions.filter(
+        (action) => !isDraftReplyActionType(action.type),
+      ),
+    },
+  }));
 }

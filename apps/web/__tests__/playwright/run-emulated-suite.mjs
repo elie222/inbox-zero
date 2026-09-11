@@ -141,14 +141,6 @@ for (const target of targets) {
         ),
         PLAYWRIGHT_OUTPUT_DIR: path.join(testResultsDir, target.name),
         PLAYWRIGHT_RUN_ID: targetRunId,
-        // Contacts needs a different public flag; Todoist URL overrides are dev-only.
-        ...(target.path.endsWith("contact-autocomplete.spec.ts") ||
-        target.path.endsWith("automation/integration-action.spec.ts")
-          ? { PLAYWRIGHT_PRODUCTION: "0" }
-          : {}),
-        ...(target.path.endsWith("contact-autocomplete.spec.ts")
-          ? { NEXT_PUBLIC_CONTACTS_ENABLED: "true" }
-          : {}),
         ...(isIntegrationsTarget(target.path)
           ? { NEXT_PUBLIC_INTEGRATIONS_ENABLED: "true" }
           : {}),

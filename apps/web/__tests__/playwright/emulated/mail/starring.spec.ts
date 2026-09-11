@@ -1,12 +1,16 @@
-import { expect } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import { test } from "../playwright-test";
 import { capturePlaywrightCheckpoint } from "../playwright-evidence";
-import { conversationWithSubject, openMail } from "./mail-test-helpers";
+import {
+  conversationWithSubject,
+  openMail,
+  readLatestMailMutation,
+} from "./mail-test-helpers";
 
 test("toggles a star with S and the command palette while preserving unread", async ({
   page,
 }, testInfo) => {
-  const { conversations } = await openMail(page);
+  const { conversations, emailAccountId } = await openMail(page);
   const row = conversationWithSubject(
     page,
     conversations,
@@ -17,6 +21,7 @@ test("toggles a star with S and the command palette while preserving unread", as
     await row.getByRole("checkbox").click();
     await page.keyboard.press("s");
     await expect(starStatus).toHaveCount(0);
+    await expectCompletedStarMutation(page, emailAccountId, false);
   }
   await row.getByRole("checkbox").click();
   await page.keyboard.press("u");
@@ -28,6 +33,7 @@ test("toggles a star with S and the command palette while preserving unread", as
   await expect(
     row.getByText("Starred conversation", { exact: true }),
   ).toHaveCount(1);
+  await expectCompletedStarMutation(page, emailAccountId, true);
   await page.keyboard.press("Escape");
   await page.mouse.move(0, 0);
   await page.evaluate(() => {
@@ -43,6 +49,7 @@ test("toggles a star with S and the command palette while preserving unread", as
   await expect(
     row.getByText("Starred conversation", { exact: true }),
   ).toHaveCount(0);
+  await expectCompletedStarMutation(page, emailAccountId, false);
   await row.click();
   const readerStarStatus = page
     .getByTestId("thread-reader")
@@ -50,7 +57,36 @@ test("toggles a star with S and the command palette while preserving unread", as
   await expect(readerStarStatus).toHaveCount(0);
   await page.keyboard.press("s");
   await expect(readerStarStatus).toBeVisible();
+  await expectCompletedStarMutation(page, emailAccountId, true);
   await capturePlaywrightCheckpoint(page, testInfo, "starred-reader-subject");
   await page.keyboard.press("s");
   await expect(readerStarStatus).toHaveCount(0);
+  await expectCompletedStarMutation(page, emailAccountId, false);
+
+  await page.getByRole("button", { name: /^More actions/ }).click();
+  const actionsMenu = page.getByRole("menu");
+  await actionsMenu.getByRole("menuitem", { name: /^Star/ }).click();
+  await expect(readerStarStatus).toBeVisible();
+  await expectCompletedStarMutation(page, emailAccountId, true);
+  await page.getByRole("button", { name: /^More actions/ }).click();
+  await actionsMenu.getByRole("menuitem", { name: /^Unstar/ }).click();
+  await expect(readerStarStatus).toHaveCount(0);
+  await expectCompletedStarMutation(page, emailAccountId, false);
 });
+
+async function expectCompletedStarMutation(
+  page: Page,
+  emailAccountId: string,
+  starred: boolean,
+) {
+  // The optimistic indicator can update before action targeting catches up.
+  // Finish each mutation before exercising the next toggle entry point.
+  await expect
+    .poll(() =>
+      readLatestMailMutation(page, {
+        emailAccountId,
+        kind: "set_starred_state",
+      }),
+    )
+    .toMatchObject({ status: "succeeded", payload: { starred } });
+}
