@@ -891,7 +891,7 @@ function ConditionRow({
         <Input
           value={condition.value ?? ""}
           onChange={(event) => onChangeValue(event.target.value)}
-          placeholder="name@company.com"
+          placeholder="name@company.com or @company.com"
           aria-label="Sender"
           className="h-8 min-w-0 flex-1 text-xs"
         />

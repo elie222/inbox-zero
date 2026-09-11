@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { gmail_v1 } from "@googleapis/gmail";
+import { auth, gmail_v1 } from "@googleapis/gmail";
 import type { EmailThread } from "@/utils/email/types";
 import type { ParsedMessage } from "@/utils/types";
 import { GmailLabel } from "@/utils/gmail/label";
@@ -481,6 +481,70 @@ describe("GmailProvider.getSentMessageIds", () => {
 });
 
 describe("GmailProvider.getThreadsWithQuery", () => {
+  it("filters domain candidates on the same inbox message and continues paging", async () => {
+    const list = vi
+      .spyOn(gmailThreadModule, "getThreadsWithNextPageToken")
+      .mockResolvedValueOnce({
+        threads: [{ id: "miss" }],
+        nextPageToken: "next",
+      })
+      .mockResolvedValueOnce({
+        threads: [{ id: "hit" }],
+        nextPageToken: undefined,
+      });
+    vi.spyOn(gmailThreadModule, "getThreadsBatch")
+      .mockResolvedValueOnce([
+        {
+          id: "miss",
+          messages: [
+            {
+              id: "sub",
+              labelIds: ["INBOX"],
+              payload: {
+                headers: [{ name: "From", value: "user@sub.example.com" }],
+              },
+            },
+            {
+              id: "archived",
+              labelIds: [],
+              payload: {
+                headers: [{ name: "From", value: "user@example.com" }],
+              },
+            },
+          ],
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: "hit",
+          messages: [
+            {
+              id: "hit",
+              labelIds: ["INBOX"],
+              payload: {
+                headers: [{ name: "From", value: "User <USER@example.com>" }],
+              },
+            },
+          ],
+        },
+      ]);
+    const oauth = new auth.OAuth2();
+    oauth.setCredentials({ access_token: "access-token" });
+    const provider = new GmailProvider(new gmail_v1.Gmail({ auth: oauth }));
+    const result = await provider.getThreadsWithQuery({
+      query: { fromEmail: "@example.com", labelIds: ["INBOX"] },
+      maxResults: 1,
+    });
+    expect(result.threads.map(({ id }) => id)).toEqual(["hit"]);
+    expect(list).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        q: "from:@example.com",
+        labelIds: ["INBOX"],
+        pageToken: "next",
+      }),
+    );
+  });
+
   it("uses multiple label IDs in preference to the legacy single label", async () => {
     const getThreadsWithNextPageToken = vi
       .spyOn(gmailThreadModule, "getThreadsWithNextPageToken")

@@ -1,5 +1,5 @@
 import { internalDateToDate } from "@/utils/date";
-import { isSameEmailAddress } from "@/utils/email";
+import { matchesSenderFilter } from "@/utils/mail/sender-filter";
 import type { ParsedMessage } from "@/utils/types";
 import { mailSplitToThreadsQuery } from "@/utils/mail/split-query";
 import type {
@@ -59,7 +59,7 @@ function matchesMessage(
   if (query.isUnread && !labels.includes("UNREAD")) return false;
   if (
     query.fromEmail &&
-    !isSameEmailAddress(message.headers.from, query.fromEmail)
+    !matchesSenderFilter(message.headers.from, query.fromEmail)
   )
     return false;
   if (query.before) {

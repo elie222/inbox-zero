@@ -1,7 +1,7 @@
 import { createOtherSplitFilter } from "@/utils/mail/thread-matches-split";
 import type { ThreadResponse } from "@/app/api/threads/[id]/route";
 import { internalDateToDate, sortByInternalDate } from "@/utils/date";
-import { canonicalizeEmailAddress } from "@/utils/email";
+import { matchesSenderFilter } from "@/utils/mail/sender-filter";
 import type { MailboxSyncPage } from "@/utils/email/types";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
 import type { CombinedListThread } from "@/utils/threads/load-combined";
@@ -546,6 +546,7 @@ function groupMessagesByThread(messages: ParsedMessage[]) {
 function isSupportedMailboxQuery(query: ThreadsQuery) {
   if (
     query.q ||
+    query.anyOf?.length ||
     query.nextPageToken ||
     query.inboxSection ||
     query.excludeLabelNames?.length
@@ -615,8 +616,12 @@ function threadMatchesQuery(messages: ParsedMessage[], query: ThreadsQuery) {
   return messages.some((message) => {
     if (
       query.fromEmail &&
-      canonicalizeEmailAddress(message.headers.from) !==
-        canonicalizeEmailAddress(query.fromEmail)
+      (!matchesSenderFilter(message.headers.from, query.fromEmail) ||
+        !requiredLabelIds.every((labelId) =>
+          message.labelIds?.includes(labelId),
+        ) ||
+        ((query.isUnread || query.type === "unread") &&
+          !message.labelIds?.includes("UNREAD")))
     ) {
       return false;
     }
