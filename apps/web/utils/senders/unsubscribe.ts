@@ -2,6 +2,8 @@ import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import type { IncomingHttpHeaders } from "node:http";
 import { NewsletterStatus } from "@/generated/prisma/enums";
+import { env } from "@/env";
+import { browserUnsubscribe } from "@/utils/senders/browser-unsubscribe";
 import type { Logger } from "@/utils/logger";
 import type { EmailProvider } from "@/utils/email/types";
 import { findAutoArchiveFilters } from "@/utils/senders/filters";
@@ -22,13 +24,14 @@ const MAX_UNSUBSCRIBE_REDIRECTS = 5;
 export type AutomaticUnsubscribeResult = {
   attempted: boolean;
   success: boolean;
-  method?: "post" | "get";
+  method?: "post" | "get" | "browser";
   statusCode?: number;
   reason?:
     | "no_unsubscribe_url"
     | "unsafe_unsubscribe_url"
     | "request_timeout"
     | "request_failed"
+    | "needs_user"
     | "request_rejected";
 };
 
@@ -135,18 +138,25 @@ export async function unsubscribeSenderAndMark({
     action: "unsubscribe-sender",
   });
 
-  const unsubscribe = await attemptAutomaticUnsubscribe({
-    unsubscribeLink,
-    listUnsubscribeHeader,
-    logger: log,
-  });
+  const unsubscribe = env.UNSUBSCRIBE_WORKER_URL
+    ? await browserUnsubscribe({ emailAccountId, senderEmail, logger: log })
+    : await attemptAutomaticUnsubscribe({
+        unsubscribeLink,
+        listUnsubscribeHeader,
+        logger: log,
+      });
 
   const status = unsubscribe.success ? NewsletterStatus.UNSUBSCRIBED : null;
   if (status) {
-    await setSenderStatus({
+    const sender = await setSenderStatus({
       emailAccountId,
       senderEmail: senderEmail,
       status,
+    });
+    log.info("Unsubscribe completed", {
+      senderId: sender.id,
+      method: unsubscribe.method,
+      completedAt: new Date().toISOString(),
     });
     log.trace("Marked sender as unsubscribed", { senderEmail });
   } else {

@@ -221,6 +221,8 @@ const parsedEnv = createEnv({
     SENTRY_ORGANIZATION: z.string().optional(),
     SENTRY_PROJECT: z.string().optional(),
     AXIOM_DATASET: z.string().optional(),
+    UNSUBSCRIBE_WORKER_URL: z.url().optional(),
+    UNSUBSCRIBE_WORKER_SECRET: z.string().min(32).optional(),
     AXIOM_TOKEN: z.string().optional(),
     AXIOM_AUDIT_DATASET: z.string().optional(),
     AXIOM_AUDIT_TOKEN: z.string().optional(),

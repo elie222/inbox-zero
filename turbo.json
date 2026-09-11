@@ -5,6 +5,8 @@
     "build": {
       "env": [
         "VERCEL_ENV",
+        "UNSUBSCRIBE_WORKER_URL",
+        "UNSUBSCRIBE_WORKER_SECRET",
         "VERCEL_URL",
         "NODE_ENV",
         "SKIP_TYPE_CHECK",
