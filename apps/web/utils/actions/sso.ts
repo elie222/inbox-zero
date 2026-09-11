@@ -140,6 +140,7 @@ export const registerSSOProviderAction = adminActionClient
             issuer: ssoConfig.issuer,
             domain,
             samlConfig: JSON.stringify(samlConfig),
+            userId,
             organizationId: organization.id,
           },
           select: {

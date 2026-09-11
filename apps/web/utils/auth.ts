@@ -262,7 +262,7 @@ export const betterAuthConfig = betterAuth({
       emailOtp: { type: "boolean", defaultValue: false, input: false },
       emailOtpVersion: { type: "number", defaultValue: 0, input: false },
     },
-    modelName: "Session",
+    modelName: "session",
     fields: {
       token: "sessionToken",
       expiresAt: "expires",
@@ -276,7 +276,7 @@ export const betterAuthConfig = betterAuth({
     updateAge: 60 * 60 * 24 * 3, // 1 day (every 1 day the session expiration is updated)
   },
   account: {
-    modelName: "Account",
+    modelName: "account",
     fields: {
       accountId: "providerAccountId",
       providerId: "provider",
@@ -295,7 +295,7 @@ export const betterAuthConfig = betterAuth({
     },
   },
   verification: {
-    modelName: "VerificationToken",
+    modelName: "verificationToken",
     fields: {
       value: "token",
       expiresAt: "expires",
