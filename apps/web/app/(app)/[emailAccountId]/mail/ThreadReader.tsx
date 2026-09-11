@@ -68,6 +68,7 @@ export type ThreadReaderProps = {
   autoOpenForwardForMessageId?: string;
   /** The ⋯ dropdown, i.e. `ThreadActionsMenu`, composed by the shell. */
   menu?: ReactNode;
+  renderMessageMenu?: (message: ThreadMessage) => ReactNode;
 };
 
 export function ThreadReader({
@@ -89,6 +90,7 @@ export function ThreadReader({
   autoOpenReplyForMessageId,
   autoOpenForwardForMessageId,
   menu,
+  renderMessageMenu,
 }: ThreadReaderProps) {
   const [senderContext, setSenderContext] = useState<{
     messageId: string;
@@ -162,6 +164,7 @@ export function ThreadReader({
           {messages.length > 0 ? (
             <EmailThread
               renderToolbar={renderToolbar}
+              renderMessageMenu={renderMessageMenu}
               enableMessageNavigation={enableMessageNavigation}
               autoOpenReplyForMessageId={autoOpenReplyForMessageId}
               autoOpenForwardForMessageId={autoOpenForwardForMessageId}

@@ -1,6 +1,99 @@
 import { readdirSync, statSync } from "node:fs";
 import path from "node:path";
 
+// Keep related behavior together without reallocating specs when their timings change.
+const featureGroups = [
+  {
+    name: "onboarding",
+    specs: [
+      "onboarding/control-onboarding.spec.ts",
+      "attachments/attachment-onboarding.spec.ts",
+    ],
+  },
+  {
+    name: "connected-apps",
+    specs: [
+      "calendars/calendar-core-flows.spec.ts",
+      "channels/channel-routing.spec.ts",
+      "integrations/integration-configuration.spec.ts",
+      "meetings/meeting-bot-core-flow.spec.ts",
+    ],
+  },
+  {
+    name: "automation-rules",
+    specs: [
+      "automation/manual-rule-management.spec.ts",
+      "automation/settings-controls.spec.ts",
+      "automation/settings-drafting-knowledge.spec.ts",
+      "automation/integration-action.spec.ts",
+    ],
+  },
+  {
+    name: "automation-processing",
+    specs: [
+      "automation/bulk-processing.spec.ts",
+      "automation/history-tab.spec.ts",
+      "automation/test-tab.spec.ts",
+    ],
+  },
+  {
+    name: "mail-compose",
+    specs: [
+      "mail/compose-and-reply.spec.ts",
+      "mail/contact-autocomplete.spec.ts",
+      "mail/scheduled-replies.spec.ts",
+      "mail/calendar-invitation.spec.ts",
+    ],
+  },
+  {
+    name: "mail-offline",
+    specs: [
+      "mail/local-cache.spec.ts",
+      "mail/offline-loading.spec.ts",
+      "mail/offline-outbox.spec.ts",
+      "mail/mail-queue.spec.ts",
+    ],
+  },
+  {
+    name: "mail-navigation",
+    specs: [
+      "mail/command-palette.spec.ts",
+      "mail/navigation-and-views.spec.ts",
+      "mail/split-tabs.spec.ts",
+      "mail/search.spec.ts",
+    ],
+  },
+  {
+    name: "mail-reader",
+    specs: [
+      "mail/reader-transition.spec.ts",
+      "mail/reader-visuals.spec.ts",
+      "mail/thread-navigation.spec.ts",
+      "mail/thread-states.spec.ts",
+      "mail/plain-text-links.spec.ts",
+    ],
+  },
+  {
+    name: "mail-triage",
+    specs: [
+      "mail/archive-reconciliation.spec.ts",
+      "mail/manual-label.spec.ts",
+      "mail/message-overflow.spec.ts",
+      "mail/starring.spec.ts",
+      "mail/triage-actions.spec.ts",
+    ],
+  },
+  {
+    name: "mail-preferences",
+    specs: [
+      "mail/account-selection.spec.ts",
+      "mail/cached-settings.spec.ts",
+      "mail/layout.spec.ts",
+      "mail/theme.spec.ts",
+    ],
+  },
+];
+
 export function expandPlaywrightTargets(paths, appRoot) {
   const files = new Set();
   for (const targetPath of paths) {
@@ -13,17 +106,19 @@ export function expandPlaywrightTargets(paths, appRoot) {
 }
 
 export function batchPlaywrightTargets(targets) {
-  const batchCount = Math.min(targets.length, 20);
-  const batches = Array.from({ length: batchCount }, (_, index) => ({
-    name:
-      targets.length <= batchCount ? targets[index].name : `batch-${index + 1}`,
-    paths: [],
-  }));
-  // Spread neighboring specs across runners so one large area cannot monopolize a job.
-  for (const [index, target] of targets.entries()) {
-    batches[index % batchCount].paths.push(target.path);
+  const batches = new Map();
+  for (const target of targets) {
+    const specPath = target.path.replace(
+      /^__tests__\/playwright\/emulated\//,
+      "",
+    );
+    const group = featureGroups.find(({ specs }) => specs.includes(specPath));
+    // New specs remain covered before an explicit feature group is assigned.
+    const name = group?.name ?? specPath.split("/")[0];
+    if (!batches.has(name)) batches.set(name, { name, paths: [] });
+    batches.get(name).paths.push(target.path);
   }
-  return batches.map((batch) => ({
+  return [...batches.values()].map((batch) => ({
     ...batch,
     timeoutMinutes: 4 + batch.paths.length * 8,
   }));

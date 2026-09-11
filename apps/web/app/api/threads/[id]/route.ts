@@ -37,7 +37,6 @@ export const GET = withEmailProvider(
   "threads/detail",
   async (request, context) => {
     const { emailProvider } = request;
-    const { emailAccountId } = request.auth;
 
     const params = await context.params;
     const { id } = threadQuery.parse(params);
@@ -66,15 +65,7 @@ export const GET = withEmailProvider(
           429,
         );
       }
-      request.logger.error("Error fetching thread", {
-        error,
-        emailAccountId,
-        threadId: id,
-      });
-      return NextResponse.json(
-        { error: "Failed to fetch thread" },
-        { status: 500 },
-      );
+      throw error;
     }
   },
 );
