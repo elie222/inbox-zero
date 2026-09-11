@@ -9,6 +9,8 @@ import { createContact as createResendContact } from "@inboxzero/transactional-e
 import type { Account } from "better-auth";
 import { APIError, betterAuth } from "better-auth";
 import { createAuthMiddleware } from "better-auth/api";
+import { setSessionCookie } from "better-auth/cookies";
+import { renameGoogleEmail } from "@/utils/auth/rename-email";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
 import { cookies, headers } from "next/headers";
@@ -25,7 +27,6 @@ import {
 } from "@/utils/email/provider-types";
 import { ensureEmailAccountsWatched } from "@/utils/email/watch-manager";
 import { captureException } from "@/utils/error";
-import { getContactsClient as getGoogleContactsClient } from "@/utils/gmail/client";
 import { SCOPES as GMAIL_SCOPES } from "@/utils/gmail/scopes";
 import {
   fetchGoogleOpenIdProfile,
@@ -66,6 +67,10 @@ import {
 } from "@/utils/auth/email-otp";
 
 const logger = createScopedLogger("auth");
+const renamedAuthUsers = new WeakMap<
+  object,
+  { userId: string; email: string }
+>();
 const EMAIL_ALREADY_LINKED_ERROR = "email_already_linked";
 const useGoogleOauthEmulator = isGoogleOauthEmulationEnabled();
 const useMicrosoftOauthEmulator = isMicrosoftEmulationEnabled();
@@ -348,8 +353,18 @@ export const betterAuthConfig = betterAuth({
         },
       },
       update: {
-        after: async (account: Account) => {
-          await handleLinkAccount(account);
+        after: async (account: Account, context) => {
+          const isGoogleCallback =
+            !!(
+              context?.path?.startsWith("/callback/") ||
+              context?.path?.startsWith("/oauth2/callback/")
+            ) && getAuthProviderFromContext(context) === "google";
+          const renamedUser = await handleLinkAccount(
+            account,
+            isGoogleCallback,
+          );
+          if (renamedUser && context?.context)
+            renamedAuthUsers.set(context.context, renamedUser);
         },
       },
     },
@@ -357,6 +372,13 @@ export const betterAuthConfig = betterAuth({
   hooks: {
     before: emailOtpBeforeHook,
     after: createAuthMiddleware(async (context) => {
+      const renamedUser = renamedAuthUsers.get(context.context);
+      const newSession = context.context.newSession;
+      if (renamedUser && newSession?.user.id === renamedUser.userId) {
+        newSession.user.email = renamedUser.email;
+        newSession.user.emailVerified = true;
+        await setSessionCookie(context, newSession);
+      }
       await emailOtpAfterHook(context);
       try {
         const authenticatedSession = context.context.newSession;
@@ -544,29 +566,14 @@ export async function handleReferralOnSignUp({
 // TODO: move into email provider instead of checking the provider type
 async function getProfileData(providerId: string, accessToken: string) {
   if (isGoogleProvider(providerId)) {
-    if (useGoogleOauthEmulator) {
-      const profile = await fetchGoogleOpenIdProfile(accessToken);
-
-      return {
-        email: profile.email?.toLowerCase(),
-        name: profile.name,
-        image: profile.picture ?? null,
-      };
-    }
-
-    const contactsClient = getGoogleContactsClient({ accessToken });
-    const profileResponse = await contactsClient.people.get({
-      resourceName: "people/me",
-      personFields: "emailAddresses,names,photos",
-    });
-
+    const profile = await fetchGoogleOpenIdProfile(accessToken);
     return {
-      email: profileResponse.data.emailAddresses
-        ?.find((e) => e.metadata?.primary)
-        ?.value?.toLowerCase(),
-      name: profileResponse.data.names?.find((n) => n.metadata?.primary)
-        ?.displayName,
-      image: profileResponse.data.photos?.find((p) => p.metadata?.primary)?.url,
+      email: profile.email.toLowerCase(),
+      name: profile.name,
+      image: profile.picture ?? null,
+      sub: profile.sub,
+      emailVerified: profile.email_verified,
+      hostedDomain: profile.hd,
     };
   }
 
@@ -604,7 +611,10 @@ function shouldLinkEmailAccount(providerId: string) {
   return isGoogleProvider(providerId) || isMicrosoftProvider(providerId);
 }
 
-export async function handleLinkAccount(account: Account) {
+export async function handleLinkAccount(
+  account: Account,
+  allowEmailRename = false,
+) {
   let primaryEmail: string | null | undefined;
   let primaryName: string | null | undefined;
   let primaryPhotoUrl: string | null | undefined;
@@ -651,6 +661,7 @@ export async function handleLinkAccount(account: Account) {
       where: { accountId: account.id },
       select: {
         id: true,
+        email: true,
         userId: true,
         accountId: true,
         account: { select: { provider: true } },
@@ -734,6 +745,16 @@ export async function handleLinkAccount(account: Account) {
       return;
     }
 
+    const renamedMailbox =
+      allowEmailRename && linkedEmailAccount && profileData
+        ? await renameGoogleEmail({
+            account,
+            mailbox: linkedEmailAccount,
+            userEmail: user.email,
+            profile: { ...profileData, email: normalizedEmail },
+          })
+        : undefined;
+
     const data = {
       userId: account.userId,
       accountId: account.id,
@@ -741,29 +762,50 @@ export async function handleLinkAccount(account: Account) {
       image: primaryPhotoUrl,
     };
 
-    const [upsertedEmailAccount] = await prisma.$transaction([
-      prisma.emailAccount.upsert({
-        where: linkedEmailAccount
-          ? { accountId: account.id }
-          : { email: normalizedEmail },
-        update: data,
-        create: {
-          ...data,
-          email: normalizedEmail,
-          mailSplits: {
-            create: INITIAL_MAIL_SPLITS.map((split, order) => ({
-              ...split,
-              order,
-            })),
-          },
-        },
-        select: { id: true },
-      }),
-      prisma.account.update({
-        where: { id: account.id },
-        data: { disconnectedAt: null },
-      }),
-    ]);
+    const upsertedEmailAccount =
+      renamedMailbox ??
+      (
+        await prisma.$transaction([
+          linkedEmailAccount
+            ? prisma.emailAccount.update({
+                where: {
+                  id: linkedEmailAccount.id,
+                  userId: account.userId,
+                  accountId: account.id,
+                  account: {
+                    userId: account.userId,
+                    provider: account.providerId,
+                    providerAccountId: account.accountId,
+                  },
+                },
+                data: { name: primaryName, image: primaryPhotoUrl },
+                select: { id: true },
+              })
+            : prisma.emailAccount.upsert({
+                where: { email: normalizedEmail },
+                update: data,
+                create: {
+                  ...data,
+                  email: normalizedEmail,
+                  mailSplits: {
+                    create: INITIAL_MAIL_SPLITS.map((split, order) => ({
+                      ...split,
+                      order,
+                    })),
+                  },
+                },
+                select: { id: true },
+              }),
+          prisma.account.update({
+            where: {
+              id: account.id,
+              userId: account.userId,
+              providerAccountId: account.accountId,
+            },
+            data: { disconnectedAt: null },
+          }),
+        ])
+      )[0];
 
     await clearAccountDisconnectedErrorIfResolved({
       userId: account.userId,
@@ -795,6 +837,7 @@ export async function handleLinkAccount(account: Account) {
       userId: account.userId,
       accountId: account.id,
     });
+    return renamedMailbox?.renamedUser;
   } catch (error) {
     logger.error("[linkAccount] Error during linking process:", {
       userId: account.userId,
