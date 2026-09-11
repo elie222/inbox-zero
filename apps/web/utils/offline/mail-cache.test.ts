@@ -90,6 +90,48 @@ describe("offline mail cache", () => {
     expect(await (await response).text()).toBe("Saved mailbox");
   });
 
+  it("returns saved mail while a background cache write is stalled", async () => {
+    vi.useFakeTimers();
+    const cache = makeCache();
+    await storage.put(mailUrl, html("Saved mailbox"));
+    const pendingWrite = Promise.withResolvers<void>();
+    vi.spyOn(storage, "put").mockReturnValueOnce(pendingWrite.promise);
+    network.mockResolvedValueOnce(html("Refreshed mailbox"));
+    await cache.handle(documentRequest(), waitUntil);
+    network.mockImplementation(() => new Promise(() => {}));
+    let fallback: Response | undefined;
+    const loading = cache
+      .handle(documentRequest(), waitUntil)
+      .then((response) => {
+        fallback = response;
+      });
+    try {
+      await vi.advanceTimersByTimeAsync(3000);
+      expect(fallback).toBeDefined();
+      expect(await fallback?.text()).toBe("Saved mailbox");
+    } finally {
+      pendingWrite.resolve();
+      await loading;
+    }
+  });
+
+  it("does not return saved mail if logout starts during the cache lookup", async () => {
+    const cache = makeCache();
+    const lookupStarted = Promise.withResolvers<void>();
+    const lookup = Promise.withResolvers<Response | undefined>();
+    vi.spyOn(storage, "match").mockImplementationOnce(() => {
+      lookupStarted.resolve();
+      return lookup.promise;
+    });
+    network.mockRejectedValue(new TypeError("Network unavailable"));
+    const loading = cache.handle(documentRequest(), waitUntil);
+    await lookupStarted.promise;
+    await cache.clear();
+    lookup.resolve(html("Previous session mailbox"));
+    await expect(loading).rejects.toThrow("Network unavailable");
+    await Promise.all(pending);
+  });
+
   it("bounds a stalled request even when there is no saved mailbox", async () => {
     vi.useFakeTimers();
     network.mockImplementation(
