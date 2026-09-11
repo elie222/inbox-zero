@@ -105,6 +105,50 @@ describe.skipIf(!process.env.RUN_DB_TESTS)("pending digest migration", () => {
     );
   });
 
+  it.each([
+    "Digest",
+    "DigestItem",
+  ])("allows a writer holding %s to finish before acquiring both migration locks", async (firstTable) => {
+    const migrator = new Client({ connectionString: process.env.DATABASE_URL });
+    await migrator.connect();
+    await migrator.query(`SET search_path TO "${schema}"`);
+    const {
+      rows: [{ pid }],
+    } = await migrator.query<{ pid: number }>("SELECT pg_backend_pid() AS pid");
+    await client.query("BEGIN");
+    await client.query(`LOCK TABLE "${firstTable}" IN ROW EXCLUSIVE MODE`);
+    // Observe the lock attempt before continuing the writer's transaction.
+    const result = migrator.query(migration).then(
+      () => null,
+      (error: unknown) => error,
+    );
+    try {
+      let waiting = false;
+      for (let attempt = 0; attempt < 100; attempt++) {
+        const { rows } = await client.query(
+          "SELECT wait_event_type FROM pg_stat_activity WHERE pid = $1",
+          [pid],
+        );
+        if (["Lock", "Timeout"].includes(rows[0]?.wait_event_type)) {
+          waiting = true;
+          break;
+        }
+        await client.query("SELECT pg_sleep(0.01)");
+        await client.query("SELECT pg_stat_clear_snapshot()");
+      }
+      expect(waiting).toBe(true);
+      await client.query("SET LOCAL lock_timeout = '2s'");
+      const secondTable = firstTable === "Digest" ? "DigestItem" : "Digest";
+      await client.query(`SELECT * FROM "${secondTable}" LIMIT 1`);
+      await client.query("COMMIT");
+      expect(await result).toBeNull();
+    } finally {
+      await client.query("ROLLBACK");
+      await result;
+      await migrator.end();
+    }
+  });
+
   it("rolls back all cleanup if index creation fails", async () => {
     await client.query(
       'CREATE INDEX "Digest_emailAccountId_pending_key" ON "Digest"("id")',

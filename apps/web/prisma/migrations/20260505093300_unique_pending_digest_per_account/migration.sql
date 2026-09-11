@@ -1,7 +1,22 @@
 BEGIN;
 
 -- Keep cleanup and index creation atomic, excluding writers and digest claims.
-LOCK TABLE "Digest", "DigestItem" IN ACCESS EXCLUSIVE MODE;
+-- Writers acquire these tables in different orders. NOWAIT and the exception
+-- subtransaction release partial locks before retrying, avoiding lock cycles.
+DO $$
+BEGIN
+    FOR attempt IN 1..300 LOOP
+        BEGIN
+            LOCK TABLE "Digest", "DigestItem" IN ACCESS EXCLUSIVE MODE NOWAIT;
+            RETURN;
+        EXCEPTION WHEN lock_not_available THEN
+            IF attempt = 300 THEN
+                RAISE;
+            END IF;
+        END;
+        PERFORM pg_sleep(0.1);
+    END LOOP;
+END $$;
 
 -- Keep the oldest digest and its existing item content/action metadata. For
 -- messages absent from it, keep the oldest duplicate item (id breaks ties).
