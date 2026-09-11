@@ -7,33 +7,41 @@ import { openMail } from "./mail-test-helpers";
 test("expands unread messages when opening a thread", async ({
   page,
 }, testInfo) => {
-  await page.route("**/api/threads/thr_playwright_reader?**", async (route) => {
-    const response = await route.fetch();
-    const body: ThreadResponse = await response.json();
-    const first = body.thread.messages[0];
-    expect(first).toBeDefined();
-    if (!first) throw new Error("Reader fixture has no messages");
-    body.thread.messages = [
-      {
-        ...first,
-        id: "msg_playwright_reader_read_history",
-        labelIds: ["INBOX"],
-        textPlain: "An earlier read message stays collapsed.",
-        snippet: "An earlier read message stays collapsed.",
-      },
-      {
-        ...first,
-        id: "msg_playwright_reader_unread_history",
-        labelIds: ["INBOX", "UNREAD"],
-        textPlain: "Another unread message opens with the conversation.",
-        snippet: "Another unread message opens with the conversation.",
-      },
-      ...body.thread.messages,
-    ];
-    await route.fulfill({ response, json: body });
-  });
-
   const { emailAccountId } = await openMail(page);
+  const response = await page.request.get(
+    "/api/threads/thr_playwright_reader?parseReplies=true",
+    { headers: { "x-email-account-id": emailAccountId } },
+  );
+  expect(response.ok()).toBe(true);
+  const body: ThreadResponse = await response.json();
+  // Opening the conversation marks provider messages read, including across retries.
+  const first = body.thread.messages[0];
+  expect(first).toBeDefined();
+  if (!first) throw new Error("Reader fixture has no messages");
+  body.thread.messages = [
+    {
+      ...first,
+      id: "msg_playwright_reader_read_history",
+      labelIds: ["INBOX"],
+      textPlain: "An earlier read message stays collapsed.",
+      snippet: "An earlier read message stays collapsed.",
+    },
+    {
+      ...first,
+      id: "msg_playwright_reader_unread_history",
+      labelIds: ["INBOX", "UNREAD"],
+      textPlain: "Another unread message opens with the conversation.",
+      snippet: "Another unread message opens with the conversation.",
+    },
+    ...body.thread.messages.map((message) => ({
+      ...message,
+      labelIds: ["INBOX", "UNREAD"],
+    })),
+  ];
+  await page.route("**/api/threads/thr_playwright_reader?**", (route) =>
+    route.fulfill({ json: body }),
+  );
+
   await page.goto(`/${emailAccountId}/mail?thread-id=thr_playwright_reader`, {
     waitUntil: "domcontentloaded",
   });

@@ -156,6 +156,7 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
       env: {
         ...process.env,
+        MCP_SERVER_URL_OVERRIDES: "",
         NODE_ENV: production ? "production" : "development",
         NODE_OPTIONS: nodeOptions,
         NEXT_PUBLIC_BASE_URL: baseURL,
