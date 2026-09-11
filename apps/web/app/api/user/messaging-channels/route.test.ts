@@ -44,6 +44,7 @@ const messagingChannelSelect = {
   accessToken: true,
   isConnected: true,
   webhookUrl: true,
+  webhookSecret: true,
   routes: {
     select: {
       purpose: true,
@@ -86,6 +87,8 @@ describe("GET /api/user/messaging-channels", () => {
       {
         id: "channel-1",
         provider: "SLACK",
+        webhookUrl: null,
+        webhookSecret: null,
         teamName: null,
         teamId: "team-1",
         providerUserId: "U123",
@@ -133,6 +136,8 @@ describe("GET /api/user/messaging-channels", () => {
       {
         id: "channel-1",
         provider: "SLACK",
+        webhookUrl: null,
+        hasWebhookSecret: false,
         teamName: null,
         teamId: "team-1",
         isConnected: true,
@@ -206,7 +211,7 @@ describe("GET /api/user/messaging-channels", () => {
         actions: [],
         webhookSecret: "super-secret",
       },
-    ] satisfies MessagingChannelRecord[] & Array<{ webhookSecret: string }>;
+    ] satisfies MessagingChannelRecord[];
     prisma.messagingChannel.findMany.mockResolvedValue(channels);
 
     const response = await GET(createRequest());
@@ -217,6 +222,7 @@ describe("GET /api/user/messaging-channels", () => {
         id: "channel-webhook-1",
         provider: "WEBHOOK",
         webhookUrl: "https://example.com/hook",
+        hasWebhookSecret: true,
         isConnected: true,
       }),
     );
@@ -241,6 +247,8 @@ describe("GET /api/user/messaging-channels", () => {
       {
         id: "channel-1",
         provider: "SLACK",
+        webhookUrl: null,
+        webhookSecret: null,
         teamName: "Workspace",
         teamId: "team-1",
         providerUserId: "U123",
@@ -282,6 +290,8 @@ describe("GET /api/user/messaging-channels", () => {
       {
         id: "channel-1",
         provider: "SLACK",
+        webhookUrl: null,
+        webhookSecret: null,
         teamName: "Workspace",
         teamId: "team-1",
         providerUserId: "U123",
@@ -299,6 +309,8 @@ describe("GET /api/user/messaging-channels", () => {
       {
         id: "channel-2",
         provider: "SLACK",
+        webhookUrl: null,
+        webhookSecret: null,
         teamName: "Workspace",
         teamId: "team-1",
         providerUserId: "U456",
@@ -420,6 +432,8 @@ describe("GET /api/user/messaging-channels", () => {
       {
         id: "channel-1",
         provider: "SLACK",
+        webhookUrl: null,
+        webhookSecret: null,
         teamName: "Workspace",
         teamId: "team-1",
         providerUserId: null,
@@ -431,6 +445,8 @@ describe("GET /api/user/messaging-channels", () => {
       {
         id: "channel-2",
         provider: "TEAMS",
+        webhookUrl: null,
+        webhookSecret: null,
         teamName: "Workspace",
         teamId: "team-2",
         providerUserId: null,

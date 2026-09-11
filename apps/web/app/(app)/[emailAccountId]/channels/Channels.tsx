@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useForm } from "react-hook-form";
 import Link from "next/link";
 import {
   BellIcon,
@@ -65,6 +66,7 @@ import {
   toggleWebhookDigestsAction,
 } from "@/utils/actions/messaging-channels";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useSlackNotifications } from "@/app/(app)/[emailAccountId]/settings/ConnectedAppsSection";
 import { ProactiveUpdatesSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/ProactiveUpdatesSetting";
 import { toastSuccess, toastError } from "@/components/Toast";
@@ -106,30 +108,6 @@ const PROVIDER_ORDER: MessagingProvider[] = [
   "TELEGRAM",
   "WEBHOOK",
 ];
-
-function ProviderIcon({
-  provider,
-  className = "size-5",
-}: {
-  provider: MessagingProvider;
-  className?: string;
-}) {
-  const config = PROVIDER_CONFIG[provider];
-  if (config.logo) {
-    return (
-      <Image
-        src={config.logo}
-        alt={config.name}
-        width={20}
-        height={20}
-        className={className}
-        unoptimized
-      />
-    );
-  }
-  const Icon = config.icon ?? BellIcon;
-  return <Icon className={className} />;
-}
 
 const CHANNEL_FEATURES: Array<{
   purpose: MessagingFeatureRoutePurpose;
@@ -224,7 +202,7 @@ export function Channels() {
     <div className="mx-auto max-w-2xl space-y-10">
       <PageHeader
         title="Channels"
-        description="Manage what gets delivered to your chat apps."
+        description="Manage delivery to your chat apps and webhook endpoints."
       />
 
       <LoadingContent
@@ -972,13 +950,17 @@ function WebhookForm({
   onSaved: () => void;
 }) {
   const analytics = useProductAnalytics("channels");
-  const [url, setUrl] = useState(initialUrl ?? "");
-  const [secret, setSecret] = useState("");
+  const { register, handleSubmit, watch, resetField, setValue } = useForm({
+    defaultValues: { url: initialUrl ?? "", secret: "", clearSecret: false },
+  });
+  const url = watch("url");
+  const clearSecret = watch("clearSecret");
 
   const onSuccess = () => {
     analytics.captureAction(channelId ? "webhook_updated" : "webhook_created");
     toastSuccess({ description: "Webhook saved" });
-    setSecret("");
+    resetField("secret");
+    resetField("clearSecret");
     onSaved();
   };
   const onError = (error: { error: unknown }) => {
@@ -1008,27 +990,18 @@ function WebhookForm({
   const status = channelId ? update.status : create.status;
   const isExecuting = status === "executing";
 
-  const handleSubmit = (event: React.FormEvent) => {
-    event.preventDefault();
-    const trimmedUrl = url.trim();
-    if (!trimmedUrl) return;
-    const trimmedSecret = secret.trim();
+  const onSubmit = handleSubmit(({ url, secret, clearSecret }) => {
+    const webhookUrl = url.trim();
+    const webhookSecret = clearSecret ? "" : secret.trim() || undefined;
     if (channelId) {
-      update.execute({
-        channelId,
-        webhookUrl: trimmedUrl,
-        webhookSecret: trimmedSecret || undefined,
-      });
+      update.execute({ channelId, webhookUrl, webhookSecret });
     } else {
-      create.execute({
-        webhookUrl: trimmedUrl,
-        webhookSecret: trimmedSecret || undefined,
-      });
+      create.execute({ webhookUrl, webhookSecret });
     }
-  };
+  });
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
+    <form onSubmit={onSubmit} className="space-y-3">
       <div className="space-y-1.5">
         <label
           htmlFor={`webhook-url-${channelId ?? "new"}`}
@@ -1041,8 +1014,7 @@ function WebhookForm({
           type="url"
           required
           placeholder="https://example.com/inbox-zero-webhook"
-          value={url}
-          onChange={(event) => setUrl(event.target.value)}
+          {...register("url", { required: true })}
         />
       </div>
       <div className="space-y-1.5">
@@ -1059,14 +1031,29 @@ function WebhookForm({
           placeholder={
             initialHasSecret ? "Leave blank to keep current secret" : "Optional"
           }
-          value={secret}
-          onChange={(event) => setSecret(event.target.value)}
+          disabled={clearSecret}
+          {...register("secret")}
         />
         <MutedText className="text-xs">
           Sent as the <code>X-Webhook-Secret</code> header so your endpoint can
           verify the request.
         </MutedText>
       </div>
+      {initialHasSecret && (
+        <label
+          className="flex items-center gap-2 text-sm"
+          htmlFor={`clear-webhook-secret-${channelId}`}
+        >
+          <Checkbox
+            id={`clear-webhook-secret-${channelId}`}
+            checked={clearSecret}
+            onCheckedChange={(checked) =>
+              setValue("clearSecret", checked === true)
+            }
+          />
+          Remove saved secret
+        </label>
+      )}
       <Button type="submit" size="sm" disabled={isExecuting || !url.trim()}>
         {submitLabel}
       </Button>
@@ -1200,6 +1187,7 @@ function WebhookChannelSection({
               emailAccountId={emailAccountId}
               channelId={channel.id}
               initialUrl={channel.webhookUrl ?? ""}
+              initialHasSecret={channel.hasWebhookSecret}
               submitLabel="Save changes"
               onSaved={onUpdate}
             />
@@ -1212,7 +1200,8 @@ function WebhookChannelSection({
           <ItemContent>
             <ItemTitle>Digests</ItemTitle>
             <ItemDescription>
-              POST your scheduled digest to this webhook.
+              Send your scheduled digest as JSON to this endpoint. If another
+              destination succeeds, a failed webhook delivery is not retried.
             </ItemDescription>
           </ItemContent>
           <ItemActions>
@@ -1255,4 +1244,28 @@ function sortProviders(providers: MessagingProvider[]) {
 function getProviderOrderIndex(provider: MessagingProvider) {
   const index = PROVIDER_ORDER.indexOf(provider);
   return index === -1 ? PROVIDER_ORDER.length : index;
+}
+
+function ProviderIcon({
+  provider,
+  className = "size-5",
+}: {
+  provider: MessagingProvider;
+  className?: string;
+}) {
+  const config = PROVIDER_CONFIG[provider];
+  if (config.logo) {
+    return (
+      <Image
+        src={config.logo}
+        alt={config.name}
+        width={20}
+        height={20}
+        className={className}
+        unoptimized
+      />
+    );
+  }
+  const Icon = config.icon ?? BellIcon;
+  return <Icon className={className} />;
 }

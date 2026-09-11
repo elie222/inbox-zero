@@ -1,14 +1,11 @@
-import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { resolveSafeExternalHttpUrl } from "@/utils/network/safe-http-url";
-import {
-  assertWebhookSecretUsesHttps,
-  WEBHOOK_SECRET_REQUIRES_HTTPS_MESSAGE,
-} from "@/utils/messaging/providers/webhook/validation";
+import { assertDigestWebhookUrl } from "@/utils/messaging/providers/webhook/validation";
+import { allowPrivateIps } from "@/utils/webhook-validation";
 
 const WEBHOOK_REQUEST_TIMEOUT_MS = 10_000;
 
-export type DigestWebhookItem = {
+type DigestWebhookItem = {
   from: string;
   subject: string;
   content: string;
@@ -21,15 +18,8 @@ export type DigestWebhookPayload = {
   itemsByRule: Record<string, DigestWebhookItem[] | undefined>;
 };
 
-/**
- * POST a digest payload to a user-configured webhook URL.
- *
- * SSRF-safe: the URL is validated and DNS-resolved to public addresses via
- * {@link resolveSafeExternalHttpUrl}, and the request is pinned to those
- * addresses (mirroring `utils/webhook.ts`). Unlike the rule webhook, this
- * THROWS on a blocked or non-2xx response so the caller's `Promise.allSettled`
- * counts it as a failed delivery channel.
- */
+// Pin the connection to validated DNS addresses so a second lookup cannot
+// redirect delivery to a private address. Internal targets require operator opt-in.
 export async function sendDigestToWebhook({
   url,
   secret,
@@ -39,19 +29,12 @@ export async function sendDigestToWebhook({
   secret: string | null;
   payload: DigestWebhookPayload;
 }): Promise<void> {
-  const resolvedUrl = await resolveSafeExternalHttpUrl(url);
+  assertDigestWebhookUrl(url);
+  const resolvedUrl = await resolveSafeExternalHttpUrl(url, {
+    allowPrivateIps: allowPrivateIps(),
+  });
   if (!resolvedUrl) {
     throw new Error("Webhook URL blocked by SSRF protection");
-  }
-
-  try {
-    assertWebhookSecretUsesHttps({ url: resolvedUrl.url.toString(), secret });
-  } catch (error) {
-    throw new Error(
-      error instanceof Error
-        ? error.message
-        : WEBHOOK_SECRET_REQUIRES_HTTPS_MESSAGE,
-    );
   }
 
   const requestBody = JSON.stringify(payload);
@@ -60,12 +43,11 @@ export async function sendDigestToWebhook({
     "Content-Type": "application/json",
     "Content-Length": Buffer.byteLength(requestBody).toString(),
   };
-  if (secret) headers["X-Webhook-Secret"] = secret;
+  const trimmedSecret = secret?.trim();
+  if (trimmedSecret) headers["X-Webhook-Secret"] = trimmedSecret;
 
   const statusCode = await new Promise<number>((resolve, reject) => {
-    const request = (
-      resolvedUrl.url.protocol === "https:" ? httpsRequest : httpRequest
-    )(
+    const request = httpsRequest(
       resolvedUrl.url,
       {
         method: "POST",

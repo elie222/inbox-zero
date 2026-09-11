@@ -9,6 +9,7 @@ import {
   createMessagingLinkCodeAction,
   createWebhookChannelAction,
   toggleRuleChannelAction,
+  toggleWebhookDigestsAction,
   updateSlackRouteAction,
   updateMessagingFeatureRouteAction,
   updateWebhookChannelAction,
@@ -20,7 +21,6 @@ import {
 } from "@/utils/messaging/providers/slack/channels";
 import { createSlackClient } from "@/utils/messaging/providers/slack/client";
 import { sendChannelConfirmation } from "@/utils/messaging/providers/slack/send";
-import { WEBHOOK_SECRET_REQUIRES_HTTPS_MESSAGE } from "@/utils/messaging/providers/webhook/validation";
 
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/auth", () => ({
@@ -42,6 +42,7 @@ vi.mock("@/utils/messaging/providers/slack/send", () => ({
 
 const { mockEnv, generateMessagingLinkCodeMock } = vi.hoisted(() => ({
   mockEnv: {
+    NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS: false,
     TEAMS_BOT_APP_ID: "teams-app-id" as string | undefined,
     TEAMS_BOT_APP_PASSWORD: "teams-app-password",
     TEAMS_BOT_APP_TENANT_ID: "tenant-id" as string | undefined,
@@ -425,7 +426,16 @@ describe("createWebhookChannelAction", () => {
       webhookSecret: "shh",
     });
 
-    expect(result?.serverError).toBe(WEBHOOK_SECRET_REQUIRES_HTTPS_MESSAGE);
+    expect(result?.serverError).toMatch(/HTTPS/);
+    expect(prisma.messagingChannel.upsert).not.toHaveBeenCalled();
+  });
+
+  it("rejects reconnecting over HTTP when the secret is omitted", async () => {
+    const result = await createWebhookChannelAction("email-account-1", {
+      webhookUrl: "http://example.com/hook",
+    });
+
+    expect(result?.serverError).toMatch(/HTTPS/);
     expect(prisma.messagingChannel.upsert).not.toHaveBeenCalled();
   });
 
@@ -472,11 +482,11 @@ describe("updateWebhookChannelAction", () => {
       webhookUrl: "http://example.com/hook",
     });
 
-    expect(result?.serverError).toBe(WEBHOOK_SECRET_REQUIRES_HTTPS_MESSAGE);
+    expect(result?.serverError).toMatch(/HTTPS/);
     expect(prisma.messagingChannel.update).not.toHaveBeenCalled();
   });
 
-  it("allows HTTP when the stored secret is cleared", async () => {
+  it("clears the stored secret explicitly on HTTPS", async () => {
     prisma.messagingChannel.findUnique.mockResolvedValue({
       provider: MessagingProvider.WEBHOOK,
       webhookSecret: "stored-secret",
@@ -484,12 +494,76 @@ describe("updateWebhookChannelAction", () => {
 
     const result = await updateWebhookChannelAction("email-account-1" as any, {
       channelId: "channel-webhook-1",
-      webhookUrl: "http://example.com/hook",
+      webhookUrl: "https://example.com/hook",
       webhookSecret: "",
     });
 
     expect(result?.serverError).toBeUndefined();
-    expect(prisma.messagingChannel.update).toHaveBeenCalled();
+    expect(prisma.messagingChannel.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { webhookUrl: "https://example.com/hook", webhookSecret: null },
+      }),
+    );
+  });
+});
+
+describe("toggleWebhookDigestsAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockEnv.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS = false;
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      email: "user@example.com",
+      account: { userId: "user-1", provider: "google" },
+    } as any);
+    prisma.user.findUnique.mockResolvedValue({ premium: null } as any);
+    prisma.messagingChannel.findUnique.mockResolvedValue({
+      provider: MessagingProvider.WEBHOOK,
+      webhookUrl: "https://example.com/hook",
+      isConnected: true,
+    } as any);
+  });
+
+  it("rejects enabling without digest plan access", async () => {
+    const result = await toggleWebhookDigestsAction("email-account-1", {
+      channelId: "webhook-1",
+      enabled: true,
+    });
+    expect(result?.serverError).toMatch(/Plus plan/);
+    expect(prisma.messagingRoute.upsert).not.toHaveBeenCalled();
+  });
+
+  it("allows disabling after losing plan access", async () => {
+    const result = await toggleWebhookDigestsAction("email-account-1", {
+      channelId: "webhook-1",
+      enabled: false,
+    });
+    expect(result?.serverError).toBeUndefined();
+    expect(prisma.messagingRoute.deleteMany).toHaveBeenCalledWith({
+      where: {
+        messagingChannelId: "webhook-1",
+        purpose: MessagingRoutePurpose.DIGESTS,
+      },
+    });
+  });
+
+  it("rejects a channel outside the authenticated account", async () => {
+    prisma.messagingChannel.findUnique.mockResolvedValue(null);
+    const result = await toggleWebhookDigestsAction("email-account-1", {
+      channelId: "other-channel",
+      enabled: false,
+    });
+    expect(result?.serverError).toBe("Messaging channel not found");
+    expect(prisma.messagingChannel.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id_emailAccountId: {
+            id: "other-channel",
+            emailAccountId: "email-account-1",
+          },
+        },
+      }),
+    );
+    expect(prisma.messagingRoute.deleteMany).not.toHaveBeenCalled();
   });
 });
 

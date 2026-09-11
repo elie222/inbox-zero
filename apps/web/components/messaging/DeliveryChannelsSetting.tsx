@@ -18,7 +18,10 @@ import { useMessagingChannels } from "@/hooks/useMessagingChannels";
 import { useSettingsDialog } from "@/hooks/useSettingsDialog";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import type { MessagingProvider } from "@/generated/prisma/enums";
-import { updateMessagingFeatureRouteAction } from "@/utils/actions/messaging-channels";
+import {
+  updateMessagingFeatureRouteAction,
+  toggleWebhookDigestsAction,
+} from "@/utils/actions/messaging-channels";
 import { getActionErrorMessage } from "@/utils/error";
 import {
   canEnableMessagingFeatureRoute,
@@ -84,7 +87,11 @@ export function DeliveryChannelsSetting({
   } = useMessagingChannels();
 
   const connectedChannels =
-    channelsData?.channels.filter((channel) => channel.isConnected) ?? [];
+    channelsData?.channels.filter(
+      (channel) =>
+        channel.isConnected &&
+        (channel.provider !== "WEBHOOK" || purpose === "DIGESTS"),
+    ) ?? [];
   const hasSlack = connectedChannels.some(
     (channel) => channel.provider === "SLACK",
   );
@@ -168,13 +175,27 @@ function ChannelRow({
     channel.destinations,
     purpose,
   );
-  const canEnableFeatureRoute = canEnableMessagingFeatureRoute(
-    channel.destinations,
-    purpose,
-  );
+  const canEnableFeatureRoute =
+    channel.provider === "WEBHOOK" ||
+    canEnableMessagingFeatureRoute(channel.destinations, purpose);
 
   const { execute: executeFeatures } = useAction(
     updateMessagingFeatureRouteAction.bind(null, emailAccountId),
+    {
+      onSuccess: () => {
+        toastSuccess({ description: "Settings saved" });
+        onUpdate();
+      },
+      onError: (error) => {
+        toastError({
+          description: getActionErrorMessage(error.error) ?? "Failed to update",
+        });
+      },
+    },
+  );
+
+  const { execute: executeWebhookDigests } = useAction(
+    toggleWebhookDigestsAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
         toastSuccess({ description: "Settings saved" });
@@ -216,8 +237,9 @@ function ChannelRow({
           <div className="space-y-1">
             <span className="text-sm font-medium">{config.name}</span>
             <MutedText className="text-xs">
-              {featureLabel} will be sent to this connected app&apos;s direct
-              message destination.
+              {channel.provider === "WEBHOOK"
+                ? "Your scheduled digest will be sent to this webhook endpoint."
+                : `${featureLabel} will be sent to this connected app’s direct message destination.`}
             </MutedText>
           </div>
         )}
@@ -229,6 +251,10 @@ function ChannelRow({
         disabled={!canEnableFeatureRoute}
         onChange={(enabled) => {
           if (!canEnableFeatureRoute) return;
+          if (channel.provider === "WEBHOOK") {
+            executeWebhookDigests({ channelId: channel.id, enabled });
+            return;
+          }
           executeFeatures({
             channelId: channel.id,
             purpose,

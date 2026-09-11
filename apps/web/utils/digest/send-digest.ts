@@ -296,8 +296,6 @@ async function sendDigestViaWebhook({
   logger: Logger;
 }) {
   logger.info("Sending digest to webhook");
-  // Throws on blocked (SSRF) or non-2xx so this counts as a failed channel
-  // under Promise.allSettled, preventing the digest from being marked SENT.
   await sendDigestToWebhook({
     url: webhookUrl,
     secret: webhookSecret,

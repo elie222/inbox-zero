@@ -1,34 +1,40 @@
-import { describe, expect, it } from "vitest";
-import {
-  assertWebhookSecretUsesHttps,
-  WEBHOOK_SECRET_REQUIRES_HTTPS_MESSAGE,
-} from "./validation";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { assertDigestWebhookUrl } from "./validation";
 
-describe("assertWebhookSecretUsesHttps", () => {
-  it("allows HTTP when no secret is configured", () => {
+afterEach(() => vi.unstubAllEnvs());
+
+describe("assertDigestWebhookUrl", () => {
+  it("requires HTTPS even without a secret", () => {
+    expect(() => assertDigestWebhookUrl("http://example.com/hook")).toThrow(
+      /HTTPS/,
+    );
+  });
+
+  it("accepts public HTTPS endpoints", () => {
     expect(() =>
-      assertWebhookSecretUsesHttps({
-        url: "http://example.com/hook",
-        secret: null,
-      }),
+      assertDigestWebhookUrl("https://example.com/hook"),
     ).not.toThrow();
   });
 
-  it("allows HTTPS with a secret", () => {
+  it("rejects private targets unless the operator opts in", () => {
+    vi.stubEnv("WEBHOOK_ALLOW_PRIVATE_IPS", "false");
+    expect(() => assertDigestWebhookUrl("https://192.168.1.10/hook")).toThrow();
+    vi.stubEnv("WEBHOOK_ALLOW_PRIVATE_IPS", "true");
     expect(() =>
-      assertWebhookSecretUsesHttps({
-        url: "https://example.com/hook",
-        secret: "shh",
-      }),
+      assertDigestWebhookUrl("https://192.168.1.10/hook"),
     ).not.toThrow();
   });
 
-  it("rejects HTTP when a secret is configured", () => {
+  it("still blocks metadata hostnames with private targets enabled", () => {
+    vi.stubEnv("WEBHOOK_ALLOW_PRIVATE_IPS", "true");
     expect(() =>
-      assertWebhookSecretUsesHttps({
-        url: "http://example.com/hook",
-        secret: "shh",
-      }),
-    ).toThrow(WEBHOOK_SECRET_REQUIRES_HTTPS_MESSAGE);
+      assertDigestWebhookUrl("https://metadata.google.internal/hook"),
+    ).toThrow();
+  });
+
+  it("rejects credentials embedded in URLs", () => {
+    expect(() =>
+      assertDigestWebhookUrl("https://user:password@example.com/hook"),
+    ).toThrow(/secret field/);
   });
 });

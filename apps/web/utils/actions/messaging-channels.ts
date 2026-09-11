@@ -24,8 +24,7 @@ import {
   MessagingRoutePurpose,
   MessagingRouteTargetType,
 } from "@/generated/prisma/enums";
-import { isSafeExternalHttpUrl } from "@/utils/network/safe-http-url";
-import { assertWebhookSecretUsesHttps } from "@/utils/messaging/providers/webhook/validation";
+import { assertDigestWebhookUrl } from "@/utils/messaging/providers/webhook/validation";
 import { generateMessagingLinkCode } from "@/utils/messaging/chat-sdk/link-code";
 import {
   DRAFT_REPLY_ACTION_TYPES,
@@ -221,16 +220,7 @@ export const createWebhookChannelAction = actionClient
       ctx: { emailAccountId },
       parsedInput: { webhookUrl, webhookSecret },
     }) => {
-      if (!isSafeExternalHttpUrl(webhookUrl)) {
-        throw new SafeError(
-          "Webhook URL must be a public http(s) URL (private and local addresses are not allowed)",
-        );
-      }
-
-      assertWebhookSecretUsesHttps({
-        url: webhookUrl,
-        secret: webhookSecret || null,
-      });
+      assertDigestWebhookUrl(webhookUrl);
 
       // One webhook channel per account: re-adding reconnects the existing row
       // (disconnect leaves the row with isConnected=false).
@@ -271,15 +261,11 @@ export const updateWebhookChannelAction = actionClient
       ctx: { emailAccountId },
       parsedInput: { channelId, webhookUrl, webhookSecret },
     }) => {
-      if (!isSafeExternalHttpUrl(webhookUrl)) {
-        throw new SafeError(
-          "Webhook URL must be a public http(s) URL (private and local addresses are not allowed)",
-        );
-      }
+      assertDigestWebhookUrl(webhookUrl);
 
       const channel = await prisma.messagingChannel.findUnique({
         where: { id_emailAccountId: { id: channelId, emailAccountId } },
-        select: { provider: true, webhookSecret: true },
+        select: { provider: true },
       });
 
       if (!channel) {
@@ -288,16 +274,6 @@ export const updateWebhookChannelAction = actionClient
       if (channel.provider !== MessagingProvider.WEBHOOK) {
         throw new SafeError("Messaging channel is not a webhook");
       }
-
-      const effectiveSecret =
-        webhookSecret !== undefined
-          ? webhookSecret || null
-          : channel.webhookSecret;
-
-      assertWebhookSecretUsesHttps({
-        url: webhookUrl,
-        secret: effectiveSecret,
-      });
 
       await prisma.messagingChannel.update({
         where: { id_emailAccountId: { id: channelId, emailAccountId } },
@@ -328,7 +304,7 @@ export const toggleWebhookDigestsAction = actionClient
 
       const channel = await prisma.messagingChannel.findUnique({
         where: { id_emailAccountId: { id: channelId, emailAccountId } },
-        select: { provider: true, webhookUrl: true },
+        select: { provider: true, webhookUrl: true, isConnected: true },
       });
 
       if (!channel) {
@@ -348,9 +324,10 @@ export const toggleWebhookDigestsAction = actionClient
         return;
       }
 
-      if (!channel.webhookUrl) {
-        throw new SafeError("Set a webhook URL before enabling digests");
+      if (!channel.isConnected || !channel.webhookUrl) {
+        throw new SafeError("Connect a webhook before enabling digests");
       }
+      assertDigestWebhookUrl(channel.webhookUrl);
 
       // Seed the DIGESTS route directly. The target is unused by webhook
       // delivery but a route row must exist for send-digest to pick up the

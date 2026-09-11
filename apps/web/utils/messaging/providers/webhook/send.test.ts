@@ -10,7 +10,8 @@ vi.mock("node:https", () => ({
   request: httpsRequestMock,
 }));
 
-vi.mock("@/utils/network/safe-http-url", () => ({
+vi.mock("@/utils/network/safe-http-url", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/utils/network/safe-http-url")>()),
   resolveSafeExternalHttpUrl: (...args: unknown[]) =>
     resolveSafeExternalHttpUrlMock(...args),
 }));
@@ -34,7 +35,7 @@ describe("sendDigestToWebhook", () => {
   });
 
   afterEach(() => {
-    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
   });
 
   it("throws when the URL is blocked by SSRF protection", async () => {
@@ -42,7 +43,7 @@ describe("sendDigestToWebhook", () => {
 
     await expect(
       sendDigestToWebhook({
-        url: "http://169.254.169.254/latest",
+        url: "https://example.com/hook",
         secret: null,
         payload,
       }),
@@ -97,6 +98,32 @@ describe("sendDigestToWebhook", () => {
     expect(headers).not.toHaveProperty("X-Webhook-Secret");
   });
 
+  it("omits whitespace-only secrets", async () => {
+    queueHttpsResponse({ statusCode: 204 });
+    await sendDigestToWebhook({
+      url: "https://example.com/hook",
+      secret: "   ",
+      payload,
+    });
+    expect(httpsRequestMock.mock.calls[0][1].headers).not.toHaveProperty(
+      "X-Webhook-Secret",
+    );
+  });
+
+  it("passes the operator's private-network opt-in to DNS validation", async () => {
+    vi.stubEnv("WEBHOOK_ALLOW_PRIVATE_IPS", "true");
+    queueHttpsResponse({ statusCode: 204 });
+    await sendDigestToWebhook({
+      url: "https://example.com/hook",
+      secret: null,
+      payload,
+    });
+    expect(resolveSafeExternalHttpUrlMock).toHaveBeenCalledWith(
+      "https://example.com/hook",
+      { allowPrivateIps: true },
+    );
+  });
+
   it("throws on a non-2xx response", async () => {
     queueHttpsResponse({ statusCode: 500 });
 
@@ -107,6 +134,17 @@ describe("sendDigestToWebhook", () => {
         payload,
       }),
     ).rejects.toThrow(/status 500/);
+  });
+
+  it("rejects HTTP even without a secret before making a request", async () => {
+    await expect(
+      sendDigestToWebhook({
+        url: "http://example.com/hook",
+        secret: null,
+        payload,
+      }),
+    ).rejects.toThrow(/HTTPS/);
+    expect(httpsRequestMock).not.toHaveBeenCalled();
   });
 
   it("throws when a secret is configured for an HTTP URL", async () => {
@@ -121,7 +159,7 @@ describe("sendDigestToWebhook", () => {
         secret: "shh",
         payload,
       }),
-    ).rejects.toThrow(/secret can only be sent over HTTPS/);
+    ).rejects.toThrow(/HTTPS/);
 
     expect(httpsRequestMock).not.toHaveBeenCalled();
   });

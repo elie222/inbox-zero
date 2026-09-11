@@ -36,6 +36,7 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
       accessToken: true,
       isConnected: true,
       webhookUrl: true,
+      webhookSecret: true,
       routes: {
         select: {
           purpose: true,
@@ -59,18 +60,23 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
 
   return {
     channels: channels.map(
-      ({ routes, providerUserId, accessToken: _accessToken, ...channel }) => {
-        const { webhookSecret: _webhookSecret, ...publicChannel } =
-          channel as typeof channel & { webhookSecret?: string | null };
+      ({
+        routes,
+        providerUserId,
+        accessToken: _accessToken,
+        webhookSecret,
+        ...channel
+      }) => {
         const isConnected = isMessagingChannelOperational({
-          ...publicChannel,
+          ...channel,
           providerUserId,
           accessToken: _accessToken,
         });
 
         return {
-          ...publicChannel,
+          ...channel,
           isConnected,
+          hasWebhookSecret: Boolean(webhookSecret),
           canSendAsDm: channel.provider === "SLACK" && isConnected,
           destinations: {
             ruleNotifications: getMessagingRouteSummary(

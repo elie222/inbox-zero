@@ -184,6 +184,19 @@ describe("sendDigest", () => {
     );
   });
 
+  it("keeps existing partial-success behavior when the webhook fails but email succeeds", async () => {
+    prisma.emailAccount.findUnique.mockResolvedValue({
+      digestSendEmail: true,
+    } as any);
+    prisma.messagingChannel.findMany.mockResolvedValue([webhookChannel] as any);
+    vi.mocked(sendDigestToWebhook).mockRejectedValue(
+      new Error("Endpoint unavailable"),
+    );
+    vi.mocked(sendDigestEmail).mockResolvedValue(undefined);
+    await expect(sendDigest(baseArgs)).resolves.toBeUndefined();
+    expect(sendDigestEmail).toHaveBeenCalled();
+  });
+
   it("skips a webhook channel with no url (non-operational)", async () => {
     prisma.emailAccount.findUnique.mockResolvedValue({
       digestSendEmail: false,
