@@ -67,11 +67,37 @@ concurrency:
   group: playwright-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+env:
+  PLAYWRIGHT_SKIP_REPORT_MERGE: "1"
+  NODE_ENV: development
+  NODE_OPTIONS: --max_old_space_size=6144
+  NEXT_PUBLIC_BASE_URL: http://localhost:3000
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+  AUTH_SECRET: secret
+  GOOGLE_CLIENT_ID: client_id
+  GOOGLE_CLIENT_SECRET: client_secret
+  GOOGLE_BASE_URL: http://localhost:4100
+  GOOGLE_PUBSUB_TOPIC_NAME: topic
+  EMAIL_ENCRYPT_SECRET: secret
+  EMAIL_ENCRYPT_SALT: salt
+  INTERNAL_API_KEY: secret
+  DEFAULT_LLMS: openai:gpt-5.4-mini
+  UPSTASH_REDIS_URL: http://localhost:8079
+  UPSTASH_REDIS_TOKEN: playwright-token
+  PLAYWRIGHT_PRODUCTION: "1"
+  # Public flags are frozen into the shared build, so enable every tested feature.
+  NEXT_PUBLIC_EMAIL_SEND_ENABLED: "true"
+  NEXT_PUBLIC_MEETING_RECORDER_ENABLED: "true"
+  NEXT_PUBLIC_CONTACTS_ENABLED: "true"
+  NEXT_PUBLIC_INTEGRATIONS_ENABLED: "true"
+  NEXT_PUBLIC_INTEGRATION_ACTION_ENABLED: "true"
+  NEXT_PUBLIC_EXTERNAL_API_ENABLED: "true"
+
 jobs:
   select:
-    name: Select browser specs
+    name: Select specs and build browser app
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 10
     outputs:
       batches: ${{ steps.targets.outputs.batches }}
       changed_tests: ${{ steps.changes.outputs.PLAYWRIGHT_CHANGED_TEST_FILES }}
@@ -127,6 +153,29 @@ jobs:
           batches="$(node __tests__/playwright/run-emulated-suite.mjs --list-batches)"
           echo "batches=$batches" >> "$GITHUB_OUTPUT"
 
+      - name: Build browser app once
+        if: steps.targets.outputs.batches != '[]'
+        run: pnpm -F inbox-zero-ai build:ci
+        env:
+          NODE_ENV: production
+          NODE_OPTIONS: --max_old_space_size=16384
+
+      - name: Package browser app
+        if: steps.targets.outputs.batches != '[]'
+        working-directory: apps/web
+        run: tar --exclude='.next/cache' -cf "$RUNNER_TEMP/playwright-app.tar" .next public/sw*
+
+      - name: Upload browser app
+        if: steps.targets.outputs.batches != '[]'
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-app-${{ github.run_id }}
+          path: ${{ runner.temp }}/playwright-app.tar
+          compression-level: 1
+          retention-days: 1
+          overwrite: true
+          if-no-files-found: error
+
   playwright:
     name: E2E ${{ matrix.batch.name }}
     needs: select
@@ -168,23 +217,7 @@ jobs:
           - 8079:80
 
     env:
-      PLAYWRIGHT_SKIP_REPORT_MERGE: "1"
       PLAYWRIGHT_CHANGED_TEST_FILES: ${{ needs.select.outputs.changed_tests }}
-      NODE_ENV: development
-      NODE_OPTIONS: --max_old_space_size=6144
-      NEXT_PUBLIC_BASE_URL: http://localhost:3000
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
-      AUTH_SECRET: secret
-      GOOGLE_CLIENT_ID: client_id
-      GOOGLE_CLIENT_SECRET: client_secret
-      GOOGLE_BASE_URL: http://localhost:4100
-      GOOGLE_PUBSUB_TOPIC_NAME: topic
-      EMAIL_ENCRYPT_SECRET: secret
-      EMAIL_ENCRYPT_SALT: salt
-      INTERNAL_API_KEY: secret
-      DEFAULT_LLMS: openai:gpt-5.4-mini
-      UPSTASH_REDIS_URL: http://localhost:8079
-      UPSTASH_REDIS_TOKEN: playwright-token
 
     steps:
       - name: Checkout repository
@@ -216,6 +249,16 @@ jobs:
 
       - name: Install Playwright browser
         run: pnpm -F inbox-zero-ai exec playwright install --with-deps chromium
+
+      - name: Download browser app
+        uses: actions/download-artifact@v4
+        with:
+          name: playwright-app-${{ github.run_id }}
+          path: ${{ runner.temp }}
+
+      - name: Unpack browser app
+        working-directory: apps/web
+        run: tar -xf "$RUNNER_TEMP/playwright-app.tar"
 
       - name: Run Playwright tests
         id: playwright_tests
