@@ -17,7 +17,13 @@ export function mcpOAuthPlugins() {
       loginPage: "/mcp/login",
       consentPage: "/mcp/consent",
       scopes: [...MCP_SCOPES],
-      resources: [getMcpResourceUrl()],
+      resources: [
+        {
+          identifier: getMcpResourceUrl(),
+          name: "Inbox Zero MCP",
+          allowedScopes: [...MCP_SCOPES],
+        },
+      ],
       clientRegistrationDefaultResources: [getMcpResourceUrl()],
       clientRegistrationAllowedResources: [getMcpResourceUrl()],
       grantTypes: ["authorization_code", "refresh_token"],
