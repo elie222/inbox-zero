@@ -362,6 +362,7 @@ async function cleanWorktree() {
       log(
         `Skipping database drop for ${dbName}; no Postgres service is listening at ${parsedUrl.hostname}:${port}`,
       );
+      return;
     }
   } else {
     log("Skipping database cleanup; no saved dev setup state");
