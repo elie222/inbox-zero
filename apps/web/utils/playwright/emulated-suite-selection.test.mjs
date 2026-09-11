@@ -272,11 +272,11 @@ describe("emulated Playwright suite selection", () => {
     ]);
   });
 
-  test.each([
-    "apps/web/__tests__/playwright/emulated/playwright-test.ts",
-    ".github/actions/setup-ci-dependencies/action.yml",
-  ])("keeps shared Playwright infrastructure on the full suite: %s", (file) => {
-    const selection = selectChangedPlaywrightTargets(file, appRoot);
+  test("keeps shared Playwright infrastructure on the full suite", () => {
+    const selection = selectChangedPlaywrightTargets(
+      "apps/web/__tests__/playwright/emulated/playwright-test.ts",
+      appRoot,
+    );
 
     expect(selection.runFullSuite).toBe(true);
     expect(selection.targetFiles).toEqual([]);

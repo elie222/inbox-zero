@@ -431,7 +431,6 @@ function isFullSuiteFile({ repoPath, appPath }) {
 
   return (
     repoPath === ".github/workflows/playwright.yml" ||
-    repoPath.startsWith(".github/actions/setup-ci-dependencies/") ||
     repoPath === "apps/web/emulate.playwright.config.yaml" ||
     repoPath === "apps/web/playwright.config.mjs" ||
     repoPath === "apps/web/env.ts" ||

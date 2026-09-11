@@ -17,7 +17,6 @@ on:
       - "konsistent.json"
       - "scripts/pnpm-install-without-desktop.sh"
       - ".github/workflows/build-check.yml"
-      - ".github/actions/setup-ci-dependencies/**"
   pull_request:
     branches: [main]
     paths:
@@ -31,7 +30,6 @@ on:
       - "konsistent.json"
       - "scripts/pnpm-install-without-desktop.sh"
       - ".github/workflows/build-check.yml"
-      - ".github/actions/setup-ci-dependencies/**"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -61,8 +59,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup CI dependencies
-        uses: ./.github/actions/setup-ci-dependencies
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
 
       - name: Install dependencies
         run: bash scripts/pnpm-install-without-desktop.sh --frozen-lockfile

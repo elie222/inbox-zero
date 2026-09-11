@@ -34,24 +34,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup CI dependencies
-        id: dependencies
-        uses: ./.github/actions/setup-ci-dependencies
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
         env:
           ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
-
-      # One writer per run; every other job only restores this exact cache.
-      - name: Save pnpm package cache
-        if: matrix.shard == 1 && steps.dependencies.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            ${{ steps.dependencies.outputs.store-path }}/files
-            ${{ steps.dependencies.outputs.store-path }}/index.db*
-          key: ${{ steps.dependencies.outputs.cache-key }}
 
       - name: Check PR monitor failure reporting
         if: matrix.shard == 1
