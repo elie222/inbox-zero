@@ -1,3 +1,4 @@
+import type { CalendarConnection } from "@/generated/prisma/client";
 import { Client } from "@microsoft/microsoft-graph-client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestLogger } from "@/__tests__/helpers";
@@ -38,13 +39,8 @@ describe("getCalendarClientWithRefresh", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     prisma.calendarConnection.findMany.mockResolvedValue([
-      {
-        id: "connection-id",
-        accessToken: "stale-access-token",
-        refreshToken: "refresh-token",
-        updatedAt: new Date("2026-09-01T00:00:00Z"),
-      },
-    ] as any);
+      calendarConnection(),
+    ]);
     prisma.calendarConnection.updateMany.mockResolvedValue({ count: 1 });
   });
 
@@ -93,17 +89,17 @@ describe("getCalendarClientWithRefresh", () => {
 
   it("does not disconnect other accounts or credentials replaced by a reconnect", async () => {
     prisma.calendarConnection.findMany.mockResolvedValue([
-      {
+      calendarConnection({
         id: "other-connection",
         accessToken: "other-access",
         refreshToken: "other-refresh",
-      },
-      {
+      }),
+      calendarConnection({
         id: "connection-id",
         accessToken: "new-access",
         refreshToken: "refresh-token",
-      },
-    ] as any);
+      }),
+    ]);
     vi.mocked(requestMicrosoftToken).mockResolvedValue(
       tokenErrorResponse("invalid_grant"),
     );
@@ -189,8 +185,25 @@ function refreshExpiredCalendarClient() {
 }
 
 function tokenErrorResponse(errorDescription: string) {
+  return new Response(JSON.stringify({ error_description: errorDescription }), {
+    status: 400,
+  });
+}
+
+function calendarConnection(
+  overrides: Partial<CalendarConnection> = {},
+): CalendarConnection {
   return {
-    ok: false,
-    json: vi.fn().mockResolvedValue({ error_description: errorDescription }),
-  } as any;
+    id: "connection-id",
+    emailAccountId: "email-account-id",
+    provider: "microsoft",
+    email: "calendar@example.com",
+    accessToken: "stale-access-token",
+    refreshToken: "refresh-token",
+    expiresAt: null,
+    isConnected: true,
+    createdAt: new Date("2026-09-01T00:00:00Z"),
+    updatedAt: new Date("2026-09-01T00:00:00Z"),
+    ...overrides,
+  };
 }
