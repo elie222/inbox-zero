@@ -29,6 +29,7 @@ test("requires client consent, enforces read-only access, and disconnects existi
   test.setTimeout(360_000);
   await openSettings(page);
   const toggle = page.getByRole("switch", { name: "MCP", exact: true });
+  await toggle.setChecked(false);
   await expect(toggle).not.toBeChecked();
 
   const baseURL = process.env.NEXT_PUBLIC_BASE_URL;

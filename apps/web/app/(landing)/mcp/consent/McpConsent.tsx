@@ -17,7 +17,10 @@ import { updateMcpServerAccessAction } from "@/utils/actions/api-key";
 import { getActionErrorMessage } from "@/utils/error";
 import { redirectToSafeUrl } from "@/utils/redirect";
 
-const client = createAuthClient({ plugins: [oauthProviderClient()] });
+const client = createAuthClient({
+  plugins: [oauthProviderClient()],
+  disableDefaultFetchPlugins: true,
+});
 
 export function McpConsent({
   clientName,
