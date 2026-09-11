@@ -125,6 +125,30 @@ describe.skipIf(!process.env.RUN_DB_TESTS)("group item reconciliation", () => {
     });
   });
 
+  it("keeps exclusions when normalized duplicates have equal authority and recency", async () => {
+    await client.query(`
+      INSERT INTO "GroupItem" ("id", "updatedAt", "groupId", "type", "value", "exclude", "source")
+      VALUES
+        ('a-exclude', '2026-07-01', 'group', 'FROM', 'SENDER@example.com', true, 'USER'),
+        ('z-include', '2026-07-01', 'group', 'FROM', 'sender@example.com', false, 'USER')
+    `);
+    const migration = await readFile(
+      new URL(
+        "../../prisma/migrations/20260728170000_normalize_group_item_values/migration.sql",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    await client.query(migration);
+    expect(await state.prisma!.groupItem.findMany()).toEqual([
+      expect.objectContaining({
+        id: "a-exclude",
+        exclude: true,
+        value: "sender@example.com",
+      }),
+    ]);
+  });
+
   it("normalizes and deduplicates legacy rows while preserving authored evidence", async () => {
     await client.query(`
       INSERT INTO "GroupItem" ("id", "updatedAt", "groupId", "type", "value", "exclude", "source")

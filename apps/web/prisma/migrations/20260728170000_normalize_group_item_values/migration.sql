@@ -20,6 +20,7 @@ WITH ranked_items AS (
       ORDER BY
         coalesce("source" = 'USER', true) DESC,
         "updatedAt" DESC,
+        "exclude" DESC,
         "createdAt" DESC,
         "id" DESC
     ) AS rank
