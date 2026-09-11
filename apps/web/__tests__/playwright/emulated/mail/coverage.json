@@ -90,5 +90,9 @@
     "app/(app)/[emailAccountId]/mail/ListToolbar.tsx",
     "app/(app)/[emailAccountId]/mail/use-thread-actions.ts",
     "app/(app)/[emailAccountId]/mail/use-thread-selection.ts"
+  ],
+  "reader-transition.spec.ts": [
+    "app/(app)/[emailAccountId]/mail/BufferedThreadReader.tsx",
+    "components/email-list/BufferedEmailIframe.tsx"
   ]
 }

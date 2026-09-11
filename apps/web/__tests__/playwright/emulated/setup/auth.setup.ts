@@ -10,7 +10,9 @@ const APP_BASE_URL =
 test("google emulator signs in and creates an app account", async ({
   page,
 }) => {
-  await page.goto("/login?next=%2Fwelcome-redirect%3Fforce%3Dtrue");
+  await page.goto("/login?next=%2Fwelcome-redirect%3Fforce%3Dtrue", {
+    waitUntil: "domcontentloaded",
+  });
   await expect(page.getByRole("heading", { name: "Sign In" })).toBeVisible();
 
   const signInPayload = await page.evaluate(async () => {
